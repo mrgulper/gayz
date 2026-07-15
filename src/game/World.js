@@ -81,6 +81,9 @@ export function buildWorld(scene) {
 
   const generator = buildGenerator(scene, register)
   const trader = buildTraderStall(scene, register)
+  const tunnel = buildTunnel(scene, colliders, solidMeshes, flickerLights)
+  towerChestSpots.push(tunnel.chestSpot)
+  spawnPoints.push({ x: tunnel.chestSpot.x, z: tunnel.chestSpot.z })
 
   // Second area: a small park beyond the north end of the street, in the
   // space freed up by pushing the perimeter barricade out to groundSize/2.
@@ -274,6 +277,68 @@ function buildTraderStall(scene, register) {
   register(counter)
 
   return { x, z, signMat }
+}
+
+// Enclosed maintenance-tunnel shortcut off the avenue, between the two
+// existing chest lanes. Note: it stays at the same walkable ground level as
+// everywhere else - the player/zombie collision here is built on one
+// continuous flat ground raycast (see PlayerController._sampleGroundHeight),
+// so a true below-grade dig isn't practical without reworking that system.
+// It reads as underground instead: low concrete ceiling, no sky, dim
+// flickering lights, walled in on both sides.
+const TUNNEL_X = 5
+const TUNNEL_Z_START = 14
+const TUNNEL_Z_END = 36
+const TUNNEL_WIDTH = 2.6
+const TUNNEL_HEIGHT = 2.3
+
+function buildTunnel(scene, colliders, solidMeshes, flickerLights) {
+  const length = TUNNEL_Z_END - TUNNEL_Z_START
+  const centerZ = (TUNNEL_Z_START + TUNNEL_Z_END) / 2
+
+  const concreteMat = new THREE.MeshStandardMaterial({ color: 0x3a3a38, roughness: 0.95 })
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x26261f, roughness: 1 })
+
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(TUNNEL_WIDTH, 0.08, length), floorMat)
+  floor.position.set(TUNNEL_X, 0.04, centerZ)
+  floor.receiveShadow = true
+  scene.add(floor)
+  solidMeshes.push(floor)
+
+  const ceiling = new THREE.Mesh(new THREE.BoxGeometry(TUNNEL_WIDTH + 0.4, 0.2, length), concreteMat)
+  ceiling.position.set(TUNNEL_X, TUNNEL_HEIGHT, centerZ)
+  ceiling.castShadow = true
+  scene.add(ceiling)
+  solidMeshes.push(ceiling)
+  colliders.push(new THREE.Box3().setFromObject(ceiling))
+
+  for (const side of [-1, 1]) {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, TUNNEL_HEIGHT, length), concreteMat)
+    wall.position.set(TUNNEL_X + side * (TUNNEL_WIDTH / 2 + 0.1), TUNNEL_HEIGHT / 2, centerZ)
+    wall.castShadow = true
+    wall.receiveShadow = true
+    scene.add(wall)
+    solidMeshes.push(wall)
+    colliders.push(new THREE.Box3().setFromObject(wall))
+  }
+
+  // Support ribs every few meters, each with its own dim flickering light -
+  // reuses the same {light, base, seed} shape Game.js's _updateFlicker expects.
+  const ribSpacing = 6
+  const ribCount = Math.floor(length / ribSpacing)
+  for (let i = 1; i < ribCount; i++) {
+    const z = TUNNEL_Z_START + ribSpacing * i
+    const rib = new THREE.Mesh(new THREE.BoxGeometry(TUNNEL_WIDTH + 0.4, 0.15, 0.15), concreteMat)
+    rib.position.set(TUNNEL_X, TUNNEL_HEIGHT - 0.1, z)
+    scene.add(rib)
+
+    const light = new THREE.PointLight(0xffcf7a, 0.9, 5, 2)
+    light.position.set(TUNNEL_X, TUNNEL_HEIGHT - 0.3, z)
+    scene.add(light)
+    flickerLights.push({ light, base: 0.9, seed: Math.random() * 100 })
+  }
+
+  return { chestSpot: { x: TUNNEL_X, y: 0, z: centerZ } }
 }
 
 function addStreetMarkings(scene) {
