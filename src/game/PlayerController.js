@@ -59,6 +59,13 @@ export class PlayerController {
     window.addEventListener('keyup', (e) => this._onKey(e, false))
   }
 
+  // Public wrapper so other systems (e.g. Vehicle exit placement) can
+  // ground-check an arbitrary point without reaching into the private
+  // raycast helper directly.
+  sampleGroundHeight(x, z) {
+    return this._sampleGroundHeight(x, z)
+  }
+
   resetPosition() {
     this.controls.object.position.set(0, EYE_HEIGHT, 8)
     this.controls.object.rotation.set(0, 0, 0)

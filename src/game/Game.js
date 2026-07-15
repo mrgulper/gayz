@@ -14,6 +14,7 @@ import { Achievements } from './Achievements.js'
 import { rollPerks } from './Perks.js'
 import { pickNightEvent } from './NightEvents.js'
 import { Companion } from './Companion.js'
+import { Vehicle } from './Vehicle.js'
 import { ACTIONS, getKeyFor, setBinding, resetBindings, keyLabel } from './Keybinds.js'
 import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
@@ -100,6 +101,7 @@ const GENERATOR_REFUEL_RADIUS = 2.5
 const GENERATOR_PASSIVE_REFUEL_PER_SEC = 6
 const GENERATOR_FUELCAN_AMOUNT = 35
 const TRADER_INTERACT_RADIUS = 2.5
+const VEHICLE_INTERACT_RADIUS = 3
 
 const SHOP_ITEMS = [
   { id: 'health', cost: 15, titleKey: 'shopHealthPack', give: (game) => game.inventory.addHealthPack(1) },
@@ -225,6 +227,10 @@ export class Game {
 
     this.zombies = new ZombieManager(this.scene, this.difficulty.spawnRateMult)
     this.companion = new Companion(this.scene, 1.6, 7)
+    this.vehicle = new Vehicle(this.scene, -6, -18, 0)
+    this.driving = false
+    this.nearVehicle = false
+    this._vehicleSeatPos = new THREE.Vector3()
     this.pickups = new PickupManager(this.scene, spawnPoints)
     this.pickups.spawnUnique('minigun', minigunSpot.x, minigunSpot.z, minigunSpot.y)
     this.pickups.spawnUnique('audiolog1', 0, -30, 0.5)
@@ -342,13 +348,17 @@ export class Game {
 
     this.player.controls.addEventListener('lock', () => {
       this.menu.style.display = 'none'
-      this.crosshair.style.display = 'block'
-      this.hudEl.style.display = 'block'
+      this.crosshair.style.display = this.driving ? 'none' : 'block'
+      this.hudEl.style.display = this.driving ? 'none' : 'block'
       this.statusHud.style.display = 'flex'
       this.inventoryHud.style.display = 'flex'
       this.progressHud.style.display = 'flex'
       this.statsPanel.style.display = 'flex'
       this.minimapWrap.style.display = 'block'
+      if (this.driving) {
+        this.interactPrompt.innerHTML = tHtml('interactExitVehicle')
+        this.interactPrompt.style.display = 'block'
+      }
     })
 
     this.player.controls.addEventListener('unlock', () => {
@@ -405,10 +415,14 @@ export class Game {
       } else if (e.code === getKeyFor('grenade')) {
         this._throwGrenade()
       } else if (e.code === getKeyFor('interact')) {
-        if (this.traderPanelOpen) {
+        if (this.driving) {
+          this._exitVehicle()
+        } else if (this.traderPanelOpen) {
           this._closeTraderPanel()
         } else if (this.nearTrader) {
           this._openTraderPanel()
+        } else if (this.nearVehicle) {
+          this._enterVehicle()
         } else {
           const loot = this.chests.tryInteract()
           if (loot) {
@@ -681,6 +695,36 @@ export class Game {
   _closeTraderPanel() {
     this.traderPanelOpen = false
     this.traderPanel.style.display = 'none'
+  }
+
+  // Entering/exiting the drivable car (see Vehicle.js). While driving, the
+  // rest of the world simulation pauses - same as it already does for the
+  // inventory/perk menus - so this is a "drive around and explore" feature
+  // rather than a way to outrun zombies; the player can't shoot or take
+  // damage while behind the wheel.
+  _enterVehicle() {
+    this.driving = true
+    this.vehicle.occupied = true
+    this.weapons.viewmodelRoot.visible = false
+    this.crosshair.style.display = 'none'
+    this.hudEl.style.display = 'none'
+    this.interactPrompt.innerHTML = tHtml('interactExitVehicle')
+    this.interactPrompt.style.display = 'block'
+  }
+
+  _exitVehicle() {
+    this.driving = false
+    this.vehicle.occupied = false
+    this.vehicle.speed = 0
+    this.weapons.viewmodelRoot.visible = true
+    this.crosshair.style.display = 'block'
+    this.hudEl.style.display = 'block'
+    this.interactPrompt.style.display = 'none'
+
+    const exitPos = this.vehicle.getExitWorld(this._vehicleSeatPos)
+    const groundY = this.player.sampleGroundHeight(exitPos.x, exitPos.z)
+    this.player.controls.object.position.set(exitPos.x, groundY + this.player.eyeHeight, exitPos.z)
+    this.player.velocity.set(0, 0, 0)
   }
 
   // Re-renders every static UI string in the current language. Called once
@@ -977,6 +1021,10 @@ export class Game {
     this.nearTrader = dist <= TRADER_INTERACT_RADIUS
   }
 
+  _updateVehicleProximity(playerPos) {
+    this.nearVehicle = this.vehicle.distanceTo(playerPos.x, playerPos.z) <= VEHICLE_INTERACT_RADIUS
+  }
+
   _updateMinimap(playerPos) {
     this.camera.getWorldDirection(this._camDir)
     const facingRad = Math.atan2(this._camDir.x, -this._camDir.z)
@@ -1001,7 +1049,11 @@ export class Game {
     this.dayNight.update()
     this._updateFlicker(elapsed)
 
-    if (this.player.controls.isLocked && this.playerState.alive && !this.inventoryOpen && !this.perkPanelOpen && !this.traderPanelOpen) {
+    if (this.driving && this.player.controls.isLocked && this.playerState.alive) {
+      this.vehicle.update(dt, this.player.input, this.player.colliders)
+      this.vehicle.getDriverSeatWorld(this._vehicleSeatPos)
+      this.camera.position.copy(this._vehicleSeatPos)
+    } else if (this.player.controls.isLocked && this.playerState.alive && !this.inventoryOpen && !this.perkPanelOpen && !this.traderPanelOpen) {
       this.player.update(dt)
       const isMoving = this.player.onGround && (
         this.player.input.forward || this.player.input.back ||
@@ -1052,6 +1104,7 @@ export class Game {
       this.chests.update(dt, elapsed, playerPos)
       this._updateGenerator(dt, playerPos)
       this._updateTrader(playerPos)
+      this._updateVehicleProximity(playerPos)
 
       const canRefuelGenerator = this.nearGenerator && this.inventory.fuelCans > 0 && this.generatorFuel < this.maxGeneratorFuel
       if (this.chests.nearbyChest) {
@@ -1059,6 +1112,9 @@ export class Game {
         this.interactPrompt.style.display = 'block'
       } else if (this.nearTrader) {
         this.interactPrompt.innerHTML = tHtml('interactTrader')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearVehicle) {
+        this.interactPrompt.innerHTML = tHtml('interactEnterVehicle')
         this.interactPrompt.style.display = 'block'
       } else if (canRefuelGenerator) {
         this.interactPrompt.innerHTML = tHtml('interactRefuel')
