@@ -129,6 +129,7 @@ const STRINGS = {
     actionGrenade: 'Throw Grenade',
     sensitivityLabel: 'Sensitivity',
     fovLabel: 'Field of View',
+    colorblindLabel: 'Colorblind Mode',
     weaponBat: 'Bat',
     weaponMachete: 'Machete',
     toastBatAdded: 'Bat collected',

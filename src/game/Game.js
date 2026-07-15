@@ -15,6 +15,7 @@ import { rollPerks } from './Perks.js'
 import { ACTIONS, getKeyFor, setBinding, resetBindings, keyLabel } from './Keybinds.js'
 import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
+import { setColorblind } from './Accessibility.js'
 
 const PICKUP_LABELS = {
   health: (label, isLoot, count = 1) =>
@@ -164,6 +165,7 @@ export class Game {
     this.sensitivityValue = document.getElementById('sensitivity-value')
     this.fovSlider = document.getElementById('fov-slider')
     this.fovValue = document.getElementById('fov-value')
+    this.colorblindToggle = document.getElementById('colorblind-toggle')
     this.controlsGrid = document.getElementById('controls-grid')
     this.resetBindsBtn = document.getElementById('reset-binds-btn')
     this.rebindingAction = null
@@ -495,6 +497,15 @@ export class Game {
       saveSettings(this.settings)
     })
 
+    this.colorblindToggle.checked = this.settings.colorblind
+    setColorblind(this.settings.colorblind)
+
+    this.colorblindToggle.addEventListener('change', () => {
+      this.settings.colorblind = this.colorblindToggle.checked
+      setColorblind(this.settings.colorblind)
+      saveSettings(this.settings)
+    })
+
     this.settingsBtn.addEventListener('click', () => this._toggleSettings(!this.settingsOpen))
 
     // Click anywhere outside the settings content (the backdrop itself, not
@@ -624,6 +635,7 @@ export class Game {
     document.getElementById('sfx-label').textContent = t('sfxLabel')
     document.getElementById('sensitivity-label').textContent = t('sensitivityLabel')
     document.getElementById('fov-label').textContent = t('fovLabel')
+    document.getElementById('colorblind-label').textContent = t('colorblindLabel')
     document.getElementById('settings-hint').innerHTML = tHtml('settingsHint')
 
     document.getElementById('death-title').textContent = t('deathTitle')

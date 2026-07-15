@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { accessibility } from './Accessibility.js'
 
 const DEATH_ANIM_MS = 550
 const EXPLODE_LINGER_MS = 150
@@ -411,7 +412,12 @@ export class Zombie {
     ctx.fillStyle = '#1a1a1a'
     ctx.fillRect(0, 0, HEALTH_BAR_W, HEALTH_BAR_H)
 
-    ctx.fillStyle = fraction > 0.5 ? '#5fcf4a' : fraction > 0.25 ? '#e0b23f' : '#d64545'
+    // Colorblind mode swaps the classic green/red pair (hardest to tell apart
+    // for red-green colorblindness) for blue/orange, which stays readable
+    // across deuteranopia, protanopia, and tritanopia.
+    ctx.fillStyle = accessibility.colorblind
+      ? (fraction > 0.5 ? '#4a9ecf' : fraction > 0.25 ? '#e0b23f' : '#e0813f')
+      : (fraction > 0.5 ? '#5fcf4a' : fraction > 0.25 ? '#e0b23f' : '#d64545')
     ctx.fillRect(1, 1, (HEALTH_BAR_W - 2) * fraction, HEALTH_BAR_H - 2)
 
     this._barSprite.material.map.needsUpdate = true

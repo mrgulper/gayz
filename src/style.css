@@ -854,6 +854,13 @@ html, body {
   accent-color: #b6e6a1;
 }
 
+.audio-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: #b6e6a1;
+  justify-self: start;
+}
+
 .audio-value {
   font-size: 13px;
   font-variant-numeric: tabular-nums;
