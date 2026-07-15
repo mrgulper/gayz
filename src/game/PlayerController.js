@@ -16,8 +16,21 @@ const STAMINA_DRAIN_PER_SEC = 28
 const STAMINA_REGEN_PER_SEC = 16
 const RAYCAST_ORIGIN_Y = 80
 
+// Browsers occasionally report one wildly wrong mousemove delta right when
+// pointer lock is (re)acquired (pause/resume, respawn, alt-tab). No real
+// mouse movement produces this much delta in a single frame, so any event
+// past this threshold is dropped before PointerLockControls' own handler
+// (registered on the bubble phase) ever sees it.
+const MAX_MOUSE_DELTA = 250
+
 export class PlayerController {
   constructor(camera, domElement, colliders, groundMeshes) {
+    document.addEventListener('mousemove', (e) => {
+      if (Math.abs(e.movementX) > MAX_MOUSE_DELTA || Math.abs(e.movementY) > MAX_MOUSE_DELTA) {
+        e.stopImmediatePropagation()
+      }
+    }, { capture: true })
+
     this.controls = new PointerLockControls(camera, domElement)
     this.colliders = colliders
     this.groundMeshes = groundMeshes || []
