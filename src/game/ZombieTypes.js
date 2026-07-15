@@ -105,6 +105,31 @@ export const ZOMBIE_TYPES = {
     skinTones: [0x6a7a2e, 0x748330, 0x5f6e26],
     clothesTones: [0x2a2818, 0x322c1a],
   },
+  screamer: {
+    id: 'screamer',
+    label: 'Screamer',
+    weight: 2,
+    health: 50,
+    speedMin: 2.0,
+    speedMax: 2.8,
+    damageMin: 20,
+    damageMax: 32,
+    scale: 1.05,
+    ranged: false,
+    meleeRange: 1.6,
+    attackCooldown: 1.1,
+    // Screams on a cooldown regardless of engagement range: instantly wakes
+    // every dormant (ambush) zombie in radius and briefly speeds up every
+    // alive zombie in radius. See Zombie._updateScream / ZombieManager's
+    // scream handling.
+    screams: true,
+    screamCooldown: 6.5,
+    screamRadius: 15,
+    screamEnrageMs: 4000,
+    screamEnrageMult: 1.6,
+    skinTones: [0x6e5a7a, 0x644f70, 0x786184],
+    clothesTones: [0x201828, 0x281f30],
+  },
   // Boss: weight 0 means it never enters the normal random-spawn pool -
   // ZombieManager force-spawns exactly one every few nights instead.
   colossus: {

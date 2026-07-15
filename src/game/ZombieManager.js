@@ -47,6 +47,7 @@ const grenadeMat = new THREE.MeshStandardMaterial({
 })
 
 const EXPLOSION_FX_MS = 350
+const SCREAM_FX_MS = 450
 
 export class ZombieManager {
   constructor(scene, spawnRateMult = 1) {
@@ -54,6 +55,7 @@ export class ZombieManager {
     this.zombies = []
     this.projectiles = []
     this.explosionFx = []
+    this.screamFx = []
     this.noisemakerThrows = []
     this.grenadeThrows = []
     this.distraction = null
@@ -119,11 +121,13 @@ export class ZombieManager {
     for (const zombie of this.zombies) this.scene.remove(zombie.group)
     for (const p of this.projectiles) this.scene.remove(p.mesh)
     for (const fx of this.explosionFx) this.scene.remove(fx.mesh)
+    for (const fx of this.screamFx) this.scene.remove(fx.mesh)
     for (const n of this.noisemakerThrows) this.scene.remove(n.mesh)
     for (const g of this.grenadeThrows) this.scene.remove(g.mesh)
     this.zombies = []
     this.projectiles = []
     this.explosionFx = []
+    this.screamFx = []
     this.noisemakerThrows = []
     this.grenadeThrows = []
     this.distraction = null
@@ -266,6 +270,49 @@ export class ZombieManager {
     })
   }
 
+  // A screamer's scream: instantly wakes every dormant (ambush) zombie in
+  // radius and speeds up every alive zombie in radius for a few seconds.
+  _onZombieScream(x, z, radius, enrageMs) {
+    audioEngine.playAmbushShriek()
+    this._spawnScreamFX(x, z)
+    for (const zombie of this.zombies) {
+      const dist = Math.hypot(zombie.group.position.x - x, zombie.group.position.z - z)
+      if (dist > radius) continue
+      if (zombie.state === 'dormant') zombie.forceWake()
+      else if (zombie.state === 'alive') zombie.enrage(enrageMs)
+    }
+  }
+
+  _spawnScreamFX(x, z) {
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0xb060e0,
+      emissive: 0xb060e0,
+      emissiveIntensity: 2.5,
+      transparent: true,
+      opacity: 0.8,
+      side: THREE.DoubleSide,
+    })
+    const mesh = new THREE.Mesh(new THREE.RingGeometry(0.1, 0.4, 24), mat)
+    mesh.rotation.x = -Math.PI / 2
+    mesh.position.set(x, 0.15, z)
+    this.scene.add(mesh)
+    this.screamFx.push({ mesh, startedAt: performance.now() })
+  }
+
+  _updateScreamFx() {
+    this.screamFx = this.screamFx.filter((fx) => {
+      const progress = Math.min(1, (performance.now() - fx.startedAt) / SCREAM_FX_MS)
+      const scale = 1 + progress * 18
+      fx.mesh.scale.setScalar(scale)
+      fx.mesh.material.opacity = 0.8 * (1 - progress)
+      if (progress >= 1) {
+        this.scene.remove(fx.mesh)
+        return false
+      }
+      return true
+    })
+  }
+
   _updateAmbientMoan(playerPos) {
     if (performance.now() < this.nextMoanAt) return
 
@@ -326,7 +373,8 @@ export class ZombieManager {
         spitCb,
         onAmbushTrigger,
         (x, z) => this._spawnExplosionFX(x, z),
-        playerCrouching
+        playerCrouching,
+        (x, z, radius, enrageMs) => this._onZombieScream(x, z, radius, enrageMs)
       )
 
       if (zombie.state === 'dead' && !zombie.deathHandled) {
@@ -348,6 +396,7 @@ export class ZombieManager {
 
     this._updateProjectiles(dt, playerPos, onPlayerDamage)
     this._updateExplosionFx()
+    this._updateScreamFx()
     this._updateAmbientMoan(playerPos)
     this._updateNoisemakerThrows(dt)
     this._updateGrenadeThrows(dt)

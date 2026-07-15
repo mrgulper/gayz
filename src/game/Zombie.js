@@ -58,6 +58,9 @@ export class Zombie {
     this.burstUntil = 0
     this.pendingExplosion = false
     this.explodeStartedAt = 0
+    this.screamCooldownUntil = performance.now() + (typeConfig.screams ? Math.random() * typeConfig.screamCooldown * 1000 : 0)
+    this.screamPulseUntil = 0
+    this.enragedUntil = 0
 
     this.group = new THREE.Group()
     this.group.position.set(x, 0, z)
@@ -148,6 +151,21 @@ export class Zombie {
       this.hips.add(belly)
       this.pulseMesh = belly
       this.pulseBaseScale = belly.scale.clone()
+    }
+
+    if (this.config.screams) {
+      const throatMat = new THREE.MeshStandardMaterial({
+        color: 0x3a1a44,
+        emissive: 0xb060e0,
+        emissiveIntensity: 0.9,
+      })
+      const throat = track(new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 8), throatMat), throatMat)
+      throat.position.set(0, 0.68, 0.16)
+      throat.scale.set(1, 0.8, 0.8)
+      this.hips.add(throat)
+      this.throatMesh = throat
+      this.throatMat = throatMat
+      this.throatBaseScale = throat.scale.clone()
     }
 
     if (this.config.explodes) {
@@ -423,7 +441,7 @@ export class Zombie {
     this._barSprite.material.map.needsUpdate = true
   }
 
-  update(dt, elapsed, playerPos, onAttack, onSpit, onAmbushTrigger, onExplode, playerCrouching = false) {
+  update(dt, elapsed, playerPos, onAttack, onSpit, onAmbushTrigger, onExplode, playerCrouching = false, onScream = null) {
     if (this.state === 'dormant') {
       const dist = Math.hypot(playerPos.x - this.group.position.x, playerPos.z - this.group.position.z)
       const waited = performance.now() - this.dormantSince
@@ -477,15 +495,36 @@ export class Zombie {
     const nx = dist > 0.0001 ? dx / dist : 0
     const nz = dist > 0.0001 ? dz / dist : 1
 
-    this.effectiveSpeed = this.speed * (performance.now() < this.burstUntil ? AMBUSH_BURST_SPEED_MULT : 1)
+    const burstMult = performance.now() < this.burstUntil ? AMBUSH_BURST_SPEED_MULT : 1
+    const enrageMult = performance.now() < this.enragedUntil ? this.config.screamEnrageMult : 1
+    this.effectiveSpeed = this.speed * Math.max(burstMult, enrageMult)
 
     if (!staggered) {
       if (this.config.ranged) this._updateRanged(dt, dist, nx, nz, playerPos, onSpit)
       else if (this.config.explodes) this._updateExploder(dt, dist, nx, nz, playerPos, onAttack, onExplode)
       else this._updateMelee(dt, dist, nx, nz, onAttack)
+
+      if (this.config.screams && onScream && performance.now() >= this.screamCooldownUntil) {
+        this.screamCooldownUntil = performance.now() + this.config.screamCooldown * 1000
+        this.screamPulseUntil = performance.now() + 500
+        onScream(this.group.position.x, this.group.position.z, this.config.screamRadius, this.config.screamEnrageMs)
+      }
     }
 
     this._animate(elapsed)
+  }
+
+  // Called by ZombieManager when another zombie's scream reaches this one.
+  forceWake() {
+    if (this.state !== 'dormant') return
+    this.state = 'popping'
+    this.popStartedAt = performance.now()
+    this.burstUntil = performance.now() + AMBUSH_POP_MS + AMBUSH_BURST_MS
+  }
+
+  enrage(durationMs) {
+    if (this.state !== 'alive') return
+    this.enragedUntil = Math.max(this.enragedUntil, performance.now() + durationMs)
   }
 
   _updateMelee(dt, dist, nx, nz, onAttack) {
@@ -592,6 +631,18 @@ export class Zombie {
         this.pulseBaseScale.y * pulse,
         this.pulseBaseScale.z * pulse
       )
+    }
+    if (this.throatMesh) {
+      const screaming = performance.now() < this.screamPulseUntil
+      const pulse = screaming
+        ? 1 + (Math.sin(elapsed * 20) * 0.5 + 0.5) * 0.6
+        : 1 + (Math.sin(elapsed * 2.6 + this.twitchPhase) * 0.5 + 0.5) * 0.15
+      this.throatMesh.scale.set(
+        this.throatBaseScale.x * pulse,
+        this.throatBaseScale.y * pulse,
+        this.throatBaseScale.z * pulse
+      )
+      this.throatMat.emissiveIntensity = screaming ? 2.4 : 0.9
     }
   }
 
