@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GayZ</title>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="scene"></canvas>
+
+      <div id="crosshair"></div>
+
+      <div id="damage-flash"></div>
+
+      <div id="status-hud">
+        <div class="status-row">
+          <span class="status-icon">&hearts;</span>
+          <div class="status-bar"><div id="health-fill" class="status-fill health"></div></div>
+          <span id="health-value">100</span>
+        </div>
+        <div class="status-row">
+          <span class="status-icon">&#128737;</span>
+          <div class="status-bar"><div id="armor-fill" class="status-fill armor"></div></div>
+          <span id="armor-value">0</span>
+        </div>
+        <div class="status-row">
+          <span class="status-icon">&#9889;</span>
+          <div class="status-bar"><div id="stamina-fill" class="status-fill stamina"></div></div>
+          <span id="stamina-value">100</span>
+        </div>
+        <div class="status-row">
+          <span class="status-icon">&#128267;</span>
+          <div class="status-bar"><div id="battery-fill" class="status-fill battery"></div></div>
+        </div>
+      </div>
+
+      <div id="progress-hud">
+        <span id="night-value">Night 1</span>
+        <span class="progress-sep">&middot;</span>
+        <span id="time-value">00:00</span>
+        <span class="progress-sep">&middot;</span>
+        <span id="kills-value">0 kills</span>
+      </div>
+
+      <div id="night-banner"></div>
+
+      <div id="stats-panel">
+        <div class="stats-row phase-row" id="phase-row">
+          <span class="stats-label" id="phase-label">Day</span>
+          <span id="phase-time">12:00</span>
+        </div>
+        <div class="stats-row"><span class="stats-label" id="stats-day-label">Day</span><span id="stats-day">1</span></div>
+        <div class="stats-row"><span class="stats-label" id="stats-deaths-label">Deaths</span><span id="stats-deaths">0</span></div>
+        <div class="stats-row"><span class="stats-label" id="stats-kills-label">Kills</span><span id="stats-kills">0</span></div>
+        <div class="stats-row"><span class="stats-label" id="stats-scrap-label">Scrap</span><span id="stats-scrap">0</span></div>
+      </div>
+
+      <div id="minimap-wrap">
+        <canvas id="minimap" width="150" height="150"></canvas>
+      </div>
+
+      <div id="inventory-hud">
+        <div class="inv-row">
+          <span class="inv-icon">&#129525;</span>
+          <span id="health-pack-count">0</span>
+          <span class="inv-key">H</span>
+        </div>
+        <div class="inv-row">
+          <span class="inv-icon">&#128737;</span>
+          <span id="armor-pack-count">0</span>
+          <span class="inv-key">G</span>
+        </div>
+        <div class="inv-row">
+          <span class="inv-icon">&#129512;</span>
+          <span id="noisemaker-count">0</span>
+          <span class="inv-key">V</span>
+        </div>
+        <div class="inv-row">
+          <span class="inv-icon">&#128163;</span>
+          <span id="grenade-count">0</span>
+          <span class="inv-key">B</span>
+        </div>
+      </div>
+
+      <div id="hud">
+        <div id="weapon-name">Pistol</div>
+        <div id="ammo">12 / 36</div>
+      </div>
+
+      <div id="hitmarker"></div>
+
+      <div id="pickup-toast"></div>
+
+      <div id="achievement-toast">
+        <div class="achievement-label" id="achievement-label">Achievement Unlocked</div>
+        <div class="achievement-title" id="achievement-title"></div>
+      </div>
+
+      <div id="lore-toast"></div>
+
+      <div id="interact-prompt">Press <b>F</b> to open</div>
+
+      <div id="menu">
+        <h1>GayZ</h1>
+        <p id="menu-subtitle">Broken city block &mdash; survive, scavenge, shoot</p>
+        <p class="menu-subhint" id="menu-subhint">Look for lookout platforms up staircases along the avenue &mdash; chests inside</p>
+        <p class="menu-best-stats" id="menu-best-stats"></p>
+        <div class="difficulty-row" id="difficulty-row">
+          <button class="difficulty-btn" data-difficulty="easy" id="diff-easy">Easy</button>
+          <button class="difficulty-btn active" data-difficulty="normal" id="diff-normal">Normal</button>
+          <button class="difficulty-btn" data-difficulty="hard" id="diff-hard">Hard</button>
+        </div>
+        <button id="play-btn">Click to Play</button>
+        <button id="settings-btn">Settings</button>
+        <ul id="controls-list">
+          <li id="ctrl-line-1"><b>WASD</b> move &middot; <b>Mouse</b> look &middot; <b>Space</b> jump &middot; <b>E</b> sprint</li>
+          <li id="ctrl-line-2"><b>Left Click</b> shoot &middot; <b>1 / 2 / 3 / 4</b> switch weapon &middot; <b>R</b> reload</li>
+          <li id="ctrl-line-3">Walk over pickups to collect them &middot; <b>F</b> open chests</li>
+          <li id="ctrl-line-4"><b>H</b> use health pack &middot; <b>G</b> use armor pack</li>
+          <li id="ctrl-line-5"><b>Tab</b> open inventory &middot; <b>Esc</b> release mouse &middot; <b>O</b> settings</li>
+        </ul>
+      </div>
+
+      <div id="settings-panel">
+        <h2 id="settings-title">Settings</h2>
+        <div class="settings-tabs">
+          <button class="settings-tab active" data-page="language" id="tab-language">Language</button>
+          <button class="settings-tab" data-page="audio" id="tab-audio">Audio</button>
+          <button class="settings-tab" data-page="controls" id="tab-controls">Controls</button>
+        </div>
+
+        <div class="settings-page" id="settings-page-language">
+          <div id="language-grid" class="language-grid"></div>
+        </div>
+
+        <div class="settings-page" id="settings-page-audio" style="display: none">
+          <div class="audio-row">
+            <label for="music-volume" id="music-label">Music</label>
+            <input type="range" id="music-volume" min="0" max="100" value="100" />
+            <span id="music-volume-value" class="audio-value">100%</span>
+          </div>
+          <div class="audio-row">
+            <label for="sfx-volume" id="sfx-label">Sound Effects</label>
+            <input type="range" id="sfx-volume" min="0" max="100" value="100" />
+            <span id="sfx-volume-value" class="audio-value">100%</span>
+          </div>
+        </div>
+
+        <div class="settings-page" id="settings-page-controls" style="display: none">
+          <div class="audio-row">
+            <label for="sensitivity-slider" id="sensitivity-label">Sensitivity</label>
+            <input type="range" id="sensitivity-slider" min="20" max="300" value="100" />
+            <span id="sensitivity-value" class="audio-value">100%</span>
+          </div>
+          <div class="audio-row">
+            <label for="fov-slider" id="fov-label">Field of View</label>
+            <input type="range" id="fov-slider" min="60" max="100" value="75" />
+            <span id="fov-value" class="audio-value">75</span>
+          </div>
+          <div id="controls-grid" class="controls-grid"></div>
+          <button id="reset-binds-btn">Reset to Defaults</button>
+        </div>
+
+        <p id="settings-hint">Click anywhere to close</p>
+      </div>
+
+      <div id="death-screen">
+        <h1 id="death-title">YOU DIED</h1>
+        <p id="death-stats">Survived Night 1 &middot; 0 kills &middot; 00:00</p>
+        <button id="respawn-btn">Respawn</button>
+      </div>
+
+      <div id="inventory-panel">
+        <h2 id="inventory-title">Inventory</h2>
+        <div class="inv-panel-section">
+          <div class="inv-panel-row"><span id="panel-health-label">Health Pack</span><span id="panel-health-count">0</span><span class="inv-key">H</span></div>
+          <div class="inv-panel-row"><span id="panel-armor-label">Armor Pack</span><span id="panel-armor-count">0</span><span class="inv-key">G</span></div>
+          <div class="inv-panel-row"><span id="panel-noisemaker-label">Noisemaker</span><span id="panel-noisemaker-count">0</span><span class="inv-key">V</span></div>
+          <div class="inv-panel-row"><span id="panel-grenade-label">Grenade</span><span id="panel-grenade-count">0</span><span class="inv-key">B</span></div>
+        </div>
+        <h2 id="weapons-title">Weapons</h2>
+        <div class="inv-panel-section" id="panel-weapons-list"></div>
+        <p id="inventory-hint">Press TAB to close</p>
+      </div>
+
+      <div id="perk-panel">
+        <h2 id="perk-panel-title">Choose a Perk</h2>
+        <div id="perk-scrap-line"></div>
+        <div class="perk-options" id="perk-options"></div>
+        <button id="perk-skip-btn">Skip</button>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
