@@ -143,6 +143,7 @@ export class Game {
     this.nightBanner = document.getElementById('night-banner')
     this.deathStats = document.getElementById('death-stats')
     this.interactPrompt = document.getElementById('interact-prompt')
+    this.infectionIndicator = document.getElementById('infection-indicator')
     this.statsPanel = document.getElementById('stats-panel')
     this.phaseRow = document.getElementById('phase-row')
     this.phaseLabel = document.getElementById('phase-label')
@@ -330,6 +331,7 @@ export class Game {
       this.inventoryOpen = false
       this.inventoryPanel.style.display = 'none'
       this.interactPrompt.style.display = 'none'
+      this.infectionIndicator.style.display = 'none'
       if (!this.playerState.alive) return
       this.menu.style.display = 'flex'
       this.crosshair.style.display = 'none'
@@ -359,6 +361,7 @@ export class Game {
       if (e.code === getKeyFor('heal')) {
         if (this.inventory.useHealthPack()) {
           this.playerState.heal(this.healthPackHealAmount)
+          this.playerState.cureInfection()
           this._updateHealthHud()
           this._updateInventoryHud()
         }
@@ -636,6 +639,7 @@ export class Game {
     document.getElementById('sensitivity-label').textContent = t('sensitivityLabel')
     document.getElementById('fov-label').textContent = t('fovLabel')
     document.getElementById('colorblind-label').textContent = t('colorblindLabel')
+    document.getElementById('infection-label').textContent = t('infectionLabel')
     document.getElementById('settings-hint').innerHTML = tHtml('settingsHint')
 
     document.getElementById('death-title').textContent = t('deathTitle')
@@ -816,6 +820,7 @@ export class Game {
     this.armorFill.style.width = `${(s.armor / s.maxArmor) * 100}%`
     this.armorValue.textContent = Math.round(s.armor)
     this.damageFlash.classList.toggle('low-health', s.health > 0 && s.health < 30)
+    this.infectionIndicator.style.display = s.infected ? 'flex' : 'none'
   }
 
   _updateProgressHud() {
@@ -922,6 +927,9 @@ export class Game {
       this.weapons.update(dt, isMoving)
       this._updateStaminaHud()
       this._updateFlashlightBattery(dt)
+
+      this.playerState.tickInfection(dt)
+      this._updateHealthHud()
 
       if (performance.now() - this.nightStartedAt > NIGHT_DURATION_MS) {
         this.night += 1

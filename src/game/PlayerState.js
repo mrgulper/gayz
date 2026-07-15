@@ -1,6 +1,9 @@
 const MAX_HEALTH = 500
 const MAX_ARMOR = 100
 const ARMOR_ABSORB_RATIO = 0.5
+const INFECTION_DRAIN_PER_SEC = 3
+const INFECTION_CHANCE_PER_HIT = 0.12
+const INFECTION_MIN_HEALTH = 40 // infection alone can never finish the player off
 
 export class PlayerState {
   constructor() {
@@ -10,6 +13,7 @@ export class PlayerState {
     this.armor = 0
     this.alive = true
     this.armorAbsorbRatio = ARMOR_ABSORB_RATIO
+    this.infected = false
   }
 
   takeDamage(amount) {
@@ -21,7 +25,20 @@ export class PlayerState {
       remaining -= absorbed
     }
     this.health = Math.max(0, this.health - remaining)
+    if (!this.infected && Math.random() < INFECTION_CHANCE_PER_HIT) this.infected = true
     if (this.health <= 0) this.alive = false
+  }
+
+  // Slow health drain while infected - stops just short of being lethal on
+  // its own, since there's no counterplay to the tick beyond the HUD icon.
+  tickInfection(dt) {
+    if (!this.infected || !this.alive) return
+    if (this.health <= INFECTION_MIN_HEALTH) return
+    this.health = Math.max(INFECTION_MIN_HEALTH, this.health - INFECTION_DRAIN_PER_SEC * dt)
+  }
+
+  cureInfection() {
+    this.infected = false
   }
 
   heal(amount) {
@@ -37,5 +54,6 @@ export class PlayerState {
     this.armor = 0
     this.alive = true
     this.armorAbsorbRatio = ARMOR_ABSORB_RATIO
+    this.infected = false
   }
 }

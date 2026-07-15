@@ -130,6 +130,7 @@ const STRINGS = {
     sensitivityLabel: 'Sensitivity',
     fovLabel: 'Field of View',
     colorblindLabel: 'Colorblind Mode',
+    infectionLabel: 'Infected',
     weaponBat: 'Bat',
     weaponMachete: 'Machete',
     toastBatAdded: 'Bat collected',
