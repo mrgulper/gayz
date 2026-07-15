@@ -98,6 +98,15 @@ const GENERATOR_DRAIN_PER_SEC = 100 / 150
 const GENERATOR_REFUEL_RADIUS = 2.5
 const GENERATOR_PASSIVE_REFUEL_PER_SEC = 6
 const GENERATOR_FUELCAN_AMOUNT = 35
+const TRADER_INTERACT_RADIUS = 2.5
+
+const SHOP_ITEMS = [
+  { id: 'health', cost: 15, titleKey: 'shopHealthPack', give: (game) => game.inventory.addHealthPack(1) },
+  { id: 'armor', cost: 18, titleKey: 'shopArmorPack', give: (game) => game.inventory.addArmorPack(1) },
+  { id: 'grenade', cost: 20, titleKey: 'shopGrenade', give: (game) => game.inventory.addGrenade(1) },
+  { id: 'fuelcan', cost: 10, titleKey: 'shopFuelCan', give: (game) => game.inventory.addFuelCan(1) },
+  { id: 'noisemaker', cost: 8, titleKey: 'shopNoisemaker', give: (game) => game.inventory.addNoisemaker(1) },
+]
 
 function formatTime(ms) {
   const totalSec = Math.floor(ms / 1000)
@@ -196,13 +205,16 @@ export class Game {
     this.scene = new THREE.Scene()
     this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200)
 
-    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator } = buildWorld(this.scene)
+    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader } = buildWorld(this.scene)
     this.flickerLights = flickerLights
     this.minigunSpot = minigunSpot
     this.generator = generator
     this.spawnPoints = spawnPoints
     this.generatorFuel = 100
     this.maxGeneratorFuel = 100
+    this.trader = trader
+    this.traderPanelOpen = false
+    this.nearTrader = false
     this.dayNight = new DayNightCycle(this.scene, hemiLight, sunLight)
 
     this.player = new PlayerController(this.camera, this.canvas, colliders, solidMeshes)
@@ -231,6 +243,11 @@ export class Game {
     this.perkScrapLine = document.getElementById('perk-scrap-line')
     this.perkOptions = document.getElementById('perk-options')
     this.perkSkipBtn = document.getElementById('perk-skip-btn')
+    this.traderPanel = document.getElementById('trader-panel')
+    this.traderPanelTitle = document.getElementById('trader-panel-title')
+    this.traderScrapLine = document.getElementById('trader-scrap-line')
+    this.traderOptions = document.getElementById('trader-options')
+    this.traderHint = document.getElementById('trader-hint')
     this.decals = new DecalManager(this.scene)
     this.minimap = new Minimap(this.minimapCanvas)
     this._camDir = new THREE.Vector3()
@@ -334,6 +351,8 @@ export class Game {
     this.player.controls.addEventListener('unlock', () => {
       this.inventoryOpen = false
       this.inventoryPanel.style.display = 'none'
+      this.traderPanelOpen = false
+      this.traderPanel.style.display = 'none'
       this.interactPrompt.style.display = 'none'
       this.infectionIndicator.style.display = 'none'
       if (!this.playerState.alive) return
@@ -383,12 +402,18 @@ export class Game {
       } else if (e.code === getKeyFor('grenade')) {
         this._throwGrenade()
       } else if (e.code === getKeyFor('interact')) {
-        const loot = this.chests.tryInteract()
-        if (loot) {
-          this._onPickup(loot.type, loot.label, false, loot.count)
-          this.interactPrompt.style.display = 'none'
-        } else if (this.nearGenerator && this.inventory.useFuelCan()) {
-          this.generatorFuel = Math.min(this.maxGeneratorFuel, this.generatorFuel + GENERATOR_FUELCAN_AMOUNT)
+        if (this.traderPanelOpen) {
+          this._closeTraderPanel()
+        } else if (this.nearTrader) {
+          this._openTraderPanel()
+        } else {
+          const loot = this.chests.tryInteract()
+          if (loot) {
+            this._onPickup(loot.type, loot.label, false, loot.count)
+            this.interactPrompt.style.display = 'none'
+          } else if (this.nearGenerator && this.inventory.useFuelCan()) {
+            this.generatorFuel = Math.min(this.maxGeneratorFuel, this.generatorFuel + GENERATOR_FUELCAN_AMOUNT)
+          }
         }
       } else if (e.code === getKeyFor('screenshot')) {
         this._takeScreenshot()
@@ -614,6 +639,45 @@ export class Game {
   _closePerkPanel() {
     this.perkPanelOpen = false
     this.perkPanel.style.display = 'none'
+  }
+
+  // Opened by pressing the interact key near the trader stall (see
+  // World.js's buildTraderStall). Buying doesn't close the panel, so
+  // multiple items can be bought in one visit - press interact again to leave.
+  _openTraderPanel() {
+    this.traderPanelOpen = true
+    this.traderPanel.style.display = 'flex'
+    this.traderPanelTitle.textContent = t('traderPanelTitle')
+    this.traderHint.textContent = tHtml('traderHint')
+    this._renderTraderOptions()
+  }
+
+  _renderTraderOptions() {
+    this.traderScrapLine.textContent = t('scrapLabel', { n: this.scrap })
+    this.traderOptions.innerHTML = ''
+    for (const item of SHOP_ITEMS) {
+      const btn = document.createElement('button')
+      btn.className = 'perk-option'
+      btn.disabled = this.scrap < item.cost
+      btn.innerHTML = `
+        <span class="perk-name">${t(item.titleKey)}</span>
+        <span class="perk-cost">${t('perkCostLabel', { n: item.cost })}</span>
+      `
+      btn.addEventListener('click', () => {
+        if (this.scrap < item.cost) return
+        this.scrap -= item.cost
+        item.give(this)
+        this._updateStatsPanel()
+        this._updateInventoryHud()
+        this._renderTraderOptions()
+      })
+      this.traderOptions.appendChild(btn)
+    }
+  }
+
+  _closeTraderPanel() {
+    this.traderPanelOpen = false
+    this.traderPanel.style.display = 'none'
   }
 
   // Re-renders every static UI string in the current language. Called once
@@ -905,6 +969,11 @@ export class Game {
     this.nearGenerator = dist <= GENERATOR_REFUEL_RADIUS
   }
 
+  _updateTrader(playerPos) {
+    const dist = Math.hypot(playerPos.x - this.trader.x, playerPos.z - this.trader.z)
+    this.nearTrader = dist <= TRADER_INTERACT_RADIUS
+  }
+
   _updateMinimap(playerPos) {
     this.camera.getWorldDirection(this._camDir)
     const facingRad = Math.atan2(this._camDir.x, -this._camDir.z)
@@ -929,7 +998,7 @@ export class Game {
     this.dayNight.update()
     this._updateFlicker(elapsed)
 
-    if (this.player.controls.isLocked && this.playerState.alive && !this.inventoryOpen && !this.perkPanelOpen) {
+    if (this.player.controls.isLocked && this.playerState.alive && !this.inventoryOpen && !this.perkPanelOpen && !this.traderPanelOpen) {
       this.player.update(dt)
       const isMoving = this.player.onGround && (
         this.player.input.forward || this.player.input.back ||
@@ -978,10 +1047,14 @@ export class Game {
 
       this.chests.update(dt, elapsed, playerPos)
       this._updateGenerator(dt, playerPos)
+      this._updateTrader(playerPos)
 
       const canRefuelGenerator = this.nearGenerator && this.inventory.fuelCans > 0 && this.generatorFuel < this.maxGeneratorFuel
       if (this.chests.nearbyChest) {
         this.interactPrompt.innerHTML = tHtml('interactPrompt')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearTrader) {
+        this.interactPrompt.innerHTML = tHtml('interactTrader')
         this.interactPrompt.style.display = 'block'
       } else if (canRefuelGenerator) {
         this.interactPrompt.innerHTML = tHtml('interactRefuel')

@@ -80,6 +80,7 @@ export function buildWorld(scene) {
   const minigunSpot = { x: 1.7, y: FLOOR_Y + 1.0, z: 45.3 }
 
   const generator = buildGenerator(scene, register)
+  const trader = buildTraderStall(scene, register)
 
   // Second area: a small park beyond the north end of the street, in the
   // space freed up by pushing the perimeter barricade out to groundSize/2.
@@ -97,6 +98,7 @@ export function buildWorld(scene) {
     towerChestSpots,
     minigunSpot,
     generator,
+    trader,
   }
 }
 
@@ -224,6 +226,54 @@ function buildGenerator(scene, register) {
   register(body)
 
   return { x, z, indicatorMat }
+}
+
+// A scavenger's trade stall near spawn - counter, slanted awning, and a lit
+// sign - where scrap earned from kills can be spent on supplies (see
+// Game.js's trader panel).
+function buildTraderStall(scene, register) {
+  const x = -3
+  const z = 11
+
+  const group = new THREE.Group()
+  group.position.set(x, 0, z)
+  group.rotation.y = Math.PI * 0.15
+
+  const woodMat = new THREE.MeshStandardMaterial({ color: 0x4a3624, roughness: 0.9 })
+  const tarpMat = new THREE.MeshStandardMaterial({ color: 0x5a2e2a, roughness: 0.85 })
+  const signMat = new THREE.MeshStandardMaterial({ color: 0x1a1410, emissive: 0xffb347, emissiveIntensity: 1.1 })
+
+  const counter = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.9, 0.6), woodMat)
+  counter.position.y = 0.45
+  counter.castShadow = true
+  counter.receiveShadow = true
+  group.add(counter)
+
+  for (const dx of [-0.7, 0.7]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.1, 6), woodMat)
+    post.position.set(dx, 1.05, -0.15)
+    post.castShadow = true
+    group.add(post)
+  }
+
+  const awning = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.06, 1.1), tarpMat)
+  awning.position.set(0, 2.05, 0.15)
+  awning.rotation.x = -0.12
+  awning.castShadow = true
+  group.add(awning)
+
+  const sign = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.22, 0.04), signMat)
+  sign.position.set(0, 1.7, -0.16)
+  group.add(sign)
+
+  const lantern = new THREE.PointLight(0xffb347, 1.4, 6, 2)
+  lantern.position.set(0, 1.6, 0.3)
+  group.add(lantern)
+
+  scene.add(group)
+  register(counter)
+
+  return { x, z, signMat }
 }
 
 function addStreetMarkings(scene) {

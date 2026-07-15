@@ -605,7 +605,8 @@ html, body {
   opacity: 0.55;
 }
 
-#perk-panel {
+#perk-panel,
+#trader-panel {
   position: absolute;
   inset: 0;
   display: none;
@@ -616,7 +617,8 @@ html, body {
   background: rgba(6, 8, 6, 0.9);
 }
 
-#perk-panel-title {
+#perk-panel-title,
+#trader-panel-title {
   margin: 0;
   font-size: 15px;
   letter-spacing: 1.5px;
@@ -625,11 +627,18 @@ html, body {
   opacity: 0.85;
 }
 
-#perk-scrap-line {
+#perk-scrap-line,
+#trader-scrap-line {
   font-size: 14px;
   color: #ffcf5c;
   opacity: 0.9;
   margin-top: -8px;
+}
+
+#trader-hint {
+  margin-top: 4px;
+  font-size: 13px;
+  opacity: 0.55;
 }
 
 .perk-options {
