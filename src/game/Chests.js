@@ -164,6 +164,14 @@ export class ChestManager {
     this.nearbyChest = null
   }
 
+  // Adds one extra chest at runtime, for the "Supply Drop" random night event.
+  addChest(x, y, z) {
+    const chest = new Chest(x, y, z)
+    this.chests.push(chest)
+    this.scene.add(chest.group)
+    return chest
+  }
+
   update(dt, elapsed, playerPos) {
     let nearest = null
     let nearestDist = INTERACT_RADIUS

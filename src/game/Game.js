@@ -12,6 +12,7 @@ import { Minimap } from './Minimap.js'
 import { DecalManager } from './Decals.js'
 import { Achievements } from './Achievements.js'
 import { rollPerks } from './Perks.js'
+import { pickNightEvent } from './NightEvents.js'
 import { ACTIONS, getKeyFor, setBinding, resetBindings, keyLabel } from './Keybinds.js'
 import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
@@ -185,6 +186,7 @@ export class Game {
     this.perkPanelOpen = false
     this.runStartedAt = performance.now()
     this.nightStartedAt = performance.now()
+    this._scheduleNightEvent()
 
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, preserveDrawingBuffer: true })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -198,6 +200,7 @@ export class Game {
     this.flickerLights = flickerLights
     this.minigunSpot = minigunSpot
     this.generator = generator
+    this.spawnPoints = spawnPoints
     this.generatorFuel = 100
     this.maxGeneratorFuel = 100
     this.dayNight = new DayNightCycle(this.scene, hemiLight, sunLight)
@@ -310,6 +313,7 @@ export class Game {
       this.kills = 0
       this.runStartedAt = performance.now()
       this.nightStartedAt = performance.now()
+      this._scheduleNightEvent()
       this._updateHealthHud()
       this._updateProgressHud()
       this.deathScreen.style.display = 'none'
@@ -857,6 +861,13 @@ export class Game {
     this.nightBanner.classList.add('show')
   }
 
+  // Picks a random moment within the current night-round for a random event
+  // to fire (see NIGHT_EVENTS) - called whenever a round starts/restarts.
+  _scheduleNightEvent() {
+    this.nextEventAt = this.nightStartedAt + 10000 + Math.random() * (NIGHT_DURATION_MS - 15000)
+    this.eventTriggeredForNight = false
+  }
+
   _updateFlicker(elapsed) {
     // Streetlights fade out during the day rather than staying lit - and
     // stay dark regardless of time of day if the generator has run dry.
@@ -931,9 +942,17 @@ export class Game {
       this.playerState.tickInfection(dt)
       this._updateHealthHud()
 
+      if (!this.eventTriggeredForNight && performance.now() >= this.nextEventAt) {
+        this.eventTriggeredForNight = true
+        const event = pickNightEvent()
+        event.apply(this)
+        this._showLoreToast(t(event.labelKey))
+      }
+
       if (performance.now() - this.nightStartedAt > NIGHT_DURATION_MS) {
         this.night += 1
         this.nightStartedAt = performance.now()
+        this._scheduleNightEvent()
         this.zombies.applyDifficulty(this.night)
         this._showNightBanner()
         if (this.night >= 5) this.achievements.unlock('survivor_5')

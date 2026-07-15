@@ -158,6 +158,12 @@ export class ZombieManager {
     this.scene.add(zombie.group)
   }
 
+  // Immediate burst of extra ambush-biased zombies, for the "Horde Surge"
+  // random night event - a one-off punch rather than a sustained rate change.
+  spawnSurge(count) {
+    for (let i = 0; i < count; i++) this._spawnRandom()
+  }
+
   get hittableMeshes() {
     return this.zombies
       .filter((z) => z.state === 'alive')
