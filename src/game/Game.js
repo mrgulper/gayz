@@ -13,6 +13,7 @@ import { DecalManager } from './Decals.js'
 import { Achievements } from './Achievements.js'
 import { rollPerks } from './Perks.js'
 import { pickNightEvent } from './NightEvents.js'
+import { Companion } from './Companion.js'
 import { ACTIONS, getKeyFor, setBinding, resetBindings, keyLabel } from './Keybinds.js'
 import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
@@ -223,6 +224,7 @@ export class Game {
     this._addFlashlight()
 
     this.zombies = new ZombieManager(this.scene, this.difficulty.spawnRateMult)
+    this.companion = new Companion(this.scene, 1.6, 7)
     this.pickups = new PickupManager(this.scene, spawnPoints)
     this.pickups.spawnUnique('minigun', minigunSpot.x, minigunSpot.z, minigunSpot.y)
     this.pickups.spawnUnique('audiolog1', 0, -30, 0.5)
@@ -326,6 +328,7 @@ export class Game {
       this.player.resetPosition()
       this.zombies.reset()
       this.chests.reset()
+      this.companion.teleportTo(1.6, 7)
       this.night = 1
       this.kills = 0
       this.runStartedAt = performance.now()
@@ -1041,6 +1044,7 @@ export class Game {
         (zombieTypeId, weaponId) => this._onZombieKilled(zombieTypeId, weaponId),
         this.player.isCrouching
       )
+      this.companion.update(dt, playerPos, this.zombies.zombies)
       this.pickups.update(dt, elapsed, playerPos, {
         onPickup: (type, label, isLoot) => this._onPickup(type, label, isLoot),
       })
