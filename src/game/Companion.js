@@ -94,7 +94,7 @@ export class Companion {
     pack.castShadow = true
     this.group.add(pack)
 
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 8), skinMat)
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 12), skinMat)
     head.position.y = 1.62
     head.castShadow = true
     this.group.add(head)
@@ -124,7 +124,7 @@ export class Companion {
       crossV.position.z = 0.035
       this.weaponProp.add(crossH, crossV)
     } else if (this.role === 'melee') {
-      this.weaponProp = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.55, 8), weaponMat)
+      this.weaponProp = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.55, 12), weaponMat)
     } else {
       this.weaponProp = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.14, 0.28), weaponMat)
     }

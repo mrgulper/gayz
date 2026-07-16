@@ -25,7 +25,7 @@ export class RescueSurvivor {
     torso.castShadow = true
     this.group.add(torso)
 
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 8), skinMat)
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 12), skinMat)
     head.position.set(0, 0.85, 0.08)
     head.castShadow = true
     this.group.add(head)
@@ -38,7 +38,7 @@ export class RescueSurvivor {
       this.group.add(leg)
     }
 
-    const signal = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), signalMat)
+    const signal = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 10), signalMat)
     signal.position.set(0, 1.1, 0)
     this.group.add(signal)
     this.signalMat = signalMat

@@ -198,7 +198,7 @@ export class ZombieManager {
   }
 
   _spawnProjectile(origin, targetSnapshot, damage, travelSpeed) {
-    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 8), projectileMat)
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 10), projectileMat)
     mesh.position.copy(origin)
     this.scene.add(mesh)
 
@@ -212,7 +212,7 @@ export class ZombieManager {
   // and marks that spot as a distraction zombies will investigate instead
   // of the player (see the targeting override in update() below).
   spawnNoisemakerThrow(origin, target) {
-    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.16, 8), noisemakerMat)
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.16, 10), noisemakerMat)
     mesh.position.copy(origin)
     this.scene.add(mesh)
 
@@ -243,7 +243,7 @@ export class ZombieManager {
   // dealing falloff damage to every zombie within range. No player
   // self-damage for now, even at point-blank.
   spawnGrenadeThrow(origin, target) {
-    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), grenadeMat)
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 10), grenadeMat)
     mesh.position.copy(origin)
     this.scene.add(mesh)
 

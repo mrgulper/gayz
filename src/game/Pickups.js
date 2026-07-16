@@ -67,7 +67,7 @@ function buildVisual(type) {
     const capMat = new THREE.MeshStandardMaterial({ color: 0x2a2a28, roughness: 0.4, metalness: 0.6 })
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.36, 0.18), bodyMat)
     group.add(body)
-    const spout = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.12, 8), capMat)
+    const spout = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.12, 10), capMat)
     spout.position.set(0.1, 0.22, 0)
     spout.rotation.z = -0.3
     group.add(spout)
@@ -93,7 +93,7 @@ function buildVisual(type) {
     const blade = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.016, 0.4), bladeMat)
     blade.rotation.y = 0.3
     group.add(blade)
-    const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.16, 8), gripMat)
+    const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.16, 10), gripMat)
     grip.rotation.z = Math.PI / 2
     grip.position.set(0, 0, 0.26)
     group.add(grip)
@@ -134,7 +134,7 @@ function buildVisual(type) {
     speaker.rotation.z = Math.PI / 2
     speaker.position.set(0.1, 0, 0.13)
     group.add(speaker)
-    const light = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 8), lightMat)
+    const light = new THREE.Mesh(new THREE.SphereGeometry(0.02, 10, 10), lightMat)
     light.position.set(-0.12, 0.05, 0.13)
     group.add(light)
   } else if (type === 'minigun') {

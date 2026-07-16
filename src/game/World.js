@@ -1,5 +1,60 @@
 import * as THREE from 'three'
 
+// Cheap procedural grime: speckle noise + a handful of jagged crack/stain
+// strokes baked onto a canvas once, then tiled via RepeatWrapping. Replaces
+// flat single-color ground/facade materials with something that reads as
+// worn concrete/asphalt instead of a solid-color primitive, at effectively
+// zero runtime cost (one canvas draw at world-build time, reused after).
+function createGrimeTexture(baseColor, { size = 256, noise = 20, cracks = 10 } = {}) {
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = baseColor
+  ctx.fillRect(0, 0, size, size)
+
+  const img = ctx.getImageData(0, 0, size, size)
+  for (let i = 0; i < img.data.length; i += 4) {
+    const n = (Math.random() - 0.5) * noise
+    img.data[i] = Math.min(255, Math.max(0, img.data[i] + n))
+    img.data[i + 1] = Math.min(255, Math.max(0, img.data[i + 1] + n))
+    img.data[i + 2] = Math.min(255, Math.max(0, img.data[i + 2] + n))
+  }
+  ctx.putImageData(img, 0, 0)
+
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.28)'
+  for (let i = 0; i < cracks; i++) {
+    let x = Math.random() * size
+    let y = Math.random() * size
+    ctx.lineWidth = 0.6 + Math.random() * 1.8
+    ctx.beginPath()
+    ctx.moveTo(x, y)
+    for (let s = 0; s < 4; s++) {
+      x += (Math.random() - 0.5) * size * 0.35
+      y += (Math.random() - 0.5) * size * 0.35
+      ctx.lineTo(x, y)
+    }
+    ctx.stroke()
+  }
+
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.wrapS = THREE.RepeatWrapping
+  tex.wrapT = THREE.RepeatWrapping
+  return tex
+}
+
+// Facade grime textures are cached per base color (only a handful of
+// building color variants exist) so ~20 buildings share 4 canvases instead
+// of generating one each.
+const _facadeTextureCache = new Map()
+function getFacadeTexture(hexColor) {
+  if (!_facadeTextureCache.has(hexColor)) {
+    const hex = '#' + hexColor.toString(16).padStart(6, '0')
+    _facadeTextureCache.set(hexColor, createGrimeTexture(hex, { size: 128, noise: 16, cracks: 5 }))
+  }
+  return _facadeTextureCache.get(hexColor)
+}
+
 // Builds a small broken-city block: cracked streets, damaged buildings with
 // lit/dark windows, burnt-out cars, rubble, and a couple of dying streetlights.
 // Also returns a list of open street-side spawn points for pickups/zombies.
@@ -33,9 +88,11 @@ export function buildWorld(scene) {
   scene.add(moon)
 
   const groundSize = 150
+  const groundTex = createGrimeTexture('#2c2e30', { size: 512, noise: 22, cracks: 60 })
+  groundTex.repeat.set(groundSize / 5, groundSize / 5)
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(groundSize, groundSize),
-    new THREE.MeshStandardMaterial({ color: 0x2c2e30, roughness: 1 })
+    new THREE.MeshStandardMaterial({ map: groundTex, roughness: 1 })
   )
   ground.rotation.x = -Math.PI / 2
   ground.receiveShadow = true
@@ -144,12 +201,12 @@ function buildPark(scene, colliders, solidMeshes) {
     const tree = new THREE.Group()
     tree.position.set(x, 0, z)
 
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, 2.4, 8), trunkMat)
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, 2.4, 12), trunkMat)
     trunk.position.y = 1.2
     trunk.castShadow = true
     tree.add(trunk)
 
-    const leaves = new THREE.Mesh(new THREE.ConeGeometry(1.6, 3, 8), leafMat)
+    const leaves = new THREE.Mesh(new THREE.ConeGeometry(1.6, 3, 12), leafMat)
     leaves.position.y = 3.4
     leaves.castShadow = true
     tree.add(leaves)
@@ -259,7 +316,7 @@ function buildTraderStall(scene, register) {
   group.add(counter)
 
   for (const dx of [-0.7, 0.7]) {
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.1, 6), woodMat)
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.1, 10), woodMat)
     post.position.set(dx, 1.05, -0.15)
     post.castShadow = true
     group.add(post)
@@ -517,7 +574,7 @@ function buildSewer(scene, colliders, solidMeshes, flickerLights) {
     colliders.push(new THREE.Box3().setFromObject(wall))
 
     // Pipe running along each wall, just decorative.
-    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, length, 8), pipeMat)
+    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, length, 12), pipeMat)
     pipe.rotation.x = Math.PI / 2
     pipe.position.set(SEWER_X + side * (SEWER_WIDTH / 2 - 0.15), SEWER_HEIGHT - 0.4, centerZ)
     scene.add(pipe)
@@ -546,12 +603,15 @@ function buildSewer(scene, colliders, solidMeshes, flickerLights) {
 // Purely decorative neon signage for the Neon Decay look - not registered as
 // colliders (signage mounted flush on a facade shouldn't block movement).
 function addNeonSigns(scene) {
+  // Worn commercial signage tones (warm amber, dim tungsten-red, muted
+  // teal) instead of uniform cyberpunk magenta/cyan - reads as grimy real
+  // storefronts left running on backup power, not a neon skyline.
   const signSpots = [
-    { x: -17, y: 6, z: -20, w: 3, h: 1, color: 0xff2bd6, rotY: Math.PI / 2 },
-    { x: 17, y: 8, z: 10, w: 4, h: 1.2, color: 0x2be6ff, rotY: -Math.PI / 2 },
-    { x: -17, y: 5, z: 25, w: 2.5, h: 1, color: 0x2be6ff, rotY: Math.PI / 2 },
-    { x: 17, y: 7, z: -30, w: 3.5, h: 1, color: 0xff2bd6, rotY: -Math.PI / 2 },
-    { x: -32, y: 10, z: 0, w: 5, h: 1.5, color: 0xff2bd6, rotY: Math.PI / 2 },
+    { x: -17, y: 6, z: -20, w: 3, h: 1, color: 0xff9a3d, rotY: Math.PI / 2 },
+    { x: 17, y: 8, z: 10, w: 4, h: 1.2, color: 0x4a9a8a, rotY: -Math.PI / 2 },
+    { x: -17, y: 5, z: 25, w: 2.5, h: 1, color: 0xd4502a, rotY: Math.PI / 2 },
+    { x: 17, y: 7, z: -30, w: 3.5, h: 1, color: 0xff9a3d, rotY: -Math.PI / 2 },
+    { x: -32, y: 10, z: 0, w: 5, h: 1.5, color: 0xd4502a, rotY: Math.PI / 2 },
   ]
 
   // Self-illuminating emissive material only - no real PointLight per sign.
@@ -560,9 +620,9 @@ function addNeonSigns(scene) {
   // reads clearly without one lighting up its surroundings too.
   for (const spot of signSpots) {
     const mat = new THREE.MeshStandardMaterial({
-      color: 0x0a0a0f,
+      color: 0x0a0a0a,
       emissive: spot.color,
-      emissiveIntensity: 2.2,
+      emissiveIntensity: 1.4,
       side: THREE.DoubleSide,
     })
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(spot.w, spot.h), mat)
@@ -578,22 +638,22 @@ function addNeonSigns(scene) {
   canvas.width = 256
   canvas.height = 96
   const ctx = canvas.getContext('2d')
-  ctx.fillStyle = '#0a0a0f'
+  ctx.fillStyle = '#0a0a0a'
   ctx.fillRect(0, 0, canvas.width, canvas.height)
-  ctx.fillStyle = '#ff2bd6'
+  ctx.fillStyle = '#e0a050'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.font = 'bold 46px sans-serif'
   ctx.fillText('VIREO', canvas.width / 2, canvas.height / 2 - 10)
   ctx.font = '16px sans-serif'
-  ctx.fillStyle = '#2be6ff'
+  ctx.fillStyle = '#8a9a90'
   ctx.fillText('wellness light program', canvas.width / 2, canvas.height / 2 + 28)
 
   const brandMat = new THREE.MeshStandardMaterial({
     map: new THREE.CanvasTexture(canvas),
     emissive: 0xffffff,
     emissiveMap: new THREE.CanvasTexture(canvas),
-    emissiveIntensity: 1.4,
+    emissiveIntensity: 0.9,
     side: THREE.DoubleSide,
   })
   const brandSign = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.2), brandMat)
@@ -660,7 +720,10 @@ const BUILDING_COLORS = [0x38342e, 0x33373a, 0x3c302a, 0x2e3630]
 
 function addBuilding(scene, register, spec) {
   const color = BUILDING_COLORS[Math.floor(Math.abs(spec.x + spec.z)) % BUILDING_COLORS.length]
-  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.95 })
+  const facadeTex = getFacadeTexture(color).clone()
+  facadeTex.needsUpdate = true
+  facadeTex.repeat.set(Math.max(1, spec.w / 4), Math.max(1, spec.h / 4))
+  const mat = new THREE.MeshStandardMaterial({ map: facadeTex, roughness: 0.95 })
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(spec.w, spec.h, spec.d), mat)
   mesh.position.set(spec.x, spec.h / 2, spec.z)
   mesh.castShadow = true
@@ -745,7 +808,7 @@ function scatterCars(scene, colliders, solidMeshes) {
 
     const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 })
     for (const [wx, wz] of [[-0.9, 1.3], [0.9, 1.3], [-0.9, -1.3], [0.9, -1.3]]) {
-      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.3, 10), wheelMat)
+      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.3, 16), wheelMat)
       wheel.rotation.z = Math.PI / 2
       wheel.position.set(wx, 0.35, wz)
       group.add(wheel)
@@ -797,14 +860,14 @@ function addStreetlights(scene, register, flickerLights) {
   ]
 
   for (const p of positions) {
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 5.5, 8), poleMat)
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 5.5, 12), poleMat)
     pole.position.set(p.x, 2.75, p.z)
     pole.castShadow = true
     scene.add(pole)
     register(pole)
 
     const lamp = new THREE.Mesh(
-      new THREE.SphereGeometry(0.25, 8, 8),
+      new THREE.SphereGeometry(0.25, 12, 12),
       new THREE.MeshStandardMaterial({ color: 0x332200, emissive: 0xffbb55, emissiveIntensity: 1.6 })
     )
     lamp.position.set(p.x, 5.4, p.z)

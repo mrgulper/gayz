@@ -50,7 +50,7 @@ export class Vehicle {
 
     this.wheels = []
     for (const [wx, wz] of [[-0.9, 1.3], [0.9, 1.3], [-0.9, -1.3], [0.9, -1.3]]) {
-      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.3, 10), wheelMat)
+      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.3, 16), wheelMat)
       wheel.rotation.z = Math.PI / 2
       wheel.position.set(wx, 0.35, wz)
       this.group.add(wheel)

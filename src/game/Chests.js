@@ -99,7 +99,7 @@ class Chest {
 
     // Recessed D-ring carry handles on both ends.
     for (const side of [-1, 1]) {
-      const handle = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.018, 6, 10, Math.PI), trimMat)
+      const handle = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.018, 8, 14, Math.PI), trimMat)
       handle.rotation.z = Math.PI / 2
       handle.rotation.y = Math.PI / 2
       handle.position.set(side * (half + 0.005), BASE_HEIGHT * 0.6, 0)

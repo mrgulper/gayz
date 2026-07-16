@@ -6,16 +6,20 @@ const CYCLE_MS = DAY_MS + NIGHT_MS
 const DAY_FRACTION = DAY_MS / CYCLE_MS
 const TRANSITION = 0.02 // ~29s fade in/out of the day fraction
 
+// Grounded, desaturated moonlight instead of the neon purple/cyan cast -
+// the cool tone here is meant to contrast against the warm practical
+// lights (streetlamps, flashlight, muzzle flash) for a real warm/cool
+// cinematic split rather than a single-hue wash.
 const NIGHT = {
-  background: 0x1a0d2e,
-  fog: 0x1a0d2e,
+  background: 0x10141b,
+  fog: 0x141922,
   fogNear: 18,
   fogFar: 90,
-  skyColor: 0x8f4fd6,
-  groundColor: 0x140a1f,
-  hemiIntensity: 0.85,
-  sunColor: 0x6fe8ff,
-  sunIntensity: 1.1,
+  skyColor: 0x6b7d94,
+  groundColor: 0x1a1c18,
+  hemiIntensity: 0.7,
+  sunColor: 0xa7bfe0,
+  sunIntensity: 0.95,
   sunPos: new THREE.Vector3(30, 45, -15),
 }
 

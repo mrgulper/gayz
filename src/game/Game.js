@@ -1,4 +1,8 @@
 import * as THREE from 'three'
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { buildWorld } from './World.js'
 import { PlayerController } from './PlayerController.js'
 import { WeaponSystem } from './WeaponSystem.js'
@@ -200,8 +204,6 @@ function formatTime(ms) {
 export class Game {
   constructor() {
     this.canvas = document.getElementById('scene')
-    this.appEl = document.getElementById('app')
-    this._wobbleTime = 0
     this.menu = document.getElementById('menu')
     this.playBtn = document.getElementById('play-btn')
     this.crosshair = document.getElementById('crosshair')
@@ -243,7 +245,6 @@ export class Game {
     this.endingCredits = document.getElementById('ending-credits')
     this.endingContinueBtn = document.getElementById('ending-continue-btn')
     this.interactPrompt = document.getElementById('interact-prompt')
-    this.ffTimestampEl = document.getElementById('ff-timestamp')
     this.rainOverlayEl = document.getElementById('rain-overlay')
     this.nightmareOverlayEl = document.getElementById('nightmare-overlay')
     this.infectionIndicator = document.getElementById('infection-indicator')
@@ -306,9 +307,24 @@ export class Game {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFShadowMap
+    // Cinematic contrast/rolloff instead of the flat default - the single
+    // biggest free visual-quality win available (no extra render cost).
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping
+    this.renderer.toneMappingExposure = 1.1
 
     this.scene = new THREE.Scene()
     this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200)
+
+    // Post-processing: render pass -> bloom (makes practical lights - street
+    // lamps, muzzle flash, headlights, neon signage - actually glow instead
+    // of just being bright flat shapes) -> output pass (applies the tone
+    // mapping/color space conversion above, required as the final pass when
+    // using a composer instead of the renderer's direct render() call).
+    this.composer = new EffectComposer(this.renderer)
+    this.composer.addPass(new RenderPass(this.scene, this.camera))
+    this.bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.55, 0.4, 0.82)
+    this.composer.addPass(this.bloomPass)
+    this.composer.addPass(new OutputPass())
 
     const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, vireoFacility } = buildWorld(this.scene)
     this.flickerLights = flickerLights
@@ -614,7 +630,7 @@ export class Game {
   }
 
   _takeScreenshot() {
-    this.renderer.render(this.scene, this.camera)
+    this.composer.render()
     const link = document.createElement('a')
     link.download = `gayz-${Date.now()}.png`
     link.href = this.canvas.toDataURL('image/png')
@@ -1238,6 +1254,8 @@ export class Game {
     this.camera.aspect = window.innerWidth / window.innerHeight
     this.camera.updateProjectionMatrix()
     this.renderer.setSize(window.innerWidth, window.innerHeight)
+    this.composer.setSize(window.innerWidth, window.innerHeight)
+    this.bloomPass.resolution.set(window.innerWidth, window.innerHeight)
   }
 
   _onZombieAttack(damage) {
@@ -1459,8 +1477,8 @@ export class Game {
   }
 
   // Rolled once per night-round: a chance of rain for the whole round,
-  // lower visibility (see the fog scaling in _tick) plus the found-footage
-  // rain-on-lens overlay.
+  // lower visibility (see the fog scaling in _tick) plus the rain-on-lens
+  // overlay.
   _rollWeather() {
     this.raining = Math.random() < 0.35
     this.rainOverlayEl.style.display = this.raining ? 'block' : 'none'
@@ -1635,13 +1653,6 @@ export class Game {
       this.scene.fog.far *= 0.6
     }
     this._updateFlicker(elapsed)
-    this.ffTimestampEl.textContent = formatTime(performance.now() - this.runStartedAt)
-
-    this._wobbleTime += dt
-    const wobbleX = Math.sin(this._wobbleTime * 1.3) * 1.4 + Math.sin(this._wobbleTime * 0.7) * 0.8
-    const wobbleY = Math.cos(this._wobbleTime * 1.1) * 1.1
-    const wobbleRot = Math.sin(this._wobbleTime * 0.9) * 0.25
-    this.appEl.style.transform = `translate(${wobbleX}px, ${wobbleY}px) rotate(${wobbleRot}deg)`
 
     if (this.driving && this.player.controls.isLocked && this.playerState.alive) {
       this.vehicle.update(dt, this.player.input, this.player.colliders)
@@ -1746,6 +1757,6 @@ export class Game {
       this._updateMinimap(playerPos)
     }
 
-    this.renderer.render(this.scene, this.camera)
+    this.composer.render()
   }
 }

@@ -45,7 +45,7 @@ function buildHand() {
   const palm = new THREE.Mesh(new THREE.BoxGeometry(0.078, 0.095, 0.045), SKIN)
   hand.add(palm)
 
-  const wrist = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.034, 0.07, 8), SKIN_SHADE)
+  const wrist = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.034, 0.07, 12), SKIN_SHADE)
   wrist.rotation.x = Math.PI / 2
   wrist.position.set(0, 0.075, 0.012)
   hand.add(wrist)
@@ -96,7 +96,7 @@ function buildPistol(golden = false) {
   slide.position.set(0, 0.04, 0)
   g.add(slide)
 
-  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.08, 8), DARK_METAL)
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.08, 12), DARK_METAL)
   barrel.rotation.x = Math.PI / 2
   barrel.position.set(0, 0.045, -0.17)
   g.add(barrel)
@@ -156,7 +156,7 @@ function buildRifle() {
   body.position.set(0, 0.02, -0.05)
   g.add(body)
 
-  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.3, 8), DARK_METAL)
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.3, 12), DARK_METAL)
   barrel.rotation.x = Math.PI / 2
   barrel.position.set(0, 0.03, -0.5)
   g.add(barrel)
@@ -209,7 +209,7 @@ function buildKnifeModel() {
   guard.position.set(0, 0, -0.05)
   g.add(guard)
 
-  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.18, 8), GRIP)
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.18, 12), GRIP)
   handle.rotation.x = Math.PI / 2
   handle.position.set(0, 0, 0.06)
   g.add(handle)
@@ -231,7 +231,7 @@ function buildBatModel() {
   barrel.position.set(0, 0, -0.18)
   g.add(barrel)
 
-  const wrap = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.14, 8), DARK_METAL)
+  const wrap = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.14, 12), DARK_METAL)
   wrap.rotation.x = Math.PI / 2
   wrap.position.set(0, 0, 0.1)
   g.add(wrap)
@@ -262,7 +262,7 @@ function buildMacheteModel() {
   guard.position.set(0, 0, -0.03)
   g.add(guard)
 
-  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.16, 8), GRIP)
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.16, 12), GRIP)
   handle.rotation.x = Math.PI / 2
   handle.position.set(0, 0, 0.06)
   g.add(handle)
@@ -289,7 +289,7 @@ function buildUvBatonModel() {
   tip.position.set(0, 0, -0.32)
   g.add(tip)
 
-  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.16, 8), GRIP)
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.16, 12), GRIP)
   handle.rotation.x = Math.PI / 2
   handle.position.set(0, 0, 0.06)
   g.add(handle)
@@ -334,13 +334,13 @@ export function buildMinigunModel() {
   barrelCluster.position.set(0, 0, -0.28)
   g.add(barrelCluster)
 
-  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.06, 8), DARK_METAL)
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.06, 12), DARK_METAL)
   hub.rotation.x = Math.PI / 2
   barrelCluster.add(hub)
 
   for (let i = 0; i < 6; i++) {
     const angle = (i / 6) * Math.PI * 2
-    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.42, 8), DARK_METAL)
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.42, 12), DARK_METAL)
     barrel.rotation.x = Math.PI / 2
     barrel.position.set(Math.cos(angle) * 0.05, Math.sin(angle) * 0.05, -0.21)
     barrelCluster.add(barrel)

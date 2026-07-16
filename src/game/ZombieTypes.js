@@ -16,8 +16,8 @@ export const ZOMBIE_TYPES = {
     ranged: false,
     meleeRange: 1.5,
     attackCooldown: 1.0,
-    skinTones: [0x39506a, 0x33485f, 0x3d5470, 0x2f4459, 0x455a75],
-    clothesTones: [0x161a24, 0x1a1e2a, 0x14171f, 0x1c2028],
+    skinTones: [0x4a5539, 0x445033, 0x505a3c, 0x3d4a3f, 0x565040],
+    clothesTones: [0x2a2a24, 0x27271f, 0x24241c, 0x2c2c26],
   },
   runner: {
     id: 'runner',
@@ -33,8 +33,8 @@ export const ZOMBIE_TYPES = {
     ranged: false,
     meleeRange: 1.4,
     attackCooldown: 0.85,
-    skinTones: [0x4a6b7a, 0x527888, 0x436374],
-    clothesTones: [0x1e222b, 0x242835],
+    skinTones: [0x5c4a3a, 0x644f3d, 0x554236],
+    clothesTones: [0x22201c, 0x282520],
   },
   brute: {
     id: 'brute',
@@ -50,8 +50,8 @@ export const ZOMBIE_TYPES = {
     ranged: false,
     meleeRange: 2.1,
     attackCooldown: 1.4,
-    skinTones: [0x283a4a, 0x223240, 0x2a3d4d],
-    clothesTones: [0x0f1216, 0x12161a],
+    skinTones: [0x3a3228, 0x342d24, 0x3d3529],
+    clothesTones: [0x14120e, 0x181510],
   },
   spitter: {
     id: 'spitter',
@@ -69,8 +69,8 @@ export const ZOMBIE_TYPES = {
     retreatRange: 7,
     spitCooldown: 2.1,
     spitTravelSpeed: 13,
-    skinTones: [0x5a3a7a, 0x653f88, 0x4f3468],
-    clothesTones: [0x1a1428, 0x201a30],
+    skinTones: [0x5a4a3a, 0x63533f, 0x4f4234],
+    clothesTones: [0x201a14, 0x241d16],
   },
   crawler: {
     id: 'crawler',
@@ -87,7 +87,7 @@ export const ZOMBIE_TYPES = {
     crawler: true,
     meleeRange: 1.3,
     attackCooldown: 0.8,
-    skinTones: [0x3d5560, 0x364c56, 0x455e6a],
+    skinTones: [0x4a5540, 0x424c38, 0x505c45],
     clothesTones: [0x0f1611, 0x131c15],
   },
   exploder: {
@@ -108,7 +108,7 @@ export const ZOMBIE_TYPES = {
     explodeRadius: 4.5,
     explodeDamageMin: 60,
     explodeDamageMax: 145,
-    skinTones: [0x3a5a4a, 0x3f6350, 0x355547],
+    skinTones: [0x4a6a52, 0x4f6d55, 0x436047],
     clothesTones: [0x152018, 0x18251a],
   },
   screamer: {
@@ -134,8 +134,8 @@ export const ZOMBIE_TYPES = {
     screamRadius: 15,
     screamEnrageMs: 4000,
     screamEnrageMult: 1.6,
-    skinTones: [0x6e5a7a, 0x644f70, 0x786184],
-    clothesTones: [0x201828, 0x281f30],
+    skinTones: [0x5c4a5e, 0x544255, 0x635066],
+    clothesTones: [0x1c1620, 0x201924],
   },
   // Boss: weight 0 means it never enters the normal random-spawn pool -
   // ZombieManager force-spawns exactly one every few nights instead.
