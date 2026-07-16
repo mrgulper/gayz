@@ -167,6 +167,7 @@ export class Game {
     this.deathStats = document.getElementById('death-stats')
     this.interactPrompt = document.getElementById('interact-prompt')
     this.ffTimestampEl = document.getElementById('ff-timestamp')
+    this.rainOverlayEl = document.getElementById('rain-overlay')
     this.infectionIndicator = document.getElementById('infection-indicator')
     this.statsPanel = document.getElementById('stats-panel')
     this.phaseRow = document.getElementById('phase-row')
@@ -212,6 +213,7 @@ export class Game {
     this.runStartedAt = performance.now()
     this.nightStartedAt = performance.now()
     this._scheduleNightEvent()
+    this._rollWeather()
 
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, preserveDrawingBuffer: true })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -362,6 +364,7 @@ export class Game {
       this.runStartedAt = performance.now()
       this.nightStartedAt = performance.now()
       this._scheduleNightEvent()
+      this._rollWeather()
       this._updateHealthHud()
       this._updateProgressHud()
       this.deathScreen.style.display = 'none'
@@ -1061,6 +1064,14 @@ export class Game {
     this.eventTriggeredForNight = false
   }
 
+  // Rolled once per night-round: a chance of rain for the whole round,
+  // lower visibility (see the fog scaling in _tick) plus the found-footage
+  // rain-on-lens overlay.
+  _rollWeather() {
+    this.raining = Math.random() < 0.35
+    this.rainOverlayEl.style.display = this.raining ? 'block' : 'none'
+  }
+
   _updateFlicker(elapsed) {
     // Streetlights fade out during the day rather than staying lit - and
     // stay dark regardless of time of day if the generator has run dry.
@@ -1149,6 +1160,10 @@ export class Game {
     const elapsed = this.timer.getElapsed()
 
     this.dayNight.update()
+    if (this.raining) {
+      this.scene.fog.near *= 0.6
+      this.scene.fog.far *= 0.6
+    }
     this._updateFlicker(elapsed)
     this.ffTimestampEl.textContent = formatTime(performance.now() - this.runStartedAt)
 
@@ -1186,6 +1201,7 @@ export class Game {
         this.night += 1
         this.nightStartedAt = performance.now()
         this._scheduleNightEvent()
+        this._rollWeather()
         this.zombies.applyDifficulty(this.night)
         this._showNightBanner()
         if (this.night >= 5) this.achievements.unlock('survivor_5')
