@@ -6,6 +6,7 @@ export class Inventory {
     this.fuelCans = 0
     this.grenades = 0
     this.barricades = 0
+    this.traps = 0
   }
 
   addHealthPack(n = 1) {
@@ -30,6 +31,10 @@ export class Inventory {
 
   addBarricade(n = 1) {
     this.barricades += n
+  }
+
+  addTrap(n = 1) {
+    this.traps += n
   }
 
   useHealthPack() {
@@ -65,6 +70,12 @@ export class Inventory {
   useBarricade() {
     if (this.barricades <= 0) return false
     this.barricades -= 1
+    return true
+  }
+
+  useTrap() {
+    if (this.traps <= 0) return false
+    this.traps -= 1
     return true
   }
 }

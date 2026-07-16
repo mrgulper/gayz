@@ -92,6 +92,8 @@ const SKIN_TINTS = {
   gold: { color: 0xd4af37, emissive: 0x5c4a1a },
   crimson: { color: 0xb0202a, emissive: 0x4a0808 },
   cobalt: { color: 0x2a6fd0, emissive: 0x0c1c40 },
+  // Free bestiary-completion reward, see Game.js's _onZombieKilled.
+  obsidian: { color: 0x1a1a1a, emissive: 0x3a3a3a },
 }
 
 function buildPistol(skinId = null) {

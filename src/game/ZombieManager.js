@@ -25,6 +25,11 @@ const GRENADE_DAMAGE_RADIUS = 5
 const GRENADE_DAMAGE_MIN = 80
 const GRENADE_DAMAGE_MAX = 220
 const ELITE_CHANCE = 0.08
+const TITAN_CHECK_MIN_DELAY_MS = 90000
+const TITAN_CHECK_MAX_DELAY_MS = 150000
+const TITAN_SPAWN_CHANCE = 0.4
+const HORDE_SPAWN_RADIUS_MIN = 10
+const HORDE_SPAWN_RADIUS_MAX = 22
 
 const projectileMat = new THREE.MeshStandardMaterial({
   color: 0x2f4a12,
@@ -76,6 +81,18 @@ export class ZombieManager {
     this.ambushChance = BASE_AMBUSH_CHANCE
     this.nextMoanAt = performance.now() + this._randomMoanDelay()
 
+    // Rare roaming threat, independent of the night-scheduled bosses - see
+    // _maybeSpawnTitan. Re-rolls on its own timer rather than a fixed night,
+    // so it can surprise the player instead of always being anticipated.
+    this.titanAlive = false
+    this.nextTitanCheckAt = performance.now() + this._randomTitanDelay()
+
+    // Pre-run mutators (see Game.js's settings.mutators) - both false by
+    // default, set once at the "Click to Play" moment.
+    this.bossRushMode = false
+    this.bossRushSpawnCount = 0
+    this.hordeMode = false
+
     for (let i = 0; i < this.targetCount; i++) {
       this._spawnRandom()
     }
@@ -85,10 +102,32 @@ export class ZombieManager {
     return MOAN_MIN_DELAY_MS + Math.random() * (MOAN_MAX_DELAY_MS - MOAN_MIN_DELAY_MS)
   }
 
+  _randomTitanDelay() {
+    return TITAN_CHECK_MIN_DELAY_MS + Math.random() * (TITAN_CHECK_MAX_DELAY_MS - TITAN_CHECK_MIN_DELAY_MS)
+  }
+
+  // Re-rolled on its own recurring timer (see the constructor/update) rather
+  // than tied to a night number - only one Titan roams at a time.
+  _maybeSpawnTitan() {
+    this.nextTitanCheckAt = performance.now() + this._randomTitanDelay()
+    if (this.titanAlive || Math.random() >= TITAN_SPAWN_CHANCE) return
+    this.titanAlive = true
+    const angle = Math.random() * Math.PI * 2
+    const x = Math.sin(angle) * SPAWN_RADIUS_MAX
+    const z = Math.cos(angle) * SPAWN_RADIUS_MAX
+    const zombie = new Zombie(x, z, ZOMBIE_TYPES.titan, false)
+    zombie.deathHandled = false
+    zombie.isBoss = true
+    this.zombies.push(zombie)
+    this.scene.add(zombie.group)
+  }
+
   // Scales spawn count / respawn speed / ambush frequency up with night number.
   applyDifficulty(night) {
     this.currentNight = night
-    this.targetCount = Math.round(Math.min(MAX_SPAWN_COUNT, BASE_SPAWN_COUNT + (night - 1)) * this.spawnRateMult)
+    this.targetCount = this.bossRushMode
+      ? Math.round(4 * this.spawnRateMult) // a thin ambient crowd - bosses are the point, not exploration
+      : Math.round(Math.min(MAX_SPAWN_COUNT, BASE_SPAWN_COUNT + (night - 1)) * this.spawnRateMult)
     this.respawnDelay = Math.max(MIN_RESPAWN_DELAY, BASE_RESPAWN_DELAY - (night - 1) * 0.5)
     this.ambushChance = Math.min(MAX_AMBUSH_CHANCE, BASE_AMBUSH_CHANCE + (night - 1) * 0.03)
 
@@ -96,7 +135,10 @@ export class ZombieManager {
       this._spawnRandom()
     }
 
-    if (night % 5 === 0 && this.bossSpawnedForNight !== night) {
+    // Boss Rush mutator: every night forces a boss instead of only every
+    // 5th - see Game.js's settings.mutators.bossRush.
+    const dueForBoss = this.bossRushMode ? this.bossSpawnedForNight !== night : night % 5 === 0
+    if (dueForBoss && this.bossSpawnedForNight !== night) {
       this.bossSpawnedForNight = night
       this._spawnBoss()
     }
@@ -109,8 +151,10 @@ export class ZombieManager {
     const x = Math.sin(angle) * SPAWN_RADIUS_MAX
     const z = Math.cos(angle) * SPAWN_RADIUS_MAX
 
-    // Alternates every boss night: 5=colossus, 10=patient_zero, 15=colossus...
-    const bossType = (this.currentNight / 5) % 2 === 0 ? ZOMBIE_TYPES.patient_zero : ZOMBIE_TYPES.colossus
+    // Alternates colossus/patient_zero - Boss Rush uses its own incrementing
+    // counter since it isn't tied to every-5th-night timing.
+    const altIndex = this.bossRushMode ? this.bossRushSpawnCount++ : this.currentNight / 5
+    const bossType = altIndex % 2 === 0 ? ZOMBIE_TYPES.patient_zero : ZOMBIE_TYPES.colossus
     const zombie = new Zombie(x, z, bossType, false)
     zombie.deathHandled = false
     zombie.isBoss = true
@@ -161,12 +205,20 @@ export class ZombieManager {
     for (let i = 0; i < this.targetCount; i++) this._spawnRandom()
   }
 
+  // Horde Mode mutator (see Game.js's settings.mutators.hordeMode): spawns
+  // much closer in so pressure never really lets up, instead of just
+  // raising the count at the normal distance like the Horde Rush mutator.
+  setHordeMode(enabled) {
+    this.hordeMode = enabled
+    if (enabled) this.respawnDelay = Math.min(this.respawnDelay, MIN_RESPAWN_DELAY)
+  }
+
   _spawnRandom() {
     const type = pickZombieType()
     const isAmbush = !type.ranged && Math.random() < this.ambushChance
 
-    const radiusMin = isAmbush ? AMBUSH_RADIUS_MIN : SPAWN_RADIUS_MIN
-    const radiusMax = isAmbush ? AMBUSH_RADIUS_MAX : SPAWN_RADIUS_MAX
+    const radiusMin = this.hordeMode ? HORDE_SPAWN_RADIUS_MIN : (isAmbush ? AMBUSH_RADIUS_MIN : SPAWN_RADIUS_MIN)
+    const radiusMax = this.hordeMode ? HORDE_SPAWN_RADIUS_MAX : (isAmbush ? AMBUSH_RADIUS_MAX : SPAWN_RADIUS_MAX)
     const angle = Math.random() * Math.PI * 2
     const radius = radiusMin + Math.random() * (radiusMax - radiusMin)
     const x = Math.sin(angle) * radius
@@ -384,6 +436,8 @@ export class ZombieManager {
   update(dt, playerPos, onPlayerDamage, onZombieLoot, onAmbushTrigger, onZombieKilled, playerCrouching = false) {
     this.elapsed += dt
 
+    if (performance.now() >= this.nextTitanCheckAt) this._maybeSpawnTitan()
+
     const distractionActive = this.distraction && performance.now() < this.distraction.expiresAt
     if (this.distraction && !distractionActive) this.distraction = null
 
@@ -424,6 +478,7 @@ export class ZombieManager {
         zombie.deathHandled = true
         this.pendingRespawns.push({ at: performance.now() + REMOVE_AFTER_DEATH_MS + this.respawnDelay * 1000 })
 
+        if (zombie.config.id === 'titan') this.titanAlive = false
         if (!zombie.config.explodes) audioEngine.playZombieDeath()
         if (onZombieKilled) onZombieKilled(zombie.config.id, zombie.lastHitWeaponId, zombie.group.position.x, zombie.group.position.z, zombie.isElite)
         // Regular kills no longer roll a random loot chance here - see

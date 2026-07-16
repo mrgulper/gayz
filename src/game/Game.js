@@ -107,10 +107,12 @@ function loadSettings() {
         hordeRush: parsed.mutators?.hordeRush ?? false,
         lootRush: parsed.mutators?.lootRush ?? false,
         pureGunplay: parsed.mutators?.pureGunplay ?? false,
+        bossRush: parsed.mutators?.bossRush ?? false,
+        hordeMode: parsed.mutators?.hordeMode ?? false,
       },
     }
   } catch {
-    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, loadout: 'balanced', performanceMode: false, mutators: { hordeRush: false, lootRush: false, pureGunplay: false } }
+    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, loadout: 'balanced', performanceMode: false, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false } }
   }
 }
 
@@ -205,6 +207,12 @@ const BARRICADE_PLACE_DIST = 2.2
 const BARRICADE_W = 2.2
 const BARRICADE_H = 1.8
 const BARRICADE_D = 0.3
+const TRAP_PLACE_DIST = 1.8
+const TRAP_TRIGGER_RADIUS = 1.3
+const TRAP_BLAST_RADIUS = 3
+const TRAP_DAMAGE_MIN = 45
+const TRAP_DAMAGE_MAX = 90
+const TRAP_LIFETIME_MS = 30000
 const VEHICLE_RAM_MIN_SPEED = 4
 const VEHICLE_RAM_RADIUS = 2.6
 const VEHICLE_RAM_DAMAGE = 70
@@ -213,6 +221,12 @@ const LIGHTNING_MIN_DELAY_MS = 8000
 const LIGHTNING_DELAY_RANGE_MS = 12000
 const LIGHTNING_FLINCH_RADIUS = 18
 const LIGHTNING_FLINCH_MS = 1200
+const FOG_PATCH_MIN_DELAY_MS = 40000
+const FOG_PATCH_MAX_DELAY_MS = 90000
+const FOG_PATCH_DURATION_MS = 25000
+const FOG_PATCH_RADIUS = 16
+const FOG_PATCH_MULT = 0.32
+const FOG_PATCH_SPAWN_RADIUS = 34
 const WHEEL_RADIUS = 110
 const WHEEL_DEADZONE = 18
 const RESCUE_INTERACT_RADIUS = 2.5
@@ -225,6 +239,16 @@ const SHOP_ITEMS = [
   { id: 'fuelcan', cost: 10, titleKey: 'shopFuelCan', give: (game) => game.inventory.addFuelCan(1) },
   { id: 'noisemaker', cost: 8, titleKey: 'shopNoisemaker', give: (game) => game.inventory.addNoisemaker(1) },
   { id: 'barricade', cost: 25, titleKey: 'shopBarricade', give: (game) => game.inventory.addBarricade(1) },
+  { id: 'trap', cost: 20, titleKey: 'shopTrap', give: (game) => game.inventory.addTrap(1) },
+  {
+    id: 'train_companion',
+    cost: 30,
+    titleKey: 'shopTrainCompanion',
+    give: (game) => {
+      game.companionTrainingLevel += 1
+      game.companion.applyTraining(game.companionTrainingLevel)
+    },
+  },
   // Attachments - same effect as finding the equivalent loot pickup, just
   // guaranteed instead of RNG. Extended Mag stacks each purchase; Scope is a
   // harmless no-op if bought again.
@@ -266,12 +290,14 @@ export class Game {
     this.noisemakerCount = document.getElementById('noisemaker-count')
     this.grenadeCount = document.getElementById('grenade-count')
     this.barricadeCount = document.getElementById('barricade-count')
+    this.trapCount = document.getElementById('trap-count')
     this.inventoryPanel = document.getElementById('inventory-panel')
     this.panelHealthCount = document.getElementById('panel-health-count')
     this.panelArmorCount = document.getElementById('panel-armor-count')
     this.panelNoisemakerCount = document.getElementById('panel-noisemaker-count')
     this.panelGrenadeCount = document.getElementById('panel-grenade-count')
     this.panelBarricadeCount = document.getElementById('panel-barricade-count')
+    this.panelTrapCount = document.getElementById('panel-trap-count')
     this.panelWeaponsList = document.getElementById('panel-weapons-list')
     this.inventoryOpen = false
     this.staminaFill = document.getElementById('stamina-fill')
@@ -310,6 +336,8 @@ export class Game {
     this.rainOverlayEl = document.getElementById('rain-overlay')
     this.lightningFlashEl = document.getElementById('lightning-flash')
     this.nextLightningAt = 0
+    this.fogPatch = null
+    this.nextFogPatchAt = performance.now() + FOG_PATCH_MIN_DELAY_MS + Math.random() * (FOG_PATCH_MAX_DELAY_MS - FOG_PATCH_MIN_DELAY_MS)
     this.nightmareOverlayEl = document.getElementById('nightmare-overlay')
     this.infectionIndicator = document.getElementById('infection-indicator')
     this.statsPanel = document.getElementById('stats-panel')
@@ -344,6 +372,8 @@ export class Game {
     this.mutatorHordeRush = document.getElementById('mutator-horde-rush')
     this.mutatorLootRush = document.getElementById('mutator-loot-rush')
     this.mutatorPureGunplay = document.getElementById('mutator-pure-gunplay')
+    this.mutatorBossRush = document.getElementById('mutator-boss-rush')
+    this.mutatorHordeMode = document.getElementById('mutator-horde-mode')
     this.controlsGrid = document.getElementById('controls-grid')
     this.resetBindsBtn = document.getElementById('reset-binds-btn')
     this.rebindingAction = null
@@ -370,6 +400,7 @@ export class Game {
     this.xpPicked = new Set()
     this.stealthTakedowns = 0
     this.eliteKills = 0
+    this.companionTrainingLevel = 0
     this._shakeOffset = new THREE.Vector3()
     this._shakeMagnitude = 0
     this._shakeDuration = 0
@@ -429,6 +460,7 @@ export class Game {
     this.colliders = colliders
     this.solidMeshes = solidMeshes
     this.barricades = []
+    this.traps = []
     this._vehicleHitAt = new Map()
     this.flickerLights = flickerLights
     this.minigunSpot = minigunSpot
@@ -635,9 +667,12 @@ export class Game {
       audioEngine.startAmbient()
       audioEngine.startMusic()
       this._applyLoadout(this.settings.loadout)
-      if (this.settings.mutators.hordeRush) {
-        this.zombies.setDifficultyMultiplier(this.difficulty.spawnRateMult * 2)
-      }
+      let spawnMult = this.difficulty.spawnRateMult
+      if (this.settings.mutators.hordeRush) spawnMult *= 2
+      if (this.settings.mutators.hordeMode) spawnMult *= 3
+      if (spawnMult !== this.difficulty.spawnRateMult) this.zombies.setDifficultyMultiplier(spawnMult)
+      if (this.settings.mutators.hordeMode) this.zombies.setHordeMode(true)
+      if (this.settings.mutators.bossRush) this.zombies.bossRushMode = true
       this.player.controls.lock()
     })
 
@@ -765,6 +800,8 @@ export class Game {
         this._throwGrenade()
       } else if (e.code === getKeyFor('barricade')) {
         this._deployBarricade()
+      } else if (e.code === getKeyFor('trap')) {
+        this._deployTrap()
       } else if (e.code === getKeyFor('interact')) {
         // Tracked independently of the rest of this branch (which only
         // fires the various one-shot interactions below) so the ammo
@@ -927,6 +964,61 @@ export class Game {
     this.barricades.push({ mesh, box, expiresAt: performance.now() + BARRICADE_LIFETIME_MS })
 
     this._updateInventoryHud()
+  }
+
+  // Unlike a barricade (blocks indefinitely until it expires), a trap is a
+  // one-shot device: the first alive zombie to step within
+  // TRAP_TRIGGER_RADIUS sets it off, dealing falloff AoE damage to
+  // everything within TRAP_BLAST_RADIUS - same falloff-damage shape as
+  // ZombieManager's own explodeAt.
+  _deployTrap() {
+    if (!this.inventory.useTrap()) return
+    this.camera.getWorldDirection(this._camDir)
+    const playerPos = this.player.controls.object.position
+    const x = playerPos.x + this._camDir.x * TRAP_PLACE_DIST
+    const z = playerPos.z + this._camDir.z * TRAP_PLACE_DIST
+
+    const mat = new THREE.MeshStandardMaterial({ color: 0x3a0a0a, emissive: 0xff2a1e, emissiveIntensity: 0.9, roughness: 0.6 })
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.06, 12), mat)
+    mesh.position.set(x, 0.03, z)
+    this.scene.add(mesh)
+
+    this.traps.push({ mesh, x, z, triggered: false, expiresAt: performance.now() + TRAP_LIFETIME_MS })
+    this._updateInventoryHud()
+  }
+
+  _triggerTrap(trap) {
+    trap.triggered = true
+    for (const zombie of this.zombies.zombies) {
+      if (zombie.state !== 'alive') continue
+      const dist = Math.hypot(zombie.group.position.x - trap.x, zombie.group.position.z - trap.z)
+      if (dist <= TRAP_BLAST_RADIUS) {
+        const falloff = 1 - dist / TRAP_BLAST_RADIUS
+        zombie.lastHitWeaponId = 'trap'
+        zombie.onHit(TRAP_DAMAGE_MIN + (TRAP_DAMAGE_MAX - TRAP_DAMAGE_MIN) * falloff)
+      }
+    }
+    this._triggerShake(0.05, 100)
+  }
+
+  _updateTraps() {
+    if (this.traps.length === 0) return
+    const now = performance.now()
+    for (const trap of this.traps) {
+      if (trap.triggered) continue
+      for (const zombie of this.zombies.zombies) {
+        if (zombie.state !== 'alive') continue
+        const dist = Math.hypot(zombie.group.position.x - trap.x, zombie.group.position.z - trap.z)
+        if (dist <= TRAP_TRIGGER_RADIUS) {
+          this._triggerTrap(trap)
+          break
+        }
+      }
+    }
+    for (const trap of this.traps) {
+      if (trap.triggered || now >= trap.expiresAt) this.scene.remove(trap.mesh)
+    }
+    this.traps = this.traps.filter((t) => !t.triggered && now < t.expiresAt)
   }
 
   _updateBarricades() {
@@ -1092,6 +1184,16 @@ export class Game {
       this.settings.mutators.pureGunplay = this.mutatorPureGunplay.checked
       saveSettings(this.settings)
     })
+    this.mutatorBossRush.checked = this.settings.mutators.bossRush
+    this.mutatorBossRush.addEventListener('change', () => {
+      this.settings.mutators.bossRush = this.mutatorBossRush.checked
+      saveSettings(this.settings)
+    })
+    this.mutatorHordeMode.checked = this.settings.mutators.hordeMode
+    this.mutatorHordeMode.addEventListener('change', () => {
+      this.settings.mutators.hordeMode = this.mutatorHordeMode.checked
+      saveSettings(this.settings)
+    })
 
     this.nicknameInput.value = this.settings.nickname
     this._updateCompanionName()
@@ -1203,6 +1305,9 @@ export class Game {
     const pos = this.companion.group.position
     this.companion.dispose()
     this.companion = new Companion(this.scene, pos.x, pos.z, role)
+    // A role swap rebuilds the companion from scratch - reapply any
+    // scrap-bought training so switching roles mid-run doesn't reset it.
+    if (this.companionTrainingLevel > 0) this.companion.applyTraining(this.companionTrainingLevel)
     this._updateCompanionName()
   }
 
@@ -1721,6 +1826,7 @@ export class Game {
     document.getElementById('panel-noisemaker-label').textContent = t('noisemakerLabel')
     document.getElementById('panel-grenade-label').textContent = t('grenadeLabel')
     document.getElementById('panel-barricade-label').textContent = t('barricadeLabel')
+    document.getElementById('panel-trap-label').textContent = t('trapLabel')
     document.getElementById('weapons-title').textContent = t('weaponsTitle')
     document.getElementById('inventory-hint').innerHTML = tHtml('inventoryHint')
 
@@ -1743,6 +1849,8 @@ export class Game {
     document.getElementById('mutator-horde-rush-label').textContent = t('mutatorHordeRush')
     document.getElementById('mutator-loot-rush-label').textContent = t('mutatorLootRush')
     document.getElementById('mutator-pure-gunplay-label').textContent = t('mutatorPureGunplay')
+    document.getElementById('mutator-boss-rush-label').textContent = t('mutatorBossRush')
+    document.getElementById('mutator-horde-mode-label').textContent = t('mutatorHordeMode')
 
     this._updateBestStatsDisplay()
     if (this.inventoryOpen) this._refreshInventoryPanel()
@@ -1765,6 +1873,7 @@ export class Game {
     this.panelNoisemakerCount.textContent = this.inventory.noisemakers
     this.panelGrenadeCount.textContent = this.inventory.grenades
     this.panelBarricadeCount.textContent = this.inventory.barricades
+    this.panelTrapCount.textContent = this.inventory.traps
 
     this.panelWeaponsList.innerHTML = this.weapons
       .getSummary()
@@ -1920,6 +2029,13 @@ export class Game {
     if (!this.bestiaryEncountered.has(zombieTypeId)) {
       this.bestiaryEncountered.add(zombieTypeId)
       saveEncountered(this.bestiaryEncountered)
+      if (this.bestiaryEncountered.size >= Object.keys(ZOMBIE_TYPES).length) {
+        this.achievements.unlock('bestiary_master')
+        if (!this.ownedSkins.has('obsidian')) {
+          this.ownedSkins.add('obsidian')
+          this._showLoreToast(t('obsidianSkinUnlocked'))
+        }
+      }
     }
 
     // Guaranteed boss loot - on top of the normal chance-based ammo drop,
@@ -2066,6 +2182,7 @@ export class Game {
     this.noisemakerCount.textContent = this.inventory.noisemakers
     this.grenadeCount.textContent = this.inventory.grenades
     this.barricadeCount.textContent = this.inventory.barricades
+    this.trapCount.textContent = this.inventory.traps
   }
 
   _updateHealthHud() {
@@ -2140,6 +2257,34 @@ export class Game {
     this.raining = Math.random() < 0.35
     this.rainOverlayEl.style.display = this.raining ? 'block' : 'none'
     this.nextLightningAt = this.raining ? performance.now() + LIGHTNING_MIN_DELAY_MS + Math.random() * LIGHTNING_DELAY_RANGE_MS : 0
+  }
+
+  // Independent of rain - a localized fog bank that rolls in at a random
+  // spot and only thickens visibility while the player is actually inside
+  // it, unlike rain's uniform map-wide reduction.
+  _updateFogPatch() {
+    const now = performance.now()
+    if (this.fogPatch && now >= this.fogPatch.expiresAt) this.fogPatch = null
+
+    if (!this.fogPatch && now >= this.nextFogPatchAt) {
+      const angle = Math.random() * Math.PI * 2
+      const radius = Math.random() * FOG_PATCH_SPAWN_RADIUS
+      this.fogPatch = {
+        x: Math.sin(angle) * radius,
+        z: Math.cos(angle) * radius,
+        expiresAt: now + FOG_PATCH_DURATION_MS,
+      }
+      this.nextFogPatchAt = now + FOG_PATCH_MIN_DELAY_MS + Math.random() * (FOG_PATCH_MAX_DELAY_MS - FOG_PATCH_MIN_DELAY_MS)
+    }
+
+    if (this.fogPatch) {
+      const pos = this.player.controls.object.position
+      const dist = Math.hypot(pos.x - this.fogPatch.x, pos.z - this.fogPatch.z)
+      if (dist <= FOG_PATCH_RADIUS) {
+        this.scene.fog.near *= FOG_PATCH_MULT
+        this.scene.fog.far *= FOG_PATCH_MULT
+      }
+    }
   }
 
   // Rare rain-night flash: a bright screen flash + thunder, and briefly
@@ -2406,6 +2551,7 @@ export class Game {
       this.scene.fog.near *= 0.6
       this.scene.fog.far *= 0.6
     }
+    this._updateFogPatch()
     this._updateFlicker(elapsed)
 
     if (this.driving && this.player.controls.isLocked && this.playerState.alive) {
@@ -2523,6 +2669,7 @@ export class Game {
       this._updateMinimap(playerPos)
       this._updateCompass(playerPos)
       this._updateBarricades()
+      this._updateTraps()
       if (this.raining && this.nextLightningAt > 0 && performance.now() >= this.nextLightningAt) {
         this._triggerLightning()
       }

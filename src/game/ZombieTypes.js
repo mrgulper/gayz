@@ -252,6 +252,27 @@ export const ZOMBIE_TYPES = {
     skinTones: [0x2a0a44, 0x34104f, 0x230838],
     clothesTones: [0x0d0510, 0x120714],
   },
+  // Rare roaming threat, distinct from the night-scheduled bosses above -
+  // see ZombieManager's _maybeSpawnTitan, which rolls a random chance on
+  // its own timer rather than a fixed night number, so it can catch the
+  // player off guard mid-run instead of always being anticipated.
+  titan: {
+    id: 'titan',
+    label: 'Titan',
+    lore: "VIREO stopped documenting after this one. There's only the one entry: DO NOT REPEAT.",
+    weight: 0,
+    health: 1400,
+    speedMin: 1.1,
+    speedMax: 1.3,
+    damageMin: 110,
+    damageMax: 160,
+    scale: 2.9,
+    ranged: false,
+    meleeRange: 3.0,
+    attackCooldown: 1.6,
+    skinTones: [0x2c1a14, 0x33201a, 0x281612],
+    clothesTones: [0x0a0806, 0x0d0a08],
+  },
 }
 
 export function pickZombieType() {

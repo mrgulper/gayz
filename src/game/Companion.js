@@ -23,7 +23,11 @@ export class Companion {
   constructor(scene, x, z, role = 'ranged') {
     this.scene = scene
     this.role = ROLE_STATS[role] ? role : 'ranged'
-    this.stats = ROLE_STATS[this.role]
+    // Cloned rather than the shared preset directly - applyTraining below
+    // mutates this per-instance, and mutating the shared ROLE_STATS object
+    // would leak training bonuses into every future companion/preview.
+    this.stats = { ...ROLE_STATS[this.role] }
+    this.trainingLevel = 0
     this.group = new THREE.Group()
     this.group.position.set(x, 0, z)
     this._buildBody()
@@ -32,6 +36,20 @@ export class Companion {
 
     this.nextFireAt = 0
     this.tracers = []
+  }
+
+  // Scrap-purchased training (see Game.js's "Train Companion" trader item) -
+  // recomputed from the untouched ROLE_STATS preset each time rather than
+  // stacking onto whatever this.stats currently holds, so repeated calls
+  // (e.g. after a role swap rebuilds the companion) stay predictable instead
+  // of compounding.
+  applyTraining(level) {
+    this.trainingLevel = level
+    const base = ROLE_STATS[this.role]
+    const mult = 1 + level * 0.15
+    this.stats.damageMin = base.damageMin * mult
+    this.stats.damageMax = base.damageMax * mult
+    if (base.healAmount) this.stats.healAmount = base.healAmount * mult
   }
 
   // Floating name label above the head - same canvas-texture-sprite trick

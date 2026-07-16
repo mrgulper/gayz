@@ -18,6 +18,7 @@ export const ACHIEVEMENTS = [
   { id: 'weapon_evolved', titleKey: 'achWeaponEvolved' },
   { id: 'elite_hunter', titleKey: 'achEliteHunter' },
   { id: 'road_kill', titleKey: 'achRoadKill' },
+  { id: 'bestiary_master', titleKey: 'achBestiaryMaster' },
 ]
 
 function loadUnlocked() {
