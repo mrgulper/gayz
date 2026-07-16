@@ -82,9 +82,10 @@ function loadSettings() {
       defaultTag: parsed.defaultTag || null,
       companionRole: ['melee', 'medic'].includes(parsed.companionRole) ? parsed.companionRole : 'ranged',
       scoreAttackMode: parsed.scoreAttackMode ?? false,
+      hardcoreMode: parsed.hardcoreMode ?? false,
     }
   } catch {
-    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false }
+    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false }
   }
 }
 
@@ -248,6 +249,7 @@ export class Game {
     this.colorblindToggle = document.getElementById('colorblind-toggle')
     this.nicknameInput = document.getElementById('nickname-input')
     this.scoreAttackToggle = document.getElementById('score-attack-toggle')
+    this.hardcoreToggle = document.getElementById('hardcore-toggle')
     this.controlsGrid = document.getElementById('controls-grid')
     this.resetBindsBtn = document.getElementById('reset-binds-btn')
     this.rebindingAction = null
@@ -454,6 +456,14 @@ export class Game {
     })
 
     this.respawnBtn.addEventListener('click', () => {
+      // Hardcore: one life. A full page reload cleanly wipes all in-session
+      // state (scrap, inventory, kills...) while keeping everything that's
+      // meant to be permanent (settings, achievements, legacy scrap,
+      // bestiary, best stats), since those all live in localStorage anyway.
+      if (this.settings.hardcoreMode) {
+        window.location.reload()
+        return
+      }
       this.playerState.respawn()
       this.lowHealthBarked = false
       this.player.resetPosition()
@@ -699,6 +709,12 @@ export class Game {
     this.scoreAttackToggle.addEventListener('change', () => {
       this.settings.scoreAttackMode = this.scoreAttackToggle.checked
       this.nightDurationMs = this.settings.scoreAttackMode ? SCORE_ATTACK_NIGHT_DURATION_MS : NIGHT_DURATION_MS
+      saveSettings(this.settings)
+    })
+
+    this.hardcoreToggle.checked = this.settings.hardcoreMode
+    this.hardcoreToggle.addEventListener('change', () => {
+      this.settings.hardcoreMode = this.hardcoreToggle.checked
       saveSettings(this.settings)
     })
 
@@ -1152,6 +1168,7 @@ export class Game {
     const roleLabelKeys = { ranged: 'roleRanged', melee: 'roleMelee', medic: 'roleMedic' }
     for (const btn of this.roleBtns) btn.textContent = t(roleLabelKeys[btn.dataset.role])
     document.getElementById('score-attack-label').textContent = t('scoreAttackLabel')
+    document.getElementById('hardcore-label').textContent = t('hardcoreLabel')
 
     this._updateBestStatsDisplay()
     if (this.inventoryOpen) this._refreshInventoryPanel()
@@ -1301,6 +1318,8 @@ export class Game {
     } else {
       this.deathScoreAttack.style.display = 'none'
     }
+
+    this.respawnBtn.textContent = this.settings.hardcoreMode ? t('newAttemptBtn') : t('respawnBtn')
 
     this.deathScreen.style.display = 'flex'
   }

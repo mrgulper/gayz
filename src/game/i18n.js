@@ -110,6 +110,8 @@ const STRINGS = {
     roleMedic: 'Medic Support',
     scoreAttackLabel: 'Score Attack Mode',
     scoreAttackResult: 'Score: {score} (Best: {best})',
+    hardcoreLabel: 'Hardcore Mode (no respawn)',
+    newAttemptBtn: 'New Attempt',
     toastBatteryAdded: 'Battery collected',
     noisemakerLabel: 'Noisemaker',
     toastNoisemakerAdded: 'Noisemaker collected',
