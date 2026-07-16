@@ -269,20 +269,48 @@ function buildMacheteModel() {
   return g
 }
 
-// All three melee variants are pre-built inside one group, toggling
-// visibility instead of adding new weapon slots/keys - see
-// WeaponSystem.setMeleeVariant().
+function buildUvBatonModel() {
+  const g = new THREE.Group()
+  const shaftMat = new THREE.MeshStandardMaterial({ color: 0x2b2b2d, roughness: 0.5, metalness: 0.5 })
+
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.3, 10), shaftMat)
+  shaft.rotation.x = Math.PI / 2
+  shaft.position.set(0, 0, -0.14)
+  g.add(shaft)
+
+  const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.12, 10), UV_LENS)
+  tip.rotation.x = Math.PI / 2
+  tip.position.set(0, 0, -0.32)
+  g.add(tip)
+
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.16, 8), GRIP)
+  handle.rotation.x = Math.PI / 2
+  handle.position.set(0, 0, 0.06)
+  g.add(handle)
+
+  const batonHand = buildHand()
+  batonHand.position.copy(handle.position)
+  batonHand.rotation.x = Math.PI / 2
+  g.add(batonHand)
+
+  return g
+}
+
+// All melee variants are pre-built inside one group, toggling visibility
+// instead of adding new weapon slots/keys - see WeaponSystem.setMeleeVariant().
 function buildMelee() {
   const g = new THREE.Group()
 
   const knife = buildKnifeModel()
   const bat = buildBatModel()
   const machete = buildMacheteModel()
+  const uvbaton = buildUvBatonModel()
   bat.visible = false
   machete.visible = false
+  uvbaton.visible = false
 
-  g.add(knife, bat, machete)
-  g.userData.meleeVariants = { knife, bat, machete }
+  g.add(knife, bat, machete, uvbaton)
+  g.userData.meleeVariants = { knife, bat, machete, uvbaton }
 
   return g
 }

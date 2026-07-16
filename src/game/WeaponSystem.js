@@ -74,6 +74,7 @@ const MELEE_VARIANTS = {
   knife: { name: 'Knife', damage: 45, fireInterval: 0.45, range: 2.4 },
   bat: { name: 'Bat', damage: 75, fireInterval: 0.7, range: 2.2 },
   machete: { name: 'Machete', damage: 58, fireInterval: 0.3, range: 2.6 },
+  uvbaton: { name: 'UV Baton', damage: 0, fireInterval: 0.5, range: 2.3 },
 }
 
 export class WeaponSystem {
@@ -379,7 +380,7 @@ export class WeaponSystem {
 
     for (const zombie of hitZombies) {
       zombie.lastHitWeaponId = w.id
-      if (w.id === 'uvlamp') {
+      if (w.id === 'uvlamp' || (w.id === 'melee' && this.meleeVariant === 'uvbaton')) {
         zombie.weaken(1500)
       } else {
         zombie.onHit(w.damage)

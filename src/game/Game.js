@@ -40,6 +40,7 @@ const PICKUP_LABELS = {
   extended_mag: () => t('toastMagAdded'),
   melee_bat: () => t('toastBatAdded'),
   melee_machete: () => t('toastMacheteAdded'),
+  melee_uvbaton: () => t('toastUvBatonAdded'),
 }
 
 const DIFFICULTY_PRESETS = {
@@ -1054,6 +1055,7 @@ export class Game {
     else if (type === 'fuelcan') this.inventory.addFuelCan(count || 1)
     else if (type === 'melee_bat') this.weapons.setMeleeVariant('bat')
     else if (type === 'melee_machete') this.weapons.setMeleeVariant('machete')
+    else if (type === 'melee_uvbaton') this.weapons.setMeleeVariant('uvbaton')
     else if (type.startsWith('audiolog')) {
       audioEngine.playAudioLog()
       this._showLoreToast(t(`lore${type.charAt(0).toUpperCase()}${type.slice(1)}`))

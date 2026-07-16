@@ -17,6 +17,7 @@ const TYPES = {
   grenade: { weight: 1.5, label: 'Grenade' },
   melee_bat: { weight: 0.6, label: 'Bat' },
   melee_machete: { weight: 0.6, label: 'Machete' },
+  melee_uvbaton: { weight: 0.4, label: 'UV Baton' },
   // weight 0: never drawn by the street-slot weighted pool, only ever placed
   // via spawnUnique() as one-off fixed-location pickups.
   minigun: { weight: 0, label: 'Minigun' },
@@ -96,6 +97,16 @@ function buildVisual(type) {
     grip.rotation.z = Math.PI / 2
     grip.position.set(0, 0, 0.26)
     group.add(grip)
+  } else if (type === 'melee_uvbaton') {
+    const shaftMat = new THREE.MeshStandardMaterial({ color: 0x2b2b2d, roughness: 0.5, metalness: 0.5 })
+    const tipMat = new THREE.MeshStandardMaterial({ color: 0x2a0a44, emissive: 0x8b2fe0, emissiveIntensity: 2.0 })
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.34, 10), shaftMat)
+    shaft.rotation.z = Math.PI / 2
+    group.add(shaft)
+    const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.14, 10), tipMat)
+    tip.rotation.z = Math.PI / 2
+    tip.position.set(0.24, 0, 0)
+    group.add(tip)
   } else if (type === 'scope') {
     const tubeMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1a, roughness: 0.3, metalness: 0.7 })
     const lensMat = new THREE.MeshStandardMaterial({ color: 0x2a5a6b, emissive: 0x4fd1e8, emissiveIntensity: 0.8 })

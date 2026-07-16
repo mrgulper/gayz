@@ -1007,19 +1007,6 @@ html, body {
   box-shadow: inset 0 0 160px 60px rgba(0, 0, 0, 0.75);
 }
 
-.ff-scanlines {
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    rgba(0, 0, 0, 0.18) 0px,
-    rgba(0, 0, 0, 0.18) 1px,
-    transparent 1px,
-    transparent 3px
-  );
-  mix-blend-mode: multiply;
-}
-
 .ff-grain {
   position: absolute;
   inset: -50%;
