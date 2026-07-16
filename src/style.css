@@ -781,7 +781,13 @@ html, body {
   line-height: 1.35;
 }
 
+.perk-panel-buttons {
+  display: flex;
+  gap: 10px;
+}
+
 #perk-skip-btn,
+#perk-reroll-btn,
 #upgrades-close-btn,
 #achievements-close-btn,
 #bestiary-close-btn {
@@ -797,7 +803,13 @@ html, body {
   cursor: pointer;
 }
 
+#perk-reroll-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 #perk-skip-btn:hover,
+#perk-reroll-btn:hover:not(:disabled),
 #upgrades-close-btn:hover,
 #achievements-close-btn:hover,
 #bestiary-close-btn:hover {

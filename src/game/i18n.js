@@ -154,6 +154,7 @@ const STRINGS = {
     toastFuelCanAdded: 'Fuel Can collected',
     perkPanelTitle: 'Choose a Perk',
     perkSkip: 'Skip',
+    perkRerollLabel: 'Reroll ({n} Scrap)',
     scrapStatLabel: 'Scrap',
     scrapLabel: '{n} Scrap available',
     perkCostLabel: '{n} Scrap',

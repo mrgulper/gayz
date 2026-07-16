@@ -147,6 +147,7 @@ const LIGHT_LURE_INTERVAL_MS = 2000
 const LIGHT_LURE_ENRAGE_MS = 2500
 const VEHICLE_INTERACT_RADIUS = 3
 const VIREO_TERMINAL_RADIUS = 2.5
+const PERK_REROLL_COST = 15
 const RESCUE_INTERACT_RADIUS = 2.5
 const RESCUE_SCRAP_REWARD = 25
 
@@ -343,6 +344,7 @@ export class Game {
     this.perkScrapLine = document.getElementById('perk-scrap-line')
     this.perkOptions = document.getElementById('perk-options')
     this.perkSkipBtn = document.getElementById('perk-skip-btn')
+    this.perkRerollBtn = document.getElementById('perk-reroll-btn')
     this.traderPanel = document.getElementById('trader-panel')
     this.traderPanelTitle = document.getElementById('trader-panel-title')
     this.traderScrapLine = document.getElementById('trader-scrap-line')
@@ -395,6 +397,12 @@ export class Game {
     this._bindCompanionRole()
     this._bindControlsTab()
     this.perkSkipBtn.addEventListener('click', () => this._closePerkPanel())
+    this.perkRerollBtn.addEventListener('click', () => {
+      if (this.scrap < PERK_REROLL_COST) return
+      this.scrap -= PERK_REROLL_COST
+      this._updateStatsPanel()
+      this._renderPerkOptions(rollPerks(3))
+    })
     this._applyLanguage()
     this._updateHealthHud()
     this._updateInventoryHud()
@@ -842,6 +850,8 @@ export class Game {
 
   _renderPerkOptions(perks) {
     this.perkScrapLine.textContent = t('scrapLabel', { n: this.scrap })
+    this.perkRerollBtn.textContent = t('perkRerollLabel', { n: PERK_REROLL_COST })
+    this.perkRerollBtn.disabled = this.scrap < PERK_REROLL_COST
     this.perkOptions.innerHTML = ''
     for (const perk of perks) {
       const btn = document.createElement('button')
