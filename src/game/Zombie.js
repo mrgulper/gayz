@@ -12,6 +12,8 @@ const AMBUSH_MAX_WAIT_MS = 14000
 const AMBUSH_POP_MS = 220
 const AMBUSH_BURST_MS = 1900
 const AMBUSH_BURST_SPEED_MULT = 2.3
+const DEFAULT_ENRAGE_MULT = 1.4
+const DEFAULT_WEAKEN_MULT = 0.55
 
 let zombieIdCounter = 0
 
@@ -61,6 +63,7 @@ export class Zombie {
     this.screamCooldownUntil = performance.now() + (typeConfig.screams ? Math.random() * typeConfig.screamCooldown * 1000 : 0)
     this.screamPulseUntil = 0
     this.enragedUntil = 0
+    this.weakenedUntil = 0
 
     this.group = new THREE.Group()
     this.group.position.set(x, 0, z)
@@ -496,8 +499,9 @@ export class Zombie {
     const nz = dist > 0.0001 ? dz / dist : 1
 
     const burstMult = performance.now() < this.burstUntil ? AMBUSH_BURST_SPEED_MULT : 1
-    const enrageMult = performance.now() < this.enragedUntil ? this.config.screamEnrageMult : 1
-    this.effectiveSpeed = this.speed * Math.max(burstMult, enrageMult)
+    const enrageMult = performance.now() < this.enragedUntil ? (this.config.screamEnrageMult ?? DEFAULT_ENRAGE_MULT) : 1
+    const weakenMult = performance.now() < this.weakenedUntil ? DEFAULT_WEAKEN_MULT : 1
+    this.effectiveSpeed = this.speed * Math.max(burstMult, enrageMult) * weakenMult
 
     if (!staggered) {
       if (this.config.ranged) this._updateRanged(dt, dist, nx, nz, playerPos, onSpit)
@@ -527,6 +531,13 @@ export class Zombie {
     this.enragedUntil = Math.max(this.enragedUntil, performance.now() + durationMs)
   }
 
+  // UV weapon effect: slows movement (see effectiveSpeed above) and softens
+  // its own damage output while lit.
+  weaken(durationMs) {
+    if (this.state !== 'alive') return
+    this.weakenedUntil = Math.max(this.weakenedUntil, performance.now() + durationMs)
+  }
+
   _updateMelee(dt, dist, nx, nz, onAttack) {
     if (dist > this.config.meleeRange) {
       this.group.position.x += nx * this.effectiveSpeed * dt
@@ -535,7 +546,8 @@ export class Zombie {
     } else if (performance.now() >= this.attackCooldownUntil) {
       this.attackCooldownUntil = performance.now() + this.config.attackCooldown * 1000
       this.attackAnimUntil = performance.now() + 260
-      const damage = this.config.damageMin + Math.random() * (this.config.damageMax - this.config.damageMin)
+      const weakened = performance.now() < this.weakenedUntil
+      const damage = (this.config.damageMin + Math.random() * (this.config.damageMax - this.config.damageMin)) * (weakened ? DEFAULT_WEAKEN_MULT : 1)
       if (onAttack) onAttack(damage)
     }
   }
@@ -579,7 +591,8 @@ export class Zombie {
     } else if (performance.now() >= this.attackCooldownUntil) {
       this.attackCooldownUntil = performance.now() + this.config.spitCooldown * 1000
       this.attackAnimUntil = performance.now() + 300
-      const damage = this.config.damageMin + Math.random() * (this.config.damageMax - this.config.damageMin)
+      const weakened = performance.now() < this.weakenedUntil
+      const damage = (this.config.damageMin + Math.random() * (this.config.damageMax - this.config.damageMin)) * (weakened ? DEFAULT_WEAKEN_MULT : 1)
       if (onSpit) {
         const origin = this.group.position.clone()
         origin.y += 1.3 * this.config.scale
@@ -590,6 +603,14 @@ export class Zombie {
 
   _animate(elapsed) {
     const t = elapsed * this.effectiveSpeed * 2.2 + this.phase
+
+    // UV weapon tell: eyes wash violet while weakened, so the effect reads
+    // clearly instead of only being felt through slower movement/damage.
+    const weak = performance.now() < this.weakenedUntil
+    for (const mat of this.eyeMaterials) {
+      mat.emissive.setHex(weak ? 0x8b2fe0 : 0xd8e8ff)
+      mat.emissiveIntensity = weak ? 2.2 : 1.5
+    }
 
     if (this.config.crawler) {
       const pull = Math.sin(t) * 0.9
