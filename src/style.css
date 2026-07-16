@@ -523,6 +523,31 @@ html, body {
   100% { opacity: 0; transform: translate(-50%, -6px); }
 }
 
+#companion-bark {
+  position: absolute;
+  bottom: 175px;
+  left: 50%;
+  transform: translate(-50%, 0);
+  max-width: min(420px, 80vw);
+  text-align: center;
+  font-size: 13px;
+  color: #5be3ff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  opacity: 0;
+  pointer-events: none;
+}
+
+#companion-bark.show {
+  animation: companionBark 3.2s ease-out;
+}
+
+@keyframes companionBark {
+  0% { opacity: 0; transform: translate(-50%, 8px); }
+  12% { opacity: 1; transform: translate(-50%, 0); }
+  80% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, -6px); }
+}
+
 @keyframes toast {
   0% { opacity: 0; transform: translate(-50%, 8px); }
   15% { opacity: 1; transform: translate(-50%, 0); }

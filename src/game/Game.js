@@ -21,6 +21,14 @@ import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
 import { setColorblind } from './Accessibility.js'
 
+// Companion flavor barks - plain English rather than full i18n, since these
+// are throwaway personality lines, not core UI text.
+const COMPANION_BARKS = {
+  lowHealth: ["You're bleeding out, use a health pack!", 'Stay with me!', "That doesn't look good.", 'Heal up, now!'],
+  killStreak: ['Nice shooting!', "You're on fire tonight!", 'Keep it up!', 'Not bad.'],
+  nightStart: ['Stay sharp out there.', 'Here we go again.', 'Eyes open.', "Let's not die tonight."],
+}
+
 const PICKUP_LABELS = {
   health: (label, isLoot, count = 1) =>
     count > 1 ? t('toastHealthAddedCount', { count }) : t('toastHealthAdded'),
@@ -271,6 +279,8 @@ export class Game {
     this.achievementTitle = document.getElementById('achievement-title')
     this.achievementToast = document.getElementById('achievement-toast')
     this.loreToast = document.getElementById('lore-toast')
+    this.companionBarkEl = document.getElementById('companion-bark')
+    this.lowHealthBarked = false
     this.statsScrap = document.getElementById('stats-scrap')
     this.perkPanel = document.getElementById('perk-panel')
     this.perkPanelTitle = document.getElementById('perk-panel-title')
@@ -366,6 +376,7 @@ export class Game {
 
     this.respawnBtn.addEventListener('click', () => {
       this.playerState.respawn()
+      this.lowHealthBarked = false
       this.player.resetPosition()
       this.zombies.reset()
       this.chests.reset()
@@ -972,6 +983,7 @@ export class Game {
   _onZombieKilled(zombieTypeId, weaponId) {
     this.kills += 1
     this.totalKills += 1
+    if (this.kills % 10 === 0) this._companionBark('killStreak')
     this.achievements.unlock('first_blood')
     if (this.totalKills >= 100) this.achievements.unlock('centurion')
     if (zombieTypeId === 'brute' && weaponId === 'melee') this.achievements.unlock('brute_knife')
@@ -998,6 +1010,15 @@ export class Game {
     this.loreToast.classList.remove('show')
     void this.loreToast.offsetWidth
     this.loreToast.classList.add('show')
+  }
+
+  _companionBark(pool) {
+    const lines = COMPANION_BARKS[pool]
+    const line = lines[Math.floor(Math.random() * lines.length)]
+    this.companionBarkEl.textContent = line
+    this.companionBarkEl.classList.remove('show')
+    void this.companionBarkEl.offsetWidth
+    this.companionBarkEl.classList.add('show')
   }
 
   _onPlayerDeath() {
@@ -1087,6 +1108,14 @@ export class Game {
     this.armorValue.textContent = Math.round(s.armor)
     this.damageFlash.classList.toggle('low-health', s.health > 0 && s.health < 30)
     this.infectionIndicator.style.display = s.infected ? 'flex' : 'none'
+
+    const healthFraction = s.health / s.maxHealth
+    if (healthFraction < 0.25 && !this.lowHealthBarked) {
+      this.lowHealthBarked = true
+      this._companionBark('lowHealth')
+    } else if (healthFraction > 0.4) {
+      this.lowHealthBarked = false
+    }
   }
 
   _updateProgressHud() {
@@ -1270,6 +1299,7 @@ export class Game {
         this._rollWeather()
         this.zombies.applyDifficulty(this.night)
         this._showNightBanner()
+        this._companionBark('nightStart')
         if (this.night >= 5) this.achievements.unlock('survivor_5')
         if (this.night >= 10) this.achievements.unlock('survivor_10')
         this._openPerkPanel()
