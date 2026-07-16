@@ -1119,3 +1119,16 @@ html, body {
   0% { transform: translate(0, -4%); }
   100% { transform: translate(-2%, 4%); }
 }
+
+#nightmare-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(140, 0, 0, 0) 35%, rgba(140, 0, 0, 0.28) 100%);
+  mix-blend-mode: multiply;
+  animation: nightmare-pulse 3.5s ease-in-out infinite;
+}
+
+@keyframes nightmare-pulse {
+  0%, 100% { opacity: 0.75; }
+  50% { opacity: 1; }
+}

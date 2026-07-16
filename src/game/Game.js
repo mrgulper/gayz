@@ -193,6 +193,7 @@ export class Game {
     this.interactPrompt = document.getElementById('interact-prompt')
     this.ffTimestampEl = document.getElementById('ff-timestamp')
     this.rainOverlayEl = document.getElementById('rain-overlay')
+    this.nightmareOverlayEl = document.getElementById('nightmare-overlay')
     this.infectionIndicator = document.getElementById('infection-indicator')
     this.statsPanel = document.getElementById('stats-panel')
     this.phaseRow = document.getElementById('phase-row')
@@ -698,6 +699,7 @@ export class Game {
   }
 
   _bindDifficulty() {
+    this._updateNightmareOverlay()
     for (const btn of this.difficultyBtns) {
       btn.classList.toggle('active', btn.dataset.difficulty === this.settings.difficulty)
       btn.addEventListener('click', () => {
@@ -708,8 +710,15 @@ export class Game {
         this.difficulty = DIFFICULTY_PRESETS[id]
         this.zombies.setDifficultyMultiplier(this.difficulty.spawnRateMult)
         for (const b of this.difficultyBtns) b.classList.toggle('active', b === btn)
+        this._updateNightmareOverlay()
       })
     }
+  }
+
+  // Nightmare (unlocked by the true ending) gets a harsher red tint so it's
+  // visually distinct, not just numerically harder.
+  _updateNightmareOverlay() {
+    this.nightmareOverlayEl.style.display = this.settings.difficulty === 'nightmare' ? 'block' : 'none'
   }
 
   _bindCompanionRole() {
