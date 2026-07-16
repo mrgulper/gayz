@@ -178,6 +178,19 @@ export class ZombieManager {
     for (let i = 0; i < count; i++) this._spawnRandom()
   }
 
+  // Shared explosion-damage logic - used by both thrown grenades and shot
+  // explosive world props (parked cars, see WeaponSystem._fire).
+  explodeAt(x, z, radius, damageMin, damageMax) {
+    this._spawnExplosionFX(x, z)
+    for (const zombie of this.zombies) {
+      if (zombie.state !== 'alive') continue
+      const dist = Math.hypot(zombie.group.position.x - x, zombie.group.position.z - z)
+      if (dist > radius) continue
+      const falloff = 1 - dist / radius
+      zombie.onHit(damageMin + (damageMax - damageMin) * falloff)
+    }
+  }
+
   get hittableMeshes() {
     return this.zombies
       .filter((z) => z.state === 'alive')

@@ -5,6 +5,9 @@ import { t, onLanguageChange } from './i18n.js'
 import { getKeyFor } from './Keybinds.js'
 
 const VIEWMODEL_BASE = new THREE.Vector3(0.26, -0.22, -0.5)
+const EXPLOSIVE_PROP_RADIUS = 5
+const EXPLOSIVE_PROP_DAMAGE_MIN = 70
+const EXPLOSIVE_PROP_DAMAGE_MAX = 160
 const VIEWMODEL_ADS = new THREE.Vector3(0.02, -0.1, -0.32)
 const ADS_LERP_SPEED = 9
 
@@ -380,6 +383,14 @@ export class WeaponSystem {
       const hit = hits[0]
       const zombieHit = hit.object.userData.zombie
       if (zombieHit) hitZombies.add(zombieHit)
+
+      const explosive = hit.object.userData.explosive
+      if (explosive && !explosive.exploded) {
+        explosive.exploded = true
+        explosive.mat.color.setHex(0x0a0a0a)
+        explosive.mat.emissive?.setHex(0x1a0a00)
+        if (this.zombieManager) this.zombieManager.explodeAt(explosive.x, explosive.z, EXPLOSIVE_PROP_RADIUS, EXPLOSIVE_PROP_DAMAGE_MIN, EXPLOSIVE_PROP_DAMAGE_MAX)
+      }
 
       if (this.onHitSurface) {
         if (hit.face) {

@@ -666,6 +666,13 @@ function scatterCars(scene, colliders, solidMeshes) {
     cabin.castShadow = true
     group.add(cabin)
 
+    // Shootable explosive hazard - shared mutable state object so marking it
+    // exploded via either mesh (whichever the raycast actually hits) is
+    // reflected on both. See WeaponSystem._fire's explosive-prop check.
+    const explosiveState = { exploded: false, x: c.x, z: c.z, mat: bodyMat }
+    body.userData.explosive = explosiveState
+    cabin.userData.explosive = explosiveState
+
     const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 })
     for (const [wx, wz] of [[-0.9, 1.3], [0.9, 1.3], [-0.9, -1.3], [0.9, -1.3]]) {
       const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.3, 10), wheelMat)
