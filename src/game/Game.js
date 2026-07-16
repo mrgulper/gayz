@@ -55,6 +55,9 @@ const DIFFICULTY_PRESETS = {
   easy: { damageMult: 0.7, spawnRateMult: 0.75 },
   normal: { damageMult: 1, spawnRateMult: 1 },
   hard: { damageMult: 1.4, spawnRateMult: 1.3 },
+  // Unlocked by the "Ground Truth" (true_ending) achievement - see the
+  // diff-nightmare visibility toggle right after Achievements loads.
+  nightmare: { damageMult: 1.8, spawnRateMult: 1.6 },
 }
 
 const SETTINGS_STORAGE_KEY = 'gayz-settings'
@@ -274,6 +277,9 @@ export class Game {
     this.metaProgress = loadMetaProgress()
     this._applyMetaUpgrades()
     this.achievements = new Achievements((def) => this._showAchievementToast(def))
+    if (this.achievements.unlocked.has('true_ending')) {
+      document.getElementById('diff-nightmare').style.display = ''
+    }
     this.killCountsByWeapon = {}
     this.achievementLabel = document.getElementById('achievement-label')
     this.achievementTitle = document.getElementById('achievement-title')
@@ -477,6 +483,7 @@ export class Game {
         } else if (this.nearVireoTerminal) {
           this._showLoreToast(t('loreVireoTerminal'))
           this.achievements.unlock('true_ending')
+          document.getElementById('diff-nightmare').style.display = ''
         } else {
           const loot = this.chests.tryInteract()
           if (loot) {
@@ -924,6 +931,7 @@ export class Game {
     document.getElementById('diff-easy').textContent = t('difficultyEasy')
     document.getElementById('diff-normal').textContent = t('difficultyNormal')
     document.getElementById('diff-hard').textContent = t('difficultyHard')
+    document.getElementById('diff-nightmare').textContent = t('difficultyNightmare')
 
     document.getElementById('role-ranged').textContent = t('roleRanged')
     document.getElementById('role-melee').textContent = t('roleMelee')

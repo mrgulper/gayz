@@ -91,6 +91,7 @@ const STRINGS = {
     difficultyEasy: 'Easy',
     difficultyNormal: 'Normal',
     difficultyHard: 'Hard',
+    difficultyNightmare: 'Nightmare',
     roleRanged: 'Ranged Support',
     roleMelee: 'Melee Bruiser',
     toastBatteryAdded: 'Battery collected',
