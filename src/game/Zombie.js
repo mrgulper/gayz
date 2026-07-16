@@ -15,6 +15,15 @@ const AMBUSH_BURST_SPEED_MULT = 2.3
 const DEFAULT_ENRAGE_MULT = 1.4
 const DEFAULT_WEAKEN_MULT = 0.55
 
+// Zombies always stand at group.position.y = 0 (see the constructor) and
+// playerPos is the camera/eye position, which sits ~1.7 above the player's
+// feet on ordinary flat ground (PlayerController's EYE_HEIGHT) - that gap
+// is normal and must not count against melee reach. Only elevation *beyond*
+// that (standing on a car roof, a ledge, etc.) should push the player out
+// of a melee zombie's reach, so it stops trying to attack through the
+// object it's standing under instead of freezing there uselessly.
+const TYPICAL_EYE_HEIGHT = 1.7
+
 let zombieIdCounter = 0
 
 function jitterGeometry(geometry, amount) {
@@ -518,10 +527,17 @@ export class Zombie {
     const weakenMult = performance.now() < this.weakenedUntil ? DEFAULT_WEAKEN_MULT : 1
     this.effectiveSpeed = this.speed * Math.max(burstMult, enrageMult) * weakenMult
 
+    // Excess elevation beyond a normal standing eye height (e.g. the player
+    // is up on a car roof) - added into the melee engagement check below
+    // so a zombie stuck at the base can't melee through it. Ranged/exploder
+    // attacks are unaffected: a spitter lobbing a projectile or a bloater's
+    // blast radius reaching upward are both reasonable as-is.
+    const excessElevation = Math.max(0, playerPos.y - TYPICAL_EYE_HEIGHT - this.group.position.y)
+
     if (!staggered) {
       if (this.config.ranged) this._updateRanged(dt, dist, nx, nz, playerPos, onSpit)
       else if (this.config.explodes) this._updateExploder(dt, dist, nx, nz, playerPos, onAttack, onExplode)
-      else this._updateMelee(dt, dist, nx, nz, onAttack)
+      else this._updateMelee(dt, Math.hypot(dist, excessElevation), nx, nz, onAttack)
 
       if (this.config.screams && onScream && performance.now() >= this.screamCooldownUntil) {
         this.screamCooldownUntil = performance.now() + this.config.screamCooldown * 1000

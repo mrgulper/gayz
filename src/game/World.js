@@ -66,7 +66,18 @@ export function buildWorld(scene) {
 
   // Registers a mesh/group as both a movement collider (AABB) and a
   // raycast-solid target (for bullets), keeping the two lists in sync.
+  //
+  // updateWorldMatrix(true, false) forces this object's ancestors to
+  // recompute their world matrices before we read them. Box3.setFromObject
+  // calls updateWorldMatrix(false, false) internally - it deliberately does
+  // NOT walk up to parents - so registering a child of a group that was
+  // just positioned (e.g. the generator body, the trader stall counter)
+  // without this would read the group's still-default (identity, i.e.
+  // world-origin) transform instead of its real position, producing a
+  // phantom collider sitting at (0,0,0) regardless of where the group
+  // actually is. See https://threejs.org/docs/#api/en/core/Object3D.updateWorldMatrix.
   const register = (object) => {
+    object.updateWorldMatrix(true, false)
     colliders.push(new THREE.Box3().setFromObject(object))
     solidMeshes.push(object)
   }
@@ -213,6 +224,10 @@ function buildPark(scene, colliders, solidMeshes) {
 
     scene.add(tree)
     solidMeshes.push(trunk)
+    // See buildWorld's register() for why this updateWorldMatrix call is
+    // required: trunk is a child of the just-positioned tree group, and
+    // Box3.setFromObject alone won't pick up the parent's transform yet.
+    trunk.updateWorldMatrix(true, false)
     const box = new THREE.Box3().setFromObject(trunk)
     colliders.push(box)
   }
@@ -239,6 +254,9 @@ function buildPark(scene, colliders, solidMeshes) {
 
     scene.add(bench)
     solidMeshes.push(seat)
+    // Same fix as the tree trunk above - seat is a child of the positioned
+    // bench group.
+    seat.updateWorldMatrix(true, false)
     colliders.push(new THREE.Box3().setFromObject(seat))
   }
 
