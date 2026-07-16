@@ -18,6 +18,7 @@ export const ACTIONS = [
   { id: 'noisemaker', defaultKey: 'KeyV', labelKey: 'actionNoisemaker' },
   { id: 'grenade', defaultKey: 'KeyB', labelKey: 'actionGrenade' },
   { id: 'screenshot', defaultKey: 'KeyP', labelKey: 'actionScreenshot' },
+  { id: 'toggleView', defaultKey: 'KeyX', labelKey: 'actionToggleView' },
 ]
 
 function defaultBindings() {

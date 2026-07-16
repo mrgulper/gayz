@@ -18,6 +18,7 @@ import { Achievements, ACHIEVEMENTS } from './Achievements.js'
 import { rollPerks } from './Perks.js'
 import { pickNightEvent } from './NightEvents.js'
 import { Companion } from './Companion.js'
+import { PlayerBody } from './PlayerBody.js'
 import { Vehicle } from './Vehicle.js'
 import { META_UPGRADES, loadMetaProgress, saveMetaProgress, DEATH_SCRAP_CONVERSION } from './MetaProgress.js'
 import { pickBounty } from './BountyBoard.js'
@@ -319,13 +320,27 @@ export class Game {
     this.scene = new THREE.Scene()
     this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200)
 
+    // Third-person view: this.camera stays the actual PointerLockControls
+    // target (everything in the codebase reads its position as "the
+    // player"), so a second, separate camera renders from an offset behind
+    // it instead - see _updateThirdPerson. Not added to the scene graph;
+    // its transform is copied fresh every frame.
+    this.thirdPerson = false
+    this.tpCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200)
+    this._tpOffsetLocal = new THREE.Vector3(0, 1.1, 3.0)
+    this._tpDesiredPos = new THREE.Vector3()
+    this._tpYawQuat = new THREE.Quaternion()
+    this._tpRayDir = new THREE.Vector3()
+    this._tpRaycaster = new THREE.Raycaster()
+
     // Post-processing: render pass -> bloom (makes practical lights - street
     // lamps, muzzle flash, headlights, neon signage - actually glow instead
     // of just being bright flat shapes) -> output pass (applies the tone
     // mapping/color space conversion above, required as the final pass when
     // using a composer instead of the renderer's direct render() call).
     this.composer = new EffectComposer(this.renderer)
-    this.composer.addPass(new RenderPass(this.scene, this.camera))
+    this.renderPass = new RenderPass(this.scene, this.camera)
+    this.composer.addPass(this.renderPass)
     this.bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.55, 0.4, 0.82)
     this.composer.addPass(this.bloomPass)
     this.composer.addPass(new OutputPass())
@@ -360,6 +375,7 @@ export class Game {
 
     this.zombies = new ZombieManager(this.scene, this.difficulty.spawnRateMult, colliders, solidMeshes)
     this.companion = new Companion(this.scene, 1.6, 7, this.settings.companionRole)
+    this.playerBody = new PlayerBody(this.scene)
     this.vehicle = new Vehicle(this.scene, -6, -18, 0)
     this.driving = false
     this.nearVehicle = false
@@ -638,6 +654,9 @@ export class Game {
         }
       } else if (e.code === getKeyFor('screenshot')) {
         this._takeScreenshot()
+      } else if (e.code === getKeyFor('toggleView')) {
+        this.thirdPerson = !this.thirdPerson
+        this.weapons.viewmodelRoot.visible = !this.thirdPerson
       }
     })
 
@@ -1151,6 +1170,12 @@ export class Game {
   _enterVehicle() {
     this.driving = true
     this.vehicle.occupied = true
+    // Third-person doesn't track the vehicle seat (_updateThirdPerson only
+    // runs in the on-foot branch of the tick loop) - force back to first
+    // person so the render camera doesn't freeze wherever it last was.
+    this.thirdPerson = false
+    this.renderPass.camera = this.camera
+    this.playerBody.update(0, 0, 0, 0, false)
     this.weapons.viewmodelRoot.visible = false
     this.crosshair.style.display = 'none'
     this.hudEl.style.display = 'none'
@@ -1270,9 +1295,54 @@ export class Game {
   _onResize() {
     this.camera.aspect = window.innerWidth / window.innerHeight
     this.camera.updateProjectionMatrix()
+    this.tpCamera.aspect = window.innerWidth / window.innerHeight
+    this.tpCamera.updateProjectionMatrix()
     this.renderer.setSize(window.innerWidth, window.innerHeight)
     this.composer.setSize(window.innerWidth, window.innerHeight)
     this.bloomPass.resolution.set(window.innerWidth, window.innerHeight)
+  }
+
+  // Positions the third-person camera behind+above the player rig (this.
+  // camera, which PointerLockControls still owns and every other system
+  // still reads as "the player") and points the visible player body model
+  // at the same spot. The offset is built from yaw alone (not pitch) so the
+  // camera doesn't dip into the ground/fly up when aiming up/down - only
+  // the final look direction (copied separately) uses full pitch.
+  _updateThirdPerson() {
+    const eyeHeight = this.player.eyeHeight
+    const feetX = this.camera.position.x
+    const feetY = this.camera.position.y - eyeHeight
+    const feetZ = this.camera.position.z
+
+    if (!this.thirdPerson) {
+      this.playerBody.update(feetX, feetY, feetZ, 0, false)
+      this.renderPass.camera = this.camera
+      return
+    }
+
+    const yaw = new THREE.Euler().setFromQuaternion(this.camera.quaternion, 'YXZ').y
+    this.playerBody.update(feetX, feetY, feetZ, yaw, true)
+
+    this._tpYawQuat.setFromEuler(new THREE.Euler(0, yaw, 0))
+    this._tpDesiredPos.copy(this._tpOffsetLocal).applyQuaternion(this._tpYawQuat).add(this.camera.position)
+
+    this._tpRayDir.copy(this._tpDesiredPos).sub(this.camera.position)
+    const fullDist = this._tpRayDir.length()
+    let dist = fullDist
+    if (fullDist > 0.001) {
+      this._tpRayDir.normalize()
+      this._tpRaycaster.set(this.camera.position, this._tpRayDir)
+      this._tpRaycaster.far = fullDist
+      const hits = this._tpRaycaster.intersectObjects(this.player.groundMeshes, true)
+      if (hits.length > 0) dist = Math.max(0.3, hits[0].distance - 0.2)
+    }
+
+    this.tpCamera.position.copy(this.camera.position).addScaledVector(this._tpRayDir, dist)
+    this.tpCamera.quaternion.copy(this.camera.quaternion)
+    this.tpCamera.fov = this.camera.fov
+    this.tpCamera.updateProjectionMatrix()
+
+    this.renderPass.camera = this.tpCamera
   }
 
   _onZombieAttack(damage) {
@@ -1722,6 +1792,7 @@ export class Game {
       this.camera.position.copy(this._vehicleSeatPos)
     } else if (this.player.controls.isLocked && this.playerState.alive && !this.inventoryOpen && !this.perkPanelOpen && !this.traderPanelOpen) {
       this.player.update(dt)
+      this._updateThirdPerson()
       const isMoving = this.player.onGround && (
         this.player.input.forward || this.player.input.back ||
         this.player.input.left || this.player.input.right

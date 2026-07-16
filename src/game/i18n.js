@@ -184,6 +184,7 @@ const STRINGS = {
     actionFlashlight: 'Flashlight',
     actionNoisemaker: 'Throw Noisemaker',
     actionScreenshot: 'Screenshot',
+    actionToggleView: 'Toggle Camera View',
     toastGrenadeAdded: 'Grenade collected',
     grenadeLabel: 'Grenade',
     actionGrenade: 'Throw Grenade',
