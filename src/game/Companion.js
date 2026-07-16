@@ -38,7 +38,7 @@ export class Companion {
   // Zombie.js uses for its health bars.
   _buildNameTag() {
     const canvas = document.createElement('canvas')
-    canvas.width = 256
+    canvas.width = 384
     canvas.height = 48
     this._nameCanvas = canvas
     this._nameCtx = canvas.getContext('2d')
@@ -46,7 +46,7 @@ export class Companion {
     const texture = new THREE.CanvasTexture(canvas)
     const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, fog: false })
     this._nameSprite = new THREE.Sprite(material)
-    this._nameSprite.scale.set(0.7, 0.13, 1)
+    this._nameSprite.scale.set(1.05, 0.13, 1)
     this._nameSprite.position.set(0, 2.0, 0)
     this._nameSprite.renderOrder = 10
     this.group.add(this._nameSprite)
@@ -54,16 +54,26 @@ export class Companion {
     this.setName('Assistant')
   }
 
+  // Shrinks the font until the name actually fits the canvas - a long
+  // nickname ("Survivor48213 Assistant") was previously getting clipped off
+  // both edges because the font size was fixed regardless of text length.
   setName(name) {
     const ctx = this._nameCtx
     const canvas = this._nameCanvas
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.fillStyle = 'rgba(0, 0, 0, 0.55)'
     ctx.fillRect(0, 10, canvas.width, canvas.height - 20)
-    ctx.font = 'bold 26px sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillStyle = '#5be3ff'
+
+    const maxWidth = canvas.width - 16
+    let fontSize = 26
+    ctx.font = `bold ${fontSize}px sans-serif`
+    while (ctx.measureText(name).width > maxWidth && fontSize > 12) {
+      fontSize -= 1
+      ctx.font = `bold ${fontSize}px sans-serif`
+    }
     ctx.fillText(name, canvas.width / 2, canvas.height / 2)
     this._nameSprite.material.map.needsUpdate = true
   }
