@@ -5,18 +5,23 @@ const FOLLOW_DISTANCE = 3.2
 const CATCH_UP_DISTANCE = 6
 const MOVE_SPEED = 4.2
 const CATCH_UP_SPEED_MULT = 1.8
-const ENGAGE_RANGE = 13
-const FIRE_INTERVAL = 1.3
-const DAMAGE_MIN = 18
-const DAMAGE_MAX = 30
 const TRACER_MS = 120
 
-// Follower survivor NPC: trails the player and auto-fires at the nearest
-// alive zombie in range. Invulnerable by design - a "companion down" state
+// Role stat blocks - 'ranged' hangs back and shoots, 'melee' charges in and
+// swings. Chosen once on the main menu (see Game.js's companionRole setting).
+const ROLE_STATS = {
+  ranged: { engageRange: 13, meleeRange: 0, fireInterval: 1.3, damageMin: 18, damageMax: 30, jacket: 0x2f4f7a },
+  melee: { engageRange: 2.4, meleeRange: 2.2, fireInterval: 0.9, damageMin: 26, damageMax: 42, jacket: 0x7a2f2f },
+}
+
+// Follower survivor NPC: trails the player and auto-fights the nearest alive
+// zombie in range. Invulnerable by design - a "companion down" state
 // (health, revival, HUD) would be a whole extra feature on top of this one.
 export class Companion {
-  constructor(scene, x, z) {
+  constructor(scene, x, z, role = 'ranged') {
     this.scene = scene
+    this.role = ROLE_STATS[role] ? role : 'ranged'
+    this.stats = ROLE_STATS[this.role]
     this.group = new THREE.Group()
     this.group.position.set(x, 0, z)
     this._buildBody()
@@ -62,7 +67,7 @@ export class Companion {
   }
 
   _buildBody() {
-    const jacketMat = new THREE.MeshStandardMaterial({ color: 0x2f4f7a, roughness: 0.8 })
+    const jacketMat = new THREE.MeshStandardMaterial({ color: this.stats.jacket, roughness: 0.8 })
     const skinMat = new THREE.MeshStandardMaterial({ color: 0xd8ab7d, roughness: 0.9 })
     const pantsMat = new THREE.MeshStandardMaterial({ color: 0x2a2a26, roughness: 0.9 })
     const packMat = new THREE.MeshStandardMaterial({ color: 0x3a3428, roughness: 0.85 })
@@ -93,36 +98,63 @@ export class Companion {
       arm.castShadow = true
       this.group.add(arm)
     }
+
+    // Role-distinct weapon prop in the right hand, so the two loadouts read
+    // apart at a glance even before either one attacks.
+    const weaponMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1a, roughness: 0.5, metalness: 0.4 })
+    this.weaponProp = this.role === 'melee'
+      ? new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.55, 8), weaponMat)
+      : new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.14, 0.28), weaponMat)
+    this.weaponProp.position.set(0.32, 0.9, 0.1)
+    this.weaponProp.rotation.x = this.role === 'melee' ? Math.PI / 2.4 : 0
+    this.weaponProp.castShadow = true
+    this.group.add(this.weaponProp)
   }
 
   update(dt, playerPos, zombies) {
-    const dx = playerPos.x - this.group.position.x
-    const dz = playerPos.z - this.group.position.z
-    const dist = Math.hypot(dx, dz)
-    if (dist > FOLLOW_DISTANCE) {
-      const nx = dx / dist
-      const nz = dz / dist
-      const speed = dist > CATCH_UP_DISTANCE ? MOVE_SPEED * CATCH_UP_SPEED_MULT : MOVE_SPEED
-      this.group.position.x += nx * speed * dt
-      this.group.position.z += nz * speed * dt
-      this.group.rotation.y = Math.atan2(nx, nz)
+    let nearest = null
+    let nearestDist = this.stats.engageRange
+    for (const z of zombies) {
+      if (z.state !== 'alive') continue
+      const d = Math.hypot(z.group.position.x - this.group.position.x, z.group.position.z - this.group.position.z)
+      if (d < nearestDist) {
+        nearest = z
+        nearestDist = d
+      }
     }
 
-    if (performance.now() >= this.nextFireAt) {
-      let nearest = null
-      let nearestDist = ENGAGE_RANGE
-      for (const z of zombies) {
-        if (z.state !== 'alive') continue
-        const d = Math.hypot(z.group.position.x - this.group.position.x, z.group.position.z - this.group.position.z)
-        if (d < nearestDist) {
-          nearest = z
-          nearestDist = d
-        }
+    const chasing = this.role === 'melee' && nearest && nearestDist > this.stats.meleeRange
+    if (chasing) {
+      const dx = nearest.group.position.x - this.group.position.x
+      const dz = nearest.group.position.z - this.group.position.z
+      const dist = Math.hypot(dx, dz)
+      const nx = dist > 0.0001 ? dx / dist : 0
+      const nz = dist > 0.0001 ? dz / dist : 1
+      this.group.position.x += nx * MOVE_SPEED * CATCH_UP_SPEED_MULT * dt
+      this.group.position.z += nz * MOVE_SPEED * CATCH_UP_SPEED_MULT * dt
+      this.group.rotation.y = Math.atan2(nx, nz)
+    } else {
+      const dx = playerPos.x - this.group.position.x
+      const dz = playerPos.z - this.group.position.z
+      const dist = Math.hypot(dx, dz)
+      if (dist > FOLLOW_DISTANCE) {
+        const nx = dx / dist
+        const nz = dz / dist
+        const speed = dist > CATCH_UP_DISTANCE ? MOVE_SPEED * CATCH_UP_SPEED_MULT : MOVE_SPEED
+        this.group.position.x += nx * speed * dt
+        this.group.position.z += nz * speed * dt
+        this.group.rotation.y = Math.atan2(nx, nz)
       }
-      if (nearest) {
-        this.nextFireAt = performance.now() + FIRE_INTERVAL * 1000
-        const damage = DAMAGE_MIN + Math.random() * (DAMAGE_MAX - DAMAGE_MIN)
-        nearest.onHit(damage)
+    }
+
+    const attackRange = this.role === 'melee' ? this.stats.meleeRange : this.stats.engageRange
+    if (nearest && nearestDist <= attackRange && performance.now() >= this.nextFireAt) {
+      this.nextFireAt = performance.now() + this.stats.fireInterval * 1000
+      const damage = this.stats.damageMin + Math.random() * (this.stats.damageMax - this.stats.damageMin)
+      nearest.onHit(damage)
+      if (this.role === 'melee') {
+        audioEngine.playMelee()
+      } else {
         this._spawnTracer(nearest.group.position)
         audioEngine.playShot('pistol')
       }

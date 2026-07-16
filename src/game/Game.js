@@ -62,9 +62,10 @@ function loadSettings() {
       colorblind: parsed.colorblind ?? false,
       nickname: parsed.nickname || '',
       defaultTag: parsed.defaultTag || null,
+      companionRole: parsed.companionRole === 'melee' ? 'melee' : 'ranged',
     }
   } catch {
-    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', defaultTag: null }
+    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', defaultTag: null, companionRole: 'ranged' }
   }
 }
 
@@ -176,6 +177,7 @@ export class Game {
     this.minimapCanvas = document.getElementById('minimap')
     this.menuBestStats = document.getElementById('menu-best-stats')
     this.difficultyBtns = document.querySelectorAll('.difficulty-btn')
+    this.roleBtns = document.querySelectorAll('.role-btn')
     this.settingsBtn = document.getElementById('settings-btn')
     this.settingsPanel = document.getElementById('settings-panel')
     this.languageGrid = document.getElementById('language-grid')
@@ -235,7 +237,7 @@ export class Game {
     this._addFlashlight()
 
     this.zombies = new ZombieManager(this.scene, this.difficulty.spawnRateMult)
-    this.companion = new Companion(this.scene, 1.6, 7)
+    this.companion = new Companion(this.scene, 1.6, 7, this.settings.companionRole)
     this.vehicle = new Vehicle(this.scene, -6, -18, 0)
     this.driving = false
     this.nearVehicle = false
@@ -292,6 +294,7 @@ export class Game {
     this._bindItemKeys()
     this._bindSettings()
     this._bindDifficulty()
+    this._bindCompanionRole()
     this._bindControlsTab()
     this.perkSkipBtn.addEventListener('click', () => this._closePerkPanel())
     this._applyLanguage()
@@ -643,6 +646,27 @@ export class Game {
     }
   }
 
+  _bindCompanionRole() {
+    for (const btn of this.roleBtns) {
+      btn.classList.toggle('active', btn.dataset.role === this.settings.companionRole)
+      btn.addEventListener('click', () => {
+        const role = btn.dataset.role
+        if (role !== 'ranged' && role !== 'melee') return
+        this.settings.companionRole = role
+        saveSettings(this.settings)
+        for (const b of this.roleBtns) b.classList.toggle('active', b === btn)
+        this._rebuildCompanion(role)
+      })
+    }
+  }
+
+  _rebuildCompanion(role) {
+    const pos = this.companion.group.position
+    this.companion.dispose()
+    this.companion = new Companion(this.scene, pos.x, pos.z, role)
+    this._updateCompanionName()
+  }
+
   _updateCompanionName() {
     const nickname = this.settings.nickname.trim() || this._defaultNickname()
     this.companion.setName(`${nickname}'s Assistant`)
@@ -819,6 +843,9 @@ export class Game {
     document.getElementById('diff-easy').textContent = t('difficultyEasy')
     document.getElementById('diff-normal').textContent = t('difficultyNormal')
     document.getElementById('diff-hard').textContent = t('difficultyHard')
+
+    document.getElementById('role-ranged').textContent = t('roleRanged')
+    document.getElementById('role-melee').textContent = t('roleMelee')
 
     this._updateBestStatsDisplay()
     if (this.inventoryOpen) this._refreshInventoryPanel()
