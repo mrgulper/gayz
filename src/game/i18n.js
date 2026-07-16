@@ -112,6 +112,8 @@ const STRINGS = {
     scoreAttackResult: 'Score: {score} (Best: {best})',
     hardcoreLabel: 'Hardcore Mode (no respawn)',
     newAttemptBtn: 'New Attempt',
+    endingText: "You found the truth. VIREO isn't coming to shut this down, and the lights aren't going out on their own. Somebody has to keep surviving long enough to make sure the story gets out. That's you, now.",
+    endingCredits: 'GAYZ\nA Broken City Block\n\nMade with a lot of help along the way.\nThanks for playing.',
     toastBatteryAdded: 'Battery collected',
     noisemakerLabel: 'Noisemaker',
     toastNoisemakerAdded: 'Noisemaker collected',

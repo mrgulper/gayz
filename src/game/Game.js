@@ -108,6 +108,26 @@ function saveScoreAttackBest(score) {
   }
 }
 
+const ENDING_SEEN_KEY = 'gayz-ending-seen'
+
+function loadEndingSeen() {
+  try {
+    return localStorage.getItem(ENDING_SEEN_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
+function saveEndingSeen() {
+  try {
+    localStorage.setItem(ENDING_SEEN_KEY, 'true')
+  } catch {
+    // Storage unavailable - the ending just might show again next time.
+  }
+}
+
+const ENDING_MILESTONE_NIGHT = 10
+
 function saveSettings(settings) {
   try {
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
@@ -218,6 +238,10 @@ export class Game {
     this.deathStats = document.getElementById('death-stats')
     this.deathLegacyScrap = document.getElementById('death-legacy-scrap')
     this.deathScoreAttack = document.getElementById('death-score-attack')
+    this.endingPanel = document.getElementById('ending-panel')
+    this.endingText = document.getElementById('ending-text')
+    this.endingCredits = document.getElementById('ending-credits')
+    this.endingContinueBtn = document.getElementById('ending-continue-btn')
     this.interactPrompt = document.getElementById('interact-prompt')
     this.ffTimestampEl = document.getElementById('ff-timestamp')
     this.rainOverlayEl = document.getElementById('rain-overlay')
@@ -259,6 +283,7 @@ export class Game {
     this.difficulty = DIFFICULTY_PRESETS[this.settings.difficulty] || DIFFICULTY_PRESETS.normal
     this.nightDurationMs = this.settings.scoreAttackMode ? SCORE_ATTACK_NIGHT_DURATION_MS : NIGHT_DURATION_MS
     this.scoreAttackBest = loadScoreAttackBest()
+    this.endingSeen = loadEndingSeen()
     this.bestStats = loadBestStats()
 
     this.night = 1
@@ -734,6 +759,10 @@ export class Game {
     this.achievementsCloseBtn.addEventListener('click', () => this._closeAchievementsPanel())
     this.bestiaryBtn.addEventListener('click', () => this._openBestiaryPanel())
     this.bestiaryCloseBtn.addEventListener('click', () => this._closeBestiaryPanel())
+    this.endingContinueBtn.addEventListener('click', () => {
+      this.endingPanel.style.display = 'none'
+      this.player.controls.lock()
+    })
 
     // Click anywhere outside the settings content (the backdrop itself, not
     // a descendant) to close, in addition to toggling the Settings button.
@@ -1525,6 +1554,18 @@ export class Game {
     document.getElementById('diff-nightmare').style.display = ''
   }
 
+  // Shown once, ever (persisted), after both the true ending is unlocked and
+  // the player has actually survived a while past it - a small reward
+  // moment, not a hard stop, so the game keeps going afterward.
+  _showEndingSequence() {
+    this.endingSeen = true
+    saveEndingSeen()
+    this.player.controls.unlock()
+    this.endingText.textContent = t('endingText')
+    this.endingCredits.innerHTML = t('endingCredits').split('\n').map((line) => `<div>${line}</div>`).join('')
+    this.endingPanel.style.display = 'flex'
+  }
+
   // Random night event (see NightEvents.js's 'survivor_found') - only one
   // at a time; a new event while one's still out there just replaces it.
   _spawnRescueSurvivor() {
@@ -1639,9 +1680,15 @@ export class Game {
         this._companionBark('nightStart')
         if (this.night >= 5) this.achievements.unlock('survivor_5')
         if (this.night >= 10) this.achievements.unlock('survivor_10')
+        let endingTriggered = false
+        if (!this.endingSeen && this.night >= ENDING_MILESTONE_NIGHT && this.achievements.unlocked.has('true_ending')) {
+          this._showEndingSequence()
+          endingTriggered = true
+        }
         // Score Attack skips the perk-pick pause - staying in the run
         // without interruption is the point of a high-score chase mode.
-        if (!this.settings.scoreAttackMode) this._openPerkPanel()
+        // The ending sequence takes priority over the perk pick this tick.
+        if (!this.settings.scoreAttackMode && !endingTriggered) this._openPerkPanel()
       }
       this._updateProgressHud()
       this._updateStatsPanel()
