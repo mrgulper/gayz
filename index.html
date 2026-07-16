@@ -53,6 +53,7 @@
         <div class="compass-marker" id="compass-trader" style="display: none">Trader</div>
         <div class="compass-marker" id="compass-ammo" style="display: none">Ammo</div>
         <div class="compass-marker" id="compass-vehicle" style="display: none">Car</div>
+        <div class="compass-marker" id="compass-airdrop" style="display: none">Airdrop</div>
       </div>
 
       <div id="night-banner"></div>
@@ -78,7 +79,10 @@
         <div class="stats-row"><span class="stats-label" id="stats-deaths-label">Deaths</span><span id="stats-deaths">0</span></div>
         <div class="stats-row"><span class="stats-label" id="stats-kills-label">Kills</span><span id="stats-kills">0</span></div>
         <div class="stats-row"><span class="stats-label" id="stats-scrap-label">Scrap</span><span id="stats-scrap">0</span></div>
+        <div class="stats-row"><span class="stats-label" id="stats-coins-label">Coins</span><span id="stats-coins">0</span></div>
       </div>
+
+      <div id="coin-popup"></div>
 
       <div id="minimap-wrap">
         <canvas id="minimap" width="150" height="150"></canvas>
@@ -157,6 +161,7 @@
           <button id="achievements-btn">Achievements</button>
           <button id="bestiary-btn">Bestiary</button>
           <button id="skins-btn">Skins</button>
+          <button id="coinshop-btn">Coin Shop</button>
         </div>
         <h1>GayZ</h1>
         <p id="menu-subtitle">Broken city block &mdash; survive, scavenge, shoot</p>
@@ -362,6 +367,13 @@
         <div id="skins-scrap-line"></div>
         <div class="perk-options" id="skins-options"></div>
         <button id="skins-close-btn">Close</button>
+      </div>
+
+      <div id="coinshop-panel">
+        <h2 id="coinshop-panel-title">Coin Shop</h2>
+        <div id="coinshop-coin-line"></div>
+        <div class="perk-options" id="coinshop-options"></div>
+        <button id="coinshop-close-btn">Close</button>
       </div>
     </div>
     <script type="module" src="/src/main.js"></script>

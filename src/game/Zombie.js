@@ -23,6 +23,16 @@ const ELITE_SCALE_MULT = 1.15
 const ELITE_TINT_HEX = 0xffc94a
 const ELITE_TINT_INTENSITY = 0.65
 
+// Purely cosmetic escalation - as nights climb, regular zombies lerp their
+// skin/clothes tones toward a sicklier color and pick up a faint corrupted
+// glow, selling "things are getting worse" without any new geometry. Caps
+// out by CORRUPTION_MAX_NIGHT so it doesn't keep drifting forever.
+const CORRUPTION_MAX_NIGHT = 15
+const CORRUPTION_COLOR = 0x3a5a1a
+const CORRUPTION_EMISSIVE = 0x4a7a2a
+const CORRUPTION_MAX_COLOR_MIX = 0.35
+const CORRUPTION_MAX_EMISSIVE_MIX = 0.3
+
 // Boss-only telegraphed ground slam (see _updateBossSpecial/_animate) - a
 // wind-up window the player can see coming and step out of, on top of
 // their normal quick melee swings.
@@ -65,7 +75,7 @@ function jitterGeometry(geometry, amount) {
 }
 
 export class Zombie {
-  constructor(x, z, typeConfig, isAmbush = false, isElite = false) {
+  constructor(x, z, typeConfig, isAmbush = false, isElite = false, night = 1) {
     this.id = zombieIdCounter++
     this.type = typeConfig.id
     this.config = typeConfig
@@ -136,6 +146,16 @@ export class Zombie {
         mat.emissive.setHex(ELITE_TINT_HEX)
         mat.emissiveIntensity = ELITE_TINT_INTENSITY
         this.materialDefaults.set(mat, { hex: ELITE_TINT_HEX, intensity: ELITE_TINT_INTENSITY })
+      }
+    } else if (night > 1) {
+      const progress = Math.min(1, (night - 1) / (CORRUPTION_MAX_NIGHT - 1))
+      const corruptColor = new THREE.Color(CORRUPTION_COLOR)
+      const corruptEmissive = new THREE.Color(CORRUPTION_EMISSIVE)
+      for (const mat of this.materials) {
+        mat.color.lerp(corruptColor, progress * CORRUPTION_MAX_COLOR_MIX)
+        mat.emissive.lerp(corruptEmissive, progress * CORRUPTION_MAX_EMISSIVE_MIX)
+        mat.emissiveIntensity = Math.max(mat.emissiveIntensity, progress * 0.4)
+        this.materialDefaults.set(mat, { hex: mat.emissive.getHex(), intensity: mat.emissiveIntensity })
       }
     }
 

@@ -341,6 +341,10 @@ html, body {
   color: #9fd88f;
 }
 
+#compass-airdrop {
+  color: #ffe680;
+}
+
 #night-banner {
   position: absolute;
   top: 38%;
@@ -406,6 +410,28 @@ html, body {
   background: #ffcf5c;
   transform: translate(-50%, -50%);
   box-shadow: 0 0 6px rgba(255, 207, 92, 0.8);
+}
+
+#coin-popup {
+  position: absolute;
+  top: 140px;
+  right: 24px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffe680;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+  opacity: 0;
+  pointer-events: none;
+}
+
+#coin-popup.show {
+  animation: coinpopup 900ms ease-out;
+}
+
+@keyframes coinpopup {
+  0% { opacity: 0; transform: translateY(0); }
+  15% { opacity: 1; transform: translateY(-2px); }
+  100% { opacity: 0; transform: translateY(-22px); }
 }
 
 #combo-counter {
@@ -886,7 +912,8 @@ html, body {
 #bestiary-panel,
 #xp-levelup-panel,
 #pause-overlay,
-#skins-panel {
+#skins-panel,
+#coinshop-panel {
   position: absolute;
   inset: 0;
   display: none;
@@ -904,7 +931,8 @@ html, body {
 #bestiary-panel-title,
 #xp-levelup-panel-title,
 #pause-overlay-title,
-#skins-panel-title {
+#skins-panel-title,
+#coinshop-panel-title {
   margin: 0;
   font-size: 15px;
   letter-spacing: 1.5px;
@@ -916,7 +944,8 @@ html, body {
 #perk-scrap-line,
 #trader-scrap-line,
 #upgrades-scrap-line,
-#skins-scrap-line {
+#skins-scrap-line,
+#coinshop-coin-line {
   font-size: 14px;
   color: #ffcf5c;
   opacity: 0.9;
@@ -1010,7 +1039,8 @@ html, body {
 #pause-resume-btn,
 #pause-settings-btn,
 #pause-quit-btn,
-#skins-close-btn {
+#skins-close-btn,
+#coinshop-close-btn {
   margin-top: 6px;
   padding: 8px 20px;
   font-size: 13px;
@@ -1036,7 +1066,8 @@ html, body {
 #pause-resume-btn:hover,
 #pause-settings-btn:hover,
 #pause-quit-btn:hover,
-#skins-close-btn:hover {
+#skins-close-btn:hover,
+#coinshop-close-btn:hover {
   border-color: rgba(255, 255, 255, 0.5);
 }
 

@@ -15,11 +15,12 @@ import { ChestManager } from './Chests.js'
 import { Minimap } from './Minimap.js'
 import { DecalManager } from './Decals.js'
 import { Achievements, ACHIEVEMENTS } from './Achievements.js'
-import { rollPerks } from './Perks.js'
+import { rollPerks, checkPerkSynergies } from './Perks.js'
 import { rollXpUpgrades } from './XpUpgrades.js'
 import { XpGemManager } from './XpGems.js'
 import { AutoWeaponManager } from './AutoWeapons.js'
 import { SKIN_DEFS } from './Skins.js'
+import { COIN_SHOP_ITEMS } from './CoinShop.js'
 import { pickNightEvent } from './NightEvents.js'
 import { Companion } from './Companion.js'
 import { PlayerBody } from './PlayerBody.js'
@@ -227,6 +228,12 @@ const FOG_PATCH_DURATION_MS = 25000
 const FOG_PATCH_RADIUS = 16
 const FOG_PATCH_MULT = 0.32
 const FOG_PATCH_SPAWN_RADIUS = 34
+const AIRDROP_MIN_DELAY_MS = 70000
+const AIRDROP_MAX_DELAY_MS = 130000
+const AIRDROP_WINDOW_MS = 75000
+const AIRDROP_SPAWN_RADIUS = 30
+const AIRDROP_CLAIM_RADIUS = 2
+const BOSS_TIER_IDS = new Set(['colossus', 'patient_zero', 'titan'])
 const WHEEL_RADIUS = 110
 const WHEEL_DEADZONE = 18
 const RESCUE_INTERACT_RADIUS = 2.5
@@ -321,6 +328,7 @@ export class Game {
     this.compassTrader = document.getElementById('compass-trader')
     this.compassAmmo = document.getElementById('compass-ammo')
     this.compassVehicle = document.getElementById('compass-vehicle')
+    this.compassAirdrop = document.getElementById('compass-airdrop')
     this.comboCount = 0
     this.comboResetAt = 0
     this.deathStats = document.getElementById('death-stats')
@@ -338,6 +346,11 @@ export class Game {
     this.nextLightningAt = 0
     this.fogPatch = null
     this.nextFogPatchAt = performance.now() + FOG_PATCH_MIN_DELAY_MS + Math.random() * (FOG_PATCH_MAX_DELAY_MS - FOG_PATCH_MIN_DELAY_MS)
+    // Distinct from NightEvents.js's 'supply_drop' event (which just quietly
+    // adds a permanent extra chest) - this one is a marked, timed beacon you
+    // have to actually reach before it's gone.
+    this.airdrop = null
+    this.nextAirdropAt = performance.now() + AIRDROP_MIN_DELAY_MS + Math.random() * (AIRDROP_MAX_DELAY_MS - AIRDROP_MIN_DELAY_MS)
     this.nightmareOverlayEl = document.getElementById('nightmare-overlay')
     this.infectionIndicator = document.getElementById('infection-indicator')
     this.statsPanel = document.getElementById('stats-panel')
@@ -401,6 +414,12 @@ export class Game {
     this.stealthTakedowns = 0
     this.eliteKills = 0
     this.companionTrainingLevel = 0
+    this.perksOwned = new Set()
+    this.perkSynergiesUnlocked = new Set()
+    this.tempCompanion = null
+    this.tempCompanionExpiresAtNight = 0
+    this.coins = 0
+    this.coinShopPurchased = new Set()
     this._shakeOffset = new THREE.Vector3()
     this._shakeMagnitude = 0
     this._shakeDuration = 0
@@ -559,6 +578,14 @@ export class Game {
     this.skinsScrapLine = document.getElementById('skins-scrap-line')
     this.skinsOptions = document.getElementById('skins-options')
     this.skinsCloseBtn = document.getElementById('skins-close-btn')
+    this.coinshopBtn = document.getElementById('coinshop-btn')
+    this.coinshopPanel = document.getElementById('coinshop-panel')
+    this.coinshopPanelTitle = document.getElementById('coinshop-panel-title')
+    this.coinshopCoinLine = document.getElementById('coinshop-coin-line')
+    this.coinshopOptions = document.getElementById('coinshop-options')
+    this.coinshopCloseBtn = document.getElementById('coinshop-close-btn')
+    this.statsCoins = document.getElementById('stats-coins')
+    this.coinPopupEl = document.getElementById('coin-popup')
     this.bossHealthWrap = document.getElementById('boss-health-wrap')
     this.bossNameEl = document.getElementById('boss-name')
     this.bossHealthFill = document.getElementById('boss-health-fill')
@@ -1213,6 +1240,8 @@ export class Game {
     this.bestiaryCloseBtn.addEventListener('click', () => this._closeBestiaryPanel())
     this.skinsBtn.addEventListener('click', () => this._openSkinsPanel())
     this.skinsCloseBtn.addEventListener('click', () => this._closeSkinsPanel())
+    this.coinshopBtn.addEventListener('click', () => this._openCoinShopPanel())
+    this.coinshopCloseBtn.addEventListener('click', () => this._closeCoinShopPanel())
     this.endingContinueBtn.addEventListener('click', () => {
       this.endingPanel.style.display = 'none'
       this.player.controls.lock()
@@ -1404,6 +1433,8 @@ export class Game {
         if (this.scrap < perk.cost) return
         this.scrap -= perk.cost
         perk.apply(this)
+        this.perksOwned.add(perk.id)
+        for (const syn of checkPerkSynergies(this)) this._showLoreToast(t(syn.titleKey))
         this._updateStatsPanel()
         this._closePerkPanel()
       })
@@ -1698,6 +1729,47 @@ export class Game {
     this.skinsPanel.style.display = 'none'
   }
 
+  _openCoinShopPanel() {
+    this.coinshopPanel.style.display = 'flex'
+    this.coinshopPanelTitle.textContent = t('coinshopPanelTitle')
+    this.coinshopCloseBtn.textContent = t('upgradesClose')
+    this._renderCoinShopOptions()
+  }
+
+  _renderCoinShopOptions() {
+    this.coinshopCoinLine.textContent = t('coinsLabel', { n: this.coins })
+    this.coinshopOptions.innerHTML = ''
+    for (const item of COIN_SHOP_ITEMS) {
+      const owned = item.isOwned(this)
+      const btn = document.createElement('button')
+      btn.className = 'perk-option'
+      btn.disabled = owned || this.coins < item.cost
+      btn.innerHTML = `
+        <span class="perk-name">${t(item.titleKey)}</span>
+        <span class="perk-cost">${owned ? t('upgradesOwned') : t('coinCostLabel', { n: item.cost })}</span>
+      `
+      btn.addEventListener('click', () => {
+        if (owned || this.coins < item.cost) return
+        this.coins -= item.cost
+        item.apply(this)
+        this._updateStatsPanel()
+        this._renderCoinShopOptions()
+      })
+      this.coinshopOptions.appendChild(btn)
+    }
+  }
+
+  _closeCoinShopPanel() {
+    this.coinshopPanel.style.display = 'none'
+  }
+
+  _showCoinPopup(amount) {
+    this.coinPopupEl.textContent = t('coinPopup', { n: amount })
+    this.coinPopupEl.classList.remove('show')
+    void this.coinPopupEl.offsetWidth
+    this.coinPopupEl.classList.add('show')
+  }
+
   _openAchievementsPanel() {
     this.achievementsPanel.style.display = 'flex'
     this.achievementsPanelTitle.textContent = t('achievementsPanelTitle')
@@ -1790,6 +1862,8 @@ export class Game {
     this.achievementsBtn.textContent = t('achievementsBtn')
     this.bestiaryBtn.textContent = t('bestiaryBtn')
     this.skinsBtn.textContent = t('skinsBtn')
+    this.coinshopBtn.textContent = t('coinshopBtn')
+    document.getElementById('stats-coins-label').textContent = t('coinsStatLabel')
 
     document.getElementById('ctrl-line-1').innerHTML = tHtml('ctrlLine1')
     document.getElementById('ctrl-line-2').innerHTML = tHtml('ctrlLine2')
@@ -1814,6 +1888,7 @@ export class Game {
     this.compassTrader.textContent = t('compassTrader')
     this.compassAmmo.textContent = t('compassAmmo')
     this.compassVehicle.textContent = t('compassVehicle')
+    this.compassAirdrop.textContent = t('compassAirdrop')
     document.getElementById('infection-label').textContent = t('infectionLabel')
     document.getElementById('settings-hint').innerHTML = tHtml('settingsHint')
 
@@ -2026,6 +2101,20 @@ export class Game {
       this._updateStatsPanel()
     }
 
+    // Coins: a separate, guaranteed-every-kill currency (unlike scrap's
+    // 25%-chance drop) spent exclusively in the Coin Shop - see CoinShop.js.
+    let coinsEarned
+    if (BOSS_TIER_IDS.has(zombieTypeId)) {
+      coinsEarned = 300 + Math.floor(Math.random() * 201)
+    } else if (isElite) {
+      coinsEarned = 20 + Math.floor(Math.random() * 181)
+    } else {
+      coinsEarned = 10 + Math.floor(Math.random() * 91)
+    }
+    this.coins += coinsEarned
+    this._showCoinPopup(coinsEarned)
+    this._updateStatsPanel()
+
     if (!this.bestiaryEncountered.has(zombieTypeId)) {
       this.bestiaryEncountered.add(zombieTypeId)
       saveEncountered(this.bestiaryEncountered)
@@ -2225,6 +2314,7 @@ export class Game {
     this.statsDeaths.textContent = this.totalDeaths
     this.statsKills.textContent = this.totalKills
     this.statsScrap.textContent = this.scrap
+    this.statsCoins.textContent = this.coins
 
     if (this.dayNight) {
       const { phase, remainingMs } = this.dayNight.getPhaseInfo()
@@ -2285,6 +2375,54 @@ export class Game {
         this.scene.fog.far *= FOG_PATCH_MULT
       }
     }
+  }
+
+  // Timed, marked airdrop - shows on the minimap/compass like the trader
+  // and ammo station, but only for its AIRDROP_WINDOW_MS window. Reaching
+  // it claims a reward; letting it expire just removes the marker.
+  _updateAirdrop() {
+    const now = performance.now()
+    if (this.airdrop && now >= this.airdrop.expiresAt) {
+      this.scene.remove(this.airdrop.mesh)
+      this._showLoreToast(t('airdropExpired'))
+      this.airdrop = null
+    }
+
+    if (!this.airdrop && now >= this.nextAirdropAt) this._spawnAirdrop()
+
+    if (this.airdrop) {
+      const pos = this.player.controls.object.position
+      const dist = Math.hypot(pos.x - this.airdrop.x, pos.z - this.airdrop.z)
+      if (dist <= AIRDROP_CLAIM_RADIUS) this._claimAirdrop()
+    }
+  }
+
+  _spawnAirdrop() {
+    const angle = Math.random() * Math.PI * 2
+    const radius = Math.random() * AIRDROP_SPAWN_RADIUS
+    const x = Math.sin(angle) * radius
+    const z = Math.cos(angle) * radius
+
+    const mat = new THREE.MeshStandardMaterial({ color: 0x3a2a10, emissive: 0xffe680, emissiveIntensity: 1.6 })
+    const mesh = new THREE.Mesh(new THREE.ConeGeometry(0.4, 2.2, 6), mat)
+    mesh.position.set(x, 1.1, z)
+    this.scene.add(mesh)
+    const beam = new THREE.PointLight(0xffe680, 1.6, 10, 2)
+    beam.position.set(0, 3, 0)
+    mesh.add(beam)
+
+    this.airdrop = { x, z, mesh, expiresAt: performance.now() + AIRDROP_WINDOW_MS }
+    this.nextAirdropAt = performance.now() + AIRDROP_MIN_DELAY_MS + Math.random() * (AIRDROP_MAX_DELAY_MS - AIRDROP_MIN_DELAY_MS)
+    this._showLoreToast(t('airdropIncoming'))
+  }
+
+  _claimAirdrop() {
+    this.scene.remove(this.airdrop.mesh)
+    this.scrap += 40
+    this.pickups.spawnLootDrop('ammo', this.airdrop.x, this.airdrop.z)
+    this._showLoreToast(t('airdropClaimed'))
+    this.airdrop = null
+    this._updateStatsPanel()
   }
 
   // Rare rain-night flash: a bright screen flash + thunder, and briefly
@@ -2483,6 +2621,19 @@ export class Game {
     this._updateStatsPanel()
     this._updateInventoryHud()
     this._showLoreToast(t('survivorRescued', { reward: RESCUE_SCRAP_REWARD }))
+
+    // Bonus on top of the usual reward: the rescued survivor tags along as
+    // a second, weaker companion until dawn instead of just vanishing after
+    // handing over loot - makes a rescue feel like an event, not a pickup.
+    // Deliberately fixed-role/no training carryover - this one's a guest,
+    // not your main companion.
+    if (this.tempCompanion) this.tempCompanion.dispose()
+    const pos = this.rescueSurvivor.group.position
+    this.tempCompanion = new Companion(this.scene, pos.x, pos.z, 'ranged')
+    this.tempCompanion.stats.damageMin *= 0.6
+    this.tempCompanion.stats.damageMax *= 0.6
+    this.tempCompanionExpiresAtNight = this.night + 1
+
     this.rescueSurvivor.dispose()
     this.rescueSurvivor = null
     this.nearRescueSurvivor = false
@@ -2503,6 +2654,11 @@ export class Game {
       landmarks.push({ el: this.compassVehicle, x: this.vehicle.group.position.x, z: this.vehicle.group.position.z })
     } else {
       this.compassVehicle.style.display = 'none'
+    }
+    if (this.airdrop) {
+      landmarks.push({ el: this.compassAirdrop, x: this.airdrop.x, z: this.airdrop.z })
+    } else {
+      this.compassAirdrop.style.display = 'none'
     }
 
     for (const lm of landmarks) {
@@ -2534,7 +2690,8 @@ export class Game {
       this.chests.chests,
       minigunUnlocked ? null : this.minigunSpot,
       this.trader,
-      this.ammoStation
+      this.ammoStation,
+      this.airdrop
     )
   }
 
@@ -2584,6 +2741,11 @@ export class Game {
         if (this.raining) this._checkBountyProgress('survive_rain_night', 1)
         this._checkBountyProgress('reach_3_nights', 1)
         this.night += 1
+        if (this.tempCompanion && this.night >= this.tempCompanionExpiresAtNight) {
+          this._showLoreToast(t('tempCompanionLeft'))
+          this.tempCompanion.dispose()
+          this.tempCompanion = null
+        }
         this.nightStartedAt = performance.now()
         this._scheduleNightEvent()
         this._rollWeather()
@@ -2621,6 +2783,7 @@ export class Game {
         this.playerState.heal(amount)
         this._updateHealthHud()
       })
+      if (this.tempCompanion) this.tempCompanion.update(dt, playerPos, this.zombies.zombies, null)
       if (this.flashlightOn) this._updateLightLure(playerPos)
       this.pickups.update(dt, elapsed, playerPos, {
         onPickup: (type, label, isLoot) => this._onPickup(type, label, isLoot),
@@ -2670,6 +2833,7 @@ export class Game {
       this._updateCompass(playerPos)
       this._updateBarricades()
       this._updateTraps()
+      this._updateAirdrop()
       if (this.raining && this.nextLightningAt > 0 && performance.now() >= this.nextLightningAt) {
         this._triggerLightning()
       }

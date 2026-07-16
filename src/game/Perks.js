@@ -54,3 +54,49 @@ export function rollPerks(count = 3) {
   }
   return picked
 }
+
+// Rewards committing to a build direction instead of just buying whatever's
+// cheapest each night - each fires once, the first time both of its
+// `requires` perks have ever been purchased (see game.perksOwned, tracked
+// in Game.js's perk-purchase click handler).
+export const PERK_SYNERGIES = [
+  {
+    id: 'combat_reflexes',
+    requires: ['fast_reload', 'sprint_boost'],
+    titleKey: 'synergyCombatReflexes',
+    apply: (game) => game.weapons.boostReloadSpeed(0.92),
+  },
+  {
+    id: 'iron_resolve',
+    requires: ['more_stamina', 'better_armor'],
+    titleKey: 'synergyIronResolve',
+    apply: (game) => {
+      game.playerState.maxHealth += 20
+      game.playerState.heal(20)
+      game._updateHealthHud()
+    },
+  },
+  {
+    id: 'fortified',
+    requires: ['stronger_heals', 'better_armor'],
+    titleKey: 'synergyFortified',
+    apply: (game) => {
+      game.playerState.armorAbsorbRatio = Math.min(0.9, game.playerState.armorAbsorbRatio + 0.05)
+    },
+  },
+]
+
+// Returns the synergies that just newly unlocked (empty most of the time) -
+// call after every perk purchase, see Game.js's _renderPerkOptions.
+export function checkPerkSynergies(game) {
+  const newlyUnlocked = []
+  for (const syn of PERK_SYNERGIES) {
+    if (game.perkSynergiesUnlocked.has(syn.id)) continue
+    if (syn.requires.every((id) => game.perksOwned.has(id))) {
+      game.perkSynergiesUnlocked.add(syn.id)
+      syn.apply(game)
+      newlyUnlocked.push(syn)
+    }
+  }
+  return newlyUnlocked
+}

@@ -94,6 +94,8 @@ const SKIN_TINTS = {
   cobalt: { color: 0x2a6fd0, emissive: 0x0c1c40 },
   // Free bestiary-completion reward, see Game.js's _onZombieKilled.
   obsidian: { color: 0x1a1a1a, emissive: 0x3a3a3a },
+  // Coin Shop exclusive, see CoinShop.js - not purchasable with scrap.
+  ember: { color: 0xd45a1a, emissive: 0xff7a1a },
 }
 
 function buildPistol(skinId = null) {

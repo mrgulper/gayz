@@ -115,7 +115,7 @@ export class ZombieManager {
     const angle = Math.random() * Math.PI * 2
     const x = Math.sin(angle) * SPAWN_RADIUS_MAX
     const z = Math.cos(angle) * SPAWN_RADIUS_MAX
-    const zombie = new Zombie(x, z, ZOMBIE_TYPES.titan, false)
+    const zombie = new Zombie(x, z, ZOMBIE_TYPES.titan, false, false, this.currentNight)
     zombie.deathHandled = false
     zombie.isBoss = true
     this.zombies.push(zombie)
@@ -155,7 +155,7 @@ export class ZombieManager {
     // counter since it isn't tied to every-5th-night timing.
     const altIndex = this.bossRushMode ? this.bossRushSpawnCount++ : this.currentNight / 5
     const bossType = altIndex % 2 === 0 ? ZOMBIE_TYPES.patient_zero : ZOMBIE_TYPES.colossus
-    const zombie = new Zombie(x, z, bossType, false)
+    const zombie = new Zombie(x, z, bossType, false, false, this.currentNight)
     zombie.deathHandled = false
     zombie.isBoss = true
     this.zombies.push(zombie)
@@ -166,7 +166,7 @@ export class ZombieManager {
   // fight) rather than the normal random-radius boss walk-in - returns the
   // zombie instance so the caller can watch its state for "is it dead yet".
   spawnGuardian(x, z, typeConfig) {
-    const zombie = new Zombie(x, z, typeConfig, false)
+    const zombie = new Zombie(x, z, typeConfig, false, false, this.currentNight)
     zombie.deathHandled = false
     zombie.isBoss = true
     this.zombies.push(zombie)
@@ -225,7 +225,7 @@ export class ZombieManager {
     const z = Math.cos(angle) * radius
 
     const isElite = Math.random() < ELITE_CHANCE
-    const zombie = new Zombie(x, z, type, isAmbush, isElite)
+    const zombie = new Zombie(x, z, type, isAmbush, isElite, this.currentNight)
     zombie.deathHandled = false
     this.zombies.push(zombie)
     this.scene.add(zombie.group)
@@ -498,7 +498,7 @@ export class ZombieManager {
               const r = 1.5 + Math.random() * 1.5
               const sx = zombie.group.position.x + Math.sin(angle) * r
               const sz = zombie.group.position.z + Math.cos(angle) * r
-              const summoned = new Zombie(sx, sz, summonType, false)
+              const summoned = new Zombie(sx, sz, summonType, false, false, this.currentNight)
               summoned.deathHandled = false
               this.zombies.push(summoned)
               this.scene.add(summoned.group)
