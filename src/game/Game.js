@@ -795,7 +795,7 @@ export class Game {
 
   _updateCompanionName() {
     const nickname = this.settings.nickname.trim() || this._defaultNickname()
-    this.companion.setName(`${nickname}'s Assistant`)
+    this.companion.setName(`${nickname} Assistant`)
   }
 
   // A stable "SurvivorNNNNN" tag, generated once per browser and reused
