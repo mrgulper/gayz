@@ -5,6 +5,7 @@ export const ZOMBIE_TYPES = {
   shambler: {
     id: 'shambler',
     label: 'Shambler',
+    lore: "The most common casualty of VIREO's rollout - slow, but they don't stop.",
     weight: 3,
     health: 60,
     speedMin: 1.4,
@@ -21,6 +22,7 @@ export const ZOMBIE_TYPES = {
   runner: {
     id: 'runner',
     label: 'Runner',
+    lore: "Whatever's left of its nervous system still remembers how to sprint.",
     weight: 4,
     health: 32,
     speedMin: 4.0,
@@ -37,6 +39,7 @@ export const ZOMBIE_TYPES = {
   brute: {
     id: 'brute',
     label: 'Brute',
+    lore: 'Some kind of adrenal overdose. Hits like a truck.',
     weight: 2,
     health: 175,
     speedMin: 0.7,
@@ -53,6 +56,7 @@ export const ZOMBIE_TYPES = {
   spitter: {
     id: 'spitter',
     label: 'Spitter',
+    lore: 'Keeps its distance and spits up whatever is left of its stomach lining.',
     weight: 3,
     health: 42,
     speedMin: 0.9,
@@ -71,6 +75,7 @@ export const ZOMBIE_TYPES = {
   crawler: {
     id: 'crawler',
     label: 'Crawler',
+    lore: 'Lost the use of its legs. Found something faster instead.',
     weight: 3,
     health: 38,
     speedMin: 2.7,
@@ -88,6 +93,7 @@ export const ZOMBIE_TYPES = {
   exploder: {
     id: 'exploder',
     label: 'Bloater',
+    lore: "Don't shoot it up close. Don't shoot it at all if you can help it.",
     weight: 2,
     health: 55,
     speedMin: 1.6,
@@ -108,6 +114,7 @@ export const ZOMBIE_TYPES = {
   screamer: {
     id: 'screamer',
     label: 'Screamer',
+    lore: "Its scream isn't pain. It's a dinner bell.",
     weight: 2,
     health: 50,
     speedMin: 2.0,
@@ -135,6 +142,7 @@ export const ZOMBIE_TYPES = {
   colossus: {
     id: 'colossus',
     label: 'Colossus',
+    lore: 'Whatever they were testing scaled up. Way up.',
     weight: 0,
     health: 900,
     speedMin: 0.55,
@@ -156,6 +164,7 @@ export const ZOMBIE_TYPES = {
   patient_zero: {
     id: 'patient_zero',
     label: 'Patient Zero',
+    lore: "VIREO's first success story. It feeds on the same light that made it.",
     weight: 0,
     health: 750,
     speedMin: 1.3,

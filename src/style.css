@@ -673,7 +673,8 @@ html, body {
 #perk-panel,
 #trader-panel,
 #upgrades-panel,
-#achievements-panel {
+#achievements-panel,
+#bestiary-panel {
   position: absolute;
   inset: 0;
   display: none;
@@ -687,7 +688,8 @@ html, body {
 #perk-panel-title,
 #trader-panel-title,
 #upgrades-panel-title,
-#achievements-panel-title {
+#achievements-panel-title,
+#bestiary-panel-title {
   margin: 0;
   font-size: 15px;
   letter-spacing: 1.5px;
@@ -747,6 +749,16 @@ html, body {
   background: rgba(91, 227, 255, 0.1);
 }
 
+.perk-option.featured {
+  border-color: #ffcf5c;
+  background: rgba(255, 207, 92, 0.08);
+}
+
+.perk-option.featured:hover:not(:disabled) {
+  border-color: #ffcf5c;
+  background: rgba(255, 207, 92, 0.16);
+}
+
 .perk-option:disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -762,9 +774,17 @@ html, body {
   color: #ffcf5c;
 }
 
+.perk-option .perk-lore {
+  font-size: 11px;
+  font-style: italic;
+  color: rgba(238, 238, 238, 0.6);
+  line-height: 1.35;
+}
+
 #perk-skip-btn,
 #upgrades-close-btn,
-#achievements-close-btn {
+#achievements-close-btn,
+#bestiary-close-btn {
   margin-top: 6px;
   padding: 8px 20px;
   font-size: 13px;
@@ -779,7 +799,8 @@ html, body {
 
 #perk-skip-btn:hover,
 #upgrades-close-btn:hover,
-#achievements-close-btn:hover {
+#achievements-close-btn:hover,
+#bestiary-close-btn:hover {
   border-color: rgba(255, 255, 255, 0.5);
 }
 
@@ -1147,4 +1168,39 @@ html, body {
 @keyframes nightmare-pulse {
   0%, 100% { opacity: 0.75; }
   50% { opacity: 1; }
+}
+
+#boss-health-wrap {
+  position: absolute;
+  top: 54px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(420px, 70vw);
+  text-align: center;
+  pointer-events: none;
+}
+
+#boss-name {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #ff6b6b;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  margin-bottom: 4px;
+}
+
+.boss-health-bar {
+  height: 10px;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+}
+
+.boss-health-fill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #ff6b6b, #d62c2c);
+  transition: width 200ms ease-out;
 }

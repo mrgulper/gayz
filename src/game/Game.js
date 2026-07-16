@@ -19,6 +19,7 @@ import { META_UPGRADES, loadMetaProgress, saveMetaProgress, DEATH_SCRAP_CONVERSI
 import { pickBounty } from './BountyBoard.js'
 import { ZOMBIE_TYPES } from './ZombieTypes.js'
 import { RescueSurvivor } from './RescueSurvivor.js'
+import { loadEncountered, saveEncountered } from './Bestiary.js'
 import { ACTIONS, getKeyFor, setBinding, resetBindings, keyLabel } from './Keybinds.js'
 import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
@@ -268,6 +269,7 @@ export class Game {
     this.nightStartedAt = performance.now()
     this._scheduleNightEvent()
     this._rollWeather()
+    this._rollFeaturedItem()
 
     // No preserveDrawingBuffer: it disables a fast path in most browsers and
     // isn't actually needed - _takeScreenshot() renders and reads the canvas
@@ -294,6 +296,7 @@ export class Game {
     this.vireoGuardian = null
     this.rescueSurvivor = null
     this.nearRescueSurvivor = false
+    this.bestiaryEncountered = loadEncountered()
     this.traderPanelOpen = false
     this.nearTrader = false
     this.dayNight = new DayNightCycle(this.scene, hemiLight, sunLight)
@@ -357,6 +360,14 @@ export class Game {
     this.achievementsPanelTitle = document.getElementById('achievements-panel-title')
     this.achievementsOptions = document.getElementById('achievements-options')
     this.achievementsCloseBtn = document.getElementById('achievements-close-btn')
+    this.bestiaryBtn = document.getElementById('bestiary-btn')
+    this.bestiaryPanel = document.getElementById('bestiary-panel')
+    this.bestiaryPanelTitle = document.getElementById('bestiary-panel-title')
+    this.bestiaryOptions = document.getElementById('bestiary-options')
+    this.bestiaryCloseBtn = document.getElementById('bestiary-close-btn')
+    this.bossHealthWrap = document.getElementById('boss-health-wrap')
+    this.bossNameEl = document.getElementById('boss-name')
+    this.bossHealthFill = document.getElementById('boss-health-fill')
     this.decals = new DecalManager(this.scene)
     this.minimap = new Minimap(this.minimapCanvas)
     this._camDir = new THREE.Vector3()
@@ -451,6 +462,7 @@ export class Game {
       this.nightStartedAt = performance.now()
       this._scheduleNightEvent()
       this._rollWeather()
+      this._rollFeaturedItem()
       this._updateHealthHud()
       this._updateProgressHud()
       this.deathScreen.style.display = 'none'
@@ -695,6 +707,8 @@ export class Game {
     this.upgradesCloseBtn.addEventListener('click', () => this._closeUpgradesPanel())
     this.achievementsBtn.addEventListener('click', () => this._openAchievementsPanel())
     this.achievementsCloseBtn.addEventListener('click', () => this._closeAchievementsPanel())
+    this.bestiaryBtn.addEventListener('click', () => this._openBestiaryPanel())
+    this.bestiaryCloseBtn.addEventListener('click', () => this._closeBestiaryPanel())
 
     // Click anywhere outside the settings content (the backdrop itself, not
     // a descendant) to close, in addition to toggling the Settings button.
@@ -771,7 +785,9 @@ export class Game {
         if (!['ranged', 'melee', 'medic'].includes(role)) return
         this.settings.companionRole = role
         saveSettings(this.settings)
-        for (const b of this.roleBtns) b.classList.toggle('active', b === btn)
+        // Matches by role, not by exact button, since the same 3 roles now
+        // appear both on the main menu and inside the trader panel.
+        for (const b of this.roleBtns) b.classList.toggle('active', b.dataset.role === role)
         this._rebuildCompanion(role)
       })
     }
@@ -899,10 +915,40 @@ export class Game {
     if (this.traderPanelOpen) this._renderBounty()
   }
 
+  // Rolled once per night-round (see _rollWeather's call sites) - a random
+  // shop item at a discount, so there's a reason to check the trader every
+  // night instead of just once.
+  _rollFeaturedItem() {
+    this.featuredItem = SHOP_ITEMS[Math.floor(Math.random() * SHOP_ITEMS.length)]
+  }
+
   _renderTraderOptions() {
     this.traderScrapLine.textContent = t('scrapLabel', { n: this.scrap })
     this.traderOptions.innerHTML = ''
+
+    if (this.featuredItem) {
+      const item = this.featuredItem
+      const cost = Math.round(item.cost * 0.7)
+      const btn = document.createElement('button')
+      btn.className = 'perk-option featured'
+      btn.disabled = this.scrap < cost
+      btn.innerHTML = `
+        <span class="perk-name">${t('traderFeaturedLabel')}: ${t(item.titleKey)}</span>
+        <span class="perk-cost">${t('perkCostLabel', { n: cost })}</span>
+      `
+      btn.addEventListener('click', () => {
+        if (this.scrap < cost) return
+        this.scrap -= cost
+        item.give(this)
+        this._updateStatsPanel()
+        this._updateInventoryHud()
+        this._renderTraderOptions()
+      })
+      this.traderOptions.appendChild(btn)
+    }
+
     for (const item of SHOP_ITEMS) {
+      if (item === this.featuredItem) continue
       const btn = document.createElement('button')
       btn.className = 'perk-option'
       btn.disabled = this.scrap < item.cost
@@ -985,6 +1031,29 @@ export class Game {
     this.achievementsPanel.style.display = 'none'
   }
 
+  _openBestiaryPanel() {
+    this.bestiaryPanel.style.display = 'flex'
+    this.bestiaryPanelTitle.textContent = t('bestiaryPanelTitle')
+    this.bestiaryCloseBtn.textContent = t('upgradesClose')
+    this.bestiaryOptions.innerHTML = ''
+    for (const type of Object.values(ZOMBIE_TYPES)) {
+      const known = this.bestiaryEncountered.has(type.id)
+      const btn = document.createElement('button')
+      btn.className = 'perk-option'
+      btn.disabled = true
+      btn.innerHTML = `
+        <span class="perk-name">${known ? type.label : '???'}</span>
+        <span class="perk-cost">${known ? t('achievementUnlocked') : t('achievementLocked')}</span>
+        <span class="perk-lore">${known ? type.lore : t('bestiaryUnknown')}</span>
+      `
+      this.bestiaryOptions.appendChild(btn)
+    }
+  }
+
+  _closeBestiaryPanel() {
+    this.bestiaryPanel.style.display = 'none'
+  }
+
   // Entering/exiting the drivable car (see Vehicle.js). While driving, the
   // rest of the world simulation pauses - same as it already does for the
   // inventory/perk menus - so this is a "drive around and explore" feature
@@ -1024,6 +1093,7 @@ export class Game {
     this.settingsBtn.textContent = t('settingsBtn')
     this.upgradesBtn.textContent = t('upgradesBtn')
     this.achievementsBtn.textContent = t('achievementsBtn')
+    this.bestiaryBtn.textContent = t('bestiaryBtn')
 
     document.getElementById('ctrl-line-1').innerHTML = tHtml('ctrlLine1')
     document.getElementById('ctrl-line-2').innerHTML = tHtml('ctrlLine2')
@@ -1068,9 +1138,8 @@ export class Game {
     document.getElementById('diff-hard').textContent = t('difficultyHard')
     document.getElementById('diff-nightmare').textContent = t('difficultyNightmare')
 
-    document.getElementById('role-ranged').textContent = t('roleRanged')
-    document.getElementById('role-melee').textContent = t('roleMelee')
-    document.getElementById('role-medic').textContent = t('roleMedic')
+    const roleLabelKeys = { ranged: 'roleRanged', melee: 'roleMelee', medic: 'roleMedic' }
+    for (const btn of this.roleBtns) btn.textContent = t(roleLabelKeys[btn.dataset.role])
     document.getElementById('score-attack-label').textContent = t('scoreAttackLabel')
 
     this._updateBestStatsDisplay()
@@ -1125,7 +1194,7 @@ export class Game {
     if (!this.playerState.alive) this._onPlayerDeath()
   }
 
-  _onZombieKilled(zombieTypeId, weaponId) {
+  _onZombieKilled(zombieTypeId, weaponId, x, z) {
     this.kills += 1
     this.totalKills += 1
     if (this.kills % 10 === 0) this._companionBark('killStreak')
@@ -1142,6 +1211,16 @@ export class Game {
       this.scrap += 2 + Math.floor(Math.random() * 4)
       this._updateStatsPanel()
     }
+
+    if (!this.bestiaryEncountered.has(zombieTypeId)) {
+      this.bestiaryEncountered.add(zombieTypeId)
+      saveEncountered(this.bestiaryEncountered)
+    }
+
+    // Guaranteed boss loot - on top of the normal chance-based ammo drop,
+    // not instead of it.
+    if (zombieTypeId === 'colossus') this.pickups.spawnLootDrop('extended_mag', x, z)
+    else if (zombieTypeId === 'patient_zero') this.pickups.spawnLootDrop('uvlamp', x, z)
   }
 
   _showAchievementToast(def) {
@@ -1431,6 +1510,20 @@ export class Game {
     this.nearRescueSurvivor = dist <= RESCUE_INTERACT_RADIUS
   }
 
+  // A real top-of-screen bar while any boss (Colossus/Patient Zero/the VIREO
+  // guardian) is alive, instead of just the same tiny floating sprite every
+  // regular zombie gets.
+  _updateBossHealthBar() {
+    const boss = this.zombies.zombies.find((z) => z.isBoss && z.state !== 'dead')
+    if (!boss) {
+      this.bossHealthWrap.style.display = 'none'
+      return
+    }
+    this.bossHealthWrap.style.display = 'block'
+    this.bossNameEl.textContent = boss.config.label
+    this.bossHealthFill.style.width = `${Math.max(0, boss.health / boss.maxHealth) * 100}%`
+  }
+
   _rescueSurvivor() {
     this.scrap += RESCUE_SCRAP_REWARD
     this.inventory.addHealthPack(1)
@@ -1508,6 +1601,7 @@ export class Game {
         this.nightStartedAt = performance.now()
         this._scheduleNightEvent()
         this._rollWeather()
+        this._rollFeaturedItem()
         this.zombies.applyDifficulty(this.night)
         this._showNightBanner()
         this._companionBark('nightStart')
@@ -1527,7 +1621,7 @@ export class Game {
         (dmg) => this._onZombieAttack(dmg),
         (x, z) => this.pickups.spawnLootDrop('ammo', x, z),
         () => audioEngine.playAmbushShriek(),
-        (zombieTypeId, weaponId) => this._onZombieKilled(zombieTypeId, weaponId),
+        (zombieTypeId, weaponId, x, z) => this._onZombieKilled(zombieTypeId, weaponId, x, z),
         this.player.isCrouching
       )
       this.companion.update(dt, playerPos, this.zombies.zombies, (amount) => {
@@ -1546,6 +1640,7 @@ export class Game {
       this._updateVireoTerminal(playerPos)
       this._updateRescueSurvivor(playerPos)
       if (this.rescueSurvivor) this.rescueSurvivor.update(elapsed)
+      this._updateBossHealthBar()
 
       const canRefuelGenerator = this.nearGenerator && this.inventory.fuelCans > 0 && this.generatorFuel < this.maxGeneratorFuel
       if (this.chests.nearbyChest) {

@@ -402,7 +402,7 @@ export class ZombieManager {
         this.pendingRespawns.push({ at: performance.now() + REMOVE_AFTER_DEATH_MS + this.respawnDelay * 1000 })
 
         if (!zombie.config.explodes) audioEngine.playZombieDeath()
-        if (onZombieKilled) onZombieKilled(zombie.config.id, zombie.lastHitWeaponId)
+        if (onZombieKilled) onZombieKilled(zombie.config.id, zombie.lastHitWeaponId, zombie.group.position.x, zombie.group.position.z)
         if (onZombieLoot && (zombie.isBoss || Math.random() < LOOT_DROP_CHANCE)) {
           onZombieLoot(zombie.group.position.x, zombie.group.position.z)
         }
