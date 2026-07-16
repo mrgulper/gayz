@@ -369,6 +369,40 @@ function addNeonSigns(scene) {
     light.position.set(spot.x, spot.y, spot.z)
     scene.add(light)
   }
+
+  // Branded sign at the tunnel mouth - ties the neon signage to the audio
+  // log lore (see Game.js's loreAudiolog4/5 text) without needing any extra
+  // in-game UI to explain it.
+  const canvas = document.createElement('canvas')
+  canvas.width = 256
+  canvas.height = 96
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#0a0a0f'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.fillStyle = '#ff2bd6'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.font = 'bold 46px sans-serif'
+  ctx.fillText('VIREO', canvas.width / 2, canvas.height / 2 - 10)
+  ctx.font = '16px sans-serif'
+  ctx.fillStyle = '#2be6ff'
+  ctx.fillText('wellness light program', canvas.width / 2, canvas.height / 2 + 28)
+
+  const brandMat = new THREE.MeshStandardMaterial({
+    map: new THREE.CanvasTexture(canvas),
+    emissive: 0xffffff,
+    emissiveMap: new THREE.CanvasTexture(canvas),
+    emissiveIntensity: 1.4,
+    side: THREE.DoubleSide,
+  })
+  const brandSign = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.2), brandMat)
+  brandSign.position.set(5, 6, 13)
+  brandSign.rotation.y = Math.PI
+  scene.add(brandSign)
+
+  const brandLight = new THREE.PointLight(0xff2bd6, 1.1, 9, 2)
+  brandLight.position.set(5, 6, 12.5)
+  scene.add(brandLight)
 }
 
 function addStreetMarkings(scene) {

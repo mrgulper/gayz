@@ -12,6 +12,7 @@ export const ACHIEVEMENTS = [
   { id: 'centurion', titleKey: 'achCenturion' },
   { id: 'first_death', titleKey: 'achFirstDeath' },
   { id: 'meat_grinder', titleKey: 'achMeatGrinder' },
+  { id: 'full_story', titleKey: 'achFullStory' },
 ]
 
 function loadUnlocked() {

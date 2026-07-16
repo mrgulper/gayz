@@ -30,7 +30,7 @@ export const LANGUAGES = [
 
 const STRINGS = {
   en: {
-    menuSubtitle: 'Broken city block — survive, scavenge, shoot',
+    menuSubtitle: 'Broken city block — survive, scavenge, find out why',
     menuSubhint: 'Look for lookout platforms up staircases along the avenue — chests inside',
     playBtn: 'Click to Play',
     settingsBtn: 'Settings',
@@ -90,9 +90,12 @@ const STRINGS = {
     achCenturion: 'Centurion',
     achFirstDeath: 'Rude Awakening',
     achMeatGrinder: 'Meat Grinder',
+    achFullStory: 'What VIREO Did',
     loreAudiolog1: 'Day 14. Broadcasts stopped this morning. The east water tower is still clean, if anyone finds this.',
     loreAudiolog2: "They don't feel pain - aim for the head or don't bother. Lost Marcus learning that.",
     loreAudiolog3: 'The lookout towers are the safest place to sleep. Just don\'t stay past sunrise.',
+    loreAudiolog4: 'Day 31. Found VIREO company badges on three of the collapsed ones near the tower signs. Whatever they were testing in that "wellness light" program, it didn\'t go the way the ads promised.',
+    loreAudiolog5: 'Day 47. I keep this camera running so somebody finds proof, if I don\'t make it. The signs still glow at night, don\'t they. VIREO said the light would keep us calm. I think it\'s the opposite.',
     toastScopeAdded: 'Scope attached',
     toastMagAdded: 'Extended mag attached',
     bossWarning: 'A Colossus approaches!',

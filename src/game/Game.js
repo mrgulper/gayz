@@ -239,6 +239,9 @@ export class Game {
     this.pickups.spawnUnique('audiolog1', 0, -30, 0.5)
     this.pickups.spawnUnique('audiolog2', 0, 0, 0.5)
     this.pickups.spawnUnique('audiolog3', 0, 30, 0.5)
+    this.pickups.spawnUnique('audiolog4', 5, 18, 0.5)
+    this.pickups.spawnUnique('audiolog5', 0, 60, 0.5)
+    this.audioLogsFound = new Set()
     this.chests = new ChestManager(this.scene, towerChestSpots)
     this.playerState = new PlayerState()
     this.inventory = new Inventory()
@@ -913,6 +916,8 @@ export class Game {
     else if (type.startsWith('audiolog')) {
       audioEngine.playAudioLog()
       this._showLoreToast(t(`lore${type.charAt(0).toUpperCase()}${type.slice(1)}`))
+      this.audioLogsFound.add(type)
+      if (this.audioLogsFound.size >= 5) this.achievements.unlock('full_story')
       return
     }
 

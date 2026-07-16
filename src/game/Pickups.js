@@ -23,6 +23,8 @@ const TYPES = {
   audiolog1: { weight: 0, label: 'Audio Log' },
   audiolog2: { weight: 0, label: 'Audio Log' },
   audiolog3: { weight: 0, label: 'Audio Log' },
+  audiolog4: { weight: 0, label: 'Audio Log' },
+  audiolog5: { weight: 0, label: 'Audio Log' },
 }
 
 function buildVisual(type) {
