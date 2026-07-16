@@ -539,13 +539,11 @@ html, body {
   accent-color: #e3a63c;
 }
 
-#mutators-row {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: 4px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+#menu-toggles-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 18px;
+  justify-items: start;
 }
 
 .difficulty-row {
@@ -1062,10 +1060,29 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 14px;
+  gap: 10px;
   background: radial-gradient(ellipse at center, rgba(20, 25, 20, 0.85), rgba(0, 0, 0, 0.95));
   text-align: center;
-  padding: 20px;
+  padding: 14px 20px;
+  /* Safety net: this column has grown a lot as features piled on. If it
+     ever again gets taller than the viewport, let it scroll instead of
+     silently overflowing off both the top and bottom with no way to
+     reach the rest (which is what happened before this rule existed). */
+  overflow-y: auto;
+}
+
+#menu-corner-nav {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+#menu-corner-nav button {
+  white-space: nowrap;
 }
 
 #menu h1 {
@@ -1104,11 +1121,11 @@ html, body {
 
 #controls-list {
   list-style: none;
-  margin: 18px 0 0;
+  margin: 4px 0 0;
   padding: 0;
-  font-size: 13px;
+  font-size: 12px;
   opacity: 0.6;
-  line-height: 1.8;
+  line-height: 1.55;
 }
 
 #settings-btn {
@@ -1136,6 +1153,10 @@ html, body {
   justify-content: center;
   gap: 8px;
   background: rgba(6, 8, 6, 0.9);
+  /* Settings can be opened from the pause overlay, which comes later in
+     the HTML and would otherwise stack on top and block clicks - settings
+     needs to always win regardless of what it was opened from. */
+  z-index: 15;
 }
 
 #settings-panel h2 {
