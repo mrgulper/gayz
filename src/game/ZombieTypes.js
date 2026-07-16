@@ -161,6 +161,26 @@ export const ZOMBIE_TYPES = {
   // light-lure mechanic (Game.js's _updateLightLure enrages any alive
   // zombie in radius) - screamEnrageMult just makes that boost hit harder
   // for this type specifically, so the light tradeoff matters most here.
+  // Native to the sewer biome (see World.js's buildSewer) - just added to
+  // the normal weighted pool with a small weight rather than a dedicated
+  // spawn-zone system, so it can turn up anywhere, not only down there.
+  sewer_dweller: {
+    id: 'sewer_dweller',
+    label: 'Sewer Dweller',
+    lore: 'Never saw the outbreak on the surface. Never needed to.',
+    weight: 1.5,
+    health: 45,
+    speedMin: 3.2,
+    speedMax: 4.4,
+    damageMin: 30,
+    damageMax: 46,
+    scale: 0.95,
+    ranged: false,
+    meleeRange: 1.4,
+    attackCooldown: 0.75,
+    skinTones: [0x3a4a2a, 0x334020, 0x2e3a1c],
+    clothesTones: [0x141a10, 0x181f12],
+  },
   patient_zero: {
     id: 'patient_zero',
     label: 'Patient Zero',

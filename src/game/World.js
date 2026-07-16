@@ -86,6 +86,9 @@ export function buildWorld(scene) {
   towerChestSpots.push(tunnel.chestSpot)
   spawnPoints.push({ x: tunnel.chestSpot.x, z: tunnel.chestSpot.z })
   const vireoFacility = buildVireoFacility(scene, colliders, solidMeshes, flickerLights)
+  const sewer = buildSewer(scene, colliders, solidMeshes, flickerLights)
+  towerChestSpots.push(sewer.chestSpot)
+  spawnPoints.push({ x: sewer.chestSpot.x, z: sewer.chestSpot.z })
 
   // Second area: a small park beyond the north end of the street, in the
   // space freed up by pushing the perimeter barricade out to groundSize/2.
@@ -471,6 +474,73 @@ function buildVireoFacility(scene, colliders, solidMeshes, flickerLights) {
   scene.add(screen)
 
   return { terminalSpot: { x: FACILITY_X, z: terminalZ }, uvLampSpot: { x: FACILITY_X, z: FACILITY_Z_START + 6 } }
+}
+
+// Second hidden biome, mirrored to the west side of the avenue (the tunnel
+// and VIREO facility are both east, at x=5) - a grimy sewer corridor, home
+// to the Sewer Dweller zombie type (see ZombieTypes.js). Same enclosed
+// wall/ceiling/floor construction as the tunnel, just re-themed.
+const SEWER_X = -5
+const SEWER_Z_START = 34
+const SEWER_Z_END = 50
+const SEWER_WIDTH = 2.6
+const SEWER_HEIGHT = 2.1
+
+function buildSewer(scene, colliders, solidMeshes, flickerLights) {
+  const length = SEWER_Z_END - SEWER_Z_START
+  const centerZ = (SEWER_Z_START + SEWER_Z_END) / 2
+
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x2a3324, roughness: 1 })
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x1c2418, roughness: 1 })
+  const pipeMat = new THREE.MeshStandardMaterial({ color: 0x3a4a30, roughness: 0.7, metalness: 0.4 })
+
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(SEWER_WIDTH, 0.08, length), floorMat)
+  floor.position.set(SEWER_X, 0.04, centerZ)
+  floor.receiveShadow = true
+  scene.add(floor)
+  solidMeshes.push(floor)
+
+  const ceiling = new THREE.Mesh(new THREE.BoxGeometry(SEWER_WIDTH + 0.4, 0.2, length), wallMat)
+  ceiling.position.set(SEWER_X, SEWER_HEIGHT, centerZ)
+  ceiling.castShadow = true
+  scene.add(ceiling)
+  solidMeshes.push(ceiling)
+  colliders.push(new THREE.Box3().setFromObject(ceiling))
+
+  for (const side of [-1, 1]) {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, SEWER_HEIGHT, length), wallMat)
+    wall.position.set(SEWER_X + side * (SEWER_WIDTH / 2 + 0.1), SEWER_HEIGHT / 2, centerZ)
+    wall.castShadow = true
+    wall.receiveShadow = true
+    scene.add(wall)
+    solidMeshes.push(wall)
+    colliders.push(new THREE.Box3().setFromObject(wall))
+
+    // Pipe running along each wall, just decorative.
+    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, length, 8), pipeMat)
+    pipe.rotation.x = Math.PI / 2
+    pipe.position.set(SEWER_X + side * (SEWER_WIDTH / 2 - 0.15), SEWER_HEIGHT - 0.4, centerZ)
+    scene.add(pipe)
+  }
+
+  const endWall = new THREE.Mesh(new THREE.BoxGeometry(SEWER_WIDTH + 0.4, SEWER_HEIGHT, 0.2), wallMat)
+  endWall.position.set(SEWER_X, SEWER_HEIGHT / 2, SEWER_Z_END)
+  endWall.castShadow = true
+  scene.add(endWall)
+  solidMeshes.push(endWall)
+  colliders.push(new THREE.Box3().setFromObject(endWall))
+
+  const lightSpacing = 5
+  const lightCount = Math.floor(length / lightSpacing)
+  for (let i = 1; i < lightCount; i++) {
+    const z = SEWER_Z_START + lightSpacing * i
+    const light = new THREE.PointLight(0x7ee08a, 0.7, 5, 2)
+    light.position.set(SEWER_X, SEWER_HEIGHT - 0.3, z)
+    scene.add(light)
+    flickerLights.push({ light, base: 0.7, seed: Math.random() * 100 })
+  }
+
+  return { chestSpot: { x: SEWER_X, y: 0, z: SEWER_Z_START + length / 2 } }
 }
 
 // Purely decorative neon signage for the Neon Decay look - not registered as
