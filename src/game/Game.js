@@ -240,8 +240,11 @@ export class Game {
     this._scheduleNightEvent()
     this._rollWeather()
 
-    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, preserveDrawingBuffer: true })
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    // No preserveDrawingBuffer: it disables a fast path in most browsers and
+    // isn't actually needed - _takeScreenshot() renders and reads the canvas
+    // in the same synchronous call, before any buffer swap/clear can happen.
+    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true })
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFShadowMap
 

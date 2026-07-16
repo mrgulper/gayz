@@ -25,7 +25,7 @@ export function buildWorld(scene) {
   const moon = new THREE.DirectionalLight(0xc3d2ec, 1.0)
   moon.position.set(30, 45, -15)
   moon.castShadow = true
-  moon.shadow.mapSize.set(2048, 2048)
+  moon.shadow.mapSize.set(1536, 1536)
   moon.shadow.camera.left = -75
   moon.shadow.camera.right = 75
   moon.shadow.camera.top = 75
@@ -484,6 +484,10 @@ function addNeonSigns(scene) {
     { x: -32, y: 10, z: 0, w: 5, h: 1.5, color: 0xff2bd6, rotY: Math.PI / 2 },
   ]
 
+  // Self-illuminating emissive material only - no real PointLight per sign.
+  // Five extra dynamic lights was a meaningful chunk of the frame cost this
+  // session added (every light gets evaluated per pixel); the glow already
+  // reads clearly without one lighting up its surroundings too.
   for (const spot of signSpots) {
     const mat = new THREE.MeshStandardMaterial({
       color: 0x0a0a0f,
@@ -495,10 +499,6 @@ function addNeonSigns(scene) {
     sign.position.set(spot.x, spot.y, spot.z)
     sign.rotation.y = spot.rotY
     scene.add(sign)
-
-    const light = new THREE.PointLight(spot.color, 1.2, 10, 2)
-    light.position.set(spot.x, spot.y, spot.z)
-    scene.add(light)
   }
 
   // Branded sign at the tunnel mouth - ties the neon signage to the audio
@@ -530,10 +530,6 @@ function addNeonSigns(scene) {
   brandSign.position.set(5, 6, 13)
   brandSign.rotation.y = Math.PI
   scene.add(brandSign)
-
-  const brandLight = new THREE.PointLight(0xff2bd6, 1.1, 9, 2)
-  brandLight.position.set(5, 6, 12.5)
-  scene.add(brandLight)
 }
 
 function addStreetMarkings(scene) {
