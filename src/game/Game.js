@@ -77,7 +77,7 @@ function loadSettings() {
       colorblind: parsed.colorblind ?? false,
       nickname: parsed.nickname || '',
       defaultTag: parsed.defaultTag || null,
-      companionRole: parsed.companionRole === 'melee' ? 'melee' : 'ranged',
+      companionRole: ['melee', 'medic'].includes(parsed.companionRole) ? parsed.companionRole : 'ranged',
     }
   } catch {
     return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', defaultTag: null, companionRole: 'ranged' }
@@ -717,7 +717,7 @@ export class Game {
       btn.classList.toggle('active', btn.dataset.role === this.settings.companionRole)
       btn.addEventListener('click', () => {
         const role = btn.dataset.role
-        if (role !== 'ranged' && role !== 'melee') return
+        if (!['ranged', 'melee', 'medic'].includes(role)) return
         this.settings.companionRole = role
         saveSettings(this.settings)
         for (const b of this.roleBtns) b.classList.toggle('active', b === btn)
@@ -1019,6 +1019,7 @@ export class Game {
 
     document.getElementById('role-ranged').textContent = t('roleRanged')
     document.getElementById('role-melee').textContent = t('roleMelee')
+    document.getElementById('role-medic').textContent = t('roleMedic')
 
     this._updateBestStatsDisplay()
     if (this.inventoryOpen) this._refreshInventoryPanel()
@@ -1413,7 +1414,10 @@ export class Game {
         (zombieTypeId, weaponId) => this._onZombieKilled(zombieTypeId, weaponId),
         this.player.isCrouching
       )
-      this.companion.update(dt, playerPos, this.zombies.zombies)
+      this.companion.update(dt, playerPos, this.zombies.zombies, (amount) => {
+        this.playerState.heal(amount)
+        this._updateHealthHud()
+      })
       if (this.flashlightOn) this._updateLightLure(playerPos)
       this.pickups.update(dt, elapsed, playerPos, {
         onPickup: (type, label, isLoot) => this._onPickup(type, label, isLoot),

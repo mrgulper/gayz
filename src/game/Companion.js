@@ -12,7 +12,9 @@ const TRACER_MS = 120
 const ROLE_STATS = {
   ranged: { engageRange: 13, meleeRange: 0, fireInterval: 1.3, damageMin: 18, damageMax: 30, jacket: 0x2f4f7a },
   melee: { engageRange: 2.4, meleeRange: 2.2, fireInterval: 0.9, damageMin: 26, damageMax: 42, jacket: 0x7a2f2f },
+  medic: { engageRange: 0, meleeRange: 0, fireInterval: 5, damageMin: 0, damageMax: 0, jacket: 0x2f7a4f, healAmount: 15 },
 }
+const MEDIC_FOLLOW_DISTANCE = 2.2
 
 // Follower survivor NPC: trails the player and auto-fights the nearest alive
 // zombie in range. Invulnerable by design - a "companion down" state
@@ -101,17 +103,47 @@ export class Companion {
 
     // Role-distinct weapon prop in the right hand, so the two loadouts read
     // apart at a glance even before either one attacks.
-    const weaponMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1a, roughness: 0.5, metalness: 0.4 })
-    this.weaponProp = this.role === 'melee'
-      ? new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.55, 8), weaponMat)
-      : new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.14, 0.28), weaponMat)
+    let weaponMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1a, roughness: 0.5, metalness: 0.4 })
+    if (this.role === 'medic') {
+      weaponMat = new THREE.MeshStandardMaterial({ color: 0xe8e4d8, roughness: 0.6 })
+      this.weaponProp = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.13, 0.06), weaponMat)
+      const crossMat = new THREE.MeshStandardMaterial({ color: 0xd6402f, emissive: 0xd6402f, emissiveIntensity: 0.5 })
+      const crossH = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.03, 0.01), crossMat)
+      const crossV = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.1, 0.01), crossMat)
+      crossH.position.z = 0.035
+      crossV.position.z = 0.035
+      this.weaponProp.add(crossH, crossV)
+    } else if (this.role === 'melee') {
+      this.weaponProp = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.55, 8), weaponMat)
+    } else {
+      this.weaponProp = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.14, 0.28), weaponMat)
+    }
     this.weaponProp.position.set(0.32, 0.9, 0.1)
     this.weaponProp.rotation.x = this.role === 'melee' ? Math.PI / 2.4 : 0
     this.weaponProp.castShadow = true
     this.group.add(this.weaponProp)
   }
 
-  update(dt, playerPos, zombies) {
+  update(dt, playerPos, zombies, onHeal) {
+    if (this.role === 'medic') {
+      const dx = playerPos.x - this.group.position.x
+      const dz = playerPos.z - this.group.position.z
+      const dist = Math.hypot(dx, dz)
+      if (dist > MEDIC_FOLLOW_DISTANCE) {
+        const nx = dx / dist
+        const nz = dz / dist
+        const speed = dist > CATCH_UP_DISTANCE ? MOVE_SPEED * CATCH_UP_SPEED_MULT : MOVE_SPEED
+        this.group.position.x += nx * speed * dt
+        this.group.position.z += nz * speed * dt
+        this.group.rotation.y = Math.atan2(nx, nz)
+      }
+      if (performance.now() >= this.nextFireAt) {
+        this.nextFireAt = performance.now() + this.stats.fireInterval * 1000
+        if (onHeal) onHeal(this.stats.healAmount)
+      }
+      return
+    }
+
     let nearest = null
     let nearestDist = this.stats.engageRange
     for (const z of zombies) {

@@ -104,6 +104,7 @@ const STRINGS = {
     difficultyNightmare: 'Nightmare',
     roleRanged: 'Ranged Support',
     roleMelee: 'Melee Bruiser',
+    roleMedic: 'Medic Support',
     toastBatteryAdded: 'Battery collected',
     noisemakerLabel: 'Noisemaker',
     toastNoisemakerAdded: 'Noisemaker collected',
