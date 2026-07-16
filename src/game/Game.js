@@ -109,6 +109,7 @@ const LIGHT_LURE_RADIUS = 20
 const LIGHT_LURE_INTERVAL_MS = 2000
 const LIGHT_LURE_ENRAGE_MS = 2500
 const VEHICLE_INTERACT_RADIUS = 3
+const VIREO_TERMINAL_RADIUS = 2.5
 
 const SHOP_ITEMS = [
   { id: 'health', cost: 15, titleKey: 'shopHealthPack', give: (game) => game.inventory.addHealthPack(1) },
@@ -220,7 +221,7 @@ export class Game {
     this.scene = new THREE.Scene()
     this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200)
 
-    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader } = buildWorld(this.scene)
+    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, vireoFacility } = buildWorld(this.scene)
     this.flickerLights = flickerLights
     this.minigunSpot = minigunSpot
     this.generator = generator
@@ -228,6 +229,8 @@ export class Game {
     this.generatorFuel = 100
     this.maxGeneratorFuel = 100
     this.trader = trader
+    this.vireoTerminal = vireoFacility.terminalSpot
+    this.nearVireoTerminal = false
     this.traderPanelOpen = false
     this.nearTrader = false
     this.dayNight = new DayNightCycle(this.scene, hemiLight, sunLight)
@@ -250,6 +253,7 @@ export class Game {
     this.pickups.spawnUnique('audiolog3', 0, 30, 0.5)
     this.pickups.spawnUnique('audiolog4', 5, 18, 0.5)
     this.pickups.spawnUnique('audiolog5', 0, 60, 0.5)
+    this.pickups.spawnUnique('uvlamp', vireoFacility.uvLampSpot.x, vireoFacility.uvLampSpot.z, 0.5)
     this.audioLogsFound = new Set()
     this.chests = new ChestManager(this.scene, towerChestSpots)
     this.playerState = new PlayerState()
@@ -445,6 +449,9 @@ export class Game {
           this._openTraderPanel()
         } else if (this.nearVehicle) {
           this._enterVehicle()
+        } else if (this.nearVireoTerminal) {
+          this._showLoreToast(t('loreVireoTerminal'))
+          this.achievements.unlock('true_ending')
         } else {
           const loot = this.chests.tryInteract()
           if (loot) {
@@ -1115,6 +1122,11 @@ export class Game {
     this.nearVehicle = this.vehicle.distanceTo(playerPos.x, playerPos.z) <= VEHICLE_INTERACT_RADIUS
   }
 
+  _updateVireoTerminal(playerPos) {
+    const dist = Math.hypot(playerPos.x - this.vireoTerminal.x, playerPos.z - this.vireoTerminal.z)
+    this.nearVireoTerminal = dist <= VIREO_TERMINAL_RADIUS
+  }
+
   _updateMinimap(playerPos) {
     this.camera.getWorldDirection(this._camDir)
     const facingRad = Math.atan2(this._camDir.x, -this._camDir.z)
@@ -1203,6 +1215,7 @@ export class Game {
       this._updateGenerator(dt, playerPos)
       this._updateTrader(playerPos)
       this._updateVehicleProximity(playerPos)
+      this._updateVireoTerminal(playerPos)
 
       const canRefuelGenerator = this.nearGenerator && this.inventory.fuelCans > 0 && this.generatorFuel < this.maxGeneratorFuel
       if (this.chests.nearbyChest) {
@@ -1213,6 +1226,9 @@ export class Game {
         this.interactPrompt.style.display = 'block'
       } else if (this.nearVehicle) {
         this.interactPrompt.innerHTML = tHtml('interactEnterVehicle')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearVireoTerminal) {
+        this.interactPrompt.innerHTML = tHtml('interactTerminal')
         this.interactPrompt.style.display = 'block'
       } else if (canRefuelGenerator) {
         this.interactPrompt.innerHTML = tHtml('interactRefuel')

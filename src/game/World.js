@@ -85,6 +85,7 @@ export function buildWorld(scene) {
   addNeonSigns(scene)
   towerChestSpots.push(tunnel.chestSpot)
   spawnPoints.push({ x: tunnel.chestSpot.x, z: tunnel.chestSpot.z })
+  const vireoFacility = buildVireoFacility(scene, colliders, solidMeshes, flickerLights)
 
   // Second area: a small park beyond the north end of the street, in the
   // space freed up by pushing the perimeter barricade out to groundSize/2.
@@ -103,6 +104,7 @@ export function buildWorld(scene) {
     minigunSpot,
     generator,
     trader,
+    vireoFacility,
   }
 }
 
@@ -340,6 +342,135 @@ function buildTunnel(scene, colliders, solidMeshes, flickerLights) {
   }
 
   return { chestSpot: { x: TUNNEL_X, y: 0, z: centerZ } }
+}
+
+// Hidden VIREO sub-level at the tunnel's far end - the "final reveal"
+// location: hazard lighting, lab clutter, and a terminal (see Game.js's
+// nearVireoTerminal handling) that pays off the audio log arc. Also where
+// the UV Lamp weapon pickup lives (see Game.js's spawnUnique('uvlamp', ...)).
+const FACILITY_X = TUNNEL_X
+const FACILITY_Z_START = TUNNEL_Z_END
+const FACILITY_Z_END = TUNNEL_Z_END + 16
+const FACILITY_WIDTH = TUNNEL_WIDTH
+const FACILITY_HEIGHT = TUNNEL_HEIGHT
+
+function buildVireoFacility(scene, colliders, solidMeshes, flickerLights) {
+  const length = FACILITY_Z_END - FACILITY_Z_START
+  const centerZ = (FACILITY_Z_START + FACILITY_Z_END) / 2
+
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x2a1418, roughness: 0.9 })
+
+  const stripeCanvas = document.createElement('canvas')
+  stripeCanvas.width = 64
+  stripeCanvas.height = 64
+  const stripeCtx = stripeCanvas.getContext('2d')
+  stripeCtx.fillStyle = '#1c1614'
+  stripeCtx.fillRect(0, 0, 64, 64)
+  stripeCtx.fillStyle = '#d4a017'
+  for (let i = -64; i < 64; i += 16) {
+    stripeCtx.save()
+    stripeCtx.beginPath()
+    stripeCtx.moveTo(i, 64)
+    stripeCtx.lineTo(i + 8, 64)
+    stripeCtx.lineTo(i + 8 + 64, 0)
+    stripeCtx.lineTo(i + 64, 0)
+    stripeCtx.closePath()
+    stripeCtx.fill()
+    stripeCtx.restore()
+  }
+  const stripeTexture = new THREE.CanvasTexture(stripeCanvas)
+  stripeTexture.wrapS = THREE.RepeatWrapping
+  stripeTexture.wrapT = THREE.RepeatWrapping
+  stripeTexture.repeat.set(1, length / 2)
+  const floorMat = new THREE.MeshStandardMaterial({ map: stripeTexture, roughness: 1 })
+
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(FACILITY_WIDTH, 0.08, length), floorMat)
+  floor.position.set(FACILITY_X, 0.04, centerZ)
+  floor.receiveShadow = true
+  scene.add(floor)
+  solidMeshes.push(floor)
+
+  const ceiling = new THREE.Mesh(new THREE.BoxGeometry(FACILITY_WIDTH + 0.4, 0.2, length), wallMat)
+  ceiling.position.set(FACILITY_X, FACILITY_HEIGHT, centerZ)
+  ceiling.castShadow = true
+  scene.add(ceiling)
+  solidMeshes.push(ceiling)
+  colliders.push(new THREE.Box3().setFromObject(ceiling))
+
+  for (const side of [-1, 1]) {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, FACILITY_HEIGHT, length), wallMat)
+    wall.position.set(FACILITY_X + side * (FACILITY_WIDTH / 2 + 0.1), FACILITY_HEIGHT / 2, centerZ)
+    wall.castShadow = true
+    wall.receiveShadow = true
+    scene.add(wall)
+    solidMeshes.push(wall)
+    colliders.push(new THREE.Box3().setFromObject(wall))
+  }
+
+  const endWall = new THREE.Mesh(new THREE.BoxGeometry(FACILITY_WIDTH + 0.4, FACILITY_HEIGHT, 0.2), wallMat)
+  endWall.position.set(FACILITY_X, FACILITY_HEIGHT / 2, FACILITY_Z_END)
+  endWall.castShadow = true
+  scene.add(endWall)
+  solidMeshes.push(endWall)
+  colliders.push(new THREE.Box3().setFromObject(endWall))
+
+  const lightSpacing = 5
+  const lightCount = Math.floor(length / lightSpacing)
+  for (let i = 1; i < lightCount; i++) {
+    const z = FACILITY_Z_START + lightSpacing * i
+    const light = new THREE.PointLight(0xff2222, 1.0, 6, 2)
+    light.position.set(FACILITY_X, FACILITY_HEIGHT - 0.3, z)
+    scene.add(light)
+    flickerLights.push({ light, base: 1.0, seed: Math.random() * 100 })
+  }
+
+  const propMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.8 })
+  const propSpots = [
+    { x: FACILITY_X - 0.7, z: FACILITY_Z_START + 4, w: 0.5, h: 0.9, d: 0.5 },
+    { x: FACILITY_X + 0.7, z: FACILITY_Z_START + 8, w: 0.6, h: 0.6, d: 0.6 },
+  ]
+  for (const p of propSpots) {
+    const box = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, p.d), propMat)
+    box.position.set(p.x, p.h / 2, p.z)
+    box.castShadow = true
+    scene.add(box)
+    solidMeshes.push(box)
+    colliders.push(new THREE.Box3().setFromObject(box))
+  }
+
+  const terminalZ = FACILITY_Z_END - 2
+  const terminalMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.6 })
+  const terminalBody = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.1, 0.4), terminalMat)
+  terminalBody.position.set(FACILITY_X, 0.55, terminalZ)
+  terminalBody.castShadow = true
+  scene.add(terminalBody)
+  solidMeshes.push(terminalBody)
+  colliders.push(new THREE.Box3().setFromObject(terminalBody))
+
+  const screenCanvas = document.createElement('canvas')
+  screenCanvas.width = 128
+  screenCanvas.height = 96
+  const screenCtx = screenCanvas.getContext('2d')
+  screenCtx.fillStyle = '#050a05'
+  screenCtx.fillRect(0, 0, screenCanvas.width, screenCanvas.height)
+  screenCtx.fillStyle = '#3fff6a'
+  screenCtx.font = '10px monospace'
+  screenCtx.fillText('VIREO OS', 8, 16)
+  screenCtx.fillText('SUBJECT LOG', 8, 32)
+  screenCtx.fillText('...', 8, 48)
+  screenCtx.fillText('[ACCESS]', 8, 72)
+  const screenTexture = new THREE.CanvasTexture(screenCanvas)
+  const screenMat = new THREE.MeshStandardMaterial({
+    map: screenTexture,
+    emissive: 0xffffff,
+    emissiveMap: screenTexture,
+    emissiveIntensity: 0.8,
+  })
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.38), screenMat)
+  screen.position.set(FACILITY_X, 0.85, terminalZ + 0.21)
+  scene.add(screen)
+
+  return { terminalSpot: { x: FACILITY_X, z: terminalZ }, uvLampSpot: { x: FACILITY_X, z: FACILITY_Z_START + 6 } }
 }
 
 // Purely decorative neon signage for the Neon Decay look - not registered as
