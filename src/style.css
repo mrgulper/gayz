@@ -693,6 +693,14 @@ html, body {
   opacity: 0.55;
 }
 
+#bounty-line {
+  font-size: 13px;
+  color: #ff9dd6;
+  opacity: 0.9;
+  margin-top: -6px;
+  text-align: center;
+}
+
 .perk-options {
   display: flex;
   gap: 14px;

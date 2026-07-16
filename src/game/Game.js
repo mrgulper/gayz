@@ -16,6 +16,7 @@ import { pickNightEvent } from './NightEvents.js'
 import { Companion } from './Companion.js'
 import { Vehicle } from './Vehicle.js'
 import { META_UPGRADES, loadMetaProgress, saveMetaProgress, DEATH_SCRAP_CONVERSION } from './MetaProgress.js'
+import { pickBounty } from './BountyBoard.js'
 import { ACTIONS, getKeyFor, setBinding, resetBindings, keyLabel } from './Keybinds.js'
 import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
@@ -246,6 +247,7 @@ export class Game {
     this.maxGeneratorFuel = 100
     this.trader = trader
     this.vireoTerminal = vireoFacility.terminalSpot
+    this.activeBounty = null
     this.nearVireoTerminal = false
     this.traderPanelOpen = false
     this.nearTrader = false
@@ -296,6 +298,7 @@ export class Game {
     this.traderPanel = document.getElementById('trader-panel')
     this.traderPanelTitle = document.getElementById('trader-panel-title')
     this.traderScrapLine = document.getElementById('trader-scrap-line')
+    this.bountyLineEl = document.getElementById('bounty-line')
     this.traderOptions = document.getElementById('trader-options')
     this.traderHint = document.getElementById('trader-hint')
     this.upgradesBtn = document.getElementById('upgrades-btn')
@@ -389,6 +392,7 @@ export class Game {
       this.companion.teleportTo(1.6, 7)
       this.night = 1
       this.kills = 0
+      this.activeBounty = null
       this.runStartedAt = performance.now()
       this.nightStartedAt = performance.now()
       this._scheduleNightEvent()
@@ -784,7 +788,44 @@ export class Game {
     this.traderPanel.style.display = 'flex'
     this.traderPanelTitle.textContent = t('traderPanelTitle')
     this.traderHint.textContent = tHtml('traderHint')
+    if (!this.activeBounty) this._assignBounty()
+    this._renderBounty()
     this._renderTraderOptions()
+  }
+
+  _assignBounty(excludeId) {
+    const def = pickBounty(excludeId)
+    this.activeBounty = { ...def, progress: 0, startNight: this.night }
+  }
+
+  _renderBounty() {
+    const b = this.activeBounty
+    if (!b) return
+    this.bountyLineEl.textContent = t('bountyLine', {
+      title: t(b.titleKey, { n: b.target }),
+      progress: Math.min(b.progress, b.target),
+      target: b.target,
+      reward: b.reward,
+    })
+  }
+
+  // Called whenever something that could satisfy the active bounty happens.
+  // amount defaults to a full completion check (used by the night-count and
+  // rain-night bounty types, which aren't incremented event-by-event).
+  _checkBountyProgress(kind, amount = 0) {
+    const b = this.activeBounty
+    if (!b || b.id !== kind) return
+    b.progress = Math.min(b.target, b.progress + amount)
+    if (b.progress >= b.target) this._completeBounty()
+  }
+
+  _completeBounty() {
+    const b = this.activeBounty
+    this.scrap += b.reward
+    this._updateStatsPanel()
+    this._showLoreToast(t('bountyComplete', { title: t(b.titleKey, { n: b.target }), reward: b.reward }))
+    this._assignBounty(b.id)
+    if (this.traderPanelOpen) this._renderBounty()
   }
 
   _renderTraderOptions() {
@@ -995,6 +1036,8 @@ export class Game {
     this.achievements.unlock('first_blood')
     if (this.totalKills >= 100) this.achievements.unlock('centurion')
     if (zombieTypeId === 'brute' && weaponId === 'melee') this.achievements.unlock('brute_knife')
+    if (zombieTypeId === 'screamer') this._checkBountyProgress('kill_screamers', 1)
+    if (weaponId === 'melee') this._checkBountyProgress('melee_kills', 1)
     if (weaponId === 'minigun') {
       this.killCountsByWeapon.minigun = (this.killCountsByWeapon.minigun || 0) + 1
       if (this.killCountsByWeapon.minigun >= 50) this.achievements.unlock('meat_grinder')
@@ -1301,6 +1344,8 @@ export class Game {
       }
 
       if (performance.now() - this.nightStartedAt > NIGHT_DURATION_MS) {
+        if (this.raining) this._checkBountyProgress('survive_rain_night', 1)
+        this._checkBountyProgress('reach_3_nights', 1)
         this.night += 1
         this.nightStartedAt = performance.now()
         this._scheduleNightEvent()
