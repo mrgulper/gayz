@@ -81,17 +81,23 @@ const MELEE_VARIANTS = {
 }
 
 export class WeaponSystem {
-  constructor(camera, scene, colliderMeshes, hud, zombieManager, onHitSurface) {
+  constructor(camera, scene, colliderMeshes, hud, zombieManager, onHitSurface, onZombieHit, onStealthTakedown) {
     this.camera = camera
     this.scene = scene
     this.colliderMeshes = colliderMeshes
     this.hud = hud
     this.zombieManager = zombieManager
     this.onHitSurface = onHitSurface
+    this.onZombieHit = onZombieHit
+    this.onStealthTakedown = onStealthTakedown
 
-    this.weapons = WEAPONS.map((w) => ({ ...w, ammoInMag: w.magSize, ammoReserve: w.reserve }))
+    this.weapons = WEAPONS.map((w) => ({ ...w, ammoInMag: w.magSize, ammoReserve: w.reserve, rarityMult: 1, rarityTier: null }))
     this.currentIndex = 0
     this.meleeVariant = 'knife'
+    // Global damage multiplier - the XP-gem level-up pool's damage upgrade
+    // stacks additively onto this rather than needing to touch every
+    // weapon's own damage stat (see _fire's onHit call).
+    this.damageMult = 1
 
     this.triggerDown = false
     this.timeSinceLastShot = Infinity
@@ -158,6 +164,27 @@ export class WeaponSystem {
     if (w) w.hasScope = true
   }
 
+  // Chest-found rarity upgrade (see Chests.js's rare_weapon/legendary_weapon
+  // loot and Game.js's _onPickup) - takes the best tier found rather than
+  // stacking multiplicatively, so finding two "rare" boosts on the same gun
+  // doesn't quietly out-power a "legendary" one found elsewhere.
+  applyRarityBoost(id, mult, tier) {
+    const w = this.weapons.find((w) => w.id === id)
+    if (!w || w.rarityMult >= mult) return false
+    w.rarityMult = mult
+    w.rarityTier = tier
+    return true
+  }
+
+  // Picks a random currently-unlocked weapon id - used by rare/legendary
+  // chest loot, which boosts whatever's already in the player's loadout
+  // rather than a fixed slot.
+  randomUnlockedWeaponId() {
+    const unlocked = this.weapons.filter((w) => w.unlocked)
+    if (unlocked.length === 0) return null
+    return unlocked[Math.floor(Math.random() * unlocked.length)].id
+  }
+
   // Swaps the melee slot's stats/viewmodel to an alternate found as loot -
   // replaces the knife in place rather than adding a new weapon slot/key.
   setMeleeVariant(variantId) {
@@ -179,12 +206,12 @@ export class WeaponSystem {
 
   // Cosmetic achievement reward (e.g. Centurion's gold pistol) - purely
   // visual, rebuilds just that one weapon's viewmodel with the skin applied.
-  setGoldenSkin(weaponId, golden) {
+  setWeaponSkin(weaponId, skinId) {
     const old = this.viewmodels[weaponId]
     if (!old) return
     const wasVisible = old.visible
     this.viewmodelRoot.remove(old)
-    const vm = buildViewmodel(weaponId, { golden })
+    const vm = buildViewmodel(weaponId, { skinId })
     vm.visible = wasVisible
     this.viewmodelRoot.add(vm)
     this.viewmodels[weaponId] = vm
@@ -255,6 +282,13 @@ export class WeaponSystem {
     if (e.code === 'Digit4') this._switchTo(3)
     if (e.code === 'Digit5') this._switchTo(4)
     if (e.code === getKeyFor('reload')) this._reload()
+  }
+
+  // Public entry point for switching by slot index - used by Game.js's
+  // weapon wheel, where the player picks a slot from a radial UI instead
+  // of pressing its number key directly.
+  switchToIndex(index) {
+    this._switchTo(index)
   }
 
   _switchTo(index) {
@@ -407,10 +441,32 @@ export class WeaponSystem {
       if (w.id === 'uvlamp' || (w.id === 'melee' && this.meleeVariant === 'uvbaton')) {
         zombie.weaken(1500)
       } else {
-        zombie.onHit(w.damage)
+        let damage = w.damage * this.damageMult * w.rarityMult
+        // Stealth takedown: melee, and the zombie is facing away from the
+        // player (its own forward vector points opposite the direction to
+        // the player) - approaching from its blind side guarantees the kill
+        // regardless of remaining health, rewarding flanking over head-on.
+        if (w.melee) {
+          const toPlayerX = this.camera.position.x - zombie.group.position.x
+          const toPlayerZ = this.camera.position.z - zombie.group.position.z
+          const toPlayerLen = Math.hypot(toPlayerX, toPlayerZ)
+          if (toPlayerLen > 0.0001) {
+            const facingX = Math.sin(zombie.group.rotation.y)
+            const facingZ = Math.cos(zombie.group.rotation.y)
+            const dot = (facingX * toPlayerX + facingZ * toPlayerZ) / toPlayerLen
+            if (dot < -0.5) {
+              damage = Math.max(damage, zombie.health)
+              if (this.onStealthTakedown) this.onStealthTakedown()
+            }
+          }
+        }
+        zombie.onHit(damage)
       }
     }
-    if (hitZombies.size > 0) this._showHitmarker()
+    if (hitZombies.size > 0) {
+      this._showHitmarker()
+      if (this.onZombieHit) this.onZombieHit()
+    }
     void anyHit
   }
 

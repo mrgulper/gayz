@@ -4,8 +4,8 @@ const INTERACT_RADIUS = 2.2
 const INTERACT_HEIGHT_TOLERANCE = 2.2
 const EYE_HEIGHT = 1.7
 
-const LOOT_WEIGHTS = { health: 1, ammo: 1, noisemaker: 0.4, scope: 0.2, extended_mag: 0.3, fuelcan: 0.5, grenade: 0.35, melee_bat: 0.15, melee_machete: 0.15, melee_uvbaton: 0.1 }
-const LOOT_LABELS = { health: 'Health Pack', ammo: 'Ammo Crate', noisemaker: 'Noisemaker', scope: 'Scope', extended_mag: 'Extended Mag', fuelcan: 'Fuel Can', grenade: 'Grenade', melee_bat: 'Bat', melee_machete: 'Machete', melee_uvbaton: 'UV Baton' }
+const LOOT_WEIGHTS = { health: 1, ammo: 1, noisemaker: 0.4, scope: 0.2, extended_mag: 0.3, fuelcan: 0.5, grenade: 0.35, melee_bat: 0.15, melee_machete: 0.15, melee_uvbaton: 0.1, rare_weapon: 0.25, legendary_weapon: 0.08 }
+const LOOT_LABELS = { health: 'Health Pack', ammo: 'Ammo Crate', noisemaker: 'Noisemaker', scope: 'Scope', extended_mag: 'Extended Mag', fuelcan: 'Fuel Can', grenade: 'Grenade', melee_bat: 'Bat', melee_machete: 'Machete', melee_uvbaton: 'UV Baton', rare_weapon: 'Rare Weapon Part', legendary_weapon: 'Legendary Weapon Part' }
 const LOOT_COUNT_MIN = 1
 const LOOT_COUNT_MAX = 2
 

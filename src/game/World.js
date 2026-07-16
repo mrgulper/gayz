@@ -318,8 +318,11 @@ function buildGenerator(scene, register) {
 // sign - where scrap earned from kills can be spent on supplies (see
 // Game.js's trader panel).
 function buildTraderStall(scene, register) {
-  const x = -3
-  const z = 11
+  // Pushed to the far end of the avenue (same safe x-lane the chest spots
+  // already use) instead of sitting right next to spawn, so it reads as a
+  // destination to walk to rather than clutter in the middle of the map.
+  const x = -8
+  const z = 33
 
   const group = new THREE.Group()
   group.position.set(x, 0, z)
@@ -367,8 +370,10 @@ function buildTraderStall(scene, register) {
 // pickups alone (see Game.js's _updateAmmoStation). Kept well clear of the
 // generator/trader stall so all three street props read as distinct spots.
 function buildAmmoStation(scene, register) {
-  const x = 3
-  const z = -6
+  // Opposite corner from the trader stall, same reasoning - moved off the
+  // spawn area to the far end of the avenue.
+  const x = 8
+  const z = -33
 
   const group = new THREE.Group()
   group.position.set(x, 0, z)

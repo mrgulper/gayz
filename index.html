@@ -13,6 +13,7 @@
       <div id="crosshair"></div>
 
       <div id="damage-flash"></div>
+      <div id="lightning-flash"></div>
 
       <div id="status-hud">
         <div class="status-row">
@@ -34,6 +35,10 @@
           <span class="status-icon">&#128267;</span>
           <div class="status-bar"><div id="battery-fill" class="status-fill battery"></div></div>
         </div>
+        <div class="status-row">
+          <span class="status-icon" id="xp-level-badge">1</span>
+          <div class="status-bar"><div id="xp-fill" class="status-fill xp"></div></div>
+        </div>
       </div>
 
       <div id="progress-hud">
@@ -44,7 +49,15 @@
         <span id="kills-value">0 kills</span>
       </div>
 
+      <div id="compass-strip">
+        <div class="compass-marker" id="compass-trader" style="display: none">Trader</div>
+        <div class="compass-marker" id="compass-ammo" style="display: none">Ammo</div>
+        <div class="compass-marker" id="compass-vehicle" style="display: none">Car</div>
+      </div>
+
       <div id="night-banner"></div>
+
+      <div id="combo-counter" style="display: none"></div>
 
       <div id="boss-health-wrap" style="display: none">
         <div id="boss-name"></div>
@@ -92,6 +105,11 @@
           <span id="grenade-count">0</span>
           <span class="inv-key">B</span>
         </div>
+        <div class="inv-row">
+          <span class="inv-icon">&#128736;</span>
+          <span id="barricade-count">0</span>
+          <span class="inv-key">N</span>
+        </div>
       </div>
 
       <div id="hud">
@@ -100,6 +118,11 @@
       </div>
 
       <div id="hitmarker"></div>
+
+      <div id="weapon-wheel" style="display: none">
+        <div id="weapon-wheel-ring"></div>
+        <div id="weapon-wheel-cursor"></div>
+      </div>
 
       <div id="pickup-toast"></div>
 
@@ -140,6 +163,11 @@
           <button class="role-btn" data-role="melee" id="role-melee">Melee Bruiser</button>
           <button class="role-btn" data-role="medic" id="role-medic">Medic Support</button>
         </div>
+        <div class="difficulty-row" id="loadout-row">
+          <button class="loadout-btn active" data-loadout="balanced" id="loadout-balanced">Balanced</button>
+          <button class="loadout-btn" data-loadout="runner" id="loadout-runner">Runner</button>
+          <button class="loadout-btn" data-loadout="tank" id="loadout-tank">Tank</button>
+        </div>
         <label class="score-attack-toggle" for="score-attack-toggle">
           <input type="checkbox" id="score-attack-toggle" />
           <span id="score-attack-label">Score Attack Mode</span>
@@ -148,11 +176,26 @@
           <input type="checkbox" id="hardcore-toggle" />
           <span id="hardcore-label">Hardcore Mode (no respawn)</span>
         </label>
+        <div id="mutators-row">
+          <label class="score-attack-toggle" for="mutator-horde-rush">
+            <input type="checkbox" id="mutator-horde-rush" />
+            <span id="mutator-horde-rush-label">Horde Rush (2x zombies)</span>
+          </label>
+          <label class="score-attack-toggle" for="mutator-loot-rush">
+            <input type="checkbox" id="mutator-loot-rush" />
+            <span id="mutator-loot-rush-label">Loot Rush (2x XP &amp; scrap)</span>
+          </label>
+          <label class="score-attack-toggle" for="mutator-pure-gunplay">
+            <input type="checkbox" id="mutator-pure-gunplay" />
+            <span id="mutator-pure-gunplay-label">Pure Gunplay (no auto-weapons)</span>
+          </label>
+        </div>
         <button id="play-btn">Click to Play</button>
         <button id="settings-btn">Settings</button>
         <button id="upgrades-btn">Upgrades</button>
         <button id="achievements-btn">Achievements</button>
         <button id="bestiary-btn">Bestiary</button>
+        <button id="skins-btn">Skins</button>
         <ul id="controls-list">
           <li id="ctrl-line-1"><b>WASD</b> move &middot; <b>Mouse</b> look &middot; <b>Space</b> jump &middot; <b>E</b> sprint</li>
           <li id="ctrl-line-2"><b>Left Click</b> shoot &middot; <b>1 / 2 / 3 / 4</b> switch weapon &middot; <b>R</b> reload</li>
@@ -202,6 +245,10 @@
             <label for="colorblind-toggle" id="colorblind-label">Colorblind Mode</label>
             <input type="checkbox" id="colorblind-toggle" class="audio-checkbox" />
           </div>
+          <div class="audio-row">
+            <label for="performance-toggle" id="performance-label">FPS Optimized (lower graphics quality)</label>
+            <input type="checkbox" id="performance-toggle" class="audio-checkbox" />
+          </div>
           <div id="controls-grid" class="controls-grid"></div>
           <button id="reset-binds-btn">Reset to Defaults</button>
         </div>
@@ -231,6 +278,7 @@
           <div class="inv-panel-row"><span id="panel-armor-label">Armor Pack</span><span id="panel-armor-count">0</span><span class="inv-key">G</span></div>
           <div class="inv-panel-row"><span id="panel-noisemaker-label">Noisemaker</span><span id="panel-noisemaker-count">0</span><span class="inv-key">V</span></div>
           <div class="inv-panel-row"><span id="panel-grenade-label">Grenade</span><span id="panel-grenade-count">0</span><span class="inv-key">B</span></div>
+          <div class="inv-panel-row"><span id="panel-barricade-label">Barricade</span><span id="panel-barricade-count">0</span><span class="inv-key">N</span></div>
         </div>
         <h2 id="weapons-title">Weapons</h2>
         <div class="inv-panel-section" id="panel-weapons-list"></div>
@@ -277,6 +325,27 @@
         <h2 id="bestiary-panel-title">Bestiary</h2>
         <div class="perk-options" id="bestiary-options"></div>
         <button id="bestiary-close-btn">Close</button>
+      </div>
+
+      <div id="xp-levelup-panel">
+        <h2 id="xp-levelup-panel-title">Level Up!</h2>
+        <div class="perk-options" id="xp-levelup-options"></div>
+      </div>
+
+      <div id="pause-overlay">
+        <h2 id="pause-overlay-title">Paused</h2>
+        <div class="perk-panel-buttons">
+          <button id="pause-resume-btn">Resume</button>
+          <button id="pause-settings-btn">Settings</button>
+          <button id="pause-quit-btn">Quit to Menu</button>
+        </div>
+      </div>
+
+      <div id="skins-panel">
+        <h2 id="skins-panel-title">Skins</h2>
+        <div id="skins-scrap-line"></div>
+        <div class="perk-options" id="skins-options"></div>
+        <button id="skins-close-btn">Close</button>
       </div>
     </div>
     <script type="module" src="/src/main.js"></script>

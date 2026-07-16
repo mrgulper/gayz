@@ -62,6 +62,7 @@ export class PlayerController {
     this.stamina = STAMINA_MAX
     this.maxStamina = STAMINA_MAX
     this.sprintMultiplier = SPRINT_MULTIPLIER
+    this.moveSpeed = MOVE_SPEED
     this.isSprinting = false
     this.isCrouching = false
     this.eyeHeight = EYE_HEIGHT
@@ -107,6 +108,7 @@ export class PlayerController {
     this.maxStamina = STAMINA_MAX
     this.stamina = this.maxStamina
     this.sprintMultiplier = SPRINT_MULTIPLIER
+    this.moveSpeed = MOVE_SPEED
     this.isCrouching = false
     this.eyeHeight = EYE_HEIGHT
     this.isDodging = false
@@ -207,7 +209,7 @@ export class PlayerController {
 
       let speedMultiplier = this.isSprinting ? this.sprintMultiplier : 1
       if (this.isCrouching) speedMultiplier *= CROUCH_SPEED_MULT
-      if (isMoving) moveDir.normalize().multiplyScalar(MOVE_SPEED * speedMultiplier * dt)
+      if (isMoving) moveDir.normalize().multiplyScalar(this.moveSpeed * speedMultiplier * dt)
 
       this._tryMove(obj, moveDir.x, 0)
       this._tryMove(obj, 0, moveDir.z)

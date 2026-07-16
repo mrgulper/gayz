@@ -14,6 +14,10 @@ export const ACHIEVEMENTS = [
   { id: 'meat_grinder', titleKey: 'achMeatGrinder' },
   { id: 'full_story', titleKey: 'achFullStory' },
   { id: 'true_ending', titleKey: 'achTrueEnding' },
+  { id: 'shadow_hunter', titleKey: 'achShadowHunter' },
+  { id: 'weapon_evolved', titleKey: 'achWeaponEvolved' },
+  { id: 'elite_hunter', titleKey: 'achEliteHunter' },
+  { id: 'road_kill', titleKey: 'achRoadKill' },
 ]
 
 function loadUnlocked() {

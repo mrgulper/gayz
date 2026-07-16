@@ -16,6 +16,10 @@ import { Minimap } from './Minimap.js'
 import { DecalManager } from './Decals.js'
 import { Achievements, ACHIEVEMENTS } from './Achievements.js'
 import { rollPerks } from './Perks.js'
+import { rollXpUpgrades } from './XpUpgrades.js'
+import { XpGemManager } from './XpGems.js'
+import { AutoWeaponManager } from './AutoWeapons.js'
+import { SKIN_DEFS } from './Skins.js'
 import { pickNightEvent } from './NightEvents.js'
 import { Companion } from './Companion.js'
 import { PlayerBody } from './PlayerBody.js'
@@ -60,6 +64,15 @@ const PICKUP_LABELS = {
   melee_uvbaton: () => t('toastUvBatonAdded'),
 }
 
+// Starting stat tradeoffs, picked once on the main menu and applied a
+// single time when a fresh run begins (see the playBtn click handler) -
+// not reapplied on respawn, same as XP upgrades/perks.
+const LOADOUT_PRESETS = {
+  balanced: { moveSpeedDelta: 0, maxHealthMult: 1, maxStaminaDelta: 0 },
+  runner: { moveSpeedDelta: 1.2, maxHealthMult: 0.75, maxStaminaDelta: 15 },
+  tank: { moveSpeedDelta: -0.8, maxHealthMult: 1.35, maxStaminaDelta: -10 },
+}
+
 const DIFFICULTY_PRESETS = {
   easy: { damageMult: 0.7, spawnRateMult: 0.75 },
   normal: { damageMult: 1, spawnRateMult: 1 },
@@ -83,14 +96,21 @@ function loadSettings() {
       sensitivity: parsed.sensitivity ?? 100,
       fov: parsed.fov ?? 75,
       colorblind: parsed.colorblind ?? false,
+      performanceMode: parsed.performanceMode ?? false,
       nickname: parsed.nickname || '',
       defaultTag: parsed.defaultTag || null,
       companionRole: ['melee', 'medic'].includes(parsed.companionRole) ? parsed.companionRole : 'ranged',
       scoreAttackMode: parsed.scoreAttackMode ?? false,
       hardcoreMode: parsed.hardcoreMode ?? false,
+      loadout: LOADOUT_PRESETS[parsed.loadout] ? parsed.loadout : 'balanced',
+      mutators: {
+        hordeRush: parsed.mutators?.hordeRush ?? false,
+        lootRush: parsed.mutators?.lootRush ?? false,
+        pureGunplay: parsed.mutators?.pureGunplay ?? false,
+      },
     }
   } catch {
-    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false }
+    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, loadout: 'balanced', performanceMode: false, mutators: { hordeRush: false, lootRush: false, pureGunplay: false } }
   }
 }
 
@@ -176,6 +196,25 @@ const LIGHT_LURE_ENRAGE_MS = 2500
 const VEHICLE_INTERACT_RADIUS = 3
 const VIREO_TERMINAL_RADIUS = 2.5
 const PERK_REROLL_COST = 15
+const COMBO_WINDOW_MS = 3000
+const COMBO_MIN_DISPLAY = 2
+const DEATH_CAM_MS = 900
+const COMPASS_HALF_FOV = Math.PI / 3
+const BARRICADE_LIFETIME_MS = 25000
+const BARRICADE_PLACE_DIST = 2.2
+const BARRICADE_W = 2.2
+const BARRICADE_H = 1.8
+const BARRICADE_D = 0.3
+const VEHICLE_RAM_MIN_SPEED = 4
+const VEHICLE_RAM_RADIUS = 2.6
+const VEHICLE_RAM_DAMAGE = 70
+const VEHICLE_RAM_COOLDOWN_MS = 500
+const LIGHTNING_MIN_DELAY_MS = 8000
+const LIGHTNING_DELAY_RANGE_MS = 12000
+const LIGHTNING_FLINCH_RADIUS = 18
+const LIGHTNING_FLINCH_MS = 1200
+const WHEEL_RADIUS = 110
+const WHEEL_DEADZONE = 18
 const RESCUE_INTERACT_RADIUS = 2.5
 const RESCUE_SCRAP_REWARD = 25
 
@@ -185,6 +224,7 @@ const SHOP_ITEMS = [
   { id: 'grenade', cost: 20, titleKey: 'shopGrenade', give: (game) => game.inventory.addGrenade(1) },
   { id: 'fuelcan', cost: 10, titleKey: 'shopFuelCan', give: (game) => game.inventory.addFuelCan(1) },
   { id: 'noisemaker', cost: 8, titleKey: 'shopNoisemaker', give: (game) => game.inventory.addNoisemaker(1) },
+  { id: 'barricade', cost: 25, titleKey: 'shopBarricade', give: (game) => game.inventory.addBarricade(1) },
   // Attachments - same effect as finding the equivalent loot pickup, just
   // guaranteed instead of RNG. Extended Mag stacks each purchase; Scope is a
   // harmless no-op if bought again.
@@ -225,11 +265,13 @@ export class Game {
     this.armorPackCount = document.getElementById('armor-pack-count')
     this.noisemakerCount = document.getElementById('noisemaker-count')
     this.grenadeCount = document.getElementById('grenade-count')
+    this.barricadeCount = document.getElementById('barricade-count')
     this.inventoryPanel = document.getElementById('inventory-panel')
     this.panelHealthCount = document.getElementById('panel-health-count')
     this.panelArmorCount = document.getElementById('panel-armor-count')
     this.panelNoisemakerCount = document.getElementById('panel-noisemaker-count')
     this.panelGrenadeCount = document.getElementById('panel-grenade-count')
+    this.panelBarricadeCount = document.getElementById('panel-barricade-count')
     this.panelWeaponsList = document.getElementById('panel-weapons-list')
     this.inventoryOpen = false
     this.staminaFill = document.getElementById('stamina-fill')
@@ -240,6 +282,21 @@ export class Game {
     this.timeValueEl = document.getElementById('time-value')
     this.killsValueEl = document.getElementById('kills-value')
     this.nightBanner = document.getElementById('night-banner')
+    this.comboCounter = document.getElementById('combo-counter')
+    this.weaponWheel = document.getElementById('weapon-wheel')
+    this.weaponWheelRing = document.getElementById('weapon-wheel-ring')
+    this.weaponWheelCursor = document.getElementById('weapon-wheel-cursor')
+    this.weaponWheelOpen = false
+    this._wheelCursorX = 0
+    this._wheelCursorY = 0
+    this._wheelHighlightIndex = -1
+    this._wheelSegments = []
+    this.compassStrip = document.getElementById('compass-strip')
+    this.compassTrader = document.getElementById('compass-trader')
+    this.compassAmmo = document.getElementById('compass-ammo')
+    this.compassVehicle = document.getElementById('compass-vehicle')
+    this.comboCount = 0
+    this.comboResetAt = 0
     this.deathStats = document.getElementById('death-stats')
     this.deathLegacyScrap = document.getElementById('death-legacy-scrap')
     this.deathScoreAttack = document.getElementById('death-score-attack')
@@ -251,6 +308,8 @@ export class Game {
     this.ammoStationProgressWrap = document.getElementById('ammo-station-progress-wrap')
     this.ammoStationFill = document.getElementById('ammo-station-fill')
     this.rainOverlayEl = document.getElementById('rain-overlay')
+    this.lightningFlashEl = document.getElementById('lightning-flash')
+    this.nextLightningAt = 0
     this.nightmareOverlayEl = document.getElementById('nightmare-overlay')
     this.infectionIndicator = document.getElementById('infection-indicator')
     this.statsPanel = document.getElementById('stats-panel')
@@ -265,6 +324,7 @@ export class Game {
     this.menuBestStats = document.getElementById('menu-best-stats')
     this.difficultyBtns = document.querySelectorAll('.difficulty-btn')
     this.roleBtns = document.querySelectorAll('.role-btn')
+    this.loadoutBtns = document.querySelectorAll('.loadout-btn')
     this.settingsBtn = document.getElementById('settings-btn')
     this.settingsPanel = document.getElementById('settings-panel')
     this.languageGrid = document.getElementById('language-grid')
@@ -277,9 +337,13 @@ export class Game {
     this.fovSlider = document.getElementById('fov-slider')
     this.fovValue = document.getElementById('fov-value')
     this.colorblindToggle = document.getElementById('colorblind-toggle')
+    this.performanceToggle = document.getElementById('performance-toggle')
     this.nicknameInput = document.getElementById('nickname-input')
     this.scoreAttackToggle = document.getElementById('score-attack-toggle')
     this.hardcoreToggle = document.getElementById('hardcore-toggle')
+    this.mutatorHordeRush = document.getElementById('mutator-horde-rush')
+    this.mutatorLootRush = document.getElementById('mutator-loot-rush')
+    this.mutatorPureGunplay = document.getElementById('mutator-pure-gunplay')
     this.controlsGrid = document.getElementById('controls-grid')
     this.resetBindsBtn = document.getElementById('reset-binds-btn')
     this.rebindingAction = null
@@ -299,6 +363,18 @@ export class Game {
     this.scrap = 0
     this.healthPackHealAmount = 200
     this.perkPanelOpen = false
+    this.xp = 0
+    this.xpLevel = 1
+    this.xpToNext = this._xpForLevel(this.xpLevel)
+    this.xpLevelupPanelOpen = false
+    this.xpPicked = new Set()
+    this.stealthTakedowns = 0
+    this.eliteKills = 0
+    this._shakeOffset = new THREE.Vector3()
+    this._shakeMagnitude = 0
+    this._shakeDuration = 0
+    this._shakeTime = 0
+    this._hitstopUntil = 0
     this.runStartedAt = performance.now()
     this.nightStartedAt = performance.now()
     this._scheduleNightEvent()
@@ -346,6 +422,14 @@ export class Game {
     this.composer.addPass(new OutputPass())
 
     const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility } = buildWorld(this.scene)
+    // Kept for _deployBarricade - both PlayerController and ZombieManager
+    // hold this exact same array by reference (not a copy), so pushing a
+    // new collider here is immediately respected by both without needing
+    // to reconstruct anything.
+    this.colliders = colliders
+    this.solidMeshes = solidMeshes
+    this.barricades = []
+    this._vehicleHitAt = new Map()
     this.flickerLights = flickerLights
     this.minigunSpot = minigunSpot
     this.generator = generator
@@ -381,6 +465,8 @@ export class Game {
     this.nearVehicle = false
     this._vehicleSeatPos = new THREE.Vector3()
     this.pickups = new PickupManager(this.scene, spawnPoints)
+    this.xpGems = new XpGemManager(this.scene)
+    this.autoWeapons = new AutoWeaponManager(this.scene)
     this.pickups.spawnUnique('minigun', minigunSpot.x, minigunSpot.z, minigunSpot.y)
     this.pickups.spawnUnique('audiolog1', 0, -30, 0.5)
     this.pickups.spawnUnique('audiolog2', 0, 0, 0.5)
@@ -405,6 +491,7 @@ export class Game {
     this.loreToast = document.getElementById('lore-toast')
     this.companionBarkEl = document.getElementById('companion-bark')
     this.lowHealthBarked = false
+    this.nextHeartbeatAt = 0
     this.statsScrap = document.getElementById('stats-scrap')
     this.perkPanel = document.getElementById('perk-panel')
     this.perkPanelTitle = document.getElementById('perk-panel-title')
@@ -434,9 +521,26 @@ export class Game {
     this.bestiaryPanelTitle = document.getElementById('bestiary-panel-title')
     this.bestiaryOptions = document.getElementById('bestiary-options')
     this.bestiaryCloseBtn = document.getElementById('bestiary-close-btn')
+    this.skinsBtn = document.getElementById('skins-btn')
+    this.skinsPanel = document.getElementById('skins-panel')
+    this.skinsPanelTitle = document.getElementById('skins-panel-title')
+    this.skinsScrapLine = document.getElementById('skins-scrap-line')
+    this.skinsOptions = document.getElementById('skins-options')
+    this.skinsCloseBtn = document.getElementById('skins-close-btn')
     this.bossHealthWrap = document.getElementById('boss-health-wrap')
     this.bossNameEl = document.getElementById('boss-name')
     this.bossHealthFill = document.getElementById('boss-health-fill')
+    this.xpFill = document.getElementById('xp-fill')
+    this.xpLevelBadge = document.getElementById('xp-level-badge')
+    this.xpLevelupPanel = document.getElementById('xp-levelup-panel')
+    this.xpLevelupPanelTitle = document.getElementById('xp-levelup-panel-title')
+    this.xpLevelupOptions = document.getElementById('xp-levelup-options')
+    this.pauseOverlay = document.getElementById('pause-overlay')
+    this.pauseOverlayTitle = document.getElementById('pause-overlay-title')
+    this.pauseResumeBtn = document.getElementById('pause-resume-btn')
+    this.pauseSettingsBtn = document.getElementById('pause-settings-btn')
+    this.pauseQuitBtn = document.getElementById('pause-quit-btn')
+    this.gameStarted = false
     this.decals = new DecalManager(this.scene)
     this.minimap = new Minimap(this.minimapCanvas)
     this._camDir = new THREE.Vector3()
@@ -451,9 +555,20 @@ export class Game {
       solidMeshes,
       hud,
       this.zombies,
-      (point, normal, isZombie) => this.decals.spawn(point, normal, isZombie)
+      (point, normal, isZombie) => this.decals.spawn(point, normal, isZombie),
+      () => {
+        this._triggerShake(0.05, 90)
+        this._triggerHitstop(40)
+      },
+      () => this._onStealthTakedown()
     )
-    if (this.achievements.unlocked.has('centurion')) this.weapons.setGoldenSkin('pistol', true)
+    this.ownedSkins = new Set()
+    this.equippedSkin = null
+    if (this.achievements.unlocked.has('centurion')) {
+      this.ownedSkins.add('gold')
+      this.equippedSkin = 'gold'
+      this.weapons.setWeaponSkin('pistol', 'gold')
+    }
 
     audioEngine.setMusicVolume(this.settings.musicVolume / 100)
     audioEngine.setSfxVolume(this.settings.sfxVolume / 100)
@@ -463,6 +578,7 @@ export class Game {
     this._bindSettings()
     this._bindDifficulty()
     this._bindCompanionRole()
+    this._bindLoadout()
     this._bindControlsTab()
     this.perkSkipBtn.addEventListener('click', () => this._closePerkPanel())
     this.perkRerollBtn.addEventListener('click', () => {
@@ -477,6 +593,7 @@ export class Game {
     this._updateProgressHud()
     this._updateStaminaHud()
     this._updateStatsPanel()
+    this._updateXpHud()
     this._onResize()
     window.addEventListener('resize', () => this._onResize())
 
@@ -517,6 +634,10 @@ export class Game {
       audioEngine.resume()
       audioEngine.startAmbient()
       audioEngine.startMusic()
+      this._applyLoadout(this.settings.loadout)
+      if (this.settings.mutators.hordeRush) {
+        this.zombies.setDifficultyMultiplier(this.difficulty.spawnRateMult * 2)
+      }
       this.player.controls.lock()
     })
 
@@ -534,6 +655,7 @@ export class Game {
       this.player.resetPosition()
       this.zombies.reset()
       this.chests.reset()
+      this.xpGems.reset()
       this.companion.teleportTo(1.6, 7)
       this.night = 1
       this.kills = 0
@@ -553,7 +675,13 @@ export class Game {
       this.player.controls.lock()
     })
 
+    this.pauseResumeBtn.addEventListener('click', () => this.player.controls.lock())
+    this.pauseSettingsBtn.addEventListener('click', () => this._toggleSettings(true))
+    this.pauseQuitBtn.addEventListener('click', () => window.location.reload())
+
     this.player.controls.addEventListener('lock', () => {
+      this.gameStarted = true
+      this.pauseOverlay.style.display = 'none'
       this.menu.style.display = 'none'
       this.crosshair.style.display = this.driving ? 'none' : 'block'
       this.hudEl.style.display = this.driving ? 'none' : 'block'
@@ -562,6 +690,7 @@ export class Game {
       this.progressHud.style.display = 'flex'
       this.statsPanel.style.display = 'flex'
       this.minimapWrap.style.display = 'block'
+      this.compassStrip.style.display = 'block'
       if (this.driving) {
         this.interactPrompt.innerHTML = tHtml('interactExitVehicle')
         this.interactPrompt.style.display = 'block'
@@ -576,7 +705,15 @@ export class Game {
       this.interactPrompt.style.display = 'none'
       this.infectionIndicator.style.display = 'none'
       if (!this.playerState.alive) return
-      this.menu.style.display = 'flex'
+      if (this.gameStarted) {
+        this.pauseOverlayTitle.textContent = t('pauseOverlayTitle')
+        this.pauseResumeBtn.textContent = t('pauseResumeBtn')
+        this.pauseSettingsBtn.textContent = t('settingsBtn')
+        this.pauseQuitBtn.textContent = t('pauseQuitBtn')
+        this.pauseOverlay.style.display = 'flex'
+      } else {
+        this.menu.style.display = 'flex'
+      }
       this.crosshair.style.display = 'none'
       this.hudEl.style.display = 'none'
       this.statusHud.style.display = 'none'
@@ -584,6 +721,7 @@ export class Game {
       this.progressHud.style.display = 'none'
       this.statsPanel.style.display = 'none'
       this.minimapWrap.style.display = 'none'
+      this.compassStrip.style.display = 'none'
     })
   }
 
@@ -625,6 +763,8 @@ export class Game {
         this._throwNoisemaker()
       } else if (e.code === getKeyFor('grenade')) {
         this._throwGrenade()
+      } else if (e.code === getKeyFor('barricade')) {
+        this._deployBarricade()
       } else if (e.code === getKeyFor('interact')) {
         // Tracked independently of the rest of this branch (which only
         // fires the various one-shot interactions below) so the ammo
@@ -657,12 +797,76 @@ export class Game {
       } else if (e.code === getKeyFor('toggleView')) {
         this.thirdPerson = !this.thirdPerson
         this.weapons.viewmodelRoot.visible = !this.thirdPerson
+      } else if (e.code === getKeyFor('weaponWheel')) {
+        if (!this.weaponWheelOpen) this._openWeaponWheel()
       }
     })
 
     window.addEventListener('keyup', (e) => {
       if (e.code === getKeyFor('interact')) this.ammoStationKeyHeld = false
+      if (e.code === getKeyFor('weaponWheel') && this.weaponWheelOpen) this._closeWeaponWheel(true)
     })
+
+    // Pointer Lock only gives relative movement deltas (no visible cursor),
+    // so the wheel tracks its own virtual cursor by integrating those
+    // deltas itself rather than reading a real mouse position - the same
+    // trick every FPS radial menu uses under pointer lock.
+    window.addEventListener('mousemove', (e) => {
+      if (!this.weaponWheelOpen) return
+      this._wheelCursorX = Math.max(-WHEEL_RADIUS, Math.min(WHEEL_RADIUS, this._wheelCursorX + e.movementX))
+      this._wheelCursorY = Math.max(-WHEEL_RADIUS, Math.min(WHEEL_RADIUS, this._wheelCursorY + e.movementY))
+      this._updateWeaponWheelHighlight()
+    })
+  }
+
+  _openWeaponWheel() {
+    const unlocked = this.weapons.getSummary().filter((w) => w.unlocked)
+    if (unlocked.length === 0) return
+    this.weaponWheelOpen = true
+    this._wheelCursorX = 0
+    this._wheelCursorY = 0
+    this._wheelHighlightIndex = -1
+    this._wheelSegments = unlocked
+    this.weaponWheelRing.innerHTML = ''
+    unlocked.forEach((w, i) => {
+      const angle = (i / unlocked.length) * Math.PI * 2 - Math.PI / 2
+      const el = document.createElement('div')
+      el.className = 'wheel-segment'
+      el.style.left = `${Math.cos(angle) * WHEEL_RADIUS}px`
+      el.style.top = `${Math.sin(angle) * WHEEL_RADIUS}px`
+      el.textContent = t(w.nameKey)
+      this.weaponWheelRing.appendChild(el)
+    })
+    this.weaponWheel.style.display = 'block'
+    this._updateWeaponWheelHighlight()
+  }
+
+  _updateWeaponWheelHighlight() {
+    const mag = Math.hypot(this._wheelCursorX, this._wheelCursorY)
+    this.weaponWheelCursor.style.transform =
+      `translate(calc(-50% + ${this._wheelCursorX}px), calc(-50% + ${this._wheelCursorY}px))`
+
+    let index = -1
+    if (mag > WHEEL_DEADZONE) {
+      const angle = Math.atan2(this._wheelCursorY, this._wheelCursorX) + Math.PI / 2
+      const count = this._wheelSegments.length
+      const step = (Math.PI * 2) / count
+      index = Math.round(((angle + Math.PI * 2) % (Math.PI * 2)) / step) % count
+    }
+    if (index === this._wheelHighlightIndex) return
+    this._wheelHighlightIndex = index
+    const els = this.weaponWheelRing.children
+    for (let i = 0; i < els.length; i++) els[i].classList.toggle('highlight', i === index)
+  }
+
+  _closeWeaponWheel(confirm) {
+    this.weaponWheelOpen = false
+    this.weaponWheel.style.display = 'none'
+    if (confirm && this._wheelHighlightIndex >= 0) {
+      const chosen = this._wheelSegments[this._wheelHighlightIndex]
+      const index = this.weapons.weapons.findIndex((w) => w.id === chosen.id)
+      if (index !== -1) this.weapons.switchToIndex(index)
+    }
   }
 
   _takeScreenshot() {
@@ -693,6 +897,75 @@ export class Game {
     origin.y -= 0.3
     this.zombies.spawnGrenadeThrow(origin, target)
     this._updateInventoryHud()
+  }
+
+  // Drops a temporary wall a couple meters ahead, facing the same way the
+  // player is - pushed straight into the same colliders/solidMeshes arrays
+  // PlayerController and ZombieManager already read every frame, so
+  // zombies path around it exactly like any other world prop with no
+  // extra wiring, and it despawns on a timer (see _tick's cleanup check)
+  // rather than needing its own health/damage model.
+  _deployBarricade() {
+    if (!this.inventory.useBarricade()) return
+    this.camera.getWorldDirection(this._camDir)
+    const playerPos = this.player.controls.object.position
+    const x = playerPos.x + this._camDir.x * BARRICADE_PLACE_DIST
+    const z = playerPos.z + this._camDir.z * BARRICADE_PLACE_DIST
+    const heading = Math.atan2(this._camDir.x, this._camDir.z)
+
+    const mat = new THREE.MeshStandardMaterial({ color: 0x4a3c2a, roughness: 0.9 })
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(BARRICADE_W, BARRICADE_H, BARRICADE_D), mat)
+    mesh.position.set(x, BARRICADE_H / 2, z)
+    mesh.rotation.y = heading
+    mesh.castShadow = true
+    mesh.receiveShadow = true
+    this.scene.add(mesh)
+
+    const box = new THREE.Box3().setFromObject(mesh)
+    this.colliders.push(box)
+    this.solidMeshes.push(mesh)
+    this.barricades.push({ mesh, box, expiresAt: performance.now() + BARRICADE_LIFETIME_MS })
+
+    this._updateInventoryHud()
+  }
+
+  _updateBarricades() {
+    if (this.barricades.length === 0) return
+    const now = performance.now()
+    const expired = this.barricades.filter((b) => now >= b.expiresAt)
+    if (expired.length === 0) return
+    for (const b of expired) {
+      this.scene.remove(b.mesh)
+      const ci = this.colliders.indexOf(b.box)
+      if (ci !== -1) this.colliders.splice(ci, 1)
+      const si = this.solidMeshes.indexOf(b.mesh)
+      if (si !== -1) this.solidMeshes.splice(si, 1)
+    }
+    this.barricades = this.barricades.filter((b) => now < b.expiresAt)
+  }
+
+  // Vehicle combat: zombies don't get their own update() call while driving
+  // (see the driving branch in _tick - the player is invulnerable and the
+  // whole gameplay block is skipped), so this checks proximity against
+  // their last-known (frozen) positions directly rather than needing them
+  // to be "live" - onHit still works standalone, the kill/XP-gem bookkeeping
+  // just catches up the moment the player gets back out of the car.
+  _updateVehicleRamming() {
+    if (Math.abs(this.vehicle.speed) < VEHICLE_RAM_MIN_SPEED) return
+    const pos = this.vehicle.group.position
+    const now = performance.now()
+    for (const zombie of this.zombies.zombies) {
+      if (zombie.state !== 'alive') continue
+      const lastHit = this._vehicleHitAt.get(zombie) || 0
+      if (now - lastHit < VEHICLE_RAM_COOLDOWN_MS) continue
+      const dist = Math.hypot(zombie.group.position.x - pos.x, zombie.group.position.z - pos.z)
+      if (dist <= VEHICLE_RAM_RADIUS) {
+        this._vehicleHitAt.set(zombie, now)
+        zombie.lastHitWeaponId = 'vehicle'
+        zombie.onHit(VEHICLE_RAM_DAMAGE)
+        this._triggerShake(0.08, 120)
+      }
+    }
   }
 
   _bindSettings() {
@@ -782,6 +1055,15 @@ export class Game {
       saveSettings(this.settings)
     })
 
+    this.performanceToggle.checked = this.settings.performanceMode
+    this._applyPerformanceMode(this.settings.performanceMode)
+
+    this.performanceToggle.addEventListener('change', () => {
+      this.settings.performanceMode = this.performanceToggle.checked
+      this._applyPerformanceMode(this.settings.performanceMode)
+      saveSettings(this.settings)
+    })
+
     this.scoreAttackToggle.checked = this.settings.scoreAttackMode
     this.scoreAttackToggle.addEventListener('change', () => {
       this.settings.scoreAttackMode = this.scoreAttackToggle.checked
@@ -792,6 +1074,22 @@ export class Game {
     this.hardcoreToggle.checked = this.settings.hardcoreMode
     this.hardcoreToggle.addEventListener('change', () => {
       this.settings.hardcoreMode = this.hardcoreToggle.checked
+      saveSettings(this.settings)
+    })
+
+    this.mutatorHordeRush.checked = this.settings.mutators.hordeRush
+    this.mutatorHordeRush.addEventListener('change', () => {
+      this.settings.mutators.hordeRush = this.mutatorHordeRush.checked
+      saveSettings(this.settings)
+    })
+    this.mutatorLootRush.checked = this.settings.mutators.lootRush
+    this.mutatorLootRush.addEventListener('change', () => {
+      this.settings.mutators.lootRush = this.mutatorLootRush.checked
+      saveSettings(this.settings)
+    })
+    this.mutatorPureGunplay.checked = this.settings.mutators.pureGunplay
+    this.mutatorPureGunplay.addEventListener('change', () => {
+      this.settings.mutators.pureGunplay = this.mutatorPureGunplay.checked
       saveSettings(this.settings)
     })
 
@@ -811,6 +1109,8 @@ export class Game {
     this.achievementsCloseBtn.addEventListener('click', () => this._closeAchievementsPanel())
     this.bestiaryBtn.addEventListener('click', () => this._openBestiaryPanel())
     this.bestiaryCloseBtn.addEventListener('click', () => this._closeBestiaryPanel())
+    this.skinsBtn.addEventListener('click', () => this._openSkinsPanel())
+    this.skinsCloseBtn.addEventListener('click', () => this._closeSkinsPanel())
     this.endingContinueBtn.addEventListener('click', () => {
       this.endingPanel.style.display = 'none'
       this.player.controls.lock()
@@ -906,6 +1206,33 @@ export class Game {
     this._updateCompanionName()
   }
 
+  // Selection-only here - the actual stat deltas (see LOADOUT_PRESETS) get
+  // applied once, when the very first "Click to Play" starts a run (see
+  // playBtn's click handler), not on every settings change.
+  _applyLoadout(id) {
+    const preset = LOADOUT_PRESETS[id] || LOADOUT_PRESETS.balanced
+    this.player.moveSpeed += preset.moveSpeedDelta
+    this.playerState.maxHealth = Math.round(this.playerState.maxHealth * preset.maxHealthMult)
+    this.playerState.health = this.playerState.maxHealth
+    this.player.maxStamina = Math.max(20, this.player.maxStamina + preset.maxStaminaDelta)
+    this.player.stamina = this.player.maxStamina
+    this._updateHealthHud()
+    this._updateStaminaHud()
+  }
+
+  _bindLoadout() {
+    for (const btn of this.loadoutBtns) {
+      btn.classList.toggle('active', btn.dataset.loadout === this.settings.loadout)
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.loadout
+        if (!LOADOUT_PRESETS[id]) return
+        this.settings.loadout = id
+        saveSettings(this.settings)
+        for (const b of this.loadoutBtns) b.classList.toggle('active', b === btn)
+      })
+    }
+  }
+
   // Applied once per page load (not on respawn - inventory/scrap already
   // survive respawns as-is, so re-granting these would let repeated
   // dying farm free items).
@@ -934,6 +1261,15 @@ export class Game {
   _toggleSettings(open) {
     this.settingsOpen = open
     this.settingsPanel.style.display = open ? 'flex' : 'none'
+  }
+
+  // Trades visual fidelity for frame rate on weaker machines: drops the
+  // most expensive effects (shadows, bloom) and caps the render resolution,
+  // rather than touching gameplay-affecting settings like draw distance.
+  _applyPerformanceMode(enabled) {
+    this.renderer.shadowMap.enabled = !enabled
+    this.bloomPass.enabled = !enabled
+    this.renderer.setPixelRatio(enabled ? 1 : Math.min(window.devicePixelRatio, 1.5))
   }
 
   // Fires on every night transition: pauses gameplay and offers 3 random
@@ -973,6 +1309,87 @@ export class Game {
   _closePerkPanel() {
     this.perkPanelOpen = false
     this.perkPanel.style.display = 'none'
+  }
+
+  // XP needed to go from `level` to `level + 1`. Grows linearly so early
+  // levels (weak starting kit) come fast and later ones space out as the
+  // player already has most of the small passive buffs.
+  _xpForLevel(level) {
+    return 10 + level * 6
+  }
+
+  // Rewards fast, chained kills with an escalating on-screen counter -
+  // resets if COMBO_WINDOW_MS passes without a follow-up kill (see the
+  // fade-out check in _tick).
+  _registerComboKill() {
+    const now = performance.now()
+    this.comboCount = now < this.comboResetAt ? this.comboCount + 1 : 1
+    this.comboResetAt = now + COMBO_WINDOW_MS
+    if (this.comboCount >= COMBO_MIN_DISPLAY) {
+      this.comboCounter.textContent = t('comboLabel', { n: this.comboCount })
+      this.comboCounter.style.display = 'block'
+      this.comboCounter.classList.remove('pulse')
+      void this.comboCounter.offsetWidth
+      this.comboCounter.classList.add('pulse')
+    }
+  }
+
+  _updateXpHud() {
+    this.xpLevelBadge.textContent = String(this.xpLevel)
+    this.xpFill.style.width = `${Math.min(100, (this.xp / this.xpToNext) * 100)}%`
+  }
+
+  _onXpGemCollected(value) {
+    if (!this.playerState.alive) return
+    this.xp += value
+    this._updateXpHud()
+    this._checkXpLevelUp()
+  }
+
+  // Handles one level at a time - if a big gem overflows past the next
+  // threshold too, the leftover xp carries over and _renderXpLevelupOptions'
+  // click handler re-checks once the panel closes.
+  _checkXpLevelUp() {
+    if (this.xp < this.xpToNext) return
+    this.xp -= this.xpToNext
+    this.xpLevel += 1
+    this.xpToNext = this._xpForLevel(this.xpLevel)
+    this._updateXpHud()
+    this._openXpLevelupPanel()
+  }
+
+  // Fires every time the xp-gem meter fills (see _checkXpLevelUp) - offers
+  // 3 free passive buffs (see XpUpgrades.js), distinct from the scrap-cost
+  // night perks in Perks.js.
+  _openXpLevelupPanel() {
+    this.xpLevelupPanelOpen = true
+    this.xpLevelupPanel.style.display = 'flex'
+    this.xpLevelupPanelTitle.textContent = t('xpLevelupPanelTitle')
+    this._renderXpLevelupOptions(rollXpUpgrades(this, 3))
+  }
+
+  _renderXpLevelupOptions(upgrades) {
+    this.xpLevelupOptions.innerHTML = ''
+    for (const upgrade of upgrades) {
+      const btn = document.createElement('button')
+      btn.className = 'perk-option'
+      btn.innerHTML = `<span class="perk-name">${t(upgrade.titleKey)}</span>`
+      btn.addEventListener('click', () => {
+        upgrade.apply(this)
+        this.xpPicked.add(upgrade.id)
+        if (upgrade.id === 'auto_blade_evolve' || upgrade.id === 'auto_homing_evolve') {
+          this.achievements.unlock('weapon_evolved')
+        }
+        this._closeXpLevelupPanel()
+        this._checkXpLevelUp()
+      })
+      this.xpLevelupOptions.appendChild(btn)
+    }
+  }
+
+  _closeXpLevelupPanel() {
+    this.xpLevelupPanelOpen = false
+    this.xpLevelupPanel.style.display = 'none'
   }
 
   // Opened by pressing the interact key near the trader stall (see
@@ -1117,6 +1534,65 @@ export class Game {
     this.upgradesPanel.style.display = 'none'
   }
 
+  // Cosmetic pistol skins bought with in-run scrap (see Skins.js) - visual
+  // only, reset on page reload the same as the rest of the scrap economy.
+  // 'gold' may already be owned+equipped for free via the Centurion
+  // achievement (see the constructor).
+  _openSkinsPanel() {
+    this.skinsPanel.style.display = 'flex'
+    this.skinsPanelTitle.textContent = t('skinsPanelTitle')
+    this.skinsCloseBtn.textContent = t('upgradesClose')
+    this._renderSkinsOptions()
+  }
+
+  _renderSkinsOptions() {
+    this.skinsScrapLine.textContent = t('scrapLabel', { n: this.scrap })
+    this.skinsOptions.innerHTML = ''
+
+    const defaultBtn = document.createElement('button')
+    defaultBtn.className = 'perk-option'
+    defaultBtn.disabled = this.equippedSkin === null
+    defaultBtn.innerHTML = `
+      <span class="perk-name">${t('skinDefault')}</span>
+      <span class="perk-cost">${this.equippedSkin === null ? t('skinEquipped') : t('skinEquip')}</span>
+    `
+    defaultBtn.addEventListener('click', () => {
+      this.equippedSkin = null
+      this.weapons.setWeaponSkin('pistol', null)
+      this._renderSkinsOptions()
+    })
+    this.skinsOptions.appendChild(defaultBtn)
+
+    for (const skin of SKIN_DEFS) {
+      const owned = this.ownedSkins.has(skin.id)
+      const equipped = this.equippedSkin === skin.id
+      const btn = document.createElement('button')
+      btn.className = 'perk-option'
+      btn.disabled = equipped || (!owned && this.scrap < skin.cost)
+      btn.innerHTML = `
+        <span class="perk-name">${t(skin.titleKey)}</span>
+        <span class="perk-cost">${equipped ? t('skinEquipped') : owned ? t('skinEquip') : t('perkCostLabel', { n: skin.cost })}</span>
+      `
+      btn.addEventListener('click', () => {
+        if (equipped) return
+        if (!owned) {
+          if (this.scrap < skin.cost) return
+          this.scrap -= skin.cost
+          this.ownedSkins.add(skin.id)
+          this._updateStatsPanel()
+        }
+        this.equippedSkin = skin.id
+        this.weapons.setWeaponSkin('pistol', skin.id)
+        this._renderSkinsOptions()
+      })
+      this.skinsOptions.appendChild(btn)
+    }
+  }
+
+  _closeSkinsPanel() {
+    this.skinsPanel.style.display = 'none'
+  }
+
   _openAchievementsPanel() {
     this.achievementsPanel.style.display = 'flex'
     this.achievementsPanelTitle.textContent = t('achievementsPanelTitle')
@@ -1208,6 +1684,7 @@ export class Game {
     this.upgradesBtn.textContent = t('upgradesBtn')
     this.achievementsBtn.textContent = t('achievementsBtn')
     this.bestiaryBtn.textContent = t('bestiaryBtn')
+    this.skinsBtn.textContent = t('skinsBtn')
 
     document.getElementById('ctrl-line-1').innerHTML = tHtml('ctrlLine1')
     document.getElementById('ctrl-line-2').innerHTML = tHtml('ctrlLine2')
@@ -1228,6 +1705,10 @@ export class Game {
     document.getElementById('sensitivity-label').textContent = t('sensitivityLabel')
     document.getElementById('fov-label').textContent = t('fovLabel')
     document.getElementById('colorblind-label').textContent = t('colorblindLabel')
+    document.getElementById('performance-label').textContent = t('performanceLabel')
+    this.compassTrader.textContent = t('compassTrader')
+    this.compassAmmo.textContent = t('compassAmmo')
+    this.compassVehicle.textContent = t('compassVehicle')
     document.getElementById('infection-label').textContent = t('infectionLabel')
     document.getElementById('settings-hint').innerHTML = tHtml('settingsHint')
 
@@ -1239,6 +1720,7 @@ export class Game {
     document.getElementById('panel-armor-label').textContent = t('armorPackLabel')
     document.getElementById('panel-noisemaker-label').textContent = t('noisemakerLabel')
     document.getElementById('panel-grenade-label').textContent = t('grenadeLabel')
+    document.getElementById('panel-barricade-label').textContent = t('barricadeLabel')
     document.getElementById('weapons-title').textContent = t('weaponsTitle')
     document.getElementById('inventory-hint').innerHTML = tHtml('inventoryHint')
 
@@ -1254,8 +1736,13 @@ export class Game {
 
     const roleLabelKeys = { ranged: 'roleRanged', melee: 'roleMelee', medic: 'roleMedic' }
     for (const btn of this.roleBtns) btn.textContent = t(roleLabelKeys[btn.dataset.role])
+    const loadoutLabelKeys = { balanced: 'loadoutBalanced', runner: 'loadoutRunner', tank: 'loadoutTank' }
+    for (const btn of this.loadoutBtns) btn.textContent = t(loadoutLabelKeys[btn.dataset.loadout])
     document.getElementById('score-attack-label').textContent = t('scoreAttackLabel')
     document.getElementById('hardcore-label').textContent = t('hardcoreLabel')
+    document.getElementById('mutator-horde-rush-label').textContent = t('mutatorHordeRush')
+    document.getElementById('mutator-loot-rush-label').textContent = t('mutatorLootRush')
+    document.getElementById('mutator-pure-gunplay-label').textContent = t('mutatorPureGunplay')
 
     this._updateBestStatsDisplay()
     if (this.inventoryOpen) this._refreshInventoryPanel()
@@ -1277,6 +1764,7 @@ export class Game {
     this.panelArmorCount.textContent = this.inventory.armorPacks
     this.panelNoisemakerCount.textContent = this.inventory.noisemakers
     this.panelGrenadeCount.textContent = this.inventory.grenades
+    this.panelBarricadeCount.textContent = this.inventory.barricades
 
     this.panelWeaponsList.innerHTML = this.weapons
       .getSummary()
@@ -1353,13 +1841,61 @@ export class Game {
     this.damageFlash.classList.remove('hit')
     void this.damageFlash.offsetWidth
     this.damageFlash.classList.add('hit')
+    this._triggerShake(0.12, 220)
 
     if (!this.playerState.alive) this._onPlayerDeath()
   }
 
-  _onZombieKilled(zombieTypeId, weaponId, x, z) {
+  // Camera juice: a brief random position jitter (see _updateShake, called
+  // once per tick) plus an optional freeze-frame. Only overwrites the
+  // current shake if the new one is stronger, so a big damage-taken shake
+  // doesn't get cut short by a small hit-landed shake a moment later.
+  _triggerShake(magnitude, durationMs) {
+    if (magnitude < this._shakeMagnitude) return
+    this._shakeMagnitude = magnitude
+    this._shakeDuration = durationMs / 1000
+    this._shakeTime = this._shakeDuration
+  }
+
+  // Fired by WeaponSystem when a melee hit lands on a zombie facing away
+  // from the player (see _fire's dot-product check) - purely a counter +
+  // achievement hook, the guaranteed-kill damage itself is already applied
+  // by the time this runs.
+  _onStealthTakedown() {
+    this.stealthTakedowns += 1
+    this._triggerShake(0.07, 100)
+    if (this.stealthTakedowns >= 10) this.achievements.unlock('shadow_hunter')
+  }
+
+  _triggerHitstop(ms) {
+    this._hitstopUntil = Math.max(this._hitstopUntil, performance.now() + ms)
+  }
+
+  _updateShake(dt) {
+    if (this._shakeTime > 0) {
+      this._shakeTime = Math.max(0, this._shakeTime - dt)
+      const mag = this._shakeMagnitude * (this._shakeTime / this._shakeDuration)
+      this._shakeOffset.set(
+        (Math.random() - 0.5) * 2 * mag,
+        (Math.random() - 0.5) * 2 * mag * 0.6,
+        (Math.random() - 0.5) * 2 * mag
+      )
+    } else {
+      this._shakeOffset.set(0, 0, 0)
+    }
+  }
+
+  _onZombieKilled(zombieTypeId, weaponId, x, z, isElite) {
     this.kills += 1
     this.totalKills += 1
+    const lootMult = this.settings.mutators.lootRush ? 2 : 1
+    this.xpGems.spawn(x, z, (isElite ? 4 : 1) * lootMult)
+    if (isElite) {
+      this.eliteKills += 1
+      if (this.eliteKills >= 5) this.achievements.unlock('elite_hunter')
+    }
+    if (weaponId === 'vehicle') this.achievements.unlock('road_kill')
+    this._registerComboKill()
     if (this.kills % 10 === 0) {
       this._companionBark('killStreak')
       // Guaranteed loot every 10th kill - replaces the old flat per-kill
@@ -1377,7 +1913,7 @@ export class Game {
       if (this.killCountsByWeapon.minigun >= 50) this.achievements.unlock('meat_grinder')
     }
     if (Math.random() < 0.25) {
-      this.scrap += 2 + Math.floor(Math.random() * 4)
+      this.scrap += (2 + Math.floor(Math.random() * 4)) * lootMult
       this._updateStatsPanel()
     }
 
@@ -1462,7 +1998,14 @@ export class Game {
 
     this.respawnBtn.textContent = this.settings.hardcoreMode ? t('newAttemptBtn') : t('respawnBtn')
 
-    this.deathScreen.style.display = 'flex'
+    // Death cam: a beat of the frozen, shaking scene before the UI slams
+    // in, instead of the death screen appearing instantly - gameplay is
+    // already paused by this.playerState.alive being false, so this is
+    // just holding the reveal, not simulating extra time passing.
+    this._triggerShake(0.28, 450)
+    setTimeout(() => {
+      this.deathScreen.style.display = 'flex'
+    }, DEATH_CAM_MS)
   }
 
   _onPickup(type, label, isLoot, count) {
@@ -1488,6 +2031,19 @@ export class Game {
     else if (type === 'melee_bat') this.weapons.setMeleeVariant('bat')
     else if (type === 'melee_machete') this.weapons.setMeleeVariant('machete')
     else if (type === 'melee_uvbaton') this.weapons.setMeleeVariant('uvbaton')
+    else if (type === 'rare_weapon' || type === 'legendary_weapon') {
+      const legendary = type === 'legendary_weapon'
+      const weaponId = this.weapons.randomUnlockedWeaponId()
+      const w = weaponId && this.weapons.weapons.find((w) => w.id === weaponId)
+      const boosted = w && this.weapons.applyRarityBoost(weaponId, legendary ? 1.3 : 1.15, legendary ? 'legendary' : 'rare')
+      this.pickupToast.textContent = boosted
+        ? t(legendary ? 'toastLegendaryWeapon' : 'toastRareWeapon', { weapon: t(this.weapons._nameKeyFor(w)) })
+        : t('toastRarityWasted')
+      this.pickupToast.classList.remove('show')
+      void this.pickupToast.offsetWidth
+      this.pickupToast.classList.add('show')
+      return
+    }
     else if (type.startsWith('audiolog')) {
       audioEngine.playAudioLog()
       this._showLoreToast(t(`lore${type.charAt(0).toUpperCase()}${type.slice(1)}`))
@@ -1509,6 +2065,7 @@ export class Game {
     this.armorPackCount.textContent = this.inventory.armorPacks
     this.noisemakerCount.textContent = this.inventory.noisemakers
     this.grenadeCount.textContent = this.inventory.grenades
+    this.barricadeCount.textContent = this.inventory.barricades
   }
 
   _updateHealthHud() {
@@ -1517,8 +2074,14 @@ export class Game {
     this.healthValue.textContent = Math.round(s.health)
     this.armorFill.style.width = `${(s.armor / s.maxArmor) * 100}%`
     this.armorValue.textContent = Math.round(s.armor)
-    this.damageFlash.classList.toggle('low-health', s.health > 0 && s.health < 30)
+    const lowHealth = s.health > 0 && s.health < 30
+    this.damageFlash.classList.toggle('low-health', lowHealth)
     this.infectionIndicator.style.display = s.infected ? 'flex' : 'none'
+
+    if (lowHealth && performance.now() >= this.nextHeartbeatAt) {
+      audioEngine.playHeartbeat()
+      this.nextHeartbeatAt = performance.now() + 1600
+    }
 
     const healthFraction = s.health / s.maxHealth
     if (healthFraction < 0.25 && !this.lowHealthBarked) {
@@ -1576,6 +2139,27 @@ export class Game {
   _rollWeather() {
     this.raining = Math.random() < 0.35
     this.rainOverlayEl.style.display = this.raining ? 'block' : 'none'
+    this.nextLightningAt = this.raining ? performance.now() + LIGHTNING_MIN_DELAY_MS + Math.random() * LIGHTNING_DELAY_RANGE_MS : 0
+  }
+
+  // Rare rain-night flash: a bright screen flash + thunder, and briefly
+  // weakens (see Zombie.weaken - the same UV-lamp slow/soften effect)
+  // every zombie near the player, as a startle effect.
+  _triggerLightning() {
+    this.lightningFlashEl.classList.remove('flash')
+    void this.lightningFlashEl.offsetWidth
+    this.lightningFlashEl.classList.add('flash')
+    audioEngine.playThunder()
+    this._triggerShake(0.06, 200)
+
+    const playerPos = this.player.controls.object.position
+    for (const zombie of this.zombies.zombies) {
+      if (zombie.state !== 'alive') continue
+      const dist = Math.hypot(zombie.group.position.x - playerPos.x, zombie.group.position.z - playerPos.z)
+      if (dist <= LIGHTNING_FLINCH_RADIUS) zombie.weaken(LIGHTNING_FLINCH_MS)
+    }
+
+    this.nextLightningAt = performance.now() + LIGHTNING_MIN_DELAY_MS + Math.random() * LIGHTNING_DELAY_RANGE_MS
   }
 
   _updateFlicker(elapsed) {
@@ -1759,6 +2343,38 @@ export class Game {
     this.nearRescueSurvivor = false
   }
 
+  // Top-of-screen strip showing which way key landmarks are, relative to
+  // where the camera is currently facing - each marker slides off either
+  // edge and hides once it's more than COMPASS_HALF_FOV off-center.
+  _updateCompass(playerPos) {
+    this.camera.getWorldDirection(this._camDir)
+    const facingRad = Math.atan2(this._camDir.x, -this._camDir.z)
+
+    const landmarks = [
+      { el: this.compassTrader, x: this.trader.x, z: this.trader.z },
+      { el: this.compassAmmo, x: this.ammoStation.x, z: this.ammoStation.z },
+    ]
+    if (this.vehicle && !this.driving) {
+      landmarks.push({ el: this.compassVehicle, x: this.vehicle.group.position.x, z: this.vehicle.group.position.z })
+    } else {
+      this.compassVehicle.style.display = 'none'
+    }
+
+    for (const lm of landmarks) {
+      const dx = lm.x - playerPos.x
+      const dz = lm.z - playerPos.z
+      const bearing = Math.atan2(dx, -dz)
+      let diff = bearing - facingRad
+      diff = ((diff + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI
+      if (Math.abs(diff) > COMPASS_HALF_FOV) {
+        lm.el.style.display = 'none'
+      } else {
+        lm.el.style.display = 'block'
+        lm.el.style.left = `${50 + (diff / COMPASS_HALF_FOV) * 50}%`
+      }
+    }
+  }
+
   _updateMinimap(playerPos) {
     this.camera.getWorldDirection(this._camDir)
     const facingRad = Math.atan2(this._camDir.x, -this._camDir.z)
@@ -1771,14 +2387,19 @@ export class Game {
       facingRad,
       zombiePositions,
       this.chests.chests,
-      minigunUnlocked ? null : this.minigunSpot
+      minigunUnlocked ? null : this.minigunSpot,
+      this.trader,
+      this.ammoStation
     )
   }
 
   _tick() {
     this.timer.update()
-    const dt = Math.min(this.timer.getDelta(), 0.1)
+    let dt = Math.min(this.timer.getDelta(), 0.1)
     const elapsed = this.timer.getElapsed()
+    if (performance.now() < this._hitstopUntil) dt = 0
+
+    this.camera.position.sub(this._shakeOffset)
 
     this.dayNight.update()
     if (this.raining) {
@@ -1791,14 +2412,15 @@ export class Game {
       this.vehicle.update(dt, this.player.input, this.player.colliders)
       this.vehicle.getDriverSeatWorld(this._vehicleSeatPos)
       this.camera.position.copy(this._vehicleSeatPos)
-    } else if (this.player.controls.isLocked && this.playerState.alive && !this.inventoryOpen && !this.perkPanelOpen && !this.traderPanelOpen) {
+      this._updateVehicleRamming()
+    } else if (this.player.controls.isLocked && this.playerState.alive && !this.inventoryOpen && !this.perkPanelOpen && !this.traderPanelOpen && !this.xpLevelupPanelOpen) {
       this.player.update(dt)
       this._updateThirdPerson()
       const isMoving = this.player.onGround && (
         this.player.input.forward || this.player.input.back ||
         this.player.input.left || this.player.input.right
       )
-      this.weapons.update(dt, isMoving)
+      if (!this.weaponWheelOpen) this.weapons.update(dt, isMoving)
       this._updateStaminaHud()
       this._updateFlashlightBattery(dt)
 
@@ -1846,7 +2468,7 @@ export class Game {
         (dmg) => this._onZombieAttack(dmg),
         (x, z) => this.pickups.spawnLootDrop('ammo', x, z), // boss-only guaranteed drop, see ZombieManager
         () => audioEngine.playAmbushShriek(),
-        (zombieTypeId, weaponId, x, z) => this._onZombieKilled(zombieTypeId, weaponId, x, z),
+        (zombieTypeId, weaponId, x, z, isElite) => this._onZombieKilled(zombieTypeId, weaponId, x, z, isElite),
         this.player.isCrouching
       )
       this.companion.update(dt, playerPos, this.zombies.zombies, (amount) => {
@@ -1856,6 +2478,11 @@ export class Game {
       if (this.flashlightOn) this._updateLightLure(playerPos)
       this.pickups.update(dt, elapsed, playerPos, {
         onPickup: (type, label, isLoot) => this._onPickup(type, label, isLoot),
+      })
+      this.xpGems.update(dt, elapsed, playerPos, (value) => this._onXpGemCollected(value))
+      this.autoWeapons.update(dt, playerPos, this.zombies.zombies, () => {
+        this._triggerShake(0.04, 80)
+        this._triggerHitstop(30)
       })
 
       this.chests.update(dt, elapsed, playerPos)
@@ -1894,7 +2521,20 @@ export class Game {
         this.interactPrompt.style.display = 'none'
       }
       this._updateMinimap(playerPos)
+      this._updateCompass(playerPos)
+      this._updateBarricades()
+      if (this.raining && this.nextLightningAt > 0 && performance.now() >= this.nextLightningAt) {
+        this._triggerLightning()
+      }
     }
+
+    if (this.comboCount > 0 && performance.now() > this.comboResetAt) {
+      this.comboCount = 0
+      this.comboCounter.style.display = 'none'
+    }
+
+    this._updateShake(dt)
+    this.camera.position.add(this._shakeOffset)
 
     this.composer.render()
   }

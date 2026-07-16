@@ -137,6 +137,58 @@ export const ZOMBIE_TYPES = {
     skinTones: [0x5c4a5e, 0x544255, 0x635066],
     clothesTones: [0x1c1620, 0x201924],
   },
+  // Ranged + explode-on-death hybrid: fights like a spitter, but detonates
+  // like a bloater once it dies - see Zombie.js's onHit (explodeOnDeath)
+  // and _explode, which it reuses via the same explodeRadius/damage config.
+  spitter_bomber: {
+    id: 'spitter_bomber',
+    label: 'Bomber Spitter',
+    lore: "It stopped digesting a while ago. Now it just... stores things.",
+    weight: 1,
+    health: 48,
+    speedMin: 0.9,
+    speedMax: 1.3,
+    damageMin: 30,
+    damageMax: 45,
+    scale: 1.05,
+    ranged: true,
+    engageRange: 14,
+    retreatRange: 6,
+    spitCooldown: 2.4,
+    spitTravelSpeed: 12,
+    explodeOnDeath: true,
+    explodeRadius: 4,
+    explodeDamageMin: 50,
+    explodeDamageMax: 120,
+    skinTones: [0x4a6a30, 0x527228, 0x466024],
+    clothesTones: [0x101a08, 0x14200a],
+  },
+  // Screamer + summon-on-death hybrid - see ZombieManager's death handling
+  // (summonOnDeath/summonType) for the shambler burst it releases.
+  screamer_swarmer: {
+    id: 'screamer_swarmer',
+    label: 'Swarmer',
+    lore: "Its scream calls them in. Its death lets them out.",
+    weight: 1,
+    health: 55,
+    speedMin: 2.0,
+    speedMax: 2.8,
+    damageMin: 18,
+    damageMax: 28,
+    scale: 1.0,
+    ranged: false,
+    meleeRange: 1.5,
+    attackCooldown: 1.1,
+    screams: true,
+    screamCooldown: 7,
+    screamRadius: 14,
+    screamEnrageMs: 3500,
+    screamEnrageMult: 1.5,
+    summonOnDeath: 2,
+    summonType: 'shambler',
+    skinTones: [0x6e4a5e, 0x654258, 0x724f66],
+    clothesTones: [0x22141c, 0x261620],
+  },
   // Boss: weight 0 means it never enters the normal random-spawn pool -
   // ZombieManager force-spawns exactly one every few nights instead.
   colossus: {

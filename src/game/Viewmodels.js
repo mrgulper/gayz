@@ -83,14 +83,23 @@ function attachHandToGrip(parent, grip, nudge = 0.01) {
   return hand
 }
 
-// golden=true swaps just the slide's material for a dedicated gold one
-// (never mutates the shared METAL material other guns also use) - the
-// Centurion achievement's cosmetic reward, see WeaponSystem.setGoldenSkin().
-function buildPistol(golden = false) {
+// Cosmetic pistol skins (see Game.js's skins shop and Skins.js) - each
+// swaps just the slide's material for a dedicated tinted one, never
+// mutating the shared METAL material other guns also use. 'gold' is also
+// the Centurion achievement's free cosmetic reward, see
+// WeaponSystem.setWeaponSkin().
+const SKIN_TINTS = {
+  gold: { color: 0xd4af37, emissive: 0x5c4a1a },
+  crimson: { color: 0xb0202a, emissive: 0x4a0808 },
+  cobalt: { color: 0x2a6fd0, emissive: 0x0c1c40 },
+}
+
+function buildPistol(skinId = null) {
   const g = new THREE.Group()
 
-  const slideMat = golden
-    ? new THREE.MeshStandardMaterial({ color: 0xd4af37, roughness: 0.25, metalness: 0.9, emissive: 0x5c4a1a, emissiveIntensity: 0.3 })
+  const tint = SKIN_TINTS[skinId]
+  const slideMat = tint
+    ? new THREE.MeshStandardMaterial({ color: tint.color, roughness: 0.25, metalness: 0.9, emissive: tint.emissive, emissiveIntensity: 0.3 })
     : METAL
   const slide = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.09, 0.26), slideMat)
   slide.position.set(0, 0.04, 0)
@@ -392,7 +401,7 @@ const BUILDERS = {
 
 export function buildViewmodel(weaponId, options = {}) {
   const build = BUILDERS[weaponId] || buildPistol
-  const group = build(options.golden)
+  const group = build(options.skinId)
   group.traverse((o) => { if (o.isMesh) o.castShadow = false })
   return group
 }

@@ -153,6 +153,74 @@ class AudioEngine {
     noise.stop(now + duration)
   }
 
+  // Low-health tension cue: a "lub-dub" double thump, synced to the
+  // low-health screen pulse (see Game.js's _updateHealthHud/#damage-flash's
+  // low-health CSS animation, which shares the same ~1.6s cadence).
+  playHeartbeat() {
+    if (!this.ctx) return
+    const ctx = this.ctx
+    const now = ctx.currentTime
+
+    const beat = (delay, freq, gainAmount) => {
+      const osc = ctx.createOscillator()
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(freq, now + delay)
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.6, now + delay + 0.12)
+
+      const gain = ctx.createGain()
+      gain.gain.setValueAtTime(gainAmount, now + delay)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.16)
+
+      osc.connect(gain).connect(this.sfxGain)
+      osc.start(now + delay)
+      osc.stop(now + delay + 0.16)
+    }
+
+    beat(0, 70, 0.5)
+    beat(0.18, 60, 0.4)
+  }
+
+  // Rare rain-night event (see Game.js's _triggerLightning): a bright crack
+  // followed by a rolling low rumble.
+  playThunder() {
+    if (!this.ctx) return
+    const ctx = this.ctx
+    const now = ctx.currentTime
+    const crackDuration = 0.25
+    const rumbleDuration = 1.6
+
+    const crackBuffer = ctx.createBuffer(1, ctx.sampleRate * crackDuration, ctx.sampleRate)
+    const crackData = crackBuffer.getChannelData(0)
+    for (let i = 0; i < crackData.length; i++) crackData[i] = Math.random() * 2 - 1
+    const crack = ctx.createBufferSource()
+    crack.buffer = crackBuffer
+    const crackFilter = ctx.createBiquadFilter()
+    crackFilter.type = 'highpass'
+    crackFilter.frequency.value = 800
+    const crackGain = ctx.createGain()
+    crackGain.gain.setValueAtTime(0.6, now)
+    crackGain.gain.exponentialRampToValueAtTime(0.001, now + crackDuration)
+    crack.connect(crackFilter).connect(crackGain).connect(this.sfxGain)
+    crack.start(now)
+    crack.stop(now + crackDuration)
+
+    const rumbleBuffer = ctx.createBuffer(1, ctx.sampleRate * rumbleDuration, ctx.sampleRate)
+    const rumbleData = rumbleBuffer.getChannelData(0)
+    for (let i = 0; i < rumbleData.length; i++) rumbleData[i] = Math.random() * 2 - 1
+    const rumble = ctx.createBufferSource()
+    rumble.buffer = rumbleBuffer
+    const rumbleFilter = ctx.createBiquadFilter()
+    rumbleFilter.type = 'lowpass'
+    rumbleFilter.frequency.value = 220
+    const rumbleGain = ctx.createGain()
+    rumbleGain.gain.setValueAtTime(0.0001, now)
+    rumbleGain.gain.linearRampToValueAtTime(0.35, now + 0.1)
+    rumbleGain.gain.exponentialRampToValueAtTime(0.001, now + rumbleDuration)
+    rumble.connect(rumbleFilter).connect(rumbleGain).connect(this.sfxGain)
+    rumble.start(now)
+    rumble.stop(now + rumbleDuration)
+  }
+
   // Thrown noisemaker landing: a cluster of metallic clatters plus a low
   // ringing thud, loud enough to read as a deliberate decoy sound.
   // Radio static burst settling into a soft two-note chime, for finding a

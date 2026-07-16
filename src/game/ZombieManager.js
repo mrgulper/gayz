@@ -24,6 +24,7 @@ const GRENADE_THROW_SPEED = 16
 const GRENADE_DAMAGE_RADIUS = 5
 const GRENADE_DAMAGE_MIN = 80
 const GRENADE_DAMAGE_MAX = 220
+const ELITE_CHANCE = 0.08
 
 const projectileMat = new THREE.MeshStandardMaterial({
   color: 0x2f4a12,
@@ -171,7 +172,8 @@ export class ZombieManager {
     const x = Math.sin(angle) * radius
     const z = Math.cos(angle) * radius
 
-    const zombie = new Zombie(x, z, type, isAmbush)
+    const isElite = Math.random() < ELITE_CHANCE
+    const zombie = new Zombie(x, z, type, isAmbush, isElite)
     zombie.deathHandled = false
     this.zombies.push(zombie)
     this.scene.add(zombie.group)
@@ -414,7 +416,8 @@ export class ZombieManager {
         playerCrouching,
         (x, z, radius, enrageMs) => this._onZombieScream(x, z, radius, enrageMs),
         this.colliders,
-        this.solidMeshes
+        this.solidMeshes,
+        this.zombies
       )
 
       if (zombie.state === 'dead' && !zombie.deathHandled) {
@@ -422,12 +425,30 @@ export class ZombieManager {
         this.pendingRespawns.push({ at: performance.now() + REMOVE_AFTER_DEATH_MS + this.respawnDelay * 1000 })
 
         if (!zombie.config.explodes) audioEngine.playZombieDeath()
-        if (onZombieKilled) onZombieKilled(zombie.config.id, zombie.lastHitWeaponId, zombie.group.position.x, zombie.group.position.z)
+        if (onZombieKilled) onZombieKilled(zombie.config.id, zombie.lastHitWeaponId, zombie.group.position.x, zombie.group.position.z, zombie.isElite)
         // Regular kills no longer roll a random loot chance here - see
         // Game.js's _onZombieKilled for the guaranteed every-10th-kill drop.
         // Bosses still always drop on top of that.
         if (onZombieLoot && zombie.isBoss) {
           onZombieLoot(zombie.group.position.x, zombie.group.position.z)
+        }
+
+        // screamer_swarmer-style hybrids (see ZombieTypes.js) release a
+        // small burst of a weaker type on death instead of just dying quietly.
+        if (zombie.config.summonOnDeath) {
+          const summonType = ZOMBIE_TYPES[zombie.config.summonType]
+          if (summonType) {
+            for (let i = 0; i < zombie.config.summonOnDeath; i++) {
+              const angle = Math.random() * Math.PI * 2
+              const r = 1.5 + Math.random() * 1.5
+              const sx = zombie.group.position.x + Math.sin(angle) * r
+              const sz = zombie.group.position.z + Math.cos(angle) * r
+              const summoned = new Zombie(sx, sz, summonType, false)
+              summoned.deathHandled = false
+              this.zombies.push(summoned)
+              this.scene.add(summoned.group)
+            }
+          }
         }
 
         setTimeout(() => {

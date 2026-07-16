@@ -115,6 +115,26 @@ html, body {
   100% { opacity: 0; }
 }
 
+#lightning-flash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: #eaf2ff;
+}
+
+#lightning-flash.flash {
+  animation: lightningflash 400ms ease-out;
+}
+
+@keyframes lightningflash {
+  0% { opacity: 0; }
+  8% { opacity: 0.85; }
+  16% { opacity: 0.1; }
+  24% { opacity: 0.6; }
+  100% { opacity: 0; }
+}
+
 @keyframes lowhealth-pulse {
   0%, 100% { opacity: 0.25; }
   50% { opacity: 0.55; }
@@ -260,6 +280,10 @@ html, body {
   background: #e0c93f;
 }
 
+.status-fill.xp {
+  background: #4fd1e8;
+}
+
 .status-fill.battery {
   background: #f2c14e;
 }
@@ -284,6 +308,39 @@ html, body {
   opacity: 0.4;
 }
 
+#compass-strip {
+  position: absolute;
+  top: 44px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 280px;
+  height: 18px;
+  display: none;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.compass-marker {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #e3a63c;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+#compass-ammo {
+  color: #3fa9f5;
+}
+
+#compass-vehicle {
+  color: #9fd88f;
+}
+
 #night-banner {
   position: absolute;
   top: 38%;
@@ -301,6 +358,76 @@ html, body {
 
 #night-banner.show {
   animation: nightbanner 2.4s ease-out;
+}
+
+#weapon-wheel {
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 8, 6, 0.55);
+  pointer-events: none;
+}
+
+#weapon-wheel-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+}
+
+.wheel-segment {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 92px;
+  padding: 10px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 0.3px;
+}
+
+.wheel-segment.highlight {
+  color: #0c130c;
+  background: #e3a63c;
+  border-color: #e3a63c;
+}
+
+#weapon-wheel-cursor {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ffcf5c;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 6px rgba(255, 207, 92, 0.8);
+}
+
+#combo-counter {
+  position: absolute;
+  top: 22%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #ffcf5c;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+}
+
+#combo-counter.pulse {
+  animation: combopulse 260ms ease-out;
+}
+
+@keyframes combopulse {
+  0% { transform: translate(-50%, -50%) scale(1.35); }
+  100% { transform: translate(-50%, -50%) scale(1); }
 }
 
 @keyframes nightbanner {
@@ -412,6 +539,15 @@ html, body {
   accent-color: #e3a63c;
 }
 
+#mutators-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 .difficulty-row {
   display: flex;
   gap: 8px;
@@ -419,7 +555,8 @@ html, body {
 }
 
 .difficulty-btn,
-.role-btn {
+.role-btn,
+.loadout-btn {
   padding: 7px 18px;
   font-size: 13px;
   font-weight: 600;
@@ -432,12 +569,14 @@ html, body {
 }
 
 .difficulty-btn:hover,
-.role-btn:hover {
+.role-btn:hover,
+.loadout-btn:hover {
   border-color: rgba(227, 166, 60, 0.5);
 }
 
 .difficulty-btn.active,
-.role-btn.active {
+.role-btn.active,
+.loadout-btn.active {
   color: #0c130c;
   background: #e3a63c;
   border-color: #e3a63c;
@@ -746,7 +885,10 @@ html, body {
 #trader-panel,
 #upgrades-panel,
 #achievements-panel,
-#bestiary-panel {
+#bestiary-panel,
+#xp-levelup-panel,
+#pause-overlay,
+#skins-panel {
   position: absolute;
   inset: 0;
   display: none;
@@ -761,7 +903,10 @@ html, body {
 #trader-panel-title,
 #upgrades-panel-title,
 #achievements-panel-title,
-#bestiary-panel-title {
+#bestiary-panel-title,
+#xp-levelup-panel-title,
+#pause-overlay-title,
+#skins-panel-title {
   margin: 0;
   font-size: 15px;
   letter-spacing: 1.5px;
@@ -772,7 +917,8 @@ html, body {
 
 #perk-scrap-line,
 #trader-scrap-line,
-#upgrades-scrap-line {
+#upgrades-scrap-line,
+#skins-scrap-line {
   font-size: 14px;
   color: #ffcf5c;
   opacity: 0.9;
@@ -862,7 +1008,11 @@ html, body {
 #perk-reroll-btn,
 #upgrades-close-btn,
 #achievements-close-btn,
-#bestiary-close-btn {
+#bestiary-close-btn,
+#pause-resume-btn,
+#pause-settings-btn,
+#pause-quit-btn,
+#skins-close-btn {
   margin-top: 6px;
   padding: 8px 20px;
   font-size: 13px;
@@ -884,7 +1034,11 @@ html, body {
 #perk-reroll-btn:hover:not(:disabled),
 #upgrades-close-btn:hover,
 #achievements-close-btn:hover,
-#bestiary-close-btn:hover {
+#bestiary-close-btn:hover,
+#pause-resume-btn:hover,
+#pause-settings-btn:hover,
+#pause-quit-btn:hover,
+#skins-close-btn:hover {
   border-color: rgba(255, 255, 255, 0.5);
 }
 

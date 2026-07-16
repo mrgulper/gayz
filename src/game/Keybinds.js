@@ -17,6 +17,8 @@ export const ACTIONS = [
   { id: 'flashlight', defaultKey: 'KeyT', labelKey: 'actionFlashlight' },
   { id: 'noisemaker', defaultKey: 'KeyV', labelKey: 'actionNoisemaker' },
   { id: 'grenade', defaultKey: 'KeyB', labelKey: 'actionGrenade' },
+  { id: 'barricade', defaultKey: 'KeyN', labelKey: 'actionBarricade' },
+  { id: 'weaponWheel', defaultKey: 'KeyQ', labelKey: 'actionWeaponWheel' },
   { id: 'screenshot', defaultKey: 'KeyP', labelKey: 'actionScreenshot' },
   { id: 'toggleView', defaultKey: 'KeyX', labelKey: 'actionToggleView' },
   { id: 'dodge', defaultKey: 'ShiftLeft', labelKey: 'actionDodge' },

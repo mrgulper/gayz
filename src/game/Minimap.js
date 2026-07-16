@@ -11,7 +11,7 @@ export class Minimap {
     this.size = canvas.width
   }
 
-  update(playerPos, facingRad, zombies, chestLandmarks, minigunLandmark) {
+  update(playerPos, facingRad, zombies, chestLandmarks, minigunLandmark, traderLandmark, ammoLandmark) {
     const ctx = this.ctx
     const s = this.size
     const cx = s / 2
@@ -46,6 +46,24 @@ export class Minimap {
       ctx.lineTo(px - 5.5, py + 4.5)
       ctx.closePath()
       ctx.fill()
+    }
+
+    if (traderLandmark) {
+      const px = cx + (traderLandmark.x - playerPos.x) * scale
+      const py = cy + (traderLandmark.z - playerPos.z) * scale
+      ctx.fillStyle = '#e3a63c'
+      ctx.save()
+      ctx.translate(px, py)
+      ctx.rotate(Math.PI / 4)
+      ctx.fillRect(-3.5, -3.5, 7, 7)
+      ctx.restore()
+    }
+
+    if (ammoLandmark) {
+      const px = cx + (ammoLandmark.x - playerPos.x) * scale
+      const py = cy + (ammoLandmark.z - playerPos.z) * scale
+      ctx.fillStyle = '#3fa9f5'
+      ctx.fillRect(px - 3, py - 3, 6, 6)
     }
 
     ctx.fillStyle = '#e04b4b'

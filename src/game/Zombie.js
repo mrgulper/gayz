@@ -15,6 +15,29 @@ const AMBUSH_BURST_SPEED_MULT = 2.3
 const DEFAULT_ENRAGE_MULT = 1.4
 const DEFAULT_WEAKEN_MULT = 0.55
 
+// Elite variants (see ZombieManager._spawnRandom) - tougher, hit harder,
+// visibly gilded so the player can spot the threat before engaging.
+const ELITE_HEALTH_MULT = 2.2
+const ELITE_DAMAGE_MULT = 1.6
+const ELITE_SCALE_MULT = 1.15
+const ELITE_TINT_HEX = 0xffc94a
+const ELITE_TINT_INTENSITY = 0.65
+
+// Boss-only telegraphed ground slam (see _updateBossSpecial/_animate) - a
+// wind-up window the player can see coming and step out of, on top of
+// their normal quick melee swings.
+const BOSS_SPECIAL_COOLDOWN_MS = 8000
+const BOSS_SPECIAL_TELEGRAPH_MS = 1100
+const BOSS_SPECIAL_RANGE = 5.5
+const BOSS_SPECIAL_DAMAGE_MULT = 2.2
+
+// Loose pack "formation": a light separation nudge away from nearby alive
+// zombies, blended into the movement direction so a cluster spreads out
+// into a rough loose group instead of stacking directly on top of each
+// other while all beelining the same player position.
+const SEPARATION_RADIUS = 1.1
+const SEPARATION_WEIGHT = 0.5
+
 // Zombies always stand at group.position.y = 0 (see the constructor) and
 // playerPos is the camera/eye position, which sits ~1.7 above the player's
 // feet on ordinary flat ground (PlayerController's EYE_HEIGHT) - that gap
@@ -42,11 +65,12 @@ function jitterGeometry(geometry, amount) {
 }
 
 export class Zombie {
-  constructor(x, z, typeConfig, isAmbush = false) {
+  constructor(x, z, typeConfig, isAmbush = false, isElite = false) {
     this.id = zombieIdCounter++
     this.type = typeConfig.id
     this.config = typeConfig
     this.isAmbush = isAmbush
+    this.isElite = isElite
 
     this.speed = typeConfig.speedMin + Math.random() * (typeConfig.speedMax - typeConfig.speedMin)
     this.phase = Math.random() * Math.PI * 2
@@ -56,11 +80,16 @@ export class Zombie {
     this.asymmetryAmount = 0.1 + Math.random() * 0.18
     this.stopDistance = typeConfig.ranged ? typeConfig.engageRange : typeConfig.meleeRange
 
-    this.health = typeConfig.health
-    this.maxHealth = typeConfig.health
+    this.health = typeConfig.health * (isElite ? ELITE_HEALTH_MULT : 1)
+    this.maxHealth = this.health
     // alive states flow: dormant -> popping -> alive -> dying/exploding -> dead
     this.state = isAmbush ? 'dormant' : 'alive'
     this.dormantSince = performance.now()
+    // Jittered per-instance so a cluster of ambush zombies doesn't all pop
+    // with the exact same timing - see the 'dormant'->'popping' transition
+    // and forceWake().
+    this.popDurationMs = AMBUSH_POP_MS * (0.7 + Math.random() * 0.6)
+    this.burstDurationMs = AMBUSH_BURST_MS * (0.8 + Math.random() * 0.4)
     this.staggerUntil = 0
     this.attackCooldownUntil = 0
     this.attackAnimUntil = 0
@@ -73,6 +102,9 @@ export class Zombie {
     this.screamPulseUntil = 0
     this.enragedUntil = 0
     this.weakenedUntil = 0
+    this.specialCooldownUntil = 0
+    this.specialTelegraphUntil = 0
+    this._specialArmed = false
 
     this.group = new THREE.Group()
     this.group.position.set(x, 0, z)
@@ -87,12 +119,24 @@ export class Zombie {
 
     this._buildBody()
 
-    const baseScale = typeConfig.scale
+    const baseScale = typeConfig.scale * (isElite ? ELITE_SCALE_MULT : 1)
+    this.baseScale = baseScale
     if (isAmbush) {
       this.group.scale.set(baseScale, baseScale * 0.35, baseScale)
       for (const mat of this.eyeMaterials) mat.emissiveIntensity = 0.25
     } else {
       this.group.scale.setScalar(baseScale)
+    }
+
+    if (isElite) {
+      // Recolor every body material gold and bake that into materialDefaults
+      // too, so onHit's white hit-flash still reverts to the gilded tint
+      // instead of snapping back to the original dull color.
+      for (const mat of this.materials) {
+        mat.emissive.setHex(ELITE_TINT_HEX)
+        mat.emissiveIntensity = ELITE_TINT_INTENSITY
+        this.materialDefaults.set(mat, { hex: ELITE_TINT_HEX, intensity: ELITE_TINT_INTENSITY })
+      }
     }
 
     this._buildHealthBar()
@@ -476,7 +520,7 @@ export class Zombie {
     this._barSprite.material.map.needsUpdate = true
   }
 
-  update(dt, elapsed, playerPos, onAttack, onSpit, onAmbushTrigger, onExplode, playerCrouching = false, onScream = null, colliders = null, solidMeshes = null) {
+  update(dt, elapsed, playerPos, onAttack, onSpit, onAmbushTrigger, onExplode, playerCrouching = false, onScream = null, colliders = null, solidMeshes = null, allZombies = null) {
     if (this.state === 'dormant') {
       const dist = Math.hypot(playerPos.x - this.group.position.x, playerPos.z - this.group.position.z)
       const waited = performance.now() - this.dormantSince
@@ -484,14 +528,14 @@ export class Zombie {
       if (dist < triggerRange || waited > AMBUSH_MAX_WAIT_MS) {
         this.state = 'popping'
         this.popStartedAt = performance.now()
-        this.burstUntil = performance.now() + AMBUSH_POP_MS + AMBUSH_BURST_MS
+        this.burstUntil = performance.now() + this.popDurationMs + this.burstDurationMs
         if (onAmbushTrigger) onAmbushTrigger(this.group.position.x, this.group.position.z)
       }
       return
     }
 
     if (this.state === 'popping') {
-      const progress = Math.min(1, (performance.now() - this.popStartedAt) / AMBUSH_POP_MS)
+      const progress = Math.min(1, (performance.now() - this.popStartedAt) / this.popDurationMs)
       const baseScale = this.config.scale
       this.group.scale.y = THREE.MathUtils.lerp(baseScale * 0.35, baseScale, progress)
       for (const mat of this.eyeMaterials) mat.emissiveIntensity = THREE.MathUtils.lerp(0.25, 2.4, progress)
@@ -527,8 +571,44 @@ export class Zombie {
     const dx = playerPos.x - this.group.position.x
     const dz = playerPos.z - this.group.position.z
     const dist = Math.hypot(dx, dz)
-    const nx = dist > 0.0001 ? dx / dist : 0
-    const nz = dist > 0.0001 ? dz / dist : 1
+    let nx = dist > 0.0001 ? dx / dist : 0
+    let nz = dist > 0.0001 ? dz / dist : 1
+
+    if (allZombies) {
+      let sepX = 0
+      let sepZ = 0
+      for (const other of allZombies) {
+        if (other === this || other.state !== 'alive') continue
+        const odx = this.group.position.x - other.group.position.x
+        const odz = this.group.position.z - other.group.position.z
+        const odist = Math.hypot(odx, odz)
+        if (odist <= 0.0001) {
+          // Exactly coincident (e.g. two zombies summoned on the same
+          // spot) - there's no defined "away" direction, so nudge apart
+          // using this zombie's own id as a stable pseudo-angle. Spread by
+          // the golden angle (~137.5°) rather than id directly, since
+          // summon bursts hand out consecutive ids and consecutive ids
+          // would otherwise land within a degree of each other and drift
+          // off together as a clump instead of separating.
+          const angle = (this.id * 137.5 * (Math.PI / 180)) % (Math.PI * 2)
+          sepX += Math.cos(angle)
+          sepZ += Math.sin(angle)
+        } else if (odist < SEPARATION_RADIUS) {
+          const push = (SEPARATION_RADIUS - odist) / SEPARATION_RADIUS
+          sepX += (odx / odist) * push
+          sepZ += (odz / odist) * push
+        }
+      }
+      if (sepX !== 0 || sepZ !== 0) {
+        nx += sepX * SEPARATION_WEIGHT
+        nz += sepZ * SEPARATION_WEIGHT
+        const len = Math.hypot(nx, nz)
+        if (len > 0.0001) {
+          nx /= len
+          nz /= len
+        }
+      }
+    }
 
     const burstMult = performance.now() < this.burstUntil ? AMBUSH_BURST_SPEED_MULT : 1
     const enrageMult = performance.now() < this.enragedUntil ? (this.config.screamEnrageMult ?? DEFAULT_ENRAGE_MULT) : 1
@@ -564,7 +644,7 @@ export class Zombie {
     if (this.state !== 'dormant') return
     this.state = 'popping'
     this.popStartedAt = performance.now()
-    this.burstUntil = performance.now() + AMBUSH_POP_MS + AMBUSH_BURST_MS
+    this.burstUntil = performance.now() + this.popDurationMs + this.burstDurationMs
   }
 
   enrage(durationMs) {
@@ -580,6 +660,8 @@ export class Zombie {
   }
 
   _updateMelee(dt, dist, nx, nz, onAttack, colliders, solidMeshes, playerPos) {
+    if (this.isBoss && this._updateBossSpecial(dist, playerPos, onAttack) === 'busy') return
+
     // In range but no line of sight (a wall/floor between us and the
     // player) means "can't actually reach them" just as much as being too
     // far away - keep approaching instead of freezing into an attack that
@@ -591,9 +673,41 @@ export class Zombie {
       this.attackCooldownUntil = performance.now() + this.config.attackCooldown * 1000
       this.attackAnimUntil = performance.now() + 260
       const weakened = performance.now() < this.weakenedUntil
-      const damage = (this.config.damageMin + Math.random() * (this.config.damageMax - this.config.damageMin)) * (weakened ? DEFAULT_WEAKEN_MULT : 1)
+      const damage = (this.config.damageMin + Math.random() * (this.config.damageMax - this.config.damageMin)) *
+        (weakened ? DEFAULT_WEAKEN_MULT : 1) * (this.isElite ? ELITE_DAMAGE_MULT : 1)
       if (onAttack) onAttack(damage)
     }
+  }
+
+  // Boss-only wind-up + AoE slam, layered on top of the normal melee
+  // swings above. Returns 'busy' while telegraphing/unleashing (freezes
+  // movement and the regular attack for that frame - see _updateMelee),
+  // 'idle' otherwise so normal melee behavior proceeds unaffected.
+  _updateBossSpecial(dist, playerPos, onAttack) {
+    const now = performance.now()
+
+    if (this.specialTelegraphUntil > now) return 'busy'
+
+    if (this._specialArmed) {
+      this._specialArmed = false
+      const distToPlayer = Math.hypot(playerPos.x - this.group.position.x, playerPos.z - this.group.position.z)
+      if (distToPlayer <= BOSS_SPECIAL_RANGE) {
+        const falloff = 1 - distToPlayer / BOSS_SPECIAL_RANGE
+        const damage = (this.config.damageMin + this.config.damageMax) / 2 * BOSS_SPECIAL_DAMAGE_MULT * falloff
+        if (onAttack) onAttack(damage)
+      }
+      this.specialCooldownUntil = now + BOSS_SPECIAL_COOLDOWN_MS
+      this.attackCooldownUntil = now + this.config.attackCooldown * 1000
+      return 'busy'
+    }
+
+    if (dist <= BOSS_SPECIAL_RANGE * 1.3 && now >= this.specialCooldownUntil) {
+      this.specialTelegraphUntil = now + BOSS_SPECIAL_TELEGRAPH_MS
+      this._specialArmed = true
+      return 'busy'
+    }
+
+    return 'idle'
   }
 
   _updateExploder(dt, dist, nx, nz, playerPos, onAttack, onExplode, colliders) {
@@ -611,7 +725,8 @@ export class Zombie {
     const dist = Math.hypot(playerPos.x - this.group.position.x, playerPos.z - this.group.position.z)
     if (dist <= this.config.explodeRadius) {
       const falloff = 1 - dist / this.config.explodeRadius
-      const damage = this.config.explodeDamageMin + (this.config.explodeDamageMax - this.config.explodeDamageMin) * falloff
+      const damage = (this.config.explodeDamageMin + (this.config.explodeDamageMax - this.config.explodeDamageMin) * falloff) *
+        (this.isElite ? ELITE_DAMAGE_MULT : 1)
       if (onAttack) onAttack(damage)
     }
     if (onExplode) onExplode(this.group.position.x, this.group.position.z)
@@ -636,7 +751,8 @@ export class Zombie {
       this.attackCooldownUntil = performance.now() + this.config.spitCooldown * 1000
       this.attackAnimUntil = performance.now() + 300
       const weakened = performance.now() < this.weakenedUntil
-      const damage = (this.config.damageMin + Math.random() * (this.config.damageMax - this.config.damageMin)) * (weakened ? DEFAULT_WEAKEN_MULT : 1)
+      const damage = (this.config.damageMin + Math.random() * (this.config.damageMax - this.config.damageMin)) *
+        (weakened ? DEFAULT_WEAKEN_MULT : 1) * (this.isElite ? ELITE_DAMAGE_MULT : 1)
       if (onSpit) {
         const origin = this.group.position.clone()
         origin.y += 1.3 * this.config.scale
@@ -705,7 +821,28 @@ export class Zombie {
     return hits.length === 0
   }
 
+  // Dodge-able tell for _updateBossSpecial's wind-up: a fast growing
+  // shake plus a red eye flash, so the player can see the slam coming and
+  // back out of BOSS_SPECIAL_RANGE before it lands.
+  _animateBossTelegraph(elapsed) {
+    const remaining = this.specialTelegraphUntil - performance.now()
+    if (remaining <= 0) {
+      this.group.scale.setScalar(this.baseScale)
+      return false
+    }
+    const progress = 1 - Math.max(0, remaining) / BOSS_SPECIAL_TELEGRAPH_MS
+    const pulse = 1 + Math.sin(elapsed * 24) * 0.07 * progress
+    this.group.scale.setScalar(this.baseScale * pulse)
+    for (const mat of this.eyeMaterials) {
+      mat.emissive.setHex(0xff2020)
+      mat.emissiveIntensity = 1.5 + progress * 1.5
+    }
+    return true
+  }
+
   _animate(elapsed) {
+    if (this.isBoss && this._animateBossTelegraph(elapsed)) return
+
     const t = elapsed * this.effectiveSpeed * 2.2 + this.phase
 
     // UV weapon tell: eyes wash violet while weakened, so the effect reads
@@ -794,7 +931,10 @@ export class Zombie {
     }
 
     if (this.health <= 0) {
-      if (this.config.explodes) {
+      // explodeOnDeath (see spitter_bomber in ZombieTypes.js) reuses the
+      // exploder's own _explode/pendingExplosion path even though this
+      // zombie's live attack behavior is ranged, not proximity-explode.
+      if (this.config.explodes || this.config.explodeOnDeath) {
         this.pendingExplosion = true
       } else {
         this.state = 'dying'
