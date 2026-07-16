@@ -350,7 +350,7 @@ export class Game {
 
     this._addFlashlight()
 
-    this.zombies = new ZombieManager(this.scene, this.difficulty.spawnRateMult)
+    this.zombies = new ZombieManager(this.scene, this.difficulty.spawnRateMult, colliders, solidMeshes)
     this.companion = new Companion(this.scene, 1.6, 7, this.settings.companionRole)
     this.vehicle = new Vehicle(this.scene, -6, -18, 0)
     this.driving = false

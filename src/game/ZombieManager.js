@@ -50,8 +50,14 @@ const EXPLOSION_FX_MS = 350
 const SCREAM_FX_MS = 450
 
 export class ZombieManager {
-  constructor(scene, spawnRateMult = 1) {
+  constructor(scene, spawnRateMult = 1, colliders = [], solidMeshes = []) {
     this.scene = scene
+    // World collision/raycast geometry, the same lists PlayerController
+    // uses - so zombies stop clipping through buildings/cars/tunnel walls,
+    // and can't melee through a wall/floor they have no line of sight
+    // through (see Zombie.js's _tryMove/_hasLineOfSight).
+    this.colliders = colliders
+    this.solidMeshes = solidMeshes
     this.zombies = []
     this.projectiles = []
     this.explosionFx = []
@@ -407,7 +413,9 @@ export class ZombieManager {
         onAmbushTrigger,
         (x, z) => this._spawnExplosionFX(x, z),
         playerCrouching,
-        (x, z, radius, enrageMs) => this._onZombieScream(x, z, radius, enrageMs)
+        (x, z, radius, enrageMs) => this._onZombieScream(x, z, radius, enrageMs),
+        this.colliders,
+        this.solidMeshes
       )
 
       if (zombie.state === 'dead' && !zombie.deathHandled) {

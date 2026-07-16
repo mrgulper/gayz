@@ -64,6 +64,12 @@ export class PlayerController {
     this._raycaster = new THREE.Raycaster()
     this._rayOrigin = new THREE.Vector3()
     this._rayDir = new THREE.Vector3(0, -1, 0)
+    // Separate raycaster for the upward ceiling check (see _tick's jump
+    // branch) - kept distinct from the ground-sampling one above so mutating
+    // its `far` distance every frame can't bleed into the downward check.
+    this._ceilingRaycaster = new THREE.Raycaster()
+    this._ceilingRayOrigin = new THREE.Vector3()
+    this._upDir = new THREE.Vector3(0, 1, 0)
 
     window.addEventListener('keydown', (e) => this._onKey(e, true))
     window.addEventListener('keyup', (e) => this._onKey(e, false))
@@ -185,7 +191,25 @@ export class PlayerController {
         this.onGround = false
       }
     } else {
-      obj.position.y += this.velocity.y * dt
+      // Ceiling check while ascending (jumping). Floor slabs (skyscraper
+      // interiors, tower lookout platforms) are deliberately left out of
+      // `colliders` so walking onto them from the side isn't blocked (see
+      // World.js's "intentionally not a horizontal collider" comments) -
+      // which also means nothing stops a jump from passing straight up
+      // through one from underneath without this separate check. Raycasting
+      // against `groundMeshes` (the same walkable-surface list used for
+      // landing) catches those slabs too, unlike `colliders`.
+      const ascend = this.velocity.y * dt
+      this._ceilingRayOrigin.set(obj.position.x, obj.position.y + 0.3, obj.position.z)
+      this._ceilingRaycaster.set(this._ceilingRayOrigin, this._upDir)
+      this._ceilingRaycaster.far = ascend
+      const ceilingHits = this._ceilingRaycaster.intersectObjects(this.groundMeshes, true)
+      if (ceilingHits.length > 0) {
+        obj.position.y = Math.max(obj.position.y, ceilingHits[0].point.y - 0.3)
+        this.velocity.y = 0
+      } else {
+        obj.position.y += ascend
+      }
       this.onGround = false
     }
   }

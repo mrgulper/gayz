@@ -77,6 +77,14 @@ export class Zombie {
     this.group = new THREE.Group()
     this.group.position.set(x, 0, z)
 
+    // Reused every frame by _tryMove/_hasLineOfSight instead of allocating
+    // fresh objects per zombie per frame - there can be a couple dozen of
+    // these alive checking every frame.
+    this._moveBox = new THREE.Box3()
+    this._losRaycaster = new THREE.Raycaster()
+    this._losOrigin = new THREE.Vector3()
+    this._losDir = new THREE.Vector3()
+
     this._buildBody()
 
     const baseScale = typeConfig.scale
@@ -468,7 +476,7 @@ export class Zombie {
     this._barSprite.material.map.needsUpdate = true
   }
 
-  update(dt, elapsed, playerPos, onAttack, onSpit, onAmbushTrigger, onExplode, playerCrouching = false, onScream = null) {
+  update(dt, elapsed, playerPos, onAttack, onSpit, onAmbushTrigger, onExplode, playerCrouching = false, onScream = null, colliders = null, solidMeshes = null) {
     if (this.state === 'dormant') {
       const dist = Math.hypot(playerPos.x - this.group.position.x, playerPos.z - this.group.position.z)
       const waited = performance.now() - this.dormantSince
@@ -529,15 +537,17 @@ export class Zombie {
 
     // Excess elevation beyond a normal standing eye height (e.g. the player
     // is up on a car roof) - added into the melee engagement check below
-    // so a zombie stuck at the base can't melee through it. Ranged/exploder
-    // attacks are unaffected: a spitter lobbing a projectile or a bloater's
-    // blast radius reaching upward are both reasonable as-is.
+    // so a zombie stuck at the base can't melee through it. The exploder's
+    // blast radius reaching a bit upward is left as-is (a real explosion
+    // would); ranged spit attacks get their own line-of-sight check instead
+    // (see _updateRanged) since a wall blocks a thrown projectile regardless
+    // of height.
     const excessElevation = Math.max(0, playerPos.y - TYPICAL_EYE_HEIGHT - this.group.position.y)
 
     if (!staggered) {
-      if (this.config.ranged) this._updateRanged(dt, dist, nx, nz, playerPos, onSpit)
-      else if (this.config.explodes) this._updateExploder(dt, dist, nx, nz, playerPos, onAttack, onExplode)
-      else this._updateMelee(dt, Math.hypot(dist, excessElevation), nx, nz, onAttack)
+      if (this.config.ranged) this._updateRanged(dt, dist, nx, nz, playerPos, onSpit, colliders, solidMeshes)
+      else if (this.config.explodes) this._updateExploder(dt, dist, nx, nz, playerPos, onAttack, onExplode, colliders)
+      else this._updateMelee(dt, Math.hypot(dist, excessElevation), nx, nz, onAttack, colliders, solidMeshes, playerPos)
 
       if (this.config.screams && onScream && performance.now() >= this.screamCooldownUntil) {
         this.screamCooldownUntil = performance.now() + this.config.screamCooldown * 1000
@@ -569,10 +579,13 @@ export class Zombie {
     this.weakenedUntil = Math.max(this.weakenedUntil, performance.now() + durationMs)
   }
 
-  _updateMelee(dt, dist, nx, nz, onAttack) {
-    if (dist > this.config.meleeRange) {
-      this.group.position.x += nx * this.effectiveSpeed * dt
-      this.group.position.z += nz * this.effectiveSpeed * dt
+  _updateMelee(dt, dist, nx, nz, onAttack, colliders, solidMeshes, playerPos) {
+    // In range but no line of sight (a wall/floor between us and the
+    // player) means "can't actually reach them" just as much as being too
+    // far away - keep approaching instead of freezing into an attack that
+    // should be impossible through solid geometry.
+    if (dist > this.config.meleeRange || !this._hasLineOfSight(playerPos, solidMeshes)) {
+      this._tryMove(nx * this.effectiveSpeed * dt, nz * this.effectiveSpeed * dt, colliders)
       this.group.rotation.y = Math.atan2(nx, nz)
     } else if (performance.now() >= this.attackCooldownUntil) {
       this.attackCooldownUntil = performance.now() + this.config.attackCooldown * 1000
@@ -583,10 +596,9 @@ export class Zombie {
     }
   }
 
-  _updateExploder(dt, dist, nx, nz, playerPos, onAttack, onExplode) {
+  _updateExploder(dt, dist, nx, nz, playerPos, onAttack, onExplode, colliders) {
     if (dist > this.config.meleeRange) {
-      this.group.position.x += nx * this.effectiveSpeed * dt
-      this.group.position.z += nz * this.effectiveSpeed * dt
+      this._tryMove(nx * this.effectiveSpeed * dt, nz * this.effectiveSpeed * dt, colliders)
       this.group.rotation.y = Math.atan2(nx, nz)
     } else {
       this._explode(playerPos, onAttack, onExplode)
@@ -610,15 +622,16 @@ export class Zombie {
     this.group.visible = false
   }
 
-  _updateRanged(dt, dist, nx, nz, playerPos, onSpit) {
+  _updateRanged(dt, dist, nx, nz, playerPos, onSpit, colliders, solidMeshes) {
     this.group.rotation.y = Math.atan2(nx, nz)
 
+    // No line of sight (a wall/floor blocking the throw) counts the same as
+    // being out of range - reposition instead of lobbing a projectile
+    // through solid geometry.
     if (dist < this.config.retreatRange) {
-      this.group.position.x -= nx * this.effectiveSpeed * dt
-      this.group.position.z -= nz * this.effectiveSpeed * dt
-    } else if (dist > this.config.engageRange) {
-      this.group.position.x += nx * this.effectiveSpeed * dt
-      this.group.position.z += nz * this.effectiveSpeed * dt
+      this._tryMove(-nx * this.effectiveSpeed * dt, -nz * this.effectiveSpeed * dt, colliders)
+    } else if (dist > this.config.engageRange || !this._hasLineOfSight(playerPos, solidMeshes)) {
+      this._tryMove(nx * this.effectiveSpeed * dt, nz * this.effectiveSpeed * dt, colliders)
     } else if (performance.now() >= this.attackCooldownUntil) {
       this.attackCooldownUntil = performance.now() + this.config.spitCooldown * 1000
       this.attackAnimUntil = performance.now() + 300
@@ -630,6 +643,66 @@ export class Zombie {
         onSpit(origin, playerPos.clone(), damage, this.config.spitTravelSpeed)
       }
     }
+  }
+
+  // Per-axis move against world colliders (same list PlayerController uses),
+  // mirroring its own _tryMove - resolving X and Z separately lets a zombie
+  // slide along a wall/car it's approaching at an angle instead of just
+  // stopping dead, without any real pathfinding. No colliders passed (e.g.
+  // a caller that hasn't wired them up) falls back to unblocked movement.
+  _tryMove(dx, dz, colliders) {
+    if (!colliders || colliders.length === 0) {
+      this.group.position.x += dx
+      this.group.position.z += dz
+      return
+    }
+    const halfW = 0.32 * this.config.scale
+    const height = 1.8 * this.config.scale
+
+    // Zombie spawn points aren't checked against building/wall footprints
+    // (see ZombieManager._spawnRandom/_spawnBoss) - harmless before this
+    // collision was added, since they'd just clip through unnoticed. Now
+    // that movement can be blocked, a zombie that spawned embedded in a
+    // wall needs to be able to walk itself free rather than softlocking in
+    // place forever, so collision is only enforced once the zombie is
+    // already clear of everything.
+    this._moveBox.min.set(this.group.position.x - halfW, 0, this.group.position.z - halfW)
+    this._moveBox.max.set(this.group.position.x + halfW, height, this.group.position.z + halfW)
+    if (colliders.some((c) => this._moveBox.intersectsBox(c))) {
+      this.group.position.x += dx
+      this.group.position.z += dz
+      return
+    }
+
+    if (dx !== 0) {
+      const nx = this.group.position.x + dx
+      this._moveBox.min.set(nx - halfW, 0, this.group.position.z - halfW)
+      this._moveBox.max.set(nx + halfW, height, this.group.position.z + halfW)
+      if (!colliders.some((c) => this._moveBox.intersectsBox(c))) this.group.position.x = nx
+    }
+    if (dz !== 0) {
+      const nz = this.group.position.z + dz
+      this._moveBox.min.set(this.group.position.x - halfW, 0, nz - halfW)
+      this._moveBox.max.set(this.group.position.x + halfW, height, nz + halfW)
+      if (!colliders.some((c) => this._moveBox.intersectsBox(c))) this.group.position.z = nz
+    }
+  }
+
+  // Blocked line of sight (a wall/floor between here and the player) means
+  // melee can't land even if the nominal 3D distance says "in range" - see
+  // _updateMelee. No solidMeshes passed skips the check (treated as clear).
+  _hasLineOfSight(playerPos, solidMeshes) {
+    if (!solidMeshes || solidMeshes.length === 0) return true
+    this._losOrigin.copy(this.group.position)
+    this._losOrigin.y += 1.0 * this.config.scale
+    this._losDir.copy(playerPos).sub(this._losOrigin)
+    const dist = this._losDir.length()
+    if (dist < 0.001) return true
+    this._losDir.normalize()
+    this._losRaycaster.set(this._losOrigin, this._losDir)
+    this._losRaycaster.far = dist - 0.15 // stop just short of the player so their own body isn't a false hit
+    const hits = this._losRaycaster.intersectObjects(solidMeshes, true)
+    return hits.length === 0
   }
 
   _animate(elapsed) {
