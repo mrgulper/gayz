@@ -15,8 +15,8 @@ export const ZOMBIE_TYPES = {
     ranged: false,
     meleeRange: 1.5,
     attackCooldown: 1.0,
-    skinTones: [0x4a5539, 0x445033, 0x505a3c, 0x3d4a3f, 0x565040],
-    clothesTones: [0x201d19, 0x2a1f18, 0x1c231e, 0x261a1e],
+    skinTones: [0x39506a, 0x33485f, 0x3d5470, 0x2f4459, 0x455a75],
+    clothesTones: [0x161a24, 0x1a1e2a, 0x14171f, 0x1c2028],
   },
   runner: {
     id: 'runner',
@@ -31,8 +31,8 @@ export const ZOMBIE_TYPES = {
     ranged: false,
     meleeRange: 1.4,
     attackCooldown: 0.85,
-    skinTones: [0x6b7a52, 0x74886a, 0x63744e],
-    clothesTones: [0x2a2521, 0x332621],
+    skinTones: [0x4a6b7a, 0x527888, 0x436374],
+    clothesTones: [0x1e222b, 0x242835],
   },
   brute: {
     id: 'brute',
@@ -47,8 +47,8 @@ export const ZOMBIE_TYPES = {
     ranged: false,
     meleeRange: 2.1,
     attackCooldown: 1.4,
-    skinTones: [0x38402c, 0x2f3826, 0x3a3527],
-    clothesTones: [0x171512, 0x1c1613],
+    skinTones: [0x283a4a, 0x223240, 0x2a3d4d],
+    clothesTones: [0x0f1216, 0x12161a],
   },
   spitter: {
     id: 'spitter',
@@ -65,8 +65,8 @@ export const ZOMBIE_TYPES = {
     retreatRange: 7,
     spitCooldown: 2.1,
     spitTravelSpeed: 13,
-    skinTones: [0x808a2e, 0x8c9938, 0x748024],
-    clothesTones: [0x2b2a18, 0x33301c],
+    skinTones: [0x5a3a7a, 0x653f88, 0x4f3468],
+    clothesTones: [0x1a1428, 0x201a30],
   },
   crawler: {
     id: 'crawler',
@@ -82,8 +82,8 @@ export const ZOMBIE_TYPES = {
     crawler: true,
     meleeRange: 1.3,
     attackCooldown: 0.8,
-    skinTones: [0x565a3f, 0x4e5236, 0x60613f],
-    clothesTones: [0x18160f, 0x201c12],
+    skinTones: [0x3d5560, 0x364c56, 0x455e6a],
+    clothesTones: [0x0f1611, 0x131c15],
   },
   exploder: {
     id: 'exploder',
@@ -102,8 +102,8 @@ export const ZOMBIE_TYPES = {
     explodeRadius: 4.5,
     explodeDamageMin: 60,
     explodeDamageMax: 145,
-    skinTones: [0x6a7a2e, 0x748330, 0x5f6e26],
-    clothesTones: [0x2a2818, 0x322c1a],
+    skinTones: [0x3a5a4a, 0x3f6350, 0x355547],
+    clothesTones: [0x152018, 0x18251a],
   },
   screamer: {
     id: 'screamer',
@@ -145,8 +145,8 @@ export const ZOMBIE_TYPES = {
     ranged: false,
     meleeRange: 2.8,
     attackCooldown: 1.8,
-    skinTones: [0x2a1f1a, 0x241a16, 0x2e2119],
-    clothesTones: [0x100c0a, 0x140f0c],
+    skinTones: [0x1a2530, 0x16202a, 0x1c2732],
+    clothesTones: [0x0a0d10, 0x0d1013],
   },
 }
 
