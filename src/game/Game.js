@@ -121,6 +121,8 @@ function formatTime(ms) {
 export class Game {
   constructor() {
     this.canvas = document.getElementById('scene')
+    this.appEl = document.getElementById('app')
+    this._wobbleTime = 0
     this.menu = document.getElementById('menu')
     this.playBtn = document.getElementById('play-btn')
     this.crosshair = document.getElementById('crosshair')
@@ -156,6 +158,7 @@ export class Game {
     this.nightBanner = document.getElementById('night-banner')
     this.deathStats = document.getElementById('death-stats')
     this.interactPrompt = document.getElementById('interact-prompt')
+    this.ffTimestampEl = document.getElementById('ff-timestamp')
     this.infectionIndicator = document.getElementById('infection-indicator')
     this.statsPanel = document.getElementById('stats-panel')
     this.phaseRow = document.getElementById('phase-row')
@@ -1048,6 +1051,13 @@ export class Game {
 
     this.dayNight.update()
     this._updateFlicker(elapsed)
+    this.ffTimestampEl.textContent = formatTime(performance.now() - this.runStartedAt)
+
+    this._wobbleTime += dt
+    const wobbleX = Math.sin(this._wobbleTime * 1.3) * 1.4 + Math.sin(this._wobbleTime * 0.7) * 0.8
+    const wobbleY = Math.cos(this._wobbleTime * 1.1) * 1.1
+    const wobbleRot = Math.sin(this._wobbleTime * 0.9) * 0.25
+    this.appEl.style.transform = `translate(${wobbleX}px, ${wobbleY}px) rotate(${wobbleRot}deg)`
 
     if (this.driving && this.player.controls.isLocked && this.playerState.alive) {
       this.vehicle.update(dt, this.player.input, this.player.colliders)
