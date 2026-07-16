@@ -20,10 +20,45 @@ export class Companion {
     this.group = new THREE.Group()
     this.group.position.set(x, 0, z)
     this._buildBody()
+    this._buildNameTag()
     scene.add(this.group)
 
     this.nextFireAt = 0
     this.tracers = []
+  }
+
+  // Floating name label above the head - same canvas-texture-sprite trick
+  // Zombie.js uses for its health bars.
+  _buildNameTag() {
+    const canvas = document.createElement('canvas')
+    canvas.width = 256
+    canvas.height = 48
+    this._nameCanvas = canvas
+    this._nameCtx = canvas.getContext('2d')
+
+    const texture = new THREE.CanvasTexture(canvas)
+    const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, fog: false })
+    this._nameSprite = new THREE.Sprite(material)
+    this._nameSprite.scale.set(0.7, 0.13, 1)
+    this._nameSprite.position.set(0, 2.0, 0)
+    this._nameSprite.renderOrder = 10
+    this.group.add(this._nameSprite)
+
+    this.setName('Assistant')
+  }
+
+  setName(name) {
+    const ctx = this._nameCtx
+    const canvas = this._nameCanvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)'
+    ctx.fillRect(0, 10, canvas.width, canvas.height - 20)
+    ctx.font = 'bold 26px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillStyle = '#5be3ff'
+    ctx.fillText(name, canvas.width / 2, canvas.height / 2)
+    this._nameSprite.material.map.needsUpdate = true
   }
 
   _buildBody() {

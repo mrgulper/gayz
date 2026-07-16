@@ -351,6 +351,27 @@ html, body {
   opacity: 0.85 !important;
 }
 
+.nickname-input {
+  width: 220px;
+  margin-top: 6px;
+  padding: 8px 12px;
+  font-size: 14px;
+  text-align: center;
+  color: #eee;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(91, 227, 255, 0.4);
+  border-radius: 6px;
+}
+
+.nickname-input:focus {
+  outline: none;
+  border-color: #5be3ff;
+}
+
+.nickname-input::placeholder {
+  color: rgba(238, 238, 238, 0.4);
+}
+
 .difficulty-row {
   display: flex;
   gap: 8px;

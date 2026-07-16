@@ -60,9 +60,10 @@ function loadSettings() {
       sensitivity: parsed.sensitivity ?? 100,
       fov: parsed.fov ?? 75,
       colorblind: parsed.colorblind ?? false,
+      nickname: parsed.nickname || '',
     }
   } catch {
-    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false }
+    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '' }
   }
 }
 
@@ -186,6 +187,7 @@ export class Game {
     this.fovSlider = document.getElementById('fov-slider')
     this.fovValue = document.getElementById('fov-value')
     this.colorblindToggle = document.getElementById('colorblind-toggle')
+    this.nicknameInput = document.getElementById('nickname-input')
     this.controlsGrid = document.getElementById('controls-grid')
     this.resetBindsBtn = document.getElementById('reset-binds-btn')
     this.rebindingAction = null
@@ -570,6 +572,15 @@ export class Game {
       saveSettings(this.settings)
     })
 
+    this.nicknameInput.value = this.settings.nickname
+    this._updateCompanionName()
+
+    this.nicknameInput.addEventListener('input', () => {
+      this.settings.nickname = this.nicknameInput.value
+      saveSettings(this.settings)
+      this._updateCompanionName()
+    })
+
     this.settingsBtn.addEventListener('click', () => this._toggleSettings(!this.settingsOpen))
 
     // Click anywhere outside the settings content (the backdrop itself, not
@@ -629,6 +640,11 @@ export class Game {
         for (const b of this.difficultyBtns) b.classList.toggle('active', b === btn)
       })
     }
+  }
+
+  _updateCompanionName() {
+    const nickname = this.settings.nickname.trim() || 'Survivor'
+    this.companion.setName(`${nickname}'s Assistant`)
   }
 
   _toggleSettings(open) {
