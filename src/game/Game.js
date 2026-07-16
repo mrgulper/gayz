@@ -61,9 +61,10 @@ function loadSettings() {
       fov: parsed.fov ?? 75,
       colorblind: parsed.colorblind ?? false,
       nickname: parsed.nickname || '',
+      defaultTag: parsed.defaultTag || null,
     }
   } catch {
-    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '' }
+    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', defaultTag: null }
   }
 }
 
@@ -643,8 +644,19 @@ export class Game {
   }
 
   _updateCompanionName() {
-    const nickname = this.settings.nickname.trim() || 'Survivor'
+    const nickname = this.settings.nickname.trim() || this._defaultNickname()
     this.companion.setName(`${nickname}'s Assistant`)
+  }
+
+  // A stable "SurvivorNNNNN" tag, generated once per browser and reused
+  // every session, so players who skip the nickname field still get a
+  // distinct identity instead of everyone showing up as plain "Survivor".
+  _defaultNickname() {
+    if (!this.settings.defaultTag) {
+      this.settings.defaultTag = String(Math.floor(10000 + Math.random() * 90000))
+      saveSettings(this.settings)
+    }
+    return `Survivor${this.settings.defaultTag}`
   }
 
   _toggleSettings(open) {
