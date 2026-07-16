@@ -148,6 +148,29 @@ export const ZOMBIE_TYPES = {
     skinTones: [0x1a2530, 0x16202a, 0x1c2732],
     clothesTones: [0x0a0d10, 0x0d1013],
   },
+  // Second boss, alternating with colossus (see ZombieManager._spawnBoss).
+  // "Feeds off light": already gets enraged for free by the flashlight's
+  // light-lure mechanic (Game.js's _updateLightLure enrages any alive
+  // zombie in radius) - screamEnrageMult just makes that boost hit harder
+  // for this type specifically, so the light tradeoff matters most here.
+  patient_zero: {
+    id: 'patient_zero',
+    label: 'Patient Zero',
+    weight: 0,
+    health: 750,
+    speedMin: 1.3,
+    speedMax: 1.6,
+    damageMin: 70,
+    damageMax: 110,
+    scale: 1.9,
+    ranged: false,
+    meleeRange: 2.4,
+    attackCooldown: 1.5,
+    feedsOnLight: true,
+    screamEnrageMult: 2.0,
+    skinTones: [0x2a0a44, 0x34104f, 0x230838],
+    clothesTones: [0x0d0510, 0x120714],
+  },
 }
 
 export function pickZombieType() {

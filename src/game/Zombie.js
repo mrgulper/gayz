@@ -186,6 +186,21 @@ export class Zombie {
       this.pulseBaseScale = bloat.scale.clone()
     }
 
+    if (this.config.feedsOnLight) {
+      const veinMat = new THREE.MeshStandardMaterial({
+        color: 0x1a0a2a,
+        emissive: 0x8b2fe0,
+        emissiveIntensity: 0.8,
+      })
+      const veins = track(new THREE.Mesh(new THREE.SphereGeometry(0.36, 8, 8), veinMat), veinMat)
+      veins.position.set(0, 0.3, 0.1)
+      veins.scale.set(1.05, 1, 0.9)
+      this.hips.add(veins)
+      this.pulseMesh = veins
+      this.pulseBaseScale = veins.scale.clone()
+      this.pulseMat = veinMat
+    }
+
     for (let i = 0; i < 4; i++) {
       const strip = track(
         new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.34, 0.05), clothesMat),
@@ -652,6 +667,9 @@ export class Zombie {
         this.pulseBaseScale.y * pulse,
         this.pulseBaseScale.z * pulse
       )
+      if (this.pulseMat) {
+        this.pulseMat.emissiveIntensity = performance.now() < this.enragedUntil ? 2.4 : 0.8
+      }
     }
     if (this.throatMesh) {
       const screaming = performance.now() < this.screamPulseUntil

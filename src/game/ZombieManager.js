@@ -103,7 +103,9 @@ export class ZombieManager {
     const x = Math.sin(angle) * SPAWN_RADIUS_MAX
     const z = Math.cos(angle) * SPAWN_RADIUS_MAX
 
-    const zombie = new Zombie(x, z, ZOMBIE_TYPES.colossus, false)
+    // Alternates every boss night: 5=colossus, 10=patient_zero, 15=colossus...
+    const bossType = (this.currentNight / 5) % 2 === 0 ? ZOMBIE_TYPES.patient_zero : ZOMBIE_TYPES.colossus
+    const zombie = new Zombie(x, z, bossType, false)
     zombie.deathHandled = false
     zombie.isBoss = true
     this.zombies.push(zombie)
