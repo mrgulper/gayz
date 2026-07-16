@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { buildMinigunModel } from './Viewmodels.js'
+import { buildMinigunModel, buildUvLampModel } from './Viewmodels.js'
 
 const PICKUP_RADIUS = 1.4
 const RESPAWN_DELAY = 30
@@ -20,6 +20,7 @@ const TYPES = {
   // weight 0: never drawn by the street-slot weighted pool, only ever placed
   // via spawnUnique() as one-off fixed-location pickups.
   minigun: { weight: 0, label: 'Minigun' },
+  uvlamp: { weight: 0, label: 'UV Lamp' },
   audiolog1: { weight: 0, label: 'Audio Log' },
   audiolog2: { weight: 0, label: 'Audio Log' },
   audiolog3: { weight: 0, label: 'Audio Log' },
@@ -136,6 +137,20 @@ function buildVisual(type) {
     // the gun shape itself.
     const beaconMat = new THREE.MeshBasicMaterial({ color: 0xffcf5c, transparent: true, opacity: 0.35 })
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.03, 8, 24), new THREE.MeshStandardMaterial({ color: 0x3a2f10, emissive: 0xffcf5c, emissiveIntensity: 1.1 }))
+    ring.rotation.x = Math.PI / 2
+    ring.position.y = -0.35
+    group.add(ring)
+
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.09, 3.2, 10, 1, true), beaconMat)
+    beam.position.y = 1.3
+    group.add(beam)
+  } else if (type === 'uvlamp') {
+    const gun = buildUvLampModel()
+    gun.scale.setScalar(1.6)
+    group.add(gun)
+
+    const beaconMat = new THREE.MeshBasicMaterial({ color: 0x8b2fe0, transparent: true, opacity: 0.35 })
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.03, 8, 24), new THREE.MeshStandardMaterial({ color: 0x2a0a44, emissive: 0x8b2fe0, emissiveIntensity: 1.1 }))
     ring.rotation.x = Math.PI / 2
     ring.position.y = -0.35
     group.add(ring)

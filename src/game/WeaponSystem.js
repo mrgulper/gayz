@@ -54,6 +54,17 @@ const WEAPONS = [
     damage: 12,
     unlocked: false,
   },
+  {
+    id: 'uvlamp',
+    name: 'UV Lamp',
+    auto: true,
+    fireInterval: 0.15,
+    reloadTime: 1.0,
+    magSize: 40,
+    reserve: 120,
+    damage: 0,
+    unlocked: false,
+  },
 ]
 
 // Alternate stat blocks for the melee slot - see setMeleeVariant(). Found as
@@ -225,6 +236,7 @@ export class WeaponSystem {
     if (e.code === 'Digit2') this._switchTo(1)
     if (e.code === 'Digit3') this._switchTo(2)
     if (e.code === 'Digit4') this._switchTo(3)
+    if (e.code === 'Digit5') this._switchTo(4)
     if (e.code === getKeyFor('reload')) this._reload()
   }
 
@@ -367,7 +379,11 @@ export class WeaponSystem {
 
     for (const zombie of hitZombies) {
       zombie.lastHitWeaponId = w.id
-      zombie.onHit(w.damage)
+      if (w.id === 'uvlamp') {
+        zombie.weaken(1500)
+      } else {
+        zombie.onHit(w.damage)
+      }
     }
     if (hitZombies.size > 0) this._showHitmarker()
     void anyHit

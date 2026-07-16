@@ -6,6 +6,7 @@ const SHOT_PRESETS = {
   pistol: { toneFreq: 1900, toneQ: 0.7, duration: 0.14, gain: 0.55, thumpFreq: 90 },
   rifle: { toneFreq: 1500, toneQ: 0.6, duration: 0.09, gain: 0.42, thumpFreq: 110 },
   minigun: { toneFreq: 1300, toneQ: 0.5, duration: 0.06, gain: 0.38, thumpFreq: 130 },
+  uvlamp: { toneFreq: 3400, toneQ: 3.5, duration: 0.05, gain: 0.22, thumpFreq: 220 },
 }
 
 // Background music track. "Oldschool Horror Theme" by josepharaoh99 (CC0,

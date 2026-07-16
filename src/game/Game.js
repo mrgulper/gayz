@@ -30,6 +30,7 @@ const PICKUP_LABELS = {
     return t('toastAmmoCrateCollected')
   },
   minigun: () => t('toastMinigunAcquired'),
+  uvlamp: () => t('toastUvlampAcquired'),
   battery: () => t('toastBatteryAdded'),
   noisemaker: () => t('toastNoisemakerAdded'),
   grenade: () => t('toastGrenadeAdded'),
@@ -967,6 +968,8 @@ export class Game {
     } else if (type === 'minigun') {
       this.weapons.unlockWeapon('minigun')
       this.achievements.unlock('minigun_unlocked')
+    } else if (type === 'uvlamp') {
+      this.weapons.unlockWeapon('uvlamp')
     }
     else if (type === 'battery') {
       this.flashlightBattery = Math.min(this.maxFlashlightBattery, this.flashlightBattery + 40)
