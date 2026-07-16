@@ -105,6 +105,8 @@ const STRINGS = {
     roleRanged: 'Ranged Support',
     roleMelee: 'Melee Bruiser',
     roleMedic: 'Medic Support',
+    scoreAttackLabel: 'Score Attack Mode',
+    scoreAttackResult: 'Score: {score} (Best: {best})',
     toastBatteryAdded: 'Battery collected',
     noisemakerLabel: 'Noisemaker',
     toastNoisemakerAdded: 'Noisemaker collected',

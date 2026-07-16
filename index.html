@@ -135,6 +135,10 @@
           <button class="role-btn" data-role="melee" id="role-melee">Melee Bruiser</button>
           <button class="role-btn" data-role="medic" id="role-medic">Medic Support</button>
         </div>
+        <label class="score-attack-toggle" for="score-attack-toggle">
+          <input type="checkbox" id="score-attack-toggle" />
+          <span id="score-attack-label">Score Attack Mode</span>
+        </label>
         <button id="play-btn">Click to Play</button>
         <button id="settings-btn">Settings</button>
         <button id="upgrades-btn">Upgrades</button>
@@ -199,6 +203,7 @@
         <h1 id="death-title">YOU DIED</h1>
         <p id="death-stats">Survived Night 1 &middot; 0 kills &middot; 00:00</p>
         <p id="death-legacy-scrap" class="menu-best-stats"></p>
+        <p id="death-score-attack" class="menu-best-stats" style="display: none"></p>
         <button id="respawn-btn">Respawn</button>
       </div>
 

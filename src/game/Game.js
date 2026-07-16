@@ -80,9 +80,29 @@ function loadSettings() {
       nickname: parsed.nickname || '',
       defaultTag: parsed.defaultTag || null,
       companionRole: ['melee', 'medic'].includes(parsed.companionRole) ? parsed.companionRole : 'ranged',
+      scoreAttackMode: parsed.scoreAttackMode ?? false,
     }
   } catch {
-    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', defaultTag: null, companionRole: 'ranged' }
+    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false }
+  }
+}
+
+const SCORE_ATTACK_NIGHT_DURATION_MS = 60000
+const SCORE_ATTACK_BEST_KEY = 'gayz-score-attack-best'
+
+function loadScoreAttackBest() {
+  try {
+    return Number(localStorage.getItem(SCORE_ATTACK_BEST_KEY)) || 0
+  } catch {
+    return 0
+  }
+}
+
+function saveScoreAttackBest(score) {
+  try {
+    localStorage.setItem(SCORE_ATTACK_BEST_KEY, String(score))
+  } catch {
+    // Storage unavailable - best score just won't persist.
   }
 }
 
@@ -194,6 +214,7 @@ export class Game {
     this.nightBanner = document.getElementById('night-banner')
     this.deathStats = document.getElementById('death-stats')
     this.deathLegacyScrap = document.getElementById('death-legacy-scrap')
+    this.deathScoreAttack = document.getElementById('death-score-attack')
     this.interactPrompt = document.getElementById('interact-prompt')
     this.ffTimestampEl = document.getElementById('ff-timestamp')
     this.rainOverlayEl = document.getElementById('rain-overlay')
@@ -224,6 +245,7 @@ export class Game {
     this.fovValue = document.getElementById('fov-value')
     this.colorblindToggle = document.getElementById('colorblind-toggle')
     this.nicknameInput = document.getElementById('nickname-input')
+    this.scoreAttackToggle = document.getElementById('score-attack-toggle')
     this.controlsGrid = document.getElementById('controls-grid')
     this.resetBindsBtn = document.getElementById('reset-binds-btn')
     this.rebindingAction = null
@@ -231,6 +253,8 @@ export class Game {
     this.settings = loadSettings()
     setLanguage(this.settings.language)
     this.difficulty = DIFFICULTY_PRESETS[this.settings.difficulty] || DIFFICULTY_PRESETS.normal
+    this.nightDurationMs = this.settings.scoreAttackMode ? SCORE_ATTACK_NIGHT_DURATION_MS : NIGHT_DURATION_MS
+    this.scoreAttackBest = loadScoreAttackBest()
     this.bestStats = loadBestStats()
 
     this.night = 1
@@ -650,6 +674,13 @@ export class Game {
       saveSettings(this.settings)
     })
 
+    this.scoreAttackToggle.checked = this.settings.scoreAttackMode
+    this.scoreAttackToggle.addEventListener('change', () => {
+      this.settings.scoreAttackMode = this.scoreAttackToggle.checked
+      this.nightDurationMs = this.settings.scoreAttackMode ? SCORE_ATTACK_NIGHT_DURATION_MS : NIGHT_DURATION_MS
+      saveSettings(this.settings)
+    })
+
     this.nicknameInput.value = this.settings.nickname
     this._updateCompanionName()
 
@@ -1040,6 +1071,7 @@ export class Game {
     document.getElementById('role-ranged').textContent = t('roleRanged')
     document.getElementById('role-melee').textContent = t('roleMelee')
     document.getElementById('role-medic').textContent = t('roleMedic')
+    document.getElementById('score-attack-label').textContent = t('scoreAttackLabel')
 
     this._updateBestStatsDisplay()
     if (this.inventoryOpen) this._refreshInventoryPanel()
@@ -1166,6 +1198,18 @@ export class Game {
     saveMetaProgress(this.metaProgress)
     this.deathLegacyScrap.textContent = t('deathLegacyScrap', { n: legacyEarned })
 
+    if (this.settings.scoreAttackMode) {
+      const score = this.kills * 10 + this.night * 100
+      if (score > this.scoreAttackBest) {
+        this.scoreAttackBest = score
+        saveScoreAttackBest(score)
+      }
+      this.deathScoreAttack.textContent = t('scoreAttackResult', { score, best: this.scoreAttackBest })
+      this.deathScoreAttack.style.display = 'block'
+    } else {
+      this.deathScoreAttack.style.display = 'none'
+    }
+
     this.deathScreen.style.display = 'flex'
   }
 
@@ -1270,7 +1314,7 @@ export class Game {
   // Picks a random moment within the current night-round for a random event
   // to fire (see NIGHT_EVENTS) - called whenever a round starts/restarts.
   _scheduleNightEvent() {
-    this.nextEventAt = this.nightStartedAt + 10000 + Math.random() * (NIGHT_DURATION_MS - 15000)
+    this.nextEventAt = this.nightStartedAt + 10000 + Math.random() * (this.nightDurationMs - 15000)
     this.eventTriggeredForNight = false
   }
 
@@ -1457,7 +1501,7 @@ export class Game {
         this._showLoreToast(t(event.labelKey))
       }
 
-      if (performance.now() - this.nightStartedAt > NIGHT_DURATION_MS) {
+      if (performance.now() - this.nightStartedAt > this.nightDurationMs) {
         if (this.raining) this._checkBountyProgress('survive_rain_night', 1)
         this._checkBountyProgress('reach_3_nights', 1)
         this.night += 1
@@ -1469,7 +1513,9 @@ export class Game {
         this._companionBark('nightStart')
         if (this.night >= 5) this.achievements.unlock('survivor_5')
         if (this.night >= 10) this.achievements.unlock('survivor_10')
-        this._openPerkPanel()
+        // Score Attack skips the perk-pick pause - staying in the run
+        // without interruption is the point of a high-score chase mode.
+        if (!this.settings.scoreAttackMode) this._openPerkPanel()
       }
       this._updateProgressHud()
       this._updateStatsPanel()
