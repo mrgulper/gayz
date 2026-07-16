@@ -630,7 +630,8 @@ html, body {
 }
 
 #perk-panel,
-#trader-panel {
+#trader-panel,
+#upgrades-panel {
   position: absolute;
   inset: 0;
   display: none;
@@ -642,7 +643,8 @@ html, body {
 }
 
 #perk-panel-title,
-#trader-panel-title {
+#trader-panel-title,
+#upgrades-panel-title {
   margin: 0;
   font-size: 15px;
   letter-spacing: 1.5px;
@@ -652,7 +654,8 @@ html, body {
 }
 
 #perk-scrap-line,
-#trader-scrap-line {
+#trader-scrap-line,
+#upgrades-scrap-line {
   font-size: 14px;
   color: #ffcf5c;
   opacity: 0.9;
@@ -708,7 +711,8 @@ html, body {
   color: #ffcf5c;
 }
 
-#perk-skip-btn {
+#perk-skip-btn,
+#upgrades-close-btn {
   margin-top: 6px;
   padding: 8px 20px;
   font-size: 13px;
@@ -721,7 +725,8 @@ html, body {
   cursor: pointer;
 }
 
-#perk-skip-btn:hover {
+#perk-skip-btn:hover,
+#upgrades-close-btn:hover {
   border-color: rgba(255, 255, 255, 0.5);
 }
 

@@ -15,6 +15,7 @@ import { rollPerks } from './Perks.js'
 import { pickNightEvent } from './NightEvents.js'
 import { Companion } from './Companion.js'
 import { Vehicle } from './Vehicle.js'
+import { META_UPGRADES, loadMetaProgress, saveMetaProgress, DEATH_SCRAP_CONVERSION } from './MetaProgress.js'
 import { ACTIONS, getKeyFor, setBinding, resetBindings, keyLabel } from './Keybinds.js'
 import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
@@ -165,6 +166,7 @@ export class Game {
     this.killsValueEl = document.getElementById('kills-value')
     this.nightBanner = document.getElementById('night-banner')
     this.deathStats = document.getElementById('death-stats')
+    this.deathLegacyScrap = document.getElementById('death-legacy-scrap')
     this.interactPrompt = document.getElementById('interact-prompt')
     this.ffTimestampEl = document.getElementById('ff-timestamp')
     this.rainOverlayEl = document.getElementById('rain-overlay')
@@ -260,6 +262,8 @@ export class Game {
     this.chests = new ChestManager(this.scene, towerChestSpots)
     this.playerState = new PlayerState()
     this.inventory = new Inventory()
+    this.metaProgress = loadMetaProgress()
+    this._applyMetaUpgrades()
     this.achievements = new Achievements((def) => this._showAchievementToast(def))
     this.killCountsByWeapon = {}
     this.achievementLabel = document.getElementById('achievement-label')
@@ -277,6 +281,12 @@ export class Game {
     this.traderScrapLine = document.getElementById('trader-scrap-line')
     this.traderOptions = document.getElementById('trader-options')
     this.traderHint = document.getElementById('trader-hint')
+    this.upgradesBtn = document.getElementById('upgrades-btn')
+    this.upgradesPanel = document.getElementById('upgrades-panel')
+    this.upgradesPanelTitle = document.getElementById('upgrades-panel-title')
+    this.upgradesScrapLine = document.getElementById('upgrades-scrap-line')
+    this.upgradesOptions = document.getElementById('upgrades-options')
+    this.upgradesCloseBtn = document.getElementById('upgrades-close-btn')
     this.decals = new DecalManager(this.scene)
     this.minimap = new Minimap(this.minimapCanvas)
     this._camDir = new THREE.Vector3()
@@ -597,6 +607,8 @@ export class Game {
     })
 
     this.settingsBtn.addEventListener('click', () => this._toggleSettings(!this.settingsOpen))
+    this.upgradesBtn.addEventListener('click', () => this._openUpgradesPanel())
+    this.upgradesCloseBtn.addEventListener('click', () => this._closeUpgradesPanel())
 
     // Click anywhere outside the settings content (the backdrop itself, not
     // a descendant) to close, in addition to toggling the Settings button.
@@ -676,6 +688,15 @@ export class Game {
     this.companion.dispose()
     this.companion = new Companion(this.scene, pos.x, pos.z, role)
     this._updateCompanionName()
+  }
+
+  // Applied once per page load (not on respawn - inventory/scrap already
+  // survive respawns as-is, so re-granting these would let repeated
+  // dying farm free items).
+  _applyMetaUpgrades() {
+    for (const upgrade of META_UPGRADES) {
+      if (this.metaProgress.purchased.has(upgrade.id)) upgrade.apply(this)
+    }
   }
 
   _updateCompanionName() {
@@ -775,6 +796,42 @@ export class Game {
     this.traderPanel.style.display = 'none'
   }
 
+  // Opened from the main menu (not gameplay) - spends persistent Legacy
+  // Scrap (see MetaProgress.js) on one-time permanent upgrades.
+  _openUpgradesPanel() {
+    this.upgradesPanel.style.display = 'flex'
+    this.upgradesPanelTitle.textContent = t('upgradesPanelTitle')
+    this.upgradesCloseBtn.textContent = t('upgradesClose')
+    this._renderUpgradesOptions()
+  }
+
+  _renderUpgradesOptions() {
+    this.upgradesScrapLine.textContent = t('legacyScrapLabel', { n: this.metaProgress.legacyScrap })
+    this.upgradesOptions.innerHTML = ''
+    for (const upgrade of META_UPGRADES) {
+      const owned = this.metaProgress.purchased.has(upgrade.id)
+      const btn = document.createElement('button')
+      btn.className = 'perk-option'
+      btn.disabled = owned || this.metaProgress.legacyScrap < upgrade.cost
+      btn.innerHTML = `
+        <span class="perk-name">${t(upgrade.titleKey)}</span>
+        <span class="perk-cost">${owned ? t('upgradesOwned') : t('perkCostLabel', { n: upgrade.cost })}</span>
+      `
+      btn.addEventListener('click', () => {
+        if (owned || this.metaProgress.legacyScrap < upgrade.cost) return
+        this.metaProgress.legacyScrap -= upgrade.cost
+        this.metaProgress.purchased.add(upgrade.id)
+        saveMetaProgress(this.metaProgress)
+        this._renderUpgradesOptions()
+      })
+      this.upgradesOptions.appendChild(btn)
+    }
+  }
+
+  _closeUpgradesPanel() {
+    this.upgradesPanel.style.display = 'none'
+  }
+
   // Entering/exiting the drivable car (see Vehicle.js). While driving, the
   // rest of the world simulation pauses - same as it already does for the
   // inventory/perk menus - so this is a "drive around and explore" feature
@@ -812,6 +869,7 @@ export class Game {
     document.getElementById('menu-subhint').textContent = t('menuSubhint')
     this.playBtn.textContent = t('playBtn')
     this.settingsBtn.textContent = t('settingsBtn')
+    this.upgradesBtn.textContent = t('upgradesBtn')
 
     document.getElementById('ctrl-line-1').innerHTML = tHtml('ctrlLine1')
     document.getElementById('ctrl-line-2').innerHTML = tHtml('ctrlLine2')
@@ -965,6 +1023,12 @@ export class Game {
 
     const elapsed = formatTime(performance.now() - this.runStartedAt)
     this.deathStats.textContent = t('deathStats', { night: this.night, kills: this.kills, time: elapsed })
+
+    const legacyEarned = Math.floor(this.scrap * DEATH_SCRAP_CONVERSION)
+    this.metaProgress.legacyScrap += legacyEarned
+    saveMetaProgress(this.metaProgress)
+    this.deathLegacyScrap.textContent = t('deathLegacyScrap', { n: legacyEarned })
+
     this.deathScreen.style.display = 'flex'
   }
 
