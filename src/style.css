@@ -656,7 +656,8 @@ html, body {
 
 #perk-panel,
 #trader-panel,
-#upgrades-panel {
+#upgrades-panel,
+#achievements-panel {
   position: absolute;
   inset: 0;
   display: none;
@@ -669,7 +670,8 @@ html, body {
 
 #perk-panel-title,
 #trader-panel-title,
-#upgrades-panel-title {
+#upgrades-panel-title,
+#achievements-panel-title {
   margin: 0;
   font-size: 15px;
   letter-spacing: 1.5px;
@@ -745,7 +747,8 @@ html, body {
 }
 
 #perk-skip-btn,
-#upgrades-close-btn {
+#upgrades-close-btn,
+#achievements-close-btn {
   margin-top: 6px;
   padding: 8px 20px;
   font-size: 13px;
@@ -759,7 +762,8 @@ html, body {
 }
 
 #perk-skip-btn:hover,
-#upgrades-close-btn:hover {
+#upgrades-close-btn:hover,
+#achievements-close-btn:hover {
   border-color: rgba(255, 255, 255, 0.5);
 }
 

@@ -10,7 +10,7 @@ import { DayNightCycle } from './DayNightCycle.js'
 import { ChestManager } from './Chests.js'
 import { Minimap } from './Minimap.js'
 import { DecalManager } from './Decals.js'
-import { Achievements } from './Achievements.js'
+import { Achievements, ACHIEVEMENTS } from './Achievements.js'
 import { rollPerks } from './Perks.js'
 import { pickNightEvent } from './NightEvents.js'
 import { Companion } from './Companion.js'
@@ -320,6 +320,11 @@ export class Game {
     this.upgradesScrapLine = document.getElementById('upgrades-scrap-line')
     this.upgradesOptions = document.getElementById('upgrades-options')
     this.upgradesCloseBtn = document.getElementById('upgrades-close-btn')
+    this.achievementsBtn = document.getElementById('achievements-btn')
+    this.achievementsPanel = document.getElementById('achievements-panel')
+    this.achievementsPanelTitle = document.getElementById('achievements-panel-title')
+    this.achievementsOptions = document.getElementById('achievements-options')
+    this.achievementsCloseBtn = document.getElementById('achievements-close-btn')
     this.decals = new DecalManager(this.scene)
     this.minimap = new Minimap(this.minimapCanvas)
     this._camDir = new THREE.Vector3()
@@ -645,6 +650,8 @@ export class Game {
     this.settingsBtn.addEventListener('click', () => this._toggleSettings(!this.settingsOpen))
     this.upgradesBtn.addEventListener('click', () => this._openUpgradesPanel())
     this.upgradesCloseBtn.addEventListener('click', () => this._closeUpgradesPanel())
+    this.achievementsBtn.addEventListener('click', () => this._openAchievementsPanel())
+    this.achievementsCloseBtn.addEventListener('click', () => this._closeAchievementsPanel())
 
     // Click anywhere outside the settings content (the backdrop itself, not
     // a descendant) to close, in addition to toggling the Settings button.
@@ -905,6 +912,28 @@ export class Game {
     this.upgradesPanel.style.display = 'none'
   }
 
+  _openAchievementsPanel() {
+    this.achievementsPanel.style.display = 'flex'
+    this.achievementsPanelTitle.textContent = t('achievementsPanelTitle')
+    this.achievementsCloseBtn.textContent = t('upgradesClose')
+    this.achievementsOptions.innerHTML = ''
+    for (const ach of ACHIEVEMENTS) {
+      const unlocked = this.achievements.unlocked.has(ach.id)
+      const btn = document.createElement('button')
+      btn.className = 'perk-option'
+      btn.disabled = true
+      btn.innerHTML = `
+        <span class="perk-name">${unlocked ? t(ach.titleKey) : '???'}</span>
+        <span class="perk-cost">${unlocked ? t('achievementUnlocked') : t('achievementLocked')}</span>
+      `
+      this.achievementsOptions.appendChild(btn)
+    }
+  }
+
+  _closeAchievementsPanel() {
+    this.achievementsPanel.style.display = 'none'
+  }
+
   // Entering/exiting the drivable car (see Vehicle.js). While driving, the
   // rest of the world simulation pauses - same as it already does for the
   // inventory/perk menus - so this is a "drive around and explore" feature
@@ -943,6 +972,7 @@ export class Game {
     this.playBtn.textContent = t('playBtn')
     this.settingsBtn.textContent = t('settingsBtn')
     this.upgradesBtn.textContent = t('upgradesBtn')
+    this.achievementsBtn.textContent = t('achievementsBtn')
 
     document.getElementById('ctrl-line-1').innerHTML = tHtml('ctrlLine1')
     document.getElementById('ctrl-line-2').innerHTML = tHtml('ctrlLine2')
