@@ -167,6 +167,8 @@ const GENERATOR_REFUEL_RADIUS = 2.5
 const GENERATOR_PASSIVE_REFUEL_PER_SEC = 6
 const GENERATOR_FUELCAN_AMOUNT = 35
 const TRADER_INTERACT_RADIUS = 2.5
+const AMMO_STATION_RADIUS = 2.2
+const AMMO_STATION_HOLD_SECONDS = 10
 const LIGHT_LURE_RADIUS = 20
 const LIGHT_LURE_INTERVAL_MS = 2000
 const LIGHT_LURE_ENRAGE_MS = 2500
@@ -245,6 +247,8 @@ export class Game {
     this.endingCredits = document.getElementById('ending-credits')
     this.endingContinueBtn = document.getElementById('ending-continue-btn')
     this.interactPrompt = document.getElementById('interact-prompt')
+    this.ammoStationProgressWrap = document.getElementById('ammo-station-progress-wrap')
+    this.ammoStationFill = document.getElementById('ammo-station-fill')
     this.rainOverlayEl = document.getElementById('rain-overlay')
     this.nightmareOverlayEl = document.getElementById('nightmare-overlay')
     this.infectionIndicator = document.getElementById('infection-indicator')
@@ -326,7 +330,7 @@ export class Game {
     this.composer.addPass(this.bloomPass)
     this.composer.addPass(new OutputPass())
 
-    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, vireoFacility } = buildWorld(this.scene)
+    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility } = buildWorld(this.scene)
     this.flickerLights = flickerLights
     this.minigunSpot = minigunSpot
     this.generator = generator
@@ -334,6 +338,10 @@ export class Game {
     this.generatorFuel = 100
     this.maxGeneratorFuel = 100
     this.trader = trader
+    this.ammoStation = ammoStation
+    this.nearAmmoStation = false
+    this.ammoStationHoldProgress = 0
+    this.ammoStationKeyHeld = false
     this.vireoTerminal = vireoFacility.terminalSpot
     this.activeBounty = null
     this.nearVireoTerminal = false
@@ -602,6 +610,11 @@ export class Game {
       } else if (e.code === getKeyFor('grenade')) {
         this._throwGrenade()
       } else if (e.code === getKeyFor('interact')) {
+        // Tracked independently of the rest of this branch (which only
+        // fires the various one-shot interactions below) so the ammo
+        // station's hold-to-charge check in _updateAmmoStation knows the
+        // key is physically down, for as long as it's held.
+        this.ammoStationKeyHeld = true
         if (this.driving) {
           this._exitVehicle()
         } else if (this.traderPanelOpen) {
@@ -626,6 +639,10 @@ export class Game {
       } else if (e.code === getKeyFor('screenshot')) {
         this._takeScreenshot()
       }
+    })
+
+    window.addEventListener('keyup', (e) => {
+      if (e.code === getKeyFor('interact')) this.ammoStationKeyHeld = false
     })
   }
 
@@ -1272,7 +1289,13 @@ export class Game {
   _onZombieKilled(zombieTypeId, weaponId, x, z) {
     this.kills += 1
     this.totalKills += 1
-    if (this.kills % 10 === 0) this._companionBark('killStreak')
+    if (this.kills % 10 === 0) {
+      this._companionBark('killStreak')
+      // Guaranteed loot every 10th kill - replaces the old flat per-kill
+      // random-chance drop so supplies come from actually fighting instead
+      // of the world just handing them out.
+      this.pickups.spawnKillDrop(x, z)
+    }
     this.achievements.unlock('first_blood')
     if (this.totalKills >= 100) this.achievements.unlock('centurion')
     if (zombieTypeId === 'brute' && weaponId === 'melee') this.achievements.unlock('brute_knife')
@@ -1521,6 +1544,45 @@ export class Game {
     this.nearGenerator = dist <= GENERATOR_REFUEL_RADIUS
   }
 
+  // Hold-to-charge ammo refill - progress only accumulates while standing
+  // in range, holding the interact key, and not currently firing (checked
+  // via weapons.timeSinceLastShot, reset to 0 on every shot attempt
+  // including dry-fire clicks). Walking away, letting go, or shooting all
+  // reset progress back to zero rather than pausing it, so it can't be
+  // topped up in short bursts between fights.
+  _updateAmmoStation(dt, playerPos) {
+    const dist = Math.hypot(playerPos.x - this.ammoStation.x, playerPos.z - this.ammoStation.z)
+    this.nearAmmoStation = dist <= AMMO_STATION_RADIUS
+
+    const charging = this.nearAmmoStation && this.ammoStationKeyHeld && this.weapons.timeSinceLastShot > 0.3
+    if (charging) {
+      this.ammoStationHoldProgress = Math.min(AMMO_STATION_HOLD_SECONDS, this.ammoStationHoldProgress + dt)
+      if (this.ammoStationHoldProgress >= AMMO_STATION_HOLD_SECONDS) {
+        this.ammoStationHoldProgress = 0
+        this._onPickup('ammo', 'Ammo Crate', false) // refillReserveAmmo() runs inside _onPickup's ammo branch
+      }
+    } else {
+      this.ammoStationHoldProgress = 0
+    }
+
+    const mat = this.ammoStation.buttonMat
+    if (charging) {
+      const fraction = this.ammoStationHoldProgress / AMMO_STATION_HOLD_SECONDS
+      mat.color.setHex(0x2a1a05)
+      mat.emissive.setHex(0xe3a63c)
+      mat.emissiveIntensity = 0.6 + fraction * 1.2
+    } else {
+      mat.color.setHex(0x2a0808)
+      mat.emissive.setHex(0xff2a1e)
+      mat.emissiveIntensity = 1.1
+    }
+
+    this.ammoStationProgressWrap.style.display = charging ? 'block' : 'none'
+    if (charging) {
+      this.ammoStationFill.style.width = `${(this.ammoStationHoldProgress / AMMO_STATION_HOLD_SECONDS) * 100}%`
+    }
+  }
+
   _updateTrader(playerPos) {
     const dist = Math.hypot(playerPos.x - this.trader.x, playerPos.z - this.trader.z)
     this.nearTrader = dist <= TRADER_INTERACT_RADIUS
@@ -1686,6 +1748,7 @@ export class Game {
         this._scheduleNightEvent()
         this._rollWeather()
         this._rollFeaturedItem()
+        this.chests.refillNight()
         this.zombies.applyDifficulty(this.night)
         this._showNightBanner()
         this._companionBark('nightStart')
@@ -1709,7 +1772,7 @@ export class Game {
         dt,
         playerPos,
         (dmg) => this._onZombieAttack(dmg),
-        (x, z) => this.pickups.spawnLootDrop('ammo', x, z),
+        (x, z) => this.pickups.spawnLootDrop('ammo', x, z), // boss-only guaranteed drop, see ZombieManager
         () => audioEngine.playAmbushShriek(),
         (zombieTypeId, weaponId, x, z) => this._onZombieKilled(zombieTypeId, weaponId, x, z),
         this.player.isCrouching
@@ -1726,6 +1789,7 @@ export class Game {
       this.chests.update(dt, elapsed, playerPos)
       this._updateGenerator(dt, playerPos)
       this._updateTrader(playerPos)
+      this._updateAmmoStation(dt, playerPos)
       this._updateVehicleProximity(playerPos)
       this._updateVireoTerminal(playerPos)
       this._updateRescueSurvivor(playerPos)
@@ -1750,6 +1814,9 @@ export class Game {
         this.interactPrompt.style.display = 'block'
       } else if (canRefuelGenerator) {
         this.interactPrompt.innerHTML = tHtml('interactRefuel')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearAmmoStation) {
+        this.interactPrompt.innerHTML = tHtml('interactAmmoStation')
         this.interactPrompt.style.display = 'block'
       } else {
         this.interactPrompt.style.display = 'none'

@@ -2,7 +2,6 @@ import * as THREE from 'three'
 import { buildMinigunModel, buildUvLampModel } from './Viewmodels.js'
 
 const PICKUP_RADIUS = 1.4
-const RESPAWN_DELAY = 30
 const LOOT_EXPIRE_MS = 25000
 
 const TYPES = {
@@ -177,14 +176,11 @@ function buildVisual(type) {
 
 class Pickup {
   constructor(type, x, z, isLoot = false, options = {}) {
-    const { floatY, once = false } = options
+    const { floatY } = options
     this.type = type
     this.active = true
-    this.spawnX = x
-    this.spawnZ = z
     this.phase = Math.random() * Math.PI * 2
     this.isLoot = isLoot
-    this.once = once
     this.spawnedAt = performance.now()
     this.baseY = floatY ?? (isLoot ? 0.5 : 1.1)
 
@@ -214,21 +210,15 @@ function pickWeightedType() {
 }
 
 export class PickupManager {
+  // Everyday consumables (ammo/health/armor/etc.) no longer spawn randomly
+  // around the street - they come from kills instead (see spawnKillDrop,
+  // called every 10th kill from Game.js). spawnPoints is kept only for
+  // spawnUnique()'s callers (the minigun, audio logs) which still place
+  // fixed one-off pickups directly.
   constructor(scene, spawnPoints) {
     this.scene = scene
     this.spawnPoints = spawnPoints
     this.pickups = []
-    this.pendingRespawns = []
-
-    const slots = spawnPoints.filter((_, i) => i % 2 === 0).slice(0, 7)
-    for (const p of slots) this._spawnAt(p.x, p.z)
-  }
-
-  _spawnAt(x, z) {
-    const type = pickWeightedType()
-    const pickup = new Pickup(type, x, z)
-    this.pickups.push(pickup)
-    this.scene.add(pickup.group)
   }
 
   // One-off drop (e.g. zombie loot) that doesn't occupy a fixed street slot
@@ -239,10 +229,17 @@ export class PickupManager {
     this.scene.add(pickup.group)
   }
 
+  // Guaranteed kill-drop (see Game.js's _onZombieKilled, every 10th kill) -
+  // a random item from the same weighted pool that used to spawn around
+  // the street, dropped at the kill location instead.
+  spawnKillDrop(x, z) {
+    this.spawnLootDrop(pickWeightedType(), x, z)
+  }
+
   // A single fixed-location pickup (e.g. the minigun) that persists until
   // collected and never respawns or expires afterward.
   spawnUnique(type, x, z, y) {
-    const pickup = new Pickup(type, x, z, false, { floatY: y, once: true })
+    const pickup = new Pickup(type, x, z, false, { floatY: y })
     this.pickups.push(pickup)
     this.scene.add(pickup.group)
   }
@@ -266,12 +263,6 @@ export class PickupManager {
       }
       return true
     })
-
-    this.pendingRespawns = this.pendingRespawns.filter((r) => {
-      if (performance.now() < r.at) return true
-      this._spawnAt(r.x, r.z)
-      return false
-    })
   }
 
   _collect(pickup, handlers) {
@@ -280,13 +271,5 @@ export class PickupManager {
     this.pickups = this.pickups.filter((p) => p !== pickup)
 
     handlers.onPickup(pickup.type, TYPES[pickup.type].label, pickup.isLoot)
-
-    if (!pickup.isLoot && !pickup.once) {
-      this.pendingRespawns.push({
-        x: pickup.spawnX,
-        z: pickup.spawnZ,
-        at: performance.now() + RESPAWN_DELAY * 1000,
-      })
-    }
   }
 }

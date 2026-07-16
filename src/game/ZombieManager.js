@@ -15,7 +15,6 @@ const BASE_RESPAWN_DELAY = 8
 const MIN_RESPAWN_DELAY = 3
 const REMOVE_AFTER_DEATH_MS = 3000
 const PROJECTILE_HIT_RADIUS = 1.7
-const LOOT_DROP_CHANCE = 0.45
 const MOAN_RADIUS = 26
 const MOAN_MIN_DELAY_MS = 4500
 const MOAN_MAX_DELAY_MS = 9500
@@ -424,7 +423,10 @@ export class ZombieManager {
 
         if (!zombie.config.explodes) audioEngine.playZombieDeath()
         if (onZombieKilled) onZombieKilled(zombie.config.id, zombie.lastHitWeaponId, zombie.group.position.x, zombie.group.position.z)
-        if (onZombieLoot && (zombie.isBoss || Math.random() < LOOT_DROP_CHANCE)) {
+        // Regular kills no longer roll a random loot chance here - see
+        // Game.js's _onZombieKilled for the guaranteed every-10th-kill drop.
+        // Bosses still always drop on top of that.
+        if (onZombieLoot && zombie.isBoss) {
           onZombieLoot(zombie.group.position.x, zombie.group.position.z)
         }
 

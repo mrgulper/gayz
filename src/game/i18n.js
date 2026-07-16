@@ -142,6 +142,7 @@ const STRINGS = {
     toastMagAdded: 'Extended mag attached',
     bossWarning: 'A Colossus approaches!',
     interactRefuel: 'Press **F** to refuel',
+    interactAmmoStation: 'Hold **F** to refill ammo (10s, don’t shoot)',
     interactTrader: 'Press **F** to trade',
     interactEnterVehicle: 'Press **F** to drive',
     interactExitVehicle: '**WASD** drive · Press **F** to exit',

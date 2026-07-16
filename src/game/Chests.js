@@ -61,12 +61,19 @@ function buildStencilTexture() {
   return texture
 }
 
+// Chests earlier this session opened once and stayed empty for the rest of
+// the run - there was no reason to check an already-opened one again. Now
+// only 3 random chests are "stocked" at a time (see ChestManager.refillNight,
+// called each night) instead of every chest being available from the start,
+// so there's fresh loot to find each night instead of the map going stale
+// once everything's been picked clean.
 class Chest {
   constructor(x, y, z) {
     this.x = x
     this.y = y
     this.z = z
     this.opened = false
+    this.locked = true
 
     this.group = new THREE.Group()
     this.group.position.set(x, y, z)
@@ -134,7 +141,7 @@ class Chest {
   }
 
   update(dt, elapsed) {
-    if (this.opened) return
+    if (this.opened || this.locked) return
     this.indicatorMat.emissiveIntensity = 0.6 + Math.sin(elapsed * 2.2) * 0.3
   }
 
@@ -146,12 +153,25 @@ class Chest {
     this.indicatorMat.emissiveIntensity = 0.6
   }
 
-  reset() {
+  // Refilled and interactable - the red pulsing "unopened" look.
+  unlock() {
+    this.locked = false
     this.opened = false
     this.lid.rotation.x = 0
     this.indicatorMat.color.setHex(0x1a0505)
     this.indicatorMat.emissive.setHex(0xff2a1e)
     this.indicatorMat.emissiveIntensity = 0.9
+  }
+
+  // Not part of this rotation's 3 stocked chests - dim, non-pulsing, not
+  // interactable (see ChestManager.update's locked check).
+  lock() {
+    this.locked = true
+    this.opened = false
+    this.lid.rotation.x = 0
+    this.indicatorMat.color.setHex(0x14140f)
+    this.indicatorMat.emissive.setHex(0x2a2a22)
+    this.indicatorMat.emissiveIntensity = 0.15
   }
 }
 
@@ -162,14 +182,31 @@ export class ChestManager {
     this.chests = spots.map((p) => new Chest(p.x, p.y || 0, p.z))
     for (const c of this.chests) scene.add(c.group)
     this.nearbyChest = null
+    this.refillNight()
   }
 
   // Adds one extra chest at runtime, for the "Supply Drop" random night event.
+  // Unlocked immediately - it's a bonus reward for that event, not part of
+  // the regular nightly rotation.
   addChest(x, y, z) {
     const chest = new Chest(x, y, z)
+    chest.unlock()
     this.chests.push(chest)
     this.scene.add(chest.group)
     return chest
+  }
+
+  // Locks every chest, then picks 3 at random to stock for the night -
+  // called once per night (see Game.js's night-advance block) so there's
+  // always fresh loot to find instead of the map staying picked-clean for
+  // the rest of the run.
+  refillNight(count = 3) {
+    for (const c of this.chests) c.lock()
+    const pool = [...this.chests]
+    for (let i = 0; i < count && pool.length > 0; i++) {
+      const idx = Math.floor(Math.random() * pool.length)
+      pool.splice(idx, 1)[0].unlock()
+    }
   }
 
   update(dt, elapsed, playerPos) {
@@ -179,7 +216,7 @@ export class ChestManager {
 
     for (const chest of this.chests) {
       chest.update(dt, elapsed)
-      if (chest.opened) continue
+      if (chest.opened || chest.locked) continue
 
       if (Math.abs(playerFeetY - chest.y) > INTERACT_HEIGHT_TOLERANCE) continue
 
@@ -205,7 +242,7 @@ export class ChestManager {
   }
 
   reset() {
-    for (const c of this.chests) c.reset()
+    this.refillNight()
     this.nearbyChest = null
   }
 }

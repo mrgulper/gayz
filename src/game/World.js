@@ -149,6 +149,7 @@ export function buildWorld(scene) {
 
   const generator = buildGenerator(scene, register)
   const trader = buildTraderStall(scene, register)
+  const ammoStation = buildAmmoStation(scene, register)
   const tunnel = buildTunnel(scene, colliders, solidMeshes, flickerLights)
   addNeonSigns(scene)
   towerChestSpots.push(tunnel.chestSpot)
@@ -175,6 +176,7 @@ export function buildWorld(scene) {
     minigunSpot,
     generator,
     trader,
+    ammoStation,
     vireoFacility,
   }
 }
@@ -358,6 +360,69 @@ function buildTraderStall(scene, register) {
   register(counter)
 
   return { x, z, signMat }
+}
+
+// Ammo refill kiosk near spawn - hold the interact key here for a few
+// seconds (without firing) to top off reserve ammo instead of relying on
+// pickups alone (see Game.js's _updateAmmoStation). Kept well clear of the
+// generator/trader stall so all three street props read as distinct spots.
+function buildAmmoStation(scene, register) {
+  const x = 3
+  const z = -6
+
+  const group = new THREE.Group()
+  group.position.set(x, 0, z)
+
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x5a2a1e, roughness: 0.7, metalness: 0.2 })
+  const trimMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1a, roughness: 0.5, metalness: 0.5 })
+  const buttonMat = new THREE.MeshStandardMaterial({ color: 0x2a0808, emissive: 0xff2a1e, emissiveIntensity: 1.1 })
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.1, 0.5), bodyMat)
+  body.position.y = 0.55
+  body.castShadow = true
+  body.receiveShadow = true
+  group.add(body)
+
+  const trim = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.06, 0.54), trimMat)
+  trim.position.y = 1.06
+  group.add(trim)
+
+  const canvas = document.createElement('canvas')
+  canvas.width = 128
+  canvas.height = 96
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#0a0a0a'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.fillStyle = '#e3a63c'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.font = 'bold 20px sans-serif'
+  ctx.fillText('AMMO', canvas.width / 2, canvas.height / 2 - 16)
+  ctx.font = 'bold 14px sans-serif'
+  ctx.fillText('REFILL', canvas.width / 2, canvas.height / 2 + 4)
+  ctx.font = '11px sans-serif'
+  ctx.fillStyle = '#c9b8a0'
+  ctx.fillText('HOLD TO CHARGE', canvas.width / 2, canvas.height / 2 + 26)
+
+  const screenMat = new THREE.MeshStandardMaterial({
+    map: new THREE.CanvasTexture(canvas),
+    emissive: 0xffffff,
+    emissiveMap: new THREE.CanvasTexture(canvas),
+    emissiveIntensity: 0.9,
+  })
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.38), screenMat)
+  screen.position.set(0, 0.65, 0.255)
+  group.add(screen)
+
+  const button = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.04, 16), buttonMat)
+  button.rotation.x = Math.PI / 2
+  button.position.set(0, 0.28, 0.26)
+  group.add(button)
+
+  scene.add(group)
+  register(body)
+
+  return { x, z, buttonMat }
 }
 
 // Enclosed maintenance-tunnel shortcut off the avenue, between the two

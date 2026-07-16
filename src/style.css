@@ -330,6 +330,30 @@ html, body {
   color: #ffe08a;
 }
 
+#ammo-station-progress-wrap {
+  position: absolute;
+  top: calc(58% + 34px);
+  left: 50%;
+  transform: translate(-50%, 0);
+  width: 160px;
+  pointer-events: none;
+}
+
+.ammo-station-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+}
+
+.ammo-station-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #e3a63c, #ffcf5c);
+  transition: width 100ms linear;
+}
+
 #minimap-wrap {
   position: absolute;
   top: 18px;
