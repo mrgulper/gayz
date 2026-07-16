@@ -131,6 +131,16 @@ const SHOP_ITEMS = [
   { id: 'grenade', cost: 20, titleKey: 'shopGrenade', give: (game) => game.inventory.addGrenade(1) },
   { id: 'fuelcan', cost: 10, titleKey: 'shopFuelCan', give: (game) => game.inventory.addFuelCan(1) },
   { id: 'noisemaker', cost: 8, titleKey: 'shopNoisemaker', give: (game) => game.inventory.addNoisemaker(1) },
+  // Attachments - same effect as finding the equivalent loot pickup, just
+  // guaranteed instead of RNG. Extended Mag stacks each purchase; Scope is a
+  // harmless no-op if bought again.
+  {
+    id: 'craft_extended_mag',
+    cost: 35,
+    titleKey: 'shopExtendedMag',
+    give: (game) => game.weapons.addMagBonus(game.weapons.current.id === 'minigun' ? 50 : 10),
+  },
+  { id: 'craft_scope', cost: 30, titleKey: 'shopScope', give: (game) => game.weapons.attachScope('rifle') },
 ]
 
 function formatTime(ms) {

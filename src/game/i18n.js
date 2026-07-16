@@ -136,6 +136,8 @@ const STRINGS = {
     shopGrenade: 'Grenade',
     shopFuelCan: 'Fuel Can',
     shopNoisemaker: 'Noisemaker',
+    shopExtendedMag: 'Craft: Extended Mag',
+    shopScope: 'Craft: Scope (Rifle)',
     toastFuelCanAdded: 'Fuel Can collected',
     perkPanelTitle: 'Choose a Perk',
     perkSkip: 'Skip',
