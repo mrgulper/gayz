@@ -15,6 +15,16 @@ const STAMINA_MAX = 100
 const STAMINA_DRAIN_PER_SEC = 28
 const STAMINA_REGEN_PER_SEC = 16
 const RAYCAST_ORIGIN_Y = 80
+// Multi-floor structures (skyscraper interiors) stack a walkable slab per
+// floor at the same X/Z footprint, only offset in Y. Without a cap here,
+// the downward raycast always returns the topmost slab in the column no
+// matter which floor you're standing on, so climbing the first flight of
+// stairs would snap you straight past the middle floor to the roof, and
+// the middle floor's own slab could never be stood on. Capping how far
+// above the player's current feet a hit may be still allows stepping up
+// stairs/curbs (~0.25-0.3 per step) with room to spare, while rejecting
+// surfaces a whole floor (3.9 units) higher.
+const MAX_STEP_UP = 0.65
 
 // Browsers occasionally report one wildly wrong mousemove delta right when
 // pointer lock is (re)acquired (pause/resume, respawn, alt-tab). No real
@@ -61,9 +71,12 @@ export class PlayerController {
 
   // Public wrapper so other systems (e.g. Vehicle exit placement) can
   // ground-check an arbitrary point without reaching into the private
-  // raycast helper directly.
+  // raycast helper directly. No reference height is available for these
+  // one-off queries, so they get the uncapped "topmost surface" behavior -
+  // fine for placing something at a known-clear spot, unlike the player's
+  // own per-frame footing check below.
   sampleGroundHeight(x, z) {
-    return this._sampleGroundHeight(x, z)
+    return this._sampleGroundHeight(x, z, Infinity)
   }
 
   resetPosition() {
@@ -99,13 +112,19 @@ export class PlayerController {
   }
 
   // Casts straight down from high above the player's current XZ and returns
-  // the height of the nearest surface below (ground, a stair step, a floor
-  // slab, a car roof, ...). Falls back to 0 if nothing is found.
-  _sampleGroundHeight(x, z) {
+  // the height of the nearest surface at or below maxY (ground, a stair
+  // step, a floor slab, a car roof, ...). Hits are sorted nearest-first
+  // (i.e. highest first, since the ray travels downward), so the first one
+  // within the maxY cap is the correct standing surface. Falls back to 0 if
+  // nothing qualifies.
+  _sampleGroundHeight(x, z, maxY) {
     this._rayOrigin.set(x, RAYCAST_ORIGIN_Y, z)
     this._raycaster.set(this._rayOrigin, this._rayDir)
     const hits = this._raycaster.intersectObjects(this.groundMeshes, true)
-    return hits.length > 0 ? hits[0].point.y : 0
+    for (const hit of hits) {
+      if (hit.point.y <= maxY) return hit.point.y
+    }
+    return 0
   }
 
   update(dt) {
@@ -146,7 +165,11 @@ export class PlayerController {
 
     // Ground height at the (possibly just-moved) XZ position — this is what
     // makes stairs and elevated floors work: the "floor" isn't a constant.
-    this.groundY = this._sampleGroundHeight(obj.position.x, obj.position.z)
+    // Capped to the player's current feet height + one step's worth of rise
+    // so a higher floor stacked in the same footprint (see MAX_STEP_UP)
+    // can't snap you upward through the floor you're actually standing on.
+    const currentFeetY = obj.position.y - this.eyeHeight
+    this.groundY = this._sampleGroundHeight(obj.position.x, obj.position.z, currentFeetY + MAX_STEP_UP)
     const targetEyeY = this.groundY + this.eyeHeight
 
     this.velocity.y += GRAVITY * dt

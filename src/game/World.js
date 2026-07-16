@@ -352,8 +352,12 @@ function buildTraderStall(scene, register) {
 const TUNNEL_X = 5
 const TUNNEL_Z_START = 14
 const TUNNEL_Z_END = 36
-const TUNNEL_WIDTH = 2.6
-const TUNNEL_HEIGHT = 2.3
+// Widened from the original 2.6/2.3 - with the 0.4-unit player radius and
+// no funnel at the mouth, that only left 1.8 units of centered travel room,
+// easy to clip a side wall on approach and bounce off feeling like the
+// tunnel just won't let you in.
+const TUNNEL_WIDTH = 3.4
+const TUNNEL_HEIGHT = 2.6
 
 function buildTunnel(scene, colliders, solidMeshes, flickerLights) {
   const length = TUNNEL_Z_END - TUNNEL_Z_START
@@ -540,8 +544,10 @@ function buildVireoFacility(scene, colliders, solidMeshes, flickerLights) {
 const SEWER_X = -5
 const SEWER_Z_START = 34
 const SEWER_Z_END = 50
-const SEWER_WIDTH = 2.6
-const SEWER_HEIGHT = 2.1
+// Same widening as the tunnel (see TUNNEL_WIDTH/HEIGHT) - too tight to
+// reliably walk into with no funnel at the mouth.
+const SEWER_WIDTH = 3.4
+const SEWER_HEIGHT = 2.4
 
 function buildSewer(scene, colliders, solidMeshes, flickerLights) {
   const length = SEWER_Z_END - SEWER_Z_START
