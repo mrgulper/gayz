@@ -82,6 +82,7 @@ export function buildWorld(scene) {
   const generator = buildGenerator(scene, register)
   const trader = buildTraderStall(scene, register)
   const tunnel = buildTunnel(scene, colliders, solidMeshes, flickerLights)
+  addNeonSigns(scene)
   towerChestSpots.push(tunnel.chestSpot)
   spawnPoints.push({ x: tunnel.chestSpot.x, z: tunnel.chestSpot.z })
 
@@ -339,6 +340,35 @@ function buildTunnel(scene, colliders, solidMeshes, flickerLights) {
   }
 
   return { chestSpot: { x: TUNNEL_X, y: 0, z: centerZ } }
+}
+
+// Purely decorative neon signage for the Neon Decay look - not registered as
+// colliders (signage mounted flush on a facade shouldn't block movement).
+function addNeonSigns(scene) {
+  const signSpots = [
+    { x: -17, y: 6, z: -20, w: 3, h: 1, color: 0xff2bd6, rotY: Math.PI / 2 },
+    { x: 17, y: 8, z: 10, w: 4, h: 1.2, color: 0x2be6ff, rotY: -Math.PI / 2 },
+    { x: -17, y: 5, z: 25, w: 2.5, h: 1, color: 0x2be6ff, rotY: Math.PI / 2 },
+    { x: 17, y: 7, z: -30, w: 3.5, h: 1, color: 0xff2bd6, rotY: -Math.PI / 2 },
+    { x: -32, y: 10, z: 0, w: 5, h: 1.5, color: 0xff2bd6, rotY: Math.PI / 2 },
+  ]
+
+  for (const spot of signSpots) {
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0x0a0a0f,
+      emissive: spot.color,
+      emissiveIntensity: 2.2,
+      side: THREE.DoubleSide,
+    })
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(spot.w, spot.h), mat)
+    sign.position.set(spot.x, spot.y, spot.z)
+    sign.rotation.y = spot.rotY
+    scene.add(sign)
+
+    const light = new THREE.PointLight(spot.color, 1.2, 10, 2)
+    light.position.set(spot.x, spot.y, spot.z)
+    scene.add(light)
+  }
 }
 
 function addStreetMarkings(scene) {
