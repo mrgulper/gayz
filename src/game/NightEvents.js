@@ -24,6 +24,11 @@ export const NIGHT_EVENTS = [
       game.chests.addChest(spot.x, 0, spot.z)
     },
   },
+  {
+    id: 'survivor_found',
+    labelKey: 'eventSurvivorFound',
+    apply: (game) => game._spawnRescueSurvivor(),
+  },
 ]
 
 export function pickNightEvent() {

@@ -18,6 +18,7 @@ import { Vehicle } from './Vehicle.js'
 import { META_UPGRADES, loadMetaProgress, saveMetaProgress, DEATH_SCRAP_CONVERSION } from './MetaProgress.js'
 import { pickBounty } from './BountyBoard.js'
 import { ZOMBIE_TYPES } from './ZombieTypes.js'
+import { RescueSurvivor } from './RescueSurvivor.js'
 import { ACTIONS, getKeyFor, setBinding, resetBindings, keyLabel } from './Keybinds.js'
 import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
@@ -125,6 +126,8 @@ const LIGHT_LURE_INTERVAL_MS = 2000
 const LIGHT_LURE_ENRAGE_MS = 2500
 const VEHICLE_INTERACT_RADIUS = 3
 const VIREO_TERMINAL_RADIUS = 2.5
+const RESCUE_INTERACT_RADIUS = 2.5
+const RESCUE_SCRAP_REWARD = 25
 
 const SHOP_ITEMS = [
   { id: 'health', cost: 15, titleKey: 'shopHealthPack', give: (game) => game.inventory.addHealthPack(1) },
@@ -265,6 +268,8 @@ export class Game {
     this.activeBounty = null
     this.nearVireoTerminal = false
     this.vireoGuardian = null
+    this.rescueSurvivor = null
+    this.nearRescueSurvivor = false
     this.traderPanelOpen = false
     this.nearTrader = false
     this.dayNight = new DayNightCycle(this.scene, hemiLight, sunLight)
@@ -414,6 +419,10 @@ export class Game {
       this.night = 1
       this.kills = 0
       this.activeBounty = null
+      if (this.rescueSurvivor) {
+        this.rescueSurvivor.dispose()
+        this.rescueSurvivor = null
+      }
       this.runStartedAt = performance.now()
       this.nightStartedAt = performance.now()
       this._scheduleNightEvent()
@@ -507,6 +516,8 @@ export class Game {
           this._enterVehicle()
         } else if (this.nearVireoTerminal) {
           this._interactVireoTerminal()
+        } else if (this.nearRescueSurvivor) {
+          this._rescueSurvivor()
         } else {
           const loot = this.chests.tryInteract()
           if (loot) {
@@ -1359,6 +1370,34 @@ export class Game {
     document.getElementById('diff-nightmare').style.display = ''
   }
 
+  // Random night event (see NightEvents.js's 'survivor_found') - only one
+  // at a time; a new event while one's still out there just replaces it.
+  _spawnRescueSurvivor() {
+    if (this.rescueSurvivor) this.rescueSurvivor.dispose()
+    const spot = this.spawnPoints[Math.floor(Math.random() * this.spawnPoints.length)]
+    this.rescueSurvivor = new RescueSurvivor(this.scene, spot.x, spot.z)
+  }
+
+  _updateRescueSurvivor(playerPos) {
+    if (!this.rescueSurvivor) {
+      this.nearRescueSurvivor = false
+      return
+    }
+    const dist = Math.hypot(playerPos.x - this.rescueSurvivor.x, playerPos.z - this.rescueSurvivor.z)
+    this.nearRescueSurvivor = dist <= RESCUE_INTERACT_RADIUS
+  }
+
+  _rescueSurvivor() {
+    this.scrap += RESCUE_SCRAP_REWARD
+    this.inventory.addHealthPack(1)
+    this._updateStatsPanel()
+    this._updateInventoryHud()
+    this._showLoreToast(t('survivorRescued', { reward: RESCUE_SCRAP_REWARD }))
+    this.rescueSurvivor.dispose()
+    this.rescueSurvivor = null
+    this.nearRescueSurvivor = false
+  }
+
   _updateMinimap(playerPos) {
     this.camera.getWorldDirection(this._camDir)
     const facingRad = Math.atan2(this._camDir.x, -this._camDir.z)
@@ -1459,6 +1498,8 @@ export class Game {
       this._updateTrader(playerPos)
       this._updateVehicleProximity(playerPos)
       this._updateVireoTerminal(playerPos)
+      this._updateRescueSurvivor(playerPos)
+      if (this.rescueSurvivor) this.rescueSurvivor.update(elapsed)
 
       const canRefuelGenerator = this.nearGenerator && this.inventory.fuelCans > 0 && this.generatorFuel < this.maxGeneratorFuel
       if (this.chests.nearbyChest) {
@@ -1472,6 +1513,9 @@ export class Game {
         this.interactPrompt.style.display = 'block'
       } else if (this.nearVireoTerminal) {
         this.interactPrompt.innerHTML = tHtml('interactTerminal')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearRescueSurvivor) {
+        this.interactPrompt.innerHTML = tHtml('interactRescue')
         this.interactPrompt.style.display = 'block'
       } else if (canRefuelGenerator) {
         this.interactPrompt.innerHTML = tHtml('interactRefuel')
