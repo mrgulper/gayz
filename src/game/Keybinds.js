@@ -19,6 +19,7 @@ export const ACTIONS = [
   { id: 'grenade', defaultKey: 'KeyB', labelKey: 'actionGrenade' },
   { id: 'screenshot', defaultKey: 'KeyP', labelKey: 'actionScreenshot' },
   { id: 'toggleView', defaultKey: 'KeyX', labelKey: 'actionToggleView' },
+  { id: 'dodge', defaultKey: 'ShiftLeft', labelKey: 'actionDodge' },
 ]
 
 function defaultBindings() {

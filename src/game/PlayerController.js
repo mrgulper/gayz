@@ -26,6 +26,15 @@ const RAYCAST_ORIGIN_Y = 80
 // surfaces a whole floor (3.9 units) higher.
 const MAX_STEP_UP = 0.65
 
+// Dash-dodge: a short speed burst in the current movement direction (or
+// straight ahead if not moving) with a brief invincibility window (see
+// Game.js's _onZombieAttack, which checks isDodging before applying any
+// damage) - the melee-focused answer to "zombies shouldn't be unavoidable."
+const DODGE_SPEED = 13
+const DODGE_DURATION_MS = 220
+const DODGE_COOLDOWN_MS = 1400
+const DODGE_STAMINA_COST = 20
+
 // Browsers occasionally report one wildly wrong mousemove delta right when
 // pointer lock is (re)acquired (pause/resume, respawn, alt-tab). No real
 // mouse movement produces this much delta in a single frame, so any event
@@ -56,6 +65,10 @@ export class PlayerController {
     this.isSprinting = false
     this.isCrouching = false
     this.eyeHeight = EYE_HEIGHT
+    this.isDodging = false
+    this.dodgeUntil = 0
+    this.dodgeCooldownUntil = 0
+    this.dodgeDir = new THREE.Vector3()
 
     this.camera.position.set(0, EYE_HEIGHT, 8)
 
@@ -96,6 +109,9 @@ export class PlayerController {
     this.sprintMultiplier = SPRINT_MULTIPLIER
     this.isCrouching = false
     this.eyeHeight = EYE_HEIGHT
+    this.isDodging = false
+    this.dodgeUntil = 0
+    this.dodgeCooldownUntil = 0
   }
 
   // Rebindable primary key per action (see Keybinds.js), each with an
@@ -114,7 +130,28 @@ export class PlayerController {
         this.velocity.y = JUMP_SPEED
         this.onGround = false
       }
+    } else if (code === getKeyFor('dodge')) {
+      if (isDown) this._tryDodge()
     }
+  }
+
+  _tryDodge() {
+    const now = performance.now()
+    if (this.isDodging || now < this.dodgeCooldownUntil || this.stamina < DODGE_STAMINA_COST) return
+
+    const dir = new THREE.Vector3()
+    if (this.input.forward) dir.add(this._forward)
+    if (this.input.back) dir.sub(this._forward)
+    if (this.input.right) dir.add(this._right)
+    if (this.input.left) dir.sub(this._right)
+    if (dir.lengthSq() < 0.0001) dir.copy(this._forward)
+    dir.normalize()
+
+    this.dodgeDir.copy(dir)
+    this.isDodging = true
+    this.dodgeUntil = now + DODGE_DURATION_MS
+    this.dodgeCooldownUntil = now + DODGE_COOLDOWN_MS
+    this.stamina = Math.max(0, this.stamina - DODGE_STAMINA_COST)
   }
 
   // Casts straight down from high above the player's current XZ and returns
@@ -143,28 +180,38 @@ export class PlayerController {
     this._right.y = 0
     this._right.normalize()
 
-    const moveDir = new THREE.Vector3()
-    if (this.input.forward) moveDir.add(this._forward)
-    if (this.input.back) moveDir.sub(this._forward)
-    if (this.input.right) moveDir.add(this._right)
-    if (this.input.left) moveDir.sub(this._right)
+    if (this.isDodging && performance.now() >= this.dodgeUntil) this.isDodging = false
 
-    const isMoving = moveDir.lengthSq() > 0
-    this.isCrouching = this.input.crouch
-    this.isSprinting = this.input.sprint && this.stamina > 1 && isMoving && !this.isCrouching
-
-    if (this.isSprinting) {
-      this.stamina = Math.max(0, this.stamina - STAMINA_DRAIN_PER_SEC * dt)
-    } else {
+    if (this.isDodging) {
+      this.isSprinting = false
       this.stamina = Math.min(this.maxStamina, this.stamina + STAMINA_REGEN_PER_SEC * dt)
+      const dash = DODGE_SPEED * dt
+      this._tryMove(obj, this.dodgeDir.x * dash, 0)
+      this._tryMove(obj, 0, this.dodgeDir.z * dash)
+    } else {
+      const moveDir = new THREE.Vector3()
+      if (this.input.forward) moveDir.add(this._forward)
+      if (this.input.back) moveDir.sub(this._forward)
+      if (this.input.right) moveDir.add(this._right)
+      if (this.input.left) moveDir.sub(this._right)
+
+      const isMoving = moveDir.lengthSq() > 0
+      this.isCrouching = this.input.crouch
+      this.isSprinting = this.input.sprint && this.stamina > 1 && isMoving && !this.isCrouching
+
+      if (this.isSprinting) {
+        this.stamina = Math.max(0, this.stamina - STAMINA_DRAIN_PER_SEC * dt)
+      } else {
+        this.stamina = Math.min(this.maxStamina, this.stamina + STAMINA_REGEN_PER_SEC * dt)
+      }
+
+      let speedMultiplier = this.isSprinting ? this.sprintMultiplier : 1
+      if (this.isCrouching) speedMultiplier *= CROUCH_SPEED_MULT
+      if (isMoving) moveDir.normalize().multiplyScalar(MOVE_SPEED * speedMultiplier * dt)
+
+      this._tryMove(obj, moveDir.x, 0)
+      this._tryMove(obj, 0, moveDir.z)
     }
-
-    let speedMultiplier = this.isSprinting ? this.sprintMultiplier : 1
-    if (this.isCrouching) speedMultiplier *= CROUCH_SPEED_MULT
-    if (isMoving) moveDir.normalize().multiplyScalar(MOVE_SPEED * speedMultiplier * dt)
-
-    this._tryMove(obj, moveDir.x, 0)
-    this._tryMove(obj, 0, moveDir.z)
 
     const targetEyeHeight = this.isCrouching ? CROUCH_EYE_HEIGHT : EYE_HEIGHT
     this.eyeHeight = THREE.MathUtils.damp(this.eyeHeight, targetEyeHeight, EYE_HEIGHT_LERP_SPEED, dt)

@@ -1346,6 +1346,7 @@ export class Game {
   }
 
   _onZombieAttack(damage) {
+    if (this.player.isDodging) return // brief invincibility window - see PlayerController's dodge
     this.playerState.takeDamage(damage * this.difficulty.damageMult)
     this._updateHealthHud()
     audioEngine.playZombieSnarl()
