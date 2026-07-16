@@ -101,6 +101,9 @@ const GENERATOR_REFUEL_RADIUS = 2.5
 const GENERATOR_PASSIVE_REFUEL_PER_SEC = 6
 const GENERATOR_FUELCAN_AMOUNT = 35
 const TRADER_INTERACT_RADIUS = 2.5
+const LIGHT_LURE_RADIUS = 20
+const LIGHT_LURE_INTERVAL_MS = 2000
+const LIGHT_LURE_ENRAGE_MS = 2500
 const VEHICLE_INTERACT_RADIUS = 3
 
 const SHOP_ITEMS = [
@@ -315,6 +318,8 @@ export class Game {
     this.flashlightOn = true
     this.flashlightBattery = 100
     this.maxFlashlightBattery = 100
+    this.flashlightLoreShown = false
+    this.nextLightLureAt = 0
   }
 
   _updateFlashlightBattery(dt) {
@@ -416,6 +421,10 @@ export class Game {
       } else if (e.code === getKeyFor('flashlight')) {
         if (!this.flashlightOn && this.flashlightBattery <= 0) return
         this.flashlightOn = !this.flashlightOn
+        if (this.flashlightOn && !this.flashlightLoreShown) {
+          this.flashlightLoreShown = true
+          this._showLoreToast(t('loreFlashlightWarning'))
+        }
       } else if (e.code === getKeyFor('noisemaker')) {
         this._throwNoisemaker()
       } else if (e.code === getKeyFor('grenade')) {
@@ -1029,6 +1038,21 @@ export class Game {
     this.nearTrader = dist <= TRADER_INTERACT_RADIUS
   }
 
+  // Core-loop twist: VIREO's "wellness light" is exactly what drew the
+  // infection in the first place (see the audio log lore), so the
+  // flashlight - the tool you need to see at night - is also a beacon.
+  // Reuses the same forceWake()/enrage() the Screamer's scream uses.
+  _updateLightLure(playerPos) {
+    if (performance.now() < this.nextLightLureAt) return
+    this.nextLightLureAt = performance.now() + LIGHT_LURE_INTERVAL_MS
+    for (const zombie of this.zombies.zombies) {
+      const dist = Math.hypot(zombie.group.position.x - playerPos.x, zombie.group.position.z - playerPos.z)
+      if (dist > LIGHT_LURE_RADIUS) continue
+      if (zombie.state === 'dormant') zombie.forceWake()
+      else if (zombie.state === 'alive') zombie.enrage(LIGHT_LURE_ENRAGE_MS)
+    }
+  }
+
   _updateVehicleProximity(playerPos) {
     this.nearVehicle = this.vehicle.distanceTo(playerPos.x, playerPos.z) <= VEHICLE_INTERACT_RADIUS
   }
@@ -1112,6 +1136,7 @@ export class Game {
         this.player.isCrouching
       )
       this.companion.update(dt, playerPos, this.zombies.zombies)
+      if (this.flashlightOn) this._updateLightLure(playerPos)
       this.pickups.update(dt, elapsed, playerPos, {
         onPickup: (type, label, isLoot) => this._onPickup(type, label, isLoot),
       })
