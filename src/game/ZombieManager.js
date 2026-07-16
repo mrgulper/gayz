@@ -112,6 +112,18 @@ export class ZombieManager {
     this.scene.add(zombie.group)
   }
 
+  // One-off guardian spawn at a specific spot (the VIREO facility terminal
+  // fight) rather than the normal random-radius boss walk-in - returns the
+  // zombie instance so the caller can watch its state for "is it dead yet".
+  spawnGuardian(x, z, typeConfig) {
+    const zombie = new Zombie(x, z, typeConfig, false)
+    zombie.deathHandled = false
+    zombie.isBoss = true
+    this.zombies.push(zombie)
+    this.scene.add(zombie.group)
+    return zombie
+  }
+
   // Live-updates the Easy/Normal/Hard spawn-rate multiplier without
   // reconstructing the manager, re-applying it against the current night.
   setDifficultyMultiplier(mult) {

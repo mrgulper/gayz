@@ -126,6 +126,8 @@ const STRINGS = {
     loreAudiolog3: 'The lookout towers are the safest place to sleep. Just don\'t stay past sunrise.',
     loreAudiolog4: 'Day 31. Found VIREO company badges on three of the collapsed ones near the tower signs. Whatever they were testing in that "wellness light" program, it didn\'t go the way the ads promised.',
     loreAudiolog5: 'Day 47. I keep this camera running so somebody finds proof, if I don\'t make it. The signs still glow at night, don\'t they. VIREO said the light would keep us calm. I think it\'s the opposite.',
+    vireoGuardianWakes: 'Something wakes in the dark. The terminal won\'t talk until it stops moving.',
+    vireoGuardianAlive: 'The guardian is still alive.',
     loreFlashlightWarning: 'The light... they can feel it. Every zombie for blocks knows exactly where you are.',
     toastScopeAdded: 'Scope attached',
     toastMagAdded: 'Extended mag attached',

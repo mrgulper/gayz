@@ -17,6 +17,7 @@ import { Companion } from './Companion.js'
 import { Vehicle } from './Vehicle.js'
 import { META_UPGRADES, loadMetaProgress, saveMetaProgress, DEATH_SCRAP_CONVERSION } from './MetaProgress.js'
 import { pickBounty } from './BountyBoard.js'
+import { ZOMBIE_TYPES } from './ZombieTypes.js'
 import { ACTIONS, getKeyFor, setBinding, resetBindings, keyLabel } from './Keybinds.js'
 import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
@@ -263,6 +264,7 @@ export class Game {
     this.vireoTerminal = vireoFacility.terminalSpot
     this.activeBounty = null
     this.nearVireoTerminal = false
+    this.vireoGuardian = null
     this.traderPanelOpen = false
     this.nearTrader = false
     this.dayNight = new DayNightCycle(this.scene, hemiLight, sunLight)
@@ -504,9 +506,7 @@ export class Game {
         } else if (this.nearVehicle) {
           this._enterVehicle()
         } else if (this.nearVireoTerminal) {
-          this._showLoreToast(t('loreVireoTerminal'))
-          this.achievements.unlock('true_ending')
-          document.getElementById('diff-nightmare').style.display = ''
+          this._interactVireoTerminal()
         } else {
           const loot = this.chests.tryInteract()
           if (loot) {
@@ -1335,6 +1335,28 @@ export class Game {
   _updateVireoTerminal(playerPos) {
     const dist = Math.hypot(playerPos.x - this.vireoTerminal.x, playerPos.z - this.vireoTerminal.z)
     this.nearVireoTerminal = dist <= VIREO_TERMINAL_RADIUS
+  }
+
+  // First-ever visit: reading the terminal wakes a guardian that must be
+  // killed before it'll actually talk. Already unlocked the true ending?
+  // Just re-read it any time, no fight.
+  _interactVireoTerminal() {
+    if (this.achievements.unlocked.has('true_ending')) {
+      this._showLoreToast(t('loreVireoTerminal'))
+      return
+    }
+    if (!this.vireoGuardian) {
+      this.vireoGuardian = this.zombies.spawnGuardian(this.vireoTerminal.x, this.vireoTerminal.z - 3, ZOMBIE_TYPES.patient_zero)
+      this._showLoreToast(t('vireoGuardianWakes'))
+      return
+    }
+    if (this.vireoGuardian.state !== 'dead') {
+      this._showLoreToast(t('vireoGuardianAlive'))
+      return
+    }
+    this._showLoreToast(t('loreVireoTerminal'))
+    this.achievements.unlock('true_ending')
+    document.getElementById('diff-nightmare').style.display = ''
   }
 
   _updateMinimap(playerPos) {
