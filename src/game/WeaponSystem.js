@@ -174,6 +174,19 @@ export class WeaponSystem {
     this._updateHud()
   }
 
+  // Cosmetic achievement reward (e.g. Centurion's gold pistol) - purely
+  // visual, rebuilds just that one weapon's viewmodel with the skin applied.
+  setGoldenSkin(weaponId, golden) {
+    const old = this.viewmodels[weaponId]
+    if (!old) return
+    const wasVisible = old.visible
+    this.viewmodelRoot.remove(old)
+    const vm = buildViewmodel(weaponId, { golden })
+    vm.visible = wasVisible
+    this.viewmodelRoot.add(vm)
+    this.viewmodels[weaponId] = vm
+  }
+
   // Settings hook: keeps ADS zoom math (which lerps from defaultFov) correct
   // after the player changes their base field of view.
   setBaseFov(value) {

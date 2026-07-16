@@ -386,6 +386,7 @@ export class Game {
       this.zombies,
       (point, normal, isZombie) => this.decals.spawn(point, normal, isZombie)
     )
+    if (this.achievements.unlocked.has('centurion')) this.weapons.setGoldenSkin('pistol', true)
 
     audioEngine.setMusicVolume(this.settings.musicVolume / 100)
     audioEngine.setSfxVolume(this.settings.sfxVolume / 100)
@@ -1239,6 +1240,8 @@ export class Game {
     this.achievementToast.classList.remove('show')
     void this.achievementToast.offsetWidth
     this.achievementToast.classList.add('show')
+
+    if (def.id === 'centurion') this.weapons.setGoldenSkin('pistol', true)
   }
 
   _showLoreToast(text) {
