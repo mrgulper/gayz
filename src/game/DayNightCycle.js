@@ -7,15 +7,15 @@ const DAY_FRACTION = DAY_MS / CYCLE_MS
 const TRANSITION = 0.02 // ~29s fade in/out of the day fraction
 
 const NIGHT = {
-  background: 0x161c22,
-  fog: 0x161c22,
+  background: 0x1a0d2e,
+  fog: 0x1a0d2e,
   fogNear: 18,
   fogFar: 90,
-  skyColor: 0x7f93ab,
-  groundColor: 0x20201a,
+  skyColor: 0x8f4fd6,
+  groundColor: 0x140a1f,
   hemiIntensity: 0.85,
-  sunColor: 0xc3d2ec,
-  sunIntensity: 1.0,
+  sunColor: 0x6fe8ff,
+  sunIntensity: 1.1,
   sunPos: new THREE.Vector3(30, 45, -15),
 }
 
