@@ -31,6 +31,16 @@ const TITAN_SPAWN_CHANCE = 0.4
 const HORDE_SPAWN_RADIUS_MIN = 10
 const HORDE_SPAWN_RADIUS_MAX = 22
 
+// Round Mode (Obsidian Ops-style kill-to-advance loop, see Game.js's
+// settings.mutators.roundMode): count scales roughly linearly with round
+// number rather than the small fixed band timed-night difficulty uses, so
+// it's capped well above MAX_SPAWN_COUNT to actually keep growing round over
+// round without either exploding perf at high rounds or plateauing too soon.
+const ROUND_SPAWN_COUNT_MULT = 3.6
+const ROUND_MAX_SPAWN_COUNT = 50
+const ROUND_HEALTH_RAMP_START = 10
+const ROUND_HEALTH_RAMP_MULT = 1.1
+
 const projectileMat = new THREE.MeshStandardMaterial({
   color: 0x2f4a12,
   emissive: 0x9fe23f,
@@ -93,9 +103,36 @@ export class ZombieManager {
     this.bossRushSpawnCount = 0
     this.hordeMode = false
 
+    // Round Mode - see startRound(). Left off by default so the constructor's
+    // normal continuous-trickle spawn below still runs for every other mode.
+    this.roundMode = false
+    this.roundHealthMult = 1
+
     for (let i = 0; i < this.targetCount; i++) {
       this._spawnRandom()
     }
+  }
+
+  // Kills the normal continuous respawn-on-death trickle (targetCount = 0
+  // means the pendingRespawns check in update() never has anything to top
+  // up to) and instead spawns every zombie for the round in one burst, with
+  // health scaled up once rounds run long. Game.js calls this both to start
+  // round 1 and again after each round-clear intermission.
+  startRound(roundNumber) {
+    this.currentNight = roundNumber
+    this.roundHealthMult = roundNumber > ROUND_HEALTH_RAMP_START
+      ? Math.pow(ROUND_HEALTH_RAMP_MULT, roundNumber - ROUND_HEALTH_RAMP_START)
+      : 1
+    this.targetCount = 0
+    const count = Math.min(ROUND_MAX_SPAWN_COUNT, Math.round(ROUND_SPAWN_COUNT_MULT * roundNumber))
+    for (let i = 0; i < count; i++) this._spawnRandom()
+  }
+
+  // Round-clear check for Game.js - "alive" rather than a bare array-length
+  // check so lingering death-animation corpses (see REMOVE_AFTER_DEATH_MS)
+  // don't delay the round-cleared moment by a few seconds after the last kill.
+  aliveCount() {
+    return this.zombies.filter((z) => z.state !== 'dead').length
   }
 
   _randomMoanDelay() {
@@ -198,11 +235,17 @@ export class ZombieManager {
     this.pendingRespawns = []
     this.currentNight = 1
     this.bossSpawnedForNight = 0
-    this.targetCount = Math.round(BASE_SPAWN_COUNT * this.spawnRateMult)
     this.respawnDelay = BASE_RESPAWN_DELAY
     this.ambushChance = BASE_AMBUSH_CHANCE
     this.nextMoanAt = performance.now() + this._randomMoanDelay()
-    for (let i = 0; i < this.targetCount; i++) this._spawnRandom()
+    // Round Mode starts its own round-1 burst via startRound() right after
+    // reset() (see Game.js) instead of the normal continuous-trickle spawn.
+    if (this.roundMode) {
+      this.targetCount = 0
+    } else {
+      this.targetCount = Math.round(BASE_SPAWN_COUNT * this.spawnRateMult)
+      for (let i = 0; i < this.targetCount; i++) this._spawnRandom()
+    }
   }
 
   // Horde Mode mutator (see Game.js's settings.mutators.hordeMode): spawns
@@ -226,6 +269,10 @@ export class ZombieManager {
 
     const isElite = Math.random() < ELITE_CHANCE
     const zombie = new Zombie(x, z, type, isAmbush, isElite, this.currentNight)
+    if (this.roundMode && this.roundHealthMult !== 1) {
+      zombie.maxHealth *= this.roundHealthMult
+      zombie.health = zombie.maxHealth
+    }
     zombie.deathHandled = false
     this.zombies.push(zombie)
     this.scene.add(zombie.group)

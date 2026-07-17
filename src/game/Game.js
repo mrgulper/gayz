@@ -12,6 +12,7 @@ import { PlayerState } from './PlayerState.js'
 import { Inventory } from './Inventory.js'
 import { DayNightCycle } from './DayNightCycle.js'
 import { ChestManager } from './Chests.js'
+import { BarricadeWindows, REPAIR_REWARD_SCRAP } from './BarricadeWindows.js'
 import { Minimap } from './Minimap.js'
 import { DecalManager } from './Decals.js'
 import { Achievements, ACHIEVEMENTS } from './Achievements.js'
@@ -118,6 +119,7 @@ function loadSettings() {
 }
 
 const SCORE_ATTACK_NIGHT_DURATION_MS = 60000
+const ROUND_INTERMISSION_MS = 5000
 const SCORE_ATTACK_BEST_KEY = 'gayz-score-attack-best'
 
 function loadScoreAttackBest() {
@@ -427,6 +429,7 @@ export class Game {
     this._hitstopUntil = 0
     this.runStartedAt = performance.now()
     this.nightStartedAt = performance.now()
+    this.roundIntermissionUntil = 0
     this._scheduleNightEvent()
     this._rollWeather()
     this._rollFeaturedItem()
@@ -509,6 +512,15 @@ export class Game {
     this._addFlashlight()
 
     this.zombies = new ZombieManager(this.scene, this.difficulty.spawnRateMult, colliders, solidMeshes)
+    // Fixed chokepoints spread along the avenue, clear of the generator
+    // (1.5, 5), trader (-8, 33), and ammo station (8, -33).
+    this.barricadeWindows = new BarricadeWindows(this.scene, [
+      { x: 10, z: -20, rotY: -Math.PI / 2 },
+      { x: -10, z: -2, rotY: Math.PI / 2 },
+      { x: 10, z: 12, rotY: -Math.PI / 2 },
+      { x: -10, z: 30, rotY: Math.PI / 2 },
+    ])
+    this.nearBarricadeWindow = null
     this.companion = new Companion(this.scene, 1.6, 7, this.settings.companionRole)
     this.playerBody = new PlayerBody(this.scene)
     this.vehicle = new Vehicle(this.scene, -6, -18, 0)
@@ -700,6 +712,12 @@ export class Game {
       if (spawnMult !== this.difficulty.spawnRateMult) this.zombies.setDifficultyMultiplier(spawnMult)
       if (this.settings.mutators.hordeMode) this.zombies.setHordeMode(true)
       if (this.settings.mutators.bossRush) this.zombies.bossRushMode = true
+      if (this._isRoundMode()) {
+        this.zombies.roundMode = true
+        this.zombies.reset()
+        this.zombies.startRound(1)
+        this.roundIntermissionUntil = 0
+      }
       this.player.controls.lock()
     })
 
@@ -715,7 +733,11 @@ export class Game {
       this.playerState.respawn()
       this.lowHealthBarked = false
       this.player.resetPosition()
+      this.zombies.roundMode = this._isRoundMode()
       this.zombies.reset()
+      if (this._isRoundMode()) this.zombies.startRound(1)
+      this.roundIntermissionUntil = 0
+      this.barricadeWindows.reset()
       this.chests.reset()
       this.xpGems.reset()
       this.companion.teleportTo(1.6, 7)
@@ -847,6 +869,12 @@ export class Game {
           this._interactVireoTerminal()
         } else if (this.nearRescueSurvivor) {
           this._rescueSurvivor()
+        } else if (this.nearBarricadeWindow) {
+          const reward = this.barricadeWindows.repair(this.nearBarricadeWindow)
+          if (reward > 0) {
+            this.scrap += reward
+            this._updateStatsPanel()
+          }
         } else {
           const loot = this.chests.tryInteract()
           if (loot) {
@@ -1221,7 +1249,6 @@ export class Game {
       this.settings.mutators.hordeMode = this.mutatorHordeMode.checked
       saveSettings(this.settings)
     })
-
     this.nicknameInput.value = this.settings.nickname
     this._updateCompanionName()
 
@@ -2325,6 +2352,13 @@ export class Game {
     }
   }
 
+  // Round Mode isn't a separate opt-in toggle - it's just what Easy/Normal
+  // do instead of the 90s timer. Hard/Nightmare keep the timed loop, since
+  // that's where the tighter time-pressure pacing is meant to bite.
+  _isRoundMode() {
+    return this.settings.difficulty === 'easy' || this.settings.difficulty === 'normal'
+  }
+
   _showNightBanner() {
     const nightText = t('hudNight', { n: this.night })
     this.nightBanner.textContent = this.night % 5 === 0 ? `${nightText} — ${t('bossWarning')}` : nightText
@@ -2737,7 +2771,27 @@ export class Game {
         this._showLoreToast(t(event.labelKey))
       }
 
-      if (performance.now() - this.nightStartedAt > this.nightDurationMs) {
+      // Round Mode swaps the timer for a kill-the-wave gate: once every
+      // zombie is dead, wait out a short intermission (matching Obsidian
+      // Ops' ~5s), then advance through the exact same night-advance block
+      // timed mode uses below - just triggered by a clear instead of a clock.
+      let shouldAdvance
+      if (this._isRoundMode()) {
+        shouldAdvance = false
+        if (!this.roundIntermissionUntil) {
+          if (this.zombies.aliveCount() === 0) {
+            this.roundIntermissionUntil = performance.now() + ROUND_INTERMISSION_MS
+            this._showLoreToast(`Round ${this.night} cleared! Next wave in ${ROUND_INTERMISSION_MS / 1000}s...`)
+          }
+        } else if (performance.now() >= this.roundIntermissionUntil) {
+          this.roundIntermissionUntil = 0
+          shouldAdvance = true
+        }
+      } else {
+        shouldAdvance = performance.now() - this.nightStartedAt > this.nightDurationMs
+      }
+
+      if (shouldAdvance) {
         if (this.raining) this._checkBountyProgress('survive_rain_night', 1)
         this._checkBountyProgress('reach_3_nights', 1)
         this.night += 1
@@ -2751,7 +2805,9 @@ export class Game {
         this._rollWeather()
         this._rollFeaturedItem()
         this.chests.refillNight()
-        this.zombies.applyDifficulty(this.night)
+        this.barricadeWindows.onRoundStart()
+        if (this._isRoundMode()) this.zombies.startRound(this.night)
+        else this.zombies.applyDifficulty(this.night)
         this._showNightBanner()
         this._companionBark('nightStart')
         if (this.night >= 5) this.achievements.unlock('survivor_5')
@@ -2804,6 +2860,13 @@ export class Game {
       if (this.rescueSurvivor) this.rescueSurvivor.update(elapsed)
       this._updateBossHealthBar()
 
+      this.barricadeWindows.update(dt, this.zombies.zombies, (w) => {
+        this._showLoreToast('A barricade was breached! Zombies are pouring through.')
+        this.zombies.spawnSurge(2)
+        void w
+      })
+      this.nearBarricadeWindow = this.barricadeWindows.nearestRepairable(playerPos)
+
       const canRefuelGenerator = this.nearGenerator && this.inventory.fuelCans > 0 && this.generatorFuel < this.maxGeneratorFuel
       if (this.chests.nearbyChest) {
         this.interactPrompt.innerHTML = tHtml('interactPrompt')
@@ -2825,6 +2888,9 @@ export class Game {
         this.interactPrompt.style.display = 'block'
       } else if (this.nearAmmoStation) {
         this.interactPrompt.innerHTML = tHtml('interactAmmoStation')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearBarricadeWindow) {
+        this.interactPrompt.innerHTML = `<b>F</b> repair barricade (+${REPAIR_REWARD_SCRAP} scrap)`
         this.interactPrompt.style.display = 'block'
       } else {
         this.interactPrompt.style.display = 'none'

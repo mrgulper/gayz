@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { audioEngine } from './Audio.js'
-import { buildViewmodel } from './Viewmodels.js'
+import { buildViewmodel, buildQuickMeleeKnifeModel } from './Viewmodels.js'
 import { t, onLanguageChange } from './i18n.js'
 import { getKeyFor } from './Keybinds.js'
 
@@ -10,6 +10,16 @@ const EXPLOSIVE_PROP_DAMAGE_MIN = 70
 const EXPLOSIVE_PROP_DAMAGE_MAX = 160
 const VIEWMODEL_ADS = new THREE.Vector3(0.02, -0.1, -0.32)
 const ADS_LERP_SPEED = 9
+
+// Quick-melee: an always-available instant stab, independent of whatever
+// gun is currently equipped - no weapon switch, no ammo, just a short
+// cooldown. See WeaponSystem._quickMelee.
+const QUICK_MELEE_DAMAGE = 150
+const QUICK_MELEE_RANGE = 2.4
+const QUICK_MELEE_COOLDOWN_MS = 500
+const QUICK_MELEE_ANIM_MS = 220
+const QUICK_MELEE_REST_POS = new THREE.Vector3(0.16, -0.32, -0.28)
+const QUICK_MELEE_STAB_POS = new THREE.Vector3(0.02, -0.08, -0.55)
 
 const WEAPONS = [
   {
@@ -129,6 +139,17 @@ export class WeaponSystem {
       this.viewmodels[w.id] = vm
     }
     this.viewmodels[this.current.id].visible = true
+
+    // Quick-melee's own knife, parented to the same viewmodelRoot as every
+    // other weapon so it inherits the same camera-relative positioning, but
+    // never goes through _switchTo - it's an overlay that lunges into view
+    // and back regardless of which weapon viewmodel is currently showing.
+    this.quickMeleeKnife = buildQuickMeleeKnifeModel()
+    this.quickMeleeKnife.position.copy(QUICK_MELEE_REST_POS)
+    this.quickMeleeKnife.visible = false
+    this.viewmodelRoot.add(this.quickMeleeKnife)
+    this.quickMeleeCooldownUntil = 0
+    this.quickMeleeAnimUntil = 0
 
     window.addEventListener('mousedown', (e) => {
       if (e.button === 0) this.triggerDown = true
@@ -276,7 +297,7 @@ export class WeaponSystem {
   }
 
   _onKey(e) {
-    if (e.code === 'Digit1') this._switchTo(0)
+    if (e.code === 'Digit1') this._quickMelee()
     if (e.code === 'Digit2') this._switchTo(1)
     if (e.code === 'Digit3') this._switchTo(2)
     if (e.code === 'Digit4') this._switchTo(3)
@@ -324,6 +345,7 @@ export class WeaponSystem {
 
     this._updateViewmodelTransform(isMoving)
     this._updateBarrelSpin(dt)
+    this._updateQuickMeleeAnim()
 
     if (this.reloading) {
       if (performance.now() / 1000 >= this.reloadEndsAt) {
@@ -468,6 +490,57 @@ export class WeaponSystem {
       if (this.onZombieHit) this.onZombieHit()
     }
     void anyHit
+  }
+
+  // Panic-button knife stab - fixed damage/range, doesn't touch
+  // this.currentIndex or ammo, works no matter which gun is out. See the
+  // QUICK_MELEE_* constants and _updateQuickMeleeAnim for the lunge visual.
+  _quickMelee() {
+    const now = performance.now()
+    if (now < this.quickMeleeCooldownUntil) return
+    this.quickMeleeCooldownUntil = now + QUICK_MELEE_COOLDOWN_MS
+    this.quickMeleeAnimUntil = now + QUICK_MELEE_ANIM_MS
+    this.quickMeleeKnife.visible = true
+    audioEngine.playMelee()
+
+    const zombieMeshes = this.zombieManager ? this.zombieManager.hittableMeshes : []
+    this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera)
+    const hits = this.raycaster.intersectObjects([...zombieMeshes, ...this.colliderMeshes], true)
+    if (hits.length === 0 || hits[0].distance > QUICK_MELEE_RANGE) return
+
+    const hit = hits[0]
+    const zombieHit = hit.object.userData.zombie
+    if (zombieHit) {
+      zombieHit.lastHitWeaponId = 'quickmelee'
+      zombieHit.onHit(QUICK_MELEE_DAMAGE * this.damageMult)
+      this._showHitmarker()
+      if (this.onZombieHit) this.onZombieHit()
+    }
+
+    if (this.onHitSurface) {
+      if (hit.face) {
+        this._hitNormal.copy(hit.face.normal).transformDirection(hit.object.matrixWorld).normalize()
+      } else {
+        this._hitNormal.set(0, 1, 0)
+      }
+      this.onHitSurface(hit.point, this._hitNormal, !!zombieHit)
+    }
+  }
+
+  // Lunges the quick-melee knife into view and back over QUICK_MELEE_ANIM_MS,
+  // independent of whatever weapon viewmodel is currently shown/animating.
+  _updateQuickMeleeAnim() {
+    if (!this.quickMeleeKnife.visible) return
+    const now = performance.now()
+    const remaining = this.quickMeleeAnimUntil - now
+    if (remaining <= 0) {
+      this.quickMeleeKnife.visible = false
+      return
+    }
+    const t = 1 - remaining / QUICK_MELEE_ANIM_MS
+    // Lunge out over the first half, snap back over the second.
+    const stabT = t < 0.5 ? t * 2 : 1 - (t - 0.5) * 2
+    this.quickMeleeKnife.position.lerpVectors(QUICK_MELEE_REST_POS, QUICK_MELEE_STAB_POS, stabT)
   }
 
   _showHitmarker() {

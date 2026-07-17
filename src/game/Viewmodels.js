@@ -235,6 +235,56 @@ function buildKnifeModel() {
   return g
 }
 
+// Quick-melee's dedicated combat knife - deliberately sharper/more angular
+// than the regular melee-slot knife (buildKnifeModel) so the panic-button
+// stab reads as a distinct weapon, not a reused asset: a longer tanto-style
+// blade, a serrated spine, and a darker gunmetal finish/tactical grip.
+export function buildQuickMeleeKnifeModel() {
+  const g = new THREE.Group()
+
+  const bladeMat = new THREE.MeshStandardMaterial({ color: 0x7d838a, roughness: 0.15, metalness: 0.95 })
+  const tacticalGrip = new THREE.MeshStandardMaterial({ color: 0x14140f, roughness: 0.85 })
+
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.01, 0.26), bladeMat)
+  blade.position.set(0, 0, -0.15)
+  g.add(blade)
+
+  // Angled tanto tip instead of the regular knife's straight cone point.
+  const tip = new THREE.Mesh(new THREE.ConeGeometry(0.024, 0.09, 4), bladeMat)
+  tip.rotation.x = -Math.PI / 2
+  tip.rotation.z = Math.PI / 4
+  tip.position.set(0, -0.006, -0.32)
+  g.add(tip)
+
+  // Serrated spine: a row of small teeth along the top back edge of the
+  // blade, the main visual tell that this isn't the plain melee-slot knife.
+  const toothCount = 6
+  for (let i = 0; i < toothCount; i++) {
+    const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.012, 0.022, 3), bladeMat)
+    tooth.rotation.x = Math.PI / 2
+    tooth.rotation.z = Math.PI / 2
+    tooth.position.set(0, 0.011, -0.05 - i * 0.032)
+    g.add(tooth)
+  }
+
+  const guard = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.022, 0.018), DARK_METAL)
+  guard.rotation.z = Math.PI / 4
+  guard.position.set(0, 0, -0.03)
+  g.add(guard)
+
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.024, 0.16, 8), tacticalGrip)
+  handle.rotation.x = Math.PI / 2
+  handle.position.set(0, 0, 0.06)
+  g.add(handle)
+
+  const knifeHand = buildHand()
+  knifeHand.position.copy(handle.position)
+  knifeHand.rotation.x = Math.PI / 2
+  g.add(knifeHand)
+
+  return g
+}
+
 function buildBatModel() {
   const g = new THREE.Group()
   const woodMat = new THREE.MeshStandardMaterial({ color: 0x8a6a3a, roughness: 0.7 })
