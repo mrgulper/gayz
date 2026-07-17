@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
 // Cheap procedural grime: speckle noise + a handful of jagged crack/stain
 // strokes baked onto a canvas once, then tiled via RepeatWrapping. Replaces
@@ -942,6 +943,84 @@ function addPerimeterBarricade(scene, register, groundSize) {
   }
 }
 
+// Real modeled buildings (Kenney City Kit - Commercial, CC0) used in place of
+// flat procedural boxes wherever available. Loaded once up front via
+// preloadBuildingModels() (awaited in main.js before the game starts, behind
+// a loading screen) so buildWorld() itself can stay synchronous - it just
+// reads whatever finished loading out of this cache. If a file failed to
+// load (or preload was skipped), addBuilding falls back to the original
+// box-with-canvas-texture look, so nothing can hard-crash on a bad network.
+const BUILDING_MODEL_FILES = [
+  'building-a.glb', 'building-b.glb', 'building-c.glb', 'building-d.glb',
+  'building-e.glb', 'building-f.glb', 'building-g.glb', 'building-h.glb',
+  'building-i.glb', 'building-k.glb', 'building-l.glb', 'building-m.glb',
+  'building-n.glb',
+]
+const _modelCache = new Map()
+
+export async function preloadBuildingModels() {
+  const loader = new GLTFLoader()
+  await Promise.all(BUILDING_MODEL_FILES.map(async (file) => {
+    try {
+      const gltf = await loader.loadAsync(`/models/buildings/${file}`)
+      const box = new THREE.Box3().setFromObject(gltf.scene)
+      const size = new THREE.Vector3()
+      box.getSize(size)
+      _modelCache.set(file, { scene: gltf.scene, size })
+    } catch (err) {
+      console.warn(`Building model failed to load, falling back to procedural box: ${file}`, err)
+    }
+  }))
+}
+
+// Weathering tint applied per building instance (on top of each model's own
+// clean Kenney texture) so 20-odd buildings drawing from ~13 shared model
+// files don't all look like identical copy-paste, and so they read as
+// worn/abandoned rather than a bright modern city kit.
+const MODEL_TINTS = [
+  { mul: 0x554a3c, roughness: 0.95 },
+  { mul: 0x3f4842, roughness: 1.0 },
+  { mul: 0x4a4038, roughness: 0.9 },
+  { mul: 0x454540, roughness: 1.0 },
+]
+
+function addModelBuilding(scene, register, spec, model) {
+  const group = model.scene.clone(true)
+  const tint = MODEL_TINTS[Math.abs(Math.floor(spec.x + spec.z)) % MODEL_TINTS.length]
+  const tintColor = new THREE.Color(tint.mul)
+  group.traverse((o) => {
+    if (!o.isMesh) return
+    o.castShadow = true
+    o.receiveShadow = true
+    o.material = o.material.clone()
+    o.material.color.multiply(tintColor)
+    o.material.roughness = tint.roughness
+    o.material.metalness = 0
+  })
+
+  // Kenney models are pivoted at their own base footprint size, not the
+  // procedural layout's target box - scale per axis to fit the same w/h/d
+  // slot a box building would have occupied, so the rest of buildWorld
+  // (spawn points, skyscraper picks, minimap) needs zero changes.
+  group.scale.set(spec.w / model.size.x, spec.h / model.size.y, spec.d / model.size.z)
+  group.position.set(spec.x, 0, spec.z)
+  scene.add(group)
+  register(group)
+
+  if (spec.broken) {
+    const rubbleCap = new THREE.Mesh(
+      new THREE.BoxGeometry(spec.w * 0.7, spec.h * 0.15, spec.d * 0.7),
+      new THREE.MeshStandardMaterial({ color: 0x1c1a16, roughness: 1 })
+    )
+    rubbleCap.position.set(spec.x + spec.w * 0.1, spec.h + spec.h * 0.05, spec.z)
+    rubbleCap.rotation.z = 0.08
+    rubbleCap.castShadow = true
+    scene.add(rubbleCap)
+  }
+
+  addIvyOverlay(scene, spec)
+}
+
 // Two rows of buildings flanking a central street (+z is the main avenue),
 // plus a couple set further back to break up the skyline.
 function buildingLayout() {
@@ -959,6 +1038,7 @@ function buildingLayout() {
         d: 11 + ((seed * 3) % 4) * 1.6,
         h: 9 + ((seed * 5) % 6) * 2.6,
         broken: seed % 3 === 0,
+        modelFile: BUILDING_MODEL_FILES[seed % BUILDING_MODEL_FILES.length],
       })
     }
   }
@@ -968,6 +1048,9 @@ function buildingLayout() {
 const BUILDING_COLORS = [0x38342e, 0x33373a, 0x3c302a, 0x2e3630]
 
 function addBuilding(scene, register, spec) {
+  const model = spec.modelFile && _modelCache.get(spec.modelFile)
+  if (model) return addModelBuilding(scene, register, spec, model)
+
   const color = BUILDING_COLORS[Math.floor(Math.abs(spec.x + spec.z)) % BUILDING_COLORS.length]
   const facadeTex = getFacadeTexture(color).clone()
   facadeTex.needsUpdate = true
