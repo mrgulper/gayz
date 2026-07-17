@@ -5,7 +5,7 @@ import * as THREE from 'three'
 // flat single-color ground/facade materials with something that reads as
 // worn concrete/asphalt instead of a solid-color primitive, at effectively
 // zero runtime cost (one canvas draw at world-build time, reused after).
-function createGrimeTexture(baseColor, { size = 256, noise = 20, cracks = 10 } = {}) {
+function createGrimeTexture(baseColor, { size = 256, noise = 20, cracks = 10, rustStreaks = 0 } = {}) {
   const canvas = document.createElement('canvas')
   canvas.width = size
   canvas.height = size
@@ -37,6 +37,24 @@ function createGrimeTexture(baseColor, { size = 256, noise = 20, cracks = 10 } =
     ctx.stroke()
   }
 
+  // Rust/water-stain streaks: soft vertical gradients dripping down from a
+  // random height, mimicking rusted rebar or corroded gutters bleeding down
+  // a weathered facade. Purely a canvas-time cost, same as the rest of this
+  // texture.
+  for (let i = 0; i < rustStreaks; i++) {
+    const x = Math.random() * size
+    const topY = Math.random() * size * 0.5
+    const height = size * (0.3 + Math.random() * 0.55)
+    const width = 3 + Math.random() * 8
+    const alpha = 0.16 + Math.random() * 0.24
+    const grad = ctx.createLinearGradient(0, topY, 0, topY + height)
+    grad.addColorStop(0, `rgba(130, 75, 32, ${alpha})`)
+    grad.addColorStop(0.6, `rgba(110, 62, 28, ${alpha * 0.6})`)
+    grad.addColorStop(1, 'rgba(110, 62, 28, 0)')
+    ctx.fillStyle = grad
+    ctx.fillRect(x - width / 2, topY, width, height)
+  }
+
   const tex = new THREE.CanvasTexture(canvas)
   tex.wrapS = THREE.RepeatWrapping
   tex.wrapT = THREE.RepeatWrapping
@@ -50,9 +68,143 @@ const _facadeTextureCache = new Map()
 function getFacadeTexture(hexColor) {
   if (!_facadeTextureCache.has(hexColor)) {
     const hex = '#' + hexColor.toString(16).padStart(6, '0')
-    _facadeTextureCache.set(hexColor, createGrimeTexture(hex, { size: 128, noise: 16, cracks: 5 }))
+    _facadeTextureCache.set(hexColor, createGrimeTexture(hex, { size: 256, noise: 18, cracks: 9, rustStreaks: 7 }))
   }
   return _facadeTextureCache.get(hexColor)
+}
+
+// Small alpha-cutout canvas texture of a hanging vine + leaf clusters, used
+// as a cheap stand-in for ivy/moss overgrowth on building facades. A few
+// cached variants (not just one) so repeated strips across a block don't all
+// look identical.
+const IVY_VARIANTS = 3
+const _ivyTextures = []
+function createIvyTexture(size = 128) {
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+  ctx.clearRect(0, 0, size, size)
+
+  ctx.strokeStyle = 'rgba(42, 58, 26, 0.9)'
+  ctx.lineWidth = 2
+  let x = size / 2
+  ctx.beginPath()
+  ctx.moveTo(x, size)
+  for (let y = size; y > 0; y -= size / 12) {
+    x += (Math.random() - 0.5) * size * 0.12
+    ctx.lineTo(x, y)
+  }
+  ctx.stroke()
+
+  const leafColors = ['rgba(58, 92, 40, 0.88)', 'rgba(74, 110, 48, 0.82)', 'rgba(45, 72, 34, 0.88)', 'rgba(90, 96, 40, 0.75)']
+  const leafCount = Math.floor(size * 0.55)
+  for (let i = 0; i < leafCount; i++) {
+    const ly = size * (0.15 + Math.random() * 0.85)
+    const spread = size * 0.32 * (ly / size)
+    const lx = size / 2 + (Math.random() - 0.5) * spread
+    const r = 3 + Math.random() * 5
+    ctx.fillStyle = leafColors[Math.floor(Math.random() * leafColors.length)]
+    ctx.beginPath()
+    ctx.ellipse(lx, ly, r, r * 0.6, Math.random() * Math.PI, 0, Math.PI * 2)
+    ctx.fill()
+  }
+
+  return new THREE.CanvasTexture(canvas)
+}
+function getIvyTexture(i) {
+  if (!_ivyTextures[i]) _ivyTextures[i] = createIvyTexture()
+  return _ivyTextures[i]
+}
+
+// Scatters 0-2 ivy/moss strips across a building's street-facing wall. Purely
+// decorative planes (no collider) laid over the existing facade mesh.
+function addIvyOverlay(scene, spec) {
+  if (Math.random() > 0.5) return
+  const facingSign = spec.x < 0 ? 1 : -1
+  const faceX = spec.x + facingSign * (spec.w / 2 + 0.03)
+  const stripCount = 1 + Math.floor(Math.random() * 2)
+  for (let i = 0; i < stripCount; i++) {
+    const tex = getIvyTexture(Math.floor(Math.random() * IVY_VARIANTS))
+    const height = Math.min(spec.h, spec.h * (0.4 + Math.random() * 0.45))
+    const width = 1.6 + Math.random() * 1.4
+    const mat = new THREE.MeshStandardMaterial({
+      map: tex,
+      transparent: true,
+      alphaTest: 0.3,
+      roughness: 1,
+      side: THREE.DoubleSide,
+    })
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, height), mat)
+    mesh.rotation.y = facingSign > 0 ? Math.PI / 2 : -Math.PI / 2
+    const z = spec.z - spec.d / 2 + width / 2 + Math.random() * Math.max(0.1, spec.d - width)
+    mesh.position.set(faceX, height / 2, z)
+    scene.add(mesh)
+  }
+}
+
+// Grayscale companion to createGrimeTexture, fed into MeshStandardMaterial's
+// bumpMap - panel seams + the same noise/crack pattern read as real surface
+// relief under the scene's directional moonlight instead of a flat color
+// swatch, at effectively zero extra runtime cost (one shared canvas, reused
+// by every color variant since bump doesn't need to match the tint).
+function createBumpTexture({ size = 256, noise = 34, cracks = 10, panels = 5 } = {}) {
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#808080'
+  ctx.fillRect(0, 0, size, size)
+
+  ctx.strokeStyle = 'rgba(40, 40, 40, 0.5)'
+  ctx.lineWidth = 1.5
+  const step = size / panels
+  for (let i = 1; i < panels; i++) {
+    ctx.beginPath()
+    ctx.moveTo(i * step, 0)
+    ctx.lineTo(i * step, size)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(0, i * step)
+    ctx.lineTo(size, i * step)
+    ctx.stroke()
+  }
+
+  const img = ctx.getImageData(0, 0, size, size)
+  for (let i = 0; i < img.data.length; i += 4) {
+    const n = (Math.random() - 0.5) * noise
+    const v = Math.min(255, Math.max(0, img.data[i] + n))
+    img.data[i] = v
+    img.data[i + 1] = v
+    img.data[i + 2] = v
+  }
+  ctx.putImageData(img, 0, 0)
+
+  ctx.strokeStyle = 'rgba(15, 15, 15, 0.7)'
+  for (let i = 0; i < cracks; i++) {
+    let x = Math.random() * size
+    let y = Math.random() * size
+    ctx.lineWidth = 0.8 + Math.random() * 2
+    ctx.beginPath()
+    ctx.moveTo(x, y)
+    for (let s = 0; s < 4; s++) {
+      x += (Math.random() - 0.5) * size * 0.35
+      y += (Math.random() - 0.5) * size * 0.35
+      ctx.lineTo(x, y)
+    }
+    ctx.stroke()
+  }
+
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.wrapS = THREE.RepeatWrapping
+  tex.wrapT = THREE.RepeatWrapping
+  return tex
+}
+
+let _sharedBumpTexture = null
+function getSharedBumpTexture() {
+  if (!_sharedBumpTexture) _sharedBumpTexture = createBumpTexture()
+  return _sharedBumpTexture
 }
 
 // Builds a small broken-city block: cracked streets, damaged buildings with
@@ -82,8 +234,8 @@ export function buildWorld(scene) {
     solidMeshes.push(object)
   }
 
-  scene.background = new THREE.Color(0x161c22)
-  scene.fog = new THREE.Fog(0x161c22, 18, 100)
+  scene.background = new THREE.Color(0x12161b)
+  scene.fog = new THREE.Fog(0x12161b, 15, 85)
 
   const hemi = new THREE.HemisphereLight(0x7f93ab, 0x20201a, 0.85)
   scene.add(hemi)
@@ -101,9 +253,12 @@ export function buildWorld(scene) {
   const groundSize = 150
   const groundTex = createGrimeTexture('#2c2e30', { size: 512, noise: 22, cracks: 60 })
   groundTex.repeat.set(groundSize / 5, groundSize / 5)
+  const groundBumpTex = getSharedBumpTexture().clone()
+  groundBumpTex.needsUpdate = true
+  groundBumpTex.repeat.set(groundSize / 3, groundSize / 3)
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(groundSize, groundSize),
-    new THREE.MeshStandardMaterial({ map: groundTex, roughness: 1 })
+    new THREE.MeshStandardMaterial({ map: groundTex, bumpMap: groundBumpTex, bumpScale: 0.06, roughness: 1 })
   )
   ground.rotation.x = -Math.PI / 2
   ground.receiveShadow = true
@@ -817,7 +972,10 @@ function addBuilding(scene, register, spec) {
   const facadeTex = getFacadeTexture(color).clone()
   facadeTex.needsUpdate = true
   facadeTex.repeat.set(Math.max(1, spec.w / 4), Math.max(1, spec.h / 4))
-  const mat = new THREE.MeshStandardMaterial({ map: facadeTex, roughness: 0.95 })
+  const facadeBumpTex = getSharedBumpTexture().clone()
+  facadeBumpTex.needsUpdate = true
+  facadeBumpTex.repeat.copy(facadeTex.repeat)
+  const mat = new THREE.MeshStandardMaterial({ map: facadeTex, bumpMap: facadeBumpTex, bumpScale: 0.035, roughness: 0.95 })
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(spec.w, spec.h, spec.d), mat)
   mesh.position.set(spec.x, spec.h / 2, spec.z)
   mesh.castShadow = true
@@ -837,6 +995,7 @@ function addBuilding(scene, register, spec) {
   }
 
   addWindows(scene, spec)
+  addIvyOverlay(scene, spec)
 }
 
 function addWindows(scene, spec) {
@@ -923,6 +1082,7 @@ function scatterRubble(scene, colliders, solidMeshes) {
   const rubbleMat = new THREE.MeshStandardMaterial({ color: 0x39362f, roughness: 1 })
   const positions = [
     [10, -12], [-11, 6], [14, 10], [-3, -30], [7, 30], [-15, -22], [16, -30],
+    [9, 18], [-8, -16], [17, -4], [-17, 14], [3, -20], [-6, 34], [12, -36],
   ]
 
   for (const [x, z] of positions) {
@@ -940,6 +1100,37 @@ function scatterRubble(scene, colliders, solidMeshes) {
       const box = new THREE.Box3().setFromObject(mesh)
       box.max.y = Math.min(box.max.y, box.min.y + 0.75)
       colliders.push(box)
+    }
+  }
+
+  scatterDebris(scene)
+}
+
+// Small non-collidable clutter (splintered planks, loose bricks) scattered
+// around the main rubble piles for street-level density. Kept low enough
+// (under ~0.4 units tall) that it never needs its own collider, same as the
+// existing sub-1.6-size rubble above.
+const DEBRIS_CLUSTERS = [
+  [8, -14], [-9, 8], [12, 12], [-5, -28], [5, 28], [-13, -20], [14, -28],
+  [2, -8], [-2, 14], [9, -4], [-8, -10], [3, 18], [-14, 4], [11, -18], [-4, 24],
+]
+function scatterDebris(scene) {
+  const brickMat = new THREE.MeshStandardMaterial({ color: 0x4a4438, roughness: 1 })
+  const plankMat = new THREE.MeshStandardMaterial({ color: 0x2c2418, roughness: 0.9 })
+
+  for (const [x, z] of DEBRIS_CLUSTERS) {
+    const count = 1 + Math.floor(Math.random() * 3)
+    for (let i = 0; i < count; i++) {
+      const isPlank = Math.random() < 0.5
+      const mesh = isPlank
+        ? new THREE.Mesh(new THREE.BoxGeometry(1.3 + Math.random() * 0.9, 0.08, 0.22), plankMat)
+        : new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.22, 0.42 + Math.random() * 0.3), brickMat)
+      mesh.position.set(x + (Math.random() - 0.5) * 3, mesh.geometry.parameters.height / 2, z + (Math.random() - 0.5) * 3)
+      mesh.rotation.y = Math.random() * Math.PI
+      if (isPlank) mesh.rotation.x = (Math.random() - 0.5) * 0.15
+      mesh.castShadow = true
+      mesh.receiveShadow = true
+      scene.add(mesh)
     }
   }
 }

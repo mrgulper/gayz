@@ -1382,6 +1382,25 @@ html, body {
   mix-blend-mode: screen;
 }
 
+/* Second, finer/denser streak layer at a slightly different angle+speed so
+   the rain reads as heavier/layered instead of one flat repeating pattern. */
+#rain-overlay::after {
+  content: '';
+  position: absolute;
+  inset: -20% -10%;
+  background:
+    repeating-linear-gradient(
+      107deg,
+      transparent 0px,
+      transparent 2px,
+      rgba(160, 200, 235, 0.09) 2px,
+      rgba(160, 200, 235, 0.09) 3px,
+      transparent 4px,
+      transparent 30px
+    );
+  animation: rain-fall 0.22s linear infinite reverse;
+}
+
 @keyframes rain-fall {
   0% { transform: translate(0, -4%); }
   100% { transform: translate(-2%, 4%); }
