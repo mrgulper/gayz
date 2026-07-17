@@ -15,29 +15,64 @@
       <div id="damage-flash"></div>
       <div id="lightning-flash"></div>
 
-      <div id="status-hud">
-        <div class="status-row">
-          <span class="status-icon">&hearts;</span>
-          <div class="status-bar"><div id="health-fill" class="status-fill health"></div></div>
-          <span id="health-value">100</span>
+      <div id="left-hud-stack">
+        <div id="inventory-hud">
+          <div class="inv-row">
+            <span class="inv-icon">&#129525;</span>
+            <span id="health-pack-count">0</span>
+            <span class="inv-key">H</span>
+          </div>
+          <div class="inv-row">
+            <span class="inv-icon">&#128737;</span>
+            <span id="armor-pack-count">0</span>
+            <span class="inv-key">G</span>
+          </div>
+          <div class="inv-row">
+            <span class="inv-icon">&#129512;</span>
+            <span id="noisemaker-count">0</span>
+            <span class="inv-key">V</span>
+          </div>
+          <div class="inv-row">
+            <span class="inv-icon">&#128163;</span>
+            <span id="grenade-count">0</span>
+            <span class="inv-key">B</span>
+          </div>
+          <div class="inv-row">
+            <span class="inv-icon">&#128736;</span>
+            <span id="barricade-count">0</span>
+            <span class="inv-key">N</span>
+          </div>
+          <div class="inv-row">
+            <span class="inv-icon">&#9888;</span>
+            <span id="trap-count">0</span>
+            <span class="inv-key">M</span>
+          </div>
         </div>
-        <div class="status-row">
-          <span class="status-icon">&#128737;</span>
-          <div class="status-bar"><div id="armor-fill" class="status-fill armor"></div></div>
-          <span id="armor-value">0</span>
-        </div>
-        <div class="status-row">
-          <span class="status-icon">&#9889;</span>
-          <div class="status-bar"><div id="stamina-fill" class="status-fill stamina"></div></div>
-          <span id="stamina-value">100</span>
-        </div>
-        <div class="status-row">
-          <span class="status-icon">&#128267;</span>
-          <div class="status-bar"><div id="battery-fill" class="status-fill battery"></div></div>
-        </div>
-        <div class="status-row">
-          <span class="status-icon" id="xp-level-badge">1</span>
-          <div class="status-bar"><div id="xp-fill" class="status-fill xp"></div></div>
+
+        <div id="status-hud">
+          <div class="status-row">
+            <span class="status-icon">&hearts;</span>
+            <div class="status-bar"><div id="health-fill" class="status-fill health"></div></div>
+            <span id="health-value">100</span>
+          </div>
+          <div class="status-row">
+            <span class="status-icon">&#128737;</span>
+            <div class="status-bar"><div id="armor-fill" class="status-fill armor"></div></div>
+            <span id="armor-value">0</span>
+          </div>
+          <div class="status-row">
+            <span class="status-icon">&#9889;</span>
+            <div class="status-bar"><div id="stamina-fill" class="status-fill stamina"></div></div>
+            <span id="stamina-value">100</span>
+          </div>
+          <div class="status-row">
+            <span class="status-icon">&#128267;</span>
+            <div class="status-bar"><div id="battery-fill" class="status-fill battery"></div></div>
+          </div>
+          <div class="status-row">
+            <span class="status-icon" id="xp-level-badge">1</span>
+            <div class="status-bar"><div id="xp-fill" class="status-fill xp"></div></div>
+          </div>
         </div>
       </div>
 
@@ -86,39 +121,6 @@
 
       <div id="minimap-wrap">
         <canvas id="minimap" width="150" height="150"></canvas>
-      </div>
-
-      <div id="inventory-hud">
-        <div class="inv-row">
-          <span class="inv-icon">&#129525;</span>
-          <span id="health-pack-count">0</span>
-          <span class="inv-key">H</span>
-        </div>
-        <div class="inv-row">
-          <span class="inv-icon">&#128737;</span>
-          <span id="armor-pack-count">0</span>
-          <span class="inv-key">G</span>
-        </div>
-        <div class="inv-row">
-          <span class="inv-icon">&#129512;</span>
-          <span id="noisemaker-count">0</span>
-          <span class="inv-key">V</span>
-        </div>
-        <div class="inv-row">
-          <span class="inv-icon">&#128163;</span>
-          <span id="grenade-count">0</span>
-          <span class="inv-key">B</span>
-        </div>
-        <div class="inv-row">
-          <span class="inv-icon">&#128736;</span>
-          <span id="barricade-count">0</span>
-          <span class="inv-key">N</span>
-        </div>
-        <div class="inv-row">
-          <span class="inv-icon">&#9888;</span>
-          <span id="trap-count">0</span>
-          <span class="inv-key">M</span>
-        </div>
       </div>
 
       <div id="hud">

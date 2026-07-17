@@ -11,10 +11,13 @@ const EXPLOSIVE_PROP_DAMAGE_MAX = 160
 const VIEWMODEL_ADS = new THREE.Vector3(0.02, -0.1, -0.32)
 const ADS_LERP_SPEED = 9
 
-// Quick-melee: an always-available instant stab, independent of whatever
-// gun is currently equipped - no weapon switch, no ammo, just a short
-// cooldown. See WeaponSystem._quickMelee.
-const QUICK_MELEE_DAMAGE = 150
+// The knife is one weapon with two ways to use it: equip it in the melee
+// slot and swing it normally, or - without switching off whatever gun is
+// currently out - tap 1 for the same knife's instant stab on a short
+// cooldown (see WeaponSystem._quickMelee). Both paths share this damage
+// number and the same viewmodel (buildQuickMeleeKnifeModel), not two
+// different knives with different stats.
+const KNIFE_DAMAGE = 150
 const QUICK_MELEE_RANGE = 2.4
 const QUICK_MELEE_COOLDOWN_MS = 500
 const QUICK_MELEE_ANIM_MS = 220
@@ -29,7 +32,7 @@ const WEAPONS = [
     auto: true,
     fireInterval: 0.45,
     range: 2.4,
-    damage: 45,
+    damage: KNIFE_DAMAGE,
     magSize: 0,
     reserve: 0,
     unlocked: true,
@@ -84,7 +87,7 @@ const WEAPONS = [
 // loot, they replace the knife's stats/viewmodel in place rather than
 // occupying a new weapon slot/key.
 const MELEE_VARIANTS = {
-  knife: { name: 'Knife', damage: 45, fireInterval: 0.45, range: 2.4 },
+  knife: { name: 'Knife', damage: KNIFE_DAMAGE, fireInterval: 0.45, range: 2.4 },
   bat: { name: 'Bat', damage: 75, fireInterval: 0.7, range: 2.2 },
   machete: { name: 'Machete', damage: 58, fireInterval: 0.3, range: 2.6 },
   uvbaton: { name: 'UV Baton', damage: 0, fireInterval: 0.5, range: 2.3 },
@@ -337,7 +340,7 @@ export class WeaponSystem {
     this._time += dt
     this.recoil = Math.max(0, this.recoil - dt * 6)
 
-    const aimTarget = this.aiming && !this.reloading ? 1 : 0
+    const aimTarget = this.aiming && !this.reloading && !this.current.melee ? 1 : 0
     this.aimAmount = THREE.MathUtils.damp(this.aimAmount, aimTarget, ADS_LERP_SPEED, dt)
     const aimFov = this.current.hasScope ? this.defaultFov * 0.35 : this.aimFov
     this.camera.fov = THREE.MathUtils.lerp(this.defaultFov, aimFov, this.aimAmount)
@@ -512,7 +515,7 @@ export class WeaponSystem {
     const zombieHit = hit.object.userData.zombie
     if (zombieHit) {
       zombieHit.lastHitWeaponId = 'quickmelee'
-      zombieHit.onHit(QUICK_MELEE_DAMAGE * this.damageMult)
+      zombieHit.onHit(KNIFE_DAMAGE * this.damageMult)
       this._showHitmarker()
       if (this.onZombieHit) this.onZombieHit()
     }

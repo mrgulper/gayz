@@ -203,42 +203,11 @@ function buildRifle() {
   return g
 }
 
-function buildKnifeModel() {
-  const g = new THREE.Group()
-
-  const bladeMat = new THREE.MeshStandardMaterial({ color: 0xb8bfc4, roughness: 0.3, metalness: 0.85 })
-
-  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.012, 0.2), bladeMat)
-  blade.position.set(0, 0, -0.12)
-  g.add(blade)
-
-  const tip = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.06, 4), bladeMat)
-  tip.rotation.x = -Math.PI / 2
-  tip.rotation.z = Math.PI / 4
-  tip.position.set(0, 0, -0.25)
-  g.add(tip)
-
-  const guard = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.03, 0.02), DARK_METAL)
-  guard.position.set(0, 0, -0.05)
-  g.add(guard)
-
-  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.18, 12), GRIP)
-  handle.rotation.x = Math.PI / 2
-  handle.position.set(0, 0, 0.06)
-  g.add(handle)
-
-  const knifeHand = buildHand()
-  knifeHand.position.copy(handle.position)
-  knifeHand.rotation.x = Math.PI / 2
-  g.add(knifeHand)
-
-  return g
-}
-
-// Quick-melee's dedicated combat knife - deliberately sharper/more angular
-// than the regular melee-slot knife (buildKnifeModel) so the panic-button
-// stab reads as a distinct weapon, not a reused asset: a longer tanto-style
-// blade, a serrated spine, and a darker gunmetal finish/tactical grip.
+// The one knife model in the game - used both for the melee slot's knife
+// variant and for quick-melee (see WeaponSystem._quickMelee), so equipping
+// "knife" and panic-stabbing with it are the same weapon, not two different
+// knives with different stats/looks. Sharper/more angular than a plain
+// kitchen knife on purpose: a tanto-style tip and a serrated spine.
 export function buildQuickMeleeKnifeModel() {
   const g = new THREE.Group()
 
@@ -370,7 +339,7 @@ function buildUvBatonModel() {
 function buildMelee() {
   const g = new THREE.Group()
 
-  const knife = buildKnifeModel()
+  const knife = buildQuickMeleeKnifeModel()
   const bat = buildBatModel()
   const machete = buildMacheteModel()
   const uvbaton = buildUvBatonModel()

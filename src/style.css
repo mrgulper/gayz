@@ -140,14 +140,26 @@ html, body {
   50% { opacity: 0.55; }
 }
 
-#status-hud {
+/* Shared bottom-left stack for the item-count list and the health/stamina
+   bars below it - previously two independently `position: absolute`
+   elements with hand-picked `bottom` offsets, which overlapped as soon as
+   either one's row count grew past the gap between those two fixed pixel
+   values (see the barricade-window inventory row that tipped it over).
+   A flex column sized by its own content can't overlap itself. */
+#left-hud-stack {
   position: absolute;
   left: 24px;
   bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+#status-hud {
   display: none;
   flex-direction: column;
   gap: 6px;
-  pointer-events: none;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
@@ -613,13 +625,9 @@ html, body {
 }
 
 #inventory-hud {
-  position: absolute;
-  left: 24px;
-  bottom: 82px;
   display: none;
   flex-direction: column;
   gap: 6px;
-  pointer-events: none;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
