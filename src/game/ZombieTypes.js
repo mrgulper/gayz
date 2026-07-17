@@ -255,10 +255,12 @@ export const ZOMBIE_TYPES = {
   // Rare roaming threat, distinct from the night-scheduled bosses above -
   // see ZombieManager's _maybeSpawnTitan, which rolls a random chance on
   // its own timer rather than a fixed night number, so it can catch the
-  // player off guard mid-run instead of always being anticipated.
+  // player off guard mid-run instead of always being anticipated. Reptilian
+  // build (see Zombie.js's cfg.dinosaur branches: tiny arms, a tail, an
+  // elongated jaw, no hood/hair) instead of the usual humanoid rig.
   titan: {
     id: 'titan',
-    label: 'Titan',
+    label: 'Dinosaur',
     lore: "VIREO stopped documenting after this one. There's only the one entry: DO NOT REPEAT.",
     weight: 0,
     health: 1400,
@@ -266,12 +268,13 @@ export const ZOMBIE_TYPES = {
     speedMax: 1.3,
     damageMin: 110,
     damageMax: 160,
-    scale: 2.9,
+    scale: 3.4,
     ranged: false,
-    meleeRange: 3.0,
+    meleeRange: 3.2,
     attackCooldown: 1.6,
-    skinTones: [0x2c1a14, 0x33201a, 0x281612],
-    clothesTones: [0x0a0806, 0x0d0a08],
+    dinosaur: true,
+    skinTones: [0x3a4a1e, 0x2e3a18, 0x445222],
+    clothesTones: [0x1f2a10, 0x263012],
   },
 }
 

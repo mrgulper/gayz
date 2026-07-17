@@ -44,7 +44,7 @@ const WEAPONS = [
   },
   {
     id: 'rifle',
-    name: 'Rifle',
+    name: 'AK-47',
     auto: true,
     fireInterval: 0.1,
     reloadTime: 0.8,
@@ -55,7 +55,7 @@ const WEAPONS = [
   },
   {
     id: 'pistol',
-    name: 'Pistol',
+    name: 'M1911',
     auto: false,
     fireInterval: 0.32,
     reloadTime: 0.55,
@@ -73,6 +73,7 @@ const WEAPONS = [
     magSize: 150,
     reserve: 450,
     damage: 12,
+    // Shop-exclusive (see CoinShop.js) - no longer findable as loot.
     unlocked: false,
   },
   {
@@ -84,6 +85,46 @@ const WEAPONS = [
     magSize: 40,
     reserve: 120,
     damage: 0,
+    unlocked: false,
+  },
+  {
+    id: 'shotgun',
+    name: 'Weatie',
+    auto: false,
+    fireInterval: 0.8,
+    reloadTime: 1.3,
+    magSize: 6,
+    reserve: 24,
+    damage: 22,
+    pellets: 8,
+    spread: 0.09,
+    // Per-pellet damage drops from `near` at nearDist down to `far` at
+    // farDist and beyond - a shotgun that's brutal at close range and weak
+    // at a distance instead of one flat damage number regardless of range.
+    damageFalloff: { near: 22, far: 6, nearDist: 4, farDist: 16 },
+    unlocked: false,
+  },
+  {
+    id: 'awp',
+    name: 'AWP',
+    auto: false,
+    fireInterval: 1.3,
+    reloadTime: 1.8,
+    magSize: 5,
+    reserve: 20,
+    damage: 140,
+    hasScope: true,
+    unlocked: false,
+  },
+  {
+    id: 'glock18',
+    name: 'Glock 18',
+    auto: true,
+    fireInterval: 0.07,
+    reloadTime: 0.5,
+    magSize: 20,
+    reserve: 80,
+    damage: 10,
     unlocked: false,
   },
 ]
@@ -312,6 +353,9 @@ export class WeaponSystem {
     if (e.code === 'Digit3') this._switchTo(2)
     if (e.code === 'Digit4') this._switchTo(3)
     if (e.code === 'Digit5') this._switchTo(4)
+    if (e.code === 'Digit6') this._switchTo(5)
+    if (e.code === 'Digit7') this._switchTo(6)
+    if (e.code === 'Digit8') this._switchTo(7)
     if (e.code === getKeyFor('reload')) this._reload()
   }
 
@@ -432,7 +476,11 @@ export class WeaponSystem {
     const zombieMeshes = this.zombieManager ? this.zombieManager.hittableMeshes : []
     const pelletCount = w.pellets || 1
     const spread = w.spread || 0
-    const hitZombies = new Set()
+    // zombie -> { count, distance } instead of a plain Set, so a
+    // multi-pellet weapon (see w.pellets, the shotgun) both stacks damage
+    // per pellet that actually connects and can look up how close the
+    // nearest connecting pellet was, for w.damageFalloff below.
+    const hitZombies = new Map()
     let anyHit = false
 
     for (let i = 0; i < pelletCount; i++) {
@@ -448,7 +496,15 @@ export class WeaponSystem {
       anyHit = true
       const hit = hits[0]
       const zombieHit = hit.object.userData.zombie
-      if (zombieHit) hitZombies.add(zombieHit)
+      if (zombieHit) {
+        const existing = hitZombies.get(zombieHit)
+        if (existing) {
+          existing.count += 1
+          existing.distance = Math.min(existing.distance, hit.distance)
+        } else {
+          hitZombies.set(zombieHit, { count: 1, distance: hit.distance })
+        }
+      }
 
       const explosive = hit.object.userData.explosive
       if (explosive && !explosive.exploded) {
@@ -468,12 +524,22 @@ export class WeaponSystem {
       }
     }
 
-    for (const zombie of hitZombies) {
+    for (const [zombie, info] of hitZombies) {
       zombie.lastHitWeaponId = w.id
       if (w.id === 'uvlamp' || (w.id === 'melee' && this.meleeVariant === 'uvbaton')) {
         zombie.weaken(1500)
       } else {
-        let damage = w.damage * this.damageMult * w.rarityMult
+        // Distance-based falloff (see the Weatie shotgun's w.damageFalloff) -
+        // per-pellet damage drops off linearly from full at nearDist to a
+        // reduced minimum at farDist, before being multiplied by how many
+        // pellets from this shot actually connected.
+        let perHitDamage = w.damage
+        if (w.damageFalloff) {
+          const { near, far, nearDist, farDist } = w.damageFalloff
+          const t = THREE.MathUtils.clamp((info.distance - nearDist) / (farDist - nearDist), 0, 1)
+          perHitDamage = THREE.MathUtils.lerp(near, far, t)
+        }
+        let damage = perHitDamage * info.count * this.damageMult * w.rarityMult
         // Stealth takedown: melee, and the zombie is facing away from the
         // player (its own forward vector points opposite the direction to
         // the player) - approaching from its blind side guarantees the kill

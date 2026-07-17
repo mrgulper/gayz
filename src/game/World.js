@@ -291,7 +291,7 @@ export function buildWorld(scene) {
   }
 
   scatterCars(scene, colliders, solidMeshes)
-  scatterRubble(scene, colliders, solidMeshes)
+  scatterDebris(scene, colliders, solidMeshes)
   addStreetlights(scene, register, flickerLights)
   for (const spot of buildTowers(scene, colliders, solidMeshes)) towerChestSpots.push(spot)
 
@@ -317,6 +317,9 @@ export function buildWorld(scene) {
   const sewer = buildSewer(scene, colliders, solidMeshes, flickerLights)
   towerChestSpots.push(sewer.chestSpot)
   spawnPoints.push({ x: sewer.chestSpot.x, z: sewer.chestSpot.z })
+  const subway = buildSubway(scene, colliders, solidMeshes, flickerLights)
+  towerChestSpots.push(subway.chestSpot)
+  const safeZone = buildSafeZone(scene, colliders, solidMeshes)
 
   // Second area: a small park beyond the north end of the street, in the
   // space freed up by pushing the perimeter barricade out to groundSize/2.
@@ -337,6 +340,7 @@ export function buildWorld(scene) {
     trader,
     ammoStation,
     vireoFacility,
+    safeZone,
   }
 }
 
@@ -587,6 +591,75 @@ function buildAmmoStation(scene, register) {
   register(body)
 
   return { x, z, buttonMat }
+}
+
+// A walled compound with a single entrance gap - guard NPCs (see Game.js,
+// which spawns Companion instances at guardSpots) stand watch just inside
+// the gap and shoot anything that wanders close, so the gap reads as a
+// defended chokepoint instead of an unguarded hole in the wall. Game.js also
+// slowly heals the player while they're within `radius` of the center.
+function buildSafeZone(scene, colliders, solidMeshes) {
+  const x = -13
+  const z = -10
+  const half = 7
+  const gapHalfWidth = 1.6
+  const wallHeight = 3.2
+
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x3a3a34, roughness: 0.95 })
+  const postMat = new THREE.MeshStandardMaterial({ color: 0x1c1a16, roughness: 0.8 })
+  const sandbagMat = new THREE.MeshStandardMaterial({ color: 0x5a5138, roughness: 1 })
+  const lightMat = new THREE.MeshStandardMaterial({ color: 0x1a1408, emissive: 0x6fe08a, emissiveIntensity: 1.3 })
+
+  const addWall = (wx, wz, w, d) => {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(w, wallHeight, d), wallMat)
+    wall.position.set(x + wx, wallHeight / 2, z + wz)
+    wall.castShadow = true
+    wall.receiveShadow = true
+    scene.add(wall)
+    solidMeshes.push(wall)
+    colliders.push(new THREE.Box3().setFromObject(wall))
+  }
+
+  // Four sides, with a gap left in the +z (avenue-facing) wall for an entrance.
+  addWall(0, -half, half * 2, 0.6)
+  addWall(-half, 0, 0.6, half * 2)
+  addWall(half, 0, 0.6, half * 2)
+  const sideWallLen = half - gapHalfWidth
+  addWall(-(gapHalfWidth + sideWallLen / 2), half, sideWallLen, 0.6)
+  addWall(gapHalfWidth + sideWallLen / 2, half, sideWallLen, 0.6)
+
+  // Sandbag-topped watchtower posts flanking the entrance, doubling as the
+  // first two guardSpots so the gap is covered from the moment it's built.
+  const guardSpots = []
+  for (const side of [-1, 1]) {
+    const postX = x + side * (gapHalfWidth + 0.5)
+    const postZ = z + half - 1.2
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.1, 0.9), sandbagMat)
+    post.position.set(postX, 0.55, postZ)
+    post.castShadow = true
+    post.receiveShadow = true
+    scene.add(post)
+    solidMeshes.push(post)
+    colliders.push(new THREE.Box3().setFromObject(post))
+    guardSpots.push({ x: postX, z: postZ - 0.7 })
+  }
+  // Third guard further back inside the compound, covering anything that
+  // makes it past the gap.
+  guardSpots.push({ x: x, z: z - half + 2 })
+
+  // A green glow post at the center - the visual "this spot is safe" tell,
+  // matching the heal-while-inside radius Game.js applies around {x, z}.
+  const beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 1.6, 8), postMat)
+  beacon.position.set(x, 0.8, z)
+  scene.add(beacon)
+  const beaconLamp = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 10), lightMat)
+  beaconLamp.position.set(x, 1.7, z)
+  scene.add(beaconLamp)
+  const beaconLight = new THREE.PointLight(0x6fe08a, 1.6, 10, 2)
+  beaconLight.position.set(x, 1.9, z)
+  scene.add(beaconLight)
+
+  return { x, z, radius: half - 0.5, guardSpots }
 }
 
 // Enclosed maintenance-tunnel shortcut off the avenue, between the two
@@ -851,6 +924,149 @@ function buildSewer(scene, colliders, solidMeshes, flickerLights) {
   }
 
   return { chestSpot: { x: SEWER_X, y: 0, z: SEWER_Z_START + length / 2 } }
+}
+
+// A genuine below-ground level (unlike the tunnel/sewer above, which sit at
+// street floor height inside walled corridors) - a street-level entrance
+// kiosk with a descending staircase (see buildStairFlight, the same
+// primitive the lookout-tower platforms use, just run downward instead of
+// up) into a subway platform at SUBWAY_FLOOR_Y, dressed with a platform
+// edge, rails, and a stalled train car.
+const SUBWAY_X = 13
+const SUBWAY_Z_START = -9
+const SUBWAY_Z_END = 11
+const SUBWAY_WIDTH = 5.5
+const SUBWAY_HEIGHT = 3.2
+const SUBWAY_FLOOR_Y = -4.6
+const SUBWAY_ENTRANCE_Z = SUBWAY_Z_START - 3
+
+function buildSubway(scene, colliders, solidMeshes, flickerLights) {
+  const length = SUBWAY_Z_END - SUBWAY_Z_START
+  const centerZ = (SUBWAY_Z_START + SUBWAY_Z_END) / 2
+
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x2c2e30, roughness: 0.95 })
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x201f1c, roughness: 1 })
+  const tileMat = new THREE.MeshStandardMaterial({ color: 0x3a3f42, roughness: 0.7 })
+  const platformMat = new THREE.MeshStandardMaterial({ color: 0x4a4238, roughness: 0.9 })
+  const railMat = new THREE.MeshStandardMaterial({ color: 0x1a1a18, roughness: 0.4, metalness: 0.7 })
+  const kioskMat = new THREE.MeshStandardMaterial({ color: 0x1c1a16, roughness: 0.85 })
+
+  // Street-level entrance kiosk: a roofed frame around the top of the stairs
+  // so the descent reads as "a subway entrance", not just stairs vanishing
+  // into the ground.
+  const kioskHalfW = SUBWAY_WIDTH / 2 + 0.3
+  const kioskRoof = new THREE.Mesh(new THREE.BoxGeometry(kioskHalfW * 2, 0.25, 3), kioskMat)
+  kioskRoof.position.set(SUBWAY_X, 2.6, SUBWAY_ENTRANCE_Z)
+  kioskRoof.castShadow = true
+  scene.add(kioskRoof)
+  solidMeshes.push(kioskRoof)
+  colliders.push(new THREE.Box3().setFromObject(kioskRoof))
+  for (const [ox, oz] of [[-kioskHalfW, -1.5], [-kioskHalfW, 1.5], [kioskHalfW, -1.5], [kioskHalfW, 1.5]]) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.6, 0.2), kioskMat)
+    post.position.set(SUBWAY_X + ox, 1.3, SUBWAY_ENTRANCE_Z + oz)
+    post.castShadow = true
+    scene.add(post)
+  }
+  const sign = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.4, 0.06), new THREE.MeshStandardMaterial({ color: 0x1a1408, emissive: 0xffb347, emissiveIntensity: 1 }))
+  sign.position.set(SUBWAY_X, 2.3, SUBWAY_ENTRANCE_Z - 1.51)
+  scene.add(sign)
+
+  buildStairFlight(
+    scene, solidMeshes,
+    SUBWAY_X, SUBWAY_ENTRANCE_Z, 0,
+    SUBWAY_X, SUBWAY_Z_START + 1.5, SUBWAY_FLOOR_Y,
+    18
+  )
+
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH, 0.08, length), floorMat)
+  floor.position.set(SUBWAY_X, SUBWAY_FLOOR_Y, centerZ)
+  floor.receiveShadow = true
+  scene.add(floor)
+  solidMeshes.push(floor)
+
+  const ceiling = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH + 0.4, 0.2, length), wallMat)
+  ceiling.position.set(SUBWAY_X, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT, centerZ)
+  ceiling.castShadow = true
+  scene.add(ceiling)
+  solidMeshes.push(ceiling)
+  colliders.push(new THREE.Box3().setFromObject(ceiling))
+
+  for (const side of [-1, 1]) {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, SUBWAY_HEIGHT, length), wallMat)
+    wall.position.set(SUBWAY_X + side * (SUBWAY_WIDTH / 2 + 0.1), SUBWAY_FLOOR_Y + SUBWAY_HEIGHT / 2, centerZ)
+    wall.castShadow = true
+    wall.receiveShadow = true
+    scene.add(wall)
+    solidMeshes.push(wall)
+    colliders.push(new THREE.Box3().setFromObject(wall))
+
+    // Tile band along the wall, purely decorative.
+    const tileBand = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.8, length), tileMat)
+    tileBand.position.set(SUBWAY_X + side * (SUBWAY_WIDTH / 2), SUBWAY_FLOOR_Y + 1.4, centerZ)
+    scene.add(tileBand)
+  }
+
+  const endWallStart = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH + 0.4, SUBWAY_HEIGHT, 0.2), wallMat)
+  endWallStart.position.set(SUBWAY_X, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT / 2, SUBWAY_Z_START)
+  endWallStart.castShadow = true
+  scene.add(endWallStart)
+  solidMeshes.push(endWallStart)
+  colliders.push(new THREE.Box3().setFromObject(endWallStart))
+
+  const endWallFar = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH + 0.4, SUBWAY_HEIGHT, 0.2), wallMat)
+  endWallFar.position.set(SUBWAY_X, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT / 2, SUBWAY_Z_END)
+  endWallFar.castShadow = true
+  scene.add(endWallFar)
+  solidMeshes.push(endWallFar)
+  colliders.push(new THREE.Box3().setFromObject(endWallFar))
+
+  // Raised platform running down one side, with rails + a stalled train car
+  // in the trackbed on the other side - the two details that actually read
+  // as "subway" rather than a generic underground corridor like the sewer.
+  const platformWidth = 1.6
+  const platform = new THREE.Mesh(new THREE.BoxGeometry(platformWidth, 0.35, length - 1), platformMat)
+  platform.position.set(SUBWAY_X - SUBWAY_WIDTH / 2 + platformWidth / 2 + 0.15, SUBWAY_FLOOR_Y + 0.175, centerZ)
+  platform.castShadow = true
+  platform.receiveShadow = true
+  scene.add(platform)
+  solidMeshes.push(platform)
+
+  const trackCenterX = SUBWAY_X + 0.6
+  for (const railOffset of [-0.5, 0.5]) {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, length - 1), railMat)
+    rail.position.set(trackCenterX + railOffset, SUBWAY_FLOOR_Y + 0.03, centerZ)
+    scene.add(rail)
+  }
+  for (let z = SUBWAY_Z_START + 1; z < SUBWAY_Z_END - 1; z += 1) {
+    const tie = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.04, 0.15), new THREE.MeshStandardMaterial({ color: 0x2a2018, roughness: 1 }))
+    tie.position.set(trackCenterX, SUBWAY_FLOOR_Y + 0.02, z)
+    scene.add(tie)
+  }
+
+  const trainMat = new THREE.MeshStandardMaterial({ color: 0x5a4a1c, roughness: 0.6, metalness: 0.3 })
+  const trainCar = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.2, 6.5), trainMat)
+  trainCar.position.set(trackCenterX, SUBWAY_FLOOR_Y + 1.3, SUBWAY_Z_END - 5)
+  trainCar.castShadow = true
+  trainCar.receiveShadow = true
+  scene.add(trainCar)
+  solidMeshes.push(trainCar)
+  colliders.push(new THREE.Box3().setFromObject(trainCar))
+  const trainStripeMat = new THREE.MeshStandardMaterial({ color: 0xe3a63c, roughness: 0.5, emissive: 0xe3a63c, emissiveIntensity: 0.15 })
+  const trainStripe = new THREE.Mesh(new THREE.BoxGeometry(2.22, 0.2, 6.5), trainStripeMat)
+  trainStripe.position.set(trackCenterX, SUBWAY_FLOOR_Y + 1.1, SUBWAY_Z_END - 5)
+  scene.add(trainStripe)
+
+  const lightSpacing = 5
+  const lightCount = Math.floor(length / lightSpacing)
+  for (let i = 1; i < lightCount; i++) {
+    const z = SUBWAY_Z_START + lightSpacing * i
+    const light = new THREE.PointLight(0xbcd4ff, 0.8, 6, 2)
+    light.position.set(SUBWAY_X - 1, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT - 0.3, z)
+    scene.add(light)
+    flickerLights.push({ light, base: 0.8, seed: Math.random() * 100 })
+  }
+
+  return { chestSpot: { x: SUBWAY_X, y: SUBWAY_FLOOR_Y, z: SUBWAY_Z_START + 3 } }
 }
 
 // Purely decorative neon signage for the Neon Decay look - not registered as
@@ -1164,47 +1380,37 @@ function scatterCars(scene, colliders, solidMeshes) {
   }
 }
 
-function scatterRubble(scene, colliders, solidMeshes) {
-  const rubbleMat = new THREE.MeshStandardMaterial({ color: 0x39362f, roughness: 1 })
-  const positions = [
-    [10, -12], [-11, 6], [14, 10], [-3, -30], [7, 30], [-15, -22], [16, -30],
-    [9, 18], [-8, -16], [17, -4], [-17, 14], [3, -20], [-6, 34], [12, -36],
-  ]
-
-  for (const [x, z] of positions) {
-    const size = 1.1 + Math.random() * 1.3
-    const mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(size, 0), rubbleMat)
-    mesh.position.set(x, size * 0.4, z)
-    mesh.rotation.set(Math.random(), Math.random(), Math.random())
-    mesh.castShadow = true
-    mesh.receiveShadow = true
-    scene.add(mesh)
-
-    if (size > 1.6) {
-      solidMeshes.push(mesh)
-      // Same low-collision-height trick as cars, so rubble is jumpable too.
-      const box = new THREE.Box3().setFromObject(mesh)
-      box.max.y = Math.min(box.max.y, box.min.y + 0.75)
-      colliders.push(box)
-    }
-  }
-
-  scatterDebris(scene)
-}
-
-// Small non-collidable clutter (splintered planks, loose bricks) scattered
-// around the main rubble piles for street-level density. Kept low enough
-// (under ~0.4 units tall) that it never needs its own collider, same as the
-// existing sub-1.6-size rubble above.
+// Rubble piles: one rock/boulder chunk (occasionally big enough to double as
+// a jumpable collider, same trick as cars) plus a scatter of planks/bricks
+// around its base, so each spot reads as one coherent debris pile instead of
+// standalone boulders sitting in the open street with unrelated plank
+// clutter scattered elsewhere.
 const DEBRIS_CLUSTERS = [
   [8, -14], [-9, 8], [12, 12], [-5, -28], [5, 28], [-13, -20], [14, -28],
   [2, -8], [-2, 14], [9, -4], [-8, -10], [3, 18], [-14, 4], [11, -18], [-4, 24],
 ]
-function scatterDebris(scene) {
+function scatterDebris(scene, colliders, solidMeshes) {
+  const rubbleMat = new THREE.MeshStandardMaterial({ color: 0x39362f, roughness: 1 })
   const brickMat = new THREE.MeshStandardMaterial({ color: 0x4a4438, roughness: 1 })
   const plankMat = new THREE.MeshStandardMaterial({ color: 0x2c2418, roughness: 0.9 })
 
   for (const [x, z] of DEBRIS_CLUSTERS) {
+    const size = 1.1 + Math.random() * 1.3
+    const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(size, 0), rubbleMat)
+    rock.position.set(x, size * 0.4, z)
+    rock.rotation.set(Math.random(), Math.random(), Math.random())
+    rock.castShadow = true
+    rock.receiveShadow = true
+    scene.add(rock)
+
+    if (size > 1.6) {
+      solidMeshes.push(rock)
+      // Same low-collision-height trick as cars, so rubble is jumpable too.
+      const box = new THREE.Box3().setFromObject(rock)
+      box.max.y = Math.min(box.max.y, box.min.y + 0.75)
+      colliders.push(box)
+    }
+
     const count = 1 + Math.floor(Math.random() * 3)
     for (let i = 0; i < count; i++) {
       const isPlank = Math.random() < 0.5

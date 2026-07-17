@@ -986,6 +986,45 @@ html, body {
   max-width: 90vw;
 }
 
+#coinshop-options {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  max-width: 90vw;
+  max-height: 62vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(227, 166, 60, 0.4) transparent;
+}
+
+#coinshop-options::-webkit-scrollbar {
+  width: 8px;
+}
+
+#coinshop-options::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#coinshop-options::-webkit-scrollbar-thumb {
+  background: rgba(227, 166, 60, 0.35);
+  border-radius: 4px;
+}
+
+.shop-section-heading {
+  margin: 10px 0 2px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #e3a63c;
+  opacity: 0.8;
+}
+
+.shop-section-row {
+  margin-bottom: 4px;
+}
+
 .perk-option {
   display: flex;
   flex-direction: column;
@@ -1162,7 +1201,9 @@ html, body {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  background: radial-gradient(ellipse at center, rgba(20, 25, 20, 0.85), rgba(0, 0, 0, 0.95));
+  /* Fully opaque on purpose - the 3D scene still renders behind this, but
+     the menu shouldn't show any of it through anymore. */
+  background: linear-gradient(135deg, #e3a63c 0%, #7a4d18 28%, #2a1808 58%, #000000 100%);
   text-align: center;
   padding: 14px 20px;
   /* Safety net: this column has grown a lot as features piled on. If it
@@ -1195,6 +1236,21 @@ html, body {
 #menu-corner-nav button,
 #menu-corner-nav-bottom button {
   white-space: nowrap;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: #e3a63c;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(227, 166, 60, 0.5);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+#menu-corner-nav button:hover,
+#menu-corner-nav-bottom button:hover {
+  background: rgba(227, 166, 60, 0.1);
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 #menu h1 {
@@ -1308,6 +1364,28 @@ html, body {
   width: min(520px, 88vw);
   max-height: 52vh;
   overflow-y: auto;
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(227, 166, 60, 0.4) transparent;
+}
+
+/* Chrome/Safari default to a stark white scrollbar track+thumb that clashes
+   hard with this dark panel - match the gold accent instead. */
+.settings-page::-webkit-scrollbar {
+  width: 8px;
+}
+
+.settings-page::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.settings-page::-webkit-scrollbar-thumb {
+  background: rgba(227, 166, 60, 0.35);
+  border-radius: 4px;
+}
+
+.settings-page::-webkit-scrollbar-thumb:hover {
+  background: rgba(227, 166, 60, 0.55);
 }
 
 .language-grid {

@@ -185,6 +185,43 @@ function saveBestStats(stats) {
   }
 }
 
+// Points/coins and everything bought with them (skins, Shop stat perks) used
+// to be purely in-run state that reset on every page reload, same as
+// health/inventory/kills. Split out into its own persisted slice so the
+// currency balance and anything already owned survive a reload, without
+// touching the rest of the run-state reset behavior on death/respawn.
+const SHOP_PROGRESS_KEY = 'gayz-shop-progress'
+
+function loadShopProgress() {
+  try {
+    const raw = localStorage.getItem(SHOP_PROGRESS_KEY)
+    const parsed = raw ? JSON.parse(raw) : {}
+    return {
+      points: parsed.points || 0,
+      coins: parsed.coins || 0,
+      ownedSkins: new Set(parsed.ownedSkins || []),
+      equippedSkin: parsed.equippedSkin || null,
+      shopPurchased: new Set(parsed.shopPurchased || []),
+    }
+  } catch {
+    return { points: 0, coins: 0, ownedSkins: new Set(), equippedSkin: null, shopPurchased: new Set() }
+  }
+}
+
+function saveShopProgress(game) {
+  try {
+    localStorage.setItem(SHOP_PROGRESS_KEY, JSON.stringify({
+      points: game.points,
+      coins: game.coins,
+      ownedSkins: [...game.ownedSkins],
+      equippedSkin: game.equippedSkin,
+      shopPurchased: [...game.coinShopPurchased],
+    }))
+  } catch {
+    // Storage unavailable - shop progress just won't persist across sessions.
+  }
+}
+
 const NIGHT_DURATION_MS = 90000
 const FLASHLIGHT_DRAIN_PER_SEC = 1.5
 const GENERATOR_DRAIN_PER_SEC = 100 / 150
@@ -196,6 +233,7 @@ const AMMO_STATION_RADIUS = 2.2
 const AMMO_STATION_HOLD_SECONDS = 10
 const LIGHT_LURE_RADIUS = 20
 const LIGHT_LURE_INTERVAL_MS = 2000
+const SAFE_ZONE_HEAL_PER_SEC = 6
 const LIGHT_LURE_ENRAGE_MS = 2500
 const VEHICLE_INTERACT_RADIUS = 3
 const VIREO_TERMINAL_RADIUS = 2.5
@@ -404,7 +442,8 @@ export class Game {
     this.kills = 0
     this.totalKills = 0
     this.totalDeaths = 0
-    this.points = 0
+    this.shopProgress = loadShopProgress()
+    this.points = this.shopProgress.points
     this.healthPackHealAmount = 200
     this.perkPanelOpen = false
     this.xp = 0
@@ -419,8 +458,8 @@ export class Game {
     this.perkSynergiesUnlocked = new Set()
     this.tempCompanion = null
     this.tempCompanionExpiresAtNight = 0
-    this.coins = 0
-    this.coinShopPurchased = new Set()
+    this.coins = this.shopProgress.coins
+    this.coinShopPurchased = this.shopProgress.shopPurchased
     this._shakeOffset = new THREE.Vector3()
     this._shakeMagnitude = 0
     this._shakeDuration = 0
@@ -473,7 +512,7 @@ export class Game {
     this.composer.addPass(this.bloomPass)
     this.composer.addPass(new OutputPass())
 
-    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility } = buildWorld(this.scene)
+    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, safeZone } = buildWorld(this.scene)
     // Kept for _deployBarricade - both PlayerController and ZombieManager
     // hold this exact same array by reference (not a copy), so pushing a
     // new collider here is immediately respected by both without needing
@@ -520,6 +559,17 @@ export class Game {
       { x: -10, z: 30, rotY: Math.PI / 2 },
     ])
     this.nearBarricadeWindow = null
+    this.safeZone = safeZone
+    // Stationary defenders (see Companion.js) - each guard.update() call
+    // below passes the guard's own position as "playerPos" so its
+    // follow-the-player movement never triggers, only its zombie-targeting/
+    // firing logic, which works off whatever `zombies` list is passed in
+    // regardless of who's "following" who.
+    this.safeZoneGuards = safeZone.guardSpots.map((spot) => {
+      const guard = new Companion(this.scene, spot.x, spot.z, 'ranged')
+      guard.setName('Guard')
+      return guard
+    })
     this.companion = new Companion(this.scene, 1.6, 7, this.settings.companionRole)
     this.playerBody = new PlayerBody(this.scene)
     this.vehicle = new Vehicle(this.scene, -6, -18, 0)
@@ -529,7 +579,9 @@ export class Game {
     this.pickups = new PickupManager(this.scene, spawnPoints)
     this.xpGems = new XpGemManager(this.scene)
     this.autoWeapons = new AutoWeaponManager(this.scene)
-    this.pickups.spawnUnique('minigun', minigunSpot.x, minigunSpot.z, minigunSpot.y)
+    // Minigun used to be a one-off floating pickup at minigunSpot (still
+    // returned by buildWorld for the lookout room's layout) - now
+    // Shop-exclusive instead, so it's no longer spawned on the map at all.
     this.pickups.spawnUnique('audiolog1', 0, -30, 0.5)
     this.pickups.spawnUnique('audiolog2', 0, 0, 0.5)
     this.pickups.spawnUnique('audiolog3', 0, 30, 0.5)
@@ -604,6 +656,8 @@ export class Game {
     this.pauseResumeBtn = document.getElementById('pause-resume-btn')
     this.pauseSettingsBtn = document.getElementById('pause-settings-btn')
     this.pauseQuitBtn = document.getElementById('pause-quit-btn')
+    this.pauseUpgradesBtn = document.getElementById('pause-upgrades-btn')
+    this.pauseShopBtn = document.getElementById('pause-shop-btn')
     this.screenshotCropOverlay = document.getElementById('screenshot-crop-overlay')
     this.screenshotCropStage = document.getElementById('screenshot-crop-stage')
     this.screenshotCropImage = document.getElementById('screenshot-crop-image')
@@ -635,19 +689,26 @@ export class Game {
       },
       () => this._onStealthTakedown()
     )
-    this.ownedSkins = new Set()
-    this.equippedSkin = null
-    if (this.achievements.unlocked.has('centurion')) {
+    this.ownedSkins = this.shopProgress.ownedSkins
+    this.equippedSkin = this.shopProgress.equippedSkin
+    // Only auto-grant+equip gold the first time the achievement unlocks -
+    // once ownedSkins/equippedSkin persist across reloads (see
+    // loadShopProgress), re-forcing gold on every single load would
+    // steamroll whatever skin the player actually chose afterward.
+    if (this.achievements.unlocked.has('centurion') && !this.ownedSkins.has('gold')) {
       this.ownedSkins.add('gold')
-      this.equippedSkin = 'gold'
-      this.weapons.setWeaponSkin('pistol', 'gold')
+      if (this.equippedSkin === null) this.equippedSkin = 'gold'
     }
+    if (this.equippedSkin) this.weapons.setWeaponSkin('pistol', this.equippedSkin)
 
     audioEngine.setMusicVolume(this.settings.musicVolume / 100)
     audioEngine.setSfxVolume(this.settings.sfxVolume / 100)
 
     this._bindMenu()
     this._bindScreenshotCrop()
+    // Safety net alongside the _updateStatsPanel save hook - catches a
+    // close/reload happening between the last stats-panel update and now.
+    window.addEventListener('beforeunload', () => saveShopProgress(this))
     this._bindItemKeys()
     this._bindSettings()
     this._bindDifficulty()
@@ -765,6 +826,8 @@ export class Game {
     this.pauseResumeBtn.addEventListener('click', () => this.player.controls.lock())
     this.pauseSettingsBtn.addEventListener('click', () => this._toggleSettings(true))
     this.pauseQuitBtn.addEventListener('click', () => window.location.reload())
+    this.pauseUpgradesBtn.addEventListener('click', () => this._openUpgradesPanel())
+    this.pauseShopBtn.addEventListener('click', () => this._openCoinShopPanel())
 
     this.player.controls.addEventListener('lock', () => {
       this.gameStarted = true
@@ -800,6 +863,8 @@ export class Game {
       } else if (this.gameStarted) {
         this.pauseOverlayTitle.textContent = t('pauseOverlayTitle')
         this.pauseResumeBtn.textContent = t('pauseResumeBtn')
+        this.pauseUpgradesBtn.textContent = t('upgradesBtn')
+        this.pauseShopBtn.textContent = t('coinshopBtn')
         this.pauseSettingsBtn.textContent = t('settingsBtn')
         this.pauseQuitBtn.textContent = t('pauseQuitBtn')
         this.pauseOverlay.style.display = 'flex'
@@ -1819,60 +1884,98 @@ export class Game {
     this.coinshopCoinLine.textContent = t('coinsLabel', { n: this.coins })
     this.coinshopOptions.innerHTML = ''
 
-    const defaultBtn = document.createElement('button')
-    defaultBtn.className = 'perk-option'
-    defaultBtn.disabled = this.equippedSkin === null
-    defaultBtn.innerHTML = `
-      <span class="perk-name">${t('skinDefault')}</span>
-      <span class="perk-cost">${this.equippedSkin === null ? t('skinEquipped') : t('skinEquip')}</span>
-    `
-    defaultBtn.addEventListener('click', () => {
-      this.equippedSkin = null
-      this.weapons.setWeaponSkin('pistol', null)
-      this._renderCoinShopOptions()
-    })
-    this.coinshopOptions.appendChild(defaultBtn)
+    const sections = [
+      { id: 'guns', labelKey: 'shopSectionGuns' },
+      { id: 'skins', labelKey: 'shopSectionSkins' },
+      { id: 'perks', labelKey: 'shopSectionPerks' },
+    ]
 
-    for (const item of COIN_SHOP_ITEMS) {
-      const btn = document.createElement('button')
-      btn.className = 'perk-option'
+    for (const section of sections) {
+      const heading = document.createElement('h3')
+      heading.className = 'shop-section-heading'
+      heading.textContent = t(section.labelKey)
+      this.coinshopOptions.appendChild(heading)
 
-      if (item.skin) {
-        const owned = this.ownedSkins.has(item.skin)
-        const equipped = this.equippedSkin === item.skin
-        btn.disabled = equipped || (!owned && this.coins < item.cost)
-        btn.innerHTML = `
-          <span class="perk-name">${t(item.titleKey)}</span>
-          <span class="perk-cost">${equipped ? t('skinEquipped') : owned ? t('skinEquip') : t('coinCostLabel', { n: item.cost })}</span>
+      const row = document.createElement('div')
+      row.className = 'perk-options shop-section-row'
+      this.coinshopOptions.appendChild(row)
+
+      // The "unequip skin" option belongs at the front of the Skins
+      // section, not as its own top-level item outside any section.
+      if (section.id === 'skins') {
+        const defaultBtn = document.createElement('button')
+        defaultBtn.className = 'perk-option'
+        defaultBtn.disabled = this.equippedSkin === null
+        defaultBtn.innerHTML = `
+          <span class="perk-name">${t('skinDefault')}</span>
+          <span class="perk-cost">${this.equippedSkin === null ? t('skinEquipped') : t('skinEquip')}</span>
         `
-        btn.addEventListener('click', () => {
-          if (equipped) return
-          if (!owned) {
-            if (this.coins < item.cost) return
-            this.coins -= item.cost
-            this.ownedSkins.add(item.skin)
-            this._updateStatsPanel()
-          }
-          this.equippedSkin = item.skin
-          this.weapons.setWeaponSkin('pistol', item.skin)
+        defaultBtn.addEventListener('click', () => {
+          this.equippedSkin = null
+          this.weapons.setWeaponSkin('pistol', null)
           this._renderCoinShopOptions()
         })
-      } else {
-        const owned = item.isOwned(this)
-        btn.disabled = owned || this.coins < item.cost
-        btn.innerHTML = `
-          <span class="perk-name">${t(item.titleKey)}</span>
-          <span class="perk-cost">${owned ? t('upgradesOwned') : t('coinCostLabel', { n: item.cost })}</span>
-        `
-        btn.addEventListener('click', () => {
-          if (owned || this.coins < item.cost) return
-          this.coins -= item.cost
-          item.apply(this)
-          this._updateStatsPanel()
-          this._renderCoinShopOptions()
-        })
+        row.appendChild(defaultBtn)
       }
-      this.coinshopOptions.appendChild(btn)
+
+      for (const item of COIN_SHOP_ITEMS) {
+        if (item.section !== section.id) continue
+        const btn = document.createElement('button')
+        btn.className = 'perk-option'
+
+        if (item.skin) {
+          const owned = this.ownedSkins.has(item.skin)
+          const equipped = this.equippedSkin === item.skin
+          btn.disabled = equipped || (!owned && this.coins < item.cost)
+          btn.innerHTML = `
+            <span class="perk-name">${t(item.titleKey)}</span>
+            <span class="perk-cost">${equipped ? t('skinEquipped') : owned ? t('skinEquip') : t('coinCostLabel', { n: item.cost })}</span>
+          `
+          btn.addEventListener('click', () => {
+            if (equipped) return
+            if (!owned) {
+              if (this.coins < item.cost) return
+              this.coins -= item.cost
+              this.ownedSkins.add(item.skin)
+              this._updateStatsPanel()
+            }
+            this.equippedSkin = item.skin
+            this.weapons.setWeaponSkin('pistol', item.skin)
+            this._renderCoinShopOptions()
+          })
+        } else if (item.gun) {
+          const weapon = this.weapons.weapons.find((w) => w.id === item.gun)
+          const owned = !!weapon?.unlocked
+          btn.disabled = owned || this.coins < item.cost
+          btn.innerHTML = `
+            <span class="perk-name">${t(item.titleKey)}</span>
+            <span class="perk-cost">${owned ? t('upgradesOwned') : t('coinCostLabel', { n: item.cost })}</span>
+          `
+          btn.addEventListener('click', () => {
+            if (owned || this.coins < item.cost) return
+            this.coins -= item.cost
+            this.weapons.unlockWeapon(item.gun)
+            if (item.onUnlock) item.onUnlock(this)
+            this._updateStatsPanel()
+            this._renderCoinShopOptions()
+          })
+        } else {
+          const owned = item.isOwned(this)
+          btn.disabled = owned || this.coins < item.cost
+          btn.innerHTML = `
+            <span class="perk-name">${t(item.titleKey)}</span>
+            <span class="perk-cost">${owned ? t('upgradesOwned') : t('coinCostLabel', { n: item.cost })}</span>
+          `
+          btn.addEventListener('click', () => {
+            if (owned || this.coins < item.cost) return
+            this.coins -= item.cost
+            item.apply(this)
+            this._updateStatsPanel()
+            this._renderCoinShopOptions()
+          })
+        }
+        row.appendChild(btn)
+      }
     }
   }
 
@@ -2431,6 +2534,11 @@ export class Game {
   }
 
   _updateStatsPanel() {
+    // Piggybacks on this already being called after every points/coins/skin
+    // change in the game (kills, purchases, repairs, rescues...) instead of
+    // needing a save call at each individual mutation site - see
+    // saveShopProgress/loadShopProgress for what actually persists.
+    saveShopProgress(this)
     this.statsDay.textContent = this.dayNight ? this.dayNight.getDayNumber() : 1
     this.statsDeaths.textContent = this.totalDeaths
     this.statsKills.textContent = this.totalKills
@@ -2662,6 +2770,18 @@ export class Game {
   // infection in the first place (see the audio log lore), so the
   // flashlight - the tool you need to see at night - is also a beacon.
   // Reuses the same forceWake()/enrage() the Screamer's scream uses.
+  // Slow passive regen while standing inside the guarded compound - the
+  // mechanical half of "safe zone" (the guards shooting anything that
+  // approaches are the other half). Silent/no toast on its own; the
+  // health bar visibly ticking up is feedback enough.
+  _updateSafeZoneHeal(dt, playerPos) {
+    const dist = Math.hypot(playerPos.x - this.safeZone.x, playerPos.z - this.safeZone.z)
+    if (dist > this.safeZone.radius) return
+    if (!this.playerState.alive || this.playerState.health >= this.playerState.maxHealth) return
+    this.playerState.heal(SAFE_ZONE_HEAL_PER_SEC * dt)
+    this._updateHealthHud()
+  }
+
   _updateLightLure(playerPos) {
     if (performance.now() < this.nextLightLureAt) return
     this.nextLightLureAt = performance.now() + LIGHT_LURE_INTERVAL_MS
@@ -2814,13 +2934,14 @@ export class Game {
     const zombiePositions = this.zombies.zombies
       .filter((z) => z.state === 'alive')
       .map((z) => ({ x: z.group.position.x, z: z.group.position.z }))
-    const minigunUnlocked = this.weapons.getSummary().find((w) => w.id === 'minigun')?.unlocked
     this.minimap.update(
       playerPos,
       facingRad,
       zombiePositions,
       this.chests.chests,
-      minigunUnlocked ? null : this.minigunSpot,
+      // Minigun is Shop-exclusive now (see WeaponSystem.js) - no more
+      // physical pickup on the map to point a marker at.
+      null,
       this.trader,
       this.ammoStation,
       this.airdrop
@@ -2938,6 +3059,10 @@ export class Game {
         this._updateHealthHud()
       })
       if (this.tempCompanion) this.tempCompanion.update(dt, playerPos, this.zombies.zombies, null)
+      for (const guard of this.safeZoneGuards) {
+        guard.update(dt, guard.group.position, this.zombies.zombies, null)
+      }
+      this._updateSafeZoneHeal(dt, playerPos)
       if (this.flashlightOn) this._updateLightLure(playerPos)
       this.pickups.update(dt, elapsed, playerPos, {
         onPickup: (type, label, isLoot) => this._onPickup(type, label, isLoot),

@@ -328,9 +328,15 @@ export class Zombie {
     this.head.rotation.x = 0.15
     this.hips.add(this.head)
 
+    // T-Rex-style elongated skull/snout instead of the usual rounded
+    // humanoid head - longer on Z (front-to-back), flatter on Y.
     const skullGeo = jitterGeometry(new THREE.BoxGeometry(0.28, 0.34, 0.3, 2, 2, 2), 0.018)
     const skull = track(new THREE.Mesh(skullGeo, skinMat), skinMat)
-    skull.scale.set(1, 1, 0.9)
+    skull.scale.set(
+      cfg.dinosaur ? 1.15 : 1,
+      cfg.dinosaur ? 0.85 : 1,
+      cfg.dinosaur ? 1.9 : 0.9
+    )
     this.head.add(skull)
 
     // Sunken cheek indents.
@@ -340,8 +346,8 @@ export class Zombie {
       this.head.add(cheek)
     }
 
-    // Torn, uneven ears.
-    for (const side of [-1, 1]) {
+    // Torn, uneven ears - reptiles don't have these.
+    if (!cfg.dinosaur) for (const side of [-1, 1]) {
       const ear = track(new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.11, 0.09), skinMatAlt), skinMatAlt)
       ear.position.set(side * 0.145, 0.01, -0.01)
       ear.rotation.z = side * 0.35
@@ -349,8 +355,8 @@ export class Zombie {
       this.head.add(ear)
     }
 
-    // Patchy hair tufts on the scalp.
-    const tuftCount = 3 + Math.floor(Math.random() * 3)
+    // Patchy hair tufts on the scalp - same, skip for a scaly dinosaur head.
+    const tuftCount = cfg.dinosaur ? 0 : 3 + Math.floor(Math.random() * 3)
     for (let i = 0; i < tuftCount; i++) {
       const tuft = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.07, 4), hairMat)
       tuft.position.set((Math.random() - 0.5) * 0.2, 0.17, (Math.random() - 0.5) * 0.15 - 0.02)
@@ -392,47 +398,55 @@ export class Zombie {
 
     jointBand(this.head, -0.19, 0.1)
 
-    // Ragged hood framing the face, drooping down over the shoulders.
-    this.hood = new THREE.Group()
-    this.hood.position.y = 0.04
-    this.head.add(this.hood)
+    // Ragged hood framing the face, drooping down over the shoulders - not
+    // for a dinosaur, obviously. this.hood is only ever read inside this
+    // same block, so skipping it entirely is safe.
+    if (!cfg.dinosaur) {
+      this.hood = new THREE.Group()
+      this.hood.position.y = 0.04
+      this.head.add(this.hood)
 
-    const hoodDome = track(new THREE.Mesh(new THREE.SphereGeometry(0.185, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.6), hoodMat), hoodMat)
-    hoodDome.position.set(0, 0.11, -0.02)
-    this.hood.add(hoodDome)
+      const hoodDome = track(new THREE.Mesh(new THREE.SphereGeometry(0.185, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.6), hoodMat), hoodMat)
+      hoodDome.position.set(0, 0.11, -0.02)
+      this.hood.add(hoodDome)
 
-    const hoodInside = new THREE.Mesh(new THREE.SphereGeometry(0.155, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.55), hoodInsideMat)
-    hoodInside.position.set(0, 0.09, 0.03)
-    this.hood.add(hoodInside)
+      const hoodInside = new THREE.Mesh(new THREE.SphereGeometry(0.155, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.55), hoodInsideMat)
+      hoodInside.position.set(0, 0.09, 0.03)
+      this.hood.add(hoodInside)
 
-    for (const side of [-1, 1]) {
-      const flap = track(new THREE.Mesh(jitterGeometry(new THREE.BoxGeometry(0.11, 0.42, 0.05, 1, 3, 1), 0.02), hoodMat), hoodMat)
-      flap.position.set(side * 0.185, -0.24, 0.01)
-      flap.rotation.z = side * 0.16
-      flap.rotation.x = -0.05
-      this.hood.add(flap)
+      for (const side of [-1, 1]) {
+        const flap = track(new THREE.Mesh(jitterGeometry(new THREE.BoxGeometry(0.11, 0.42, 0.05, 1, 3, 1), 0.02), hoodMat), hoodMat)
+        flap.position.set(side * 0.185, -0.24, 0.01)
+        flap.rotation.z = side * 0.16
+        flap.rotation.x = -0.05
+        this.hood.add(flap)
+      }
     }
 
-    const armUpper = isCrawler ? 0.24 : 0.27
-    const armLower = isCrawler ? 0.2 : 0.23
+    // Tiny T-Rex arms, full-length everywhere else.
+    const armUpper = cfg.dinosaur ? 0.1 : isCrawler ? 0.24 : 0.27
+    const armLower = cfg.dinosaur ? 0.08 : isCrawler ? 0.2 : 0.23
     const sleeveCuff = (shoulderGroup) => {
       const sleeve = track(new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.095, 0.1, 6), clothesMat), clothesMat)
       sleeve.position.y = -0.04
       shoulderGroup.add(sleeve)
     }
 
-    this.armL = this._buildLimb(0.08, armUpper, armLower, skinMat, clawMat, jointMat, track, true)
-    this.armL.shoulder.position.set(-0.36, 0.72, 0)
+    const armRadius = cfg.dinosaur ? 0.045 : 0.08
+    const armShoulderX = cfg.dinosaur ? 0.22 : 0.36
+
+    this.armL = this._buildLimb(armRadius, armUpper, armLower, skinMat, clawMat, jointMat, track, true)
+    this.armL.shoulder.position.set(-armShoulderX, 0.72, 0.08)
     this.armL.shoulder.rotation.x = -1.15
     this.armL.shoulder.rotation.z = this.asymmetrySide === -1 ? this.asymmetryAmount * 0.6 : 0
-    sleeveCuff(this.armL.shoulder)
+    if (!cfg.dinosaur) sleeveCuff(this.armL.shoulder)
     this.hips.add(this.armL.shoulder)
 
-    this.armR = this._buildLimb(0.08, armUpper, armLower, skinMat, clawMat, jointMat, track, true)
-    this.armR.shoulder.position.set(0.36, 0.72, 0)
+    this.armR = this._buildLimb(armRadius, armUpper, armLower, skinMat, clawMat, jointMat, track, true)
+    this.armR.shoulder.position.set(armShoulderX, 0.72, 0.08)
     this.armR.shoulder.rotation.x = -1.15
     this.armR.shoulder.rotation.z = this.asymmetrySide === 1 ? -this.asymmetryAmount * 0.6 : 0
-    sleeveCuff(this.armR.shoulder)
+    if (!cfg.dinosaur) sleeveCuff(this.armR.shoulder)
     this.hips.add(this.armR.shoulder)
 
     const legUpper = isCrawler ? 0.13 : 0.32
@@ -454,6 +468,32 @@ export class Zombie {
     this.legR.shoulder.position.set(0.16, 0.05, 0)
     if (!isCrawler) foot(this.legR.elbow, legLower)
     this.hips.add(this.legR.shoulder)
+
+    // Tail: a tapering chain of segments extending backward (-Z, away from
+    // the face - eyes/teeth sit at +Z) off the hips. Each segment is a child
+    // of the last, offset by -segLen along its parent's local Z, so the
+    // whole chain follows the hip's forward hunch and any future per-segment
+    // animation without needing its own separate update logic. The one
+    // silhouette element that reads as "dinosaur" more than anything else
+    // here - nothing else in this rig has one.
+    if (cfg.dinosaur) {
+      const tailMat = skinMatAlt
+      let parent = this.hips
+      const segments = 5
+      const segLen = 0.3
+      for (let i = 0; i < segments; i++) {
+        const t = i / (segments - 1)
+        const segRadius = 0.15 * (1 - t * 0.75)
+        const segGroup = new THREE.Group()
+        segGroup.position.set(0, i === 0 ? 0.32 : 0, i === 0 ? -0.22 : -segLen)
+        segGroup.rotation.x = i === 0 ? 0.18 : -0.08
+        const seg = track(new THREE.Mesh(new THREE.CylinderGeometry(segRadius, segRadius * 0.8, segLen, 6), tailMat), tailMat)
+        seg.rotation.x = Math.PI / 2
+        segGroup.add(seg)
+        parent.add(segGroup)
+        parent = segGroup
+      }
+    }
 
     this.hips.rotation.x = isCrawler ? 0.95 : 0.3 + Math.abs(this.postureOffset)
   }

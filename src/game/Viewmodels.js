@@ -414,12 +414,152 @@ function buildMinigun() {
   return g
 }
 
+// Glock 18 - a chunkier M1911 with an extended mag and a vented compensator
+// at the muzzle, reading as a machine pistol rather than a duplicate pistol.
+function buildGlock18() {
+  const g = new THREE.Group()
+
+  const slide = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.095, 0.24), METAL)
+  slide.position.set(0, 0.04, 0)
+  g.add(slide)
+
+  const compensator = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.05, 0.05), DARK_METAL)
+  compensator.position.set(0, 0.045, -0.15)
+  g.add(compensator)
+
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.05, 12), DARK_METAL)
+  barrel.rotation.x = Math.PI / 2
+  barrel.position.set(0, 0.045, -0.19)
+  g.add(barrel)
+
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.068, 0.17, 0.09), GRIP)
+  grip.position.set(0, -0.075, 0.07)
+  grip.rotation.x = -0.18
+  g.add(grip)
+
+  // Extended magazine sticking out below the grip - the "this is a machine
+  // pistol, not a sidearm" tell.
+  const extMag = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.1, 0.05), DARK_METAL)
+  extMag.position.set(0, -0.18, 0.09)
+  extMag.rotation.x = -0.18
+  g.add(extMag)
+
+  const trigger = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.05, 0.02), DARK_METAL)
+  trigger.position.set(0, -0.01, 0.02)
+  g.add(trigger)
+
+  attachHandToGrip(g, grip)
+
+  return g
+}
+
+// Weatie - pump-action shotgun: wide barrel, a tube magazine slung under it,
+// and a cylindrical pump foregrip instead of the rifle's boxy one.
+function buildShotgun() {
+  const g = new THREE.Group()
+
+  const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.1, 0.22), DARK_METAL)
+  receiver.position.set(0, 0.02, 0.06)
+  g.add(receiver)
+
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.42, 12), METAL)
+  barrel.rotation.x = Math.PI / 2
+  barrel.position.set(0, 0.035, -0.24)
+  g.add(barrel)
+
+  const tubeMag = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 0.34, 10), DARK_METAL)
+  tubeMag.rotation.x = Math.PI / 2
+  tubeMag.position.set(0, -0.01, -0.2)
+  g.add(tubeMag)
+
+  const stock = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.1, 0.2), WOOD)
+  stock.position.set(0, -0.01, 0.28)
+  g.add(stock)
+
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.14, 0.07), GRIP)
+  grip.position.set(0, -0.09, 0.11)
+  grip.rotation.x = -0.25
+  g.add(grip)
+
+  // Pump foregrip - a cylinder wrapping the tube mag rather than a boxy
+  // foregrip, the main silhouette cue that reads as "pump shotgun".
+  const pump = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.09, 10), WOOD)
+  pump.rotation.x = Math.PI / 2
+  pump.position.set(0, -0.01, -0.14)
+  g.add(pump)
+
+  attachHandToGrip(g, grip)
+
+  const pumpHand = buildHand()
+  pumpHand.position.copy(pump.position)
+  pumpHand.rotation.x = -0.15
+  pumpHand.rotation.z = Math.PI
+  g.add(pumpHand)
+
+  return g
+}
+
+// AWP - long thin bolt-action barrel, a raised scope tube on top (the main
+// visual tell versus the rifle/other long guns), and a boxy stock.
+function buildAwp() {
+  const g = new THREE.Group()
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.09, 0.5), METAL)
+  body.position.set(0, 0.02, -0.02)
+  g.add(body)
+
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.38, 12), DARK_METAL)
+  barrel.rotation.x = Math.PI / 2
+  barrel.position.set(0, 0.025, -0.55)
+  g.add(barrel)
+
+  const scope = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.28, 12), DARK_METAL)
+  scope.rotation.x = Math.PI / 2
+  scope.position.set(0, 0.1, -0.1)
+  g.add(scope)
+  const scopeLensFront = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.012, 12), UV_LENS)
+  scopeLensFront.rotation.x = Math.PI / 2
+  scopeLensFront.position.set(0, 0.1, -0.24)
+  g.add(scopeLensFront)
+
+  const stock = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.11, 0.24), WOOD)
+  stock.position.set(0, -0.01, 0.32)
+  g.add(stock)
+
+  const mag = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.16, 0.06), DARK_METAL)
+  mag.position.set(0, -0.11, -0.03)
+  mag.rotation.x = 0.18
+  g.add(mag)
+
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.14, 0.07), GRIP)
+  grip.position.set(0, -0.09, 0.14)
+  grip.rotation.x = -0.25
+  g.add(grip)
+
+  const foregrip = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.07, 0.06), GRIP)
+  foregrip.position.set(0, -0.075, -0.34)
+  g.add(foregrip)
+
+  attachHandToGrip(g, grip)
+
+  const foreHand = buildHand()
+  foreHand.position.copy(foregrip.position)
+  foreHand.rotation.x = -0.15
+  foreHand.rotation.z = Math.PI
+  g.add(foreHand)
+
+  return g
+}
+
 const BUILDERS = {
   pistol: buildPistol,
   rifle: buildRifle,
   melee: buildMelee,
   minigun: buildMinigun,
   uvlamp: buildUvLamp,
+  shotgun: buildShotgun,
+  awp: buildAwp,
+  glock18: buildGlock18,
 }
 
 export function buildViewmodel(weaponId, options = {}) {
