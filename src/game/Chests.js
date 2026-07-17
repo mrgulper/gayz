@@ -157,17 +157,22 @@ class Chest {
   unlock() {
     this.locked = false
     this.opened = false
+    this.group.visible = true
     this.lid.rotation.x = 0
     this.indicatorMat.color.setHex(0x1a0505)
     this.indicatorMat.emissive.setHex(0xff2a1e)
     this.indicatorMat.emissiveIntensity = 0.9
   }
 
-  // Not part of this rotation's 3 stocked chests - dim, non-pulsing, not
-  // interactable (see ChestManager.update's locked check).
+  // Not part of this rotation's 3 stocked chests. Previously just a dim,
+  // non-pulsing crate players could still walk up to and find nothing at -
+  // now hidden entirely so every crate actually standing in the world has
+  // real loot in it, instead of ~9 of 12 being decorative dead props at any
+  // given moment (see ChestManager.refillNight's 3-of-N-stocked rotation).
   lock() {
     this.locked = true
     this.opened = false
+    this.group.visible = false
     this.lid.rotation.x = 0
     this.indicatorMat.color.setHex(0x14140f)
     this.indicatorMat.emissive.setHex(0x2a2a22)

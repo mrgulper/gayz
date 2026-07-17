@@ -160,10 +160,12 @@
       <div id="menu">
         <div id="menu-corner-nav">
           <button id="upgrades-btn">Upgrades</button>
-          <button id="achievements-btn">Achievements</button>
-          <button id="bestiary-btn">Bestiary</button>
           <button id="skins-btn">Skins</button>
           <button id="coinshop-btn">Coin Shop</button>
+        </div>
+        <div id="menu-corner-nav-bottom">
+          <button id="achievements-btn">Achievements</button>
+          <button id="bestiary-btn">Bestiary</button>
         </div>
         <h1>GayZ</h1>
         <p id="menu-subtitle">Broken city block &mdash; survive, scavenge, shoot</p>
@@ -362,6 +364,19 @@
           <button id="pause-resume-btn">Resume</button>
           <button id="pause-settings-btn">Settings</button>
           <button id="pause-quit-btn">Quit to Menu</button>
+        </div>
+      </div>
+
+      <div id="screenshot-crop-overlay">
+        <p id="screenshot-crop-hint">Drag to select a crop, or just save the full shot. Esc to cancel.</p>
+        <div id="screenshot-crop-stage">
+          <img id="screenshot-crop-image" alt="Captured screenshot" />
+          <div id="screenshot-crop-selection" style="display: none"></div>
+        </div>
+        <div class="perk-panel-buttons">
+          <button id="screenshot-crop-save">Save Crop</button>
+          <button id="screenshot-crop-full">Save Full Screenshot</button>
+          <button id="screenshot-crop-cancel">Cancel</button>
         </div>
       </div>
 

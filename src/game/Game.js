@@ -611,6 +611,15 @@ export class Game {
     this.pauseResumeBtn = document.getElementById('pause-resume-btn')
     this.pauseSettingsBtn = document.getElementById('pause-settings-btn')
     this.pauseQuitBtn = document.getElementById('pause-quit-btn')
+    this.screenshotCropOverlay = document.getElementById('screenshot-crop-overlay')
+    this.screenshotCropStage = document.getElementById('screenshot-crop-stage')
+    this.screenshotCropImage = document.getElementById('screenshot-crop-image')
+    this.screenshotCropSelection = document.getElementById('screenshot-crop-selection')
+    this.screenshotCropSaveBtn = document.getElementById('screenshot-crop-save')
+    this.screenshotCropFullBtn = document.getElementById('screenshot-crop-full')
+    this.screenshotCropCancelBtn = document.getElementById('screenshot-crop-cancel')
+    this.screenshotCropOpen = false
+    this.screenshotCropSelectionRect = null
     this.gameStarted = false
     this.decals = new DecalManager(this.scene)
     this.minimap = new Minimap(this.minimapCanvas)
@@ -645,6 +654,7 @@ export class Game {
     audioEngine.setSfxVolume(this.settings.sfxVolume / 100)
 
     this._bindMenu()
+    this._bindScreenshotCrop()
     this._bindItemKeys()
     this._bindSettings()
     this._bindDifficulty()
@@ -766,6 +776,8 @@ export class Game {
     this.player.controls.addEventListener('lock', () => {
       this.gameStarted = true
       this.pauseOverlay.style.display = 'none'
+      this.screenshotCropOverlay.style.display = 'none'
+      this.screenshotCropOpen = false
       this.menu.style.display = 'none'
       this.crosshair.style.display = this.driving ? 'none' : 'block'
       this.hudEl.style.display = this.driving ? 'none' : 'block'
@@ -789,7 +801,10 @@ export class Game {
       this.interactPrompt.style.display = 'none'
       this.infectionIndicator.style.display = 'none'
       if (!this.playerState.alive) return
-      if (this.gameStarted) {
+      if (this.screenshotCropOpen) {
+        // The crop tool already put up its own overlay and paused the sim
+        // by unlocking pointer lock - don't also pop the pause menu on top.
+      } else if (this.gameStarted) {
         this.pauseOverlayTitle.textContent = t('pauseOverlayTitle')
         this.pauseResumeBtn.textContent = t('pauseResumeBtn')
         this.pauseSettingsBtn.textContent = t('settingsBtn')
@@ -961,12 +976,113 @@ export class Game {
     }
   }
 
+  // P captures the current frame, pauses (same pointer-unlock mechanism as
+  // Esc), and opens an in-game crop tool instead of just instantly saving a
+  // full screenshot - lets a player select just the part of the frame they
+  // want without needing their OS's own screenshot tool.
   _takeScreenshot() {
     this.composer.render()
+    this._screenshotDataUrl = this.canvas.toDataURL('image/png')
+    this.screenshotCropOpen = true
+    this.screenshotCropImage.src = this._screenshotDataUrl
+    this.screenshotCropSelection.style.display = 'none'
+    this.screenshotCropSelectionRect = null
+    this.screenshotCropOverlay.style.display = 'flex'
+    this.player.controls.unlock()
+  }
+
+  _closeScreenshotCrop() {
+    this.screenshotCropOpen = false
+    this.screenshotCropOverlay.style.display = 'none'
+    this.player.controls.lock()
+  }
+
+  // Crops this._screenshotDataUrl to the given CSS-pixel rect (relative to
+  // the rendered <img>, which may be scaled down from the actual capture
+  // resolution to fit the overlay) and downloads the result.
+  _saveScreenshotCrop(rect) {
+    const img = this.screenshotCropImage
+    const scaleX = img.naturalWidth / img.clientWidth
+    const scaleY = img.naturalHeight / img.clientHeight
+    const sx = Math.round(rect.x * scaleX)
+    const sy = Math.round(rect.y * scaleY)
+    const sw = Math.round(rect.width * scaleX)
+    const sh = Math.round(rect.height * scaleY)
+
+    const canvas = document.createElement('canvas')
+    canvas.width = sw
+    canvas.height = sh
+    canvas.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh)
+
     const link = document.createElement('a')
     link.download = `gayz-${Date.now()}.png`
-    link.href = this.canvas.toDataURL('image/png')
+    link.href = canvas.toDataURL('image/png')
     link.click()
+  }
+
+  _saveFullScreenshot() {
+    const link = document.createElement('a')
+    link.download = `gayz-${Date.now()}.png`
+    link.href = this._screenshotDataUrl
+    link.click()
+  }
+
+  // Simple click-drag-release rectangle selector over the captured image -
+  // no resize handles, dragging again just replaces the previous selection.
+  _bindScreenshotCrop() {
+    let dragStart = null
+
+    const stageRect = () => this.screenshotCropStage.getBoundingClientRect()
+    const clamp = (v, min, max) => Math.max(min, Math.min(max, v))
+
+    this.screenshotCropStage.addEventListener('mousedown', (e) => {
+      const r = stageRect()
+      dragStart = {
+        x: clamp(e.clientX - r.left, 0, r.width),
+        y: clamp(e.clientY - r.top, 0, r.height),
+      }
+      this.screenshotCropSelection.style.display = 'block'
+    })
+
+    window.addEventListener('mousemove', (e) => {
+      if (!dragStart) return
+      const r = stageRect()
+      const x = clamp(e.clientX - r.left, 0, r.width)
+      const y = clamp(e.clientY - r.top, 0, r.height)
+      const rect = {
+        x: Math.min(dragStart.x, x),
+        y: Math.min(dragStart.y, y),
+        width: Math.abs(x - dragStart.x),
+        height: Math.abs(y - dragStart.y),
+      }
+      this.screenshotCropSelectionRect = rect
+      this.screenshotCropSelection.style.left = `${rect.x}px`
+      this.screenshotCropSelection.style.top = `${rect.y}px`
+      this.screenshotCropSelection.style.width = `${rect.width}px`
+      this.screenshotCropSelection.style.height = `${rect.height}px`
+    })
+
+    window.addEventListener('mouseup', () => {
+      dragStart = null
+    })
+
+    this.screenshotCropSaveBtn.addEventListener('click', () => {
+      const rect = this.screenshotCropSelectionRect
+      if (rect && rect.width > 4 && rect.height > 4) this._saveScreenshotCrop(rect)
+      else this._saveFullScreenshot()
+      this._closeScreenshotCrop()
+    })
+    this.screenshotCropFullBtn.addEventListener('click', () => {
+      this._saveFullScreenshot()
+      this._closeScreenshotCrop()
+    })
+    this.screenshotCropCancelBtn.addEventListener('click', () => this._closeScreenshotCrop())
+
+    window.addEventListener('keydown', (e) => {
+      if (!this.screenshotCropOpen) return
+      if (e.code === 'Escape') this._closeScreenshotCrop()
+      else if (e.code === 'Enter') this.screenshotCropSaveBtn.click()
+    })
   }
 
   _throwNoisemaker() {
@@ -2327,7 +2443,12 @@ export class Game {
 
   _updateProgressHud() {
     this.nightValueEl.textContent = t('hudNight', { n: this.night })
-    this.timeValueEl.textContent = formatTime(performance.now() - this.runStartedAt)
+    // Round Mode advances on a kill-clear, not a clock - showing the
+    // elapsed-run timer there is misleading (it has no relationship to when
+    // the round actually ends), so swap it for the number that does.
+    this.timeValueEl.textContent = this._isRoundMode()
+      ? `${this.zombies.aliveCount()} left`
+      : formatTime(performance.now() - this.runStartedAt)
     this.killsValueEl.textContent = t('hudKills', { n: this.kills })
   }
 
@@ -2343,7 +2464,11 @@ export class Game {
     this.statsScrap.textContent = this.scrap
     this.statsCoins.textContent = this.coins
 
-    if (this.dayNight) {
+    if (this._isRoundMode()) {
+      this.phaseLabel.textContent = 'Zombies left'
+      this.phaseTime.textContent = this.zombies.aliveCount()
+      this.phaseRow.classList.remove('is-day', 'is-night')
+    } else if (this.dayNight) {
       const { phase, remainingMs } = this.dayNight.getPhaseInfo()
       this.phaseLabel.textContent = phase === 'Day' ? t('dayLabel') : t('nightLabel')
       this.phaseTime.textContent = formatTime(remainingMs)

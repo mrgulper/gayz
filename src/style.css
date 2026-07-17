@@ -927,7 +927,8 @@ html, body {
 #xp-levelup-panel,
 #pause-overlay,
 #skins-panel,
-#coinshop-panel {
+#coinshop-panel,
+#screenshot-crop-overlay {
   position: absolute;
   inset: 0;
   display: none;
@@ -1054,7 +1055,10 @@ html, body {
 #pause-settings-btn,
 #pause-quit-btn,
 #skins-close-btn,
-#coinshop-close-btn {
+#coinshop-close-btn,
+#screenshot-crop-save,
+#screenshot-crop-full,
+#screenshot-crop-cancel {
   margin-top: 6px;
   padding: 8px 20px;
   font-size: 13px;
@@ -1065,6 +1069,35 @@ html, body {
   border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 6px;
   cursor: pointer;
+}
+
+#screenshot-crop-hint {
+  margin: 0;
+  font-size: 13px;
+  opacity: 0.65;
+}
+
+#screenshot-crop-stage {
+  position: relative;
+  max-width: 82vw;
+  max-height: 68vh;
+  line-height: 0;
+  cursor: crosshair;
+  user-select: none;
+}
+
+#screenshot-crop-image {
+  display: block;
+  max-width: 82vw;
+  max-height: 68vh;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+#screenshot-crop-selection {
+  position: absolute;
+  border: 2px dashed #e3a63c;
+  background: rgba(227, 166, 60, 0.15);
+  pointer-events: none;
 }
 
 #perk-reroll-btn:disabled {
@@ -1154,7 +1187,18 @@ html, body {
   gap: 8px;
 }
 
-#menu-corner-nav button {
+#menu-corner-nav-bottom {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+#menu-corner-nav button,
+#menu-corner-nav-bottom button {
   white-space: nowrap;
 }
 

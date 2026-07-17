@@ -20,9 +20,14 @@ const ADS_LERP_SPEED = 9
 const KNIFE_DAMAGE = 150
 const QUICK_MELEE_RANGE = 2.4
 const QUICK_MELEE_COOLDOWN_MS = 500
-const QUICK_MELEE_ANIM_MS = 220
-const QUICK_MELEE_REST_POS = new THREE.Vector3(0.16, -0.32, -0.28)
-const QUICK_MELEE_STAB_POS = new THREE.Vector3(0.02, -0.08, -0.55)
+const QUICK_MELEE_ANIM_MS = 280
+// Held low on the off-hand (left) side, well clear of the equipped gun's
+// own position (see VIEWMODEL_BASE, positive X) - then thrusts forward and
+// across to the center on the stab instead of just sliding straight out.
+const QUICK_MELEE_REST_POS = new THREE.Vector3(-0.22, -0.3, -0.32)
+const QUICK_MELEE_REST_ROT = new THREE.Vector3(0.35, 0.55, -0.25)
+const QUICK_MELEE_STAB_POS = new THREE.Vector3(0.04, -0.14, -0.62)
+const QUICK_MELEE_STAB_ROT = new THREE.Vector3(-0.15, -0.1, 0.1)
 
 const WEAPONS = [
   {
@@ -149,10 +154,12 @@ export class WeaponSystem {
     // and back regardless of which weapon viewmodel is currently showing.
     this.quickMeleeKnife = buildQuickMeleeKnifeModel()
     this.quickMeleeKnife.position.copy(QUICK_MELEE_REST_POS)
+    this.quickMeleeKnife.rotation.setFromVector3(QUICK_MELEE_REST_ROT)
     this.quickMeleeKnife.visible = false
     this.viewmodelRoot.add(this.quickMeleeKnife)
     this.quickMeleeCooldownUntil = 0
     this.quickMeleeAnimUntil = 0
+    this._quickMeleeRotTmp = new THREE.Vector3()
 
     window.addEventListener('mousedown', (e) => {
       if (e.button === 0) this.triggerDown = true
@@ -544,6 +551,8 @@ export class WeaponSystem {
     // Lunge out over the first half, snap back over the second.
     const stabT = t < 0.5 ? t * 2 : 1 - (t - 0.5) * 2
     this.quickMeleeKnife.position.lerpVectors(QUICK_MELEE_REST_POS, QUICK_MELEE_STAB_POS, stabT)
+    this._quickMeleeRotTmp.lerpVectors(QUICK_MELEE_REST_ROT, QUICK_MELEE_STAB_ROT, stabT)
+    this.quickMeleeKnife.rotation.setFromVector3(this._quickMeleeRotTmp)
   }
 
   _showHitmarker() {
