@@ -113,7 +113,7 @@
         <div class="stats-row"><span class="stats-label" id="stats-day-label">Day</span><span id="stats-day">1</span></div>
         <div class="stats-row"><span class="stats-label" id="stats-deaths-label">Deaths</span><span id="stats-deaths">0</span></div>
         <div class="stats-row"><span class="stats-label" id="stats-kills-label">Kills</span><span id="stats-kills">0</span></div>
-        <div class="stats-row"><span class="stats-label" id="stats-scrap-label">Scrap</span><span id="stats-scrap">0</span></div>
+        <div class="stats-row"><span class="stats-label" id="stats-points-label">Points</span><span id="stats-points">0</span></div>
         <div class="stats-row"><span class="stats-label" id="stats-coins-label">Coins</span><span id="stats-coins">0</span></div>
       </div>
 
@@ -160,7 +160,6 @@
       <div id="menu">
         <div id="menu-corner-nav">
           <button id="upgrades-btn">Upgrades</button>
-          <button id="skins-btn">Skins</button>
           <button id="coinshop-btn">Coin Shop</button>
         </div>
         <div id="menu-corner-nav-bottom">
@@ -203,7 +202,7 @@
           </label>
           <label class="score-attack-toggle" for="mutator-loot-rush">
             <input type="checkbox" id="mutator-loot-rush" />
-            <span id="mutator-loot-rush-label">Loot Rush (2x XP &amp; scrap)</span>
+            <span id="mutator-loot-rush-label">Loot Rush (2x XP &amp; points)</span>
           </label>
           <label class="score-attack-toggle" for="mutator-pure-gunplay">
             <input type="checkbox" id="mutator-pure-gunplay" />
@@ -284,7 +283,7 @@
       <div id="death-screen">
         <h1 id="death-title">YOU DIED</h1>
         <p id="death-stats">Survived Night 1 &middot; 0 kills &middot; 00:00</p>
-        <p id="death-legacy-scrap" class="menu-best-stats"></p>
+        <p id="death-legacy-points" class="menu-best-stats"></p>
         <p id="death-score-attack" class="menu-best-stats" style="display: none"></p>
         <button id="respawn-btn">Respawn</button>
       </div>
@@ -313,17 +312,17 @@
 
       <div id="perk-panel">
         <h2 id="perk-panel-title">Choose a Perk</h2>
-        <div id="perk-scrap-line"></div>
+        <div id="perk-points-line"></div>
         <div class="perk-options" id="perk-options"></div>
         <div class="perk-panel-buttons">
-          <button id="perk-reroll-btn">Reroll (15 Scrap)</button>
+          <button id="perk-reroll-btn">Reroll (15 Points)</button>
           <button id="perk-skip-btn">Skip</button>
         </div>
       </div>
 
       <div id="trader-panel">
         <h2 id="trader-panel-title">Trader</h2>
-        <div id="trader-scrap-line"></div>
+        <div id="trader-points-line"></div>
         <div id="bounty-line"></div>
         <div class="perk-options" id="trader-options"></div>
         <div class="difficulty-row" id="trader-role-row">
@@ -336,7 +335,7 @@
 
       <div id="upgrades-panel">
         <h2 id="upgrades-panel-title">Permanent Upgrades</h2>
-        <div id="upgrades-scrap-line"></div>
+        <div id="upgrades-points-line"></div>
         <div class="perk-options" id="upgrades-options"></div>
         <button id="upgrades-close-btn">Close</button>
       </div>
@@ -378,13 +377,6 @@
           <button id="screenshot-crop-full">Save Full Screenshot</button>
           <button id="screenshot-crop-cancel">Cancel</button>
         </div>
-      </div>
-
-      <div id="skins-panel">
-        <h2 id="skins-panel-title">Skins</h2>
-        <div id="skins-scrap-line"></div>
-        <div class="perk-options" id="skins-options"></div>
-        <button id="skins-close-btn">Close</button>
       </div>
 
       <div id="coinshop-panel">

@@ -38,7 +38,7 @@ export class Companion {
     this.tracers = []
   }
 
-  // Scrap-purchased training (see Game.js's "Train Companion" trader item) -
+  // Points-purchased training (see Game.js's "Train Companion" trader item) -
   // recomputed from the untouched ROLE_STATS preset each time rather than
   // stacking onto whatever this.stats currently holds, so repeated calls
   // (e.g. after a role swap rebuilds the companion) stay predictable instead

@@ -2,7 +2,7 @@ import { getAutoWeaponUpgrades } from './AutoWeapons.js'
 
 // Free passive buffs offered on every XP-gem level-up (see Game.js's
 // _triggerXpLevelUp) - deliberately smaller and more frequent than the
-// scrap-cost night perks in Perks.js, which stay the bigger periodic picks.
+// points-cost night perks in Perks.js, which stay the bigger periodic picks.
 // Auto-attacking weapon unlocks (orbiting blade, homing shot) get appended
 // to this same pool - see AutoWeapons.js's getAutoWeaponUpgrades.
 export const XP_UPGRADE_DEFS = [

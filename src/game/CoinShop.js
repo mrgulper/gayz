@@ -1,20 +1,21 @@
-// Coin Shop items - bought with coins (see Game.js's _onZombieKilled),
-// a currency separate from scrap that every kill guarantees some of,
-// unlike scrap's 25%-chance drop. Each item tracks its own "already
-// owned" check since the skin uses the shared ownedSkins state while the
-// stat perks use their own one-time-purchase set.
+// Coin Shop items - bought with coins (see Game.js's _onZombieKilled), a
+// currency separate from points that every kill guarantees some of, unlike
+// points' 25%-chance drop.
+//
+// Two shapes of item:
+// - Skins (the `skin` field set): equip-toggle rather than one-time-owned -
+//   buying one equips it immediately, and once owned it can be re-equipped
+//   for free any time (see Game.js's _renderCoinShopOptions). Used to be a
+//   separate Skins panel/currency (in-run points); folded in here so every
+//   cosmetic lives in one shop, all priced in coins.
+// - Stat perks (the `isOwned`/`apply` pair): a permanent one-time purchase
+//   tracked in game.coinShopPurchased.
 export const COIN_SHOP_ITEMS = [
-  {
-    id: 'ember_skin',
-    titleKey: 'coinShopEmberSkin',
-    cost: 150,
-    isOwned: (game) => game.ownedSkins.has('ember'),
-    apply: (game) => {
-      game.ownedSkins.add('ember')
-      game.equippedSkin = 'ember'
-      game.weapons.setWeaponSkin('pistol', 'ember')
-    },
-  },
+  { id: 'skin_ember', titleKey: 'coinShopEmberSkin', cost: 150, skin: 'ember' },
+  { id: 'skin_gold', titleKey: 'skinGold', cost: 120, skin: 'gold' },
+  { id: 'skin_crimson', titleKey: 'skinCrimson', cost: 120, skin: 'crimson' },
+  { id: 'skin_cobalt', titleKey: 'skinCobalt', cost: 120, skin: 'cobalt' },
+  { id: 'skin_obsidian', titleKey: 'skinObsidian', cost: 120, skin: 'obsidian' },
   {
     id: 'coin_damage',
     titleKey: 'coinShopDamage',

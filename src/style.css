@@ -926,7 +926,6 @@ html, body {
 #bestiary-panel,
 #xp-levelup-panel,
 #pause-overlay,
-#skins-panel,
 #coinshop-panel,
 #screenshot-crop-overlay {
   position: absolute;
@@ -946,7 +945,6 @@ html, body {
 #bestiary-panel-title,
 #xp-levelup-panel-title,
 #pause-overlay-title,
-#skins-panel-title,
 #coinshop-panel-title {
   margin: 0;
   font-size: 15px;
@@ -956,10 +954,9 @@ html, body {
   opacity: 0.85;
 }
 
-#perk-scrap-line,
-#trader-scrap-line,
-#upgrades-scrap-line,
-#skins-scrap-line,
+#perk-points-line,
+#trader-points-line,
+#upgrades-points-line,
 #coinshop-coin-line {
   font-size: 14px;
   color: #ffcf5c;
@@ -1054,7 +1051,6 @@ html, body {
 #pause-resume-btn,
 #pause-settings-btn,
 #pause-quit-btn,
-#skins-close-btn,
 #coinshop-close-btn,
 #screenshot-crop-save,
 #screenshot-crop-full,
@@ -1113,7 +1109,6 @@ html, body {
 #pause-resume-btn:hover,
 #pause-settings-btn:hover,
 #pause-quit-btn:hover,
-#skins-close-btn:hover,
 #coinshop-close-btn:hover {
   border-color: rgba(255, 255, 255, 0.5);
 }

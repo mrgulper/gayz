@@ -1,6 +1,6 @@
 // Side objectives offered at the trader (see Game.js's activeBounty
 // tracking), giving a run more shape than just survive-and-shoot. One
-// active at a time; completing it grants scrap and rolls the next.
+// active at a time; completing it grants points and rolls the next.
 export const BOUNTY_DEFS = [
   { id: 'kill_screamers', titleKey: 'bountyKillScreamers', target: 3, reward: 25 },
   { id: 'melee_kills', titleKey: 'bountyMeleeKills', target: 10, reward: 20 },

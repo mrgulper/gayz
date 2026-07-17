@@ -3,7 +3,7 @@ import * as THREE from 'three'
 // Obsidian Ops-style defense mini-game: fixed boarded-window chokepoints
 // along the street. Zombies that wander close enough tear a plank off over
 // time; walking up and pressing the interact key re-boards one plank for a
-// small scrap reward (capped per round so it can't be farmed indefinitely).
+// small points reward (capped per round so it can't be farmed indefinitely).
 // Self-contained (own props, own state) - Game.js just calls update()/repair()
 // and reacts to the onBreach callback, the same shape as Chests/XpGems.
 
@@ -12,7 +12,7 @@ const TEAR_RADIUS = 4.5
 const TEAR_INTERVAL_MS = 2200
 const TEAR_COOLDOWN_RATE = 500
 const REPAIR_RADIUS = 3.5
-export const REPAIR_REWARD_SCRAP = 10
+export const REPAIR_REWARD_POINTS = 10
 export const REPAIR_REWARD_CAP_PER_ROUND = 100
 
 const FRAME_MAT = new THREE.MeshStandardMaterial({ color: 0x1e1a14, roughness: 0.9 })
@@ -62,7 +62,7 @@ export class BarricadeWindows {
 
   // Called on respawn and each new round/night - fully re-boards every
   // window (a fresh run shouldn't start with last run's damage) and clears
-  // the per-round scrap-earned cap.
+  // the per-round points-earned cap.
   reset() {
     for (const w of this.windows) {
       w.planks = w.maxPlanks
@@ -120,7 +120,7 @@ export class BarricadeWindows {
     return nearest
   }
 
-  // Re-boards one plank and returns the scrap reward earned (0 once this
+  // Re-boards one plank and returns the points reward earned (0 once this
   // round's cap is hit, so repairing stays useful but not a farmable loop).
   repair(w) {
     if (!w || w.planks >= w.maxPlanks) return 0
@@ -128,7 +128,7 @@ export class BarricadeWindows {
     w.tearProgress = 0
     this._syncVisuals(w)
     if (this.rewardEarnedThisRound >= REPAIR_REWARD_CAP_PER_ROUND) return 0
-    const reward = Math.min(REPAIR_REWARD_SCRAP, REPAIR_REWARD_CAP_PER_ROUND - this.rewardEarnedThisRound)
+    const reward = Math.min(REPAIR_REWARD_POINTS, REPAIR_REWARD_CAP_PER_ROUND - this.rewardEarnedThisRound)
     this.rewardEarnedThisRound += reward
     return reward
   }

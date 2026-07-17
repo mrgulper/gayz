@@ -1,8 +1,8 @@
-// Permanent, cross-run progression: a fraction of each run's scrap converts
-// to "Legacy Scrap" on death (see Game.js's _onPlayerDeath), spent here on
+// Permanent, cross-run progression: a fraction of each run's points converts
+// to "Legacy Points" on death (see Game.js's _onPlayerDeath), spent here on
 // one-time permanent upgrades applied at the start of every future run.
 const STORAGE_KEY = 'gayz-meta-progress'
-export const DEATH_SCRAP_CONVERSION = 0.2
+export const DEATH_POINTS_CONVERSION = 0.2
 
 export const META_UPGRADES = [
   {
@@ -45,7 +45,7 @@ export const META_UPGRADES = [
     titleKey: 'metaVeteran',
     cost: 25,
     apply: (game) => {
-      game.scrap += 20
+      game.points += 20
     },
   },
 ]
@@ -55,17 +55,19 @@ export function loadMetaProgress() {
     const raw = localStorage.getItem(STORAGE_KEY)
     const parsed = raw ? JSON.parse(raw) : {}
     return {
-      legacyScrap: parsed.legacyScrap ?? 0,
+      // Falls back to the old pre-rename key so existing players' saved
+      // total carries over once instead of silently resetting to 0.
+      legacyPoints: parsed.legacyPoints ?? parsed.legacyScrap ?? 0,
       purchased: new Set(parsed.purchased || []),
     }
   } catch {
-    return { legacyScrap: 0, purchased: new Set() }
+    return { legacyPoints: 0, purchased: new Set() }
   }
 }
 
 export function saveMetaProgress(meta) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ legacyScrap: meta.legacyScrap, purchased: [...meta.purchased] }))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ legacyPoints: meta.legacyPoints, purchased: [...meta.purchased] }))
   } catch {
     // Storage unavailable (e.g. private browsing) - progress just won't persist.
   }

@@ -1,5 +1,5 @@
 // Curated roguelike-style perk pool. Offered 3-at-a-time (see
-// Game.js._openPerkPanel), each costs scrap earned from kills, and apply()
+// Game.js._openPerkPanel), each costs points earned from kills, and apply()
 // mutates whatever live game object owns that stat - no separate perk state
 // to track since the effect just lives on the object it boosted.
 export const PERK_DEFS = [

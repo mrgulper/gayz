@@ -12,7 +12,7 @@ import { PlayerState } from './PlayerState.js'
 import { Inventory } from './Inventory.js'
 import { DayNightCycle } from './DayNightCycle.js'
 import { ChestManager } from './Chests.js'
-import { BarricadeWindows, REPAIR_REWARD_SCRAP } from './BarricadeWindows.js'
+import { BarricadeWindows, REPAIR_REWARD_POINTS } from './BarricadeWindows.js'
 import { Minimap } from './Minimap.js'
 import { DecalManager } from './Decals.js'
 import { Achievements, ACHIEVEMENTS } from './Achievements.js'
@@ -20,13 +20,12 @@ import { rollPerks, checkPerkSynergies } from './Perks.js'
 import { rollXpUpgrades } from './XpUpgrades.js'
 import { XpGemManager } from './XpGems.js'
 import { AutoWeaponManager } from './AutoWeapons.js'
-import { SKIN_DEFS } from './Skins.js'
 import { COIN_SHOP_ITEMS } from './CoinShop.js'
 import { pickNightEvent } from './NightEvents.js'
 import { Companion } from './Companion.js'
 import { PlayerBody } from './PlayerBody.js'
 import { Vehicle } from './Vehicle.js'
-import { META_UPGRADES, loadMetaProgress, saveMetaProgress, DEATH_SCRAP_CONVERSION } from './MetaProgress.js'
+import { META_UPGRADES, loadMetaProgress, saveMetaProgress, DEATH_POINTS_CONVERSION } from './MetaProgress.js'
 import { pickBounty } from './BountyBoard.js'
 import { ZOMBIE_TYPES } from './ZombieTypes.js'
 import { RescueSurvivor } from './RescueSurvivor.js'
@@ -239,7 +238,7 @@ const BOSS_TIER_IDS = new Set(['colossus', 'patient_zero', 'titan'])
 const WHEEL_RADIUS = 110
 const WHEEL_DEADZONE = 18
 const RESCUE_INTERACT_RADIUS = 2.5
-const RESCUE_SCRAP_REWARD = 25
+const RESCUE_POINTS_REWARD = 25
 
 const SHOP_ITEMS = [
   { id: 'health', cost: 15, titleKey: 'shopHealthPack', give: (game) => game.inventory.addHealthPack(1) },
@@ -334,7 +333,7 @@ export class Game {
     this.comboCount = 0
     this.comboResetAt = 0
     this.deathStats = document.getElementById('death-stats')
-    this.deathLegacyScrap = document.getElementById('death-legacy-scrap')
+    this.deathLegacyPoints = document.getElementById('death-legacy-points')
     this.deathScoreAttack = document.getElementById('death-score-attack')
     this.endingPanel = document.getElementById('ending-panel')
     this.endingText = document.getElementById('ending-text')
@@ -405,7 +404,7 @@ export class Game {
     this.kills = 0
     this.totalKills = 0
     this.totalDeaths = 0
-    this.scrap = 0
+    this.points = 0
     this.healthPackHealAmount = 200
     this.perkPanelOpen = false
     this.xp = 0
@@ -555,23 +554,23 @@ export class Game {
     this.companionBarkEl = document.getElementById('companion-bark')
     this.lowHealthBarked = false
     this.nextHeartbeatAt = 0
-    this.statsScrap = document.getElementById('stats-scrap')
+    this.statsPoints = document.getElementById('stats-points')
     this.perkPanel = document.getElementById('perk-panel')
     this.perkPanelTitle = document.getElementById('perk-panel-title')
-    this.perkScrapLine = document.getElementById('perk-scrap-line')
+    this.perkPointsLine = document.getElementById('perk-points-line')
     this.perkOptions = document.getElementById('perk-options')
     this.perkSkipBtn = document.getElementById('perk-skip-btn')
     this.perkRerollBtn = document.getElementById('perk-reroll-btn')
     this.traderPanel = document.getElementById('trader-panel')
     this.traderPanelTitle = document.getElementById('trader-panel-title')
-    this.traderScrapLine = document.getElementById('trader-scrap-line')
+    this.traderPointsLine = document.getElementById('trader-points-line')
     this.bountyLineEl = document.getElementById('bounty-line')
     this.traderOptions = document.getElementById('trader-options')
     this.traderHint = document.getElementById('trader-hint')
     this.upgradesBtn = document.getElementById('upgrades-btn')
     this.upgradesPanel = document.getElementById('upgrades-panel')
     this.upgradesPanelTitle = document.getElementById('upgrades-panel-title')
-    this.upgradesScrapLine = document.getElementById('upgrades-scrap-line')
+    this.upgradesPointsLine = document.getElementById('upgrades-points-line')
     this.upgradesOptions = document.getElementById('upgrades-options')
     this.upgradesCloseBtn = document.getElementById('upgrades-close-btn')
     this.achievementsBtn = document.getElementById('achievements-btn')
@@ -584,12 +583,6 @@ export class Game {
     this.bestiaryPanelTitle = document.getElementById('bestiary-panel-title')
     this.bestiaryOptions = document.getElementById('bestiary-options')
     this.bestiaryCloseBtn = document.getElementById('bestiary-close-btn')
-    this.skinsBtn = document.getElementById('skins-btn')
-    this.skinsPanel = document.getElementById('skins-panel')
-    this.skinsPanelTitle = document.getElementById('skins-panel-title')
-    this.skinsScrapLine = document.getElementById('skins-scrap-line')
-    this.skinsOptions = document.getElementById('skins-options')
-    this.skinsCloseBtn = document.getElementById('skins-close-btn')
     this.coinshopBtn = document.getElementById('coinshop-btn')
     this.coinshopPanel = document.getElementById('coinshop-panel')
     this.coinshopPanelTitle = document.getElementById('coinshop-panel-title')
@@ -663,8 +656,8 @@ export class Game {
     this._bindControlsTab()
     this.perkSkipBtn.addEventListener('click', () => this._closePerkPanel())
     this.perkRerollBtn.addEventListener('click', () => {
-      if (this.scrap < PERK_REROLL_COST) return
-      this.scrap -= PERK_REROLL_COST
+      if (this.points < PERK_REROLL_COST) return
+      this.points -= PERK_REROLL_COST
       this._updateStatsPanel()
       this._renderPerkOptions(rollPerks(3))
     })
@@ -733,8 +726,8 @@ export class Game {
 
     this.respawnBtn.addEventListener('click', () => {
       // Hardcore: one life. A full page reload cleanly wipes all in-session
-      // state (scrap, inventory, kills...) while keeping everything that's
-      // meant to be permanent (settings, achievements, legacy scrap,
+      // state (points, inventory, kills...) while keeping everything that's
+      // meant to be permanent (settings, achievements, legacy points,
       // bestiary, best stats), since those all live in localStorage anyway.
       if (this.settings.hardcoreMode) {
         window.location.reload()
@@ -887,7 +880,7 @@ export class Game {
         } else if (this.nearBarricadeWindow) {
           const reward = this.barricadeWindows.repair(this.nearBarricadeWindow)
           if (reward > 0) {
-            this.scrap += reward
+            this.points += reward
             this._updateStatsPanel()
           }
         } else {
@@ -1381,8 +1374,6 @@ export class Game {
     this.achievementsCloseBtn.addEventListener('click', () => this._closeAchievementsPanel())
     this.bestiaryBtn.addEventListener('click', () => this._openBestiaryPanel())
     this.bestiaryCloseBtn.addEventListener('click', () => this._closeBestiaryPanel())
-    this.skinsBtn.addEventListener('click', () => this._openSkinsPanel())
-    this.skinsCloseBtn.addEventListener('click', () => this._closeSkinsPanel())
     this.coinshopBtn.addEventListener('click', () => this._openCoinShopPanel())
     this.coinshopCloseBtn.addEventListener('click', () => this._closeCoinShopPanel())
     this.endingContinueBtn.addEventListener('click', () => {
@@ -1478,7 +1469,7 @@ export class Game {
     this.companion.dispose()
     this.companion = new Companion(this.scene, pos.x, pos.z, role)
     // A role swap rebuilds the companion from scratch - reapply any
-    // scrap-bought training so switching roles mid-run doesn't reset it.
+    // points-bought training so switching roles mid-run doesn't reset it.
     if (this.companionTrainingLevel > 0) this.companion.applyTraining(this.companionTrainingLevel)
     this._updateCompanionName()
   }
@@ -1510,7 +1501,7 @@ export class Game {
     }
   }
 
-  // Applied once per page load (not on respawn - inventory/scrap already
+  // Applied once per page load (not on respawn - inventory/points already
   // survive respawns as-is, so re-granting these would let repeated
   // dying farm free items).
   _applyMetaUpgrades() {
@@ -1550,7 +1541,7 @@ export class Game {
   }
 
   // Fires on every night transition: pauses gameplay and offers 3 random
-  // perks (see Perks.js) purchased with scrap earned from kills.
+  // perks (see Perks.js) purchased with points earned from kills.
   _openPerkPanel() {
     this.perkPanelOpen = true
     this.perkPanel.style.display = 'flex'
@@ -1560,21 +1551,21 @@ export class Game {
   }
 
   _renderPerkOptions(perks) {
-    this.perkScrapLine.textContent = t('scrapLabel', { n: this.scrap })
+    this.perkPointsLine.textContent = t('scrapLabel', { n: this.points })
     this.perkRerollBtn.textContent = t('perkRerollLabel', { n: PERK_REROLL_COST })
-    this.perkRerollBtn.disabled = this.scrap < PERK_REROLL_COST
+    this.perkRerollBtn.disabled = this.points < PERK_REROLL_COST
     this.perkOptions.innerHTML = ''
     for (const perk of perks) {
       const btn = document.createElement('button')
       btn.className = 'perk-option'
-      btn.disabled = this.scrap < perk.cost
+      btn.disabled = this.points < perk.cost
       btn.innerHTML = `
         <span class="perk-name">${t(perk.titleKey)}</span>
         <span class="perk-cost">${t('perkCostLabel', { n: perk.cost })}</span>
       `
       btn.addEventListener('click', () => {
-        if (this.scrap < perk.cost) return
-        this.scrap -= perk.cost
+        if (this.points < perk.cost) return
+        this.points -= perk.cost
         perk.apply(this)
         this.perksOwned.add(perk.id)
         for (const syn of checkPerkSynergies(this)) this._showLoreToast(t(syn.titleKey))
@@ -1638,7 +1629,7 @@ export class Game {
   }
 
   // Fires every time the xp-gem meter fills (see _checkXpLevelUp) - offers
-  // 3 free passive buffs (see XpUpgrades.js), distinct from the scrap-cost
+  // 3 free passive buffs (see XpUpgrades.js), distinct from the points-cost
   // night perks in Perks.js.
   _openXpLevelupPanel() {
     this.xpLevelupPanelOpen = true
@@ -1712,7 +1703,7 @@ export class Game {
 
   _completeBounty() {
     const b = this.activeBounty
-    this.scrap += b.reward
+    this.points += b.reward
     this._updateStatsPanel()
     this._showLoreToast(t('bountyComplete', { title: t(b.titleKey, { n: b.target }), reward: b.reward }))
     this._assignBounty(b.id)
@@ -1727,7 +1718,7 @@ export class Game {
   }
 
   _renderTraderOptions() {
-    this.traderScrapLine.textContent = t('scrapLabel', { n: this.scrap })
+    this.traderPointsLine.textContent = t('scrapLabel', { n: this.points })
     this.traderOptions.innerHTML = ''
 
     if (this.featuredItem) {
@@ -1735,14 +1726,14 @@ export class Game {
       const cost = Math.round(item.cost * 0.7)
       const btn = document.createElement('button')
       btn.className = 'perk-option featured'
-      btn.disabled = this.scrap < cost
+      btn.disabled = this.points < cost
       btn.innerHTML = `
         <span class="perk-name">${t('traderFeaturedLabel')}: ${t(item.titleKey)}</span>
         <span class="perk-cost">${t('perkCostLabel', { n: cost })}</span>
       `
       btn.addEventListener('click', () => {
-        if (this.scrap < cost) return
-        this.scrap -= cost
+        if (this.points < cost) return
+        this.points -= cost
         item.give(this)
         this._updateStatsPanel()
         this._updateInventoryHud()
@@ -1755,14 +1746,14 @@ export class Game {
       if (item === this.featuredItem) continue
       const btn = document.createElement('button')
       btn.className = 'perk-option'
-      btn.disabled = this.scrap < item.cost
+      btn.disabled = this.points < item.cost
       btn.innerHTML = `
         <span class="perk-name">${t(item.titleKey)}</span>
         <span class="perk-cost">${t('perkCostLabel', { n: item.cost })}</span>
       `
       btn.addEventListener('click', () => {
-        if (this.scrap < item.cost) return
-        this.scrap -= item.cost
+        if (this.points < item.cost) return
+        this.points -= item.cost
         item.give(this)
         this._updateStatsPanel()
         this._updateInventoryHud()
@@ -1778,7 +1769,7 @@ export class Game {
   }
 
   // Opened from the main menu (not gameplay) - spends persistent Legacy
-  // Scrap (see MetaProgress.js) on one-time permanent upgrades.
+  // Points (see MetaProgress.js) on one-time permanent upgrades.
   _openUpgradesPanel() {
     this.upgradesPanel.style.display = 'flex'
     this.upgradesPanelTitle.textContent = t('upgradesPanelTitle')
@@ -1787,20 +1778,20 @@ export class Game {
   }
 
   _renderUpgradesOptions() {
-    this.upgradesScrapLine.textContent = t('legacyScrapLabel', { n: this.metaProgress.legacyScrap })
+    this.upgradesPointsLine.textContent = t('legacyScrapLabel', { n: this.metaProgress.legacyPoints })
     this.upgradesOptions.innerHTML = ''
     for (const upgrade of META_UPGRADES) {
       const owned = this.metaProgress.purchased.has(upgrade.id)
       const btn = document.createElement('button')
       btn.className = 'perk-option'
-      btn.disabled = owned || this.metaProgress.legacyScrap < upgrade.cost
+      btn.disabled = owned || this.metaProgress.legacyPoints < upgrade.cost
       btn.innerHTML = `
         <span class="perk-name">${t(upgrade.titleKey)}</span>
         <span class="perk-cost">${owned ? t('upgradesOwned') : t('perkCostLabel', { n: upgrade.cost })}</span>
       `
       btn.addEventListener('click', () => {
-        if (owned || this.metaProgress.legacyScrap < upgrade.cost) return
-        this.metaProgress.legacyScrap -= upgrade.cost
+        if (owned || this.metaProgress.legacyPoints < upgrade.cost) return
+        this.metaProgress.legacyPoints -= upgrade.cost
         this.metaProgress.purchased.add(upgrade.id)
         saveMetaProgress(this.metaProgress)
         this._renderUpgradesOptions()
@@ -1813,20 +1804,20 @@ export class Game {
     this.upgradesPanel.style.display = 'none'
   }
 
-  // Cosmetic pistol skins bought with in-run scrap (see Skins.js) - visual
-  // only, reset on page reload the same as the rest of the scrap economy.
-  // 'gold' may already be owned+equipped for free via the Centurion
-  // achievement (see the constructor).
-  _openSkinsPanel() {
-    this.skinsPanel.style.display = 'flex'
-    this.skinsPanelTitle.textContent = t('skinsPanelTitle')
-    this.skinsCloseBtn.textContent = t('upgradesClose')
-    this._renderSkinsOptions()
+  // Cosmetic pistol skins bought with coins live in this same panel (see
+  // CoinShop.js) rather than a separate Skins shop - 'gold' may already be
+  // owned+equipped for free via the Centurion achievement (see the
+  // constructor), and both skins and stat perks share this one render loop.
+  _openCoinShopPanel() {
+    this.coinshopPanel.style.display = 'flex'
+    this.coinshopPanelTitle.textContent = t('coinshopPanelTitle')
+    this.coinshopCloseBtn.textContent = t('upgradesClose')
+    this._renderCoinShopOptions()
   }
 
-  _renderSkinsOptions() {
-    this.skinsScrapLine.textContent = t('scrapLabel', { n: this.scrap })
-    this.skinsOptions.innerHTML = ''
+  _renderCoinShopOptions() {
+    this.coinshopCoinLine.textContent = t('coinsLabel', { n: this.coins })
+    this.coinshopOptions.innerHTML = ''
 
     const defaultBtn = document.createElement('button')
     defaultBtn.className = 'perk-option'
@@ -1838,66 +1829,49 @@ export class Game {
     defaultBtn.addEventListener('click', () => {
       this.equippedSkin = null
       this.weapons.setWeaponSkin('pistol', null)
-      this._renderSkinsOptions()
+      this._renderCoinShopOptions()
     })
-    this.skinsOptions.appendChild(defaultBtn)
+    this.coinshopOptions.appendChild(defaultBtn)
 
-    for (const skin of SKIN_DEFS) {
-      const owned = this.ownedSkins.has(skin.id)
-      const equipped = this.equippedSkin === skin.id
-      const btn = document.createElement('button')
-      btn.className = 'perk-option'
-      btn.disabled = equipped || (!owned && this.scrap < skin.cost)
-      btn.innerHTML = `
-        <span class="perk-name">${t(skin.titleKey)}</span>
-        <span class="perk-cost">${equipped ? t('skinEquipped') : owned ? t('skinEquip') : t('perkCostLabel', { n: skin.cost })}</span>
-      `
-      btn.addEventListener('click', () => {
-        if (equipped) return
-        if (!owned) {
-          if (this.scrap < skin.cost) return
-          this.scrap -= skin.cost
-          this.ownedSkins.add(skin.id)
-          this._updateStatsPanel()
-        }
-        this.equippedSkin = skin.id
-        this.weapons.setWeaponSkin('pistol', skin.id)
-        this._renderSkinsOptions()
-      })
-      this.skinsOptions.appendChild(btn)
-    }
-  }
-
-  _closeSkinsPanel() {
-    this.skinsPanel.style.display = 'none'
-  }
-
-  _openCoinShopPanel() {
-    this.coinshopPanel.style.display = 'flex'
-    this.coinshopPanelTitle.textContent = t('coinshopPanelTitle')
-    this.coinshopCloseBtn.textContent = t('upgradesClose')
-    this._renderCoinShopOptions()
-  }
-
-  _renderCoinShopOptions() {
-    this.coinshopCoinLine.textContent = t('coinsLabel', { n: this.coins })
-    this.coinshopOptions.innerHTML = ''
     for (const item of COIN_SHOP_ITEMS) {
-      const owned = item.isOwned(this)
       const btn = document.createElement('button')
       btn.className = 'perk-option'
-      btn.disabled = owned || this.coins < item.cost
-      btn.innerHTML = `
-        <span class="perk-name">${t(item.titleKey)}</span>
-        <span class="perk-cost">${owned ? t('upgradesOwned') : t('coinCostLabel', { n: item.cost })}</span>
-      `
-      btn.addEventListener('click', () => {
-        if (owned || this.coins < item.cost) return
-        this.coins -= item.cost
-        item.apply(this)
-        this._updateStatsPanel()
-        this._renderCoinShopOptions()
-      })
+
+      if (item.skin) {
+        const owned = this.ownedSkins.has(item.skin)
+        const equipped = this.equippedSkin === item.skin
+        btn.disabled = equipped || (!owned && this.coins < item.cost)
+        btn.innerHTML = `
+          <span class="perk-name">${t(item.titleKey)}</span>
+          <span class="perk-cost">${equipped ? t('skinEquipped') : owned ? t('skinEquip') : t('coinCostLabel', { n: item.cost })}</span>
+        `
+        btn.addEventListener('click', () => {
+          if (equipped) return
+          if (!owned) {
+            if (this.coins < item.cost) return
+            this.coins -= item.cost
+            this.ownedSkins.add(item.skin)
+            this._updateStatsPanel()
+          }
+          this.equippedSkin = item.skin
+          this.weapons.setWeaponSkin('pistol', item.skin)
+          this._renderCoinShopOptions()
+        })
+      } else {
+        const owned = item.isOwned(this)
+        btn.disabled = owned || this.coins < item.cost
+        btn.innerHTML = `
+          <span class="perk-name">${t(item.titleKey)}</span>
+          <span class="perk-cost">${owned ? t('upgradesOwned') : t('coinCostLabel', { n: item.cost })}</span>
+        `
+        btn.addEventListener('click', () => {
+          if (owned || this.coins < item.cost) return
+          this.coins -= item.cost
+          item.apply(this)
+          this._updateStatsPanel()
+          this._renderCoinShopOptions()
+        })
+      }
       this.coinshopOptions.appendChild(btn)
     }
   }
@@ -2004,7 +1978,6 @@ export class Game {
     this.upgradesBtn.textContent = t('upgradesBtn')
     this.achievementsBtn.textContent = t('achievementsBtn')
     this.bestiaryBtn.textContent = t('bestiaryBtn')
-    this.skinsBtn.textContent = t('skinsBtn')
     this.coinshopBtn.textContent = t('coinshopBtn')
     document.getElementById('stats-coins-label').textContent = t('coinsStatLabel')
 
@@ -2051,7 +2024,7 @@ export class Game {
     document.getElementById('stats-day-label').textContent = t('dayLabel')
     document.getElementById('stats-deaths-label').textContent = t('deathsLabel')
     document.getElementById('stats-kills-label').textContent = t('killsLabel')
-    document.getElementById('stats-scrap-label').textContent = t('scrapStatLabel')
+    document.getElementById('stats-points-label').textContent = t('scrapStatLabel')
 
     document.getElementById('diff-easy').textContent = t('difficultyEasy')
     document.getElementById('diff-normal').textContent = t('difficultyNormal')
@@ -2240,11 +2213,11 @@ export class Game {
       if (this.killCountsByWeapon.minigun >= 50) this.achievements.unlock('meat_grinder')
     }
     if (Math.random() < 0.25) {
-      this.scrap += (2 + Math.floor(Math.random() * 4)) * lootMult
+      this.points += (2 + Math.floor(Math.random() * 4)) * lootMult
       this._updateStatsPanel()
     }
 
-    // Coins: a separate, guaranteed-every-kill currency (unlike scrap's
+    // Coins: a separate, guaranteed-every-kill currency (unlike points'
     // 25%-chance drop) spent exclusively in the Coin Shop - see CoinShop.js.
     let coinsEarned
     if (BOSS_TIER_IDS.has(zombieTypeId)) {
@@ -2327,10 +2300,10 @@ export class Game {
     const elapsed = formatTime(performance.now() - this.runStartedAt)
     this.deathStats.textContent = t('deathStats', { night: this.night, kills: this.kills, time: elapsed })
 
-    const legacyEarned = Math.floor(this.scrap * DEATH_SCRAP_CONVERSION)
-    this.metaProgress.legacyScrap += legacyEarned
+    const legacyEarned = Math.floor(this.points * DEATH_POINTS_CONVERSION)
+    this.metaProgress.legacyPoints += legacyEarned
     saveMetaProgress(this.metaProgress)
-    this.deathLegacyScrap.textContent = t('deathLegacyScrap', { n: legacyEarned })
+    this.deathLegacyPoints.textContent = t('deathLegacyScrap', { n: legacyEarned })
 
     if (this.settings.scoreAttackMode) {
       const score = this.kills * 10 + this.night * 100
@@ -2461,7 +2434,7 @@ export class Game {
     this.statsDay.textContent = this.dayNight ? this.dayNight.getDayNumber() : 1
     this.statsDeaths.textContent = this.totalDeaths
     this.statsKills.textContent = this.totalKills
-    this.statsScrap.textContent = this.scrap
+    this.statsPoints.textContent = this.points
     this.statsCoins.textContent = this.coins
 
     if (this._isRoundMode()) {
@@ -2577,7 +2550,7 @@ export class Game {
 
   _claimAirdrop() {
     this.scene.remove(this.airdrop.mesh)
-    this.scrap += 40
+    this.points += 40
     this.pickups.spawnLootDrop('ammo', this.airdrop.x, this.airdrop.z)
     this._showLoreToast(t('airdropClaimed'))
     this.airdrop = null
@@ -2775,11 +2748,11 @@ export class Game {
   }
 
   _rescueSurvivor() {
-    this.scrap += RESCUE_SCRAP_REWARD
+    this.points += RESCUE_POINTS_REWARD
     this.inventory.addHealthPack(1)
     this._updateStatsPanel()
     this._updateInventoryHud()
-    this._showLoreToast(t('survivorRescued', { reward: RESCUE_SCRAP_REWARD }))
+    this._showLoreToast(t('survivorRescued', { reward: RESCUE_POINTS_REWARD }))
 
     // Bonus on top of the usual reward: the rescued survivor tags along as
     // a second, weaker companion until dawn instead of just vanishing after
@@ -3015,7 +2988,7 @@ export class Game {
         this.interactPrompt.innerHTML = tHtml('interactAmmoStation')
         this.interactPrompt.style.display = 'block'
       } else if (this.nearBarricadeWindow) {
-        this.interactPrompt.innerHTML = `<b>F</b> repair barricade (+${REPAIR_REWARD_SCRAP} scrap)`
+        this.interactPrompt.innerHTML = `<b>F</b> repair barricade (+${REPAIR_REWARD_POINTS} points)`
         this.interactPrompt.style.display = 'block'
       } else {
         this.interactPrompt.style.display = 'none'
