@@ -570,6 +570,14 @@ export class Game {
       guard.setName('Guard')
       return guard
     })
+    // Static guide NPCs at the trader/ammo corner - built the same as any
+    // other Companion but never ticked (no .update() call anywhere), so
+    // they just stand there with an instructional label instead of
+    // following/fighting like every other Companion instance.
+    this.traderGuideNpc = new Companion(this.scene, trader.x + 1.6, trader.z - 1.4, 'ranged')
+    this.traderGuideNpc.setName('Press F here to trade points for supplies')
+    this.ammoGuideNpc = new Companion(this.scene, ammoStation.x - 1.4, ammoStation.z - 1.2, 'ranged')
+    this.ammoGuideNpc.setName('Hold F here to refill reserve ammo')
     this.companion = new Companion(this.scene, 1.6, 7, this.settings.companionRole)
     this.playerBody = new PlayerBody(this.scene)
     this.vehicle = new Vehicle(this.scene, -6, -18, 0)
@@ -2766,10 +2774,6 @@ export class Game {
     this.nearTrader = dist <= TRADER_INTERACT_RADIUS
   }
 
-  // Core-loop twist: VIREO's "wellness light" is exactly what drew the
-  // infection in the first place (see the audio log lore), so the
-  // flashlight - the tool you need to see at night - is also a beacon.
-  // Reuses the same forceWake()/enrage() the Screamer's scream uses.
   // Slow passive regen while standing inside the guarded compound - the
   // mechanical half of "safe zone" (the guards shooting anything that
   // approaches are the other half). Silent/no toast on its own; the
@@ -2782,6 +2786,10 @@ export class Game {
     this._updateHealthHud()
   }
 
+  // Core-loop twist: VIREO's "wellness light" is exactly what drew the
+  // infection in the first place (see the audio log lore), so the
+  // flashlight - the tool you need to see at night - is also a beacon.
+  // Reuses the same forceWake()/enrage() the Screamer's scream uses.
   _updateLightLure(playerPos) {
     if (performance.now() < this.nextLightLureAt) return
     this.nextLightLureAt = performance.now() + LIGHT_LURE_INTERVAL_MS

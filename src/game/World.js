@@ -290,8 +290,7 @@ export function buildWorld(scene) {
     else addBuilding(scene, register, b)
   }
 
-  scatterCars(scene, colliders, solidMeshes)
-  scatterDebris(scene, colliders, solidMeshes)
+  scatterDebris(scene)
   addStreetlights(scene, register, flickerLights)
   for (const spot of buildTowers(scene, colliders, solidMeshes)) towerChestSpots.push(spot)
 
@@ -310,7 +309,6 @@ export function buildWorld(scene) {
   const trader = buildTraderStall(scene, register)
   const ammoStation = buildAmmoStation(scene, register)
   const tunnel = buildTunnel(scene, colliders, solidMeshes, flickerLights)
-  addNeonSigns(scene)
   towerChestSpots.push(tunnel.chestSpot)
   spawnPoints.push({ x: tunnel.chestSpot.x, z: tunnel.chestSpot.z })
   const vireoFacility = buildVireoFacility(scene, colliders, solidMeshes, flickerLights)
@@ -533,10 +531,11 @@ function buildTraderStall(scene, register) {
 // pickups alone (see Game.js's _updateAmmoStation). Kept well clear of the
 // generator/trader stall so all three street props read as distinct spots.
 function buildAmmoStation(scene, register) {
-  // Opposite corner from the trader stall, same reasoning - moved off the
-  // spawn area to the far end of the avenue.
-  const x = 8
-  const z = -33
+  // Right next to the trader stall (see buildTraderStall, x:-8 z:33) so both
+  // "spend points here" stops read as one destination/corner instead of
+  // being split to opposite ends of the avenue.
+  const x = -3
+  const z = 29
 
   const group = new THREE.Group()
   group.position.set(x, 0, z)
@@ -1069,68 +1068,6 @@ function buildSubway(scene, colliders, solidMeshes, flickerLights) {
   return { chestSpot: { x: SUBWAY_X, y: SUBWAY_FLOOR_Y, z: SUBWAY_Z_START + 3 } }
 }
 
-// Purely decorative neon signage for the Neon Decay look - not registered as
-// colliders (signage mounted flush on a facade shouldn't block movement).
-function addNeonSigns(scene) {
-  // Worn commercial signage tones (warm amber, dim tungsten-red, muted
-  // teal) instead of uniform cyberpunk magenta/cyan - reads as grimy real
-  // storefronts left running on backup power, not a neon skyline.
-  const signSpots = [
-    { x: -17, y: 6, z: -20, w: 3, h: 1, color: 0xff9a3d, rotY: Math.PI / 2 },
-    { x: 17, y: 8, z: 10, w: 4, h: 1.2, color: 0x4a9a8a, rotY: -Math.PI / 2 },
-    { x: -17, y: 5, z: 25, w: 2.5, h: 1, color: 0xd4502a, rotY: Math.PI / 2 },
-    { x: 17, y: 7, z: -30, w: 3.5, h: 1, color: 0xff9a3d, rotY: -Math.PI / 2 },
-    { x: -32, y: 10, z: 0, w: 5, h: 1.5, color: 0xd4502a, rotY: Math.PI / 2 },
-  ]
-
-  // Self-illuminating emissive material only - no real PointLight per sign.
-  // Five extra dynamic lights was a meaningful chunk of the frame cost this
-  // session added (every light gets evaluated per pixel); the glow already
-  // reads clearly without one lighting up its surroundings too.
-  for (const spot of signSpots) {
-    const mat = new THREE.MeshStandardMaterial({
-      color: 0x0a0a0a,
-      emissive: spot.color,
-      emissiveIntensity: 1.4,
-      side: THREE.DoubleSide,
-    })
-    const sign = new THREE.Mesh(new THREE.PlaneGeometry(spot.w, spot.h), mat)
-    sign.position.set(spot.x, spot.y, spot.z)
-    sign.rotation.y = spot.rotY
-    scene.add(sign)
-  }
-
-  // Branded sign at the tunnel mouth - ties the neon signage to the audio
-  // log lore (see Game.js's loreAudiolog4/5 text) without needing any extra
-  // in-game UI to explain it.
-  const canvas = document.createElement('canvas')
-  canvas.width = 256
-  canvas.height = 96
-  const ctx = canvas.getContext('2d')
-  ctx.fillStyle = '#0a0a0a'
-  ctx.fillRect(0, 0, canvas.width, canvas.height)
-  ctx.fillStyle = '#e0a050'
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.font = 'bold 46px sans-serif'
-  ctx.fillText('VIREO', canvas.width / 2, canvas.height / 2 - 10)
-  ctx.font = '16px sans-serif'
-  ctx.fillStyle = '#8a9a90'
-  ctx.fillText('wellness light program', canvas.width / 2, canvas.height / 2 + 28)
-
-  const brandMat = new THREE.MeshStandardMaterial({
-    map: new THREE.CanvasTexture(canvas),
-    emissive: 0xffffff,
-    emissiveMap: new THREE.CanvasTexture(canvas),
-    emissiveIntensity: 0.9,
-    side: THREE.DoubleSide,
-  })
-  const brandSign = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.2), brandMat)
-  brandSign.position.set(5, 6, 13)
-  brandSign.rotation.y = Math.PI
-  scene.add(brandSign)
-}
-
 function addStreetMarkings(scene) {
   const lineMat = new THREE.MeshStandardMaterial({ color: 0x6b6b5a, roughness: 1, emissive: 0x1a1a12, emissiveIntensity: 0.15 })
   for (let z = -45; z <= 45; z += 6) {
@@ -1330,87 +1267,17 @@ function addWindows(scene, spec) {
   }
 }
 
-const CAR_POSITIONS = [
-  { x: -5, z: -6, rot: 0.15 },
-  { x: 4.5, z: 4, rot: -0.4 },
-  { x: -6, z: 22, rot: 1.6 },
-  { x: 5, z: -24, rot: 0.3 },
-]
-
-function scatterCars(scene, colliders, solidMeshes) {
-  for (const c of CAR_POSITIONS) {
-    const group = new THREE.Group()
-    group.position.set(c.x, 0, c.z)
-    group.rotation.y = c.rot
-
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x4a2018, roughness: 1, metalness: 0.1 })
-    const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.7, 4), bodyMat)
-    body.position.y = 0.55
-    body.castShadow = true
-    group.add(body)
-
-    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.55, 2), bodyMat)
-    cabin.position.set(0, 1.05, -0.3)
-    cabin.castShadow = true
-    group.add(cabin)
-
-    // Shootable explosive hazard - shared mutable state object so marking it
-    // exploded via either mesh (whichever the raycast actually hits) is
-    // reflected on both. See WeaponSystem._fire's explosive-prop check.
-    const explosiveState = { exploded: false, x: c.x, z: c.z, mat: bodyMat }
-    body.userData.explosive = explosiveState
-    cabin.userData.explosive = explosiveState
-
-    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 })
-    for (const [wx, wz] of [[-0.9, 1.3], [0.9, 1.3], [-0.9, -1.3], [0.9, -1.3]]) {
-      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.3, 16), wheelMat)
-      wheel.rotation.z = Math.PI / 2
-      wheel.position.set(wx, 0.35, wz)
-      group.add(wheel)
-    }
-
-    scene.add(group)
-    solidMeshes.push(group)
-
-    // Cap the collision height well below the cabin roof so a jump reliably
-    // clears it, while bullets (solidMeshes) still hit the full visual car.
-    const box = new THREE.Box3().setFromObject(group)
-    box.max.y = Math.min(box.max.y, box.min.y + 0.75)
-    colliders.push(box)
-  }
-}
-
-// Rubble piles: one rock/boulder chunk (occasionally big enough to double as
-// a jumpable collider, same trick as cars) plus a scatter of planks/bricks
-// around its base, so each spot reads as one coherent debris pile instead of
-// standalone boulders sitting in the open street with unrelated plank
-// clutter scattered elsewhere.
+// Small piles of splintered planks/bricks scattered around the street -
+// purely decorative clutter, no collider.
 const DEBRIS_CLUSTERS = [
   [8, -14], [-9, 8], [12, 12], [-5, -28], [5, 28], [-13, -20], [14, -28],
   [2, -8], [-2, 14], [9, -4], [-8, -10], [3, 18], [-14, 4], [11, -18], [-4, 24],
 ]
-function scatterDebris(scene, colliders, solidMeshes) {
-  const rubbleMat = new THREE.MeshStandardMaterial({ color: 0x39362f, roughness: 1 })
+function scatterDebris(scene) {
   const brickMat = new THREE.MeshStandardMaterial({ color: 0x4a4438, roughness: 1 })
   const plankMat = new THREE.MeshStandardMaterial({ color: 0x2c2418, roughness: 0.9 })
 
   for (const [x, z] of DEBRIS_CLUSTERS) {
-    const size = 1.1 + Math.random() * 1.3
-    const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(size, 0), rubbleMat)
-    rock.position.set(x, size * 0.4, z)
-    rock.rotation.set(Math.random(), Math.random(), Math.random())
-    rock.castShadow = true
-    rock.receiveShadow = true
-    scene.add(rock)
-
-    if (size > 1.6) {
-      solidMeshes.push(rock)
-      // Same low-collision-height trick as cars, so rubble is jumpable too.
-      const box = new THREE.Box3().setFromObject(rock)
-      box.max.y = Math.min(box.max.y, box.min.y + 0.75)
-      colliders.push(box)
-    }
-
     const count = 1 + Math.floor(Math.random() * 3)
     for (let i = 0; i < count; i++) {
       const isPlank = Math.random() < 0.5

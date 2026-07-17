@@ -24,7 +24,7 @@ const QUICK_MELEE_ANIM_MS = 280
 // Held low on the off-hand (left) side, well clear of the equipped gun's
 // own position (see VIEWMODEL_BASE, positive X) - then thrusts forward and
 // across to the center on the stab instead of just sliding straight out.
-const QUICK_MELEE_REST_POS = new THREE.Vector3(-0.22, -0.3, -0.32)
+const QUICK_MELEE_REST_POS = new THREE.Vector3(-0.36, -0.28, -0.28)
 const QUICK_MELEE_REST_ROT = new THREE.Vector3(0.35, 0.55, -0.25)
 const QUICK_MELEE_STAB_POS = new THREE.Vector3(0.04, -0.14, -0.62)
 const QUICK_MELEE_STAB_ROT = new THREE.Vector3(-0.15, -0.1, 0.1)
@@ -190,15 +190,19 @@ export class WeaponSystem {
     this.viewmodels[this.current.id].visible = true
 
     // Quick-melee's own knife, parented to the same viewmodelRoot as every
-    // other weapon so it inherits the same camera-relative positioning, but
-    // never goes through _switchTo - it's an overlay that lunges into view
-    // and back regardless of which weapon viewmodel is currently showing.
+    // other weapon so it inherits the same camera-relative positioning.
+    // Unlike every other viewmodel it isn't toggled by _switchTo alone -
+    // it stays visible in the off-hand for as long as any gun is equipped
+    // (hidden only when the melee slot itself is out, since that viewmodel
+    // already shows a held knife/bat/machete) and lunges into view for the
+    // stab regardless of which gun viewmodel is currently showing.
     this.quickMeleeKnife = buildQuickMeleeKnifeModel()
     this.quickMeleeKnife.position.copy(QUICK_MELEE_REST_POS)
     this.quickMeleeKnife.rotation.setFromVector3(QUICK_MELEE_REST_ROT)
-    this.quickMeleeKnife.visible = false
+    this.quickMeleeKnife.visible = !this.current.melee
     this.viewmodelRoot.add(this.quickMeleeKnife)
     this.quickMeleeCooldownUntil = 0
+    this.quickMeleeAnimating = false
     this.quickMeleeAnimUntil = 0
     this._quickMeleeRotTmp = new THREE.Vector3()
 
@@ -373,6 +377,15 @@ export class WeaponSystem {
     this.currentIndex = index
     for (const id in this.viewmodels) this.viewmodels[id].visible = false
     this.viewmodels[this.weapons[index].id].visible = true
+    // Off-hand knife rides along with every gun, hidden only for the melee
+    // slot itself (that viewmodel already has its own knife/bat/machete in
+    // hand). Reset to its resting pose so switching mid-swing doesn't leave
+    // it stuck at whatever position the stab animation was at.
+    this.quickMeleeKnife.visible = !this.weapons[index].melee
+    if (!this.quickMeleeAnimating) {
+      this.quickMeleeKnife.position.copy(QUICK_MELEE_REST_POS)
+      this.quickMeleeKnife.rotation.setFromVector3(QUICK_MELEE_REST_ROT)
+    }
     this._updateHud()
   }
 
@@ -575,6 +588,7 @@ export class WeaponSystem {
     const now = performance.now()
     if (now < this.quickMeleeCooldownUntil) return
     this.quickMeleeCooldownUntil = now + QUICK_MELEE_COOLDOWN_MS
+    this.quickMeleeAnimating = true
     this.quickMeleeAnimUntil = now + QUICK_MELEE_ANIM_MS
     this.quickMeleeKnife.visible = true
     audioEngine.playMelee()
@@ -603,14 +617,19 @@ export class WeaponSystem {
     }
   }
 
-  // Lunges the quick-melee knife into view and back over QUICK_MELEE_ANIM_MS,
-  // independent of whatever weapon viewmodel is currently shown/animating.
+  // Lunges the quick-melee knife into view and back over QUICK_MELEE_ANIM_MS
+  // when mid-swing; otherwise the knife just sits in its resting pose,
+  // staying visible the whole time a gun is equipped (see _switchTo) rather
+  // than only appearing for the swing itself.
   _updateQuickMeleeAnim() {
-    if (!this.quickMeleeKnife.visible) return
+    if (!this.quickMeleeAnimating) return
     const now = performance.now()
     const remaining = this.quickMeleeAnimUntil - now
     if (remaining <= 0) {
-      this.quickMeleeKnife.visible = false
+      this.quickMeleeAnimating = false
+      this.quickMeleeKnife.position.copy(QUICK_MELEE_REST_POS)
+      this.quickMeleeKnife.rotation.setFromVector3(QUICK_MELEE_REST_ROT)
+      this.quickMeleeKnife.visible = !this.current.melee
       return
     }
     const t = 1 - remaining / QUICK_MELEE_ANIM_MS
