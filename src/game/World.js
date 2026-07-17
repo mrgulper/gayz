@@ -252,8 +252,11 @@ export function buildWorld(scene) {
   scene.add(moon)
 
   const groundSize = 150
-  const groundTex = createGrimeTexture('#2c2e30', { size: 512, noise: 22, cracks: 60 })
-  groundTex.repeat.set(groundSize / 5, groundSize / 5)
+  const groundTex = new THREE.TextureLoader().load('/textures/ground-asphalt.png')
+  groundTex.wrapS = THREE.RepeatWrapping
+  groundTex.wrapT = THREE.RepeatWrapping
+  groundTex.colorSpace = THREE.SRGBColorSpace
+  groundTex.repeat.set(groundSize / 12, groundSize / 12)
   const groundBumpTex = getSharedBumpTexture().clone()
   groundBumpTex.needsUpdate = true
   groundBumpTex.repeat.set(groundSize / 3, groundSize / 3)
