@@ -336,6 +336,13 @@ export function buildWorld(scene) {
   for (const spot of park.chestSpots) towerChestSpots.push(spot)
   for (const spot of park.spawnPoints) spawnPoints.push(spot)
 
+  // Shootable explosive barrels - a handful of scattered spots clear of the
+  // park's trees/benches/chests, so a horde funneling past one is a free
+  // area-damage opportunity for a player who notices it in time.
+  buildExplosiveBarrels(scene, colliders, solidMeshes, [
+    [-8, 58], [8, 60], [0, 68], [-4, 64],
+  ])
+
   // The subway's real entrance - see buildSubwayParkEntrance/
   // buildSubwayConnector's comments for why it's all the way out here now
   // instead of street-side next to the platform it leads to.
@@ -470,6 +477,53 @@ function buildPark(scene, colliders, solidMeshes) {
   }
 
   return { chestSpots, spawnPoints }
+}
+
+// Shootable explosive barrels - the world-prop half of WeaponSystem._fire's
+// hit.object.userData.explosive check, which already knows how to detonate
+// one (calls ZombieManager.explodeAt) but had nothing in the world tagging
+// itself as explosive until this. Each barrel gets its own cloned material -
+// not a shared module-level one - since _fire mutates color/emissive
+// in-place on detonation, and a shared material would blacken every barrel
+// on the map the instant any single one was shot (same class of bug as the
+// Molotov fire zone material sharing one instance earlier).
+const barrelBodyMat = new THREE.MeshStandardMaterial({
+  color: 0xb3311f,
+  emissive: 0x4a0f06,
+  emissiveIntensity: 0.5,
+  roughness: 0.55,
+  metalness: 0.25,
+})
+const barrelCapMat = new THREE.MeshStandardMaterial({ color: 0x1c1a16, roughness: 0.6, metalness: 0.4 })
+
+function buildExplosiveBarrels(scene, colliders, solidMeshes, spots) {
+  for (const [x, z] of spots) {
+    const barrel = new THREE.Group()
+    barrel.position.set(x, 0, z)
+
+    const bodyMat = barrelBodyMat.clone()
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.9, 12), bodyMat)
+    body.position.y = 0.45
+    body.castShadow = true
+    body.receiveShadow = true
+    barrel.add(body)
+
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.37, 0.37, 0.08, 12), barrelCapMat)
+    cap.position.y = 0.94
+    barrel.add(cap)
+
+    scene.add(barrel)
+    body.updateWorldMatrix(true, false)
+    const explosive = { x, z, mat: bodyMat, exploded: false }
+    // Cap shares the same explosive record (not a second one) so a shot
+    // that lands on the thin top disc instead of the body still detonates
+    // it - both meshes need to be raycast-hittable (solidMeshes) for that
+    // to even be possible, but only the body needs a movement collider.
+    body.userData.explosive = explosive
+    cap.userData.explosive = explosive
+    solidMeshes.push(body, cap)
+    colliders.push(new THREE.Box3().setFromObject(body))
+  }
 }
 
 // Small utility generator near spawn, powering the street's flicker lights.
