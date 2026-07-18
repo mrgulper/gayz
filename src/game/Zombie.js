@@ -15,6 +15,15 @@ const AMBUSH_BURST_SPEED_MULT = 2.3
 const DEFAULT_ENRAGE_MULT = 1.4
 const DEFAULT_WEAKEN_MULT = 0.55
 
+// Berserker last stand: any zombie below this health fraction goes into a
+// desperate final rush - faster and hitting harder right before it dies,
+// instead of just plodding along at the same pace all the way down to 0.
+// Distinct from enrage (a screamer's buff to others) - this is purely
+// self-triggered by the zombie's own remaining health.
+const BERSERK_HEALTH_FRACTION = 0.2
+const BERSERK_SPEED_MULT = 1.5
+const BERSERK_DAMAGE_MULT = 1.3
+
 // Elite variants (see ZombieManager._spawnRandom) - tougher, hit harder,
 // visibly gilded so the player can spot the threat before engaging.
 const ELITE_HEALTH_MULT = 2.2
@@ -123,6 +132,7 @@ export class Zombie {
     this.screamPulseUntil = 0
     this.enragedUntil = 0
     this.weakenedUntil = 0
+    this.isBerserk = false
     this.specialCooldownUntil = 0
     this.specialTelegraphUntil = 0
     this._specialArmed = false
@@ -704,7 +714,9 @@ export class Zombie {
     const burstMult = performance.now() < this.burstUntil ? AMBUSH_BURST_SPEED_MULT : 1
     const enrageMult = performance.now() < this.enragedUntil ? (this.config.screamEnrageMult ?? DEFAULT_ENRAGE_MULT) : 1
     const weakenMult = performance.now() < this.weakenedUntil ? DEFAULT_WEAKEN_MULT : 1
-    this.effectiveSpeed = this.speed * Math.max(burstMult, enrageMult) * weakenMult
+    this.isBerserk = this.health > 0 && this.health / this.maxHealth <= BERSERK_HEALTH_FRACTION
+    const berserkMult = this.isBerserk ? BERSERK_SPEED_MULT : 1
+    this.effectiveSpeed = this.speed * Math.max(burstMult, enrageMult, berserkMult) * weakenMult
 
     // Excess elevation beyond a normal standing eye height (e.g. the player
     // is up on a car roof) - added into the melee engagement check below
@@ -775,7 +787,7 @@ export class Zombie {
       this.attackAnimUntil = performance.now() + 260
       const weakened = performance.now() < this.weakenedUntil
       const damage = (this.config.damageMin + Math.random() * (this.config.damageMax - this.config.damageMin)) *
-        (weakened ? DEFAULT_WEAKEN_MULT : 1) * (this.isElite ? ELITE_DAMAGE_MULT : 1)
+        (weakened ? DEFAULT_WEAKEN_MULT : 1) * (this.isElite ? ELITE_DAMAGE_MULT : 1) * (this.isBerserk ? BERSERK_DAMAGE_MULT : 1)
       if (onAttack) onAttack(damage)
     }
   }
@@ -794,7 +806,7 @@ export class Zombie {
       const distToPlayer = Math.hypot(playerPos.x - this.group.position.x, playerPos.z - this.group.position.z)
       if (distToPlayer <= BOSS_SPECIAL_RANGE) {
         const falloff = 1 - distToPlayer / BOSS_SPECIAL_RANGE
-        const damage = (this.config.damageMin + this.config.damageMax) / 2 * BOSS_SPECIAL_DAMAGE_MULT * falloff
+        const damage = (this.config.damageMin + this.config.damageMax) / 2 * BOSS_SPECIAL_DAMAGE_MULT * falloff * (this.isBerserk ? BERSERK_DAMAGE_MULT : 1)
         if (onAttack) onAttack(damage)
       }
       this.specialCooldownUntil = now + BOSS_SPECIAL_COOLDOWN_MS
@@ -958,6 +970,9 @@ export class Zombie {
       if (stunned) {
         mat.emissive.setHex(0x4ecfff)
         mat.emissiveIntensity = 2.6
+      } else if (this.isBerserk) {
+        mat.emissive.setHex(0xff2200)
+        mat.emissiveIntensity = 2.8
       } else {
         mat.emissive.setHex(weak ? 0x8b2fe0 : 0xd8e8ff)
         mat.emissiveIntensity = weak ? 2.2 : 1.5
