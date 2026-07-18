@@ -4,6 +4,12 @@
 const STORAGE_KEY = 'gayz-meta-progress'
 export const DEATH_POINTS_CONVERSION = 0.2
 
+// Three branching chains (Survival, Utility, Combat) plus several
+// standalone always-available picks - `requires` names another upgrade's id
+// that must already be purchased before this one is buyable, so the tree
+// reads as root -> tier2 -> capstone rather than a flat pick-anything list.
+// See Game.js's _renderUpgradesOptions for how a missing requirement gets
+// shown (locked, with the prerequisite's name) rather than just disabled.
 export const META_UPGRADES = [
   {
     id: 'vitality',
@@ -57,6 +63,7 @@ export const META_UPGRADES = [
       game.player.stamina = game.player.maxStamina
     },
   },
+  // Combat branch: marksman (root) -> deadeye (capstone).
   {
     id: 'marksman',
     titleKey: 'metaMarksman',
@@ -65,6 +72,16 @@ export const META_UPGRADES = [
       game.weapons.damageMult += 0.1
     },
   },
+  {
+    id: 'deadeye',
+    titleKey: 'metaDeadeye',
+    cost: 550,
+    requires: 'marksman',
+    apply: (game) => {
+      game.weapons.damageMult += 0.15
+    },
+  },
+  // Utility branch: quickhands (root) -> stockpile (tier 2) -> masterscavenger (capstone).
   {
     id: 'quickhands',
     titleKey: 'metaQuickhands',
@@ -77,11 +94,22 @@ export const META_UPGRADES = [
     id: 'stockpile',
     titleKey: 'metaStockpile',
     cost: 300,
+    requires: 'quickhands',
     apply: (game) => {
       game.inventory.addFuelCan(1)
       for (const w of game.weapons.weapons) {
         if (!w.melee) w.reserve += 2
       }
+    },
+  },
+  {
+    id: 'masterscavenger',
+    titleKey: 'metaMasterScavenger',
+    cost: 500,
+    requires: 'stockpile',
+    apply: (game) => {
+      game.coins += 50
+      game.inventory.addFuelCan(1)
     },
   },
   {
@@ -92,14 +120,27 @@ export const META_UPGRADES = [
       game.coins += 30
     },
   },
+  // Survival branch: vitality (root) -> ironwill (tier 2) -> juggernaut (capstone).
   {
     id: 'ironwill',
     titleKey: 'metaIronWill',
     cost: 350,
+    requires: 'vitality',
     apply: (game) => {
       game.playerState.maxHealth += 15
       game.playerState.health += 15
       game.playerState.maxArmor += 15
+    },
+  },
+  {
+    id: 'juggernaut',
+    titleKey: 'metaJuggernaut',
+    cost: 600,
+    requires: 'ironwill',
+    apply: (game) => {
+      game.playerState.maxHealth += 30
+      game.playerState.health += 30
+      game.playerState.maxArmor += 20
     },
   },
 ]

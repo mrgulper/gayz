@@ -1183,6 +1183,16 @@ html, body {
   cursor: not-allowed;
 }
 
+.perk-option.locked {
+  opacity: 0.3;
+  border-style: dashed;
+}
+
+.perk-option.locked .perk-cost {
+  color: #888;
+  font-style: italic;
+}
+
 .perk-option .perk-name {
   font-size: 14px;
   font-weight: 700;

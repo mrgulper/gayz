@@ -2389,15 +2389,21 @@ export class Game {
     this.upgradesOptions.innerHTML = ''
     for (const upgrade of META_UPGRADES) {
       const owned = this.metaProgress.purchased.has(upgrade.id)
+      const locked = !!upgrade.requires && !this.metaProgress.purchased.has(upgrade.requires)
       const btn = document.createElement('button')
-      btn.className = 'perk-option'
-      btn.disabled = owned || this.metaProgress.legacyPoints < upgrade.cost
+      btn.className = locked ? 'perk-option locked' : 'perk-option'
+      btn.disabled = owned || locked || this.metaProgress.legacyPoints < upgrade.cost
+      const costLine = owned
+        ? t('upgradesOwned')
+        : locked
+          ? t('upgradesRequires', { name: t(META_UPGRADES.find((u) => u.id === upgrade.requires)?.titleKey) })
+          : t('perkCostLabel', { n: upgrade.cost })
       btn.innerHTML = `
         <span class="perk-name">${t(upgrade.titleKey)}</span>
-        <span class="perk-cost">${owned ? t('upgradesOwned') : t('perkCostLabel', { n: upgrade.cost })}</span>
+        <span class="perk-cost">${costLine}</span>
       `
       btn.addEventListener('click', () => {
-        if (owned || this.metaProgress.legacyPoints < upgrade.cost) return
+        if (owned || locked || this.metaProgress.legacyPoints < upgrade.cost) return
         this.metaProgress.legacyPoints -= upgrade.cost
         this.metaProgress.purchased.add(upgrade.id)
         saveMetaProgress(this.metaProgress)
