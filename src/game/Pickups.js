@@ -26,6 +26,7 @@ const TYPES = {
   audiolog3: { weight: 0, label: 'Audio Log' },
   audiolog4: { weight: 0, label: 'Audio Log' },
   audiolog5: { weight: 0, label: 'Audio Log' },
+  vaultkey: { weight: 0, label: 'Vault Key' },
 }
 
 function buildVisual(type) {
@@ -167,6 +168,32 @@ function buildVisual(type) {
 
     const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.09, 3.2, 10, 1, true), beaconMat)
     beam.position.y = 1.3
+    group.add(beam)
+  } else if (type === 'vaultkey') {
+    const goldMat = new THREE.MeshStandardMaterial({ color: 0x3a2f10, emissive: 0xffcf5c, emissiveIntensity: 1.4, roughness: 0.35, metalness: 0.6 })
+    const bow = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.03, 8, 16), goldMat)
+    bow.rotation.y = Math.PI / 2
+    group.add(bow)
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.32, 8), goldMat)
+    shaft.rotation.z = Math.PI / 2
+    shaft.position.x = 0.22
+    group.add(shaft)
+    for (const tx of [0.06, 0.11]) {
+      const tooth = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.06, 0.025), goldMat)
+      tooth.position.set(0.36 + tx, -0.04, 0)
+      group.add(tooth)
+    }
+
+    // Soft golden beacon, smaller than the minigun/UV lamp's tall pillar -
+    // enough to catch the eye from a distance without overselling a small
+    // key-sized pickup.
+    const beaconMat = new THREE.MeshBasicMaterial({ color: 0xffcf5c, transparent: true, opacity: 0.3 })
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.02, 8, 24), new THREE.MeshStandardMaterial({ color: 0x3a2f10, emissive: 0xffcf5c, emissiveIntensity: 1.0 }))
+    ring.rotation.x = Math.PI / 2
+    ring.position.y = -0.25
+    group.add(ring)
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.06, 1.8, 10, 1, true), beaconMat)
+    beam.position.y = 0.75
     group.add(beam)
   }
 

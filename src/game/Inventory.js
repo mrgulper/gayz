@@ -11,6 +11,10 @@ export class Inventory {
     this.c4 = 0
     this.adrenaline = 0
     this.emp = 0
+    // A single quest flag, not a stacking count like the rest of this class -
+    // there's only ever one Vault Key in play at a time (see Chests.js's
+    // Vault and Pickups.js's 'vaultkey' type).
+    this.vaultKey = false
   }
 
   addHealthPack(n = 1) {
@@ -120,6 +124,12 @@ export class Inventory {
   useEmp() {
     if (this.emp <= 0) return false
     this.emp -= 1
+    return true
+  }
+
+  useVaultKey() {
+    if (!this.vaultKey) return false
+    this.vaultKey = false
     return true
   }
 }

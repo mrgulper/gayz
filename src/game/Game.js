@@ -11,7 +11,7 @@ import { PickupManager } from './Pickups.js'
 import { PlayerState } from './PlayerState.js'
 import { Inventory } from './Inventory.js'
 import { DayNightCycle } from './DayNightCycle.js'
-import { ChestManager } from './Chests.js'
+import { ChestManager, Vault } from './Chests.js'
 import { BarricadeWindows, REPAIR_REWARD_POINTS } from './BarricadeWindows.js'
 import { Minimap } from './Minimap.js'
 import { DecalManager } from './Decals.js'
@@ -252,6 +252,7 @@ const GENERATOR_DRAIN_PER_SEC = 100 / 150
 const GENERATOR_REFUEL_RADIUS = 2.5
 const GENERATOR_PASSIVE_REFUEL_PER_SEC = 6
 const GENERATOR_FUELCAN_AMOUNT = 35
+const VAULT_REWARD_POINTS = 150
 const TRADER_INTERACT_RADIUS = 2.5
 const AMMO_STATION_RADIUS = 2.2
 const AMMO_STATION_HOLD_SECONDS = 10
@@ -699,6 +700,21 @@ export class Game {
     this.pickups.spawnUnique('audiolog4', vireoFacility.uvLampSpot.x - 1.2, vireoFacility.uvLampSpot.z + 3, vireoFacility.floorY + 0.5)
     this.pickups.spawnUnique('audiolog5', 0, 60, 0.5)
     this.pickups.spawnUnique('uvlamp', vireoFacility.uvLampSpot.x, vireoFacility.uvLampSpot.z, vireoFacility.floorY + 0.5)
+    // Locked Vault: a one-off "find the key, then cash in a guaranteed good
+    // reward" loop, distinct from the random-roll chest rotation. Tucked in
+    // a back corner of the safe zone compound, away from the entrance gap
+    // and the beacon/guard spots. The key itself spawns at a random one of
+    // a few scattered locations (see _spawnVaultKey) so where to look
+    // changes run to run.
+    this.vault = new Vault(safeZone.x - 4, 0, safeZone.z - 3)
+    this.scene.add(this.vault.group)
+    this.nearVault = false
+    this.vaultKeySpots = [
+      { x: 0, y: 0.5, z: -20 },
+      { x: 0, y: 0.5, z: 65 },
+      { x: vireoFacility.uvLampSpot.x + 1.5, y: vireoFacility.floorY + 0.5, z: vireoFacility.uvLampSpot.z - 2 },
+    ]
+    this._spawnVaultKey()
     this.audioLogsFound = new Set()
     this.chests = new ChestManager(this.scene, towerChestSpots)
     this.playerState = new PlayerState()
@@ -1083,6 +1099,8 @@ export class Game {
             this.points += reward
             this._updateStatsPanel()
           }
+        } else if (this.nearVault) {
+          this._openVault()
         } else {
           const loot = this.chests.tryInteract()
           if (loot) {
@@ -2925,6 +2943,12 @@ export class Game {
     else if (type === 'melee_bat') this.weapons.setMeleeVariant('bat')
     else if (type === 'melee_machete') this.weapons.setMeleeVariant('machete')
     else if (type === 'melee_uvbaton') this.weapons.setMeleeVariant('uvbaton')
+    else if (type === 'vaultkey') {
+      this.inventory.vaultKey = true
+      this._showLoreToast(t('toastVaultKeyFound'))
+      this._updateInventoryHud()
+      return
+    }
     else if (type === 'rare_weapon' || type === 'legendary_weapon') {
       const legendary = type === 'legendary_weapon'
       const weaponId = this.weapons.randomUnlockedWeaponId()
@@ -3253,6 +3277,33 @@ export class Game {
       const n = Math.sin(elapsed * 9 + f.seed) * Math.sin(elapsed * 3.7 + f.seed)
       f.light.intensity = f.base * (0.65 + 0.35 * Math.max(0, n)) * nightStrength
     }
+  }
+
+  _spawnVaultKey() {
+    const spot = this.vaultKeySpots[Math.floor(Math.random() * this.vaultKeySpots.length)]
+    this.pickups.spawnUnique('vaultkey', spot.x, spot.z, spot.y)
+  }
+
+  _updateVault(dt, playerPos) {
+    this.vault.update(dt, performance.now() / 1000)
+    this.nearVault = this.vault.isNear(playerPos)
+  }
+
+  // Opens the vault if the player has the key - one-off per run (see the
+  // Vault class, no re-lock/respawn cycle) with a guaranteed strong payoff
+  // instead of another random chest roll, since finding the key already was
+  // the gamble.
+  _openVault() {
+    if (this.vault.opened) return
+    if (!this.inventory.useVaultKey()) {
+      this._showLoreToast(t('toastVaultLocked'))
+      return
+    }
+    this.vault.open()
+    this.points += VAULT_REWARD_POINTS
+    this._updateStatsPanel()
+    this.pickups.spawnLootDrop('legendary_weapon', this.vault.x, this.vault.z + 1)
+    this._showLoreToast(t('toastVaultOpened', { n: VAULT_REWARD_POINTS }))
   }
 
   _updateGenerator(dt, playerPos) {
@@ -3647,6 +3698,7 @@ export class Game {
       })
 
       this.chests.update(dt, elapsed, playerPos)
+      this._updateVault(dt, playerPos)
       this._updateGenerator(dt, playerPos)
       this._updateTrader(playerPos)
       this._updateAmmoStation(dt, playerPos)
@@ -3684,6 +3736,9 @@ export class Game {
         this.interactPrompt.style.display = 'block'
       } else if (this.nearAmmoStation) {
         this.interactPrompt.innerHTML = tHtml('interactAmmoStation')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearVault) {
+        this.interactPrompt.innerHTML = tHtml(this.inventory.vaultKey ? 'interactVaultUnlock' : 'interactVaultLocked')
         this.interactPrompt.style.display = 'block'
       } else if (this.nearBarricadeWindow) {
         this.interactPrompt.innerHTML = `<b>F</b> repair barricade (+${REPAIR_REWARD_POINTS} points)`

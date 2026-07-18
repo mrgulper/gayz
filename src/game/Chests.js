@@ -180,6 +180,81 @@ class Chest {
   }
 }
 
+const VAULT_INTERACT_RADIUS = 2.2
+const VAULT_W = 1.1
+const VAULT_H = 1.3
+const VAULT_D = 0.9
+
+// A single fixed heavy safe (distinct from the ammo-crate Chest above) that
+// stays locked until the player brings it a Vault Key (see Pickups.js's
+// 'vaultkey' type) - a one-off "hunt down the key, then cash in a guaranteed
+// good reward" loop rather than another random-roll container. Unlike
+// ChestManager there's only ever one of these, so it's a plain class rather
+// than its own manager.
+export class Vault {
+  constructor(x, y, z) {
+    this.x = x
+    this.y = y
+    this.z = z
+    this.opened = false
+
+    this.group = new THREE.Group()
+    this.group.position.set(x, y, z)
+
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3a3d40, roughness: 0.5, metalness: 0.6 })
+    const trimMat = new THREE.MeshStandardMaterial({ color: 0x17181a, roughness: 0.5, metalness: 0.6 })
+    const dialMat = new THREE.MeshStandardMaterial({ color: 0xc9b34a, roughness: 0.35, metalness: 0.7 })
+    this.indicatorMat = new THREE.MeshStandardMaterial({ color: 0x1a0505, emissive: 0xff2a1e, emissiveIntensity: 0.9 })
+
+    const half = VAULT_D / 2
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(VAULT_W, VAULT_H, VAULT_D), bodyMat)
+    body.position.y = VAULT_H / 2
+    body.castShadow = true
+    body.receiveShadow = true
+    this.group.add(body)
+
+    // Reinforced door face on the front, standing slightly proud of the body.
+    this.door = new THREE.Mesh(new THREE.BoxGeometry(VAULT_W - 0.1, VAULT_H - 0.1, 0.06), trimMat)
+    this.door.position.set(0, VAULT_H / 2, half + 0.03)
+    this.group.add(this.door)
+
+    const dial = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.05, 16), dialMat)
+    dial.rotation.x = Math.PI / 2
+    dial.position.set(0.15, VAULT_H / 2 + 0.1, half + 0.07)
+    this.door.add(dial)
+
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.35, 0.05), trimMat)
+    handle.position.set(-0.28, VAULT_H / 2 - 0.05, half + 0.07)
+    this.door.add(handle)
+
+    const light = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 10), this.indicatorMat)
+    light.position.set(0, VAULT_H - 0.15, half + 0.07)
+    this.door.add(light)
+  }
+
+  update(dt, elapsed) {
+    if (this.opened) return
+    this.indicatorMat.emissiveIntensity = 0.6 + Math.sin(elapsed * 2.2) * 0.3
+  }
+
+  isNear(playerPos) {
+    if (this.opened) return false
+    if (Math.abs(playerPos.y - EYE_HEIGHT - this.y) > INTERACT_HEIGHT_TOLERANCE) return false
+    return Math.hypot(playerPos.x - this.x, playerPos.z - this.z) <= VAULT_INTERACT_RADIUS
+  }
+
+  open() {
+    this.opened = true
+    this.door.rotation.y = -1.7
+    this.door.position.x = -0.3
+    this.door.position.z += 0.35
+    this.indicatorMat.color.setHex(0x0a2a0a)
+    this.indicatorMat.emissive.setHex(0x2aff3e)
+    this.indicatorMat.emissiveIntensity = 0.6
+  }
+}
+
 export class ChestManager {
   constructor(scene, extraSpots = []) {
     this.scene = scene
