@@ -279,6 +279,9 @@ const ADRENALINE_DURATION_MS = 8000
 const ADRENALINE_SPEED_MULT = 1.5
 const ADRENALINE_FIRE_RATE_MULT = 1.4
 const DEATH_CAM_MS = 900
+const KILLCAM_DURATION_MS = 1000
+const KILLCAM_SLOWMO_FACTOR = 0.2
+const KILLCAM_ZOOM_FOV_MULT = 0.75
 const COMPASS_HALF_FOV = Math.PI / 3
 const BARRICADE_LIFETIME_MS = 25000
 const BARRICADE_PLACE_DIST = 2.2
@@ -569,6 +572,7 @@ export class Game {
     this._shakeDuration = 0
     this._shakeTime = 0
     this._hitstopUntil = 0
+    this.killcamUntil = 0
     this.runStartedAt = performance.now()
     this.nightStartedAt = performance.now()
     this.roundIntermissionUntil = 0
@@ -2830,6 +2834,19 @@ export class Game {
     this._hitstopUntil = Math.max(this._hitstopUntil, performance.now() + ms)
   }
 
+  // Slow-mo + camera zoom on the killing blow against a boss-tier zombie
+  // (see the BOSS_TIER_IDS check in _onZombieKilled) - the fov pull-in is
+  // applied every frame in _tick (after WeaponSystem's own aim-fov lerp
+  // runs, so it wins for the frame) rather than owning the camera outright,
+  // since WeaponSystem re-asserts fov from scratch every frame regardless.
+  _triggerBossKillcam() {
+    this.killcamUntil = performance.now() + KILLCAM_DURATION_MS
+    this.nightBanner.textContent = t('toastBossDefeated')
+    this.nightBanner.classList.remove('show')
+    void this.nightBanner.offsetWidth
+    this.nightBanner.classList.add('show')
+  }
+
   _updateShake(dt) {
     if (this._shakeTime > 0) {
       this._shakeTime = Math.max(0, this._shakeTime - dt)
@@ -2890,6 +2907,7 @@ export class Game {
     let coinsEarned
     if (BOSS_TIER_IDS.has(zombieTypeId)) {
       coinsEarned = 300 + Math.floor(Math.random() * 201)
+      this._triggerBossKillcam()
     } else if (isElite) {
       coinsEarned = 20 + Math.floor(Math.random() * 181)
     } else {
@@ -3725,6 +3743,7 @@ export class Game {
     let dt = Math.min(this.timer.getDelta(), 0.1)
     const elapsed = this.timer.getElapsed()
     if (performance.now() < this._hitstopUntil) dt = 0
+    else if (performance.now() < this.killcamUntil) dt *= KILLCAM_SLOWMO_FACTOR
 
     this.camera.position.sub(this._shakeOffset)
 
@@ -3749,6 +3768,10 @@ export class Game {
         this.player.input.left || this.player.input.right
       )
       if (!this.weaponWheelOpen) this.weapons.update(dt, isMoving)
+      if (performance.now() < this.killcamUntil) {
+        this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, this.weapons.defaultFov * KILLCAM_ZOOM_FOV_MULT, 0.15)
+        this.camera.updateProjectionMatrix()
+      }
       this._updateHotbarHud()
       this._updateStaminaHud()
       this._updateFlashlightBattery(dt)
