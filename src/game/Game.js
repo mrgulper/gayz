@@ -291,6 +291,14 @@ const TRAP_BLAST_RADIUS = 3
 const TRAP_DAMAGE_MIN = 45
 const TRAP_DAMAGE_MAX = 90
 const TRAP_LIFETIME_MS = 30000
+// Rubble left behind by a kill - a small chance per kill so a long fight in
+// one spot gradually clutters the battlefield with real obstacles (blocks
+// both the player and other zombies, same as a barricade) instead of every
+// corpse just fading away with nothing left in its place. Capped and
+// time-limited so a long night doesn't permanently choke off a chokepoint.
+const OBSTACLE_DROP_CHANCE = 0.18
+const OBSTACLE_LIFETIME_MS = 20000
+const OBSTACLE_MAX_COUNT = 12
 const VEHICLE_RAM_MIN_SPEED = 4
 const VEHICLE_RAM_RADIUS = 2.6
 const VEHICLE_RAM_DAMAGE = 70
@@ -617,6 +625,7 @@ export class Game {
     this.colliders = colliders
     this.solidMeshes = solidMeshes
     this.barricades = []
+    this.deathObstacles = []
     this.traps = []
     this._vehicleHitAt = new Map()
     this.flickerLights = flickerLights
@@ -1511,6 +1520,62 @@ export class Game {
       if (trap.triggered || now >= trap.expiresAt) this.scene.remove(trap.mesh)
     }
     this.traps = this.traps.filter((t) => !t.triggered && now < t.expiresAt)
+  }
+
+  // Rolled from _onZombieKilled - a rubble pile at the kill spot that blocks
+  // movement like a barricade, but appears on its own instead of being
+  // player-placed. Oldest one is cleared early if the cap's already full,
+  // so a long fight in one spot can't wall itself off entirely.
+  _maybeDropObstacle(x, z) {
+    if (Math.random() >= OBSTACLE_DROP_CHANCE) return
+    if (this.deathObstacles.length >= OBSTACLE_MAX_COUNT) {
+      const oldest = this.deathObstacles.shift()
+      this._removeDeathObstacle(oldest)
+    }
+
+    const baseMat = new THREE.MeshStandardMaterial({ color: 0x3a2a24, roughness: 0.95 })
+    const chunkMat = new THREE.MeshStandardMaterial({ color: 0x2c211c, roughness: 0.95 })
+    const group = new THREE.Group()
+    group.position.set(x, 0, z)
+
+    const base = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.4, 1.1), baseMat)
+    base.position.y = 0.2
+    base.rotation.y = Math.random() * Math.PI
+    base.castShadow = true
+    base.receiveShadow = true
+    group.add(base)
+
+    for (let i = 0; i < 3; i++) {
+      const chunk = new THREE.Mesh(new THREE.BoxGeometry(0.3 + Math.random() * 0.25, 0.25 + Math.random() * 0.3, 0.3 + Math.random() * 0.25), chunkMat)
+      chunk.position.set((Math.random() - 0.5) * 0.7, 0.35 + Math.random() * 0.2, (Math.random() - 0.5) * 0.7)
+      chunk.rotation.y = Math.random() * Math.PI
+      chunk.castShadow = true
+      group.add(chunk)
+    }
+
+    this.scene.add(group)
+    base.updateWorldMatrix(true, false)
+    const box = new THREE.Box3().setFromObject(base)
+    this.colliders.push(box)
+    this.solidMeshes.push(base)
+    this.deathObstacles.push({ group, base, box, expiresAt: performance.now() + OBSTACLE_LIFETIME_MS })
+  }
+
+  _removeDeathObstacle(o) {
+    this.scene.remove(o.group)
+    const ci = this.colliders.indexOf(o.box)
+    if (ci !== -1) this.colliders.splice(ci, 1)
+    const si = this.solidMeshes.indexOf(o.base)
+    if (si !== -1) this.solidMeshes.splice(si, 1)
+  }
+
+  _updateDeathObstacles() {
+    if (this.deathObstacles.length === 0) return
+    const now = performance.now()
+    const expired = this.deathObstacles.filter((o) => now >= o.expiresAt)
+    if (expired.length === 0) return
+    for (const o of expired) this._removeDeathObstacle(o)
+    this.deathObstacles = this.deathObstacles.filter((o) => now < o.expiresAt)
   }
 
   _updateBarricades() {
@@ -2830,6 +2895,7 @@ export class Game {
     this.coins += coinsEarned
     this._showCoinPopup(coinsEarned)
     this._updateStatsPanel()
+    this._maybeDropObstacle(x, z)
 
     if (!this.bestiaryEncountered.has(zombieTypeId)) {
       this.bestiaryEncountered.add(zombieTypeId)
@@ -3807,6 +3873,7 @@ export class Game {
       this._updateCompass(playerPos)
       this._updateHordeAnnouncement()
       this._updateBarricades()
+      this._updateDeathObstacles()
       this._updateTraps()
       this._updateAirdrop()
       if (this.raining && this.nextLightningAt > 0 && performance.now() >= this.nextLightningAt) {
