@@ -1896,3 +1896,74 @@ html, body {
   background: linear-gradient(90deg, #ffcf5c, #e3a63c);
   transition: width 150ms ease-out;
 }
+
+#extraction-wrap {
+  position: absolute;
+  top: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(340px, 60vw);
+  text-align: center;
+  pointer-events: none;
+}
+
+#extraction-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #6fe08a;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  margin-bottom: 4px;
+}
+
+.extraction-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #6fe08a, #2f9e5a);
+  transition: width 150ms ease-out;
+}
+
+#extraction-screen {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  text-align: center;
+  background: radial-gradient(ellipse at center, rgba(10, 45, 25, 0.9), rgba(0, 10, 4, 0.97));
+  z-index: 20;
+}
+
+#extraction-title {
+  margin: 0;
+  font-size: 48px;
+  letter-spacing: 3px;
+  color: #6fe08a;
+  text-shadow: 0 0 20px rgba(111, 224, 138, 0.5);
+}
+
+#extraction-stats {
+  margin: -10px 0 0;
+  font-size: 15px;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
+#extraction-continue-btn {
+  padding: 14px 32px;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: #06170c;
+  background: #6fe08a;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+#extraction-continue-btn:hover {
+  background: #8fe8a4;
+}

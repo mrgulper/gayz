@@ -119,10 +119,11 @@ function loadSettings() {
         bossRush: parsed.mutators?.bossRush ?? false,
         hordeMode: parsed.mutators?.hordeMode ?? false,
         kingOfTheHill: parsed.mutators?.kingOfTheHill ?? false,
+        extraction: parsed.mutators?.extraction ?? false,
       },
     }
   } catch {
-    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false } }
+    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false } }
   }
 }
 
@@ -368,6 +369,18 @@ const KOTH_SPOTS = [
   { x: 14, z: 6 },
   { x: -2, z: -30 },
 ]
+
+// Extraction mutator: a one-time win condition instead of a repeating
+// capture. The hold timer only counts up while the player is standing in
+// the LZ (stepping out pauses it, doesn't drain it - the chopper just
+// waits) and zombie pressure escalates near the LZ the longer it takes.
+const EXTRACTION_RADIUS = 4
+const EXTRACTION_HOLD_SECONDS = 45
+const EXTRACTION_SURGE_INTERVAL_MS = 8000
+const EXTRACTION_SURGE_SIZE = 2
+const EXTRACTION_POINTS_BONUS = 300
+const EXTRACTION_COINS_BONUS = 150
+const EXTRACTION_SPOT = { x: 8, z: -8 }
 
 const SHOP_ITEMS = [
   { id: 'health', cost: 15, titleKey: 'shopHealthPack', give: (game) => game.inventory.addHealthPack(1) },
@@ -622,6 +635,7 @@ export class Game {
     this.mutatorBossRush = document.getElementById('mutator-boss-rush')
     this.mutatorHordeMode = document.getElementById('mutator-horde-mode')
     this.mutatorKoth = document.getElementById('mutator-koth')
+    this.mutatorExtraction = document.getElementById('mutator-extraction')
     this.controlsGrid = document.getElementById('controls-grid')
     this.resetBindsBtn = document.getElementById('reset-binds-btn')
     this.rebindingAction = null
@@ -750,6 +764,23 @@ export class Game {
     this.kothMarker.position.set(this.kothZone.x, 0.06, this.kothZone.z)
     this.kothMarker.visible = false
     this.scene.add(this.kothMarker)
+
+    this.extractionActive = false
+    this.extractionProgress = 0
+    this.extractionNextSurgeAt = 0
+    const extractionMarkerMat = new THREE.MeshStandardMaterial({
+      color: 0x0f3a2a,
+      emissive: 0x6fe08a,
+      emissiveIntensity: 0.9,
+      transparent: true,
+      opacity: 0.55,
+      side: THREE.DoubleSide,
+    })
+    this.extractionMarker = new THREE.Mesh(new THREE.RingGeometry(EXTRACTION_RADIUS - 0.2, EXTRACTION_RADIUS, 32), extractionMarkerMat)
+    this.extractionMarker.rotation.x = -Math.PI / 2
+    this.extractionMarker.position.set(EXTRACTION_SPOT.x, 0.06, EXTRACTION_SPOT.z)
+    this.extractionMarker.visible = false
+    this.scene.add(this.extractionMarker)
     this.practiceTargets = practiceTargets
     this.traps = []
     this._vehicleHitAt = new Map()
@@ -920,6 +951,12 @@ export class Game {
     this.kothWrap = document.getElementById('koth-wrap')
     this.kothLabel = document.getElementById('koth-label')
     this.kothFill = document.getElementById('koth-fill')
+    this.extractionWrap = document.getElementById('extraction-wrap')
+    this.extractionLabel = document.getElementById('extraction-label')
+    this.extractionFill = document.getElementById('extraction-fill')
+    this.extractionScreen = document.getElementById('extraction-screen')
+    this.extractionStats = document.getElementById('extraction-stats')
+    this.extractionContinueBtn = document.getElementById('extraction-continue-btn')
     this.xpFill = document.getElementById('xp-fill')
     this.xpLevelBadge = document.getElementById('xp-level-badge')
     this.xpLevelupPanel = document.getElementById('xp-levelup-panel')
@@ -1081,6 +1118,12 @@ export class Game {
         this.kothZone.z = KOTH_SPOTS[0].z
         this.kothMarker.position.set(this.kothZone.x, 0.06, this.kothZone.z)
       }
+      this.extractionActive = this.settings.mutators.extraction
+      this.extractionMarker.visible = this.extractionActive
+      if (this.extractionActive) {
+        this.extractionProgress = 0
+        this.extractionNextSurgeAt = 0
+      }
       if (this._isRoundMode()) {
         this.zombies.roundMode = true
         this.zombies.reset()
@@ -1130,8 +1173,24 @@ export class Game {
       this._updateHealthHud()
       this._updateProgressHud()
       this.deathScreen.style.display = 'none'
+      this.extractionScreen.style.display = 'none'
+      if (this.kothActive) {
+        this.kothProgress = 0
+        this.kothZone.x = KOTH_SPOTS[0].x
+        this.kothZone.z = KOTH_SPOTS[0].z
+        this.kothMarker.position.set(this.kothZone.x, 0.06, this.kothZone.z)
+      }
+      if (this.extractionActive) {
+        this.extractionProgress = 0
+        this.extractionNextSurgeAt = 0
+      }
       this.player.controls.lock()
     })
+
+    // Extraction success re-uses the exact same soft-reset the respawn
+    // button runs, rather than duplicating the reset logic - a successful
+    // extraction just starts a fresh run, same as respawning after death.
+    this.extractionContinueBtn.addEventListener('click', () => this.respawnBtn.click())
 
     this.pauseResumeBtn.addEventListener('click', () => this.player.controls.lock())
     this.pauseSettingsBtn.addEventListener('click', () => this._toggleSettings(true))
@@ -2046,6 +2105,11 @@ export class Game {
       this.settings.mutators.kingOfTheHill = this.mutatorKoth.checked
       saveSettings(this.settings)
     })
+    this.mutatorExtraction.checked = this.settings.mutators.extraction
+    this.mutatorExtraction.addEventListener('change', () => {
+      this.settings.mutators.extraction = this.mutatorExtraction.checked
+      saveSettings(this.settings)
+    })
     this.nicknameInput.value = this.settings.nickname
     this._updateCompanionName()
 
@@ -2914,6 +2978,8 @@ export class Game {
 
     document.getElementById('death-title').textContent = t('deathTitle')
     this.respawnBtn.textContent = t('respawnBtn')
+    document.getElementById('extraction-title').textContent = t('extractionTitle')
+    this.extractionContinueBtn.textContent = t('extractionContinueBtn')
 
     document.getElementById('inventory-title').textContent = t('inventoryTitle')
     document.getElementById('panel-health-label').textContent = t('healthPackLabel')
@@ -2951,6 +3017,7 @@ export class Game {
     document.getElementById('mutator-boss-rush-label').textContent = t('mutatorBossRush')
     document.getElementById('mutator-horde-mode-label').textContent = t('mutatorHordeMode')
     document.getElementById('mutator-koth-label').textContent = t('mutatorKoth')
+    document.getElementById('mutator-extraction-label').textContent = t('mutatorExtraction')
 
     this._updateBestStatsDisplay()
     if (this.inventoryOpen) this._refreshInventoryPanel()
@@ -4089,6 +4156,66 @@ export class Game {
     if (this.kothProgress >= 1) this._captureKothZone()
   }
 
+  // Extraction mutator: a one-time win condition. The hold timer only
+  // advances while standing in the LZ - stepping out pauses it rather than
+  // draining it, since narratively the chopper is just waiting - and
+  // zombie pressure ramps up near the LZ on a fixed interval the whole
+  // time it's in progress, so camping the ring isn't free.
+  _updateExtraction(dt, playerPos) {
+    if (!this.extractionActive) {
+      this.extractionWrap.style.display = 'none'
+      return
+    }
+    this.extractionWrap.style.display = 'block'
+    const dist = Math.hypot(playerPos.x - EXTRACTION_SPOT.x, playerPos.z - EXTRACTION_SPOT.z)
+    const inZone = dist <= EXTRACTION_RADIUS
+    if (inZone) {
+      this.extractionProgress = Math.min(1, this.extractionProgress + dt / EXTRACTION_HOLD_SECONDS)
+      if (performance.now() >= this.extractionNextSurgeAt) {
+        this.extractionNextSurgeAt = performance.now() + EXTRACTION_SURGE_INTERVAL_MS
+        this.zombies.spawnSurge(EXTRACTION_SURGE_SIZE)
+      }
+    }
+    this.extractionLabel.textContent = inZone ? t('extractionLabelActive') : t('extractionLabelHold')
+    this.extractionFill.style.width = `${this.extractionProgress * 100}%`
+    if (this.extractionProgress >= 1) this._onExtractionSuccess()
+  }
+
+  _onExtractionSuccess() {
+    this.extractionActive = false
+    this.player.controls.unlock()
+    this.crosshair.style.display = 'none'
+    this.hudEl.style.display = 'none'
+    this.hotbarEl.style.display = 'none'
+    this.statusHud.style.display = 'none'
+    this.inventoryHud.style.display = 'none'
+    this.progressHud.style.display = 'none'
+    this.interactPrompt.style.display = 'none'
+    this.statsPanel.style.display = 'none'
+    this.minimapWrap.style.display = 'none'
+    this.extractionWrap.style.display = 'none'
+
+    let improved = false
+    if (this.night > this.bestStats.bestNight) { this.bestStats.bestNight = this.night; improved = true }
+    if (this.kills > this.bestStats.bestKills) { this.bestStats.bestKills = this.kills; improved = true }
+    if (improved) {
+      saveBestStats(this.bestStats)
+      this._updateBestStatsDisplay()
+    }
+
+    this.points += EXTRACTION_POINTS_BONUS
+    this.coins += EXTRACTION_COINS_BONUS
+    this._updateStatsPanel()
+
+    const legacyEarned = Math.floor(this.points * DEATH_POINTS_CONVERSION)
+    this.metaProgress.legacyPoints += legacyEarned
+    saveMetaProgress(this.metaProgress)
+
+    const elapsed = formatTime(performance.now() - this.runStartedAt)
+    this.extractionStats.textContent = t('extractionStats', { night: this.night, kills: this.kills, time: elapsed, points: EXTRACTION_POINTS_BONUS, coins: EXTRACTION_COINS_BONUS, legacy: legacyEarned })
+    this.extractionScreen.style.display = 'flex'
+  }
+
   _captureKothZone() {
     this.points += KOTH_CAPTURE_POINTS
     this.coins += KOTH_CAPTURE_COINS
@@ -4345,6 +4472,7 @@ export class Game {
       if (this.rescueSurvivor) this.rescueSurvivor.update(elapsed)
       this._updateBossHealthBar()
       this._updateKingOfTheHill(dt, playerPos)
+      this._updateExtraction(dt, playerPos)
 
       this.barricadeWindows.update(dt, this.zombies.zombies, (w) => {
         this._showLoreToast('A barricade was breached! Zombies are pouring through.')

@@ -125,6 +125,11 @@
         <div class="boss-health-bar"><div id="koth-fill" class="koth-fill"></div></div>
       </div>
 
+      <div id="extraction-wrap" style="display: none">
+        <div id="extraction-label"></div>
+        <div class="boss-health-bar"><div id="extraction-fill" class="extraction-fill"></div></div>
+      </div>
+
       <div id="infection-indicator" style="display: none">
         <span class="infection-icon">&#9763;</span>
         <span id="infection-label">Infected</span>
@@ -253,6 +258,10 @@
             <input type="checkbox" id="mutator-koth" />
             <span id="mutator-koth-label">King of the Hill (hold the zone for bonus points)</span>
           </label>
+          <label class="score-attack-toggle" for="mutator-extraction">
+            <input type="checkbox" id="mutator-extraction" />
+            <span id="mutator-extraction-label">Extraction (reach and hold the LZ to win the run)</span>
+          </label>
         </div>
         <p id="round-mode-hint">Easy &amp; Normal: kill the wave to advance, no timer. Hard &amp; Nightmare: 90s timed nights.</p>
         <button id="play-btn">Click to Play</button>
@@ -330,6 +339,12 @@
         <p id="ending-text"></p>
         <div id="ending-credits"></div>
         <button id="ending-continue-btn">Continue Surviving</button>
+      </div>
+
+      <div id="extraction-screen">
+        <h1 id="extraction-title">EXTRACTED</h1>
+        <p id="extraction-stats">Survived Night 1 &middot; 0 kills &middot; 00:00</p>
+        <button id="extraction-continue-btn">Start New Run</button>
       </div>
 
       <div id="inventory-panel">
