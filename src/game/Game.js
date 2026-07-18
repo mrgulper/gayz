@@ -257,6 +257,7 @@ const GENERATOR_REFUEL_RADIUS = 2.5
 const GENERATOR_PASSIVE_REFUEL_PER_SEC = 6
 const GENERATOR_FUELCAN_AMOUNT = 35
 const VAULT_REWARD_POINTS = 150
+const TROPHY_WALL_INTERACT_RADIUS = 2.4
 const TRADER_INTERACT_RADIUS = 2.5
 const AMMO_STATION_RADIUS = 2.2
 const AMMO_STATION_HOLD_SECONDS = 10
@@ -701,13 +702,14 @@ export class Game {
     this.composer.addPass(this.bloomPass)
     this.composer.addPass(new OutputPass())
 
-    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, safeZone, practiceTargets } = buildWorld(this.scene)
+    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, safeZone, practiceTargets, trophyWall } = buildWorld(this.scene, ACHIEVEMENTS.length)
     // Kept for _deployBarricade - both PlayerController and ZombieManager
     // hold this exact same array by reference (not a copy), so pushing a
     // new collider here is immediately respected by both without needing
     // to reconstruct anything.
     this.colliders = colliders
     this.solidMeshes = solidMeshes
+    this.trophyWall = trophyWall
     this.barricades = []
     this.hazardZones = []
     this.deathObstacles = []
@@ -823,6 +825,8 @@ export class Game {
     if (this.achievements.unlocked.has('true_ending')) {
       document.getElementById('diff-nightmare').style.display = ''
     }
+    this._updateTrophyWall()
+    this.nearTrophyWall = false
     this.killCountsByWeapon = {}
     this.achievementLabel = document.getElementById('achievement-label')
     this.achievementTitle = document.getElementById('achievement-title')
@@ -1223,6 +1227,8 @@ export class Game {
           }
         } else if (this.nearVault) {
           this._openVault()
+        } else if (this.nearTrophyWall) {
+          this._showTrophyWallSummary()
         } else {
           const loot = this.chests.tryInteract()
           if (loot) {
@@ -3222,6 +3228,22 @@ export class Game {
     this.achievementToast.classList.add('show')
 
     if (def.id === 'centurion') this.weapons.setWeaponSkin('pistol', 'gold')
+    this._updateTrophyWall()
+  }
+
+  // Lights up one medallion per unlocked achievement on the safe zone's
+  // physical trophy wall (see World.js's buildTrophyWall) - called once at
+  // startup (covers achievements already unlocked in a past session) and
+  // again every time a new one unlocks.
+  _updateTrophyWall() {
+    ACHIEVEMENTS.forEach((ach, i) => {
+      const mat = this.trophyWall.medallions[i]
+      if (!mat) return
+      const unlocked = this.achievements.unlocked.has(ach.id)
+      mat.color.setHex(unlocked ? 0xffcf5c : 0x1c1a16)
+      mat.emissive.setHex(unlocked ? 0xffcf5c : 0x000000)
+      mat.emissiveIntensity = unlocked ? 1.1 : 0
+    })
   }
 
   _showLoreToast(text) {
@@ -3780,6 +3802,26 @@ export class Game {
     this.nearVault = this.vault.isNear(playerPos)
   }
 
+  _updateTrophyWallProximity(playerPos) {
+    const dist = Math.hypot(playerPos.x - this.trophyWall.x, playerPos.z - this.trophyWall.z)
+    this.nearTrophyWall = dist <= TROPHY_WALL_INTERACT_RADIUS
+  }
+
+  // Purely informational - a quick progress readout rather than opening the
+  // full (main-menu-only) achievements/bestiary panels, which aren't wired
+  // for being opened mid-run (no pointer-unlock/ESC handling).
+  _showTrophyWallSummary() {
+    const achCount = this.achievements.unlocked.size
+    const bestiaryCount = this.bestiaryEncountered.size
+    const bestiaryTotal = Object.keys(ZOMBIE_TYPES).length
+    this._showLoreToast(t('trophyWallSummary', {
+      ach: achCount,
+      achTotal: ACHIEVEMENTS.length,
+      bestiary: bestiaryCount,
+      bestiaryTotal,
+    }))
+  }
+
   // Opens the vault if the player has the key - one-off per run (see the
   // Vault class, no re-lock/respawn cycle) with a guaranteed strong payoff
   // instead of another random chest roll, since finding the key already was
@@ -4203,6 +4245,7 @@ export class Game {
 
       this.chests.update(dt, elapsed, playerPos)
       this._updateVault(dt, playerPos)
+      this._updateTrophyWallProximity(playerPos)
       this._updateGenerator(dt, playerPos)
       this._updateTrader(playerPos)
       this._updateAmmoStation(dt, playerPos)
@@ -4246,6 +4289,9 @@ export class Game {
         this.interactPrompt.style.display = 'block'
       } else if (this.nearVault) {
         this.interactPrompt.innerHTML = tHtml(this.inventory.vaultKey ? 'interactVaultUnlock' : 'interactVaultLocked')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearTrophyWall) {
+        this.interactPrompt.innerHTML = tHtml('interactTrophyWall')
         this.interactPrompt.style.display = 'block'
       } else if (this.nearBarricadeWindow) {
         this.interactPrompt.innerHTML = `<b>F</b> repair barricade (+${REPAIR_REWARD_POINTS} points)`

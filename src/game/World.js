@@ -211,7 +211,7 @@ function getSharedBumpTexture() {
 // Builds a small broken-city block: cracked streets, damaged buildings with
 // lit/dark windows, burnt-out cars, rubble, and a couple of dying streetlights.
 // Also returns a list of open street-side spawn points for pickups/zombies.
-export function buildWorld(scene) {
+export function buildWorld(scene, trophyCount = 15) {
   const colliders = []
   const solidMeshes = []
   const flickerLights = []
@@ -293,7 +293,7 @@ export function buildWorld(scene) {
   // buildingLayout() is deterministic (no randomness), so this was verified
   // by hand against every same/adjacent-row neighbor; index 10 has ~3.8
   // units of clearance to the nearest neighbor on its escape side.
-  const skyscraperIdxs = [7, 10]
+  const skyscraperIdxs = [6, 10]
   for (const i of skyscraperIdxs) {
     buildings[i].skyscraper = true
     buildings[i].broken = false
@@ -302,12 +302,25 @@ export function buildWorld(scene) {
     buildings[i].h = SKYSCRAPER_FLOOR_H * SKYSCRAPER_FLOORS
   }
 
+  // Index 7 was the original first skyscraper slot (cx=-17.6, cz=-3) and
+  // was swapped out for the same reason it's excluded here entirely now: its
+  // footprint overlaps the safe zone's own north-west interior regardless
+  // of whether it's built as a skyscraper (its shell wall alone cuts across
+  // the compound at z=-8) or a regular solid box (11x11, even worse - the
+  // whole footprint becomes solid). The safe zone (see buildSafeZone) and
+  // buildingLayout() were placed independently with no mutual awareness, so
+  // this lot is simply skipped rather than moving either one - a straight-
+  // line walk test from the entrance to the Vault/practice range/trophy
+  // wall only surfaced this once those needed to path across it.
+  const EXCLUDED_BUILDING_IDXS = new Set([7])
+
   const towerChestSpots = []
-  for (const b of buildings) {
+  for (let i = 0; i < buildings.length; i++) {
+    const b = buildings[i]
     if (b.skyscraper) {
       buildSkyscraper(scene, colliders, solidMeshes, b, towerChestSpots)
       buildFireEscape(scene, colliders, solidMeshes, b, towerChestSpots)
-    } else {
+    } else if (!EXCLUDED_BUILDING_IDXS.has(i)) {
       addBuilding(scene, register, b)
     }
   }
@@ -341,6 +354,7 @@ export function buildWorld(scene) {
   spawnPoints.push({ x: vireoFacility.exitSpot.x, z: vireoFacility.exitSpot.z })
   const safeZone = buildSafeZone(scene, colliders, solidMeshes)
   const practiceTargets = buildPracticeRange(scene, colliders, solidMeshes, safeZone)
+  const trophyWall = buildTrophyWall(scene, colliders, solidMeshes, safeZone, trophyCount)
 
   // Second area: a small park beyond the north end of the street, in the
   // space freed up by pushing the perimeter barricade out to groundSize/2.
@@ -395,6 +409,7 @@ export function buildWorld(scene) {
     vireoFacility,
     safeZone,
     practiceTargets,
+    trophyWall,
   }
 }
 
@@ -837,6 +852,56 @@ function buildPracticeRange(scene, colliders, solidMeshes, safeZone) {
   }
 
   return targets
+}
+
+// A wall-mounted grid of medallions, one per achievement - built dark/unlit
+// by default, with the actual lit/unlit state driven live by Game.js's
+// _updateTrophyWall (this file only builds the geometry, it has no idea
+// which achievements exist or are unlocked). Deliberately generic - takes a
+// count rather than importing Achievements.js, so World.js stays decoupled
+// from game-progression data the same way it already is from loot tables.
+function buildTrophyWall(scene, colliders, solidMeshes, safeZone, count) {
+  // East wall, south corner - clear of the Vault (west side), the practice
+  // range (mid-east, see buildPracticeRange), and the entrance guard posts
+  // (north side, flanking the gap in the +z wall).
+  const x = safeZone.x + safeZone.radius - 0.5
+  const z = safeZone.z - 4
+  const cols = 5
+  const rows = Math.ceil(count / cols)
+  const spacing = 0.4
+
+  const backingMat = new THREE.MeshStandardMaterial({ color: 0x2a2a24, roughness: 0.9 })
+  const backingW = cols * spacing + 0.3
+  const backingH = rows * spacing + 0.3
+  const backing = new THREE.Mesh(new THREE.BoxGeometry(0.08, backingH, backingW), backingMat)
+  backing.position.set(x, 1.6, z)
+  backing.castShadow = true
+  backing.receiveShadow = true
+  scene.add(backing)
+  solidMeshes.push(backing)
+  backing.updateWorldMatrix(true, false)
+  colliders.push(new THREE.Box3().setFromObject(backing))
+
+  const medallions = []
+  for (let i = 0; i < count; i++) {
+    const col = i % cols
+    const row = Math.floor(i / cols)
+    const my = 1.6 + backingH / 2 - 0.3 - row * spacing
+    const mz = z - backingW / 2 + 0.3 + col * spacing
+
+    // Own material clone per medallion - each lights up independently as
+    // its own achievement unlocks, not all at once (same shared-material
+    // pitfall as the practice range targets/fire zones earlier).
+    const mat = new THREE.MeshStandardMaterial({ color: 0x1c1a16, emissive: 0x000000, emissiveIntensity: 0, roughness: 0.4, metalness: 0.5 })
+    const medallion = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.05, 16), mat)
+    medallion.rotation.z = Math.PI / 2
+    medallion.position.set(x - 0.06, my, mz)
+    medallion.castShadow = true
+    scene.add(medallion)
+    medallions.push(mat)
+  }
+
+  return { x, z, medallions }
 }
 
 // Second hidden biome - a grimy sewer corridor, home to the Sewer Dweller
