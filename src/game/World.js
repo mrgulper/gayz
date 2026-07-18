@@ -284,7 +284,7 @@ export function buildWorld(scene, trophyCount = 15) {
   addPerimeterBarricade(scene, register, groundSize)
   const buildings = buildingLayout()
 
-  // Two of the generated building slots become real enterable skyscrapers
+  // Three of the generated building slots become real enterable skyscrapers
   // (walkable interior floors + stairwell) instead of solid decorative boxes.
   // Index 12 was the original second slot, but its exterior fire escape
   // (see buildFireEscape) sticks 0.9 units past the blind wall and that
@@ -292,8 +292,14 @@ export function buildWorld(scene, trophyCount = 15) {
   // only 14 units away and slot 17 is wide) - fully blocking flights 1/2.
   // buildingLayout() is deterministic (no randomness), so this was verified
   // by hand against every same/adjacent-row neighbor; index 10 has ~3.8
-  // units of clearance to the nearest neighbor on its escape side.
-  const skyscraperIdxs = [6, 10]
+  // units of clearance to the nearest neighbor on its escape side. Index 3
+  // (row x=-32, z=16) is the third slot - an outer-row building, so its
+  // blind side faces 30+ clear units of perimeter instead of a neighboring
+  // row (same reasoning as the extra fire-escape-only rooftops below), and
+  // its ground footprint (roughly x=[-36.7,-25.7], z=[10.5,21.5] before the
+  // skyscraper override shrinks it to 10x10) sits well clear of both the
+  // safe zone (x=[-20,-6], z=[-17,-3]) and the park (z=[52,72]).
+  const skyscraperIdxs = [6, 10, 3]
   for (const i of skyscraperIdxs) {
     buildings[i].skyscraper = true
     buildings[i].broken = false
