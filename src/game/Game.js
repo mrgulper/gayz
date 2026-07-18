@@ -120,10 +120,11 @@ function loadSettings() {
         hordeMode: parsed.mutators?.hordeMode ?? false,
         kingOfTheHill: parsed.mutators?.kingOfTheHill ?? false,
         extraction: parsed.mutators?.extraction ?? false,
+        dailyChallenge: parsed.mutators?.dailyChallenge ?? false,
       },
     }
   } catch {
-    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false } }
+    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false } }
   }
 }
 
@@ -142,6 +143,47 @@ function loadScoreAttackBest() {
 function saveScoreAttackBest(score) {
   try {
     localStorage.setItem(SCORE_ATTACK_BEST_KEY, String(score))
+  } catch {
+    // Storage unavailable - best score just won't persist.
+  }
+}
+
+// Daily Challenge: today's local date hashes to one of these twists so the
+// run is deterministic and replayable within the same day - no server, so
+// "daily" just means fixed-for-today rather than a shared cross-player seed.
+const DAILY_TWISTS = [
+  { nameKey: 'dailyTwistSwarm', spawnMult: 2.2, damageMult: 1, forceHardcore: false },
+  { nameKey: 'dailyTwistGlassCannon', spawnMult: 1, damageMult: 1.6, forceHardcore: false },
+  { nameKey: 'dailyTwistLockdown', spawnMult: 1.3, damageMult: 1, forceHardcore: true },
+]
+
+function _todayDateStr() {
+  const d = new Date()
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`
+}
+
+function _dailyTwistIndex(dateStr) {
+  let hash = 0
+  for (let i = 0; i < dateStr.length; i++) hash = (hash * 31 + dateStr.charCodeAt(i)) | 0
+  return Math.abs(hash) % DAILY_TWISTS.length
+}
+
+const DAILY_BEST_KEY = 'gayz-daily-best'
+
+function loadDailyBest() {
+  try {
+    const raw = localStorage.getItem(DAILY_BEST_KEY)
+    const parsed = raw ? JSON.parse(raw) : null
+    if (parsed && parsed.date === _todayDateStr()) return parsed
+    return { date: _todayDateStr(), score: 0 }
+  } catch {
+    return { date: _todayDateStr(), score: 0 }
+  }
+}
+
+function saveDailyBest(best) {
+  try {
+    localStorage.setItem(DAILY_BEST_KEY, JSON.stringify(best))
   } catch {
     // Storage unavailable - best score just won't persist.
   }
@@ -579,6 +621,7 @@ export class Game {
     this.deathStats = document.getElementById('death-stats')
     this.deathLegacyPoints = document.getElementById('death-legacy-points')
     this.deathScoreAttack = document.getElementById('death-score-attack')
+    this.deathDaily = document.getElementById('death-daily')
     this.endingPanel = document.getElementById('ending-panel')
     this.endingText = document.getElementById('ending-text')
     this.endingCredits = document.getElementById('ending-credits')
@@ -636,6 +679,7 @@ export class Game {
     this.mutatorHordeMode = document.getElementById('mutator-horde-mode')
     this.mutatorKoth = document.getElementById('mutator-koth')
     this.mutatorExtraction = document.getElementById('mutator-extraction')
+    this.mutatorDaily = document.getElementById('mutator-daily')
     this.controlsGrid = document.getElementById('controls-grid')
     this.resetBindsBtn = document.getElementById('reset-binds-btn')
     this.rebindingAction = null
@@ -647,6 +691,10 @@ export class Game {
     this.scoreAttackBest = loadScoreAttackBest()
     this.endingSeen = loadEndingSeen()
     this.bestStats = loadBestStats()
+    this.dailyBest = loadDailyBest()
+    this.dailyChallengeActive = false
+    this.dailyDamageMult = 1
+    this.dailyTwist = null
 
     this.night = 1
     this.kills = 0
@@ -956,7 +1004,11 @@ export class Game {
     this.extractionFill = document.getElementById('extraction-fill')
     this.extractionScreen = document.getElementById('extraction-screen')
     this.extractionStats = document.getElementById('extraction-stats')
+    this.extractionDaily = document.getElementById('extraction-daily')
     this.extractionContinueBtn = document.getElementById('extraction-continue-btn')
+    this.dailyWrap = document.getElementById('daily-wrap')
+    this.dailyLabel = document.getElementById('daily-label')
+    this.dailyBestEl = document.getElementById('daily-best')
     this.xpFill = document.getElementById('xp-fill')
     this.xpLevelBadge = document.getElementById('xp-level-badge')
     this.xpLevelupPanel = document.getElementById('xp-levelup-panel')
@@ -1069,6 +1121,10 @@ export class Game {
     this.timer = new THREE.Timer()
     this.timer.connect(document)
     this.renderer.setAnimationLoop(() => this._tick())
+
+    // Debug/QA hook - lets Playwright (or the browser console) drive real
+    // game methods directly, since this project has no test suite.
+    window.__game = this
   }
 
   _addFlashlight() {
@@ -1107,6 +1163,13 @@ export class Game {
       let spawnMult = this.difficulty.spawnRateMult
       if (this.settings.mutators.hordeRush) spawnMult *= 2
       if (this.settings.mutators.hordeMode) spawnMult *= 3
+      this.dailyChallengeActive = this.settings.mutators.dailyChallenge
+      this.dailyDamageMult = 1
+      if (this.dailyChallengeActive) {
+        this.dailyTwist = DAILY_TWISTS[_dailyTwistIndex(_todayDateStr())]
+        this.dailyDamageMult = this.dailyTwist.damageMult
+        spawnMult *= this.dailyTwist.spawnMult
+      }
       if (spawnMult !== this.difficulty.spawnRateMult) this.zombies.setDifficultyMultiplier(spawnMult)
       if (this.settings.mutators.hordeMode) this.zombies.setHordeMode(true)
       if (this.settings.mutators.bossRush) this.zombies.bossRushMode = true
@@ -1124,6 +1187,14 @@ export class Game {
         this.extractionProgress = 0
         this.extractionNextSurgeAt = 0
       }
+      if (this.dailyChallengeActive) {
+        this.dailyBest = loadDailyBest()
+        this.dailyWrap.style.display = 'block'
+        this.dailyLabel.textContent = t(this.dailyTwist.nameKey)
+        this.dailyBestEl.textContent = t('dailyBest', { score: this.dailyBest.score })
+      } else {
+        this.dailyWrap.style.display = 'none'
+      }
       if (this._isRoundMode()) {
         this.zombies.roundMode = true
         this.zombies.reset()
@@ -1138,7 +1209,7 @@ export class Game {
       // state (points, inventory, kills...) while keeping everything that's
       // meant to be permanent (settings, achievements, legacy points,
       // bestiary, best stats), since those all live in localStorage anyway.
-      if (this.settings.hardcoreMode) {
+      if (this.settings.hardcoreMode || (this.dailyChallengeActive && this.dailyTwist.forceHardcore)) {
         window.location.reload()
         return
       }
@@ -1183,6 +1254,10 @@ export class Game {
       if (this.extractionActive) {
         this.extractionProgress = 0
         this.extractionNextSurgeAt = 0
+      }
+      if (this.dailyChallengeActive) {
+        this.dailyBest = loadDailyBest()
+        this.dailyBestEl.textContent = t('dailyBest', { score: this.dailyBest.score })
       }
       this.player.controls.lock()
     })
@@ -2110,6 +2185,11 @@ export class Game {
       this.settings.mutators.extraction = this.mutatorExtraction.checked
       saveSettings(this.settings)
     })
+    this.mutatorDaily.checked = this.settings.mutators.dailyChallenge
+    this.mutatorDaily.addEventListener('change', () => {
+      this.settings.mutators.dailyChallenge = this.mutatorDaily.checked
+      saveSettings(this.settings)
+    })
     this.nicknameInput.value = this.settings.nickname
     this._updateCompanionName()
 
@@ -3018,6 +3098,7 @@ export class Game {
     document.getElementById('mutator-horde-mode-label').textContent = t('mutatorHordeMode')
     document.getElementById('mutator-koth-label').textContent = t('mutatorKoth')
     document.getElementById('mutator-extraction-label').textContent = t('mutatorExtraction')
+    document.getElementById('mutator-daily-label').textContent = t('mutatorDaily')
 
     this._updateBestStatsDisplay()
     if (this.inventoryOpen) this._refreshInventoryPanel()
@@ -3168,7 +3249,7 @@ export class Game {
   _onZombieAttack(damage) {
     if (this.player.isDodging) return // brief invincibility window - see PlayerController's dodge
     this.lastHitTakenAt = performance.now()
-    this.playerState.takeDamage(damage * this.difficulty.damageMult)
+    this.playerState.takeDamage(damage * this.difficulty.damageMult * this.dailyDamageMult)
     this._updateHealthHud()
     audioEngine.playZombieSnarl()
     this.damageFlash.classList.remove('hit')
@@ -3185,7 +3266,7 @@ export class Game {
   _onRivalAttack(damage) {
     if (this.player.isDodging) return
     this.lastHitTakenAt = performance.now()
-    this.playerState.takeDamage(damage * this.difficulty.damageMult)
+    this.playerState.takeDamage(damage * this.difficulty.damageMult * this.dailyDamageMult)
     this._updateHealthHud()
     this.damageFlash.classList.remove('hit')
     void this.damageFlash.offsetWidth
@@ -3440,7 +3521,20 @@ export class Game {
       this.deathScoreAttack.style.display = 'none'
     }
 
-    this.respawnBtn.textContent = this.settings.hardcoreMode ? t('newAttemptBtn') : t('respawnBtn')
+    if (this.dailyChallengeActive) {
+      const score = this.kills * 10 + this.night * 100
+      this.dailyBest = loadDailyBest()
+      if (score > this.dailyBest.score) {
+        this.dailyBest = { date: _todayDateStr(), score }
+        saveDailyBest(this.dailyBest)
+      }
+      this.deathDaily.textContent = t('dailyResult', { twist: t(this.dailyTwist.nameKey), score, best: this.dailyBest.score })
+      this.deathDaily.style.display = 'block'
+    } else {
+      this.deathDaily.style.display = 'none'
+    }
+
+    this.respawnBtn.textContent = (this.settings.hardcoreMode || (this.dailyChallengeActive && this.dailyTwist.forceHardcore)) ? t('newAttemptBtn') : t('respawnBtn')
 
     // Death cam: a beat of the frozen, shaking scene before the UI slams
     // in, instead of the death screen appearing instantly - gameplay is
@@ -4213,6 +4307,20 @@ export class Game {
 
     const elapsed = formatTime(performance.now() - this.runStartedAt)
     this.extractionStats.textContent = t('extractionStats', { night: this.night, kills: this.kills, time: elapsed, points: EXTRACTION_POINTS_BONUS, coins: EXTRACTION_COINS_BONUS, legacy: legacyEarned })
+
+    if (this.dailyChallengeActive) {
+      const score = this.kills * 10 + this.night * 100
+      this.dailyBest = loadDailyBest()
+      if (score > this.dailyBest.score) {
+        this.dailyBest = { date: _todayDateStr(), score }
+        saveDailyBest(this.dailyBest)
+      }
+      this.extractionDaily.textContent = t('dailyResult', { twist: t(this.dailyTwist.nameKey), score, best: this.dailyBest.score })
+      this.extractionDaily.style.display = 'block'
+    } else {
+      this.extractionDaily.style.display = 'none'
+    }
+
     this.extractionScreen.style.display = 'flex'
   }
 

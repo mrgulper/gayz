@@ -1924,6 +1924,29 @@ html, body {
   transition: width 150ms ease-out;
 }
 
+#daily-wrap {
+  position: absolute;
+  top: 178px;
+  left: 20px;
+  width: 150px;
+  pointer-events: none;
+}
+
+#daily-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #c9a6ff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  margin-bottom: 2px;
+}
+
+#daily-best {
+  font-size: 11px;
+  color: #d8d8d0;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
 #extraction-screen {
   position: absolute;
   inset: 0;
