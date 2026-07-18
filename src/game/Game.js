@@ -41,6 +41,7 @@ const COMPANION_BARKS = {
   lowHealth: ["You're bleeding out, use a health pack!", 'Stay with me!', "That doesn't look good.", 'Heal up, now!'],
   killStreak: ['Nice shooting!', "You're on fire tonight!", 'Keep it up!', 'Not bad.'],
   nightStart: ['Stay sharp out there.', 'Here we go again.', 'Eyes open.', "Let's not die tonight."],
+  companionDown: ["I'm down, help!", 'Get them off me!', "I can't get up!", 'Revive me, quick!'],
 }
 
 const PICKUP_LABELS = {
@@ -661,7 +662,7 @@ export class Game {
     // firing logic, which works off whatever `zombies` list is passed in
     // regardless of who's "following" who.
     this.safeZoneGuards = safeZone.guardSpots.map((spot) => {
-      const guard = new Companion(this.scene, spot.x, spot.z, 'ranged')
+      const guard = new Companion(this.scene, spot.x, spot.z, 'ranged', { vulnerable: false })
       guard.setName('Guard')
       return guard
     })
@@ -669,11 +670,12 @@ export class Game {
     // other Companion but never ticked (no .update() call anywhere), so
     // they just stand there with an instructional label instead of
     // following/fighting like every other Companion instance.
-    this.traderGuideNpc = new Companion(this.scene, trader.x + 1.6, trader.z - 1.4, 'ranged')
+    this.traderGuideNpc = new Companion(this.scene, trader.x + 1.6, trader.z - 1.4, 'ranged', { vulnerable: false })
     this.traderGuideNpc.setName('Click the trader to trade points for supplies')
-    this.ammoGuideNpc = new Companion(this.scene, ammoStation.x - 1.4, ammoStation.z - 1.2, 'ranged')
+    this.ammoGuideNpc = new Companion(this.scene, ammoStation.x - 1.4, ammoStation.z - 1.2, 'ranged', { vulnerable: false })
     this.ammoGuideNpc.setName('Hold F here to refill reserve ammo')
     this.companion = new Companion(this.scene, 1.6, 7, this.settings.companionRole)
+    this.reviveTarget = null
     this.playerBody = new PlayerBody(this.scene)
     // Was (-6, -18) - right against the safe zone's east wall (x:-13 z:-10,
     // half:7 -> wall at x=-6, z -17..-3), so the car's own collider spawned
@@ -945,6 +947,7 @@ export class Game {
       this.chests.reset()
       this.xpGems.reset()
       this.companion.teleportTo(1.6, 7)
+      this.companion.resetVitals()
       this.night = 1
       this.kills = 0
       this.activeBounty = null
@@ -1089,6 +1092,10 @@ export class Game {
           this._exitVehicle()
         } else if (this.nearVehicle) {
           this._enterVehicle()
+        } else if (this.reviveTarget) {
+          this.reviveTarget.revive()
+          this._showLoreToast(t('toastCompanionRevived'))
+          this.reviveTarget = null
         } else if (this.nearVireoTerminal) {
           this._interactVireoTerminal()
         } else if (this.nearRescueSurvivor) {
@@ -3279,6 +3286,44 @@ export class Game {
     }
   }
 
+  // Companions are vulnerable (see Companion.js's `vulnerable` option) and
+  // go down instead of just tanking hits forever - this reacts to the
+  // one-shot justWentDown/justDied flags each companion sets on itself and
+  // figures out who (if anyone) the player can currently revive.
+  _updateCompanionDownedState(playerPos) {
+    if (this.companion.justWentDown) {
+      this.companion.justWentDown = false
+      this._showLoreToast(t('toastCompanionDown'))
+      this._companionBark('companionDown')
+    }
+    if (this.companion.justDied) {
+      // Not gone for good - the main companion always exists elsewhere in
+      // this file, so "died" here means dragged back to the safe zone to
+      // recover rather than actually removed.
+      this.companion.justDied = false
+      this.companion.downed = true // revive() below requires this to be true
+      this.companion.revive()
+      this.companion.teleportTo(this.safeZone.x, this.safeZone.z)
+      this._showLoreToast(t('toastCompanionCrawledBack'))
+    }
+
+    if (this.tempCompanion) {
+      if (this.tempCompanion.justWentDown) {
+        this.tempCompanion.justWentDown = false
+        this._showLoreToast(t('toastCompanionDown'))
+      }
+      if (this.tempCompanion.justDied) {
+        this._showLoreToast(t('tempCompanionLeft'))
+        this.tempCompanion.dispose()
+        this.tempCompanion = null
+      }
+    }
+
+    this.reviveTarget = null
+    if (this.companion.isNear(playerPos)) this.reviveTarget = this.companion
+    else if (this.tempCompanion && this.tempCompanion.isNear(playerPos)) this.reviveTarget = this.tempCompanion
+  }
+
   _spawnVaultKey() {
     const spot = this.vaultKeySpots[Math.floor(Math.random() * this.vaultKeySpots.length)]
     this.pickups.spawnUnique('vaultkey', spot.x, spot.z, spot.y)
@@ -3683,6 +3728,7 @@ export class Game {
         this._updateHealthHud()
       })
       if (this.tempCompanion) this.tempCompanion.update(dt, playerPos, this.zombies.zombies, null)
+      this._updateCompanionDownedState(playerPos)
       for (const guard of this.safeZoneGuards) {
         guard.update(dt, guard.group.position, this.zombies.zombies, null)
       }
@@ -3724,6 +3770,9 @@ export class Game {
         this.interactPrompt.style.display = 'block'
       } else if (this.nearVehicle) {
         this.interactPrompt.innerHTML = tHtml('interactEnterVehicle')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.reviveTarget) {
+        this.interactPrompt.innerHTML = tHtml('interactRevive')
         this.interactPrompt.style.display = 'block'
       } else if (this.nearVireoTerminal) {
         this.interactPrompt.innerHTML = tHtml('interactTerminal')

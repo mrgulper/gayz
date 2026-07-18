@@ -7,6 +7,19 @@ const MOVE_SPEED = 4.2
 const CATCH_UP_SPEED_MULT = 1.8
 const TRACER_MS = 120
 
+// Downed state (vulnerable companions only, see the constructor's
+// `vulnerable` option): being swarmed drains health over time rather than
+// a single hit killing outright, since there's no per-zombie "companion
+// attack" animation to hang a direct hit off of - any alive zombie standing
+// this close is treated as chipping away at the companion each tick instead.
+const COMPANION_MAX_HEALTH = 100
+const SWARM_RADIUS = 2.0
+const SWARM_TICK_MS = 700
+const SWARM_DAMAGE_PER_ZOMBIE = 5
+const DOWNED_BLEED_OUT_MS = 30000
+const REVIVE_HEALTH_FRACTION = 0.5
+const REVIVE_RADIUS = 2.2
+
 // Role stat blocks - 'ranged' hangs back and shoots, 'melee' charges in and
 // swings. Chosen once on the main menu (see Game.js's companionRole setting).
 const ROLE_STATS = {
@@ -17,10 +30,12 @@ const ROLE_STATS = {
 const MEDIC_FOLLOW_DISTANCE = 2.2
 
 // Follower survivor NPC: trails the player and auto-fights the nearest alive
-// zombie in range. Invulnerable by design - a "companion down" state
-// (health, revival, HUD) would be a whole extra feature on top of this one.
+// zombie in range. Static NPCs built from this same class (safe zone guards,
+// the trader/ammo guide NPCs) pass `vulnerable: false` to keep their
+// original invulnerable behavior - only the player's real companion(s)
+// (this.companion / this.tempCompanion in Game.js) go down and need reviving.
 export class Companion {
-  constructor(scene, x, z, role = 'ranged') {
+  constructor(scene, x, z, role = 'ranged', { vulnerable = true } = {}) {
     this.scene = scene
     this.role = ROLE_STATS[role] ? role : 'ranged'
     // Cloned rather than the shared preset directly - applyTraining below
@@ -36,6 +51,15 @@ export class Companion {
 
     this.nextFireAt = 0
     this.tracers = []
+
+    this.vulnerable = vulnerable
+    this.health = COMPANION_MAX_HEALTH
+    this.downed = false
+    this.dead = false
+    this.justWentDown = false
+    this.justDied = false
+    this.downedAt = 0
+    this.nextSwarmTickAt = 0
   }
 
   // Points-purchased training (see Game.js's "Train Companion" trader item) -
@@ -76,6 +100,21 @@ export class Companion {
   // nickname ("Survivor48213 Assistant") was previously getting clipped off
   // both edges because the font size was fixed regardless of text length.
   setName(name) {
+    this._displayName = name
+    this._renderTag(name, '#5be3ff')
+  }
+
+  // Temporarily overwrites the name tag with a "DOWNED" callout without
+  // losing the real name - _restoreNameTag() puts it back on revive.
+  _showDownedTag() {
+    this._renderTag('DOWNED - Press F', '#ff4a3a')
+  }
+
+  _restoreNameTag() {
+    this._renderTag(this._displayName, '#5be3ff')
+  }
+
+  _renderTag(text, color) {
     const ctx = this._nameCtx
     const canvas = this._nameCanvas
     ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -83,16 +122,16 @@ export class Companion {
     ctx.fillRect(0, 10, canvas.width, canvas.height - 20)
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillStyle = '#5be3ff'
+    ctx.fillStyle = color
 
     const maxWidth = canvas.width - 16
     let fontSize = 26
     ctx.font = `bold ${fontSize}px sans-serif`
-    while (ctx.measureText(name).width > maxWidth && fontSize > 12) {
+    while (ctx.measureText(text).width > maxWidth && fontSize > 12) {
       fontSize -= 1
       ctx.font = `bold ${fontSize}px sans-serif`
     }
-    ctx.fillText(name, canvas.width / 2, canvas.height / 2)
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2)
     this._nameSprite.material.map.needsUpdate = true
   }
 
@@ -153,6 +192,17 @@ export class Companion {
   }
 
   update(dt, playerPos, zombies, onHeal) {
+    if (this.dead) return
+    if (this.downed) {
+      if (!this.dead && performance.now() - this.downedAt > DOWNED_BLEED_OUT_MS) {
+        this.dead = true
+        this.justDied = true
+      }
+      return
+    }
+    if (this.vulnerable) this._updateSwarmDamage(zombies)
+    if (this.downed) return // just went down above - skip this frame's follow/attack
+
     if (this.role === 'medic') {
       const dx = playerPos.x - this.group.position.x
       const dz = playerPos.z - this.group.position.z
@@ -247,6 +297,65 @@ export class Companion {
       }
       return true
     })
+  }
+
+  // Any alive zombie standing this close chips away at health every
+  // SWARM_TICK_MS, scaled by how many are crowding in at once - the
+  // companion's stand-in for "actually being attacked" since zombies never
+  // target it directly (see ZombieManager/Zombie.js, which only ever aim at
+  // the player).
+  _updateSwarmDamage(zombies) {
+    let nearbyCount = 0
+    for (const z of zombies) {
+      if (z.state !== 'alive') continue
+      const d = Math.hypot(z.group.position.x - this.group.position.x, z.group.position.z - this.group.position.z)
+      if (d <= SWARM_RADIUS) nearbyCount++
+    }
+    if (nearbyCount === 0) return
+    if (performance.now() < this.nextSwarmTickAt) return
+    this.nextSwarmTickAt = performance.now() + SWARM_TICK_MS
+    this.health -= SWARM_DAMAGE_PER_ZOMBIE * nearbyCount
+    if (this.health <= 0) this._goDown()
+  }
+
+  _goDown() {
+    this.downed = true
+    this.downedAt = performance.now()
+    this.justWentDown = true
+    this.group.rotation.x = -Math.PI / 2
+    this._showDownedTag()
+  }
+
+  // Called by Game.js when the player interacts with a downed companion in
+  // range (see isNear) - restores partial health and stands them back up.
+  // Bleeds out permanently (see update's DOWNED_BLEED_OUT_MS check) if this
+  // never happens in time.
+  revive() {
+    if (!this.downed) return
+    this.downed = false
+    this.dead = false
+    this.health = COMPANION_MAX_HEALTH * REVIVE_HEALTH_FRACTION
+    this.nextSwarmTickAt = performance.now() + SWARM_TICK_MS
+    this.group.rotation.x = 0
+    this._restoreNameTag()
+  }
+
+  isNear(playerPos) {
+    if (!this.downed) return false
+    return Math.hypot(playerPos.x - this.group.position.x, playerPos.z - this.group.position.z) <= REVIVE_RADIUS
+  }
+
+  // Full health/downed reset for a fresh run (see Game.js's restart path) -
+  // unlike revive(), doesn't require currently being downed.
+  resetVitals() {
+    this.health = COMPANION_MAX_HEALTH
+    this.downed = false
+    this.dead = false
+    this.justWentDown = false
+    this.justDied = false
+    this.nextSwarmTickAt = 0
+    this.group.rotation.x = 0
+    this._restoreNameTag()
   }
 
   teleportTo(x, z) {
