@@ -1269,6 +1269,16 @@ html, body {
   font-variant-numeric: tabular-nums;
 }
 
+#ammo.low-ammo {
+  color: #ff5a4a;
+  animation: low-ammo-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes low-ammo-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
 #hotbar {
   position: absolute;
   left: 50%;

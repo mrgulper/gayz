@@ -192,6 +192,42 @@ class AudioEngine {
     beat(0.18, 60, 0.4)
   }
 
+  // Dry mechanical double-click for critically low ammo - deliberately not
+  // another heartbeat (that's low health's cue, see playHeartbeat above) so
+  // the two tension states read as distinct problems at a glance/listen
+  // instead of blurring into one generic "danger" sound.
+  playLowAmmoTick() {
+    if (!this.ctx) return
+    const ctx = this.ctx
+    const now = ctx.currentTime
+
+    const click = (delay) => {
+      const duration = 0.05
+      const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * duration, ctx.sampleRate)
+      const data = noiseBuffer.getChannelData(0)
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+
+      const noise = ctx.createBufferSource()
+      noise.buffer = noiseBuffer
+
+      const bandpass = ctx.createBiquadFilter()
+      bandpass.type = 'bandpass'
+      bandpass.frequency.value = 2600
+      bandpass.Q.value = 8
+
+      const gain = ctx.createGain()
+      gain.gain.setValueAtTime(0.3, now + delay)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + delay + duration)
+
+      noise.connect(bandpass).connect(gain).connect(this.sfxGain)
+      noise.start(now + delay)
+      noise.stop(now + delay + duration)
+    }
+
+    click(0)
+    click(0.09)
+  }
+
   // Rare rain-night event (see Game.js's _triggerLightning): a bright crack
   // followed by a rolling low rumble.
   playThunder() {

@@ -818,6 +818,8 @@ export class Game {
       weaponName: document.getElementById('weapon-name'),
       ammo: document.getElementById('ammo'),
     }
+    this.ammoHudEl = hud.ammo
+    this.nextLowAmmoTickAt = 0
     this.weapons = new WeaponSystem(
       this.camera,
       this.scene,
@@ -3091,6 +3093,20 @@ export class Game {
     }
   }
 
+  // Distinct from the low-health heartbeat (see _updateHealthHud) - a low
+  // ammo count (mag + reserve at or below one magazine's worth) is its own
+  // kind of tension and deserves its own read, not just blur into "danger
+  // sound is playing" generically. Skipped for melee (no ammo concept).
+  _updateLowAmmoCue() {
+    const w = this.weapons.current
+    const low = !w.melee && w.ammoInMag + w.ammoReserve <= w.magSize
+    this.ammoHudEl.classList.toggle('low-ammo', low)
+    if (low && performance.now() >= this.nextLowAmmoTickAt) {
+      audioEngine.playLowAmmoTick()
+      this.nextLowAmmoTickAt = performance.now() + 2200
+    }
+  }
+
   _updateProgressHud() {
     this.nightValueEl.textContent = t('hudNight', { n: this.night })
     // Round Mode advances on a kill-clear, not a clock - showing the
@@ -3874,6 +3890,7 @@ export class Game {
       this._updateHordeAnnouncement()
       this._updateBarricades()
       this._updateDeathObstacles()
+      this._updateLowAmmoCue()
       this._updateTraps()
       this._updateAirdrop()
       if (this.raining && this.nextLightningAt > 0 && performance.now() >= this.nextLightningAt) {
