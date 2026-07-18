@@ -389,6 +389,39 @@ const SALVAGE_ITEMS = [
   { id: 'emp', invKey: 'emp', titleKey: 'shopEmp', sellValue: salvageValue('emp'), sell: (game) => game.inventory.useEmp() },
 ]
 
+// Hidden Trader tier, only shown once Achievements.js's 'centurion' (100
+// kills, see _onZombieKilled) has ever been unlocked - a permanent,
+// localStorage-persisted flag, so once earned it stays open on every future
+// run too, not just the one where it was earned. Exclusive items only
+// available here: a guaranteed legendary weapon part (elsewhere only a rare
+// loot roll or the Vault's one-time reward), a bulk ammo cache, and a
+// bigger-than-normal permanent mag bonus.
+const BLACK_MARKET_ITEMS = [
+  {
+    id: 'bm_legendary',
+    cost: 150,
+    titleKey: 'shopBmLegendary',
+    give: (game) => {
+      const weaponId = game.weapons.randomUnlockedWeaponId()
+      const w = weaponId && game.weapons.weapons.find((w) => w.id === weaponId)
+      const boosted = w && game.weapons.applyRarityBoost(weaponId, 1.3, 'legendary')
+      game._showLoreToast(boosted ? t('toastLegendaryWeapon', { weapon: t(game.weapons._nameKeyFor(w)) }) : t('toastRarityWasted'))
+    },
+  },
+  {
+    id: 'bm_ammo_cache',
+    cost: 45,
+    titleKey: 'shopBmAmmoCache',
+    give: (game) => game.weapons.addAmmoToCurrent(Math.round(game.weapons.current.magSize * 2)),
+  },
+  {
+    id: 'bm_mega_mag',
+    cost: 70,
+    titleKey: 'shopBmMegaMag',
+    give: (game) => game.weapons.addMagBonus(game.weapons.current.id === 'minigun' ? 100 : 20),
+  },
+]
+
 function formatTime(ms) {
   const totalSec = Math.floor(ms / 1000)
   const mm = String(Math.floor(totalSec / 60)).padStart(2, '0')
@@ -768,6 +801,8 @@ export class Game {
     this.traderOptions = document.getElementById('trader-options')
     this.traderSalvageTitle = document.getElementById('trader-salvage-title')
     this.traderSalvageOptions = document.getElementById('trader-salvage-options')
+    this.traderBlackMarketTitle = document.getElementById('trader-blackmarket-title')
+    this.traderBlackMarketOptions = document.getElementById('trader-blackmarket-options')
     this.traderHint = document.getElementById('trader-hint')
     this.upgradesBtn = document.getElementById('upgrades-btn')
     this.upgradesPanel = document.getElementById('upgrades-panel')
@@ -2248,6 +2283,38 @@ export class Game {
     }
 
     this._renderSalvageOptions()
+    this._renderBlackMarketOptions()
+  }
+
+  // Only visible once Achievements.js's 'centurion' has ever been unlocked
+  // (see achievements.unlocked, persisted across runs) - a permanent
+  // reputation-gated tier rather than a one-run bonus.
+  _renderBlackMarketOptions() {
+    this.traderBlackMarketOptions.innerHTML = ''
+    const show = this.achievements.unlocked.has('centurion')
+    this.traderBlackMarketTitle.style.display = show ? '' : 'none'
+    this.traderBlackMarketOptions.style.display = show ? '' : 'none'
+    if (!show) return
+
+    this.traderBlackMarketTitle.textContent = t('blackMarketSectionLabel')
+    for (const item of BLACK_MARKET_ITEMS) {
+      const btn = document.createElement('button')
+      btn.className = 'perk-option blackmarket'
+      btn.disabled = this.points < item.cost
+      btn.innerHTML = `
+        <span class="perk-name">${t(item.titleKey)}</span>
+        <span class="perk-cost">${t('perkCostLabel', { n: item.cost })}</span>
+      `
+      btn.addEventListener('click', () => {
+        if (this.points < item.cost) return
+        this.points -= item.cost
+        item.give(this)
+        this._updateStatsPanel()
+        this._updateInventoryHud()
+        this._renderTraderOptions()
+      })
+      this.traderBlackMarketOptions.appendChild(btn)
+    }
   }
 
   _renderSalvageOptions() {
@@ -2967,7 +3034,7 @@ export class Game {
     void this.achievementToast.offsetWidth
     this.achievementToast.classList.add('show')
 
-    if (def.id === 'centurion') this.weapons.setGoldenSkin('pistol', true)
+    if (def.id === 'centurion') this.weapons.setWeaponSkin('pistol', 'gold')
   }
 
   _showLoreToast(text) {

@@ -1022,6 +1022,15 @@ html, body {
   opacity: 0.8;
 }
 
+#trader-blackmarket-title {
+  margin: 4px 0 0;
+  font-size: 12px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #c98bff;
+  opacity: 0.85;
+}
+
 .perk-options {
   display: flex;
   gap: 14px;
@@ -1153,6 +1162,20 @@ html, body {
 
 .perk-option .salvage-gain {
   color: #7fd8c4;
+}
+
+.perk-option.blackmarket {
+  border-color: rgba(201, 139, 255, 0.4);
+  background: rgba(201, 139, 255, 0.05);
+}
+
+.perk-option.blackmarket:hover:not(:disabled) {
+  border-color: #c98bff;
+  background: rgba(201, 139, 255, 0.14);
+}
+
+.perk-option.blackmarket .perk-cost {
+  color: #c98bff;
 }
 
 .perk-option:disabled {
