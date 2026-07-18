@@ -1275,6 +1275,7 @@ export class Game {
 
     this.player.controls.addEventListener('lock', () => {
       this.gameStarted = true
+      audioEngine.resume()
       this.pauseOverlay.style.display = 'none'
       this.screenshotCropOverlay.style.display = 'none'
       this.screenshotCropOpen = false
@@ -1309,6 +1310,7 @@ export class Game {
       if (this.screenshotCropOpen || this.perkPanelOpen || this.xpLevelupPanelOpen || this.traderPanelOpen) {
         // handled by whichever panel is open
       } else if (this.gameStarted) {
+        audioEngine.pause()
         this.pauseOverlayTitle.textContent = t('pauseOverlayTitle')
         this.pauseResumeBtn.textContent = t('pauseResumeBtn')
         this.pauseUpgradesBtn.textContent = t('upgradesBtn')
@@ -2218,6 +2220,12 @@ export class Game {
     this.settingsPanel.addEventListener('click', (e) => {
       if (e.target === this.settingsPanel) this._toggleSettings(false)
     })
+    this.upgradesPanel.addEventListener('click', (e) => {
+      if (e.target === this.upgradesPanel) this._closeUpgradesPanel()
+    })
+    this.coinshopPanel.addEventListener('click', (e) => {
+      if (e.target === this.coinshopPanel) this._closeCoinShopPanel()
+    })
   }
 
   _bindControlsTab() {
@@ -2711,6 +2719,12 @@ export class Game {
   // Opened from the main menu (not gameplay) - spends persistent Legacy
   // Points (see MetaProgress.js) on one-time permanent upgrades.
   _openUpgradesPanel() {
+    // Opened from the pause overlay (still on screen, unlocked) as well as
+    // the main menu - hide it explicitly rather than relying on DOM/paint
+    // order, since #pause-overlay comes after #upgrades-panel in index.html
+    // and would otherwise render on top and eat every click meant for an
+    // upgrade card underneath it.
+    this.pauseOverlay.style.display = 'none'
     this.upgradesPanel.style.display = 'flex'
     this.upgradesPanelTitle.textContent = t('upgradesPanelTitle')
     this.upgradesCloseBtn.textContent = t('upgradesClose')
@@ -2748,6 +2762,7 @@ export class Game {
 
   _closeUpgradesPanel() {
     this.upgradesPanel.style.display = 'none'
+    if (this.gameStarted) this.pauseOverlay.style.display = 'flex'
   }
 
   // Cosmetic skins bought with coins live in this same panel (see
@@ -2757,6 +2772,7 @@ export class Game {
   // achievement (see the constructor), and both skins and stat perks share
   // this one render loop.
   _openCoinShopPanel() {
+    this.pauseOverlay.style.display = 'none'
     this.coinshopPanel.style.display = 'flex'
     this.coinshopPanelTitle.textContent = t('coinshopPanelTitle')
     this.coinshopCloseBtn.textContent = t('upgradesClose')
@@ -2924,6 +2940,7 @@ export class Game {
 
   _closeCoinShopPanel() {
     this.coinshopPanel.style.display = 'none'
+    if (this.gameStarted) this.pauseOverlay.style.display = 'flex'
   }
 
   _showCoinPopup(amount) {

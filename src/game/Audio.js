@@ -88,6 +88,13 @@ class AudioEngine {
     if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume()
   }
 
+  // Suspends the whole AudioContext - music and every SFX voice route
+  // through it, so this silences everything in one call instead of tracking
+  // down each sound source individually. resume() undoes it.
+  pause() {
+    if (this.ctx && this.ctx.state === 'running') this.ctx.suspend()
+  }
+
   // `suppressed` (Coin Shop attachment, see WeaponSystem.applyAttachment)
   // shortens the crack, pulls the tone up into a duller "pfft" register
   // instead of the sharp bandpass bark, and drops both layers' gain hard -
