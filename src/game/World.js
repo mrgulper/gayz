@@ -336,6 +336,31 @@ export function buildWorld(scene) {
   for (const spot of park.chestSpots) towerChestSpots.push(spot)
   for (const spot of park.spawnPoints) spawnPoints.push(spot)
 
+  // The subway's real entrance - see buildSubwayParkEntrance/
+  // buildSubwayConnector's comments for why it's all the way out here now
+  // instead of street-side next to the platform it leads to.
+  //
+  // Routed as three straight (never diagonal) legs rather than one direct
+  // shot at the platform's corner - a diagonal path from the park toward
+  // (SUBWAY_X, SUBWAY_Z_START) necessarily sweeps close past the platform's
+  // own pre-existing, full-length side wall (it runs the entire
+  // SUBWAY_Z_START..SUBWAY_Z_END span at a fixed X) well before reaching the
+  // actual opening, so the connector's own wall ends up overlapping/
+  // crowding that independent wall instead of cleanly meeting it - two
+  // separate wall systems pinched together with no clean gap for the player.
+  // Going south first at the entrance's own X, then east once clear of the
+  // platform's Z-range entirely, then north into its open south end head-on
+  // avoids ever running near that wall until the final leg matches its
+  // orientation exactly.
+  const subwayEntrance = buildSubwayParkEntrance(scene, colliders, solidMeshes)
+  const connectorWaypointZ = SUBWAY_Z_START - 6
+  const JUNCTION_HALF = 3.2
+  buildSubwayJunctionRoom(scene, colliders, solidMeshes, subwayEntrance.landingX, connectorWaypointZ, JUNCTION_HALF)
+  buildSubwayJunctionRoom(scene, colliders, solidMeshes, SUBWAY_X, connectorWaypointZ, JUNCTION_HALF)
+  buildSubwayConnector(scene, colliders, solidMeshes, flickerLights, subwayEntrance.landingX, subwayEntrance.landingZ, subwayEntrance.landingX, connectorWaypointZ + JUNCTION_HALF)
+  buildSubwayConnector(scene, colliders, solidMeshes, flickerLights, subwayEntrance.landingX + JUNCTION_HALF, connectorWaypointZ, SUBWAY_X - JUNCTION_HALF, connectorWaypointZ)
+  buildSubwayConnector(scene, colliders, solidMeshes, flickerLights, SUBWAY_X, connectorWaypointZ + JUNCTION_HALF, SUBWAY_X, SUBWAY_Z_START)
+
   return {
     colliders,
     solidMeshes,
@@ -765,7 +790,13 @@ const SUBWAY_Z_END = 11
 const SUBWAY_WIDTH = 5.5
 const SUBWAY_HEIGHT = 3.2
 const SUBWAY_FLOOR_Y = -4.6
-const SUBWAY_ENTRANCE_Z = SUBWAY_Z_START - 3
+
+// The street-level entrance used to sit right here (SUBWAY_X, just south of
+// SUBWAY_Z_START) - moved into the park instead (see
+// buildSubwayParkEntrance/buildSubwayConnector), so this platform now opens
+// at BOTH ends: the park connector plugs in at SUBWAY_Z_START (no
+// endWallStart anymore, mirroring the endWallFar removal below), and the
+// VIREO facility continues past SUBWAY_Z_END like before.
 
 function buildSubway(scene, colliders, solidMeshes, flickerLights) {
   const length = SUBWAY_Z_END - SUBWAY_Z_START
@@ -776,34 +807,6 @@ function buildSubway(scene, colliders, solidMeshes, flickerLights) {
   const tileMat = new THREE.MeshStandardMaterial({ color: 0x3a3f42, roughness: 0.7 })
   const platformMat = new THREE.MeshStandardMaterial({ color: 0x4a4238, roughness: 0.9 })
   const railMat = new THREE.MeshStandardMaterial({ color: 0x1a1a18, roughness: 0.4, metalness: 0.7 })
-  const kioskMat = new THREE.MeshStandardMaterial({ color: 0x1c1a16, roughness: 0.85 })
-
-  // Street-level entrance kiosk: a roofed frame around the top of the stairs
-  // so the descent reads as "a subway entrance", not just stairs vanishing
-  // into the ground.
-  const kioskHalfW = SUBWAY_WIDTH / 2 + 0.3
-  const kioskRoof = new THREE.Mesh(new THREE.BoxGeometry(kioskHalfW * 2, 0.25, 3), kioskMat)
-  kioskRoof.position.set(SUBWAY_X, 2.6, SUBWAY_ENTRANCE_Z)
-  kioskRoof.castShadow = true
-  scene.add(kioskRoof)
-  solidMeshes.push(kioskRoof)
-  colliders.push(new THREE.Box3().setFromObject(kioskRoof))
-  for (const [ox, oz] of [[-kioskHalfW, -1.5], [-kioskHalfW, 1.5], [kioskHalfW, -1.5], [kioskHalfW, 1.5]]) {
-    const post = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.6, 0.2), kioskMat)
-    post.position.set(SUBWAY_X + ox, 1.3, SUBWAY_ENTRANCE_Z + oz)
-    post.castShadow = true
-    scene.add(post)
-  }
-  const sign = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.4, 0.06), new THREE.MeshStandardMaterial({ color: 0x1a1408, emissive: 0xffb347, emissiveIntensity: 1 }))
-  sign.position.set(SUBWAY_X, 2.3, SUBWAY_ENTRANCE_Z - 1.51)
-  scene.add(sign)
-
-  buildStairFlight(
-    scene, solidMeshes,
-    SUBWAY_X, SUBWAY_ENTRANCE_Z, 0,
-    SUBWAY_X, SUBWAY_Z_START + 1.5, SUBWAY_FLOOR_Y,
-    18
-  )
 
   const floor = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH, 0.08, length), floorMat)
   floor.position.set(SUBWAY_X, SUBWAY_FLOOR_Y, centerZ)
@@ -833,14 +836,8 @@ function buildSubway(scene, colliders, solidMeshes, flickerLights) {
     scene.add(tileBand)
   }
 
-  const endWallStart = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH + 0.4, SUBWAY_HEIGHT, 0.2), wallMat)
-  endWallStart.position.set(SUBWAY_X, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT / 2, SUBWAY_Z_START)
-  endWallStart.castShadow = true
-  scene.add(endWallStart)
-  solidMeshes.push(endWallStart)
-  colliders.push(new THREE.Box3().setFromObject(endWallStart))
-
-  // No far-end wall here (unlike endWallStart) - the corridor continues
+  // No wall at either end anymore - SUBWAY_Z_START now opens into the park
+  // connector (see buildSubwayConnector) and SUBWAY_Z_END continues
   // straight into the VIREO facility extension instead of dead-ending, see
   // buildVireoFacility, which now attaches right at SUBWAY_Z_END and is
   // this subway's second exit (surfacing further down the line) as well as
@@ -894,6 +891,160 @@ function buildSubway(scene, colliders, solidMeshes, flickerLights) {
   }
 
   return { chestSpot: { x: SUBWAY_X, y: SUBWAY_FLOOR_Y, z: SUBWAY_Z_START + 3 } }
+}
+
+// The subway's real-world entrance - moved into the park (see
+// buildPark's PARK_Z_START/END/HALF_WIDTH) instead of a street-side kiosk,
+// so walking into the park and taking the stairs down is how the whole
+// underground loop (platform -> VIREO facility -> street exit) is reached.
+// Sits on the park's central path (x=0), clear of the tree/bench/chest
+// spots defined in buildPark.
+const SUBWAY_PARK_ENTRANCE_X = 0
+const SUBWAY_PARK_ENTRANCE_Z = 61
+const SUBWAY_PARK_LANDING_Z = 56.5
+
+function buildSubwayParkEntrance(scene, colliders, solidMeshes) {
+  const kioskMat = new THREE.MeshStandardMaterial({ color: 0x1c1a16, roughness: 0.85 })
+  const kioskHalfW = SUBWAY_WIDTH / 2 + 0.3
+
+  const kioskRoof = new THREE.Mesh(new THREE.BoxGeometry(kioskHalfW * 2, 0.25, 3), kioskMat)
+  kioskRoof.position.set(SUBWAY_PARK_ENTRANCE_X, 2.6, SUBWAY_PARK_ENTRANCE_Z)
+  kioskRoof.castShadow = true
+  scene.add(kioskRoof)
+  solidMeshes.push(kioskRoof)
+  colliders.push(new THREE.Box3().setFromObject(kioskRoof))
+  for (const [ox, oz] of [[-kioskHalfW, -1.5], [-kioskHalfW, 1.5], [kioskHalfW, -1.5], [kioskHalfW, 1.5]]) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.6, 0.2), kioskMat)
+    post.position.set(SUBWAY_PARK_ENTRANCE_X + ox, 1.3, SUBWAY_PARK_ENTRANCE_Z + oz)
+    post.castShadow = true
+    scene.add(post)
+  }
+  const sign = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.4, 0.06), new THREE.MeshStandardMaterial({ color: 0x1a1408, emissive: 0xffb347, emissiveIntensity: 1 }))
+  sign.position.set(SUBWAY_PARK_ENTRANCE_X, 2.3, SUBWAY_PARK_ENTRANCE_Z + 1.51)
+  sign.rotation.y = Math.PI
+  scene.add(sign)
+
+  buildStairFlight(
+    scene, solidMeshes,
+    SUBWAY_PARK_ENTRANCE_X, SUBWAY_PARK_ENTRANCE_Z, 0,
+    SUBWAY_PARK_ENTRANCE_X, SUBWAY_PARK_LANDING_Z, SUBWAY_FLOOR_Y,
+    18
+  )
+
+  return { x: SUBWAY_PARK_ENTRANCE_X, z: SUBWAY_PARK_ENTRANCE_Z, landingX: SUBWAY_PARK_ENTRANCE_X, landingZ: SUBWAY_PARK_LANDING_Z }
+}
+
+// Long diagonal corridor joining the park entrance's landing point to the
+// subway platform's now-open near end (SUBWAY_X, SUBWAY_Z_START) - purely
+// underground pieces don't need to respect the surface's groundSize/
+// perimeter-barricade bounds the way a surface exit does (see
+// addPerimeterBarricade), so this can run however far it needs to between
+// two points that are nowhere near each other on the surface. Reuses the
+// subway's own width/height/floor-Y for a seamless join at both ends, and
+// dresses the long run with the same rib-light spacing the old standalone
+// tunnel used, so 65+ units of corridor doesn't read as one dark box.
+function buildSubwayConnector(scene, colliders, solidMeshes, flickerLights, x0, z0, x1, z1) {
+  const dx = x1 - x0
+  const dz = z1 - z0
+  const length = Math.hypot(dx, dz)
+  const angle = Math.atan2(dx, dz)
+  const ux = dx / length
+  const uz = dz / length
+
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x2c2e30, roughness: 0.95 })
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x201f1c, roughness: 1 })
+
+  // One long floor piece is fine - floors are never added to `colliders` in
+  // this game (see every other corridor builder), so there's no AABB risk
+  // from it being a single rotated box.
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH, 0.08, length), floorMat)
+  floor.position.set((x0 + x1) / 2, SUBWAY_FLOOR_Y, (z0 + z1) / 2)
+  floor.rotation.y = angle
+  floor.receiveShadow = true
+  scene.add(floor)
+  solidMeshes.push(floor)
+
+  // Ceiling and walls DO get colliders, and Box3().setFromObject() on one
+  // long rotated box would inflate its AABB to cover nearly the entire
+  // diagonal span between the two endpoints instead of a slim corridor -
+  // the exact rotated-mesh-inflates-its-AABB bug already found and fixed
+  // once this session for the trader stall, just at a much bigger scale
+  // here (a 65+-unit box turns into a giant slab that blocks almost the
+  // whole walk from the park down to the platform). Building short segments
+  // keeps each one's own rotation-inflation small instead of spanning the
+  // whole run.
+  const SEGMENT_LEN = 2
+  const segmentCount = Math.ceil(length / SEGMENT_LEN)
+  for (let i = 0; i < segmentCount; i++) {
+    const segStart = i * SEGMENT_LEN
+    const segEnd = Math.min(length, segStart + SEGMENT_LEN)
+    const segLen = segEnd - segStart
+    const segMidT = (segStart + segEnd) / 2
+    const segX = x0 + ux * segMidT
+    const segZ = z0 + uz * segMidT
+
+    const ceiling = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH + 0.4, 0.2, segLen), wallMat)
+    ceiling.position.set(segX, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT, segZ)
+    ceiling.rotation.y = angle
+    ceiling.castShadow = true
+    scene.add(ceiling)
+    solidMeshes.push(ceiling)
+    ceiling.updateWorldMatrix(true, false)
+    colliders.push(new THREE.Box3().setFromObject(ceiling))
+
+    for (const side of [-1, 1]) {
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, SUBWAY_HEIGHT, segLen), wallMat)
+      const perpX = Math.cos(angle) * side * (SUBWAY_WIDTH / 2 + 0.1)
+      const perpZ = -Math.sin(angle) * side * (SUBWAY_WIDTH / 2 + 0.1)
+      wall.position.set(segX + perpX, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT / 2, segZ + perpZ)
+      wall.rotation.y = angle
+      wall.castShadow = true
+      wall.receiveShadow = true
+      scene.add(wall)
+      solidMeshes.push(wall)
+      wall.updateWorldMatrix(true, false)
+      colliders.push(new THREE.Box3().setFromObject(wall))
+    }
+  }
+
+  const ribSpacing = 6
+  const ribCount = Math.floor(length / ribSpacing)
+  for (let i = 1; i < ribCount; i++) {
+    const t = (i * ribSpacing) / length
+    const rx = x0 + dx * t
+    const rz = z0 + dz * t
+    const light = new THREE.PointLight(0xbcd4ff, 0.7, 6, 2)
+    light.position.set(rx, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT - 0.3, rz)
+    scene.add(light)
+    flickerLights.push({ light, base: 0.7, seed: Math.random() * 100 })
+  }
+}
+
+// An open square room - floor and ceiling only, deliberately no side walls
+// at all - joining two perpendicular buildSubwayConnector legs at a corner.
+// Two straight tunnels can't just be abutted end-to-end at a 90-degree turn:
+// the corridor running east-west has its own north/south walls the full
+// length of its run, and that same wall is exactly what a north-south
+// corridor would need to cross to reach it - there's no doorway unless one
+// is deliberately built in. Each connecting leg should stop `halfSize`
+// short of this room's center (see buildWorld's call site) so neither leg's
+// own walls intrude into the shared open space.
+function buildSubwayJunctionRoom(scene, colliders, solidMeshes, cx, cz, halfSize) {
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x201f1c, roughness: 1 })
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x2c2e30, roughness: 0.95 })
+
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(halfSize * 2, 0.08, halfSize * 2), floorMat)
+  floor.position.set(cx, SUBWAY_FLOOR_Y, cz)
+  floor.receiveShadow = true
+  scene.add(floor)
+  solidMeshes.push(floor)
+
+  const ceiling = new THREE.Mesh(new THREE.BoxGeometry(halfSize * 2, 0.2, halfSize * 2), wallMat)
+  ceiling.position.set(cx, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT, cz)
+  ceiling.castShadow = true
+  scene.add(ceiling)
+  solidMeshes.push(ceiling)
+  colliders.push(new THREE.Box3().setFromObject(ceiling))
 }
 
 // Hidden VIREO sub-level - used to branch off a standalone surface tunnel,
