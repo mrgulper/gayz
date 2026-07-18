@@ -314,6 +314,18 @@ export function buildWorld(scene, trophyCount = 15) {
   // wall only surfaced this once those needed to path across it.
   const EXCLUDED_BUILDING_IDXS = new Set([7])
 
+  // Rooftop layer: bolt the same exterior fire escape used on the two real
+  // skyscrapers onto four more buildings, without giving them a walkable
+  // interior - buildFireEscape only reads x/z/w/d/h and climbs the outside,
+  // so any building spec works. Picked the tallest non-broken building in
+  // each outer row (x=-32, x=32) specifically because those rows have no
+  // neighboring row on their blind (fire-escape) side - the nearest thing
+  // out there is the perimeter wall, 33-37 units clear by hand-computing
+  // buildingLayout() for every candidate. Every inner-row building has a
+  // same-distance (14 unit) neighboring row on its blind side instead,
+  // which is exactly what ruled out index 12 as a third skyscraper.
+  const EXTRA_FIRE_ESCAPE_IDXS = new Set([0, 1, 18, 19])
+
   const towerChestSpots = []
   for (let i = 0; i < buildings.length; i++) {
     const b = buildings[i]
@@ -322,6 +334,21 @@ export function buildWorld(scene, trophyCount = 15) {
       buildFireEscape(scene, colliders, solidMeshes, b, towerChestSpots)
     } else if (!EXCLUDED_BUILDING_IDXS.has(i)) {
       addBuilding(scene, register, b)
+      if (EXTRA_FIRE_ESCAPE_IDXS.has(i)) {
+        // addBuilding's own register() call just pushed one solid collider
+        // spanning the building's full height - fine for a decorative box
+        // nobody reaches the top of, but standing on this building's own
+        // new roof means the player's collision box sits right at that same
+        // top face, so the building would block itself from ever being
+        // steppable. Real skyscrapers don't hit this because they're hollow
+        // shells, not one solid box for the whole volume. Cap the collider
+        // (just-pushed, nothing registers between it and here) a bit below
+        // roof height instead - confirmed empirically via a Playwright
+        // _tryMove walk from the escape's top landing onto the roof, which
+        // failed before this cap and passes cleanly after.
+        colliders[colliders.length - 1].max.y = Math.min(colliders[colliders.length - 1].max.y, b.h - 1.2)
+        buildFireEscape(scene, colliders, solidMeshes, b, towerChestSpots)
+      }
     }
   }
 
