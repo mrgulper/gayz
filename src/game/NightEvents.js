@@ -41,6 +41,26 @@ export const NIGHT_EVENTS = [
       game.chests.addChest(spot.x, 0, spot.z)
     },
   },
+  {
+    id: 'toxic_gas',
+    labelKey: 'eventToxicGas',
+    // Ambient hazard, not a player tool - see Game.js's _spawnHazardZone/
+    // _updateHazardZones. Distinct from the EMP grenade (something the
+    // player chooses to throw at zombies) - this is a zone the player has
+    // to notice and route around.
+    apply: (game) => {
+      const spot = game.spawnPoints[Math.floor(Math.random() * game.spawnPoints.length)]
+      game._spawnHazardZone('gas', spot.x, spot.z)
+    },
+  },
+  {
+    id: 'emp_field',
+    labelKey: 'eventEmpField',
+    apply: (game) => {
+      const spot = game.spawnPoints[Math.floor(Math.random() * game.spawnPoints.length)]
+      game._spawnHazardZone('emp', spot.x, spot.z)
+    },
+  },
 ]
 
 export function pickNightEvent() {

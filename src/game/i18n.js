@@ -336,6 +336,8 @@ const STRINGS = {
     eventSupplyDrop: 'Supply Drop — a crate landed nearby',
     eventSurvivorFound: 'Survivor Found — someone needs help nearby',
     eventSupplyConvoy: 'Supply Convoy — a guarded crate is nearby, if you can take the escorts',
+    eventToxicGas: 'Toxic Gas — a cloud is leaking somewhere nearby, stay out of it',
+    eventEmpField: 'EMP Field — an active field will fry your flashlight if you walk through it',
     interactRescue: 'Press **F** to rescue',
     survivorRescued: 'Survivor rescued! +{reward} Points, +1 Health Pack',
     weaponBat: 'Bat',

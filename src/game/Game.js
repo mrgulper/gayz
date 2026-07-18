@@ -304,6 +304,15 @@ const TRAP_LIFETIME_MS = 30000
 const OBSTACLE_DROP_CHANCE = 0.18
 const OBSTACLE_LIFETIME_MS = 20000
 const OBSTACLE_MAX_COUNT = 12
+// Ambient world hazards (see NightEvents.js's toxic_gas/emp_field) - zones
+// the player has to notice and route around, not a tool they chose to use
+// (that's the EMP grenade, a separate system in ZombieManager.js).
+const HAZARD_RADIUS = 5
+const HAZARD_TICK_MS = 700
+const HAZARD_GAS_DAMAGE_PER_TICK = 8
+const HAZARD_GAS_DURATION_MS = 22000
+const HAZARD_EMP_DURATION_MS = 18000
+const HAZARD_EMP_BATTERY_DRAIN_PER_SEC = 30
 const VEHICLE_RAM_MIN_SPEED = 4
 const VEHICLE_RAM_RADIUS = 2.6
 const VEHICLE_RAM_DAMAGE = 70
@@ -691,6 +700,7 @@ export class Game {
     this.colliders = colliders
     this.solidMeshes = solidMeshes
     this.barricades = []
+    this.hazardZones = []
     this.deathObstacles = []
     this.practiceTargets = practiceTargets
     this.traps = []
@@ -1660,6 +1670,82 @@ export class Game {
     if (expired.length === 0) return
     for (const o of expired) this._removeDeathObstacle(o)
     this.deathObstacles = this.deathObstacles.filter((o) => now < o.expiresAt)
+  }
+
+  // Ambient hazard (see NightEvents.js's toxic_gas/emp_field) - a lingering
+  // zone the player has to notice and route around. 'gas' damages the
+  // player per tick while inside; 'emp' forces the flashlight off and
+  // drains its battery fast instead, no direct damage.
+  _spawnHazardZone(type, x, z) {
+    const isGas = type === 'gas'
+    const color = isGas ? 0x5fcf4a : 0x4ecfff
+    const mat = new THREE.MeshStandardMaterial({
+      color,
+      emissive: color,
+      emissiveIntensity: 1.6,
+      transparent: true,
+      opacity: 0.4,
+      side: THREE.DoubleSide,
+    })
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(HAZARD_RADIUS, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat)
+    mesh.position.set(x, 0.05, z)
+    this.scene.add(mesh)
+    const light = new THREE.PointLight(color, 1.4, HAZARD_RADIUS * 2.5, 2)
+    light.position.set(x, 1.5, z)
+    this.scene.add(light)
+
+    this.hazardZones.push({
+      type,
+      x,
+      z,
+      mesh,
+      light,
+      expiresAt: performance.now() + (isGas ? HAZARD_GAS_DURATION_MS : HAZARD_EMP_DURATION_MS),
+      nextTickAt: performance.now(),
+    })
+  }
+
+  _removeHazardZone(zone) {
+    this.scene.remove(zone.mesh)
+    this.scene.remove(zone.light)
+  }
+
+  _updateHazardZones(dt, playerPos) {
+    if (this.hazardZones.length === 0) return
+    const now = performance.now()
+    let playerInEmp = false
+
+    this.hazardZones = this.hazardZones.filter((zone) => {
+      if (now >= zone.expiresAt) {
+        this._removeHazardZone(zone)
+        return false
+      }
+      const flicker = 0.8 + Math.sin(now * 0.015 + zone.x) * 0.2
+      zone.light.intensity = 1.4 * flicker
+      zone.mesh.material.opacity = 0.32 * flicker + 0.08
+
+      const dist = Math.hypot(playerPos.x - zone.x, playerPos.z - zone.z)
+      const inside = dist <= HAZARD_RADIUS
+      if (inside && zone.type === 'emp') playerInEmp = true
+
+      if (inside && zone.type === 'gas' && now >= zone.nextTickAt) {
+        zone.nextTickAt = now + HAZARD_TICK_MS
+        if (this.player.isDodging) return true // brief invincibility window, same as a zombie hit
+        this.playerState.takeDamage(HAZARD_GAS_DAMAGE_PER_TICK)
+        this._updateHealthHud()
+        this.damageFlash.classList.remove('hit')
+        void this.damageFlash.offsetWidth
+        this.damageFlash.classList.add('hit')
+        if (!this.playerState.alive) this._onPlayerDeath()
+      }
+      return true
+    })
+
+    if (playerInEmp) {
+      this.flashlightOn = false
+      this.flashlightBattery = Math.max(0, this.flashlightBattery - HAZARD_EMP_BATTERY_DRAIN_PER_SEC * dt)
+      this.flashlight.visible = false
+    }
   }
 
   _updateBarricades() {
@@ -4149,6 +4235,7 @@ export class Game {
       this._updateHordeAnnouncement()
       this._updateBarricades()
       this._updateDeathObstacles()
+      this._updateHazardZones(dt, playerPos)
       this._updateLowAmmoCue()
       this._updatePracticeTargets()
       this._updateTraps()
