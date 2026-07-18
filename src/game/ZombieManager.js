@@ -24,6 +24,15 @@ const GRENADE_THROW_SPEED = 16
 const GRENADE_DAMAGE_RADIUS = 5
 const GRENADE_DAMAGE_MIN = 80
 const GRENADE_DAMAGE_MAX = 220
+const MOLOTOV_THROW_SPEED = 15
+const MOLOTOV_FIRE_RADIUS = 3.5
+const MOLOTOV_FIRE_DURATION_MS = 6000
+const MOLOTOV_TICK_MS = 500
+const MOLOTOV_DAMAGE_PER_TICK = 12
+const C4_THROW_SPEED = 15
+const C4_DAMAGE_RADIUS = 6.5
+const C4_DAMAGE_MIN = 140
+const C4_DAMAGE_MAX = 320
 const ELITE_CHANCE = 0.08
 const TITAN_CHECK_MIN_DELAY_MS = 90000
 const TITAN_CHECK_MAX_DELAY_MS = 150000
@@ -61,6 +70,30 @@ const grenadeMat = new THREE.MeshStandardMaterial({
   metalness: 0.3,
 })
 
+const molotovMat = new THREE.MeshStandardMaterial({
+  color: 0x3a2a1a,
+  emissive: 0xff6a1a,
+  emissiveIntensity: 0.6,
+  roughness: 0.4,
+})
+
+const fireZoneMat = new THREE.MeshStandardMaterial({
+  color: 0xff4a1a,
+  emissive: 0xff6a1a,
+  emissiveIntensity: 2,
+  transparent: true,
+  opacity: 0.55,
+  side: THREE.DoubleSide,
+})
+
+const c4Mat = new THREE.MeshStandardMaterial({
+  color: 0x2a2a2a,
+  emissive: 0xff2222,
+  emissiveIntensity: 0.5,
+  roughness: 0.5,
+  metalness: 0.4,
+})
+
 const EXPLOSION_FX_MS = 350
 const SCREAM_FX_MS = 450
 
@@ -79,6 +112,10 @@ export class ZombieManager {
     this.screamFx = []
     this.noisemakerThrows = []
     this.grenadeThrows = []
+    this.molotovThrows = []
+    this.fireZones = []
+    this.c4Throws = []
+    this.placedC4 = null
     this.distraction = null
     this.elapsed = 0
     this.pendingRespawns = []
@@ -225,12 +262,20 @@ export class ZombieManager {
     for (const fx of this.screamFx) this.scene.remove(fx.mesh)
     for (const n of this.noisemakerThrows) this.scene.remove(n.mesh)
     for (const g of this.grenadeThrows) this.scene.remove(g.mesh)
+    for (const m of this.molotovThrows) this.scene.remove(m.mesh)
+    for (const f of this.fireZones) this.scene.remove(f.mesh)
+    for (const c of this.c4Throws) this.scene.remove(c.mesh)
+    if (this.placedC4) this.scene.remove(this.placedC4.mesh)
     this.zombies = []
     this.projectiles = []
     this.explosionFx = []
     this.screamFx = []
     this.noisemakerThrows = []
     this.grenadeThrows = []
+    this.molotovThrows = []
+    this.fireZones = []
+    this.c4Throws = []
+    this.placedC4 = null
     this.distraction = null
     this.pendingRespawns = []
     this.currentNight = 1
@@ -378,6 +423,126 @@ export class ZombieManager {
       p.mesh.position.y += Math.sin(p.t * Math.PI) * 1.6
       return true
     })
+  }
+
+  // Player-thrown Molotov: arcs like a grenade, but on landing leaves a
+  // burning zone that ticks damage to anything standing in it for
+  // MOLOTOV_FIRE_DURATION_MS instead of one instant burst - area denial
+  // rather than a direct hit, so it's strongest at a choke point/doorway a
+  // horde has to path through.
+  spawnMolotovThrow(origin, target) {
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), molotovMat)
+    mesh.position.copy(origin)
+    this.scene.add(mesh)
+
+    const distance = origin.distanceTo(target)
+    const travelTime = Math.max(0.25, distance / MOLOTOV_THROW_SPEED)
+
+    this.molotovThrows.push({ mesh, origin: origin.clone(), target: target.clone(), travelTime, t: 0 })
+  }
+
+  _updateMolotovThrows(dt) {
+    this.molotovThrows = this.molotovThrows.filter((p) => {
+      p.t += dt / p.travelTime
+      if (p.t >= 1) {
+        this.scene.remove(p.mesh)
+        this._spawnFireZone(p.target.x, p.target.z)
+        audioEngine.playExplosion()
+        return false
+      }
+      p.mesh.position.lerpVectors(p.origin, p.target, p.t)
+      p.mesh.position.y += Math.sin(p.t * Math.PI) * 1.6
+      return true
+    })
+  }
+
+  _spawnFireZone(x, z) {
+    const mesh = new THREE.Mesh(new THREE.CircleGeometry(MOLOTOV_FIRE_RADIUS, 16), fireZoneMat)
+    mesh.rotation.x = -Math.PI / 2
+    mesh.position.set(x, 0.06, z)
+    this.scene.add(mesh)
+    const light = new THREE.PointLight(0xff6a1a, 1.6, MOLOTOV_FIRE_RADIUS * 2.5, 2)
+    light.position.set(x, 1.2, z)
+    mesh.add(light)
+    this.fireZones.push({ mesh, x, z, light, expiresAt: performance.now() + MOLOTOV_FIRE_DURATION_MS, nextTickAt: performance.now() })
+  }
+
+  _updateFireZones() {
+    const now = performance.now()
+    this.fireZones = this.fireZones.filter((f) => {
+      if (now >= f.expiresAt) {
+        this.scene.remove(f.mesh)
+        return false
+      }
+      // Flicker the fire light/opacity for a "burning" read instead of a
+      // flat static disc.
+      const flicker = 0.8 + Math.sin(now * 0.02 + f.x) * 0.2
+      f.light.intensity = 1.6 * flicker
+      f.mesh.material.opacity = 0.45 * flicker + 0.1
+
+      if (now >= f.nextTickAt) {
+        f.nextTickAt = now + MOLOTOV_TICK_MS
+        for (const zombie of this.zombies) {
+          if (zombie.state !== 'alive') continue
+          const dist = Math.hypot(zombie.group.position.x - f.x, zombie.group.position.z - f.z)
+          if (dist > MOLOTOV_FIRE_RADIUS) continue
+          zombie.onHit(MOLOTOV_DAMAGE_PER_TICK)
+        }
+      }
+      return true
+    })
+  }
+
+  // Player-thrown C4: arcs like a grenade but doesn't explode on landing -
+  // it sits armed at the target point until detonateC4() is called (see
+  // Game.js's _detonateC4, bound to a separate key). Only one live charge
+  // at a time; throwing another while one's still armed detonates the old
+  // one in place first rather than silently discarding it.
+  spawnC4Throw(origin, target) {
+    if (this.placedC4) this.detonateC4()
+
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.05, 0.09), c4Mat)
+    mesh.position.copy(origin)
+    this.scene.add(mesh)
+
+    const distance = origin.distanceTo(target)
+    const travelTime = Math.max(0.2, distance / C4_THROW_SPEED)
+
+    this.c4Throws.push({ mesh, origin: origin.clone(), target: target.clone(), travelTime, t: 0 })
+  }
+
+  _updateC4Throws(dt) {
+    this.c4Throws = this.c4Throws.filter((p) => {
+      p.t += dt / p.travelTime
+      if (p.t >= 1) {
+        p.mesh.position.set(p.target.x, 0.05, p.target.z)
+        p.mesh.rotation.x = 0
+        this.placedC4 = { mesh: p.mesh, x: p.target.x, z: p.target.z }
+        return false
+      }
+      p.mesh.position.lerpVectors(p.origin, p.target, p.t)
+      p.mesh.position.y += Math.sin(p.t * Math.PI) * 1.2
+      p.mesh.rotation.x += dt * 8
+      return true
+    })
+  }
+
+  // Manual detonate - no-op (returns false) if nothing's armed, so Game.js
+  // can tell the player "nothing to blow up" instead of silently failing.
+  detonateC4() {
+    if (!this.placedC4) return false
+    const { mesh, x, z } = this.placedC4
+    this.scene.remove(mesh)
+    this.placedC4 = null
+    this._spawnExplosionFX(x, z)
+    for (const zombie of this.zombies) {
+      if (zombie.state !== 'alive') continue
+      const dist = Math.hypot(zombie.group.position.x - x, zombie.group.position.z - z)
+      if (dist > C4_DAMAGE_RADIUS) continue
+      const falloff = 1 - dist / C4_DAMAGE_RADIUS
+      zombie.onHit(C4_DAMAGE_MIN + (C4_DAMAGE_MAX - C4_DAMAGE_MIN) * falloff)
+    }
+    return true
   }
 
   _spawnExplosionFX(x, z) {
@@ -566,6 +731,9 @@ export class ZombieManager {
     this._updateAmbientMoan(playerPos)
     this._updateNoisemakerThrows(dt)
     this._updateGrenadeThrows(dt)
+    this._updateMolotovThrows(dt)
+    this._updateFireZones()
+    this._updateC4Throws(dt)
 
     this.pendingRespawns = this.pendingRespawns.filter((r) => {
       if (performance.now() < r.at) return true

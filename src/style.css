@@ -1060,6 +1060,47 @@ html, body {
   margin-bottom: 4px;
 }
 
+.weapon-slot-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.attach-row {
+  display: flex;
+  gap: 4px;
+}
+
+.attach-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 4px;
+  font-size: 10px;
+  color: #eee;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.attach-btn:hover:not(:disabled) {
+  border-color: #e3a63c;
+  background: rgba(227, 166, 60, 0.1);
+}
+
+.attach-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.attach-btn span:last-child {
+  color: #ffcf5c;
+  font-size: 9px;
+}
+
 .perk-option {
   display: flex;
   flex-direction: column;

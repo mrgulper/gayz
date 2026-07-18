@@ -82,14 +82,23 @@ class AudioEngine {
     if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume()
   }
 
-  playShot(weaponId) {
+  // `suppressed` (Coin Shop attachment, see WeaponSystem.applyAttachment)
+  // shortens the crack, pulls the tone up into a duller "pfft" register
+  // instead of the sharp bandpass bark, and drops both layers' gain hard -
+  // still audible up close, not the room-filling crack of an unsuppressed
+  // shot.
+  playShot(weaponId, suppressed = false) {
     if (!this.ctx) return
     const preset = SHOT_PRESETS[weaponId] || SHOT_PRESETS.pistol
     const ctx = this.ctx
     const now = ctx.currentTime
+    const duration = suppressed ? preset.duration * 0.5 : preset.duration
+    const gain = suppressed ? preset.gain * 0.35 : preset.gain
+    const toneFreq = suppressed ? preset.toneFreq * 1.6 : preset.toneFreq
+    const toneQ = suppressed ? preset.toneQ * 2 : preset.toneQ
 
     // Crack: filtered noise burst.
-    const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * preset.duration, ctx.sampleRate)
+    const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * duration, ctx.sampleRate)
     const data = noiseBuffer.getChannelData(0)
     for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
 
@@ -98,30 +107,33 @@ class AudioEngine {
 
     const bandpass = ctx.createBiquadFilter()
     bandpass.type = 'bandpass'
-    bandpass.frequency.value = preset.toneFreq
-    bandpass.Q.value = preset.toneQ
+    bandpass.frequency.value = toneFreq
+    bandpass.Q.value = toneQ
 
     const noiseGain = ctx.createGain()
-    noiseGain.gain.setValueAtTime(preset.gain, now)
-    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + preset.duration)
+    noiseGain.gain.setValueAtTime(gain, now)
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + duration)
 
     noise.connect(bandpass).connect(noiseGain).connect(this.sfxGain)
     noise.start(now)
-    noise.stop(now + preset.duration)
+    noise.stop(now + duration)
 
-    // Thump: low-frequency punch for weight.
-    const thump = ctx.createOscillator()
-    thump.type = 'triangle'
-    thump.frequency.setValueAtTime(preset.thumpFreq, now)
-    thump.frequency.exponentialRampToValueAtTime(preset.thumpFreq * 0.5, now + 0.08)
+    // Thump: low-frequency punch for weight - skipped when suppressed,
+    // since a suppressor kills most of the low-end body along with the bark.
+    if (!suppressed) {
+      const thump = ctx.createOscillator()
+      thump.type = 'triangle'
+      thump.frequency.setValueAtTime(preset.thumpFreq, now)
+      thump.frequency.exponentialRampToValueAtTime(preset.thumpFreq * 0.5, now + 0.08)
 
-    const thumpGain = ctx.createGain()
-    thumpGain.gain.setValueAtTime(preset.gain * 0.8, now)
-    thumpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1)
+      const thumpGain = ctx.createGain()
+      thumpGain.gain.setValueAtTime(preset.gain * 0.8, now)
+      thumpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1)
 
-    thump.connect(thumpGain).connect(this.sfxGain)
-    thump.start(now)
-    thump.stop(now + 0.1)
+      thump.connect(thumpGain).connect(this.sfxGain)
+      thump.start(now)
+      thump.stop(now + 0.1)
+    }
   }
 
   // Blade whoosh for the melee swing.

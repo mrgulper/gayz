@@ -20,7 +20,7 @@ import { rollPerks, checkPerkSynergies } from './Perks.js'
 import { rollXpUpgrades } from './XpUpgrades.js'
 import { XpGemManager } from './XpGems.js'
 import { AutoWeaponManager } from './AutoWeapons.js'
-import { COIN_SHOP_ITEMS } from './CoinShop.js'
+import { COIN_SHOP_ITEMS, ATTACHMENT_TYPES } from './CoinShop.js'
 import { pickNightEvent } from './NightEvents.js'
 import { Companion } from './Companion.js'
 import { PlayerBody } from './PlayerBody.js'
@@ -213,9 +213,14 @@ function loadShopProgress() {
       // coins were already spent. Restored via WeaponSystem.markUnlocked
       // right after the weapons instance is built (see the constructor).
       unlockedGuns: parsed.unlockedGuns || [],
+      // Per-gun Coin Shop attachments (see CoinShop.js's ATTACHMENT_TYPES) -
+      // "weaponId:attachmentId" strings, restored via
+      // WeaponSystem.applyAttachment right after unlockedGuns in the
+      // constructor.
+      attachments: parsed.attachments || [],
     }
   } catch {
-    return { points: 0, coins: 0, ownedSkins: new Set(), equippedSkin: null, shopPurchased: new Set(), unlockedGuns: [] }
+    return { points: 0, coins: 0, ownedSkins: new Set(), equippedSkin: null, shopPurchased: new Set(), unlockedGuns: [], attachments: [] }
   }
 }
 
@@ -228,6 +233,13 @@ function saveShopProgress(game) {
       equippedSkin: game.equippedSkin,
       shopPurchased: [...game.coinShopPurchased],
       unlockedGuns: game.weapons.weapons.filter((w) => w.unlocked && COIN_SHOP_GUN_IDS.has(w.id)).map((w) => w.id),
+      attachments: game.weapons.weapons.flatMap((w) => {
+        const ids = []
+        if (w.hasScope && w.id !== 'awp') ids.push(`${w.id}:scope`)
+        if (w.hasExtMag) ids.push(`${w.id}:extmag`)
+        if (w.suppressed) ids.push(`${w.id}:suppressor`)
+        return ids
+      }),
     }))
   } catch {
     // Storage unavailable - shop progress just won't persist across sessions.
@@ -301,6 +313,8 @@ const SHOP_ITEMS = [
   { id: 'noisemaker', cost: 8, titleKey: 'shopNoisemaker', give: (game) => game.inventory.addNoisemaker(1) },
   { id: 'barricade', cost: 25, titleKey: 'shopBarricade', give: (game) => game.inventory.addBarricade(1) },
   { id: 'trap', cost: 20, titleKey: 'shopTrap', give: (game) => game.inventory.addTrap(1) },
+  { id: 'molotov', cost: 28, titleKey: 'shopMolotov', give: (game) => game.inventory.addMolotov(1) },
+  { id: 'c4', cost: 40, titleKey: 'shopC4', give: (game) => game.inventory.addC4(1) },
   {
     id: 'train_companion',
     cost: 30,
@@ -354,6 +368,8 @@ export class Game {
     this.grenadeCount = document.getElementById('grenade-count')
     this.barricadeCount = document.getElementById('barricade-count')
     this.trapCount = document.getElementById('trap-count')
+    this.molotovCount = document.getElementById('molotov-count')
+    this.c4Count = document.getElementById('c4-count')
     this.inventoryPanel = document.getElementById('inventory-panel')
     this.panelHealthCount = document.getElementById('panel-health-count')
     this.panelArmorCount = document.getElementById('panel-armor-count')
@@ -361,6 +377,8 @@ export class Game {
     this.panelGrenadeCount = document.getElementById('panel-grenade-count')
     this.panelBarricadeCount = document.getElementById('panel-barricade-count')
     this.panelTrapCount = document.getElementById('panel-trap-count')
+    this.panelMolotovCount = document.getElementById('panel-molotov-count')
+    this.panelC4Count = document.getElementById('panel-c4-count')
     this.panelWeaponsList = document.getElementById('panel-weapons-list')
     // Delegated once (not re-bound on every _refreshInventoryPanel render,
     // since that rebuilds the row HTML from scratch) - reads which weapon/
@@ -737,6 +755,10 @@ export class Game {
     // minigun purchase doesn't yank the equipped weapon away from melee on
     // every fresh load.
     for (const gunId of this.shopProgress.unlockedGuns) this.weapons.markUnlocked(gunId)
+    for (const entry of this.shopProgress.attachments) {
+      const [weaponId, attachmentId] = entry.split(':')
+      this.weapons.applyAttachment(weaponId, attachmentId)
+    }
     this.ownedSkins = this.shopProgress.ownedSkins
     this.equippedSkin = this.shopProgress.equippedSkin
     // Only auto-grant+equip gold the first time the achievement unlocks -
@@ -979,6 +1001,12 @@ export class Game {
         this._deployBarricade()
       } else if (e.code === getKeyFor('trap')) {
         this._deployTrap()
+      } else if (e.code === getKeyFor('molotov')) {
+        this._throwMolotov()
+      } else if (e.code === getKeyFor('c4')) {
+        this._throwC4()
+      } else if (e.code === getKeyFor('detonateC4')) {
+        this._detonateC4()
       } else if (e.code === getKeyFor('interact')) {
         // Tracked independently of the rest of this branch (which only
         // fires the various one-shot interactions below) so the ammo
@@ -1255,6 +1283,34 @@ export class Game {
     origin.y -= 0.3
     this.zombies.spawnGrenadeThrow(origin, target)
     this._updateInventoryHud()
+  }
+
+  _throwMolotov() {
+    if (!this.inventory.useMolotov()) return
+    this.camera.getWorldDirection(this._camDir)
+    const origin = this.player.controls.object.position.clone()
+    const target = origin.clone().addScaledVector(this._camDir, 9)
+    target.y = 0.3
+    origin.y -= 0.3
+    this.zombies.spawnMolotovThrow(origin, target)
+    this._updateInventoryHud()
+  }
+
+  _throwC4() {
+    if (!this.inventory.useC4()) return
+    this.camera.getWorldDirection(this._camDir)
+    const origin = this.player.controls.object.position.clone()
+    const target = origin.clone().addScaledVector(this._camDir, 8)
+    target.y = 0.3
+    origin.y -= 0.3
+    this.zombies.spawnC4Throw(origin, target)
+    this._updateInventoryHud()
+  }
+
+  _detonateC4() {
+    if (!this.zombies.detonateC4()) {
+      this._showLoreToast(t('toastNoC4'))
+    }
   }
 
   // Drops a temporary wall a couple meters ahead, facing the same way the
@@ -2073,6 +2129,9 @@ export class Game {
       if (section.id === 'weapons') {
         for (const w of this.weapons.getSummary()) {
           if (w.id === 'uvlamp') continue
+          const wrap = document.createElement('div')
+          wrap.className = 'weapon-slot-wrap'
+
           const btn = document.createElement('button')
           btn.className = 'perk-option'
           const equipped = this.weapons.current.id === w.id
@@ -2087,7 +2146,37 @@ export class Game {
             if (index !== -1) this.weapons.switchToIndex(index)
             this._renderCoinShopOptions()
           })
-          row.appendChild(btn)
+          wrap.appendChild(btn)
+
+          // Per-gun permanent attachments (see CoinShop.js's
+          // ATTACHMENT_TYPES) - melee has no ammo/scope/sound to attach to,
+          // and every attachment needs the gun owned first.
+          if (w.id !== 'melee' && w.unlocked) {
+            const ownedFlags = { scope: w.hasScope, extmag: w.hasExtMag, suppressor: w.suppressed }
+            const attachRow = document.createElement('div')
+            attachRow.className = 'attach-row'
+            for (const at of ATTACHMENT_TYPES) {
+              const owned = ownedFlags[at.id]
+              const abtn = document.createElement('button')
+              abtn.className = 'attach-btn'
+              abtn.disabled = owned || this.coins < at.cost
+              abtn.innerHTML = `
+                <span>${t(at.titleKey)}</span>
+                <span>${owned ? t('attachOwned') : t('coinCostLabel', { n: at.cost })}</span>
+              `
+              abtn.addEventListener('click', () => {
+                if (owned || this.coins < at.cost) return
+                this.coins -= at.cost
+                this.weapons.applyAttachment(w.id, at.id)
+                this._updateStatsPanel()
+                this._renderCoinShopOptions()
+              })
+              attachRow.appendChild(abtn)
+            }
+            wrap.appendChild(attachRow)
+          }
+
+          row.appendChild(wrap)
         }
       }
 
@@ -2314,6 +2403,8 @@ export class Game {
     document.getElementById('panel-grenade-label').textContent = t('grenadeLabel')
     document.getElementById('panel-barricade-label').textContent = t('barricadeLabel')
     document.getElementById('panel-trap-label').textContent = t('trapLabel')
+    document.getElementById('panel-molotov-label').textContent = t('molotovLabel')
+    document.getElementById('panel-c4-label').textContent = t('c4Label')
     document.getElementById('weapons-title').textContent = t('weaponsTitle')
     document.getElementById('inventory-hint').innerHTML = tHtml('inventoryHint')
 
@@ -2361,6 +2452,8 @@ export class Game {
     this.panelGrenadeCount.textContent = this.inventory.grenades
     this.panelBarricadeCount.textContent = this.inventory.barricades
     this.panelTrapCount.textContent = this.inventory.traps
+    this.panelMolotovCount.textContent = this.inventory.molotovs
+    this.panelC4Count.textContent = this.inventory.c4
 
     this.panelWeaponsList.innerHTML = this.weapons
       .getSummary()
@@ -2693,6 +2786,8 @@ export class Game {
     this.grenadeCount.textContent = this.inventory.grenades
     this.barricadeCount.textContent = this.inventory.barricades
     this.trapCount.textContent = this.inventory.traps
+    this.molotovCount.textContent = this.inventory.molotovs
+    this.c4Count.textContent = this.inventory.c4
   }
 
   _updateHealthHud() {

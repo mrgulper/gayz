@@ -7,6 +7,8 @@ export class Inventory {
     this.grenades = 0
     this.barricades = 0
     this.traps = 0
+    this.molotovs = 0
+    this.c4 = 0
   }
 
   addHealthPack(n = 1) {
@@ -35,6 +37,14 @@ export class Inventory {
 
   addTrap(n = 1) {
     this.traps += n
+  }
+
+  addMolotov(n = 1) {
+    this.molotovs += n
+  }
+
+  addC4(n = 1) {
+    this.c4 += n
   }
 
   useHealthPack() {
@@ -76,6 +86,18 @@ export class Inventory {
   useTrap() {
     if (this.traps <= 0) return false
     this.traps -= 1
+    return true
+  }
+
+  useMolotov() {
+    if (this.molotovs <= 0) return false
+    this.molotovs -= 1
+    return true
+  }
+
+  useC4() {
+    if (this.c4 <= 0) return false
+    this.c4 -= 1
     return true
   }
 }

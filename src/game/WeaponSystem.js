@@ -145,7 +145,7 @@ export class WeaponSystem {
     this.onZombieHit = onZombieHit
     this.onStealthTakedown = onStealthTakedown
 
-    this.weapons = WEAPONS.map((w) => ({ ...w, ammoInMag: w.magSize, ammoReserve: w.reserve, rarityMult: 1, rarityTier: null }))
+    this.weapons = WEAPONS.map((w) => ({ ...w, ammoInMag: w.magSize, ammoReserve: w.reserve, rarityMult: 1, rarityTier: null, hasExtMag: false, suppressed: false }))
     this.currentIndex = 0
     this.meleeVariant = 'knife'
     // Global damage multiplier - the XP-gem level-up pool's damage upgrade
@@ -251,6 +251,31 @@ export class WeaponSystem {
   attachScope(id) {
     const w = this.weapons.find((w) => w.id === id)
     if (w) w.hasScope = true
+  }
+
+  // Coin Shop permanent attachments (see CoinShop.js's ATTACHMENT_TYPES and
+  // Game.js's Weapons section) - distinct from the Trader's in-run, points-
+  // bought scope/extended-mag crafting above: these are bought with coins,
+  // apply to one specific owned gun, and persist across every future run
+  // (see Game.js's shopProgress.attachments). Idempotent per weapon+id pair
+  // so restoring from a save on page load never double-applies the mag bonus.
+  applyAttachment(weaponId, attachmentId) {
+    const w = this.weapons.find((w) => w.id === weaponId)
+    if (!w) return
+    if (attachmentId === 'scope') {
+      w.hasScope = true
+    } else if (attachmentId === 'extmag') {
+      if (w.hasExtMag) return
+      w.hasExtMag = true
+      const magBonus = Math.round(w.magSize * 0.5)
+      const reserveBonus = Math.round(w.reserve * 0.5)
+      w.magSize += magBonus
+      w.reserve += reserveBonus
+      w.ammoInMag += magBonus
+      w.ammoReserve += reserveBonus
+    } else if (attachmentId === 'suppressor') {
+      w.suppressed = true
+    }
   }
 
   // Chest-found rarity upgrade (see Chests.js's rare_weapon/legendary_weapon
@@ -371,6 +396,9 @@ export class WeaponSystem {
       unlocked: w.unlocked,
       ammoInMag: w.ammoInMag,
       ammoReserve: w.ammoReserve,
+      hasScope: !!w.hasScope,
+      hasExtMag: !!w.hasExtMag,
+      suppressed: !!w.suppressed,
     }))
   }
 
@@ -497,12 +525,16 @@ export class WeaponSystem {
       audioEngine.playMelee()
     } else {
       w.ammoInMag -= 1
-      this.muzzleLight.intensity = MUZZLE_FLASH_PEAK
-      this.muzzleFlashSprite.material.opacity = 0.85
+      // Suppressor attachment (see applyAttachment) dims the flash to a
+      // fraction instead of hiding it outright - still a gun going off up
+      // close, just not lighting up the street.
+      const flashMult = w.suppressed ? 0.3 : 1
+      this.muzzleLight.intensity = MUZZLE_FLASH_PEAK * flashMult
+      this.muzzleFlashSprite.material.opacity = 0.85 * flashMult
       this.muzzleFlashSprite.rotation.z = Math.random() * Math.PI * 2
       this.recoil = 1
       this._updateHud()
-      audioEngine.playShot(w.id)
+      audioEngine.playShot(w.id, w.suppressed)
     }
 
     const zombieMeshes = this.zombieManager ? this.zombieManager.hittableMeshes : []
