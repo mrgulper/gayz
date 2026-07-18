@@ -770,8 +770,14 @@ function buildAmmoStation(scene, register) {
 // defended chokepoint instead of an unguarded hole in the wall. Game.js also
 // slowly heals the player while they're within `radius` of the center.
 function buildSafeZone(scene, colliders, solidMeshes) {
-  const x = -13
-  const z = -10
+  // Moved to the north end of the map, just south of the park entrance -
+  // was at (-13, -10) near the middle of the street grid. z=42 leaves 3
+  // clear units before the park's grass starts at z=52 (see PARK_Z_START);
+  // x=0 centers it on the avenue, replacing the scavenger lookout cluster
+  // that used to sit at (-3, 44) - see CLUSTER_SPECS, now down to just the
+  // one cluster at the south end.
+  const x = 0
+  const z = 42
   const half = 7
   const gapHalfWidth = 1.6
   const wallHeight = 3.2
@@ -2101,8 +2107,9 @@ const ROOM_SIZE = 5.5
 const FLOOR_Y = 4.0
 const WALL_HEIGHT = 2.3
 const SLAB_THICKNESS = 0.3
+// The north cluster (formerly at x:-3, z:44) was removed - that spot is now
+// the relocated safe zone (see buildSafeZone).
 const CLUSTER_SPECS = [
-  { x: -3, z: 44 },
   { x: 3, z: -44 },
 ]
 

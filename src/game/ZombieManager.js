@@ -972,6 +972,24 @@ export class ZombieManager {
         this.zombies
       )
 
+      // Push back out to the safe zone's radius every frame - simple radial
+      // clamp rather than a wall collider, since the entrance gap has no
+      // collider of its own (the player needs to walk through it) and the
+      // zombie's normal targeting would otherwise walk it straight through
+      // that same opening.
+      if (this.safeZone && zombie.state !== 'dead') {
+        const sdx = zombie.group.position.x - this.safeZone.x
+        const sdz = zombie.group.position.z - this.safeZone.z
+        const sdist = Math.hypot(sdx, sdz)
+        if (sdist < this.safeZone.radius) {
+          const pushDist = this.safeZone.radius - sdist
+          const nx = sdist > 0.001 ? sdx / sdist : 1
+          const nz = sdist > 0.001 ? sdz / sdist : 0
+          zombie.group.position.x += nx * pushDist
+          zombie.group.position.z += nz * pushDist
+        }
+      }
+
       if (zombie.isBoss && zombie.state === 'alive' && zombie.nextAddSummonAt && performance.now() >= zombie.nextAddSummonAt) {
         zombie.nextAddSummonAt = performance.now() + BOSS_ADD_INTERVAL_MS
         const count = BOSS_ADD_COUNT_MIN + Math.floor(Math.random() * (BOSS_ADD_COUNT_MAX - BOSS_ADD_COUNT_MIN + 1))

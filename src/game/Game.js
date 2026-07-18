@@ -866,6 +866,15 @@ export class Game {
     this._addFlashlight()
 
     this.zombies = new ZombieManager(this.scene, this.difficulty.spawnRateMult, colliders, solidMeshes)
+    // Zombies must never be able to stand inside the safe zone - the wall
+    // colliders alone don't cover this since the entrance gap has no
+    // collider (the player needs to walk through it too), so ZombieManager
+    // clamps every zombie's position back out to the radius every frame
+    // instead (see its update loop). Assigned as soon as safeZone exists
+    // rather than in the constructor, since ZombieManager has no other
+    // reason to know about it and this keeps its constructor signature
+    // unchanged.
+    this.zombies.safeZone = safeZone
     // Fixed chokepoints spread along the avenue, clear of the generator
     // (1.5, 5), trader (-8, 33), and ammo station (8, -33).
     this.barricadeWindows = new BarricadeWindows(this.scene, [
