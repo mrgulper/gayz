@@ -750,6 +750,16 @@ export class Zombie {
     this.weakenedUntil = Math.max(this.weakenedUntil, performance.now() + durationMs)
   }
 
+  // EMP grenade (see ZombieManager's spawnEmpThrow) - reuses the same
+  // staggerUntil freeze onHit already gives a brief 200ms hit-reaction for,
+  // just held open much longer, so a stunned zombie neither moves nor
+  // attacks (see the `staggered` check in update()) without needing a
+  // separate state machine for it.
+  stun(durationMs) {
+    if (this.state !== 'alive') return
+    this.staggerUntil = Math.max(this.staggerUntil, performance.now() + durationMs)
+  }
+
   _updateMelee(dt, dist, nx, nz, onAttack, colliders, solidMeshes, playerPos) {
     if (this.isBoss && this._updateBossSpecial(dist, playerPos, onAttack) === 'busy') return
 
@@ -938,10 +948,20 @@ export class Zombie {
 
     // UV weapon tell: eyes wash violet while weakened, so the effect reads
     // clearly instead of only being felt through slower movement/damage.
+    // EMP stun gets its own electric-blue tell too - staggerUntil doubles as
+    // both the normal ~200ms on-hit flinch and the EMP's much longer freeze
+    // (see stun()), so only the long version (>300ms remaining) counts as a
+    // genuine stun for this - a plain hit-flinch shouldn't flash blue.
     const weak = performance.now() < this.weakenedUntil
+    const stunned = this.staggerUntil - performance.now() > 300
     for (const mat of this.eyeMaterials) {
-      mat.emissive.setHex(weak ? 0x8b2fe0 : 0xd8e8ff)
-      mat.emissiveIntensity = weak ? 2.2 : 1.5
+      if (stunned) {
+        mat.emissive.setHex(0x4ecfff)
+        mat.emissiveIntensity = 2.6
+      } else {
+        mat.emissive.setHex(weak ? 0x8b2fe0 : 0xd8e8ff)
+        mat.emissiveIntensity = weak ? 2.2 : 1.5
+      }
     }
 
     if (this.config.crawler) {

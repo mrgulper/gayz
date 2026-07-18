@@ -63,6 +63,10 @@ export class PlayerController {
     this.maxStamina = STAMINA_MAX
     this.sprintMultiplier = SPRINT_MULTIPLIER
     this.moveSpeed = MOVE_SPEED
+    // Adrenaline shot (see Game.js's _useAdrenaline) - set/cleared externally
+    // by a timer there rather than owned here, same pattern as every other
+    // timed perk/consumable effect in this game.
+    this.adrenalineMult = 1
     this.isSprinting = false
     this.isCrouching = false
     this.eyeHeight = EYE_HEIGHT
@@ -109,6 +113,10 @@ export class PlayerController {
     this.stamina = this.maxStamina
     this.sprintMultiplier = SPRINT_MULTIPLIER
     this.moveSpeed = MOVE_SPEED
+    // Adrenaline shot (see Game.js's _useAdrenaline) - set/cleared externally
+    // by a timer there rather than owned here, same pattern as every other
+    // timed perk/consumable effect in this game.
+    this.adrenalineMult = 1
     this.isCrouching = false
     this.eyeHeight = EYE_HEIGHT
     this.isDodging = false
@@ -209,6 +217,7 @@ export class PlayerController {
 
       let speedMultiplier = this.isSprinting ? this.sprintMultiplier : 1
       if (this.isCrouching) speedMultiplier *= CROUCH_SPEED_MULT
+      speedMultiplier *= this.adrenalineMult
       if (isMoving) moveDir.normalize().multiplyScalar(this.moveSpeed * speedMultiplier * dt)
 
       this._tryMove(obj, moveDir.x, 0)

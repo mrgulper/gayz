@@ -408,6 +408,50 @@ class AudioEngine {
     thump.stop(now + 0.4)
   }
 
+  // Electric zap/discharge for the EMP grenade's landing burst - no boom
+  // (it deals no damage), just a rising-then-crackling zap read.
+  playEmpBurst() {
+    if (!this.ctx) return
+    const ctx = this.ctx
+    const now = ctx.currentTime
+    const duration = 0.5
+
+    const zap = ctx.createOscillator()
+    zap.type = 'sawtooth'
+    zap.frequency.setValueAtTime(80, now)
+    zap.frequency.exponentialRampToValueAtTime(2200, now + 0.12)
+    zap.frequency.exponentialRampToValueAtTime(600, now + duration)
+
+    const zapGain = ctx.createGain()
+    zapGain.gain.setValueAtTime(0.001, now)
+    zapGain.gain.exponentialRampToValueAtTime(0.5, now + 0.1)
+    zapGain.gain.exponentialRampToValueAtTime(0.001, now + duration)
+
+    zap.connect(zapGain).connect(this.sfxGain)
+    zap.start(now)
+    zap.stop(now + duration)
+
+    const crackleDuration = 0.35
+    const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * crackleDuration, ctx.sampleRate)
+    const data = noiseBuffer.getChannelData(0)
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+
+    const noise = ctx.createBufferSource()
+    noise.buffer = noiseBuffer
+
+    const highpass = ctx.createBiquadFilter()
+    highpass.type = 'highpass'
+    highpass.frequency.value = 3000
+
+    const noiseGain = ctx.createGain()
+    noiseGain.gain.setValueAtTime(0.35, now)
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + crackleDuration)
+
+    noise.connect(highpass).connect(noiseGain).connect(this.sfxGain)
+    noise.start(now)
+    noise.stop(now + crackleDuration)
+  }
+
   // Low, mournful groan for ambient zombie presence (not an attack cue).
   // Uses a triangle tone (not sawtooth) through vowel-like formant filters
   // so it reads as a vocal "aaahh" rather than a buzzy raspberry.

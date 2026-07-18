@@ -158,6 +158,9 @@ export class WeaponSystem {
     // stacks additively onto this rather than needing to touch every
     // weapon's own damage stat (see _fire's onHit call).
     this.damageMult = 1
+    // Adrenaline shot (see Game.js's _useAdrenaline) - set/cleared externally
+    // by a timer there, same pattern as every other timed effect.
+    this.fireRateMult = 1
 
     this.triggerDown = false
     this.timeSinceLastShot = Infinity
@@ -491,7 +494,7 @@ export class WeaponSystem {
 
     const w = this.current
     const hasAmmo = w.melee || w.ammoInMag > 0
-    const canFire = this.triggerDown && this.timeSinceLastShot >= w.fireInterval && hasAmmo
+    const canFire = this.triggerDown && this.timeSinceLastShot >= w.fireInterval / this.fireRateMult && hasAmmo
     if (canFire) {
       this._fire()
       if (!w.auto) this.triggerDown = false

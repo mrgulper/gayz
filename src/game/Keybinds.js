@@ -22,6 +22,8 @@ export const ACTIONS = [
   { id: 'molotov', defaultKey: 'KeyZ', labelKey: 'actionMolotov' },
   { id: 'c4', defaultKey: 'KeyJ', labelKey: 'actionC4' },
   { id: 'detonateC4', defaultKey: 'KeyK', labelKey: 'actionDetonateC4' },
+  { id: 'adrenaline', defaultKey: 'KeyY', labelKey: 'actionAdrenaline' },
+  { id: 'emp', defaultKey: 'KeyU', labelKey: 'actionEmp' },
   { id: 'weaponWheel', defaultKey: 'KeyQ', labelKey: 'actionWeaponWheel' },
   { id: 'screenshot', defaultKey: 'KeyP', labelKey: 'actionScreenshot' },
   { id: 'toggleView', defaultKey: 'KeyX', labelKey: 'actionToggleView' },

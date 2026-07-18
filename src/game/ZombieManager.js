@@ -33,6 +33,9 @@ const C4_THROW_SPEED = 15
 const C4_DAMAGE_RADIUS = 6.5
 const C4_DAMAGE_MIN = 140
 const C4_DAMAGE_MAX = 320
+const EMP_THROW_SPEED = 16
+const EMP_STUN_RADIUS = 6
+const EMP_STUN_DURATION_MS = 4500
 const ELITE_CHANCE = 0.08
 // Boss "adds" - periodically summons a handful of regular zombies while
 // still alive, so a boss fight isn't purely a 1v1 damage race and
@@ -116,6 +119,14 @@ const c4Mat = new THREE.MeshStandardMaterial({
   metalness: 0.4,
 })
 
+const empMat = new THREE.MeshStandardMaterial({
+  color: 0x2a3a44,
+  emissive: 0x4ecfff,
+  emissiveIntensity: 1.2,
+  roughness: 0.3,
+  metalness: 0.6,
+})
+
 const EXPLOSION_FX_MS = 350
 const SCREAM_FX_MS = 450
 
@@ -138,6 +149,8 @@ export class ZombieManager {
     this.fireZones = []
     this.c4Throws = []
     this.placedC4 = null
+    this.empThrows = []
+    this.empBursts = []
     this.distraction = null
     this.elapsed = 0
     this.pendingRespawns = []
@@ -393,6 +406,11 @@ export class ZombieManager {
     }
     for (const c of this.c4Throws) this.scene.remove(c.mesh)
     if (this.placedC4) this.scene.remove(this.placedC4.mesh)
+    for (const e of this.empThrows) this.scene.remove(e.mesh)
+    for (const b of this.empBursts) {
+      this.scene.remove(b.mesh)
+      if (b.light) this.scene.remove(b.light)
+    }
     this.zombies = []
     this.projectiles = []
     this.explosionFx = []
@@ -403,6 +421,8 @@ export class ZombieManager {
     this.fireZones = []
     this.c4Throws = []
     this.placedC4 = null
+    this.empThrows = []
+    this.empBursts = []
     this.distraction = null
     this.pendingRespawns = []
     this.currentNight = 1
@@ -726,6 +746,84 @@ export class ZombieManager {
     })
   }
 
+  // Player-thrown EMP grenade: arcs like a grenade, but on landing deals
+  // zero damage - it stuns/blinds every alive zombie within EMP_STUN_RADIUS
+  // for EMP_STUN_DURATION_MS via Zombie.stun(). A crowd-control tool for
+  // buying space or setting up a kill, not a damage source - deliberately a
+  // different niche than an environmental hazard event (this is a choice
+  // the player makes, not something that happens to them).
+  spawnEmpThrow(origin, target) {
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), empMat)
+    mesh.position.copy(origin)
+    this.scene.add(mesh)
+
+    const distance = origin.distanceTo(target)
+    const travelTime = Math.max(0.25, distance / EMP_THROW_SPEED)
+
+    this.empThrows.push({ mesh, origin: origin.clone(), target: target.clone(), travelTime, t: 0 })
+  }
+
+  _updateEmpThrows(dt) {
+    this.empThrows = this.empThrows.filter((p) => {
+      p.t += dt / p.travelTime
+      if (p.t >= 1) {
+        this.scene.remove(p.mesh)
+        this._detonateEmp(p.target.x, p.target.z)
+        return false
+      }
+      p.mesh.position.lerpVectors(p.origin, p.target, p.t)
+      p.mesh.position.y += Math.sin(p.t * Math.PI) * 1.6
+      return true
+    })
+  }
+
+  _detonateEmp(x, z) {
+    this._spawnEmpBurstFX(x, z)
+    audioEngine.playEmpBurst()
+    for (const zombie of this.zombies) {
+      if (zombie.state !== 'alive') continue
+      const dist = Math.hypot(zombie.group.position.x - x, zombie.group.position.z - z)
+      if (dist > EMP_STUN_RADIUS) continue
+      zombie.stun(EMP_STUN_DURATION_MS)
+    }
+  }
+
+  _spawnEmpBurstFX(x, z) {
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0x4ecfff,
+      emissive: 0x4ecfff,
+      emissiveIntensity: 3,
+      transparent: true,
+      opacity: 1,
+      wireframe: true,
+    })
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 12), mat)
+    mesh.position.set(x, 1.1, z)
+    this.scene.add(mesh)
+    this.empBursts.push({ mesh, startedAt: performance.now() })
+
+    const light = new THREE.PointLight(0x4ecfff, 3, EMP_STUN_RADIUS * 2, 2)
+    light.position.set(x, 1.5, z)
+    this.scene.add(light)
+    this.empBursts[this.empBursts.length - 1].light = light
+  }
+
+  _updateEmpBursts() {
+    this.empBursts = this.empBursts.filter((fx) => {
+      const progress = Math.min(1, (performance.now() - fx.startedAt) / EXPLOSION_FX_MS)
+      const scale = 1 + progress * (EMP_STUN_RADIUS * 2)
+      fx.mesh.scale.setScalar(scale)
+      fx.mesh.material.opacity = 1 - progress
+      if (fx.light) fx.light.intensity = 3 * (1 - progress)
+      if (progress >= 1) {
+        this.scene.remove(fx.mesh)
+        if (fx.light) this.scene.remove(fx.light)
+        return false
+      }
+      return true
+    })
+  }
+
   // A screamer's scream: instantly wakes every dormant (ambush) zombie in
   // radius and speeds up every alive zombie in radius for a few seconds.
   _onZombieScream(x, z, radius, enrageMs) {
@@ -907,6 +1005,8 @@ export class ZombieManager {
     this._updateMolotovThrows(dt)
     this._updateFireZones()
     this._updateC4Throws(dt)
+    this._updateEmpThrows(dt)
+    this._updateEmpBursts()
 
     this.pendingRespawns = this.pendingRespawns.filter((r) => {
       if (performance.now() < r.at) return true

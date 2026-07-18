@@ -9,6 +9,8 @@ export class Inventory {
     this.traps = 0
     this.molotovs = 0
     this.c4 = 0
+    this.adrenaline = 0
+    this.emp = 0
   }
 
   addHealthPack(n = 1) {
@@ -45,6 +47,14 @@ export class Inventory {
 
   addC4(n = 1) {
     this.c4 += n
+  }
+
+  addAdrenaline(n = 1) {
+    this.adrenaline += n
+  }
+
+  addEmp(n = 1) {
+    this.emp += n
   }
 
   useHealthPack() {
@@ -98,6 +108,18 @@ export class Inventory {
   useC4() {
     if (this.c4 <= 0) return false
     this.c4 -= 1
+    return true
+  }
+
+  useAdrenaline() {
+    if (this.adrenaline <= 0) return false
+    this.adrenaline -= 1
+    return true
+  }
+
+  useEmp() {
+    if (this.emp <= 0) return false
+    this.emp -= 1
     return true
   }
 }

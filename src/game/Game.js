@@ -272,6 +272,9 @@ const DIRECTOR_EVAL_INTERVAL_MS = 5000
 const DIRECTOR_MIN_MULT = 0.6
 const DIRECTOR_MAX_MULT = 1.35
 const DIRECTOR_KILL_WINDOW_MS = 30000
+const ADRENALINE_DURATION_MS = 8000
+const ADRENALINE_SPEED_MULT = 1.5
+const ADRENALINE_FIRE_RATE_MULT = 1.4
 const DEATH_CAM_MS = 900
 const COMPASS_HALF_FOV = Math.PI / 3
 const BARRICADE_LIFETIME_MS = 25000
@@ -323,6 +326,8 @@ const SHOP_ITEMS = [
   { id: 'trap', cost: 20, titleKey: 'shopTrap', give: (game) => game.inventory.addTrap(1) },
   { id: 'molotov', cost: 28, titleKey: 'shopMolotov', give: (game) => game.inventory.addMolotov(1) },
   { id: 'c4', cost: 40, titleKey: 'shopC4', give: (game) => game.inventory.addC4(1) },
+  { id: 'adrenaline', cost: 22, titleKey: 'shopAdrenaline', give: (game) => game.inventory.addAdrenaline(1) },
+  { id: 'emp', cost: 26, titleKey: 'shopEmp', give: (game) => game.inventory.addEmp(1) },
   {
     id: 'train_companion',
     cost: 30,
@@ -342,6 +347,30 @@ const SHOP_ITEMS = [
     give: (game) => game.weapons.addMagBonus(game.weapons.current.id === 'minigun' ? 50 : 10),
   },
   { id: 'craft_scope', cost: 30, titleKey: 'shopScope', give: (game) => game.weapons.attachScope('rifle') },
+]
+
+// Salvage: the inverse of SHOP_ITEMS - convert consumables sitting unused in
+// the inventory back into points at a fraction of their buy price, so a
+// player who over-bought molotovs and never threw them (or is about to die
+// with a full pack) isn't stuck holding dead value. Sell price is derived
+// from the matching SHOP_ITEMS cost rather than a second hardcoded number,
+// so the two never drift out of sync.
+const SALVAGE_RATE = 0.4
+function salvageValue(shopId) {
+  return Math.max(1, Math.round(SHOP_ITEMS.find((i) => i.id === shopId).cost * SALVAGE_RATE))
+}
+const SALVAGE_ITEMS = [
+  { id: 'health', invKey: 'healthPacks', titleKey: 'shopHealthPack', sellValue: salvageValue('health'), sell: (game) => game.inventory.useHealthPack() },
+  { id: 'armor', invKey: 'armorPacks', titleKey: 'shopArmorPack', sellValue: salvageValue('armor'), sell: (game) => game.inventory.useArmorPack() },
+  { id: 'grenade', invKey: 'grenades', titleKey: 'shopGrenade', sellValue: salvageValue('grenade'), sell: (game) => game.inventory.useGrenade() },
+  { id: 'fuelcan', invKey: 'fuelCans', titleKey: 'shopFuelCan', sellValue: salvageValue('fuelcan'), sell: (game) => game.inventory.useFuelCan() },
+  { id: 'noisemaker', invKey: 'noisemakers', titleKey: 'shopNoisemaker', sellValue: salvageValue('noisemaker'), sell: (game) => game.inventory.useNoisemaker() },
+  { id: 'barricade', invKey: 'barricades', titleKey: 'shopBarricade', sellValue: salvageValue('barricade'), sell: (game) => game.inventory.useBarricade() },
+  { id: 'trap', invKey: 'traps', titleKey: 'shopTrap', sellValue: salvageValue('trap'), sell: (game) => game.inventory.useTrap() },
+  { id: 'molotov', invKey: 'molotovs', titleKey: 'shopMolotov', sellValue: salvageValue('molotov'), sell: (game) => game.inventory.useMolotov() },
+  { id: 'c4', invKey: 'c4', titleKey: 'shopC4', sellValue: salvageValue('c4'), sell: (game) => game.inventory.useC4() },
+  { id: 'adrenaline', invKey: 'adrenaline', titleKey: 'shopAdrenaline', sellValue: salvageValue('adrenaline'), sell: (game) => game.inventory.useAdrenaline() },
+  { id: 'emp', invKey: 'emp', titleKey: 'shopEmp', sellValue: salvageValue('emp'), sell: (game) => game.inventory.useEmp() },
 ]
 
 function formatTime(ms) {
@@ -378,6 +407,8 @@ export class Game {
     this.trapCount = document.getElementById('trap-count')
     this.molotovCount = document.getElementById('molotov-count')
     this.c4Count = document.getElementById('c4-count')
+    this.adrenalineCount = document.getElementById('adrenaline-count')
+    this.empCount = document.getElementById('emp-count')
     this.inventoryPanel = document.getElementById('inventory-panel')
     this.panelHealthCount = document.getElementById('panel-health-count')
     this.panelArmorCount = document.getElementById('panel-armor-count')
@@ -387,6 +418,8 @@ export class Game {
     this.panelTrapCount = document.getElementById('panel-trap-count')
     this.panelMolotovCount = document.getElementById('panel-molotov-count')
     this.panelC4Count = document.getElementById('panel-c4-count')
+    this.panelAdrenalineCount = document.getElementById('panel-adrenaline-count')
+    this.panelEmpCount = document.getElementById('panel-emp-count')
     this.panelWeaponsList = document.getElementById('panel-weapons-list')
     // Delegated once (not re-bound on every _refreshInventoryPanel render,
     // since that rebuilds the row HTML from scratch) - reads which weapon/
@@ -501,6 +534,7 @@ export class Game {
     this.recentKillTimestamps = []
     this.nextDirectorEvalAt = 0
     this._hordeAnnounced = false
+    this.adrenalineExpiresAt = 0
     this.shopProgress = loadShopProgress()
     this.points = this.shopProgress.points
     this.healthPackHealAmount = 200
@@ -695,6 +729,8 @@ export class Game {
     this.traderPointsLine = document.getElementById('trader-points-line')
     this.bountyLineEl = document.getElementById('bounty-line')
     this.traderOptions = document.getElementById('trader-options')
+    this.traderSalvageTitle = document.getElementById('trader-salvage-title')
+    this.traderSalvageOptions = document.getElementById('trader-salvage-options')
     this.traderHint = document.getElementById('trader-hint')
     this.upgradesBtn = document.getElementById('upgrades-btn')
     this.upgradesPanel = document.getElementById('upgrades-panel')
@@ -1023,6 +1059,10 @@ export class Game {
         this._throwC4()
       } else if (e.code === getKeyFor('detonateC4')) {
         this._detonateC4()
+      } else if (e.code === getKeyFor('adrenaline')) {
+        this._useAdrenaline()
+      } else if (e.code === getKeyFor('emp')) {
+        this._throwEmp()
       } else if (e.code === getKeyFor('interact')) {
         // Tracked independently of the rest of this branch (which only
         // fires the various one-shot interactions below) so the ammo
@@ -1326,6 +1366,37 @@ export class Game {
   _detonateC4() {
     if (!this.zombies.detonateC4()) {
       this._showLoreToast(t('toastNoC4'))
+    }
+  }
+
+  _throwEmp() {
+    if (!this.inventory.useEmp()) return
+    this.camera.getWorldDirection(this._camDir)
+    const origin = this.player.controls.object.position.clone()
+    const target = origin.clone().addScaledVector(this._camDir, 9)
+    target.y = 0.3
+    origin.y -= 0.3
+    this.zombies.spawnEmpThrow(origin, target)
+    this._updateInventoryHud()
+  }
+
+  // Panic-button speed + fire-rate boost, distinct from health/armor packs -
+  // see PlayerController's adrenalineMult and WeaponSystem's fireRateMult,
+  // both plain multipliers this sets then clears on a timer (_updateAdrenaline,
+  // called every tick) rather than either system owning the countdown itself.
+  _useAdrenaline() {
+    if (!this.inventory.useAdrenaline()) return
+    this.adrenalineExpiresAt = performance.now() + ADRENALINE_DURATION_MS
+    this.player.adrenalineMult = ADRENALINE_SPEED_MULT
+    this.weapons.fireRateMult = ADRENALINE_FIRE_RATE_MULT
+    this._updateInventoryHud()
+  }
+
+  _updateAdrenaline() {
+    if (this.adrenalineExpiresAt && performance.now() >= this.adrenalineExpiresAt) {
+      this.adrenalineExpiresAt = 0
+      this.player.adrenalineMult = 1
+      this.weapons.fireRateMult = 1
     }
   }
 
@@ -2067,6 +2138,35 @@ export class Game {
       })
       this.traderOptions.appendChild(btn)
     }
+
+    this._renderSalvageOptions()
+  }
+
+  _renderSalvageOptions() {
+    this.traderSalvageOptions.innerHTML = ''
+    const available = SALVAGE_ITEMS.filter((item) => this.inventory[item.invKey] > 0)
+    const show = available.length > 0
+    this.traderSalvageTitle.style.display = show ? '' : 'none'
+    this.traderSalvageOptions.style.display = show ? '' : 'none'
+    if (!show) return
+
+    this.traderSalvageTitle.textContent = t('salvageSectionLabel')
+    for (const item of available) {
+      const btn = document.createElement('button')
+      btn.className = 'perk-option salvage'
+      btn.innerHTML = `
+        <span class="perk-name">${t(item.titleKey)} (${this.inventory[item.invKey]})</span>
+        <span class="perk-cost salvage-gain">${t('salvageGainLabel', { n: item.sellValue })}</span>
+      `
+      btn.addEventListener('click', () => {
+        if (!item.sell(this)) return
+        this.points += item.sellValue
+        this._updateStatsPanel()
+        this._updateInventoryHud()
+        this._renderTraderOptions()
+      })
+      this.traderSalvageOptions.appendChild(btn)
+    }
   }
 
   _closeTraderPanel() {
@@ -2429,6 +2529,8 @@ export class Game {
     document.getElementById('panel-trap-label').textContent = t('trapLabel')
     document.getElementById('panel-molotov-label').textContent = t('molotovLabel')
     document.getElementById('panel-c4-label').textContent = t('c4Label')
+    document.getElementById('panel-adrenaline-label').textContent = t('adrenalineLabel')
+    document.getElementById('panel-emp-label').textContent = t('empLabel')
     document.getElementById('weapons-title').textContent = t('weaponsTitle')
     document.getElementById('inventory-hint').innerHTML = tHtml('inventoryHint')
 
@@ -2478,6 +2580,8 @@ export class Game {
     this.panelTrapCount.textContent = this.inventory.traps
     this.panelMolotovCount.textContent = this.inventory.molotovs
     this.panelC4Count.textContent = this.inventory.c4
+    this.panelAdrenalineCount.textContent = this.inventory.adrenaline
+    this.panelEmpCount.textContent = this.inventory.emp
 
     this.panelWeaponsList.innerHTML = this.weapons
       .getSummary()
@@ -2859,6 +2963,8 @@ export class Game {
     this.trapCount.textContent = this.inventory.traps
     this.molotovCount.textContent = this.inventory.molotovs
     this.c4Count.textContent = this.inventory.c4
+    this.adrenalineCount.textContent = this.inventory.adrenaline
+    this.empCount.textContent = this.inventory.emp
   }
 
   _updateHealthHud() {
@@ -3511,6 +3617,7 @@ export class Game {
 
       const playerPos = this.player.controls.object.position
       this._updateDirectorAI()
+      this._updateAdrenaline()
       this.zombies.update(
         dt,
         playerPos,

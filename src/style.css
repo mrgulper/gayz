@@ -1013,6 +1013,15 @@ html, body {
   text-align: center;
 }
 
+#trader-salvage-title {
+  margin: 4px 0 0;
+  font-size: 12px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #7fd8c4;
+  opacity: 0.8;
+}
+
 .perk-options {
   display: flex;
   gap: 14px;
@@ -1129,6 +1138,21 @@ html, body {
 .perk-option.featured:hover:not(:disabled) {
   border-color: #ffcf5c;
   background: rgba(255, 207, 92, 0.16);
+}
+
+.perk-option.salvage {
+  width: 140px;
+  padding: 12px 10px;
+  border-color: rgba(127, 216, 196, 0.3);
+}
+
+.perk-option.salvage:hover:not(:disabled) {
+  border-color: #7fd8c4;
+  background: rgba(127, 216, 196, 0.1);
+}
+
+.perk-option .salvage-gain {
+  color: #7fd8c4;
 }
 
 .perk-option:disabled {
