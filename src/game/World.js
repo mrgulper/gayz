@@ -945,7 +945,11 @@ function buildVireoFacility(scene, colliders, solidMeshes, flickerLights) {
   const floorMat = new THREE.MeshStandardMaterial({ map: stripeTexture, roughness: 1 })
 
   const floor = new THREE.Mesh(new THREE.BoxGeometry(FACILITY_WIDTH, 0.08, length), floorMat)
-  floor.position.set(FACILITY_X, SUBWAY_FLOOR_Y + 0.04, centerZ)
+  // Same Y as buildSubway's own floor (no extra offset) - this corridor is a
+  // flush continuation of the subway floor at their shared boundary
+  // (FACILITY_Z_START === SUBWAY_Z_END), so any offset here creates a small
+  // step right at the transition instead of one continuous floor level.
+  floor.position.set(FACILITY_X, SUBWAY_FLOOR_Y, centerZ)
   floor.receiveShadow = true
   scene.add(floor)
   solidMeshes.push(floor)

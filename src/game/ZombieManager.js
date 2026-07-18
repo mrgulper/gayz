@@ -263,7 +263,10 @@ export class ZombieManager {
     for (const n of this.noisemakerThrows) this.scene.remove(n.mesh)
     for (const g of this.grenadeThrows) this.scene.remove(g.mesh)
     for (const m of this.molotovThrows) this.scene.remove(m.mesh)
-    for (const f of this.fireZones) this.scene.remove(f.mesh)
+    for (const f of this.fireZones) {
+      this.scene.remove(f.mesh)
+      this.scene.remove(f.light)
+    }
     for (const c of this.c4Throws) this.scene.remove(c.mesh)
     if (this.placedC4) this.scene.remove(this.placedC4.mesh)
     this.zombies = []
@@ -457,13 +460,24 @@ export class ZombieManager {
   }
 
   _spawnFireZone(x, z) {
-    const mesh = new THREE.Mesh(new THREE.CircleGeometry(MOLOTOV_FIRE_RADIUS, 16), fireZoneMat)
+    // Own material clone, not the shared fireZoneMat - _updateFireZones
+    // mutates opacity every frame per-instance (for the flicker), and two
+    // fire zones burning at once would otherwise fight over one shared
+    // material's opacity, both flickering in lockstep to whichever zone's
+    // update ran last that frame.
+    const mesh = new THREE.Mesh(new THREE.CircleGeometry(MOLOTOV_FIRE_RADIUS, 16), fireZoneMat.clone())
     mesh.rotation.x = -Math.PI / 2
     mesh.position.set(x, 0.06, z)
     this.scene.add(mesh)
+    // Added to the scene directly, NOT as a child of `mesh` - mesh is
+    // rotated -90deg around X to lie flat, so a child's `position` is
+    // local to that rotated frame, not world space. Parenting the light
+    // here and setting its position to the world x/z (as this used to)
+    // put it well off from the actual fire, warped through the parent's
+    // rotation instead of floating above the fire like intended.
     const light = new THREE.PointLight(0xff6a1a, 1.6, MOLOTOV_FIRE_RADIUS * 2.5, 2)
     light.position.set(x, 1.2, z)
-    mesh.add(light)
+    this.scene.add(light)
     this.fireZones.push({ mesh, x, z, light, expiresAt: performance.now() + MOLOTOV_FIRE_DURATION_MS, nextTickAt: performance.now() })
   }
 
@@ -472,6 +486,7 @@ export class ZombieManager {
     this.fireZones = this.fireZones.filter((f) => {
       if (now >= f.expiresAt) {
         this.scene.remove(f.mesh)
+        this.scene.remove(f.light)
         return false
       }
       // Flicker the fire light/opacity for a "burning" read instead of a
@@ -517,6 +532,16 @@ export class ZombieManager {
       if (p.t >= 1) {
         p.mesh.position.set(p.target.x, 0.05, p.target.z)
         p.mesh.rotation.x = 0
+        // Throwing a second charge before the first lands detonates the
+        // first at throw-time (see spawnC4Throw) - but that only catches
+        // charges already landed *before* the new throw. Two charges both
+        // still in flight when the second is thrown land independently
+        // here, moments apart, and would otherwise silently orphan
+        // whichever one lands first (overwritten below with no cleanup,
+        // permanently stuck in the scene with no way to detonate or
+        // remove it). Detonating any already-placed charge here too closes
+        // that gap.
+        if (this.placedC4) this.detonateC4()
         this.placedC4 = { mesh: p.mesh, x: p.target.x, z: p.target.z }
         return false
       }

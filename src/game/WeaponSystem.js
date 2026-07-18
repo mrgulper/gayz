@@ -145,7 +145,13 @@ export class WeaponSystem {
     this.onZombieHit = onZombieHit
     this.onStealthTakedown = onStealthTakedown
 
-    this.weapons = WEAPONS.map((w) => ({ ...w, ammoInMag: w.magSize, ammoReserve: w.reserve, rarityMult: 1, rarityTier: null, hasExtMag: false, suppressed: false }))
+    // scopeOwned tracks a *permanent* scope (built-in on the AWP, or bought
+    // via the Coin Shop's applyAttachment) separately from the transient
+    // hasScope gameplay flag below - the Trader's in-run attachScope() also
+    // flips hasScope for this run's ADS zoom, but must NOT be mistaken for a
+    // permanent purchase when Game.js's saveShopProgress decides what to
+    // persist (see applyAttachment's comment).
+    this.weapons = WEAPONS.map((w) => ({ ...w, ammoInMag: w.magSize, ammoReserve: w.reserve, rarityMult: 1, rarityTier: null, hasExtMag: false, suppressed: false, scopeOwned: !!w.hasScope }))
     this.currentIndex = 0
     this.meleeVariant = 'knife'
     // Global damage multiplier - the XP-gem level-up pool's damage upgrade
@@ -248,6 +254,10 @@ export class WeaponSystem {
     if (index !== -1) this._switchTo(index)
   }
 
+  // Trader in-run crafting (see Game.js's SHOP_ITEMS craft_scope) - only
+  // flips the gameplay flag for this run/session, deliberately leaves
+  // scopeOwned untouched so it doesn't get persisted as a permanent Coin
+  // Shop attachment (see applyAttachment below).
   attachScope(id) {
     const w = this.weapons.find((w) => w.id === id)
     if (w) w.hasScope = true
@@ -264,6 +274,7 @@ export class WeaponSystem {
     if (!w) return
     if (attachmentId === 'scope') {
       w.hasScope = true
+      w.scopeOwned = true
     } else if (attachmentId === 'extmag') {
       if (w.hasExtMag) return
       w.hasExtMag = true
@@ -397,6 +408,7 @@ export class WeaponSystem {
       ammoInMag: w.ammoInMag,
       ammoReserve: w.ammoReserve,
       hasScope: !!w.hasScope,
+      scopeOwned: !!w.scopeOwned,
       hasExtMag: !!w.hasExtMag,
       suppressed: !!w.suppressed,
     }))

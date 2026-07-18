@@ -235,7 +235,7 @@ function saveShopProgress(game) {
       unlockedGuns: game.weapons.weapons.filter((w) => w.unlocked && COIN_SHOP_GUN_IDS.has(w.id)).map((w) => w.id),
       attachments: game.weapons.weapons.flatMap((w) => {
         const ids = []
-        if (w.hasScope && w.id !== 'awp') ids.push(`${w.id}:scope`)
+        if (w.scopeOwned && w.id !== 'awp') ids.push(`${w.id}:scope`)
         if (w.hasExtMag) ids.push(`${w.id}:extmag`)
         if (w.suppressed) ids.push(`${w.id}:suppressor`)
         return ids
@@ -1689,7 +1689,15 @@ export class Game {
       e.preventDefault()
       window.removeEventListener('keydown', handler, true)
       this.rebindingAction = null
-      if (e.code !== 'Escape') setBinding(action, e.code)
+      // Digit1-5 (the hotbar, see _bindHotbar) and Tab (inventory, see
+      // _bindItemKeys) are hardcoded key.code checks outside the rebindable
+      // ACTIONS list - allowing an action to be remapped onto one of them
+      // wouldn't move it there, it would just make both fire together on
+      // every press (e.g. rebinding Reload to "1" would reload AND switch
+      // to hotbar slot 1 every time). Treated the same as Escape: cancels
+      // the rebind and keeps the previous key instead.
+      const reserved = e.code === 'Tab' || /^Digit[1-5]$/.test(e.code)
+      if (e.code !== 'Escape' && !reserved) setBinding(action, e.code)
       this._renderControlsGrid()
     }
     window.addEventListener('keydown', handler, true)
@@ -2152,7 +2160,7 @@ export class Game {
           // ATTACHMENT_TYPES) - melee has no ammo/scope/sound to attach to,
           // and every attachment needs the gun owned first.
           if (w.id !== 'melee' && w.unlocked) {
-            const ownedFlags = { scope: w.hasScope, extmag: w.hasExtMag, suppressor: w.suppressed }
+            const ownedFlags = { scope: w.scopeOwned, extmag: w.hasExtMag, suppressor: w.suppressed }
             const attachRow = document.createElement('div')
             attachRow.className = 'attach-row'
             for (const at of ATTACHMENT_TYPES) {
@@ -2857,7 +2865,13 @@ export class Game {
   // inventory panel (_refreshInventoryPanel's per-weapon slot buttons).
   _bindHotbar() {
     window.addEventListener('keydown', (e) => {
-      if (!this.player.controls.isLocked || !this.playerState.alive || this.inventoryOpen || this.driving) return
+      // weaponWheelOpen isn't covered by the isLocked check below - the
+      // wheel is deliberately opened while still locked (it drives its own
+      // virtual cursor off the same mouse deltas that steer the camera, see
+      // _openWeaponWheel), so without this a Digit press while the wheel is
+      // up would switch weapons immediately underneath it instead of
+      // waiting for the wheel's own release-to-confirm.
+      if (!this.player.controls.isLocked || !this.playerState.alive || this.inventoryOpen || this.driving || this.weaponWheelOpen) return
       const digitIndex = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5'].indexOf(e.code)
       if (digitIndex === -1) return
       const weaponId = this.settings.hotbar[digitIndex]
