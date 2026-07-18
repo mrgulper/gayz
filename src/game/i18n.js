@@ -144,6 +144,8 @@ const STRINGS = {
     extractionContinueBtn: 'Start New Run',
     newAttemptBtn: 'New Attempt',
     mutatorDaily: "Daily Challenge (today's fixed twist, beat your best)",
+    loreStationTerminal: 'TRANSIT AUTH - LINE STATUS OFFLINE. Last manual log, unsigned: "Sealed this platform when the trains stopped running instead of shutting it down proper - figured somebody might need the space. Left what we couldn\'t carry in the back offices. Don\'t stay down here longer than you have to."',
+    stationAmbush: "Something's down here with you.",
     dailyTwistSwarm: "Today's Twist: Swarm Night (more zombies)",
     dailyTwistGlassCannon: "Today's Twist: Glass Cannon (extra damage taken)",
     dailyTwistLockdown: "Today's Twist: Lockdown (one life, no respawn)",

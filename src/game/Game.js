@@ -311,6 +311,8 @@ const SAFE_ZONE_HEAL_PER_SEC = 6
 const LIGHT_LURE_ENRAGE_MS = 2500
 const VEHICLE_INTERACT_RADIUS = 3
 const VIREO_TERMINAL_RADIUS = 2.5
+const STATION_ENCOUNTER_RADIUS = 8
+const STATION_ENCOUNTER_ZOMBIE_COUNT = 4
 const PERK_REROLL_COST = 15
 const COMBO_WINDOW_MS = 3000
 const COMBO_MIN_DISPLAY = 2
@@ -784,7 +786,7 @@ export class Game {
     this.composer.addPass(this.bloomPass)
     this.composer.addPass(new OutputPass())
 
-    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, safeZone, practiceTargets, trophyWall } = buildWorld(this.scene, ACHIEVEMENTS.length)
+    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, undergroundStation, safeZone, practiceTargets, trophyWall } = buildWorld(this.scene, ACHIEVEMENTS.length)
     // Kept for _deployBarricade - both PlayerController and ZombieManager
     // hold this exact same array by reference (not a copy), so pushing a
     // new collider here is immediately respected by both without needing
@@ -847,6 +849,10 @@ export class Game {
     this.activeBounty = null
     this.nearVireoTerminal = false
     this.vireoGuardian = null
+    this.stationTerminal = undergroundStation.terminalSpot
+    this.nearStationTerminal = false
+    this.stationEncounterCenter = undergroundStation.encounterCenter
+    this.stationEncounterTriggered = false
     this.rescueSurvivor = null
     this.nearRescueSurvivor = false
     this.bestiaryEncountered = loadEncountered()
@@ -1401,6 +1407,8 @@ export class Game {
           this.reviveTarget = null
         } else if (this.nearVireoTerminal) {
           this._interactVireoTerminal()
+        } else if (this.nearStationTerminal) {
+          this._interactStationTerminal()
         } else if (this.nearRescueSurvivor) {
           this._rescueSurvivor()
         } else if (this.nearBarricadeWindow) {
@@ -4174,6 +4182,29 @@ export class Game {
     this.nearVireoTerminal = dist <= VIREO_TERMINAL_RADIUS
   }
 
+  _updateStationTerminal(playerPos) {
+    const dist = Math.hypot(playerPos.x - this.stationTerminal.x, playerPos.z - this.stationTerminal.z)
+    this.nearStationTerminal = dist <= VIREO_TERMINAL_RADIUS
+  }
+
+  _interactStationTerminal() {
+    this._showLoreToast(t('loreStationTerminal'))
+  }
+
+  // One-off ambush the first time the player actually walks into the new
+  // underground station's hall - roughly half the concurrent zombie count a
+  // normal surface encounter runs at (BASE_SPAWN_COUNT in ZombieManager.js
+  // is 9), rather than hooking into the surface radial spawner, which spawns
+  // purely around the map origin with no notion of underground rooms at all.
+  _updateStationEncounter(playerPos) {
+    if (this.stationEncounterTriggered) return
+    const dist = Math.hypot(playerPos.x - this.stationEncounterCenter.x, playerPos.z - this.stationEncounterCenter.z)
+    if (dist > STATION_ENCOUNTER_RADIUS) return
+    this.stationEncounterTriggered = true
+    this.zombies.spawnStationAmbush(this.stationEncounterCenter.x, this.stationEncounterCenter.z, STATION_ENCOUNTER_ZOMBIE_COUNT)
+    this._showLoreToast(t('stationAmbush'))
+  }
+
   // First-ever visit: reading the terminal wakes a guardian that must be
   // killed before it'll actually talk. Already unlocked the true ending?
   // Just re-read it any time, no fight.
@@ -4593,6 +4624,8 @@ export class Game {
       this._updateAmmoStation(dt, playerPos)
       this._updateVehicleProximity(playerPos)
       this._updateVireoTerminal(playerPos)
+      this._updateStationTerminal(playerPos)
+      this._updateStationEncounter(playerPos)
       this._updateRescueSurvivor(playerPos)
       if (this.rescueSurvivor) this.rescueSurvivor.update(elapsed)
       this._updateBossHealthBar()
@@ -4620,6 +4653,9 @@ export class Game {
         this.interactPrompt.innerHTML = tHtml('interactRevive')
         this.interactPrompt.style.display = 'block'
       } else if (this.nearVireoTerminal) {
+        this.interactPrompt.innerHTML = tHtml('interactTerminal')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearStationTerminal) {
         this.interactPrompt.innerHTML = tHtml('interactTerminal')
         this.interactPrompt.style.display = 'block'
       } else if (this.nearRescueSurvivor) {

@@ -427,6 +427,15 @@ export function buildWorld(scene, trophyCount = 15) {
   buildSubwayConnector(scene, colliders, solidMeshes, flickerLights, subwayEntrance.landingX + JUNCTION_HALF, connectorWaypointZ, SUBWAY_X - JUNCTION_HALF, connectorWaypointZ)
   buildSubwayConnector(scene, colliders, solidMeshes, flickerLights, SUBWAY_X, connectorWaypointZ + JUNCTION_HALF, SUBWAY_X, SUBWAY_Z_START)
 
+  // Underground station: a third branch off the same junction room the
+  // platform connector uses (junction rooms are open on every side by
+  // design - see buildSubwayJunctionRoom - so this needed zero changes to
+  // any existing tunnel piece), heading further south into open space no
+  // other underground system occupies (the sewer sits at x=-5, z=[34,50] -
+  // nowhere near this).
+  buildSubwayConnector(scene, colliders, solidMeshes, flickerLights, SUBWAY_X, connectorWaypointZ - JUNCTION_HALF, STATION_X, STATION_Z_END)
+  const undergroundStation = buildUndergroundStation(scene, colliders, solidMeshes, flickerLights, towerChestSpots)
+
   return {
     colliders,
     solidMeshes,
@@ -440,6 +449,7 @@ export function buildWorld(scene, trophyCount = 15) {
     trader,
     ammoStation,
     vireoFacility,
+    undergroundStation,
     safeZone,
     practiceTargets,
     trophyWall,
@@ -1147,7 +1157,25 @@ function buildSubwayParkEntrance(scene, colliders, solidMeshes) {
     post.castShadow = true
     scene.add(post)
   }
-  const sign = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.4, 0.06), new THREE.MeshStandardMaterial({ color: 0x1a1408, emissive: 0xffb347, emissiveIntensity: 1 }))
+  // Readable "SUBWAY" + down-arrow text via a canvas texture, same technique
+  // as the VIREO terminal screen (see buildVireoFacility) - a plain emissive
+  // box with no text on it doesn't actually tell a player what's down here.
+  const signCanvas = document.createElement('canvas')
+  signCanvas.width = 512
+  signCanvas.height = 96
+  const signCtx = signCanvas.getContext('2d')
+  signCtx.fillStyle = '#1a1408'
+  signCtx.fillRect(0, 0, signCanvas.width, signCanvas.height)
+  signCtx.fillStyle = '#ffb347'
+  signCtx.font = 'bold 52px sans-serif'
+  signCtx.textAlign = 'center'
+  signCtx.textBaseline = 'middle'
+  signCtx.fillText('SUBWAY ↓', signCanvas.width / 2, signCanvas.height / 2)
+  const signTexture = new THREE.CanvasTexture(signCanvas)
+  const sign = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.2, 0.4),
+    new THREE.MeshStandardMaterial({ map: signTexture, emissive: 0xffb347, emissiveMap: signTexture, emissiveIntensity: 1 })
+  )
   sign.position.set(SUBWAY_PARK_ENTRANCE_X, 2.3, SUBWAY_PARK_ENTRANCE_Z + 1.51)
   sign.rotation.y = Math.PI
   scene.add(sign)
@@ -1273,6 +1301,217 @@ function buildSubwayJunctionRoom(scene, colliders, solidMeshes, cx, cz, halfSize
   scene.add(ceiling)
   solidMeshes.push(ceiling)
   colliders.push(new THREE.Box3().setFromObject(ceiling))
+}
+
+// A genuinely new underground floor, not just another station stop - the
+// hall is nearly double the standard tunnel width, with two office alcoves
+// cut into its west wall and a dead-end maintenance stub off its south end.
+// Branches off the existing subway loop's second junction room (see
+// buildWorld's SUBWAY_X/connectorWaypointZ junction) via a standard
+// buildSubwayConnector run, so reaching it means walking further down the
+// existing park -> platform loop, not finding a separate entrance.
+const STATION_X = SUBWAY_X
+const STATION_WIDTH = 9
+const STATION_HEIGHT = 3.6
+const STATION_Z_START = -55
+const STATION_Z_END = -33
+const STATION_OFFICE_SIZE = 4
+// z-ranges the west wall leaves open for the two office doorways, matching
+// each office room's own footprint exactly - see buildOffice below.
+const STATION_OFFICE_A_Z = [-42, -38]
+const STATION_OFFICE_B_Z = [-52, -48]
+const STATION_STUB_Z_END = STATION_Z_START - 6
+
+function buildUndergroundStation(scene, colliders, solidMeshes, flickerLights, chestSpots) {
+  const length = STATION_Z_END - STATION_Z_START
+  const centerZ = (STATION_Z_START + STATION_Z_END) / 2
+
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x24272a, roughness: 0.95 })
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x1c1b18, roughness: 1 })
+  const platformMat = new THREE.MeshStandardMaterial({ color: 0x4a4238, roughness: 0.9 })
+  const railMat = new THREE.MeshStandardMaterial({ color: 0x1a1a18, roughness: 0.4, metalness: 0.7 })
+
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(STATION_WIDTH, 0.08, length), floorMat)
+  floor.position.set(STATION_X, SUBWAY_FLOOR_Y, centerZ)
+  floor.receiveShadow = true
+  scene.add(floor)
+  solidMeshes.push(floor)
+
+  // No north/south end walls - the north end (STATION_Z_END) is where the
+  // connector from the existing junction room opens in, and the south end
+  // (STATION_Z_START) is where the maintenance stub opens off, same "open
+  // ends, no cap" pattern buildSubway itself uses.
+  const ceiling = new THREE.Mesh(new THREE.BoxGeometry(STATION_WIDTH + 0.4, 0.2, length), wallMat)
+  ceiling.position.set(STATION_X, SUBWAY_FLOOR_Y + STATION_HEIGHT, centerZ)
+  ceiling.castShadow = true
+  scene.add(ceiling)
+  solidMeshes.push(ceiling)
+  colliders.push(new THREE.Box3().setFromObject(ceiling))
+
+  const eastWall = new THREE.Mesh(new THREE.BoxGeometry(0.2, STATION_HEIGHT, length), wallMat)
+  eastWall.position.set(STATION_X + STATION_WIDTH / 2 + 0.1, SUBWAY_FLOOR_Y + STATION_HEIGHT / 2, centerZ)
+  eastWall.castShadow = true
+  eastWall.receiveShadow = true
+  scene.add(eastWall)
+  solidMeshes.push(eastWall)
+  colliders.push(new THREE.Box3().setFromObject(eastWall))
+
+  // West wall: three solid segments, leaving the two office z-ranges open -
+  // same "build the solid pieces, skip the doorway" approach buildSkyscraper
+  // uses for its open facade, just with two gaps instead of one whole side.
+  const westX = STATION_X - STATION_WIDTH / 2 - 0.1
+  const westSegments = [
+    [STATION_Z_START, STATION_OFFICE_B_Z[0]],
+    [STATION_OFFICE_B_Z[1], STATION_OFFICE_A_Z[0]],
+    [STATION_OFFICE_A_Z[1], STATION_Z_END],
+  ]
+  for (const [segStart, segEnd] of westSegments) {
+    const segLen = segEnd - segStart
+    const segZ = (segStart + segEnd) / 2
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, STATION_HEIGHT, segLen), wallMat)
+    wall.position.set(westX, SUBWAY_FLOOR_Y + STATION_HEIGHT / 2, segZ)
+    wall.castShadow = true
+    wall.receiveShadow = true
+    scene.add(wall)
+    solidMeshes.push(wall)
+    colliders.push(new THREE.Box3().setFromObject(wall))
+  }
+
+  // Platform + tracks down the middle, same visual language as the existing
+  // subway (see buildSubway) - wider hall, so a wider platform too.
+  const platformWidth = 2.4
+  const platform = new THREE.Mesh(new THREE.BoxGeometry(platformWidth, 0.35, length - 1), platformMat)
+  platform.position.set(STATION_X - STATION_WIDTH / 2 + platformWidth / 2 + 0.15, SUBWAY_FLOOR_Y + 0.175, centerZ)
+  platform.castShadow = true
+  platform.receiveShadow = true
+  scene.add(platform)
+  solidMeshes.push(platform)
+
+  const trackCenterX = STATION_X + 1.5
+  for (const railOffset of [-0.5, 0.5]) {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, length - 1), railMat)
+    rail.position.set(trackCenterX + railOffset, SUBWAY_FLOOR_Y + 0.03, centerZ)
+    scene.add(rail)
+  }
+  for (let z = STATION_Z_START + 1; z < STATION_Z_END - 1; z += 1) {
+    const tie = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.04, 0.15), new THREE.MeshStandardMaterial({ color: 0x2a2018, roughness: 1 }))
+    tie.position.set(trackCenterX, SUBWAY_FLOOR_Y + 0.02, z)
+    scene.add(tie)
+  }
+
+  const lightSpacing = 5
+  const lightCount = Math.floor(length / lightSpacing)
+  for (let i = 1; i < lightCount; i++) {
+    const z = STATION_Z_START + lightSpacing * i
+    const light = new THREE.PointLight(0xbcd4ff, 0.9, 7, 2)
+    light.position.set(STATION_X, SUBWAY_FLOOR_Y + STATION_HEIGHT - 0.3, z)
+    scene.add(light)
+    flickerLights.push({ light, base: 0.9, seed: Math.random() * 100 })
+  }
+
+  // Two office alcoves, each a small enclosed room flush against a west-wall
+  // gap - walled on far/north/south, open on the east side where the gap is.
+  const buildOffice = (zRange) => {
+    const [z0, z1] = zRange
+    const cz = (z0 + z1) / 2
+    const officeCenterX = westX - STATION_OFFICE_SIZE / 2
+    const officeFarX = westX - STATION_OFFICE_SIZE
+
+    const officeFloor = new THREE.Mesh(new THREE.BoxGeometry(STATION_OFFICE_SIZE, 0.08, z1 - z0), floorMat)
+    officeFloor.position.set(officeCenterX, SUBWAY_FLOOR_Y, cz)
+    officeFloor.receiveShadow = true
+    scene.add(officeFloor)
+    solidMeshes.push(officeFloor)
+
+    const officeCeiling = new THREE.Mesh(new THREE.BoxGeometry(STATION_OFFICE_SIZE, 0.2, z1 - z0), wallMat)
+    officeCeiling.position.set(officeCenterX, SUBWAY_FLOOR_Y + STATION_HEIGHT, cz)
+    officeCeiling.castShadow = true
+    scene.add(officeCeiling)
+    solidMeshes.push(officeCeiling)
+    colliders.push(new THREE.Box3().setFromObject(officeCeiling))
+
+    const officeWallSpecs = [
+      { bw: 0.2, bd: z1 - z0, x: officeFarX, z: cz },
+      { bw: STATION_OFFICE_SIZE, bd: 0.2, x: officeCenterX, z: z0 },
+      { bw: STATION_OFFICE_SIZE, bd: 0.2, x: officeCenterX, z: z1 },
+    ]
+    for (const s of officeWallSpecs) {
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(s.bw, STATION_HEIGHT, s.bd), wallMat)
+      wall.position.set(s.x, SUBWAY_FLOOR_Y + STATION_HEIGHT / 2, s.z)
+      wall.castShadow = true
+      wall.receiveShadow = true
+      scene.add(wall)
+      solidMeshes.push(wall)
+      colliders.push(new THREE.Box3().setFromObject(wall))
+    }
+    return { x: officeCenterX, z: cz }
+  }
+
+  const officeASpot = buildOffice(STATION_OFFICE_A_Z)
+  const officeBSpot = buildOffice(STATION_OFFICE_B_Z)
+
+  // Dead-end maintenance stub off the hall's open south end - same
+  // standard-width connector primitive as the rest of the underground loop
+  // (narrower than the hall itself, so its walls start clean at the
+  // boundary rather than needing to cut into anything), capped with a plain
+  // end wall since buildSubwayConnector never closes off either end itself.
+  buildSubwayConnector(scene, colliders, solidMeshes, flickerLights, STATION_X, STATION_Z_START, STATION_X, STATION_STUB_Z_END)
+  const stubCap = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH + 0.4, SUBWAY_HEIGHT, 0.2), wallMat)
+  stubCap.position.set(STATION_X, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT / 2, STATION_STUB_Z_END)
+  stubCap.castShadow = true
+  scene.add(stubCap)
+  solidMeshes.push(stubCap)
+  colliders.push(new THREE.Box3().setFromObject(stubCap))
+
+  const maintenanceSignMat = new THREE.MeshStandardMaterial({ color: 0x1a1408, roughness: 0.7, emissive: 0xffcc44, emissiveIntensity: 0.6 })
+  const maintenanceSign = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.35, 0.05), maintenanceSignMat)
+  maintenanceSign.position.set(STATION_X, SUBWAY_FLOOR_Y + 2.2, STATION_STUB_Z_END - 0.12)
+  scene.add(maintenanceSign)
+
+  // Lore terminal, same screen-texture technique as the VIREO terminal - set
+  // into the east wall near the platform, screen facing into the hall.
+  const terminalZ = STATION_Z_END - 3
+  const terminalX = STATION_X + STATION_WIDTH / 2 - 0.6
+  const terminalMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.6 })
+  const terminalBody = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.1, 0.4), terminalMat)
+  terminalBody.position.set(terminalX, SUBWAY_FLOOR_Y + 0.55, terminalZ)
+  terminalBody.castShadow = true
+  scene.add(terminalBody)
+  solidMeshes.push(terminalBody)
+  colliders.push(new THREE.Box3().setFromObject(terminalBody))
+
+  const screenCanvas = document.createElement('canvas')
+  screenCanvas.width = 128
+  screenCanvas.height = 96
+  const screenCtx = screenCanvas.getContext('2d')
+  screenCtx.fillStyle = '#050a05'
+  screenCtx.fillRect(0, 0, screenCanvas.width, screenCanvas.height)
+  screenCtx.fillStyle = '#3fff6a'
+  screenCtx.font = '10px monospace'
+  screenCtx.fillText('TRANSIT AUTH', 4, 16)
+  screenCtx.fillText('LINE STATUS:', 4, 32)
+  screenCtx.fillText('OFFLINE', 4, 46)
+  screenCtx.fillText('[ACCESS]', 4, 72)
+  const screenTexture = new THREE.CanvasTexture(screenCanvas)
+  const screenMat = new THREE.MeshStandardMaterial({
+    map: screenTexture,
+    emissive: 0xffffff,
+    emissiveMap: screenTexture,
+    emissiveIntensity: 0.8,
+  })
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.38), screenMat)
+  screen.position.set(terminalX - 0.36, SUBWAY_FLOOR_Y + 0.85, terminalZ)
+  screen.rotation.y = -Math.PI / 2
+  scene.add(screen)
+
+  chestSpots.push({ x: officeASpot.x, y: SUBWAY_FLOOR_Y, z: officeASpot.z })
+  chestSpots.push({ x: officeBSpot.x, y: SUBWAY_FLOOR_Y, z: officeBSpot.z })
+
+  return {
+    terminalSpot: { x: terminalX, z: terminalZ },
+    encounterCenter: { x: STATION_X, z: centerZ },
+    floorY: SUBWAY_FLOOR_Y,
+  }
 }
 
 // Hidden VIREO sub-level - used to branch off a standalone surface tunnel,

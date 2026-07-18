@@ -385,6 +385,27 @@ export class ZombieManager {
     }
   }
 
+  // One-off burst for the underground station's first-visit ambush (see
+  // Game.js's _updateStationEncounter) - a mixed batch like the normal
+  // surface trickle (pickZombieType), not a single-type swarm like
+  // _spawnBossAdds, since this is meant to read as a real encounter rather
+  // than boss reinforcements. Scattered within a tighter radius than the
+  // boss-add burst since the station hall is an enclosed room, not open
+  // street.
+  spawnStationAmbush(x, z, count) {
+    for (let i = 0; i < count; i++) {
+      const type = pickZombieType()
+      const angle = Math.random() * Math.PI * 2
+      const r = 2 + Math.random() * 4
+      const sx = x + Math.sin(angle) * r
+      const sz = z + Math.cos(angle) * r
+      const zombie = new Zombie(sx, sz, type, false, false, this.currentNight)
+      zombie.deathHandled = false
+      this.zombies.push(zombie)
+      this.scene.add(zombie.group)
+    }
+  }
+
   // Live-updates the Easy/Normal/Hard spawn-rate multiplier without
   // reconstructing the manager, re-applying it against the current night.
   setDifficultyMultiplier(mult) {
