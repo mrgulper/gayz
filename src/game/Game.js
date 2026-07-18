@@ -12,6 +12,7 @@ import { PlayerState } from './PlayerState.js'
 import { Inventory } from './Inventory.js'
 import { DayNightCycle } from './DayNightCycle.js'
 import { ChestManager, Vault } from './Chests.js'
+import { RivalManager } from './RivalScavenger.js'
 import { BarricadeWindows, REPAIR_REWARD_POINTS } from './BarricadeWindows.js'
 import { Minimap } from './Minimap.js'
 import { DecalManager } from './Decals.js'
@@ -319,6 +320,7 @@ const FOG_PATCH_SPAWN_RADIUS = 34
 const AIRDROP_MIN_DELAY_MS = 70000
 const AIRDROP_MAX_DELAY_MS = 130000
 const AIRDROP_WINDOW_MS = 75000
+const RIVAL_SQUAD_CHANCE = 0.4
 const AIRDROP_SPAWN_RADIUS = 30
 const AIRDROP_CLAIM_RADIUS = 2
 const AIRDROP_REST_Y = 1.1
@@ -839,6 +841,9 @@ export class Game {
       },
       () => this._onStealthTakedown()
     )
+    this.rivals = new RivalManager(this.scene)
+    this.weapons.setRivalManager(this.rivals)
+    this._rivalsClaimedAirdrop = false
     // Restore previously-purchased Coin Shop guns (see saveShopProgress) -
     // markUnlocked rather than unlockWeapon so restoring e.g. a past
     // minigun purchase doesn't yank the equipped weapon away from melee on
@@ -965,6 +970,8 @@ export class Game {
       this.roundIntermissionUntil = 0
       this.barricadeWindows.reset()
       this.chests.reset()
+      this.rivals.reset()
+      this._rivalsClaimedAirdrop = false
       this.xpGems.reset()
       this.companion.teleportTo(1.6, 7)
       this.companion.resetVitals()
@@ -2810,6 +2817,22 @@ export class Game {
     if (!this.playerState.alive) this._onPlayerDeath()
   }
 
+  // Same damage/UI pipeline as _onZombieAttack, minus the zombie-specific
+  // snarl sound - rival scavengers (see RivalScavenger.js) already play
+  // their own gunshot when they fire.
+  _onRivalAttack(damage) {
+    if (this.player.isDodging) return
+    this.lastHitTakenAt = performance.now()
+    this.playerState.takeDamage(damage * this.difficulty.damageMult)
+    this._updateHealthHud()
+    this.damageFlash.classList.remove('hit')
+    void this.damageFlash.offsetWidth
+    this.damageFlash.classList.add('hit')
+    this._triggerShake(0.1, 180)
+
+    if (!this.playerState.alive) this._onPlayerDeath()
+  }
+
   // Camera juice: a brief random position jitter (see _updateShake, called
   // once per tick) plus an optional freeze-frame. Only overwrites the
   // current shake if the new one is stronger, so a big damage-taken shake
@@ -3315,6 +3338,13 @@ export class Game {
 
     if (!this.airdrop && now >= this.nextAirdropAt) this._spawnAirdrop()
 
+    if (this.airdrop && this._rivalsClaimedAirdrop) {
+      this.scene.remove(this.airdrop.mesh)
+      this._showLoreToast(t('airdropStolenByRivals'))
+      this.airdrop = null
+      this._rivalsClaimedAirdrop = false
+    }
+
     if (this.airdrop) {
       const fallElapsed = now - this.airdrop.spawnedAt
       if (fallElapsed < AIRDROP_FALL_DURATION_MS) {
@@ -3361,6 +3391,13 @@ export class Game {
     this.airdrop = { x, z, mesh, beam, spawnedAt: performance.now(), expiresAt: performance.now() + AIRDROP_FALL_DURATION_MS + AIRDROP_WINDOW_MS }
     this.nextAirdropAt = performance.now() + AIRDROP_MIN_DELAY_MS + Math.random() * (AIRDROP_MAX_DELAY_MS - AIRDROP_MIN_DELAY_MS)
     this._showLoreToast(t('airdropIncoming'))
+
+    // Rival scavengers converging on the same crate - a race, not just a
+    // free pickup, some of the time.
+    if (Math.random() < RIVAL_SQUAD_CHANCE) {
+      this.rivals.spawnSquad(x, z, 2)
+      this._showLoreToast(t('rivalsSpotted'))
+    }
   }
 
   _claimAirdrop() {
@@ -3955,6 +3992,7 @@ export class Game {
       this._updateLowAmmoCue()
       this._updatePracticeTargets()
       this._updateTraps()
+      if (this.rivals.update(dt, playerPos, (dmg) => this._onRivalAttack(dmg))) this._rivalsClaimedAirdrop = true
       this._updateAirdrop()
       if (this.raining && this.nextLightningAt > 0 && performance.now() >= this.nextLightningAt) {
         this._triggerLightning()

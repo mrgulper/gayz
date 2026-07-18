@@ -188,6 +188,8 @@ const STRINGS = {
     toastVaultLocked: 'The Vault is locked. Find the key first.',
     toastVaultOpened: 'Vault opened! +{n} points and a guaranteed weapon part',
     toastBossDefeated: 'BOSS DEFEATED',
+    rivalsSpotted: 'Rival scavengers are moving in on that airdrop!',
+    airdropStolenByRivals: 'The rival scavengers grabbed the airdrop first.',
     toastCompanionDown: 'Your companion is down! Get to them and press F to revive.',
     toastCompanionRevived: 'Companion revived.',
     toastCompanionCrawledBack: 'Your companion crawled back to the safe zone to recover.',

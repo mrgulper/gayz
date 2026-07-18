@@ -144,6 +144,10 @@ export class WeaponSystem {
     this.onHitSurface = onHitSurface
     this.onZombieHit = onZombieHit
     this.onStealthTakedown = onStealthTakedown
+    // Set post-construction via setRivalManager (see RivalScavenger.js) -
+    // optional, so nothing else about this class needs to change if it's
+    // never set.
+    this.rivalManager = null
 
     // scopeOwned tracks a *permanent* scope (built-in on the AWP, or bought
     // via the Coin Shop's applyAttachment) separately from the transient
@@ -255,6 +259,13 @@ export class WeaponSystem {
     this.markUnlocked(id)
     const index = this.weapons.findIndex((w) => w.id === id)
     if (index !== -1) this._switchTo(index)
+  }
+
+  // See RivalScavenger.js's RivalManager - set post-construction (not a
+  // constructor param) since it's optional and this class works fine
+  // without one ever being set.
+  setRivalManager(rivalManager) {
+    this.rivalManager = rivalManager
   }
 
   // Trader in-run crafting (see Game.js's SHOP_ITEMS craft_scope) - only
@@ -553,6 +564,7 @@ export class WeaponSystem {
     }
 
     const zombieMeshes = this.zombieManager ? this.zombieManager.hittableMeshes : []
+    const rivalMeshes = this.rivalManager ? this.rivalManager.hittableMeshes : []
     const pelletCount = w.pellets || 1
     const spread = w.spread || 0
     // zombie -> { count, distance } instead of a plain Set, so a
@@ -568,12 +580,23 @@ export class WeaponSystem {
         (Math.random() - 0.5) * spread
       )
       this.raycaster.setFromCamera(offset, this.camera)
-      const hits = this.raycaster.intersectObjects([...zombieMeshes, ...this.colliderMeshes], true)
+      const hits = this.raycaster.intersectObjects([...zombieMeshes, ...rivalMeshes, ...this.colliderMeshes], true)
       if (hits.length === 0) continue
       if (w.melee && hits[0].distance > w.range) continue
 
       anyHit = true
       const hit = hits[0]
+
+      // Rival scavenger - a human NPC, not a zombie, so it gets a flat
+      // damage hit here rather than joining hitZombies' per-pellet
+      // falloff/stealth-takedown accounting below (none of that applies to
+      // a squad member racing for an airdrop).
+      const rivalHit = hit.object.userData.rival
+      if (rivalHit) {
+        rivalHit.onHit(w.damage * this.damageMult * w.rarityMult)
+        if (this.onZombieHit) this.onZombieHit()
+      }
+
       const zombieHit = hit.object.userData.zombie
       if (zombieHit) {
         const existing = hitZombies.get(zombieHit)
