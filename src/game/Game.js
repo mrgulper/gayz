@@ -329,6 +329,13 @@ const FOG_PATCH_MULT = 0.32
 const FOG_PATCH_SPAWN_RADIUS = 34
 const AIRDROP_MIN_DELAY_MS = 70000
 const AIRDROP_MAX_DELAY_MS = 130000
+// Ambient world-building, not tied to any system - a fragment of an old
+// broadcast surfaces every so often, same lore-toast + radio-static cue as
+// finding a collectible audio log (see audioEngine.playAudioLog), just
+// passive instead of something you had to find.
+const RADIO_CHATTER_KEYS = ['radioChatter1', 'radioChatter2', 'radioChatter3', 'radioChatter4', 'radioChatter5', 'radioChatter6', 'radioChatter7', 'radioChatter8']
+const RADIO_CHATTER_MIN_DELAY_MS = 75000
+const RADIO_CHATTER_MAX_DELAY_MS = 140000
 const AIRDROP_WINDOW_MS = 75000
 const RIVAL_SQUAD_CHANCE = 0.4
 const AIRDROP_SPAWN_RADIUS = 30
@@ -556,6 +563,8 @@ export class Game {
     // have to actually reach before it's gone.
     this.airdrop = null
     this.nextAirdropAt = performance.now() + AIRDROP_MIN_DELAY_MS + Math.random() * (AIRDROP_MAX_DELAY_MS - AIRDROP_MIN_DELAY_MS)
+    this.nextRadioChatterAt = performance.now() + RADIO_CHATTER_MIN_DELAY_MS + Math.random() * (RADIO_CHATTER_MAX_DELAY_MS - RADIO_CHATTER_MIN_DELAY_MS)
+    this.lastRadioChatterIndex = -1
     this.nightmareOverlayEl = document.getElementById('nightmare-overlay')
     this.infectionIndicator = document.getElementById('infection-indicator')
     this.statsPanel = document.getElementById('stats-panel')
@@ -3222,6 +3231,20 @@ export class Game {
     this.loreToast.classList.add('show')
   }
 
+  // Passive world-building - fires on its own timer, unrelated to any
+  // player action. Never repeats the same line twice in a row (picks again
+  // if it rolls the last index) since the pool is small enough that an
+  // immediate repeat would be noticeable.
+  _maybeShowRadioChatter() {
+    if (performance.now() < this.nextRadioChatterAt) return
+    this.nextRadioChatterAt = performance.now() + RADIO_CHATTER_MIN_DELAY_MS + Math.random() * (RADIO_CHATTER_MAX_DELAY_MS - RADIO_CHATTER_MIN_DELAY_MS)
+    let index = Math.floor(Math.random() * RADIO_CHATTER_KEYS.length)
+    if (index === this.lastRadioChatterIndex) index = (index + 1) % RADIO_CHATTER_KEYS.length
+    this.lastRadioChatterIndex = index
+    this._showLoreToast(t(RADIO_CHATTER_KEYS[index]))
+    audioEngine.playAudioLog()
+  }
+
   _companionBark(pool) {
     const lines = COMPANION_BARKS[pool]
     const line = lines[Math.floor(Math.random() * lines.length)]
@@ -4236,6 +4259,7 @@ export class Game {
       this._updateBarricades()
       this._updateDeathObstacles()
       this._updateHazardZones(dt, playerPos)
+      this._maybeShowRadioChatter()
       this._updateLowAmmoCue()
       this._updatePracticeTargets()
       this._updateTraps()
