@@ -1193,6 +1193,20 @@ html, body {
   color: #ffcf5c;
 }
 
+.price-tag {
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 3px;
+}
+
+.price-tag.price-down {
+  color: #7fd8c4;
+}
+
+.price-tag.price-up {
+  color: #ff5a4a;
+}
+
 .perk-option .perk-lore {
   font-size: 11px;
   font-style: italic;

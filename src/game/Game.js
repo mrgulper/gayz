@@ -615,6 +615,7 @@ export class Game {
     this._scheduleNightEvent()
     this._rollWeather()
     this._rollFeaturedItem()
+    this._rollTraderPrices()
 
     // No preserveDrawingBuffer: it disables a fast path in most browsers and
     // isn't actually needed - _takeScreenshot() renders and reads the canvas
@@ -1022,6 +1023,7 @@ export class Game {
       this._scheduleNightEvent()
       this._rollWeather()
       this._rollFeaturedItem()
+      this._rollTraderPrices()
       this._updateHealthHud()
       this._updateProgressHud()
       this.deathScreen.style.display = 'none'
@@ -2237,13 +2239,29 @@ export class Game {
     this.featuredItem = SHOP_ITEMS[Math.floor(Math.random() * SHOP_ITEMS.length)]
   }
 
+  // Every SHOP_ITEMS entry gets its own random price swing for the night -
+  // some items run cheap, some run pricy, so which items are worth buying
+  // shifts night to night instead of the price list being static. Stacks
+  // independently on top of the featured item's flat 30% discount.
+  _rollTraderPrices() {
+    this.traderPriceMults = {}
+    for (const item of SHOP_ITEMS) {
+      this.traderPriceMults[item.id] = 0.75 + Math.random() * 0.6
+    }
+  }
+
+  _traderPrice(item) {
+    const mult = this.traderPriceMults?.[item.id] ?? 1
+    return Math.max(1, Math.round(item.cost * mult))
+  }
+
   _renderTraderOptions() {
     this.traderPointsLine.textContent = t('scrapLabel', { n: this.points })
     this.traderOptions.innerHTML = ''
 
     if (this.featuredItem) {
       const item = this.featuredItem
-      const cost = Math.round(item.cost * 0.7)
+      const cost = Math.round(this._traderPrice(item) * 0.7)
       const btn = document.createElement('button')
       btn.className = 'perk-option featured'
       btn.disabled = this.points < cost
@@ -2264,16 +2282,23 @@ export class Game {
 
     for (const item of SHOP_ITEMS) {
       if (item === this.featuredItem) continue
+      const cost = this._traderPrice(item)
+      const pctDelta = Math.round((cost / item.cost - 1) * 100)
+      const priceTagHtml = pctDelta <= -10
+        ? `<span class="price-tag price-down">${pctDelta}%</span>`
+        : pctDelta >= 10
+          ? `<span class="price-tag price-up">+${pctDelta}%</span>`
+          : ''
       const btn = document.createElement('button')
       btn.className = 'perk-option'
-      btn.disabled = this.points < item.cost
+      btn.disabled = this.points < cost
       btn.innerHTML = `
         <span class="perk-name">${t(item.titleKey)}</span>
-        <span class="perk-cost">${t('perkCostLabel', { n: item.cost })}</span>
+        <span class="perk-cost">${t('perkCostLabel', { n: cost })} ${priceTagHtml}</span>
       `
       btn.addEventListener('click', () => {
-        if (this.points < item.cost) return
-        this.points -= item.cost
+        if (this.points < cost) return
+        this.points -= cost
         item.give(this)
         this._updateStatsPanel()
         this._updateInventoryHud()
@@ -3946,6 +3971,7 @@ export class Game {
         this._scheduleNightEvent()
         this._rollWeather()
         this._rollFeaturedItem()
+        this._rollTraderPrices()
         this.chests.refillNight()
         this.barricadeWindows.onRoundStart()
         if (this._isRoundMode()) this.zombies.startRound(this.night)
