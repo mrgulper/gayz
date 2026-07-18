@@ -308,15 +308,15 @@ export function buildWorld(scene) {
   const generator = buildGenerator(scene, register)
   const trader = buildTraderStall(scene, register)
   const ammoStation = buildAmmoStation(scene, register)
-  const tunnel = buildTunnel(scene, colliders, solidMeshes, flickerLights)
-  towerChestSpots.push(tunnel.chestSpot)
-  spawnPoints.push({ x: tunnel.chestSpot.x, z: tunnel.chestSpot.z })
-  const vireoFacility = buildVireoFacility(scene, colliders, solidMeshes, flickerLights)
   const sewer = buildSewer(scene, colliders, solidMeshes, flickerLights)
   towerChestSpots.push(sewer.chestSpot)
   spawnPoints.push({ x: sewer.chestSpot.x, z: sewer.chestSpot.z })
   const subway = buildSubway(scene, colliders, solidMeshes, flickerLights)
   towerChestSpots.push(subway.chestSpot)
+  // Built after the subway - it's a straight continuation of that same
+  // corridor now (see buildVireoFacility), not a separate tunnel branch.
+  const vireoFacility = buildVireoFacility(scene, colliders, solidMeshes, flickerLights)
+  spawnPoints.push({ x: vireoFacility.exitSpot.x, z: vireoFacility.exitSpot.z })
   const safeZone = buildSafeZone(scene, colliders, solidMeshes)
 
   // Second area: a small park beyond the north end of the street, in the
@@ -661,210 +661,16 @@ function buildSafeZone(scene, colliders, solidMeshes) {
   return { x, z, radius: half - 0.5, guardSpots }
 }
 
-// Enclosed maintenance-tunnel shortcut off the avenue, between the two
-// existing chest lanes. Note: it stays at the same walkable ground level as
-// everywhere else - the player/zombie collision here is built on one
-// continuous flat ground raycast (see PlayerController._sampleGroundHeight),
-// so a true below-grade dig isn't practical without reworking that system.
-// It reads as underground instead: low concrete ceiling, no sky, dim
-// flickering lights, walled in on both sides.
-const TUNNEL_X = 5
-const TUNNEL_Z_START = 14
-const TUNNEL_Z_END = 36
-// Widened from the original 2.6/2.3 - with the 0.4-unit player radius and
-// no funnel at the mouth, that only left 1.8 units of centered travel room,
-// easy to clip a side wall on approach and bounce off feeling like the
-// tunnel just won't let you in.
-const TUNNEL_WIDTH = 3.4
-const TUNNEL_HEIGHT = 2.6
 
-function buildTunnel(scene, colliders, solidMeshes, flickerLights) {
-  const length = TUNNEL_Z_END - TUNNEL_Z_START
-  const centerZ = (TUNNEL_Z_START + TUNNEL_Z_END) / 2
-
-  const concreteMat = new THREE.MeshStandardMaterial({ color: 0x3a3a38, roughness: 0.95 })
-  const floorMat = new THREE.MeshStandardMaterial({ color: 0x26261f, roughness: 1 })
-
-  const floor = new THREE.Mesh(new THREE.BoxGeometry(TUNNEL_WIDTH, 0.08, length), floorMat)
-  floor.position.set(TUNNEL_X, 0.04, centerZ)
-  floor.receiveShadow = true
-  scene.add(floor)
-  solidMeshes.push(floor)
-
-  const ceiling = new THREE.Mesh(new THREE.BoxGeometry(TUNNEL_WIDTH + 0.4, 0.2, length), concreteMat)
-  ceiling.position.set(TUNNEL_X, TUNNEL_HEIGHT, centerZ)
-  ceiling.castShadow = true
-  scene.add(ceiling)
-  solidMeshes.push(ceiling)
-  colliders.push(new THREE.Box3().setFromObject(ceiling))
-
-  for (const side of [-1, 1]) {
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, TUNNEL_HEIGHT, length), concreteMat)
-    wall.position.set(TUNNEL_X + side * (TUNNEL_WIDTH / 2 + 0.1), TUNNEL_HEIGHT / 2, centerZ)
-    wall.castShadow = true
-    wall.receiveShadow = true
-    scene.add(wall)
-    solidMeshes.push(wall)
-    colliders.push(new THREE.Box3().setFromObject(wall))
-  }
-
-  // Support ribs every few meters, each with its own dim flickering light -
-  // reuses the same {light, base, seed} shape Game.js's _updateFlicker expects.
-  const ribSpacing = 6
-  const ribCount = Math.floor(length / ribSpacing)
-  for (let i = 1; i < ribCount; i++) {
-    const z = TUNNEL_Z_START + ribSpacing * i
-    const rib = new THREE.Mesh(new THREE.BoxGeometry(TUNNEL_WIDTH + 0.4, 0.15, 0.15), concreteMat)
-    rib.position.set(TUNNEL_X, TUNNEL_HEIGHT - 0.1, z)
-    scene.add(rib)
-
-    const light = new THREE.PointLight(0xffcf7a, 0.9, 5, 2)
-    light.position.set(TUNNEL_X, TUNNEL_HEIGHT - 0.3, z)
-    scene.add(light)
-    flickerLights.push({ light, base: 0.9, seed: Math.random() * 100 })
-  }
-
-  return { chestSpot: { x: TUNNEL_X, y: 0, z: centerZ } }
-}
-
-// Hidden VIREO sub-level at the tunnel's far end - the "final reveal"
-// location: hazard lighting, lab clutter, and a terminal (see Game.js's
-// nearVireoTerminal handling) that pays off the audio log arc. Also where
-// the UV Lamp weapon pickup lives (see Game.js's spawnUnique('uvlamp', ...)).
-const FACILITY_X = TUNNEL_X
-const FACILITY_Z_START = TUNNEL_Z_END
-const FACILITY_Z_END = TUNNEL_Z_END + 16
-const FACILITY_WIDTH = TUNNEL_WIDTH
-const FACILITY_HEIGHT = TUNNEL_HEIGHT
-
-function buildVireoFacility(scene, colliders, solidMeshes, flickerLights) {
-  const length = FACILITY_Z_END - FACILITY_Z_START
-  const centerZ = (FACILITY_Z_START + FACILITY_Z_END) / 2
-
-  const wallMat = new THREE.MeshStandardMaterial({ color: 0x2a1418, roughness: 0.9 })
-
-  const stripeCanvas = document.createElement('canvas')
-  stripeCanvas.width = 64
-  stripeCanvas.height = 64
-  const stripeCtx = stripeCanvas.getContext('2d')
-  stripeCtx.fillStyle = '#1c1614'
-  stripeCtx.fillRect(0, 0, 64, 64)
-  stripeCtx.fillStyle = '#d4a017'
-  for (let i = -64; i < 64; i += 16) {
-    stripeCtx.save()
-    stripeCtx.beginPath()
-    stripeCtx.moveTo(i, 64)
-    stripeCtx.lineTo(i + 8, 64)
-    stripeCtx.lineTo(i + 8 + 64, 0)
-    stripeCtx.lineTo(i + 64, 0)
-    stripeCtx.closePath()
-    stripeCtx.fill()
-    stripeCtx.restore()
-  }
-  const stripeTexture = new THREE.CanvasTexture(stripeCanvas)
-  stripeTexture.wrapS = THREE.RepeatWrapping
-  stripeTexture.wrapT = THREE.RepeatWrapping
-  stripeTexture.repeat.set(1, length / 2)
-  const floorMat = new THREE.MeshStandardMaterial({ map: stripeTexture, roughness: 1 })
-
-  const floor = new THREE.Mesh(new THREE.BoxGeometry(FACILITY_WIDTH, 0.08, length), floorMat)
-  floor.position.set(FACILITY_X, 0.04, centerZ)
-  floor.receiveShadow = true
-  scene.add(floor)
-  solidMeshes.push(floor)
-
-  const ceiling = new THREE.Mesh(new THREE.BoxGeometry(FACILITY_WIDTH + 0.4, 0.2, length), wallMat)
-  ceiling.position.set(FACILITY_X, FACILITY_HEIGHT, centerZ)
-  ceiling.castShadow = true
-  scene.add(ceiling)
-  solidMeshes.push(ceiling)
-  colliders.push(new THREE.Box3().setFromObject(ceiling))
-
-  for (const side of [-1, 1]) {
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, FACILITY_HEIGHT, length), wallMat)
-    wall.position.set(FACILITY_X + side * (FACILITY_WIDTH / 2 + 0.1), FACILITY_HEIGHT / 2, centerZ)
-    wall.castShadow = true
-    wall.receiveShadow = true
-    scene.add(wall)
-    solidMeshes.push(wall)
-    colliders.push(new THREE.Box3().setFromObject(wall))
-  }
-
-  const endWall = new THREE.Mesh(new THREE.BoxGeometry(FACILITY_WIDTH + 0.4, FACILITY_HEIGHT, 0.2), wallMat)
-  endWall.position.set(FACILITY_X, FACILITY_HEIGHT / 2, FACILITY_Z_END)
-  endWall.castShadow = true
-  scene.add(endWall)
-  solidMeshes.push(endWall)
-  colliders.push(new THREE.Box3().setFromObject(endWall))
-
-  const lightSpacing = 5
-  const lightCount = Math.floor(length / lightSpacing)
-  for (let i = 1; i < lightCount; i++) {
-    const z = FACILITY_Z_START + lightSpacing * i
-    const light = new THREE.PointLight(0xff2222, 1.0, 6, 2)
-    light.position.set(FACILITY_X, FACILITY_HEIGHT - 0.3, z)
-    scene.add(light)
-    flickerLights.push({ light, base: 1.0, seed: Math.random() * 100 })
-  }
-
-  const propMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.8 })
-  const propSpots = [
-    { x: FACILITY_X - 0.7, z: FACILITY_Z_START + 4, w: 0.5, h: 0.9, d: 0.5 },
-    { x: FACILITY_X + 0.7, z: FACILITY_Z_START + 8, w: 0.6, h: 0.6, d: 0.6 },
-  ]
-  for (const p of propSpots) {
-    const box = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, p.d), propMat)
-    box.position.set(p.x, p.h / 2, p.z)
-    box.castShadow = true
-    scene.add(box)
-    solidMeshes.push(box)
-    colliders.push(new THREE.Box3().setFromObject(box))
-  }
-
-  const terminalZ = FACILITY_Z_END - 2
-  const terminalMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.6 })
-  const terminalBody = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.1, 0.4), terminalMat)
-  terminalBody.position.set(FACILITY_X, 0.55, terminalZ)
-  terminalBody.castShadow = true
-  scene.add(terminalBody)
-  solidMeshes.push(terminalBody)
-  colliders.push(new THREE.Box3().setFromObject(terminalBody))
-
-  const screenCanvas = document.createElement('canvas')
-  screenCanvas.width = 128
-  screenCanvas.height = 96
-  const screenCtx = screenCanvas.getContext('2d')
-  screenCtx.fillStyle = '#050a05'
-  screenCtx.fillRect(0, 0, screenCanvas.width, screenCanvas.height)
-  screenCtx.fillStyle = '#3fff6a'
-  screenCtx.font = '10px monospace'
-  screenCtx.fillText('VIREO OS', 8, 16)
-  screenCtx.fillText('SUBJECT LOG', 8, 32)
-  screenCtx.fillText('...', 8, 48)
-  screenCtx.fillText('[ACCESS]', 8, 72)
-  const screenTexture = new THREE.CanvasTexture(screenCanvas)
-  const screenMat = new THREE.MeshStandardMaterial({
-    map: screenTexture,
-    emissive: 0xffffff,
-    emissiveMap: screenTexture,
-    emissiveIntensity: 0.8,
-  })
-  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.38), screenMat)
-  screen.position.set(FACILITY_X, 0.85, terminalZ + 0.21)
-  scene.add(screen)
-
-  return { terminalSpot: { x: FACILITY_X, z: terminalZ }, uvLampSpot: { x: FACILITY_X, z: FACILITY_Z_START + 6 } }
-}
-
-// Second hidden biome, mirrored to the west side of the avenue (the tunnel
-// and VIREO facility are both east, at x=5) - a grimy sewer corridor, home
-// to the Sewer Dweller zombie type (see ZombieTypes.js). Same enclosed
-// wall/ceiling/floor construction as the tunnel, just re-themed.
+// Second hidden biome - a grimy sewer corridor, home to the Sewer Dweller
+// zombie type (see ZombieTypes.js). Same enclosed wall/ceiling/floor
+// construction as the subway corridor, just re-themed.
 const SEWER_X = -5
 const SEWER_Z_START = 34
 const SEWER_Z_END = 50
-// Same widening as the tunnel (see TUNNEL_WIDTH/HEIGHT) - too tight to
-// reliably walk into with no funnel at the mouth.
+// Widened enough that the 0.4-unit player radius has real room to walk in
+// with no funnel at the mouth - too tight a corridor bounces the player off
+// a side wall on approach and reads as the entrance not letting them in.
 const SEWER_WIDTH = 3.4
 const SEWER_HEIGHT = 2.4
 
@@ -925,8 +731,8 @@ function buildSewer(scene, colliders, solidMeshes, flickerLights) {
   return { chestSpot: { x: SEWER_X, y: 0, z: SEWER_Z_START + length / 2 } }
 }
 
-// A genuine below-ground level (unlike the tunnel/sewer above, which sit at
-// street floor height inside walled corridors) - a street-level entrance
+// A genuine below-ground level (unlike the sewer above, which sits at
+// street floor height inside a walled corridor) - a street-level entrance
 // kiosk with a descending staircase (see buildStairFlight, the same
 // primitive the lookout-tower platforms use, just run downward instead of
 // up) into a subway platform at SUBWAY_FLOOR_Y, dressed with a platform
@@ -1012,12 +818,12 @@ function buildSubway(scene, colliders, solidMeshes, flickerLights) {
   solidMeshes.push(endWallStart)
   colliders.push(new THREE.Box3().setFromObject(endWallStart))
 
-  const endWallFar = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH + 0.4, SUBWAY_HEIGHT, 0.2), wallMat)
-  endWallFar.position.set(SUBWAY_X, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT / 2, SUBWAY_Z_END)
-  endWallFar.castShadow = true
-  scene.add(endWallFar)
-  solidMeshes.push(endWallFar)
-  colliders.push(new THREE.Box3().setFromObject(endWallFar))
+  // No far-end wall here (unlike endWallStart) - the corridor continues
+  // straight into the VIREO facility extension instead of dead-ending, see
+  // buildVireoFacility, which now attaches right at SUBWAY_Z_END and is
+  // this subway's second exit (surfacing further down the line) as well as
+  // where the UV Lamp pickup + terminal now live, replacing their old
+  // standalone-tunnel entrance.
 
   // Raised platform running down one side, with rails + a stalled train car
   // in the trackbed on the other side - the two details that actually read
@@ -1066,6 +872,168 @@ function buildSubway(scene, colliders, solidMeshes, flickerLights) {
   }
 
   return { chestSpot: { x: SUBWAY_X, y: SUBWAY_FLOOR_Y, z: SUBWAY_Z_START + 3 } }
+}
+
+// Hidden VIREO sub-level - used to branch off a standalone surface tunnel,
+// now instead a straight continuation of the subway corridor past
+// SUBWAY_Z_END (no wall between them, see buildSubway's endWallFar removal)
+// so reaching it means riding the subway stairs down rather than finding a
+// separate tunnel entrance. Hazard lighting, lab clutter, and a terminal
+// (see Game.js's nearVireoTerminal handling) that pays off the audio log
+// arc, plus the UV Lamp weapon pickup (see Game.js's spawnUnique('uvlamp',
+// ...)) right where the corridor opens up. Past the terminal, a second
+// staircase climbs back to street level - the subway's exit, so the whole
+// underground loop doesn't dead-end back the way you came.
+const FACILITY_X = SUBWAY_X
+const FACILITY_Z_START = SUBWAY_Z_END
+const FACILITY_Z_END = SUBWAY_Z_END + 16
+const FACILITY_WIDTH = SUBWAY_WIDTH
+const FACILITY_HEIGHT = SUBWAY_HEIGHT
+const FACILITY_STAIR_BOTTOM_Z = FACILITY_Z_END - 1.5
+const FACILITY_EXIT_Z = FACILITY_Z_END + 3
+
+function buildVireoFacility(scene, colliders, solidMeshes, flickerLights) {
+  const length = FACILITY_STAIR_BOTTOM_Z - FACILITY_Z_START
+  const centerZ = FACILITY_Z_START + length / 2
+
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x2a1418, roughness: 0.9 })
+
+  const stripeCanvas = document.createElement('canvas')
+  stripeCanvas.width = 64
+  stripeCanvas.height = 64
+  const stripeCtx = stripeCanvas.getContext('2d')
+  stripeCtx.fillStyle = '#1c1614'
+  stripeCtx.fillRect(0, 0, 64, 64)
+  stripeCtx.fillStyle = '#d4a017'
+  for (let i = -64; i < 64; i += 16) {
+    stripeCtx.save()
+    stripeCtx.beginPath()
+    stripeCtx.moveTo(i, 64)
+    stripeCtx.lineTo(i + 8, 64)
+    stripeCtx.lineTo(i + 8 + 64, 0)
+    stripeCtx.lineTo(i + 64, 0)
+    stripeCtx.closePath()
+    stripeCtx.fill()
+    stripeCtx.restore()
+  }
+  const stripeTexture = new THREE.CanvasTexture(stripeCanvas)
+  stripeTexture.wrapS = THREE.RepeatWrapping
+  stripeTexture.wrapT = THREE.RepeatWrapping
+  stripeTexture.repeat.set(1, length / 2)
+  const floorMat = new THREE.MeshStandardMaterial({ map: stripeTexture, roughness: 1 })
+
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(FACILITY_WIDTH, 0.08, length), floorMat)
+  floor.position.set(FACILITY_X, SUBWAY_FLOOR_Y + 0.04, centerZ)
+  floor.receiveShadow = true
+  scene.add(floor)
+  solidMeshes.push(floor)
+
+  const ceiling = new THREE.Mesh(new THREE.BoxGeometry(FACILITY_WIDTH + 0.4, 0.2, length), wallMat)
+  ceiling.position.set(FACILITY_X, SUBWAY_FLOOR_Y + FACILITY_HEIGHT, centerZ)
+  ceiling.castShadow = true
+  scene.add(ceiling)
+  solidMeshes.push(ceiling)
+  colliders.push(new THREE.Box3().setFromObject(ceiling))
+
+  for (const side of [-1, 1]) {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, FACILITY_HEIGHT, length), wallMat)
+    wall.position.set(FACILITY_X + side * (FACILITY_WIDTH / 2 + 0.1), SUBWAY_FLOOR_Y + FACILITY_HEIGHT / 2, centerZ)
+    wall.castShadow = true
+    wall.receiveShadow = true
+    scene.add(wall)
+    solidMeshes.push(wall)
+    colliders.push(new THREE.Box3().setFromObject(wall))
+  }
+
+  const lightSpacing = 5
+  const lightCount = Math.floor(length / lightSpacing)
+  for (let i = 1; i < lightCount; i++) {
+    const z = FACILITY_Z_START + lightSpacing * i
+    const light = new THREE.PointLight(0xff2222, 1.0, 6, 2)
+    light.position.set(FACILITY_X, SUBWAY_FLOOR_Y + FACILITY_HEIGHT - 0.3, z)
+    scene.add(light)
+    flickerLights.push({ light, base: 1.0, seed: Math.random() * 100 })
+  }
+
+  const propMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.8 })
+  const propSpots = [
+    { x: FACILITY_X - 0.7, z: FACILITY_Z_START + 4, w: 0.5, h: 0.9, d: 0.5 },
+    { x: FACILITY_X + 0.7, z: FACILITY_Z_START + 8, w: 0.6, h: 0.6, d: 0.6 },
+  ]
+  for (const p of propSpots) {
+    const box = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, p.d), propMat)
+    box.position.set(p.x, SUBWAY_FLOOR_Y + p.h / 2, p.z)
+    box.castShadow = true
+    scene.add(box)
+    solidMeshes.push(box)
+    colliders.push(new THREE.Box3().setFromObject(box))
+  }
+
+  const terminalZ = FACILITY_STAIR_BOTTOM_Z - 3
+  const terminalMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.6 })
+  const terminalBody = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.1, 0.4), terminalMat)
+  terminalBody.position.set(FACILITY_X, SUBWAY_FLOOR_Y + 0.55, terminalZ)
+  terminalBody.castShadow = true
+  scene.add(terminalBody)
+  solidMeshes.push(terminalBody)
+  colliders.push(new THREE.Box3().setFromObject(terminalBody))
+
+  const screenCanvas = document.createElement('canvas')
+  screenCanvas.width = 128
+  screenCanvas.height = 96
+  const screenCtx = screenCanvas.getContext('2d')
+  screenCtx.fillStyle = '#050a05'
+  screenCtx.fillRect(0, 0, screenCanvas.width, screenCanvas.height)
+  screenCtx.fillStyle = '#3fff6a'
+  screenCtx.font = '10px monospace'
+  screenCtx.fillText('VIREO OS', 8, 16)
+  screenCtx.fillText('SUBJECT LOG', 8, 32)
+  screenCtx.fillText('...', 8, 48)
+  screenCtx.fillText('[ACCESS]', 8, 72)
+  const screenTexture = new THREE.CanvasTexture(screenCanvas)
+  const screenMat = new THREE.MeshStandardMaterial({
+    map: screenTexture,
+    emissive: 0xffffff,
+    emissiveMap: screenTexture,
+    emissiveIntensity: 0.8,
+  })
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.38), screenMat)
+  screen.position.set(FACILITY_X, SUBWAY_FLOOR_Y + 0.85, terminalZ + 0.21)
+  scene.add(screen)
+
+  // Second staircase back up to street level - the subway's exit, on the
+  // opposite side of the loop from the entrance kiosk (see buildSubway).
+  buildStairFlight(
+    scene, solidMeshes,
+    FACILITY_X, FACILITY_STAIR_BOTTOM_Z, SUBWAY_FLOOR_Y,
+    FACILITY_X, FACILITY_EXIT_Z, 0,
+    18
+  )
+
+  const exitKioskMat = new THREE.MeshStandardMaterial({ color: 0x1c1a16, roughness: 0.85 })
+  const exitKioskHalfW = FACILITY_WIDTH / 2 + 0.3
+  const exitKioskRoof = new THREE.Mesh(new THREE.BoxGeometry(exitKioskHalfW * 2, 0.25, 3), exitKioskMat)
+  exitKioskRoof.position.set(FACILITY_X, 2.6, FACILITY_EXIT_Z)
+  exitKioskRoof.castShadow = true
+  scene.add(exitKioskRoof)
+  solidMeshes.push(exitKioskRoof)
+  colliders.push(new THREE.Box3().setFromObject(exitKioskRoof))
+  for (const [ox, oz] of [[-exitKioskHalfW, -1.5], [-exitKioskHalfW, 1.5], [exitKioskHalfW, -1.5], [exitKioskHalfW, 1.5]]) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.6, 0.2), exitKioskMat)
+    post.position.set(FACILITY_X + ox, 1.3, FACILITY_EXIT_Z + oz)
+    post.castShadow = true
+    scene.add(post)
+  }
+  const exitSign = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.4, 0.06), new THREE.MeshStandardMaterial({ color: 0x0a1408, emissive: 0x4ee06f, emissiveIntensity: 1 }))
+  exitSign.position.set(FACILITY_X, 2.3, FACILITY_EXIT_Z + 1.51)
+  scene.add(exitSign)
+
+  return {
+    terminalSpot: { x: FACILITY_X, z: terminalZ },
+    uvLampSpot: { x: FACILITY_X, z: FACILITY_Z_START + 6 },
+    floorY: SUBWAY_FLOOR_Y,
+    exitSpot: { x: FACILITY_X, z: FACILITY_EXIT_Z },
+  }
 }
 
 function addStreetMarkings(scene) {

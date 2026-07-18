@@ -1463,6 +1463,36 @@ html, body {
   opacity: 0.75;
 }
 
+.audio-value-editable {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px 4px;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.audio-value-editable:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.audio-value-input {
+  width: 52px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(227, 166, 60, 0.6);
+  border-radius: 4px;
+  padding: 2px 4px;
+  justify-self: end;
+}
+
+.audio-value-input::-webkit-inner-spin-button,
+.audio-value-input::-webkit-outer-spin-button {
+  opacity: 1;
+}
+
 #settings-hint {
   margin-top: 16px;
   font-size: 13px;

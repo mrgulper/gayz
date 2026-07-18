@@ -191,6 +191,7 @@ function saveBestStats(stats) {
 // currency balance and anything already owned survive a reload, without
 // touching the rest of the run-state reset behavior on death/respawn.
 const SHOP_PROGRESS_KEY = 'gayz-shop-progress'
+const COIN_SHOP_GUN_IDS = new Set(COIN_SHOP_ITEMS.filter((i) => i.gun).map((i) => i.gun))
 
 function loadShopProgress() {
   try {
@@ -202,9 +203,15 @@ function loadShopProgress() {
       ownedSkins: new Set(parsed.ownedSkins || []),
       equippedSkin: parsed.equippedSkin || null,
       shopPurchased: new Set(parsed.shopPurchased || []),
+      // Coin Shop gun purchases (minigun/awp/glock18/weatie) - previously
+      // never saved, so a bought gun's `unlocked` flag (pure in-memory
+      // WeaponSystem state) vanished on the next page load even though the
+      // coins were already spent. Restored via WeaponSystem.markUnlocked
+      // right after the weapons instance is built (see the constructor).
+      unlockedGuns: parsed.unlockedGuns || [],
     }
   } catch {
-    return { points: 0, coins: 0, ownedSkins: new Set(), equippedSkin: null, shopPurchased: new Set() }
+    return { points: 0, coins: 0, ownedSkins: new Set(), equippedSkin: null, shopPurchased: new Set(), unlockedGuns: [] }
   }
 }
 
@@ -216,6 +223,7 @@ function saveShopProgress(game) {
       ownedSkins: [...game.ownedSkins],
       equippedSkin: game.equippedSkin,
       shopPurchased: [...game.coinShopPurchased],
+      unlockedGuns: game.weapons.weapons.filter((w) => w.unlocked && COIN_SHOP_GUN_IDS.has(w.id)).map((w) => w.id),
     }))
   } catch {
     // Storage unavailable - shop progress just won't persist across sessions.
@@ -599,9 +607,13 @@ export class Game {
     this.pickups.spawnUnique('audiolog1', 0, -30, 0.5)
     this.pickups.spawnUnique('audiolog2', 0, 0, 0.5)
     this.pickups.spawnUnique('audiolog3', 0, 30, 0.5)
-    this.pickups.spawnUnique('audiolog4', 5, 18, 0.5)
+    // Used to sit in the standalone surface tunnel - that tunnel is gone
+    // (see World.js's buildVireoFacility, now a straight continuation of
+    // the subway instead), so this moves underground with it, tucked just
+    // past the UV Lamp spot along the same corridor.
+    this.pickups.spawnUnique('audiolog4', vireoFacility.uvLampSpot.x - 1.2, vireoFacility.uvLampSpot.z + 3, vireoFacility.floorY + 0.5)
     this.pickups.spawnUnique('audiolog5', 0, 60, 0.5)
-    this.pickups.spawnUnique('uvlamp', vireoFacility.uvLampSpot.x, vireoFacility.uvLampSpot.z, 0.5)
+    this.pickups.spawnUnique('uvlamp', vireoFacility.uvLampSpot.x, vireoFacility.uvLampSpot.z, vireoFacility.floorY + 0.5)
     this.audioLogsFound = new Set()
     this.chests = new ChestManager(this.scene, towerChestSpots)
     this.playerState = new PlayerState()
@@ -703,6 +715,11 @@ export class Game {
       },
       () => this._onStealthTakedown()
     )
+    // Restore previously-purchased Coin Shop guns (see saveShopProgress) -
+    // markUnlocked rather than unlockWeapon so restoring e.g. a past
+    // minigun purchase doesn't yank the equipped weapon away from melee on
+    // every fresh load.
+    for (const gunId of this.shopProgress.unlockedGuns) this.weapons.markUnlocked(gunId)
     this.ownedSkins = this.shopProgress.ownedSkins
     this.equippedSkin = this.shopProgress.equippedSkin
     // Only auto-grant+equip gold the first time the achievement unlocks -
@@ -713,7 +730,7 @@ export class Game {
       this.ownedSkins.add('gold')
       if (this.equippedSkin === null) this.equippedSkin = 'gold'
     }
-    if (this.equippedSkin) this.weapons.setWeaponSkin('pistol', this.equippedSkin)
+    if (this.equippedSkin) this.weapons.setSkinAllGuns(this.equippedSkin)
 
     audioEngine.setMusicVolume(this.settings.musicVolume / 100)
     audioEngine.setSfxVolume(this.settings.sfxVolume / 100)
@@ -1344,6 +1361,53 @@ export class Game {
     }
   }
 
+  // Swaps a slider's value label for a temporary <input type="number"> on
+  // click, so a precise number can be typed in instead of fighting the
+  // drag precision of a 0-100 (or 20-300) range - commits by re-dispatching
+  // the slider's own 'input' event so audio/FOV/sensitivity update through
+  // the exact same path a drag would use, no separate update logic to keep
+  // in sync.
+  _bindEditableSliderValue(valueEl, sliderEl) {
+    valueEl.classList.add('audio-value-editable')
+    valueEl.title = 'Click to type an exact value'
+    valueEl.addEventListener('click', () => {
+      if (valueEl.dataset.editing) return
+      valueEl.dataset.editing = '1'
+      const min = Number(sliderEl.min)
+      const max = Number(sliderEl.max)
+      const current = Number(sliderEl.value)
+      const input = document.createElement('input')
+      input.type = 'number'
+      input.min = min
+      input.max = max
+      input.value = current
+      input.className = 'audio-value-input'
+      valueEl.replaceWith(input)
+      input.focus()
+      input.select()
+
+      let settled = false
+      const finish = (commit) => {
+        if (settled) return
+        settled = true
+        if (commit) {
+          let v = Number(input.value)
+          if (Number.isNaN(v)) v = current
+          v = Math.max(min, Math.min(max, Math.round(v)))
+          sliderEl.value = v
+          sliderEl.dispatchEvent(new Event('input'))
+        }
+        delete valueEl.dataset.editing
+        input.replaceWith(valueEl)
+      }
+      input.addEventListener('keydown', (e) => {
+        if (e.code === 'Enter') { e.preventDefault(); finish(true) }
+        else if (e.code === 'Escape') { e.preventDefault(); finish(false) }
+      })
+      input.addEventListener('blur', () => finish(true))
+    })
+  }
+
   _bindSettings() {
     this.languageGrid.innerHTML = LANGUAGES.map((lang) => `
       <button class="language-btn${lang.code === this.settings.language ? ' active' : ''}" data-lang="${lang.code}">
@@ -1421,6 +1485,16 @@ export class Game {
       this.weapons.setBaseFov(value)
       saveSettings(this.settings)
     })
+
+    // Click any of the four value labels above to type an exact number
+    // instead of dragging the slider - the slider itself stays as the
+    // primary control, this just re-dispatches its own 'input' event so
+    // every existing listener (audio engine, saveSettings, HUD text) fires
+    // exactly the same way it would from a drag.
+    this._bindEditableSliderValue(this.musicVolumeValue, this.musicVolumeSlider)
+    this._bindEditableSliderValue(this.sfxVolumeValue, this.sfxVolumeSlider)
+    this._bindEditableSliderValue(this.sensitivityValue, this.sensitivitySlider)
+    this._bindEditableSliderValue(this.fovValue, this.fovSlider)
 
     this.colorblindToggle.checked = this.settings.colorblind
     setColorblind(this.settings.colorblind)
@@ -1937,10 +2011,12 @@ export class Game {
     this.upgradesPanel.style.display = 'none'
   }
 
-  // Cosmetic pistol skins bought with coins live in this same panel (see
-  // CoinShop.js) rather than a separate Skins shop - 'gold' may already be
-  // owned+equipped for free via the Centurion achievement (see the
-  // constructor), and both skins and stat perks share this one render loop.
+  // Cosmetic skins bought with coins live in this same panel (see
+  // CoinShop.js) rather than a separate Skins shop - equipping one reskins
+  // every gun at once (see WeaponSystem.setSkinAllGuns), not just one
+  // weapon. 'gold' may already be owned+equipped for free via the Centurion
+  // achievement (see the constructor), and both skins and stat perks share
+  // this one render loop.
   _openCoinShopPanel() {
     this.coinshopPanel.style.display = 'flex'
     this.coinshopPanelTitle.textContent = t('coinshopPanelTitle')
@@ -1954,6 +2030,7 @@ export class Game {
 
     const sections = [
       { id: 'guns', labelKey: 'shopSectionGuns' },
+      { id: 'weapons', labelKey: 'shopSectionWeapons' },
       { id: 'skins', labelKey: 'shopSectionSkins' },
       { id: 'perks', labelKey: 'shopSectionPerks' },
     ]
@@ -1968,6 +2045,32 @@ export class Game {
       row.className = 'perk-options shop-section-row'
       this.coinshopOptions.appendChild(row)
 
+      // Every weapon the player has (or could buy) in one place, so
+      // switching back to an already-owned gun never depends on
+      // remembering its number key - buying a gun elsewhere in this same
+      // panel doesn't auto-refresh this list, but closing/reopening Shop
+      // does (see _renderCoinShopOptions being re-run on every purchase).
+      if (section.id === 'weapons') {
+        for (const w of this.weapons.getSummary()) {
+          if (w.id === 'uvlamp') continue
+          const btn = document.createElement('button')
+          btn.className = 'perk-option'
+          const equipped = this.weapons.current.id === w.id
+          btn.disabled = equipped || !w.unlocked
+          btn.innerHTML = `
+            <span class="perk-name">${t(w.nameKey)}</span>
+            <span class="perk-cost">${equipped ? t('skinEquipped') : w.unlocked ? t('skinEquip') : t('lockedLabel')}</span>
+          `
+          btn.addEventListener('click', () => {
+            if (equipped || !w.unlocked) return
+            const index = this.weapons.weapons.findIndex((ww) => ww.id === w.id)
+            if (index !== -1) this.weapons.switchToIndex(index)
+            this._renderCoinShopOptions()
+          })
+          row.appendChild(btn)
+        }
+      }
+
       // The "unequip skin" option belongs at the front of the Skins
       // section, not as its own top-level item outside any section.
       if (section.id === 'skins') {
@@ -1980,7 +2083,7 @@ export class Game {
         `
         defaultBtn.addEventListener('click', () => {
           this.equippedSkin = null
-          this.weapons.setWeaponSkin('pistol', null)
+          this.weapons.setSkinAllGuns(null)
           this._renderCoinShopOptions()
         })
         row.appendChild(defaultBtn)
@@ -2008,7 +2111,7 @@ export class Game {
               this._updateStatsPanel()
             }
             this.equippedSkin = item.skin
-            this.weapons.setWeaponSkin('pistol', item.skin)
+            this.weapons.setSkinAllGuns(item.skin)
             this._renderCoinShopOptions()
           })
         } else if (item.gun) {

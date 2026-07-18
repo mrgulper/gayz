@@ -98,13 +98,20 @@ const SKIN_TINTS = {
   ember: { color: 0xd45a1a, emissive: 0xff7a1a },
 }
 
+// Shared skin-tint lookup - every gun builder tints its own main body/
+// receiver/slide mesh with this instead of the plain METAL material when a
+// skinId is equipped (see WeaponSystem.setWeaponSkin, called per-weapon so
+// every owned gun reflects the equipped skin, not just the pistol).
+function skinMaterial(skinId, base = METAL) {
+  const tint = SKIN_TINTS[skinId]
+  if (!tint) return base
+  return new THREE.MeshStandardMaterial({ color: tint.color, roughness: 0.25, metalness: 0.9, emissive: tint.emissive, emissiveIntensity: 0.3 })
+}
+
 function buildPistol(skinId = null) {
   const g = new THREE.Group()
 
-  const tint = SKIN_TINTS[skinId]
-  const slideMat = tint
-    ? new THREE.MeshStandardMaterial({ color: tint.color, roughness: 0.25, metalness: 0.9, emissive: tint.emissive, emissiveIntensity: 0.3 })
-    : METAL
+  const slideMat = skinMaterial(skinId)
   const slide = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.09, 0.26), slideMat)
   slide.position.set(0, 0.04, 0)
   g.add(slide)
@@ -162,10 +169,10 @@ function buildUvLamp() {
   return g
 }
 
-function buildRifle() {
+function buildRifle(skinId = null) {
   const g = new THREE.Group()
 
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.1, 0.48), METAL)
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.1, 0.48), skinMaterial(skinId))
   body.position.set(0, 0.02, -0.05)
   g.add(body)
 
@@ -355,10 +362,10 @@ function buildMelee() {
 
 // Bare gun geometry only, no hands - reused for both the FPS viewmodel and
 // the world-space floating pickup, which shouldn't carry disembodied hands.
-export function buildMinigunModel() {
+export function buildMinigunModel(skinId = null) {
   const g = new THREE.Group()
 
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.13, 0.22), METAL)
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.13, 0.22), skinMaterial(skinId))
   body.position.set(0, 0, 0.02)
   g.add(body)
 
@@ -397,8 +404,8 @@ export function buildMinigunModel() {
   return g
 }
 
-function buildMinigun() {
-  const g = buildMinigunModel()
+function buildMinigun(skinId = null) {
+  const g = buildMinigunModel(skinId)
   const { grip, handleBar, barrelCluster } = g.userData
 
   attachHandToGrip(g, grip)
@@ -416,10 +423,10 @@ function buildMinigun() {
 
 // Glock 18 - a chunkier M1911 with an extended mag and a vented compensator
 // at the muzzle, reading as a machine pistol rather than a duplicate pistol.
-function buildGlock18() {
+function buildGlock18(skinId = null) {
   const g = new THREE.Group()
 
-  const slide = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.095, 0.24), METAL)
+  const slide = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.095, 0.24), skinMaterial(skinId))
   slide.position.set(0, 0.04, 0)
   g.add(slide)
 
@@ -455,10 +462,10 @@ function buildGlock18() {
 
 // Weatie - pump-action shotgun: wide barrel, a tube magazine slung under it,
 // and a cylindrical pump foregrip instead of the rifle's boxy one.
-function buildShotgun() {
+function buildShotgun(skinId = null) {
   const g = new THREE.Group()
 
-  const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.1, 0.22), DARK_METAL)
+  const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.1, 0.22), skinMaterial(skinId, DARK_METAL))
   receiver.position.set(0, 0.02, 0.06)
   g.add(receiver)
 
@@ -501,10 +508,10 @@ function buildShotgun() {
 
 // AWP - long thin bolt-action barrel, a raised scope tube on top (the main
 // visual tell versus the rifle/other long guns), and a boxy stock.
-function buildAwp() {
+function buildAwp(skinId = null) {
   const g = new THREE.Group()
 
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.09, 0.5), METAL)
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.09, 0.5), skinMaterial(skinId))
   body.position.set(0, 0.02, -0.02)
   g.add(body)
 

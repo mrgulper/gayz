@@ -226,13 +226,24 @@ export class WeaponSystem {
     return this.weapons[this.currentIndex]
   }
 
+  // Marks a gun owned without switching to it - used to restore Coin Shop
+  // purchases on page load (see Game.js's shopProgress.unlockedGuns), where
+  // auto-equipping whichever gun happens to be last in the saved list would
+  // silently override the player's actual last-equipped weapon.
+  markUnlocked(id) {
+    const w = this.weapons.find((w) => w.id === id)
+    if (!w) return
+    w.unlocked = true
+    w.ammoInMag = w.magSize
+    w.ammoReserve = w.reserve
+  }
+
+  // A fresh purchase (Coin Shop) both unlocks and equips the gun, since
+  // that's what the player just spent coins on and expects to see in hand.
   unlockWeapon(id) {
+    this.markUnlocked(id)
     const index = this.weapons.findIndex((w) => w.id === id)
-    if (index === -1) return
-    this.weapons[index].unlocked = true
-    this.weapons[index].ammoInMag = this.weapons[index].magSize
-    this.weapons[index].ammoReserve = this.weapons[index].reserve
-    this._switchTo(index)
+    if (index !== -1) this._switchTo(index)
   }
 
   attachScope(id) {
@@ -291,6 +302,16 @@ export class WeaponSystem {
     vm.visible = wasVisible
     this.viewmodelRoot.add(vm)
     this.viewmodels[weaponId] = vm
+  }
+
+  // Coin Shop skins apply to every gun at once (melee/UV lamp excluded -
+  // neither reads as a "gun" cosmetically) instead of just the pistol, so
+  // buying one skin reskins the whole loadout.
+  setSkinAllGuns(skinId) {
+    for (const w of this.weapons) {
+      if (w.melee || w.id === 'uvlamp') continue
+      this.setWeaponSkin(w.id, skinId)
+    }
   }
 
   // Settings hook: keeps ADS zoom math (which lerps from defaultFov) correct
