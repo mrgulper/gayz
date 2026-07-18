@@ -479,11 +479,11 @@ function buildGenerator(scene, register) {
 // sign - where scrap earned from kills can be spent on supplies (see
 // Game.js's trader panel).
 function buildTraderStall(scene, register) {
-  // Pushed to the far end of the avenue (same safe x-lane the chest spots
-  // already use) instead of sitting right next to spawn, so it reads as a
-  // destination to walk to rather than clutter in the middle of the map.
-  const x = -8
-  const z = 33
+  // Inside the safe zone compound (x:-13 z:-10, half:7 - see buildSafeZone)
+  // instead of out on the open avenue, so both "spend points" stops sit
+  // behind the guarded wall together.
+  const x = -16
+  const z = -12
 
   const group = new THREE.Group()
   group.position.set(x, 0, z)
@@ -523,7 +523,7 @@ function buildTraderStall(scene, register) {
   scene.add(group)
   register(counter)
 
-  return { x, z, signMat }
+  return { x, z, signMat, mesh: counter }
 }
 
 // Ammo refill kiosk near spawn - hold the interact key here for a few
@@ -531,11 +531,11 @@ function buildTraderStall(scene, register) {
 // pickups alone (see Game.js's _updateAmmoStation). Kept well clear of the
 // generator/trader stall so all three street props read as distinct spots.
 function buildAmmoStation(scene, register) {
-  // Right next to the trader stall (see buildTraderStall, x:-8 z:33) so both
-  // "spend points here" stops read as one destination/corner instead of
-  // being split to opposite ends of the avenue.
-  const x = -3
-  const z = 29
+  // Also inside the safe zone, next to the trader stall (see
+  // buildTraderStall, x:-16 z:-12) - both spend-points-here stops behind
+  // the same guarded wall.
+  const x = -10
+  const z = -12
 
   const group = new THREE.Group()
   group.position.set(x, 0, z)
@@ -589,7 +589,7 @@ function buildAmmoStation(scene, register) {
   scene.add(group)
   register(body)
 
-  return { x, z, buttonMat }
+  return { x, z, buttonMat, mesh: body }
 }
 
 // A walled compound with a single entrance gap - guard NPCs (see Game.js,

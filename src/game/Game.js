@@ -499,6 +499,7 @@ export class Game {
     this._tpYawQuat = new THREE.Quaternion()
     this._tpRayDir = new THREE.Vector3()
     this._tpRaycaster = new THREE.Raycaster()
+    this._traderRaycaster = new THREE.Raycaster()
 
     // Post-processing: render pass -> bloom (makes practical lights - street
     // lamps, muzzle flash, headlights, neon signage - actually glow instead
@@ -575,12 +576,17 @@ export class Game {
     // they just stand there with an instructional label instead of
     // following/fighting like every other Companion instance.
     this.traderGuideNpc = new Companion(this.scene, trader.x + 1.6, trader.z - 1.4, 'ranged')
-    this.traderGuideNpc.setName('Press F here to trade points for supplies')
+    this.traderGuideNpc.setName('Click the trader to trade points for supplies')
     this.ammoGuideNpc = new Companion(this.scene, ammoStation.x - 1.4, ammoStation.z - 1.2, 'ranged')
     this.ammoGuideNpc.setName('Hold F here to refill reserve ammo')
     this.companion = new Companion(this.scene, 1.6, 7, this.settings.companionRole)
     this.playerBody = new PlayerBody(this.scene)
-    this.vehicle = new Vehicle(this.scene, -6, -18, 0)
+    // Was (-6, -18) - right against the safe zone's east wall (x:-13 z:-10,
+    // half:7 -> wall at x=-6, z -17..-3), so the car's own collider spawned
+    // already overlapping it and could never find a non-colliding direction
+    // to move in (see Vehicle._tryMove - it has no "push clear" recovery,
+    // just refuses any move that would still intersect). Moved well clear.
+    this.vehicle = new Vehicle(this.scene, -6, 22, 0)
     this.driving = false
     this.nearVehicle = false
     this._vehicleSeatPos = new THREE.Vector3()
@@ -714,6 +720,7 @@ export class Game {
 
     this._bindMenu()
     this._bindScreenshotCrop()
+    this._bindTraderClick()
     // Safety net alongside the _updateStatsPanel save hook - catches a
     // close/reload happening between the last stats-panel update and now.
     window.addEventListener('beforeunload', () => saveShopProgress(this))
@@ -860,14 +867,17 @@ export class Game {
     this.player.controls.addEventListener('unlock', () => {
       this.inventoryOpen = false
       this.inventoryPanel.style.display = 'none'
-      this.traderPanelOpen = false
-      this.traderPanel.style.display = 'none'
       this.interactPrompt.style.display = 'none'
       this.infectionIndicator.style.display = 'none'
       if (!this.playerState.alive) return
-      if (this.screenshotCropOpen) {
-        // The crop tool already put up its own overlay and paused the sim
-        // by unlocking pointer lock - don't also pop the pause menu on top.
+      // Any of these panels already put up their own overlay and released
+      // pointer lock themselves (see each _openXPanel), specifically so
+      // their buttons are actually clickable - a locked pointer only
+      // reports relative mouse deltas for the camera, not a usable cursor.
+      // Don't also reset them or pop the pause menu on top when that's why
+      // we just unlocked.
+      if (this.screenshotCropOpen || this.perkPanelOpen || this.xpLevelupPanelOpen || this.traderPanelOpen) {
+        // handled by whichever panel is open
       } else if (this.gameStarted) {
         this.pauseOverlayTitle.textContent = t('pauseOverlayTitle')
         this.pauseResumeBtn.textContent = t('pauseResumeBtn')
@@ -940,10 +950,6 @@ export class Game {
         this.ammoStationKeyHeld = true
         if (this.driving) {
           this._exitVehicle()
-        } else if (this.traderPanelOpen) {
-          this._closeTraderPanel()
-        } else if (this.nearTrader) {
-          this._openTraderPanel()
         } else if (this.nearVehicle) {
           this._enterVehicle()
         } else if (this.nearVireoTerminal) {
@@ -1148,6 +1154,47 @@ export class Game {
       if (!this.screenshotCropOpen) return
       if (e.code === 'Escape') this._closeScreenshotCrop()
       else if (e.code === 'Enter') this.screenshotCropSaveBtn.click()
+    })
+
+    // Close controls for the mouse-driven pick panels below - each one
+    // unlocks pointer lock itself when it opens (see _openTraderPanel etc.)
+    // so its buttons are actually clickable, which means the normal
+    // pointer-lock-gated keydown handler never sees these keys while a
+    // panel is open (nothing left to unlock, so the "!isLocked -> return"
+    // guard at its top always bails first). This is a separate always-on
+    // listener for exactly that reason - trader's own hint text promises
+    // "Press F to leave", so F needs to keep working here too, not just
+    // Escape. XP level-up is deliberately not included - picking one of
+    // the 3 free buffs is mandatory, same as it having no Skip button.
+    window.addEventListener('keydown', (e) => {
+      if (this.traderPanelOpen && (e.code === 'Escape' || e.code === getKeyFor('interact'))) {
+        this._closeTraderPanel()
+      } else if (this.perkPanelOpen && e.code === 'Escape') {
+        this._closePerkPanel()
+      }
+    })
+  }
+
+  // Trader is opened by clicking directly on the stall (not a proximity F
+  // press like every other interact prompt) - the hint text still only
+  // shows up within TRADER_INTERACT_RADIUS (see _updateTrader), this just
+  // decides whether a given left click actually opens the panel once
+  // you're close enough. Guarded on isLocked so it can't fire again while
+  // the panel (or any other unlock-driven panel/menu) is already open, and
+  // on nearTrader so a random click across the map doesn't raycast for no
+  // reason.
+  _bindTraderClick() {
+    window.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return
+      if (!this.player.controls.isLocked || !this.playerState.alive) return
+      if (this.driving || this.inventoryOpen || this.weaponWheelOpen) return
+      if (!this.nearTrader) return
+
+      this._traderRaycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera)
+      const hits = this._traderRaycaster.intersectObject(this.trader.mesh, true)
+      if (hits.length > 0 && hits[0].distance <= TRADER_INTERACT_RADIUS + 1.5) {
+        this._openTraderPanel()
+      }
     })
   }
 
@@ -1620,6 +1667,10 @@ export class Game {
     this.perkPanel.style.display = 'flex'
     this.perkPanelTitle.textContent = t('perkPanelTitle')
     this.perkSkipBtn.textContent = t('perkSkip')
+    // Releases pointer lock so the mouse is an actual clickable cursor
+    // instead of just relative look-deltas - see the 'unlock' handler's
+    // perkPanelOpen check for why this doesn't also pop the pause menu.
+    this.player.controls.unlock()
     this._renderPerkOptions(rollPerks(3))
   }
 
@@ -1652,6 +1703,7 @@ export class Game {
   _closePerkPanel() {
     this.perkPanelOpen = false
     this.perkPanel.style.display = 'none'
+    this.player.controls.lock()
   }
 
   // XP needed to go from `level` to `level + 1`. Grows linearly so early
@@ -1708,6 +1760,7 @@ export class Game {
     this.xpLevelupPanelOpen = true
     this.xpLevelupPanel.style.display = 'flex'
     this.xpLevelupPanelTitle.textContent = t('xpLevelupPanelTitle')
+    this.player.controls.unlock()
     this._renderXpLevelupOptions(rollXpUpgrades(this, 3))
   }
 
@@ -1733,6 +1786,11 @@ export class Game {
   _closeXpLevelupPanel() {
     this.xpLevelupPanelOpen = false
     this.xpLevelupPanel.style.display = 'none'
+    // _checkXpLevelUp (called right after this, see the click handler
+    // above) may immediately re-open this same panel for a chained level-up
+    // from one big XP gem - that re-open calls unlock() again right after
+    // this lock(), which is fine, just a redundant pair.
+    this.player.controls.lock()
   }
 
   // Opened by pressing the interact key near the trader stall (see
@@ -1743,6 +1801,7 @@ export class Game {
     this.traderPanel.style.display = 'flex'
     this.traderPanelTitle.textContent = t('traderPanelTitle')
     this.traderHint.textContent = tHtml('traderHint')
+    this.player.controls.unlock()
     if (!this.activeBounty) this._assignBounty()
     this._renderBounty()
     this._renderTraderOptions()
@@ -1839,6 +1898,7 @@ export class Game {
   _closeTraderPanel() {
     this.traderPanelOpen = false
     this.traderPanel.style.display = 'none'
+    this.player.controls.lock()
   }
 
   // Opened from the main menu (not gameplay) - spends persistent Legacy

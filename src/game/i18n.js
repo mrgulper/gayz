@@ -159,7 +159,7 @@ const STRINGS = {
     bossWarning: 'A Colossus approaches!',
     interactRefuel: 'Press **F** to refuel',
     interactAmmoStation: 'Hold **F** to refill ammo (10s, don’t shoot)',
-    interactTrader: 'Press **F** to trade',
+    interactTrader: 'Click the trader to trade',
     interactEnterVehicle: 'Press **F** to drive',
     interactExitVehicle: '**WASD** drive · Press **F** to exit',
     traderPanelTitle: 'Trader',

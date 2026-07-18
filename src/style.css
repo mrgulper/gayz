@@ -1090,6 +1090,8 @@ html, body {
 #pause-resume-btn,
 #pause-settings-btn,
 #pause-quit-btn,
+#pause-upgrades-btn,
+#pause-shop-btn,
 #coinshop-close-btn,
 #screenshot-crop-save,
 #screenshot-crop-full,
@@ -1148,6 +1150,8 @@ html, body {
 #pause-resume-btn:hover,
 #pause-settings-btn:hover,
 #pause-quit-btn:hover,
+#pause-upgrades-btn:hover,
+#pause-shop-btn:hover,
 #coinshop-close-btn:hover {
   border-color: rgba(255, 255, 255, 0.5);
 }
