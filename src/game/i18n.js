@@ -207,6 +207,8 @@ const STRINGS = {
     shopBmMegaMag: 'Overcharged Mag (+20/+100)',
     salvageGainLabel: '+{n} Points',
     shopTrainCompanion: 'Train Companion (+15% dmg/heal)',
+    shopCompanionVest: 'Companion Vest (+40 Max Health)',
+    shopCompanionRig: 'Companion Tactical Rig (+15% dmg)',
     shopExtendedMag: 'Craft: Extended Mag',
     shopScope: 'Craft: Scope (Rifle)',
     traderFeaturedLabel: "Tonight's Deal",

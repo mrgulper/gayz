@@ -20,6 +20,13 @@ const DOWNED_BLEED_OUT_MS = 30000
 const REVIVE_HEALTH_FRACTION = 0.5
 const REVIVE_RADIUS = 2.2
 
+// Points-purchased gear (see Game.js's companion_vest/companion_rig Trader
+// items) - stacks with applyTraining rather than replacing it, and unlike
+// training also changes the model (see _addVestMesh/_addRigMesh) so
+// equipping something is visible, not just felt through stats.
+const GEAR_VEST_HEALTH_BONUS = 40
+const GEAR_RIG_DAMAGE_MULT = 1.15
+
 // Role stat blocks - 'ranged' hangs back and shoots, 'melee' charges in and
 // swings. Chosen once on the main menu (see Game.js's companionRole setting).
 const ROLE_STATS = {
@@ -53,13 +60,17 @@ export class Companion {
     this.tracers = []
 
     this.vulnerable = vulnerable
-    this.health = COMPANION_MAX_HEALTH
+    this.maxHealth = COMPANION_MAX_HEALTH
+    this.health = this.maxHealth
     this.downed = false
     this.dead = false
     this.justWentDown = false
     this.justDied = false
     this.downedAt = 0
     this.nextSwarmTickAt = 0
+    this.hasVest = false
+    this.hasRig = false
+    this.gearDamageMult = 1
   }
 
   // Points-purchased training (see Game.js's "Train Companion" trader item) -
@@ -74,6 +85,33 @@ export class Companion {
     this.stats.damageMin = base.damageMin * mult
     this.stats.damageMax = base.damageMax * mult
     if (base.healAmount) this.stats.healAmount = base.healAmount * mult
+  }
+
+  // Gear: stat bonus + a visible model change, unlike training (stats only).
+  // Safe to call repeatedly - no-ops once already equipped, so re-applying
+  // after a role-swap rebuild (see Game.js's _rebuildCompanion) never
+  // double-stacks the bonus.
+  equipVest() {
+    if (this.hasVest) return
+    this.hasVest = true
+    this.maxHealth += GEAR_VEST_HEALTH_BONUS
+    this.health += GEAR_VEST_HEALTH_BONUS
+    const vestMat = new THREE.MeshStandardMaterial({ color: 0x3a3a2a, roughness: 0.7, metalness: 0.2 })
+    const vest = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.4, 0.34), vestMat)
+    vest.position.set(0, 1.2, 0)
+    vest.castShadow = true
+    this.group.add(vest)
+  }
+
+  equipRig() {
+    if (this.hasRig) return
+    this.hasRig = true
+    this.gearDamageMult = GEAR_RIG_DAMAGE_MULT
+    const rigMat = new THREE.MeshStandardMaterial({ color: 0x1a1a18, emissive: 0xffcf5c, emissiveIntensity: 0.6, roughness: 0.5, metalness: 0.5 })
+    const rig = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), rigMat)
+    rig.position.set(-0.28, 1.4, 0.05)
+    rig.castShadow = true
+    this.group.add(rig)
   }
 
   // Floating name label above the head - same canvas-texture-sprite trick
@@ -260,7 +298,7 @@ export class Companion {
     const attackRange = this.role === 'melee' ? this.stats.meleeRange : this.stats.engageRange
     if (nearest && nearestDist <= attackRange && performance.now() >= this.nextFireAt) {
       this.nextFireAt = performance.now() + this.stats.fireInterval * 1000
-      const damage = this.stats.damageMin + Math.random() * (this.stats.damageMax - this.stats.damageMin)
+      const damage = (this.stats.damageMin + Math.random() * (this.stats.damageMax - this.stats.damageMin)) * this.gearDamageMult
       nearest.onHit(damage)
       if (this.role === 'melee') {
         audioEngine.playMelee()
@@ -334,7 +372,7 @@ export class Companion {
     if (!this.downed) return
     this.downed = false
     this.dead = false
-    this.health = COMPANION_MAX_HEALTH * REVIVE_HEALTH_FRACTION
+    this.health = this.maxHealth * REVIVE_HEALTH_FRACTION
     this.nextSwarmTickAt = performance.now() + SWARM_TICK_MS
     this.group.rotation.x = 0
     this._restoreNameTag()
@@ -348,7 +386,7 @@ export class Companion {
   // Full health/downed reset for a fresh run (see Game.js's restart path) -
   // unlike revive(), doesn't require currently being downed.
   resetVitals() {
-    this.health = COMPANION_MAX_HEALTH
+    this.health = this.maxHealth
     this.downed = false
     this.dead = false
     this.justWentDown = false

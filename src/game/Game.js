@@ -354,6 +354,29 @@ const SHOP_ITEMS = [
       game.companion.applyTraining(game.companionTrainingLevel)
     },
   },
+  // Companion gear: one-time equip per slot (see Companion.js's hasVest/
+  // hasRig guards) - a visible model change plus a stat bonus, stacking
+  // with training rather than replacing it.
+  {
+    id: 'companion_vest',
+    cost: 40,
+    titleKey: 'shopCompanionVest',
+    isOwned: (game) => game.companionGear.vest,
+    give: (game) => {
+      game.companionGear.vest = true
+      game.companion.equipVest()
+    },
+  },
+  {
+    id: 'companion_rig',
+    cost: 45,
+    titleKey: 'shopCompanionRig',
+    isOwned: (game) => game.companionGear.rig,
+    give: (game) => {
+      game.companionGear.rig = true
+      game.companion.equipRig()
+    },
+  },
   // Attachments - same effect as finding the equivalent loot pickup, just
   // guaranteed instead of RNG. Extended Mag stacks each purchase; Scope is a
   // harmless no-op if bought again.
@@ -597,6 +620,7 @@ export class Game {
     this.stealthTakedowns = 0
     this.eliteKills = 0
     this.companionTrainingLevel = 0
+    this.companionGear = { vest: false, rig: false }
     this.perksOwned = new Set()
     this.perkSynergiesUnlocked = new Set()
     this.tempCompanion = null
@@ -1987,8 +2011,10 @@ export class Game {
     this.companion.dispose()
     this.companion = new Companion(this.scene, pos.x, pos.z, role)
     // A role swap rebuilds the companion from scratch - reapply any
-    // points-bought training so switching roles mid-run doesn't reset it.
+    // points-bought training/gear so switching roles mid-run doesn't reset it.
     if (this.companionTrainingLevel > 0) this.companion.applyTraining(this.companionTrainingLevel)
+    if (this.companionGear.vest) this.companion.equipVest()
+    if (this.companionGear.rig) this.companion.equipRig()
     this._updateCompanionName()
   }
 
@@ -2290,6 +2316,7 @@ export class Game {
 
     for (const item of SHOP_ITEMS) {
       if (item === this.featuredItem) continue
+      const owned = item.isOwned && item.isOwned(this)
       const cost = this._traderPrice(item)
       const pctDelta = Math.round((cost / item.cost - 1) * 100)
       const priceTagHtml = pctDelta <= -10
@@ -2299,13 +2326,13 @@ export class Game {
           : ''
       const btn = document.createElement('button')
       btn.className = 'perk-option'
-      btn.disabled = this.points < cost
+      btn.disabled = owned || this.points < cost
       btn.innerHTML = `
         <span class="perk-name">${t(item.titleKey)}</span>
-        <span class="perk-cost">${t('perkCostLabel', { n: cost })} ${priceTagHtml}</span>
+        <span class="perk-cost">${owned ? t('upgradesOwned') : `${t('perkCostLabel', { n: cost })} ${priceTagHtml}`}</span>
       `
       btn.addEventListener('click', () => {
-        if (this.points < cost) return
+        if (owned || this.points < cost) return
         this.points -= cost
         item.give(this)
         this._updateStatsPanel()
