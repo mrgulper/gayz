@@ -11,6 +11,11 @@ const MAX_PLANKS = 5
 const TEAR_RADIUS = 4.5
 const TEAR_INTERVAL_MS = 2200
 const TEAR_COOLDOWN_RATE = 500
+// A group hitting the same window tears it down faster than a single
+// zombie would - each extra attacker (beyond the first) speeds up tearing,
+// capped so a real horde doesn't make a window vanish in one tick.
+const TEAR_MULT_PER_EXTRA_ATTACKER = 0.4
+const MAX_TEAR_MULT = 3
 const REPAIR_RADIUS = 3.5
 export const REPAIR_REWARD_POINTS = 10
 export const REPAIR_REWARD_CAP_PER_ROUND = 100
@@ -82,17 +87,15 @@ export class BarricadeWindows {
   update(dt, zombies, onBreach) {
     for (const w of this.windows) {
       if (w.planks <= 0) continue
-      let underAttack = false
+      let attackerCount = 0
       for (const z of zombies) {
         if (z.state !== 'alive') continue
         const d = Math.hypot(z.group.position.x - w.x, z.group.position.z - w.z)
-        if (d <= TEAR_RADIUS) {
-          underAttack = true
-          break
-        }
+        if (d <= TEAR_RADIUS) attackerCount++
       }
-      if (underAttack) {
-        w.tearProgress += dt * 1000
+      if (attackerCount > 0) {
+        const tearMult = Math.min(MAX_TEAR_MULT, 1 + (attackerCount - 1) * TEAR_MULT_PER_EXTRA_ATTACKER)
+        w.tearProgress += dt * 1000 * tearMult
         if (w.tearProgress >= TEAR_INTERVAL_MS) {
           w.tearProgress = 0
           w.planks -= 1

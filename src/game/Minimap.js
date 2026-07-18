@@ -11,7 +11,7 @@ export class Minimap {
     this.size = canvas.width
   }
 
-  update(playerPos, facingRad, zombies, chestLandmarks, minigunLandmark, traderLandmark, ammoLandmark, airdropLandmark) {
+  update(playerPos, facingRad, zombies, chestLandmarks, minigunLandmark, traderLandmark, ammoLandmark, airdropLandmark, hordeLandmark) {
     const ctx = this.ctx
     const s = this.size
     const cx = s / 2
@@ -79,6 +79,21 @@ export class Minimap {
       ctx.beginPath()
       ctx.arc(px, py, pulse, 0, Math.PI * 2)
       ctx.fill()
+    }
+
+    // Wandering horde - a pulsing cluster of dots rather than a single
+    // marker, so it reads distinctly from every other single-point landmark
+    // (trader/ammo/airdrop/minigun) at a glance.
+    if (hordeLandmark) {
+      const px = cx + (hordeLandmark.x - playerPos.x) * scale
+      const py = cy + (hordeLandmark.z - playerPos.z) * scale
+      const pulse = 0.6 + Math.sin(performance.now() / 200) * 0.4
+      ctx.fillStyle = `rgba(180, 40, 40, ${0.6 + pulse * 0.4})`
+      for (const [ox, oy] of [[0, 0], [-3, -2], [3, -2], [-2, 3], [2, 3]]) {
+        ctx.beginPath()
+        ctx.arc(px + ox, py + oy, 2, 0, Math.PI * 2)
+        ctx.fill()
+      }
     }
 
     ctx.fillStyle = '#e04b4b'

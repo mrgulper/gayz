@@ -48,6 +48,17 @@ const BOSS_SPECIAL_DAMAGE_MULT = 2.2
 const SEPARATION_RADIUS = 1.1
 const SEPARATION_WEIGHT = 0.5
 
+// Pack flanking: when several zombies are converging on the player at once,
+// curve each one's approach around a stable per-zombie angle instead of
+// every zombie walking the exact same straight line - reads as "surrounding"
+// rather than a single-file conga line. Fades out on final approach (see
+// FLANK_FADE_DIST) so they still commit to melee range instead of orbiting
+// forever.
+const FLANK_MIN_PACK_SIZE = 2
+const FLANK_RADIUS = 14
+const FLANK_MAX_ANGLE = Math.PI / 3
+const FLANK_FADE_DIST = 4
+
 // Zombies always stand at group.position.y = 0 (see the constructor) and
 // playerPos is the camera/eye position, which sits ~1.7 above the player's
 // feet on ordinary flat ground (PlayerController's EYE_HEIGHT) - that gap
@@ -637,11 +648,13 @@ export class Zombie {
     if (allZombies) {
       let sepX = 0
       let sepZ = 0
+      let packCount = 0
       for (const other of allZombies) {
         if (other === this || other.state !== 'alive') continue
         const odx = this.group.position.x - other.group.position.x
         const odz = this.group.position.z - other.group.position.z
         const odist = Math.hypot(odx, odz)
+        if (odist < FLANK_RADIUS) packCount++
         if (odist <= 0.0001) {
           // Exactly coincident (e.g. two zombies summoned on the same
           // spot) - there's no defined "away" direction, so nudge apart
@@ -667,6 +680,24 @@ export class Zombie {
           nx /= len
           nz /= len
         }
+      }
+
+      // Pack flanking - only kicks in with company nearby, and fades out on
+      // final approach so the group still commits to melee range instead of
+      // circling. Angle is derived from this.id (same golden-angle trick as
+      // the coincident-spawn separation above) so each zombie in a pack
+      // consistently picks its own side rather than jittering frame to frame.
+      if (packCount >= FLANK_MIN_PACK_SIZE && dist > FLANK_FADE_DIST) {
+        const idAngle = (this.id * 137.5 * (Math.PI / 180)) % (Math.PI * 2)
+        const side = Math.sin(idAngle) >= 0 ? 1 : -1
+        const flankFade = Math.min(1, (dist - FLANK_FADE_DIST) / FLANK_FADE_DIST)
+        const flankAngle = side * FLANK_MAX_ANGLE * flankFade
+        const cosA = Math.cos(flankAngle)
+        const sinA = Math.sin(flankAngle)
+        const rx = nx * cosA - nz * sinA
+        const rz = nx * sinA + nz * cosA
+        nx = rx
+        nz = rz
       }
     }
 

@@ -264,6 +264,14 @@ const VIREO_TERMINAL_RADIUS = 2.5
 const PERK_REROLL_COST = 15
 const COMBO_WINDOW_MS = 3000
 const COMBO_MIN_DISPLAY = 2
+// Left 4 Dead-style "Director" - re-scores the player's situation every
+// DIRECTOR_EVAL_INTERVAL_MS and hands ZombieManager a multiplier on top of
+// its normal night-based curve, instead of pressure being a flat per-night
+// ramp regardless of how the run is actually going. See _updateDirectorAI.
+const DIRECTOR_EVAL_INTERVAL_MS = 5000
+const DIRECTOR_MIN_MULT = 0.6
+const DIRECTOR_MAX_MULT = 1.35
+const DIRECTOR_KILL_WINDOW_MS = 30000
 const DEATH_CAM_MS = 900
 const COMPASS_HALF_FOV = Math.PI / 3
 const BARRICADE_LIFETIME_MS = 25000
@@ -485,6 +493,14 @@ export class Game {
     this.kills = 0
     this.totalKills = 0
     this.totalDeaths = 0
+    // Director AI signals - see _updateDirectorAI. lastHitTakenAt starts at
+    // "now" rather than 0 so a fresh run doesn't read as "25+ seconds since
+    // last hit" (i.e. immediately eligible to ramp up) before the player
+    // has even taken a first step.
+    this.lastHitTakenAt = performance.now()
+    this.recentKillTimestamps = []
+    this.nextDirectorEvalAt = 0
+    this._hordeAnnounced = false
     this.shopProgress = loadShopProgress()
     this.points = this.shopProgress.points
     this.healthPackHealAmount = 200
@@ -2538,8 +2554,46 @@ export class Game {
     this.renderPass.camera = this.tpCamera
   }
 
+  // Left 4 Dead-style Director - re-evaluates every DIRECTOR_EVAL_INTERVAL_MS
+  // and hands ZombieManager a pressure multiplier based on how the run is
+  // actually going (health, time since last hit, resources, recent kill
+  // pace) instead of pressure being purely a function of night number.
+  // Never removes zombies that already exist - easing off just throttles
+  // future spawns (see ZombieManager.setDirectorMult), so it can never feel
+  // like enemies vanish out from under the player.
+  _updateDirectorAI() {
+    const now = performance.now()
+    if (now < this.nextDirectorEvalAt) return
+    this.nextDirectorEvalAt = now + DIRECTOR_EVAL_INTERVAL_MS
+
+    this.recentKillTimestamps = this.recentKillTimestamps.filter((t) => now - t <= DIRECTOR_KILL_WINDOW_MS)
+
+    const healthPct = this.playerState.maxHealth > 0 ? this.playerState.health / this.playerState.maxHealth : 1
+    const secsSinceHit = (now - this.lastHitTakenAt) / 1000
+    const lowResources = this.inventory.healthPacks === 0 && this.inventory.armorPacks === 0
+    const recentKills = this.recentKillTimestamps.length
+
+    let score = 0
+    if (healthPct < 0.3) score -= 0.45
+    else if (healthPct > 0.75) score += 0.1
+
+    // Brief relief window right after a hit lands, then ramps up the
+    // longer things stay quiet - the classic L4D "lull, then throw a
+    // horde" rhythm instead of constant flat pressure.
+    if (secsSinceHit < 5) score -= 0.2
+    else if (secsSinceHit > 25) score += 0.25
+
+    if (lowResources) score -= 0.15
+
+    score += Math.min(0.25, recentKills * 0.03)
+
+    const mult = Math.max(DIRECTOR_MIN_MULT, Math.min(DIRECTOR_MAX_MULT, 1 + score))
+    this.zombies.setDirectorMult(mult)
+  }
+
   _onZombieAttack(damage) {
     if (this.player.isDodging) return // brief invincibility window - see PlayerController's dodge
+    this.lastHitTakenAt = performance.now()
     this.playerState.takeDamage(damage * this.difficulty.damageMult)
     this._updateHealthHud()
     audioEngine.playZombieSnarl()
@@ -2590,9 +2644,18 @@ export class Game {
     }
   }
 
-  _onZombieKilled(zombieTypeId, weaponId, x, z, isElite) {
+  _onZombieKilled(zombieTypeId, weaponId, x, z, isElite, isWandering = false) {
     this.kills += 1
     this.totalKills += 1
+    this.recentKillTimestamps.push(performance.now())
+    // Wandering horde members (see ZombieManager's _maybeSpawnWanderingHorde)
+    // are worth intercepting for their own sake rather than just background
+    // population you happen to run into - a small guaranteed bonus per kill,
+    // on top of (not instead of) the normal 25%-chance points roll below.
+    if (isWandering) {
+      this.points += 5
+      this._updateStatsPanel()
+    }
     const lootMult = this.settings.mutators.lootRush ? 2 : 1
     this.xpGems.spawn(x, z, (isElite ? 4 : 1) * lootMult)
     if (isElite) {
@@ -3331,8 +3394,22 @@ export class Game {
       null,
       this.trader,
       this.ammoStation,
-      this.airdrop
+      this.airdrop,
+      this.zombies.wanderingHorde
     )
+  }
+
+  // Announces a wandering horde exactly once per appearance (see
+  // ZombieManager's _maybeSpawnWanderingHorde) by watching for the
+  // null-to-object transition, rather than needing a dedicated callback
+  // threaded through update()'s already-long argument list.
+  _updateHordeAnnouncement() {
+    if (this.zombies.wanderingHorde && !this._hordeAnnounced) {
+      this._hordeAnnounced = true
+      this._showLoreToast(t('hordeIncoming'))
+    } else if (!this.zombies.wanderingHorde) {
+      this._hordeAnnounced = false
+    }
   }
 
   _tick() {
@@ -3433,13 +3510,14 @@ export class Game {
       this._updateStatsPanel()
 
       const playerPos = this.player.controls.object.position
+      this._updateDirectorAI()
       this.zombies.update(
         dt,
         playerPos,
         (dmg) => this._onZombieAttack(dmg),
         (x, z) => this.pickups.spawnLootDrop('ammo', x, z), // boss-only guaranteed drop, see ZombieManager
         () => audioEngine.playAmbushShriek(),
-        (zombieTypeId, weaponId, x, z, isElite) => this._onZombieKilled(zombieTypeId, weaponId, x, z, isElite),
+        (zombieTypeId, weaponId, x, z, isElite, isWandering) => this._onZombieKilled(zombieTypeId, weaponId, x, z, isElite, isWandering),
         this.player.isCrouching
       )
       this.companion.update(dt, playerPos, this.zombies.zombies, (amount) => {
@@ -3508,6 +3586,7 @@ export class Game {
       }
       this._updateMinimap(playerPos)
       this._updateCompass(playerPos)
+      this._updateHordeAnnouncement()
       this._updateBarricades()
       this._updateTraps()
       this._updateAirdrop()

@@ -294,6 +294,7 @@ const STRINGS = {
     compassVehicle: 'Car',
     compassAirdrop: 'Airdrop',
     airdropIncoming: 'Supply airdrop incoming - marked on your map!',
+    hordeIncoming: 'A horde is passing through - marked on your map. Intercept it for bonus points, or steer clear.',
     airdropClaimed: 'Airdrop claimed: +40 points and ammo.',
     airdropExpired: 'The airdrop was never claimed... it is gone.',
     infectionLabel: 'Infected',

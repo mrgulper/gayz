@@ -34,11 +34,33 @@ const C4_DAMAGE_RADIUS = 6.5
 const C4_DAMAGE_MIN = 140
 const C4_DAMAGE_MAX = 320
 const ELITE_CHANCE = 0.08
+// Boss "adds" - periodically summons a handful of regular zombies while
+// still alive, so a boss fight isn't purely a 1v1 damage race and
+// barricades/traps stay relevant even during it. See _spawnBoss/
+// spawnGuardian (which arm the timer) and the summon check in update().
+const BOSS_ADD_FIRST_DELAY_MS = 18000
+const BOSS_ADD_INTERVAL_MS = 22000
+const BOSS_ADD_COUNT_MIN = 2
+const BOSS_ADD_COUNT_MAX = 4
+const BOSS_ADD_SPAWN_RADIUS = 5
 const TITAN_CHECK_MIN_DELAY_MS = 90000
 const TITAN_CHECK_MAX_DELAY_MS = 150000
 const TITAN_SPAWN_CHANCE = 0.4
 const HORDE_SPAWN_RADIUS_MIN = 10
 const HORDE_SPAWN_RADIUS_MAX = 22
+
+// Wandering horde event - a distinct pack that migrates across the map on
+// its own schedule instead of being ambient population that always beelines
+// the player. Shown as a minimap/compass marker (see Game.js's
+// _updateMinimap/_updateCompass) so the player can choose to intercept it
+// for a per-kill points bonus or just let it pass by.
+const HORDE_EVENT_MIN_DELAY_MS = 60000
+const HORDE_EVENT_MAX_DELAY_MS = 120000
+const HORDE_EVENT_SIZE_MIN = 6
+const HORDE_EVENT_SIZE_MAX = 10
+const HORDE_EVENT_SPAWN_RADIUS = 40
+const HORDE_EVENT_WANDER_SPEED = 1.6
+const HORDE_EVENT_AGGRO_RADIUS = 16
 
 // Round Mode (Obsidian Ops-style kill-to-advance loop, see Game.js's
 // settings.mutators.roundMode): count scales roughly linearly with round
@@ -123,6 +145,10 @@ export class ZombieManager {
     this.spawnRateMult = spawnRateMult
     this.currentNight = 1
     this.bossSpawnedForNight = 0
+    // Director AI multiplier (see Game.js's _updateDirectorAI, which calls
+    // setDirectorMult) - 1 is neutral, applied on top of the normal
+    // night-based curve in _recomputeDifficulty rather than replacing it.
+    this.directorMult = 1
     this.targetCount = Math.round(BASE_SPAWN_COUNT * this.spawnRateMult)
     this.respawnDelay = BASE_RESPAWN_DELAY
     this.ambushChance = BASE_AMBUSH_CHANCE
@@ -133,6 +159,10 @@ export class ZombieManager {
     // so it can surprise the player instead of always being anticipated.
     this.titanAlive = false
     this.nextTitanCheckAt = performance.now() + this._randomTitanDelay()
+
+    // Wandering horde event - see _maybeSpawnWanderingHorde.
+    this.wanderingHorde = null
+    this.nextHordeEventAt = performance.now() + HORDE_EVENT_MIN_DELAY_MS + Math.random() * (HORDE_EVENT_MAX_DELAY_MS - HORDE_EVENT_MIN_DELAY_MS)
 
     // Pre-run mutators (see Game.js's settings.mutators) - both false by
     // default, set once at the "Click to Play" moment.
@@ -196,14 +226,74 @@ export class ZombieManager {
     this.scene.add(zombie.group)
   }
 
+  // Spawns a distinct pack that migrates in a straight line across the map
+  // on its own schedule (see the constructor/reset for the timer), rather
+  // than ambient population that always beelines the player - see
+  // update()'s per-zombie loop for the wander-vs-aggro targeting switch.
+  _maybeSpawnWanderingHorde() {
+    if (performance.now() < this.nextHordeEventAt) return
+    this.nextHordeEventAt = performance.now() + HORDE_EVENT_MIN_DELAY_MS + Math.random() * (HORDE_EVENT_MAX_DELAY_MS - HORDE_EVENT_MIN_DELAY_MS)
+    if (this.wanderingHorde) return // one at a time
+
+    const angle = Math.random() * Math.PI * 2
+    const startX = Math.sin(angle) * HORDE_EVENT_SPAWN_RADIUS
+    const startZ = Math.cos(angle) * HORDE_EVENT_SPAWN_RADIUS
+    // Walks straight across to roughly the opposite edge of the map.
+    const targetX = -startX
+    const targetZ = -startZ
+
+    const size = HORDE_EVENT_SIZE_MIN + Math.floor(Math.random() * (HORDE_EVENT_SIZE_MAX - HORDE_EVENT_SIZE_MIN + 1))
+    const members = []
+    for (let i = 0; i < size; i++) {
+      const ox = (Math.random() - 0.5) * 4
+      const oz = (Math.random() - 0.5) * 4
+      const zombie = new Zombie(startX + ox, startZ + oz, pickZombieType(), false, false, this.currentNight)
+      zombie.deathHandled = false
+      zombie.isWandering = true
+      members.push(zombie)
+      this.zombies.push(zombie)
+      this.scene.add(zombie.group)
+    }
+
+    this.wanderingHorde = { members, x: startX, z: startZ, targetX, targetZ, size }
+  }
+
+  // Advances the horde's waypoint toward its target edge and drops it once
+  // every member is accounted for (killed or wandered off) or it reaches
+  // its destination - called once per frame from update(), not per-zombie.
+  _updateWanderingHorde(dt) {
+    const h = this.wanderingHorde
+    if (!h) return
+    const dx = h.targetX - h.x
+    const dz = h.targetZ - h.z
+    const dist = Math.hypot(dx, dz)
+    if (dist > 1) {
+      h.x += (dx / dist) * HORDE_EVENT_WANDER_SPEED * dt
+      h.z += (dz / dist) * HORDE_EVENT_WANDER_SPEED * dt
+    }
+    h.members = h.members.filter((z) => this.zombies.includes(z) && z.state !== 'dead')
+    if (h.members.length === 0 || dist <= 1) {
+      this.wanderingHorde = null
+    }
+  }
+
+  // Derives targetCount/respawnDelay/ambushChance from the current night
+  // AND the Director's multiplier (see setDirectorMult) - split out from
+  // applyDifficulty so the Director can re-derive these mid-night, without
+  // re-running the boss-spawn check that only makes sense at a real night
+  // transition.
+  _recomputeDifficulty() {
+    this.targetCount = this.bossRushMode
+      ? Math.round(4 * this.spawnRateMult) // a thin ambient crowd - bosses are the point, not exploration
+      : Math.round(Math.min(MAX_SPAWN_COUNT, BASE_SPAWN_COUNT + (this.currentNight - 1)) * this.spawnRateMult * this.directorMult)
+    this.respawnDelay = Math.max(MIN_RESPAWN_DELAY * 0.5, (BASE_RESPAWN_DELAY - (this.currentNight - 1) * 0.5) / this.directorMult)
+    this.ambushChance = Math.min(MAX_AMBUSH_CHANCE, (BASE_AMBUSH_CHANCE + (this.currentNight - 1) * 0.03) * this.directorMult)
+  }
+
   // Scales spawn count / respawn speed / ambush frequency up with night number.
   applyDifficulty(night) {
     this.currentNight = night
-    this.targetCount = this.bossRushMode
-      ? Math.round(4 * this.spawnRateMult) // a thin ambient crowd - bosses are the point, not exploration
-      : Math.round(Math.min(MAX_SPAWN_COUNT, BASE_SPAWN_COUNT + (night - 1)) * this.spawnRateMult)
-    this.respawnDelay = Math.max(MIN_RESPAWN_DELAY, BASE_RESPAWN_DELAY - (night - 1) * 0.5)
-    this.ambushChance = Math.min(MAX_AMBUSH_CHANCE, BASE_AMBUSH_CHANCE + (night - 1) * 0.03)
+    this._recomputeDifficulty()
 
     while (this.zombies.length < this.targetCount) {
       this._spawnRandom()
@@ -215,6 +305,22 @@ export class ZombieManager {
     if (dueForBoss && this.bossSpawnedForNight !== night) {
       this.bossSpawnedForNight = night
       this._spawnBoss()
+    }
+  }
+
+  // Director AI hook (see Game.js's _updateDirectorAI) - re-derives the
+  // three difficulty numbers with the new multiplier layered on top of the
+  // current night's baseline. Raising targetCount immediately spawns the
+  // difference (the "throw a horde" moment); lowering it just throttles
+  // future respawns - existing zombies are never despawned, so easing off
+  // can never feel like enemies vanished out from under the player.
+  setDirectorMult(mult) {
+    const clamped = Math.max(0.5, Math.min(1.5, mult))
+    if (Math.abs(clamped - this.directorMult) < 0.03) return
+    this.directorMult = clamped
+    this._recomputeDifficulty()
+    while (this.zombies.length < this.targetCount) {
+      this._spawnRandom()
     }
   }
 
@@ -232,6 +338,7 @@ export class ZombieManager {
     const zombie = new Zombie(x, z, bossType, false, false, this.currentNight)
     zombie.deathHandled = false
     zombie.isBoss = true
+    zombie.nextAddSummonAt = performance.now() + BOSS_ADD_FIRST_DELAY_MS
     this.zombies.push(zombie)
     this.scene.add(zombie.group)
   }
@@ -243,9 +350,26 @@ export class ZombieManager {
     const zombie = new Zombie(x, z, typeConfig, false, false, this.currentNight)
     zombie.deathHandled = false
     zombie.isBoss = true
+    zombie.nextAddSummonAt = performance.now() + BOSS_ADD_FIRST_DELAY_MS
     this.zombies.push(zombie)
     this.scene.add(zombie.group)
     return zombie
+  }
+
+  // Boss adds: spawns a small burst of regular shamblers around a boss's
+  // current position, reusing the same visual/state setup as the
+  // summonOnDeath hybrid burst below rather than a separate code path.
+  _spawnBossAdds(x, z, count) {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2
+      const r = 2 + Math.random() * BOSS_ADD_SPAWN_RADIUS
+      const sx = x + Math.sin(angle) * r
+      const sz = z + Math.cos(angle) * r
+      const summoned = new Zombie(sx, sz, ZOMBIE_TYPES.shambler, false, false, this.currentNight)
+      summoned.deathHandled = false
+      this.zombies.push(summoned)
+      this.scene.add(summoned.group)
+    }
   }
 
   // Live-updates the Easy/Normal/Hard spawn-rate multiplier without
@@ -283,9 +407,12 @@ export class ZombieManager {
     this.pendingRespawns = []
     this.currentNight = 1
     this.bossSpawnedForNight = 0
+    this.directorMult = 1
     this.respawnDelay = BASE_RESPAWN_DELAY
     this.ambushChance = BASE_AMBUSH_CHANCE
     this.nextMoanAt = performance.now() + this._randomMoanDelay()
+    this.wanderingHorde = null
+    this.nextHordeEventAt = performance.now() + HORDE_EVENT_MIN_DELAY_MS + Math.random() * (HORDE_EVENT_MAX_DELAY_MS - HORDE_EVENT_MIN_DELAY_MS)
     // Round Mode starts its own round-1 burst via startRound() right after
     // reset() (see Game.js) instead of the normal continuous-trickle spawn.
     if (this.roundMode) {
@@ -674,6 +801,8 @@ export class ZombieManager {
     this.elapsed += dt
 
     if (performance.now() >= this.nextTitanCheckAt) this._maybeSpawnTitan()
+    this._maybeSpawnWanderingHorde()
+    this._updateWanderingHorde(dt)
 
     const distractionActive = this.distraction && performance.now() < this.distraction.expiresAt
     if (this.distraction && !distractionActive) this.distraction = null
@@ -682,6 +811,19 @@ export class ZombieManager {
       let targetPos = playerPos
       let attackCb = onPlayerDamage
       let spitCb = (origin, target, damage, speed) => this._spawnProjectile(origin, target, damage, speed)
+
+      // Wandering horde members ignore the player entirely and drift toward
+      // the horde's waypoint until the player closes to within aggro range -
+      // at that point they fall through to the normal playerPos targeting
+      // below like any other zombie.
+      if (zombie.isWandering && zombie.state === 'alive') {
+        const distToPlayer = Math.hypot(playerPos.x - zombie.group.position.x, playerPos.z - zombie.group.position.z)
+        if (distToPlayer > HORDE_EVENT_AGGRO_RADIUS && this.wanderingHorde) {
+          targetPos = { x: this.wanderingHorde.x, z: this.wanderingHorde.z }
+          attackCb = null
+          spitCb = null
+        }
+      }
 
       // While a decoy is active, any zombie closer to it than to the real
       // player chases the noise instead - and can't actually deal damage
@@ -711,13 +853,19 @@ export class ZombieManager {
         this.zombies
       )
 
+      if (zombie.isBoss && zombie.state === 'alive' && zombie.nextAddSummonAt && performance.now() >= zombie.nextAddSummonAt) {
+        zombie.nextAddSummonAt = performance.now() + BOSS_ADD_INTERVAL_MS
+        const count = BOSS_ADD_COUNT_MIN + Math.floor(Math.random() * (BOSS_ADD_COUNT_MAX - BOSS_ADD_COUNT_MIN + 1))
+        this._spawnBossAdds(zombie.group.position.x, zombie.group.position.z, count)
+      }
+
       if (zombie.state === 'dead' && !zombie.deathHandled) {
         zombie.deathHandled = true
         this.pendingRespawns.push({ at: performance.now() + REMOVE_AFTER_DEATH_MS + this.respawnDelay * 1000 })
 
         if (zombie.config.id === 'titan') this.titanAlive = false
         if (!zombie.config.explodes) audioEngine.playZombieDeath()
-        if (onZombieKilled) onZombieKilled(zombie.config.id, zombie.lastHitWeaponId, zombie.group.position.x, zombie.group.position.z, zombie.isElite)
+        if (onZombieKilled) onZombieKilled(zombie.config.id, zombie.lastHitWeaponId, zombie.group.position.x, zombie.group.position.z, zombie.isElite, !!zombie.isWandering)
         // Regular kills no longer roll a random loot chance here - see
         // Game.js's _onZombieKilled for the guaranteed every-10th-kill drop.
         // Bosses still always drop on top of that.
