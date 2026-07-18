@@ -118,10 +118,11 @@ function loadSettings() {
         pureGunplay: parsed.mutators?.pureGunplay ?? false,
         bossRush: parsed.mutators?.bossRush ?? false,
         hordeMode: parsed.mutators?.hordeMode ?? false,
+        kingOfTheHill: parsed.mutators?.kingOfTheHill ?? false,
       },
     }
   } catch {
-    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false } }
+    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false } }
   }
 }
 
@@ -349,6 +350,24 @@ const WHEEL_RADIUS = 110
 const WHEEL_DEADZONE = 18
 const RESCUE_INTERACT_RADIUS = 2.5
 const RESCUE_POINTS_REWARD = 25
+
+// King of the Hill mutator: hold the marked zone to fill the capture bar,
+// then it pays out and relocates to keep the fight moving. Spots are fixed,
+// hand-picked points along the open avenue - clear of the safe zone
+// (x:[-20,-6], z:[-17,-3]), the generator (1.5, 5), the four barricade
+// windows, and the trader/ammo station (-8, 33) / (8, -33).
+const KOTH_RADIUS = 4
+const KOTH_CAPTURE_SECONDS = 12
+const KOTH_DECAY_SECONDS = 6
+const KOTH_CAPTURE_POINTS = 60
+const KOTH_CAPTURE_COINS = 40
+const KOTH_SPAWN_SURGE = 2
+const KOTH_SPOTS = [
+  { x: 0, z: -25 },
+  { x: 0, z: 20 },
+  { x: 14, z: 6 },
+  { x: -2, z: -30 },
+]
 
 const SHOP_ITEMS = [
   { id: 'health', cost: 15, titleKey: 'shopHealthPack', give: (game) => game.inventory.addHealthPack(1) },
@@ -602,6 +621,7 @@ export class Game {
     this.mutatorPureGunplay = document.getElementById('mutator-pure-gunplay')
     this.mutatorBossRush = document.getElementById('mutator-boss-rush')
     this.mutatorHordeMode = document.getElementById('mutator-horde-mode')
+    this.mutatorKoth = document.getElementById('mutator-koth')
     this.controlsGrid = document.getElementById('controls-grid')
     this.resetBindsBtn = document.getElementById('reset-binds-btn')
     this.rebindingAction = null
@@ -713,6 +733,23 @@ export class Game {
     this.barricades = []
     this.hazardZones = []
     this.deathObstacles = []
+
+    this.kothActive = false
+    this.kothZone = { x: KOTH_SPOTS[0].x, z: KOTH_SPOTS[0].z }
+    this.kothProgress = 0
+    const kothMarkerMat = new THREE.MeshStandardMaterial({
+      color: 0x3a2f10,
+      emissive: 0xffcf5c,
+      emissiveIntensity: 0.9,
+      transparent: true,
+      opacity: 0.55,
+      side: THREE.DoubleSide,
+    })
+    this.kothMarker = new THREE.Mesh(new THREE.RingGeometry(KOTH_RADIUS - 0.2, KOTH_RADIUS, 32), kothMarkerMat)
+    this.kothMarker.rotation.x = -Math.PI / 2
+    this.kothMarker.position.set(this.kothZone.x, 0.06, this.kothZone.z)
+    this.kothMarker.visible = false
+    this.scene.add(this.kothMarker)
     this.practiceTargets = practiceTargets
     this.traps = []
     this._vehicleHitAt = new Map()
@@ -880,6 +917,9 @@ export class Game {
     this.bossHealthWrap = document.getElementById('boss-health-wrap')
     this.bossNameEl = document.getElementById('boss-name')
     this.bossHealthFill = document.getElementById('boss-health-fill')
+    this.kothWrap = document.getElementById('koth-wrap')
+    this.kothLabel = document.getElementById('koth-label')
+    this.kothFill = document.getElementById('koth-fill')
     this.xpFill = document.getElementById('xp-fill')
     this.xpLevelBadge = document.getElementById('xp-level-badge')
     this.xpLevelupPanel = document.getElementById('xp-levelup-panel')
@@ -1033,6 +1073,14 @@ export class Game {
       if (spawnMult !== this.difficulty.spawnRateMult) this.zombies.setDifficultyMultiplier(spawnMult)
       if (this.settings.mutators.hordeMode) this.zombies.setHordeMode(true)
       if (this.settings.mutators.bossRush) this.zombies.bossRushMode = true
+      this.kothActive = this.settings.mutators.kingOfTheHill
+      this.kothMarker.visible = this.kothActive
+      if (this.kothActive) {
+        this.kothProgress = 0
+        this.kothZone.x = KOTH_SPOTS[0].x
+        this.kothZone.z = KOTH_SPOTS[0].z
+        this.kothMarker.position.set(this.kothZone.x, 0.06, this.kothZone.z)
+      }
       if (this._isRoundMode()) {
         this.zombies.roundMode = true
         this.zombies.reset()
@@ -1993,6 +2041,11 @@ export class Game {
       this.settings.mutators.hordeMode = this.mutatorHordeMode.checked
       saveSettings(this.settings)
     })
+    this.mutatorKoth.checked = this.settings.mutators.kingOfTheHill
+    this.mutatorKoth.addEventListener('change', () => {
+      this.settings.mutators.kingOfTheHill = this.mutatorKoth.checked
+      saveSettings(this.settings)
+    })
     this.nicknameInput.value = this.settings.nickname
     this._updateCompanionName()
 
@@ -2897,6 +2950,7 @@ export class Game {
     document.getElementById('mutator-pure-gunplay-label').textContent = t('mutatorPureGunplay')
     document.getElementById('mutator-boss-rush-label').textContent = t('mutatorBossRush')
     document.getElementById('mutator-horde-mode-label').textContent = t('mutatorHordeMode')
+    document.getElementById('mutator-koth-label').textContent = t('mutatorKoth')
 
     this._updateBestStatsDisplay()
     if (this.inventoryOpen) this._refreshInventoryPanel()
@@ -4012,6 +4066,42 @@ export class Game {
     this.bossHealthFill.style.width = `${Math.max(0, boss.health / boss.maxHealth) * 100}%`
   }
 
+  // King of the Hill mutator: standing inside the marked ring fills the
+  // capture bar; leaving it drains the bar instead of resetting it outright,
+  // so a brief retreat under fire doesn't erase all progress. A full capture
+  // pays out points+coins, triggers a small spawn surge to keep the zone
+  // contested, and relocates the ring to the next fixed spot.
+  _updateKingOfTheHill(dt, playerPos) {
+    if (!this.kothActive) {
+      this.kothWrap.style.display = 'none'
+      return
+    }
+    this.kothWrap.style.display = 'block'
+    const dist = Math.hypot(playerPos.x - this.kothZone.x, playerPos.z - this.kothZone.z)
+    const inZone = dist <= KOTH_RADIUS
+    this.kothProgress = THREE.MathUtils.clamp(
+      this.kothProgress + (inZone ? dt / KOTH_CAPTURE_SECONDS : -dt / KOTH_DECAY_SECONDS),
+      0,
+      1
+    )
+    this.kothLabel.textContent = inZone ? t('kothLabelCapturing') : t('kothLabelHold')
+    this.kothFill.style.width = `${this.kothProgress * 100}%`
+    if (this.kothProgress >= 1) this._captureKothZone()
+  }
+
+  _captureKothZone() {
+    this.points += KOTH_CAPTURE_POINTS
+    this.coins += KOTH_CAPTURE_COINS
+    this._updateStatsPanel()
+    this._showLoreToast(t('kothCaptured'))
+    this.kothProgress = 0
+    const next = KOTH_SPOTS[Math.floor(Math.random() * KOTH_SPOTS.length)]
+    this.kothZone.x = next.x
+    this.kothZone.z = next.z
+    this.kothMarker.position.set(next.x, 0.06, next.z)
+    this.zombies.spawnSurge(KOTH_SPAWN_SURGE)
+  }
+
   _rescueSurvivor() {
     this.points += RESCUE_POINTS_REWARD
     this.inventory.addHealthPack(1)
@@ -4254,6 +4344,7 @@ export class Game {
       this._updateRescueSurvivor(playerPos)
       if (this.rescueSurvivor) this.rescueSurvivor.update(elapsed)
       this._updateBossHealthBar()
+      this._updateKingOfTheHill(dt, playerPos)
 
       this.barricadeWindows.update(dt, this.zombies.zombies, (w) => {
         this._showLoreToast('A barricade was breached! Zombies are pouring through.')
