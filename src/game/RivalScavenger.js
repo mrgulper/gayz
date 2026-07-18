@@ -167,9 +167,12 @@ export class RivalManager {
   }
 
   // One squad, positioned in a rough ring around the target so they
-  // converge on it from several directions instead of one clump - see
-  // Game.js's _spawnAirdrop, the only caller.
-  spawnSquad(targetX, targetZ, count = 2) {
+  // converge on it from several directions instead of one clump. Two
+  // callers: Game.js's _spawnAirdrop (type 'airdrop' - claims the crate if
+  // they reach it before the player) and NightEvents.js's supply convoy
+  // (type 'convoy' - guards a chest instead, see update()'s claimed check
+  // below for why the two need to stay distinguishable).
+  spawnSquad(targetX, targetZ, count = 2, type = 'airdrop') {
     const members = []
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2
@@ -178,7 +181,7 @@ export class RivalManager {
       const z = targetZ + Math.sin(angle) * dist
       members.push(new RivalScavenger(this.scene, x, z, targetX, targetZ))
     }
-    this.squads.push({ members })
+    this.squads.push({ members, type })
   }
 
   get hittableMeshes() {
@@ -191,14 +194,17 @@ export class RivalManager {
     return meshes
   }
 
-  // Returns true if any live member of any squad reached its target this
-  // tick - Game.js treats that as "the current airdrop just got claimed by
-  // rivals" since there's only ever one airdrop active at a time.
+  // Returns true if any live member of an 'airdrop'-type squad reached its
+  // target this tick - Game.js treats that as "the current airdrop just got
+  // claimed by rivals" since there's only ever one airdrop active at a
+  // time. 'convoy' squads reaching their target just means they've arrived
+  // to guard the crate there, not a claim, so they're excluded here.
   update(dt, playerPos, onAttack) {
     let claimed = false
     for (const squad of this.squads) {
       for (const m of squad.members) {
-        if (m.update(dt, playerPos, onAttack)) claimed = true
+        const reachedTarget = m.update(dt, playerPos, onAttack)
+        if (reachedTarget && squad.type === 'airdrop') claimed = true
       }
     }
     this.squads = this.squads.filter((squad) => {

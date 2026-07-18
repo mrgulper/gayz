@@ -326,6 +326,7 @@ const STRINGS = {
     eventBlackout: 'Blackout — power just died',
     eventSupplyDrop: 'Supply Drop — a crate landed nearby',
     eventSurvivorFound: 'Survivor Found — someone needs help nearby',
+    eventSupplyConvoy: 'Supply Convoy — a guarded crate is nearby, if you can take the escorts',
     interactRescue: 'Press **F** to rescue',
     survivorRescued: 'Survivor rescued! +{reward} Points, +1 Health Pack',
     weaponBat: 'Bat',

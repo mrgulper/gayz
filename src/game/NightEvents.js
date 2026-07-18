@@ -29,6 +29,18 @@ export const NIGHT_EVENTS = [
     labelKey: 'eventSurvivorFound',
     apply: (game) => game._spawnRescueSurvivor(),
   },
+  {
+    id: 'supply_convoy',
+    labelKey: 'eventSupplyConvoy',
+    // A guarded chest (see RivalScavenger.js's RivalManager 'convoy' squad
+    // type) - the escorts stand their ground around it and fight if
+    // approached, rather than racing anyone for it like an airdrop squad.
+    apply: (game) => {
+      const spot = game.spawnPoints[Math.floor(Math.random() * game.spawnPoints.length)]
+      game.rivals.spawnSquad(spot.x, spot.z, 3, 'convoy')
+      game.chests.addChest(spot.x, 0, spot.z)
+    },
+  },
 ]
 
 export function pickNightEvent() {
