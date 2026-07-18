@@ -593,6 +593,17 @@ export class WeaponSystem {
         if (this.zombieManager) this.zombieManager.explodeAt(explosive.x, explosive.z, EXPLOSIVE_PROP_RADIUS, EXPLOSIVE_PROP_DAMAGE_MIN, EXPLOSIVE_PROP_DAMAGE_MAX)
       }
 
+      // Safe zone practice range target - a no-consequence hit (visual
+      // flash handled by World.js's buildPracticeRange/Game.js's per-frame
+      // decay, sound here since WeaponSystem already owns audioEngine),
+      // never damage or loot - purely a way to feel out a weapon's spread/
+      // recoil without spending real ammo pressure.
+      const practiceTarget = hit.object.userData.practiceTarget
+      if (practiceTarget) {
+        practiceTarget.onHit()
+        audioEngine.playTargetDing()
+      }
+
       if (this.onHitSurface) {
         if (hit.face) {
           this._hitNormal.copy(hit.face.normal).transformDirection(hit.object.matrixWorld).normalize()

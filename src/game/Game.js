@@ -617,7 +617,7 @@ export class Game {
     this.composer.addPass(this.bloomPass)
     this.composer.addPass(new OutputPass())
 
-    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, safeZone } = buildWorld(this.scene)
+    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, safeZone, practiceTargets } = buildWorld(this.scene)
     // Kept for _deployBarricade - both PlayerController and ZombieManager
     // hold this exact same array by reference (not a copy), so pushing a
     // new collider here is immediately respected by both without needing
@@ -626,6 +626,7 @@ export class Game {
     this.solidMeshes = solidMeshes
     this.barricades = []
     this.deathObstacles = []
+    this.practiceTargets = practiceTargets
     this.traps = []
     this._vehicleHitAt = new Map()
     this.flickerLights = flickerLights
@@ -3097,6 +3098,21 @@ export class Game {
   // ammo count (mag + reserve at or below one magazine's worth) is its own
   // kind of tension and deserves its own read, not just blur into "danger
   // sound is playing" generically. Skipped for melee (no ammo concept).
+  // Fades each practice range target's hit-flash back to nothing over
+  // ~180ms - the hit itself (see World.js's buildPracticeRange and
+  // WeaponSystem's userData.practiceTarget check) only sets flashUntil,
+  // this owns the actual decay curve.
+  _updatePracticeTargets() {
+    const now = performance.now()
+    for (const t of this.practiceTargets) {
+      if (now < t.flashUntil) {
+        t.mat.emissiveIntensity = ((t.flashUntil - now) / 180) * 3
+      } else if (t.mat.emissiveIntensity !== 0) {
+        t.mat.emissiveIntensity = 0
+      }
+    }
+  }
+
   _updateLowAmmoCue() {
     const w = this.weapons.current
     const low = !w.melee && w.ammoInMag + w.ammoReserve <= w.magSize
@@ -3891,6 +3907,7 @@ export class Game {
       this._updateBarricades()
       this._updateDeathObstacles()
       this._updateLowAmmoCue()
+      this._updatePracticeTargets()
       this._updateTraps()
       this._updateAirdrop()
       if (this.raining && this.nextLightningAt > 0 && performance.now() >= this.nextLightningAt) {

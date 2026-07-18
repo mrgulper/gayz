@@ -340,6 +340,7 @@ export function buildWorld(scene) {
   const vireoFacility = buildVireoFacility(scene, colliders, solidMeshes, flickerLights)
   spawnPoints.push({ x: vireoFacility.exitSpot.x, z: vireoFacility.exitSpot.z })
   const safeZone = buildSafeZone(scene, colliders, solidMeshes)
+  const practiceTargets = buildPracticeRange(scene, colliders, solidMeshes, safeZone)
 
   // Second area: a small park beyond the north end of the street, in the
   // space freed up by pushing the perimeter barricade out to groundSize/2.
@@ -393,6 +394,7 @@ export function buildWorld(scene) {
     ammoStation,
     vireoFacility,
     safeZone,
+    practiceTargets,
   }
 }
 
@@ -773,6 +775,69 @@ function buildSafeZone(scene, colliders, solidMeshes) {
   return { x, z, radius: half - 0.5, guardSpots }
 }
 
+function buildTargetTexture() {
+  const canvas = document.createElement('canvas')
+  canvas.width = 128
+  canvas.height = 128
+  const ctx = canvas.getContext('2d')
+  const rings = [[62, '#e8ddc0'], [46, '#b03a2a'], [30, '#e8ddc0'], [14, '#b03a2a']]
+  for (const [r, color] of rings) {
+    ctx.fillStyle = color
+    ctx.beginPath()
+    ctx.arc(64, 64, r, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  return new THREE.CanvasTexture(canvas)
+}
+
+// Three no-consequence shooting targets in the back of the safe zone (the
+// Vault - see Chests.js - occupies a different corner) so a player can feel
+// out a weapon's spread/recoil/damage falloff without spending real ammo
+// pressure or drawing zombie attention. Each target's hit response (flash +
+// ding) is wired through WeaponSystem's userData.practiceTarget check; the
+// actual flash decay is driven by Game.js's own per-frame update since this
+// file only builds geometry.
+function buildPracticeRange(scene, colliders, solidMeshes, safeZone) {
+  const postMat = new THREE.MeshStandardMaterial({ color: 0x3a3226, roughness: 0.85 })
+  const targetTex = buildTargetTexture()
+  const targets = []
+
+  const spots = [
+    { x: safeZone.x + 4, z: safeZone.z - 5 },
+    { x: safeZone.x + 4, z: safeZone.z - 2.5 },
+    { x: safeZone.x + 4, z: safeZone.z },
+  ]
+
+  for (const { x, z } of spots) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 1.6, 8), postMat)
+    post.position.set(x, 0.8, z)
+    post.castShadow = true
+    scene.add(post)
+    solidMeshes.push(post)
+    post.updateWorldMatrix(true, false)
+    colliders.push(new THREE.Box3().setFromObject(post))
+
+    // Own material clone (not a shared one) - onHit flashes emissiveIntensity
+    // per-instance, and a shared material would flash every target at once
+    // whenever any single one was hit (same bug class as the Molotov fire
+    // zone material sharing one instance earlier this session).
+    const boardMat = new THREE.MeshStandardMaterial({ map: targetTex, emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.6 })
+    const board = new THREE.Mesh(new THREE.CircleGeometry(0.4, 24), boardMat)
+    board.position.set(x, 1.7, z)
+    board.castShadow = true
+    scene.add(board)
+    solidMeshes.push(board)
+
+    const target = { mat: boardMat, flashUntil: 0 }
+    target.onHit = () => {
+      target.flashUntil = performance.now() + 180
+    }
+    board.userData.practiceTarget = target
+    targets.push(target)
+  }
+
+  return targets
+}
 
 // Second hidden biome - a grimy sewer corridor, home to the Sewer Dweller
 // zombie type (see ZombieTypes.js). Same enclosed wall/ceiling/floor

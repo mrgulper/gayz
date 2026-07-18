@@ -488,6 +488,41 @@ class AudioEngine {
     noise.stop(now + crackleDuration)
   }
 
+  // Bright bell "ding" for a practice range target hit (see World.js's
+  // buildPracticeRange) - the only purely positive-feedback SFX in this
+  // file, everything else here is either combat or a danger cue.
+  playTargetDing() {
+    if (!this.ctx) return
+    const ctx = this.ctx
+    const now = ctx.currentTime
+    const duration = 0.35
+
+    const bell = ctx.createOscillator()
+    bell.type = 'sine'
+    bell.frequency.setValueAtTime(1400, now)
+    bell.frequency.exponentialRampToValueAtTime(1100, now + duration)
+
+    const bellGain = ctx.createGain()
+    bellGain.gain.setValueAtTime(0.4, now)
+    bellGain.gain.exponentialRampToValueAtTime(0.001, now + duration)
+
+    bell.connect(bellGain).connect(this.sfxGain)
+    bell.start(now)
+    bell.stop(now + duration)
+
+    const overtone = ctx.createOscillator()
+    overtone.type = 'sine'
+    overtone.frequency.setValueAtTime(2100, now)
+
+    const overtoneGain = ctx.createGain()
+    overtoneGain.gain.setValueAtTime(0.15, now)
+    overtoneGain.gain.exponentialRampToValueAtTime(0.001, now + duration * 0.6)
+
+    overtone.connect(overtoneGain).connect(this.sfxGain)
+    overtone.start(now)
+    overtone.stop(now + duration * 0.6)
+  }
+
   // Low, mournful groan for ambient zombie presence (not an attack cue).
   // Uses a triangle tone (not sawtooth) through vowel-like formant filters
   // so it reads as a vocal "aaahh" rather than a buzzy raspberry.
