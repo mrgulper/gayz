@@ -286,7 +286,14 @@ export function buildWorld(scene) {
 
   // Two of the generated building slots become real enterable skyscrapers
   // (walkable interior floors + stairwell) instead of solid decorative boxes.
-  const skyscraperIdxs = [7, 12]
+  // Index 12 was the original second slot, but its exterior fire escape
+  // (see buildFireEscape) sticks 0.9 units past the blind wall and that
+  // lands squarely inside slot 17's footprint (the adjacent building row is
+  // only 14 units away and slot 17 is wide) - fully blocking flights 1/2.
+  // buildingLayout() is deterministic (no randomness), so this was verified
+  // by hand against every same/adjacent-row neighbor; index 10 has ~3.8
+  // units of clearance to the nearest neighbor on its escape side.
+  const skyscraperIdxs = [7, 10]
   for (const i of skyscraperIdxs) {
     buildings[i].skyscraper = true
     buildings[i].broken = false
@@ -297,8 +304,12 @@ export function buildWorld(scene) {
 
   const towerChestSpots = []
   for (const b of buildings) {
-    if (b.skyscraper) buildSkyscraper(scene, colliders, solidMeshes, b, towerChestSpots)
-    else addBuilding(scene, register, b)
+    if (b.skyscraper) {
+      buildSkyscraper(scene, colliders, solidMeshes, b, towerChestSpots)
+      buildFireEscape(scene, colliders, solidMeshes, b, towerChestSpots)
+    } else {
+      addBuilding(scene, register, b)
+    }
   }
 
   scatterDebris(scene)
@@ -1588,6 +1599,96 @@ function buildSkyscraper(scene, colliders, solidMeshes, spec, chestSpots) {
 
     chestSpots.push({ x: mainRoomCenterX, y, z: cz })
   }
+}
+
+// Exterior fire escape granting a low-rooftop vantage on the two "real"
+// skyscrapers above - a switchback metal stair up the building's blind
+// (non-entrance) side, entirely outside the shell, ending on a flat railed
+// roof with its own loot chest. Independent of the interior stairwell (see
+// buildSkyscraper) - reaching the roof never requires stepping inside.
+const FIRE_ESCAPE_OFFSET = 0.9
+const FIRE_ESCAPE_LANDING_SIZE = 1.8
+const FIRE_ESCAPE_LANDING_THICKNESS = 0.2
+const ROOF_SLAB_THICKNESS = 0.3
+const ROOF_RAIL_HEIGHT = 0.9
+const ROOF_RAIL_THICKNESS = 0.15
+
+function buildFireEscape(scene, colliders, solidMeshes, spec, chestSpots) {
+  const { x: cx, z: cz, w, d, h } = spec
+  const half = w / 2
+  const facingSign = cx < 0 ? 1 : -1
+  const faceX = cx + facingSign * half // avenue-facing (entrance) side
+  const farX = cx - facingSign * half // blind side - the wall the escape climbs
+  // Offset out from the wall face, clear of the shell wall's own collider
+  // (0.3 thick, centered on farX) so the stair isn't blocked by the very
+  // wall it's climbing.
+  const escapeX = farX - facingSign * FIRE_ESCAPE_OFFSET
+
+  const stepMat = new THREE.MeshStandardMaterial({ color: 0x4a4038, roughness: 0.6, metalness: 0.6 })
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0x2e2a24, roughness: 0.9 })
+  const railMat = new THREE.MeshStandardMaterial({ color: 0x1c1a16, roughness: 0.7, metalness: 0.5 })
+
+  const nearZ = cz - d / 2 + 1.4
+  const farZ = cz + d / 2 - 1.4
+  const flightCount = 3
+  const flightHeight = h / flightCount
+
+  const addLanding = (z, y) => {
+    const landing = new THREE.Mesh(
+      new THREE.BoxGeometry(FIRE_ESCAPE_LANDING_SIZE, FIRE_ESCAPE_LANDING_THICKNESS, FIRE_ESCAPE_LANDING_SIZE),
+      stepMat
+    )
+    landing.position.set(escapeX, y - FIRE_ESCAPE_LANDING_THICKNESS / 2, z)
+    landing.castShadow = true
+    landing.receiveShadow = true
+    landing.userData.fireEscapePart = 'landing'
+    scene.add(landing)
+    solidMeshes.push(landing) // walkable, intentionally not a horizontal collider
+  }
+
+  let fromZ = nearZ
+  let fromY = 0
+  for (let i = 0; i < flightCount; i++) {
+    const toZ = i % 2 === 0 ? farZ : nearZ
+    const toY = (i + 1) * flightHeight
+    buildStairFlight(scene, solidMeshes, escapeX, fromZ, fromY, escapeX, toZ, toY, 10)
+    addLanding(toZ, toY)
+    fromZ = toZ
+    fromY = toY
+  }
+
+  // Roof extends past the building's actual blind wall out to escapeX, so
+  // it meets the top landing with no gap to cross.
+  const roofX0 = faceX
+  const roofX1 = escapeX
+  const roofCenterX = (roofX0 + roofX1) / 2
+  const roofWidth = Math.abs(roofX0 - roofX1)
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(roofWidth, ROOF_SLAB_THICKNESS, d), roofMat)
+  roof.position.set(roofCenterX, h - ROOF_SLAB_THICKNESS / 2, cz)
+  roof.castShadow = true
+  roof.receiveShadow = true
+  roof.userData.fireEscapePart = 'roof'
+  scene.add(roof)
+  solidMeshes.push(roof) // walkable, intentionally not a horizontal collider
+
+  // Guardrail on 3 sides - left open on the escapeX edge where the fire
+  // escape actually arrives, same "skip the entrance wall" pattern as
+  // buildElevatedRoom.
+  const railSpecs = [
+    { w: roofWidth, d: ROOF_RAIL_THICKNESS, x: roofCenterX, z: cz - d / 2 },
+    { w: roofWidth, d: ROOF_RAIL_THICKNESS, x: roofCenterX, z: cz + d / 2 },
+    { w: ROOF_RAIL_THICKNESS, d, x: roofX0, z: cz },
+  ]
+  for (const s of railSpecs) {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(s.w, ROOF_RAIL_HEIGHT, s.d), railMat)
+    rail.position.set(s.x, h + ROOF_RAIL_HEIGHT / 2, s.z)
+    rail.castShadow = true
+    scene.add(rail)
+    colliders.push(new THREE.Box3().setFromObject(rail))
+    solidMeshes.push(rail)
+  }
+
+  chestSpots.push({ x: roofCenterX, y: h, z: cz })
 }
 
 // Small scavenger-built lookout platforms: an elevated one-room structure
