@@ -573,6 +573,7 @@ export class Game {
     this._shakeTime = 0
     this._hitstopUntil = 0
     this.killcamUntil = 0
+    this.musicIntensityCurrent = 0
     this.runStartedAt = performance.now()
     this.nightStartedAt = performance.now()
     this.roundIntermissionUntil = 0
@@ -3391,6 +3392,27 @@ export class Game {
     this.nextLightningAt = performance.now() + LIGHTNING_MIN_DELAY_MS + Math.random() * LIGHTNING_DELAY_RANGE_MS
   }
 
+  // Threat-based dynamic music (see Audio.js's setMusicIntensity) - nearby
+  // zombie pressure, an active boss, and low player health all push the
+  // score up; smoothed with a lerp (musicIntensityCurrent) so the volume/
+  // playback-rate shift is a fade rather than a jump as zombies wander in
+  // and out of range.
+  _updateMusicIntensity(playerPos) {
+    let nearbyCount = 0
+    for (const z of this.zombies.zombies) {
+      if (z.state !== 'alive') continue
+      const d = Math.hypot(z.group.position.x - playerPos.x, z.group.position.z - playerPos.z)
+      if (d < 22) nearbyCount++
+    }
+    let threat = Math.min(1, nearbyCount / 8)
+    if (this.zombies.zombies.some((z) => z.isBoss && z.state === 'alive')) threat = Math.max(threat, 0.8)
+    const healthFrac = this.playerState.maxHealth > 0 ? this.playerState.health / this.playerState.maxHealth : 1
+    if (healthFrac < 0.3) threat = Math.max(threat, 0.7)
+
+    this.musicIntensityCurrent = THREE.MathUtils.lerp(this.musicIntensityCurrent, threat, 0.04)
+    audioEngine.setMusicIntensity(this.musicIntensityCurrent)
+  }
+
   _updateFlicker(elapsed) {
     // Streetlights fade out during the day rather than staying lit - and
     // stay dark regardless of time of day if the generator has run dry.
@@ -3754,6 +3776,7 @@ export class Game {
     }
     this._updateFogPatch()
     this._updateFlicker(elapsed)
+    this._updateMusicIntensity(this.player.controls.object.position)
 
     if (this.driving && this.player.controls.isLocked && this.playerState.alive) {
       this.vehicle.update(dt, this.player.input, this.player.colliders)

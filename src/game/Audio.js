@@ -35,6 +35,12 @@ class AudioEngine {
     this.zombieBuffers = { attack: [], moan: [], death: [] }
     this.sfxVolume = 1
     this.musicVolume = 1
+    // Threat-based dynamic intensity (see Game.js's _updateMusicIntensity) -
+    // 0 at rest, up to 1 when zombies are close/a boss is up/health is low.
+    // Modulates the same single music track's volume and playback rate
+    // rather than crossfading between separate intensity-tier tracks, since
+    // this game has no such tracks to crossfade between.
+    this.musicIntensity = 0
   }
 
   init() {
@@ -811,7 +817,21 @@ class AudioEngine {
 
   setMusicVolume(volume) {
     this.musicVolume = Math.max(0, Math.min(1, volume))
-    if (this.music) this.music.volume = MUSIC_VOLUME * this.musicVolume
+    this._applyMusicVolume()
+  }
+
+  _applyMusicVolume() {
+    if (!this.music) return
+    // Louder (not just faster) at high threat, on top of whatever the base
+    // fade-in/settings-slider volume already is - capped well under 1 so it
+    // never clips or drowns out SFX even at max intensity.
+    this.music.volume = MUSIC_VOLUME * this.musicVolume * (0.85 + this.musicIntensity * 0.3)
+  }
+
+  setMusicIntensity(intensity) {
+    this.musicIntensity = Math.max(0, Math.min(1, intensity))
+    this._applyMusicVolume()
+    if (this.music) this.music.playbackRate = 1 + this.musicIntensity * 0.12
   }
 
   setSfxVolume(volume) {
