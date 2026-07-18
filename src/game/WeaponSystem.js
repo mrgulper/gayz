@@ -155,7 +155,11 @@ export class WeaponSystem {
     // flips hasScope for this run's ADS zoom, but must NOT be mistaken for a
     // permanent purchase when Game.js's saveShopProgress decides what to
     // persist (see applyAttachment's comment).
-    this.weapons = WEAPONS.map((w) => ({ ...w, ammoInMag: w.magSize, ammoReserve: w.reserve, rarityMult: 1, rarityTier: null, hasExtMag: false, suppressed: false, scopeOwned: !!w.hasScope }))
+    // masteryMult: set by Game.js's weapon mastery system (see
+    // WeaponMastery.js) once a weapon crosses its permanent kill threshold -
+    // persists across runs, unlike rarityMult which resets with a fresh
+    // weapon roll.
+    this.weapons = WEAPONS.map((w) => ({ ...w, ammoInMag: w.magSize, ammoReserve: w.reserve, rarityMult: 1, rarityTier: null, hasExtMag: false, suppressed: false, scopeOwned: !!w.hasScope, masteryMult: 1 }))
     this.currentIndex = 0
     this.meleeVariant = 'knife'
     // Global damage multiplier - the XP-gem level-up pool's damage upgrade
@@ -425,6 +429,7 @@ export class WeaponSystem {
       scopeOwned: !!w.scopeOwned,
       hasExtMag: !!w.hasExtMag,
       suppressed: !!w.suppressed,
+      masteryMult: w.masteryMult,
     }))
   }
 
@@ -593,7 +598,7 @@ export class WeaponSystem {
       // a squad member racing for an airdrop).
       const rivalHit = hit.object.userData.rival
       if (rivalHit) {
-        rivalHit.onHit(w.damage * this.damageMult * w.rarityMult)
+        rivalHit.onHit(w.damage * this.damageMult * w.rarityMult * w.masteryMult)
         if (this.onZombieHit) this.onZombieHit()
       }
 
@@ -652,7 +657,7 @@ export class WeaponSystem {
           const t = THREE.MathUtils.clamp((info.distance - nearDist) / (farDist - nearDist), 0, 1)
           perHitDamage = THREE.MathUtils.lerp(near, far, t)
         }
-        let damage = perHitDamage * info.count * this.damageMult * w.rarityMult
+        let damage = perHitDamage * info.count * this.damageMult * w.rarityMult * w.masteryMult
         // Stealth takedown: melee, and the zombie is facing away from the
         // player (its own forward vector points opposite the direction to
         // the player) - approaching from its blind side guarantees the kill

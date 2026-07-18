@@ -919,6 +919,17 @@ html, body {
   flex-shrink: 0;
 }
 
+.mastery-tag {
+  font-size: 10px;
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
+
+.mastery-tag.mastered {
+  color: #ffcf5c;
+  opacity: 1;
+}
+
 .hotbar-assign-btn {
   width: 20px;
   height: 20px;

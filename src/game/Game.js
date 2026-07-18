@@ -13,6 +13,7 @@ import { Inventory } from './Inventory.js'
 import { DayNightCycle } from './DayNightCycle.js'
 import { ChestManager, Vault } from './Chests.js'
 import { RivalManager } from './RivalScavenger.js'
+import { loadMastery, saveMastery, MASTERY_THRESHOLD, MASTERY_DAMAGE_MULT } from './WeaponMastery.js'
 import { BarricadeWindows, REPAIR_REWARD_POINTS } from './BarricadeWindows.js'
 import { Minimap } from './Minimap.js'
 import { DecalManager } from './Decals.js'
@@ -880,6 +881,13 @@ export class Game {
     this.rivals = new RivalManager(this.scene)
     this.weapons.setRivalManager(this.rivals)
     this._rivalsClaimedAirdrop = false
+    // Weapon mastery (see WeaponMastery.js) - re-applies any previously
+    // earned masteryMult bonuses to this fresh set of weapon objects, since
+    // WeaponSystem's own weapons array is rebuilt from scratch every run.
+    this.weaponMastery = loadMastery()
+    for (const w of this.weapons.weapons) {
+      if (this.weaponMastery.mastered.has(w.id)) w.masteryMult = MASTERY_DAMAGE_MULT
+    }
     // Restore previously-purchased Coin Shop guns (see saveShopProgress) -
     // markUnlocked rather than unlockWeapon so restoring e.g. a past
     // minigun purchase doesn't yank the equipped weapon away from melee on
@@ -2793,7 +2801,14 @@ export class Game {
       .getSummary()
       .filter((w) => w.id !== 'uvlamp')
       .map((w) => {
-        const name = t(w.nameKey)
+        const mastered = w.masteryMult > 1
+        const kills = this.weaponMastery.kills[w.id] || 0
+        const masteryTag = mastered
+          ? `<span class="mastery-tag mastered" title="${t('masteryMasteredTitle', { pct: Math.round((MASTERY_DAMAGE_MULT - 1) * 100) })}">★</span>`
+          : w.unlocked
+            ? `<span class="mastery-tag" title="${t('masteryProgressTitle')}">${Math.min(kills, MASTERY_THRESHOLD)}/${MASTERY_THRESHOLD}</span>`
+            : ''
+        const name = `${t(w.nameKey)} ${masteryTag}`
         const slotButtons = this.settings.hotbar
           .map((slotWeaponId, i) => {
             const assigned = slotWeaponId === w.id
@@ -3019,6 +3034,7 @@ export class Game {
       this.killCountsByWeapon.minigun = (this.killCountsByWeapon.minigun || 0) + 1
       if (this.killCountsByWeapon.minigun >= 50) this.achievements.unlock('meat_grinder')
     }
+    this._trackWeaponMastery(weaponId)
     if (Math.random() < 0.25) {
       this.points += (2 + Math.floor(Math.random() * 4)) * lootMult
       this._updateStatsPanel()
@@ -3056,6 +3072,24 @@ export class Game {
     // not instead of it.
     if (zombieTypeId === 'colossus') this.pickups.spawnLootDrop('extended_mag', x, z)
     else if (zombieTypeId === 'patient_zero') this.pickups.spawnLootDrop('uvlamp', x, z)
+  }
+
+  // Persistent per-weapon kill tally (see WeaponMastery.js) - only counts
+  // toward mastery if weaponId actually names one of WeaponSystem's real
+  // guns/melee slot, not an environmental kill source (trap/C4/vehicle/etc,
+  // none of which have a matching weapons[] entry to apply a bonus to).
+  _trackWeaponMastery(weaponId) {
+    if (this.weaponMastery.mastered.has(weaponId)) return
+    const w = this.weapons.weapons.find((w) => w.id === weaponId)
+    if (!w) return
+
+    this.weaponMastery.kills[weaponId] = (this.weaponMastery.kills[weaponId] || 0) + 1
+    if (this.weaponMastery.kills[weaponId] >= MASTERY_THRESHOLD) {
+      this.weaponMastery.mastered.add(weaponId)
+      w.masteryMult = MASTERY_DAMAGE_MULT
+      this._showLoreToast(t('toastWeaponMastered', { weapon: t(this.weapons._nameKeyFor(w)) }))
+    }
+    saveMastery(this.weaponMastery)
   }
 
   _showAchievementToast(def) {
