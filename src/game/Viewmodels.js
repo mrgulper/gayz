@@ -357,6 +357,15 @@ function buildMelee() {
   g.add(knife, bat, machete, uvbaton)
   g.userData.meleeVariants = { knife, bat, machete, uvbaton }
 
+  // Held in the left hand instead of the standard right-hand gun spot -
+  // local offset of -0.62 lands at the same world x (~-0.36) the off-hand
+  // quick-melee knife already uses (see WeaponSystem's QUICK_MELEE_REST_POS),
+  // so the equipped and off-hand knives read as the same held position.
+  // Rotated to face left and lean right, a knife-fighter stance rather than
+  // a gun-shaped weapon just relocated to the other hand.
+  g.position.set(-0.5, 0.02, -0.12)
+  g.rotation.set(-0.1, 0.5, -0.3)
+
   return g
 }
 

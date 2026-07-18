@@ -913,6 +913,41 @@ html, body {
   opacity: 0.75;
 }
 
+.hotbar-assign-row {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.hotbar-assign-btn {
+  width: 20px;
+  height: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.7);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.hotbar-assign-btn:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.hotbar-assign-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.hotbar-assign-btn.assigned {
+  background: #e3a63c;
+  border-color: #e3a63c;
+  color: #1a1408;
+}
+
 #inventory-hint {
   margin-top: 16px;
   font-size: 13px;
@@ -1167,6 +1202,61 @@ html, body {
   font-size: 34px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+#hotbar {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  display: none;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.hotbar-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 58px;
+  height: 46px;
+  background: rgba(10, 10, 10, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+.hotbar-slot-num {
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.55;
+}
+
+.hotbar-slot-name {
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.15;
+  opacity: 0.85;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hotbar-slot.active {
+  border-color: #e3a63c;
+  background: rgba(227, 166, 60, 0.18);
+}
+
+.hotbar-slot.active .hotbar-slot-name {
+  opacity: 1;
+}
+
+.hotbar-slot.locked .hotbar-slot-name {
+  opacity: 0.4;
 }
 
 #asset-loader {

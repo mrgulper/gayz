@@ -103,9 +103,22 @@ export class Vehicle {
 
     const x = this.group.position.x
     const z = this.group.position.z
-    if (fits(x + dx, z)) this.group.position.x += dx
+
+    // If the car's own box already overlaps a collider at its CURRENT spot
+    // (e.g. a spawn point that ended up embedded in a wall - this exact bug
+    // happened with the old safe-zone spawn before it was relocated), `fits`
+    // rejects every direction forever and the car is permanently stuck: it
+    // never entered `colliders` overlapping-but-moving-out, it's just stuck
+    // failing the "does the destination fit" check in every direction, with
+    // no path back to a valid state. Zombie._tryMove already has this same
+    // escape hatch (see its own "walk itself free" comment) - mirror it here
+    // so a car can always still be steered back out of an overlap instead of
+    // freezing for the rest of the run.
+    const alreadyStuck = !fits(x, z)
+
+    if (alreadyStuck || fits(x + dx, z)) this.group.position.x += dx
     else this.speed = 0
-    if (fits(this.group.position.x, z + dz)) this.group.position.z += dz
+    if (alreadyStuck || fits(this.group.position.x, z + dz)) this.group.position.z += dz
     else this.speed = 0
   }
 

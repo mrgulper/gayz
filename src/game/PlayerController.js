@@ -269,16 +269,29 @@ export class PlayerController {
     next.x += dx
     next.z += dz
 
-    const playerBox = new THREE.Box3(
-      new THREE.Vector3(next.x - RADIUS, next.y - this.eyeHeight, next.z - RADIUS),
-      new THREE.Vector3(next.x + RADIUS, next.y + 0.3, next.z + RADIUS)
-    )
-
-    for (const collider of this.colliders) {
-      if (playerBox.intersectsBox(collider)) return
+    const fits = (x, z) => {
+      const box = new THREE.Box3(
+        new THREE.Vector3(x - RADIUS, obj.position.y - this.eyeHeight, z - RADIUS),
+        new THREE.Vector3(x + RADIUS, obj.position.y + 0.3, z + RADIUS)
+      )
+      for (const collider of this.colliders) {
+        if (box.intersectsBox(collider)) return false
+      }
+      return true
     }
 
-    obj.position.x = next.x
-    obj.position.z = next.z
+    // If the player is already overlapping a collider right where they
+    // stand (knockback shoving them into geometry, a vehicle-exit point
+    // placed against a wall, a future spawn/respawn point that ends up
+    // embedded in something), the check below would reject every direction
+    // forever and freeze the player in place for good - the exact "car
+    // spawned inside a wall collider" bug this game hit before, just for the
+    // player instead of the vehicle. Zombie._tryMove and Vehicle._tryMove
+    // both have this same escape hatch; mirror it here so the player can
+    // always walk themselves back out of an overlap instead of soft-locking.
+    if (!fits(obj.position.x, obj.position.z) || fits(next.x, next.z)) {
+      obj.position.x = next.x
+      obj.position.z = next.z
+    }
   }
 }

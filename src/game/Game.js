@@ -104,6 +104,10 @@ function loadSettings() {
       scoreAttackMode: parsed.scoreAttackMode ?? false,
       hardcoreMode: parsed.hardcoreMode ?? false,
       loadout: LOADOUT_PRESETS[parsed.loadout] ? parsed.loadout : 'balanced',
+      // 5-slot hotbar (see Game.js's _bindHotbar) - a weapon id per slot,
+      // or null for empty. Defaults match the request this was built for:
+      // melee/AK-47/M1911 filled in, two open slots for whatever's bought.
+      hotbar: Array.isArray(parsed.hotbar) && parsed.hotbar.length === 5 ? parsed.hotbar : ['melee', 'rifle', 'pistol', null, null],
       mutators: {
         hordeRush: parsed.mutators?.hordeRush ?? false,
         lootRush: parsed.mutators?.lootRush ?? false,
@@ -113,7 +117,7 @@ function loadSettings() {
       },
     }
   } catch {
-    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, loadout: 'balanced', performanceMode: false, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false } }
+    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false } }
   }
 }
 
@@ -280,6 +284,9 @@ const AIRDROP_MAX_DELAY_MS = 130000
 const AIRDROP_WINDOW_MS = 75000
 const AIRDROP_SPAWN_RADIUS = 30
 const AIRDROP_CLAIM_RADIUS = 2
+const AIRDROP_REST_Y = 1.1
+const AIRDROP_FALL_HEIGHT = 16
+const AIRDROP_FALL_DURATION_MS = 2200
 const BOSS_TIER_IDS = new Set(['colossus', 'patient_zero', 'titan'])
 const WHEEL_RADIUS = 110
 const WHEEL_DEADZONE = 18
@@ -329,6 +336,8 @@ export class Game {
     this.playBtn = document.getElementById('play-btn')
     this.crosshair = document.getElementById('crosshair')
     this.hudEl = document.getElementById('hud')
+    this.hotbarEl = document.getElementById('hotbar')
+    this.hotbarSlotEls = Array.from(this.hotbarEl.querySelectorAll('.hotbar-slot'))
     this.statusHud = document.getElementById('status-hud')
     this.healthFill = document.getElementById('health-fill')
     this.healthValue = document.getElementById('health-value')
@@ -353,6 +362,14 @@ export class Game {
     this.panelBarricadeCount = document.getElementById('panel-barricade-count')
     this.panelTrapCount = document.getElementById('panel-trap-count')
     this.panelWeaponsList = document.getElementById('panel-weapons-list')
+    // Delegated once (not re-bound on every _refreshInventoryPanel render,
+    // since that rebuilds the row HTML from scratch) - reads which weapon/
+    // slot the clicked button belongs to off its own data attributes.
+    this.panelWeaponsList.addEventListener('click', (e) => {
+      const btn = e.target.closest('.hotbar-assign-btn')
+      if (!btn || btn.disabled) return
+      this._assignHotbarSlot(Number(btn.dataset.slot), btn.dataset.weapon)
+    })
     this.inventoryOpen = false
     this.staminaFill = document.getElementById('stamina-fill')
     this.batteryFill = document.getElementById('battery-fill')
@@ -742,6 +759,7 @@ export class Game {
     // close/reload happening between the last stats-panel update and now.
     window.addEventListener('beforeunload', () => saveShopProgress(this))
     this._bindItemKeys()
+    this._bindHotbar()
     this._bindSettings()
     this._bindDifficulty()
     this._bindCompanionRole()
@@ -869,6 +887,7 @@ export class Game {
       this.menu.style.display = 'none'
       this.crosshair.style.display = this.driving ? 'none' : 'block'
       this.hudEl.style.display = this.driving ? 'none' : 'block'
+      this.hotbarEl.style.display = this.driving ? 'none' : 'flex'
       this.statusHud.style.display = 'flex'
       this.inventoryHud.style.display = 'flex'
       this.progressHud.style.display = 'flex'
@@ -908,6 +927,7 @@ export class Game {
       }
       this.crosshair.style.display = 'none'
       this.hudEl.style.display = 'none'
+      this.hotbarEl.style.display = 'none'
       this.statusHud.style.display = 'none'
       this.inventoryHud.style.display = 'none'
       this.progressHud.style.display = 'none'
@@ -2223,6 +2243,7 @@ export class Game {
     this.weapons.viewmodelRoot.visible = false
     this.crosshair.style.display = 'none'
     this.hudEl.style.display = 'none'
+    this.hotbarEl.style.display = 'none'
     this.interactPrompt.innerHTML = tHtml('interactExitVehicle')
     this.interactPrompt.style.display = 'block'
   }
@@ -2234,6 +2255,7 @@ export class Game {
     this.weapons.viewmodelRoot.visible = true
     this.crosshair.style.display = 'block'
     this.hudEl.style.display = 'block'
+    this.hotbarEl.style.display = 'flex'
     this.interactPrompt.style.display = 'none'
 
     const exitPos = this.vehicle.getExitWorld(this._vehicleSeatPos)
@@ -2342,12 +2364,20 @@ export class Game {
 
     this.panelWeaponsList.innerHTML = this.weapons
       .getSummary()
+      .filter((w) => w.id !== 'uvlamp')
       .map((w) => {
         const name = t(w.nameKey)
+        const slotButtons = this.settings.hotbar
+          .map((slotWeaponId, i) => {
+            const assigned = slotWeaponId === w.id
+            return `<button class="hotbar-assign-btn${assigned ? ' assigned' : ''}" data-slot="${i}" data-weapon="${w.id}" ${w.unlocked ? '' : 'disabled'} title="Put in hotbar slot ${i + 1}">${i + 1}</button>`
+          })
+          .join('')
         return `
         <div class="inv-panel-row">
           <span>${name}</span>
           <span>${w.unlocked ? `${w.ammoInMag} / ${w.ammoReserve}` : t('lockedLabel')}</span>
+          <span class="hotbar-assign-row">${slotButtons}</span>
         </div>
       `
       })
@@ -2553,6 +2583,7 @@ export class Game {
     this.player.controls.unlock()
     this.crosshair.style.display = 'none'
     this.hudEl.style.display = 'none'
+    this.hotbarEl.style.display = 'none'
     this.statusHud.style.display = 'none'
     this.inventoryHud.style.display = 'none'
     this.progressHud.style.display = 'none'
@@ -2704,6 +2735,58 @@ export class Game {
     this.staminaValue.textContent = Math.round(this.player.stamina)
   }
 
+  // Bottom-of-screen 5-slot hotbar (see _bindHotbar for Digit1-5 switching
+  // and _refreshInventoryPanel for the Tab-opened assignment UI) - just
+  // reflects this.settings.hotbar's weapon-id-per-slot array plus which
+  // slot (if any) matches the currently equipped weapon.
+  _updateHotbarHud() {
+    const summary = this.weapons.getSummary()
+    const currentId = this.weapons.current.id
+    this.settings.hotbar.forEach((weaponId, i) => {
+      const el = this.hotbarSlotEls[i]
+      const nameEl = el.querySelector('.hotbar-slot-name')
+      if (!weaponId) {
+        nameEl.textContent = '-'
+        el.classList.remove('active', 'locked')
+        return
+      }
+      const w = summary.find((ww) => ww.id === weaponId)
+      nameEl.textContent = w ? t(w.nameKey) : '-'
+      el.classList.toggle('locked', !!w && !w.unlocked)
+      el.classList.toggle('active', weaponId === currentId)
+    })
+  }
+
+  // Digit1-5 switch to whatever's assigned in that hotbar slot (see
+  // this.settings.hotbar) - assignment itself happens in the Tab-opened
+  // inventory panel (_refreshInventoryPanel's per-weapon slot buttons).
+  _bindHotbar() {
+    window.addEventListener('keydown', (e) => {
+      if (!this.player.controls.isLocked || !this.playerState.alive || this.inventoryOpen || this.driving) return
+      const digitIndex = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5'].indexOf(e.code)
+      if (digitIndex === -1) return
+      const weaponId = this.settings.hotbar[digitIndex]
+      if (!weaponId) return
+      const index = this.weapons.weapons.findIndex((w) => w.id === weaponId)
+      if (index !== -1) this.weapons.switchToIndex(index)
+    })
+    this._updateHotbarHud()
+  }
+
+  // Assigns a weapon to a hotbar slot from the inventory panel's per-row
+  // slot buttons (see _refreshInventoryPanel) - only one slot may hold a
+  // given weapon at a time, so assigning it elsewhere clears its old slot
+  // rather than leaving a duplicate.
+  _assignHotbarSlot(slotIndex, weaponId) {
+    for (let i = 0; i < this.settings.hotbar.length; i++) {
+      if (this.settings.hotbar[i] === weaponId) this.settings.hotbar[i] = null
+    }
+    this.settings.hotbar[slotIndex] = weaponId
+    saveSettings(this.settings)
+    this._updateHotbarHud()
+    this._refreshInventoryPanel()
+  }
+
   _updateStatsPanel() {
     // Piggybacks on this already being called after every points/coins/skin
     // change in the game (kills, purchases, repairs, rescues...) instead of
@@ -2790,7 +2873,9 @@ export class Game {
 
   // Timed, marked airdrop - shows on the minimap/compass like the trader
   // and ammo station, but only for its AIRDROP_WINDOW_MS window. Reaching
-  // it claims a reward; letting it expire just removes the marker.
+  // it claims a reward; letting it expire just removes the marker. Spawns
+  // high overhead and drops onto its target spot (see _spawnAirdrop) rather
+  // than just appearing - only claimable once it's actually landed.
   _updateAirdrop() {
     const now = performance.now()
     if (this.airdrop && now >= this.airdrop.expiresAt) {
@@ -2802,9 +2887,20 @@ export class Game {
     if (!this.airdrop && now >= this.nextAirdropAt) this._spawnAirdrop()
 
     if (this.airdrop) {
-      const pos = this.player.controls.object.position
-      const dist = Math.hypot(pos.x - this.airdrop.x, pos.z - this.airdrop.z)
-      if (dist <= AIRDROP_CLAIM_RADIUS) this._claimAirdrop()
+      const fallElapsed = now - this.airdrop.spawnedAt
+      if (fallElapsed < AIRDROP_FALL_DURATION_MS) {
+        const t = Math.min(1, fallElapsed / AIRDROP_FALL_DURATION_MS)
+        const eased = 1 - (1 - t) * (1 - t)
+        this.airdrop.mesh.position.y = AIRDROP_REST_Y + AIRDROP_FALL_HEIGHT * (1 - eased)
+        this.airdrop.mesh.rotation.y += 0.06
+      } else if (this.airdrop.mesh.position.y !== AIRDROP_REST_Y) {
+        this.airdrop.mesh.position.y = AIRDROP_REST_Y
+        this.airdrop.beam.intensity = 0.8
+      } else {
+        const pos = this.player.controls.object.position
+        const dist = Math.hypot(pos.x - this.airdrop.x, pos.z - this.airdrop.z)
+        if (dist <= AIRDROP_CLAIM_RADIUS) this._claimAirdrop()
+      }
     }
   }
 
@@ -2814,15 +2910,26 @@ export class Game {
     const x = Math.sin(angle) * radius
     const z = Math.cos(angle) * radius
 
-    const mat = new THREE.MeshStandardMaterial({ color: 0x3a2a10, emissive: 0xffe680, emissiveIntensity: 1.6 })
-    const mesh = new THREE.Mesh(new THREE.ConeGeometry(0.4, 2.2, 6), mat)
-    mesh.position.set(x, 1.1, z)
+    // A supply crate that visibly falls out of the sky onto its landing
+    // spot instead of just popping into existence as a bright beacon - see
+    // _updateAirdrop's fall animation. Toned way down from the old
+    // constant emissiveIntensity 1.6 cone + intensity 1.6 point light,
+    // which lit up the whole street around it.
+    const crateMat = new THREE.MeshStandardMaterial({ color: 0x3a3226, roughness: 0.85 })
+    const trimMat = new THREE.MeshStandardMaterial({ color: 0x2a2018, roughness: 0.7, metalness: 0.3, emissive: 0xffe680, emissiveIntensity: 0.35 })
+    const mesh = new THREE.Group()
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 0.9), crateMat)
+    mesh.add(body)
+    // Two crossing metal bands, like a strapped supply crate.
+    mesh.add(new THREE.Mesh(new THREE.BoxGeometry(0.98, 0.1, 0.98), trimMat))
+    mesh.add(new THREE.Mesh(new THREE.BoxGeometry(0.98, 0.98, 0.1), trimMat))
+    mesh.position.set(x, AIRDROP_REST_Y + AIRDROP_FALL_HEIGHT, z)
     this.scene.add(mesh)
-    const beam = new THREE.PointLight(0xffe680, 1.6, 10, 2)
+    const beam = new THREE.PointLight(0xffe680, 0.5, 8, 2)
     beam.position.set(0, 3, 0)
     mesh.add(beam)
 
-    this.airdrop = { x, z, mesh, expiresAt: performance.now() + AIRDROP_WINDOW_MS }
+    this.airdrop = { x, z, mesh, beam, spawnedAt: performance.now(), expiresAt: performance.now() + AIRDROP_FALL_DURATION_MS + AIRDROP_WINDOW_MS }
     this.nextAirdropAt = performance.now() + AIRDROP_MIN_DELAY_MS + Math.random() * (AIRDROP_MAX_DELAY_MS - AIRDROP_MIN_DELAY_MS)
     this._showLoreToast(t('airdropIncoming'))
   }
@@ -3148,6 +3255,7 @@ export class Game {
         this.player.input.left || this.player.input.right
       )
       if (!this.weaponWheelOpen) this.weapons.update(dt, isMoving)
+      this._updateHotbarHud()
       this._updateStaminaHud()
       this._updateFlashlightBattery(dt)
 

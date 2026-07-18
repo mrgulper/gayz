@@ -5,29 +5,24 @@ import { t, onLanguageChange } from './i18n.js'
 import { getKeyFor } from './Keybinds.js'
 
 const VIEWMODEL_BASE = new THREE.Vector3(0.26, -0.22, -0.5)
+// Was intensity 4 / distance 8 - blew out everything nearby on every shot.
+const MUZZLE_FLASH_PEAK = 1.6
 const EXPLOSIVE_PROP_RADIUS = 5
 const EXPLOSIVE_PROP_DAMAGE_MIN = 70
 const EXPLOSIVE_PROP_DAMAGE_MAX = 160
 const VIEWMODEL_ADS = new THREE.Vector3(0.02, -0.1, -0.32)
 const ADS_LERP_SPEED = 9
 
-// The knife is one weapon with two ways to use it: equip it in the melee
-// slot and swing it normally, or - without switching off whatever gun is
-// currently out - tap 1 for the same knife's instant stab on a short
-// cooldown (see WeaponSystem._quickMelee). Both paths share this damage
-// number and the same viewmodel (buildQuickMeleeKnifeModel), not two
-// different knives with different stats.
+// The off-hand knife (buildQuickMeleeKnifeModel) rides along in the left
+// hand for as long as any gun is equipped (hidden only for the melee slot
+// itself, see _switchTo) - purely a held-ready visual now, not a separate
+// instant-stab attack (that used to live on Digit1, retired since the
+// hotbar - see Game.js - now owns Digit1-5 for slot switching).
 const KNIFE_DAMAGE = 150
-const QUICK_MELEE_RANGE = 2.4
-const QUICK_MELEE_COOLDOWN_MS = 500
-const QUICK_MELEE_ANIM_MS = 280
 // Held low on the off-hand (left) side, well clear of the equipped gun's
-// own position (see VIEWMODEL_BASE, positive X) - then thrusts forward and
-// across to the center on the stab instead of just sliding straight out.
+// own position (see VIEWMODEL_BASE, positive X).
 const QUICK_MELEE_REST_POS = new THREE.Vector3(-0.36, -0.28, -0.28)
 const QUICK_MELEE_REST_ROT = new THREE.Vector3(0.35, 0.55, -0.25)
-const QUICK_MELEE_STAB_POS = new THREE.Vector3(0.04, -0.14, -0.62)
-const QUICK_MELEE_STAB_ROT = new THREE.Vector3(-0.15, -0.1, 0.1)
 
 const WEAPONS = [
   {
@@ -164,9 +159,21 @@ export class WeaponSystem {
     this.reloadEndsAt = 0
 
     this.raycaster = new THREE.Raycaster()
-    this.muzzleLight = new THREE.PointLight(0xfff2b0, 0, 8)
+    // Toned down from intensity 4 / distance 8, which blew out the whole
+    // nearby scene on every shot - now a shorter-reaching, snappier flash
+    // (see _fire's intensity=1.6 and the faster decay below) plus a small
+    // flash-shape sprite (this.muzzleFlashSprite) so it still reads as a
+    // gunshot up close without lighting up everything around it.
+    this.muzzleLight = new THREE.PointLight(0xfff2b0, 0, 4.5)
     this.camera.add(this.muzzleLight)
     this.muzzleLight.position.set(0.26, -0.16, -0.85)
+
+    const flashMat = new THREE.MeshBasicMaterial({ color: 0xfff6d8, transparent: true, opacity: 0, depthWrite: false })
+    this.muzzleFlashSprite = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.15, 6), flashMat)
+    this.muzzleFlashSprite.rotation.x = -Math.PI / 2
+    this.camera.add(this.muzzleFlashSprite)
+    this.muzzleFlashSprite.position.copy(this.muzzleLight.position)
+    this.muzzleFlashSprite.position.z -= 0.06
 
     this._time = 0
     this.recoil = 0
@@ -194,17 +201,12 @@ export class WeaponSystem {
     // Unlike every other viewmodel it isn't toggled by _switchTo alone -
     // it stays visible in the off-hand for as long as any gun is equipped
     // (hidden only when the melee slot itself is out, since that viewmodel
-    // already shows a held knife/bat/machete) and lunges into view for the
-    // stab regardless of which gun viewmodel is currently showing.
+    // already shows a held knife/bat/machete).
     this.quickMeleeKnife = buildQuickMeleeKnifeModel()
     this.quickMeleeKnife.position.copy(QUICK_MELEE_REST_POS)
     this.quickMeleeKnife.rotation.setFromVector3(QUICK_MELEE_REST_ROT)
     this.quickMeleeKnife.visible = !this.current.melee
     this.viewmodelRoot.add(this.quickMeleeKnife)
-    this.quickMeleeCooldownUntil = 0
-    this.quickMeleeAnimating = false
-    this.quickMeleeAnimUntil = 0
-    this._quickMeleeRotTmp = new THREE.Vector3()
 
     window.addEventListener('mousedown', (e) => {
       if (e.button === 0) this.triggerDown = true
@@ -372,21 +374,17 @@ export class WeaponSystem {
     }))
   }
 
+  // Digit1-5 weapon switching lives in Game.js now (see _bindHotbar) since
+  // which weapon each slot holds is player-assignable there, not a fixed
+  // index - this only still owns keys that always mean the same thing
+  // regardless of loadout.
   _onKey(e) {
-    if (e.code === 'Digit1') this._quickMelee()
-    if (e.code === 'Digit2') this._switchTo(1)
-    if (e.code === 'Digit3') this._switchTo(2)
-    if (e.code === 'Digit4') this._switchTo(3)
-    if (e.code === 'Digit5') this._switchTo(4)
-    if (e.code === 'Digit6') this._switchTo(5)
-    if (e.code === 'Digit7') this._switchTo(6)
-    if (e.code === 'Digit8') this._switchTo(7)
     if (e.code === getKeyFor('reload')) this._reload()
   }
 
   // Public entry point for switching by slot index - used by Game.js's
-  // weapon wheel, where the player picks a slot from a radial UI instead
-  // of pressing its number key directly.
+  // weapon wheel and hotbar, where the player picks a slot from a radial
+  // UI or the bottom bar instead of a fixed number key.
   switchToIndex(index) {
     this._switchTo(index)
   }
@@ -400,13 +398,10 @@ export class WeaponSystem {
     this.viewmodels[this.weapons[index].id].visible = true
     // Off-hand knife rides along with every gun, hidden only for the melee
     // slot itself (that viewmodel already has its own knife/bat/machete in
-    // hand). Reset to its resting pose so switching mid-swing doesn't leave
-    // it stuck at whatever position the stab animation was at.
+    // hand).
     this.quickMeleeKnife.visible = !this.weapons[index].melee
-    if (!this.quickMeleeAnimating) {
-      this.quickMeleeKnife.position.copy(QUICK_MELEE_REST_POS)
-      this.quickMeleeKnife.rotation.setFromVector3(QUICK_MELEE_REST_ROT)
-    }
+    this.quickMeleeKnife.position.copy(QUICK_MELEE_REST_POS)
+    this.quickMeleeKnife.rotation.setFromVector3(QUICK_MELEE_REST_ROT)
     this._updateHud()
   }
 
@@ -433,7 +428,6 @@ export class WeaponSystem {
 
     this._updateViewmodelTransform(isMoving)
     this._updateBarrelSpin(dt)
-    this._updateQuickMeleeAnim()
 
     if (this.reloading) {
       if (performance.now() / 1000 >= this.reloadEndsAt) {
@@ -446,11 +440,13 @@ export class WeaponSystem {
         this._updateHud()
       }
       this.muzzleLight.intensity = 0
+      this.muzzleFlashSprite.material.opacity = 0
       return
     }
 
     if (this.muzzleLight.intensity > 0) {
-      this.muzzleLight.intensity = Math.max(0, this.muzzleLight.intensity - dt * 25)
+      this.muzzleLight.intensity = Math.max(0, this.muzzleLight.intensity - dt * 14)
+      this.muzzleFlashSprite.material.opacity = (this.muzzleLight.intensity / MUZZLE_FLASH_PEAK) * 0.85
     }
 
     const w = this.current
@@ -501,7 +497,9 @@ export class WeaponSystem {
       audioEngine.playMelee()
     } else {
       w.ammoInMag -= 1
-      this.muzzleLight.intensity = 4
+      this.muzzleLight.intensity = MUZZLE_FLASH_PEAK
+      this.muzzleFlashSprite.material.opacity = 0.85
+      this.muzzleFlashSprite.rotation.z = Math.random() * Math.PI * 2
       this.recoil = 1
       this._updateHud()
       audioEngine.playShot(w.id)
@@ -600,65 +598,6 @@ export class WeaponSystem {
       if (this.onZombieHit) this.onZombieHit()
     }
     void anyHit
-  }
-
-  // Panic-button knife stab - fixed damage/range, doesn't touch
-  // this.currentIndex or ammo, works no matter which gun is out. See the
-  // QUICK_MELEE_* constants and _updateQuickMeleeAnim for the lunge visual.
-  _quickMelee() {
-    const now = performance.now()
-    if (now < this.quickMeleeCooldownUntil) return
-    this.quickMeleeCooldownUntil = now + QUICK_MELEE_COOLDOWN_MS
-    this.quickMeleeAnimating = true
-    this.quickMeleeAnimUntil = now + QUICK_MELEE_ANIM_MS
-    this.quickMeleeKnife.visible = true
-    audioEngine.playMelee()
-
-    const zombieMeshes = this.zombieManager ? this.zombieManager.hittableMeshes : []
-    this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera)
-    const hits = this.raycaster.intersectObjects([...zombieMeshes, ...this.colliderMeshes], true)
-    if (hits.length === 0 || hits[0].distance > QUICK_MELEE_RANGE) return
-
-    const hit = hits[0]
-    const zombieHit = hit.object.userData.zombie
-    if (zombieHit) {
-      zombieHit.lastHitWeaponId = 'quickmelee'
-      zombieHit.onHit(KNIFE_DAMAGE * this.damageMult)
-      this._showHitmarker()
-      if (this.onZombieHit) this.onZombieHit()
-    }
-
-    if (this.onHitSurface) {
-      if (hit.face) {
-        this._hitNormal.copy(hit.face.normal).transformDirection(hit.object.matrixWorld).normalize()
-      } else {
-        this._hitNormal.set(0, 1, 0)
-      }
-      this.onHitSurface(hit.point, this._hitNormal, !!zombieHit)
-    }
-  }
-
-  // Lunges the quick-melee knife into view and back over QUICK_MELEE_ANIM_MS
-  // when mid-swing; otherwise the knife just sits in its resting pose,
-  // staying visible the whole time a gun is equipped (see _switchTo) rather
-  // than only appearing for the swing itself.
-  _updateQuickMeleeAnim() {
-    if (!this.quickMeleeAnimating) return
-    const now = performance.now()
-    const remaining = this.quickMeleeAnimUntil - now
-    if (remaining <= 0) {
-      this.quickMeleeAnimating = false
-      this.quickMeleeKnife.position.copy(QUICK_MELEE_REST_POS)
-      this.quickMeleeKnife.rotation.setFromVector3(QUICK_MELEE_REST_ROT)
-      this.quickMeleeKnife.visible = !this.current.melee
-      return
-    }
-    const t = 1 - remaining / QUICK_MELEE_ANIM_MS
-    // Lunge out over the first half, snap back over the second.
-    const stabT = t < 0.5 ? t * 2 : 1 - (t - 0.5) * 2
-    this.quickMeleeKnife.position.lerpVectors(QUICK_MELEE_REST_POS, QUICK_MELEE_STAB_POS, stabT)
-    this._quickMeleeRotTmp.lerpVectors(QUICK_MELEE_REST_ROT, QUICK_MELEE_STAB_ROT, stabT)
-    this.quickMeleeKnife.rotation.setFromVector3(this._quickMeleeRotTmp)
   }
 
   _showHitmarker() {

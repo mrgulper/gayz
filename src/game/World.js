@@ -229,9 +229,20 @@ export function buildWorld(scene) {
   // world-origin) transform instead of its real position, producing a
   // phantom collider sitting at (0,0,0) regardless of where the group
   // actually is. See https://threejs.org/docs/#api/en/core/Object3D.updateWorldMatrix.
-  const register = (object) => {
+  //
+  // Optional `explicitBox` lets a caller hand in a pre-computed Box3 instead
+  // of deriving one from the object automatically. Needed for anything
+  // rotated around Y (e.g. the trader stall, tilted ~27deg for visual
+  // flair): Box3 is always axis-aligned, so setFromObject on a rotated mesh
+  // returns an AABB inflated well past the mesh's actual footprint (a
+  // 1.6x0.6 box rotated 27deg needs a ~1.7x1.26 AABB to fully contain it) -
+  // an invisible collision buffer bulging out well beyond what's visible,
+  // which is exactly the "phantom collider" shape reported around rotated
+  // props. Passing the object's true, unrotated footprint here keeps the
+  // collider honest instead of ballooning with the rotation.
+  const register = (object, explicitBox) => {
     object.updateWorldMatrix(true, false)
-    colliders.push(new THREE.Box3().setFromObject(object))
+    colliders.push(explicitBox || new THREE.Box3().setFromObject(object))
     solidMeshes.push(object)
   }
 
@@ -493,7 +504,10 @@ function buildTraderStall(scene, register) {
   const tarpMat = new THREE.MeshStandardMaterial({ color: 0x5a2e2a, roughness: 0.85 })
   const signMat = new THREE.MeshStandardMaterial({ color: 0x1a1410, emissive: 0xffb347, emissiveIntensity: 1.1 })
 
-  const counter = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.9, 0.6), woodMat)
+  const COUNTER_W = 1.6
+  const COUNTER_H = 0.9
+  const COUNTER_D = 0.6
+  const counter = new THREE.Mesh(new THREE.BoxGeometry(COUNTER_W, COUNTER_H, COUNTER_D), woodMat)
   counter.position.y = 0.45
   counter.castShadow = true
   counter.receiveShadow = true
@@ -521,7 +535,15 @@ function buildTraderStall(scene, register) {
   group.add(lantern)
 
   scene.add(group)
-  register(counter)
+  // The counter sits on the group's own rotation axis (no local x/z
+  // offset), so its true world footprint is just its unrotated half-extents
+  // re-centered at the group's world x/z - no need to let setFromObject
+  // inflate it for the 27deg tilt (see register()'s explicitBox comment).
+  const counterBox = new THREE.Box3(
+    new THREE.Vector3(x - COUNTER_W / 2, 0, z - COUNTER_D / 2),
+    new THREE.Vector3(x + COUNTER_W / 2, COUNTER_H, z + COUNTER_D / 2)
+  )
+  register(counter, counterBox)
 
   return { x, z, signMat, mesh: counter }
 }
