@@ -42,6 +42,7 @@ const COMPANION_BARKS = {
   killStreak: ['Nice shooting!', "You're on fire tonight!", 'Keep it up!', 'Not bad.'],
   nightStart: ['Stay sharp out there.', 'Here we go again.', 'Eyes open.', "Let's not die tonight."],
   companionDown: ["I'm down, help!", 'Get them off me!', "I can't get up!", 'Revive me, quick!'],
+  bossSpawn: ["Something big just showed up!", "That's not a regular one - watch yourself!", 'Big target, incoming!', "We've got a boss on us!"],
 }
 
 const PICKUP_LABELS = {
@@ -734,6 +735,7 @@ export class Game {
     this.loreToast = document.getElementById('lore-toast')
     this.companionBarkEl = document.getElementById('companion-bark')
     this.lowHealthBarked = false
+    this.bossAnnounced = false
     this.nextHeartbeatAt = 0
     this.statsPoints = document.getElementById('stats-points')
     this.perkPanel = document.getElementById('perk-panel')
@@ -938,6 +940,7 @@ export class Game {
       }
       this.playerState.respawn()
       this.lowHealthBarked = false
+      this.bossAnnounced = false
       this.player.resetPosition()
       this.zombies.roundMode = this._isRoundMode()
       this.zombies.reset()
@@ -3512,7 +3515,12 @@ export class Game {
     const boss = this.zombies.zombies.find((z) => z.isBoss && z.state !== 'dead')
     if (!boss) {
       this.bossHealthWrap.style.display = 'none'
+      this.bossAnnounced = false
       return
+    }
+    if (!this.bossAnnounced) {
+      this.bossAnnounced = true
+      this._companionBark('bossSpawn')
     }
     this.bossHealthWrap.style.display = 'block'
     this.bossNameEl.textContent = boss.config.label
