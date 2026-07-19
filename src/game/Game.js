@@ -623,6 +623,7 @@ export class Game {
     this.compassAmmo = document.getElementById('compass-ammo')
     this.compassVehicle = document.getElementById('compass-vehicle')
     this.compassAirdrop = document.getElementById('compass-airdrop')
+    this.compassSubway = document.getElementById('compass-subway')
     this.comboCount = 0
     this.comboResetAt = 0
     this.deathStats = document.getElementById('death-stats')
@@ -791,7 +792,7 @@ export class Game {
     this.composer.addPass(this.bloomPass)
     this.composer.addPass(new OutputPass())
 
-    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, undergroundStation, safeZone, practiceTargets, trophyWall } = buildWorld(this.scene, ACHIEVEMENTS.length)
+    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall } = buildWorld(this.scene, ACHIEVEMENTS.length)
     // Kept for _deployBarricade - both PlayerController and ZombieManager
     // hold this exact same array by reference (not a copy), so pushing a
     // new collider here is immediately respected by both without needing
@@ -851,6 +852,7 @@ export class Game {
     this.ammoStationHoldProgress = 0
     this.ammoStationKeyHeld = false
     this.vireoTerminal = vireoFacility.terminalSpot
+    this.subwayEntrance = subwayEntrance
     this.activeBounty = null
     this.nearVireoTerminal = false
     this.vireoGuardian = null
@@ -4534,6 +4536,7 @@ export class Game {
     const landmarks = [
       { el: this.compassTrader, x: this.trader.x, z: this.trader.z },
       { el: this.compassAmmo, x: this.ammoStation.x, z: this.ammoStation.z },
+      { el: this.compassSubway, x: this.subwayEntrance.x, z: this.subwayEntrance.z },
     ]
     if (this.vehicle && !this.driving) {
       landmarks.push({ el: this.compassVehicle, x: this.vehicle.group.position.x, z: this.vehicle.group.position.z })

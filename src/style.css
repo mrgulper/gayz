@@ -357,6 +357,10 @@ html, body {
   color: #ffe680;
 }
 
+#compass-subway {
+  color: #ffb347;
+}
+
 #night-banner {
   position: absolute;
   top: 38%;

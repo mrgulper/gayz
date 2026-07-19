@@ -450,6 +450,7 @@ export function buildWorld(scene, trophyCount = 15) {
     ammoStation,
     vireoFacility,
     undergroundStation,
+    subwayEntrance,
     safeZone,
     practiceTargets,
     trophyWall,
@@ -640,11 +641,15 @@ function buildGenerator(scene, register) {
 // sign - where scrap earned from kills can be spent on supplies (see
 // Game.js's trader panel).
 function buildTraderStall(scene, register) {
-  // Inside the safe zone compound (x:-13 z:-10, half:7 - see buildSafeZone)
-  // instead of out on the open avenue, so both "spend points" stops sit
-  // behind the guarded wall together.
-  const x = -16
-  const z = -12
+  // Inside the safe zone compound (see SAFE_ZONE_X/Z, buildSafeZone) instead
+  // of out on the open avenue, so both "spend points" stops sit behind the
+  // guarded wall together. Placed in the south interior near the entrance
+  // (which now opens on -z, see buildSafeZone's 180-degree flip) since the
+  // Vault/practice range/trophy wall all live in the north half - clear of
+  // both the entrance guard posts (x=+-2.1, z~36.2) and the gap itself
+  // (x=[-1.6,1.6]).
+  const x = SAFE_ZONE_X - 4
+  const z = SAFE_ZONE_Z - 4
 
   const group = new THREE.Group()
   group.position.set(x, 0, z)
@@ -703,11 +708,11 @@ function buildTraderStall(scene, register) {
 // pickups alone (see Game.js's _updateAmmoStation). Kept well clear of the
 // generator/trader stall so all three street props read as distinct spots.
 function buildAmmoStation(scene, register) {
-  // Also inside the safe zone, next to the trader stall (see
-  // buildTraderStall, x:-16 z:-12) - both spend-points-here stops behind
-  // the same guarded wall.
-  const x = -10
-  const z = -12
+  // Also inside the safe zone, mirrored across the entrance from the trader
+  // stall (see buildTraderStall) - both spend-points-here stops behind the
+  // same guarded wall.
+  const x = SAFE_ZONE_X + 4
+  const z = SAFE_ZONE_Z - 4
 
   const group = new THREE.Group()
   group.position.set(x, 0, z)
@@ -764,20 +769,29 @@ function buildAmmoStation(scene, register) {
   return { x, z, buttonMat, mesh: body }
 }
 
+// Module-level (not just local to buildSafeZone) so buildTraderStall and
+// buildAmmoStation can position themselves relative to it without an
+// execution-order dependency - both stalls are meant to sit inside this
+// compound (see their own comments), and hardcoding their own absolute
+// coordinates instead of referencing this is exactly what left them behind
+// at the old (-13, -10) location the last time this moved.
+// Moved to the north end of the map, just south of the park entrance - was
+// at (-13, -10) near the middle of the street grid. z=42 leaves 3 clear
+// units before the park's grass starts at z=52 (see PARK_Z_START); x=0
+// centers it on the avenue, replacing the scavenger lookout cluster that
+// used to sit at (-3, 44) - see CLUSTER_SPECS, now down to just the one
+// cluster at the south end.
+const SAFE_ZONE_X = 0
+const SAFE_ZONE_Z = 42
+
 // A walled compound with a single entrance gap - guard NPCs (see Game.js,
 // which spawns Companion instances at guardSpots) stand watch just inside
 // the gap and shoot anything that wanders close, so the gap reads as a
 // defended chokepoint instead of an unguarded hole in the wall. Game.js also
 // slowly heals the player while they're within `radius` of the center.
 function buildSafeZone(scene, colliders, solidMeshes) {
-  // Moved to the north end of the map, just south of the park entrance -
-  // was at (-13, -10) near the middle of the street grid. z=42 leaves 3
-  // clear units before the park's grass starts at z=52 (see PARK_Z_START);
-  // x=0 centers it on the avenue, replacing the scavenger lookout cluster
-  // that used to sit at (-3, 44) - see CLUSTER_SPECS, now down to just the
-  // one cluster at the south end.
-  const x = 0
-  const z = 42
+  const x = SAFE_ZONE_X
+  const z = SAFE_ZONE_Z
   const half = 7
   const gapHalfWidth = 1.6
   const wallHeight = 3.2
@@ -1183,6 +1197,9 @@ function buildSubwayParkEntrance(scene, colliders, solidMeshes) {
   // Readable "SUBWAY" + down-arrow text via a canvas texture, same technique
   // as the VIREO terminal screen (see buildVireoFacility) - a plain emissive
   // box with no text on it doesn't actually tell a player what's down here.
+  // Sized up substantially (was 2.2x0.4) and DoubleSide so it reads from
+  // either direction across the park, not just the one the plane happens to
+  // face - a player couldn't spot the original at any real distance.
   const signCanvas = document.createElement('canvas')
   signCanvas.width = 512
   signCanvas.height = 96
@@ -1196,12 +1213,26 @@ function buildSubwayParkEntrance(scene, colliders, solidMeshes) {
   signCtx.fillText('SUBWAY ↓', signCanvas.width / 2, signCanvas.height / 2)
   const signTexture = new THREE.CanvasTexture(signCanvas)
   const sign = new THREE.Mesh(
-    new THREE.PlaneGeometry(2.2, 0.4),
-    new THREE.MeshStandardMaterial({ map: signTexture, emissive: 0xffb347, emissiveMap: signTexture, emissiveIntensity: 1 })
+    new THREE.PlaneGeometry(4.6, 0.86),
+    new THREE.MeshStandardMaterial({ map: signTexture, emissive: 0xffb347, emissiveMap: signTexture, emissiveIntensity: 1.3, side: THREE.DoubleSide })
   )
-  sign.position.set(SUBWAY_PARK_ENTRANCE_X, 2.3, SUBWAY_PARK_ENTRANCE_Z + 1.51)
+  sign.position.set(SUBWAY_PARK_ENTRANCE_X, 3.6, SUBWAY_PARK_ENTRANCE_Z + 1.51)
   sign.rotation.y = Math.PI
   scene.add(sign)
+
+  // Tall beacon pillar above the kiosk so the entrance itself is spottable
+  // from across the whole park before the sign text is even legible -
+  // matches the safe zone's own beacon-post pattern (see buildSafeZone).
+  const beaconMat = new THREE.MeshStandardMaterial({ color: 0x1a1408, emissive: 0xffb347, emissiveIntensity: 1.6 })
+  const beaconPole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 4.2, 8), kioskMat)
+  beaconPole.position.set(SUBWAY_PARK_ENTRANCE_X, 4.7, SUBWAY_PARK_ENTRANCE_Z)
+  scene.add(beaconPole)
+  const beaconLamp = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 12), beaconMat)
+  beaconLamp.position.set(SUBWAY_PARK_ENTRANCE_X, 6.9, SUBWAY_PARK_ENTRANCE_Z)
+  scene.add(beaconLamp)
+  const beaconLight = new THREE.PointLight(0xffb347, 2.4, 30, 2)
+  beaconLight.position.set(SUBWAY_PARK_ENTRANCE_X, 7, SUBWAY_PARK_ENTRANCE_Z)
+  scene.add(beaconLight)
 
   buildStairFlight(
     scene, solidMeshes,
