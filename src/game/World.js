@@ -1344,6 +1344,16 @@ const STATION_OFFICE_SIZE = 4
 const STATION_OFFICE_A_Z = [-42, -38]
 const STATION_OFFICE_B_Z = [-52, -48]
 const STATION_STUB_Z_END = STATION_Z_START - 6
+// A genuine second underground level, one floor below the station itself -
+// stairs down from the maintenance stub's former dead end (see below) drop
+// 6 units to LEVEL2_FLOOR_Y, opening into its own platform/tracks hall, the
+// same scale as the original subway (see buildSubway) rather than the
+// widened station above it. Far enough south (z<=-69) that nothing else
+// underground has ever been placed anywhere near it.
+const LEVEL2_FLOOR_Y = SUBWAY_FLOOR_Y - 6
+const LEVEL2_STAIR_RUN = 8
+const LEVEL2_Z_NEAR = STATION_STUB_Z_END - LEVEL2_STAIR_RUN
+const LEVEL2_Z_FAR = LEVEL2_Z_NEAR - 20
 
 function buildUndergroundStation(scene, colliders, solidMeshes, flickerLights, chestSpots) {
   const length = STATION_Z_END - STATION_Z_START
@@ -1476,15 +1486,10 @@ function buildUndergroundStation(scene, colliders, solidMeshes, flickerLights, c
   // Dead-end maintenance stub off the hall's open south end - same
   // standard-width connector primitive as the rest of the underground loop
   // (narrower than the hall itself, so its walls start clean at the
-  // boundary rather than needing to cut into anything), capped with a plain
-  // end wall since buildSubwayConnector never closes off either end itself.
+  // boundary rather than needing to cut into anything) - no longer a dead
+  // end (see the stairs-down section further below), so it's left open at
+  // this end instead of getting a cap wall.
   buildSubwayConnector(scene, colliders, solidMeshes, flickerLights, STATION_X, STATION_Z_START, STATION_X, STATION_STUB_Z_END)
-  const stubCap = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH + 0.4, SUBWAY_HEIGHT, 0.2), wallMat)
-  stubCap.position.set(STATION_X, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT / 2, STATION_STUB_Z_END)
-  stubCap.castShadow = true
-  scene.add(stubCap)
-  solidMeshes.push(stubCap)
-  colliders.push(new THREE.Box3().setFromObject(stubCap))
 
   const maintenanceSignMat = new THREE.MeshStandardMaterial({ color: 0x1a1408, roughness: 0.7, emissive: 0xffcc44, emissiveIntensity: 0.6 })
   const maintenanceSign = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.35, 0.05), maintenanceSignMat)
@@ -1529,6 +1534,100 @@ function buildUndergroundStation(scene, colliders, solidMeshes, flickerLights, c
 
   chestSpots.push({ x: officeASpot.x, y: SUBWAY_FLOOR_Y, z: officeASpot.z })
   chestSpots.push({ x: officeBSpot.x, y: SUBWAY_FLOOR_Y, z: officeBSpot.z })
+
+  // Stairs down from the maintenance stub's open south end to a genuine
+  // second level below (see LEVEL2_FLOOR_Y et al above) - the station
+  // above is one full floor, this is another, not just more corridor at
+  // the same depth.
+  buildStairFlight(
+    scene, solidMeshes,
+    STATION_X, STATION_STUB_Z_END, SUBWAY_FLOOR_Y,
+    STATION_X, LEVEL2_Z_NEAR, LEVEL2_FLOOR_Y,
+    18
+  )
+
+  const level2SignCanvas = document.createElement('canvas')
+  level2SignCanvas.width = 512
+  level2SignCanvas.height = 96
+  const level2SignCtx = level2SignCanvas.getContext('2d')
+  level2SignCtx.fillStyle = '#0a0e14'
+  level2SignCtx.fillRect(0, 0, level2SignCanvas.width, level2SignCanvas.height)
+  level2SignCtx.fillStyle = '#8ab4ff'
+  level2SignCtx.font = 'bold 44px sans-serif'
+  level2SignCtx.textAlign = 'center'
+  level2SignCtx.textBaseline = 'middle'
+  level2SignCtx.fillText('OLD LINE - LOWER LEVEL', level2SignCanvas.width / 2, level2SignCanvas.height / 2)
+  const level2SignTexture = new THREE.CanvasTexture(level2SignCanvas)
+  const level2Sign = new THREE.Mesh(
+    new THREE.PlaneGeometry(3, 0.5),
+    new THREE.MeshStandardMaterial({ map: level2SignTexture, emissive: 0x8ab4ff, emissiveMap: level2SignTexture, emissiveIntensity: 0.9 })
+  )
+  level2Sign.position.set(STATION_X, LEVEL2_FLOOR_Y + 2.3, LEVEL2_Z_NEAR + 1.5)
+  level2Sign.rotation.y = Math.PI
+  scene.add(level2Sign)
+
+  // Second level: same scale/materials as the original subway platform (see
+  // buildSubway), not the widened station above it - reads as an older,
+  // deeper line rather than more of the same hall.
+  const level2Length = LEVEL2_Z_NEAR - LEVEL2_Z_FAR
+  const level2CenterZ = (LEVEL2_Z_NEAR + LEVEL2_Z_FAR) / 2
+
+  const level2Floor = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH, 0.08, level2Length), floorMat)
+  level2Floor.position.set(STATION_X, LEVEL2_FLOOR_Y, level2CenterZ)
+  level2Floor.receiveShadow = true
+  scene.add(level2Floor)
+  solidMeshes.push(level2Floor)
+
+  const level2Ceiling = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH + 0.4, 0.2, level2Length), wallMat)
+  level2Ceiling.position.set(STATION_X, LEVEL2_FLOOR_Y + SUBWAY_HEIGHT, level2CenterZ)
+  level2Ceiling.castShadow = true
+  scene.add(level2Ceiling)
+  solidMeshes.push(level2Ceiling)
+  colliders.push(new THREE.Box3().setFromObject(level2Ceiling))
+
+  for (const side of [-1, 1]) {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, SUBWAY_HEIGHT, level2Length), wallMat)
+    wall.position.set(STATION_X + side * (SUBWAY_WIDTH / 2 + 0.1), LEVEL2_FLOOR_Y + SUBWAY_HEIGHT / 2, level2CenterZ)
+    wall.castShadow = true
+    wall.receiveShadow = true
+    scene.add(wall)
+    solidMeshes.push(wall)
+    colliders.push(new THREE.Box3().setFromObject(wall))
+  }
+
+  const level2EndWall = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH + 0.4, SUBWAY_HEIGHT, 0.2), wallMat)
+  level2EndWall.position.set(STATION_X, LEVEL2_FLOOR_Y + SUBWAY_HEIGHT / 2, LEVEL2_Z_FAR)
+  level2EndWall.castShadow = true
+  scene.add(level2EndWall)
+  solidMeshes.push(level2EndWall)
+  colliders.push(new THREE.Box3().setFromObject(level2EndWall))
+
+  const level2PlatformWidth = 1.6
+  const level2Platform = new THREE.Mesh(new THREE.BoxGeometry(level2PlatformWidth, 0.35, level2Length - 1), platformMat)
+  level2Platform.position.set(STATION_X - SUBWAY_WIDTH / 2 + level2PlatformWidth / 2 + 0.15, LEVEL2_FLOOR_Y + 0.175, level2CenterZ)
+  level2Platform.castShadow = true
+  level2Platform.receiveShadow = true
+  scene.add(level2Platform)
+  solidMeshes.push(level2Platform)
+
+  const level2TrackX = STATION_X + 0.6
+  for (const railOffset of [-0.5, 0.5]) {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, level2Length - 1), railMat)
+    rail.position.set(level2TrackX + railOffset, LEVEL2_FLOOR_Y + 0.03, level2CenterZ)
+    scene.add(rail)
+  }
+
+  const level2LightSpacing = 5
+  const level2LightCount = Math.floor(level2Length / level2LightSpacing)
+  for (let i = 1; i < level2LightCount; i++) {
+    const z = LEVEL2_Z_NEAR - level2LightSpacing * i
+    const light = new THREE.PointLight(0x8ab4ff, 0.7, 6, 2)
+    light.position.set(STATION_X, LEVEL2_FLOOR_Y + SUBWAY_HEIGHT - 0.3, z)
+    scene.add(light)
+    flickerLights.push({ light, base: 0.7, seed: Math.random() * 100 })
+  }
+
+  chestSpots.push({ x: STATION_X, y: LEVEL2_FLOOR_Y, z: LEVEL2_Z_FAR + 3 })
 
   return {
     terminalSpot: { x: terminalX, z: terminalZ },
