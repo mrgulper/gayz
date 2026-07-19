@@ -2633,7 +2633,8 @@ export class Game {
 
   _traderPrice(item) {
     const mult = this.traderPriceMults?.[item.id] ?? 1
-    return Math.max(1, Math.round(item.cost * mult))
+    const discountMult = this.metaProgress.purchased.has('traderDiscount') ? 0.85 : 1
+    return Math.max(1, Math.round(item.cost * mult * discountMult))
   }
 
   _renderTraderOptions() {
@@ -4209,8 +4210,19 @@ export class Game {
     const dist = Math.hypot(playerPos.x - this.safeZone.x, playerPos.z - this.safeZone.z)
     if (dist > this.safeZone.radius) return
     if (!this.playerState.alive || this.playerState.health >= this.playerState.maxHealth) return
-    this.playerState.heal(SAFE_ZONE_HEAL_PER_SEC * dt)
+    const rateMult = this.metaProgress.purchased.has('fortifiedRest') ? 1.5 : 1
+    this.playerState.heal(SAFE_ZONE_HEAL_PER_SEC * rateMult * dt)
     this._updateHealthHud()
+  }
+
+  // Base upgrade (see MetaProgress.js's extraGuard) - one more Companion
+  // standing watch, same construction as the original guardSpots in the
+  // constructor, just placed a little further into the compound than any
+  // existing post.
+  _addExtraGuard() {
+    const guard = new Companion(this.scene, this.safeZone.x - 2, this.safeZone.z - 2, 'ranged', { vulnerable: false })
+    guard.setName('Guard')
+    this.safeZoneGuards.push(guard)
   }
 
   // Core-loop twist: VIREO's "wellness light" is exactly what drew the

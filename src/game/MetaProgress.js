@@ -143,6 +143,33 @@ export const META_UPGRADES = [
       game.playerState.maxArmor += 20
     },
   },
+  // Base upgrades - standalone, safe-zone-themed picks rather than a
+  // branching chain, since each is a flat one-time bonus to something the
+  // safe zone already does (heal, guard, trader) rather than a stacking
+  // player stat.
+  {
+    id: 'extraGuard',
+    titleKey: 'metaExtraGuard',
+    cost: 600,
+    apply: (game) => game._addExtraGuard(),
+  },
+  {
+    id: 'fortifiedRest',
+    titleKey: 'metaFortifiedRest',
+    cost: 350,
+    // Checked directly in Game.js's _updateSafeZoneHeal via
+    // metaProgress.purchased.has('fortifiedRest') - a flat rate bonus reads
+    // more naturally as a standing condition than a one-time apply() effect.
+    apply: () => {},
+  },
+  {
+    id: 'traderDiscount',
+    titleKey: 'metaTraderDiscount',
+    cost: 400,
+    // Checked directly in Game.js's _traderPrice, same reasoning as
+    // fortifiedRest above.
+    apply: () => {},
+  },
 ]
 
 export function loadMetaProgress() {
