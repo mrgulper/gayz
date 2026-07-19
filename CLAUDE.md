@@ -14,6 +14,7 @@ Browser Three.js zombie-survival FPS. Vite build, no framework. No committed tes
 - **Rotated-mesh AABB inflation**: `THREE.Box3.setFromObject()` on a rotated mesh inflates well past its visual footprint. Build axis-aligned collider boxes explicitly from known dimensions instead, for anything not axis-aligned.
 - **`buildingLayout()` in `src/game/World.js` is fully deterministic** (seeded arithmetic, no `Math.random()`). Any "player stuck here" report can be root-caused by hand-computing the relevant building index's bounds directly from the array, rather than guessing from the visuals.
 - **Safe zone (`buildSafeZone`) and street-grid buildings (`buildingLayout`) have no mutual awareness of each other.** They were placed independently. Before adding new safe-zone-interior features, check nearby `buildingLayout()` indices aren't secretly overlapping — building index 7 did (see `EXCLUDED_BUILDING_IDXS` in `World.js`) and silently bisected the compound with an invisible wall until root-caused.
+- **The safe zone's position is `SAFE_ZONE_X`/`SAFE_ZONE_Z` (module-level constants in `World.js`, currently `0, 42` — moved once already from `-13, -10`).** Anything meant to live inside it should be positioned as an offset from these constants (like the Vault/practice range/trophy wall already are), never hardcoded absolute coordinates — `buildTraderStall`/`buildAmmoStation` used to hardcode their own position matching the *old* safe zone location, and got silently left behind on the last move until root-caused. Also re-check any other underground/surface structure whose fixed coordinates might now fall inside the safe zone's footprint (x=±7, z=±7 of center) — the sewer tunnel did.
 
 ## Gotchas
 
@@ -27,6 +28,8 @@ Browser Three.js zombie-survival FPS. Vite build, no framework. No committed tes
 - `THREE` isn't globally exposed in the bundled build — `new THREE.Vector3()` inside `page.evaluate()` fails. Clone an existing Vector3 already in scope instead.
 - Moving a mesh via `.position.set()` post-construction doesn't update `matrixWorld` until the next `renderer.render()`. Call `mesh.updateWorldMatrix(true, false)` before raycasting against a repositioned mesh.
 - Fake zombie/rival test stubs need a `hittableMeshes: []` field or `WeaponSystem._fire()`'s `flatMap` throws.
+- `Game.js`'s constructor sets `window.__game = this` at the very end, specifically so Playwright can drive real game methods without reaching into module scope — use `page.waitForFunction(() => window.__game)` to know the game finished constructing before calling anything on it.
+- Headless Playwright can't actually grant real Pointer Lock (`THREE.PointerLockControls: Unable to use Pointer Lock API`) — the `lock`/`unlock` events this game relies on for pause-menu/audio state never fire from a real `.lock()` call in that environment. Set `game.gameStarted = true` (and whatever other flag the test needs) directly instead of assuming a `playBtn.click()` produced real lock state.
 
 ## New hittable-object categories
 
