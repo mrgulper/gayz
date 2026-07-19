@@ -247,7 +247,12 @@ export function buildWorld(scene, trophyCount = 15) {
   }
 
   scene.background = new THREE.Color(0x12161b)
-  scene.fog = new THREE.Fog(0x12161b, 15, 85)
+  // Far distance pushed from 85 to 140 for the bigger (750x750) map - not
+  // scaled 1:1 with the map (that would mean seeing hundreds of units in
+  // open ground, killing the atmosphere this fog is for), but far enough
+  // that it lines up with WORLD_CULL_DISTANCE below, so buildings fade out
+  // in fog before they pop out of existence from culling, not after.
+  scene.fog = new THREE.Fog(0x12161b, 15, 140)
 
   const hemi = new THREE.HemisphereLight(0x7f93ab, 0x20201a, 0.85)
   scene.add(hemi)
@@ -256,13 +261,17 @@ export function buildWorld(scene, trophyCount = 15) {
   moon.position.set(30, 45, -15)
   moon.castShadow = true
   moon.shadow.mapSize.set(1536, 1536)
-  moon.shadow.camera.left = -75
-  moon.shadow.camera.right = 75
-  moon.shadow.camera.top = 75
-  moon.shadow.camera.bottom = -75
+  // Kept at a fixed local size (not scaled to the full 750 map) - a shadow
+  // frustum that large would spread the same 1536px shadow map over a much
+  // bigger area and turn every shadow blurry. This covers everything within
+  // the fog/cull range, which is the only area shadows are ever visible in.
+  moon.shadow.camera.left = -150
+  moon.shadow.camera.right = 150
+  moon.shadow.camera.top = 150
+  moon.shadow.camera.bottom = -150
   scene.add(moon)
 
-  const groundSize = 150
+  const groundSize = 750
   const groundTex = new THREE.TextureLoader().load('/textures/ground-asphalt.png')
   groundTex.wrapS = THREE.RepeatWrapping
   groundTex.wrapT = THREE.RepeatWrapping

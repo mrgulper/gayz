@@ -153,6 +153,7 @@ export class ZombieManager {
     this.empBursts = []
     this.distraction = null
     this.elapsed = 0
+    this.lastPlayerPos = { x: 0, z: 0 }
     this.pendingRespawns = []
 
     this.spawnRateMult = spawnRateMult
@@ -230,8 +231,8 @@ export class ZombieManager {
     if (this.titanAlive || Math.random() >= TITAN_SPAWN_CHANCE) return
     this.titanAlive = true
     const angle = Math.random() * Math.PI * 2
-    const x = Math.sin(angle) * SPAWN_RADIUS_MAX
-    const z = Math.cos(angle) * SPAWN_RADIUS_MAX
+    const x = this.lastPlayerPos.x + Math.sin(angle) * SPAWN_RADIUS_MAX
+    const z = this.lastPlayerPos.z + Math.cos(angle) * SPAWN_RADIUS_MAX
     const zombie = new Zombie(x, z, ZOMBIE_TYPES.titan, false, false, this.currentNight)
     zombie.deathHandled = false
     zombie.isBoss = true
@@ -249,11 +250,14 @@ export class ZombieManager {
     if (this.wanderingHorde) return // one at a time
 
     const angle = Math.random() * Math.PI * 2
-    const startX = Math.sin(angle) * HORDE_EVENT_SPAWN_RADIUS
-    const startZ = Math.cos(angle) * HORDE_EVENT_SPAWN_RADIUS
-    // Walks straight across to roughly the opposite edge of the map.
-    const targetX = -startX
-    const targetZ = -startZ
+    const startX = this.lastPlayerPos.x + Math.sin(angle) * HORDE_EVENT_SPAWN_RADIUS
+    const startZ = this.lastPlayerPos.z + Math.cos(angle) * HORDE_EVENT_SPAWN_RADIUS
+    // Walks straight across, passing near the player's current position
+    // rather than the map's opposite edge - on a 750x750 map a literal
+    // origin-mirrored target could easily be an event the player never
+    // gets anywhere near.
+    const targetX = this.lastPlayerPos.x - Math.sin(angle) * HORDE_EVENT_SPAWN_RADIUS
+    const targetZ = this.lastPlayerPos.z - Math.cos(angle) * HORDE_EVENT_SPAWN_RADIUS
 
     const size = HORDE_EVENT_SIZE_MIN + Math.floor(Math.random() * (HORDE_EVENT_SIZE_MAX - HORDE_EVENT_SIZE_MIN + 1))
     const members = []
@@ -341,8 +345,8 @@ export class ZombieManager {
   // enter the normal weighted pool - see colossus's weight: 0 in ZombieTypes.
   _spawnBoss() {
     const angle = Math.random() * Math.PI * 2
-    const x = Math.sin(angle) * SPAWN_RADIUS_MAX
-    const z = Math.cos(angle) * SPAWN_RADIUS_MAX
+    const x = this.lastPlayerPos.x + Math.sin(angle) * SPAWN_RADIUS_MAX
+    const z = this.lastPlayerPos.z + Math.cos(angle) * SPAWN_RADIUS_MAX
 
     // Alternates colossus/patient_zero - Boss Rush uses its own incrementing
     // counter since it isn't tied to every-5th-night timing.
@@ -480,8 +484,8 @@ export class ZombieManager {
     const radiusMax = this.hordeMode ? HORDE_SPAWN_RADIUS_MAX : (isAmbush ? AMBUSH_RADIUS_MAX : SPAWN_RADIUS_MAX)
     const angle = Math.random() * Math.PI * 2
     const radius = radiusMin + Math.random() * (radiusMax - radiusMin)
-    const x = Math.sin(angle) * radius
-    const z = Math.cos(angle) * radius
+    const x = this.lastPlayerPos.x + Math.sin(angle) * radius
+    const z = this.lastPlayerPos.z + Math.cos(angle) * radius
 
     const isElite = Math.random() < ELITE_CHANCE
     const zombie = new Zombie(x, z, type, isAmbush, isElite, this.currentNight)
@@ -918,6 +922,10 @@ export class ZombieManager {
 
   update(dt, playerPos, onPlayerDamage, onZombieLoot, onAmbushTrigger, onZombieKilled, playerCrouching = false) {
     this.elapsed += dt
+    // Every spawn function below reads this instead of assuming the player
+    // is near the map origin - true on the old 150x150 map, not on the
+    // current 750x750 one, where the player could be anywhere.
+    this.lastPlayerPos = playerPos
 
     if (performance.now() >= this.nextTitanCheckAt) this._maybeSpawnTitan()
     this._maybeSpawnWanderingHorde()
