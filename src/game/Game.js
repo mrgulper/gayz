@@ -958,8 +958,10 @@ export class Game {
     // a back corner of the safe zone compound, away from the entrance gap
     // and the beacon/guard spots. The key itself spawns at a random one of
     // a few scattered locations (see _spawnVaultKey) so where to look
-    // changes run to run.
-    this.vault = new Vault(safeZone.x - 4, 0, safeZone.z - 3)
+    // changes run to run. z-offset negated from -3 to +3 to match the safe
+    // zone's 180-degree flip (entrance moved from +z to -z, so "away from
+    // the entrance" is now +z).
+    this.vault = new Vault(safeZone.x - 4, 0, safeZone.z + 3)
     this.scene.add(this.vault.group)
     this.nearVault = false
     this.vaultKeySpots = [
@@ -4247,7 +4249,7 @@ export class Game {
   // constructor, just placed a little further into the compound than any
   // existing post.
   _addExtraGuard() {
-    const guard = new Companion(this.scene, this.safeZone.x - 2, this.safeZone.z - 2, 'ranged', { vulnerable: false })
+    const guard = new Companion(this.scene, this.safeZone.x - 2, this.safeZone.z + 2, 'ranged', { vulnerable: false })
     guard.setName('Guard')
     this.safeZoneGuards.push(guard)
   }

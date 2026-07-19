@@ -797,20 +797,24 @@ function buildSafeZone(scene, colliders, solidMeshes) {
     colliders.push(new THREE.Box3().setFromObject(wall))
   }
 
-  // Four sides, with a gap left in the +z (avenue-facing) wall for an entrance.
-  addWall(0, -half, half * 2, 0.6)
+  // Four sides, with a gap left in the -z (south-facing) wall for an
+  // entrance - flipped 180 degrees from the original +z (park-facing) gap
+  // now that the safe zone sits at the north end: the player approaches
+  // from the south (the main street/city), so the entrance should face
+  // back the way they came, not toward the park behind it.
+  addWall(0, half, half * 2, 0.6)
   addWall(-half, 0, 0.6, half * 2)
   addWall(half, 0, 0.6, half * 2)
   const sideWallLen = half - gapHalfWidth
-  addWall(-(gapHalfWidth + sideWallLen / 2), half, sideWallLen, 0.6)
-  addWall(gapHalfWidth + sideWallLen / 2, half, sideWallLen, 0.6)
+  addWall(-(gapHalfWidth + sideWallLen / 2), -half, sideWallLen, 0.6)
+  addWall(gapHalfWidth + sideWallLen / 2, -half, sideWallLen, 0.6)
 
   // Sandbag-topped watchtower posts flanking the entrance, doubling as the
   // first two guardSpots so the gap is covered from the moment it's built.
   const guardSpots = []
   for (const side of [-1, 1]) {
     const postX = x + side * (gapHalfWidth + 0.5)
-    const postZ = z + half - 1.2
+    const postZ = z - half + 1.2
     const post = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.1, 0.9), sandbagMat)
     post.position.set(postX, 0.55, postZ)
     post.castShadow = true
@@ -818,11 +822,11 @@ function buildSafeZone(scene, colliders, solidMeshes) {
     scene.add(post)
     solidMeshes.push(post)
     colliders.push(new THREE.Box3().setFromObject(post))
-    guardSpots.push({ x: postX, z: postZ - 0.7 })
+    guardSpots.push({ x: postX, z: postZ + 0.7 })
   }
   // Third guard further back inside the compound, covering anything that
   // makes it past the gap.
-  guardSpots.push({ x: x, z: z - half + 2 })
+  guardSpots.push({ x: x, z: z + half - 2 })
 
   // A green glow post at the center - the visual "this spot is safe" tell,
   // matching the heal-while-inside radius Game.js applies around {x, z}.
@@ -866,9 +870,13 @@ function buildPracticeRange(scene, colliders, solidMeshes, safeZone) {
   const targetTex = buildTargetTexture()
   const targets = []
 
+  // z-offsets negated from their original -5/-2.5/0 (tucked away from the
+  // entrance when it faced +z) to +5/+2.5/0, matching the safe zone's
+  // 180-degree flip - the entrance now opens on -z, so "away from the
+  // entrance" is +z instead.
   const spots = [
-    { x: safeZone.x + 4, z: safeZone.z - 5 },
-    { x: safeZone.x + 4, z: safeZone.z - 2.5 },
+    { x: safeZone.x + 4, z: safeZone.z + 5 },
+    { x: safeZone.x + 4, z: safeZone.z + 2.5 },
     { x: safeZone.x + 4, z: safeZone.z },
   ]
 
@@ -910,11 +918,12 @@ function buildPracticeRange(scene, colliders, solidMeshes, safeZone) {
 // count rather than importing Achievements.js, so World.js stays decoupled
 // from game-progression data the same way it already is from loot tables.
 function buildTrophyWall(scene, colliders, solidMeshes, safeZone, count) {
-  // East wall, south corner - clear of the Vault (west side), the practice
+  // East wall, north corner - clear of the Vault (west side), the practice
   // range (mid-east, see buildPracticeRange), and the entrance guard posts
-  // (north side, flanking the gap in the +z wall).
+  // (south side, flanking the gap in the -z wall after the safe zone's
+  // 180-degree flip - z-offset negated from the original -4 to +4 to match).
   const x = safeZone.x + safeZone.radius - 0.5
-  const z = safeZone.z - 4
+  const z = safeZone.z + 4
   const cols = 5
   const rows = Math.ceil(count / cols)
   const spacing = 0.4
@@ -956,9 +965,17 @@ function buildTrophyWall(scene, colliders, solidMeshes, safeZone, count) {
 // Second hidden biome - a grimy sewer corridor, home to the Sewer Dweller
 // zombie type (see ZombieTypes.js). Same enclosed wall/ceiling/floor
 // construction as the subway corridor, just re-themed.
+// Z range moved from [34,50] to [-20,-4] - the safe zone's relocation (see
+// buildSafeZone) now occupies x=[-7,7], z=[35,49], and the old z-band is
+// wedged between the safe zone, the trader stall (-8,33), and two
+// buildings (indices 9 and 14) on either side with no room left for the
+// sewer's ~3.8-unit width at any x in that band. Systematically checked
+// every x/z combination against every building, the safe zone, trader,
+// barricade windows, generator, and ammo station - keeping the original
+// x=-5 and 16-unit length, this z-band is the nearest fully clear spot.
 const SEWER_X = -5
-const SEWER_Z_START = 34
-const SEWER_Z_END = 50
+const SEWER_Z_START = -20
+const SEWER_Z_END = -4
 // Widened enough that the 0.4-unit player radius has real room to walk in
 // with no funnel at the mouth - too tight a corridor bounces the player off
 // a side wall on approach and reads as the entrance not letting them in.
