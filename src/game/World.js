@@ -418,7 +418,7 @@ export function buildWorld(scene, trophyCount = 15) {
   // platform's Z-range entirely, then north into its open south end head-on
   // avoids ever running near that wall until the final leg matches its
   // orientation exactly.
-  const subwayEntrance = buildSubwayParkEntrance(scene, colliders, solidMeshes)
+  const subwayEntrance = buildSubwayParkEntrance(scene, colliders, solidMeshes, flickerLights)
   const connectorWaypointZ = SUBWAY_Z_START - 6
   const JUNCTION_HALF = 3.2
   buildSubwayJunctionRoom(scene, colliders, solidMeshes, subwayEntrance.landingX, connectorWaypointZ, JUNCTION_HALF)
@@ -645,11 +645,13 @@ function buildTraderStall(scene, register) {
   // of out on the open avenue, so both "spend points" stops sit behind the
   // guarded wall together. Placed in the south interior near the entrance
   // (which now opens on -z, see buildSafeZone's 180-degree flip) since the
-  // Vault/practice range/trophy wall all live in the north half - clear of
-  // both the entrance guard posts (x=+-2.1, z~36.2) and the gap itself
-  // (x=[-1.6,1.6]).
-  const x = SAFE_ZONE_X - 4
-  const z = SAFE_ZONE_Z - 4
+  // Vault/practice range/trophy wall all live in the north half. Pushed out
+  // to x=-5.5 (was -4) - the entrance guard NPCs actually stand at
+  // (x=+-2.1, z~36.9), not just their sandbag post props, and -4 read as
+  // "on top of the guard" in practice; -5.5 gives real separation while
+  // staying inside the x=-7 wall.
+  const x = SAFE_ZONE_X - 5.5
+  const z = SAFE_ZONE_Z - 3
 
   const group = new THREE.Group()
   group.position.set(x, 0, z)
@@ -710,9 +712,10 @@ function buildTraderStall(scene, register) {
 function buildAmmoStation(scene, register) {
   // Also inside the safe zone, mirrored across the entrance from the trader
   // stall (see buildTraderStall) - both spend-points-here stops behind the
-  // same guarded wall.
-  const x = SAFE_ZONE_X + 4
-  const z = SAFE_ZONE_Z - 4
+  // same guarded wall, pushed out to x=5.5 for the same guard-clearance
+  // reason as the trader.
+  const x = SAFE_ZONE_X + 5.5
+  const z = SAFE_ZONE_Z - 3
 
   const group = new THREE.Group()
   group.position.set(x, 0, z)
@@ -1178,7 +1181,7 @@ const SUBWAY_PARK_ENTRANCE_X = 0
 const SUBWAY_PARK_ENTRANCE_Z = 61
 const SUBWAY_PARK_LANDING_Z = 56.5
 
-function buildSubwayParkEntrance(scene, colliders, solidMeshes) {
+function buildSubwayParkEntrance(scene, colliders, solidMeshes, flickerLights) {
   const kioskMat = new THREE.MeshStandardMaterial({ color: 0x1c1a16, roughness: 0.85 })
   const kioskHalfW = SUBWAY_WIDTH / 2 + 0.3
 
@@ -1240,6 +1243,20 @@ function buildSubwayParkEntrance(scene, colliders, solidMeshes) {
     SUBWAY_PARK_ENTRANCE_X, SUBWAY_PARK_LANDING_Z, SUBWAY_FLOOR_Y,
     18
   )
+
+  // The stairwell itself was completely unlit (this function never took
+  // flickerLights, and the surface beacon above doesn't meaningfully reach
+  // the bottom of an open shaft this deep) - read as a solid black void
+  // from above instead of a visible staircase. Two lights bracket the run:
+  // one a third of the way down, one near the landing.
+  for (const t of [0.35, 0.85]) {
+    const lightZ = THREE.MathUtils.lerp(SUBWAY_PARK_ENTRANCE_Z, SUBWAY_PARK_LANDING_Z, t)
+    const lightY = THREE.MathUtils.lerp(0, SUBWAY_FLOOR_Y, t) + 1.2
+    const stairLight = new THREE.PointLight(0xffcf8a, 1.1, 8, 2)
+    stairLight.position.set(SUBWAY_PARK_ENTRANCE_X, lightY, lightZ)
+    scene.add(stairLight)
+    flickerLights.push({ light: stairLight, base: 1.1, seed: Math.random() * 100 })
+  }
 
   return { x: SUBWAY_PARK_ENTRANCE_X, z: SUBWAY_PARK_ENTRANCE_Z, landingX: SUBWAY_PARK_ENTRANCE_X, landingZ: SUBWAY_PARK_LANDING_Z }
 }
@@ -1576,6 +1593,20 @@ function buildUndergroundStation(scene, colliders, solidMeshes, flickerLights, c
     STATION_X, LEVEL2_Z_NEAR, LEVEL2_FLOOR_Y,
     18
   )
+
+  // Same unlit-void problem as the park entrance stairs (see
+  // buildSubwayParkEntrance) - the maintenance stub connector is exactly
+  // its own ribSpacing (6 units) long, so its light loop's `i < ribCount`
+  // never runs a single iteration, and buildStairFlight itself never adds
+  // lights either. Two lights bracket the stub-to-level2 drop.
+  for (const t of [0.3, 0.8]) {
+    const lightZ = THREE.MathUtils.lerp(STATION_STUB_Z_END, LEVEL2_Z_NEAR, t)
+    const lightY = THREE.MathUtils.lerp(SUBWAY_FLOOR_Y, LEVEL2_FLOOR_Y, t) + 1.2
+    const stairLight = new THREE.PointLight(0x8ab4ff, 1.1, 8, 2)
+    stairLight.position.set(STATION_X, lightY, lightZ)
+    scene.add(stairLight)
+    flickerLights.push({ light: stairLight, base: 1.1, seed: Math.random() * 100 })
+  }
 
   const level2SignCanvas = document.createElement('canvas')
   level2SignCanvas.width = 512
