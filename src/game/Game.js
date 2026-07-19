@@ -395,6 +395,11 @@ const WHEEL_RADIUS = 110
 const WHEEL_DEADZONE = 18
 const RESCUE_INTERACT_RADIUS = 2.5
 const RESCUE_POINTS_REWARD = 25
+const RECRUIT_INTERACT_RADIUS = 2.5
+// Fixed roles rather than random - each recruit spot is a reason to visit
+// both underground station offices (see buildUndergroundStation), not just
+// duplicate whatever role the player already picked for their main companion.
+const RECRUIT_ROLES = ['melee', 'medic']
 
 // King of the Hill mutator: hold the marked zone to fill the capture bar,
 // then it pays out and relocates to keep the fight moving. Spots are fixed,
@@ -855,6 +860,23 @@ export class Game {
     this.stationEncounterTriggered = false
     this.rescueSurvivor = null
     this.nearRescueSurvivor = false
+    // Permanent squad additions (unlike tempCompanion, which leaves at dawn)
+    // - one fixed recruit per underground station office, reusing
+    // RescueSurvivor's stationary-NPC visual for the marker since it needs
+    // no combat/movement behavior until actually recruited.
+    // Ground-level spots only (Companion/RescueSurvivor never update their
+    // own Y after spawn - confirmed neither class touches position.y in its
+    // update loop - so anything placed underground would stay pinned there
+    // even after the player and the recruit both walk back to the surface).
+    this.recruits = []
+    this.recruitSpots = [
+      { x: -3, z: -36, role: RECRUIT_ROLES[0] },
+      { x: 3, z: 28, role: RECRUIT_ROLES[1] },
+    ]
+    for (const spot of this.recruitSpots) {
+      spot.marker = new RescueSurvivor(this.scene, spot.x, spot.z)
+    }
+    this.nearRecruitSpot = null
     this.bestiaryEncountered = loadEncountered()
     this.traderPanelOpen = false
     this.nearTrader = false
@@ -1420,6 +1442,8 @@ export class Game {
           this._interactStationTerminal()
         } else if (this.nearRescueSurvivor) {
           this._rescueSurvivor()
+        } else if (this.nearRecruitSpot) {
+          this._recruitSurvivor(this.nearRecruitSpot)
         } else if (this.nearBarricadeWindow) {
           const reward = this.barricadeWindows.repair(this.nearBarricadeWindow)
           if (reward > 0) {
@@ -4036,9 +4060,31 @@ export class Game {
       }
     }
 
+    // Recruits are permanent, so a "death" crawls them back to the safe zone
+    // to recover instead of removing them - same treatment as the main
+    // companion, not the temporary rescue guest.
+    for (const recruit of this.recruits) {
+      if (recruit.justWentDown) {
+        recruit.justWentDown = false
+        this._showLoreToast(t('toastCompanionDown'))
+      }
+      if (recruit.justDied) {
+        recruit.justDied = false
+        recruit.downed = true
+        recruit.revive()
+        recruit.teleportTo(this.safeZone.x, this.safeZone.z)
+        this._showLoreToast(t('toastCompanionCrawledBack'))
+      }
+    }
+
     this.reviveTarget = null
     if (this.companion.isNear(playerPos)) this.reviveTarget = this.companion
     else if (this.tempCompanion && this.tempCompanion.isNear(playerPos)) this.reviveTarget = this.tempCompanion
+    else {
+      for (const recruit of this.recruits) {
+        if (recruit.isNear(playerPos)) { this.reviveTarget = recruit; break }
+      }
+    }
   }
 
   _spawnVaultKey() {
@@ -4263,6 +4309,25 @@ export class Game {
     }
     const dist = Math.hypot(playerPos.x - this.rescueSurvivor.x, playerPos.z - this.rescueSurvivor.z)
     this.nearRescueSurvivor = dist <= RESCUE_INTERACT_RADIUS
+  }
+
+  _updateRecruitSpots(elapsed, playerPos) {
+    this.nearRecruitSpot = null
+    for (const spot of this.recruitSpots) {
+      if (!spot.marker) continue
+      spot.marker.update(elapsed)
+      const dist = Math.hypot(playerPos.x - spot.x, playerPos.z - spot.z)
+      if (dist <= RECRUIT_INTERACT_RADIUS) this.nearRecruitSpot = spot
+    }
+  }
+
+  _recruitSurvivor(spot) {
+    spot.marker.dispose()
+    spot.marker = null
+    const recruit = new Companion(this.scene, spot.x, spot.z, spot.role)
+    this.recruits.push(recruit)
+    this.nearRecruitSpot = null
+    this._showLoreToast(t('survivorRecruited'))
   }
 
   // A real top-of-screen bar while any boss (Colossus/Patient Zero/the VIREO
@@ -4610,6 +4675,7 @@ export class Game {
         this._updateHealthHud()
       })
       if (this.tempCompanion) this.tempCompanion.update(dt, playerPos, this.zombies.zombies, null)
+      for (const recruit of this.recruits) recruit.update(dt, playerPos, this.zombies.zombies, null)
       this._updateCompanionDownedState(playerPos)
       for (const guard of this.safeZoneGuards) {
         guard.update(dt, guard.group.position, this.zombies.zombies, null)
@@ -4637,6 +4703,7 @@ export class Game {
       this._updateStationEncounter(playerPos)
       this._updateRescueSurvivor(playerPos)
       if (this.rescueSurvivor) this.rescueSurvivor.update(elapsed)
+      this._updateRecruitSpots(elapsed, playerPos)
       this._updateBossHealthBar()
       this._updateKingOfTheHill(dt, playerPos)
       this._updateExtraction(dt, playerPos)
@@ -4669,6 +4736,9 @@ export class Game {
         this.interactPrompt.style.display = 'block'
       } else if (this.nearRescueSurvivor) {
         this.interactPrompt.innerHTML = tHtml('interactRescue')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearRecruitSpot) {
+        this.interactPrompt.innerHTML = tHtml('interactRecruit')
         this.interactPrompt.style.display = 'block'
       } else if (canRefuelGenerator) {
         this.interactPrompt.innerHTML = tHtml('interactRefuel')

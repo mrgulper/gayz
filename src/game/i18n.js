@@ -368,6 +368,8 @@ const STRINGS = {
     trophyWallSummary: 'Trophy Wall: {ach}/{achTotal} Achievements · {bestiary}/{bestiaryTotal} Bestiary entries known',
     interactRescue: 'Press **F** to rescue',
     survivorRescued: 'Survivor rescued! +{reward} Points, +1 Health Pack',
+    interactRecruit: 'Press **F** to recruit',
+    survivorRecruited: 'Survivor recruited - they\'ll fight at your side for the rest of the run.',
     weaponBat: 'Bat',
     weaponMachete: 'Machete',
     weaponUvbaton: 'UV Baton',

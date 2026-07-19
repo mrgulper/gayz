@@ -1517,6 +1517,8 @@ function buildUndergroundStation(scene, colliders, solidMeshes, flickerLights, c
     terminalSpot: { x: terminalX, z: terminalZ },
     encounterCenter: { x: STATION_X, z: centerZ },
     floorY: SUBWAY_FLOOR_Y,
+    officeASpot,
+    officeBSpot,
   }
 }
 
