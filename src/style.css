@@ -1240,8 +1240,22 @@ html, body {
   gap: 10px;
 }
 
+#prestige-section {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  text-align: center;
+}
+
+#prestige-level-line {
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: #ffcf5c;
+}
+
 #perk-skip-btn,
 #perk-reroll-btn,
+#prestige-btn,
 #upgrades-close-btn,
 #achievements-close-btn,
 #bestiary-close-btn,

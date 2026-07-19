@@ -1012,6 +1012,9 @@ export class Game {
     this.upgradesPointsLine = document.getElementById('upgrades-points-line')
     this.upgradesOptions = document.getElementById('upgrades-options')
     this.upgradesCloseBtn = document.getElementById('upgrades-close-btn')
+    this.prestigeSection = document.getElementById('prestige-section')
+    this.prestigeLevelLine = document.getElementById('prestige-level-line')
+    this.prestigeBtn = document.getElementById('prestige-btn')
     this.achievementsBtn = document.getElementById('achievements-btn')
     this.achievementsPanel = document.getElementById('achievements-panel')
     this.achievementsPanelTitle = document.getElementById('achievements-panel-title')
@@ -2245,6 +2248,7 @@ export class Game {
     this.settingsBtn.addEventListener('click', () => this._toggleSettings(!this.settingsOpen))
     this.upgradesBtn.addEventListener('click', () => this._openUpgradesPanel())
     this.upgradesCloseBtn.addEventListener('click', () => this._closeUpgradesPanel())
+    this.prestigeBtn.addEventListener('click', () => this._prestige())
     this.achievementsBtn.addEventListener('click', () => this._openAchievementsPanel())
     this.achievementsCloseBtn.addEventListener('click', () => this._closeAchievementsPanel())
     this.bestiaryBtn.addEventListener('click', () => this._openBestiaryPanel())
@@ -2800,6 +2804,29 @@ export class Game {
       })
       this.upgradesOptions.appendChild(btn)
     }
+
+    // Gated behind the same milestone as Nightmare difficulty (see the
+    // constructor's diff-nightmare toggle) - both read as "you've actually
+    // beaten the game," which is the bar for offering a full reset+bonus.
+    const prestigeUnlocked = this.achievements.unlocked.has('true_ending')
+    this.prestigeSection.style.display = prestigeUnlocked ? 'block' : 'none'
+    if (prestigeUnlocked) {
+      this.prestigeLevelLine.textContent = t('prestigeLevelLine', { level: this.metaProgress.prestigeLevel, bonus: this.metaProgress.prestigeLevel * 10 })
+      this.prestigeBtn.textContent = t('prestigeBtn')
+    }
+  }
+
+  // Irreversible from the player's side (wipes Legacy Points and every
+  // purchased Permanent Upgrade), so gated behind a real confirm dialog
+  // rather than a single click, unlike everything else in this panel.
+  _prestige() {
+    if (!window.confirm(t('prestigeConfirm'))) return
+    this.metaProgress.prestigeLevel += 1
+    this.metaProgress.legacyPoints = 0
+    this.metaProgress.purchased = new Set()
+    saveMetaProgress(this.metaProgress)
+    this._showLoreToast(t('prestigeComplete', { level: this.metaProgress.prestigeLevel, bonus: this.metaProgress.prestigeLevel * 10 }))
+    this._renderUpgradesOptions()
   }
 
   _closeUpgradesPanel() {
@@ -3563,7 +3590,7 @@ export class Game {
     const elapsed = formatTime(performance.now() - this.runStartedAt)
     this.deathStats.textContent = t('deathStats', { night: this.night, kills: this.kills, time: elapsed })
 
-    const legacyEarned = Math.floor(this.points * DEATH_POINTS_CONVERSION)
+    const legacyEarned = Math.floor(this.points * DEATH_POINTS_CONVERSION * (1 + this.metaProgress.prestigeLevel * 0.1))
     this.metaProgress.legacyPoints += legacyEarned
     saveMetaProgress(this.metaProgress)
     this.deathLegacyPoints.textContent = t('deathLegacyScrap', { n: legacyEarned })
@@ -4435,7 +4462,7 @@ export class Game {
     this.coins += EXTRACTION_COINS_BONUS
     this._updateStatsPanel()
 
-    const legacyEarned = Math.floor(this.points * DEATH_POINTS_CONVERSION)
+    const legacyEarned = Math.floor(this.points * DEATH_POINTS_CONVERSION * (1 + this.metaProgress.prestigeLevel * 0.1))
     this.metaProgress.legacyPoints += legacyEarned
     saveMetaProgress(this.metaProgress)
 

@@ -181,15 +181,16 @@ export function loadMetaProgress() {
       // total carries over once instead of silently resetting to 0.
       legacyPoints: parsed.legacyPoints ?? parsed.legacyScrap ?? 0,
       purchased: new Set(parsed.purchased || []),
+      prestigeLevel: parsed.prestigeLevel ?? 0,
     }
   } catch {
-    return { legacyPoints: 0, purchased: new Set() }
+    return { legacyPoints: 0, purchased: new Set(), prestigeLevel: 0 }
   }
 }
 
 export function saveMetaProgress(meta) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ legacyPoints: meta.legacyPoints, purchased: [...meta.purchased] }))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ legacyPoints: meta.legacyPoints, purchased: [...meta.purchased], prestigeLevel: meta.prestigeLevel }))
   } catch {
     // Storage unavailable (e.g. private browsing) - progress just won't persist.
   }
