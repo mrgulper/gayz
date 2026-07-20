@@ -2,6 +2,8 @@
 
 Browser Three.js zombie-survival FPS. Vite build, no framework. No committed test suite — verification is done by driving the real running game (Playwright, real game methods via `page.evaluate()`, not simulated input events).
 
+**`3D_ASSET_OVERHAUL.md` (repo root)** holds a complete, adversarially-verified research handoff + phased plan for replacing all ~75 procedural models with real 3D assets at zero cost (CC0 packs / free tiers / Blender scripting). Self-contained — read it before starting any asset/visual-overhaul work.
+
 ## Standing rules for this project
 
 - Every completed update gets committed, pushed to GitHub (`mrgulper/gayz`, private), and deployed to Vercel production (`npx vercel --prod --yes` → `gayz.vercel.app`) without asking each time.
