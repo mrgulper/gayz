@@ -1,5 +1,29 @@
 import * as THREE from 'three'
 import { audioEngine } from './Audio.js'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js'
+
+// Phase 3 of the 3D asset overhaul - real rigged GLB rival (Quaternius
+// "BlueSoldier_Male", asset-source/build-humans.py), same rig/animation set
+// as Companion.js's GLB, just a different palette. See Companion.js's own
+// GLB comments for the general pattern.
+export const USE_GLB_RIVAL = true
+let _rivalModelCache = null
+
+export async function preloadRivalModel() {
+  try {
+    const loader = new GLTFLoader()
+    const gltf = await loader.loadAsync('/models/humans/rival.glb')
+    _rivalModelCache = { scene: gltf.scene, animations: gltf.animations }
+  } catch (err) {
+    console.warn('GLB rival model failed to load, falling back to procedural rival', err)
+  }
+}
+
+// Same rig/raw height as Companion.js's model (confirmed via inspection -
+// both exported from the same pack, near-identical bounds), so the same
+// measured correction applies.
+const GLB_SCALE_CORRECTION = 0.556
 
 // A small human squad that races the player to a landed airdrop (see
 // Game.js's _spawnAirdrop) - not zombies, so they don't touch any of the
@@ -29,14 +53,89 @@ class RivalScavenger {
 
     this.group = new THREE.Group()
     this.group.position.set(x, 0, z)
+    this._prevX = x
+    this._prevZ = z
+    this._glbAttackUntil = 0
     this._buildBody()
     scene.add(this.group)
+  }
+
+  _buildBody() {
+    if (USE_GLB_RIVAL && _rivalModelCache) {
+      this._buildBodyFromGLB()
+      return
+    }
+    this._buildBodyProcedural()
+  }
+
+  // See Companion.js's _buildBodyFromGLB - same pattern. Dark palette (the
+  // "Main" material tinted near-black) + red emissive eyes bone-parented
+  // to the Head bone, matching the doc's "dark palette + red emissive
+  // eyes as bone-parented props" note for this NPC.
+  _buildBodyFromGLB() {
+    this.usingGLB = true
+    const cloned = cloneSkeleton(_rivalModelCache.scene)
+    this.group.scale.setScalar(GLB_SCALE_CORRECTION)
+
+    cloned.traverse((child) => {
+      if (!child.isMesh) return
+      child.castShadow = true
+      child.material = child.material.clone()
+      if (child.material.name === 'Main') child.material.color.setHex(0x2a2420)
+      child.userData.rival = this
+    })
+    this.hittableMeshes = []
+    cloned.traverse((child) => { if (child.isMesh) this.hittableMeshes.push(child) })
+
+    const headBone = cloned.getObjectByName('Head')
+    if (headBone) {
+      const eyeMat = new THREE.MeshStandardMaterial({ color: 0x1a0505, emissive: 0xff3b1e, emissiveIntensity: 1.2 })
+      for (const side of [-1, 1]) {
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 6), eyeMat)
+        eye.position.set(side * 0.11, 0.15, 0.14)
+        headBone.add(eye)
+      }
+    }
+
+    this.group.add(cloned)
+    this._glbRoot = cloned
+    this.mixer = new THREE.AnimationMixer(cloned)
+    this._glbActions = {}
+    for (const clip of _rivalModelCache.animations) {
+      this._glbActions[clip.name] = this.mixer.clipAction(clip)
+    }
+    this._glbCurrentAction = null
+    this._playGlbAction('idle', true)
+
+    this._addWeaponProp()
+  }
+
+  _playGlbAction(name, loop) {
+    const action = this._glbActions[name]
+    if (!action || this._glbCurrentAction === action) return
+    action.reset()
+    action.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity)
+    action.clampWhenFinished = !loop
+    action.fadeIn(0.15)
+    if (this._glbCurrentAction) this._glbCurrentAction.fadeOut(0.15)
+    action.play()
+    this._glbCurrentAction = action
+  }
+
+  // Shared weapon prop for both body types - see Companion.js's own version
+  // of this same trick (world-space offsets divided by this.group.scale).
+  _addWeaponProp() {
+    const s = 1 / this.group.scale.x
+    const weaponMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1a, roughness: 0.5, metalness: 0.4 })
+    this.weaponProp = new THREE.Mesh(new THREE.BoxGeometry(0.09 * s, 0.14 * s, 0.32 * s), weaponMat)
+    this.weaponProp.position.set(0.32 * s, 0.9 * s, 0.1 * s)
+    this.group.add(this.weaponProp)
   }
 
   // Dark, hooded raider silhouette - deliberately not a Companion recolor
   // (jacket-only), so it reads as hostile at a glance rather than "friendly
   // NPC in the wrong color."
-  _buildBody() {
+  _buildBodyProcedural() {
     const gearMat = new THREE.MeshStandardMaterial({ color: 0x2a2420, roughness: 0.85 })
     const maskMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.6 })
     const eyeMat = new THREE.MeshStandardMaterial({ color: 0x1a0505, emissive: 0xff3b1e, emissiveIntensity: 1.2 })
@@ -106,6 +205,7 @@ class RivalScavenger {
         const damage = DAMAGE_MIN + Math.random() * (DAMAGE_MAX - DAMAGE_MIN)
         if (onAttack) onAttack(damage)
         this._spawnTracer(playerPos)
+        this._glbAttackUntil = performance.now() + 400
         audioEngine.playShot('pistol', true)
       }
     } else {
@@ -122,10 +222,28 @@ class RivalScavenger {
     }
 
     this._updateTracers()
+    this._updateGlbLocomotion(dt)
 
     const tx = this.targetX - this.group.position.x
     const tz = this.targetZ - this.group.position.z
     return Math.hypot(tx, tz) < CLAIM_RADIUS
+  }
+
+  // See Companion.js's own version of this same helper.
+  _updateGlbLocomotion(dt) {
+    if (!this.usingGLB) return
+    const moved = Math.hypot(this.group.position.x - this._prevX, this.group.position.z - this._prevZ)
+    this._prevX = this.group.position.x
+    this._prevZ = this.group.position.z
+    const attacking = performance.now() < this._glbAttackUntil
+    if (attacking) {
+      this._playGlbAction('shoot', false)
+    } else if (dt > 0 && moved / dt > 0.3) {
+      this._playGlbAction('walk', true)
+    } else {
+      this._playGlbAction('idle', true)
+    }
+    this.mixer.update(dt)
   }
 
   _spawnTracer(targetPos) {

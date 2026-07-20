@@ -1,5 +1,35 @@
 import * as THREE from 'three'
 import { audioEngine } from './Audio.js'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js'
+
+// Phase 3 of the 3D asset overhaul (see 3D_ASSET_OVERHAUL.md) - real rigged
+// GLB companion (Quaternius "Soldier_Male", asset-source/build-humans.py)
+// behind a flag, same pattern Zombie.js's USE_GLB_ZOMBIES already
+// established. All Phase 3 characters (companion/rival/survivor/
+// playerbody) share one rig and one native animation set - no Mixamo
+// retargeting needed this time, unlike the zombie.
+export const USE_GLB_COMPANION = true
+let _companionModelCache = null
+
+export async function preloadCompanionModel() {
+  try {
+    const loader = new GLTFLoader()
+    const gltf = await loader.loadAsync('/models/humans/companion.glb')
+    _companionModelCache = { scene: gltf.scene, animations: gltf.animations }
+  } catch (err) {
+    console.warn('GLB companion model failed to load, falling back to procedural companion', err)
+  }
+}
+
+// Empirically measured (see the zombie/titan's own _glbScaleCorrection for
+// why this can't just be "1 divided by the raw model height") - this rig
+// carries no baked armature scale (confirmed via a getWorldScale trace, so
+// unlike titan this one really is linear), it's just a straightforward
+// raw-height-to-target-height ratio: this exported model's real Three.js
+// Box3 height (3.20 unscaled) against the old procedural companion's own
+// ~1.78 target height (torso top + head, see _buildBodyProcedural).
+const GLB_SCALE_CORRECTION = 0.556
 
 const FOLLOW_DISTANCE = 3.2
 const CATCH_UP_DISTANCE = 6
@@ -71,6 +101,13 @@ export class Companion {
     this.hasVest = false
     this.hasRig = false
     this.gearDamageMult = 1
+
+    // Movement-driven walk/idle animation (GLB bodies only) - tracked here
+    // rather than passed in, since none of update()'s callers currently
+    // compute a velocity for the companion.
+    this._prevX = x
+    this._prevZ = z
+    this._glbAttackUntil = 0
   }
 
   // Points-purchased training (see Game.js's "Train Companion" trader item) -
@@ -96,9 +133,13 @@ export class Companion {
     this.hasVest = true
     this.maxHealth += GEAR_VEST_HEALTH_BONUS
     this.health += GEAR_VEST_HEALTH_BONUS
+    // Positions given as final world offsets, divided by this.group.scale
+    // (1 for procedural, GLB_SCALE_CORRECTION for GLB) so gear lands in the
+    // same place on either body - same trick _addWeaponProp uses.
+    const s = 1 / this.group.scale.x
     const vestMat = new THREE.MeshStandardMaterial({ color: 0x3a3a2a, roughness: 0.7, metalness: 0.2 })
-    const vest = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.4, 0.34), vestMat)
-    vest.position.set(0, 1.2, 0)
+    const vest = new THREE.Mesh(new THREE.BoxGeometry(0.5 * s, 0.4 * s, 0.34 * s), vestMat)
+    vest.position.set(0, 1.2 * s, 0)
     vest.castShadow = true
     this.group.add(vest)
   }
@@ -107,9 +148,10 @@ export class Companion {
     if (this.hasRig) return
     this.hasRig = true
     this.gearDamageMult = GEAR_RIG_DAMAGE_MULT
+    const s = 1 / this.group.scale.x
     const rigMat = new THREE.MeshStandardMaterial({ color: 0x1a1a18, emissive: 0xffcf5c, emissiveIntensity: 0.6, roughness: 0.5, metalness: 0.5 })
-    const rig = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), rigMat)
-    rig.position.set(-0.28, 1.4, 0.05)
+    const rig = new THREE.Mesh(new THREE.BoxGeometry(0.1 * s, 0.1 * s, 0.1 * s), rigMat)
+    rig.position.set(-0.28 * s, 1.4 * s, 0.05 * s)
     rig.castShadow = true
     this.group.add(rig)
   }
@@ -123,11 +165,16 @@ export class Companion {
     this._nameCanvas = canvas
     this._nameCtx = canvas.getContext('2d')
 
+    // Divided by this.group.scale (see _addWeaponProp) so the tag reads
+    // the same final world size/height regardless of body type - sprite
+    // scale/position are both in this.group's local space, so a smaller
+    // GLB-scaled group would otherwise shrink and lower the tag too.
+    const s = 1 / this.group.scale.x
     const texture = new THREE.CanvasTexture(canvas)
     const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, fog: false })
     this._nameSprite = new THREE.Sprite(material)
-    this._nameSprite.scale.set(1.05, 0.13, 1)
-    this._nameSprite.position.set(0, 2.0, 0)
+    this._nameSprite.scale.set(1.05 * s, 0.13 * s, 1)
+    this._nameSprite.position.set(0, 2.0 * s, 0)
     this._nameSprite.renderOrder = 10
     this.group.add(this._nameSprite)
 
@@ -174,6 +221,61 @@ export class Companion {
   }
 
   _buildBody() {
+    if (USE_GLB_COMPANION && _companionModelCache) {
+      this._buildBodyFromGLB()
+      return
+    }
+    this._buildBodyProcedural()
+  }
+
+  // See Zombie.js's _buildBodyFromGLB for the general pattern this follows
+  // (SkeletonUtils.clone, per-instance material cloning, mixer + named
+  // clip actions). Only the "Main" material slot is tinted per role - the
+  // model's other slots (Black/DarkGreen/Skin/Face/Helmet) stay their
+  // original colors, same "tint just the skin-equivalent slot" approach
+  // titan's _buildBodyFromTitanGLB used.
+  _buildBodyFromGLB() {
+    this.usingGLB = true
+    const cloned = cloneSkeleton(_companionModelCache.scene)
+    this.group.scale.setScalar(GLB_SCALE_CORRECTION)
+
+    cloned.traverse((child) => {
+      if (!child.isMesh) return
+      child.castShadow = true
+      child.material = child.material.clone()
+      if (child.material.name === 'Main') child.material.color.setHex(this.stats.jacket)
+    })
+
+    this.group.add(cloned)
+    this._glbRoot = cloned
+    this.mixer = new THREE.AnimationMixer(cloned)
+    this._glbActions = {}
+    for (const clip of _companionModelCache.animations) {
+      this._glbActions[clip.name] = this.mixer.clipAction(clip)
+    }
+    this._glbCurrentAction = null
+    this._playGlbAction('idle', true)
+
+    // Role-distinct weapon prop, same simple attached-box approach the
+    // procedural body used - not bone-parented (would need finding the
+    // rig's actual hand bone), a reasonable stand-in for now since the
+    // model doesn't ship with its own held-weapon geometry.
+    this._addWeaponProp()
+  }
+
+  _playGlbAction(name, loop) {
+    const action = this._glbActions[name]
+    if (!action || this._glbCurrentAction === action) return
+    action.reset()
+    action.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity)
+    action.clampWhenFinished = !loop
+    action.fadeIn(0.15)
+    if (this._glbCurrentAction) this._glbCurrentAction.fadeOut(0.15)
+    action.play()
+    this._glbCurrentAction = action
+  }
+
+  _buildBodyProcedural() {
     const jacketMat = new THREE.MeshStandardMaterial({ color: this.stats.jacket, roughness: 0.8 })
     const skinMat = new THREE.MeshStandardMaterial({ color: 0xd8ab7d, roughness: 0.9 })
     const pantsMat = new THREE.MeshStandardMaterial({ color: 0x2a2a26, roughness: 0.9 })
@@ -206,24 +308,34 @@ export class Companion {
       this.group.add(arm)
     }
 
-    // Role-distinct weapon prop in the right hand, so the two loadouts read
-    // apart at a glance even before either one attacks.
+    this._addWeaponProp()
+  }
+
+  // Role-distinct weapon prop in the right hand, so the two loadouts read
+  // apart at a glance even before either one attacks. Shared by both body
+  // types - position is specified as a final WORLD offset and divided by
+  // this.group.scale so it lands in the same place regardless of whether
+  // this.group itself is scaled (GLB) or not (procedural, scale stays 1).
+  // Not bone-parented on the GLB body (would need the rig's hand bone) -
+  // a reasonable stand-in since the model has no held-weapon geometry.
+  _addWeaponProp() {
+    const s = 1 / this.group.scale.x
     let weaponMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1a, roughness: 0.5, metalness: 0.4 })
     if (this.role === 'medic') {
       weaponMat = new THREE.MeshStandardMaterial({ color: 0xe8e4d8, roughness: 0.6 })
-      this.weaponProp = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.13, 0.06), weaponMat)
+      this.weaponProp = new THREE.Mesh(new THREE.BoxGeometry(0.16 * s, 0.13 * s, 0.06 * s), weaponMat)
       const crossMat = new THREE.MeshStandardMaterial({ color: 0xd6402f, emissive: 0xd6402f, emissiveIntensity: 0.5 })
-      const crossH = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.03, 0.01), crossMat)
-      const crossV = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.1, 0.01), crossMat)
-      crossH.position.z = 0.035
-      crossV.position.z = 0.035
+      const crossH = new THREE.Mesh(new THREE.BoxGeometry(0.1 * s, 0.03 * s, 0.01 * s), crossMat)
+      const crossV = new THREE.Mesh(new THREE.BoxGeometry(0.03 * s, 0.1 * s, 0.01 * s), crossMat)
+      crossH.position.z = 0.035 * s
+      crossV.position.z = 0.035 * s
       this.weaponProp.add(crossH, crossV)
     } else if (this.role === 'melee') {
-      this.weaponProp = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.55, 12), weaponMat)
+      this.weaponProp = new THREE.Mesh(new THREE.CylinderGeometry(0.035 * s, 0.045 * s, 0.55 * s, 12), weaponMat)
     } else {
-      this.weaponProp = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.14, 0.28), weaponMat)
+      this.weaponProp = new THREE.Mesh(new THREE.BoxGeometry(0.09 * s, 0.14 * s, 0.28 * s), weaponMat)
     }
-    this.weaponProp.position.set(0.32, 0.9, 0.1)
+    this.weaponProp.position.set(0.32 * s, 0.9 * s, 0.1 * s)
     this.weaponProp.rotation.x = this.role === 'melee' ? Math.PI / 2.4 : 0
     this.weaponProp.castShadow = true
     this.group.add(this.weaponProp)
@@ -232,6 +344,7 @@ export class Companion {
   update(dt, playerPos, zombies, onHeal) {
     if (this.dead) return
     if (this.downed) {
+      if (this.usingGLB) this.mixer.update(dt)
       if (!this.dead && performance.now() - this.downedAt > DOWNED_BLEED_OUT_MS) {
         this.dead = true
         this.justDied = true
@@ -257,6 +370,7 @@ export class Companion {
         this.nextFireAt = performance.now() + this.stats.fireInterval * 1000
         if (onHeal) onHeal(this.stats.healAmount)
       }
+      this._updateGlbLocomotion(dt)
       return
     }
 
@@ -300,6 +414,7 @@ export class Companion {
       this.nextFireAt = performance.now() + this.stats.fireInterval * 1000
       const damage = (this.stats.damageMin + Math.random() * (this.stats.damageMax - this.stats.damageMin)) * this.gearDamageMult
       nearest.onHit(damage)
+      this._glbAttackUntil = performance.now() + 400
       if (this.role === 'melee') {
         audioEngine.playMelee()
       } else {
@@ -309,6 +424,27 @@ export class Companion {
     }
 
     this._updateTracers()
+    this._updateGlbLocomotion(dt)
+  }
+
+  // Movement-driven walk/idle (+ attack) animation for the GLB body - a
+  // no-op for the procedural body, which has never had a walk cycle at
+  // all (see the module doc comment). Tracks position deltas itself since
+  // none of update()'s callers pass a velocity.
+  _updateGlbLocomotion(dt) {
+    if (!this.usingGLB) return
+    const moved = Math.hypot(this.group.position.x - this._prevX, this.group.position.z - this._prevZ)
+    this._prevX = this.group.position.x
+    this._prevZ = this.group.position.z
+    const attacking = performance.now() < this._glbAttackUntil
+    if (attacking) {
+      this._playGlbAction(this.role === 'melee' ? 'punch' : 'shoot', false)
+    } else if (dt > 0 && moved / dt > 0.3) {
+      this._playGlbAction('walk', true)
+    } else {
+      this._playGlbAction('idle', true)
+    }
+    this.mixer.update(dt)
   }
 
   _spawnTracer(targetPos) {
@@ -360,7 +496,13 @@ export class Companion {
     this.downed = true
     this.downedAt = performance.now()
     this.justWentDown = true
-    this.group.rotation.x = -Math.PI / 2
+    // GLB body plays a real falling-down animation instead of the
+    // procedural body's crude 90-degree tip-over.
+    if (this.usingGLB) {
+      this._playGlbAction('defeat', false)
+    } else {
+      this.group.rotation.x = -Math.PI / 2
+    }
     this._showDownedTag()
   }
 
@@ -375,6 +517,7 @@ export class Companion {
     this.health = this.maxHealth * REVIVE_HEALTH_FRACTION
     this.nextSwarmTickAt = performance.now() + SWARM_TICK_MS
     this.group.rotation.x = 0
+    if (this.usingGLB) this._playGlbAction('standup', false)
     this._restoreNameTag()
   }
 
@@ -393,6 +536,7 @@ export class Companion {
     this.justDied = false
     this.nextSwarmTickAt = 0
     this.group.rotation.x = 0
+    if (this.usingGLB) this._playGlbAction('idle', true)
     this._restoreNameTag()
   }
 

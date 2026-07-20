@@ -1,0 +1,4 @@
+Companion/rival/survivor/player-body models + walk/idle/death/defeat/punch/shoot/sitdown animations:
+Quaternius, "Ultimate Animated Character Pack" (quaternius.com/packs/ultimatedanimatedcharacter.html)
+Characters used: Soldier_Male (companion), BlueSoldier_Male (rival), Worker_Male (survivor), Casual_Male (player body)
+License: CC0 (public domain, no attribution required)
