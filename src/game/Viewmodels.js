@@ -1,4 +1,23 @@
 import * as THREE from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+
+// Phase 4 of the 3D asset overhaul (see 3D_ASSET_OVERHAUL.md) - real rigged
+// GLB weapon viewmodels (Quaternius "Ultimate Guns Pack" for firearms,
+// 3dmodelscc0's CC0 melee pack for melee) behind a flag per weapon, same
+// pattern as Zombie.js's USE_GLB_ZOMBIES. Starting with just the pistol as
+// the plan's own "quality gate" before committing to the other 10.
+export const USE_GLB_PISTOL = true
+let _pistolModelCache = null
+
+export async function preloadPistolViewmodel() {
+  try {
+    const loader = new GLTFLoader()
+    const gltf = await loader.loadAsync('/models/weapons/pistol.glb')
+    _pistolModelCache = gltf.scene
+  } catch (err) {
+    console.warn('GLB pistol viewmodel failed to load, falling back to procedural pistol', err)
+  }
+}
 
 const METAL = new THREE.MeshStandardMaterial({ color: 0x2b2b2d, roughness: 0.4, metalness: 0.7 })
 const DARK_METAL = new THREE.MeshStandardMaterial({ color: 0x1a1a1c, roughness: 0.5, metalness: 0.6 })
@@ -109,6 +128,47 @@ function skinMaterial(skinId, base = METAL) {
 }
 
 function buildPistol(skinId = null) {
+  if (USE_GLB_PISTOL && _pistolModelCache) {
+    return buildPistolFromGLB(skinId)
+  }
+  return buildPistolProcedural(skinId)
+}
+
+// Real Quaternius pistol model (asset-source/build-pistol.py) - a plain
+// static mesh (no skeleton), so a simple .clone(true) is enough, unlike the
+// character/zombie work which needed SkeletonUtils. "Metal" is the
+// designated tintable material slot (mirrors slideMat in the procedural
+// version) - skins clone-and-recolor just that material, never mutating
+// the shared cached one. The model ships its own "Grip" Empty for
+// attachHandToGrip instead of a procedural grip box.
+function buildPistolFromGLB(skinId) {
+  const g = new THREE.Group()
+  const cloned = _pistolModelCache.clone(true)
+
+  const tint = SKIN_TINTS[skinId]
+  cloned.traverse((child) => {
+    if (!child.isMesh) return
+    child.castShadow = false
+    if (child.material.name === 'Metal') {
+      child.material = child.material.clone()
+      if (tint) {
+        child.material.color.setHex(tint.color)
+        child.material.emissive.setHex(tint.emissive)
+        child.material.emissiveIntensity = 0.3
+        child.material.roughness = 0.25
+        child.material.metalness = 0.9
+      }
+    }
+  })
+  g.add(cloned)
+
+  const grip = cloned.getObjectByName('Grip')
+  if (grip) attachHandToGrip(g, grip)
+
+  return g
+}
+
+function buildPistolProcedural(skinId = null) {
   const g = new THREE.Group()
 
   const slideMat = skinMaterial(skinId)

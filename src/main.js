@@ -6,6 +6,7 @@ import { preloadCompanionModel } from './game/Companion.js'
 import { preloadRivalModel } from './game/RivalScavenger.js'
 import { preloadSurvivorModel } from './game/RescueSurvivor.js'
 import { preloadPlayerBodyModel } from './game/PlayerBody.js'
+import { preloadPistolViewmodel } from './game/Viewmodels.js'
 
 Promise.all([
   preloadBuildingModels(),
@@ -15,6 +16,7 @@ Promise.all([
   preloadRivalModel(),
   preloadSurvivorModel(),
   preloadPlayerBodyModel(),
+  preloadPistolViewmodel(),
 ]).finally(() => {
   const loader = document.getElementById('asset-loader')
   if (loader) loader.style.display = 'none'
