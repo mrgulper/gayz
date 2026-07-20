@@ -63,6 +63,12 @@ const BERSERK_HEALTH_FRACTION = 0.2
 const BERSERK_SPEED_MULT = 1.5
 const BERSERK_DAMAGE_MULT = 1.3
 
+// The Quaternius zombie model has slim, human-like proportions (see
+// _buildBodyFromGLB) - widen X/Z only (not height) so it reads as a bulkier
+// monster instead of a plain skinny person. Cheap stopgap ahead of possibly
+// sourcing a stockier model later; titan (a T-Rex) doesn't need this.
+const GLB_HUMANOID_WIDTH_MULT = 1.45
+
 // Elite variants (see ZombieManager._spawnRandom) - tougher, hit harder,
 // visibly gilded so the player can spot the threat before engaging.
 const ELITE_HEALTH_MULT = 2.2
@@ -199,11 +205,18 @@ export class Zombie {
     const glbCorrection = this.usingGLB ? this._glbScaleCorrection : 1
     const baseScale = typeConfig.scale * (isElite ? ELITE_SCALE_MULT : 1) * glbCorrection
     this.baseScale = baseScale
+    // The humanoid GLB source model (Quaternius, no texture) reads as a
+    // slim, plain person rather than a chunky monster - unlike titan
+    // (a T-Rex, already naturally bulky) this widens X/Z only, leaving
+    // height (Y) untouched, as a free/instant partial fix for that ahead
+    // of possibly sourcing a stockier model later.
+    const widthMult = this.usingGLB && !this.config.dinosaur ? GLB_HUMANOID_WIDTH_MULT : 1
+    this.glbWidthMult = widthMult
     if (isAmbush) {
-      this.group.scale.set(baseScale, baseScale * 0.35, baseScale)
+      this.group.scale.set(baseScale * widthMult, baseScale * 0.35, baseScale * widthMult)
       for (const mat of this.eyeMaterials) mat.emissiveIntensity = 0.25
     } else {
-      this.group.scale.setScalar(baseScale)
+      this.group.scale.set(baseScale * widthMult, baseScale, baseScale * widthMult)
     }
 
     if (isElite) {
