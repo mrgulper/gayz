@@ -229,38 +229,6 @@ function buildPistolProcedural(skinId = null) {
 
 const UV_LENS = new THREE.MeshStandardMaterial({ color: 0x2a0a44, emissive: 0x8b2fe0, emissiveIntensity: 2.4 })
 
-// Blacklight lamp gun for the UV weapon - a pistol-shaped body with a glass
-// emitter lens instead of a barrel, so it reads as a light tool, not a
-// firearm. Bare shape exported so world pickups can reuse it (see
-// buildMinigunModel for the same split).
-export function buildUvLampModel() {
-  const g = new THREE.Group()
-
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.24), METAL)
-  body.position.set(0, 0.04, 0)
-  g.add(body)
-
-  const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.1, 12), UV_LENS)
-  lens.rotation.x = Math.PI / 2
-  lens.position.set(0, 0.045, -0.19)
-  g.add(lens)
-
-  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.065, 0.16, 0.09), GRIP)
-  grip.position.set(0, -0.07, 0.07)
-  grip.rotation.x = -0.18
-  g.add(grip)
-
-  g.userData.grip = grip
-  g.userData.uvLens = lens
-  return g
-}
-
-function buildUvLamp() {
-  const g = buildUvLampModel()
-  attachHandToGrip(g, g.userData.grip)
-  return g
-}
-
 function buildRifle(skinId = null) {
   if (USE_GLB_RIFLE && GUN_MODEL_CACHE.rifle) {
     const g = buildGunFromGLB(GUN_MODEL_CACHE.rifle, 'Metal', skinId)
@@ -798,7 +766,6 @@ const BUILDERS = {
   rifle: buildRifle,
   melee: buildMelee,
   minigun: buildMinigun,
-  uvlamp: buildUvLamp,
   shotgun: buildShotgun,
   awp: buildAwp,
   glock18: buildGlock18,

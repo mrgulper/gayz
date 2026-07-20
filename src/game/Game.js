@@ -57,7 +57,6 @@ const PICKUP_LABELS = {
     return t('toastAmmoCrateCollected')
   },
   minigun: () => t('toastMinigunAcquired'),
-  uvlamp: () => t('toastUvlampAcquired'),
   battery: () => t('toastBatteryAdded'),
   noisemaker: () => t('toastNoisemakerAdded'),
   grenade: () => t('toastGrenadeAdded'),
@@ -390,7 +389,7 @@ const AIRDROP_CLAIM_RADIUS = 2
 const AIRDROP_REST_Y = 1.1
 const AIRDROP_FALL_HEIGHT = 16
 const AIRDROP_FALL_DURATION_MS = 2200
-const BOSS_TIER_IDS = new Set(['colossus', 'patient_zero', 'titan'])
+const BOSS_TIER_IDS = new Set(['colossus', 'titan'])
 const WHEEL_RADIUS = 110
 const WHEEL_DEADZONE = 18
 const RESCUE_INTERACT_RADIUS = 2.5
@@ -951,10 +950,9 @@ export class Game {
     // Used to sit in the standalone surface tunnel - that tunnel is gone
     // (see World.js's buildVireoFacility, now a straight continuation of
     // the subway instead), so this moves underground with it, tucked just
-    // past the UV Lamp spot along the same corridor.
-    this.pickups.spawnUnique('audiolog4', vireoFacility.uvLampSpot.x - 1.2, vireoFacility.uvLampSpot.z + 3, vireoFacility.floorY + 0.5)
+    // past the corridor marker spot along the same corridor.
+    this.pickups.spawnUnique('audiolog4', vireoFacility.corridorMarkerSpot.x - 1.2, vireoFacility.corridorMarkerSpot.z + 3, vireoFacility.floorY + 0.5)
     this.pickups.spawnUnique('audiolog5', 0, 60, 0.5)
-    this.pickups.spawnUnique('uvlamp', vireoFacility.uvLampSpot.x, vireoFacility.uvLampSpot.z, vireoFacility.floorY + 0.5)
     // Locked Vault: a one-off "find the key, then cash in a guaranteed good
     // reward" loop, distinct from the random-roll chest rotation. Tucked in
     // a back corner of the safe zone compound, away from the entrance gap
@@ -969,7 +967,7 @@ export class Game {
     this.vaultKeySpots = [
       { x: 0, y: 0.5, z: -20 },
       { x: 0, y: 0.5, z: 65 },
-      { x: vireoFacility.uvLampSpot.x + 1.5, y: vireoFacility.floorY + 0.5, z: vireoFacility.uvLampSpot.z - 2 },
+      { x: vireoFacility.corridorMarkerSpot.x + 1.5, y: vireoFacility.floorY + 0.5, z: vireoFacility.corridorMarkerSpot.z - 2 },
     ]
     this._spawnVaultKey()
     this.audioLogsFound = new Set()
@@ -2880,7 +2878,6 @@ export class Game {
       // does (see _renderCoinShopOptions being re-run on every purchase).
       if (section.id === 'weapons') {
         for (const w of this.weapons.getSummary()) {
-          if (w.id === 'uvlamp') continue
           const wrap = document.createElement('div')
           wrap.className = 'weapon-slot-wrap'
 
@@ -3219,7 +3216,6 @@ export class Game {
 
     this.panelWeaponsList.innerHTML = this.weapons
       .getSummary()
-      .filter((w) => w.id !== 'uvlamp')
       .map((w) => {
         const mastered = w.masteryMult > 1
         const kills = this.weaponMastery.kills[w.id] || 0
@@ -3491,7 +3487,6 @@ export class Game {
     // Guaranteed boss loot - on top of the normal chance-based ammo drop,
     // not instead of it.
     if (zombieTypeId === 'colossus') this.pickups.spawnLootDrop('extended_mag', x, z)
-    else if (zombieTypeId === 'patient_zero') this.pickups.spawnLootDrop('uvlamp', x, z)
   }
 
   // Persistent per-weapon kill tally (see WeaponMastery.js) - only counts
@@ -3646,8 +3641,6 @@ export class Game {
     } else if (type === 'minigun') {
       this.weapons.unlockWeapon('minigun')
       this.achievements.unlock('minigun_unlocked')
-    } else if (type === 'uvlamp') {
-      this.weapons.unlockWeapon('uvlamp')
     }
     else if (type === 'battery') {
       this.flashlightBattery = Math.min(this.maxFlashlightBattery, this.flashlightBattery + 40)
@@ -4312,7 +4305,7 @@ export class Game {
       return
     }
     if (!this.vireoGuardian) {
-      this.vireoGuardian = this.zombies.spawnGuardian(this.vireoTerminal.x, this.vireoTerminal.z - 3, ZOMBIE_TYPES.patient_zero)
+      this.vireoGuardian = this.zombies.spawnGuardian(this.vireoTerminal.x, this.vireoTerminal.z - 3, ZOMBIE_TYPES.colossus)
       this._showLoreToast(t('vireoGuardianWakes'))
       return
     }
@@ -4373,7 +4366,7 @@ export class Game {
     this._showLoreToast(t('survivorRecruited'))
   }
 
-  // A real top-of-screen bar while any boss (Colossus/Patient Zero/the VIREO
+  // A real top-of-screen bar while any boss (Colossus/Titan/the VIREO
   // guardian) is alive, instead of just the same tiny floating sprite every
   // regular zombie gets.
   _updateBossHealthBar() {

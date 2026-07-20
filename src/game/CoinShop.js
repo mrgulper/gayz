@@ -92,9 +92,8 @@ export const COIN_SHOP_ITEMS = [
 // points-bought scope/extended-mag crafting (see WEAPON_SHOP in Game.js and
 // WeaponSystem.attachScope/addMagBonus): these apply once to a specific gun
 // and persist across every future run (see shopProgress.attachments and
-// WeaponSystem.applyAttachment). Melee and the UV Lamp are excluded
-// (Game.js's Weapons section already skips the UV Lamp for the same reason
-// it isn't a Coin Shop gun; melee has no ammo/scope/sound to attach to).
+// WeaponSystem.applyAttachment). Melee is excluded (no ammo/scope/sound to
+// attach to).
 export const ATTACHMENT_TYPES = [
   { id: 'scope', titleKey: 'attachScope', cost: 3000 },
   { id: 'extmag', titleKey: 'attachExtMag', cost: 2500 },

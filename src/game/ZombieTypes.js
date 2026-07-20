@@ -208,11 +208,6 @@ export const ZOMBIE_TYPES = {
     skinTones: [0x1a2530, 0x16202a, 0x1c2732],
     clothesTones: [0x0a0d10, 0x0d1013],
   },
-  // Second boss, alternating with colossus (see ZombieManager._spawnBoss).
-  // "Feeds off light": already gets enraged for free by the flashlight's
-  // light-lure mechanic (Game.js's _updateLightLure enrages any alive
-  // zombie in radius) - screamEnrageMult just makes that boost hit harder
-  // for this type specifically, so the light tradeoff matters most here.
   // Native to the sewer biome (see World.js's buildSewer) - just added to
   // the normal weighted pool with a small weight rather than a dedicated
   // spawn-zone system, so it can turn up anywhere, not only down there.
@@ -232,25 +227,6 @@ export const ZOMBIE_TYPES = {
     attackCooldown: 0.75,
     skinTones: [0x3a4a2a, 0x334020, 0x2e3a1c],
     clothesTones: [0x141a10, 0x181f12],
-  },
-  patient_zero: {
-    id: 'patient_zero',
-    label: 'Patient Zero',
-    lore: "VIREO's first success story. It feeds on the same light that made it.",
-    weight: 0,
-    health: 750,
-    speedMin: 1.3,
-    speedMax: 1.6,
-    damageMin: 70,
-    damageMax: 110,
-    scale: 1.9,
-    ranged: false,
-    meleeRange: 2.4,
-    attackCooldown: 1.5,
-    feedsOnLight: true,
-    screamEnrageMult: 2.0,
-    skinTones: [0x2a0a44, 0x34104f, 0x230838],
-    clothesTones: [0x0d0510, 0x120714],
   },
   // Rare roaming threat, distinct from the night-scheduled bosses above -
   // see ZombieManager's _maybeSpawnTitan, which rolls a random chance on

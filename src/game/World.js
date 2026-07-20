@@ -1128,8 +1128,8 @@ function buildSubway(scene, colliders, solidMeshes, flickerLights) {
   // straight into the VIREO facility extension instead of dead-ending, see
   // buildVireoFacility, which now attaches right at SUBWAY_Z_END and is
   // this subway's second exit (surfacing further down the line) as well as
-  // where the UV Lamp pickup + terminal now live, replacing their old
-  // standalone-tunnel entrance.
+  // where the terminal now lives, replacing its old standalone-tunnel
+  // entrance.
 
   // Raised platform running down one side, with rails + a stalled train car
   // in the trackbed on the other side - the two details that actually read
@@ -1715,10 +1715,9 @@ function buildUndergroundStation(scene, colliders, solidMeshes, flickerLights, c
 // so reaching it means riding the subway stairs down rather than finding a
 // separate tunnel entrance. Hazard lighting, lab clutter, and a terminal
 // (see Game.js's nearVireoTerminal handling) that pays off the audio log
-// arc, plus the UV Lamp weapon pickup (see Game.js's spawnUnique('uvlamp',
-// ...)) right where the corridor opens up. Past the terminal, a second
-// staircase climbs back to street level - the subway's exit, so the whole
-// underground loop doesn't dead-end back the way you came.
+// arc. Past the terminal, a second staircase climbs back to street level -
+// the subway's exit, so the whole underground loop doesn't dead-end back
+// the way you came.
 const FACILITY_X = SUBWAY_X
 const FACILITY_Z_START = SUBWAY_Z_END
 const FACILITY_Z_END = SUBWAY_Z_END + 16
@@ -1869,7 +1868,10 @@ function buildVireoFacility(scene, colliders, solidMeshes, flickerLights) {
 
   return {
     terminalSpot: { x: FACILITY_X, z: terminalZ },
-    uvLampSpot: { x: FACILITY_X, z: FACILITY_Z_START + 6 },
+    // Kept as a generic corridor landmark - was the UV Lamp pickup's spot
+    // before that weapon was removed; audiolog4 and one vault key spawn
+    // still anchor off it (see Game.js).
+    corridorMarkerSpot: { x: FACILITY_X, z: FACILITY_Z_START + 6 },
     floorY: SUBWAY_FLOOR_Y,
     exitSpot: { x: FACILITY_X, z: FACILITY_EXIT_Z },
   }

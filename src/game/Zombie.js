@@ -324,7 +324,7 @@ export class Zombie {
 
     // Gland/belly/throat FX spheres - same visual language as the
     // procedural body's (see _buildBodyProcedural's ranged/screams/
-    // explodes/feedsOnLight blocks) but bone-parented instead of
+    // explodes blocks) but bone-parented instead of
     // hips-group-parented, per 3D_ASSET_OVERHAUL.md Phase 2's "keep them
     // procedural spheres parented to spine/head bones" guidance. Authored
     // in the bone's own (unscaled, ~4.2x oversized) local space so they
@@ -453,8 +453,8 @@ export class Zombie {
   }
 
   // Per-type gland/belly/throat FX, mirroring _buildBodyProcedural's
-  // ranged/screams/explodes/feedsOnLight blocks - see _updateGlandFX for
-  // the shared pulse animation both bodies drive off pulseMesh/throatMesh.
+  // ranged/screams/explodes blocks - see _updateGlandFX for the shared
+  // pulse animation both bodies drive off pulseMesh/throatMesh.
   _addTypeFxSpheres(root) {
     const cfg = this.config
     const INV_CORR = 1 / this._glbScaleCorrection
@@ -488,13 +488,6 @@ export class Zombie {
         localY: 0, squash: [1.1, 1, 0.95],
       })
       if (fx) { this.pulseMesh = fx.mesh; this.pulseBaseScale = fx.mesh.scale.clone() }
-    }
-    if (cfg.feedsOnLight) {
-      const fx = this._addGlbFxSphere(root, 'Spine', {
-        radius: 0.29 * INV_CORR, color: 0x1a0a2a, emissive: 0x8b2fe0, emissiveIntensity: 0.8,
-        localY: 0.05 * INV_CORR, squash: [1.05, 1, 0.9],
-      })
-      if (fx) { this.pulseMesh = fx.mesh; this.pulseMat = fx.mat; this.pulseBaseScale = fx.mesh.scale.clone() }
     }
   }
 
@@ -615,20 +608,6 @@ export class Zombie {
       this.pulseBaseScale = bloat.scale.clone()
     }
 
-    if (this.config.feedsOnLight) {
-      const veinMat = new THREE.MeshStandardMaterial({
-        color: 0x1a0a2a,
-        emissive: 0x8b2fe0,
-        emissiveIntensity: 0.8,
-      })
-      const veins = track(new THREE.Mesh(new THREE.SphereGeometry(0.36, 8, 8), veinMat), veinMat)
-      veins.position.set(0, 0.3, 0.1)
-      veins.scale.set(1.05, 1, 0.9)
-      this.hips.add(veins)
-      this.pulseMesh = veins
-      this.pulseBaseScale = veins.scale.clone()
-      this.pulseMat = veinMat
-    }
 
     for (let i = 0; i < 4; i++) {
       const strip = track(

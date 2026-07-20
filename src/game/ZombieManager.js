@@ -348,10 +348,10 @@ export class ZombieManager {
     const x = this.lastPlayerPos.x + Math.sin(angle) * SPAWN_RADIUS_MAX
     const z = this.lastPlayerPos.z + Math.cos(angle) * SPAWN_RADIUS_MAX
 
-    // Alternates colossus/patient_zero - Boss Rush uses its own incrementing
-    // counter since it isn't tied to every-5th-night timing.
-    const altIndex = this.bossRushMode ? this.bossRushSpawnCount++ : this.currentNight / 5
-    const bossType = altIndex % 2 === 0 ? ZOMBIE_TYPES.patient_zero : ZOMBIE_TYPES.colossus
+    // TEMPORARY: colossus every boss night. This used to alternate with
+    // patient_zero (removed); a new second boss is planned to take its
+    // slot in the rotation but isn't designed yet.
+    const bossType = ZOMBIE_TYPES.colossus
     const zombie = new Zombie(x, z, bossType, false, false, this.currentNight)
     zombie.deathHandled = false
     zombie.isBoss = true

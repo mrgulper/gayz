@@ -72,17 +72,6 @@ const WEAPONS = [
     unlocked: false,
   },
   {
-    id: 'uvlamp',
-    name: 'UV Lamp',
-    auto: true,
-    fireInterval: 0.15,
-    reloadTime: 1.0,
-    magSize: 40,
-    reserve: 120,
-    damage: 0,
-    unlocked: false,
-  },
-  {
     id: 'shotgun',
     name: 'Weatie',
     auto: false,
@@ -360,12 +349,12 @@ export class WeaponSystem {
     this.viewmodels[weaponId] = vm
   }
 
-  // Coin Shop skins apply to every gun at once (melee/UV lamp excluded -
-  // neither reads as a "gun" cosmetically) instead of just the pistol, so
-  // buying one skin reskins the whole loadout.
+  // Coin Shop skins apply to every gun at once (melee excluded - it doesn't
+  // read as a "gun" cosmetically) instead of just the pistol, so buying one
+  // skin reskins the whole loadout.
   setSkinAllGuns(skinId) {
     for (const w of this.weapons) {
-      if (w.melee || w.id === 'uvlamp') continue
+      if (w.melee) continue
       this.setWeaponSkin(w.id, skinId)
     }
   }
@@ -644,7 +633,7 @@ export class WeaponSystem {
 
     for (const [zombie, info] of hitZombies) {
       zombie.lastHitWeaponId = w.id
-      if (w.id === 'uvlamp' || (w.id === 'melee' && this.meleeVariant === 'uvbaton')) {
+      if (w.id === 'melee' && this.meleeVariant === 'uvbaton') {
         zombie.weaken(1500)
       } else {
         // Distance-based falloff (see the Weatie shotgun's w.damageFalloff) -
