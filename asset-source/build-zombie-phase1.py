@@ -4,8 +4,18 @@ from mathutils import Vector as mathutils_Vector
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 QUAT_PATH = os.path.join(BASE, "zombie/quaternius-zombie/ZombieSmooth.fbx")
-DEATH_PATH = os.path.join(BASE, "animations/mixamo/Zombie Death.fbx")
 OUT_PATH = os.path.join(BASE, "zombie-phase1.glb")
+
+# Mixamo clips harvested purely for their animation action (same retarget
+# as Phase 1's Death: mixamorig:<Bone> prefix strip maps 1:1 onto the
+# Quaternius rig). Phase 2 adds punch (regular zombies) and kick (boss
+# types) per the kick/punch split - see the design note in
+# 3D_ASSET_OVERHAUL.md Phase 2 / the project memory it came from.
+MIXAMO_CLIPS = {
+    "death": "animations/mixamo/Zombie Death.fbx",
+    "punch": "animations/mixamo/Zombie Punching.fbx",
+    "kick": "animations/mixamo/Zombie Kicking.fbx",
+}
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 
@@ -30,47 +40,49 @@ for action in list(bpy.data.actions):
 
 print("Native actions after rename:", [a.name for a in bpy.data.actions])
 
-# --- Import the Mixamo Death FBX purely to harvest its animation action.
-# Its armature uses "mixamorig:<BoneName>" - stripping that prefix maps
-# 1:1 onto the Quaternius rig's bone names (confirmed identical minus the
-# prefix), so this is a straight retarget, not a real cross-rig transfer. ---
-existing_action_names = {a.name for a in bpy.data.actions}
-bpy.ops.import_scene.fbx(filepath=DEATH_PATH)
+# --- Import each Mixamo FBX purely to harvest its animation action. Every
+# one of these armatures uses "mixamorig:<BoneName>" - stripping that
+# prefix maps 1:1 onto the Quaternius rig's bone names (confirmed identical
+# minus the prefix), so this is a straight retarget, not a real cross-rig
+# transfer. ---
+for clip_name, rel_path in MIXAMO_CLIPS.items():
+    existing_action_names = {a.name for a in bpy.data.actions}
+    bpy.ops.import_scene.fbx(filepath=os.path.join(BASE, rel_path))
 
-death_action = None
-for action in bpy.data.actions:
-    if action.name not in existing_action_names:
-        death_action = action
-        break
-if death_action is None:
-    raise RuntimeError("Could not find the newly-imported Mixamo death action")
+    clip_action = None
+    for action in bpy.data.actions:
+        if action.name not in existing_action_names:
+            clip_action = action
+            break
+    if clip_action is None:
+        raise RuntimeError(f"Could not find the newly-imported Mixamo action for {clip_name}")
 
-# Blender 5.2's "layered actions" model nests fcurves under
-# layers[].strips[].channelbags[].fcurves, not a flat action.fcurves list.
-channelbag = death_action.layers[0].strips[0].channelbags[0]
-kept, dropped = 0, 0
-for fcurve in list(channelbag.fcurves):
-    dp = fcurve.data_path
-    if 'pose.bones["mixamorig:' in dp:
-        new_dp = dp.replace('pose.bones["mixamorig:', 'pose.bones["')
-        bone_name = new_dp.split('pose.bones["')[1].split('"')[0]
-        if bone_name in quat_bone_names:
-            fcurve.data_path = new_dp
-            kept += 1
-        else:
-            # Bone doesn't exist on the Quaternius rig (e.g. finger bones
-            # Quaternius's simplified rig omits) - drop that curve rather
-            # than leave it pointing at nothing.
-            channelbag.fcurves.remove(fcurve)
-            dropped += 1
-death_action.name = "death"
-print(f"Death action retarget: kept {kept} curves, dropped {dropped} (no matching bone)")
+    # Blender 5.2's "layered actions" model nests fcurves under
+    # layers[].strips[].channelbags[].fcurves, not a flat action.fcurves list.
+    channelbag = clip_action.layers[0].strips[0].channelbags[0]
+    kept, dropped = 0, 0
+    for fcurve in list(channelbag.fcurves):
+        dp = fcurve.data_path
+        if 'pose.bones["mixamorig:' in dp:
+            new_dp = dp.replace('pose.bones["mixamorig:', 'pose.bones["')
+            bone_name = new_dp.split('pose.bones["')[1].split('"')[0]
+            if bone_name in quat_bone_names:
+                fcurve.data_path = new_dp
+                kept += 1
+            else:
+                # Bone doesn't exist on the Quaternius rig (e.g. finger bones
+                # Quaternius's simplified rig omits) - drop that curve rather
+                # than leave it pointing at nothing.
+                channelbag.fcurves.remove(fcurve)
+                dropped += 1
+    clip_action.name = clip_name
+    print(f"{clip_name} action retarget: kept {kept} curves, dropped {dropped} (no matching bone)")
 
-# Remove the imported death FBX's own armature/mesh objects - only the
-# action data-block (now retargeted) was needed from that file.
-for obj in list(bpy.data.objects):
-    if obj not in (quat_armature, quat_mesh):
-        bpy.data.objects.remove(obj, do_unlink=True)
+    # Remove this clip's imported armature/mesh objects - only the action
+    # data-block (now retargeted) was needed from that file.
+    for obj in list(bpy.data.objects):
+        if obj not in (quat_armature, quat_mesh):
+            bpy.data.objects.remove(obj, do_unlink=True)
 
 print("Final actions:", [a.name for a in bpy.data.actions])
 print("Armature bone count:", len(quat_armature.data.bones))

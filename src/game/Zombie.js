@@ -215,7 +215,13 @@ export class Zombie {
   }
 
   _buildBody() {
-    if (USE_GLB_ZOMBIES && _zombieModelCache) {
+    // Titan (dinosaur silhouette) has no GLB yet - it's an entirely
+    // different body plan (elongated skull, tiny arms, tail, no hood/hair),
+    // not a rescale/retint of the humanoid zombie rig. Per
+    // 3D_ASSET_OVERHAUL.md Phase 2, that's a separate-model lane deferred
+    // past this pass - fall back to its existing procedural body rather
+    // than rendering it as a green human.
+    if (USE_GLB_ZOMBIES && _zombieModelCache && !this.config.dinosaur) {
       this._buildBodyFromGLB()
       return
     }
@@ -256,6 +262,13 @@ export class Zombie {
     this.materials = new Set()
     this.materialDefaults = new Map()
 
+    // Per-type body tint - the source FBX has one flat untextured material,
+    // so unlike the procedural body's separate skin/clothes materials this
+    // is a single blended tone. Picked the same way _buildBodyProcedural
+    // picks its skin tone (random from the type's palette) so instances of
+    // the same type still read as slightly varied, not identical clones.
+    const bodyTint = this.config.skinTones[Math.floor(Math.random() * this.config.skinTones.length)]
+
     cloned.traverse((child) => {
       if (!child.isMesh) return
       child.castShadow = true
@@ -264,6 +277,7 @@ export class Zombie {
       // instance so this zombie's hit-flash/tint never fights another
       // zombie sharing the same source material.
       child.material = child.material.clone()
+      child.material.color.setHex(bodyTint)
       child.userData.zombie = this
       this.hittableMeshes.push(child)
       this.materials.add(child.material)
@@ -272,6 +286,17 @@ export class Zombie {
         intensity: child.material.emissiveIntensity || 0,
       })
     })
+
+    // Gland/belly/throat FX spheres - same visual language as the
+    // procedural body's (see _buildBodyProcedural's ranged/screams/
+    // explodes/feedsOnLight blocks) but bone-parented instead of
+    // hips-group-parented, per 3D_ASSET_OVERHAUL.md Phase 2's "keep them
+    // procedural spheres parented to spine/head bones" guidance. Authored
+    // in the bone's own (unscaled, ~4.2x oversized) local space so they
+    // shrink to the right final size under the same group-level
+    // _glbScaleCorrection the whole mesh already gets - see
+    // _addGlbFxSphere.
+    this._addTypeFxSpheres(cloned)
 
     this.group.add(cloned)
     this._glbRoot = cloned
@@ -286,6 +311,65 @@ export class Zombie {
     // _buildHealthBar (called right after _buildBody by the constructor)
     // just needs group.position-relative placement - no dependency on the
     // procedural rig's named parts, so it works unchanged for GLB too.
+  }
+
+  // Attaches one emissive sphere to a named bone on the cloned GLB rig.
+  // radius/localY are given in the bone's own (unscaled) local space - the
+  // caller is responsible for the ~4.2x _glbScaleCorrection blow-up (see
+  // _addTypeFxSpheres). Populates the same hittableMeshes/materials
+  // contract every other GLB mesh does, so it's shootable and reverts
+  // through the normal hit-flash path.
+  _addGlbFxSphere(root, boneName, { radius, color, emissive, emissiveIntensity, localY = 0, squash = null }) {
+    const bone = root.getObjectByName(boneName)
+    if (!bone) return null
+    const mat = new THREE.MeshStandardMaterial({ color, emissive, emissiveIntensity, roughness: 0.65 })
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(radius, 8, 8), mat)
+    mesh.position.set(0, localY, 0)
+    if (squash) mesh.scale.set(squash[0], squash[1], squash[2])
+    mesh.castShadow = true
+    mesh.userData.zombie = this
+    bone.add(mesh)
+    this.hittableMeshes.push(mesh)
+    this.materials.add(mat)
+    this.materialDefaults.set(mat, { hex: mat.emissive.getHex(), intensity: mat.emissiveIntensity })
+    return { mesh, mat }
+  }
+
+  // Per-type gland/belly/throat FX, mirroring _buildBodyProcedural's
+  // ranged/screams/explodes/feedsOnLight blocks - see _updateGlandFX for
+  // the shared pulse animation both bodies drive off pulseMesh/throatMesh.
+  _addTypeFxSpheres(root) {
+    const cfg = this.config
+    const INV_CORR = 1 / this._glbScaleCorrection
+
+    if (cfg.ranged) {
+      const fx = this._addGlbFxSphere(root, 'Spine', {
+        radius: 0.32 * INV_CORR, color: 0x1a2408, emissive: 0x9fe23f, emissiveIntensity: 1.1,
+        localY: 0.35 * INV_CORR, squash: [1, 0.9, 0.85],
+      })
+      if (fx) { this.pulseMesh = fx.mesh; this.pulseBaseScale = fx.mesh.scale.clone() }
+    }
+    if (cfg.screams) {
+      const fx = this._addGlbFxSphere(root, 'Neck', {
+        radius: 0.14 * INV_CORR, color: 0x3a1a44, emissive: 0xb060e0, emissiveIntensity: 0.9,
+        localY: 0.1 * INV_CORR, squash: [1, 0.8, 0.8],
+      })
+      if (fx) { this.throatMesh = fx.mesh; this.throatMat = fx.mat; this.throatBaseScale = fx.mesh.scale.clone() }
+    }
+    if (cfg.explodes) {
+      const fx = this._addGlbFxSphere(root, 'Spine1', {
+        radius: 0.4 * INV_CORR, color: 0x3a4a12, emissive: 0xaadd44, emissiveIntensity: 0.7,
+        localY: 0.2 * INV_CORR, squash: [1.1, 1, 0.95],
+      })
+      if (fx) { this.pulseMesh = fx.mesh; this.pulseBaseScale = fx.mesh.scale.clone() }
+    }
+    if (cfg.feedsOnLight) {
+      const fx = this._addGlbFxSphere(root, 'Spine1', {
+        radius: 0.36 * INV_CORR, color: 0x1a0a2a, emissive: 0x8b2fe0, emissiveIntensity: 0.8,
+        localY: 0.2 * INV_CORR, squash: [1.05, 1, 0.9],
+      })
+      if (fx) { this.pulseMesh = fx.mesh; this.pulseMat = fx.mat; this.pulseBaseScale = fx.mesh.scale.clone() }
+    }
   }
 
   _playGlbAction(name, loop) {
@@ -1079,22 +1163,23 @@ export class Zombie {
   }
 
   // GLB path for the normal 'alive' state - crawler gets its own clip,
-  // everyone else walks except during the attack-lunge window. Boss
-  // telegraph/twitch/breathing (the procedural path's finer polish) is
-  // intentionally not replicated here yet - this is the Phase 1 proof, not
-  // full parity; see 3D_ASSET_OVERHAUL.md Phase 2 for bringing the other 6
-  // silhouettes (and their per-type FX) onto this same pipeline.
+  // everyone else walks except during the attack-lunge window (boss types
+  // kick, regular types punch - see the design note this came from). Boss
+  // telegraph twitch/breathing (the procedural path's finer polish) is
+  // intentionally not replicated here yet - this is Phase 2's baseline
+  // parity pass, not full parity.
   _animateGLB(dt, elapsed) {
     const attacking = performance.now() < this.attackAnimUntil
     if (this.config.crawler) {
       this._playGlbAction('crawl', true)
     } else if (attacking) {
-      this._playGlbAction('attack', false)
+      this._playGlbAction(this.isBoss ? 'kick' : 'punch', false)
     } else {
       this._playGlbAction('walk', true)
     }
     this.mixer.update(dt)
     this.group.rotation.z = Math.sin(elapsed * this.effectiveSpeed * 1.1 + this.phase) * 0.04 + this.postureOffset * 0.2
+    this._updateGlandFX(elapsed)
   }
 
   _animate(dt, elapsed) {
@@ -1161,6 +1246,14 @@ export class Zombie {
     // Ragged breathing: torso creaks in and out, ranged/exploder bellies throb faster and harder.
     const breath = Math.sin(elapsed * 1.6 + this.twitchPhase)
     if (this.torso) this.torso.scale.z = 1 + breath * 0.035
+    this._updateGlandFX(elapsed)
+  }
+
+  // Belly/throat/bloat/vein emissive-sphere pulsing - shared by the
+  // procedural body (spheres parented to a THREE.Group hips bone) and the
+  // GLB body (spheres parented to a real skeleton bone, see
+  // _addGlbFxSphere). Same pulseMesh/throatMesh contract either way.
+  _updateGlandFX(elapsed) {
     if (this.pulseMesh) {
       const pulse = 1 + (Math.sin(elapsed * 3.4 + this.twitchPhase) * 0.5 + 0.5) * 0.14
       this.pulseMesh.scale.set(
