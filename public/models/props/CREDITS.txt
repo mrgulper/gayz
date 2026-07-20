@@ -1,0 +1,3 @@
+Barrel, fuel can models: 3dmodelscc0, "Free CC0 Industrial 3D Models" (3dmodelscc0.itch.io/free-cc0-industrial-3d-models)
+Street light model: 3dmodelscc0, "Free CC0 City Environment Pack" (3dmodelscc0.itch.io/city-environment-pack)
+License: CC0 (public domain, no attribution required)

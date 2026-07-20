@@ -1,11 +1,12 @@
 import './style.css'
 import { Game } from './game/Game.js'
-import { preloadBuildingModels } from './game/World.js'
+import { preloadBuildingModels, preloadPropModels } from './game/World.js'
 import { preloadZombieModel, preloadTitanModel } from './game/Zombie.js'
 import { preloadCompanionModel } from './game/Companion.js'
 import { preloadRivalModel } from './game/RivalScavenger.js'
 import { preloadSurvivorModel } from './game/RescueSurvivor.js'
 import { preloadPlayerBodyModel } from './game/PlayerBody.js'
+import { preloadFuelcanModel } from './game/Pickups.js'
 import {
   preloadPistolViewmodel,
   preloadRifleViewmodel,
@@ -20,6 +21,8 @@ import {
 
 Promise.all([
   preloadBuildingModels(),
+  preloadPropModels(),
+  preloadFuelcanModel(),
   preloadZombieModel(),
   preloadTitanModel(),
   preloadCompanionModel(),

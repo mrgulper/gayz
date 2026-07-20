@@ -578,9 +578,30 @@ const barrelBodyMat = new THREE.MeshStandardMaterial({
 const barrelCapMat = new THREE.MeshStandardMaterial({ color: 0x1c1a16, roughness: 0.6, metalness: 0.4 })
 
 function buildExplosiveBarrels(scene, colliders, solidMeshes, spots) {
+  const model = _propModelCache.get('barrel.glb')
   for (const [x, z] of spots) {
     const barrel = new THREE.Group()
     barrel.position.set(x, 0, z)
+
+    if (model) {
+      const clone = model.clone(true)
+      let body = null
+      clone.traverse((child) => {
+        if (!child.isMesh) return
+        child.castShadow = true
+        child.receiveShadow = true
+        child.material = child.material.clone()
+        body = child // single mesh/material in this model
+      })
+      barrel.add(clone)
+      scene.add(barrel)
+      body.updateWorldMatrix(true, false)
+      const explosive = { x, z, mat: body.material, exploded: false }
+      body.userData.explosive = explosive
+      solidMeshes.push(body)
+      colliders.push(new THREE.Box3().setFromObject(body))
+      continue
+    }
 
     const bodyMat = barrelBodyMat.clone()
     const body = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.9, 12), bodyMat)
@@ -1938,6 +1959,25 @@ export async function preloadBuildingModels() {
   }))
 }
 
+// Phase 5 of the 3D asset overhaul - real props (3dmodelscc0's CC0
+// Industrial/City Environment packs, asset-source/build-props.py) in
+// place of procedural primitives, same "load once, cache, fall back to
+// procedural on failure" pattern as the buildings above.
+const PROP_MODEL_FILES = ['barrel.glb', 'streetlight.glb']
+const _propModelCache = new Map()
+
+export async function preloadPropModels() {
+  const loader = new GLTFLoader()
+  await Promise.all(PROP_MODEL_FILES.map(async (file) => {
+    try {
+      const gltf = await loader.loadAsync(`/models/props/${file}`)
+      _propModelCache.set(file, gltf.scene)
+    } catch (err) {
+      console.warn(`Prop model failed to load, falling back to procedural: ${file}`, err)
+    }
+  }))
+}
+
 // Weathering tint applied per building instance (on top of each model's own
 // clean Kenney texture) so 20-odd buildings drawing from ~13 shared model
 // files don't all look like identical copy-paste, and so they read as
@@ -2112,20 +2152,38 @@ function addStreetlights(scene, register, flickerLights) {
     { x: 3.5, z: -34, flicker: false },
   ]
 
+  const model = _propModelCache.get('streetlight.glb')
+
   for (const p of positions) {
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 5.5, 12), poleMat)
-    pole.position.set(p.x, 2.75, p.z)
-    pole.castShadow = true
-    scene.add(pole)
-    register(pole)
+    if (model) {
+      const clone = model.clone(true)
+      clone.position.set(p.x, 0, p.z)
+      clone.traverse((child) => {
+        if (!child.isMesh) return
+        child.castShadow = true
+        child.material = child.material.clone()
+      })
+      scene.add(clone)
+      register(clone)
+    } else {
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 5.5, 12), poleMat)
+      pole.position.set(p.x, 2.75, p.z)
+      pole.castShadow = true
+      scene.add(pole)
+      register(pole)
 
-    const lamp = new THREE.Mesh(
-      new THREE.SphereGeometry(0.25, 12, 12),
-      new THREE.MeshStandardMaterial({ color: 0x332200, emissive: 0xffbb55, emissiveIntensity: 1.6 })
-    )
-    lamp.position.set(p.x, 5.4, p.z)
-    scene.add(lamp)
+      const lamp = new THREE.Mesh(
+        new THREE.SphereGeometry(0.25, 12, 12),
+        new THREE.MeshStandardMaterial({ color: 0x332200, emissive: 0xffbb55, emissiveIntensity: 1.6 })
+      )
+      lamp.position.set(p.x, 5.4, p.z)
+      scene.add(lamp)
+    }
 
+    // Real PointLight (gameplay light source) - kept separate from the
+    // model either way, same as the old sphere-lamp version, so the
+    // model's own baked emissive texture just reads as "the lit part
+    // of the fixture" while this is what actually lights the street.
     const light = new THREE.PointLight(0xffbb66, p.flicker ? 1.6 : 1.1, 14, 2)
     light.position.set(p.x, 5.2, p.z)
     scene.add(light)

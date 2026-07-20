@@ -1,5 +1,22 @@
 import * as THREE from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { buildMinigunModel } from './Viewmodels.js'
+
+// Phase 5 of the 3D asset overhaul - real fuel can model (3dmodelscc0's CC0
+// Industrial pack, asset-source/build-props.py), same "load once, cache,
+// fall back to procedural on failure" pattern every other system module
+// uses for its own GLBs.
+let _fuelcanModel = null
+
+export async function preloadFuelcanModel() {
+  try {
+    const loader = new GLTFLoader()
+    const gltf = await loader.loadAsync('/models/props/fuelcan.glb')
+    _fuelcanModel = gltf.scene
+  } catch (err) {
+    console.warn('GLB fuel can model failed to load, falling back to procedural fuel can', err)
+  }
+}
 
 const PICKUP_RADIUS = 1.4
 const LOOT_EXPIRE_MS = 25000
@@ -62,14 +79,24 @@ function buildVisual(type) {
     pin.rotation.x = Math.PI / 2
     group.add(pin)
   } else if (type === 'fuelcan') {
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xb03a2a, roughness: 0.55, metalness: 0.3 })
-    const capMat = new THREE.MeshStandardMaterial({ color: 0x2a2a28, roughness: 0.4, metalness: 0.6 })
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.36, 0.18), bodyMat)
-    group.add(body)
-    const spout = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.12, 10), capMat)
-    spout.position.set(0.1, 0.22, 0)
-    spout.rotation.z = -0.3
-    group.add(spout)
+    if (_fuelcanModel) {
+      const clone = _fuelcanModel.clone(true)
+      clone.traverse((child) => {
+        if (!child.isMesh) return
+        child.castShadow = true
+        child.material = child.material.clone()
+      })
+      group.add(clone)
+    } else {
+      const bodyMat = new THREE.MeshStandardMaterial({ color: 0xb03a2a, roughness: 0.55, metalness: 0.3 })
+      const capMat = new THREE.MeshStandardMaterial({ color: 0x2a2a28, roughness: 0.4, metalness: 0.6 })
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.36, 0.18), bodyMat)
+      group.add(body)
+      const spout = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.12, 10), capMat)
+      spout.position.set(0.1, 0.22, 0)
+      spout.rotation.z = -0.3
+      group.add(spout)
+    }
   } else if (type === 'grenade') {
     const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3a4a2e, roughness: 0.6, metalness: 0.3 })
     const pinMat = new THREE.MeshStandardMaterial({ color: 0xc9b34a, roughness: 0.4, metalness: 0.6 })
