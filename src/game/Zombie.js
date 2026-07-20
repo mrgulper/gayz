@@ -1,5 +1,28 @@
 import * as THREE from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { accessibility } from './Accessibility.js'
+
+// Phase 1 of the 3D asset overhaul (see 3D_ASSET_OVERHAUL.md) - real rigged
+// GLB zombie behind a flag, alongside the original procedural builder, so
+// this can be A/B'd and rolled back with a one-line change. Flip to false
+// to fall back to the fully-procedural zombie unconditionally.
+export const USE_GLB_ZOMBIES = true
+
+// Loaded once (see preloadZombieModel, called from main.js before `new
+// Game()` the same way preloadBuildingModels is) - every Zombie instance
+// clones from this cache instead of hitting the network per-spawn.
+let _zombieModelCache = null
+
+export async function preloadZombieModel() {
+  try {
+    const loader = new GLTFLoader()
+    const gltf = await loader.loadAsync('/models/zombie/zombie-phase1.glb')
+    _zombieModelCache = { scene: gltf.scene, animations: gltf.animations }
+  } catch (err) {
+    console.warn('GLB zombie model failed to load, falling back to procedural zombies', err)
+  }
+}
 
 const DEATH_ANIM_MS = 550
 const EXPLODE_LINGER_MS = 150
@@ -150,7 +173,15 @@ export class Zombie {
 
     this._buildBody()
 
-    const baseScale = typeConfig.scale * (isElite ? ELITE_SCALE_MULT : 1)
+    // GLB scale correction applied at this.group, not inside the GLB clone
+    // itself - scaling a shared ancestor of both a SkinnedMesh and its own
+    // skeleton bones double-applies in Three.js's skinning math (confirmed
+    // empirically: a per-clone scale of S produced S^2 the expected size).
+    // this.group sits outside that mesh+skeleton hierarchy entirely, so a
+    // scale here behaves as a normal single-order transform, same as every
+    // non-GLB zombie already relies on for baseScale.
+    const glbCorrection = this.usingGLB ? this._glbScaleCorrection : 1
+    const baseScale = typeConfig.scale * (isElite ? ELITE_SCALE_MULT : 1) * glbCorrection
     this.baseScale = baseScale
     if (isAmbush) {
       this.group.scale.set(baseScale, baseScale * 0.35, baseScale)
@@ -184,6 +215,92 @@ export class Zombie {
   }
 
   _buildBody() {
+    if (USE_GLB_ZOMBIES && _zombieModelCache) {
+      this._buildBodyFromGLB()
+      return
+    }
+    this._buildBodyProcedural()
+  }
+
+  // Phase 1 GLB path - see preloadZombieModel/USE_GLB_ZOMBIES above. Clones
+  // the cached rigged mesh + animation clips, populates the exact same
+  // hittableMeshes/materials/materialDefaults/eyeMaterials contract the
+  // procedural builder does (see the `track` helper in
+  // _buildBodyProcedural) so onHit/elite-tint/corruption-tint keep working
+  // unmodified regardless of which body a given instance has.
+  _buildBodyFromGLB() {
+    this.usingGLB = true
+    // SkeletonUtils.clone() (not plain .clone(true)) - a plain clone
+    // silently breaks skinned-mesh bone bindings, a documented gotcha for
+    // this exact pipeline (see 3D_ASSET_OVERHAUL.md gotcha #2).
+    const cloned = cloneSkeleton(_zombieModelCache.scene)
+    // Corrective scale for a unit mismatch introduced somewhere in the
+    // Quaternius FBX -> Blender -> glTF export chain. Deliberately the only
+    // scale correction anywhere in this pipeline - an earlier attempt to
+    // bake a correction into the Blender export itself (scaling the
+    // armature + transform_apply) produced non-linear, unreliable results
+    // at runtime, almost certainly because transform_apply on an animated
+    // armature desyncs the animation keyframes' translation channels from
+    // the newly-rescaled rest-pose bone lengths. This factor was derived
+    // empirically against the clean unscaled export: this exact scene's
+    // real Three.js Box3 height (8.188) divided into a real procedural
+    // shambler's own measured height (1.947, via the same
+    // Box3.setFromObject check) - the only ground truth that actually
+    // matters for this game's zombies reading as a consistent size.
+    // (scale applied via this.group instead - see the constructor, right
+    // after _buildBody() returns - not here. See _glbScaleCorrection.)
+    this._glbScaleCorrection = 0.2378
+
+    this.hittableMeshes = []
+    this.eyeMaterials = []
+    this.materials = new Set()
+    this.materialDefaults = new Map()
+
+    cloned.traverse((child) => {
+      if (!child.isMesh) return
+      child.castShadow = true
+      // GLTFLoader shares materials across every clone by default (the #1
+      // recurring bug class in this codebase - see CLAUDE.md) - clone per
+      // instance so this zombie's hit-flash/tint never fights another
+      // zombie sharing the same source material.
+      child.material = child.material.clone()
+      child.userData.zombie = this
+      this.hittableMeshes.push(child)
+      this.materials.add(child.material)
+      this.materialDefaults.set(child.material, {
+        hex: child.material.emissive ? child.material.emissive.getHex() : 0,
+        intensity: child.material.emissiveIntensity || 0,
+      })
+    })
+
+    this.group.add(cloned)
+    this._glbRoot = cloned
+    this.mixer = new THREE.AnimationMixer(cloned)
+    this._glbActions = {}
+    for (const clip of _zombieModelCache.animations) {
+      this._glbActions[clip.name] = this.mixer.clipAction(clip)
+    }
+    this._glbCurrentAction = null
+    this._playGlbAction('idle', true)
+
+    // _buildHealthBar (called right after _buildBody by the constructor)
+    // just needs group.position-relative placement - no dependency on the
+    // procedural rig's named parts, so it works unchanged for GLB too.
+  }
+
+  _playGlbAction(name, loop) {
+    const action = this._glbActions[name]
+    if (!action || this._glbCurrentAction === action) return
+    action.reset()
+    action.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity)
+    action.clampWhenFinished = !loop
+    action.fadeIn(0.15)
+    if (this._glbCurrentAction) this._glbCurrentAction.fadeOut(0.15)
+    action.play()
+    this._glbCurrentAction = action
+  }
+
+  _buildBodyProcedural() {
     const cfg = this.config
     const isCrawler = !!cfg.crawler
     const skin = cfg.skinTones[Math.floor(Math.random() * cfg.skinTones.length)]
@@ -640,7 +757,15 @@ export class Zombie {
 
     if (this.state === 'dying') {
       const progress = Math.min(1, (performance.now() - this.dieStartedAt) / DEATH_ANIM_MS)
-      this.hips.rotation.x = 0.16 + progress * 1.3
+      if (this.usingGLB) {
+        // update()'s state-machine early-returns skip the normal
+        // _animate()/_animateGLB() call entirely while dying, so the death
+        // clip has to be driven from right here instead.
+        this._playGlbAction('death', false)
+        this.mixer.update(dt)
+      } else {
+        this.hips.rotation.x = 0.16 + progress * 1.3
+      }
       this.group.position.y = -progress * 0.4 * this.config.scale
       this._barSprite.visible = false
       if (progress >= 1) this.state = 'dead'
@@ -739,7 +864,7 @@ export class Zombie {
       }
     }
 
-    this._animate(elapsed)
+    this._animate(dt, elapsed)
   }
 
   // Called by ZombieManager when another zombie's scream reaches this one.
@@ -953,7 +1078,31 @@ export class Zombie {
     return true
   }
 
-  _animate(elapsed) {
+  // GLB path for the normal 'alive' state - crawler gets its own clip,
+  // everyone else walks except during the attack-lunge window. Boss
+  // telegraph/twitch/breathing (the procedural path's finer polish) is
+  // intentionally not replicated here yet - this is the Phase 1 proof, not
+  // full parity; see 3D_ASSET_OVERHAUL.md Phase 2 for bringing the other 6
+  // silhouettes (and their per-type FX) onto this same pipeline.
+  _animateGLB(dt, elapsed) {
+    const attacking = performance.now() < this.attackAnimUntil
+    if (this.config.crawler) {
+      this._playGlbAction('crawl', true)
+    } else if (attacking) {
+      this._playGlbAction('attack', false)
+    } else {
+      this._playGlbAction('walk', true)
+    }
+    this.mixer.update(dt)
+    this.group.rotation.z = Math.sin(elapsed * this.effectiveSpeed * 1.1 + this.phase) * 0.04 + this.postureOffset * 0.2
+  }
+
+  _animate(dt, elapsed) {
+    if (this.usingGLB) {
+      this._animateGLB(dt, elapsed)
+      return
+    }
+
     if (this.isBoss && this._animateBossTelegraph(elapsed)) return
 
     const t = elapsed * this.effectiveSpeed * 2.2 + this.phase

@@ -26,3 +26,11 @@ dist-ssr
 .env*
 .claude/
 .superpowers/
+
+# Raw downloaded asset packs + build output (large binaries, sourced not
+# committed - see 3D_ASSET_OVERHAUL.md Phase 0). Build scripts themselves
+# (asset-source/*.py) ARE tracked - they're small, reusable source, not
+# binaries, and the whole point of the headless-Blender pipeline is that
+# they're deterministic/repeatable.
+asset-source/*
+!asset-source/*.py
