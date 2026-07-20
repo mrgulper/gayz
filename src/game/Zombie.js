@@ -827,7 +827,12 @@ export class Zombie {
 
     if (this.state === 'popping') {
       const progress = Math.min(1, (performance.now() - this.popStartedAt) / this.popDurationMs)
-      const baseScale = this.config.scale
+      // this.baseScale, not this.config.scale - the latter is the raw
+      // per-type value and skips the GLB correction/elite multiplier baked
+      // into this.baseScale at construction (see the constructor), so a
+      // GLB zombie popping from ambush would balloon to ~4.2x too tall
+      // and get stuck there once state flips to 'alive'.
+      const baseScale = this.baseScale
       this.group.scale.y = THREE.MathUtils.lerp(baseScale * 0.35, baseScale, progress)
       for (const mat of this.eyeMaterials) mat.emissiveIntensity = THREE.MathUtils.lerp(0.25, 2.4, progress)
       if (progress >= 1) {
