@@ -1,0 +1,2 @@
+T-Rex model + walk/run/idle/attack/death/jump animations: Quaternius, "Animated LowPoly Dinosaurs" (quaternius.itch.io/animated-lowpoly-dinosaurs)
+License: CC0 (public domain, no attribution required)

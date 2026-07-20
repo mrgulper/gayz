@@ -24,6 +24,22 @@ export async function preloadZombieModel() {
   }
 }
 
+// Titan (dinosaur silhouette) - a real Quaternius T-Rex, entirely separate
+// from the humanoid zombie rig/animations above (different skeleton, own
+// walk/run/idle/attack/death/jump clips already baked in by the source
+// pack, no Mixamo retargeting involved). See _buildBodyFromTitanGLB.
+let _titanModelCache = null
+
+export async function preloadTitanModel() {
+  try {
+    const loader = new GLTFLoader()
+    const gltf = await loader.loadAsync('/models/titan/titan.glb')
+    _titanModelCache = { scene: gltf.scene, animations: gltf.animations }
+  } catch (err) {
+    console.warn('GLB titan model failed to load, falling back to procedural titan', err)
+  }
+}
+
 const DEATH_ANIM_MS = 550
 const EXPLODE_LINGER_MS = 150
 const HEALTH_BAR_W = 64
@@ -215,13 +231,19 @@ export class Zombie {
   }
 
   _buildBody() {
-    // Titan (dinosaur silhouette) has no GLB yet - it's an entirely
-    // different body plan (elongated skull, tiny arms, tail, no hood/hair),
-    // not a rescale/retint of the humanoid zombie rig. Per
-    // 3D_ASSET_OVERHAUL.md Phase 2, that's a separate-model lane deferred
-    // past this pass - fall back to its existing procedural body rather
-    // than rendering it as a green human.
-    if (USE_GLB_ZOMBIES && _zombieModelCache && !this.config.dinosaur) {
+    // Titan (dinosaur silhouette) is an entirely different body plan
+    // (elongated skull, tiny arms, tail, no hood/hair) - a real Quaternius
+    // T-Rex, not a rescale/retint of the humanoid zombie rig. Falls back to
+    // its old procedural body if that model failed to load.
+    if (this.config.dinosaur) {
+      if (USE_GLB_ZOMBIES && _titanModelCache) {
+        this._buildBodyFromTitanGLB()
+        return
+      }
+      this._buildBodyProcedural()
+      return
+    }
+    if (USE_GLB_ZOMBIES && _zombieModelCache) {
       this._buildBodyFromGLB()
       return
     }
@@ -311,6 +333,88 @@ export class Zombie {
     // _buildHealthBar (called right after _buildBody by the constructor)
     // just needs group.position-relative placement - no dependency on the
     // procedural rig's named parts, so it works unchanged for GLB too.
+  }
+
+  // Titan GLB path - a real Quaternius T-Rex (asset-source/build-titan.py),
+  // entirely separate rig/animations from the humanoid zombie above. The
+  // 'dying'/'popping' state handlers in update() are generic over any body
+  // that sets usingGLB + populates _glbActions/mixer, so this only needs
+  // its own body-building and animation-dispatch (_animateGLBTitan) - no
+  // other shared code needed a titan-specific branch.
+  _buildBodyFromTitanGLB() {
+    this.usingGLB = true
+    const cloned = cloneSkeleton(_titanModelCache.scene)
+    // Empirically-measured, and NOT simply linear in this factor like the
+    // zombie's correction is - this FBX bakes a literal (3,3,3) scale onto
+    // its "Armature" node (confirmed via a getWorldScale trace over every
+    // node), which sits *inside* the shared SkinnedMesh/Skeleton ancestor
+    // chain and gets double-applied through Three.js's skin-matrix math,
+    // the same mechanism as the zombie's original S^2 bug - except there
+    // it was safe to relocate the correction outside that chain (to
+    // this.group). Here the doubling is baked into the source armature
+    // itself, not something this code introduces, so it can't be
+    // sidestepped by choosing where to apply this.group's scale - and
+    // resetting the Armature's own .scale post-clone at runtime would
+    // desync it from the bindMatrixInverse GLTFLoader already computed at
+    // bind time, warping the mesh rather than just resizing it. Simplest
+    // safe fix: this constant is fit to counteract the actual measured
+    // quadratic relationship (two real data points confirmed size ~
+    // correction^2, not correction) rather than derived by division like
+    // the zombie's. Calibrated so the GLB's standing height (Y) matches
+    // the old procedural titan's real measured Box3 height (6.193). The
+    // GLB's length (nose-to-tail Z) ends up proportionally longer than the
+    // old boxy placeholder's Z - that's correct, not a bug: a real T-Rex
+    // is just a longer shape than a crude box approximation, and gameplay
+    // hitbox math (_hasLineOfSight's origin, the collider halfW/height)
+    // reads this.config.scale directly, not this visual correction, so
+    // it's unaffected either way.
+    this._glbScaleCorrection = 0.10830
+
+    this.hittableMeshes = []
+    this.eyeMaterials = []
+    this.materials = new Set()
+    this.materialDefaults = new Map()
+
+    // Only the "Green"/"LightGreen" materials are skin - "Black"/"Red"/
+    // "LightYellow" are claws/eyes/teeth on this model and should keep
+    // their own colors, unlike the zombie's single flat material.
+    const bodyTint = this.config.skinTones[Math.floor(Math.random() * this.config.skinTones.length)]
+    const SKIN_MATERIAL_NAMES = new Set(['Green', 'LightGreen'])
+
+    cloned.traverse((child) => {
+      if (!child.isMesh) return
+      child.castShadow = true
+      const isSkin = SKIN_MATERIAL_NAMES.has(child.material.name)
+      child.material = child.material.clone()
+      if (isSkin) child.material.color.setHex(bodyTint)
+      child.userData.zombie = this
+      this.hittableMeshes.push(child)
+      this.materials.add(child.material)
+      this.materialDefaults.set(child.material, {
+        hex: child.material.emissive ? child.material.emissive.getHex() : 0,
+        intensity: child.material.emissiveIntensity || 0,
+      })
+    })
+
+    this.group.add(cloned)
+    this._glbRoot = cloned
+    this.mixer = new THREE.AnimationMixer(cloned)
+    this._glbActions = {}
+    for (const clip of _titanModelCache.animations) {
+      this._glbActions[clip.name] = this.mixer.clipAction(clip)
+    }
+    this._glbCurrentAction = null
+    this._playGlbAction('idle', true)
+  }
+
+  // GLB path for titan's normal 'alive' state - separate from _animateGLB
+  // because the clip set is different (walk/attack/death/idle/run/jump,
+  // no crawl/punch/kick) and there's no punch-vs-kick split to make (it's
+  // always the same bite/tail-swipe attack clip).
+  _animateGLBTitan(dt, elapsed) {
+    const attacking = performance.now() < this.attackAnimUntil
+    this._playGlbAction(attacking ? 'attack' : 'walk', !attacking)
+    this.mixer.update(dt)
   }
 
   // Attaches one emissive sphere to a named bone on the cloned GLB rig.
@@ -1198,7 +1302,11 @@ export class Zombie {
 
   _animate(dt, elapsed) {
     if (this.usingGLB) {
-      this._animateGLB(dt, elapsed)
+      if (this.config.dinosaur) {
+        this._animateGLBTitan(dt, elapsed)
+      } else {
+        this._animateGLB(dt, elapsed)
+      }
       return
     }
 
