@@ -368,6 +368,7 @@ export function buildWorld(scene, trophyCount = 15) {
   }
 
   scatterDebris(scene)
+  scatterCityProps(scene, colliders, solidMeshes)
   addStreetlights(scene, register, flickerLights)
   for (const spot of buildTowers(scene, colliders, solidMeshes)) towerChestSpots.push(spot)
 
@@ -520,12 +521,45 @@ function buildPark(scene, colliders, solidMeshes) {
   }
 
   const benchMat = new THREE.MeshStandardMaterial({ color: 0x3a3226, roughness: 0.85 })
+  const benchModel = _propModelCache.get('bench.glb')
   const benchSpots = [[-3, 58, 0], [3, 65, Math.PI]]
   for (const [x, z, rot] of benchSpots) {
     const bench = new THREE.Group()
     bench.position.set(x, 0, z)
-    bench.rotation.y = rot
 
+    if (benchModel) {
+      const clone = benchModel.clone(true)
+      // Real model's long seat axis exports along Z, not X (see
+      // build-props2.py's note) - the extra 90 degrees here swings it to
+      // match the procedural version's facing convention before applying
+      // each spot's own rot.
+      bench.rotation.y = rot + Math.PI / 2
+      clone.traverse((child) => {
+        if (!child.isMesh) return
+        child.castShadow = true
+        child.material = child.material.clone()
+      })
+      bench.add(clone)
+      scene.add(bench)
+      solidMeshes.push(clone)
+      // Explicit axis-aligned collider from the model's own known
+      // dimensions rather than Box3.setFromObject() on this rotated group -
+      // that inflates well past the real footprint (see CLAUDE.md's
+      // rotated-mesh AABB gotcha). Half-extents swap between local X/Z
+      // depending on which way this particular bench faces.
+      const long = 0.7 // half of the ~1.83 seat length + a little clearance
+      const deep = 0.25 // half of the ~0.7 depth (seat + backrest)
+      const facingSideways = Math.abs(Math.sin(rot)) > 0.5
+      const halfX = facingSideways ? deep : long
+      const halfZ = facingSideways ? long : deep
+      colliders.push(new THREE.Box3(
+        new THREE.Vector3(x - halfX, 0, z - halfZ),
+        new THREE.Vector3(x + halfX, 0.95, z + halfZ)
+      ))
+      continue
+    }
+
+    bench.rotation.y = rot
     const seat = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 0.4), benchMat)
     seat.position.y = 0.45
     seat.castShadow = true
@@ -1963,7 +1997,11 @@ export async function preloadBuildingModels() {
 // Industrial/City Environment packs, asset-source/build-props.py) in
 // place of procedural primitives, same "load once, cache, fall back to
 // procedural on failure" pattern as the buildings above.
-const PROP_MODEL_FILES = ['barrel.glb', 'streetlight.glb']
+const PROP_MODEL_FILES = [
+  'barrel.glb', 'streetlight.glb', 'bench.glb', 'dumpster.glb', 'trafficcone.glb',
+  'roadblock.glb', 'atm.glb', 'mailbox.glb', 'payphone.glb', 'busstop.glb',
+  'trashbin.glb', 'waterbarrel.glb', 'cabledrum.glb',
+]
 const _propModelCache = new Map()
 
 export async function preloadPropModels() {
@@ -2122,6 +2160,49 @@ const DEBRIS_CLUSTERS = [
   [8, -14], [-9, 8], [12, 12], [-5, -28], [5, 28], [-13, -20], [14, -28],
   [2, -8], [-2, 14], [9, -4], [-8, -10], [3, 18], [-14, 4], [11, -18], [-4, 24],
 ]
+// Phase 5 decorative pass - real props (3dmodelscc0's CC0 city/industrial
+// packs) scattered as pure street dressing, same "no collider" treatment
+// scatterDebris already uses for its own clutter (these aren't gameplay-
+// interactive, so a movement collider would just be extra cost for
+// nothing). ATM/mailbox/payphone/busstop are single "landmark" placements
+// rather than repeated clutter - one of each is enough to read as city
+// detail without needing many instances.
+function scatterCityProps(scene, colliders, solidMeshes) {
+  const place = (fileName, x, z, rotY = 0) => {
+    const model = _propModelCache.get(fileName)
+    if (!model) return
+    const clone = model.clone(true)
+    clone.position.set(x, 0, z)
+    clone.rotation.y = rotY
+    clone.traverse((child) => {
+      if (!child.isMesh) return
+      child.castShadow = true
+      child.receiveShadow = true
+      child.material = child.material.clone()
+    })
+    scene.add(clone)
+  }
+
+  place('dumpster.glb', 10, -16, 0.4)
+  place('dumpster.glb', -11, 10, -0.6)
+  place('waterbarrel.glb', 13, 10)
+  place('waterbarrel.glb', -15, 2, 1.1)
+  place('cabledrum.glb', 1, -6)
+  place('trashbin.glb', -3, 16)
+  place('trashbin.glb', 10, -2)
+  place('trashbin.glb', -9, -8)
+  place('roadblock.glb', 6, 26, Math.PI / 2)
+  place('roadblock.glb', -6, -30, Math.PI / 2)
+  for (const [ox, oz] of [[0, 0], [0.5, 0.3], [-0.4, 0.6]]) {
+    place('trafficcone.glb', 4 + ox, -10 + oz)
+  }
+
+  place('atm.glb', 8, 22, Math.PI)
+  place('mailbox.glb', -7, 30)
+  place('payphone.glb', 7, -20, Math.PI / 2)
+  place('busstop.glb', -12, -24, Math.PI / 2)
+}
+
 function scatterDebris(scene) {
   const brickMat = new THREE.MeshStandardMaterial({ color: 0x4a4438, roughness: 1 })
   const plankMat = new THREE.MeshStandardMaterial({ color: 0x2c2418, roughness: 0.9 })
