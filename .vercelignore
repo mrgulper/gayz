@@ -1,0 +1,6 @@
+# Raw downloaded asset packs (large binaries, not part of the build - see
+# .gitignore's own note on asset-source/). Without this, Vercel uploads the
+# whole working directory regardless of .gitignore, ballooning deploy
+# upload size as more packs get downloaded here.
+asset-source/*
+!asset-source/*.py
