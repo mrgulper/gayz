@@ -342,10 +342,19 @@ export class Zombie {
     const cfg = this.config
     const INV_CORR = 1 / this._glbScaleCorrection
 
+    // Belly/bloat/vein spheres deliberately sit close to the Spine bone
+    // with little to no extra Y offset - a screenshot check during Phase 2
+    // showed the original Spine1 + larger offset combination reading as a
+    // floating orb around the *head*, not a torso bulge (the humanoid
+    // rig's Spine-Neck bone spacing is short, so any generous upward
+    // offset overshoots past the chest). Radii also trimmed ~15-20% off
+    // the pure INV_CORR conversion - real bones carry a small extra scale
+    // beyond the group-level correction (measured ~1.07-1.18x depending on
+    // which bone), so an uncorrected conversion consistently overshoots.
     if (cfg.ranged) {
       const fx = this._addGlbFxSphere(root, 'Spine', {
-        radius: 0.32 * INV_CORR, color: 0x1a2408, emissive: 0x9fe23f, emissiveIntensity: 1.1,
-        localY: 0.35 * INV_CORR, squash: [1, 0.9, 0.85],
+        radius: 0.26 * INV_CORR, color: 0x1a2408, emissive: 0x9fe23f, emissiveIntensity: 1.1,
+        localY: 0.05 * INV_CORR, squash: [1, 0.9, 0.85],
       })
       if (fx) { this.pulseMesh = fx.mesh; this.pulseBaseScale = fx.mesh.scale.clone() }
     }
@@ -357,16 +366,16 @@ export class Zombie {
       if (fx) { this.throatMesh = fx.mesh; this.throatMat = fx.mat; this.throatBaseScale = fx.mesh.scale.clone() }
     }
     if (cfg.explodes) {
-      const fx = this._addGlbFxSphere(root, 'Spine1', {
-        radius: 0.4 * INV_CORR, color: 0x3a4a12, emissive: 0xaadd44, emissiveIntensity: 0.7,
-        localY: 0.2 * INV_CORR, squash: [1.1, 1, 0.95],
+      const fx = this._addGlbFxSphere(root, 'Spine', {
+        radius: 0.32 * INV_CORR, color: 0x3a4a12, emissive: 0xaadd44, emissiveIntensity: 0.7,
+        localY: 0, squash: [1.1, 1, 0.95],
       })
       if (fx) { this.pulseMesh = fx.mesh; this.pulseBaseScale = fx.mesh.scale.clone() }
     }
     if (cfg.feedsOnLight) {
-      const fx = this._addGlbFxSphere(root, 'Spine1', {
-        radius: 0.36 * INV_CORR, color: 0x1a0a2a, emissive: 0x8b2fe0, emissiveIntensity: 0.8,
-        localY: 0.2 * INV_CORR, squash: [1.05, 1, 0.9],
+      const fx = this._addGlbFxSphere(root, 'Spine', {
+        radius: 0.29 * INV_CORR, color: 0x1a0a2a, emissive: 0x8b2fe0, emissiveIntensity: 0.8,
+        localY: 0.05 * INV_CORR, squash: [1.05, 1, 0.9],
       })
       if (fx) { this.pulseMesh = fx.mesh; this.pulseMat = fx.mat; this.pulseBaseScale = fx.mesh.scale.clone() }
     }
