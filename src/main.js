@@ -6,7 +6,17 @@ import { preloadCompanionModel } from './game/Companion.js'
 import { preloadRivalModel } from './game/RivalScavenger.js'
 import { preloadSurvivorModel } from './game/RescueSurvivor.js'
 import { preloadPlayerBodyModel } from './game/PlayerBody.js'
-import { preloadPistolViewmodel } from './game/Viewmodels.js'
+import {
+  preloadPistolViewmodel,
+  preloadRifleViewmodel,
+  preloadShotgunViewmodel,
+  preloadAwpViewmodel,
+  preloadGlock18Viewmodel,
+  preloadKnifeViewmodel,
+  preloadBatViewmodel,
+  preloadMacheteViewmodel,
+  preloadUvBatonViewmodel,
+} from './game/Viewmodels.js'
 
 Promise.all([
   preloadBuildingModels(),
@@ -17,6 +27,14 @@ Promise.all([
   preloadSurvivorModel(),
   preloadPlayerBodyModel(),
   preloadPistolViewmodel(),
+  preloadRifleViewmodel(),
+  preloadShotgunViewmodel(),
+  preloadAwpViewmodel(),
+  preloadGlock18Viewmodel(),
+  preloadKnifeViewmodel(),
+  preloadBatViewmodel(),
+  preloadMacheteViewmodel(),
+  preloadUvBatonViewmodel(),
 ]).finally(() => {
   const loader = document.getElementById('asset-loader')
   if (loader) loader.style.display = 'none'

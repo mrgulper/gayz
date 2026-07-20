@@ -4,19 +4,82 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 // Phase 4 of the 3D asset overhaul (see 3D_ASSET_OVERHAUL.md) - real rigged
 // GLB weapon viewmodels (Quaternius "Ultimate Guns Pack" for firearms,
 // 3dmodelscc0's CC0 melee pack for melee) behind a flag per weapon, same
-// pattern as Zombie.js's USE_GLB_ZOMBIES. Starting with just the pistol as
-// the plan's own "quality gate" before committing to the other 10.
-export const USE_GLB_PISTOL = true
-let _pistolModelCache = null
+// pattern as Zombie.js's USE_GLB_ZOMBIES. Started with just the pistol as
+// the plan's own "quality gate" before committing to the other 10 - now
+// extended to the rest of the firearms lane (rifle/shotgun/awp/glock18).
+// Every gun below is a plain static mesh (no skeleton), same pack, same
+// build-time rotate+scale correction (asset-source/build-guns.py) - so one
+// generic preload/build pair covers all of them instead of repeating the
+// pattern per gun.
+const GUN_MODEL_CACHE = {}
 
-export async function preloadPistolViewmodel() {
-  try {
-    const loader = new GLTFLoader()
-    const gltf = await loader.loadAsync('/models/weapons/pistol.glb')
-    _pistolModelCache = gltf.scene
-  } catch (err) {
-    console.warn('GLB pistol viewmodel failed to load, falling back to procedural pistol', err)
+function preloadGunModel(id, url) {
+  return async () => {
+    try {
+      const loader = new GLTFLoader()
+      const gltf = await loader.loadAsync(url)
+      GUN_MODEL_CACHE[id] = gltf.scene
+    } catch (err) {
+      console.warn(`GLB ${id} viewmodel failed to load, falling back to procedural ${id}`, err)
+    }
   }
+}
+
+export const USE_GLB_PISTOL = true
+export const preloadPistolViewmodel = preloadGunModel('pistol', '/models/weapons/pistol.glb')
+export const USE_GLB_RIFLE = true
+export const preloadRifleViewmodel = preloadGunModel('rifle', '/models/weapons/rifle.glb')
+export const USE_GLB_SHOTGUN = true
+export const preloadShotgunViewmodel = preloadGunModel('shotgun', '/models/weapons/shotgun.glb')
+export const USE_GLB_AWP = true
+export const preloadAwpViewmodel = preloadGunModel('awp', '/models/weapons/awp.glb')
+export const USE_GLB_GLOCK18 = true
+export const preloadGlock18Viewmodel = preloadGunModel('glock18', '/models/weapons/glock18.glb')
+
+// Melee lane (3dmodelscc0's CC0 pack, asset-source/build-melee.py) - reuses
+// the same generic cache/loader as the guns even though the function name
+// says "gun" (it's just "load a GLB into a keyed cache", not gun-specific).
+// Unlike the guns, these ship real PBR textures (baked into the GLB at
+// build time), not flat colors.
+export const USE_GLB_KNIFE = true
+export const preloadKnifeViewmodel = preloadGunModel('knife', '/models/weapons/knife.glb')
+export const USE_GLB_BAT = true
+export const preloadBatViewmodel = preloadGunModel('bat', '/models/weapons/bat.glb')
+export const USE_GLB_MACHETE = true
+export const preloadMacheteViewmodel = preloadGunModel('machete', '/models/weapons/machete.glb')
+// The 4th melee variant is a "uvbaton" (glowing UV-lens tip, not a plain
+// police baton - see buildUvBatonModel) - this pack's real PoliceBaton
+// model replaces the shaft/handle, but the emissive lens tip stays a
+// small procedural attachment at the model's own "Tip" empty, since no
+// realistic pack has a sci-fi lit baton.
+export const USE_GLB_BATON = true
+export const preloadUvBatonViewmodel = preloadGunModel('baton', '/models/weapons/baton.glb')
+
+// Shared builder for any single-mesh GLB gun (no hands attached here - the
+// caller adds those via attachHandToGrip, since a couple of guns need a
+// second off-hand grip the generic helper doesn't know about). tintMatName
+// is that gun's designated tintable material slot (mirrors the procedural
+// version's own skinMaterial() call on its main body mesh).
+function buildGunFromGLB(cache, tintMatName, skinId) {
+  const g = new THREE.Group()
+  const cloned = cache.clone(true)
+  const tint = SKIN_TINTS[skinId]
+  cloned.traverse((child) => {
+    if (!child.isMesh) return
+    child.castShadow = false
+    if (child.material.name === tintMatName) {
+      child.material = child.material.clone()
+      if (tint) {
+        child.material.color.setHex(tint.color)
+        child.material.emissive.setHex(tint.emissive)
+        child.material.emissiveIntensity = 0.3
+        child.material.roughness = 0.25
+        child.material.metalness = 0.9
+      }
+    }
+  })
+  g.add(cloned)
+  return g
 }
 
 const METAL = new THREE.MeshStandardMaterial({ color: 0x2b2b2d, roughness: 0.4, metalness: 0.7 })
@@ -128,44 +191,13 @@ function skinMaterial(skinId, base = METAL) {
 }
 
 function buildPistol(skinId = null) {
-  if (USE_GLB_PISTOL && _pistolModelCache) {
-    return buildPistolFromGLB(skinId)
+  if (USE_GLB_PISTOL && GUN_MODEL_CACHE.pistol) {
+    const g = buildGunFromGLB(GUN_MODEL_CACHE.pistol, 'Metal', skinId)
+    const grip = g.children[0].getObjectByName('Grip')
+    if (grip) attachHandToGrip(g, grip)
+    return g
   }
   return buildPistolProcedural(skinId)
-}
-
-// Real Quaternius pistol model (asset-source/build-pistol.py) - a plain
-// static mesh (no skeleton), so a simple .clone(true) is enough, unlike the
-// character/zombie work which needed SkeletonUtils. "Metal" is the
-// designated tintable material slot (mirrors slideMat in the procedural
-// version) - skins clone-and-recolor just that material, never mutating
-// the shared cached one. The model ships its own "Grip" Empty for
-// attachHandToGrip instead of a procedural grip box.
-function buildPistolFromGLB(skinId) {
-  const g = new THREE.Group()
-  const cloned = _pistolModelCache.clone(true)
-
-  const tint = SKIN_TINTS[skinId]
-  cloned.traverse((child) => {
-    if (!child.isMesh) return
-    child.castShadow = false
-    if (child.material.name === 'Metal') {
-      child.material = child.material.clone()
-      if (tint) {
-        child.material.color.setHex(tint.color)
-        child.material.emissive.setHex(tint.emissive)
-        child.material.emissiveIntensity = 0.3
-        child.material.roughness = 0.25
-        child.material.metalness = 0.9
-      }
-    }
-  })
-  g.add(cloned)
-
-  const grip = cloned.getObjectByName('Grip')
-  if (grip) attachHandToGrip(g, grip)
-
-  return g
 }
 
 function buildPistolProcedural(skinId = null) {
@@ -230,6 +262,25 @@ function buildUvLamp() {
 }
 
 function buildRifle(skinId = null) {
+  if (USE_GLB_RIFLE && GUN_MODEL_CACHE.rifle) {
+    const g = buildGunFromGLB(GUN_MODEL_CACHE.rifle, 'Metal', skinId)
+    const root = g.children[0]
+    const grip = root.getObjectByName('Grip')
+    if (grip) attachHandToGrip(g, grip)
+    const foregrip = root.getObjectByName('Foregrip')
+    if (foregrip) {
+      const foreHand = buildHand()
+      foreHand.position.copy(foregrip.position)
+      foreHand.rotation.x = -0.15
+      foreHand.rotation.z = Math.PI
+      g.add(foreHand)
+    }
+    return g
+  }
+  return buildRifleProcedural(skinId)
+}
+
+function buildRifleProcedural(skinId = null) {
   const g = new THREE.Group()
 
   const body = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.1, 0.48), skinMaterial(skinId))
@@ -270,12 +321,41 @@ function buildRifle(skinId = null) {
   return g
 }
 
+// Shared builder for any single-mesh GLB melee weapon - no skin tinting
+// (the melee slot never had SKIN_TINTS), just clone + castShadow off +
+// hand attached at the model's own Grip empty.
+function buildMeleeFromGLB(cache) {
+  const g = new THREE.Group()
+  const cloned = cache.clone(true)
+  cloned.traverse((child) => {
+    if (!child.isMesh) return
+    child.castShadow = false
+  })
+  g.add(cloned)
+  const grip = cloned.getObjectByName('Grip')
+  if (grip) {
+    const hand = buildHand()
+    hand.position.copy(grip.position)
+    hand.rotation.copy(grip.rotation)
+    hand.rotation.x += Math.PI / 2
+    g.add(hand)
+  }
+  return g
+}
+
 // The one knife model in the game - used both for the melee slot's knife
 // variant and for quick-melee (see WeaponSystem._quickMelee), so equipping
 // "knife" and panic-stabbing with it are the same weapon, not two different
 // knives with different stats/looks. Sharper/more angular than a plain
 // kitchen knife on purpose: a tanto-style tip and a serrated spine.
 export function buildQuickMeleeKnifeModel() {
+  if (USE_GLB_KNIFE && GUN_MODEL_CACHE.knife) {
+    return buildMeleeFromGLB(GUN_MODEL_CACHE.knife)
+  }
+  return buildQuickMeleeKnifeModelProcedural()
+}
+
+function buildQuickMeleeKnifeModelProcedural() {
   const g = new THREE.Group()
 
   const bladeMat = new THREE.MeshStandardMaterial({ color: 0x7d838a, roughness: 0.15, metalness: 0.95 })
@@ -322,6 +402,13 @@ export function buildQuickMeleeKnifeModel() {
 }
 
 function buildBatModel() {
+  if (USE_GLB_BAT && GUN_MODEL_CACHE.bat) {
+    return buildMeleeFromGLB(GUN_MODEL_CACHE.bat)
+  }
+  return buildBatModelProcedural()
+}
+
+function buildBatModelProcedural() {
   const g = new THREE.Group()
   const woodMat = new THREE.MeshStandardMaterial({ color: 0x8a6a3a, roughness: 0.7 })
 
@@ -344,6 +431,13 @@ function buildBatModel() {
 }
 
 function buildMacheteModel() {
+  if (USE_GLB_MACHETE && GUN_MODEL_CACHE.machete) {
+    return buildMeleeFromGLB(GUN_MODEL_CACHE.machete)
+  }
+  return buildMacheteModelProcedural()
+}
+
+function buildMacheteModelProcedural() {
   const g = new THREE.Group()
   const bladeMat = new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.35, metalness: 0.8 })
 
@@ -374,7 +468,30 @@ function buildMacheteModel() {
   return g
 }
 
+// Real PoliceBaton model for the shaft/handle, but the glowing UV lens tip
+// stays a small procedural attachment at the model's own "Tip" empty - no
+// realistic pack has a sci-fi lit baton, and this is the one visual detail
+// that actually matters for this weapon (see the module doc comment near
+// preloadUvBatonViewmodel).
 function buildUvBatonModel() {
+  if (USE_GLB_BATON && GUN_MODEL_CACHE.baton) {
+    const g = buildMeleeFromGLB(GUN_MODEL_CACHE.baton)
+    const root = g.children[0]
+    const tipAnchor = root.getObjectByName('Tip')
+    const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.12, 10), UV_LENS)
+    tip.rotation.x = Math.PI / 2
+    if (tipAnchor) {
+      tip.position.copy(tipAnchor.position)
+    } else {
+      tip.position.set(0, 0, -0.32)
+    }
+    g.add(tip)
+    return g
+  }
+  return buildUvBatonModelProcedural()
+}
+
+function buildUvBatonModelProcedural() {
   const g = new THREE.Group()
   const shaftMat = new THREE.MeshStandardMaterial({ color: 0x2b2b2d, roughness: 0.5, metalness: 0.5 })
 
@@ -493,6 +610,16 @@ function buildMinigun(skinId = null) {
 // Glock 18 - a chunkier M1911 with an extended mag and a vented compensator
 // at the muzzle, reading as a machine pistol rather than a duplicate pistol.
 function buildGlock18(skinId = null) {
+  if (USE_GLB_GLOCK18 && GUN_MODEL_CACHE.glock18) {
+    const g = buildGunFromGLB(GUN_MODEL_CACHE.glock18, 'Metal', skinId)
+    const grip = g.children[0].getObjectByName('Grip')
+    if (grip) attachHandToGrip(g, grip)
+    return g
+  }
+  return buildGlock18Procedural(skinId)
+}
+
+function buildGlock18Procedural(skinId = null) {
   const g = new THREE.Group()
 
   const slide = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.095, 0.24), skinMaterial(skinId))
@@ -532,6 +659,25 @@ function buildGlock18(skinId = null) {
 // Weatie - pump-action shotgun: wide barrel, a tube magazine slung under it,
 // and a cylindrical pump foregrip instead of the rifle's boxy one.
 function buildShotgun(skinId = null) {
+  if (USE_GLB_SHOTGUN && GUN_MODEL_CACHE.shotgun) {
+    const g = buildGunFromGLB(GUN_MODEL_CACHE.shotgun, 'DarkMetal', skinId)
+    const root = g.children[0]
+    const grip = root.getObjectByName('Grip')
+    if (grip) attachHandToGrip(g, grip)
+    const foregrip = root.getObjectByName('Foregrip')
+    if (foregrip) {
+      const pumpHand = buildHand()
+      pumpHand.position.copy(foregrip.position)
+      pumpHand.rotation.x = -0.15
+      pumpHand.rotation.z = Math.PI
+      g.add(pumpHand)
+    }
+    return g
+  }
+  return buildShotgunProcedural(skinId)
+}
+
+function buildShotgunProcedural(skinId = null) {
   const g = new THREE.Group()
 
   const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.1, 0.22), skinMaterial(skinId, DARK_METAL))
@@ -578,6 +724,26 @@ function buildShotgun(skinId = null) {
 // AWP - long thin bolt-action barrel, a raised scope tube on top (the main
 // visual tell versus the rifle/other long guns), and a boxy stock.
 function buildAwp(skinId = null) {
+  if (USE_GLB_AWP && GUN_MODEL_CACHE.awp) {
+    // This particular gun model has no "Metal" slot (materials are Green/
+    // Black/DarkMetal/Glass/Grey) - "Green" is the main body, confirmed via
+    // Playwright (the generic 'Metal' guess silently tinted nothing).
+    const g = buildGunFromGLB(GUN_MODEL_CACHE.awp, 'Green', skinId)
+    const root = g.children[0]
+    const grip = root.getObjectByName('Grip')
+    if (grip) attachHandToGrip(g, grip)
+    const foregrip = root.getObjectByName('Foregrip')
+    if (foregrip) {
+      const foreHand = buildHand()
+      foreHand.position.copy(foregrip.position)
+      g.add(foreHand)
+    }
+    return g
+  }
+  return buildAwpProcedural(skinId)
+}
+
+function buildAwpProcedural(skinId = null) {
   const g = new THREE.Group()
 
   const body = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.09, 0.5), skinMaterial(skinId))
