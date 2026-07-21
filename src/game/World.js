@@ -663,6 +663,35 @@ export function buildWorld(scene, trophyCount = 15) {
   registerZone({ id: 'motel', x: 100, z: 100, radius: 14, densityMult: 1.2 })
   towerChestSpots.push({ x: 100, y: 0, z: 97 })
 
+  // Performance fix - only 2 call sites in this whole file ever went through
+  // register() (which is what actually adds something to cullables), out of
+  // 140+ raw colliders.push/solidMeshes.push calls across every stage. That
+  // meant nearly the entire map - every wall, floor, prop from Stage 1
+  // through Stage 13 - rendered every frame regardless of camera distance,
+  // real-user-reported lag (a MacBook M4) once the world grew to 14 stages'
+  // worth of content. Folding solidMeshes into cullables here fixes that in
+  // one place instead of touching 140+ individual call sites.
+  //
+  // Verified separately (a standalone `three` package script, not a guess):
+  // THREE.Raycaster completely ignores `.visible` - hits register on
+  // invisible meshes exactly the same as visible ones - so distance-culling
+  // solidMeshes here cannot break PlayerController._sampleGroundHeight's
+  // floor-detection raycasts anywhere on the map, even for now-invisible
+  // ground far from the player.
+  //
+  // `ground` (the single 750x750 street plane) is the one deliberate
+  // exception: every other cullable object has a footprint small relative
+  // to WORLD_CULL_DISTANCE, so a player standing inside it is never far
+  // enough from ITS OWN position to trigger culling of itself - but ground's
+  // own position is always (0,0), so culling it by distance-from-origin
+  // would make the entire plane vanish under the player's feet as soon as
+  // they're WORLD_CULL_DISTANCE away from map center (most of the map).
+  const cullableSet = new Set(cullables)
+  for (const mesh of solidMeshes) {
+    if (mesh !== ground) cullableSet.add(mesh)
+  }
+  const allCullables = [...cullableSet]
+
   return {
     colliders,
     solidMeshes,
@@ -681,7 +710,7 @@ export function buildWorld(scene, trophyCount = 15) {
     safeZone,
     practiceTargets,
     trophyWall,
-    cullables,
+    cullables: allCullables,
     supermarket,
     groceryStore,
     hospital,
