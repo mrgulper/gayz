@@ -460,6 +460,11 @@ export function buildWorld(scene, trophyCount = 15) {
   // avoids ever running near that wall until the final leg matches its
   // orientation exactly.
   const subwayEntrance = buildSubwayParkEntrance(scene, colliders, solidMeshes, flickerLights)
+  // Stage 10 (Extended Metropolitan Grid) - the new underground network's
+  // own entrance, distinct from the existing subway above. Just the stairs
+  // + a landing for now, per the user's own request to check this piece
+  // before the tunnel behind it gets built.
+  const newUndergroundEntrance = buildNewUndergroundEntrance(scene, colliders, solidMeshes, flickerLights)
   const connectorWaypointZ = SUBWAY_Z_START - 6
   const JUNCTION_HALF = 3.2
   buildSubwayJunctionRoom(scene, colliders, solidMeshes, subwayEntrance.landingX, connectorWaypointZ, JUNCTION_HALF)
@@ -674,6 +679,7 @@ export function buildWorld(scene, trophyCount = 15) {
     radioStation,
     fireStation,
     motel,
+    newUndergroundEntrance,
   }
 }
 
@@ -2859,6 +2865,97 @@ function buildSubwayParkEntrance(scene, colliders, solidMeshes, flickerLights) {
   }
 
   return { x: SUBWAY_PARK_ENTRANCE_X, z: SUBWAY_PARK_ENTRANCE_Z, landingX: SUBWAY_PARK_ENTRANCE_X, landingZ: SUBWAY_PARK_LANDING_Z }
+}
+
+// Stage 10 of the Extended Metropolitan Grid plan - "Underground Level -1:
+// Subway Stations & Tunnels" (turnstile bottleneck, electricity puzzle,
+// pitch-black sections, abandoned trains). First step only, per the user's
+// own request: just the entrance stairs, placed beside the EXISTING subway
+// kiosk (SUBWAY_PARK_ENTRANCE_X/Z above) rather than reusing it, so this
+// reads as a second, distinct access point rather than a duplicate of the
+// subway that already exists. Deliberately styled differently (rust/hazard
+// orange vs the subway's amber) and labeled "MAINTENANCE ACCESS" so a
+// player doesn't confuse the two systems. Ends on a small landing platform
+// only - no tunnel content behind it yet, so there's something concrete to
+// check before building further.
+const NEW_UNDERGROUND_ENTRANCE_X = SUBWAY_PARK_ENTRANCE_X + 9
+const NEW_UNDERGROUND_ENTRANCE_Z = 59
+const NEW_UNDERGROUND_LANDING_Y = SUBWAY_FLOOR_Y // same depth convention as the existing subway, i.e. "Level -1"
+
+function buildNewUndergroundEntrance(scene, colliders, solidMeshes, flickerLights) {
+  const x = NEW_UNDERGROUND_ENTRANCE_X
+  const z = NEW_UNDERGROUND_ENTRANCE_Z
+  const kioskMat = new THREE.MeshStandardMaterial({ color: 0x241a14, roughness: 0.9 })
+  const hazardMat = new THREE.MeshStandardMaterial({ color: 0xb0331a, roughness: 0.6, metalness: 0.3 })
+  const shaftHalfW = 1.6
+
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(shaftHalfW * 2 + 0.4, 0.2, 3), kioskMat)
+  roof.position.set(x, 2.4, z)
+  roof.castShadow = true
+  scene.add(roof)
+  solidMeshes.push(roof)
+  colliders.push(new THREE.Box3().setFromObject(roof))
+  for (const [ox, oz] of [[-shaftHalfW, -1.4], [-shaftHalfW, 1.4], [shaftHalfW, -1.4], [shaftHalfW, 1.4]]) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.16, 2.4, 0.16), hazardMat)
+    post.position.set(x + ox, 1.2, z + oz)
+    post.castShadow = true
+    scene.add(post)
+  }
+
+  const signCanvas = document.createElement('canvas')
+  signCanvas.width = 512
+  signCanvas.height = 96
+  const signCtx = signCanvas.getContext('2d')
+  signCtx.fillStyle = '#1a0f08'
+  signCtx.fillRect(0, 0, signCanvas.width, signCanvas.height)
+  signCtx.fillStyle = '#ff7a3c'
+  signCtx.font = 'bold 42px sans-serif'
+  signCtx.textAlign = 'center'
+  signCtx.textBaseline = 'middle'
+  signCtx.fillText('MAINTENANCE ACCESS ↓', signCanvas.width / 2, signCanvas.height / 2)
+  const signTexture = new THREE.CanvasTexture(signCanvas)
+  const sign = new THREE.Mesh(
+    new THREE.PlaneGeometry(4, 0.75),
+    new THREE.MeshStandardMaterial({ map: signTexture, emissive: 0xff7a3c, emissiveMap: signTexture, emissiveIntensity: 1.3, side: THREE.DoubleSide })
+  )
+  sign.position.set(x, 3.2, z + 1.51)
+  sign.rotation.y = Math.PI
+  scene.add(sign)
+
+  const beaconLight = new THREE.PointLight(0xff7a3c, 1.8, 20, 2)
+  beaconLight.position.set(x, 3.6, z)
+  scene.add(beaconLight)
+
+  const landingZ = z - 4
+  buildStairFlight(scene, solidMeshes, x, z, 0, x, landingZ, NEW_UNDERGROUND_LANDING_Y, 16)
+
+  // Small landing platform at the bottom - just enough to stand on, no
+  // tunnel behind it yet.
+  const landingMat = new THREE.MeshStandardMaterial({ color: 0x2a2620, roughness: 0.9 })
+  const landing = new THREE.Mesh(new THREE.BoxGeometry(shaftHalfW * 2 + 1, 0.3, 4), landingMat)
+  landing.position.set(x, NEW_UNDERGROUND_LANDING_Y - 0.15, landingZ - 1)
+  landing.receiveShadow = true
+  scene.add(landing)
+  solidMeshes.push(landing)
+  colliders.push(new THREE.Box3(
+    new THREE.Vector3(x - shaftHalfW - 0.5, NEW_UNDERGROUND_LANDING_Y - 0.3, landingZ - 3),
+    new THREE.Vector3(x + shaftHalfW + 0.5, NEW_UNDERGROUND_LANDING_Y, landingZ + 1)
+  ))
+
+  for (const t of [0.4, 0.9]) {
+    const lightZ = THREE.MathUtils.lerp(z, landingZ, t)
+    const lightY = THREE.MathUtils.lerp(0, NEW_UNDERGROUND_LANDING_Y, t) + 1.2
+    const stairLight = new THREE.PointLight(0xff9a5c, 1.0, 7, 2)
+    stairLight.position.set(x, lightY, lightZ)
+    scene.add(stairLight)
+    flickerLights.push({ light: stairLight, base: 1.0, seed: Math.random() * 100 })
+  }
+  const landingLight = new THREE.PointLight(0xff9a5c, 1.2, 8, 2)
+  landingLight.position.set(x, NEW_UNDERGROUND_LANDING_Y + 1.5, landingZ - 1)
+  scene.add(landingLight)
+  flickerLights.push({ light: landingLight, base: 1.2, seed: Math.random() * 100 })
+
+  return { x, z, landingX: x, landingZ: landingZ - 1, landingY: NEW_UNDERGROUND_LANDING_Y }
 }
 
 // Long diagonal corridor joining the park entrance's landing point to the
