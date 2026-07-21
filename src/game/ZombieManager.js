@@ -372,10 +372,11 @@ export class ZombieManager {
     const x = this.lastPlayerPos.x + Math.sin(angle) * SPAWN_RADIUS_MAX
     const z = this.lastPlayerPos.z + Math.cos(angle) * SPAWN_RADIUS_MAX
 
-    // TEMPORARY: colossus every boss night. This used to alternate with
-    // patient_zero (removed); a new second boss is planned to take its
-    // slot in the rotation but isn't designed yet.
-    const bossType = ZOMBIE_TYPES.colossus
+    // Alternates colossus/broodmother - the slot patient_zero used to fill
+    // before it was removed. bossRushSpawnCount existed pre-incremented-but-
+    // unused specifically for this.
+    const bossType = this.bossRushSpawnCount % 2 === 0 ? ZOMBIE_TYPES.colossus : ZOMBIE_TYPES.broodmother
+    this.bossRushSpawnCount += 1
     const zombie = new Zombie(x, z, bossType, false, false, this.currentNight)
     zombie.deathHandled = false
     zombie.isBoss = true
@@ -397,16 +398,18 @@ export class ZombieManager {
     return zombie
   }
 
-  // Boss adds: spawns a small burst of regular shamblers around a boss's
-  // current position, reusing the same visual/state setup as the
-  // summonOnDeath hybrid burst below rather than a separate code path.
-  _spawnBossAdds(x, z, count) {
+  // Boss adds: spawns a small burst around a boss's current position,
+  // reusing the same visual/state setup as the summonOnDeath hybrid burst
+  // below rather than a separate code path. Defaults to shambler (colossus/
+  // titan's own behavior, unchanged); a boss can override via its own
+  // config.addType (see broodmother, which summons sewer_dweller instead).
+  _spawnBossAdds(x, z, count, addType = ZOMBIE_TYPES.shambler) {
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2
       const r = 2 + Math.random() * BOSS_ADD_SPAWN_RADIUS
       const sx = x + Math.sin(angle) * r
       const sz = z + Math.cos(angle) * r
-      const summoned = new Zombie(sx, sz, ZOMBIE_TYPES.shambler, false, false, this.currentNight)
+      const summoned = new Zombie(sx, sz, addType, false, false, this.currentNight)
       summoned.deathHandled = false
       this.zombies.push(summoned)
       this.scene.add(summoned.group)
@@ -1030,7 +1033,8 @@ export class ZombieManager {
       if (zombie.isBoss && zombie.state === 'alive' && zombie.nextAddSummonAt && performance.now() >= zombie.nextAddSummonAt) {
         zombie.nextAddSummonAt = performance.now() + BOSS_ADD_INTERVAL_MS
         const count = BOSS_ADD_COUNT_MIN + Math.floor(Math.random() * (BOSS_ADD_COUNT_MAX - BOSS_ADD_COUNT_MIN + 1))
-        this._spawnBossAdds(zombie.group.position.x, zombie.group.position.z, count)
+        const addType = zombie.config.addType ? ZOMBIE_TYPES[zombie.config.addType] : undefined
+        this._spawnBossAdds(zombie.group.position.x, zombie.group.position.z, count, addType)
       }
 
       if (zombie.state === 'dead' && !zombie.deathHandled) {

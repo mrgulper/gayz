@@ -228,6 +228,32 @@ export const ZOMBIE_TYPES = {
     skinTones: [0x3a4a2a, 0x334020, 0x2e3a1c],
     clothesTones: [0x141a10, 0x181f12],
   },
+  // Second boss-night type, alternating with colossus (see ZombieManager's
+  // _spawnBoss and bossRushSpawnCount) - the slot patient_zero used to fill
+  // before it was removed. Ties directly to Stage 11's toxic sewer level:
+  // addType points _spawnBossAdds at sewer_dweller instead of the default
+  // shambler, so its reinforcements read as "it's the source of the ones
+  // down there" rather than generic boss-adds. No special rig (no dinosaur-
+  // style flag) - same procedural humanoid body every non-titan zombie
+  // already uses, just bigger and recolored, same as colossus itself.
+  broodmother: {
+    id: 'broodmother',
+    label: 'Broodmother',
+    lore: 'Every sewer dweller down there came from somewhere. This is the somewhere.',
+    weight: 0,
+    health: 1000,
+    speedMin: 0.45,
+    speedMax: 0.6,
+    damageMin: 70,
+    damageMax: 100,
+    scale: 2.5,
+    ranged: false,
+    meleeRange: 2.6,
+    attackCooldown: 2,
+    addType: 'sewer_dweller',
+    skinTones: [0x3a5a1a, 0x2e4a16, 0x445a2a],
+    clothesTones: [0x141a10, 0x1a2010],
+  },
   // Rare roaming threat, distinct from the night-scheduled bosses above -
   // see ZombieManager's _maybeSpawnTitan, which rolls a random chance on
   // its own timer rather than a fixed night number, so it can catch the
