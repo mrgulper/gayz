@@ -791,7 +791,7 @@ export class Game {
     this.composer.addPass(this.bloomPass)
     this.composer.addPass(new OutputPass())
 
-    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint } = buildWorld(this.scene, ACHIEVEMENTS.length)
+    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison } = buildWorld(this.scene, ACHIEVEMENTS.length)
     this.cullables = cullables
     this.supermarket = supermarket
     this.groceryStore = groceryStore
@@ -801,6 +801,7 @@ export class Game {
     this.gunShop = gunShop
     this.policeStation = policeStation
     this.militaryCheckpoint = militaryCheckpoint
+    this.prison = prison
     // Kept for _deployBarricade - both PlayerController and ZombieManager
     // hold this exact same array by reference (not a copy), so pushing a
     // new collider here is immediately respected by both without needing
@@ -813,7 +814,7 @@ export class Game {
     // with it in range. Same dynamic-collider-removal pattern as
     // _removeDeathObstacle - splice the box back out on unlock instead of
     // rebuilding the whole colliders array.
-    this.lockedCells = [policeStation.cellDoor]
+    this.lockedCells = [policeStation.cellDoor, ...prison.cellDoors]
     for (const cell of this.lockedCells) {
       cell.locked = true
       this.colliders.push(cell.box)

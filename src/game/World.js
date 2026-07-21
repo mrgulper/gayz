@@ -548,6 +548,13 @@ export function buildWorld(scene, trophyCount = 15) {
   registerZone({ id: 'checkpoint', x: 140, z: -115, radius: 8, densityMult: 1.4 })
   towerChestSpots.push({ x: 140, y: 0, z: -112, lootWeights: WEAPON_ONLY_LOOT_WEIGHTS })
 
+  // Stage 5: Prison Complex, another block south of the police station -
+  // 30+ units of clearance from its cell (z=[-130,-112]), and no x-overlap
+  // with the industrial zone (x=[-30,30]) despite similar z-range.
+  const prison = buildPrison(scene, register, 160, -170)
+  registerZone({ id: 'prison', x: 160, z: -180, radius: 20, densityMult: 1.6 })
+  towerChestSpots.push({ x: 160, y: 0, z: -170, lootWeights: WEAPON_ONLY_LOOT_WEIGHTS })
+
   return {
     colliders,
     solidMeshes,
@@ -575,6 +582,7 @@ export function buildWorld(scene, trophyCount = 15) {
     gunShop,
     policeStation,
     militaryCheckpoint,
+    prison,
   }
 }
 
@@ -1444,6 +1452,33 @@ function buildGunShop(scene, register, x, z) {
   return room
 }
 
+// Shared by Stage 4 (police station, one cell) and Stage 5 (prison, several
+// cells) - a solid slab filling a doorway gap, plus a status light matching
+// the chest/vault red-locked/green-unlocked convention. 'axis' is which way
+// the gap itself runs: 'x' for a door in a north/south-facing wall (gap
+// spans the X axis), 'z' for a door in an east/west-facing wall (gap spans
+// the Z axis) - prison cells branch off a corridor sideways, so their doors
+// need the 'z' orientation the police station's own north-facing cell
+// never needed.
+function buildLockableDoor(scene, x, z, width, axis = 'x') {
+  const doorMat = new THREE.MeshStandardMaterial({ color: 0x232320, roughness: 0.6, metalness: 0.5 })
+  const dims = axis === 'x' ? [width, 2.6, 0.15] : [0.15, 2.6, width]
+  const doorMesh = new THREE.Mesh(new THREE.BoxGeometry(dims[0], dims[1], dims[2]), doorMat)
+  doorMesh.position.set(x, 1.3, z)
+  doorMesh.castShadow = true
+  scene.add(doorMesh)
+  doorMesh.updateWorldMatrix(true, false)
+  const doorBox = new THREE.Box3().setFromObject(doorMesh)
+
+  const indicatorMat = new THREE.MeshStandardMaterial({ color: 0x1a0505, emissive: 0xff2a1e, emissiveIntensity: 0.9 })
+  const light = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 10), indicatorMat)
+  const lightOffset = axis === 'x' ? [0, 0.1] : [0.1, 0]
+  light.position.set(x + lightOffset[0], 2.3, z + lightOffset[1])
+  scene.add(light)
+
+  return { x, z, mesh: doorMesh, box: doorBox, indicatorMat }
+}
+
 // Stage 4 of the Extended Metropolitan Grid plan - the first real
 // "reinforced entry" location. The holding cell's door starts locked (a
 // real physical collider blocking the gap, not just a visual), and Game.js
@@ -1512,22 +1547,11 @@ function buildPoliceStation(scene, register, x, z) {
   // cell's north wall (facing the corridor), plus a small status light
   // matching the chest/vault red-locked/green-unlocked convention.
   const doorZ = cellZ + cellD / 2
-  const doorMat = new THREE.MeshStandardMaterial({ color: 0x232320, roughness: 0.6, metalness: 0.5 })
-  const doorMesh = new THREE.Mesh(new THREE.BoxGeometry(doorGap, 2.6, 0.15), doorMat)
-  doorMesh.position.set(x, 1.3, doorZ)
-  doorMesh.castShadow = true
-  scene.add(doorMesh)
-  doorMesh.updateWorldMatrix(true, false)
-  const doorBox = new THREE.Box3().setFromObject(doorMesh)
-
-  const indicatorMat = new THREE.MeshStandardMaterial({ color: 0x1a0505, emissive: 0xff2a1e, emissiveIntensity: 0.9 })
-  const light = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 10), indicatorMat)
-  light.position.set(x, 2.3, doorZ + 0.1)
-  scene.add(light)
+  const cellDoor = buildLockableDoor(scene, x, doorZ, doorGap, 'x')
 
   return {
     x, z: receptionZ,
-    cellDoor: { x, z: doorZ, mesh: doorMesh, box: doorBox, indicatorMat },
+    cellDoor,
   }
 }
 
@@ -1574,6 +1598,90 @@ function buildMilitaryCheckpoint(scene, register, x, z) {
   }
 
   return { x, z }
+}
+
+// Stage 5 of the Extended Metropolitan Grid plan - "Prison Complex", the
+// stress test for Stage 4's lockable-door mechanic at scale: a narrow
+// central corridor with cells branching off alternating sides, each with
+// its own real lockable door (via the shared buildLockableDoor helper
+// above), instead of one-off single-cell code. Game.js's lockedCells array
+// already iterates over N doors and picks whichever is nearest (built that
+// way for exactly this kind of reuse), so no Game.js changes are needed to
+// support multiple cells - just concatenate this building's cellDoors array
+// onto the one from the police station.
+function buildPrison(scene, register, x, z) {
+  const adminW = 10
+  const adminD = 6
+  const corridorW = 4
+  const corridorD = 14
+  const cellSize = 4
+  const cellDoorGap = 1.6
+
+  const adminZ = z
+  const corridorZ = adminZ - adminD / 2 - corridorD / 2
+
+  buildRoom(scene, register, {
+    x, z: adminZ, w: adminW, d: adminD,
+    doorSides: [{ side: 'north', width: 2.6 }],
+    openSides: ['south'],
+  })
+  buildRoom(scene, register, {
+    x, z: corridorZ, w: corridorW, d: corridorD,
+    openSides: ['north'],
+  })
+
+  const adminFloorMat = new THREE.MeshStandardMaterial({ color: 0x33342e, roughness: 0.8 })
+  const adminFloor = new THREE.Mesh(new THREE.PlaneGeometry(adminW - 0.6, adminD - 0.6), adminFloorMat)
+  adminFloor.rotation.x = -Math.PI / 2
+  adminFloor.position.set(x, 0.02, adminZ)
+  adminFloor.receiveShadow = true
+  scene.add(adminFloor)
+
+  const corridorFloor = new THREE.Mesh(new THREE.PlaneGeometry(corridorW - 0.4, corridorD - 0.4), adminFloorMat)
+  corridorFloor.rotation.x = -Math.PI / 2
+  corridorFloor.position.set(x, 0.02, corridorZ)
+  corridorFloor.receiveShadow = true
+  scene.add(corridorFloor)
+
+  placePropSimple(scene, register, 'counter.glb', x - 2.5, adminZ - 1, 0)
+
+  // Watchtower at the entrance - a taller sandbag post than the safe zone's
+  // own guard posts, same material/approach, no new asset needed.
+  const sandbagMat = new THREE.MeshStandardMaterial({ color: 0x5a5138, roughness: 1 })
+  const tower = new THREE.Mesh(new THREE.BoxGeometry(1.1, 2.4, 1.1), sandbagMat)
+  tower.position.set(x - adminW / 2 + 1, 1.2, adminZ + adminD / 2 + 1)
+  tower.castShadow = true
+  scene.add(tower)
+  register(tower)
+
+  // Three cells branching off alternating sides of the corridor, each with
+  // its own lockable door facing the corridor.
+  const cellDoors = []
+  const cellSpots = [
+    { dz: 4, side: -1 },
+    { dz: 0, side: 1 },
+    { dz: -4, side: -1 },
+  ]
+  const corridorHalfW = corridorW / 2
+  for (const spot of cellSpots) {
+    const cellZ = corridorZ + spot.dz
+    const cellX = x + spot.side * (corridorHalfW + cellSize / 2)
+    const doorSide = spot.side === -1 ? 'east' : 'west'
+    buildRoom(scene, register, {
+      x: cellX, z: cellZ, w: cellSize, d: cellSize,
+      doorSides: [{ side: doorSide, width: cellDoorGap }],
+    })
+    const bunk = placePropSimple(scene, register, 'hospital-bed.glb', cellX + spot.side * -0.8, cellZ, spot.side === -1 ? Math.PI / 2 : -Math.PI / 2)
+    if (bunk) {
+      bunk.traverse((child) => {
+        if (child.isMesh) child.material.color.setHex(0x5a5650)
+      })
+    }
+    const doorX = spot.side === -1 ? cellX + cellSize / 2 : cellX - cellSize / 2
+    cellDoors.push(buildLockableDoor(scene, doorX, cellZ, cellDoorGap, 'z'))
+  }
+
+  return { x, z: adminZ, cellDoors }
 }
 
 function buildTargetTexture() {
