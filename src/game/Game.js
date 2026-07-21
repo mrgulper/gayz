@@ -304,6 +304,8 @@ const TROPHY_WALL_INTERACT_RADIUS = 2.4
 const TRADER_INTERACT_RADIUS = 2.5
 const AMMO_STATION_RADIUS = 2.2
 const AMMO_STATION_HOLD_SECONDS = 10
+const BREAKER_BOX_RADIUS = 2.0
+const BREAKER_BOX_HOLD_SECONDS = 6
 const LIGHT_LURE_RADIUS = 20
 const LIGHT_LURE_INTERVAL_MS = 2000
 const SAFE_ZONE_HEAL_PER_SEC = 6
@@ -636,6 +638,8 @@ export class Game {
     this.interactPrompt = document.getElementById('interact-prompt')
     this.ammoStationProgressWrap = document.getElementById('ammo-station-progress-wrap')
     this.ammoStationFill = document.getElementById('ammo-station-fill')
+    this.breakerBoxProgressWrap = document.getElementById('breaker-box-progress-wrap')
+    this.breakerBoxFill = document.getElementById('breaker-box-fill')
     this.rainOverlayEl = document.getElementById('rain-overlay')
     this.lightningFlashEl = document.getElementById('lightning-flash')
     this.nextLightningAt = 0
@@ -791,7 +795,7 @@ export class Game {
     this.composer.addPass(this.bloomPass)
     this.composer.addPass(new OutputPass())
 
-    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance } = buildWorld(this.scene, ACHIEVEMENTS.length)
+    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel } = buildWorld(this.scene, ACHIEVEMENTS.length)
     this.cullables = cullables
     this.supermarket = supermarket
     this.groceryStore = groceryStore
@@ -813,6 +817,25 @@ export class Game {
     this.fireStation = fireStation
     this.motel = motel
     this.newUndergroundEntrance = newUndergroundEntrance
+    // Stage 10 continuation - the tunnel content behind that entrance.
+    // The turnstile is a physical gate, not a free-interact lockedCells
+    // door: it only opens once the breaker box's power-restore puzzle
+    // succeeds (see _restoreTunnelPower), so it's registered here by hand
+    // rather than added to the lockedCells array/loop below.
+    this.maintenanceTunnel = maintenanceTunnel
+    this.breakerBox = maintenanceTunnel.breakerBox
+    this.nearBreakerBox = false
+    this.breakerBoxHoldProgress = 0
+    this.breakerBoxKeyHeld = false
+    this.tunnelPowerOn = false
+    this.turnstile = maintenanceTunnel.turnstile
+    this.turnstile.locked = true
+    // colliders/solidMeshes here are the local destructured arrays from
+    // buildWorld() above (this.colliders/this.solidMeshes aren't assigned
+    // until further down this constructor) - pushing onto them now is safe
+    // since they're the same array objects by reference either way.
+    colliders.push(this.turnstile.box)
+    solidMeshes.push(this.turnstile.mesh)
     // Extended Metropolitan Grid usability pass - none of Stages 1-9's new
     // locations showed up on the compass/minimap at all, the biggest real
     // gap once the map got this spread out (the skyscraper alone is 250
@@ -1504,6 +1527,7 @@ export class Game {
         // station's hold-to-charge check in _updateAmmoStation knows the
         // key is physically down, for as long as it's held.
         this.ammoStationKeyHeld = true
+        this.breakerBoxKeyHeld = true
         if (this.driving) {
           this._exitVehicle()
         } else if (this.nearVehicle) {
@@ -1552,7 +1576,7 @@ export class Game {
     })
 
     window.addEventListener('keyup', (e) => {
-      if (e.code === getKeyFor('interact')) this.ammoStationKeyHeld = false
+      if (e.code === getKeyFor('interact')) { this.ammoStationKeyHeld = false; this.breakerBoxKeyHeld = false }
       if (e.code === getKeyFor('weaponWheel') && this.weaponWheelOpen) this._closeWeaponWheel(true)
     })
 
@@ -4360,6 +4384,82 @@ export class Game {
     }
   }
 
+  // Stage 10's "electricity puzzle" - the exact same hold-to-charge shape as
+  // _updateAmmoStation above (proximity + held key + not-currently-firing +
+  // progress that resets to zero on any interruption rather than pausing),
+  // just with a one-time success (_restoreTunnelPower) instead of a
+  // repeatable pickup.
+  _updateBreakerBox(dt, playerPos) {
+    if (this.tunnelPowerOn) {
+      this.nearBreakerBox = false
+      this.breakerBoxProgressWrap.style.display = 'none'
+      return
+    }
+    const dist = Math.hypot(playerPos.x - this.breakerBox.x, playerPos.z - this.breakerBox.z)
+    this.nearBreakerBox = dist <= BREAKER_BOX_RADIUS
+
+    const charging = this.nearBreakerBox && this.breakerBoxKeyHeld && this.weapons.timeSinceLastShot > 0.3
+    if (charging) {
+      this.breakerBoxHoldProgress = Math.min(BREAKER_BOX_HOLD_SECONDS, this.breakerBoxHoldProgress + dt)
+      if (this.breakerBoxHoldProgress >= BREAKER_BOX_HOLD_SECONDS) {
+        this._restoreTunnelPower()
+      }
+    } else {
+      this.breakerBoxHoldProgress = 0
+    }
+
+    const mat = this.breakerBox.buttonMat
+    if (charging) {
+      const fraction = this.breakerBoxHoldProgress / BREAKER_BOX_HOLD_SECONDS
+      mat.color.setHex(0x2a1a05)
+      mat.emissive.setHex(0xe3a63c)
+      mat.emissiveIntensity = 0.6 + fraction * 1.2
+    } else {
+      mat.color.setHex(0x2a0808)
+      mat.emissive.setHex(0xff2a1e)
+      mat.emissiveIntensity = 1.1
+    }
+
+    this.breakerBoxProgressWrap.style.display = charging ? 'block' : 'none'
+    if (charging) {
+      this.breakerBoxFill.style.width = `${(this.breakerBoxHoldProgress / BREAKER_BOX_HOLD_SECONDS) * 100}%`
+    }
+  }
+
+  // Fires once, when the breaker box's hold-to-charge completes: turns the
+  // dark stretch's lights on for real (they were built at intensity 0 - see
+  // buildMaintenanceTunnelNetwork - and only join flickerLights now, so they
+  // don't flicker while still "dead"), and opens the turnstile gate the same
+  // way _tryOpenLockedCell opens a locked cell (splice its box/mesh back out
+  // of colliders/solidMeshes) - except this one was never a free-interact
+  // unlock, it was always gated on this puzzle succeeding.
+  _restoreTunnelPower() {
+    this.tunnelPowerOn = true
+    this.breakerBoxHoldProgress = 0
+    this.breakerBox.buttonMat.color.setHex(0x0a2a0a)
+    this.breakerBox.buttonMat.emissive.setHex(0x2aff3e)
+    this.breakerBox.buttonMat.emissiveIntensity = 0.6
+
+    for (const light of this.maintenanceTunnel.tunnelDarkLights) {
+      light.intensity = 0.8
+      this.flickerLights.push({ light, base: 0.8, seed: Math.random() * 100 })
+    }
+
+    const turnstile = this.turnstile
+    turnstile.locked = false
+    const ci = this.colliders.indexOf(turnstile.box)
+    if (ci !== -1) this.colliders.splice(ci, 1)
+    const si = this.solidMeshes.indexOf(turnstile.mesh)
+    if (si !== -1) this.solidMeshes.splice(si, 1)
+    turnstile.mesh.visible = false
+    turnstile.sign.visible = false
+    turnstile.indicatorMat.color.setHex(0x0a2a0a)
+    turnstile.indicatorMat.emissive.setHex(0x2aff3e)
+    turnstile.indicatorMat.emissiveIntensity = 0.6
+
+    this._showLoreToast(t('toastPowerRestored'))
+  }
+
   _updateTrader(playerPos) {
     const dist = Math.hypot(playerPos.x - this.trader.x, playerPos.z - this.trader.z)
     this.nearTrader = dist <= TRADER_INTERACT_RADIUS
@@ -4878,6 +4978,7 @@ export class Game {
       this._updateGenerator(dt, playerPos)
       this._updateTrader(playerPos)
       this._updateAmmoStation(dt, playerPos)
+      this._updateBreakerBox(dt, playerPos)
       this._updateVehicleProximity(playerPos)
       this._updateVireoTerminal(playerPos)
       this._updateStationTerminal(playerPos)
@@ -4926,6 +5027,9 @@ export class Game {
         this.interactPrompt.style.display = 'block'
       } else if (this.nearAmmoStation) {
         this.interactPrompt.innerHTML = tHtml('interactAmmoStation')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearBreakerBox) {
+        this.interactPrompt.innerHTML = tHtml('interactBreakerBox')
         this.interactPrompt.style.display = 'block'
       } else if (this.nearVault) {
         this.interactPrompt.innerHTML = tHtml(this.inventory.vaultKey ? 'interactVaultUnlock' : 'interactVaultLocked')

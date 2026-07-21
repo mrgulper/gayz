@@ -499,7 +499,8 @@ html, body {
   color: #ffe08a;
 }
 
-#ammo-station-progress-wrap {
+#ammo-station-progress-wrap,
+#breaker-box-progress-wrap {
   position: absolute;
   top: calc(58% + 34px);
   left: 50%;

@@ -473,6 +473,10 @@ export function buildWorld(scene, trophyCount = 15) {
   // + a landing for now, per the user's own request to check this piece
   // before the tunnel behind it gets built.
   const newUndergroundEntrance = buildNewUndergroundEntrance(scene, colliders, solidMeshes, flickerLights)
+  // Stage 10 continuation - the tunnel content behind that entrance, now
+  // that the stairs themselves have been confirmed in-game (see
+  // buildMaintenanceTunnelNetwork's own comment for the full layout).
+  const maintenanceTunnel = buildMaintenanceTunnelNetwork(scene, colliders, solidMeshes, flickerLights, towerChestSpots)
   const connectorWaypointZ = SUBWAY_Z_START - 6
   const JUNCTION_HALF = 3.2
   buildSubwayJunctionRoom(scene, colliders, solidMeshes, subwayEntrance.landingX, connectorWaypointZ, JUNCTION_HALF)
@@ -688,6 +692,7 @@ export function buildWorld(scene, trophyCount = 15) {
     fireStation,
     motel,
     newUndergroundEntrance,
+    maintenanceTunnel,
   }
 }
 
@@ -1279,6 +1284,7 @@ function buildRoom(scene, register, spec) {
   const {
     x, z, w, d,
     wallHeight = 2.6,
+    floorY = 0, // lets this same helper build an underground room (e.g. at SUBWAY_FLOOR_Y) instead of only ground-level ones
     doorSides = [], // [{ side: 'north'|'south'|'east'|'west', width }]
     openSides = [], // ['north', ...] - omit these walls entirely
     wallMat = new THREE.MeshStandardMaterial({ color: 0x3a3a34, roughness: 0.95 }),
@@ -1292,7 +1298,7 @@ function buildRoom(scene, register, spec) {
 
   const addWallSeg = (wx, wz, sw, sd) => {
     const wall = new THREE.Mesh(new THREE.BoxGeometry(sw, wallHeight, sd), wallMat)
-    wall.position.set(x + wx, wallHeight / 2, z + wz)
+    wall.position.set(x + wx, floorY + wallHeight / 2, z + wz)
     wall.castShadow = true
     wall.receiveShadow = true
     scene.add(wall)
@@ -1350,8 +1356,8 @@ function buildRoom(scene, register, spec) {
   return {
     x, z, w, d,
     bounds: new THREE.Box3(
-      new THREE.Vector3(x - halfW, 0, z - halfD),
-      new THREE.Vector3(x + halfW, wallHeight, z + halfD)
+      new THREE.Vector3(x - halfW, floorY, z - halfD),
+      new THREE.Vector3(x + halfW, floorY + wallHeight, z + halfD)
     ),
     doorSpots,
   }
@@ -3206,6 +3212,216 @@ function buildSubwayConnector(scene, colliders, solidMeshes, flickerLights, x0, 
     scene.add(light)
     flickerLights.push({ light, base: 0.7, seed: Math.random() * 100 })
   }
+}
+
+// Stage 10 continuation - the actual Level -1 tunnel content behind the new
+// "maintenance access" entrance, whose landing was left as a deliberate dead
+// end (see buildNewUndergroundEntrance's own comment) until the user could
+// confirm the stairs themselves worked. Four elements from the original
+// stage plan, in order along one straight corridor south of the landing:
+// a pitch-black stretch (buildDarkSubwayConnector - identical to
+// buildSubwayConnector but with no automatic lights), a breaker box the
+// player must hold-to-charge in the dark to restore power (mirrors Game.js's
+// existing ammo-station hold-to-charge pattern exactly), a turnstile gate
+// that only opens once power is restored (not a free-interact unlock like
+// the lockedCells doors elsewhere - see Game.js's _restoreTunnelPower), and
+// a normal lit stretch (plain buildSubwayConnector reuse) ending at a
+// wrecked-train dead end with a reward chest.
+const MAINT_TUNNEL_X = NEW_UNDERGROUND_ENTRANCE_X // 9 - straight south of the landing, same X the stairs already used
+const MAINT_DARK_Z_START = 52 // the landing's own open south edge
+const MAINT_BREAKER_Z = 47
+const MAINT_GATE_Z = 42
+const MAINT_WRECK_Z = 20
+
+function buildDarkSubwayConnector(scene, colliders, solidMeshes, x0, z0, x1, z1) {
+  const dx = x1 - x0
+  const dz = z1 - z0
+  const length = Math.hypot(dx, dz)
+  const angle = Math.atan2(dx, dz)
+  const ux = dx / length
+  const uz = dz / length
+
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x232426, roughness: 0.95 })
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x1a1916, roughness: 1 })
+
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH, 0.08, length), floorMat)
+  floor.position.set((x0 + x1) / 2, SUBWAY_FLOOR_Y, (z0 + z1) / 2)
+  floor.rotation.y = angle
+  floor.receiveShadow = true
+  scene.add(floor)
+  solidMeshes.push(floor)
+
+  // Same short-segment approach as buildSubwayConnector, for the same
+  // rotated-mesh-AABB reason (see that function's own comment).
+  const SEGMENT_LEN = 2
+  const segmentCount = Math.ceil(length / SEGMENT_LEN)
+  for (let i = 0; i < segmentCount; i++) {
+    const segStart = i * SEGMENT_LEN
+    const segEnd = Math.min(length, segStart + SEGMENT_LEN)
+    const segLen = segEnd - segStart
+    const segMidT = (segStart + segEnd) / 2
+    const segX = x0 + ux * segMidT
+    const segZ = z0 + uz * segMidT
+
+    const ceiling = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH + 0.4, 0.2, segLen), wallMat)
+    ceiling.position.set(segX, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT, segZ)
+    ceiling.rotation.y = angle
+    scene.add(ceiling)
+    solidMeshes.push(ceiling)
+    ceiling.updateWorldMatrix(true, false)
+    colliders.push(new THREE.Box3().setFromObject(ceiling))
+
+    for (const side of [-1, 1]) {
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, SUBWAY_HEIGHT, segLen), wallMat)
+      const perpX = Math.cos(angle) * side * (SUBWAY_WIDTH / 2 + 0.1)
+      const perpZ = -Math.sin(angle) * side * (SUBWAY_WIDTH / 2 + 0.1)
+      wall.position.set(segX + perpX, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT / 2, segZ + perpZ)
+      wall.rotation.y = angle
+      wall.receiveShadow = true
+      scene.add(wall)
+      solidMeshes.push(wall)
+      wall.updateWorldMatrix(true, false)
+      colliders.push(new THREE.Box3().setFromObject(wall))
+    }
+  }
+  // Deliberately no rib-light loop here (unlike buildSubwayConnector) - this
+  // stretch starts genuinely unlit. buildMaintenanceTunnelNetwork adds its
+  // own lights at intensity 0, turned on by Game.js's _restoreTunnelPower.
+}
+
+// A small wall-mounted electrical panel - the "electricity puzzle" the
+// player has to find in the dark and hold-to-charge (see Game.js's
+// _updateBreakerBox, which mirrors _updateAmmoStation's exact hold pattern).
+// buttonMat is swapped red/amber/green the same way the ammo station and
+// lockedCells doors already do, for the same locked/charging/done reading.
+function buildBreakerBox(scene, x, z) {
+  const panelMat = new THREE.MeshStandardMaterial({ color: 0x2a2a26, roughness: 0.7, metalness: 0.3 })
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.1, 0.15), panelMat)
+  panel.position.set(x, SUBWAY_FLOOR_Y + 1.4, z)
+  panel.castShadow = true
+  scene.add(panel)
+
+  const indicatorMat = new THREE.MeshStandardMaterial({ color: 0x2a0808, emissive: 0xff2a1e, emissiveIntensity: 1.1 })
+  const indicator = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.12, 0.02), indicatorMat)
+  indicator.position.set(x, SUBWAY_FLOOR_Y + 1.7, z + 0.08)
+  scene.add(indicator)
+
+  const pipeMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1a, roughness: 0.6, metalness: 0.5 })
+  const pipeHeight = SUBWAY_HEIGHT - 1.9
+  for (const ox of [-0.3, 0.3]) {
+    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, pipeHeight, 8), pipeMat)
+    pipe.position.set(x + ox, SUBWAY_FLOOR_Y + 1.95 + pipeHeight / 2, z)
+    scene.add(pipe)
+  }
+
+  return { x, z, buttonMat: indicatorMat }
+}
+
+// A physical gate blocking the corridor - unlike buildLockableDoor's
+// doors elsewhere (which unlock for free on interact), this one only opens
+// once the breaker box's power-restore puzzle succeeds (see Game.js's
+// _restoreTunnelPower), so it's built by hand here rather than reusing that
+// helper. mesh/sign are hidden together on unlock.
+function buildMaintTurnstileGate(scene, x, z) {
+  const gateMat = new THREE.MeshStandardMaterial({ color: 0x2a2a26, roughness: 0.6, metalness: 0.5 })
+  const gateMesh = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH - 0.4, SUBWAY_HEIGHT - 0.4, 0.2), gateMat)
+  gateMesh.position.set(x, SUBWAY_FLOOR_Y + (SUBWAY_HEIGHT - 0.4) / 2 + 0.2, z)
+  gateMesh.castShadow = true
+  scene.add(gateMesh)
+  gateMesh.updateWorldMatrix(true, false)
+  const gateBox = new THREE.Box3().setFromObject(gateMesh) // axis-aligned, not rotated - setFromObject is safe here
+
+  const indicatorMat = new THREE.MeshStandardMaterial({ color: 0x1a0505, emissive: 0xff2a1e, emissiveIntensity: 0.9 })
+  const indicator = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), indicatorMat)
+  indicator.position.set(x, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT - 0.3, z)
+  scene.add(indicator)
+
+  const signCanvas = document.createElement('canvas')
+  signCanvas.width = 512
+  signCanvas.height = 128
+  const ctx = signCanvas.getContext('2d')
+  ctx.fillStyle = '#1a0f08'
+  ctx.fillRect(0, 0, signCanvas.width, signCanvas.height)
+  ctx.fillStyle = '#ff5a3c'
+  ctx.font = 'bold 44px sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText('GATE LOCKED - NO POWER', signCanvas.width / 2, signCanvas.height / 2)
+  const signTex = new THREE.CanvasTexture(signCanvas)
+  const sign = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.4, 0.6),
+    new THREE.MeshStandardMaterial({ map: signTex, emissive: 0xff5a3c, emissiveMap: signTex, emissiveIntensity: 1.1, side: THREE.DoubleSide })
+  )
+  sign.position.set(x, SUBWAY_FLOOR_Y + 1.9, z + 0.12)
+  scene.add(sign)
+
+  return { x, z, mesh: gateMesh, box: gateBox, indicatorMat, sign }
+}
+
+// The "abandoned train" dead end - a visibly different derelict (tipped
+// over, rust-brown, crashed against the end wall) from buildSubway's own
+// upright, parked train car, so it doesn't feel like reused content. Wreck
+// and rubble are deliberately not colliders/solidMeshes (rotated-mesh AABB
+// gotcha for the tipped wreck; the rubble is just loose dressing the
+// player can walk past, not through a real obstacle).
+function buildWreckedTrainChamber(scene, colliders, solidMeshes, x, z, chestSpots) {
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x232426, roughness: 0.95 })
+  const endWall = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH + 0.4, SUBWAY_HEIGHT, 0.2), wallMat)
+  endWall.position.set(x, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT / 2, z - 4)
+  scene.add(endWall)
+  solidMeshes.push(endWall)
+  colliders.push(new THREE.Box3().setFromObject(endWall))
+
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x4a2e1e, roughness: 0.9, metalness: 0.1 })
+  const wreck = new THREE.Mesh(new THREE.BoxGeometry(2.6, 3, 6), bodyMat)
+  wreck.position.set(x - 0.6, SUBWAY_FLOOR_Y + 1.3, z - 1)
+  wreck.rotation.z = -Math.PI / 2.6
+  wreck.castShadow = true
+  scene.add(wreck)
+
+  const rubbleMat = new THREE.MeshStandardMaterial({ color: 0x3a352e, roughness: 1 })
+  for (const [rx, rz, s] of [[1.4, -2.5, 0.5], [1.8, -1, 0.35], [1.2, 0.5, 0.45]]) {
+    const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(s), rubbleMat)
+    rock.position.set(x + rx, SUBWAY_FLOOR_Y + s * 0.6, z + rz)
+    rock.castShadow = true
+    scene.add(rock)
+  }
+
+  const emergencyLight = new THREE.PointLight(0xff3a1a, 1.3, 10, 2)
+  emergencyLight.position.set(x, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT - 0.4, z - 2)
+  scene.add(emergencyLight)
+
+  chestSpots.push({ x, y: SUBWAY_FLOOR_Y, z: z + 1.5 })
+
+  return { x, z, emergencyLight }
+}
+
+function buildMaintenanceTunnelNetwork(scene, colliders, solidMeshes, flickerLights, chestSpots) {
+  const x = MAINT_TUNNEL_X
+
+  buildDarkSubwayConnector(scene, colliders, solidMeshes, x, MAINT_DARK_Z_START, x, MAINT_GATE_Z)
+  const tunnelDarkLights = []
+  for (const lz of [MAINT_DARK_Z_START - 2, MAINT_BREAKER_Z, MAINT_GATE_Z + 2]) {
+    const light = new THREE.PointLight(0xbcd4ff, 0, 6, 2) // intensity 0 - see Game.js's _restoreTunnelPower
+    light.position.set(x, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT - 0.3, lz)
+    scene.add(light)
+    tunnelDarkLights.push(light)
+  }
+
+  // Mounted flush against the corridor's own west wall (wall inner face
+  // sits at x - SUBWAY_WIDTH/2 - 0.1 + 0.1 = x - SUBWAY_WIDTH/2, see
+  // buildSubwayConnector's own wall placement math) plus half the panel's
+  // own depth so it doesn't clip into the wall.
+  const breakerBox = buildBreakerBox(scene, x - SUBWAY_WIDTH / 2 + 0.075, MAINT_BREAKER_Z)
+  const turnstile = buildMaintTurnstileGate(scene, x, MAINT_GATE_Z)
+
+  // Lit stretch beyond the gate - a normal, always-lit tunnel like every
+  // other subway segment, since only the breaker-box approach needs the
+  // "pitch black until powered" effect.
+  buildSubwayConnector(scene, colliders, solidMeshes, flickerLights, x, MAINT_GATE_Z, x, MAINT_WRECK_Z)
+  const trainWreck = buildWreckedTrainChamber(scene, colliders, solidMeshes, x, MAINT_WRECK_Z, chestSpots)
+
+  return { breakerBox, turnstile, tunnelDarkLights, trainWreck }
 }
 
 // An open square room - floor and ceiling only, deliberately no side walls
