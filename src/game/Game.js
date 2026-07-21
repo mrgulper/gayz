@@ -128,6 +128,11 @@ function loadSettings() {
   }
 }
 
+// See _updateCulling - every World.js flickerLights PointLight has a real
+// illumination range well under this, so turning one off past this distance
+// from the player can't darken anything actually visible.
+const LIGHT_CULL_DISTANCE = 100
+
 const SCORE_ATTACK_NIGHT_DURATION_MS = 60000
 const ROUND_INTERMISSION_MS = 5000
 const SCORE_ATTACK_BEST_KEY = 'gayz-score-attack-best'
@@ -573,6 +578,10 @@ export class Game {
     this.hudEl = document.getElementById('hud')
     this.hotbarEl = document.getElementById('hotbar')
     this.hotbarSlotEls = Array.from(this.hotbarEl.querySelectorAll('.hotbar-slot'))
+    // _updateHotbarHud runs every frame - resolve each slot's name element
+    // once here instead of a fresh querySelector per slot per frame (the
+    // DOM structure itself never changes after this point).
+    this.hotbarNameEls = this.hotbarSlotEls.map((el) => el.querySelector('.hotbar-slot-name'))
     this.statusHud = document.getElementById('status-hud')
     this.healthFill = document.getElementById('health-fill')
     this.healthValue = document.getElementById('health-value')
@@ -826,6 +835,12 @@ export class Game {
 
     const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel, toxicSewerLevel, mineLevel } = buildWorld(this.scene, ACHIEVEMENTS.length)
     this.cullables = cullables
+    // See _updateCulling: any cullable that's a Group (not a bare Mesh)
+    // used to get a fresh recursive .traverse() every single frame just to
+    // propagate its castShadow flag to its mesh children. These hierarchies
+    // never change shape after construction, so the mesh list is resolved
+    // once (lazily, on first cull pass) and reused from then on.
+    this._cullShadowMeshCache = new WeakMap()
     this.supermarket = supermarket
     this.groceryStore = groceryStore
     this.hospital = hospital
@@ -3938,7 +3953,7 @@ export class Game {
     const currentId = this.weapons.current.id
     this.settings.hotbar.forEach((weaponId, i) => {
       const el = this.hotbarSlotEls[i]
-      const nameEl = el.querySelector('.hotbar-slot-name')
+      const nameEl = this.hotbarNameEls[i]
       if (!weaponId) {
         nameEl.textContent = '-'
         el.classList.remove('active', 'locked')
@@ -4335,6 +4350,22 @@ export class Game {
   _updateCulling(playerPos) {
     const cullSq = WORLD_CULL_DISTANCE * WORLD_CULL_DISTANCE
     const shadowSq = WORLD_SHADOW_CULL_DISTANCE * WORLD_SHADOW_CULL_DISTANCE
+    // Classic forward rendering (no light clustering) means every visible
+    // fragment's shader evaluates every VISIBLE scene light, regardless of
+    // distance - confirmed live at 62 PointLights across the map (rib
+    // lights, streetlamps, beacons). Every one of World.js's flickerLights
+    // has a real illumination range of 30 units or less (checked every
+    // `new THREE.PointLight(...)` call site building this array), so a
+    // light more than LIGHT_CULL_DISTANCE from the player cannot possibly
+    // be lighting anything the player could currently see - turning it
+    // fully off (not just intensity=0, which still costs a shader
+    // evaluation) is a real, not approximate, render-cost cut.
+    const lightCullSq = LIGHT_CULL_DISTANCE * LIGHT_CULL_DISTANCE
+    for (const f of this.flickerLights) {
+      const dx = f.light.position.x - playerPos.x
+      const dz = f.light.position.z - playerPos.z
+      f.light.visible = (dx * dx + dz * dz) < lightCullSq
+    }
     for (const obj of this.cullables) {
       const dx = obj.position.x - playerPos.x
       const dz = obj.position.z - playerPos.z
@@ -4343,10 +4374,20 @@ export class Game {
       const wantsShadow = distSq < shadowSq
       if (obj.castShadow !== wantsShadow) obj.castShadow = wantsShadow
       if (obj.isMesh) continue
-      obj.traverse((child) => {
-        if (!child.isMesh) return
+      // Cullable Groups (composite props/buildings) need their castShadow
+      // flag propagated to every mesh child - the hierarchy itself never
+      // changes shape after construction, so the flat mesh list is resolved
+      // once via .traverse() and reused every frame after, instead of
+      // re-walking the whole subtree from scratch every single frame.
+      let meshChildren = this._cullShadowMeshCache.get(obj)
+      if (!meshChildren) {
+        meshChildren = []
+        obj.traverse((child) => { if (child.isMesh) meshChildren.push(child) })
+        this._cullShadowMeshCache.set(obj, meshChildren)
+      }
+      for (const child of meshChildren) {
         if (child.castShadow !== wantsShadow) child.castShadow = wantsShadow
-      })
+      }
     }
   }
 
