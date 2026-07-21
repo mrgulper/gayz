@@ -291,7 +291,13 @@ export function buildWorld(scene, trophyCount = 15) {
   const moon = new THREE.DirectionalLight(0xc3d2ec, 1.0)
   moon.position.set(30, 45, -15)
   moon.castShadow = true
-  moon.shadow.mapSize.set(1536, 1536)
+  // 1024 instead of 1536 - a real, unconditional per-frame cost (this is
+  // the only shadow-casting light in the whole game, but its map still
+  // gets sampled by every shadow-receiving fragment in the frustum every
+  // frame) for a texel density that's still ~3.4/unit over this light's
+  // own fixed local frustum below, plenty for how close shadows actually
+  // get inspected during normal play.
+  moon.shadow.mapSize.set(1024, 1024)
   // Kept at a fixed local size (not scaled to the full 750 map) - a shadow
   // frustum that large would spread the same 1536px shadow map over a much
   // bigger area and turn every shadow blurry. This covers everything within
@@ -3030,7 +3036,11 @@ function buildSewer(scene, colliders, solidMeshes, flickerLights) {
   solidMeshes.push(endWall)
   colliders.push(new THREE.Box3().setFromObject(endWall))
 
-  const lightSpacing = 5
+  // Widened from 5 to 8 - fewer simultaneous lights (every scene light gets
+  // evaluated in every visible fragment's shader in this game's classic
+  // forward-rendering setup, so total light count is a real, constant cost)
+  // while still keeping consecutive lights' own falloff radii overlapping.
+  const lightSpacing = 8
   const lightCount = Math.floor(length / lightSpacing)
   for (let i = 1; i < lightCount; i++) {
     const z = SEWER_Z_START + lightSpacing * i
@@ -3145,7 +3155,7 @@ function buildSubway(scene, colliders, solidMeshes, flickerLights) {
   trainStripe.position.set(trackCenterX, SUBWAY_FLOOR_Y + 1.1, SUBWAY_Z_END - 5)
   scene.add(trainStripe)
 
-  const lightSpacing = 5
+  const lightSpacing = 8 // see buildSewer's own comment on this same change
   const lightCount = Math.floor(length / lightSpacing)
   for (let i = 1; i < lightCount; i++) {
     const z = SUBWAY_Z_START + lightSpacing * i
@@ -3522,7 +3532,7 @@ function buildSubwayConnector(scene, colliders, solidMeshes, flickerLights, x0, 
     }
   }
 
-  const ribSpacing = 6
+  const ribSpacing = 9 // see buildSewer's own comment on this same change
   const ribCount = Math.floor(length / ribSpacing)
   for (let i = 1; i < ribCount; i++) {
     const t = (i * ribSpacing) / length
@@ -3878,7 +3888,7 @@ function buildUndergroundStation(scene, colliders, solidMeshes, flickerLights, c
     scene.add(tie)
   }
 
-  const lightSpacing = 5
+  const lightSpacing = 8 // see buildSewer's own comment on this same change
   const lightCount = Math.floor(length / lightSpacing)
   for (let i = 1; i < lightCount; i++) {
     const z = STATION_Z_START + lightSpacing * i
@@ -4168,7 +4178,7 @@ function buildToxicSewerLevel(scene, colliders, solidMeshes, flickerLights, ches
       scene.add(pipe)
     }
 
-    const lightSpacing = 5
+    const lightSpacing = 8 // see buildSewer's own comment on this same change
     const lightCount = Math.floor(length / lightSpacing)
     for (let i = 1; i < lightCount; i++) {
       const z = z0 - lightSpacing * i
@@ -4225,7 +4235,7 @@ function buildToxicSewerLevel(scene, colliders, solidMeshes, flickerLights, ches
   // A handful of sickly-green glow points over the pool instead of the
   // corridor's usual amber/blue rib lights, so the room reads as distinctly
   // hazardous rather than just more tunnel.
-  const glowSpacing = 6
+  const glowSpacing = 9 // see buildSewer's own comment on this same change
   const glowCount = Math.floor(poolLength / glowSpacing)
   for (let i = 0; i <= glowCount; i++) {
     const z = SEWER2_POOL_Z_START - glowSpacing * i
@@ -4361,7 +4371,7 @@ function buildMineLevel(scene, colliders, solidMeshes, flickerLights, chestSpots
       colliders.push(new THREE.Box3().setFromObject(wall))
     }
 
-    const lightSpacing = 6
+    const lightSpacing = 9 // see buildSewer's own comment on this same change
     const lightCount = Math.floor(length / lightSpacing)
     for (let i = 1; i < lightCount; i++) {
       const z = z0 - lightSpacing * i
@@ -4473,7 +4483,7 @@ function buildVireoFacility(scene, colliders, solidMeshes, flickerLights) {
     colliders.push(new THREE.Box3().setFromObject(wall))
   }
 
-  const lightSpacing = 5
+  const lightSpacing = 8 // see buildSewer's own comment on this same change
   const lightCount = Math.floor(length / lightSpacing)
   for (let i = 1; i < lightCount; i++) {
     const z = FACILITY_Z_START + lightSpacing * i

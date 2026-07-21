@@ -309,6 +309,10 @@ const BREAKER_BOX_RADIUS = 2.0
 const BREAKER_BOX_HOLD_SECONDS = 6
 const ROCKFALL_TRIGGER_RADIUS = 2.8
 const ROCKFALL_BURST_DAMAGE = 22
+// Performance: bloom is an inherently soft/blurred effect, so running its
+// own internal buffer at a fraction of screen resolution costs almost no
+// visible quality while cutting the pixels it has to shade to a quarter.
+const BLOOM_RESOLUTION_SCALE = 0.5
 // Stage 14's fog-of-war grid - must match the cell size FullMap.js and
 // Minimap.js's own fog overlay use, since they all read the same
 // discoveredCells Set of "cellX,cellZ" string keys.
@@ -766,7 +770,12 @@ export class Game {
     // isn't actually needed - _takeScreenshot() renders and reads the canvas
     // in the same synchronous call, before any buffer swap/clear can happen.
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true })
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
+    // Capped lower than before (was 1.5) - every fragment shader in this
+    // scene evaluates every scene light (classic WebGL forward rendering
+    // has no per-object light clustering), so total shaded pixel count is
+    // one of the biggest levers available; 1.25 still looks sharp on
+    // HiDPI/Retina screens without paying for the full 1.5x pixel count.
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25))
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFShadowMap
     // Cinematic contrast/rolloff instead of the flat default - the single
@@ -775,7 +784,14 @@ export class Game {
     this.renderer.toneMappingExposure = 1.1
 
     this.scene = new THREE.Scene()
-    this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200)
+    // Far plane matched to WORLD_CULL_DISTANCE (+ a small margin) instead of
+    // a much larger 200 - fog already makes anything past ~140 units
+    // invisible, so the old 200 far plane meant the GPU was still rendering
+    // a 150-200 unit-deep shell of geometry the player could never actually
+    // see. This lets normal camera frustum culling (free, automatic, no
+    // custom system needed) exclude that band entirely.
+    const CAMERA_FAR = WORLD_CULL_DISTANCE + 5
+    this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, CAMERA_FAR)
 
     // Third-person view: this.camera stays the actual PointerLockControls
     // target (everything in the codebase reads its position as "the
@@ -783,7 +799,7 @@ export class Game {
     // it instead - see _updateThirdPerson. Not added to the scene graph;
     // its transform is copied fresh every frame.
     this.thirdPerson = false
-    this.tpCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200)
+    this.tpCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, CAMERA_FAR)
     this._tpOffsetLocal = new THREE.Vector3(0, 1.1, 3.0)
     this._tpDesiredPos = new THREE.Vector3()
     this._tpYawQuat = new THREE.Quaternion()
@@ -799,7 +815,12 @@ export class Game {
     this.composer = new EffectComposer(this.renderer)
     this.renderPass = new RenderPass(this.scene, this.camera)
     this.composer.addPass(this.renderPass)
-    this.bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.55, 0.4, 0.82)
+    // Bloom's own internal buffer runs at half the screen's resolution -
+    // it's an inherently soft/blurred effect (several downsample+blur
+    // passes), so the quarter-the-pixel-count savings from halving both
+    // dimensions costs essentially no visible quality, unlike halving the
+    // main render resolution would.
+    this.bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth * BLOOM_RESOLUTION_SCALE, window.innerHeight * BLOOM_RESOLUTION_SCALE), 0.55, 0.4, 0.82)
     this.composer.addPass(this.bloomPass)
     this.composer.addPass(new OutputPass())
 
@@ -2573,7 +2594,7 @@ export class Game {
   _applyPerformanceMode(enabled) {
     this.renderer.shadowMap.enabled = !enabled
     this.bloomPass.enabled = !enabled
-    this.renderer.setPixelRatio(enabled ? 1 : Math.min(window.devicePixelRatio, 1.5))
+    this.renderer.setPixelRatio(enabled ? 1 : Math.min(window.devicePixelRatio, 1.25))
   }
 
   // Fires on every night transition: pauses gameplay and offers 3 random
@@ -3388,7 +3409,7 @@ export class Game {
     this.tpCamera.updateProjectionMatrix()
     this.renderer.setSize(window.innerWidth, window.innerHeight)
     this.composer.setSize(window.innerWidth, window.innerHeight)
-    this.bloomPass.resolution.set(window.innerWidth, window.innerHeight)
+    this.bloomPass.resolution.set(window.innerWidth * BLOOM_RESOLUTION_SCALE, window.innerHeight * BLOOM_RESOLUTION_SCALE)
   }
 
   // Positions the third-person camera behind+above the player rig (this.
