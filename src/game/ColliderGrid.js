@@ -1,3 +1,5 @@
+import * as THREE from 'three'
+
 // Uniform-grid spatial index over the world's Box3 colliders. With 14
 // stages' worth of world geometry, the flat `colliders` array can hold
 // 900+ boxes - anything checking movement against it (the player, every
@@ -81,6 +83,59 @@ export class CachedColliderGrid {
     if (this.colliders.length !== this.lastLength) {
       this.grid = buildColliderGrid(this.colliders, this.cellSize)
       this.lastLength = this.colliders.length
+    }
+    return queryColliderGrid(this.grid, x, z)
+  }
+}
+
+// Same idea, but for raycasting against real mesh geometry (ground-height
+// sampling) instead of testing against explicit Box3 colliders. Each mesh's
+// own world AABB (via Box3.setFromObject, computed once per rebuild - not
+// per frame) decides which cells it lands in. setFromObject can over-
+// estimate a rotated mesh's true footprint (the same caveat World.js notes
+// elsewhere), but that only ever adds a mesh to a few extra neighboring
+// cells, never drops it from the cell it actually belongs in - and the real
+// triangle-level raycast run afterward on this narrowed list is what
+// decides the actual hit, so a wider candidate net here can't produce a
+// wrong height, just a very slightly larger (and still tiny next to the
+// full array) candidate list to raycast against.
+const _meshGridBox = new THREE.Box3()
+
+export function buildMeshGrid(meshes, cellSize = COLLIDER_GRID_CELL_SIZE) {
+  const cells = new Map()
+  for (const mesh of meshes) {
+    _meshGridBox.setFromObject(mesh)
+    const cxMin = Math.floor(_meshGridBox.min.x / cellSize)
+    const cxMax = Math.floor(_meshGridBox.max.x / cellSize)
+    const czMin = Math.floor(_meshGridBox.min.z / cellSize)
+    const czMax = Math.floor(_meshGridBox.max.z / cellSize)
+    for (let cx = cxMin; cx <= cxMax; cx++) {
+      for (let cz = czMin; cz <= czMax; cz++) {
+        const key = cellKey(cx, cz)
+        let bucket = cells.get(key)
+        if (!bucket) {
+          bucket = []
+          cells.set(key, bucket)
+        }
+        bucket.push(mesh)
+      }
+    }
+  }
+  return { cells, cellSize }
+}
+
+export class CachedMeshGrid {
+  constructor(meshes, cellSize = COLLIDER_GRID_CELL_SIZE) {
+    this.meshes = meshes
+    this.cellSize = cellSize
+    this.grid = null
+    this.lastLength = -1
+  }
+
+  query(x, z) {
+    if (this.meshes.length !== this.lastLength) {
+      this.grid = buildMeshGrid(this.meshes, this.cellSize)
+      this.lastLength = this.meshes.length
     }
     return queryColliderGrid(this.grid, x, z)
   }

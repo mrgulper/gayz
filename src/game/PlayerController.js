@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js'
 import { getKeyFor } from './Keybinds.js'
-import { CachedColliderGrid } from './ColliderGrid.js'
+import { CachedColliderGrid, CachedMeshGrid } from './ColliderGrid.js'
 
 const EYE_HEIGHT = 1.7
 const CROUCH_EYE_HEIGHT = 1.05
@@ -61,6 +61,12 @@ export class PlayerController {
     // exact same reason.
     this._colliderGrid = new CachedColliderGrid(colliders)
     this.groundMeshes = groundMeshes || []
+    // Same performance fix as _colliderGrid above, for the ground/ceiling
+    // raycasts below - those used to raycast against the WHOLE groundMeshes
+    // array (900+ real meshes, actual triangle-level intersection, not just
+    // a box test) unconditionally every single frame regardless of whether
+    // the player was even moving. See ColliderGrid.js's CachedMeshGrid.
+    this._groundMeshGrid = new CachedMeshGrid(this.groundMeshes)
     this.camera = camera
 
     this.velocity = new THREE.Vector3()
@@ -117,6 +123,13 @@ export class PlayerController {
   // own per-frame footing check below.
   sampleGroundHeight(x, z) {
     return this._sampleGroundHeight(x, z, Infinity)
+  }
+
+  // Public wrapper so Game.js's third-person camera collision check can
+  // reuse the same narrowed candidate list instead of raycasting against
+  // the full groundMeshes array itself.
+  queryGroundMeshesNear(x, z) {
+    return this._groundMeshGrid.query(x, z)
   }
 
   resetPosition() {
@@ -189,7 +202,7 @@ export class PlayerController {
   _sampleGroundHeight(x, z, maxY) {
     this._rayOrigin.set(x, RAYCAST_ORIGIN_Y, z)
     this._raycaster.set(this._rayOrigin, this._rayDir)
-    const hits = this._raycaster.intersectObjects(this.groundMeshes, true)
+    const hits = this._raycaster.intersectObjects(this._groundMeshGrid.query(x, z), true)
     for (const hit of hits) {
       if (hit.point.y <= maxY) return hit.point.y
     }
@@ -292,7 +305,7 @@ export class PlayerController {
       this._ceilingRayOrigin.set(obj.position.x, obj.position.y + 0.3, obj.position.z)
       this._ceilingRaycaster.set(this._ceilingRayOrigin, this._upDir)
       this._ceilingRaycaster.far = ascend
-      const ceilingHits = this._ceilingRaycaster.intersectObjects(this.groundMeshes, true)
+      const ceilingHits = this._ceilingRaycaster.intersectObjects(this._groundMeshGrid.query(obj.position.x, obj.position.z), true)
       if (ceilingHits.length > 0) {
         obj.position.y = Math.max(obj.position.y, ceilingHits[0].point.y - 0.3)
         this.velocity.y = 0

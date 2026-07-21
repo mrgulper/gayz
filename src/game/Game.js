@@ -3443,7 +3443,7 @@ export class Game {
       this._tpRayDir.normalize()
       this._tpRaycaster.set(this.camera.position, this._tpRayDir)
       this._tpRaycaster.far = fullDist
-      const hits = this._tpRaycaster.intersectObjects(this.player.groundMeshes, true)
+      const hits = this._tpRaycaster.intersectObjects(this.player.queryGroundMeshesNear(this.camera.position.x, this.camera.position.z), true)
       if (hits.length > 0) dist = Math.max(0.3, hits[0].distance - 0.2)
     }
 
