@@ -25,6 +25,7 @@ export const ACTIONS = [
   { id: 'adrenaline', defaultKey: 'KeyY', labelKey: 'actionAdrenaline' },
   { id: 'emp', defaultKey: 'KeyU', labelKey: 'actionEmp' },
   { id: 'weaponWheel', defaultKey: 'KeyQ', labelKey: 'actionWeaponWheel' },
+  { id: 'toggleMap', defaultKey: 'KeyL', labelKey: 'actionToggleMap' },
   { id: 'screenshot', defaultKey: 'KeyP', labelKey: 'actionScreenshot' },
   { id: 'toggleView', defaultKey: 'KeyX', labelKey: 'actionToggleView' },
   { id: 'dodge', defaultKey: 'ShiftLeft', labelKey: 'actionDodge' },

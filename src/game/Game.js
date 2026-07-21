@@ -16,6 +16,7 @@ import { RivalManager } from './RivalScavenger.js'
 import { loadMastery, saveMastery, MASTERY_THRESHOLD, MASTERY_DAMAGE_MULT } from './WeaponMastery.js'
 import { BarricadeWindows, REPAIR_REWARD_POINTS } from './BarricadeWindows.js'
 import { Minimap } from './Minimap.js'
+import { FullMap } from './FullMap.js'
 import { DecalManager } from './Decals.js'
 import { Achievements, ACHIEVEMENTS } from './Achievements.js'
 import { rollPerks, checkPerkSynergies } from './Perks.js'
@@ -308,6 +309,11 @@ const BREAKER_BOX_RADIUS = 2.0
 const BREAKER_BOX_HOLD_SECONDS = 6
 const ROCKFALL_TRIGGER_RADIUS = 2.8
 const ROCKFALL_BURST_DAMAGE = 22
+// Stage 14's fog-of-war grid - must match the cell size FullMap.js and
+// Minimap.js's own fog overlay use, since they all read the same
+// discoveredCells Set of "cellX,cellZ" string keys.
+const EXPLORE_CELL_SIZE = 20
+const EXPLORE_REVEAL_RADIUS_CELLS = 2
 const LIGHT_LURE_RADIUS = 20
 const LIGHT_LURE_INTERVAL_MS = 2000
 const SAFE_ZONE_HEAL_PER_SEC = 6
@@ -1180,6 +1186,16 @@ export class Game {
     this.minimap = new Minimap(this.minimapCanvas)
     this._camDir = new THREE.Vector3()
 
+    // Stage 14 - fog-of-war full map. Per-run state (resets on a fresh
+    // `new Game()`, same as companion gear/shop purchases) rather than
+    // persisted - re-exploring the map each run fits this game's other
+    // per-run resets better than a permanent meta-unlock would.
+    this.discoveredCells = new Set()
+    this.mapOpen = false
+    this.fullMapPanel = document.getElementById('fullmap-panel')
+    this.fullMapCanvas = document.getElementById('fullmap-canvas')
+    this.fullMap = new FullMap(this.fullMapCanvas)
+
     const hud = {
       weaponName: document.getElementById('weapon-name'),
       ammo: document.getElementById('ammo'),
@@ -1484,13 +1500,30 @@ export class Game {
 
       if (e.code === 'Tab') {
         e.preventDefault()
+        if (this.mapOpen) return // don't let the inventory open on top of the map
         this.inventoryOpen = !this.inventoryOpen
         this.inventoryPanel.style.display = this.inventoryOpen ? 'flex' : 'none'
         if (this.inventoryOpen) this._refreshInventoryPanel()
         return
       }
 
-      if (this.inventoryOpen) return
+      if (e.code === getKeyFor('toggleMap')) {
+        if (this.inventoryOpen) return // don't let the map open on top of the inventory
+        this.mapOpen = !this.mapOpen
+        this.fullMapPanel.style.display = this.mapOpen ? 'flex' : 'none'
+        if (this.mapOpen) {
+          // Rendered once here, not every frame - gameplay (and the
+          // player's own position) freezes while mapOpen, same as the
+          // inventory panel already does, so nothing on the map can
+          // change while it's showing.
+          this.camera.getWorldDirection(this._camDir)
+          const facingRad = Math.atan2(this._camDir.x, -this._camDir.z)
+          this.fullMap.render(this.player.controls.object.position, facingRad, this.discoveredCells, EXPLORE_CELL_SIZE, this.newLocationLandmarks)
+        }
+        return
+      }
+
+      if (this.inventoryOpen || this.mapOpen) return
 
       if (e.code === getKeyFor('heal')) {
         if (this.inventory.useHealthPack()) {
@@ -4908,8 +4941,24 @@ export class Game {
       this.ammoStation,
       this.airdrop,
       this.zombies.wanderingHorde,
-      this.newLocationLandmarks
+      this.newLocationLandmarks,
+      this.discoveredCells,
+      EXPLORE_CELL_SIZE
     )
+  }
+
+  // Stage 14's fog-of-war - marks a small radius of cells around the player
+  // as discovered every frame. Cheap (a handful of Set.add calls over a
+  // fixed small radius, not scaled to the whole 750x750 map), so no need to
+  // throttle like this file's other timer-gated systems.
+  _updateExploration(playerPos) {
+    const cx = Math.floor(playerPos.x / EXPLORE_CELL_SIZE)
+    const cz = Math.floor(playerPos.z / EXPLORE_CELL_SIZE)
+    for (let dx = -EXPLORE_REVEAL_RADIUS_CELLS; dx <= EXPLORE_REVEAL_RADIUS_CELLS; dx++) {
+      for (let dz = -EXPLORE_REVEAL_RADIUS_CELLS; dz <= EXPLORE_REVEAL_RADIUS_CELLS; dz++) {
+        this.discoveredCells.add(`${cx + dx},${cz + dz}`)
+      }
+    }
   }
 
   // Announces a wandering horde exactly once per appearance (see
@@ -4948,7 +4997,7 @@ export class Game {
       this.vehicle.getDriverSeatWorld(this._vehicleSeatPos)
       this.camera.position.copy(this._vehicleSeatPos)
       this._updateVehicleRamming()
-    } else if (this.player.controls.isLocked && this.playerState.alive && !this.inventoryOpen && !this.perkPanelOpen && !this.traderPanelOpen && !this.xpLevelupPanelOpen) {
+    } else if (this.player.controls.isLocked && this.playerState.alive && !this.inventoryOpen && !this.perkPanelOpen && !this.traderPanelOpen && !this.xpLevelupPanelOpen && !this.mapOpen) {
       this.player.update(dt)
       this._updateThirdPerson()
       const isMoving = this.player.onGround && (
@@ -5074,6 +5123,7 @@ export class Game {
       this._updateBreakerBox(dt, playerPos)
       this._updateToxicWater(dt, playerPos)
       this._updateMineHazards(playerPos)
+      this._updateExploration(playerPos)
       this._updateVehicleProximity(playerPos)
       this._updateVireoTerminal(playerPos)
       this._updateStationTerminal(playerPos)

@@ -11,7 +11,7 @@ export class Minimap {
     this.size = canvas.width
   }
 
-  update(playerPos, facingRad, zombies, chestLandmarks, minigunLandmark, traderLandmark, ammoLandmark, airdropLandmark, hordeLandmark, extraLandmarks = []) {
+  update(playerPos, facingRad, zombies, chestLandmarks, minigunLandmark, traderLandmark, ammoLandmark, airdropLandmark, hordeLandmark, extraLandmarks = [], discoveredCells = null, cellSize = 20) {
     const ctx = this.ctx
     const s = this.size
     const cx = s / 2
@@ -27,6 +27,34 @@ export class Minimap {
 
     ctx.fillStyle = 'rgba(8, 12, 8, 0.55)'
     ctx.fillRect(0, 0, s, s)
+
+    // Stage 14's fog-of-war, at local radar scale: even within this small
+    // always-shown bubble, ground the player hasn't actually walked through
+    // yet stays solid black instead of the normal explored tint. Skipped
+    // entirely if the caller doesn't pass discoveredCells (keeps this class
+    // usable standalone/in tests without that dependency).
+    if (discoveredCells) {
+      const cellPx = cellSize * scale
+      const worldMinX = playerPos.x - RANGE
+      const worldMaxX = playerPos.x + RANGE
+      const worldMinZ = playerPos.z - RANGE
+      const worldMaxZ = playerPos.z + RANGE
+      const cellMinX = Math.floor(worldMinX / cellSize)
+      const cellMaxX = Math.floor(worldMaxX / cellSize)
+      const cellMinZ = Math.floor(worldMinZ / cellSize)
+      const cellMaxZ = Math.floor(worldMaxZ / cellSize)
+      ctx.fillStyle = 'rgba(4, 5, 4, 0.92)'
+      for (let cxi = cellMinX; cxi <= cellMaxX; cxi++) {
+        for (let czi = cellMinZ; czi <= cellMaxZ; czi++) {
+          if (discoveredCells.has(`${cxi},${czi}`)) continue
+          const wx = cxi * cellSize
+          const wz = czi * cellSize
+          const px = cx + (wx - playerPos.x) * scale
+          const py = cy + (wz - playerPos.z) * scale
+          ctx.fillRect(px, py, cellPx + 0.5, cellPx + 0.5)
+        }
+      }
+    }
 
     for (const c of chestLandmarks) {
       const px = cx + (c.x - playerPos.x) * scale
