@@ -1,5 +1,7 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { registerZone, clearZones } from './Zones.js'
+import { LOOT_WEIGHTS } from './Chests.js'
 
 // Cheap procedural grime: speckle noise + a handful of jagged crack/stain
 // strokes baked onto a canvas once, then tiled via RepeatWrapping. Replaces
@@ -223,6 +225,14 @@ export const WORLD_CULL_DISTANCE = 150
 export const WORLD_SHADOW_CULL_DISTANCE = 70
 
 export function buildWorld(scene, trophyCount = 15) {
+  // buildWorld only runs once per real Game instance today, but clearing
+  // defensively costs nothing and avoids ever silently accumulating
+  // duplicate zone entries if that ever changes (a same-session "restart
+  // run" reuses the existing Game instance and doesn't call this again, so
+  // this isn't reachable in practice yet - see ChestManager.reset()'s
+  // similar defensive pattern).
+  clearZones()
+
   const colliders = []
   const solidMeshes = []
   const flickerLights = []
@@ -469,6 +479,26 @@ export function buildWorld(scene, trophyCount = 15) {
 
   buildOuterZones(scene, register, cullables)
 
+  // Phase 1 of the Extended Metropolitan Grid plan - the first real
+  // blueprint location. Placed well clear of the commercial zone's own
+  // decorative building grid (roughly x=[130,190] z=[-27,27], see
+  // outerZoneBuildingSpecs/OUTER_ZONES above) so neither overlaps.
+  // "Med/high loot complexity" per the blueprint's own legend - consumables
+  // boosted rather than a flat re-roll of every entry.
+  const RETAIL_LOOT_WEIGHTS = { ...LOOT_WEIGHTS, health: 2, ammo: 1.5, fuelcan: 1 }
+
+  const supermarket = buildRetailStore(scene, register, {
+    x: 160, z: 60, w: 20, d: 14, aisleRows: 3, shelfLen: 4, rearDoor: true,
+  })
+  registerZone({ id: 'supermarket', x: 160, z: 60, radius: 14, densityMult: 1.4 })
+  towerChestSpots.push({ x: 160, y: 0, z: 60 + 3, lootWeights: RETAIL_LOOT_WEIGHTS })
+
+  const groceryStore = buildRetailStore(scene, register, {
+    x: 160, z: -60, w: 13, d: 10, aisleRows: 2, shelfLen: 2.8,
+  })
+  registerZone({ id: 'grocery', x: 160, z: -60, radius: 10, densityMult: 1.3 })
+  towerChestSpots.push({ x: 160, y: 0, z: -60 - 2, lootWeights: RETAIL_LOOT_WEIGHTS })
+
   return {
     colliders,
     solidMeshes,
@@ -488,6 +518,8 @@ export function buildWorld(scene, trophyCount = 15) {
     practiceTargets,
     trophyWall,
     cullables,
+    supermarket,
+    groceryStore,
   }
 }
 
@@ -1095,6 +1127,104 @@ function buildRoom(scene, register, spec) {
     ),
     doorSpots,
   }
+}
+
+// Phase 1 of the Extended Metropolitan Grid plan - a real walkable retail
+// interior (Supermarket + Grocery Store both call this, just with
+// different w/d/aisleRows) built from buildRoom()'s shell plus rows of
+// real shelf props the player has to walk around, not through - the first
+// named blueprint location, and the first real exercise of Phase 0's
+// buildRoom()/Zone infrastructure.
+const FOOD_PROP_SCALE = 0.3
+const SHELF_UNIT_W = 0.4
+
+function buildRetailStore(scene, register, spec) {
+  const {
+    x, z, w, d, wallHeight = 4,
+    doorSide = 'south', doorWidth = 2.4, rearDoor = false,
+    aisleRows = 3, shelfLen = 3.2,
+  } = spec
+
+  const doorSides = [{ side: doorSide, width: doorWidth }]
+  const rearSide = doorSide === 'south' ? 'north' : 'south'
+  if (rearDoor) doorSides.push({ side: rearSide, width: doorWidth })
+
+  const room = buildRoom(scene, register, { x, z, w, d, wallHeight, doorSides })
+
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0xcac6ba, roughness: 0.85 })
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, d - 0.6), floorMat)
+  floor.rotation.x = -Math.PI / 2
+  floor.position.set(x, 0.02, z)
+  floor.receiveShadow = true
+  scene.add(floor)
+
+  const shelfModel = _propModelCache.get('shelf.glb')
+  const foodFiles = ['food-can.glb', 'food-carton.glb', 'food-bottle.glb', 'food-bread.glb', 'food-bag.glb']
+  const unitsPerRow = Math.max(1, Math.round(shelfLen / SHELF_UNIT_W))
+  const rowRunLen = unitsPerRow * SHELF_UNIT_W
+  const rowSpacing = (d - 3) / (aisleRows + 1)
+
+  for (let i = 1; i <= aisleRows; i++) {
+    const rowZ = z - d / 2 + rowSpacing * i
+    const rowGroup = new THREE.Group()
+
+    if (shelfModel) {
+      for (let u = 0; u < unitsPerRow; u++) {
+        const clone = shelfModel.clone(true)
+        clone.position.set(-rowRunLen / 2 + u * SHELF_UNIT_W, 0, 0.125)
+        clone.traverse((child) => {
+          if (!child.isMesh) return
+          child.castShadow = true
+          child.receiveShadow = true
+          child.material = child.material.clone()
+        })
+        rowGroup.add(clone)
+      }
+    }
+    rowGroup.position.set(x, 0, rowZ)
+    scene.add(rowGroup)
+    register(rowGroup, new THREE.Box3(
+      new THREE.Vector3(x - rowRunLen / 2, 0, rowZ),
+      new THREE.Vector3(x + rowRunLen / 2, 0.9, rowZ + 0.25)
+    ))
+
+    // Food dressing along the row's front face, not on every collider box.
+    for (let u = 0; u < unitsPerRow; u += 2) {
+      const foodModel = _propModelCache.get(foodFiles[(i + u) % foodFiles.length])
+      if (!foodModel) continue
+      const foodClone = foodModel.clone(true)
+      foodClone.scale.setScalar(FOOD_PROP_SCALE)
+      foodClone.position.set(x - rowRunLen / 2 + u * SHELF_UNIT_W + 0.2, 0.35, rowZ + 0.13)
+      foodClone.traverse((child) => {
+        if (!child.isMesh) return
+        child.castShadow = true
+        child.material = child.material.clone()
+      })
+      scene.add(foodClone)
+    }
+  }
+
+  // Checkout counter just inside the main entrance.
+  const counterModel = _propModelCache.get('counter.glb')
+  if (counterModel) {
+    const counterZ = doorSide === 'south' ? z - d / 2 + 1.3 : z + d / 2 - 1.3
+    const counterX = x - w / 2 + 1.1
+    const counter = counterModel.clone(true)
+    counter.position.set(counterX - 0.36, 0, counterZ - 0.2)
+    counter.traverse((child) => {
+      if (!child.isMesh) return
+      child.castShadow = true
+      child.receiveShadow = true
+      child.material = child.material.clone()
+    })
+    scene.add(counter)
+    register(counter, new THREE.Box3(
+      new THREE.Vector3(counterX - 0.4, 0, counterZ - 0.4),
+      new THREE.Vector3(counterX + 0.4, 0.5, counterZ + 0.05)
+    ))
+  }
+
+  return room
 }
 
 function buildTargetTexture() {
@@ -2193,6 +2323,7 @@ const PROP_MODEL_FILES = [
   'barrel.glb', 'streetlight.glb', 'bench.glb', 'dumpster.glb', 'trafficcone.glb',
   'roadblock.glb', 'atm.glb', 'mailbox.glb', 'payphone.glb', 'busstop.glb',
   'trashbin.glb', 'waterbarrel.glb', 'cabledrum.glb', 'traderstall.glb', 'ammostation.glb',
+  'shelf.glb', 'counter.glb', 'food-can.glb', 'food-carton.glb', 'food-bottle.glb', 'food-bread.glb', 'food-bag.glb',
 ]
 const _propModelCache = new Map()
 
