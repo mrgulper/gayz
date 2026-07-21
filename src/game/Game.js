@@ -791,7 +791,7 @@ export class Game {
     this.composer.addPass(this.bloomPass)
     this.composer.addPass(new OutputPass())
 
-    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop } = buildWorld(this.scene, ACHIEVEMENTS.length)
+    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint } = buildWorld(this.scene, ACHIEVEMENTS.length)
     this.cullables = cullables
     this.supermarket = supermarket
     this.groceryStore = groceryStore
@@ -799,12 +799,27 @@ export class Game {
     this.pharmacy = pharmacy
     this.hardwareStore = hardwareStore
     this.gunShop = gunShop
+    this.policeStation = policeStation
+    this.militaryCheckpoint = militaryCheckpoint
     // Kept for _deployBarricade - both PlayerController and ZombieManager
     // hold this exact same array by reference (not a copy), so pushing a
     // new collider here is immediately respected by both without needing
     // to reconstruct anything.
     this.colliders = colliders
     this.solidMeshes = solidMeshes
+    // Stage 4's "reinforced entry" - each entry starts locked (a real
+    // collider blocking the doorway, pushed into colliders/solidMeshes
+    // above, not just a closed-looking mesh) until the player interacts
+    // with it in range. Same dynamic-collider-removal pattern as
+    // _removeDeathObstacle - splice the box back out on unlock instead of
+    // rebuilding the whole colliders array.
+    this.lockedCells = [policeStation.cellDoor]
+    for (const cell of this.lockedCells) {
+      cell.locked = true
+      this.colliders.push(cell.box)
+      this.solidMeshes.push(cell.mesh)
+    }
+    this.nearLockedCell = null
     this.trophyWall = trophyWall
     this.barricades = []
     this.hazardZones = []
@@ -1464,6 +1479,8 @@ export class Game {
           }
         } else if (this.nearVault) {
           this._openVault()
+        } else if (this.nearLockedCell) {
+          this._tryOpenLockedCell()
         } else if (this.nearTrophyWall) {
           this._showTrophyWallSummary()
         } else {
@@ -4129,6 +4146,43 @@ export class Game {
     this.nearVault = this.vault.isNear(playerPos)
   }
 
+  // Stage 4's "reinforced entry" - unlike the Vault (which needs a
+  // dedicated key item), these just need the player in range and the
+  // interact key pressed, matching a "basic" security tier rather than the
+  // Vault's one-off "hunt down the key" loop.
+  _updateLockedCells(playerPos) {
+    let nearest = null
+    let nearestDist = 2.2
+    for (const cell of this.lockedCells) {
+      if (!cell.locked) continue
+      const dist = Math.hypot(playerPos.x - cell.x, playerPos.z - cell.z)
+      if (dist < nearestDist) {
+        nearest = cell
+        nearestDist = dist
+      }
+    }
+    this.nearLockedCell = nearest
+  }
+
+  _tryOpenLockedCell() {
+    const cell = this.nearLockedCell
+    if (!cell || !cell.locked) return
+    cell.locked = false
+    // Same dynamic-collider-removal pattern as _removeDeathObstacle.
+    const ci = this.colliders.indexOf(cell.box)
+    if (ci !== -1) this.colliders.splice(ci, 1)
+    const si = this.solidMeshes.indexOf(cell.mesh)
+    if (si !== -1) this.solidMeshes.splice(si, 1)
+    cell.mesh.visible = false
+    cell.indicatorMat.color.setHex(0x0a2a0a)
+    cell.indicatorMat.emissive.setHex(0x2aff3e)
+    cell.indicatorMat.emissiveIntensity = 0.6
+    this.nearLockedCell = null
+    // Guaranteed weapon-tier reward for breaking in, same weapon-only
+    // weighting the gun shop/hardware store chests use.
+    this.chests.addChest(cell.x, 0, cell.z, { rare_weapon: 10, legendary_weapon: 3 })
+  }
+
   // Phase 6 of the 3D asset overhaul - the new outer zones (see World.js's
   // buildOuterZones) made the map's real object count several times bigger
   // than the old ~80x80 core, so everything registered via buildWorld's
@@ -4766,6 +4820,7 @@ export class Game {
       this._updateCulling(playerPos)
       this.chests.update(dt, elapsed, playerPos)
       this._updateVault(dt, playerPos)
+      this._updateLockedCells(playerPos)
       this._updateTrophyWallProximity(playerPos)
       this._updateGenerator(dt, playerPos)
       this._updateTrader(playerPos)
@@ -4821,6 +4876,9 @@ export class Game {
         this.interactPrompt.style.display = 'block'
       } else if (this.nearVault) {
         this.interactPrompt.innerHTML = tHtml(this.inventory.vaultKey ? 'interactVaultUnlock' : 'interactVaultLocked')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearLockedCell) {
+        this.interactPrompt.innerHTML = tHtml('interactLockedCell')
         this.interactPrompt.style.display = 'block'
       } else if (this.nearTrophyWall) {
         this.interactPrompt.innerHTML = tHtml('interactTrophyWall')

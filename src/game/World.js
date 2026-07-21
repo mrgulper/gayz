@@ -535,6 +535,19 @@ export function buildWorld(scene, trophyCount = 15) {
   registerZone({ id: 'gunshop', x: 145, z: -100, radius: 8, densityMult: 1.4 })
   towerChestSpots.push({ x: 145, y: 0, z: -100, lootWeights: WEAPON_ONLY_LOOT_WEIGHTS })
 
+  // Stage 4: Police Station + Military Checkpoint, one more block south
+  // along the x=160 strip. "Fortresses" per the blueprint's own zone name -
+  // highest density so far, and the first "reinforced entry" (a real
+  // lockable door, not just dressing - see Game.js's lockedCells wiring
+  // right after buildWorld() returns).
+  const policeStation = buildPoliceStation(scene, register, 160, -115)
+  registerZone({ id: 'police', x: 160, z: -121, radius: 16, densityMult: 1.6 })
+  towerChestSpots.push({ x: 160, y: 0, z: -116, lootWeights: WEAPON_ONLY_LOOT_WEIGHTS })
+
+  const militaryCheckpoint = buildMilitaryCheckpoint(scene, register, 140, -115)
+  registerZone({ id: 'checkpoint', x: 140, z: -115, radius: 8, densityMult: 1.4 })
+  towerChestSpots.push({ x: 140, y: 0, z: -112, lootWeights: WEAPON_ONLY_LOOT_WEIGHTS })
+
   return {
     colliders,
     solidMeshes,
@@ -560,6 +573,8 @@ export function buildWorld(scene, trophyCount = 15) {
     pharmacy,
     hardwareStore,
     gunShop,
+    policeStation,
+    militaryCheckpoint,
   }
 }
 
@@ -1427,6 +1442,138 @@ function buildGunShop(scene, register, x, z) {
   }
 
   return room
+}
+
+// Stage 4 of the Extended Metropolitan Grid plan - the first real
+// "reinforced entry" location. The holding cell's door starts locked (a
+// real physical collider blocking the gap, not just a visual), and Game.js
+// wires up the actual lock state (see Game.js's lockedCells array/
+// _tryOpenLockedCell) reusing the exact same dynamic-collider-removal
+// pattern already used for death obstacles (push a Box3 into colliders/
+// solidMeshes while locked, splice it back out on unlock) rather than
+// building a new removal mechanism from scratch.
+function buildPoliceStation(scene, register, x, z) {
+  const w = 8
+  const receptionD = 6
+  const corridorD = 6
+  const cellD = 6
+  const doorGap = 2.0
+
+  // z is the reception's own center, and it's the NORTH-most (closest to
+  // the rest of the map, at z=-100's hardware store) part of this building
+  // - the corridor and cell extend further SOUTH into open ground, so the
+  // reception's real door faces the direction a player actually arrives
+  // from instead of making them walk around the whole building.
+  const receptionZ = z
+  const corridorZ = receptionZ - receptionD / 2 - corridorD / 2
+  const cellZ = corridorZ - corridorD / 2 - cellD / 2
+
+  buildRoom(scene, register, {
+    x, z: receptionZ, w, d: receptionD,
+    doorSides: [{ side: 'north', width: 2.4 }],
+    openSides: ['south'],
+  })
+  buildRoom(scene, register, {
+    x, z: corridorZ, w, d: corridorD,
+    openSides: ['south', 'north'],
+  })
+  // The cell room's north side is deliberately NOT in openSides - it's
+  // real solid wall on both sides of the gap the lockable door itself
+  // fills, so the door is the only way through, matching a holding cell's
+  // actual security feel (a corridor's usual full-open join would defeat
+  // the point of "locked").
+  buildRoom(scene, register, {
+    x, z: cellZ, w, d: cellD,
+    doorSides: [{ side: 'north', width: doorGap }],
+  })
+
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x33342e, roughness: 0.8 })
+  const totalD = receptionD + corridorD + cellD
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, totalD - 0.6), floorMat)
+  floor.rotation.x = -Math.PI / 2
+  floor.position.set(x, 0.02, receptionZ + receptionD / 2 - totalD / 2)
+  floor.receiveShadow = true
+  scene.add(floor)
+
+  placePropSimple(scene, register, 'counter.glb', x - 2, receptionZ - 1, 0)
+  placePropSimple(scene, register, 'waiting-chair.glb', x + 1.8, receptionZ + 1, Math.PI, 1, false)
+  // Armor/evidence locker in the corridor - the medical cabinet model
+  // re-tinted dark olive instead of medical white, cheaper than sourcing a
+  // whole separate police-props pack for one locker shape.
+  const lockerModel = placePropSimple(scene, register, 'medical-cabinet.glb', x + w / 2 - 0.5, corridorZ, -Math.PI / 2)
+  if (lockerModel) {
+    lockerModel.traverse((child) => {
+      if (child.isMesh) child.material.color.setHex(0x3a3d2a)
+    })
+  }
+  placePropSimple(scene, register, 'hospital-bed.glb', x - 1.5, cellZ - 1.5, 0)
+
+  // The lockable cell door itself - a solid slab filling the gap in the
+  // cell's north wall (facing the corridor), plus a small status light
+  // matching the chest/vault red-locked/green-unlocked convention.
+  const doorZ = cellZ + cellD / 2
+  const doorMat = new THREE.MeshStandardMaterial({ color: 0x232320, roughness: 0.6, metalness: 0.5 })
+  const doorMesh = new THREE.Mesh(new THREE.BoxGeometry(doorGap, 2.6, 0.15), doorMat)
+  doorMesh.position.set(x, 1.3, doorZ)
+  doorMesh.castShadow = true
+  scene.add(doorMesh)
+  doorMesh.updateWorldMatrix(true, false)
+  const doorBox = new THREE.Box3().setFromObject(doorMesh)
+
+  const indicatorMat = new THREE.MeshStandardMaterial({ color: 0x1a0505, emissive: 0xff2a1e, emissiveIntensity: 0.9 })
+  const light = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 10), indicatorMat)
+  light.position.set(x, 2.3, doorZ + 0.1)
+  scene.add(light)
+
+  return {
+    x, z: receptionZ,
+    cellDoor: { x, z: doorZ, mesh: doorMesh, box: doorBox, indicatorMat },
+  }
+}
+
+// Open-air structure (no buildRoom shell needed) - sandbag walls flanking a
+// barrier gate, same sandbagMat approach buildSafeZone already uses for its
+// own watchtower posts, plus a couple of procedural tent shapes (flat-color
+// primitives matching this game's established "no texture needed for small
+// set-dressing" style, same as the trader stall's tarp awning).
+function buildMilitaryCheckpoint(scene, register, x, z) {
+  const sandbagMat = new THREE.MeshStandardMaterial({ color: 0x5a5138, roughness: 1 })
+  const tentMat = new THREE.MeshStandardMaterial({ color: 0x3a4a34, roughness: 0.9 })
+  const barrierMat = new THREE.MeshStandardMaterial({ color: 0xb0331a, roughness: 0.7, metalness: 0.2 })
+
+  for (const side of [-1, 1]) {
+    const wallX = x + side * 2.2
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.9, 0.9), sandbagMat)
+    wall.position.set(wallX, 0.45, z)
+    wall.castShadow = true
+    wall.receiveShadow = true
+    scene.add(wall)
+    register(wall)
+  }
+
+  const barrier = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.12, 0.12), barrierMat)
+  barrier.position.set(x, 0.85, z)
+  barrier.castShadow = true
+  scene.add(barrier)
+
+  for (const [dx, dz] of [[-3, 2.5], [3, 2.2]]) {
+    const tent = new THREE.Group()
+    tent.position.set(x + dx, 0, z + dz)
+    const base = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.1, 2.2), tentMat)
+    base.position.y = 0.55
+    base.castShadow = true
+    base.receiveShadow = true
+    tent.add(base)
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(1.7, 0.8, 4), tentMat)
+    roof.position.y = 1.5
+    roof.rotation.y = Math.PI / 4
+    roof.castShadow = true
+    tent.add(roof)
+    scene.add(tent)
+    register(base)
+  }
+
+  return { x, z }
 }
 
 function buildTargetTexture() {

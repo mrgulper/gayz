@@ -195,6 +195,7 @@ const STRINGS = {
     interactVaultLocked: 'Locked Vault - needs a key',
     interactVaultUnlock: 'Press **F** to unlock the Vault',
     interactTrophyWall: 'Press **F** to check the Trophy Wall',
+    interactLockedCell: 'Press **F** to force the locked cell door',
     interactRevive: 'Press **F** to revive companion',
     interactTrader: 'Click the trader to trade',
     interactEnterVehicle: 'Press **F** to drive',
