@@ -576,6 +576,15 @@ export function buildWorld(scene, trophyCount = 15) {
   const skyscraper = buildOfficeSkyscraper(scene, colliders, solidMeshes, register, 250, 0, towerChestSpots)
   registerZone({ id: 'skyscraper', x: 250, z: 0, radius: 20, densityMult: 1.3 })
 
+  // Stage 9: Mega-Mall, south of the skyscraper along the same x=250
+  // column - 90+ units of z-clearance.
+  const megaMall = buildMegaMall(scene, register, 250, -100)
+  registerZone({ id: 'megamall', x: 250, z: -100, radius: 25, densityMult: 1.5 })
+  for (const spot of megaMall.chestSpots) {
+    const lootWeights = spot.loot === 'weapon' ? WEAPON_ONLY_LOOT_WEIGHTS : spot.loot === 'retail' ? RETAIL_LOOT_WEIGHTS : undefined
+    towerChestSpots.push({ x: spot.x, y: 0, z: spot.z, lootWeights })
+  }
+
   return {
     colliders,
     solidMeshes,
@@ -606,6 +615,7 @@ export function buildWorld(scene, trophyCount = 15) {
     prison,
     university,
     skyscraper,
+    megaMall,
   }
 }
 
@@ -1888,6 +1898,59 @@ function buildOfficeSkyscraper(scene, colliders, solidMeshes, register, x, z, to
   const bunkerDoor = buildLockableDoor(scene, bunkerDoorX, z, 1.8, 'z')
 
   return { x, z, bunkerDoor }
+}
+
+// Stage 9 of the Extended Metropolitan Grid plan - "Mega-Mall": Stage 1's
+// retail-store pattern rerun at bigger scale, three separate anchor stores
+// sharing one open plaza instead of one flat re-roll of a single store.
+// Composition/scale exercise only, per the plan's own framing - no new
+// system, just buildRetailStore called 3 times with different dressing.
+function buildMegaMall(scene, register, x, z) {
+  const plazaZ = z
+  const storesZ = z - 15
+
+  const stores = [
+    { dx: -20, w: 14, d: 11, aisleRows: 3, shelfLen: 3.6, dressingFiles: DEFAULT_DRESSING_FILES, loot: null, id: 'mall-food' },
+    { dx: 0, w: 12, d: 10, aisleRows: 2, shelfLen: 3, dressingFiles: ['tool-hammer.glb', 'tool-crowbar.glb', 'tool-tireiron.glb'], loot: 'weapon', id: 'mall-hardware' },
+    { dx: 20, w: 12, d: 10, aisleRows: 2, shelfLen: 3, dressingFiles: DEFAULT_DRESSING_FILES, loot: 'retail', id: 'mall-general' },
+  ]
+
+  const chestSpots = []
+  for (const store of stores) {
+    const sx = x + store.dx
+    buildRetailStore(scene, register, {
+      x: sx, z: storesZ, w: store.w, d: store.d,
+      aisleRows: store.aisleRows, shelfLen: store.shelfLen,
+      dressingFiles: store.dressingFiles,
+    })
+    chestSpots.push({ x: sx, z: storesZ + 3, id: store.id, loot: store.loot })
+  }
+
+  // Shared open plaza south of the stores - paved ground, benches, and a
+  // couple of streetlights, no walls at all (it's the mall's own "common
+  // area", not another enclosed room).
+  const plazaMat = new THREE.MeshStandardMaterial({ color: 0xb8b0a0, roughness: 0.75 })
+  const plaza = new THREE.Mesh(new THREE.PlaneGeometry(52, 20), plazaMat)
+  plaza.rotation.x = -Math.PI / 2
+  plaza.position.set(x, 0.015, plazaZ)
+  plaza.receiveShadow = true
+  scene.add(plaza)
+
+  const benchModel = _propModelCache.get('bench.glb')
+  for (const bx of [-10, 10]) {
+    if (!benchModel) break
+    const clone = benchModel.clone(true)
+    clone.position.set(x + bx, 0, plazaZ + 5)
+    clone.rotation.y = Math.PI
+    clone.traverse((child) => {
+      if (!child.isMesh) return
+      child.castShadow = true
+      child.material = child.material.clone()
+    })
+    scene.add(clone)
+  }
+
+  return { x, z: plazaZ, chestSpots }
 }
 
 function buildTargetTexture() {
