@@ -311,13 +311,21 @@ export function buildWorld(scene, trophyCount = 15) {
   const groundBumpTex = getSharedBumpTexture().clone()
   groundBumpTex.needsUpdate = true
   groundBumpTex.repeat.set(groundSize / 3, groundSize / 3)
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(groundSize, groundSize),
-    new THREE.MeshStandardMaterial({ map: groundTex, bumpMap: groundBumpTex, bumpScale: 0.06, roughness: 1 })
+  // This is the surface PlayerController._sampleGroundHeight raycasts
+  // against for standing height - a plain, hole-less PlaneGeometry here
+  // would physically stop the player at y=0 above either underground
+  // stairwell no matter how the stairs themselves look, since this plane
+  // sits above (and would occlude/support-block) the actual steps. Cutting
+  // the same two holes used for the park's grass/plaza here is what lets
+  // the player's own floor-raycast fall through onto the real stair steps
+  // instead.
+  const ground = buildGroundPlaneWithHoles(
+    scene,
+    new THREE.MeshStandardMaterial({ map: groundTex, bumpMap: groundBumpTex, bumpScale: 0.06, roughness: 1 }),
+    0, 0, groundSize, groundSize,
+    [UNDERGROUND_HOLE_SUBWAY, UNDERGROUND_HOLE_NEW_ENTRANCE],
+    0
   )
-  ground.rotation.x = -Math.PI / 2
-  ground.receiveShadow = true
-  scene.add(ground)
   solidMeshes.push(ground) // walkable ground for the player's floor-height raycast
 
   addStreetMarkings(scene)
@@ -690,28 +698,88 @@ const PARK_Z_START = 52
 const PARK_Z_END = 72
 const PARK_HALF_WIDTH = 22
 
+// Generic ground plane with 0+ rectangular holes actually cut out of the
+// mesh (a THREE.Shape + Path holes, not just another opaque layer stacked on
+// top) - the only way for a camera above to see, and a player to walk,
+// straight down into whatever sits below. px/pz is the plane's own center
+// (same convention as PlaneGeometry + position.set); holeRectsWorld are
+// rectangles in WORLD x/z, converted to the shape's local (pre-rotation) x/y
+// via localX = worldX - px, localY = pz - worldZ (verified against the
+// mesh's real matrixWorld with a standalone three.js script before use, both
+// by forward-transforming these corners back to the expected world rect and
+// by raycasting through a known hole center vs. known solid ground).
+function buildGroundPlaneWithHoles(scene, material, px, pz, width, depth, holeRectsWorld, meshY) {
+  const shape = new THREE.Shape()
+  shape.moveTo(-width / 2, -depth / 2)
+  shape.lineTo(width / 2, -depth / 2)
+  shape.lineTo(width / 2, depth / 2)
+  shape.lineTo(-width / 2, depth / 2)
+  shape.closePath()
+  for (const r of holeRectsWorld) {
+    const xMin = r.xMin - px
+    const xMax = r.xMax - px
+    const yMin = pz - r.zMax
+    const yMax = pz - r.zMin
+    const hole = new THREE.Path()
+    hole.moveTo(xMin, yMin)
+    hole.lineTo(xMax, yMin)
+    hole.lineTo(xMax, yMax)
+    hole.lineTo(xMin, yMax)
+    hole.closePath()
+    shape.holes.push(hole)
+  }
+  const geo = new THREE.ShapeGeometry(shape)
+  const mesh = new THREE.Mesh(geo, material)
+  mesh.rotation.x = -Math.PI / 2
+  mesh.position.set(px, meshY, pz)
+  mesh.receiveShadow = true
+  scene.add(mesh)
+  return mesh
+}
+
 function buildPark(scene, colliders, solidMeshes) {
   const centerZ = (PARK_Z_START + PARK_Z_END) / 2
   const depth = PARK_Z_END - PARK_Z_START
+  const undergroundHoles = [UNDERGROUND_HOLE_SUBWAY, UNDERGROUND_HOLE_NEW_ENTRANCE]
 
   const grassMat = new THREE.MeshStandardMaterial({ color: 0x2c3a24, roughness: 1 })
-  const grass = new THREE.Mesh(new THREE.PlaneGeometry(PARK_HALF_WIDTH * 2, depth), grassMat)
-  grass.rotation.x = -Math.PI / 2
-  grass.position.set(0, 0.01, centerZ)
-  grass.receiveShadow = true
-  scene.add(grass)
+  buildGroundPlaneWithHoles(scene, grassMat, 0, centerZ, PARK_HALF_WIDTH * 2, depth, undergroundHoles, 0.01)
 
+  // Path is narrower than the grass (4 wide, x -2..2) - only the subway hole
+  // (centered on the path's own x=0) actually falls inside it, clamped a
+  // little short of the path's own edges so the hole never touches (let
+  // alone exceeds) the outer boundary it's cut from.
   const pathMat = new THREE.MeshStandardMaterial({ color: 0x4a463c, roughness: 1 })
-  const path = new THREE.Mesh(new THREE.PlaneGeometry(4, depth), pathMat)
-  path.rotation.x = -Math.PI / 2
-  path.position.set(0, 0.015, centerZ)
-  scene.add(path)
+  const pathHole = { xMin: -1.9, xMax: 1.9, zMin: UNDERGROUND_HOLE_SUBWAY.zMin, zMax: UNDERGROUND_HOLE_SUBWAY.zMax }
+  buildGroundPlaneWithHoles(scene, pathMat, 0, centerZ, 4, depth, [pathHole], 0.015)
+
+  // Paved plaza (regular street asphalt, not park grass) covering both
+  // underground entrances - per direct user feedback that a small patch
+  // still read as "part of the park", this clears a proper stretch of
+  // regular ground around both stairwells instead.
+  const plazaTex = new THREE.TextureLoader().load('/textures/ground-asphalt.png')
+  plazaTex.wrapS = THREE.RepeatWrapping
+  plazaTex.wrapT = THREE.RepeatWrapping
+  plazaTex.colorSpace = THREE.SRGBColorSpace
+  plazaTex.repeat.set(UNDERGROUND_PLAZA.w / 12, UNDERGROUND_PLAZA.d / 12)
+  const plazaMat = new THREE.MeshStandardMaterial({ map: plazaTex, roughness: 1 })
+  buildGroundPlaneWithHoles(
+    scene, plazaMat, UNDERGROUND_PLAZA.x, UNDERGROUND_PLAZA.z, UNDERGROUND_PLAZA.w, UNDERGROUND_PLAZA.d,
+    undergroundHoles, 0.02
+  )
 
   const trunkMat = new THREE.MeshStandardMaterial({ color: 0x2a1f16, roughness: 1 })
   const leafMat = new THREE.MeshStandardMaterial({ color: 0x3a4d2a, roughness: 0.9 })
+  // Excludes any tree that used to crowd right up against either stairwell
+  // (see the reference-photo feedback that trees/grass right next to the
+  // kiosks still read as "the park", not a real stairwell plaza).
   const treeSpots = [
     [-14, 56], [14, 58], [-9, 63], [10, 66], [-16, 69], [16, 61], [-5, 70], [6, 54],
-  ]
+  ].filter(([x, z]) => {
+    const nearSubway = Math.hypot(x - SUBWAY_PARK_ENTRANCE_X, z - 58.75) < 10
+    const nearNewEntrance = Math.hypot(x - NEW_UNDERGROUND_ENTRANCE_X, z - 55.85) < 10
+    return !nearSubway && !nearNewEntrance
+  })
   for (const [x, z] of treeSpots) {
     const tree = new THREE.Group()
     tree.position.set(x, 0, z)
@@ -2777,26 +2845,6 @@ function buildSubway(scene, colliders, solidMeshes, flickerLights) {
   return { chestSpot: { x: SUBWAY_X, y: SUBWAY_FLOOR_Y, z: SUBWAY_Z_START + 3 } }
 }
 
-// A paved clearing dropped on top of the park's own grass plane, reusing
-// the same asphalt ground texture/tiling density the main outdoor ground
-// uses - so a station entrance reads as "the pavement continues here,"
-// not a patch of park. Just above the grass (wins the depth test there),
-// same non-collidable trick as the old opening-patch fix, but properly
-// textured instead of a flat dark rectangle.
-function buildPavedClearing(scene, x, z, w, d) {
-  const tex = new THREE.TextureLoader().load('/textures/ground-asphalt.png')
-  tex.wrapS = THREE.RepeatWrapping
-  tex.wrapT = THREE.RepeatWrapping
-  tex.colorSpace = THREE.SRGBColorSpace
-  tex.repeat.set(w / 12, d / 12)
-  const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 1 })
-  const clearing = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat)
-  clearing.rotation.x = -Math.PI / 2
-  clearing.position.set(x, 0.02, z)
-  clearing.receiveShadow = true
-  scene.add(clearing)
-}
-
 // A real-looking staircase (concrete side walls, handrails, wide light-
 // colored steps with a darker front-edge line per step) rather than the
 // bare dark boxes buildStairFlight produces on its own - built specifically
@@ -2903,11 +2951,10 @@ function buildSubwayParkEntrance(scene, colliders, solidMeshes, flickerLights) {
     post.castShadow = true
     scene.add(post)
   }
-  // Paved clearing instead of park grass right at the entrance, per the
-  // user's own request after the first fix (a flat dark patch) still
-  // didn't read as real stairs - the ground here should look like it
-  // belongs to the same pavement as the rest of the map, not the park.
-  buildPavedClearing(scene, SUBWAY_PARK_ENTRANCE_X, SUBWAY_PARK_ENTRANCE_Z + 0.5, kioskHalfW * 2 + 2, 6)
+  // Paved plaza + the actual hole in the ground are built once, centrally,
+  // in buildPark (see UNDERGROUND_PLAZA/UNDERGROUND_HOLE_SUBWAY) - a patch
+  // dropped on top here would just re-cover the opening like the last two
+  // fix attempts did.
   // Readable "SUBWAY" + down-arrow text via a canvas texture, same technique
   // as the VIREO terminal screen (see buildVireoFacility) - a plain emissive
   // box with no text on it doesn't actually tell a player what's down here.
@@ -2977,6 +3024,28 @@ const NEW_UNDERGROUND_ENTRANCE_X = SUBWAY_PARK_ENTRANCE_X + 9
 const NEW_UNDERGROUND_ENTRANCE_Z = 59
 const NEW_UNDERGROUND_LANDING_Y = SUBWAY_FLOOR_Y // same depth convention as the existing subway, i.e. "Level -1"
 
+// Real holes cut into the park's ground plane (see buildGroundPlaneWithHoles,
+// used from buildPark) so these two stairwells actually look and play like a
+// hole you walk down into, instead of a solid ground plane sitting on top of
+// buried stair geometry - a flat dark patch and then a solid paved patch were
+// both tried first and both still fully hid the stairs, since neither one
+// was an actual gap in the mesh. Half-widths are kept a bit narrower than
+// each kiosk's own corner-post spacing (2.85 < the subway kiosk's 3.05,
+// 1.5 < the new entrance's 1.6) so the support posts still land on solid
+// ground/pavement at the edges rather than hanging out over open air.
+const UNDERGROUND_HOLE_SUBWAY = {
+  xMin: SUBWAY_PARK_ENTRANCE_X - 2.85, xMax: SUBWAY_PARK_ENTRANCE_X + 2.85,
+  zMin: SUBWAY_PARK_LANDING_Z - 2, zMax: SUBWAY_PARK_ENTRANCE_Z + 0.5,
+}
+const UNDERGROUND_HOLE_NEW_ENTRANCE = {
+  xMin: NEW_UNDERGROUND_ENTRANCE_X - 1.5, xMax: NEW_UNDERGROUND_ENTRANCE_X + 1.5,
+  zMin: 52.2, zMax: NEW_UNDERGROUND_ENTRANCE_Z + 0.5,
+}
+// One shared paved plaza (regular street-style ground instead of park grass)
+// covering both entrances plus the trees that used to crowd right up against
+// them, sized to comfortably contain both holes above.
+const UNDERGROUND_PLAZA = { x: 3.75, z: 57, w: 18.5, d: 11 }
+
 function buildNewUndergroundEntrance(scene, colliders, solidMeshes, flickerLights) {
   const x = NEW_UNDERGROUND_ENTRANCE_X
   const z = NEW_UNDERGROUND_ENTRANCE_Z
@@ -2997,10 +3066,8 @@ function buildNewUndergroundEntrance(scene, colliders, solidMeshes, flickerLight
     scene.add(post)
   }
 
-  // Paved clearing instead of park grass right at the entrance - a flat
-  // dark patch (the first fix attempted here) didn't actually read as
-  // real stairs, per direct user feedback after checking it in-game.
-  buildPavedClearing(scene, x, z - 1, shaftHalfW * 2 + 2, 6)
+  // Paved plaza + the actual hole in the ground are built once, centrally,
+  // in buildPark (see UNDERGROUND_PLAZA/UNDERGROUND_HOLE_NEW_ENTRANCE).
 
   const signCanvas = document.createElement('canvas')
   signCanvas.width = 512
