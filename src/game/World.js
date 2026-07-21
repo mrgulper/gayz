@@ -323,7 +323,7 @@ export function buildWorld(scene, trophyCount = 15) {
     scene,
     new THREE.MeshStandardMaterial({ map: groundTex, bumpMap: groundBumpTex, bumpScale: 0.06, roughness: 1 }),
     0, 0, groundSize, groundSize,
-    [UNDERGROUND_HOLE_SUBWAY, UNDERGROUND_HOLE_NEW_ENTRANCE],
+    [UNDERGROUND_HOLE_SUBWAY, UNDERGROUND_HOLE_NEW_ENTRANCE, UNDERGROUND_HOLE_HIDDEN_COMPLEX],
     0
   )
   solidMeshes.push(ground) // walkable ground for the player's floor-height raycast
@@ -596,8 +596,12 @@ export function buildWorld(scene, trophyCount = 15) {
   // commercial zone's own grid (x=[130,190]) and everything built onto its
   // own column since. facingSign puts the open facade toward x=0 (the
   // direction a player would actually approach from).
-  const skyscraper = buildOfficeSkyscraper(scene, colliders, solidMeshes, register, 250, 0, towerChestSpots)
+  const skyscraper = buildOfficeSkyscraper(scene, colliders, solidMeshes, register, 250, 0, towerChestSpots, flickerLights)
   registerZone({ id: 'skyscraper', x: 250, z: 0, radius: 20, densityMult: 1.3 })
+  // Stage 13's speakeasy, hidden at the far end of the bunker's own hidden
+  // complex - same "set the guaranteed reward directly on the door object"
+  // pattern as bank.vaultDoor above.
+  skyscraper.hiddenComplex.speakeasyDoor.lootWeights = { legendary_weapon: 8, rare_weapon: 8, extended_mag: 3 }
 
   // Stage 9: Mega-Mall, south of the skyscraper along the same x=250
   // column - 90+ units of z-clearance.
@@ -1478,11 +1482,11 @@ function buildRetailStore(scene, register, spec) {
 // (openSides) pattern can chain multiple rooms into one walkable interior,
 // which every later multi-room location (police station, prison, campus)
 // depends on.
-function placePropSimple(scene, register, fileName, x, z, rotY = 0, scale = 1, collide = true) {
+function placePropSimple(scene, register, fileName, x, z, rotY = 0, scale = 1, collide = true, floorY = 0) {
   const model = _propModelCache.get(fileName)
   if (!model) return null
   const clone = model.clone(true)
-  clone.position.set(x, 0, z)
+  clone.position.set(x, floorY, z)
   clone.rotation.y = rotY
   if (scale !== 1) clone.scale.setScalar(scale)
   clone.traverse((child) => {
@@ -1672,11 +1676,11 @@ function buildGunShop(scene, register, x, z) {
 // the Z axis) - prison cells branch off a corridor sideways, so their doors
 // need the 'z' orientation the police station's own north-facing cell
 // never needed.
-function buildLockableDoor(scene, x, z, width, axis = 'x') {
+function buildLockableDoor(scene, x, z, width, axis = 'x', floorY = 0) {
   const doorMat = new THREE.MeshStandardMaterial({ color: 0x232320, roughness: 0.6, metalness: 0.5 })
   const dims = axis === 'x' ? [width, 2.6, 0.15] : [0.15, 2.6, width]
   const doorMesh = new THREE.Mesh(new THREE.BoxGeometry(dims[0], dims[1], dims[2]), doorMat)
-  doorMesh.position.set(x, 1.3, z)
+  doorMesh.position.set(x, floorY + 1.3, z)
   doorMesh.castShadow = true
   scene.add(doorMesh)
   doorMesh.updateWorldMatrix(true, false)
@@ -1685,10 +1689,10 @@ function buildLockableDoor(scene, x, z, width, axis = 'x') {
   const indicatorMat = new THREE.MeshStandardMaterial({ color: 0x1a0505, emissive: 0xff2a1e, emissiveIntensity: 0.9 })
   const light = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 10), indicatorMat)
   const lightOffset = axis === 'x' ? [0, 0.1] : [0.1, 0]
-  light.position.set(x + lightOffset[0], 2.3, z + lightOffset[1])
+  light.position.set(x + lightOffset[0], floorY + 2.3, z + lightOffset[1])
   scene.add(light)
 
-  return { x, z, mesh: doorMesh, box: doorBox, indicatorMat }
+  return { x, z, floorY, mesh: doorMesh, box: doorBox, indicatorMat }
 }
 
 // Stage 4 of the Extended Metropolitan Grid plan - the first real
@@ -2005,7 +2009,7 @@ function buildHelipadTexture() {
 // ground-floor bunker room with a real lockable door - the same
 // buildLockableDoor/Game.js lockedCells mechanism from Stage 4/5, just its
 // third use rather than a new mechanism.
-function buildOfficeSkyscraper(scene, colliders, solidMeshes, register, x, z, towerChestSpots) {
+function buildOfficeSkyscraper(scene, colliders, solidMeshes, register, x, z, towerChestSpots, flickerLights) {
   const w = 14
   const d = 14
   const h = SKYSCRAPER_FLOOR_H * SKYSCRAPER_FLOORS
@@ -2060,9 +2064,13 @@ function buildOfficeSkyscraper(scene, colliders, solidMeshes, register, x, z, to
   // door needs to face back toward the skyscraper, not away from it -
   // that's the +facingSign direction from the bunker's own position.
   const bunkerDoorSide = facingSign === 1 ? 'east' : 'west'
+  // Stage 13 ties back to this bunker with a second, unlocked doorway on the
+  // FAR side (away from the skyscraper) - reaching the bunker at all was
+  // already gated by bunkerDoor below, so this doesn't need its own lock too.
+  const hiddenDoorSide = bunkerDoorSide === 'west' ? 'east' : 'west'
   buildRoom(scene, register, {
     x: bunkerX, z, w: bunkerW, d: bunkerD,
-    doorSides: [{ side: bunkerDoorSide, width: 1.8 }],
+    doorSides: [{ side: bunkerDoorSide, width: 1.8 }, { side: hiddenDoorSide, width: 1.6 }],
   })
   const bunkerFloorMat = new THREE.MeshStandardMaterial({ color: 0x2a2c28, roughness: 0.85 })
   const bunkerFloor = new THREE.Mesh(new THREE.PlaneGeometry(bunkerW - 0.6, bunkerD - 0.6), bunkerFloorMat)
@@ -2076,7 +2084,269 @@ function buildOfficeSkyscraper(scene, colliders, solidMeshes, register, x, z, to
   const bunkerDoorX = bunkerDoorSide === 'west' ? bunkerX - bunkerW / 2 : bunkerX + bunkerW / 2
   const bunkerDoor = buildLockableDoor(scene, bunkerDoorX, z, 1.8, 'z')
 
-  return { x, z, bunkerDoor }
+  const hiddenDoorX = hiddenDoorSide === 'west' ? bunkerX - bunkerW / 2 : bunkerX + bunkerW / 2
+  const hiddenComplex = buildHiddenComplex(scene, colliders, solidMeshes, register, flickerLights, hiddenDoorX, z, hiddenDoorSide, towerChestSpots)
+
+  return { x, z, bunkerDoor, hiddenComplex }
+}
+
+// Stage 13 of the Extended Metropolitan Grid plan - a separate hidden
+// complex (parking garage + catacombs + speakeasy), reached only through
+// Stage 8's civil defense bunker rather than its own surface entrance -
+// "ties back to the bunker" per the plan. Genuinely the least new plumbing
+// of any stage so far (as the plan itself predicted): buildRoom (with the
+// floorY param added for Stage 10's breaker alcove) for every room,
+// buildStairFlight for the descent, buildLockableDoor/Game.js's lockedCells
+// for the speakeasy's locked entry (its guaranteed-good lootWeights mirrors
+// the Bank vault's). Runs along X instead of Z (every other underground
+// stage's convention) since the bunker's hidden door already faces
+// east/west - dirSign lets this work regardless of which side that door
+// ends up on rather than hardcoding a direction.
+function buildHiddenComplex(scene, colliders, solidMeshes, register, flickerLights, doorX, z, doorSide, chestSpots) {
+  const dirSign = doorSide === 'east' ? 1 : -1
+  const floorY = -4.6 // "Level -1" depth convention, though otherwise unconnected to the actual subway network
+  const wallHeight = 2.6 // matches buildRoom's own default
+
+  const shaftMat = new THREE.MeshStandardMaterial({ color: 0x2c2c2a, roughness: 0.95 })
+  const SHAFT_RUN = 16
+  const STAIR_RUN = 8
+  const shaftX0 = doorX
+  const shaftX1 = doorX + dirSign * SHAFT_RUN
+  const stairX1 = doorX + dirSign * STAIR_RUN
+  const shaftHalfDepth = 1.6
+  const shaftCenterY = (wallHeight + floorY) / 2
+  const shaftHeight = wallHeight - floorY
+  const shaftCenterX = (shaftX0 + shaftX1) / 2
+
+  for (const side of [-1, 1]) {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(SHAFT_RUN + 0.4, shaftHeight, 0.2), shaftMat)
+    wall.position.set(shaftCenterX, shaftCenterY, z + side * shaftHalfDepth)
+    wall.castShadow = true
+    wall.receiveShadow = true
+    scene.add(wall)
+    solidMeshes.push(wall)
+    colliders.push(new THREE.Box3().setFromObject(wall)) // axis-aligned, not rotated - safe
+  }
+  const shaftCeiling = new THREE.Mesh(new THREE.BoxGeometry(SHAFT_RUN + 0.4, 0.2, shaftHalfDepth * 2 + 0.4), shaftMat)
+  shaftCeiling.position.set(shaftCenterX, wallHeight, z)
+  scene.add(shaftCeiling)
+  solidMeshes.push(shaftCeiling)
+  colliders.push(new THREE.Box3().setFromObject(shaftCeiling))
+
+  buildStairFlight(scene, solidMeshes, shaftX0, z, 0, stairX1, z, floorY, 10)
+  // Flat landing floor for the remainder of the shaft, past the last step.
+  const flatFloor = new THREE.Mesh(new THREE.BoxGeometry(Math.abs(shaftX1 - stairX1), 0.08, shaftHalfDepth * 2), shaftMat)
+  flatFloor.position.set((stairX1 + shaftX1) / 2, floorY, z)
+  flatFloor.receiveShadow = true
+  scene.add(flatFloor)
+  solidMeshes.push(flatFloor)
+
+  const stairLight = new THREE.PointLight(0xd9c48a, 0.7, 8, 2)
+  stairLight.position.set(shaftCenterX, shaftCenterY + 1, z)
+  scene.add(stairLight)
+  flickerLights.push({ light: stairLight, base: 0.7, seed: Math.random() * 100 })
+
+  // Parking garage - reuses buildRoom's own wall/door-gap machinery, just
+  // underground (its floorY param), like every other retail/office interior
+  // this session, rather than a bespoke shell.
+  const garageMat = new THREE.MeshStandardMaterial({ color: 0x35342f, roughness: 0.9 })
+  const garageW = 24
+  const garageD = 18
+  const garageX = shaftX1 + dirSign * (garageW / 2)
+  const garageNearSide = dirSign === 1 ? 'west' : 'east'
+  const garageFarSide = dirSign === 1 ? 'east' : 'west'
+  buildRoom(scene, register, {
+    x: garageX, z, w: garageW, d: garageD, floorY, wallMat: garageMat,
+    doorSides: [{ side: garageNearSide, width: 3.4 }, { side: garageFarSide, width: 2.6 }],
+  })
+  const garageFloorMat = new THREE.MeshStandardMaterial({ color: 0x28271f, roughness: 1 })
+  const garageFloor = new THREE.Mesh(new THREE.PlaneGeometry(garageW - 0.6, garageD - 0.6), garageFloorMat)
+  garageFloor.rotation.x = -Math.PI / 2
+  garageFloor.position.set(garageX, floorY + 0.02, z)
+  garageFloor.receiveShadow = true
+  scene.add(garageFloor)
+  // Ground-level floors elsewhere in this file skip this push and still
+  // work, because _sampleGroundHeight's "nothing found" fallback (0)
+  // happens to equal their real height anyway - that coincidence doesn't
+  // hold underground (floorY=-4.6 here), so this one actually needs it.
+  solidMeshes.push(garageFloor)
+  const garageCeiling = new THREE.Mesh(new THREE.BoxGeometry(garageW, 0.2, garageD), garageMat)
+  garageCeiling.position.set(garageX, floorY + wallHeight, z)
+  scene.add(garageCeiling)
+  solidMeshes.push(garageCeiling)
+  colliders.push(new THREE.Box3().setFromObject(garageCeiling))
+
+  // Support pillars, painted parking-space lines, and a few abandoned cars
+  // (simple box shapes matching Vehicle.js's own chassis/cabin proportions,
+  // just duller/rustier - not the actual drivable Vehicle class, this is
+  // static dressing only) so the room reads as a real garage, not an empty
+  // box underground.
+  const pillarMat = new THREE.MeshStandardMaterial({ color: 0x2a2924, roughness: 0.95 })
+  for (const [px, pz] of [[-7, -5], [-7, 5], [7, -5], [7, 5]]) {
+    const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.6, wallHeight, 0.6), pillarMat)
+    pillar.position.set(garageX + px, floorY + wallHeight / 2, z + pz)
+    pillar.castShadow = true
+    scene.add(pillar)
+    solidMeshes.push(pillar)
+    colliders.push(new THREE.Box3().setFromObject(pillar))
+  }
+  const lineMat = new THREE.MeshStandardMaterial({ color: 0xd9d4c4, roughness: 0.8, emissive: 0xd9d4c4, emissiveIntensity: 0.05 })
+  for (const lx of [-9, -3, 3, 9]) {
+    const line = new THREE.Mesh(new THREE.PlaneGeometry(0.15, garageD - 3), lineMat)
+    line.rotation.x = -Math.PI / 2
+    line.position.set(garageX + lx, floorY + 0.03, z)
+    scene.add(line)
+  }
+  const carBodyMat = new THREE.MeshStandardMaterial({ color: 0x5a4a3a, roughness: 0.7, metalness: 0.2 })
+  const carCabinMat = new THREE.MeshStandardMaterial({ color: 0x2a2624, roughness: 0.6 })
+  for (const [cx, cz, rot] of [[-6, -2, 0], [6, 3, Math.PI]]) {
+    const car = new THREE.Group()
+    car.position.set(garageX + cx, floorY, z + cz)
+    car.rotation.y = rot
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.7, 4), carBodyMat)
+    body.position.y = 0.55
+    body.castShadow = true
+    car.add(body)
+    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.55, 2), carCabinMat)
+    cabin.position.set(0, 1.05, -0.3)
+    cabin.castShadow = true
+    car.add(cabin)
+    scene.add(car)
+    // Explicit axis-aligned collider from the known chassis footprint
+    // rather than Box3().setFromObject() on this rotated group - the
+    // rotated-mesh AABB gotcha, same reasoning as the park bench earlier
+    // this session.
+    const facingSideways = Math.abs(Math.sin(rot)) > 0.5
+    const halfX = facingSideways ? 2 : 0.9
+    const halfZ = facingSideways ? 0.9 : 2
+    colliders.push(new THREE.Box3(
+      new THREE.Vector3(garageX + cx - halfX, floorY, z + cz - halfZ),
+      new THREE.Vector3(garageX + cx + halfX, floorY + 1.3, z + cz + halfZ)
+    ))
+    solidMeshes.push(body)
+  }
+  const garageLight1 = new THREE.PointLight(0xd9c48a, 0.7, 10, 2)
+  garageLight1.position.set(garageX - 6, floorY + wallHeight - 0.3, z)
+  scene.add(garageLight1)
+  flickerLights.push({ light: garageLight1, base: 0.7, seed: Math.random() * 100 })
+  const garageLight2 = new THREE.PointLight(0xd9c48a, 0.7, 10, 2)
+  garageLight2.position.set(garageX + 6, floorY + wallHeight - 0.3, z)
+  scene.add(garageLight2)
+  flickerLights.push({ light: garageLight2, base: 0.7, seed: Math.random() * 100 })
+
+  // A findable-but-not-gated chest, clear of the pillars/cars - the
+  // speakeasy's locked door further in is the complex's real payoff.
+  chestSpots.push({ x: garageX - 10, y: floorY, z: z + 3 })
+
+  // Catacombs - a narrower, older, colder corridor (stone instead of the
+  // garage's concrete) with a couple of alcove niches, leading to the
+  // locked speakeasy door at the far end.
+  const catacombX0 = garageX + dirSign * (garageW / 2)
+  const CATACOMB_RUN = 24
+  const catacombX1 = catacombX0 + dirSign * CATACOMB_RUN
+  const catacombWidth = 3.2
+  const catacombHeight = 2.4
+  const stoneMat = new THREE.MeshStandardMaterial({ color: 0x4a463e, roughness: 1 })
+  const catacombFloorMat = new THREE.MeshStandardMaterial({ color: 0x38352e, roughness: 1 })
+  const catacombCenterX = (catacombX0 + catacombX1) / 2
+
+  const catacombFloor = new THREE.Mesh(new THREE.BoxGeometry(CATACOMB_RUN, 0.08, catacombWidth), catacombFloorMat)
+  catacombFloor.position.set(catacombCenterX, floorY, z)
+  catacombFloor.receiveShadow = true
+  scene.add(catacombFloor)
+  solidMeshes.push(catacombFloor)
+
+  const catacombCeiling = new THREE.Mesh(new THREE.BoxGeometry(CATACOMB_RUN, 0.2, catacombWidth + 0.4), stoneMat)
+  catacombCeiling.position.set(catacombCenterX, floorY + catacombHeight, z)
+  catacombCeiling.castShadow = true
+  scene.add(catacombCeiling)
+  solidMeshes.push(catacombCeiling)
+  colliders.push(new THREE.Box3().setFromObject(catacombCeiling))
+
+  for (const side of [-1, 1]) {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(CATACOMB_RUN, catacombHeight, 0.2), stoneMat)
+    wall.position.set(catacombCenterX, floorY + catacombHeight / 2, z + side * (catacombWidth / 2 + 0.1))
+    wall.castShadow = true
+    wall.receiveShadow = true
+    scene.add(wall)
+    solidMeshes.push(wall)
+    colliders.push(new THREE.Box3().setFromObject(wall))
+  }
+
+  // Alcove niches (small recessed urn/skull dressing, purely visual - not
+  // colliders, they sit flush against the wall out of the walkable path).
+  const urnMat = new THREE.MeshStandardMaterial({ color: 0x5a5648, roughness: 0.9 })
+  for (const [t, side] of [[0.3, -1], [0.65, 1]]) {
+    const nicheX = catacombX0 + dirSign * (CATACOMB_RUN * t)
+    const urn = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.24, 0.4, 10), urnMat)
+    urn.position.set(nicheX, floorY + 0.5, z + side * (catacombWidth / 2 - 0.15))
+    urn.castShadow = true
+    scene.add(urn)
+    const skull = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), urnMat)
+    skull.position.set(nicheX + 0.35, floorY + 0.35, z + side * (catacombWidth / 2 - 0.15))
+    scene.add(skull)
+  }
+
+  const catacombLight = new THREE.PointLight(0x8a7a5a, 0.55, 8, 2)
+  catacombLight.position.set(catacombCenterX, floorY + catacombHeight - 0.3, z)
+  scene.add(catacombLight)
+  flickerLights.push({ light: catacombLight, base: 0.55, seed: Math.random() * 100 })
+
+  // Speakeasy - the hidden reward room, warm amber lighting instead of the
+  // catacombs' cold stone tone, gated by the complex's one lock (reaching
+  // the bunker at all was already gated, so nothing else in this complex
+  // needed its own lock too - see buildOfficeSkyscraper's own comment).
+  const speakeasyDoorX = catacombX1
+  const speakeasyDoor = buildLockableDoor(scene, speakeasyDoorX, z, catacombWidth - 0.6, 'z', floorY)
+
+  const speakeasyW = 12
+  const speakeasyD = 10
+  const speakeasyX = catacombX1 + dirSign * (speakeasyW / 2)
+  const speakeasyMat = new THREE.MeshStandardMaterial({ color: 0x3a2a1e, roughness: 0.85 })
+  buildRoom(scene, register, {
+    x: speakeasyX, z, w: speakeasyW, d: speakeasyD, floorY, wallMat: speakeasyMat,
+    doorSides: [], openSides: [dirSign === 1 ? 'west' : 'east'], // the lockable door slab above already covers this gap
+  })
+  const speakeasyFloorMat = new THREE.MeshStandardMaterial({ color: 0x2e2116, roughness: 0.8 })
+  const speakeasyFloor = new THREE.Mesh(new THREE.PlaneGeometry(speakeasyW - 0.6, speakeasyD - 0.6), speakeasyFloorMat)
+  speakeasyFloor.rotation.x = -Math.PI / 2
+  speakeasyFloor.position.set(speakeasyX, floorY + 0.02, z)
+  speakeasyFloor.receiveShadow = true
+  scene.add(speakeasyFloor)
+  solidMeshes.push(speakeasyFloor) // see garageFloor's own comment above - underground floors need this explicitly
+  const speakeasyCeiling = new THREE.Mesh(new THREE.BoxGeometry(speakeasyW, 0.2, speakeasyD), speakeasyMat)
+  speakeasyCeiling.position.set(speakeasyX, floorY + wallHeight, z)
+  scene.add(speakeasyCeiling)
+  solidMeshes.push(speakeasyCeiling)
+  colliders.push(new THREE.Box3().setFromObject(speakeasyCeiling))
+
+  // Bar counter (reuses Stage 1's counter.glb) + a back shelf lined with
+  // "bottles" (simple colored cylinders - no new asset needed for these).
+  const barX = speakeasyX + dirSign * (speakeasyW / 2 - 1.6)
+  placePropSimple(scene, register, 'counter.glb', barX, z, dirSign === 1 ? -Math.PI / 2 : Math.PI / 2, 1, true, floorY)
+  const bottleMat = new THREE.MeshStandardMaterial({ color: 0x2a5a3a, roughness: 0.3, metalness: 0.1 })
+  for (let i = 0; i < 5; i++) {
+    const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.32, 8), bottleMat)
+    bottle.position.set(barX + dirSign * 0.6, floorY + 1.05, z - 1.5 + i * 0.7)
+    scene.add(bottle)
+  }
+  const speakeasyLight = new THREE.PointLight(0xffb347, 1, 9, 2)
+  speakeasyLight.position.set(speakeasyX, floorY + wallHeight - 0.4, z)
+  scene.add(speakeasyLight)
+  flickerLights.push({ light: speakeasyLight, base: 1, seed: Math.random() * 100 })
+
+  // No separate towerChestSpots entry here - unlike a plain room, this one
+  // is gated by speakeasyDoor, whose own guaranteed-good lootWeights
+  // (set in buildWorld's main body, matching bank.vaultDoor's own pattern)
+  // spawns the reward chest via Game.js's _tryOpenLockedCell on unlock.
+
+  return {
+    garageSpot: { x: garageX, z },
+    catacombSpot: { x: catacombCenterX, z },
+    speakeasyDoor,
+    speakeasySpot: { x: speakeasyX, z },
+    floorY,
+  }
 }
 
 // Stage 9 of the Extended Metropolitan Grid plan - "Mega-Mall": Stage 1's
@@ -3059,6 +3329,20 @@ const UNDERGROUND_HOLE_NEW_ENTRANCE = {
 // covering both entrances plus the trees that used to crowd right up against
 // them, sized to comfortably contain both holes above.
 const UNDERGROUND_PLAZA = { x: 3.75, z: 57, w: 18.5, d: 11 }
+// Stage 13's hidden complex (bunker -> garage/catacombs/speakeasy) needs the
+// exact same "real hole in the main ground plane" fix Stage 10 needed -
+// otherwise the intact street-level ground above it wins every floor-height
+// raycast no matter how the shaft/stairs below are built (confirmed via the
+// same PlayerController._sampleGroundHeight profiling method used for the
+// park stairwells). Generously sized by hand around the skyscraper's own
+// x=250 (rather than symbolically derived from buildOfficeSkyscraper's own
+// internal math) since the ground plane here is built long before the
+// skyscraper/bunker's own coordinates exist at runtime - comfortably covers
+// the bunker (~x=259.5) through the far end of the shaft (~x=278) with
+// margin on both sides. Starts just past the bunker's own east wall
+// (x=262, ground-level like the skyscraper itself - no hole needed under
+// the bunker or skyscraper, only where the shaft actually descends).
+const UNDERGROUND_HOLE_HIDDEN_COMPLEX = { xMin: 261, xMax: 279, zMin: -2, zMax: 2 }
 
 function buildNewUndergroundEntrance(scene, colliders, solidMeshes, flickerLights) {
   const x = NEW_UNDERGROUND_ENTRANCE_X

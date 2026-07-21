@@ -894,7 +894,7 @@ export class Game {
     // with it in range. Same dynamic-collider-removal pattern as
     // _removeDeathObstacle - splice the box back out on unlock instead of
     // rebuilding the whole colliders array.
-    this.lockedCells = [policeStation.cellDoor, ...prison.cellDoors, skyscraper.bunkerDoor, gunShop.caseDoor, warehouse.cageDoor, bank.vaultDoor, radioStation.broadcastDoor, fireStation.equipDoor]
+    this.lockedCells = [policeStation.cellDoor, ...prison.cellDoors, skyscraper.bunkerDoor, gunShop.caseDoor, warehouse.cageDoor, bank.vaultDoor, radioStation.broadcastDoor, fireStation.equipDoor, skyscraper.hiddenComplex.speakeasyDoor]
     for (const cell of this.lockedCells) {
       cell.locked = true
       this.colliders.push(cell.box)
@@ -4263,8 +4263,10 @@ export class Game {
     // Guaranteed weapon-tier reward for breaking in, same weapon-only
     // weighting the gun shop/hardware store chests use by default - a door
     // can set its own lootWeights (see the bank vault) for a better/
-    // different reward instead.
-    this.chests.addChest(cell.x, 0, cell.z, cell.lootWeights || { rare_weapon: 10, legendary_weapon: 3 })
+    // different reward instead. cell.floorY is 0 for every ground-level
+    // door (the only kind that existed before Stage 13's underground
+    // speakeasy door), so this is unchanged for all of them.
+    this.chests.addChest(cell.x, cell.floorY || 0, cell.z, cell.lootWeights || { rare_weapon: 10, legendary_weapon: 3 })
   }
 
   // Phase 6 of the 3D asset overhaul - the new outer zones (see World.js's
