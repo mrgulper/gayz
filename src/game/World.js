@@ -493,6 +493,9 @@ export function buildWorld(scene, trophyCount = 15) {
   // nowhere near this).
   buildSubwayConnector(scene, colliders, solidMeshes, flickerLights, SUBWAY_X, connectorWaypointZ - JUNCTION_HALF, STATION_X, STATION_Z_END)
   const undergroundStation = buildUndergroundStation(scene, colliders, solidMeshes, flickerLights, towerChestSpots)
+  // Stage 11 - Level -2 sewers, continuing straight through the breach left
+  // in the station's LEVEL2 dead end (see buildToxicSewerLevel's own comment).
+  const toxicSewerLevel = buildToxicSewerLevel(scene, colliders, solidMeshes, flickerLights, towerChestSpots)
 
   buildOuterZones(scene, register, cullables, towerChestSpots)
 
@@ -693,6 +696,7 @@ export function buildWorld(scene, trophyCount = 15) {
     motel,
     newUndergroundEntrance,
     maintenanceTunnel,
+    toxicSewerLevel,
   }
 }
 
@@ -3734,12 +3738,10 @@ function buildUndergroundStation(scene, colliders, solidMeshes, flickerLights, c
     colliders.push(new THREE.Box3().setFromObject(wall))
   }
 
-  const level2EndWall = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH + 0.4, SUBWAY_HEIGHT, 0.2), wallMat)
-  level2EndWall.position.set(STATION_X, LEVEL2_FLOOR_Y + SUBWAY_HEIGHT / 2, LEVEL2_Z_FAR)
-  level2EndWall.castShadow = true
-  scene.add(level2EndWall)
-  solidMeshes.push(level2EndWall)
-  colliders.push(new THREE.Box3().setFromObject(level2EndWall))
+  // No end wall here anymore - Stage 11 (buildToxicSewerLevel, called from
+  // buildWorld right after this function) breaches straight through and
+  // continues the corridor further south into the sewer level, instead of
+  // this being a true dead end like it originally was.
 
   const level2PlatformWidth = 1.6
   const level2Platform = new THREE.Mesh(new THREE.BoxGeometry(level2PlatformWidth, 0.35, level2Length - 1), platformMat)
@@ -3786,6 +3788,156 @@ function buildUndergroundStation(scene, colliders, solidMeshes, flickerLights, c
 // arc. Past the terminal, a second staircase climbs back to street level -
 // the subway's exit, so the whole underground loop doesn't dead-end back
 // the way you came.
+// Stage 11 of the Extended Metropolitan Grid plan - "Underground Level -2:
+// Sewers" (toxic water + slippery walkways). Continues straight through the
+// breach left in buildUndergroundStation's LEVEL2 dead end (same X, same
+// depth) rather than needing its own separate stairwell down - "the old
+// abandoned line dead-ends into a breach that leads into the sewers" reads
+// as a natural transition between two differently-themed areas. Recolors
+// buildSewer's own green/grime palette instead of inventing a new one.
+//
+// The toxic pool and the raised walkway are the same rectangle, laid over
+// each other: the walkway is a narrow raised plank (in solidMeshes, so
+// PlayerController's floor-height sampling finds it as the higher/nearer
+// surface and the player stands ON it, safe and dry) running down the pool's
+// west edge; stepping off it into the open water (still walkable, just
+// lower) is what triggers toxic tick damage in Game.js's _updateToxicWater.
+// The walkway is also where Game.js sets PlayerController.slipFactor > 0 -
+// wet planks over a sewer, not solid ground, so momentum carries you a bit
+// once moving instead of stopping the instant input releases (see
+// PlayerController.update's slipFactor branch).
+const SEWER2_X = STATION_X
+const SEWER2_Z_START = LEVEL2_Z_FAR // the breach - same point LEVEL2's wall used to seal
+const SEWER2_POOL_Z_START = SEWER2_Z_START - 6
+const SEWER2_POOL_Z_END = SEWER2_POOL_Z_START - 18
+const SEWER2_Z_END = SEWER2_POOL_Z_END - 6
+const SEWER2_WALKWAY_WIDTH = 1.4
+
+function buildToxicSewerLevel(scene, colliders, solidMeshes, flickerLights, chestSpots) {
+  const x = SEWER2_X
+  const floorY = LEVEL2_FLOOR_Y
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x2a3324, roughness: 1 })
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x1c2418, roughness: 1 })
+  const pipeMat = new THREE.MeshStandardMaterial({ color: 0x3a4a30, roughness: 0.7, metalness: 0.4 })
+
+  const buildStraightSegment = (z0, z1) => {
+    const length = z0 - z1
+    const centerZ = (z0 + z1) / 2
+    const floor = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH, 0.08, length), floorMat)
+    floor.position.set(x, floorY, centerZ)
+    floor.receiveShadow = true
+    scene.add(floor)
+    solidMeshes.push(floor)
+
+    const ceiling = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH + 0.4, 0.2, length), wallMat)
+    ceiling.position.set(x, floorY + SUBWAY_HEIGHT, centerZ)
+    ceiling.castShadow = true
+    scene.add(ceiling)
+    solidMeshes.push(ceiling)
+    colliders.push(new THREE.Box3().setFromObject(ceiling))
+
+    for (const side of [-1, 1]) {
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, SUBWAY_HEIGHT, length), wallMat)
+      wall.position.set(x + side * (SUBWAY_WIDTH / 2 + 0.1), floorY + SUBWAY_HEIGHT / 2, centerZ)
+      wall.castShadow = true
+      wall.receiveShadow = true
+      scene.add(wall)
+      solidMeshes.push(wall)
+      colliders.push(new THREE.Box3().setFromObject(wall))
+
+      const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, length, 12), pipeMat)
+      pipe.rotation.x = Math.PI / 2
+      pipe.position.set(x + side * (SUBWAY_WIDTH / 2 - 0.15), floorY + SUBWAY_HEIGHT - 0.4, centerZ)
+      scene.add(pipe)
+    }
+
+    const lightSpacing = 5
+    const lightCount = Math.floor(length / lightSpacing)
+    for (let i = 1; i < lightCount; i++) {
+      const z = z0 - lightSpacing * i
+      const light = new THREE.PointLight(0x7ee08a, 0.7, 5, 2)
+      light.position.set(x, floorY + SUBWAY_HEIGHT - 0.3, z)
+      scene.add(light)
+      flickerLights.push({ light, base: 0.7, seed: Math.random() * 100 })
+    }
+  }
+
+  // Breach approach - plain sewer corridor, no hazard yet.
+  buildStraightSegment(SEWER2_Z_START, SEWER2_POOL_Z_START)
+
+  // The toxic pool room - walls/ceiling continue at the same width, but the
+  // floor is replaced by a murky glowing pool instead of the plain sewer
+  // floor, plus the raised safe walkway along the west edge.
+  const poolLength = SEWER2_POOL_Z_START - SEWER2_POOL_Z_END
+  const poolCenterZ = (SEWER2_POOL_Z_START + SEWER2_POOL_Z_END) / 2
+
+  const poolMat = new THREE.MeshStandardMaterial({
+    color: 0x3a5a1a, emissive: 0x5a8a1a, emissiveIntensity: 0.35, roughness: 0.4, metalness: 0.1, transparent: true, opacity: 0.9,
+  })
+  const pool = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH, 0.1, poolLength), poolMat)
+  pool.position.set(x, floorY + 0.05, poolCenterZ)
+  scene.add(pool)
+  solidMeshes.push(pool) // walkable (with tick damage - see Game.js) not a void
+
+  const poolCeiling = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH + 0.4, 0.2, poolLength), wallMat)
+  poolCeiling.position.set(x, floorY + SUBWAY_HEIGHT, poolCenterZ)
+  poolCeiling.castShadow = true
+  scene.add(poolCeiling)
+  solidMeshes.push(poolCeiling)
+  colliders.push(new THREE.Box3().setFromObject(poolCeiling))
+
+  for (const side of [-1, 1]) {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, SUBWAY_HEIGHT, poolLength), wallMat)
+    wall.position.set(x + side * (SUBWAY_WIDTH / 2 + 0.1), floorY + SUBWAY_HEIGHT / 2, poolCenterZ)
+    wall.castShadow = true
+    wall.receiveShadow = true
+    scene.add(wall)
+    solidMeshes.push(wall)
+    colliders.push(new THREE.Box3().setFromObject(wall))
+  }
+
+  const walkwayMat = new THREE.MeshStandardMaterial({ color: 0x4a4438, roughness: 0.9 })
+  const walkwayX = x - SUBWAY_WIDTH / 2 + SEWER2_WALKWAY_WIDTH / 2 + 0.15
+  const walkway = new THREE.Mesh(new THREE.BoxGeometry(SEWER2_WALKWAY_WIDTH, 0.18, poolLength - 0.6), walkwayMat)
+  walkway.position.set(walkwayX, floorY + 0.15, poolCenterZ)
+  walkway.castShadow = true
+  walkway.receiveShadow = true
+  scene.add(walkway)
+  solidMeshes.push(walkway) // higher than the pool floor beside it - the safe (but slippery) path
+
+  // A handful of sickly-green glow points over the pool instead of the
+  // corridor's usual amber/blue rib lights, so the room reads as distinctly
+  // hazardous rather than just more tunnel.
+  const glowSpacing = 6
+  const glowCount = Math.floor(poolLength / glowSpacing)
+  for (let i = 0; i <= glowCount; i++) {
+    const z = SEWER2_POOL_Z_START - glowSpacing * i
+    const light = new THREE.PointLight(0x8ade3a, 0.9, 7, 2)
+    light.position.set(x + 1, floorY + 1.2, z)
+    scene.add(light)
+    flickerLights.push({ light, base: 0.9, seed: Math.random() * 100 })
+  }
+
+  // Dead end beyond the pool - plain corridor, then a wall and a reward
+  // chest for having crossed the pool at all.
+  buildStraightSegment(SEWER2_POOL_Z_END, SEWER2_Z_END)
+
+  const endWall = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH + 0.4, SUBWAY_HEIGHT, 0.2), wallMat)
+  endWall.position.set(x, floorY + SUBWAY_HEIGHT / 2, SEWER2_Z_END)
+  endWall.castShadow = true
+  scene.add(endWall)
+  solidMeshes.push(endWall)
+  colliders.push(new THREE.Box3().setFromObject(endWall))
+
+  chestSpots.push({ x, y: floorY, z: SEWER2_Z_END + 3 })
+
+  return {
+    poolBounds: { xMin: x - SUBWAY_WIDTH / 2, xMax: x + SUBWAY_WIDTH / 2, zMin: SEWER2_POOL_Z_END, zMax: SEWER2_POOL_Z_START },
+    walkwayBounds: { xMin: walkwayX - SEWER2_WALKWAY_WIDTH / 2, xMax: walkwayX + SEWER2_WALKWAY_WIDTH / 2, zMin: SEWER2_POOL_Z_END, zMax: SEWER2_POOL_Z_START },
+    floorY,
+  }
+}
+
 const FACILITY_X = SUBWAY_X
 const FACILITY_Z_START = SUBWAY_Z_END
 const FACILITY_Z_END = SUBWAY_Z_END + 16

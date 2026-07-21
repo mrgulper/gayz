@@ -795,7 +795,7 @@ export class Game {
     this.composer.addPass(this.bloomPass)
     this.composer.addPass(new OutputPass())
 
-    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel } = buildWorld(this.scene, ACHIEVEMENTS.length)
+    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel, toxicSewerLevel } = buildWorld(this.scene, ACHIEVEMENTS.length)
     this.cullables = cullables
     this.supermarket = supermarket
     this.groceryStore = groceryStore
@@ -836,6 +836,10 @@ export class Game {
     // since they're the same array objects by reference either way.
     colliders.push(this.turnstile.box)
     solidMeshes.push(this.turnstile.mesh)
+
+    // Stage 11 - Level -2 sewers (toxic water + slippery walkway).
+    this.toxicSewerLevel = toxicSewerLevel
+    this.nextToxicTickAt = 0
     // Extended Metropolitan Grid usability pass - none of Stages 1-9's new
     // locations showed up on the compass/minimap at all, the biggest real
     // gap once the map got this spread out (the skyscraper alone is 250
@@ -4460,6 +4464,36 @@ export class Game {
     this._showLoreToast(t('toastPowerRestored'))
   }
 
+  // Stage 11's toxic water + slippery walkway. Same tick-damage shape as
+  // _updateHazardZones' 'gas' case (HAZARD_TICK_MS interval, dodge grants
+  // the same brief invincibility, same damage-flash/death handling) but
+  // this zone is a fixed rectangle rather than a spawned/expiring one, so
+  // it's checked directly here instead of going through the hazardZones
+  // array. The walkway is the same rectangle at the same Z range, narrower
+  // in X - being inside it takes priority (safe + slippery) over the wider
+  // pool bounds around it (unsafe, normal traction).
+  _updateToxicWater(dt, playerPos) {
+    const pool = this.toxicSewerLevel.poolBounds
+    const walkway = this.toxicSewerLevel.walkwayBounds
+    const inPoolZ = playerPos.z <= pool.zMax && playerPos.z >= pool.zMin
+    const inWalkway = inPoolZ && playerPos.x >= walkway.xMin && playerPos.x <= walkway.xMax
+    const inOpenWater = inPoolZ && !inWalkway && playerPos.x >= pool.xMin && playerPos.x <= pool.xMax
+
+    this.player.slipFactor = inWalkway ? 0.8 : 0
+
+    if (!inOpenWater) return
+    const now = performance.now()
+    if (now < this.nextToxicTickAt) return
+    this.nextToxicTickAt = now + HAZARD_TICK_MS
+    if (this.player.isDodging) return // brief invincibility window, same as a zombie hit
+    this.playerState.takeDamage(HAZARD_GAS_DAMAGE_PER_TICK)
+    this._updateHealthHud()
+    this.damageFlash.classList.remove('hit')
+    void this.damageFlash.offsetWidth
+    this.damageFlash.classList.add('hit')
+    if (!this.playerState.alive) this._onPlayerDeath()
+  }
+
   _updateTrader(playerPos) {
     const dist = Math.hypot(playerPos.x - this.trader.x, playerPos.z - this.trader.z)
     this.nearTrader = dist <= TRADER_INTERACT_RADIUS
@@ -4979,6 +5013,7 @@ export class Game {
       this._updateTrader(playerPos)
       this._updateAmmoStation(dt, playerPos)
       this._updateBreakerBox(dt, playerPos)
+      this._updateToxicWater(dt, playerPos)
       this._updateVehicleProximity(playerPos)
       this._updateVireoTerminal(playerPos)
       this._updateStationTerminal(playerPos)

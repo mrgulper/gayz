@@ -56,6 +56,14 @@ export class PlayerController {
     this.camera = camera
 
     this.velocity = new THREE.Vector3()
+    // Stage 11's slippery walkway (see Game.js's _updateSlipperyZone) - set
+    // externally to >0 while standing on it, 0 everywhere else in the game.
+    // Horizontal movement normally snaps straight to the target direction
+    // every frame (no persisted momentum at all); _horizVelocity only comes
+    // into play when slipFactor > 0, so behavior everywhere else is
+    // untouched.
+    this.slipFactor = 0
+    this._horizVelocity = new THREE.Vector3()
     this.input = { forward: false, back: false, left: false, right: false, sprint: false, crouch: false }
     this.onGround = true
     this.groundY = 0
@@ -218,10 +226,25 @@ export class PlayerController {
       let speedMultiplier = this.isSprinting ? this.sprintMultiplier : 1
       if (this.isCrouching) speedMultiplier *= CROUCH_SPEED_MULT
       speedMultiplier *= this.adrenalineMult
-      if (isMoving) moveDir.normalize().multiplyScalar(this.moveSpeed * speedMultiplier * dt)
 
-      this._tryMove(obj, moveDir.x, 0)
-      this._tryMove(obj, 0, moveDir.z)
+      if (this.slipFactor > 0) {
+        // Wet planks over a sewer, not solid ground - momentum carries the
+        // player a bit once moving instead of stopping/turning the instant
+        // input changes. Higher slipFactor = slower to catch up to the
+        // target velocity = more slide.
+        const targetVel = isMoving
+          ? moveDir.clone().normalize().multiplyScalar(this.moveSpeed * speedMultiplier)
+          : new THREE.Vector3()
+        const responsiveness = THREE.MathUtils.lerp(14, 2, Math.min(1, this.slipFactor))
+        this._horizVelocity.lerp(targetVel, Math.min(1, dt * responsiveness))
+        this._tryMove(obj, this._horizVelocity.x * dt, 0)
+        this._tryMove(obj, 0, this._horizVelocity.z * dt)
+      } else {
+        if (isMoving) moveDir.normalize().multiplyScalar(this.moveSpeed * speedMultiplier * dt)
+        this._tryMove(obj, moveDir.x, 0)
+        this._tryMove(obj, 0, moveDir.z)
+        this._horizVelocity.set(0, 0, 0) // no carried momentum once off the slippery zone
+      }
     }
 
     const targetEyeHeight = this.isCrouching ? CROUCH_EYE_HEIGHT : EYE_HEIGHT
