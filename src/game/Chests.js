@@ -1,4 +1,27 @@
 import * as THREE from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js'
+
+// Phase 5 (bespoke interactables) of the 3D asset overhaul - real rigged
+// GLB chest (Quaternius "Chest", CC0, poly.pizza) with its own baked
+// Chest_Open animation clip, replacing the procedural military-crate group
+// below. Same preload/clone pattern as Companion.js/Zombie.js.
+export const USE_GLB_CHEST = true
+let _chestModelCache = null
+
+export async function preloadChestModel() {
+  try {
+    const loader = new GLTFLoader()
+    const gltf = await loader.loadAsync('/models/props/chest.glb')
+    _chestModelCache = { scene: gltf.scene, animations: gltf.animations }
+  } catch (err) {
+    console.warn('GLB chest model failed to load, falling back to procedural chest', err)
+  }
+}
+
+// Raw model bounds (Box3 on the unscaled scene): ~2.14 wide x 1.81 tall x
+// 1.88 deep. Scaled down to a human-waist-height loot chest, ~0.9 wide.
+const GLB_SCALE_CORRECTION = 0.42
 
 const INTERACT_RADIUS = 2.2
 const INTERACT_HEIGHT_TOLERANCE = 2.2
@@ -78,6 +101,44 @@ class Chest {
     this.group = new THREE.Group()
     this.group.position.set(x, y, z)
 
+    if (USE_GLB_CHEST && _chestModelCache) {
+      this._buildFromGLB()
+    } else {
+      this._buildProcedural()
+    }
+  }
+
+  _buildFromGLB() {
+    this.usingGLB = true
+    const cloned = cloneSkeleton(_chestModelCache.scene)
+    cloned.scale.setScalar(GLB_SCALE_CORRECTION)
+    cloned.traverse((child) => {
+      if (!child.isMesh) return
+      child.castShadow = true
+      child.receiveShadow = true
+    })
+    this.group.add(cloned)
+
+    this.mixer = new THREE.AnimationMixer(cloned)
+    const openClip = _chestModelCache.animations.find((c) => c.name === 'Chest_Open')
+    if (openClip) {
+      this._openAction = this.mixer.clipAction(openClip)
+      this._openAction.setLoop(THREE.LoopOnce, 1)
+      this._openAction.clampWhenFinished = true
+    }
+
+    // Status LEDs (red locked / green unlocked) - not part of the source
+    // model, added as small emissive boxes near the front so there's still
+    // an at-a-glance "has this been opened" cue like the old crate had.
+    this.indicatorMat = new THREE.MeshStandardMaterial({ color: 0x1a0505, emissive: 0xff2a1e, emissiveIntensity: 0.9 })
+    for (const side of [-0.16, 0.16]) {
+      const light = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.035, 0.02), this.indicatorMat)
+      light.position.set(side, 0.42, 0.36)
+      this.group.add(light)
+    }
+  }
+
+  _buildProcedural() {
     const bodyMat = new THREE.MeshStandardMaterial({ color: 0x4b5333, roughness: 0.85 })
     const trimMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1a, roughness: 0.55, metalness: 0.45 })
     const stencilMat = new THREE.MeshStandardMaterial({ map: buildStencilTexture(), roughness: 0.8 })
@@ -141,13 +202,29 @@ class Chest {
   }
 
   update(dt, elapsed) {
+    if (this.mixer && this._openAction && this._openAction.isRunning()) this.mixer.update(dt)
     if (this.opened || this.locked) return
     this.indicatorMat.emissiveIntensity = 0.6 + Math.sin(elapsed * 2.2) * 0.3
   }
 
+  _resetLid() {
+    if (this._openAction) {
+      this._openAction.stop()
+      this._openAction.reset()
+      this.mixer.update(0)
+    } else if (this.lid) {
+      this.lid.rotation.x = 0
+    }
+  }
+
   open() {
     this.opened = true
-    this.lid.rotation.x = -2.0
+    if (this._openAction) {
+      this._openAction.reset()
+      this._openAction.play()
+    } else if (this.lid) {
+      this.lid.rotation.x = -2.0
+    }
     this.indicatorMat.color.setHex(0x0a2a0a)
     this.indicatorMat.emissive.setHex(0x2aff3e)
     this.indicatorMat.emissiveIntensity = 0.6
@@ -158,7 +235,7 @@ class Chest {
     this.locked = false
     this.opened = false
     this.group.visible = true
-    this.lid.rotation.x = 0
+    this._resetLid()
     this.indicatorMat.color.setHex(0x1a0505)
     this.indicatorMat.emissive.setHex(0xff2a1e)
     this.indicatorMat.emissiveIntensity = 0.9
@@ -173,10 +250,29 @@ class Chest {
     this.locked = true
     this.opened = false
     this.group.visible = false
-    this.lid.rotation.x = 0
+    this._resetLid()
     this.indicatorMat.color.setHex(0x14140f)
     this.indicatorMat.emissive.setHex(0x2a2a22)
     this.indicatorMat.emissiveIntensity = 0.15
+  }
+}
+
+// Bespoke Blender-built model (see asset-source/build-interactables.py) -
+// no good free pack matches a bank-vault door, so this one's modeled
+// directly rather than sourced. Exported flat (no parent/child) since
+// Blender's glTF exporter mangled manually-parented children's transforms;
+// Dial/Handle/notches get reparented onto Door via THREE's attach() below
+// instead, once at construction time.
+export const USE_GLB_VAULT = true
+let _vaultModelCache = null
+
+export async function preloadVaultModel() {
+  try {
+    const loader = new GLTFLoader()
+    const gltf = await loader.loadAsync('/models/props/vault.glb')
+    _vaultModelCache = gltf.scene
+  } catch (err) {
+    console.warn('GLB vault model failed to load, falling back to procedural vault', err)
   }
 }
 
@@ -201,6 +297,42 @@ export class Vault {
     this.group = new THREE.Group()
     this.group.position.set(x, y, z)
 
+    if (USE_GLB_VAULT && _vaultModelCache) {
+      this._buildFromGLB()
+    } else {
+      this._buildProcedural()
+    }
+  }
+
+  _buildFromGLB() {
+    this.usingGLB = true
+    const cloned = _vaultModelCache.clone(true)
+    cloned.traverse((child) => {
+      if (!child.isMesh) return
+      child.castShadow = true
+      child.receiveShadow = true
+      child.material = child.material.clone()
+    })
+    this.group.add(cloned)
+    cloned.updateMatrixWorld(true)
+
+    this.door = cloned.getObjectByName('Door')
+    const decorNames = ['Dial', 'Handle', 'DialNotch0', 'DialNotch1', 'DialNotch2', 'DialNotch3', 'DialNotch4', 'DialNotch5', 'DialNotch6', 'DialNotch7']
+    for (const name of decorNames) {
+      const obj = cloned.getObjectByName(name)
+      if (obj) this.door.attach(obj)
+    }
+
+    // Same door-local coordinates the procedural version used for this
+    // light (added the same way, as a direct child of this.door - not
+    // reparented via attach(), so these are plain local offsets).
+    this.indicatorMat = new THREE.MeshStandardMaterial({ color: 0x1a0505, emissive: 0xff2a1e, emissiveIntensity: 0.9 })
+    const light = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 10), this.indicatorMat)
+    light.position.set(0, VAULT_H - 0.15, VAULT_D / 2 + 0.07)
+    this.door.add(light)
+  }
+
+  _buildProcedural() {
     const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3a3d40, roughness: 0.5, metalness: 0.6 })
     const trimMat = new THREE.MeshStandardMaterial({ color: 0x17181a, roughness: 0.5, metalness: 0.6 })
     const dialMat = new THREE.MeshStandardMaterial({ color: 0xc9b34a, roughness: 0.35, metalness: 0.7 })

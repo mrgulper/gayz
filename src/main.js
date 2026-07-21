@@ -7,6 +7,7 @@ import { preloadRivalModel } from './game/RivalScavenger.js'
 import { preloadSurvivorModel } from './game/RescueSurvivor.js'
 import { preloadPlayerBodyModel } from './game/PlayerBody.js'
 import { preloadFuelcanModel } from './game/Pickups.js'
+import { preloadChestModel, preloadVaultModel } from './game/Chests.js'
 import {
   preloadPistolViewmodel,
   preloadRifleViewmodel,
@@ -23,6 +24,8 @@ Promise.all([
   preloadBuildingModels(),
   preloadPropModels(),
   preloadFuelcanModel(),
+  preloadChestModel(),
+  preloadVaultModel(),
   preloadZombieModel(),
   preloadTitanModel(),
   preloadCompanionModel(),

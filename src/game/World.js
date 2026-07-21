@@ -721,52 +721,84 @@ function buildTraderStall(scene, register) {
   group.position.set(x, 0, z)
   group.rotation.y = Math.PI * 0.15
 
-  const woodMat = new THREE.MeshStandardMaterial({ color: 0x4a3624, roughness: 0.9 })
-  const tarpMat = new THREE.MeshStandardMaterial({ color: 0x5a2e2a, roughness: 0.85 })
   const signMat = new THREE.MeshStandardMaterial({ color: 0x1a1410, emissive: 0xffb347, emissiveIntensity: 1.1 })
 
-  const COUNTER_W = 1.6
+  // Real GLB model (Quaternius "Market Stand", CC0, poly.pizza) in place of
+  // the procedural counter+posts+awning. Raw bounds ~0.95w x 1.05h x 1.19d;
+  // scaled up to roughly the old counter's footprint.
+  const STALL_SCALE = 1.65
+  const stallModel = _propModelCache.get('traderstall.glb')
+  let raycastTarget
   const COUNTER_H = 0.9
-  const COUNTER_D = 0.6
-  const counter = new THREE.Mesh(new THREE.BoxGeometry(COUNTER_W, COUNTER_H, COUNTER_D), woodMat)
-  counter.position.y = 0.45
-  counter.castShadow = true
-  counter.receiveShadow = true
-  group.add(counter)
 
-  for (const dx of [-0.7, 0.7]) {
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.1, 10), woodMat)
-    post.position.set(dx, 1.05, -0.15)
-    post.castShadow = true
-    group.add(post)
+  if (stallModel) {
+    const clone = stallModel.clone(true)
+    clone.scale.setScalar(STALL_SCALE)
+    clone.traverse((child) => {
+      if (!child.isMesh) return
+      child.castShadow = true
+      child.receiveShadow = true
+      child.material = child.material.clone()
+    })
+    group.add(clone)
+    raycastTarget = clone
+
+    const sign = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.22, 0.04), signMat)
+    sign.position.set(0, 1.7, -0.16)
+    group.add(sign)
+
+    const lantern = new THREE.PointLight(0xffb347, 1.4, 6, 2)
+    lantern.position.set(0, 1.6, 0.3)
+    group.add(lantern)
+  } else {
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x4a3624, roughness: 0.9 })
+    const tarpMat = new THREE.MeshStandardMaterial({ color: 0x5a2e2a, roughness: 0.85 })
+
+    const COUNTER_W = 1.6
+    const COUNTER_D = 0.6
+    const counter = new THREE.Mesh(new THREE.BoxGeometry(COUNTER_W, COUNTER_H, COUNTER_D), woodMat)
+    counter.position.y = 0.45
+    counter.castShadow = true
+    counter.receiveShadow = true
+    group.add(counter)
+    raycastTarget = counter
+
+    for (const dx of [-0.7, 0.7]) {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.1, 10), woodMat)
+      post.position.set(dx, 1.05, -0.15)
+      post.castShadow = true
+      group.add(post)
+    }
+
+    const awning = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.06, 1.1), tarpMat)
+    awning.position.set(0, 2.05, 0.15)
+    awning.rotation.x = -0.12
+    awning.castShadow = true
+    group.add(awning)
+
+    const sign = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.22, 0.04), signMat)
+    sign.position.set(0, 1.7, -0.16)
+    group.add(sign)
+
+    const lantern = new THREE.PointLight(0xffb347, 1.4, 6, 2)
+    lantern.position.set(0, 1.6, 0.3)
+    group.add(lantern)
   }
 
-  const awning = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.06, 1.1), tarpMat)
-  awning.position.set(0, 2.05, 0.15)
-  awning.rotation.x = -0.12
-  awning.castShadow = true
-  group.add(awning)
-
-  const sign = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.22, 0.04), signMat)
-  sign.position.set(0, 1.7, -0.16)
-  group.add(sign)
-
-  const lantern = new THREE.PointLight(0xffb347, 1.4, 6, 2)
-  lantern.position.set(0, 1.6, 0.3)
-  group.add(lantern)
-
   scene.add(group)
-  // The counter sits on the group's own rotation axis (no local x/z
-  // offset), so its true world footprint is just its unrotated half-extents
+  // The stall sits on the group's own rotation axis (no local x/z offset),
+  // so its true world footprint is just its unrotated half-extents
   // re-centered at the group's world x/z - no need to let setFromObject
   // inflate it for the 27deg tilt (see register()'s explicitBox comment).
+  const halfW = (stallModel ? 0.95 * STALL_SCALE : 1.6) / 2
+  const halfD = (stallModel ? 1.19 * STALL_SCALE : 0.6) / 2
   const counterBox = new THREE.Box3(
-    new THREE.Vector3(x - COUNTER_W / 2, 0, z - COUNTER_D / 2),
-    new THREE.Vector3(x + COUNTER_W / 2, COUNTER_H, z + COUNTER_D / 2)
+    new THREE.Vector3(x - halfW, 0, z - halfD),
+    new THREE.Vector3(x + halfW, COUNTER_H, z + halfD)
   )
-  register(counter, counterBox)
+  register(raycastTarget, counterBox)
 
-  return { x, z, signMat, mesh: counter }
+  return { x, z, signMat, mesh: raycastTarget }
 }
 
 // Ammo refill kiosk near spawn - hold the interact key here for a few
@@ -784,19 +816,42 @@ function buildAmmoStation(scene, register) {
   const group = new THREE.Group()
   group.position.set(x, 0, z)
 
-  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x5a2a1e, roughness: 0.7, metalness: 0.2 })
-  const trimMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1a, roughness: 0.5, metalness: 0.5 })
-  const buttonMat = new THREE.MeshStandardMaterial({ color: 0x2a0808, emissive: 0xff2a1e, emissiveIntensity: 1.1 })
+  // Real GLB model (see asset-source/build-interactables.py - bespoke
+  // Blender build, no free pack matched this shape) in place of the
+  // procedural body+trim boxes. Authored directly in Three-scale units, no
+  // correction factor needed.
+  const stationModel = _propModelCache.get('ammostation.glb')
+  let raycastTarget
+  let buttonMat
 
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.1, 0.5), bodyMat)
-  body.position.y = 0.55
-  body.castShadow = true
-  body.receiveShadow = true
-  group.add(body)
+  if (stationModel) {
+    const clone = stationModel.clone(true)
+    clone.traverse((child) => {
+      if (!child.isMesh) return
+      child.castShadow = true
+      child.receiveShadow = true
+      child.material = child.material.clone()
+    })
+    group.add(clone)
+    raycastTarget = clone
+    const buttonMesh = clone.getObjectByName('Button')
+    buttonMat = buttonMesh.material
+  } else {
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x5a2a1e, roughness: 0.7, metalness: 0.2 })
+    const trimMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1a, roughness: 0.5, metalness: 0.5 })
+    buttonMat = new THREE.MeshStandardMaterial({ color: 0x2a0808, emissive: 0xff2a1e, emissiveIntensity: 1.1 })
 
-  const trim = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.06, 0.54), trimMat)
-  trim.position.y = 1.06
-  group.add(trim)
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.1, 0.5), bodyMat)
+    body.position.y = 0.55
+    body.castShadow = true
+    body.receiveShadow = true
+    group.add(body)
+    raycastTarget = body
+
+    const trim = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.06, 0.54), trimMat)
+    trim.position.y = 1.06
+    group.add(trim)
+  }
 
   const canvas = document.createElement('canvas')
   canvas.width = 128
@@ -825,15 +880,17 @@ function buildAmmoStation(scene, register) {
   screen.position.set(0, 0.65, 0.255)
   group.add(screen)
 
-  const button = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.04, 16), buttonMat)
-  button.rotation.x = Math.PI / 2
-  button.position.set(0, 0.28, 0.26)
-  group.add(button)
+  if (!stationModel) {
+    const button = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.04, 16), buttonMat)
+    button.rotation.x = Math.PI / 2
+    button.position.set(0, 0.28, 0.26)
+    group.add(button)
+  }
 
   scene.add(group)
-  register(body)
+  register(raycastTarget)
 
-  return { x, z, buttonMat, mesh: body }
+  return { x, z, buttonMat, mesh: raycastTarget }
 }
 
 // Module-level (not just local to buildSafeZone) so buildTraderStall and
@@ -1009,9 +1066,28 @@ function buildTrophyWall(scene, colliders, solidMeshes, safeZone, count) {
   const rows = Math.ceil(count / cols)
   const spacing = 0.4
 
-  const backingMat = new THREE.MeshStandardMaterial({ color: 0x2a2a24, roughness: 0.9 })
+  // Real wood PBR textures (reused from the StreetBench pack, already
+  // downloaded for Phase 5's prop batch - no new asset needed) tiled onto
+  // the backing board instead of a flat color. The board itself stays a
+  // plain procedural box since its size depends on the achievement count
+  // (cols/rows), which no fixed-size model could match.
+  const woodColor = new THREE.TextureLoader().load('/textures/wood_color.png')
+  woodColor.colorSpace = THREE.SRGBColorSpace
+  const woodNormal = new THREE.TextureLoader().load('/textures/wood_normal.png')
+  const woodRoughness = new THREE.TextureLoader().load('/textures/wood_roughness.png')
   const backingW = cols * spacing + 0.3
   const backingH = rows * spacing + 0.3
+  for (const tex of [woodColor, woodNormal, woodRoughness]) {
+    tex.wrapS = THREE.RepeatWrapping
+    tex.wrapT = THREE.RepeatWrapping
+    tex.repeat.set(backingW / 0.6, backingH / 0.6)
+  }
+  const backingMat = new THREE.MeshStandardMaterial({
+    map: woodColor,
+    normalMap: woodNormal,
+    roughnessMap: woodRoughness,
+    roughness: 0.9,
+  })
   const backing = new THREE.Mesh(new THREE.BoxGeometry(0.08, backingH, backingW), backingMat)
   backing.position.set(x, 1.6, z)
   backing.castShadow = true
@@ -2000,7 +2076,7 @@ export async function preloadBuildingModels() {
 const PROP_MODEL_FILES = [
   'barrel.glb', 'streetlight.glb', 'bench.glb', 'dumpster.glb', 'trafficcone.glb',
   'roadblock.glb', 'atm.glb', 'mailbox.glb', 'payphone.glb', 'busstop.glb',
-  'trashbin.glb', 'waterbarrel.glb', 'cabledrum.glb',
+  'trashbin.glb', 'waterbarrel.glb', 'cabledrum.glb', 'traderstall.glb', 'ammostation.glb',
 ]
 const _propModelCache = new Map()
 
