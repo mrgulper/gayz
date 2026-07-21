@@ -121,6 +121,9 @@ const FLANK_FADE_DIST = 4
 // of a melee zombie's reach, so it stops trying to attack through the
 // object it's standing under instead of freezing there uselessly.
 const TYPICAL_EYE_HEIGHT = 1.7
+// See _hasLineOfSight's own comment - how long a cached LOS result stays
+// valid before the next call actually re-raycasts.
+const LOS_CACHE_MS = 150
 
 let zombieIdCounter = 0
 
@@ -192,6 +195,17 @@ export class Zombie {
     this._losRaycaster = new THREE.Raycaster()
     this._losOrigin = new THREE.Vector3()
     this._losDir = new THREE.Vector3()
+    // Performance: _hasLineOfSight raycasts against the WHOLE solidMeshes
+    // array (1000+ objects with 14 stages of world geometry) - cheap for
+    // one zombie, but every zombie within melee/engage range does this
+    // every single frame, and a horde fight is exactly the moment many
+    // zombies are simultaneously that close. Line of sight to the player
+    // doesn't meaningfully change frame-to-frame, so caching the result for
+    // a short window cuts the real raycast frequency by ~90% with no
+    // perceptible gameplay difference (worst case, a zombie's approach/
+    // attack decision is up to LOS_CACHE_MS stale).
+    this._losCachedResult = true
+    this._losCacheUntil = 0
 
     this._buildBody()
 
@@ -1241,16 +1255,28 @@ export class Zombie {
   // _updateMelee. No solidMeshes passed skips the check (treated as clear).
   _hasLineOfSight(playerPos, solidMeshes) {
     if (!solidMeshes || solidMeshes.length === 0) return true
+    // See LOS_CACHE_MS's own comment - this is the actual real-raycast
+    // throttle, called every frame from _updateMelee/_updateRanged whenever
+    // a zombie is close enough to matter (exactly the horde-fight moment
+    // where many zombies doing this at once adds up).
+    const now = performance.now()
+    if (now < this._losCacheUntil) return this._losCachedResult
+    this._losCacheUntil = now + LOS_CACHE_MS
+
     this._losOrigin.copy(this.group.position)
     this._losOrigin.y += 1.0 * this.config.scale
     this._losDir.copy(playerPos).sub(this._losOrigin)
     const dist = this._losDir.length()
-    if (dist < 0.001) return true
+    if (dist < 0.001) {
+      this._losCachedResult = true
+      return true
+    }
     this._losDir.normalize()
     this._losRaycaster.set(this._losOrigin, this._losDir)
     this._losRaycaster.far = dist - 0.15 // stop just short of the player so their own body isn't a false hit
     const hits = this._losRaycaster.intersectObjects(solidMeshes, true)
-    return hits.length === 0
+    this._losCachedResult = hits.length === 0
+    return this._losCachedResult
   }
 
   // Dodge-able tell for _updateBossSpecial's wind-up: a fast growing
