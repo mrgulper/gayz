@@ -1005,6 +1005,98 @@ function buildSafeZone(scene, colliders, solidMeshes) {
   return { x, z, radius: half - 0.5, guardSpots }
 }
 
+// Blueprint-locations infrastructure (Phase 0 of the Extended Metropolitan
+// Grid plan) - a generic rectangular room with configurable door gaps or
+// fully-open sides, generalizing buildSafeZone's own wall-split-with-gap
+// math above (see addWall/sideWallLen there) so every future named
+// interior (hospital wing, cellblock, lab, retail aisle-room) can call this
+// instead of hand-authoring walls from scratch. 'open' sides (no wall at
+// all) mirror buildOffice/buildElevatedRoom's alcove pattern instead, for
+// rooms that open directly onto a corridor rather than through a door.
+const ROOM_WALL_THICKNESS = 0.3
+
+function buildRoom(scene, register, spec) {
+  const {
+    x, z, w, d,
+    wallHeight = 2.6,
+    doorSides = [], // [{ side: 'north'|'south'|'east'|'west', width }]
+    openSides = [], // ['north', ...] - omit these walls entirely
+    wallMat = new THREE.MeshStandardMaterial({ color: 0x3a3a34, roughness: 0.95 }),
+  } = spec
+
+  const halfW = w / 2
+  const halfD = d / 2
+  const t = ROOM_WALL_THICKNESS
+  const doorWidth = new Map(doorSides.map((ds) => [ds.side, ds.width]))
+  const isOpen = (side) => openSides.includes(side)
+
+  const addWallSeg = (wx, wz, sw, sd) => {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(sw, wallHeight, sd), wallMat)
+    wall.position.set(x + wx, wallHeight / 2, z + wz)
+    wall.castShadow = true
+    wall.receiveShadow = true
+    scene.add(wall)
+    register(wall)
+  }
+
+  if (!isOpen('north')) {
+    const gap = doorWidth.get('north')
+    if (!gap) {
+      addWallSeg(0, halfD, w, t)
+    } else {
+      const segLen = (w - gap) / 2
+      addWallSeg(-(gap / 2 + segLen / 2), halfD, segLen, t)
+      addWallSeg(gap / 2 + segLen / 2, halfD, segLen, t)
+    }
+  }
+  if (!isOpen('south')) {
+    const gap = doorWidth.get('south')
+    if (!gap) {
+      addWallSeg(0, -halfD, w, t)
+    } else {
+      const segLen = (w - gap) / 2
+      addWallSeg(-(gap / 2 + segLen / 2), -halfD, segLen, t)
+      addWallSeg(gap / 2 + segLen / 2, -halfD, segLen, t)
+    }
+  }
+  if (!isOpen('east')) {
+    const gap = doorWidth.get('east')
+    if (!gap) {
+      addWallSeg(halfW, 0, t, d)
+    } else {
+      const segLen = (d - gap) / 2
+      addWallSeg(halfW, -(gap / 2 + segLen / 2), t, segLen)
+      addWallSeg(halfW, gap / 2 + segLen / 2, t, segLen)
+    }
+  }
+  if (!isOpen('west')) {
+    const gap = doorWidth.get('west')
+    if (!gap) {
+      addWallSeg(-halfW, 0, t, d)
+    } else {
+      const segLen = (d - gap) / 2
+      addWallSeg(-halfW, -(gap / 2 + segLen / 2), t, segLen)
+      addWallSeg(-halfW, gap / 2 + segLen / 2, t, segLen)
+    }
+  }
+
+  const doorSpots = doorSides.map((ds) => {
+    if (ds.side === 'north') return { x, z: z + halfD }
+    if (ds.side === 'south') return { x, z: z - halfD }
+    if (ds.side === 'east') return { x: x + halfW, z }
+    return { x: x - halfW, z }
+  })
+
+  return {
+    x, z, w, d,
+    bounds: new THREE.Box3(
+      new THREE.Vector3(x - halfW, 0, z - halfD),
+      new THREE.Vector3(x + halfW, wallHeight, z + halfD)
+    ),
+    doorSpots,
+  }
+}
+
 function buildTargetTexture() {
   const canvas = document.createElement('canvas')
   canvas.width = 128

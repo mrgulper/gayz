@@ -4733,7 +4733,8 @@ export class Game {
         (x, z) => this.pickups.spawnLootDrop('ammo', x, z), // boss-only guaranteed drop, see ZombieManager
         () => audioEngine.playAmbushShriek(),
         (zombieTypeId, weaponId, x, z, isElite, isWandering) => this._onZombieKilled(zombieTypeId, weaponId, x, z, isElite, isWandering),
-        this.player.isCrouching
+        this.player.isCrouching,
+        this.dayNight ? this.dayNight.getPhaseInfo().phase === 'Night' : false
       )
       this.companion.update(dt, playerPos, this.zombies.zombies, (amount) => {
         this.playerState.heal(amount)

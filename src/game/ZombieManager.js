@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { Zombie } from './Zombie.js'
 import { pickZombieType, ZOMBIE_TYPES } from './ZombieTypes.js'
 import { audioEngine } from './Audio.js'
+import { getZoneAt } from './Zones.js'
 
 const BASE_SPAWN_COUNT = 9
 const MAX_SPAWN_COUNT = 18
@@ -164,6 +165,11 @@ export class ZombieManager {
     // night-based curve in _recomputeDifficulty rather than replacing it.
     this.directorMult = 1
     this.targetCount = Math.round(BASE_SPAWN_COUNT * this.spawnRateMult)
+    // Kept in sync with targetCount here too - _recomputeDifficulty only
+    // runs on an explicit night-advance, which a fresh night-1 game may
+    // never trigger, so _applyZoneDensity needs a real baseline from the
+    // start rather than waiting on that to fire.
+    this.baseTargetCount = this.targetCount
     this.respawnDelay = BASE_RESPAWN_DELAY
     this.ambushChance = BASE_AMBUSH_CHANCE
     this.nextMoanAt = performance.now() + this._randomMoanDelay()
@@ -300,11 +306,29 @@ export class ZombieManager {
   // re-running the boss-spawn check that only makes sense at a real night
   // transition.
   _recomputeDifficulty() {
-    this.targetCount = this.bossRushMode
+    this.baseTargetCount = this.bossRushMode
       ? Math.round(4 * this.spawnRateMult) // a thin ambient crowd - bosses are the point, not exploration
       : Math.round(Math.min(MAX_SPAWN_COUNT, BASE_SPAWN_COUNT + (this.currentNight - 1)) * this.spawnRateMult * this.directorMult)
+    this.targetCount = this.baseTargetCount
     this.respawnDelay = Math.max(MIN_RESPAWN_DELAY * 0.5, (BASE_RESPAWN_DELAY - (this.currentNight - 1) * 0.5) / this.directorMult)
     this.ambushChance = Math.min(MAX_AMBUSH_CHANCE, (BASE_AMBUSH_CHANCE + (this.currentNight - 1) * 0.03) * this.directorMult)
+  }
+
+  // Zone-tuned density (see Zones.js) - re-derives targetCount from the
+  // night-based baseline every frame based on whichever zone the player is
+  // currently standing in, so walking into a "high density" location (a
+  // prison, a horde-favorite chokepoint) immediately raises the maintained
+  // zombie count without needing its own separate spawn-position logic -
+  // _spawnRandom's existing player-relative radius band still decides WHERE
+  // they appear, this only changes HOW MANY are kept alive.
+  _applyZoneDensity(isNight) {
+    const zone = getZoneAt(this.lastPlayerPos.x, this.lastPlayerPos.z)
+    let mult = 1
+    if (zone) {
+      const gated = (zone.dayOnly && isNight) || (zone.nightOnly && !isNight)
+      mult = gated ? 1 : zone.densityMult
+    }
+    this.targetCount = Math.round(this.baseTargetCount * mult)
   }
 
   // Scales spawn count / respawn speed / ambush frequency up with night number.
@@ -466,6 +490,10 @@ export class ZombieManager {
       this.targetCount = Math.round(BASE_SPAWN_COUNT * this.spawnRateMult)
       for (let i = 0; i < this.targetCount; i++) this._spawnRandom()
     }
+    // Keep in sync with targetCount here - _applyZoneDensity re-derives
+    // targetCount from this baseline every frame, and would otherwise
+    // immediately overwrite this reset with a stale pre-reset value.
+    this.baseTargetCount = this.targetCount
   }
 
   // Horde Mode mutator (see Game.js's settings.mutators.hordeMode): spawns
@@ -920,12 +948,13 @@ export class ZombieManager {
     })
   }
 
-  update(dt, playerPos, onPlayerDamage, onZombieLoot, onAmbushTrigger, onZombieKilled, playerCrouching = false) {
+  update(dt, playerPos, onPlayerDamage, onZombieLoot, onAmbushTrigger, onZombieKilled, playerCrouching = false, isNight = false) {
     this.elapsed += dt
     // Every spawn function below reads this instead of assuming the player
     // is near the map origin - true on the old 150x150 map, not on the
     // current 750x750 one, where the player could be anywhere.
     this.lastPlayerPos = playerPos
+    this._applyZoneDensity(isNight)
 
     if (performance.now() >= this.nextTitanCheckAt) this._maybeSpawnTitan()
     this._maybeSpawnWanderingHorde()

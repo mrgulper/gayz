@@ -27,13 +27,21 @@ const INTERACT_RADIUS = 2.2
 const INTERACT_HEIGHT_TOLERANCE = 2.2
 const EYE_HEIGHT = 1.7
 
-const LOOT_WEIGHTS = { health: 1, ammo: 1, noisemaker: 0.4, scope: 0.2, extended_mag: 0.3, fuelcan: 0.5, grenade: 0.35, melee_bat: 0.15, melee_machete: 0.15, melee_uvbaton: 0.1, rare_weapon: 0.25, legendary_weapon: 0.08 }
+// Exported so a zone-tagged location can build an override table by
+// spreading/adjusting this base table (e.g. `{ ...LOOT_WEIGHTS, rare_weapon: 1 }`
+// for a "high loot complexity" spot) instead of hand-duplicating every entry.
+export const LOOT_WEIGHTS = { health: 1, ammo: 1, noisemaker: 0.4, scope: 0.2, extended_mag: 0.3, fuelcan: 0.5, grenade: 0.35, melee_bat: 0.15, melee_machete: 0.15, melee_uvbaton: 0.1, rare_weapon: 0.25, legendary_weapon: 0.08 }
 const LOOT_LABELS = { health: 'Health Pack', ammo: 'Ammo Crate', noisemaker: 'Noisemaker', scope: 'Scope', extended_mag: 'Extended Mag', fuelcan: 'Fuel Can', grenade: 'Grenade', melee_bat: 'Bat', melee_machete: 'Machete', melee_uvbaton: 'UV Baton', rare_weapon: 'Rare Weapon Part', legendary_weapon: 'Legendary Weapon Part' }
 const LOOT_COUNT_MIN = 1
 const LOOT_COUNT_MAX = 2
 
-function pickLoot() {
-  const entries = Object.entries(LOOT_WEIGHTS)
+// Optional weights param lets a zone-tagged chest (see Zones.js/the
+// Extended Metropolitan Grid plan's per-location loot tiers) roll from its
+// own table instead of the global one - e.g. a "high loot complexity"
+// location can boost rare_weapon/legendary_weapon odds without touching
+// every other chest on the map.
+function pickLoot(weights = LOOT_WEIGHTS) {
+  const entries = Object.entries(weights)
   const total = entries.reduce((sum, [, w]) => sum + w, 0)
   let roll = Math.random() * total
   for (const [id, w] of entries) {
@@ -91,12 +99,13 @@ function buildStencilTexture() {
 // so there's fresh loot to find each night instead of the map going stale
 // once everything's been picked clean.
 class Chest {
-  constructor(x, y, z) {
+  constructor(x, y, z, lootWeights = null) {
     this.x = x
     this.y = y
     this.z = z
     this.opened = false
     this.locked = true
+    this.lootWeights = lootWeights
 
     this.group = new THREE.Group()
     this.group.position.set(x, y, z)
@@ -391,7 +400,7 @@ export class ChestManager {
   constructor(scene, extraSpots = []) {
     this.scene = scene
     const spots = [...CHEST_SPOTS, ...extraSpots]
-    this.chests = spots.map((p) => new Chest(p.x, p.y || 0, p.z))
+    this.chests = spots.map((p) => new Chest(p.x, p.y || 0, p.z, p.lootWeights || null))
     for (const c of this.chests) scene.add(c.group)
     this.nearbyChest = null
     this.refillNight()
@@ -400,8 +409,8 @@ export class ChestManager {
   // Adds one extra chest at runtime, for the "Supply Drop" random night event.
   // Unlocked immediately - it's a bonus reward for that event, not part of
   // the regular nightly rotation.
-  addChest(x, y, z) {
-    const chest = new Chest(x, y, z)
+  addChest(x, y, z, lootWeights = null) {
+    const chest = new Chest(x, y, z, lootWeights)
     chest.unlock()
     this.chests.push(chest)
     this.scene.add(chest.group)
@@ -448,7 +457,7 @@ export class ChestManager {
     chest.open()
     this.nearbyChest = null
 
-    const type = pickLoot()
+    const type = pickLoot(chest.lootWeights || undefined)
     const count = LOOT_COUNT_MIN + Math.floor(Math.random() * (LOOT_COUNT_MAX - LOOT_COUNT_MIN + 1))
     return { type, label: LOOT_LABELS[type], count }
   }
