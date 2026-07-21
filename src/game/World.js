@@ -2803,6 +2803,17 @@ function buildSubwayParkEntrance(scene, colliders, solidMeshes, flickerLights) {
     post.castShadow = true
     scene.add(post)
   }
+  // buildPark's grass is one continuous plane with no hole cut anywhere -
+  // this stairwell's opening was invisible from ground level (reported by
+  // the user while checking the new entrance beside this one, but this one
+  // has the exact same gap and was never actually fixed). A dark patch just
+  // above the grass reads as a void without needing to touch the park's
+  // own geometry - same fix as buildNewUndergroundEntrance's own opening.
+  const openingMat = new THREE.MeshStandardMaterial({ color: 0x0a0806, roughness: 1 })
+  const opening = new THREE.Mesh(new THREE.PlaneGeometry(kioskHalfW * 2 + 0.4, 6.5), openingMat)
+  opening.rotation.x = -Math.PI / 2
+  opening.position.set(SUBWAY_PARK_ENTRANCE_X, 0.03, (SUBWAY_PARK_ENTRANCE_Z + SUBWAY_PARK_LANDING_Z) / 2)
+  scene.add(opening)
   // Readable "SUBWAY" + down-arrow text via a canvas texture, same technique
   // as the VIREO terminal screen (see buildVireoFacility) - a plain emissive
   // box with no text on it doesn't actually tell a player what's down here.
@@ -2901,6 +2912,20 @@ function buildNewUndergroundEntrance(scene, colliders, solidMeshes, flickerLight
     post.castShadow = true
     scene.add(post)
   }
+
+  // The park's grass (buildPark) is one continuous plane with no actual
+  // hole cut in it anywhere - a real gap would need custom hole geometry,
+  // but a simple dark "opening" patch positioned just above the grass
+  // (which wins the depth test there) reads as a void/hole from ground
+  // level without needing to touch the park's own geometry. Spans from
+  // under the roof through to where the stairs actually start dropping,
+  // so it visually continues into the descent instead of looking like an
+  // isolated dark rectangle.
+  const openingMat = new THREE.MeshStandardMaterial({ color: 0x0a0806, roughness: 1 })
+  const opening = new THREE.Mesh(new THREE.PlaneGeometry(shaftHalfW * 2 + 0.6, 5.2), openingMat)
+  opening.rotation.x = -Math.PI / 2
+  opening.position.set(x, 0.03, z - 1)
+  scene.add(opening)
 
   const signCanvas = document.createElement('canvas')
   signCanvas.width = 512
