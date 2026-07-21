@@ -791,7 +791,7 @@ export class Game {
     this.composer.addPass(this.bloomPass)
     this.composer.addPass(new OutputPass())
 
-    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall } = buildWorld(this.scene, ACHIEVEMENTS.length)
+    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank } = buildWorld(this.scene, ACHIEVEMENTS.length)
     this.cullables = cullables
     this.supermarket = supermarket
     this.groceryStore = groceryStore
@@ -805,6 +805,9 @@ export class Game {
     this.university = university
     this.skyscraper = skyscraper
     this.megaMall = megaMall
+    this.warehouse = warehouse
+    this.gasStation = gasStation
+    this.bank = bank
     // Extended Metropolitan Grid usability pass - none of Stages 1-9's new
     // locations showed up on the compass/minimap at all, the biggest real
     // gap once the map got this spread out (the skyscraper alone is 250
@@ -847,7 +850,7 @@ export class Game {
     // with it in range. Same dynamic-collider-removal pattern as
     // _removeDeathObstacle - splice the box back out on unlock instead of
     // rebuilding the whole colliders array.
-    this.lockedCells = [policeStation.cellDoor, ...prison.cellDoors, skyscraper.bunkerDoor, gunShop.caseDoor]
+    this.lockedCells = [policeStation.cellDoor, ...prison.cellDoors, skyscraper.bunkerDoor, gunShop.caseDoor, warehouse.cageDoor, bank.vaultDoor]
     for (const cell of this.lockedCells) {
       cell.locked = true
       this.colliders.push(cell.box)
@@ -4213,8 +4216,10 @@ export class Game {
     cell.indicatorMat.emissiveIntensity = 0.6
     this.nearLockedCell = null
     // Guaranteed weapon-tier reward for breaking in, same weapon-only
-    // weighting the gun shop/hardware store chests use.
-    this.chests.addChest(cell.x, 0, cell.z, { rare_weapon: 10, legendary_weapon: 3 })
+    // weighting the gun shop/hardware store chests use by default - a door
+    // can set its own lootWeights (see the bank vault) for a better/
+    // different reward instead.
+    this.chests.addChest(cell.x, 0, cell.z, cell.lootWeights || { rare_weapon: 10, legendary_weapon: 3 })
   }
 
   // Phase 6 of the 3D asset overhaul - the new outer zones (see World.js's

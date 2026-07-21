@@ -596,6 +596,27 @@ export function buildWorld(scene, trophyCount = 15) {
   buildManholeCover(scene, skyscraper.x - 2, skyscraper.z - 9)
   buildManholeCover(scene, megaMall.x, megaMall.z + 8)
 
+  // "Finish the set" additions, requested after Stage 9 wrapped up all the
+  // blueprint's own named locations - these 4 are beyond the blueprint.
+  const warehouse = buildWarehouse(scene, register, 0, -215)
+  registerZone({ id: 'warehouse', x: 0, z: -215, radius: 18, densityMult: 1.3 })
+  towerChestSpots.push({ x: 0, y: 0, z: -215, lootWeights: WEAPON_ONLY_LOOT_WEIGHTS })
+
+  const gasStation = buildGasStation(scene, register, 0, 200)
+  registerZone({ id: 'gasstation', x: 0, z: 200, radius: 10, densityMult: 1.1 })
+  const FUEL_LOOT_WEIGHTS = { ...LOOT_WEIGHTS, fuelcan: 3, health: 1.5 }
+  towerChestSpots.push({ x: 0, y: 0, z: 197, lootWeights: FUEL_LOOT_WEIGHTS })
+
+  const bank = buildBank(scene, register, -250, 0)
+  registerZone({ id: 'bank', x: -250, z: 0, radius: 14, densityMult: 1.4 })
+  towerChestSpots.push({ x: -250, y: 0, z: -3, lootWeights: RETAIL_LOOT_WEIGHTS })
+  // The vault's own guaranteed reward on unlock (see Game.js's
+  // lockedCells/_tryOpenLockedCell) is the best of any location so far -
+  // set directly on the door object since _tryOpenLockedCell already
+  // checks for a per-door override before falling back to its default
+  // weapon-tier table.
+  bank.vaultDoor.lootWeights = { legendary_weapon: 10, rare_weapon: 5 }
+
   return {
     colliders,
     solidMeshes,
@@ -627,6 +648,9 @@ export function buildWorld(scene, trophyCount = 15) {
     university,
     skyscraper,
     megaMall,
+    warehouse,
+    gasStation,
+    bank,
   }
 }
 
@@ -2058,6 +2082,155 @@ function buildDirectionalSignpost(scene, x, z) {
   }
 }
 
+// "Finish the set" additions requested after Stage 9 - Warehouse gives the
+// industrial zone the same real-content treatment commercial/residential/
+// suburbs already got (it was the one outer zone left as pure decorative
+// shells). One big open room + scattered industrial props already on disk
+// (barrel/cabledrum/waterbarrel from Phase 5, tools from Stage 3) rather
+// than sourcing anything new, plus a locked storage cage - the 7th use of
+// the buildLockableDoor/lockedCells mechanism.
+function buildWarehouse(scene, register, x, z) {
+  const w = 20
+  const d = 16
+  buildRoom(scene, register, {
+    x, z, w, d,
+    doorSides: [{ side: 'north', width: 3.2 }],
+    wallHeight: 4.5,
+  })
+
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x3a3a34, roughness: 0.9 })
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, d - 0.6), floorMat)
+  floor.rotation.x = -Math.PI / 2
+  floor.position.set(x, 0.02, z)
+  floor.receiveShadow = true
+  scene.add(floor)
+
+  const dressingSpots = [
+    ['barrel.glb', -7, -5], ['barrel.glb', -6, -5.8], ['cabledrum.glb', -7, 2],
+    ['waterbarrel.glb', -6, 4], ['barrel.glb', 6, -5], ['cabledrum.glb', 7, -4],
+  ]
+  for (const [file, dx, dz] of dressingSpots) {
+    const model = _propModelCache.get(file)
+    if (!model) continue
+    const clone = model.clone(true)
+    clone.position.set(x + dx, 0, z + dz)
+    clone.traverse((child) => {
+      if (!child.isMesh) return
+      child.castShadow = true
+      child.receiveShadow = true
+      child.material = child.material.clone()
+    })
+    scene.add(clone)
+  }
+  for (const [dx, dz, rot] of [[8, 4, 0], [8, 5.4, 0], [8, 6.8, 0]]) {
+    const toolFile = ['tool-hammer.glb', 'tool-crowbar.glb', 'tool-tireiron.glb'][Math.floor(dz) % 3]
+    placePropSimple(scene, register, toolFile, x + dx, z + dz, rot, 1, false)
+  }
+
+  // Locked storage cage in the back corner.
+  const cageW = 5
+  const cageD = 5
+  const cageX = x + w / 2 - cageW / 2 - 1
+  const cageZ = z + d / 2 - cageD / 2 - 1
+  buildRoom(scene, register, {
+    x: cageX, z: cageZ, w: cageW, d: cageD, wallHeight: 2.6,
+    doorSides: [{ side: 'west', width: 1.8 }],
+  })
+  const cageDoorX = cageX - cageW / 2
+  const cageDoor = buildLockableDoor(scene, cageDoorX, cageZ, 1.8, 'z')
+
+  return { x, z, cageDoor }
+}
+
+// Gas Station - not in the blueprint, added as a classic small zombie-game
+// staple. Tiny convenience-store room + two procedural fuel pumps out
+// front, reusing fuelcan.glb/barrel.glb for dressing rather than sourcing
+// anything new.
+function buildGasStation(scene, register, x, z) {
+  const w = 8
+  const d = 6
+  buildRoom(scene, register, {
+    x, z, w, d,
+    doorSides: [{ side: 'south', width: 2.2 }],
+  })
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0xc4c0b0, roughness: 0.8 })
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, d - 0.6), floorMat)
+  floor.rotation.x = -Math.PI / 2
+  floor.position.set(x, 0.02, z)
+  floor.receiveShadow = true
+  scene.add(floor)
+  placePropSimple(scene, register, 'counter.glb', x - 2.5, z - 1.5, 0)
+
+  // Canopy + pumps on the forecourt south of the store.
+  const canopyMat = new THREE.MeshStandardMaterial({ color: 0xb0331a, roughness: 0.6, metalness: 0.2 })
+  const postMat = new THREE.MeshStandardMaterial({ color: 0x2a2a26, roughness: 0.7, metalness: 0.5 })
+  const forecourtZ = z - d / 2 - 5
+  const canopy = new THREE.Mesh(new THREE.BoxGeometry(9, 0.3, 6), canopyMat)
+  canopy.position.set(x, 3.2, forecourtZ)
+  canopy.castShadow = true
+  scene.add(canopy)
+  register(canopy)
+  for (const [px, pz] of [[-3.8, 2.5], [3.8, 2.5], [-3.8, -2.5], [3.8, -2.5]]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 3.2, 8), postMat)
+    post.position.set(x + px, 1.6, forecourtZ + pz)
+    post.castShadow = true
+    scene.add(post)
+    register(post)
+  }
+  const pumpMat = new THREE.MeshStandardMaterial({ color: 0xdedad0, roughness: 0.5 })
+  for (const px of [-1.5, 1.5]) {
+    const pump = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.2, 0.5), pumpMat)
+    pump.position.set(x + px, 0.6, forecourtZ)
+    pump.castShadow = true
+    scene.add(pump)
+    register(pump)
+  }
+  placePropSimple(scene, register, 'barrel.glb', x - 3.6, z + d / 2 - 1, 0)
+  placePropSimple(scene, register, 'food-can.glb', x - 2.5, z - 1.15, 0, 0.3, false)
+
+  return { x, z, forecourtZ }
+}
+
+// Bank - not in the blueprint, bigger/more bespoke per the user's own
+// framing. Teller counter up front + a locked vault room in back (the 8th
+// use of buildLockableDoor/lockedCells) holding the best guaranteed loot
+// of any location so far.
+function buildBank(scene, register, x, z) {
+  const w = 12
+  const d = 9
+  buildRoom(scene, register, {
+    x, z, w, d,
+    doorSides: [{ side: 'south', width: 2.6 }],
+  })
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0xa8a498, roughness: 0.6 })
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, d - 0.6), floorMat)
+  floor.rotation.x = -Math.PI / 2
+  floor.position.set(x, 0.02, z)
+  floor.receiveShadow = true
+  scene.add(floor)
+
+  placePropSimple(scene, register, 'counter.glb', x - 2, z, 0)
+  placePropSimple(scene, register, 'counter.glb', x + 1, z, 0)
+  placePropSimple(scene, register, 'waiting-chair.glb', x - 4, z - 2, Math.PI / 2, 1, false)
+
+  // Vault sits at the north (higher-z) end of the bank, away from the
+  // south-facing entrance - its own door needs to face south, back toward
+  // the main room, not north/away from it.
+  const vaultW = 5
+  const vaultD = 4
+  const vaultZ = z + d / 2 - vaultD / 2 - 0.5
+  buildRoom(scene, register, {
+    x, z: vaultZ, w: vaultW, d: vaultD, wallHeight: 2.8,
+    doorSides: [{ side: 'south', width: 1.8 }],
+  })
+  const vaultDoorZ = vaultZ - vaultD / 2
+  const vaultDoor = buildLockableDoor(scene, x, vaultDoorZ, 1.8, 'x')
+  const cabinet = placePropSimple(scene, register, 'medical-cabinet.glb', x, vaultZ + vaultD / 2 - 0.6, Math.PI)
+  if (cabinet) cabinet.traverse((c) => { if (c.isMesh) c.material.color.setHex(0xc9b34a) })
+
+  return { x, z, vaultDoor }
+}
+
 function buildManholeCover(scene, x, z) {
   const mat = new THREE.MeshStandardMaterial({ color: 0x2a2a26, roughness: 0.6, metalness: 0.6 })
   const cover = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.05, 16), mat)
@@ -3349,8 +3522,9 @@ const OUTER_ZONES = [
 // content from scratch. Started with just 2 of the suburbs zone's 16
 // decorative building slots as a proof of the pattern (a cheap breather
 // stage between the two biggest-lift stages, Campus and Skyscraper), then
-// widened to all 16 once that held up - every suburb house is now real
-// and walkable, not just decoration.
+// widened to all 16 once that held up. Also applied to the residential
+// zone's own 16 slots afterward - same index set, since both zones'
+// outerZoneBuildingSpecs lists are the same length/shape.
 const WALKABLE_HOUSE_IDXS = new Set([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
 
 function buildWalkableHouse(scene, register, spec) {
@@ -3427,9 +3601,9 @@ function buildOuterZones(scene, register, cullables, towerChestSpots) {
     seed = nextSeed
     for (let i = 0; i < list.length; i++) {
       const spec = list[i]
-      if (zone.name === 'suburbs' && WALKABLE_HOUSE_IDXS.has(i)) {
+      if ((zone.name === 'suburbs' || zone.name === 'residential') && WALKABLE_HOUSE_IDXS.has(i)) {
         const house = buildWalkableHouse(scene, register, spec)
-        registerZone({ id: `house${i}`, x: house.x, z: house.z, radius: 8, densityMult: 1.0 })
+        registerZone({ id: `${zone.name}house${i}`, x: house.x, z: house.z, radius: 8, densityMult: 1.0 })
         // Deliberately no lootWeights override - "residential = common
         // salvage" per the blueprint's own legend, the plain default table.
         towerChestSpots.push({ x: house.x, y: 0, z: house.z })
