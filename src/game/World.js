@@ -569,6 +569,13 @@ export function buildWorld(scene, trophyCount = 15) {
   towerChestSpots.push({ x: -154.5, y: 0, z: 80.5 }) // library - default weights, not every room needs an override
   towerChestSpots.push({ x: -166, y: 0, z: 85, lootWeights: RETAIL_LOOT_WEIGHTS })
 
+  // Stage 8: Skyscraper, far out at x=250 - 60+ units clear of the
+  // commercial zone's own grid (x=[130,190]) and everything built onto its
+  // own column since. facingSign puts the open facade toward x=0 (the
+  // direction a player would actually approach from).
+  const skyscraper = buildOfficeSkyscraper(scene, colliders, solidMeshes, register, 250, 0, towerChestSpots)
+  registerZone({ id: 'skyscraper', x: 250, z: 0, radius: 20, densityMult: 1.3 })
+
   return {
     colliders,
     solidMeshes,
@@ -598,6 +605,7 @@ export function buildWorld(scene, trophyCount = 15) {
     militaryCheckpoint,
     prison,
     university,
+    skyscraper,
   }
 }
 
@@ -1778,6 +1786,108 @@ function buildUniversity(scene, register, x, z) {
   })
 
   return { x, z: entranceZ }
+}
+
+function buildHelipadTexture() {
+  const canvas = document.createElement('canvas')
+  canvas.width = 256
+  canvas.height = 256
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#2a2a26'
+  ctx.fillRect(0, 0, 256, 256)
+  ctx.strokeStyle = '#e3c23c'
+  ctx.lineWidth = 10
+  ctx.beginPath()
+  ctx.arc(128, 128, 110, 0, Math.PI * 2)
+  ctx.stroke()
+  ctx.fillStyle = '#e3c23c'
+  ctx.font = 'bold 140px sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText('H', 128, 138)
+  return new THREE.CanvasTexture(canvas)
+}
+
+// Stage 8 of the Extended Metropolitan Grid plan - "Skyscraper (helipad +
+// civil defense bunker)". Reuses the core map's own buildSkyscraper (3
+// floors + interior stairwell) unmodified, adding one more stair flight up
+// to a rooftop (same flat-slab + 3-side-guardrail pattern buildFireEscape
+// already uses for its own roof) with a helipad marking, plus a small
+// ground-floor bunker room with a real lockable door - the same
+// buildLockableDoor/Game.js lockedCells mechanism from Stage 4/5, just its
+// third use rather than a new mechanism.
+function buildOfficeSkyscraper(scene, colliders, solidMeshes, register, x, z, towerChestSpots) {
+  const w = 14
+  const d = 14
+  const h = SKYSCRAPER_FLOOR_H * SKYSCRAPER_FLOORS
+  const spec = { x, z, w, d, h }
+  buildSkyscraper(scene, colliders, solidMeshes, spec, towerChestSpots)
+
+  // Rooftop - one more flight up from floor 2's landing, same stripCenterX
+  // convention buildSkyscraper's own interior stairs use.
+  const facingSign = x < 0 ? 1 : -1
+  const faceX = x + facingSign * (w / 2)
+  const stripInnerX = faceX - facingSign * SKYSCRAPER_STRIP_WIDTH
+  const stripCenterX = (faceX + stripInnerX) / 2
+  const floor2Y = (SKYSCRAPER_FLOORS - 1) * SKYSCRAPER_FLOOR_H
+
+  buildStairFlight(scene, solidMeshes, stripCenterX, z - d / 2 + 0.6, floor2Y, stripCenterX, z + d / 2 - 0.6, h, 14)
+
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0x2e2a24, roughness: 0.9 })
+  const railMat = new THREE.MeshStandardMaterial({ color: 0x1c1a16, roughness: 0.7, metalness: 0.5 })
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(w, 0.3, d), roofMat)
+  roof.position.set(x, h - 0.15, z)
+  roof.castShadow = true
+  roof.receiveShadow = true
+  scene.add(roof)
+  solidMeshes.push(roof) // walkable, intentionally not a horizontal collider
+
+  const railSpecs = [
+    { rw: w, rd: 0.15, rx: x, rz: z - d / 2 },
+    { rw: w, rd: 0.15, rx: x, rz: z + d / 2 },
+    { rw: 0.15, rd: d, rx: x - facingSign * (w / 2), rz: z },
+  ]
+  for (const s of railSpecs) {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(s.rw, 0.9, s.rd), railMat)
+    rail.position.set(s.rx, h + 0.45, s.rz)
+    rail.castShadow = true
+    scene.add(rail)
+    colliders.push(new THREE.Box3().setFromObject(rail))
+    solidMeshes.push(rail)
+  }
+
+  const helipadMat = new THREE.MeshStandardMaterial({ map: buildHelipadTexture(), roughness: 0.8 })
+  const helipad = new THREE.Mesh(new THREE.CircleGeometry(3.2, 24), helipadMat)
+  helipad.rotation.x = -Math.PI / 2
+  helipad.position.set(x, h + 0.01, z)
+  scene.add(helipad)
+
+  // Civil defense bunker - a small reinforced room attached to the ground
+  // floor's blind side, with a real lockable door.
+  const bunkerW = 5
+  const bunkerD = 5
+  const bunkerX = x - facingSign * (w / 2 + bunkerW / 2)
+  // Bunker sits on the blind side (opposite the entrance facade), so its
+  // door needs to face back toward the skyscraper, not away from it -
+  // that's the +facingSign direction from the bunker's own position.
+  const bunkerDoorSide = facingSign === 1 ? 'east' : 'west'
+  buildRoom(scene, register, {
+    x: bunkerX, z, w: bunkerW, d: bunkerD,
+    doorSides: [{ side: bunkerDoorSide, width: 1.8 }],
+  })
+  const bunkerFloorMat = new THREE.MeshStandardMaterial({ color: 0x2a2c28, roughness: 0.85 })
+  const bunkerFloor = new THREE.Mesh(new THREE.PlaneGeometry(bunkerW - 0.6, bunkerD - 0.6), bunkerFloorMat)
+  bunkerFloor.rotation.x = -Math.PI / 2
+  bunkerFloor.position.set(bunkerX, 0.02, z)
+  bunkerFloor.receiveShadow = true
+  scene.add(bunkerFloor)
+  const cabinet = placePropSimple(scene, register, 'medical-cabinet.glb', bunkerX, z - bunkerD / 2 + 0.5, 0)
+  if (cabinet) cabinet.traverse((c) => { if (c.isMesh) c.material.color.setHex(0x4a4a2a) })
+
+  const bunkerDoorX = bunkerDoorSide === 'west' ? bunkerX - bunkerW / 2 : bunkerX + bunkerW / 2
+  const bunkerDoor = buildLockableDoor(scene, bunkerDoorX, z, 1.8, 'z')
+
+  return { x, z, bunkerDoor }
 }
 
 function buildTargetTexture() {
