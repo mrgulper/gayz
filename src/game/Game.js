@@ -306,6 +306,8 @@ const AMMO_STATION_RADIUS = 2.2
 const AMMO_STATION_HOLD_SECONDS = 10
 const BREAKER_BOX_RADIUS = 2.0
 const BREAKER_BOX_HOLD_SECONDS = 6
+const ROCKFALL_TRIGGER_RADIUS = 2.8
+const ROCKFALL_BURST_DAMAGE = 22
 const LIGHT_LURE_RADIUS = 20
 const LIGHT_LURE_INTERVAL_MS = 2000
 const SAFE_ZONE_HEAL_PER_SEC = 6
@@ -795,7 +797,7 @@ export class Game {
     this.composer.addPass(this.bloomPass)
     this.composer.addPass(new OutputPass())
 
-    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel, toxicSewerLevel } = buildWorld(this.scene, ACHIEVEMENTS.length)
+    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel, toxicSewerLevel, mineLevel } = buildWorld(this.scene, ACHIEVEMENTS.length)
     this.cullables = cullables
     this.supermarket = supermarket
     this.groceryStore = groceryStore
@@ -840,6 +842,9 @@ export class Game {
     // Stage 11 - Level -2 sewers (toxic water + slippery walkway).
     this.toxicSewerLevel = toxicSewerLevel
     this.nextToxicTickAt = 0
+
+    // Stage 12 - Level -3 mines (rockfall + unstable beams).
+    this.mineLevel = mineLevel
     // Extended Metropolitan Grid usability pass - none of Stages 1-9's new
     // locations showed up on the compass/minimap at all, the biggest real
     // gap once the map got this spread out (the skyscraper alone is 250
@@ -4494,6 +4499,58 @@ export class Game {
     if (!this.playerState.alive) this._onPlayerDeath()
   }
 
+  // Stage 12's "rockfall" - unlike the sewer's toxic pool (continuous
+  // per-tick damage over a whole zone), each unstable beam is a one-time
+  // proximity trigger: walk within range once and it goes off for good,
+  // dealing a single burst of damage and permanently narrowing the shaft
+  // with a rubble pile instead of just flashing damage and moving on.
+  _updateMineHazards(playerPos) {
+    for (const beam of this.mineLevel.beams) {
+      if (beam.triggered) continue
+      const dist = Math.hypot(playerPos.x - beam.x, playerPos.z - beam.z)
+      if (dist <= ROCKFALL_TRIGGER_RADIUS) this._triggerRockfall(beam)
+    }
+  }
+
+  _triggerRockfall(beam) {
+    beam.triggered = true
+    beam.beam.material.color.setHex(0x1a1410)
+    beam.beam.rotation.z = 0.3 // sags instead of standing straight once it's given way
+    beam.warnMark.visible = false
+
+    const rubbleMat = new THREE.MeshStandardMaterial({ color: 0x352c22, roughness: 1 })
+    for (const [rx, s] of [[-0.9, 0.45], [-0.5, 0.3], [-1.2, 0.35]]) {
+      const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(s), rubbleMat)
+      rock.position.set(beam.x + rx, beam.floorY + s * 0.6, beam.z + (Math.random() - 0.5) * 0.6)
+      rock.castShadow = true
+      this.scene.add(rock)
+    }
+    // Narrows (never fully seals) the shaft on one side only - half the
+    // mine's own width stays clear on the other side, always enough room
+    // for the player's small collision radius to pass.
+    const rubbleHalfWidth = this.mineLevel.mineWidth / 4
+    const rubbleCollider = new THREE.Box3(
+      new THREE.Vector3(beam.x - this.mineLevel.mineWidth / 2, beam.floorY, beam.z - 0.9),
+      new THREE.Vector3(beam.x - this.mineLevel.mineWidth / 2 + rubbleHalfWidth * 2, beam.floorY + 0.9, beam.z + 0.9)
+    )
+    this.colliders.push(rubbleCollider)
+
+    const flashLight = new THREE.PointLight(0xffb347, 2.5, 8, 2)
+    flashLight.position.set(beam.x, beam.floorY + 1.5, beam.z)
+    this.scene.add(flashLight)
+    setTimeout(() => this.scene.remove(flashLight), 250)
+
+    if (!this.player.isDodging) {
+      this.playerState.takeDamage(ROCKFALL_BURST_DAMAGE)
+      this._updateHealthHud()
+      this.damageFlash.classList.remove('hit')
+      void this.damageFlash.offsetWidth
+      this.damageFlash.classList.add('hit')
+      if (!this.playerState.alive) this._onPlayerDeath()
+    }
+    this._showLoreToast(t('toastRockfall'))
+  }
+
   _updateTrader(playerPos) {
     const dist = Math.hypot(playerPos.x - this.trader.x, playerPos.z - this.trader.z)
     this.nearTrader = dist <= TRADER_INTERACT_RADIUS
@@ -5014,6 +5071,7 @@ export class Game {
       this._updateAmmoStation(dt, playerPos)
       this._updateBreakerBox(dt, playerPos)
       this._updateToxicWater(dt, playerPos)
+      this._updateMineHazards(playerPos)
       this._updateVehicleProximity(playerPos)
       this._updateVireoTerminal(playerPos)
       this._updateStationTerminal(playerPos)

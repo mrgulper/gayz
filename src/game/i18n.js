@@ -227,6 +227,7 @@ const STRINGS = {
     toastCompanionRevived: 'Companion revived.',
     toastCompanionCrawledBack: 'Your companion crawled back to the safe zone to recover.',
     toastPowerRestored: 'Power restored - the maintenance gate has opened.',
+    toastRockfall: 'A support beam gives way - rockfall!',
     salvageSectionLabel: 'Salvage',
     blackMarketSectionLabel: 'Black Market',
     shopBmLegendary: 'Guaranteed Legendary Part',

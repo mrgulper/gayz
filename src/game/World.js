@@ -496,6 +496,9 @@ export function buildWorld(scene, trophyCount = 15) {
   // Stage 11 - Level -2 sewers, continuing straight through the breach left
   // in the station's LEVEL2 dead end (see buildToxicSewerLevel's own comment).
   const toxicSewerLevel = buildToxicSewerLevel(scene, colliders, solidMeshes, flickerLights, towerChestSpots)
+  // Stage 12 - Level -3 mines, continuing straight through the breach left
+  // in the sewer level's own dead end (see buildMineLevel's own comment).
+  const mineLevel = buildMineLevel(scene, colliders, solidMeshes, flickerLights, towerChestSpots)
 
   buildOuterZones(scene, register, cullables, towerChestSpots)
 
@@ -697,6 +700,7 @@ export function buildWorld(scene, trophyCount = 15) {
     newUndergroundEntrance,
     maintenanceTunnel,
     toxicSewerLevel,
+    mineLevel,
   }
 }
 
@@ -3918,16 +3922,12 @@ function buildToxicSewerLevel(scene, colliders, solidMeshes, flickerLights, ches
     flickerLights.push({ light, base: 0.9, seed: Math.random() * 100 })
   }
 
-  // Dead end beyond the pool - plain corridor, then a wall and a reward
-  // chest for having crossed the pool at all.
+  // Plain corridor beyond the pool, with a reward chest for having crossed
+  // it - no end wall here anymore, Stage 12 (buildMineLevel, called from
+  // buildWorld right after this function) breaches straight through and
+  // continues down into the mines, same "old line dead-ends into the next
+  // themed area" transition Stage 11 itself used against LEVEL2.
   buildStraightSegment(SEWER2_POOL_Z_END, SEWER2_Z_END)
-
-  const endWall = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH + 0.4, SUBWAY_HEIGHT, 0.2), wallMat)
-  endWall.position.set(x, floorY + SUBWAY_HEIGHT / 2, SEWER2_Z_END)
-  endWall.castShadow = true
-  scene.add(endWall)
-  solidMeshes.push(endWall)
-  colliders.push(new THREE.Box3().setFromObject(endWall))
 
   chestSpots.push({ x, y: floorY, z: SEWER2_Z_END + 3 })
 
@@ -3936,6 +3936,163 @@ function buildToxicSewerLevel(scene, colliders, solidMeshes, flickerLights, ches
     walkwayBounds: { xMin: walkwayX - SEWER2_WALKWAY_WIDTH / 2, xMax: walkwayX + SEWER2_WALKWAY_WIDTH / 2, zMin: SEWER2_POOL_Z_END, zMax: SEWER2_POOL_Z_START },
     floorY,
   }
+}
+
+// Stage 12 of the Extended Metropolitan Grid plan - "Underground Level -3:
+// Mines" (rockfall + unstable beams). Continues straight through the breach
+// left in buildToxicSewerLevel's own dead end, down a vertical mine shaft
+// (buildStairFlight's bare steps, reused as-is - a rough-hewn mine doesn't
+// need the polished walls/rails/lighting Stage 10's park entrances got) to
+// a new, narrower level one floor below the sewers, matching the established
+// "-6 units per level" depth convention (SUBWAY_FLOOR_Y -> LEVEL2_FLOOR_Y ->
+// MINE_FLOOR_Y).
+//
+// "Rockfall" and "unstable beam" are the same mechanic, not two separate
+// systems: each beam prop is a one-time proximity trigger (buildUnstableBeam
+// returns a plain data handle; Game.js's _updateMineHazards/_triggerRockfall
+// own the runtime behavior) that deals a single burst of damage - not the
+// continuous per-tick damage the sewer's toxic pool uses - and permanently
+// drops a rubble pile that narrows (not seals) the shaft at that point,
+// so the hazard leaves a lasting physical trace instead of just a damage
+// flash. Reuses buildSewer/buildToxicSewerLevel's own straight-corridor
+// pattern with mine-appropriate materials/width instead of a new one.
+const MINE_X = SEWER2_X
+const MINE_STAIR_Z_TOP = SEWER2_Z_END // the breach - same point the sewer's old end wall used to seal
+const MINE_STAIR_RUN = 8
+const MINE_STAIR_Z_BOTTOM = MINE_STAIR_Z_TOP - MINE_STAIR_RUN
+const MINE_FLOOR_Y = LEVEL2_FLOOR_Y - 6
+const MINE_WIDTH = 3.6
+const MINE_HEIGHT = 2.6
+const MINE_BEAM_1_Z = MINE_STAIR_Z_BOTTOM - 14
+const MINE_BEAM_2_Z = MINE_STAIR_Z_BOTTOM - 30
+const MINE_Z_END = MINE_STAIR_Z_BOTTOM - 44
+
+function buildUnstableBeam(scene, x, z, floorY) {
+  const beamMat = new THREE.MeshStandardMaterial({ color: 0x4a3624, roughness: 0.95 })
+  const beam = new THREE.Mesh(new THREE.BoxGeometry(MINE_WIDTH + 0.2, 0.22, 0.22), beamMat)
+  beam.position.set(x, floorY + MINE_HEIGHT - 0.15, z)
+  beam.castShadow = true
+  scene.add(beam)
+
+  for (const side of [-1, 1]) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.18, MINE_HEIGHT - 0.2, 0.18), beamMat)
+    post.position.set(x + side * (MINE_WIDTH / 2 - 0.1), floorY + (MINE_HEIGHT - 0.2) / 2, z)
+    post.castShadow = true
+    scene.add(post)
+  }
+
+  // A small warning marker (cracked/discolored patch) so an attentive player
+  // has a fair visual cue before triggering it, not a total surprise.
+  const warnMat = new THREE.MeshStandardMaterial({ color: 0x2a1c10, roughness: 1, emissive: 0x3a1a0a, emissiveIntensity: 0.4 })
+  const warnMark = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.08, 0.08), warnMat)
+  warnMark.position.set(x, floorY + MINE_HEIGHT - 0.3, z + 0.12)
+  scene.add(warnMark)
+
+  return { x, z, floorY, triggered: false, beam, posts: null, warnMark }
+}
+
+function buildMineLevel(scene, colliders, solidMeshes, flickerLights, chestSpots) {
+  const x = MINE_X
+  const rockWallMat = new THREE.MeshStandardMaterial({ color: 0x3a3128, roughness: 1 })
+  const dirtFloorMat = new THREE.MeshStandardMaterial({ color: 0x261f16, roughness: 1 })
+  const beamDressMat = new THREE.MeshStandardMaterial({ color: 0x3a2a1a, roughness: 0.95 })
+
+  // Vertical shaft around the stair run - a straight (not tilted) enclosure
+  // is simplest and safest here (axis-aligned Box3().setFromObject is fine,
+  // no rotated-mesh AABB gotcha to work around), tall enough to cover both
+  // the sewer's own ceiling height above and the mine's ceiling below.
+  const shaftHalfWidth = 2
+  const shaftTop = LEVEL2_FLOOR_Y + SUBWAY_HEIGHT
+  const shaftBottom = MINE_FLOOR_Y
+  const shaftHeight = shaftTop - shaftBottom
+  const shaftCenterY = (shaftTop + shaftBottom) / 2
+  const shaftCenterZ = (MINE_STAIR_Z_TOP + MINE_STAIR_Z_BOTTOM) / 2
+  for (const side of [-1, 1]) {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, shaftHeight, MINE_STAIR_RUN + 0.4), rockWallMat)
+    wall.position.set(x + side * shaftHalfWidth, shaftCenterY, shaftCenterZ)
+    wall.castShadow = true
+    wall.receiveShadow = true
+    scene.add(wall)
+    solidMeshes.push(wall)
+    colliders.push(new THREE.Box3().setFromObject(wall))
+  }
+  buildStairFlight(scene, solidMeshes, x, MINE_STAIR_Z_TOP, LEVEL2_FLOOR_Y, x, MINE_STAIR_Z_BOTTOM, MINE_FLOOR_Y, 14)
+  const stairLight = new THREE.PointLight(0xd9a86c, 0.8, 8, 2)
+  stairLight.position.set(x, shaftCenterY + 1, shaftCenterZ)
+  scene.add(stairLight)
+  flickerLights.push({ light: stairLight, base: 0.8, seed: Math.random() * 100 })
+
+  const buildMineSegment = (z0, z1) => {
+    const length = z0 - z1
+    const centerZ = (z0 + z1) / 2
+    const floor = new THREE.Mesh(new THREE.BoxGeometry(MINE_WIDTH, 0.08, length), dirtFloorMat)
+    floor.position.set(x, MINE_FLOOR_Y, centerZ)
+    floor.receiveShadow = true
+    scene.add(floor)
+    solidMeshes.push(floor)
+
+    const ceiling = new THREE.Mesh(new THREE.BoxGeometry(MINE_WIDTH + 0.4, 0.2, length), rockWallMat)
+    ceiling.position.set(x, MINE_FLOOR_Y + MINE_HEIGHT, centerZ)
+    ceiling.castShadow = true
+    scene.add(ceiling)
+    solidMeshes.push(ceiling)
+    colliders.push(new THREE.Box3().setFromObject(ceiling))
+
+    for (const side of [-1, 1]) {
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, MINE_HEIGHT, length), rockWallMat)
+      wall.position.set(x + side * (MINE_WIDTH / 2 + 0.1), MINE_FLOOR_Y + MINE_HEIGHT / 2, centerZ)
+      wall.castShadow = true
+      wall.receiveShadow = true
+      scene.add(wall)
+      solidMeshes.push(wall)
+      colliders.push(new THREE.Box3().setFromObject(wall))
+    }
+
+    const lightSpacing = 6
+    const lightCount = Math.floor(length / lightSpacing)
+    for (let i = 1; i < lightCount; i++) {
+      const z = z0 - lightSpacing * i
+      const light = new THREE.PointLight(0xd9a86c, 0.6, 5, 2)
+      light.position.set(x, MINE_FLOOR_Y + MINE_HEIGHT - 0.3, z)
+      scene.add(light)
+      flickerLights.push({ light, base: 0.6, seed: Math.random() * 100 })
+    }
+  }
+
+  buildMineSegment(MINE_STAIR_Z_BOTTOM, MINE_Z_END)
+
+  // Decorative (non-triggering) support beams, just dressing, at points
+  // between the two real hazard beams so the corridor doesn't read as
+  // empty rock between them.
+  for (const z of [MINE_STAIR_Z_BOTTOM - 6, MINE_STAIR_Z_BOTTOM - 22, MINE_STAIR_Z_BOTTOM - 38]) {
+    const deco = new THREE.Mesh(new THREE.BoxGeometry(MINE_WIDTH + 0.2, 0.2, 0.2), beamDressMat)
+    deco.position.set(x, MINE_FLOOR_Y + MINE_HEIGHT - 0.15, z)
+    deco.castShadow = true
+    scene.add(deco)
+  }
+
+  const beam1 = buildUnstableBeam(scene, x, MINE_BEAM_1_Z, MINE_FLOOR_Y)
+  const beam2 = buildUnstableBeam(scene, x, MINE_BEAM_2_Z, MINE_FLOOR_Y)
+
+  const endWall = new THREE.Mesh(new THREE.BoxGeometry(MINE_WIDTH + 0.4, MINE_HEIGHT, 0.2), rockWallMat)
+  endWall.position.set(x, MINE_FLOOR_Y + MINE_HEIGHT / 2, MINE_Z_END)
+  endWall.castShadow = true
+  scene.add(endWall)
+  solidMeshes.push(endWall)
+  colliders.push(new THREE.Box3().setFromObject(endWall))
+
+  // A small ore vein in the end wall - amber glow, purely visual payoff for
+  // reaching the deepest point of the network so far.
+  const oreMat = new THREE.MeshStandardMaterial({ color: 0x8a6a1a, emissive: 0xffb347, emissiveIntensity: 0.6, roughness: 0.5, metalness: 0.3 })
+  for (const [ox, oy] of [[-0.6, 0.3], [0.5, -0.2], [0, 0.6]]) {
+    const ore = new THREE.Mesh(new THREE.DodecahedronGeometry(0.22), oreMat)
+    ore.position.set(x + ox, MINE_FLOOR_Y + MINE_HEIGHT / 2 + oy, MINE_Z_END + 0.15)
+    scene.add(ore)
+  }
+
+  chestSpots.push({ x, y: MINE_FLOOR_Y, z: MINE_Z_END + 3 })
+
+  return { beams: [beam1, beam2], floorY: MINE_FLOOR_Y, mineWidth: MINE_WIDTH }
 }
 
 const FACILITY_X = SUBWAY_X
