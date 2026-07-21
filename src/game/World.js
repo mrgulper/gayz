@@ -499,6 +499,21 @@ export function buildWorld(scene, trophyCount = 15) {
   registerZone({ id: 'grocery', x: 160, z: -60, radius: 10, densityMult: 1.3 })
   towerChestSpots.push({ x: 160, y: 0, z: -60 - 2, lootWeights: RETAIL_LOOT_WEIGHTS })
 
+  // Stage 2: Hospital + Pharmacy, north of the supermarket along the same
+  // x=160 line (clear gap of 30+ units), well clear of the suburbs zone's
+  // own building grid (x=[-30,30]) since this sits at x=160/145. "High"
+  // density/loot per the blueprint's legend - medical loot skews health
+  // items specifically rather than the retail stores' broader consumables mix.
+  const MEDICAL_LOOT_WEIGHTS = { ...LOOT_WEIGHTS, health: 3, extended_mag: 0.1, rare_weapon: 0.1, legendary_weapon: 0.03 }
+
+  const hospital = buildHospital(scene, register, 160, 100)
+  registerZone({ id: 'hospital', x: 160, z: 112, radius: 16, densityMult: 1.5 })
+  towerChestSpots.push({ x: 160, y: 0, z: 116, lootWeights: MEDICAL_LOOT_WEIGHTS })
+
+  const pharmacy = buildPharmacy(scene, register, 145, 100)
+  registerZone({ id: 'pharmacy', x: 145, z: 100, radius: 8, densityMult: 1.3 })
+  towerChestSpots.push({ x: 145, y: 0, z: 100, lootWeights: MEDICAL_LOOT_WEIGHTS })
+
   return {
     colliders,
     solidMeshes,
@@ -520,6 +535,8 @@ export function buildWorld(scene, trophyCount = 15) {
     cullables,
     supermarket,
     groceryStore,
+    hospital,
+    pharmacy,
   }
 }
 
@@ -1223,6 +1240,103 @@ function buildRetailStore(scene, register, spec) {
       new THREE.Vector3(counterX + 0.4, 0.5, counterZ + 0.05)
     ))
   }
+
+  return room
+}
+
+// Stage 2 of the Extended Metropolitan Grid plan - the first real composite
+// building: three buildRoom() calls chained end to end (reception ->
+// corridor -> ward) with the facing walls left fully open on both sides of
+// each join, rather than a single big room - proves buildRoom's alcove
+// (openSides) pattern can chain multiple rooms into one walkable interior,
+// which every later multi-room location (police station, prison, campus)
+// depends on.
+function placePropSimple(scene, register, fileName, x, z, rotY = 0, scale = 1, collide = true) {
+  const model = _propModelCache.get(fileName)
+  if (!model) return null
+  const clone = model.clone(true)
+  clone.position.set(x, 0, z)
+  clone.rotation.y = rotY
+  if (scale !== 1) clone.scale.setScalar(scale)
+  clone.traverse((child) => {
+    if (!child.isMesh) return
+    child.castShadow = true
+    child.receiveShadow = true
+    child.material = child.material.clone()
+  })
+  scene.add(clone)
+  if (collide) register(clone)
+  return clone
+}
+
+function buildHospital(scene, register, x, z) {
+  const w = 10
+  const receptionD = 6
+  const corridorD = 8
+  const wardD = 10
+
+  const receptionZ = z
+  const corridorZ = receptionZ + receptionD / 2 + corridorD / 2
+  const wardZ = corridorZ + corridorD / 2 + wardD / 2
+
+  const reception = buildRoom(scene, register, {
+    x, z: receptionZ, w, d: receptionD,
+    doorSides: [{ side: 'south', width: 2.4 }],
+    openSides: ['north'],
+  })
+  buildRoom(scene, register, {
+    x, z: corridorZ, w, d: corridorD,
+    openSides: ['south', 'north'],
+  })
+  buildRoom(scene, register, {
+    x, z: wardZ, w, d: wardD,
+    openSides: ['south'],
+  })
+
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0xd8d8d0, roughness: 0.7 })
+  const totalD = receptionD + corridorD + wardD
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, totalD - 0.6), floorMat)
+  floor.rotation.x = -Math.PI / 2
+  floor.position.set(x, 0.02, receptionZ - receptionD / 2 + totalD / 2)
+  floor.receiveShadow = true
+  scene.add(floor)
+
+  // Reception: a counter + a couple of waiting chairs.
+  placePropSimple(scene, register, 'counter.glb', x - 2.5, receptionZ - 1.5, 0)
+  placePropSimple(scene, register, 'waiting-chair.glb', x + 1.5, receptionZ + 1, Math.PI, 1, false)
+  placePropSimple(scene, register, 'waiting-chair.glb', x + 2.2, receptionZ + 1, Math.PI, 1, false)
+
+  // Corridor: a supply cabinet against the east wall.
+  placePropSimple(scene, register, 'medical-cabinet.glb', x + w / 2 - 0.5, corridorZ, -Math.PI / 2)
+
+  // Ward: two beds + a cabinet + a first aid kit on the cabinet.
+  placePropSimple(scene, register, 'hospital-bed.glb', x - 3, wardZ - 3, 0)
+  placePropSimple(scene, register, 'hospital-bed.glb', x + 1.5, wardZ - 3, 0)
+  placePropSimple(scene, register, 'medical-cabinet.glb', x - 3.8, wardZ + 3, 0)
+  placePropSimple(scene, register, 'firstaid.glb', x - 3.8, wardZ + 3.15, 0, 0.2, false)
+
+  return { x, z: receptionZ, doorSpots: reception.doorSpots }
+}
+
+function buildPharmacy(scene, register, x, z) {
+  const w = 8
+  const d = 7
+  const room = buildRoom(scene, register, {
+    x, z, w, d,
+    doorSides: [{ side: 'south', width: 2.2 }],
+  })
+
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0xd8d8d0, roughness: 0.7 })
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, d - 0.6), floorMat)
+  floor.rotation.x = -Math.PI / 2
+  floor.position.set(x, 0.02, z)
+  floor.receiveShadow = true
+  scene.add(floor)
+
+  placePropSimple(scene, register, 'counter.glb', x, z - d / 2 + 1.4, 0)
+  placePropSimple(scene, register, 'medical-cabinet.glb', x - w / 2 + 0.5, z + d / 2 - 1, Math.PI / 2)
+  placePropSimple(scene, register, 'medical-cabinet.glb', x + w / 2 - 0.5, z + d / 2 - 1, -Math.PI / 2)
+  placePropSimple(scene, register, 'firstaid.glb', x, z - d / 2 + 1.55, 0, 0.2, false)
 
   return room
 }
@@ -2324,6 +2438,7 @@ const PROP_MODEL_FILES = [
   'roadblock.glb', 'atm.glb', 'mailbox.glb', 'payphone.glb', 'busstop.glb',
   'trashbin.glb', 'waterbarrel.glb', 'cabledrum.glb', 'traderstall.glb', 'ammostation.glb',
   'shelf.glb', 'counter.glb', 'food-can.glb', 'food-carton.glb', 'food-bottle.glb', 'food-bread.glb', 'food-bag.glb',
+  'hospital-bed.glb', 'medical-cabinet.glb', 'waiting-chair.glb', 'firstaid.glb',
 ]
 const _propModelCache = new Map()
 
