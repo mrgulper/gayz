@@ -781,6 +781,22 @@ function buildGroundPlaneWithHoles(scene, material, px, pz, width, depth, holeRe
     shape.holes.push(hole)
   }
   const geo = new THREE.ShapeGeometry(shape)
+  // ShapeGeometry's own UVs are just the shape's raw local coordinates
+  // (here, -width/2..width/2 and -depth/2..depth/2) - NOT normalized to
+  // 0-1 like PlaneGeometry's UVs are. Every texture-repeat value in this
+  // file (groundTex, plazaTex, ...) was tuned assuming standard 0-1 UVs,
+  // so left as-is this made the texture tile roughly `width`x too densely
+  // (confirmed directly against the real `three` package: PlaneGeometry's
+  // UV range is [0,1], ShapeGeometry's is [-375,375] for a 750-wide shape)
+  // - a real, visible regression from when the ground first switched from
+  // PlaneGeometry to this hole-supporting ShapeGeometry back in Stage 10.
+  // Remapped here to match PlaneGeometry's convention exactly, so `repeat`
+  // continues to mean the same thing it always did.
+  const uv = geo.attributes.uv
+  for (let i = 0; i < uv.count; i++) {
+    uv.setXY(i, (uv.getX(i) + width / 2) / width, (uv.getY(i) + depth / 2) / depth)
+  }
+  uv.needsUpdate = true
   const mesh = new THREE.Mesh(geo, material)
   mesh.rotation.x = -Math.PI / 2
   mesh.position.set(px, meshY, pz)
