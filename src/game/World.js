@@ -617,6 +617,25 @@ export function buildWorld(scene, trophyCount = 15) {
   // weapon-tier table.
   bank.vaultDoor.lootWeights = { legendary_weapon: 10, rare_weapon: 5 }
 
+  // Second "finish the set" round: Diner/Radio Station (the alternatives
+  // skipped when Gas Station/Bank were picked) plus Fire Station and Motel.
+  const diner = buildDiner(scene, register, 100, 150)
+  registerZone({ id: 'diner', x: 100, z: 150, radius: 10, densityMult: 1.1 })
+  towerChestSpots.push({ x: 100, y: 0, z: 147, lootWeights: RETAIL_LOOT_WEIGHTS })
+
+  const radioStation = buildRadioStation(scene, register, -100, 150)
+  registerZone({ id: 'radiostation', x: -100, z: 150, radius: 10, densityMult: 1.2 })
+  towerChestSpots.push({ x: -100, y: 0, z: 147 })
+  radioStation.broadcastDoor.lootWeights = { legendary_weapon: 6, rare_weapon: 8, extended_mag: 2 }
+
+  const fireStation = buildFireStation(scene, register, 100, -150)
+  registerZone({ id: 'firestation', x: 100, z: -150, radius: 10, densityMult: 1.2 })
+  towerChestSpots.push({ x: 100, y: 0, z: -147, lootWeights: WEAPON_ONLY_LOOT_WEIGHTS })
+
+  const motel = buildMotel(scene, register, 100, 100)
+  registerZone({ id: 'motel', x: 100, z: 100, radius: 14, densityMult: 1.2 })
+  towerChestSpots.push({ x: 100, y: 0, z: 97 })
+
   return {
     colliders,
     solidMeshes,
@@ -651,6 +670,10 @@ export function buildWorld(scene, trophyCount = 15) {
     warehouse,
     gasStation,
     bank,
+    diner,
+    radioStation,
+    fireStation,
+    motel,
   }
 }
 
@@ -2231,6 +2254,148 @@ function buildBank(scene, register, x, z) {
   return { x, z, vaultDoor }
 }
 
+// Diner - the alternative to the Gas Station, built afterward once the
+// user wanted both. Small dining room, reusing the campus table/chair
+// props already on disk plus a serving counter.
+function buildDiner(scene, register, x, z) {
+  const w = 10
+  const d = 8
+  buildRoom(scene, register, {
+    x, z, w, d,
+    doorSides: [{ side: 'south', width: 2.4 }],
+  })
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0xc9a860, roughness: 0.7 })
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, d - 0.6), floorMat)
+  floor.rotation.x = -Math.PI / 2
+  floor.position.set(x, 0.02, z)
+  floor.receiveShadow = true
+  scene.add(floor)
+
+  placePropSimple(scene, register, 'counter.glb', x - w / 2 + 1, z, Math.PI / 2)
+  for (const [tx, tz] of [[-1.5, -2], [1.5, -2], [-1.5, 1.5], [1.5, 1.5]]) {
+    placePropSimple(scene, register, 'campus-table.glb', x + tx, z + tz, 0)
+    placePropSimple(scene, register, 'waiting-chair.glb', x + tx, z + tz - 0.8, 0, 1, false)
+    placePropSimple(scene, register, 'waiting-chair.glb', x + tx, z + tz + 0.8, Math.PI, 1, false)
+  }
+
+  return { x, z }
+}
+
+// Radio Station - the alternative to the Bank, built afterward once the
+// user wanted both. Small building + a procedural antenna tower, and a
+// locked broadcast room (9th use of buildLockableDoor/lockedCells) instead
+// of tying into the existing lore-terminal system (that has its own
+// specific story content already; a new location shouldn't graft onto it
+// without understanding what that content assumes).
+function buildRadioStation(scene, register, x, z) {
+  const w = 8
+  const d = 7
+  buildRoom(scene, register, {
+    x, z, w, d,
+    doorSides: [{ side: 'south', width: 2.2 }],
+  })
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x2e2e2a, roughness: 0.8 })
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, d - 0.6), floorMat)
+  floor.rotation.x = -Math.PI / 2
+  floor.position.set(x, 0.02, z)
+  floor.receiveShadow = true
+  scene.add(floor)
+  placePropSimple(scene, register, 'counter.glb', x, z - d / 2 + 1.3, 0)
+
+  // Antenna tower on the roof.
+  const towerMat = new THREE.MeshStandardMaterial({ color: 0x8a8478, roughness: 0.5, metalness: 0.7 })
+  const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.1, 6, 8), towerMat)
+  tower.position.set(x, 3 + 3, z)
+  tower.castShadow = true
+  scene.add(tower)
+  register(tower)
+  const beaconMat = new THREE.MeshStandardMaterial({ color: 0x2a0505, emissive: 0xff2a1e, emissiveIntensity: 1.2 })
+  const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 10), beaconMat)
+  beacon.position.set(x, 6 + 3, z)
+  scene.add(beacon)
+  const beaconLight = new THREE.PointLight(0xff2a1e, 1.2, 8, 2)
+  beaconLight.position.copy(beacon.position)
+  scene.add(beaconLight)
+
+  const broadcastW = 4
+  const broadcastD = 4
+  const broadcastZ = z + d / 2 + broadcastD / 2
+  buildRoom(scene, register, {
+    x, z: broadcastZ, w: broadcastW, d: broadcastD, wallHeight: 2.6,
+    doorSides: [{ side: 'south', width: 1.8 }],
+  })
+  const broadcastDoorZ = broadcastZ - broadcastD / 2
+  const broadcastDoor = buildLockableDoor(scene, x, broadcastDoorZ, 1.8, 'x')
+
+  return { x, z, broadcastDoor }
+}
+
+// Fire Station - the third "emergency services" building alongside Police
+// and Hospital, and the first real use for the FireAxe model (already
+// downloaded for Stage 3's hardware store tools, never actually used until
+// now). Locked equipment room instead of an open display, matching the
+// gun shop's own locked-case precedent for "the good stuff is behind a door."
+function buildFireStation(scene, register, x, z) {
+  const w = 10
+  const d = 8
+  buildRoom(scene, register, {
+    x, z, w, d,
+    doorSides: [{ side: 'south', width: 3 }],
+    wallHeight: 3.6,
+  })
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x3a3630, roughness: 0.85 })
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, d - 0.6), floorMat)
+  floor.rotation.x = -Math.PI / 2
+  floor.position.set(x, 0.02, z)
+  floor.receiveShadow = true
+  scene.add(floor)
+  placePropSimple(scene, register, 'counter.glb', x - w / 2 + 1, z - d / 2 + 1.5, Math.PI / 2)
+
+  const equipW = 4
+  const equipD = 3
+  const equipX = x + w / 2 - equipW / 2 - 1
+  const equipZ = z + d / 2 - equipD / 2 - 1
+  buildRoom(scene, register, {
+    x: equipX, z: equipZ, w: equipW, d: equipD, wallHeight: 2.6,
+    doorSides: [{ side: 'west', width: 1.6 }],
+  })
+  const equipDoorX = equipX - equipW / 2
+  const equipDoor = buildLockableDoor(scene, equipDoorX, equipZ, 1.6, 'z')
+  placePropSimple(scene, register, 'tool-fireaxe.glb', equipX + 1, equipZ, Math.PI / 2, 1, false)
+
+  return { x, z, equipDoor }
+}
+
+// Motel - a row of small repeated rooms off one exterior walkway, matching
+// the blueprint's own "urban mazes" theme (same repeated-unit idea as the
+// prison's cellblock, just unlocked - a motel room isn't a jail cell).
+function buildMotel(scene, register, x, z) {
+  const roomW = 4
+  const roomD = 5
+  const roomCount = 5
+  const spacing = roomW + 0.6
+  const startX = x - ((roomCount - 1) * spacing) / 2
+
+  for (let i = 0; i < roomCount; i++) {
+    const roomX = startX + i * spacing
+    buildRoom(scene, register, {
+      x: roomX, z, w: roomW, d: roomD,
+      doorSides: [{ side: 'south', width: 1.6 }],
+    })
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0xa89870, roughness: 0.8 })
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(roomW - 0.5, roomD - 0.5), floorMat)
+    floor.rotation.x = -Math.PI / 2
+    floor.position.set(roomX, 0.02, z)
+    floor.receiveShadow = true
+    scene.add(floor)
+    const bed = placePropSimple(scene, register, 'hospital-bed.glb', roomX, z + roomD / 2 - 1.3, 0)
+    if (bed) bed.traverse((c) => { if (c.isMesh) c.material.color.setHex(0x8a7050) })
+    placePropSimple(scene, register, 'medical-cabinet.glb', roomX - roomW / 2 + 0.4, z + roomD / 2 - 0.5, Math.PI / 2)
+  }
+
+  return { x, z, roomCount }
+}
+
 function buildManholeCover(scene, x, z) {
   const mat = new THREE.MeshStandardMaterial({ color: 0x2a2a26, roughness: 0.6, metalness: 0.6 })
   const cover = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.05, 16), mat)
@@ -3374,7 +3539,7 @@ const PROP_MODEL_FILES = [
   'trashbin.glb', 'waterbarrel.glb', 'cabledrum.glb', 'traderstall.glb', 'ammostation.glb',
   'shelf.glb', 'counter.glb', 'food-can.glb', 'food-carton.glb', 'food-bottle.glb', 'food-bread.glb', 'food-bag.glb',
   'hospital-bed.glb', 'medical-cabinet.glb', 'waiting-chair.glb', 'firstaid.glb',
-  'tool-hammer.glb', 'tool-crowbar.glb', 'tool-tireiron.glb',
+  'tool-hammer.glb', 'tool-crowbar.glb', 'tool-tireiron.glb', 'tool-fireaxe.glb',
   'campus-table.glb', 'campus-bookcase.glb', 'campus-books.glb',
 ]
 const _propModelCache = new Map()

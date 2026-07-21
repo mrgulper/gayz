@@ -17,6 +17,7 @@ ITEMS = [
     {"folder": "Hammer", "src": "Hammer.fbx", "out": "tool-hammer", "rotate_axis": "X", "rotate_deg": 90, "scale": 1.0},
     {"folder": "Crowbar", "src": "Crowbar.fbx", "out": "tool-crowbar", "rotate_axis": "X", "rotate_deg": 90, "scale": 1.0},
     {"folder": "TireIron", "src": "TireIron.fbx", "out": "tool-tireiron", "rotate_axis": "X", "rotate_deg": 90, "scale": 1.0},
+    {"folder": "FireAxe", "src": "FireAxe.fbx", "out": "tool-fireaxe", "rotate_axis": "X", "rotate_deg": 90, "scale": 1.0},
 ]
 
 

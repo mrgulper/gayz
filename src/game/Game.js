@@ -791,7 +791,7 @@ export class Game {
     this.composer.addPass(this.bloomPass)
     this.composer.addPass(new OutputPass())
 
-    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank } = buildWorld(this.scene, ACHIEVEMENTS.length)
+    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel } = buildWorld(this.scene, ACHIEVEMENTS.length)
     this.cullables = cullables
     this.supermarket = supermarket
     this.groceryStore = groceryStore
@@ -808,6 +808,10 @@ export class Game {
     this.warehouse = warehouse
     this.gasStation = gasStation
     this.bank = bank
+    this.diner = diner
+    this.radioStation = radioStation
+    this.fireStation = fireStation
+    this.motel = motel
     // Extended Metropolitan Grid usability pass - none of Stages 1-9's new
     // locations showed up on the compass/minimap at all, the biggest real
     // gap once the map got this spread out (the skyscraper alone is 250
@@ -828,6 +832,13 @@ export class Game {
       { label: 'Campus', x: university.x, z: university.z },
       { label: 'Skyscraper', x: skyscraper.x, z: skyscraper.z },
       { label: 'Mega-Mall', x: megaMall.x, z: megaMall.z },
+      { label: 'Warehouse', x: warehouse.x, z: warehouse.z },
+      { label: 'Gas Station', x: gasStation.x, z: gasStation.z },
+      { label: 'Bank', x: bank.x, z: bank.z },
+      { label: 'Diner', x: diner.x, z: diner.z },
+      { label: 'Radio Station', x: radioStation.x, z: radioStation.z },
+      { label: 'Fire Station', x: fireStation.x, z: fireStation.z },
+      { label: 'Motel', x: motel.x, z: motel.z },
     ]
     for (const lm of this.newLocationLandmarks) {
       const el = document.createElement('div')
@@ -850,7 +861,7 @@ export class Game {
     // with it in range. Same dynamic-collider-removal pattern as
     // _removeDeathObstacle - splice the box back out on unlock instead of
     // rebuilding the whole colliders array.
-    this.lockedCells = [policeStation.cellDoor, ...prison.cellDoors, skyscraper.bunkerDoor, gunShop.caseDoor, warehouse.cageDoor, bank.vaultDoor]
+    this.lockedCells = [policeStation.cellDoor, ...prison.cellDoors, skyscraper.bunkerDoor, gunShop.caseDoor, warehouse.cageDoor, bank.vaultDoor, radioStation.broadcastDoor, fireStation.equipDoor]
     for (const cell of this.lockedCells) {
       cell.locked = true
       this.colliders.push(cell.box)
