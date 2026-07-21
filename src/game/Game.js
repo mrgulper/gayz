@@ -573,6 +573,21 @@ export class Game {
   constructor() {
     this.canvas = document.getElementById('scene')
     this.menu = document.getElementById('menu')
+    // Real-time FPS readout - every prior perf fix this session was code-level
+    // reasoning + Playwright correctness checks, never an actual measured
+    // frame rate (headless Chromium can't reliably report one for this game -
+    // see CLAUDE.md). This puts a real number in front of whoever's actually
+    // playing, on their actual hardware, instead of guessing blind. Always on
+    // (not gated behind a debug flag) since there's no working alternative to
+    // ask "is it actually still slow, and where."
+    this.fpsEl = document.createElement('div')
+    this.fpsEl.id = 'fps-counter'
+    this.fpsEl.style.cssText = 'position:fixed;top:6px;left:6px;background:rgba(0,0,0,0.55);color:#7fd88f;font:13px monospace;padding:3px 7px;border-radius:4px;z-index:9999;pointer-events:none;'
+    this.fpsEl.textContent = '-- fps'
+    document.body.appendChild(this.fpsEl)
+    this._fpsFrameCount = 0
+    this._fpsLastUpdate = performance.now()
+
     this.playBtn = document.getElementById('play-btn')
     this.crosshair = document.getElementById('crosshair')
     this.hudEl = document.getElementById('hud')
@@ -5037,6 +5052,16 @@ export class Game {
   }
 
   _tick() {
+    this._fpsFrameCount++
+    const nowFps = performance.now()
+    const fpsElapsed = nowFps - this._fpsLastUpdate
+    if (fpsElapsed >= 500) {
+      const fps = Math.round((this._fpsFrameCount * 1000) / fpsElapsed)
+      this.fpsEl.textContent = `${fps} fps`
+      this._fpsFrameCount = 0
+      this._fpsLastUpdate = nowFps
+    }
+
     this.timer.update()
     let dt = Math.min(this.timer.getDelta(), 0.1)
     const elapsed = this.timer.getElapsed()
