@@ -514,6 +514,27 @@ export function buildWorld(scene, trophyCount = 15) {
   registerZone({ id: 'pharmacy', x: 145, z: 100, radius: 8, densityMult: 1.3 })
   towerChestSpots.push({ x: 145, y: 0, z: 100, lootWeights: MEDICAL_LOOT_WEIGHTS })
 
+  // Stage 3: Hardware Store + Gun Shop, south of the grocery store along the
+  // same x=160 commercial strip - 35+ units of clearance from grocery
+  // (160,-60) and no x-overlap with the industrial zone (0,-160). Hardware
+  // Store gets a rear loading-dock door per the blueprint's own callout.
+  // Gun Shop's chest is weapon-only weights (bypasses health/ammo/misc
+  // entirely) - the Vault's "this location = guaranteed good reward" idea,
+  // just via the loot-override mechanism instead of a hardcoded drop.
+  const TOOL_DRESSING_FILES = ['tool-hammer.glb', 'tool-crowbar.glb', 'tool-tireiron.glb']
+  const WEAPON_ONLY_LOOT_WEIGHTS = { rare_weapon: 10, legendary_weapon: 3, extended_mag: 4, scope: 3 }
+
+  const hardwareStore = buildRetailStore(scene, register, {
+    x: 160, z: -100, w: 16, d: 11, aisleRows: 3, shelfLen: 3.4,
+    rearDoor: true, dressingFiles: TOOL_DRESSING_FILES,
+  })
+  registerZone({ id: 'hardware', x: 160, z: -100, radius: 12, densityMult: 1.3 })
+  towerChestSpots.push({ x: 160, y: 0, z: -100 + 4, lootWeights: WEAPON_ONLY_LOOT_WEIGHTS })
+
+  const gunShop = buildGunShop(scene, register, 145, -100)
+  registerZone({ id: 'gunshop', x: 145, z: -100, radius: 8, densityMult: 1.4 })
+  towerChestSpots.push({ x: 145, y: 0, z: -100, lootWeights: WEAPON_ONLY_LOOT_WEIGHTS })
+
   return {
     colliders,
     solidMeshes,
@@ -537,6 +558,8 @@ export function buildWorld(scene, trophyCount = 15) {
     groceryStore,
     hospital,
     pharmacy,
+    hardwareStore,
+    gunShop,
   }
 }
 
@@ -1155,11 +1178,14 @@ function buildRoom(scene, register, spec) {
 const FOOD_PROP_SCALE = 0.3
 const SHELF_UNIT_W = 0.4
 
+const DEFAULT_DRESSING_FILES = ['food-can.glb', 'food-carton.glb', 'food-bottle.glb', 'food-bread.glb', 'food-bag.glb']
+
 function buildRetailStore(scene, register, spec) {
   const {
     x, z, w, d, wallHeight = 4,
     doorSide = 'south', doorWidth = 2.4, rearDoor = false,
     aisleRows = 3, shelfLen = 3.2,
+    dressingFiles = DEFAULT_DRESSING_FILES,
   } = spec
 
   const doorSides = [{ side: doorSide, width: doorWidth }]
@@ -1176,7 +1202,6 @@ function buildRetailStore(scene, register, spec) {
   scene.add(floor)
 
   const shelfModel = _propModelCache.get('shelf.glb')
-  const foodFiles = ['food-can.glb', 'food-carton.glb', 'food-bottle.glb', 'food-bread.glb', 'food-bag.glb']
   const unitsPerRow = Math.max(1, Math.round(shelfLen / SHELF_UNIT_W))
   const rowRunLen = unitsPerRow * SHELF_UNIT_W
   const rowSpacing = (d - 3) / (aisleRows + 1)
@@ -1207,7 +1232,7 @@ function buildRetailStore(scene, register, spec) {
 
     // Food dressing along the row's front face, not on every collider box.
     for (let u = 0; u < unitsPerRow; u += 2) {
-      const foodModel = _propModelCache.get(foodFiles[(i + u) % foodFiles.length])
+      const foodModel = _propModelCache.get(dressingFiles[(i + u) % dressingFiles.length])
       if (!foodModel) continue
       const foodClone = foodModel.clone(true)
       foodClone.scale.setScalar(FOOD_PROP_SCALE)
@@ -1337,6 +1362,69 @@ function buildPharmacy(scene, register, x, z) {
   placePropSimple(scene, register, 'medical-cabinet.glb', x - w / 2 + 0.5, z + d / 2 - 1, Math.PI / 2)
   placePropSimple(scene, register, 'medical-cabinet.glb', x + w / 2 - 0.5, z + d / 2 - 1, -Math.PI / 2)
   placePropSimple(scene, register, 'firstaid.glb', x, z - d / 2 + 1.55, 0, 0.2, false)
+
+  return room
+}
+
+// Stage 3 - the Gun Shop displays real weapon models (already-existing
+// viewmodel GLBs from the Phase 4 weapons pass, not new assets) lying flat
+// on its counter as pure decoration, no gameplay hookup - reusing what's
+// already on disk instead of sourcing yet another props pack for guns
+// specifically.
+const GUN_SHOP_DISPLAY_FILES = ['pistol.glb', 'rifle.glb', 'shotgun.glb', 'glock18.glb']
+let _gunShopModelCache = null
+
+export async function preloadGunShopDisplayModels() {
+  const loader = new GLTFLoader()
+  _gunShopModelCache = new Map()
+  await Promise.all(GUN_SHOP_DISPLAY_FILES.map(async (file) => {
+    try {
+      const gltf = await loader.loadAsync(`/models/weapons/${file}`)
+      _gunShopModelCache.set(file, gltf.scene)
+    } catch (err) {
+      console.warn(`Gun shop display model failed to load: ${file}`, err)
+    }
+  }))
+}
+
+function buildGunShop(scene, register, x, z) {
+  const w = 8
+  const d = 7
+  const room = buildRoom(scene, register, {
+    x, z, w, d,
+    doorSides: [{ side: 'south', width: 2.2 }],
+  })
+
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x3a3630, roughness: 0.75 })
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, d - 0.6), floorMat)
+  floor.rotation.x = -Math.PI / 2
+  floor.position.set(x, 0.02, z)
+  floor.receiveShadow = true
+  scene.add(floor)
+
+  placePropSimple(scene, register, 'counter.glb', x, z + d / 2 - 1.3, Math.PI)
+
+  if (_gunShopModelCache) {
+    const spots = [
+      { file: 'pistol.glb', dx: -1.6, dz: 0 },
+      { file: 'rifle.glb', dx: -0.4, dz: 0 },
+      { file: 'shotgun.glb', dx: 0.8, dz: 0 },
+      { file: 'glock18.glb', dx: 2, dz: 0 },
+    ]
+    for (const spot of spots) {
+      const model = _gunShopModelCache.get(spot.file)
+      if (!model) continue
+      const clone = model.clone(true)
+      clone.rotation.set(0, Math.random() * 0.4 - 0.2, Math.PI / 2)
+      clone.position.set(x + spot.dx, 0.55, z + d / 2 - 1.5)
+      clone.traverse((child) => {
+        if (!child.isMesh) return
+        child.castShadow = true
+        child.material = child.material.clone()
+      })
+      scene.add(clone)
+    }
+  }
 
   return room
 }
@@ -2439,6 +2527,7 @@ const PROP_MODEL_FILES = [
   'trashbin.glb', 'waterbarrel.glb', 'cabledrum.glb', 'traderstall.glb', 'ammostation.glb',
   'shelf.glb', 'counter.glb', 'food-can.glb', 'food-carton.glb', 'food-bottle.glb', 'food-bread.glb', 'food-bag.glb',
   'hospital-bed.glb', 'medical-cabinet.glb', 'waiting-chair.glb', 'firstaid.glb',
+  'tool-hammer.glb', 'tool-crowbar.glb', 'tool-tireiron.glb',
 ]
 const _propModelCache = new Map()
 

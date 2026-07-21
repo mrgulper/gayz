@@ -1,6 +1,6 @@
 import './style.css'
 import { Game } from './game/Game.js'
-import { preloadBuildingModels, preloadPropModels } from './game/World.js'
+import { preloadBuildingModels, preloadPropModels, preloadGunShopDisplayModels } from './game/World.js'
 import { preloadZombieModel, preloadTitanModel } from './game/Zombie.js'
 import { preloadCompanionModel } from './game/Companion.js'
 import { preloadRivalModel } from './game/RivalScavenger.js'
@@ -23,6 +23,7 @@ import {
 Promise.all([
   preloadBuildingModels(),
   preloadPropModels(),
+  preloadGunShopDisplayModels(),
   preloadFuelcanModel(),
   preloadChestModel(),
   preloadVaultModel(),
