@@ -3,7 +3,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
-import { buildWorld } from './World.js'
+import { buildWorld, WORLD_CULL_DISTANCE, WORLD_SHADOW_CULL_DISTANCE } from './World.js'
 import { PlayerController } from './PlayerController.js'
 import { WeaponSystem } from './WeaponSystem.js'
 import { ZombieManager } from './ZombieManager.js'
@@ -791,7 +791,8 @@ export class Game {
     this.composer.addPass(this.bloomPass)
     this.composer.addPass(new OutputPass())
 
-    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall } = buildWorld(this.scene, ACHIEVEMENTS.length)
+    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables } = buildWorld(this.scene, ACHIEVEMENTS.length)
+    this.cullables = cullables
     // Kept for _deployBarricade - both PlayerController and ZombieManager
     // hold this exact same array by reference (not a copy), so pushing a
     // new collider here is immediately respected by both without needing
@@ -4122,6 +4123,33 @@ export class Game {
     this.nearVault = this.vault.isNear(playerPos)
   }
 
+  // Phase 6 of the 3D asset overhaul - the new outer zones (see World.js's
+  // buildOuterZones) made the map's real object count several times bigger
+  // than the old ~80x80 core, so everything registered via buildWorld's
+  // register() (buildings, streetlights, the perimeter wall) now gets
+  // hidden/shown by distance instead of always rendering. Squared-distance
+  // comparison avoids a sqrt per object per frame; this is plain arithmetic
+  // over an array, not the expensive part (rendering/shadow-casting a
+  // visible mesh is), so it runs on every object every frame rather than
+  // throttling/spreading the check across multiple frames.
+  _updateCulling(playerPos) {
+    const cullSq = WORLD_CULL_DISTANCE * WORLD_CULL_DISTANCE
+    const shadowSq = WORLD_SHADOW_CULL_DISTANCE * WORLD_SHADOW_CULL_DISTANCE
+    for (const obj of this.cullables) {
+      const dx = obj.position.x - playerPos.x
+      const dz = obj.position.z - playerPos.z
+      const distSq = dx * dx + dz * dz
+      obj.visible = distSq < cullSq
+      const wantsShadow = distSq < shadowSq
+      if (obj.castShadow !== wantsShadow) obj.castShadow = wantsShadow
+      if (obj.isMesh) continue
+      obj.traverse((child) => {
+        if (!child.isMesh) return
+        if (child.castShadow !== wantsShadow) child.castShadow = wantsShadow
+      })
+    }
+  }
+
   _updateTrophyWallProximity(playerPos) {
     const dist = Math.hypot(playerPos.x - this.trophyWall.x, playerPos.z - this.trophyWall.z)
     this.nearTrophyWall = dist <= TROPHY_WALL_INTERACT_RADIUS
@@ -4728,6 +4756,7 @@ export class Game {
         this._triggerHitstop(30)
       })
 
+      this._updateCulling(playerPos)
       this.chests.update(dt, elapsed, playerPos)
       this._updateVault(dt, playerPos)
       this._updateTrophyWallProximity(playerPos)

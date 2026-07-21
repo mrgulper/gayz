@@ -211,11 +211,31 @@ function getSharedBumpTexture() {
 // Builds a small broken-city block: cracked streets, damaged buildings with
 // lit/dark windows, burnt-out cars, rubble, and a couple of dying streetlights.
 // Also returns a list of open street-side spawn points for pickups/zombies.
+// Phase 6 of the 3D asset overhaul - distance culling, added ahead of the
+// new zones below specifically so their extra buildings/streetlights don't
+// all render/shadow-cast at once across the full 750x750 map (see this
+// function's own register() comment and Game.js's _updateCulling). Matches
+// the fog far distance (140) plus a small buffer so nothing visibly pops
+// out of existence before fog would have hidden it anyway.
+export const WORLD_CULL_DISTANCE = 150
+// Shadow casting is the expensive part, not the JS-side distance check, so
+// it's turned off well before the object disappears entirely.
+export const WORLD_SHADOW_CULL_DISTANCE = 70
+
 export function buildWorld(scene, trophyCount = 15) {
   const colliders = []
   const solidMeshes = []
   const flickerLights = []
   const spawnPoints = []
+  // Every object registered via register() below (buildings, streetlights,
+  // the perimeter wall, generator/trader/ammo station) goes in here too -
+  // Game.js ticks this list each frame and toggles .visible/.castShadow by
+  // distance to the player. Deliberately NOT the same array as colliders/
+  // solidMeshes (collision must never depend on visibility), and
+  // deliberately doesn't include underground corridors/the safe zone/park -
+  // those are a small, fixed, already-bounded object count, not what scales
+  // with the new zones.
+  const cullables = []
 
   // Registers a mesh/group as both a movement collider (AABB) and a
   // raycast-solid target (for bullets), keeping the two lists in sync.
@@ -244,6 +264,7 @@ export function buildWorld(scene, trophyCount = 15) {
     object.updateWorldMatrix(true, false)
     colliders.push(explicitBox || new THREE.Box3().setFromObject(object))
     solidMeshes.push(object)
+    cullables.push(object)
   }
 
   scene.background = new THREE.Color(0x12161b)
@@ -446,6 +467,8 @@ export function buildWorld(scene, trophyCount = 15) {
   buildSubwayConnector(scene, colliders, solidMeshes, flickerLights, SUBWAY_X, connectorWaypointZ - JUNCTION_HALF, STATION_X, STATION_Z_END)
   const undergroundStation = buildUndergroundStation(scene, colliders, solidMeshes, flickerLights, towerChestSpots)
 
+  buildOuterZones(scene, register, cullables)
+
   return {
     colliders,
     solidMeshes,
@@ -464,6 +487,7 @@ export function buildWorld(scene, trophyCount = 15) {
     safeZone,
     practiceTargets,
     trophyWall,
+    cullables,
   }
 }
 
@@ -2165,6 +2189,126 @@ function buildingLayout() {
 }
 
 const BUILDING_COLORS = [0x38342e, 0x33373a, 0x3c302a, 0x2e3630]
+
+// Phase 6 of the 3D asset overhaul - four outer zones extending buildingLayout's
+// same "rows flanking a street" formula out into the open space of the
+// 750x750 map (the core only ever used ~80x80 of it - see the commit at
+// HEAD this ties into). Centers are chosen well clear of the full occupied
+// envelope measured by hand against every existing feature (buildings,
+// safe zone, park, subway/sewer/station, underground level 2): that
+// envelope tops out at x=+-33.2, z=[-89,72], so +-150 in any direction has
+// 60+ units of clearance on every side - no collision risk with anything
+// that already exists.
+//
+// 'axis' controls which way the zone's buildings flank their own street:
+// 'z' mirrors the core (rows are X positions, buildings step along Z, for
+// the north/south zones); 'x' rotates that 90 degrees (rows are Z
+// positions, buildings step along X, for the east/west zones) - otherwise
+// an east/west zone's "street" would run perpendicular to the direction
+// the player actually walks to reach it.
+function outerZoneBuildingSpecs(centerX, centerZ, axis, seedBase) {
+  const list = []
+  let seed = seedBase
+  const rowOffsets = [-26, -12, 12, 26]
+  const steps = [-30, -10, 10, 30]
+  for (const rowOffset of rowOffsets) {
+    for (const step of steps) {
+      seed++
+      const jitter = ((seed * 37) % 7) - 3
+      const spec = {
+        w: 11 + (seed % 4) * 1.6,
+        d: 11 + ((seed * 3) % 4) * 1.6,
+        h: 8 + ((seed * 5) % 6) * 2.2,
+        broken: seed % 4 === 0,
+        modelFile: BUILDING_MODEL_FILES[seed % BUILDING_MODEL_FILES.length],
+      }
+      if (axis === 'z') {
+        spec.x = centerX + rowOffset + jitter * 0.4
+        spec.z = centerZ + step + jitter
+      } else {
+        spec.x = centerX + step + jitter
+        spec.z = centerZ + rowOffset + jitter * 0.4
+      }
+      list.push(spec)
+    }
+  }
+  return { list, nextSeed: seed }
+}
+
+const OUTER_ZONES = [
+  { name: 'suburbs', centerX: 0, centerZ: 140, axis: 'z' },
+  { name: 'industrial', centerX: 0, centerZ: -160, axis: 'z' },
+  { name: 'commercial', centerX: 160, centerZ: 0, axis: 'x' },
+  { name: 'residential', centerX: -160, centerZ: 0, axis: 'x' },
+]
+
+function buildOuterZones(scene, register, cullables) {
+  let seed = 1000 // offset clear of buildingLayout()'s own 0-20 range
+  const lightModel = _propModelCache.get('streetlight.glb')
+  const poleMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.8 })
+
+  const placeProp = (fileName, x, z, rotY = 0) => {
+    const model = _propModelCache.get(fileName)
+    if (!model) return
+    const clone = model.clone(true)
+    clone.position.set(x, 0, z)
+    clone.rotation.y = rotY
+    clone.traverse((child) => {
+      if (!child.isMesh) return
+      child.castShadow = true
+      child.receiveShadow = true
+      child.material = child.material.clone()
+    })
+    scene.add(clone)
+    cullables.push(clone)
+  }
+
+  const placeStreetlight = (x, z) => {
+    if (lightModel) {
+      const clone = lightModel.clone(true)
+      clone.position.set(x, 0, z)
+      clone.traverse((child) => {
+        if (!child.isMesh) return
+        child.castShadow = true
+        child.material = child.material.clone()
+      })
+      scene.add(clone)
+      register(clone)
+    } else {
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 5.5, 12), poleMat)
+      pole.position.set(x, 2.75, z)
+      pole.castShadow = true
+      scene.add(pole)
+      register(pole)
+    }
+    const light = new THREE.PointLight(0xffbb55, 1.0, 12, 2)
+    light.position.set(x, 5.2, z)
+    scene.add(light)
+  }
+
+  for (const zone of OUTER_ZONES) {
+    const { list, nextSeed } = outerZoneBuildingSpecs(zone.centerX, zone.centerZ, zone.axis, seed)
+    seed = nextSeed
+    for (const spec of list) addBuilding(scene, register, spec)
+
+    // A few streetlights down the zone's own central street, same axis
+    // convention as the buildings above.
+    if (zone.axis === 'z') {
+      for (const dz of [-24, 0, 24]) placeStreetlight(zone.centerX + 3.5, zone.centerZ + dz)
+    } else {
+      for (const dx of [-24, 0, 24]) placeStreetlight(zone.centerX + dx, zone.centerZ + 3.5)
+    }
+
+    // Light scattering of already-downloaded props for street-level detail
+    // - reusing the same files scatterCityProps uses for the core, just at
+    // this zone's own coordinates.
+    const p1 = zone.axis === 'z' ? { x: zone.centerX - 4, z: zone.centerZ - 14 } : { x: zone.centerX - 14, z: zone.centerZ - 4 }
+    const p2 = zone.axis === 'z' ? { x: zone.centerX + 5, z: zone.centerZ + 10 } : { x: zone.centerX + 10, z: zone.centerZ + 5 }
+    placeProp('dumpster.glb', p1.x, p1.z)
+    placeProp('waterbarrel.glb', p2.x, p2.z)
+    placeProp('trafficcone.glb', zone.centerX, zone.centerZ)
+  }
+}
 
 function addBuilding(scene, register, spec) {
   const model = spec.modelFile && _modelCache.get(spec.modelFile)
