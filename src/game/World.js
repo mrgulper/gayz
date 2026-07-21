@@ -584,6 +584,17 @@ export function buildWorld(scene, trophyCount = 15) {
     const lootWeights = spot.loot === 'weapon' ? WEAPON_ONLY_LOOT_WEIGHTS : spot.loot === 'retail' ? RETAIL_LOOT_WEIGHTS : undefined
     towerChestSpots.push({ x: spot.x, y: 0, z: spot.z, lootWeights })
   }
+  buildWalkway(scene, register, skyscraper.x, skyscraper.z - 7, megaMall.x, megaMall.z + 10)
+
+  // Cosmetic "Emergency Hatch" markers near a handful of the new locations,
+  // hinting at the underground network to come (Stages 10-12) - see
+  // buildManholeCover's own comment for why these are purely decorative.
+  buildDirectionalSignpost(scene, SAFE_ZONE_X - 2, SAFE_ZONE_Z - 9)
+  buildManholeCover(scene, SAFE_ZONE_X + 3, SAFE_ZONE_Z - 8)
+  buildManholeCover(scene, hardwareStore.x + 3, hardwareStore.z - 3)
+  buildManholeCover(scene, policeStation.x - 3, policeStation.z + 2)
+  buildManholeCover(scene, skyscraper.x - 2, skyscraper.z - 9)
+  buildManholeCover(scene, megaMall.x, megaMall.z + 8)
 
   return {
     colliders,
@@ -1427,7 +1438,7 @@ function buildPharmacy(scene, register, x, z) {
 // on its counter as pure decoration, no gameplay hookup - reusing what's
 // already on disk instead of sourcing yet another props pack for guns
 // specifically.
-const GUN_SHOP_DISPLAY_FILES = ['pistol.glb', 'rifle.glb', 'shotgun.glb', 'glock18.glb']
+const GUN_SHOP_DISPLAY_FILES = ['pistol.glb', 'rifle.glb', 'shotgun.glb', 'glock18.glb', 'awp.glb']
 let _gunShopModelCache = null
 
 export async function preloadGunShopDisplayModels() {
@@ -1482,7 +1493,40 @@ function buildGunShop(scene, register, x, z) {
     }
   }
 
-  return room
+  // Locked display case - a small back room behind the counter with a
+  // rarer weapon on display, matching the blueprint's "reinforced
+  // structures" legend that Stage 3 originally skipped (the lockedCells
+  // mechanism didn't exist yet at the time - see Stage 4/5's own notes).
+  const caseW = 4
+  const caseD = 3
+  const caseZ = z - d / 2 - caseD / 2
+  buildRoom(scene, register, {
+    x, z: caseZ, w: caseW, d: caseD,
+    doorSides: [{ side: 'south', width: 1.6 }],
+  })
+  const caseFloor = new THREE.Mesh(new THREE.PlaneGeometry(caseW - 0.6, caseD - 0.6), floorMat)
+  caseFloor.rotation.x = -Math.PI / 2
+  caseFloor.position.set(x, 0.02, caseZ)
+  caseFloor.receiveShadow = true
+  scene.add(caseFloor)
+  if (_gunShopModelCache) {
+    const awp = _gunShopModelCache.get('awp.glb')
+    if (awp) {
+      const clone = awp.clone(true)
+      clone.rotation.set(0, 0, Math.PI / 2)
+      clone.position.set(x, 0.55, caseZ)
+      clone.traverse((child) => {
+        if (!child.isMesh) return
+        child.castShadow = true
+        child.material = child.material.clone()
+      })
+      scene.add(clone)
+    }
+  }
+  const caseDoorZ = caseZ + caseD / 2
+  const caseDoor = buildLockableDoor(scene, x, caseDoorZ, 1.6, 'x')
+
+  return { ...room, caseDoor }
 }
 
 // Shared by Stage 4 (police station, one cell) and Stage 5 (prison, several
@@ -1951,6 +1995,112 @@ function buildMegaMall(scene, register, x, z) {
   }
 
   return { x, z: plazaZ, chestSpots }
+}
+
+// A paved connecting path between two nearby locations, plus a couple of
+// streetlights along it - the blueprint draws the Skyscraper and Mega-Mall
+// as one combined complex sharing a spot; they were built as two separate
+// standalone buildings, so this closes that visual gap without needing to
+// rebuild either one. Straight-line only (both current uses share an x),
+// same "paved strip + streetlights" idea buildPark's own path already uses.
+// Cosmetic-only "Emergency Hatch" marker (a manhole-style disc set flush
+// into the ground) hinting at the coming underground network (subway/
+// sewer/mine tunnels, Stages 10-12 of the plan) before it actually exists -
+// purely decorative, not registered as a collider or interactable, so
+// there's nothing to accidentally imply is functional yet.
+function buildSignPlankTexture(lines) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 256
+  canvas.height = 64
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#3a3226'
+  ctx.fillRect(0, 0, 256, 64)
+  ctx.strokeStyle = '#1c1a16'
+  ctx.lineWidth = 4
+  ctx.strokeRect(2, 2, 252, 60)
+  ctx.fillStyle = '#e8dcc0'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.font = 'bold 22px sans-serif'
+  ctx.fillText(lines[0], 128, lines[1] ? 22 : 32)
+  if (lines[1]) {
+    ctx.font = '15px sans-serif'
+    ctx.fillText(lines[1], 128, 46)
+  }
+  return new THREE.CanvasTexture(canvas)
+}
+
+// A single signpost near the safe zone entrance with one plank per
+// direction, naming the new locations that way and roughly how far -
+// wayfinding for a map that's now 750x750 with named locations 100-250
+// units apart, without needing the compass fix above to be the only cue.
+function buildDirectionalSignpost(scene, x, z) {
+  const postMat = new THREE.MeshStandardMaterial({ color: 0x2a1f16, roughness: 0.9 })
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 2.6, 8), postMat)
+  post.position.set(x, 1.3, z)
+  post.castShadow = true
+  scene.add(post)
+
+  const arms = [
+    { rotY: 0, lines: ['N: Campus, Suburbs'] },
+    { rotY: Math.PI / 2, lines: ['E: Hospital, Mall,', 'Skyscraper, Shops'] },
+    { rotY: Math.PI, lines: ['S: Prison, Checkpoint'] },
+    { rotY: -Math.PI / 2, lines: ['W: Residential'] },
+  ]
+  let y = 2.2
+  for (const arm of arms) {
+    const plankMat = new THREE.MeshStandardMaterial({ map: buildSignPlankTexture(arm.lines), roughness: 0.8 })
+    const plank = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.33), plankMat)
+    plank.position.set(x + Math.sin(arm.rotY) * 0.66, y, z + Math.cos(arm.rotY) * 0.66)
+    plank.rotation.y = arm.rotY
+    scene.add(plank)
+    y -= 0.4
+  }
+}
+
+function buildManholeCover(scene, x, z) {
+  const mat = new THREE.MeshStandardMaterial({ color: 0x2a2a26, roughness: 0.6, metalness: 0.6 })
+  const cover = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.05, 16), mat)
+  cover.position.set(x, 0.03, z)
+  cover.receiveShadow = true
+  scene.add(cover)
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.03, 8, 20), mat)
+  rim.rotation.x = -Math.PI / 2
+  rim.position.set(x, 0.06, z)
+  scene.add(rim)
+}
+
+function buildWalkway(scene, register, x0, z0, x1, z1) {
+  const pathMat = new THREE.MeshStandardMaterial({ color: 0x4a463c, roughness: 1 })
+  const length = Math.hypot(x1 - x0, z1 - z0)
+  const midX = (x0 + x1) / 2
+  const midZ = (z0 + z1) / 2
+  const angle = Math.atan2(x1 - x0, z1 - z0)
+  const path = new THREE.Mesh(new THREE.PlaneGeometry(3, length), pathMat)
+  path.rotation.x = -Math.PI / 2
+  path.rotation.z = -angle
+  path.position.set(midX, 0.015, midZ)
+  scene.add(path)
+
+  const lightModel = _propModelCache.get('streetlight.glb')
+  for (const t of [0.25, 0.75]) {
+    const lx = x0 + (x1 - x0) * t + 2
+    const lz = z0 + (z1 - z0) * t
+    if (lightModel) {
+      const clone = lightModel.clone(true)
+      clone.position.set(lx, 0, lz)
+      clone.traverse((child) => {
+        if (!child.isMesh) return
+        child.castShadow = true
+        child.material = child.material.clone()
+      })
+      scene.add(clone)
+      register(clone)
+    }
+    const light = new THREE.PointLight(0xffbb55, 1.0, 12, 2)
+    light.position.set(lx, 5.2, lz)
+    scene.add(light)
+  }
 }
 
 function buildTargetTexture() {
@@ -3196,13 +3346,12 @@ const OUTER_ZONES = [
 
 // Stage 7 of the Extended Metropolitan Grid plan - "upgrade N existing
 // shells to real walkable interiors" rather than sourcing/placing new
-// content from scratch, per the plan's own framing of this as a cheap
-// breather stage between the two biggest-lift stages (Campus and
-// Skyscraper). Two of the suburbs zone's 16 decorative building slots (by
-// index within outerZoneBuildingSpecs' own list, picked for reasonable
-// spacing) get a real 1-room interior instead of the usual solid Kenney
-// exterior shell.
-const WALKABLE_HOUSE_IDXS = new Set([2, 9])
+// content from scratch. Started with just 2 of the suburbs zone's 16
+// decorative building slots as a proof of the pattern (a cheap breather
+// stage between the two biggest-lift stages, Campus and Skyscraper), then
+// widened to all 16 once that held up - every suburb house is now real
+// and walkable, not just decoration.
+const WALKABLE_HOUSE_IDXS = new Set([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
 
 function buildWalkableHouse(scene, register, spec) {
   const w = Math.min(spec.w, 9)

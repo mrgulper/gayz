@@ -805,6 +805,36 @@ export class Game {
     this.university = university
     this.skyscraper = skyscraper
     this.megaMall = megaMall
+    // Extended Metropolitan Grid usability pass - none of Stages 1-9's new
+    // locations showed up on the compass/minimap at all, the biggest real
+    // gap once the map got this spread out (the skyscraper alone is 250
+    // units from the safe zone). Compass markers are created here rather
+    // than hand-authored in index.html like compass-trader/compass-ammo -
+    // 12 near-identical elements would be a lot of markup to maintain by
+    // hand for what's really one repeated pattern.
+    this.newLocationLandmarks = [
+      { label: 'Supermarket', x: supermarket.x, z: supermarket.z },
+      { label: 'Grocery', x: groceryStore.x, z: groceryStore.z },
+      { label: 'Hospital', x: hospital.x, z: hospital.z },
+      { label: 'Pharmacy', x: pharmacy.x, z: pharmacy.z },
+      { label: 'Hardware', x: hardwareStore.x, z: hardwareStore.z },
+      { label: 'Gun Shop', x: gunShop.x, z: gunShop.z },
+      { label: 'Police', x: policeStation.x, z: policeStation.z },
+      { label: 'Checkpoint', x: militaryCheckpoint.x, z: militaryCheckpoint.z },
+      { label: 'Prison', x: prison.x, z: prison.z },
+      { label: 'Campus', x: university.x, z: university.z },
+      { label: 'Skyscraper', x: skyscraper.x, z: skyscraper.z },
+      { label: 'Mega-Mall', x: megaMall.x, z: megaMall.z },
+    ]
+    for (const lm of this.newLocationLandmarks) {
+      const el = document.createElement('div')
+      el.className = 'compass-marker'
+      el.style.display = 'none'
+      el.style.color = '#b39cff'
+      el.textContent = lm.label
+      this.compassStrip.appendChild(el)
+      lm.el = el
+    }
     // Kept for _deployBarricade - both PlayerController and ZombieManager
     // hold this exact same array by reference (not a copy), so pushing a
     // new collider here is immediately respected by both without needing
@@ -817,7 +847,7 @@ export class Game {
     // with it in range. Same dynamic-collider-removal pattern as
     // _removeDeathObstacle - splice the box back out on unlock instead of
     // rebuilding the whole colliders array.
-    this.lockedCells = [policeStation.cellDoor, ...prison.cellDoors, skyscraper.bunkerDoor]
+    this.lockedCells = [policeStation.cellDoor, ...prison.cellDoors, skyscraper.bunkerDoor, gunShop.caseDoor]
     for (const cell of this.lockedCells) {
       cell.locked = true
       this.colliders.push(cell.box)
@@ -4622,6 +4652,7 @@ export class Game {
       { el: this.compassTrader, x: this.trader.x, z: this.trader.z },
       { el: this.compassAmmo, x: this.ammoStation.x, z: this.ammoStation.z },
       { el: this.compassSubway, x: this.subwayEntrance.x, z: this.subwayEntrance.z },
+      ...this.newLocationLandmarks,
     ]
     if (this.vehicle && !this.driving) {
       landmarks.push({ el: this.compassVehicle, x: this.vehicle.group.position.x, z: this.vehicle.group.position.z })
@@ -4666,7 +4697,8 @@ export class Game {
       this.trader,
       this.ammoStation,
       this.airdrop,
-      this.zombies.wanderingHorde
+      this.zombies.wanderingHorde,
+      this.newLocationLandmarks
     )
   }
 

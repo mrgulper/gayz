@@ -11,7 +11,7 @@ export class Minimap {
     this.size = canvas.width
   }
 
-  update(playerPos, facingRad, zombies, chestLandmarks, minigunLandmark, traderLandmark, ammoLandmark, airdropLandmark, hordeLandmark) {
+  update(playerPos, facingRad, zombies, chestLandmarks, minigunLandmark, traderLandmark, ammoLandmark, airdropLandmark, hordeLandmark, extraLandmarks = []) {
     const ctx = this.ctx
     const s = this.size
     const cx = s / 2
@@ -94,6 +94,22 @@ export class Minimap {
         ctx.arc(px + ox, py + oy, 2, 0, Math.PI * 2)
         ctx.fill()
       }
+    }
+
+    // Extended Metropolitan Grid locations - a small violet diamond, once
+    // the player's close enough (this radar's RANGE is much smaller than
+    // the distance between most of these) for the marker to actually help
+    // rather than the compass strip being the only useful cue at range.
+    ctx.fillStyle = '#b39cff'
+    for (const lm of extraLandmarks) {
+      const px = cx + (lm.x - playerPos.x) * scale
+      const py = cy + (lm.z - playerPos.z) * scale
+      if (px < -6 || px > s + 6 || py < -6 || py > s + 6) continue
+      ctx.save()
+      ctx.translate(px, py)
+      ctx.rotate(Math.PI / 4)
+      ctx.fillRect(-3, -3, 6, 6)
+      ctx.restore()
     }
 
     ctx.fillStyle = '#e04b4b'
