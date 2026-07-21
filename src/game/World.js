@@ -2777,6 +2777,106 @@ function buildSubway(scene, colliders, solidMeshes, flickerLights) {
   return { chestSpot: { x: SUBWAY_X, y: SUBWAY_FLOOR_Y, z: SUBWAY_Z_START + 3 } }
 }
 
+// A paved clearing dropped on top of the park's own grass plane, reusing
+// the same asphalt ground texture/tiling density the main outdoor ground
+// uses - so a station entrance reads as "the pavement continues here,"
+// not a patch of park. Just above the grass (wins the depth test there),
+// same non-collidable trick as the old opening-patch fix, but properly
+// textured instead of a flat dark rectangle.
+function buildPavedClearing(scene, x, z, w, d) {
+  const tex = new THREE.TextureLoader().load('/textures/ground-asphalt.png')
+  tex.wrapS = THREE.RepeatWrapping
+  tex.wrapT = THREE.RepeatWrapping
+  tex.colorSpace = THREE.SRGBColorSpace
+  tex.repeat.set(w / 12, d / 12)
+  const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 1 })
+  const clearing = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat)
+  clearing.rotation.x = -Math.PI / 2
+  clearing.position.set(x, 0.02, z)
+  clearing.receiveShadow = true
+  scene.add(clearing)
+}
+
+// A real-looking staircase (concrete side walls, handrails, wide light-
+// colored steps with a darker front-edge line per step) rather than the
+// bare dark boxes buildStairFlight produces on its own - built specifically
+// for the two park entrances rather than changing buildStairFlight itself,
+// which many other places (skyscrapers, fire escapes, lookout towers) still
+// rely on unchanged. Side walls/rails are deliberately NOT registered as
+// colliders: they're tilted to match the slope, and Box3.setFromObject on a
+// rotated mesh inflates well past its real footprint (see CLAUDE.md's
+// rotated-mesh AABB gotcha) - a naive collider here would risk sealing off
+// the stairwell it's supposed to flank. The steps themselves (axis-aligned,
+// not rotated) still go through solidMeshes exactly like buildStairFlight's
+// own steps do.
+function buildRealStaircase(scene, solidMeshes, flickerLights, x, z0, y0, z1, y1, steps, stairWidth = 3.2) {
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0xaaa392, roughness: 0.9 })
+  const stepMat = new THREE.MeshStandardMaterial({ color: 0x8a8478, roughness: 0.85 })
+  const stepEdgeMat = new THREE.MeshStandardMaterial({ color: 0x46423a, roughness: 0.9 })
+  const railMat = new THREE.MeshStandardMaterial({ color: 0x201f1c, roughness: 0.4, metalness: 0.6 })
+
+  const dz = z1 - z0
+  const dy = y1 - y0
+  const runLength = Math.hypot(dz, dy)
+  // Negated dy here, not the more obvious atan2(dy,dz) - verified
+  // numerically (a rotation.x on a box uses y'=-sin*z locally), the
+  // un-negated version produces a wall/rail tilted to the mirrored slope
+  // instead of following the actual staircase.
+  const tiltAngle = Math.atan2(-dy, dz)
+  const midZ = (z0 + z1) / 2
+  const midY = (y0 + y1) / 2
+  const wallHeight = 2.4
+
+  for (const side of [-1, 1]) {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.15, wallHeight, runLength + 0.6), wallMat)
+    wall.position.set(x + side * (stairWidth / 2), midY + wallHeight / 2 - 0.4, midZ)
+    wall.rotation.x = tiltAngle
+    wall.castShadow = true
+    wall.receiveShadow = true
+    scene.add(wall)
+
+    // Cylinder's default long axis is Y, not Z like the wall's box - a
+    // quarter turn (Math.PI/2) around the same X axis first swings it into
+    // the wall's Z-aligned convention, then the tiltAngle on top of that
+    // applies the same slope. Both are rotations around X, so they just
+    // add - no second rotation axis needed (a combined x+z rotation here
+    // doesn't compose the way "first one, then the other" intuition
+    // suggests).
+    const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, runLength, 8), railMat)
+    rail.rotation.x = Math.PI / 2 + tiltAngle
+    rail.position.set(x + side * (stairWidth / 2 - 0.18), midY + 1.0, midZ)
+    scene.add(rail)
+  }
+
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps
+    const py = THREE.MathUtils.lerp(y0, y1, t)
+    const pz = THREE.MathUtils.lerp(z0, z1, t)
+    const step = new THREE.Mesh(new THREE.BoxGeometry(stairWidth - 0.35, 0.22, 1.05), stepMat)
+    step.position.set(x, py, pz)
+    step.castShadow = true
+    step.receiveShadow = true
+    scene.add(step)
+    solidMeshes.push(step) // walkable, intentionally not a horizontal collider
+
+    const edge = new THREE.Mesh(new THREE.BoxGeometry(stairWidth - 0.35, 0.04, 0.06), stepEdgeMat)
+    edge.position.set(x, py + 0.11, pz - Math.sign(dz) * 0.5)
+    scene.add(edge)
+  }
+
+  // Brighter light right at the top of the run (matches daylight spilling
+  // in from the surface) fading toward the bottom, instead of the whole
+  // shaft being uniformly dim.
+  for (const [t, intensity] of [[0.15, 1.6], [0.5, 1.1], [0.85, 0.9]]) {
+    const lightZ = THREE.MathUtils.lerp(z0, z1, t)
+    const lightY = THREE.MathUtils.lerp(y0, y1, t) + 1.3
+    const stairLight = new THREE.PointLight(0xffd9a0, intensity, 8, 2)
+    stairLight.position.set(x, lightY, lightZ)
+    scene.add(stairLight)
+    flickerLights.push({ light: stairLight, base: intensity, seed: Math.random() * 100 })
+  }
+}
+
 // The subway's real-world entrance - moved into the park (see
 // buildPark's PARK_Z_START/END/HALF_WIDTH) instead of a street-side kiosk,
 // so walking into the park and taking the stairs down is how the whole
@@ -2803,17 +2903,11 @@ function buildSubwayParkEntrance(scene, colliders, solidMeshes, flickerLights) {
     post.castShadow = true
     scene.add(post)
   }
-  // buildPark's grass is one continuous plane with no hole cut anywhere -
-  // this stairwell's opening was invisible from ground level (reported by
-  // the user while checking the new entrance beside this one, but this one
-  // has the exact same gap and was never actually fixed). A dark patch just
-  // above the grass reads as a void without needing to touch the park's
-  // own geometry - same fix as buildNewUndergroundEntrance's own opening.
-  const openingMat = new THREE.MeshStandardMaterial({ color: 0x0a0806, roughness: 1 })
-  const opening = new THREE.Mesh(new THREE.PlaneGeometry(kioskHalfW * 2 + 0.4, 6.5), openingMat)
-  opening.rotation.x = -Math.PI / 2
-  opening.position.set(SUBWAY_PARK_ENTRANCE_X, 0.03, (SUBWAY_PARK_ENTRANCE_Z + SUBWAY_PARK_LANDING_Z) / 2)
-  scene.add(opening)
+  // Paved clearing instead of park grass right at the entrance, per the
+  // user's own request after the first fix (a flat dark patch) still
+  // didn't read as real stairs - the ground here should look like it
+  // belongs to the same pavement as the rest of the map, not the park.
+  buildPavedClearing(scene, SUBWAY_PARK_ENTRANCE_X, SUBWAY_PARK_ENTRANCE_Z + 0.5, kioskHalfW * 2 + 2, 6)
   // Readable "SUBWAY" + down-arrow text via a canvas texture, same technique
   // as the VIREO terminal screen (see buildVireoFacility) - a plain emissive
   // box with no text on it doesn't actually tell a player what's down here.
@@ -2854,26 +2948,16 @@ function buildSubwayParkEntrance(scene, colliders, solidMeshes, flickerLights) {
   beaconLight.position.set(SUBWAY_PARK_ENTRANCE_X, 7, SUBWAY_PARK_ENTRANCE_Z)
   scene.add(beaconLight)
 
-  buildStairFlight(
-    scene, solidMeshes,
+  // Real staircase (walls, handrails, wide lit steps) instead of bare dark
+  // boxes - see buildRealStaircase's own comment for why this replaced
+  // buildStairFlight here specifically rather than changing that shared
+  // function everywhere it's used.
+  buildRealStaircase(
+    scene, solidMeshes, flickerLights,
     SUBWAY_PARK_ENTRANCE_X, SUBWAY_PARK_ENTRANCE_Z, 0,
-    SUBWAY_PARK_ENTRANCE_X, SUBWAY_PARK_LANDING_Z, SUBWAY_FLOOR_Y,
-    18
+    SUBWAY_PARK_LANDING_Z, SUBWAY_FLOOR_Y,
+    18, kioskHalfW * 2 - 0.6
   )
-
-  // The stairwell itself was completely unlit (this function never took
-  // flickerLights, and the surface beacon above doesn't meaningfully reach
-  // the bottom of an open shaft this deep) - read as a solid black void
-  // from above instead of a visible staircase. Two lights bracket the run:
-  // one a third of the way down, one near the landing.
-  for (const t of [0.35, 0.85]) {
-    const lightZ = THREE.MathUtils.lerp(SUBWAY_PARK_ENTRANCE_Z, SUBWAY_PARK_LANDING_Z, t)
-    const lightY = THREE.MathUtils.lerp(0, SUBWAY_FLOOR_Y, t) + 1.2
-    const stairLight = new THREE.PointLight(0xffcf8a, 1.1, 8, 2)
-    stairLight.position.set(SUBWAY_PARK_ENTRANCE_X, lightY, lightZ)
-    scene.add(stairLight)
-    flickerLights.push({ light: stairLight, base: 1.1, seed: Math.random() * 100 })
-  }
 
   return { x: SUBWAY_PARK_ENTRANCE_X, z: SUBWAY_PARK_ENTRANCE_Z, landingX: SUBWAY_PARK_ENTRANCE_X, landingZ: SUBWAY_PARK_LANDING_Z }
 }
@@ -2913,19 +2997,10 @@ function buildNewUndergroundEntrance(scene, colliders, solidMeshes, flickerLight
     scene.add(post)
   }
 
-  // The park's grass (buildPark) is one continuous plane with no actual
-  // hole cut in it anywhere - a real gap would need custom hole geometry,
-  // but a simple dark "opening" patch positioned just above the grass
-  // (which wins the depth test there) reads as a void/hole from ground
-  // level without needing to touch the park's own geometry. Spans from
-  // under the roof through to where the stairs actually start dropping,
-  // so it visually continues into the descent instead of looking like an
-  // isolated dark rectangle.
-  const openingMat = new THREE.MeshStandardMaterial({ color: 0x0a0806, roughness: 1 })
-  const opening = new THREE.Mesh(new THREE.PlaneGeometry(shaftHalfW * 2 + 0.6, 5.2), openingMat)
-  opening.rotation.x = -Math.PI / 2
-  opening.position.set(x, 0.03, z - 1)
-  scene.add(opening)
+  // Paved clearing instead of park grass right at the entrance - a flat
+  // dark patch (the first fix attempted here) didn't actually read as
+  // real stairs, per direct user feedback after checking it in-game.
+  buildPavedClearing(scene, x, z - 1, shaftHalfW * 2 + 2, 6)
 
   const signCanvas = document.createElement('canvas')
   signCanvas.width = 512
@@ -2952,7 +3027,10 @@ function buildNewUndergroundEntrance(scene, colliders, solidMeshes, flickerLight
   scene.add(beaconLight)
 
   const landingZ = z - 4
-  buildStairFlight(scene, solidMeshes, x, z, 0, x, landingZ, NEW_UNDERGROUND_LANDING_Y, 16)
+  // Real staircase (walls, handrails, wide lit steps) instead of bare dark
+  // boxes - same fix and same reasoning as buildSubwayParkEntrance's own
+  // stairs.
+  buildRealStaircase(scene, solidMeshes, flickerLights, x, z, 0, landingZ, NEW_UNDERGROUND_LANDING_Y, 16, shaftHalfW * 2 - 0.4)
 
   // Small landing platform at the bottom - just enough to stand on, no
   // tunnel behind it yet.
@@ -2967,14 +3045,8 @@ function buildNewUndergroundEntrance(scene, colliders, solidMeshes, flickerLight
     new THREE.Vector3(x + shaftHalfW + 0.5, NEW_UNDERGROUND_LANDING_Y, landingZ + 1)
   ))
 
-  for (const t of [0.4, 0.9]) {
-    const lightZ = THREE.MathUtils.lerp(z, landingZ, t)
-    const lightY = THREE.MathUtils.lerp(0, NEW_UNDERGROUND_LANDING_Y, t) + 1.2
-    const stairLight = new THREE.PointLight(0xff9a5c, 1.0, 7, 2)
-    stairLight.position.set(x, lightY, lightZ)
-    scene.add(stairLight)
-    flickerLights.push({ light: stairLight, base: 1.0, seed: Math.random() * 100 })
-  }
+  // buildRealStaircase already lights the run itself; this one just covers
+  // the landing platform specifically.
   const landingLight = new THREE.PointLight(0xff9a5c, 1.2, 8, 2)
   landingLight.position.set(x, NEW_UNDERGROUND_LANDING_Y + 1.5, landingZ - 1)
   scene.add(landingLight)
