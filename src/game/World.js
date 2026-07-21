@@ -555,6 +555,20 @@ export function buildWorld(scene, trophyCount = 15) {
   registerZone({ id: 'prison', x: 160, z: -180, radius: 20, densityMult: 1.6 })
   towerChestSpots.push({ x: 160, y: 0, z: -170, lootWeights: WEAPON_ONLY_LOOT_WEIGHTS })
 
+  // Stage 6: Abandoned University Campus, north of the residential zone's
+  // own building grid (x=[-190,-130] z=[-27,27]) - 40+ units of z-clearance.
+  // Per-room loot override (the plan's own callout for this stage): each
+  // of the 3 sub-rooms gets its own chest with different weighting instead
+  // of one flat chest for the whole building, exercising Stage 0's
+  // per-chest override on 3 different tables in one place for the first
+  // time (not just one override per whole location like every stage so far).
+  const university = buildUniversity(scene, register, -160, 70)
+  registerZone({ id: 'university', x: -160, z: 80, radius: 20, densityMult: 1.3 })
+  const LAB_LOOT_WEIGHTS = { ...LOOT_WEIGHTS, health: 2.5, extended_mag: 0.6 }
+  towerChestSpots.push({ x: -165.5, y: 0, z: 76, lootWeights: LAB_LOOT_WEIGHTS })
+  towerChestSpots.push({ x: -154.5, y: 0, z: 80.5 }) // library - default weights, not every room needs an override
+  towerChestSpots.push({ x: -166, y: 0, z: 85, lootWeights: RETAIL_LOOT_WEIGHTS })
+
   return {
     colliders,
     solidMeshes,
@@ -583,6 +597,7 @@ export function buildWorld(scene, trophyCount = 15) {
     policeStation,
     militaryCheckpoint,
     prison,
+    university,
   }
 }
 
@@ -1684,6 +1699,87 @@ function buildPrison(scene, register, x, z) {
   return { x, z: adminZ, cellDoors }
 }
 
+// Stage 6 of the Extended Metropolitan Grid plan - "Abandoned University
+// Campus": entrance + hallway with three distinct sub-themed alcove rooms
+// (Biology Lab, Library, Cafeteria) opening directly onto the hallway via
+// buildRoom's openSides (the buildOffice/buildElevatedRoom alcove pattern),
+// not through doors - three different dressings on the same composition
+// pattern, no new gameplay mechanic needed this stage.
+function buildUniversity(scene, register, x, z) {
+  const entranceW = 8
+  const entranceD = 5
+  const hallwayW = 4
+  const hallwayD = 16
+
+  const entranceZ = z
+  const hallwayZ = entranceZ + entranceD / 2 + hallwayD / 2
+
+  buildRoom(scene, register, {
+    x, z: entranceZ, w: entranceW, d: entranceD,
+    doorSides: [{ side: 'south', width: 2.6 }],
+    openSides: ['north'],
+  })
+  buildRoom(scene, register, {
+    x, z: hallwayZ, w: hallwayW, d: hallwayD,
+    openSides: ['south'],
+  })
+
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0xc8c4b8, roughness: 0.8 })
+  const entranceFloor = new THREE.Mesh(new THREE.PlaneGeometry(entranceW - 0.6, entranceD - 0.6), floorMat)
+  entranceFloor.rotation.x = -Math.PI / 2
+  entranceFloor.position.set(x, 0.02, entranceZ)
+  entranceFloor.receiveShadow = true
+  scene.add(entranceFloor)
+  const hallwayFloor = new THREE.Mesh(new THREE.PlaneGeometry(hallwayW - 0.4, hallwayD - 0.4), floorMat)
+  hallwayFloor.rotation.x = -Math.PI / 2
+  hallwayFloor.position.set(x, 0.02, hallwayZ)
+  hallwayFloor.receiveShadow = true
+  scene.add(hallwayFloor)
+
+  const hallwayHalfW = hallwayW / 2
+  const roomFloorMat = new THREE.MeshStandardMaterial({ color: 0xd0ccc0, roughness: 0.75 })
+  const buildAlcove = (roomZ, side, w, d, dressing) => {
+    const roomX = x + side * (hallwayHalfW + w / 2)
+    buildRoom(scene, register, {
+      x: roomX, z: roomZ, w, d,
+      openSides: [side === -1 ? 'east' : 'west'],
+    })
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, d - 0.6), roomFloorMat)
+    floor.rotation.x = -Math.PI / 2
+    floor.position.set(roomX, 0.02, roomZ)
+    floor.receiveShadow = true
+    scene.add(floor)
+    dressing(roomX, roomZ)
+  }
+
+  // Biology Lab - west side, lab benches (reusing the counter prop) + an
+  // equipment cabinet re-tinted lab-blue instead of medical white.
+  buildAlcove(hallwayZ - 4.5, -1, 7, 6, (rx, rz) => {
+    placePropSimple(scene, register, 'counter.glb', rx - 1.5, rz - 1.5, 0)
+    placePropSimple(scene, register, 'counter.glb', rx - 1.5, rz + 1, 0)
+    const cabinet = placePropSimple(scene, register, 'medical-cabinet.glb', rx + 2.5, rz, -Math.PI / 2)
+    if (cabinet) cabinet.traverse((c) => { if (c.isMesh) c.material.color.setHex(0x2a4a5a) })
+  })
+
+  // Library - east side, bookcases along the back wall + books on a table.
+  buildAlcove(hallwayZ, 1, 7, 7, (rx, rz) => {
+    placePropSimple(scene, register, 'campus-bookcase.glb', rx + 2.7, rz - 2, -Math.PI / 2)
+    placePropSimple(scene, register, 'campus-bookcase.glb', rx + 2.7, rz + 1, -Math.PI / 2)
+    placePropSimple(scene, register, 'campus-table.glb', rx - 1, rz, 0)
+    placePropSimple(scene, register, 'campus-books.glb', rx - 1, rz + 0.33, 0, 1, false)
+  })
+
+  // Cafeteria - west side, tables + chairs.
+  buildAlcove(hallwayZ + 4.5, -1, 8, 7, (rx, rz) => {
+    for (const [tx, tz] of [[-1.5, -1.5], [1.5, -1.5], [-1.5, 1.5], [1.5, 1.5]]) {
+      placePropSimple(scene, register, 'campus-table.glb', rx + tx, rz + tz, 0)
+      placePropSimple(scene, register, 'waiting-chair.glb', rx + tx, rz + tz - 0.8, 0, 1, false)
+    }
+  })
+
+  return { x, z: entranceZ }
+}
+
 function buildTargetTexture() {
   const canvas = document.createElement('canvas')
   canvas.width = 128
@@ -2783,6 +2879,7 @@ const PROP_MODEL_FILES = [
   'shelf.glb', 'counter.glb', 'food-can.glb', 'food-carton.glb', 'food-bottle.glb', 'food-bread.glb', 'food-bag.glb',
   'hospital-bed.glb', 'medical-cabinet.glb', 'waiting-chair.glb', 'firstaid.glb',
   'tool-hammer.glb', 'tool-crowbar.glb', 'tool-tireiron.glb',
+  'campus-table.glb', 'campus-bookcase.glb', 'campus-books.glb',
 ]
 const _propModelCache = new Map()
 
