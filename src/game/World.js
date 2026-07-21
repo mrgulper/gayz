@@ -477,7 +477,7 @@ export function buildWorld(scene, trophyCount = 15) {
   buildSubwayConnector(scene, colliders, solidMeshes, flickerLights, SUBWAY_X, connectorWaypointZ - JUNCTION_HALF, STATION_X, STATION_Z_END)
   const undergroundStation = buildUndergroundStation(scene, colliders, solidMeshes, flickerLights, towerChestSpots)
 
-  buildOuterZones(scene, register, cullables)
+  buildOuterZones(scene, register, cullables, towerChestSpots)
 
   // Phase 1 of the Extended Metropolitan Grid plan - the first real
   // blueprint location. Placed well clear of the commercial zone's own
@@ -3021,7 +3021,42 @@ const OUTER_ZONES = [
   { name: 'residential', centerX: -160, centerZ: 0, axis: 'x' },
 ]
 
-function buildOuterZones(scene, register, cullables) {
+// Stage 7 of the Extended Metropolitan Grid plan - "upgrade N existing
+// shells to real walkable interiors" rather than sourcing/placing new
+// content from scratch, per the plan's own framing of this as a cheap
+// breather stage between the two biggest-lift stages (Campus and
+// Skyscraper). Two of the suburbs zone's 16 decorative building slots (by
+// index within outerZoneBuildingSpecs' own list, picked for reasonable
+// spacing) get a real 1-room interior instead of the usual solid Kenney
+// exterior shell.
+const WALKABLE_HOUSE_IDXS = new Set([2, 9])
+
+function buildWalkableHouse(scene, register, spec) {
+  const w = Math.min(spec.w, 9)
+  const d = Math.min(spec.d, 8)
+  const wallHeight = 2.8
+  buildRoom(scene, register, {
+    x: spec.x, z: spec.z, w, d, wallHeight,
+    doorSides: [{ side: 'south', width: 2.2 }],
+  })
+
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0xb8a888, roughness: 0.8 })
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, d - 0.6), floorMat)
+  floor.rotation.x = -Math.PI / 2
+  floor.position.set(spec.x, 0.02, spec.z)
+  floor.receiveShadow = true
+  scene.add(floor)
+
+  placePropSimple(scene, register, 'campus-table.glb', spec.x - w / 2 + 1.4, spec.z - d / 2 + 1.4, Math.PI / 4)
+  placePropSimple(scene, register, 'waiting-chair.glb', spec.x - w / 2 + 1.4, spec.z - d / 2 + 2.2, Math.PI, 1, false)
+  placePropSimple(scene, register, 'hospital-bed.glb', spec.x + w / 2 - 2, spec.z + d / 2 - 2, Math.PI / 2)
+  const shelf = placePropSimple(scene, register, 'campus-bookcase.glb', spec.x + w / 2 - 0.5, spec.z - d / 2 + 1, -Math.PI / 2)
+  if (shelf) shelf.traverse((c) => { if (c.isMesh) c.material.color.setHex(0x5a4530) })
+
+  return { x: spec.x, z: spec.z }
+}
+
+function buildOuterZones(scene, register, cullables, towerChestSpots) {
   let seed = 1000 // offset clear of buildingLayout()'s own 0-20 range
   const lightModel = _propModelCache.get('streetlight.glb')
   const poleMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.8 })
@@ -3068,7 +3103,18 @@ function buildOuterZones(scene, register, cullables) {
   for (const zone of OUTER_ZONES) {
     const { list, nextSeed } = outerZoneBuildingSpecs(zone.centerX, zone.centerZ, zone.axis, seed)
     seed = nextSeed
-    for (const spec of list) addBuilding(scene, register, spec)
+    for (let i = 0; i < list.length; i++) {
+      const spec = list[i]
+      if (zone.name === 'suburbs' && WALKABLE_HOUSE_IDXS.has(i)) {
+        const house = buildWalkableHouse(scene, register, spec)
+        registerZone({ id: `house${i}`, x: house.x, z: house.z, radius: 8, densityMult: 1.0 })
+        // Deliberately no lootWeights override - "residential = common
+        // salvage" per the blueprint's own legend, the plain default table.
+        towerChestSpots.push({ x: house.x, y: 0, z: house.z })
+      } else {
+        addBuilding(scene, register, spec)
+      }
+    }
 
     // A few streetlights down the zone's own central street, same axis
     // convention as the buildings above.
