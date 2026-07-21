@@ -3,6 +3,7 @@ import { Zombie } from './Zombie.js'
 import { pickZombieType, ZOMBIE_TYPES } from './ZombieTypes.js'
 import { audioEngine } from './Audio.js'
 import { getZoneAt } from './Zones.js'
+import { CachedColliderGrid } from './ColliderGrid.js'
 
 const BASE_SPAWN_COUNT = 9
 const MAX_SPAWN_COUNT = 18
@@ -131,68 +132,6 @@ const empMat = new THREE.MeshStandardMaterial({
 const EXPLOSION_FX_MS = 350
 const SCREAM_FX_MS = 450
 
-// Performance fix - uniform grid spatial index over the world's Box3
-// colliders, so a zombie's movement check only has to test the handful of
-// boxes actually near it instead of linear-scanning every collider on the
-// whole 750x750 map (previously O(zombies x total colliders) every single
-// frame). Colliders can span multiple cells (a long wall), so they're
-// inserted into every cell their own AABB overlaps; queries check the
-// containing cell plus all 8 neighbors so a query box straddling a cell
-// boundary still finds everything relevant. Cell size intentionally larger
-// than a zombie's own per-frame movement (always a few units at most), so
-// nothing legitimately nearby can ever fall outside the 3x3 neighborhood.
-const COLLIDER_GRID_CELL_SIZE = 20
-
-function colliderGridCellKey(cx, cz) {
-  return `${cx},${cz}`
-}
-
-function buildColliderGrid(colliders, cellSize = COLLIDER_GRID_CELL_SIZE) {
-  const cells = new Map()
-  for (const box of colliders) {
-    const cxMin = Math.floor(box.min.x / cellSize)
-    const cxMax = Math.floor(box.max.x / cellSize)
-    const czMin = Math.floor(box.min.z / cellSize)
-    const czMax = Math.floor(box.max.z / cellSize)
-    for (let cx = cxMin; cx <= cxMax; cx++) {
-      for (let cz = czMin; cz <= czMax; cz++) {
-        const key = colliderGridCellKey(cx, cz)
-        let bucket = cells.get(key)
-        if (!bucket) {
-          bucket = []
-          cells.set(key, bucket)
-        }
-        bucket.push(box)
-      }
-    }
-  }
-  return { cells, cellSize }
-}
-
-// Colliders spanning multiple cells (see above) can appear in more than one
-// of the 9 queried buckets - deduped via the returned array's own dedupe
-// pass, since the same handful of nearby colliders reappearing in
-// intersectsBox checks would just waste cycles re-testing them, not cause
-// any incorrect behavior, but dedup is cheap here and keeps things honest.
-function queryColliderGrid(grid, x, z) {
-  const cx = Math.floor(x / grid.cellSize)
-  const cz = Math.floor(z / grid.cellSize)
-  const result = []
-  const seen = new Set()
-  for (let dx = -1; dx <= 1; dx++) {
-    for (let dz = -1; dz <= 1; dz++) {
-      const bucket = grid.cells.get(colliderGridCellKey(cx + dx, cz + dz))
-      if (!bucket) continue
-      for (const box of bucket) {
-        if (seen.has(box)) continue
-        seen.add(box)
-        result.push(box)
-      }
-    }
-  }
-  return result
-}
-
 export class ZombieManager {
   constructor(scene, spawnRateMult = 1, colliders = [], solidMeshes = []) {
     this.scene = scene
@@ -203,13 +142,13 @@ export class ZombieManager {
     this.colliders = colliders
     this.solidMeshes = solidMeshes
     // Performance: with 14 stages' worth of world geometry, `colliders` can
-    // hold thousands of boxes, and every zombie's own _tryMove used to
-    // linear-scan the ENTIRE array up to 3 times per frame (already-stuck
-    // check + X move + Z move) - a real, CPU-side, purely-collision cost
-    // completely separate from (and not fixed by) any rendering/culling
-    // optimization. See _collidersNearby below.
-    this._colliderGrid = null
-    this._colliderGridLength = -1
+    // hold 900+ boxes, and every zombie's own _tryMove used to linear-scan
+    // the ENTIRE array up to 3 times per frame (already-stuck check + X move
+    // + Z move) - a real, CPU-side, purely-collision cost completely
+    // separate from (and not fixed by) any rendering/culling optimization.
+    // See ColliderGrid.js - PlayerController uses the exact same class for
+    // the exact same reason.
+    this._colliderGrid = new CachedColliderGrid(colliders)
     this.zombies = []
     this.projectiles = []
     this.explosionFx = []
@@ -1029,16 +968,6 @@ export class ZombieManager {
     this.lastPlayerPos = playerPos
     this._applyZoneDensity(isNight)
 
-    // Rebuild the collider grid only when the array's own length changed
-    // (a door unlocked, rubble dropped, a barricade placed/removed, etc.) -
-    // cheap to detect (one length comparison), and rebuilding is itself
-    // O(colliders), same cost as one full linear scan, but now paid at
-    // most once per frame instead of once per zombie per frame.
-    if (this.colliders.length !== this._colliderGridLength) {
-      this._colliderGrid = buildColliderGrid(this.colliders)
-      this._colliderGridLength = this.colliders.length
-    }
-
     if (performance.now() >= this.nextTitanCheckAt) this._maybeSpawnTitan()
     this._maybeSpawnWanderingHorde()
     this._updateWanderingHorde(dt)
@@ -1078,9 +1007,9 @@ export class ZombieManager {
       }
 
       // Only the colliders actually near this zombie right now - see
-      // buildColliderGrid's own comment for why (was the full, whole-map
+      // ColliderGrid.js's own comment for why (was the full, whole-map
       // colliders array, scanned up to 3x per zombie per frame).
-      const nearbyColliders = queryColliderGrid(this._colliderGrid, zombie.group.position.x, zombie.group.position.z)
+      const nearbyColliders = this._colliderGrid.query(zombie.group.position.x, zombie.group.position.z)
       zombie.update(
         dt,
         this.elapsed,

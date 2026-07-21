@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { CachedColliderGrid } from './ColliderGrid.js'
 
 const MAX_SPEED = 14
 const REVERSE_MAX_SPEED = 6
@@ -30,6 +31,13 @@ export class Vehicle {
 
     this.speed = 0
     this.occupied = false
+    // Same fix as PlayerController/ZombieManager (see ColliderGrid.js) -
+    // _tryMove used to linear-scan every world collider every frame while
+    // driving. Built lazily on first update() call since the colliders
+    // array isn't available yet at construction time; the array reference
+    // itself never changes for the life of the game, only its contents, so
+    // caching it here once is safe.
+    this._colliderGrid = null
   }
 
   _buildBody() {
@@ -90,12 +98,13 @@ export class Vehicle {
   }
 
   _tryMove(dx, dz, colliders) {
+    if (!this._colliderGrid) this._colliderGrid = new CachedColliderGrid(colliders)
     const fits = (nx, nz) => {
       const box = new THREE.Box3(
         new THREE.Vector3(nx - CAR_HALF_W, CAR_COLLIDER_BOTTOM, nz - CAR_HALF_D),
         new THREE.Vector3(nx + CAR_HALF_W, CAR_COLLIDER_TOP, nz + CAR_HALF_D)
       )
-      for (const c of colliders) {
+      for (const c of this._colliderGrid.query(nx, nz)) {
         if (box.intersectsBox(c)) return false
       }
       return true

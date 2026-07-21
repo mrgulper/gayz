@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js'
 import { getKeyFor } from './Keybinds.js'
+import { CachedColliderGrid } from './ColliderGrid.js'
 
 const EYE_HEIGHT = 1.7
 const CROUCH_EYE_HEIGHT = 1.05
@@ -52,6 +53,13 @@ export class PlayerController {
 
     this.controls = new PointerLockControls(camera, domElement)
     this.colliders = colliders
+    // Performance: _tryMove used to linear-scan every one of the 900+ world
+    // colliders, up to 4 times per frame (fits() checks current position
+    // AND the attempted new one, called separately for the X and Z move) -
+    // on the single JS thread, every single movement input. See
+    // ColliderGrid.js - ZombieManager uses the exact same class for the
+    // exact same reason.
+    this._colliderGrid = new CachedColliderGrid(colliders)
     this.groundMeshes = groundMeshes || []
     this.camera = camera
 
@@ -306,7 +314,7 @@ export class PlayerController {
         new THREE.Vector3(x - RADIUS, obj.position.y - this.eyeHeight, z - RADIUS),
         new THREE.Vector3(x + RADIUS, obj.position.y + 0.3, z + RADIUS)
       )
-      for (const collider of this.colliders) {
+      for (const collider of this._colliderGrid.query(x, z)) {
         if (box.intersectsBox(collider)) return false
       }
       return true
