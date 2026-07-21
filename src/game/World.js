@@ -334,7 +334,6 @@ export function buildWorld(scene, trophyCount = 15) {
   )
   solidMeshes.push(ground) // walkable ground for the player's floor-height raycast
 
-  addStreetMarkings(scene)
   addPerimeterBarricade(scene, register, groundSize)
   const buildings = buildingLayout()
 
@@ -4590,16 +4589,6 @@ function buildVireoFacility(scene, colliders, solidMeshes, flickerLights) {
     corridorMarkerSpot: { x: FACILITY_X, z: FACILITY_Z_START + 6 },
     floorY: SUBWAY_FLOOR_Y,
     exitSpot: { x: FACILITY_X, z: FACILITY_EXIT_Z },
-  }
-}
-
-function addStreetMarkings(scene) {
-  const lineMat = new THREE.MeshStandardMaterial({ color: 0x6b6b5a, roughness: 1, emissive: 0x1a1a12, emissiveIntensity: 0.15 })
-  for (let z = -45; z <= 45; z += 6) {
-    const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 3), lineMat)
-    dash.rotation.x = -Math.PI / 2
-    dash.position.set(0, 0.02, z)
-    scene.add(dash)
   }
 }
 
