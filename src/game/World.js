@@ -504,16 +504,24 @@ export function buildWorld(scene, trophyCount = 15) {
   const maintenanceTunnel = buildMaintenanceTunnelNetwork(scene, colliders, solidMeshes, flickerLights, towerChestSpots)
   const connectorWaypointZ = SUBWAY_Z_START - 6
   const JUNCTION_HALF = 3.2
-  buildSubwayJunctionRoom(scene, colliders, solidMeshes, subwayEntrance.landingX, connectorWaypointZ, JUNCTION_HALF)
-  buildSubwayJunctionRoom(scene, colliders, solidMeshes, SUBWAY_X, connectorWaypointZ, JUNCTION_HALF)
+  // openSides names each junction's real connector attachments - anything
+  // NOT listed gets a solid wall (see buildSubwayJunctionRoom's own
+  // comment). Junction 1 connects north (entrance) + east (junction 2);
+  // junction 2 connects west (junction 1) + north (platform) + south
+  // (station below). Before this, a player walking straight through either
+  // junction's genuinely unused side (e.g. continuing straight south past
+  // junction 1 instead of turning east) hit nothing at all - no wall, no
+  // floor beyond - and fell into unbuilt void space, which is exactly what
+  // produced "walk to the end of the tunnel and get teleported to the
+  // surface" and "can see a black void" bug reports.
+  buildSubwayJunctionRoom(scene, colliders, solidMeshes, subwayEntrance.landingX, connectorWaypointZ, JUNCTION_HALF, ['north', 'east'])
+  buildSubwayJunctionRoom(scene, colliders, solidMeshes, SUBWAY_X, connectorWaypointZ, JUNCTION_HALF, ['west', 'north', 'south'])
   buildSubwayConnector(scene, colliders, solidMeshes, flickerLights, subwayEntrance.landingX, subwayEntrance.landingZ, subwayEntrance.landingX, connectorWaypointZ + JUNCTION_HALF)
   buildSubwayConnector(scene, colliders, solidMeshes, flickerLights, subwayEntrance.landingX + JUNCTION_HALF, connectorWaypointZ, SUBWAY_X - JUNCTION_HALF, connectorWaypointZ)
   buildSubwayConnector(scene, colliders, solidMeshes, flickerLights, SUBWAY_X, connectorWaypointZ + JUNCTION_HALF, SUBWAY_X, SUBWAY_Z_START)
 
   // Underground station: a third branch off the same junction room the
-  // platform connector uses (junction rooms are open on every side by
-  // design - see buildSubwayJunctionRoom - so this needed zero changes to
-  // any existing tunnel piece), heading further south into open space no
+  // platform connector uses, heading further south into open space no
   // other underground system occupies (the sewer sits at x=-5, z=[34,50] -
   // nowhere near this).
   buildSubwayConnector(scene, colliders, solidMeshes, flickerLights, SUBWAY_X, connectorWaypointZ - JUNCTION_HALF, STATION_X, STATION_Z_END)
@@ -3840,7 +3848,7 @@ function buildMaintenanceTunnelNetwork(scene, colliders, solidMeshes, flickerLig
 // is deliberately built in. Each connecting leg should stop `halfSize`
 // short of this room's center (see buildWorld's call site) so neither leg's
 // own walls intrude into the shared open space.
-function buildSubwayJunctionRoom(scene, colliders, solidMeshes, cx, cz, halfSize) {
+function buildSubwayJunctionRoom(scene, colliders, solidMeshes, cx, cz, halfSize, openSides = []) {
   const floorMat = flatMaterial({ color: 0x201f1c, roughness: 1 })
   const wallMat = flatMaterial({ color: 0x2c2e30, roughness: 0.95 })
 
@@ -3856,6 +3864,31 @@ function buildSubwayJunctionRoom(scene, colliders, solidMeshes, cx, cz, halfSize
   scene.add(ceiling)
   solidMeshes.push(ceiling)
   colliders.push(new THREE.Box3().setFromObject(ceiling))
+
+  // Any side without a real connector attached used to be a bare gap
+  // straight into unbuilt void space beyond - both a visual leak (you could
+  // see straight through into empty space) and a walkable one (nothing
+  // stopped the player from walking right off the floor's edge into an
+  // unfloored area, which reads as "teleported to the surface" once
+  // _sampleGroundHeight finds nothing underfoot out there). Wall off every
+  // side except whichever ones openSides names as a real connector's own
+  // attachment point.
+  const sides = {
+    north: { x: cx, z: cz + halfSize, w: halfSize * 2 + 0.4, d: 0.2 },
+    south: { x: cx, z: cz - halfSize, w: halfSize * 2 + 0.4, d: 0.2 },
+    east: { x: cx + halfSize, z: cz, w: 0.2, d: halfSize * 2 + 0.4 },
+    west: { x: cx - halfSize, z: cz, w: 0.2, d: halfSize * 2 + 0.4 },
+  }
+  for (const [side, spec] of Object.entries(sides)) {
+    if (openSides.includes(side)) continue
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(spec.w, SUBWAY_HEIGHT, spec.d), wallMat)
+    wall.position.set(spec.x, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT / 2, spec.z)
+    wall.castShadow = true
+    wall.receiveShadow = true
+    scene.add(wall)
+    solidMeshes.push(wall)
+    colliders.push(new THREE.Box3().setFromObject(wall))
+  }
 }
 
 // A genuinely new underground floor, not just another station stop - the
