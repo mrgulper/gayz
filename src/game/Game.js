@@ -416,6 +416,10 @@ const WHEEL_RADIUS = 110
 const WHEEL_DEADZONE = 18
 const RESCUE_INTERACT_RADIUS = 2.5
 const RESCUE_POINTS_REWARD = 25
+// How close a kill needs to land to a named location to count toward the
+// 'clear_location' bounty - generous enough to cover a whole building's
+// footprint, not just its exact center point.
+const CLEAR_LOCATION_RADIUS = 40
 const RECRUIT_INTERACT_RADIUS = 2.5
 // Fixed roles rather than random - each recruit spot is a reason to visit
 // both underground station offices (see buildUndergroundStation), not just
@@ -2980,13 +2984,30 @@ export class Game {
   _assignBounty(excludeId) {
     const def = pickBounty(excludeId)
     this.activeBounty = { ...def, progress: 0, startNight: this.night }
+    // clear_location needs a fresh target picked at assignment time, not
+    // baked into the static def - reuses the same named-location spots
+    // already tracked as compass landmarks, so no new coordinate list to
+    // maintain separately.
+    if (def.id === 'clear_location') {
+      const spots = [
+        { label: t('bountyLocHospital'), x: this.hospital.x, z: this.hospital.z },
+        { label: t('bountyLocPolice'), x: this.policeStation.x, z: this.policeStation.z },
+        { label: t('bountyLocPrison'), x: this.prison.x, z: this.prison.z },
+        { label: t('bountyLocUniversity'), x: this.university.x, z: this.university.z },
+        { label: t('bountyLocMegaMall'), x: this.megaMall.x, z: this.megaMall.z },
+      ]
+      const spot = spots[Math.floor(Math.random() * spots.length)]
+      this.activeBounty.locationLabel = spot.label
+      this.activeBounty.locationX = spot.x
+      this.activeBounty.locationZ = spot.z
+    }
   }
 
   _renderBounty() {
     const b = this.activeBounty
     if (!b) return
     this.bountyLineEl.textContent = t('bountyLine', {
-      title: t(b.titleKey, { n: b.target }),
+      title: t(b.titleKey, { n: b.target, location: b.locationLabel }),
       progress: Math.min(b.progress, b.target),
       target: b.target,
       reward: b.reward,
@@ -3840,6 +3861,10 @@ export class Game {
     this.achievements.unlock('first_blood')
     if (this.totalKills >= 100) this.achievements.unlock('centurion')
     if (zombieTypeId === 'fester') this._spawnHazardZone('gas', x, z)
+    if (this.activeBounty && this.activeBounty.id === 'clear_location') {
+      const dist = Math.hypot(x - this.activeBounty.locationX, z - this.activeBounty.locationZ)
+      if (dist <= CLEAR_LOCATION_RADIUS) this._checkBountyProgress('clear_location', 1)
+    }
     if (zombieTypeId === 'brute' && weaponId === 'melee') this.achievements.unlock('brute_knife')
     if (zombieTypeId === 'screamer') this._checkBountyProgress('kill_screamers', 1)
     if (weaponId === 'melee') this._checkBountyProgress('melee_kills', 1)
@@ -5205,6 +5230,7 @@ export class Game {
     this._updateStatsPanel()
     this._updateInventoryHud()
     this._showLoreToast(t('survivorRescued', { reward: RESCUE_POINTS_REWARD }))
+    this._checkBountyProgress('rescue_survivors', 1)
 
     // Bonus on top of the usual reward: the rescued survivor tags along as
     // a second, weaker companion until dawn instead of just vanishing after
@@ -5442,6 +5468,7 @@ export class Game {
 
       if (shouldAdvance) {
         if (this.raining) this._checkBountyProgress('survive_rain_night', 1)
+        if (this.snowing) this._checkBountyProgress('survive_snow_night', 1)
         this._checkBountyProgress('reach_3_nights', 1)
         this.night += 1
         if (this.tempCompanion && this.night >= this.tempCompanionExpiresAtNight) {

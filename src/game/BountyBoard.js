@@ -6,6 +6,12 @@ export const BOUNTY_DEFS = [
   { id: 'melee_kills', titleKey: 'bountyMeleeKills', target: 10, reward: 20 },
   { id: 'survive_rain_night', titleKey: 'bountySurviveRainNight', target: 1, reward: 20 },
   { id: 'reach_3_nights', titleKey: 'bountyReach3Nights', target: 3, reward: 30 },
+  { id: 'survive_snow_night', titleKey: 'bountySurviveSnowNight', target: 1, reward: 20 },
+  { id: 'rescue_survivors', titleKey: 'bountyRescueSurvivors', target: 2, reward: 30 },
+  // Location picked fresh each time this def is assigned (see Game.js's
+  // _assignBounty) - titleKey takes a {location} param on top of the usual
+  // {n}, unlike every other def here.
+  { id: 'clear_location', titleKey: 'bountyClearLocation', target: 8, reward: 35 },
 ]
 
 export function pickBounty(excludeId) {
