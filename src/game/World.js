@@ -220,10 +220,13 @@ function getSharedBumpTexture() {
 // function's own register() comment and Game.js's _updateCulling). Matches
 // the fog far distance (140) plus a small buffer so nothing visibly pops
 // out of existence before fog would have hidden it anyway.
-export const WORLD_CULL_DISTANCE = 150
+// Shrunk under LOW_QUALITY_MODE (bare-bones/minimum-resource mode) - less
+// geometry rendered/shadowed at any given moment, a direct cut to both
+// draw calls and shaded pixels, not just a quality preference.
+export const WORLD_CULL_DISTANCE = LOW_QUALITY_MODE ? 90 : 150
 // Shadow casting is the expensive part, not the JS-side distance check, so
 // it's turned off well before the object disappears entirely.
-export const WORLD_SHADOW_CULL_DISTANCE = 70
+export const WORLD_SHADOW_CULL_DISTANCE = LOW_QUALITY_MODE ? 45 : 70
 
 export function buildWorld(scene, trophyCount = 15) {
   // buildWorld only runs once per real Game instance today, but clearing

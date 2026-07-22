@@ -1,13 +1,17 @@
 import * as THREE from 'three'
-import { flatMaterial } from './QualitySettings.js'
+import { flatMaterial, LOW_QUALITY_MODE } from './QualitySettings.js'
 import { Zombie } from './Zombie.js'
 import { pickZombieType, ZOMBIE_TYPES } from './ZombieTypes.js'
 import { audioEngine } from './Audio.js'
 import { getZoneAt } from './Zones.js'
 import { CachedColliderGrid } from './ColliderGrid.js'
 
-const BASE_SPAWN_COUNT = 9
-const MAX_SPAWN_COUNT = 18
+// Cut under LOW_QUALITY_MODE (bare-bones mode) - fewer simultaneous
+// zombies to begin with, each one real per-frame AI/collision/animation
+// cost, on top of (not instead of) the reactive performanceCap governor
+// (see Game.js), which only kicks in after fps is already struggling.
+const BASE_SPAWN_COUNT = LOW_QUALITY_MODE ? 5 : 9
+const MAX_SPAWN_COUNT = LOW_QUALITY_MODE ? 10 : 18
 const SPAWN_RADIUS_MIN = 20
 const SPAWN_RADIUS_MAX = 44
 const AMBUSH_RADIUS_MIN = 7
@@ -73,8 +77,9 @@ const HORDE_EVENT_AGGRO_RADIUS = 16
 // number rather than the small fixed band timed-night difficulty uses, so
 // it's capped well above MAX_SPAWN_COUNT to actually keep growing round over
 // round without either exploding perf at high rounds or plateauing too soon.
-const ROUND_SPAWN_COUNT_MULT = 3.6
-const ROUND_MAX_SPAWN_COUNT = 50
+// Cut under LOW_QUALITY_MODE - same reasoning as BASE_SPAWN_COUNT above.
+const ROUND_SPAWN_COUNT_MULT = LOW_QUALITY_MODE ? 2 : 3.6
+const ROUND_MAX_SPAWN_COUNT = LOW_QUALITY_MODE ? 20 : 50
 const ROUND_HEALTH_RAMP_START = 10
 const ROUND_HEALTH_RAMP_MULT = 1.1
 
@@ -169,9 +174,9 @@ export class ZombieManager {
     this._pendingSpawns = 0
     // Real-fps-driven ceiling on simultaneous zombie count - see Game.js's
     // own note (its _tick sets this every ~500ms based on measured fps).
-    // 50 = effectively uncapped (matches ROUND_MAX_SPAWN_COUNT) until fps
+    // Matches ROUND_MAX_SPAWN_COUNT (effectively uncapped) until fps
     // actually says otherwise.
-    this.performanceCap = 50
+    this.performanceCap = ROUND_MAX_SPAWN_COUNT
     this.elapsed = 0
     this.lastPlayerPos = { x: 0, z: 0 }
     this.pendingRespawns = []
