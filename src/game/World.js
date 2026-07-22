@@ -4542,7 +4542,7 @@ function buildMineLevel(scene, colliders, solidMeshes, flickerLights, chestSpots
 
   chestSpots.push({ x, y: MINE_FLOOR_Y, z: MINE_Z_END + 3 })
 
-  return { beams: [beam1, beam2], floorY: MINE_FLOOR_Y, mineWidth: MINE_WIDTH }
+  return { beams: [beam1, beam2], floorY: MINE_FLOOR_Y, mineWidth: MINE_WIDTH, deadEndSpot: { x, z: MINE_Z_END + 3 } }
 }
 
 const FACILITY_X = SUBWAY_X

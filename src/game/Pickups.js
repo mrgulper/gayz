@@ -43,6 +43,9 @@ const TYPES = {
   audiolog3: { weight: 0, label: 'Audio Log' },
   audiolog4: { weight: 0, label: 'Audio Log' },
   audiolog5: { weight: 0, label: 'Audio Log' },
+  audiolog6: { weight: 0, label: 'Audio Log' },
+  audiolog7: { weight: 0, label: 'Audio Log' },
+  audiolog8: { weight: 0, label: 'Audio Log' },
   vaultkey: { weight: 0, label: 'Vault Key' },
 }
 

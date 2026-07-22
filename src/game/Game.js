@@ -1186,6 +1186,9 @@ export class Game {
     // past the corridor marker spot along the same corridor.
     this.pickups.spawnUnique('audiolog4', vireoFacility.corridorMarkerSpot.x - 1.2, vireoFacility.corridorMarkerSpot.z + 3, vireoFacility.floorY + 0.5)
     this.pickups.spawnUnique('audiolog5', 0, 60, 0.5)
+    this.pickups.spawnUnique('audiolog6', radioStation.x - 2, radioStation.z + 2, 0.5)
+    this.pickups.spawnUnique('audiolog7', warehouse.x + 2, warehouse.z - 2, 0.5)
+    this.pickups.spawnUnique('audiolog8', mineLevel.deadEndSpot.x, mineLevel.deadEndSpot.z, mineLevel.floorY + 0.5)
     // Locked Vault: a one-off "find the key, then cash in a guaranteed good
     // reward" loop, distinct from the random-roll chest rotation. Tucked in
     // a back corner of the safe zone compound, away from the entrance gap
@@ -4068,7 +4071,7 @@ export class Game {
       audioEngine.playAudioLog()
       this._showLoreToast(t(`lore${type.charAt(0).toUpperCase()}${type.slice(1)}`))
       this.audioLogsFound.add(type)
-      if (this.audioLogsFound.size >= 5) this.achievements.unlock('full_story')
+      if (this.audioLogsFound.size >= 8) this.achievements.unlock('full_story')
       return
     }
 
