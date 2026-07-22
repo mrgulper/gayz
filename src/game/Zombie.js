@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { accessibility } from './Accessibility.js'
-import { LOW_QUALITY_MODE, flatMaterial } from './QualitySettings.js'
+import { LOW_QUALITY_MODE, flatMaterial, flattenedClone } from './QualitySettings.js'
 
 // Phase 1 of the 3D asset overhaul (see 3D_ASSET_OVERHAUL.md) - real rigged
 // GLB zombie behind a flag, alongside the original procedural builder, so
@@ -337,7 +337,7 @@ export class Zombie {
         // recurring bug class in this codebase - see CLAUDE.md) - clone per
         // instance so this zombie's hit-flash/tint never fights another
         // zombie sharing the same source material.
-        child.material = child.material.clone()
+        child.material = flattenedClone(child.material)
         child.material.color.setHex(bodyTint)
       }
       child.userData.zombie = this
@@ -425,7 +425,7 @@ export class Zombie {
       if (!child.isMesh) return
       child.castShadow = true
       const isSkin = SKIN_MATERIAL_NAMES.has(child.material.name)
-      child.material = child.material.clone()
+      child.material = flattenedClone(child.material)
       if (isSkin) child.material.color.setHex(bodyTint)
       child.userData.zombie = this
       this.hittableMeshes.push(child)

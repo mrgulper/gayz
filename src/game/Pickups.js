@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { flatMaterial } from './QualitySettings.js'
+import { flatMaterial, flattenedClone } from './QualitySettings.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { buildMinigunModel } from './Viewmodels.js'
 
@@ -85,7 +85,7 @@ function buildVisual(type) {
       clone.traverse((child) => {
         if (!child.isMesh) return
         child.castShadow = true
-        child.material = child.material.clone()
+        child.material = flattenedClone(child.material)
       })
       group.add(clone)
     } else {

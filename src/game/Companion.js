@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { audioEngine } from './Audio.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js'
-import { flatMaterial } from './QualitySettings.js'
+import { flatMaterial, flattenedClone } from './QualitySettings.js'
 
 // Phase 3 of the 3D asset overhaul (see 3D_ASSET_OVERHAUL.md) - real rigged
 // GLB companion (Quaternius "Soldier_Male", asset-source/build-humans.py)
@@ -243,7 +243,7 @@ export class Companion {
     cloned.traverse((child) => {
       if (!child.isMesh) return
       child.castShadow = true
-      child.material = child.material.clone()
+      child.material = flattenedClone(child.material)
       if (child.material.name === 'Main') child.material.color.setHex(this.stats.jacket)
     })
 

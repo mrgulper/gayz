@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { flatMaterial } from './QualitySettings.js'
+import { flatMaterial, flattenedClone } from './QualitySettings.js'
 
 // Phase 4 of the 3D asset overhaul (see 3D_ASSET_OVERHAUL.md) - real rigged
 // GLB weapon viewmodels (Quaternius "Ultimate Guns Pack" for firearms,
@@ -69,7 +69,7 @@ function buildGunFromGLB(cache, tintMatName, skinId) {
     if (!child.isMesh) return
     child.castShadow = false
     if (child.material.name === tintMatName) {
-      child.material = child.material.clone()
+      child.material = flattenedClone(child.material)
       if (tint) {
         child.material.color.setHex(tint.color)
         child.material.emissive.setHex(tint.emissive)

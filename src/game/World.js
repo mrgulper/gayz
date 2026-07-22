@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { registerZone, clearZones } from './Zones.js'
 import { LOOT_WEIGHTS } from './Chests.js'
-import { LOW_QUALITY_MODE, flatMaterial } from './QualitySettings.js'
+import { LOW_QUALITY_MODE, flatMaterial, flattenedClone } from './QualitySettings.js'
 
 // Cheap procedural grime: speckle noise + a handful of jagged crack/stain
 // strokes baked onto a canvas once, then tiled via RepeatWrapping. Replaces
@@ -425,8 +425,14 @@ export function buildWorld(scene, trophyCount = 15) {
     }
   }
 
-  scatterDebris(scene)
-  scatterCityProps(scene, colliders, solidMeshes)
+  // Pure decoration, zero gameplay purpose, no collider either - skipped
+  // entirely under LOW_QUALITY_MODE (bare-bones mode) rather than just
+  // simplifying their materials, since not creating the objects at all
+  // cuts their draw calls too, not just their shading cost.
+  if (!LOW_QUALITY_MODE) {
+    scatterDebris(scene)
+    scatterCityProps(scene, colliders, solidMeshes)
+  }
   addStreetlights(scene, register, flickerLights)
   for (const spot of buildTowers(scene, colliders, solidMeshes)) towerChestSpots.push(spot)
 
@@ -907,7 +913,7 @@ function buildPark(scene, colliders, solidMeshes) {
       clone.traverse((child) => {
         if (!child.isMesh) return
         child.castShadow = true
-        child.material = child.material.clone()
+        child.material = flattenedClone(child.material)
       })
       bench.add(clone)
       scene.add(bench)
@@ -994,7 +1000,7 @@ function buildExplosiveBarrels(scene, colliders, solidMeshes, spots) {
         if (!child.isMesh) return
         child.castShadow = true
         child.receiveShadow = true
-        child.material = child.material.clone()
+        child.material = flattenedClone(child.material)
         body = child // single mesh/material in this model
       })
       barrel.add(clone)
@@ -1108,7 +1114,7 @@ function buildTraderStall(scene, register) {
       if (!child.isMesh) return
       child.castShadow = true
       child.receiveShadow = true
-      child.material = child.material.clone()
+      child.material = flattenedClone(child.material)
     })
     group.add(clone)
     raycastTarget = clone
@@ -1200,7 +1206,7 @@ function buildAmmoStation(scene, register) {
       if (!child.isMesh) return
       child.castShadow = true
       child.receiveShadow = true
-      child.material = child.material.clone()
+      child.material = flattenedClone(child.material)
     })
     group.add(clone)
     raycastTarget = clone
@@ -1498,7 +1504,7 @@ function buildRetailStore(scene, register, spec) {
           if (!child.isMesh) return
           child.castShadow = true
           child.receiveShadow = true
-          child.material = child.material.clone()
+          child.material = flattenedClone(child.material)
         })
         rowGroup.add(clone)
       }
@@ -1520,7 +1526,7 @@ function buildRetailStore(scene, register, spec) {
       foodClone.traverse((child) => {
         if (!child.isMesh) return
         child.castShadow = true
-        child.material = child.material.clone()
+        child.material = flattenedClone(child.material)
       })
       scene.add(foodClone)
     }
@@ -1537,7 +1543,7 @@ function buildRetailStore(scene, register, spec) {
       if (!child.isMesh) return
       child.castShadow = true
       child.receiveShadow = true
-      child.material = child.material.clone()
+      child.material = flattenedClone(child.material)
     })
     scene.add(counter)
     register(counter, new THREE.Box3(
@@ -1718,7 +1724,7 @@ function buildGunShop(scene, register, x, z) {
       clone.traverse((child) => {
         if (!child.isMesh) return
         child.castShadow = true
-        child.material = child.material.clone()
+        child.material = flattenedClone(child.material)
       })
       scene.add(clone)
     }
@@ -1749,7 +1755,7 @@ function buildGunShop(scene, register, x, z) {
       clone.traverse((child) => {
         if (!child.isMesh) return
         child.castShadow = true
-        child.material = child.material.clone()
+        child.material = flattenedClone(child.material)
       })
       scene.add(clone)
     }
@@ -2486,7 +2492,7 @@ function buildMegaMall(scene, register, x, z) {
     clone.traverse((child) => {
       if (!child.isMesh) return
       child.castShadow = true
-      child.material = child.material.clone()
+      child.material = flattenedClone(child.material)
     })
     scene.add(clone)
   }
@@ -2591,7 +2597,7 @@ function buildWarehouse(scene, register, x, z) {
       if (!child.isMesh) return
       child.castShadow = true
       child.receiveShadow = true
-      child.material = child.material.clone()
+      child.material = flattenedClone(child.material)
     })
     scene.add(clone)
   }
@@ -2880,7 +2886,7 @@ function buildWalkway(scene, register, x0, z0, x1, z1) {
       clone.traverse((child) => {
         if (!child.isMesh) return
         child.castShadow = true
-        child.material = child.material.clone()
+        child.material = flattenedClone(child.material)
       })
       scene.add(clone)
       register(clone)
@@ -4742,7 +4748,7 @@ function addModelBuilding(scene, register, spec, model) {
       o.material = sharedLowQualityMat
       return
     }
-    o.material = o.material.clone()
+    o.material = flattenedClone(o.material)
     o.material.color.multiply(tintColor)
     o.material.roughness = tint.roughness
     o.material.metalness = 0
@@ -4768,7 +4774,10 @@ function addModelBuilding(scene, register, spec, model) {
     scene.add(rubbleCap)
   }
 
-  addIvyOverlay(scene, spec)
+  // Pure decoration, no gameplay purpose - skipped entirely under
+  // LOW_QUALITY_MODE like the procedural building path's own windows/ivy
+  // already are, instead of leaving this one GLB-building path un-gated.
+  if (!LOW_QUALITY_MODE) addIvyOverlay(scene, spec)
 }
 
 // Two rows of buildings flanking a central street (+z is the main avenue),
@@ -5150,10 +5159,11 @@ function addStreetlights(scene, register, flickerLights) {
     if (model) {
       const clone = model.clone(true)
       clone.position.set(p.x, 0, p.z)
+      const lowQualityMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: poleMat.color }) : null
       clone.traverse((child) => {
         if (!child.isMesh) return
         child.castShadow = true
-        child.material = child.material.clone()
+        child.material = lowQualityMat || child.material.clone()
       })
       scene.add(clone)
       register(clone)

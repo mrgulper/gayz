@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { flatMaterial } from './QualitySettings.js'
+import { flatMaterial, flattenedClone } from './QualitySettings.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js'
 
@@ -54,7 +54,7 @@ export class PlayerBody {
     cloned.traverse((child) => {
       if (!child.isMesh) return
       child.castShadow = true
-      child.material = child.material.clone()
+      child.material = flattenedClone(child.material)
     })
 
     this.group.add(cloned)

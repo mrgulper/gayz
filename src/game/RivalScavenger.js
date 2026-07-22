@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { audioEngine } from './Audio.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js'
-import { flatMaterial } from './QualitySettings.js'
+import { flatMaterial, flattenedClone } from './QualitySettings.js'
 
 // Phase 3 of the 3D asset overhaul - real rigged GLB rival (Quaternius
 // "BlueSoldier_Male", asset-source/build-humans.py), same rig/animation set
@@ -81,7 +81,7 @@ class RivalScavenger {
     cloned.traverse((child) => {
       if (!child.isMesh) return
       child.castShadow = true
-      child.material = child.material.clone()
+      child.material = flattenedClone(child.material)
       if (child.material.name === 'Main') child.material.color.setHex(0x2a2420)
       child.userData.rival = this
     })

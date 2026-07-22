@@ -36,3 +36,24 @@ export function flatMaterial(opts) {
   if (opts.emissiveIntensity !== undefined) simple.emissiveIntensity = opts.emissiveIntensity
   return new THREE.MeshLambertMaterial(simple)
 }
+
+// Drop-in replacement for the very common `child.material =
+// child.material.clone()` pattern used everywhere a GLB gets cloned per
+// instance (zombies, companion, rival, chests, pickups, viewmodels,
+// dozens of World.js props). A plain .clone() copies the ORIGINAL
+// textured/PBR material as-is - under LOW_QUALITY_MODE this instead
+// builds a flat MeshLambertMaterial from whatever that original material
+// had (color/map/emissive/emissiveMap/emissiveIntensity), same idea as
+// flatMaterial above but starting from an existing material object
+// instead of a fresh options literal. When the flag is false, behaves
+// exactly like `original.clone()` always did.
+export function flattenedClone(original) {
+  if (!LOW_QUALITY_MODE) return original.clone()
+  const simple = {}
+  if (original.color) simple.color = original.color.clone()
+  if (original.map) simple.map = original.map
+  if (original.emissive) simple.emissive = original.emissive.clone()
+  if (original.emissiveMap) simple.emissiveMap = original.emissiveMap
+  if (original.emissiveIntensity !== undefined) simple.emissiveIntensity = original.emissiveIntensity
+  return new THREE.MeshLambertMaterial(simple)
+}
