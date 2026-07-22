@@ -878,6 +878,17 @@ export class Game {
     this.composer.addPass(new OutputPass())
 
     const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel, toxicSewerLevel, mineLevel } = buildWorld(this.scene, ACHIEVEMENTS.length)
+    // Base fog distance, captured once - see _applyFogState. Rain/fog-patch
+    // used to *= an already-modified fog.near/far every single frame they
+    // were active, which compounds toward zero exponentially (0.6 per frame
+    // at 60fps collapses to a hundredth of the original within half a
+    // second) and NEVER recovers, since nothing ever restored the original
+    // value - explains persistent, worsening "can't see anything" reports
+    // that outlast the actual rain/fog-patch event, sometimes for the rest
+    // of the session. Recomputing fresh from these base values every frame
+    // instead fixes that permanently.
+    this._baseFogNear = this.scene.fog.near
+    this._baseFogFar = this.scene.fog.far
     this.cullables = cullables
     // See _updateCulling: any cullable that's a Group (not a bare Mesh)
     // used to get a fresh recursive .traverse() every single frame just to
@@ -4144,14 +4155,26 @@ export class Game {
       this.nextFogPatchAt = now + FOG_PATCH_MIN_DELAY_MS + Math.random() * (FOG_PATCH_MAX_DELAY_MS - FOG_PATCH_MIN_DELAY_MS)
     }
 
+  }
+
+  // Recomputes fog.near/far fresh from the base distance every frame,
+  // instead of repeatedly *=-ing whatever the CURRENT value already is
+  // (the old approach - see the constructor's _baseFogNear/_baseFogFar
+  // note for why that was a real bug: it compounds toward zero the whole
+  // time rain or a fog patch is active, and never recovers afterward,
+  // since nothing ever restored the original value). Rain and a fog
+  // patch can stack (both active at once = extra foggy), matching what
+  // the old code seemed to intend, just without the runaway compounding.
+  _applyFogState() {
+    let mult = 1
+    if (this.raining) mult *= 0.6
     if (this.fogPatch) {
       const pos = this.player.controls.object.position
       const dist = Math.hypot(pos.x - this.fogPatch.x, pos.z - this.fogPatch.z)
-      if (dist <= FOG_PATCH_RADIUS) {
-        this.scene.fog.near *= FOG_PATCH_MULT
-        this.scene.fog.far *= FOG_PATCH_MULT
-      }
+      if (dist <= FOG_PATCH_RADIUS) mult *= FOG_PATCH_MULT
     }
+    this.scene.fog.near = this._baseFogNear * mult
+    this.scene.fog.far = this._baseFogFar * mult
   }
 
   // Timed, marked airdrop - shows on the minimap/compass like the trader
@@ -5152,11 +5175,8 @@ export class Game {
     this.camera.position.sub(this._shakeOffset)
 
     this.dayNight.update()
-    if (this.raining) {
-      this.scene.fog.near *= 0.6
-      this.scene.fog.far *= 0.6
-    }
     this._updateFogPatch()
+    this._applyFogState()
     this._updateFlicker(elapsed)
     this._updateMusicIntensity(this.player.controls.object.position)
 
