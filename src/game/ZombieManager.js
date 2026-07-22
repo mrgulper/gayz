@@ -283,19 +283,11 @@ export class ZombieManager {
     const targetZ = this.lastPlayerPos.z - Math.cos(angle) * HORDE_EVENT_SPAWN_RADIUS
 
     const size = HORDE_EVENT_SIZE_MIN + Math.floor(Math.random() * (HORDE_EVENT_SIZE_MAX - HORDE_EVENT_SIZE_MIN + 1))
-    const members = []
-    for (let i = 0; i < size; i++) {
-      const ox = (Math.random() - 0.5) * 4
-      const oz = (Math.random() - 0.5) * 4
-      const zombie = new Zombie(startX + ox, startZ + oz, pickZombieType(), false, false, this.currentNight)
-      zombie.deathHandled = false
-      zombie.isWandering = true
-      members.push(zombie)
-      this.zombies.push(zombie)
-      this.scene.add(zombie.group)
-    }
-
-    this.wanderingHorde = { members, x: startX, z: startZ, targetX, targetZ, size }
+    // Members spawn gradually via _updateWanderingHorde's own drain below,
+    // instead of all `size` (6-10) constructed synchronously here - a
+    // smaller version of the same startRound/spawnSurge stall, and this
+    // event repeats every 60-120s, so it was still a real periodic dip.
+    this.wanderingHorde = { members: [], x: startX, z: startZ, targetX, targetZ, size, pendingSpawns: size }
   }
 
   // Advances the horde's waypoint toward its target edge and drops it once
@@ -304,6 +296,22 @@ export class ZombieManager {
   _updateWanderingHorde(dt) {
     const h = this.wanderingHorde
     if (!h) return
+
+    // Drain this horde's own pending members gradually - same reasoning as
+    // startRound/spawnSurge's _pendingSpawns queue (see update()'s note).
+    const HORDE_SPAWNS_PER_FRAME = 2
+    for (let i = 0; i < HORDE_SPAWNS_PER_FRAME && h.pendingSpawns > 0; i++) {
+      h.pendingSpawns--
+      const ox = (Math.random() - 0.5) * 4
+      const oz = (Math.random() - 0.5) * 4
+      const zombie = new Zombie(h.x + ox, h.z + oz, pickZombieType(), false, false, this.currentNight)
+      zombie.deathHandled = false
+      zombie.isWandering = true
+      h.members.push(zombie)
+      this.zombies.push(zombie)
+      this.scene.add(zombie.group)
+    }
+
     const dx = h.targetX - h.x
     const dz = h.targetZ - h.z
     const dist = Math.hypot(dx, dz)
@@ -312,7 +320,10 @@ export class ZombieManager {
       h.z += (dz / dist) * HORDE_EVENT_WANDER_SPEED * dt
     }
     h.members = h.members.filter((z) => this.zombies.includes(z) && z.state !== 'dead')
-    if (h.members.length === 0 || dist <= 1) {
+    // Only counts as "over" once every queued member has actually spawned
+    // AND all of them are gone - otherwise a horde still mid-spawn (members
+    // temporarily empty/small) would get cancelled before it even started.
+    if ((h.members.length === 0 && h.pendingSpawns === 0) || dist <= 1) {
       this.wanderingHorde = null
     }
   }
