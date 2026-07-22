@@ -3760,6 +3760,19 @@ function buildMaintTurnstileGate(scene, x, z) {
 // player can walk past, not through a real obstacle).
 function buildWreckedTrainChamber(scene, colliders, solidMeshes, x, z, chestSpots) {
   const wallMat = flatMaterial({ color: 0x232426, roughness: 0.95 })
+
+  // The lit connector leading here (buildSubwayConnector, x, MAINT_GATE_Z, x,
+  // MAINT_WRECK_Z) only lays its own floor down to z - this chamber is a
+  // separate room past that point (out to the end wall at z-4) and needs its
+  // own floor slab, or _sampleGroundHeight finds nothing underfoot the moment
+  // the player steps past z and snaps them back up to street level.
+  const floorMat = flatMaterial({ color: 0x1a1916, roughness: 1 })
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH, 0.08, 4.4), floorMat)
+  floor.position.set(x, SUBWAY_FLOOR_Y, z - 2)
+  floor.receiveShadow = true
+  scene.add(floor)
+  solidMeshes.push(floor)
+
   const endWall = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH + 0.4, SUBWAY_HEIGHT, 0.2), wallMat)
   endWall.position.set(x, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT / 2, z - 4)
   scene.add(endWall)
