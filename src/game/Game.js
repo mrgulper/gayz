@@ -1296,6 +1296,10 @@ export class Game {
     this.decals = new DecalManager(this.scene)
     this.minimap = new Minimap(this.minimapCanvas)
     this._camDir = new THREE.Vector3()
+    // Reused every _updateMinimap call instead of a fresh .filter().map()
+    // chain (2 throwaway arrays) 60 times a second - same GC-pressure
+    // reasoning as ColliderGrid.js's reused query buffers.
+    this._minimapZombiePositions = []
 
     // Stage 14 - fog-of-war full map. Per-run state (resets on a fresh
     // `new Game()`, same as companion gear/shop purchases) rather than
@@ -1791,7 +1795,10 @@ export class Game {
     if (confirm && this._wheelHighlightIndex >= 0) {
       const chosen = this._wheelSegments[this._wheelHighlightIndex]
       const index = this.weapons.weapons.findIndex((w) => w.id === chosen.id)
-      if (index !== -1) this.weapons.switchToIndex(index)
+      if (index !== -1) {
+        this.weapons.switchToIndex(index)
+        this._updateHotbarHud()
+      }
     }
   }
 
@@ -3183,7 +3190,10 @@ export class Game {
           btn.addEventListener('click', () => {
             if (equipped || !w.unlocked) return
             const index = this.weapons.weapons.findIndex((ww) => ww.id === w.id)
-            if (index !== -1) this.weapons.switchToIndex(index)
+            if (index !== -1) {
+              this.weapons.switchToIndex(index)
+              this._updateHotbarHud()
+            }
             this._renderCoinShopOptions()
           })
           wrap.appendChild(btn)
@@ -3993,10 +4003,22 @@ export class Game {
 
   _updateHealthHud() {
     const s = this.playerState
-    this.healthFill.style.width = `${(s.health / s.maxHealth) * 100}%`
-    this.healthValue.textContent = Math.round(s.health)
-    this.armorFill.style.width = `${(s.armor / s.maxArmor) * 100}%`
-    this.armorValue.textContent = Math.round(s.armor)
+    // Called every frame - skip the DOM write entirely when the rounded
+    // displayed value hasn't actually changed since last frame, instead
+    // of unconditionally touching style/textContent 60 times a second
+    // for numbers that are usually not moving at all.
+    const healthRounded = Math.round(s.health)
+    if (healthRounded !== this._lastHudHealth) {
+      this._lastHudHealth = healthRounded
+      this.healthFill.style.width = `${(s.health / s.maxHealth) * 100}%`
+      this.healthValue.textContent = healthRounded
+    }
+    const armorRounded = Math.round(s.armor)
+    if (armorRounded !== this._lastHudArmor) {
+      this._lastHudArmor = armorRounded
+      this.armorFill.style.width = `${(s.armor / s.maxArmor) * 100}%`
+      this.armorValue.textContent = armorRounded
+    }
     const lowHealth = s.health > 0 && s.health < 30
     this.damageFlash.classList.toggle('low-health', lowHealth)
     this.infectionIndicator.style.display = s.infected ? 'flex' : 'none'
@@ -4045,19 +4067,33 @@ export class Game {
   }
 
   _updateProgressHud() {
+    // Called every frame, but none of these need sub-frame precision -
+    // aliveCount() in particular is a real O(zombies) scan just to
+    // refresh a text label, not worth doing 60 times a second. Throttled
+    // to every ~200ms instead.
+    const now = performance.now()
+    if (now < (this._nextProgressHudAt || 0)) return
+    this._nextProgressHudAt = now + 200
+
     this.nightValueEl.textContent = t('hudNight', { n: this.night })
     // Round Mode advances on a kill-clear, not a clock - showing the
     // elapsed-run timer there is misleading (it has no relationship to when
     // the round actually ends), so swap it for the number that does.
     this.timeValueEl.textContent = this._isRoundMode()
       ? `${this.zombies.aliveCount()} left`
-      : formatTime(performance.now() - this.runStartedAt)
+      : formatTime(now - this.runStartedAt)
     this.killsValueEl.textContent = t('hudKills', { n: this.kills })
   }
 
   _updateStaminaHud() {
+    // Same "skip if unchanged" guard as _updateHealthHud - called every
+    // frame, but stamina is often sitting still at max/empty for long
+    // stretches.
+    const staminaRounded = Math.round(this.player.stamina)
+    if (staminaRounded === this._lastHudStamina) return
+    this._lastHudStamina = staminaRounded
     this.staminaFill.style.width = `${(this.player.stamina / this.player.maxStamina) * 100}%`
-    this.staminaValue.textContent = Math.round(this.player.stamina)
+    this.staminaValue.textContent = staminaRounded
   }
 
   // Bottom-of-screen 5-slot hotbar (see _bindHotbar for Digit1-5 switching
@@ -4099,7 +4135,13 @@ export class Game {
       const weaponId = this.settings.hotbar[digitIndex]
       if (!weaponId) return
       const index = this.weapons.weapons.findIndex((w) => w.id === weaponId)
-      if (index !== -1) this.weapons.switchToIndex(index)
+      // Explicit immediate refresh (not the throttled per-frame one - see
+      // its own note) so the hotbar's active-slot highlight switches
+      // instantly, not up to 200ms later.
+      if (index !== -1) {
+        this.weapons.switchToIndex(index)
+        this._updateHotbarHud()
+      }
     })
     this._updateHotbarHud()
   }
@@ -5120,9 +5162,12 @@ export class Game {
   _updateMinimap(playerPos) {
     this.camera.getWorldDirection(this._camDir)
     const facingRad = Math.atan2(this._camDir.x, -this._camDir.z)
-    const zombiePositions = this.zombies.zombies
-      .filter((z) => z.state === 'alive')
-      .map((z) => ({ x: z.group.position.x, z: z.group.position.z }))
+    const zombiePositions = this._minimapZombiePositions
+    zombiePositions.length = 0
+    for (const z of this.zombies.zombies) {
+      if (z.state !== 'alive') continue
+      zombiePositions.push({ x: z.group.position.x, z: z.group.position.z })
+    }
     this.minimap.update(
       playerPos,
       facingRad,
@@ -5243,7 +5288,17 @@ export class Game {
         this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, this.weapons.defaultFov * KILLCAM_ZOOM_FOV_MULT, 0.15)
         this.camera.updateProjectionMatrix()
       }
-      this._updateHotbarHud()
+      // Throttled here, not inside _updateHotbarHud itself - this is the
+      // continuous per-frame refresh (getSummary() rebuilds a whole array
+      // of objects every call, wasteful 60x/sec for a hotbar that rarely
+      // changes); the OTHER call sites (weapon switch, slot assignment)
+      // are real one-off events that should still refresh immediately,
+      // not get delayed by this same throttle.
+      const nowHotbar = performance.now()
+      if (nowHotbar >= (this._nextHotbarHudAt || 0)) {
+        this._nextHotbarHudAt = nowHotbar + 200
+        this._updateHotbarHud()
+      }
       this._updateStaminaHud()
       this._updateFlashlightBattery(dt)
 
