@@ -793,7 +793,12 @@ export class Game {
     // No preserveDrawingBuffer: it disables a fast path in most browsers and
     // isn't actually needed - _takeScreenshot() renders and reads the canvas
     // in the same synchronous call, before any buffer swap/clear can happen.
-    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true })
+    // Antialias can only be set at renderer creation (not toggled live), so
+    // this respects whatever Performance Mode was saved from last session -
+    // toggling the checkbox mid-game still updates everything else in
+    // _applyPerformanceMode below, just not this specific setting until the
+    // next reload.
+    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: !this.settings.performanceMode })
     // Capped lower than before (was 1.5) - every fragment shader in this
     // scene evaluates every scene light (classic WebGL forward rendering
     // has no per-object light clustering), so total shaded pixel count is
@@ -816,6 +821,12 @@ export class Game {
     // custom system needed) exclude that band entirely.
     const CAMERA_FAR = WORLD_CULL_DISTANCE + 5
     this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, CAMERA_FAR)
+    // Performance Mode shrinks this (see _applyPerformanceMode) so weak
+    // hardware renders/lights/shadows a meaningfully smaller radius around
+    // the player instead of just losing shadows/bloom - those two alone
+    // don't help much if the GPU's real bottleneck is fill rate or draw
+    // count from far-away geometry.
+    this._perfDistanceMult = 1
 
     // Third-person view: this.camera stays the actual PointerLockControls
     // target (everything in the codebase reads its position as "the
@@ -2624,7 +2635,20 @@ export class Game {
   _applyPerformanceMode(enabled) {
     this.renderer.shadowMap.enabled = !enabled
     this.bloomPass.enabled = !enabled
-    this.renderer.setPixelRatio(enabled ? 1 : Math.min(window.devicePixelRatio, 1.25))
+    // 0.75 (fewer total shaded pixels than native resolution) instead of
+    // just capping at 1 - a real, substantial GPU fill-rate win on weak
+    // hardware, worth the softer image for the framerate it buys back.
+    this.renderer.setPixelRatio(enabled ? 0.75 : Math.min(window.devicePixelRatio, 1.25))
+    // Shrinks how much of the map gets rendered/shadow-cast/lit at all
+    // (_updateCulling), not just the shadow-map/bloom toggles above - those
+    // two alone barely help if the GPU's actual bottleneck is fill rate or
+    // sheer draw count from geometry far from the player.
+    this._perfDistanceMult = enabled ? 0.6 : 1
+    const far = (WORLD_CULL_DISTANCE * this._perfDistanceMult) + 5
+    this.camera.far = far
+    this.camera.updateProjectionMatrix()
+    this.tpCamera.far = far
+    this.tpCamera.updateProjectionMatrix()
   }
 
   // Fires on every night transition: pauses gameplay and offers 3 random
@@ -4363,8 +4387,12 @@ export class Game {
   // visible mesh is), so it runs on every object every frame rather than
   // throttling/spreading the check across multiple frames.
   _updateCulling(playerPos) {
-    const cullSq = WORLD_CULL_DISTANCE * WORLD_CULL_DISTANCE
-    const shadowSq = WORLD_SHADOW_CULL_DISTANCE * WORLD_SHADOW_CULL_DISTANCE
+    // Performance Mode (see _applyPerformanceMode) shrinks all three of
+    // these together via _perfDistanceMult - fewer rendered objects, fewer
+    // shadow casters, and fewer active lights all at once, not just the
+    // resolution/shadow-map/bloom toggles alone.
+    const cullSq = (WORLD_CULL_DISTANCE * this._perfDistanceMult) ** 2
+    const shadowSq = (WORLD_SHADOW_CULL_DISTANCE * this._perfDistanceMult) ** 2
     // Classic forward rendering (no light clustering) means every visible
     // fragment's shader evaluates every VISIBLE scene light, regardless of
     // distance - confirmed live at 62 PointLights across the map (rib
@@ -4375,7 +4403,7 @@ export class Game {
     // be lighting anything the player could currently see - turning it
     // fully off (not just intensity=0, which still costs a shader
     // evaluation) is a real, not approximate, render-cost cut.
-    const lightCullSq = LIGHT_CULL_DISTANCE * LIGHT_CULL_DISTANCE
+    const lightCullSq = (LIGHT_CULL_DISTANCE * this._perfDistanceMult) ** 2
     for (const f of this.flickerLights) {
       const dx = f.light.position.x - playerPos.x
       const dz = f.light.position.z - playerPos.z
@@ -5057,7 +5085,8 @@ export class Game {
     const fpsElapsed = nowFps - this._fpsLastUpdate
     if (fpsElapsed >= 500) {
       const fps = Math.round((this._fpsFrameCount * 1000) / fpsElapsed)
-      this.fpsEl.textContent = `${fps} fps`
+      const msPerFrame = (fpsElapsed / this._fpsFrameCount).toFixed(1)
+      this.fpsEl.textContent = `${fps} fps / ${msPerFrame} ms`
       this._fpsFrameCount = 0
       this._fpsLastUpdate = nowFps
     }
