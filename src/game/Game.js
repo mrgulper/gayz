@@ -606,6 +606,18 @@ export class Game {
     // Drops fast (one bad sample) but climbs back slowly (avoids visibly
     // flickering between resolutions every time fps hovers near the line).
     this._dynResScale = 1
+    // Real fix for "make it stable at 60fps" - unlike resolution (proven
+    // this session not to matter), simultaneous zombie count IS a real,
+    // confirmed cost (each one runs its own AI/collision/animation work
+    // every frame). This continuously caps how many can be alive at once
+    // based on ACTUAL measured fps, tightening fast on a bad sample and
+    // loosening slowly once there's real headroom - same shape as the
+    // dynamic resolution scaler, just aimed at the thing that actually
+    // costs something instead of the thing that turned out not to.
+    // Starts at 50 (ZombieManager's own ROUND_MAX_SPAWN_COUNT ceiling) -
+    // effectively uncapped for any normal scenario, so difficulty/round
+    // scaling alone decides zombie count until fps actually says otherwise.
+    this._zombiePopulationCap = 50
 
     this.playBtn = document.getElementById('play-btn')
     this.crosshair = document.getElementById('crosshair')
@@ -5152,6 +5164,16 @@ export class Game {
       this.fpsEl.textContent = `${fps} fps / ${msPerFrame} ms`
       this._fpsFrameCount = 0
       this._fpsLastUpdate = nowFps
+
+      // Zombie population governor - the real "make it stable" lever
+      // (see the constructor's own note): tightens fast on one bad
+      // sample, loosens slowly once there's real headroom, same shape as
+      // the disabled resolution scaler below but aimed at a cost that
+      // actually matters. Floor of 6 keeps Round Mode from ever going
+      // fully empty even in the worst case.
+      if (fps < 40) this._zombiePopulationCap = Math.max(6, this._zombiePopulationCap - 5)
+      else if (fps > 55) this._zombiePopulationCap = Math.min(50, this._zombiePopulationCap + 1)
+      this.zombies.performanceCap = this._zombiePopulationCap
 
       // Dynamic resolution scaling DISABLED (2026-07-21) - confirmed
       // dropping render resolution all the way down didn't recover any fps

@@ -167,6 +167,11 @@ export class ZombieManager {
     // note on why these get spread across several frames instead of
     // constructing every zombie in one single-frame loop.
     this._pendingSpawns = 0
+    // Real-fps-driven ceiling on simultaneous zombie count - see Game.js's
+    // own note (its _tick sets this every ~500ms based on measured fps).
+    // 50 = effectively uncapped (matches ROUND_MAX_SPAWN_COUNT) until fps
+    // actually says otherwise.
+    this.performanceCap = 50
     this.elapsed = 0
     this.lastPlayerPos = { x: 0, z: 0 }
     this.pendingRespawns = []
@@ -303,7 +308,7 @@ export class ZombieManager {
     const h = this.wanderingHorde
     if (!h) return
 
-    while (spawnBudget > 0 && h.pendingSpawns > 0) {
+    while (spawnBudget > 0 && h.pendingSpawns > 0 && this.zombies.length < this.performanceCap) {
       h.pendingSpawns--
       spawnBudget--
       const ox = (Math.random() - 0.5) * 4
@@ -1010,7 +1015,14 @@ export class ZombieManager {
     // zombie construction is itself a meaningful cost on this hardware.
     const SPAWNS_PER_FRAME = 1
     let spawnBudget = SPAWNS_PER_FRAME
-    while (spawnBudget > 0 && this._pendingSpawns > 0) {
+    // Also gated by performanceCap - a real-fps-driven ceiling on how many
+    // can be ALIVE at once (see Game.js's own note), not just how fast a
+    // wave trickles in. A round can still want its full difficulty-scaled
+    // count queued in _pendingSpawns; if fps is struggling, spawning just
+    // pauses once the cap is hit rather than the round permanently having
+    // fewer zombies - it resumes on its own once either some die or fps
+    // recovers and the cap loosens back up.
+    while (spawnBudget > 0 && this._pendingSpawns > 0 && this.zombies.length < this.performanceCap) {
       this._pendingSpawns--
       this._spawnRandom()
       spawnBudget--
@@ -1151,7 +1163,7 @@ export class ZombieManager {
 
     this.pendingRespawns = this.pendingRespawns.filter((r) => {
       if (performance.now() < r.at) return true
-      if (this.zombies.length < this.targetCount) this._spawnRandom()
+      if (this.zombies.length < this.targetCount && this.zombies.length < this.performanceCap) this._spawnRandom()
       return false
     })
   }
