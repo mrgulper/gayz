@@ -46,11 +46,22 @@ export function buildColliderGrid(colliders, cellSize = COLLIDER_GRID_CELL_SIZE)
 // reappearing in intersectsBox checks would just waste cycles re-testing
 // them, not cause any incorrect behavior, but dedup is cheap and keeps
 // things honest.
-export function queryColliderGrid(grid, x, z) {
+//
+// `result`/`seen` are optional reusable scratch buffers - this is called
+// many times per frame (every zombie, the player, possibly a driven
+// vehicle), and allocating a fresh array+Set on every single call was
+// producing enough garbage to cause real, periodic GC-pause stutters -
+// exactly the kind of "screen freezes for a moment" symptom that's worse
+// during movement specifically, since movement is what triggers most of
+// these queries (standing still barely calls this at all). Both
+// CachedColliderGrid/CachedMeshGrid below pass in their own persistent
+// per-instance buffers; called without them (e.g. a one-off external
+// caller) still works exactly as before, just allocates like it always did.
+export function queryColliderGrid(grid, x, z, result = [], seen = new Set()) {
   const cx = Math.floor(x / grid.cellSize)
   const cz = Math.floor(z / grid.cellSize)
-  const result = []
-  const seen = new Set()
+  result.length = 0
+  seen.clear()
   for (let dx = -1; dx <= 1; dx++) {
     for (let dz = -1; dz <= 1; dz++) {
       const bucket = grid.cells.get(cellKey(cx + dx, cz + dz))
@@ -77,6 +88,10 @@ export class CachedColliderGrid {
     this.cellSize = cellSize
     this.grid = null
     this.lastLength = -1
+    // Reused every query() call instead of allocating fresh - see
+    // queryColliderGrid's own note on why this matters.
+    this._queryResult = []
+    this._querySeen = new Set()
   }
 
   query(x, z) {
@@ -84,7 +99,7 @@ export class CachedColliderGrid {
       this.grid = buildColliderGrid(this.colliders, this.cellSize)
       this.lastLength = this.colliders.length
     }
-    return queryColliderGrid(this.grid, x, z)
+    return queryColliderGrid(this.grid, x, z, this._queryResult, this._querySeen)
   }
 }
 
@@ -130,6 +145,10 @@ export class CachedMeshGrid {
     this.cellSize = cellSize
     this.grid = null
     this.lastLength = -1
+    // Reused every query() call instead of allocating fresh - see
+    // queryColliderGrid's own note on why this matters.
+    this._queryResult = []
+    this._querySeen = new Set()
   }
 
   query(x, z) {
@@ -137,6 +156,6 @@ export class CachedMeshGrid {
       this.grid = buildMeshGrid(this.meshes, this.cellSize)
       this.lastLength = this.meshes.length
     }
-    return queryColliderGrid(this.grid, x, z)
+    return queryColliderGrid(this.grid, x, z, this._queryResult, this._querySeen)
   }
 }
