@@ -590,6 +590,16 @@ export class Game {
     document.body.appendChild(this.fpsEl)
     this._fpsFrameCount = 0
     this._fpsLastUpdate = performance.now()
+
+    // Same idea as the fps counter - a real, always-visible number instead
+    // of guessing where a bug report is happening from a screenshot's
+    // background scenery/compass (which shows facing-direction landmarks,
+    // not necessarily nearby ones, so it can't reliably localize a report).
+    this.coordsEl = document.createElement('div')
+    this.coordsEl.id = 'coords-readout'
+    this.coordsEl.style.cssText = 'position:fixed;top:28px;left:6px;background:rgba(0,0,0,0.55);color:#8fc8ff;font:13px monospace;padding:3px 7px;border-radius:4px;z-index:9999;pointer-events:none;'
+    this.coordsEl.textContent = 'x:0 z:0 y:0'
+    document.body.appendChild(this.coordsEl)
     // Auto-enable Performance Mode on genuinely bad, sustained frame rate
     // instead of leaving it as a settings checkbox someone has to already
     // know exists - a user reporting single-digit fps shouldn't need to
@@ -5223,6 +5233,9 @@ export class Game {
       this.fpsEl.textContent = `${fps} fps / ${msPerFrame} ms`
       this._fpsFrameCount = 0
       this._fpsLastUpdate = nowFps
+
+      const p = this.player.controls.object.position
+      this.coordsEl.textContent = `x:${p.x.toFixed(1)} z:${p.z.toFixed(1)} y:${p.y.toFixed(1)}`
 
       // Zombie population governor - the real "make it stable" lever
       // (see the constructor's own note): tightens fast on one bad
