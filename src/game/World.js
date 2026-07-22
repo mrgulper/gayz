@@ -3787,6 +3787,24 @@ function buildWreckedTrainChamber(scene, colliders, solidMeshes, x, z, chestSpot
   solidMeshes.push(endWall)
   colliders.push(new THREE.Box3().setFromObject(endWall))
 
+  // The connector leading here has its own side walls, but they stop at z
+  // (its own end) - this chamber never had any of its own, so there was
+  // nothing at all stopping lateral drift once past z. The floor slab
+  // above is only as wide as the corridor, so any sideways drift inside
+  // this room (very plausible mid-fight, not just from walking dead
+  // straight) eventually walks the player right off its edge into open
+  // space, with the same "nothing underfoot, snap to street level" result
+  // as the missing floor itself used to cause.
+  for (const side of [-1, 1]) {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, SUBWAY_HEIGHT, 4.4), wallMat)
+    wall.position.set(x + side * (SUBWAY_WIDTH / 2 + 0.1), SUBWAY_FLOOR_Y + SUBWAY_HEIGHT / 2, z - 2)
+    wall.castShadow = true
+    wall.receiveShadow = true
+    scene.add(wall)
+    solidMeshes.push(wall)
+    colliders.push(new THREE.Box3().setFromObject(wall))
+  }
+
   const bodyMat = flatMaterial({ color: 0x4a2e1e, roughness: 0.9, metalness: 0.1 })
   const wreck = new THREE.Mesh(new THREE.BoxGeometry(2.6, 3, 6), bodyMat)
   wreck.position.set(x - 0.6, SUBWAY_FLOOR_Y + 1.3, z - 1)
