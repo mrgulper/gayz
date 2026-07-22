@@ -318,9 +318,6 @@ export class PlayerController {
 
   _tryMove(obj, dx, dz) {
     if (dx === 0 && dz === 0) return
-    const next = obj.position.clone()
-    next.x += dx
-    next.z += dz
 
     const fits = (x, z) => {
       const box = new THREE.Box3(
@@ -342,9 +339,32 @@ export class PlayerController {
     // player instead of the vehicle. Zombie._tryMove and Vehicle._tryMove
     // both have this same escape hatch; mirror it here so the player can
     // always walk themselves back out of an overlap instead of soft-locking.
-    if (!fits(obj.position.x, obj.position.z) || fits(next.x, next.z)) {
-      obj.position.x = next.x
-      obj.position.z = next.z
+    // Only checked once against the true starting position, not per
+    // sub-step below.
+    const stuck = !fits(obj.position.x, obj.position.z)
+
+    // Checking only the FINAL position (as this used to do) lets a single
+    // frame's movement skip clean through a thin wall without ever
+    // overlapping it, if that frame's distance exceeds the wall's own
+    // thickness - many walls in this codebase (including the underground
+    // junction walls) are only 0.2 units thick, while a lag-spiked frame
+    // (this game's fps has documented drops during combat) or a dodge dash
+    // (DODGE_SPEED=13, dt capped at 0.1s = up to 1.3 units in one frame)
+    // can easily move further than that in a single call. Sub-step any
+    // move bigger than a safe fraction of the thinnest wall so no single
+    // step can ever jump clean over a collider.
+    const dist = Math.hypot(dx, dz)
+    const MAX_STEP = 0.15
+    const steps = Math.max(1, Math.ceil(dist / MAX_STEP))
+    const stepDx = dx / steps
+    const stepDz = dz / steps
+
+    for (let i = 0; i < steps; i++) {
+      const nx = obj.position.x + stepDx
+      const nz = obj.position.z + stepDz
+      if (!stuck && !fits(nx, nz)) break
+      obj.position.x = nx
+      obj.position.z = nz
     }
   }
 }
