@@ -293,15 +293,19 @@ export class ZombieManager {
   // Advances the horde's waypoint toward its target edge and drops it once
   // every member is accounted for (killed or wandered off) or it reaches
   // its destination - called once per frame from update(), not per-zombie.
-  _updateWanderingHorde(dt) {
+  // spawnBudget: what's left of update()'s single shared per-frame spawn
+  // budget after the general _pendingSpawns queue already took its share -
+  // draining this horde's own members from the SAME budget (not a second,
+  // independent one) means a round-clear burst and a horde event landing
+  // on the same frame still can't stack into a bigger spike than the
+  // shared cap allows.
+  _updateWanderingHorde(dt, spawnBudget) {
     const h = this.wanderingHorde
     if (!h) return
 
-    // Drain this horde's own pending members gradually - same reasoning as
-    // startRound/spawnSurge's _pendingSpawns queue (see update()'s note).
-    const HORDE_SPAWNS_PER_FRAME = 2
-    for (let i = 0; i < HORDE_SPAWNS_PER_FRAME && h.pendingSpawns > 0; i++) {
+    while (spawnBudget > 0 && h.pendingSpawns > 0) {
       h.pendingSpawns--
+      spawnBudget--
       const ox = (Math.random() - 0.5) * 4
       const oz = (Math.random() - 0.5) * 4
       const zombie = new Zombie(h.x + ox, h.z + oz, pickZombieType(), false, false, this.currentNight)
@@ -995,23 +999,26 @@ export class ZombieManager {
     this._applyZoneDensity(isNight)
 
     // Spread any queued burst-spawn (round-clear waves, the initial
-    // reset() burst) across several frames instead of constructing every
-    // zombie in one single-frame loop. Each zombie construction is real
-    // work (skeleton clone + material setup + AnimationMixer creation),
-    // and doing up to ROUND_MAX_SPAWN_COUNT of them synchronously in one
-    // frame was a real, reproducible stall every round transition -
-    // exactly the "60fps then a sudden 2-9fps frame, then back to normal"
-    // pattern reported, since round clears happen repeatedly through a
-    // play session while everything else stays steady.
-    const SPAWNS_PER_FRAME = 2
-    for (let i = 0; i < SPAWNS_PER_FRAME && this._pendingSpawns > 0; i++) {
+    // reset() burst, the wandering horde event) across several frames
+    // instead of constructing them all in one single-frame loop. Each
+    // zombie construction is real work (skeleton clone + material setup +
+    // AnimationMixer creation) - one shared budget per frame, not one
+    // budget PER burst source, so a round-clear and a horde event landing
+    // on the same frame still can't stack into a bigger spike than a
+    // single source alone would cause. Capped at 1/frame (not 2) - even
+    // the paced version was still visibly dipping, meaning a single
+    // zombie construction is itself a meaningful cost on this hardware.
+    const SPAWNS_PER_FRAME = 1
+    let spawnBudget = SPAWNS_PER_FRAME
+    while (spawnBudget > 0 && this._pendingSpawns > 0) {
       this._pendingSpawns--
       this._spawnRandom()
+      spawnBudget--
     }
 
     if (performance.now() >= this.nextTitanCheckAt) this._maybeSpawnTitan()
     this._maybeSpawnWanderingHorde()
-    this._updateWanderingHorde(dt)
+    this._updateWanderingHorde(dt, spawnBudget)
 
     const distractionActive = this.distraction && performance.now() < this.distraction.expiresAt
     if (this.distraction && !distractionActive) this.distraction = null
