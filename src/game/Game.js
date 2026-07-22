@@ -595,6 +595,16 @@ export class Game {
     // and only fires once per session.
     this._lowFpsStreak = 0
     this._autoPerfModeTriggered = false
+    // Dynamic resolution scaling - the same trick real FPS games use to
+    // hold 60fps: instead of a one-time quality switch, continuously nudge
+    // actual render resolution down when frames are running slow and back
+    // up when there's headroom, every ~500ms (same window as the fps
+    // counter above). Multiplies whatever the "normal" pixel ratio would
+    // be (see _applyRenderScale) rather than replacing it outright, so it
+    // still respects Performance Mode's own lower baseline when that's on.
+    // Drops fast (one bad sample) but climbs back slowly (avoids visibly
+    // flickering between resolutions every time fps hovers near the line).
+    this._dynResScale = 1
 
     this.playBtn = document.getElementById('play-btn')
     this.crosshair = document.getElementById('crosshair')
@@ -2640,13 +2650,24 @@ export class Game {
   // Trades visual fidelity for frame rate on weaker machines: drops the
   // most expensive effects (shadows, bloom) and caps the render resolution,
   // rather than touching gameplay-affecting settings like draw distance.
+  // Base pixel ratio before dynamic resolution scaling (_dynResScale) is
+  // applied on top - see _applyRenderScale, called both from here and from
+  // the continuous per-frame scaler in _tick.
+  _basePixelRatio() {
+    return this.settings.performanceMode ? 0.75 : Math.min(window.devicePixelRatio, 1.25)
+  }
+
+  _applyRenderScale() {
+    this.renderer.setPixelRatio(this._basePixelRatio() * this._dynResScale)
+  }
+
   _applyPerformanceMode(enabled) {
     this.renderer.shadowMap.enabled = !enabled
     this.bloomPass.enabled = !enabled
     // 0.75 (fewer total shaded pixels than native resolution) instead of
     // just capping at 1 - a real, substantial GPU fill-rate win on weak
     // hardware, worth the softer image for the framerate it buys back.
-    this.renderer.setPixelRatio(enabled ? 0.75 : Math.min(window.devicePixelRatio, 1.25))
+    this._applyRenderScale()
     // Shrinks how much of the map gets rendered/shadow-cast/lit at all
     // (_updateCulling), not just the shadow-map/bloom toggles above - those
     // two alone barely help if the GPU's actual bottleneck is fill rate or
@@ -5097,6 +5118,17 @@ export class Game {
       this.fpsEl.textContent = `${fps} fps / ${msPerFrame} ms`
       this._fpsFrameCount = 0
       this._fpsLastUpdate = nowFps
+
+      // Dynamic resolution scaling - drop render resolution the instant a
+      // sample runs slow (one bad sample is enough - a real stutter should
+      // get an immediate response), but only claw resolution back up once
+      // fps has real headroom (58+, comfortably under the 60 target), and
+      // slowly, so it doesn't visibly flicker between resolutions whenever
+      // fps is hovering right at the edge.
+      const prevDynResScale = this._dynResScale
+      if (fps < 50) this._dynResScale = Math.max(0.4, this._dynResScale - 0.08)
+      else if (fps > 58) this._dynResScale = Math.min(1, this._dynResScale + 0.03)
+      if (this._dynResScale !== prevDynResScale) this._applyRenderScale()
 
       if (!this.settings.performanceMode && !this._autoPerfModeTriggered) {
         this._lowFpsStreak = fps < 25 ? this._lowFpsStreak + 1 : 0
