@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { audioEngine } from './Audio.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js'
+import { flatMaterial } from './QualitySettings.js'
 
 // Phase 3 of the 3D asset overhaul - real rigged GLB rival (Quaternius
 // "BlueSoldier_Male", asset-source/build-humans.py), same rig/animation set
@@ -89,7 +90,7 @@ class RivalScavenger {
 
     const headBone = cloned.getObjectByName('Head')
     if (headBone) {
-      const eyeMat = new THREE.MeshStandardMaterial({ color: 0x1a0505, emissive: 0xff3b1e, emissiveIntensity: 1.2 })
+      const eyeMat = flatMaterial({ color: 0x1a0505, emissive: 0xff3b1e, emissiveIntensity: 1.2 })
       for (const side of [-1, 1]) {
         const eye = new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 6), eyeMat)
         eye.position.set(side * 0.11, 0.15, 0.14)
@@ -126,7 +127,7 @@ class RivalScavenger {
   // of this same trick (world-space offsets divided by this.group.scale).
   _addWeaponProp() {
     const s = 1 / this.group.scale.x
-    const weaponMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1a, roughness: 0.5, metalness: 0.4 })
+    const weaponMat = flatMaterial({ color: 0x1c1c1a, roughness: 0.5, metalness: 0.4 })
     this.weaponProp = new THREE.Mesh(new THREE.BoxGeometry(0.09 * s, 0.14 * s, 0.32 * s), weaponMat)
     this.weaponProp.position.set(0.32 * s, 0.9 * s, 0.1 * s)
     this.group.add(this.weaponProp)
@@ -136,10 +137,10 @@ class RivalScavenger {
   // (jacket-only), so it reads as hostile at a glance rather than "friendly
   // NPC in the wrong color."
   _buildBodyProcedural() {
-    const gearMat = new THREE.MeshStandardMaterial({ color: 0x2a2420, roughness: 0.85 })
-    const maskMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.6 })
-    const eyeMat = new THREE.MeshStandardMaterial({ color: 0x1a0505, emissive: 0xff3b1e, emissiveIntensity: 1.2 })
-    const weaponMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1a, roughness: 0.5, metalness: 0.4 })
+    const gearMat = flatMaterial({ color: 0x2a2420, roughness: 0.85 })
+    const maskMat = flatMaterial({ color: 0x1a1a1a, roughness: 0.6 })
+    const eyeMat = flatMaterial({ color: 0x1a0505, emissive: 0xff3b1e, emissiveIntensity: 1.2 })
+    const weaponMat = flatMaterial({ color: 0x1c1c1a, roughness: 0.5, metalness: 0.4 })
 
     const torso = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.64, 0.3), gearMat)
     torso.position.y = 1.15

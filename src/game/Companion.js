@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { audioEngine } from './Audio.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js'
+import { flatMaterial } from './QualitySettings.js'
 
 // Phase 3 of the 3D asset overhaul (see 3D_ASSET_OVERHAUL.md) - real rigged
 // GLB companion (Quaternius "Soldier_Male", asset-source/build-humans.py)
@@ -137,7 +138,7 @@ export class Companion {
     // (1 for procedural, GLB_SCALE_CORRECTION for GLB) so gear lands in the
     // same place on either body - same trick _addWeaponProp uses.
     const s = 1 / this.group.scale.x
-    const vestMat = new THREE.MeshStandardMaterial({ color: 0x3a3a2a, roughness: 0.7, metalness: 0.2 })
+    const vestMat = flatMaterial({ color: 0x3a3a2a, roughness: 0.7, metalness: 0.2 })
     const vest = new THREE.Mesh(new THREE.BoxGeometry(0.5 * s, 0.4 * s, 0.34 * s), vestMat)
     vest.position.set(0, 1.2 * s, 0)
     vest.castShadow = true
@@ -149,7 +150,7 @@ export class Companion {
     this.hasRig = true
     this.gearDamageMult = GEAR_RIG_DAMAGE_MULT
     const s = 1 / this.group.scale.x
-    const rigMat = new THREE.MeshStandardMaterial({ color: 0x1a1a18, emissive: 0xffcf5c, emissiveIntensity: 0.6, roughness: 0.5, metalness: 0.5 })
+    const rigMat = flatMaterial({ color: 0x1a1a18, emissive: 0xffcf5c, emissiveIntensity: 0.6, roughness: 0.5, metalness: 0.5 })
     const rig = new THREE.Mesh(new THREE.BoxGeometry(0.1 * s, 0.1 * s, 0.1 * s), rigMat)
     rig.position.set(-0.28 * s, 1.4 * s, 0.05 * s)
     rig.castShadow = true
@@ -276,10 +277,10 @@ export class Companion {
   }
 
   _buildBodyProcedural() {
-    const jacketMat = new THREE.MeshStandardMaterial({ color: this.stats.jacket, roughness: 0.8 })
-    const skinMat = new THREE.MeshStandardMaterial({ color: 0xd8ab7d, roughness: 0.9 })
-    const pantsMat = new THREE.MeshStandardMaterial({ color: 0x2a2a26, roughness: 0.9 })
-    const packMat = new THREE.MeshStandardMaterial({ color: 0x3a3428, roughness: 0.85 })
+    const jacketMat = flatMaterial({ color: this.stats.jacket, roughness: 0.8 })
+    const skinMat = flatMaterial({ color: 0xd8ab7d, roughness: 0.9 })
+    const pantsMat = flatMaterial({ color: 0x2a2a26, roughness: 0.9 })
+    const packMat = flatMaterial({ color: 0x3a3428, roughness: 0.85 })
 
     const torso = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.62, 0.28), jacketMat)
     torso.position.y = 1.15
@@ -320,11 +321,11 @@ export class Companion {
   // a reasonable stand-in since the model has no held-weapon geometry.
   _addWeaponProp() {
     const s = 1 / this.group.scale.x
-    let weaponMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1a, roughness: 0.5, metalness: 0.4 })
+    let weaponMat = flatMaterial({ color: 0x1c1c1a, roughness: 0.5, metalness: 0.4 })
     if (this.role === 'medic') {
-      weaponMat = new THREE.MeshStandardMaterial({ color: 0xe8e4d8, roughness: 0.6 })
+      weaponMat = flatMaterial({ color: 0xe8e4d8, roughness: 0.6 })
       this.weaponProp = new THREE.Mesh(new THREE.BoxGeometry(0.16 * s, 0.13 * s, 0.06 * s), weaponMat)
-      const crossMat = new THREE.MeshStandardMaterial({ color: 0xd6402f, emissive: 0xd6402f, emissiveIntensity: 0.5 })
+      const crossMat = flatMaterial({ color: 0xd6402f, emissive: 0xd6402f, emissiveIntensity: 0.5 })
       const crossH = new THREE.Mesh(new THREE.BoxGeometry(0.1 * s, 0.03 * s, 0.01 * s), crossMat)
       const crossV = new THREE.Mesh(new THREE.BoxGeometry(0.03 * s, 0.1 * s, 0.01 * s), crossMat)
       crossH.position.z = 0.035 * s

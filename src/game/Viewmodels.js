@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { flatMaterial } from './QualitySettings.js'
 
 // Phase 4 of the 3D asset overhaul (see 3D_ASSET_OVERHAUL.md) - real rigged
 // GLB weapon viewmodels (Quaternius "Ultimate Guns Pack" for firearms,
@@ -82,14 +83,14 @@ function buildGunFromGLB(cache, tintMatName, skinId) {
   return g
 }
 
-const METAL = new THREE.MeshStandardMaterial({ color: 0x2b2b2d, roughness: 0.4, metalness: 0.7 })
-const DARK_METAL = new THREE.MeshStandardMaterial({ color: 0x1a1a1c, roughness: 0.5, metalness: 0.6 })
-const GRIP = new THREE.MeshStandardMaterial({ color: 0x2a1e14, roughness: 0.9 })
-const WOOD = new THREE.MeshStandardMaterial({ color: 0x4a3018, roughness: 0.8 })
+const METAL = flatMaterial({ color: 0x2b2b2d, roughness: 0.4, metalness: 0.7 })
+const DARK_METAL = flatMaterial({ color: 0x1a1a1c, roughness: 0.5, metalness: 0.6 })
+const GRIP = flatMaterial({ color: 0x2a1e14, roughness: 0.9 })
+const WOOD = flatMaterial({ color: 0x4a3018, roughness: 0.8 })
 
-const SKIN = new THREE.MeshStandardMaterial({ color: 0xc99a72, roughness: 0.88 })
-const SKIN_SHADE = new THREE.MeshStandardMaterial({ color: 0xb0805a, roughness: 0.88 })
-const NAIL = new THREE.MeshStandardMaterial({ color: 0xe8d9c6, roughness: 0.5 })
+const SKIN = flatMaterial({ color: 0xc99a72, roughness: 0.88 })
+const SKIN_SHADE = flatMaterial({ color: 0xb0805a, roughness: 0.88 })
+const NAIL = flatMaterial({ color: 0xe8d9c6, roughness: 0.5 })
 
 // A single curling finger: a proximal segment plus a hinged distal segment,
 // so it can wrap over a grip rather than reading as a flat mitten stub.
@@ -187,7 +188,7 @@ const SKIN_TINTS = {
 function skinMaterial(skinId, base = METAL) {
   const tint = SKIN_TINTS[skinId]
   if (!tint) return base
-  return new THREE.MeshStandardMaterial({ color: tint.color, roughness: 0.25, metalness: 0.9, emissive: tint.emissive, emissiveIntensity: 0.3 })
+  return flatMaterial({ color: tint.color, roughness: 0.25, metalness: 0.9, emissive: tint.emissive, emissiveIntensity: 0.3 })
 }
 
 function buildPistol(skinId = null) {
@@ -227,7 +228,7 @@ function buildPistolProcedural(skinId = null) {
   return g
 }
 
-const UV_LENS = new THREE.MeshStandardMaterial({ color: 0x2a0a44, emissive: 0x8b2fe0, emissiveIntensity: 2.4 })
+const UV_LENS = flatMaterial({ color: 0x2a0a44, emissive: 0x8b2fe0, emissiveIntensity: 2.4 })
 
 function buildRifle(skinId = null) {
   if (USE_GLB_RIFLE && GUN_MODEL_CACHE.rifle) {
@@ -326,8 +327,8 @@ export function buildQuickMeleeKnifeModel() {
 function buildQuickMeleeKnifeModelProcedural() {
   const g = new THREE.Group()
 
-  const bladeMat = new THREE.MeshStandardMaterial({ color: 0x7d838a, roughness: 0.15, metalness: 0.95 })
-  const tacticalGrip = new THREE.MeshStandardMaterial({ color: 0x14140f, roughness: 0.85 })
+  const bladeMat = flatMaterial({ color: 0x7d838a, roughness: 0.15, metalness: 0.95 })
+  const tacticalGrip = flatMaterial({ color: 0x14140f, roughness: 0.85 })
 
   const blade = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.01, 0.26), bladeMat)
   blade.position.set(0, 0, -0.15)
@@ -378,7 +379,7 @@ function buildBatModel() {
 
 function buildBatModelProcedural() {
   const g = new THREE.Group()
-  const woodMat = new THREE.MeshStandardMaterial({ color: 0x8a6a3a, roughness: 0.7 })
+  const woodMat = flatMaterial({ color: 0x8a6a3a, roughness: 0.7 })
 
   const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.022, 0.42, 10), woodMat)
   barrel.rotation.x = Math.PI / 2
@@ -407,7 +408,7 @@ function buildMacheteModel() {
 
 function buildMacheteModelProcedural() {
   const g = new THREE.Group()
-  const bladeMat = new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.35, metalness: 0.8 })
+  const bladeMat = flatMaterial({ color: 0x9aa0a6, roughness: 0.35, metalness: 0.8 })
 
   const blade = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.014, 0.34), bladeMat)
   blade.position.set(0, 0, -0.2)
@@ -461,7 +462,7 @@ function buildUvBatonModel() {
 
 function buildUvBatonModelProcedural() {
   const g = new THREE.Group()
-  const shaftMat = new THREE.MeshStandardMaterial({ color: 0x2b2b2d, roughness: 0.5, metalness: 0.5 })
+  const shaftMat = flatMaterial({ color: 0x2b2b2d, roughness: 0.5, metalness: 0.5 })
 
   const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.3, 10), shaftMat)
   shaft.rotation.x = Math.PI / 2
