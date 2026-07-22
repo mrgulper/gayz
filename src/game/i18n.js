@@ -187,6 +187,7 @@ const STRINGS = {
     vireoGuardianWakes: 'Something wakes in the dark. The terminal won\'t talk until it stops moving.',
     vireoGuardianAlive: 'The guardian is still alive.',
     loreFlashlightWarning: 'The light... they can feel it. Every zombie for blocks knows exactly where you are.',
+    toastAutoPerfMode: 'Frame rate was very low - switched on FPS Optimized mode automatically (Settings to turn off)',
     toastScopeAdded: 'Scope attached',
     toastMagAdded: 'Extended mag attached',
     bossWarning: 'A Colossus approaches!',

@@ -587,6 +587,14 @@ export class Game {
     document.body.appendChild(this.fpsEl)
     this._fpsFrameCount = 0
     this._fpsLastUpdate = performance.now()
+    // Auto-enable Performance Mode on genuinely bad, sustained frame rate
+    // instead of leaving it as a settings checkbox someone has to already
+    // know exists - a user reporting single-digit fps shouldn't need to
+    // dig through a menu first. Requires several consecutive bad 500ms
+    // samples (not just one dip - a single stutter shouldn't flip this)
+    // and only fires once per session.
+    this._lowFpsStreak = 0
+    this._autoPerfModeTriggered = false
 
     this.playBtn = document.getElementById('play-btn')
     this.crosshair = document.getElementById('crosshair')
@@ -5089,6 +5097,18 @@ export class Game {
       this.fpsEl.textContent = `${fps} fps / ${msPerFrame} ms`
       this._fpsFrameCount = 0
       this._fpsLastUpdate = nowFps
+
+      if (!this.settings.performanceMode && !this._autoPerfModeTriggered) {
+        this._lowFpsStreak = fps < 25 ? this._lowFpsStreak + 1 : 0
+        if (this._lowFpsStreak >= 6) {
+          this._autoPerfModeTriggered = true
+          this.settings.performanceMode = true
+          this.performanceToggle.checked = true
+          this._applyPerformanceMode(true)
+          saveSettings(this.settings)
+          this._showLoreToast(t('toastAutoPerfMode'))
+        }
+      }
     }
 
     this.timer.update()
