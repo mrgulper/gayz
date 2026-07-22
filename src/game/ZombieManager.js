@@ -163,6 +163,10 @@ export class ZombieManager {
     this.empThrows = []
     this.empBursts = []
     this.distraction = null
+    // Queued burst-spawns (round-clear waves, etc.) - see update()'s own
+    // note on why these get spread across several frames instead of
+    // constructing every zombie in one single-frame loop.
+    this._pendingSpawns = 0
     this.elapsed = 0
     this.lastPlayerPos = { x: 0, z: 0 }
     this.pendingRespawns = []
@@ -222,7 +226,10 @@ export class ZombieManager {
       : 1
     this.targetCount = 0
     const count = Math.min(ROUND_MAX_SPAWN_COUNT, Math.round(ROUND_SPAWN_COUNT_MULT * roundNumber))
-    for (let i = 0; i < count; i++) this._spawnRandom()
+    // Queued, not spawned immediately - see update()'s own note on why a
+    // single-frame burst of up to ROUND_MAX_SPAWN_COUNT zombies was
+    // causing a real stall every round transition.
+    this._pendingSpawns += count
   }
 
   // Round-clear check for Game.js - "alive" rather than a bare array-length
@@ -495,13 +502,18 @@ export class ZombieManager {
     this.nextMoanAt = performance.now() + this._randomMoanDelay()
     this.wanderingHorde = null
     this.nextHordeEventAt = performance.now() + HORDE_EVENT_MIN_DELAY_MS + Math.random() * (HORDE_EVENT_MAX_DELAY_MS - HORDE_EVENT_MIN_DELAY_MS)
+    // Cleared here rather than only in the constructor - reset() also runs
+    // on a same-session restart, where a previous game's still-unspawned
+    // burst shouldn't carry over into the new one.
+    this._pendingSpawns = 0
     // Round Mode starts its own round-1 burst via startRound() right after
     // reset() (see Game.js) instead of the normal continuous-trickle spawn.
     if (this.roundMode) {
       this.targetCount = 0
     } else {
       this.targetCount = Math.round(BASE_SPAWN_COUNT * this.spawnRateMult)
-      for (let i = 0; i < this.targetCount; i++) this._spawnRandom()
+      // Queued, not spawned immediately - see update()'s own note.
+      this._pendingSpawns += this.targetCount
     }
     // Keep in sync with targetCount here - _applyZoneDensity re-derives
     // targetCount from this baseline every frame, and would otherwise
@@ -539,10 +551,12 @@ export class ZombieManager {
     this.scene.add(zombie.group)
   }
 
-  // Immediate burst of extra ambush-biased zombies, for the "Horde Surge"
-  // random night event - a one-off punch rather than a sustained rate change.
+  // Extra ambush-biased zombies, for the "Horde Surge" random night event -
+  // a one-off punch rather than a sustained rate change. Queued (see
+  // update()'s own note) rather than spawned immediately, same reasoning
+  // as startRound - this is also a periodic, repeating event.
   spawnSurge(count) {
-    for (let i = 0; i < count; i++) this._spawnRandom()
+    this._pendingSpawns += count
   }
 
   // Shared explosion-damage logic - used by both thrown grenades and shot
@@ -968,6 +982,21 @@ export class ZombieManager {
     // current 750x750 one, where the player could be anywhere.
     this.lastPlayerPos = playerPos
     this._applyZoneDensity(isNight)
+
+    // Spread any queued burst-spawn (round-clear waves, the initial
+    // reset() burst) across several frames instead of constructing every
+    // zombie in one single-frame loop. Each zombie construction is real
+    // work (skeleton clone + material setup + AnimationMixer creation),
+    // and doing up to ROUND_MAX_SPAWN_COUNT of them synchronously in one
+    // frame was a real, reproducible stall every round transition -
+    // exactly the "60fps then a sudden 2-9fps frame, then back to normal"
+    // pattern reported, since round clears happen repeatedly through a
+    // play session while everything else stays steady.
+    const SPAWNS_PER_FRAME = 2
+    for (let i = 0; i < SPAWNS_PER_FRAME && this._pendingSpawns > 0; i++) {
+      this._pendingSpawns--
+      this._spawnRandom()
+    }
 
     if (performance.now() >= this.nextTitanCheckAt) this._maybeSpawnTitan()
     this._maybeSpawnWanderingHorde()
