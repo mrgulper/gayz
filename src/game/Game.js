@@ -1324,6 +1324,28 @@ export class Game {
     this.fullMapCanvas = document.getElementById('fullmap-canvas')
     this.fullMap = new FullMap(this.fullMapCanvas)
 
+    // Photo mode: a free-fly noclip camera + hidden HUD for taking clean
+    // screenshots, joining the same "gameplay freezes" gating condition as
+    // mapOpen/inventoryOpen so nothing moves/spawns while composing a shot.
+    this.photoModeOpen = false
+    this._photoModeReturnPos = new THREE.Vector3()
+    this._photoForward = new THREE.Vector3()
+    this._photoRight = new THREE.Vector3()
+    this._photoUp = false
+    this._photoDown = false
+    this._photoBoost = false
+    window.addEventListener('keydown', (e) => {
+      if (!this.photoModeOpen) return
+      if (e.code === 'Space') this._photoUp = true
+      else if (e.code === 'ControlLeft' || e.code === 'ControlRight') this._photoDown = true
+      else if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this._photoBoost = true
+    })
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'Space') this._photoUp = false
+      else if (e.code === 'ControlLeft' || e.code === 'ControlRight') this._photoDown = false
+      else if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this._photoBoost = false
+    })
+
     const hud = {
       weaponName: document.getElementById('weapon-name'),
       ammo: document.getElementById('ammo'),
@@ -1636,7 +1658,7 @@ export class Game {
       }
 
       if (e.code === getKeyFor('toggleMap')) {
-        if (this.inventoryOpen) return // don't let the map open on top of the inventory
+        if (this.inventoryOpen || this.photoModeOpen) return // don't let the map open on top of the inventory/photo mode
         this.mapOpen = !this.mapOpen
         this.fullMapPanel.style.display = this.mapOpen ? 'flex' : 'none'
         if (this.mapOpen) {
@@ -1651,7 +1673,25 @@ export class Game {
         return
       }
 
-      if (this.inventoryOpen || this.mapOpen) return
+      if (e.code === getKeyFor('photoMode')) {
+        if (this.inventoryOpen || this.mapOpen) return // don't let photo mode open on top of the inventory/map
+        this.photoModeOpen = !this.photoModeOpen
+        if (this.photoModeOpen) {
+          this._photoModeReturnPos.copy(this.camera.position)
+          this._setPhotoModeHudHidden(true)
+          this._showLoreToast(t('photoModeOn'))
+        } else {
+          this._photoUp = false
+          this._photoDown = false
+          this._photoBoost = false
+          this.camera.position.copy(this._photoModeReturnPos)
+          this._setPhotoModeHudHidden(false)
+          this._showLoreToast(t('photoModeOff'))
+        }
+        return
+      }
+
+      if (this.inventoryOpen || this.mapOpen || this.photoModeOpen) return
 
       if (e.code === getKeyFor('heal')) {
         if (this.inventory.useHealthPack()) {
@@ -1760,6 +1800,43 @@ export class Game {
       this._wheelCursorY = Math.max(-WHEEL_RADIUS, Math.min(WHEEL_RADIUS, this._wheelCursorY + e.movementY))
       this._updateWeaponWheelHighlight()
     })
+  }
+
+  // Hides the whole HUD surface for a clean screenshot - same element set
+  // the pointer-unlock handler already hides, plus the debug fps/coords
+  // readouts, which have no place in a "photo mode" shot.
+  _setPhotoModeHudHidden(hidden) {
+    const display = hidden ? 'none' : ''
+    this.crosshair.style.display = hidden ? 'none' : 'block'
+    this.hudEl.style.display = display
+    this.hotbarEl.style.display = display
+    this.statusHud.style.display = display
+    this.inventoryHud.style.display = display
+    this.progressHud.style.display = display
+    this.statsPanel.style.display = display
+    this.minimapWrap.style.display = display
+    this.compassStrip.style.display = display
+    this.fpsEl.style.display = hidden ? 'none' : 'block'
+    this.coordsEl.style.display = hidden ? 'none' : 'block'
+  }
+
+  // Free-fly noclip camera while photo mode is open - reuses the same
+  // held-state WASD flags PlayerController already tracks (input tracking
+  // itself isn't gated, only its consumption in player.update() is, which
+  // is frozen while photoModeOpen), plus dedicated Space/Ctrl for up/down
+  // and Shift to move faster. Deliberately ignores collision - the point
+  // is to compose a shot from anywhere, including through walls/ceilings.
+  _updatePhotoMode(dt) {
+    const speed = (this._photoBoost ? 22 : 8) * dt
+    this.camera.getWorldDirection(this._photoForward)
+    this._photoRight.crossVectors(this._photoForward, this.camera.up).normalize()
+    const input = this.player.input
+    if (input.forward) this.camera.position.addScaledVector(this._photoForward, speed)
+    if (input.back) this.camera.position.addScaledVector(this._photoForward, -speed)
+    if (input.right) this.camera.position.addScaledVector(this._photoRight, speed)
+    if (input.left) this.camera.position.addScaledVector(this._photoRight, -speed)
+    if (this._photoUp) this.camera.position.y += speed
+    if (this._photoDown) this.camera.position.y -= speed
   }
 
   _openWeaponWheel() {
@@ -5301,6 +5378,8 @@ export class Game {
       this.vehicle.getDriverSeatWorld(this._vehicleSeatPos)
       this.camera.position.copy(this._vehicleSeatPos)
       this._updateVehicleRamming()
+    } else if (this.photoModeOpen) {
+      this._updatePhotoMode(dt)
     } else if (this.player.controls.isLocked && this.playerState.alive && !this.inventoryOpen && !this.perkPanelOpen && !this.traderPanelOpen && !this.xpLevelupPanelOpen && !this.mapOpen) {
       this.player.update(dt)
       this._updateThirdPerson()
