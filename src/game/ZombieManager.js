@@ -482,7 +482,13 @@ export class ZombieManager {
   }
 
   reset() {
-    for (const zombie of this.zombies) this.scene.remove(zombie.group)
+    // Same leak fix as the natural-death cleanup below - a restart while
+    // zombies are still alive used to discard them without ever freeing
+    // their material/shader GPU resources.
+    for (const zombie of this.zombies) {
+      this.scene.remove(zombie.group)
+      zombie.dispose()
+    }
     for (const p of this.projectiles) this.scene.remove(p.mesh)
     for (const fx of this.explosionFx) this.scene.remove(fx.mesh)
     for (const fx of this.screamFx) this.scene.remove(fx.mesh)
@@ -1144,6 +1150,15 @@ export class ZombieManager {
 
         setTimeout(() => {
           this.scene.remove(zombie.group)
+          // See Zombie.js's own dispose() note - scene.remove() alone
+          // doesn't free a single byte of GPU memory, only stops
+          // rendering. Without this, every kill for the entire life of a
+          // session was leaking its own material/shader GPU resources
+          // permanently - the real cause of "gets laggier the longer you
+          // play," independent of the population governor (which only
+          // limits how many are alive AT ONCE, not what's leaked by ones
+          // that already died).
+          zombie.dispose()
           this.zombies = this.zombies.filter((z) => z !== zombie)
         }, REMOVE_AFTER_DEATH_MS)
       }

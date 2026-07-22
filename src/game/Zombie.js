@@ -1097,6 +1097,27 @@ export class Zombie {
   }
 
   // Called by ZombieManager when another zombie's scream reaches this one.
+  // Frees this zombie's own GPU-side material resources - call right
+  // before/after removing it from the scene on death. Materials only,
+  // deliberately never geometry: GLB zombies' geometry is a shared
+  // reference back to the cached source model (see _buildBodyFromGLB's
+  // own note on why every clone shares the same buffers, not a copy),
+  // so disposing it here would corrupt every OTHER zombie - alive or
+  // not-yet-spawned - still using that same cached model. Materials,
+  // unlike geometry, ARE created fresh per instance (cloned or built new
+  // in _buildBodyFromGLB/_buildBodyProcedural), so those are safe and
+  // actually the real leak: `scene.remove()` only stops something from
+  // being rendered, it does NOT free its WebGL buffers - only an explicit
+  // `.dispose()` call does that, and until now nothing ever called it for
+  // a dead zombie, so every kill for the entire life of a session was
+  // leaking its own material/shader-program GPU resources permanently.
+  dispose() {
+    for (const mat of this.materials) mat.dispose()
+    if (this.eyeMaterials) {
+      for (const mat of this.eyeMaterials) mat.dispose()
+    }
+  }
+
   forceWake() {
     if (this.state !== 'dormant') return
     this.state = 'popping'
