@@ -4,6 +4,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { buildWorld, WORLD_CULL_DISTANCE, WORLD_SHADOW_CULL_DISTANCE } from './World.js'
+import { LOW_QUALITY_MODE } from './QualitySettings.js'
 import { PlayerController } from './PlayerController.js'
 import { WeaponSystem } from './WeaponSystem.js'
 import { ZombieManager } from './ZombieManager.js'
@@ -823,7 +824,11 @@ export class Game {
     // one of the biggest levers available; 1.25 still looks sharp on
     // HiDPI/Retina screens without paying for the full 1.5x pixel count.
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25))
-    this.renderer.shadowMap.enabled = true
+    // Shadows off entirely under LOW_QUALITY_MODE - a big chunk of both
+    // remaining visual complexity (soft shadow edges) and render cost
+    // (a full extra depth pass every frame). Performance Mode's own
+    // toggle still layers on top of this if a player enables it manually.
+    this.renderer.shadowMap.enabled = !LOW_QUALITY_MODE
     this.renderer.shadowMap.type = THREE.PCFShadowMap
     // Cinematic contrast/rolloff instead of the flat default - the single
     // biggest free visual-quality win available (no extra render cost).
@@ -874,6 +879,9 @@ export class Game {
     // dimensions costs essentially no visible quality, unlike halving the
     // main render resolution would.
     this.bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth * BLOOM_RESOLUTION_SCALE, window.innerHeight * BLOOM_RESOLUTION_SCALE), 0.55, 0.4, 0.82)
+    // Glow/bloom is a whole extra set of blur passes every frame for a
+    // purely cosmetic effect - off by default under LOW_QUALITY_MODE.
+    this.bloomPass.enabled = !LOW_QUALITY_MODE
     this.composer.addPass(this.bloomPass)
     this.composer.addPass(new OutputPass())
 

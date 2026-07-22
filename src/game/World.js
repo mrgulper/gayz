@@ -310,14 +310,24 @@ export function buildWorld(scene, trophyCount = 15) {
   scene.add(moon)
 
   const groundSize = 750
-  const groundTex = new THREE.TextureLoader().load('/textures/ground-asphalt.png')
-  groundTex.wrapS = THREE.RepeatWrapping
-  groundTex.wrapT = THREE.RepeatWrapping
-  groundTex.colorSpace = THREE.SRGBColorSpace
-  groundTex.repeat.set(groundSize / 12, groundSize / 12)
-  const groundBumpTex = getSharedBumpTexture().clone()
-  groundBumpTex.needsUpdate = true
-  groundBumpTex.repeat.set(groundSize / 3, groundSize / 3)
+  // LOW_QUALITY_MODE: flat color, no image texture loaded over the network
+  // and no bump map generated at all - the single biggest remaining
+  // texture-memory/tiling cost in the whole map (a real photo tiled ~62x
+  // across 750 units, plus a bump map tiled 250x). Real textured path
+  // fully intact below, just skipped for now - see QualitySettings.js.
+  const groundMat = LOW_QUALITY_MODE
+    ? new THREE.MeshLambertMaterial({ color: 0x3a3a38 })
+    : (() => {
+        const groundTex = new THREE.TextureLoader().load('/textures/ground-asphalt.png')
+        groundTex.wrapS = THREE.RepeatWrapping
+        groundTex.wrapT = THREE.RepeatWrapping
+        groundTex.colorSpace = THREE.SRGBColorSpace
+        groundTex.repeat.set(groundSize / 12, groundSize / 12)
+        const groundBumpTex = getSharedBumpTexture().clone()
+        groundBumpTex.needsUpdate = true
+        groundBumpTex.repeat.set(groundSize / 3, groundSize / 3)
+        return new THREE.MeshStandardMaterial({ map: groundTex, bumpMap: groundBumpTex, bumpScale: 0.06, roughness: 1 })
+      })()
   // This is the surface PlayerController._sampleGroundHeight raycasts
   // against for standing height - a plain, hole-less PlaneGeometry here
   // would physically stop the player at y=0 above either underground
@@ -328,7 +338,7 @@ export function buildWorld(scene, trophyCount = 15) {
   // instead.
   const ground = buildGroundPlaneWithHoles(
     scene,
-    new THREE.MeshStandardMaterial({ map: groundTex, bumpMap: groundBumpTex, bumpScale: 0.06, roughness: 1 }),
+    groundMat,
     0, 0, groundSize, groundSize,
     [UNDERGROUND_HOLE_SUBWAY, UNDERGROUND_HOLE_NEW_ENTRANCE, UNDERGROUND_HOLE_HIDDEN_COMPLEX],
     0
@@ -1548,11 +1558,29 @@ function placePropSimple(scene, register, fileName, x, z, rotY = 0, scale = 1, c
   clone.position.set(x, floorY, z)
   clone.rotation.y = rotY
   if (scale !== 1) clone.scale.setScalar(scale)
+  // LOW_QUALITY_MODE: one shared, cheap MeshLambertMaterial for this whole
+  // prop instead of a cloned-per-mesh textured PBR material per part - this
+  // one function places nearly every piece of furniture/clutter in the
+  // game, so it's a very high-leverage single change. Tint comes from the
+  // first real sub-mesh's own original color, so different prop types
+  // still read as visually distinct, just flat. Callers that recolor the
+  // returned clone afterward (e.g. a tinted bookcase) still work normally -
+  // they're just setting this one shared material's color instead of many.
+  let lowQualityMat = null
+  if (LOW_QUALITY_MODE) {
+    let firstColor = null
+    clone.traverse((child) => {
+      if (firstColor === null && child.isMesh && child.material && child.material.color) {
+        firstColor = child.material.color.clone()
+      }
+    })
+    lowQualityMat = new THREE.MeshLambertMaterial({ color: firstColor || 0x777770 })
+  }
   clone.traverse((child) => {
     if (!child.isMesh) return
     child.castShadow = true
     child.receiveShadow = true
-    child.material = child.material.clone()
+    child.material = lowQualityMat || child.material.clone()
   })
   scene.add(clone)
   if (collide) register(clone)
