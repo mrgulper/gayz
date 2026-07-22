@@ -5148,8 +5148,13 @@ export class Game {
       // fps has real headroom (58+, comfortably under the 60 target), and
       // slowly, so it doesn't visibly flicker between resolutions whenever
       // fps is hovering right at the edge.
+      // Floor raised from 0.4 to 0.75 - confirmed (2026-07-21) this doesn't
+      // actually buy back fps when the real bottleneck isn't GPU fill-rate
+      // (dropping all the way to 0.4x resolution didn't move fps at all in
+      // a genuinely severe case), so letting it go that low is pure
+      // downside - a blurry image for zero benefit - the rest of the time.
       const prevDynResScale = this._dynResScale
-      if (fps < 50) this._dynResScale = Math.max(0.4, this._dynResScale - 0.08)
+      if (fps < 50) this._dynResScale = Math.max(0.75, this._dynResScale - 0.08)
       else if (fps > 58) this._dynResScale = Math.min(1, this._dynResScale + 0.03)
       if (this._dynResScale !== prevDynResScale) this._applyRenderScale()
 
