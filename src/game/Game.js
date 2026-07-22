@@ -3839,6 +3839,7 @@ export class Game {
     }
     this.achievements.unlock('first_blood')
     if (this.totalKills >= 100) this.achievements.unlock('centurion')
+    if (zombieTypeId === 'fester') this._spawnHazardZone('gas', x, z)
     if (zombieTypeId === 'brute' && weaponId === 'melee') this.achievements.unlock('brute_knife')
     if (zombieTypeId === 'screamer') this._checkBountyProgress('kill_screamers', 1)
     if (weaponId === 'melee') this._checkBountyProgress('melee_kills', 1)

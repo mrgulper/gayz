@@ -228,6 +228,30 @@ export const ZOMBIE_TYPES = {
     skinTones: [0x3a4a2a, 0x334020, 0x2e3a1c],
     clothesTones: [0x141a10, 0x181f12],
   },
+  // Releases a lingering toxic gas hazard zone on death (see Game.js's
+  // _onZombieKilled -> _spawnHazardZone('gas', ...), the same hazard-zone
+  // system the gas/EMP night-event zones already use) - distinct from
+  // exploder/spitter_bomber's INSTANT burst-radius damage: this is area
+  // denial that lingers and ticks over time, punishing fighting it in a
+  // tight corridor rather than punishing getting close when it dies.
+  fester: {
+    id: 'fester',
+    label: 'Fester',
+    lore: "It's not the bite you have to worry about. It's what's still inside it when it stops moving.",
+    weight: 1.5,
+    health: 65,
+    speedMin: 1.2,
+    speedMax: 1.8,
+    damageMin: 30,
+    damageMax: 45,
+    scale: 1.15,
+    ranged: false,
+    meleeRange: 1.6,
+    attackCooldown: 1.2,
+    gasOnDeath: true,
+    skinTones: [0x8a9c3a, 0x7d8e30, 0x94a844],
+    clothesTones: [0x3a3a18, 0x333312, 0x363612],
+  },
   // Second boss-night type, alternating with colossus (see ZombieManager's
   // _spawnBoss and bossRushSpawnCount) - the slot patient_zero used to fill
   // before it was removed. Ties directly to Stage 11's toxic sewer level:
