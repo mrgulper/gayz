@@ -505,7 +505,14 @@ export function buildWorld(scene, trophyCount = 15) {
   // in the sewer level's own dead end (see buildMineLevel's own comment).
   const mineLevel = buildMineLevel(scene, colliders, solidMeshes, flickerLights, towerChestSpots)
 
-  buildOuterZones(scene, register, cullables, towerChestSpots)
+  // TEMPORARY perf test (2026-07-21): skip building the 4 outer zones
+  // (suburbs/industrial/commercial/residential - 64 buildings/houses total,
+  // by far the single biggest chunk of everything the map expansion added)
+  // to test whether total scene size is really the fps bottleneck, without
+  // deleting anything - just not constructing it for now. Flip back to
+  // true (or remove this flag entirely) once that's answered either way.
+  const BUILD_OUTER_ZONES = false
+  if (BUILD_OUTER_ZONES) buildOuterZones(scene, register, cullables, towerChestSpots)
 
   // Phase 1 of the Extended Metropolitan Grid plan - the first real
   // blueprint location. Placed well clear of the commercial zone's own
