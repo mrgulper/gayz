@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { accessibility } from './Accessibility.js'
+import { LOW_QUALITY_MODE } from './QualitySettings.js'
 
 // Phase 1 of the 3D asset overhaul (see 3D_ASSET_OVERHAUL.md) - real rigged
 // GLB zombie behind a flag, alongside the original procedural builder, so
@@ -317,16 +318,28 @@ export class Zombie {
     // picks its skin tone (random from the type's palette) so instances of
     // the same type still read as slightly varied, not identical clones.
     const bodyTint = this.config.skinTones[Math.floor(Math.random() * this.config.skinTones.length)]
+    // LOW_QUALITY_MODE: one shared, cheap MeshLambertMaterial for the whole
+    // zombie instead of the GLB's own (per-mesh-cloned) PBR material - real
+    // GPU cost win with ~65 lights in the scene (Lambertian diffuse is much
+    // cheaper per pixel than the Standard material's roughness/metalness
+    // BRDF), on top of literally being "1 colour" as asked. Kept as a
+    // simple flag rather than deleting the real-material path - see
+    // QualitySettings.js.
+    const sharedLowQualityMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: bodyTint }) : null
 
     cloned.traverse((child) => {
       if (!child.isMesh) return
       child.castShadow = true
-      // GLTFLoader shares materials across every clone by default (the #1
-      // recurring bug class in this codebase - see CLAUDE.md) - clone per
-      // instance so this zombie's hit-flash/tint never fights another
-      // zombie sharing the same source material.
-      child.material = child.material.clone()
-      child.material.color.setHex(bodyTint)
+      if (LOW_QUALITY_MODE) {
+        child.material = sharedLowQualityMat
+      } else {
+        // GLTFLoader shares materials across every clone by default (the #1
+        // recurring bug class in this codebase - see CLAUDE.md) - clone per
+        // instance so this zombie's hit-flash/tint never fights another
+        // zombie sharing the same source material.
+        child.material = child.material.clone()
+        child.material.color.setHex(bodyTint)
+      }
       child.userData.zombie = this
       this.hittableMeshes.push(child)
       this.materials.add(child.material)
@@ -523,19 +536,27 @@ export class Zombie {
     const skin = cfg.skinTones[Math.floor(Math.random() * cfg.skinTones.length)]
     const clothes = cfg.clothesTones[Math.floor(Math.random() * cfg.clothesTones.length)]
 
-    const skinMat = new THREE.MeshStandardMaterial({ color: skin, roughness: 0.98 })
-    const skinMatAlt = new THREE.MeshStandardMaterial({ color: shadeColor(skin, -0.12), roughness: 0.98 })
-    const clothesMat = new THREE.MeshStandardMaterial({ color: clothes, roughness: 1 })
-    const woundMat = new THREE.MeshStandardMaterial({ color: 0x4a0f0f, roughness: 0.75, emissive: 0x2a0505, emissiveIntensity: 0.3 })
-    const grimeMat = new THREE.MeshStandardMaterial({ color: 0x14120f, roughness: 1 })
-    const clawMat = new THREE.MeshStandardMaterial({ color: 0x1a1a16, roughness: 0.6 })
-    const toothMat = new THREE.MeshStandardMaterial({ color: 0xcfc7a8, roughness: 0.5 })
-    const socketMat = new THREE.MeshStandardMaterial({ color: 0x0c0c0a, roughness: 1 })
-    const jointMat = new THREE.MeshStandardMaterial({ color: 0x0a0a08, roughness: 1 })
-    const hairMat = new THREE.MeshStandardMaterial({ color: 0x0f0d0a, roughness: 1 })
-    const hoodMat = new THREE.MeshStandardMaterial({ color: 0x1c211c, roughness: 1 })
-    const hoodInsideMat = new THREE.MeshStandardMaterial({ color: 0x0a0c0a, roughness: 1 })
-    const wetBloodMat = new THREE.MeshStandardMaterial({ color: 0x5a0808, roughness: 0.25, metalness: 0.1 })
+    // LOW_QUALITY_MODE: one shared, cheap MeshLambertMaterial for every
+    // body part instead of ~13 separate PBR materials - see the GLB path's
+    // own note on why (much cheaper per-pixel lighting with ~65 scene
+    // lights, plus literally "1 colour" as asked). Only reachable for the
+    // dinosaur/Titan type or if the GLB zombie model failed to load - the
+    // common case is _buildBodyFromGLB above. QualitySettings.js flag
+    // controls this, real per-part materials untouched below it.
+    const lowQualityMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: skin }) : null
+    const skinMat = lowQualityMat || new THREE.MeshStandardMaterial({ color: skin, roughness: 0.98 })
+    const skinMatAlt = lowQualityMat || new THREE.MeshStandardMaterial({ color: shadeColor(skin, -0.12), roughness: 0.98 })
+    const clothesMat = lowQualityMat || new THREE.MeshStandardMaterial({ color: clothes, roughness: 1 })
+    const woundMat = lowQualityMat || new THREE.MeshStandardMaterial({ color: 0x4a0f0f, roughness: 0.75, emissive: 0x2a0505, emissiveIntensity: 0.3 })
+    const grimeMat = lowQualityMat || new THREE.MeshStandardMaterial({ color: 0x14120f, roughness: 1 })
+    const clawMat = lowQualityMat || new THREE.MeshStandardMaterial({ color: 0x1a1a16, roughness: 0.6 })
+    const toothMat = lowQualityMat || new THREE.MeshStandardMaterial({ color: 0xcfc7a8, roughness: 0.5 })
+    const socketMat = lowQualityMat || new THREE.MeshStandardMaterial({ color: 0x0c0c0a, roughness: 1 })
+    const jointMat = lowQualityMat || new THREE.MeshStandardMaterial({ color: 0x0a0a08, roughness: 1 })
+    const hairMat = lowQualityMat || new THREE.MeshStandardMaterial({ color: 0x0f0d0a, roughness: 1 })
+    const hoodMat = lowQualityMat || new THREE.MeshStandardMaterial({ color: 0x1c211c, roughness: 1 })
+    const hoodInsideMat = lowQualityMat || new THREE.MeshStandardMaterial({ color: 0x0a0c0a, roughness: 1 })
+    const wetBloodMat = lowQualityMat || new THREE.MeshStandardMaterial({ color: 0x5a0808, roughness: 0.25, metalness: 0.1 })
 
     this.hittableMeshes = []
     this.eyeMaterials = []

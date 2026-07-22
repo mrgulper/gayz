@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { registerZone, clearZones } from './Zones.js'
 import { LOOT_WEIGHTS } from './Chests.js'
+import { LOW_QUALITY_MODE } from './QualitySettings.js'
 
 // Cheap procedural grime: speckle noise + a handful of jagged crack/stain
 // strokes baked onto a canvas once, then tiled via RepeatWrapping. Replaces
@@ -1352,7 +1353,12 @@ function buildRoom(scene, register, spec) {
     floorY = 0, // lets this same helper build an underground room (e.g. at SUBWAY_FLOOR_Y) instead of only ground-level ones
     doorSides = [], // [{ side: 'north'|'south'|'east'|'west', width }]
     openSides = [], // ['north', ...] - omit these walls entirely
-    wallMat = new THREE.MeshStandardMaterial({ color: 0x3a3a34, roughness: 0.95 }),
+    // LOW_QUALITY_MODE: cheaper Lambert instead of Standard - already flat-
+    // colored either way (no texture map here), so this is purely about
+    // the lighting-model cost, not appearance.
+    wallMat = LOW_QUALITY_MODE
+      ? new THREE.MeshLambertMaterial({ color: 0x3a3a34 })
+      : new THREE.MeshStandardMaterial({ color: 0x3a3a34, roughness: 0.95 }),
   } = spec
 
   const halfW = w / 2
@@ -4688,10 +4694,21 @@ function addModelBuilding(scene, register, spec, model) {
   const group = model.scene.clone(true)
   const tint = MODEL_TINTS[Math.abs(Math.floor(spec.x + spec.z)) % MODEL_TINTS.length]
   const tintColor = new THREE.Color(tint.mul)
+  // LOW_QUALITY_MODE: one shared, cheap MeshLambertMaterial for the WHOLE
+  // building instead of a cloned-per-mesh textured PBR material per part -
+  // real GPU win (Lambertian diffuse vs. Standard's roughness/metalness
+  // BRDF, evaluated per pixel against ~65 scene lights) plus literally "1
+  // colour per building" as asked. See QualitySettings.js - the real
+  // textured/tinted path below is untouched, just skipped for now.
+  const sharedLowQualityMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: tintColor }) : null
   group.traverse((o) => {
     if (!o.isMesh) return
     o.castShadow = true
     o.receiveShadow = true
+    if (LOW_QUALITY_MODE) {
+      o.material = sharedLowQualityMat
+      return
+    }
     o.material = o.material.clone()
     o.material.color.multiply(tintColor)
     o.material.roughness = tint.roughness
@@ -4918,13 +4935,21 @@ function addBuilding(scene, register, spec) {
   if (model) return addModelBuilding(scene, register, spec, model)
 
   const color = BUILDING_COLORS[Math.floor(Math.abs(spec.x + spec.z)) % BUILDING_COLORS.length]
-  const facadeTex = getFacadeTexture(color).clone()
-  facadeTex.needsUpdate = true
-  facadeTex.repeat.set(Math.max(1, spec.w / 4), Math.max(1, spec.h / 4))
-  const facadeBumpTex = getSharedBumpTexture().clone()
-  facadeBumpTex.needsUpdate = true
-  facadeBumpTex.repeat.copy(facadeTex.repeat)
-  const mat = new THREE.MeshStandardMaterial({ map: facadeTex, bumpMap: facadeBumpTex, bumpScale: 0.035, roughness: 0.95 })
+  // LOW_QUALITY_MODE: flat MeshLambertMaterial, no facade/bump texture
+  // canvases generated at all (real CPU + GPU memory win on top of the
+  // cheaper lighting model) - see QualitySettings.js. Real textured path
+  // untouched below it.
+  const mat = LOW_QUALITY_MODE
+    ? new THREE.MeshLambertMaterial({ color })
+    : (() => {
+        const facadeTex = getFacadeTexture(color).clone()
+        facadeTex.needsUpdate = true
+        facadeTex.repeat.set(Math.max(1, spec.w / 4), Math.max(1, spec.h / 4))
+        const facadeBumpTex = getSharedBumpTexture().clone()
+        facadeBumpTex.needsUpdate = true
+        facadeBumpTex.repeat.copy(facadeTex.repeat)
+        return new THREE.MeshStandardMaterial({ map: facadeTex, bumpMap: facadeBumpTex, bumpScale: 0.035, roughness: 0.95 })
+      })()
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(spec.w, spec.h, spec.d), mat)
   mesh.position.set(spec.x, spec.h / 2, spec.z)
   mesh.castShadow = true
@@ -4943,8 +4968,14 @@ function addBuilding(scene, register, spec) {
     scene.add(rubbleCap)
   }
 
-  addWindows(scene, spec)
-  addIvyOverlay(scene, spec)
+  // LOW_QUALITY_MODE: skip entirely rather than merge/simplify - each
+  // building would otherwise place 10-30+ individual window planes plus an
+  // ivy decal overlay, pure decoration with no gameplay purpose, so the
+  // cheapest and simplest win is not creating them at all for now.
+  if (!LOW_QUALITY_MODE) {
+    addWindows(scene, spec)
+    addIvyOverlay(scene, spec)
+  }
 }
 
 function addWindows(scene, spec) {
