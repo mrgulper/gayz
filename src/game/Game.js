@@ -2659,13 +2659,16 @@ export class Game {
   }
 
   // Trades visual fidelity for frame rate on weaker machines: drops the
-  // most expensive effects (shadows, bloom) and caps the render resolution,
-  // rather than touching gameplay-affecting settings like draw distance.
-  // Base pixel ratio before dynamic resolution scaling (_dynResScale) is
-  // applied on top - see _applyRenderScale, called both from here and from
-  // the continuous per-frame scaler in _tick.
+  // most expensive effects (shadows, bloom) and caps draw/light/shadow
+  // distance (_perfDistanceMult), rather than touching gameplay-affecting
+  // settings. Resolution is no longer part of that trade - confirmed
+  // (2026-07-21) that cutting render resolution all the way down didn't
+  // recover any fps in a genuinely severe case, meaning pixel count isn't
+  // the bottleneck, so capping it below the display's real resolution was
+  // pure downside (blur) for zero benefit. Always renders at the display's
+  // true native pixel ratio now, in and out of Performance Mode alike.
   _basePixelRatio() {
-    return this.settings.performanceMode ? 0.75 : Math.min(window.devicePixelRatio, 1.25)
+    return window.devicePixelRatio
   }
 
   _applyRenderScale() {
@@ -5142,21 +5145,14 @@ export class Game {
       this._fpsFrameCount = 0
       this._fpsLastUpdate = nowFps
 
-      // Dynamic resolution scaling - drop render resolution the instant a
-      // sample runs slow (one bad sample is enough - a real stutter should
-      // get an immediate response), but only claw resolution back up once
-      // fps has real headroom (58+, comfortably under the 60 target), and
-      // slowly, so it doesn't visibly flicker between resolutions whenever
-      // fps is hovering right at the edge.
-      // Floor raised from 0.4 to 0.75 - confirmed (2026-07-21) this doesn't
-      // actually buy back fps when the real bottleneck isn't GPU fill-rate
-      // (dropping all the way to 0.4x resolution didn't move fps at all in
-      // a genuinely severe case), so letting it go that low is pure
-      // downside - a blurry image for zero benefit - the rest of the time.
-      const prevDynResScale = this._dynResScale
-      if (fps < 50) this._dynResScale = Math.max(0.75, this._dynResScale - 0.08)
-      else if (fps > 58) this._dynResScale = Math.min(1, this._dynResScale + 0.03)
-      if (this._dynResScale !== prevDynResScale) this._applyRenderScale()
+      // Dynamic resolution scaling DISABLED (2026-07-21) - confirmed
+      // dropping render resolution all the way down didn't recover any fps
+      // in a genuinely severe real case, meaning pixel count isn't the
+      // bottleneck here, so automatically blurring the image bought
+      // nothing. _dynResScale stays permanently at 1 (full resolution);
+      // left the field/multiplication in _applyRenderScale/_basePixelRatio
+      // in place rather than ripping it out, in case a future case
+      // legitimately needs it back.
 
       if (!this.settings.performanceMode && !this._autoPerfModeTriggered) {
         this._lowFpsStreak = fps < 25 ? this._lowFpsStreak + 1 : 0
