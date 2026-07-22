@@ -849,8 +849,10 @@ function buildPark(scene, colliders, solidMeshes) {
     undergroundHoles, 0.02
   )
 
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x2a1f16, roughness: 1 })
-  const leafMat = new THREE.MeshStandardMaterial({ color: 0x3a4d2a, roughness: 0.9 })
+  // Already flat colors, already shared across every tree instance - only
+  // the lighting-model cost changes under LOW_QUALITY_MODE.
+  const trunkMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: 0x2a1f16 }) : new THREE.MeshStandardMaterial({ color: 0x2a1f16, roughness: 1 })
+  const leafMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: 0x3a4d2a }) : new THREE.MeshStandardMaterial({ color: 0x3a4d2a, roughness: 0.9 })
   // Excludes any tree that used to crowd right up against either stairwell
   // (see the reference-photo feedback that trees/grass right next to the
   // kiosks still read as "the park", not a real stairwell plaza).
@@ -4882,7 +4884,19 @@ function buildWalkableHouse(scene, register, spec) {
 function buildOuterZones(scene, register, cullables, towerChestSpots) {
   let seed = 1000 // offset clear of buildingLayout()'s own 0-20 range
   const lightModel = _propModelCache.get('streetlight.glb')
-  const poleMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.8 })
+  const poleMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: 0x1c1c1c }) : new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.8 })
+
+  // LOW_QUALITY_MODE: same "one shared flat material per instance" trick
+  // as placePropSimple, tinted from the model's own first-mesh color.
+  const _lowQualityMatFor = (clone) => {
+    let firstColor = null
+    clone.traverse((child) => {
+      if (firstColor === null && child.isMesh && child.material && child.material.color) {
+        firstColor = child.material.color.clone()
+      }
+    })
+    return new THREE.MeshLambertMaterial({ color: firstColor || 0x777770 })
+  }
 
   const placeProp = (fileName, x, z, rotY = 0) => {
     const model = _propModelCache.get(fileName)
@@ -4890,11 +4904,12 @@ function buildOuterZones(scene, register, cullables, towerChestSpots) {
     const clone = model.clone(true)
     clone.position.set(x, 0, z)
     clone.rotation.y = rotY
+    const lowQualityMat = LOW_QUALITY_MODE ? _lowQualityMatFor(clone) : null
     clone.traverse((child) => {
       if (!child.isMesh) return
       child.castShadow = true
       child.receiveShadow = true
-      child.material = child.material.clone()
+      child.material = lowQualityMat || child.material.clone()
     })
     scene.add(clone)
     cullables.push(clone)
@@ -4904,10 +4919,11 @@ function buildOuterZones(scene, register, cullables, towerChestSpots) {
     if (lightModel) {
       const clone = lightModel.clone(true)
       clone.position.set(x, 0, z)
+      const lowQualityMat = LOW_QUALITY_MODE ? _lowQualityMatFor(clone) : null
       clone.traverse((child) => {
         if (!child.isMesh) return
         child.castShadow = true
-        child.material = child.material.clone()
+        child.material = lowQualityMat || child.material.clone()
       })
       scene.add(clone)
       register(clone)
@@ -5056,11 +5072,21 @@ function scatterCityProps(scene, colliders, solidMeshes) {
     const clone = model.clone(true)
     clone.position.set(x, 0, z)
     clone.rotation.y = rotY
+    let lowQualityMat = null
+    if (LOW_QUALITY_MODE) {
+      let firstColor = null
+      clone.traverse((child) => {
+        if (firstColor === null && child.isMesh && child.material && child.material.color) {
+          firstColor = child.material.color.clone()
+        }
+      })
+      lowQualityMat = new THREE.MeshLambertMaterial({ color: firstColor || 0x777770 })
+    }
     clone.traverse((child) => {
       if (!child.isMesh) return
       child.castShadow = true
       child.receiveShadow = true
-      child.material = child.material.clone()
+      child.material = lowQualityMat || child.material.clone()
     })
     scene.add(clone)
   }
@@ -5107,7 +5133,7 @@ function scatterDebris(scene) {
 }
 
 function addStreetlights(scene, register, flickerLights) {
-  const poleMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.8 })
+  const poleMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: 0x1c1c1c }) : new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.8 })
   const positions = [
     { x: -3.5, z: -14, flicker: true },
     { x: 3.5, z: 6, flicker: false },
