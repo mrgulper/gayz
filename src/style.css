@@ -1875,6 +1875,36 @@ html, body {
   100% { transform: translate(-2%, 4%); }
 }
 
+/* Falling snow - dots instead of rain's diagonal streaks, drifting mostly
+   straight down and much slower, so it reads as a distinct weather state
+   rather than reskinned rain. Two layers (small/dense + larger/sparser)
+   for the same depth trick rain's own two layers use. */
+#snow-overlay {
+  position: absolute;
+  inset: -20% -10%;
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.55) 1px, transparent 1.5px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.4) 1px, transparent 1.5px);
+  background-size: 40px 60px, 65px 90px;
+  background-position: 0 0, 20px 30px;
+  animation: snow-fall 6s linear infinite;
+}
+
+#snow-overlay::after {
+  content: '';
+  position: absolute;
+  inset: -20% -10%;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.7) 1.5px, transparent 2px);
+  background-size: 90px 130px;
+  background-position: 45px 10px;
+  animation: snow-fall 9s linear infinite reverse;
+}
+
+@keyframes snow-fall {
+  0% { transform: translate(0, -10%); }
+  100% { transform: translate(1%, 10%); }
+}
+
 #nightmare-overlay {
   position: absolute;
   inset: 0;

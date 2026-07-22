@@ -721,6 +721,7 @@ export class Game {
     this.breakerBoxProgressWrap = document.getElementById('breaker-box-progress-wrap')
     this.breakerBoxFill = document.getElementById('breaker-box-fill')
     this.rainOverlayEl = document.getElementById('rain-overlay')
+    this.snowOverlayEl = document.getElementById('snow-overlay')
     this.lightningFlashEl = document.getElementById('lightning-flash')
     this.nextLightningAt = 0
     this.fogPatch = null
@@ -4221,12 +4222,18 @@ export class Game {
     this.eventTriggeredForNight = false
   }
 
-  // Rolled once per night-round: a chance of rain for the whole round,
-  // lower visibility (see the fog scaling in _tick) plus the rain-on-lens
-  // overlay.
+  // Rolled once per night-round: a chance of rain OR snow for the whole
+  // round (mutually exclusive - one weather state at a time), lower
+  // visibility (see the fog scaling in _applyFogState) plus the matching
+  // screen overlay. Snow is deliberately lighter than rain (no thunder,
+  // smaller fog reduction) so it reads as a calmer, colder night rather
+  // than reskinned rain.
   _rollWeather() {
-    this.raining = Math.random() < 0.35
+    const roll = Math.random()
+    this.raining = roll < 0.3
+    this.snowing = !this.raining && roll < 0.45
     this.rainOverlayEl.style.display = this.raining ? 'block' : 'none'
+    this.snowOverlayEl.style.display = this.snowing ? 'block' : 'none'
     this.nextLightningAt = this.raining ? performance.now() + LIGHTNING_MIN_DELAY_MS + Math.random() * LIGHTNING_DELAY_RANGE_MS : 0
   }
 
@@ -4261,6 +4268,7 @@ export class Game {
   _applyFogState() {
     let mult = 1
     if (this.raining) mult *= 0.6
+    if (this.snowing) mult *= 0.75
     if (this.fogPatch) {
       const pos = this.player.controls.object.position
       const dist = Math.hypot(pos.x - this.fogPatch.x, pos.z - this.fogPatch.z)
