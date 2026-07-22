@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { flatMaterial } from './QualitySettings.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js'
 
@@ -79,9 +80,9 @@ export class PlayerBody {
   }
 
   _buildBodyProcedural() {
-    const jacketMat = new THREE.MeshStandardMaterial({ color: 0x2a2f3a, roughness: 0.85 })
-    const skinMat = new THREE.MeshStandardMaterial({ color: 0xd8ab7d, roughness: 0.9 })
-    const pantsMat = new THREE.MeshStandardMaterial({ color: 0x24241f, roughness: 0.9 })
+    const jacketMat = flatMaterial({ color: 0x2a2f3a, roughness: 0.85 })
+    const skinMat = flatMaterial({ color: 0xd8ab7d, roughness: 0.9 })
+    const pantsMat = flatMaterial({ color: 0x24241f, roughness: 0.9 })
 
     const torso = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.6, 0.26), jacketMat)
     torso.position.y = 1.15

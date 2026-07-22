@@ -1,9 +1,10 @@
 import * as THREE from 'three'
+import { flatMaterial } from './QualitySettings.js'
 
 const PICKUP_RADIUS = 1.6
 const EXPIRE_MS = 20000
 
-const gemMat = new THREE.MeshStandardMaterial({
+const gemMat = flatMaterial({
   color: 0x1c3a4a,
   emissive: 0x4fd1e8,
   emissiveIntensity: 1.6,

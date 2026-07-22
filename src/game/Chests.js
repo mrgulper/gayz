@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { flatMaterial } from './QualitySettings.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js'
 
@@ -139,7 +140,7 @@ class Chest {
     // Status LEDs (red locked / green unlocked) - not part of the source
     // model, added as small emissive boxes near the front so there's still
     // an at-a-glance "has this been opened" cue like the old crate had.
-    this.indicatorMat = new THREE.MeshStandardMaterial({ color: 0x1a0505, emissive: 0xff2a1e, emissiveIntensity: 0.9 })
+    this.indicatorMat = flatMaterial({ color: 0x1a0505, emissive: 0xff2a1e, emissiveIntensity: 0.9 })
     for (const side of [-0.16, 0.16]) {
       const light = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.035, 0.02), this.indicatorMat)
       light.position.set(side, 0.42, 0.36)
@@ -148,10 +149,10 @@ class Chest {
   }
 
   _buildProcedural() {
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x4b5333, roughness: 0.85 })
-    const trimMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1a, roughness: 0.55, metalness: 0.45 })
-    const stencilMat = new THREE.MeshStandardMaterial({ map: buildStencilTexture(), roughness: 0.8 })
-    this.indicatorMat = new THREE.MeshStandardMaterial({ color: 0x1a0505, emissive: 0xff2a1e, emissiveIntensity: 0.9 })
+    const bodyMat = flatMaterial({ color: 0x4b5333, roughness: 0.85 })
+    const trimMat = flatMaterial({ color: 0x1c1c1a, roughness: 0.55, metalness: 0.45 })
+    const stencilMat = flatMaterial({ map: buildStencilTexture(), roughness: 0.8 })
+    this.indicatorMat = flatMaterial({ color: 0x1a0505, emissive: 0xff2a1e, emissiveIntensity: 0.9 })
 
     const half = CRATE_W / 2
     const halfD = CRATE_D / 2
@@ -335,17 +336,17 @@ export class Vault {
     // Same door-local coordinates the procedural version used for this
     // light (added the same way, as a direct child of this.door - not
     // reparented via attach(), so these are plain local offsets).
-    this.indicatorMat = new THREE.MeshStandardMaterial({ color: 0x1a0505, emissive: 0xff2a1e, emissiveIntensity: 0.9 })
+    this.indicatorMat = flatMaterial({ color: 0x1a0505, emissive: 0xff2a1e, emissiveIntensity: 0.9 })
     const light = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 10), this.indicatorMat)
     light.position.set(0, VAULT_H - 0.15, VAULT_D / 2 + 0.07)
     this.door.add(light)
   }
 
   _buildProcedural() {
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3a3d40, roughness: 0.5, metalness: 0.6 })
-    const trimMat = new THREE.MeshStandardMaterial({ color: 0x17181a, roughness: 0.5, metalness: 0.6 })
-    const dialMat = new THREE.MeshStandardMaterial({ color: 0xc9b34a, roughness: 0.35, metalness: 0.7 })
-    this.indicatorMat = new THREE.MeshStandardMaterial({ color: 0x1a0505, emissive: 0xff2a1e, emissiveIntensity: 0.9 })
+    const bodyMat = flatMaterial({ color: 0x3a3d40, roughness: 0.5, metalness: 0.6 })
+    const trimMat = flatMaterial({ color: 0x17181a, roughness: 0.5, metalness: 0.6 })
+    const dialMat = flatMaterial({ color: 0xc9b34a, roughness: 0.35, metalness: 0.7 })
+    this.indicatorMat = flatMaterial({ color: 0x1a0505, emissive: 0xff2a1e, emissiveIntensity: 0.9 })
 
     const half = VAULT_D / 2
 

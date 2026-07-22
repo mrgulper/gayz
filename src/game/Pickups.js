@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { flatMaterial } from './QualitySettings.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { buildMinigunModel } from './Viewmodels.js'
 
@@ -49,29 +50,29 @@ function buildVisual(type) {
   const group = new THREE.Group()
 
   if (type === 'health') {
-    const mat = new THREE.MeshStandardMaterial({ color: 0x8f1414, emissive: 0xff3b3b, emissiveIntensity: 0.9 })
+    const mat = flatMaterial({ color: 0x8f1414, emissive: 0xff3b3b, emissiveIntensity: 0.9 })
     const vBar = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.6, 0.16), mat)
     const hBar = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.16, 0.16), mat)
     group.add(vBar, hBar)
   } else if (type === 'ammo') {
-    const mat = new THREE.MeshStandardMaterial({ color: 0x7a6a2a, emissive: 0xd4af37, emissiveIntensity: 0.5, roughness: 0.6 })
+    const mat = flatMaterial({ color: 0x7a6a2a, emissive: 0xd4af37, emissiveIntensity: 0.5, roughness: 0.6 })
     const crate = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.4, 0.4), mat)
     group.add(crate)
   } else if (type === 'armor') {
-    const mat = new THREE.MeshStandardMaterial({ color: 0x1c4a6b, emissive: 0x3fa9f5, emissiveIntensity: 0.9 })
+    const mat = flatMaterial({ color: 0x1c4a6b, emissive: 0x3fa9f5, emissiveIntensity: 0.9 })
     const shield = new THREE.Mesh(new THREE.OctahedronGeometry(0.38, 0), mat)
     group.add(shield)
   } else if (type === 'battery') {
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2a2a28, roughness: 0.4, metalness: 0.6 })
-    const capMat = new THREE.MeshStandardMaterial({ color: 0xf2c14e, emissive: 0xf2c14e, emissiveIntensity: 0.9 })
+    const bodyMat = flatMaterial({ color: 0x2a2a28, roughness: 0.4, metalness: 0.6 })
+    const capMat = flatMaterial({ color: 0xf2c14e, emissive: 0xf2c14e, emissiveIntensity: 0.9 })
     const body = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.45, 12), bodyMat)
     group.add(body)
     const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.08, 12), capMat)
     cap.position.y = 0.26
     group.add(cap)
   } else if (type === 'noisemaker') {
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x8a8478, roughness: 0.5, metalness: 0.4 })
-    const pinMat = new THREE.MeshStandardMaterial({ color: 0xd8cfa0, emissive: 0xd8cfa0, emissiveIntensity: 0.6 })
+    const bodyMat = flatMaterial({ color: 0x8a8478, roughness: 0.5, metalness: 0.4 })
+    const pinMat = flatMaterial({ color: 0xd8cfa0, emissive: 0xd8cfa0, emissiveIntensity: 0.6 })
     const body = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.32, 10), bodyMat)
     group.add(body)
     const pin = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.015, 6, 12), pinMat)
@@ -88,8 +89,8 @@ function buildVisual(type) {
       })
       group.add(clone)
     } else {
-      const bodyMat = new THREE.MeshStandardMaterial({ color: 0xb03a2a, roughness: 0.55, metalness: 0.3 })
-      const capMat = new THREE.MeshStandardMaterial({ color: 0x2a2a28, roughness: 0.4, metalness: 0.6 })
+      const bodyMat = flatMaterial({ color: 0xb03a2a, roughness: 0.55, metalness: 0.3 })
+      const capMat = flatMaterial({ color: 0x2a2a28, roughness: 0.4, metalness: 0.6 })
       const body = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.36, 0.18), bodyMat)
       group.add(body)
       const spout = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.12, 10), capMat)
@@ -98,8 +99,8 @@ function buildVisual(type) {
       group.add(spout)
     }
   } else if (type === 'grenade') {
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3a4a2e, roughness: 0.6, metalness: 0.3 })
-    const pinMat = new THREE.MeshStandardMaterial({ color: 0xc9b34a, roughness: 0.4, metalness: 0.6 })
+    const bodyMat = flatMaterial({ color: 0x3a4a2e, roughness: 0.6, metalness: 0.3 })
+    const pinMat = flatMaterial({ color: 0xc9b34a, roughness: 0.4, metalness: 0.6 })
     const body = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 10), bodyMat)
     group.add(body)
     const lever = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.18, 0.03), pinMat)
@@ -109,13 +110,13 @@ function buildVisual(type) {
     pin.position.set(0.16, 0.2, 0)
     group.add(pin)
   } else if (type === 'melee_bat') {
-    const woodMat = new THREE.MeshStandardMaterial({ color: 0x8a6a3a, roughness: 0.7 })
+    const woodMat = flatMaterial({ color: 0x8a6a3a, roughness: 0.7 })
     const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.025, 0.5, 10), woodMat)
     barrel.rotation.z = Math.PI / 2 - 0.3
     group.add(barrel)
   } else if (type === 'melee_machete') {
-    const bladeMat = new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.35, metalness: 0.8 })
-    const gripMat = new THREE.MeshStandardMaterial({ color: 0x2a1e14, roughness: 0.9 })
+    const bladeMat = flatMaterial({ color: 0x9aa0a6, roughness: 0.35, metalness: 0.8 })
+    const gripMat = flatMaterial({ color: 0x2a1e14, roughness: 0.9 })
     const blade = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.016, 0.4), bladeMat)
     blade.rotation.y = 0.3
     group.add(blade)
@@ -124,8 +125,8 @@ function buildVisual(type) {
     grip.position.set(0, 0, 0.26)
     group.add(grip)
   } else if (type === 'melee_uvbaton') {
-    const shaftMat = new THREE.MeshStandardMaterial({ color: 0x2b2b2d, roughness: 0.5, metalness: 0.5 })
-    const tipMat = new THREE.MeshStandardMaterial({ color: 0x2a0a44, emissive: 0x8b2fe0, emissiveIntensity: 2.0 })
+    const shaftMat = flatMaterial({ color: 0x2b2b2d, roughness: 0.5, metalness: 0.5 })
+    const tipMat = flatMaterial({ color: 0x2a0a44, emissive: 0x8b2fe0, emissiveIntensity: 2.0 })
     const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.34, 10), shaftMat)
     shaft.rotation.z = Math.PI / 2
     group.add(shaft)
@@ -134,8 +135,8 @@ function buildVisual(type) {
     tip.position.set(0.24, 0, 0)
     group.add(tip)
   } else if (type === 'scope') {
-    const tubeMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1a, roughness: 0.3, metalness: 0.7 })
-    const lensMat = new THREE.MeshStandardMaterial({ color: 0x2a5a6b, emissive: 0x4fd1e8, emissiveIntensity: 0.8 })
+    const tubeMat = flatMaterial({ color: 0x1c1c1a, roughness: 0.3, metalness: 0.7 })
+    const lensMat = flatMaterial({ color: 0x2a5a6b, emissive: 0x4fd1e8, emissiveIntensity: 0.8 })
     const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.42, 12), tubeMat)
     tube.rotation.z = Math.PI / 2
     group.add(tube)
@@ -144,19 +145,19 @@ function buildVisual(type) {
     lens.position.x = 0.2
     group.add(lens)
   } else if (type === 'extended_mag') {
-    const mat = new THREE.MeshStandardMaterial({ color: 0x2a2a28, roughness: 0.4, metalness: 0.6 })
-    const accentMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, emissive: 0xd4af37, emissiveIntensity: 0.4 })
+    const mat = flatMaterial({ color: 0x2a2a28, roughness: 0.4, metalness: 0.6 })
+    const accentMat = flatMaterial({ color: 0xd4af37, emissive: 0xd4af37, emissiveIntensity: 0.4 })
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.5, 0.1), mat)
     group.add(body)
     const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.145, 0.06, 0.105), accentMat)
     stripe.position.y = 0.05
     group.add(stripe)
   } else if (type.startsWith('audiolog')) {
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2c2c2a, roughness: 0.6, metalness: 0.3 })
-    const lightMat = new THREE.MeshStandardMaterial({ color: 0xff3b3b, emissive: 0xff3b3b, emissiveIntensity: 1.2 })
+    const bodyMat = flatMaterial({ color: 0x2c2c2a, roughness: 0.6, metalness: 0.3 })
+    const lightMat = flatMaterial({ color: 0xff3b3b, emissive: 0xff3b3b, emissiveIntensity: 1.2 })
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.2, 0.24), bodyMat)
     group.add(body)
-    const speaker = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.03, 12), new THREE.MeshStandardMaterial({ color: 0x111110, roughness: 0.8 }))
+    const speaker = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.03, 12), flatMaterial({ color: 0x111110, roughness: 0.8 }))
     speaker.rotation.z = Math.PI / 2
     speaker.position.set(0.1, 0, 0.13)
     group.add(speaker)
@@ -173,7 +174,7 @@ function buildVisual(type) {
     // a faint light pillar, visible well before you're close enough to read
     // the gun shape itself.
     const beaconMat = new THREE.MeshBasicMaterial({ color: 0xffcf5c, transparent: true, opacity: 0.35 })
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.03, 8, 24), new THREE.MeshStandardMaterial({ color: 0x3a2f10, emissive: 0xffcf5c, emissiveIntensity: 1.1 }))
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.03, 8, 24), flatMaterial({ color: 0x3a2f10, emissive: 0xffcf5c, emissiveIntensity: 1.1 }))
     ring.rotation.x = Math.PI / 2
     ring.position.y = -0.35
     group.add(ring)
@@ -182,7 +183,7 @@ function buildVisual(type) {
     beam.position.y = 1.3
     group.add(beam)
   } else if (type === 'vaultkey') {
-    const goldMat = new THREE.MeshStandardMaterial({ color: 0x3a2f10, emissive: 0xffcf5c, emissiveIntensity: 1.4, roughness: 0.35, metalness: 0.6 })
+    const goldMat = flatMaterial({ color: 0x3a2f10, emissive: 0xffcf5c, emissiveIntensity: 1.4, roughness: 0.35, metalness: 0.6 })
     const bow = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.03, 8, 16), goldMat)
     bow.rotation.y = Math.PI / 2
     group.add(bow)
@@ -200,7 +201,7 @@ function buildVisual(type) {
     // to catch the eye from a distance without overselling a small
     // key-sized pickup.
     const beaconMat = new THREE.MeshBasicMaterial({ color: 0xffcf5c, transparent: true, opacity: 0.3 })
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.02, 8, 24), new THREE.MeshStandardMaterial({ color: 0x3a2f10, emissive: 0xffcf5c, emissiveIntensity: 1.0 }))
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.02, 8, 24), flatMaterial({ color: 0x3a2f10, emissive: 0xffcf5c, emissiveIntensity: 1.0 }))
     ring.rotation.x = Math.PI / 2
     ring.position.y = -0.25
     group.add(ring)

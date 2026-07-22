@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { flatMaterial } from './QualitySettings.js'
 
 // Obsidian Ops-style defense mini-game: fixed boarded-window chokepoints
 // along the street. Zombies that wander close enough tear a plank off over
@@ -20,9 +21,9 @@ const REPAIR_RADIUS = 3.5
 export const REPAIR_REWARD_POINTS = 10
 export const REPAIR_REWARD_CAP_PER_ROUND = 100
 
-const FRAME_MAT = new THREE.MeshStandardMaterial({ color: 0x1e1a14, roughness: 0.9 })
-const PLANK_MAT = new THREE.MeshStandardMaterial({ color: 0x4a3a24, roughness: 0.85 })
-const BREACH_GLOW_MAT = new THREE.MeshStandardMaterial({ color: 0x120302, emissive: 0x5a0e08, emissiveIntensity: 0.8, roughness: 1 })
+const FRAME_MAT = flatMaterial({ color: 0x1e1a14, roughness: 0.9 })
+const PLANK_MAT = flatMaterial({ color: 0x4a3a24, roughness: 0.85 })
+const BREACH_GLOW_MAT = flatMaterial({ color: 0x120302, emissive: 0x5a0e08, emissiveIntensity: 0.8, roughness: 1 })
 
 export class BarricadeWindows {
   constructor(scene, positions) {

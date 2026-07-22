@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { flatMaterial } from './QualitySettings.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js'
 
@@ -71,7 +72,7 @@ export class RescueSurvivor {
     }
 
     const headBone = cloned.getObjectByName('Head')
-    const signalMat = new THREE.MeshStandardMaterial({ color: 0x1a1a10, emissive: 0xffcf5c, emissiveIntensity: 1.2 })
+    const signalMat = flatMaterial({ color: 0x1a1a10, emissive: 0xffcf5c, emissiveIntensity: 1.2 })
     const signal = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 10), signalMat)
     signal.position.set(0, 0.35, 0)
     if (headBone) {
@@ -84,9 +85,9 @@ export class RescueSurvivor {
   }
 
   _buildProcedural() {
-    const clothMat = new THREE.MeshStandardMaterial({ color: 0x6b6255, roughness: 0.9 })
-    const skinMat = new THREE.MeshStandardMaterial({ color: 0xc9a077, roughness: 0.9 })
-    const signalMat = new THREE.MeshStandardMaterial({ color: 0x1a1a10, emissive: 0xffcf5c, emissiveIntensity: 1.2 })
+    const clothMat = flatMaterial({ color: 0x6b6255, roughness: 0.9 })
+    const skinMat = flatMaterial({ color: 0xc9a077, roughness: 0.9 })
+    const signalMat = flatMaterial({ color: 0x1a1a10, emissive: 0xffcf5c, emissiveIntensity: 1.2 })
 
     const torso = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.5, 0.26), clothMat)
     torso.position.y = 0.55

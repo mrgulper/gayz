@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { flatMaterial } from './QualitySettings.js'
 
 const BLADE_RADIUS = 1.7
 const BLADE_BASE_DAMAGE = 6
@@ -42,14 +43,14 @@ const BLADE_EVOLVED_RADIUS_MULT = 1.3
 const BLADE_EVOLVED_SPIN_MULT = 1.5
 
 const bladeGeo = new THREE.OctahedronGeometry(0.28, 0)
-const bladeMat = new THREE.MeshStandardMaterial({
+const bladeMat = flatMaterial({
   color: 0x555555,
   emissive: 0x66d9ff,
   emissiveIntensity: 1.4,
   metalness: 0.6,
   roughness: 0.3,
 })
-const bladeMatEvolved = new THREE.MeshStandardMaterial({
+const bladeMatEvolved = flatMaterial({
   color: 0x551a1a,
   emissive: 0xff3b3b,
   emissiveIntensity: 1.8,
@@ -58,12 +59,12 @@ const bladeMatEvolved = new THREE.MeshStandardMaterial({
 })
 
 const shotGeo = new THREE.SphereGeometry(0.12, 10, 10)
-const shotMat = new THREE.MeshStandardMaterial({
+const shotMat = flatMaterial({
   color: 0x1c0a0a,
   emissive: 0xff5c5c,
   emissiveIntensity: 1.8,
 })
-const shotMatEvolved = new THREE.MeshStandardMaterial({
+const shotMatEvolved = flatMaterial({
   color: 0x0a1c1a,
   emissive: 0x5cffe0,
   emissiveIntensity: 2.2,

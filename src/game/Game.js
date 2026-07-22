@@ -4,7 +4,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { buildWorld, WORLD_CULL_DISTANCE, WORLD_SHADOW_CULL_DISTANCE } from './World.js'
-import { LOW_QUALITY_MODE } from './QualitySettings.js'
+import { LOW_QUALITY_MODE, flatMaterial } from './QualitySettings.js'
 import { PlayerController } from './PlayerController.js'
 import { WeaponSystem } from './WeaponSystem.js'
 import { ZombieManager } from './ZombieManager.js'
@@ -1014,7 +1014,7 @@ export class Game {
     this.kothActive = false
     this.kothZone = { x: KOTH_SPOTS[0].x, z: KOTH_SPOTS[0].z }
     this.kothProgress = 0
-    const kothMarkerMat = new THREE.MeshStandardMaterial({
+    const kothMarkerMat = flatMaterial({
       color: 0x3a2f10,
       emissive: 0xffcf5c,
       emissiveIntensity: 0.9,
@@ -1031,7 +1031,7 @@ export class Game {
     this.extractionActive = false
     this.extractionProgress = 0
     this.extractionNextSurgeAt = 0
-    const extractionMarkerMat = new THREE.MeshStandardMaterial({
+    const extractionMarkerMat = flatMaterial({
       color: 0x0f3a2a,
       emissive: 0x6fe08a,
       emissiveIntensity: 0.9,
@@ -2028,7 +2028,7 @@ export class Game {
     const z = playerPos.z + this._camDir.z * BARRICADE_PLACE_DIST
     const heading = Math.atan2(this._camDir.x, this._camDir.z)
 
-    const mat = new THREE.MeshStandardMaterial({ color: 0x4a3c2a, roughness: 0.9 })
+    const mat = flatMaterial({ color: 0x4a3c2a, roughness: 0.9 })
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(BARRICADE_W, BARRICADE_H, BARRICADE_D), mat)
     mesh.position.set(x, BARRICADE_H / 2, z)
     mesh.rotation.y = heading
@@ -2056,7 +2056,7 @@ export class Game {
     const x = playerPos.x + this._camDir.x * TRAP_PLACE_DIST
     const z = playerPos.z + this._camDir.z * TRAP_PLACE_DIST
 
-    const mat = new THREE.MeshStandardMaterial({ color: 0x3a0a0a, emissive: 0xff2a1e, emissiveIntensity: 0.9, roughness: 0.6 })
+    const mat = flatMaterial({ color: 0x3a0a0a, emissive: 0xff2a1e, emissiveIntensity: 0.9, roughness: 0.6 })
     const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.06, 12), mat)
     mesh.position.set(x, 0.03, z)
     this.scene.add(mesh)
@@ -2110,8 +2110,8 @@ export class Game {
       this._removeDeathObstacle(oldest)
     }
 
-    const baseMat = new THREE.MeshStandardMaterial({ color: 0x3a2a24, roughness: 0.95 })
-    const chunkMat = new THREE.MeshStandardMaterial({ color: 0x2c211c, roughness: 0.95 })
+    const baseMat = flatMaterial({ color: 0x3a2a24, roughness: 0.95 })
+    const chunkMat = flatMaterial({ color: 0x2c211c, roughness: 0.95 })
     const group = new THREE.Group()
     group.position.set(x, 0, z)
 
@@ -2162,7 +2162,7 @@ export class Game {
   _spawnHazardZone(type, x, z) {
     const isGas = type === 'gas'
     const color = isGas ? 0x5fcf4a : 0x4ecfff
-    const mat = new THREE.MeshStandardMaterial({
+    const mat = flatMaterial({
       color,
       emissive: color,
       emissiveIntensity: 1.6,
@@ -4239,8 +4239,8 @@ export class Game {
     // _updateAirdrop's fall animation. Toned way down from the old
     // constant emissiveIntensity 1.6 cone + intensity 1.6 point light,
     // which lit up the whole street around it.
-    const crateMat = new THREE.MeshStandardMaterial({ color: 0x3a3226, roughness: 0.85 })
-    const trimMat = new THREE.MeshStandardMaterial({ color: 0x2a2018, roughness: 0.7, metalness: 0.3, emissive: 0xffe680, emissiveIntensity: 0.35 })
+    const crateMat = flatMaterial({ color: 0x3a3226, roughness: 0.85 })
+    const trimMat = flatMaterial({ color: 0x2a2018, roughness: 0.7, metalness: 0.3, emissive: 0xffe680, emissiveIntensity: 0.35 })
     const mesh = new THREE.Group()
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 0.9), crateMat)
     mesh.add(body)
@@ -4721,7 +4721,7 @@ export class Game {
     beam.beam.rotation.z = 0.3 // sags instead of standing straight once it's given way
     beam.warnMark.visible = false
 
-    const rubbleMat = new THREE.MeshStandardMaterial({ color: 0x352c22, roughness: 1 })
+    const rubbleMat = flatMaterial({ color: 0x352c22, roughness: 1 })
     for (const [rx, s] of [[-0.9, 0.45], [-0.5, 0.3], [-1.2, 0.35]]) {
       const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(s), rubbleMat)
       rock.position.set(beam.x + rx, beam.floorY + s * 0.6, beam.z + (Math.random() - 0.5) * 0.6)

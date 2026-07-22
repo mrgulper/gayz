@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { flatMaterial } from './QualitySettings.js'
 import { Zombie } from './Zombie.js'
 import { pickZombieType, ZOMBIE_TYPES } from './ZombieTypes.js'
 import { audioEngine } from './Audio.js'
@@ -77,13 +78,13 @@ const ROUND_MAX_SPAWN_COUNT = 50
 const ROUND_HEALTH_RAMP_START = 10
 const ROUND_HEALTH_RAMP_MULT = 1.1
 
-const projectileMat = new THREE.MeshStandardMaterial({
+const projectileMat = flatMaterial({
   color: 0x2f4a12,
   emissive: 0x9fe23f,
   emissiveIntensity: 1.8,
 })
 
-const noisemakerMat = new THREE.MeshStandardMaterial({
+const noisemakerMat = flatMaterial({
   color: 0x8a8478,
   emissive: 0xd8cfa0,
   emissiveIntensity: 0.4,
@@ -91,20 +92,20 @@ const noisemakerMat = new THREE.MeshStandardMaterial({
   metalness: 0.4,
 })
 
-const grenadeMat = new THREE.MeshStandardMaterial({
+const grenadeMat = flatMaterial({
   color: 0x3a4a2e,
   roughness: 0.6,
   metalness: 0.3,
 })
 
-const molotovMat = new THREE.MeshStandardMaterial({
+const molotovMat = flatMaterial({
   color: 0x3a2a1a,
   emissive: 0xff6a1a,
   emissiveIntensity: 0.6,
   roughness: 0.4,
 })
 
-const fireZoneMat = new THREE.MeshStandardMaterial({
+const fireZoneMat = flatMaterial({
   color: 0xff4a1a,
   emissive: 0xff6a1a,
   emissiveIntensity: 2,
@@ -113,7 +114,7 @@ const fireZoneMat = new THREE.MeshStandardMaterial({
   side: THREE.DoubleSide,
 })
 
-const c4Mat = new THREE.MeshStandardMaterial({
+const c4Mat = flatMaterial({
   color: 0x2a2a2a,
   emissive: 0xff2222,
   emissiveIntensity: 0.5,
@@ -121,7 +122,7 @@ const c4Mat = new THREE.MeshStandardMaterial({
   metalness: 0.4,
 })
 
-const empMat = new THREE.MeshStandardMaterial({
+const empMat = flatMaterial({
   color: 0x2a3a44,
   emissive: 0x4ecfff,
   emissiveIntensity: 1.2,
@@ -783,7 +784,7 @@ export class ZombieManager {
   }
 
   _spawnExplosionFX(x, z) {
-    const mat = new THREE.MeshStandardMaterial({
+    const mat = flatMaterial({
       color: 0xffcc66,
       emissive: 0xffaa33,
       emissiveIntensity: 3,
@@ -854,7 +855,7 @@ export class ZombieManager {
   }
 
   _spawnEmpBurstFX(x, z) {
-    const mat = new THREE.MeshStandardMaterial({
+    const mat = flatMaterial({
       color: 0x4ecfff,
       emissive: 0x4ecfff,
       emissiveIntensity: 3,
@@ -903,7 +904,7 @@ export class ZombieManager {
   }
 
   _spawnScreamFX(x, z) {
-    const mat = new THREE.MeshStandardMaterial({
+    const mat = flatMaterial({
       color: 0xb060e0,
       emissive: 0xb060e0,
       emissiveIntensity: 2.5,

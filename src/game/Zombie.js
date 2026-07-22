@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { accessibility } from './Accessibility.js'
-import { LOW_QUALITY_MODE } from './QualitySettings.js'
+import { LOW_QUALITY_MODE, flatMaterial } from './QualitySettings.js'
 
 // Phase 1 of the 3D asset overhaul (see 3D_ASSET_OVERHAUL.md) - real rigged
 // GLB zombie behind a flag, alongside the original procedural builder, so
@@ -466,7 +466,7 @@ export class Zombie {
   _addGlbFxSphere(root, boneName, { radius, color, emissive, emissiveIntensity, localY = 0, squash = null }) {
     const bone = root.getObjectByName(boneName)
     if (!bone) return null
-    const mat = new THREE.MeshStandardMaterial({ color, emissive, emissiveIntensity, roughness: 0.65 })
+    const mat = flatMaterial({ color, emissive, emissiveIntensity, roughness: 0.65 })
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(radius, 8, 8), mat)
     mesh.position.set(0, localY, 0)
     if (squash) mesh.scale.set(squash[0], squash[1], squash[2])
@@ -544,19 +544,19 @@ export class Zombie {
     // common case is _buildBodyFromGLB above. QualitySettings.js flag
     // controls this, real per-part materials untouched below it.
     const lowQualityMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: skin }) : null
-    const skinMat = lowQualityMat || new THREE.MeshStandardMaterial({ color: skin, roughness: 0.98 })
-    const skinMatAlt = lowQualityMat || new THREE.MeshStandardMaterial({ color: shadeColor(skin, -0.12), roughness: 0.98 })
-    const clothesMat = lowQualityMat || new THREE.MeshStandardMaterial({ color: clothes, roughness: 1 })
-    const woundMat = lowQualityMat || new THREE.MeshStandardMaterial({ color: 0x4a0f0f, roughness: 0.75, emissive: 0x2a0505, emissiveIntensity: 0.3 })
-    const grimeMat = lowQualityMat || new THREE.MeshStandardMaterial({ color: 0x14120f, roughness: 1 })
-    const clawMat = lowQualityMat || new THREE.MeshStandardMaterial({ color: 0x1a1a16, roughness: 0.6 })
-    const toothMat = lowQualityMat || new THREE.MeshStandardMaterial({ color: 0xcfc7a8, roughness: 0.5 })
-    const socketMat = lowQualityMat || new THREE.MeshStandardMaterial({ color: 0x0c0c0a, roughness: 1 })
-    const jointMat = lowQualityMat || new THREE.MeshStandardMaterial({ color: 0x0a0a08, roughness: 1 })
-    const hairMat = lowQualityMat || new THREE.MeshStandardMaterial({ color: 0x0f0d0a, roughness: 1 })
-    const hoodMat = lowQualityMat || new THREE.MeshStandardMaterial({ color: 0x1c211c, roughness: 1 })
-    const hoodInsideMat = lowQualityMat || new THREE.MeshStandardMaterial({ color: 0x0a0c0a, roughness: 1 })
-    const wetBloodMat = lowQualityMat || new THREE.MeshStandardMaterial({ color: 0x5a0808, roughness: 0.25, metalness: 0.1 })
+    const skinMat = lowQualityMat || flatMaterial({ color: skin, roughness: 0.98 })
+    const skinMatAlt = lowQualityMat || flatMaterial({ color: shadeColor(skin, -0.12), roughness: 0.98 })
+    const clothesMat = lowQualityMat || flatMaterial({ color: clothes, roughness: 1 })
+    const woundMat = lowQualityMat || flatMaterial({ color: 0x4a0f0f, roughness: 0.75, emissive: 0x2a0505, emissiveIntensity: 0.3 })
+    const grimeMat = lowQualityMat || flatMaterial({ color: 0x14120f, roughness: 1 })
+    const clawMat = lowQualityMat || flatMaterial({ color: 0x1a1a16, roughness: 0.6 })
+    const toothMat = lowQualityMat || flatMaterial({ color: 0xcfc7a8, roughness: 0.5 })
+    const socketMat = lowQualityMat || flatMaterial({ color: 0x0c0c0a, roughness: 1 })
+    const jointMat = lowQualityMat || flatMaterial({ color: 0x0a0a08, roughness: 1 })
+    const hairMat = lowQualityMat || flatMaterial({ color: 0x0f0d0a, roughness: 1 })
+    const hoodMat = lowQualityMat || flatMaterial({ color: 0x1c211c, roughness: 1 })
+    const hoodInsideMat = lowQualityMat || flatMaterial({ color: 0x0a0c0a, roughness: 1 })
+    const wetBloodMat = lowQualityMat || flatMaterial({ color: 0x5a0808, roughness: 0.25, metalness: 0.1 })
 
     this.hittableMeshes = []
     this.eyeMaterials = []
@@ -600,7 +600,7 @@ export class Zombie {
     }
 
     if (this.config.ranged) {
-      const bellyMat = new THREE.MeshStandardMaterial({
+      const bellyMat = flatMaterial({
         color: 0x1a2408,
         emissive: 0x9fe23f,
         emissiveIntensity: 1.1,
@@ -614,7 +614,7 @@ export class Zombie {
     }
 
     if (this.config.screams) {
-      const throatMat = new THREE.MeshStandardMaterial({
+      const throatMat = flatMaterial({
         color: 0x3a1a44,
         emissive: 0xb060e0,
         emissiveIntensity: 0.9,
@@ -629,7 +629,7 @@ export class Zombie {
     }
 
     if (this.config.explodes) {
-      const bloatMat = new THREE.MeshStandardMaterial({
+      const bloatMat = flatMaterial({
         color: 0x3a4a12,
         emissive: 0xaadd44,
         emissiveIntensity: 0.7,
@@ -731,7 +731,7 @@ export class Zombie {
       socket.position.set(side * 0.08, 0.04, 0.16)
       this.head.add(socket)
 
-      const eyeMat = new THREE.MeshStandardMaterial({ color: 0xc8d0d0, emissive: 0xd8e8ff, emissiveIntensity: 1.5 })
+      const eyeMat = flatMaterial({ color: 0xc8d0d0, emissive: 0xd8e8ff, emissiveIntensity: 1.5 })
       const eye = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 8), eyeMat)
       eye.position.set(side * 0.08, 0.04, 0.175)
       this.head.add(eye)
@@ -885,7 +885,7 @@ export class Zombie {
     elbow.add(lower)
 
     if (withClaws) {
-      const wetBloodMat = new THREE.MeshStandardMaterial({ color: 0x5a0808, roughness: 0.25, metalness: 0.1 })
+      const wetBloodMat = flatMaterial({ color: 0x5a0808, roughness: 0.25, metalness: 0.1 })
       for (let i = -1; i <= 1; i++) {
         const claw = track(new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.14, 5), clawMat), clawMat)
         claw.position.set(i * 0.045, -lowerLen - 0.02, 0.02)
