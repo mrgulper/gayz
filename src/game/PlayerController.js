@@ -330,19 +330,6 @@ export class PlayerController {
       return true
     }
 
-    // If the player is already overlapping a collider right where they
-    // stand (knockback shoving them into geometry, a vehicle-exit point
-    // placed against a wall, a future spawn/respawn point that ends up
-    // embedded in something), the check below would reject every direction
-    // forever and freeze the player in place for good - the exact "car
-    // spawned inside a wall collider" bug this game hit before, just for the
-    // player instead of the vehicle. Zombie._tryMove and Vehicle._tryMove
-    // both have this same escape hatch; mirror it here so the player can
-    // always walk themselves back out of an overlap instead of soft-locking.
-    // Only checked once against the true starting position, not per
-    // sub-step below.
-    const stuck = !fits(obj.position.x, obj.position.z)
-
     // Checking only the FINAL position (as this used to do) lets a single
     // frame's movement skip clean through a thin wall without ever
     // overlapping it, if that frame's distance exceeds the wall's own
@@ -362,9 +349,55 @@ export class PlayerController {
     for (let i = 0; i < steps; i++) {
       const nx = obj.position.x + stepDx
       const nz = obj.position.z + stepDz
-      if (!stuck && !fits(nx, nz)) break
-      obj.position.x = nx
-      obj.position.z = nz
+      if (fits(nx, nz)) {
+        obj.position.x = nx
+        obj.position.z = nz
+        continue
+      }
+      // Blocked. If the player is already overlapping a collider right
+      // where they stand (knockback shoving them into geometry, a
+      // vehicle-exit point placed against a wall, a spawn point that ends
+      // up embedded in something) - as opposed to just walking into solid
+      // geometry from a valid position - rejecting every direction would
+      // freeze them in place for good, the exact "car spawned inside a
+      // wall collider" bug this game hit before, just for the player
+      // instead of the vehicle. Zombie._tryMove/Vehicle._tryMove have the
+      // same escape hatch.
+      //
+      // Two earlier versions of this got the direction wrong: one let the
+      // escape hatch grant the FULL remaining requested distance whenever
+      // "stuck" (let a player merely grazing a wall - easy to do by feel
+      // in an unlit corridor - ride a single dodge/sprint's whole distance
+      // straight through it); the other capped it to a tiny nudge but
+      // still pushed in the player's OWN held direction, which - if that
+      // direction happened to be further into the same wall - just made
+      // the embed worse one tiny step at a time, still crossing the
+      // entire wall given enough consecutive frames of held input.
+      //
+      // The actual fix: push the player back OUT along whichever
+      // overlapping collider's own shortest overlap axis, regardless of
+      // which way they're trying to move. This always resolves toward
+      // clear space, never deeper into solid geometry, so it can't be
+      // "ridden" through a wall no matter how long input is held into it.
+      const box = new THREE.Box3(
+        new THREE.Vector3(obj.position.x - RADIUS, obj.position.y - this.eyeHeight, obj.position.z - RADIUS),
+        new THREE.Vector3(obj.position.x + RADIUS, obj.position.y + 0.3, obj.position.z + RADIUS)
+      )
+      for (const collider of this._colliderGrid.query(obj.position.x, obj.position.z)) {
+        if (!box.intersectsBox(collider)) continue
+        const overlapX = Math.min(box.max.x, collider.max.x) - Math.max(box.min.x, collider.min.x)
+        const overlapZ = Math.min(box.max.z, collider.max.z) - Math.max(box.min.z, collider.min.z)
+        if (overlapX <= 0 || overlapZ <= 0) continue
+        if (overlapX < overlapZ) {
+          const sign = (box.min.x + box.max.x) / 2 >= (collider.min.x + collider.max.x) / 2 ? 1 : -1
+          obj.position.x += sign * (overlapX + 0.005)
+        } else {
+          const sign = (box.min.z + box.max.z) / 2 >= (collider.min.z + collider.max.z) / 2 ? 1 : -1
+          obj.position.z += sign * (overlapZ + 0.005)
+        }
+        break
+      }
+      break
     }
   }
 }
