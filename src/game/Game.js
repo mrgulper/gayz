@@ -80,12 +80,12 @@ const LOADOUT_PRESETS = {
 }
 
 const DIFFICULTY_PRESETS = {
-  easy: { damageMult: 0.7, spawnRateMult: 0.75 },
-  normal: { damageMult: 1, spawnRateMult: 1 },
-  hard: { damageMult: 1.4, spawnRateMult: 1.3 },
+  easy: { damageMult: 0.7, spawnRateMult: 0.75, healthMult: 0.8, eliteChanceMult: 0.6, lootMult: 1.3 },
+  normal: { damageMult: 1, spawnRateMult: 1, healthMult: 1, eliteChanceMult: 1, lootMult: 1 },
+  hard: { damageMult: 1.4, spawnRateMult: 1.3, healthMult: 1.25, eliteChanceMult: 1.4, lootMult: 0.85 },
   // Unlocked by the "Ground Truth" (true_ending) achievement - see the
   // diff-nightmare visibility toggle right after Achievements loads.
-  nightmare: { damageMult: 1.8, spawnRateMult: 1.6 },
+  nightmare: { damageMult: 1.8, spawnRateMult: 1.6, healthMult: 1.5, eliteChanceMult: 1.8, lootMult: 0.7 },
 }
 
 const SETTINGS_STORAGE_KEY = 'gayz-settings'
@@ -1119,6 +1119,8 @@ export class Game {
     this._addFlashlight()
 
     this.zombies = new ZombieManager(this.scene, this.difficulty.spawnRateMult, colliders, solidMeshes)
+    this.zombies.healthMult = this.difficulty.healthMult
+    this.zombies.eliteChanceMult = this.difficulty.eliteChanceMult
     // Zombies must never be able to stand inside the safe zone - the wall
     // colliders alone don't cover this since the entrance gap has no
     // collider (the player needs to walk through it too), so ZombieManager
@@ -2598,6 +2600,8 @@ export class Game {
         saveSettings(this.settings)
         this.difficulty = DIFFICULTY_PRESETS[id]
         this.zombies.setDifficultyMultiplier(this.difficulty.spawnRateMult)
+        this.zombies.healthMult = this.difficulty.healthMult
+        this.zombies.eliteChanceMult = this.difficulty.eliteChanceMult
         for (const b of this.difficultyBtns) b.classList.toggle('active', b === btn)
         this._updateNightmareOverlay()
       })
@@ -3737,7 +3741,7 @@ export class Game {
       this.points += 5
       this._updateStatsPanel()
     }
-    const lootMult = this.settings.mutators.lootRush ? 2 : 1
+    const lootMult = (this.settings.mutators.lootRush ? 2 : 1) * this.difficulty.lootMult
     this.xpGems.spawn(x, z, (isElite ? 4 : 1) * lootMult)
     if (isElite) {
       this.eliteKills += 1

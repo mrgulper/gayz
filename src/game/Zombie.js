@@ -144,7 +144,7 @@ function jitterGeometry(geometry, amount) {
 }
 
 export class Zombie {
-  constructor(x, z, typeConfig, isAmbush = false, isElite = false, night = 1) {
+  constructor(x, z, typeConfig, isAmbush = false, isElite = false, night = 1, healthMult = 1) {
     this.id = zombieIdCounter++
     this.type = typeConfig.id
     this.config = typeConfig
@@ -159,7 +159,7 @@ export class Zombie {
     this.asymmetryAmount = 0.1 + Math.random() * 0.18
     this.stopDistance = typeConfig.ranged ? typeConfig.engageRange : typeConfig.meleeRange
 
-    this.health = typeConfig.health * (isElite ? ELITE_HEALTH_MULT : 1)
+    this.health = typeConfig.health * (isElite ? ELITE_HEALTH_MULT : 1) * healthMult
     this.maxHealth = this.health
     // alive states flow: dormant -> popping -> alive -> dying/exploding -> dead
     this.state = isAmbush ? 'dormant' : 'alive'

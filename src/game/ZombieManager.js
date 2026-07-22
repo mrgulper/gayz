@@ -182,6 +182,12 @@ export class ZombieManager {
     this.pendingRespawns = []
 
     this.spawnRateMult = spawnRateMult
+    // Difficulty-preset knobs (Game.js sets these right after construction
+    // and again live if the player changes difficulty mid-run) - default
+    // to neutral so anything constructing a ZombieManager without setting
+    // them (fake test stubs, etc.) behaves exactly as before this existed.
+    this.healthMult = 1
+    this.eliteChanceMult = 1
     this.currentNight = 1
     this.bossSpawnedForNight = 0
     // Director AI multiplier (see Game.js's _updateDirectorAI, which calls
@@ -266,7 +272,7 @@ export class ZombieManager {
     const angle = Math.random() * Math.PI * 2
     const x = this.lastPlayerPos.x + Math.sin(angle) * SPAWN_RADIUS_MAX
     const z = this.lastPlayerPos.z + Math.cos(angle) * SPAWN_RADIUS_MAX
-    const zombie = new Zombie(x, z, ZOMBIE_TYPES.titan, false, false, this.currentNight)
+    const zombie = new Zombie(x, z, ZOMBIE_TYPES.titan, false, false, this.currentNight, this.healthMult)
     zombie.deathHandled = false
     zombie.isBoss = true
     this.zombies.push(zombie)
@@ -318,7 +324,7 @@ export class ZombieManager {
       spawnBudget--
       const ox = (Math.random() - 0.5) * 4
       const oz = (Math.random() - 0.5) * 4
-      const zombie = new Zombie(h.x + ox, h.z + oz, pickZombieType(), false, false, this.currentNight)
+      const zombie = new Zombie(h.x + ox, h.z + oz, pickZombieType(), false, false, this.currentNight, this.healthMult)
       zombie.deathHandled = false
       zombie.isWandering = true
       h.members.push(zombie)
@@ -419,7 +425,7 @@ export class ZombieManager {
     // unused specifically for this.
     const bossType = this.bossRushSpawnCount % 2 === 0 ? ZOMBIE_TYPES.colossus : ZOMBIE_TYPES.broodmother
     this.bossRushSpawnCount += 1
-    const zombie = new Zombie(x, z, bossType, false, false, this.currentNight)
+    const zombie = new Zombie(x, z, bossType, false, false, this.currentNight, this.healthMult)
     zombie.deathHandled = false
     zombie.isBoss = true
     zombie.nextAddSummonAt = performance.now() + BOSS_ADD_FIRST_DELAY_MS
@@ -431,7 +437,7 @@ export class ZombieManager {
   // fight) rather than the normal random-radius boss walk-in - returns the
   // zombie instance so the caller can watch its state for "is it dead yet".
   spawnGuardian(x, z, typeConfig) {
-    const zombie = new Zombie(x, z, typeConfig, false, false, this.currentNight)
+    const zombie = new Zombie(x, z, typeConfig, false, false, this.currentNight, this.healthMult)
     zombie.deathHandled = false
     zombie.isBoss = true
     zombie.nextAddSummonAt = performance.now() + BOSS_ADD_FIRST_DELAY_MS
@@ -451,7 +457,7 @@ export class ZombieManager {
       const r = 2 + Math.random() * BOSS_ADD_SPAWN_RADIUS
       const sx = x + Math.sin(angle) * r
       const sz = z + Math.cos(angle) * r
-      const summoned = new Zombie(sx, sz, addType, false, false, this.currentNight)
+      const summoned = new Zombie(sx, sz, addType, false, false, this.currentNight, this.healthMult)
       summoned.deathHandled = false
       this.zombies.push(summoned)
       this.scene.add(summoned.group)
@@ -472,7 +478,7 @@ export class ZombieManager {
       const r = 2 + Math.random() * 4
       const sx = x + Math.sin(angle) * r
       const sz = z + Math.cos(angle) * r
-      const zombie = new Zombie(sx, sz, type, false, false, this.currentNight)
+      const zombie = new Zombie(sx, sz, type, false, false, this.currentNight, this.healthMult)
       zombie.deathHandled = false
       this.zombies.push(zombie)
       this.scene.add(zombie.group)
@@ -571,8 +577,8 @@ export class ZombieManager {
     const x = this.lastPlayerPos.x + Math.sin(angle) * radius
     const z = this.lastPlayerPos.z + Math.cos(angle) * radius
 
-    const isElite = Math.random() < ELITE_CHANCE
-    const zombie = new Zombie(x, z, type, isAmbush, isElite, this.currentNight)
+    const isElite = Math.random() < ELITE_CHANCE * this.eliteChanceMult
+    const zombie = new Zombie(x, z, type, isAmbush, isElite, this.currentNight, this.healthMult)
     if (this.roundMode && this.roundHealthMult !== 1) {
       zombie.maxHealth *= this.roundHealthMult
       zombie.health = zombie.maxHealth
@@ -1145,7 +1151,7 @@ export class ZombieManager {
               const r = 1.5 + Math.random() * 1.5
               const sx = zombie.group.position.x + Math.sin(angle) * r
               const sz = zombie.group.position.z + Math.cos(angle) * r
-              const summoned = new Zombie(sx, sz, summonType, false, false, this.currentNight)
+              const summoned = new Zombie(sx, sz, summonType, false, false, this.currentNight, this.healthMult)
               summoned.deathHandled = false
               this.zombies.push(summoned)
               this.scene.add(summoned.group)
