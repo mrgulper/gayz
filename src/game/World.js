@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { registerZone, clearZones } from './Zones.js'
 import { LOOT_WEIGHTS } from './Chests.js'
 
@@ -270,11 +271,21 @@ export function buildWorld(scene, trophyCount = 15) {
   // which is exactly the "phantom collider" shape reported around rotated
   // props. Passing the object's true, unrotated footprint here keeps the
   // collider honest instead of ballooning with the rotation.
-  const register = (object, explicitBox) => {
+  // `mode` lets a caller register JUST the collision box or JUST the
+  // render/cull bookkeeping instead of always both together - needed by
+  // placePropsMerged (see below): each individual prop still gets its own
+  // real collider ('colliderOnly'), but the actual rendered geometry is one
+  // shared merged Mesh per room instead of one Mesh per prop, so only that
+  // one merged Mesh should become a solidMesh/cullable ('renderOnly').
+  const register = (object, explicitBox, mode = 'both') => {
     object.updateWorldMatrix(true, false)
-    colliders.push(explicitBox || new THREE.Box3().setFromObject(object))
-    solidMeshes.push(object)
-    cullables.push(object)
+    if (mode !== 'renderOnly') {
+      colliders.push(explicitBox || new THREE.Box3().setFromObject(object))
+    }
+    if (mode !== 'colliderOnly') {
+      solidMeshes.push(object)
+      cullables.push(object)
+    }
   }
 
   scene.background = new THREE.Color(0x12161b)
@@ -1548,6 +1559,74 @@ function placePropSimple(scene, register, fileName, x, z, rotY = 0, scale = 1, c
   scene.add(clone)
   if (collide) register(clone)
   return clone
+}
+
+// Places a batch of props (specs shaped like placePropSimple's own
+// arguments) but merges their geometry into as few actual scene Mesh
+// objects as possible, grouped by shared material, instead of one Mesh
+// (and one GPU draw call) per placement. Safari/WebKit's per-draw-call
+// overhead is meaningfully higher than Chrome's, and this map places
+// thousands of small decorative props across dozens of repeated
+// rooms/houses - this is the single biggest lever for that gap. Each
+// prop's own collision box is still registered individually, exactly as
+// before (register's 'colliderOnly' mode) - collision is fully
+// independent of how many draw calls the visual mesh ends up taking.
+//
+// specs: array of { fileName, x, z, rotY, scale, collide, floorY, recolor }.
+// recolor (optional hex) covers call sites that used to mutate a returned
+// clone's material color after placing it (e.g. a tinted bookcase) - merged
+// geometry can't be recolored after the fact, so a recolored prop just
+// forms its own single-item group instead (still only one draw call,
+// same as it already was before any merging existed).
+function placePropsMerged(scene, register, specs) {
+  const byMaterial = new Map()
+  for (const spec of specs) {
+    const model = _propModelCache.get(spec.fileName)
+    if (!model) continue
+    const clone = model.clone(true)
+    clone.position.set(spec.x, spec.floorY || 0, spec.z)
+    clone.rotation.y = spec.rotY || 0
+    if (spec.scale && spec.scale !== 1) clone.scale.setScalar(spec.scale)
+    clone.updateWorldMatrix(true, false)
+
+    if (spec.collide !== false) register(clone, null, 'colliderOnly')
+
+    clone.traverse((child) => {
+      if (!child.isMesh) return
+      let material = child.material
+      if (spec.recolor != null) {
+        material = material.clone()
+        material.color.setHex(spec.recolor)
+      }
+      let list = byMaterial.get(material)
+      if (!list) { list = []; byMaterial.set(material, list) }
+      const geo = child.geometry.clone()
+      geo.applyMatrix4(child.matrixWorld)
+      list.push(geo)
+    })
+  }
+
+  for (const [material, geoList] of byMaterial) {
+    const merged = geoList.length > 1 ? mergeGeometries(geoList, false) : geoList[0]
+    if (!merged) {
+      // Incompatible attributes across an unexpected mix - shouldn't happen
+      // since every geometry here is a clone of the same cached model, but
+      // fall back to one mesh per geometry instead of dropping props.
+      for (const geo of geoList) {
+        const mesh = new THREE.Mesh(geo, material)
+        mesh.castShadow = true
+        mesh.receiveShadow = true
+        scene.add(mesh)
+        register(mesh, null, 'renderOnly')
+      }
+      continue
+    }
+    const mesh = new THREE.Mesh(merged, material)
+    mesh.castShadow = true
+    mesh.receiveShadow = true
+    scene.add(mesh)
+    register(mesh, null, 'renderOnly')
+  }
 }
 
 function buildHospital(scene, register, x, z) {
@@ -4822,11 +4901,16 @@ function buildWalkableHouse(scene, register, spec) {
   floor.receiveShadow = true
   scene.add(floor)
 
-  placePropSimple(scene, register, 'campus-table.glb', spec.x - w / 2 + 1.4, spec.z - d / 2 + 1.4, Math.PI / 4)
-  placePropSimple(scene, register, 'waiting-chair.glb', spec.x - w / 2 + 1.4, spec.z - d / 2 + 2.2, Math.PI, 1, false)
-  placePropSimple(scene, register, 'hospital-bed.glb', spec.x + w / 2 - 2, spec.z + d / 2 - 2, Math.PI / 2)
-  const shelf = placePropSimple(scene, register, 'campus-bookcase.glb', spec.x + w / 2 - 0.5, spec.z - d / 2 + 1, -Math.PI / 2)
-  if (shelf) shelf.traverse((c) => { if (c.isMesh) c.material.color.setHex(0x5a4530) })
+  // Merged instead of 4 separate placePropSimple calls (see
+  // placePropsMerged) - this runs once per walkable house, and there are
+  // 32 of them (16 slots x 2 zones), so merging collapses what used to be
+  // several dozen individual draw calls per house into a small handful.
+  placePropsMerged(scene, register, [
+    { fileName: 'campus-table.glb', x: spec.x - w / 2 + 1.4, z: spec.z - d / 2 + 1.4, rotY: Math.PI / 4 },
+    { fileName: 'waiting-chair.glb', x: spec.x - w / 2 + 1.4, z: spec.z - d / 2 + 2.2, rotY: Math.PI, collide: false },
+    { fileName: 'hospital-bed.glb', x: spec.x + w / 2 - 2, z: spec.z + d / 2 - 2, rotY: Math.PI / 2 },
+    { fileName: 'campus-bookcase.glb', x: spec.x + w / 2 - 0.5, z: spec.z - d / 2 + 1, rotY: -Math.PI / 2, recolor: 0x5a4530 },
+  ])
 
   return { x: spec.x, z: spec.z }
 }
@@ -4960,17 +5044,36 @@ function addWindows(scene, spec) {
   const faceX = spec.x + facingSign * (spec.w / 2 + 0.02)
   const cols = Math.max(2, Math.floor(spec.d / 3))
   const rowsCount = Math.max(2, Math.floor(spec.h / 3))
+  const rotY = facingSign > 0 ? Math.PI / 2 : -Math.PI / 2
 
+  // Every window on one building is a flat plane sharing one of only two
+  // materials (lit/dark) - these have no collider and never change once
+  // placed, so merging them into at most 2 actual Mesh objects per building
+  // (instead of rows*cols separate ones, often 10-30+ per building across
+  // every non-model building on the map) is a pure win: same look, far
+  // fewer draw calls. Rotate a single template plane once, then clone +
+  // translate per window - cheaper than rotating every individual clone.
+  const template = new THREE.PlaneGeometry(0.9, 1.2)
+  template.rotateY(rotY)
+  const litGeos = []
+  const darkGeos = []
   for (let r = 0; r < rowsCount; r++) {
     for (let c = 0; c < cols; c++) {
       const lit = Math.random() < 0.22 && !spec.broken
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.2), lit ? litMat : darkMat)
-      mesh.rotation.y = facingSign > 0 ? Math.PI / 2 : -Math.PI / 2
       const z = spec.z - spec.d / 2 + 1.5 + c * ((spec.d - 3) / Math.max(1, cols - 1))
       const y = 1.8 + r * 2.6
-      mesh.position.set(faceX, Math.min(y, spec.h - 1), z)
-      scene.add(mesh)
+      const geo = template.clone()
+      geo.translate(faceX, Math.min(y, spec.h - 1), z)
+      ;(lit ? litGeos : darkGeos).push(geo)
     }
+  }
+  if (litGeos.length > 0) {
+    const merged = litGeos.length > 1 ? mergeGeometries(litGeos, false) : litGeos[0]
+    if (merged) scene.add(new THREE.Mesh(merged, litMat))
+  }
+  if (darkGeos.length > 0) {
+    const merged = darkGeos.length > 1 ? mergeGeometries(darkGeos, false) : darkGeos[0]
+    if (merged) scene.add(new THREE.Mesh(merged, darkMat))
   }
 }
 
