@@ -1,0 +1,121 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>GayZ - GPU Benchmark</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #111; color: #eee; font-family: monospace; }
+  #info { position: fixed; top: 8px; left: 8px; background: rgba(0,0,0,0.6); padding: 10px 14px; border-radius: 6px; font-size: 15px; line-height: 1.6; max-width: 90vw; }
+  #fps { color: #7fd88f; font-size: 20px; font-weight: bold; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<div id="info">
+  <div id="fps">-- fps</div>
+  <div id="gpu">Detecting GPU...</div>
+  <div id="accel">Detecting acceleration...</div>
+</div>
+<canvas id="c"></canvas>
+<script>
+const canvas = document.getElementById('c')
+canvas.width = window.innerWidth
+canvas.height = window.innerHeight
+const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl')
+
+const gpuEl = document.getElementById('gpu')
+const accelEl = document.getElementById('accel')
+const fpsEl = document.getElementById('fps')
+
+if (!gl) {
+  gpuEl.textContent = 'WebGL not available at all in this browser.'
+  accelEl.textContent = ''
+} else {
+  const dbg = gl.getExtension('WEBGL_debug_renderer_info')
+  const renderer = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)
+  const vendor = dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR)
+  gpuEl.textContent = 'GPU: ' + renderer + ' (' + vendor + ')'
+  const looksSoftware = /swiftshader|software|llvmpipe|basic render/i.test(renderer)
+  accelEl.textContent = looksSoftware
+    ? 'This looks like SOFTWARE rendering, not your real graphics card.'
+    : 'This looks like a real hardware-accelerated GPU.'
+  accelEl.style.color = looksSoftware ? '#ff6b5c' : '#7fd88f'
+}
+
+// Minimal WebGL scene: one triangle, rotating, flat color, no textures, no
+// lights - about as cheap as a WebGL scene can possibly be. If THIS still
+// runs slow, the bottleneck genuinely isn't in the game's code at all.
+const vsSource = `
+  attribute vec2 aPos;
+  uniform float uAngle;
+  void main() {
+    float c = cos(uAngle);
+    float s = sin(uAngle);
+    vec2 rotated = vec2(aPos.x * c - aPos.y * s, aPos.x * s + aPos.y * c);
+    gl_Position = vec4(rotated, 0.0, 1.0);
+  }
+`
+const fsSource = `
+  precision mediump float;
+  void main() {
+    gl_FragColor = vec4(0.5, 0.8, 0.6, 1.0);
+  }
+`
+
+function compileShader(type, source) {
+  const shader = gl.createShader(type)
+  gl.shaderSource(shader, source)
+  gl.compileShader(shader)
+  return shader
+}
+
+let angle = 0
+let uAngleLoc = null
+if (gl) {
+  const program = gl.createProgram()
+  gl.attachShader(program, compileShader(gl.VERTEX_SHADER, vsSource))
+  gl.attachShader(program, compileShader(gl.FRAGMENT_SHADER, fsSource))
+  gl.linkProgram(program)
+  gl.useProgram(program)
+
+  const positions = new Float32Array([0, 0.5, -0.5, -0.5, 0.5, -0.5])
+  const buffer = gl.createBuffer()
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
+  gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW)
+
+  const aPos = gl.getAttribLocation(program, 'aPos')
+  gl.enableVertexAttribArray(aPos)
+  gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0)
+  uAngleLoc = gl.getUniformLocation(program, 'uAngle')
+
+  gl.viewport(0, 0, canvas.width, canvas.height)
+}
+
+let frameCount = 0
+let lastFpsUpdate = performance.now()
+
+function render() {
+  if (gl) {
+    angle += 0.02
+    gl.uniform1f(uAngleLoc, angle)
+    gl.clearColor(0.07, 0.07, 0.08, 1)
+    gl.clear(gl.COLOR_BUFFER_BIT)
+    gl.drawArrays(gl.TRIANGLES, 0, 3)
+  }
+
+  frameCount++
+  const now = performance.now()
+  const elapsed = now - lastFpsUpdate
+  if (elapsed >= 500) {
+    const fps = Math.round((frameCount * 1000) / elapsed)
+    fpsEl.textContent = fps + ' fps'
+    frameCount = 0
+    lastFpsUpdate = now
+  }
+
+  requestAnimationFrame(render)
+}
+requestAnimationFrame(render)
+</script>
+</body>
+</html>
