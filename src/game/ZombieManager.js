@@ -82,6 +82,10 @@ const ROUND_SPAWN_COUNT_MULT = LOW_QUALITY_MODE ? 2 : 3.6
 const ROUND_MAX_SPAWN_COUNT = LOW_QUALITY_MODE ? 20 : 50
 const ROUND_HEALTH_RAMP_START = 10
 const ROUND_HEALTH_RAMP_MULT = 1.1
+// See startRound()'s own comment - caps the ramp's exponent (not the
+// resulting multiplier) so it plateaus at 1.1^30 =~ 17.4x instead of
+// compounding forever.
+const ROUND_HEALTH_RAMP_EXPONENT_CAP = 30
 
 const projectileMat = flatMaterial({
   color: 0x2f4a12,
@@ -237,15 +241,37 @@ export class ZombieManager {
   // round 1 and again after each round-clear intermission.
   startRound(roundNumber) {
     this.currentNight = roundNumber
-    this.roundHealthMult = roundNumber > ROUND_HEALTH_RAMP_START
-      ? Math.pow(ROUND_HEALTH_RAMP_MULT, roundNumber - ROUND_HEALTH_RAMP_START)
-      : 1
+    // Capped, not left to compound forever - uncapped this was
+    // ROUND_HEALTH_RAMP_MULT^(round-10), which is fine through the first
+    // few dozen rounds but becomes an effectively-unkillable bullet sponge
+    // by round 50 and a mathematical absurdity (>10^7x) by round 200 - not
+    // a deliberate "endgame wall," just an unbounded formula nobody had
+    // reason to keep playing far enough to notice. Capping the EXPONENT
+    // (not the multiplier directly) keeps the same early-round feel intact
+    // while giving Endless Mode an actual sustainable long-run ceiling
+    // (~17x at the cap) instead of a curve that guarantees eventual
+    // impossibility.
+    const rampExponent = Math.min(ROUND_HEALTH_RAMP_EXPONENT_CAP, Math.max(0, roundNumber - ROUND_HEALTH_RAMP_START))
+    this.roundHealthMult = Math.pow(ROUND_HEALTH_RAMP_MULT, rampExponent)
     this.targetCount = 0
     const count = Math.min(ROUND_MAX_SPAWN_COUNT, Math.round(ROUND_SPAWN_COUNT_MULT * roundNumber))
     // Queued, not spawned immediately - see update()'s own note on why a
     // single-frame burst of up to ROUND_MAX_SPAWN_COUNT zombies was
     // causing a real stall every round transition.
     this._pendingSpawns += count
+
+    // Round Mode never called applyDifficulty() (that's the timed-mode
+    // path), so its own boss-spawn check never ran - meaning no scripted
+    // boss EVER spawned in Round Mode despite _showNightBanner's "boss
+    // incoming" text firing every 5th round regardless of mode. Mirrors
+    // applyDifficulty's exact same dueForBoss logic (including the Boss
+    // Rush mutator override) so the promise in that banner is actually
+    // kept here too, not just in timed mode.
+    const dueForBoss = this.bossRushMode ? this.bossSpawnedForNight !== roundNumber : roundNumber % 5 === 0
+    if (dueForBoss && this.bossSpawnedForNight !== roundNumber) {
+      this.bossSpawnedForNight = roundNumber
+      this._spawnBoss()
+    }
   }
 
   // Round-clear check for Game.js - "alive" rather than a bare array-length

@@ -277,6 +277,10 @@
             <input type="checkbox" id="mutator-daily" />
             <span id="mutator-daily-label">Daily Challenge (today's fixed twist, beat your best)</span>
           </label>
+          <label class="score-attack-toggle" for="endless-toggle">
+            <input type="checkbox" id="endless-toggle" />
+            <span id="endless-label">Endless Mode (wave after wave, no timer, how far can you go)</span>
+          </label>
         </div>
         <p id="round-mode-hint">Easy &amp; Normal: kill the wave to advance, no timer. Hard &amp; Nightmare: 90s timed nights.</p>
         <button id="play-btn">Click to Play</button>
@@ -346,6 +350,7 @@
         <p id="death-stats">Survived Night 1 &middot; 0 kills &middot; 00:00</p>
         <p id="death-legacy-points" class="menu-best-stats"></p>
         <p id="death-score-attack" class="menu-best-stats" style="display: none"></p>
+        <p id="death-endless" class="menu-best-stats" style="display: none"></p>
         <p id="death-daily" class="menu-best-stats" style="display: none"></p>
         <button id="respawn-btn">Respawn</button>
       </div>

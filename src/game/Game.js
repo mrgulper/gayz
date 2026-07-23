@@ -108,6 +108,7 @@ function loadSettings() {
       companionRole: ['melee', 'medic'].includes(parsed.companionRole) ? parsed.companionRole : 'ranged',
       scoreAttackMode: parsed.scoreAttackMode ?? false,
       hardcoreMode: parsed.hardcoreMode ?? false,
+      endlessMode: parsed.endlessMode ?? false,
       loadout: LOADOUT_PRESETS[parsed.loadout] ? parsed.loadout : 'balanced',
       // 5-slot hotbar (see Game.js's _bindHotbar) - a weapon id per slot,
       // or null for empty. Defaults match the request this was built for:
@@ -125,7 +126,7 @@ function loadSettings() {
       },
     }
   } catch {
-    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false } }
+    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false } }
   }
 }
 
@@ -153,6 +154,30 @@ function saveScoreAttackBest(score) {
     localStorage.setItem(SCORE_ATTACK_BEST_KEY, String(score))
   } catch {
     // Storage unavailable - best score just won't persist.
+  }
+}
+
+// Tracked separately from bestStats.bestNight - Endless forces Round Mode's
+// kill-the-wave loop regardless of difficulty (see _isRoundMode), so a great
+// Endless run at Nightmare difficulty shouldn't get averaged in with (or
+// overwrite) a casual Easy-mode Round Mode best, same reasoning as why
+// Score Attack/Daily Challenge each get their own key instead of sharing
+// bestStats.
+const ENDLESS_BEST_KEY = 'gayz-endless-best'
+
+function loadEndlessBest() {
+  try {
+    return Number(localStorage.getItem(ENDLESS_BEST_KEY)) || 0
+  } catch {
+    return 0
+  }
+}
+
+function saveEndlessBest(round) {
+  try {
+    localStorage.setItem(ENDLESS_BEST_KEY, String(round))
+  } catch {
+    // Storage unavailable - best round just won't persist.
   }
 }
 
@@ -714,6 +739,7 @@ export class Game {
     this.deathStats = document.getElementById('death-stats')
     this.deathLegacyPoints = document.getElementById('death-legacy-points')
     this.deathScoreAttack = document.getElementById('death-score-attack')
+    this.deathEndless = document.getElementById('death-endless')
     this.deathDaily = document.getElementById('death-daily')
     this.endingPanel = document.getElementById('ending-panel')
     this.endingText = document.getElementById('ending-text')
@@ -768,6 +794,7 @@ export class Game {
     this.nicknameInput = document.getElementById('nickname-input')
     this.scoreAttackToggle = document.getElementById('score-attack-toggle')
     this.hardcoreToggle = document.getElementById('hardcore-toggle')
+    this.endlessToggle = document.getElementById('endless-toggle')
     this.mutatorHordeRush = document.getElementById('mutator-horde-rush')
     this.mutatorLootRush = document.getElementById('mutator-loot-rush')
     this.mutatorPureGunplay = document.getElementById('mutator-pure-gunplay')
@@ -785,6 +812,7 @@ export class Game {
     this.difficulty = DIFFICULTY_PRESETS[this.settings.difficulty] || DIFFICULTY_PRESETS.normal
     this.nightDurationMs = this.settings.scoreAttackMode ? SCORE_ATTACK_NIGHT_DURATION_MS : NIGHT_DURATION_MS
     this.scoreAttackBest = loadScoreAttackBest()
+    this.endlessBest = loadEndlessBest()
     this.endingSeen = loadEndingSeen()
     this.bestStats = loadBestStats()
     this.dailyBest = loadDailyBest()
@@ -2552,6 +2580,12 @@ export class Game {
       saveSettings(this.settings)
     })
 
+    this.endlessToggle.checked = this.settings.endlessMode
+    this.endlessToggle.addEventListener('change', () => {
+      this.settings.endlessMode = this.endlessToggle.checked
+      saveSettings(this.settings)
+    })
+
     this.mutatorHordeRush.checked = this.settings.mutators.hordeRush
     this.mutatorHordeRush.addEventListener('change', () => {
       this.settings.mutators.hordeRush = this.mutatorHordeRush.checked
@@ -3595,6 +3629,7 @@ export class Game {
     for (const btn of this.loadoutBtns) btn.textContent = t(loadoutLabelKeys[btn.dataset.loadout])
     document.getElementById('score-attack-label').textContent = t('scoreAttackLabel')
     document.getElementById('hardcore-label').textContent = t('hardcoreLabel')
+    document.getElementById('endless-label').textContent = t('endlessLabel')
     document.getElementById('mutator-horde-rush-label').textContent = t('mutatorHordeRush')
     document.getElementById('mutator-loot-rush-label').textContent = t('mutatorLootRush')
     document.getElementById('mutator-pure-gunplay-label').textContent = t('mutatorPureGunplay')
@@ -4028,6 +4063,17 @@ export class Game {
       this.deathScoreAttack.style.display = 'none'
     }
 
+    if (this.settings.endlessMode) {
+      if (this.night > this.endlessBest) {
+        this.endlessBest = this.night
+        saveEndlessBest(this.endlessBest)
+      }
+      this.deathEndless.textContent = t('endlessResult', { round: this.night, best: this.endlessBest })
+      this.deathEndless.style.display = 'block'
+    } else {
+      this.deathEndless.style.display = 'none'
+    }
+
     if (this.dailyChallengeActive) {
       const score = this.kills * 10 + this.night * 100
       this.dailyBest = loadDailyBest()
@@ -4306,11 +4352,15 @@ export class Game {
     }
   }
 
-  // Round Mode isn't a separate opt-in toggle - it's just what Easy/Normal
-  // do instead of the 90s timer. Hard/Nightmare keep the timed loop, since
-  // that's where the tighter time-pressure pacing is meant to bite.
+  // Round Mode isn't a separate opt-in toggle on Easy/Normal - it's just
+  // what those two difficulties do instead of the 90s timer. Hard/Nightmare
+  // keep the timed loop normally, since that's where the tighter
+  // time-pressure pacing is meant to bite - EXCEPT Endless Mode explicitly
+  // wants the opposite: an uncapped kill-the-wave climb regardless of which
+  // difficulty (and its zombie health/elite/loot tuning) is selected, so a
+  // Nightmare-difficulty Endless run is deliberately possible.
   _isRoundMode() {
-    return this.settings.difficulty === 'easy' || this.settings.difficulty === 'normal'
+    return this.settings.endlessMode || this.settings.difficulty === 'easy' || this.settings.difficulty === 'normal'
   }
 
   _showNightBanner() {

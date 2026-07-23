@@ -140,6 +140,8 @@ const STRINGS = {
     scoreAttackLabel: 'Score Attack Mode',
     scoreAttackResult: 'Score: {score} (Best: {best})',
     hardcoreLabel: 'Hardcore Mode (no respawn)',
+    endlessLabel: 'Endless Mode (wave after wave, no timer, how far can you go)',
+    endlessResult: 'Round {round} (Best: {best})',
     mutatorHordeRush: 'Horde Rush (2x zombies)',
     mutatorLootRush: 'Loot Rush (2x XP & points)',
     mutatorPureGunplay: 'Pure Gunplay (no auto-weapons)',
