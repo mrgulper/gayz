@@ -1234,7 +1234,15 @@ export class Game {
     this.scene.add(this.vault.group)
     this.nearVault = false
     this.vaultKeySpots = [
-      { x: 0, y: 0.5, z: -20 },
+      // Was (0, 0.5, -20) - that x,z sits directly above the underground
+      // subway junction's unbuilt south side (see World.js's
+      // buildSubwayJunctionRoom), a surface-height pickup floating right
+      // over a hole in the world with nothing underneath - a player
+      // walking through the tunnel below could "find" it (pickup range
+      // checks x/z distance only, not y) despite it being 5+ units
+      // overhead and physically unreachable from up there. Moved to open
+      // street clear of any underground structure.
+      { x: 0, y: 0.5, z: -40 },
       { x: 0, y: 0.5, z: 65 },
       { x: vireoFacility.corridorMarkerSpot.x + 1.5, y: vireoFacility.floorY + 0.5, z: vireoFacility.corridorMarkerSpot.z - 2 },
     ]

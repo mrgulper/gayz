@@ -3870,7 +3870,13 @@ function buildSubwayJunctionRoom(scene, colliders, solidMeshes, cx, cz, halfSize
   const floorMat = flatMaterial({ color: 0x201f1c, roughness: 1 })
   const wallMat = flatMaterial({ color: 0x2c2e30, roughness: 0.95 })
 
-  const floor = new THREE.Mesh(new THREE.BoxGeometry(halfSize * 2, 0.08, halfSize * 2), floorMat)
+  // Slightly larger than the room's nominal halfSize*2 footprint (matching
+  // the +0.4 margin the walls below already use for their own width) so
+  // the floor fully backs every wall's own footprint with no gap between
+  // the floor's true edge and the wall's outer face - found via a walk-sim
+  // that showed _sampleGroundHeight breaking exactly at the floor's old,
+  // unpadded edge, one step before the wall's own outer face.
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(halfSize * 2 + 0.4, 0.08, halfSize * 2 + 0.4), floorMat)
   floor.position.set(cx, SUBWAY_FLOOR_Y, cz)
   floor.receiveShadow = true
   scene.add(floor)
