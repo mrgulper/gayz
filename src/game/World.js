@@ -699,6 +699,261 @@ export function buildWorld(scene, trophyCount = 15) {
   registerZone({ id: 'motel', x: 100, z: 100, radius: 14, densityMult: 1.2 })
   towerChestSpots.push({ x: 100, y: 0, z: 97 })
 
+  // "Fill the empty map" round - 20 more locations spread across the outer
+  // ring and diagonal quadrants of the 750x750 map that every zone/location
+  // above left completely open (checked by hand against every rect/circle
+  // above, each placed with 25+ units of clearance from its nearest
+  // neighbor). Same "finish the set" level of detail as warehouse/gas
+  // station/bank/diner above - single-room shells via buildFillerLocation,
+  // not another full multi-stage blueprint location.
+  buildFillerLocation(scene, register, {
+    x: 320, z: 160, w: 16, d: 20, floorColor: 0x6b5a42,
+    dressing: [
+      { file: 'campus-bookcase.glb', dx: -6, dz: -8 }, { file: 'campus-bookcase.glb', dx: -6, dz: -3 },
+      { file: 'campus-bookcase.glb', dx: 6, dz: -8 }, { file: 'campus-bookcase.glb', dx: 6, dz: -3 },
+      { file: 'campus-table.glb', dx: -2, dz: 2 }, { file: 'campus-table.glb', dx: 2, dz: 2 },
+      { file: 'campus-books.glb', dx: 0, dz: 6 },
+    ],
+  })
+  registerZone({ id: 'library', x: 320, z: 160, radius: 14, densityMult: 1.1 })
+  towerChestSpots.push({ x: 320, y: 0, z: 156 })
+
+  buildFillerLocation(scene, register, {
+    x: 330, z: 70, w: 14, d: 24, wallHeight: 5, doorWidth: 2.6, floorColor: 0x4a4438,
+    dressing: [
+      { file: 'waiting-chair.glb', dx: -2, dz: -6 }, { file: 'waiting-chair.glb', dx: 2, dz: -6 },
+      { file: 'waiting-chair.glb', dx: -2, dz: -2 }, { file: 'waiting-chair.glb', dx: 2, dz: -2 },
+      { file: 'waiting-chair.glb', dx: -2, dz: 2 }, { file: 'waiting-chair.glb', dx: 2, dz: 2 },
+      { file: 'waiting-chair.glb', dx: -2, dz: 6 }, { file: 'waiting-chair.glb', dx: 2, dz: 6 },
+    ],
+  })
+  registerZone({ id: 'church', x: 330, z: 70, radius: 14, densityMult: 1.1 })
+  towerChestSpots.push({ x: 330, y: 0, z: 78 })
+
+  buildFillerLocation(scene, register, {
+    x: -320, z: 150, w: 18, d: 16, doorWidth: 2.6, floorColor: 0xb8a888,
+    dressing: [
+      { file: 'campus-table.glb', dx: -5, dz: -3 }, { file: 'campus-table.glb', dx: 0, dz: -3 }, { file: 'campus-table.glb', dx: 5, dz: -3 },
+      { file: 'campus-bookcase.glb', dx: -7, dz: 5 }, { file: 'campus-bookcase.glb', dx: 7, dz: 5 },
+      { file: 'campus-books.glb', dx: 0, dz: 5 },
+    ],
+  })
+  registerZone({ id: 'school', x: -320, z: 150, radius: 14, densityMult: 1.1 })
+  towerChestSpots.push({ x: -320, y: 0, z: 154 })
+
+  buildFillerLocation(scene, register, {
+    x: 280, z: 260, w: 20, d: 16, doorWidth: 3, floorColor: 0x2a2622,
+    dressing: [
+      { file: 'waiting-chair.glb', dx: -3, dz: -6 }, { file: 'waiting-chair.glb', dx: 3, dz: -6 },
+      { file: 'waiting-chair.glb', dx: -3, dz: -3 }, { file: 'waiting-chair.glb', dx: 3, dz: -3 },
+      { file: 'waiting-chair.glb', dx: -3, dz: 0 }, { file: 'waiting-chair.glb', dx: 3, dz: 0 },
+      { file: 'waiting-chair.glb', dx: -3, dz: 3 }, { file: 'waiting-chair.glb', dx: 3, dz: 3 },
+      { file: 'waiting-chair.glb', dx: -3, dz: 6 }, { file: 'waiting-chair.glb', dx: 3, dz: 6 },
+      { file: 'counter.glb', dx: 0, dz: -7 },
+    ],
+  })
+  registerZone({ id: 'theater', x: 280, z: 260, radius: 14, densityMult: 1.2 })
+  towerChestSpots.push({ x: 280, y: 0, z: 266 })
+
+  buildFillerLocation(scene, register, {
+    x: -280, z: 260, w: 16, d: 14, floorColor: 0x5a5650,
+    dressing: [
+      { file: 'bench.glb', dx: -4, dz: -3 }, { file: 'bench.glb', dx: 4, dz: -3 },
+      { file: 'bench.glb', dx: -4, dz: 3, rot: Math.PI }, { file: 'waterbarrel.glb', dx: 5, dz: 4 },
+    ],
+  })
+  registerZone({ id: 'gym', x: -280, z: 260, radius: 12, densityMult: 1.1 })
+  towerChestSpots.push({ x: -280, y: 0, z: 264, lootWeights: { ...LOOT_WEIGHTS, health: 1.8 } })
+
+  buildFillerLocation(scene, register, {
+    x: 65, z: -95, w: 8, d: 7, doorWidth: 2, floorColor: 0xc4c0b0,
+    dressing: [{ file: 'counter.glb', dx: -2, dz: -1 }, { file: 'trashbin.glb', dx: 2.5, dz: 2 }],
+  })
+  registerZone({ id: 'laundromat', x: 65, z: -95, radius: 8, densityMult: 1.0 })
+  towerChestSpots.push({ x: 65, y: 0, z: -93 })
+
+  buildFillerLocation(scene, register, {
+    x: -65, z: -95, w: 9, d: 7, doorWidth: 2.2, floorColor: 0xa8a498,
+    dressing: [{ file: 'counter.glb', dx: -2, dz: -1 }, { file: 'mailbox.glb', dx: 3, dz: -2.5 }, { file: 'shelf.glb', dx: 3, dz: 1.5 }],
+  })
+  registerZone({ id: 'postoffice', x: -65, z: -95, radius: 8, densityMult: 1.0 })
+  towerChestSpots.push({ x: -65, y: 0, z: -93 })
+
+  buildFillerLocation(scene, register, {
+    x: 320, z: -75, w: 10, d: 8, floorColor: 0xc9a860,
+    dressing: [
+      { file: 'counter.glb', dx: -3, dz: -2, rot: Math.PI / 2 },
+      { file: 'food-bag.glb', dx: -2, dz: -2.5, scale: 0.3 }, { file: 'food-bottle.glb', dx: -1.5, dz: -2.5, scale: 0.3 },
+      { file: 'waiting-chair.glb', dx: 2, dz: 2 }, { file: 'waiting-chair.glb', dx: -2, dz: 2 },
+    ],
+  })
+  registerZone({ id: 'burgerjoint', x: 320, z: -75, radius: 9, densityMult: 1.1 })
+  towerChestSpots.push({ x: 320, y: 0, z: -72, lootWeights: RETAIL_LOOT_WEIGHTS })
+
+  buildFillerLocation(scene, register, {
+    x: -320, z: -60, w: 10, d: 8, wallColor: 0x33373a, floorColor: 0x33373a,
+    dressing: [
+      { file: 'shelf.glb', dx: -3, dz: -2 }, { file: 'shelf.glb', dx: 3, dz: -2 },
+      { file: 'atm.glb', dx: 0, dz: -3 }, { file: 'payphone.glb', dx: 3.5, dz: 2 },
+    ],
+  })
+  registerZone({ id: 'electronics', x: -320, z: -60, radius: 9, densityMult: 1.1 })
+  towerChestSpots.push({ x: -320, y: 0, z: -57, lootWeights: { ...LOOT_WEIGHTS, extended_mag: 1.5, scope: 1.5 } })
+
+  buildFillerLocation(scene, register, {
+    x: -320, z: 260, w: 10, d: 8, floorColor: 0x8a7868,
+    dressing: [
+      { file: 'shelf.glb', dx: -3, dz: -2 }, { file: 'shelf.glb', dx: 0, dz: -2 }, { file: 'shelf.glb', dx: 3, dz: -2 },
+      { file: 'counter.glb', dx: 0, dz: 2 },
+    ],
+  })
+  registerZone({ id: 'clothingstore', x: -320, z: 260, radius: 9, densityMult: 1.0 })
+  towerChestSpots.push({ x: -320, y: 0, z: 263 })
+
+  buildFillerLocation(scene, register, {
+    x: 320, z: -150, w: 7, d: 6, doorWidth: 1.8, floorColor: 0xc4c0b0,
+    dressing: [{ file: 'waiting-chair.glb', dx: -1.5, dz: -1 }, { file: 'waiting-chair.glb', dx: 1.5, dz: -1 }, { file: 'counter.glb', dx: 0, dz: 1.5 }],
+  })
+  registerZone({ id: 'barbershop', x: 320, z: -150, radius: 7, densityMult: 1.0 })
+  towerChestSpots.push({ x: 320, y: 0, z: -147 })
+
+  buildFillerLocation(scene, register, {
+    x: -320, z: -150, w: 14, d: 12, wallHeight: 4.2, doorWidth: 3, floorColor: 0x3a3a34,
+    dressing: [
+      { file: 'barrel.glb', dx: -5, dz: -4 }, { file: 'barrel.glb', dx: -5, dz: -2 },
+      { file: 'cabledrum.glb', dx: 5, dz: -4 },
+      { file: 'tool-hammer.glb', dx: 5, dz: 2 }, { file: 'tool-crowbar.glb', dx: 5.5, dz: 3 }, { file: 'tool-tireiron.glb', dx: 6, dz: 4 },
+      { file: 'roadblock.glb', dx: 0, dz: 5 },
+    ],
+  })
+  registerZone({ id: 'garage', x: -320, z: -150, radius: 11, densityMult: 1.1 })
+  towerChestSpots.push({ x: -320, y: 0, z: -146, lootWeights: FUEL_LOOT_WEIGHTS })
+
+  buildFillerLocation(scene, register, {
+    x: 200, z: 300, w: 14, d: 10, fenceOnly: true,
+    dressing: [
+      { file: 'traderstall.glb', dx: -4, dz: 0 }, { file: 'traderstall.glb', dx: 0, dz: 0 }, { file: 'traderstall.glb', dx: 4, dz: 0 },
+      { file: 'food-carton.glb', dx: -4, dz: 1, scale: 0.3 }, { file: 'food-can.glb', dx: 0, dz: 1, scale: 0.3 },
+    ],
+  })
+  registerZone({ id: 'farmersmarket', x: 200, z: 300, radius: 10, densityMult: 1.0 })
+  towerChestSpots.push({ x: 200, y: 0, z: 296, lootWeights: RETAIL_LOOT_WEIGHTS })
+
+  // Strip Mall - 3 small shopfronts side by side, each its own door bay
+  // (buildRoom only supports one door gap per wall, so 3 adjacent rooms
+  // reads as "one strip mall" the same way buildMotel already builds N
+  // adjacent single rooms for its row of units).
+  const stripMallCenters = [-208.5, -200, -191.5]
+  for (let i = 0; i < stripMallCenters.length; i++) {
+    buildRoom(scene, register, { x: stripMallCenters[i], z: 300, w: 8, d: 10, doorSides: [{ side: 'south', width: 2.2 }] })
+    const floorMat = flatMaterial({ color: 0x8a7868, roughness: 0.85 })
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(7.4, 9.4), floorMat)
+    floor.rotation.x = -Math.PI / 2
+    floor.position.set(stripMallCenters[i], 0.02, 300)
+    floor.receiveShadow = true
+    scene.add(floor)
+    placePropSimple(scene, register, i === 1 ? 'counter.glb' : 'shelf.glb', stripMallCenters[i], 297, 0)
+  }
+  registerZone({ id: 'stripmall', x: -200, z: 300, radius: 14, densityMult: 1.1 })
+  towerChestSpots.push({ x: -200, y: 0, z: 296, lootWeights: RETAIL_LOOT_WEIGHTS })
+
+  buildFillerLocation(scene, register, {
+    x: 200, z: -280, w: 22, d: 10, doorWidth: 3, floorColor: 0x8a6840,
+    dressing: [
+      { file: 'waiting-chair.glb', dx: -8, dz: -3 }, { file: 'waiting-chair.glb', dx: -8, dz: 0 },
+      { file: 'waiting-chair.glb', dx: 8, dz: -3 }, { file: 'waiting-chair.glb', dx: 8, dz: 0 },
+      { file: 'trashbin.glb', dx: 0, dz: 4 },
+    ],
+  })
+  registerZone({ id: 'bowling', x: 200, z: -280, radius: 13, densityMult: 1.0 })
+  towerChestSpots.push({ x: 200, y: 0, z: -276 })
+
+  // Cemetery - fenced open-air plot, no headstone prop on disk so these are
+  // simple procedural slabs (same "plain primitive, not every prop needs a
+  // sourced model" precedent as the gas station's pumps/canopy above).
+  buildFillerLocation(scene, register, { x: -200, z: -280, w: 26, d: 20, fenceOnly: true })
+  {
+    const stoneMat = flatMaterial({ color: 0x8a887c, roughness: 0.95 })
+    let hs = 0
+    for (const row of [-6, 0, 6]) {
+      for (const col of [-9, -3, 3, 9]) {
+        hs++
+        const headstone = new THREE.Mesh(new THREE.BoxGeometry(1, 1.1, 0.25), stoneMat)
+        headstone.position.set(-200 + col, 0.55, -280 + row + (hs % 2) * 0.6)
+        headstone.castShadow = true
+        scene.add(headstone)
+        register(headstone)
+      }
+    }
+  }
+  registerZone({ id: 'cemetery', x: -200, z: -280, radius: 15, densityMult: 1.3 })
+  towerChestSpots.push({ x: -200, y: 0, z: -284 })
+
+  // Trailer Park - freestanding low boxes, not a single walled building, so
+  // built directly rather than through buildFillerLocation.
+  {
+    const trailerMat = flatMaterial({ color: 0xa89c86, roughness: 0.85 })
+    const roofMat = flatMaterial({ color: 0x5a5044, roughness: 0.7 })
+    const trailerSpots = [[-8, -4, 0], [8, -3, Math.PI], [-6, 6, Math.PI / 2], [6, 5, -Math.PI / 2]]
+    for (const [dx, dz, rot] of trailerSpots) {
+      const body = new THREE.Mesh(new THREE.BoxGeometry(6, 2, 2.6), trailerMat)
+      body.position.set(dx, 1, 300 + dz)
+      body.rotation.y = rot
+      body.castShadow = true
+      scene.add(body)
+      register(body)
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(6.2, 0.2, 2.8), roofMat)
+      roof.position.set(dx, 2.1, 300 + dz)
+      roof.rotation.y = rot
+      roof.castShadow = true
+      scene.add(roof)
+      register(roof)
+    }
+  }
+  registerZone({ id: 'trailerpark', x: 0, z: 300, radius: 14, densityMult: 1.1 })
+  towerChestSpots.push({ x: 0, y: 0, z: 296 })
+
+  buildFillerLocation(scene, register, {
+    x: 0, z: -300, w: 24, d: 20, fenceOnly: true,
+    dressing: [
+      { file: 'dumpster.glb', dx: -7, dz: -5 }, { file: 'dumpster.glb', dx: -7, dz: 2 }, { file: 'dumpster.glb', dx: 7, dz: -3 },
+      { file: 'barrel.glb', dx: 3, dz: 5 }, { file: 'barrel.glb', dx: 4, dz: 6 }, { file: 'cabledrum.glb', dx: -3, dz: 6 },
+      { file: 'roadblock.glb', dx: 0, dz: -7 }, { file: 'trafficcone.glb', dx: 1, dz: -7 }, { file: 'trafficcone.glb', dx: -1, dz: -7 },
+    ],
+  })
+  registerZone({ id: 'junkyard', x: 0, z: -300, radius: 14, densityMult: 1.2 })
+  towerChestSpots.push({ x: 0, y: 0, z: -296, lootWeights: FUEL_LOOT_WEIGHTS })
+
+  // Power Substation - purely atmospheric/hazardous-looking, deliberately no
+  // chest (not every new location needs to be a loot stop).
+  buildFillerLocation(scene, register, { x: 100, z: 260, w: 14, d: 14, wallColor: 0xb0331a, fenceOnly: true })
+  {
+    const transformerMat = flatMaterial({ color: 0x4a4a48, roughness: 0.6, metalness: 0.6 })
+    const warnMat = flatMaterial({ color: 0xd9a520, roughness: 0.5 })
+    for (const [dx, dz] of [[-3, -3], [3, -3], [0, 3]]) {
+      const box = new THREE.Mesh(new THREE.BoxGeometry(2, 2.4, 2), transformerMat)
+      box.position.set(100 + dx, 1.2, 260 + dz)
+      box.castShadow = true
+      scene.add(box)
+      register(box)
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.15, 2.1), warnMat)
+      cap.position.set(100 + dx, 2.48, 260 + dz)
+      scene.add(cap)
+    }
+  }
+  registerZone({ id: 'substation', x: 100, z: 260, radius: 10, densityMult: 1.0 })
+
+  buildFillerLocation(scene, register, {
+    x: -100, z: 260, w: 16, d: 14, wallHeight: 3.2, doorWidth: 3, floorColor: 0x4a4a3c, wallColor: 0x3a3a2c,
+    dressing: [
+      { file: 'roadblock.glb', dx: -3, dz: -6 }, { file: 'roadblock.glb', dx: 3, dz: -6 },
+      { file: 'trafficcone.glb', dx: -2, dz: -6.5 }, { file: 'trafficcone.glb', dx: 2, dz: -6.5 },
+      { file: 'cabledrum.glb', dx: 0, dz: 4 },
+    ],
+  })
+  registerZone({ id: 'outpost', x: -100, z: 260, radius: 12, densityMult: 1.3 })
+  towerChestSpots.push({ x: -100, y: 0, z: 256, lootWeights: WEAPON_ONLY_LOOT_WEIGHTS })
+
   // Performance fix - only 2 call sites in this whole file ever went through
   // register() (which is what actually adds something to cullables), out of
   // 140+ raw colliders.push/solidMeshes.push calls across every stage. That
@@ -2858,6 +3113,63 @@ function buildMotel(scene, register, x, z) {
   }
 
   return { x, z, roomCount }
+}
+
+// "Fill the empty map" round - the 4 outer zones plus the ~19 named
+// locations above still left most of the 750x750 map's outer ring and
+// diagonal quadrants completely empty (checked by hand against every
+// coordinate above - downtown core, safe zone, park, all 4 outer zones,
+// and every named location's own footprint). These 20 are single-room
+// shells built at the same "finish the set" level of detail as
+// buildWarehouse/buildGasStation/buildBank above, not another full
+// multi-stage blueprint location - real colliders + zone + (mostly) a
+// chest, just simpler dressing. `fenceOnly` swaps the walled room for a
+// low fence outline for the handful that read better as an open-air lot
+// (junkyard, farmers market, substation) than an interior.
+function buildFillerLocation(scene, register, spec) {
+  const {
+    x, z, w, d, wallHeight = 4, doorSide = 'south', doorWidth = 2.4,
+    floorColor = 0x38342e, wallColor, fenceOnly = false, dressing = [],
+  } = spec
+
+  if (fenceOnly) {
+    const fenceMat = flatMaterial({ color: wallColor || 0x2a2a26, roughness: 0.8, metalness: 0.4 })
+    const fenceH = 1.4
+    const halfW = w / 2
+    const halfD = d / 2
+    for (const cz of [z - halfD, z + halfD]) {
+      const f = new THREE.Mesh(new THREE.BoxGeometry(w, fenceH, 0.15), fenceMat)
+      f.position.set(x, fenceH / 2, cz)
+      f.castShadow = true
+      scene.add(f)
+      register(f)
+    }
+    for (const cx of [x - halfW, x + halfW]) {
+      const f = new THREE.Mesh(new THREE.BoxGeometry(0.15, fenceH, d), fenceMat)
+      f.position.set(cx, fenceH / 2, z)
+      f.castShadow = true
+      scene.add(f)
+      register(f)
+    }
+  } else {
+    buildRoom(scene, register, {
+      x, z, w, d, wallHeight,
+      doorSides: [{ side: doorSide, width: doorWidth }],
+      ...(wallColor ? { wallMat: flatMaterial({ color: wallColor, roughness: 0.9 }) } : {}),
+    })
+    const floorMat = flatMaterial({ color: floorColor, roughness: 0.85 })
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, d - 0.6), floorMat)
+    floor.rotation.x = -Math.PI / 2
+    floor.position.set(x, 0.02, z)
+    floor.receiveShadow = true
+    scene.add(floor)
+  }
+
+  for (const p of dressing) {
+    placePropSimple(scene, register, p.file, x + p.dx, z + p.dz, p.rot || 0, p.scale || 1, p.collide !== false)
+  }
+
+  return { x, z }
 }
 
 function buildManholeCover(scene, x, z) {
