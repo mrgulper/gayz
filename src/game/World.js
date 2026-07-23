@@ -954,6 +954,257 @@ export function buildWorld(scene, trophyCount = 15) {
   registerZone({ id: 'outpost', x: -100, z: 260, radius: 12, densityMult: 1.3 })
   towerChestSpots.push({ x: -100, y: 0, z: 256, lootWeights: WEAPON_ONLY_LOOT_WEIGHTS })
 
+  // "Fill the empty map", round 2 - 10 more locations, same "finish the
+  // set" level of detail as round 1 above. A few reuse a one-off
+  // centerpiece (Ferris wheel, water+dock, tanks, a truck) built directly
+  // rather than through buildFillerLocation, same precedent as the
+  // trailer park/cemetery headstones above.
+  buildFillerLocation(scene, register, { x: 160, z: 220, w: 32, d: 28, fenceOnly: true })
+  {
+    const fenceMat = flatMaterial({ color: 0x2a2a26, roughness: 0.8, metalness: 0.4 })
+    for (const dx of [-8, 8]) {
+      const divider = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.4, 28), fenceMat)
+      divider.position.set(160 + dx, 0.7, 220)
+      scene.add(divider)
+      register(divider)
+    }
+    placePropSimple(scene, register, 'trashbin.glb', 147, 208, 0)
+    placePropSimple(scene, register, 'barrel.glb', 147, 210, 0)
+  }
+  registerZone({ id: 'zoo', x: 160, z: 220, radius: 16, densityMult: 1.2 })
+  towerChestSpots.push({ x: 160, y: 0, z: 216 })
+
+  buildFillerLocation(scene, register, {
+    x: -160, z: 220, w: 32, d: 28, fenceOnly: true,
+    dressing: [
+      { file: 'traderstall.glb', dx: -10, dz: 10 }, { file: 'traderstall.glb', dx: 10, dz: 10 },
+      { file: 'food-carton.glb', dx: -10, dz: 11, scale: 0.3 },
+    ],
+  })
+  {
+    const wheelMat = flatMaterial({ color: 0xb0331a, roughness: 0.5, metalness: 0.3 })
+    const poleMat = flatMaterial({ color: 0x2a2a26, roughness: 0.7, metalness: 0.5 })
+    const wheelR = 8
+    const wheel = new THREE.Mesh(new THREE.TorusGeometry(wheelR, 0.35, 8, 24), wheelMat)
+    wheel.position.set(-160, wheelR + 0.5, 214)
+    wheel.castShadow = true
+    scene.add(wheel)
+    register(wheel)
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.5, wheelR + 0.5, 8), poleMat)
+    pole.position.set(-160, (wheelR + 0.5) / 2, 214)
+    scene.add(pole)
+    register(pole)
+  }
+  registerZone({ id: 'amusementpark', x: -160, z: 220, radius: 17, densityMult: 1.2 })
+  towerChestSpots.push({ x: -160, y: 0, z: 214, lootWeights: RETAIL_LOOT_WEIGHTS })
+
+  buildFillerLocation(scene, register, {
+    x: 250, z: 180, w: 16, d: 12, floorColor: 0x2e1a1a,
+    dressing: [
+      { file: 'counter.glb', dx: -3, dz: -3 }, { file: 'counter.glb', dx: 3, dz: -3 },
+      { file: 'waiting-chair.glb', dx: -1, dz: 4 }, { file: 'waiting-chair.glb', dx: 1, dz: 4 },
+    ],
+  })
+  for (const dx of [-5, 5]) {
+    const slotShelf = placePropSimple(scene, register, 'shelf.glb', 250 + dx, 182, 0)
+    if (slotShelf) slotShelf.traverse((c) => { if (c.isMesh) c.material.color.setHex(0xc9b34a) })
+  }
+  // Vault room, same pattern as buildBank's vault above - guaranteed
+  // best-tier loot set directly on the door object.
+  {
+    const vaultW = 5
+    const vaultD = 4
+    const vaultZ = 180 + 12 / 2 - vaultD / 2 - 0.5
+    buildRoom(scene, register, { x: 250, z: vaultZ, w: vaultW, d: vaultD, wallHeight: 2.8, doorSides: [{ side: 'south', width: 1.8 }] })
+    const vaultDoor = buildLockableDoor(scene, 250, vaultZ - vaultD / 2, 1.8, 'x')
+    vaultDoor.lootWeights = { legendary_weapon: 10, rare_weapon: 6, extended_mag: 3 }
+  }
+  registerZone({ id: 'casino', x: 250, z: 180, radius: 14, densityMult: 1.3 })
+  towerChestSpots.push({ x: 250, y: 0, z: 177, lootWeights: RETAIL_LOOT_WEIGHTS })
+
+  buildFillerLocation(scene, register, {
+    x: -250, z: 180, w: 14, d: 11, floorColor: 0x3a1a3d,
+    dressing: [
+      { file: 'counter.glb', dx: -4, dz: -3, rot: Math.PI / 2 },
+      { file: 'waiting-chair.glb', dx: 3, dz: 2 }, { file: 'waiting-chair.glb', dx: 4, dz: 3 }, { file: 'waiting-chair.glb', dx: 2, dz: 3.5 },
+    ],
+  })
+  {
+    const discoMat = flatMaterial({ color: 0xd0d0d0, roughness: 0.2, metalness: 0.8, emissive: 0x8844cc, emissiveIntensity: 0.6 })
+    const disco = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 12), discoMat)
+    disco.position.set(-250, 3.6, 180)
+    scene.add(disco)
+  }
+  registerZone({ id: 'nightclub', x: -250, z: 180, radius: 11, densityMult: 1.2 })
+  towerChestSpots.push({ x: -250, y: 0, z: 177 })
+
+  // Marina/Docks - the one location here that needed a genuinely new
+  // environmental feature (open water) rather than just another shell.
+  // Purely cosmetic water (no collider, no swim mechanic) - the player
+  // walks across it at ground height same as everywhere else, same
+  // simplification the rest of this map already makes for e.g. the
+  // sewer's "toxic water" (that one ticks damage; this one is just visual).
+  {
+    buildRoom(scene, register, { x: 160, z: -268, w: 6, d: 5, doorSides: [{ side: 'north', width: 2 }] })
+    const dockFloorMat = flatMaterial({ color: 0x6b5a42, roughness: 0.85 })
+    const dockFloor = new THREE.Mesh(new THREE.PlaneGeometry(5.4, 4.4), dockFloorMat)
+    dockFloor.rotation.x = -Math.PI / 2
+    dockFloor.position.set(160, 0.02, -268)
+    dockFloor.receiveShadow = true
+    scene.add(dockFloor)
+    placePropSimple(scene, register, 'counter.glb', 160, -269.5, 0)
+
+    const waterMat = flatMaterial({ color: 0x1c4a52, roughness: 0.3, metalness: 0.1 })
+    const water = new THREE.Mesh(new THREE.PlaneGeometry(24, 16), waterMat)
+    water.rotation.x = -Math.PI / 2
+    water.position.set(160, -0.15, -256)
+    scene.add(water)
+
+    const dockMat = flatMaterial({ color: 0x7a6248, roughness: 0.9 })
+    const walkway = new THREE.Mesh(new THREE.BoxGeometry(3, 0.15, 14), dockMat)
+    walkway.position.set(160, 0.05, -258)
+    scene.add(walkway)
+    register(walkway)
+
+    const hullMat = flatMaterial({ color: 0x3a3a34, roughness: 0.7 })
+    for (const [dx, dz] of [[-5, -4], [5, -8]]) {
+      const hull = new THREE.Mesh(new THREE.BoxGeometry(2, 0.8, 5), hullMat)
+      hull.position.set(160 + dx, 0.1, -256 + dz)
+      hull.castShadow = true
+      scene.add(hull)
+    }
+    placePropSimple(scene, register, 'barrel.glb', 156, -266, 0)
+    placePropSimple(scene, register, 'cabledrum.glb', 164, -266, 0)
+  }
+  registerZone({ id: 'marina', x: 160, z: -260, radius: 15, densityMult: 1.0 })
+  towerChestSpots.push({ x: 160, y: 0, z: -267 })
+
+  buildFillerLocation(scene, register, {
+    x: -160, z: -260, w: 26, d: 20, fenceOnly: true,
+    dressing: [{ file: 'waterbarrel.glb', dx: -8, dz: 6 }, { file: 'waterbarrel.glb', dx: -6, dz: 6 }],
+  })
+  {
+    const tankMat = flatMaterial({ color: 0x4a4a48, roughness: 0.6, metalness: 0.5 })
+    const capMat = flatMaterial({ color: 0xd9a520, roughness: 0.5 })
+    for (const dx of [-7, 0, 7]) {
+      const tank = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 4.5, 16), tankMat)
+      tank.position.set(-160 + dx, 2.25, -264)
+      tank.castShadow = true
+      scene.add(tank)
+      register(tank)
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(2.3, 2.3, 0.2, 16), capMat)
+      cap.position.set(-160 + dx, 4.6, -264)
+      scene.add(cap)
+    }
+  }
+  registerZone({ id: 'watertreatment', x: -160, z: -260, radius: 14, densityMult: 1.0 })
+  towerChestSpots.push({ x: -160, y: 0, z: -256 })
+
+  buildFillerLocation(scene, register, {
+    x: -260, z: -260, w: 14, d: 12, floorColor: 0x2e1f1f,
+    dressing: [
+      { file: 'waiting-chair.glb', dx: -4, dz: -3 }, { file: 'waiting-chair.glb', dx: -1.5, dz: -3 },
+      { file: 'waiting-chair.glb', dx: 1.5, dz: -3 }, { file: 'waiting-chair.glb', dx: 4, dz: -3 },
+      { file: 'waiting-chair.glb', dx: -1.5, dz: -1 }, { file: 'waiting-chair.glb', dx: 1.5, dz: -1 },
+    ],
+  })
+  {
+    const casketMat = flatMaterial({ color: 0x2a1c14, roughness: 0.4, metalness: 0.2 })
+    const casket = new THREE.Mesh(new THREE.BoxGeometry(2, 0.9, 0.8), casketMat)
+    casket.position.set(-260, 0.45, -256)
+    casket.castShadow = true
+    scene.add(casket)
+    register(casket)
+  }
+  registerZone({ id: 'funeralhome', x: -260, z: -260, radius: 10, densityMult: 1.2 })
+  towerChestSpots.push({ x: -260, y: 0, z: -256 })
+
+  buildFillerLocation(scene, register, {
+    x: 250, z: -260, w: 14, d: 11, floorColor: 0x2a2e33,
+    dressing: [
+      { file: 'counter.glb', dx: 0, dz: -3, rot: Math.PI },
+      { file: 'waiting-chair.glb', dx: -2, dz: 2 }, { file: 'waiting-chair.glb', dx: 2, dz: 2 },
+    ],
+  })
+  {
+    const camMat = flatMaterial({ color: 0x2a2a26, roughness: 0.6, metalness: 0.5 })
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 1.6, 8), camMat)
+    pole.position.set(255, 0.8, -257)
+    scene.add(pole)
+    register(pole)
+    const camHead = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.35, 0.7), camMat)
+    camHead.position.set(255, 1.65, -257)
+    scene.add(camHead)
+    register(camHead)
+  }
+  registerZone({ id: 'newsstation', x: 250, z: -260, radius: 10, densityMult: 1.1 })
+  towerChestSpots.push({ x: 250, y: 0, z: -256, lootWeights: { ...LOOT_WEIGHTS, extended_mag: 1.5, scope: 1.5 } })
+
+  {
+    const tx = 0
+    const tz = 250
+    buildRoom(scene, register, { x: tx, z: tz, w: 10, d: 7, doorSides: [{ side: 'south', width: 2.2 }] })
+    const floorMat = flatMaterial({ color: 0xc4c0b0, roughness: 0.8 })
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(9.4, 6.4), floorMat)
+    floor.rotation.x = -Math.PI / 2
+    floor.position.set(tx, 0.02, tz)
+    floor.receiveShadow = true
+    scene.add(floor)
+    placePropSimple(scene, register, 'counter.glb', tx - 3, tz - 1.5, 0)
+
+    const canopyMat = flatMaterial({ color: 0xb0331a, roughness: 0.6, metalness: 0.2 })
+    const postMat = flatMaterial({ color: 0x2a2a26, roughness: 0.7, metalness: 0.5 })
+    const forecourtZ = tz - 3.5 - 6
+    const canopy = new THREE.Mesh(new THREE.BoxGeometry(13, 0.3, 8), canopyMat)
+    canopy.position.set(tx, 4, forecourtZ)
+    canopy.castShadow = true
+    scene.add(canopy)
+    register(canopy)
+    for (const [px, pz] of [[-5.5, 3.2], [5.5, 3.2], [-5.5, -3.2], [5.5, -3.2]]) {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 4, 8), postMat)
+      post.position.set(tx + px, 2, forecourtZ + pz)
+      post.castShadow = true
+      scene.add(post)
+      register(post)
+    }
+    const pumpMat = flatMaterial({ color: 0xdedad0, roughness: 0.5 })
+    for (const px of [-2, 2]) {
+      const pump = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.4, 0.6), pumpMat)
+      pump.position.set(tx + px, 0.7, forecourtZ)
+      pump.castShadow = true
+      scene.add(pump)
+      register(pump)
+    }
+
+    // Single parked rig, tucked beside the store (not further out past the
+    // forecourt) so it stays clear of the Gas Station's own footprint
+    // further south along the same x=0 column.
+    const truckMat = flatMaterial({ color: 0x3a4048, roughness: 0.6, metalness: 0.3 })
+    const trailerMat = flatMaterial({ color: 0x8a8478, roughness: 0.7 })
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(3, 2.2, 2.4), truckMat)
+    cab.position.set(tx + 7, 1.1, tz - 3)
+    cab.castShadow = true
+    scene.add(cab)
+    register(cab)
+    const trailer = new THREE.Mesh(new THREE.BoxGeometry(8, 2.6, 2.6), trailerMat)
+    trailer.position.set(tx + 13, 1.3, tz - 3)
+    trailer.castShadow = true
+    scene.add(trailer)
+    register(trailer)
+  }
+  registerZone({ id: 'truckstop', x: 0, z: 250, radius: 13, densityMult: 1.1 })
+  towerChestSpots.push({ x: 0, y: 0, z: 246, lootWeights: FUEL_LOOT_WEIGHTS })
+
+  buildFillerLocation(scene, register, {
+    x: 100, z: -260, w: 10, d: 9, floorColor: 0x9ec9d9,
+    dressing: [
+      { file: 'campus-table.glb', dx: -2, dz: -1, scale: 0.7 }, { file: 'campus-table.glb', dx: 2, dz: -1, scale: 0.7 },
+      { file: 'campus-bookcase.glb', dx: 0, dz: 3, scale: 0.8 },
+    ],
+  })
+  registerZone({ id: 'daycare', x: 100, z: -260, radius: 8, densityMult: 1.1 })
+  towerChestSpots.push({ x: 100, y: 0, z: -257 })
+
   // Performance fix - only 2 call sites in this whole file ever went through
   // register() (which is what actually adds something to cullables), out of
   // 140+ raw colliders.push/solidMeshes.push calls across every stage. That
