@@ -64,6 +64,11 @@ const ROLE_STATS = {
   ranged: { engageRange: 13, meleeRange: 0, fireInterval: 1.3, damageMin: 18, damageMax: 30, jacket: 0x2f4f7a },
   melee: { engageRange: 2.4, meleeRange: 2.2, fireInterval: 0.9, damageMin: 26, damageMax: 42, jacket: 0x7a2f2f },
   medic: { engageRange: 0, meleeRange: 0, fireInterval: 5, damageMin: 0, damageMax: 0, jacket: 0x2f7a4f, healAmount: 15 },
+  // Same combat behavior as 'ranged' (falls through the same default branch
+  // in every this.role === 'melee'/'medic' check below) - only exists so the
+  // trader guide NPC reads as a distinct merchant instead of just another
+  // blue-jacketed guard standing next to an identical guard.
+  vendor: { engageRange: 13, meleeRange: 0, fireInterval: 1.3, damageMin: 18, damageMax: 30, jacket: 0xac8a4a },
 }
 const MEDIC_FOLLOW_DISTANCE = 2.2
 

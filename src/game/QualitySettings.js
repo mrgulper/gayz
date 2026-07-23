@@ -50,6 +50,12 @@ export function flatMaterial(opts) {
 export function flattenedClone(original) {
   if (!LOW_QUALITY_MODE) return original.clone()
   const simple = {}
+  // Dropped previously - callers that key off material.name post-clone
+  // (e.g. Companion.js's _buildBodyFromGLB matching the "Main" slot to
+  // apply a per-role jacket tint) silently never matched anything under
+  // LOW_QUALITY_MODE, since the fresh MeshLambertMaterial below defaulted
+  // to name: '' instead of carrying the original slot name forward.
+  if (original.name) simple.name = original.name
   if (original.color) simple.color = original.color.clone()
   if (original.map) simple.map = original.map
   if (original.emissive) simple.emissive = original.emissive.clone()

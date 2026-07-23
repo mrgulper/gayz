@@ -1188,7 +1188,7 @@ export class Game {
     // other Companion but never ticked (no .update() call anywhere), so
     // they just stand there with an instructional label instead of
     // following/fighting like every other Companion instance.
-    this.traderGuideNpc = new Companion(this.scene, trader.x + 1.6, trader.z - 1.4, 'ranged', { vulnerable: false })
+    this.traderGuideNpc = new Companion(this.scene, trader.x + 1.6, trader.z - 1.4, 'vendor', { vulnerable: false })
     this.traderGuideNpc.setName('Click the trader to trade points for supplies')
     this.ammoGuideNpc = new Companion(this.scene, ammoStation.x - 1.4, ammoStation.z - 1.2, 'ranged', { vulnerable: false })
     this.ammoGuideNpc.setName('Hold F here to refill reserve ammo')

@@ -1688,6 +1688,13 @@ function buildTraderStall(scene, register) {
   )
   register(raycastTarget, counterBox)
 
+  // A couple of "goods" props scattered beside the stall (not on the
+  // group's own rotated axis, so plain world-space offsets clear of the
+  // counter's footprint above) - the stall alone read as a lone counter in
+  // an empty patch of ground with nothing suggesting an actual market.
+  placePropSimple(scene, register, 'cabledrum.glb', x - 1.3, z + 0.9, 0.4)
+  placePropSimple(scene, register, 'waterbarrel.glb', x + 1.4, z + 0.7, -0.3)
+
   return { x, z, signMat, mesh: raycastTarget }
 }
 
@@ -1810,7 +1817,23 @@ function buildSafeZone(scene, colliders, solidMeshes) {
   const gapHalfWidth = 1.6
   const wallHeight = 3.2
 
-  const wallMat = flatMaterial({ color: 0x3a3a34, roughness: 0.95 })
+  // Grime-textured (same getFacadeTexture/getSharedBumpTexture pass every
+  // outer-zone building already uses) instead of a single flat color - this
+  // wall is the very first thing a new player stands next to, and a flat
+  // MeshStandardMaterial box read as noticeably cleaner/newer than every
+  // other worn surface on the map.
+  const wallColor = 0x3a3a34
+  const wallMat = LOW_QUALITY_MODE
+    ? new THREE.MeshLambertMaterial({ color: wallColor })
+    : (() => {
+        const facadeTex = getFacadeTexture(wallColor).clone()
+        facadeTex.needsUpdate = true
+        facadeTex.repeat.set(Math.max(1, (half * 2) / 4), Math.max(1, wallHeight / 4))
+        const bumpTex = getSharedBumpTexture().clone()
+        bumpTex.needsUpdate = true
+        bumpTex.repeat.copy(facadeTex.repeat)
+        return flatMaterial({ map: facadeTex, bumpMap: bumpTex, bumpScale: 0.035, roughness: 0.95 })
+      })()
   const postMat = flatMaterial({ color: 0x1c1a16, roughness: 0.8 })
   const sandbagMat = flatMaterial({ color: 0x5a5138, roughness: 1 })
   const lightMat = flatMaterial({ color: 0x1a1408, emissive: 0x6fe08a, emissiveIntensity: 1.3 })
@@ -1825,14 +1848,38 @@ function buildSafeZone(scene, colliders, solidMeshes) {
     colliders.push(new THREE.Box3().setFromObject(wall))
   }
 
+  // Sandbag piles stacked along the base of a wall segment, purely cosmetic
+  // (the wall itself is the collider) - breaks up the long flat run and
+  // reads as a fortified perimeter rather than a bare box. axisIsX picks
+  // which direction the segment's own length runs in.
+  const addSandbagRow = (wx, wz, w, d, axisIsX) => {
+    const len = axisIsX ? w : d
+    const count = Math.max(2, Math.round(len / 1.4))
+    for (let i = 0; i < count; i++) {
+      const t = count === 1 ? 0.5 : i / (count - 1)
+      const offset = (t - 0.5) * (len - 0.8)
+      const bagX = x + wx + (axisIsX ? offset : 0)
+      const bagZ = z + wz + (axisIsX ? 0 : offset)
+      const bag = new THREE.Mesh(new THREE.BoxGeometry(axisIsX ? 0.75 : 0.55, 0.5, axisIsX ? 0.55 : 0.75), sandbagMat)
+      bag.position.set(bagX, 0.25, bagZ)
+      bag.rotation.y = ((i * 37) % 9) * 0.03 - 0.12
+      bag.castShadow = true
+      bag.receiveShadow = true
+      scene.add(bag)
+    }
+  }
+
   // Four sides, with a gap left in the -z (south-facing) wall for an
   // entrance - flipped 180 degrees from the original +z (park-facing) gap
   // now that the safe zone sits at the north end: the player approaches
   // from the south (the main street/city), so the entrance should face
   // back the way they came, not toward the park behind it.
   addWall(0, half, half * 2, 0.6)
+  addSandbagRow(0, half - 0.6, half * 2, 0.6, true)
   addWall(-half, 0, 0.6, half * 2)
+  addSandbagRow(-half + 0.6, 0, 0.6, half * 2, false)
   addWall(half, 0, 0.6, half * 2)
+  addSandbagRow(half - 0.6, 0, 0.6, half * 2, false)
   const sideWallLen = half - gapHalfWidth
   addWall(-(gapHalfWidth + sideWallLen / 2), -half, sideWallLen, 0.6)
   addWall(gapHalfWidth + sideWallLen / 2, -half, sideWallLen, 0.6)
