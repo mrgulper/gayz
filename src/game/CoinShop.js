@@ -49,6 +49,16 @@ export const COIN_SHOP_ITEMS = [
   { id: 'skin_crimson', titleKey: 'skinCrimson', cost: 1200, section: 'skins', skin: 'crimson' },
   { id: 'skin_cobalt', titleKey: 'skinCobalt', cost: 1200, section: 'skins', skin: 'cobalt' },
   { id: 'skin_obsidian', titleKey: 'skinObsidian', cost: 1200, section: 'skins', skin: 'obsidian' },
+  // Player outfit colors (see PlayerBody.setOutfit) - same equip-toggle
+  // purchase shape as skins above, just tinting the third-person body's
+  // jacket instead of a weapon. Third-person-only (no first-person body
+  // mesh exists at all - see PlayerBody.js's own doc comment), so this is
+  // purely a cosmetic seen in photo mode/by other viewers, same as skins
+  // are purely visual on the gun itself.
+  { id: 'outfit_crimson', titleKey: 'outfitCrimson', cost: 800, section: 'outfits', outfit: 'crimson', outfitColor: 0x7a2f2f },
+  { id: 'outfit_olive', titleKey: 'outfitOlive', cost: 800, section: 'outfits', outfit: 'olive', outfitColor: 0x4a5230 },
+  { id: 'outfit_slate', titleKey: 'outfitSlate', cost: 800, section: 'outfits', outfit: 'slate', outfitColor: 0x2e343a },
+  { id: 'outfit_desert', titleKey: 'outfitDesert', cost: 800, section: 'outfits', outfit: 'desert', outfitColor: 0xac8a4a },
   {
     id: 'coin_damage',
     titleKey: 'coinShopDamage',

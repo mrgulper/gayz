@@ -1067,17 +1067,39 @@ export function buildWorld(scene, trophyCount = 15) {
     register(walkway)
 
     const hullMat = flatMaterial({ color: 0x3a3a34, roughness: 0.7 })
-    for (const [dx, dz] of [[-5, -4], [5, -8]]) {
-      const hull = new THREE.Mesh(new THREE.BoxGeometry(2, 0.8, 5), hullMat)
-      hull.position.set(160 + dx, 0.1, -256 + dz)
-      hull.castShadow = true
-      scene.add(hull)
-    }
+    // Salvage boat - real collider, low enough (0.5, under the player's own
+    // step-up height) to climb onto directly from the "water" the same way
+    // the dock itself is reached, no gangplank needed. The second hull
+    // stays purely decorative (background clutter, matching how it read
+    // before this pass).
+    const salvageHull = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.5, 5.5), hullMat)
+    salvageHull.position.set(155, 0.25, -260)
+    salvageHull.castShadow = true
+    scene.add(salvageHull)
+    register(salvageHull)
+    const deckMat = flatMaterial({ color: 0x5a4a38, roughness: 0.85 })
+    const deck = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 5.2), deckMat)
+    deck.rotation.x = -Math.PI / 2
+    deck.position.set(155, 0.51, -260)
+    deck.receiveShadow = true
+    scene.add(deck)
+    placePropSimple(scene, register, 'cabledrum.glb', 155, -262, 0, 1, false, 0.51)
+    placePropSimple(scene, register, 'waterbarrel.glb', 155.5, -258.5, 0, 1, false, 0.51)
+
+    const hull2 = new THREE.Mesh(new THREE.BoxGeometry(2, 0.8, 5), hullMat)
+    hull2.position.set(165, 0.1, -264)
+    hull2.castShadow = true
+    scene.add(hull2)
+
     placePropSimple(scene, register, 'barrel.glb', 156, -266, 0)
     placePropSimple(scene, register, 'cabledrum.glb', 164, -266, 0)
   }
   registerZone({ id: 'marina', x: 160, z: -260, radius: 15, densityMult: 1.0 })
   towerChestSpots.push({ x: 160, y: 0, z: -267 })
+  // Salvaged cargo on the boat deck above - better odds than the dockhouse
+  // chest, the payoff for actually walking out onto the water instead of
+  // just visiting the dockhouse.
+  towerChestSpots.push({ x: 155, y: 0.51, z: -260, lootWeights: { ...LOOT_WEIGHTS, rare_weapon: 2, extended_mag: 2 } })
 
   buildFillerLocation(scene, register, {
     x: -160, z: -260, w: 26, d: 20, fenceOnly: true,

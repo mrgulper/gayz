@@ -288,6 +288,8 @@ function loadShopProgress() {
       coins: parsed.coins || 0,
       ownedSkins: new Set(parsed.ownedSkins || []),
       equippedSkin: parsed.equippedSkin || null,
+      ownedOutfits: new Set(parsed.ownedOutfits || []),
+      equippedOutfit: parsed.equippedOutfit || null,
       shopPurchased: new Set(parsed.shopPurchased || []),
       // Coin Shop gun purchases (minigun/awp/glock18/weatie) - previously
       // never saved, so a bought gun's `unlocked` flag (pure in-memory
@@ -302,7 +304,7 @@ function loadShopProgress() {
       attachments: parsed.attachments || [],
     }
   } catch {
-    return { points: 0, coins: 0, ownedSkins: new Set(), equippedSkin: null, shopPurchased: new Set(), unlockedGuns: [], attachments: [] }
+    return { points: 0, coins: 0, ownedSkins: new Set(), equippedSkin: null, ownedOutfits: new Set(), equippedOutfit: null, shopPurchased: new Set(), unlockedGuns: [], attachments: [] }
   }
 }
 
@@ -313,6 +315,8 @@ function saveShopProgress(game) {
       coins: game.coins,
       ownedSkins: [...game.ownedSkins],
       equippedSkin: game.equippedSkin,
+      ownedOutfits: [...game.ownedOutfits],
+      equippedOutfit: game.equippedOutfit,
       shopPurchased: [...game.coinShopPurchased],
       unlockedGuns: game.weapons.weapons.filter((w) => w.unlocked && COIN_SHOP_GUN_IDS.has(w.id)).map((w) => w.id),
       attachments: game.weapons.weapons.flatMap((w) => {
@@ -1043,6 +1047,48 @@ export class Game {
       this.compassStrip.appendChild(el)
       lm.el = el
     }
+    // Full map + fast travel destination list - every named location on the
+    // map, including the "fill the empty map" rounds (World.js's
+    // buildFillerLocation calls) that never got their own compass markers
+    // above (49 locations on a compass strip would be unreadable clutter -
+    // this list is only ever consumed by the full map screen, which has
+    // room to show all of them as dots). Coordinates match World.js's own
+    // buildWorld() call sites exactly (hand-copied, not returned from
+    // buildWorld() - none of these bare buildFillerLocation() calls capture
+    // a return value there).
+    this.allLocationLandmarks = [
+      ...this.newLocationLandmarks,
+      { label: 'Library', x: 320, z: 160 },
+      { label: 'Church', x: 330, z: 70 },
+      { label: 'School', x: -320, z: 150 },
+      { label: 'Theater', x: 280, z: 260 },
+      { label: 'Gym', x: -280, z: 260 },
+      { label: 'Laundromat', x: 65, z: -95 },
+      { label: 'Post Office', x: -65, z: -95 },
+      { label: 'Burger Joint', x: 320, z: -75 },
+      { label: 'Electronics', x: -320, z: -60 },
+      { label: 'Clothing', x: -320, z: 260 },
+      { label: 'Barber Shop', x: 320, z: -150 },
+      { label: 'Auto Repair', x: -320, z: -150 },
+      { label: 'Farmers Market', x: 200, z: 300 },
+      { label: 'Strip Mall', x: -200, z: 300 },
+      { label: 'Bowling', x: 200, z: -280 },
+      { label: 'Cemetery', x: -200, z: -280 },
+      { label: 'Trailer Park', x: 0, z: 300 },
+      { label: 'Junkyard', x: 0, z: -300 },
+      { label: 'Substation', x: 100, z: 260 },
+      { label: 'Outpost', x: -100, z: 260 },
+      { label: 'Zoo', x: 160, z: 220 },
+      { label: 'Carnival', x: -160, z: 220 },
+      { label: 'Casino', x: 250, z: 180 },
+      { label: 'Nightclub', x: -250, z: 180 },
+      { label: 'Marina', x: 160, z: -260 },
+      { label: 'Water Plant', x: -160, z: -260 },
+      { label: 'Funeral Home', x: -260, z: -260 },
+      { label: 'News Station', x: 250, z: -260 },
+      { label: 'Truck Stop', x: 0, z: 250 },
+      { label: 'Daycare', x: 100, z: -260 },
+    ]
     // Kept for _deployBarricade - both PlayerController and ZombieManager
     // hold this exact same array by reference (not a copy), so pushing a
     // new collider here is immediately respected by both without needing
@@ -1366,7 +1412,39 @@ export class Game {
     this.mapOpen = false
     this.fullMapPanel = document.getElementById('fullmap-panel')
     this.fullMapCanvas = document.getElementById('fullmap-canvas')
+    this.journalPanel = document.getElementById('journal-panel')
+    this.journalContent = document.getElementById('journal-content')
+    this.journalOpen = false
     this.fullMap = new FullMap(this.fullMapCanvas)
+    // Fast travel - click any discovered dot on the full map to warp there
+    // instantly and close the map, same "instant, free, no cooldown" feel
+    // as the map itself (already freezes gameplay while open). Safe Zone is
+    // always a valid target (FullMap.hitTargets[0]); every other landmark
+    // only counts once its own map cell has actually been revealed - same
+    // discoveredCells gate the map's own rendering already uses, so nothing
+    // clickable here was ever invisible a moment ago.
+    this.fullMapCanvas.addEventListener('click', (e) => {
+      if (!this.mapOpen) return
+      const rect = this.fullMapCanvas.getBoundingClientRect()
+      const px = (e.clientX - rect.left) * (this.fullMapCanvas.width / rect.width)
+      const py = (e.clientY - rect.top) * (this.fullMapCanvas.height / rect.height)
+      const cellSize = EXPLORE_CELL_SIZE
+      for (const target of this.fullMap.hitTargets) {
+        if (target.px === null) continue
+        const dx = px - target.px
+        const dy = py - target.py
+        if (dx * dx + dy * dy > 64) continue // 8px click radius
+        const cx = Math.floor(target.x / cellSize)
+        const cz = Math.floor(target.z / cellSize)
+        if (target.label !== 'Safe Zone' && !this.discoveredCells.has(`${cx},${cz}`)) continue
+        this.player.controls.object.position.set(target.x, this.player.eyeHeight, target.z)
+        this.player.velocity.set(0, 0, 0)
+        this.mapOpen = false
+        this.fullMapPanel.style.display = 'none'
+        this._showLoreToast(t('fastTraveledTo', { name: target.label }))
+        break
+      }
+    })
 
     // Photo mode: a free-fly noclip camera + hidden HUD for taking clean
     // screenshots, joining the same "gameplay freezes" gating condition as
@@ -1439,6 +1517,12 @@ export class Game {
       if (this.equippedSkin === null) this.equippedSkin = 'gold'
     }
     if (this.equippedSkin) this.weapons.setSkinAllGuns(this.equippedSkin)
+    this.ownedOutfits = this.shopProgress.ownedOutfits
+    this.equippedOutfit = this.shopProgress.equippedOutfit
+    if (this.equippedOutfit) {
+      const item = COIN_SHOP_ITEMS.find((i) => i.outfit === this.equippedOutfit)
+      if (item) this.playerBody.setOutfit(item.outfitColor)
+    }
     this._applyCoinShopPerks()
 
     audioEngine.setMusicVolume(this.settings.musicVolume / 100)
@@ -1703,7 +1787,7 @@ export class Game {
       }
 
       if (e.code === getKeyFor('toggleMap')) {
-        if (this.inventoryOpen || this.photoModeOpen) return // don't let the map open on top of the inventory/photo mode
+        if (this.inventoryOpen || this.photoModeOpen || this.journalOpen) return // don't let the map open on top of the inventory/photo mode/journal
         this.mapOpen = !this.mapOpen
         this.fullMapPanel.style.display = this.mapOpen ? 'flex' : 'none'
         if (this.mapOpen) {
@@ -1713,13 +1797,21 @@ export class Game {
           // change while it's showing.
           this.camera.getWorldDirection(this._camDir)
           const facingRad = Math.atan2(this._camDir.x, -this._camDir.z)
-          this.fullMap.render(this.player.controls.object.position, facingRad, this.discoveredCells, EXPLORE_CELL_SIZE, this.newLocationLandmarks)
+          this.fullMap.render(this.player.controls.object.position, facingRad, this.discoveredCells, EXPLORE_CELL_SIZE, this.allLocationLandmarks)
         }
         return
       }
 
+      if (e.code === getKeyFor('journal')) {
+        if (this.inventoryOpen || this.mapOpen || this.photoModeOpen) return
+        this.journalOpen = !this.journalOpen
+        this.journalPanel.style.display = this.journalOpen ? 'flex' : 'none'
+        if (this.journalOpen) this._renderJournal()
+        return
+      }
+
       if (e.code === getKeyFor('photoMode')) {
-        if (this.inventoryOpen || this.mapOpen) return // don't let photo mode open on top of the inventory/map
+        if (this.inventoryOpen || this.mapOpen || this.journalOpen) return // don't let photo mode open on top of the inventory/map/journal
         this.photoModeOpen = !this.photoModeOpen
         if (this.photoModeOpen) {
           this._photoModeReturnPos.copy(this.camera.position)
@@ -1736,7 +1828,7 @@ export class Game {
         return
       }
 
-      if (this.inventoryOpen || this.mapOpen || this.photoModeOpen) return
+      if (this.inventoryOpen || this.mapOpen || this.photoModeOpen || this.journalOpen) return
 
       if (e.code === getKeyFor('heal')) {
         if (this.inventory.useHealthPack()) {
@@ -3325,6 +3417,35 @@ export class Game {
     this._renderCoinShopOptions()
   }
 
+  // Journal - built entirely from state the game already tracks (discovered
+  // map cells + allLocationLandmarks for fast travel, the active bounty,
+  // audioLogsFound) rather than a new lore/objective tracker, same "render
+  // once per open, gameplay frozen while open" pattern as the map/inventory.
+  _renderJournal() {
+    const foundLocations = this.allLocationLandmarks.filter((lm) => {
+      const cx = Math.floor(lm.x / EXPLORE_CELL_SIZE)
+      const cz = Math.floor(lm.z / EXPLORE_CELL_SIZE)
+      return this.discoveredCells.has(`${cx},${cz}`)
+    })
+    const b = this.activeBounty
+    this.journalContent.innerHTML = `
+      <div class="journal-section">
+        <h3>${t('journalLocationsHeading')}</h3>
+        <p>${t('journalLocationsCount', { found: foundLocations.length, total: this.allLocationLandmarks.length })}</p>
+      </div>
+      <div class="journal-section">
+        <h3>${t('journalBountyHeading')}</h3>
+        ${b
+          ? `<p>${t(b.titleKey, { n: b.target })}</p><p>${t('journalBountyProgress', { progress: Math.min(b.progress, b.target), target: b.target })}</p>`
+          : `<p>${t('journalNoBounty')}</p>`}
+      </div>
+      <div class="journal-section">
+        <h3>${t('journalLoreHeading')}</h3>
+        <p>${t('journalLoreCount', { found: this.audioLogsFound.size, total: 8 })}</p>
+      </div>
+    `
+  }
+
   _renderCoinShopOptions() {
     this.coinshopCoinLine.textContent = t('coinsLabel', { n: this.coins })
     this.coinshopOptions.innerHTML = ''
@@ -3333,6 +3454,7 @@ export class Game {
       { id: 'guns', labelKey: 'shopSectionGuns' },
       { id: 'weapons', labelKey: 'shopSectionWeapons' },
       { id: 'skins', labelKey: 'shopSectionSkins' },
+      { id: 'outfits', labelKey: 'shopSectionOutfits' },
       { id: 'perks', labelKey: 'shopSectionPerks' },
       { id: 'base', labelKey: 'shopSectionBase' },
     ]
@@ -3426,6 +3548,23 @@ export class Game {
         row.appendChild(defaultBtn)
       }
 
+      // Same "unequip" front-of-section button, mirrored for outfits.
+      if (section.id === 'outfits') {
+        const defaultBtn = document.createElement('button')
+        defaultBtn.className = 'perk-option'
+        defaultBtn.disabled = this.equippedOutfit === null
+        defaultBtn.innerHTML = `
+          <span class="perk-name">${t('skinDefault')}</span>
+          <span class="perk-cost">${this.equippedOutfit === null ? t('skinEquipped') : t('skinEquip')}</span>
+        `
+        defaultBtn.addEventListener('click', () => {
+          this.equippedOutfit = null
+          this.playerBody.setOutfit(null)
+          this._renderCoinShopOptions()
+        })
+        row.appendChild(defaultBtn)
+      }
+
       for (const item of COIN_SHOP_ITEMS) {
         if (item.section !== section.id) continue
         const btn = document.createElement('button')
@@ -3449,6 +3588,26 @@ export class Game {
             }
             this.equippedSkin = item.skin
             this.weapons.setSkinAllGuns(item.skin)
+            this._renderCoinShopOptions()
+          })
+        } else if (item.outfit) {
+          const owned = this.ownedOutfits.has(item.outfit)
+          const equipped = this.equippedOutfit === item.outfit
+          btn.disabled = equipped || (!owned && this.coins < item.cost)
+          btn.innerHTML = `
+            <span class="perk-name">${t(item.titleKey)}</span>
+            <span class="perk-cost">${equipped ? t('skinEquipped') : owned ? t('skinEquip') : t('coinCostLabel', { n: item.cost })}</span>
+          `
+          btn.addEventListener('click', () => {
+            if (equipped) return
+            if (!owned) {
+              if (this.coins < item.cost) return
+              this.coins -= item.cost
+              this.ownedOutfits.add(item.outfit)
+              this._updateStatsPanel()
+            }
+            this.equippedOutfit = item.outfit
+            this.playerBody.setOutfit(item.outfitColor)
             this._renderCoinShopOptions()
           })
         } else if (item.gun) {
@@ -5499,7 +5658,7 @@ export class Game {
       this._updateVehicleRamming()
     } else if (this.photoModeOpen) {
       this._updatePhotoMode(dt)
-    } else if (this.player.controls.isLocked && this.playerState.alive && !this.inventoryOpen && !this.perkPanelOpen && !this.traderPanelOpen && !this.xpLevelupPanelOpen && !this.mapOpen) {
+    } else if (this.player.controls.isLocked && this.playerState.alive && !this.inventoryOpen && !this.perkPanelOpen && !this.traderPanelOpen && !this.xpLevelupPanelOpen && !this.mapOpen && !this.journalOpen) {
       this.player.update(dt)
       this._updateThirdPerson()
       const isMoving = this.player.onGround && (

@@ -58,6 +58,7 @@ export class PlayerBody {
     })
 
     this.group.add(cloned)
+    this._glbRoot = cloned
     this.mixer = new THREE.AnimationMixer(cloned)
     this._glbActions = {}
     for (const clip of _playerBodyModelCache.animations) {
@@ -65,6 +66,29 @@ export class PlayerBody {
     }
     this._glbCurrentAction = null
     this._playGlbAction('idle', true)
+  }
+
+  // Outfit customization - tints the "Shirt" material slot. This model
+  // (Quaternius "Casual_Male") is a different source model from
+  // Companion.js's "Soldier_Male" (confirmed via a material-name dump: this
+  // one ships Skin/Shirt/Pants/Belt/Face/Hair, not a single "Main" slot), so
+  // it needs its own slot name rather than copying Companion's. null
+  // restores the model's own original color instead of guessing a "default"
+  // hex, so this stays correct even if the base model's own color ever
+  // changes. No-ops on the procedural fallback body (no equivalent slot to
+  // tint there, and that path only runs if the GLB failed to load anyway).
+  setOutfit(colorHex) {
+    const root = this._glbRoot
+    if (!root) return
+    root.traverse((child) => {
+      if (!child.isMesh || child.material.name !== 'Shirt') return
+      if (colorHex !== null) {
+        if (!child.userData._origColor) child.userData._origColor = child.material.color.clone()
+        child.material.color.setHex(colorHex)
+      } else if (child.userData._origColor) {
+        child.material.color.copy(child.userData._origColor)
+      }
+    })
   }
 
   _playGlbAction(name, loop) {

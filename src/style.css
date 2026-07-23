@@ -1012,6 +1012,7 @@ html, body {
 #xp-levelup-panel,
 #pause-overlay,
 #coinshop-panel,
+#journal-panel,
 #screenshot-crop-overlay {
   position: absolute;
   inset: 0;
@@ -1030,13 +1031,51 @@ html, body {
 #bestiary-panel-title,
 #xp-levelup-panel-title,
 #pause-overlay-title,
-#coinshop-panel-title {
+#coinshop-panel-title,
+#journal-panel-title {
   margin: 0;
   font-size: 15px;
   letter-spacing: 1.5px;
   text-transform: uppercase;
   color: #e3a63c;
   opacity: 0.85;
+}
+
+#journal-content {
+  width: min(420px, 84vw);
+  max-height: 70vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.journal-section {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.journal-section h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #ffcf5c;
+  opacity: 0.9;
+}
+
+.journal-section p {
+  margin: 2px 0;
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+#journal-hint {
+  margin-top: 4px;
+  font-size: 13px;
+  opacity: 0.55;
 }
 
 #perk-points-line,

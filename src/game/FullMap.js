@@ -24,6 +24,13 @@ export class FullMap {
       s / 2 + z * scale,
     ]
 
+    // Fast-travel click targets, rebuilt every render (the map is only ever
+    // re-rendered on open, same cadence as everything else here) - Game.js
+    // hit-tests clicks against this list rather than the fixed EXPLORE_CELL_SIZE
+    // it recomputes for the fog reveal, keeping both here as the single
+    // source of truth for what's actually shown on screen.
+    this.hitTargets = [{ label: 'Safe Zone', x: 0, z: 42, px: null, py: null }]
+
     ctx.clearRect(0, 0, s, s)
     ctx.fillStyle = '#0a0d0a'
     ctx.fillRect(0, 0, s, s)
@@ -58,6 +65,7 @@ export class FullMap {
       ctx.fill()
       ctx.fillStyle = '#e8e4f5'
       ctx.fillText(lm.label, px, py - 8)
+      this.hitTargets.push({ label: lm.label, x: lm.x, z: lm.z, px, py })
     }
 
     // Safe zone is always known regardless of exploration - it's home base.
@@ -68,6 +76,8 @@ export class FullMap {
     ctx.fill()
     ctx.fillStyle = '#e8e4f5'
     ctx.fillText('Safe Zone', safeX, safeY - 10)
+    this.hitTargets[0].px = safeX
+    this.hitTargets[0].py = safeY
 
     // Player marker, rotated to current facing.
     const [ppx, ppy] = toScreen(playerPos.x, playerPos.z)
