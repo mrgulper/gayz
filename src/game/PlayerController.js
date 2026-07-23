@@ -36,6 +36,28 @@ const DODGE_DURATION_MS = 220
 const DODGE_COOLDOWN_MS = 1400
 const DODGE_STAMINA_COST = 20
 
+// Mantle/vault: a waist-high obstacle (a low wall, a sandbag row, a car
+// hood) blocks normal movement outright, but MAX_STEP_UP above only covers
+// stair-sized rises (~0.65). Anything taller than that up to roughly chest
+// height gets a scripted hop up and over instead of just stopping the
+// player dead against it. Below MANTLE_MIN_HEIGHT, the ordinary step-up
+// already handles it - this only ever fires for obstacles nothing else
+// would let the player cross.
+const MANTLE_MIN_HEIGHT = 0.7
+const MANTLE_MAX_HEIGHT = 1.4
+const MANTLE_PROBE_DIST = 0.8
+const MANTLE_LAND_DIST = 0.55
+const MANTLE_DURATION_MS = 320
+const MANTLE_STAMINA_COST = 15
+
+// Sprint-to-slide: tapping crouch mid-sprint instead of just slowing to
+// crouch speed. Same flat-speed-then-stop shape as dodge above, just
+// slower/longer and gated on already sprinting rather than any-direction.
+const SLIDE_SPEED = 11
+const SLIDE_DURATION_MS = 400
+const SLIDE_COOLDOWN_MS = 900
+const SLIDE_STAMINA_COST = 15
+
 // Browsers occasionally report one wildly wrong mousemove delta right when
 // pointer lock is (re)acquired (pause/resume, respawn, alt-tab). No real
 // mouse movement produces this much delta in a single frame, so any event
@@ -97,6 +119,16 @@ export class PlayerController {
     this.dodgeCooldownUntil = 0
     this.dodgeDir = new THREE.Vector3()
 
+    this.isMantling = false
+    this.mantleUntil = 0
+    this._mantleStart = new THREE.Vector3()
+    this._mantleTarget = new THREE.Vector3()
+
+    this.isSliding = false
+    this.slideUntil = 0
+    this.slideCooldownUntil = 0
+    this.slideDir = new THREE.Vector3()
+
     this.camera.position.set(0, EYE_HEIGHT, 8)
 
     this._forward = new THREE.Vector3()
@@ -151,6 +183,11 @@ export class PlayerController {
     this.isDodging = false
     this.dodgeUntil = 0
     this.dodgeCooldownUntil = 0
+    this.isMantling = false
+    this.mantleUntil = 0
+    this.isSliding = false
+    this.slideUntil = 0
+    this.slideCooldownUntil = 0
   }
 
   // Rebindable primary key per action (see Keybinds.js), each with an
@@ -163,9 +200,13 @@ export class PlayerController {
     else if (code === getKeyFor('moveLeft') || code === 'ArrowLeft') this.input.left = isDown
     else if (code === getKeyFor('moveRight') || code === 'ArrowRight') this.input.right = isDown
     else if (code === getKeyFor('sprint')) this.input.sprint = isDown
-    else if (code === getKeyFor('crouch') || code === 'ControlLeft' || code === 'ControlRight') this.input.crouch = isDown
+    else if (code === getKeyFor('crouch') || code === 'ControlLeft' || code === 'ControlRight') {
+      const wasDown = this.input.crouch
+      this.input.crouch = isDown
+      if (isDown && !wasDown) this._trySlide()
+    }
     else if (code === 'Space') {
-      if (isDown && this.onGround) {
+      if (isDown && !this._tryMantle() && this.onGround) {
         this.velocity.y = JUMP_SPEED
         this.onGround = false
       }
@@ -191,6 +232,75 @@ export class PlayerController {
     this.dodgeUntil = now + DODGE_DURATION_MS
     this.dodgeCooldownUntil = now + DODGE_COOLDOWN_MS
     this.stamina = Math.max(0, this.stamina - DODGE_STAMINA_COST)
+  }
+
+  // Returns true (and starts the mantle) only when there's a real obstacle
+  // in the right height band directly ahead AND clear space to land on top
+  // of it - a failed probe falls through to a normal jump instead (see the
+  // Space key handler), so mantle never eats a jump input on flat ground.
+  _tryMantle() {
+    if (this.isMantling || this.isDodging || this.isSliding) return false
+    if (this.stamina < MANTLE_STAMINA_COST) return false
+
+    const obj = this.controls.object
+    const feetY = obj.position.y - this.eyeHeight
+    const probeX = obj.position.x + this._forward.x * MANTLE_PROBE_DIST
+    const probeZ = obj.position.z + this._forward.z * MANTLE_PROBE_DIST
+
+    let obstacleTop = null
+    for (const collider of this._colliderGrid.query(probeX, probeZ)) {
+      if (probeX < collider.min.x || probeX > collider.max.x || probeZ < collider.min.z || probeZ > collider.max.z) continue
+      // Grounded low wall, not a floating platform overhead - only obstacles
+      // starting near the player's own feet read as "climb over this",
+      // otherwise a doorway lintel or ceiling would trigger it too.
+      if (collider.min.y > feetY + 0.4) continue
+      const height = collider.max.y - feetY
+      if (height < MANTLE_MIN_HEIGHT || height > MANTLE_MAX_HEIGHT) continue
+      if (obstacleTop === null || collider.max.y > obstacleTop) obstacleTop = collider.max.y
+    }
+    if (obstacleTop === null) return false
+
+    const landX = obj.position.x + this._forward.x * MANTLE_LAND_DIST
+    const landZ = obj.position.z + this._forward.z * MANTLE_LAND_DIST
+    const landBox = new THREE.Box3(
+      new THREE.Vector3(landX - RADIUS, obstacleTop + 0.05, landZ - RADIUS),
+      new THREE.Vector3(landX + RADIUS, obstacleTop + 1.6, landZ + RADIUS)
+    )
+    for (const collider of this._colliderGrid.query(landX, landZ)) {
+      if (landBox.intersectsBox(collider)) return false // something's sitting right on the landing spot
+    }
+
+    this.stamina = Math.max(0, this.stamina - MANTLE_STAMINA_COST)
+    this.isMantling = true
+    this.mantleUntil = performance.now() + MANTLE_DURATION_MS
+    this._mantleStart.copy(obj.position)
+    this._mantleTarget.set(landX, obstacleTop + this.eyeHeight, landZ)
+    this.velocity.set(0, 0, 0)
+    this.onGround = false
+    return true
+  }
+
+  // Only triggers off an active sprint (matches the "you were already
+  // moving fast" feel this move is for) - crouching from a standing start
+  // just crouches normally, same as before this existed.
+  _trySlide() {
+    const now = performance.now()
+    if (this.isSliding || this.isMantling || now < this.slideCooldownUntil) return
+    if (!this.isSprinting || this.stamina < SLIDE_STAMINA_COST) return
+
+    const dir = new THREE.Vector3()
+    if (this.input.forward) dir.add(this._forward)
+    if (this.input.back) dir.sub(this._forward)
+    if (this.input.right) dir.add(this._right)
+    if (this.input.left) dir.sub(this._right)
+    if (dir.lengthSq() < 0.0001) return
+    dir.normalize()
+
+    this.slideDir.copy(dir)
+    this.isSliding = true
+    this.slideUntil = now + SLIDE_DURATION_MS
+    this.slideCooldownUntil = now + SLIDE_COOLDOWN_MS
+    this.stamina = Math.max(0, this.stamina - SLIDE_STAMINA_COST)
   }
 
   // Casts straight down from high above the player's current XZ and returns
@@ -219,7 +329,26 @@ export class PlayerController {
     this._right.y = 0
     this._right.normalize()
 
+    if (this.isMantling) {
+      // Scripted lerp straight from start to the landing spot, bypassing
+      // gravity/ground-sampling entirely for the brief hop - same reasoning
+      // as the dodge's own invincibility window (Game.js's _onZombieAttack
+      // checks isDodging the same way a caller could check isMantling, not
+      // wired up yet since nothing currently needs it).
+      const now = performance.now()
+      if (now >= this.mantleUntil) {
+        obj.position.copy(this._mantleTarget)
+        this.isMantling = false
+        this.onGround = true
+      } else {
+        const frac = 1 - (this.mantleUntil - now) / MANTLE_DURATION_MS
+        obj.position.lerpVectors(this._mantleStart, this._mantleTarget, Math.min(1, frac))
+      }
+      return
+    }
+
     if (this.isDodging && performance.now() >= this.dodgeUntil) this.isDodging = false
+    if (this.isSliding && performance.now() >= this.slideUntil) this.isSliding = false
 
     if (this.isDodging) {
       this.isSprinting = false
@@ -227,6 +356,14 @@ export class PlayerController {
       const dash = DODGE_SPEED * dt
       this._tryMove(obj, this.dodgeDir.x * dash, 0)
       this._tryMove(obj, 0, this.dodgeDir.z * dash)
+    } else if (this.isSliding) {
+      this.isCrouching = true
+      this.isSprinting = false
+      const remaining = Math.max(0, this.slideUntil - performance.now())
+      const speed = SLIDE_SPEED * (remaining / SLIDE_DURATION_MS)
+      const step = speed * dt
+      this._tryMove(obj, this.slideDir.x * step, 0)
+      this._tryMove(obj, 0, this.slideDir.z * step)
     } else {
       const moveDir = new THREE.Vector3()
       if (this.input.forward) moveDir.add(this._forward)

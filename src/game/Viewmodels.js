@@ -179,6 +179,9 @@ const SKIN_TINTS = {
   obsidian: { color: 0x1a1a1a, emissive: 0x3a3a3a },
   // Coin Shop exclusive, see CoinShop.js - not purchasable with points.
   ember: { color: 0xd45a1a, emissive: 0xff7a1a },
+  // Per-weapon challenge reward (see Game.js's _checkWeaponChallenge) -
+  // earned by kill count with that specific gun, not purchasable.
+  veteran: { color: 0x5a5a3a, emissive: 0x2a2a10 },
 }
 
 // Shared skin-tint lookup - every gun builder tints its own main body/

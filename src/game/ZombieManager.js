@@ -697,6 +697,21 @@ export class ZombieManager {
     this.grenadeThrows.push({ mesh, origin: origin.clone(), target: target.clone(), travelTime, t: 0 })
   }
 
+  // Generic falloff-damage burst, same shape as the grenade explosion loop
+  // below just without a thrown projectile leading into it - used by
+  // Game.js's killstreak "airstrike" reward (a call-it-in strike centered
+  // on the player rather than something thrown/aimed).
+  damageInRadius(x, z, radius, minDamage, maxDamage) {
+    this._spawnExplosionFX(x, z)
+    for (const zombie of this.zombies) {
+      if (zombie.state !== 'alive') continue
+      const dist = Math.hypot(zombie.group.position.x - x, zombie.group.position.z - z)
+      if (dist > radius) continue
+      const falloff = 1 - dist / radius
+      zombie.onHit(minDamage + (maxDamage - minDamage) * falloff)
+    }
+  }
+
   _updateGrenadeThrows(dt) {
     this.grenadeThrows = this.grenadeThrows.filter((p) => {
       p.t += dt / p.travelTime

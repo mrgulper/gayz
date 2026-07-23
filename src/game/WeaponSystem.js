@@ -158,6 +158,9 @@ export class WeaponSystem {
     // Adrenaline shot (see Game.js's _useAdrenaline) - set/cleared externally
     // by a timer there, same pattern as every other timed effect.
     this.fireRateMult = 1
+    // Killstreak reward (see Game.js's _checkKillstreakReward) - set/cleared
+    // externally by a timer there, same pattern as fireRateMult above.
+    this.infiniteAmmo = false
 
     this.triggerDown = false
     this.timeSinceLastShot = Infinity
@@ -544,7 +547,7 @@ export class WeaponSystem {
       this.recoil = 0.6
       audioEngine.playMelee()
     } else {
-      w.ammoInMag -= 1
+      if (!this.infiniteAmmo) w.ammoInMag -= 1
       // Suppressor attachment (see applyAttachment) dims the flash to a
       // fraction instead of hiding it outright - still a gun going off up
       // close, just not lighting up the street.

@@ -124,10 +124,15 @@ function loadSettings() {
         kingOfTheHill: parsed.mutators?.kingOfTheHill ?? false,
         extraction: parsed.mutators?.extraction ?? false,
         dailyChallenge: parsed.mutators?.dailyChallenge ?? false,
+        // Off by default - deliberately a toggle, not a replacement for
+        // manual healing (medkits, safe-zone rest). See _updateHealthRegen's
+        // own comment for why this stays optional rather than becoming the
+        // new baseline.
+        healthRegen: parsed.mutators?.healthRegen ?? false,
       },
     }
   } catch {
-    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false } }
+    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false } }
   }
 }
 
@@ -290,6 +295,8 @@ function loadShopProgress() {
       equippedSkin: parsed.equippedSkin || null,
       ownedOutfits: new Set(parsed.ownedOutfits || []),
       equippedOutfit: parsed.equippedOutfit || null,
+      challengeKillCounts: parsed.challengeKillCounts || {},
+      weaponChallengesUnlocked: new Set(parsed.weaponChallengesUnlocked || []),
       shopPurchased: new Set(parsed.shopPurchased || []),
       // Coin Shop gun purchases (minigun/awp/glock18/weatie) - previously
       // never saved, so a bought gun's `unlocked` flag (pure in-memory
@@ -304,7 +311,7 @@ function loadShopProgress() {
       attachments: parsed.attachments || [],
     }
   } catch {
-    return { points: 0, coins: 0, ownedSkins: new Set(), equippedSkin: null, ownedOutfits: new Set(), equippedOutfit: null, shopPurchased: new Set(), unlockedGuns: [], attachments: [] }
+    return { points: 0, coins: 0, ownedSkins: new Set(), equippedSkin: null, ownedOutfits: new Set(), equippedOutfit: null, challengeKillCounts: {}, weaponChallengesUnlocked: new Set(), shopPurchased: new Set(), unlockedGuns: [], attachments: [] }
   }
 }
 
@@ -317,6 +324,8 @@ function saveShopProgress(game) {
       equippedSkin: game.equippedSkin,
       ownedOutfits: [...game.ownedOutfits],
       equippedOutfit: game.equippedOutfit,
+      challengeKillCounts: game.challengeKillCounts,
+      weaponChallengesUnlocked: [...game.weaponChallengesUnlocked],
       shopPurchased: [...game.coinShopPurchased],
       unlockedGuns: game.weapons.weapons.filter((w) => w.unlocked && COIN_SHOP_GUN_IDS.has(w.id)).map((w) => w.id),
       attachments: game.weapons.weapons.flatMap((w) => {
@@ -359,6 +368,12 @@ const EXPLORE_REVEAL_RADIUS_CELLS = 2
 const LIGHT_LURE_RADIUS = 20
 const LIGHT_LURE_INTERVAL_MS = 2000
 const SAFE_ZONE_HEAL_PER_SEC = 6
+// Health Regen mutator (off by default, see loadSettings) - a deliberate
+// toggle rather than the new baseline: manual healing (medkits, safe-zone
+// rest) is the game's own survival-tension choice, not an oversight, so
+// this stays opt-in for whoever wants the more forgiving CoD-style flow.
+const HEALTH_REGEN_DELAY_SEC = 6
+const HEALTH_REGEN_PER_SEC = 4
 const LIGHT_LURE_ENRAGE_MS = 2500
 const VEHICLE_INTERACT_RADIUS = 3
 const VIREO_TERMINAL_RADIUS = 2.5
@@ -382,6 +397,26 @@ const DEATH_CAM_MS = 900
 const KILLCAM_DURATION_MS = 1000
 const KILLCAM_SLOWMO_FACTOR = 0.2
 const KILLCAM_ZOOM_FOV_MULT = 0.75
+// Killstreak rewards - this.killStreak counts consecutive kills without
+// dying (reset in _onPlayerDeath), distinct from the flat "every 10th kill"
+// loot drop _onZombieKilled already does off the lifetime this.kills
+// counter. Three escalating one-shot rewards, no repeat until the next
+// life (killStreak only grows, thresholds only ever fire once per streak).
+const KILLSTREAK_DAMAGE_THRESHOLD = 5
+const KILLSTREAK_DAMAGE_MULT = 1.5
+const KILLSTREAK_DAMAGE_DURATION_MS = 8000
+const KILLSTREAK_AIRSTRIKE_THRESHOLD = 10
+const KILLSTREAK_AIRSTRIKE_RADIUS = 12
+const KILLSTREAK_AIRSTRIKE_DAMAGE_MIN = 100
+const KILLSTREAK_AIRSTRIKE_DAMAGE_MAX = 260
+const KILLSTREAK_AMMO_THRESHOLD = 15
+const KILLSTREAK_AMMO_DURATION_MS = 6000
+// Per-weapon challenge unlock - a distinct "veteran" camo (see
+// Viewmodels.js's SKIN_TINTS) earned by kill count with that specific gun,
+// tracked separately from killCountsByWeapon.minigun above (that one's
+// scoped to the meat_grinder achievement at a different threshold - reusing
+// the same counter here would double-increment it on minigun kills).
+const CHALLENGE_KILL_THRESHOLD = 30
 const COMPASS_HALF_FOV = Math.PI / 3
 const BARRICADE_LIFETIME_MS = 25000
 const BARRICADE_PLACE_DIST = 2.2
@@ -808,6 +843,7 @@ export class Game {
     this.mutatorKoth = document.getElementById('mutator-koth')
     this.mutatorExtraction = document.getElementById('mutator-extraction')
     this.mutatorDaily = document.getElementById('mutator-daily')
+    this.mutatorHealthRegen = document.getElementById('mutator-health-regen')
     this.controlsGrid = document.getElementById('controls-grid')
     this.resetBindsBtn = document.getElementById('reset-binds-btn')
     this.rebindingAction = null
@@ -827,6 +863,9 @@ export class Game {
 
     this.night = 1
     this.kills = 0
+    this.killStreak = 0
+    this.killstreakDamageBoostUntil = 0
+    this.killstreakAmmoUntil = 0
     this.totalKills = 0
     this.totalDeaths = 0
     // Director AI signals - see _updateDirectorAI. lastHitTakenAt starts at
@@ -1306,6 +1345,8 @@ export class Game {
     this._updateTrophyWall()
     this.nearTrophyWall = false
     this.killCountsByWeapon = {}
+    this.challengeKillCounts = this.shopProgress.challengeKillCounts
+    this.weaponChallengesUnlocked = this.shopProgress.weaponChallengesUnlocked
     this.achievementLabel = document.getElementById('achievement-label')
     this.achievementTitle = document.getElementById('achievement-title')
     this.achievementToast = document.getElementById('achievement-toast')
@@ -1497,6 +1538,11 @@ export class Game {
     for (const w of this.weapons.weapons) {
       if (this.weaponMastery.mastered.has(w.id)) w.masteryMult = MASTERY_DAMAGE_MULT
     }
+    // Re-apply already-earned per-weapon challenge camos - before
+    // equippedSkin below, which (if the player has chosen a global skin)
+    // should still win, same "earned reward is the default until you
+    // actively choose something else" precedent as Centurion's gold skin.
+    for (const weaponId of this.weaponChallengesUnlocked) this.weapons.setWeaponSkin(weaponId, 'veteran')
     // Restore previously-purchased Coin Shop guns (see saveShopProgress) -
     // markUnlocked rather than unlockWeapon so restoring e.g. a past
     // minigun purchase doesn't yank the equipped weapon away from melee on
@@ -2728,6 +2774,11 @@ export class Game {
       this.settings.mutators.dailyChallenge = this.mutatorDaily.checked
       saveSettings(this.settings)
     })
+    this.mutatorHealthRegen.checked = this.settings.mutators.healthRegen
+    this.mutatorHealthRegen.addEventListener('change', () => {
+      this.settings.mutators.healthRegen = this.mutatorHealthRegen.checked
+      saveSettings(this.settings)
+    })
     this.nicknameInput.value = this.settings.nickname
     this._updateCompanionName()
 
@@ -3825,6 +3876,7 @@ export class Game {
     document.getElementById('mutator-koth-label').textContent = t('mutatorKoth')
     document.getElementById('mutator-extraction-label').textContent = t('mutatorExtraction')
     document.getElementById('mutator-daily-label').textContent = t('mutatorDaily')
+    document.getElementById('mutator-health-regen-label').textContent = t('mutatorHealthRegen')
 
     this._updateBestStatsDisplay()
     if (this.inventoryOpen) this._refreshInventoryPanel()
@@ -4055,6 +4107,8 @@ export class Game {
 
   _onZombieKilled(zombieTypeId, weaponId, x, z, isElite, isWandering = false) {
     this.kills += 1
+    this.killStreak += 1
+    this._checkKillstreakReward()
     this.totalKills += 1
     this.recentKillTimestamps.push(performance.now())
     // Wandering horde members (see ZombieManager's _maybeSpawnWanderingHorde)
@@ -4095,6 +4149,7 @@ export class Game {
       if (this.killCountsByWeapon.minigun >= 50) this.achievements.unlock('meat_grinder')
     }
     this._trackWeaponMastery(weaponId)
+    this._checkWeaponChallenge(weaponId)
     if (Math.random() < 0.25) {
       this.points += (2 + Math.floor(Math.random() * 4)) * lootMult
       this._updateStatsPanel()
@@ -4133,6 +4188,42 @@ export class Game {
     if (zombieTypeId === 'colossus') this.pickups.spawnLootDrop('extended_mag', x, z)
   }
 
+  // this.killStreak crosses each threshold exactly once per life (it only
+  // ever grows until _onPlayerDeath resets it to 0), so these are true
+  // one-shot triggers, not something to guard with a "already fired" flag.
+  _checkKillstreakReward() {
+    if (this.killStreak === KILLSTREAK_DAMAGE_THRESHOLD) {
+      this.weapons.damageMult *= KILLSTREAK_DAMAGE_MULT
+      this.killstreakDamageBoostUntil = performance.now() + KILLSTREAK_DAMAGE_DURATION_MS
+      this._showLoreToast(t('killstreakDamageBoost'))
+    } else if (this.killStreak === KILLSTREAK_AIRSTRIKE_THRESHOLD) {
+      const pos = this.player.controls.object.position
+      this.zombies.damageInRadius(pos.x, pos.z, KILLSTREAK_AIRSTRIKE_RADIUS, KILLSTREAK_AIRSTRIKE_DAMAGE_MIN, KILLSTREAK_AIRSTRIKE_DAMAGE_MAX)
+      this._showLoreToast(t('killstreakAirstrike'))
+    } else if (this.killStreak === KILLSTREAK_AMMO_THRESHOLD) {
+      this.weapons.infiniteAmmo = true
+      this.killstreakAmmoUntil = performance.now() + KILLSTREAK_AMMO_DURATION_MS
+      this._showLoreToast(t('killstreakInfiniteAmmo'))
+    }
+  }
+
+  // Reverts the two timed rewards above once their window closes - the
+  // damage boost divides back out by the exact multiplier it was applied
+  // with (rather than resetting damageMult to a fixed baseline), so it
+  // can't clobber whatever other bonus (XP upgrade, mastery, coin shop
+  // perk) was already stacked onto damageMult before this one landed.
+  _updateKillstreakTimers() {
+    const now = performance.now()
+    if (this.killstreakDamageBoostUntil && now >= this.killstreakDamageBoostUntil) {
+      this.weapons.damageMult /= KILLSTREAK_DAMAGE_MULT
+      this.killstreakDamageBoostUntil = 0
+    }
+    if (this.killstreakAmmoUntil && now >= this.killstreakAmmoUntil) {
+      this.weapons.infiniteAmmo = false
+      this.killstreakAmmoUntil = 0
+    }
+  }
+
   // Persistent per-weapon kill tally (see WeaponMastery.js) - only counts
   // toward mastery if weaponId actually names one of WeaponSystem's real
   // guns/melee slot, not an environmental kill source (trap/C4/vehicle/etc,
@@ -4149,6 +4240,22 @@ export class Game {
       this._showLoreToast(t('toastWeaponMastered', { weapon: t(this.weapons._nameKeyFor(w)) }))
     }
     saveMastery(this.weaponMastery)
+  }
+
+  // Kill-milestone-with-this-specific-gun reward, distinct from weapon
+  // mastery above (a flat damage bonus at a lower threshold, applies
+  // silently) - this one is purely cosmetic and shows up immediately as a
+  // reskin, same "kills earn a look" idea CoinShop's currency-bought skins
+  // don't capture (those are bought, not earned).
+  _checkWeaponChallenge(weaponId) {
+    if (this.weaponChallengesUnlocked.has(weaponId)) return
+    const w = this.weapons.weapons.find((w) => w.id === weaponId)
+    if (!w || w.melee) return
+    this.challengeKillCounts[weaponId] = (this.challengeKillCounts[weaponId] || 0) + 1
+    if (this.challengeKillCounts[weaponId] < CHALLENGE_KILL_THRESHOLD) return
+    this.weaponChallengesUnlocked.add(weaponId)
+    this.weapons.setWeaponSkin(weaponId, 'veteran')
+    this._showLoreToast(t('weaponChallengeUnlocked', { weapon: t(this.weapons._nameKeyFor(w)) }))
   }
 
   _showAchievementToast(def) {
@@ -4219,6 +4326,19 @@ export class Game {
     this.statsPanel.style.display = 'none'
     this.minimapWrap.style.display = 'none'
     this.totalDeaths += 1
+    this.killStreak = 0
+    // Dying mid-boost skips the timer's own revert entirely (nothing else
+    // calls _updateKillstreakTimers between now and the next run), so
+    // clean these up here too rather than risk a stuck damage multiplier
+    // or free ammo carrying into the next life.
+    if (this.killstreakDamageBoostUntil) {
+      this.weapons.damageMult /= KILLSTREAK_DAMAGE_MULT
+      this.killstreakDamageBoostUntil = 0
+    }
+    if (this.killstreakAmmoUntil) {
+      this.weapons.infiniteAmmo = false
+      this.killstreakAmmoUntil = 0
+    }
     this._updateStatsPanel()
     if (this.totalDeaths === 1) this.achievements.unlock('first_death')
 
@@ -5205,6 +5325,17 @@ export class Game {
     this._updateHealthHud()
   }
 
+  // Health Regen mutator - reuses lastHitTakenAt (already tracked for the
+  // Director AI's own "brief relief window right after a hit" scoring),
+  // rather than a second timestamp doing the same job.
+  _updateHealthRegen(dt) {
+    if (!this.playerState.alive || this.playerState.health >= this.playerState.maxHealth) return
+    const secsSinceHit = (performance.now() - this.lastHitTakenAt) / 1000
+    if (secsSinceHit < HEALTH_REGEN_DELAY_SEC) return
+    this.playerState.heal(HEALTH_REGEN_PER_SEC * dt)
+    this._updateHealthHud()
+  }
+
   // Base upgrade (see MetaProgress.js's extraGuard) - one more Companion
   // standing watch, same construction as the original guardSpots in the
   // constructor, just placed a little further into the compound than any
@@ -5683,6 +5814,7 @@ export class Game {
       }
       this._updateStaminaHud()
       this._updateFlashlightBattery(dt)
+      this._updateKillstreakTimers()
 
       this.playerState.tickInfection(dt)
       this._updateHealthHud()
@@ -5775,6 +5907,7 @@ export class Game {
       }
       if (this.turret) this.turret.update(this.zombies.zombies)
       this._updateSafeZoneHeal(dt, playerPos)
+      if (this.settings.mutators.healthRegen) this._updateHealthRegen(dt)
       if (this.flashlightOn) this._updateLightLure(playerPos)
       this.pickups.update(dt, elapsed, playerPos, {
         onPickup: (type, label, isLoot) => this._onPickup(type, label, isLoot),
