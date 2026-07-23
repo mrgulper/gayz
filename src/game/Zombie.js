@@ -943,6 +943,7 @@ export class Zombie {
   }
 
   update(dt, elapsed, playerPos, onAttack, onSpit, onAmbushTrigger, onExplode, playerCrouching = false, onScream = null, colliders = null, solidMeshes = null, allZombies = null) {
+    this._tickIgnite(dt)
     if (this.state === 'dormant') {
       const dist = Math.hypot(playerPos.x - this.group.position.x, playerPos.z - this.group.position.z)
       const waited = performance.now() - this.dormantSince
@@ -1145,6 +1146,33 @@ export class Zombie {
   stun(durationMs) {
     if (this.state !== 'alive') return
     this.staggerUntil = Math.max(this.staggerUntil, performance.now() + durationMs)
+  }
+
+  // Flamethrower burn (see WeaponSystem's w.ignites) - refreshes the
+  // duration on every re-hit rather than stacking multiple independent
+  // burns, same "one active effect, timer just extends" idea weaken/stun
+  // above already use.
+  ignite(durationMs, dps) {
+    if (this.state !== 'alive') return
+    this.igniteUntil = performance.now() + durationMs
+    this.igniteDps = dps
+  }
+
+  // Called every frame from update() below - applies burn damage on a
+  // fixed tick rather than every single frame, so it reads as distinct
+  // "bursts" of damage rather than one smooth drain.
+  _tickIgnite(dt) {
+    if (!this.igniteUntil || this.state !== 'alive') return
+    const now = performance.now()
+    if (now > this.igniteUntil) {
+      this.igniteUntil = 0
+      return
+    }
+    this._igniteAccum = (this._igniteAccum || 0) + dt
+    if (this._igniteAccum >= 0.5) {
+      this._igniteAccum = 0
+      this.onHit(this.igniteDps * 0.5)
+    }
   }
 
   _updateMelee(dt, dist, nx, nz, onAttack, colliders, solidMeshes, playerPos) {

@@ -30,6 +30,16 @@ export const NIGHT_EVENTS = [
     apply: (game) => game._spawnRescueSurvivor(),
   },
   {
+    id: 'camp_attack',
+    labelKey: 'eventCampAttack',
+    // Distinct from 'survivor_found' above: that one is a single passive
+    // NPC waiting to be walked up to (no fail state). This spawns a small
+    // group of vulnerable NPCs under active zombie pressure at a location -
+    // the player can lose some or all of them if they don't get there in
+    // time, see Game.js's _spawnSurvivorCamp/_updateSurvivorCamp.
+    apply: (game) => game._spawnSurvivorCamp(),
+  },
+  {
     id: 'supply_convoy',
     labelKey: 'eventSupplyConvoy',
     // A guarded chest (see RivalScavenger.js's RivalManager 'convoy' squad

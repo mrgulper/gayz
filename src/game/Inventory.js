@@ -13,6 +13,7 @@ export class Inventory {
     this.emp = 0
     this.throwingKnives = 0
     this.shields = 0
+    this.turretKits = 0
     // A single quest flag, not a stacking count like the rest of this class -
     // there's only ever one Vault Key in play at a time (see Chests.js's
     // Vault and Pickups.js's 'vaultkey' type).
@@ -69,6 +70,10 @@ export class Inventory {
 
   addShield(n = 1) {
     this.shields += n
+  }
+
+  addTurretKit(n = 1) {
+    this.turretKits += n
   }
 
   useHealthPack() {
@@ -140,6 +145,12 @@ export class Inventory {
   useShield() {
     if (this.shields <= 0) return false
     this.shields -= 1
+    return true
+  }
+
+  useTurretKit() {
+    if (this.turretKits <= 0) return false
+    this.turretKits -= 1
     return true
   }
 

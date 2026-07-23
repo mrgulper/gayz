@@ -397,6 +397,7 @@ const UPGRADE_MACHINE_RADIUS = 2.2
 // cost something each time).
 const MYSTERY_BOX_COST = 950
 const MYSTERY_BOX_RADIUS = 2.2
+const MAX_DEPLOYED_TURRETS = 3
 // Field power-ups - a small chance per kill (see _onZombieKilled) to drop
 // one of these instead of (not in addition to) the normal loot roll,
 // mirroring spawnKillDrop's own "every 10th kill" guaranteed drop but at a
@@ -522,6 +523,15 @@ const WHEEL_RADIUS = 110
 const WHEEL_DEADZONE = 18
 const RESCUE_INTERACT_RADIUS = 2.5
 const RESCUE_POINTS_REWARD = 25
+// Survivor Camp Liberation (see _spawnSurvivorCamp/_updateSurvivorCamp) -
+// unlike the single passive rescueSurvivor above, this has a real fail
+// state: a small group of vulnerable Companion NPCs under active zombie
+// pressure at a location, resolved after CAMP_EVENT_DURATION_MS by however
+// many are still alive at that point.
+const CAMP_SURVIVOR_COUNT = 3
+const CAMP_ATTACK_ZOMBIE_COUNT = 6
+const CAMP_EVENT_DURATION_MS = 60000
+const CAMP_LOOT_REWARD_POINTS = 500
 // How close a kill needs to land to a named location to count toward the
 // 'clear_location' bounty - generous enough to cover a whole building's
 // footprint, not just its exact center point.
@@ -576,6 +586,7 @@ const SHOP_ITEMS = [
   { id: 'emp', cost: 26, titleKey: 'shopEmp', give: (game) => game.inventory.addEmp(1) },
   { id: 'shield', cost: 30, titleKey: 'shopShield', give: (game) => game.inventory.addShield(1) },
   { id: 'knife', cost: 18, titleKey: 'shopKnife', give: (game) => game.inventory.addThrowingKnife(1) },
+  { id: 'turretkit', cost: 120, titleKey: 'shopTurretKit', give: (game) => game.inventory.addTurretKit(1) },
   {
     id: 'train_companion',
     cost: 30,
@@ -644,6 +655,54 @@ const SALVAGE_ITEMS = [
   { id: 'emp', invKey: 'emp', titleKey: 'shopEmp', sellValue: salvageValue('emp'), sell: (game) => game.inventory.useEmp() },
   { id: 'shield', invKey: 'shields', titleKey: 'shopShield', sellValue: salvageValue('shield'), sell: (game) => game.inventory.useShield() },
   { id: 'knife', invKey: 'throwingKnives', titleKey: 'shopKnife', sellValue: salvageValue('knife'), sell: (game) => game.inventory.useThrowingKnife() },
+  { id: 'turretkit', invKey: 'turretKits', titleKey: 'shopTurretKit', sellValue: salvageValue('turretkit'), sell: (game) => game.inventory.useTurretKit() },
+]
+
+// Crafting - an alternative path to specific consumables that doesn't cost
+// points at all, just other consumables already sitting in inventory.
+// Shown/hidden per-recipe the same way SALVAGE_ITEMS above is (only once
+// you actually have the ingredients), rather than always listing every
+// recipe including ones you can't currently afford.
+const CRAFTING_RECIPES = [
+  {
+    id: 'craft_molotov',
+    titleKey: 'craftMolotov',
+    ingredients: [{ invKey: 'fuelCans', count: 2 }, { invKey: 'noisemakers', count: 1 }],
+    craft: (game) => {
+      game.inventory.fuelCans -= 2
+      game.inventory.noisemakers -= 1
+      game.inventory.addMolotov(1)
+    },
+  },
+  {
+    id: 'craft_emp',
+    titleKey: 'craftEmp',
+    ingredients: [{ invKey: 'grenades', count: 2 }],
+    craft: (game) => {
+      game.inventory.grenades -= 2
+      game.inventory.addEmp(1)
+    },
+  },
+  {
+    id: 'craft_c4',
+    titleKey: 'craftC4',
+    ingredients: [{ invKey: 'molotovs', count: 1 }, { invKey: 'grenades', count: 1 }],
+    craft: (game) => {
+      game.inventory.molotovs -= 1
+      game.inventory.grenades -= 1
+      game.inventory.addC4(1)
+    },
+  },
+  {
+    id: 'craft_shield',
+    titleKey: 'craftShield',
+    ingredients: [{ invKey: 'barricades', count: 2 }, { invKey: 'traps', count: 1 }],
+    craft: (game) => {
+      game.inventory.barricades -= 2
+      game.inventory.traps -= 1
+      game.inventory.addShield(1)
+    },
+  },
 ]
 
 // Hidden Trader tier, only shown once Achievements.js's 'centurion' (100
@@ -777,6 +836,7 @@ export class Game {
     this.empCount = document.getElementById('emp-count')
     this.shieldCount = document.getElementById('shield-count')
     this.knifeCount = document.getElementById('knife-count')
+    this.turretkitCount = document.getElementById('turretkit-count')
     this.inventoryPanel = document.getElementById('inventory-panel')
     this.panelHealthCount = document.getElementById('panel-health-count')
     this.panelArmorCount = document.getElementById('panel-armor-count')
@@ -790,6 +850,7 @@ export class Game {
     this.panelEmpCount = document.getElementById('panel-emp-count')
     this.panelShieldCount = document.getElementById('panel-shield-count')
     this.panelKnifeCount = document.getElementById('panel-knife-count')
+    this.panelTurretkitCount = document.getElementById('panel-turretkit-count')
     this.panelWeaponsList = document.getElementById('panel-weapons-list')
     // Delegated once (not re-bound on every _refreshInventoryPanel render,
     // since that rebuilds the row HTML from scratch) - reads which weapon/
@@ -917,6 +978,11 @@ export class Game {
     this.killstreakAmmoUntil = 0
     this.shieldActive = false
     this.upgradeMachineUsesThisNight = 0
+    // Deployable turrets (see _deployTurret) - separate from this.turret
+    // above (the single permanent Coin Shop base-defense fixture at the
+    // safe zone), these are player-placed anywhere, consumed from
+    // inventory.turretKits, capped at MAX_DEPLOYED_TURRETS alive at once.
+    this.deployedTurrets = []
     this.doublePointsUntil = 0
     this.instakillUntil = 0
     this.lastStandUsed = false
@@ -1270,6 +1336,9 @@ export class Game {
     this.stationEncounterTriggered = false
     this.rescueSurvivor = null
     this.nearRescueSurvivor = false
+    // Survivor Camp Liberation (see CAMP_SURVIVOR_COUNT's comment) - null
+    // when no camp event is active, otherwise { survivors, x, z, startedAt }
+    this.survivorCamp = null
     // Permanent squad additions (unlike tempCompanion, which leaves at dawn)
     // - one fixed recruit per underground station office, reusing
     // RescueSurvivor's stationary-NPC visual for the marker since it needs
@@ -1431,6 +1500,8 @@ export class Game {
     this.traderOptions = document.getElementById('trader-options')
     this.traderSalvageTitle = document.getElementById('trader-salvage-title')
     this.traderSalvageOptions = document.getElementById('trader-salvage-options')
+    this.traderCraftingTitle = document.getElementById('trader-crafting-title')
+    this.traderCraftingOptions = document.getElementById('trader-crafting-options')
     this.traderBlackMarketTitle = document.getElementById('trader-blackmarket-title')
     this.traderBlackMarketOptions = document.getElementById('trader-blackmarket-options')
     this.traderHint = document.getElementById('trader-hint')
@@ -1782,10 +1853,16 @@ export class Game {
       this.lastStandUsed = false
       this.playerDowned = false
       this.downedUntil = 0
+      for (const t of this.deployedTurrets) t.dispose()
+      this.deployedTurrets = []
       this.activeBounty = null
       if (this.rescueSurvivor) {
         this.rescueSurvivor.dispose()
         this.rescueSurvivor = null
+      }
+      if (this.survivorCamp) {
+        for (const s of this.survivorCamp.survivors) s.dispose()
+        this.survivorCamp = null
       }
       this.runStartedAt = performance.now()
       this.nightStartedAt = performance.now()
@@ -1984,6 +2061,8 @@ export class Game {
         this._toggleShield()
       } else if (e.code === 'Digit7') {
         this._throwKnife()
+      } else if (e.code === 'Digit8') {
+        this._deployTurret()
       } else if (e.code === getKeyFor('interact')) {
         // Tracked independently of the rest of this branch (which only
         // fires the various one-shot interactions below) so the ammo
@@ -2387,6 +2466,26 @@ export class Game {
     this.shieldActive = true
     this.weapons.shieldActive = true
     this._updateInventoryHud()
+  }
+
+  // Deployable turret - drops at the player's current feet position,
+  // capped at MAX_DEPLOYED_TURRETS alive at once (oldest one is torn down
+  // to make room for a new one past the cap, rather than just refusing the
+  // deploy, so the key always does something as long as a kit is owned).
+  _deployTurret() {
+    if (!this.inventory.useTurretKit()) {
+      this._showLoreToast(t('toastNoTurretKit'))
+      return
+    }
+    if (this.deployedTurrets.length >= MAX_DEPLOYED_TURRETS) {
+      const oldest = this.deployedTurrets.shift()
+      oldest.dispose()
+    }
+    const pos = this.player.controls.object.position
+    const turret = new Turret(this.scene, pos.x, pos.z)
+    this.deployedTurrets.push(turret)
+    this._updateInventoryHud()
+    this._showLoreToast(t('toastTurretDeployed'))
   }
 
   // Panic-button speed + fire-rate boost, distinct from health/armor packs -
@@ -3421,6 +3520,7 @@ export class Game {
     }
 
     this._renderSalvageOptions()
+    this._renderCraftingOptions()
     this._renderBlackMarketOptions()
   }
 
@@ -3479,6 +3579,36 @@ export class Game {
         this._renderTraderOptions()
       })
       this.traderSalvageOptions.appendChild(btn)
+    }
+  }
+
+  // Crafting - same "only shown if you actually have the ingredients"
+  // gating as _renderSalvageOptions above, just checking every ingredient
+  // in a recipe rather than a single owned count.
+  _renderCraftingOptions() {
+    this.traderCraftingOptions.innerHTML = ''
+    const available = CRAFTING_RECIPES.filter((recipe) => recipe.ingredients.every((ing) => this.inventory[ing.invKey] >= ing.count))
+    const show = available.length > 0
+    this.traderCraftingTitle.style.display = show ? '' : 'none'
+    this.traderCraftingOptions.style.display = show ? '' : 'none'
+    if (!show) return
+
+    this.traderCraftingTitle.textContent = t('craftingSectionLabel')
+    for (const recipe of available) {
+      const ingredientsLabel = recipe.ingredients.map((ing) => `${ing.count}x ${t(SALVAGE_ITEMS.find((s) => s.invKey === ing.invKey).titleKey)}`).join(' + ')
+      const btn = document.createElement('button')
+      btn.className = 'perk-option'
+      btn.innerHTML = `
+        <span class="perk-name">${t(recipe.titleKey)}</span>
+        <span class="perk-cost">${ingredientsLabel}</span>
+      `
+      btn.addEventListener('click', () => {
+        if (!recipe.ingredients.every((ing) => this.inventory[ing.invKey] >= ing.count)) return
+        recipe.craft(this)
+        this._updateInventoryHud()
+        this._renderTraderOptions()
+      })
+      this.traderCraftingOptions.appendChild(btn)
     }
   }
 
@@ -3956,6 +4086,7 @@ export class Game {
     document.getElementById('panel-emp-label').textContent = t('empLabel')
     document.getElementById('panel-shield-label').textContent = t('shieldLabel')
     document.getElementById('panel-knife-label').textContent = t('knifeLabel')
+    document.getElementById('panel-turretkit-label').textContent = t('shopTurretKit')
     document.getElementById('weapons-title').textContent = t('weaponsTitle')
     document.getElementById('inventory-hint').innerHTML = tHtml('inventoryHint')
 
@@ -4008,6 +4139,7 @@ export class Game {
     this.panelGrenadeCount.textContent = this.inventory.grenades
     this.panelShieldCount.textContent = this.inventory.shields
     this.panelKnifeCount.textContent = this.inventory.throwingKnives
+    this.panelTurretkitCount.textContent = this.inventory.turretKits
     this.panelBarricadeCount.textContent = this.inventory.barricades
     this.panelTrapCount.textContent = this.inventory.traps
     this.panelMolotovCount.textContent = this.inventory.molotovs
@@ -4663,6 +4795,7 @@ export class Game {
     this.grenadeCount.textContent = this.inventory.grenades
     this.shieldCount.textContent = this.inventory.shields
     this.knifeCount.textContent = this.inventory.throwingKnives
+    this.turretkitCount.textContent = this.inventory.turretKits
     this.barricadeCount.textContent = this.inventory.barricades
     this.trapCount.textContent = this.inventory.traps
     this.molotovCount.textContent = this.inventory.molotovs
@@ -5877,6 +6010,67 @@ export class Game {
     this.nearRescueSurvivor = false
   }
 
+  // Survivor Camp Liberation night event - see 'camp_attack' in
+  // NightEvents.js. Spawns CAMP_SURVIVOR_COUNT vulnerable Companion NPCs in
+  // a small cluster plus an immediate zombie burst on top of them (see
+  // ZombieManager.spawnAt), then leaves the outcome to _updateSurvivorCamp.
+  _spawnSurvivorCamp() {
+    if (this.survivorCamp) {
+      for (const s of this.survivorCamp.survivors) s.dispose()
+    }
+    const spot = this.spawnPoints[Math.floor(Math.random() * this.spawnPoints.length)]
+    const survivors = []
+    for (let i = 0; i < CAMP_SURVIVOR_COUNT; i++) {
+      const angle = (i / CAMP_SURVIVOR_COUNT) * Math.PI * 2
+      survivors.push(new Companion(this.scene, spot.x + Math.cos(angle) * 2.5, spot.z + Math.sin(angle) * 2.5, 'ranged'))
+    }
+    this.survivorCamp = { survivors, x: spot.x, z: spot.z, startedAt: performance.now() }
+    this.zombies.spawnAt(spot.x, spot.z, CAMP_ATTACK_ZOMBIE_COUNT)
+    this._showLoreToast(t('toastCampUnderAttack'))
+  }
+
+  // Ticks the camp's survivor NPCs every frame (same update() signature the
+  // player's own this.recruits get) and resolves the event once
+  // CAMP_EVENT_DURATION_MS has passed, or immediately if every survivor
+  // dies first - a real fail state, unlike the single passive
+  // rescueSurvivor above.
+  _updateSurvivorCamp(dt, playerPos) {
+    const camp = this.survivorCamp
+    if (!camp) return
+    for (const s of camp.survivors) s.update(dt, playerPos, this.zombies.zombies, null)
+    camp.survivors = camp.survivors.filter((s) => !s.dead)
+
+    if (camp.survivors.length === 0) {
+      this._showLoreToast(t('toastCampLost'))
+      this.survivorCamp = null
+      return
+    }
+    if (performance.now() - camp.startedAt >= CAMP_EVENT_DURATION_MS) {
+      this._resolveCampSuccess(camp)
+    }
+  }
+
+  // Reward roll: either a surviving NPC joins the player's real recruit
+  // roster (this.recruits, permanent - unlike tempCompanion's dawn expiry),
+  // or a loot cache instead when none join, so the reward stays interesting
+  // whether the player kept every survivor alive or just barely enough.
+  _resolveCampSuccess(camp) {
+    this.points += CAMP_LOOT_REWARD_POINTS
+    this._updateStatsPanel()
+    if (Math.random() < 0.5) {
+      const recruit = camp.survivors.shift()
+      this.recruits.push(recruit)
+      this._showLoreToast(t('toastCampSavedRecruit'))
+    } else {
+      this.inventory.addHealthPack(2)
+      this.inventory.addGrenade(1)
+      this._updateInventoryHud()
+      this._showLoreToast(t('toastCampSavedLoot', { reward: CAMP_LOOT_REWARD_POINTS }))
+    }
+    for (const s of camp.survivors) s.dispose()
+    this.survivorCamp = null
+  }
+
   // Top-of-screen strip showing which way key landmarks are, relative to
   // where the camera is currently facing - each marker slides off either
   // edge and hides once it's more than COMPASS_HALF_FOV off-center.
@@ -6156,6 +6350,7 @@ export class Game {
         guard.update(dt, guard.group.position, this.zombies.zombies, null)
       }
       if (this.turret) this.turret.update(this.zombies.zombies)
+      for (const t of this.deployedTurrets) t.update(this.zombies.zombies)
       this._updateSafeZoneHeal(dt, playerPos)
       if (this.settings.mutators.healthRegen) this._updateHealthRegen(dt)
       if (this.flashlightOn) this._updateLightLure(playerPos)
@@ -6188,6 +6383,7 @@ export class Game {
       this._updateStationEncounter(playerPos)
       this._updateRescueSurvivor(playerPos)
       if (this.rescueSurvivor) this.rescueSurvivor.update(elapsed)
+      this._updateSurvivorCamp(dt, playerPos)
       this._updateRecruitSpots(elapsed, playerPos)
       this._updateBossHealthBar()
       this._updateKingOfTheHill(dt, playerPos)

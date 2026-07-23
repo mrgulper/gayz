@@ -642,6 +642,21 @@ export class ZombieManager {
     this._pendingSpawns += count
   }
 
+  // Immediate location-targeted burst (vs spawnSurge's gradual, player-
+  // relative queue) - used by the Survivor Camp Liberation night event so
+  // the threat actually appears at the camp's coordinates instead of
+  // wherever the player happens to be standing.
+  spawnAt(x, z, count) {
+    for (let i = 0; i < count; i++) {
+      const ox = (Math.random() - 0.5) * 6
+      const oz = (Math.random() - 0.5) * 6
+      const zombie = new Zombie(x + ox, z + oz, pickZombieType(), false, false, this.currentNight, this.healthMult)
+      zombie.deathHandled = false
+      this.zombies.push(zombie)
+      this.scene.add(zombie.group)
+    }
+  }
+
   // Shared explosion-damage logic - used by both thrown grenades and shot
   // explosive world props (parked cars, see WeaponSystem._fire).
   explodeAt(x, z, radius, damageMin, damageMax) {

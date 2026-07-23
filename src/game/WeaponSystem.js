@@ -19,6 +19,8 @@ const ADS_LERP_SPEED = 9
 // instant-stab attack (that used to live on Digit1, retired since the
 // hotbar - see Game.js - now owns Digit1-5 for slot switching).
 const KNIFE_DAMAGE = 150
+const IGNITE_DURATION_MS = 3000
+const IGNITE_DPS = 8
 // Held low on the off-hand (left) side, well clear of the equipped gun's
 // own position (see VIEWMODEL_BASE, positive X).
 const QUICK_MELEE_REST_POS = new THREE.Vector3(-0.36, -0.28, -0.28)
@@ -109,6 +111,40 @@ const WEAPONS = [
     magSize: 20,
     reserve: 80,
     damage: 10,
+    unlocked: false,
+  },
+  {
+    id: 'flamethrower',
+    name: 'Flamethrower',
+    auto: true,
+    fireInterval: 0.05,
+    reloadTime: 2.2,
+    magSize: 100,
+    reserve: 200,
+    // Low per-tick damage, very short range, wide cone (spread) - the fast
+    // fireInterval above is what actually reads as "continuous stream"
+    // rather than a real DoT/particle system, same "reuse the existing
+    // hit-scan pipeline, just tuned differently" idea flamethrower.glb
+    // doesn't need any new mechanic beyond stats for.
+    damage: 4,
+    range: 7,
+    spread: 0.14,
+    ignites: true,
+    unlocked: false,
+  },
+  {
+    id: 'rocket',
+    name: 'Rocket Launcher',
+    auto: false,
+    fireInterval: 1.8,
+    reloadTime: 2.4,
+    magSize: 1,
+    reserve: 5,
+    damage: 0, // unused - see w.explosive below, damage comes from explosiveDamageMin/Max instead
+    explosive: true,
+    explosiveRadius: 6,
+    explosiveDamageMin: 120,
+    explosiveDamageMax: 320,
     unlocked: false,
   },
 ]
@@ -620,6 +656,17 @@ export class WeaponSystem {
       anyHit = true
       const hit = hits[0]
 
+      // Rocket Launcher (see w.explosive) - the impact point (whatever it
+      // hit, zombie or bare wall) becomes an AOE burst instead of a normal
+      // per-zombie hit-scan hit, reusing the exact same falloff-damage
+      // helper the killstreak airstrike already uses. Skips the rest of
+      // this pellet's normal hit-accumulation below entirely - explosive
+      // weapons never have more than 1 pellet anyway.
+      if (w.explosive) {
+        if (this.zombieManager) this.zombieManager.damageInRadius(hit.point.x, hit.point.z, w.explosiveRadius, w.explosiveDamageMin, w.explosiveDamageMax)
+        continue
+      }
+
       // Rival scavenger - a human NPC, not a zombie, so it gets a flat
       // damage hit here rather than joining hitZombies' per-pellet
       // falloff/stealth-takedown accounting below (none of that applies to
@@ -639,6 +686,11 @@ export class WeaponSystem {
         } else {
           hitZombies.set(zombieHit, { count: 1, distance: hit.distance })
         }
+        // Flamethrower (see w.ignites) - a lingering burn on top of the
+        // direct hit-scan tick, so backing off after a couple of ticks
+        // still keeps dealing damage instead of the effect ending the
+        // instant the stream stops touching them.
+        if (w.ignites) zombieHit.ignite(IGNITE_DURATION_MS, IGNITE_DPS)
       }
 
       const explosive = hit.object.userData.explosive
