@@ -31,6 +31,9 @@ const GRENADE_THROW_SPEED = 16
 const GRENADE_DAMAGE_RADIUS = 5
 const GRENADE_DAMAGE_MIN = 80
 const GRENADE_DAMAGE_MAX = 220
+const KNIFE_SPEED = 30
+const KNIFE_HIT_RADIUS = 1.4
+const KNIFE_DAMAGE = 500
 const MOLOTOV_THROW_SPEED = 15
 const MOLOTOV_FIRE_RADIUS = 3.5
 const MOLOTOV_FIRE_DURATION_MS = 6000
@@ -107,6 +110,12 @@ const grenadeMat = flatMaterial({
   metalness: 0.3,
 })
 
+const knifeMat = flatMaterial({
+  color: 0xc4c4c0,
+  roughness: 0.3,
+  metalness: 0.8,
+})
+
 const molotovMat = flatMaterial({
   color: 0x3a2a1a,
   emissive: 0xff6a1a,
@@ -165,6 +174,7 @@ export class ZombieManager {
     this.screamFx = []
     this.noisemakerThrows = []
     this.grenadeThrows = []
+    this.knifeThrows = []
     this.molotovThrows = []
     this.fireZones = []
     this.c4Throws = []
@@ -217,6 +227,12 @@ export class ZombieManager {
     // Wandering horde event - see _maybeSpawnWanderingHorde.
     this.wanderingHorde = null
     this.nextHordeEventAt = performance.now() + HORDE_EVENT_MIN_DELAY_MS + Math.random() * (HORDE_EVENT_MAX_DELAY_MS - HORDE_EVENT_MIN_DELAY_MS)
+    // Dead Silence perk (see Perks.js) - shrinks HORDE_EVENT_AGGRO_RADIUS
+    // below for wandering zombies specifically. Doesn't affect zombies
+    // already actively chasing (those always target the player directly,
+    // no detection-radius concept applies to them) - this only ever helps
+    // slip past ambient/wandering ones from further away.
+    this.aggroRadiusMult = 1
 
     // Pre-run mutators (see Game.js's settings.mutators) - both false by
     // default, set once at the "Click to Play" moment.
@@ -549,6 +565,7 @@ export class ZombieManager {
     this.screamFx = []
     this.noisemakerThrows = []
     this.grenadeThrows = []
+    this.knifeThrows = []
     this.molotovThrows = []
     this.fireZones = []
     this.c4Throws = []
@@ -710,6 +727,45 @@ export class ZombieManager {
       const falloff = 1 - dist / radius
       zombie.onHit(minDamage + (maxDamage - minDamage) * falloff)
     }
+  }
+
+  // Throwing Knife - same arc-to-target-then-resolve shape as the grenade
+  // above, just single-target instead of AOE falloff (closest zombie within
+  // a small radius of the landing point, not everything in a blast ring)
+  // and a flat one-hit-kill damage instead of scaled damage.
+  spawnKnifeThrow(origin, target) {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.3), knifeMat)
+    mesh.position.copy(origin)
+    this.scene.add(mesh)
+
+    const distance = origin.distanceTo(target)
+    const travelTime = Math.max(0.12, distance / KNIFE_SPEED)
+
+    this.knifeThrows.push({ mesh, origin: origin.clone(), target: target.clone(), travelTime, t: 0 })
+  }
+
+  _updateKnifeThrows(dt) {
+    this.knifeThrows = this.knifeThrows.filter((p) => {
+      p.t += dt / p.travelTime
+      if (p.t >= 1) {
+        this.scene.remove(p.mesh)
+        let nearest = null
+        let nearestDist = KNIFE_HIT_RADIUS
+        for (const zombie of this.zombies) {
+          if (zombie.state !== 'alive') continue
+          const dist = Math.hypot(zombie.group.position.x - p.target.x, zombie.group.position.z - p.target.z)
+          if (dist < nearestDist) {
+            nearest = zombie
+            nearestDist = dist
+          }
+        }
+        if (nearest) nearest.onHit(KNIFE_DAMAGE)
+        return false
+      }
+      p.mesh.position.lerpVectors(p.origin, p.target, p.t)
+      p.mesh.position.y += Math.sin(p.t * Math.PI) * 0.8
+      return true
+    })
   }
 
   _updateGrenadeThrows(dt) {
@@ -1104,7 +1160,7 @@ export class ZombieManager {
       // below like any other zombie.
       if (zombie.isWandering && zombie.state === 'alive') {
         const distToPlayer = Math.hypot(playerPos.x - zombie.group.position.x, playerPos.z - zombie.group.position.z)
-        if (distToPlayer > HORDE_EVENT_AGGRO_RADIUS && this.wanderingHorde) {
+        if (distToPlayer > HORDE_EVENT_AGGRO_RADIUS * this.aggroRadiusMult && this.wanderingHorde) {
           targetPos = { x: this.wanderingHorde.x, z: this.wanderingHorde.z }
           attackCb = null
           spitCb = null
@@ -1222,6 +1278,7 @@ export class ZombieManager {
     this._updateAmbientMoan(playerPos)
     this._updateNoisemakerThrows(dt)
     this._updateGrenadeThrows(dt)
+    this._updateKnifeThrows(dt)
     this._updateMolotovThrows(dt)
     this._updateFireZones()
     this._updateC4Throws(dt)

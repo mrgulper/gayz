@@ -462,6 +462,10 @@ export function buildWorld(scene, trophyCount = 15) {
   const safeZone = buildSafeZone(scene, colliders, solidMeshes)
   const practiceTargets = buildPracticeRange(scene, colliders, solidMeshes, safeZone)
   const trophyWall = buildTrophyWall(scene, colliders, solidMeshes, safeZone, trophyCount)
+  const upgradeMachine = buildWeaponUpgradeMachine(scene, register, -15, 60)
+  registerZone({ id: 'upgrademachine', x: -15, z: 60, radius: 8, densityMult: 1.0 })
+  const mysteryBox = buildMysteryBox(scene, register, 15, 60)
+  registerZone({ id: 'mysterybox', x: 15, z: 60, radius: 8, densityMult: 1.0 })
 
   // Second area: a small park beyond the north end of the street, in the
   // space freed up by pushing the perimeter barricade out to groundSize/2.
@@ -1268,6 +1272,8 @@ export function buildWorld(scene, trophyCount = 15) {
     generator,
     trader,
     ammoStation,
+    upgradeMachine,
+    mysteryBox,
     vireoFacility,
     undergroundStation,
     subwayEntrance,
@@ -1810,6 +1816,113 @@ function buildAmmoStation(scene, register) {
   register(raycastTarget)
 
   return { x, z, buttonMat, mesh: raycastTarget }
+}
+
+// Weapon Upgrade Machine - a physical console (see Game.js's
+// _tryUpgradeWeapon), not a menu, so spending points on it means actually
+// walking up to a specific spot mid-run. Placed in the park's open west
+// side, well clear of both underground entrance holes (x=[-3,12]ish, see
+// UNDERGROUND_HOLE_SUBWAY/UNDERGROUND_HOLE_NEW_ENTRANCE) and the safe
+// zone's own internal layout (Vault/practice range/trophy wall already
+// pack its north half - this avoids that entirely by living outside the
+// walls).
+function buildWeaponUpgradeMachine(scene, register, x, z) {
+  const group = new THREE.Group()
+  group.position.set(x, 0, z)
+
+  const bodyMat = flatMaterial({ color: 0x2a3a6a, roughness: 0.5, metalness: 0.5, emissive: 0x1a2a5a, emissiveIntensity: 0.5 })
+  const trimMat = flatMaterial({ color: 0x1c1c1a, roughness: 0.5, metalness: 0.6 })
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.8, 0.8), bodyMat)
+  body.position.y = 0.9
+  body.castShadow = true
+  body.receiveShadow = true
+  group.add(body)
+
+  const trim = new THREE.Mesh(new THREE.BoxGeometry(1.16, 0.1, 0.86), trimMat)
+  trim.position.y = 1.8
+  group.add(trim)
+
+  const canvas = document.createElement('canvas')
+  canvas.width = 128
+  canvas.height = 96
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#0a0a14'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.fillStyle = '#4a6aff'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.font = 'bold 16px sans-serif'
+  ctx.fillText('WEAPON', canvas.width / 2, canvas.height / 2 - 20)
+  ctx.fillText('UPGRADE', canvas.width / 2, canvas.height / 2)
+  ctx.font = '11px sans-serif'
+  ctx.fillStyle = '#c9b8a0'
+  ctx.fillText('E TO USE', canvas.width / 2, canvas.height / 2 + 24)
+
+  const screenMat = flatMaterial({ map: new THREE.CanvasTexture(canvas), emissive: 0xffffff, emissiveMap: new THREE.CanvasTexture(canvas), emissiveIntensity: 0.9 })
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.6), screenMat)
+  screen.position.set(0, 1.1, 0.41)
+  group.add(screen)
+
+  const glowLight = new THREE.PointLight(0x4a6aff, 1.2, 6, 2)
+  glowLight.position.set(0, 1.5, 0.5)
+  group.add(glowLight)
+
+  scene.add(group)
+  register(body)
+  return { x, z }
+}
+
+// Mystery Box - same "physical spot, not a menu" idea as the upgrade
+// machine above, placed on the park's east side to mirror it.
+function buildMysteryBox(scene, register, x, z) {
+  const group = new THREE.Group()
+  group.position.set(x, 0, z)
+
+  const crateMat = flatMaterial({ color: 0x5a2a6a, roughness: 0.6, metalness: 0.3, emissive: 0x3a1a4a, emissiveIntensity: 0.4 })
+  const trimMat = flatMaterial({ color: 0x2a1a2a, roughness: 0.6, metalness: 0.4 })
+
+  const crate = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.1, 1.1), crateMat)
+  crate.position.y = 0.55
+  crate.castShadow = true
+  crate.receiveShadow = true
+  group.add(crate)
+
+  for (const dy of [0.15, 1.0]) {
+    const band = new THREE.Mesh(new THREE.BoxGeometry(1.16, 0.12, 1.16), trimMat)
+    band.position.y = dy
+    group.add(band)
+  }
+
+  const canvas = document.createElement('canvas')
+  canvas.width = 128
+  canvas.height = 96
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#140a1a'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.fillStyle = '#c98fff'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.font = 'bold 16px sans-serif'
+  ctx.fillText('MYSTERY', canvas.width / 2, canvas.height / 2 - 20)
+  ctx.fillText('BOX', canvas.width / 2, canvas.height / 2)
+  ctx.font = '11px sans-serif'
+  ctx.fillStyle = '#c9b8a0'
+  ctx.fillText('E TO GAMBLE', canvas.width / 2, canvas.height / 2 + 24)
+
+  const screenMat = flatMaterial({ map: new THREE.CanvasTexture(canvas), emissive: 0xffffff, emissiveMap: new THREE.CanvasTexture(canvas), emissiveIntensity: 0.9 })
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.6), screenMat)
+  screen.position.set(0, 1.4, 0)
+  screen.rotation.x = -0.3
+  group.add(screen)
+
+  const glowLight = new THREE.PointLight(0xc98fff, 1.2, 6, 2)
+  glowLight.position.set(0, 1.6, 0)
+  group.add(glowLight)
+
+  scene.add(group)
+  register(crate)
+  return { x, z }
 }
 
 // Module-level (not just local to buildSafeZone) so buildTraderStall and

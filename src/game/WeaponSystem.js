@@ -148,7 +148,7 @@ export class WeaponSystem {
     // WeaponMastery.js) once a weapon crosses its permanent kill threshold -
     // persists across runs, unlike rarityMult which resets with a fresh
     // weapon roll.
-    this.weapons = WEAPONS.map((w) => ({ ...w, ammoInMag: w.magSize, ammoReserve: w.reserve, rarityMult: 1, rarityTier: null, hasExtMag: false, suppressed: false, scopeOwned: !!w.hasScope, masteryMult: 1 }))
+    this.weapons = WEAPONS.map((w) => ({ ...w, ammoInMag: w.magSize, ammoReserve: w.reserve, rarityMult: 1, rarityTier: null, hasExtMag: false, suppressed: false, scopeOwned: !!w.hasScope, masteryMult: 1, upgradeMult: 1 }))
     this.currentIndex = 0
     this.meleeVariant = 'knife'
     // Global damage multiplier - the XP-gem level-up pool's damage upgrade
@@ -161,6 +161,9 @@ export class WeaponSystem {
     // Killstreak reward (see Game.js's _checkKillstreakReward) - set/cleared
     // externally by a timer there, same pattern as fireRateMult above.
     this.infiniteAmmo = false
+    // Riot shield (see Game.js's _toggleShield) - trades firing for damage
+    // reduction while up, checked alongside triggerDown/hasAmmo below.
+    this.shieldActive = false
 
     this.triggerDown = false
     this.timeSinceLastShot = Infinity
@@ -352,6 +355,18 @@ export class WeaponSystem {
     this.viewmodels[weaponId] = vm
   }
 
+  // Weapon Upgrade Machine (see Game.js's _tryUpgradeWeapon) - a real,
+  // permanent-for-the-run damage multiplier on this specific weapon
+  // instance, stacking with rarity/mastery multiplicatively rather than
+  // replacing them, plus the same cosmetic reskin setWeaponSkin already
+  // does for achievement/challenge rewards.
+  boostUpgradeMult(weaponId, mult) {
+    const w = this.weapons.find((w) => w.id === weaponId)
+    if (!w) return
+    w.upgradeMult *= mult
+    this.setWeaponSkin(weaponId, 'packapunch')
+  }
+
   // Coin Shop skins apply to every gun at once (melee excluded - it doesn't
   // read as a "gun" cosmetically) instead of just the pistol, so buying one
   // skin reskins the whole loadout.
@@ -502,7 +517,7 @@ export class WeaponSystem {
 
     const w = this.current
     const hasAmmo = w.melee || w.ammoInMag > 0
-    const canFire = this.triggerDown && this.timeSinceLastShot >= w.fireInterval / this.fireRateMult && hasAmmo
+    const canFire = this.triggerDown && !this.shieldActive && this.timeSinceLastShot >= w.fireInterval / this.fireRateMult && hasAmmo
     if (canFire) {
       this._fire()
       if (!w.auto) this.triggerDown = false
@@ -590,7 +605,7 @@ export class WeaponSystem {
       // a squad member racing for an airdrop).
       const rivalHit = hit.object.userData.rival
       if (rivalHit) {
-        rivalHit.onHit(w.damage * this.damageMult * w.rarityMult * w.masteryMult)
+        rivalHit.onHit(w.damage * this.damageMult * w.rarityMult * w.masteryMult * w.upgradeMult)
         if (this.onZombieHit) this.onZombieHit()
       }
 
@@ -649,7 +664,7 @@ export class WeaponSystem {
           const t = THREE.MathUtils.clamp((info.distance - nearDist) / (farDist - nearDist), 0, 1)
           perHitDamage = THREE.MathUtils.lerp(near, far, t)
         }
-        let damage = perHitDamage * info.count * this.damageMult * w.rarityMult * w.masteryMult
+        let damage = perHitDamage * info.count * this.damageMult * w.rarityMult * w.masteryMult * w.upgradeMult
         // Stealth takedown: melee, and the zombie is facing away from the
         // player (its own forward vector points opposite the direction to
         // the player) - approaching from its blind side guarantees the kill

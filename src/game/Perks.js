@@ -42,6 +42,14 @@ export const PERK_DEFS = [
       game.player.sprintMultiplier += 0.25
     },
   },
+  {
+    id: 'dead_silence',
+    titleKey: 'perkDeadSilence',
+    cost: 35,
+    apply: (game) => {
+      game.zombies.aggroRadiusMult *= 0.5
+    },
+  },
 ]
 
 // Fisher-Yates-ish partial shuffle: picks `count` distinct perks at random.

@@ -63,6 +63,8 @@ const PICKUP_LABELS = {
   battery: () => t('toastBatteryAdded'),
   noisemaker: () => t('toastNoisemakerAdded'),
   grenade: () => t('toastGrenadeAdded'),
+  shield: () => t('toastShieldAdded'),
+  knife: () => t('toastKnifeAdded'),
   scope: () => t('toastScopeAdded'),
   fuelcan: () => t('toastFuelCanAdded'),
   extended_mag: () => t('toastMagAdded'),
@@ -374,6 +376,27 @@ const SAFE_ZONE_HEAL_PER_SEC = 6
 // this stays opt-in for whoever wants the more forgiving CoD-style flow.
 const HEALTH_REGEN_DELAY_SEC = 6
 const HEALTH_REGEN_PER_SEC = 4
+// Riot Shield - trades firing (see WeaponSystem's canFire check) for a flat
+// damage cut on anything that gets through anyway (no per-attacker facing
+// check - simpler than tracking attacker angle, and still reads as "block"
+// since it's a large, constant reduction).
+const SHIELD_DAMAGE_REDUCTION = 0.7
+// Throwing Knife - a fast, silent one-hit-kill throwable, distinct from the
+// grenade's slow lob + AOE.
+const KNIFE_THROW_SPEED = 24
+const KNIFE_DAMAGE = 500
+// Weapon Upgrade Machine - cost doubles each use *this run* (resets with
+// everything else on a fresh run), capped uses *per night* so it can't be
+// abused as a single mega-grind session.
+const UPGRADE_MACHINE_BASE_COST = 500
+const UPGRADE_MACHINE_MULT = 1.6
+const UPGRADE_MACHINE_USES_PER_NIGHT = 2
+const UPGRADE_MACHINE_RADIUS = 2.2
+// Mystery Box - flat cost, no scaling (unlike the upgrade machine above,
+// re-rolling isn't meant to get progressively harder to discourage, just to
+// cost something each time).
+const MYSTERY_BOX_COST = 950
+const MYSTERY_BOX_RADIUS = 2.2
 const LIGHT_LURE_ENRAGE_MS = 2500
 const VEHICLE_INTERACT_RADIUS = 3
 const VIREO_TERMINAL_RADIUS = 2.5
@@ -533,6 +556,8 @@ const SHOP_ITEMS = [
   { id: 'c4', cost: 40, titleKey: 'shopC4', give: (game) => game.inventory.addC4(1) },
   { id: 'adrenaline', cost: 22, titleKey: 'shopAdrenaline', give: (game) => game.inventory.addAdrenaline(1) },
   { id: 'emp', cost: 26, titleKey: 'shopEmp', give: (game) => game.inventory.addEmp(1) },
+  { id: 'shield', cost: 30, titleKey: 'shopShield', give: (game) => game.inventory.addShield(1) },
+  { id: 'knife', cost: 18, titleKey: 'shopKnife', give: (game) => game.inventory.addThrowingKnife(1) },
   {
     id: 'train_companion',
     cost: 30,
@@ -599,6 +624,8 @@ const SALVAGE_ITEMS = [
   { id: 'c4', invKey: 'c4', titleKey: 'shopC4', sellValue: salvageValue('c4'), sell: (game) => game.inventory.useC4() },
   { id: 'adrenaline', invKey: 'adrenaline', titleKey: 'shopAdrenaline', sellValue: salvageValue('adrenaline'), sell: (game) => game.inventory.useAdrenaline() },
   { id: 'emp', invKey: 'emp', titleKey: 'shopEmp', sellValue: salvageValue('emp'), sell: (game) => game.inventory.useEmp() },
+  { id: 'shield', invKey: 'shields', titleKey: 'shopShield', sellValue: salvageValue('shield'), sell: (game) => game.inventory.useShield() },
+  { id: 'knife', invKey: 'throwingKnives', titleKey: 'shopKnife', sellValue: salvageValue('knife'), sell: (game) => game.inventory.useThrowingKnife() },
 ]
 
 // Hidden Trader tier, only shown once Achievements.js's 'centurion' (100
@@ -730,6 +757,8 @@ export class Game {
     this.c4Count = document.getElementById('c4-count')
     this.adrenalineCount = document.getElementById('adrenaline-count')
     this.empCount = document.getElementById('emp-count')
+    this.shieldCount = document.getElementById('shield-count')
+    this.knifeCount = document.getElementById('knife-count')
     this.inventoryPanel = document.getElementById('inventory-panel')
     this.panelHealthCount = document.getElementById('panel-health-count')
     this.panelArmorCount = document.getElementById('panel-armor-count')
@@ -741,6 +770,8 @@ export class Game {
     this.panelC4Count = document.getElementById('panel-c4-count')
     this.panelAdrenalineCount = document.getElementById('panel-adrenaline-count')
     this.panelEmpCount = document.getElementById('panel-emp-count')
+    this.panelShieldCount = document.getElementById('panel-shield-count')
+    this.panelKnifeCount = document.getElementById('panel-knife-count')
     this.panelWeaponsList = document.getElementById('panel-weapons-list')
     // Delegated once (not re-bound on every _refreshInventoryPanel render,
     // since that rebuilds the row HTML from scratch) - reads which weapon/
@@ -866,6 +897,8 @@ export class Game {
     this.killStreak = 0
     this.killstreakDamageBoostUntil = 0
     this.killstreakAmmoUntil = 0
+    this.shieldActive = false
+    this.upgradeMachineUsesThisNight = 0
     this.totalKills = 0
     this.totalDeaths = 0
     // Director AI signals - see _updateDirectorAI. lastHitTakenAt starts at
@@ -984,7 +1017,7 @@ export class Game {
     this.composer.addPass(this.bloomPass)
     this.composer.addPass(new OutputPass())
 
-    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel, toxicSewerLevel, mineLevel } = buildWorld(this.scene, ACHIEVEMENTS.length)
+    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, upgradeMachine, mysteryBox, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel, toxicSewerLevel, mineLevel } = buildWorld(this.scene, ACHIEVEMENTS.length)
     // Base fog distance, captured once - see _applyFogState. Rain/fog-patch
     // used to *= an already-modified fog.near/far every single frame they
     // were active, which compounds toward zero exponentially (0.6 per frame
@@ -1196,6 +1229,8 @@ export class Game {
     this.maxGeneratorFuel = 100
     this.trader = trader
     this.ammoStation = ammoStation
+    this.upgradeMachine = upgradeMachine
+    this.mysteryBox = mysteryBox
     this.nearAmmoStation = false
     this.ammoStationHoldProgress = 0
     this.ammoStationKeyHeld = false
@@ -1230,6 +1265,8 @@ export class Game {
     this.bestiaryEncountered = loadEncountered()
     this.traderPanelOpen = false
     this.nearTrader = false
+    this.nearUpgradeMachine = false
+    this.nearMysteryBox = false
     this.dayNight = new DayNightCycle(this.scene, hemiLight, sunLight)
 
     this.player = new PlayerController(this.camera, this.canvas, colliders, solidMeshes)
@@ -1914,6 +1951,10 @@ export class Game {
         this._useAdrenaline()
       } else if (e.code === getKeyFor('emp')) {
         this._throwEmp()
+      } else if (e.code === 'Digit6') {
+        this._toggleShield()
+      } else if (e.code === 'Digit7') {
+        this._throwKnife()
       } else if (e.code === getKeyFor('interact')) {
         // Tracked independently of the rest of this branch (which only
         // fires the various one-shot interactions below) so the ammo
@@ -1949,6 +1990,10 @@ export class Game {
           this._tryOpenLockedCell()
         } else if (this.nearTrophyWall) {
           this._showTrophyWallSummary()
+        } else if (this.nearUpgradeMachine) {
+          this._tryUpgradeWeapon()
+        } else if (this.nearMysteryBox) {
+          this._tryMysteryBox()
         } else {
           const loot = this.chests.tryInteract()
           if (loot) {
@@ -2283,6 +2328,35 @@ export class Game {
     target.y = 0.3
     origin.y -= 0.3
     this.zombies.spawnEmpThrow(origin, target)
+    this._updateInventoryHud()
+  }
+
+  _throwKnife() {
+    if (!this.inventory.useThrowingKnife()) return
+    this.camera.getWorldDirection(this._camDir)
+    const origin = this.player.controls.object.position.clone()
+    const target = origin.clone().addScaledVector(this._camDir, 12)
+    target.y = 0.3
+    origin.y -= 0.3
+    this.zombies.spawnKnifeThrow(origin, target)
+    this._updateInventoryHud()
+  }
+
+  // Riot Shield - a toggle (not hold), consuming one charge per activation
+  // (see Inventory.useShield) rather than per second held, so putting it up
+  // briefly and lowering it again doesn't waste multiple charges.
+  _toggleShield() {
+    if (this.shieldActive) {
+      this.shieldActive = false
+      this.weapons.shieldActive = false
+      return
+    }
+    if (!this.inventory.useShield()) {
+      this._showLoreToast(t('toastNoShield'))
+      return
+    }
+    this.shieldActive = true
+    this.weapons.shieldActive = true
     this._updateInventoryHud()
   }
 
@@ -3848,6 +3922,8 @@ export class Game {
     document.getElementById('panel-c4-label').textContent = t('c4Label')
     document.getElementById('panel-adrenaline-label').textContent = t('adrenalineLabel')
     document.getElementById('panel-emp-label').textContent = t('empLabel')
+    document.getElementById('panel-shield-label').textContent = t('shieldLabel')
+    document.getElementById('panel-knife-label').textContent = t('knifeLabel')
     document.getElementById('weapons-title').textContent = t('weaponsTitle')
     document.getElementById('inventory-hint').innerHTML = tHtml('inventoryHint')
 
@@ -3898,6 +3974,8 @@ export class Game {
     this.panelArmorCount.textContent = this.inventory.armorPacks
     this.panelNoisemakerCount.textContent = this.inventory.noisemakers
     this.panelGrenadeCount.textContent = this.inventory.grenades
+    this.panelShieldCount.textContent = this.inventory.shields
+    this.panelKnifeCount.textContent = this.inventory.throwingKnives
     this.panelBarricadeCount.textContent = this.inventory.barricades
     this.panelTrapCount.textContent = this.inventory.traps
     this.panelMolotovCount.textContent = this.inventory.molotovs
@@ -4026,6 +4104,7 @@ export class Game {
   _onZombieAttack(damage) {
     if (this.player.isDodging) return // brief invincibility window - see PlayerController's dodge
     this.lastHitTakenAt = performance.now()
+    if (this.shieldActive) damage *= 1 - SHIELD_DAMAGE_REDUCTION
     this.playerState.takeDamage(damage * this.difficulty.damageMult * this.dailyDamageMult)
     this._updateHealthHud()
     audioEngine.playZombieSnarl()
@@ -4043,6 +4122,7 @@ export class Game {
   _onRivalAttack(damage) {
     if (this.player.isDodging) return
     this.lastHitTakenAt = performance.now()
+    if (this.shieldActive) damage *= 1 - SHIELD_DAMAGE_REDUCTION
     this.playerState.takeDamage(damage * this.difficulty.damageMult * this.dailyDamageMult)
     this._updateHealthHud()
     this.damageFlash.classList.remove('hit')
@@ -4467,6 +4547,8 @@ export class Game {
     this.armorPackCount.textContent = this.inventory.armorPacks
     this.noisemakerCount.textContent = this.inventory.noisemakers
     this.grenadeCount.textContent = this.inventory.grenades
+    this.shieldCount.textContent = this.inventory.shields
+    this.knifeCount.textContent = this.inventory.throwingKnives
     this.barricadeCount.textContent = this.inventory.barricades
     this.trapCount.textContent = this.inventory.traps
     this.molotovCount.textContent = this.inventory.molotovs
@@ -5312,6 +5394,59 @@ export class Game {
     this.nearTrader = dist <= TRADER_INTERACT_RADIUS
   }
 
+  _updateUpgradeMachine(playerPos) {
+    const dist = Math.hypot(playerPos.x - this.upgradeMachine.x, playerPos.z - this.upgradeMachine.z)
+    this.nearUpgradeMachine = dist <= UPGRADE_MACHINE_RADIUS
+  }
+
+  _updateMysteryBox(playerPos) {
+    const dist = Math.hypot(playerPos.x - this.mysteryBox.x, playerPos.z - this.mysteryBox.z)
+    this.nearMysteryBox = dist <= MYSTERY_BOX_RADIUS
+  }
+
+  // Weapon Upgrade Machine - cost scales up each use this run (see
+  // UPGRADE_MACHINE_MULT), capped per night so the same night's points
+  // grind can't buy an unlimited stack of boosts on one gun.
+  _tryUpgradeWeapon() {
+    if (this.upgradeMachineUsesThisNight >= UPGRADE_MACHINE_USES_PER_NIGHT) {
+      this._showLoreToast(t('upgradeMachineOutOfUses'))
+      return
+    }
+    const w = this.weapons.current
+    if (w.melee) {
+      this._showLoreToast(t('upgradeMachineNoMelee'))
+      return
+    }
+    const cost = Math.round(UPGRADE_MACHINE_BASE_COST * Math.pow(UPGRADE_MACHINE_MULT, this.upgradeMachineUsesThisNight))
+    if (this.points < cost) {
+      this._showLoreToast(t('upgradeMachineNotEnoughPoints', { n: cost }))
+      return
+    }
+    this.points -= cost
+    this.upgradeMachineUsesThisNight += 1
+    this.weapons.boostUpgradeMult(w.id, 1.5)
+    this._updateStatsPanel()
+    this._showLoreToast(t('upgradeMachineSuccess', { weapon: t(this.weapons._nameKeyFor(w)) }))
+  }
+
+  // Mystery Box - flat cost, no per-night cap (unlike the upgrade machine
+  // above) since the whole point is being able to re-roll if the random
+  // pick isn't what you wanted.
+  _tryMysteryBox() {
+    if (this.points < MYSTERY_BOX_COST) {
+      this._showLoreToast(t('mysteryBoxNotEnoughPoints', { n: MYSTERY_BOX_COST }))
+      return
+    }
+    this.points -= MYSTERY_BOX_COST
+    const candidates = this.weapons.weapons.filter((w) => !w.melee)
+    const pick = candidates[Math.floor(Math.random() * candidates.length)]
+    this.weapons.markUnlocked(pick.id)
+    this.weapons.currentIndex = this.weapons.weapons.indexOf(pick)
+    this._updateStatsPanel()
+    this._updateHotbarHud()
+    this._showLoreToast(t('mysteryBoxResult', { weapon: t(this.weapons._nameKeyFor(pick)) }))
+  }
+
   // Slow passive regen while standing inside the guarded compound - the
   // mechanical half of "safe zone" (the guards shooting anything that
   // approaches are the other half). Silent/no toast on its own; the
@@ -5851,6 +5986,7 @@ export class Game {
         if (this.snowing) this._checkBountyProgress('survive_snow_night', 1)
         this._checkBountyProgress('reach_3_nights', 1)
         this.night += 1
+        this.upgradeMachineUsesThisNight = 0
         if (this.tempCompanion && this.night >= this.tempCompanionExpiresAtNight) {
           this._showLoreToast(t('tempCompanionLeft'))
           this.tempCompanion.dispose()
@@ -5925,6 +6061,8 @@ export class Game {
       this._updateTrophyWallProximity(playerPos)
       this._updateGenerator(dt, playerPos)
       this._updateTrader(playerPos)
+      this._updateUpgradeMachine(playerPos)
+      this._updateMysteryBox(playerPos)
       this._updateAmmoStation(dt, playerPos)
       this._updateBreakerBox(dt, playerPos)
       this._updateToxicWater(dt, playerPos)
@@ -5954,6 +6092,12 @@ export class Game {
         this.interactPrompt.style.display = 'block'
       } else if (this.nearTrader) {
         this.interactPrompt.innerHTML = tHtml('interactTrader')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearUpgradeMachine) {
+        this.interactPrompt.innerHTML = tHtml('interactUpgradeMachine')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearMysteryBox) {
+        this.interactPrompt.innerHTML = tHtml('interactMysteryBox')
         this.interactPrompt.style.display = 'block'
       } else if (this.nearVehicle) {
         this.interactPrompt.innerHTML = tHtml('interactEnterVehicle')

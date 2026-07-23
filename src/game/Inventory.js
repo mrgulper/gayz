@@ -11,6 +11,8 @@ export class Inventory {
     this.c4 = 0
     this.adrenaline = 0
     this.emp = 0
+    this.throwingKnives = 0
+    this.shields = 0
     // A single quest flag, not a stacking count like the rest of this class -
     // there's only ever one Vault Key in play at a time (see Chests.js's
     // Vault and Pickups.js's 'vaultkey' type).
@@ -59,6 +61,14 @@ export class Inventory {
 
   addEmp(n = 1) {
     this.emp += n
+  }
+
+  addThrowingKnife(n = 1) {
+    this.throwingKnives += n
+  }
+
+  addShield(n = 1) {
+    this.shields += n
   }
 
   useHealthPack() {
@@ -118,6 +128,18 @@ export class Inventory {
   useAdrenaline() {
     if (this.adrenaline <= 0) return false
     this.adrenaline -= 1
+    return true
+  }
+
+  useThrowingKnife() {
+    if (this.throwingKnives <= 0) return false
+    this.throwingKnives -= 1
+    return true
+  }
+
+  useShield() {
+    if (this.shields <= 0) return false
+    this.shields -= 1
     return true
   }
 

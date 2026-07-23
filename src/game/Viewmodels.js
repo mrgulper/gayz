@@ -182,6 +182,9 @@ const SKIN_TINTS = {
   // Per-weapon challenge reward (see Game.js's _checkWeaponChallenge) -
   // earned by kill count with that specific gun, not purchasable.
   veteran: { color: 0x5a5a3a, emissive: 0x2a2a10 },
+  // Weapon Upgrade Machine reward (see WeaponSystem.boostUpgradeMult) - an
+  // energetic glow distinct from every other skin's flat metallic tint.
+  packapunch: { color: 0x2a3a6a, emissive: 0x4a6aff },
 }
 
 // Shared skin-tint lookup - every gun builder tints its own main body/
