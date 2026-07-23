@@ -27,6 +27,7 @@ import { AutoWeaponManager } from './AutoWeapons.js'
 import { COIN_SHOP_ITEMS, ATTACHMENT_TYPES } from './CoinShop.js'
 import { pickNightEvent } from './NightEvents.js'
 import { Companion } from './Companion.js'
+import { Turret } from './Turret.js'
 import { PlayerBody } from './PlayerBody.js'
 import { Vehicle } from './Vehicle.js'
 import { META_UPGRADES, loadMetaProgress, saveMetaProgress, DEATH_POINTS_CONVERSION } from './MetaProgress.js'
@@ -1430,6 +1431,7 @@ export class Game {
       if (this.equippedSkin === null) this.equippedSkin = 'gold'
     }
     if (this.equippedSkin) this.weapons.setSkinAllGuns(this.equippedSkin)
+    this._applyCoinShopPerks()
 
     audioEngine.setMusicVolume(this.settings.musicVolume / 100)
     audioEngine.setSfxVolume(this.settings.sfxVolume / 100)
@@ -2797,6 +2799,23 @@ export class Game {
     }
   }
 
+  // Mirrors _applyMetaUpgrades' exact reasoning, for Coin Shop's own
+  // permanent items (perks section: coin_damage/coin_health/coin_stamina,
+  // and base: turret) - these were a real gap found while adding the
+  // turret purchase: their apply() mutates a fresh WeaponSystem/PlayerState/
+  // PlayerController directly (unlike traderDiscount/fortifiedRest, which
+  // are no-op-apply and checked live via coinShopPurchased.has() at their
+  // own use site instead), so without this they silently reset to baseline
+  // every fresh page load despite coinShopPurchased still correctly
+  // remembering they're owned. Guns/skins/attachments already have their
+  // own separate, correct restoration a few lines above this call site -
+  // only perks/base items needed this.
+  _applyCoinShopPerks() {
+    for (const item of COIN_SHOP_ITEMS) {
+      if ((item.section === 'perks' || item.section === 'base') && item.isOwned(this)) item.apply(this)
+    }
+  }
+
   _updateCompanionName() {
     const nickname = this.settings.nickname.trim() || this._defaultNickname()
     this.companion.setName(`${nickname}'s Assistant`)
@@ -3307,6 +3326,7 @@ export class Game {
       { id: 'weapons', labelKey: 'shopSectionWeapons' },
       { id: 'skins', labelKey: 'shopSectionSkins' },
       { id: 'perks', labelKey: 'shopSectionPerks' },
+      { id: 'base', labelKey: 'shopSectionBase' },
     ]
 
     for (const section of sections) {
@@ -5028,6 +5048,17 @@ export class Game {
     this.safeZoneGuards.push(guard)
   }
 
+  // Base building (see CoinShop.js's 'turret' item) - a genuine placed prop
+  // rather than another Companion instance, so it reads as base
+  // infrastructure being built up rather than just another guard hired.
+  // Only ever built once - _applyCoinShopPerks() re-calls this on every
+  // fresh page load for an already-owned turret, and this.turret already
+  // existing would just mean building a second one, so guard against that.
+  _buildAutoTurret() {
+    if (this.turret) return
+    this.turret = new Turret(this.scene, this.safeZone.x + 2, this.safeZone.z + 4)
+  }
+
   // Core-loop twist: VIREO's "wellness light" is exactly what drew the
   // infection in the first place (see the audio log lore), so the
   // flashlight - the tool you need to see at night - is also a beacon.
@@ -5575,6 +5606,7 @@ export class Game {
       for (const guard of this.safeZoneGuards) {
         guard.update(dt, guard.group.position, this.zombies.zombies, null)
       }
+      if (this.turret) this.turret.update(this.zombies.zombies)
       this._updateSafeZoneHeal(dt, playerPos)
       if (this.flashlightOn) this._updateLightLure(playerPos)
       this.pickups.update(dt, elapsed, playerPos, {

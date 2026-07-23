@@ -85,6 +85,24 @@ export const COIN_SHOP_ITEMS = [
       game.player.stamina = game.player.maxStamina
     },
   },
+  // Base building: a permanent auto-firing turret at the safe zone (see
+  // Turret.js) - own 'base' section since it's neither a stat perk nor a
+  // gun/skin. apply() builds the actual world object rather than just
+  // flipping a flag; Game.js's _applyCoinShopPerks() (mirrors
+  // _applyMetaUpgrades' own reasoning) re-calls apply() for every already-
+  // owned 'base'/'perks' item on every fresh page load, so the turret gets
+  // rebuilt each session exactly like the stat perks get re-applied.
+  {
+    id: 'turret',
+    titleKey: 'coinShopTurret',
+    cost: 3000,
+    section: 'base',
+    isOwned: (game) => game.coinShopPurchased.has('turret'),
+    apply: (game) => {
+      game.coinShopPurchased.add('turret')
+      game._buildAutoTurret()
+    },
+  },
 ]
 
 // Permanent, per-gun attachments (Game.js's Weapons section renders one
