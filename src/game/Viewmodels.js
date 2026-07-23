@@ -185,6 +185,9 @@ const SKIN_TINTS = {
   // Weapon Upgrade Machine reward (see WeaponSystem.boostUpgradeMult) - an
   // energetic glow distinct from every other skin's flat metallic tint.
   packapunch: { color: 0x2a3a6a, emissive: 0x4a6aff },
+  // Akimbo purchase (see WeaponSystem.setAkimbo) - bright chrome, reads as
+  // "show gun" rather than "worn/tactical" like every other skin here.
+  akimbo: { color: 0xd8d8d8, emissive: 0x8a8a8a },
 }
 
 // Shared skin-tint lookup - every gun builder tints its own main body/

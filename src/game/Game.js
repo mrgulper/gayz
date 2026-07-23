@@ -397,6 +397,24 @@ const UPGRADE_MACHINE_RADIUS = 2.2
 // cost something each time).
 const MYSTERY_BOX_COST = 950
 const MYSTERY_BOX_RADIUS = 2.2
+// Field power-ups - a small chance per kill (see _onZombieKilled) to drop
+// one of these instead of (not in addition to) the normal loot roll,
+// mirroring spawnKillDrop's own "every 10th kill" guaranteed drop but at a
+// much lower, random rate across every kill. Collected the same walkover
+// way as any other pickup (see Pickups.js) - Game.js only owns what
+// happens once type reaches _onPickup below.
+const POWERUP_DROP_CHANCE = 0.02
+const POWERUP_TYPES = ['double_points', 'nuke', 'instakill', 'zombie_blood']
+const DOUBLE_POINTS_DURATION_MS = 20000
+const INSTAKILL_DURATION_MS = 20000
+const ZOMBIE_BLOOD_DURATION_MS = 20000
+// Last Stand - once per run (this.lastStandUsed), a reprieve instead of an
+// instant death: crawl speed, pistol-locked, a kill quota to claw back up
+// under your own power before the window runs out for real.
+const LAST_STAND_DURATION_MS = 15000
+const LAST_STAND_KILLS_NEEDED = 3
+const LAST_STAND_SPEED_MULT = 0.3
+const LAST_STAND_REVIVE_HEALTH_FRAC = 0.4
 const LIGHT_LURE_ENRAGE_MS = 2500
 const VEHICLE_INTERACT_RADIUS = 3
 const VIREO_TERMINAL_RADIUS = 2.5
@@ -899,6 +917,13 @@ export class Game {
     this.killstreakAmmoUntil = 0
     this.shieldActive = false
     this.upgradeMachineUsesThisNight = 0
+    this.doublePointsUntil = 0
+    this.instakillUntil = 0
+    this.lastStandUsed = false
+    this.playerDowned = false
+    this.downedKillsNeeded = 0
+    this.downedUntil = 0
+    this._preDownedMoveSpeed = null
     this.totalKills = 0
     this.totalDeaths = 0
     // Director AI signals - see _updateDirectorAI. lastHitTakenAt starts at
@@ -1753,6 +1778,10 @@ export class Game {
       this.companion.resetVitals()
       this.night = 1
       this.kills = 0
+      this.killStreak = 0
+      this.lastStandUsed = false
+      this.playerDowned = false
+      this.downedUntil = 0
       this.activeBounty = null
       if (this.rescueSurvivor) {
         this.rescueSurvivor.dispose()
@@ -2585,7 +2614,7 @@ export class Game {
         this.damageFlash.classList.remove('hit')
         void this.damageFlash.offsetWidth
         this.damageFlash.classList.add('hit')
-        if (!this.playerState.alive) this._onPlayerDeath()
+        if (!this.playerState.alive) this._maybeLastStandOrDie()
       }
       return true
     })
@@ -3034,10 +3063,13 @@ export class Game {
   // every fresh page load despite coinShopPurchased still correctly
   // remembering they're owned. Guns/skins/attachments already have their
   // own separate, correct restoration a few lines above this call site -
-  // only perks/base items needed this.
+  // 'weapons' section added for Akimbo (also mutates live WeaponSystem
+  // state - fireInterval/skin - the same way perks/base items mutate their
+  // own live state, and setAkimbo's own !w.akimbo check keeps re-calling
+  // apply() here every load harmless).
   _applyCoinShopPerks() {
     for (const item of COIN_SHOP_ITEMS) {
-      if ((item.section === 'perks' || item.section === 'base') && item.isOwned(this)) item.apply(this)
+      if ((item.section === 'perks' || item.section === 'base' || item.section === 'weapons') && item.isOwned && item.isOwned(this)) item.apply(this)
     }
   }
 
@@ -4113,7 +4145,47 @@ export class Game {
     this.damageFlash.classList.add('hit')
     this._triggerShake(0.12, 220)
 
-    if (!this.playerState.alive) this._onPlayerDeath()
+    if (!this.playerState.alive) this._maybeLastStandOrDie()
+  }
+
+  // Shared by every damage source that can kill the player (zombie/rival
+  // melee+ranged, gas/toxic hazard ticks, rockfall) - Last Stand gets one
+  // chance per run regardless of which of those actually landed the blow.
+  _maybeLastStandOrDie() {
+    if (this._tryLastStand()) return
+    this._onPlayerDeath()
+  }
+
+  // Last Stand - once per run, being "killed" instead drops the player into
+  // a downed state: revived to 1 HP, locked to the pistol, crawl speed,
+  // with a kill quota to claw back up before the window runs out for real
+  // (checked in _updateKillstreakTimers, which already ticks every frame).
+  _tryLastStand() {
+    if (this.lastStandUsed) return false
+    this.lastStandUsed = true
+    this.playerState.alive = true
+    this.playerState.health = 1
+    this.playerDowned = true
+    this.downedKillsNeeded = LAST_STAND_KILLS_NEEDED
+    this.downedUntil = performance.now() + LAST_STAND_DURATION_MS
+    this._preDownedMoveSpeed = this.player.moveSpeed
+    this.player.moveSpeed *= LAST_STAND_SPEED_MULT
+    const pistolIdx = this.weapons.weapons.findIndex((w) => w.id === 'pistol')
+    if (pistolIdx >= 0) this.weapons.currentIndex = pistolIdx
+    this._updateHealthHud()
+    this._updateHotbarHud()
+    this._showLoreToast(t('lastStandEntered', { n: LAST_STAND_KILLS_NEEDED }))
+    return true
+  }
+
+  _reviveFromLastStand() {
+    this.playerDowned = false
+    this.downedUntil = 0
+    this.playerState.health = Math.round(this.playerState.maxHealth * LAST_STAND_REVIVE_HEALTH_FRAC)
+    if (this._preDownedMoveSpeed !== null) this.player.moveSpeed = this._preDownedMoveSpeed
+    this._preDownedMoveSpeed = null
+    this._updateHealthHud()
+    this._showLoreToast(t('lastStandRevived'))
   }
 
   // Same damage/UI pipeline as _onZombieAttack, minus the zombie-specific
@@ -4130,7 +4202,7 @@ export class Game {
     this.damageFlash.classList.add('hit')
     this._triggerShake(0.1, 180)
 
-    if (!this.playerState.alive) this._onPlayerDeath()
+    if (!this.playerState.alive) this._maybeLastStandOrDie()
   }
 
   // Camera juice: a brief random position jitter (see _updateShake, called
@@ -4190,6 +4262,12 @@ export class Game {
     this.killStreak += 1
     this._checkKillstreakReward()
     this.totalKills += 1
+    // Last Stand - clawing back up under your own power, not a passive
+    // timer-only wait (see _tryLastStand/downedKillsNeeded).
+    if (this.playerDowned) {
+      this.downedKillsNeeded -= 1
+      if (this.downedKillsNeeded <= 0) this._reviveFromLastStand()
+    }
     this.recentKillTimestamps.push(performance.now())
     // Wandering horde members (see ZombieManager's _maybeSpawnWanderingHorde)
     // are worth intercepting for their own sake rather than just background
@@ -4214,6 +4292,12 @@ export class Game {
       // of the world just handing them out.
       this.pickups.spawnKillDrop(x, z)
     }
+    // Field power-ups - independent of (not instead of) the guaranteed
+    // every-10th-kill drop above, so they can land on any kill.
+    if (Math.random() < POWERUP_DROP_CHANCE) {
+      const powerupType = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)]
+      this.pickups.spawnLootDrop(powerupType, x, z)
+    }
     this.achievements.unlock('first_blood')
     if (this.totalKills >= 100) this.achievements.unlock('centurion')
     if (zombieTypeId === 'fester') this._spawnHazardZone('gas', x, z)
@@ -4231,7 +4315,8 @@ export class Game {
     this._trackWeaponMastery(weaponId)
     this._checkWeaponChallenge(weaponId)
     if (Math.random() < 0.25) {
-      this.points += (2 + Math.floor(Math.random() * 4)) * lootMult
+      const doublePointsMult = this.doublePointsUntil && performance.now() < this.doublePointsUntil ? 2 : 1
+      this.points += (2 + Math.floor(Math.random() * 4)) * lootMult * doublePointsMult
       this._updateStatsPanel()
     }
 
@@ -4301,6 +4386,14 @@ export class Game {
     if (this.killstreakAmmoUntil && now >= this.killstreakAmmoUntil) {
       this.weapons.infiniteAmmo = false
       this.killstreakAmmoUntil = 0
+    }
+    if (this.instakillUntil && now >= this.instakillUntil) {
+      this.weapons.instakillActive = false
+      this.instakillUntil = 0
+    }
+    if (this.playerDowned && now >= this.downedUntil) {
+      this.playerDowned = false
+      this._onPlayerDeath()
     }
   }
 
@@ -4526,6 +4619,27 @@ export class Game {
       this.pickupToast.classList.add('show')
       return
     }
+    else if (type === 'double_points') {
+      this.doublePointsUntil = performance.now() + DOUBLE_POINTS_DURATION_MS
+      this._showLoreToast(t('powerupDoublePoints'))
+      return
+    }
+    else if (type === 'nuke') {
+      this.zombies.nukeAll()
+      this._showLoreToast(t('powerupNuke'))
+      return
+    }
+    else if (type === 'instakill') {
+      this.weapons.instakillActive = true
+      this.instakillUntil = performance.now() + INSTAKILL_DURATION_MS
+      this._showLoreToast(t('powerupInstakill'))
+      return
+    }
+    else if (type === 'zombie_blood') {
+      this.zombies.invisibleUntil = performance.now() + ZOMBIE_BLOOD_DURATION_MS
+      this._showLoreToast(t('powerupZombieBlood'))
+      return
+    }
     else if (type.startsWith('audiolog')) {
       audioEngine.playAudioLog()
       this._showLoreToast(t(`lore${type.charAt(0).toUpperCase()}${type.slice(1)}`))
@@ -4685,7 +4799,7 @@ export class Game {
       // _openWeaponWheel), so without this a Digit press while the wheel is
       // up would switch weapons immediately underneath it instead of
       // waiting for the wheel's own release-to-confirm.
-      if (!this.player.controls.isLocked || !this.playerState.alive || this.inventoryOpen || this.driving || this.weaponWheelOpen) return
+      if (!this.player.controls.isLocked || !this.playerState.alive || this.inventoryOpen || this.driving || this.weaponWheelOpen || this.playerDowned) return
       const digitIndex = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5'].indexOf(e.code)
       if (digitIndex === -1) return
       const weaponId = this.settings.hotbar[digitIndex]
@@ -5334,7 +5448,7 @@ export class Game {
     this.damageFlash.classList.remove('hit')
     void this.damageFlash.offsetWidth
     this.damageFlash.classList.add('hit')
-    if (!this.playerState.alive) this._onPlayerDeath()
+    if (!this.playerState.alive) this._maybeLastStandOrDie()
   }
 
   // Stage 12's "rockfall" - unlike the sewer's toxic pool (continuous
@@ -5384,7 +5498,7 @@ export class Game {
       this.damageFlash.classList.remove('hit')
       void this.damageFlash.offsetWidth
       this.damageFlash.classList.add('hit')
-      if (!this.playerState.alive) this._onPlayerDeath()
+      if (!this.playerState.alive) this._maybeLastStandOrDie()
     }
     this._showLoreToast(t('toastRockfall'))
   }

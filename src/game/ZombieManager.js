@@ -233,6 +233,9 @@ export class ZombieManager {
     // no detection-radius concept applies to them) - this only ever helps
     // slip past ambient/wandering ones from further away.
     this.aggroRadiusMult = 1
+    // Zombie Blood power-up (see the update() loop's zombieBloodActive
+    // check above).
+    this.invisibleUntil = 0
 
     // Pre-run mutators (see Game.js's settings.mutators) - both false by
     // default, set once at the "Click to Play" moment.
@@ -729,6 +732,17 @@ export class ZombieManager {
     }
   }
 
+  // Nuke power-up (see Game.js's _onPickup nuke) - every currently-alive
+  // zombie, no radius/falloff at all (distinct from damageInRadius above,
+  // which every other explosive in this game uses).
+  nukeAll() {
+    for (const zombie of this.zombies) {
+      if (zombie.state !== 'alive') continue
+      this._spawnExplosionFX(zombie.group.position.x, zombie.group.position.z)
+      zombie.onHit(99999)
+    }
+  }
+
   // Throwing Knife - same arc-to-target-then-resolve shape as the grenade
   // above, just single-target instead of AOE falloff (closest zombie within
   // a small radius of the landing point, not everything in a blast ring)
@@ -1149,7 +1163,16 @@ export class ZombieManager {
     const distractionActive = this.distraction && performance.now() < this.distraction.expiresAt
     if (this.distraction && !distractionActive) this.distraction = null
 
+    // Zombie Blood power-up (see Game.js's _onPickup zombie_blood) - full
+    // invisibility, unlike Dead Silence's aggroRadiusMult above which only
+    // ever affects wandering zombies deciding whether to notice the player
+    // in the first place. This instead makes every zombie behave as if the
+    // player isn't there at all, even ones already actively chasing.
+    const zombieBloodActive = this.invisibleUntil && performance.now() < this.invisibleUntil
+
     for (const zombie of this.zombies) {
+      if (zombieBloodActive && zombie.state === 'alive') continue
+
       let targetPos = playerPos
       let attackCb = onPlayerDamage
       let spitCb = (origin, target, damage, speed) => this._spawnProjectile(origin, target, damage, speed)

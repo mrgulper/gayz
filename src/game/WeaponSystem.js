@@ -164,6 +164,9 @@ export class WeaponSystem {
     // Riot shield (see Game.js's _toggleShield) - trades firing for damage
     // reduction while up, checked alongside triggerDown/hasAmmo below.
     this.shieldActive = false
+    // Instakill power-up (see Game.js's _onPickup instakill) - set/cleared
+    // externally by a timer there, same pattern as infiniteAmmo above.
+    this.instakillActive = false
 
     this.triggerDown = false
     this.timeSinceLastShot = Infinity
@@ -353,6 +356,24 @@ export class WeaponSystem {
     vm.visible = wasVisible
     this.viewmodelRoot.add(vm)
     this.viewmodels[weaponId] = vm
+  }
+
+  // Akimbo (see CoinShop.js) - pistol-only, permanent once purchased.
+  // Halves fireInterval (stored once so a second call, e.g. from restoring
+  // a past purchase on page load, can't keep halving it further) and swaps
+  // to a distinct skin so the tradeoff is visible, not just felt.
+  setAkimbo(enabled) {
+    const w = this.weapons.find((w) => w.id === 'pistol')
+    if (!w) return
+    if (enabled && !w.akimbo) {
+      w.akimbo = true
+      w._baseFireInterval = w.fireInterval
+      w.fireInterval /= 2
+      this.setWeaponSkin('pistol', 'akimbo')
+    } else if (!enabled && w.akimbo) {
+      w.akimbo = false
+      w.fireInterval = w._baseFireInterval
+    }
   }
 
   // Weapon Upgrade Machine (see Game.js's _tryUpgradeWeapon) - a real,
@@ -665,6 +686,9 @@ export class WeaponSystem {
           perHitDamage = THREE.MathUtils.lerp(near, far, t)
         }
         let damage = perHitDamage * info.count * this.damageMult * w.rarityMult * w.masteryMult * w.upgradeMult
+        // Instakill power-up (see Game.js's _onPickup instakill) - a flat
+        // override, same as the stealth takedown check right below it.
+        if (this.instakillActive) damage = 99999
         // Stealth takedown: melee, and the zombie is facing away from the
         // player (its own forward vector points opposite the direction to
         // the player) - approaching from its blind side guarantees the kill

@@ -95,6 +95,21 @@ export const COIN_SHOP_ITEMS = [
       game.player.stamina = game.player.maxStamina
     },
   },
+  // Akimbo - a permanent pistol-only upgrade (see WeaponSystem.setAkimbo):
+  // halves fire interval (twin pistols alternating) in exchange for no
+  // scope benefit ever applying to the pistol again, plus a distinct
+  // "akimbo" skin so the tradeoff reads as visible, not just a stat change.
+  {
+    id: 'akimbo',
+    titleKey: 'coinShopAkimbo',
+    cost: 4000,
+    section: 'weapons',
+    isOwned: (game) => game.coinShopPurchased.has('akimbo'),
+    apply: (game) => {
+      game.coinShopPurchased.add('akimbo')
+      game.weapons.setAkimbo(true)
+    },
+  },
   // Base building: a permanent auto-firing turret at the safe zone (see
   // Turret.js) - own 'base' section since it's neither a stat perk nor a
   // gun/skin. apply() builds the actual world object rather than just

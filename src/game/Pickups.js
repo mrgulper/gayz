@@ -9,6 +9,15 @@ import { buildMinigunModel } from './Viewmodels.js'
 // uses for its own GLBs.
 let _fuelcanModel = null
 
+// Field power-up visual colors (see the shared "glowing orb" branch below
+// and Game.js's _onPickup handlers for what each one actually does).
+const POWERUP_COLORS = {
+  double_points: 0xffcf5c,
+  nuke: 0xff3a1a,
+  instakill: 0xd94a4a,
+  zombie_blood: 0x2ad94a,
+}
+
 export async function preloadFuelcanModel() {
   try {
     const loader = new GLTFLoader()
@@ -211,6 +220,22 @@ function buildVisual(type) {
     const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.06, 1.8, 10, 1, true), beaconMat)
     beam.position.y = 0.75
     group.add(beam)
+  } else if (POWERUP_COLORS[type]) {
+    // Field power-ups (see Game.js's _onPickup double_points/nuke/
+    // instakill/zombie_blood) - one shared glowing-orb shape, color-coded
+    // per type rather than 4 bespoke geometries, same "distinct color reads
+    // as distinct pickup" convention every genre example of this uses.
+    const color = POWERUP_COLORS[type]
+    const orbMat = flatMaterial({ color: 0x0a0a0a, emissive: color, emissiveIntensity: 1.6, roughness: 0.3, metalness: 0.4 })
+    const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.22, 1), orbMat)
+    group.add(orb)
+    const ringMat = flatMaterial({ color: 0x0a0a0a, emissive: color, emissiveIntensity: 1.2 })
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.02, 8, 24), ringMat)
+    ring.rotation.x = Math.PI / 3
+    group.add(ring)
+    const light = new THREE.PointLight(color, 1.6, 6, 2)
+    light.position.y = 0.1
+    group.add(light)
   }
 
   group.traverse((o) => { if (o.isMesh) o.castShadow = true })
