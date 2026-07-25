@@ -123,6 +123,8 @@ function loadSettings() {
       difficulty: DIFFICULTY_PRESETS[parsed.difficulty] ? parsed.difficulty : 'normal',
       sensitivity: parsed.sensitivity ?? 100,
       fov: parsed.fov ?? 75,
+      hudScale: parsed.hudScale ?? 100,
+      hudOpacity: parsed.hudOpacity ?? 100,
       colorblind: parsed.colorblind ?? false,
       performanceMode: parsed.performanceMode ?? false,
       nickname: parsed.nickname || '',
@@ -161,7 +163,7 @@ function loadSettings() {
       },
     }
   } catch {
-    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', companionName: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false } }
+    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, nickname: '', companionName: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false } }
   }
 }
 
@@ -707,6 +709,19 @@ const ZIPLINE_INTERACT_RADIUS = 3
 // Farming Plot - passive Ration trickle while built, feeding the hunger
 // meter's economy (see CoinShop.js's farm_plot entry).
 const FARM_HARVEST_INTERVAL_MS = 90000
+// World-space ping marker - a temporary floating beacon at the custom pin's
+// location, visible through walls (depthTest: false) while playing, unlike
+// the persistent flat map pin itself (see the map's contextmenu handler)
+// which never expires on its own.
+const PING_MARKER_DURATION_MS = 60000
+// Gamepad support - the core FPS loop only (move/look/fire/reload/
+// interact/sprint), not full menu navigation, which still needs mouse/
+// keyboard. Left stick -> movement (digital, same on/off flags WASD
+// already sets), right stick -> camera look (mirrors PointerLockControls'
+// own onMouseMove exactly, since this.camera IS controls.object).
+const GAMEPAD_DEADZONE = 0.2
+const GAMEPAD_LOOK_SENSITIVITY = 2.5
+const GAMEPAD_TRIGGER_THRESHOLD = 0.3
 const HAZARD_EMP_BATTERY_DRAIN_PER_SEC = 30
 const VEHICLE_RAM_MIN_SPEED = 4
 const VEHICLE_RAM_RADIUS = 2.6
@@ -1198,6 +1213,10 @@ export class Game {
     this.sensitivityValue = document.getElementById('sensitivity-value')
     this.fovSlider = document.getElementById('fov-slider')
     this.fovValue = document.getElementById('fov-value')
+    this.hudScaleSlider = document.getElementById('hud-scale-slider')
+    this.hudScaleValue = document.getElementById('hud-scale-value')
+    this.hudOpacitySlider = document.getElementById('hud-opacity-slider')
+    this.hudOpacityValue = document.getElementById('hud-opacity-value')
     this.colorblindToggle = document.getElementById('colorblind-toggle')
     this.performanceToggle = document.getElementById('performance-toggle')
     this.nicknameInput = document.getElementById('nickname-input')
@@ -1872,6 +1891,9 @@ export class Game {
     this.decals = new DecalManager(this.scene)
     this.minimap = new Minimap(this.minimapCanvas)
     this._camDir = new THREE.Vector3()
+    this._gamepadEuler = new THREE.Euler(0, 0, 0, 'YXZ')
+    this._gamepadInteractWasDown = false
+    this._gamepadReloadWasDown = false
     // Reused every _updateMinimap call instead of a fresh .filter().map()
     // chain (2 throwaway arrays) 60 times a second - same GC-pressure
     // reasoning as ColliderGrid.js's reused query buffers.
@@ -1923,6 +1945,8 @@ export class Game {
     // (visible through fog-of-war, see FullMap.render's own note), or
     // right-click near an existing pin to clear it instead of moving it.
     this.customPin = null
+    this.pingMarkerMesh = null
+    this.pingMarkerExpiresAt = 0
     this.fullMapCanvas.addEventListener('contextmenu', (e) => {
       if (!this.mapOpen) return
       e.preventDefault()
@@ -1932,9 +1956,11 @@ export class Game {
       const world = this.fullMap.screenToWorld(px, py)
       if (this.customPin && Math.hypot(world.x - this.customPin.x, world.z - this.customPin.z) < 15) {
         this.customPin = null
+        this._removePingMarker()
         this._showLoreToast(t('toastPinCleared'))
       } else {
         this.customPin = { x: world.x, z: world.z }
+        this._buildPingMarker(world.x, world.z)
         this._showLoreToast(t('toastPinPlaced'))
       }
       this._renderFullMap()
@@ -3426,6 +3452,13 @@ export class Game {
     this.camera.updateProjectionMatrix()
     this.weapons.setBaseFov(this.settings.fov)
 
+    this.hudScaleSlider.value = this.settings.hudScale
+    this.hudScaleValue.textContent = `${this.settings.hudScale}%`
+    document.documentElement.style.setProperty('--hud-scale', this.settings.hudScale / 100)
+    this.hudOpacitySlider.value = this.settings.hudOpacity
+    this.hudOpacityValue.textContent = `${this.settings.hudOpacity}%`
+    document.documentElement.style.setProperty('--hud-opacity', this.settings.hudOpacity / 100)
+
     this.sensitivitySlider.addEventListener('input', () => {
       const value = Number(this.sensitivitySlider.value)
       this.sensitivityValue.textContent = `${value}%`
@@ -3444,6 +3477,22 @@ export class Game {
       saveSettings(this.settings)
     })
 
+    this.hudScaleSlider.addEventListener('input', () => {
+      const value = Number(this.hudScaleSlider.value)
+      this.hudScaleValue.textContent = `${value}%`
+      this.settings.hudScale = value
+      document.documentElement.style.setProperty('--hud-scale', value / 100)
+      saveSettings(this.settings)
+    })
+
+    this.hudOpacitySlider.addEventListener('input', () => {
+      const value = Number(this.hudOpacitySlider.value)
+      this.hudOpacityValue.textContent = `${value}%`
+      this.settings.hudOpacity = value
+      document.documentElement.style.setProperty('--hud-opacity', value / 100)
+      saveSettings(this.settings)
+    })
+
     // Click any of the four value labels above to type an exact number
     // instead of dragging the slider - the slider itself stays as the
     // primary control, this just re-dispatches its own 'input' event so
@@ -3453,6 +3502,8 @@ export class Game {
     this._bindEditableSliderValue(this.sfxVolumeValue, this.sfxVolumeSlider)
     this._bindEditableSliderValue(this.sensitivityValue, this.sensitivitySlider)
     this._bindEditableSliderValue(this.fovValue, this.fovSlider)
+    this._bindEditableSliderValue(this.hudScaleValue, this.hudScaleSlider)
+    this._bindEditableSliderValue(this.hudOpacityValue, this.hudOpacitySlider)
 
     this.colorblindToggle.checked = this.settings.colorblind
     setColorblind(this.settings.colorblind)
@@ -7139,6 +7190,82 @@ export class Game {
     this.fullMap.render(this.player.controls.object.position, facingRad, this.discoveredCells, EXPLORE_CELL_SIZE, this.allLocationLandmarks, this.customPin)
   }
 
+  _buildPingMarker(x, z) {
+    this._removePingMarker()
+    const mat = flatMaterial({ color: 0xff5c5c, emissive: 0xff5c5c, emissiveIntensity: 1.8, transparent: true, opacity: 0.85, depthTest: false })
+    const marker = new THREE.Mesh(new THREE.ConeGeometry(0.4, 1, 4), mat)
+    marker.position.set(x, 3, z)
+    marker.rotation.x = Math.PI
+    marker.renderOrder = 999
+    this.scene.add(marker)
+    this.pingMarkerMesh = marker
+    this.pingMarkerExpiresAt = performance.now() + PING_MARKER_DURATION_MS
+  }
+
+  _removePingMarker() {
+    if (this.pingMarkerMesh) {
+      this.scene.remove(this.pingMarkerMesh)
+      this.pingMarkerMesh = null
+    }
+    this.pingMarkerExpiresAt = 0
+  }
+
+  _updatePingMarker(dt) {
+    if (!this.pingMarkerMesh) return
+    if (performance.now() >= this.pingMarkerExpiresAt) {
+      this._removePingMarker()
+      return
+    }
+    this.pingMarkerMesh.rotation.y += dt * 2
+    this.pingMarkerMesh.position.y = 3 + Math.sin(performance.now() * 0.003) * 0.3
+  }
+
+  // Core FPS loop via gamepad - see GAMEPAD_DEADZONE's own doc comment for
+  // scope. Gated on the same "not in a menu" flags the keydown handler
+  // already checks, rather than controls.isLocked (real Pointer Lock never
+  // actually engages in headless Playwright - see this project's own
+  // CLAUDE.md note - so gating on it would make this untestable).
+  _updateGamepad(dt) {
+    if (!this.gameStarted || this.inventoryOpen || this.mapOpen || this.photoModeOpen || this.weaponWheelOpen || this.driving || this.journalOpen) return
+    const pads = navigator.getGamepads ? navigator.getGamepads() : []
+    const pad = pads[0]
+    if (!pad) return
+
+    const lx = pad.axes[0] || 0
+    const ly = pad.axes[1] || 0
+    this.player.input.left = lx < -GAMEPAD_DEADZONE
+    this.player.input.right = lx > GAMEPAD_DEADZONE
+    this.player.input.forward = ly < -GAMEPAD_DEADZONE
+    this.player.input.back = ly > GAMEPAD_DEADZONE
+
+    const rx = pad.axes[2] || 0
+    const ry = pad.axes[3] || 0
+    if (Math.abs(rx) > GAMEPAD_DEADZONE || Math.abs(ry) > GAMEPAD_DEADZONE) {
+      this._gamepadEuler.setFromQuaternion(this.camera.quaternion)
+      this._gamepadEuler.y -= rx * GAMEPAD_LOOK_SENSITIVITY * dt
+      this._gamepadEuler.x -= ry * GAMEPAD_LOOK_SENSITIVITY * dt
+      this._gamepadEuler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, this._gamepadEuler.x))
+      this.camera.quaternion.setFromEuler(this._gamepadEuler)
+    }
+
+    const triggerValue = pad.buttons[7] ? pad.buttons[7].value : 0
+    this.weapons.triggerDown = triggerValue > GAMEPAD_TRIGGER_THRESHOLD
+
+    this.player.input.sprint = !!(pad.buttons[10] && pad.buttons[10].pressed)
+
+    const interactPressed = !!(pad.buttons[0] && pad.buttons[0].pressed)
+    if (interactPressed !== this._gamepadInteractWasDown) {
+      window.dispatchEvent(new KeyboardEvent(interactPressed ? 'keydown' : 'keyup', { code: getKeyFor('interact') }))
+      this._gamepadInteractWasDown = interactPressed
+    }
+
+    const reloadPressed = !!(pad.buttons[2] && pad.buttons[2].pressed)
+    if (reloadPressed && !this._gamepadReloadWasDown) {
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: getKeyFor('reload') }))
+    }
+    this._gamepadReloadWasDown = reloadPressed
+  }
+
   // Top-of-screen strip showing which way key landmarks are, relative to
   // where the camera is currently facing - each marker slides off either
   // edge and hides once it's more than COMPASS_HALF_FOV off-center.
@@ -7326,6 +7453,8 @@ export class Game {
       this._updateStaminaHud()
       this._updateHunger(dt)
       this._updateFarmPlot()
+      this._updateGamepad(dt)
+      this._updatePingMarker(dt)
       this._updateCorpsePileSlow(playerPos)
       this._updateFlashlightBattery(dt)
       this._updateKillstreakTimers()

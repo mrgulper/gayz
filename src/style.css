@@ -84,6 +84,25 @@ html, body {
   100% { opacity: 0; transform: scale(1.6); }
 }
 
+:root {
+  --hud-scale: 1;
+  --hud-opacity: 1;
+}
+
+/* HUD scale/opacity settings - applied to every top-level HUD container
+   rather than one shared wrapper, since each already has its own fixed/
+   absolute anchor point; transform-origin matches each one's own anchor
+   corner so scaling doesn't visibly drift it away from that anchor. */
+#hud,
+#hotbar,
+#status-hud,
+#progress-hud,
+#minimap-wrap,
+#inventory-hud {
+  transform: scale(var(--hud-scale));
+  opacity: var(--hud-opacity);
+}
+
 #hud {
   position: absolute;
   right: 24px;
@@ -91,6 +110,7 @@ html, body {
   text-align: right;
   pointer-events: none;
   display: none;
+  transform-origin: bottom right;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
