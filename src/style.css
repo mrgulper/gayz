@@ -545,6 +545,24 @@ html, body {
   opacity: 0.85 !important;
 }
 
+#menu-leaderboard {
+  margin: 2px 0 6px;
+}
+
+.leaderboard-row {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  font-size: 12px;
+  color: #cfd3d8;
+  opacity: 0.8;
+}
+
+.leaderboard-row span:first-child {
+  color: #ffcf5c;
+  min-width: 22px;
+}
+
 .nickname-input {
   width: 220px;
   margin-top: 6px;

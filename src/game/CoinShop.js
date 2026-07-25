@@ -97,6 +97,21 @@ export const COIN_SHOP_ITEMS = [
       game._updateHealthHud()
     },
   },
+  // Companion speed - unlike the per-run Trader purchases (training/vest/
+  // rig, see Game.js's SHOP_ITEMS), this is a one-time Coin Shop buy that
+  // permanently speeds up every future run's companion, same persistence
+  // model as every other 'perks' entry here.
+  {
+    id: 'companion_speed',
+    titleKey: 'coinShopCompanionSpeed',
+    cost: 2500,
+    section: 'perks',
+    isOwned: (game) => game.coinShopPurchased.has('companion_speed'),
+    apply: (game) => {
+      game.coinShopPurchased.add('companion_speed')
+      game.companion.equipSpeedBoost()
+    },
+  },
   {
     id: 'coin_stamina',
     titleKey: 'coinShopStamina',

@@ -107,6 +107,10 @@ export class Companion {
     this.hasVest = false
     this.hasRig = false
     this.gearDamageMult = 1
+    // Coin Shop permanent upgrade (see equipSpeedBoost) - unlike training/
+    // vest/rig which are per-run Trader purchases, this persists across
+    // every future run the same way the Coin Shop's other perks do.
+    this.speedMult = 1
 
     // Movement-driven walk/idle animation (GLB bodies only) - tracked here
     // rather than passed in, since none of update()'s callers currently
@@ -160,6 +164,13 @@ export class Companion {
     rig.position.set(-0.28 * s, 1.4 * s, 0.05 * s)
     rig.castShadow = true
     this.group.add(rig)
+  }
+
+  // Coin Shop permanent upgrade - safe to call repeatedly, same no-op-if-
+  // already-applied guard as equipVest/equipRig above.
+  equipSpeedBoost() {
+    if (this.speedMult > 1) return
+    this.speedMult = 1.25
   }
 
   // Floating name label above the head - same canvas-texture-sprite trick
@@ -367,7 +378,7 @@ export class Companion {
       if (dist > MEDIC_FOLLOW_DISTANCE) {
         const nx = dx / dist
         const nz = dz / dist
-        const speed = dist > CATCH_UP_DISTANCE ? MOVE_SPEED * CATCH_UP_SPEED_MULT : MOVE_SPEED
+        const speed = (dist > CATCH_UP_DISTANCE ? MOVE_SPEED * CATCH_UP_SPEED_MULT : MOVE_SPEED) * this.speedMult
         this.group.position.x += nx * speed * dt
         this.group.position.z += nz * speed * dt
         this.group.rotation.y = Math.atan2(nx, nz)
@@ -398,8 +409,8 @@ export class Companion {
       const dist = Math.hypot(dx, dz)
       const nx = dist > 0.0001 ? dx / dist : 0
       const nz = dist > 0.0001 ? dz / dist : 1
-      this.group.position.x += nx * MOVE_SPEED * CATCH_UP_SPEED_MULT * dt
-      this.group.position.z += nz * MOVE_SPEED * CATCH_UP_SPEED_MULT * dt
+      this.group.position.x += nx * MOVE_SPEED * CATCH_UP_SPEED_MULT * this.speedMult * dt
+      this.group.position.z += nz * MOVE_SPEED * CATCH_UP_SPEED_MULT * this.speedMult * dt
       this.group.rotation.y = Math.atan2(nx, nz)
     } else {
       const dx = playerPos.x - this.group.position.x
@@ -408,7 +419,7 @@ export class Companion {
       if (dist > FOLLOW_DISTANCE) {
         const nx = dx / dist
         const nz = dz / dist
-        const speed = dist > CATCH_UP_DISTANCE ? MOVE_SPEED * CATCH_UP_SPEED_MULT : MOVE_SPEED
+        const speed = (dist > CATCH_UP_DISTANCE ? MOVE_SPEED * CATCH_UP_SPEED_MULT : MOVE_SPEED) * this.speedMult
         this.group.position.x += nx * speed * dt
         this.group.position.z += nz * speed * dt
         this.group.rotation.y = Math.atan2(nx, nz)

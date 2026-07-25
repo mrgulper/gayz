@@ -280,6 +280,31 @@ function saveBestStats(stats) {
   }
 }
 
+// Local leaderboard - a ranked history of runs, distinct from bestStats
+// above (a single best-ever record with no history). Every run that ends
+// (death or dawn-survival) adds one entry; kept sorted best-first and
+// capped at LEADERBOARD_MAX_ENTRIES so this can't grow unbounded.
+const LEADERBOARD_KEY = 'gayz-leaderboard'
+const LEADERBOARD_MAX_ENTRIES = 10
+
+function loadLeaderboard() {
+  try {
+    const raw = localStorage.getItem(LEADERBOARD_KEY)
+    const parsed = raw ? JSON.parse(raw) : []
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function saveLeaderboard(entries) {
+  try {
+    localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(entries))
+  } catch {
+    // Storage unavailable - leaderboard just won't persist across sessions.
+  }
+}
+
 // Points/coins and everything bought with them (skins, Shop stat perks) used
 // to be purely in-run state that reset on every page reload, same as
 // health/inventory/kills. Split out into its own persisted slice so the
@@ -927,6 +952,7 @@ export class Game {
     this.minimapWrap = document.getElementById('minimap-wrap')
     this.minimapCanvas = document.getElementById('minimap')
     this.menuBestStats = document.getElementById('menu-best-stats')
+    this.menuLeaderboard = document.getElementById('menu-leaderboard')
     this.difficultyBtns = document.querySelectorAll('.difficulty-btn')
     this.roleBtns = document.querySelectorAll('.role-btn')
     this.loadoutBtns = document.querySelectorAll('.loadout-btn')
@@ -968,6 +994,7 @@ export class Game {
     this.endlessBest = loadEndlessBest()
     this.endingSeen = loadEndingSeen()
     this.bestStats = loadBestStats()
+    this.leaderboard = loadLeaderboard()
     this.dailyBest = loadDailyBest()
     this.dailyChallengeActive = false
     this.dailyDamageMult = 1
@@ -3115,6 +3142,7 @@ export class Game {
     if (this.companionTrainingLevel > 0) this.companion.applyTraining(this.companionTrainingLevel)
     if (this.companionGear.vest) this.companion.equipVest()
     if (this.companionGear.rig) this.companion.equipRig()
+    if (this.coinShopPurchased.has('companion_speed')) this.companion.equipSpeedBoost()
     this._updateCompanionName()
   }
 
@@ -4120,6 +4148,7 @@ export class Game {
     document.getElementById('mutator-health-regen-label').textContent = t('mutatorHealthRegen')
 
     this._updateBestStatsDisplay()
+    this._updateLeaderboardDisplay()
     if (this.inventoryOpen) this._refreshInventoryPanel()
     this._updateProgressHud()
   }
@@ -4132,6 +4161,30 @@ export class Game {
     }
     this.menuBestStats.textContent =
       `${t('bestLabel')}: ${t('hudNight', { n: bestNight })} · ${t('hudKills', { n: bestKills })}`
+  }
+
+  // Local leaderboard - see loadLeaderboard's own doc comment for how this
+  // differs from bestStats above. Called once per run end (death or
+  // dawn-survival) from _onPlayerDeath/the survive-to-dawn path.
+  _recordLeaderboardEntry() {
+    this.leaderboard.push({ night: this.night, kills: this.kills, points: this.points, date: Date.now() })
+    this.leaderboard.sort((a, b) => (b.night - a.night) || (b.kills - a.kills) || (b.points - a.points))
+    this.leaderboard = this.leaderboard.slice(0, LEADERBOARD_MAX_ENTRIES)
+    saveLeaderboard(this.leaderboard)
+    this._updateLeaderboardDisplay()
+  }
+
+  _updateLeaderboardDisplay() {
+    if (this.leaderboard.length === 0) {
+      this.menuLeaderboard.style.display = 'none'
+      this.menuLeaderboard.innerHTML = ''
+      return
+    }
+    this.menuLeaderboard.style.display = ''
+    const rows = this.leaderboard
+      .map((e, i) => `<div class="leaderboard-row"><span>#${i + 1}</span><span>${t('hudNight', { n: e.night })}</span><span>${t('hudKills', { n: e.kills })}</span></div>`)
+      .join('')
+    this.menuLeaderboard.innerHTML = `<p class="menu-best-stats">${t('leaderboardTitle')}</p>${rows}`
   }
 
   _refreshInventoryPanel() {
@@ -4656,6 +4709,7 @@ export class Game {
       saveBestStats(this.bestStats)
       this._updateBestStatsDisplay()
     }
+    this._recordLeaderboardEntry()
 
     const elapsed = formatTime(performance.now() - this.runStartedAt)
     this.deathStats.textContent = t('deathStats', { night: this.night, kills: this.kills, time: elapsed })
@@ -5948,6 +6002,7 @@ export class Game {
       saveBestStats(this.bestStats)
       this._updateBestStatsDisplay()
     }
+    this._recordLeaderboardEntry()
 
     this.points += EXTRACTION_POINTS_BONUS
     this.coins += EXTRACTION_COINS_BONUS
