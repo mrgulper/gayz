@@ -192,6 +192,21 @@ export const COIN_SHOP_ITEMS = [
       game._buildBaseWalls()
     },
   },
+  // Watchtower - same 'base' persistence model, its effect is a flat
+  // ranged damage bonus (the elevated vantage sharpening your aim) rather
+  // than real climbable geometry, avoiding new collider/stair risk near
+  // the safe zone.
+  {
+    id: 'watchtower',
+    titleKey: 'coinShopWatchtower',
+    cost: 4000,
+    section: 'base',
+    isOwned: (game) => game.coinShopPurchased.has('watchtower'),
+    apply: (game) => {
+      game.coinShopPurchased.add('watchtower')
+      game._buildWatchtower()
+    },
+  },
 ]
 
 // Permanent, per-gun attachments (Game.js's Weapons section renders one

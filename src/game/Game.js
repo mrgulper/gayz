@@ -551,6 +551,30 @@ const CORPSE_PILE_WINDOW_MS = 30000
 const CORPSE_PILE_MIN_KILLS = 6
 const CORPSE_PILE_SPEED_MULT = 0.7
 const CORPSE_PILE_MAX_TRACKED = 200
+// Seasonal map dressing - purely additive banner props at the safe zone
+// (no new geometry touching World.js/buildSafeZone), recolored based on
+// night number so there's rotating visual variety across a long run.
+const SEASONAL_THEMES = [
+  { id: 'default', color: 0x4a7a5a },
+  { id: 'harvest', color: 0xcf6a2a },
+  { id: 'frost', color: 0x4ecfff },
+]
+// Road pileups - car-wreck obstacles rerolled at random spawn points each
+// night (see _rollRoadPileups), distinct from _maybeDropObstacle's
+// kill-reactive rubble (a combat byproduct, not a deliberate night-start
+// placement).
+const ROAD_PILEUP_COUNT = 3
+// Destructible shortcut wall - a single, hand-placed obstacle (see
+// _buildDestructibleWall) at a known-clear spawnPoint-derived location,
+// deliberately not touching World.js's deterministic buildingLayout() at
+// all - see CLAUDE.md's own notes on how risky hand-authored geometry near
+// existing buildings/the safe zone has been in this codebase before.
+const DESTRUCTIBLE_WALL_HEALTH = 220
+// Zipline - reuses the exact position-teleport fast travel already has
+// (see the fullMapCanvas click handler) rather than new traversal physics,
+// bi-directional between 2 fixed points connected by a purely decorative
+// cable (no collider - see _buildZipline's own note).
+const ZIPLINE_INTERACT_RADIUS = 3
 const HAZARD_EMP_BATTERY_DRAIN_PER_SEC = 30
 const VEHICLE_RAM_MIN_SPEED = 4
 const VEHICLE_RAM_RADIUS = 2.6
@@ -1373,6 +1397,11 @@ export class Game {
     this.barricades = []
     this.hazardZones = []
     this.deathObstacles = []
+    this.roadPileups = []
+    this.destructibleWalls = []
+    this.ziplineA = null
+    this.ziplineB = null
+    this.nearZiplineEnd = null
 
     this.kothActive = false
     this.kothZone = { x: KOTH_SPOTS[0].x, z: KOTH_SPOTS[0].z }
@@ -1868,6 +1897,17 @@ export class Game {
     // earlier in the constructor) to already exist - see the crash this
     // caused when it briefly lived right after this.zombies alone.
     this._rollNightMutation()
+    // Needs this.safeZone (set well after the original early _rollWeather
+    // call site) - kept here for the same reason as _rollNightMutation above.
+    this._applySeasonalDressing()
+    this._rollRoadPileups()
+    // Built once, not rerolled per-night like the pileups above - a
+    // permanent shortcut once broken, not something that resets.
+    {
+      const wallSpot = this.spawnPoints[Math.min(2, this.spawnPoints.length - 1)]
+      this._buildDestructibleWall(wallSpot.x + 4, wallSpot.z)
+    }
+    this._buildZipline()
 
     this.timer = new THREE.Timer()
     this.timer.connect(document)
@@ -2004,6 +2044,8 @@ export class Game {
       this.nightStartedAt = performance.now()
       this._scheduleNightEvent()
       this._rollWeather()
+      this._applySeasonalDressing()
+      this._rollRoadPileups()
       this._rollNightMutation()
       this._rollFeaturedItem()
       this._rollTraderPrices()
@@ -2241,6 +2283,8 @@ export class Game {
           this._tryUpgradeWeapon()
         } else if (this.nearMysteryBox) {
           this._tryMysteryBox()
+        } else if (this.nearZiplineEnd) {
+          this._useZipline()
         } else {
           const loot = this.chests.tryInteract()
           if (loot) {
@@ -2836,6 +2880,142 @@ export class Game {
     if (ci !== -1) this.colliders.splice(ci, 1)
     const si = this.solidMeshes.indexOf(o.base)
     if (si !== -1) this.solidMeshes.splice(si, 1)
+  }
+
+  // Rolled once per night alongside weather/mutation (see their own call
+  // sites) - clears last night's wrecks and drops a fresh set at random
+  // spawn points, so the roads never look the same two nights running.
+  _rollRoadPileups() {
+    for (const p of this.roadPileups) {
+      this.scene.remove(p.group)
+      const ci = this.colliders.indexOf(p.box)
+      if (ci !== -1) this.colliders.splice(ci, 1)
+      const si = this.solidMeshes.indexOf(p.mesh)
+      if (si !== -1) this.solidMeshes.splice(si, 1)
+    }
+    this.roadPileups = []
+
+    const wreckMat = flatMaterial({ color: 0x3a3632, roughness: 0.8, metalness: 0.3 })
+    for (let i = 0; i < ROAD_PILEUP_COUNT; i++) {
+      const spot = this.spawnPoints[Math.floor(Math.random() * this.spawnPoints.length)]
+      const x = spot.x + (Math.random() - 0.5) * 6
+      const z = spot.z + (Math.random() - 0.5) * 6
+      const group = new THREE.Group()
+      group.position.set(x, 0, z)
+      const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.7, 3.6), wreckMat)
+      body.position.y = 0.35
+      body.castShadow = true
+      group.add(body)
+      const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.5, 1.6), wreckMat)
+      cabin.position.set(0, 0.95, -0.3)
+      cabin.castShadow = true
+      group.add(cabin)
+      this.scene.add(group)
+
+      // Axis-aligned collider built from known dimensions rather than
+      // Box3().setFromObject() on this group - see CLAUDE.md's own
+      // rotated-mesh-AABB-inflation note (this group has no rotation, but
+      // building it explicitly is free insurance and matches the safer
+      // pattern used elsewhere in this codebase).
+      const box = new THREE.Box3(
+        new THREE.Vector3(x - 0.9, 0, z - 1.8),
+        new THREE.Vector3(x + 0.9, 1.2, z + 1.8)
+      )
+      this.colliders.push(box)
+      this.solidMeshes.push(body)
+      this.roadPileups.push({ group, mesh: body, box })
+    }
+  }
+
+  // Built once (not per-night) at a fixed spawnPoint-derived location - a
+  // shootable/meleeable wall panel with its own health pool; once broken
+  // it stays open for the rest of the session (see _destroyWall).
+  _buildDestructibleWall(x, z) {
+    const mat = flatMaterial({ color: 0x5a5040, roughness: 0.9 })
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 0.4), mat)
+    mesh.position.set(x, 1.5, z)
+    mesh.castShadow = true
+    this.scene.add(mesh)
+
+    const box = new THREE.Box3(
+      new THREE.Vector3(x - 1.5, 0, z - 0.2),
+      new THREE.Vector3(x + 1.5, 3, z + 0.2)
+    )
+    this.colliders.push(box)
+    this.solidMeshes.push(mesh)
+
+    const wall = { health: DESTRUCTIBLE_WALL_HEALTH, destroyed: false, mesh, box }
+    wall.onHit = (damage) => {
+      if (wall.destroyed) return
+      wall.health -= damage
+      mat.emissive.setHex(0xff2a1e)
+      mat.emissiveIntensity = 0.6
+      setTimeout(() => { if (!wall.destroyed) mat.emissiveIntensity = 0 }, 100)
+      if (wall.health <= 0) this._destroyWall(wall)
+    }
+    mesh.userData.destructibleWall = wall
+    this.destructibleWalls.push(wall)
+  }
+
+  _destroyWall(wall) {
+    wall.destroyed = true
+    this.scene.remove(wall.mesh)
+    const ci = this.colliders.indexOf(wall.box)
+    if (ci !== -1) this.colliders.splice(ci, 1)
+    const si = this.solidMeshes.indexOf(wall.mesh)
+    if (si !== -1) this.solidMeshes.splice(si, 1)
+    this._showLoreToast(t('toastWallDestroyed'))
+  }
+
+  // Built once at 2 fixed spawnPoint-derived locations - the cable is
+  // purely decorative (no collider registered), so its rotated geometry
+  // never risks the AABB-inflation gotcha CLAUDE.md warns about for
+  // anything that actually needs to block movement.
+  _buildZipline() {
+    const a = this.spawnPoints[0]
+    const b = this.spawnPoints[Math.min(6, this.spawnPoints.length - 1)]
+    this.ziplineA = { x: a.x, z: a.z }
+    this.ziplineB = { x: b.x, z: b.z }
+
+    const postMat = flatMaterial({ color: 0x2a2a28, roughness: 0.6, metalness: 0.5 })
+    const cableMat = flatMaterial({ color: 0x1a1a18, roughness: 0.4, metalness: 0.7 })
+    const postA = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 5, 8), postMat)
+    postA.position.set(a.x, 2.5, a.z)
+    postA.castShadow = true
+    this.scene.add(postA)
+    const postB = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 5, 8), postMat)
+    postB.position.set(b.x, 2.5, b.z)
+    postB.castShadow = true
+    this.scene.add(postB)
+
+    const dx = b.x - a.x
+    const dz = b.z - a.z
+    const length = Math.hypot(dx, dz)
+    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, length, 6), cableMat)
+    cable.position.set((a.x + b.x) / 2, 4.9, (a.z + b.z) / 2)
+    cable.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(dx, 0, dz).normalize())
+    this.scene.add(cable)
+  }
+
+  _updateZipline(playerPos) {
+    if (!this.ziplineA) {
+      this.nearZiplineEnd = null
+      return
+    }
+    const distA = Math.hypot(playerPos.x - this.ziplineA.x, playerPos.z - this.ziplineA.z)
+    const distB = Math.hypot(playerPos.x - this.ziplineB.x, playerPos.z - this.ziplineB.z)
+    if (distA <= ZIPLINE_INTERACT_RADIUS) this.nearZiplineEnd = 'B'
+    else if (distB <= ZIPLINE_INTERACT_RADIUS) this.nearZiplineEnd = 'A'
+    else this.nearZiplineEnd = null
+  }
+
+  _useZipline() {
+    if (!this.nearZiplineEnd) return
+    const dest = this.nearZiplineEnd === 'B' ? this.ziplineB : this.ziplineA
+    this.player.controls.object.position.set(dest.x, this.player.eyeHeight, dest.z)
+    this.player.velocity.set(0, 0, 0)
+    this.nearZiplineEnd = null
+    this._showLoreToast(t('toastZiplineUsed'))
   }
 
   _updateDeathObstacles() {
@@ -6150,6 +6330,53 @@ export class Game {
     registerZone({ id: 'safezone_fortified', x: this.safeZone.x, z: this.safeZone.z, radius: 20, densityMult: 0.4 })
   }
 
+  // Coin Shop 'watchtower' perk - a decorative axis-aligned tower (no
+  // stairs/climbable geometry, so no new collider risk) near the safe
+  // zone, plus a flat ranged damage bonus. Guarded the same way
+  // _buildAutoTurret is, since _applyCoinShopPerks re-calls apply() for
+  // every already-owned 'base' item on every fresh page load.
+  _buildWatchtower() {
+    if (this.watchtowerBuilt) return
+    this.watchtowerBuilt = true
+    const postMat = flatMaterial({ color: 0x4a3d2c, roughness: 0.9 })
+    const platformMat = flatMaterial({ color: 0x3a3024, roughness: 0.85 })
+    const towerX = this.safeZone.x - 9
+    const towerZ = this.safeZone.z - 6
+    for (const [ox, oz] of [[-0.8, -0.8], [0.8, -0.8], [-0.8, 0.8], [0.8, 0.8]]) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.25, 4, 0.25), postMat)
+      post.position.set(towerX + ox, 2, towerZ + oz)
+      post.castShadow = true
+      this.scene.add(post)
+    }
+    const platform = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.2, 2.2), platformMat)
+    platform.position.set(towerX, 4.1, towerZ)
+    platform.castShadow = true
+    this.scene.add(platform)
+    this.weapons.damageMult += 0.05
+  }
+
+  // Rolled alongside _rollWeather/_rollNightMutation (see their own call
+  // sites) - banner meshes are built once, lazily, then just recolored on
+  // every later call rather than rebuilt from scratch.
+  _applySeasonalDressing() {
+    const theme = SEASONAL_THEMES[this.night % SEASONAL_THEMES.length]
+    if (!this.seasonalBanners) {
+      this.seasonalBanners = []
+      for (const [ox, oz] of [[-6, 6], [6, 6], [-6, -6], [6, -6]]) {
+        const mat = flatMaterial({ color: theme.color, emissive: theme.color, emissiveIntensity: 0.5, side: THREE.DoubleSide })
+        const banner = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 1.4), mat)
+        banner.position.set(this.safeZone.x + ox, 1.4, this.safeZone.z + oz)
+        this.scene.add(banner)
+        this.seasonalBanners.push(banner)
+      }
+    } else {
+      for (const banner of this.seasonalBanners) {
+        banner.material.color.setHex(theme.color)
+        banner.material.emissive.setHex(theme.color)
+      }
+    }
+  }
+
   // Core-loop twist: VIREO's "wellness light" is exactly what drew the
   // infection in the first place (see the audio log lore), so the
   // flashlight - the tool you need to see at night - is also a beacon.
@@ -6780,6 +7007,8 @@ export class Game {
         this.nightStartedAt = performance.now()
         this._scheduleNightEvent()
         this._rollWeather()
+        this._applySeasonalDressing()
+        this._rollRoadPileups()
       this._rollNightMutation()
         this._rollFeaturedItem()
         this._rollTraderPrices()
@@ -6927,9 +7156,13 @@ export class Game {
       } else if (this.nearBarricadeWindow) {
         this.interactPrompt.innerHTML = `<b>F</b> repair barricade (+${REPAIR_REWARD_POINTS} points)`
         this.interactPrompt.style.display = 'block'
+      } else if (this.nearZiplineEnd) {
+        this.interactPrompt.innerHTML = tHtml('interactZipline')
+        this.interactPrompt.style.display = 'block'
       } else {
         this.interactPrompt.style.display = 'none'
       }
+      this._updateZipline(playerPos)
       this._updateMinimap(playerPos)
       this._updateCompass(playerPos)
       this._updateHordeAnnouncement()

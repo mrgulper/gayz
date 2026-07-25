@@ -866,6 +866,12 @@ export class WeaponSystem {
         audioEngine.playTargetDing()
       }
 
+      // Destructible shortcut wall (see Game.js's _buildDestructibleWall) -
+      // a world prop with its own health pool, same "check a userData flag,
+      // call its own onHit" shape as practiceTarget above.
+      const destructibleWall = hit.object.userData.destructibleWall
+      if (destructibleWall) destructibleWall.onHit(w.damage * this.damageMult)
+
       if (this.onHitSurface) {
         if (hit.face) {
           this._hitNormal.copy(hit.face.normal).transformDirection(hit.object.matrixWorld).normalize()
