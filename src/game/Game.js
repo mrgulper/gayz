@@ -71,6 +71,8 @@ const PICKUP_LABELS = {
   melee_bat: () => t('toastBatAdded'),
   melee_machete: () => t('toastMacheteAdded'),
   melee_uvbaton: () => t('toastUvBatonAdded'),
+  melee_fireaxe: () => t('toastFireaxeAdded'),
+  melee_sledgehammer: () => t('toastSledgehammerAdded'),
 }
 
 // Starting stat tradeoffs, picked once on the main menu and applied a
@@ -4732,6 +4734,8 @@ export class Game {
     else if (type === 'melee_bat') this.weapons.setMeleeVariant('bat')
     else if (type === 'melee_machete') this.weapons.setMeleeVariant('machete')
     else if (type === 'melee_uvbaton') this.weapons.setMeleeVariant('uvbaton')
+    else if (type === 'melee_fireaxe') this.weapons.setMeleeVariant('fireaxe')
+    else if (type === 'melee_sledgehammer') this.weapons.setMeleeVariant('sledgehammer')
     else if (type === 'vaultkey') {
       this.inventory.vaultKey = true
       this._showLoreToast(t('toastVaultKeyFound'))

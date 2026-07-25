@@ -21,6 +21,12 @@ const ADS_LERP_SPEED = 9
 const KNIFE_DAMAGE = 150
 const IGNITE_DURATION_MS = 3000
 const IGNITE_DPS = 8
+// Weapon jamming - a small per-shot chance a gun (never melee, never while
+// infiniteAmmo's killstreak reward is active) fails to cycle instead of
+// firing; blocks the next trigger pull until JAM_CLEAR_MS passes, or until
+// the player taps Reload early (see _reload's quick-clear check).
+const JAM_CHANCE = 0.025
+const JAM_CLEAR_MS = 1400
 // Held low on the off-hand (left) side, well clear of the equipped gun's
 // own position (see VIEWMODEL_BASE, positive X).
 const QUICK_MELEE_REST_POS = new THREE.Vector3(-0.36, -0.28, -0.28)
@@ -157,6 +163,13 @@ const MELEE_VARIANTS = {
   bat: { name: 'Bat', damage: 75, fireInterval: 0.7, range: 2.2 },
   machete: { name: 'Machete', damage: 58, fireInterval: 0.3, range: 2.6 },
   uvbaton: { name: 'UV Baton', damage: 0, fireInterval: 0.5, range: 2.3 },
+  // cleaveRadius: on top of the direct hit, deals reduced damage to any
+  // other alive zombie within that radius of the swing's impact point -
+  // see _fire()'s cleave pass below.
+  fireaxe: { name: 'Fire Axe', damage: 95, fireInterval: 0.6, range: 2.3, cleaveRadius: 1.6 },
+  // stunMs: extends the normal brief hit-reaction stagger into a real stun
+  // (see Zombie.stun) on top of its already-high damage.
+  sledgehammer: { name: 'Sledgehammer', damage: 130, fireInterval: 0.95, range: 2.2, stunMs: 1200 },
 }
 
 export class WeaponSystem {
@@ -184,7 +197,7 @@ export class WeaponSystem {
     // WeaponMastery.js) once a weapon crosses its permanent kill threshold -
     // persists across runs, unlike rarityMult which resets with a fresh
     // weapon roll.
-    this.weapons = WEAPONS.map((w) => ({ ...w, ammoInMag: w.magSize, ammoReserve: w.reserve, rarityMult: 1, rarityTier: null, hasExtMag: false, suppressed: false, scopeOwned: !!w.hasScope, masteryMult: 1, upgradeMult: 1 }))
+    this.weapons = WEAPONS.map((w) => ({ ...w, ammoInMag: w.magSize, ammoReserve: w.reserve, rarityMult: 1, rarityTier: null, hasExtMag: false, suppressed: false, scopeOwned: !!w.hasScope, masteryMult: 1, upgradeMult: 1, jammedUntil: 0 }))
     this.currentIndex = 0
     this.meleeVariant = 'knife'
     // Global damage multiplier - the XP-gem level-up pool's damage upgrade
@@ -338,6 +351,14 @@ export class WeaponSystem {
       w.ammoReserve += reserveBonus
     } else if (attachmentId === 'suppressor') {
       w.suppressed = true
+    } else if (attachmentId === 'laser') {
+      if (w.hasLaser) return
+      w.hasLaser = true
+      // Only meaningful on weapons with a hip-fire spread cone to begin
+      // with (shotgun/flamethrower/minigun) - guns without one are already
+      // pinpoint-accurate, so this is a no-op for them, same as a real
+      // laser sight barely matters on an already-tight rifle.
+      if (w.spread) w.spread *= 0.55
     }
   }
 
@@ -372,6 +393,8 @@ export class WeaponSystem {
     w.damage = stats.damage
     w.fireInterval = stats.fireInterval
     w.range = stats.range
+    w.cleaveRadius = stats.cleaveRadius || null
+    w.stunMs = stats.stunMs || null
     this.meleeVariant = variantId
 
     const variants = this.viewmodels.melee?.userData.meleeVariants
@@ -531,6 +554,11 @@ export class WeaponSystem {
   _reload() {
     const w = this.current
     if (w.melee) return
+    if (performance.now() / 1000 < w.jammedUntil) {
+      w.jammedUntil = 0
+      this._updateHud()
+      return
+    }
     if (this.reloading) return
     if (w.ammoInMag === w.magSize || w.ammoReserve === 0) return
     this.reloading = true
@@ -574,7 +602,8 @@ export class WeaponSystem {
 
     const w = this.current
     const hasAmmo = w.melee || w.ammoInMag > 0
-    const canFire = this.triggerDown && !this.shieldActive && this.timeSinceLastShot >= w.fireInterval / this.fireRateMult && hasAmmo
+    const jammed = performance.now() / 1000 < w.jammedUntil
+    const canFire = this.triggerDown && !this.shieldActive && !jammed && this.timeSinceLastShot >= w.fireInterval / this.fireRateMult && hasAmmo
     if (canFire) {
       this._fire()
       if (!w.auto) this.triggerDown = false
@@ -615,6 +644,11 @@ export class WeaponSystem {
   _fire() {
     const w = this.current
     this.timeSinceLastShot = 0
+    if (!w.melee && !this.infiniteAmmo && Math.random() < JAM_CHANCE) {
+      w.jammedUntil = performance.now() / 1000 + JAM_CLEAR_MS / 1000
+      this._updateHud()
+      return
+    }
     if (w.melee) {
       this.recoil = 0.6
       audioEngine.playMelee()
@@ -642,6 +676,7 @@ export class WeaponSystem {
     // nearest connecting pellet was, for w.damageFalloff below.
     const hitZombies = new Map()
     let anyHit = false
+    let meleeHitPoint = null
 
     for (let i = 0; i < pelletCount; i++) {
       const offset = new THREE.Vector2(
@@ -655,6 +690,7 @@ export class WeaponSystem {
 
       anyHit = true
       const hit = hits[0]
+      if (w.melee) meleeHitPoint = hit.point
 
       // Rocket Launcher (see w.explosive) - the impact point (whatever it
       // hit, zombie or bare wall) becomes an AOE burst instead of a normal
@@ -760,6 +796,17 @@ export class WeaponSystem {
           }
         }
         zombie.onHit(damage)
+        if (w.stunMs) zombie.stun(w.stunMs)
+      }
+    }
+    // Fire Axe cleave (see w.cleaveRadius) - a reduced-damage swing hitting
+    // every other alive zombie near the impact point, on top of the direct
+    // raycast hit already handled above.
+    if (w.cleaveRadius && meleeHitPoint && this.zombieManager) {
+      for (const z of this.zombieManager.zombies) {
+        if (z.state !== 'alive' || hitZombies.has(z)) continue
+        const d = Math.hypot(z.group.position.x - meleeHitPoint.x, z.group.position.z - meleeHitPoint.z)
+        if (d <= w.cleaveRadius) z.onHit(w.damage * 0.6 * this.damageMult * w.rarityMult * w.masteryMult * w.upgradeMult)
       }
     }
     if (hitZombies.size > 0) {
@@ -778,11 +825,14 @@ export class WeaponSystem {
 
   _updateHud(reloadingLabel = false) {
     const w = this.current
+    const jammed = !w.melee && performance.now() / 1000 < w.jammedUntil
     this.hud.weaponName.textContent = t(this._nameKeyFor(w))
     this.hud.ammo.textContent = w.melee
       ? t('ammoMelee')
-      : reloadingLabel
-        ? t('ammoReloading')
-        : `${w.ammoInMag} / ${w.ammoReserve}`
+      : jammed
+        ? t('ammoJammed')
+        : reloadingLabel
+          ? t('ammoReloading')
+          : `${w.ammoInMag} / ${w.ammoReserve}`
   }
 }

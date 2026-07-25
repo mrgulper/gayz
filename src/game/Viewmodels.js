@@ -496,6 +496,57 @@ function buildUvBatonModelProcedural() {
   return g
 }
 
+function buildFireAxeModelProcedural() {
+  const g = new THREE.Group()
+  const woodMat = flatMaterial({ color: 0x7a5230, roughness: 0.7 })
+  const headMat = flatMaterial({ color: 0x8a8f96, roughness: 0.35, metalness: 0.8 })
+
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.024, 0.42, 10), woodMat)
+  handle.rotation.x = Math.PI / 2
+  handle.position.set(0, 0, -0.08)
+  g.add(handle)
+
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.16, 0.1), headMat)
+  head.position.set(0, 0.06, -0.28)
+  g.add(head)
+
+  const edge = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.05, 4), headMat)
+  edge.rotation.z = Math.PI / 2
+  edge.rotation.y = Math.PI / 4
+  edge.position.set(0, 0.06, -0.34)
+  g.add(edge)
+
+  const axeHand = buildHand()
+  axeHand.position.set(0, 0, 0.12)
+  axeHand.rotation.x = Math.PI / 2
+  g.add(axeHand)
+
+  return g
+}
+
+function buildSledgehammerModelProcedural() {
+  const g = new THREE.Group()
+  const woodMat = flatMaterial({ color: 0x6b4a28, roughness: 0.7 })
+  const headMat = flatMaterial({ color: 0x4a4d52, roughness: 0.5, metalness: 0.6 })
+
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.028, 0.4, 10), woodMat)
+  handle.rotation.x = Math.PI / 2
+  handle.position.set(0, 0, -0.05)
+  g.add(handle)
+
+  const head = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.22, 12), headMat)
+  head.rotation.z = Math.PI / 2
+  head.position.set(0, 0, -0.26)
+  g.add(head)
+
+  const hammerHand = buildHand()
+  hammerHand.position.set(0, 0, 0.14)
+  hammerHand.rotation.x = Math.PI / 2
+  g.add(hammerHand)
+
+  return g
+}
+
 // All melee variants are pre-built inside one group, toggling visibility
 // instead of adding new weapon slots/keys - see WeaponSystem.setMeleeVariant().
 function buildMelee() {
@@ -505,12 +556,16 @@ function buildMelee() {
   const bat = buildBatModel()
   const machete = buildMacheteModel()
   const uvbaton = buildUvBatonModel()
+  const fireaxe = buildFireAxeModelProcedural()
+  const sledgehammer = buildSledgehammerModelProcedural()
   bat.visible = false
   machete.visible = false
   uvbaton.visible = false
+  fireaxe.visible = false
+  sledgehammer.visible = false
 
-  g.add(knife, bat, machete, uvbaton)
-  g.userData.meleeVariants = { knife, bat, machete, uvbaton }
+  g.add(knife, bat, machete, uvbaton, fireaxe, sledgehammer)
+  g.userData.meleeVariants = { knife, bat, machete, uvbaton, fireaxe, sledgehammer }
 
   // Held in the left hand instead of the standard right-hand gun spot -
   // local offset of -0.62 lands at the same world x (~-0.36) the off-hand

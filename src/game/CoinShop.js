@@ -155,4 +155,5 @@ export const ATTACHMENT_TYPES = [
   { id: 'scope', titleKey: 'attachScope', cost: 3000 },
   { id: 'extmag', titleKey: 'attachExtMag', cost: 2500 },
   { id: 'suppressor', titleKey: 'attachSuppressor', cost: 3500 },
+  { id: 'laser', titleKey: 'attachLaser', cost: 2000 },
 ]
