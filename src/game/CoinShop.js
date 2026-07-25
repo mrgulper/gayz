@@ -133,6 +133,20 @@ export const COIN_SHOP_ITEMS = [
       game.companion.equipSpeedBoost()
     },
   },
+  // Companion self-revive - once per this companion instance's lifetime
+  // (see Companion.js's own doc comment), a downed companion gets back up
+  // on their own instead of needing the player to reach them in time.
+  {
+    id: 'companion_autorevive',
+    titleKey: 'coinShopCompanionAutoRevive',
+    cost: 3000,
+    section: 'perks',
+    isOwned: (game) => game.coinShopPurchased.has('companion_autorevive'),
+    apply: (game) => {
+      game.coinShopPurchased.add('companion_autorevive')
+      game.companion.equipAutoRevive()
+    },
+  },
   {
     id: 'coin_stamina',
     titleKey: 'coinShopStamina',

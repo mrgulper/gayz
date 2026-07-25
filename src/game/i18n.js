@@ -347,6 +347,7 @@ const STRINGS = {
     coinShopDamage: 'Coin-Forged Rounds (+10% damage)',
     coinShopHealth: 'Vitality Cache (+25 max health)',
     coinShopCompanionSpeed: 'Companion Speed Boots (+25% companion move speed, permanent)',
+    coinShopCompanionAutoRevive: 'Combat Stims (companion gets back up on their own once, permanent)',
     coinShopStamina: 'Endurance Cache (+25 max stamina)',
     coinShopTurret: 'Auto-Turret (defends the safe zone)',
     coinShopBaseWalls: 'Sandbag Perimeter (fewer zombies near the safe zone)',

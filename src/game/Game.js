@@ -51,6 +51,20 @@ const COMPANION_BARKS = {
   bossSpawn: ["Something big just showed up!", "That's not a regular one - watch yourself!", 'Big target, incoming!', "We've got a boss on us!"],
 }
 
+// Squad banter - a 2-line back-and-forth between companions, distinct
+// from the single-voice COMPANION_BARKS above: only fires when a real
+// squad exists (this.recruits.length >= 1, i.e. more than just the one
+// main companion), reusing the same companionBarkEl display in sequence.
+const SQUAD_BANTER_CHANCE = 0.5
+const SQUAD_BANTER_LINE_DELAY_MS = 2600
+const SQUAD_BANTER_EXCHANGES = [
+  ["Think we'll make it another night?", 'Ask me after, not before.'],
+  ["You keeping count of these things?", 'Lost count a while back.'],
+  ['Quiet is worse than the noise.', "Don't jinx it."],
+  ['Heard anything on the radio?', 'Just static and bad news.'],
+  ["You ever miss how things used to be?", "Every damn day."],
+]
+
 const PICKUP_LABELS = {
   health: (label, isLoot, count = 1) =>
     count > 1 ? t('toastHealthAddedCount', { count }) : t('toastHealthAdded'),
@@ -112,6 +126,9 @@ function loadSettings() {
       colorblind: parsed.colorblind ?? false,
       performanceMode: parsed.performanceMode ?? false,
       nickname: parsed.nickname || '',
+      // Custom companion name (see _updateCompanionName) - falls back to
+      // the auto-generated "{nickname}'s Assistant" pattern when empty.
+      companionName: parsed.companionName || '',
       defaultTag: parsed.defaultTag || null,
       companionRole: ['melee', 'medic'].includes(parsed.companionRole) ? parsed.companionRole : 'ranged',
       scoreAttackMode: parsed.scoreAttackMode ?? false,
@@ -144,7 +161,7 @@ function loadSettings() {
       },
     }
   } catch {
-    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false } }
+    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', companionName: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false } }
   }
 }
 
@@ -1137,6 +1154,7 @@ export class Game {
     this.colorblindToggle = document.getElementById('colorblind-toggle')
     this.performanceToggle = document.getElementById('performance-toggle')
     this.nicknameInput = document.getElementById('nickname-input')
+    this.companionNameInput = document.getElementById('companion-name-input')
     this.scoreAttackToggle = document.getElementById('score-attack-toggle')
     this.hardcoreToggle = document.getElementById('hardcore-toggle')
     this.endlessToggle = document.getElementById('endless-toggle')
@@ -1991,6 +2009,7 @@ export class Game {
     // call site) - kept here for the same reason as _rollNightMutation above.
     this._applySeasonalDressing()
     this._rollRoadPileups()
+    this._maybeSquadBanter()
     // Built once, not rerolled per-night like the pileups above - a
     // permanent shortcut once broken, not something that resets.
     {
@@ -2136,6 +2155,7 @@ export class Game {
       this._rollWeather()
       this._applySeasonalDressing()
       this._rollRoadPileups()
+      this._maybeSquadBanter()
       this._rollNightMutation()
       this._rollFeaturedItem()
       this._rollTraderPrices()
@@ -3461,10 +3481,16 @@ export class Game {
       saveSettings(this.settings)
     })
     this.nicknameInput.value = this.settings.nickname
+    this.companionNameInput.value = this.settings.companionName
     this._updateCompanionName()
 
     this.nicknameInput.addEventListener('input', () => {
       this.settings.nickname = this.nicknameInput.value
+      saveSettings(this.settings)
+      this._updateCompanionName()
+    })
+    this.companionNameInput.addEventListener('input', () => {
+      this.settings.companionName = this.companionNameInput.value
       saveSettings(this.settings)
       this._updateCompanionName()
     })
@@ -3593,6 +3619,7 @@ export class Game {
     if (this.companionGear.vest) this.companion.equipVest()
     if (this.companionGear.rig) this.companion.equipRig()
     if (this.coinShopPurchased.has('companion_speed')) this.companion.equipSpeedBoost()
+    if (this.coinShopPurchased.has('companion_autorevive')) this.companion.equipAutoRevive()
     this._updateCompanionName()
   }
 
@@ -3653,6 +3680,11 @@ export class Game {
   }
 
   _updateCompanionName() {
+    const customName = this.settings.companionName.trim()
+    if (customName) {
+      this.companion.setName(customName)
+      return
+    }
     const nickname = this.settings.nickname.trim() || this._defaultNickname()
     this.companion.setName(`${nickname}'s Assistant`)
   }
@@ -5272,6 +5304,24 @@ export class Game {
     this.companionBarkEl.classList.remove('show')
     void this.companionBarkEl.offsetWidth
     this.companionBarkEl.classList.add('show')
+  }
+
+  // Rolled once per night alongside weather/mutation (see their own call
+  // sites) - only when there's an actual squad to bounce lines between.
+  _maybeSquadBanter() {
+    if (this.recruits.length === 0) return
+    if (Math.random() >= SQUAD_BANTER_CHANCE) return
+    const exchange = SQUAD_BANTER_EXCHANGES[Math.floor(Math.random() * SQUAD_BANTER_EXCHANGES.length)]
+    this.companionBarkEl.textContent = exchange[0]
+    this.companionBarkEl.classList.remove('show')
+    void this.companionBarkEl.offsetWidth
+    this.companionBarkEl.classList.add('show')
+    setTimeout(() => {
+      this.companionBarkEl.textContent = exchange[1]
+      this.companionBarkEl.classList.remove('show')
+      void this.companionBarkEl.offsetWidth
+      this.companionBarkEl.classList.add('show')
+    }, SQUAD_BANTER_LINE_DELAY_MS)
   }
 
   _onPlayerDeath() {
@@ -7211,6 +7261,7 @@ export class Game {
         this._rollWeather()
         this._applySeasonalDressing()
         this._rollRoadPileups()
+        this._maybeSquadBanter()
       this._rollNightMutation()
         this._rollFeaturedItem()
         this._rollTraderPrices()

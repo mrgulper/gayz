@@ -49,6 +49,11 @@ const SWARM_TICK_MS = 700
 const SWARM_DAMAGE_PER_ZOMBIE = 5
 const DOWNED_BLEED_OUT_MS = 30000
 const REVIVE_HEALTH_FRACTION = 0.5
+// Self-revive perk (see equipAutoRevive) - a brief "down but not out"
+// window before the bleed-out timer would otherwise finish it off, same
+// one-shot-per-life shape as the player's own Last Stand.
+const AUTO_REVIVE_DELAY_MS = 4000
+const AUTO_REVIVE_HEALTH_FRACTION = 0.35
 const REVIVE_RADIUS = 2.2
 
 // Points-purchased gear (see Game.js's companion_vest/companion_rig Trader
@@ -111,6 +116,11 @@ export class Companion {
     // vest/rig which are per-run Trader purchases, this persists across
     // every future run the same way the Coin Shop's other perks do.
     this.speedMult = 1
+    // Coin Shop permanent upgrade (see equipAutoRevive) - once per this
+    // companion instance's lifetime, not once per run, since a fresh
+    // Companion is constructed on every role-swap/rescue/recruit anyway.
+    this.canAutoRevive = false
+    this.autoRevivedUsed = false
 
     // Movement-driven walk/idle animation (GLB bodies only) - tracked here
     // rather than passed in, since none of update()'s callers currently
@@ -171,6 +181,10 @@ export class Companion {
   equipSpeedBoost() {
     if (this.speedMult > 1) return
     this.speedMult = 1.25
+  }
+
+  equipAutoRevive() {
+    this.canAutoRevive = true
   }
 
   // Floating name label above the head - same canvas-texture-sprite trick
@@ -362,6 +376,17 @@ export class Companion {
     if (this.dead) return
     if (this.downed) {
       if (this.usingGLB) this.mixer.update(dt)
+      if (this.canAutoRevive && !this.autoRevivedUsed && performance.now() - this.downedAt > AUTO_REVIVE_DELAY_MS) {
+        this.autoRevivedUsed = true
+        this.downed = false
+        this.dead = false
+        this.health = this.maxHealth * AUTO_REVIVE_HEALTH_FRACTION
+        this.nextSwarmTickAt = performance.now() + SWARM_TICK_MS
+        this.group.rotation.x = 0
+        if (this.usingGLB) this._playGlbAction('standup', false)
+        this._restoreNameTag()
+        return
+      }
       if (!this.dead && performance.now() - this.downedAt > DOWNED_BLEED_OUT_MS) {
         this.dead = true
         this.justDied = true
