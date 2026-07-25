@@ -28,6 +28,17 @@ const IGNITE_DPS = 8
 // the player taps Reload early (see _reload's quick-clear check).
 const JAM_CHANCE = 0.025
 const JAM_CLEAR_MS = 1400
+// Headshot bonus - geometric height check against hit.point rather than
+// tagging every individual head mesh across every zombie body-builder
+// variant (GLB/procedural/dinosaur-skulled bosses all differ) - works
+// uniformly off each zombie's own known scale instead.
+const HEADSHOT_HEIGHT_RATIO = 0.82
+const HEADSHOT_APPROX_HEIGHT = 1.8
+const HEADSHOT_DAMAGE_MULT = 1.75
+// Melee combo chain
+const MELEE_COMBO_WINDOW_MS = 2000
+const MELEE_COMBO_THRESHOLD = 5
+const MELEE_COMBO_BONUS_MULT = 1.8
 // Held low on the off-hand (left) side, well clear of the equipped gun's
 // own position (see VIEWMODEL_BASE, positive X).
 const QUICK_MELEE_REST_POS = new THREE.Vector3(-0.36, -0.28, -0.28)
@@ -154,6 +165,54 @@ const WEAPONS = [
     explosiveDamageMax: 320,
     unlocked: false,
   },
+  {
+    id: 'crossbow',
+    name: 'Crossbow',
+    auto: false,
+    fireInterval: 1.1,
+    reloadTime: 1.4,
+    magSize: 1,
+    reserve: 12,
+    damage: 140,
+    // suppressed baked in rather than attachment-granted (see applyAttachment) -
+    // it's inherently the quiet option, not a gun that becomes quiet once upgraded.
+    suppressed: true,
+    // Retrieved bolt (see _fire's hitZombies loop) - a connecting hit has a
+    // chance to refund straight to reserve, so it never fully runs dry the
+    // way every other gun's ammo does.
+    boltRetrieveChance: 0.6,
+    unlocked: false,
+  },
+  {
+    id: 'launcher',
+    name: 'Grenade Launcher',
+    auto: false,
+    fireInterval: 0.9,
+    reloadTime: 2.0,
+    magSize: 4,
+    reserve: 12,
+    damage: 0, // unused - see w.explosive below, same shape as the Rocket Launcher
+    explosive: true,
+    explosiveRadius: 4,
+    explosiveDamageMin: 55,
+    explosiveDamageMax: 130,
+    unlocked: false,
+  },
+  {
+    id: 'suppressedsmg',
+    name: 'Suppressed SMG',
+    auto: true,
+    fireInterval: 0.09,
+    reloadTime: 1.1,
+    magSize: 35,
+    reserve: 140,
+    damage: 9,
+    // Always-suppressed by design (a cheap stealth spray weapon), distinct
+    // from buying the suppressor attachment for an existing gun - see
+    // CoinShop.js's own note on why this is a separate weapon, not a variant.
+    suppressed: true,
+    unlocked: false,
+  },
 ]
 
 // Alternate stat blocks for the melee slot - see setMeleeVariant(). Found as
@@ -212,13 +271,21 @@ export class WeaponSystem {
     // WeaponMastery.js) once a weapon crosses its permanent kill threshold -
     // persists across runs, unlike rarityMult which resets with a fresh
     // weapon roll.
-    this.weapons = WEAPONS.map((w) => ({ ...w, ammoInMag: w.magSize, ammoReserve: w.reserve, rarityMult: 1, rarityTier: null, hasExtMag: false, suppressed: false, scopeOwned: !!w.hasScope, masteryMult: 1, upgradeMult: 1, jammedUntil: 0 }))
+    this.weapons = WEAPONS.map((w) => ({ ...w, ammoInMag: w.magSize, ammoReserve: w.reserve, rarityMult: 1, rarityTier: null, hasExtMag: false, suppressed: !!w.suppressed, scopeOwned: !!w.hasScope, masteryMult: 1, upgradeMult: 1, jammedUntil: 0 }))
     this.currentIndex = 0
     this.meleeVariant = 'knife'
     // Global damage multiplier - the XP-gem level-up pool's damage upgrade
     // stacks additively onto this rather than needing to touch every
     // weapon's own damage stat (see _fire's onHit call).
     this.damageMult = 1
+    // Cleaning Kit pickup (see Game.js's toastCleaningKit) - set/cleared
+    // externally by a timer there, same pattern as every other timed effect.
+    this.jamChanceMult = 1
+    // Melee combo chain (see _fire's melee branch) - every
+    // MELEE_COMBO_THRESHOLD consecutive swings within MELEE_COMBO_WINDOW_MS
+    // of each other bonuses that hit, then resets.
+    this.meleeComboCount = 0
+    this.lastMeleeHitAt = 0
     // Adrenaline shot (see Game.js's _useAdrenaline) - set/cleared externally
     // by a timer there, same pattern as every other timed effect.
     this.fireRateMult = 1
@@ -374,6 +441,11 @@ export class WeaponSystem {
       // pinpoint-accurate, so this is a no-op for them, same as a real
       // laser sight barely matters on an already-tight rifle.
       if (w.spread) w.spread *= 0.55
+    } else if (attachmentId === 'incendiary') {
+      // Reuses the exact ignite mechanic the Flamethrower already has (see
+      // w.ignites in _fire's hitZombies loop) - this just grants that same
+      // flag to a chosen gun instead of it being baked into one weapon.
+      w.ignites = true
     }
   }
 
@@ -673,14 +745,23 @@ export class WeaponSystem {
   _fire() {
     const w = this.current
     this.timeSinceLastShot = 0
-    if (!w.melee && !this.infiniteAmmo && Math.random() < JAM_CHANCE) {
+    if (!w.melee && !this.infiniteAmmo && Math.random() < JAM_CHANCE * this.jamChanceMult) {
       w.jammedUntil = performance.now() / 1000 + JAM_CLEAR_MS / 1000
       this._updateHud()
       return
     }
+    let meleeComboBonus = 1
     if (w.melee) {
       this.recoil = 0.6
       audioEngine.playMelee()
+      const nowMs = performance.now()
+      if (nowMs - this.lastMeleeHitAt > MELEE_COMBO_WINDOW_MS) this.meleeComboCount = 0
+      this.meleeComboCount += 1
+      this.lastMeleeHitAt = nowMs
+      if (this.meleeComboCount >= MELEE_COMBO_THRESHOLD) {
+        meleeComboBonus = MELEE_COMBO_BONUS_MULT
+        this.meleeComboCount = 0
+      }
     } else {
       if (!this.infiniteAmmo) w.ammoInMag -= 1
       // Suppressor attachment (see applyAttachment) dims the flash to a
@@ -744,18 +825,26 @@ export class WeaponSystem {
 
       const zombieHit = hit.object.userData.zombie
       if (zombieHit) {
+        const isHeadshot = hit.point.y - zombieHit.group.position.y >= HEADSHOT_APPROX_HEIGHT * (zombieHit.config.scale || 1) * HEADSHOT_HEIGHT_RATIO
         const existing = hitZombies.get(zombieHit)
         if (existing) {
           existing.count += 1
           existing.distance = Math.min(existing.distance, hit.distance)
+          existing.headshot = existing.headshot || isHeadshot
         } else {
-          hitZombies.set(zombieHit, { count: 1, distance: hit.distance })
+          hitZombies.set(zombieHit, { count: 1, distance: hit.distance, headshot: isHeadshot })
         }
         // Flamethrower (see w.ignites) - a lingering burn on top of the
         // direct hit-scan tick, so backing off after a couple of ticks
         // still keeps dealing damage instead of the effect ending the
         // instant the stream stops touching them.
         if (w.ignites) zombieHit.ignite(IGNITE_DURATION_MS, IGNITE_DPS)
+        // Crossbow (see w.boltRetrieveChance) - a connecting hit has a
+        // chance to refund the bolt straight to reserve.
+        if (w.boltRetrieveChance && Math.random() < w.boltRetrieveChance) {
+          w.ammoReserve += 1
+          this._updateHud()
+        }
       }
 
       const explosive = hit.object.userData.explosive
@@ -803,6 +892,11 @@ export class WeaponSystem {
           perHitDamage = THREE.MathUtils.lerp(near, far, t)
         }
         let damage = perHitDamage * info.count * this.damageMult * w.rarityMult * w.masteryMult * w.upgradeMult
+        // Headshot bonus (see HEADSHOT_HEIGHT_RATIO's own note) and melee
+        // combo bonus (see _fire's melee branch) - both flat multipliers,
+        // stack with each other and with everything else above.
+        if (info.headshot) damage *= HEADSHOT_DAMAGE_MULT
+        if (w.melee) damage *= meleeComboBonus
         // Instakill power-up (see Game.js's _onPickup instakill) - a flat
         // override, same as the stealth takedown check right below it.
         if (this.instakillActive) damage = 99999

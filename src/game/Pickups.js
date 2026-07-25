@@ -16,6 +16,7 @@ const POWERUP_COLORS = {
   nuke: 0xff3a1a,
   instakill: 0xd94a4a,
   zombie_blood: 0x2ad94a,
+  cleaning_kit: 0x4fd1e8,
 }
 
 export async function preloadFuelcanModel() {

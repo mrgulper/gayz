@@ -58,6 +58,27 @@ export const COIN_SHOP_ITEMS = [
     section: 'guns',
     gun: 'rocket',
   },
+  {
+    id: 'gun_crossbow',
+    titleKey: 'weaponCrossbow',
+    cost: 15000,
+    section: 'guns',
+    gun: 'crossbow',
+  },
+  {
+    id: 'gun_launcher',
+    titleKey: 'weaponLauncher',
+    cost: 38000,
+    section: 'guns',
+    gun: 'launcher',
+  },
+  {
+    id: 'gun_suppressedsmg',
+    titleKey: 'weaponSuppressedSmg',
+    cost: 22000,
+    section: 'guns',
+    gun: 'suppressedsmg',
+  },
   { id: 'skin_ember', titleKey: 'coinShopEmberSkin', cost: 1500, section: 'skins', skin: 'ember' },
   { id: 'skin_gold', titleKey: 'skinGold', cost: 1200, section: 'skins', skin: 'gold' },
   { id: 'skin_crimson', titleKey: 'skinCrimson', cost: 1200, section: 'skins', skin: 'crimson' },
@@ -185,4 +206,5 @@ export const ATTACHMENT_TYPES = [
   { id: 'extmag', titleKey: 'attachExtMag', cost: 2500 },
   { id: 'suppressor', titleKey: 'attachSuppressor', cost: 3500 },
   { id: 'laser', titleKey: 'attachLaser', cost: 2000 },
+  { id: 'incendiary', titleKey: 'attachIncendiary', cost: 4000 },
 ]

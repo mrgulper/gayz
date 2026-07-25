@@ -435,7 +435,9 @@ const MAX_DEPLOYED_TURRETS = 3
 // way as any other pickup (see Pickups.js) - Game.js only owns what
 // happens once type reaches _onPickup below.
 const POWERUP_DROP_CHANCE = 0.02
-const POWERUP_TYPES = ['double_points', 'nuke', 'instakill', 'zombie_blood']
+const POWERUP_TYPES = ['double_points', 'nuke', 'instakill', 'zombie_blood', 'cleaning_kit']
+const CLEANING_KIT_DURATION_MS = 45000
+const CLEANING_KIT_JAM_MULT = 0.15
 const DOUBLE_POINTS_DURATION_MS = 20000
 const INSTAKILL_DURATION_MS = 20000
 const ZOMBIE_BLOOD_DURATION_MS = 20000
@@ -1061,6 +1063,7 @@ export class Game {
     this.deployedTurrets = []
     this.doublePointsUntil = 0
     this.instakillUntil = 0
+    this.cleaningKitUntil = 0
     this.lastStandUsed = false
     this.playerDowned = false
     this.downedKillsNeeded = 0
@@ -1455,7 +1458,6 @@ export class Game {
     this.zombies = new ZombieManager(this.scene, this.difficulty.spawnRateMult, colliders, solidMeshes)
     this.zombies.healthMult = this.difficulty.healthMult
     this.zombies.eliteChanceMult = this.difficulty.eliteChanceMult
-    this._rollNightMutation()
     // Zombies must never be able to stand inside the safe zone - the wall
     // colliders alone don't cover this since the entrance gap has no
     // collider (the player needs to walk through it too), so ZombieManager
@@ -1843,6 +1845,10 @@ export class Game {
     this._updateXpHud()
     this._onResize()
     window.addEventListener('resize', () => this._onResize())
+    // Needs both this.zombies (constructed above) and this.loreToast (set
+    // earlier in the constructor) to already exist - see the crash this
+    // caused when it briefly lived right after this.zombies alone.
+    this._rollNightMutation()
 
     this.timer = new THREE.Timer()
     this.timer.connect(document)
@@ -4790,6 +4796,10 @@ export class Game {
       this.weapons.instakillActive = false
       this.instakillUntil = 0
     }
+    if (this.cleaningKitUntil && now >= this.cleaningKitUntil) {
+      this.weapons.jamChanceMult = 1
+      this.cleaningKitUntil = 0
+    }
     if (this.playerDowned && now >= this.downedUntil) {
       this.playerDowned = false
       this._onPlayerDeath()
@@ -5042,6 +5052,12 @@ export class Game {
     else if (type === 'zombie_blood') {
       this.zombies.invisibleUntil = performance.now() + ZOMBIE_BLOOD_DURATION_MS
       this._showLoreToast(t('powerupZombieBlood'))
+      return
+    }
+    else if (type === 'cleaning_kit') {
+      this.weapons.jamChanceMult = CLEANING_KIT_JAM_MULT
+      this.cleaningKitUntil = performance.now() + CLEANING_KIT_DURATION_MS
+      this._showLoreToast(t('powerupCleaningKit'))
       return
     }
     else if (type.startsWith('audiolog')) {
