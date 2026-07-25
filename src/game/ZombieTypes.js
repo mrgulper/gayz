@@ -2,6 +2,48 @@
 // lives here too so tuning difficulty is a one-file job.
 
 export const ZOMBIE_TYPES = {
+  // packSize: this many spawn together in a small cluster (see
+  // ZombieManager._spawnRandom's packmate loop) instead of alone - reuses
+  // the same humanoid body-builder as every other type (an accepted
+  // visual simplification, same precedent as the Flamethrower/Rocket
+  // Launcher's viewmodel fallback), scaled way down and re-tinted so
+  // packmates read as a distinct fast-and-small threat rather than a
+  // shrunk shambler.
+  feral_dog: {
+    id: 'feral_dog',
+    label: 'Feral Pack',
+    lore: "Whatever's left of the neighborhood strays runs in threes now.",
+    weight: 2,
+    health: 20,
+    speedMin: 5.0,
+    speedMax: 6.0,
+    damageMin: 12,
+    damageMax: 20,
+    scale: 0.55,
+    ranged: false,
+    packSize: 3,
+    meleeRange: 1.1,
+    attackCooldown: 0.5,
+    skinTones: [0x5c4a38, 0x4a3c2c, 0x3a2e20],
+    clothesTones: [0x1c1712, 0x191510],
+  },
+  feral_child: {
+    id: 'feral_child',
+    label: 'Feral Child',
+    lore: "Small enough to fit where you can't follow. Fast enough that it doesn't need to.",
+    weight: 2,
+    health: 25,
+    speedMin: 3.2,
+    speedMax: 4.2,
+    damageMin: 18,
+    damageMax: 28,
+    scale: 0.62,
+    ranged: false,
+    meleeRange: 1.2,
+    attackCooldown: 0.7,
+    skinTones: [0x4f5a44, 0x455038, 0x3d4830],
+    clothesTones: [0x24281e, 0x1e221a],
+  },
   shambler: {
     id: 'shambler',
     label: 'Shambler',

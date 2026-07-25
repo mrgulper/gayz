@@ -16,6 +16,11 @@ const SPAWN_RADIUS_MIN = 20
 const SPAWN_RADIUS_MAX = 44
 const AMBUSH_RADIUS_MIN = 7
 const AMBUSH_RADIUS_MAX = 26
+// Hivemind boss aura proximity radius - matches Zombie.js's own
+// HIVEMIND_SPEED_MULT value (kept as separate same-value constants rather
+// than a shared export, same as every other small per-file magic number
+// in this class).
+const HIVEMIND_RADIUS = 14
 // Burrower type (see ZombieTypes.js) - always ambushes, and much closer
 // than even the normal ambush range, so it reads as a genuine "right on
 // top of you" surprise instead of the standard hide-and-wait every other
@@ -642,6 +647,20 @@ export class ZombieManager {
     zombie.deathHandled = false
     this.zombies.push(zombie)
     this.scene.add(zombie.group)
+
+    // Pack spawn (see ZombieTypes.js's packSize) - additional pack members
+    // land immediately in a small cluster around the first, sharing its
+    // ambush/elite roll rather than each rolling independently.
+    if (type.packSize) {
+      for (let i = 1; i < type.packSize; i++) {
+        const px = x + (Math.random() - 0.5) * 4
+        const pz = z + (Math.random() - 0.5) * 4
+        const packmate = new Zombie(px, pz, type, isAmbush, isElite, this.currentNight, this.healthMult, this.speedMult)
+        packmate.deathHandled = false
+        this.zombies.push(packmate)
+        this.scene.add(packmate.group)
+      }
+    }
   }
 
   // Extra ambush-biased zombies, for the "Horde Surge" random night event -
@@ -1195,8 +1214,23 @@ export class ZombieManager {
     // player isn't there at all, even ones already actively chasing.
     const zombieBloodActive = this.invisibleUntil && performance.now() < this.invisibleUntil
 
+    // Hivemind boss aura (see Zombie.js's hivemindBuffUntil) - only bothers
+    // scanning for nearby zombies when a boss is actually alive, which is
+    // rare (0-1 at a time), so this stays a no-op the rest of the time.
+    const aliveBosses = this.zombies.filter((z) => z.isBoss && z.state === 'alive')
+
     for (const zombie of this.zombies) {
       if (zombieBloodActive && zombie.state === 'alive') continue
+
+      if (aliveBosses.length > 0 && !zombie.isBoss && zombie.state === 'alive') {
+        for (const boss of aliveBosses) {
+          const hivemindDist = Math.hypot(zombie.group.position.x - boss.group.position.x, zombie.group.position.z - boss.group.position.z)
+          if (hivemindDist <= HIVEMIND_RADIUS) {
+            zombie.hivemindBuffUntil = performance.now() + 500
+            break
+          }
+        }
+      }
 
       let targetPos = playerPos
       let attackCb = onPlayerDamage

@@ -111,6 +111,9 @@ export class PlayerController {
     // by a timer there rather than owned here, same pattern as every other
     // timed perk/consumable effect in this game.
     this.adrenalineMult = 1
+    // Corpse pile-up (see Game.js's _updateCorpsePileSlow) - recomputed
+    // live every frame from nearby recent kills, not a timed effect.
+    this.corpsePileMult = 1
     this.isSprinting = false
     this.isCrouching = false
     this.eyeHeight = EYE_HEIGHT
@@ -178,6 +181,7 @@ export class PlayerController {
     // by a timer there rather than owned here, same pattern as every other
     // timed perk/consumable effect in this game.
     this.adrenalineMult = 1
+    this.corpsePileMult = 1
     this.isCrouching = false
     this.eyeHeight = EYE_HEIGHT
     this.isDodging = false
@@ -384,6 +388,7 @@ export class PlayerController {
       let speedMultiplier = this.isSprinting ? this.sprintMultiplier : 1
       if (this.isCrouching) speedMultiplier *= CROUCH_SPEED_MULT
       speedMultiplier *= this.adrenalineMult
+      speedMultiplier *= this.corpsePileMult
 
       if (this.slipFactor > 0) {
         // Wet planks over a sewer, not solid ground - momentum carries the

@@ -64,6 +64,17 @@ export const NIGHT_EVENTS = [
     },
   },
   {
+    id: 'toxic_spread',
+    labelKey: 'eventToxicSpread',
+    // Distinct from toxic_gas above: this one starts small and grows every
+    // tick it's not dealt with (see Game.js's TOXIC_SPREAD_GROWTH_PER_SEC),
+    // instead of a fixed-size cloud that just times out.
+    apply: (game) => {
+      const spot = game.spawnPoints[Math.floor(Math.random() * game.spawnPoints.length)]
+      game._spawnHazardZone('toxic_spread', spot.x, spot.z)
+    },
+  },
+  {
     id: 'escort_convoy',
     labelKey: 'eventEscortConvoy',
     apply: (game) => game._spawnEscortConvoy(),

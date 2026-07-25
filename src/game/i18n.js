@@ -432,6 +432,7 @@ const STRINGS = {
     mutationDocile: 'Tonight: Docile — zombies are slower to notice you',
     eventSupplyConvoy: 'Supply Convoy — a guarded crate is nearby, if you can take the escorts',
     eventToxicGas: 'Toxic Gas — a cloud is leaking somewhere nearby, stay out of it',
+    eventToxicSpread: 'Contaminated Water — a leak is spreading nearby, and it grows the longer it goes unchecked',
     eventEmpField: 'EMP Field — an active field will fry your flashlight if you walk through it',
     eventRadioDistress: '[RADIO] "...please, if anyone can hear this, we left supplies somewhere close by, just come get them..." — whatever chased them off is still there too',
     eventEscortConvoy: 'Escort Convoy — survivors need to be led back to the safe zone alive',

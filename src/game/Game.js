@@ -533,6 +533,24 @@ const HAZARD_TICK_MS = 700
 const HAZARD_GAS_DAMAGE_PER_TICK = 8
 const HAZARD_GAS_DURATION_MS = 22000
 const HAZARD_EMP_DURATION_MS = 18000
+// Contaminated water (see NightEvents.js's 'toxic_spread') - unlike the
+// sewer's own fixed toxic pool (_updateToxicWater, one specific
+// underground location, constant size), this spawns anywhere and grows
+// every tick it's not dealt with, so ignoring it has a real cost.
+const TOXIC_SPREAD_DURATION_MS = 40000
+const TOXIC_SPREAD_START_RADIUS = 4
+const TOXIC_SPREAD_MAX_RADIUS = 16
+const TOXIC_SPREAD_GROWTH_PER_SEC = 0.3
+const TOXIC_SPREAD_DAMAGE_PER_TICK = 6
+// Corpse pile-up - a cluster of recent kills slows the player passing
+// through it (see PlayerController's corpsePileMult), recomputed live
+// every frame from a rolling window of recent kill spots rather than a
+// persistent world object.
+const CORPSE_PILE_RADIUS = 6
+const CORPSE_PILE_WINDOW_MS = 30000
+const CORPSE_PILE_MIN_KILLS = 6
+const CORPSE_PILE_SPEED_MULT = 0.7
+const CORPSE_PILE_MAX_TRACKED = 200
 const HAZARD_EMP_BATTERY_DRAIN_PER_SEC = 30
 const VEHICLE_RAM_MIN_SPEED = 4
 const VEHICLE_RAM_RADIUS = 2.6
@@ -1077,6 +1095,7 @@ export class Game {
     // has even taken a first step.
     this.lastHitTakenAt = performance.now()
     this.recentKillTimestamps = []
+    this.recentKillSpots = []
     this.nextDirectorEvalAt = 0
     this._hordeAnnounced = false
     this.adrenalineExpiresAt = 0
@@ -2834,7 +2853,9 @@ export class Game {
   // drains its battery fast instead, no direct damage.
   _spawnHazardZone(type, x, z) {
     const isGas = type === 'gas'
-    const color = isGas ? 0x5fcf4a : 0x4ecfff
+    const isToxicSpread = type === 'toxic_spread'
+    const color = isToxicSpread ? 0x6ecf3a : isGas ? 0x5fcf4a : 0x4ecfff
+    const baseRadius = isToxicSpread ? TOXIC_SPREAD_START_RADIUS : HAZARD_RADIUS
     const mat = flatMaterial({
       color,
       emissive: color,
@@ -2843,10 +2864,10 @@ export class Game {
       opacity: 0.4,
       side: THREE.DoubleSide,
     })
-    const mesh = new THREE.Mesh(new THREE.SphereGeometry(HAZARD_RADIUS, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat)
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(baseRadius, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat)
     mesh.position.set(x, 0.05, z)
     this.scene.add(mesh)
-    const light = new THREE.PointLight(color, 1.4, HAZARD_RADIUS * 2.5, 2)
+    const light = new THREE.PointLight(color, 1.4, baseRadius * 2.5, 2)
     light.position.set(x, 1.5, z)
     this.scene.add(light)
 
@@ -2856,7 +2877,9 @@ export class Game {
       z,
       mesh,
       light,
-      expiresAt: performance.now() + (isGas ? HAZARD_GAS_DURATION_MS : HAZARD_EMP_DURATION_MS),
+      baseRadius,
+      radius: baseRadius,
+      expiresAt: performance.now() + (isToxicSpread ? TOXIC_SPREAD_DURATION_MS : isGas ? HAZARD_GAS_DURATION_MS : HAZARD_EMP_DURATION_MS),
       nextTickAt: performance.now(),
     })
   }
@@ -2876,18 +2899,25 @@ export class Game {
         this._removeHazardZone(zone)
         return false
       }
+      if (zone.type === 'toxic_spread' && zone.radius < TOXIC_SPREAD_MAX_RADIUS) {
+        zone.radius = Math.min(TOXIC_SPREAD_MAX_RADIUS, zone.radius + TOXIC_SPREAD_GROWTH_PER_SEC * dt)
+        const growthScale = zone.radius / zone.baseRadius
+        zone.mesh.scale.set(growthScale, 1, growthScale)
+        zone.light.distance = zone.radius * 2.5
+      }
+
       const flicker = 0.8 + Math.sin(now * 0.015 + zone.x) * 0.2
       zone.light.intensity = 1.4 * flicker
       zone.mesh.material.opacity = 0.32 * flicker + 0.08
 
       const dist = Math.hypot(playerPos.x - zone.x, playerPos.z - zone.z)
-      const inside = dist <= HAZARD_RADIUS
+      const inside = dist <= zone.radius
       if (inside && zone.type === 'emp') playerInEmp = true
 
-      if (inside && zone.type === 'gas' && now >= zone.nextTickAt) {
+      if (inside && (zone.type === 'gas' || zone.type === 'toxic_spread') && now >= zone.nextTickAt) {
         zone.nextTickAt = now + HAZARD_TICK_MS
         if (this.player.isDodging) return true // brief invincibility window, same as a zombie hit
-        this.playerState.takeDamage(HAZARD_GAS_DAMAGE_PER_TICK)
+        this.playerState.takeDamage(zone.type === 'toxic_spread' ? TOXIC_SPREAD_DAMAGE_PER_TICK : HAZARD_GAS_DAMAGE_PER_TICK)
         this._updateHealthHud()
         this.damageFlash.classList.remove('hit')
         void this.damageFlash.offsetWidth
@@ -4673,6 +4703,10 @@ export class Game {
       if (this.downedKillsNeeded <= 0) this._reviveFromLastStand()
     }
     this.recentKillTimestamps.push(performance.now())
+    // Corpse pile-up (see CORPSE_PILE_RADIUS's own comment) - capped so a
+    // long run can't grow this array unbounded.
+    this.recentKillSpots.push({ x, z, at: performance.now() })
+    if (this.recentKillSpots.length > CORPSE_PILE_MAX_TRACKED) this.recentKillSpots.shift()
     // Wandering horde members (see ZombieManager's _maybeSpawnWanderingHorde)
     // are worth intercepting for their own sake rather than just background
     // population you happen to run into - a small guaranteed bonus per kill,
@@ -5208,6 +5242,19 @@ export class Game {
     this._lastHudHunger = hungerRounded
     this.hungerFill.style.width = `${(this.hunger / this.maxHunger) * 100}%`
     this.hungerValue.textContent = hungerRounded
+  }
+
+  // Slows the player while standing in a cluster of recent kills - see
+  // CORPSE_PILE_RADIUS's own comment for why this is computed fresh every
+  // frame instead of a persistent hazard-zone-style object.
+  _updateCorpsePileSlow(playerPos) {
+    const now = performance.now()
+    this.recentKillSpots = this.recentKillSpots.filter((k) => now - k.at < CORPSE_PILE_WINDOW_MS)
+    let nearbyCount = 0
+    for (const k of this.recentKillSpots) {
+      if (Math.hypot(playerPos.x - k.x, playerPos.z - k.z) <= CORPSE_PILE_RADIUS) nearbyCount++
+    }
+    this.player.corpsePileMult = nearbyCount >= CORPSE_PILE_MIN_KILLS ? CORPSE_PILE_SPEED_MULT : 1
   }
 
   _eatRation() {
@@ -6685,6 +6732,7 @@ export class Game {
       }
       this._updateStaminaHud()
       this._updateHunger(dt)
+      this._updateCorpsePileSlow(playerPos)
       this._updateFlashlightBattery(dt)
       this._updateKillstreakTimers()
 

@@ -54,6 +54,11 @@ const AMBUSH_BURST_MS = 1900
 const AMBUSH_BURST_SPEED_MULT = 2.3
 const DEFAULT_ENRAGE_MULT = 1.4
 const DEFAULT_WEAKEN_MULT = 0.55
+// Hivemind boss aura - a boss's mere presence speeds up everything near it
+// (see ZombieManager's proximity check), distinct from a Screamer's own
+// enrage (a one-off scream pulse rather than a standing aura).
+const HIVEMIND_SPEED_MULT = 1.3
+const HIVEMIND_RADIUS = 14
 
 // Berserker last stand: any zombie below this health fraction goes into a
 // desperate final rush - faster and hitting harder right before it dies,
@@ -190,6 +195,10 @@ export class Zombie {
     this.screamPulseUntil = 0
     this.enragedUntil = 0
     this.weakenedUntil = 0
+    // Hivemind boss aura (see ZombieManager's own per-frame proximity
+    // check) - continuously refreshed while within range of an alive
+    // boss, same "refresh timer, don't stack" shape as enragedUntil.
+    this.hivemindBuffUntil = 0
     this.isBerserk = false
     this.specialCooldownUntil = 0
     this.specialTelegraphUntil = 0
@@ -1078,9 +1087,10 @@ export class Zombie {
     const burstMult = performance.now() < this.burstUntil ? AMBUSH_BURST_SPEED_MULT : 1
     const enrageMult = performance.now() < this.enragedUntil ? (this.config.screamEnrageMult ?? DEFAULT_ENRAGE_MULT) : 1
     const weakenMult = performance.now() < this.weakenedUntil ? DEFAULT_WEAKEN_MULT : 1
+    const hivemindMult = performance.now() < this.hivemindBuffUntil ? HIVEMIND_SPEED_MULT : 1
     this.isBerserk = this.health > 0 && this.health / this.maxHealth <= BERSERK_HEALTH_FRACTION
     const berserkMult = this.isBerserk ? BERSERK_SPEED_MULT : 1
-    this.effectiveSpeed = this.speed * Math.max(burstMult, enrageMult, berserkMult) * weakenMult
+    this.effectiveSpeed = this.speed * Math.max(burstMult, enrageMult, berserkMult, hivemindMult) * weakenMult
 
     // Excess elevation beyond a normal standing eye height (e.g. the player
     // is up on a car roof) - added into the melee engagement check below
