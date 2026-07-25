@@ -30,10 +30,13 @@ const JAM_CHANCE = 0.025
 const JAM_CLEAR_MS = 1400
 // Headshot bonus - geometric height check against hit.point rather than
 // tagging every individual head mesh across every zombie body-builder
-// variant (GLB/procedural/dinosaur-skulled bosses all differ) - works
-// uniformly off each zombie's own known scale instead.
+// variant (GLB/procedural/dinosaur-skulled bosses all differ). Reads each
+// zombie's own getHeadWorldHeight() (see Zombie.js) instead of a single
+// fixed height - that used to assume every type stands upright the same
+// way, which was flat wrong for crawler-type zombies (genuinely low to
+// the ground, not just a shorter standing humanoid) and meant headshots
+// could never register correctly on them.
 const HEADSHOT_HEIGHT_RATIO = 0.82
-const HEADSHOT_APPROX_HEIGHT = 1.8
 const HEADSHOT_DAMAGE_MULT = 1.75
 // Melee combo chain
 const MELEE_COMBO_WINDOW_MS = 2000
@@ -825,7 +828,7 @@ export class WeaponSystem {
 
       const zombieHit = hit.object.userData.zombie
       if (zombieHit) {
-        const isHeadshot = hit.point.y - zombieHit.group.position.y >= HEADSHOT_APPROX_HEIGHT * (zombieHit.config.scale || 1) * HEADSHOT_HEIGHT_RATIO
+        const isHeadshot = hit.point.y - zombieHit.group.position.y >= zombieHit.getHeadWorldHeight() * HEADSHOT_HEIGHT_RATIO
         const existing = hitZombies.get(zombieHit)
         if (existing) {
           existing.count += 1

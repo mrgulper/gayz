@@ -45,6 +45,16 @@ const DEATH_ANIM_MS = 550
 const EXPLODE_LINGER_MS = 150
 const HEALTH_BAR_W = 64
 const HEALTH_BAR_H = 10
+// Single source of truth for "how tall is this zombie's head, in local
+// (pre-group-scale) units" - shared by the floating health bar
+// (_buildHealthBar) and headshot detection (see getHeadWorldHeight below)
+// so the two can never silently drift apart again. Crawler-type zombies
+// (see ZombieTypes.js's crawler flag) are genuinely low to the ground, not
+// just a shorter standing humanoid - this is the only posture that changes
+// it today, but it's read through one method rather than duplicated so a
+// future posture gets the same treatment automatically.
+const HEAD_HEIGHT_LOCAL = 2.05
+const HEAD_HEIGHT_LOCAL_CRAWLER = 0.85
 
 const AMBUSH_TRIGGER_RANGE = 9
 const AMBUSH_TRIGGER_RANGE_CROUCH = 4.5
@@ -933,7 +943,7 @@ export class Zombie {
     const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, fog: false })
     this._barSprite = new THREE.Sprite(material)
     this._barSprite.scale.set(0.8, 0.13, 1)
-    this._barSprite.position.set(0, this.config.crawler ? 0.85 : 2.05, 0)
+    this._barSprite.position.set(0, this.config.crawler ? HEAD_HEIGHT_LOCAL_CRAWLER : HEAD_HEIGHT_LOCAL, 0)
     this._barSprite.renderOrder = 10
     this._barSprite.visible = false
     this.group.add(this._barSprite)
@@ -1506,6 +1516,17 @@ export class Zombie {
       )
       this.throatMat.emissiveIntensity = screaming ? 2.4 : 0.9
     }
+  }
+
+  // World-space height (above this.group's own ground position) of this
+  // zombie's head right now - reads the LIVE group.scale.y rather than a
+  // static config value, so it stays correct through pop-up/pulse
+  // animations that temporarily scale the group too. See
+  // HEAD_HEIGHT_LOCAL's own doc comment for why this is the one place
+  // that decides "how tall is the head" instead of every caller guessing.
+  getHeadWorldHeight() {
+    const localHeight = this.config.crawler ? HEAD_HEIGHT_LOCAL_CRAWLER : HEAD_HEIGHT_LOCAL
+    return localHeight * this.group.scale.y
   }
 
   onHit(damage) {
