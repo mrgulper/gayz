@@ -15,7 +15,16 @@ export class FullMap {
     this.size = canvas.width
   }
 
-  render(playerPos, facingRad, discoveredCells, cellSize, landmarks) {
+  // Inverse of the render()-local toScreen() - lets Game.js convert a click
+  // on the map canvas back into world coordinates (see its custom-pin
+  // right-click handler), using this class's own size/scale as the single
+  // source of truth instead of duplicating the math.
+  screenToWorld(px, py) {
+    const scale = this.size / (WORLD_HALF_SIZE * 2)
+    return { x: (px - this.size / 2) / scale, z: (py - this.size / 2) / scale }
+  }
+
+  render(playerPos, facingRad, discoveredCells, cellSize, landmarks, customPin = null) {
     const ctx = this.ctx
     const s = this.size
     const scale = s / (WORLD_HALF_SIZE * 2)
@@ -78,6 +87,21 @@ export class FullMap {
     ctx.fillText('Safe Zone', safeX, safeY - 10)
     this.hitTargets[0].px = safeX
     this.hitTargets[0].py = safeY
+
+    // Custom pin (see Game.js's right-click handler) - always drawn
+    // regardless of fog-of-war, unlike named landmarks above, since the
+    // whole point is marking a destination the player hasn't reached yet.
+    if (customPin) {
+      const [pinX, pinY] = toScreen(customPin.x, customPin.z)
+      ctx.fillStyle = '#ff5c5c'
+      ctx.beginPath()
+      ctx.moveTo(pinX, pinY - 9)
+      ctx.lineTo(pinX + 5, pinY + 3)
+      ctx.lineTo(pinX - 5, pinY + 3)
+      ctx.closePath()
+      ctx.fill()
+      this.hitTargets.push({ label: 'Custom Pin', x: customPin.x, z: customPin.z, px: pinX, py: pinY })
+    }
 
     // Player marker, rotated to current facing.
     const [ppx, ppy] = toScreen(playerPos.x, playerPos.z)

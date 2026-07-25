@@ -39,6 +39,7 @@ import { ACTIONS, getKeyFor, setBinding, resetBindings, keyLabel } from './Keybi
 import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
 import { setColorblind } from './Accessibility.js'
+import { registerZone } from './Zones.js'
 
 // Companion flavor barks - plain English rather than full i18n, since these
 // are throwaway personality lines, not core UI text.
@@ -498,6 +499,13 @@ const TRAP_BLAST_RADIUS = 3
 const TRAP_DAMAGE_MIN = 45
 const TRAP_DAMAGE_MAX = 90
 const TRAP_LIFETIME_MS = 30000
+// Tripwire alarm - unlike a trap, never damages anything; it's an
+// early-warning tool (see _triggerAlarm) with a wider detection radius and
+// a longer lifetime since it's meant to watch an approach, not punish one
+// specific step.
+const ALARM_PLACE_DIST = 1.8
+const ALARM_TRIGGER_RADIUS = 6
+const ALARM_LIFETIME_MS = 60000
 // Rubble left behind by a kill - a small chance per kill so a long fight in
 // one spot gradually clutters the battlefield with real obstacles (blocks
 // both the player and other zombies, same as a barricade) instead of every
@@ -614,6 +622,7 @@ const SHOP_ITEMS = [
   { id: 'shield', cost: 30, titleKey: 'shopShield', give: (game) => game.inventory.addShield(1) },
   { id: 'knife', cost: 18, titleKey: 'shopKnife', give: (game) => game.inventory.addThrowingKnife(1) },
   { id: 'turretkit', cost: 120, titleKey: 'shopTurretKit', give: (game) => game.inventory.addTurretKit(1) },
+  { id: 'alarmkit', cost: 25, titleKey: 'shopAlarmKit', give: (game) => game.inventory.addAlarmKit(1) },
   {
     id: 'train_companion',
     cost: 30,
@@ -683,6 +692,7 @@ const SALVAGE_ITEMS = [
   { id: 'shield', invKey: 'shields', titleKey: 'shopShield', sellValue: salvageValue('shield'), sell: (game) => game.inventory.useShield() },
   { id: 'knife', invKey: 'throwingKnives', titleKey: 'shopKnife', sellValue: salvageValue('knife'), sell: (game) => game.inventory.useThrowingKnife() },
   { id: 'turretkit', invKey: 'turretKits', titleKey: 'shopTurretKit', sellValue: salvageValue('turretkit'), sell: (game) => game.inventory.useTurretKit() },
+  { id: 'alarmkit', invKey: 'alarmKits', titleKey: 'shopAlarmKit', sellValue: salvageValue('alarmkit'), sell: (game) => game.inventory.useAlarmKit() },
 ]
 
 // Crafting - an alternative path to specific consumables that doesn't cost
@@ -864,6 +874,7 @@ export class Game {
     this.shieldCount = document.getElementById('shield-count')
     this.knifeCount = document.getElementById('knife-count')
     this.turretkitCount = document.getElementById('turretkit-count')
+    this.alarmkitCount = document.getElementById('alarmkit-count')
     this.inventoryPanel = document.getElementById('inventory-panel')
     this.panelHealthCount = document.getElementById('panel-health-count')
     this.panelArmorCount = document.getElementById('panel-armor-count')
@@ -878,6 +889,7 @@ export class Game {
     this.panelShieldCount = document.getElementById('panel-shield-count')
     this.panelKnifeCount = document.getElementById('panel-knife-count')
     this.panelTurretkitCount = document.getElementById('panel-turretkit-count')
+    this.panelAlarmkitCount = document.getElementById('panel-alarmkit-count')
     this.panelWeaponsList = document.getElementById('panel-weapons-list')
     // Delegated once (not re-bound on every _refreshInventoryPanel render,
     // since that rebuilds the row HTML from scratch) - reads which weapon/
@@ -1340,6 +1352,7 @@ export class Game {
     this.scene.add(this.extractionMarker)
     this.practiceTargets = practiceTargets
     this.traps = []
+    this.alarms = []
     this._vehicleHitAt = new Map()
     this.flickerLights = flickerLights
     this.minigunSpot = minigunSpot
@@ -1639,7 +1652,7 @@ export class Game {
         if (dx * dx + dy * dy > 64) continue // 8px click radius
         const cx = Math.floor(target.x / cellSize)
         const cz = Math.floor(target.z / cellSize)
-        if (target.label !== 'Safe Zone' && !this.discoveredCells.has(`${cx},${cz}`)) continue
+        if (target.label !== 'Safe Zone' && target.label !== 'Custom Pin' && !this.discoveredCells.has(`${cx},${cz}`)) continue
         this.player.controls.object.position.set(target.x, this.player.eyeHeight, target.z)
         this.player.velocity.set(0, 0, 0)
         this.mapOpen = false
@@ -1647,6 +1660,27 @@ export class Game {
         this._showLoreToast(t('fastTraveledTo', { name: target.label }))
         break
       }
+    })
+
+    // Custom map pins - right-click anywhere on the map to drop a marker
+    // (visible through fog-of-war, see FullMap.render's own note), or
+    // right-click near an existing pin to clear it instead of moving it.
+    this.customPin = null
+    this.fullMapCanvas.addEventListener('contextmenu', (e) => {
+      if (!this.mapOpen) return
+      e.preventDefault()
+      const rect = this.fullMapCanvas.getBoundingClientRect()
+      const px = (e.clientX - rect.left) * (this.fullMapCanvas.width / rect.width)
+      const py = (e.clientY - rect.top) * (this.fullMapCanvas.height / rect.height)
+      const world = this.fullMap.screenToWorld(px, py)
+      if (this.customPin && Math.hypot(world.x - this.customPin.x, world.z - this.customPin.z) < 15) {
+        this.customPin = null
+        this._showLoreToast(t('toastPinCleared'))
+      } else {
+        this.customPin = { x: world.x, z: world.z }
+        this._showLoreToast(t('toastPinPlaced'))
+      }
+      this._renderFullMap()
     })
 
     // Photo mode: a free-fly noclip camera + hidden HUD for taking clean
@@ -2013,9 +2047,7 @@ export class Game {
           // player's own position) freezes while mapOpen, same as the
           // inventory panel already does, so nothing on the map can
           // change while it's showing.
-          this.camera.getWorldDirection(this._camDir)
-          const facingRad = Math.atan2(this._camDir.x, -this._camDir.z)
-          this.fullMap.render(this.player.controls.object.position, facingRad, this.discoveredCells, EXPLORE_CELL_SIZE, this.allLocationLandmarks)
+          this._renderFullMap()
         }
         return
       }
@@ -2092,6 +2124,8 @@ export class Game {
         this._throwKnife()
       } else if (e.code === 'Digit8') {
         this._deployTurret()
+      } else if (e.code === 'Digit9') {
+        this._deployAlarm()
       } else if (e.code === getKeyFor('interact')) {
         // Tracked independently of the rest of this branch (which only
         // fires the various one-shot interactions below) so the ammo
@@ -2620,6 +2654,65 @@ export class Game {
       if (trap.triggered || now >= trap.expiresAt) this.scene.remove(trap.mesh)
     }
     this.traps = this.traps.filter((t) => !t.triggered && now < t.expiresAt)
+  }
+
+  // Tripwire alarm - an early-warning tool, not a damage trap (see
+  // ALARM_TRIGGER_RADIUS's own comment). Same place/trigger/expire shape as
+  // _deployTrap/_triggerTrap/_updateTraps above, just with a toast+sound
+  // instead of AoE damage.
+  _deployAlarm() {
+    if (!this.inventory.useAlarmKit()) {
+      this._showLoreToast(t('toastNoAlarmKit'))
+      return
+    }
+    this.camera.getWorldDirection(this._camDir)
+    const playerPos = this.player.controls.object.position
+    const x = playerPos.x + this._camDir.x * ALARM_PLACE_DIST
+    const z = playerPos.z + this._camDir.z * ALARM_PLACE_DIST
+
+    const postMat = flatMaterial({ color: 0x2a2a28, roughness: 0.6, metalness: 0.4 })
+    const wireMat = flatMaterial({ color: 0xd8cfa0, emissive: 0xd8cfa0, emissiveIntensity: 0.6 })
+    const group = new THREE.Group()
+    const post1 = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.5, 8), postMat)
+    post1.position.set(-0.4, 0.25, 0)
+    const post2 = post1.clone()
+    post2.position.set(0.4, 0.25, 0)
+    const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.8, 6), wireMat)
+    wire.rotation.z = Math.PI / 2
+    wire.position.set(0, 0.42, 0)
+    group.add(post1, post2, wire)
+    group.position.set(x, 0, z)
+    this.scene.add(group)
+
+    this.alarms.push({ mesh: group, x, z, triggered: false, expiresAt: performance.now() + ALARM_LIFETIME_MS })
+    this._updateInventoryHud()
+    this._showLoreToast(t('toastAlarmDeployed'))
+  }
+
+  _triggerAlarm(alarm) {
+    alarm.triggered = true
+    this._showLoreToast(t('toastAlarmTriggered'))
+    audioEngine.playNoisemaker()
+  }
+
+  _updateAlarms() {
+    if (this.alarms.length === 0) return
+    const now = performance.now()
+    for (const alarm of this.alarms) {
+      if (alarm.triggered) continue
+      for (const zombie of this.zombies.zombies) {
+        if (zombie.state !== 'alive') continue
+        const dist = Math.hypot(zombie.group.position.x - alarm.x, zombie.group.position.z - alarm.z)
+        if (dist <= ALARM_TRIGGER_RADIUS) {
+          this._triggerAlarm(alarm)
+          break
+        }
+      }
+    }
+    for (const alarm of this.alarms) {
+      if (alarm.triggered || now >= alarm.expiresAt) this.scene.remove(alarm.mesh)
+    }
+    this.alarms = this.alarms.filter((a) => !a.triggered && now < a.expiresAt)
   }
 
   // Rolled from _onZombieKilled - a rubble pile at the kill spot that blocks
@@ -4117,6 +4210,7 @@ export class Game {
     document.getElementById('panel-shield-label').textContent = t('shieldLabel')
     document.getElementById('panel-knife-label').textContent = t('knifeLabel')
     document.getElementById('panel-turretkit-label').textContent = t('shopTurretKit')
+    document.getElementById('panel-alarmkit-label').textContent = t('shopAlarmKit')
     document.getElementById('weapons-title').textContent = t('weaponsTitle')
     document.getElementById('inventory-hint').innerHTML = tHtml('inventoryHint')
 
@@ -4195,6 +4289,7 @@ export class Game {
     this.panelShieldCount.textContent = this.inventory.shields
     this.panelKnifeCount.textContent = this.inventory.throwingKnives
     this.panelTurretkitCount.textContent = this.inventory.turretKits
+    this.panelAlarmkitCount.textContent = this.inventory.alarmKits
     this.panelBarricadeCount.textContent = this.inventory.barricades
     this.panelTrapCount.textContent = this.inventory.traps
     this.panelMolotovCount.textContent = this.inventory.molotovs
@@ -4854,6 +4949,7 @@ export class Game {
     this.shieldCount.textContent = this.inventory.shields
     this.knifeCount.textContent = this.inventory.throwingKnives
     this.turretkitCount.textContent = this.inventory.turretKits
+    this.alarmkitCount.textContent = this.inventory.alarmKits
     this.barricadeCount.textContent = this.inventory.barricades
     this.trapCount.textContent = this.inventory.traps
     this.molotovCount.textContent = this.inventory.molotovs
@@ -5797,6 +5893,29 @@ export class Game {
     this.turret = new Turret(this.scene, this.safeZone.x + 2, this.safeZone.z + 4)
   }
 
+  // Coin Shop 'base_walls' perk - decorative sandbag ring around the safe
+  // zone, plus a real Zones.js density reduction (see Zones.js's own doc
+  // comment) while the player's standing near it. Purely additive, no
+  // collision registered - avoids the rotated-mesh AABB inflation and
+  // safe-zone-coordinate gotchas that hand-authored colliders near the
+  // safe zone have hit before in this codebase.
+  _buildBaseWalls() {
+    if (this.baseWallsBuilt) return
+    this.baseWallsBuilt = true
+    const sandbagMat = flatMaterial({ color: 0x5a5138, roughness: 1 })
+    const radius = 11
+    const postCount = 10
+    for (let i = 0; i < postCount; i++) {
+      const angle = (i / postCount) * Math.PI * 2
+      const bag = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.5, 0.55), sandbagMat)
+      bag.position.set(this.safeZone.x + Math.cos(angle) * radius, 0.25, this.safeZone.z + Math.sin(angle) * radius)
+      bag.rotation.y = angle
+      bag.castShadow = true
+      this.scene.add(bag)
+    }
+    registerZone({ id: 'safezone_fortified', x: this.safeZone.x, z: this.safeZone.z, radius: 20, densityMult: 0.4 })
+  }
+
   // Core-loop twist: VIREO's "wellness light" is exactly what drew the
   // infection in the first place (see the audio log lore), so the
   // flashlight - the tool you need to see at night - is also a beacon.
@@ -6128,6 +6247,16 @@ export class Game {
     }
     for (const s of camp.survivors) s.dispose()
     this.survivorCamp = null
+  }
+
+  // Rendered on demand (map open, or right after placing/clearing a custom
+  // pin) rather than every frame - see the toggleMap handler's own note on
+  // why (gameplay freezes while the map's open, so nothing on it can change
+  // between renders anyway).
+  _renderFullMap() {
+    this.camera.getWorldDirection(this._camDir)
+    const facingRad = Math.atan2(this._camDir.x, -this._camDir.z)
+    this.fullMap.render(this.player.controls.object.position, facingRad, this.discoveredCells, EXPLORE_CELL_SIZE, this.allLocationLandmarks, this.customPin)
   }
 
   // Top-of-screen strip showing which way key landmarks are, relative to
@@ -6520,6 +6649,7 @@ export class Game {
       this._updateLowAmmoCue()
       this._updatePracticeTargets()
       this._updateTraps()
+      this._updateAlarms()
       if (this.rivals.update(dt, playerPos, (dmg) => this._onRivalAttack(dmg))) this._rivalsClaimedAirdrop = true
       this._updateAirdrop()
       if (this.raining && this.nextLightningAt > 0 && performance.now() >= this.nextLightningAt) {

@@ -157,6 +157,20 @@ export const COIN_SHOP_ITEMS = [
       game._buildAutoTurret()
     },
   },
+  // Sandbag perimeter around the safe zone - same 'base' persistence model
+  // as the turret above, but its actual effect is a Zones.js density
+  // reduction (see Game.js's _buildBaseWalls) rather than a new firing prop.
+  {
+    id: 'base_walls',
+    titleKey: 'coinShopBaseWalls',
+    cost: 5000,
+    section: 'base',
+    isOwned: (game) => game.coinShopPurchased.has('base_walls'),
+    apply: (game) => {
+      game.coinShopPurchased.add('base_walls')
+      game._buildBaseWalls()
+    },
+  },
 ]
 
 // Permanent, per-gun attachments (Game.js's Weapons section renders one
