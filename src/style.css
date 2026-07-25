@@ -292,6 +292,10 @@ html, body {
   background: #e0c93f;
 }
 
+.status-fill.hunger {
+  background: #c47a3f;
+}
+
 .status-fill.xp {
   background: #4fd1e8;
 }

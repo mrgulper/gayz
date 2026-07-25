@@ -47,6 +47,7 @@ const TYPES = {
   melee_fireaxe: { weight: 0.4, label: 'Fire Axe' },
   melee_sledgehammer: { weight: 0.3, label: 'Sledgehammer' },
   weapon_charm: { weight: 0.35, label: 'Weapon Charm' },
+  ration: { weight: 1.2, label: 'Ration' },
   // weight 0: never drawn by the street-slot weighted pool, only ever placed
   // via spawnUnique() as one-off fixed-location pickups.
   minigun: { weight: 0, label: 'Minigun' },
@@ -172,6 +173,10 @@ function buildVisual(type) {
     const mat = flatMaterial({ color: 0xffcf5c, emissive: 0xffcf5c, emissiveIntensity: 0.8, roughness: 0.4 })
     const bead = new THREE.Mesh(new THREE.OctahedronGeometry(0.16, 0), mat)
     group.add(bead)
+  } else if (type === 'ration') {
+    const mat = flatMaterial({ color: 0x5a4a2a, roughness: 0.7 })
+    const can = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.22, 0.22), mat)
+    group.add(can)
   } else if (type === 'scope') {
     const tubeMat = flatMaterial({ color: 0x1c1c1a, roughness: 0.3, metalness: 0.7 })
     const lensMat = flatMaterial({ color: 0x2a5a6b, emissive: 0x4fd1e8, emissiveIntensity: 0.8 })

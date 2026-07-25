@@ -75,6 +75,7 @@ const PICKUP_LABELS = {
   melee_fireaxe: () => t('toastFireaxeAdded'),
   melee_sledgehammer: () => t('toastSledgehammerAdded'),
   weapon_charm: () => t('toastCharmAdded'),
+  ration: () => t('toastRationAdded'),
 }
 
 // Starting stat tradeoffs, picked once on the main menu and applied a
@@ -507,6 +508,13 @@ const TRAP_LIFETIME_MS = 30000
 const ALARM_PLACE_DIST = 1.8
 const ALARM_TRIGGER_RADIUS = 6
 const ALARM_LIFETIME_MS = 60000
+// Hunger - light survival pressure alongside health, not a hard fail
+// state: it only ever slow-drains health while empty (HUNGER_STARVE_DPS),
+// never kills outright on its own. Full depletion takes ~10 real minutes
+// of play, restored by eating Rations (press 0).
+const HUNGER_DECAY_PER_SEC = 100 / 600
+const HUNGER_STARVE_DPS = 2
+const RATION_HUNGER_RESTORE = 40
 // Rubble left behind by a kill - a small chance per kill so a long fight in
 // one spot gradually clutters the battlefield with real obstacles (blocks
 // both the player and other zombies, same as a barricade) instead of every
@@ -568,6 +576,13 @@ const CAMP_SURVIVOR_COUNT = 3
 const CAMP_ATTACK_ZOMBIE_COUNT = 6
 const CAMP_EVENT_DURATION_MS = 60000
 const CAMP_LOOT_REWARD_POINTS = 500
+// Escort Convoy - unlike the camp above (stationary, timer-resolved), these
+// survivors use Companion's own follow-the-player AI (see
+// _updateEscortConvoy) and the mission resolves by proximity to the safe
+// zone instead of a clock, so actually leading them home matters.
+const ESCORT_SURVIVOR_COUNT = 2
+const ESCORT_ARRIVAL_RADIUS = 12
+const ESCORT_REWARD_POINTS = 600
 // How close a kill needs to land to a named location to count toward the
 // 'clear_location' bounty - generous enough to cover a whole building's
 // footprint, not just its exact center point.
@@ -624,6 +639,7 @@ const SHOP_ITEMS = [
   { id: 'knife', cost: 18, titleKey: 'shopKnife', give: (game) => game.inventory.addThrowingKnife(1) },
   { id: 'turretkit', cost: 120, titleKey: 'shopTurretKit', give: (game) => game.inventory.addTurretKit(1) },
   { id: 'alarmkit', cost: 25, titleKey: 'shopAlarmKit', give: (game) => game.inventory.addAlarmKit(1) },
+  { id: 'ration', cost: 12, titleKey: 'shopRation', give: (game) => game.inventory.addRation(1) },
   {
     id: 'train_companion',
     cost: 30,
@@ -694,6 +710,7 @@ const SALVAGE_ITEMS = [
   { id: 'knife', invKey: 'throwingKnives', titleKey: 'shopKnife', sellValue: salvageValue('knife'), sell: (game) => game.inventory.useThrowingKnife() },
   { id: 'turretkit', invKey: 'turretKits', titleKey: 'shopTurretKit', sellValue: salvageValue('turretkit'), sell: (game) => game.inventory.useTurretKit() },
   { id: 'alarmkit', invKey: 'alarmKits', titleKey: 'shopAlarmKit', sellValue: salvageValue('alarmkit'), sell: (game) => game.inventory.useAlarmKit() },
+  { id: 'ration', invKey: 'rations', titleKey: 'shopRation', sellValue: salvageValue('ration'), sell: (game) => game.inventory.useRation() },
 ]
 
 // Crafting - an alternative path to specific consumables that doesn't cost
@@ -741,6 +758,17 @@ const CRAFTING_RECIPES = [
       game.inventory.addShield(1)
     },
   },
+]
+
+// Trader Requests - a real 2-stage side quest, distinct in kind from
+// Bounties (which are pure kill-count challenges): stage 1 is an inventory
+// turn-in, stage 2 is a kill count, so there's an actual fetch step before
+// the combat step. See _assignTraderQuest/_renderQuestLine/
+// _checkTraderQuestKill.
+const TRADER_QUESTS = [
+  { id: 'fuel_run', titleKey: 'questFuelRun', fetchInvKey: 'fuelCans', fetchCount: 3, fetchLabelKey: 'shopFuelCan', killCount: 8, rewardPoints: 250, rewardCoins: 80 },
+  { id: 'grenade_cache', titleKey: 'questGrenadeCache', fetchInvKey: 'grenades', fetchCount: 2, fetchLabelKey: 'shopGrenade', killCount: 12, rewardPoints: 300, rewardCoins: 100 },
+  { id: 'medical_supply', titleKey: 'questMedicalSupply', fetchInvKey: 'healthPacks', fetchCount: 2, fetchLabelKey: 'shopHealthPack', killCount: 10, rewardPoints: 275, rewardCoins: 90 },
 ]
 
 // Hidden Trader tier, only shown once Achievements.js's 'centurion' (100
@@ -876,6 +904,7 @@ export class Game {
     this.knifeCount = document.getElementById('knife-count')
     this.turretkitCount = document.getElementById('turretkit-count')
     this.alarmkitCount = document.getElementById('alarmkit-count')
+    this.rationCount = document.getElementById('ration-count')
     this.inventoryPanel = document.getElementById('inventory-panel')
     this.panelHealthCount = document.getElementById('panel-health-count')
     this.panelArmorCount = document.getElementById('panel-armor-count')
@@ -891,6 +920,7 @@ export class Game {
     this.panelKnifeCount = document.getElementById('panel-knife-count')
     this.panelTurretkitCount = document.getElementById('panel-turretkit-count')
     this.panelAlarmkitCount = document.getElementById('panel-alarmkit-count')
+    this.panelRationCount = document.getElementById('panel-ration-count')
     this.panelWeaponsList = document.getElementById('panel-weapons-list')
     // Delegated once (not re-bound on every _refreshInventoryPanel render,
     // since that rebuilds the row HTML from scratch) - reads which weapon/
@@ -904,6 +934,10 @@ export class Game {
     this.staminaFill = document.getElementById('stamina-fill')
     this.batteryFill = document.getElementById('battery-fill')
     this.staminaValue = document.getElementById('stamina-value')
+    this.hungerFill = document.getElementById('hunger-fill')
+    this.hungerValue = document.getElementById('hunger-value')
+    this.hunger = 100
+    this.maxHunger = 100
     this.progressHud = document.getElementById('progress-hud')
     this.nightValueEl = document.getElementById('night-value')
     this.timeValueEl = document.getElementById('time-value')
@@ -1371,6 +1405,10 @@ export class Game {
     this.vireoTerminal = vireoFacility.terminalSpot
     this.subwayEntrance = subwayEntrance
     this.activeBounty = null
+    // Trader Request (see TRADER_QUESTS) - a 2-stage side quest distinct
+    // from the bounty above. null until _assignTraderQuest is first called
+    // (see _openTraderPanel), otherwise { ...questDef, stage: 1, kills: 0 }.
+    this.traderQuest = null
     this.nearVireoTerminal = false
     this.vireoGuardian = null
     this.stationTerminal = undergroundStation.terminalSpot
@@ -1382,6 +1420,9 @@ export class Game {
     // Survivor Camp Liberation (see CAMP_SURVIVOR_COUNT's comment) - null
     // when no camp event is active, otherwise { survivors, x, z, startedAt }
     this.survivorCamp = null
+    // Escort Convoy - null when no mission is active, otherwise
+    // { survivors: Companion[] } (see _spawnEscortConvoy/_updateEscortConvoy)
+    this.escortConvoy = null
     // Permanent squad additions (unlike tempCompanion, which leaves at dawn)
     // - one fixed recruit per underground station office, reusing
     // RescueSurvivor's stationary-NPC visual for the marker since it needs
@@ -1541,6 +1582,7 @@ export class Game {
     this.traderPanelTitle = document.getElementById('trader-panel-title')
     this.traderPointsLine = document.getElementById('trader-points-line')
     this.bountyLineEl = document.getElementById('bounty-line')
+    this.questLineEl = document.getElementById('quest-line')
     this.traderOptions = document.getElementById('trader-options')
     this.traderSalvageTitle = document.getElementById('trader-salvage-title')
     this.traderSalvageOptions = document.getElementById('trader-salvage-options')
@@ -1929,6 +1971,10 @@ export class Game {
         for (const s of this.survivorCamp.survivors) s.dispose()
         this.survivorCamp = null
       }
+      if (this.escortConvoy) {
+        for (const s of this.escortConvoy.survivors) s.dispose()
+        this.escortConvoy = null
+      }
       this.runStartedAt = performance.now()
       this.nightStartedAt = performance.now()
       this._scheduleNightEvent()
@@ -2129,6 +2175,8 @@ export class Game {
         this._deployTurret()
       } else if (e.code === 'Digit9') {
         this._deployAlarm()
+      } else if (e.code === 'Digit0') {
+        this._eatRation()
       } else if (e.code === getKeyFor('interact')) {
         // Tracked independently of the rest of this branch (which only
         // fires the various one-shot interactions below) so the ammo
@@ -3513,6 +3561,8 @@ export class Game {
     this.player.controls.unlock()
     if (!this.activeBounty) this._assignBounty()
     this._renderBounty()
+    if (!this.traderQuest) this._assignTraderQuest()
+    this._renderQuestLine()
     this._renderTraderOptions()
   }
 
@@ -3566,6 +3616,67 @@ export class Game {
     this._showLoreToast(t('bountyComplete', { title: t(b.titleKey, { n: b.target }), reward: b.reward }))
     this._assignBounty(b.id)
     if (this.traderPanelOpen) this._renderBounty()
+  }
+
+  // Trader Request - see TRADER_QUESTS' own doc comment for why this is
+  // meaningfully different from the bounty above (2 stages, a real fetch
+  // step before the kill count).
+  _assignTraderQuest(excludeId) {
+    const pool = TRADER_QUESTS.filter((q) => q.id !== excludeId)
+    const def = pool[Math.floor(Math.random() * pool.length)] || TRADER_QUESTS[0]
+    this.traderQuest = { ...def, stage: 1, kills: 0 }
+  }
+
+  _renderQuestLine() {
+    const q = this.traderQuest
+    this.questLineEl.innerHTML = ''
+    if (!q) return
+    if (q.stage === 1) {
+      const have = this.inventory[q.fetchInvKey]
+      const span = document.createElement('span')
+      span.textContent = t('questStage1Line', { title: t(q.titleKey), have: Math.min(have, q.fetchCount), need: q.fetchCount, item: t(q.fetchLabelKey) })
+      this.questLineEl.appendChild(span)
+      const btn = document.createElement('button')
+      btn.className = 'perk-option'
+      btn.textContent = t('questTurnInButton')
+      btn.disabled = have < q.fetchCount
+      btn.addEventListener('click', () => this._turnInTraderQuestStage1())
+      this.questLineEl.appendChild(btn)
+    } else {
+      const span = document.createElement('span')
+      span.textContent = t('questStage2Line', { title: t(q.titleKey), progress: Math.min(q.kills, q.killCount), target: q.killCount })
+      this.questLineEl.appendChild(span)
+    }
+  }
+
+  _turnInTraderQuestStage1() {
+    const q = this.traderQuest
+    if (!q || q.stage !== 1 || this.inventory[q.fetchInvKey] < q.fetchCount) return
+    this.inventory[q.fetchInvKey] -= q.fetchCount
+    q.stage = 2
+    this._updateInventoryHud()
+    this._renderQuestLine()
+    this._showLoreToast(t('questStage1Complete', { title: t(q.titleKey) }))
+  }
+
+  // Called on every zombie kill (see _onZombieKilled) - unlike the bounty
+  // checks above, stage 2 doesn't care about zombie type or weapon.
+  _checkTraderQuestKill() {
+    const q = this.traderQuest
+    if (!q || q.stage !== 2) return
+    q.kills += 1
+    if (q.kills >= q.killCount) this._completeTraderQuest()
+    else if (this.traderPanelOpen) this._renderQuestLine()
+  }
+
+  _completeTraderQuest() {
+    const q = this.traderQuest
+    this.points += q.rewardPoints
+    this.coins += q.rewardCoins
+    this._updateStatsPanel()
+    this._showLoreToast(t('questComplete', { title: t(q.titleKey), points: q.rewardPoints, coins: q.rewardCoins }))
+    this._assignTraderQuest(q.id)
+    if (this.traderPanelOpen) this._renderQuestLine()
   }
 
   // Rolled once per night-round (see _rollWeather's call sites) - a random
@@ -4214,6 +4325,7 @@ export class Game {
     document.getElementById('panel-knife-label').textContent = t('knifeLabel')
     document.getElementById('panel-turretkit-label').textContent = t('shopTurretKit')
     document.getElementById('panel-alarmkit-label').textContent = t('shopAlarmKit')
+    document.getElementById('panel-ration-label').textContent = t('shopRation')
     document.getElementById('weapons-title').textContent = t('weaponsTitle')
     document.getElementById('inventory-hint').innerHTML = tHtml('inventoryHint')
 
@@ -4293,6 +4405,7 @@ export class Game {
     this.panelKnifeCount.textContent = this.inventory.throwingKnives
     this.panelTurretkitCount.textContent = this.inventory.turretKits
     this.panelAlarmkitCount.textContent = this.inventory.alarmKits
+    this.panelRationCount.textContent = this.inventory.rations
     this.panelBarricadeCount.textContent = this.inventory.barricades
     this.panelTrapCount.textContent = this.inventory.traps
     this.panelMolotovCount.textContent = this.inventory.molotovs
@@ -4592,6 +4705,7 @@ export class Game {
     }
     if (zombieTypeId === 'brute' && weaponId === 'melee') this.achievements.unlock('brute_knife')
     if (zombieTypeId === 'screamer') this._checkBountyProgress('kill_screamers', 1)
+    this._checkTraderQuestKill()
     if (weaponId === 'melee') this._checkBountyProgress('melee_kills', 1)
     if (weaponId === 'minigun') {
       this.killCountsByWeapon.minigun = (this.killCountsByWeapon.minigun || 0) + 1
@@ -4889,6 +5003,7 @@ export class Game {
     else if (type === 'melee_fireaxe') this.weapons.setMeleeVariant('fireaxe')
     else if (type === 'melee_sledgehammer') this.weapons.setMeleeVariant('sledgehammer')
     else if (type === 'weapon_charm') this.weapons.equipCharm(WEAPON_CHARM_IDS[Math.floor(Math.random() * WEAPON_CHARM_IDS.length)])
+    else if (type === 'ration') this.inventory.addRation(1)
     else if (type === 'vaultkey') {
       this.inventory.vaultKey = true
       this._showLoreToast(t('toastVaultKeyFound'))
@@ -4954,6 +5069,7 @@ export class Game {
     this.knifeCount.textContent = this.inventory.throwingKnives
     this.turretkitCount.textContent = this.inventory.turretKits
     this.alarmkitCount.textContent = this.inventory.alarmKits
+    this.rationCount.textContent = this.inventory.rations
     this.barricadeCount.textContent = this.inventory.barricades
     this.trapCount.textContent = this.inventory.traps
     this.molotovCount.textContent = this.inventory.molotovs
@@ -5055,6 +5171,37 @@ export class Game {
     this._lastHudStamina = staminaRounded
     this.staminaFill.style.width = `${(this.player.stamina / this.player.maxStamina) * 100}%`
     this.staminaValue.textContent = staminaRounded
+  }
+
+  // Ticks hunger down over real playtime and applies a light passive drain
+  // while empty (see HUNGER_STARVE_DPS's own doc comment) - never an
+  // instant threat, just a reason to keep a Ration or two in reserve.
+  _updateHunger(dt) {
+    this.hunger = Math.max(0, this.hunger - HUNGER_DECAY_PER_SEC * dt)
+    if (this.hunger <= 0 && this.playerState.alive) {
+      this.playerState.takeDamage(HUNGER_STARVE_DPS * dt)
+      this._updateHealthHud()
+      if (!this.playerState.alive) this._maybeLastStandOrDie()
+    }
+    this._updateHungerHud()
+  }
+
+  _updateHungerHud() {
+    const hungerRounded = Math.round(this.hunger)
+    if (hungerRounded === this._lastHudHunger) return
+    this._lastHudHunger = hungerRounded
+    this.hungerFill.style.width = `${(this.hunger / this.maxHunger) * 100}%`
+    this.hungerValue.textContent = hungerRounded
+  }
+
+  _eatRation() {
+    if (!this.inventory.useRation()) {
+      this._showLoreToast(t('toastNoRations'))
+      return
+    }
+    this.hunger = Math.min(this.maxHunger, this.hunger + RATION_HUNGER_RESTORE)
+    this._updateHungerHud()
+    this._updateInventoryHud()
   }
 
   // Bottom-of-screen 5-slot hotbar (see _bindHotbar for Digit1-5 switching
@@ -6273,6 +6420,59 @@ export class Game {
     this.survivorCamp = null
   }
 
+  // Escort Convoy night event (see 'escort_convoy' in NightEvents.js) -
+  // spawns ESCORT_SURVIVOR_COUNT vulnerable Companion NPCs far from the
+  // safe zone. Unlike _spawnSurvivorCamp, these use Companion's normal
+  // follow-the-player update() unchanged, so the player has to physically
+  // lead them home rather than just holding a position.
+  _spawnEscortConvoy() {
+    if (this.escortConvoy) {
+      for (const s of this.escortConvoy.survivors) s.dispose()
+    }
+    const spot = this.spawnPoints[Math.floor(Math.random() * this.spawnPoints.length)]
+    const survivors = []
+    for (let i = 0; i < ESCORT_SURVIVOR_COUNT; i++) {
+      survivors.push(new Companion(this.scene, spot.x + i, spot.z, 'ranged'))
+    }
+    this.escortConvoy = { survivors }
+    this._showLoreToast(t('toastConvoyStarted'))
+  }
+
+  // Ticked every frame alongside this.recruits (same update() signature) -
+  // resolves by proximity to the safe zone instead of a timer, or
+  // immediately as a failure once every survivor is dead.
+  _updateEscortConvoy(dt, playerPos) {
+    const convoy = this.escortConvoy
+    if (!convoy) return
+    for (const s of convoy.survivors) s.update(dt, playerPos, this.zombies.zombies, null)
+    convoy.survivors = convoy.survivors.filter((s) => !s.dead)
+
+    if (convoy.survivors.length === 0) {
+      this._showLoreToast(t('toastConvoyLost'))
+      this.escortConvoy = null
+      return
+    }
+    const allArrived = convoy.survivors.every((s) => Math.hypot(s.group.position.x - this.safeZone.x, s.group.position.z - this.safeZone.z) <= ESCORT_ARRIVAL_RADIUS)
+    if (allArrived) this._resolveConvoySuccess(convoy)
+  }
+
+  _resolveConvoySuccess(convoy) {
+    this.points += ESCORT_REWARD_POINTS
+    this._updateStatsPanel()
+    if (Math.random() < 0.5) {
+      const recruit = convoy.survivors.shift()
+      this.recruits.push(recruit)
+      this._showLoreToast(t('toastConvoySavedRecruit'))
+    } else {
+      this.inventory.addHealthPack(2)
+      this.inventory.addFuelCan(1)
+      this._updateInventoryHud()
+      this._showLoreToast(t('toastConvoySavedLoot', { reward: ESCORT_REWARD_POINTS }))
+    }
+    for (const s of convoy.survivors) s.dispose()
+    this.escortConvoy = null
+  }
+
   // Rendered on demand (map open, or right after placing/clearing a custom
   // pin) rather than every frame - see the toggleMap handler's own note on
   // why (gameplay freezes while the map's open, so nothing on it can change
@@ -6468,6 +6668,7 @@ export class Game {
         this._updateHotbarHud()
       }
       this._updateStaminaHud()
+      this._updateHunger(dt)
       this._updateFlashlightBattery(dt)
       this._updateKillstreakTimers()
 
@@ -6597,6 +6798,7 @@ export class Game {
       this._updateRescueSurvivor(playerPos)
       if (this.rescueSurvivor) this.rescueSurvivor.update(elapsed)
       this._updateSurvivorCamp(dt, playerPos)
+      this._updateEscortConvoy(dt, playerPos)
       this._updateRecruitSpots(elapsed, playerPos)
       this._updateBossHealthBar()
       this._updateKingOfTheHill(dt, playerPos)

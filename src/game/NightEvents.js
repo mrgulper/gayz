@@ -64,6 +64,27 @@ export const NIGHT_EVENTS = [
     },
   },
   {
+    id: 'escort_convoy',
+    labelKey: 'eventEscortConvoy',
+    apply: (game) => game._spawnEscortConvoy(),
+  },
+  {
+    id: 'radio_distress',
+    // eventRadioDistress's own text carries the radio-chatter framing (see
+    // i18n.js) - Game.js's own trigger site already toasts t(labelKey)
+    // right after apply() runs, same as every other NIGHT_EVENTS entry.
+    labelKey: 'eventRadioDistress',
+    // Themed variant of the same chest+zombie-burst shape supply_drop/
+    // camp_attack already use, framed through the radio chatter device
+    // instead of a generic event banner - distinct from Game.js's
+    // RADIO_CHATTER_KEYS, which are pure flavor with no gameplay attached.
+    apply: (game) => {
+      const spot = game.spawnPoints[Math.floor(Math.random() * game.spawnPoints.length)]
+      game.chests.addChest(spot.x, 0, spot.z)
+      game.zombies.spawnAt(spot.x, spot.z, 4)
+    },
+  },
+  {
     id: 'emp_field',
     labelKey: 'eventEmpField',
     apply: (game) => {
