@@ -3,6 +3,7 @@ import { audioEngine } from './Audio.js'
 import { buildViewmodel, buildQuickMeleeKnifeModel } from './Viewmodels.js'
 import { t, onLanguageChange } from './i18n.js'
 import { getKeyFor } from './Keybinds.js'
+import { flatMaterial } from './QualitySettings.js'
 
 const VIEWMODEL_BASE = new THREE.Vector3(0.26, -0.22, -0.5)
 // Was intensity 4 / distance 8 - blew out everything nearby on every shot.
@@ -171,6 +172,20 @@ const MELEE_VARIANTS = {
   // (see Zombie.stun) on top of its already-high damage.
   sledgehammer: { name: 'Sledgehammer', damage: 130, fireInterval: 0.95, range: 2.2, stunMs: 1200 },
 }
+
+// Weapon charms - found as loot (see Game.js's toastCharmAdded), purely
+// cosmetic (no stat effect, unlike every other loot pickup this game has).
+// One small mesh built per palette entry rather than per gun model: it's
+// parented directly to viewmodelRoot (see equipCharm below), so it stays
+// visible near the grip no matter which weapon is currently equipped
+// instead of needing bespoke integration into all 8+ viewmodel builders.
+const WEAPON_CHARMS = {
+  skull: { color: 0xe8e4d8, geometry: () => new THREE.OctahedronGeometry(0.03, 0) },
+  star: { color: 0xffcf5c, geometry: () => new THREE.OctahedronGeometry(0.032, 0) },
+  clover: { color: 0x5ca85c, geometry: () => new THREE.TorusGeometry(0.024, 0.012, 6, 10) },
+  dice: { color: 0xd8483a, geometry: () => new THREE.BoxGeometry(0.04, 0.04, 0.04) },
+}
+export const WEAPON_CHARM_IDS = Object.keys(WEAPON_CHARMS)
 
 export class WeaponSystem {
   constructor(camera, scene, colliderMeshes, hud, zombieManager, onHitSurface, onZombieHit, onStealthTakedown) {
@@ -360,6 +375,20 @@ export class WeaponSystem {
       // laser sight barely matters on an already-tight rifle.
       if (w.spread) w.spread *= 0.55
     }
+  }
+
+  // See WEAPON_CHARMS' own doc comment - swaps in place rather than
+  // stacking, so finding a second charm replaces the first instead of
+  // cluttering the grip with several.
+  equipCharm(charmId) {
+    const charm = WEAPON_CHARMS[charmId]
+    if (!charm) return
+    if (this.charmMesh) this.viewmodelRoot.remove(this.charmMesh)
+    const mat = flatMaterial({ color: charm.color, emissive: charm.color, emissiveIntensity: 0.4, roughness: 0.5 })
+    this.charmMesh = new THREE.Mesh(charm.geometry(), mat)
+    this.charmMesh.position.set(-0.11, -0.09, 0.08)
+    this.viewmodelRoot.add(this.charmMesh)
+    this.currentCharm = charmId
   }
 
   // Chest-found rarity upgrade (see Chests.js's rare_weapon/legendary_weapon

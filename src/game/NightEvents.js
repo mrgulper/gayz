@@ -76,3 +76,16 @@ export const NIGHT_EVENTS = [
 export function pickNightEvent() {
   return NIGHT_EVENTS[Math.floor(Math.random() * NIGHT_EVENTS.length)]
 }
+
+// Whole-round modifier, rolled once at the start of a night (see Game.js's
+// _rollNightMutation, called alongside _rollWeather) - distinct from
+// NIGHT_EVENTS above, which fires once at a random MOMENT mid-round. Only
+// NIGHT_MUTATION_CHANCE of nights get one at all, so most nights stay
+// exactly as they'd otherwise play.
+export const NIGHT_MUTATION_CHANCE = 0.35
+export const NIGHT_MUTATIONS = [
+  { id: 'armored', labelKey: 'mutationArmored', healthMult: 1.35 },
+  { id: 'swift', labelKey: 'mutationSwift', speedMult: 1.25 },
+  { id: 'reckless', labelKey: 'mutationReckless', aggroRadiusMult: 1.6 },
+  { id: 'docile', labelKey: 'mutationDocile', aggroRadiusMult: 0.5 },
+]

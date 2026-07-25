@@ -144,14 +144,18 @@ function jitterGeometry(geometry, amount) {
 }
 
 export class Zombie {
-  constructor(x, z, typeConfig, isAmbush = false, isElite = false, night = 1, healthMult = 1) {
+  constructor(x, z, typeConfig, isAmbush = false, isElite = false, night = 1, healthMult = 1, speedMult = 1) {
     this.id = zombieIdCounter++
     this.type = typeConfig.id
     this.config = typeConfig
     this.isAmbush = isAmbush
     this.isElite = isElite
 
-    this.speed = typeConfig.speedMin + Math.random() * (typeConfig.speedMax - typeConfig.speedMin)
+    // speedMult: Game.js's nightly mutation roll (see NightEvents.js's
+    // NIGHT_MUTATIONS) - a whole-round modifier, distinct from the several
+    // timed per-zombie multipliers effectiveSpeed already combines below
+    // (burst/enrage/berserk/weaken).
+    this.speed = (typeConfig.speedMin + Math.random() * (typeConfig.speedMax - typeConfig.speedMin)) * speedMult
     this.phase = Math.random() * Math.PI * 2
     this.twitchPhase = Math.random() * Math.PI * 2
     this.postureOffset = (Math.random() - 0.5) * 0.3
@@ -161,6 +165,11 @@ export class Zombie {
 
     this.health = typeConfig.health * (isElite ? ELITE_HEALTH_MULT : 1) * healthMult
     this.maxHealth = this.health
+    // Shielded type (see ZombieTypes.js's shielded/shieldHealth) - a
+    // separate absorb pool that non-melee hits drain first; melee bypasses
+    // it entirely (see onHit's blockedByShield check). 0 for every other
+    // type, so the check there is always false without extra guards.
+    this.shieldHealth = typeConfig.shielded ? typeConfig.shieldHealth : 0
     // alive states flow: dormant -> popping -> alive -> dying/exploding -> dead
     this.state = isAmbush ? 'dormant' : 'alive'
     this.dormantSince = performance.now()
@@ -1491,7 +1500,15 @@ export class Zombie {
 
   onHit(damage) {
     if (this.state !== 'alive' && this.state !== 'popping') return
-    this.health = Math.max(0, this.health - damage)
+    // Shielded type: non-melee hits drain the shield pool first and never
+    // touch health while it holds; melee (see lastHitWeaponId, set by
+    // WeaponSystem._fire right before every onHit call) skips it entirely.
+    const blockedByShield = this.shieldHealth > 0 && this.lastHitWeaponId !== 'melee'
+    if (blockedByShield) {
+      this.shieldHealth = Math.max(0, this.shieldHealth - damage)
+    } else {
+      this.health = Math.max(0, this.health - damage)
+    }
     this.staggerUntil = performance.now() + 200
 
     this._barSprite.visible = true

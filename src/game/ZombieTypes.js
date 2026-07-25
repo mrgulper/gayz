@@ -90,6 +90,29 @@ export const ZOMBIE_TYPES = {
     skinTones: [0x4a5540, 0x424c38, 0x505c45],
     clothesTones: [0x0f1611, 0x131c15],
   },
+  burrower: {
+    id: 'burrower',
+    label: 'Burrower',
+    lore: "Went under the rubble instead of over it. You won't hear it coming - it's already close.",
+    weight: 2,
+    health: 45,
+    speedMin: 2.2,
+    speedMax: 3.0,
+    damageMin: 32,
+    damageMax: 50,
+    scale: 0.95,
+    ranged: false,
+    // See ZombieManager._spawnRandom - forces isAmbush and swaps in a much
+    // tighter BURROWER_RADIUS_MIN/MAX than the normal ambush range, so this
+    // type always pops up right on top of the player instead of just
+    // sometimes doing the standard dormant-hide-and-wait other melee types
+    // already roll for.
+    burrower: true,
+    meleeRange: 1.4,
+    attackCooldown: 0.9,
+    skinTones: [0x4a3d2e, 0x453828, 0x4f4132],
+    clothesTones: [0x231c12, 0x1e1810],
+  },
   exploder: {
     id: 'exploder',
     label: 'Bloater',
@@ -110,6 +133,28 @@ export const ZOMBIE_TYPES = {
     explodeDamageMax: 145,
     skinTones: [0x4a6a52, 0x4f6d55, 0x436047],
     clothesTones: [0x152018, 0x18251a],
+  },
+  shielded: {
+    id: 'shielded',
+    label: 'Riot Corpse',
+    lore: "Whatever it's wearing still holds. Bullets won't get through it - your knife will.",
+    weight: 2,
+    health: 65,
+    speedMin: 1.1,
+    speedMax: 1.7,
+    damageMin: 40,
+    damageMax: 58,
+    scale: 1.1,
+    ranged: false,
+    // See Zombie.js's onHit/shieldHealth - a separate pool that absorbs
+    // every non-melee hit until depleted, at which point it behaves like
+    // any other melee type. Melee bypasses it entirely, every time.
+    shielded: true,
+    shieldHealth: 90,
+    meleeRange: 1.6,
+    attackCooldown: 1.1,
+    skinTones: [0x3a3d42, 0x35383d, 0x40434a],
+    clothesTones: [0x1c1e22, 0x202226],
   },
   screamer: {
     id: 'screamer',

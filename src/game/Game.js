@@ -6,7 +6,7 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { buildWorld, WORLD_CULL_DISTANCE, WORLD_SHADOW_CULL_DISTANCE } from './World.js'
 import { LOW_QUALITY_MODE, flatMaterial } from './QualitySettings.js'
 import { PlayerController } from './PlayerController.js'
-import { WeaponSystem } from './WeaponSystem.js'
+import { WeaponSystem, WEAPON_CHARM_IDS } from './WeaponSystem.js'
 import { ZombieManager } from './ZombieManager.js'
 import { PickupManager } from './Pickups.js'
 import { PlayerState } from './PlayerState.js'
@@ -25,7 +25,7 @@ import { rollXpUpgrades } from './XpUpgrades.js'
 import { XpGemManager } from './XpGems.js'
 import { AutoWeaponManager } from './AutoWeapons.js'
 import { COIN_SHOP_ITEMS, ATTACHMENT_TYPES } from './CoinShop.js'
-import { pickNightEvent } from './NightEvents.js'
+import { pickNightEvent, NIGHT_MUTATIONS, NIGHT_MUTATION_CHANCE } from './NightEvents.js'
 import { Companion } from './Companion.js'
 import { Turret } from './Turret.js'
 import { PlayerBody } from './PlayerBody.js'
@@ -74,6 +74,7 @@ const PICKUP_LABELS = {
   melee_uvbaton: () => t('toastUvBatonAdded'),
   melee_fireaxe: () => t('toastFireaxeAdded'),
   melee_sledgehammer: () => t('toastSledgehammerAdded'),
+  weapon_charm: () => t('toastCharmAdded'),
 }
 
 // Starting stat tradeoffs, picked once on the main menu and applied a
@@ -1413,6 +1414,7 @@ export class Game {
     this.zombies = new ZombieManager(this.scene, this.difficulty.spawnRateMult, colliders, solidMeshes)
     this.zombies.healthMult = this.difficulty.healthMult
     this.zombies.eliteChanceMult = this.difficulty.eliteChanceMult
+    this._rollNightMutation()
     // Zombies must never be able to stand inside the safe zone - the wall
     // colliders alone don't cover this since the entrance gap has no
     // collider (the player needs to walk through it too), so ZombieManager
@@ -1931,6 +1933,7 @@ export class Game {
       this.nightStartedAt = performance.now()
       this._scheduleNightEvent()
       this._rollWeather()
+      this._rollNightMutation()
       this._rollFeaturedItem()
       this._rollTraderPrices()
       this._updateHealthHud()
@@ -4885,6 +4888,7 @@ export class Game {
     else if (type === 'melee_uvbaton') this.weapons.setMeleeVariant('uvbaton')
     else if (type === 'melee_fireaxe') this.weapons.setMeleeVariant('fireaxe')
     else if (type === 'melee_sledgehammer') this.weapons.setMeleeVariant('sledgehammer')
+    else if (type === 'weapon_charm') this.weapons.equipCharm(WEAPON_CHARM_IDS[Math.floor(Math.random() * WEAPON_CHARM_IDS.length)])
     else if (type === 'vaultkey') {
       this.inventory.vaultKey = true
       this._showLoreToast(t('toastVaultKeyFound'))
@@ -5181,6 +5185,26 @@ export class Game {
     this.rainOverlayEl.style.display = this.raining ? 'block' : 'none'
     this.snowOverlayEl.style.display = this.snowing ? 'block' : 'none'
     this.nextLightningAt = this.raining ? performance.now() + LIGHTNING_MIN_DELAY_MS + Math.random() * LIGHTNING_DELAY_RANGE_MS : 0
+  }
+
+  // Rolled once per night-round, same cadence as _rollWeather - see
+  // NightEvents.js's NIGHT_MUTATIONS for what each one does. Always
+  // recomputed from this.difficulty.healthMult fresh (never multiplied in
+  // place) so a mutation can never compound across nights or fight with
+  // the difficulty setting's own value.
+  _rollNightMutation() {
+    if (Math.random() < NIGHT_MUTATION_CHANCE) {
+      this.nightMutation = NIGHT_MUTATIONS[Math.floor(Math.random() * NIGHT_MUTATIONS.length)]
+      this.zombies.healthMult = this.difficulty.healthMult * (this.nightMutation.healthMult || 1)
+      this.zombies.aggroRadiusMult = this.nightMutation.aggroRadiusMult || 1
+      this.zombies.speedMult = this.nightMutation.speedMult || 1
+      this._showLoreToast(t(this.nightMutation.labelKey))
+    } else {
+      this.nightMutation = null
+      this.zombies.healthMult = this.difficulty.healthMult
+      this.zombies.aggroRadiusMult = 1
+      this.zombies.speedMult = 1
+    }
   }
 
   // Independent of rain - a localized fog bank that rolls in at a random
@@ -6491,6 +6515,7 @@ export class Game {
         this.nightStartedAt = performance.now()
         this._scheduleNightEvent()
         this._rollWeather()
+      this._rollNightMutation()
         this._rollFeaturedItem()
         this._rollTraderPrices()
         this.chests.refillNight()
