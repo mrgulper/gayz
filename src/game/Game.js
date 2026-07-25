@@ -236,6 +236,52 @@ function _dailyTwistIndex(dateStr) {
   return Math.abs(hash) % DAILY_TWISTS.length
 }
 
+// Weekly Challenge - a rotating kill-count goal distinct from the Daily
+// Challenge mutator above: no spawn/damage twist or hardcore forcing, just
+// a cumulative target tracked across every run played that week, with a
+// one-time coin reward on completion. Deliberately lighter-weight than
+// fully mirroring the Daily Challenge's whole mutator machinery.
+const WEEKLY_CHALLENGES = [
+  { id: 'headhunter', titleKey: 'weeklyHeadhunter', target: 300, rewardCoins: 200 },
+  { id: 'exterminator', titleKey: 'weeklyExterminator', target: 500, rewardCoins: 300 },
+  { id: 'sharpshooter', titleKey: 'weeklySharpshooter', target: 200, rewardCoins: 150 },
+]
+
+function _thisWeekStr() {
+  const d = new Date()
+  const firstJan = new Date(d.getFullYear(), 0, 1)
+  const week = Math.ceil(((d - firstJan) / 86400000 + firstJan.getDay() + 1) / 7)
+  return `${d.getFullYear()}-W${week}`
+}
+
+function _weeklyChallengeIndex(weekStr) {
+  let hash = 0
+  for (let i = 0; i < weekStr.length; i++) hash = (hash * 31 + weekStr.charCodeAt(i)) | 0
+  return Math.abs(hash) % WEEKLY_CHALLENGES.length
+}
+
+const WEEKLY_CHALLENGE_KEY = 'gayz-weekly-challenge'
+
+function loadWeeklyChallenge() {
+  const week = _thisWeekStr()
+  try {
+    const raw = localStorage.getItem(WEEKLY_CHALLENGE_KEY)
+    const parsed = raw ? JSON.parse(raw) : null
+    if (parsed && parsed.week === week) return parsed
+    return { week, progress: 0, completed: false }
+  } catch {
+    return { week, progress: 0, completed: false }
+  }
+}
+
+function saveWeeklyChallenge(w) {
+  try {
+    localStorage.setItem(WEEKLY_CHALLENGE_KEY, JSON.stringify(w))
+  } catch {
+    // Storage unavailable - weekly challenge progress just won't persist.
+  }
+}
+
 const DAILY_BEST_KEY = 'gayz-daily-best'
 
 function loadDailyBest() {
@@ -1098,6 +1144,7 @@ export class Game {
     this.comboCount = 0
     this.comboResetAt = 0
     this.deathStats = document.getElementById('death-stats')
+    this.deathSummary = document.getElementById('death-summary')
     this.deathLegacyPoints = document.getElementById('death-legacy-points')
     this.deathScoreAttack = document.getElementById('death-score-attack')
     this.deathEndless = document.getElementById('death-endless')
@@ -1708,6 +1755,8 @@ export class Game {
     }
     saveStash(this.stash)
     this.traderTotalSales = loadTraderSales()
+    this.weeklyChallenge = loadWeeklyChallenge()
+    this.weeklyDef = WEEKLY_CHALLENGES[_weeklyChallengeIndex(this.weeklyChallenge.week)]
     this.metaProgress = loadMetaProgress()
     this._applyMetaUpgrades()
     this.achievements = new Achievements((def) => this._showAchievementToast(def))
@@ -1717,6 +1766,11 @@ export class Game {
     this._updateTrophyWall()
     this.nearTrophyWall = false
     this.killCountsByWeapon = {}
+    // Run summary screen (see _renderRunSummary) - generic per-weapon
+    // tally for the CURRENT run only, distinct from killCountsByWeapon
+    // above (minigun-only, feeds the meat_grinder achievement) and from
+    // WeaponMastery's persistent cross-run kills.
+    this.killCountsThisRun = {}
     this.challengeKillCounts = this.shopProgress.challengeKillCounts
     this.weaponChallengesUnlocked = this.shopProgress.weaponChallengesUnlocked
     this.achievementLabel = document.getElementById('achievement-label')
@@ -1739,6 +1793,7 @@ export class Game {
     this.traderPointsLine = document.getElementById('trader-points-line')
     this.bountyLineEl = document.getElementById('bounty-line')
     this.questLineEl = document.getElementById('quest-line')
+    this.weeklyChallengeLineEl = document.getElementById('weekly-challenge-line')
     this.traderOptions = document.getElementById('trader-options')
     this.traderSalvageTitle = document.getElementById('trader-salvage-title')
     this.traderSalvageOptions = document.getElementById('trader-salvage-options')
@@ -2130,6 +2185,7 @@ export class Game {
       this.companion.resetVitals()
       this.night = 1
       this.kills = 0
+      this.killCountsThisRun = {}
       this.killStreak = 0
       this.lastStandUsed = false
       this.playerDowned = false
@@ -3901,6 +3957,7 @@ export class Game {
     this._renderBounty()
     if (!this.traderQuest) this._assignTraderQuest()
     this._renderQuestLine()
+    this._renderWeeklyChallengeLine()
     this._renderTraderOptions()
   }
 
@@ -3954,6 +4011,26 @@ export class Game {
     this._showLoreToast(t('bountyComplete', { title: t(b.titleKey, { n: b.target }), reward: b.reward }))
     this._assignBounty(b.id)
     if (this.traderPanelOpen) this._renderBounty()
+  }
+
+  // Weekly Challenge - see WEEKLY_CHALLENGES' own doc comment.
+  _checkWeeklyChallengeProgress() {
+    if (this.weeklyChallenge.completed) return
+    this.weeklyChallenge.progress += 1
+    if (this.weeklyChallenge.progress >= this.weeklyDef.target) {
+      this.weeklyChallenge.completed = true
+      this.coins += this.weeklyDef.rewardCoins
+      this._showLoreToast(t('weeklyChallengeComplete', { title: t(this.weeklyDef.titleKey), coins: this.weeklyDef.rewardCoins }))
+    }
+    saveWeeklyChallenge(this.weeklyChallenge)
+    if (this.traderPanelOpen) this._renderWeeklyChallengeLine()
+  }
+
+  _renderWeeklyChallengeLine() {
+    const w = this.weeklyChallenge
+    this.weeklyChallengeLineEl.textContent = w.completed
+      ? t('weeklyChallengeDoneLine', { title: t(this.weeklyDef.titleKey) })
+      : t('weeklyChallengeLine', { title: t(this.weeklyDef.titleKey), progress: Math.min(w.progress, this.weeklyDef.target), target: this.weeklyDef.target, coins: this.weeklyDef.rewardCoins })
   }
 
   // Trader Request - see TRADER_QUESTS' own doc comment for why this is
@@ -5072,6 +5149,8 @@ export class Game {
     this.killStreak += 1
     this._checkKillstreakReward()
     this.totalKills += 1
+    this.killCountsThisRun[weaponId] = (this.killCountsThisRun[weaponId] || 0) + 1
+    this._checkWeeklyChallengeProgress()
     // Last Stand - clawing back up under your own power, not a passive
     // timer-only wait (see _tryLastStand/downedKillsNeeded).
     if (this.playerDowned) {
@@ -5095,7 +5174,16 @@ export class Game {
     this.xpGems.spawn(x, z, (isElite ? 4 : 1) * lootMult)
     if (isElite) {
       this.eliteKills += 1
-      if (this.eliteKills >= 5) this.achievements.unlock('elite_hunter')
+      if (this.eliteKills >= 5) {
+        this.achievements.unlock('elite_hunter')
+        // Milestone cosmetic unlock - same free-grant shape as
+        // bestiary_master's obsidian skin below, just a different
+        // achievement/skin pairing.
+        if (!this.ownedSkins.has('crimson')) {
+          this.ownedSkins.add('crimson')
+          this._showLoreToast(t('crimsonSkinUnlocked'))
+        }
+      }
     }
     if (weaponId === 'vehicle') this.achievements.unlock('road_kill')
     this._registerComboKill()
@@ -5125,7 +5213,13 @@ export class Game {
     if (weaponId === 'melee') this._checkBountyProgress('melee_kills', 1)
     if (weaponId === 'minigun') {
       this.killCountsByWeapon.minigun = (this.killCountsByWeapon.minigun || 0) + 1
-      if (this.killCountsByWeapon.minigun >= 50) this.achievements.unlock('meat_grinder')
+      if (this.killCountsByWeapon.minigun >= 50) {
+        this.achievements.unlock('meat_grinder')
+        if (!this.ownedSkins.has('cobalt')) {
+          this.ownedSkins.add('cobalt')
+          this._showLoreToast(t('cobaltSkinUnlocked'))
+        }
+      }
     }
     this._trackWeaponMastery(weaponId)
     this._checkWeaponChallenge(weaponId)
@@ -5324,6 +5418,26 @@ export class Game {
     }, SQUAD_BANTER_LINE_DELAY_MS)
   }
 
+  // Fuller death-screen breakdown alongside the existing night/kills/time
+  // line - top weapon (see killCountsThisRun's own doc comment) and total
+  // damage taken this run (see PlayerState.totalDamageTaken).
+  _renderRunSummary() {
+    let topWeapon = null
+    let topCount = 0
+    for (const [weaponId, count] of Object.entries(this.killCountsThisRun)) {
+      if (count > topCount) {
+        topWeapon = weaponId
+        topCount = count
+      }
+    }
+    const weaponLabel = topWeapon ? t(`weapon${topWeapon.charAt(0).toUpperCase()}${topWeapon.slice(1)}`) : t('runSummaryNoKills')
+    this.deathSummary.textContent = t('runSummaryLine', {
+      weapon: weaponLabel,
+      kills: topCount,
+      damage: Math.round(this.playerState.totalDamageTaken),
+    })
+  }
+
   _onPlayerDeath() {
     this.player.controls.unlock()
     this.crosshair.style.display = 'none'
@@ -5363,6 +5477,7 @@ export class Game {
 
     const elapsed = formatTime(performance.now() - this.runStartedAt)
     this.deathStats.textContent = t('deathStats', { night: this.night, kills: this.kills, time: elapsed })
+    this._renderRunSummary()
 
     const legacyEarned = Math.floor(this.points * DEATH_POINTS_CONVERSION * (1 + this.metaProgress.prestigeLevel * 0.1))
     this.metaProgress.legacyPoints += legacyEarned

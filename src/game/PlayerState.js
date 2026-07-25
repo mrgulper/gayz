@@ -14,6 +14,9 @@ export class PlayerState {
     this.alive = true
     this.armorAbsorbRatio = ARMOR_ABSORB_RATIO
     this.infected = false
+    // Run summary screen (see Game.js's _onPlayerDeath) - actual health
+    // lost, after armor absorption, not the raw pre-absorption amount.
+    this.totalDamageTaken = 0
   }
 
   takeDamage(amount) {
@@ -25,6 +28,7 @@ export class PlayerState {
       remaining -= absorbed
     }
     this.health = Math.max(0, this.health - remaining)
+    this.totalDamageTaken += remaining
     if (!this.infected && Math.random() < INFECTION_CHANCE_PER_HIT) this.infected = true
     if (this.health <= 0) this.alive = false
   }
@@ -55,5 +59,6 @@ export class PlayerState {
     this.alive = true
     this.armorAbsorbRatio = ARMOR_ABSORB_RATIO
     this.infected = false
+    this.totalDamageTaken = 0
   }
 }
