@@ -207,6 +207,20 @@ export const COIN_SHOP_ITEMS = [
       game._buildWatchtower()
     },
   },
+  // Farming Plot - same 'base' persistence model, its effect is a slow
+  // passive Ration trickle (see Game.js's _updateFarmPlot) instead of a
+  // one-time stat bump, feeding into the hunger meter's own economy.
+  {
+    id: 'farm_plot',
+    titleKey: 'coinShopFarmPlot',
+    cost: 3500,
+    section: 'base',
+    isOwned: (game) => game.coinShopPurchased.has('farm_plot'),
+    apply: (game) => {
+      game.coinShopPurchased.add('farm_plot')
+      game._buildFarmPlot()
+    },
+  },
 ]
 
 // Permanent, per-gun attachments (Game.js's Weapons section renders one

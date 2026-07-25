@@ -122,6 +122,11 @@ function loadSettings() {
       // or null for empty. Defaults match the request this was built for:
       // melee/AK-47/M1911 filled in, two open slots for whatever's bought.
       hotbar: Array.isArray(parsed.hotbar) && parsed.hotbar.length === 5 ? parsed.hotbar : ['melee', 'rifle', 'pistol', null, null],
+      // Loadout save slots (see Game.js's _saveHotbarPreset/_loadHotbarPreset) -
+      // 3 named snapshots of the 5-slot hotbar above, so switching between a
+      // couple of full weapon setups doesn't mean re-assigning every slot by
+      // hand each time. null entries are empty/unsaved slots.
+      hotbarPresets: Array.isArray(parsed.hotbarPresets) && parsed.hotbarPresets.length === 3 ? parsed.hotbarPresets : [null, null, null],
       mutators: {
         hordeRush: parsed.mutators?.hordeRush ?? false,
         lootRush: parsed.mutators?.lootRush ?? false,
@@ -139,7 +144,7 @@ function loadSettings() {
       },
     }
   } catch {
-    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false } }
+    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, colorblind: false, nickname: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false } }
   }
 }
 
@@ -305,6 +310,67 @@ function saveLeaderboard(entries) {
     localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(entries))
   } catch {
     // Storage unavailable - leaderboard just won't persist across sessions.
+  }
+}
+
+// Shared Stash - a small cross-run bank for a few consumables (see
+// STASH_ITEMS), distinct from every other persistence system in this game:
+// Legacy Points/Coin Shop persist STATS, this persists actual inventory
+// items. Deposited via the Trader panel, auto-withdrawn into inventory the
+// next time a fresh page load starts (see Game.js constructor).
+const STASH_KEY = 'gayz-stash'
+const STASH_ITEMS = [
+  { invKey: 'healthPacks', titleKey: 'shopHealthPack' },
+  { invKey: 'grenades', titleKey: 'shopGrenade' },
+  { invKey: 'fuelCans', titleKey: 'shopFuelCan' },
+  { invKey: 'rations', titleKey: 'shopRation' },
+]
+
+function loadStash() {
+  try {
+    const raw = localStorage.getItem(STASH_KEY)
+    const parsed = raw ? JSON.parse(raw) : {}
+    const stash = {}
+    for (const item of STASH_ITEMS) stash[item.invKey] = Math.max(0, Math.floor(parsed[item.invKey] || 0))
+    return stash
+  } catch {
+    const stash = {}
+    for (const item of STASH_ITEMS) stash[item.invKey] = 0
+    return stash
+  }
+}
+
+function saveStash(stash) {
+  try {
+    localStorage.setItem(STASH_KEY, JSON.stringify(stash))
+  } catch {
+    // Storage unavailable - stash just won't persist across sessions.
+  }
+}
+
+// Trader leveling - cumulative Points ever sold to the Trader (persists
+// across every run, never resets), unlocking a small permanent discount
+// tier every TRADER_LEVEL_SALES_PER_TIER sold. Stacks with (multiplies
+// into) the existing traderDiscount meta-upgrade in _traderPrice, rather
+// than replacing it.
+const TRADER_SALES_KEY = 'gayz-trader-sales'
+const TRADER_LEVEL_SALES_PER_TIER = 2000
+const TRADER_LEVEL_DISCOUNT_PER_TIER = 0.01
+const TRADER_LEVEL_MAX_DISCOUNT = 0.2
+
+function loadTraderSales() {
+  try {
+    return Math.max(0, Number(localStorage.getItem(TRADER_SALES_KEY)) || 0)
+  } catch {
+    return 0
+  }
+}
+
+function saveTraderSales(total) {
+  try {
+    localStorage.setItem(TRADER_SALES_KEY, String(total))
+  } catch {
+    // Storage unavailable - trader level just won't persist across sessions.
   }
 }
 
@@ -575,6 +641,9 @@ const DESTRUCTIBLE_WALL_HEALTH = 220
 // bi-directional between 2 fixed points connected by a purely decorative
 // cable (no collider - see _buildZipline's own note).
 const ZIPLINE_INTERACT_RADIUS = 3
+// Farming Plot - passive Ration trickle while built, feeding the hunger
+// meter's economy (see CoinShop.js's farm_plot entry).
+const FARM_HARVEST_INTERVAL_MS = 90000
 const HAZARD_EMP_BATTERY_DRAIN_PER_SEC = 30
 const VEHICLE_RAM_MIN_SPEED = 4
 const VEHICLE_RAM_RADIUS = 2.6
@@ -966,6 +1035,7 @@ export class Game {
     this.panelAlarmkitCount = document.getElementById('panel-alarmkit-count')
     this.panelRationCount = document.getElementById('panel-ration-count')
     this.panelWeaponsList = document.getElementById('panel-weapons-list')
+    this.panelLoadoutPresets = document.getElementById('panel-loadout-presets')
     // Delegated once (not re-bound on every _refreshInventoryPanel render,
     // since that rebuilds the row HTML from scratch) - reads which weapon/
     // slot the clicked button belongs to off its own data attributes.
@@ -973,6 +1043,12 @@ export class Game {
       const btn = e.target.closest('.hotbar-assign-btn')
       if (!btn || btn.disabled) return
       this._assignHotbarSlot(Number(btn.dataset.slot), btn.dataset.weapon)
+    })
+    this.panelLoadoutPresets.addEventListener('click', (e) => {
+      const saveBtn = e.target.closest('.loadout-save-btn')
+      const loadBtn = e.target.closest('.loadout-load-btn')
+      if (saveBtn) this._saveHotbarPreset(Number(saveBtn.dataset.slot))
+      else if (loadBtn && !loadBtn.disabled) this._loadHotbarPreset(Number(loadBtn.dataset.slot))
     })
     this.inventoryOpen = false
     this.staminaFill = document.getElementById('stamina-fill')
@@ -1602,6 +1678,18 @@ export class Game {
     this.chests = new ChestManager(this.scene, towerChestSpots)
     this.playerState = new PlayerState()
     this.inventory = new Inventory()
+    // Shared Stash - auto-withdraw whatever was banked last run into this
+    // fresh run's inventory, then clear the bank (see STASH_ITEMS' own
+    // doc comment).
+    this.stash = loadStash()
+    for (const item of STASH_ITEMS) {
+      if (this.stash[item.invKey] > 0) {
+        this.inventory[item.invKey] += this.stash[item.invKey]
+        this.stash[item.invKey] = 0
+      }
+    }
+    saveStash(this.stash)
+    this.traderTotalSales = loadTraderSales()
     this.metaProgress = loadMetaProgress()
     this._applyMetaUpgrades()
     this.achievements = new Achievements((def) => this._showAchievementToast(def))
@@ -1638,6 +1726,8 @@ export class Game {
     this.traderSalvageOptions = document.getElementById('trader-salvage-options')
     this.traderCraftingTitle = document.getElementById('trader-crafting-title')
     this.traderCraftingOptions = document.getElementById('trader-crafting-options')
+    this.traderStashTitle = document.getElementById('trader-stash-title')
+    this.traderStashOptions = document.getElementById('trader-stash-options')
     this.traderBlackMarketTitle = document.getElementById('trader-blackmarket-title')
     this.traderBlackMarketOptions = document.getElementById('trader-blackmarket-options')
     this.traderHint = document.getElementById('trader-hint')
@@ -3916,7 +4006,11 @@ export class Game {
   _traderPrice(item) {
     const mult = this.traderPriceMults?.[item.id] ?? 1
     const discountMult = this.metaProgress.purchased.has('traderDiscount') ? 0.85 : 1
-    return Math.max(1, Math.round(item.cost * mult * discountMult))
+    // Trader leveling (see TRADER_LEVEL_SALES_PER_TIER's own comment) -
+    // stacks with (multiplies into) the discount above rather than
+    // replacing it.
+    const levelDiscount = Math.min(TRADER_LEVEL_MAX_DISCOUNT, Math.floor(this.traderTotalSales / TRADER_LEVEL_SALES_PER_TIER) * TRADER_LEVEL_DISCOUNT_PER_TIER)
+    return Math.max(1, Math.round(item.cost * mult * discountMult * (1 - levelDiscount)))
   }
 
   _renderTraderOptions() {
@@ -3974,6 +4068,7 @@ export class Game {
 
     this._renderSalvageOptions()
     this._renderCraftingOptions()
+    this._renderStashOptions()
     this._renderBlackMarketOptions()
   }
 
@@ -4027,6 +4122,8 @@ export class Game {
       btn.addEventListener('click', () => {
         if (!item.sell(this)) return
         this.points += item.sellValue
+        this.traderTotalSales += item.sellValue
+        saveTraderSales(this.traderTotalSales)
         this._updateStatsPanel()
         this._updateInventoryHud()
         this._renderTraderOptions()
@@ -4062,6 +4159,34 @@ export class Game {
         this._renderTraderOptions()
       })
       this.traderCraftingOptions.appendChild(btn)
+    }
+  }
+
+  // Shared Stash - always shown (unlike crafting/salvage, which hide when
+  // nothing qualifies) since depositing 0 of everything is still a valid,
+  // visible state showing what's already banked.
+  _renderStashOptions() {
+    this.traderStashOptions.innerHTML = ''
+    this.traderStashTitle.textContent = t('stashSectionLabel')
+    for (const item of STASH_ITEMS) {
+      const have = this.inventory[item.invKey]
+      const banked = this.stash[item.invKey]
+      const btn = document.createElement('button')
+      btn.className = 'perk-option'
+      btn.disabled = have <= 0
+      btn.innerHTML = `
+        <span class="perk-name">${t(item.titleKey)} (${t('stashBankedLabel', { n: banked })})</span>
+        <span class="perk-cost">${t('stashDepositLabel', { n: have })}</span>
+      `
+      btn.addEventListener('click', () => {
+        if (this.inventory[item.invKey] <= 0) return
+        this.inventory[item.invKey] -= 1
+        this.stash[item.invKey] += 1
+        saveStash(this.stash)
+        this._updateInventoryHud()
+        this._renderTraderOptions()
+      })
+      this.traderStashOptions.appendChild(btn)
     }
   }
 
@@ -4655,6 +4780,45 @@ export class Game {
       `
       })
       .join('')
+    this._renderLoadoutPresets()
+  }
+
+  // 3 named snapshots of the 5-slot hotbar (see settings.hotbarPresets'
+  // own doc comment) - save copies the CURRENT hotbar into a slot, load
+  // restores it, so switching between a couple of full weapon setups
+  // doesn't mean re-assigning every slot by hand each time.
+  _renderLoadoutPresets() {
+    this.panelLoadoutPresets.innerHTML = this.settings.hotbarPresets
+      .map((preset, i) => {
+        const summary = preset ? (preset.filter(Boolean).join(', ') || t('loadoutPresetEmptySlots')) : t('loadoutPresetEmpty')
+        return `
+        <div class="inv-panel-row">
+          <span>${t('loadoutPresetSlot', { n: i + 1 })}: ${summary}</span>
+          <span>
+            <button class="loadout-save-btn" data-slot="${i}">${t('loadoutPresetSave')}</button>
+            <button class="loadout-load-btn" data-slot="${i}" ${preset ? '' : 'disabled'}>${t('loadoutPresetLoad')}</button>
+          </span>
+        </div>
+      `
+      })
+      .join('')
+  }
+
+  _saveHotbarPreset(slot) {
+    this.settings.hotbarPresets[slot] = [...this.settings.hotbar]
+    saveSettings(this.settings)
+    this._renderLoadoutPresets()
+    this._showLoreToast(t('toastLoadoutSaved', { n: slot + 1 }))
+  }
+
+  _loadHotbarPreset(slot) {
+    const preset = this.settings.hotbarPresets[slot]
+    if (!preset) return
+    this.settings.hotbar = [...preset]
+    saveSettings(this.settings)
+    this._updateHotbarHud()
+    this._refreshInventoryPanel()
+    this._showLoreToast(t('toastLoadoutLoaded', { n: slot + 1 }))
   }
 
   _onResize() {
@@ -6355,6 +6519,43 @@ export class Game {
     this.weapons.damageMult += 0.05
   }
 
+  // Coin Shop 'farm_plot' perk - decorative crop-row planes near the safe
+  // zone, plus a slow passive Ration trickle (see _updateFarmPlot) rather
+  // than a one-time stat bump. Same idempotent-build guard as the other
+  // 'base' perks.
+  _buildFarmPlot() {
+    if (this.farmPlotBuilt) return
+    this.farmPlotBuilt = true
+    const soilMat = flatMaterial({ color: 0x3a2c1e, roughness: 1 })
+    const cropMat = flatMaterial({ color: 0x5a8a3a, roughness: 0.9 })
+    const plotX = this.safeZone.x + 9
+    const plotZ = this.safeZone.z - 6
+    for (let row = 0; row < 3; row++) {
+      const soil = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.15, 0.6), soilMat)
+      soil.position.set(plotX, 0.08, plotZ + row * 0.9)
+      soil.receiveShadow = true
+      this.scene.add(soil)
+      for (let i = 0; i < 5; i++) {
+        const crop = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.3, 5), cropMat)
+        crop.position.set(plotX - 1.1 + i * 0.55, 0.3, plotZ + row * 0.9)
+        crop.castShadow = true
+        this.scene.add(crop)
+      }
+    }
+    this.nextFarmHarvestAt = performance.now() + FARM_HARVEST_INTERVAL_MS
+  }
+
+  // Only ticks while the plot's actually been built - a no-op otherwise,
+  // same "harmless if never purchased" shape as every other Coin Shop perk.
+  _updateFarmPlot() {
+    if (!this.farmPlotBuilt) return
+    if (performance.now() < this.nextFarmHarvestAt) return
+    this.nextFarmHarvestAt = performance.now() + FARM_HARVEST_INTERVAL_MS
+    this.inventory.addRation(1)
+    this._updateInventoryHud()
+    this._showLoreToast(t('toastFarmHarvest'))
+  }
+
   // Rolled alongside _rollWeather/_rollNightMutation (see their own call
   // sites) - banner meshes are built once, lazily, then just recolored on
   // every later call rather than rebuilt from scratch.
@@ -6959,6 +7160,7 @@ export class Game {
       }
       this._updateStaminaHud()
       this._updateHunger(dt)
+      this._updateFarmPlot()
       this._updateCorpsePileSlow(playerPos)
       this._updateFlashlightBattery(dt)
       this._updateKillstreakTimers()
