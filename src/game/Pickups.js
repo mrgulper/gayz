@@ -344,13 +344,18 @@ export class PickupManager {
     this.scene.add(pickup.group)
   }
 
-  update(dt, elapsed, playerPos, handlers) {
+  // companionPos (Companion Auto-Loot) - optional, so every existing call
+  // site without a companion nearby behaves exactly as before. Checked
+  // alongside playerPos rather than a second full update() pass, which
+  // would tick each pickup's own bob/spin animation twice as fast.
+  update(dt, elapsed, playerPos, handlers, companionPos = null) {
     for (const pickup of this.pickups) {
       pickup.update(dt, elapsed)
       if (!pickup.active) continue
 
       const dist = Math.hypot(playerPos.x - pickup.group.position.x, playerPos.z - pickup.group.position.z)
-      if (dist <= PICKUP_RADIUS) {
+      const companionDist = companionPos ? Math.hypot(companionPos.x - pickup.group.position.x, companionPos.z - pickup.group.position.z) : Infinity
+      if (dist <= PICKUP_RADIUS || companionDist <= PICKUP_RADIUS) {
         this._collect(pickup, handlers)
       }
     }

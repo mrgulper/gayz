@@ -902,6 +902,11 @@ const ESCORT_REWARD_POINTS = 600
 // footprint, not just its exact center point.
 const CLEAR_LOCATION_RADIUS = 40
 const RECRUIT_INTERACT_RADIUS = 2.5
+// Informant NPC - a fixed safe-zone fixture (unlike Rescue Survivors/Recruit
+// Spots, which roam/appear at scattered world locations), so it just needs
+// one static interact radius rather than a per-spot array.
+const INFORMANT_INTERACT_RADIUS = 2.5
+const INFORMANT_COST = 60
 // Fixed roles rather than random - each recruit spot is a reason to visit
 // both underground station offices (see buildUndergroundStation), not just
 // duplicate whatever role the player already picked for their main companion.
@@ -1821,6 +1826,10 @@ export class Game {
     // update loop - so anything placed underground would stay pinned there
     // even after the player and the recruit both walk back to the surface).
     this.recruits = []
+    // Squad Formation Toggle (see _toggleSquadHold) - off by default, so
+    // the whole squad follows the player exactly like before this existed.
+    this.squadHoldPosition = false
+    this.squadHoldAnchor = null
     this.recruitSpots = [
       { x: -3, z: -36, role: RECRUIT_ROLES[0] },
       { x: 3, z: 28, role: RECRUIT_ROLES[1] },
@@ -2279,6 +2288,7 @@ export class Game {
       this._buildDestructibleWall(wallSpot.x + 4, wallSpot.z)
     }
     this._buildZipline()
+    this._buildInformant()
 
     this.timer = new THREE.Timer()
     this.timer.connect(document)
@@ -2555,6 +2565,11 @@ export class Game {
         return
       }
 
+      if (e.code === getKeyFor('squadHold')) {
+        this._toggleSquadHold()
+        return
+      }
+
       if (e.code === getKeyFor('photoMode')) {
         if (this.inventoryOpen || this.mapOpen || this.journalOpen) return // don't let photo mode open on top of the inventory/map/journal
         this.photoModeOpen = !this.photoModeOpen
@@ -2664,6 +2679,8 @@ export class Game {
           this._tryMysteryBox()
         } else if (this.nearZiplineEnd) {
           this._useZipline()
+        } else if (this.nearInformant) {
+          this._useInformant()
         } else {
           const loot = this.chests.tryInteract()
           if (loot) {
@@ -6614,6 +6631,21 @@ export class Game {
   // go down instead of just tanking hits forever - this reacts to the
   // one-shot justWentDown/justDied flags each companion sets on itself and
   // figures out who (if anyone) the player can currently revive.
+  // Squad Formation Toggle - "Hold Position" freezes the companion/temp
+  // companion/every recruit at wherever the player is standing right now
+  // (see the squadTargetPos substitution in the main tick); "Follow" (the
+  // default) goes right back to chasing the real player.
+  _toggleSquadHold() {
+    this.squadHoldPosition = !this.squadHoldPosition
+    if (this.squadHoldPosition) {
+      const pos = this.player.controls.object.position
+      this.squadHoldAnchor = { x: pos.x, z: pos.z }
+      this._showLoreToast(t('squadHoldToast'))
+    } else {
+      this._showLoreToast(t('squadFollowToast'))
+    }
+  }
+
   _updateCompanionDownedState(playerPos) {
     if (this.companion.justWentDown) {
       this.companion.justWentDown = false
@@ -7249,6 +7281,54 @@ export class Game {
     this.nextAmmoPressAt = performance.now() + AMMO_PRESS_INTERVAL_MS
     if (!this.weapons.current.melee) this.weapons.addAmmoToCurrent(AMMO_PRESS_AMOUNT)
     this._showLoreToast(t('toastAmmoPress', { n: AMMO_PRESS_AMOUNT }))
+  }
+
+  // Informant NPC - a fixed safe-zone fixture (always present, not a Coin
+  // Shop purchase like the base structures above), offering intel instead
+  // of items/services: pay coins, reveal one random undiscovered location
+  // straight onto the map's fog-of-war (see this.discoveredCells) without
+  // having to actually walk there first.
+  _buildInformant() {
+    const mat = flatMaterial({ color: 0x2a2420, roughness: 0.85 })
+    const capMat = flatMaterial({ color: 0x3a3228, emissive: 0xffb84a, emissiveIntensity: 0.5, roughness: 0.6 })
+    this.informantX = this.safeZone.x + 9
+    this.informantZ = this.safeZone.z + 6
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.4, 1.7, 8), mat)
+    post.position.set(this.informantX, 0.85, this.informantZ)
+    post.castShadow = true
+    this.scene.add(post)
+    const cap = new THREE.Mesh(new THREE.ConeGeometry(0.5, 0.5, 8), capMat)
+    cap.position.set(this.informantX, 1.95, this.informantZ)
+    this.scene.add(cap)
+    this.nearInformant = false
+  }
+
+  _updateInformant(playerPos) {
+    const dist = Math.hypot(playerPos.x - this.informantX, playerPos.z - this.informantZ)
+    this.nearInformant = dist <= INFORMANT_INTERACT_RADIUS
+  }
+
+  _useInformant() {
+    if (this.coins < INFORMANT_COST) {
+      this._showLoreToast(t('informantNoCoins'))
+      return
+    }
+    const undiscovered = this.allLocationLandmarks.filter((lm) => {
+      const cx = Math.floor(lm.x / EXPLORE_CELL_SIZE)
+      const cz = Math.floor(lm.z / EXPLORE_CELL_SIZE)
+      return !this.discoveredCells.has(`${cx},${cz}`)
+    })
+    if (undiscovered.length === 0) {
+      this._showLoreToast(t('informantNothingLeft'))
+      return
+    }
+    this.coins -= INFORMANT_COST
+    const pick = undiscovered[Math.floor(Math.random() * undiscovered.length)]
+    const cx = Math.floor(pick.x / EXPLORE_CELL_SIZE)
+    const cz = Math.floor(pick.z / EXPLORE_CELL_SIZE)
+    this.discoveredCells.add(`${cx},${cz}`)
+    this._updateStatsPanel()
+    this._showLoreToast(t('informantRevealed', { name: pick.label }))
   }
 
   // Rolled alongside _rollWeather/_rollNightMutation (see their own call
@@ -8030,12 +8110,18 @@ export class Game {
         () => this._triggerShake(0.18, 600),
         (x, z) => this._spawnHazardZone('web', x, z)
       )
-      this.companion.update(dt, playerPos, this.zombies.zombies, (amount) => {
+      // Squad Formation Toggle (see _toggleSquadHold) - the whole squad
+      // treats a fixed anchor point as "playerPos" instead of the real one
+      // while holding, same substitution ZombieManager already uses to
+      // redirect wandering-horde members toward a waypoint instead of the
+      // player.
+      const squadTargetPos = this.squadHoldPosition ? this.squadHoldAnchor : playerPos
+      this.companion.update(dt, squadTargetPos, this.zombies.zombies, (amount) => {
         this.playerState.heal(amount)
         this._updateHealthHud()
       })
-      if (this.tempCompanion) this.tempCompanion.update(dt, playerPos, this.zombies.zombies, null)
-      for (const recruit of this.recruits) recruit.update(dt, playerPos, this.zombies.zombies, null)
+      if (this.tempCompanion) this.tempCompanion.update(dt, squadTargetPos, this.zombies.zombies, null)
+      for (const recruit of this.recruits) recruit.update(dt, squadTargetPos, this.zombies.zombies, null)
       this._updateCompanionDownedState(playerPos)
       for (const guard of this.safeZoneGuards) {
         guard.update(dt, guard.group.position, this.zombies.zombies, null)
@@ -8045,9 +8131,14 @@ export class Game {
       this._updateSafeZoneHeal(dt, playerPos)
       if (this.settings.mutators.healthRegen) this._updateHealthRegen(dt)
       if (this.flashlightOn) this._updateLightLure(playerPos)
+      // Companion Auto-Loot - the companion sweeps up anything it walks
+      // near too, not just the player (see Pickups.update's companionPos
+      // param). Only while actually up and about, same guard every other
+      // companion-ability check in this file uses.
+      const companionLootPos = (!this.companion.dead && !this.companion.downed) ? this.companion.group.position : null
       this.pickups.update(dt, elapsed, playerPos, {
         onPickup: (type, label, isLoot) => this._onPickup(type, label, isLoot),
-      })
+      }, companionLootPos)
       this.xpGems.update(dt, elapsed, playerPos, (value) => this._onXpGemCollected(value))
       this.autoWeapons.update(dt, playerPos, this.zombies.zombies, () => {
         this._triggerShake(0.04, 80)
@@ -8077,6 +8168,7 @@ export class Game {
       this._updateSurvivorCamp(dt, playerPos)
       this._updateEscortConvoy(dt, playerPos)
       this._updateRecruitSpots(elapsed, playerPos)
+      this._updateInformant(playerPos)
       this._updateBossHealthBar()
       this._updateKingOfTheHill(dt, playerPos)
       this._updateExtraction(dt, playerPos)
@@ -8142,6 +8234,9 @@ export class Game {
         this.interactPrompt.style.display = 'block'
       } else if (this.nearZiplineEnd) {
         this.interactPrompt.innerHTML = tHtml('interactZipline')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearInformant) {
+        this.interactPrompt.innerHTML = tHtml('interactInformant', { cost: INFORMANT_COST })
         this.interactPrompt.style.display = 'block'
       } else {
         this.interactPrompt.style.display = 'none'
