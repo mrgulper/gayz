@@ -203,6 +203,8 @@ export class Zombie {
     this.explodeStartedAt = 0
     this.screamCooldownUntil = performance.now() + (typeConfig.screams ? Math.random() * typeConfig.screamCooldown * 1000 : 0)
     this.screamPulseUntil = 0
+    this.trailCooldownUntil = performance.now() + (typeConfig.leavesTrail ? Math.random() * typeConfig.trailIntervalMs : 0)
+    this.leapCooldownUntil = 0
     this.enragedUntil = 0
     this.weakenedUntil = 0
     // Hivemind boss aura (see ZombieManager's own per-frame proximity
@@ -970,8 +972,16 @@ export class Zombie {
     this._barSprite.material.map.needsUpdate = true
   }
 
-  update(dt, elapsed, playerPos, onAttack, onSpit, onAmbushTrigger, onExplode, playerCrouching = false, onScream = null, colliders = null, solidMeshes = null, allZombies = null) {
+  update(dt, elapsed, playerPos, onAttack, onSpit, onAmbushTrigger, onExplode, playerCrouching = false, onScream = null, colliders = null, solidMeshes = null, allZombies = null, onTrail = null) {
     this._tickIgnite(dt)
+    // Regenerator - heals back up over time, same "one flag, checked once a
+    // frame regardless of movement branch" shape ignite already uses. Fire
+    // suppresses it entirely rather than just outracing it, so an
+    // Incendiary/Flamethrower hit is a real, readable counter.
+    if (this.config.regenerates && this.state === 'alive' && !this.igniteUntil) {
+      this.health = Math.min(this.maxHealth, this.health + this.config.regenPerSec * dt)
+      this._redrawHealthBar()
+    }
     if (this.state === 'dormant') {
       const dist = Math.hypot(playerPos.x - this.group.position.x, playerPos.z - this.group.position.z)
       const waited = performance.now() - this.dormantSince
@@ -1121,6 +1131,26 @@ export class Zombie {
         this.screamPulseUntil = performance.now() + 500
         onScream(this.group.position.x, this.group.position.z, this.config.screamRadius, this.config.screamEnrageMs)
       }
+
+      // Acid Trail (see leavesTrail) - same cooldown-gated callback shape as
+      // screams/onScream above, just dropping a hazard puddle instead of
+      // buffing nearby zombies.
+      if (this.config.leavesTrail && onTrail && performance.now() >= this.trailCooldownUntil) {
+        this.trailCooldownUntil = performance.now() + this.config.trailIntervalMs
+        onTrail(this.group.position.x, this.group.position.z)
+      }
+    }
+
+    // Stalker (see stealthy) - ramps from mostly-transparent to fully
+    // visible as the player closes to within revealRadius, regardless of
+    // the staggered/attack branch above so it doesn't suddenly reappear
+    // mid-hitstun.
+    if (this.config.stealthy) {
+      const targetOpacity = THREE.MathUtils.clamp(1 - dist / this.config.revealRadius, 0.12, 1)
+      for (const mat of this.materials) {
+        mat.transparent = true
+        mat.opacity = THREE.MathUtils.damp(mat.opacity ?? targetOpacity, targetOpacity, 6, dt)
+      }
     }
 
     this._animate(dt, elapsed)
@@ -1207,6 +1237,17 @@ export class Zombie {
   _updateMelee(dt, dist, nx, nz, onAttack, colliders, solidMeshes, playerPos) {
     if (this.isBoss && this._updateBossSpecial(dist, playerPos, onAttack) === 'busy') return
 
+    // Leaper - closes most of the gap in one lunge instead of the normal
+    // per-frame walk speed, on its own separate cooldown so it can't chain
+    // lunges back to back.
+    if (this.config.leaps && dist <= this.config.leapRange && dist > this.config.meleeRange &&
+        this._hasLineOfSight(playerPos, solidMeshes) && performance.now() >= this.leapCooldownUntil) {
+      this.leapCooldownUntil = performance.now() + this.config.leapCooldown * 1000
+      this._tryMove(nx * (dist - this.config.meleeRange * 0.7), nz * (dist - this.config.meleeRange * 0.7), colliders)
+      this.group.rotation.y = Math.atan2(nx, nz)
+      return
+    }
+
     // In range but no line of sight (a wall/floor between us and the
     // player) means "can't actually reach them" just as much as being too
     // far away - keep approaching instead of freezing into an attack that
@@ -1221,6 +1262,11 @@ export class Zombie {
       const damage = (this.config.damageMin + Math.random() * (this.config.damageMax - this.config.damageMin)) *
         (weakened ? DEFAULT_WEAKEN_MULT : 1) * (this.isElite ? ELITE_DAMAGE_MULT : 1) * (this.isBerserk ? BERSERK_DAMAGE_MULT : 1)
       if (onAttack) onAttack(damage)
+      // Vampire - heals off a fraction of the damage it just landed.
+      if (this.config.lifesteal) {
+        this.health = Math.min(this.maxHealth, this.health + damage * this.config.lifestealFraction)
+        this._redrawHealthBar()
+      }
     }
   }
 
@@ -1537,6 +1583,9 @@ export class Zombie {
     // as does the Armor-Piercing Rounds attachment (opts.bypassShield),
     // which reads as "punches straight through like melee does" rather than
     // needing its own separate damage path.
+    // Brittle - takes bonus damage from every source, applied here rather
+    // than at each individual damage-source call site.
+    if (this.config.fragile) damage *= this.config.fragileDamageMult
     const blockedByShield = this.shieldHealth > 0 && this.lastHitWeaponId !== 'melee' && !opts.bypassShield
     if (blockedByShield) {
       this.shieldHealth = Math.max(0, this.shieldHealth - damage)
@@ -1563,7 +1612,9 @@ export class Zombie {
       // explodeOnDeath (see spitter_bomber in ZombieTypes.js) reuses the
       // exploder's own _explode/pendingExplosion path even though this
       // zombie's live attack behavior is ranged, not proximity-explode.
-      if (this.config.explodes || this.config.explodeOnDeath) {
+      // Brittle's shatterOnMelee reuses the exact same path, gated on the
+      // finishing blow specifically being melee.
+      if (this.config.explodes || this.config.explodeOnDeath || (this.config.shatterOnMelee && this.lastHitWeaponId === 'melee')) {
         this.pendingExplosion = true
       } else {
         this.state = 'dying'

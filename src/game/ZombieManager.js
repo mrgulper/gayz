@@ -724,7 +724,7 @@ export class ZombieManager {
       .flatMap((z) => z.hittableMeshes)
   }
 
-  _spawnProjectile(origin, targetSnapshot, damage, travelSpeed) {
+  _spawnProjectile(origin, targetSnapshot, damage, travelSpeed, effect = 'damage') {
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 10), projectileMat)
     mesh.position.copy(origin)
     this.scene.add(mesh)
@@ -732,7 +732,7 @@ export class ZombieManager {
     const distance = origin.distanceTo(targetSnapshot)
     const travelTime = Math.max(0.15, distance / travelSpeed)
 
-    this.projectiles.push({ mesh, origin, target: targetSnapshot, damage, travelTime, t: 0 })
+    this.projectiles.push({ mesh, origin, target: targetSnapshot, damage, travelTime, t: 0, effect })
   }
 
   // Player-thrown decoy: arcs to the target point, then plays a loud sound
@@ -1171,13 +1171,22 @@ export class ZombieManager {
     this.nextMoanAt = performance.now() + this._randomMoanDelay()
   }
 
-  _updateProjectiles(dt, playerPos, onPlayerDamage) {
+  _updateProjectiles(dt, playerPos, onPlayerDamage, onPlayerPull, onPlayerDisorient, onWebLand) {
     this.projectiles = this.projectiles.filter((p) => {
       p.t += dt / p.travelTime
       if (p.t >= 1) {
         this.scene.remove(p.mesh)
         const dist = Math.hypot(playerPos.x - p.target.x, playerPos.z - p.target.z)
-        if (dist <= PROJECTILE_HIT_RADIUS && onPlayerDamage) onPlayerDamage(p.damage)
+        if (dist <= PROJECTILE_HIT_RADIUS) {
+          // Anchor/Siren/Webber - same arrival check as a normal damaging
+          // hit, just landing a different effect instead of (or alongside,
+          // for Webber which plants a zone the player isn't necessarily
+          // standing in yet) player damage.
+          if (p.effect === 'pull') { if (onPlayerPull) onPlayerPull(p.origin.x, p.origin.z) }
+          else if (p.effect === 'disorient') { if (onPlayerDisorient) onPlayerDisorient() }
+          else if (onPlayerDamage) onPlayerDamage(p.damage)
+        }
+        if (p.effect === 'web' && onWebLand) onWebLand(p.target.x, p.target.z)
         return false
       }
       p.mesh.position.lerpVectors(p.origin, p.target, p.t)
@@ -1186,7 +1195,7 @@ export class ZombieManager {
     })
   }
 
-  update(dt, playerPos, onPlayerDamage, onZombieLoot, onAmbushTrigger, onZombieKilled, playerCrouching = false, isNight = false) {
+  update(dt, playerPos, onPlayerDamage, onZombieLoot, onAmbushTrigger, onZombieKilled, playerCrouching = false, isNight = false, onTrail = null, onPlayerPull = null, onPlayerDisorient = null, onWebLand = null) {
     this.elapsed += dt
     // Every spawn function below reads this instead of assuming the player
     // is near the map origin - true on the old 150x150 map, not on the
@@ -1259,16 +1268,26 @@ export class ZombieManager {
 
       let targetPos = playerPos
       let attackCb = onPlayerDamage
-      let spitCb = (origin, target, damage, speed) => this._spawnProjectile(origin, target, damage, speed)
+      const spitEffect = zombie.config.pullsPlayer ? 'pull' : zombie.config.disorients ? 'disorient' : zombie.config.plantsWeb ? 'web' : 'damage'
+      let spitCb = (origin, target, damage, speed) => this._spawnProjectile(origin, target, damage, speed, spitEffect)
 
       // Wandering horde members ignore the player entirely and drift toward
       // the horde's waypoint until the player closes to within aggro range -
       // at that point they fall through to the normal playerPos targeting
-      // below like any other zombie.
-      if (zombie.isWandering && zombie.state === 'alive') {
+      // below like any other zombie. Bloodhound (see ignoresStealth) skips
+      // this distraction entirely - Dead Silence's aggroRadiusMult shrinks
+      // the radius everyone else notices at, but never this type.
+      if (zombie.isWandering && zombie.state === 'alive' && !zombie.config.ignoresStealth) {
         const distToPlayer = Math.hypot(playerPos.x - zombie.group.position.x, playerPos.z - zombie.group.position.z)
         if (distToPlayer > HORDE_EVENT_AGGRO_RADIUS * this.aggroRadiusMult && this.wanderingHorde) {
-          targetPos = { x: this.wanderingHorde.x, z: this.wanderingHorde.z }
+          // y: playerPos.y, not omitted - Zombie.update()'s excessElevation
+          // check reads target.y unconditionally, and a missing/undefined
+          // value there poisons that calc to NaN, which makes every
+          // downstream "dist > meleeRange" comparison false (NaN comparisons
+          // are always false) - a redirected zombie would silently stop
+          // moving and sit there doing a no-op attack (attackCb is null
+          // right below) instead of drifting toward the horde waypoint.
+          targetPos = { x: this.wanderingHorde.x, y: playerPos.y, z: this.wanderingHorde.z }
           attackCb = null
           spitCb = null
         }
@@ -1303,7 +1322,8 @@ export class ZombieManager {
         (x, z, radius, enrageMs) => this._onZombieScream(x, z, radius, enrageMs),
         nearbyColliders,
         this.solidMeshes,
-        this.zombies
+        this.zombies,
+        onTrail
       )
 
       // Push back out to the safe zone's radius every frame - simple radial
@@ -1376,7 +1396,7 @@ export class ZombieManager {
       }
     }
 
-    this._updateProjectiles(dt, playerPos, onPlayerDamage)
+    this._updateProjectiles(dt, playerPos, onPlayerDamage, onPlayerPull, onPlayerDisorient, onWebLand)
     this._updateExplosionFx()
     this._updateScreamFx()
     this._updateAmbientMoan(playerPos)

@@ -673,6 +673,18 @@ const TOXIC_SPREAD_START_RADIUS = 4
 const TOXIC_SPREAD_MAX_RADIUS = 16
 const TOXIC_SPREAD_GROWTH_PER_SEC = 0.3
 const TOXIC_SPREAD_DAMAGE_PER_TICK = 6
+// Acid Trail zombie (see ZombieTypes.js's leavesTrail) - a small fixed pool
+// dropped on a cooldown while it's alive and moving, same tick-damage shape
+// as the gas zone above rather than a new hazard mechanic.
+const HAZARD_ACID_RADIUS = 3
+const HAZARD_ACID_DURATION_MS = 8000
+const HAZARD_ACID_DAMAGE_PER_TICK = 6
+// Webber zombie (see ZombieTypes.js's plantsWeb) - a patch that slows
+// instead of damaging, read by PlayerController's webSlowMult the same way
+// corpse piles read corpsePileMult below.
+const HAZARD_WEB_RADIUS = 4
+const HAZARD_WEB_DURATION_MS = 6000
+const WEB_SLOW_MULT = 0.55
 // Corpse pile-up - a cluster of recent kills slows the player passing
 // through it (see PlayerController's corpsePileMult), recomputed live
 // every frame from a rolling window of recent kill spots rather than a
@@ -3224,22 +3236,30 @@ export class Game {
   // player per tick while inside; 'emp' forces the flashlight off and
   // drains its battery fast instead, no direct damage.
   _spawnHazardZone(type, x, z) {
-    const isGas = type === 'gas'
-    const isToxicSpread = type === 'toxic_spread'
-    const color = isToxicSpread ? 0x6ecf3a : isGas ? 0x5fcf4a : 0x4ecfff
-    const baseRadius = isToxicSpread ? TOXIC_SPREAD_START_RADIUS : HAZARD_RADIUS
+    // color/radius/duration per type - was a 3-way ternary chain that
+    // silently assumed "anything that isn't gas/toxic_spread is emp"; a
+    // lookup reads the same for the 2 original types and scales to the
+    // Acid Trail/Webber zombies' zones without that assumption.
+    const ZONE_DEFS = {
+      gas: { color: 0x5fcf4a, radius: HAZARD_RADIUS, duration: HAZARD_GAS_DURATION_MS },
+      emp: { color: 0x4ecfff, radius: HAZARD_RADIUS, duration: HAZARD_EMP_DURATION_MS },
+      toxic_spread: { color: 0x6ecf3a, radius: TOXIC_SPREAD_START_RADIUS, duration: TOXIC_SPREAD_DURATION_MS },
+      acid: { color: 0x8fd93a, radius: HAZARD_ACID_RADIUS, duration: HAZARD_ACID_DURATION_MS },
+      web: { color: 0xe8e4d0, radius: HAZARD_WEB_RADIUS, duration: HAZARD_WEB_DURATION_MS },
+    }
+    const def = ZONE_DEFS[type]
     const mat = flatMaterial({
-      color,
-      emissive: color,
+      color: def.color,
+      emissive: def.color,
       emissiveIntensity: 1.6,
       transparent: true,
       opacity: 0.4,
       side: THREE.DoubleSide,
     })
-    const mesh = new THREE.Mesh(new THREE.SphereGeometry(baseRadius, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat)
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(def.radius, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat)
     mesh.position.set(x, 0.05, z)
     this.scene.add(mesh)
-    const light = new THREE.PointLight(color, 1.4, baseRadius * 2.5, 2)
+    const light = new THREE.PointLight(def.color, 1.4, def.radius * 2.5, 2)
     light.position.set(x, 1.5, z)
     this.scene.add(light)
 
@@ -3249,9 +3269,9 @@ export class Game {
       z,
       mesh,
       light,
-      baseRadius,
-      radius: baseRadius,
-      expiresAt: performance.now() + (isToxicSpread ? TOXIC_SPREAD_DURATION_MS : isGas ? HAZARD_GAS_DURATION_MS : HAZARD_EMP_DURATION_MS),
+      baseRadius: def.radius,
+      radius: def.radius,
+      expiresAt: performance.now() + def.duration,
       nextTickAt: performance.now(),
     })
   }
@@ -3265,6 +3285,8 @@ export class Game {
     if (this.hazardZones.length === 0) return
     const now = performance.now()
     let playerInEmp = false
+    let playerInWeb = false
+    const TICK_DAMAGE = { gas: HAZARD_GAS_DAMAGE_PER_TICK, toxic_spread: TOXIC_SPREAD_DAMAGE_PER_TICK, acid: HAZARD_ACID_DAMAGE_PER_TICK }
 
     this.hazardZones = this.hazardZones.filter((zone) => {
       if (now >= zone.expiresAt) {
@@ -3285,11 +3307,12 @@ export class Game {
       const dist = Math.hypot(playerPos.x - zone.x, playerPos.z - zone.z)
       const inside = dist <= zone.radius
       if (inside && zone.type === 'emp') playerInEmp = true
+      if (inside && zone.type === 'web') playerInWeb = true
 
-      if (inside && (zone.type === 'gas' || zone.type === 'toxic_spread') && now >= zone.nextTickAt) {
+      if (inside && zone.type in TICK_DAMAGE && now >= zone.nextTickAt) {
         zone.nextTickAt = now + HAZARD_TICK_MS
         if (this.player.isDodging) return true // brief invincibility window, same as a zombie hit
-        this.playerState.takeDamage(zone.type === 'toxic_spread' ? TOXIC_SPREAD_DAMAGE_PER_TICK : HAZARD_GAS_DAMAGE_PER_TICK)
+        this.playerState.takeDamage(TICK_DAMAGE[zone.type])
         this._updateHealthHud()
         this.damageFlash.classList.remove('hit')
         void this.damageFlash.offsetWidth
@@ -3304,6 +3327,10 @@ export class Game {
       this.flashlightBattery = Math.max(0, this.flashlightBattery - HAZARD_EMP_BATTERY_DRAIN_PER_SEC * dt)
       this.flashlight.visible = false
     }
+    // Webber's web patch (see PlayerController's webSlowMult) - recomputed
+    // live every frame from current zone overlap, same precedent as
+    // corpsePileMult rather than a timed buff/debuff.
+    this.player.webSlowMult = playerInWeb ? WEB_SLOW_MULT : 1
   }
 
   _updateBarricades() {
@@ -5093,6 +5120,22 @@ export class Game {
     this._triggerShake(0.12, 220)
 
     if (!this.playerState.alive) this._maybeLastStandOrDie()
+  }
+
+  // Anchor zombie (see ZombieTypes.js's pullsPlayer) - its spit lands as a
+  // pull instead of damage (see ZombieManager's projectile 'pull' effect).
+  // Same direct-position-nudge approach as the Harpoon Gun's pull, just
+  // moving the player toward the zombie instead of a zombie toward the
+  // player, and clamped so it never overshoots into melee range.
+  _onZombiePull(originX, originZ) {
+    const pos = this.player.controls.object.position
+    const dx = originX - pos.x
+    const dz = originZ - pos.z
+    const dist = Math.hypot(dx, dz)
+    if (dist <= 0.0001) return
+    const pull = Math.min(4, Math.max(0, dist - 2))
+    pos.x += (dx / dist) * pull
+    pos.z += (dz / dist) * pull
   }
 
   // Shared by every damage source that can kill the player (zombie/rival
@@ -7550,7 +7593,11 @@ export class Game {
         () => audioEngine.playAmbushShriek(),
         (zombieTypeId, weaponId, x, z, isElite, isWandering) => this._onZombieKilled(zombieTypeId, weaponId, x, z, isElite, isWandering),
         this.player.isCrouching,
-        this.dayNight ? this.dayNight.getPhaseInfo().phase === 'Night' : false
+        this.dayNight ? this.dayNight.getPhaseInfo().phase === 'Night' : false,
+        (x, z) => this._spawnHazardZone('acid', x, z),
+        (originX, originZ) => this._onZombiePull(originX, originZ),
+        () => this._triggerShake(0.18, 600),
+        (x, z) => this._spawnHazardZone('web', x, z)
       )
       this.companion.update(dt, playerPos, this.zombies.zombies, (amount) => {
         this.playerState.heal(amount)

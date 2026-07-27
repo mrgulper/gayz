@@ -114,6 +114,9 @@ export class PlayerController {
     // Corpse pile-up (see Game.js's _updateCorpsePileSlow) - recomputed
     // live every frame from nearby recent kills, not a timed effect.
     this.corpsePileMult = 1
+    // Webber zombie's web patch (see Game.js's _updateHazardZones) - same
+    // "recomputed live every frame" shape as corpsePileMult above.
+    this.webSlowMult = 1
     this.isSprinting = false
     this.isCrouching = false
     this.eyeHeight = EYE_HEIGHT
@@ -182,6 +185,7 @@ export class PlayerController {
     // timed perk/consumable effect in this game.
     this.adrenalineMult = 1
     this.corpsePileMult = 1
+    this.webSlowMult = 1
     this.isCrouching = false
     this.eyeHeight = EYE_HEIGHT
     this.isDodging = false
@@ -389,6 +393,7 @@ export class PlayerController {
       if (this.isCrouching) speedMultiplier *= CROUCH_SPEED_MULT
       speedMultiplier *= this.adrenalineMult
       speedMultiplier *= this.corpsePileMult
+      speedMultiplier *= this.webSlowMult
 
       if (this.slipFactor > 0) {
         // Wet planks over a sewer, not solid ground - momentum carries the
