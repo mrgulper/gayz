@@ -1922,6 +1922,547 @@ export function buildWorld(scene, trophyCount = 15) {
   registerZone({ id: 'snipernest', x: 61, z: -44, radius: 4, densityMult: 1.0 })
   towerChestSpots.push({ x: 61, y: 0, z: -41 })
 
+  // 50 more locations, user-requested batch, 2026-07-27 - deliberately
+  // spread across the full compass (each one placed along its own target
+  // angle before searching outward for real clearance) rather than
+  // clustering in whichever direction happened to have the most room,
+  // per explicit feedback on the two previous rounds. Same
+  // buildFillerLocation() pattern as every other flavor location; a
+  // handful of unique landmarks (lighthouse, windmill, wind turbines,
+  // wreckage) get their own simple custom geometry, same treatment as
+  // Water Tower/Grain Silo earlier this session.
+  buildFillerLocation(scene, register, {
+    x: 158, z: 0, w: 8, d: 7, floorColor: 0xc94a3a,
+    dressing: [{ file: 'counter.glb', dx: 0, dz: 2, rot: Math.PI }, { file: 'food-bag.glb', dx: -2, dz: -1.5 }, { file: 'food-bottle.glb', dx: 2, dz: -1.5 }],
+  })
+  registerZone({ id: 'pizzaparlor', x: 158, z: 0, radius: 6, densityMult: 1.0 })
+  towerChestSpots.push({ x: 158, y: 0, z: 3 })
+
+  buildFillerLocation(scene, register, {
+    x: 3, z: -158, w: 8, d: 7, floorColor: 0x4a3428,
+    dressing: [{ file: 'counter.glb', dx: 0, dz: 2, rot: Math.PI }, { file: 'waiting-chair.glb', dx: -2, dz: -1 }, { file: 'food-bottle.glb', dx: 2, dz: -1.5 }],
+  })
+  registerZone({ id: 'coffeeshop', x: 3, z: -158, radius: 6, densityMult: 1.0 })
+  towerChestSpots.push({ x: 3, y: 0, z: -155 })
+
+  buildFillerLocation(scene, register, {
+    x: -61, z: -154, w: 8, d: 7, floorColor: 0x2a3a3a,
+    dressing: [{ file: 'counter.glb', dx: 0, dz: 2, rot: Math.PI }, { file: 'food-can.glb', dx: -2, dz: -1.5 }],
+  })
+  registerZone({ id: 'sushirestaurant', x: -61, z: -154, radius: 6, densityMult: 1.0 })
+  towerChestSpots.push({ x: -61, y: 0, z: -151 })
+
+  buildFillerLocation(scene, register, {
+    x: 72, z: 193, w: 9, d: 8, floorColor: 0x5a3a28,
+    dressing: [{ file: 'counter.glb', dx: 0, dz: 2.5, rot: Math.PI }, { file: 'food-bag.glb', dx: -2, dz: -1.5 }, { file: 'barrel.glb', dx: 2.5, dz: -1.5 }],
+  })
+  registerZone({ id: 'bbqsmokehouse', x: 72, z: 193, radius: 6, densityMult: 1.0 })
+  towerChestSpots.push({ x: 72, y: 0, z: 197 })
+
+  buildFillerLocation(scene, register, {
+    x: -158, z: 3, w: 10, d: 8, fenceOnly: true,
+    dressing: [{ file: 'counter.glb', dx: 0, dz: 0 }, { file: 'trashbin.glb', dx: -3, dz: 2 }, { file: 'trafficcone.glb', dx: 3, dz: 2 }],
+  })
+  registerZone({ id: 'foodtrucklot', x: -158, z: 3, radius: 7, densityMult: 1.0 })
+  towerChestSpots.push({ x: -158, y: 0, z: 7 })
+
+  buildFillerLocation(scene, register, {
+    x: -106, z: -117, w: 10, d: 9, floorColor: 0x4a3a28,
+    dressing: [{ file: 'cabledrum.glb', dx: -3, dz: -2 }, { file: 'cabledrum.glb', dx: 3, dz: -2 }, { file: 'counter.glb', dx: 0, dz: 3, rot: Math.PI }],
+  })
+  registerZone({ id: 'brewery', x: -106, z: -117, radius: 7, densityMult: 1.0 })
+  towerChestSpots.push({ x: -106, y: 0, z: -113 })
+
+  buildFillerLocation(scene, register, {
+    x: -68, z: 195, w: 8, d: 7, floorColor: 0x3a4a6a,
+    dressing: [{ file: 'shelf.glb', dx: -3, dz: -1.5 }, { file: 'shelf.glb', dx: 3, dz: -1.5 }, { file: 'counter.glb', dx: 0, dz: 2, rot: Math.PI }],
+  })
+  registerZone({ id: 'toystore', x: -68, z: 195, radius: 6, densityMult: 1.0 })
+  towerChestSpots.push({ x: -68, y: 0, z: 198 })
+
+  buildFillerLocation(scene, register, {
+    x: 72, z: -193, w: 9, d: 8, floorColor: 0x3a4a3a,
+    dressing: [{ file: 'shelf.glb', dx: -3, dz: -1.5 }, { file: 'shelf.glb', dx: 3, dz: -1.5 }, { file: 'counter.glb', dx: 0, dz: 2.5, rot: Math.PI }],
+  })
+  registerZone({ id: 'sportinggoodsstore', x: 72, z: -193, radius: 6, densityMult: 1.0 })
+  towerChestSpots.push({ x: 72, y: 0, z: -190 })
+
+  buildFillerLocation(scene, register, {
+    x: -153, z: 150, w: 7, d: 6, floorColor: 0x2a2a30,
+    dressing: [{ file: 'counter.glb', dx: 0, dz: 2, rot: Math.PI }, { file: 'shelf.glb', dx: -2, dz: -1 }],
+  })
+  registerZone({ id: 'jewelrystore', x: -153, z: 150, radius: 5, densityMult: 1.1 })
+  towerChestSpots.push({ x: -153, y: 0, z: 153 })
+
+  buildFillerLocation(scene, register, {
+    x: 152, z: 162, w: 10, d: 9, floorColor: 0x5a4838,
+    dressing: [{ file: 'campus-table.glb', dx: -2.5, dz: -2 }, { file: 'campus-table.glb', dx: 2.5, dz: -2 }, { file: 'shelf.glb', dx: 0, dz: 3, rot: Math.PI }],
+  })
+  registerZone({ id: 'furniturestore', x: 152, z: 162, radius: 7, densityMult: 1.0 })
+  towerChestSpots.push({ x: 152, y: 0, z: 166 })
+
+  buildFillerLocation(scene, register, {
+    x: -159, z: -143, w: 8, d: 7, floorColor: 0x4a4030,
+    dressing: [{ file: 'shelf.glb', dx: -3, dz: -1.5 }, { file: 'campus-books.glb', dx: 3, dz: -1.5 }],
+  })
+  registerZone({ id: 'antiqueshop', x: -159, z: -143, radius: 6, densityMult: 1.0 })
+  towerChestSpots.push({ x: -159, y: 0, z: -140 })
+
+  buildFillerLocation(scene, register, {
+    x: 224, z: 53, w: 9, d: 8, floorColor: 0x3a3630,
+    dressing: [
+      { file: 'campus-bookcase.glb', dx: -3, dz: -2 }, { file: 'campus-bookcase.glb', dx: 3, dz: -2 },
+      { file: 'campus-books.glb', dx: 0, dz: -2.5 }, { file: 'counter.glb', dx: 0, dz: 2.8, rot: Math.PI },
+    ],
+  })
+  registerZone({ id: 'bookstore', x: 224, z: 53, radius: 6, densityMult: 1.0 })
+  towerChestSpots.push({ x: 224, y: 0, z: 57 })
+
+  buildFillerLocation(scene, register, {
+    x: -211, z: 110, w: 8, d: 7, floorColor: 0x4a3a4a,
+    dressing: [{ file: 'shelf.glb', dx: -3, dz: -1.5 }, { file: 'shelf.glb', dx: 3, dz: -1.5 }, { file: 'counter.glb', dx: 0, dz: 2, rot: Math.PI }],
+  })
+  registerZone({ id: 'hobbycraftstore', x: -211, z: 110, radius: 6, densityMult: 1.0 })
+  towerChestSpots.push({ x: -211, y: 0, z: 113 })
+
+  buildFillerLocation(scene, register, {
+    x: -107, z: 204, w: 9, d: 8, floorColor: 0x5a4a3a,
+    dressing: [{ file: 'shelf.glb', dx: -3, dz: -1.5 }, { file: 'shelf.glb', dx: 3, dz: -1.5 }, { file: 'counter.glb', dx: 0, dz: 2.5, rot: Math.PI }],
+  })
+  registerZone({ id: 'thriftstore', x: -107, z: 204, radius: 6, densityMult: 1.0 })
+  towerChestSpots.push({ x: -107, y: 0, z: 208 })
+
+  buildFillerLocation(scene, register, {
+    x: 111, z: -202, w: 12, d: 10, wallHeight: 5, floorColor: 0x6a6258,
+    dressing: [{ file: 'counter.glb', dx: 0, dz: 3.5, rot: Math.PI }, { file: 'waiting-chair.glb', dx: -3, dz: -2 }, { file: 'waiting-chair.glb', dx: 3, dz: -2 }],
+  })
+  registerZone({ id: 'cityhall', x: 111, z: -202, radius: 9, densityMult: 1.0 })
+  towerChestSpots.push({ x: 111, y: 0, z: -197 })
+
+  buildFillerLocation(scene, register, {
+    x: 48, z: 225, w: 12, d: 10, wallHeight: 6, floorColor: 0x5a5850,
+    dressing: [
+      { file: 'waiting-chair.glb', dx: -3, dz: -3 }, { file: 'waiting-chair.glb', dx: 0, dz: -3 }, { file: 'waiting-chair.glb', dx: 3, dz: -3 }, { file: 'waiting-chair.glb', dx: 0, dz: 0 },
+      { file: 'counter.glb', dx: 0, dz: 3.5, rot: Math.PI },
+    ],
+  })
+  registerZone({ id: 'courthouse', x: 48, z: 225, radius: 9, densityMult: 1.0 })
+  towerChestSpots.push({ x: 48, y: 0, z: 230 })
+
+  buildFillerLocation(scene, register, {
+    x: -136, z: -195, w: 10, d: 9, floorColor: 0x8a8478,
+    dressing: [
+      { file: 'waiting-chair.glb', dx: -3, dz: -2 }, { file: 'waiting-chair.glb', dx: 0, dz: -2 }, { file: 'waiting-chair.glb', dx: 3, dz: -2 },
+      { file: 'counter.glb', dx: 0, dz: 3, rot: Math.PI },
+    ],
+  })
+  registerZone({ id: 'dmvoffice', x: -136, z: -195, radius: 7, densityMult: 1.0 })
+  towerChestSpots.push({ x: -136, y: 0, z: -191 })
+
+  buildFillerLocation(scene, register, {
+    x: 59, z: -231, w: 12, d: 10, floorColor: 0x4a4438,
+    dressing: [{ file: 'campus-table.glb', dx: -3, dz: -2 }, { file: 'campus-table.glb', dx: 3, dz: -2 }, { file: 'campus-bookcase.glb', dx: 0, dz: 3.5 }],
+  })
+  registerZone({ id: 'communitycollege', x: 59, z: -231, radius: 9, densityMult: 1.0 })
+  towerChestSpots.push({ x: 59, y: 0, z: -226 })
+
+  buildFillerLocation(scene, register, {
+    x: 205, z: 136, w: 12, d: 10, wallHeight: 6, floorColor: 0x3a3830,
+    dressing: [{ file: 'campus-table.glb', dx: 0, dz: -2 }, { file: 'campus-books.glb', dx: -3, dz: 2 }, { file: 'campus-books.glb', dx: 3, dz: 2 }],
+  })
+  registerZone({ id: 'museum', x: 205, z: 136, radius: 9, densityMult: 1.0 })
+  towerChestSpots.push({ x: 205, y: 0, z: 141 })
+
+  buildFillerLocation(scene, register, {
+    x: -108, z: -230, w: 10, d: 9, floorColor: 0xe8e4d8,
+    dressing: [{ file: 'campus-table.glb', dx: 0, dz: 0 }],
+  })
+  registerZone({ id: 'artgallery', x: -108, z: -230, radius: 7, densityMult: 1.0 })
+  towerChestSpots.push({ x: -108, y: 0, z: -226 })
+
+  // Power Plant (-49,233) - reuses the water tower's tank/leg silhouette
+  // for a squat cooling-tower look, wider and shorter.
+  buildFillerLocation(scene, register, {
+    x: -49, z: 233, w: 16, d: 14, fenceOnly: true,
+    dressing: [{ file: 'cabledrum.glb', dx: -5, dz: -4 }, { file: 'cabledrum.glb', dx: 5, dz: -4 }],
+  })
+  {
+    const towerMat = flatMaterial({ color: 0x6a6a68, roughness: 0.85, metalness: 0.2 })
+    const tower = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 4.2, 8, 16), towerMat)
+    tower.position.set(-49, 4, 233)
+    tower.castShadow = true
+    scene.add(tower)
+    register(tower)
+  }
+  registerZone({ id: 'powerplant', x: -49, z: 233, radius: 11, densityMult: 1.1 })
+  towerChestSpots.push({ x: -49, y: 0, z: 238 })
+
+  buildFillerLocation(scene, register, {
+    x: 51, z: 265, w: 14, d: 12, fenceOnly: true,
+    dressing: [{ file: 'cabledrum.glb', dx: -4, dz: -3 }, { file: 'cabledrum.glb', dx: 4, dz: -3 }, { file: 'barrel.glb', dx: 0, dz: 3 }],
+  })
+  registerZone({ id: 'sawmill', x: 51, z: 265, radius: 10, densityMult: 1.1 })
+  towerChestSpots.push({ x: 51, y: 0, z: 269 })
+
+  buildFillerLocation(scene, register, {
+    x: 262, z: 67, w: 12, d: 10, floorColor: 0x4a4038,
+    dressing: [{ file: 'shelf.glb', dx: -3, dz: -2 }, { file: 'shelf.glb', dx: 0, dz: -2 }, { file: 'shelf.glb', dx: 3, dz: -2 }],
+  })
+  registerZone({ id: 'textilemill', x: 262, z: 67, radius: 9, densityMult: 1.1 })
+  towerChestSpots.push({ x: 262, y: 0, z: 71 })
+
+  buildFillerLocation(scene, register, {
+    x: -46, z: 274, w: 16, d: 12, fenceOnly: true,
+    dressing: [{ file: 'dumpster.glb', dx: -5, dz: -3 }, { file: 'dumpster.glb', dx: 5, dz: -3 }, { file: 'cabledrum.glb', dx: 0, dz: 3 }],
+  })
+  registerZone({ id: 'coldstoragewarehouse', x: -46, z: 274, radius: 10, densityMult: 1.1 })
+  towerChestSpots.push({ x: -46, y: 0, z: 278 })
+
+  // Shipping Container Yard (52,-273) - simple stacked box "containers"
+  // (no dedicated container model), matching the Motorpool car precedent.
+  buildFillerLocation(scene, register, {
+    x: 52, z: -273, w: 18, d: 14, fenceOnly: true,
+  })
+  {
+    const c1Mat = flatMaterial({ color: 0x8a3a3a, roughness: 0.7, metalness: 0.3 })
+    const c2Mat = flatMaterial({ color: 0x3a6a8a, roughness: 0.7, metalness: 0.3 })
+    const c3Mat = flatMaterial({ color: 0x8a7a3a, roughness: 0.7, metalness: 0.3 })
+    const box1 = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.4, 6), c1Mat)
+    box1.position.set(52 - 5, 1.2, -273)
+    box1.castShadow = true
+    scene.add(box1)
+    register(box1)
+    const box2 = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.4, 6), c2Mat)
+    box2.position.set(52, 1.2, -273 + 1)
+    box2.castShadow = true
+    scene.add(box2)
+    register(box2)
+    const box3 = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.4, 6), c3Mat)
+    box3.position.set(52, 3.7, -273 + 1)
+    box3.castShadow = true
+    scene.add(box3)
+    register(box3)
+  }
+  registerZone({ id: 'shippingcontaineryard', x: 52, z: -273, radius: 12, densityMult: 1.1 })
+  towerChestSpots.push({ x: 52, y: 0, z: -268 })
+
+  buildFillerLocation(scene, register, {
+    x: 195, z: 175, w: 18, d: 16, fenceOnly: true,
+  })
+  {
+    const rockMat = flatMaterial({ color: 0x6a655c, roughness: 1 })
+    for (const [dx, dz, s] of [[-5, -4, 2.2], [4, -3, 1.8], [-2, 4, 2.6], [5, 3, 1.6]]) {
+      const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), rockMat)
+      rock.position.set(195 + dx, s * 0.5, 175 + dz)
+      rock.rotation.set(Math.random(), Math.random(), Math.random())
+      rock.castShadow = true
+      scene.add(rock)
+      register(rock)
+    }
+  }
+  registerZone({ id: 'quarry', x: 195, z: 175, radius: 12, densityMult: 1.1 })
+  towerChestSpots.push({ x: 195, y: 0, z: 180 })
+
+  // Wind Farm (-263,-91) - 2 simple turbines (thin mast + 3 flat blade planes each).
+  buildFillerLocation(scene, register, {
+    x: -263, z: -91, w: 20, d: 16, fenceOnly: true,
+  })
+  {
+    const mastMat = flatMaterial({ color: 0xd8d8d4, roughness: 0.6 })
+    const bladeMat = flatMaterial({ color: 0xe8e8e4, roughness: 0.5 })
+    for (const [tx, tz] of [[-263 - 6, -91 - 3], [-263 + 6, -91 + 3]]) {
+      const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.35, 9, 8), mastMat)
+      mast.position.set(tx, 4.5, tz)
+      mast.castShadow = true
+      scene.add(mast)
+      register(mast)
+      for (const rot of [0, (2 * Math.PI) / 3, (4 * Math.PI) / 3]) {
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.6, 0.4), bladeMat)
+        blade.position.set(tx, 9, tz)
+        blade.rotation.z = rot
+        blade.translateY(1.3)
+        scene.add(blade)
+      }
+    }
+  }
+  registerZone({ id: 'windfarm', x: -263, z: -91, radius: 13, densityMult: 0.9 })
+
+  // Cell Tower (256,127) - same thin-mast pattern as the Radio Relay Mast.
+  {
+    const baseMat = flatMaterial({ color: 0x3a3a38, roughness: 0.8, metalness: 0.4 })
+    const mastMat = flatMaterial({ color: 0x8a8a86, roughness: 0.6, metalness: 0.6 })
+    const base = new THREE.Mesh(new THREE.BoxGeometry(1, 0.6, 1), baseMat)
+    base.position.set(256, 0.3, 127)
+    base.castShadow = true
+    scene.add(base)
+    register(base)
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.14, 9, 8), mastMat)
+    mast.position.set(256, 5.1, 127)
+    mast.castShadow = true
+    scene.add(mast)
+    register(mast)
+  }
+  registerZone({ id: 'celltower', x: 256, z: 127, radius: 5, densityMult: 0.9 })
+
+  buildFillerLocation(scene, register, {
+    x: -102, z: -276, w: 10, d: 9, floorColor: 0x2a1a3a,
+    dressing: [{ file: 'counter.glb', dx: 0, dz: 2.5, rot: Math.PI }, { file: 'shelf.glb', dx: -3, dz: -2 }],
+  })
+  registerZone({ id: 'arcade', x: -102, z: -276, radius: 7, densityMult: 1.0 })
+  towerChestSpots.push({ x: -102, y: 0, z: -272 })
+
+  buildFillerLocation(scene, register, {
+    x: -207, z: -220, w: 16, d: 14, fenceOnly: true,
+    dressing: [{ file: 'bench.glb', dx: -5, dz: -4 }, { file: 'bench.glb', dx: 5, dz: -4 }],
+  })
+  registerZone({ id: 'minigolfcourse', x: -207, z: -220, radius: 10, densityMult: 1.0 })
+  towerChestSpots.push({ x: -207, y: 0, z: -216 })
+
+  buildFillerLocation(scene, register, {
+    x: 197, z: -218, w: 20, d: 16, fenceOnly: true,
+    dressing: [{ file: 'trafficcone.glb', dx: -6, dz: -5 }, { file: 'trafficcone.glb', dx: 6, dz: -5 }, { file: 'roadblock.glb', dx: 0, dz: 5 }],
+  })
+  registerZone({ id: 'gokarttrack', x: 197, z: -218, radius: 13, densityMult: 1.0 })
+  towerChestSpots.push({ x: 197, y: 0, z: -213 })
+
+  buildFillerLocation(scene, register, {
+    x: -302, z: -6, w: 18, d: 14, fenceOnly: true,
+    dressing: [{ file: 'barrel.glb', dx: -5, dz: -3 }, { file: 'barrel.glb', dx: 5, dz: -3 }, { file: 'barrel.glb', dx: 0, dz: 4 }],
+  })
+  registerZone({ id: 'paintballfield', x: -302, z: -6, radius: 12, densityMult: 1.0 })
+  towerChestSpots.push({ x: -302, y: 0, z: -1 })
+
+  buildFillerLocation(scene, register, {
+    x: -271, z: -134, w: 14, d: 12, wallHeight: 6, floorColor: 0x2a2028,
+    dressing: [{ file: 'bench.glb', dx: -3, dz: -3 }, { file: 'bench.glb', dx: 3, dz: -3 }, { file: 'bench.glb', dx: 0, dz: 0 }],
+  })
+  registerZone({ id: 'concerthall', x: -271, z: -134, radius: 10, densityMult: 1.0 })
+  towerChestSpots.push({ x: -271, y: 0, z: -128 })
+
+  buildFillerLocation(scene, register, {
+    x: 217, z: 221, w: 12, d: 10, floorColor: 0x3a5a8a,
+    dressing: [{ file: 'bench.glb', dx: -3, dz: -3 }, { file: 'bench.glb', dx: 3, dz: -3 }],
+  })
+  registerZone({ id: 'trampolinepark', x: 217, z: 221, radius: 9, densityMult: 1.0 })
+  towerChestSpots.push({ x: 217, y: 0, z: 225 })
+
+  buildFillerLocation(scene, register, {
+    x: 272, z: -165, w: 16, d: 14, fenceOnly: true,
+    dressing: [{ file: 'waterbarrel.glb', dx: -5, dz: -4 }, { file: 'waterbarrel.glb', dx: 5, dz: -4 }, { file: 'bench.glb', dx: 0, dz: 4 }],
+  })
+  registerZone({ id: 'botanicalgarden', x: 272, z: -165, radius: 10, densityMult: 0.9 })
+  towerChestSpots.push({ x: 272, y: 0, z: -160 })
+
+  buildFillerLocation(scene, register, {
+    x: -213, z: 236, w: 14, d: 10, wallHeight: 8, floorColor: 0x6a6258,
+    dressing: [{ file: 'waiting-chair.glb', dx: -3, dz: -2 }, { file: 'waiting-chair.glb', dx: 3, dz: -2 }],
+  })
+  registerZone({ id: 'apartmentcomplex', x: -213, z: 236, radius: 9, densityMult: 1.0 })
+  towerChestSpots.push({ x: -213, y: 0, z: 240 })
+
+  buildFillerLocation(scene, register, {
+    x: -304, z: 92, w: 12, d: 10, floorColor: 0x8a8070,
+    dressing: [
+      { file: 'waiting-chair.glb', dx: -3, dz: -2 }, { file: 'waiting-chair.glb', dx: 3, dz: -2 },
+      { file: 'medical-cabinet.glb', dx: 0, dz: 3.5, rot: Math.PI },
+    ],
+  })
+  registerZone({ id: 'retirementhome', x: -304, z: 92, radius: 9, densityMult: 1.1 })
+  towerChestSpots.push({ x: -304, y: 0, z: 96 })
+
+  buildFillerLocation(scene, register, {
+    x: 298, z: 111, w: 10, d: 9, floorColor: 0x5a5040,
+    dressing: [{ file: 'hospital-bed.glb', dx: -2, dz: -1.5 }, { file: 'waiting-chair.glb', dx: 2.5, dz: -1.5 }],
+  })
+  registerZone({ id: 'hostel', x: 298, z: 111, radius: 7, densityMult: 1.0 })
+  towerChestSpots.push({ x: 298, y: 0, z: 115 })
+
+  buildFillerLocation(scene, register, {
+    x: 141, z: 285, w: 8, d: 7, floorColor: 0x4a3828,
+    dressing: [{ file: 'campus-table.glb', dx: 0, dz: -1, scale: 0.8 }, { file: 'barrel.glb', dx: 2.5, dz: 1.5 }],
+  })
+  registerZone({ id: 'cabinretreat', x: 141, z: 285, radius: 6, densityMult: 0.9 })
+  towerChestSpots.push({ x: 141, y: 0, z: 288 })
+
+  buildFillerLocation(scene, register, {
+    x: 126, z: -301, w: 7, d: 6, floorColor: 0xd8d8d0,
+    dressing: [{ file: 'hospital-bed.glb', dx: -1.5, dz: -1.5 }, { file: 'medical-cabinet.glb', dx: 2, dz: -1.5, rot: -Math.PI / 2 }],
+  })
+  registerZone({ id: 'dentalclinic', x: 126, z: -301, radius: 5, densityMult: 1.2 })
+  towerChestSpots.push({ x: 126, y: 0, z: -298, lootWeights: MEDICAL_LOOT_WEIGHTS })
+
+  buildFillerLocation(scene, register, {
+    x: 283, z: -206, w: 9, d: 8, floorColor: 0xd0d8d8,
+    dressing: [{ file: 'waiting-chair.glb', dx: -2.5, dz: -1.5 }, { file: 'waiting-chair.glb', dx: 2.5, dz: -1.5 }, { file: 'medical-cabinet.glb', dx: 0, dz: 3, rot: Math.PI }],
+  })
+  registerZone({ id: 'physicaltherapycenter', x: 283, z: -206, radius: 6, densityMult: 1.1 })
+  towerChestSpots.push({ x: 283, y: 0, z: -202, lootWeights: MEDICAL_LOOT_WEIGHTS })
+
+  buildFillerLocation(scene, register, {
+    x: -139, z: 295, w: 8, d: 7, floorColor: 0xc8d0d8,
+    dressing: [{ file: 'waiting-chair.glb', dx: -2, dz: -1.5 }, { file: 'waiting-chair.glb', dx: 2, dz: -1.5 }, { file: 'counter.glb', dx: 0, dz: 2, rot: Math.PI }],
+  })
+  registerZone({ id: 'mentalhealthclinic', x: -139, z: 295, radius: 6, densityMult: 1.1 })
+  towerChestSpots.push({ x: -139, y: 0, z: 298, lootWeights: MEDICAL_LOOT_WEIGHTS })
+
+  // Abandoned Circus (-345,58) - striped tent (reuse the supply-cache tent
+  // cone shape, wider) + scattered barrels.
+  buildFillerLocation(scene, register, {
+    x: -345, z: 58, w: 18, d: 16, fenceOnly: true,
+    dressing: [{ file: 'barrel.glb', dx: -5, dz: -4 }, { file: 'barrel.glb', dx: 5, dz: -4 }],
+  })
+  {
+    const tentMat = flatMaterial({ color: 0x8a2a2a, roughness: 0.85 })
+    const tent = new THREE.Mesh(new THREE.ConeGeometry(5.5, 5, 8), tentMat)
+    tent.position.set(-345, 2.5, 58)
+    tent.castShadow = true
+    scene.add(tent)
+    register(tent)
+  }
+  registerZone({ id: 'abandonedcircus', x: -345, z: 58, radius: 12, densityMult: 1.1 })
+  towerChestSpots.push({ x: -345, y: 0, z: 63 })
+
+  // Shipwreck (-285,-189) - a large tilted hull shape, beached.
+  buildFillerLocation(scene, register, {
+    x: -285, z: -189, w: 14, d: 20, fenceOnly: true,
+  })
+  {
+    const hullMat = flatMaterial({ color: 0x3a4a48, roughness: 0.9, metalness: 0.2 })
+    const hull = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 14, 8, 1, false, 0, Math.PI), hullMat)
+    hull.rotation.z = Math.PI / 2
+    hull.rotation.y = Math.PI / 2
+    hull.position.set(-285, 1.2, -189)
+    hull.rotation.x = 0.15
+    hull.castShadow = true
+    scene.add(hull)
+    register(hull)
+  }
+  registerZone({ id: 'shipwreck', x: -285, z: -189, radius: 13, densityMult: 1.0 })
+  towerChestSpots.push({ x: -285, y: 0, z: -184 })
+
+  // Crashed Plane Wreck (358,-7) - tilted fuselage cylinder + wing boxes.
+  buildFillerLocation(scene, register, {
+    x: 358, z: -7, w: 20, d: 10, fenceOnly: true,
+  })
+  {
+    const fuselageMat = flatMaterial({ color: 0x8a8a86, roughness: 0.6, metalness: 0.4 })
+    const fuselage = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.6, 12, 12), fuselageMat)
+    fuselage.rotation.z = Math.PI / 2
+    fuselage.rotation.y = 0.3
+    fuselage.position.set(358, 1.3, -7)
+    fuselage.castShadow = true
+    scene.add(fuselage)
+    register(fuselage)
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(9, 0.3, 1.6), fuselageMat)
+    wing.position.set(358, 1.1, -7)
+    wing.rotation.y = 0.3
+    wing.castShadow = true
+    scene.add(wing)
+    register(wing)
+  }
+  registerZone({ id: 'crashedplanewreck', x: 358, z: -7, radius: 12, densityMult: 1.1 })
+  towerChestSpots.push({ x: 358, y: 0, z: -2 })
+
+  buildFillerLocation(scene, register, {
+    x: 0, z: -358, w: 14, d: 12, fenceOnly: true,
+    dressing: [
+      { file: 'tool-hammer.glb', dx: -2, dz: -2 }, { file: 'tool-crowbar.glb', dx: 2, dz: -2 },
+      { file: 'barrel.glb', dx: -3, dz: 3 }, { file: 'barrel.glb', dx: 3, dz: 3 },
+    ],
+  })
+  registerZone({ id: 'oldminingcamp', x: 0, z: -358, radius: 10, densityMult: 1.1 })
+  towerChestSpots.push({ x: 0, y: 0, z: -354 })
+
+  // Lighthouse (-103,-343) - tall tapered tower + a small light at the top.
+  buildFillerLocation(scene, register, {
+    x: -103, z: -343, w: 8, d: 8, fenceOnly: true,
+  })
+  {
+    const towerMat = flatMaterial({ color: 0xd8d4c8, roughness: 0.8 })
+    const stripeMat = flatMaterial({ color: 0x8a2a2a, roughness: 0.8 })
+    const tower = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 2.2, 11, 12), towerMat)
+    tower.position.set(-103, 5.5, -343)
+    tower.castShadow = true
+    scene.add(tower)
+    register(tower)
+    const stripe = new THREE.Mesh(new THREE.CylinderGeometry(1.55, 1.9, 2.5, 12), stripeMat)
+    stripe.position.set(-103, 6, -343)
+    scene.add(stripe)
+    const lightMat = flatMaterial({ color: 0xfff2c0, emissive: 0xfff2c0, emissiveIntensity: 1 })
+    const light = new THREE.Mesh(new THREE.SphereGeometry(0.7, 10, 10), lightMat)
+    light.position.set(-103, 11.3, -343)
+    scene.add(light)
+    const beaconLight = new THREE.PointLight(0xfff2c0, 1.5, 20, 2)
+    beaconLight.position.set(-103, 11.3, -343)
+    scene.add(beaconLight)
+  }
+  registerZone({ id: 'lighthouse', x: -103, z: -343, radius: 6, densityMult: 1.0 })
+  towerChestSpots.push({ x: -103, y: 0, z: -339 })
+
+  // Windmill (-298,198) - tower + 4 crossed blades.
+  buildFillerLocation(scene, register, {
+    x: -298, z: 198, w: 8, d: 8, fenceOnly: true,
+  })
+  {
+    const towerMat = flatMaterial({ color: 0xc9c0a8, roughness: 0.85 })
+    const bladeMat = flatMaterial({ color: 0x6a5838, roughness: 0.8 })
+    const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.4, 8, 10), towerMat)
+    tower.position.set(-298, 4, 198)
+    tower.castShadow = true
+    scene.add(tower)
+    register(tower)
+    for (const rot of [0, Math.PI / 2]) {
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.25, 5, 0.6), bladeMat)
+      blade.position.set(-298, 8.2, 198)
+      blade.rotation.z = rot
+      blade.castShadow = true
+      scene.add(blade)
+    }
+  }
+  registerZone({ id: 'windmill', x: -298, z: 198, radius: 6, densityMult: 0.9 })
+  towerChestSpots.push({ x: -298, y: 0, z: 202 })
+
+  // Survivor SOS Camp (362,-53) - a lone camp with a ground-painted SOS
+  // marker, matching the lore-flavor "someone was here and gave up"
+  // reads other underground-network lore beats already use.
+  buildFillerLocation(scene, register, {
+    x: 362, z: -53, w: 10, d: 8, fenceOnly: true,
+    dressing: [{ file: 'barrel.glb', dx: -3, dz: -2 }, { file: 'waterbarrel.glb', dx: 3, dz: -2 }],
+  })
+  {
+    const markMat = flatMaterial({ color: 0xc9412e, roughness: 0.9 })
+    for (const [dx, rot] of [[-1.2, Math.PI / 4], [1.2, -Math.PI / 4]]) {
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.05, 2.4), markMat)
+      bar.position.set(362 + dx, 0.03, -53 + 2)
+      bar.rotation.y = rot
+      scene.add(bar)
+    }
+  }
+  registerZone({ id: 'survivorsoscamp', x: 362, z: -53, radius: 7, densityMult: 1.1 })
+  towerChestSpots.push({ x: 362, y: 0, z: -49 })
+
+  // Meteorite Crater Site (-343,-103) - shallow scorched depression + a
+  // dark rock at its center.
+  buildFillerLocation(scene, register, {
+    x: -343, z: -103, w: 14, d: 14, fenceOnly: true,
+  })
+  {
+    const scorchMat = flatMaterial({ color: 0x2a2622, roughness: 1 })
+    const scorch = new THREE.Mesh(new THREE.CircleGeometry(5, 24), scorchMat)
+    scorch.rotation.x = -Math.PI / 2
+    scorch.position.set(-343, 0.03, -103)
+    scene.add(scorch)
+    const rockMat = flatMaterial({ color: 0x1c1a24, roughness: 0.7, metalness: 0.3 })
+    const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(1.6, 0), rockMat)
+    rock.position.set(-343, 0.9, -103)
+    rock.rotation.set(0.4, 0.7, 0.2)
+    rock.castShadow = true
+    scene.add(rock)
+    register(rock)
+  }
+  registerZone({ id: 'meteoritecratersite', x: -343, z: -103, radius: 9, densityMult: 1.0 })
+  towerChestSpots.push({ x: -343, y: 0, z: -99 })
+
   // Performance fix - only 2 call sites in this whole file ever went through
   // register() (which is what actually adds something to cullables), out of
   // 140+ raw colliders.push/solidMeshes.push calls across every stage. That
