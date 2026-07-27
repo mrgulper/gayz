@@ -1615,16 +1615,18 @@ export function buildWorld(scene, trophyCount = 15) {
   }
   registerZone({ id: 'campfirerest', x: 42, z: 66, radius: 6, densityMult: 0.8 })
 
-  // Survivor Memorial Wall (24,84) - a low weathered wall, pure lore, no chest.
+  // Survivor Memorial Wall - relocated to flank the core street grid
+  // (was 24,84, too clustered south of the safe zone - see the
+  // north-of-core-grid rebalance note below).
   {
     const wallMat = flatMaterial({ color: 0x4a4842, roughness: 1 })
     const wall = new THREE.Mesh(new THREE.BoxGeometry(5, 1.6, 0.3), wallMat)
-    wall.position.set(24, 0.8, 84)
+    wall.position.set(-58, 0.8, -56)
     wall.castShadow = true
     scene.add(wall)
     register(wall)
   }
-  registerZone({ id: 'memorialwall', x: 24, z: 84, radius: 5, densityMult: 0.8 })
+  registerZone({ id: 'memorialwall', x: -58, z: -56, radius: 5, densityMult: 0.8 })
 
   // Notice Board (0,90) - board on two posts, pure lore, no chest.
   {
@@ -1709,67 +1711,69 @@ export function buildWorld(scene, trophyCount = 15) {
   }
   registerZone({ id: 'checkpointgate', x: -60, z: 47, radius: 5, densityMult: 1.0 })
 
-  // Burial Mounds (47,89) - fresh graves, pure atmosphere, no chest.
+  // Burial Mounds - relocated to flank the core street grid (was 47,89).
   {
     const moundMat = flatMaterial({ color: 0x4a3a2a, roughness: 1 })
     const crossMat = flatMaterial({ color: 0x6b5a42, roughness: 0.9 })
     for (let i = 0; i < 4; i++) {
-      const mx = 47 + (i - 1.5) * 1.8
+      const mx = 58 + (i - 1.5) * 1.8
       const mound = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.9, 0.35, 10), moundMat)
-      mound.position.set(mx, 0.18, 89)
+      mound.position.set(mx, 0.18, -17)
       mound.castShadow = true
       scene.add(mound)
       register(mound)
       const cross = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.7, 0.08), crossMat)
-      cross.position.set(mx, 0.55, 89 - 0.9)
+      cross.position.set(mx, 0.55, -17 - 0.9)
       scene.add(cross)
       const crossBar = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.08, 0.08), crossMat)
-      crossBar.position.set(mx, 0.7, 89 - 0.9)
+      crossBar.position.set(mx, 0.7, -17 - 0.9)
       scene.add(crossBar)
     }
   }
-  registerZone({ id: 'burialmounds', x: 47, z: 89, radius: 5, densityMult: 0.7 })
+  registerZone({ id: 'burialmounds', x: 58, z: -17, radius: 5, densityMult: 0.7 })
 
-  // Rainwater Collection Tank (17,106) - utility landmark, no chest.
+  // Rainwater Collection Tank - relocated to flank the core street grid
+  // (was 17,106).
   {
     const tankMat = flatMaterial({ color: 0x7a8288, roughness: 0.7, metalness: 0.4 })
     const tank = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 1.8, 2.4, 16), tankMat)
-    tank.position.set(17, 1.2, 106)
+    tank.position.set(-57, 1.2, -31)
     tank.castShadow = true
     scene.add(tank)
     register(tank)
   }
-  registerZone({ id: 'rainwatertank', x: 17, z: 106, radius: 4, densityMult: 0.8 })
+  registerZone({ id: 'rainwatertank', x: -57, z: -31, radius: 4, densityMult: 0.8 })
 
-  // Motorpool (-17,106) - a few abandoned civilian cars, gets a small
-  // salvage chest. Box proportions match Vehicle.js's own body, same
-  // precedent as the parking garage's static "abandoned car" props.
+  // Motorpool - relocated to flank the core street grid (was -17,106). A
+  // few abandoned civilian cars, gets a small salvage chest. Box
+  // proportions match Vehicle.js's own body, same precedent as the
+  // parking garage's static "abandoned car" props.
   {
     const carMat = flatMaterial({ color: 0x5a3a3a, roughness: 0.6, metalness: 0.3 })
     const carMat2 = flatMaterial({ color: 0x3a4a5a, roughness: 0.6, metalness: 0.3 })
     const car1 = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.2, 3.6), carMat)
-    car1.position.set(-17 - 2.5, 0.6, 106)
+    car1.position.set(-2 - 2.5, 0.6, -65)
     car1.castShadow = true
     scene.add(car1)
     register(car1)
     const car2 = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.2, 3.6), carMat2)
-    car2.position.set(-17 + 2.5, 0.6, 106 + 1)
+    car2.position.set(-2 + 2.5, 0.6, -65 + 1)
     car2.rotation.y = 0.2
     car2.castShadow = true
     scene.add(car2)
     register(car2)
-    placePropSimple(scene, register, 'roadblock.glb', -17, 106 - 3, 0)
+    placePropSimple(scene, register, 'roadblock.glb', -2, -65 - 3, 0)
   }
-  registerZone({ id: 'motorpool', x: -17, z: 106, radius: 6, densityMult: 1.0 })
-  towerChestSpots.push({ x: -17, y: 0, z: 109 })
+  registerZone({ id: 'motorpool', x: -2, z: -65, radius: 6, densityMult: 1.0 })
+  towerChestSpots.push({ x: -2, y: 0, z: -62 })
 
-  // Picnic Area (-47,89) - benches + a table, pure atmosphere, no chest.
+  // Picnic Area - relocated to flank the core street grid (was -47,89).
   {
-    placePropSimple(scene, register, 'campus-table.glb', -47, 89, 0, 0.9)
-    placePropSimple(scene, register, 'bench.glb', -47 - 2, 89, Math.PI / 2)
-    placePropSimple(scene, register, 'bench.glb', -47 + 2, 89, -Math.PI / 2)
+    placePropSimple(scene, register, 'campus-table.glb', -75, 5, 0, 0.9)
+    placePropSimple(scene, register, 'bench.glb', -75 - 2, 5, Math.PI / 2)
+    placePropSimple(scene, register, 'bench.glb', -75 + 2, 5, -Math.PI / 2)
   }
-  registerZone({ id: 'picnicarea', x: -47, z: 89, radius: 4, densityMult: 0.7 })
+  registerZone({ id: 'picnicarea', x: -75, z: 5, radius: 4, densityMult: 0.7 })
 
   // Lookout Post (-62,19) - small raised platform, gets a small chest.
   {
@@ -1831,15 +1835,16 @@ export function buildWorld(scene, trophyCount = 15) {
   }
   registerZone({ id: 'laundryline', x: 68, z: 67, radius: 4, densityMult: 0.7 })
 
-  // Toolshed (-65,72) - tiny room, gets a small chest.
+  // Toolshed - relocated to flank the core street grid (was -65,72). Tiny
+  // room, gets a small chest.
   buildFillerLocation(scene, register, {
-    x: -65, z: 72, w: 6, d: 5, wallHeight: 2.2, floorColor: 0x5a4a38, doorWidth: 1.4,
+    x: 80, z: 0, w: 6, d: 5, wallHeight: 2.2, floorColor: 0x5a4a38, doorWidth: 1.4,
     dressing: [
       { file: 'tool-hammer.glb', dx: -1.5, dz: -1 }, { file: 'tool-crowbar.glb', dx: 1.5, dz: -1 },
     ],
   })
-  registerZone({ id: 'toolshed', x: -65, z: 72, radius: 5, densityMult: 1.0 })
-  towerChestSpots.push({ x: -65, y: 0, z: 75 })
+  registerZone({ id: 'toolshed', x: 80, z: 0, radius: 5, densityMult: 1.0 })
+  towerChestSpots.push({ x: 80, y: 0, z: 3 })
 
   // Radio Relay Mast (-60,-8) - thin utility antenna, no chest.
   {
@@ -1875,45 +1880,47 @@ export function buildWorld(scene, trophyCount = 15) {
   }
   registerZone({ id: 'prayershrine', x: 84, z: 42, radius: 4, densityMult: 0.7 })
 
-  // Rubble Barricade (42,115) - defensive debris cluster, atmosphere, no chest.
+  // Rubble Barricade - relocated to flank the core street grid (was 42,115).
   {
     const rubbleMat = flatMaterial({ color: 0x4a4642, roughness: 1 })
     for (const [dx, dz, w, h, d] of [[-1.5, 0, 1.4, 1, 1.2], [0.5, 0.3, 1.8, 1.3, 1], [2, -0.4, 1.2, 0.8, 1.4]]) {
       const chunk = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), rubbleMat)
-      chunk.position.set(42 + dx, h / 2, 115 + dz)
+      chunk.position.set(-28 + dx, h / 2, -70 + dz)
       chunk.rotation.y = Math.random() * 0.5
       chunk.castShadow = true
       scene.add(chunk)
       register(chunk)
     }
-    placePropSimple(scene, register, 'roadblock.glb', 42 - 3, 115, Math.PI / 2)
+    placePropSimple(scene, register, 'roadblock.glb', -28 - 3, -70, Math.PI / 2)
   }
-  registerZone({ id: 'rubblebarricade', x: 42, z: 115, radius: 5, densityMult: 1.0 })
+  registerZone({ id: 'rubblebarricade', x: -28, z: -70, radius: 5, densityMult: 1.0 })
 
-  // Scavenger's Trade Post (0,126) - a second, smaller trader stall,
-  // reusing the existing traderstall.glb prop directly (purely decorative
-  // here, not wired to the real trader mechanic - that stays the safe
-  // zone's own single trader). Gets a small chest.
+  // Scavenger's Trade Post - relocated to flank the core street grid (was
+  // 0,126). A second, smaller trader stall, reusing the existing
+  // traderstall.glb prop directly (purely decorative here, not wired to
+  // the real trader mechanic - that stays the safe zone's own single
+  // trader). Gets a small chest.
   buildFillerLocation(scene, register, {
-    x: 0, z: 126, w: 6, d: 5, fenceOnly: true,
+    x: 23, z: -71, w: 6, d: 5, fenceOnly: true,
     dressing: [{ file: 'traderstall.glb', dx: 0, dz: 0 }, { file: 'barrel.glb', dx: 2, dz: 1.5 }],
   })
-  registerZone({ id: 'scavengertradepost', x: 0, z: 126, radius: 5, densityMult: 1.0 })
-  towerChestSpots.push({ x: 0, y: 0, z: 123 })
+  registerZone({ id: 'scavengertradepost', x: 23, z: -71, radius: 5, densityMult: 1.0 })
+  towerChestSpots.push({ x: 23, y: 0, z: -74 })
 
-  // Sandbag Sniper Nest (-42,115) - stacked sandbag semi-circle + small
-  // platform, gets a small ammo chest.
+  // Sandbag Sniper Nest - relocated to flank the core street grid (was
+  // -42,115). Stacked sandbag semi-circle + small platform, gets a small
+  // ammo chest.
   {
     for (const [dx, dz] of [[-1.4, 0.6], [0, 0.9], [1.4, 0.6], [-0.8, -0.6], [0.8, -0.6]]) {
       const bag = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.5, 0.55), sandbagMat)
-      bag.position.set(-42 + dx, 0.25, 115 + dz)
+      bag.position.set(61 + dx, 0.25, -44 + dz)
       bag.castShadow = true
       scene.add(bag)
       register(bag)
     }
   }
-  registerZone({ id: 'snipernest', x: -42, z: 115, radius: 4, densityMult: 1.0 })
-  towerChestSpots.push({ x: -42, y: 0, z: 118 })
+  registerZone({ id: 'snipernest', x: 61, z: -44, radius: 4, densityMult: 1.0 })
+  towerChestSpots.push({ x: 61, y: 0, z: -41 })
 
   // Performance fix - only 2 call sites in this whole file ever went through
   // register() (which is what actually adds something to cullables), out of
