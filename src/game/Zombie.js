@@ -1529,12 +1529,15 @@ export class Zombie {
     return localHeight * this.group.scale.y
   }
 
-  onHit(damage) {
+  onHit(damage, opts = {}) {
     if (this.state !== 'alive' && this.state !== 'popping') return
     // Shielded type: non-melee hits drain the shield pool first and never
     // touch health while it holds; melee (see lastHitWeaponId, set by
-    // WeaponSystem._fire right before every onHit call) skips it entirely.
-    const blockedByShield = this.shieldHealth > 0 && this.lastHitWeaponId !== 'melee'
+    // WeaponSystem._fire right before every onHit call) skips it entirely -
+    // as does the Armor-Piercing Rounds attachment (opts.bypassShield),
+    // which reads as "punches straight through like melee does" rather than
+    // needing its own separate damage path.
+    const blockedByShield = this.shieldHealth > 0 && this.lastHitWeaponId !== 'melee' && !opts.bypassShield
     if (blockedByShield) {
       this.shieldHealth = Math.max(0, this.shieldHealth - damage)
     } else {

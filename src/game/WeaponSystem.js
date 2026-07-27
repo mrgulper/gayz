@@ -93,6 +93,14 @@ const WEAPONS = [
     damage: 12,
     // Shop-exclusive (see CoinShop.js) - no longer findable as loot.
     unlocked: false,
+    // Overheat (see _fire/update's heat handling) - sustained fire builds
+    // toward maxHeat, then forces the same jammedUntil cooldown a real jam
+    // would, so ripping the trigger the whole fight has a real cost instead
+    // of just "reload once every 150 rounds."
+    overheats: true,
+    heatPerShot: 0.09,
+    maxHeat: 1,
+    overheatCooldownMs: 2500,
   },
   {
     id: 'shotgun',
@@ -216,6 +224,34 @@ const WEAPONS = [
     suppressed: true,
     unlocked: false,
   },
+  {
+    id: 'nailgun',
+    name: 'Nail Gun',
+    auto: true,
+    fireInterval: 0.15,
+    reloadTime: 1.0,
+    magSize: 40,
+    reserve: 120,
+    damage: 16,
+    // Every connecting hit extends staggerUntil (see Zombie.stun) - sustained
+    // fire keeps a target pinned in place instead of a one-off knockdown.
+    stunMs: 350,
+    unlocked: false,
+  },
+  {
+    id: 'harpoon',
+    name: 'Harpoon Gun',
+    auto: false,
+    fireInterval: 1.6,
+    reloadTime: 2.0,
+    magSize: 1,
+    reserve: 8,
+    damage: 90,
+    // See _fire()'s hitZombies loop - yanks whatever it connects with toward
+    // the player instead of just dealing damage in place.
+    pullsTarget: true,
+    unlocked: false,
+  },
 ]
 
 // Alternate stat blocks for the melee slot - see setMeleeVariant(). Found as
@@ -289,6 +325,14 @@ export class WeaponSystem {
     // of each other bonuses that hit, then resets.
     this.meleeComboCount = 0
     this.lastMeleeHitAt = 0
+    // Melee Charge Bash - set every frame from Game.js (see update() below),
+    // mirroring how isMoving already arrives as a param rather than this
+    // class reaching into PlayerController itself.
+    this.isSprinting = false
+    // Minigun Overheat (see w.overheats in _fire) - builds per shot, decays
+    // when not firing, and reuses the existing jam mechanic's jammedUntil/HUD
+    // once it maxes out instead of adding a second cooldown state.
+    this.heat = 0
     // Adrenaline shot (see Game.js's _useAdrenaline) - set/cleared externally
     // by a timer there, same pattern as every other timed effect.
     this.fireRateMult = 1
@@ -449,6 +493,12 @@ export class WeaponSystem {
       // w.ignites in _fire's hitZombies loop) - this just grants that same
       // flag to a chosen gun instead of it being baked into one weapon.
       w.ignites = true
+    } else if (attachmentId === 'ricochet') {
+      w.ricochet = true
+    } else if (attachmentId === 'armorpierce') {
+      w.armorPierce = true
+    } else if (attachmentId === 'precision') {
+      w.critChance = 0.25
     }
   }
 
@@ -533,6 +583,25 @@ export class WeaponSystem {
       w._baseFireInterval = w.fireInterval
       w.fireInterval /= 2
       this.setWeaponSkin('pistol', 'akimbo')
+    } else if (!enabled && w.akimbo) {
+      w.akimbo = false
+      w.fireInterval = w._baseFireInterval
+    }
+  }
+
+  // Dual-Wield Shotguns (see CoinShop.js) - same shape as setAkimbo above,
+  // just targeting the shotgun slot. No dedicated "akimbo" skin exists for
+  // it (unlike the pistol's), so this is stats-only - matching the same
+  // "no bespoke viewmodel needed" precedent every fallback-to-buildPistol
+  // weapon (flamethrower/rocket/crossbow/launcher/suppressedsmg) already
+  // relies on.
+  setShotgunAkimbo(enabled) {
+    const w = this.weapons.find((w) => w.id === 'shotgun')
+    if (!w) return
+    if (enabled && !w.akimbo) {
+      w.akimbo = true
+      w._baseFireInterval = w.fireInterval
+      w.fireInterval /= 2
     } else if (!enabled && w.akimbo) {
       w.akimbo = false
       w.fireInterval = w._baseFireInterval
@@ -644,6 +713,10 @@ export class WeaponSystem {
     if (!this.weapons[index].unlocked) return
     if (this.reloading) return
     this.currentIndex = index
+    // Overheat only ever applies to whichever gun is currently out, so
+    // switching away always hands back a fully-cooled weapon rather than
+    // carrying leftover heat onto an unrelated gun.
+    this.heat = 0
     for (const id in this.viewmodels) this.viewmodels[id].visible = false
     this.viewmodels[this.weapons[index].id].visible = true
     // Off-hand knife rides along with every gun, hidden only for the melee
@@ -666,14 +739,23 @@ export class WeaponSystem {
     if (this.reloading) return
     if (w.ammoInMag === w.magSize || w.ammoReserve === 0) return
     this.reloading = true
-    this.reloadEndsAt = performance.now() / 1000 + w.reloadTime
+    // Tactical Reload - topping off a mag that still has rounds in it is
+    // faster than working the slide from completely empty, rewarding a
+    // reload before you're actually forced to rather than only after.
+    const tacticalMult = w.ammoInMag > 0 ? 0.6 : 1
+    this.reloadEndsAt = performance.now() / 1000 + w.reloadTime * tacticalMult
     this._updateHud(true)
   }
 
-  update(dt, isMoving = false) {
+  update(dt, isMoving = false, isSprinting = false) {
     this.timeSinceLastShot += dt
     this._time += dt
     this.recoil = Math.max(0, this.recoil - dt * 6)
+    this.isSprinting = isSprinting
+    // Overheat decay - only actually cools while not holding the trigger,
+    // so spraying right up to the cooldown threshold and letting off for a
+    // moment is a real way to avoid it instead of it being on a fixed timer.
+    if (!this.triggerDown) this.heat = Math.max(0, this.heat - dt * 0.35)
 
     const aimTarget = this.aiming && !this.reloading && !this.current.melee ? 1 : 0
     this.aimAmount = THREE.MathUtils.damp(this.aimAmount, aimTarget, ADS_LERP_SPEED, dt)
@@ -754,6 +836,11 @@ export class WeaponSystem {
       return
     }
     let meleeComboBonus = 1
+    // Melee Charge Bash - sprinting into a swing (see Game.js's update()
+    // call passing player.isSprinting through) hits harder and shoves the
+    // target back, on top of whatever the normal combo chain is doing.
+    const chargeBash = w.melee && this.isSprinting
+    if (chargeBash) meleeComboBonus *= 1.5
     if (w.melee) {
       this.recoil = 0.6
       audioEngine.playMelee()
@@ -767,6 +854,17 @@ export class WeaponSystem {
       }
     } else {
       if (!this.infiniteAmmo) w.ammoInMag -= 1
+      // Minigun Overheat (see w.overheats) - this shot itself still lands,
+      // but if it pushes heat over the top the gun seizes right after,
+      // reusing jammedUntil (and its existing HUD/jam-clear handling)
+      // instead of a second parallel cooldown state.
+      if (w.overheats) {
+        this.heat += w.heatPerShot
+        if (this.heat >= w.maxHeat) {
+          this.heat = 0
+          w.jammedUntil = performance.now() / 1000 + w.overheatCooldownMs / 1000
+        }
+      }
       // Suppressor attachment (see applyAttachment) dims the flash to a
       // fraction instead of hiding it outright - still a gun going off up
       // close, just not lighting up the street.
@@ -848,6 +946,19 @@ export class WeaponSystem {
           w.ammoReserve += 1
           this._updateHud()
         }
+        // Harpoon Gun (see w.pullsTarget) - yanks whatever it connects with
+        // toward the player along the ground plane, clamped so it never
+        // overshoots past them.
+        if (w.pullsTarget) {
+          const toPlayerX = this.camera.position.x - zombieHit.group.position.x
+          const toPlayerZ = this.camera.position.z - zombieHit.group.position.z
+          const dist = Math.hypot(toPlayerX, toPlayerZ)
+          if (dist > 0.0001) {
+            const pull = Math.min(3, Math.max(0, dist - 1.2))
+            zombieHit.group.position.x += (toPlayerX / dist) * pull
+            zombieHit.group.position.z += (toPlayerZ / dist) * pull
+          }
+        }
       }
 
       const explosive = hit.object.userData.explosive
@@ -906,6 +1017,10 @@ export class WeaponSystem {
         // stack with each other and with everything else above.
         if (info.headshot) damage *= HEADSHOT_DAMAGE_MULT
         if (w.melee) damage *= meleeComboBonus
+        // Precision Rounds attachment (see applyAttachment's w.critChance) -
+        // a flat per-shot chance at a bonus multiplier, independent of and
+        // stacking with the headshot check above rather than replacing it.
+        if (w.critChance && Math.random() < w.critChance) damage *= 1.75
         // Instakill power-up (see Game.js's _onPickup instakill) - a flat
         // override, same as the stealth takedown check right below it.
         if (this.instakillActive) damage = 99999
@@ -927,8 +1042,44 @@ export class WeaponSystem {
             }
           }
         }
-        zombie.onHit(damage)
+        // Stagger Execution: meleeing a target that's already genuinely
+        // stunned (the >300ms threshold matches Zombie.js's own stunned-vs-
+        // hit-flinch check) guarantees the kill, rewarding a Nail Gun/
+        // Sledgehammer/EMP follow-up instead of just adding raw damage.
+        if (w.melee && zombie.staggerUntil - performance.now() > 300) {
+          damage = Math.max(damage, zombie.health)
+        }
+        zombie.onHit(damage, { bypassShield: !!w.armorPierce })
         if (w.stunMs) zombie.stun(w.stunMs)
+        // Melee Charge Bash knockback - shoves the target straight back
+        // along the player-to-zombie line, same direct-position-nudge
+        // approach the Harpoon Gun's pull uses in the opposite direction.
+        if (chargeBash) {
+          const awayX = zombie.group.position.x - this.camera.position.x
+          const awayZ = zombie.group.position.z - this.camera.position.z
+          const awayLen = Math.hypot(awayX, awayZ)
+          if (awayLen > 0.0001) {
+            zombie.group.position.x += (awayX / awayLen) * 1.8
+            zombie.group.position.z += (awayZ / awayLen) * 1.8
+          }
+        }
+        // Ricochet Rounds attachment (see applyAttachment's w.ricochet) -
+        // bounces to the single nearest other living zombie within range for
+        // reduced damage, reusing the same nearest-neighbor scan shape the
+        // cleave pass below already does for a fixed radius.
+        if (w.ricochet && !w.melee && this.zombieManager) {
+          let nearest = null
+          let nearestDist = 6
+          for (const z of this.zombieManager.zombies) {
+            if (z === zombie || z.state !== 'alive') continue
+            const d = Math.hypot(z.group.position.x - zombie.group.position.x, z.group.position.z - zombie.group.position.z)
+            if (d < nearestDist) {
+              nearest = z
+              nearestDist = d
+            }
+          }
+          if (nearest) nearest.onHit(damage * 0.5)
+        }
       }
     }
     // Fire Axe cleave (see w.cleaveRadius) - a reduced-damage swing hitting

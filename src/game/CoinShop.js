@@ -79,6 +79,20 @@ export const COIN_SHOP_ITEMS = [
     section: 'guns',
     gun: 'suppressedsmg',
   },
+  {
+    id: 'gun_nailgun',
+    titleKey: 'weaponNailgun',
+    cost: 18000,
+    section: 'guns',
+    gun: 'nailgun',
+  },
+  {
+    id: 'gun_harpoon',
+    titleKey: 'weaponHarpoon',
+    cost: 26000,
+    section: 'guns',
+    gun: 'harpoon',
+  },
   { id: 'skin_ember', titleKey: 'coinShopEmberSkin', cost: 1500, section: 'skins', skin: 'ember' },
   { id: 'skin_gold', titleKey: 'skinGold', cost: 1200, section: 'skins', skin: 'gold' },
   { id: 'skin_crimson', titleKey: 'skinCrimson', cost: 1200, section: 'skins', skin: 'crimson' },
@@ -174,6 +188,21 @@ export const COIN_SHOP_ITEMS = [
       game.weapons.setAkimbo(true)
     },
   },
+  // Dual-Wield Shotguns - same permanent one-time upgrade shape as Akimbo
+  // above (see WeaponSystem.setShotgunAkimbo). No unlock gate, same as
+  // Akimbo itself - buying it before owning the shotgun just sits inert
+  // (re-applied every run via _applyCoinShopPerks) until the gun is owned.
+  {
+    id: 'akimbo_shotgun',
+    titleKey: 'coinShopAkimboShotgun',
+    cost: 4500,
+    section: 'weapons',
+    isOwned: (game) => game.coinShopPurchased.has('akimbo_shotgun'),
+    apply: (game) => {
+      game.coinShopPurchased.add('akimbo_shotgun')
+      game.weapons.setShotgunAkimbo(true)
+    },
+  },
   // Base building: a permanent auto-firing turret at the safe zone (see
   // Turret.js) - own 'base' section since it's neither a stat perk nor a
   // gun/skin. apply() builds the actual world object rather than just
@@ -250,4 +279,7 @@ export const ATTACHMENT_TYPES = [
   { id: 'suppressor', titleKey: 'attachSuppressor', cost: 3500 },
   { id: 'laser', titleKey: 'attachLaser', cost: 2000 },
   { id: 'incendiary', titleKey: 'attachIncendiary', cost: 4000 },
+  { id: 'ricochet', titleKey: 'attachRicochet', cost: 4500 },
+  { id: 'armorpierce', titleKey: 'attachArmorPierce', cost: 4000 },
+  { id: 'precision', titleKey: 'attachPrecision', cost: 3500 },
 ]

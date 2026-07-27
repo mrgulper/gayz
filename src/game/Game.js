@@ -4527,7 +4527,16 @@ export class Game {
           // ATTACHMENT_TYPES) - melee has no ammo/scope/sound to attach to,
           // and every attachment needs the gun owned first.
           if (w.id !== 'melee' && w.unlocked) {
-            const ownedFlags = { scope: w.scopeOwned, extmag: w.hasExtMag, suppressor: w.suppressed }
+            const ownedFlags = {
+              scope: w.scopeOwned,
+              extmag: w.hasExtMag,
+              suppressor: w.suppressed,
+              laser: w.hasLaser,
+              incendiary: w.ignites,
+              ricochet: w.ricochet,
+              armorpierce: w.armorPierce,
+              precision: !!w.critChance,
+            }
             const attachRow = document.createElement('div')
             attachRow.className = 'attach-row'
             for (const at of ATTACHMENT_TYPES) {
@@ -7435,7 +7444,7 @@ export class Game {
         this.player.input.forward || this.player.input.back ||
         this.player.input.left || this.player.input.right
       )
-      if (!this.weaponWheelOpen) this.weapons.update(dt, isMoving)
+      if (!this.weaponWheelOpen) this.weapons.update(dt, isMoving, this.player.isSprinting)
       if (performance.now() < this.killcamUntil) {
         this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, this.weapons.defaultFov * KILLCAM_ZOOM_FOV_MULT, 0.15)
         this.camera.updateProjectionMatrix()
