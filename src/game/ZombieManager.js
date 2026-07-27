@@ -516,16 +516,16 @@ export class ZombieManager {
   // below rather than a separate code path. Defaults to shambler (colossus/
   // titan's own behavior, unchanged); a boss can override via its own
   // config.addType (see broodmother, which summons sewer_dweller instead).
+  // Queued (see _pendingLocationSpawns/spawnAt's own note) rather than
+  // constructed immediately - this fires every BOSS_ADD_INTERVAL_MS during
+  // a boss fight, so an unpaced burst here was a real recurring stutter.
   _spawnBossAdds(x, z, count, addType = ZOMBIE_TYPES.shambler) {
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2
       const r = 2 + Math.random() * BOSS_ADD_SPAWN_RADIUS
       const sx = x + Math.sin(angle) * r
       const sz = z + Math.cos(angle) * r
-      const summoned = new Zombie(sx, sz, addType, false, false, this.currentNight, this.healthMult, this.speedMult)
-      summoned.deathHandled = false
-      this.zombies.push(summoned)
-      this.scene.add(summoned.group)
+      this._pendingLocationSpawns.push({ x: sx, z: sz, type: addType, isAmbush: false, isElite: false })
     }
   }
 
@@ -543,10 +543,7 @@ export class ZombieManager {
       const r = 2 + Math.random() * 4
       const sx = x + Math.sin(angle) * r
       const sz = z + Math.cos(angle) * r
-      const zombie = new Zombie(sx, sz, type, false, false, this.currentNight, this.healthMult, this.speedMult)
-      zombie.deathHandled = false
-      this.zombies.push(zombie)
-      this.scene.add(zombie.group)
+      this._pendingLocationSpawns.push({ x: sx, z: sz, type, isAmbush: false, isElite: false })
     }
   }
 
@@ -656,15 +653,16 @@ export class ZombieManager {
 
     // Pack spawn (see ZombieTypes.js's packSize) - additional pack members
     // land immediately in a small cluster around the first, sharing its
-    // ambush/elite roll rather than each rolling independently.
+    // ambush/elite roll rather than each rolling independently. Queued
+    // (see _pendingLocationSpawns/spawnAt's own note) rather than
+    // constructed here directly - the position/ambush/elite roll still
+    // happens immediately (cheap), only the expensive construction itself
+    // is paced.
     if (type.packSize) {
       for (let i = 1; i < type.packSize; i++) {
         const px = x + (Math.random() - 0.5) * 4
         const pz = z + (Math.random() - 0.5) * 4
-        const packmate = new Zombie(px, pz, type, isAmbush, isElite, this.currentNight, this.healthMult, this.speedMult)
-        packmate.deathHandled = false
-        this.zombies.push(packmate)
-        this.scene.add(packmate.group)
+        this._pendingLocationSpawns.push({ x: px, z: pz, type, isAmbush, isElite })
       }
     }
   }
@@ -688,13 +686,20 @@ export class ZombieManager {
   // per construction, stacking into several seconds of near-frozen frames
   // for a burst of just 6-15).
   spawnAt(x, z, count) {
-    for (let i = 0; i < count; i++) this._pendingLocationSpawns.push({ x, z })
+    for (let i = 0; i < count; i++) {
+      const ox = (Math.random() - 0.5) * 6
+      const oz = (Math.random() - 0.5) * 6
+      this._pendingLocationSpawns.push({ x: x + ox, z: z + oz, type: pickZombieType(), isAmbush: false, isElite: false })
+    }
   }
 
-  _spawnOneAt(x, z) {
-    const ox = (Math.random() - 0.5) * 6
-    const oz = (Math.random() - 0.5) * 6
-    const zombie = new Zombie(x + ox, z + oz, pickZombieType(), false, false, this.currentNight, this.healthMult, this.speedMult)
+  // Shared consumer for every location-targeted burst source (spawnAt,
+  // spawnStationAmbush, _spawnBossAdds, pack spawns, summon-on-death) -
+  // each producer already rolled the exact position/type/ambush/elite for
+  // this specific zombie (cheap, so no need to pace that part) - this just
+  // does the expensive part (the actual construction) one at a time.
+  _spawnOneAt(spot) {
+    const zombie = new Zombie(spot.x, spot.z, spot.type, spot.isAmbush, spot.isElite, this.currentNight, this.healthMult, this.speedMult)
     zombie.deathHandled = false
     this.zombies.push(zombie)
     this.scene.add(zombie.group)
@@ -1216,7 +1221,7 @@ export class ZombieManager {
     }
     while (spawnBudget > 0 && this._pendingLocationSpawns.length > 0 && this.zombies.length < this.performanceCap) {
       const spot = this._pendingLocationSpawns.shift()
-      this._spawnOneAt(spot.x, spot.z)
+      this._spawnOneAt(spot)
       spawnBudget--
     }
 
@@ -1350,10 +1355,7 @@ export class ZombieManager {
               const r = 1.5 + Math.random() * 1.5
               const sx = zombie.group.position.x + Math.sin(angle) * r
               const sz = zombie.group.position.z + Math.cos(angle) * r
-              const summoned = new Zombie(sx, sz, summonType, false, false, this.currentNight, this.healthMult, this.speedMult)
-              summoned.deathHandled = false
-              this.zombies.push(summoned)
-              this.scene.add(summoned.group)
+              this._pendingLocationSpawns.push({ x: sx, z: sz, type: summonType, isAmbush: false, isElite: false })
             }
           }
         }
