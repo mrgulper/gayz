@@ -339,9 +339,9 @@ function loadBestStats() {
   try {
     const raw = localStorage.getItem(BEST_STATS_KEY)
     const parsed = raw ? JSON.parse(raw) : {}
-    return { bestNight: parsed.bestNight || 0, bestKills: parsed.bestKills || 0 }
+    return { bestNight: parsed.bestNight || 0, bestKills: parsed.bestKills || 0, bestKillStreak: parsed.bestKillStreak || 0 }
   } catch {
-    return { bestNight: 0, bestKills: 0 }
+    return { bestNight: 0, bestKills: 0, bestKillStreak: 0 }
   }
 }
 
@@ -351,6 +351,90 @@ function saveBestStats(stats) {
   } catch {
     // Storage unavailable - best stats just won't persist across sessions.
   }
+}
+
+// Career Rank - a cumulative, NEVER-reset lifetime total (unlike bestStats'
+// single-run bests, and unlike MetaProgress's prestigeLevel which is a
+// deliberate reset-everything choice) - purely a "how much have you played,
+// ever" number, feeding both a display title and the Veteran Perks below.
+const CAREER_STATS_KEY = 'gayz-career-stats'
+const CAREER_RANK_TITLES = [
+  { min: 0, titleKey: 'careerRankRookie' },
+  { min: 1000, titleKey: 'careerRankSurvivor' },
+  { min: 5000, titleKey: 'careerRankVeteran' },
+  { min: 15000, titleKey: 'careerRankElite' },
+  { min: 50000, titleKey: 'careerRankLegend' },
+]
+// Auto-granted once each, permanently, purely from lifetime kills - distinct
+// from Legacy Points' spent-on-purpose upgrades and from Weapon Mastery's
+// per-weapon threshold, this is a single account-wide "you've clearly put
+// the hours in" bonus with no choice involved.
+const VETERAN_PERKS = [
+  { id: 'veteran_500', killThreshold: 500, apply: (game) => { game.playerState.maxHealth += 10; game.playerState.health += 10 } },
+  { id: 'veteran_2000', killThreshold: 2000, apply: (game) => { game.player.maxStamina += 10; game.player.stamina = game.player.maxStamina } },
+  { id: 'veteran_5000', killThreshold: 5000, apply: (game) => { game.weapons.damageMult += 0.05 } },
+]
+
+function loadCareerStats() {
+  try {
+    const raw = localStorage.getItem(CAREER_STATS_KEY)
+    const parsed = raw ? JSON.parse(raw) : {}
+    return { totalKills: parsed.totalKills || 0, totalRuns: parsed.totalRuns || 0, veteranPerksGranted: parsed.veteranPerksGranted || [] }
+  } catch {
+    return { totalKills: 0, totalRuns: 0, veteranPerksGranted: [] }
+  }
+}
+
+function saveCareerStats(stats) {
+  try {
+    localStorage.setItem(CAREER_STATS_KEY, JSON.stringify(stats))
+  } catch {
+    // Storage unavailable - career stats just won't persist across sessions.
+  }
+}
+
+function careerRankTitleKey(totalKills) {
+  let key = CAREER_RANK_TITLES[0].titleKey
+  for (const tier of CAREER_RANK_TITLES) {
+    if (totalKills >= tier.min) key = tier.titleKey
+  }
+  return key
+}
+
+// Daily Login Streak - consecutive CALENDAR days played, distinct from the
+// Weekly Challenge (a single rotating task) and Bounty Board (per-run
+// objective) - this is purely "did you come back today," resetting to 1
+// the moment a day is skipped rather than decaying gradually.
+const LOGIN_STREAK_KEY = 'gayz-login-streak'
+const LOGIN_STREAK_COIN_PER_DAY = 15
+const LOGIN_STREAK_MAX_BONUS_DAYS = 10
+
+function loadLoginStreak() {
+  try {
+    const raw = localStorage.getItem(LOGIN_STREAK_KEY)
+    const parsed = raw ? JSON.parse(raw) : {}
+    return { lastDate: parsed.lastDate || null, streak: parsed.streak || 0 }
+  } catch {
+    return { lastDate: null, streak: 0 }
+  }
+}
+
+function saveLoginStreak(state) {
+  try {
+    localStorage.setItem(LOGIN_STREAK_KEY, JSON.stringify(state))
+  } catch {
+    // Storage unavailable - streak just won't persist across sessions.
+  }
+}
+
+function todayDateString() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function yesterdayDateString() {
+  const d = new Date()
+  d.setDate(d.getDate() - 1)
+  return d.toISOString().slice(0, 10)
 }
 
 // Local leaderboard - a ranked history of runs, distinct from bestStats
@@ -694,6 +778,13 @@ const CORPSE_PILE_WINDOW_MS = 30000
 const CORPSE_PILE_MIN_KILLS = 6
 const CORPSE_PILE_SPEED_MULT = 0.7
 const CORPSE_PILE_MAX_TRACKED = 200
+// Run Score Multiplier (see _comboMultiplier) - a points-only bonus layered
+// on top of the existing on-screen combo counter (this.comboCount, see
+// _registerComboKill) rather than a second parallel "kills close together"
+// tracker - that counter was purely cosmetic before this, never affecting
+// actual rewards.
+const COMBO_MULT_PER_KILL = 0.15
+const COMBO_MULT_CAP = 2.5
 // Seasonal map dressing - purely additive banner props at the safe zone
 // (no new geometry touching World.js/buildSafeZone), recolored based on
 // night number so there's rotating visual variety across a long run.
@@ -1172,6 +1263,7 @@ export class Game {
     this.comboResetAt = 0
     this.deathStats = document.getElementById('death-stats')
     this.deathSummary = document.getElementById('death-summary')
+    this.deathGrade = document.getElementById('death-grade')
     this.deathLegacyPoints = document.getElementById('death-legacy-points')
     this.deathScoreAttack = document.getElementById('death-score-attack')
     this.deathEndless = document.getElementById('death-endless')
@@ -1210,6 +1302,7 @@ export class Game {
     this.minimapWrap = document.getElementById('minimap-wrap')
     this.minimapCanvas = document.getElementById('minimap')
     this.menuBestStats = document.getElementById('menu-best-stats')
+    this.menuCareerRank = document.getElementById('menu-career-rank')
     this.menuLeaderboard = document.getElementById('menu-leaderboard')
     this.difficultyBtns = document.querySelectorAll('.difficulty-btn')
     this.roleBtns = document.querySelectorAll('.role-btn')
@@ -1257,6 +1350,8 @@ export class Game {
     this.endlessBest = loadEndlessBest()
     this.endingSeen = loadEndingSeen()
     this.bestStats = loadBestStats()
+    this.careerStats = loadCareerStats()
+    this.loginStreak = loadLoginStreak()
     this.leaderboard = loadLeaderboard()
     this.dailyBest = loadDailyBest()
     this.dailyChallengeActive = false
@@ -1266,6 +1361,10 @@ export class Game {
     this.night = 1
     this.kills = 0
     this.killStreak = 0
+    // Records screen (see bestStats.bestKillStreak) - killStreak itself
+    // resets to 0 on any hit taken, so this separately tracks the highest
+    // it ever reached this run, checked against the persisted best at death.
+    this.peakKillStreakThisRun = 0
     this.killstreakDamageBoostUntil = 0
     this.killstreakAmmoUntil = 0
     this.shieldActive = false
@@ -2061,6 +2160,7 @@ export class Game {
       if (item) this.playerBody.setOutfit(item.outfitColor)
     }
     this._applyCoinShopPerks()
+    this._applyVeteranPerks()
 
     audioEngine.setMusicVolume(this.settings.musicVolume / 100)
     audioEngine.setSfxVolume(this.settings.sfxVolume / 100)
@@ -2103,6 +2203,7 @@ export class Game {
     this._applySeasonalDressing()
     this._rollRoadPileups()
     this._maybeSquadBanter()
+    this._checkLoginStreak()
     // Built once, not rerolled per-night like the pileups above - a
     // permanent shortcut once broken, not something that resets.
     {
@@ -3813,6 +3914,32 @@ export class Game {
     }
   }
 
+  // Veteran Perks - mirrors _applyMetaUpgrades' exact reasoning: granted
+  // once (see _onPlayerDeath, when careerStats.totalKills crosses a
+  // threshold) but re-applied every fresh run since WeaponSystem/PlayerState
+  // are rebuilt from scratch each time.
+  _applyVeteranPerks() {
+    for (const perk of VETERAN_PERKS) {
+      if (this.careerStats.veteranPerksGranted.includes(perk.id)) perk.apply(this)
+    }
+  }
+
+  // Daily Login Streak - checked once per page load (not per run-restart),
+  // so playing several runs in one sitting only ever grants today's bonus
+  // the first time. today/yesterday comparison keeps it simple: any bigger
+  // gap resets to a fresh streak of 1 rather than trying to partially credit it.
+  _checkLoginStreak() {
+    const today = todayDateString()
+    if (this.loginStreak.lastDate === today) return
+    this.loginStreak.streak = this.loginStreak.lastDate === yesterdayDateString() ? this.loginStreak.streak + 1 : 1
+    this.loginStreak.lastDate = today
+    saveLoginStreak(this.loginStreak)
+    const bonusDays = Math.min(this.loginStreak.streak, LOGIN_STREAK_MAX_BONUS_DAYS)
+    const coinBonus = bonusDays * LOGIN_STREAK_COIN_PER_DAY
+    this.coins += coinBonus
+    this._showLoreToast(t('loginStreakToast', { n: this.loginStreak.streak, coins: coinBonus }))
+  }
+
   _updateCompanionName() {
     const customName = this.settings.companionName.trim()
     if (customName) {
@@ -4900,13 +5027,18 @@ export class Game {
   }
 
   _updateBestStatsDisplay() {
-    const { bestNight, bestKills } = this.bestStats
+    const { bestNight, bestKills, bestKillStreak } = this.bestStats
     if (bestNight === 0 && bestKills === 0) {
       this.menuBestStats.textContent = ''
-      return
+    } else {
+      this.menuBestStats.textContent =
+        `${t('bestLabel')}: ${t('hudNight', { n: bestNight })} · ${t('hudKills', { n: bestKills })} · ${t('bestKillStreakLabel', { n: bestKillStreak })}`
     }
-    this.menuBestStats.textContent =
-      `${t('bestLabel')}: ${t('hudNight', { n: bestNight })} · ${t('hudKills', { n: bestKills })}`
+    if (this.menuCareerRank) {
+      this.menuCareerRank.textContent = this.careerStats.totalKills === 0
+        ? ''
+        : t('careerRankLabel', { rank: t(careerRankTitleKey(this.careerStats.totalKills)), kills: this.careerStats.totalKills })
+    }
   }
 
   // Local leaderboard - see loadLeaderboard's own doc comment for how this
@@ -5247,9 +5379,19 @@ export class Game {
     }
   }
 
+  // Run Score Multiplier - reuses the existing on-screen combo counter
+  // (this.comboCount, see _registerComboKill, already called just above
+  // every point-award site) rather than a second parallel "kills close
+  // together" tracker. Purely a points multiplier, no combat effect,
+  // distinct from the killstreak reward thresholds (damage/ammo/airstrike).
+  _comboMultiplier() {
+    return Math.min(COMBO_MULT_CAP, 1 + Math.max(0, this.comboCount - 1) * COMBO_MULT_PER_KILL)
+  }
+
   _onZombieKilled(zombieTypeId, weaponId, x, z, isElite, isWandering = false) {
     this.kills += 1
     this.killStreak += 1
+    if (this.killStreak > this.peakKillStreakThisRun) this.peakKillStreakThisRun = this.killStreak
     this._checkKillstreakReward()
     this.totalKills += 1
     this.killCountsThisRun[weaponId] = (this.killCountsThisRun[weaponId] || 0) + 1
@@ -5328,7 +5470,7 @@ export class Game {
     this._checkWeaponChallenge(weaponId)
     if (Math.random() < 0.25) {
       const doublePointsMult = this.doublePointsUntil && performance.now() < this.doublePointsUntil ? 2 : 1
-      this.points += (2 + Math.floor(Math.random() * 4)) * lootMult * doublePointsMult
+      this.points += (2 + Math.floor(Math.random() * 4)) * lootMult * doublePointsMult * this._comboMultiplier()
       this._updateStatsPanel()
     }
 
@@ -5539,6 +5681,44 @@ export class Game {
       kills: topCount,
       damage: Math.round(this.playerState.totalDamageTaken),
     })
+    this.deathGrade.textContent = t('runSummaryGrade', { grade: this._computeRunGrade() })
+  }
+
+  // Run Summary Grade - a single letter reading on how the run went,
+  // rewarding kills/streak/depth and penalizing damage taken, folded onto
+  // the existing death-summary breakdown rather than a separate screen.
+  _computeRunGrade() {
+    const score = this.kills * 3 + this.peakKillStreakThisRun * 2 + this.night * 20 - this.playerState.totalDamageTaken * 0.05
+    if (score >= 400) return 'S'
+    if (score >= 250) return 'A'
+    if (score >= 150) return 'B'
+    if (score >= 80) return 'C'
+    return 'D'
+  }
+
+  // Shared by _onPlayerDeath and the survive-to-dawn/extraction win path -
+  // both are "a run just ended" moments that should update every persistent
+  // record (bestStats, career totals, Veteran Perks) the same way.
+  _recordRunEnd() {
+    let improved = false
+    if (this.night > this.bestStats.bestNight) { this.bestStats.bestNight = this.night; improved = true }
+    if (this.kills > this.bestStats.bestKills) { this.bestStats.bestKills = this.kills; improved = true }
+    if (this.peakKillStreakThisRun > this.bestStats.bestKillStreak) { this.bestStats.bestKillStreak = this.peakKillStreakThisRun; improved = true }
+    if (improved) {
+      saveBestStats(this.bestStats)
+      this._updateBestStatsDisplay()
+    }
+    this._recordLeaderboardEntry()
+
+    this.careerStats.totalKills += this.kills
+    this.careerStats.totalRuns += 1
+    for (const perk of VETERAN_PERKS) {
+      if (this.careerStats.totalKills >= perk.killThreshold && !this.careerStats.veteranPerksGranted.includes(perk.id)) {
+        this.careerStats.veteranPerksGranted.push(perk.id)
+        this._showLoreToast(t('veteranPerkToast', { rank: t(careerRankTitleKey(this.careerStats.totalKills)) }))
+      }
+    }
+    saveCareerStats(this.careerStats)
   }
 
   _onPlayerDeath() {
@@ -5569,14 +5749,7 @@ export class Game {
     this._updateStatsPanel()
     if (this.totalDeaths === 1) this.achievements.unlock('first_death')
 
-    let improved = false
-    if (this.night > this.bestStats.bestNight) { this.bestStats.bestNight = this.night; improved = true }
-    if (this.kills > this.bestStats.bestKills) { this.bestStats.bestKills = this.kills; improved = true }
-    if (improved) {
-      saveBestStats(this.bestStats)
-      this._updateBestStatsDisplay()
-    }
-    this._recordLeaderboardEntry()
+    this._recordRunEnd()
 
     const elapsed = formatTime(performance.now() - this.runStartedAt)
     this.deathStats.textContent = t('deathStats', { night: this.night, kills: this.kills, time: elapsed })
@@ -7044,14 +7217,7 @@ export class Game {
     this.minimapWrap.style.display = 'none'
     this.extractionWrap.style.display = 'none'
 
-    let improved = false
-    if (this.night > this.bestStats.bestNight) { this.bestStats.bestNight = this.night; improved = true }
-    if (this.kills > this.bestStats.bestKills) { this.bestStats.bestKills = this.kills; improved = true }
-    if (improved) {
-      saveBestStats(this.bestStats)
-      this._updateBestStatsDisplay()
-    }
-    this._recordLeaderboardEntry()
+    this._recordRunEnd()
 
     this.points += EXTRACTION_POINTS_BONUS
     this.coins += EXTRACTION_COINS_BONUS
