@@ -850,6 +850,14 @@ const VEHICLE_RAM_MIN_SPEED = 4
 const VEHICLE_RAM_RADIUS = 2.6
 const VEHICLE_RAM_DAMAGE = 70
 const VEHICLE_RAM_COOLDOWN_MS = 500
+// Vehicle Health takes a little wear per zombie actually run over, on top
+// of whatever crash damage the wall-collision path (see Vehicle._crash)
+// already deals - small enough that ramming stays worth it, not a reason
+// to avoid zombies entirely.
+const VEHICLE_RAM_SELF_DAMAGE = 2
+const VEHICLE_MOTORCYCLE_CHANCE = 0.3
+const VEHICLE_REFUEL_PER_CAN = 35
+const VEHICLE_HORN_DISTRACTION_MS = 6000
 const LIGHTNING_MIN_DELAY_MS = 8000
 const LIGHTNING_DELAY_RANGE_MS = 12000
 const LIGHTNING_FLINCH_RADIUS = 18
@@ -1898,7 +1906,13 @@ export class Game {
     // already overlapping it and could never find a non-colliding direction
     // to move in (see Vehicle._tryMove - it has no "push clear" recovery,
     // just refuses any move that would still intersect). Moved well clear.
-    this.vehicle = new Vehicle(this.scene, -6, 22, 0)
+    // Second vehicle type (see Vehicle.js's VEHICLE_STATS) - which one
+    // spawns this run is random rather than always the car, so a run can
+    // hand you the faster/fragile motorcycle instead of always the sturdier
+    // default without needing two simultaneously-drivable vehicles (and
+    // everything that would take - a second enter/exit/camera-seat/ramming
+    // path) on top of the one this file already has throughout.
+    this.vehicle = new Vehicle(this.scene, -6, 22, 0, Math.random() < VEHICLE_MOTORCYCLE_CHANCE ? 'motorcycle' : 'car')
     this.driving = false
     this.nearVehicle = false
     this._vehicleSeatPos = new THREE.Vector3()
@@ -2570,6 +2584,11 @@ export class Game {
         return
       }
 
+      if (e.code === getKeyFor('horn') && this.driving) {
+        this._useHorn()
+        return
+      }
+
       if (e.code === getKeyFor('photoMode')) {
         if (this.inventoryOpen || this.mapOpen || this.journalOpen) return // don't let photo mode open on top of the inventory/map/journal
         this.photoModeOpen = !this.photoModeOpen
@@ -2647,6 +2666,8 @@ export class Game {
         this.breakerBoxKeyHeld = true
         if (this.driving) {
           this._exitVehicle()
+        } else if (this.nearVehicle && this.vehicle.fuel < this.vehicle.stats.maxFuel && this.inventory.fuelCans > 0) {
+          this._refuelVehicle()
         } else if (this.nearVehicle) {
           this._enterVehicle()
         } else if (this.reviveTarget) {
@@ -3578,8 +3599,33 @@ export class Game {
         zombie.lastHitWeaponId = 'vehicle'
         zombie.onHit(VEHICLE_RAM_DAMAGE)
         this._triggerShake(0.08, 120)
+        this.vehicle.health = Math.max(0, this.vehicle.health - VEHICLE_RAM_SELF_DAMAGE)
+        if (this.vehicle.health <= 0) this.vehicle.disabled = true
       }
     }
+  }
+
+  // Vehicle Horn - an instant distraction at the car's own position (unlike
+  // the thrown Noisemaker, nothing needs to travel there first) so it reads
+  // as "blast the horn, draw the horde toward the car" - same
+  // zombies.distraction shape ZombieManager's own noisemaker-landing code
+  // already produces, just set directly.
+  _useHorn() {
+    audioEngine.playHorn()
+    this.zombies.distraction = {
+      x: this.vehicle.group.position.x,
+      z: this.vehicle.group.position.z,
+      expiresAt: performance.now() + VEHICLE_HORN_DISTRACTION_MS,
+    }
+  }
+
+  // Vehicle Fuel refill - same "walk up, hold a resource, press interact"
+  // shape as the Generator's fuel-can refuel, just for the car instead.
+  _refuelVehicle() {
+    if (!this.inventory.useFuelCan()) return
+    this.vehicle.refuel(VEHICLE_REFUEL_PER_CAN)
+    this._updateInventoryHud()
+    this._showLoreToast(t('vehicleRefueled'))
   }
 
   // Swaps a slider's value label for a temporary <input type="number"> on
@@ -8192,6 +8238,9 @@ export class Game {
         this.interactPrompt.style.display = 'block'
       } else if (this.nearMysteryBox) {
         this.interactPrompt.innerHTML = tHtml('interactMysteryBox')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearVehicle && this.vehicle.fuel < this.vehicle.stats.maxFuel && this.inventory.fuelCans > 0) {
+        this.interactPrompt.innerHTML = tHtml('interactRefuelVehicle')
         this.interactPrompt.style.display = 'block'
       } else if (this.nearVehicle) {
         this.interactPrompt.innerHTML = tHtml('interactEnterVehicle')

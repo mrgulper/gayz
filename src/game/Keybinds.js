@@ -28,6 +28,7 @@ export const ACTIONS = [
   { id: 'toggleMap', defaultKey: 'KeyL', labelKey: 'actionToggleMap' },
   { id: 'minimapZoom', defaultKey: 'Comma', labelKey: 'actionMinimapZoom' },
   { id: 'squadHold', defaultKey: 'Period', labelKey: 'actionSquadHold' },
+  { id: 'horn', defaultKey: 'Semicolon', labelKey: 'actionHorn' },
   { id: 'journal', defaultKey: 'KeyI', labelKey: 'actionJournal' },
   { id: 'photoMode', defaultKey: 'KeyO', labelKey: 'actionPhotoMode' },
   { id: 'screenshot', defaultKey: 'KeyP', labelKey: 'actionScreenshot' },

@@ -2,15 +2,22 @@ import * as THREE from 'three'
 import { CachedColliderGrid } from './ColliderGrid.js'
 import { LOW_QUALITY_MODE, flatMaterial } from './QualitySettings.js'
 
-const MAX_SPEED = 14
-const REVERSE_MAX_SPEED = 6
-const ACCEL = 9
-const FRICTION_DECEL = 5
-const TURN_RATE = 2.2 // rad/sec, scaled by current speed fraction below
 const CAR_HALF_W = 0.9
 const CAR_HALF_D = 2.0
 const CAR_COLLIDER_TOP = 1.4
 const CAR_COLLIDER_BOTTOM = 0.1
+
+// Vehicle Fuel/Health/second vehicle type - stats per type, keyed the same
+// way ZombieTypes.js keys zombie configs. 'car' matches every original
+// hardcoded constant exactly, so existing behavior is unchanged; 'motorcycle'
+// is faster/quicker to accelerate but far less durable and burns fuel
+// faster, a real risk/reward pick rather than a strict upgrade.
+const VEHICLE_STATS = {
+  car: { maxSpeed: 14, reverseMaxSpeed: 6, accel: 9, frictionDecel: 5, turnRate: 2.2, maxFuel: 100, fuelPerSec: 1.6, maxHealth: 150, color: 0xb43a2e },
+  motorcycle: { maxSpeed: 19, reverseMaxSpeed: 5, accel: 13, frictionDecel: 6, turnRate: 3.0, maxFuel: 70, fuelPerSec: 2.2, maxHealth: 70, color: 0x2e3a44 },
+}
+const CRASH_DAMAGE_MIN_SPEED = 8
+const CRASH_DAMAGE_PER_SPEED = 3.5
 
 // Local-space seat/exit offsets, relative to the car's own position+heading.
 const DRIVER_SEAT_OFFSET = new THREE.Vector3(-0.35, 1.05, 0.1)
@@ -22,8 +29,10 @@ const EXIT_OFFSET = new THREE.Vector3(1.4, 0, 0)
 // driving and can't shoot - giving the car its own health/damage model
 // would be a whole separate feature on top of this one.
 export class Vehicle {
-  constructor(scene, x, z, heading = 0) {
+  constructor(scene, x, z, heading = 0, type = 'car') {
     this.scene = scene
+    this.type = type
+    this.stats = VEHICLE_STATS[type] || VEHICLE_STATS.car
     this.group = new THREE.Group()
     this.group.position.set(x, 0, z)
     this.group.rotation.y = heading
@@ -32,6 +41,9 @@ export class Vehicle {
 
     this.speed = 0
     this.occupied = false
+    this.fuel = this.stats.maxFuel
+    this.health = this.stats.maxHealth
+    this.disabled = false
     // Same fix as PlayerController/ZombieManager (see ColliderGrid.js) -
     // _tryMove used to linear-scan every world collider every frame while
     // driving. Built lazily on first update() call since the colliders
@@ -45,7 +57,7 @@ export class Vehicle {
     // LOW_QUALITY_MODE: only one Vehicle instance ever exists, so this is a
     // small win, but cheap/consistent to include - Lambert instead of
     // Standard, still flat colors either way.
-    const bodyMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: 0xb43a2e }) : flatMaterial({ color: 0xb43a2e, roughness: 0.5, metalness: 0.35 })
+    const bodyMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: this.stats.color }) : flatMaterial({ color: this.stats.color, roughness: 0.5, metalness: 0.35 })
     const glassMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: 0x1a2226 }) : flatMaterial({ color: 0x1a2226, roughness: 0.2, metalness: 0.6 })
     const wheelMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: 0x111111 }) : flatMaterial({ color: 0x111111, roughness: 0.9 })
     const lightMat = flatMaterial({ color: 0xfff6d0, emissive: 0xfff6d0, emissiveIntensity: 1.2 })
@@ -82,16 +94,23 @@ export class Vehicle {
 
   update(dt, input, colliders) {
     if (!this.occupied) return
+    // Out of fuel or health-depleted: can't accelerate, just coasts to a
+    // stop under normal friction - still steerable while rolling, same as
+    // a real stalled car, rather than instantly freezing in place.
+    const canDrive = this.fuel > 0 && !this.disabled
+    const accel = canDrive ? this.stats.accel : 0
 
-    if (input.forward) this.speed = Math.min(MAX_SPEED, this.speed + ACCEL * dt)
-    else if (input.back) this.speed = Math.max(-REVERSE_MAX_SPEED, this.speed - ACCEL * dt)
-    else if (this.speed > 0) this.speed = Math.max(0, this.speed - FRICTION_DECEL * dt)
-    else if (this.speed < 0) this.speed = Math.min(0, this.speed + FRICTION_DECEL * dt)
+    if (input.forward && canDrive) this.speed = Math.min(this.stats.maxSpeed, this.speed + accel * dt)
+    else if (input.back && canDrive) this.speed = Math.max(-this.stats.reverseMaxSpeed, this.speed - accel * dt)
+    else if (this.speed > 0) this.speed = Math.max(0, this.speed - this.stats.frictionDecel * dt)
+    else if (this.speed < 0) this.speed = Math.min(0, this.speed + this.stats.frictionDecel * dt)
+
+    if (canDrive) this.fuel = Math.max(0, this.fuel - Math.abs(this.speed) * this.stats.fuelPerSec * 0.02 * dt)
 
     if (Math.abs(this.speed) > 0.05) {
       const turnDir = (input.left ? 1 : 0) - (input.right ? 1 : 0)
-      const speedFrac = Math.min(1, Math.abs(this.speed) / MAX_SPEED + 0.3)
-      this.group.rotation.y += turnDir * TURN_RATE * dt * Math.sign(this.speed) * speedFrac
+      const speedFrac = Math.min(1, Math.abs(this.speed) / this.stats.maxSpeed + 0.3)
+      this.group.rotation.y += turnDir * this.stats.turnRate * dt * Math.sign(this.speed) * speedFrac
     }
 
     for (const wheel of this.wheels) wheel.rotation.x += this.speed * dt * 1.5
@@ -128,11 +147,32 @@ export class Vehicle {
     // so a car can always still be steered back out of an overlap instead of
     // freezing for the rest of the run.
     const alreadyStuck = !fits(x, z)
+    // Vehicle Health/Crash Damage - a hard stop into a wall at real speed
+    // hurts, scaled off however fast it was going the instant it got
+    // rejected (not a flat hit), so tapping a curb barely scratches it but
+    // a full-speed wall slam actually matters.
+    const speedBeforeStop = Math.abs(this.speed)
 
     if (alreadyStuck || fits(x + dx, z)) this.group.position.x += dx
-    else this.speed = 0
+    else this._crash(speedBeforeStop)
     if (alreadyStuck || fits(this.group.position.x, z + dz)) this.group.position.z += dz
-    else this.speed = 0
+    else this._crash(speedBeforeStop)
+  }
+
+  _crash(speedBeforeStop) {
+    this.speed = 0
+    if (speedBeforeStop < CRASH_DAMAGE_MIN_SPEED) return
+    this.health = Math.max(0, this.health - (speedBeforeStop - CRASH_DAMAGE_MIN_SPEED) * CRASH_DAMAGE_PER_SPEED)
+    if (this.health <= 0) this.disabled = true
+  }
+
+  refuel(amount) {
+    this.fuel = Math.min(this.stats.maxFuel, this.fuel + amount)
+  }
+
+  repair(amount) {
+    this.health = Math.min(this.stats.maxHealth, this.health + amount)
+    if (this.health > 0) this.disabled = false
   }
 
   getDriverSeatWorld(target) {

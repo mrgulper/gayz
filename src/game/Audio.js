@@ -933,6 +933,29 @@ class AudioEngine {
     osc.start(now)
     osc.stop(now + duration)
   }
+
+  // Vehicle Horn - two slightly-detuned square oscillators (a real car horn
+  // is never a single pure tone), short and flat rather than a fading hit
+  // like every combat SFX above.
+  playHorn() {
+    if (!this.ctx) return
+    const ctx = this.ctx
+    const now = ctx.currentTime
+    const duration = 0.5
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(0.3, now)
+    gain.gain.setValueAtTime(0.3, now + duration - 0.05)
+    gain.gain.linearRampToValueAtTime(0.0001, now + duration)
+    gain.connect(this.sfxGain)
+    for (const freq of [370, 466]) {
+      const osc = ctx.createOscillator()
+      osc.type = 'square'
+      osc.frequency.value = freq
+      osc.connect(gain)
+      osc.start(now)
+      osc.stop(now + duration)
+    }
+  }
 }
 
 export const audioEngine = new AudioEngine()
