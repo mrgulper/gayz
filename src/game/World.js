@@ -1231,6 +1231,361 @@ export function buildWorld(scene, trophyCount = 15) {
   registerZone({ id: 'daycare', x: 100, z: -260, radius: 8, densityMult: 1.1 })
   towerChestSpots.push({ x: 100, y: 0, z: -257 })
 
+  // 30 more locations, user-requested batch, 2026-07-27. Every coordinate
+  // below was verified by script (not by eye) against every existing
+  // location, the 4 Phase 6 outer zones, the core street grid, and the
+  // safe zone - minimum 36-42 units of center-to-center clearance from
+  // anything else, same clearance bar every earlier stage used. All use
+  // the same buildFillerLocation() helper every other flavor location
+  // (library, church, theater, etc.) already uses - no new build pattern
+  // needed. None get a Game.js-level this.x reference or a special
+  // mechanic (lock, hazard, puzzle) - matching the majority of existing
+  // named locations, which are pure loot/flavor stops, not mechanic-gated
+  // ones like the police station/prison/sewer are.
+  buildFillerLocation(scene, register, {
+    x: -173, z: -100, w: 14, d: 12, floorColor: 0x4a4438,
+    dressing: [
+      { file: 'waiting-chair.glb', dx: -3, dz: -3 }, { file: 'waiting-chair.glb', dx: 3, dz: -3 },
+      { file: 'campus-table.glb', dx: -3, dz: 2 }, { file: 'campus-table.glb', dx: 3, dz: 2 },
+    ],
+  })
+  registerZone({ id: 'communitycenter', x: -173, z: -100, radius: 12, densityMult: 1.0 })
+  towerChestSpots.push({ x: -173, y: 0, z: -95 })
+
+  buildFillerLocation(scene, register, {
+    x: -122, z: -159, w: 9, d: 8, floorColor: 0x3a3630,
+    dressing: [
+      { file: 'shelf.glb', dx: -3, dz: -2 }, { file: 'shelf.glb', dx: 3, dz: -2 },
+      { file: 'campus-books.glb', dx: 0, dz: -2.5 }, { file: 'counter.glb', dx: 0, dz: 2.8, rot: Math.PI },
+    ],
+  })
+  registerZone({ id: 'printshop', x: -122, z: -159, radius: 8, densityMult: 1.0 })
+  towerChestSpots.push({ x: -122, y: 0, z: -156 })
+
+  buildFillerLocation(scene, register, {
+    x: -82, z: -199, w: 8, d: 7, floorColor: 0xd8d8d0,
+    dressing: [
+      { file: 'hospital-bed.glb', dx: -1.5, dz: -1.5 }, { file: 'medical-cabinet.glb', dx: 3, dz: -2, rot: -Math.PI / 2 },
+      { file: 'medical-cabinet.glb', dx: -3, dz: -2, rot: Math.PI / 2 },
+    ],
+  })
+  registerZone({ id: 'bloodbank', x: -82, z: -199, radius: 8, densityMult: 1.3 })
+  towerChestSpots.push({ x: -82, y: 0, z: -196, lootWeights: MEDICAL_LOOT_WEIGHTS })
+
+  buildFillerLocation(scene, register, {
+    x: 226, z: 94, w: 10, d: 10, wallHeight: 6, floorColor: 0x232838,
+    dressing: [
+      { file: 'campus-table.glb', dx: 0, dz: -2 }, { file: 'shelf.glb', dx: -3.5, dz: 2 }, { file: 'shelf.glb', dx: 3.5, dz: 2 },
+    ],
+  })
+  registerZone({ id: 'observatory', x: 226, z: 94, radius: 9, densityMult: 1.1 })
+  towerChestSpots.push({ x: 226, y: 0, z: 98 })
+
+  buildFillerLocation(scene, register, {
+    x: -194, z: 149, w: 11, d: 9, floorColor: 0x5c5648,
+    dressing: [
+      { file: 'waiting-chair.glb', dx: -3, dz: -2 }, { file: 'waiting-chair.glb', dx: 3, dz: -2 },
+      { file: 'medical-cabinet.glb', dx: 0, dz: 3, rot: Math.PI }, { file: 'counter.glb', dx: 0, dz: -3.5, rot: 0 },
+    ],
+  })
+  registerZone({ id: 'animalshelter', x: -194, z: 149, radius: 9, densityMult: 1.0 })
+  towerChestSpots.push({ x: -194, y: 0, z: 152 })
+
+  buildFillerLocation(scene, register, {
+    x: -237, z: 63, w: 16, d: 14, fenceOnly: true,
+    dressing: [
+      { file: 'barrel.glb', dx: -5, dz: -4 }, { file: 'barrel.glb', dx: -5, dz: 4 }, { file: 'barrel.glb', dx: 5, dz: 0 },
+      { file: 'waterbarrel.glb', dx: 3, dz: -4 }, { file: 'waterbarrel.glb', dx: -2, dz: 5 },
+      { file: 'roadblock.glb', dx: 0, dz: -6 }, { file: 'trafficcone.glb', dx: 2, dz: -6 },
+    ],
+  })
+  registerZone({ id: 'quarantinecamp', x: -237, z: 63, radius: 13, densityMult: 1.4 })
+  towerChestSpots.push({ x: -237, y: 0, z: 67, lootWeights: MEDICAL_LOOT_WEIGHTS })
+
+  buildFillerLocation(scene, register, {
+    x: -237, z: -63, w: 9, d: 8, floorColor: 0x3a362c,
+    dressing: [
+      { file: 'counter.glb', dx: 0, dz: 2.8, rot: Math.PI }, { file: 'shelf.glb', dx: -3, dz: -2 }, { file: 'shelf.glb', dx: 3, dz: -2 },
+      { file: 'tool-crowbar.glb', dx: -3, dz: -2.4 },
+    ],
+  })
+  registerZone({ id: 'pawnshop', x: -237, z: -63, radius: 8, densityMult: 1.4 })
+  towerChestSpots.push({ x: -237, y: 0, z: -60, lootWeights: WEAPON_ONLY_LOOT_WEIGHTS })
+
+  buildFillerLocation(scene, register, {
+    x: -225, z: -130, w: 20, d: 16, fenceOnly: true,
+    dressing: [
+      { file: 'roadblock.glb', dx: -6, dz: -5 }, { file: 'roadblock.glb', dx: 6, dz: -5 },
+      { file: 'trafficcone.glb', dx: -3, dz: 5 }, { file: 'trafficcone.glb', dx: 3, dz: 5 }, { file: 'trafficcone.glb', dx: 0, dz: 6 },
+      { file: 'cabledrum.glb', dx: -7, dz: 4 }, { file: 'cabledrum.glb', dx: 7, dz: 4 },
+    ],
+  })
+  registerZone({ id: 'autodealership', x: -225, z: -130, radius: 15, densityMult: 1.1 })
+  towerChestSpots.push({ x: -225, y: 0, z: -125 })
+
+  buildFillerLocation(scene, register, {
+    x: -184, z: -184, w: 9, d: 8, floorColor: 0xd9c9a8,
+    dressing: [
+      { file: 'counter.glb', dx: 0, dz: 2.8, rot: Math.PI }, { file: 'food-bread.glb', dx: -2, dz: -2 },
+      { file: 'food-bag.glb', dx: 2, dz: -2 }, { file: 'food-carton.glb', dx: 0, dz: -2.5 },
+    ],
+  })
+  registerZone({ id: 'bakery', x: -184, z: -184, radius: 8, densityMult: 1.1 })
+  towerChestSpots.push({ x: -184, y: 0, z: -181 })
+
+  buildFillerLocation(scene, register, {
+    x: -67, z: -251, w: 9, d: 8, floorColor: 0x3a3630,
+    dressing: [
+      { file: 'campus-bookcase.glb', dx: -3, dz: -2 }, { file: 'campus-bookcase.glb', dx: 3, dz: -2 },
+      { file: 'campus-books.glb', dx: 0, dz: -2.5 }, { file: 'counter.glb', dx: 0, dz: 2.8, rot: Math.PI },
+    ],
+  })
+  registerZone({ id: 'comicbookshop', x: -67, z: -251, radius: 8, densityMult: 1.0 })
+  towerChestSpots.push({ x: -67, y: 0, z: -248 })
+
+  buildFillerLocation(scene, register, {
+    x: -268, z: 111, w: 9, d: 8, floorColor: 0x2e2a24,
+    dressing: [
+      { file: 'shelf.glb', dx: -3, dz: -2 }, { file: 'shelf.glb', dx: 0, dz: -2 }, { file: 'shelf.glb', dx: 3, dz: -2 },
+      { file: 'counter.glb', dx: 0, dz: 2.8, rot: Math.PI },
+    ],
+  })
+  registerZone({ id: 'musicstore', x: -268, z: 111, radius: 8, densityMult: 1.0 })
+  towerChestSpots.push({ x: -268, y: 0, z: 114 })
+
+  buildFillerLocation(scene, register, {
+    x: 230, z: -177, w: 7, d: 6, floorColor: 0x3a362c,
+    dressing: [
+      { file: 'counter.glb', dx: 0, dz: 2, rot: Math.PI }, { file: 'tool-hammer.glb', dx: -1.5, dz: -1.5 },
+      { file: 'tool-crowbar.glb', dx: 1.5, dz: -1.5 },
+    ],
+  })
+  registerZone({ id: 'locksmith', x: 230, z: -177, radius: 6, densityMult: 1.0 })
+  towerChestSpots.push({ x: 230, y: 0, z: -174 })
+
+  buildFillerLocation(scene, register, {
+    x: -302, z: 40, w: 18, d: 14, fenceOnly: true,
+    dressing: [
+      { file: 'dumpster.glb', dx: -5, dz: -3 }, { file: 'dumpster.glb', dx: 5, dz: -3 }, { file: 'dumpster.glb', dx: 0, dz: 4 },
+      { file: 'trashbin.glb', dx: -6, dz: 3 }, { file: 'trashbin.glb', dx: 6, dz: 3 },
+      { file: 'cabledrum.glb', dx: -3, dz: 5 }, { file: 'cabledrum.glb', dx: 3, dz: 5 },
+    ],
+  })
+  registerZone({ id: 'recyclingcenter', x: -302, z: 40, radius: 13, densityMult: 1.1 })
+  towerChestSpots.push({ x: -302, y: 0, z: 44 })
+
+  // Storage Unit Facility - a small fenced yard of "container" shapes
+  // (cabledrum/dumpster stand in for storage containers - no dedicated
+  // container model exists) rather than the lockedCells mechanism (would
+  // need a Game.js-side array entry per unit, a bigger scope increase than
+  // this batch's other 29 pure loot/flavor stops).
+  buildFillerLocation(scene, register, {
+    x: -242, z: -186, w: 16, d: 10, fenceOnly: true,
+    dressing: [
+      { file: 'dumpster.glb', dx: -6, dz: -2 }, { file: 'dumpster.glb', dx: -2, dz: -2 }, { file: 'dumpster.glb', dx: 2, dz: -2 }, { file: 'dumpster.glb', dx: 6, dz: -2 },
+      { file: 'cabledrum.glb', dx: -4, dz: 2 }, { file: 'cabledrum.glb', dx: 4, dz: 2 },
+    ],
+  })
+  registerZone({ id: 'storageunits', x: -242, z: -186, radius: 11, densityMult: 1.0 })
+  towerChestSpots.push({ x: -242, y: 0, z: -183 })
+
+  // Water Tower + Grain Silo - visual landmarks (tall cylinder, not
+  // climbable - the existing fire-escape/watchtower climbing pattern would
+  // need its own ground-height verification pass per structure, out of
+  // scope for this batch of 30 pure loot/flavor stops) with a small fenced
+  // dressing yard at the base.
+  buildFillerLocation(scene, register, {
+    x: 320, z: 0, w: 10, d: 10, fenceOnly: true,
+    dressing: [{ file: 'waterbarrel.glb', dx: -3, dz: 3 }, { file: 'waterbarrel.glb', dx: 3, dz: 3 }],
+  })
+  {
+    const towerMat = flatMaterial({ color: 0x8a9098, roughness: 0.8, metalness: 0.3 })
+    const legMat = flatMaterial({ color: 0x3a3a38, roughness: 0.7, metalness: 0.5 })
+    const tank = new THREE.Mesh(new THREE.CylinderGeometry(4.2, 4.2, 5, 16), towerMat)
+    tank.position.set(320, 11, 0)
+    tank.castShadow = true
+    scene.add(tank)
+    register(tank)
+    for (const [lx, lz] of [[-3, -3], [3, -3], [-3, 3], [3, 3]]) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 8.5, 8), legMat)
+      leg.position.set(320 + lx, 4.25, lz)
+      leg.castShadow = true
+      scene.add(leg)
+      register(leg)
+    }
+  }
+  registerZone({ id: 'watertower', x: 320, z: 0, radius: 8, densityMult: 1.0 })
+  towerChestSpots.push({ x: 320, y: 0, z: 4 })
+
+  buildFillerLocation(scene, register, {
+    x: -83, z: -309, w: 10, d: 10, fenceOnly: true,
+    dressing: [{ file: 'barrel.glb', dx: -3, dz: 3 }, { file: 'barrel.glb', dx: 3, dz: 3 }],
+  })
+  {
+    const siloMat = flatMaterial({ color: 0xc9c3b0, roughness: 0.85, metalness: 0.15 })
+    const silo = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 12, 16), siloMat)
+    silo.position.set(-83, 6, -309)
+    silo.castShadow = true
+    scene.add(silo)
+    register(silo)
+    const capMat = flatMaterial({ color: 0x6b5a48, roughness: 0.9 })
+    const cap = new THREE.Mesh(new THREE.ConeGeometry(3.1, 2, 16), capMat)
+    cap.position.set(-83, 13, -309)
+    cap.castShadow = true
+    scene.add(cap)
+    register(cap)
+  }
+  registerZone({ id: 'grainsilo', x: -83, z: -309, radius: 8, densityMult: 1.0 })
+  towerChestSpots.push({ x: -83, y: 0, z: -305 })
+
+  buildFillerLocation(scene, register, {
+    x: 87, z: 324, w: 18, d: 16, fenceOnly: true,
+    dressing: [
+      { file: 'roadblock.glb', dx: -6, dz: -5 }, { file: 'roadblock.glb', dx: 6, dz: -5 },
+      { file: 'trafficcone.glb', dx: -3, dz: 4 }, { file: 'trafficcone.glb', dx: 0, dz: 5 }, { file: 'trafficcone.glb', dx: 3, dz: 4 },
+      { file: 'cabledrum.glb', dx: -7, dz: 4 }, { file: 'cabledrum.glb', dx: 7, dz: 4 },
+    ],
+  })
+  registerZone({ id: 'constructionsite', x: 87, z: 324, radius: 13, densityMult: 1.1 })
+  towerChestSpots.push({ x: 87, y: 0, z: 328 })
+
+  buildFillerLocation(scene, register, {
+    x: -87, z: 324, w: 20, d: 14, fenceOnly: true,
+    dressing: [
+      { file: 'cabledrum.glb', dx: -7, dz: -3 }, { file: 'cabledrum.glb', dx: 0, dz: -3 }, { file: 'cabledrum.glb', dx: 7, dz: -3 },
+      { file: 'dumpster.glb', dx: -5, dz: 4 }, { file: 'dumpster.glb', dx: 5, dz: 4 },
+      { file: 'barrel.glb', dx: 0, dz: 5 },
+    ],
+  })
+  registerZone({ id: 'railyard', x: -87, z: 324, radius: 14, densityMult: 1.1 })
+  towerChestSpots.push({ x: -87, y: 0, z: 328 })
+
+  buildFillerLocation(scene, register, {
+    x: 87, z: -324, w: 8, d: 7, floorColor: 0xf0d8e0,
+    dressing: [
+      { file: 'counter.glb', dx: 0, dz: 2, rot: Math.PI }, { file: 'waiting-chair.glb', dx: -2, dz: -1.5 }, { file: 'waiting-chair.glb', dx: 2, dz: -1.5 },
+    ],
+  })
+  registerZone({ id: 'icecreamparlor', x: 87, z: -324, radius: 6, densityMult: 1.0 })
+  towerChestSpots.push({ x: 87, y: 0, z: -321 })
+
+  buildFillerLocation(scene, register, {
+    x: -350, z: 0, w: 16, d: 16, fenceOnly: true,
+    dressing: [
+      { file: 'trafficcone.glb', dx: -5, dz: -5 }, { file: 'trafficcone.glb', dx: 5, dz: -5 },
+      { file: 'trafficcone.glb', dx: -5, dz: 5 }, { file: 'trafficcone.glb', dx: 5, dz: 5 },
+      { file: 'roadblock.glb', dx: 0, dz: 0 },
+    ],
+  })
+  registerZone({ id: 'skatepark', x: -350, z: 0, radius: 13, densityMult: 1.0 })
+  towerChestSpots.push({ x: -350, y: 0, z: 4 })
+
+  buildFillerLocation(scene, register, {
+    x: 140, z: 337, w: 18, d: 14, fenceOnly: true,
+    dressing: [
+      { file: 'bench.glb', dx: -6, dz: -5 }, { file: 'bench.glb', dx: 6, dz: -5 }, { file: 'bench.glb', dx: 0, dz: 5 },
+      { file: 'waterbarrel.glb', dx: -6, dz: 5 }, { file: 'waterbarrel.glb', dx: 6, dz: 5 },
+    ],
+  })
+  registerZone({ id: 'communitypool', x: 140, z: 337, radius: 13, densityMult: 1.0 })
+  towerChestSpots.push({ x: 140, y: 0, z: 341 })
+
+  buildFillerLocation(scene, register, {
+    x: 48, z: 362, w: 14, d: 12, floorColor: 0xcfe8f0,
+    dressing: [
+      { file: 'bench.glb', dx: -4, dz: -3 }, { file: 'bench.glb', dx: 4, dz: -3 },
+      { file: 'waiting-chair.glb', dx: 0, dz: 3 },
+    ],
+  })
+  registerZone({ id: 'icerink', x: 48, z: 362, radius: 12, densityMult: 1.0 })
+  towerChestSpots.push({ x: 48, y: 0, z: 366 })
+
+  buildFillerLocation(scene, register, {
+    x: -48, z: 362, w: 22, d: 16, fenceOnly: true,
+    dressing: [
+      { file: 'bench.glb', dx: -6, dz: 4 }, { file: 'bench.glb', dx: 0, dz: 4 }, { file: 'bench.glb', dx: 6, dz: 4 },
+      { file: 'trafficcone.glb', dx: -8, dz: -6 }, { file: 'trafficcone.glb', dx: 8, dz: -6 },
+    ],
+  })
+  {
+    const screenMat = flatMaterial({ color: 0x1e2226, roughness: 0.9 })
+    const screen = new THREE.Mesh(new THREE.BoxGeometry(9, 6, 0.3), screenMat)
+    screen.position.set(-48, 3, 362 - 7)
+    screen.castShadow = true
+    scene.add(screen)
+    register(screen)
+  }
+  registerZone({ id: 'driveintheater', x: -48, z: 362, radius: 14, densityMult: 1.1 })
+  towerChestSpots.push({ x: -48, y: 0, z: 366 })
+
+  buildFillerLocation(scene, register, {
+    x: -140, z: 337, w: 14, d: 10, floorColor: 0x6b5540,
+    dressing: [
+      { file: 'waterbarrel.glb', dx: -4, dz: -2 }, { file: 'waterbarrel.glb', dx: 4, dz: -2 },
+      { file: 'barrel.glb', dx: -4, dz: 2 }, { file: 'barrel.glb', dx: 4, dz: 2 },
+    ],
+  })
+  registerZone({ id: 'horsestables', x: -140, z: 337, radius: 10, densityMult: 1.0 })
+  towerChestSpots.push({ x: -140, y: 0, z: 340 })
+
+  buildFillerLocation(scene, register, {
+    x: -353, z: 94, w: 8, d: 7, floorColor: 0xd8d8d0,
+    dressing: [
+      { file: 'hospital-bed.glb', dx: -1.5, dz: -1.5 }, { file: 'medical-cabinet.glb', dx: 3, dz: -2, rot: -Math.PI / 2 },
+      { file: 'counter.glb', dx: 0, dz: 2, rot: Math.PI },
+    ],
+  })
+  registerZone({ id: 'veterinaryclinic', x: -353, z: 94, radius: 6, densityMult: 1.2 })
+  towerChestSpots.push({ x: -353, y: 0, z: 97, lootWeights: MEDICAL_LOOT_WEIGHTS })
+
+  buildFillerLocation(scene, register, {
+    x: -140, z: -337, w: 8, d: 7, floorColor: 0x2a2624,
+    dressing: [
+      { file: 'counter.glb', dx: 0, dz: 2, rot: Math.PI }, { file: 'waiting-chair.glb', dx: -2, dz: -1 }, { file: 'waiting-chair.glb', dx: 2, dz: -1 },
+    ],
+  })
+  registerZone({ id: 'tattooparlor', x: -140, z: -337, radius: 6, densityMult: 1.0 })
+  towerChestSpots.push({ x: -140, y: 0, z: -334 })
+
+  buildFillerLocation(scene, register, {
+    x: -48, z: -362, w: 8, d: 7, floorColor: 0x3a3630,
+    dressing: [
+      { file: 'shelf.glb', dx: -3, dz: -1.5 }, { file: 'shelf.glb', dx: 3, dz: -1.5 }, { file: 'counter.glb', dx: 0, dz: 2, rot: Math.PI },
+    ],
+  })
+  registerZone({ id: 'fitnessstore', x: -48, z: -362, radius: 6, densityMult: 1.0 })
+  towerChestSpots.push({ x: -48, y: 0, z: -359 })
+
+  buildFillerLocation(scene, register, {
+    x: 48, z: -362, w: 14, d: 12, fenceOnly: true,
+    dressing: [
+      { file: 'waterbarrel.glb', dx: -4, dz: -3 }, { file: 'waterbarrel.glb', dx: 4, dz: -3 },
+      { file: 'barrel.glb', dx: -4, dz: 3 }, { file: 'barrel.glb', dx: 4, dz: 3 },
+    ],
+  })
+  registerZone({ id: 'communitygarden', x: 48, z: -362, radius: 11, densityMult: 1.0 })
+  towerChestSpots.push({ x: 48, y: 0, z: -358 })
+
+  buildFillerLocation(scene, register, {
+    x: 140, z: -337, w: 9, d: 8, floorColor: 0x4a3a3e,
+    dressing: [
+      { file: 'waiting-chair.glb', dx: -3, dz: -2 }, { file: 'waiting-chair.glb', dx: 0, dz: -2 }, { file: 'waiting-chair.glb', dx: 3, dz: -2 },
+      { file: 'counter.glb', dx: 0, dz: 2.8, rot: Math.PI },
+    ],
+  })
+  registerZone({ id: 'beautyschool', x: 140, z: -337, radius: 8, densityMult: 1.0 })
+  towerChestSpots.push({ x: 140, y: 0, z: -333 })
+
+  buildFillerLocation(scene, register, {
+    x: -130, z: -90, w: 8, d: 7, floorColor: 0x2e2a3a,
+    dressing: [
+      { file: 'shelf.glb', dx: -3, dz: -1.5 }, { file: 'shelf.glb', dx: 0, dz: -1.5 }, { file: 'shelf.glb', dx: 3, dz: -1.5 },
+      { file: 'counter.glb', dx: 0, dz: 2, rot: Math.PI },
+    ],
+  })
+  registerZone({ id: 'movierental', x: -130, z: -90, radius: 6, densityMult: 1.0 })
+  towerChestSpots.push({ x: -130, y: 0, z: -87 })
+
   // Performance fix - only 2 call sites in this whole file ever went through
   // register() (which is what actually adds something to cullables), out of
   // 140+ raw colliders.push/solidMeshes.push calls across every stage. That
