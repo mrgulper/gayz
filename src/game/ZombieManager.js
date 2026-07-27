@@ -197,6 +197,11 @@ export class ZombieManager {
     // note on why these get spread across several frames instead of
     // constructing every zombie in one single-frame loop.
     this._pendingSpawns = 0
+    // Same idea as _pendingSpawns above, but for location-targeted bursts
+    // (see spawnAt) - a list of {x, z} spots instead of a plain count,
+    // since each entry needs its own fixed position rather than a random
+    // one near the player.
+    this._pendingLocationSpawns = []
     // Real-fps-driven ceiling on simultaneous zombie count - see Game.js's
     // own note (its _tick sets this every ~500ms based on measured fps).
     // Matches ROUND_MAX_SPAWN_COUNT (effectively uncapped) until fps
@@ -604,6 +609,7 @@ export class ZombieManager {
     // on a same-session restart, where a previous game's still-unspawned
     // burst shouldn't carry over into the new one.
     this._pendingSpawns = 0
+    this._pendingLocationSpawns = []
     // Round Mode starts its own round-1 burst via startRound() right after
     // reset() (see Game.js) instead of the normal continuous-trickle spawn.
     if (this.roundMode) {
@@ -671,19 +677,27 @@ export class ZombieManager {
     this._pendingSpawns += count
   }
 
-  // Immediate location-targeted burst (vs spawnSurge's gradual, player-
-  // relative queue) - used by the Survivor Camp Liberation night event so
-  // the threat actually appears at the camp's coordinates instead of
-  // wherever the player happens to be standing.
+  // Location-targeted burst (vs spawnSurge's gradual, player-relative
+  // queue) - used by the Survivor Camp Liberation night event so the
+  // threat actually appears at the camp's coordinates instead of wherever
+  // the player happens to be standing. Queued through the same per-frame
+  // budget as _pendingSpawns (see update()'s own note) rather than
+  // constructed immediately - a real zombie construction is expensive
+  // enough that building all of them (e.g. CAMP_ATTACK_ZOMBIE_COUNT) in
+  // one synchronous loop caused a multi-second stutter (measured: ~150ms+
+  // per construction, stacking into several seconds of near-frozen frames
+  // for a burst of just 6-15).
   spawnAt(x, z, count) {
-    for (let i = 0; i < count; i++) {
-      const ox = (Math.random() - 0.5) * 6
-      const oz = (Math.random() - 0.5) * 6
-      const zombie = new Zombie(x + ox, z + oz, pickZombieType(), false, false, this.currentNight, this.healthMult, this.speedMult)
-      zombie.deathHandled = false
-      this.zombies.push(zombie)
-      this.scene.add(zombie.group)
-    }
+    for (let i = 0; i < count; i++) this._pendingLocationSpawns.push({ x, z })
+  }
+
+  _spawnOneAt(x, z) {
+    const ox = (Math.random() - 0.5) * 6
+    const oz = (Math.random() - 0.5) * 6
+    const zombie = new Zombie(x + ox, z + oz, pickZombieType(), false, false, this.currentNight, this.healthMult, this.speedMult)
+    zombie.deathHandled = false
+    this.zombies.push(zombie)
+    this.scene.add(zombie.group)
   }
 
   // Shared explosion-damage logic - used by both thrown grenades and shot
@@ -1176,15 +1190,16 @@ export class ZombieManager {
     this._applyZoneDensity(isNight)
 
     // Spread any queued burst-spawn (round-clear waves, the initial
-    // reset() burst, the wandering horde event) across several frames
-    // instead of constructing them all in one single-frame loop. Each
-    // zombie construction is real work (skeleton clone + material setup +
-    // AnimationMixer creation) - one shared budget per frame, not one
-    // budget PER burst source, so a round-clear and a horde event landing
-    // on the same frame still can't stack into a bigger spike than a
-    // single source alone would cause. Capped at 1/frame (not 2) - even
-    // the paced version was still visibly dipping, meaning a single
-    // zombie construction is itself a meaningful cost on this hardware.
+    // reset() burst, the wandering horde event, spawnAt's location-targeted
+    // bursts) across several frames instead of constructing them all in
+    // one single-frame loop. Each zombie construction is real work
+    // (skeleton clone + material setup + AnimationMixer creation) - one
+    // shared budget per frame, not one budget PER burst source, so a
+    // round-clear and a horde event landing on the same frame still can't
+    // stack into a bigger spike than a single source alone would cause.
+    // Capped at 1/frame (not 2) - even the paced version was still visibly
+    // dipping, meaning a single zombie construction is itself a meaningful
+    // cost on this hardware.
     const SPAWNS_PER_FRAME = 1
     let spawnBudget = SPAWNS_PER_FRAME
     // Also gated by performanceCap - a real-fps-driven ceiling on how many
@@ -1197,6 +1212,11 @@ export class ZombieManager {
     while (spawnBudget > 0 && this._pendingSpawns > 0 && this.zombies.length < this.performanceCap) {
       this._pendingSpawns--
       this._spawnRandom()
+      spawnBudget--
+    }
+    while (spawnBudget > 0 && this._pendingLocationSpawns.length > 0 && this.zombies.length < this.performanceCap) {
+      const spot = this._pendingLocationSpawns.shift()
+      this._spawnOneAt(spot.x, spot.z)
       spawnBudget--
     }
 
