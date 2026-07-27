@@ -1586,6 +1586,335 @@ export function buildWorld(scene, trophyCount = 15) {
   registerZone({ id: 'movierental', x: -130, z: -90, radius: 6, densityMult: 1.0 })
   towerChestSpots.push({ x: -130, y: 0, z: -87 })
 
+  // 20 small atmosphere/utility additions filling the empty ring around
+  // the safe zone + core street grid, user-flagged from the map atlas,
+  // 2026-07-27. Deliberately smaller-scale than the 30-location batch
+  // above (prop clusters and small landmarks, not walk-in rooms) - this is
+  // "home base surroundings" dressing, not new named destinations. Only
+  // about a third get a chest; the rest are pure atmosphere, matching how
+  // they were originally described.
+  const sandbagMat = flatMaterial({ color: 0x5a5138, roughness: 1 })
+
+  // Campfire Rest Area (42,66) - stacked-log campfire + a flickering light,
+  // matching the flicker-light pattern already used for streetlamps.
+  {
+    const logMat = flatMaterial({ color: 0x3a2a1c, roughness: 0.9 })
+    for (const rot of [0, Math.PI / 3, (2 * Math.PI) / 3]) {
+      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 1.6, 8), logMat)
+      log.rotation.z = Math.PI / 2
+      log.rotation.y = rot
+      log.position.set(42, 0.2, 66)
+      log.castShadow = true
+      scene.add(log)
+    }
+    const fireLight = new THREE.PointLight(0xff8a3a, 1.2, 8, 2)
+    fireLight.position.set(42, 0.6, 66)
+    scene.add(fireLight)
+    placePropSimple(scene, register, 'bench.glb', 42 - 2.5, 66, Math.PI / 2)
+    placePropSimple(scene, register, 'bench.glb', 42 + 2.5, 66, -Math.PI / 2)
+  }
+  registerZone({ id: 'campfirerest', x: 42, z: 66, radius: 6, densityMult: 0.8 })
+
+  // Survivor Memorial Wall (24,84) - a low weathered wall, pure lore, no chest.
+  {
+    const wallMat = flatMaterial({ color: 0x4a4842, roughness: 1 })
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(5, 1.6, 0.3), wallMat)
+    wall.position.set(24, 0.8, 84)
+    wall.castShadow = true
+    scene.add(wall)
+    register(wall)
+  }
+  registerZone({ id: 'memorialwall', x: 24, z: 84, radius: 5, densityMult: 0.8 })
+
+  // Notice Board (0,90) - board on two posts, pure lore, no chest.
+  {
+    const postMat = flatMaterial({ color: 0x3a3226, roughness: 0.9 })
+    const boardMat = flatMaterial({ color: 0x6b5a42, roughness: 0.85 })
+    for (const dx of [-0.9, 0.9]) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.9, 0.15), postMat)
+      post.position.set(dx, 0.95, 90)
+      post.castShadow = true
+      scene.add(post)
+      register(post)
+    }
+    const board = new THREE.Mesh(new THREE.BoxGeometry(2, 1.2, 0.08), boardMat)
+    board.position.set(0, 1.5, 90)
+    board.castShadow = true
+    scene.add(board)
+    register(board)
+  }
+  registerZone({ id: 'noticeboard', x: 0, z: 90, radius: 4, densityMult: 0.8 })
+
+  // Water Well (-24,84) - stone rim + small roof, utility flavor, no chest.
+  {
+    const stoneMat = flatMaterial({ color: 0x6a6a62, roughness: 0.9 })
+    const roofMat = flatMaterial({ color: 0x4a3a2c, roughness: 0.85 })
+    const rim = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 1, 16), stoneMat)
+    rim.position.set(-24, 0.5, 84)
+    rim.castShadow = true
+    scene.add(rim)
+    register(rim)
+    for (const dx of [-0.9, 0.9]) {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.8, 8), roofMat)
+      post.position.set(-24 + dx, 1.9, 84)
+      post.castShadow = true
+      scene.add(post)
+      register(post)
+    }
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(1.6, 0.8, 4), roofMat)
+    roof.position.set(-24, 3, 84)
+    roof.rotation.y = Math.PI / 4
+    roof.castShadow = true
+    scene.add(roof)
+    register(roof)
+  }
+  registerZone({ id: 'waterwell', x: -24, z: 84, radius: 4, densityMult: 0.8 })
+
+  // Supply Cache Tent (-42,66) - canvas-look tent + crates, gets a chest.
+  buildFillerLocation(scene, register, {
+    x: -42, z: 66, w: 8, d: 7, fenceOnly: true,
+    dressing: [
+      { file: 'barrel.glb', dx: -2.5, dz: -2 }, { file: 'cabledrum.glb', dx: 2.5, dz: -2 },
+    ],
+  })
+  {
+    const tentMat = flatMaterial({ color: 0x4a5238, roughness: 0.9 })
+    const tent = new THREE.Mesh(new THREE.ConeGeometry(2.6, 2.2, 4), tentMat)
+    tent.position.set(-42, 1.1, 66 + 1.5)
+    tent.rotation.y = Math.PI / 4
+    tent.castShadow = true
+    scene.add(tent)
+    register(tent)
+  }
+  registerZone({ id: 'supplycache', x: -42, z: 66, radius: 5, densityMult: 1.0 })
+  towerChestSpots.push({ x: -42, y: 0, z: 63 })
+
+  // Chicken Coop (60,42) - small wooden pen, homestead flavor, no chest.
+  buildFillerLocation(scene, register, {
+    x: 60, z: 42, w: 5, d: 4, wallHeight: 1.4, floorColor: 0x8a7a5c, doorWidth: 1,
+    wallColor: 0x5a4a34,
+  })
+  registerZone({ id: 'chickencoop', x: 60, z: 42, radius: 4, densityMult: 0.8 })
+
+  // Perimeter Checkpoint Gate (-60,47) - sandbag barrier, atmosphere, no chest.
+  {
+    for (const dx of [-2.5, 2.5]) {
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.9, 0.9), sandbagMat)
+      wall.position.set(-60 + dx, 0.45, 47)
+      wall.castShadow = true
+      scene.add(wall)
+      register(wall)
+    }
+    placePropSimple(scene, register, 'roadblock.glb', -60, 47 - 1.5, 0)
+  }
+  registerZone({ id: 'checkpointgate', x: -60, z: 47, radius: 5, densityMult: 1.0 })
+
+  // Burial Mounds (47,89) - fresh graves, pure atmosphere, no chest.
+  {
+    const moundMat = flatMaterial({ color: 0x4a3a2a, roughness: 1 })
+    const crossMat = flatMaterial({ color: 0x6b5a42, roughness: 0.9 })
+    for (let i = 0; i < 4; i++) {
+      const mx = 47 + (i - 1.5) * 1.8
+      const mound = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.9, 0.35, 10), moundMat)
+      mound.position.set(mx, 0.18, 89)
+      mound.castShadow = true
+      scene.add(mound)
+      register(mound)
+      const cross = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.7, 0.08), crossMat)
+      cross.position.set(mx, 0.55, 89 - 0.9)
+      scene.add(cross)
+      const crossBar = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.08, 0.08), crossMat)
+      crossBar.position.set(mx, 0.7, 89 - 0.9)
+      scene.add(crossBar)
+    }
+  }
+  registerZone({ id: 'burialmounds', x: 47, z: 89, radius: 5, densityMult: 0.7 })
+
+  // Rainwater Collection Tank (17,106) - utility landmark, no chest.
+  {
+    const tankMat = flatMaterial({ color: 0x7a8288, roughness: 0.7, metalness: 0.4 })
+    const tank = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 1.8, 2.4, 16), tankMat)
+    tank.position.set(17, 1.2, 106)
+    tank.castShadow = true
+    scene.add(tank)
+    register(tank)
+  }
+  registerZone({ id: 'rainwatertank', x: 17, z: 106, radius: 4, densityMult: 0.8 })
+
+  // Motorpool (-17,106) - a few abandoned civilian cars, gets a small
+  // salvage chest. Box proportions match Vehicle.js's own body, same
+  // precedent as the parking garage's static "abandoned car" props.
+  {
+    const carMat = flatMaterial({ color: 0x5a3a3a, roughness: 0.6, metalness: 0.3 })
+    const carMat2 = flatMaterial({ color: 0x3a4a5a, roughness: 0.6, metalness: 0.3 })
+    const car1 = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.2, 3.6), carMat)
+    car1.position.set(-17 - 2.5, 0.6, 106)
+    car1.castShadow = true
+    scene.add(car1)
+    register(car1)
+    const car2 = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.2, 3.6), carMat2)
+    car2.position.set(-17 + 2.5, 0.6, 106 + 1)
+    car2.rotation.y = 0.2
+    car2.castShadow = true
+    scene.add(car2)
+    register(car2)
+    placePropSimple(scene, register, 'roadblock.glb', -17, 106 - 3, 0)
+  }
+  registerZone({ id: 'motorpool', x: -17, z: 106, radius: 6, densityMult: 1.0 })
+  towerChestSpots.push({ x: -17, y: 0, z: 109 })
+
+  // Picnic Area (-47,89) - benches + a table, pure atmosphere, no chest.
+  {
+    placePropSimple(scene, register, 'campus-table.glb', -47, 89, 0, 0.9)
+    placePropSimple(scene, register, 'bench.glb', -47 - 2, 89, Math.PI / 2)
+    placePropSimple(scene, register, 'bench.glb', -47 + 2, 89, -Math.PI / 2)
+  }
+  registerZone({ id: 'picnicarea', x: -47, z: 89, radius: 4, densityMult: 0.7 })
+
+  // Lookout Post (-62,19) - small raised platform, gets a small chest.
+  {
+    const legMat = flatMaterial({ color: 0x4a3a2a, roughness: 0.9 })
+    const deckMat = flatMaterial({ color: 0x5a4632, roughness: 0.85 })
+    for (const [lx, lz] of [[-1.4, -1.4], [1.4, -1.4], [-1.4, 1.4], [1.4, 1.4]]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.25, 3.2, 0.25), legMat)
+      leg.position.set(-62 + lx, 1.6, 19 + lz)
+      leg.castShadow = true
+      scene.add(leg)
+      register(leg)
+    }
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.2, 3.2), deckMat)
+    deck.position.set(-62, 3.2, 19)
+    deck.castShadow = true
+    scene.add(deck)
+    register(deck)
+  }
+  registerZone({ id: 'lookoutpost', x: -62, z: 19, radius: 4, densityMult: 1.0 })
+  towerChestSpots.push({ x: -62, y: 3.3, z: 19 })
+
+  // Outdoor Shooting Range (60,14) - sandbag firing line + simple target
+  // props, gets a small ammo-flavored chest.
+  {
+    for (const dx of [-2, 2]) {
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.7, 0.7), sandbagMat)
+      wall.position.set(60 + dx, 0.35, 14 - 3)
+      wall.castShadow = true
+      scene.add(wall)
+      register(wall)
+    }
+    const targetMat = flatMaterial({ color: 0xc9c3b0, roughness: 0.8 })
+    for (const dx of [-3, 0, 3]) {
+      const target = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.6, 0.08), targetMat)
+      target.position.set(60 + dx, 0.9, 14 + 4)
+      scene.add(target)
+      register(target)
+    }
+  }
+  registerZone({ id: 'shootingrange', x: 60, z: 14, radius: 6, densityMult: 1.0 })
+  towerChestSpots.push({ x: 60, y: 0, z: 10 })
+
+  // Laundry Line (68,67) - simple post-and-line detail, pure atmosphere, no chest.
+  {
+    const postMat = flatMaterial({ color: 0x4a4a48, roughness: 0.8, metalness: 0.3 })
+    const clothMat = flatMaterial({ color: 0xd8d0c0, roughness: 0.95 })
+    for (const dx of [-2.5, 2.5]) {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2, 6), postMat)
+      post.position.set(68 + dx, 1, 67)
+      post.castShadow = true
+      scene.add(post)
+      register(post)
+    }
+    for (let i = 0; i < 3; i++) {
+      const cloth = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.9), clothMat)
+      cloth.position.set(68 - 1.5 + i * 1.5, 1.6, 67)
+      scene.add(cloth)
+    }
+  }
+  registerZone({ id: 'laundryline', x: 68, z: 67, radius: 4, densityMult: 0.7 })
+
+  // Toolshed (-65,72) - tiny room, gets a small chest.
+  buildFillerLocation(scene, register, {
+    x: -65, z: 72, w: 6, d: 5, wallHeight: 2.2, floorColor: 0x5a4a38, doorWidth: 1.4,
+    dressing: [
+      { file: 'tool-hammer.glb', dx: -1.5, dz: -1 }, { file: 'tool-crowbar.glb', dx: 1.5, dz: -1 },
+    ],
+  })
+  registerZone({ id: 'toolshed', x: -65, z: 72, radius: 5, densityMult: 1.0 })
+  towerChestSpots.push({ x: -65, y: 0, z: 75 })
+
+  // Radio Relay Mast (-60,-8) - thin utility antenna, no chest.
+  {
+    const baseMat = flatMaterial({ color: 0x3a3a38, roughness: 0.8, metalness: 0.4 })
+    const mastMat = flatMaterial({ color: 0x8a8a86, roughness: 0.6, metalness: 0.6 })
+    const base = new THREE.Mesh(new THREE.BoxGeometry(1, 0.6, 1), baseMat)
+    base.position.set(-60, 0.3, -8)
+    base.castShadow = true
+    scene.add(base)
+    register(base)
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.1, 7, 8), mastMat)
+    mast.position.set(-60, 4.1, -8)
+    mast.castShadow = true
+    scene.add(mast)
+    register(mast)
+  }
+  registerZone({ id: 'radiomast', x: -60, z: -8, radius: 4, densityMult: 0.7 })
+
+  // Prayer Shrine (84,42) - small quiet altar, pure atmosphere, no chest.
+  {
+    const baseMat = flatMaterial({ color: 0x8a8278, roughness: 0.9 })
+    const base = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.6, 1), baseMat)
+    base.position.set(84, 0.3, 42)
+    base.castShadow = true
+    scene.add(base)
+    register(base)
+    const marker = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1, 0.1), baseMat)
+    marker.position.set(84, 1, 42)
+    scene.add(marker)
+    const markerBar = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.1), baseMat)
+    markerBar.position.set(84, 1.2, 42)
+    scene.add(markerBar)
+  }
+  registerZone({ id: 'prayershrine', x: 84, z: 42, radius: 4, densityMult: 0.7 })
+
+  // Rubble Barricade (42,115) - defensive debris cluster, atmosphere, no chest.
+  {
+    const rubbleMat = flatMaterial({ color: 0x4a4642, roughness: 1 })
+    for (const [dx, dz, w, h, d] of [[-1.5, 0, 1.4, 1, 1.2], [0.5, 0.3, 1.8, 1.3, 1], [2, -0.4, 1.2, 0.8, 1.4]]) {
+      const chunk = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), rubbleMat)
+      chunk.position.set(42 + dx, h / 2, 115 + dz)
+      chunk.rotation.y = Math.random() * 0.5
+      chunk.castShadow = true
+      scene.add(chunk)
+      register(chunk)
+    }
+    placePropSimple(scene, register, 'roadblock.glb', 42 - 3, 115, Math.PI / 2)
+  }
+  registerZone({ id: 'rubblebarricade', x: 42, z: 115, radius: 5, densityMult: 1.0 })
+
+  // Scavenger's Trade Post (0,126) - a second, smaller trader stall,
+  // reusing the existing traderstall.glb prop directly (purely decorative
+  // here, not wired to the real trader mechanic - that stays the safe
+  // zone's own single trader). Gets a small chest.
+  buildFillerLocation(scene, register, {
+    x: 0, z: 126, w: 6, d: 5, fenceOnly: true,
+    dressing: [{ file: 'traderstall.glb', dx: 0, dz: 0 }, { file: 'barrel.glb', dx: 2, dz: 1.5 }],
+  })
+  registerZone({ id: 'scavengertradepost', x: 0, z: 126, radius: 5, densityMult: 1.0 })
+  towerChestSpots.push({ x: 0, y: 0, z: 123 })
+
+  // Sandbag Sniper Nest (-42,115) - stacked sandbag semi-circle + small
+  // platform, gets a small ammo chest.
+  {
+    for (const [dx, dz] of [[-1.4, 0.6], [0, 0.9], [1.4, 0.6], [-0.8, -0.6], [0.8, -0.6]]) {
+      const bag = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.5, 0.55), sandbagMat)
+      bag.position.set(-42 + dx, 0.25, 115 + dz)
+      bag.castShadow = true
+      scene.add(bag)
+      register(bag)
+    }
+  }
+  registerZone({ id: 'snipernest', x: -42, z: 115, radius: 4, densityMult: 1.0 })
+  towerChestSpots.push({ x: -42, y: 0, z: 118 })
+
   // Performance fix - only 2 call sites in this whole file ever went through
   // register() (which is what actually adds something to cullables), out of
   // 140+ raw colliders.push/solidMeshes.push calls across every stage. That
