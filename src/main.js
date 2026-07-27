@@ -44,6 +44,25 @@ Promise.all([
   preloadUvBatonViewmodel(),
 ]).finally(() => {
   const loader = document.getElementById('asset-loader')
-  if (loader) loader.style.display = 'none'
   new Game()
+  // The loader used to hide right here, before `new Game()` even ran -
+  // but construction itself was never the expensive part (it reliably
+  // finishes in under a second). The real cost is the browser's first
+  // few real render/tick passes over a scene this large (first-time GPU
+  // buffer uploads for thousands of meshes, first-ever full culling pass
+  // over every cullable) - a genuine multi-second-plus one-time stall
+  // that, until now, showed up as the game itself freezing right after
+  // the loading screen vanished instead of being masked by it. Chaining
+  // rAF callbacks (rather than a fixed setTimeout) means this naturally
+  // waits out however long that actually takes on the player's hardware,
+  // slow or fast, since each callback only fires once the previous real
+  // frame has actually finished.
+  let framesWaited = 0
+  const WARMUP_FRAMES = 10
+  function waitForWarmup() {
+    framesWaited++
+    if (framesWaited < WARMUP_FRAMES) requestAnimationFrame(waitForWarmup)
+    else if (loader) loader.style.display = 'none'
+  }
+  requestAnimationFrame(waitForWarmup)
 })
