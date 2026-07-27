@@ -286,7 +286,7 @@ const WEAPON_CHARMS = {
 export const WEAPON_CHARM_IDS = Object.keys(WEAPON_CHARMS)
 
 export class WeaponSystem {
-  constructor(camera, scene, colliderMeshes, hud, zombieManager, onHitSurface, onZombieHit, onStealthTakedown) {
+  constructor(camera, scene, colliderMeshes, hud, zombieManager, onHitSurface, onZombieHit, onStealthTakedown, onDamageDealt = null) {
     this.camera = camera
     this.scene = scene
     this.colliderMeshes = colliderMeshes
@@ -295,6 +295,10 @@ export class WeaponSystem {
     this.onHitSurface = onHitSurface
     this.onZombieHit = onZombieHit
     this.onStealthTakedown = onStealthTakedown
+    // Damage Number Popups - separate from onZombieHit (a no-arg "something
+    // died a little" hitmarker/UI trigger) since this needs the actual
+    // world point and final (post-multiplier) damage number per zombie hit.
+    this.onDamageDealt = onDamageDealt
     // Set post-construction via setRivalManager (see RivalScavenger.js) -
     // optional, so nothing else about this class needs to change if it's
     // never set.
@@ -1051,6 +1055,10 @@ export class WeaponSystem {
         }
         zombie.onHit(damage, { bypassShield: !!w.armorPierce })
         if (w.stunMs) zombie.stun(w.stunMs)
+        if (this.onDamageDealt) {
+          const popupY = zombie.group.position.y + zombie.getHeadWorldHeight() * (info.headshot ? 1 : 0.6)
+          this.onDamageDealt(zombie.group.position.x, popupY, zombie.group.position.z, Math.round(damage), info.headshot)
+        }
         // Melee Charge Bash knockback - shoves the target straight back
         // along the player-to-zombie line, same direct-position-nudge
         // approach the Harpoon Gun's pull uses in the opposite direction.

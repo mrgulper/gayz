@@ -785,6 +785,7 @@ const CORPSE_PILE_MAX_TRACKED = 200
 // actual rewards.
 const COMBO_MULT_PER_KILL = 0.15
 const COMBO_MULT_CAP = 2.5
+const DAMAGE_NUMBER_MAX_CONCURRENT = 40
 // Seasonal map dressing - purely additive banner props at the safe zone
 // (no new geometry touching World.js/buildSafeZone), recolored based on
 // night number so there's rotating visual variety across a long run.
@@ -1167,6 +1168,10 @@ export class Game {
 
     this.playBtn = document.getElementById('play-btn')
     this.crosshair = document.getElementById('crosshair')
+    this.damageNumbersEl = document.getElementById('damage-numbers')
+    this.threatIndicator = document.getElementById('threat-indicator')
+    this._activeDamageNumbers = 0
+    this._damageNumberVec = new THREE.Vector3()
     this.hudEl = document.getElementById('hud')
     this.hotbarEl = document.getElementById('hotbar')
     this.hotbarSlotEls = Array.from(this.hotbarEl.querySelectorAll('.hotbar-slot'))
@@ -1200,6 +1205,15 @@ export class Game {
     this.alarmkitCount = document.getElementById('alarmkit-count')
     this.rationCount = document.getElementById('ration-count')
     this.inventoryPanel = document.getElementById('inventory-panel')
+    this.hideEmptyInventoryToggle = document.getElementById('hide-empty-inventory-toggle')
+    this.hideEmptyInventoryToggle.addEventListener('change', () => {
+      this.hideEmptyInventory = this.hideEmptyInventoryToggle.checked
+      this._refreshInventoryPanel()
+    })
+    // Session-only (not persisted to settings) - a lightweight convenience
+    // toggle for a long inventory list, not a durable preference worth its
+    // own load/save plumbing.
+    this.hideEmptyInventory = false
     this.panelHealthCount = document.getElementById('panel-health-count')
     this.panelArmorCount = document.getElementById('panel-armor-count')
     this.panelNoisemakerCount = document.getElementById('panel-noisemaker-count')
@@ -2116,7 +2130,8 @@ export class Game {
         this._triggerShake(0.05, 90)
         this._triggerHitstop(40)
       },
-      () => this._onStealthTakedown()
+      () => this._onStealthTakedown(),
+      (x, y, z, damage, isHeadshot) => this._spawnDamageNumber(x, y, z, damage, isHeadshot)
     )
     this.rivals = new RivalManager(this.scene)
     this.weapons.setRivalManager(this.rivals)
@@ -2478,6 +2493,12 @@ export class Game {
         this.journalOpen = !this.journalOpen
         this.journalPanel.style.display = this.journalOpen ? 'flex' : 'none'
         if (this.journalOpen) this._renderJournal()
+        return
+      }
+
+      if (e.code === getKeyFor('minimapZoom')) {
+        const newRange = this.minimap.cycleZoom()
+        this._showLoreToast(t('minimapZoomToast', { range: newRange }))
         return
       }
 
@@ -4607,6 +4628,12 @@ export class Game {
       return this.discoveredCells.has(`${cx},${cz}`)
     })
     const b = this.activeBounty
+    const q = this.traderQuest
+    const w = this.weeklyChallenge
+    // Unified Quest Log - the journal already tracked bounty progress; this
+    // folds in the Trader Request and Weekly Challenge too (previously only
+    // visible from inside the trader panel itself), so every active
+    // objective is readable from one screen instead of three.
     this.journalContent.innerHTML = `
       <div class="journal-section">
         <h3>${t('journalLocationsHeading')}</h3>
@@ -4617,6 +4644,20 @@ export class Game {
         ${b
           ? `<p>${t(b.titleKey, { n: b.target })}</p><p>${t('journalBountyProgress', { progress: Math.min(b.progress, b.target), target: b.target })}</p>`
           : `<p>${t('journalNoBounty')}</p>`}
+      </div>
+      <div class="journal-section">
+        <h3>${t('journalTraderQuestHeading')}</h3>
+        ${q
+          ? q.stage === 1
+            ? `<p>${t('questStage1Line', { title: t(q.titleKey), have: Math.min(this.inventory[q.fetchInvKey], q.fetchCount), need: q.fetchCount, item: t(q.fetchLabelKey) })}</p>`
+            : `<p>${t('questStage2Line', { title: t(q.titleKey), progress: Math.min(q.kills, q.killCount), target: q.killCount })}</p>`
+          : `<p>${t('journalNoTraderQuest')}</p>`}
+      </div>
+      <div class="journal-section">
+        <h3>${t('journalWeeklyHeading')}</h3>
+        <p>${w.completed
+          ? t('weeklyChallengeDoneLine', { title: t(this.weeklyDef.titleKey) })
+          : t('weeklyChallengeLine', { title: t(this.weeklyDef.titleKey), progress: Math.min(w.progress, this.weeklyDef.target), target: this.weeklyDef.target, coins: this.weeklyDef.rewardCoins })}</p>
       </div>
       <div class="journal-section">
         <h3>${t('journalLoreHeading')}</h3>
@@ -5082,6 +5123,16 @@ export class Game {
     this.panelAdrenalineCount.textContent = this.inventory.adrenaline
     this.panelEmpCount.textContent = this.inventory.emp
 
+    // Hide Empty toggle - walks every consumable row rather than a fixed
+    // id list, so a future new consumable row is covered automatically as
+    // long as it follows the same "count span inside an .inv-panel-row"
+    // shape every existing row already uses.
+    for (const row of document.querySelectorAll('#inventory-panel .inv-panel-section .inv-panel-row')) {
+      const countEl = row.querySelector('[id$="-count"]')
+      if (!countEl) continue
+      row.style.display = this.hideEmptyInventory && countEl.textContent === '0' ? 'none' : ''
+    }
+
     this.panelWeaponsList.innerHTML = this.weapons
       .getSummary()
       .map((w) => {
@@ -5250,8 +5301,47 @@ export class Game {
     void this.damageFlash.offsetWidth
     this.damageFlash.classList.add('hit')
     this._triggerShake(0.12, 220)
+    this._showThreatIndicator()
 
     if (!this.playerState.alive) this._maybeLastStandOrDie()
+  }
+
+  // Visual Sound Cue Indicator (accessibility) - a screen-edge pulse toward
+  // the nearest attacker, since _onZombieAttack doesn't know exactly which
+  // zombie landed the hit (shared by every melee/ranged/boss attack path -
+  // see ZombieManager's onPlayerDamage callback) and the nearest one is a
+  // reasonable stand-in. Supplements audioEngine.playZombieSnarl() above for
+  // players who can't rely on the sound alone to tell them where a hit came
+  // from, especially one from off-screen/behind.
+  _showThreatIndicator() {
+    const playerPos = this.player.controls.object.position
+    let nearest = null
+    let nearestDist = Infinity
+    for (const z of this.zombies.zombies) {
+      if (z.state !== 'alive') continue
+      const d = Math.hypot(z.group.position.x - playerPos.x, z.group.position.z - playerPos.z)
+      if (d < nearestDist) {
+        nearestDist = d
+        nearest = z
+      }
+    }
+    if (!nearest) return
+    this.camera.getWorldDirection(this._camDir)
+    const facingRad = Math.atan2(this._camDir.x, -this._camDir.z)
+    const bearing = Math.atan2(nearest.group.position.x - playerPos.x, -(nearest.group.position.z - playerPos.z))
+    let diff = bearing - facingRad
+    diff = ((diff + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI
+    // Placed on a ring around screen center rather than the compass strip's
+    // narrow top-of-screen FOV band, specifically so an attacker behind the
+    // player (diff near +-PI) still shows up, at the bottom of the ring.
+    const radius = Math.min(window.innerWidth, window.innerHeight) * 0.38
+    const x = window.innerWidth / 2 + Math.sin(diff) * radius
+    const y = window.innerHeight / 2 - Math.cos(diff) * radius
+    this.threatIndicator.style.left = `${x}px`
+    this.threatIndicator.style.top = `${y}px`
+    this.threatIndicator.classList.remove('show')
+    void this.threatIndicator.offsetWidth
+    this.threatIndicator.classList.add('show')
   }
 
   // Anchor zombie (see ZombieTypes.js's pullsPlayer) - its spit lands as a
@@ -5350,6 +5440,32 @@ export class Game {
 
   _triggerHitstop(ms) {
     this._hitstopUntil = Math.max(this._hitstopUntil, performance.now() + ms)
+  }
+
+  // Damage Number Popups - projected once at spawn (world -> screen space)
+  // rather than re-projected every frame; the CSS keyframe (see style.css's
+  // damageNumberRise) handles the rise/fade entirely on its own, so this
+  // only ever runs once per hit instead of adding a per-frame update loop.
+  // Capped so a minigun spray can't flood the DOM with hundreds of live
+  // nodes - past the cap, hits just stop popping new numbers until old ones
+  // finish animating out.
+  _spawnDamageNumber(x, y, z, damage, isHeadshot) {
+    if (this._activeDamageNumbers >= DAMAGE_NUMBER_MAX_CONCURRENT) return
+    this._damageNumberVec.set(x, y, z).project(this.camera)
+    if (this._damageNumberVec.z > 1) return // behind the camera
+    const sx = (this._damageNumberVec.x * 0.5 + 0.5) * window.innerWidth
+    const sy = (-this._damageNumberVec.y * 0.5 + 0.5) * window.innerHeight
+    const el = document.createElement('div')
+    el.className = isHeadshot ? 'damage-number headshot' : 'damage-number'
+    el.textContent = String(damage)
+    el.style.left = `${sx}px`
+    el.style.top = `${sy}px`
+    this.damageNumbersEl.appendChild(el)
+    this._activeDamageNumbers += 1
+    el.addEventListener('animationend', () => {
+      el.remove()
+      this._activeDamageNumbers -= 1
+    })
   }
 
   // Slow-mo + camera zoom on the killing blow against a boss-tier zombie

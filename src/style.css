@@ -79,6 +79,80 @@ html, body {
   animation: hitflash 180ms ease-out;
 }
 
+#damage-numbers {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.damage-number {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 15px;
+  color: #f2e6c9;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  animation: damageNumberRise 850ms ease-out forwards;
+  white-space: nowrap;
+}
+
+.damage-number.headshot {
+  font-size: 19px;
+  color: #ffcf5c;
+}
+
+@keyframes damageNumberRise {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% - 34px));
+  }
+}
+
+/* Visual Sound Cue Indicator - a screen-edge pulse toward whatever just hit
+   you, same shape as #hitmarker (a plain flash triggered by adding/removing
+   a class) but positioned dynamically per-attack rather than fixed center. */
+#threat-indicator {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  pointer-events: none;
+  opacity: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 59, 59, 0.9) 0%, rgba(255, 59, 59, 0) 70%);
+}
+
+#threat-indicator.show {
+  animation: threatPulse 700ms ease-out;
+}
+
+@keyframes threatPulse {
+  0% {
+    opacity: 1;
+    transform: scale(0.6);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+
+.hide-empty-inventory-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  opacity: 0.75;
+  cursor: pointer;
+  margin: -6px 0 8px;
+}
+
 @keyframes hitflash {
   0% { opacity: 1; transform: scale(1); }
   100% { opacity: 0; transform: scale(1.6); }

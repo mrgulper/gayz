@@ -2,13 +2,25 @@
 // fresh each call so opened/collected state (chests, the one-off minigun
 // pickup) always reads live without the minimap owning any game state.
 
-const RANGE = 55 // world units from center to the edge of the radar
+// Zoom Levels - cycled via a keybind (see Game.js's _cycleMinimapZoom).
+// Index into this array, not a raw multiplier, so "zoomed in" always means
+// a smaller range (more detail, less coverage) rather than the inverted
+// relationship a raw scale multiplier would need callers to remember.
+// 55 (index 1) was the original fixed range, kept as the default.
+export const MINIMAP_ZOOM_RANGES = [30, 55, 90]
+export const MINIMAP_DEFAULT_ZOOM_INDEX = 1
 
 export class Minimap {
   constructor(canvas) {
     this.canvas = canvas
     this.ctx = canvas.getContext('2d')
     this.size = canvas.width
+    this.zoomIndex = MINIMAP_DEFAULT_ZOOM_INDEX
+  }
+
+  cycleZoom() {
+    this.zoomIndex = (this.zoomIndex + 1) % MINIMAP_ZOOM_RANGES.length
+    return MINIMAP_ZOOM_RANGES[this.zoomIndex]
   }
 
   update(playerPos, facingRad, zombies, chestLandmarks, minigunLandmark, traderLandmark, ammoLandmark, airdropLandmark, hordeLandmark, extraLandmarks = [], discoveredCells = null, cellSize = 20) {
@@ -16,7 +28,8 @@ export class Minimap {
     const s = this.size
     const cx = s / 2
     const cy = s / 2
-    const scale = (s / 2) / RANGE
+    const range = MINIMAP_ZOOM_RANGES[this.zoomIndex]
+    const scale = (s / 2) / range
 
     ctx.clearRect(0, 0, s, s)
 
@@ -35,10 +48,10 @@ export class Minimap {
     // usable standalone/in tests without that dependency).
     if (discoveredCells) {
       const cellPx = cellSize * scale
-      const worldMinX = playerPos.x - RANGE
-      const worldMaxX = playerPos.x + RANGE
-      const worldMinZ = playerPos.z - RANGE
-      const worldMaxZ = playerPos.z + RANGE
+      const worldMinX = playerPos.x - range
+      const worldMaxX = playerPos.x + range
+      const worldMinZ = playerPos.z - range
+      const worldMaxZ = playerPos.z + range
       const cellMinX = Math.floor(worldMinX / cellSize)
       const cellMaxX = Math.floor(worldMaxX / cellSize)
       const cellMinZ = Math.floor(worldMinZ / cellSize)

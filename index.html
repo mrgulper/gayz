@@ -203,6 +203,8 @@
       </div>
 
       <div id="hitmarker"></div>
+      <div id="damage-numbers"></div>
+      <div id="threat-indicator"></div>
 
       <div id="weapon-wheel" style="display: none">
         <div id="weapon-wheel-ring"></div>
@@ -420,6 +422,10 @@
 
       <div id="inventory-panel">
         <h2 id="inventory-title">Inventory</h2>
+        <label id="hide-empty-inventory-label" class="hide-empty-inventory-label">
+          <input type="checkbox" id="hide-empty-inventory-toggle" />
+          <span id="hide-empty-inventory-text">Hide empty</span>
+        </label>
         <div class="inv-panel-section">
           <div class="inv-panel-row"><span id="panel-health-label">Health Pack</span><span id="panel-health-count">0</span><span class="inv-key">H</span></div>
           <div class="inv-panel-row"><span id="panel-armor-label">Armor Pack</span><span id="panel-armor-count">0</span><span class="inv-key">G</span></div>

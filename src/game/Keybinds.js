@@ -26,6 +26,7 @@ export const ACTIONS = [
   { id: 'emp', defaultKey: 'KeyU', labelKey: 'actionEmp' },
   { id: 'weaponWheel', defaultKey: 'KeyQ', labelKey: 'actionWeaponWheel' },
   { id: 'toggleMap', defaultKey: 'KeyL', labelKey: 'actionToggleMap' },
+  { id: 'minimapZoom', defaultKey: 'Comma', labelKey: 'actionMinimapZoom' },
   { id: 'journal', defaultKey: 'KeyI', labelKey: 'actionJournal' },
   { id: 'photoMode', defaultKey: 'KeyO', labelKey: 'actionPhotoMode' },
   { id: 'screenshot', defaultKey: 'KeyP', labelKey: 'actionScreenshot' },
