@@ -2802,6 +2802,47 @@ export function buildWorld(scene, trophyCount = 15) {
   towerChestSpots.push({ x: -343, y: 0, z: -99 })
   towerChestSpots.push({ x: -343, y: 0, z: -95 })
 
+  // Identifier signs for all 80 locations added this session (the 30 +
+  // 50 batches) - one data-driven pass instead of 80 scattered call
+  // sites, since every sign needs the exact same treatment (mounted just
+  // south of the entrance/yard, facing the approach direction). Offset
+  // is each location's own half-depth + ~1 unit clearance, using the
+  // CURRENT (post-expansion) footprint for the fenceOnly/landmark ones
+  // and the original first-room depth for the room-chain ones (the sign
+  // belongs at the real building, not at the end of the extension).
+  const LOCATION_SIGNS = [
+    ['Community Center', -173, -100, -7], ['Print Shop', -122, -159, -5], ['Blood Bank', -82, -199, -4.5],
+    ['Observatory', 226, 94, -6], ['Animal Shelter', -194, 149, -5.5], ['Quarantine Camp', -237, 63, -11],
+    ['Pawn Shop', -237, -63, -5], ['Auto Dealership', -225, -130, -12], ['Bakery', -184, -184, -5],
+    ['Comic Book Shop', -67, -251, -5], ['Music Store', -268, 111, -5], ['Locksmith', 230, -177, -4],
+    ['Recycling Center', -302, 40, -11], ['Storage Units', -242, -186, -8], ['Water Tower', 320, 0, -9],
+    ['Grain Silo', -83, -309, -9], ['Construction Site', 87, 324, -12], ['Rail Yard', -87, 324, -11],
+    ['Ice Cream Parlor', 87, -324, -4.5], ['Skate Park', -350, 0, -12], ['Community Pool', 140, 337, -11],
+    ['Ice Rink', 48, 362, -7], ['Drive-in Theater', -48, 362, -12], ['Horse Stables', -140, 337, -6],
+    ['Veterinary Clinic', -353, 94, -4.5], ['Tattoo Parlor', -140, -337, -4.5], ['Fitness Store', -48, -362, -4.5],
+    ['Community Garden', 48, -362, -10], ['Beauty School', 140, -337, -5], ['Movie Rental', -130, -90, -4.5],
+    ['Pizza Parlor', 158, 0, -4.5], ['Coffee Shop', 3, -158, -4.5], ['Sushi Restaurant', -61, -154, -4.5],
+    ['BBQ Smokehouse', 72, 193, -5], ['Food Truck Lot', -158, 3, -8], ['Brewery', -106, -117, -5.5],
+    ['Toy Store', -68, 195, -4.5], ['Sporting Goods', 72, -193, -5], ['Jewelry Store', -153, 150, -4],
+    ['Furniture Store', 152, 162, -5.5], ['Antique Shop', -159, -143, -4.5], ['Bookstore', 224, 53, -5],
+    ['Hobby Craft Store', -211, 110, -4.5], ['Thrift Store', -107, 204, -5], ['City Hall', 111, -202, -6],
+    ['Courthouse', 48, 225, -6], ['DMV Office', -136, -195, -5.5], ['Community College', 59, -231, -6],
+    ['Museum', 205, 136, -6], ['Art Gallery', -108, -230, -5.5], ['Power Plant', -49, 233, -11],
+    ['Sawmill', 51, 265, -10], ['Textile Mill', 262, 67, -6], ['Cold Storage', -46, 274, -10],
+    ['Shipping Yard', 52, -273, -11], ['Quarry', 195, 175, -13], ['Wind Farm', -263, -91, -9],
+    ['Cell Tower', 256, 127, -6], ['Arcade', -102, -276, -5.5], ['Mini Golf', -207, -220, -11],
+    ['Go-Kart Track', 197, -218, -12], ['Paintball Field', -302, -6, -10], ['Concert Hall', -271, -134, -7],
+    ['Trampoline Park', 217, 221, -6], ['Botanical Garden', 272, -165, -10], ['Apartment Complex', -213, 236, -6],
+    ['Retirement Home', -304, 92, -6], ['Hostel', 298, 111, -5.5], ['Cabin Retreat', 141, 285, -4.5],
+    ['Dental Clinic', 126, -301, -4], ['Physical Therapy', 283, -206, -5], ['Mental Health Clinic', -139, 295, -4.5],
+    ['Abandoned Circus', -345, 58, -11], ['Shipwreck', -285, -189, -14], ['Crashed Plane', 358, -7, -9],
+    ['Old Mining Camp', 0, -358, -10], ['Lighthouse', -103, -343, -8], ['Windmill', -298, 198, -8],
+    ['Survivor SOS Camp', 362, -53, -8], ['Meteorite Crater', -343, -103, -11],
+  ]
+  for (const [label, sx, sz, offset] of LOCATION_SIGNS) {
+    buildLocationSign(scene, sx, sz, offset, label)
+  }
+
   // Performance fix - only 2 call sites in this whole file ever went through
   // register() (which is what actually adds something to cullables), out of
   // 140+ raw colliders.push/solidMeshes.push calls across every stage. That
@@ -5225,12 +5266,67 @@ function buildRoomExtension(scene, register, { x, startZ, w, roomDepths, floorCo
 // its own bespoke dressing untouched; only the new depth added behind it
 // draws from this set.
 const EXTRA_ROOM_DRESSING = [
-  [{ file: 'shelf.glb', dx: -2, dz: 0 }, { file: 'barrel.glb', dx: 2, dz: 0 }],
-  [{ file: 'cabledrum.glb', dx: -2, dz: 0 }, { file: 'counter.glb', dx: 2, dz: 0, rot: Math.PI }],
-  [{ file: 'campus-table.glb', dx: 0, dz: 0, scale: 0.8 }, { file: 'waiting-chair.glb', dx: 2, dz: 0.5 }],
-  [{ file: 'shelf.glb', dx: -2, dz: -1 }, { file: 'shelf.glb', dx: 2, dz: -1 }],
-  [{ file: 'dumpster.glb', dx: -2, dz: 0 }, { file: 'trashbin.glb', dx: 2, dz: 0 }],
+  [
+    { file: 'shelf.glb', dx: -2, dz: -1 }, { file: 'barrel.glb', dx: 2, dz: -1 },
+    { file: 'cabledrum.glb', dx: 0, dz: 1.3 }, { file: 'trashbin.glb', dx: -2.2, dz: 1.3 },
+  ],
+  [
+    { file: 'cabledrum.glb', dx: -2, dz: -1 }, { file: 'counter.glb', dx: 2, dz: -1, rot: Math.PI },
+    { file: 'shelf.glb', dx: 2, dz: 1.3, rot: Math.PI }, { file: 'barrel.glb', dx: -2, dz: 1.3 },
+  ],
+  [
+    { file: 'campus-table.glb', dx: 0, dz: -1, scale: 0.8 }, { file: 'waiting-chair.glb', dx: 2, dz: -0.5 },
+    { file: 'waiting-chair.glb', dx: -2, dz: -0.5 }, { file: 'campus-books.glb', dx: 0, dz: 1.3 },
+  ],
+  [
+    { file: 'shelf.glb', dx: -2, dz: -1.5 }, { file: 'shelf.glb', dx: 2, dz: -1.5 },
+    { file: 'campus-books.glb', dx: -2, dz: 1 }, { file: 'firstaid.glb', dx: 2, dz: 1, scale: 0.3, collide: false },
+  ],
+  [
+    { file: 'dumpster.glb', dx: -2, dz: -1 }, { file: 'trashbin.glb', dx: 2, dz: -1 },
+    { file: 'cabledrum.glb', dx: 0, dz: 1.3 }, { file: 'barrel.glb', dx: -2.2, dz: 1.3 },
+  ],
 ]
+
+// Static building-identifier sign, mounted above the entrance so a player
+// can tell what a building is on sight instead of only reading it off the
+// compass strip at the top of the screen - same canvas-texture-sprite
+// trick Companion.js/Zombie.js already use for name tags/health bars,
+// just planted in the world (not attached to a moving group), and always
+// facing the camera like every THREE.Sprite does, so it reads correctly
+// approached from any angle.
+function buildLocationSign(scene, x, z, approachOffsetZ, text) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 512
+  canvas.height = 96
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = 'rgba(20, 18, 14, 0.85)'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.strokeStyle = '#c9a24a'
+  ctx.lineWidth = 5
+  ctx.strokeRect(5, 5, canvas.width - 10, canvas.height - 10)
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillStyle = '#f0e6c8'
+  let fontSize = 40
+  ctx.font = `bold ${fontSize}px sans-serif`
+  const maxWidth = canvas.width - 32
+  const label = text.toUpperCase()
+  while (ctx.measureText(label).width > maxWidth && fontSize > 16) {
+    fontSize -= 2
+    ctx.font = `bold ${fontSize}px sans-serif`
+  }
+  ctx.fillText(label, canvas.width / 2, canvas.height / 2)
+
+  const texture = new THREE.CanvasTexture(canvas)
+  const material = new THREE.SpriteMaterial({ map: texture, depthTest: true, fog: false })
+  const sprite = new THREE.Sprite(material)
+  sprite.scale.set(4.2, 0.79, 1)
+  sprite.position.set(x, 3, z + approachOffsetZ)
+  sprite.renderOrder = 5
+  scene.add(sprite)
+  return sprite
+}
 
 function buildManholeCover(scene, x, z) {
   const mat = flatMaterial({ color: 0x2a2a26, roughness: 0.6, metalness: 0.6 })
