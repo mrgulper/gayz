@@ -11,6 +11,13 @@ const RANGE = 14
 const FIRE_INTERVAL_S = 0.9
 const DAMAGE_MIN = 20
 const DAMAGE_MAX = 32
+// Turret Upgrade Tiers (see CoinShop.js's turret_upgrade item / upgrade()
+// below) - each tier multiplies damage and speeds up fireIntervalS on top
+// of the base stats above, applied once per instance since a fresh Turret
+// is built from scratch each run (see Game.js's _buildAutoTurret).
+export const TURRET_UPGRADE_DAMAGE_MULT = 1.4
+export const TURRET_UPGRADE_FIRE_INTERVAL_MULT = 0.8
+export const TURRET_MAX_TIER = 3
 
 export class Turret {
   constructor(scene, x, z) {
@@ -51,6 +58,25 @@ export class Turret {
     scene.add(this.group)
     this.nextFireAt = 0
     this._flashUntil = 0
+    this.tier = 0
+    this.range = RANGE
+    this.fireIntervalS = FIRE_INTERVAL_S
+    this.damageMin = DAMAGE_MIN
+    this.damageMax = DAMAGE_MAX
+  }
+
+  // Applies one tier's worth of stat scaling, up to TURRET_MAX_TIER. Called
+  // once per purchase (see CoinShop.js) rather than tracking a persisted
+  // tier count directly on the turret instance, since a fresh Turret is
+  // rebuilt from scratch every run anyway (see Game.js's own re-apply
+  // pattern for every other Coin Shop 'base' item).
+  upgrade() {
+    if (this.tier >= TURRET_MAX_TIER) return false
+    this.tier += 1
+    this.damageMin *= TURRET_UPGRADE_DAMAGE_MULT
+    this.damageMax *= TURRET_UPGRADE_DAMAGE_MULT
+    this.fireIntervalS *= TURRET_UPGRADE_FIRE_INTERVAL_MULT
+    return true
   }
 
   // No dt needed - fire timing is real-timestamp-based (performance.now())
@@ -62,7 +88,7 @@ export class Turret {
     }
 
     let nearest = null
-    let nearestDist = RANGE
+    let nearestDist = this.range
     for (const z of zombies) {
       if (z.state !== 'alive') continue
       const d = Math.hypot(z.group.position.x - this.group.position.x, z.group.position.z - this.group.position.z)
@@ -79,8 +105,8 @@ export class Turret {
     this.head.rotation.y = Math.atan2(dx, dz)
 
     if (performance.now() >= this.nextFireAt) {
-      this.nextFireAt = performance.now() + FIRE_INTERVAL_S * 1000
-      const damage = DAMAGE_MIN + Math.random() * (DAMAGE_MAX - DAMAGE_MIN)
+      this.nextFireAt = performance.now() + this.fireIntervalS * 1000
+      const damage = this.damageMin + Math.random() * (this.damageMax - this.damageMin)
       nearest.onHit(damage)
       this.indicatorMat.emissiveIntensity = 2.2
       this._flashUntil = performance.now() + 80

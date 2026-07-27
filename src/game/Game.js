@@ -718,6 +718,8 @@ const TRAP_BLAST_RADIUS = 3
 const TRAP_DAMAGE_MIN = 45
 const TRAP_DAMAGE_MAX = 90
 const TRAP_LIFETIME_MS = 30000
+const ELECTRIC_TRAP_CHANCE = 0.25
+const ELECTRIC_TRAP_STUN_MS = 2200
 // Tripwire alarm - unlike a trap, never damages anything; it's an
 // early-warning tool (see _triggerAlarm) with a wider detection radius and
 // a longer lifetime since it's meant to watch an approach, not punish one
@@ -825,6 +827,11 @@ const ZIPLINE_INTERACT_RADIUS = 3
 // Farming Plot - passive Ration trickle while built, feeding the hunger
 // meter's economy (see CoinShop.js's farm_plot entry).
 const FARM_HARVEST_INTERVAL_MS = 90000
+// Ammo Press - same passive-trickle base structure shape as the Farm Plot
+// above, generating reserve ammo for the currently equipped gun instead of
+// Rations.
+const AMMO_PRESS_INTERVAL_MS = 75000
+const AMMO_PRESS_AMOUNT = 15
 // World-space ping marker - a temporary floating beacon at the custom pin's
 // location, visible through walls (depthTest: false) while playing, unlike
 // the persistent flat map pin itself (see the map's contextmenu handler)
@@ -1063,6 +1070,36 @@ const CRAFTING_RECIPES = [
       game.inventory.barricades -= 2
       game.inventory.traps -= 1
       game.inventory.addShield(1)
+    },
+  },
+  {
+    id: 'craft_ration',
+    titleKey: 'craftRation',
+    ingredients: [{ invKey: 'fuelCans', count: 1 }, { invKey: 'adrenaline', count: 1 }],
+    craft: (game) => {
+      game.inventory.fuelCans -= 1
+      game.inventory.adrenaline -= 1
+      game.inventory.addRation(2)
+    },
+  },
+  {
+    id: 'craft_healthpack',
+    titleKey: 'craftHealthpack',
+    ingredients: [{ invKey: 'rations', count: 2 }, { invKey: 'adrenaline', count: 1 }],
+    craft: (game) => {
+      game.inventory.rations -= 2
+      game.inventory.adrenaline -= 1
+      game.inventory.addHealthPack(1)
+    },
+  },
+  {
+    id: 'craft_turretkit',
+    titleKey: 'craftTurretkit',
+    ingredients: [{ invKey: 'barricades', count: 3 }, { invKey: 'alarmKits', count: 1 }],
+    craft: (game) => {
+      game.inventory.barricades -= 3
+      game.inventory.alarmKits -= 1
+      game.inventory.addTurretKit(1)
     },
   },
 ]
@@ -3068,24 +3105,42 @@ export class Game {
   // TRAP_TRIGGER_RADIUS sets it off, dealing falloff AoE damage to
   // everything within TRAP_BLAST_RADIUS - same falloff-damage shape as
   // ZombieManager's own explodeAt.
+  // Electric Trap - a random variant of the same spike trap item/keybind
+  // (see ELECTRIC_TRAP_CHANCE) rather than a whole second inventory item/
+  // keybind: stuns instead of damaging, so it reads as a genuinely
+  // different tool (crowd control vs. burst damage) without doubling the
+  // amount of new plumbing (shop entry, HUD row, keybind) a fully separate
+  // item would need.
   _deployTrap() {
     if (!this.inventory.useTrap()) return
     this.camera.getWorldDirection(this._camDir)
     const playerPos = this.player.controls.object.position
     const x = playerPos.x + this._camDir.x * TRAP_PLACE_DIST
     const z = playerPos.z + this._camDir.z * TRAP_PLACE_DIST
+    const isElectric = Math.random() < ELECTRIC_TRAP_CHANCE
 
-    const mat = flatMaterial({ color: 0x3a0a0a, emissive: 0xff2a1e, emissiveIntensity: 0.9, roughness: 0.6 })
+    const mat = isElectric
+      ? flatMaterial({ color: 0x0a1a3a, emissive: 0x4ecfff, emissiveIntensity: 1.1, roughness: 0.5, metalness: 0.3 })
+      : flatMaterial({ color: 0x3a0a0a, emissive: 0xff2a1e, emissiveIntensity: 0.9, roughness: 0.6 })
     const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.06, 12), mat)
     mesh.position.set(x, 0.03, z)
     this.scene.add(mesh)
 
-    this.traps.push({ mesh, x, z, triggered: false, expiresAt: performance.now() + TRAP_LIFETIME_MS })
+    this.traps.push({ mesh, x, z, type: isElectric ? 'electric' : 'spike', triggered: false, expiresAt: performance.now() + TRAP_LIFETIME_MS })
     this._updateInventoryHud()
   }
 
   _triggerTrap(trap) {
     trap.triggered = true
+    if (trap.type === 'electric') {
+      for (const zombie of this.zombies.zombies) {
+        if (zombie.state !== 'alive') continue
+        const dist = Math.hypot(zombie.group.position.x - trap.x, zombie.group.position.z - trap.z)
+        if (dist <= TRAP_BLAST_RADIUS) zombie.stun(ELECTRIC_TRAP_STUN_MS)
+      }
+      this._triggerShake(0.05, 100)
+      return
+    }
     for (const zombie of this.zombies.zombies) {
       if (zombie.state !== 'alive') continue
       const dist = Math.hypot(zombie.group.position.x - trap.x, zombie.group.position.z - trap.z)
@@ -7168,6 +7223,34 @@ export class Game {
     this._showLoreToast(t('toastFarmHarvest'))
   }
 
+  // Ammo Press - same permanent-base-structure shape as buildFarmPlot right
+  // above (own coordinate offset from the safe zone, built once, ticked
+  // every frame but a no-op until purchased).
+  _buildAmmoPress() {
+    if (this.ammoPressBuilt) return
+    this.ammoPressBuilt = true
+    const bodyMat = flatMaterial({ color: 0x3a3a3e, roughness: 0.7, metalness: 0.4 })
+    const beltMat = flatMaterial({ color: 0x1c1c1e, roughness: 0.9 })
+    const x = this.safeZone.x - 9
+    const z = this.safeZone.z - 6
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.4, 1.2), bodyMat)
+    body.position.set(x, 0.7, z)
+    body.castShadow = true
+    this.scene.add(body)
+    const belt = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.15, 0.5), beltMat)
+    belt.position.set(x, 0.08, z)
+    this.scene.add(belt)
+    this.nextAmmoPressAt = performance.now() + AMMO_PRESS_INTERVAL_MS
+  }
+
+  _updateAmmoPress() {
+    if (!this.ammoPressBuilt) return
+    if (performance.now() < this.nextAmmoPressAt) return
+    this.nextAmmoPressAt = performance.now() + AMMO_PRESS_INTERVAL_MS
+    if (!this.weapons.current.melee) this.weapons.addAmmoToCurrent(AMMO_PRESS_AMOUNT)
+    this._showLoreToast(t('toastAmmoPress', { n: AMMO_PRESS_AMOUNT }))
+  }
+
   // Rolled alongside _rollWeather/_rollNightMutation (see their own call
   // sites) - banner meshes are built once, lazily, then just recolored on
   // every later call rather than rebuilt from scratch.
@@ -7853,6 +7936,7 @@ export class Game {
       this._updateStaminaHud()
       this._updateHunger(dt)
       this._updateFarmPlot()
+      this._updateAmmoPress()
       this._updateGamepad(dt)
       this._updatePingMarker(dt)
       this._updateCorpsePileSlow(playerPos)

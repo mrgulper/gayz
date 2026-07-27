@@ -221,6 +221,45 @@ export const COIN_SHOP_ITEMS = [
       game._buildAutoTurret()
     },
   },
+  // Turret Upgrade Tiers - 3 independent one-time flags (same binary
+  // isOwned/apply shape as every other 'base' item) rather than one
+  // repeatable purchase tracking a count, so _applyCoinShopPerks' existing
+  // "re-call apply() for every already-owned item on load" already restores
+  // the exact cumulative tier by calling turret.upgrade() once per owned
+  // flag - no new persistence plumbing needed.
+  {
+    id: 'turret_upgrade_1',
+    titleKey: 'coinShopTurretUpgrade1',
+    cost: 2000,
+    section: 'base',
+    isOwned: (game) => game.coinShopPurchased.has('turret_upgrade_1'),
+    apply: (game) => {
+      game.coinShopPurchased.add('turret_upgrade_1')
+      if (game.turret) game.turret.upgrade()
+    },
+  },
+  {
+    id: 'turret_upgrade_2',
+    titleKey: 'coinShopTurretUpgrade2',
+    cost: 3000,
+    section: 'base',
+    isOwned: (game) => game.coinShopPurchased.has('turret_upgrade_2'),
+    apply: (game) => {
+      game.coinShopPurchased.add('turret_upgrade_2')
+      if (game.turret) game.turret.upgrade()
+    },
+  },
+  {
+    id: 'turret_upgrade_3',
+    titleKey: 'coinShopTurretUpgrade3',
+    cost: 4500,
+    section: 'base',
+    isOwned: (game) => game.coinShopPurchased.has('turret_upgrade_3'),
+    apply: (game) => {
+      game.coinShopPurchased.add('turret_upgrade_3')
+      if (game.turret) game.turret.upgrade()
+    },
+  },
   // Sandbag perimeter around the safe zone - same 'base' persistence model
   // as the turret above, but its actual effect is a Zones.js density
   // reduction (see Game.js's _buildBaseWalls) rather than a new firing prop.
@@ -262,6 +301,20 @@ export const COIN_SHOP_ITEMS = [
     apply: (game) => {
       game.coinShopPurchased.add('farm_plot')
       game._buildFarmPlot()
+    },
+  },
+  // Ammo Press - same 'base' persistence model as the Farm Plot above, its
+  // effect is a slow passive reserve-ammo trickle for the currently
+  // equipped gun instead of Rations.
+  {
+    id: 'ammo_press',
+    titleKey: 'coinShopAmmoPress',
+    cost: 4000,
+    section: 'base',
+    isOwned: (game) => game.coinShopPurchased.has('ammo_press'),
+    apply: (game) => {
+      game.coinShopPurchased.add('ammo_press')
+      game._buildAmmoPress()
     },
   },
 ]
