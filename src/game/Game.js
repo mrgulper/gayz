@@ -7429,6 +7429,7 @@ export class Game {
       this._updatePhotoMode(dt)
     } else if (this.player.controls.isLocked && this.playerState.alive && !this.inventoryOpen && !this.perkPanelOpen && !this.traderPanelOpen && !this.xpLevelupPanelOpen && !this.mapOpen && !this.journalOpen) {
       this.player.update(dt)
+      const playerPos = this.player.controls.object.position
       this._updateThirdPerson()
       const isMoving = this.player.onGround && (
         this.player.input.forward || this.player.input.back ||
@@ -7530,7 +7531,6 @@ export class Game {
       this._updateProgressHud()
       this._updateStatsPanel()
 
-      const playerPos = this.player.controls.object.position
       this._updateDirectorAI()
       this._updateAdrenaline()
       this.zombies.update(
