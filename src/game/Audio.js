@@ -756,9 +756,17 @@ class AudioEngine {
     const ctx = this.ctx
     const now = ctx.currentTime
 
+    // Directional zombie presence (see updateZombiePresence, called
+    // periodically from Game.js) - both the constant base drone below and
+    // the density-scaled boost route through this shared panner, so a
+    // nearby horde shifts the whole ambient bed toward its direction
+    // instead of needing a second, competing drone system.
+    const dronePanner = ctx.createStereoPanner()
+    dronePanner.connect(this.sfxGain)
+
     const droneGain = ctx.createGain()
     droneGain.gain.value = 0.065
-    droneGain.connect(this.sfxGain)
+    droneGain.connect(dronePanner)
 
     const drone1 = ctx.createOscillator()
     drone1.type = 'sine'
@@ -771,6 +779,17 @@ class AudioEngine {
     drone2.frequency.value = 57.5
     drone2.connect(droneGain)
     drone2.start(now)
+
+    const presenceGain = ctx.createGain()
+    presenceGain.gain.value = 0
+    presenceGain.connect(dronePanner)
+    const presenceOsc = ctx.createOscillator()
+    presenceOsc.type = 'sawtooth'
+    presenceOsc.frequency.value = 50
+    presenceOsc.connect(presenceGain)
+    presenceOsc.start(now)
+    this._dronePanner = dronePanner
+    this._presenceGain = presenceGain
 
     const windBuffer = ctx.createBuffer(1, ctx.sampleRate * 4, ctx.sampleRate)
     const data = windBuffer.getChannelData(0)
@@ -843,6 +862,76 @@ class AudioEngine {
   setSfxVolume(volume) {
     this.sfxVolume = Math.max(0, Math.min(1, volume))
     if (this.sfxGain) this.sfxGain.gain.value = this.sfxVolume
+  }
+
+  // Footstep - a short filtered noise burst, same shape as playMelee's noise
+  // hit but shorter/quieter. muffled (see Game.js's isIndoors) darkens the
+  // filter cutoff instead of just lowering volume, reading as "under a roof"
+  // rather than just "further away."
+  playFootstep(muffled = false) {
+    if (!this.ctx) return
+    const ctx = this.ctx
+    const now = ctx.currentTime
+    const duration = 0.09
+
+    const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * duration, ctx.sampleRate)
+    const data = noiseBuffer.getChannelData(0)
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+
+    const noise = ctx.createBufferSource()
+    noise.buffer = noiseBuffer
+
+    const filter = ctx.createBiquadFilter()
+    filter.type = 'lowpass'
+    filter.frequency.value = muffled ? 320 : 850
+
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(muffled ? 0.1 : 0.16, now)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration)
+
+    noise.connect(filter).connect(gain).connect(this.sfxGain)
+    noise.start(now)
+    noise.stop(now + duration)
+  }
+
+  // Directional zombie presence (see startAmbient's own doc comment for the
+  // gain/panner nodes this reads) - a boost layered on top of the always-on
+  // base drone rather than a second parallel drone system, scaled by nearby
+  // zombie density and panned toward the nearest one. intensity: 0-1. pan:
+  // -1 (left) to 1 (right), the nearest zombie's bearing relative to camera.
+  updateZombiePresence(intensity, pan) {
+    if (!this._presenceGain) return
+    const now = this.ctx.currentTime
+    this._presenceGain.gain.setTargetAtTime(Math.min(0.14, intensity * 0.14), now, 0.6)
+    this._dronePanner.pan.setTargetAtTime(Math.max(-1, Math.min(1, pan)), now, 0.4)
+  }
+
+  // Boss Encounter Stinger - a one-shot descending low swell, layered on top
+  // of (not replacing) the existing musicIntensity system's volume/rate
+  // ramp, specifically for the moment a boss actually appears.
+  playBossStinger() {
+    if (!this.ctx) return
+    const ctx = this.ctx
+    const now = ctx.currentTime
+    const duration = 1.5
+
+    const osc = ctx.createOscillator()
+    osc.type = 'sawtooth'
+    osc.frequency.setValueAtTime(65, now)
+    osc.frequency.exponentialRampToValueAtTime(36, now + duration)
+
+    const filter = ctx.createBiquadFilter()
+    filter.type = 'lowpass'
+    filter.frequency.value = 450
+
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(0.0001, now)
+    gain.gain.exponentialRampToValueAtTime(0.38, now + 0.18)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration)
+
+    osc.connect(filter).connect(gain).connect(this.sfxGain)
+    osc.start(now)
+    osc.stop(now + duration)
   }
 }
 

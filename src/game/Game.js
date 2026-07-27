@@ -786,6 +786,18 @@ const CORPSE_PILE_MAX_TRACKED = 200
 const COMBO_MULT_PER_KILL = 0.15
 const COMBO_MULT_CAP = 2.5
 const DAMAGE_NUMBER_MAX_CONCURRENT = 40
+// Rain reduces how far wandering zombies notice the player (see
+// _rollNightMutation) - a real gameplay tie-in for the existing weather
+// roll, not just the rain overlay/thunder sound it already had.
+const RAIN_AGGRO_RADIUS_MULT = 0.7
+// Indoor detection (see _updateIndoorDetection) - throttled, not per-frame;
+// a straight-up raycast is cheap but still no reason to run it 60x/sec for
+// something that only changes when the player actually walks through a
+// doorway or roofline.
+const INDOOR_CHECK_INTERVAL_MS = 400
+const INDOOR_RAY_MAX_DIST = 6
+const FOOTSTEP_INTERVAL_WALK = 0.42
+const FOOTSTEP_INTERVAL_SPRINT = 0.27
 // Seasonal map dressing - purely additive banner props at the safe zone
 // (no new geometry touching World.js/buildSafeZone), recolored based on
 // night number so there's rotating visual variety across a long run.
@@ -1494,6 +1506,10 @@ export class Game {
     this._tpRayDir = new THREE.Vector3()
     this._tpRaycaster = new THREE.Raycaster()
     this._traderRaycaster = new THREE.Raycaster()
+    this._indoorRaycaster = new THREE.Raycaster(undefined, new THREE.Vector3(0, 1, 0), 0, INDOOR_RAY_MAX_DIST)
+    this.isIndoors = false
+    this.nextIndoorCheckAt = 0
+    this.footstepTimer = 0
 
     // Post-processing: render pass -> bloom (makes practical lights - street
     // lamps, muzzle flash, headlights, neon signage - actually glow instead
@@ -6304,16 +6320,21 @@ export class Game {
   // place) so a mutation can never compound across nights or fight with
   // the difficulty setting's own value.
   _rollNightMutation() {
+    // Rain masks noise/scent - folded in as a flat multiplier on top of
+    // whatever the mutation roll already produced (or the 1 baseline)
+    // rather than a special case, so it stacks the same way for every
+    // mutation instead of only working on nights with no mutation active.
+    const rainMult = this.raining ? RAIN_AGGRO_RADIUS_MULT : 1
     if (Math.random() < NIGHT_MUTATION_CHANCE) {
       this.nightMutation = NIGHT_MUTATIONS[Math.floor(Math.random() * NIGHT_MUTATIONS.length)]
       this.zombies.healthMult = this.difficulty.healthMult * (this.nightMutation.healthMult || 1)
-      this.zombies.aggroRadiusMult = this.nightMutation.aggroRadiusMult || 1
+      this.zombies.aggroRadiusMult = (this.nightMutation.aggroRadiusMult || 1) * rainMult
       this.zombies.speedMult = this.nightMutation.speedMult || 1
       this._showLoreToast(t(this.nightMutation.labelKey))
     } else {
       this.nightMutation = null
       this.zombies.healthMult = this.difficulty.healthMult
-      this.zombies.aggroRadiusMult = 1
+      this.zombies.aggroRadiusMult = rainMult
       this.zombies.speedMult = 1
     }
   }
@@ -6472,10 +6493,16 @@ export class Game {
   // and out of range.
   _updateMusicIntensity(playerPos) {
     let nearbyCount = 0
+    let nearestDist = Infinity
+    let nearestZombie = null
     for (const z of this.zombies.zombies) {
       if (z.state !== 'alive') continue
       const d = Math.hypot(z.group.position.x - playerPos.x, z.group.position.z - playerPos.z)
       if (d < 22) nearbyCount++
+      if (d < nearestDist) {
+        nearestDist = d
+        nearestZombie = z
+      }
     }
     let threat = Math.min(1, nearbyCount / 8)
     if (this.zombies.zombies.some((z) => z.isBoss && z.state === 'alive')) threat = Math.max(threat, 0.8)
@@ -6484,6 +6511,34 @@ export class Game {
 
     this.musicIntensityCurrent = THREE.MathUtils.lerp(this.musicIntensityCurrent, threat, 0.04)
     audioEngine.setMusicIntensity(this.musicIntensityCurrent)
+
+    // Directional Zombie Ambience Bed (see Audio.js's updateZombiePresence) -
+    // reuses the nearest-zombie/nearby-count values already computed above
+    // rather than a second scan over every zombie.
+    let pan = 0
+    if (nearestZombie) {
+      this.camera.getWorldDirection(this._camDir)
+      const facingRad = Math.atan2(this._camDir.x, -this._camDir.z)
+      const bearing = Math.atan2(nearestZombie.group.position.x - playerPos.x, -(nearestZombie.group.position.z - playerPos.z))
+      let diff = bearing - facingRad
+      diff = ((diff + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI
+      pan = Math.sin(diff)
+    }
+    audioEngine.updateZombiePresence(Math.min(1, nearbyCount / 6), pan)
+  }
+
+  // Indoor detection (see Audio.js's playFootstep muffled param) - a
+  // straight-up raycast against solidMeshes; a roof/ceiling within
+  // INDOOR_RAY_MAX_DIST reads as "under cover." Throttled rather than
+  // per-frame since this only ever changes when the player actually crosses
+  // a doorway or roofline.
+  _updateIndoorDetection(playerPos) {
+    const now = performance.now()
+    if (now < this.nextIndoorCheckAt) return
+    this.nextIndoorCheckAt = now + INDOOR_CHECK_INTERVAL_MS
+    this._indoorRaycaster.ray.origin.set(playerPos.x, playerPos.y + 0.2, playerPos.z)
+    const hits = this._indoorRaycaster.intersectObjects(this.solidMeshes, true)
+    this.isIndoors = hits.length > 0
   }
 
   _updateFlicker(elapsed) {
@@ -7753,6 +7808,7 @@ export class Game {
     this._applyFogState()
     this._updateFlicker(elapsed)
     this._updateMusicIntensity(this.player.controls.object.position)
+    this._updateIndoorDetection(this.player.controls.object.position)
 
     if (this.driving && this.player.controls.isLocked && this.playerState.alive) {
       this.vehicle.update(dt, this.player.input, this.player.colliders)
@@ -7769,6 +7825,15 @@ export class Game {
         this.player.input.forward || this.player.input.back ||
         this.player.input.left || this.player.input.right
       )
+      if (isMoving) {
+        this.footstepTimer -= dt
+        if (this.footstepTimer <= 0) {
+          this.footstepTimer = this.player.isSprinting ? FOOTSTEP_INTERVAL_SPRINT : FOOTSTEP_INTERVAL_WALK
+          audioEngine.playFootstep(this.isIndoors)
+        }
+      } else {
+        this.footstepTimer = 0
+      }
       if (!this.weaponWheelOpen) this.weapons.update(dt, isMoving, this.player.isSprinting)
       if (performance.now() < this.killcamUntil) {
         this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, this.weapons.defaultFov * KILLCAM_ZOOM_FOV_MULT, 0.15)

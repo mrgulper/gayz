@@ -496,6 +496,7 @@ export class ZombieManager {
     zombie.nextAddSummonAt = performance.now() + BOSS_ADD_FIRST_DELAY_MS
     this.zombies.push(zombie)
     this.scene.add(zombie.group)
+    audioEngine.playBossStinger()
   }
 
   // One-off guardian spawn at a specific spot (the VIREO facility terminal
