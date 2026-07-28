@@ -2480,6 +2480,22 @@ body {
   100% { transform: translate(1%, 10%); }
 }
 
+/* Sandstorm (see Game.js's _rollWeather) - a uniform tan haze with a slow
+   pulse, deliberately simpler than rain/snow's particle patterns since a
+   sandstorm reads more as an even haze than individual falling shapes. */
+#sandstorm-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(196, 154, 92, 0.32);
+  mix-blend-mode: multiply;
+  animation: sandstorm-pulse 4s ease-in-out infinite;
+}
+
+@keyframes sandstorm-pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
 #nightmare-overlay {
   position: absolute;
   inset: 0;

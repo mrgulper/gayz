@@ -1328,6 +1328,59 @@ const FEATURED_ITEM_REROLL_COST = 40
 // Rare free bonus item on a big purchase (see the SHOP_ITEMS click handler).
 const BIG_PURCHASE_THRESHOLD = 100
 const FREE_BONUS_ITEM_CHANCE = 0.1
+// Weather & Hazards batch - sandstorm/heatwave roll alongside rain/snow in
+// _rollWeather (mutually exclusive with them, same one-roll-picks-one-state
+// shape), the rest are periodic checks in the main tick.
+const SANDSTORM_CHANCE = 0.1
+const SANDSTORM_SPEED_MULT = 0.85
+const HEATWAVE_CHANCE = 0.1
+const HEATWAVE_THIRST_MULT = 1.8
+// Earthquake - a rare mid-night event, not tied to any weather roll.
+const EARTHQUAKE_CHECK_INTERVAL_MS = 15000
+const EARTHQUAKE_CHANCE = 0.02
+const EARTHQUAKE_STUMBLE_RADIUS = 30
+const EARTHQUAKE_STUMBLE_MS = 800
+// Lightning striking the player directly (see _triggerLightning's own
+// existing zombie-flinch effect, which this is additive to, not a
+// replacement for) - a small flat chance, independent of position (real
+// "am I sheltered" detection would need a raycast up to the sky, out of
+// scope for what's meant to be a rare, dramatic risk of being caught out
+// in a storm).
+const LIGHTNING_PLAYER_STRIKE_CHANCE = 0.08
+const LIGHTNING_PLAYER_STRIKE_DAMAGE = 15
+// Flash flooding - a temporary global movement slow after sustained rain,
+// distinct from a spatial hazard zone (no per-tile puddle placement).
+const FLOOD_CHECK_INTERVAL_MS = 20000
+const FLOOD_CHANCE = 0.15
+const FLOOD_SPEED_MULT = 0.8
+const FLOOD_DURATION_MS = 12000
+// Insect/rat swarm - periodic minor bite, reuses playerState.takeDamage's
+// own existing infection-chance-per-hit rather than a parallel roll.
+const SWARM_BITE_CHECK_INTERVAL_MS = 10000
+const SWARM_BITE_CHANCE = 0.12
+const SWARM_BITE_DAMAGE = 4
+// Power surge - the inverse of NightEvents.js's blackout (power loss): an
+// overload that drains the generator instantly instead of cutting it
+// entirely, a resource hit rather than a full outage.
+const POWER_SURGE_CHECK_INTERVAL_MS = 25000
+const POWER_SURGE_CHANCE = 0.08
+const POWER_SURGE_DRAIN = 35
+// Rooftop wind gusts - only while high up (see ROOFTOP_WIND_MIN_HEIGHT),
+// a brief camera nudge rather than touching PlayerController's own
+// look-input handling.
+const ROOFTOP_WIND_MIN_HEIGHT = 8
+const ROOFTOP_WIND_CHECK_INTERVAL_MS = 8000
+const ROOFTOP_WIND_CHANCE = 0.3
+const ROOFTOP_WIND_NUDGE = 0.04
+// Perfect Weather - a rare bonus night, rolled alongside the normal
+// weather (see _rollWeather), overriding rain/snow/sandstorm/heatwave off
+// for the night when it hits.
+const PERFECT_WEATHER_CHANCE = 0.05
+const PERFECT_WEATHER_LOOT_BONUS_MULT = 1.3
+// Flashlight range in heavy rain - a plain multiplier on the SpotLight's
+// own .distance, restored the instant rain stops.
+const FLASHLIGHT_RAIN_RANGE_MULT = 0.7
+const FLASHLIGHT_BASE_RANGE = 35
 // First-time tutorial hint sequence - see _maybeShowTutorialHints.
 const TUTORIAL_SEEN_KEY = 'gayz-tutorial-seen'
 const TUTORIAL_HINT_START_DELAY_MS = 2500
@@ -2098,6 +2151,7 @@ export class Game {
     this.breakerBoxFill = document.getElementById('breaker-box-fill')
     this.rainOverlayEl = document.getElementById('rain-overlay')
     this.snowOverlayEl = document.getElementById('snow-overlay')
+    this.sandstormOverlayEl = document.getElementById('sandstorm-overlay')
     this.lightningFlashEl = document.getElementById('lightning-flash')
     this.nextLightningAt = 0
     this.fogPatch = null
@@ -2296,6 +2350,15 @@ export class Game {
     this._parryActiveUntil = 0
     this._nextGoldenCheckAt = 0
     this._nextHordeAudioCheckAt = 0
+    this.sandstorming = false
+    this.heatwave = false
+    this.perfectWeather = false
+    this._nextEarthquakeCheckAt = 0
+    this._nextFloodCheckAt = 0
+    this._floodActiveUntil = 0
+    this._nextSwarmBiteCheckAt = 0
+    this._nextPowerSurgeCheckAt = 0
+    this._nextRooftopWindCheckAt = 0
     this._reclaimedCells = new Map()
     this._lastAliveCountSeen = 0
     this._runCardBaseImage = null
@@ -7459,7 +7522,7 @@ export class Game {
       this.points += 5
       this._updateStatsPanel()
     }
-    const lootMult = (this.settings.mutators.lootRush ? 2 : 1) * this.difficulty.lootMult
+    const lootMult = (this.settings.mutators.lootRush ? 2 : 1) * this.difficulty.lootMult * (this.perfectWeather ? PERFECT_WEATHER_LOOT_BONUS_MULT : 1)
     this.xpGems.spawn(x, z, (isElite ? 4 : 1) * lootMult)
     if (isElite) {
       this.eliteKills += 1
@@ -8529,6 +8592,74 @@ export class Game {
     nearby[Math.floor(Math.random() * nearby.length)].stun(RAIN_STUMBLE_STAGGER_MS)
   }
 
+  // Earthquake - a rare mid-night event, independent of any weather roll.
+  _checkEarthquake(playerPos) {
+    const now = performance.now()
+    if (now < this._nextEarthquakeCheckAt) return
+    this._nextEarthquakeCheckAt = now + EARTHQUAKE_CHECK_INTERVAL_MS
+    if (Math.random() > EARTHQUAKE_CHANCE) return
+    this._triggerShake(0.15, 900)
+    this._showLoreToast(t('earthquakeToast'))
+    for (const z of this.zombies.zombies) {
+      if (z.state !== 'alive') continue
+      const d = Math.hypot(z.group.position.x - playerPos.x, z.group.position.z - playerPos.z)
+      if (d <= EARTHQUAKE_STUMBLE_RADIUS) z.stun(EARTHQUAKE_STUMBLE_MS)
+    }
+  }
+
+  // Flash flooding (see FLOOD_SPEED_MULT's own comment) - a temporary
+  // global movement slow, cleared automatically after FLOOD_DURATION_MS.
+  _checkFlooding() {
+    const now = performance.now()
+    if (this._floodActiveUntil && now >= this._floodActiveUntil) {
+      this._floodActiveUntil = 0
+      this.player.environmentMult = 1
+    }
+    if (!this.raining || this._floodActiveUntil) return
+    if (now < this._nextFloodCheckAt) return
+    this._nextFloodCheckAt = now + FLOOD_CHECK_INTERVAL_MS
+    if (Math.random() > FLOOD_CHANCE) return
+    this._floodActiveUntil = now + FLOOD_DURATION_MS
+    this.player.environmentMult = FLOOD_SPEED_MULT
+    this._showLoreToast(t('floodToast'))
+  }
+
+  // Insect/rat swarm - reuses playerState.takeDamage's own existing
+  // infection-chance-per-hit rather than a parallel roll.
+  _checkSwarmBite() {
+    const now = performance.now()
+    if (now < this._nextSwarmBiteCheckAt) return
+    this._nextSwarmBiteCheckAt = now + SWARM_BITE_CHECK_INTERVAL_MS
+    if (Math.random() > SWARM_BITE_CHANCE) return
+    this.playerState.takeDamage(SWARM_BITE_DAMAGE)
+    this._updateHealthHud()
+    this._showLoreToast(t('swarmBiteToast'))
+  }
+
+  // Power surge - the inverse of NightEvents.js's blackout (a full power
+  // outage): an overload that drains the generator instantly instead.
+  _checkPowerSurge() {
+    const now = performance.now()
+    if (now < this._nextPowerSurgeCheckAt) return
+    this._nextPowerSurgeCheckAt = now + POWER_SURGE_CHECK_INTERVAL_MS
+    if (Math.random() > POWER_SURGE_CHANCE) return
+    this.generatorFuel = Math.max(0, this.generatorFuel - POWER_SURGE_DRAIN)
+    this._showLoreToast(t('powerSurgeToast'))
+  }
+
+  // Rooftop wind gusts - reuses the existing camera shake system rather
+  // than touching camera rotation directly (PointerLockControls owns
+  // yaw/pitch; a manual roll nudge risks fighting or being silently
+  // overwritten by its own next mouse-move update).
+  _checkRooftopWind(playerPos) {
+    if (playerPos.y < ROOFTOP_WIND_MIN_HEIGHT) return
+    const now = performance.now()
+    if (now < this._nextRooftopWindCheckAt) return
+    this._nextRooftopWindCheckAt = now + ROOFTOP_WIND_CHECK_INTERVAL_MS
+    if (Math.random() > ROOFTOP_WIND_CHANCE) return
+    this._triggerShake(ROOFTOP_WIND_NUDGE, 400)
+  }
+
   // Horde-density ambient audio cue - a low murmur when a lot of zombies
   // are nearby at once, distinct from any single zombie's own moan/snarl.
   _checkHordeDensityAudio(playerPos) {
@@ -8801,7 +8932,10 @@ export class Game {
 
   // Thirst - same shape as _updateHunger above.
   _updateThirst(dt) {
-    this.thirst = Math.max(0, this.thirst - THIRST_DECAY_PER_SEC * dt)
+    // Heatwave (see HEATWAVE_THIRST_MULT's own comment) - only the decay
+    // rate speeds up, not the dehydration damage below once it hits 0.
+    const heatwaveMult = this.heatwave ? HEATWAVE_THIRST_MULT : 1
+    this.thirst = Math.max(0, this.thirst - THIRST_DECAY_PER_SEC * heatwaveMult * dt)
     if (this.thirst <= 0 && this.playerState.alive) {
       this.playerState.takeDamage(THIRST_DEHYDRATE_DPS * dt)
       this._updateHealthHud()
@@ -9030,12 +9164,45 @@ export class Game {
   // smaller fog reduction) so it reads as a calmer, colder night rather
   // than reskinned rain.
   _rollWeather() {
+    // Perfect Weather (see PERFECT_WEATHER_CHANCE's own comment) - checked
+    // first and, if it hits, short-circuits every other weather state off
+    // for the night rather than being just another slice of the same roll.
+    this.perfectWeather = Math.random() < PERFECT_WEATHER_CHANCE
+    if (this.perfectWeather) {
+      this.raining = false
+      this.snowing = false
+      this.sandstorming = false
+      this.heatwave = false
+      this.rainOverlayEl.style.display = 'none'
+      this.snowOverlayEl.style.display = 'none'
+      if (this.sandstormOverlayEl) this.sandstormOverlayEl.style.display = 'none'
+      this.nextLightningAt = 0
+      // Guarded - _rollWeather is called once from the constructor itself,
+      // before this.loreToast (a DOM ref assigned later in it) exists yet.
+      if (this.loreToast) this._showLoreToast(t('perfectWeatherToast'))
+      return
+    }
     const roll = Math.random()
     this.raining = roll < 0.3
     this.snowing = !this.raining && roll < 0.45
+    // Sandstorm/heatwave roll independently of rain/snow (mutually
+    // exclusive with EACH OTHER, but rain/snow already excluded themselves
+    // above) - small enough chances that most nights still have neither.
+    this.sandstorming = !this.raining && !this.snowing && Math.random() < SANDSTORM_CHANCE
+    this.heatwave = !this.sandstorming && Math.random() < HEATWAVE_CHANCE
     this.rainOverlayEl.style.display = this.raining ? 'block' : 'none'
     this.snowOverlayEl.style.display = this.snowing ? 'block' : 'none'
+    if (this.sandstormOverlayEl) this.sandstormOverlayEl.style.display = this.sandstorming ? 'block' : 'none'
+    // Same constructor-ordering guard as the perfectWeather branch above.
+    if (this.loreToast) {
+      if (this.sandstorming) this._showLoreToast(t('sandstormToast'))
+      else if (this.heatwave) this._showLoreToast(t('heatwaveToast'))
+    }
     this.nextLightningAt = this.raining ? performance.now() + LIGHTNING_MIN_DELAY_MS + Math.random() * LIGHTNING_DELAY_RANGE_MS : 0
+    // Flashlight range in heavy rain (see FLASHLIGHT_RAIN_RANGE_MULT's own
+    // comment) - restored the instant rain stops, same as every other
+    // per-night weather toggle here.
+    if (this.flashlight) this.flashlight.distance = FLASHLIGHT_BASE_RANGE * (this.raining ? FLASHLIGHT_RAIN_RANGE_MULT : 1)
   }
 
   // Rolled once per night-round, same cadence as _rollWeather - see
@@ -9205,6 +9372,17 @@ export class Game {
       if (zombie.state !== 'alive') continue
       const dist = Math.hypot(zombie.group.position.x - playerPos.x, zombie.group.position.z - playerPos.z)
       if (dist <= LIGHTNING_FLINCH_RADIUS) zombie.weaken(LIGHTNING_FLINCH_MS)
+    }
+
+    // Lightning can now actually strike the player too (see
+    // LIGHTNING_PLAYER_STRIKE_CHANCE's own comment - additive to the
+    // zombie-flinch effect above, not a replacement for it).
+    if (this.playerState.alive && Math.random() < LIGHTNING_PLAYER_STRIKE_CHANCE) {
+      this.playerState.takeDamage(LIGHTNING_PLAYER_STRIKE_DAMAGE)
+      this._updateHealthHud()
+      this._triggerShake(0.2, 300)
+      this._showLoreToast(t('lightningStruckToast'))
+      if (!this.playerState.alive) this._maybeLastStandOrDie()
     }
 
     this.nextLightningAt = performance.now() + LIGHTNING_MIN_DELAY_MS + Math.random() * LIGHTNING_DELAY_RANGE_MS
@@ -11040,6 +11218,11 @@ export class Game {
       this._checkHordeDensityAudio(playerPos)
       this._checkRoundModeSpecialEvents()
       this._checkRainStumble(playerPos)
+      this._checkEarthquake(playerPos)
+      this._checkFlooding()
+      this._checkSwarmBite()
+      this._checkPowerSurge()
+      this._checkRooftopWind(playerPos)
       this._updateLockedCells(playerPos)
       this._updateTrophyWallProximity(playerPos)
       this._updateGenerator(dt, playerPos)

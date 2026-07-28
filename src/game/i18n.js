@@ -829,6 +829,15 @@ const STRINGS = {
     bountyCompleteWithStreak: '{title} complete! +{reward} points (streak {streak}: +{bonus})',
     profileNetWorth: 'Net worth',
     profileTotalSpent: 'Lifetime spent',
+    // Weather & Hazards batch.
+    perfectWeatherToast: 'Clear skies tonight - and the streets feel a little more generous.',
+    sandstormToast: 'A sandstorm rolls in, cutting visibility and slowing your steps.',
+    heatwaveToast: 'A heatwave settles in - you’ll be thirsty sooner tonight.',
+    earthquakeToast: 'The ground shakes beneath your feet!',
+    floodToast: 'The streets start to flood - footing gets treacherous.',
+    swarmBiteToast: 'Something small and many-legged just bit you.',
+    powerSurgeToast: 'A power surge overloads the generator!',
+    lightningStruckToast: 'Struck by lightning!',
   },
   zh: {
     menuSubtitle: '破败的街区——生存、搜寻、射击',

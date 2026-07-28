@@ -142,6 +142,7 @@ export class PlayerController {
     // Webber zombie's web patch (see Game.js's _updateHazardZones) - same
     // "recomputed live every frame" shape as corpsePileMult above.
     this.webSlowMult = 1
+    this.environmentMult = 1
     this.warmthStaminaMult = 1
     this.isSprinting = false
     this.isCrouching = false
@@ -426,6 +427,11 @@ export class PlayerController {
       speedMultiplier *= this.adrenalineMult
       speedMultiplier *= this.corpsePileMult
       speedMultiplier *= this.webSlowMult
+      // Weather & Hazards (see Game.js's sandstorm/flood checks) - one
+      // shared slot for both rather than a field per weather effect, same
+      // "just another named multiplier in this chain" pattern corpsePileMult/
+      // webSlowMult above already establish.
+      speedMultiplier *= this.environmentMult
 
       if (this.slipFactor > 0) {
         // Wet planks over a sewer, not solid ground - momentum carries the
