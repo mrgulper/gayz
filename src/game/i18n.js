@@ -817,6 +817,18 @@ const STRINGS = {
     hordeSizeIndicator: 'Nearby: {n}',
     cleanSweepToast: 'Clean sweep! +{n} coins',
     caughtFleeingZombie: "Got it before it could escape!",
+    // Trading & Economy batch.
+    rerollFeaturedBtn: 'Reroll Featured Item',
+    haggleBtn: 'Haggle',
+    haggleActiveLabel: 'Discount ready - buy something!',
+    haggleHintLabel: 'Try your luck for a discount',
+    haggleSuccess: 'The trader relents - next purchase is discounted.',
+    haggleFail: "The trader won't budge this time.",
+    freeBonusItemToast: 'The trader throws in a free {item}!',
+    sellbackSectionLabel: 'Sell Back',
+    bountyCompleteWithStreak: '{title} complete! +{reward} points (streak {streak}: +{bonus})',
+    profileNetWorth: 'Net worth',
+    profileTotalSpent: 'Lifetime spent',
   },
   zh: {
     menuSubtitle: '破败的街区——生存、搜寻、射击',

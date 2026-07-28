@@ -899,6 +899,66 @@ function saveTraderSales(total) {
   }
 }
 
+// Lifetime "Total spent" (see _openProfilePanel/net worth) - same plain
+// numeric localStorage pattern as traderTotalSales above.
+const TOTAL_SPENT_KEY = 'gayz-total-spent'
+
+function loadTotalSpent() {
+  try {
+    return Math.max(0, Number(localStorage.getItem(TOTAL_SPENT_KEY)) || 0)
+  } catch {
+    return 0
+  }
+}
+
+function saveTotalSpent(total) {
+  try {
+    localStorage.setItem(TOTAL_SPENT_KEY, String(total))
+  } catch {
+    // Storage unavailable - just won't persist across sessions.
+  }
+}
+
+// Bounty streak (see _completeBounty) - consecutive completions without
+// letting one expire, persisted the same way.
+const BOUNTY_STREAK_KEY = 'gayz-bounty-streak'
+
+function loadBountyStreak() {
+  try {
+    return Math.max(0, Number(localStorage.getItem(BOUNTY_STREAK_KEY)) || 0)
+  } catch {
+    return 0
+  }
+}
+
+function saveBountyStreak(streak) {
+  try {
+    localStorage.setItem(BOUNTY_STREAK_KEY, String(streak))
+  } catch {
+    // Storage unavailable - just won't persist across sessions.
+  }
+}
+
+// Haggle streak (see _tryHaggle) - consecutive successful haggles across
+// trader visits, same plain numeric localStorage pattern.
+const HAGGLE_STREAK_KEY = 'gayz-haggle-streak'
+
+function loadHaggleStreak() {
+  try {
+    return Math.max(0, Number(localStorage.getItem(HAGGLE_STREAK_KEY)) || 0)
+  } catch {
+    return 0
+  }
+}
+
+function saveHaggleStreak(streak) {
+  try {
+    localStorage.setItem(HAGGLE_STREAK_KEY, String(streak))
+  } catch {
+    // Storage unavailable - just won't persist across sessions.
+  }
+}
+
 // Points/coins and everything bought with them (skins, Shop stat perks) used
 // to be purely in-run state that reset on every page reload, same as
 // health/inventory/kills. Split out into its own persisted slice so the
@@ -1236,6 +1296,38 @@ const HORDE_AUDIO_RADIUS = 30
 // effectiveSpeed formula, alongside its other speed-multiplier constants.
 const CLEAN_SWEEP_TIME_THRESHOLD_MS = 25000
 const CLEAN_SWEEP_BONUS_COINS = 200
+// Haggle (see _tryHaggle) - a per-visit gamble, not another passive
+// discount stacked onto _traderPrice's existing mult/discountMult/
+// levelDiscount chain. Streak (consecutive successful haggles across
+// visits, not purchases) scales the bonus, capped.
+const HAGGLE_SUCCESS_CHANCE = 0.65
+const HAGGLE_BASE_DISCOUNT = 0.15
+const HAGGLE_STREAK_BONUS_PER_LEVEL = 0.02
+const HAGGLE_STREAK_MAX_BONUS = 0.15
+// Bounty streak (see _completeBounty) - consecutive completions escalate
+// a bonus points reward, capped.
+const BOUNTY_STREAK_BONUS_PER_LEVEL = 15
+const BOUNTY_STREAK_MAX_BONUS_POINTS = 150
+// Black Market rotation (see _rollTraderPrices' own call site) - shows a
+// rotating subset instead of the full static BLACK_MARKET_ITEMS list every
+// time, re-picked on the same per-night cadence trader prices already use.
+const BLACK_MARKET_ROTATION_SIZE = 3
+// Cosmetic sell-back (see _renderCosmeticSellback) - Salvage already
+// covers crafting-ingredient items; this is the distinct "no longer want
+// this owned outfit/hat" case Salvage doesn't touch.
+const COSMETIC_SELLBACK_REFUND_MULT = 0.5
+// Bulk-purchase combo discount (see _traderPrice) - 3+ different items
+// bought in the same trader visit (not the same item repeatedly) discounts
+// the rest of that visit.
+const BULK_PURCHASE_THRESHOLD = 3
+const BULK_PURCHASE_DISCOUNT = 0.08
+// Daily Featured Item reroll (see _rerollFeaturedItem) - a small paid
+// reroll, once per night (resets the same time _rollFeaturedItem itself
+// does).
+const FEATURED_ITEM_REROLL_COST = 40
+// Rare free bonus item on a big purchase (see the SHOP_ITEMS click handler).
+const BIG_PURCHASE_THRESHOLD = 100
+const FREE_BONUS_ITEM_CHANCE = 0.1
 // First-time tutorial hint sequence - see _maybeShowTutorialHints.
 const TUTORIAL_SEEN_KEY = 'gayz-tutorial-seen'
 const TUTORIAL_HINT_START_DELAY_MS = 2500
@@ -2718,6 +2810,12 @@ export class Game {
     }
     saveStash(this.stash)
     this.traderTotalSales = loadTraderSales()
+    this.totalSpent = loadTotalSpent()
+    this.bountyStreak = loadBountyStreak()
+    this.haggleStreak = loadHaggleStreak()
+    this._haggleDiscountActive = false
+    this._traderVisitPurchaseCount = 0
+    this._blackMarketRotation = []
     this.weeklyChallenge = loadWeeklyChallenge()
     this.weeklyDef = WEEKLY_CHALLENGES[_weeklyChallengeIndex(this.weeklyChallenge.week)]
     this.metaProgress = loadMetaProgress()
@@ -2781,6 +2879,8 @@ export class Game {
     this.traderCraftingOptions = document.getElementById('trader-crafting-options')
     this.traderStashTitle = document.getElementById('trader-stash-title')
     this.traderStashOptions = document.getElementById('trader-stash-options')
+    this.traderSellbackTitle = document.getElementById('trader-sellback-title')
+    this.traderSellbackOptions = document.getElementById('trader-sellback-options')
     this.traderBlackMarketTitle = document.getElementById('trader-blackmarket-title')
     this.traderBlackMarketOptions = document.getElementById('trader-blackmarket-options')
     this.traderHint = document.getElementById('trader-hint')
@@ -5508,6 +5608,10 @@ export class Game {
     this.traderPanelOpen = true
     this.traderPanel.style.display = 'flex'
     this.traderPanelTitle.textContent = t('traderPanelTitle')
+    // Bulk-purchase combo discount visit counter - resets per visit, not
+    // per purchase, so it's the count of DIFFERENT-VISIT buys, not a
+    // lifetime total (that's totalSpent below, tracked separately).
+    this._traderVisitPurchaseCount = 0
     this._renderTraderMoodLine()
     this.traderHint.textContent = tHtml('traderHint')
     this.player.controls.unlock()
@@ -5564,9 +5668,15 @@ export class Game {
 
   _completeBounty() {
     const b = this.activeBounty
-    this.points += b.reward
+    // Bounty streak (see BOUNTY_STREAK_KEY's own comment) - an escalating
+    // bonus for consecutive completions, capped the same way Haggle's
+    // streak bonus is.
+    this.bountyStreak += 1
+    saveBountyStreak(this.bountyStreak)
+    const streakBonus = Math.min(BOUNTY_STREAK_MAX_BONUS_POINTS, this.bountyStreak * BOUNTY_STREAK_BONUS_PER_LEVEL)
+    this.points += b.reward + streakBonus
     this._updateStatsPanel()
-    this._showLoreToast(t('bountyComplete', { title: t(b.titleKey, { n: b.target }), reward: b.reward }))
+    this._showLoreToast(t('bountyCompleteWithStreak', { title: t(b.titleKey, { n: b.target }), reward: b.reward, streak: this.bountyStreak, bonus: streakBonus }))
     this._assignBounty(b.id)
     if (this.traderPanelOpen) this._renderBounty()
   }
@@ -5668,16 +5778,27 @@ export class Game {
     for (const item of SHOP_ITEMS) {
       this.traderPriceMults[item.id] = 0.75 + Math.random() * 0.6
     }
+    // Black Market rotation (see BLACK_MARKET_ROTATION_SIZE's own comment) -
+    // re-picked on the same per-night cadence as the prices above.
+    const shuffled = [...BLACK_MARKET_ITEMS].sort(() => Math.random() - 0.5)
+    this._blackMarketRotation = shuffled.slice(0, BLACK_MARKET_ROTATION_SIZE)
   }
 
   _traderPrice(item) {
     const mult = this.traderPriceMults?.[item.id] ?? 1
     const discountMult = this.metaProgress.purchased.has('traderDiscount') ? 0.85 : 1
+    // Bulk-purchase combo discount (see BULK_PURCHASE_THRESHOLD's own
+    // comment) and Haggle (see _tryHaggle) - both flat multipliers,
+    // stacking with everything else the same way the existing
+    // discountMult/levelDiscount pair already does.
+    const bulkMult = this._traderVisitPurchaseCount >= BULK_PURCHASE_THRESHOLD ? 1 - BULK_PURCHASE_DISCOUNT : 1
+    const haggleBonus = Math.min(HAGGLE_STREAK_MAX_BONUS, this.haggleStreak * HAGGLE_STREAK_BONUS_PER_LEVEL)
+    const haggleMult = this._haggleDiscountActive ? 1 - (HAGGLE_BASE_DISCOUNT + haggleBonus) : 1
     // Trader leveling (see TRADER_LEVEL_SALES_PER_TIER's own comment) -
     // stacks with (multiplies into) the discount above rather than
     // replacing it.
     const levelDiscount = Math.min(TRADER_LEVEL_MAX_DISCOUNT, Math.floor(this.traderTotalSales / TRADER_LEVEL_SALES_PER_TIER) * TRADER_LEVEL_DISCOUNT_PER_TIER)
-    return Math.max(1, Math.round(item.cost * mult * discountMult * (1 - levelDiscount)))
+    return Math.max(1, Math.round(item.cost * mult * discountMult * (1 - levelDiscount) * bulkMult * haggleMult))
   }
 
   _renderTraderOptions() {
@@ -5691,7 +5812,25 @@ export class Game {
       return
     }
 
+    // Featured Item reroll (see FEATURED_ITEM_REROLL_COST's own comment) -
+    // a small paid button next to the featured slot itself.
     if (this.featuredItem) {
+      const rerollBtn = document.createElement('button')
+      rerollBtn.className = 'perk-option'
+      rerollBtn.disabled = this.points < FEATURED_ITEM_REROLL_COST
+      rerollBtn.innerHTML = `
+        <span class="perk-name">${t('rerollFeaturedBtn')}</span>
+        <span class="perk-cost">${t('perkCostLabel', { n: FEATURED_ITEM_REROLL_COST })}</span>
+      `
+      rerollBtn.addEventListener('click', () => {
+        if (this.points < FEATURED_ITEM_REROLL_COST) return
+        this.points -= FEATURED_ITEM_REROLL_COST
+        this._rerollFeaturedItem()
+        this._updateStatsPanel()
+        this._renderTraderOptions()
+      })
+      this.traderOptions.appendChild(rerollBtn)
+
       const item = this.featuredItem
       const cost = Math.round(this._traderPrice(item) * 0.7)
       const btn = document.createElement('button')
@@ -5705,11 +5844,36 @@ export class Game {
         if (this.points < cost) return
         this.points -= cost
         item.give(this)
+        this._recordTraderPurchase(cost)
         this._updateStatsPanel()
         this._updateInventoryHud()
         this._renderTraderOptions()
       })
       this.traderOptions.appendChild(btn)
+    }
+
+    // Haggle (see HAGGLE_SUCCESS_CHANCE's own comment).
+    const haggleBtn = document.createElement('button')
+    haggleBtn.className = 'perk-option'
+    haggleBtn.disabled = this._haggleDiscountActive
+    haggleBtn.innerHTML = `
+      <span class="perk-name">${t('haggleBtn')}</span>
+      <span class="perk-cost">${this._haggleDiscountActive ? t('haggleActiveLabel') : t('haggleHintLabel')}</span>
+    `
+    haggleBtn.addEventListener('click', () => this._tryHaggle())
+    this.traderOptions.appendChild(haggleBtn)
+
+    // "Best deal today" highlight - the single biggest discount roll this
+    // visit, found in its own pass before building the row buttons below.
+    let bestDealId = null
+    let bestDealPct = 0
+    for (const item of SHOP_ITEMS) {
+      if (item === this.featuredItem) continue
+      const pctDelta = Math.round((this._traderPrice(item) / item.cost - 1) * 100)
+      if (pctDelta < bestDealPct) {
+        bestDealPct = pctDelta
+        bestDealId = item.id
+      }
     }
 
     for (const item of SHOP_ITEMS) {
@@ -5723,7 +5887,7 @@ export class Game {
           ? `<span class="price-tag price-up">+${pctDelta}%</span>`
           : ''
       const btn = document.createElement('button')
-      btn.className = 'perk-option'
+      btn.className = `perk-option${item.id === bestDealId ? ' best-deal' : ''}`
       btn.disabled = owned || this.points < cost
       btn.innerHTML = `
         <span class="perk-name">${t(item.titleKey)}</span>
@@ -5733,6 +5897,7 @@ export class Game {
         if (owned || this.points < cost) return
         this.points -= cost
         item.give(this)
+        this._recordTraderPurchase(cost)
         this._updateStatsPanel()
         this._updateInventoryHud()
         this._renderTraderOptions()
@@ -5743,7 +5908,88 @@ export class Game {
     this._renderSalvageOptions()
     this._renderCraftingOptions()
     this._renderStashOptions()
+    this._renderCosmeticSellback()
     this._renderBlackMarketOptions()
+  }
+
+  // Shared by both trader purchase handlers (featured item + the main
+  // list) - lifetime spend tracking, the bulk-purchase visit counter, and
+  // consuming the Haggle discount (see _tryHaggle) all in one place rather
+  // than duplicated at each click site.
+  _recordTraderPurchase(cost) {
+    this.totalSpent += cost
+    saveTotalSpent(this.totalSpent)
+    this._traderVisitPurchaseCount += 1
+    this._haggleDiscountActive = false
+    // Rare free bonus item on a big purchase - a small chance, not
+    // guaranteed, so it reads as a nice surprise rather than an expected
+    // rebate.
+    if (cost >= BIG_PURCHASE_THRESHOLD && Math.random() < FREE_BONUS_ITEM_CHANCE) {
+      const bonus = SHOP_ITEMS[Math.floor(Math.random() * SHOP_ITEMS.length)]
+      bonus.give(this)
+      this._showLoreToast(t('freeBonusItemToast', { item: t(bonus.titleKey) }))
+    }
+  }
+
+  // Haggle (see HAGGLE_SUCCESS_CHANCE's own comment) - success arms a
+  // discount for the next purchase and grows the cross-visit streak;
+  // failure doesn't penalize, just doesn't grant anything, and breaks the
+  // streak back to 0.
+  _tryHaggle() {
+    if (this._haggleDiscountActive) return
+    if (Math.random() < HAGGLE_SUCCESS_CHANCE) {
+      this._haggleDiscountActive = true
+      this.haggleStreak += 1
+      saveHaggleStreak(this.haggleStreak)
+      this._showLoreToast(t('haggleSuccess'))
+    } else {
+      this.haggleStreak = 0
+      saveHaggleStreak(this.haggleStreak)
+      this._showLoreToast(t('haggleFail'))
+    }
+    this._renderTraderOptions()
+  }
+
+  // Daily Featured Item reroll (see FEATURED_ITEM_REROLL_COST's own
+  // comment) - reuses the exact same random pick _rollFeaturedItem already
+  // does, just triggered by a paid button instead of the nightly roll.
+  _rerollFeaturedItem() {
+    this.featuredItem = SHOP_ITEMS[Math.floor(Math.random() * SHOP_ITEMS.length)]
+  }
+
+  // Cosmetic sell-back (see COSMETIC_SELLBACK_REFUND_MULT's own comment) -
+  // owned-but-not-currently-equipped outfits/hats only (selling the
+  // equipped one would need to also clear playerBody's live tint/prop,
+  // extra complexity not worth it for what's meant to be a declutter tool).
+  _renderCosmeticSellback() {
+    if (!this.traderSellbackOptions) return
+    this.traderSellbackOptions.innerHTML = ''
+    const sellableOutfits = COIN_SHOP_ITEMS.filter((i) => i.outfit && this.ownedOutfits.has(i.outfit) && this.equippedOutfit !== i.outfit)
+    const sellableHats = COIN_SHOP_ITEMS.filter((i) => i.hat && this.ownedHats.has(i.hat) && this.equippedHat !== i.hat)
+    const sellable = [...sellableOutfits, ...sellableHats]
+    const show = sellable.length > 0
+    this.traderSellbackTitle.style.display = show ? '' : 'none'
+    this.traderSellbackOptions.style.display = show ? '' : 'none'
+    if (!show) return
+
+    this.traderSellbackTitle.textContent = t('sellbackSectionLabel')
+    for (const item of sellable) {
+      const refund = Math.round(item.cost * COSMETIC_SELLBACK_REFUND_MULT)
+      const btn = document.createElement('button')
+      btn.className = 'perk-option'
+      btn.innerHTML = `
+        <span class="perk-name">${t(item.titleKey)}</span>
+        <span class="perk-cost salvage-gain">${t('salvageGainLabel', { n: refund })}</span>
+      `
+      btn.addEventListener('click', () => {
+        if (item.outfit) this.ownedOutfits.delete(item.outfit)
+        else this.ownedHats.delete(item.hat)
+        this.coins += refund
+        this._updateStatsPanel()
+        this._renderTraderOptions()
+      })
+      this.traderSellbackOptions.appendChild(btn)
+    }
   }
 
   // Only visible once Achievements.js's 'centurion' has ever been unlocked
@@ -5757,7 +6003,12 @@ export class Game {
     if (!show) return
 
     this.traderBlackMarketTitle.textContent = t('blackMarketSectionLabel')
-    for (const item of BLACK_MARKET_ITEMS) {
+    // Rotation (see BLACK_MARKET_ROTATION_SIZE's own comment) - falls back
+    // to the full list if the rotation somehow hasn't been rolled yet
+    // (e.g. centurion unlocked mid-run, after tonight's _rollTraderPrices
+    // already ran once without Black Market being visible yet).
+    const items = this._blackMarketRotation.length > 0 ? this._blackMarketRotation : BLACK_MARKET_ITEMS
+    for (const item of items) {
       const btn = document.createElement('button')
       btn.className = 'perk-option blackmarket'
       btn.disabled = this.points < item.cost
@@ -5769,6 +6020,7 @@ export class Game {
         if (this.points < item.cost) return
         this.points -= item.cost
         item.give(this)
+        this._recordTraderPurchase(item.cost)
         this._updateStatsPanel()
         this._updateInventoryHud()
         this._renderTraderOptions()
@@ -7926,6 +8178,8 @@ export class Game {
       [t('profilePrestige'), this.metaProgress.prestigeLevel],
       [t('profileNemesisLabel'), this.nemesis ? t('profileNemesisValue', { name: this.nemesis.label, n: this.nemesis.night }) : t('profileNemesisNone')],
       [t('profileSecretsFound'), this.secretsProgress.cachesDug + (this.secretsProgress.easterEggSeen ? 1 : 0)],
+      [t('profileNetWorth'), this.coins + this.points + this.metaProgress.legacyPoints],
+      [t('profileTotalSpent'), this.totalSpent],
     ]
     this.profileOptions.innerHTML = rows.map(([label, value]) => `
       <button class="perk-option" disabled>

@@ -1703,6 +1703,14 @@ body {
   background: rgba(255, 207, 92, 0.16);
 }
 
+/* "Best deal today" highlight (see Game.js's _renderTraderOptions) - a
+   quieter green rather than the featured item's gold, so the two don't
+   visually compete. */
+.perk-option.best-deal {
+  border-color: #5ca85c;
+  background: rgba(92, 168, 92, 0.08);
+}
+
 .perk-option.salvage {
   width: 140px;
   padding: 12px 10px;
