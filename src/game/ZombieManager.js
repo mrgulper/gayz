@@ -86,6 +86,18 @@ const HORDE_EVENT_SPAWN_RADIUS = 40
 const HORDE_EVENT_WANDER_SPEED = 1.6
 const HORDE_EVENT_AGGRO_RADIUS = 16
 
+// Boss-targets-companion (see the per-zombie targetPos override below) -
+// turrets are deliberately invulnerable props (see Turret.js's own design
+// comment - "nothing for a zombie to damage"), so only Companion instances
+// (which do have real health/downed state) ever qualify as a target here.
+const BOSS_COMPANION_TARGET_RANGE = 20
+// Barricade weak-point pull - any window that isn't fully boarded (either
+// weakened or already breached) pulls nearby non-boss zombies toward it
+// instead of pure playerPos, so BarricadeWindows' own more-attackers-tears-
+// faster scaling actually compounds instead of relying on chance foot
+// traffic to converge there.
+const BARRICADE_PULL_RADIUS = 12
+
 // Round Mode (Obsidian Ops-style kill-to-advance loop, see Game.js's
 // settings.mutators.roundMode): count scales roughly linearly with round
 // number rather than the small fixed band timed-night difficulty uses, so
@@ -1199,7 +1211,7 @@ export class ZombieManager {
     })
   }
 
-  update(dt, playerPos, onPlayerDamage, onZombieLoot, onAmbushTrigger, onZombieKilled, playerCrouching = false, isNight = false, onTrail = null, onPlayerPull = null, onPlayerDisorient = null, onWebLand = null) {
+  update(dt, playerPos, onPlayerDamage, onZombieLoot, onAmbushTrigger, onZombieKilled, playerCrouching = false, isNight = false, onTrail = null, onPlayerPull = null, onPlayerDisorient = null, onWebLand = null, playerForwardX = null, playerForwardZ = null, barricadeWindows = null, companionTargets = null) {
     this.elapsed += dt
     // Every spawn function below reads this instead of assuming the player
     // is near the map origin - true on the old 150x150 map, not on the
@@ -1310,6 +1322,47 @@ export class ZombieManager {
         }
       }
 
+      // Boss occasionally targets the nearest companion instead of the
+      // player - rolls fresh every frame (not a sticky decision), so a boss
+      // naturally drifts back to the player once nothing companion-shaped
+      // is closer/in range anymore.
+      if (zombie.isBoss && zombie.state === 'alive' && companionTargets && companionTargets.length > 0) {
+        const distToPlayer = Math.hypot(playerPos.x - zombie.group.position.x, playerPos.z - zombie.group.position.z)
+        let nearestCompanion = null
+        let nearestCompanionDist = Infinity
+        for (const c of companionTargets) {
+          const d = Math.hypot(c.x - zombie.group.position.x, c.z - zombie.group.position.z)
+          if (d < nearestCompanionDist) {
+            nearestCompanionDist = d
+            nearestCompanion = c
+          }
+        }
+        if (nearestCompanion && nearestCompanionDist < distToPlayer && nearestCompanionDist < BOSS_COMPANION_TARGET_RANGE) {
+          targetPos = { x: nearestCompanion.x, y: playerPos.y, z: nearestCompanion.z }
+          attackCb = (dmg) => nearestCompanion.takeDamage(dmg)
+          spitCb = null
+        }
+      }
+
+      // Barricade weak-point pull (see BARRICADE_PULL_RADIUS) - only
+      // applies if nothing above already redirected this zombie (still
+      // pointing at the exact original playerPos reference).
+      if (!zombie.isBoss && zombie.state === 'alive' && targetPos === playerPos && barricadeWindows && barricadeWindows.length > 0) {
+        for (const w of barricadeWindows) {
+          if (w.planks >= w.maxPlanks) continue
+          const d = Math.hypot(w.x - zombie.group.position.x, w.z - zombie.group.position.z)
+          if (d < BARRICADE_PULL_RADIUS) {
+            // Not the real player position, so no attack callback - a
+            // zombie that reaches melee range of the barricade point
+            // itself must not land a phantom hit on the player.
+            targetPos = { x: w.x, y: playerPos.y, z: w.z }
+            attackCb = null
+            spitCb = null
+            break
+          }
+        }
+      }
+
       // Only the colliders actually near this zombie right now - see
       // ColliderGrid.js's own comment for why (was the full, whole-map
       // colliders array, scanned up to 3x per zombie per frame).
@@ -1327,7 +1380,9 @@ export class ZombieManager {
         nearbyColliders,
         this.solidMeshes,
         this.zombies,
-        onTrail
+        onTrail,
+        playerForwardX,
+        playerForwardZ
       )
 
       // Push back out to the safe zone's radius every frame - simple radial

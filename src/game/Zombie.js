@@ -136,6 +136,51 @@ const FLANK_MIN_PACK_SIZE = 2
 const FLANK_RADIUS = 14
 const FLANK_MAX_ANGLE = Math.PI / 3
 const FLANK_FADE_DIST = 4
+// Blind-spot flanking (see the flank block below) - a zombie the player is
+// already facing gets pushed harder to the side to actually reach a blind
+// spot, while one already roughly behind/beside the player (already in the
+// blind spot) is let through more directly instead of wasting the detour.
+const FLANK_FRONT_STRENGTH_MULT = 1.4
+const FLANK_BLINDSPOT_STRENGTH_MULT = 0.4
+
+// Pack alpha - the lowest-id (i.e. "been alive longest") zombie within
+// FLANK_RADIUS of a real pack becomes that pack's alpha for the frame,
+// recomputed continuously rather than assigned once, so it naturally
+// hands off if the original alpha dies. Purely a speed/visual read on an
+// otherwise-ordinary zombie, not a new type.
+const ALPHA_SPEED_MULT = 1.2
+const ALPHA_EYE_INTENSITY_MULT = 1.8
+
+// Corpse avoidance - alive zombies steer lightly around fresh corpses
+// instead of walking straight through them, reusing the same separation-
+// steering pass already scanning allZombies for pack separation (one more
+// branch in that existing loop, not a second O(n^2) pass).
+const CORPSE_AVOID_RADIUS = 0.9
+const CORPSE_AVOID_WEIGHT = 0.35
+
+// Chokepoint queueing (see the congestion calc in the pack-separation
+// block) - a heavily-jostled zombie eases off toward this floor instead of
+// shoving at full speed, reading as a funnel/queue at a narrow gap rather
+// than a mosh pit. Never fully stops (would look stuck), just slows.
+const CHOKEPOINT_MIN_SPEED_MULT = 0.5
+
+// Awareness system (see _updateAwareness/_updateWander) - a regular street
+// zombie spawns unaware and drifts on a slow ambient wander until it
+// actually notices the player (sight, close proximity, or hearing gunfire -
+// see Game.js's _alertNearbyZombiesToGunfire), then permanently switches to
+// full hunting behavior. Deliberately one-way: a zombie "forgetting" the
+// player mid-chase would read as a bug, not a feature. Ambush/boss/
+// wandering-horde zombies already have their own dramatic reveal moment
+// and skip straight to aware (see _updateAwareness).
+const AWARENESS_SIGHT_RANGE = 18
+const AWARENESS_PROXIMITY_RANGE = 6
+const WANDER_SPEED_MULT = 0.35
+const WANDER_RETARGET_MS = 4000
+
+// Ranged strafe - spitters sidestep while in their attack band instead of
+// planting themselves the instant they're in range, reusing the perpendicular
+// of the existing toward-player direction rather than a second target system.
+const RANGED_STRAFE_SPEED_MULT = 0.5
 
 // Zombies always stand at group.position.y = 0 (see the constructor) and
 // playerPos is the camera/eye position, which sits ~1.7 above the player's
@@ -196,6 +241,16 @@ export class Zombie {
     // alive states flow: dormant -> popping -> alive -> dying/exploding -> dead
     this.state = isAmbush ? 'dormant' : 'alive'
     this.dormantSince = performance.now()
+    // Awareness system (see _updateAwareness/_updateWander) - starts false
+    // for every zombie; ambush/boss/wandering-horde ones get auto-flipped
+    // true the first time _updateAwareness runs (their own spawn is already
+    // the "noticed you" moment), so isAmbush isn't read directly here.
+    this.aware = false
+    this.wanderDirX = 0
+    this.wanderDirZ = 1
+    this.wanderRetargetAt = 0
+    this.isPackAlpha = false
+    this._congestion = 0
     // Jittered per-instance so a cluster of ambush zombies doesn't all pop
     // with the exact same timing - see the 'dormant'->'popping' transition
     // and forceWake().
@@ -990,7 +1045,7 @@ export class Zombie {
     this._barSprite.material.map.needsUpdate = true
   }
 
-  update(dt, elapsed, playerPos, onAttack, onSpit, onAmbushTrigger, onExplode, playerCrouching = false, onScream = null, colliders = null, solidMeshes = null, allZombies = null, onTrail = null) {
+  update(dt, elapsed, playerPos, onAttack, onSpit, onAmbushTrigger, onExplode, playerCrouching = false, onScream = null, colliders = null, solidMeshes = null, allZombies = null, onTrail = null, playerForwardX = null, playerForwardZ = null) {
     // Cached so onHit() - called from outside update(), with no player
     // position of its own - can still bias the hit-reaction knockback away
     // from roughly where the player is, without threading a direction
@@ -1078,96 +1133,156 @@ export class Zombie {
     let nx = dist > 0.0001 ? dx / dist : 0
     let nz = dist > 0.0001 ? dz / dist : 1
 
-    if (allZombies) {
-      let sepX = 0
-      let sepZ = 0
-      let packCount = 0
-      for (const other of allZombies) {
-        if (other === this || other.state !== 'alive') continue
-        const odx = this.group.position.x - other.group.position.x
-        const odz = this.group.position.z - other.group.position.z
-        const odist = Math.hypot(odx, odz)
-        if (odist < FLANK_RADIUS) packCount++
-        if (odist <= 0.0001) {
-          // Exactly coincident (e.g. two zombies summoned on the same
-          // spot) - there's no defined "away" direction, so nudge apart
-          // using this zombie's own id as a stable pseudo-angle. Spread by
-          // the golden angle (~137.5°) rather than id directly, since
-          // summon bursts hand out consecutive ids and consecutive ids
-          // would otherwise land within a degree of each other and drift
-          // off together as a clump instead of separating.
-          const angle = (this.id * 137.5 * (Math.PI / 180)) % (Math.PI * 2)
-          sepX += Math.cos(angle)
-          sepZ += Math.sin(angle)
-        } else if (odist < SEPARATION_RADIUS) {
-          const push = (SEPARATION_RADIUS - odist) / SEPARATION_RADIUS
-          sepX += (odx / odist) * push
-          sepZ += (odz / odist) * push
+    this._updateAwareness(playerPos, solidMeshes, dist)
+
+    if (!this.aware) {
+      // Ambient wander - hasn't noticed the player yet, so no pack
+      // separation/flanking/attack dispatch at all, just a slow aimless
+      // drift (see _updateWander). Still falls through to the shared
+      // stealthy-opacity/_animate tail below like any other alive zombie.
+      this._updateWander(dt, colliders)
+      this.effectiveSpeed = this.speed * WANDER_SPEED_MULT
+      this.isPackAlpha = false
+    } else {
+      if (allZombies) {
+        let sepX = 0
+        let sepZ = 0
+        let packCount = 0
+        let lowestNearbyId = this.id
+        for (const other of allZombies) {
+          if (other === this) continue
+          if (other.state === 'dead') {
+            // Corpse avoidance - a much lighter push than live-zombie
+            // separation below, just enough to route around a fresh body
+            // instead of walking straight through it.
+            const cdx = this.group.position.x - other.group.position.x
+            const cdz = this.group.position.z - other.group.position.z
+            const cdist = Math.hypot(cdx, cdz)
+            if (cdist > 0.0001 && cdist < CORPSE_AVOID_RADIUS) {
+              const push = (CORPSE_AVOID_RADIUS - cdist) / CORPSE_AVOID_RADIUS
+              sepX += (cdx / cdist) * push * CORPSE_AVOID_WEIGHT
+              sepZ += (cdz / cdist) * push * CORPSE_AVOID_WEIGHT
+            }
+            continue
+          }
+          if (other.state !== 'alive') continue
+          const odx = this.group.position.x - other.group.position.x
+          const odz = this.group.position.z - other.group.position.z
+          const odist = Math.hypot(odx, odz)
+          if (odist < FLANK_RADIUS) {
+            packCount++
+            // Pack alpha (see ALPHA_SPEED_MULT) - the lowest-id zombie
+            // within range of this pack, recomputed fresh every frame so
+            // it naturally hands off if the current alpha dies.
+            if (other.id < lowestNearbyId) lowestNearbyId = other.id
+          }
+          if (odist <= 0.0001) {
+            // Exactly coincident (e.g. two zombies summoned on the same
+            // spot) - there's no defined "away" direction, so nudge apart
+            // using this zombie's own id as a stable pseudo-angle. Spread by
+            // the golden angle (~137.5°) rather than id directly, since
+            // summon bursts hand out consecutive ids and consecutive ids
+            // would otherwise land within a degree of each other and drift
+            // off together as a clump instead of separating.
+            const angle = (this.id * 137.5 * (Math.PI / 180)) % (Math.PI * 2)
+            sepX += Math.cos(angle)
+            sepZ += Math.sin(angle)
+          } else if (odist < SEPARATION_RADIUS) {
+            const push = (SEPARATION_RADIUS - odist) / SEPARATION_RADIUS
+            sepX += (odx / odist) * push
+            sepZ += (odz / odist) * push
+          }
         }
-      }
-      if (sepX !== 0 || sepZ !== 0) {
-        nx += sepX * SEPARATION_WEIGHT
-        nz += sepZ * SEPARATION_WEIGHT
-        const len = Math.hypot(nx, nz)
-        if (len > 0.0001) {
-          nx /= len
-          nz /= len
+        this.isPackAlpha = packCount >= FLANK_MIN_PACK_SIZE && lowestNearbyId === this.id
+        const preSepNx = nx
+        const preSepNz = nz
+        if (sepX !== 0 || sepZ !== 0) {
+          nx += sepX * SEPARATION_WEIGHT
+          nz += sepZ * SEPARATION_WEIGHT
+          const len = Math.hypot(nx, nz)
+          if (len > 0.0001) {
+            nx /= len
+            nz /= len
+          }
         }
+        // Chokepoint congestion (see CHOKEPOINT_MIN_SPEED_MULT) - how much
+        // the separation push above deflected this zombie off its direct
+        // line to the player. A doorway packed tight enough to jostle
+        // everyone sideways reads as the group easing off and queueing
+        // through instead of a mosh pit all shoving at full speed.
+        this._congestion = Math.max(0, Math.min(1, 1 - (preSepNx * nx + preSepNz * nz)))
+
+        // Pack flanking - only kicks in with company nearby, and fades out on
+        // final approach so the group still commits to melee range instead of
+        // circling. Angle is derived from this.id (same golden-angle trick as
+        // the coincident-spawn separation above) so each zombie in a pack
+        // consistently picks its own side rather than jittering frame to frame.
+        if (packCount >= FLANK_MIN_PACK_SIZE && dist > FLANK_FADE_DIST) {
+          const idAngle = (this.id * 137.5 * (Math.PI / 180)) % (Math.PI * 2)
+          const side = Math.sin(idAngle) >= 0 ? 1 : -1
+          // Blind-spot bias (see FLANK_FRONT_STRENGTH_MULT) - a zombie the
+          // player is currently facing gets pushed harder to the side to
+          // actually reach a blind spot; one already roughly behind/beside
+          // the player is let through more directly instead of wasting the
+          // detour. Falls back to a neutral 1x when no facing was passed in.
+          let flankStrength = 1
+          if (playerForwardX !== null) {
+            const toZombieX = -nx
+            const toZombieZ = -nz
+            const facingDot = toZombieX * playerForwardX + toZombieZ * playerForwardZ
+            flankStrength = facingDot > 0 ? FLANK_FRONT_STRENGTH_MULT : FLANK_BLINDSPOT_STRENGTH_MULT
+          }
+          const flankFade = Math.min(1, (dist - FLANK_FADE_DIST) / FLANK_FADE_DIST)
+          const flankAngle = side * FLANK_MAX_ANGLE * flankFade * flankStrength
+          const cosA = Math.cos(flankAngle)
+          const sinA = Math.sin(flankAngle)
+          const rx = nx * cosA - nz * sinA
+          const rz = nx * sinA + nz * cosA
+          nx = rx
+          nz = rz
+        }
+      } else {
+        this.isPackAlpha = false
+        this._congestion = 0
       }
 
-      // Pack flanking - only kicks in with company nearby, and fades out on
-      // final approach so the group still commits to melee range instead of
-      // circling. Angle is derived from this.id (same golden-angle trick as
-      // the coincident-spawn separation above) so each zombie in a pack
-      // consistently picks its own side rather than jittering frame to frame.
-      if (packCount >= FLANK_MIN_PACK_SIZE && dist > FLANK_FADE_DIST) {
-        const idAngle = (this.id * 137.5 * (Math.PI / 180)) % (Math.PI * 2)
-        const side = Math.sin(idAngle) >= 0 ? 1 : -1
-        const flankFade = Math.min(1, (dist - FLANK_FADE_DIST) / FLANK_FADE_DIST)
-        const flankAngle = side * FLANK_MAX_ANGLE * flankFade
-        const cosA = Math.cos(flankAngle)
-        const sinA = Math.sin(flankAngle)
-        const rx = nx * cosA - nz * sinA
-        const rz = nx * sinA + nz * cosA
-        nx = rx
-        nz = rz
-      }
-    }
+      const burstMult = performance.now() < this.burstUntil ? AMBUSH_BURST_SPEED_MULT : 1
+      const enrageMult = performance.now() < this.enragedUntil ? (this.config.screamEnrageMult ?? DEFAULT_ENRAGE_MULT) : 1
+      const weakenMult = performance.now() < this.weakenedUntil ? DEFAULT_WEAKEN_MULT : 1
+      const hivemindMult = performance.now() < this.hivemindBuffUntil ? HIVEMIND_SPEED_MULT : 1
+      const alphaMult = this.isPackAlpha ? ALPHA_SPEED_MULT : 1
+      const chokepointMult = THREE.MathUtils.lerp(1, CHOKEPOINT_MIN_SPEED_MULT, this._congestion)
+      this.isBerserk = this.health > 0 && this.health / this.maxHealth <= BERSERK_HEALTH_FRACTION
+      const berserkMult = this.isBerserk ? BERSERK_SPEED_MULT : 1
+      this.effectiveSpeed = this.speed * Math.max(burstMult, enrageMult, berserkMult, hivemindMult, alphaMult) * weakenMult * chokepointMult
 
-    const burstMult = performance.now() < this.burstUntil ? AMBUSH_BURST_SPEED_MULT : 1
-    const enrageMult = performance.now() < this.enragedUntil ? (this.config.screamEnrageMult ?? DEFAULT_ENRAGE_MULT) : 1
-    const weakenMult = performance.now() < this.weakenedUntil ? DEFAULT_WEAKEN_MULT : 1
-    const hivemindMult = performance.now() < this.hivemindBuffUntil ? HIVEMIND_SPEED_MULT : 1
-    this.isBerserk = this.health > 0 && this.health / this.maxHealth <= BERSERK_HEALTH_FRACTION
-    const berserkMult = this.isBerserk ? BERSERK_SPEED_MULT : 1
-    this.effectiveSpeed = this.speed * Math.max(burstMult, enrageMult, berserkMult, hivemindMult) * weakenMult
+      // Excess elevation beyond a normal standing eye height (e.g. the player
+      // is up on a car roof) - added into the melee engagement check below
+      // so a zombie stuck at the base can't melee through it. The exploder's
+      // blast radius reaching a bit upward is left as-is (a real explosion
+      // would); ranged spit attacks get their own line-of-sight check instead
+      // (see _updateRanged) since a wall blocks a thrown projectile regardless
+      // of height.
+      const excessElevation = Math.max(0, playerPos.y - TYPICAL_EYE_HEIGHT - this.group.position.y)
 
-    // Excess elevation beyond a normal standing eye height (e.g. the player
-    // is up on a car roof) - added into the melee engagement check below
-    // so a zombie stuck at the base can't melee through it. The exploder's
-    // blast radius reaching a bit upward is left as-is (a real explosion
-    // would); ranged spit attacks get their own line-of-sight check instead
-    // (see _updateRanged) since a wall blocks a thrown projectile regardless
-    // of height.
-    const excessElevation = Math.max(0, playerPos.y - TYPICAL_EYE_HEIGHT - this.group.position.y)
+      if (!staggered) {
+        if (this.config.ranged) this._updateRanged(dt, dist, nx, nz, playerPos, onSpit, colliders, solidMeshes)
+        else if (this.config.explodes) this._updateExploder(dt, dist, nx, nz, playerPos, onAttack, onExplode, colliders)
+        else this._updateMelee(dt, Math.hypot(dist, excessElevation), nx, nz, onAttack, colliders, solidMeshes, playerPos)
 
-    if (!staggered) {
-      if (this.config.ranged) this._updateRanged(dt, dist, nx, nz, playerPos, onSpit, colliders, solidMeshes)
-      else if (this.config.explodes) this._updateExploder(dt, dist, nx, nz, playerPos, onAttack, onExplode, colliders)
-      else this._updateMelee(dt, Math.hypot(dist, excessElevation), nx, nz, onAttack, colliders, solidMeshes, playerPos)
+        if (this.config.screams && onScream && performance.now() >= this.screamCooldownUntil) {
+          this.screamCooldownUntil = performance.now() + this.config.screamCooldown * 1000
+          this.screamPulseUntil = performance.now() + 500
+          onScream(this.group.position.x, this.group.position.z, this.config.screamRadius, this.config.screamEnrageMs)
+        }
 
-      if (this.config.screams && onScream && performance.now() >= this.screamCooldownUntil) {
-        this.screamCooldownUntil = performance.now() + this.config.screamCooldown * 1000
-        this.screamPulseUntil = performance.now() + 500
-        onScream(this.group.position.x, this.group.position.z, this.config.screamRadius, this.config.screamEnrageMs)
-      }
-
-      // Acid Trail (see leavesTrail) - same cooldown-gated callback shape as
-      // screams/onScream above, just dropping a hazard puddle instead of
-      // buffing nearby zombies.
-      if (this.config.leavesTrail && onTrail && performance.now() >= this.trailCooldownUntil) {
-        this.trailCooldownUntil = performance.now() + this.config.trailIntervalMs
-        onTrail(this.group.position.x, this.group.position.z)
+        // Acid Trail (see leavesTrail) - same cooldown-gated callback shape as
+        // screams/onScream above, just dropping a hazard puddle instead of
+        // buffing nearby zombies.
+        if (this.config.leavesTrail && onTrail && performance.now() >= this.trailCooldownUntil) {
+          this.trailCooldownUntil = performance.now() + this.config.trailIntervalMs
+          onTrail(this.group.position.x, this.group.position.z)
+        }
       }
     }
 
@@ -1379,6 +1494,15 @@ export class Zombie {
         origin.y += 1.3 * this.config.scale
         onSpit(origin, playerPos.clone(), damage, this.config.spitTravelSpeed)
       }
+    } else {
+      // Ranged strafe - sidesteps while waiting out its own attack cooldown
+      // instead of just standing still in the open, using a per-instance
+      // side (stable per zombie, same id-based trick separation/flanking
+      // already use) so a pack of spitters doesn't all strafe in lockstep.
+      const side = this.id % 2 === 0 ? 1 : -1
+      const strafeX = -nz * side
+      const strafeZ = nx * side
+      this._tryMove(strafeX * this.effectiveSpeed * RANGED_STRAFE_SPEED_MULT * dt, strafeZ * this.effectiveSpeed * RANGED_STRAFE_SPEED_MULT * dt, colliders)
     }
   }
 
@@ -1452,6 +1576,41 @@ export class Zombie {
     const hits = this._losRaycaster.intersectObjects(solidMeshes, true)
     this._losCachedResult = hits.length === 0
     return this._losCachedResult
+  }
+
+  // Awareness system - see the module-level comment above AWARENESS_SIGHT_
+  // RANGE for the full rationale. Called every frame for every alive
+  // zombie; a no-op the instant `aware` flips true since nothing here ever
+  // clears it again.
+  _updateAwareness(playerPos, solidMeshes, dist) {
+    if (this.aware) return
+    if (this.isBoss || this.isWandering || this.isAmbush) {
+      this.aware = true
+      return
+    }
+    if (dist <= AWARENESS_PROXIMITY_RANGE) {
+      this.aware = true
+    } else if (dist <= AWARENESS_SIGHT_RANGE && this._hasLineOfSight(playerPos, solidMeshes)) {
+      this.aware = true
+    }
+  }
+
+  // Ambient wander (see _updateAwareness) - a slow, aimless drift used
+  // instead of the normal chase/attack dispatch while a zombie hasn't
+  // noticed the player yet. Picks a new random heading every few seconds
+  // (WANDER_RETARGET_MS) rather than every frame, so it reads as idle
+  // shambling instead of jittering in place.
+  _updateWander(dt, colliders) {
+    const now = performance.now()
+    if (now >= this.wanderRetargetAt) {
+      const angle = Math.random() * Math.PI * 2
+      this.wanderDirX = Math.sin(angle)
+      this.wanderDirZ = Math.cos(angle)
+      this.wanderRetargetAt = now + WANDER_RETARGET_MS * (0.7 + Math.random() * 0.6)
+    }
+    const wanderSpeed = this.speed * WANDER_SPEED_MULT
+    this._tryMove(this.wanderDirX * wanderSpeed * dt, this.wanderDirZ * wanderSpeed * dt, colliders)
+    this.group.rotation.y = Math.atan2(this.wanderDirX, this.wanderDirZ)
   }
 
   // Dodge-able tell for _updateBossSpecial's wind-up: a fast growing

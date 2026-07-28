@@ -530,7 +530,18 @@ export class Companion {
     if (nearbyCount === 0) return
     if (performance.now() < this.nextSwarmTickAt) return
     this.nextSwarmTickAt = performance.now() + SWARM_TICK_MS
-    this.health -= SWARM_DAMAGE_PER_ZOMBIE * nearbyCount
+    this.takeDamage(SWARM_DAMAGE_PER_ZOMBIE * nearbyCount)
+  }
+
+  // Public entry point for anything OTHER than the passive nearby-zombie
+  // swarm drain above to damage this companion - currently just a boss
+  // occasionally targeting it directly instead of the player (see
+  // ZombieManager's targetPos override), kept generic rather than
+  // boss-specific. Invulnerable companions (guards/vendor NPCs, see the
+  // constructor's vulnerable option) and already-downed/dead ones no-op.
+  takeDamage(amount) {
+    if (!this.vulnerable || this.downed || this.dead) return
+    this.health -= amount
     if (this.health <= 0) this._goDown()
   }
 

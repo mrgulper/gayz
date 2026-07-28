@@ -721,6 +721,13 @@ const LANDING_DIP_MIN_IMPACT = -4
 const LANDING_DIP_SCALE = 0.01
 const LANDING_DIP_MAX = 0.35
 const LANDING_DIP_RECOVER_SPEED = 9
+// Gunfire alerts nearby zombies (see _alertNearbyZombiesToGunfire) - an
+// unaware zombie within radius instantly notices the player, no line-of-
+// sight required (a gunshot is heard through walls, unlike being seen).
+// Suppressed weapons alert at much shorter range instead of not at all -
+// still a gun going off, just a quieter one.
+const GUNFIRE_ALERT_RADIUS = 22
+const GUNFIRE_ALERT_RADIUS_SUPPRESSED = 6
 const KILLCAM_ZOOM_FOV_MULT = 0.75
 // Killstreak rewards - this.killStreak counts consecutive kills without
 // dying (reset in _onPlayerDeath), distinct from the flat "every 10th kill"
@@ -2316,7 +2323,10 @@ export class Game {
       },
       () => this._onStealthTakedown(),
       (x, y, z, damage, isHeadshot) => this._spawnDamageNumber(x, y, z, damage, isHeadshot),
-      (intensity, durationMs) => this._triggerShake(intensity, durationMs)
+      (intensity, durationMs) => {
+        this._triggerShake(intensity, durationMs)
+        this._alertNearbyZombiesToGunfire()
+      }
     )
     this.rivals = new RivalManager(this.scene)
     this.weapons.setRivalManager(this.rivals)
@@ -5583,6 +5593,37 @@ export class Game {
     if (!this.playerState.alive) this._maybeLastStandOrDie()
   }
 
+  // Boss-targets-companion (see ZombieManager's targetPos override) - only
+  // ever includes companions that can actually take the hit: invulnerable
+  // guards/vendor NPCs (vulnerable: false, see Companion.js's constructor
+  // option) and already-downed/dead ones are excluded so a boss never
+  // wastes its targeting on something that can't be hurt.
+  _collectCompanionTargets() {
+    const targets = []
+    const candidates = [this.companion, this.tempCompanion, ...this.recruits]
+    for (const c of candidates) {
+      if (c && c.vulnerable && !c.downed && !c.dead) {
+        targets.push({ x: c.group.position.x, z: c.group.position.z, takeDamage: (dmg) => c.takeDamage(dmg) })
+      }
+    }
+    return targets
+  }
+
+  // Gunfire alerting (see GUNFIRE_ALERT_RADIUS/_SUPPRESSED and Zombie.js's
+  // awareness system) - fired from WeaponSystem's onWeaponFired callback,
+  // so this runs once per shot regardless of whether it actually connects.
+  // Only ever flips unaware zombies to aware; never re-checked against
+  // already-aware ones.
+  _alertNearbyZombiesToGunfire() {
+    const radius = this.weapons.current.suppressed ? GUNFIRE_ALERT_RADIUS_SUPPRESSED : GUNFIRE_ALERT_RADIUS
+    const playerPos = this.player.controls.object.position
+    for (const z of this.zombies.zombies) {
+      if (z.state !== 'alive' || z.aware) continue
+      const d = Math.hypot(z.group.position.x - playerPos.x, z.group.position.z - playerPos.z)
+      if (d <= radius) z.aware = true
+    }
+  }
+
   // Visual Sound Cue Indicator (accessibility) - a screen-edge pulse toward
   // the nearest attacker, since _onZombieAttack doesn't know exactly which
   // zombie landed the hit (shared by every melee/ranged/boss attack path -
@@ -8547,6 +8588,7 @@ export class Game {
 
       this._updateDirectorAI()
       this._updateAdrenaline()
+      this.camera.getWorldDirection(this._camDir)
       this.zombies.update(
         dt,
         playerPos,
@@ -8559,7 +8601,11 @@ export class Game {
         (x, z) => this._spawnHazardZone('acid', x, z),
         (originX, originZ) => this._onZombiePull(originX, originZ),
         () => this._triggerShake(0.18, 600),
-        (x, z) => this._spawnHazardZone('web', x, z)
+        (x, z) => this._spawnHazardZone('web', x, z),
+        this._camDir.x,
+        this._camDir.z,
+        this.barricadeWindows.windows,
+        this._collectCompanionTargets()
       )
       // Squad Formation Toggle (see _toggleSquadHold) - the whole squad
       // treats a fixed anchor point as "playerPos" instead of the real one
