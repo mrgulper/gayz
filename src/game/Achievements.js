@@ -21,6 +21,7 @@ export const ACHIEVEMENTS = [
   { id: 'bestiary_master', titleKey: 'achBestiaryMaster' },
   { id: 'nightmare_survivor_5', titleKey: 'achNightmareSurvivor5' },
   { id: 'nightmare_conqueror', titleKey: 'achNightmareConqueror' },
+  { id: 'fashion_icon', titleKey: 'achFashionIcon' },
   // Deliberately last in the array - see unlock()'s own completionist
   // check, which excludes this id from "every OTHER achievement."
   { id: 'completionist', titleKey: 'achCompletionist' },

@@ -596,6 +596,30 @@ function saveDailyLeaderboard(board) {
   }
 }
 
+// Secrets progress (see _digBuriedCache/_maybeTriggerRareEasterEgg) -
+// lifetime counters for the Profile screen's "Secrets found" tally, not
+// per-run state (buried caches/the Easter egg are re-checked fresh every
+// run, but how many you've ever found persists).
+const SECRETS_PROGRESS_KEY = 'gayz-secrets-progress'
+
+function loadSecretsProgress() {
+  try {
+    const raw = localStorage.getItem(SECRETS_PROGRESS_KEY)
+    const parsed = raw ? JSON.parse(raw) : {}
+    return { cachesDug: parsed.cachesDug || 0, easterEggSeen: !!parsed.easterEggSeen }
+  } catch {
+    return { cachesDug: 0, easterEggSeen: false }
+  }
+}
+
+function saveSecretsProgress(progress) {
+  try {
+    localStorage.setItem(SECRETS_PROGRESS_KEY, JSON.stringify(progress))
+  } catch {
+    // Storage unavailable - the tally just won't persist across sessions.
+  }
+}
+
 // Narrative Stats - lifetime, never-reset counters for the story-facing
 // systems below (rescued/lost survivors, which boss epitaphs have been
 // read), same "cumulative across every run on this save" shape as
@@ -1119,6 +1143,33 @@ const ACHIEVEMENT_TOAST_GAP_MS = 3400
 // Profile emblem picker - see _openProfilePanel. Purely cosmetic, no
 // unlock gate, styled per-id in style.css (.emblem-<id>).
 const PROFILE_EMBLEMS = ['none', 'star', 'skull', 'flame', 'shield']
+// Buried caches (see _spawnBuriedCaches/_digBuriedCache) - placed as a ring
+// around the safe zone (offset from this.safeZone.x/z per this project's
+// own "position new safe-zone-adjacent things as an offset from these
+// constants" note), well outside its radius so they never collide with
+// the compound itself. No collision-check against the ~900 world colliders
+// (same "accept a rare awkward placement" tradeoff other random-position
+// systems in this game already make) since a flat ground marker has very
+// low visual risk if it ends up close to a wall.
+const BURIED_CACHE_COUNT = 3
+const BURIED_CACHE_MIN_RADIUS = 35
+const BURIED_CACHE_MAX_RADIUS = 90
+const BURIED_CACHE_INTERACT_RADIUS = 2
+// Secret key-sequence code (see _checkSecretSequence) - this game's own
+// WASD keys rather than the classic arrow-key Konami code, since arrows
+// aren't otherwise bound to anything here (movement fallback aside).
+const SECRET_SEQUENCE = ['KeyW', 'KeyW', 'KeyS', 'KeyS', 'KeyA', 'KeyD', 'KeyA', 'KeyD']
+const SECRET_SEQUENCE_BONUS_DURATION_MS = 15000
+const SECRET_SEQUENCE_SPEED_MULT = 1.6
+// Rare one-time Easter egg (see _maybeTriggerRareEasterEgg) - checked on
+// every night-advance (a low-frequency, natural tick), never more than
+// once per save ever.
+const RARE_EASTER_EGG_KEY = 'gayz-easter-egg-seen'
+const RARE_EASTER_EGG_CHANCE = 0.05
+// Vault bonus second reward roll (see _openVault).
+const VAULT_BONUS_ROLL_CHANCE = 0.25
+// Undiscovered-landmark proximity chime (see _checkUndiscoveredLandmarkChime).
+const UNDISCOVERED_CHIME_RADIUS = 25
 // First-time tutorial hint sequence - see _maybeShowTutorialHints.
 const TUTORIAL_SEEN_KEY = 'gayz-tutorial-seen'
 const TUTORIAL_HINT_START_DELAY_MS = 2500
@@ -1865,6 +1916,7 @@ export class Game {
     this.compassVehicle = document.getElementById('compass-vehicle')
     this.compassAirdrop = document.getElementById('compass-airdrop')
     this.compassSubway = document.getElementById('compass-subway')
+    this.compassVault = document.getElementById('compass-vault')
     this.comboCount = 0
     this.comboResetAt = 0
     this.deathStats = document.getElementById('death-stats')
@@ -2006,6 +2058,12 @@ export class Game {
     this.deathMemorials = loadDeathMemorials()
     this.nemesis = loadNemesis()
     this._nemesisAnnouncedThisRun = false
+    this.secretsProgress = loadSecretsProgress()
+    this.buriedCaches = []
+    this.nearBuriedCache = null
+    this._secretSequenceBuffer = []
+    this._secretSequenceBonusUntil = 0
+    this._undiscoveredChimePlayedFor = new Set()
 
     this.night = 1
     this.kills = 0
@@ -2868,6 +2926,7 @@ export class Game {
     this._rivalsClaimedAirdrop = false
     this._rivalsClaimedByName = null
     this._spawnDeathMemorials()
+    this._spawnBuriedCaches()
     this._baseTitle = document.title
     this._maybeShowTutorialHints()
     // Weapon mastery (see WeaponMastery.js) - re-applies any previously
@@ -3286,6 +3345,8 @@ export class Game {
     window.addEventListener('keydown', (e) => {
       if (!this.player.controls.isLocked || !this.playerState.alive) return
 
+      this._checkSecretSequence(e.code)
+
       if (e.code === 'Tab') {
         e.preventDefault()
         if (this.mapOpen) return // don't let the inventory open on top of the map
@@ -3370,6 +3431,8 @@ export class Game {
         this._pingNearestThreat()
       } else if (e.code === getKeyFor('taunt')) {
         this._triggerTaunt()
+      } else if (e.code === getKeyFor('fastTravelNearest')) {
+        this._fastTravelToNearest()
       } else if (e.code === getKeyFor('flashlight')) {
         if (!this.flashlightOn && this.flashlightBattery <= 0) return
         this.flashlightOn = !this.flashlightOn
@@ -3438,6 +3501,8 @@ export class Game {
             this.points += reward
             this._updateStatsPanel()
           }
+        } else if (this.nearBuriedCache) {
+          this._digBuriedCache()
         } else if (this.nearVault) {
           this._openVault()
         } else if (this.nearLockedCell) {
@@ -5820,6 +5885,27 @@ export class Game {
       const cz = Math.floor(lm.z / EXPLORE_CELL_SIZE)
       return this.discoveredCells.has(`${cx},${cz}`)
     })
+    // Directional hint for the nearest undiscovered landmark - the journal
+    // previously only ever showed a bare found/total count with no clue
+    // where to look next.
+    const undiscovered = this.allLocationLandmarks.filter((lm) => !foundLocations.includes(lm))
+    let nearestHint = ''
+    if (undiscovered.length > 0) {
+      const playerPos = this.player.controls.object.position
+      let nearest = null
+      let nearestDist = Infinity
+      for (const lm of undiscovered) {
+        const dist = Math.hypot(lm.x - playerPos.x, lm.z - playerPos.z)
+        if (dist < nearestDist) {
+          nearestDist = dist
+          nearest = lm
+        }
+      }
+      const bearing = Math.atan2(nearest.x - playerPos.x, -(nearest.z - playerPos.z))
+      const dirIndex = Math.round(((bearing + Math.PI * 2) % (Math.PI * 2)) / (Math.PI / 4)) % 8
+      const dirKeys = ['journalDirN', 'journalDirNE', 'journalDirE', 'journalDirSE', 'journalDirS', 'journalDirSW', 'journalDirW', 'journalDirNW']
+      nearestHint = t('journalNearestUndiscovered', { direction: t(dirKeys[dirIndex]) })
+    }
     const b = this.activeBounty
     const q = this.traderQuest
     const w = this.weeklyChallenge
@@ -5831,6 +5917,7 @@ export class Game {
       <div class="journal-section">
         <h3>${t('journalLocationsHeading')}</h3>
         <p>${t('journalLocationsCount', { found: foundLocations.length, total: this.allLocationLandmarks.length })}</p>
+        ${nearestHint ? `<p>${nearestHint}</p>` : ''}
       </div>
       <div class="journal-section">
         <h3>${t('journalBountyHeading')}</h3>
@@ -6062,6 +6149,9 @@ export class Game {
               this.coins -= item.cost
               this.ownedOutfits.add(item.outfit)
               this._updateStatsPanel()
+              // Fashion Icon - every outfit color owned at once.
+              const totalOutfits = COIN_SHOP_ITEMS.filter((i) => i.outfit).length
+              if (this.ownedOutfits.size >= totalOutfits) this.achievements.unlock('fashion_icon')
             }
             this.equippedOutfit = item.outfit
             this.playerBody.setOutfit(item.outfitColor)
@@ -7719,6 +7809,7 @@ export class Game {
       [t('profileCosmetics'), `${cosmeticsOwned}/${cosmeticsTotal}`],
       [t('profilePrestige'), this.metaProgress.prestigeLevel],
       [t('profileNemesisLabel'), this.nemesis ? t('profileNemesisValue', { name: this.nemesis.label, n: this.nemesis.night }) : t('profileNemesisNone')],
+      [t('profileSecretsFound'), this.secretsProgress.cachesDug + (this.secretsProgress.easterEggSeen ? 1 : 0)],
     ]
     this.profileOptions.innerHTML = rows.map(([label, value]) => `
       <button class="perk-option" disabled>
@@ -7801,6 +7892,142 @@ export class Game {
     this.dailyLeaderboardEl.style.display = ''
     const rows = this.dailyLeaderboard.scores.map((s, i) => `<p class="menu-best-stats">${i + 1}. ${s}</p>`).join('')
     this.dailyLeaderboardEl.innerHTML = `<p class="menu-best-stats">${t('dailyLeaderboardTitle')}</p>${rows}`
+  }
+
+  // Buried caches (see BURIED_CACHE_COUNT's own comment) - a small
+  // disturbed-earth marker, dug via the existing F-interact prompt chain
+  // (this.nearBuriedCache follows the same nearX pattern as this.nearVault
+  // etc.), not a separate shovel tool/inventory item.
+  _spawnBuriedCaches() {
+    for (let i = 0; i < BURIED_CACHE_COUNT; i++) {
+      const angle = (i / BURIED_CACHE_COUNT) * Math.PI * 2 + Math.random() * 0.8
+      const dist = BURIED_CACHE_MIN_RADIUS + Math.random() * (BURIED_CACHE_MAX_RADIUS - BURIED_CACHE_MIN_RADIUS)
+      const x = this.safeZone.x + Math.cos(angle) * dist
+      const z = this.safeZone.z + Math.sin(angle) * dist
+      const mat = flatMaterial({ color: 0x3a2e20, roughness: 1 })
+      const mesh = new THREE.Mesh(new THREE.CircleGeometry(0.6, 10), mat)
+      mesh.rotation.x = -Math.PI / 2
+      mesh.position.set(x, 0.02, z)
+      this.scene.add(mesh)
+      this.buriedCaches.push({ x, z, mesh, dug: false })
+    }
+  }
+
+  _updateBuriedCaches(playerPos) {
+    this.nearBuriedCache = null
+    for (const cache of this.buriedCaches) {
+      if (cache.dug) continue
+      const dist = Math.hypot(cache.x - playerPos.x, cache.z - playerPos.z)
+      if (dist <= BURIED_CACHE_INTERACT_RADIUS) {
+        this.nearBuriedCache = cache
+        break
+      }
+    }
+  }
+
+  _digBuriedCache() {
+    const cache = this.nearBuriedCache
+    if (!cache || cache.dug) return
+    cache.dug = true
+    this.scene.remove(cache.mesh)
+    cache.mesh.geometry.dispose()
+    cache.mesh.material.dispose()
+    this.nearBuriedCache = null
+    this.secretsProgress.cachesDug += 1
+    saveSecretsProgress(this.secretsProgress)
+    this.coins += 150
+    this._showCoinPopup(150)
+    this.pickups.spawnLootDrop('ammo', cache.x, cache.z)
+    this._showLoreToast(t('toastBuriedCacheFound'))
+  }
+
+  // Secret key-sequence code (see SECRET_SEQUENCE's own comment) - called
+  // from every keydown regardless of menu state, a rolling buffer checked
+  // against the fixed sequence. Reuses PlayerController's adrenalineMult
+  // (see _useAdrenaline) rather than a parallel speed-boost mechanism -
+  // if both happen to be active at once, whichever's timer clears last
+  // wins, an acceptable rare edge case for what's meant to be a fun secret.
+  _checkSecretSequence(code) {
+    this._secretSequenceBuffer.push(code)
+    if (this._secretSequenceBuffer.length > SECRET_SEQUENCE.length) this._secretSequenceBuffer.shift()
+    if (this._secretSequenceBuffer.length === SECRET_SEQUENCE.length && this._secretSequenceBuffer.every((c, i) => c === SECRET_SEQUENCE[i])) {
+      this._secretSequenceBuffer = []
+      this._secretSequenceBonusUntil = performance.now() + SECRET_SEQUENCE_BONUS_DURATION_MS
+      this.player.adrenalineMult = SECRET_SEQUENCE_SPEED_MULT
+      this._showLoreToast(t('secretSequenceActivated'))
+    }
+  }
+
+  _updateSecretSequenceBonus() {
+    if (this._secretSequenceBonusUntil && performance.now() >= this._secretSequenceBonusUntil) {
+      this._secretSequenceBonusUntil = 0
+      this.player.adrenalineMult = 1
+    }
+  }
+
+  // Rare one-time Easter egg - checked on every night-advance (a natural
+  // low-frequency tick), a small per-check chance, never more than once
+  // per save ever.
+  _maybeTriggerRareEasterEgg() {
+    if (this.secretsProgress.easterEggSeen) return
+    if (Math.random() > RARE_EASTER_EGG_CHANCE) return
+    this.secretsProgress.easterEggSeen = true
+    saveSecretsProgress(this.secretsProgress)
+    this._showLoreToast(t('rareEasterEggToast'))
+  }
+
+  // Undiscovered-landmark proximity chime - a soft sensory hint that
+  // something's nearby, distinct from the guaranteed coin reward
+  // Landmark Discovery Rewards already gives once you actually reach one.
+  // Tracked per-run (_undiscoveredChimePlayedFor) so it can only ever
+  // nudge you toward the same landmark once per run, not every frame
+  // you're in range.
+  _checkUndiscoveredLandmarkChime(playerPos) {
+    for (const lm of this.allLocationLandmarks) {
+      const cx = Math.floor(lm.x / EXPLORE_CELL_SIZE)
+      const cz = Math.floor(lm.z / EXPLORE_CELL_SIZE)
+      if (this.discoveredCells.has(`${cx},${cz}`)) continue
+      if (this._undiscoveredChimePlayedFor.has(lm.label)) continue
+      const dist = Math.hypot(lm.x - playerPos.x, lm.z - playerPos.z)
+      if (dist <= UNDISCOVERED_CHIME_RADIUS) {
+        this._undiscoveredChimePlayedFor.add(lm.label)
+        audioEngine.playTargetDing()
+      }
+    }
+  }
+
+  // Quick fast-travel to the nearest already-discovered point (see
+  // Keybinds.js's fastTravelNearest action) - same eligibility rule
+  // FullMap.render() uses for its own hitTargets (Safe Zone always known,
+  // a landmark only once its cell is discovered, plus any custom pin), but
+  // computed directly here rather than reading this.fullMap.hitTargets -
+  // that list is only ever populated by an actual render() call, so it's
+  // still undefined if the player has never opened the full map yet.
+  _fastTravelToNearest() {
+    const playerPos = this.player.controls.object.position
+    // 'Safe Zone'/'Custom Pin' match FullMap.render()'s own hardcoded
+    // labels for these two entries - neither is run through i18n there
+    // either.
+    const candidates = [{ label: 'Safe Zone', x: this.safeZone.x, z: this.safeZone.z }]
+    for (const lm of this.allLocationLandmarks) {
+      const cx = Math.floor(lm.x / EXPLORE_CELL_SIZE)
+      const cz = Math.floor(lm.z / EXPLORE_CELL_SIZE)
+      if (this.discoveredCells.has(`${cx},${cz}`)) candidates.push(lm)
+    }
+    if (this.customPin) candidates.push({ label: 'Custom Pin', x: this.customPin.x, z: this.customPin.z })
+
+    let nearest = null
+    let nearestDist = Infinity
+    for (const target of candidates) {
+      const dist = Math.hypot(target.x - playerPos.x, target.z - playerPos.z)
+      if (dist < nearestDist) {
+        nearestDist = dist
+        nearest = target
+      }
+    }
+    if (!nearest) return
+    playerPos.set(nearest.x, playerPos.y, nearest.z)
+    this._showLoreToast(t('fastTraveledTo', { name: nearest.label }))
   }
 
   _onPickup(type, label, isLoot, count) {
@@ -8815,7 +9042,14 @@ export class Game {
     this.points += VAULT_REWARD_POINTS
     this._updateStatsPanel()
     this.pickups.spawnLootDrop('legendary_weapon', this.vault.x, this.vault.z + 1)
-    this._showLoreToast(t('toastVaultOpened', { n: VAULT_REWARD_POINTS }))
+    // Rare bonus second reward roll - the vault only ever opens once per
+    // run (this.vault.opened above), so this is the one chance to roll it.
+    if (Math.random() < VAULT_BONUS_ROLL_CHANCE) {
+      this.pickups.spawnLootDrop('rare_weapon', this.vault.x, this.vault.z - 1)
+      this._showLoreToast(t('toastVaultBonusRoll'))
+    } else {
+      this._showLoreToast(t('toastVaultOpened', { n: VAULT_REWARD_POINTS }))
+    }
   }
 
   _updateGenerator(dt, playerPos) {
@@ -9856,6 +10090,13 @@ export class Game {
     } else {
       this.compassAirdrop.style.display = 'none'
     }
+    // Vault compass icon - only worth showing once the key is actually in
+    // hand (before that, there's nothing useful to do there yet).
+    if (this.inventory.vaultKey) {
+      landmarks.push({ el: this.compassVault, x: this.vault.x, z: this.vault.z })
+    } else {
+      this.compassVault.style.display = 'none'
+    }
 
     for (const lm of landmarks) {
       const dx = lm.x - playerPos.x
@@ -10121,6 +10362,7 @@ export class Game {
         this._checkBountyProgress('reach_3_nights', 1)
         this.night += 1
         this._checkBestRunPace()
+        this._maybeTriggerRareEasterEgg()
         this.upgradeMachineUsesThisNight = 0
         if (this.tempCompanion && this.night >= this.tempCompanionExpiresAtNight) {
           this._showLoreToast(t('tempCompanionLeft'))
@@ -10228,6 +10470,9 @@ export class Game {
       this._updateCulling(playerPos)
       this.chests.update(dt, elapsed, playerPos)
       this._updateVault(dt, playerPos)
+      this._updateBuriedCaches(playerPos)
+      this._updateSecretSequenceBonus()
+      this._checkUndiscoveredLandmarkChime(playerPos)
       this._updateLockedCells(playerPos)
       this._updateTrophyWallProximity(playerPos)
       this._updateGenerator(dt, playerPos)
@@ -10304,6 +10549,9 @@ export class Game {
         this.interactPrompt.style.display = 'block'
       } else if (this.nearBreakerBox) {
         this.interactPrompt.innerHTML = tHtml('interactBreakerBox')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearBuriedCache) {
+        this.interactPrompt.innerHTML = tHtml('interactBuriedCache')
         this.interactPrompt.style.display = 'block'
       } else if (this.nearVault) {
         this.interactPrompt.innerHTML = tHtml(this.inventory.vaultKey ? 'interactVaultUnlock' : 'interactVaultLocked')
