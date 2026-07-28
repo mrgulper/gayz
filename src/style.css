@@ -758,6 +758,20 @@ body.reduce-flashing #critical-blood-overlay.show {
   pointer-events: none;
 }
 
+/* Horde-density indicator (see Game.js's _checkHordeDensityAudio) - sits
+   just under the minimap circle. */
+#horde-indicator {
+  position: absolute;
+  top: 156px;
+  left: 0;
+  width: 150px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #d8483a;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
 #minimap {
   display: block;
   border-radius: 50%;

@@ -1453,7 +1453,7 @@ export class ZombieManager {
 
         if (zombie.config.id === 'titan') this.titanAlive = false
         if (!zombie.config.explodes) audioEngine.playZombieDeath()
-        if (onZombieKilled) onZombieKilled(zombie.config.id, zombie.lastHitWeaponId, zombie.group.position.x, zombie.group.position.z, zombie.isElite, !!zombie.isWandering)
+        if (onZombieKilled) onZombieKilled(zombie.config.id, zombie.lastHitWeaponId, zombie.group.position.x, zombie.group.position.z, zombie.isElite, !!zombie.isWandering, !!zombie.isGolden, !!zombie.fleeing)
         // Regular kills no longer roll a random loot chance here - see
         // Game.js's _onZombieKilled for the guaranteed every-10th-kill drop.
         // Bosses still always drop on top of that.

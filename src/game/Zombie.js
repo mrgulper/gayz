@@ -152,6 +152,10 @@ const FLANK_BLINDSPOT_STRENGTH_MULT = 0.4
 // otherwise-ordinary zombie, not a new type.
 const ALPHA_SPEED_MULT = 1.2
 const ALPHA_EYE_INTENSITY_MULT = 1.8
+// "Last one flees" (see Game.js's _checkRoundModeSpecialEvents, which sets
+// this.fleeing) - Round Mode only, the last surviving zombie of a wave
+// runs rather than attacks.
+const FLEE_SPEED_MULT = 1.3
 
 // Corpse avoidance - alive zombies steer lightly around fresh corpses
 // instead of walking straight through them, reusing the same separation-
@@ -1158,6 +1162,15 @@ export class Zombie {
     let nx = dist > 0.0001 ? dx / dist : 0
     let nz = dist > 0.0001 ? dz / dist : 1
 
+    // "Last one flees" (see Game.js's _checkRoundModeSpecialEvents) -
+    // inverts the base toward-player direction to away-from-player right
+    // here, before separation/flanking/pack logic below applies on top of
+    // it same as always, rather than needing its own parallel movement path.
+    if (this.fleeing) {
+      nx = -nx
+      nz = -nz
+    }
+
     this._updateAwareness(playerPos, solidMeshes, dist)
 
     if (!this.aware) {
@@ -1276,10 +1289,14 @@ export class Zombie {
       const weakenMult = performance.now() < this.weakenedUntil ? DEFAULT_WEAKEN_MULT : 1
       const hivemindMult = performance.now() < this.hivemindBuffUntil ? HIVEMIND_SPEED_MULT : 1
       const alphaMult = this.isPackAlpha ? ALPHA_SPEED_MULT : 1
+      // "Last one flees" (see Game.js's _checkRoundModeSpecialEvents) -
+      // competes in the same Math.max boost group as burst/enrage/alpha
+      // above rather than its own separate multiplier slot.
+      const fleeMult = this.fleeing ? FLEE_SPEED_MULT : 1
       const chokepointMult = THREE.MathUtils.lerp(1, CHOKEPOINT_MIN_SPEED_MULT, this._congestion)
       this.isBerserk = this.health > 0 && this.health / this.maxHealth <= BERSERK_HEALTH_FRACTION
       const berserkMult = this.isBerserk ? BERSERK_SPEED_MULT : 1
-      this.effectiveSpeed = this.speed * Math.max(burstMult, enrageMult, berserkMult, hivemindMult, alphaMult) * weakenMult * chokepointMult
+      this.effectiveSpeed = this.speed * Math.max(burstMult, enrageMult, berserkMult, hivemindMult, alphaMult, fleeMult) * weakenMult * chokepointMult
 
       // Excess elevation beyond a normal standing eye height (e.g. the player
       // is up on a car roof) - added into the melee engagement check below

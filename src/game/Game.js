@@ -1195,6 +1195,47 @@ const MELEE_KILL_FLASH_COLORS = {
   fireaxe: 0xff8a3a, sledgehammer: 0x9aa0a6, spear: 0xe8e4d8, nunchaku: 0xffcf5c,
 }
 const MELEE_KILL_FLASH_DURATION_MS = 350
+// Golden Zombie (see _maybeSpawnGoldenZombie) - a rare tag applied
+// reactively to an already-spawned ambient zombie rather than a new
+// ZombieManager spawn path, so this needs no changes to its core spawn
+// internals. Marked with an attached halo light (see _addGoldenHalo)
+// rather than re-tinting the zombie's own body material, which is shared/
+// GLB-specific and riskier to safely override per-instance.
+const GOLDEN_ZOMBIE_CHECK_INTERVAL_MS = 10000
+const GOLDEN_ZOMBIE_CHANCE = 0.15
+const GOLDEN_ZOMBIE_COIN_BONUS = 500
+const GOLDEN_ZOMBIE_ESCORT_COUNT = 3
+// Noise-reactive stampede (see _alertNearbyZombiesToGunfire's own call
+// site) - distinct from NightEvents.js's horde_surge (a flat per-night
+// random trigger): this is a per-shot chance, only on unsuppressed fire.
+const STAMPEDE_TRIGGER_CHANCE = 0.03
+const STAMPEDE_SIZE = 3
+// "Reclaimed" area (see _checkReclaimedArea) - a one-time small spawn on
+// returning to a grid cell you haven't been back to in a while, not a
+// continuous density system layered onto Zones.js's static per-zone tuning.
+const RECLAIM_REVISIT_MS = 180000
+const RECLAIM_CLUSTER_SIZE = 2
+// Rain-slicked stumble (see _checkRainStumble) - a small per-check chance
+// a nearby zombie briefly staggers on wet ground. _triggerLightning
+// already has its own flinch-on-strike effect (LIGHTNING_FLINCH_RADIUS/MS,
+// found while auditing this item), so this is deliberately a separate,
+// much rarer ambient thing rather than a duplicate of that.
+const RAIN_STUMBLE_CHECK_INTERVAL_MS = 6000
+const RAIN_STUMBLE_CHANCE = 0.25
+const RAIN_STUMBLE_RADIUS = 25
+const RAIN_STUMBLE_STAGGER_MS = 700
+// Horde-density ambient audio cue (see _checkHordeDensityAudio).
+const HORDE_AUDIO_CHECK_INTERVAL_MS = 8000
+const HORDE_AUDIO_DENSITY_THRESHOLD = 6
+const HORDE_AUDIO_RADIUS = 30
+// "Last one flees" / "Clean Sweep" - both scoped to Round Mode specifically
+// (see _isRoundMode), which already has clean, well-defined wave
+// boundaries (startRound/aliveCount===0), unlike ambient population which
+// has no equivalent "this batch of zombies" grouping to key off of. The
+// actual flee speed boost (FLEE_SPEED_MULT) lives in Zombie.js's own
+// effectiveSpeed formula, alongside its other speed-multiplier constants.
+const CLEAN_SWEEP_TIME_THRESHOLD_MS = 25000
+const CLEAN_SWEEP_BONUS_COINS = 200
 // First-time tutorial hint sequence - see _maybeShowTutorialHints.
 const TUTORIAL_SEEN_KEY = 'gayz-tutorial-seen'
 const TUTORIAL_HINT_START_DELAY_MS = 2500
@@ -1943,6 +1984,7 @@ export class Game {
     this.compassAirdrop = document.getElementById('compass-airdrop')
     this.compassSubway = document.getElementById('compass-subway')
     this.compassVault = document.getElementById('compass-vault')
+    this.hordeIndicatorEl = document.getElementById('horde-indicator')
     this.comboCount = 0
     this.comboResetAt = 0
     this.deathStats = document.getElementById('death-stats')
@@ -2160,6 +2202,10 @@ export class Game {
     this._lastTauntAt = 0
     this._lastParryAt = 0
     this._parryActiveUntil = 0
+    this._nextGoldenCheckAt = 0
+    this._nextHordeAudioCheckAt = 0
+    this._reclaimedCells = new Map()
+    this._lastAliveCountSeen = 0
     this._runCardBaseImage = null
     this.musicIntensityCurrent = 0
     this.runStartedAt = performance.now()
@@ -2947,6 +2993,7 @@ export class Game {
       (intensity, durationMs) => {
         this._triggerShake(intensity, durationMs)
         this._alertNearbyZombiesToGunfire()
+        this._maybeTriggerStampede()
       }
     )
     this.rivals = new RivalManager(this.scene)
@@ -3238,6 +3285,9 @@ export class Game {
       this.rivals.reset()
       this._rivalsClaimedAirdrop = false
       this._rivalsClaimedByName = null
+      this._reclaimedCells = new Map()
+      this._lastAliveCountSeen = 0
+      this._cleanSweepAwardedThisRound = false
       this.xpGems.reset()
       this.companion.teleportTo(1.6, 7)
       this.companion.resetVitals()
@@ -7117,9 +7167,20 @@ export class Game {
     return Math.min(COMBO_MULT_CAP, 1 + Math.max(0, this.comboCount - 1) * COMBO_MULT_PER_KILL)
   }
 
-  _onZombieKilled(zombieTypeId, weaponId, x, z, isElite, isWandering = false) {
+  _onZombieKilled(zombieTypeId, weaponId, x, z, isElite, isWandering = false, isGolden = false, wasFleeing = false) {
     this.decals.spawnPuddle(x, z)
     if (weaponId === 'melee') this._spawnMeleeKillFlash(x, z)
+    // Golden Zombie bonus (see _maybeSpawnGoldenZombie) - on top of, not
+    // instead of, every other reward this kill already earns below.
+    if (isGolden) {
+      this.coins += GOLDEN_ZOMBIE_COIN_BONUS
+      this._showCoinPopup(GOLDEN_ZOMBIE_COIN_BONUS)
+      this._showLoreToast(t('goldenZombieJackpot', { n: GOLDEN_ZOMBIE_COIN_BONUS }))
+    }
+    // Caught the last, fleeing zombie of a Round Mode wave (see
+    // _checkRoundModeSpecialEvents) - a small capstone bonus/flavor line
+    // for finishing what would otherwise have gotten away.
+    if (wasFleeing) this._showLoreToast(t('caughtFleeingZombie'))
     this.kills += 1
     this.killStreak += 1
     if (this.killStreak > this.peakKillStreakThisRun) this.peakKillStreakThisRun = this.killStreak
@@ -8135,6 +8196,122 @@ export class Game {
     light.position.set(x, 1.2, z)
     this.scene.add(light)
     setTimeout(() => this.scene.remove(light), MELEE_KILL_FLASH_DURATION_MS)
+  }
+
+  // Golden Zombie (see GOLDEN_ZOMBIE_CHANCE's own comment) - tags an
+  // already-alive ambient zombie reactively rather than a new spawn path.
+  _maybeSpawnGoldenZombie() {
+    const now = performance.now()
+    if (now < this._nextGoldenCheckAt) return
+    this._nextGoldenCheckAt = now + GOLDEN_ZOMBIE_CHECK_INTERVAL_MS
+    if (this.zombies.zombies.some((z) => z.isGolden && z.state === 'alive')) return // one at a time
+    if (Math.random() > GOLDEN_ZOMBIE_CHANCE) return
+    const candidates = this.zombies.zombies.filter((z) => z.state === 'alive' && !z.isGolden)
+    if (candidates.length === 0) return
+    const target = candidates[Math.floor(Math.random() * candidates.length)]
+    target.isGolden = true
+    this._addGoldenHalo(target)
+    // Escort pack - spawned via the same location-targeted burst the
+    // Survivor Camp night event already uses, not a new spawn primitive.
+    this.zombies.spawnAt(target.group.position.x, target.group.position.z, GOLDEN_ZOMBIE_ESCORT_COUNT)
+    this._showLoreToast(t('goldenZombieSpotted'))
+  }
+
+  // Attached decoration (halo ring + point light), not a re-tint of the
+  // zombie's own body material - that material may be shared/GLB-specific,
+  // riskier to safely override per-instance than adding a small prop, same
+  // reasoning RivalScavenger.js's bone-parented eyes already established.
+  _addGoldenHalo(zombie) {
+    const haloMat = flatMaterial({ color: 0xffcf5c, emissive: 0xffcf5c, emissiveIntensity: 1.5 })
+    const halo = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.04, 8, 16), haloMat)
+    halo.rotation.x = Math.PI / 2
+    halo.position.y = 1.7
+    zombie.group.add(halo)
+    const light = new THREE.PointLight(0xffcf5c, 1.2, 5, 2)
+    light.position.y = 1.5
+    zombie.group.add(light)
+  }
+
+  // Noise-reactive stampede (see STAMPEDE_TRIGGER_CHANCE's own comment).
+  _maybeTriggerStampede() {
+    if (this.weapons.current.suppressed) return
+    if (Math.random() < STAMPEDE_TRIGGER_CHANCE) {
+      this.zombies.spawnSurge(STAMPEDE_SIZE)
+      this._showLoreToast(t('stampedeTriggered'))
+    }
+  }
+
+  // "Reclaimed" area - a one-time small spawn on returning to a grid cell
+  // you haven't been back to in a while (see RECLAIM_REVISIT_MS's own
+  // comment), keyed the same discoveredCells-style cell string every other
+  // per-cell check in this file already uses.
+  _checkReclaimedArea(playerPos) {
+    const cx = Math.floor(playerPos.x / EXPLORE_CELL_SIZE)
+    const cz = Math.floor(playerPos.z / EXPLORE_CELL_SIZE)
+    const key = `${cx},${cz}`
+    const now = performance.now()
+    const lastSeen = this._reclaimedCells.get(key)
+    this._reclaimedCells.set(key, now)
+    if (lastSeen && now - lastSeen >= RECLAIM_REVISIT_MS) {
+      this.zombies.spawnAt(playerPos.x, playerPos.z, RECLAIM_CLUSTER_SIZE)
+      this._showLoreToast(t('areaReclaimedToast'))
+    }
+  }
+
+  // Rain-slicked stumble (see RAIN_STUMBLE_CHANCE's own comment) - a rare
+  // ambient stagger on one random nearby zombie, distinct from
+  // _triggerLightning's own existing strike-triggered flinch.
+  _checkRainStumble(playerPos) {
+    if (!this.raining) return
+    const now = performance.now()
+    if (now < (this._nextRainStumbleCheckAt || 0)) return
+    this._nextRainStumbleCheckAt = now + RAIN_STUMBLE_CHECK_INTERVAL_MS
+    if (Math.random() > RAIN_STUMBLE_CHANCE) return
+    const nearby = this.zombies.zombies.filter((z) => {
+      if (z.state !== 'alive') return false
+      return Math.hypot(z.group.position.x - playerPos.x, z.group.position.z - playerPos.z) <= RAIN_STUMBLE_RADIUS
+    })
+    if (nearby.length === 0) return
+    nearby[Math.floor(Math.random() * nearby.length)].stun(RAIN_STUMBLE_STAGGER_MS)
+  }
+
+  // Horde-density ambient audio cue - a low murmur when a lot of zombies
+  // are nearby at once, distinct from any single zombie's own moan/snarl.
+  _checkHordeDensityAudio(playerPos) {
+    const now = performance.now()
+    if (now < this._nextHordeAudioCheckAt) return
+    this._nextHordeAudioCheckAt = now + HORDE_AUDIO_CHECK_INTERVAL_MS
+    let nearby = 0
+    for (const z of this.zombies.zombies) {
+      if (z.state !== 'alive') continue
+      const d = Math.hypot(z.group.position.x - playerPos.x, z.group.position.z - playerPos.z)
+      if (d <= HORDE_AUDIO_RADIUS) nearby += 1
+    }
+    if (nearby >= HORDE_AUDIO_DENSITY_THRESHOLD) audioEngine.playZombieMoan()
+    if (this.hordeIndicatorEl) {
+      this.hordeIndicatorEl.textContent = t('hordeSizeIndicator', { n: nearby })
+      this.hordeIndicatorEl.style.display = nearby > 0 ? '' : 'none'
+    }
+  }
+
+  // "Last one flees" / "Clean Sweep" - both scoped to Round Mode (see
+  // FLEE_SPEED_MULT's own comment for why). Checked once per tick
+  // alongside the round-clear check Round Mode already does.
+  _checkRoundModeSpecialEvents() {
+    if (!this._isRoundMode()) return
+    const alive = this.zombies.aliveCount()
+    if (alive === 1 && this._lastAliveCountSeen !== 1) {
+      const last = this.zombies.zombies.find((z) => z.state === 'alive')
+      if (last) last.fleeing = true
+    }
+    this._lastAliveCountSeen = alive
+    if (alive === 0 && performance.now() - this.nightStartedAt <= CLEAN_SWEEP_TIME_THRESHOLD_MS && !this._cleanSweepAwardedThisRound) {
+      this._cleanSweepAwardedThisRound = true
+      this.coins += CLEAN_SWEEP_BONUS_COINS
+      this._showCoinPopup(CLEAN_SWEEP_BONUS_COINS)
+      this._showLoreToast(t('cleanSweepToast', { n: CLEAN_SWEEP_BONUS_COINS }))
+    }
+    if (alive > 0) this._cleanSweepAwardedThisRound = false
   }
 
   _onPickup(type, label, isLoot, count) {
@@ -10550,7 +10727,7 @@ export class Game {
         (dmg) => this._onZombieAttack(dmg),
         (x, z) => this.pickups.spawnLootDrop('ammo', x, z), // boss-only guaranteed drop, see ZombieManager
         () => audioEngine.playAmbushShriek(),
-        (zombieTypeId, weaponId, x, z, isElite, isWandering) => this._onZombieKilled(zombieTypeId, weaponId, x, z, isElite, isWandering),
+        (zombieTypeId, weaponId, x, z, isElite, isWandering, isGolden, wasFleeing) => this._onZombieKilled(zombieTypeId, weaponId, x, z, isElite, isWandering, isGolden, wasFleeing),
         this.player.isCrouching,
         this.dayNight ? this.dayNight.getPhaseInfo().phase === 'Night' : false,
         (x, z) => this._spawnHazardZone('acid', x, z),
@@ -10604,6 +10781,11 @@ export class Game {
       this._updateBuriedCaches(playerPos)
       this._updateSecretSequenceBonus()
       this._checkUndiscoveredLandmarkChime(playerPos)
+      this._maybeSpawnGoldenZombie()
+      this._checkReclaimedArea(playerPos)
+      this._checkHordeDensityAudio(playerPos)
+      this._checkRoundModeSpecialEvents()
+      this._checkRainStumble(playerPos)
       this._updateLockedCells(playerPos)
       this._updateTrophyWallProximity(playerPos)
       this._updateGenerator(dt, playerPos)

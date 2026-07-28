@@ -809,6 +809,14 @@ const STRINGS = {
     parrySuccess: 'Parried!',
     actionSmokeBomb: 'Smoke Bomb',
     actionParry: 'Parry',
+    // Zombie Horde Events batch.
+    goldenZombieSpotted: 'Something glints in the crowd... a golden zombie!',
+    goldenZombieJackpot: 'Golden zombie down! +{n} coins',
+    stampedeTriggered: 'The noise draws a stampede!',
+    areaReclaimedToast: "Looks like this area's been reclaimed since you left...",
+    hordeSizeIndicator: 'Nearby: {n}',
+    cleanSweepToast: 'Clean sweep! +{n} coins',
+    caughtFleeingZombie: "Got it before it could escape!",
   },
   zh: {
     menuSubtitle: '破败的街区——生存、搜寻、射击',
