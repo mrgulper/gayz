@@ -1144,6 +1144,31 @@ body.reduce-flashing #critical-blood-overlay.show {
   100% { opacity: 0; }
 }
 
+/* Cinematic letterbox bars (see Game.js's _toggleCinematicBars) - photo
+   mode only, purely visual. */
+#cinematic-bars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 25;
+}
+
+.cinematic-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 9vh;
+  background: #000;
+}
+
+.cinematic-bar.top {
+  top: 0;
+}
+
+.cinematic-bar.bottom {
+  bottom: 0;
+}
+
 /* First-time tutorial hint sequence (see Game.js's _maybeShowTutorialHints)
    - same toast-style show/hide as #companion-bark/#taunt-text, own vertical
    slot (below #taunt-text's 220px) so a taunt during someone's very first

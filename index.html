@@ -262,6 +262,11 @@
 
       <div id="screen-fade"></div>
 
+      <div id="cinematic-bars" style="display: none">
+        <div class="cinematic-bar top"></div>
+        <div class="cinematic-bar bottom"></div>
+      </div>
+
       <div id="menu">
         <div id="menu-corner-nav">
           <button id="upgrades-btn">Upgrades</button>
@@ -457,6 +462,10 @@
             <input type="checkbox" id="reduce-flashing-toggle" class="audio-checkbox" />
           </div>
           <div class="audio-row">
+            <label for="stream-safe-mode-toggle" id="stream-safe-mode-label">Streaming-Safe Mode</label>
+            <input type="checkbox" id="stream-safe-mode-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
             <label for="toggle-sprint-toggle" id="toggle-sprint-label">Toggle to Sprint (instead of hold)</label>
             <input type="checkbox" id="toggle-sprint-toggle" class="audio-checkbox" />
           </div>
@@ -642,6 +651,7 @@
         <h2 id="profile-panel-title">Profile</h2>
         <div class="perk-options" id="profile-options"></div>
         <div id="profile-emblem-row"></div>
+        <button id="profile-copy-stats-btn">Copy Stats</button>
         <button id="profile-close-btn">Close</button>
       </div>
 
@@ -680,9 +690,11 @@
           <img id="screenshot-crop-image" alt="Captured screenshot" />
           <div id="screenshot-crop-selection" style="display: none"></div>
         </div>
+        <input type="text" id="screenshot-caption-input" class="nickname-input" placeholder="Add a caption (optional)" maxlength="40" />
         <div class="perk-panel-buttons">
           <button id="screenshot-crop-save">Save Crop</button>
           <button id="screenshot-crop-full">Save Full Screenshot</button>
+          <button id="screenshot-copy-clipboard">Copy to Clipboard</button>
           <button id="screenshot-crop-cancel">Cancel</button>
         </div>
       </div>

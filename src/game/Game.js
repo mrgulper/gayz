@@ -204,6 +204,10 @@ function loadSettings() {
       // Profile screen emblem (see _openProfilePanel) - purely cosmetic, one
       // of PROFILE_EMBLEMS, no purchase/unlock gate.
       profileEmblem: parsed.profileEmblem || 'none',
+      // Streaming-safe mode (see _updateStreamSafeVisibility) - hides the
+      // fps/ms/draw-calls debug overlay specifically, leaving the rest of
+      // the HUD untouched.
+      streamSafeMode: parsed.streamSafeMode ?? false,
       defaultTag: parsed.defaultTag || null,
       companionRole: ['melee', 'medic'].includes(parsed.companionRole) ? parsed.companionRole : 'ranged',
       scoreAttackMode: parsed.scoreAttackMode ?? false,
@@ -251,7 +255,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, profileEmblem: 'none', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, profileEmblem: 'none', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -1381,6 +1385,26 @@ const PERFECT_WEATHER_LOOT_BONUS_MULT = 1.3
 // own .distance, restored the instant rain stops.
 const FLASHLIGHT_RAIN_RANGE_MULT = 0.7
 const FLASHLIGHT_BASE_RANGE = 35
+// Sharing & Content Tools batch.
+// Manual slow-motion toggle (see _toggleSlowMo) - a deliberate content-
+// creation tool, distinct from the automatic killcam/hitstop slow-mo
+// (those are timed and automatic; this is a manual on/off the player
+// controls themselves, e.g. while clip-recording something dramatic).
+const MANUAL_SLOWMO_FACTOR = 0.4
+// Clip recording (see _toggleClipRecording) - a manual start/stop tool,
+// deliberately not an always-on rolling buffer: continuously running
+// MediaRecorder/canvas.captureStream for the whole session has a real,
+// constant encoding cost, a bad tradeoff for a nice-to-have.
+const CLIP_RECORDING_FPS = 30
+// Auto-highlight moment flagging (see _flagHighlightMoment) - reuses the
+// exact same notable-kill categories Kill Feed already classifies (see
+// _onZombieKilled's own priority chain), just also logged with a
+// timestamp instead of only shown as a transient feed entry.
+const HIGHLIGHT_LOG_MAX_ENTRIES = 20
+// Photo mode filters (see _cyclePhotoFilter) - plain CSS filter presets
+// applied to the canvas element itself, cycled with a key while in photo
+// mode.
+const PHOTO_FILTERS = ['none', 'grayscale(1)', 'sepia(0.7)', 'contrast(1.4) saturate(1.3)']
 // First-time tutorial hint sequence - see _maybeShowTutorialHints.
 const TUTORIAL_SEEN_KEY = 'gayz-tutorial-seen'
 const TUTORIAL_HINT_START_DELAY_MS = 2500
@@ -2206,6 +2230,7 @@ export class Game {
     this.shakeIntensitySlider = document.getElementById('shake-intensity-slider')
     this.shakeIntensityValue = document.getElementById('shake-intensity-value')
     this.reduceFlashingToggle = document.getElementById('reduce-flashing-toggle')
+    this.streamSafeModeToggle = document.getElementById('stream-safe-mode-toggle')
     this.toggleSprintToggle = document.getElementById('toggle-sprint-toggle')
     this.toggleCrouchToggle = document.getElementById('toggle-crouch-toggle')
     this.toggleAdsToggle = document.getElementById('toggle-ads-toggle')
@@ -2244,6 +2269,7 @@ export class Game {
     this.resetProgressBtn = document.getElementById('reset-progress-btn')
     this._resetProgressArmed = false
     this.screenFadeEl = document.getElementById('screen-fade')
+    this.cinematicBarsEl = document.getElementById('cinematic-bars')
     this.tutorialHintEl = document.getElementById('tutorial-hint')
     this.rebindingAction = null
     this.settingsOpen = false
@@ -2359,6 +2385,11 @@ export class Game {
     this._nextSwarmBiteCheckAt = 0
     this._nextPowerSurgeCheckAt = 0
     this._nextRooftopWindCheckAt = 0
+    this._manualSlowMoActive = false
+    this._clipRecorder = null
+    this._highlightLog = []
+    this._photoFilterIndex = 0
+    this._cinematicBarsActive = false
     this._reclaimedCells = new Map()
     this._lastAliveCountSeen = 0
     this._runCardBaseImage = null
@@ -2972,6 +3003,7 @@ export class Game {
     this.profileOptions = document.getElementById('profile-options')
     this.profileEmblemRow = document.getElementById('profile-emblem-row')
     this.profileCloseBtn = document.getElementById('profile-close-btn')
+    this.profileCopyStatsBtn = document.getElementById('profile-copy-stats-btn')
     this.killFeedEl = document.getElementById('kill-feed')
     this.tauntTextEl = document.getElementById('taunt-text')
     this.dailyLeaderboardEl = document.getElementById('death-daily-leaderboard')
@@ -3025,6 +3057,8 @@ export class Game {
     this.screenshotCropSaveBtn = document.getElementById('screenshot-crop-save')
     this.screenshotCropFullBtn = document.getElementById('screenshot-crop-full')
     this.screenshotCropCancelBtn = document.getElementById('screenshot-crop-cancel')
+    this.screenshotCaptionInput = document.getElementById('screenshot-caption-input')
+    this.screenshotCopyClipboardBtn = document.getElementById('screenshot-copy-clipboard')
     this.screenshotCropOpen = false
     this.screenshotCropSelectionRect = null
     this.gameStarted = false
@@ -3127,6 +3161,12 @@ export class Game {
       if (e.code === 'Space') this._photoUp = true
       else if (e.code === 'ControlLeft' || e.code === 'ControlRight') this._photoDown = true
       else if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this._photoBoost = true
+      // Photo mode filters/cinematic bars - hardcoded to this listener
+      // (already isolated to photoModeOpen, same precedent as Space/Ctrl/
+      // Shift above) rather than added to the rebindable Keybinds.js list,
+      // since these only ever do anything while frozen in photo mode.
+      else if (e.code === 'KeyF') this._cyclePhotoFilter()
+      else if (e.code === 'KeyC') this._toggleCinematicBars()
     })
     window.addEventListener('keyup', (e) => {
       if (e.code === 'Space') this._photoUp = false
@@ -3678,6 +3718,10 @@ export class Game {
         this._throwSmokeBomb()
       } else if (e.code === getKeyFor('parry')) {
         this._triggerParry()
+      } else if (e.code === getKeyFor('slowMo')) {
+        this._toggleSlowMo()
+      } else if (e.code === getKeyFor('clipRecording')) {
+        this._toggleClipRecording()
       } else if (e.code === getKeyFor('flashlight')) {
         if (!this.flashlightOn && this.flashlightBattery <= 0) return
         this.flashlightOn = !this.flashlightOn
@@ -3814,8 +3858,96 @@ export class Game {
     this.statsPanel.style.display = display
     this.minimapWrap.style.display = display
     this.compassStrip.style.display = display
-    this.fpsEl.style.display = hidden ? 'none' : 'block'
+    // Streaming-safe mode (see _updateStreamSafeVisibility) keeps the
+    // debug overlay hidden even once photo mode closes again.
+    this.fpsEl.style.display = (hidden || this.settings.streamSafeMode) ? 'none' : 'block'
     this.coordsEl.style.display = hidden ? 'none' : 'block'
+  }
+
+  _updateStreamSafeVisibility() {
+    this.fpsEl.style.display = (this.settings.streamSafeMode || this.photoModeOpen) ? 'none' : 'block'
+  }
+
+  // Manual slow-motion toggle (see MANUAL_SLOWMO_FACTOR's own comment).
+  _toggleSlowMo() {
+    this._manualSlowMoActive = !this._manualSlowMoActive
+    this._showLoreToast(this._manualSlowMoActive ? t('slowMoOn') : t('slowMoOff'))
+  }
+
+  // Manual clip recording (see CLIP_RECORDING_FPS's own comment) - a real
+  // MediaRecorder capture of this.canvas's own WebGL output, not a
+  // separate offscreen render.
+  _toggleClipRecording() {
+    if (this._clipRecorder && this._clipRecorder.state === 'recording') {
+      this._clipRecorder.stop()
+      return
+    }
+    if (!this.canvas.captureStream || typeof MediaRecorder === 'undefined') {
+      this._showLoreToast(t('clipRecordingUnsupported'))
+      return
+    }
+    let recorder
+    try {
+      const stream = this.canvas.captureStream(CLIP_RECORDING_FPS)
+      recorder = new MediaRecorder(stream, { mimeType: 'video/webm' })
+    } catch {
+      this._showLoreToast(t('clipRecordingUnsupported'))
+      return
+    }
+    const chunks = []
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data) }
+    recorder.onstop = () => {
+      const blob = new Blob(chunks, { type: 'video/webm' })
+      const link = document.createElement('a')
+      link.download = `gayz-clip-${Date.now()}.webm`
+      link.href = URL.createObjectURL(blob)
+      link.click()
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000)
+      this._showLoreToast(t('clipSaved'))
+    }
+    recorder.start()
+    this._clipRecorder = recorder
+    this._showLoreToast(t('clipRecordingStarted'))
+  }
+
+  // Auto-highlight moment flagging (see HIGHLIGHT_LOG_MAX_ENTRIES's own
+  // comment) - a lightweight timestamped log, not a full auto-edited reel.
+  _flagHighlightMoment(label) {
+    this._highlightLog.unshift({ label, night: this.night, elapsed: performance.now() - this.runStartedAt })
+    if (this._highlightLog.length > HIGHLIGHT_LOG_MAX_ENTRIES) this._highlightLog.length = HIGHLIGHT_LOG_MAX_ENTRIES
+  }
+
+  // Photo mode filters (see PHOTO_FILTERS's own comment) - a plain CSS
+  // filter cycled on the canvas element itself.
+  _cyclePhotoFilter() {
+    this._photoFilterIndex = (this._photoFilterIndex + 1) % PHOTO_FILTERS.length
+    this.canvas.style.filter = PHOTO_FILTERS[this._photoFilterIndex]
+    this._showLoreToast(t('photoFilterChanged', { n: this._photoFilterIndex + 1, total: PHOTO_FILTERS.length }))
+  }
+
+  // Cinematic letterbox bars (see #cinematic-bars) - a purely visual CSS
+  // overlay toggle, photo mode only.
+  _toggleCinematicBars() {
+    this._cinematicBarsActive = !this._cinematicBarsActive
+    if (this.cinematicBarsEl) this.cinematicBarsEl.style.display = this._cinematicBarsActive ? 'block' : 'none'
+  }
+
+  // Copy Profile stats as shareable text (see _openProfilePanel) - plain
+  // text via the Clipboard API, not an image.
+  _copyProfileStatsToClipboard() {
+    const lines = Array.from(this.profileOptions.querySelectorAll('.perk-option')).map((btn) => {
+      const name = btn.querySelector('.perk-name')?.textContent || ''
+      const value = btn.querySelector('.perk-cost')?.textContent || ''
+      return `${name}: ${value}`
+    })
+    const text = `GayZ Profile\n${lines.join('\n')}`
+    if (!navigator.clipboard) {
+      this._showLoreToast(t('clipboardCopyUnsupported'))
+      return
+    }
+    navigator.clipboard.writeText(text)
+      .then(() => this._showLoreToast(t('clipboardCopySuccess')))
+      .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
   }
 
   // Free-fly noclip camera while photo mode is open - reuses the same
@@ -3913,32 +4045,87 @@ export class Game {
 
   // Crops this._screenshotDataUrl to the given CSS-pixel rect (relative to
   // the rendered <img>, which may be scaled down from the actual capture
-  // resolution to fit the overlay) and downloads the result.
+  // resolution to fit the overlay), composites the watermark/caption, and
+  // downloads the result.
   _saveScreenshotCrop(rect) {
-    const img = this.screenshotCropImage
-    const scaleX = img.naturalWidth / img.clientWidth
-    const scaleY = img.naturalHeight / img.clientHeight
-    const sx = Math.round(rect.x * scaleX)
-    const sy = Math.round(rect.y * scaleY)
-    const sw = Math.round(rect.width * scaleX)
-    const sh = Math.round(rect.height * scaleY)
-
-    const canvas = document.createElement('canvas')
-    canvas.width = sw
-    canvas.height = sh
-    canvas.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh)
-
-    const link = document.createElement('a')
-    link.download = `gayz-${Date.now()}.png`
-    link.href = canvas.toDataURL('image/png')
-    link.click()
+    this._finalizeScreenshotCanvas(this._buildScreenshotCanvas(rect), 'download')
   }
 
   _saveFullScreenshot() {
-    const link = document.createElement('a')
-    link.download = `gayz-${Date.now()}.png`
-    link.href = this._screenshotDataUrl
-    link.click()
+    this._finalizeScreenshotCanvas(this._buildScreenshotCanvas(null), 'download')
+  }
+
+  // Copy to Clipboard (see navigator.clipboard.write below) - same
+  // rect-or-full logic _saveScreenshotCrop/_saveFullScreenshot already
+  // follow, just written to the OS clipboard instead of downloaded.
+  _copyScreenshotToClipboard() {
+    const rect = this.screenshotCropSelectionRect
+    const usableRect = rect && rect.width > 4 && rect.height > 4 ? rect : null
+    this._finalizeScreenshotCanvas(this._buildScreenshotCanvas(usableRect), 'clipboard')
+  }
+
+  // Shared by all three screenshot actions above - builds the actual pixel
+  // canvas (cropped or full) from the captured <img>, without yet
+  // compositing the watermark/caption or deciding download-vs-clipboard.
+  _buildScreenshotCanvas(rect) {
+    const img = this.screenshotCropImage
+    const canvas = document.createElement('canvas')
+    if (rect) {
+      const scaleX = img.naturalWidth / img.clientWidth
+      const scaleY = img.naturalHeight / img.clientHeight
+      const sx = Math.round(rect.x * scaleX)
+      const sy = Math.round(rect.y * scaleY)
+      const sw = Math.round(rect.width * scaleX)
+      const sh = Math.round(rect.height * scaleY)
+      canvas.width = sw
+      canvas.height = sh
+      canvas.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh)
+    } else {
+      canvas.width = img.naturalWidth
+      canvas.height = img.naturalHeight
+      canvas.getContext('2d').drawImage(img, 0, 0)
+    }
+    return canvas
+  }
+
+  // Watermark + optional caption compositing, then either downloads the
+  // result or writes it to the OS clipboard.
+  _finalizeScreenshotCanvas(canvas, mode) {
+    const ctx = canvas.getContext('2d')
+    const caption = this.screenshotCaptionInput ? this.screenshotCaptionInput.value.trim() : ''
+    if (caption) {
+      const bannerH = Math.max(28, Math.round(canvas.height * 0.06))
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
+      ctx.fillRect(0, canvas.height - bannerH, canvas.width, bannerH)
+      ctx.fillStyle = '#ffffff'
+      ctx.font = `${Math.max(12, Math.round(canvas.width * 0.02))}px sans-serif`
+      ctx.textBaseline = 'bottom'
+      ctx.fillText(caption, 10, canvas.height - bannerH * 0.3)
+    }
+    ctx.textAlign = 'right'
+    ctx.textBaseline = 'bottom'
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'
+    ctx.font = `${Math.max(10, Math.round(canvas.width * 0.015))}px sans-serif`
+    ctx.fillText('GayZ', canvas.width - 8, canvas.height - 8)
+    ctx.textAlign = 'left'
+
+    if (mode === 'clipboard') {
+      if (!navigator.clipboard || !window.ClipboardItem) {
+        this._showLoreToast(t('clipboardCopyUnsupported'))
+        return
+      }
+      canvas.toBlob((blob) => {
+        if (!blob) return
+        navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+          .then(() => this._showLoreToast(t('clipboardCopySuccess')))
+          .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
+      })
+    } else {
+      const link = document.createElement('a')
+      link.download = `gayz-${Date.now()}.png`
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+    }
   }
 
   // Simple click-drag-release rectangle selector over the captured image -
@@ -3990,6 +4177,7 @@ export class Game {
       this._saveFullScreenshot()
       this._closeScreenshotCrop()
     })
+    this.screenshotCopyClipboardBtn.addEventListener('click', () => this._copyScreenshotToClipboard())
     this.screenshotCropCancelBtn.addEventListener('click', () => this._closeScreenshotCrop())
 
     window.addEventListener('keydown', (e) => {
@@ -4929,6 +5117,15 @@ export class Game {
       saveSettings(this.settings)
     })
 
+    // Streaming-safe mode (see _updateStreamSafeVisibility).
+    this.streamSafeModeToggle.checked = this.settings.streamSafeMode
+    this._updateStreamSafeVisibility()
+    this.streamSafeModeToggle.addEventListener('change', () => {
+      this.settings.streamSafeMode = this.streamSafeModeToggle.checked
+      this._updateStreamSafeVisibility()
+      saveSettings(this.settings)
+    })
+
     // Toggle-to-Sprint/Crouch/Aim (accessibility) - see PlayerController's
     // toggleSprint/toggleCrouch and WeaponSystem's toggleAds.
     this.toggleSprintToggle.checked = this.settings.toggleSprint
@@ -5124,6 +5321,7 @@ export class Game {
     this.bestiaryCloseBtn.addEventListener('click', () => this._closeBestiaryPanel())
     this.profileBtn.addEventListener('click', () => this._openProfilePanel())
     this.profileCloseBtn.addEventListener('click', () => this._closeProfilePanel())
+    this.profileCopyStatsBtn.addEventListener('click', () => this._copyProfileStatsToClipboard())
     this.shareRunCardBtn.addEventListener('click', () => this._generateRunSummaryCard())
     this.creditsBtn.addEventListener('click', () => this._openCreditsPanel())
     this.creditsCloseBtn.addEventListener('click', () => this._closeCreditsPanel())
@@ -6813,6 +7011,7 @@ export class Game {
     document.getElementById('mutator-boss-gauntlet-label').textContent = t('mutatorBossGauntlet')
     document.getElementById('shake-intensity-label').textContent = t('shakeIntensityLabel')
     document.getElementById('reduce-flashing-label').textContent = t('reduceFlashingLabel')
+    document.getElementById('stream-safe-mode-label').textContent = t('streamSafeModeLabel')
     document.getElementById('toggle-sprint-label').textContent = t('toggleSprintLabel')
     document.getElementById('toggle-crouch-label').textContent = t('toggleCrouchLabel')
     document.getElementById('toggle-ads-label').textContent = t('toggleAdsLabel')
@@ -7600,10 +7799,17 @@ export class Game {
     // Kill Feed (see _pushKillFeed) - one entry per kill at most, picked by
     // priority (boss > big combo > elite > melee) so a kill that qualifies
     // for several categories at once doesn't spam multiple stacked entries.
-    if (BOSS_TIER_IDS.has(zombieTypeId)) this._pushKillFeed('BOSS DOWN')
-    else if (this.comboCount >= COMBO_TIER3_THRESHOLD) this._pushKillFeed(`${this.comboCount}x COMBO`)
-    else if (isElite) this._pushKillFeed('Elite eliminated')
-    else if (weaponId === 'melee') this._pushKillFeed('Melee finish')
+    if (BOSS_TIER_IDS.has(zombieTypeId)) {
+      this._pushKillFeed('BOSS DOWN')
+      this._flagHighlightMoment('Boss down')
+    } else if (this.comboCount >= COMBO_TIER3_THRESHOLD) {
+      this._pushKillFeed(`${this.comboCount}x COMBO`)
+      this._flagHighlightMoment(`${this.comboCount}x combo`)
+    } else if (isElite) {
+      this._pushKillFeed('Elite eliminated')
+    } else if (weaponId === 'melee') {
+      this._pushKillFeed('Melee finish')
+    }
     this.coins += coinsEarned
     this._showCoinPopup(coinsEarned)
     this._updateStatsPanel()
@@ -8225,6 +8431,7 @@ export class Game {
     this.profilePanel.style.display = 'flex'
     this.profilePanelTitle.textContent = t('profilePanelTitle')
     this.profileCloseBtn.textContent = t('upgradesClose')
+    if (this.profileCopyStatsBtn) this.profileCopyStatsBtn.textContent = t('profileCopyStatsBtn')
     // Cosmetics counter - outfits+hats only (charms are randomly equipped
     // one at a time via field pickups, see WeaponSystem.equipCharm, with no
     // persistent "owned charms" set to count against).
@@ -10990,6 +11197,11 @@ export class Game {
     const elapsed = this.timer.getElapsed()
     if (performance.now() < this._hitstopUntil) dt = 0
     else if (performance.now() < this.killcamUntil) dt *= KILLCAM_SLOWMO_FACTOR
+    // Manual slow-motion toggle (see _toggleSlowMo) - a deliberate content-
+    // creation tool, checked as its own branch so it never fights the
+    // automatic killcam/hitstop effects above (whichever's already active
+    // wins; this one only ever applies when neither of those is).
+    else if (this._manualSlowMoActive) dt *= MANUAL_SLOWMO_FACTOR
 
     this.camera.position.sub(this._shakeOffset)
     this.camera.position.y -= this._landingDipY

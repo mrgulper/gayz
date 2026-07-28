@@ -40,6 +40,8 @@ export const ACTIONS = [
   { id: 'fastTravelNearest', defaultKey: 'BracketLeft', labelKey: 'actionFastTravelNearest' },
   { id: 'smokeBomb', defaultKey: 'BracketRight', labelKey: 'actionSmokeBomb' },
   { id: 'parry', defaultKey: 'Minus', labelKey: 'actionParry' },
+  { id: 'slowMo', defaultKey: 'Equal', labelKey: 'actionSlowMo' },
+  { id: 'clipRecording', defaultKey: 'CapsLock', labelKey: 'actionClipRecording' },
 ]
 
 function defaultBindings() {
@@ -106,6 +108,8 @@ export function keyLabel(code) {
     BracketLeft: '[',
     BracketRight: ']',
     Minus: '-',
+    Equal: '=',
+    CapsLock: 'Caps',
   }
   return special[code] || code
 }
