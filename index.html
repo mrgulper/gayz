@@ -192,6 +192,7 @@
         <div class="stats-row"><span class="stats-label" id="stats-kills-label">Kills</span><span id="stats-kills">0</span></div>
         <div class="stats-row"><span class="stats-label" id="stats-points-label">Points</span><span id="stats-points">0</span></div>
         <div class="stats-row"><span class="stats-label" id="stats-coins-label">Coins</span><span id="stats-coins">0</span></div>
+        <div class="stats-row" id="stats-rank-row" style="display: none"><span class="stats-label" id="stats-rank-label">Rank</span><span id="stats-rank">Rookie</span></div>
       </div>
 
       <div id="coin-popup"></div>
@@ -264,6 +265,7 @@
         <p class="menu-news-ticker" id="menu-news-ticker"></p>
         <p class="menu-best-stats" id="menu-best-stats"></p>
         <p class="menu-best-stats" id="menu-career-rank"></p>
+        <p class="menu-best-stats" id="menu-prestige-badge" style="display: none"></p>
         <div id="menu-leaderboard" style="display: none"></div>
         <div id="menu-bossrush-leaderboard" style="display: none"></div>
         <div id="menu-hardcore-memorial" style="display: none"></div>
@@ -274,6 +276,7 @@
           <button class="difficulty-btn active" data-difficulty="normal" id="diff-normal">Normal</button>
           <button class="difficulty-btn" data-difficulty="hard" id="diff-hard">Hard</button>
           <button class="difficulty-btn" data-difficulty="nightmare" id="diff-nightmare" style="display: none">Nightmare</button>
+          <button class="difficulty-btn" data-difficulty="apex" id="diff-apex" style="display: none">Apex</button>
         </div>
         <div class="difficulty-row" id="companion-role-row">
           <button class="role-btn active" data-role="ranged" id="role-ranged">Ranged Support</button>
@@ -350,6 +353,10 @@
           <label class="score-attack-toggle" for="mutator-blackout">
             <input type="checkbox" id="mutator-blackout" />
             <span id="mutator-blackout-label">Blackout (near-zero ambient light, flashlight or bust)</span>
+          </label>
+          <label class="score-attack-toggle" for="mutator-boss-gauntlet">
+            <input type="checkbox" id="mutator-boss-gauntlet" />
+            <span id="mutator-boss-gauntlet-label">Boss Gauntlet (next boss spawns immediately on the last one's death, no waiting for the next night)</span>
           </label>
           <label class="score-attack-toggle" for="endless-toggle">
             <input type="checkbox" id="endless-toggle" />

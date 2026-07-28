@@ -14,7 +14,7 @@ import { Inventory } from './Inventory.js'
 import { DayNightCycle } from './DayNightCycle.js'
 import { ChestManager, Vault } from './Chests.js'
 import { RivalManager } from './RivalScavenger.js'
-import { loadMastery, saveMastery, MASTERY_THRESHOLD, MASTERY_DAMAGE_MULT } from './WeaponMastery.js'
+import { loadMastery, saveMastery, MASTERY_THRESHOLD, MASTERY_DAMAGE_MULT, GRANDMASTER_THRESHOLD, GRANDMASTER_DAMAGE_MULT } from './WeaponMastery.js'
 import { BarricadeWindows, REPAIR_REWARD_POINTS } from './BarricadeWindows.js'
 import { Minimap } from './Minimap.js'
 import { FullMap } from './FullMap.js'
@@ -132,7 +132,7 @@ const RUN_START_TRAITS = [
 // Difficulty-tier opening flavor (see the playBtn click handler) - a
 // one-line framing shown right as a fresh run begins, distinct from the
 // difficulty PICKER labels above (diffFlavorEasy/etc keyed the same way).
-const DIFFICULTY_FLAVOR_KEYS = { easy: 'diffFlavorEasy', normal: 'diffFlavorNormal', hard: 'diffFlavorHard', nightmare: 'diffFlavorNightmare' }
+const DIFFICULTY_FLAVOR_KEYS = { easy: 'diffFlavorEasy', normal: 'diffFlavorNormal', hard: 'diffFlavorHard', nightmare: 'diffFlavorNightmare', apex: 'diffFlavorApex' }
 // Shared with _updateTexts' loadout button labels and the Journal's World
 // State section (see _renderJournal) - one lookup instead of two copies.
 const LOADOUT_LABEL_KEYS = { balanced: 'loadoutBalanced', runner: 'loadoutRunner', tank: 'loadoutTank' }
@@ -147,7 +147,14 @@ const DIFFICULTY_PRESETS = {
   // Unlocked by the "Ground Truth" (true_ending) achievement - see the
   // diff-nightmare visibility toggle right after Achievements loads.
   nightmare: { damageMult: 1.8, spawnRateMult: 1.6, healthMult: 1.5, eliteChanceMult: 1.8, lootMult: 0.7 },
+  // Apex - unlocked by 'nightmare_conqueror' (see APEX_UNLOCK_NIGHT), the
+  // same "beat the game, unlock something harder" precedent nightmare
+  // itself already set, one rung further out.
+  apex: { damageMult: 2.3, spawnRateMult: 2, healthMult: 1.85, eliteChanceMult: 2.2, lootMult: 0.6 },
 }
+// Nights survived on Nightmare to unlock both 'nightmare_conqueror' and the
+// Apex difficulty tier it gates.
+const APEX_UNLOCK_NIGHT = 15
 
 const SETTINGS_STORAGE_KEY = 'gayz-settings'
 
@@ -217,10 +224,11 @@ function loadSettings() {
         glassHouse: parsed.mutators?.glassHouse ?? false,
         featuredEnemy: parsed.mutators?.featuredEnemy ?? false,
         blackout: parsed.mutators?.blackout ?? false,
+        bossGauntlet: parsed.mutators?.bossGauntlet ?? false,
       },
     }
   } catch {
-    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', companionName: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false } }
+    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', companionName: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
   }
 }
 
@@ -272,6 +280,30 @@ function saveEndlessBest(round) {
     localStorage.setItem(ENDLESS_BEST_KEY, String(round))
   } catch {
     // Storage unavailable - best round just won't persist.
+  }
+}
+
+// Endless Mode milestone rewards - a one-time coin bonus every
+// ENDLESS_MILESTONE_INTERVAL nights, tracked as "highest milestone ever
+// claimed" (not per-run) so re-reaching an already-claimed milestone in a
+// later run doesn't re-grant it, but pushing past a new one always does.
+const ENDLESS_MILESTONE_INTERVAL = 10
+const ENDLESS_MILESTONE_REWARD_COINS = 100
+const ENDLESS_MILESTONE_KEY = 'gayz-endless-milestone'
+
+function loadEndlessMilestone() {
+  try {
+    return Number(localStorage.getItem(ENDLESS_MILESTONE_KEY)) || 0
+  } catch {
+    return 0
+  }
+}
+
+function saveEndlessMilestone(n) {
+  try {
+    localStorage.setItem(ENDLESS_MILESTONE_KEY, String(n))
+  } catch {
+    // Storage unavailable - milestone progress just won't persist.
   }
 }
 
@@ -501,6 +533,34 @@ function saveCareerStats(stats) {
     localStorage.setItem(CAREER_STATS_KEY, JSON.stringify(stats))
   } catch {
     // Storage unavailable - career stats just won't persist across sessions.
+  }
+}
+
+// Companion Legacy - a persistent bonus level layered on top of
+// companionTrainingLevel (session-only by design, see Game.js's own
+// precedent comment on that field), growing +1 per completed run that
+// reaches COMPANION_LEGACY_MIN_NIGHT, capped at COMPANION_LEGACY_MAX. The
+// two levels are simply added together at the applyTraining() call sites
+// rather than needing any change to Companion.js itself.
+const COMPANION_LEGACY_KEY = 'gayz-companion-legacy'
+const COMPANION_LEGACY_MIN_NIGHT = 3
+const COMPANION_LEGACY_MAX = 15
+
+function loadCompanionLegacy() {
+  try {
+    const raw = localStorage.getItem(COMPANION_LEGACY_KEY)
+    const parsed = raw ? JSON.parse(raw) : {}
+    return { level: parsed.level || 0 }
+  } catch {
+    return { level: 0 }
+  }
+}
+
+function saveCompanionLegacy(data) {
+  try {
+    localStorage.setItem(COMPANION_LEGACY_KEY, JSON.stringify(data))
+  } catch {
+    // Storage unavailable - companion legacy just won't persist across sessions.
   }
 }
 
@@ -1115,6 +1175,13 @@ const AIRDROP_REST_Y = 1.1
 const AIRDROP_FALL_HEIGHT = 16
 const AIRDROP_FALL_DURATION_MS = 2200
 const BOSS_TIER_IDS = new Set(['colossus', 'titan'])
+// Boss Gauntlet mutator (see _onZombieKilled) - broader than BOSS_TIER_IDS
+// above on purpose: this needs every type _spawnBoss's own colossus/
+// broodmother alternation can produce, not just the epitaph/killcam subset.
+const BOSS_GAUNTLET_TYPE_IDS = new Set(['colossus', 'broodmother', 'titan'])
+// Trophy Wall Nightmare-tier variant (see _updateTrophyWall) - which
+// medallions glow the hot red-orange instead of standard gold.
+const NIGHTMARE_TIER_ACHIEVEMENT_IDS = new Set(['nightmare_survivor_5', 'nightmare_conqueror', 'completionist'])
 // Boss lore epitaphs (see _onZombieKilled's BOSS_TIER_IDS branch) - shown
 // once per boss type, ever (see narrativeStats.bossEpitaphsSeen), not once
 // per kill - a boss killed for the tenth time doesn't need its epitaph
@@ -1229,7 +1296,7 @@ const SHOP_ITEMS = [
     titleKey: 'shopTrainCompanion',
     give: (game) => {
       game.companionTrainingLevel += 1
-      game.companion.applyTraining(game.companionTrainingLevel)
+      game.companion.applyTraining(game.companionTrainingLevel + game.companionLegacy.level)
     },
   },
   // Companion gear: one-time equip per slot (see Companion.js's hasVest/
@@ -1646,6 +1713,7 @@ export class Game {
     this.minimapCanvas = document.getElementById('minimap')
     this.menuBestStats = document.getElementById('menu-best-stats')
     this.menuCareerRank = document.getElementById('menu-career-rank')
+    this.menuPrestigeBadge = document.getElementById('menu-prestige-badge')
     this.menuNewsTicker = document.getElementById('menu-news-ticker')
     this.weeklyFeaturedMutatorLine = document.getElementById('weekly-featured-mutator-line')
     this.menuLeaderboard = document.getElementById('menu-leaderboard')
@@ -1703,6 +1771,7 @@ export class Game {
     this.mutatorGlassHouse = document.getElementById('mutator-glass-house')
     this.mutatorFeaturedEnemy = document.getElementById('mutator-featured-enemy')
     this.mutatorBlackout = document.getElementById('mutator-blackout')
+    this.mutatorBossGauntlet = document.getElementById('mutator-boss-gauntlet')
     this.controlsGrid = document.getElementById('controls-grid')
     this.resetBindsBtn = document.getElementById('reset-binds-btn')
     this.rebindingAction = null
@@ -1713,9 +1782,11 @@ export class Game {
     this.nightDurationMs = this.settings.scoreAttackMode ? SCORE_ATTACK_NIGHT_DURATION_MS : NIGHT_DURATION_MS
     this.scoreAttackBest = loadScoreAttackBest()
     this.endlessBest = loadEndlessBest()
+    this.endlessMilestoneClaimed = loadEndlessMilestone()
     this.endingSeen = loadEndingSeen()
     this.bestStats = loadBestStats()
     this.careerStats = loadCareerStats()
+    this.companionLegacy = loadCompanionLegacy()
     this.narrativeStats = loadNarrativeStats()
     this.loginStreak = loadLoginStreak()
     this.leaderboard = loadLeaderboard()
@@ -2308,6 +2379,9 @@ export class Game {
     if (this.achievements.unlocked.has('true_ending')) {
       document.getElementById('diff-nightmare').style.display = ''
     }
+    if (this.achievements.unlocked.has('nightmare_conqueror')) {
+      document.getElementById('diff-apex').style.display = ''
+    }
     this._updateTrophyWall()
     this.nearTrophyWall = false
     this.killCountsByWeapon = {}
@@ -2382,6 +2456,8 @@ export class Game {
     this.coinshopOptions = document.getElementById('coinshop-options')
     this.coinshopCloseBtn = document.getElementById('coinshop-close-btn')
     this.statsCoins = document.getElementById('stats-coins')
+    this.statsRankRow = document.getElementById('stats-rank-row')
+    this.statsRank = document.getElementById('stats-rank')
     this.coinPopupEl = document.getElementById('coin-popup')
     this.bossHealthWrap = document.getElementById('boss-health-wrap')
     this.bossNameEl = document.getElementById('boss-name')
@@ -2559,7 +2635,11 @@ export class Game {
     // WeaponSystem's own weapons array is rebuilt from scratch every run.
     this.weaponMastery = loadMastery()
     for (const w of this.weapons.weapons) {
-      if (this.weaponMastery.mastered.has(w.id)) w.masteryMult = MASTERY_DAMAGE_MULT
+      // Grandmaster replaces mastery's own multiplier rather than stacking
+      // with it (see WeaponMastery.js) - checked first so it wins when both
+      // are true.
+      if (this.weaponMastery.grandmastered.has(w.id)) w.masteryMult = GRANDMASTER_DAMAGE_MULT
+      else if (this.weaponMastery.mastered.has(w.id)) w.masteryMult = MASTERY_DAMAGE_MULT
     }
     // Re-apply already-earned per-weapon challenge camos - before
     // equippedSkin below, which (if the player has chosen a global skin)
@@ -4412,6 +4492,11 @@ export class Game {
       this.settings.mutators.blackout = this.mutatorBlackout.checked
       saveSettings(this.settings)
     })
+    this.mutatorBossGauntlet.checked = this.settings.mutators.bossGauntlet
+    this.mutatorBossGauntlet.addEventListener('change', () => {
+      this.settings.mutators.bossGauntlet = this.mutatorBossGauntlet.checked
+      saveSettings(this.settings)
+    })
     this.nicknameInput.value = this.settings.nickname
     this.companionNameInput.value = this.settings.companionName
     this._updateCompanionName()
@@ -4547,7 +4632,13 @@ export class Game {
     this.companion = new Companion(this.scene, pos.x, pos.z, role)
     // A role swap rebuilds the companion from scratch - reapply any
     // points-bought training/gear so switching roles mid-run doesn't reset it.
-    if (this.companionTrainingLevel > 0) this.companion.applyTraining(this.companionTrainingLevel)
+    // Companion Legacy (see COMPANION_LEGACY_KEY) applies even on a
+    // trainingLevel-0 fresh run, unlike the training-only check this used
+    // to be - a returning player's legacy bonus shouldn't need a single
+    // in-run purchase to kick in first.
+    if (this.companionTrainingLevel > 0 || this.companionLegacy.level > 0) {
+      this.companion.applyTraining(this.companionTrainingLevel + this.companionLegacy.level)
+    }
     if (this.companionGear.vest) this.companion.equipVest()
     if (this.companionGear.rig) this.companion.equipRig()
     if (this.coinShopPurchased.has('companion_speed')) this.companion.equipSpeedBoost()
@@ -5333,6 +5424,7 @@ export class Game {
     saveMetaProgress(this.metaProgress)
     this._showLoreToast(t('prestigeComplete', { level: this.metaProgress.prestigeLevel, bonus: this.metaProgress.prestigeLevel * 10 }))
     this._renderUpgradesOptions()
+    this._updatePrestigeBadge()
   }
 
   _closeUpgradesPanel() {
@@ -5793,11 +5885,13 @@ export class Game {
     document.getElementById('stats-deaths-label').textContent = t('deathsLabel')
     document.getElementById('stats-kills-label').textContent = t('killsLabel')
     document.getElementById('stats-points-label').textContent = t('scrapStatLabel')
+    document.getElementById('stats-rank-label').textContent = t('statsRankLabel')
 
     document.getElementById('diff-easy').textContent = t('difficultyEasy')
     document.getElementById('diff-normal').textContent = t('difficultyNormal')
     document.getElementById('diff-hard').textContent = t('difficultyHard')
     document.getElementById('diff-nightmare').textContent = t('difficultyNightmare')
+    document.getElementById('diff-apex').textContent = t('difficultyApex')
 
     const roleLabelKeys = { ranged: 'roleRanged', melee: 'roleMelee', medic: 'roleMedic' }
     for (const btn of this.roleBtns) btn.textContent = t(roleLabelKeys[btn.dataset.role])
@@ -5827,6 +5921,7 @@ export class Game {
     document.getElementById('mutator-glass-house-label').textContent = t('mutatorGlassHouse')
     document.getElementById('mutator-featured-enemy-label').textContent = t('mutatorFeaturedEnemy')
     document.getElementById('mutator-blackout-label').textContent = t('mutatorBlackout')
+    document.getElementById('mutator-boss-gauntlet-label').textContent = t('mutatorBossGauntlet')
     document.getElementById('shake-intensity-label').textContent = t('shakeIntensityLabel')
     document.getElementById('reduce-flashing-label').textContent = t('reduceFlashingLabel')
     document.getElementById('toggle-sprint-label').textContent = t('toggleSprintLabel')
@@ -5860,6 +5955,24 @@ export class Game {
         : t('careerRankLabel', { rank: t(careerRankTitleKey(this.careerStats.totalKills)), kills: this.careerStats.totalKills })
     }
     this._updateMenuNewsTicker()
+    this._updatePrestigeBadge()
+  }
+
+  // Prestige cosmetic badges - tiered color escalation (bronze/silver/gold-
+  // ish) purely for visual flair, distinct from the numeric +10%/level
+  // bonus prestigeLevelLine already shows inside the Legacy panel.
+  _updatePrestigeBadge() {
+    if (!this.menuPrestigeBadge) return
+    const level = this.metaProgress.prestigeLevel
+    if (level <= 0) {
+      this.menuPrestigeBadge.style.display = 'none'
+      return
+    }
+    this.menuPrestigeBadge.style.display = ''
+    this.menuPrestigeBadge.classList.remove('prestige-tier-1', 'prestige-tier-2', 'prestige-tier-3')
+    const tier = level >= 6 ? 3 : level >= 3 ? 2 : 1
+    this.menuPrestigeBadge.classList.add(`prestige-tier-${tier}`)
+    this.menuPrestigeBadge.textContent = t('prestigeBadgeLabel', { level })
   }
 
   // Main-menu news ticker - tied to bestStats.bestNight (already persisted,
@@ -5992,13 +6105,16 @@ export class Game {
     this.panelWeaponsList.innerHTML = this.weapons
       .getSummary()
       .map((w) => {
+        const grandmastered = this.weaponMastery.grandmastered.has(w.id)
         const mastered = w.masteryMult > 1
         const kills = this.weaponMastery.kills[w.id] || 0
-        const masteryTag = mastered
-          ? `<span class="mastery-tag mastered" title="${t('masteryMasteredTitle', { pct: Math.round((MASTERY_DAMAGE_MULT - 1) * 100) })}">★</span>`
-          : w.unlocked
-            ? `<span class="mastery-tag" title="${t('masteryProgressTitle')}">${Math.min(kills, MASTERY_THRESHOLD)}/${MASTERY_THRESHOLD}</span>`
-            : ''
+        const masteryTag = grandmastered
+          ? `<span class="mastery-tag grandmastered" title="${t('masteryGrandmasteredTitle', { pct: Math.round((GRANDMASTER_DAMAGE_MULT - 1) * 100) })}">★★</span>`
+          : mastered
+            ? `<span class="mastery-tag mastered" title="${t('masteryMasteredTitle', { pct: Math.round((MASTERY_DAMAGE_MULT - 1) * 100) })}">★</span>`
+            : w.unlocked
+              ? `<span class="mastery-tag" title="${t('masteryProgressTitle')}">${Math.min(kills, MASTERY_THRESHOLD)}/${MASTERY_THRESHOLD}</span>`
+              : ''
         const name = `${t(w.nameKey)} ${masteryTag}`
         const slotButtons = this.settings.hotbar
           .map((slotWeaponId, i) => {
@@ -6554,6 +6670,15 @@ export class Game {
     this._updateStatsPanel()
     this._maybeDropObstacle(x, z)
 
+    // Boss Gauntlet mutator - the next boss walks in immediately on this
+    // one's death, no waiting for the next night boundary. Checked
+    // separately from the BOSS_TIER_IDS branch above (which only covers
+    // colossus/titan for the epitaph/killcam reward) since _spawnBoss's own
+    // alternation also treats broodmother as an equal boss slot.
+    if (this.settings.mutators.bossGauntlet && BOSS_GAUNTLET_TYPE_IDS.has(zombieTypeId)) {
+      this.zombies.spawnBossGauntletNext()
+    }
+
     if (!this.bestiaryEncountered.has(zombieTypeId)) {
       this.bestiaryEncountered.add(zombieTypeId)
       saveEncountered(this.bestiaryEncountered)
@@ -6641,17 +6766,24 @@ export class Game {
   // guns/melee slot, not an environmental kill source (trap/C4/vehicle/etc,
   // none of which have a matching weapons[] entry to apply a bonus to).
   _trackWeaponMastery(weaponId) {
-    if (this.weaponMastery.mastered.has(weaponId)) return
+    // Grandmaster (see WeaponMastery.js) is the real stopping point now -
+    // kills need to keep tallying past the mastery threshold below for a
+    // weapon to ever reach it.
+    if (this.weaponMastery.grandmastered.has(weaponId)) return
     const w = this.weapons.weapons.find((w) => w.id === weaponId)
     if (!w) return
 
     this.weaponMastery.kills[weaponId] = (this.weaponMastery.kills[weaponId] || 0) + 1
-    if (this.weaponMastery.kills[weaponId] >= MASTERY_THRESHOLD) {
+    if (!this.weaponMastery.mastered.has(weaponId) && this.weaponMastery.kills[weaponId] >= MASTERY_THRESHOLD) {
       this.weaponMastery.mastered.add(weaponId)
       w.masteryMult = MASTERY_DAMAGE_MULT
       const loreKey = WEAPON_MASTERY_LORE_KEYS[weaponId]
       const masteredText = t('toastWeaponMastered', { weapon: t(this.weapons._nameKeyFor(w)) })
       this._showLoreToast(loreKey ? `${masteredText} ${t(loreKey)}` : masteredText)
+    } else if (this.weaponMastery.mastered.has(weaponId) && this.weaponMastery.kills[weaponId] >= GRANDMASTER_THRESHOLD) {
+      this.weaponMastery.grandmastered.add(weaponId)
+      w.masteryMult = GRANDMASTER_DAMAGE_MULT
+      this._showLoreToast(t('toastWeaponGrandmastered', { weapon: t(this.weapons._nameKeyFor(w)) }))
     }
     saveMastery(this.weaponMastery)
   }
@@ -6692,8 +6824,14 @@ export class Game {
       const mat = this.trophyWall.medallions[i]
       if (!mat) return
       const unlocked = this.achievements.unlocked.has(ach.id)
-      mat.color.setHex(unlocked ? 0xffcf5c : 0x1c1a16)
-      mat.emissive.setHex(unlocked ? 0xffcf5c : 0x000000)
+      // Nightmare-tier medallions (see NIGHTMARE_TIER_ACHIEVEMENT_IDS) glow
+      // a distinct hot red-orange instead of the standard gold, so the
+      // hardest-earned trophies visibly stand out on the same wall rather
+      // than blending in as just more gold medallions.
+      const isNightmareTier = NIGHTMARE_TIER_ACHIEVEMENT_IDS.has(ach.id)
+      const unlockedColor = isNightmareTier ? 0xff4a2a : 0xffcf5c
+      mat.color.setHex(unlocked ? unlockedColor : 0x1c1a16)
+      mat.emissive.setHex(unlocked ? unlockedColor : 0x000000)
       mat.emissiveIntensity = unlocked ? 1.1 : 0
     })
   }
@@ -6827,6 +6965,15 @@ export class Game {
       }
     }
     saveCareerStats(this.careerStats)
+
+    // Companion Legacy - grows +1 per completed run reaching
+    // COMPANION_LEGACY_MIN_NIGHT, capped at COMPANION_LEGACY_MAX. Checked
+    // here (the shared "a run just ended" hook, death or dawn-survival)
+    // rather than only on death, so a good survive-to-dawn run counts too.
+    if (this.night >= COMPANION_LEGACY_MIN_NIGHT && this.companionLegacy.level < COMPANION_LEGACY_MAX) {
+      this.companionLegacy.level += 1
+      saveCompanionLegacy(this.companionLegacy)
+    }
   }
 
   _onPlayerDeath() {
@@ -6887,6 +7034,14 @@ export class Game {
       if (this.night > this.endlessBest) {
         this.endlessBest = this.night
         saveEndlessBest(this.endlessBest)
+      }
+      const milestonesReached = Math.floor(this.night / ENDLESS_MILESTONE_INTERVAL)
+      if (milestonesReached > this.endlessMilestoneClaimed) {
+        const reward = (milestonesReached - this.endlessMilestoneClaimed) * ENDLESS_MILESTONE_REWARD_COINS
+        this.endlessMilestoneClaimed = milestonesReached
+        saveEndlessMilestone(this.endlessMilestoneClaimed)
+        this.coins += reward
+        this._showLoreToast(t('endlessMilestoneToast', { night: milestonesReached * ENDLESS_MILESTONE_INTERVAL, coins: reward }))
       }
       this.deathEndless.textContent = t('endlessResult', { round: this.night, best: this.endlessBest })
       this.deathEndless.style.display = 'block'
@@ -7298,6 +7453,17 @@ export class Game {
     this.statsKills.textContent = this.totalKills
     this.statsPoints.textContent = this.points
     this.statsCoins.textContent = this.coins
+    // Career Rank HUD badge - the same title menuCareerRank already shows
+    // on the main menu, kept visible during gameplay too instead of only
+    // being checkable from the menu between runs.
+    if (this.statsRankRow) {
+      if (this.careerStats.totalKills > 0) {
+        this.statsRankRow.style.display = ''
+        this.statsRank.textContent = t(careerRankTitleKey(this.careerStats.totalKills))
+      } else {
+        this.statsRankRow.style.display = 'none'
+      }
+    }
 
     if (this._isRoundMode()) {
       this.phaseLabel.textContent = 'Zombies left'
@@ -9221,6 +9387,17 @@ export class Game {
         this._companionBark('nightStart')
         if (this.night >= 5) this.achievements.unlock('survivor_5')
         if (this.night >= 10) this.achievements.unlock('survivor_10')
+        // Nightmare-tier achievements - same night thresholds as
+        // survivor_5/10 above, gated on actually being on Nightmare rather
+        // than new milestones, since surviving 5-10 nights means something
+        // different at this difficulty.
+        if (this.settings.difficulty === 'nightmare') {
+          if (this.night >= 5) this.achievements.unlock('nightmare_survivor_5')
+          if (this.night >= APEX_UNLOCK_NIGHT) {
+            this.achievements.unlock('nightmare_conqueror')
+            document.getElementById('diff-apex').style.display = ''
+          }
+        }
         let endingTriggered = false
         if (!this.endingSeen && this.night >= ENDING_MILESTONE_NIGHT && this.achievements.unlocked.has('true_ending')) {
           this._showEndingSequence()

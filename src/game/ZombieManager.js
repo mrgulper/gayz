@@ -532,6 +532,14 @@ export class ZombieManager {
     audioEngine.playBossStinger()
   }
 
+  // Public entry point for Boss Gauntlet mode (see Game.js's _onZombieKilled
+  // BOSS_TIER_IDS branch) - just _spawnBoss above, exposed without an
+  // underscore so Game.js has a real public method to call rather than
+  // reaching into this class's own internal one directly.
+  spawnBossGauntletNext() {
+    this._spawnBoss()
+  }
+
   // One-off guardian spawn at a specific spot (the VIREO facility terminal
   // fight) rather than the normal random-radius boss walk-in - returns the
   // zombie instance so the caller can watch its state for "is it dead yet".

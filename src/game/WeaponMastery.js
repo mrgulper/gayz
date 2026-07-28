@@ -7,6 +7,12 @@
 const STORAGE_KEY = 'gayz-weapon-mastery'
 export const MASTERY_THRESHOLD = 75
 export const MASTERY_DAMAGE_MULT = 1.12
+// Grandmaster - a second, further-out tier past mastery (see Game.js's
+// _trackWeaponMastery), replacing MASTERY_DAMAGE_MULT with a bigger bonus
+// rather than stacking on top of it, so the number on a fully-progressed
+// weapon stays a single clean multiplier instead of two compounding ones.
+export const GRANDMASTER_THRESHOLD = 250
+export const GRANDMASTER_DAMAGE_MULT = 1.25
 
 export function loadMastery() {
   try {
@@ -15,15 +21,20 @@ export function loadMastery() {
     return {
       kills: parsed.kills || {},
       mastered: new Set(parsed.mastered || []),
+      grandmastered: new Set(parsed.grandmastered || []),
     }
   } catch {
-    return { kills: {}, mastered: new Set() }
+    return { kills: {}, mastered: new Set(), grandmastered: new Set() }
   }
 }
 
 export function saveMastery(mastery) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ kills: mastery.kills, mastered: [...mastery.mastered] }))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      kills: mastery.kills,
+      mastered: [...mastery.mastered],
+      grandmastered: [...mastery.grandmastered],
+    }))
   } catch {
     // Storage unavailable - mastery progress just won't persist across sessions.
   }

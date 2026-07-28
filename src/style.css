@@ -738,6 +738,27 @@ body.reduce-flashing #critical-blood-overlay.show {
   margin: 2px 0 6px;
 }
 
+/* Prestige cosmetic badges - escalating color per tier (see
+   _updatePrestigeBadge), the same "number alone isn't a reward, color/
+   presentation is" idea career rank titles already use. */
+#menu-prestige-badge {
+  font-weight: 700 !important;
+  letter-spacing: 0.4px;
+}
+
+#menu-prestige-badge.prestige-tier-1 {
+  color: #c98a4b !important;
+}
+
+#menu-prestige-badge.prestige-tier-2 {
+  color: #cfd6de !important;
+}
+
+#menu-prestige-badge.prestige-tier-3 {
+  color: #ffd35c !important;
+  text-shadow: 0 0 6px rgba(255, 211, 92, 0.5);
+}
+
 .leaderboard-row {
   display: flex;
   justify-content: center;
@@ -1147,6 +1168,12 @@ body.reduce-flashing #critical-blood-overlay.show {
 .mastery-tag.mastered {
   color: #ffcf5c;
   opacity: 1;
+}
+
+.mastery-tag.grandmastered {
+  color: #7ce0ff;
+  opacity: 1;
+  text-shadow: 0 0 5px rgba(124, 224, 255, 0.6);
 }
 
 .hotbar-assign-btn {
