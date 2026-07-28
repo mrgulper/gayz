@@ -238,6 +238,8 @@
 
       <div id="taunt-text"></div>
 
+      <div id="tutorial-hint"></div>
+
       <div id="interact-prompt">Press <b>F</b> to open</div>
 
       <div id="ammo-station-progress-wrap" style="display: none">
@@ -254,6 +256,8 @@
         <div id="nightmare-overlay" style="display: none"></div>
       </div>
 
+      <div id="screen-fade"></div>
+
       <div id="menu">
         <div id="menu-corner-nav">
           <button id="upgrades-btn">Upgrades</button>
@@ -263,6 +267,7 @@
           <button id="achievements-btn">Achievements</button>
           <button id="bestiary-btn">Bestiary</button>
           <button id="profile-btn">Profile</button>
+          <button id="credits-btn">Credits</button>
         </div>
         <h1>GayZ</h1>
         <p id="menu-subtitle">Broken city block &mdash; survive, scavenge, shoot</p>
@@ -412,6 +417,10 @@
             <span id="sensitivity-value" class="audio-value">100%</span>
           </div>
           <div class="audio-row">
+            <label for="invert-y-toggle" id="invert-y-label">Invert Look (Y-axis)</label>
+            <input type="checkbox" id="invert-y-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
             <label for="fov-slider" id="fov-label">Field of View</label>
             <input type="range" id="fov-slider" min="60" max="100" value="75" />
             <span id="fov-value" class="audio-value">75</span>
@@ -479,6 +488,8 @@
           </div>
           <div id="controls-grid" class="controls-grid"></div>
           <button id="reset-binds-btn">Reset to Defaults</button>
+          <button id="restore-defaults-btn">Restore Default Settings</button>
+          <button id="reset-progress-btn" class="danger-btn">Reset All Progress</button>
         </div>
 
         <p id="settings-hint">Click anywhere to close</p>
@@ -617,6 +628,19 @@
         <h2 id="profile-panel-title">Profile</h2>
         <div class="perk-options" id="profile-options"></div>
         <button id="profile-close-btn">Close</button>
+      </div>
+
+      <div id="credits-panel">
+        <h2 id="credits-panel-title">Credits &amp; What's New</h2>
+        <div id="credits-content">
+          <h3>GayZ</h3>
+          <p>Built solo as a hobby project. Thanks for playing.</p>
+          <h3>Assets</h3>
+          <p>3D models courtesy of Kenney.nl, Quaternius, and the poly.pizza community, all under CC0 &mdash; free for any use, no attribution required, credited here anyway because their work made this game possible.</p>
+          <h3>What's New</h3>
+          <p>Recent additions: rival scavenger rivalries, a kill feed, taunts, death memorials, a profile screen, daily leaderboards, and a batch of accessibility and settings polish.</p>
+        </div>
+        <button id="credits-close-btn">Close</button>
       </div>
 
       <div id="xp-levelup-panel">

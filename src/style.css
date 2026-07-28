@@ -1038,10 +1038,13 @@ body.reduce-flashing #critical-blood-overlay.show {
    strip, top-right so it never competes with the bottom-center toast/bark/
    taunt lines above. Each entry plays its own fade once on creation and is
    removed from the DOM by JS after KILL_FEED_ENTRY_MS, rather than being
-   toggled via a shared .show class like the single-element toasts above. */
+   toggled via a shared .show class like the single-element toasts above.
+   Starts below #achievement-toast's own top-right slot (found to visually
+   overlap it when both fire around the same moment, e.g. a boss kill that
+   also unlocks an achievement) rather than sharing its top:90px. */
 #kill-feed {
   position: absolute;
-  top: 90px;
+  top: 160px;
   right: 16px;
   display: flex;
   flex-direction: column;
@@ -1065,6 +1068,96 @@ body.reduce-flashing #critical-blood-overlay.show {
 @keyframes killFeedIn {
   0% { opacity: 0; transform: translateX(20px); }
   100% { opacity: 1; transform: translateX(0); }
+}
+
+/* Screen fade transition (see Game.js's playBtn click handler) - masks the
+   otherwise-instant menu-to-game switch. Same show/hide re-trigger pattern
+   as every toast in this codebase, just a full-viewport black layer whose
+   "show" animation snaps to opaque then fades back out, rather than a
+   toggled opacity transition. */
+#screen-fade {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 30;
+}
+
+#screen-fade.show {
+  animation: screenFadeIn 0.6s ease-out;
+}
+
+@keyframes screenFadeIn {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* First-time tutorial hint sequence (see Game.js's _maybeShowTutorialHints)
+   - same toast-style show/hide as #companion-bark/#taunt-text, own vertical
+   slot (below #taunt-text's 220px) so a taunt during someone's very first
+   session doesn't collide with it. */
+#tutorial-hint {
+  position: absolute;
+  bottom: 265px;
+  left: 50%;
+  transform: translate(-50%, 0);
+  max-width: min(420px, 80vw);
+  text-align: center;
+  font-size: 14px;
+  color: #ffe08a;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  opacity: 0;
+  pointer-events: none;
+}
+
+#tutorial-hint.show {
+  animation: tutorialHint 3.6s ease-out;
+}
+
+@keyframes tutorialHint {
+  0% { opacity: 0; transform: translate(-50%, 8px); }
+  10% { opacity: 1; transform: translate(-50%, 0); }
+  85% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, -6px); }
+}
+
+/* Credits & What's New (see #credits-content) - static prose, scrollable
+   rather than laid out as perk-option rows like the achievements/bestiary/
+   profile panels since this content isn't a data-driven list. */
+#credits-content {
+  width: min(420px, 84vw);
+  max-height: 60vh;
+  overflow-y: auto;
+  text-align: left;
+}
+
+#credits-content h3 {
+  margin: 14px 0 4px;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #e3a63c;
+}
+
+#credits-content h3:first-child {
+  margin-top: 0;
+}
+
+#credits-content p {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* Custom menu cursor - only meaningfully visible outside pointer-lock
+   gameplay (Pointer Lock hides the OS cursor entirely during play), so this
+   just themes the default menu/UI cursor rather than needing any
+   lock-state-aware toggle. Small crosshair dot in the game's own amber
+   accent, inline SVG data URI so it needs no separate asset file. */
+body {
+  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="3" fill="none" stroke="%23e3a63c" stroke-width="1.5"/><circle cx="10" cy="10" r="1" fill="%23e3a63c"/></svg>') 10 10, auto;
 }
 
 @keyframes toast {
@@ -1313,6 +1406,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 #achievements-panel,
 #bestiary-panel,
 #profile-panel,
+#credits-panel,
 #xp-levelup-panel,
 #pause-overlay,
 #coinshop-panel,
@@ -1334,6 +1428,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 #achievements-panel-title,
 #bestiary-panel-title,
 #profile-panel-title,
+#credits-panel-title,
 #xp-levelup-panel-title,
 #pause-overlay-title,
 #coinshop-panel-title,
@@ -1657,6 +1752,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 #achievements-close-btn,
 #bestiary-close-btn,
 #profile-close-btn,
+#credits-close-btn,
 #pause-resume-btn,
 #pause-settings-btn,
 #pause-quit-btn,
@@ -1719,6 +1815,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 #achievements-close-btn:hover,
 #bestiary-close-btn:hover,
 #profile-close-btn:hover,
+#credits-close-btn:hover,
 #pause-resume-btn:hover,
 #pause-settings-btn:hover,
 #pause-quit-btn:hover,
@@ -2179,7 +2276,8 @@ body.reduce-flashing #critical-blood-overlay.show {
   border-color: #e3a63c;
 }
 
-#reset-binds-btn {
+#reset-binds-btn,
+#restore-defaults-btn {
   margin-top: 16px;
   padding: 8px 20px;
   font-size: 13px;
@@ -2192,8 +2290,31 @@ body.reduce-flashing #critical-blood-overlay.show {
   cursor: pointer;
 }
 
-#reset-binds-btn:hover {
+#reset-binds-btn:hover,
+#restore-defaults-btn:hover {
   border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Reset All Progress (see Game.js's _handleResetProgressClick) - visually
+   distinct red/warning styling since this is the single most destructive
+   action in the settings panel, separate from the neutral reset-bindings/
+   restore-defaults buttons above. */
+.danger-btn {
+  margin-top: 8px;
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: #d64545;
+  background: transparent;
+  border: 1px solid rgba(214, 69, 69, 0.5);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.danger-btn:hover {
+  border-color: #d64545;
+  background: rgba(214, 69, 69, 0.1);
 }
 
 #screen-overlays {

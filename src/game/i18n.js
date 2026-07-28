@@ -734,6 +734,40 @@ const STRINGS = {
     // top-N attempts for today's date specifically, distinct from
     // dailyBest's single lifetime-best score.
     dailyLeaderboardTitle: "Today's Top Runs",
+    // Credits & What's New panel (see _openCreditsPanel) - dev credit plus
+    // CC0 asset-pack attributions (Kenney, Quaternius, poly.pizza - see
+    // 3D_ASSET_OVERHAUL.md), and a short recent-additions blurb.
+    creditsBtn: 'Credits',
+    creditsPanelTitle: 'Credits & What\'s New',
+    creditsDevTitle: 'GayZ',
+    creditsDevBody: 'Built solo as a hobby project. Thanks for playing.',
+    creditsAssetsTitle: 'Assets',
+    creditsAssetsBody: '3D models courtesy of Kenney.nl, Quaternius, and the poly.pizza community, all under CC0 - free for any use, no attribution required, credited here anyway because their work made this game possible.',
+    whatsNewTitle: "What's New",
+    whatsNewBody: 'Recent additions: rival scavenger rivalries, a kill feed, taunts, death memorials, a profile screen, daily leaderboards, and a batch of accessibility and settings polish.',
+    // Invert-Y look option (see PlayerController's invertY field) -
+    // intercepts movementY in the same capture-phase mousemove listener
+    // that already exists to drop out-of-range deltas before
+    // PointerLockControls ever sees the event.
+    invertYLabel: 'Invert Look (Y-axis)',
+    // Reset Progress (see _resetAllProgress) - a deliberately two-step
+    // confirm (click arms it, a second click within the window actually
+    // wipes) since this is the single most destructive action in the
+    // settings panel.
+    resetProgressLabel: 'Reset All Progress',
+    resetProgressConfirm: 'Click again to permanently erase everything',
+    restoreDefaultsBtn: 'Restore Default Settings',
+    // Keybind collision detection (see _startRebind's collision check) -
+    // previously two actions could silently share one key with no warning.
+    keybindCollision: '{key} is already bound to another action',
+    // First-time tutorial hint sequence (see _maybeShowTutorialHints) - a
+    // one-time (localStorage-gated) sequence, distinct from the always-
+    // visible static menu-subhint text.
+    tutorialHint1: 'Move with **W A S D**',
+    tutorialHint2: 'Press **F** to interact with doors, chests, and machines',
+    tutorialHint3: 'Press **E** to sprint, **C** to crouch',
+    tutorialHint4: 'Press **Tab** to open your inventory',
+    windowTitlePlaying: 'Night {night} · {kills} kills - GayZ',
   },
   zh: {
     menuSubtitle: '破败的街区——生存、搜寻、射击',

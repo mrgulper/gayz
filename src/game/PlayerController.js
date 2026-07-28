@@ -67,9 +67,20 @@ const MAX_MOUSE_DELTA = 250
 
 export class PlayerController {
   constructor(camera, domElement, colliders, groundMeshes) {
+    this.invertY = false
     document.addEventListener('mousemove', (e) => {
       if (Math.abs(e.movementX) > MAX_MOUSE_DELTA || Math.abs(e.movementY) > MAX_MOUSE_DELTA) {
         e.stopImmediatePropagation()
+        return
+      }
+      // Invert-Y look (see this.invertY) - PointerLockControls has no
+      // built-in invert option, and movementY is read-only on the native
+      // event, so this shadows it with an own-property before the event
+      // reaches PointerLockControls' own bubble-phase listener (registered
+      // without capture, so it always runs after this one - same ordering
+      // guarantee the delta-clamp above already relies on).
+      if (this.invertY) {
+        Object.defineProperty(e, 'movementY', { value: -e.movementY, configurable: true })
       }
     }, { capture: true })
 

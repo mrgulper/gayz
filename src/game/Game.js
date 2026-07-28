@@ -168,6 +168,7 @@ function loadSettings() {
       sfxVolume: parsed.sfxVolume ?? 100,
       difficulty: DIFFICULTY_PRESETS[parsed.difficulty] ? parsed.difficulty : 'normal',
       sensitivity: parsed.sensitivity ?? 100,
+      invertY: parsed.invertY ?? false,
       fov: parsed.fov ?? 75,
       hudScale: parsed.hudScale ?? 100,
       hudOpacity: parsed.hudOpacity ?? 100,
@@ -228,8 +229,16 @@ function loadSettings() {
       },
     }
   } catch {
-    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', companionName: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+    return defaultSettings()
   }
+}
+
+// Restore Default Settings (see _restoreDefaultSettings) reuses this exact
+// same shape loadSettings' own catch-block fallback already used inline -
+// extracted once so there's a single source of truth for "what are the
+// defaults" instead of two copies drifting apart.
+function defaultSettings() {
+  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', companionName: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -1086,6 +1095,17 @@ const TAUNT_LINES = [
 // their own timer rather than waiting for a manual clear.
 const KILL_FEED_MAX_ENTRIES = 5
 const KILL_FEED_ENTRY_MS = 4000
+// Reset All Progress - see _handleResetProgressClick's own comment for why
+// this is a two-click arm/confirm instead of a single button.
+const RESET_PROGRESS_CONFIRM_MS = 4000
+// Achievement toast queue - slightly longer than the toast's own 3.2s CSS
+// animation (see #achievement-toast.show) so one fully fades before the
+// next begins, instead of visually cutting it off mid-animation.
+const ACHIEVEMENT_TOAST_GAP_MS = 3400
+// First-time tutorial hint sequence - see _maybeShowTutorialHints.
+const TUTORIAL_SEEN_KEY = 'gayz-tutorial-seen'
+const TUTORIAL_HINT_START_DELAY_MS = 2500
+const TUTORIAL_HINT_INTERVAL_MS = 4200
 const KILLCAM_ZOOM_FOV_MULT = 0.75
 // Killstreak rewards - this.killStreak counts consecutive kills without
 // dying (reset in _onPlayerDeath), distinct from the flat "every 10th kill"
@@ -1881,6 +1901,7 @@ export class Game {
     this.sfxVolumeValue = document.getElementById('sfx-volume-value')
     this.sensitivitySlider = document.getElementById('sensitivity-slider')
     this.sensitivityValue = document.getElementById('sensitivity-value')
+    this.invertYToggle = document.getElementById('invert-y-toggle')
     this.fovSlider = document.getElementById('fov-slider')
     this.fovValue = document.getElementById('fov-value')
     this.hudScaleSlider = document.getElementById('hud-scale-slider')
@@ -1924,6 +1945,11 @@ export class Game {
     this.mutatorBossGauntlet = document.getElementById('mutator-boss-gauntlet')
     this.controlsGrid = document.getElementById('controls-grid')
     this.resetBindsBtn = document.getElementById('reset-binds-btn')
+    this.restoreDefaultsBtn = document.getElementById('restore-defaults-btn')
+    this.resetProgressBtn = document.getElementById('reset-progress-btn')
+    this._resetProgressArmed = false
+    this.screenFadeEl = document.getElementById('screen-fade')
+    this.tutorialHintEl = document.getElementById('tutorial-hint')
     this.rebindingAction = null
     this.settingsOpen = false
     this.settings = loadSettings()
@@ -2560,6 +2586,12 @@ export class Game {
     this.achievementLabel = document.getElementById('achievement-label')
     this.achievementTitle = document.getElementById('achievement-title')
     this.achievementToast = document.getElementById('achievement-toast')
+    // Achievement toast queue (see _showAchievementToast) - the toast is a
+    // single shared element like every other toast in this codebase, so
+    // without a queue, two achievements unlocking in the same tick (e.g.
+    // the completionist auto-cascade) would silently clobber one another.
+    this._achievementToastQueue = []
+    this._achievementToastShowing = false
     this.loreToast = document.getElementById('lore-toast')
     this.companionBarkEl = document.getElementById('companion-bark')
     this.lowHealthBarked = false
@@ -2619,6 +2651,10 @@ export class Game {
     this.tauntTextEl = document.getElementById('taunt-text')
     this.dailyLeaderboardEl = document.getElementById('death-daily-leaderboard')
     this.shareRunCardBtn = document.getElementById('share-run-card-btn')
+    this.creditsBtn = document.getElementById('credits-btn')
+    this.creditsPanel = document.getElementById('credits-panel')
+    this.creditsPanelTitle = document.getElementById('credits-panel-title')
+    this.creditsCloseBtn = document.getElementById('credits-close-btn')
     this.coinshopBtn = document.getElementById('coinshop-btn')
     this.coinshopPanel = document.getElementById('coinshop-panel')
     this.coinshopPanelTitle = document.getElementById('coinshop-panel-title')
@@ -2802,6 +2838,8 @@ export class Game {
     this._rivalsClaimedAirdrop = false
     this._rivalsClaimedByName = null
     this._spawnDeathMemorials()
+    this._baseTitle = document.title
+    this._maybeShowTutorialHints()
     // Weapon mastery (see WeaponMastery.js) - re-applies any previously
     // earned masteryMult bonuses to this fresh set of weapon objects, since
     // WeaponSystem's own weapons array is rebuilt from scratch every run.
@@ -2957,6 +2995,12 @@ export class Game {
 
   _bindMenu() {
     this.playBtn.addEventListener('click', () => {
+      // Screen fade transition - masks the otherwise-instant menu-to-game
+      // switch with a brief flash-to-black-then-fade, same show/hide
+      // re-trigger pattern as every toast in this codebase.
+      this.screenFadeEl.classList.remove('show')
+      void this.screenFadeEl.offsetWidth
+      this.screenFadeEl.classList.add('show')
       audioEngine.init()
       audioEngine.resume()
       audioEngine.startAmbient()
@@ -4406,6 +4450,8 @@ export class Game {
     this.sensitivitySlider.value = this.settings.sensitivity
     this.sensitivityValue.textContent = `${this.settings.sensitivity}%`
     this.player.controls.pointerSpeed = this.settings.sensitivity / 100
+    this.invertYToggle.checked = this.settings.invertY
+    this.player.invertY = this.settings.invertY
 
     this.fovSlider.value = this.settings.fov
     this.fovValue.textContent = `${this.settings.fov}`
@@ -4425,6 +4471,12 @@ export class Game {
       this.sensitivityValue.textContent = `${value}%`
       this.settings.sensitivity = value
       this.player.controls.pointerSpeed = value / 100
+      saveSettings(this.settings)
+    })
+
+    this.invertYToggle.addEventListener('change', () => {
+      this.settings.invertY = this.invertYToggle.checked
+      this.player.invertY = this.settings.invertY
       saveSettings(this.settings)
     })
 
@@ -4706,6 +4758,8 @@ export class Game {
     this.profileBtn.addEventListener('click', () => this._openProfilePanel())
     this.profileCloseBtn.addEventListener('click', () => this._closeProfilePanel())
     this.shareRunCardBtn.addEventListener('click', () => this._generateRunSummaryCard())
+    this.creditsBtn.addEventListener('click', () => this._openCreditsPanel())
+    this.creditsCloseBtn.addEventListener('click', () => this._closeCreditsPanel())
     this.coinshopBtn.addEventListener('click', () => this._openCoinShopPanel())
     this.coinshopCloseBtn.addEventListener('click', () => this._closeCoinShopPanel())
     this.endingContinueBtn.addEventListener('click', () => {
@@ -4732,6 +4786,40 @@ export class Game {
       resetBindings()
       this._renderControlsGrid()
     })
+    this.restoreDefaultsBtn.addEventListener('click', () => this._restoreDefaultSettings())
+    this.resetProgressBtn.addEventListener('click', () => this._handleResetProgressClick())
+  }
+
+  // Restore Default Settings - a full reload after saving the defaults, so
+  // every scattered per-slider/per-checkbox UI-sync call (there's no single
+  // "apply all settings to the DOM" function to call instead) re-runs
+  // correctly from a clean construction, same reload-to-resync precedent
+  // Hardcore Mode's respawn already uses.
+  _restoreDefaultSettings() {
+    saveSettings(defaultSettings())
+    window.location.reload()
+  }
+
+  // Reset All Progress - the single most destructive action in the
+  // settings panel, so it's deliberately two clicks: the first arms it and
+  // shows a plain warning, the second (within RESET_PROGRESS_CONFIRM_MS)
+  // actually wipes. Letting the window lapse silently disarms rather than
+  // wiping on a stray click. localStorage.clear() rather than enumerating
+  // every individual key this game has accumulated (bestStats, achievements,
+  // nemesis, dailyLeaderboard...) since this page uses localStorage for
+  // nothing else.
+  _handleResetProgressClick() {
+    if (!this._resetProgressArmed) {
+      this._resetProgressArmed = true
+      this.resetProgressBtn.textContent = t('resetProgressConfirm')
+      setTimeout(() => {
+        this._resetProgressArmed = false
+        this.resetProgressBtn.textContent = t('resetProgressLabel')
+      }, RESET_PROGRESS_CONFIRM_MS)
+      return
+    }
+    localStorage.clear()
+    window.location.reload()
   }
 
   _renderControlsGrid() {
@@ -4765,7 +4853,14 @@ export class Game {
       // to hotbar slot 1 every time). Treated the same as Escape: cancels
       // the rebind and keeps the previous key instead.
       const reserved = e.code === 'Tab' || /^Digit[1-5]$/.test(e.code)
-      if (e.code !== 'Escape' && !reserved) setBinding(action, e.code)
+      // Keybind collision detection - previously two actions could silently
+      // share one key (only the first in the dispatch if/else-if chain
+      // would ever actually fire), with no warning at rebind time.
+      const collision = ACTIONS.find((a) => a.id !== action && getKeyFor(a.id) === e.code)
+      if (e.code !== 'Escape' && !reserved) {
+        if (collision) this._showLoreToast(t('keybindCollision', { key: keyLabel(e.code) }))
+        else setBinding(action, e.code)
+      }
       this._renderControlsGrid()
     }
     window.addEventListener('keydown', handler, true)
@@ -7019,14 +7114,75 @@ export class Game {
   }
 
   _showAchievementToast(def) {
+    // State changes (skin unlock, trophy wall) happen immediately, same as
+    // before - only the visual toast display itself is queued below, so an
+    // unlock is never delayed, just its notification.
+    if (def.id === 'centurion') this.weapons.setWeaponSkin('pistol', 'gold')
+    this._updateTrophyWall()
+    this._achievementToastQueue.push(def)
+    this._drainAchievementToastQueue()
+  }
+
+  // Achievement toast queue (see _achievementToastQueue's own comment) -
+  // shows one at a time so two simultaneous unlocks (e.g. the completionist
+  // auto-cascade) each get their own visible moment on the shared toast
+  // element instead of the first silently getting clobbered by the second.
+  _drainAchievementToastQueue() {
+    if (this._achievementToastShowing || this._achievementToastQueue.length === 0) return
+    this._achievementToastShowing = true
+    const def = this._achievementToastQueue.shift()
     this.achievementLabel.textContent = t('achievementUnlocked')
     this.achievementTitle.textContent = t(def.titleKey)
     this.achievementToast.classList.remove('show')
     void this.achievementToast.offsetWidth
     this.achievementToast.classList.add('show')
+    setTimeout(() => {
+      this._achievementToastShowing = false
+      this._drainAchievementToastQueue()
+    }, ACHIEVEMENT_TOAST_GAP_MS)
+  }
 
-    if (def.id === 'centurion') this.weapons.setWeaponSkin('pistol', 'gold')
-    this._updateTrophyWall()
+  // Credits & What's New panel - static prose, not a data-driven list like
+  // achievements/bestiary, so this just sets textContent once rather than
+  // building rows.
+  _openCreditsPanel() {
+    this.creditsPanel.style.display = 'flex'
+    this.creditsPanelTitle.textContent = t('creditsPanelTitle')
+    this.creditsCloseBtn.textContent = t('upgradesClose')
+  }
+
+  _closeCreditsPanel() {
+    this.creditsPanel.style.display = 'none'
+  }
+
+  // Dynamic browser tab title - piggybacks on _updateStatsPanel already
+  // being called after every kill/points/coins change, so this needs no new
+  // call sites of its own. Reverted to the page's original title on death
+  // (see _onPlayerDeath) rather than left showing a stale final score.
+  _updateWindowTitle() {
+    if (!this.playerState.alive) return
+    document.title = t('windowTitlePlaying', { night: this.night, kills: this.kills })
+  }
+
+  // First-time tutorial hint sequence - a one-time (localStorage-gated)
+  // chained sequence, distinct from the always-visible static menu-subhint
+  // text. Only ever runs once per browser/profile.
+  _maybeShowTutorialHints() {
+    if (localStorage.getItem(TUTORIAL_SEEN_KEY)) return
+    const lines = ['tutorialHint1', 'tutorialHint2', 'tutorialHint3', 'tutorialHint4']
+    lines.forEach((key, i) => {
+      setTimeout(() => {
+        this.tutorialHintEl.innerHTML = tHtml(key)
+        this.tutorialHintEl.classList.remove('show')
+        void this.tutorialHintEl.offsetWidth
+        this.tutorialHintEl.classList.add('show')
+      }, TUTORIAL_HINT_START_DELAY_MS + i * TUTORIAL_HINT_INTERVAL_MS)
+    })
+    try {
+      localStorage.setItem(TUTORIAL_SEEN_KEY, 'true')
+    } catch {
+      // Storage unavailable - the sequence just might show again next time.
+    }
   }
 
   // Lights up one medallion per unlocked achievement on the safe zone's
@@ -7210,6 +7366,7 @@ export class Game {
     this.killcamUntil = performance.now() + DEATH_KILLCAM_DURATION_MS
     this._recordDeathMemorial()
     this._recordNemesis()
+    document.title = this._baseTitle
     this.player.controls.unlock()
     this.crosshair.style.display = 'none'
     this.hudEl.style.display = 'none'
@@ -7916,6 +8073,7 @@ export class Game {
       this.phaseRow.classList.toggle('is-day', phase === 'Day')
       this.phaseRow.classList.toggle('is-night', phase === 'Night')
     }
+    this._updateWindowTitle()
   }
 
   // Round Mode isn't a separate opt-in toggle on Easy/Normal - it's just
