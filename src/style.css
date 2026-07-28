@@ -234,6 +234,34 @@ html, body {
   50% { opacity: 0.55; }
 }
 
+/* Critical-health blood-edge overlay - a more severe escalation past the
+   existing low-health pulse above (see CRITICAL_HEALTH_FRACTION), irregular
+   corner blotches rather than a smooth centered radial so it reads as
+   "blood creeping in from the edges," not just a redder version of the
+   same pulse. */
+#critical-blood-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 400ms ease-out;
+  background:
+    radial-gradient(ellipse 40% 55% at 0% 0%, rgba(120, 6, 6, 0.75) 0%, rgba(120, 6, 6, 0) 70%),
+    radial-gradient(ellipse 40% 55% at 100% 0%, rgba(120, 6, 6, 0.75) 0%, rgba(120, 6, 6, 0) 70%),
+    radial-gradient(ellipse 45% 60% at 0% 100%, rgba(120, 6, 6, 0.8) 0%, rgba(120, 6, 6, 0) 70%),
+    radial-gradient(ellipse 45% 60% at 100% 100%, rgba(120, 6, 6, 0.8) 0%, rgba(120, 6, 6, 0) 70%);
+}
+
+#critical-blood-overlay.show {
+  opacity: 1;
+  animation: critical-throb 2.2s ease-in-out infinite;
+}
+
+@keyframes critical-throb {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+
 /* Shared bottom-left stack for the item-count list and the health/stamina
    bars below it - previously two independently `position: absolute`
    elements with hand-picked `bottom` offsets, which overlapped as soon as

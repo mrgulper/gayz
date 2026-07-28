@@ -1035,6 +1035,9 @@ export class Zombie {
         this.hips.rotation.x = 0.16 + progress * 1.3
       }
       this.group.position.y = -progress * 0.4 * this.config.scale
+      this.group.rotation.z = (this.fallLeanZ || 0) * progress
+      this.group.position.x += (this.fallDriftX || 0) * progress * dt
+      this.group.position.z += (this.fallDriftZ || 0) * progress * dt
       this._barSprite.visible = false
       if (progress >= 1) this.state = 'dead'
       return
@@ -1619,6 +1622,14 @@ export class Zombie {
       } else {
         this.state = 'dying'
         this.dieStartedAt = performance.now()
+        // Lightweight fake ragdoll (no physics engine in this project) - a
+        // random per-corpse fall lean/drift layered on top of whichever
+        // death animation already plays (GLB clip or the procedural hip
+        // tip below), so corpses stop falling in an identical, uniform way
+        // without needing a real rigid-body simulation.
+        this.fallLeanZ = (Math.random() - 0.5) * 0.9
+        this.fallDriftX = (Math.random() - 0.5) * 0.6
+        this.fallDriftZ = (Math.random() - 0.5) * 0.6
       }
     }
   }

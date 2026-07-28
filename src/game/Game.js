@@ -749,6 +749,9 @@ const ALARM_LIFETIME_MS = 60000
 // of play, restored by eating Rations (press 0).
 const HUNGER_DECAY_PER_SEC = 100 / 600
 const HUNGER_STARVE_DPS = 2
+// Critical-health blood-edge overlay - a lower, more severe threshold than
+// the existing low-health pulse (health < 30), its own escalation tier.
+const CRITICAL_HEALTH_THRESHOLD = 15
 const RATION_HUNGER_RESTORE = 40
 // Thirst - same shape as Hunger right above (own meter, own starve-damage
 // floor, own restore item), decaying a little faster since real thirst
@@ -822,6 +825,11 @@ const DAMAGE_NUMBER_MAX_CONCURRENT = 40
 // _rollNightMutation) - a real gameplay tie-in for the existing weather
 // roll, not just the rain overlay/thunder sound it already had.
 const RAIN_AGGRO_RADIUS_MULT = 0.7
+// Weather-reactive lighting - multiplies on top of the existing day/night
+// hemi/sun intensity lerp (see DayNightCycle.js) rather than a second
+// competing light system.
+const WEATHER_DIM_RAIN = 0.7
+const WEATHER_DIM_SNOW = 0.85
 // Indoor detection (see _updateIndoorDetection) - throttled, not per-frame;
 // a straight-up raycast is cheap but still no reason to run it 60x/sec for
 // something that only changes when the player actually walks through a
@@ -1279,6 +1287,7 @@ export class Game {
     this.armorFill = document.getElementById('armor-fill')
     this.armorValue = document.getElementById('armor-value')
     this.damageFlash = document.getElementById('damage-flash')
+    this.criticalBloodOverlay = document.getElementById('critical-blood-overlay')
     this.pickupToast = document.getElementById('pickup-toast')
     this.deathScreen = document.getElementById('death-screen')
     this.respawnBtn = document.getElementById('respawn-btn')
@@ -1567,7 +1576,35 @@ export class Game {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
     this.renderer.toneMappingExposure = 1.1
 
-    this.scene = new THREE.Scene()
+    // Weapon viewmodel (and every other metalness-tuned surface) env-map
+    // reflections - a scene-wide `scene.environment` is the only way PBR
+    // materials pick up reflections at all, so this is inherently global
+    // rather than something scopable to just the viewmodel; skipped
+    // entirely under LOW_QUALITY_MODE, same as shadows/AA above, since a
+    // PMREM generation pass is a real one-time cost this game didn't
+    // previously pay. Built from a small procedural gradient scene rather
+    // than loading an external HDRI, so this needs no new asset.
+    if (!LOW_QUALITY_MODE) {
+      const pmremGen = new THREE.PMREMGenerator(this.renderer)
+      const envScene = new THREE.Scene()
+      const envGeo = new THREE.SphereGeometry(20, 16, 16)
+      const envMat = new THREE.MeshBasicMaterial({ side: THREE.BackSide, vertexColors: true })
+      const colors = []
+      const posAttr = envGeo.getAttribute('position')
+      for (let i = 0; i < posAttr.count; i++) {
+        const y = posAttr.getY(i) / 20
+        const t = THREE.MathUtils.clamp(y * 0.5 + 0.5, 0, 1)
+        const c = new THREE.Color().lerpColors(new THREE.Color(0x1a1c22), new THREE.Color(0x8a95a8), t)
+        colors.push(c.r, c.g, c.b)
+      }
+      envGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+      envScene.add(new THREE.Mesh(envGeo, envMat))
+      this.scene = new THREE.Scene()
+      this.scene.environment = pmremGen.fromScene(envScene, 0.04).texture
+      pmremGen.dispose()
+    } else {
+      this.scene = new THREE.Scene()
+    }
     // Far plane matched to WORLD_CULL_DISTANCE (+ a small margin) instead of
     // a much larger 200 - fog already makes anything past ~140 units
     // invisible, so the old 200 far plane meant the GPU was still rendering
@@ -2350,6 +2387,8 @@ export class Game {
     this._buildZipline()
     this._buildInformant()
     this._buildLoreMarkers()
+    this._buildWetStreetSheen()
+    this._buildNightSky()
 
     this.timer = new THREE.Timer()
     this.timer.connect(document)
@@ -2375,6 +2414,24 @@ export class Game {
     this.maxFlashlightBattery = 100
     this.flashlightLoreShown = false
     this.nextLightLureAt = 0
+
+    // Volumetric flashlight beam - a cheap additive-blended cone standing
+    // in for real raymarched volumetrics (this project has no post-
+    // processing volumetric pass), parented directly to the light so it
+    // always points wherever the light points with zero per-frame update
+    // cost of its own.
+    const beamMat = new THREE.MeshBasicMaterial({
+      color: 0xfff4dd,
+      transparent: true,
+      opacity: 0.05,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+    })
+    this.flashlightBeam = new THREE.Mesh(new THREE.ConeGeometry(2.6, 12, 20, 1, true), beamMat)
+    this.flashlightBeam.rotation.x = Math.PI / 2
+    this.flashlightBeam.position.z = -6
+    this.flashlight.add(this.flashlightBeam)
   }
 
   _updateFlashlightBattery(dt) {
@@ -2383,6 +2440,7 @@ export class Game {
       if (this.flashlightBattery === 0) this.flashlightOn = false
     }
     this.flashlight.visible = this.flashlightOn
+    this.flashlightBeam.visible = this.flashlightOn
     this.batteryFill.style.width = `${(this.flashlightBattery / this.maxFlashlightBattery) * 100}%`
   }
 
@@ -5696,6 +5754,7 @@ export class Game {
   }
 
   _onZombieKilled(zombieTypeId, weaponId, x, z, isElite, isWandering = false) {
+    this.decals.spawnPuddle(x, z)
     this.kills += 1
     this.killStreak += 1
     if (this.killStreak > this.peakKillStreakThisRun) this.peakKillStreakThisRun = this.killStreak
@@ -6240,6 +6299,9 @@ export class Game {
     }
     const lowHealth = s.health > 0 && s.health < 30
     this.damageFlash.classList.toggle('low-health', lowHealth)
+    // Critical-health blood-edge overlay - a further escalation past the
+    // low-health pulse above, at a lower threshold, own visual treatment.
+    this.criticalBloodOverlay.classList.toggle('show', s.health > 0 && s.health < CRITICAL_HEALTH_THRESHOLD)
     this.infectionIndicator.style.display = s.infected ? 'flex' : 'none'
 
     if (lowHealth && performance.now() >= this.nextHeartbeatAt) {
@@ -6760,6 +6822,93 @@ export class Game {
   // INDOOR_RAY_MAX_DIST reads as "under cover." Throttled rather than
   // per-frame since this only ever changes when the player actually crosses
   // a doorway or roofline.
+  // Wet-street sheen - a single large semi-transparent plane that follows
+  // the player's XZ position (the real 750-unit ground plane's own
+  // material isn't returned from buildWorld, so this rides on top of it
+  // instead of trying to reach in and mutate it), faded in during rain for
+  // a cheap "wet asphalt" glint rather than real planar reflections.
+  _buildWetStreetSheen() {
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0x0a0e12,
+      roughness: 0.15,
+      metalness: 0.6,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+    })
+    this.wetStreetSheen = new THREE.Mesh(new THREE.PlaneGeometry(70, 70), mat)
+    this.wetStreetSheen.rotation.x = -Math.PI / 2
+    this.wetStreetSheen.position.y = 0.03
+    this.scene.add(this.wetStreetSheen)
+  }
+
+  _updateWetStreetSheen(playerPos, dt) {
+    this.wetStreetSheen.position.x = playerPos.x
+    this.wetStreetSheen.position.z = playerPos.z
+    const target = this.raining ? 0.16 : 0
+    this.wetStreetSheen.material.opacity = THREE.MathUtils.damp(this.wetStreetSheen.material.opacity, target, 3, dt)
+  }
+
+  // Visible moon disc + star field - the existing "moon" (see World.js) is
+  // only ever an invisible DirectionalLight; this adds an actual visible
+  // disc far along that same light direction, plus a static star Points
+  // cloud, both toggled by night phase alone (no smooth dayFactor - that's
+  // internal to DayNightCycle - so this just matches its own Night/Day
+  // phase check instead of exposing a new field there).
+  _buildNightSky() {
+    const canvas = document.createElement('canvas')
+    canvas.width = 64
+    canvas.height = 64
+    const ctx = canvas.getContext('2d')
+    const grad = ctx.createRadialGradient(32, 32, 4, 32, 32, 32)
+    grad.addColorStop(0, 'rgba(230, 235, 245, 0.95)')
+    grad.addColorStop(0.5, 'rgba(210, 220, 240, 0.35)')
+    grad.addColorStop(1, 'rgba(210, 220, 240, 0)')
+    ctx.fillStyle = grad
+    ctx.fillRect(0, 0, 64, 64)
+    const moonMat = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true, depthTest: false, depthWrite: false, fog: false })
+    this.moonSprite = new THREE.Sprite(moonMat)
+    this.moonSprite.scale.set(40, 40, 1)
+    this.moonSprite.position.set(300, 450, -150)
+    this.moonSprite.renderOrder = -1
+    this.scene.add(this.moonSprite)
+
+    const starCount = 400
+    const positions = new Float32Array(starCount * 3)
+    for (let i = 0; i < starCount; i++) {
+      const theta = Math.random() * Math.PI * 2
+      const phi = Math.random() * Math.PI * 0.45 // upper dome only
+      const r = 480
+      positions[i * 3] = Math.sin(phi) * Math.cos(theta) * r
+      positions[i * 3 + 1] = Math.cos(phi) * r
+      positions[i * 3 + 2] = Math.sin(phi) * Math.sin(theta) * r
+    }
+    const starGeo = new THREE.BufferGeometry()
+    starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 1.6, sizeAttenuation: false, transparent: true, opacity: 0.8, depthWrite: false, fog: false })
+    this.starField = new THREE.Points(starGeo, starMat)
+    this.scene.add(this.starField)
+  }
+
+  _updateNightSky() {
+    const isNight = this.dayNight ? this.dayNight.getPhaseInfo().phase === 'Night' : false
+    this.moonSprite.visible = isNight
+    this.starField.visible = isNight
+  }
+
+  // Wind-driven prop sway - the 4 seasonal safe-zone banners (see
+  // _applySeasonalDressing) were purely static before this, just recolored
+  // per season. Each banner's own array index offsets its phase so all 4
+  // don't sway in lockstep.
+  _updateBannerSway(elapsed) {
+    if (!this.seasonalBanners) return
+    for (let i = 0; i < this.seasonalBanners.length; i++) {
+      const banner = this.seasonalBanners[i]
+      banner.rotation.z = Math.sin(elapsed * 1.3 + i * 1.7) * 0.12
+      banner.rotation.y = Math.sin(elapsed * 0.9 + i * 2.3) * 0.08
+    }
+  }
+
   _updateIndoorDetection(playerPos) {
     const now = performance.now()
     if (now < this.nextIndoorCheckAt) return
@@ -8180,6 +8329,16 @@ export class Game {
     this.camera.position.sub(this._shakeOffset)
 
     this.dayNight.update()
+    // Weather dims the day/night lighting further (see WEATHER_DIM_RAIN/
+    // SNOW) - dayNight.update() just set hemi/sun intensity fresh from the
+    // day/night lerp above, so this multiplies on top of that every frame
+    // rather than fighting it.
+    const weatherDim = this.raining ? WEATHER_DIM_RAIN : this.snowing ? WEATHER_DIM_SNOW : 1
+    this.dayNight.hemi.intensity *= weatherDim
+    this.dayNight.sun.intensity *= weatherDim
+    this._updateWetStreetSheen(this.player.controls.object.position, dt)
+    this._updateNightSky()
+    this._updateBannerSway(elapsed)
     this._updateFogPatch()
     this._applyFogState()
     this._updateFlicker(elapsed)

@@ -8,6 +8,9 @@ import { flatMaterial } from './QualitySettings.js'
 const VIEWMODEL_BASE = new THREE.Vector3(0.26, -0.22, -0.5)
 // Was intensity 4 / distance 8 - blew out everything nearby on every shot.
 const MUZZLE_FLASH_PEAK = 1.6
+// Per-weapon muzzle color (see w.muzzleColor) - this is the previous single
+// hardcoded color every weapon used to share, now just the fallback.
+const DEFAULT_MUZZLE_COLOR = 0xfff2b0
 const EXPLOSIVE_PROP_RADIUS = 5
 const EXPLOSIVE_PROP_DAMAGE_MIN = 70
 const EXPLOSIVE_PROP_DAMAGE_MAX = 160
@@ -159,6 +162,7 @@ const WEAPONS = [
     range: 7,
     spread: 0.14,
     ignites: true,
+    muzzleColor: 0xff6a1a,
     unlocked: false,
   },
   {
@@ -174,6 +178,7 @@ const WEAPONS = [
     explosiveRadius: 6,
     explosiveDamageMin: 120,
     explosiveDamageMax: 320,
+    muzzleColor: 0xff5a2a,
     unlocked: false,
   },
   {
@@ -207,6 +212,7 @@ const WEAPONS = [
     explosiveRadius: 4,
     explosiveDamageMin: 55,
     explosiveDamageMax: 130,
+    muzzleColor: 0xff8a3a,
     unlocked: false,
   },
   {
@@ -222,6 +228,7 @@ const WEAPONS = [
     // from buying the suppressor attachment for an existing gun - see
     // CoinShop.js's own note on why this is a separate weapon, not a variant.
     suppressed: true,
+    muzzleColor: 0x8ab0ff,
     unlocked: false,
   },
   {
@@ -236,6 +243,7 @@ const WEAPONS = [
     // Every connecting hit extends staggerUntil (see Zombie.stun) - sustained
     // fire keeps a target pinned in place instead of a one-off knockdown.
     stunMs: 350,
+    muzzleColor: 0xd8d8d8,
     unlocked: false,
   },
   {
@@ -250,6 +258,7 @@ const WEAPONS = [
     // See _fire()'s hitZombies loop - yanks whatever it connects with toward
     // the player instead of just dealing damage in place.
     pullsTarget: true,
+    muzzleColor: 0x6ad8ff,
     unlocked: false,
   },
 ]
@@ -874,6 +883,11 @@ export class WeaponSystem {
       // close, just not lighting up the street.
       const flashMult = w.suppressed ? 0.3 : 1
       this.muzzleLight.intensity = MUZZLE_FLASH_PEAK * flashMult
+      // Per-weapon muzzle color (see w.muzzleColor) - falls back to the
+      // original fixed warm-white for every weapon that doesn't set one,
+      // so this is purely additive over the previous single shared color.
+      this.muzzleLight.color.setHex(w.muzzleColor ?? DEFAULT_MUZZLE_COLOR)
+      this.muzzleFlashSprite.material.color.setHex(w.muzzleColor ?? DEFAULT_MUZZLE_COLOR)
       this.muzzleFlashSprite.material.opacity = 0.85 * flashMult
       this.muzzleFlashSprite.rotation.z = Math.random() * Math.PI * 2
       this.recoil = 1
