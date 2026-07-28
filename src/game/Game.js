@@ -166,6 +166,19 @@ function loadSettings() {
       hudOpacity: parsed.hudOpacity ?? 100,
       colorblind: parsed.colorblind ?? false,
       performanceMode: parsed.performanceMode ?? false,
+      // Accessibility (see the settings-page-controls HTML section) -
+      // shakeIntensity/toastDuration are percentages of the normal/default
+      // value, not absolute units.
+      shakeIntensity: parsed.shakeIntensity ?? 100,
+      reduceFlashing: parsed.reduceFlashing ?? false,
+      toggleSprint: parsed.toggleSprint ?? false,
+      toggleCrouch: parsed.toggleCrouch ?? false,
+      toggleAds: parsed.toggleAds ?? false,
+      aimAssist: parsed.aimAssist ?? false,
+      bigInteractPrompt: parsed.bigInteractPrompt ?? false,
+      toastDuration: parsed.toastDuration ?? 100,
+      crosshairColor: parsed.crosshairColor || '#ffffff',
+      crosshairSize: parsed.crosshairSize ?? 100,
       nickname: parsed.nickname || '',
       // Custom companion name (see _updateCompanionName) - falls back to
       // the auto-generated "{nickname}'s Assistant" pattern when empty.
@@ -207,7 +220,7 @@ function loadSettings() {
       },
     }
   } catch {
-    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, nickname: '', companionName: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false } }
+    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', companionName: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false } }
   }
 }
 
@@ -1658,6 +1671,19 @@ export class Game {
     this.hudOpacityValue = document.getElementById('hud-opacity-value')
     this.colorblindToggle = document.getElementById('colorblind-toggle')
     this.performanceToggle = document.getElementById('performance-toggle')
+    this.shakeIntensitySlider = document.getElementById('shake-intensity-slider')
+    this.shakeIntensityValue = document.getElementById('shake-intensity-value')
+    this.reduceFlashingToggle = document.getElementById('reduce-flashing-toggle')
+    this.toggleSprintToggle = document.getElementById('toggle-sprint-toggle')
+    this.toggleCrouchToggle = document.getElementById('toggle-crouch-toggle')
+    this.toggleAdsToggle = document.getElementById('toggle-ads-toggle')
+    this.aimAssistToggle = document.getElementById('aim-assist-toggle')
+    this.bigInteractPromptToggle = document.getElementById('big-interact-prompt-toggle')
+    this.toastDurationSlider = document.getElementById('toast-duration-slider')
+    this.toastDurationValue = document.getElementById('toast-duration-value')
+    this.crosshairColorPicker = document.getElementById('crosshair-color-picker')
+    this.crosshairSizeSlider = document.getElementById('crosshair-size-slider')
+    this.crosshairSizeValue = document.getElementById('crosshair-size-value')
     this.nicknameInput = document.getElementById('nickname-input')
     this.companionNameInput = document.getElementById('companion-name-input')
     this.scoreAttackToggle = document.getElementById('score-attack-toggle')
@@ -3005,6 +3031,8 @@ export class Game {
           this._updateHealthHud()
           this._updateInventoryHud()
         }
+      } else if (e.code === getKeyFor('threatPing')) {
+        this._pingNearestThreat()
       } else if (e.code === getKeyFor('flashlight')) {
         if (!this.flashlightOn && this.flashlightBattery <= 0) return
         this.flashlightOn = !this.flashlightOn
@@ -4163,6 +4191,105 @@ export class Game {
       saveSettings(this.settings)
     })
 
+    // Motion Reduction (accessibility) - see _updateShake/_updateLandingDip's
+    // own use of settings.shakeIntensity, no DOM/CSS effect to apply here.
+    this.shakeIntensitySlider.value = this.settings.shakeIntensity
+    this.shakeIntensityValue.textContent = `${this.settings.shakeIntensity}%`
+    this.shakeIntensitySlider.addEventListener('input', () => {
+      const value = Number(this.shakeIntensitySlider.value)
+      this.shakeIntensityValue.textContent = `${value}%`
+      this.settings.shakeIntensity = value
+      saveSettings(this.settings)
+    })
+
+    // On-Screen Text Duration (accessibility) - a CSS custom property the
+    // toast/lore-toast animations read their duration from (see style.css),
+    // same --hud-scale-style plumbing as the sliders above.
+    this.toastDurationSlider.value = this.settings.toastDuration
+    this.toastDurationValue.textContent = `${this.settings.toastDuration}%`
+    document.documentElement.style.setProperty('--toast-duration-mult', this.settings.toastDuration / 100)
+    this.toastDurationSlider.addEventListener('input', () => {
+      const value = Number(this.toastDurationSlider.value)
+      this.toastDurationValue.textContent = `${value}%`
+      this.settings.toastDuration = value
+      document.documentElement.style.setProperty('--toast-duration-mult', value / 100)
+      saveSettings(this.settings)
+    })
+
+    // Customizable Crosshair (accessibility) - --crosshair-color/size are
+    // read by #crosshair's own CSS (see style.css).
+    this.crosshairColorPicker.value = this.settings.crosshairColor
+    document.documentElement.style.setProperty('--crosshair-color', this.settings.crosshairColor)
+    this.crosshairColorPicker.addEventListener('input', () => {
+      this.settings.crosshairColor = this.crosshairColorPicker.value
+      document.documentElement.style.setProperty('--crosshair-color', this.settings.crosshairColor)
+      saveSettings(this.settings)
+    })
+    this.crosshairSizeSlider.value = this.settings.crosshairSize
+    this.crosshairSizeValue.textContent = `${this.settings.crosshairSize}%`
+    document.documentElement.style.setProperty('--crosshair-size', this.settings.crosshairSize / 100)
+    this.crosshairSizeSlider.addEventListener('input', () => {
+      const value = Number(this.crosshairSizeSlider.value)
+      this.crosshairSizeValue.textContent = `${value}%`
+      this.settings.crosshairSize = value
+      document.documentElement.style.setProperty('--crosshair-size', value / 100)
+      saveSettings(this.settings)
+    })
+
+    // Reduce Flashing Effects (accessibility) - a body-level class every
+    // flash/throb keyframe (critical-blood-overlay, damage-flash, etc.)
+    // reads via CSS to swap to a slower/static variant, see style.css.
+    this.reduceFlashingToggle.checked = this.settings.reduceFlashing
+    document.body.classList.toggle('reduce-flashing', this.settings.reduceFlashing)
+    this.reduceFlashingToggle.addEventListener('change', () => {
+      this.settings.reduceFlashing = this.reduceFlashingToggle.checked
+      document.body.classList.toggle('reduce-flashing', this.settings.reduceFlashing)
+      saveSettings(this.settings)
+    })
+
+    // Toggle-to-Sprint/Crouch/Aim (accessibility) - see PlayerController's
+    // toggleSprint/toggleCrouch and WeaponSystem's toggleAds.
+    this.toggleSprintToggle.checked = this.settings.toggleSprint
+    this.player.toggleSprint = this.settings.toggleSprint
+    this.toggleSprintToggle.addEventListener('change', () => {
+      this.settings.toggleSprint = this.toggleSprintToggle.checked
+      this.player.toggleSprint = this.settings.toggleSprint
+      saveSettings(this.settings)
+    })
+    this.toggleCrouchToggle.checked = this.settings.toggleCrouch
+    this.player.toggleCrouch = this.settings.toggleCrouch
+    this.toggleCrouchToggle.addEventListener('change', () => {
+      this.settings.toggleCrouch = this.toggleCrouchToggle.checked
+      this.player.toggleCrouch = this.settings.toggleCrouch
+      saveSettings(this.settings)
+    })
+    this.toggleAdsToggle.checked = this.settings.toggleAds
+    this.weapons.toggleAds = this.settings.toggleAds
+    this.toggleAdsToggle.addEventListener('change', () => {
+      this.settings.toggleAds = this.toggleAdsToggle.checked
+      this.weapons.toggleAds = this.settings.toggleAds
+      saveSettings(this.settings)
+    })
+
+    // Aim Assist (accessibility) - see WeaponSystem's AIM_ASSIST_OFFSETS.
+    this.aimAssistToggle.checked = this.settings.aimAssist
+    this.weapons.aimAssist = this.settings.aimAssist
+    this.aimAssistToggle.addEventListener('change', () => {
+      this.settings.aimAssist = this.aimAssistToggle.checked
+      this.weapons.aimAssist = this.settings.aimAssist
+      saveSettings(this.settings)
+    })
+
+    // Large Interact Prompt (accessibility) - a body-level class the
+    // #interact-prompt CSS reads for a bigger font/box (see style.css).
+    this.bigInteractPromptToggle.checked = this.settings.bigInteractPrompt
+    document.body.classList.toggle('big-interact-prompt', this.settings.bigInteractPrompt)
+    this.bigInteractPromptToggle.addEventListener('change', () => {
+      this.settings.bigInteractPrompt = this.bigInteractPromptToggle.checked
+      document.body.classList.toggle('big-interact-prompt', this.settings.bigInteractPrompt)
+      saveSettings(this.settings)
+    })
+
     // Click any of the four value labels above to type an exact number
     // instead of dragging the slider - the slider itself stays as the
     // primary control, this just re-dispatches its own 'input' event so
@@ -4174,6 +4301,9 @@ export class Game {
     this._bindEditableSliderValue(this.fovValue, this.fovSlider)
     this._bindEditableSliderValue(this.hudScaleValue, this.hudScaleSlider)
     this._bindEditableSliderValue(this.hudOpacityValue, this.hudOpacitySlider)
+    this._bindEditableSliderValue(this.shakeIntensityValue, this.shakeIntensitySlider)
+    this._bindEditableSliderValue(this.toastDurationValue, this.toastDurationSlider)
+    this._bindEditableSliderValue(this.crosshairSizeValue, this.crosshairSizeSlider)
 
     this.colorblindToggle.checked = this.settings.colorblind
     setColorblind(this.settings.colorblind)
@@ -5697,6 +5827,16 @@ export class Game {
     document.getElementById('mutator-glass-house-label').textContent = t('mutatorGlassHouse')
     document.getElementById('mutator-featured-enemy-label').textContent = t('mutatorFeaturedEnemy')
     document.getElementById('mutator-blackout-label').textContent = t('mutatorBlackout')
+    document.getElementById('shake-intensity-label').textContent = t('shakeIntensityLabel')
+    document.getElementById('reduce-flashing-label').textContent = t('reduceFlashingLabel')
+    document.getElementById('toggle-sprint-label').textContent = t('toggleSprintLabel')
+    document.getElementById('toggle-crouch-label').textContent = t('toggleCrouchLabel')
+    document.getElementById('toggle-ads-label').textContent = t('toggleAdsLabel')
+    document.getElementById('aim-assist-label').textContent = t('aimAssistLabel')
+    document.getElementById('big-interact-prompt-label').textContent = t('bigInteractPromptLabel')
+    document.getElementById('toast-duration-label').textContent = t('toastDurationLabel')
+    document.getElementById('crosshair-color-label').textContent = t('crosshairColorLabel')
+    document.getElementById('crosshair-size-label').textContent = t('crosshairSizeLabel')
 
     this._updateBestStatsDisplay()
     this._updateLeaderboardDisplay()
@@ -6060,6 +6200,21 @@ export class Game {
   // reasonable stand-in. Supplements audioEngine.playZombieSnarl() above for
   // players who can't rely on the sound alone to tell them where a hit came
   // from, especially one from off-screen/behind.
+  // On-Demand Threat Ping (accessibility) - a player-initiated version of
+  // the same screen-edge pulse _showThreatIndicator already shows
+  // automatically on taking a hit, for proactively checking "where's the
+  // nearest one" instead of only ever finding out reactively after being
+  // hit. A toast fallback when nothing's alive yet, so the key always
+  // gives some feedback rather than silently doing nothing.
+  _pingNearestThreat() {
+    const hasAliveZombie = this.zombies.zombies.some((z) => z.state === 'alive')
+    if (!hasAliveZombie) {
+      this._showLoreToast(t('threatPingNoneNearby'))
+      return
+    }
+    this._showThreatIndicator()
+  }
+
   _showThreatIndicator() {
     const playerPos = this.player.controls.object.position
     let nearest = null
@@ -6250,7 +6405,10 @@ export class Game {
   _updateShake(dt) {
     if (this._shakeTime > 0) {
       this._shakeTime = Math.max(0, this._shakeTime - dt)
-      const mag = this._shakeMagnitude * (this._shakeTime / this._shakeDuration)
+      // Motion Reduction (accessibility, see settings.shakeIntensity) -
+      // scales every shake event down (or to exactly 0) without touching
+      // any of the individual _triggerShake call sites' own magnitudes.
+      const mag = this._shakeMagnitude * (this._shakeTime / this._shakeDuration) * (this.settings.shakeIntensity / 100)
       this._shakeOffset.set(
         (Math.random() - 0.5) * 2 * mag + (this._shakeBiasX || 0) * mag,
         (Math.random() - 0.5) * 2 * mag * 0.6,
@@ -6272,7 +6430,8 @@ export class Game {
       this._lastSeenLandingSeq = this.player.landingSeq
       const impact = this.player.lastLandingImpact
       if (impact < LANDING_DIP_MIN_IMPACT) {
-        this._landingDipY = Math.max(-LANDING_DIP_MAX, impact * LANDING_DIP_SCALE)
+        // Motion Reduction (see _updateShake's own note) applies here too.
+        this._landingDipY = Math.max(-LANDING_DIP_MAX, impact * LANDING_DIP_SCALE) * (this.settings.shakeIntensity / 100)
       }
     }
     this._landingDipY = THREE.MathUtils.damp(this._landingDipY, 0, LANDING_DIP_RECOVER_SPEED, dt)

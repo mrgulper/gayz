@@ -24,6 +24,17 @@ const TRACER_UP = new THREE.Vector3(0, 1, 0)
 const TRACER_LIFETIME_MS = 80
 const TRACER_MAX_RANGE = 60
 const MAX_TRACERS = 20
+// Aim Assist (accessibility, see this.aimAssist) - a small forgiving radius
+// tried only when the precise shot missed every zombie, an 8-point ring in
+// normalized device coordinates rather than actually widening spread for
+// every shot (which would also make walls/props easier to snipe past, not
+// just zombies).
+const AIM_ASSIST_RADIUS = 0.02
+const AIM_ASSIST_OFFSETS = [
+  [AIM_ASSIST_RADIUS, 0], [-AIM_ASSIST_RADIUS, 0], [0, AIM_ASSIST_RADIUS], [0, -AIM_ASSIST_RADIUS],
+  [AIM_ASSIST_RADIUS, AIM_ASSIST_RADIUS], [-AIM_ASSIST_RADIUS, -AIM_ASSIST_RADIUS],
+  [AIM_ASSIST_RADIUS, -AIM_ASSIST_RADIUS], [-AIM_ASSIST_RADIUS, AIM_ASSIST_RADIUS],
+]
 // Idle weapon inspect - seconds of no movement/firing/aiming/reloading
 // before the sway starts, then how long it takes to fade fully in.
 const IDLE_INSPECT_DELAY_S = 5
@@ -450,6 +461,12 @@ export class WeaponSystem {
     this._idleTime = 0
     this._idleInspectAmount = 0
     this._sprintFovAmount = 0
+    // Toggle-to-ADS (accessibility, see the mousedown/mouseup listeners
+    // below) - defaults to hold mode (false), set from Game.js's settings.
+    this.toggleAds = false
+    // Aim Assist (accessibility, see AIM_ASSIST_OFFSETS) - defaults off,
+    // set from Game.js's settings.
+    this.aimAssist = false
     this.viewmodelRoot = new THREE.Group()
     this.viewmodelRoot.position.copy(VIEWMODEL_BASE)
     this.camera.add(this.viewmodelRoot)
@@ -477,11 +494,14 @@ export class WeaponSystem {
 
     window.addEventListener('mousedown', (e) => {
       if (e.button === 0) this.triggerDown = true
-      if (e.button === 2) this.aiming = true
+      if (e.button === 2) {
+        if (this.toggleAds) this.aiming = !this.aiming
+        else this.aiming = true
+      }
     })
     window.addEventListener('mouseup', (e) => {
       if (e.button === 0) this.triggerDown = false
-      if (e.button === 2) this.aiming = false
+      if (e.button === 2 && !this.toggleAds) this.aiming = false
     })
     window.addEventListener('contextmenu', (e) => e.preventDefault())
     window.addEventListener('keydown', (e) => this._onKey(e))
@@ -1037,7 +1057,20 @@ export class WeaponSystem {
         (Math.random() - 0.5) * spread
       )
       this.raycaster.setFromCamera(offset, this.camera)
-      const hits = this.raycaster.intersectObjects([...zombieMeshes, ...rivalMeshes, ...this.colliderMeshes], true)
+      let hits = this.raycaster.intersectObjects([...zombieMeshes, ...rivalMeshes, ...this.colliderMeshes], true)
+      // Aim Assist - only kicks in once the precise shot has already missed
+      // every zombie (or hit a wall/prop first), so it never overrides a
+      // shot that was genuinely lined up on something else.
+      if (this.aimAssist && !w.melee && zombieMeshes.length > 0 && (hits.length === 0 || !hits[0].object.userData.zombie)) {
+        for (const [dx, dy] of AIM_ASSIST_OFFSETS) {
+          this.raycaster.setFromCamera(new THREE.Vector2(offset.x + dx, offset.y + dy), this.camera)
+          const assistHits = this.raycaster.intersectObjects([...zombieMeshes, ...this.colliderMeshes], true)
+          if (assistHits.length > 0 && assistHits[0].object.userData.zombie) {
+            hits = assistHits
+            break
+          }
+        }
+      }
       // Tracer - only the first pellet gets one (a shotgun's other 7 would
       // just read as clutter), and it's spawned whether or not this pellet
       // actually connects, so a miss still visibly flies off into the distance.

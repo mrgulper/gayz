@@ -35,6 +35,7 @@ export const ACTIONS = [
   { id: 'screenshot', defaultKey: 'KeyP', labelKey: 'actionScreenshot' },
   { id: 'toggleView', defaultKey: 'KeyX', labelKey: 'actionToggleView' },
   { id: 'dodge', defaultKey: 'ShiftLeft', labelKey: 'actionDodge' },
+  { id: 'threatPing', defaultKey: 'Backquote', labelKey: 'actionThreatPing' },
 ]
 
 function defaultBindings() {
@@ -96,6 +97,7 @@ export function keyLabel(code) {
     ArrowRight: '→',
     Escape: 'Esc',
     Tab: 'Tab',
+    Backquote: '`',
   }
   return special[code] || code
 }

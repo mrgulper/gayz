@@ -114,6 +114,13 @@ export class PlayerController {
     this.maxStamina = STAMINA_MAX
     this.sprintMultiplier = SPRINT_MULTIPLIER
     this.moveSpeed = MOVE_SPEED
+    // Toggle-to-Sprint/Crouch (accessibility, see _onKey) - both default to
+    // hold mode (false), set from Game.js's settings. Deliberately NOT
+    // reset in resetPosition() below - it's a settings-level preference,
+    // not per-run state, and would otherwise silently revert to hold mode
+    // on every respawn.
+    this.toggleSprint = false
+    this.toggleCrouch = false
     // Adrenaline shot (see Game.js's _useAdrenaline) - set/cleared externally
     // by a timer there rather than owned here, same pattern as every other
     // timed perk/consumable effect in this game.
@@ -216,10 +223,15 @@ export class PlayerController {
     else if (code === getKeyFor('moveBack') || code === 'ArrowDown') this.input.back = isDown
     else if (code === getKeyFor('moveLeft') || code === 'ArrowLeft') this.input.left = isDown
     else if (code === getKeyFor('moveRight') || code === 'ArrowRight') this.input.right = isDown
-    else if (code === getKeyFor('sprint')) this.input.sprint = isDown
+    else if (code === getKeyFor('sprint')) {
+      // Toggle-to-Sprint (accessibility - see this.toggleSprint, set from
+      // Game.js's settings) - only the physical key-down flips it, so
+      // holding the key in toggle mode doesn't fight the toggle.
+      if (this.toggleSprint) { if (isDown) this.input.sprint = !this.input.sprint } else { this.input.sprint = isDown }
+    }
     else if (code === getKeyFor('crouch') || code === 'ControlLeft' || code === 'ControlRight') {
       const wasDown = this.input.crouch
-      this.input.crouch = isDown
+      if (this.toggleCrouch) { if (isDown) this.input.crouch = !this.input.crouch } else { this.input.crouch = isDown }
       if (isDown && !wasDown) this._trySlide()
     }
     else if (code === 'Space') {
