@@ -16,6 +16,22 @@ const EXPLOSIVE_PROP_DAMAGE_MIN = 70
 const EXPLOSIVE_PROP_DAMAGE_MAX = 160
 const VIEWMODEL_ADS = new THREE.Vector3(0.02, -0.1, -0.32)
 const ADS_LERP_SPEED = 9
+// Bullet tracers - unit-height geometry shared across every tracer instance,
+// stretched via mesh.scale.y per shot instead of rebuilding geometry every
+// trigger pull (see _spawnTracer).
+const TRACER_GEOMETRY = new THREE.CylinderGeometry(0.008, 0.008, 1, 5, 1, true)
+const TRACER_UP = new THREE.Vector3(0, 1, 0)
+const TRACER_LIFETIME_MS = 80
+const TRACER_MAX_RANGE = 60
+const MAX_TRACERS = 20
+// Idle weapon inspect - seconds of no movement/firing/aiming/reloading
+// before the sway starts, then how long it takes to fade fully in.
+const IDLE_INSPECT_DELAY_S = 5
+const IDLE_INSPECT_FADE_S = 1.5
+// Sprint FOV kick - degrees added on top of defaultFov while sprinting, a
+// subtle sense-of-speed widen rather than a full sprint-specific FOV value.
+const SPRINT_FOV_KICK = 8
+const SPRINT_FOV_LERP_SPEED = 6
 
 // The off-hand knife (buildQuickMeleeKnifeModel) rides along in the left
 // hand for as long as any gun is equipped (hidden only for the melee slot
@@ -73,6 +89,10 @@ const WEAPONS = [
     reserve: 90,
     damage: 14,
     unlocked: true,
+    // Per-shot camera shake (see onWeaponFired) - light since this fires
+    // fast and full-intensity auto-fire shake would just read as nausea.
+    shakeIntensity: 0.035,
+    shakeDuration: 70,
   },
   {
     id: 'pistol',
@@ -84,6 +104,8 @@ const WEAPONS = [
     reserve: 48,
     damage: 26,
     unlocked: true,
+    shakeIntensity: 0.05,
+    shakeDuration: 90,
   },
   {
     id: 'minigun',
@@ -94,6 +116,10 @@ const WEAPONS = [
     magSize: 150,
     reserve: 450,
     damage: 12,
+    // Barely-there per-shot kick - at this fire rate it reads as a
+    // continuous low rumble rather than distinct shake events.
+    shakeIntensity: 0.02,
+    shakeDuration: 50,
     // Shop-exclusive (see CoinShop.js) - no longer findable as loot.
     unlocked: false,
     // Overheat (see _fire/update's heat handling) - sustained fire builds
@@ -121,6 +147,8 @@ const WEAPONS = [
     // at a distance instead of one flat damage number regardless of range.
     damageFalloff: { near: 22, far: 6, nearDist: 4, farDist: 16 },
     unlocked: false,
+    shakeIntensity: 0.09,
+    shakeDuration: 150,
   },
   {
     id: 'awp',
@@ -133,6 +161,10 @@ const WEAPONS = [
     damage: 140,
     hasScope: true,
     unlocked: false,
+    // Heaviest kick of any hitscan gun - slow fire rate means it never
+    // stacks into the nausea territory minigun/rifle have to avoid.
+    shakeIntensity: 0.14,
+    shakeDuration: 200,
   },
   {
     id: 'glock18',
@@ -144,6 +176,8 @@ const WEAPONS = [
     reserve: 80,
     damage: 10,
     unlocked: false,
+    shakeIntensity: 0.03,
+    shakeDuration: 60,
   },
   {
     id: 'flamethrower',
@@ -164,6 +198,8 @@ const WEAPONS = [
     ignites: true,
     muzzleColor: 0xff6a1a,
     unlocked: false,
+    shakeIntensity: 0.015,
+    shakeDuration: 50,
   },
   {
     id: 'rocket',
@@ -180,6 +216,8 @@ const WEAPONS = [
     explosiveDamageMax: 320,
     muzzleColor: 0xff5a2a,
     unlocked: false,
+    shakeIntensity: 0.12,
+    shakeDuration: 180,
   },
   {
     id: 'crossbow',
@@ -198,6 +236,8 @@ const WEAPONS = [
     // way every other gun's ammo does.
     boltRetrieveChance: 0.6,
     unlocked: false,
+    shakeIntensity: 0.04,
+    shakeDuration: 80,
   },
   {
     id: 'launcher',
@@ -214,6 +254,8 @@ const WEAPONS = [
     explosiveDamageMax: 130,
     muzzleColor: 0xff8a3a,
     unlocked: false,
+    shakeIntensity: 0.1,
+    shakeDuration: 160,
   },
   {
     id: 'suppressedsmg',
@@ -230,6 +272,8 @@ const WEAPONS = [
     suppressed: true,
     muzzleColor: 0x8ab0ff,
     unlocked: false,
+    shakeIntensity: 0.025,
+    shakeDuration: 60,
   },
   {
     id: 'nailgun',
@@ -245,6 +289,8 @@ const WEAPONS = [
     stunMs: 350,
     muzzleColor: 0xd8d8d8,
     unlocked: false,
+    shakeIntensity: 0.05,
+    shakeDuration: 90,
   },
   {
     id: 'harpoon',
@@ -260,6 +306,8 @@ const WEAPONS = [
     pullsTarget: true,
     muzzleColor: 0x6ad8ff,
     unlocked: false,
+    shakeIntensity: 0.08,
+    shakeDuration: 140,
   },
 ]
 
@@ -295,7 +343,7 @@ const WEAPON_CHARMS = {
 export const WEAPON_CHARM_IDS = Object.keys(WEAPON_CHARMS)
 
 export class WeaponSystem {
-  constructor(camera, scene, colliderMeshes, hud, zombieManager, onHitSurface, onZombieHit, onStealthTakedown, onDamageDealt = null) {
+  constructor(camera, scene, colliderMeshes, hud, zombieManager, onHitSurface, onZombieHit, onStealthTakedown, onDamageDealt = null, onWeaponFired = null) {
     this.camera = camera
     this.scene = scene
     this.colliderMeshes = colliderMeshes
@@ -308,6 +356,11 @@ export class WeaponSystem {
     // died a little" hitmarker/UI trigger) since this needs the actual
     // world point and final (post-multiplier) damage number per zombie hit.
     this.onDamageDealt = onDamageDealt
+    // Per-weapon camera shake profile (see w.shakeIntensity/shakeDuration)
+    // and bullet tracers - both fire once per shot regardless of whether
+    // it connects, unlike onDamageDealt/onZombieHit above which only ever
+    // fire on a successful hit.
+    this.onWeaponFired = onWeaponFired
     // Set post-construction via setRivalManager (see RivalScavenger.js) -
     // optional, so nothing else about this class needs to change if it's
     // never set.
@@ -389,6 +442,14 @@ export class WeaponSystem {
     this.aimFov = camera.fov * 0.6
     this._lerpedViewmodelPos = new THREE.Vector3()
     this._hitNormal = new THREE.Vector3()
+    // Bullet tracers - capped, oldest-evicted array of short-lived streak
+    // meshes (see _spawnTracer/_updateTracers), same shape as Decals.js's
+    // puddle/decal arrays. Each tracer gets its own material instance (never
+    // shared) since several can be fading concurrently under sustained fire.
+    this.tracers = []
+    this._idleTime = 0
+    this._idleInspectAmount = 0
+    this._sprintFovAmount = 0
     this.viewmodelRoot = new THREE.Group()
     this.viewmodelRoot.position.copy(VIEWMODEL_BASE)
     this.camera.add(this.viewmodelRoot)
@@ -724,7 +785,15 @@ export class WeaponSystem {
   _switchTo(index) {
     if (index === this.currentIndex || index >= this.weapons.length) return
     if (!this.weapons[index].unlocked) return
-    if (this.reloading) return
+    // Reload-cancel - switching away mid-reload aborts it instead of
+    // blocking the switch. The weapon keeps whatever ammoInMag it already
+    // had (see _reload/update()'s completion branch, which is what actually
+    // grants the topped-up rounds) - so cancelling costs the remaining
+    // reload time and nothing else, same tradeoff a real reload-cancel has.
+    if (this.reloading) {
+      this.reloading = false
+      this._updateHud()
+    }
     this.currentIndex = index
     // Overheat only ever applies to whichever gun is currently out, so
     // switching away always hands back a fully-cooled weapon rather than
@@ -765,6 +834,13 @@ export class WeaponSystem {
     this._time += dt
     this.recoil = Math.max(0, this.recoil - dt * 6)
     this.isSprinting = isSprinting
+    this._updateTracers()
+    // Idle weapon inspect (see _updateViewmodelTransform) - resets the
+    // instant the player does anything with the weapon, so it only ever
+    // plays during genuine downtime between fights.
+    const idling = !isMoving && !this.triggerDown && !this.aiming && !this.reloading && !this.current.melee
+    this._idleTime = idling ? this._idleTime + dt : 0
+    this._idleInspectAmount = THREE.MathUtils.clamp((this._idleTime - IDLE_INSPECT_DELAY_S) / IDLE_INSPECT_FADE_S, 0, 1)
     // Overheat decay - only actually cools while not holding the trigger,
     // so spraying right up to the cooldown threshold and letting off for a
     // moment is a real way to avoid it instead of it being on a fixed timer.
@@ -773,7 +849,11 @@ export class WeaponSystem {
     const aimTarget = this.aiming && !this.reloading && !this.current.melee ? 1 : 0
     this.aimAmount = THREE.MathUtils.damp(this.aimAmount, aimTarget, ADS_LERP_SPEED, dt)
     const aimFov = this.current.hasScope ? this.defaultFov * 0.35 : this.aimFov
-    this.camera.fov = THREE.MathUtils.lerp(this.defaultFov, aimFov, this.aimAmount)
+    // Sprint FOV kick - fades out via the (1 - aimAmount) term below rather
+    // than a hard gate, so it never fights the much larger ADS FOV pull.
+    this._sprintFovAmount = THREE.MathUtils.damp(this._sprintFovAmount, isSprinting ? 1 : 0, SPRINT_FOV_LERP_SPEED, dt)
+    const baseFov = THREE.MathUtils.lerp(this.defaultFov, aimFov, this.aimAmount)
+    this.camera.fov = baseFov + this._sprintFovAmount * SPRINT_FOV_KICK * (1 - this.aimAmount)
     this.camera.updateProjectionMatrix()
 
     this._updateViewmodelTransform(isMoving)
@@ -814,6 +894,41 @@ export class WeaponSystem {
     if (!w.melee && w.ammoInMag === 0 && w.ammoReserve > 0) this._reload()
   }
 
+  _spawnTracer(start, end, color) {
+    const dir = end.clone().sub(start)
+    const len = dir.length()
+    if (len < 0.001) return
+    dir.normalize()
+    const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85, depthWrite: false })
+    const mesh = new THREE.Mesh(TRACER_GEOMETRY, mat)
+    mesh.position.copy(start).addScaledVector(dir, len * 0.5)
+    mesh.scale.set(1, len, 1)
+    mesh.quaternion.setFromUnitVectors(TRACER_UP, dir)
+    this.scene.add(mesh)
+    this.tracers.push({ mesh, bornAt: performance.now() })
+    if (this.tracers.length > MAX_TRACERS) {
+      const oldest = this.tracers.shift()
+      this.scene.remove(oldest.mesh)
+      oldest.mesh.material.dispose()
+    }
+  }
+
+  _updateTracers() {
+    if (this.tracers.length === 0) return
+    const now = performance.now()
+    for (let i = this.tracers.length - 1; i >= 0; i--) {
+      const tr = this.tracers[i]
+      const age = now - tr.bornAt
+      if (age >= TRACER_LIFETIME_MS) {
+        this.scene.remove(tr.mesh)
+        tr.mesh.material.dispose()
+        this.tracers.splice(i, 1)
+        continue
+      }
+      tr.mesh.material.opacity = 0.85 * (1 - age / TRACER_LIFETIME_MS)
+    }
+  }
+
   _updateBarrelSpin(dt) {
     const barrelCluster = this.viewmodels[this.current.id]?.userData.barrelCluster
     if (!barrelCluster) return
@@ -832,12 +947,20 @@ export class WeaponSystem {
 
     this._lerpedViewmodelPos.lerpVectors(VIEWMODEL_BASE, VIEWMODEL_ADS, this.aimAmount)
 
+    // Idle weapon inspect (see this._idleInspectAmount, driven from update())
+    // - a slow breathing sway layered on top of the combat bob above, never
+    // replacing it, so it only ever reads during genuine downtime.
+    const inspectAmt = this._idleInspectAmount
+    const inspectY = inspectAmt > 0 ? Math.sin(this._time * 0.5) * 0.01 * inspectAmt : 0
+
     this.viewmodelRoot.position.set(
       this._lerpedViewmodelPos.x + bobX,
-      this._lerpedViewmodelPos.y + bobY,
+      this._lerpedViewmodelPos.y + bobY + inspectY,
       this._lerpedViewmodelPos.z + this.recoil * 0.12
     )
     this.viewmodelRoot.rotation.x = -this.recoil * 0.18
+    this.viewmodelRoot.rotation.y = inspectAmt > 0 ? Math.sin(this._time * 0.6) * 0.06 * inspectAmt : 0
+    this.viewmodelRoot.rotation.z = inspectAmt > 0 ? Math.sin(this._time * 0.35 + 1) * 0.04 * inspectAmt : 0
   }
 
   _fire() {
@@ -893,6 +1016,7 @@ export class WeaponSystem {
       this.recoil = 1
       this._updateHud()
       audioEngine.playShot(w.id, w.suppressed)
+      if (this.onWeaponFired && w.shakeIntensity) this.onWeaponFired(w.shakeIntensity, w.shakeDuration)
     }
 
     const zombieMeshes = this.zombieManager ? this.zombieManager.hittableMeshes : []
@@ -914,6 +1038,16 @@ export class WeaponSystem {
       )
       this.raycaster.setFromCamera(offset, this.camera)
       const hits = this.raycaster.intersectObjects([...zombieMeshes, ...rivalMeshes, ...this.colliderMeshes], true)
+      // Tracer - only the first pellet gets one (a shotgun's other 7 would
+      // just read as clutter), and it's spawned whether or not this pellet
+      // actually connects, so a miss still visibly flies off into the distance.
+      if (i === 0 && !w.melee) {
+        const origin = this.muzzleLight.getWorldPosition(new THREE.Vector3())
+        const end = hits.length > 0
+          ? hits[0].point.clone()
+          : this.raycaster.ray.origin.clone().addScaledVector(this.raycaster.ray.direction, TRACER_MAX_RANGE)
+        this._spawnTracer(origin, end, w.muzzleColor ?? DEFAULT_MUZZLE_COLOR)
+      }
       if (hits.length === 0) continue
       if (w.melee && hits[0].distance > w.range) continue
 

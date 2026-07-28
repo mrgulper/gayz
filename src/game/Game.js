@@ -687,6 +687,13 @@ const STATION_ENCOUNTER_ZOMBIE_COUNT = 4
 const PERK_REROLL_COST = 15
 const COMBO_WINDOW_MS = 3000
 const COMBO_MIN_DISPLAY = 2
+// Escalating combo popup (see _registerComboKill's tier class toggle) -
+// COMBO_MULT_CAP below already maxes the damage bonus out around 11 kills,
+// so these tiers are pitched a bit past that: still climbing after the
+// mechanical reward caps out is exactly when the visual payoff should keep
+// escalating.
+const COMBO_TIER2_THRESHOLD = 10
+const COMBO_TIER3_THRESHOLD = 20
 // Left 4 Dead-style "Director" - re-scores the player's situation every
 // DIRECTOR_EVAL_INTERVAL_MS and hands ZombieManager a multiplier on top of
 // its normal night-based curve, instead of pressure being a flat per-night
@@ -700,7 +707,20 @@ const ADRENALINE_SPEED_MULT = 1.5
 const ADRENALINE_FIRE_RATE_MULT = 1.4
 const DEATH_CAM_MS = 900
 const KILLCAM_DURATION_MS = 1000
+// Wave-Clear Finisher Cam - shorter than the boss killcam above since this
+// fires far more often (any time the alive-zombie count hits 0, not just
+// once per boss).
+const WAVE_CLEAR_KILLCAM_DURATION_MS = 500
 const KILLCAM_SLOWMO_FACTOR = 0.2
+// Landing camera dip - only a genuinely hard fall dips the camera (a normal
+// jump lands around -10 to -12, a stair/step correction is well under -4,
+// see PlayerController's GRAVITY/JUMP_SPEED). Scale/max keep a long fall off
+// the skyscraper roof from producing an absurd dip - it clamps instead of
+// scaling forever.
+const LANDING_DIP_MIN_IMPACT = -4
+const LANDING_DIP_SCALE = 0.01
+const LANDING_DIP_MAX = 0.35
+const LANDING_DIP_RECOVER_SPEED = 9
 const KILLCAM_ZOOM_FOV_MULT = 0.75
 // Killstreak rewards - this.killStreak counts consecutive kills without
 // dying (reset in _onPlayerDeath), distinct from the flat "every 10th kill"
@@ -1542,6 +1562,11 @@ export class Game {
     this._shakeMagnitude = 0
     this._shakeDuration = 0
     this._shakeTime = 0
+    // Landing camera dip (see _updateLandingDip) - a deliberate one-shot
+    // downward snap-then-recover on hard falls, distinct from _shakeOffset's
+    // random noise above.
+    this._landingDipY = 0
+    this._lastSeenLandingSeq = 0
     this._hitstopUntil = 0
     this.killcamUntil = 0
     this.musicIntensityCurrent = 0
@@ -2290,7 +2315,8 @@ export class Game {
         this._triggerHitstop(40)
       },
       () => this._onStealthTakedown(),
-      (x, y, z, damage, isHeadshot) => this._spawnDamageNumber(x, y, z, damage, isHeadshot)
+      (x, y, z, damage, isHeadshot) => this._spawnDamageNumber(x, y, z, damage, isHeadshot),
+      (intensity, durationMs) => this._triggerShake(intensity, durationMs)
     )
     this.rivals = new RivalManager(this.scene)
     this.weapons.setRivalManager(this.rivals)
@@ -4343,6 +4369,8 @@ export class Game {
     if (this.comboCount >= COMBO_MIN_DISPLAY) {
       this.comboCounter.textContent = t('comboLabel', { n: this.comboCount })
       this.comboCounter.style.display = 'block'
+      this.comboCounter.classList.toggle('combo-tier-2', this.comboCount >= COMBO_TIER2_THRESHOLD)
+      this.comboCounter.classList.toggle('combo-tier-3', this.comboCount >= COMBO_TIER3_THRESHOLD)
       this.comboCounter.classList.remove('pulse')
       void this.comboCounter.offsetWidth
       this.comboCounter.classList.add('pulse')
@@ -5575,6 +5603,14 @@ export class Game {
       }
     }
     if (!nearest) return
+    // Directional shake kick - punches the already-triggered shake (see
+    // _onZombieAttack, called right before this) away from the attacker
+    // instead of pure random noise, reusing this same nearest-zombie lookup
+    // rather than a second scan.
+    const awayX = (playerPos.x - nearest.group.position.x) / Math.max(0.001, nearestDist)
+    const awayZ = (playerPos.z - nearest.group.position.z) / Math.max(0.001, nearestDist)
+    this._shakeBiasX = awayX
+    this._shakeBiasZ = awayZ
     this.camera.getWorldDirection(this._camDir)
     const facingRad = Math.atan2(this._camDir.x, -this._camDir.z)
     const bearing = Math.atan2(nearest.group.position.x - playerPos.x, -(nearest.group.position.z - playerPos.z))
@@ -5670,11 +5706,17 @@ export class Game {
   // once per tick) plus an optional freeze-frame. Only overwrites the
   // current shake if the new one is stronger, so a big damage-taken shake
   // doesn't get cut short by a small hit-landed shake a moment later.
-  _triggerShake(magnitude, durationMs) {
+  // dirX/dirZ (both default 0, every pre-existing call site is unaffected)
+  // bias the shake's jitter toward a direction instead of pure random noise
+  // - see _showThreatIndicator's own bearing math, reused for "punch the
+  // camera away from whatever just hit you" instead of pure noise.
+  _triggerShake(magnitude, durationMs, dirX = 0, dirZ = 0) {
     if (magnitude < this._shakeMagnitude) return
     this._shakeMagnitude = magnitude
     this._shakeDuration = durationMs / 1000
     this._shakeTime = this._shakeDuration
+    this._shakeBiasX = dirX
+    this._shakeBiasZ = dirZ
   }
 
   // Fired by WeaponSystem when a melee hit lands on a zombie facing away
@@ -5735,13 +5777,30 @@ export class Game {
       this._shakeTime = Math.max(0, this._shakeTime - dt)
       const mag = this._shakeMagnitude * (this._shakeTime / this._shakeDuration)
       this._shakeOffset.set(
-        (Math.random() - 0.5) * 2 * mag,
+        (Math.random() - 0.5) * 2 * mag + (this._shakeBiasX || 0) * mag,
         (Math.random() - 0.5) * 2 * mag * 0.6,
-        (Math.random() - 0.5) * 2 * mag
+        (Math.random() - 0.5) * 2 * mag + (this._shakeBiasZ || 0) * mag
       )
     } else {
       this._shakeOffset.set(0, 0, 0)
     }
+  }
+
+  // Landing camera dip (see PlayerController's lastLandingImpact/landingSeq)
+  // - a one-shot downward snap consumed the instant a new landing shows up,
+  // then springs back to 0 every subsequent frame. Deliberately a separate
+  // offset from _shakeOffset above (composed together in _tick) rather than
+  // folded into the shake system, since this is a fixed-direction dip, not
+  // random jitter.
+  _updateLandingDip(dt) {
+    if (this.player.landingSeq !== this._lastSeenLandingSeq) {
+      this._lastSeenLandingSeq = this.player.landingSeq
+      const impact = this.player.lastLandingImpact
+      if (impact < LANDING_DIP_MIN_IMPACT) {
+        this._landingDipY = Math.max(-LANDING_DIP_MAX, impact * LANDING_DIP_SCALE)
+      }
+    }
+    this._landingDipY = THREE.MathUtils.damp(this._landingDipY, 0, LANDING_DIP_RECOVER_SPEED, dt)
   }
 
   // Run Score Multiplier - reuses the existing on-screen combo counter
@@ -5871,6 +5930,23 @@ export class Game {
     // Guaranteed boss loot - on top of the normal chance-based ammo drop,
     // not instead of it.
     if (zombieTypeId === 'colossus') this.pickups.spawnLootDrop('extended_mag', x, z)
+
+    // Wave-Clear Finisher Cam - reuses the exact same killcamUntil slow-mo/
+    // zoom mechanism _triggerBossKillcam already drives, just triggered by
+    // "nothing left alive" instead of "that alive thing was a boss" - boss
+    // kills are excluded here since _triggerBossKillcam above already fired
+    // for those, and stacking both would just restart the same effect.
+    if (!BOSS_TIER_IDS.has(zombieTypeId) && this.zombies.zombies.filter((z) => z.state === 'alive').length === 0) {
+      this._triggerWaveClearedCam()
+    }
+  }
+
+  _triggerWaveClearedCam() {
+    this.killcamUntil = performance.now() + WAVE_CLEAR_KILLCAM_DURATION_MS
+    this.nightBanner.textContent = t('toastWaveCleared')
+    this.nightBanner.classList.remove('show')
+    void this.nightBanner.offsetWidth
+    this.nightBanner.classList.add('show')
   }
 
   // this.killStreak crosses each threshold exactly once per life (it only
@@ -8327,6 +8403,7 @@ export class Game {
     else if (performance.now() < this.killcamUntil) dt *= KILLCAM_SLOWMO_FACTOR
 
     this.camera.position.sub(this._shakeOffset)
+    this.camera.position.y -= this._landingDipY
 
     this.dayNight.update()
     // Weather dims the day/night lighting further (see WEATHER_DIM_RAIN/
@@ -8648,7 +8725,9 @@ export class Game {
     }
 
     this._updateShake(dt)
+    this._updateLandingDip(dt)
     this.camera.position.add(this._shakeOffset)
+    this.camera.position.y += this._landingDipY
 
     this.composer.render()
   }

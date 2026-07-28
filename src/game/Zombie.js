@@ -70,6 +70,14 @@ const DEFAULT_WEAKEN_MULT = 0.55
 const HIVEMIND_SPEED_MULT = 1.3
 const HIVEMIND_RADIUS = 14
 
+// Varied hit-reaction stagger - a brief world-space knockback away from
+// (roughly) the player, scaled by damage so a pistol tap barely registers
+// and a shotgun blast visibly rocks the zombie back. Duration matches
+// onHit's existing 200ms staggerUntil freeze so both settle together.
+const HIT_REACT_DURATION_MS = 200
+const HIT_REACT_MAX_PUSH = 0.12
+const HIT_REACT_DAMAGE_FOR_MAX = 80
+
 // Berserker last stand: any zombie below this health fraction goes into a
 // desperate final rush - faster and hitting harder right before it dies,
 // instead of just plodding along at the same pace all the way down to 0.
@@ -194,6 +202,16 @@ export class Zombie {
     this.popDurationMs = AMBUSH_POP_MS * (0.7 + Math.random() * 0.6)
     this.burstDurationMs = AMBUSH_BURST_MS * (0.8 + Math.random() * 0.4)
     this.staggerUntil = 0
+    // Varied hit-reaction (see onHit/_updateHitReact) - direction/magnitude
+    // of the most recent non-lethal hit, decayed back to a zero offset every
+    // frame rather than accumulated, same "recompute fresh, never just add"
+    // discipline Game.js's own camera shake uses.
+    this.hitReactX = 0
+    this.hitReactZ = 1
+    this.hitReactMagnitude = 0
+    this.hitReactStartedAt = 0
+    this._hitReactOffsetX = 0
+    this._hitReactOffsetZ = 0
     this.attackCooldownUntil = 0
     this.attackAnimUntil = 0
     this.dieStartedAt = 0
@@ -973,6 +991,13 @@ export class Zombie {
   }
 
   update(dt, elapsed, playerPos, onAttack, onSpit, onAmbushTrigger, onExplode, playerCrouching = false, onScream = null, colliders = null, solidMeshes = null, allZombies = null, onTrail = null) {
+    // Cached so onHit() - called from outside update(), with no player
+    // position of its own - can still bias the hit-reaction knockback away
+    // from roughly where the player is, without threading a direction
+    // through every one of onHit's call sites across WeaponSystem/
+    // ZombieManager/Game.
+    this._lastPlayerX = playerPos.x
+    this._lastPlayerZ = playerPos.z
     this._tickIgnite(dt)
     // Regenerator - heals back up over time, same "one flag, checked once a
     // frame regardless of movement branch" shape ignite already uses. Fire
@@ -1043,6 +1068,8 @@ export class Zombie {
       return
     }
     if (this.state === 'dead') return
+
+    this._updateHitReact()
 
     const staggered = performance.now() < this.staggerUntil
     const dx = playerPos.x - this.group.position.x
@@ -1578,6 +1605,26 @@ export class Zombie {
     return localHeight * this.group.scale.y
   }
 
+  // Recomputes this frame's knockback offset fresh from elapsed-since-hit
+  // (never accumulates), subtracting last frame's contribution and adding
+  // the new one - same discipline Game.js's camera shake uses, so repeated
+  // hits can't drift the zombie's position permanently.
+  _updateHitReact() {
+    this.group.position.x -= this._hitReactOffsetX
+    this.group.position.z -= this._hitReactOffsetZ
+    const elapsed = performance.now() - this.hitReactStartedAt
+    if (elapsed < HIT_REACT_DURATION_MS) {
+      const easeOut = 1 - elapsed / HIT_REACT_DURATION_MS
+      this._hitReactOffsetX = this.hitReactX * HIT_REACT_MAX_PUSH * this.hitReactMagnitude * easeOut
+      this._hitReactOffsetZ = this.hitReactZ * HIT_REACT_MAX_PUSH * this.hitReactMagnitude * easeOut
+    } else {
+      this._hitReactOffsetX = 0
+      this._hitReactOffsetZ = 0
+    }
+    this.group.position.x += this._hitReactOffsetX
+    this.group.position.z += this._hitReactOffsetZ
+  }
+
   onHit(damage, opts = {}) {
     if (this.state !== 'alive' && this.state !== 'popping') return
     // Shielded type: non-melee hits drain the shield pool first and never
@@ -1596,6 +1643,20 @@ export class Zombie {
       this.health = Math.max(0, this.health - damage)
     }
     this.staggerUntil = performance.now() + 200
+
+    // Varied hit-reaction (see _updateHitReact) - knocked away from roughly
+    // where the player is, harder for a bigger hit. Falls back to whatever
+    // direction the last hit already used if this zombie hasn't seen the
+    // player yet this frame (e.g. hit within its very first update tick).
+    const hrDx = this.group.position.x - (this._lastPlayerX ?? this.group.position.x - this.hitReactX)
+    const hrDz = this.group.position.z - (this._lastPlayerZ ?? this.group.position.z - this.hitReactZ)
+    const hrLen = Math.hypot(hrDx, hrDz)
+    if (hrLen > 0.0001) {
+      this.hitReactX = hrDx / hrLen
+      this.hitReactZ = hrDz / hrLen
+    }
+    this.hitReactMagnitude = Math.min(1, damage / HIT_REACT_DAMAGE_FOR_MAX)
+    this.hitReactStartedAt = performance.now()
 
     this._barSprite.visible = true
     this._redrawHealthBar()

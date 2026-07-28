@@ -286,6 +286,7 @@ const STRINGS = {
     toastVaultLocked: 'The Vault is locked. Find the key first.',
     toastVaultOpened: 'Vault opened! +{n} points and a guaranteed weapon part',
     toastBossDefeated: 'BOSS DEFEATED',
+    toastWaveCleared: 'AREA CLEAR',
     toastWeaponMastered: '{weapon} Mastered! Permanent damage bonus earned.',
     masteryMasteredTitle: 'Mastered: +{pct}% damage, permanent',
     masteryProgressTitle: 'Kills toward Mastery (permanent damage bonus)',

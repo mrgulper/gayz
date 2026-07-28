@@ -92,6 +92,13 @@ export class PlayerController {
     this.camera = camera
 
     this.velocity = new THREE.Vector3()
+    // Landing camera dip (see Game.js's _updateLandingDip) - lastLandingImpact
+    // is the pre-zeroed velocity.y (negative) from whatever landing just
+    // happened; landingSeq increments once per real landing so a one-shot
+    // consumer can tell a fresh landing apart from re-reading the same
+    // value again (two falls can land at an identical speed).
+    this.lastLandingImpact = 0
+    this.landingSeq = 0
     // Stage 11's slippery walkway (see Game.js's _updateSlipperyZone) - set
     // externally to >0 while standing on it, 0 everywhere else in the game.
     // Horizontal movement normally snaps straight to the target direction
@@ -434,6 +441,10 @@ export class PlayerController {
     if (this.velocity.y <= 0) {
       const nextY = obj.position.y + this.velocity.y * dt
       if (nextY <= targetEyeY) {
+        if (!this.onGround) {
+          this.lastLandingImpact = this.velocity.y
+          this.landingSeq++
+        }
         obj.position.y = targetEyeY
         this.velocity.y = 0
         this.onGround = true

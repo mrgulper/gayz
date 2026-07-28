@@ -606,6 +606,30 @@ html, body {
   100% { transform: translate(-50%, -50%) scale(1); }
 }
 
+/* Escalating combo popup - a long chain of kills reads as visibly bigger
+   and hotter-colored than a bare-minimum combo, not just a larger number. */
+#combo-counter.combo-tier-2 {
+  font-size: 34px;
+  color: #ff9d3c;
+  text-shadow: 0 2px 14px rgba(255, 110, 0, 0.55);
+}
+
+#combo-counter.combo-tier-3 {
+  font-size: 44px;
+  color: #ff4d4d;
+  text-shadow: 0 2px 18px rgba(255, 40, 20, 0.7);
+  animation: comboheat 900ms ease-in-out infinite;
+}
+
+#combo-counter.combo-tier-3.pulse {
+  animation: combopulse 260ms ease-out, comboheat 900ms ease-in-out infinite;
+}
+
+@keyframes comboheat {
+  0%, 100% { text-shadow: 0 2px 18px rgba(255, 40, 20, 0.7); }
+  50% { text-shadow: 0 2px 26px rgba(255, 40, 20, 1); }
+}
+
 @keyframes nightbanner {
   0% { opacity: 0; transform: translate(-50%, -40%); }
   15% { opacity: 1; transform: translate(-50%, -50%); }
