@@ -13,7 +13,7 @@ import { PlayerState } from './PlayerState.js'
 import { Inventory } from './Inventory.js'
 import { DayNightCycle } from './DayNightCycle.js'
 import { ChestManager, Vault } from './Chests.js'
-import { RivalManager } from './RivalScavenger.js'
+import { RivalManager, RIVAL_BANTER } from './RivalScavenger.js'
 import { loadMastery, saveMastery, MASTERY_THRESHOLD, MASTERY_DAMAGE_MULT, GRANDMASTER_THRESHOLD, GRANDMASTER_DAMAGE_MULT } from './WeaponMastery.js'
 import { BarricadeWindows, REPAIR_REWARD_POINTS } from './BarricadeWindows.js'
 import { Minimap } from './Minimap.js'
@@ -478,6 +478,102 @@ function saveBestStats(stats) {
     localStorage.setItem(BEST_STATS_KEY, JSON.stringify(stats))
   } catch {
     // Storage unavailable - best stats just won't persist across sessions.
+  }
+}
+
+// Best-Run Pace Comparison (see _checkBestRunPace) - records real elapsed
+// time only when a new bestStats.bestNight record actually lands (see
+// _recordRunEnd), so a live run can be compared against a linear
+// projection of "how fast did the best-ever run reach this same night."
+const BEST_RUN_PACE_KEY = 'gayz-best-run-pace'
+
+function loadBestRunPace() {
+  try {
+    const raw = localStorage.getItem(BEST_RUN_PACE_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+function saveBestRunPace(pace) {
+  try {
+    localStorage.setItem(BEST_RUN_PACE_KEY, JSON.stringify(pace))
+  } catch {
+    // Storage unavailable - pace comparison just won't have a baseline yet.
+  }
+}
+
+// Death-location memorial markers (see _spawnDeathMemorials) - small,
+// non-solid world markers at past death coordinates, distinct from the
+// menu-based Hardcore Memorial list (text log, hardcore-only) and the
+// static Survivor Memorial Wall prop in World.js (one fixed decoration).
+// Capped so a long play history can't grow the marker count unbounded.
+const DEATH_MEMORIALS_KEY = 'gayz-death-memorials'
+const DEATH_MEMORIALS_MAX = 15
+
+function loadDeathMemorials() {
+  try {
+    const raw = localStorage.getItem(DEATH_MEMORIALS_KEY)
+    const parsed = raw ? JSON.parse(raw) : []
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function saveDeathMemorials(list) {
+  try {
+    localStorage.setItem(DEATH_MEMORIALS_KEY, JSON.stringify(list))
+  } catch {
+    // Storage unavailable - markers just won't persist across sessions.
+  }
+}
+
+// Nemesis system (see _recordNemesis/_checkNemesisReturn) - remembers only
+// the single most recent death's nearest zombie type/night, not a history.
+const NEMESIS_KEY = 'gayz-nemesis'
+
+function loadNemesis() {
+  try {
+    const raw = localStorage.getItem(NEMESIS_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+function saveNemesis(nemesis) {
+  try {
+    localStorage.setItem(NEMESIS_KEY, JSON.stringify(nemesis))
+  } catch {
+    // Storage unavailable - nemesis just won't persist across sessions.
+  }
+}
+
+// Daily Challenge local leaderboard (see _recordDailyLeaderboardEntry) -
+// top-N attempts for TODAY's date specifically, distinct from dailyBest's
+// single lifetime-best score. Resets whenever the stored date goes stale,
+// same day-rollover check loadDailyBest already uses.
+const DAILY_LEADERBOARD_KEY = 'gayz-daily-leaderboard'
+const DAILY_LEADERBOARD_MAX = 5
+
+function loadDailyLeaderboard() {
+  try {
+    const raw = localStorage.getItem(DAILY_LEADERBOARD_KEY)
+    const parsed = raw ? JSON.parse(raw) : null
+    if (parsed && parsed.date === _todayDateStr()) return parsed
+    return { date: _todayDateStr(), scores: [] }
+  } catch {
+    return { date: _todayDateStr(), scores: [] }
+  }
+}
+
+function saveDailyLeaderboard(board) {
+  try {
+    localStorage.setItem(DAILY_LEADERBOARD_KEY, JSON.stringify(board))
+  } catch {
+    // Storage unavailable - leaderboard just won't persist across sessions.
   }
 }
 
@@ -946,6 +1042,13 @@ const KILLCAM_DURATION_MS = 1000
 // once per boss).
 const WAVE_CLEAR_KILLCAM_DURATION_MS = 500
 const KILLCAM_SLOWMO_FACTOR = 0.2
+// Death Killcam (see _onPlayerDeath) - reuses this exact killcamUntil/
+// KILLCAM_SLOWMO_FACTOR mechanism the boss/wave-clear cams above already
+// drive, just triggered by the player's own death instead. Timed to
+// slightly outlast DEATH_CAM_MS's held-beat above so the whole freeze
+// plays out in slow motion rather than snapping back to normal speed
+// right before the death screen shows.
+const DEATH_KILLCAM_DURATION_MS = 1100
 // Landing camera dip - only a genuinely hard fall dips the camera (a normal
 // jump lands around -10 to -12, a stair/step correction is well under -4,
 // see PlayerController's GRAVITY/JUMP_SPEED). Scale/max keep a long fall off
@@ -962,6 +1065,27 @@ const LANDING_DIP_RECOVER_SPEED = 9
 // still a gun going off, just a quieter one.
 const GUNFIRE_ALERT_RADIUS = 22
 const GUNFIRE_ALERT_RADIUS_SUPPRESSED = 6
+// Taunt (see _triggerTaunt) - a free, player-initiated shout that alerts
+// every unaware zombie in a wide radius, no ammo cost. Deliberately a much
+// bigger radius than gunfire's above since it's meant as a deliberate
+// aggro-pulling tool (kite a horde away from a downed companion, or gather
+// stragglers before a grenade throw) rather than gunfire's incidental
+// side-effect of just shooting.
+const TAUNT_ALERT_RADIUS = 32
+const TAUNT_COOLDOWN_MS = 8000
+const TAUNT_LINES = [
+  "OVER HERE, UGLY!",
+  "COME AND GET ME!",
+  "IS THAT ALL YOU'VE GOT?",
+  "HEY! EYES ON ME!",
+  "YOU WANT SOME? COME ON!",
+]
+// Kill Feed (see _pushKillFeed) - a multiplayer-style running strip of the
+// player's own notable kills (boss/elite/combo/melee), purely presentational.
+// Capped so a fast fight can't grow the DOM list unbounded; entries fade on
+// their own timer rather than waiting for a manual clear.
+const KILL_FEED_MAX_ENTRIES = 5
+const KILL_FEED_ENTRY_MS = 4000
 const KILLCAM_ZOOM_FOV_MULT = 0.75
 // Killstreak rewards - this.killStreak counts consecutive kills without
 // dying (reset in _onPlayerDeath), distinct from the flat "every 10th kill"
@@ -1819,9 +1943,14 @@ export class Game {
     this.bossRushLeaderboard = loadBossRushLeaderboard()
     this.hardcoreMemorial = loadHardcoreMemorial()
     this.dailyBest = loadDailyBest()
+    this.dailyLeaderboard = loadDailyLeaderboard()
     this.dailyChallengeActive = false
     this.dailyDamageMult = 1
     this.dailyTwist = null
+    this.bestRunPace = loadBestRunPace()
+    this.deathMemorials = loadDeathMemorials()
+    this.nemesis = loadNemesis()
+    this._nemesisAnnouncedThisRun = false
 
     this.night = 1
     this.kills = 0
@@ -1889,10 +2018,13 @@ export class Game {
     this._lastSeenLandingSeq = 0
     this._hitstopUntil = 0
     this.killcamUntil = 0
+    this._lastTauntAt = 0
+    this._runCardBaseImage = null
     this.musicIntensityCurrent = 0
     this.runStartedAt = performance.now()
     this.nightStartedAt = performance.now()
     this.roundIntermissionUntil = 0
+    this._scheduleNemesisCheck()
     this._scheduleNightEvent()
     this._rollWeather()
     this._rollFeaturedItem()
@@ -2478,6 +2610,15 @@ export class Game {
     this.bestiaryPanelTitle = document.getElementById('bestiary-panel-title')
     this.bestiaryOptions = document.getElementById('bestiary-options')
     this.bestiaryCloseBtn = document.getElementById('bestiary-close-btn')
+    this.profileBtn = document.getElementById('profile-btn')
+    this.profilePanel = document.getElementById('profile-panel')
+    this.profilePanelTitle = document.getElementById('profile-panel-title')
+    this.profileOptions = document.getElementById('profile-options')
+    this.profileCloseBtn = document.getElementById('profile-close-btn')
+    this.killFeedEl = document.getElementById('kill-feed')
+    this.tauntTextEl = document.getElementById('taunt-text')
+    this.dailyLeaderboardEl = document.getElementById('death-daily-leaderboard')
+    this.shareRunCardBtn = document.getElementById('share-run-card-btn')
     this.coinshopBtn = document.getElementById('coinshop-btn')
     this.coinshopPanel = document.getElementById('coinshop-panel')
     this.coinshopPanelTitle = document.getElementById('coinshop-panel-title')
@@ -2659,6 +2800,8 @@ export class Game {
     this.rivals = new RivalManager(this.scene)
     this.weapons.setRivalManager(this.rivals)
     this._rivalsClaimedAirdrop = false
+    this._rivalsClaimedByName = null
+    this._spawnDeathMemorials()
     // Weapon mastery (see WeaponMastery.js) - re-applies any previously
     // earned masteryMult bonuses to this fresh set of weapon objects, since
     // WeaponSystem's own weapons array is rebuilt from scratch every run.
@@ -2927,6 +3070,7 @@ export class Game {
       this.chests.reset()
       this.rivals.reset()
       this._rivalsClaimedAirdrop = false
+      this._rivalsClaimedByName = null
       this.xpGems.reset()
       this.companion.teleportTo(1.6, 7)
       this.companion.resetVitals()
@@ -2956,6 +3100,8 @@ export class Game {
       }
       this.runStartedAt = performance.now()
       this.nightStartedAt = performance.now()
+      this._nemesisAnnouncedThisRun = false
+      this._scheduleNemesisCheck()
       this._scheduleNightEvent()
       this._rollWeather()
       this._applySeasonalDressing()
@@ -3142,6 +3288,8 @@ export class Game {
         }
       } else if (e.code === getKeyFor('threatPing')) {
         this._pingNearestThreat()
+      } else if (e.code === getKeyFor('taunt')) {
+        this._triggerTaunt()
       } else if (e.code === getKeyFor('flashlight')) {
         if (!this.flashlightOn && this.flashlightBattery <= 0) return
         this.flashlightOn = !this.flashlightOn
@@ -4555,6 +4703,9 @@ export class Game {
     this.achievementsCloseBtn.addEventListener('click', () => this._closeAchievementsPanel())
     this.bestiaryBtn.addEventListener('click', () => this._openBestiaryPanel())
     this.bestiaryCloseBtn.addEventListener('click', () => this._closeBestiaryPanel())
+    this.profileBtn.addEventListener('click', () => this._openProfilePanel())
+    this.profileCloseBtn.addEventListener('click', () => this._closeProfilePanel())
+    this.shareRunCardBtn.addEventListener('click', () => this._generateRunSummaryCard())
     this.coinshopBtn.addEventListener('click', () => this._openCoinShopPanel())
     this.coinshopCloseBtn.addEventListener('click', () => this._closeCoinShopPanel())
     this.endingContinueBtn.addEventListener('click', () => {
@@ -6721,6 +6872,13 @@ export class Game {
     } else {
       coinsEarned = 10 + Math.floor(Math.random() * 91)
     }
+    // Kill Feed (see _pushKillFeed) - one entry per kill at most, picked by
+    // priority (boss > big combo > elite > melee) so a kill that qualifies
+    // for several categories at once doesn't spam multiple stacked entries.
+    if (BOSS_TIER_IDS.has(zombieTypeId)) this._pushKillFeed('BOSS DOWN')
+    else if (this.comboCount >= COMBO_TIER3_THRESHOLD) this._pushKillFeed(`${this.comboCount}x COMBO`)
+    else if (isElite) this._pushKillFeed('Elite eliminated')
+    else if (weaponId === 'melee') this._pushKillFeed('Melee finish')
     this.coins += coinsEarned
     this._showCoinPopup(coinsEarned)
     this._updateStatsPanel()
@@ -7003,7 +7161,15 @@ export class Game {
   // record (bestStats, career totals, Veteran Perks) the same way.
   _recordRunEnd() {
     let improved = false
-    if (this.night > this.bestStats.bestNight) { this.bestStats.bestNight = this.night; improved = true }
+    if (this.night > this.bestStats.bestNight) {
+      this.bestStats.bestNight = this.night
+      improved = true
+      // Best-Run Pace Comparison baseline (see _checkBestRunPace) - only
+      // ever overwritten on an actual new record, so the projection always
+      // reflects the single best-ever run, not just the most recent one.
+      this.bestRunPace = { night: this.night, elapsedMs: performance.now() - this.runStartedAt }
+      saveBestRunPace(this.bestRunPace)
+    }
     if (this.kills > this.bestStats.bestKills) { this.bestStats.bestKills = this.kills; improved = true }
     if (this.peakKillStreakThisRun > this.bestStats.bestKillStreak) { this.bestStats.bestKillStreak = this.peakKillStreakThisRun; improved = true }
     if (improved) {
@@ -7033,6 +7199,17 @@ export class Game {
   }
 
   _onPlayerDeath() {
+    // Shareable run-summary card (see _generateRunSummaryCard) - captures
+    // the actual moment-of-death frame before any HUD teardown/UI change,
+    // same composer.render()+toDataURL technique _takeScreenshot uses.
+    this.composer.render()
+    this._runCardBaseImage = this.canvas.toDataURL('image/png')
+    // Death Killcam (see DEATH_KILLCAM_DURATION_MS's own comment) - reuses
+    // the boss/wave-clear slow-mo mechanism, timed to cover the death cam's
+    // held beat below.
+    this.killcamUntil = performance.now() + DEATH_KILLCAM_DURATION_MS
+    this._recordDeathMemorial()
+    this._recordNemesis()
     this.player.controls.unlock()
     this.crosshair.style.display = 'none'
     this.hudEl.style.display = 'none'
@@ -7114,6 +7291,7 @@ export class Game {
       }
       this.deathDaily.textContent = t('dailyResult', { twist: t(this.dailyTwist.nameKey), score, best: this.dailyBest.score })
       this.deathDaily.style.display = 'block'
+      this._recordDailyLeaderboardEntry(score)
     } else {
       this.deathDaily.style.display = 'none'
     }
@@ -7128,6 +7306,212 @@ export class Game {
     setTimeout(() => {
       this.deathScreen.style.display = 'flex'
     }, DEATH_CAM_MS)
+  }
+
+  // Best-Run Pace Comparison (see BEST_RUN_PACE_KEY's own comment) - a
+  // linear projection from the single best-ever run's elapsed-time/night
+  // ratio, compared against this run's actual elapsed time at the same
+  // night. An estimate (no per-night history is stored), not a
+  // frame-accurate replay comparison.
+  _checkBestRunPace() {
+    if (!this.bestRunPace || this.bestRunPace.night <= 0) return
+    const projectedMs = (this.bestRunPace.elapsedMs / this.bestRunPace.night) * this.night
+    const actualMs = performance.now() - this.runStartedAt
+    const diffS = Math.round(Math.abs(projectedMs - actualMs) / 1000)
+    if (diffS === 0) return
+    if (actualMs < projectedMs) this._showLoreToast(t('paceAhead', { n: this.night, s: diffS }))
+    else this._showLoreToast(t('paceBehind', { n: this.night, s: diffS }))
+  }
+
+  // Death-location memorial markers (see DEATH_MEMORIALS_KEY's own
+  // comment) - records the current death and immediately adds its own
+  // marker mesh too, so a same-session respawn already sees it without
+  // needing a fresh page load.
+  _recordDeathMemorial() {
+    const pos = this.player.controls.object.position
+    this.deathMemorials.unshift({ x: pos.x, z: pos.z })
+    this.deathMemorials = this.deathMemorials.slice(0, DEATH_MEMORIALS_MAX)
+    saveDeathMemorials(this.deathMemorials)
+    this._addDeathMemorialMesh(pos.x, pos.z)
+  }
+
+  // Called once at construction to draw every persisted entry.
+  _spawnDeathMemorials() {
+    for (const m of this.deathMemorials) this._addDeathMemorialMesh(m.x, m.z)
+  }
+
+  // Small dark cross, added straight to the scene (never passed through
+  // World.js's register()) so old death spots never block a path or show
+  // up in a raycast - purely a visual "you fell here before" marker.
+  _addDeathMemorialMesh(x, z) {
+    const mat = new THREE.MeshBasicMaterial({ color: 0x1a1a1a })
+    const group = new THREE.Group()
+    const vertical = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.5, 0.06), mat)
+    vertical.position.y = 0.25
+    group.add(vertical)
+    const horizontal = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.06, 0.06), mat)
+    horizontal.position.y = 0.36
+    group.add(horizontal)
+    group.position.set(x, 0, z)
+    group.rotation.y = Math.random() * Math.PI * 2
+    this.scene.add(group)
+  }
+
+  // Shareable run-summary card - composites the moment-of-death frame
+  // (_runCardBaseImage, captured in _onPlayerDeath) with a stat overlay,
+  // distinct from the manual mid-game screenshot/crop tool (_takeScreenshot).
+  _generateRunSummaryCard() {
+    if (!this._runCardBaseImage) return
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = 800
+      canvas.height = 450
+      const ctx = canvas.getContext('2d')
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.55)'
+      ctx.fillRect(0, canvas.height - 110, canvas.width, 110)
+      ctx.fillStyle = '#ffffff'
+      ctx.font = 'bold 28px sans-serif'
+      ctx.fillText(`Night ${this.night} · ${this.kills} kills`, 24, canvas.height - 66)
+      ctx.font = '20px sans-serif'
+      ctx.fillText(`${formatTime(performance.now() - this.runStartedAt)} survived · Grade ${this._computeRunGrade()}`, 24, canvas.height - 34)
+      ctx.textAlign = 'right'
+      ctx.font = 'bold 22px sans-serif'
+      ctx.fillText('GayZ', canvas.width - 24, canvas.height - 34)
+      ctx.textAlign = 'left'
+
+      const link = document.createElement('a')
+      link.download = `gayz-run-${Date.now()}.png`
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+      this._showLoreToast(t('runCardSaved'))
+    }
+    img.src = this._runCardBaseImage
+  }
+
+  // Kill Feed (see KILL_FEED_MAX_ENTRIES/_MS) - a multiplayer-style stacked
+  // strip of notable kills, purely presentational; each entry removes
+  // itself on its own timer instead of needing a manual clear.
+  _pushKillFeed(text) {
+    const entry = document.createElement('div')
+    entry.className = 'kill-feed-entry'
+    entry.textContent = text
+    this.killFeedEl.appendChild(entry)
+    while (this.killFeedEl.children.length > KILL_FEED_MAX_ENTRIES) {
+      this.killFeedEl.removeChild(this.killFeedEl.firstChild)
+    }
+    setTimeout(() => {
+      if (entry.parentNode === this.killFeedEl) this.killFeedEl.removeChild(entry)
+    }, KILL_FEED_ENTRY_MS)
+  }
+
+  // Taunt (see TAUNT_ALERT_RADIUS/_COOLDOWN_MS/_LINES) - a free,
+  // player-initiated shout that alerts every unaware zombie in a wide
+  // radius, reusing the same aware-flip _alertNearbyZombiesToGunfire
+  // already does, just with its own bigger radius and no gunshot required.
+  _triggerTaunt() {
+    const now = performance.now()
+    if (now < this._lastTauntAt + TAUNT_COOLDOWN_MS) return
+    this._lastTauntAt = now
+    audioEngine.playHorn()
+    const playerPos = this.player.controls.object.position
+    for (const z of this.zombies.zombies) {
+      if (z.state !== 'alive' || z.aware) continue
+      const d = Math.hypot(z.group.position.x - playerPos.x, z.group.position.z - playerPos.z)
+      if (d <= TAUNT_ALERT_RADIUS) z.aware = true
+    }
+    const line = TAUNT_LINES[Math.floor(Math.random() * TAUNT_LINES.length)]
+    this.tauntTextEl.textContent = line
+    this.tauntTextEl.classList.remove('show')
+    void this.tauntTextEl.offsetWidth
+    this.tauntTextEl.classList.add('show')
+  }
+
+  // Local Profile screen - read-only aggregation of stats already
+  // persisted elsewhere (careerStats/bestStats/achievements/prestige/
+  // nemesis), no new tracking of its own besides the Nemesis record.
+  _openProfilePanel() {
+    this.profilePanel.style.display = 'flex'
+    this.profilePanelTitle.textContent = t('profilePanelTitle')
+    this.profileCloseBtn.textContent = t('upgradesClose')
+    const rows = [
+      [t('profileTotalRuns'), this.careerStats.totalRuns],
+      [t('profileTotalKills'), this.careerStats.totalKills],
+      [t('profileBestNight'), this.bestStats.bestNight],
+      [t('profileBestKills'), this.bestStats.bestKills],
+      [t('profileBestKillStreak'), this.bestStats.bestKillStreak],
+      [t('profileAchievements'), `${this.achievements.unlocked.size}/${ACHIEVEMENTS.length}`],
+      [t('profilePrestige'), this.metaProgress.prestigeLevel],
+      [t('profileNemesisLabel'), this.nemesis ? t('profileNemesisValue', { name: this.nemesis.label, n: this.nemesis.night }) : t('profileNemesisNone')],
+    ]
+    this.profileOptions.innerHTML = rows.map(([label, value]) => `
+      <button class="perk-option" disabled>
+        <span class="perk-name">${label}</span>
+        <span class="perk-cost">${value}</span>
+      </button>
+    `).join('')
+  }
+
+  _closeProfilePanel() {
+    this.profilePanel.style.display = 'none'
+  }
+
+  // Nemesis system (see NEMESIS_KEY's own comment) - the nearest alive
+  // zombie to the player at the moment of death becomes the recorded
+  // nemesis, same "nearest as attacker proxy" approximation
+  // _showThreatIndicator already relies on (the exact attacker isn't
+  // threaded through every damage callback).
+  _recordNemesis() {
+    const playerPos = this.player.controls.object.position
+    let nearest = null
+    let nearestDist = Infinity
+    for (const z of this.zombies.zombies) {
+      if (z.state !== 'alive') continue
+      const d = Math.hypot(z.group.position.x - playerPos.x, z.group.position.z - playerPos.z)
+      if (d < nearestDist) {
+        nearestDist = d
+        nearest = z
+      }
+    }
+    if (!nearest) return
+    const typeInfo = ZOMBIE_TYPES[nearest.type]
+    this.nemesis = { typeId: nearest.type, label: typeInfo ? typeInfo.label : nearest.type, night: this.night }
+    saveNemesis(this.nemesis)
+  }
+
+  _scheduleNemesisCheck() {
+    setTimeout(() => this._checkNemesisReturn(), 3500)
+  }
+
+  _checkNemesisReturn() {
+    if (!this.nemesis || this._nemesisAnnouncedThisRun || !this.playerState.alive) return
+    this._nemesisAnnouncedThisRun = true
+    this._showLoreToast(t('nemesisReturnToast', { name: this.nemesis.label }))
+  }
+
+  // Daily Challenge local leaderboard (see DAILY_LEADERBOARD_KEY's own
+  // comment) - top-N attempts for today's date, distinct from dailyBest's
+  // single lifetime-best score.
+  _recordDailyLeaderboardEntry(score) {
+    this.dailyLeaderboard = loadDailyLeaderboard()
+    this.dailyLeaderboard.scores.push(score)
+    this.dailyLeaderboard.scores.sort((a, b) => b - a)
+    this.dailyLeaderboard.scores = this.dailyLeaderboard.scores.slice(0, DAILY_LEADERBOARD_MAX)
+    saveDailyLeaderboard(this.dailyLeaderboard)
+    this._renderDailyLeaderboard()
+  }
+
+  _renderDailyLeaderboard() {
+    if (!this.dailyLeaderboardEl) return
+    if (this.dailyLeaderboard.scores.length === 0) {
+      this.dailyLeaderboardEl.style.display = 'none'
+      this.dailyLeaderboardEl.innerHTML = ''
+      return
+    }
+    this.dailyLeaderboardEl.style.display = ''
+    const rows = this.dailyLeaderboard.scores.map((s, i) => `<p class="menu-best-stats">${i + 1}. ${s}</p>`).join('')
+    this.dailyLeaderboardEl.innerHTML = `<p class="menu-best-stats">${t('dailyLeaderboardTitle')}</p>${rows}`
   }
 
   _onPickup(type, label, isLoot, count) {
@@ -7658,7 +8042,7 @@ export class Game {
 
     if (this.airdrop && this._rivalsClaimedAirdrop) {
       this.scene.remove(this.airdrop.mesh)
-      this._showLoreToast(t('airdropStolenByRivals'))
+      this._showLoreToast(this._rivalsClaimedByName ? RIVAL_BANTER.claimed(this._rivalsClaimedByName) : t('airdropStolenByRivals'))
       this.airdrop = null
       this._rivalsClaimedAirdrop = false
     }
@@ -7713,8 +8097,8 @@ export class Game {
     // Rival scavengers converging on the same crate - a race, not just a
     // free pickup, some of the time.
     if (Math.random() < RIVAL_SQUAD_CHANCE) {
-      this.rivals.spawnSquad(x, z, 2)
-      this._showLoreToast(t('rivalsSpotted'))
+      const leaderName = this.rivals.spawnSquad(x, z, 2)
+      this._showLoreToast(RIVAL_BANTER.spotted(leaderName))
     }
   }
 
@@ -9446,6 +9830,7 @@ export class Game {
         if (this.snowing) this._checkBountyProgress('survive_snow_night', 1)
         this._checkBountyProgress('reach_3_nights', 1)
         this.night += 1
+        this._checkBestRunPace()
         this.upgradeMachineUsesThisNight = 0
         if (this.tempCompanion && this.night >= this.tempCompanionExpiresAtNight) {
           this._showLoreToast(t('tempCompanionLeft'))
@@ -9673,7 +10058,15 @@ export class Game {
       this._updatePracticeTargets()
       this._updateTraps()
       this._updateAlarms()
-      if (this.rivals.update(dt, playerPos, (dmg) => this._onRivalAttack(dmg))) this._rivalsClaimedAirdrop = true
+      const rivalResult = this.rivals.update(dt, playerPos, (dmg) => this._onRivalAttack(dmg))
+      if (rivalResult.claimed) {
+        this._rivalsClaimedAirdrop = true
+        this._rivalsClaimedByName = rivalResult.claimedByName
+      }
+      if (rivalResult.defeatedNames.length > 0) {
+        this._showLoreToast(RIVAL_BANTER.defeated(rivalResult.defeatedNames[0]))
+        this._pushKillFeed(`${rivalResult.defeatedNames[0]}'s crew wiped out`)
+      }
       this._updateAirdrop()
       if (this.raining && this.nextLightningAt > 0 && performance.now() >= this.nextLightningAt) {
         this._triggerLightning()

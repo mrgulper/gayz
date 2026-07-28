@@ -691,6 +691,49 @@ const STRINGS = {
     comboLabel: '{n}x COMBO',
     batLabel: 'Bat',
     macheteLabel: 'Machete',
+    // Best-Run Pace Comparison (see _checkBestRunPace) - a toast at each
+    // night transition comparing elapsed real time against a linear
+    // projection of how long the best-ever run took to reach this same
+    // night (bestRunPace, recorded only when a new bestNight record lands).
+    paceAhead: "Night {n} — you're {s}s ahead of your best run's pace",
+    paceBehind: "Night {n} — you're {s}s behind your best run's pace",
+    // Death-location memorial markers (see _spawnDeathMemorials) - a small
+    // world marker at a past death spot, distinct from the menu-based
+    // Hardcore Memorial list and the static Survivor Memorial Wall prop.
+    deathMarkerNearby: 'A marker rests here — you fell on this ground before',
+    // Shareable run-summary card (see _generateRunSummaryCard) - a
+    // stat-overlay image composited at run end, distinct from the manual
+    // mid-game screenshot/crop tool.
+    shareRunCardBtn: 'Share Run Card',
+    runCardSaved: 'Run card saved!',
+    // Taunt/emote (see _triggerTaunt) - a free player-initiated shout that
+    // draws nearby zombie aggro, no ammo cost, distinct from the passive
+    // gunfire-alert radius.
+    actionTaunt: 'Taunt',
+    // Local Profile screen (see _openProfilePanel) - read-only aggregation
+    // of stats already persisted elsewhere (careerStats/bestStats/
+    // achievements/prestige/nemesis), no new tracking of its own besides
+    // the Nemesis record below.
+    profileBtn: 'Profile',
+    profilePanelTitle: 'Profile',
+    profileTotalRuns: 'Runs played',
+    profileTotalKills: 'Career kills',
+    profileBestNight: 'Best night reached',
+    profileBestKills: 'Best single-run kills',
+    profileBestKillStreak: 'Best kill streak',
+    profileAchievements: 'Achievements unlocked',
+    profilePrestige: 'Prestige level',
+    profileNemesisLabel: 'Nemesis',
+    profileNemesisNone: 'None yet — survive long enough to earn one',
+    profileNemesisValue: '{name} (Night {n})',
+    // Nemesis system (see _recordNemesis/_checkNemesisReturn) - remembers
+    // the zombie type nearest the player at death, then flags it if that
+    // same type spawns again next run.
+    nemesisReturnToast: '{name} stalks these streets again — the same kind that ended your last run',
+    // Daily Challenge local leaderboard (see _recordDailyLeaderboardEntry) -
+    // top-N attempts for today's date specifically, distinct from
+    // dailyBest's single lifetime-best score.
+    dailyLeaderboardTitle: "Today's Top Runs",
   },
   zh: {
     menuSubtitle: '破败的街区——生存、搜寻、射击',

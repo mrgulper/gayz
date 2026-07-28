@@ -1005,6 +1005,68 @@ body.reduce-flashing #critical-blood-overlay.show {
   100% { opacity: 0; transform: translate(-50%, -6px); }
 }
 
+/* Taunt (see Game.js's _triggerTaunt) - same toast-style show/hide as
+   #companion-bark above, own vertical slot so the two never overlap. */
+#taunt-text {
+  position: absolute;
+  bottom: 220px;
+  left: 50%;
+  transform: translate(-50%, 0);
+  max-width: min(420px, 80vw);
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #e0563c;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  opacity: 0;
+  pointer-events: none;
+}
+
+#taunt-text.show {
+  animation: tauntText 2.4s ease-out;
+}
+
+@keyframes tauntText {
+  0% { opacity: 0; transform: translate(-50%, 8px); }
+  15% { opacity: 1; transform: translate(-50%, 0); }
+  75% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, -6px); }
+}
+
+/* Kill Feed (see Game.js's _pushKillFeed) - a multiplayer-style stacked
+   strip, top-right so it never competes with the bottom-center toast/bark/
+   taunt lines above. Each entry plays its own fade once on creation and is
+   removed from the DOM by JS after KILL_FEED_ENTRY_MS, rather than being
+   toggled via a shared .show class like the single-element toasts above. */
+#kill-feed {
+  position: absolute;
+  top: 90px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.kill-feed-entry {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: #e3a63c;
+  background: rgba(6, 8, 6, 0.55);
+  padding: 4px 10px;
+  border-radius: 4px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  animation: killFeedIn 0.25s ease-out;
+}
+
+@keyframes killFeedIn {
+  0% { opacity: 0; transform: translateX(20px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
 @keyframes toast {
   0% { opacity: 0; transform: translate(-50%, 8px); }
   15% { opacity: 1; transform: translate(-50%, 0); }
@@ -1250,6 +1312,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 #upgrades-panel,
 #achievements-panel,
 #bestiary-panel,
+#profile-panel,
 #xp-levelup-panel,
 #pause-overlay,
 #coinshop-panel,
@@ -1270,6 +1333,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 #upgrades-panel-title,
 #achievements-panel-title,
 #bestiary-panel-title,
+#profile-panel-title,
 #xp-levelup-panel-title,
 #pause-overlay-title,
 #coinshop-panel-title,
@@ -1592,6 +1656,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 #upgrades-close-btn,
 #achievements-close-btn,
 #bestiary-close-btn,
+#profile-close-btn,
 #pause-resume-btn,
 #pause-settings-btn,
 #pause-quit-btn,
@@ -1600,7 +1665,8 @@ body.reduce-flashing #critical-blood-overlay.show {
 #coinshop-close-btn,
 #screenshot-crop-save,
 #screenshot-crop-full,
-#screenshot-crop-cancel {
+#screenshot-crop-cancel,
+#share-run-card-btn {
   margin-top: 6px;
   padding: 8px 20px;
   font-size: 13px;
@@ -1652,6 +1718,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 #upgrades-close-btn:hover,
 #achievements-close-btn:hover,
 #bestiary-close-btn:hover,
+#profile-close-btn:hover,
 #pause-resume-btn:hover,
 #pause-settings-btn:hover,
 #pause-quit-btn:hover,

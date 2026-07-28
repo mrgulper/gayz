@@ -41,9 +41,24 @@ const MAX_HEALTH = 90
 const TRACER_MS = 120
 const CLAIM_RADIUS = 1.6
 
+// Rivalry banter (see Game.js's _spawnAirdrop/_updateAirdrop/rival-update
+// call site) - plain English rather than full i18n, same precedent as
+// Game.js's own COMPANION_BARKS (flavor text, not mechanical UI). Only the
+// squad's first member is ever named - enough for a recurring "rival" feel
+// without tracking individual banter per squad member.
+export const RIVAL_NAMES = [
+  'Ghost Wolf', 'Iron Sable', 'Rook', 'Cinder', 'Marrow', 'Vex', 'Talon Grey', 'Old Static',
+]
+export const RIVAL_BANTER = {
+  spotted: (name) => `${name}'s crew just showed up, racing you for it.`,
+  claimed: (name) => `${name} grins and hoists the crate. Better luck next time.`,
+  defeated: (name) => `${name}'s crew won't be racing anyone again.`,
+}
+
 class RivalScavenger {
   constructor(scene, x, z, targetX, targetZ) {
     this.scene = scene
+    this.name = RIVAL_NAMES[Math.floor(Math.random() * RIVAL_NAMES.length)]
     this.health = MAX_HEALTH
     this.maxHealth = MAX_HEALTH
     this.state = 'alive'
@@ -301,6 +316,7 @@ export class RivalManager {
       members.push(new RivalScavenger(this.scene, x, z, targetX, targetZ))
     }
     this.squads.push({ members, type })
+    return members[0].name
   }
 
   get hittableMeshes() {
@@ -313,28 +329,37 @@ export class RivalManager {
     return meshes
   }
 
-  // Returns true if any live member of an 'airdrop'-type squad reached its
-  // target this tick - Game.js treats that as "the current airdrop just got
-  // claimed by rivals" since there's only ever one airdrop active at a
-  // time. 'convoy' squads reaching their target just means they've arrived
-  // to guard the crate there, not a claim, so they're excluded here.
+  // Returns { claimed, claimedByName, defeatedNames }: claimed is true if
+  // any live member of an 'airdrop'-type squad reached its target this tick
+  // (Game.js treats that as "the current airdrop just got claimed by
+  // rivals" since there's only ever one airdrop active at a time; 'convoy'
+  // squads reaching their target just means they've arrived to guard the
+  // crate there, not a claim, so they're excluded). defeatedNames names
+  // every squad whose last member died this exact tick, for a one-shot
+  // rivalry banter line rather than one per individual member kill.
   update(dt, playerPos, onAttack) {
     let claimed = false
+    let claimedByName = null
     for (const squad of this.squads) {
       for (const m of squad.members) {
         const reachedTarget = m.update(dt, playerPos, onAttack)
-        if (reachedTarget && squad.type === 'airdrop') claimed = true
+        if (reachedTarget && squad.type === 'airdrop') {
+          claimed = true
+          claimedByName = squad.members[0].name
+        }
       }
     }
+    const defeatedNames = []
     this.squads = this.squads.filter((squad) => {
       const allDead = squad.members.every((m) => m.state === 'dead')
       if (allDead) {
+        defeatedNames.push(squad.members[0].name)
         for (const m of squad.members) m.dispose()
         return false
       }
       return true
     })
-    return claimed
+    return { claimed, claimedByName, defeatedNames }
   }
 
   reset() {
