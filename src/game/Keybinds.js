@@ -29,6 +29,7 @@ export const ACTIONS = [
   { id: 'minimapZoom', defaultKey: 'Comma', labelKey: 'actionMinimapZoom' },
   { id: 'squadHold', defaultKey: 'Period', labelKey: 'actionSquadHold' },
   { id: 'horn', defaultKey: 'Semicolon', labelKey: 'actionHorn' },
+  { id: 'drinkWater', defaultKey: 'Quote', labelKey: 'actionDrinkWater' },
   { id: 'journal', defaultKey: 'KeyI', labelKey: 'actionJournal' },
   { id: 'photoMode', defaultKey: 'KeyO', labelKey: 'actionPhotoMode' },
   { id: 'screenshot', defaultKey: 'KeyP', labelKey: 'actionScreenshot' },

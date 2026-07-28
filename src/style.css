@@ -390,6 +390,14 @@ html, body {
   background: #c47a3f;
 }
 
+.status-fill.thirst {
+  background: #3f9ec4;
+}
+
+.status-fill.warmth {
+  background: #d95f3f;
+}
+
 .status-fill.xp {
   background: #4fd1e8;
 }

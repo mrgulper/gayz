@@ -734,6 +734,20 @@ const ALARM_LIFETIME_MS = 60000
 const HUNGER_DECAY_PER_SEC = 100 / 600
 const HUNGER_STARVE_DPS = 2
 const RATION_HUNGER_RESTORE = 40
+// Thirst - same shape as Hunger right above (own meter, own starve-damage
+// floor, own restore item), decaying a little faster since real thirst
+// outpaces hunger.
+const THIRST_DECAY_PER_SEC = 100 / 420
+const THIRST_DEHYDRATE_DPS = 2
+const WATER_THIRST_RESTORE = 45
+// Temperature/Exposure - unlike Hunger/Thirst (always draining, restored by
+// consumables), warmth passively drifts toward whichever end the player's
+// current situation favors: rain or an outdoor night chills it, being
+// indoors or it being daytime warms it back up. No consumable - shelter and
+// time of day are the only counterplay.
+const WARMTH_DRIFT_PER_SEC = 100 / 90
+const WARMTH_LOW_THRESHOLD = 30
+const WARMTH_STAMINA_REGEN_MULT = 0.6
 // Rubble left behind by a kill - a small chance per kill so a long fight in
 // one spot gradually clutters the battlefield with real obstacles (blocks
 // both the player and other zombies, same as a barricade) instead of every
@@ -967,6 +981,7 @@ const SHOP_ITEMS = [
   { id: 'turretkit', cost: 120, titleKey: 'shopTurretKit', give: (game) => game.inventory.addTurretKit(1) },
   { id: 'alarmkit', cost: 25, titleKey: 'shopAlarmKit', give: (game) => game.inventory.addAlarmKit(1) },
   { id: 'ration', cost: 12, titleKey: 'shopRation', give: (game) => game.inventory.addRation(1) },
+  { id: 'water', cost: 10, titleKey: 'shopWater', give: (game) => game.inventory.addWaterBottle(1) },
   {
     id: 'train_companion',
     cost: 30,
@@ -1038,6 +1053,7 @@ const SALVAGE_ITEMS = [
   { id: 'turretkit', invKey: 'turretKits', titleKey: 'shopTurretKit', sellValue: salvageValue('turretkit'), sell: (game) => game.inventory.useTurretKit() },
   { id: 'alarmkit', invKey: 'alarmKits', titleKey: 'shopAlarmKit', sellValue: salvageValue('alarmkit'), sell: (game) => game.inventory.useAlarmKit() },
   { id: 'ration', invKey: 'rations', titleKey: 'shopRation', sellValue: salvageValue('ration'), sell: (game) => game.inventory.useRation() },
+  { id: 'water', invKey: 'waterBottles', titleKey: 'shopWater', sellValue: salvageValue('water'), sell: (game) => game.inventory.useWaterBottle() },
 ]
 
 // Crafting - an alternative path to specific consumables that doesn't cost
@@ -1291,6 +1307,7 @@ export class Game {
     this.panelTurretkitCount = document.getElementById('panel-turretkit-count')
     this.panelAlarmkitCount = document.getElementById('panel-alarmkit-count')
     this.panelRationCount = document.getElementById('panel-ration-count')
+    this.panelWaterCount = document.getElementById('panel-water-count')
     this.panelWeaponsList = document.getElementById('panel-weapons-list')
     this.panelLoadoutPresets = document.getElementById('panel-loadout-presets')
     // Delegated once (not re-bound on every _refreshInventoryPanel render,
@@ -1313,8 +1330,15 @@ export class Game {
     this.staminaValue = document.getElementById('stamina-value')
     this.hungerFill = document.getElementById('hunger-fill')
     this.hungerValue = document.getElementById('hunger-value')
+    this.thirstFill = document.getElementById('thirst-fill')
+    this.thirstValue = document.getElementById('thirst-value')
+    this.warmthFill = document.getElementById('warmth-fill')
+    this.warmthValue = document.getElementById('warmth-value')
     this.hunger = 100
     this.maxHunger = 100
+    this.thirst = 100
+    this.maxThirst = 100
+    this.warmth = 100
     this.progressHud = document.getElementById('progress-hud')
     this.nightValueEl = document.getElementById('night-value')
     this.timeValueEl = document.getElementById('time-value')
@@ -2657,6 +2681,8 @@ export class Game {
         this._deployAlarm()
       } else if (e.code === 'Digit0') {
         this._eatRation()
+      } else if (e.code === getKeyFor('drinkWater')) {
+        this._drinkWater()
       } else if (e.code === getKeyFor('interact')) {
         // Tracked independently of the rest of this branch (which only
         // fires the various one-shot interactions below) so the ammo
@@ -5165,6 +5191,7 @@ export class Game {
     document.getElementById('panel-turretkit-label').textContent = t('shopTurretKit')
     document.getElementById('panel-alarmkit-label').textContent = t('shopAlarmKit')
     document.getElementById('panel-ration-label').textContent = t('shopRation')
+    document.getElementById('panel-water-label').textContent = t('shopWater')
     document.getElementById('weapons-title').textContent = t('weaponsTitle')
     document.getElementById('inventory-hint').innerHTML = tHtml('inventoryHint')
 
@@ -5250,6 +5277,7 @@ export class Game {
     this.panelTurretkitCount.textContent = this.inventory.turretKits
     this.panelAlarmkitCount.textContent = this.inventory.alarmKits
     this.panelRationCount.textContent = this.inventory.rations
+    this.panelWaterCount.textContent = this.inventory.waterBottles
     this.panelBarricadeCount.textContent = this.inventory.barricades
     this.panelTrapCount.textContent = this.inventory.traps
     this.panelMolotovCount.textContent = this.inventory.molotovs
@@ -6277,6 +6305,59 @@ export class Game {
     this._lastHudHunger = hungerRounded
     this.hungerFill.style.width = `${(this.hunger / this.maxHunger) * 100}%`
     this.hungerValue.textContent = hungerRounded
+  }
+
+  // Thirst - same shape as _updateHunger above.
+  _updateThirst(dt) {
+    this.thirst = Math.max(0, this.thirst - THIRST_DECAY_PER_SEC * dt)
+    if (this.thirst <= 0 && this.playerState.alive) {
+      this.playerState.takeDamage(THIRST_DEHYDRATE_DPS * dt)
+      this._updateHealthHud()
+      if (!this.playerState.alive) this._maybeLastStandOrDie()
+    }
+    this._updateThirstHud()
+  }
+
+  _updateThirstHud() {
+    const thirstRounded = Math.round(this.thirst)
+    if (thirstRounded === this._lastHudThirst) return
+    this._lastHudThirst = thirstRounded
+    this.thirstFill.style.width = `${(this.thirst / this.maxThirst) * 100}%`
+    this.thirstValue.textContent = thirstRounded
+  }
+
+  _drinkWater() {
+    if (!this.inventory.useWaterBottle()) {
+      this._showLoreToast(t('toastNoWater'))
+      return
+    }
+    this.thirst = Math.min(this.maxThirst, this.thirst + WATER_THIRST_RESTORE)
+    this._updateThirstHud()
+    this._updateInventoryHud()
+  }
+
+  // Temperature/Exposure - drifts toward 0 while rained on or outdoors at
+  // night, toward 100 while indoors or in daylight; no consumable, shelter/
+  // timing is the only counterplay. Low warmth softens stamina regen
+  // (see PlayerController's warmthStaminaMult) rather than dealing damage
+  // outright - a real penalty, not a second death timer stacked on Hunger/
+  // Thirst's already-lethal-if-ignored drains.
+  _updateWarmth(dt) {
+    const isNight = this.dayNight ? this.dayNight.getPhaseInfo().phase === 'Night' : false
+    const warming = this.isIndoors || !isNight
+    const target = this.raining ? 0 : warming ? 100 : 0
+    const step = WARMTH_DRIFT_PER_SEC * dt
+    this.warmth = target > this.warmth ? Math.min(target, this.warmth + step) : Math.max(target, this.warmth - step)
+    this.player.warmthStaminaMult = this.warmth < WARMTH_LOW_THRESHOLD ? WARMTH_STAMINA_REGEN_MULT : 1
+    this._updateWarmthHud()
+  }
+
+  _updateWarmthHud() {
+    const warmthRounded = Math.round(this.warmth)
+    if (warmthRounded === this._lastHudWarmth) return
+    this._lastHudWarmth = warmthRounded
+    this.warmthFill.style.width = `${this.warmth}%`
+    this.warmthValue.textContent = warmthRounded
   }
 
   // Slows the player while standing in a cluster of recent kills - see
@@ -8061,6 +8142,8 @@ export class Game {
       }
       this._updateStaminaHud()
       this._updateHunger(dt)
+      this._updateThirst(dt)
+      this._updateWarmth(dt)
       this._updateFarmPlot()
       this._updateAmmoPress()
       this._updateGamepad(dt)

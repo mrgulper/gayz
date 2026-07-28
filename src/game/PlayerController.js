@@ -117,6 +117,7 @@ export class PlayerController {
     // Webber zombie's web patch (see Game.js's _updateHazardZones) - same
     // "recomputed live every frame" shape as corpsePileMult above.
     this.webSlowMult = 1
+    this.warmthStaminaMult = 1
     this.isSprinting = false
     this.isCrouching = false
     this.eyeHeight = EYE_HEIGHT
@@ -186,6 +187,7 @@ export class PlayerController {
     this.adrenalineMult = 1
     this.corpsePileMult = 1
     this.webSlowMult = 1
+    this.warmthStaminaMult = 1
     this.isCrouching = false
     this.eyeHeight = EYE_HEIGHT
     this.isDodging = false
@@ -360,7 +362,7 @@ export class PlayerController {
 
     if (this.isDodging) {
       this.isSprinting = false
-      this.stamina = Math.min(this.maxStamina, this.stamina + STAMINA_REGEN_PER_SEC * dt)
+      this.stamina = Math.min(this.maxStamina, this.stamina + STAMINA_REGEN_PER_SEC * this.warmthStaminaMult * dt)
       const dash = DODGE_SPEED * dt
       this._tryMove(obj, this.dodgeDir.x * dash, 0)
       this._tryMove(obj, 0, this.dodgeDir.z * dash)
@@ -386,7 +388,7 @@ export class PlayerController {
       if (this.isSprinting) {
         this.stamina = Math.max(0, this.stamina - STAMINA_DRAIN_PER_SEC * dt)
       } else {
-        this.stamina = Math.min(this.maxStamina, this.stamina + STAMINA_REGEN_PER_SEC * dt)
+        this.stamina = Math.min(this.maxStamina, this.stamina + STAMINA_REGEN_PER_SEC * this.warmthStaminaMult * dt)
       }
 
       let speedMultiplier = this.isSprinting ? this.sprintMultiplier : 1
