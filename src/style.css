@@ -1277,6 +1277,13 @@ html, body {
   opacity: 0.55;
 }
 
+.iron-mode-notice {
+  font-size: 13px;
+  font-style: italic;
+  opacity: 0.6;
+  padding: 12px 0;
+}
+
 #bounty-line {
   font-size: 13px;
   color: #ff9dd6;

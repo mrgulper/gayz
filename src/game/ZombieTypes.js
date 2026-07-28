@@ -611,12 +611,16 @@ export const ZOMBIE_TYPES = {
   },
 }
 
-export function pickZombieType() {
+// featuredId/featuredMult (see the Featured Enemy mutator, ZombieManager's
+// featuredEnemyId) - both default to a no-op so every existing call site
+// (just calling pickZombieType() with no args) rolls exactly as before.
+export function pickZombieType(featuredId = null, featuredMult = 1) {
   const entries = Object.values(ZOMBIE_TYPES)
-  const total = entries.reduce((sum, t) => sum + t.weight, 0)
+  const weightOf = (t) => (t.id === featuredId ? t.weight * featuredMult : t.weight)
+  const total = entries.reduce((sum, t) => sum + weightOf(t), 0)
   let roll = Math.random() * total
   for (const t of entries) {
-    roll -= t.weight
+    roll -= weightOf(t)
     if (roll <= 0) return t
   }
   return entries[0]

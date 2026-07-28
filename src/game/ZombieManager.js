@@ -21,6 +21,12 @@ const AMBUSH_RADIUS_MAX = 26
 // than a shared export, same as every other small per-file magic number
 // in this class).
 const HIVEMIND_RADIUS = 14
+// Featured Enemy mutator (see setFeaturedEnemy) - how much heavier the
+// chosen type's weight rolls in pickZombieType, on top of its own normal
+// weight rather than replacing it (a naturally-rare type still stays
+// rarer than a naturally-common one, just meaningfully more common than
+// its own usual baseline).
+const FEATURED_ENEMY_WEIGHT_MULT = 6
 // Burrower type (see ZombieTypes.js) - always ambushes, and much closer
 // than even the normal ambush range, so it reads as a genuine "right on
 // top of you" surprise instead of the standard hide-and-wait every other
@@ -240,6 +246,12 @@ export class ZombieManager {
     // setDirectorMult) - 1 is neutral, applied on top of the normal
     // night-based curve in _recomputeDifficulty rather than replacing it.
     this.directorMult = 1
+    // Featured Enemy mutator (see setFeaturedEnemy/_spawnRandom's
+    // pickZombieType call) - null means "no boost, roll exactly as normal",
+    // explicitly (re)set by Game.js's playBtn handler at the start of every
+    // run rather than reset here, so it's always in sync with whatever
+    // this run's mutator toggle actually decided.
+    this.featuredEnemyId = null
     this.targetCount = Math.round(BASE_SPAWN_COUNT * this.spawnRateMult)
     // Kept in sync with targetCount here too - _recomputeDifficulty only
     // runs on an explicit night-advance, which a fresh night-1 game may
@@ -483,6 +495,12 @@ export class ZombieManager {
   // difference (the "throw a horde" moment); lowering it just throttles
   // future respawns - existing zombies are never despawned, so easing off
   // can never feel like enemies vanished out from under the player.
+  // Featured Enemy mutator - typeId null clears the boost back to a normal
+  // roll. See FEATURED_ENEMY_WEIGHT_MULT/_spawnRandom's pickZombieType call.
+  setFeaturedEnemy(typeId) {
+    this.featuredEnemyId = typeId
+  }
+
   setDirectorMult(mult) {
     const clamped = Math.max(0.5, Math.min(1.5, mult))
     if (Math.abs(clamped - this.directorMult) < 0.03) return
@@ -647,7 +665,7 @@ export class ZombieManager {
   }
 
   _spawnRandom() {
-    const type = pickZombieType()
+    const type = pickZombieType(this.featuredEnemyId, FEATURED_ENEMY_WEIGHT_MULT)
     const isAmbush = type.burrower || (!type.ranged && Math.random() < this.ambushChance)
 
     const radiusMin = type.burrower ? BURROWER_RADIUS_MIN : this.hordeMode ? HORDE_SPAWN_RADIUS_MIN : (isAmbush ? AMBUSH_RADIUS_MIN : SPAWN_RADIUS_MIN)

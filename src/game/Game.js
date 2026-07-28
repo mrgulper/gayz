@@ -116,6 +116,19 @@ const LOADOUT_PRESETS = {
   tank: { moveSpeedDelta: -0.8, maxHealthMult: 1.35, maxStaminaDelta: -10 },
 }
 
+// Run-start trait draw (see _openTraitDrawPanel) - 3 of these are offered
+// at the start of every run, pick one; a smaller, single, run-only choice
+// layered on top of the Loadout tradeoff above rather than replacing it -
+// distinct from XP upgrades (XpUpgrades.js), which only ever appear
+// mid-run from leveling up.
+const RUN_START_TRAITS = [
+  { id: 'trait_fleet', titleKey: 'traitFleetTitle', apply: (game) => { game.player.moveSpeed *= 1.08 } },
+  { id: 'trait_ironclad', titleKey: 'traitIroncladTitle', apply: (game) => { game.playerState.maxHealth += 15; game.playerState.health += 15 } },
+  { id: 'trait_marksman', titleKey: 'traitMarksmanTitle', apply: (game) => { game.weapons.damageMult *= 1.06 } },
+  { id: 'trait_lucky', titleKey: 'traitLuckyTitle', apply: (game) => { game.difficulty = { ...game.difficulty, lootMult: game.difficulty.lootMult * 1.15 } } },
+  { id: 'trait_veteranInstinct', titleKey: 'traitVeteranInstinctTitle', apply: (game) => { game.player.maxStamina += 12; game.player.stamina = game.player.maxStamina } },
+]
+
 // Difficulty-tier opening flavor (see the playBtn click handler) - a
 // one-line framing shown right as a fresh run begins, distinct from the
 // difficulty PICKER labels above (diffFlavorEasy/etc keyed the same way).
@@ -186,10 +199,15 @@ function loadSettings() {
         // own comment for why this stays optional rather than becoming the
         // new baseline.
         healthRegen: parsed.mutators?.healthRegen ?? false,
+        ironMode: parsed.mutators?.ironMode ?? false,
+        scavenger: parsed.mutators?.scavenger ?? false,
+        glassHouse: parsed.mutators?.glassHouse ?? false,
+        featuredEnemy: parsed.mutators?.featuredEnemy ?? false,
+        blackout: parsed.mutators?.blackout ?? false,
       },
     }
   } catch {
-    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, nickname: '', companionName: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false } }
+    return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, nickname: '', companionName: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false } }
   }
 }
 
@@ -308,6 +326,32 @@ function saveWeeklyChallenge(w) {
   } catch {
     // Storage unavailable - weekly challenge progress just won't persist.
   }
+}
+
+// Weekly Featured Mutator - a single mutator auto-picked via the same
+// week-seed technique WEEKLY_CHALLENGES above already uses, nudging
+// players toward trying a different mutator each week via a coin bonus -
+// never forced, the player still has to check the box themselves.
+const WEEKLY_FEATURED_MUTATORS = ['hordeRush', 'pureGunplay', 'bossRush', 'hordeMode', 'glassHouse', 'scavenger', 'featuredEnemy', 'blackout']
+const WEEKLY_FEATURED_MUTATOR_BONUS_COINS = 50
+const WEEKLY_FEATURED_MUTATOR_LABEL_KEYS = {
+  hordeRush: 'mutatorHordeRush',
+  pureGunplay: 'mutatorPureGunplay',
+  bossRush: 'mutatorBossRush',
+  hordeMode: 'mutatorHordeMode',
+  glassHouse: 'mutatorGlassHouse',
+  scavenger: 'mutatorScavenger',
+  featuredEnemy: 'mutatorFeaturedEnemy',
+  blackout: 'mutatorBlackout',
+}
+
+function _weeklyFeaturedMutatorKey() {
+  const weekStr = _thisWeekStr()
+  // +7 offset so this doesn't land on the exact same hash bucket
+  // WEEKLY_CHALLENGES' own index would for the same week string.
+  let hash = 7
+  for (let i = 0; i < weekStr.length; i++) hash = (hash * 31 + weekStr.charCodeAt(i)) | 0
+  return WEEKLY_FEATURED_MUTATORS[Math.abs(hash) % WEEKLY_FEATURED_MUTATORS.length]
 }
 
 const DAILY_BEST_KEY = 'gayz-daily-best'
@@ -513,6 +557,56 @@ function saveLeaderboard(entries) {
     localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(entries))
   } catch {
     // Storage unavailable - leaderboard just won't persist across sessions.
+  }
+}
+
+// Boss Rush leaderboard - a genuinely separate board/cap from the main one
+// above, not just a tagged entry sharing its cap. A flood of normal runs
+// would otherwise push every Boss Rush entry out of the shared top-10
+// regardless of how good those runs were.
+const BOSS_RUSH_LEADERBOARD_KEY = 'gayz-bossrush-leaderboard'
+
+function loadBossRushLeaderboard() {
+  try {
+    const raw = localStorage.getItem(BOSS_RUSH_LEADERBOARD_KEY)
+    const parsed = raw ? JSON.parse(raw) : []
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function saveBossRushLeaderboard(entries) {
+  try {
+    localStorage.setItem(BOSS_RUSH_LEADERBOARD_KEY, JSON.stringify(entries))
+  } catch {
+    // Storage unavailable - leaderboard just won't persist across sessions.
+  }
+}
+
+// Hardcore Mode death memorial - a permanent, never-pruned-by-cap record of
+// every one-life character lost (unlike the leaderboards above, this isn't
+// a top-N ranking, it's a full history, so each hardcore attempt becomes
+// its own remembered "story" rather than just another leaderboard row that
+// can get pushed out by a better one).
+const HARDCORE_MEMORIAL_KEY = 'gayz-hardcore-memorial'
+const HARDCORE_MEMORIAL_MAX_ENTRIES = 20
+
+function loadHardcoreMemorial() {
+  try {
+    const raw = localStorage.getItem(HARDCORE_MEMORIAL_KEY)
+    const parsed = raw ? JSON.parse(raw) : []
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function saveHardcoreMemorial(entries) {
+  try {
+    localStorage.setItem(HARDCORE_MEMORIAL_KEY, JSON.stringify(entries))
+  } catch {
+    // Storage unavailable - memorial just won't persist across sessions.
   }
 }
 
@@ -911,6 +1005,10 @@ const RAIN_AGGRO_RADIUS_MULT = 0.7
 // competing light system.
 const WEATHER_DIM_RAIN = 0.7
 const WEATHER_DIM_SNOW = 0.85
+// Blackout mutator - near-zero ambient/sun, not literally 0 (a true 0 would
+// make the flashlight's own light contribution invisible against a fully
+// black backdrop in a way that reads as broken rather than "dark").
+const BLACKOUT_DIM = 0.08
 // Indoor detection (see _updateIndoorDetection) - throttled, not per-frame;
 // a straight-up raycast is cheap but still no reason to run it 60x/sec for
 // something that only changes when the player actually walks through a
@@ -1495,6 +1593,7 @@ export class Game {
     this.deathStats = document.getElementById('death-stats')
     this.deathSummary = document.getElementById('death-summary')
     this.deathGrade = document.getElementById('death-grade')
+    this.deathHighlights = document.getElementById('death-highlights')
     this.deathLegacyPoints = document.getElementById('death-legacy-points')
     this.deathScoreAttack = document.getElementById('death-score-attack')
     this.deathEndless = document.getElementById('death-endless')
@@ -1535,7 +1634,10 @@ export class Game {
     this.menuBestStats = document.getElementById('menu-best-stats')
     this.menuCareerRank = document.getElementById('menu-career-rank')
     this.menuNewsTicker = document.getElementById('menu-news-ticker')
+    this.weeklyFeaturedMutatorLine = document.getElementById('weekly-featured-mutator-line')
     this.menuLeaderboard = document.getElementById('menu-leaderboard')
+    this.menuBossRushLeaderboard = document.getElementById('menu-bossrush-leaderboard')
+    this.menuHardcoreMemorial = document.getElementById('menu-hardcore-memorial')
     this.difficultyBtns = document.querySelectorAll('.difficulty-btn')
     this.roleBtns = document.querySelectorAll('.role-btn')
     this.loadoutBtns = document.querySelectorAll('.loadout-btn')
@@ -1570,6 +1672,11 @@ export class Game {
     this.mutatorExtraction = document.getElementById('mutator-extraction')
     this.mutatorDaily = document.getElementById('mutator-daily')
     this.mutatorHealthRegen = document.getElementById('mutator-health-regen')
+    this.mutatorIronMode = document.getElementById('mutator-iron-mode')
+    this.mutatorScavenger = document.getElementById('mutator-scavenger')
+    this.mutatorGlassHouse = document.getElementById('mutator-glass-house')
+    this.mutatorFeaturedEnemy = document.getElementById('mutator-featured-enemy')
+    this.mutatorBlackout = document.getElementById('mutator-blackout')
     this.controlsGrid = document.getElementById('controls-grid')
     this.resetBindsBtn = document.getElementById('reset-binds-btn')
     this.rebindingAction = null
@@ -1586,6 +1693,8 @@ export class Game {
     this.narrativeStats = loadNarrativeStats()
     this.loginStreak = loadLoginStreak()
     this.leaderboard = loadLeaderboard()
+    this.bossRushLeaderboard = loadBossRushLeaderboard()
+    this.hardcoreMemorial = loadHardcoreMemorial()
     this.dailyBest = loadDailyBest()
     this.dailyChallengeActive = false
     this.dailyDamageMult = 1
@@ -2181,6 +2290,11 @@ export class Game {
     // above (minigun-only, feeds the meat_grinder achievement) and from
     // WeaponMastery's persistent cross-run kills.
     this.killCountsThisRun = {}
+    // Biggest Hit / Closest Call (see _renderRunSummary) - lowestHealthThisRun
+    // starts at Infinity so the very first _updateHealthHud call always
+    // wins the initial comparison.
+    this.biggestHitThisRun = 0
+    this.lowestHealthThisRun = Infinity
     this.challengeKillCounts = this.shopProgress.challengeKillCounts
     this.weaponChallengesUnlocked = this.shopProgress.weaponChallengesUnlocked
     this.achievementLabel = document.getElementById('achievement-label')
@@ -2611,8 +2725,49 @@ export class Game {
         this.zombies.startRound(1)
         this.roundIntermissionUntil = 0
       }
+      // Scavenger Run - locks the two normally-free starting guns back down
+      // to melee-only; earned back through the Trader/Coin Shop's existing
+      // economy same as every other non-starting weapon, not a separate
+      // battlefield-loot path.
+      if (this.settings.mutators.scavenger) {
+        const rifle = this.weapons.weapons.find((w) => w.id === 'rifle')
+        const pistol = this.weapons.weapons.find((w) => w.id === 'pistol')
+        if (rifle) rifle.unlocked = false
+        if (pistol) pistol.unlocked = false
+        this.weapons.switchToIndex(this.weapons.weapons.findIndex((w) => w.id === 'melee'))
+      }
+      // Glass House - symmetric 2x damage both ways, reusing the two
+      // multipliers already read at every damage-dealt/damage-taken site
+      // rather than adding a third parallel multiplier.
+      if (this.settings.mutators.glassHouse) {
+        this.weapons.damageMult *= 2
+        this.dailyDamageMult *= 2
+      }
+      // Featured Enemy - see ZombieManager's setFeaturedEnemy/
+      // FEATURED_ENEMY_WEIGHT_MULT. Picked from the same ambient pool
+      // _spawnRandom already draws from (weight > 0 excludes boss-only
+      // entries like colossus, which are never part of the random roll).
+      if (this.settings.mutators.featuredEnemy) {
+        const candidates = Object.values(ZOMBIE_TYPES).filter((zt) => zt.weight > 0)
+        const featured = candidates[Math.floor(Math.random() * candidates.length)]
+        this.zombies.setFeaturedEnemy(featured.id)
+        this._showLoreToast(t('featuredEnemyToast', { type: featured.label }))
+      } else {
+        this.zombies.setFeaturedEnemy(null)
+      }
+      // Blackout - folds into the same weatherDim multiply _tick already
+      // applies to dayNight.hemi/sun every frame (see the main tick), so it
+      // composes with rain/snow dimming instead of fighting it.
+      this.blackoutActive = this.settings.mutators.blackout
+      // Weekly Featured Mutator bonus - a nudge, not a requirement: playing
+      // with this week's auto-picked mutator on grants a small one-time
+      // coin bonus for the run.
+      if (this.settings.mutators[_weeklyFeaturedMutatorKey()]) {
+        this.coins += WEEKLY_FEATURED_MUTATOR_BONUS_COINS
+        this._showLoreToast(t('weeklyFeaturedMutatorBonusToast', { coins: WEEKLY_FEATURED_MUTATOR_BONUS_COINS }))
+      }
       this._showLoreToast(t(DIFFICULTY_FLAVOR_KEYS[this.settings.difficulty] || DIFFICULTY_FLAVOR_KEYS.normal))
-      this.player.controls.lock()
+      this._openTraitDrawPanel()
     })
 
     this.respawnBtn.addEventListener('click', () => {
@@ -2643,6 +2798,8 @@ export class Game {
       this.night = 1
       this.kills = 0
       this.killCountsThisRun = {}
+      this.biggestHitThisRun = 0
+      this.lowestHealthThisRun = Infinity
       this.killStreak = 0
       this.lastStandUsed = false
       this.playerDowned = false
@@ -4100,6 +4257,31 @@ export class Game {
       this.settings.mutators.healthRegen = this.mutatorHealthRegen.checked
       saveSettings(this.settings)
     })
+    this.mutatorIronMode.checked = this.settings.mutators.ironMode
+    this.mutatorIronMode.addEventListener('change', () => {
+      this.settings.mutators.ironMode = this.mutatorIronMode.checked
+      saveSettings(this.settings)
+    })
+    this.mutatorScavenger.checked = this.settings.mutators.scavenger
+    this.mutatorScavenger.addEventListener('change', () => {
+      this.settings.mutators.scavenger = this.mutatorScavenger.checked
+      saveSettings(this.settings)
+    })
+    this.mutatorGlassHouse.checked = this.settings.mutators.glassHouse
+    this.mutatorGlassHouse.addEventListener('change', () => {
+      this.settings.mutators.glassHouse = this.mutatorGlassHouse.checked
+      saveSettings(this.settings)
+    })
+    this.mutatorFeaturedEnemy.checked = this.settings.mutators.featuredEnemy
+    this.mutatorFeaturedEnemy.addEventListener('change', () => {
+      this.settings.mutators.featuredEnemy = this.mutatorFeaturedEnemy.checked
+      saveSettings(this.settings)
+    })
+    this.mutatorBlackout.checked = this.settings.mutators.blackout
+    this.mutatorBlackout.addEventListener('change', () => {
+      this.settings.mutators.blackout = this.mutatorBlackout.checked
+      saveSettings(this.settings)
+    })
     this.nicknameInput.value = this.settings.nickname
     this.companionNameInput.value = this.settings.companionName
     this._updateCompanionName()
@@ -4499,6 +4681,45 @@ export class Game {
   // Fires every time the xp-gem meter fills (see _checkXpLevelUp) - offers
   // 3 free passive buffs (see XpUpgrades.js), distinct from the points-cost
   // night perks in Perks.js.
+  // Run-start trait draw (see RUN_START_TRAITS) - reuses the XP level-up
+  // panel's exact DOM elements (a title + N option buttons) rather than
+  // building a second parallel panel, just with different content and a
+  // different completion action (resume into the run instead of
+  // re-checking level-up thresholds).
+  _rollRunStartTraits() {
+    const pool = [...RUN_START_TRAITS]
+    const picks = []
+    for (let i = 0; i < 3 && pool.length > 0; i++) {
+      const idx = Math.floor(Math.random() * pool.length)
+      picks.push(pool[idx])
+      pool.splice(idx, 1)
+    }
+    return picks
+  }
+
+  _openTraitDrawPanel() {
+    this.xpLevelupPanelOpen = true
+    this.xpLevelupPanel.style.display = 'flex'
+    this.xpLevelupPanelTitle.textContent = t('traitDrawPanelTitle')
+    this._renderTraitDrawOptions(this._rollRunStartTraits())
+  }
+
+  _renderTraitDrawOptions(traits) {
+    this.xpLevelupOptions.innerHTML = ''
+    for (const trait of traits) {
+      const btn = document.createElement('button')
+      btn.className = 'perk-option'
+      btn.innerHTML = `<span class="perk-name">${t(trait.titleKey)}</span>`
+      btn.addEventListener('click', () => {
+        trait.apply(this)
+        this.xpLevelupPanelOpen = false
+        this.xpLevelupPanel.style.display = 'none'
+        this.player.controls.lock()
+      })
+      this.xpLevelupOptions.appendChild(btn)
+    }
+  }
+
   _openXpLevelupPanel() {
     this.xpLevelupPanelOpen = true
     this.xpLevelupPanel.style.display = 'flex'
@@ -4730,6 +4951,13 @@ export class Game {
   _renderTraderOptions() {
     this.traderPointsLine.textContent = t('scrapLabel', { n: this.points })
     this.traderOptions.innerHTML = ''
+    // Iron Mode - blocks spending specifically (this list and the Black
+    // Market below), not salvage/crafting (converting resources you
+    // already have, not buying with currency).
+    if (this.settings.mutators.ironMode) {
+      this.traderOptions.innerHTML = `<p class="iron-mode-notice">${t('ironModeShopDisabled')}</p>`
+      return
+    }
 
     if (this.featuredItem) {
       const item = this.featuredItem
@@ -4791,7 +5019,7 @@ export class Game {
   // reputation-gated tier rather than a one-run bonus.
   _renderBlackMarketOptions() {
     this.traderBlackMarketOptions.innerHTML = ''
-    const show = this.achievements.unlocked.has('centurion')
+    const show = this.achievements.unlocked.has('centurion') && !this.settings.mutators.ironMode
     this.traderBlackMarketTitle.style.display = show ? '' : 'none'
     this.traderBlackMarketOptions.style.display = show ? '' : 'none'
     if (!show) return
@@ -5058,6 +5286,13 @@ export class Game {
   _renderCoinShopOptions() {
     this.coinshopCoinLine.textContent = t('coinsLabel', { n: this.coins })
     this.coinshopOptions.innerHTML = ''
+    // Iron Mode - gated once here rather than at every individual buy
+    // button, since every Coin Shop purchase path renders through this one
+    // function.
+    if (this.settings.mutators.ironMode) {
+      this.coinshopOptions.innerHTML = `<p class="iron-mode-notice">${t('ironModeShopDisabled')}</p>`
+      return
+    }
 
     const sections = [
       { id: 'guns', labelKey: 'shopSectionGuns' },
@@ -5457,9 +5692,16 @@ export class Game {
     document.getElementById('mutator-extraction-label').textContent = t('mutatorExtraction')
     document.getElementById('mutator-daily-label').textContent = t('mutatorDaily')
     document.getElementById('mutator-health-regen-label').textContent = t('mutatorHealthRegen')
+    document.getElementById('mutator-iron-mode-label').textContent = t('mutatorIronMode')
+    document.getElementById('mutator-scavenger-label').textContent = t('mutatorScavenger')
+    document.getElementById('mutator-glass-house-label').textContent = t('mutatorGlassHouse')
+    document.getElementById('mutator-featured-enemy-label').textContent = t('mutatorFeaturedEnemy')
+    document.getElementById('mutator-blackout-label').textContent = t('mutatorBlackout')
 
     this._updateBestStatsDisplay()
     this._updateLeaderboardDisplay()
+    this._updateBossRushLeaderboardDisplay()
+    this._updateHardcoreMemorialDisplay()
     if (this.inventoryOpen) this._refreshInventoryPanel()
     this._updateProgressHud()
   }
@@ -5488,6 +5730,13 @@ export class Game {
     const n = this.bestStats.bestNight
     const key = n >= NEWS_TICKER_LATE_NIGHT ? 'newsTickerLate' : n >= NEWS_TICKER_MID_NIGHT ? 'newsTickerMid' : 'newsTickerEarly'
     this.menuNewsTicker.textContent = t(key)
+    if (this.weeklyFeaturedMutatorLine) {
+      const mutatorKey = _weeklyFeaturedMutatorKey()
+      this.weeklyFeaturedMutatorLine.textContent = t('weeklyFeaturedMutatorLine', {
+        mutator: t(WEEKLY_FEATURED_MUTATOR_LABEL_KEYS[mutatorKey]),
+        coins: WEEKLY_FEATURED_MUTATOR_BONUS_COINS,
+      })
+    }
   }
 
   // Local leaderboard - see loadLeaderboard's own doc comment for how this
@@ -5499,6 +5748,17 @@ export class Game {
     this.leaderboard = this.leaderboard.slice(0, LEADERBOARD_MAX_ENTRIES)
     saveLeaderboard(this.leaderboard)
     this._updateLeaderboardDisplay()
+
+    // Boss Rush leaderboard - a genuinely separate board (see
+    // BOSS_RUSH_LEADERBOARD_KEY's own comment), only ever gains an entry
+    // from a run that actually had the mutator on.
+    if (this.settings.mutators.bossRush) {
+      this.bossRushLeaderboard.push({ night: this.night, kills: this.kills, points: this.points, date: Date.now() })
+      this.bossRushLeaderboard.sort((a, b) => (b.night - a.night) || (b.kills - a.kills) || (b.points - a.points))
+      this.bossRushLeaderboard = this.bossRushLeaderboard.slice(0, LEADERBOARD_MAX_ENTRIES)
+      saveBossRushLeaderboard(this.bossRushLeaderboard)
+    }
+    this._updateBossRushLeaderboardDisplay()
   }
 
   _updateLeaderboardDisplay() {
@@ -5512,6 +5772,53 @@ export class Game {
       .map((e, i) => `<div class="leaderboard-row"><span>#${i + 1}</span><span>${t('hudNight', { n: e.night })}</span><span>${t('hudKills', { n: e.kills })}</span></div>`)
       .join('')
     this.menuLeaderboard.innerHTML = `<p class="menu-best-stats">${t('leaderboardTitle')}</p>${rows}`
+  }
+
+  // Shows once this save has ever recorded a Boss Rush run, regardless of
+  // whether the mutator checkbox happens to be checked right now - this is
+  // a hall-of-fame for past runs, not a live preview of the current toggle.
+  _updateBossRushLeaderboardDisplay() {
+    if (!this.menuBossRushLeaderboard) return
+    if (this.bossRushLeaderboard.length === 0) {
+      this.menuBossRushLeaderboard.style.display = 'none'
+      this.menuBossRushLeaderboard.innerHTML = ''
+      return
+    }
+    this.menuBossRushLeaderboard.style.display = ''
+    const rows = this.bossRushLeaderboard
+      .map((e, i) => `<div class="leaderboard-row"><span>#${i + 1}</span><span>${t('hudNight', { n: e.night })}</span><span>${t('hudKills', { n: e.kills })}</span></div>`)
+      .join('')
+    this.menuBossRushLeaderboard.innerHTML = `<p class="menu-best-stats">${t('bossRushLeaderboardTitle')}</p>${rows}`
+  }
+
+  // Hardcore Mode death memorial (see HARDCORE_MEMORIAL_KEY's own comment) -
+  // called only from an actual death (_onPlayerDeath), never from the
+  // survive-to-dawn path _recordLeaderboardEntry above also handles, since
+  // surviving isn't a death worth memorializing.
+  _recordHardcoreMemorial() {
+    this.hardcoreMemorial.unshift({
+      name: this.settings.nickname || t('hardcoreMemorialUnnamed'),
+      night: this.night,
+      kills: this.kills,
+      date: Date.now(),
+    })
+    this.hardcoreMemorial = this.hardcoreMemorial.slice(0, HARDCORE_MEMORIAL_MAX_ENTRIES)
+    saveHardcoreMemorial(this.hardcoreMemorial)
+    this._updateHardcoreMemorialDisplay()
+  }
+
+  _updateHardcoreMemorialDisplay() {
+    if (!this.menuHardcoreMemorial) return
+    if (this.hardcoreMemorial.length === 0) {
+      this.menuHardcoreMemorial.style.display = 'none'
+      this.menuHardcoreMemorial.innerHTML = ''
+      return
+    }
+    this.menuHardcoreMemorial.style.display = ''
+    const rows = this.hardcoreMemorial
+      .map((e) => `<div class="leaderboard-row"><span>${e.name}</span><span>${t('hudNight', { n: e.night })}</span><span>${t('hudKills', { n: e.kills })}</span></div>`)
+      .join('')
+    this.menuHardcoreMemorial.innerHTML = `<p class="menu-best-stats">${t('hardcoreMemorialTitle')}</p>${rows}`
   }
 
   _refreshInventoryPanel() {
@@ -5904,6 +6211,11 @@ export class Game {
   // nodes - past the cap, hits just stop popping new numbers until old ones
   // finish animating out.
   _spawnDamageNumber(x, y, z, damage, isHeadshot) {
+    // Biggest Hit (see _renderRunSummary) - tracked here rather than after
+    // the display cap below, so a huge hit during a already-cluttered
+    // minigun spray still counts even though its own number never
+    // actually got to pop up on screen.
+    if (damage > this.biggestHitThisRun) this.biggestHitThisRun = damage
     if (this._activeDamageNumbers >= DAMAGE_NUMBER_MAX_CONCURRENT) return
     this._damageNumberVec.set(x, y, z).project(this.camera)
     if (this._damageNumberVec.z > 1) return // behind the camera
@@ -6307,6 +6619,18 @@ export class Game {
       damage: Math.round(this.playerState.totalDamageTaken),
     })
     this.deathGrade.textContent = t('runSummaryGrade', { grade: this._computeRunGrade() })
+
+    // Run highlights - peak streak was already tracked (it feeds the grade
+    // formula above) but never shown on its own line; biggest hit/closest
+    // call are new this-run-only trackers (see _spawnDamageNumber/
+    // _updateHealthHud). closestCall reads 0 (not Infinity) if the run
+    // ended without ever taking damage at all.
+    const closestCall = Number.isFinite(this.lowestHealthThisRun) ? Math.round(this.lowestHealthThisRun) : 0
+    this.deathHighlights.textContent = t('runSummaryHighlights', {
+      streak: this.peakKillStreakThisRun,
+      hit: Math.round(this.biggestHitThisRun),
+      closestCall,
+    })
   }
 
   // Run Summary Grade - a single letter reading on how the run went,
@@ -6373,6 +6697,9 @@ export class Game {
     }
     this._updateStatsPanel()
     if (this.totalDeaths === 1) this.achievements.unlock('first_death')
+    if (this.settings.hardcoreMode || (this.dailyChallengeActive && this.dailyTwist.forceHardcore)) {
+      this._recordHardcoreMemorial()
+    }
 
     this._recordRunEnd()
 
@@ -6540,6 +6867,10 @@ export class Game {
 
   _updateHealthHud() {
     const s = this.playerState
+    // Closest Call (see _renderRunSummary) - a running minimum, gated to
+    // s.health > 0 so a fatal hit (the last health value seen right before
+    // death) doesn't get mistaken for "a close call you survived."
+    if (s.health > 0 && s.health < this.lowestHealthThisRun) this.lowestHealthThisRun = s.health
     // Called every frame - skip the DOM write entirely when the rounded
     // displayed value hasn't actually changed since last frame, instead
     // of unconditionally touching style/textContent 60 times a second
@@ -8607,8 +8938,11 @@ export class Game {
     // day/night lerp above, so this multiplies on top of that every frame
     // rather than fighting it.
     const weatherDim = this.raining ? WEATHER_DIM_RAIN : this.snowing ? WEATHER_DIM_SNOW : 1
-    this.dayNight.hemi.intensity *= weatherDim
-    this.dayNight.sun.intensity *= weatherDim
+    // Blackout mutator - composes with the weather dim above (both apply)
+    // rather than overriding it, so a rainy Blackout night is darker still.
+    const blackoutDim = this.blackoutActive ? BLACKOUT_DIM : 1
+    this.dayNight.hemi.intensity *= weatherDim * blackoutDim
+    this.dayNight.sun.intensity *= weatherDim * blackoutDim
     this._updateWetStreetSheen(this.player.controls.object.position, dt)
     this._updateNightSky()
     this._updateBannerSway(elapsed)
