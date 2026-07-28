@@ -42,6 +42,23 @@ function buildDecalTexture(isBlood) {
 const bloodTexture = buildDecalTexture(true)
 const holeTexture = buildDecalTexture(false)
 
+// Bullet-hole decals share ONE unit-size geometry (scaled per-instance,
+// same trick WeaponSystem.js's tracers already use) and ONE material
+// across an InstancedMesh pool, instead of a brand new PlaneGeometry +
+// MeshBasicMaterial per shot - these were never mutated per-instance after
+// creation (no per-decal color/opacity), so sharing is safe (see this
+// project's own "clone materials that get mutated at runtime" rule; a
+// never-mutated material doesn't qualify). Blood splats below are
+// deliberately left on the old per-mesh path, unchanged.
+const HOLE_DECAL_GEOMETRY = new THREE.PlaneGeometry(1, 1)
+const HOLE_DECAL_MATERIAL = new THREE.MeshBasicMaterial({
+  map: holeTexture,
+  transparent: true,
+  depthWrite: false,
+  polygonOffset: true,
+  polygonOffsetFactor: -4,
+})
+
 function buildPuddleTexture() {
   const canvas = document.createElement('canvas')
   canvas.width = 64
@@ -72,12 +89,31 @@ export class DecalManager {
     this.scene = scene
     this.decals = []
     this.puddles = []
+
+    // Bullet-hole instanced pool (see HOLE_DECAL_GEOMETRY/MATERIAL's own
+    // comment) - a ring buffer over a fixed MAX_DECALS capacity, so a new
+    // hole past the cap overwrites the oldest instance slot's transform
+    // instead of allocating anything or disposing anything.
+    this.holeMesh = new THREE.InstancedMesh(HOLE_DECAL_GEOMETRY, HOLE_DECAL_MATERIAL, MAX_DECALS)
+    this.holeMesh.count = 0
+    // Instance transforms span wherever bullets land across the whole map -
+    // three.js can't cheaply keep an accurate per-instance bounding volume
+    // for that automatically, so this one mesh skips frustum culling
+    // rather than risk holes popping in/out incorrectly near screen edges.
+    this.holeMesh.frustumCulled = false
+    this.scene.add(this.holeMesh)
+    this._holeNextIndex = 0
+    this._holeObj = new THREE.Object3D()
   }
 
   spawn(point, normal, isBlood) {
-    const size = isBlood ? 0.3 + Math.random() * 0.25 : 0.1 + Math.random() * 0.05
+    if (!isBlood) {
+      this._spawnHole(point, normal)
+      return
+    }
+    const size = 0.3 + Math.random() * 0.25
     const material = new THREE.MeshBasicMaterial({
-      map: isBlood ? bloodTexture : holeTexture,
+      map: bloodTexture,
       transparent: true,
       depthWrite: false,
       polygonOffset: true,
@@ -96,6 +132,19 @@ export class DecalManager {
       old.material.dispose()
       old.geometry.dispose()
     }
+  }
+
+  _spawnHole(point, normal) {
+    const size = 0.1 + Math.random() * 0.05
+    this._holeObj.position.copy(point).addScaledVector(normal, 0.01)
+    this._holeObj.lookAt(this._holeObj.position.clone().add(normal))
+    this._holeObj.rotateZ(Math.random() * Math.PI * 2)
+    this._holeObj.scale.setScalar(size)
+    this._holeObj.updateMatrix()
+    this.holeMesh.setMatrixAt(this._holeNextIndex, this._holeObj.matrix)
+    this.holeMesh.instanceMatrix.needsUpdate = true
+    this._holeNextIndex = (this._holeNextIndex + 1) % MAX_DECALS
+    this.holeMesh.count = Math.min(MAX_DECALS, this.holeMesh.count + 1)
   }
 
   // Corpse-puddle ground decal - own pool/cap (see MAX_PUDDLES), separate

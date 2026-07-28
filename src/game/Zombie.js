@@ -193,6 +193,29 @@ const TYPICAL_EYE_HEIGHT = 1.7
 // See _hasLineOfSight's own comment - how long a cached LOS result stays
 // valid before the next call actually re-raycasts.
 const LOS_CACHE_MS = 150
+// Per-frame LOS raycast budget (see resetLosRaycastBudget/_hasLineOfSight) -
+// each zombie's own 150ms cache already bounds ITS cost, but a burst of
+// zombies (a pack spawn, a horde event) can still land all of their cache
+// expiries on the same frame, spiking to dozens of raycasts at once. This
+// spreads that spike across a few frames instead, same "shared per-frame
+// budget" idea ZombieManager's own SPAWNS_PER_FRAME already uses for
+// construction pacing.
+const LOS_RAYCAST_BUDGET_PER_FRAME = 8
+let _losRaycastBudgetThisFrame = LOS_RAYCAST_BUDGET_PER_FRAME
+
+// Called once per frame from ZombieManager.update() - refills the shared
+// budget every zombie's _hasLineOfSight draws from.
+export function resetLosRaycastBudget() {
+  _losRaycastBudgetThisFrame = LOS_RAYCAST_BUDGET_PER_FRAME
+}
+
+// Zombie Visual LOD (see _shouldFullyAnimate) - distance/occlusion
+// thresholds and how often a throttled zombie still gets a real animation
+// frame.
+const ANIMATION_LOD_FAR_DISTANCE = 40
+const ANIMATION_LOD_BEHIND_DISTANCE = 15
+const ANIMATION_LOD_OCCLUSION_MIN_DISTANCE = 10
+const ANIMATION_LOD_SKIP_FRAMES = 3
 
 let zombieIdCounter = 0
 
@@ -1298,7 +1321,9 @@ export class Zombie {
       }
     }
 
-    this._animate(dt, elapsed)
+    if (this._shouldFullyAnimate(dist, dx, dz, playerPos, solidMeshes, playerForwardX, playerForwardZ)) {
+      this._animate(dt, elapsed)
+    }
   }
 
   // Called by ZombieManager when another zombie's scream reaches this one.
@@ -1560,6 +1585,13 @@ export class Zombie {
     // where many zombies doing this at once adds up).
     const now = performance.now()
     if (now < this._losCacheUntil) return this._losCachedResult
+    // Shared per-frame budget (see LOS_RAYCAST_BUDGET_PER_FRAME) - once
+    // exhausted, every zombie whose cache expires this frame just keeps
+    // its last known result for one more frame instead of all raycasting
+    // at once. _losCacheUntil deliberately isn't extended here, so this
+    // zombie tries again (and likely wins the budget) next frame.
+    if (_losRaycastBudgetThisFrame <= 0) return this._losCachedResult
+    _losRaycastBudgetThisFrame -= 1
     this._losCacheUntil = now + LOS_CACHE_MS
 
     this._losOrigin.copy(this.group.position)
@@ -1650,6 +1682,39 @@ export class Zombie {
     this.mixer.update(dt)
     this.group.rotation.z = Math.sin(elapsed * this.effectiveSpeed * 1.1 + this.phase) * 0.04 + this.postureOffset * 0.2
     this._updateGlandFX(elapsed)
+  }
+
+  // Zombie Visual LOD - decides whether this frame's animation blend is
+  // worth its cost, using three factors that only ever gate the COSMETIC
+  // _animate() call below, never movement/AI/combat (those already ran
+  // unconditionally above this point in update() regardless of what this
+  // returns - a throttled zombie still walks, attacks, and takes damage
+  // exactly on schedule, it just visually stops updating its limbs for a
+  // few frames while doing it):
+  //  1. Far enough away that limb motion is imperceptible.
+  //  2. Roughly behind the player's view (reuses playerForwardX/Z, already
+  //     threaded through for blind-spot flanking - no new camera plumbing).
+  //  3. Occluded (reuses _hasLineOfSight, itself already budget-limited -
+  //     see LOS_RAYCAST_BUDGET_PER_FRAME - so this never adds unbounded cost).
+  // Throttled zombies still animate every ANIMATION_LOD_SKIP_FRAMES'th
+  // frame rather than freezing outright, so one briefly coming back into
+  // clear view mid-throttle never reads as a broken mannequin.
+  _shouldFullyAnimate(dist, dx, dz, playerPos, solidMeshes, playerForwardX, playerForwardZ) {
+    this._animFrameCounter = (this._animFrameCounter || 0) + 1
+    let throttle = false
+    if (dist > ANIMATION_LOD_FAR_DISTANCE) {
+      throttle = true
+    } else if (dist > ANIMATION_LOD_BEHIND_DISTANCE && playerForwardX !== null) {
+      const invDist = dist > 0.0001 ? 1 / dist : 0
+      const towardZombieX = -dx * invDist
+      const towardZombieZ = -dz * invDist
+      const facingDot = towardZombieX * playerForwardX + towardZombieZ * playerForwardZ
+      if (facingDot < -0.3) throttle = true
+    }
+    if (!throttle && dist > ANIMATION_LOD_OCCLUSION_MIN_DISTANCE && solidMeshes && !this._hasLineOfSight(playerPos, solidMeshes)) {
+      throttle = true
+    }
+    return !throttle || this._animFrameCounter % ANIMATION_LOD_SKIP_FRAMES === 0
   }
 
   _animate(dt, elapsed) {

@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { flatMaterial, LOW_QUALITY_MODE } from './QualitySettings.js'
-import { Zombie } from './Zombie.js'
+import { Zombie, resetLosRaycastBudget } from './Zombie.js'
 import { pickZombieType, ZOMBIE_TYPES } from './ZombieTypes.js'
 import { audioEngine } from './Audio.js'
 import { getZoneAt } from './Zones.js'
@@ -132,6 +132,16 @@ const noisemakerMat = flatMaterial({
   roughness: 0.5,
   metalness: 0.4,
 })
+
+// Shared geometry (see spawnNoisemakerThrow/_spawnProjectile) - every
+// throw/spit used a brand new SphereGeometry/CylinderGeometry and never
+// disposed it on removal (scene.remove() only stops rendering, it doesn't
+// free the GPU buffer - the exact leak class Zombie.js's own dispose()
+// method already documents fixing for corpses). Sharing one instance
+// across every projectile avoids the leak entirely rather than adding a
+// dispose() call to every removal site.
+const projectileGeometry = new THREE.SphereGeometry(0.13, 10, 10)
+const noisemakerGeometry = new THREE.CylinderGeometry(0.06, 0.06, 0.16, 10)
 
 const grenadeMat = flatMaterial({
   color: 0x3a4a2e,
@@ -767,7 +777,7 @@ export class ZombieManager {
   }
 
   _spawnProjectile(origin, targetSnapshot, damage, travelSpeed, effect = 'damage') {
-    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 10), projectileMat)
+    const mesh = new THREE.Mesh(projectileGeometry, projectileMat)
     mesh.position.copy(origin)
     this.scene.add(mesh)
 
@@ -781,7 +791,7 @@ export class ZombieManager {
   // and marks that spot as a distraction zombies will investigate instead
   // of the player (see the targeting override in update() below).
   spawnNoisemakerThrow(origin, target) {
-    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.16, 10), noisemakerMat)
+    const mesh = new THREE.Mesh(noisemakerGeometry, noisemakerMat)
     mesh.position.copy(origin)
     this.scene.add(mesh)
 
@@ -1238,6 +1248,7 @@ export class ZombieManager {
   }
 
   update(dt, playerPos, onPlayerDamage, onZombieLoot, onAmbushTrigger, onZombieKilled, playerCrouching = false, isNight = false, onTrail = null, onPlayerPull = null, onPlayerDisorient = null, onWebLand = null, playerForwardX = null, playerForwardZ = null, barricadeWindows = null, companionTargets = null) {
+    resetLosRaycastBudget()
     this.elapsed += dt
     // Every spawn function below reads this instead of assuming the player
     // is near the map origin - true on the old 150x150 map, not on the

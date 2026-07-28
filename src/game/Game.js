@@ -238,6 +238,19 @@ function loadSettings() {
 // LOW_QUALITY_MODE - fewer simultaneously-active lights, each one a real
 // per-pixel cost against every visible fragment in this forward renderer.
 const LIGHT_CULL_DISTANCE = LOW_QUALITY_MODE ? 60 : 100
+// Nearest-K dynamic light cap (see _updateCulling) - on top of the pure
+// distance cull above, for dense light clusters (mall, safe zone) where
+// more than this many lights can all be within range simultaneously.
+const MAX_ACTIVE_LIGHTS = LOW_QUALITY_MODE ? 12 : 20
+// Adaptive Shadow Quality (see _updateAdaptiveShadowQuality) - the
+// recover threshold sits well above the low threshold (hysteresis) so a
+// borderline framerate right at the boundary can't flicker the
+// adjustment back and forth every 500ms sample.
+const ADAPTIVE_SHADOW_LOW_FPS = 40
+const ADAPTIVE_SHADOW_RECOVER_FPS = 52
+const ADAPTIVE_SHADOW_MIN_MULT = 0.4
+const ADAPTIVE_SHADOW_STEP = 0.9
+const ADAPTIVE_SHADOW_RECOVER_STEP = 1.05
 
 const SCORE_ATTACK_NIGHT_DURATION_MS = 60000
 const ROUND_INTERMISSION_MS = 5000
@@ -1069,6 +1082,9 @@ const CORPSE_PILE_MAX_TRACKED = 200
 const COMBO_MULT_PER_KILL = 0.15
 const COMBO_MULT_CAP = 2.5
 const DAMAGE_NUMBER_MAX_CONCURRENT = 40
+// Throttled minimap/compass redraw (see the main tick) - ~20fps instead of
+// every frame.
+const PERIPHERAL_UI_UPDATE_INTERVAL_MS = 50
 // Rain reduces how far wandering zombies notice the player (see
 // _rollNightMutation) - a real gameplay tie-in for the existing weather
 // roll, not just the rain overlay/thunder sound it already had.
@@ -1556,8 +1572,18 @@ export class Game {
     this.crosshair = document.getElementById('crosshair')
     this.damageNumbersEl = document.getElementById('damage-numbers')
     this.threatIndicator = document.getElementById('threat-indicator')
-    this._activeDamageNumbers = 0
     this._damageNumberVec = new THREE.Vector3()
+    // Pooled damage-number DOM nodes (see _spawnDamageNumber) - built once
+    // up front at exactly DAMAGE_NUMBER_MAX_CONCURRENT capacity, cycled
+    // through round-robin instead of createElement/remove per hit.
+    this._damageNumberPool = []
+    for (let i = 0; i < DAMAGE_NUMBER_MAX_CONCURRENT; i++) {
+      const el = document.createElement('div')
+      el.style.display = 'none'
+      this.damageNumbersEl.appendChild(el)
+      this._damageNumberPool.push(el)
+    }
+    this._damageNumberPoolIndex = 0
     this.hudEl = document.getElementById('hud')
     this.hotbarEl = document.getElementById('hotbar')
     this.hotbarSlotEls = Array.from(this.hotbarEl.querySelectorAll('.hotbar-slot'))
@@ -1996,6 +2022,8 @@ export class Game {
     // never change shape after construction, so the mesh list is resolved
     // once (lazily, on first cull pass) and reused from then on.
     this._cullShadowMeshCache = new WeakMap()
+    this._lightCullScratch = []
+    this._adaptiveShadowMult = 1
     this.supermarket = supermarket
     this.groceryStore = groceryStore
     this.hospital = hospital
@@ -2406,6 +2434,7 @@ export class Game {
     this.companionBondTier = 0
     this.bossAnnounced = false
     this.nextHeartbeatAt = 0
+    this._nextPeripheralUiUpdateAt = 0
     this.statsPoints = document.getElementById('stats-points')
     this.perkPanel = document.getElementById('perk-panel')
     this.perkPanelTitle = document.getElementById('perk-panel-title')
@@ -4005,6 +4034,12 @@ export class Game {
   _removeHazardZone(zone) {
     this.scene.remove(zone.mesh)
     this.scene.remove(zone.light)
+    // _spawnHazardZone builds a fresh geometry/material per zone (radius
+    // and color both vary by type) - scene.remove() alone doesn't free
+    // either's GPU buffer, the same leak class Zombie.js's own dispose()
+    // already documents fixing for corpses.
+    zone.mesh.geometry.dispose()
+    zone.mesh.material.dispose()
   }
 
   _updateHazardZones(dt, playerPos) {
@@ -4802,6 +4837,24 @@ export class Game {
     this.camera.updateProjectionMatrix()
     this.tpCamera.far = far
     this.tpCamera.updateProjectionMatrix()
+  }
+
+  // Adaptive Shadow Quality - a different lever from the dynamic
+  // RESOLUTION scaling this project already tried and deliberately
+  // disabled (see _dynResScale's own history - pixel count wasn't the
+  // actual bottleneck that time). This tests shadow-casting distance
+  // specifically: sustained low fps gradually shrinks how far
+  // _updateCulling still marks objects as shadow-casters, sustained
+  // healthy fps gradually restores it. Multiplies into shadowSq alongside
+  // (not replacing) _perfDistanceMult's own manual Performance Mode
+  // shrink, and never touches render distance or light culling - only
+  // shadow-casting range.
+  _updateAdaptiveShadowQuality(fps) {
+    if (fps < ADAPTIVE_SHADOW_LOW_FPS) {
+      this._adaptiveShadowMult = Math.max(ADAPTIVE_SHADOW_MIN_MULT, this._adaptiveShadowMult * ADAPTIVE_SHADOW_STEP)
+    } else if (fps >= ADAPTIVE_SHADOW_RECOVER_FPS) {
+      this._adaptiveShadowMult = Math.min(1, this._adaptiveShadowMult * ADAPTIVE_SHADOW_RECOVER_STEP)
+    }
   }
 
   // Fires on every night transition: pauses gameplay and offers 3 random
@@ -6487,22 +6540,25 @@ export class Game {
     // minigun spray still counts even though its own number never
     // actually got to pop up on screen.
     if (damage > this.biggestHitThisRun) this.biggestHitThisRun = damage
-    if (this._activeDamageNumbers >= DAMAGE_NUMBER_MAX_CONCURRENT) return
     this._damageNumberVec.set(x, y, z).project(this.camera)
     if (this._damageNumberVec.z > 1) return // behind the camera
     const sx = (this._damageNumberVec.x * 0.5 + 0.5) * window.innerWidth
     const sy = (-this._damageNumberVec.y * 0.5 + 0.5) * window.innerHeight
-    const el = document.createElement('div')
+    // Pooled DOM node (see the constructor's _damageNumberPool) instead of
+    // createElement/remove per hit - a minigun spray was creating and
+    // tearing down dozens of DOM nodes a second. Reusing one means
+    // restarting its CSS animation explicitly (the "none, reflow, clear"
+    // trick) rather than relying on class-add to trigger it fresh.
+    const el = this._damageNumberPool[this._damageNumberPoolIndex]
+    this._damageNumberPoolIndex = (this._damageNumberPoolIndex + 1) % this._damageNumberPool.length
     el.className = isHeadshot ? 'damage-number headshot' : 'damage-number'
     el.textContent = String(damage)
     el.style.left = `${sx}px`
     el.style.top = `${sy}px`
-    this.damageNumbersEl.appendChild(el)
-    this._activeDamageNumbers += 1
-    el.addEventListener('animationend', () => {
-      el.remove()
-      this._activeDamageNumbers -= 1
-    })
+    el.style.display = ''
+    el.style.animation = 'none'
+    void el.offsetWidth
+    el.style.animation = ''
   }
 
   // Slow-mo + camera zoom on the killing blow against a boss-tier zombie
@@ -7990,7 +8046,7 @@ export class Game {
     // shadow casters, and fewer active lights all at once, not just the
     // resolution/shadow-map/bloom toggles alone.
     const cullSq = (WORLD_CULL_DISTANCE * this._perfDistanceMult) ** 2
-    const shadowSq = (WORLD_SHADOW_CULL_DISTANCE * this._perfDistanceMult) ** 2
+    const shadowSq = (WORLD_SHADOW_CULL_DISTANCE * this._perfDistanceMult * this._adaptiveShadowMult) ** 2
     // Classic forward rendering (no light clustering) means every visible
     // fragment's shader evaluates every VISIBLE scene light, regardless of
     // distance - confirmed live at 62 PointLights across the map (rib
@@ -8002,10 +8058,29 @@ export class Game {
     // fully off (not just intensity=0, which still costs a shader
     // evaluation) is a real, not approximate, render-cost cut.
     const lightCullSq = (LIGHT_CULL_DISTANCE * this._perfDistanceMult) ** 2
+    // Nearest-K cap on top of the distance cull above - a dense cluster
+    // (several streetlamps/beacons all within LIGHT_CULL_DISTANCE at once,
+    // e.g. standing in the mall or the safe zone) can still leave far more
+    // lights on at once than the distance check alone would catch, so only
+    // the MAX_ACTIVE_LIGHTS nearest of the in-range candidates actually
+    // stay on; the rest are within range but capped off anyway.
+    const candidates = this._lightCullScratch
+    candidates.length = 0
     for (const f of this.flickerLights) {
       const dx = f.light.position.x - playerPos.x
       const dz = f.light.position.z - playerPos.z
-      f.light.visible = (dx * dx + dz * dz) < lightCullSq
+      const distSq = dx * dx + dz * dz
+      if (distSq < lightCullSq) {
+        f.light.visible = true
+        f._cullDistSq = distSq
+        candidates.push(f)
+      } else {
+        f.light.visible = false
+      }
+    }
+    if (candidates.length > MAX_ACTIVE_LIGHTS) {
+      candidates.sort((a, b) => a._cullDistSq - b._cullDistSq)
+      for (let i = MAX_ACTIVE_LIGHTS; i < candidates.length; i++) candidates[i].light.visible = false
     }
     for (const obj of this.cullables) {
       const dx = obj.position.x - playerPos.x
@@ -9208,9 +9283,16 @@ export class Game {
     if (fpsElapsed >= 500) {
       const fps = Math.round((this._fpsFrameCount * 1000) / fpsElapsed)
       const msPerFrame = (fpsElapsed / this._fpsFrameCount).toFixed(1)
-      this.fpsEl.textContent = `${fps} fps / ${msPerFrame} ms`
+      // Extended perf overlay - zombie count and draw calls (renderer.info
+      // is three.js's own built-in counter, reset automatically every
+      // render() call) alongside the fps/frame-time this already showed,
+      // so a real slowdown's likely cause is visible without opening
+      // devtools.
+      const drawCalls = this.renderer.info.render.calls
+      this.fpsEl.textContent = `${fps} fps / ${msPerFrame} ms / ${this.zombies.zombies.length} zmb / ${drawCalls} draws`
       this._fpsFrameCount = 0
       this._fpsLastUpdate = nowFps
+      this._updateAdaptiveShadowQuality(fps)
 
       const p = this.player.controls.object.position
       this.coordsEl.textContent = `x:${p.x.toFixed(1)} z:${p.z.toFixed(1)} y:${p.y.toFixed(1)}`
@@ -9573,8 +9655,15 @@ export class Game {
         this.interactPrompt.style.display = 'none'
       }
       this._updateZipline(playerPos)
-      this._updateMinimap(playerPos)
-      this._updateCompass(playerPos)
+      // Throttled to ~20fps (imperceptible for a corner minimap/compass,
+      // unlike the main 3D view) - a canvas redraw + several DOM position
+      // writes every single frame was real, unnecessary cost 60 times a
+      // second for UI that reads identically at 20.
+      if (performance.now() >= this._nextPeripheralUiUpdateAt) {
+        this._nextPeripheralUiUpdateAt = performance.now() + PERIPHERAL_UI_UPDATE_INTERVAL_MS
+        this._updateMinimap(playerPos)
+        this._updateCompass(playerPos)
+      }
       this._updateHordeAnnouncement()
       this._updateBarricades()
       this._updateDeathObstacles()

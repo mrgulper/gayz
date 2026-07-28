@@ -611,17 +611,25 @@ export const ZOMBIE_TYPES = {
   },
 }
 
+// Cached once at module load rather than rebuilt (Object.values + reduce)
+// on every single call - this runs once per zombie spawn, which during a
+// horde/wandering-horde burst can be many times in one frame.
+const ZOMBIE_TYPE_ENTRIES = Object.values(ZOMBIE_TYPES)
+const ZOMBIE_TYPE_BASE_WEIGHT_TOTAL = ZOMBIE_TYPE_ENTRIES.reduce((sum, t) => sum + t.weight, 0)
+
 // featuredId/featuredMult (see the Featured Enemy mutator, ZombieManager's
 // featuredEnemyId) - both default to a no-op so every existing call site
 // (just calling pickZombieType() with no args) rolls exactly as before.
 export function pickZombieType(featuredId = null, featuredMult = 1) {
-  const entries = Object.values(ZOMBIE_TYPES)
-  const weightOf = (t) => (t.id === featuredId ? t.weight * featuredMult : t.weight)
-  const total = entries.reduce((sum, t) => sum + weightOf(t), 0)
+  let total = ZOMBIE_TYPE_BASE_WEIGHT_TOTAL
+  if (featuredId !== null && featuredMult !== 1) {
+    const featured = ZOMBIE_TYPES[featuredId]
+    if (featured) total += featured.weight * (featuredMult - 1)
+  }
   let roll = Math.random() * total
-  for (const t of entries) {
-    roll -= weightOf(t)
+  for (const t of ZOMBIE_TYPE_ENTRIES) {
+    roll -= t.id === featuredId ? t.weight * featuredMult : t.weight
     if (roll <= 0) return t
   }
-  return entries[0]
+  return ZOMBIE_TYPE_ENTRIES[0]
 }
