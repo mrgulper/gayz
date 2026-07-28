@@ -436,6 +436,9 @@ export class ZombieManager {
   // they appear, this only changes HOW MANY are kept alive.
   _applyZoneDensity(isNight) {
     const zone = getZoneAt(this.lastPlayerPos.x, this.lastPlayerPos.z)
+    // Zone Danger Warning (see Game.js's _updateZoneDangerWarning) - reuses
+    // this already-computed lookup instead of a second getZoneAt query.
+    this.currentZone = zone
     let mult = 1
     if (zone) {
       const gated = (zone.dayOnly && isNight) || (zone.nightOnly && !isNight)

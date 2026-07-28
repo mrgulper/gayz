@@ -612,6 +612,22 @@ const BLOOM_RESOLUTION_SCALE = 0.5
 // discoveredCells Set of "cellX,cellZ" string keys.
 const EXPLORE_CELL_SIZE = 20
 const EXPLORE_REVEAL_RADIUS_CELLS = 2
+const LANDMARK_DISCOVERY_COINS = 25
+// Zone Danger Rating - warns the first time the player wanders into a zone
+// dense enough to actually matter (see Zones.js's densityMult), reusing
+// ZombieManager's own already-computed currentZone rather than a second
+// getZoneAt query every frame.
+const ZONE_DANGER_THRESHOLD = 1.4
+// Lore Markers - visual, inspectable world props (distinct from the
+// existing Audio Logs collectibles) at a handful of named locations,
+// reusing their real coordinates with a small offset rather than needing a
+// fresh clearance check.
+const LORE_MARKERS = [
+  { id: 'library', x: 324, z: 160, textKey: 'loreMarkerLibrary' },
+  { id: 'church', x: 334, z: 70, textKey: 'loreMarkerChurch' },
+  { id: 'school', x: -324, z: 150, textKey: 'loreMarkerSchool' },
+]
+const LORE_MARKER_INTERACT_RADIUS = 2.5
 const LIGHT_LURE_RADIUS = 20
 const LIGHT_LURE_INTERVAL_MS = 2000
 const SAFE_ZONE_HEAL_PER_SEC = 6
@@ -2129,6 +2145,12 @@ export class Game {
     // persisted - re-exploring the map each run fits this game's other
     // per-run resets better than a permanent meta-unlock would.
     this.discoveredCells = new Set()
+    this.rewardedLandmarks = new Set()
+    // Zone Danger Warning (see _updateZoneDangerWarning) - one toast per
+    // zone id per run, not re-shown every time the player passes back
+    // through the same zone.
+    this.warnedZones = new Set()
+    this.loreMarkersFound = new Set()
     this.mapOpen = false
     this.fullMapPanel = document.getElementById('fullmap-panel')
     this.fullMapCanvas = document.getElementById('fullmap-canvas')
@@ -2327,6 +2349,7 @@ export class Game {
     }
     this._buildZipline()
     this._buildInformant()
+    this._buildLoreMarkers()
 
     this.timer = new THREE.Timer()
     this.timer.connect(document)
@@ -2728,6 +2751,8 @@ export class Game {
           this._useZipline()
         } else if (this.nearInformant) {
           this._useInformant()
+        } else if (this.nearLoreMarker) {
+          this._readLoreMarker()
         } else {
           const loot = this.chests.tryInteract()
           if (loot) {
@@ -4822,6 +4847,10 @@ export class Game {
       <div class="journal-section">
         <h3>${t('journalLoreHeading')}</h3>
         <p>${t('journalLoreCount', { found: this.audioLogsFound.size, total: 8 })}</p>
+      </div>
+      <div class="journal-section">
+        <h3>${t('journalMarkersHeading')}</h3>
+        <p>${t('journalMarkersCount', { found: this.loreMarkersFound.size, total: LORE_MARKERS.length })}</p>
       </div>
     `
   }
@@ -7458,6 +7487,39 @@ export class Game {
     this._showLoreToast(t('informantRevealed', { name: pick.label }))
   }
 
+  // Lore Markers - a handful of small glowing props, own interact prompt
+  // (see nearLoreMarker in the main tick's prompt chain) rather than
+  // folding into any existing interactable, since none of them are "read a
+  // short line of world lore" in shape.
+  _buildLoreMarkers() {
+    const mat = flatMaterial({ color: 0x2a2418, emissive: 0xb39cff, emissiveIntensity: 0.8, roughness: 0.5 })
+    this.loreMarkerProps = LORE_MARKERS.map((m) => {
+      const mesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.35, 0), mat)
+      mesh.position.set(m.x, 1.1, m.z)
+      this.scene.add(mesh)
+      return { ...m, mesh }
+    })
+    this.nearLoreMarker = null
+  }
+
+  _updateLoreMarkers(dt, playerPos) {
+    this.nearLoreMarker = null
+    for (const m of this.loreMarkerProps) {
+      m.mesh.rotation.y += dt * 0.6
+      if (this.loreMarkersFound.has(m.id)) continue
+      const dist = Math.hypot(playerPos.x - m.x, playerPos.z - m.z)
+      if (dist <= LORE_MARKER_INTERACT_RADIUS) this.nearLoreMarker = m
+    }
+  }
+
+  _readLoreMarker() {
+    const m = this.nearLoreMarker
+    if (!m) return
+    this.loreMarkersFound.add(m.id)
+    this.nearLoreMarker = null
+    this._showLoreToast(t(m.textKey))
+  }
+
   // Rolled alongside _rollWeather/_rollNightMutation (see their own call
   // sites) - banner meshes are built once, lazily, then just recolored on
   // every later call rather than rebuilt from scratch.
@@ -8023,6 +8085,30 @@ export class Game {
         this.discoveredCells.add(`${cx + dx},${cz + dz}`)
       }
     }
+    // Landmark Discovery Rewards - a one-time coin bonus the first time
+    // each named location's own cell actually gets walked-into-range of,
+    // checked right here since exploration reveal is already the trigger
+    // rather than a second per-frame scan. The Informant's paid reveal
+    // (see _useInformant) doesn't call this method, so buying intel skips
+    // the bonus - only actually walking there earns it.
+    for (const lm of this.allLocationLandmarks) {
+      if (this.rewardedLandmarks.has(lm.label)) continue
+      const lcx = Math.floor(lm.x / EXPLORE_CELL_SIZE)
+      const lcz = Math.floor(lm.z / EXPLORE_CELL_SIZE)
+      if (this.discoveredCells.has(`${lcx},${lcz}`)) {
+        this.rewardedLandmarks.add(lm.label)
+        this.coins += LANDMARK_DISCOVERY_COINS
+        this._updateStatsPanel()
+        this._showLoreToast(t('landmarkDiscovered', { name: lm.label, coins: LANDMARK_DISCOVERY_COINS }))
+      }
+    }
+  }
+
+  _updateZoneDangerWarning() {
+    const zone = this.zombies.currentZone
+    if (!zone || zone.densityMult < ZONE_DANGER_THRESHOLD || this.warnedZones.has(zone.id)) return
+    this.warnedZones.add(zone.id)
+    this._showLoreToast(t('zoneDangerToast'))
   }
 
   // Announces a wandering horde exactly once per appearance (see
@@ -8288,6 +8374,7 @@ export class Game {
       this._updateToxicWater(dt, playerPos)
       this._updateMineHazards(playerPos)
       this._updateExploration(playerPos)
+      this._updateZoneDangerWarning()
       this._updateVehicleProximity(playerPos)
       this._updateVireoTerminal(playerPos)
       this._updateStationTerminal(playerPos)
@@ -8298,6 +8385,7 @@ export class Game {
       this._updateEscortConvoy(dt, playerPos)
       this._updateRecruitSpots(elapsed, playerPos)
       this._updateInformant(playerPos)
+      this._updateLoreMarkers(dt, playerPos)
       this._updateBossHealthBar()
       this._updateKingOfTheHill(dt, playerPos)
       this._updateExtraction(dt, playerPos)
@@ -8369,6 +8457,9 @@ export class Game {
         this.interactPrompt.style.display = 'block'
       } else if (this.nearInformant) {
         this.interactPrompt.innerHTML = tHtml('interactInformant', { cost: INFORMANT_COST })
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearLoreMarker) {
+        this.interactPrompt.innerHTML = tHtml('interactLoreMarker')
         this.interactPrompt.style.display = 'block'
       } else {
         this.interactPrompt.style.display = 'none'
