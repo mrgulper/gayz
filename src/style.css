@@ -1264,6 +1264,13 @@ html, body {
   margin-top: -8px;
 }
 
+#trader-mood-line {
+  font-size: 12px;
+  font-style: italic;
+  opacity: 0.6;
+  margin-top: -4px;
+}
+
 #trader-hint {
   margin-top: 4px;
   font-size: 13px;
@@ -1763,6 +1770,14 @@ html, body {
 .menu-subhint {
   font-size: 12px;
   opacity: 0.5 !important;
+}
+
+.menu-news-ticker {
+  font-size: 11px;
+  font-style: italic;
+  letter-spacing: 0.3px;
+  opacity: 0.45 !important;
+  max-width: 420px;
 }
 
 #play-btn {

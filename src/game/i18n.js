@@ -32,6 +32,13 @@ const STRINGS = {
   en: {
     menuSubtitle: 'Broken city block — survive, scavenge, find out why',
     menuSubhint: 'Look for lookout platforms up staircases along the avenue — chests inside',
+    // Main-menu news ticker (see _updateMenuNewsTicker) - tied to
+    // bestStats.bestNight (already persisted, no new tracking needed), so
+    // the framing implies the world is worsening the further you've ever
+    // gotten, not the outcome of any single run.
+    newsTickerEarly: 'BREAKING: City authorities urge calm as quarantine perimeter holds through its first nights.',
+    newsTickerMid: 'REPORT: Quarantine perimeter breached in multiple districts. Emergency broadcasts have gone intermittent.',
+    newsTickerLate: 'SIGNAL LOST: No official broadcast in days. Whoever is still out there is on their own now.',
     playBtn: 'Click to Play',
     settingsBtn: 'Settings',
     upgradesBtn: 'Upgrades',
@@ -176,6 +183,9 @@ const STRINGS = {
     loadoutBalanced: 'Balanced',
     loadoutRunner: 'Runner',
     loadoutTank: 'Tank',
+    loadoutBalancedBlurb: 'No particular past. You picked up a gun because everyone did.',
+    loadoutRunnerBlurb: 'Fast on your feet, always have been. Never learned how to take a hit.',
+    loadoutTankBlurb: "You've absorbed worse than this before. Just don't expect to outrun it.",
     loadoutPresetSlot: 'Slot {n}',
     loadoutPresetSave: 'Save',
     loadoutPresetLoad: 'Load',
@@ -187,6 +197,10 @@ const STRINGS = {
     difficultyNormal: 'Normal',
     difficultyHard: 'Hard',
     difficultyNightmare: 'Nightmare',
+    diffFlavorEasy: "They said it'd get worse before it got better. Tonight, at least, it's manageable.",
+    diffFlavorNormal: 'Same as every other night since it started. That is to say: bad.',
+    diffFlavorHard: "The horde's learned your routes. Time to learn some new ones.",
+    diffFlavorNightmare: "You already know how this city ends. You're just seeing how long you can put it off.",
     roleRanged: 'Ranged Support',
     roleMelee: 'Melee Bruiser',
     roleMedic: 'Medic Support',
@@ -222,6 +236,12 @@ const STRINGS = {
     dailyResult: '{twist} - Score: {score} (Best today: {best})',
     endingText: "You found the truth. VIREO isn't coming to shut this down, and the lights aren't going out on their own. Somebody has to keep surviving long enough to make sure the story gets out. That's you, now.",
     endingCredits: 'GAYZ\nA Broken City Block\n\nMade with a lot of help along the way.\nThanks for playing.',
+    // Ending epilogue stat summary (see _showEndingSequence) - appended
+    // after the fixed endingText above, templated with this save's actual
+    // lifetime numbers so the epilogue reads a little differently for
+    // every player instead of being one static paragraph regardless of
+    // how the story actually went for them.
+    endingStatSummary: 'By the time anyone else heard the story, you had survived {nights} nights, put down {kills} of them, and pulled {rescued} people out alive.',
     toastBatteryAdded: 'Battery collected',
     noisemakerLabel: 'Noisemaker',
     toastNoisemakerAdded: 'Noisemaker collected',
@@ -270,6 +290,12 @@ const STRINGS = {
     interactEnterVehicle: 'Press **F** to drive',
     interactExitVehicle: '**WASD** drive · Press **F** to exit',
     traderPanelTitle: 'Trader',
+    // Trader mood line (see _renderTraderMoodLine) - reacts to this save's
+    // lifetime rescued-vs-lost survivor counts (see loadRescueStats),
+    // distinct from any single run's own bounty/quest lines above.
+    traderMoodNeutral: "Haven't seen you pull anyone out yet. Or lose anyone. Early days.",
+    traderMoodGrateful: "Word's gotten around about the people you've pulled out. That's rarer than good ammo out there.",
+    traderMoodGrim: "Lost more than you've saved, by my count. Doesn't make you a bad person. Just a tired one.",
     traderHint: 'Press **F** to leave',
     shopHealthPack: 'Health Pack',
     shopArmorPack: 'Armor Pack',
@@ -286,8 +312,30 @@ const STRINGS = {
     toastVaultLocked: 'The Vault is locked. Find the key first.',
     toastVaultOpened: 'Vault opened! +{n} points and a guaranteed weapon part',
     toastBossDefeated: 'BOSS DEFEATED',
+    // Boss lore epitaph (see _onZombieKilled's BOSS_TIER_IDS branch) - a
+    // short explanation of what the thing actually was, shown right after
+    // the purely mechanical BOSS DEFEATED toast above.
+    bossEpitaphColossus: 'Whatever fed it kept feeding it long after it stopped looking human. It just got bigger, and hungrier, and slower to fall.',
+    bossEpitaphTitan: "Somebody's containment experiment. It walked out of whatever lab made it wearing bones that were never meant to hold something that size.",
     toastWaveCleared: 'AREA CLEAR',
     toastWeaponMastered: '{weapon} Mastered! Permanent damage bonus earned.',
+    // Named loot lore blurbs - shown right under the mastery toast above,
+    // a one-line "why this gun in particular" instead of the toast being
+    // purely a stat announcement.
+    masteryLoreMelee: "The one thing you've never once had to reload.",
+    masteryLoreRifle: 'Third one you\'ve carried. The first two are still out there somewhere, empty.',
+    masteryLorePistol: 'Cheap, loud, and it has never once let you down when it mattered.',
+    masteryLoreMinigun: 'You stopped counting how much ammo this thing eats a long time ago.',
+    masteryLoreShotgun: "Nicknamed it. Won't say why. Everyone who's seen it work knows why.",
+    masteryLoreAwp: "One shot. That's the whole pitch, and it's never once needed a second.",
+    masteryLoreGlock18: 'Standard issue, everywhere, forever. Boring is a feature.',
+    masteryLoreFlamethrower: "Loud, short-ranged, and it turns a hallway into something you don't walk back through.",
+    masteryLoreRocket: 'Overkill for one zombie. Exactly right for twenty.',
+    masteryLoreCrossbow: "Quiet enough that half the horde never learns you're there.",
+    masteryLoreLauncher: 'Clears a room without you ever having to be in it.',
+    masteryLoreSuppressedsmg: 'Built for getting close without anything noticing you got close.',
+    masteryLoreNailgun: 'Not made for this. Works anyway, every time.',
+    masteryLoreHarpoon: "Meant for something that swims. Works surprisingly well on something that doesn't.",
     masteryMasteredTitle: 'Mastered: +{pct}% damage, permanent',
     masteryProgressTitle: 'Kills toward Mastery (permanent damage bonus)',
     rivalsSpotted: 'Rival scavengers are moving in on that airdrop!',
@@ -463,6 +511,14 @@ const STRINGS = {
     journalLoreCount: '{found} / {total} found',
     journalMarkersHeading: 'Lore Markers',
     journalMarkersCount: '{found} / {total} found',
+    // World State journal section (see _renderJournal) - a capstone summary
+    // pulling together this save's lifetime narrative stats rather than
+    // any one run's progress, which every other journal section above
+    // already covers.
+    journalWorldStateHeading: 'World State',
+    journalWorldStateRescues: '{rescued} survivors rescued, {lost} lost, across every run on this save',
+    journalWorldStateBosses: '{count} / {total} boss epitaphs read',
+    journalWorldStateBackstory: 'Currently running as: {loadout}',
     actionPhotoMode: 'Photo Mode',
     fullMapTitle: 'Map',
     fullMapHint: 'Press **L** to close',

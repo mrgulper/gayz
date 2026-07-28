@@ -49,6 +49,14 @@ const COMPANION_BARKS = {
   nightStart: ['Stay sharp out there.', 'Here we go again.', 'Eyes open.', "Let's not die tonight."],
   companionDown: ["I'm down, help!", 'Get them off me!', "I can't get up!", 'Revive me, quick!'],
   bossSpawn: ["Something big just showed up!", "That's not a regular one - watch yourself!", 'Big target, incoming!', "We've got a boss on us!"],
+  // Companion bond dialogue (see _updateCompanionBond) - unlocks in order as
+  // this run's elapsed time-together crosses COMPANION_BOND_THRESHOLDS_MS,
+  // distinct from the flat always-available pools above: these specifically
+  // read as the relationship warming up over the course of one run, not
+  // random ambient flavor available from minute one.
+  bondTier1: ["Guess we're stuck together for tonight.", "Don't slow me down and we'll get along fine."],
+  bondTier2: ["You're better at this than I expected.", "Alright, I trust you to watch my back now."],
+  bondTier3: ["Whatever happens out here, I'm glad it's you I ended up with.", "We've made it this far. Let's make it further."],
 }
 
 // Squad banter - a 2-line back-and-forth between companions, distinct
@@ -57,6 +65,13 @@ const COMPANION_BARKS = {
 // main companion), reusing the same companionBarkEl display in sequence.
 const SQUAD_BANTER_CHANCE = 0.5
 const SQUAD_BANTER_LINE_DELAY_MS = 2600
+
+// Companion bond dialogue (see _updateCompanionBond and COMPANION_BARKS'
+// bondTier1/2/3 pools) - elapsed run time (this.elapsedRunMs-equivalent,
+// see the call site) the main companion needs to have been alongside the
+// player before each tier's line becomes available. Resets every fresh
+// run, same as the rest of this run's companion state.
+const COMPANION_BOND_THRESHOLDS_MS = [3 * 60 * 1000, 8 * 60 * 1000, 16 * 60 * 1000]
 const SQUAD_BANTER_EXCHANGES = [
   ["Think we'll make it another night?", 'Ask me after, not before.'],
   ["You keeping count of these things?", 'Lost count a while back.'],
@@ -101,6 +116,17 @@ const LOADOUT_PRESETS = {
   tank: { moveSpeedDelta: -0.8, maxHealthMult: 1.35, maxStaminaDelta: -10 },
 }
 
+// Difficulty-tier opening flavor (see the playBtn click handler) - a
+// one-line framing shown right as a fresh run begins, distinct from the
+// difficulty PICKER labels above (diffFlavorEasy/etc keyed the same way).
+const DIFFICULTY_FLAVOR_KEYS = { easy: 'diffFlavorEasy', normal: 'diffFlavorNormal', hard: 'diffFlavorHard', nightmare: 'diffFlavorNightmare' }
+// Shared with _updateTexts' loadout button labels and the Journal's World
+// State section (see _renderJournal) - one lookup instead of two copies.
+const LOADOUT_LABEL_KEYS = { balanced: 'loadoutBalanced', runner: 'loadoutRunner', tank: 'loadoutTank' }
+// Main-menu news ticker thresholds (see _updateMenuNewsTicker) - both read
+// against bestStats.bestNight.
+const NEWS_TICKER_MID_NIGHT = 5
+const NEWS_TICKER_LATE_NIGHT = 15
 const DIFFICULTY_PRESETS = {
   easy: { damageMult: 0.7, spawnRateMult: 0.75, healthMult: 0.8, eliteChanceMult: 0.6, lootMult: 1.3 },
   normal: { damageMult: 1, spawnRateMult: 1, healthMult: 1, eliteChanceMult: 1, lootMult: 1 },
@@ -350,6 +376,34 @@ function saveBestStats(stats) {
     localStorage.setItem(BEST_STATS_KEY, JSON.stringify(stats))
   } catch {
     // Storage unavailable - best stats just won't persist across sessions.
+  }
+}
+
+// Narrative Stats - lifetime, never-reset counters for the story-facing
+// systems below (rescued/lost survivors, which boss epitaphs have been
+// read), same "cumulative across every run on this save" shape as
+// careerStats, just tracking narrative beats instead of raw kill count.
+const NARRATIVE_STATS_KEY = 'gayz-narrative-stats'
+
+function loadNarrativeStats() {
+  try {
+    const raw = localStorage.getItem(NARRATIVE_STATS_KEY)
+    const parsed = raw ? JSON.parse(raw) : {}
+    return {
+      rescued: parsed.rescued || 0,
+      lost: parsed.lost || 0,
+      bossEpitaphsSeen: Array.isArray(parsed.bossEpitaphsSeen) ? parsed.bossEpitaphsSeen : [],
+    }
+  } catch {
+    return { rescued: 0, lost: 0, bossEpitaphsSeen: [] }
+  }
+}
+
+function saveNarrativeStats(stats) {
+  try {
+    localStorage.setItem(NARRATIVE_STATS_KEY, JSON.stringify(stats))
+  } catch {
+    // Storage unavailable - narrative stats just won't persist across sessions.
   }
 }
 
@@ -950,6 +1004,31 @@ const AIRDROP_REST_Y = 1.1
 const AIRDROP_FALL_HEIGHT = 16
 const AIRDROP_FALL_DURATION_MS = 2200
 const BOSS_TIER_IDS = new Set(['colossus', 'titan'])
+// Boss lore epitaphs (see _onZombieKilled's BOSS_TIER_IDS branch) - shown
+// once per boss type, ever (see narrativeStats.bossEpitaphsSeen), not once
+// per kill - a boss killed for the tenth time doesn't need its epitaph
+// re-read every single time.
+const BOSS_EPITAPH_KEYS = { colossus: 'bossEpitaphColossus', titan: 'bossEpitaphTitan' }
+// Named loot lore blurbs (see _trackWeaponMastery) - a one-line "why this
+// gun in particular" appended to the existing mastery toast, keyed by
+// weapon id rather than added as a field on WEAPONS itself so this stays a
+// pure narrative-layer lookup, not a WeaponSystem.js change.
+const WEAPON_MASTERY_LORE_KEYS = {
+  melee: 'masteryLoreMelee',
+  rifle: 'masteryLoreRifle',
+  pistol: 'masteryLorePistol',
+  minigun: 'masteryLoreMinigun',
+  shotgun: 'masteryLoreShotgun',
+  awp: 'masteryLoreAwp',
+  glock18: 'masteryLoreGlock18',
+  flamethrower: 'masteryLoreFlamethrower',
+  rocket: 'masteryLoreRocket',
+  crossbow: 'masteryLoreCrossbow',
+  launcher: 'masteryLoreLauncher',
+  suppressedsmg: 'masteryLoreSuppressedsmg',
+  nailgun: 'masteryLoreNailgun',
+  harpoon: 'masteryLoreHarpoon',
+}
 const WHEEL_RADIUS = 110
 const WHEEL_DEADZONE = 18
 const RESCUE_INTERACT_RADIUS = 2.5
@@ -1455,6 +1534,7 @@ export class Game {
     this.minimapCanvas = document.getElementById('minimap')
     this.menuBestStats = document.getElementById('menu-best-stats')
     this.menuCareerRank = document.getElementById('menu-career-rank')
+    this.menuNewsTicker = document.getElementById('menu-news-ticker')
     this.menuLeaderboard = document.getElementById('menu-leaderboard')
     this.difficultyBtns = document.querySelectorAll('.difficulty-btn')
     this.roleBtns = document.querySelectorAll('.role-btn')
@@ -1503,6 +1583,7 @@ export class Game {
     this.endingSeen = loadEndingSeen()
     this.bestStats = loadBestStats()
     this.careerStats = loadCareerStats()
+    this.narrativeStats = loadNarrativeStats()
     this.loginStreak = loadLoginStreak()
     this.leaderboard = loadLeaderboard()
     this.dailyBest = loadDailyBest()
@@ -2108,6 +2189,7 @@ export class Game {
     this.loreToast = document.getElementById('lore-toast')
     this.companionBarkEl = document.getElementById('companion-bark')
     this.lowHealthBarked = false
+    this.companionBondTier = 0
     this.bossAnnounced = false
     this.nextHeartbeatAt = 0
     this.statsPoints = document.getElementById('stats-points')
@@ -2119,6 +2201,7 @@ export class Game {
     this.perkRerollBtn = document.getElementById('perk-reroll-btn')
     this.traderPanel = document.getElementById('trader-panel')
     this.traderPanelTitle = document.getElementById('trader-panel-title')
+    this.traderMoodLine = document.getElementById('trader-mood-line')
     this.traderPointsLine = document.getElementById('trader-points-line')
     this.bountyLineEl = document.getElementById('bounty-line')
     this.questLineEl = document.getElementById('quest-line')
@@ -2528,6 +2611,7 @@ export class Game {
         this.zombies.startRound(1)
         this.roundIntermissionUntil = 0
       }
+      this._showLoreToast(t(DIFFICULTY_FLAVOR_KEYS[this.settings.difficulty] || DIFFICULTY_FLAVOR_KEYS.normal))
       this.player.controls.lock()
     })
 
@@ -2542,6 +2626,7 @@ export class Game {
       }
       this.playerState.respawn()
       this.lowHealthBarked = false
+      this.companionBondTier = 0
       this.bossAnnounced = false
       this.player.resetPosition()
       this.zombies.roundMode = this._isRoundMode()
@@ -4451,6 +4536,18 @@ export class Game {
     this.player.controls.lock()
   }
 
+  // Trader mood line (see NARRATIVE_STATS_KEY) - reacts to this save's
+  // lifetime rescued-vs-lost survivor counts rather than anything about
+  // the current run, so it reads as the Trader having heard about your
+  // reputation over time rather than commenting on tonight specifically.
+  _renderTraderMoodLine() {
+    if (!this.traderMoodLine) return
+    const { rescued, lost } = this.narrativeStats
+    let key = 'traderMoodNeutral'
+    if (rescued > 0 || lost > 0) key = rescued > lost ? 'traderMoodGrateful' : 'traderMoodGrim'
+    this.traderMoodLine.textContent = t(key)
+  }
+
   // Opened by pressing the interact key near the trader stall (see
   // World.js's buildTraderStall). Buying doesn't close the panel, so
   // multiple items can be bought in one visit - press interact again to leave.
@@ -4458,6 +4555,7 @@ export class Game {
     this.traderPanelOpen = true
     this.traderPanel.style.display = 'flex'
     this.traderPanelTitle.textContent = t('traderPanelTitle')
+    this._renderTraderMoodLine()
     this.traderHint.textContent = tHtml('traderHint')
     this.player.controls.unlock()
     if (!this.activeBounty) this._assignBounty()
@@ -4948,6 +5046,12 @@ export class Game {
         <h3>${t('journalMarkersHeading')}</h3>
         <p>${t('journalMarkersCount', { found: this.loreMarkersFound.size, total: LORE_MARKERS.length })}</p>
       </div>
+      <div class="journal-section">
+        <h3>${t('journalWorldStateHeading')}</h3>
+        <p>${t('journalWorldStateRescues', { rescued: this.narrativeStats.rescued, lost: this.narrativeStats.lost })}</p>
+        <p>${t('journalWorldStateBosses', { count: this.narrativeStats.bossEpitaphsSeen.length, total: Object.keys(BOSS_EPITAPH_KEYS).length })}</p>
+        <p>${t('journalWorldStateBackstory', { loadout: t(LOADOUT_LABEL_KEYS[this.settings.loadout]) })}</p>
+      </div>
     `
   }
 
@@ -5332,8 +5436,15 @@ export class Game {
 
     const roleLabelKeys = { ranged: 'roleRanged', melee: 'roleMelee', medic: 'roleMedic' }
     for (const btn of this.roleBtns) btn.textContent = t(roleLabelKeys[btn.dataset.role])
-    const loadoutLabelKeys = { balanced: 'loadoutBalanced', runner: 'loadoutRunner', tank: 'loadoutTank' }
-    for (const btn of this.loadoutBtns) btn.textContent = t(loadoutLabelKeys[btn.dataset.loadout])
+    // Narrative blurb (see loadoutBalancedBlurb/RunnerBlurb/TankBlurb) shown
+    // as a hover tooltip - these presets were already a pure stat tradeoff
+    // with zero flavor text, so this is purely additive over the existing
+    // selection UI rather than a second parallel picker.
+    const loadoutBlurbKeys = { balanced: 'loadoutBalancedBlurb', runner: 'loadoutRunnerBlurb', tank: 'loadoutTankBlurb' }
+    for (const btn of this.loadoutBtns) {
+      btn.textContent = t(LOADOUT_LABEL_KEYS[btn.dataset.loadout])
+      btn.title = t(loadoutBlurbKeys[btn.dataset.loadout])
+    }
     document.getElementById('score-attack-label').textContent = t('scoreAttackLabel')
     document.getElementById('hardcore-label').textContent = t('hardcoreLabel')
     document.getElementById('endless-label').textContent = t('endlessLabel')
@@ -5366,6 +5477,17 @@ export class Game {
         ? ''
         : t('careerRankLabel', { rank: t(careerRankTitleKey(this.careerStats.totalKills)), kills: this.careerStats.totalKills })
     }
+    this._updateMenuNewsTicker()
+  }
+
+  // Main-menu news ticker - tied to bestStats.bestNight (already persisted,
+  // no new tracking needed), framed as the world worsening the further
+  // you've ever gotten rather than reacting to any single run's outcome.
+  _updateMenuNewsTicker() {
+    if (!this.menuNewsTicker) return
+    const n = this.bestStats.bestNight
+    const key = n >= NEWS_TICKER_LATE_NIGHT ? 'newsTickerLate' : n >= NEWS_TICKER_MID_NIGHT ? 'newsTickerMid' : 'newsTickerEarly'
+    this.menuNewsTicker.textContent = t(key)
   }
 
   // Local leaderboard - see loadLeaderboard's own doc comment for how this
@@ -5946,6 +6068,11 @@ export class Game {
     if (BOSS_TIER_IDS.has(zombieTypeId)) {
       coinsEarned = 300 + Math.floor(Math.random() * 201)
       this._triggerBossKillcam()
+      if (!this.narrativeStats.bossEpitaphsSeen.includes(zombieTypeId)) {
+        this.narrativeStats.bossEpitaphsSeen.push(zombieTypeId)
+        saveNarrativeStats(this.narrativeStats)
+        this._showLoreToast(t(BOSS_EPITAPH_KEYS[zombieTypeId]))
+      }
     } else if (isElite) {
       coinsEarned = 20 + Math.floor(Math.random() * 181)
     } else {
@@ -6051,7 +6178,9 @@ export class Game {
     if (this.weaponMastery.kills[weaponId] >= MASTERY_THRESHOLD) {
       this.weaponMastery.mastered.add(weaponId)
       w.masteryMult = MASTERY_DAMAGE_MULT
-      this._showLoreToast(t('toastWeaponMastered', { weapon: t(this.weapons._nameKeyFor(w)) }))
+      const loreKey = WEAPON_MASTERY_LORE_KEYS[weaponId]
+      const masteredText = t('toastWeaponMastered', { weapon: t(this.weapons._nameKeyFor(w)) })
+      this._showLoreToast(loreKey ? `${masteredText} ${t(loreKey)}` : masteredText)
     }
     saveMastery(this.weaponMastery)
   }
@@ -6117,6 +6246,19 @@ export class Game {
     this.lastRadioChatterIndex = index
     this._showLoreToast(t(RADIO_CHATTER_KEYS[index]))
     audioEngine.playAudioLog()
+  }
+
+  // Companion bond dialogue - see COMPANION_BOND_THRESHOLDS_MS/bondTier1-3.
+  // this.runStartedAt is a reasonable stand-in for "time with the main
+  // companion specifically" since it's (re)created fresh alongside every
+  // new run, same lifecycle as runStartedAt itself.
+  _updateCompanionBond() {
+    if (this.companionBondTier >= COMPANION_BOND_THRESHOLDS_MS.length) return
+    const elapsed = performance.now() - this.runStartedAt
+    if (elapsed >= COMPANION_BOND_THRESHOLDS_MS[this.companionBondTier]) {
+      this.companionBondTier += 1
+      this._companionBark(`bondTier${this.companionBondTier}`)
+    }
   }
 
   _companionBark(pool) {
@@ -7094,6 +7236,8 @@ export class Game {
         this._showLoreToast(t('tempCompanionLeft'))
         this.tempCompanion.dispose()
         this.tempCompanion = null
+        this.narrativeStats.lost += 1
+        saveNarrativeStats(this.narrativeStats)
       }
     }
 
@@ -7884,7 +8028,16 @@ export class Game {
     this.endingSeen = true
     saveEndingSeen()
     this.player.controls.unlock()
-    this.endingText.textContent = t('endingText')
+    // Stat summary appended after the fixed endingText - templated with
+    // this save's actual lifetime numbers so the epilogue reads a little
+    // differently depending on how the story actually went, on top of the
+    // one fixed paragraph everyone gets.
+    const statSummary = t('endingStatSummary', {
+      nights: this.bestStats.bestNight,
+      kills: this.careerStats.totalKills,
+      rescued: this.narrativeStats.rescued,
+    })
+    this.endingText.textContent = `${t('endingText')} ${statSummary}`
     this.endingCredits.innerHTML = t('endingCredits').split('\n').map((line) => `<div>${line}</div>`).join('')
     this.endingPanel.style.display = 'flex'
   }
@@ -8055,6 +8208,8 @@ export class Game {
     this._updateInventoryHud()
     this._showLoreToast(t('survivorRescued', { reward: RESCUE_POINTS_REWARD }))
     this._checkBountyProgress('rescue_survivors', 1)
+    this.narrativeStats.rescued += 1
+    saveNarrativeStats(this.narrativeStats)
 
     // Bonus on top of the usual reward: the rescued survivor tags along as
     // a second, weaker companion until dawn instead of just vanishing after
@@ -8620,6 +8775,7 @@ export class Game {
       if (this.tempCompanion) this.tempCompanion.update(dt, squadTargetPos, this.zombies.zombies, null)
       for (const recruit of this.recruits) recruit.update(dt, squadTargetPos, this.zombies.zombies, null)
       this._updateCompanionDownedState(playerPos)
+      this._updateCompanionBond()
       for (const guard of this.safeZoneGuards) {
         guard.update(dt, guard.group.position, this.zombies.zombies, null)
       }
