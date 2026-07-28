@@ -344,4 +344,10 @@ export const ATTACHMENT_TYPES = [
   { id: 'ricochet', titleKey: 'attachRicochet', cost: 4500 },
   { id: 'armorpierce', titleKey: 'attachArmorPierce', cost: 4000 },
   { id: 'precision', titleKey: 'attachPrecision', cost: 3500 },
+  // Electric Rounds - chain-stuns the nearest other zombie in range instead
+  // of dealing bounce damage, distinct utility from Ricochet's damage-spread.
+  { id: 'electric', titleKey: 'attachElectric', cost: 4000 },
+  // Acid Rounds - a damage-taken debuff (see Zombie.corrode) rather than a
+  // damage-over-time tick, distinct from Incendiary's burn.
+  { id: 'acid', titleKey: 'attachAcid', cost: 4000 },
 ]

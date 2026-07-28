@@ -1915,6 +1915,32 @@ body {
   opacity: 0.55;
 }
 
+/* Hotbar mastery badge (see Game.js's _updateHotbarHud) - same gold/cyan
+   pair as .mastery-tag above, just applied to the whole slot's border
+   instead of a small inline tag. */
+.hotbar-slot.mastered {
+  border-color: #ffcf5c;
+}
+
+.hotbar-slot.grandmastered {
+  border-color: #7ce0ff;
+  box-shadow: 0 0 6px rgba(124, 224, 255, 0.5);
+}
+
+/* Loadout Power Score (see Game.js's _computeLoadoutPowerScore) - a single
+   at-a-glance number for the whole hotbar, sitting just above it. */
+#hotbar-power-score {
+  position: absolute;
+  left: 50%;
+  bottom: 70px;
+  transform: translateX(-50%);
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+}
+
 .hotbar-slot-name {
   font-size: 11px;
   font-weight: 600;

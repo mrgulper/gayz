@@ -58,6 +58,16 @@ const IGNITE_DPS = 8
 // the player taps Reload early (see _reload's quick-clear check).
 const JAM_CHANCE = 0.025
 const JAM_CLEAR_MS = 1400
+// Perfect Reload - pressing reload again in the last stretch before a
+// reload finishes completes it instantly with a brief damage bonus,
+// rewarding precise timing over just holding the trigger through it.
+const PERFECT_RELOAD_WINDOW_S = 0.15
+const PERFECT_RELOAD_DAMAGE_MULT = 1.15
+const PERFECT_RELOAD_BONUS_DURATION_MS = 6000
+// Acid/Electric Rounds attachments - see applyAttachment's w.corrodes/w.shocks.
+const CORRODE_DURATION_MS = 4000
+const ELECTRIC_CHAIN_RANGE = 6
+const ELECTRIC_CHAIN_STUN_MS = 900
 // Headshot bonus - geometric height check against hit.point rather than
 // tagging every individual head mesh across every zombie body-builder
 // variant (GLB/procedural/dinosaur-skulled bosses all differ). Reads each
@@ -67,6 +77,12 @@ const JAM_CLEAR_MS = 1400
 // the ground, not just a shorter standing humanoid) and meant headshots
 // could never register correctly on them.
 const HEADSHOT_HEIGHT_RATIO = 0.82
+// Leg shots - the opposite end of the same height check headshots already
+// use, reusing Zombie.weaken() (previously only ever triggered by the UV
+// Baton melee variant) as the actual slow effect rather than inventing a
+// parallel one.
+const LEG_SHOT_HEIGHT_RATIO = 0.25
+const LEG_SHOT_WEAKEN_MS = 2000
 const HEADSHOT_DAMAGE_MULT = 1.75
 // Melee combo chain
 const MELEE_COMBO_WINDOW_MS = 2000
@@ -337,6 +353,12 @@ const MELEE_VARIANTS = {
   // stunMs: extends the normal brief hit-reaction stagger into a real stun
   // (see Zombie.stun) on top of its already-high damage.
   sledgehammer: { name: 'Sledgehammer', damage: 130, fireInterval: 0.95, range: 2.2, stunMs: 1200 },
+  // Longest reach of any melee weapon - trades damage for keeping zombies
+  // at arm's length.
+  spear: { name: 'Spear', damage: 48, fireInterval: 0.55, range: 3.2 },
+  // Fastest swing of any melee weapon, shortest range - a flurry weapon
+  // rather than a hard-hitting one.
+  nunchaku: { name: 'Nunchaku', damage: 30, fireInterval: 0.22, range: 1.9 },
 }
 
 // Weapon charms - found as loot (see Game.js's toastCharmAdded), purely
@@ -430,6 +452,7 @@ export class WeaponSystem {
     this.timeSinceLastShot = Infinity
     this.reloading = false
     this.reloadEndsAt = 0
+    this.perfectReloadUntil = 0
 
     this.raycaster = new THREE.Raycaster()
     // Toned down from intensity 4 / distance 8, which blew out the whole
@@ -596,6 +619,10 @@ export class WeaponSystem {
       w.armorPierce = true
     } else if (attachmentId === 'precision') {
       w.critChance = 0.25
+    } else if (attachmentId === 'electric') {
+      w.shocks = true
+    } else if (attachmentId === 'acid') {
+      w.corrodes = true
     }
   }
 
@@ -841,7 +868,21 @@ export class WeaponSystem {
       this._updateHud()
       return
     }
-    if (this.reloading) return
+    if (this.reloading) {
+      // Perfect Reload (see PERFECT_RELOAD_WINDOW_S's own comment) - a
+      // press outside the window is just ignored, same as before.
+      const remaining = this.reloadEndsAt - performance.now() / 1000
+      if (remaining > 0 && remaining <= PERFECT_RELOAD_WINDOW_S) {
+        const needed = w.magSize - w.ammoInMag
+        const taken = Math.min(needed, w.ammoReserve)
+        w.ammoInMag += taken
+        w.ammoReserve -= taken
+        this.reloading = false
+        this.perfectReloadUntil = performance.now() + PERFECT_RELOAD_BONUS_DURATION_MS
+        this._updateHud()
+      }
+      return
+    }
     if (w.ammoInMag === w.magSize || w.ammoReserve === 0) return
     this.reloading = true
     // Tactical Reload - topping off a mag that still has rounds in it is
@@ -1114,20 +1155,45 @@ export class WeaponSystem {
 
       const zombieHit = hit.object.userData.zombie
       if (zombieHit) {
-        const isHeadshot = hit.point.y - zombieHit.group.position.y >= zombieHit.getHeadWorldHeight() * HEADSHOT_HEIGHT_RATIO
+        const hitHeight = hit.point.y - zombieHit.group.position.y
+        const isHeadshot = hitHeight >= zombieHit.getHeadWorldHeight() * HEADSHOT_HEIGHT_RATIO
+        const isLegShot = hitHeight <= zombieHit.getHeadWorldHeight() * LEG_SHOT_HEIGHT_RATIO
         const existing = hitZombies.get(zombieHit)
         if (existing) {
           existing.count += 1
           existing.distance = Math.min(existing.distance, hit.distance)
           existing.headshot = existing.headshot || isHeadshot
+          existing.legShot = existing.legShot || isLegShot
         } else {
-          hitZombies.set(zombieHit, { count: 1, distance: hit.distance, headshot: isHeadshot })
+          hitZombies.set(zombieHit, { count: 1, distance: hit.distance, headshot: isHeadshot, legShot: isLegShot })
         }
+        // Leg shot - weakens (slows) rather than dealing bonus damage, a
+        // tradeoff pick against aiming for the headshot bonus instead.
+        if (isLegShot) zombieHit.weaken(LEG_SHOT_WEAKEN_MS)
         // Flamethrower (see w.ignites) - a lingering burn on top of the
         // direct hit-scan tick, so backing off after a couple of ticks
         // still keeps dealing damage instead of the effect ending the
         // instant the stream stops touching them.
         if (w.ignites) zombieHit.ignite(IGNITE_DURATION_MS, IGNITE_DPS)
+        // Acid Rounds attachment (see applyAttachment's w.corrodes).
+        if (w.corrodes) zombieHit.corrode(CORRODE_DURATION_MS)
+        // Electric Rounds attachment (see applyAttachment's w.shocks) -
+        // chain-stuns (not damages) the single nearest OTHER living zombie
+        // in range, same nearest-neighbor scan shape Ricochet/cleave below
+        // already use, just a crowd-control effect instead of bounce damage.
+        if (w.shocks && this.zombieManager) {
+          let nearest = null
+          let nearestDist = ELECTRIC_CHAIN_RANGE
+          for (const other of this.zombieManager.zombies) {
+            if (other === zombieHit || other.state !== 'alive') continue
+            const d = Math.hypot(other.group.position.x - zombieHit.group.position.x, other.group.position.z - zombieHit.group.position.z)
+            if (d < nearestDist) {
+              nearestDist = d
+              nearest = other
+            }
+          }
+          if (nearest) nearest.stun(ELECTRIC_CHAIN_STUN_MS)
+        }
         // Crossbow (see w.boltRetrieveChance) - a connecting hit has a
         // chance to refund the bolt straight to reserve.
         if (w.boltRetrieveChance && Math.random() < w.boltRetrieveChance) {
@@ -1205,6 +1271,10 @@ export class WeaponSystem {
         // stack with each other and with everything else above.
         if (info.headshot) damage *= HEADSHOT_DAMAGE_MULT
         if (w.melee) damage *= meleeComboBonus
+        // Perfect Reload bonus (see PERFECT_RELOAD_WINDOW_S's own comment) -
+        // a flat window after the last perfect-timed reload, stacks with
+        // everything else the same way headshot/combo above do.
+        if (this.perfectReloadUntil && performance.now() < this.perfectReloadUntil) damage *= PERFECT_RELOAD_DAMAGE_MULT
         // Precision Rounds attachment (see applyAttachment's w.critChance) -
         // a flat per-shot chance at a bonus multiplier, independent of and
         // stacking with the headshot check above rather than replacing it.

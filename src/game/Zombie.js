@@ -55,6 +55,8 @@ const HEALTH_BAR_H = 10
 // future posture gets the same treatment automatically.
 const HEAD_HEIGHT_LOCAL = 2.05
 const HEAD_HEIGHT_LOCAL_CRAWLER = 0.85
+// Acid/Corrosive Rounds - see corrode()'s own comment.
+const CORRODE_DAMAGE_MULT = 1.2
 
 const AMBUSH_TRIGGER_RANGE = 9
 const AMBUSH_TRIGGER_RANGE_CROUCH = 4.5
@@ -1387,6 +1389,15 @@ export class Zombie {
     this.igniteDps = dps
   }
 
+  // Acid/Corrosive Rounds attachment (see WeaponSystem's w.corrodes) -
+  // a damage-TAKEN multiplier rather than a damage-over-time tick, so it
+  // reads as "softened up" rather than duplicating ignite's burn effect.
+  // Checked in onHit alongside the existing config.fragile multiplier.
+  corrode(durationMs) {
+    if (this.state !== 'alive') return
+    this.corrodedUntil = Math.max(this.corrodedUntil || 0, performance.now() + durationMs)
+  }
+
   // Called every frame from update() below - applies burn damage on a
   // fixed tick rather than every single frame, so it reads as distinct
   // "bursts" of damage rather than one smooth drain.
@@ -1860,6 +1871,7 @@ export class Zombie {
     // Brittle - takes bonus damage from every source, applied here rather
     // than at each individual damage-source call site.
     if (this.config.fragile) damage *= this.config.fragileDamageMult
+    if (this.corrodedUntil && performance.now() < this.corrodedUntil) damage *= CORRODE_DAMAGE_MULT
     const blockedByShield = this.shieldHealth > 0 && this.lastHitWeaponId !== 'melee' && !opts.bypassShield
     if (blockedByShield) {
       this.shieldHealth = Math.max(0, this.shieldHealth - damage)

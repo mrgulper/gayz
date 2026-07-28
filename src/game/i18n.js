@@ -797,6 +797,18 @@ const STRINGS = {
     actionFastTravelNearest: 'Fast Travel (Nearest)',
     achFashionIcon: 'Fashion Icon',
     profileSecretsFound: 'Secrets found',
+    // Combat Depth batch.
+    toastSpearAdded: 'Spear equipped',
+    toastNunchakuAdded: 'Nunchaku equipped',
+    toastSmokeBombAdded: 'Smoke Bomb added',
+    toastSmokeBombUsed: 'Smoke bomb thrown - nearby zombies lost track of you',
+    attachElectric: 'Electric Rounds',
+    attachAcid: 'Acid Rounds',
+    hotbarPowerScore: 'Loadout Power: {n}',
+    parryReady: 'Parry ready...',
+    parrySuccess: 'Parried!',
+    actionSmokeBomb: 'Smoke Bomb',
+    actionParry: 'Parry',
   },
   zh: {
     menuSubtitle: '破败的街区——生存、搜寻、射击',

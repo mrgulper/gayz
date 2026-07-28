@@ -17,6 +17,7 @@ export class Inventory {
     this.alarmKits = 0
     this.rations = 0
     this.waterBottles = 0
+    this.smokeBombs = 0
     // A single quest flag, not a stacking count like the rest of this class -
     // there's only ever one Vault Key in play at a time (see Chests.js's
     // Vault and Pickups.js's 'vaultkey' type).
@@ -33,6 +34,10 @@ export class Inventory {
 
   addNoisemaker(n = 1) {
     this.noisemakers += n
+  }
+
+  addSmokeBomb(n = 1) {
+    this.smokeBombs += n
   }
 
   addFuelCan(n = 1) {
@@ -106,6 +111,12 @@ export class Inventory {
   useNoisemaker() {
     if (this.noisemakers <= 0) return false
     this.noisemakers -= 1
+    return true
+  }
+
+  useSmokeBomb() {
+    if (this.smokeBombs <= 0) return false
+    this.smokeBombs -= 1
     return true
   }
 

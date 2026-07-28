@@ -47,8 +47,11 @@ const TYPES = {
   melee_uvbaton: { weight: 0.4, label: 'UV Baton' },
   melee_fireaxe: { weight: 0.4, label: 'Fire Axe' },
   melee_sledgehammer: { weight: 0.3, label: 'Sledgehammer' },
+  melee_spear: { weight: 0.4, label: 'Spear' },
+  melee_nunchaku: { weight: 0.4, label: 'Nunchaku' },
   weapon_charm: { weight: 0.35, label: 'Weapon Charm' },
   ration: { weight: 1.2, label: 'Ration' },
+  smokebomb: { weight: 1, label: 'Smoke Bomb' },
   // weight 0: never drawn by the street-slot weighted pool, only ever placed
   // via spawnUnique() as one-off fixed-location pickups.
   minigun: { weight: 0, label: 'Minigun' },
@@ -170,10 +173,42 @@ function buildVisual(type) {
     head.rotation.x = Math.PI / 2
     head.position.set(0.24, 0, 0)
     group.add(head)
+  } else if (type === 'melee_spear') {
+    const shaftMat = flatMaterial({ color: 0x5a4028, roughness: 0.7 })
+    const tipMat = flatMaterial({ color: 0x9aa0a6, roughness: 0.3, metalness: 0.8 })
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.02, 0.6, 8), shaftMat)
+    shaft.rotation.z = Math.PI / 2
+    group.add(shaft)
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.12, 8), tipMat)
+    tip.rotation.z = -Math.PI / 2
+    tip.position.set(0.36, 0, 0)
+    group.add(tip)
+  } else if (type === 'melee_nunchaku') {
+    const stickMat = flatMaterial({ color: 0x2a1e14, roughness: 0.6 })
+    const chainMat = flatMaterial({ color: 0x6a6a6a, roughness: 0.4, metalness: 0.7 })
+    const stick1 = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.22, 8), stickMat)
+    stick1.rotation.z = Math.PI / 2
+    stick1.position.set(-0.12, 0, 0)
+    group.add(stick1)
+    const stick2 = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.22, 8), stickMat)
+    stick2.rotation.z = Math.PI / 2
+    stick2.position.set(0.12, 0, 0)
+    group.add(stick2)
+    const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.06, 6), chainMat)
+    chain.rotation.z = Math.PI / 2
+    group.add(chain)
   } else if (type === 'weapon_charm') {
     const mat = flatMaterial({ color: 0xffcf5c, emissive: 0xffcf5c, emissiveIntensity: 0.8, roughness: 0.4 })
     const bead = new THREE.Mesh(new THREE.OctahedronGeometry(0.16, 0), mat)
     group.add(bead)
+  } else if (type === 'smokebomb') {
+    const bodyMat = flatMaterial({ color: 0x3a3a3a, roughness: 0.6, metalness: 0.3 })
+    const capMat = flatMaterial({ color: 0x6a6a5a, roughness: 0.5, metalness: 0.4 })
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.2, 12), bodyMat)
+    group.add(body)
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.05, 10), capMat)
+    cap.position.y = 0.125
+    group.add(cap)
   } else if (type === 'ration') {
     const mat = flatMaterial({ color: 0x5a4a2a, roughness: 0.7 })
     const can = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.22, 0.22), mat)

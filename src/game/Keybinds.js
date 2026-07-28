@@ -38,6 +38,8 @@ export const ACTIONS = [
   { id: 'threatPing', defaultKey: 'Backquote', labelKey: 'actionThreatPing' },
   { id: 'taunt', defaultKey: 'Slash', labelKey: 'actionTaunt' },
   { id: 'fastTravelNearest', defaultKey: 'BracketLeft', labelKey: 'actionFastTravelNearest' },
+  { id: 'smokeBomb', defaultKey: 'BracketRight', labelKey: 'actionSmokeBomb' },
+  { id: 'parry', defaultKey: 'Minus', labelKey: 'actionParry' },
 ]
 
 function defaultBindings() {
@@ -102,6 +104,8 @@ export function keyLabel(code) {
     Backquote: '`',
     Slash: '/',
     BracketLeft: '[',
+    BracketRight: ']',
+    Minus: '-',
   }
   return special[code] || code
 }

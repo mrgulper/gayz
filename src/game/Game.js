@@ -103,6 +103,9 @@ const PICKUP_LABELS = {
   melee_uvbaton: () => t('toastUvBatonAdded'),
   melee_fireaxe: () => t('toastFireaxeAdded'),
   melee_sledgehammer: () => t('toastSledgehammerAdded'),
+  melee_spear: () => t('toastSpearAdded'),
+  melee_nunchaku: () => t('toastNunchakuAdded'),
+  smokebomb: () => t('toastSmokeBombAdded'),
   weapon_charm: () => t('toastCharmAdded'),
   ration: () => t('toastRationAdded'),
 }
@@ -1170,6 +1173,28 @@ const RARE_EASTER_EGG_CHANCE = 0.05
 const VAULT_BONUS_ROLL_CHANCE = 0.25
 // Undiscovered-landmark proximity chime (see _checkUndiscoveredLandmarkChime).
 const UNDISCOVERED_CHIME_RADIUS = 25
+// Smoke Bomb (see _throwSmokeBomb) - a one-time awareness reset within
+// radius at throw-time (not an ongoing line-of-sight block), the simplest
+// correct version of "loses the zombies chasing you" without needing to
+// thread a new check into Zombie.js's own awareness/LOS update loop.
+const SMOKE_BOMB_THROW_DIST = 6
+const SMOKE_BOMB_RADIUS = 10
+const SMOKE_BOMB_CLOUD_DURATION_MS = 4000
+// Parry (see _triggerParry) - a short active-press window, distinct from
+// the Riot Shield's passive always-on-while-equipped damage reduction:
+// this needs precise timing and works with any weapon equipped.
+const PARRY_WINDOW_MS = 350
+const PARRY_COOLDOWN_MS = 3000
+const PARRY_DAMAGE_REDUCTION = 0.9
+const PARRY_STAGGER_MS = 1500
+// Melee kill visual effect (see _spawnMeleeKillFlash) - a brief colored
+// point light per variant, distinct game feel per melee weapon without
+// needing real per-weapon kill animations on these procedural viewmodels.
+const MELEE_KILL_FLASH_COLORS = {
+  knife: 0xd8483a, bat: 0xffcf5c, machete: 0xd8483a, uvbaton: 0x8b2fe0,
+  fireaxe: 0xff8a3a, sledgehammer: 0x9aa0a6, spear: 0xe8e4d8, nunchaku: 0xffcf5c,
+}
+const MELEE_KILL_FLASH_DURATION_MS = 350
 // First-time tutorial hint sequence - see _maybeShowTutorialHints.
 const TUTORIAL_SEEN_KEY = 'gayz-tutorial-seen'
 const TUTORIAL_HINT_START_DELAY_MS = 2500
@@ -1813,6 +1838,7 @@ export class Game {
     // once here instead of a fresh querySelector per slot per frame (the
     // DOM structure itself never changes after this point).
     this.hotbarNameEls = this.hotbarSlotEls.map((el) => el.querySelector('.hotbar-slot-name'))
+    this.hotbarPowerScoreEl = document.getElementById('hotbar-power-score')
     this.statusHud = document.getElementById('status-hud')
     this.healthFill = document.getElementById('health-fill')
     this.healthValue = document.getElementById('health-value')
@@ -2132,6 +2158,8 @@ export class Game {
     this._hitstopUntil = 0
     this.killcamUntil = 0
     this._lastTauntAt = 0
+    this._lastParryAt = 0
+    this._parryActiveUntil = 0
     this._runCardBaseImage = null
     this.musicIntensityCurrent = 0
     this.runStartedAt = performance.now()
@@ -3433,6 +3461,10 @@ export class Game {
         this._triggerTaunt()
       } else if (e.code === getKeyFor('fastTravelNearest')) {
         this._fastTravelToNearest()
+      } else if (e.code === getKeyFor('smokeBomb')) {
+        this._throwSmokeBomb()
+      } else if (e.code === getKeyFor('parry')) {
+        this._triggerParry()
       } else if (e.code === getKeyFor('flashlight')) {
         if (!this.flashlightOn && this.flashlightBattery <= 0) return
         this.flashlightOn = !this.flashlightOn
@@ -6762,6 +6794,28 @@ export class Game {
   _onZombieAttack(damage) {
     if (this.player.isDodging) return // brief invincibility window - see PlayerController's dodge
     this.lastHitTakenAt = performance.now()
+    // Parry (see _triggerParry/PARRY_WINDOW_MS) - a successful parry both
+    // heavily reduces this hit AND staggers back whichever zombie is
+    // nearest (the same "nearest as attacker proxy" this codebase already
+    // uses for the threat indicator/Nemesis, since the exact attacker
+    // isn't threaded through this callback).
+    if (this._parryActiveUntil && performance.now() < this._parryActiveUntil) {
+      this._parryActiveUntil = 0
+      damage *= 1 - PARRY_DAMAGE_REDUCTION
+      const playerPos = this.player.controls.object.position
+      let nearest = null
+      let nearestDist = Infinity
+      for (const z of this.zombies.zombies) {
+        if (z.state !== 'alive') continue
+        const d = Math.hypot(z.group.position.x - playerPos.x, z.group.position.z - playerPos.z)
+        if (d < nearestDist) {
+          nearestDist = d
+          nearest = z
+        }
+      }
+      if (nearest) nearest.stun(PARRY_STAGGER_MS)
+      this._showLoreToast(t('parrySuccess'))
+    }
     if (this.shieldActive) damage *= 1 - SHIELD_DAMAGE_REDUCTION
     this.playerState.takeDamage(damage * this.difficulty.damageMult * this.dailyDamageMult)
     this._updateHealthHud()
@@ -7065,6 +7119,7 @@ export class Game {
 
   _onZombieKilled(zombieTypeId, weaponId, x, z, isElite, isWandering = false) {
     this.decals.spawnPuddle(x, z)
+    if (weaponId === 'melee') this._spawnMeleeKillFlash(x, z)
     this.kills += 1
     this.killStreak += 1
     if (this.killStreak > this.peakKillStreakThisRun) this.peakKillStreakThisRun = this.killStreak
@@ -8030,6 +8085,58 @@ export class Game {
     this._showLoreToast(t('fastTraveledTo', { name: nearest.label }))
   }
 
+  // Smoke Bomb - see SMOKE_BOMB_RADIUS's own comment for why this is a
+  // one-time awareness reset rather than an ongoing vision-block.
+  _throwSmokeBomb() {
+    if (!this.inventory.useSmokeBomb()) return
+    this.camera.getWorldDirection(this._camDir)
+    const pos = this.player.controls.object.position
+    const x = pos.x + this._camDir.x * SMOKE_BOMB_THROW_DIST
+    const z = pos.z + this._camDir.z * SMOKE_BOMB_THROW_DIST
+    for (const zombie of this.zombies.zombies) {
+      if (zombie.state !== 'alive') continue
+      const dist = Math.hypot(zombie.group.position.x - x, zombie.group.position.z - z)
+      if (dist <= SMOKE_BOMB_RADIUS) zombie.aware = false
+    }
+    this._spawnSmokeCloudVisual(x, z)
+    this._updateInventoryHud()
+    this._showLoreToast(t('toastSmokeBombUsed'))
+  }
+
+  _spawnSmokeCloudVisual(x, z) {
+    const mat = new THREE.MeshBasicMaterial({ color: 0x8a8a82, transparent: true, opacity: 0.55 })
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(SMOKE_BOMB_RADIUS * 0.5, 12, 10), mat)
+    mesh.position.set(x, 1, z)
+    this.scene.add(mesh)
+    setTimeout(() => {
+      this.scene.remove(mesh)
+      mesh.geometry.dispose()
+      mesh.material.dispose()
+    }, SMOKE_BOMB_CLOUD_DURATION_MS)
+  }
+
+  // Parry - a short active-press window (see PARRY_WINDOW_MS's own
+  // comment), checked from _onZombieAttack. Cooldown-gated the same
+  // pattern _triggerTaunt already uses for its own cooldown.
+  _triggerParry() {
+    const now = performance.now()
+    if (now < (this._lastParryAt || 0) + PARRY_COOLDOWN_MS) return
+    this._lastParryAt = now
+    this._parryActiveUntil = now + PARRY_WINDOW_MS
+    this._showLoreToast(t('parryReady'))
+  }
+
+  // Melee kill visual effect - a brief colored point light per variant
+  // (see MELEE_KILL_FLASH_COLORS), distinct game feel per weapon without
+  // needing real per-weapon kill animations on these procedural viewmodels.
+  _spawnMeleeKillFlash(x, z) {
+    const color = MELEE_KILL_FLASH_COLORS[this.weapons.meleeVariant] || 0xffffff
+    const light = new THREE.PointLight(color, 2.2, 4, 2)
+    light.position.set(x, 1.2, z)
+    this.scene.add(light)
+    setTimeout(() => this.scene.remove(light), MELEE_KILL_FLASH_DURATION_MS)
+  }
+
   _onPickup(type, label, isLoot, count) {
     if (type === 'health') this.inventory.addHealthPack(count || 1)
     else if (type === 'armor') this.inventory.addArmorPack(1)
@@ -8053,6 +8160,9 @@ export class Game {
     else if (type === 'melee_uvbaton') this.weapons.setMeleeVariant('uvbaton')
     else if (type === 'melee_fireaxe') this.weapons.setMeleeVariant('fireaxe')
     else if (type === 'melee_sledgehammer') this.weapons.setMeleeVariant('sledgehammer')
+    else if (type === 'melee_spear') this.weapons.setMeleeVariant('spear')
+    else if (type === 'melee_nunchaku') this.weapons.setMeleeVariant('nunchaku')
+    else if (type === 'smokebomb') this.inventory.addSmokeBomb(count || 1)
     else if (type === 'weapon_charm') this.weapons.equipCharm(WEAPON_CHARM_IDS[Math.floor(Math.random() * WEAPON_CHARM_IDS.length)])
     else if (type === 'ration') this.inventory.addRation(1)
     else if (type === 'vaultkey') {
@@ -8346,14 +8456,35 @@ export class Game {
       const nameEl = this.hotbarNameEls[i]
       if (!weaponId) {
         nameEl.textContent = '-'
-        el.classList.remove('active', 'locked')
+        el.classList.remove('active', 'locked', 'mastered', 'grandmastered')
         return
       }
       const w = summary.find((ww) => ww.id === weaponId)
       nameEl.textContent = w ? t(w.nameKey) : '-'
       el.classList.toggle('locked', !!w && !w.unlocked)
       el.classList.toggle('active', weaponId === currentId)
+      // Mastery-tier badge (see WeaponMastery.js) - already-tracked data,
+      // previously only ever surfaced as a one-time unlock toast, never
+      // shown persistently anywhere during play.
+      el.classList.toggle('grandmastered', this.weaponMastery.grandmastered.has(weaponId))
+      el.classList.toggle('mastered', !this.weaponMastery.grandmastered.has(weaponId) && this.weaponMastery.mastered.has(weaponId))
     })
+    if (this.hotbarPowerScoreEl) this.hotbarPowerScoreEl.textContent = t('hotbarPowerScore', { n: this._computeLoadoutPowerScore() })
+  }
+
+  // Loadout Power Score - a single at-a-glance number for the whole
+  // 5-slot hotbar, not any one weapon. Uses w.damage directly (kept
+  // current by setMeleeVariant/upgrades/rarity rolls, see those own call
+  // sites) rather than re-deriving it from base WEAPONS data.
+  _computeLoadoutPowerScore() {
+    let total = 0
+    for (const weaponId of this.settings.hotbar) {
+      if (!weaponId) continue
+      const w = this.weapons.weapons.find((ww) => ww.id === weaponId)
+      if (!w || !w.unlocked) continue
+      total += (w.damage || 0) * (w.rarityMult || 1) * (w.masteryMult || 1) * (w.upgradeMult || 1)
+    }
+    return Math.round(total)
   }
 
   // Digit1-5 switch to whatever's assigned in that hotbar slot (see
