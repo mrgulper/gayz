@@ -108,6 +108,15 @@ export const COIN_SHOP_ITEMS = [
   { id: 'outfit_olive', titleKey: 'outfitOlive', cost: 800, section: 'outfits', outfit: 'olive', outfitColor: 0x4a5230 },
   { id: 'outfit_slate', titleKey: 'outfitSlate', cost: 800, section: 'outfits', outfit: 'slate', outfitColor: 0x2e343a },
   { id: 'outfit_desert', titleKey: 'outfitDesert', cost: 800, section: 'outfits', outfit: 'desert', outfitColor: 0xac8a4a },
+  { id: 'outfit_obsidian', titleKey: 'outfitObsidian', cost: 900, section: 'outfits', outfit: 'obsidian', outfitColor: 0x18181a },
+  { id: 'outfit_arctic', titleKey: 'outfitArctic', cost: 900, section: 'outfits', outfit: 'arctic', outfitColor: 0xd8dce0 },
+  { id: 'outfit_ember', titleKey: 'outfitEmber', cost: 900, section: 'outfits', outfit: 'ember', outfitColor: 0xb8541a },
+  // Cosmetic hats (see PlayerBody.setHat) - same equip-toggle purchase
+  // shape as outfits above, bone-parented to the GLB's Head bone instead of
+  // tinting an existing material slot.
+  { id: 'hat_cap', titleKey: 'hatCap', cost: 600, section: 'hats', hat: 'cap', hatColor: 0x2a2f3a },
+  { id: 'hat_beanie', titleKey: 'hatBeanie', cost: 600, section: 'hats', hat: 'beanie', hatColor: 0x7a2f2f },
+  { id: 'hat_helmet', titleKey: 'hatHelmet', cost: 1000, section: 'hats', hat: 'helmet', hatColor: 0x4a4842 },
   {
     id: 'coin_damage',
     titleKey: 'coinShopDamage',

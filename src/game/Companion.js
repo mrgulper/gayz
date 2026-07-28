@@ -83,13 +83,17 @@ const MEDIC_FOLLOW_DISTANCE = 2.2
 // original invulnerable behavior - only the player's real companion(s)
 // (this.companion / this.tempCompanion in Game.js) go down and need reviving.
 export class Companion {
-  constructor(scene, x, z, role = 'ranged', { vulnerable = true } = {}) {
+  constructor(scene, x, z, role = 'ranged', { vulnerable = true, jacketColor = null } = {}) {
     this.scene = scene
     this.role = ROLE_STATS[role] ? role : 'ranged'
     // Cloned rather than the shared preset directly - applyTraining below
     // mutates this per-instance, and mutating the shared ROLE_STATS object
     // would leak training bonuses into every future companion/preview.
     this.stats = { ...ROLE_STATS[this.role] }
+    // Player-chosen color override (see Game.js's settings.companionColor) -
+    // only ever passed for the player's own main companion, never the
+    // guard/vendor/recruit/rescued-survivor NPCs that also reuse this class.
+    if (jacketColor !== null) this.stats.jacket = jacketColor
     this.trainingLevel = 0
     this.group = new THREE.Group()
     this.group.position.set(x, 0, z)

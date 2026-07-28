@@ -188,9 +188,19 @@ function loadSettings() {
       crosshairColor: parsed.crosshairColor || '#ffffff',
       crosshairSize: parsed.crosshairSize ?? 100,
       nickname: parsed.nickname || '',
+      // Nickname color (see nickname display sites - Hardcore Memorial, kill
+      // feed) - a plain hex string like crosshairColor above, not tied to
+      // any purchase.
+      nicknameColor: parsed.nicknameColor || '#ffe08a',
       // Custom companion name (see _updateCompanionName) - falls back to
       // the auto-generated "{nickname}'s Assistant" pattern when empty.
       companionName: parsed.companionName || '',
+      // Companion jacket color override (see Companion.js's ROLE_STATS.jacket) -
+      // null keeps the existing role-based default color (blue/red/green/tan).
+      companionColor: parsed.companionColor || null,
+      // Profile screen emblem (see _openProfilePanel) - purely cosmetic, one
+      // of PROFILE_EMBLEMS, no purchase/unlock gate.
+      profileEmblem: parsed.profileEmblem || 'none',
       defaultTag: parsed.defaultTag || null,
       companionRole: ['melee', 'medic'].includes(parsed.companionRole) ? parsed.companionRole : 'ranged',
       scoreAttackMode: parsed.scoreAttackMode ?? false,
@@ -238,7 +248,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', companionName: '', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, profileEmblem: 'none', defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -881,6 +891,8 @@ function loadShopProgress() {
       equippedSkin: parsed.equippedSkin || null,
       ownedOutfits: new Set(parsed.ownedOutfits || []),
       equippedOutfit: parsed.equippedOutfit || null,
+      ownedHats: new Set(parsed.ownedHats || []),
+      equippedHat: parsed.equippedHat || null,
       challengeKillCounts: parsed.challengeKillCounts || {},
       weaponChallengesUnlocked: new Set(parsed.weaponChallengesUnlocked || []),
       shopPurchased: new Set(parsed.shopPurchased || []),
@@ -897,7 +909,7 @@ function loadShopProgress() {
       attachments: parsed.attachments || [],
     }
   } catch {
-    return { points: 0, coins: 0, ownedSkins: new Set(), equippedSkin: null, ownedOutfits: new Set(), equippedOutfit: null, challengeKillCounts: {}, weaponChallengesUnlocked: new Set(), shopPurchased: new Set(), unlockedGuns: [], attachments: [] }
+    return { points: 0, coins: 0, ownedSkins: new Set(), equippedSkin: null, ownedOutfits: new Set(), equippedOutfit: null, ownedHats: new Set(), equippedHat: null, challengeKillCounts: {}, weaponChallengesUnlocked: new Set(), shopPurchased: new Set(), unlockedGuns: [], attachments: [] }
   }
 }
 
@@ -910,6 +922,8 @@ function saveShopProgress(game) {
       equippedSkin: game.equippedSkin,
       ownedOutfits: [...game.ownedOutfits],
       equippedOutfit: game.equippedOutfit,
+      ownedHats: [...game.ownedHats],
+      equippedHat: game.equippedHat,
       challengeKillCounts: game.challengeKillCounts,
       weaponChallengesUnlocked: [...game.weaponChallengesUnlocked],
       shopPurchased: [...game.coinShopPurchased],
@@ -1102,6 +1116,9 @@ const RESET_PROGRESS_CONFIRM_MS = 4000
 // animation (see #achievement-toast.show) so one fully fades before the
 // next begins, instead of visually cutting it off mid-animation.
 const ACHIEVEMENT_TOAST_GAP_MS = 3400
+// Profile emblem picker - see _openProfilePanel. Purely cosmetic, no
+// unlock gate, styled per-id in style.css (.emblem-<id>).
+const PROFILE_EMBLEMS = ['none', 'star', 'skull', 'flame', 'shield']
 // First-time tutorial hint sequence - see _maybeShowTutorialHints.
 const TUTORIAL_SEEN_KEY = 'gayz-tutorial-seen'
 const TUTORIAL_HINT_START_DELAY_MS = 2500
@@ -1652,6 +1669,16 @@ function formatTime(ms) {
   return `${mm}:${ss}`
 }
 
+// Escapes player-entered text (the nickname field is the only place this
+// game lets someone type free-form text that later gets rendered via
+// innerHTML) before it goes into any template string, rather than
+// interpolating it raw.
+function _escapeHtml(str) {
+  const div = document.createElement('div')
+  div.textContent = str
+  return div.innerHTML
+}
+
 export class Game {
   constructor() {
     this.canvas = document.getElementById('scene')
@@ -1923,6 +1950,8 @@ export class Game {
     this.crosshairColorPicker = document.getElementById('crosshair-color-picker')
     this.crosshairSizeSlider = document.getElementById('crosshair-size-slider')
     this.crosshairSizeValue = document.getElementById('crosshair-size-value')
+    this.nicknameColorPicker = document.getElementById('nickname-color-picker')
+    this.companionColorPicker = document.getElementById('companion-color-picker')
     this.nicknameInput = document.getElementById('nickname-input')
     this.companionNameInput = document.getElementById('companion-name-input')
     this.scoreAttackToggle = document.getElementById('score-attack-toggle')
@@ -2480,7 +2509,7 @@ export class Game {
     this.traderGuideNpc.setName('Click the trader to trade points for supplies')
     this.ammoGuideNpc = new Companion(this.scene, ammoStation.x - 1.4, ammoStation.z - 1.2, 'ranged', { vulnerable: false })
     this.ammoGuideNpc.setName('Hold F here to refill reserve ammo')
-    this.companion = new Companion(this.scene, 1.6, 7, this.settings.companionRole)
+    this.companion = new Companion(this.scene, 1.6, 7, this.settings.companionRole, { jacketColor: this._companionColorHex() })
     this.reviveTarget = null
     this.playerBody = new PlayerBody(this.scene)
     // Was (-6, -18) - right against the safe zone's east wall (x:-13 z:-10,
@@ -2646,6 +2675,7 @@ export class Game {
     this.profilePanel = document.getElementById('profile-panel')
     this.profilePanelTitle = document.getElementById('profile-panel-title')
     this.profileOptions = document.getElementById('profile-options')
+    this.profileEmblemRow = document.getElementById('profile-emblem-row')
     this.profileCloseBtn = document.getElementById('profile-close-btn')
     this.killFeedEl = document.getElementById('kill-feed')
     this.tauntTextEl = document.getElementById('taunt-text')
@@ -2881,6 +2911,12 @@ export class Game {
     if (this.equippedOutfit) {
       const item = COIN_SHOP_ITEMS.find((i) => i.outfit === this.equippedOutfit)
       if (item) this.playerBody.setOutfit(item.outfitColor)
+    }
+    this.ownedHats = this.shopProgress.ownedHats
+    this.equippedHat = this.shopProgress.equippedHat
+    if (this.equippedHat) {
+      const item = COIN_SHOP_ITEMS.find((i) => i.hat === this.equippedHat)
+      if (item) this.playerBody.setHat(item.hat, item.hatColor)
     }
     this._applyCoinShopPerks()
     this._applyVeteranPerks()
@@ -4540,6 +4576,27 @@ export class Game {
       document.documentElement.style.setProperty('--crosshair-color', this.settings.crosshairColor)
       saveSettings(this.settings)
     })
+
+    // Nickname color - a plain CSS custom property, same technique as
+    // crosshair color above, read by the .nickname-tag class wrapped around
+    // every nickname display site (Hardcore Memorial, Kill Feed).
+    this.nicknameColorPicker.value = this.settings.nicknameColor
+    document.documentElement.style.setProperty('--nickname-color', this.settings.nicknameColor)
+    this.nicknameColorPicker.addEventListener('input', () => {
+      this.settings.nicknameColor = this.nicknameColorPicker.value
+      document.documentElement.style.setProperty('--nickname-color', this.settings.nicknameColor)
+      saveSettings(this.settings)
+    })
+
+    // Companion color override - live-rebuilds the companion the same way
+    // a role swap already does (_rebuildCompanion), so the change is
+    // visible immediately rather than only on the next run/rescue.
+    this.companionColorPicker.value = this.settings.companionColor || '#2f4f7a'
+    this.companionColorPicker.addEventListener('input', () => {
+      this.settings.companionColor = this.companionColorPicker.value
+      saveSettings(this.settings)
+      if (this.companion) this._rebuildCompanion(this.settings.companionRole)
+    })
     this.crosshairSizeSlider.value = this.settings.crosshairSize
     this.crosshairSizeValue.textContent = `${this.settings.crosshairSize}%`
     document.documentElement.style.setProperty('--crosshair-size', this.settings.crosshairSize / 100)
@@ -4907,10 +4964,18 @@ export class Game {
     }
   }
 
+  // Companion color override (see Companion.js's jacketColor option) -
+  // converts the '#rrggbb' setting string to the numeric hex Companion's
+  // material .setHex() expects, or null (role default) if unset.
+  _companionColorHex() {
+    if (!this.settings.companionColor) return null
+    return parseInt(this.settings.companionColor.slice(1), 16)
+  }
+
   _rebuildCompanion(role) {
     const pos = this.companion.group.position
     this.companion.dispose()
-    this.companion = new Companion(this.scene, pos.x, pos.z, role)
+    this.companion = new Companion(this.scene, pos.x, pos.z, role, { jacketColor: this._companionColorHex() })
     // A role swap rebuilds the companion from scratch - reapply any
     // points-bought training/gear so switching roles mid-run doesn't reset it.
     // Companion Legacy (see COMPANION_LEGACY_KEY) applies even on a
@@ -5820,6 +5885,7 @@ export class Game {
       { id: 'weapons', labelKey: 'shopSectionWeapons' },
       { id: 'skins', labelKey: 'shopSectionSkins' },
       { id: 'outfits', labelKey: 'shopSectionOutfits' },
+      { id: 'hats', labelKey: 'shopSectionHats' },
       { id: 'perks', labelKey: 'shopSectionPerks' },
       { id: 'base', labelKey: 'shopSectionBase' },
     ]
@@ -5939,6 +6005,23 @@ export class Game {
         row.appendChild(defaultBtn)
       }
 
+      // Same "unequip" front-of-section button, mirrored for hats.
+      if (section.id === 'hats') {
+        const defaultBtn = document.createElement('button')
+        defaultBtn.className = 'perk-option'
+        defaultBtn.disabled = this.equippedHat === null
+        defaultBtn.innerHTML = `
+          <span class="perk-name">${t('skinDefault')}</span>
+          <span class="perk-cost">${this.equippedHat === null ? t('skinEquipped') : t('skinEquip')}</span>
+        `
+        defaultBtn.addEventListener('click', () => {
+          this.equippedHat = null
+          this.playerBody.setHat(null)
+          this._renderCoinShopOptions()
+        })
+        row.appendChild(defaultBtn)
+      }
+
       for (const item of COIN_SHOP_ITEMS) {
         if (item.section !== section.id) continue
         const btn = document.createElement('button')
@@ -5982,6 +6065,26 @@ export class Game {
             }
             this.equippedOutfit = item.outfit
             this.playerBody.setOutfit(item.outfitColor)
+            this._renderCoinShopOptions()
+          })
+        } else if (item.hat) {
+          const owned = this.ownedHats.has(item.hat)
+          const equipped = this.equippedHat === item.hat
+          btn.disabled = equipped || (!owned && this.coins < item.cost)
+          btn.innerHTML = `
+            <span class="perk-name">${t(item.titleKey)}</span>
+            <span class="perk-cost">${equipped ? t('skinEquipped') : owned ? t('skinEquip') : t('coinCostLabel', { n: item.cost })}</span>
+          `
+          btn.addEventListener('click', () => {
+            if (equipped) return
+            if (!owned) {
+              if (this.coins < item.cost) return
+              this.coins -= item.cost
+              this.ownedHats.add(item.hat)
+              this._updateStatsPanel()
+            }
+            this.equippedHat = item.hat
+            this.playerBody.setHat(item.hat, item.hatColor)
             this._renderCoinShopOptions()
           })
         } else if (item.gun) {
@@ -6231,6 +6334,8 @@ export class Game {
     document.getElementById('toast-duration-label').textContent = t('toastDurationLabel')
     document.getElementById('crosshair-color-label').textContent = t('crosshairColorLabel')
     document.getElementById('crosshair-size-label').textContent = t('crosshairSizeLabel')
+    document.getElementById('nickname-color-label').textContent = t('nicknameColorLabel')
+    document.getElementById('companion-color-label').textContent = t('companionColorLabel')
 
     this._updateBestStatsDisplay()
     this._updateLeaderboardDisplay()
@@ -6367,8 +6472,11 @@ export class Game {
       return
     }
     this.menuHardcoreMemorial.style.display = ''
+    // e.name is player-entered text (the nickname field) - escaped rather
+    // than interpolated raw, same as every other player-entered string
+    // this method now touches for nickname-color support.
     const rows = this.hardcoreMemorial
-      .map((e) => `<div class="leaderboard-row"><span>${e.name}</span><span>${t('hudNight', { n: e.night })}</span><span>${t('hudKills', { n: e.kills })}</span></div>`)
+      .map((e) => `<div class="leaderboard-row"><span class="nickname-tag">${_escapeHtml(e.name)}</span><span>${t('hudNight', { n: e.night })}</span><span>${t('hudKills', { n: e.kills })}</span></div>`)
       .join('')
     this.menuHardcoreMemorial.innerHTML = `<p class="menu-best-stats">${t('hardcoreMemorialTitle')}</p>${rows}`
   }
@@ -6568,6 +6676,7 @@ export class Game {
     this.playerState.takeDamage(damage * this.difficulty.damageMult * this.dailyDamageMult)
     this._updateHealthHud()
     audioEngine.playZombieSnarl()
+    audioEngine.playPlayerHurt()
     this.damageFlash.classList.remove('hit')
     void this.damageFlash.offsetWidth
     this.damageFlash.classList.add('hit')
@@ -7553,7 +7662,10 @@ export class Game {
   _pushKillFeed(text) {
     const entry = document.createElement('div')
     entry.className = 'kill-feed-entry'
-    entry.textContent = text
+    const nickname = this.settings.nickname.trim()
+    entry.innerHTML = nickname
+      ? `<span class="nickname-tag">${_escapeHtml(nickname)}</span> ${_escapeHtml(text)}`
+      : _escapeHtml(text)
     this.killFeedEl.appendChild(entry)
     while (this.killFeedEl.children.length > KILL_FEED_MAX_ENTRIES) {
       this.killFeedEl.removeChild(this.killFeedEl.firstChild)
@@ -7592,6 +7704,11 @@ export class Game {
     this.profilePanel.style.display = 'flex'
     this.profilePanelTitle.textContent = t('profilePanelTitle')
     this.profileCloseBtn.textContent = t('upgradesClose')
+    // Cosmetics counter - outfits+hats only (charms are randomly equipped
+    // one at a time via field pickups, see WeaponSystem.equipCharm, with no
+    // persistent "owned charms" set to count against).
+    const cosmeticsOwned = this.ownedOutfits.size + this.ownedHats.size
+    const cosmeticsTotal = COIN_SHOP_ITEMS.filter((i) => i.outfit || i.hat).length
     const rows = [
       [t('profileTotalRuns'), this.careerStats.totalRuns],
       [t('profileTotalKills'), this.careerStats.totalKills],
@@ -7599,6 +7716,7 @@ export class Game {
       [t('profileBestKills'), this.bestStats.bestKills],
       [t('profileBestKillStreak'), this.bestStats.bestKillStreak],
       [t('profileAchievements'), `${this.achievements.unlocked.size}/${ACHIEVEMENTS.length}`],
+      [t('profileCosmetics'), `${cosmeticsOwned}/${cosmeticsTotal}`],
       [t('profilePrestige'), this.metaProgress.prestigeLevel],
       [t('profileNemesisLabel'), this.nemesis ? t('profileNemesisValue', { name: this.nemesis.label, n: this.nemesis.night }) : t('profileNemesisNone')],
     ]
@@ -7608,6 +7726,20 @@ export class Game {
         <span class="perk-cost">${value}</span>
       </button>
     `).join('')
+
+    // Profile emblem picker - purely cosmetic, no unlock gate, chosen right
+    // here since this is also where it's displayed.
+    this.profileEmblemRow.innerHTML = PROFILE_EMBLEMS.map((id) => `
+      <button class="emblem-swatch emblem-${id}" data-emblem="${id}" aria-label="${id}"></button>
+    `).join('')
+    for (const btn of this.profileEmblemRow.querySelectorAll('.emblem-swatch')) {
+      btn.classList.toggle('active', btn.dataset.emblem === this.settings.profileEmblem)
+      btn.addEventListener('click', () => {
+        this.settings.profileEmblem = btn.dataset.emblem
+        saveSettings(this.settings)
+        this._openProfilePanel()
+      })
+    }
   }
 
   _closeProfilePanel() {

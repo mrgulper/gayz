@@ -350,6 +350,9 @@ const WEAPON_CHARMS = {
   star: { color: 0xffcf5c, geometry: () => new THREE.OctahedronGeometry(0.032, 0) },
   clover: { color: 0x5ca85c, geometry: () => new THREE.TorusGeometry(0.024, 0.012, 6, 10) },
   dice: { color: 0xd8483a, geometry: () => new THREE.BoxGeometry(0.04, 0.04, 0.04) },
+  heart: { color: 0xd8485a, geometry: () => new THREE.SphereGeometry(0.028, 8, 6) },
+  horseshoe: { color: 0xb8a068, geometry: () => new THREE.TorusGeometry(0.026, 0.01, 6, 10, Math.PI * 1.5) },
+  gem: { color: 0x5ac8d8, geometry: () => new THREE.ConeGeometry(0.028, 0.045, 5) },
 }
 export const WEAPON_CHARM_IDS = Object.keys(WEAPON_CHARMS)
 

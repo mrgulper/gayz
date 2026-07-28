@@ -768,6 +768,17 @@ const STRINGS = {
     tutorialHint3: 'Press **E** to sprint, **C** to crouch',
     tutorialHint4: 'Press **Tab** to open your inventory',
     windowTitlePlaying: 'Night {night} · {kills} kills - GayZ',
+    // Character & Customization batch - new outfit colors/hats/shop section.
+    outfitObsidian: 'Obsidian',
+    outfitArctic: 'Arctic',
+    outfitEmber: 'Ember',
+    shopSectionHats: 'Hats',
+    hatCap: 'Field Cap',
+    hatBeanie: 'Beanie',
+    hatHelmet: 'Combat Helmet',
+    profileCosmetics: 'Cosmetics unlocked',
+    nicknameColorLabel: 'Nickname Color',
+    companionColorLabel: 'Companion Color',
   },
   zh: {
     menuSubtitle: '破败的街区——生存、搜寻、射击',

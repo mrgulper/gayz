@@ -42,6 +42,43 @@ html, body {
   display: none;
 }
 
+/* Nickname color (see settings.nicknameColor) - wraps every nickname
+   display site (Hardcore Memorial, Kill Feed), same --X-color-from-JS
+   pattern as --crosshair-color above. */
+.nickname-tag {
+  color: var(--nickname-color, #ffe08a);
+  font-weight: 700;
+}
+
+/* Profile emblem picker (see Game.js's _openProfilePanel) - a row of small
+   colored swatches, one per PROFILE_EMBLEMS id. Plain shapes/colors rather
+   than icon glyphs, consistent with this project's no-emoji UI. */
+#profile-emblem-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.emblem-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.emblem-swatch.active {
+  border-color: #e3a63c;
+}
+
+.emblem-none { background: rgba(255, 255, 255, 0.08); }
+.emblem-star { background: #ffcf5c; }
+.emblem-skull { background: #e8e4d8; }
+.emblem-flame { background: #e0563c; }
+.emblem-shield { background: #4a7ab8; }
+
 #hitmarker {
   position: absolute;
   top: 50%;

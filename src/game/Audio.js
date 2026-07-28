@@ -177,6 +177,38 @@ class AudioEngine {
     noise.stop(now + duration)
   }
 
+  // Player hurt grunt - the player had no voice at all before this (only
+  // the damage-flash visual + zombie snarl SFX cued a hit landing). Same
+  // filtered-noise synthesis technique as playMelee above, just a lower,
+  // shorter, downward-swept "oof" instead of a swing whoosh.
+  playPlayerHurt() {
+    if (!this.ctx) return
+    const ctx = this.ctx
+    const now = ctx.currentTime
+    const duration = 0.22
+
+    const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * duration, ctx.sampleRate)
+    const data = noiseBuffer.getChannelData(0)
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+
+    const noise = ctx.createBufferSource()
+    noise.buffer = noiseBuffer
+
+    const bandpass = ctx.createBiquadFilter()
+    bandpass.type = 'bandpass'
+    bandpass.frequency.setValueAtTime(420, now)
+    bandpass.frequency.exponentialRampToValueAtTime(140, now + duration)
+    bandpass.Q.value = 1.1
+
+    const noiseGain = ctx.createGain()
+    noiseGain.gain.setValueAtTime(0.3, now)
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + duration)
+
+    noise.connect(bandpass).connect(noiseGain).connect(this.sfxGain)
+    noise.start(now)
+    noise.stop(now + duration)
+  }
+
   // Low-health tension cue: a "lub-dub" double thump, synced to the
   // low-health screen pulse (see Game.js's _updateHealthHud/#damage-flash's
   // low-health CSS animation, which shares the same ~1.6s cadence).

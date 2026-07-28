@@ -89,6 +89,51 @@ export class PlayerBody {
         child.material.color.copy(child.userData._origColor)
       }
     })
+    // Pants now tint alongside the shirt (a darker shade of the same
+    // color, not a separate purchase) - the model has its own "Pants"
+    // slot per this class's own doc comment, previously never touched.
+    this._setPantsColor(colorHex === null ? null : (new THREE.Color(colorHex)).multiplyScalar(0.55).getHex())
+  }
+
+  _setPantsColor(colorHex) {
+    const root = this._glbRoot
+    if (!root) return
+    root.traverse((child) => {
+      if (!child.isMesh || child.material.name !== 'Pants') return
+      if (colorHex !== null) {
+        if (!child.userData._origColor) child.userData._origColor = child.material.color.clone()
+        child.material.color.setHex(colorHex)
+      } else if (child.userData._origColor) {
+        child.material.color.copy(child.userData._origColor)
+      }
+    })
+  }
+
+  // Cosmetic hats (see CoinShop.js's hat_* items) - a small bone-parented
+  // prop on the Head bone, same pattern as RivalScavenger.js/RescueSurvivor.js's
+  // own head-bone props. null removes whatever hat is currently attached.
+  setHat(hatId, colorHex) {
+    const root = this._glbRoot
+    if (!root) return
+    if (this._hatMesh) {
+      this._hatMesh.parent?.remove(this._hatMesh)
+      this._hatMesh.geometry.dispose()
+      this._hatMesh.material.dispose()
+      this._hatMesh = null
+    }
+    if (!hatId) return
+    const headBone = root.getObjectByName('Head')
+    if (!headBone) return
+    const mat = flatMaterial({ color: colorHex, roughness: 0.7 })
+    let geo
+    if (hatId === 'cap') geo = new THREE.SphereGeometry(0.1, 10, 8, 0, Math.PI * 2, 0, Math.PI * 0.55)
+    else if (hatId === 'beanie') geo = new THREE.SphereGeometry(0.095, 10, 8, 0, Math.PI * 2, 0, Math.PI * 0.6)
+    else geo = new THREE.CylinderGeometry(0.11, 0.11, 0.09, 12) // helmet
+    const hat = new THREE.Mesh(geo, mat)
+    hat.position.set(0, 0.11, 0)
+    hat.castShadow = true
+    headBone.add(hat)
+    this._hatMesh = hat
   }
 
   _playGlbAction(name, loop) {
