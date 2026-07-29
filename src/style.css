@@ -2328,11 +2328,28 @@ body.reduce-flashing #critical-blood-overlay.show {
 /* ==========================================================================
    Layout
    ========================================================================== */
+/* Left/right columns are equal width (was 250px/230px) so the hero
+   (center) column's own natural center lines up exactly with the true
+   viewport center - #play-btn.play-btn-centered fixes itself to viewport
+   50% (not to the hero column's box), so any left/right imbalance here
+   used to show up as the title/tagline/stats (centered within the hero
+   column) drifting visibly away from the centered Play button below
+   them. */
+/* justify-content:center matters here specifically because the 3 tracks
+   (245 + up-to-560 + 245, plus 2x18px gaps) only add up to ~1086px even
+   though the container itself grows to the full max-width (1180px) on
+   most screens - without this, the grid defaults to left-aligning its
+   tracks inside that wider box, leaving the ~94px difference as unused
+   space on the right instead of split evenly on both sides. That silent
+   ~47px rightward "hole" was why the hero column's own content (title,
+   tagline, stats) sat visibly off-center from window.innerWidth/2 even
+   though #menu-layout's own box was correctly centered via margin:auto. */
 #menu-layout {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: 250px minmax(340px, 560px) 230px;
+  grid-template-columns: 250px minmax(340px, 560px) 250px;
+  justify-content: center;
   gap: 18px;
   align-items: start;
   width: 100%;
@@ -2713,29 +2730,35 @@ body.reduce-flashing #critical-blood-overlay.show {
     0 3px 8px rgba(0, 0, 0, 0.5);
 }
 
-/* Fixed + transform-centered so it sits exactly in the middle of the
-   viewport - but only when JS (_updatePlayBtnCentering in Game.js) has
-   measured actual clearance above and below and confirmed it fits. A
-   plain CSS height breakpoint can't do this reliably: the hero column's
-   own content (news ticker / weekly mutator lines) is variable-length
-   text, so how much room is actually free shifts with it. Shorter
-   viewports (or a long ticker line) keep the safe in-flow position above
-   instead. */
+/* Fixed + centered so it sits exactly in the middle of the viewport -
+   but only when JS (_updatePlayBtnCentering in Game.js) has measured
+   actual clearance above and below and confirmed it fits. A plain CSS
+   height breakpoint can't do this reliably: the hero column's own
+   content (news ticker / weekly mutator lines) is variable-length text,
+   so how much room is actually free shifts with it. Shorter viewports
+   (or a long ticker line) keep the safe in-flow position above instead.
+   Centered via inset:0 + margin:auto (needs no transform, and doesn't
+   need to know the button's own width/height ahead of time) rather than
+   the more common left/top:50% + transform:translate(-50%,-50%) - that
+   version measured with a computed transform of matrix(1,0,0,1,0,0)
+   (i.e. not actually applied) in testing for reasons that were never
+   pinned down, silently leaving the button flush against the left edge
+   of its 50%/50% anchor point instead of centered on it. */
 #play-btn.play-btn-centered {
   position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  inset: 0;
+  margin: auto;
+  width: fit-content;
+  height: fit-content;
   z-index: 5;
-  margin-top: 0;
 }
 
 #play-btn.play-btn-centered:hover {
-  transform: translate(-50%, calc(-50% - 3px));
+  transform: translateY(-3px);
 }
 
 #play-btn.play-btn-centered:active {
-  transform: translate(-50%, calc(-50% + 2px));
+  transform: translateY(2px);
 }
 
 #settings-btn {
