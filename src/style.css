@@ -1198,14 +1198,6 @@ body.reduce-flashing #critical-blood-overlay.show {
   color: rgba(255, 255, 255, 0.75);
 }
 
-/* Custom menu cursor - only meaningfully visible outside pointer-lock
-   gameplay (Pointer Lock hides the OS cursor entirely during play), so this
-   just themes the default menu/UI cursor rather than needing any
-   lock-state-aware toggle. Small crosshair dot in the game's own amber
-   accent, inline SVG data URI so it needs no separate asset file. */
-body {
-  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="3" fill="none" stroke="%23e3a63c" stroke-width="1.5"/><circle cx="10" cy="10" r="1" fill="%23e3a63c"/></svg>') 10 10, auto;
-}
 
 @keyframes toast {
   0% { opacity: 0; transform: translate(-50%, 8px); }
@@ -2855,6 +2847,15 @@ body {
 }
 
 #settings-hint {
+  margin-top: 16px;
+  font-size: 13px;
+  opacity: 0.55;
+}
+
+/* Upgrades/Achievements/Bestiary/Profile/Credits/Coin Shop panels - same
+   "no explicit Close button, click the backdrop instead" pattern as
+   Settings above (see the matching click-outside handlers in Game.js). */
+.panel-close-hint {
   margin-top: 16px;
   font-size: 13px;
   opacity: 0.55;

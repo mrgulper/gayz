@@ -2147,9 +2147,12 @@ export class Game {
     // playing, on their actual hardware, instead of guessing blind. Always on
     // (not gated behind a debug flag) since there's no working alternative to
     // ask "is it actually still slow, and where."
+    // opacity:0 + a transition (not display:none) - both start hidden on
+    // the main menu and fade in once Play is clicked (see that handler),
+    // rather than popping in instantly or cluttering the homepage.
     this.fpsEl = document.createElement('div')
     this.fpsEl.id = 'fps-counter'
-    this.fpsEl.style.cssText = 'position:fixed;top:6px;left:6px;background:rgba(0,0,0,0.55);color:#7fd88f;font:13px monospace;padding:3px 7px;border-radius:4px;z-index:9999;pointer-events:none;'
+    this.fpsEl.style.cssText = 'position:fixed;top:6px;left:6px;background:rgba(0,0,0,0.55);color:#7fd88f;font:13px monospace;padding:3px 7px;border-radius:4px;z-index:9999;pointer-events:none;opacity:0;transition:opacity 0.8s ease;'
     this.fpsEl.textContent = '-- fps'
     document.body.appendChild(this.fpsEl)
     this._fpsFrameCount = 0
@@ -2161,7 +2164,7 @@ export class Game {
     // not necessarily nearby ones, so it can't reliably localize a report).
     this.coordsEl = document.createElement('div')
     this.coordsEl.id = 'coords-readout'
-    this.coordsEl.style.cssText = 'position:fixed;top:28px;left:6px;background:rgba(0,0,0,0.55);color:#8fc8ff;font:13px monospace;padding:3px 7px;border-radius:4px;z-index:9999;pointer-events:none;'
+    this.coordsEl.style.cssText = 'position:fixed;top:28px;left:6px;background:rgba(0,0,0,0.55);color:#8fc8ff;font:13px monospace;padding:3px 7px;border-radius:4px;z-index:9999;pointer-events:none;opacity:0;transition:opacity 0.8s ease;'
     this.coordsEl.textContent = 'x:0 z:0 y:0'
     document.body.appendChild(this.coordsEl)
     // Auto-enable Performance Mode on genuinely bad, sustained frame rate
@@ -3249,7 +3252,6 @@ export class Game {
     this.upgradesPanelTitle = document.getElementById('upgrades-panel-title')
     this.upgradesPointsLine = document.getElementById('upgrades-points-line')
     this.upgradesOptions = document.getElementById('upgrades-options')
-    this.upgradesCloseBtn = document.getElementById('upgrades-close-btn')
     this.prestigeSection = document.getElementById('prestige-section')
     this.prestigeLevelLine = document.getElementById('prestige-level-line')
     this.prestigeBtn = document.getElementById('prestige-btn')
@@ -3259,18 +3261,15 @@ export class Game {
     this.achievementsPanel = document.getElementById('achievements-panel')
     this.achievementsPanelTitle = document.getElementById('achievements-panel-title')
     this.achievementsOptions = document.getElementById('achievements-options')
-    this.achievementsCloseBtn = document.getElementById('achievements-close-btn')
     this.bestiaryBtn = document.getElementById('bestiary-btn')
     this.bestiaryPanel = document.getElementById('bestiary-panel')
     this.bestiaryPanelTitle = document.getElementById('bestiary-panel-title')
     this.bestiaryOptions = document.getElementById('bestiary-options')
-    this.bestiaryCloseBtn = document.getElementById('bestiary-close-btn')
     this.profileBtn = document.getElementById('profile-btn')
     this.profilePanel = document.getElementById('profile-panel')
     this.profilePanelTitle = document.getElementById('profile-panel-title')
     this.profileOptions = document.getElementById('profile-options')
     this.profileEmblemRow = document.getElementById('profile-emblem-row')
-    this.profileCloseBtn = document.getElementById('profile-close-btn')
     this.profileCopyStatsBtn = document.getElementById('profile-copy-stats-btn')
     this.profileRunHistoryBtn = document.getElementById('profile-run-history-btn')
     this.profileRunHistoryList = document.getElementById('profile-run-history-list')
@@ -3282,13 +3281,11 @@ export class Game {
     this.creditsBtn = document.getElementById('credits-btn')
     this.creditsPanel = document.getElementById('credits-panel')
     this.creditsPanelTitle = document.getElementById('credits-panel-title')
-    this.creditsCloseBtn = document.getElementById('credits-close-btn')
     this.coinshopBtn = document.getElementById('coinshop-btn')
     this.coinshopPanel = document.getElementById('coinshop-panel')
     this.coinshopPanelTitle = document.getElementById('coinshop-panel-title')
     this.coinshopCoinLine = document.getElementById('coinshop-coin-line')
     this.coinshopOptions = document.getElementById('coinshop-options')
-    this.coinshopCloseBtn = document.getElementById('coinshop-close-btn')
     this.statsCoins = document.getElementById('stats-coins')
     this.statsRankRow = document.getElementById('stats-rank-row')
     this.statsRank = document.getElementById('stats-rank')
@@ -3645,6 +3642,10 @@ export class Game {
       this.screenFadeEl.classList.remove('show')
       void this.screenFadeEl.offsetWidth
       this.screenFadeEl.classList.add('show')
+      // FPS/coords debug readout - hidden on the menu, fades in once real
+      // gameplay starts (see their own opacity/transition setup).
+      this.fpsEl.style.opacity = '1'
+      this.coordsEl.style.opacity = '1'
       audioEngine.init()
       audioEngine.resume()
       audioEngine.startAmbient()
@@ -5852,15 +5853,11 @@ export class Game {
 
     this.settingsBtn.addEventListener('click', () => this._toggleSettings(!this.settingsOpen))
     this.upgradesBtn.addEventListener('click', () => this._openUpgradesPanel())
-    this.upgradesCloseBtn.addEventListener('click', () => this._closeUpgradesPanel())
     this.prestigeBtn.addEventListener('click', () => this._prestige())
     this.respecBtn.addEventListener('click', () => this._respecMetaUpgrades())
     this.achievementsBtn.addEventListener('click', () => this._openAchievementsPanel())
-    this.achievementsCloseBtn.addEventListener('click', () => this._closeAchievementsPanel())
     this.bestiaryBtn.addEventListener('click', () => this._openBestiaryPanel())
-    this.bestiaryCloseBtn.addEventListener('click', () => this._closeBestiaryPanel())
     this.profileBtn.addEventListener('click', () => this._openProfilePanel())
-    this.profileCloseBtn.addEventListener('click', () => this._closeProfilePanel())
     this.profileCopyStatsBtn.addEventListener('click', () => this._copyProfileStatsToClipboard())
     if (this.profileRunHistoryBtn) {
       this.profileRunHistoryBtn.addEventListener('click', () => {
@@ -5877,9 +5874,7 @@ export class Game {
       this.applyLoadoutCodeBtn.addEventListener('click', () => this._applyLoadoutCode(this.loadoutCodeInput.value))
     }
     this.creditsBtn.addEventListener('click', () => this._openCreditsPanel())
-    this.creditsCloseBtn.addEventListener('click', () => this._closeCreditsPanel())
     this.coinshopBtn.addEventListener('click', () => this._openCoinShopPanel())
-    this.coinshopCloseBtn.addEventListener('click', () => this._closeCoinShopPanel())
     this.endingContinueBtn.addEventListener('click', () => {
       this.endingPanel.style.display = 'none'
       this.player.controls.lock()
@@ -5892,6 +5887,18 @@ export class Game {
     })
     this.upgradesPanel.addEventListener('click', (e) => {
       if (e.target === this.upgradesPanel) this._closeUpgradesPanel()
+    })
+    this.achievementsPanel.addEventListener('click', (e) => {
+      if (e.target === this.achievementsPanel) this._closeAchievementsPanel()
+    })
+    this.bestiaryPanel.addEventListener('click', (e) => {
+      if (e.target === this.bestiaryPanel) this._closeBestiaryPanel()
+    })
+    this.profilePanel.addEventListener('click', (e) => {
+      if (e.target === this.profilePanel) this._closeProfilePanel()
+    })
+    this.creditsPanel.addEventListener('click', (e) => {
+      if (e.target === this.creditsPanel) this._closeCreditsPanel()
     })
     this.coinshopPanel.addEventListener('click', (e) => {
       if (e.target === this.coinshopPanel) this._closeCoinShopPanel()
@@ -7152,7 +7159,6 @@ export class Game {
     this.pauseOverlay.style.display = 'none'
     this.upgradesPanel.style.display = 'flex'
     this.upgradesPanelTitle.textContent = t('upgradesPanelTitle')
-    this.upgradesCloseBtn.textContent = t('upgradesClose')
     this._renderUpgradesOptions()
   }
 
@@ -7255,7 +7261,6 @@ export class Game {
     this.pauseOverlay.style.display = 'none'
     this.coinshopPanel.style.display = 'flex'
     this.coinshopPanelTitle.textContent = t('coinshopPanelTitle')
-    this.coinshopCloseBtn.textContent = t('upgradesClose')
     this._renderCoinShopOptions()
   }
 
@@ -7622,7 +7627,6 @@ export class Game {
   _openAchievementsPanel() {
     this.achievementsPanel.style.display = 'flex'
     this.achievementsPanelTitle.textContent = t('achievementsPanelTitle')
-    this.achievementsCloseBtn.textContent = t('upgradesClose')
     this.achievementsOptions.innerHTML = ''
     for (const ach of ACHIEVEMENTS) {
       const unlocked = this.achievements.unlocked.has(ach.id)
@@ -7644,7 +7648,6 @@ export class Game {
   _openBestiaryPanel() {
     this.bestiaryPanel.style.display = 'flex'
     this.bestiaryPanelTitle.textContent = t('bestiaryPanelTitle')
-    this.bestiaryCloseBtn.textContent = t('upgradesClose')
     this.bestiaryOptions.innerHTML = ''
     for (const type of Object.values(ZOMBIE_TYPES)) {
       const known = this.bestiaryEncountered.has(type.id)
@@ -8884,7 +8887,6 @@ export class Game {
   _openCreditsPanel() {
     this.creditsPanel.style.display = 'flex'
     this.creditsPanelTitle.textContent = t('creditsPanelTitle')
-    this.creditsCloseBtn.textContent = t('upgradesClose')
   }
 
   _closeCreditsPanel() {
@@ -9375,7 +9377,6 @@ export class Game {
   _openProfilePanel() {
     this.profilePanel.style.display = 'flex'
     this.profilePanelTitle.textContent = t('profilePanelTitle')
-    this.profileCloseBtn.textContent = t('upgradesClose')
     if (this.profileCopyStatsBtn) this.profileCopyStatsBtn.textContent = t('profileCopyStatsBtn')
     if (this.profilePrintBtn) this.profilePrintBtn.textContent = t('profilePrintBtn')
     // Cosmetics counter - outfits+hats only (charms are randomly equipped
