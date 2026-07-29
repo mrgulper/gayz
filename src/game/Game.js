@@ -3265,7 +3265,7 @@ export class Game {
     this.bestiaryPanel = document.getElementById('bestiary-panel')
     this.bestiaryPanelTitle = document.getElementById('bestiary-panel-title')
     this.bestiaryOptions = document.getElementById('bestiary-options')
-    this.profileBtn = document.getElementById('profile-btn')
+    this.menuPlayerBadge = document.getElementById('menu-player-badge')
     this.profilePanel = document.getElementById('profile-panel')
     this.profilePanelTitle = document.getElementById('profile-panel-title')
     this.profileOptions = document.getElementById('profile-options')
@@ -5864,7 +5864,13 @@ export class Game {
     this.respecBtn.addEventListener('click', () => this._respecMetaUpgrades())
     this.achievementsBtn.addEventListener('click', () => this._openAchievementsPanel())
     this.bestiaryBtn.addEventListener('click', () => this._openBestiaryPanel())
-    this.profileBtn.addEventListener('click', () => this._openProfilePanel())
+    this.menuPlayerBadge.addEventListener('click', () => this._openProfilePanel())
+    this.menuPlayerBadge.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        this._openProfilePanel()
+      }
+    })
     this.profileCopyStatsBtn.addEventListener('click', () => this._copyProfileStatsToClipboard())
     if (this.profileRunHistoryBtn) {
       this.profileRunHistoryBtn.addEventListener('click', () => {
@@ -7800,15 +7806,24 @@ export class Game {
     document.getElementById('diff-nightmare').textContent = t('difficultyNightmare')
     document.getElementById('diff-apex').textContent = t('difficultyApex')
 
+    // this.roleBtns covers both the main-menu icon+span buttons and the
+    // plain-text trader-screen role buttons (#trader-role-ranged etc, no
+    // icon) - only the former has a <span> to target, so fall back to the
+    // button itself for the latter rather than assuming every match has one.
     const roleLabelKeys = { ranged: 'roleRanged', melee: 'roleMelee', medic: 'roleMedic' }
-    for (const btn of this.roleBtns) btn.textContent = t(roleLabelKeys[btn.dataset.role])
+    for (const btn of this.roleBtns) {
+      const label = t(roleLabelKeys[btn.dataset.role])
+      const span = btn.querySelector('span')
+      if (span) span.textContent = label
+      else btn.textContent = label
+    }
     // Narrative blurb (see loadoutBalancedBlurb/RunnerBlurb/TankBlurb) shown
     // as a hover tooltip - these presets were already a pure stat tradeoff
     // with zero flavor text, so this is purely additive over the existing
     // selection UI rather than a second parallel picker.
     const loadoutBlurbKeys = { balanced: 'loadoutBalancedBlurb', runner: 'loadoutRunnerBlurb', tank: 'loadoutTankBlurb' }
     for (const btn of this.loadoutBtns) {
-      btn.textContent = t(LOADOUT_LABEL_KEYS[btn.dataset.loadout])
+      btn.querySelector('span').textContent = t(LOADOUT_LABEL_KEYS[btn.dataset.loadout])
       btn.title = t(loadoutBlurbKeys[btn.dataset.loadout])
     }
     document.getElementById('score-attack-label').textContent = t('scoreAttackLabel')
@@ -7933,6 +7948,35 @@ export class Game {
         coins: WEEKLY_FEATURED_MUTATOR_BONUS_COINS,
       })
     }
+    this._updatePlayBtnCentering()
+  }
+
+  // Decides whether #play-btn can go dead-center in the viewport (see its
+  // .play-btn-centered rule in style.css) without overlapping the hero
+  // column's own content. Can't be a fixed CSS breakpoint: the news
+  // ticker/weekly mutator lines above are variable-length text, so how
+  // much clearance actually exists shifts with them - this measures the
+  // real gap between the hero column's true end (with play-btn briefly
+  // popped out of flow) and the game-mode cards row below it, live.
+  _updatePlayBtnCentering() {
+    const controlsList = document.getElementById('controls-list')
+    const cardsRow = document.getElementById('menu-cards-row')
+    if (!this.playBtn || !controlsList || !cardsRow) return
+
+    this.playBtn.classList.remove('play-btn-centered')
+    const btnHeight = this.playBtn.getBoundingClientRect().height
+
+    const prevDisplay = this.playBtn.style.display
+    this.playBtn.style.display = 'none'
+    const safeTop = controlsList.getBoundingClientRect().bottom
+    this.playBtn.style.display = prevDisplay
+
+    const safeBottom = cardsRow.getBoundingClientRect().top
+    const centerY = window.innerHeight / 2
+    const margin = 20
+    const fits = (centerY - btnHeight / 2) > (safeTop + margin) && (centerY + btnHeight / 2) < (safeBottom - margin)
+
+    this.playBtn.classList.toggle('play-btn-centered', fits)
   }
 
   // Local leaderboard - see loadLeaderboard's own doc comment for how this
@@ -8159,6 +8203,7 @@ export class Game {
     this.renderer.setSize(window.innerWidth, window.innerHeight)
     this.composer.setSize(window.innerWidth, window.innerHeight)
     this.bloomPass.resolution.set(window.innerWidth * BLOOM_RESOLUTION_SCALE, window.innerHeight * BLOOM_RESOLUTION_SCALE)
+    this._updatePlayBtnCentering()
   }
 
   // Positions the third-person camera behind+above the player rig (this.

@@ -2208,7 +2208,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 #menu-col-right {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
   text-align: left;
 }
 
@@ -2225,7 +2225,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   background: var(--menu-panel-bg);
   border: 1px solid var(--menu-panel-border);
   border-radius: 10px;
-  padding: 12px 14px;
+  padding: 14px 16px;
   backdrop-filter: blur(2px);
 }
 
@@ -2260,22 +2260,23 @@ body.reduce-flashing #critical-blood-overlay.show {
 .class-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
+  gap: 8px;
 }
 
 .class-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 8px 4px;
-  font-size: 10px;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 4px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.3px;
   color: var(--menu-text-dim);
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
 }
 
@@ -2291,8 +2292,8 @@ body.reduce-flashing #critical-blood-overlay.show {
 }
 
 .class-icon {
-  width: 20px;
-  height: 20px;
+  width: 26px;
+  height: 26px;
 }
 
 .stat-row {
@@ -2430,22 +2431,24 @@ body.reduce-flashing #critical-blood-overlay.show {
 }
 
 /* Fixed + transform-centered so it sits exactly in the middle of the
-   viewport, but only where there's actually room: below this height the
-   hero column's own content (hint text, controls list) runs into it, so
-   shorter screens keep the safe in-flow position above instead. */
-@media (min-height: 900px) {
-  #play-btn {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 5;
-    margin-top: 0;
-  }
+   viewport - but only when JS (_updatePlayBtnCentering in Game.js) has
+   measured actual clearance above and below and confirmed it fits. A
+   plain CSS height breakpoint can't do this reliably: the hero column's
+   own content (news ticker / weekly mutator lines) is variable-length
+   text, so how much room is actually free shifts with it. Shorter
+   viewports (or a long ticker line) keep the safe in-flow position above
+   instead. */
+#play-btn.play-btn-centered {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  margin-top: 0;
+}
 
-  #play-btn:active {
-    transform: translate(-50%, calc(-50% + 3px));
-  }
+#play-btn.play-btn-centered:active {
+  transform: translate(-50%, calc(-50% + 3px));
 }
 
 #settings-btn {
@@ -2506,6 +2509,17 @@ body.reduce-flashing #critical-blood-overlay.show {
   align-items: center;
   gap: 4px;
   padding: 12px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+#menu-player-badge:hover,
+#menu-player-badge:focus-visible {
+  background: rgba(227, 166, 60, 0.08);
+}
+
+#menu-player-badge:hover #menu-avatar-icon {
+  border-color: var(--menu-gold);
 }
 
 #menu-avatar-icon {
@@ -2552,14 +2566,14 @@ body.reduce-flashing #critical-blood-overlay.show {
 #menu-nav-buttons {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 #menu-nav-buttons button {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 14px;
+  gap: 12px;
+  padding: 11px 16px;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.3px;
@@ -2572,8 +2586,8 @@ body.reduce-flashing #critical-blood-overlay.show {
 }
 
 #menu-nav-buttons button svg {
-  width: 17px;
-  height: 17px;
+  width: 19px;
+  height: 19px;
   flex-shrink: 0;
   color: var(--menu-gold);
 }
