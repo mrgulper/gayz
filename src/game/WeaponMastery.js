@@ -22,9 +22,14 @@ export function loadMastery() {
       kills: parsed.kills || {},
       mastered: new Set(parsed.mastered || []),
       grandmastered: new Set(parsed.grandmastered || []),
+      // Heirlooms (see Game.js's _offerHeirloomForge) - a purely cosmetic,
+      // player-opted-into 'heirloom' skin tier on top of an already-
+      // grandmastered weapon, the one cosmetic payoff Grandmaster's flat
+      // damage bonus alone doesn't give.
+      heirlooms: new Set(parsed.heirlooms || []),
     }
   } catch {
-    return { kills: {}, mastered: new Set(), grandmastered: new Set() }
+    return { kills: {}, mastered: new Set(), grandmastered: new Set(), heirlooms: new Set() }
   }
 }
 
@@ -34,6 +39,7 @@ export function saveMastery(mastery) {
       kills: mastery.kills,
       mastered: [...mastery.mastered],
       grandmastered: [...mastery.grandmastered],
+      heirlooms: [...mastery.heirlooms],
     }))
   } catch {
     // Storage unavailable - mastery progress just won't persist across sessions.

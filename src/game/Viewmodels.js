@@ -188,6 +188,12 @@ const SKIN_TINTS = {
   // Akimbo purchase (see WeaponSystem.setAkimbo) - bright chrome, reads as
   // "show gun" rather than "worn/tactical" like every other skin here.
   akimbo: { color: 0xd8d8d8, emissive: 0x8a8a8a },
+  // Heirloom forge (see Game.js's _offerHeirloomForge) - Grandmaster-only,
+  // player-opted-into via a confirm prompt at the moment a weapon crosses
+  // GRANDMASTER_THRESHOLD. Deep antique bronze with a warm glow, deliberately
+  // the richest-looking tint here since it marks the single highest-effort
+  // per-weapon milestone in the game.
+  heirloom: { color: 0x8a5a2a, emissive: 0xb87f2a },
 }
 
 // Shared skin-tint lookup - every gun builder tints its own main body/

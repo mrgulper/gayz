@@ -1829,9 +1829,46 @@ body {
   color: #ffcf5c;
 }
 
+/* Respec section - Long-Term Goals batch, same layout as #prestige-section
+   above, just without a level-line paragraph since Respec has no counter
+   of its own to display. */
+#respec-section {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  text-align: center;
+}
+
+/* Run History Log list - Long-Term Goals batch. Capped-height scroll
+   rather than letting 25 entries push the whole Profile panel taller. */
+#profile-run-history-list {
+  max-height: 160px;
+  overflow-y: auto;
+  margin-top: 6px;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  text-align: left;
+}
+
+.run-history-entry {
+  margin: 0;
+  padding: 3px 0;
+  font-size: 12px;
+  color: rgba(238, 238, 238, 0.8);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.run-history-entry:last-child {
+  border-bottom: none;
+}
+
 #perk-skip-btn,
 #perk-reroll-btn,
 #prestige-btn,
+#respec-btn,
+#profile-run-history-btn,
+#profile-career-portrait-btn,
 #upgrades-close-btn,
 #achievements-close-btn,
 #bestiary-close-btn,

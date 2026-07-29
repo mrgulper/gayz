@@ -326,6 +326,39 @@ export const COIN_SHOP_ITEMS = [
       game._buildAmmoPress()
     },
   },
+  // Veteran's Cache - Long-Term Goals batch. Gated by requiresLifetimeCoins
+  // (careerStats.lifetimeCoinsEarned, a NEVER-reset cumulative total - see
+  // Game.js's _recordRunEnd) instead of the current spendable coins balance
+  // every other item here checks, so these read as "years of play," not
+  // "didn't spend your paycheck yet." Plain immediate stat perks (same
+  // isOwned/apply shape as coin_damage/coin_health above) rather than a new
+  // skin/emblem, so no new equip-UI is needed anywhere else.
+  {
+    id: 'cache_resolve',
+    titleKey: 'coinShopCacheResolve',
+    cost: 500,
+    requiresLifetimeCoins: 100000,
+    section: 'legacy',
+    isOwned: (game) => game.coinShopPurchased.has('cache_resolve'),
+    apply: (game) => {
+      game.coinShopPurchased.add('cache_resolve')
+      game.playerState.maxHealth += 15
+      game.playerState.heal(15)
+      game._updateHealthHud()
+    },
+  },
+  {
+    id: 'cache_fortune',
+    titleKey: 'coinShopCacheFortune',
+    cost: 800,
+    requiresLifetimeCoins: 250000,
+    section: 'legacy',
+    isOwned: (game) => game.coinShopPurchased.has('cache_fortune'),
+    apply: (game) => {
+      game.coinShopPurchased.add('cache_fortune')
+      game.weapons.damageMult += 0.08
+    },
+  },
 ]
 
 // Permanent, per-gun attachments (Game.js's Weapons section renders one

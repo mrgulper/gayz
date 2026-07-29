@@ -681,9 +681,29 @@ function loadCareerStats() {
   try {
     const raw = localStorage.getItem(CAREER_STATS_KEY)
     const parsed = raw ? JSON.parse(raw) : {}
-    return { totalKills: parsed.totalKills || 0, totalRuns: parsed.totalRuns || 0, veteranPerksGranted: parsed.veteranPerksGranted || [] }
+    return {
+      totalKills: parsed.totalKills || 0,
+      totalRuns: parsed.totalRuns || 0,
+      veteranPerksGranted: parsed.veteranPerksGranted || [],
+      // Long-Term Goals batch - all NEVER-reset cumulative totals, same
+      // shape/reasoning as totalKills/totalRuns above, just new axes
+      // (real time played, ground covered, coins ever earned, damage-free
+      // full runs) instead of kills.
+      lifetimePlaytimeSeconds: parsed.lifetimePlaytimeSeconds || 0,
+      lifetimeDistanceMeters: parsed.lifetimeDistanceMeters || 0,
+      lifetimeCoinsEarned: parsed.lifetimeCoinsEarned || 0,
+      flawlessRunCount: parsed.flawlessRunCount || 0,
+      playtimeMilestonesGranted: parsed.playtimeMilestonesGranted || [],
+      distanceMilestonesGranted: parsed.distanceMilestonesGranted || [],
+      flawlessMilestonesGranted: parsed.flawlessMilestonesGranted || [],
+      hallOfRecordsClaimed: parsed.hallOfRecordsClaimed || false,
+    }
   } catch {
-    return { totalKills: 0, totalRuns: 0, veteranPerksGranted: [] }
+    return {
+      totalKills: 0, totalRuns: 0, veteranPerksGranted: [],
+      lifetimePlaytimeSeconds: 0, lifetimeDistanceMeters: 0, lifetimeCoinsEarned: 0, flawlessRunCount: 0,
+      playtimeMilestonesGranted: [], distanceMilestonesGranted: [], flawlessMilestonesGranted: [], hallOfRecordsClaimed: false,
+    }
   }
 }
 
@@ -692,6 +712,54 @@ function saveCareerStats(stats) {
     localStorage.setItem(CAREER_STATS_KEY, JSON.stringify(stats))
   } catch {
     // Storage unavailable - career stats just won't persist across sessions.
+  }
+}
+
+// Playtime/Distance/Flawless Milestones (see _recordRunEnd) - same "cross a
+// threshold once, get a one-time coin bonus, remember it happened" shape as
+// ENDLESS_MILESTONE_INTERVAL above, just on three new lifetime axes instead
+// of Endless Mode's night count.
+const PLAYTIME_MILESTONES = [
+  { id: 'playtime_1h', seconds: 3600, rewardCoins: 100 },
+  { id: 'playtime_5h', seconds: 18000, rewardCoins: 300 },
+  { id: 'playtime_20h', seconds: 72000, rewardCoins: 800 },
+  { id: 'playtime_50h', seconds: 180000, rewardCoins: 2000 },
+]
+const DISTANCE_MILESTONES = [
+  { id: 'distance_10km', meters: 10000, rewardCoins: 100 },
+  { id: 'distance_50km', meters: 50000, rewardCoins: 400 },
+  { id: 'distance_200km', meters: 200000, rewardCoins: 1200 },
+]
+const FLAWLESS_MILESTONES = [
+  { id: 'flawless_1', count: 1, rewardCoins: 150 },
+  { id: 'flawless_5', count: 5, rewardCoins: 500 },
+  { id: 'flawless_15', count: 15, rewardCoins: 1500 },
+]
+const HALL_OF_RECORDS_REWARD_COINS = 2500
+
+// Run History Log - a capped, chronological "what happened in each of your
+// past runs" list, distinct from bestStats (single-run bests only) and
+// Run Summary/Career Portrait (a snapshot of the moment, not a browsable
+// history). Persisted flat here (inline load/save, same convention as
+// dailyLeaderboard/weeklyChallenge above) rather than a dedicated file -
+// it's simple list storage, not a system with its own logic of its own.
+const RUN_HISTORY_KEY = 'gayz-run-history'
+const RUN_HISTORY_MAX = 25
+
+function loadRunHistory() {
+  try {
+    const raw = localStorage.getItem(RUN_HISTORY_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+function saveRunHistory(list) {
+  try {
+    localStorage.setItem(RUN_HISTORY_KEY, JSON.stringify(list))
+  } catch {
+    // Storage unavailable - run history just won't persist across sessions.
   }
 }
 
@@ -2283,6 +2351,7 @@ export class Game {
     this.endingSeen = loadEndingSeen()
     this.bestStats = loadBestStats()
     this.careerStats = loadCareerStats()
+    this.runHistory = loadRunHistory()
     this.companionLegacy = loadCompanionLegacy()
     this.narrativeStats = loadNarrativeStats()
     this.loginStreak = loadLoginStreak()
@@ -2396,6 +2465,13 @@ export class Game {
     this.musicIntensityCurrent = 0
     this.runStartedAt = performance.now()
     this.nightStartedAt = performance.now()
+    // Long-Term Goals batch (see _recordRunEnd) - per-run baselines used to
+    // derive this run's contribution to the lifetime totals in careerStats.
+    // _runStartCoins is a net-earned approximation (coins can be spent
+    // mid-run too), not a true gross-earned ledger - fine for a flavor stat.
+    this._runStartCoins = this.coins
+    this._runDistanceTraveled = 0
+    this._lastDistPos = null
     this.roundIntermissionUntil = 0
     this._scheduleNemesisCheck()
     this._scheduleNightEvent()
@@ -2987,6 +3063,8 @@ export class Game {
     this.prestigeSection = document.getElementById('prestige-section')
     this.prestigeLevelLine = document.getElementById('prestige-level-line')
     this.prestigeBtn = document.getElementById('prestige-btn')
+    this.respecSection = document.getElementById('respec-section')
+    this.respecBtn = document.getElementById('respec-btn')
     this.achievementsBtn = document.getElementById('achievements-btn')
     this.achievementsPanel = document.getElementById('achievements-panel')
     this.achievementsPanelTitle = document.getElementById('achievements-panel-title')
@@ -3004,6 +3082,9 @@ export class Game {
     this.profileEmblemRow = document.getElementById('profile-emblem-row')
     this.profileCloseBtn = document.getElementById('profile-close-btn')
     this.profileCopyStatsBtn = document.getElementById('profile-copy-stats-btn')
+    this.profileRunHistoryBtn = document.getElementById('profile-run-history-btn')
+    this.profileRunHistoryList = document.getElementById('profile-run-history-list')
+    this.profileCareerPortraitBtn = document.getElementById('profile-career-portrait-btn')
     this.killFeedEl = document.getElementById('kill-feed')
     this.tauntTextEl = document.getElementById('taunt-text')
     this.dailyLeaderboardEl = document.getElementById('death-daily-leaderboard')
@@ -3520,6 +3601,9 @@ export class Game {
       }
       this.runStartedAt = performance.now()
       this.nightStartedAt = performance.now()
+      this._runStartCoins = this.coins
+      this._runDistanceTraveled = 0
+      this._lastDistPos = null
       this._nemesisAnnouncedThisRun = false
       this._scheduleNemesisCheck()
       this._scheduleNightEvent()
@@ -5315,6 +5399,7 @@ export class Game {
     this.upgradesBtn.addEventListener('click', () => this._openUpgradesPanel())
     this.upgradesCloseBtn.addEventListener('click', () => this._closeUpgradesPanel())
     this.prestigeBtn.addEventListener('click', () => this._prestige())
+    this.respecBtn.addEventListener('click', () => this._respecMetaUpgrades())
     this.achievementsBtn.addEventListener('click', () => this._openAchievementsPanel())
     this.achievementsCloseBtn.addEventListener('click', () => this._closeAchievementsPanel())
     this.bestiaryBtn.addEventListener('click', () => this._openBestiaryPanel())
@@ -5322,6 +5407,12 @@ export class Game {
     this.profileBtn.addEventListener('click', () => this._openProfilePanel())
     this.profileCloseBtn.addEventListener('click', () => this._closeProfilePanel())
     this.profileCopyStatsBtn.addEventListener('click', () => this._copyProfileStatsToClipboard())
+    if (this.profileRunHistoryBtn) {
+      this.profileRunHistoryBtn.addEventListener('click', () => {
+        this.profileRunHistoryList.style.display = this.profileRunHistoryList.style.display === 'none' ? 'block' : 'none'
+      })
+    }
+    if (this.profileCareerPortraitBtn) this.profileCareerPortraitBtn.addEventListener('click', () => this._generateCareerPortrait())
     this.shareRunCardBtn.addEventListener('click', () => this._generateRunSummaryCard())
     this.creditsBtn.addEventListener('click', () => this._openCreditsPanel())
     this.creditsCloseBtn.addEventListener('click', () => this._closeCreditsPanel())
@@ -6435,6 +6526,14 @@ export class Game {
       this.prestigeLevelLine.textContent = t('prestigeLevelLine', { level: this.metaProgress.prestigeLevel, bonus: this.metaProgress.prestigeLevel * 10 })
       this.prestigeBtn.textContent = t('prestigeBtn')
     }
+
+    // Legacy Tree Respec (Long-Term Goals batch) - only worth showing once
+    // there's actually something purchased to redistribute.
+    if (this.respecSection) {
+      const canRespec = this.metaProgress.purchased.size > 0
+      this.respecSection.style.display = canRespec ? 'block' : 'none'
+      if (canRespec) this.respecBtn.textContent = t('respecBtn')
+    }
   }
 
   // Irreversible from the player's side (wipes Legacy Points and every
@@ -6449,6 +6548,29 @@ export class Game {
     this._showLoreToast(t('prestigeComplete', { level: this.metaProgress.prestigeLevel, bonus: this.metaProgress.prestigeLevel * 10 }))
     this._renderUpgradesOptions()
     this._updatePrestigeBadge()
+  }
+
+  // Respec (Long-Term Goals batch) - refunds every purchased Permanent
+  // Upgrade's cost back into Legacy Points and clears `purchased`, same
+  // reset-then-let-the-next-run's-apply-loop-sort-it-out mechanism
+  // _prestige() above already relies on (see the constructor's own
+  // "if (this.metaProgress.purchased.has(upgrade.id)) upgrade.apply(this)"
+  // loop) - nothing needs undoing mid-run, only future runs read this set.
+  // No prestigeLevel change and no currency cost of its own, unlike
+  // Prestige - this is pure redistribution, not a fresh-start bonus.
+  _respecMetaUpgrades() {
+    if (this.metaProgress.purchased.size === 0) return
+    if (!window.confirm(t('respecConfirm'))) return
+    let refund = 0
+    for (const id of this.metaProgress.purchased) {
+      const upgrade = META_UPGRADES.find((u) => u.id === id)
+      if (upgrade) refund += upgrade.cost
+    }
+    this.metaProgress.purchased = new Set()
+    this.metaProgress.legacyPoints += refund
+    saveMetaProgress(this.metaProgress)
+    this._showLoreToast(t('respecComplete', { n: refund }))
+    this._renderUpgradesOptions()
   }
 
   _closeUpgradesPanel() {
@@ -6570,6 +6692,10 @@ export class Game {
       { id: 'hats', labelKey: 'shopSectionHats' },
       { id: 'perks', labelKey: 'shopSectionPerks' },
       { id: 'base', labelKey: 'shopSectionBase' },
+      // Veteran's Cache (Long-Term Goals batch) - own section, last, since
+      // it's gated by lifetime-earned coins rather than current balance
+      // like every section above it.
+      { id: 'legacy', labelKey: 'shopSectionLegacy' },
     ]
 
     for (const section of sections) {
@@ -6790,13 +6916,19 @@ export class Game {
           })
         } else {
           const owned = item.isOwned(this)
-          btn.disabled = owned || this.coins < item.cost
+          // Veteran's Cache lifetime-earnings gate (see CoinShop.js's own
+          // comment on requiresLifetimeCoins) - checked alongside the
+          // normal coins-affordability check, but shown as its own locked
+          // label so "I have the coins but haven't earned enough lifetime"
+          // reads differently from "I just can't afford this yet."
+          const lifetimeLocked = !!item.requiresLifetimeCoins && this.careerStats.lifetimeCoinsEarned < item.requiresLifetimeCoins
+          btn.disabled = owned || lifetimeLocked || this.coins < item.cost
           btn.innerHTML = `
             <span class="perk-name">${t(item.titleKey)}</span>
-            <span class="perk-cost">${owned ? t('upgradesOwned') : t('coinCostLabel', { n: item.cost })}</span>
+            <span class="perk-cost">${owned ? t('upgradesOwned') : lifetimeLocked ? t('cacheLifetimeLocked', { have: this.careerStats.lifetimeCoinsEarned, need: item.requiresLifetimeCoins }) : t('coinCostLabel', { n: item.cost })}</span>
           `
           btn.addEventListener('click', () => {
-            if (owned || this.coins < item.cost) return
+            if (owned || lifetimeLocked || this.coins < item.cost) return
             this.coins -= item.cost
             item.apply(this)
             this._updateStatsPanel()
@@ -7928,7 +8060,24 @@ export class Game {
     } else if (this.weaponMastery.mastered.has(weaponId) && this.weaponMastery.kills[weaponId] >= GRANDMASTER_THRESHOLD) {
       this.weaponMastery.grandmastered.add(weaponId)
       w.masteryMult = GRANDMASTER_DAMAGE_MULT
-      this._showLoreToast(t('toastWeaponGrandmastered', { weapon: t(this.weapons._nameKeyFor(w)) }))
+      // Heirloom forge (Long-Term Goals batch) - auto-granted the instant a
+      // weapon reaches Grandmaster, no confirmation needed: purely cosmetic
+      // (no stat tradeoff to weigh, unlike Prestige/Respec), and this fires
+      // mid-combat from a kill where a blocking window.confirm() would
+      // freeze the game at the worst moment. Melee excluded - same "doesn't
+      // read as a gun cosmetically" reasoning CoinShop's setSkinAllGuns
+      // already applies to every other skin system.
+      // Combined into ONE toast rather than a separate one right after the
+      // Grandmaster toast below - two _showLoreToast calls in the same
+      // synchronous tick would silently clobber each other (shared
+      // single-element toast, see this project's own documented gotcha).
+      if (!w.melee) {
+        this.weaponMastery.heirlooms.add(weaponId)
+        this.weapons.setWeaponSkin(weaponId, 'heirloom')
+        this._showLoreToast(t('toastWeaponGrandmasteredHeirloom', { weapon: t(this.weapons._nameKeyFor(w)) }))
+      } else {
+        this._showLoreToast(t('toastWeaponGrandmastered', { weapon: t(this.weapons._nameKeyFor(w)) }))
+      }
     }
     saveMastery(this.weaponMastery)
   }
@@ -8150,8 +8299,9 @@ export class Game {
 
   // Shared by _onPlayerDeath and the survive-to-dawn/extraction win path -
   // both are "a run just ended" moments that should update every persistent
-  // record (bestStats, career totals, Veteran Perks) the same way.
-  _recordRunEnd() {
+  // record (bestStats, career totals, Veteran Perks) the same way. `survived`
+  // distinguishes the two for Run History's result column (see below).
+  _recordRunEnd(survived) {
     let improved = false
     if (this.night > this.bestStats.bestNight) {
       this.bestStats.bestNight = this.night
@@ -8176,6 +8326,42 @@ export class Game {
       if (this.careerStats.totalKills >= perk.killThreshold && !this.careerStats.veteranPerksGranted.includes(perk.id)) {
         this.careerStats.veteranPerksGranted.push(perk.id)
         this._showLoreToast(t('veteranPerkToast', { rank: t(careerRankTitleKey(this.careerStats.totalKills)) }))
+      }
+    }
+
+    // Run History Log - one capped entry per completed run (see
+    // RUN_HISTORY_KEY's own comment).
+    this.runHistory.unshift({ night: this.night, kills: this.kills, coins: this.coins, survived: !!survived, prestige: this.metaProgress.prestigeLevel, ts: Date.now() })
+    this.runHistory = this.runHistory.slice(0, RUN_HISTORY_MAX)
+    saveRunHistory(this.runHistory)
+
+    // Lifetime Playtime/Distance/Coins-Earned/Flawless-Runs (Long-Term Goals
+    // batch) - each a new cumulative axis on careerStats, checked against
+    // its own milestone ladder the same way Veteran Perks checks kills above.
+    this.careerStats.lifetimePlaytimeSeconds += (performance.now() - this.runStartedAt) / 1000
+    this.careerStats.lifetimeDistanceMeters += this._runDistanceTraveled
+    this.careerStats.lifetimeCoinsEarned += Math.max(0, this.coins - this._runStartCoins)
+    if (!Number.isFinite(this.lowestHealthThisRun)) this.careerStats.flawlessRunCount += 1
+
+    for (const m of PLAYTIME_MILESTONES) {
+      if (this.careerStats.lifetimePlaytimeSeconds >= m.seconds && !this.careerStats.playtimeMilestonesGranted.includes(m.id)) {
+        this.careerStats.playtimeMilestonesGranted.push(m.id)
+        this.coins += m.rewardCoins
+        this._showLoreToast(t('playtimeMilestoneToast', { hours: Math.round(m.seconds / 3600), coins: m.rewardCoins }))
+      }
+    }
+    for (const m of DISTANCE_MILESTONES) {
+      if (this.careerStats.lifetimeDistanceMeters >= m.meters && !this.careerStats.distanceMilestonesGranted.includes(m.id)) {
+        this.careerStats.distanceMilestonesGranted.push(m.id)
+        this.coins += m.rewardCoins
+        this._showLoreToast(t('distanceMilestoneToast', { km: Math.round(m.meters / 1000), coins: m.rewardCoins }))
+      }
+    }
+    for (const m of FLAWLESS_MILESTONES) {
+      if (this.careerStats.flawlessRunCount >= m.count && !this.careerStats.flawlessMilestonesGranted.includes(m.id)) {
+        this.careerStats.flawlessMilestonesGranted.push(m.id)
+        this.coins += m.rewardCoins
+        this._showLoreToast(t('flawlessMilestoneToast', { n: m.count, coins: m.rewardCoins }))
       }
     }
     saveCareerStats(this.careerStats)
@@ -8233,7 +8419,7 @@ export class Game {
       this._recordHardcoreMemorial()
     }
 
-    this._recordRunEnd()
+    this._recordRunEnd(false)
 
     const elapsed = formatTime(performance.now() - this.runStartedAt)
     this.deathStats.textContent = t('deathStats', { night: this.night, kills: this.kills, time: elapsed })
@@ -8437,6 +8623,27 @@ export class Game {
     // persistent "owned charms" set to count against).
     const cosmeticsOwned = this.ownedOutfits.size + this.ownedHats.size
     const cosmeticsTotal = COIN_SHOP_ITEMS.filter((i) => i.outfit || i.hat).length
+
+    // Hall of Records - a single completion % averaging 4 existing
+    // collection ratios (achievements/bestiary/cosmetics/weapon grandmaster)
+    // into one number none of those systems compute on their own. Checked
+    // here at display time, same "purely derived, no new tracking" pattern
+    // the prestigeUnlocked toggle in _renderUpgradesOptions already uses.
+    const totalGuns = this.weapons.weapons.filter((w) => !w.melee).length
+    const completionRatios = [
+      this.achievements.unlocked.size / ACHIEVEMENTS.length,
+      this.bestiaryEncountered.size / Object.values(ZOMBIE_TYPES).length,
+      cosmeticsTotal > 0 ? cosmeticsOwned / cosmeticsTotal : 0,
+      totalGuns > 0 ? this.weaponMastery.grandmastered.size / totalGuns : 0,
+    ]
+    const completionPct = Math.round((completionRatios.reduce((a, b) => a + b, 0) / completionRatios.length) * 100)
+    if (completionPct >= 100 && !this.careerStats.hallOfRecordsClaimed) {
+      this.careerStats.hallOfRecordsClaimed = true
+      saveCareerStats(this.careerStats)
+      this.coins += HALL_OF_RECORDS_REWARD_COINS
+      this._showLoreToast(t('hallOfRecordsToast', { coins: HALL_OF_RECORDS_REWARD_COINS }))
+    }
+
     const rows = [
       [t('profileTotalRuns'), this.careerStats.totalRuns],
       [t('profileTotalKills'), this.careerStats.totalKills],
@@ -8450,6 +8657,16 @@ export class Game {
       [t('profileSecretsFound'), this.secretsProgress.cachesDug + (this.secretsProgress.easterEggSeen ? 1 : 0)],
       [t('profileNetWorth'), this.coins + this.points + this.metaProgress.legacyPoints],
       [t('profileTotalSpent'), this.totalSpent],
+      // Long-Term Goals batch additions below.
+      [t('profileCompletionPct'), `${completionPct}%`],
+      [t('profilePlaytime'), `${Math.floor(this.careerStats.lifetimePlaytimeSeconds / 3600)}h`],
+      [t('profileDistance'), `${(this.careerStats.lifetimeDistanceMeters / 1000).toFixed(1)}km`],
+      [t('profileFlawlessRuns'), this.careerStats.flawlessRunCount],
+      // Career Almanac - derived favorite-weapon/avg-night/win-rate view,
+      // same "pure display, zero new tracking" reasoning as completionPct
+      // above, just reading weaponMastery.kills and bestStats instead.
+      [t('profileFavoriteWeapon'), this._favoriteWeaponLabel()],
+      [t('profileWinRate'), this.runHistory.length > 0 ? `${Math.round((this.runHistory.filter((r) => r.survived).length / this.runHistory.length) * 100)}%` : '—'],
     ]
     this.profileOptions.innerHTML = rows.map(([label, value]) => `
       <button class="perk-option" disabled>
@@ -8457,6 +8674,23 @@ export class Game {
         <span class="perk-cost">${value}</span>
       </button>
     `).join('')
+
+    // Run History Log - toggled list, collapsed by default so the panel
+    // doesn't open already showing 25 rows under the stat grid above.
+    if (this.profileRunHistoryBtn) {
+      this.profileRunHistoryBtn.textContent = t('profileRunHistoryBtn')
+      this.profileRunHistoryList.style.display = 'none'
+      this.profileRunHistoryList.innerHTML = this.runHistory.map((r) => `
+        <p class="run-history-entry">${t(r.survived ? 'runHistorySurvived' : 'runHistoryDied', { night: r.night, kills: r.kills, coins: r.coins })}</p>
+      `).join('') || `<p class="run-history-entry">${t('runHistoryEmpty')}</p>`
+    }
+
+    // Career Portrait - gated the same as Prestige (see _renderUpgradesOptions),
+    // "beaten the game" being the bar for a capstone memento worth keeping.
+    if (this.profileCareerPortraitBtn) {
+      this.profileCareerPortraitBtn.style.display = this.achievements.unlocked.has('true_ending') ? 'block' : 'none'
+      this.profileCareerPortraitBtn.textContent = t('profileCareerPortraitBtn')
+    }
 
     // Profile emblem picker - purely cosmetic, no unlock gate, chosen right
     // here since this is also where it's displayed.
@@ -8475,6 +8709,52 @@ export class Game {
 
   _closeProfilePanel() {
     this.profilePanel.style.display = 'none'
+  }
+
+  // Career Portrait (Long-Term Goals batch, gated behind true_ending - see
+  // _openProfilePanel) - draws straight from the live WebGL canvas rather
+  // than routing through screenshotCropImage's async <img> load like the
+  // manual screenshot tool does (see _buildScreenshotCanvas's own comment):
+  // that intermediate exists to support crop-selection UI, which this
+  // capstone memento doesn't need, so skipping it keeps this synchronous
+  // with no onload race. Still finishes through the shared
+  // _finalizeScreenshotCanvas so it gets the same watermark+download step.
+  _generateCareerPortrait() {
+    this.composer.render()
+    const canvas = document.createElement('canvas')
+    canvas.width = this.canvas.width
+    canvas.height = this.canvas.height
+    const ctx = canvas.getContext('2d')
+    ctx.drawImage(this.canvas, 0, 0)
+
+    const bannerH = Math.max(70, Math.round(canvas.height * 0.14))
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)'
+    ctx.fillRect(0, 0, canvas.width, bannerH)
+    ctx.fillStyle = '#ffffff'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'top'
+    const titleSize = Math.max(18, Math.round(canvas.width * 0.03))
+    ctx.font = `bold ${titleSize}px sans-serif`
+    ctx.fillText(t(careerRankTitleKey(this.careerStats.totalKills)), 16, 12)
+    const lineSize = Math.max(12, Math.round(canvas.width * 0.016))
+    ctx.font = `${lineSize}px sans-serif`
+    ctx.fillText(t('careerPortraitStatsLine', { kills: this.careerStats.totalKills, prestige: this.metaProgress.prestigeLevel, runs: this.careerStats.totalRuns }), 16, titleSize + 24)
+
+    this._finalizeScreenshotCanvas(canvas, 'download')
+  }
+
+  // Career Almanac helper (see _openProfilePanel) - the single highest kill
+  // tally in weaponMastery.kills, purely derived from data that system
+  // already tracks for the mastery/grandmaster thresholds.
+  _favoriteWeaponLabel() {
+    let bestId = null
+    let bestKills = 0
+    for (const [id, kills] of Object.entries(this.weaponMastery.kills)) {
+      if (kills > bestKills) { bestKills = kills; bestId = id }
+    }
+    if (!bestId) return t('profileFavoriteWeaponNone')
+    const w = this.weapons.weapons.find((w) => w.id === bestId)
+    return w ? t(this.weapons._nameKeyFor(w)) : bestId
   }
 
   // Nemesis system (see NEMESIS_KEY's own comment) - the nearest alive
@@ -10745,7 +11025,7 @@ export class Game {
     this.minimapWrap.style.display = 'none'
     this.extractionWrap.style.display = 'none'
 
-    this._recordRunEnd()
+    this._recordRunEnd(true)
 
     this.points += EXTRACTION_POINTS_BONUS
     this.coins += EXTRACTION_COINS_BONUS
@@ -11236,6 +11516,16 @@ export class Game {
     } else if (this.player.controls.isLocked && this.playerState.alive && !this.inventoryOpen && !this.perkPanelOpen && !this.traderPanelOpen && !this.xpLevelupPanelOpen && !this.mapOpen && !this.journalOpen) {
       this.player.update(dt)
       const playerPos = this.player.controls.object.position
+      // The Long Road (see _recordRunEnd) - lifetime ground-distance
+      // milestone. Horizontal only (x/z), so jumping in place doesn't
+      // count - ground actually covered, not vertical bobbing.
+      if (this._lastDistPos) {
+        this._runDistanceTraveled += Math.hypot(playerPos.x - this._lastDistPos.x, playerPos.z - this._lastDistPos.z)
+        this._lastDistPos.x = playerPos.x
+        this._lastDistPos.z = playerPos.z
+      } else {
+        this._lastDistPos = { x: playerPos.x, z: playerPos.z }
+      }
       this._updateThirdPerson()
       const isMoving = this.player.onGround && (
         this.player.input.forward || this.player.input.back ||
