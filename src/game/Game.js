@@ -2112,14 +2112,28 @@ function formatTime(ms) {
   return `${mm}:${ss}`
 }
 
-// Escapes player-entered text (the nickname field is the only place this
-// game lets someone type free-form text that later gets rendered via
-// innerHTML) before it goes into any template string, rather than
+// Escapes player-entered text (the nickname field, and - since the Local
+// Sharing batch - any name/text field that could round-trip through an
+// uploaded save file) before it goes into any template string, rather than
 // interpolating it raw.
 function _escapeHtml(str) {
   const div = document.createElement('div')
   div.textContent = str
   return div.innerHTML
+}
+
+// Coerces an untrusted value to a plain finite number before it's allowed
+// anywhere near an innerHTML template (see _compareSaveFile/
+// _updateHouseholdLeaderboardDisplay) - both read stat-shaped fields
+// (night/kills/bestNight/totalKills) that, unlike free-form name text
+// above, are supposed to always be numbers, so coercion is both the
+// correctness fix (a string here is already wrong data) and the security
+// fix (a coerced number can never carry markup) in one step. An uploaded
+// save file is fully attacker-controlled - nothing in it should reach
+// innerHTML unescaped or untyped.
+function _safeStatNumber(v) {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
 }
 
 export class Game {
@@ -5989,10 +6003,12 @@ export class Game {
     const otherCareer = safeParse(data['gayz-career-stats'], {})
     const otherAch = safeParse(data['gayz-achievements'], [])
     this.compareSaveResult.style.display = 'block'
+    // _safeStatNumber on every value read from the uploaded file - this
+    // file is fully attacker-controlled (see its own doc comment).
     this.compareSaveResult.innerHTML = [
-      t('compareSaveRow', { label: t('profileBestNight'), mine: this.bestStats.bestNight, theirs: otherBest.bestNight ?? 0 }),
-      t('compareSaveRow', { label: t('profileTotalKills'), mine: this.careerStats.totalKills, theirs: otherCareer.totalKills ?? 0 }),
-      t('compareSaveRow', { label: t('profileAchievements'), mine: this.achievements.unlocked.size, theirs: Array.isArray(otherAch) ? otherAch.length : 0 }),
+      t('compareSaveRow', { label: t('profileBestNight'), mine: _safeStatNumber(this.bestStats.bestNight), theirs: _safeStatNumber(otherBest.bestNight) }),
+      t('compareSaveRow', { label: t('profileTotalKills'), mine: _safeStatNumber(this.careerStats.totalKills), theirs: _safeStatNumber(otherCareer.totalKills) }),
+      t('compareSaveRow', { label: t('profileAchievements'), mine: _safeStatNumber(this.achievements.unlocked.size), theirs: _safeStatNumber(Array.isArray(otherAch) ? otherAch.length : 0) }),
     ].join('<br>')
   }
 
@@ -7903,8 +7919,12 @@ export class Game {
       return
     }
     this.menuHouseholdLeaderboard.style.display = ''
+    // night/kills also go through _safeStatNumber, not just name through
+    // _escapeHtml - entries here can arrive via Import Save (see its own
+    // doc comment), an uploaded file that's just as attacker-controlled as
+    // Compare Save's, not just from this game's own real gameplay.
     const rows = this.householdLeaderboard
-      .map((e, i) => `<div class="leaderboard-row"><span>#${i + 1} ${_escapeHtml(e.name)}</span><span>${t('hudNight', { n: e.night })}</span><span>${t('hudKills', { n: e.kills })}</span></div>`)
+      .map((e, i) => `<div class="leaderboard-row"><span>#${i + 1} ${_escapeHtml(e.name)}</span><span>${t('hudNight', { n: _safeStatNumber(e.night) })}</span><span>${t('hudKills', { n: _safeStatNumber(e.kills) })}</span></div>`)
       .join('')
     this.menuHouseholdLeaderboard.innerHTML = `<p class="menu-best-stats">${t('householdLeaderboardTitle')}</p>${rows}`
   }
@@ -7916,8 +7936,12 @@ export class Game {
       return
     }
     this.menuLeaderboard.style.display = ''
+    // _safeStatNumber - see its own doc comment. Import Save (Local
+    // Sharing batch) can write an arbitrary gayz-leaderboard value, so
+    // every render of persisted leaderboard data needs to treat it as
+    // untrusted, not just the 2 spots the batch's own new UI added.
     const rows = this.leaderboard
-      .map((e, i) => `<div class="leaderboard-row"><span>#${i + 1}</span><span>${t('hudNight', { n: e.night })}</span><span>${t('hudKills', { n: e.kills })}</span></div>`)
+      .map((e, i) => `<div class="leaderboard-row"><span>#${i + 1}</span><span>${t('hudNight', { n: _safeStatNumber(e.night) })}</span><span>${t('hudKills', { n: _safeStatNumber(e.kills) })}</span></div>`)
       .join('')
     this.menuLeaderboard.innerHTML = `<p class="menu-best-stats">${t('leaderboardTitle')}</p>${rows}`
   }
@@ -7934,7 +7958,7 @@ export class Game {
     }
     this.menuBossRushLeaderboard.style.display = ''
     const rows = this.bossRushLeaderboard
-      .map((e, i) => `<div class="leaderboard-row"><span>#${i + 1}</span><span>${t('hudNight', { n: e.night })}</span><span>${t('hudKills', { n: e.kills })}</span></div>`)
+      .map((e, i) => `<div class="leaderboard-row"><span>#${i + 1}</span><span>${t('hudNight', { n: _safeStatNumber(e.night) })}</span><span>${t('hudKills', { n: _safeStatNumber(e.kills) })}</span></div>`)
       .join('')
     this.menuBossRushLeaderboard.innerHTML = `<p class="menu-best-stats">${t('bossRushLeaderboardTitle')}</p>${rows}`
   }
@@ -7965,9 +7989,10 @@ export class Game {
     this.menuHardcoreMemorial.style.display = ''
     // e.name is player-entered text (the nickname field) - escaped rather
     // than interpolated raw, same as every other player-entered string
-    // this method now touches for nickname-color support.
+    // this method now touches for nickname-color support. night/kills go
+    // through _safeStatNumber for the same reason (see its own comment).
     const rows = this.hardcoreMemorial
-      .map((e) => `<div class="leaderboard-row"><span class="nickname-tag">${_escapeHtml(e.name)}</span><span>${t('hudNight', { n: e.night })}</span><span>${t('hudKills', { n: e.kills })}</span></div>`)
+      .map((e) => `<div class="leaderboard-row"><span class="nickname-tag">${_escapeHtml(e.name)}</span><span>${t('hudNight', { n: _safeStatNumber(e.night) })}</span><span>${t('hudKills', { n: _safeStatNumber(e.kills) })}</span></div>`)
       .join('')
     this.menuHardcoreMemorial.innerHTML = `<p class="menu-best-stats">${t('hardcoreMemorialTitle')}</p>${rows}`
   }
@@ -9333,28 +9358,34 @@ export class Game {
       this._showLoreToast(t('hallOfRecordsToast', { coins: HALL_OF_RECORDS_REWARD_COINS }))
     }
 
+    // _safeStatNumber on every plain-numeric field, _escapeHtml on the 2
+    // computed-string ones (nemesis label, favorite weapon's unmatched-id
+    // fallback) - every field in this grid ultimately traces back to
+    // localStorage, all of which Import Save (Local Sharing batch) lets an
+    // uploaded file overwrite wholesale, so none of it can be trusted to
+    // already be the right type by the time it reaches this render.
     const rows = [
-      [t('profileTotalRuns'), this.careerStats.totalRuns],
-      [t('profileTotalKills'), this.careerStats.totalKills],
-      [t('profileBestNight'), this.bestStats.bestNight],
-      [t('profileBestKills'), this.bestStats.bestKills],
-      [t('profileBestKillStreak'), this.bestStats.bestKillStreak],
+      [t('profileTotalRuns'), _safeStatNumber(this.careerStats.totalRuns)],
+      [t('profileTotalKills'), _safeStatNumber(this.careerStats.totalKills)],
+      [t('profileBestNight'), _safeStatNumber(this.bestStats.bestNight)],
+      [t('profileBestKills'), _safeStatNumber(this.bestStats.bestKills)],
+      [t('profileBestKillStreak'), _safeStatNumber(this.bestStats.bestKillStreak)],
       [t('profileAchievements'), `${this.achievements.unlocked.size}/${ACHIEVEMENTS.length}`],
       [t('profileCosmetics'), `${cosmeticsOwned}/${cosmeticsTotal}`],
-      [t('profilePrestige'), this.metaProgress.prestigeLevel],
-      [t('profileNemesisLabel'), this.nemesis ? t('profileNemesisValue', { name: this.nemesis.label, n: this.nemesis.night }) : t('profileNemesisNone')],
-      [t('profileSecretsFound'), this.secretsProgress.cachesDug + (this.secretsProgress.easterEggSeen ? 1 : 0)],
-      [t('profileNetWorth'), this.coins + this.points + this.metaProgress.legacyPoints],
-      [t('profileTotalSpent'), this.totalSpent],
+      [t('profilePrestige'), _safeStatNumber(this.metaProgress.prestigeLevel)],
+      [t('profileNemesisLabel'), this.nemesis ? t('profileNemesisValue', { name: _escapeHtml(this.nemesis.label), n: _safeStatNumber(this.nemesis.night) }) : t('profileNemesisNone')],
+      [t('profileSecretsFound'), _safeStatNumber(this.secretsProgress.cachesDug) + (this.secretsProgress.easterEggSeen ? 1 : 0)],
+      [t('profileNetWorth'), _safeStatNumber(this.coins) + _safeStatNumber(this.points) + _safeStatNumber(this.metaProgress.legacyPoints)],
+      [t('profileTotalSpent'), _safeStatNumber(this.totalSpent)],
       // Long-Term Goals batch additions below.
       [t('profileCompletionPct'), `${completionPct}%`],
-      [t('profilePlaytime'), `${Math.floor(this.careerStats.lifetimePlaytimeSeconds / 3600)}h`],
-      [t('profileDistance'), `${(this.careerStats.lifetimeDistanceMeters / 1000).toFixed(1)}km`],
-      [t('profileFlawlessRuns'), this.careerStats.flawlessRunCount],
+      [t('profilePlaytime'), `${Math.floor(_safeStatNumber(this.careerStats.lifetimePlaytimeSeconds) / 3600)}h`],
+      [t('profileDistance'), `${(_safeStatNumber(this.careerStats.lifetimeDistanceMeters) / 1000).toFixed(1)}km`],
+      [t('profileFlawlessRuns'), _safeStatNumber(this.careerStats.flawlessRunCount)],
       // Career Almanac - derived favorite-weapon/avg-night/win-rate view,
       // same "pure display, zero new tracking" reasoning as completionPct
       // above, just reading weaponMastery.kills and bestStats instead.
-      [t('profileFavoriteWeapon'), this._favoriteWeaponLabel()],
+      [t('profileFavoriteWeapon'), _escapeHtml(this._favoriteWeaponLabel())],
       [t('profileWinRate'), this.runHistory.length > 0 ? `${Math.round((this.runHistory.filter((r) => r.survived).length / this.runHistory.length) * 100)}%` : '—'],
     ]
     this.profileOptions.innerHTML = rows.map(([label, value]) => `
@@ -9369,8 +9400,11 @@ export class Game {
     if (this.profileRunHistoryBtn) {
       this.profileRunHistoryBtn.textContent = t('profileRunHistoryBtn')
       this.profileRunHistoryList.style.display = 'none'
+      // _safeStatNumber - runHistory is importable via Import Save (Local
+      // Sharing batch), so this needs the same untrusted-data treatment as
+      // every other leaderboard render in this file.
       this.profileRunHistoryList.innerHTML = this.runHistory.map((r) => `
-        <p class="run-history-entry">${t(r.survived ? 'runHistorySurvived' : 'runHistoryDied', { night: r.night, kills: r.kills, coins: r.coins })}</p>
+        <p class="run-history-entry">${t(r.survived ? 'runHistorySurvived' : 'runHistoryDied', { night: _safeStatNumber(r.night), kills: _safeStatNumber(r.kills), coins: _safeStatNumber(r.coins) })}</p>
       `).join('') || `<p class="run-history-entry">${t('runHistoryEmpty')}</p>`
     }
 
@@ -9499,7 +9533,9 @@ export class Game {
       return
     }
     this.dailyLeaderboardEl.style.display = ''
-    const rows = this.dailyLeaderboard.scores.map((s, i) => `<p class="menu-best-stats">${i + 1}. ${s}</p>`).join('')
+    // _safeStatNumber - same untrusted-after-Import-Save reasoning as
+    // every other leaderboard render in this file (see its own comment).
+    const rows = this.dailyLeaderboard.scores.map((s, i) => `<p class="menu-best-stats">${i + 1}. ${_safeStatNumber(s)}</p>`).join('')
     this.dailyLeaderboardEl.innerHTML = `<p class="menu-best-stats">${t('dailyLeaderboardTitle')}</p>${rows}`
   }
 
