@@ -2465,6 +2465,25 @@ body.reduce-flashing #critical-blood-overlay.show {
   box-shadow: 0 1px 0 #8a621c, 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
+/* Fixed + transform-centered so it sits exactly in the middle of the
+   viewport, but only where there's actually room: below this height the
+   hero column's own content (hint text, controls list) runs into it, so
+   shorter screens keep the safe in-flow position above instead. */
+@media (min-height: 900px) {
+  #play-btn {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 5;
+    margin-top: 0;
+  }
+
+  #play-btn:active {
+    transform: translate(-50%, calc(-50% + 3px));
+  }
+}
+
 #settings-btn {
   display: flex;
   align-items: center;

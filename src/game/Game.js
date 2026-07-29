@@ -3642,6 +3642,13 @@ export class Game {
       this.screenFadeEl.classList.remove('show')
       void this.screenFadeEl.offsetWidth
       this.screenFadeEl.classList.add('show')
+      // Hide the menu right here rather than waiting on the pointer-lock
+      // 'lock' event further down - _openTraitDrawPanel() (below) can show
+      // its own panel for a while before the player picks a trait and
+      // player.controls.lock() is finally called on that choice, and until
+      // now the still-fully-visible menu bled through that panel's 90%-
+      // opacity backdrop the entire time it was up.
+      this.menu.style.display = 'none'
       // FPS/coords debug readout - hidden on the menu, fades in once real
       // gameplay starts (see their own opacity/transition setup).
       this.fpsEl.style.opacity = '1'
