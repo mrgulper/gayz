@@ -287,9 +287,12 @@
         <p class="menu-best-stats" id="menu-prestige-badge" style="display: none"></p>
         <div id="menu-leaderboard" style="display: none"></div>
         <div id="menu-bossrush-leaderboard" style="display: none"></div>
+        <div id="menu-household-leaderboard" style="display: none"></div>
         <div id="menu-hardcore-memorial" style="display: none"></div>
+        <button id="accept-challenge-btn" style="display: none"></button>
         <input type="text" id="nickname-input" class="nickname-input" placeholder="Your nickname" maxlength="16" />
         <input type="text" id="companion-name-input" class="nickname-input" placeholder="Companion name (optional)" maxlength="16" />
+        <input type="text" id="challenge-code-input" class="nickname-input" placeholder="Challenge code (optional)" maxlength="24" />
         <div class="difficulty-row" id="difficulty-row">
           <button class="difficulty-btn" data-difficulty="easy" id="diff-easy">Easy</button>
           <button class="difficulty-btn active" data-difficulty="normal" id="diff-normal">Normal</button>
@@ -316,6 +319,10 @@
           <label class="score-attack-toggle" for="hardcore-toggle">
             <input type="checkbox" id="hardcore-toggle" />
             <span id="hardcore-label">Hardcore Mode (no respawn)</span>
+          </label>
+          <label class="score-attack-toggle" for="guest-mode-toggle">
+            <input type="checkbox" id="guest-mode-toggle" />
+            <span id="guest-mode-label">Guest Mode (don't save this run's stats)</span>
           </label>
           <label class="score-attack-toggle" for="mutator-horde-rush">
             <input type="checkbox" id="mutator-horde-rush" />
@@ -510,6 +517,16 @@
           <div id="controls-grid" class="controls-grid"></div>
           <button id="reset-binds-btn">Reset to Defaults</button>
           <button id="restore-defaults-btn">Restore Default Settings</button>
+          <div id="local-sharing-section">
+            <p id="storage-usage-line"></p>
+            <button id="export-save-btn">Export Save</button>
+            <button id="import-save-btn">Import Save</button>
+            <input type="file" id="import-save-input" accept="application/json" style="display: none" />
+            <button id="compare-save-btn">Compare Save</button>
+            <input type="file" id="compare-save-input" accept="application/json" style="display: none" />
+            <p id="compare-save-result" style="display: none"></p>
+            <button id="clear-leaderboards-btn">Clear Leaderboards Only</button>
+          </div>
           <button id="reset-progress-btn" class="danger-btn">Reset All Progress</button>
         </div>
 
@@ -528,6 +545,7 @@
         <p id="death-daily" class="menu-best-stats" style="display: none"></p>
         <div id="death-daily-leaderboard" style="display: none"></div>
         <button id="share-run-card-btn">Share Run Card</button>
+        <button id="copy-text-recap-btn">Copy Text Recap</button>
         <button id="respawn-btn">Respawn</button>
       </div>
 
@@ -573,6 +591,11 @@
         <div class="inv-panel-section" id="panel-weapons-list"></div>
         <h2 id="loadout-presets-title">Loadouts</h2>
         <div class="inv-panel-section" id="panel-loadout-presets"></div>
+        <div id="loadout-code-row">
+          <button id="copy-loadout-code-btn">Copy Loadout Code</button>
+          <input type="text" id="loadout-code-input" placeholder="Paste a loadout code" maxlength="40" />
+          <button id="apply-loadout-code-btn">Apply</button>
+        </div>
         <p id="inventory-hint">Press TAB to close</p>
       </div>
 
@@ -658,8 +681,10 @@
         <div id="profile-run-history-list" style="display: none"></div>
         <button id="profile-career-portrait-btn" style="display: none">Save Career Portrait</button>
         <button id="profile-copy-stats-btn">Copy Stats</button>
+        <button id="profile-print-btn">Print Stats Sheet</button>
         <button id="profile-close-btn">Close</button>
       </div>
+      <div id="print-stats-sheet"></div>
 
       <div id="credits-panel">
         <h2 id="credits-panel-title">Credits &amp; What's New</h2>

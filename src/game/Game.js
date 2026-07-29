@@ -212,6 +212,11 @@ function loadSettings() {
       companionRole: ['melee', 'medic'].includes(parsed.companionRole) ? parsed.companionRole : 'ranged',
       scoreAttackMode: parsed.scoreAttackMode ?? false,
       hardcoreMode: parsed.hardcoreMode ?? false,
+      // Guest Mode (Local Sharing batch) - lets someone else play a run on
+      // this save without it touching bestStats/careerStats/leaderboards
+      // (see _recordRunEnd's own guard), so a shared/borrowed computer's
+      // owner doesn't get their stats muddied by a one-off guest run.
+      guestMode: parsed.guestMode ?? false,
       endlessMode: parsed.endlessMode ?? false,
       loadout: LOADOUT_PRESETS[parsed.loadout] ? parsed.loadout : 'balanced',
       // 5-slot hotbar (see Game.js's _bindHotbar) - a weapon id per slot,
@@ -255,7 +260,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, profileEmblem: 'none', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, profileEmblem: 'none', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -881,6 +886,55 @@ function saveBossRushLeaderboard(entries) {
     localStorage.setItem(BOSS_RUSH_LEADERBOARD_KEY, JSON.stringify(entries))
   } catch {
     // Storage unavailable - leaderboard just won't persist across sessions.
+  }
+}
+
+// Household Leaderboard (Local Sharing batch) - same shape as the main
+// leaderboard above, but keyed by settings.nickname per entry, so multiple
+// people sharing one browser/computer can compare runs against EACH OTHER
+// by name, not just against their own single best. Guest Mode runs never
+// reach this (see _recordRunEnd's own guard) - a guest's scores shouldn't
+// crowd out the household's own names.
+const HOUSEHOLD_LEADERBOARD_KEY = 'gayz-household-leaderboard'
+const HOUSEHOLD_LEADERBOARD_MAX = 10
+
+function loadHouseholdLeaderboard() {
+  try {
+    const raw = localStorage.getItem(HOUSEHOLD_LEADERBOARD_KEY)
+    const parsed = raw ? JSON.parse(raw) : []
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function saveHouseholdLeaderboard(entries) {
+  try {
+    localStorage.setItem(HOUSEHOLD_LEADERBOARD_KEY, JSON.stringify(entries))
+  } catch {
+    // Storage unavailable - leaderboard just won't persist across sessions.
+  }
+}
+
+// Pass-the-Controller Challenge (Local Sharing batch) - a single stored
+// snapshot (not a list) of the most recent run's config, offered to
+// whoever plays next via #accept-challenge-btn (see _updateAcceptChallengeButton).
+const CHALLENGE_HANDOFF_KEY = 'gayz-challenge-handoff'
+
+function loadChallengeHandoff() {
+  try {
+    const raw = localStorage.getItem(CHALLENGE_HANDOFF_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+function saveChallengeHandoff(handoff) {
+  try {
+    localStorage.setItem(CHALLENGE_HANDOFF_KEY, JSON.stringify(handoff))
+  } catch {
+    // Storage unavailable - the challenge handoff just won't persist.
   }
 }
 
@@ -2308,6 +2362,7 @@ export class Game {
     this.weeklyFeaturedMutatorLine = document.getElementById('weekly-featured-mutator-line')
     this.menuLeaderboard = document.getElementById('menu-leaderboard')
     this.menuBossRushLeaderboard = document.getElementById('menu-bossrush-leaderboard')
+    this.menuHouseholdLeaderboard = document.getElementById('menu-household-leaderboard')
     this.menuHardcoreMemorial = document.getElementById('menu-hardcore-memorial')
     this.difficultyBtns = document.querySelectorAll('.difficulty-btn')
     this.roleBtns = document.querySelectorAll('.role-btn')
@@ -2348,8 +2403,10 @@ export class Game {
     this.companionColorPicker = document.getElementById('companion-color-picker')
     this.nicknameInput = document.getElementById('nickname-input')
     this.companionNameInput = document.getElementById('companion-name-input')
+    this.challengeCodeInput = document.getElementById('challenge-code-input')
     this.scoreAttackToggle = document.getElementById('score-attack-toggle')
     this.hardcoreToggle = document.getElementById('hardcore-toggle')
+    this.guestModeToggle = document.getElementById('guest-mode-toggle')
     this.endlessToggle = document.getElementById('endless-toggle')
     this.mutatorHordeRush = document.getElementById('mutator-horde-rush')
     this.mutatorLootRush = document.getElementById('mutator-loot-rush')
@@ -2371,6 +2428,22 @@ export class Game {
     this.restoreDefaultsBtn = document.getElementById('restore-defaults-btn')
     this.resetProgressBtn = document.getElementById('reset-progress-btn')
     this._resetProgressArmed = false
+    // Local Sharing batch.
+    this.exportSaveBtn = document.getElementById('export-save-btn')
+    this.importSaveBtn = document.getElementById('import-save-btn')
+    this.importSaveInput = document.getElementById('import-save-input')
+    this.compareSaveBtn = document.getElementById('compare-save-btn')
+    this.compareSaveInput = document.getElementById('compare-save-input')
+    this.compareSaveResult = document.getElementById('compare-save-result')
+    this.storageUsageLine = document.getElementById('storage-usage-line')
+    this.clearLeaderboardsBtn = document.getElementById('clear-leaderboards-btn')
+    this.profilePrintBtn = document.getElementById('profile-print-btn')
+    this.printStatsSheet = document.getElementById('print-stats-sheet')
+    this.copyTextRecapBtn = document.getElementById('copy-text-recap-btn')
+    this.acceptChallengeBtn = document.getElementById('accept-challenge-btn')
+    this.copyLoadoutCodeBtn = document.getElementById('copy-loadout-code-btn')
+    this.loadoutCodeInput = document.getElementById('loadout-code-input')
+    this.applyLoadoutCodeBtn = document.getElementById('apply-loadout-code-btn')
     this.screenFadeEl = document.getElementById('screen-fade')
     this.cinematicBarsEl = document.getElementById('cinematic-bars')
     this.tutorialHintEl = document.getElementById('tutorial-hint')
@@ -2391,6 +2464,7 @@ export class Game {
     this.narrativeStats = loadNarrativeStats()
     this.loginStreak = loadLoginStreak()
     this.leaderboard = loadLeaderboard()
+    this.householdLeaderboard = loadHouseholdLeaderboard()
     this.bossRushLeaderboard = loadBossRushLeaderboard()
     this.hardcoreMemorial = loadHardcoreMemorial()
     this.dailyBest = loadDailyBest()
@@ -2398,6 +2472,12 @@ export class Game {
     this.dailyChallengeActive = false
     this.dailyDamageMult = 1
     this.dailyTwist = null
+    // Custom Challenge Code (Local Sharing batch, see the Play-button
+    // handler's own comment) - read from #challenge-code-input at Play
+    // time, not tied to any settings toggle.
+    this._pendingChallengeCode = ''
+    this.challengeCodeActive = false
+    this.challengeCodeTwist = null
     this.bestRunPace = loadBestRunPace()
     this.deathMemorials = loadDeathMemorials()
     this.nemesis = loadNemesis()
@@ -3556,6 +3636,20 @@ export class Game {
         this.dailyDamageMult = this.dailyTwist.damageMult
         spawnMult *= this.dailyTwist.spawnMult
       }
+      // Custom Challenge Code (Local Sharing batch) - same twist-selection
+      // mechanism as Daily Challenge above (_dailyTwistIndex is a generic
+      // string hash, not date-specific), just keyed off a typed code
+      // instead of today's date, and deliberately NOT wired into
+      // dailyChallengeActive/dailyBest - that pool compares same-day runs
+      // against each other, and mixing a shareable custom code into it
+      // would compare two different things under one leaderboard.
+      this.challengeCodeActive = !!this._pendingChallengeCode
+      if (this.challengeCodeActive) {
+        this.challengeCodeTwist = DAILY_TWISTS[_dailyTwistIndex(this._pendingChallengeCode)]
+        this.dailyDamageMult = this.challengeCodeTwist.damageMult
+        spawnMult *= this.challengeCodeTwist.spawnMult
+        this._showLoreToast(t('challengeCodeApplied', { twist: t(this.challengeCodeTwist.nameKey) }))
+      }
       if (spawnMult !== this.difficulty.spawnRateMult) this.zombies.setDifficultyMultiplier(spawnMult)
       if (this.settings.mutators.hordeMode) this.zombies.setHordeMode(true)
       if (this.settings.mutators.bossRush) this.zombies.bossRushMode = true
@@ -3637,7 +3731,7 @@ export class Game {
       // state (points, inventory, kills...) while keeping everything that's
       // meant to be permanent (settings, achievements, legacy points,
       // bestiary, best stats), since those all live in localStorage anyway.
-      if (this.settings.hardcoreMode || (this.dailyChallengeActive && this.dailyTwist.forceHardcore)) {
+      if (this._isForceHardcore()) {
         window.location.reload()
         return
       }
@@ -5623,6 +5717,12 @@ export class Game {
       saveSettings(this.settings)
     })
 
+    this.guestModeToggle.checked = this.settings.guestMode
+    this.guestModeToggle.addEventListener('change', () => {
+      this.settings.guestMode = this.guestModeToggle.checked
+      saveSettings(this.settings)
+    })
+
     this.endlessToggle.checked = this.settings.endlessMode
     this.endlessToggle.addEventListener('change', () => {
       this.settings.endlessMode = this.endlessToggle.checked
@@ -5718,6 +5818,12 @@ export class Game {
       saveSettings(this.settings)
       this._updateCompanionName()
     })
+    // Challenge code - deliberately NOT persisted to settings (unlike
+    // nickname/companion name above) - it's a one-shot, typed-fresh-each-
+    // time code, not a standing preference.
+    this.challengeCodeInput.addEventListener('input', () => {
+      this._pendingChallengeCode = this.challengeCodeInput.value.trim()
+    })
 
     this.settingsBtn.addEventListener('click', () => this._toggleSettings(!this.settingsOpen))
     this.upgradesBtn.addEventListener('click', () => this._openUpgradesPanel())
@@ -5737,7 +5843,14 @@ export class Game {
       })
     }
     if (this.profileCareerPortraitBtn) this.profileCareerPortraitBtn.addEventListener('click', () => this._generateCareerPortrait())
+    if (this.profilePrintBtn) this.profilePrintBtn.addEventListener('click', () => this._printProfile())
     this.shareRunCardBtn.addEventListener('click', () => this._generateRunSummaryCard())
+    if (this.copyTextRecapBtn) this.copyTextRecapBtn.addEventListener('click', () => this._copyTextRecap())
+    if (this.acceptChallengeBtn) this.acceptChallengeBtn.addEventListener('click', () => this._acceptChallenge())
+    if (this.copyLoadoutCodeBtn) this.copyLoadoutCodeBtn.addEventListener('click', () => this._copyLoadoutCode())
+    if (this.applyLoadoutCodeBtn) {
+      this.applyLoadoutCodeBtn.addEventListener('click', () => this._applyLoadoutCode(this.loadoutCodeInput.value))
+    }
     this.creditsBtn.addEventListener('click', () => this._openCreditsPanel())
     this.creditsCloseBtn.addEventListener('click', () => this._closeCreditsPanel())
     this.coinshopBtn.addEventListener('click', () => this._openCoinShopPanel())
@@ -5767,6 +5880,13 @@ export class Game {
       this._renderControlsGrid()
     })
     this.restoreDefaultsBtn.addEventListener('click', () => this._restoreDefaultSettings())
+    this._updateStorageUsageLine()
+    this.exportSaveBtn.addEventListener('click', () => this._exportSave())
+    this.importSaveBtn.addEventListener('click', () => this.importSaveInput.click())
+    this.importSaveInput.addEventListener('change', () => this._importSaveFile(this.importSaveInput.files[0]))
+    this.compareSaveBtn.addEventListener('click', () => this.compareSaveInput.click())
+    this.compareSaveInput.addEventListener('change', () => this._compareSaveFile(this.compareSaveInput.files[0]))
+    this.clearLeaderboardsBtn.addEventListener('click', () => this._clearLeaderboardsOnly())
     this.resetProgressBtn.addEventListener('click', () => this._handleResetProgressClick())
   }
 
@@ -5800,6 +5920,202 @@ export class Game {
     }
     localStorage.clear()
     window.location.reload()
+  }
+
+  // Local Sharing batch - Save Export/Import/Compare, all built on the
+  // exact same "this page uses localStorage for nothing else" fact
+  // _handleResetProgressClick's own comment already documents - a full
+  // backup is just every key/value pair, no need to enumerate every
+  // individual system's own storage key.
+  _exportSave() {
+    const data = {}
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      data[key] = localStorage.getItem(key)
+    }
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' })
+    const link = document.createElement('a')
+    link.download = `gayz-save-${Date.now()}.json`
+    link.href = URL.createObjectURL(blob)
+    link.click()
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000)
+    this._showLoreToast(t('saveExported'))
+  }
+
+  // Overwrites every current key - same "irreversible, needs a real
+  // confirm dialog" bar as Prestige/Respec, plus a full reload afterward
+  // (same reasoning _handleResetProgressClick's own comment gives for
+  // Reset Progress - every system reads its state fresh from localStorage
+  // at construction, not via some live-refresh path).
+  async _importSaveFile(file) {
+    if (!file) return
+    let data
+    try {
+      data = JSON.parse(await file.text())
+    } catch {
+      this._showLoreToast(t('saveFileInvalid'))
+      return
+    }
+    if (!window.confirm(t('saveImportConfirm'))) return
+    localStorage.clear()
+    for (const [key, value] of Object.entries(data)) localStorage.setItem(key, value)
+    window.location.reload()
+  }
+
+  // Read-only - parses another save file WITHOUT writing anything, just to
+  // show a side-by-side stat comparison (e.g. two family members comparing
+  // progress without either one's save getting overwritten). Reads the
+  // same 3 storage keys BEST_STATS_KEY/CAREER_STATS_KEY/Achievements'
+  // STORAGE_KEY directly out of the parsed JSON rather than through
+  // loadBestStats() etc., since those functions read from the REAL
+  // localStorage, not this uploaded file.
+  async _compareSaveFile(file) {
+    if (!file || !this.compareSaveResult) return
+    let data
+    try {
+      data = JSON.parse(await file.text())
+    } catch {
+      this._showLoreToast(t('saveFileInvalid'))
+      return
+    }
+    const safeParse = (raw, fallback) => {
+      try {
+        return raw ? JSON.parse(raw) : fallback
+      } catch {
+        return fallback
+      }
+    }
+    const otherBest = safeParse(data['gayz-best-stats'], {})
+    const otherCareer = safeParse(data['gayz-career-stats'], {})
+    const otherAch = safeParse(data['gayz-achievements'], [])
+    this.compareSaveResult.style.display = 'block'
+    this.compareSaveResult.innerHTML = [
+      t('compareSaveRow', { label: t('profileBestNight'), mine: this.bestStats.bestNight, theirs: otherBest.bestNight ?? 0 }),
+      t('compareSaveRow', { label: t('profileTotalKills'), mine: this.careerStats.totalKills, theirs: otherCareer.totalKills ?? 0 }),
+      t('compareSaveRow', { label: t('profileAchievements'), mine: this.achievements.unlocked.size, theirs: Array.isArray(otherAch) ? otherAch.length : 0 }),
+    ].join('<br>')
+  }
+
+  _updateStorageUsageLine() {
+    if (!this.storageUsageLine) return
+    let totalChars = 0
+    let count = 0
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      totalChars += key.length + (localStorage.getItem(key) || '').length
+      count++
+    }
+    this.storageUsageLine.textContent = t('storageUsageLine', { kb: (totalChars / 1024).toFixed(1), count })
+  }
+
+  // Narrower than Reset All Progress below - only the leaderboard-shaped
+  // records, leaves achievements/mastery/meta-progress/etc untouched.
+  _clearLeaderboardsOnly() {
+    if (!window.confirm(t('clearLeaderboardsConfirm'))) return
+    localStorage.removeItem(LEADERBOARD_KEY)
+    localStorage.removeItem(BOSS_RUSH_LEADERBOARD_KEY)
+    localStorage.removeItem(HOUSEHOLD_LEADERBOARD_KEY)
+    localStorage.removeItem(DAILY_LEADERBOARD_KEY)
+    window.location.reload()
+  }
+
+  // Print Stats Sheet - reuses profileOptions' already-rendered innerHTML
+  // (this button only exists inside the open Profile panel, so it's always
+  // populated by the time this can be clicked) rather than recomputing the
+  // same rows a second time. #print-stats-sheet is hidden on-screen and
+  // only shown by the @media print rule in style.css.
+  _printProfile() {
+    if (!this.printStatsSheet) return
+    this.printStatsSheet.innerHTML = `<h1>${t('printSheetTitle')}</h1>${this.profileOptions.innerHTML}`
+    window.print()
+  }
+
+  // Text Recap - a pure-text, Wordle-style shareable summary (no image),
+  // distinct from the Sharing & Content Tools batch's screenshot/clipboard-
+  // image tools - pastes cleanly into SMS/Discord/anywhere that doesn't
+  // support image paste.
+  _copyTextRecap() {
+    const text = t('textRecapTemplate', { night: this.night, kills: this.kills, rank: t(careerRankTitleKey(this.careerStats.totalKills)) })
+    if (!navigator.clipboard) {
+      this._showLoreToast(t('clipboardCopyUnsupported'))
+      return
+    }
+    navigator.clipboard.writeText(text)
+      .then(() => this._showLoreToast(t('clipboardCopySuccess')))
+      .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
+  }
+
+  // Pass-the-Controller Challenge - captures the exact config a run was
+  // played under so whoever plays next (same session or a different local
+  // player) can accept the identical difficulty/mutators with one click,
+  // rather than needing to be told or guess the settings verbally.
+  _captureChallengeHandoff() {
+    saveChallengeHandoff({
+      name: this.settings.nickname || t('householdAnonymous'),
+      night: this.night,
+      kills: this.kills,
+      difficulty: this.settings.difficulty,
+      mutators: { ...this.settings.mutators },
+    })
+  }
+
+  _updateAcceptChallengeButton() {
+    if (!this.acceptChallengeBtn) return
+    const handoff = loadChallengeHandoff()
+    if (!handoff) {
+      this.acceptChallengeBtn.style.display = 'none'
+      return
+    }
+    this.acceptChallengeBtn.style.display = ''
+    this.acceptChallengeBtn.textContent = t('acceptChallengeBtn', { name: handoff.name, night: handoff.night })
+  }
+
+  // Applies via settings + a reload rather than live-patching every
+  // difficulty/mutator checkbox in the menu by hand - this project's own
+  // per-mutator checkboxes are each their own named field (mutatorHordeRush,
+  // mutatorLootRush, ...), not a generic map, and every one of them already
+  // syncs its .checked state from settings at construction time. A reload
+  // gets that sync for free and correctly, instead of re-deriving it here.
+  _acceptChallenge() {
+    const handoff = loadChallengeHandoff()
+    if (!handoff) return
+    this.settings.difficulty = handoff.difficulty
+    this.settings.mutators = { ...this.settings.mutators, ...handoff.mutators }
+    saveSettings(this.settings)
+    window.location.reload()
+  }
+
+  // Shareable Loadout Code - encodes the current 5-slot hotbar (weapon ids
+  // only, same array shape as settings.hotbar/hotbarPresets) as a short
+  // delimited string, no new dependency needed for something this simple.
+  _copyLoadoutCode() {
+    const code = this.settings.hotbar.map((id) => id || '_').join('-')
+    if (!navigator.clipboard) {
+      this._showLoreToast(t('clipboardCopyUnsupported'))
+      return
+    }
+    navigator.clipboard.writeText(code)
+      .then(() => this._showLoreToast(t('loadoutCodeCopied')))
+      .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
+  }
+
+  _applyLoadoutCode(code) {
+    const ids = code.trim().split('-').map((s) => (s === '_' ? null : s))
+    if (ids.length !== this.settings.hotbar.length) {
+      this._showLoreToast(t('loadoutCodeInvalid'))
+      return
+    }
+    const validIds = new Set(this.weapons.weapons.map((w) => w.id))
+    for (const id of ids) {
+      if (id !== null && !validIds.has(id)) {
+        this._showLoreToast(t('loadoutCodeInvalid'))
+        return
+      }
+    }
+    this.settings.hotbar = ids
+    saveSettings(this.settings)
+    this._updateHotbarHud()
+    this._showLoreToast(t('loadoutCodeApplied'))
   }
 
   _renderControlsGrid() {
@@ -7386,6 +7702,13 @@ export class Game {
     document.getElementById('tab-controls').textContent = t('tabControls')
     this.resetBindsBtn.textContent = t('resetBinds')
     this._renderControlsGrid()
+    // Local Sharing batch - static settings-panel labels.
+    this.exportSaveBtn.textContent = t('exportSaveBtn')
+    this.importSaveBtn.textContent = t('importSaveBtn')
+    this.compareSaveBtn.textContent = t('compareSaveBtn')
+    this.clearLeaderboardsBtn.textContent = t('clearLeaderboardsBtn')
+    document.getElementById('guest-mode-label').textContent = t('guestModeLabel')
+    this._updateStorageUsageLine()
     document.getElementById('music-label').textContent = t('musicLabel')
     document.getElementById('sfx-label').textContent = t('sfxLabel')
     document.getElementById('sensitivity-label').textContent = t('sensitivityLabel')
@@ -7482,6 +7805,8 @@ export class Game {
     this._updateBestStatsDisplay()
     this._updateLeaderboardDisplay()
     this._updateBossRushLeaderboardDisplay()
+    this._updateHouseholdLeaderboardDisplay()
+    this._updateAcceptChallengeButton()
     this._updateHardcoreMemorialDisplay()
     if (this.inventoryOpen) this._refreshInventoryPanel()
     this._updateProgressHud()
@@ -7558,6 +7883,30 @@ export class Game {
       saveBossRushLeaderboard(this.bossRushLeaderboard)
     }
     this._updateBossRushLeaderboardDisplay()
+
+    // Household Leaderboard (Local Sharing batch) - same entry shape plus
+    // a name, so multiple people sharing this browser can tell whose run
+    // was whose. Falls back to a plain label rather than skipping the
+    // entry outright when nobody's typed a nickname.
+    this.householdLeaderboard.push({ name: this.settings.nickname || t('householdAnonymous'), night: this.night, kills: this.kills, points: this.points, date: Date.now() })
+    this.householdLeaderboard.sort((a, b) => (b.night - a.night) || (b.kills - a.kills) || (b.points - a.points))
+    this.householdLeaderboard = this.householdLeaderboard.slice(0, HOUSEHOLD_LEADERBOARD_MAX)
+    saveHouseholdLeaderboard(this.householdLeaderboard)
+    this._updateHouseholdLeaderboardDisplay()
+  }
+
+  _updateHouseholdLeaderboardDisplay() {
+    if (!this.menuHouseholdLeaderboard) return
+    if (this.householdLeaderboard.length === 0) {
+      this.menuHouseholdLeaderboard.style.display = 'none'
+      this.menuHouseholdLeaderboard.innerHTML = ''
+      return
+    }
+    this.menuHouseholdLeaderboard.style.display = ''
+    const rows = this.householdLeaderboard
+      .map((e, i) => `<div class="leaderboard-row"><span>#${i + 1} ${_escapeHtml(e.name)}</span><span>${t('hudNight', { n: e.night })}</span><span>${t('hudKills', { n: e.kills })}</span></div>`)
+      .join('')
+    this.menuHouseholdLeaderboard.innerHTML = `<p class="menu-best-stats">${t('householdLeaderboardTitle')}</p>${rows}`
   }
 
   _updateLeaderboardDisplay() {
@@ -8633,6 +8982,12 @@ export class Game {
   // record (bestStats, career totals, Veteran Perks) the same way. `survived`
   // distinguishes the two for Run History's result column (see below).
   _recordRunEnd(survived) {
+    // Guest Mode (Local Sharing batch) - this entire method is exactly
+    // "update a persistent/lifetime record" (bestStats, careerStats,
+    // runHistory, milestones, companionLegacy, the local leaderboard), so
+    // skipping it wholesale is the correct behavior, not a shortcut - a
+    // guest run genuinely shouldn't move any of these numbers.
+    if (this.settings.guestMode) return
     let improved = false
     if (this.night > this.bestStats.bestNight) {
       this.bestStats.bestNight = this.night
@@ -8705,6 +9060,8 @@ export class Game {
       this.companionLegacy.level += 1
       saveCompanionLegacy(this.companionLegacy)
     }
+
+    this._captureChallengeHandoff()
   }
 
   _onPlayerDeath() {
@@ -8746,7 +9103,7 @@ export class Game {
     }
     this._updateStatsPanel()
     if (this.totalDeaths === 1) this.achievements.unlock('first_death')
-    if (this.settings.hardcoreMode || (this.dailyChallengeActive && this.dailyTwist.forceHardcore)) {
+    if (this._isForceHardcore()) {
       this._recordHardcoreMemorial()
     }
 
@@ -8806,7 +9163,7 @@ export class Game {
       this.deathDaily.style.display = 'none'
     }
 
-    this.respawnBtn.textContent = (this.settings.hardcoreMode || (this.dailyChallengeActive && this.dailyTwist.forceHardcore)) ? t('newAttemptBtn') : t('respawnBtn')
+    this.respawnBtn.textContent = this._isForceHardcore() ? t('newAttemptBtn') : t('respawnBtn')
 
     // Death cam: a beat of the frozen, shaking scene before the UI slams
     // in, instead of the death screen appearing instantly - gameplay is
@@ -8949,6 +9306,7 @@ export class Game {
     this.profilePanelTitle.textContent = t('profilePanelTitle')
     this.profileCloseBtn.textContent = t('upgradesClose')
     if (this.profileCopyStatsBtn) this.profileCopyStatsBtn.textContent = t('profileCopyStatsBtn')
+    if (this.profilePrintBtn) this.profilePrintBtn.textContent = t('profilePrintBtn')
     // Cosmetics counter - outfits+hats only (charms are randomly equipped
     // one at a time via field pickups, see WeaponSystem.equipCharm, with no
     // persistent "owned charms" set to count against).
@@ -9959,6 +10317,14 @@ export class Game {
   // Nightmare-difficulty Endless run is deliberately possible.
   _isRoundMode() {
     return this.settings.endlessMode || this.settings.difficulty === 'easy' || this.settings.difficulty === 'normal'
+  }
+
+  // One-life-only check, shared by Hardcore Mode, the Daily Challenge's
+  // Lockdown twist, and (Local Sharing batch) a Custom Challenge Code that
+  // happens to hash to that same twist - all 3 call sites used to repeat
+  // this same expression inline.
+  _isForceHardcore() {
+    return this.settings.hardcoreMode || (this.dailyChallengeActive && this.dailyTwist.forceHardcore) || (this.challengeCodeActive && this.challengeCodeTwist.forceHardcore)
   }
 
   _showNightBanner() {
