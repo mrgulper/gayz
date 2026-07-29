@@ -3859,10 +3859,6 @@ export class Game {
 
     this.player.controls.addEventListener('lock', () => {
       this.gameStarted = true
-      // Undo the menu-background idle camera sway (_tick, gated on
-      // !this.gameStarted) - real gameplay should always start facing
-      // forward, not wherever that sway last left the view.
-      this.camera.rotation.set(0, 0, 0)
       audioEngine.resume()
       this.pauseOverlay.style.display = 'none'
       this.screenshotCropOverlay.style.display = 'none'
@@ -12738,18 +12734,6 @@ export class Game {
     this._updateLandingDip(dt)
     this.camera.position.add(this._shakeOffset)
     this.camera.position.y += this._landingDipY
-
-    // Menu-background camera sway - the actual game world renders
-    // continuously behind the menu from the moment Game() finishes
-    // constructing (see main.js), so this just gives that idle "3D
-    // background" a gentle, obviously-deliberate motion rather than a
-    // dead-still frame. A slow oscillation around the default forward
-    // direction rather than a full spin, so it can never pan into an
-    // unknown/unflattering view. Reset to facing forward once real
-    // gameplay begins (see the pointer-lock 'lock' handler below).
-    if (!this.gameStarted) {
-      this.camera.rotation.y = Math.sin(performance.now() / 1000 * 0.26) * 0.3
-    }
 
     this.composer.render()
   }
