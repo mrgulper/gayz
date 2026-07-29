@@ -2369,7 +2369,17 @@ export class Game {
     this.statsKills = document.getElementById('stats-kills')
     this.minimapWrap = document.getElementById('minimap-wrap')
     this.minimapCanvas = document.getElementById('minimap')
-    this.menuBestStats = document.getElementById('menu-best-stats')
+    // Main menu redesign - hero stat pair + left-column "Your Stats" panel
+    // + player badge, replacing the old single menu-best-stats text blob.
+    this.heroBestNight = document.getElementById('hero-best-night')
+    this.heroBestStreak = document.getElementById('hero-best-streak')
+    this.statLongestSurvival = document.getElementById('stat-longest-survival')
+    this.statTotalKills = document.getElementById('stat-total-kills')
+    this.statRunsPlayed = document.getElementById('stat-runs-played')
+    this.statBestStreak = document.getElementById('stat-best-streak')
+    this.statLastRun = document.getElementById('stat-last-run')
+    this.menuAvatarLevel = document.getElementById('menu-avatar-level')
+    this.menuPlayerTag = document.getElementById('menu-player-tag')
     this.menuCareerRank = document.getElementById('menu-career-rank')
     this.menuPrestigeBadge = document.getElementById('menu-prestige-badge')
     this.menuNewsTicker = document.getElementById('menu-news-ticker')
@@ -5826,6 +5836,7 @@ export class Game {
       this.settings.nickname = this.nicknameInput.value
       saveSettings(this.settings)
       this._updateCompanionName()
+      if (this.menuPlayerTag) this.menuPlayerTag.textContent = this.settings.nickname ? `#${this.settings.nickname.toUpperCase()}` : t('menuPlayerTagDefault')
     })
     this.companionNameInput.addEventListener('input', () => {
       this.settings.companionName = this.companionNameInput.value
@@ -7697,11 +7708,15 @@ export class Game {
     document.getElementById('menu-subtitle').textContent = t('menuSubtitle')
     document.getElementById('menu-subhint').textContent = t('menuSubhint')
     this.playBtn.textContent = t('playBtn')
-    this.settingsBtn.textContent = t('settingsBtn')
-    this.upgradesBtn.textContent = t('upgradesBtn')
-    this.achievementsBtn.textContent = t('achievementsBtn')
-    this.bestiaryBtn.textContent = t('bestiaryBtn')
-    this.coinshopBtn.textContent = t('coinshopBtn')
+    // Menu redesign - these 5 buttons now hold an <svg> icon + <span> label
+    // (settings is icon-only). Setting .textContent on the BUTTON itself
+    // would wipe out the icon entirely (it replaces every child with one
+    // text node) - target the inner <span>/aria-label instead.
+    this.settingsBtn.setAttribute('aria-label', t('settingsBtn'))
+    this.upgradesBtn.querySelector('span').textContent = t('upgradesBtn')
+    this.achievementsBtn.querySelector('span').textContent = t('achievementsBtn')
+    this.bestiaryBtn.querySelector('span').textContent = t('bestiaryBtn')
+    this.coinshopBtn.querySelector('span').textContent = t('coinshopBtn')
     document.getElementById('stats-coins-label').textContent = t('coinsStatLabel')
 
     document.getElementById('ctrl-line-1').innerHTML = tHtml('ctrlLine1')
@@ -7830,16 +7845,47 @@ export class Game {
 
   _updateBestStatsDisplay() {
     const { bestNight, bestKills, bestKillStreak } = this.bestStats
-    if (bestNight === 0 && bestKills === 0) {
-      this.menuBestStats.textContent = ''
-    } else {
-      this.menuBestStats.textContent =
-        `${t('bestLabel')}: ${t('hudNight', { n: bestNight })} · ${t('hudKills', { n: bestKills })} · ${t('bestKillStreakLabel', { n: bestKillStreak })}`
+    // Hero stat pair (Best Night / Best Streak) - all textContent, so a
+    // malicious imported bestStats value (see _safeStatNumber's own
+    // comment on this exact risk) just renders as text, never HTML.
+    if (this.heroBestNight) this.heroBestNight.textContent = _safeStatNumber(bestNight)
+    if (this.heroBestStreak) this.heroBestStreak.textContent = _safeStatNumber(bestKillStreak)
+
+    // Your Stats panel - a different stat slice than the hero pair above,
+    // matching the redesigned menu's own left-column panel. All pulled
+    // from data this game already tracks (careerStats/bestRunPace/
+    // runHistory), nothing new recorded just for this display.
+    if (this.statTotalKills) this.statTotalKills.textContent = _safeStatNumber(this.careerStats.totalKills)
+    if (this.statRunsPlayed) this.statRunsPlayed.textContent = _safeStatNumber(this.careerStats.totalRuns)
+    if (this.statBestStreak) this.statBestStreak.textContent = _safeStatNumber(bestKillStreak)
+    if (this.statLongestSurvival) {
+      this.statLongestSurvival.textContent = this.bestRunPace && this.bestRunPace.elapsedMs
+        ? formatTime(_safeStatNumber(this.bestRunPace.elapsedMs))
+        : '--'
     }
+    if (this.statLastRun) {
+      const last = this.runHistory[0]
+      this.statLastRun.textContent = last
+        ? t(last.survived ? 'runHistorySurvived' : 'runHistoryDied', { night: _safeStatNumber(last.night), kills: _safeStatNumber(last.kills), coins: _safeStatNumber(last.coins) })
+        : '--'
+    }
+
     if (this.menuCareerRank) {
       this.menuCareerRank.textContent = this.careerStats.totalKills === 0
         ? ''
         : t('careerRankLabel', { rank: t(careerRankTitleKey(this.careerStats.totalKills)), kills: this.careerStats.totalKills })
+    }
+    // Avatar level badge - the same tier index careerRankTitleKey already
+    // derives from totalKills, just as a plain 1-5 number instead of a title.
+    if (this.menuAvatarLevel) {
+      let level = 1
+      for (let i = 0; i < CAREER_RANK_TITLES.length; i++) {
+        if (this.careerStats.totalKills >= CAREER_RANK_TITLES[i].min) level = i + 1
+      }
+      this.menuAvatarLevel.textContent = level
+    }
+    if (this.menuPlayerTag) {
+      this.menuPlayerTag.textContent = this.settings.nickname ? `#${this.settings.nickname.toUpperCase()}` : t('menuPlayerTagDefault')
     }
     this._updateMenuNewsTicker()
     this._updatePrestigeBadge()

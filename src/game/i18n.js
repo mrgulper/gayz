@@ -899,6 +899,8 @@ const STRINGS = {
     loadoutCodeCopied: 'Loadout code copied!',
     loadoutCodeInvalid: "That doesn't look like a valid loadout code.",
     loadoutCodeApplied: 'Loadout code applied.',
+    // Main menu redesign.
+    menuPlayerTagDefault: '#PLAYER',
     // Interactive World batch.
     interactManhole: 'Press **F** to climb down',
     interactCampfire: 'Press **F** to rest at the campfire',
