@@ -824,7 +824,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   width: 100%;
   box-sizing: border-box;
   margin-top: 0;
-  padding: 7px 10px;
+  padding: 5px 10px;
   font-size: 13px;
   text-align: left;
   color: #eee;
@@ -2169,11 +2169,11 @@ body.reduce-flashing #critical-blood-overlay.show {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   background: linear-gradient(180deg, #0a1210 0%, #0d1a14 45%, #050807 100%);
   color: #eee;
   text-align: center;
-  padding: 10px 24px 6px;
+  padding: 8px 24px 4px;
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -2344,7 +2344,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 #menu-col-right {
   display: flex;
   flex-direction: column;
-  gap: 17px;
+  gap: 13px;
   text-align: left;
 }
 
@@ -2354,7 +2354,7 @@ body.reduce-flashing #critical-blood-overlay.show {
    used to be there on the old centered-title menu; this panel is now the
    first thing in that corner, so give it enough clearance not to overlap. */
 #menu-col-left {
-  padding-top: 10px;
+  padding-top: 4px;
 }
 
 .menu-panel {
@@ -2362,7 +2362,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 12%), var(--menu-panel-bg);
   border: 2px solid var(--menu-panel-border);
   border-radius: 4px;
-  padding: 14px 18px;
+  padding: 9px 14px;
   backdrop-filter: blur(2px);
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
@@ -2403,7 +2403,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 }
 
 .menu-panel-title {
-  margin: 0 0 9px;
+  margin: 0 0 6px;
   font-family: var(--menu-display-font);
   font-size: 18px;
   font-weight: 700;
@@ -2418,7 +2418,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 
 .menu-field-label {
   display: block;
-  margin: 6px 0 3px;
+  margin: 4px 0 2px;
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.8px;
@@ -2442,8 +2442,8 @@ body.reduce-flashing #critical-blood-overlay.show {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 12px 4px;
+  gap: 4px;
+  padding: 9px 4px;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.3px;
@@ -2501,7 +2501,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  padding: 4px 0;
+  padding: 2px 0;
   font-size: 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
@@ -2527,7 +2527,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 7px;
+  gap: 5px;
   padding-top: 2px;
 }
 
@@ -2910,7 +2910,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   gap: 16px;
   width: 100%;
   max-width: 1180px;
-  margin: 2px auto 2px;
+  margin: 0 auto;
 }
 
 .menu-card {
@@ -2924,7 +2924,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 }
 
 .menu-card-title {
-  margin: 0 0 9px;
+  margin: 0 0 6px;
   font-family: var(--menu-display-font);
   font-size: 19px;
   font-weight: 700;
@@ -2933,10 +2933,33 @@ body.reduce-flashing #critical-blood-overlay.show {
   text-transform: uppercase;
 }
 
+/* Capped + internally scrollable rather than growing the whole page -
+   Game Modes (the longest list) would otherwise dictate the height of
+   all 3 cards (grid stretch) and, with it, whether the homepage needs to
+   scroll at all. This keeps that page-level guarantee regardless of
+   window height or how many modes/challenges/mutators get added later -
+   only this one small list ever scrolls, never the page itself. */
 .menu-card-list {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  max-height: 20vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--menu-gold) transparent;
+}
+
+/* Only bites on genuinely short windows, where Game Modes' 8 rows (the
+   longest of the 3 lists) would otherwise push the whole page into
+   needing to scroll - on anything taller, 20vh above is generous enough
+   that none of the 3 lists actually hit the cap. Tightening this further
+   for every window height (rather than gating it to short ones) used to
+   visibly truncate all 3 lists behind a needless internal scrollbar even
+   on spacious 1080p+ screens, with a lot of empty background left below. */
+@media (max-height: 820px) {
+  .menu-card-list {
+    max-height: 8vh;
+  }
 }
 
 .mode-toggle {
