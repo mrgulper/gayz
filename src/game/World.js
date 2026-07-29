@@ -465,6 +465,11 @@ export function buildWorld(scene, trophyCount = 15) {
   const upgradeMachine = buildWeaponUpgradeMachine(scene, register, -15, 60)
   registerZone({ id: 'upgrademachine', x: -15, z: 60, radius: 8, densityMult: 1.0 })
   const mysteryBox = buildMysteryBox(scene, register, 15, 60)
+  // Interactive World batch - positioned as an offset from SAFE_ZONE_X/Z
+  // per this project's own convention for anything meant to live near the
+  // safe zone (see the Vault/practice range/trophy wall precedent), clear
+  // of the upgrade machine/mystery box at x=+-15 above.
+  const payphone = buildPayphone(scene, register, SAFE_ZONE_X, SAFE_ZONE_Z + 23)
   registerZone({ id: 'mysterybox', x: 15, z: 60, radius: 8, densityMult: 1.0 })
 
   // Second area: a small park beyond the north end of the street, in the
@@ -657,17 +662,36 @@ export function buildWorld(scene, trophyCount = 15) {
   // hinting at the underground network to come (Stages 10-12) - see
   // buildManholeCover's own comment for why these are purely decorative.
   buildDirectionalSignpost(scene, SAFE_ZONE_X - 2, SAFE_ZONE_Z - 9)
-  buildManholeCover(scene, SAFE_ZONE_X + 3, SAFE_ZONE_Z - 8)
-  buildManholeCover(scene, hardwareStore.x + 3, hardwareStore.z - 3)
-  buildManholeCover(scene, policeStation.x - 3, policeStation.z + 2)
-  buildManholeCover(scene, skyscraper.x - 2, skyscraper.z - 9)
-  buildManholeCover(scene, megaMall.x, megaMall.z + 8)
+  // Interactive World batch - the promised payoff finally lands: each cover
+  // is now a real interact point (see Game.js's _updateManholeCovers),
+  // dropping the player straight down into the underground network instead
+  // of staying purely cosmetic. Same (x,z) spots chosen above, just
+  // collected into an array buildWorld can return.
+  const manholeCovers = [
+    { x: SAFE_ZONE_X + 3, z: SAFE_ZONE_Z - 8 },
+    { x: hardwareStore.x + 3, z: hardwareStore.z - 3 },
+    { x: policeStation.x - 3, z: policeStation.z + 2 },
+    { x: skyscraper.x - 2, z: skyscraper.z - 9 },
+    { x: megaMall.x, z: megaMall.z + 8 },
+  ]
+  for (const m of manholeCovers) buildManholeCover(scene, m.x, m.z)
 
   // "Finish the set" additions, requested after Stage 9 wrapped up all the
   // blueprint's own named locations - these 4 are beyond the blueprint.
   const warehouse = buildWarehouse(scene, register, 0, -215)
   registerZone({ id: 'warehouse', x: 0, z: -215, radius: 18, densityMult: 1.3 })
   towerChestSpots.push({ x: 0, y: 0, z: -215, lootWeights: WEAPON_ONLY_LOOT_WEIGHTS })
+
+  // Interactive World batch - clustered around the Warehouse's clear
+  // exterior (its own footprint is x:[-10,10] z:[-223,-207], w=20 d=16) so
+  // none of these overlap the room, its door, or each other.
+  const containerStaircase = buildContainerStaircase(scene, colliders, solidMeshes, -14, -218)
+  towerChestSpots.push({ x: containerStaircase.lootSpot.x, y: containerStaircase.lootSpot.y, z: containerStaircase.lootSpot.z })
+  const industrialSiren = buildIndustrialSiren(scene, 14, -215)
+  const wreckingPendulum = buildWreckingPendulum(scene, -5, -202)
+  const scaffolding = buildScaffolding(scene, register, 5, -202)
+  const tacticalStreetlightA = buildTacticalStreetlight(scene, register, -14, -212)
+  const tacticalStreetlightB = buildTacticalStreetlight(scene, register, -14, -224)
 
   const gasStation = buildGasStation(scene, register, 0, 200)
   registerZone({ id: 'gasstation', x: 0, z: 200, radius: 10, densityMult: 1.1 })
@@ -1479,6 +1503,9 @@ export function buildWorld(scene, trophyCount = 15) {
   registerZone({ id: 'watertower', x: 320, z: 0, radius: 12, densityMult: 1.0 })
   towerChestSpots.push({ x: 320, y: 0, z: 4 })
   towerChestSpots.push({ x: 320, y: 0, z: -6 })
+  // Interactive World batch - clear of the tower's 4 legs (at +-3,+-3) and
+  // both chest spots above.
+  const waterTowerValve = buildWaterTowerValve(scene, 320 + 3.6, 0)
 
   buildFillerLocation(scene, register, {
     x: -83, z: -309, w: 16, d: 16, fenceOnly: true,
@@ -2916,6 +2943,14 @@ export function buildWorld(scene, trophyCount = 15) {
     maintenanceTunnel,
     toxicSewerLevel,
     mineLevel,
+    manholeCovers,
+    waterTowerValve,
+    containerStaircase,
+    industrialSiren,
+    wreckingPendulum,
+    scaffolding,
+    payphone,
+    tacticalStreetlights: [tacticalStreetlightA, tacticalStreetlightB],
   }
 }
 
@@ -5338,6 +5373,234 @@ function buildManholeCover(scene, x, z) {
   rim.rotation.x = -Math.PI / 2
   rim.position.set(x, 0.06, z)
   scene.add(rim)
+}
+
+// Interactive World batch - the props below. Each keeps geometry simple
+// (axis-aligned boxes/cylinders/spheres, no rotated meshes) so any collider
+// built from it - explicit or via register()'s setFromObject - stays a
+// tight fit, per this project's own documented rotated-mesh AABB gotcha.
+const SCAFFOLDING_HEALTH = 40
+
+// Water Tower Valve - a ground-level interact point at the existing Water
+// Tower's base (see the "Water Tower + Grain Silo" landmark, explicitly
+// marked not climbable/out of scope) giving that decoration a real payoff
+// without needing the per-structure climb-verification pass its own
+// comment flagged as out of scope. No register() - purely a small
+// walk-through interact prop, same as buildManholeCover above.
+function buildWaterTowerValve(scene, x, z) {
+  const wheelMat = flatMaterial({ color: 0x8a3a2a, roughness: 0.6, metalness: 0.5 })
+  const pipeMat = flatMaterial({ color: 0x4a4a48, roughness: 0.5, metalness: 0.7 })
+  const group = new THREE.Group()
+  const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.4, 10), pipeMat)
+  pipe.position.set(0, 0.7, 0)
+  group.add(pipe)
+  const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.05, 8, 16), wheelMat)
+  wheel.position.set(0, 1.4, 0)
+  group.add(wheel)
+  group.position.set(x, 0, z)
+  group.castShadow = true
+  scene.add(group)
+  return { x, z }
+}
+
+// Lightable Campfire interact anchor - the campfire itself already exists
+// (see "Campfire Rest Area" above, same 42,66 coordinate); exported so
+// Game.js can run a proximity check against it without hardcoding the
+// coordinate a second time (see this project's own hardcoded-position
+// gotcha - buildTraderStall/buildAmmoStation once fell out of sync this way).
+export const CAMPFIRE_X = 42
+export const CAMPFIRE_Z = 66
+
+// Container Staircase - 2 stacked shipping containers just outside the
+// Warehouse, each riser sized within PlayerController's MANTLE_MIN/MAX
+// height (0.7-1.4m) with generous footprint overlap between steps, so the
+// EXISTING mantle mechanic carries the player up both in sequence with no
+// new traversal code - just correctly-sized, correctly-placed geometry.
+function buildContainerStaircase(scene, colliders, solidMeshes, x, z) {
+  const containerMat = flatMaterial({ color: 0x2e5a4a, roughness: 0.75, metalness: 0.3 })
+  const steps = [
+    { dx: 0, dz: 0, h: 1.2, w: 2.6, d: 2.2 },
+    { dx: 0, dz: -1.0, h: 2.3, w: 2.6, d: 2.2 },
+  ]
+  let topSpot = null
+  for (const s of steps) {
+    const box = new THREE.Mesh(new THREE.BoxGeometry(s.w, s.h, s.d), containerMat)
+    box.position.set(x + s.dx, s.h / 2, z + s.dz)
+    box.castShadow = true
+    box.receiveShadow = true
+    scene.add(box)
+    solidMeshes.push(box)
+    colliders.push(new THREE.Box3(
+      new THREE.Vector3(x + s.dx - s.w / 2, 0, z + s.dz - s.d / 2),
+      new THREE.Vector3(x + s.dx + s.w / 2, s.h, z + s.dz + s.d / 2)
+    ))
+    topSpot = { x: x + s.dx, y: s.h, z: z + s.dz }
+  }
+  return { lootSpot: topSpot }
+}
+
+// Industrial Siren Lever - risk/reward: pulling it (see Game.js's
+// _pullSirenLever) briefly spikes zombie spawn/aggression in exchange for a
+// bonus loot multiplier during that window, a deliberate OPT-IN difficulty
+// spike distinct from every other hazard in this game (all of which just
+// happen TO the player, never chosen).
+function buildIndustrialSiren(scene, x, z) {
+  const poleMat = flatMaterial({ color: 0x3a3a38, roughness: 0.7, metalness: 0.5 })
+  const hornMat = flatMaterial({ color: 0xb8402a, roughness: 0.6, metalness: 0.4 })
+  const group = new THREE.Group()
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 2.4, 8), poleMat)
+  pole.position.set(0, 1.2, 0)
+  group.add(pole)
+  const horn = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.15, 0.5, 12), hornMat)
+  horn.position.set(0, 2.5, 0)
+  group.add(horn)
+  const lever = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.4, 0.06), poleMat)
+  lever.position.set(0.15, 0.9, 0)
+  lever.rotation.z = Math.PI / 6
+  group.add(lever)
+  group.position.set(x, 0, z)
+  group.castShadow = true
+  scene.add(group)
+  return { x, z }
+}
+
+// Wrecking Pendulum - a suspended wrecking ball the player can trigger to
+// swing through a fixed arc, damaging/knocking back any zombie caught in
+// its path (see Game.js's _triggerWreckingPendulum). Pivot/chain length
+// returned explicitly so Game.js can animate the swing from this exact
+// anchor without re-deriving the geometry above.
+function buildWreckingPendulum(scene, x, z) {
+  const frameMat = flatMaterial({ color: 0x4a4640, roughness: 0.7, metalness: 0.4 })
+  const chainMat = flatMaterial({ color: 0x2a2a28, roughness: 0.6, metalness: 0.6 })
+  const ballMat = flatMaterial({ color: 0x1c1c1a, roughness: 0.5, metalness: 0.6 })
+  const group = new THREE.Group()
+  const beamHeight = 4.5
+  const beam = new THREE.Mesh(new THREE.BoxGeometry(0.3, beamHeight, 0.3), frameMat)
+  beam.position.set(0, beamHeight / 2, 0)
+  group.add(beam)
+  const crossbeam = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.25, 0.25), frameMat)
+  crossbeam.position.set(0.9, beamHeight, 0)
+  group.add(crossbeam)
+  const chainLength = 2.2
+  const ballRadius = 0.5
+  const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, chainLength, 6), chainMat)
+  chain.position.set(1.7, beamHeight - chainLength / 2, 0)
+  group.add(chain)
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(ballRadius, 14, 12), ballMat)
+  ball.position.set(1.7, beamHeight - chainLength - ballRadius, 0)
+  group.add(ball)
+  group.position.set(x, 0, z)
+  group.castShadow = true
+  scene.add(group)
+  // ball is returned (not just built) so Game.js's _updateWreckingPendulum
+  // can reposition it during the swing animation - pivot.x already bakes
+  // in the +1.7 local offset from the group's own origin, so Game.js's
+  // math never needs to re-derive or re-add it.
+  return { x, z, pivot: { x: x + 1.7, y: beamHeight, z }, ropeLength: chainLength + ballRadius, ball, localPivotX: 1.7 }
+}
+
+// Collapsible Scaffolding - shootable (see WeaponSystem._fire()'s hit loop
+// and this project's own "New hittable-object categories" convention,
+// userData.scaffolding) one-time environmental kill trap: collapses and
+// damages any zombie underneath when triggered (see Game.js's
+// _collapseScaffolding). register()'d as a real solid collider - it's a
+// climbable-looking structure the player should visibly bump into, not
+// walk through, until it's brought down.
+function buildScaffolding(scene, register, x, z) {
+  const poleMat = flatMaterial({ color: 0xb8862a, roughness: 0.6, metalness: 0.5 })
+  const plankMat = flatMaterial({ color: 0x6a5230, roughness: 0.9 })
+  const group = new THREE.Group()
+  for (const [lx, lz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 3.5, 6), poleMat)
+    leg.position.set(lx, 1.75, lz)
+    group.add(leg)
+  }
+  for (const y of [1.2, 2.4, 3.4]) {
+    for (const rz of [-1, 1]) {
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.06, 0.06), poleMat)
+      rail.position.set(0, y, rz)
+      group.add(rail)
+    }
+  }
+  const plank = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.08, 2.1), plankMat)
+  plank.position.set(0, 3.45, 0)
+  group.add(plank)
+  group.position.set(x, 0, z)
+  group.castShadow = true
+  scene.add(group)
+  // Hand-built axis-aligned box (register()'s explicitBox param) instead of
+  // letting register() compute its own via setFromObject - this way the
+  // exact same box reference is also returned below, so Game.js's
+  // _collapseScaffolding can remove it from colliders later. Without this,
+  // register()'s internally-created Box3 would have no reference anywhere
+  // Game.js could reach to clean it up on collapse.
+  const box = new THREE.Box3(
+    new THREE.Vector3(x - 1.1, 0, z - 1.1),
+    new THREE.Vector3(x + 1.1, 3.53, z + 1.1)
+  )
+  // The object reference itself (not just `true`) so Game.js can attach a
+  // real onHit closure after construction and WeaponSystem's hit loop can
+  // call it directly - same mesh.userData.destructibleWall = wall shape
+  // _buildDestructibleWall already uses.
+  const scaffolding = { x, z, group, box, health: SCAFFOLDING_HEALTH, destroyed: false, onHit: null }
+  group.traverse((child) => {
+    if (child.isMesh) child.userData.scaffolding = scaffolding
+  })
+  register(group, box)
+  return scaffolding
+}
+
+// Payphone Distress Call - interact, wait, and a supply reward arrives at
+// the payphone's own spot (see Game.js's _updatePayphoneCall). Deliberately
+// independent of the existing random-timer Airdrop system (this.airdrop is
+// a single shared slot; reusing it here risked one silently overwriting
+// the other), once per run.
+function buildPayphone(scene, register, x, z) {
+  const boothMat = flatMaterial({ color: 0x2a4a6a, roughness: 0.5, metalness: 0.4 })
+  const glassMat = flatMaterial({ color: 0x8ac4d8, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.35 })
+  const group = new THREE.Group()
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(0.9, 2.2, 0.9), boothMat)
+  frame.position.set(0, 1.1, 0)
+  group.add(frame)
+  const glass = new THREE.Mesh(new THREE.BoxGeometry(0.94, 1.6, 0.02), glassMat)
+  glass.position.set(0, 1.3, 0.46)
+  group.add(glass)
+  group.position.set(x, 0, z)
+  group.castShadow = true
+  scene.add(group)
+  register(group)
+  return { x, z }
+}
+
+// Tactical Streetlight - shootable (see WeaponSystem._fire()'s hit loop,
+// userData.tacticalLight), darkening the immediate area and reducing
+// zombie detection range there once shot out (see Game.js's
+// _shootOutStreetlight). Deliberately only a couple of these, not every
+// streetlight on the map - this project's shared streetlight.glb placement
+// is used dozens of times across World.js, and retrofitting all of them
+// with hittable flags was out of scope for one batch item.
+function buildTacticalStreetlight(scene, register, x, z) {
+  const poleMat = flatMaterial({ color: 0x2a2a28, roughness: 0.6, metalness: 0.5 })
+  const group = new THREE.Group()
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 4, 8), poleMat)
+  pole.position.set(0, 2, 0)
+  group.add(pole)
+  const bulbMat = flatMaterial({ color: 0xfff2c0, emissive: 0xfff2c0, emissiveIntensity: 1.2 })
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), bulbMat)
+  bulb.position.set(0, 4, 0)
+  group.add(bulb)
+  const light = new THREE.PointLight(0xfff2c0, 0.9, 10, 2)
+  light.position.set(0, 4, 0)
+  group.add(light)
+  group.position.set(x, 0, z)
+  scene.add(group)
+  // Object reference (not just `true`) so Game.js can attach a real onHit
+  // closure after construction - same shape buildScaffolding uses above.
+  const streetlight = { x, z, bulb, light, litMat: bulbMat, shotOut: false, onHit: null }
+  bulb.userData.tacticalLight = streetlight
+  register(pole)
+  register(bulb)
+  return streetlight
 }
 
 function buildWalkway(scene, register, x0, z0, x1, z1) {

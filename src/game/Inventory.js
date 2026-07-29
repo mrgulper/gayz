@@ -18,6 +18,11 @@ export class Inventory {
     this.rations = 0
     this.waterBottles = 0
     this.smokeBombs = 0
+    // Barricade Crates (Interactive World batch) - distinct from
+    // `barricades` above (that one repairs the fixed window barricades;
+    // this is a portable, player-placed obstacle - see Game.js's
+    // _placeBarricadeCrate).
+    this.barricadeCrates = 0
     // A single quest flag, not a stacking count like the rest of this class -
     // there's only ever one Vault Key in play at a time (see Chests.js's
     // Vault and Pickups.js's 'vaultkey' type).
@@ -38,6 +43,10 @@ export class Inventory {
 
   addSmokeBomb(n = 1) {
     this.smokeBombs += n
+  }
+
+  addBarricadeCrate(n = 1) {
+    this.barricadeCrates += n
   }
 
   addFuelCan(n = 1) {
@@ -117,6 +126,12 @@ export class Inventory {
   useSmokeBomb() {
     if (this.smokeBombs <= 0) return false
     this.smokeBombs -= 1
+    return true
+  }
+
+  useBarricadeCrate() {
+    if (this.barricadeCrates <= 0) return false
+    this.barricadeCrates -= 1
     return true
   }
 

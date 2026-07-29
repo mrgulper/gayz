@@ -52,6 +52,7 @@ const TYPES = {
   weapon_charm: { weight: 0.35, label: 'Weapon Charm' },
   ration: { weight: 1.2, label: 'Ration' },
   smokebomb: { weight: 1, label: 'Smoke Bomb' },
+  barricadecrate: { weight: 0.8, label: 'Barricade Crate' },
   // weight 0: never drawn by the street-slot weighted pool, only ever placed
   // via spawnUnique() as one-off fixed-location pickups.
   minigun: { weight: 0, label: 'Minigun' },
@@ -209,6 +210,10 @@ function buildVisual(type) {
     const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.05, 10), capMat)
     cap.position.y = 0.125
     group.add(cap)
+  } else if (type === 'barricadecrate') {
+    const mat = flatMaterial({ color: 0x5a4a30, roughness: 0.9 })
+    const crate = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.24, 0.24), mat)
+    group.add(crate)
   } else if (type === 'ration') {
     const mat = flatMaterial({ color: 0x5a4a2a, roughness: 0.7 })
     const can = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.22, 0.22), mat)

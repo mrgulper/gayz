@@ -42,6 +42,7 @@ export const ACTIONS = [
   { id: 'parry', defaultKey: 'Minus', labelKey: 'actionParry' },
   { id: 'slowMo', defaultKey: 'Equal', labelKey: 'actionSlowMo' },
   { id: 'clipRecording', defaultKey: 'CapsLock', labelKey: 'actionClipRecording' },
+  { id: 'barricadeCrate', defaultKey: 'Backslash', labelKey: 'actionBarricadeCrate' },
 ]
 
 function defaultBindings() {
@@ -110,6 +111,7 @@ export function keyLabel(code) {
     Minus: '-',
     Equal: '=',
     CapsLock: 'Caps',
+    Backslash: '\\',
   }
   return special[code] || code
 }

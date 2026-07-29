@@ -1240,6 +1240,13 @@ export class WeaponSystem {
       const destructibleWall = hit.object.userData.destructibleWall
       if (destructibleWall) destructibleWall.onHit(w.damage * this.damageMult)
 
+      // Interactive World batch - two more world props following the exact
+      // same "check a userData flag, call its own onHit" shape.
+      const scaffolding = hit.object.userData.scaffolding
+      if (scaffolding && scaffolding.onHit) scaffolding.onHit(w.damage * this.damageMult)
+      const tacticalLight = hit.object.userData.tacticalLight
+      if (tacticalLight && tacticalLight.onHit) tacticalLight.onHit()
+
       if (this.onHitSurface) {
         if (hit.face) {
           this._hitNormal.copy(hit.face.normal).transformDirection(hit.object.matrixWorld).normalize()

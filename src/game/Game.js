@@ -3,7 +3,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
-import { buildWorld, WORLD_CULL_DISTANCE, WORLD_SHADOW_CULL_DISTANCE } from './World.js'
+import { buildWorld, WORLD_CULL_DISTANCE, WORLD_SHADOW_CULL_DISTANCE, CAMPFIRE_X, CAMPFIRE_Z } from './World.js'
 import { LOW_QUALITY_MODE, flatMaterial } from './QualitySettings.js'
 import { PlayerController } from './PlayerController.js'
 import { WeaponSystem, WEAPON_CHARM_IDS } from './WeaponSystem.js'
@@ -1645,6 +1645,41 @@ const DESTRUCTIBLE_WALL_HEALTH = 220
 // bi-directional between 2 fixed points connected by a purely decorative
 // cable (no collider - see _buildZipline's own note).
 const ZIPLINE_INTERACT_RADIUS = 3
+
+// Interactive World batch - module-level constants for the 10 new props/
+// mechanics, grouped together here rather than scattered at each usage
+// site, since most of these are small and share this same neighborhood.
+const MANHOLE_INTERACT_RADIUS = 1.6
+const CAMPFIRE_INTERACT_RADIUS = 3
+// Rested buff - a flat stamina refill + short regen boost, distinct from
+// any perk/upgrade (free, repeatable, but gated by its own cooldown so it
+// can't just be stood in for a permanent regen loop).
+const CAMPFIRE_REST_COOLDOWN_MS = 45000
+const CAMPFIRE_REST_HEAL = 25
+const WATER_TOWER_VALVE_RADIUS = 2
+const WATER_TOWER_PUDDLE_RADIUS = 7
+const WATER_TOWER_PUDDLE_DURATION_MS = 12000
+const INDUSTRIAL_SIREN_RADIUS = 2
+// Siren risk/reward - a deliberate opt-in difficulty spike (see
+// buildIndustrialSiren's own comment) in exchange for a temporary loot
+// multiplier, applied the same way DOUBLE_POINTS/other timed multipliers
+// already are (a plain "until" timestamp checked at the award site).
+const SIREN_BONUS_LOOT_MULT = 1.5
+const SIREN_BONUS_DURATION_MS = 25000
+const SIREN_SURGE_COUNT = 4
+const WRECKING_PENDULUM_RADIUS = 2.5
+const PENDULUM_SWING_DURATION_MS = 1800
+const PENDULUM_HIT_RADIUS = 2.2
+const PENDULUM_DAMAGE = 60
+const SCAFFOLDING_COLLAPSE_RADIUS = 2.4
+const SCAFFOLDING_COLLAPSE_DAMAGE = 70
+const PAYPHONE_INTERACT_RADIUS = 2
+const PAYPHONE_CALL_DELAY_MS = 20000
+const BARRICADE_CRATE_HEALTH = 150
+const BARRICADE_CRATE_PLACE_DIST = 1.5
+const BARRICADE_CRATE_INTERACT_RADIUS = 2.2
+const BARRICADE_CRATE_CHIP_PER_SEC = 12
+
 // Farming Plot - passive Ration trickle while built, feeding the hunger
 // meter's economy (see CoinShop.js's farm_plot entry).
 const FARM_HARVEST_INTERVAL_MS = 90000
@@ -2584,7 +2619,7 @@ export class Game {
     this.composer.addPass(this.bloomPass)
     this.composer.addPass(new OutputPass())
 
-    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, upgradeMachine, mysteryBox, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel, toxicSewerLevel, mineLevel } = buildWorld(this.scene, ACHIEVEMENTS.length)
+    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, upgradeMachine, mysteryBox, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel, toxicSewerLevel, mineLevel, manholeCovers, waterTowerValve, containerStaircase, industrialSiren, wreckingPendulum, scaffolding, payphone, tacticalStreetlights } = buildWorld(this.scene, ACHIEVEMENTS.length)
     // Base fog distance, captured once - see _applyFogState. Rain/fog-patch
     // used to *= an already-modified fog.near/far every single frame they
     // were active, which compounds toward zero exponentially (0.6 per frame
@@ -2811,6 +2846,57 @@ export class Game {
     this.ammoStationKeyHeld = false
     this.vireoTerminal = vireoFacility.terminalSpot
     this.subwayEntrance = subwayEntrance
+    // Interactive World batch - proximity flags follow the exact
+    // nearGenerator/nearZiplineEnd shape already used throughout this file.
+    this.manholeCovers = manholeCovers
+    this.nearManholeCover = null
+    // Underground landing target for manholes - the same known-safe spot
+    // undergroundStation's own terminal/encounter already use, so this
+    // doesn't need to derive or guess a new safe underground coordinate.
+    this.manholeLandingSpot = { x: undergroundStation.encounterCenter.x, y: undergroundStation.floorY + 0.1, z: undergroundStation.encounterCenter.z }
+    this.campfireSpot = { x: CAMPFIRE_X, z: CAMPFIRE_Z }
+    this.campfireRestedUntil = 0
+    this.nearCampfire = false
+    this.waterTowerValve = waterTowerValve
+    this.nearWaterTowerValve = false
+    this.waterTowerPuddleUntil = 0
+    this.containerStaircase = containerStaircase
+    this.industrialSiren = industrialSiren
+    this.nearIndustrialSiren = false
+    this.sirenLootBonusUntil = 0
+    this.wreckingPendulum = wreckingPendulum
+    this.nearWreckingPendulum = false
+    this._pendulumSwingStartedAt = 0
+    this._pendulumHitThisSwing = false
+    this.scaffolding = scaffolding
+    this.payphone = payphone
+    this.nearPayphone = false
+    this.payphoneCallActive = false
+    this.payphoneCallReadyAt = 0
+    this.payphoneUsedThisRun = false
+    this.tacticalStreetlights = tacticalStreetlights
+    this.barricadeCrates = []
+    this.nearBarricadeCrate = null
+    // Attach real onHit closures now that `this` exists - buildScaffolding/
+    // buildTacticalStreetlight (World.js) return their object with
+    // onHit: null since they're built before Game's methods are available.
+    this.scaffolding.onHit = (damage) => {
+      if (this.scaffolding.destroyed) return
+      this.scaffolding.health -= damage
+      if (this.scaffolding.health <= 0) this._collapseScaffolding()
+    }
+    for (const light of this.tacticalStreetlights) {
+      light.onHit = () => {
+        if (light.shotOut) return
+        light.shotOut = true
+        light.light.intensity = 0
+        light.litMat.emissive.setHex(0x000000)
+        light.litMat.emissiveIntensity = 0
+        light.litMat.color.setHex(0x2a2a28)
+        registerZone({ id: `tacticallight_${light.x}_${light.z}`, x: light.x, z: light.z, radius: 10, densityMult: 0.5 })
+        this._showLoreToast(t('toastStreetlightShotOut'))
+      }
+    }
     this.activeBounty = null
     // Trader Request (see TRADER_QUESTS) - a 2-stage side quest distinct
     // from the bounty above. null until _assignTraderQuest is first called
@@ -3806,6 +3892,8 @@ export class Game {
         this._toggleSlowMo()
       } else if (e.code === getKeyFor('clipRecording')) {
         this._toggleClipRecording()
+      } else if (e.code === getKeyFor('barricadeCrate')) {
+        this._placeBarricadeCrate()
       } else if (e.code === getKeyFor('flashlight')) {
         if (!this.flashlightOn && this.flashlightBattery <= 0) return
         this.flashlightOn = !this.flashlightOn
@@ -3892,6 +3980,18 @@ export class Game {
           this._useInformant()
         } else if (this.nearLoreMarker) {
           this._readLoreMarker()
+        } else if (this.nearManholeCover) {
+          this._useManholeCover()
+        } else if (this.nearCampfire) {
+          this._useCampfire()
+        } else if (this.nearWaterTowerValve) {
+          this._useWaterTowerValve()
+        } else if (this.nearIndustrialSiren) {
+          this._pullSirenLever()
+        } else if (this.nearWreckingPendulum) {
+          this._triggerWreckingPendulum()
+        } else if (this.nearPayphone && !this.payphoneUsedThisRun) {
+          this._usePayphone()
         } else {
           const loot = this.chests.tryInteract()
           if (loot) {
@@ -4785,6 +4885,230 @@ export class Game {
     this.player.velocity.set(0, 0, 0)
     this.nearZiplineEnd = null
     this._showLoreToast(t('toastZiplineUsed'))
+  }
+
+  // Interactive World batch - 5 proximity interactables below, all sharing
+  // the exact nearGenerator/nearZiplineEnd "compute a flag every tick, act
+  // on it from the interact-key handler" shape already established.
+
+  _updateManholeCovers(playerPos) {
+    this.nearManholeCover = this.manholeCovers.find((m) => Math.hypot(playerPos.x - m.x, playerPos.z - m.z) <= MANHOLE_INTERACT_RADIUS) || null
+  }
+
+  // Straight position-teleport down to undergroundStation's own known-safe
+  // encounter center (see the constructor's manholeLandingSpot) - same
+  // "reuse the exact position-teleport fast travel already has" precedent
+  // _useZipline's own comment documents, rather than a new physical shaft.
+  _useManholeCover() {
+    if (!this.nearManholeCover) return
+    this.player.controls.object.position.set(this.manholeLandingSpot.x, this.manholeLandingSpot.y, this.manholeLandingSpot.z)
+    this.player.velocity.set(0, 0, 0)
+    this._showLoreToast(t('toastManholeUsed'))
+  }
+
+  _updateCampfire(playerPos) {
+    this.nearCampfire = Math.hypot(playerPos.x - this.campfireSpot.x, playerPos.z - this.campfireSpot.z) <= CAMPFIRE_INTERACT_RADIUS
+  }
+
+  _useCampfire() {
+    if (!this.nearCampfire) return
+    const now = performance.now()
+    if (now < this.campfireRestedUntil) {
+      this._showLoreToast(t('toastCampfireCooldown'))
+      return
+    }
+    this.campfireRestedUntil = now + CAMPFIRE_REST_COOLDOWN_MS
+    this.playerState.heal(CAMPFIRE_REST_HEAL)
+    this.player.stamina = this.player.maxStamina
+    this._updateHealthHud()
+    this._updateStaminaHud()
+    this._showLoreToast(t('toastCampfireRested', { n: CAMPFIRE_REST_HEAL }))
+  }
+
+  _updateWaterTowerValve(playerPos) {
+    this.nearWaterTowerValve = Math.hypot(playerPos.x - this.waterTowerValve.x, playerPos.z - this.waterTowerValve.z) <= WATER_TOWER_VALVE_RADIUS
+    // Slip puddle - a flat, dedicated puddleMult slowdown (see
+    // PlayerController's own comment on why this doesn't reuse
+    // environmentMult) recomputed fresh every tick from current distance +
+    // window state, rather than toggled on/off at the moment of entering/
+    // leaving - so it can never get stuck at the wrong value.
+    const inWindow = performance.now() < this.waterTowerPuddleUntil
+    const inPuddle = inWindow && Math.hypot(playerPos.x - this.waterTowerValve.x, playerPos.z - this.waterTowerValve.z) <= WATER_TOWER_PUDDLE_RADIUS
+    this.player.puddleMult = inPuddle ? 0.6 : 1
+  }
+
+  _useWaterTowerValve() {
+    if (!this.nearWaterTowerValve) return
+    this.waterTowerPuddleUntil = performance.now() + WATER_TOWER_PUDDLE_DURATION_MS
+    this._showLoreToast(t('toastValveOpened'))
+  }
+
+  _updateIndustrialSiren(playerPos) {
+    this.nearIndustrialSiren = Math.hypot(playerPos.x - this.industrialSiren.x, playerPos.z - this.industrialSiren.z) <= INDUSTRIAL_SIREN_RADIUS
+  }
+
+  _pullSirenLever() {
+    if (!this.nearIndustrialSiren) return
+    this.sirenLootBonusUntil = performance.now() + SIREN_BONUS_DURATION_MS
+    this.zombies.spawnSurge(SIREN_SURGE_COUNT)
+    this._showLoreToast(t('toastSirenPulled'))
+  }
+
+  _updateWreckingPendulum(playerPos) {
+    this.nearWreckingPendulum = Math.hypot(playerPos.x - this.wreckingPendulum.x, playerPos.z - this.wreckingPendulum.z) <= WRECKING_PENDULUM_RADIUS
+    if (this._pendulumSwingStartedAt === 0) return
+    const elapsed = performance.now() - this._pendulumSwingStartedAt
+    const frac = Math.min(1, elapsed / PENDULUM_SWING_DURATION_MS)
+    // One full swing, out and back - a sine arc through the pivot rather
+    // than a rigid-body simulation, same "good enough" spirit as every
+    // other cosmetic-physics animation in this file (killcam zoom lerp,
+    // landing dip, etc).
+    const angle = Math.sin(frac * Math.PI) * (Math.PI / 3)
+    const p = this.wreckingPendulum.pivot
+    const len = this.wreckingPendulum.ropeLength
+    // Ball's position is in the GROUP's local space, which is why its
+    // resting local x is localPivotX (1.7), not 0 - the pivot itself sits
+    // offset from the group's own origin (see buildWreckingPendulum).
+    const localPivotX = this.wreckingPendulum.localPivotX
+    this.wreckingPendulum.ball.position.set(localPivotX + Math.sin(angle) * len, p.y - Math.cos(angle) * len, 0)
+    if (!this._pendulumHitThisSwing && frac > 0.45 && frac < 0.55) {
+      this._pendulumHitThisSwing = true
+      // World-space ball x, derived directly from the pivot (already
+      // world-space, see buildWreckingPendulum's own comment) + swing
+      // offset - NOT pivot.x + ball.position.x, which would double-count
+      // the local pivot offset baked into both.
+      const ballWorldX = p.x + Math.sin(angle) * len
+      for (const zombie of this.zombies.zombies) {
+        if (zombie.state !== 'alive') continue
+        const dist = Math.hypot(zombie.group.position.x - ballWorldX, zombie.group.position.z - p.z)
+        if (dist <= PENDULUM_HIT_RADIUS) {
+          zombie.lastHitWeaponId = 'pendulum'
+          zombie.onHit(PENDULUM_DAMAGE)
+        }
+      }
+      this._triggerShake(0.06, 150)
+    }
+    if (frac >= 1) this._pendulumSwingStartedAt = 0
+  }
+
+  _triggerWreckingPendulum() {
+    if (!this.nearWreckingPendulum || this._pendulumSwingStartedAt !== 0) return
+    this._pendulumSwingStartedAt = performance.now()
+    this._pendulumHitThisSwing = false
+    this._showLoreToast(t('toastPendulumTriggered'))
+  }
+
+  // Called from WeaponSystem's hit loop via scaffolding.onHit (see
+  // buildScaffolding's own comment on why it holds a real object
+  // reference, not just a boolean flag).
+  _collapseScaffolding() {
+    if (this.scaffolding.destroyed) return
+    this.scaffolding.destroyed = true
+    this.scene.remove(this.scaffolding.group)
+    const gi = this.solidMeshes.indexOf(this.scaffolding.group)
+    if (gi !== -1) this.solidMeshes.splice(gi, 1)
+    const bi = this.colliders.indexOf(this.scaffolding.box)
+    if (bi !== -1) this.colliders.splice(bi, 1)
+    for (const zombie of this.zombies.zombies) {
+      if (zombie.state !== 'alive') continue
+      const dist = Math.hypot(zombie.group.position.x - this.scaffolding.x, zombie.group.position.z - this.scaffolding.z)
+      if (dist <= SCAFFOLDING_COLLAPSE_RADIUS) {
+        zombie.lastHitWeaponId = 'scaffolding'
+        zombie.onHit(SCAFFOLDING_COLLAPSE_DAMAGE)
+      }
+    }
+    this._triggerShake(0.08, 200)
+    this._showLoreToast(t('toastScaffoldingCollapsed'))
+  }
+
+  _updatePayphone(playerPos) {
+    this.nearPayphone = Math.hypot(playerPos.x - this.payphone.x, playerPos.z - this.payphone.z) <= PAYPHONE_INTERACT_RADIUS
+    if (this.payphoneCallActive && performance.now() >= this.payphoneCallReadyAt) {
+      this.payphoneCallActive = false
+      this.coins += 60
+      this.inventory.addHealthPack(1)
+      this._updateInventoryHud()
+      this._showLoreToast(t('toastPayphoneArrived'))
+    }
+  }
+
+  _usePayphone() {
+    if (!this.nearPayphone || this.payphoneUsedThisRun || this.payphoneCallActive) return
+    this.payphoneUsedThisRun = true
+    this.payphoneCallActive = true
+    this.payphoneCallReadyAt = performance.now() + PAYPHONE_CALL_DELAY_MS
+    this._showLoreToast(t('toastPayphoneCalled'))
+  }
+
+  // Barricade Crates - a placeable, portable chokepoint obstacle (mirrors
+  // _throwC4's placement math) with its own health pool like
+  // _buildDestructibleWall, but purely a movement blocker - no damage
+  // component of its own, distinct in shape from the existing spike/
+  // electric traps (_deployTrap) and tripwire alarm (_deployAlarm), which
+  // both damage/lure rather than just physically block.
+  _placeBarricadeCrate() {
+    if (!this.inventory.useBarricadeCrate()) {
+      this._showLoreToast(t('toastNoBarricadeCrate'))
+      return
+    }
+    this.camera.getWorldDirection(this._camDir)
+    const playerPos = this.player.controls.object.position
+    const x = playerPos.x + this._camDir.x * BARRICADE_CRATE_PLACE_DIST
+    const z = playerPos.z + this._camDir.z * BARRICADE_CRATE_PLACE_DIST
+
+    const mat = flatMaterial({ color: 0x5a4a30, roughness: 0.9 })
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.1, 1.1), mat)
+    mesh.position.set(x, 0.55, z)
+    mesh.castShadow = true
+    this.scene.add(mesh)
+
+    const box = new THREE.Box3(
+      new THREE.Vector3(x - 0.55, 0, z - 0.55),
+      new THREE.Vector3(x + 0.55, 1.1, z + 0.55)
+    )
+    this.colliders.push(box)
+    this.solidMeshes.push(mesh)
+
+    const crate = { x, z, health: BARRICADE_CRATE_HEALTH, mesh, box, mat }
+    this.barricadeCrates.push(crate)
+    this._updateInventoryHud()
+    this._showLoreToast(t('toastBarricadeCratePlaced'))
+  }
+
+  _removeBarricadeCrate(crate) {
+    this.scene.remove(crate.mesh)
+    const ci = this.colliders.indexOf(crate.box)
+    if (ci !== -1) this.colliders.splice(ci, 1)
+    const si = this.solidMeshes.indexOf(crate.mesh)
+    if (si !== -1) this.solidMeshes.splice(si, 1)
+    const bi = this.barricadeCrates.indexOf(crate)
+    if (bi !== -1) this.barricadeCrates.splice(bi, 1)
+  }
+
+  // Zombies chip away at a nearby crate over time instead of instantly
+  // pathing through it - same "obstacle with a health pool" idea
+  // destructibleWalls already models, just decremented on a timer per
+  // nearby zombie rather than needing a dedicated attack animation.
+  _updateBarricadeCrates(dt, playerPos) {
+    if (this.barricadeCrates.length === 0) {
+      this.nearBarricadeCrate = null
+      return
+    }
+    this.nearBarricadeCrate = this.barricadeCrates.find((c) => Math.hypot(playerPos.x - c.x, playerPos.z - c.z) <= BARRICADE_CRATE_INTERACT_RADIUS) || null
+    for (const crate of [...this.barricadeCrates]) {
+      let underAttack = false
+      for (const zombie of this.zombies.zombies) {
+        if (zombie.state !== 'alive') continue
+        if (Math.hypot(zombie.group.position.x - crate.x, zombie.group.position.z - crate.z) <= 1.3) {
+          underAttack = true
+          break
+        }
+      }
+      if (underAttack) {
+        crate.health -= BARRICADE_CRATE_CHIP_PER_SEC * dt
+        if (crate.health <= 0) this._removeBarricadeCrate(crate)
+      }
+    }
   }
 
   _updateDeathObstacles() {
@@ -7942,6 +8266,13 @@ export class Game {
     } else if (weaponId === 'melee') {
       this._pushKillFeed('Melee finish')
     }
+    // Industrial Siren bonus (Interactive World batch, see
+    // _pullSirenLever) - applied here so the popup itself already reflects
+    // the boosted total, same "multiply before display" approach
+    // doublePointsMult above already uses for points.
+    if (this.sirenLootBonusUntil && performance.now() < this.sirenLootBonusUntil) {
+      coinsEarned = Math.round(coinsEarned * SIREN_BONUS_LOOT_MULT)
+    }
     this.coins += coinsEarned
     this._showCoinPopup(coinsEarned)
     this._updateStatsPanel()
@@ -9212,6 +9543,7 @@ export class Game {
     else if (type === 'melee_spear') this.weapons.setMeleeVariant('spear')
     else if (type === 'melee_nunchaku') this.weapons.setMeleeVariant('nunchaku')
     else if (type === 'smokebomb') this.inventory.addSmokeBomb(count || 1)
+    else if (type === 'barricadecrate') this.inventory.addBarricadeCrate(count || 1)
     else if (type === 'weapon_charm') this.weapons.equipCharm(WEAPON_CHARM_IDS[Math.floor(Math.random() * WEAPON_CHARM_IDS.length)])
     else if (type === 'ration') this.inventory.addRation(1)
     else if (type === 'vaultkey') {
@@ -11727,6 +12059,14 @@ export class Game {
       this._checkRooftopWind(playerPos)
       this._updateLockedCells(playerPos)
       this._updateTrophyWallProximity(playerPos)
+      // Interactive World batch.
+      this._updateManholeCovers(playerPos)
+      this._updateCampfire(playerPos)
+      this._updateWaterTowerValve(playerPos)
+      this._updateIndustrialSiren(playerPos)
+      this._updateWreckingPendulum(playerPos)
+      this._updatePayphone(playerPos)
+      this._updateBarricadeCrates(dt, playerPos)
       this._updateGenerator(dt, playerPos)
       this._updateTrader(playerPos)
       this._updateUpgradeMachine(playerPos)
@@ -11825,6 +12165,24 @@ export class Game {
         this.interactPrompt.style.display = 'block'
       } else if (this.nearLoreMarker) {
         this.interactPrompt.innerHTML = tHtml('interactLoreMarker')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearManholeCover) {
+        this.interactPrompt.innerHTML = tHtml('interactManhole')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearCampfire) {
+        this.interactPrompt.innerHTML = tHtml('interactCampfire')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearWaterTowerValve) {
+        this.interactPrompt.innerHTML = tHtml('interactValve')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearIndustrialSiren) {
+        this.interactPrompt.innerHTML = tHtml('interactSiren')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearWreckingPendulum) {
+        this.interactPrompt.innerHTML = tHtml('interactPendulum')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearPayphone && !this.payphoneUsedThisRun) {
+        this.interactPrompt.innerHTML = tHtml('interactPayphone')
         this.interactPrompt.style.display = 'block'
       } else {
         this.interactPrompt.style.display = 'none'

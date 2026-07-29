@@ -143,6 +143,7 @@ export class PlayerController {
     // "recomputed live every frame" shape as corpsePileMult above.
     this.webSlowMult = 1
     this.environmentMult = 1
+    this.puddleMult = 1
     this.warmthStaminaMult = 1
     this.isSprinting = false
     this.isCrouching = false
@@ -432,6 +433,14 @@ export class PlayerController {
       // "just another named multiplier in this chain" pattern corpsePileMult/
       // webSlowMult above already establish.
       speedMultiplier *= this.environmentMult
+      // Water Tower Valve puddle (Interactive World batch, see Game.js's
+      // _updateWaterTowerValve) - its own dedicated slot rather than
+      // reusing environmentMult above: that one is GLOBAL (flood/sandstorm
+      // apply map-wide), while this is a small fixed-radius local effect:
+      // an active flood and an active puddle would otherwise silently
+      // fight over the same field, flickering between the two speeds every
+      // tick depending on which check happened to run last.
+      speedMultiplier *= this.puddleMult
 
       if (this.slipFactor > 0) {
         // Wet planks over a sewer, not solid ground - momentum carries the
