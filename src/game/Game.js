@@ -7958,17 +7958,22 @@ export class Game {
   // much clearance actually exists shifts with them - this measures the
   // real gap between the hero column's true end (with play-btn briefly
   // popped out of flow) and the game-mode cards row below it, live.
+  // Uses #settings-btn (not #controls-list/#round-mode-hint, both
+  // display:none now that the instructional text was removed from the
+  // visible menu) as the "last visible hero element" reference - a
+  // display:none element's getBoundingClientRect() is always all-zero,
+  // which would silently make this measurement meaningless.
   _updatePlayBtnCentering() {
-    const controlsList = document.getElementById('controls-list')
+    const settingsBtn = document.getElementById('settings-btn')
     const cardsRow = document.getElementById('menu-cards-row')
-    if (!this.playBtn || !controlsList || !cardsRow) return
+    if (!this.playBtn || !settingsBtn || !cardsRow) return
 
     this.playBtn.classList.remove('play-btn-centered')
     const btnHeight = this.playBtn.getBoundingClientRect().height
 
     const prevDisplay = this.playBtn.style.display
     this.playBtn.style.display = 'none'
-    const safeTop = controlsList.getBoundingClientRect().bottom
+    const safeTop = settingsBtn.getBoundingClientRect().bottom
     this.playBtn.style.display = prevDisplay
 
     const safeBottom = cardsRow.getBoundingClientRect().top

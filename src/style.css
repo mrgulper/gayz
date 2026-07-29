@@ -2147,14 +2147,20 @@ body.reduce-flashing #critical-blood-overlay.show {
    Main menu redesign - design tokens
    ========================================================================== */
 #menu {
-  --menu-gold: #e3a63c;
+  --menu-gold: #d9a34a;
   --menu-green: #7fd8a0;
   --menu-red: #c9564a;
   --menu-orange: #e08a4f;
   --menu-blue: #6fa8dc;
   --menu-purple: #b07cd6;
-  --menu-panel-bg: rgba(8, 14, 10, 0.6);
-  --menu-panel-border: rgba(227, 166, 60, 0.22);
+  --menu-olive: #92a05e;
+  --menu-charcoal: #0a0a09;
+  --menu-gunmetal: #34383c;
+  --menu-gunmetal-dark: #1c1e20;
+  --menu-bronze: #8a6d47;
+  --menu-orange-glow: #e67e35;
+  --menu-panel-bg: rgba(7, 8, 8, 0.72);
+  --menu-panel-border: rgba(138, 109, 71, 0.5);
   --menu-text-dim: rgba(224, 228, 220, 0.62);
   --menu-display-font: 'Bebas Neue', 'Segoe UI', sans-serif;
 
@@ -2163,11 +2169,11 @@ body.reduce-flashing #critical-blood-overlay.show {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background: linear-gradient(180deg, #0a1210 0%, #0d1a14 45%, #050807 100%);
   color: #eee;
   text-align: center;
-  padding: 16px 24px 10px;
+  padding: 10px 24px 6px;
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -2250,10 +2256,56 @@ body.reduce-flashing #critical-blood-overlay.show {
   to { background-position: -24px 240px; }
 }
 
+/* Drifting ash/embers - a small repeating tile of warm dots, tiled and
+   animated so the drift loops seamlessly (background-position shifts by
+   exactly one tile height). Distinct from #menu-bg-embers above (which is
+   a few large soft glows that flicker in place over the photo's own
+   light sources) - these are small particles that visibly float upward. */
+#menu-bg-ash {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1.6px 1.6px at 20% 30%, rgba(255, 180, 120, 0.75), transparent),
+    radial-gradient(1.2px 1.2px at 60% 70%, rgba(255, 200, 140, 0.65), transparent),
+    radial-gradient(1.6px 1.6px at 80% 20%, rgba(255, 170, 100, 0.7), transparent),
+    radial-gradient(1.2px 1.2px at 40% 85%, rgba(255, 190, 130, 0.6), transparent),
+    radial-gradient(1.6px 1.6px at 10% 60%, rgba(255, 180, 110, 0.65), transparent);
+  background-size: 280px 280px;
+  background-repeat: repeat;
+  animation: menuBgAshDrift 22s linear infinite;
+  opacity: 0.6;
+  mix-blend-mode: screen;
+}
+
+@keyframes menuBgAshDrift {
+  from { background-position: 0 280px; }
+  to { background-position: -50px 0; }
+}
+
+/* Faint ground fog - a soft blurred haze low in frame, sways slowly side
+   to side rather than sitting frozen. */
+#menu-bg-fog {
+  position: absolute;
+  left: -20%;
+  right: -20%;
+  bottom: 0;
+  height: 38%;
+  background: linear-gradient(180deg, transparent 0%, rgba(180, 185, 175, 0.05) 45%, rgba(180, 185, 175, 0.1) 100%);
+  filter: blur(9px);
+  animation: menuBgFogDrift 40s ease-in-out infinite alternate;
+}
+
+@keyframes menuBgFogDrift {
+  from { transform: translateX(0); }
+  to { transform: translateX(3%); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   #menu-bg-photo,
   #menu-bg-embers,
-  #menu-bg-rain {
+  #menu-bg-rain,
+  #menu-bg-ash,
+  #menu-bg-fog {
     animation: none;
   }
 }
@@ -2264,13 +2316,13 @@ body.reduce-flashing #critical-blood-overlay.show {
 #menu-bg-scrim {
   position: absolute;
   inset: 0;
-  background: rgba(4, 8, 6, 0.45);
+  background: rgba(3, 6, 5, 0.54);
 }
 
 #menu-bg-vignette {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at 50% 40%, transparent 25%, rgba(0, 0, 0, 0.6) 100%);
+  background: radial-gradient(ellipse at 50% 40%, transparent 20%, rgba(0, 0, 0, 0.7) 100%);
 }
 
 /* ==========================================================================
@@ -2281,7 +2333,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   z-index: 1;
   display: grid;
   grid-template-columns: 250px minmax(340px, 560px) 230px;
-  gap: 22px;
+  gap: 18px;
   align-items: start;
   width: 100%;
   max-width: 1180px;
@@ -2292,7 +2344,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 #menu-col-right {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 17px;
   text-align: left;
 }
 
@@ -2302,16 +2354,17 @@ body.reduce-flashing #critical-blood-overlay.show {
    used to be there on the old centered-title menu; this panel is now the
    first thing in that corner, so give it enough clearance not to overlap. */
 #menu-col-left {
-  padding-top: 34px;
+  padding-top: 10px;
 }
 
 .menu-panel {
   position: relative;
-  background: var(--menu-panel-bg);
-  border: 1px solid var(--menu-panel-border);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 12%), var(--menu-panel-bg);
+  border: 2px solid var(--menu-panel-border);
   border-radius: 4px;
-  padding: 14px 16px;
+  padding: 14px 18px;
   backdrop-filter: blur(2px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 /* Stamped-metal corner brackets (top-left + bottom-right) on every
@@ -2350,9 +2403,10 @@ body.reduce-flashing #critical-blood-overlay.show {
 }
 
 .menu-panel-title {
-  margin: 0 0 8px;
+  margin: 0 0 9px;
   font-family: var(--menu-display-font);
-  font-size: 15px;
+  font-size: 18px;
+  font-weight: 700;
   letter-spacing: 1.5px;
   color: var(--menu-gold);
   text-transform: uppercase;
@@ -2411,6 +2465,14 @@ body.reduce-flashing #critical-blood-overlay.show {
   border-color: var(--menu-gold);
 }
 
+/* Brighter glow on whichever class/difficulty is currently selected -
+   currentColor picks up each button's own accent color (set per class/
+   difficulty below), so this one rule covers all of them. */
+.class-btn.active,
+.difficulty-btn.active {
+  box-shadow: 0 0 4px 1px currentColor, inset 0 0 12px -3px currentColor;
+}
+
 .class-icon {
   width: 26px;
   height: 26px;
@@ -2465,8 +2527,8 @@ body.reduce-flashing #critical-blood-overlay.show {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding-top: 6px;
+  gap: 7px;
+  padding-top: 2px;
 }
 
 /* Distressed stencil title - Black Ops One (a stencil-style display font)
@@ -2478,25 +2540,25 @@ body.reduce-flashing #critical-blood-overlay.show {
   position: relative;
   margin: 0;
   font-family: 'Black Ops One', var(--menu-display-font);
-  font-size: 72px;
+  font-size: 100px;
   line-height: 1;
   letter-spacing: 2px;
   text-transform: uppercase;
   color: #eef0e6;
   text-shadow:
-    3px 3px 0 rgba(0, 0, 0, 0.65),
-    -2px -1px 0 rgba(0, 0, 0, 0.4),
-    2px 2px 0 rgba(122, 12, 12, 0.55),
-    -3px 2px 0 rgba(80, 6, 6, 0.4),
-    0 0 30px rgba(227, 166, 60, 0.3);
+    4px 4px 0 rgba(0, 0, 0, 0.65),
+    -3px -1px 0 rgba(0, 0, 0, 0.4),
+    3px 3px 0 rgba(122, 12, 12, 0.55),
+    -4px 3px 0 rgba(80, 6, 6, 0.4),
+    0 0 44px rgba(227, 166, 60, 0.35);
 }
 
 #menu-title::before,
 #menu-title::after {
   content: '';
   position: absolute;
-  width: 8px;
-  height: 22px;
+  width: 12px;
+  height: 34px;
   background: linear-gradient(180deg, #9a2020 0%, #5a0f0f 100%);
   border-radius: 50% 50% 50% 50% / 65% 65% 35% 35%;
   opacity: 0.85;
@@ -2504,27 +2566,27 @@ body.reduce-flashing #critical-blood-overlay.show {
 }
 
 #menu-title::before {
-  top: 4px;
+  top: 6px;
   left: 21%;
   transform: rotate(10deg);
 }
 
 #menu-title::after {
-  top: 10px;
+  top: 16px;
   right: 16%;
-  width: 6px;
-  height: 16px;
+  width: 9px;
+  height: 24px;
   transform: rotate(-14deg);
 }
 
 #menu-tagline {
   margin: 2px 0 10px;
   font-family: var(--menu-display-font);
-  font-size: 15px;
+  font-size: 16px;
   letter-spacing: 3px;
-  color: var(--menu-green);
+  color: var(--menu-olive);
   text-transform: uppercase;
-  opacity: 0.9;
+  opacity: 0.95;
 }
 
 #menu p {
@@ -2532,9 +2594,27 @@ body.reduce-flashing #critical-blood-overlay.show {
   opacity: 0.7;
 }
 
+#menu-subtitle {
+  font-size: 17px;
+  font-weight: 600;
+  opacity: 0.85 !important;
+  letter-spacing: 0.3px;
+}
+
 .menu-subhint {
   font-size: 12px;
   opacity: 0.5 !important;
+}
+
+/* Instructional text (round-mode rules, control bindings) removed from
+   the visible menu per the AAA-menu-quality pass - a first-time player
+   already gets this via the in-game tutorial hint sequence
+   (_maybeShowTutorialHints), so it doesn't need to sit permanently under
+   the Play button too. Kept in the DOM (not deleted) since _updateTexts()
+   still populates them and this is reversible with one CSS change. */
+#round-mode-hint,
+#controls-list {
+  display: none;
 }
 
 .menu-news-ticker {
@@ -2584,38 +2664,53 @@ body.reduce-flashing #critical-blood-overlay.show {
 /* Stamped-metal sign: octagonal clip-path + 4 corner "rivets" (small
    radial-gradient dots layered on top of the gold fill) instead of a
    plain rounded pill, plus the same stencil display font as the title. */
+/* Stamped-metal sign: dark steel face (not a flat gold fill) framed by a
+   thick gold border, an inset bevel (light top edge / dark bottom edge)
+   and a soft orange outer glow - reads as an illuminated AAA-menu button
+   rather than a flat web button. Octagonal clip-path + 4 corner "rivets"
+   (small radial-gradient dots) kept from the earlier pass. */
 #play-btn {
+  position: relative;
   margin-top: 6px;
-  padding: 17px 60px;
+  padding: 20px 68px;
   font-family: 'Black Ops One', var(--menu-display-font);
-  font-size: 24px;
+  font-size: 27px;
   letter-spacing: 3px;
   text-transform: uppercase;
-  color: #0c130c;
+  color: var(--menu-gold);
   background:
-    radial-gradient(3.5px 3.5px at 10% 22%, #6b4a14, transparent 70%),
-    radial-gradient(3.5px 3.5px at 90% 22%, #6b4a14, transparent 70%),
-    radial-gradient(3.5px 3.5px at 10% 78%, #6b4a14, transparent 70%),
-    radial-gradient(3.5px 3.5px at 90% 78%, #6b4a14, transparent 70%),
-    linear-gradient(180deg, #f0c463 0%, var(--menu-gold) 100%);
-  border: 2px solid #8a621c;
+    radial-gradient(3.5px 3.5px at 10% 20%, #6b6a63, transparent 70%),
+    radial-gradient(3.5px 3.5px at 90% 20%, #6b6a63, transparent 70%),
+    radial-gradient(3.5px 3.5px at 10% 80%, #6b6a63, transparent 70%),
+    radial-gradient(3.5px 3.5px at 90% 80%, #6b6a63, transparent 70%),
+    linear-gradient(180deg, #52585d 0%, #2c2f33 55%, #17191b 100%);
+  border: 3px solid var(--menu-gold);
   clip-path: polygon(4% 0%, 96% 0%, 100% 30%, 100% 70%, 96% 100%, 4% 100%, 0% 70%, 0% 30%);
   cursor: pointer;
-  box-shadow: 0 4px 0 #8a621c, 0 6px 16px rgba(0, 0, 0, 0.4);
+  text-shadow: 0 0 12px rgba(227, 166, 60, 0.7), 0 2px 3px rgba(0, 0, 0, 0.9);
+  box-shadow:
+    inset 0 2px 3px rgba(255, 255, 255, 0.2),
+    inset 0 -5px 8px rgba(0, 0, 0, 0.65),
+    0 0 26px 6px rgba(230, 126, 53, 0.45),
+    0 8px 18px rgba(0, 0, 0, 0.55);
+  transition: transform 0.15s ease, box-shadow 0.25s ease;
 }
 
 #play-btn:hover {
-  background:
-    radial-gradient(3.5px 3.5px at 10% 22%, #6b4a14, transparent 70%),
-    radial-gradient(3.5px 3.5px at 90% 22%, #6b4a14, transparent 70%),
-    radial-gradient(3.5px 3.5px at 10% 78%, #6b4a14, transparent 70%),
-    radial-gradient(3.5px 3.5px at 90% 78%, #6b4a14, transparent 70%),
-    linear-gradient(180deg, #f6d488 0%, #eeb856 100%);
+  transform: translateY(-3px);
+  box-shadow:
+    inset 0 2px 3px rgba(255, 255, 255, 0.25),
+    inset 0 -5px 8px rgba(0, 0, 0, 0.6),
+    0 0 38px 10px rgba(230, 126, 53, 0.6),
+    0 10px 22px rgba(0, 0, 0, 0.6);
 }
 
 #play-btn:active {
-  transform: translateY(3px);
-  box-shadow: 0 1px 0 #8a621c, 0 2px 8px rgba(0, 0, 0, 0.4);
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 3px 6px rgba(0, 0, 0, 0.7),
+    0 0 18px 4px rgba(230, 126, 53, 0.35),
+    0 3px 8px rgba(0, 0, 0, 0.5);
 }
 
 /* Fixed + transform-centered so it sits exactly in the middle of the
@@ -2635,8 +2730,12 @@ body.reduce-flashing #critical-blood-overlay.show {
   margin-top: 0;
 }
 
+#play-btn.play-btn-centered:hover {
+  transform: translate(-50%, calc(-50% - 3px));
+}
+
 #play-btn.play-btn-centered:active {
-  transform: translate(-50%, calc(-50% + 3px));
+  transform: translate(-50%, calc(-50% + 2px));
 }
 
 #settings-btn {
@@ -2695,8 +2794,8 @@ body.reduce-flashing #critical-blood-overlay.show {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 12px;
+  gap: 6px;
+  padding: 14px;
   border-radius: 10px;
   cursor: pointer;
 }
@@ -2715,26 +2814,30 @@ body.reduce-flashing #critical-blood-overlay.show {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 64px;
-  height: 64px;
+  width: 84px;
+  height: 84px;
   color: var(--menu-gold);
-  background: rgba(227, 166, 60, 0.08);
-  border: 2px solid rgba(227, 166, 60, 0.5);
+  background: linear-gradient(180deg, rgba(227, 166, 60, 0.1) 0%, rgba(0, 0, 0, 0.3) 100%);
+  border: 3px solid var(--menu-gold);
   border-radius: 6px;
+  box-shadow:
+    inset 0 2px 3px rgba(255, 255, 255, 0.12),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.55),
+    0 0 16px 2px rgba(227, 166, 60, 0.25);
 }
 
 #menu-avatar-icon svg {
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
 }
 
 #menu-avatar-level {
   position: absolute;
-  bottom: -4px;
-  right: -4px;
-  min-width: 18px;
-  padding: 1px 5px;
-  font-size: 11px;
+  bottom: -6px;
+  right: -6px;
+  min-width: 20px;
+  padding: 2px 6px;
+  font-size: 12px;
   font-weight: 700;
   color: #0c130c;
   background: var(--menu-gold);
@@ -2745,7 +2848,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 
 #menu-player-tag {
   margin-top: 6px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.5px;
   color: #eee;
@@ -2762,29 +2865,32 @@ body.reduce-flashing #critical-blood-overlay.show {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 11px 16px;
+  padding: 13px 18px;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.3px;
   color: #d8dcd2;
-  background: var(--menu-panel-bg);
-  border: 1px solid var(--menu-panel-border);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 50%), var(--menu-gunmetal-dark);
+  border: 2px solid var(--menu-panel-border);
   border-radius: 4px;
   cursor: pointer;
   text-align: left;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
 }
 
 #menu-nav-buttons button svg {
-  width: 19px;
-  height: 19px;
+  width: 20px;
+  height: 20px;
   flex-shrink: 0;
   color: var(--menu-gold);
 }
 
 #menu-nav-buttons button:hover {
-  background: rgba(227, 166, 60, 0.1);
-  border-color: rgba(227, 166, 60, 0.5);
+  background: linear-gradient(180deg, rgba(227, 166, 60, 0.12) 0%, rgba(227, 166, 60, 0.05) 50%), var(--menu-gunmetal-dark);
+  border-color: var(--menu-gold);
   color: #fff;
+  transform: translateX(2px);
 }
 
 #menu-boards {
@@ -2809,17 +2915,19 @@ body.reduce-flashing #critical-blood-overlay.show {
 
 .menu-card {
   position: relative;
-  background: var(--menu-panel-bg);
-  border: 1px solid var(--menu-panel-border);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 12%), var(--menu-panel-bg);
+  border: 2px solid var(--menu-panel-border);
   border-radius: 4px;
-  padding: 12px 14px;
+  padding: 14px 18px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04);
   text-align: left;
 }
 
 .menu-card-title {
-  margin: 0 0 8px;
+  margin: 0 0 9px;
   font-family: var(--menu-display-font);
-  font-size: 16px;
+  font-size: 19px;
+  font-weight: 700;
   letter-spacing: 1.5px;
   color: var(--menu-gold);
   text-transform: uppercase;
@@ -2828,32 +2936,42 @@ body.reduce-flashing #critical-blood-overlay.show {
 .menu-card-list {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
 }
 
 .mode-toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
+  padding: 1px 6px;
+  margin: 0 -6px;
+  border-radius: 4px;
   font-size: 12px;
   color: rgba(255, 255, 255, 0.75);
   cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.mode-toggle:hover {
+  background: rgba(227, 166, 60, 0.08);
+  color: #fff;
 }
 
 .mode-icon {
-  width: 15px;
-  height: 15px;
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
   color: var(--menu-green);
   opacity: 0.85;
 }
 
 .mode-toggle input {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   margin: 0;
   accent-color: var(--menu-gold);
   flex-shrink: 0;
+  cursor: pointer;
 }
 
 #settings-panel {
