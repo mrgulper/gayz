@@ -3473,7 +3473,6 @@ export class Game {
     this._rivalsClaimedByName = null
     this._spawnDeathMemorials()
     this._spawnBuriedCaches()
-    this._baseTitle = document.title
     this._maybeShowTutorialHints()
     // Weapon mastery (see WeaponMastery.js) - re-applies any previously
     // earned masteryMult bonuses to this fresh set of weapon objects, since
@@ -8945,15 +8944,6 @@ export class Game {
     this.creditsPanel.style.display = 'none'
   }
 
-  // Dynamic browser tab title - piggybacks on _updateStatsPanel already
-  // being called after every kill/points/coins change, so this needs no new
-  // call sites of its own. Reverted to the page's original title on death
-  // (see _onPlayerDeath) rather than left showing a stale final score.
-  _updateWindowTitle() {
-    if (!this.playerState.alive) return
-    document.title = t('windowTitlePlaying', { night: this.night, kills: this.kills })
-  }
-
   // First-time tutorial hint sequence - a one-time (localStorage-gated)
   // chained sequence, distinct from the always-visible static menu-subhint
   // text. Only ever runs once per browser/profile.
@@ -9201,7 +9191,6 @@ export class Game {
     this.killcamUntil = performance.now() + DEATH_KILLCAM_DURATION_MS
     this._recordDeathMemorial()
     this._recordNemesis()
-    document.title = this._baseTitle
     this.player.controls.unlock()
     this.crosshair.style.display = 'none'
     this.hudEl.style.display = 'none'
@@ -10440,7 +10429,6 @@ export class Game {
       this.phaseRow.classList.toggle('is-day', phase === 'Day')
       this.phaseRow.classList.toggle('is-night', phase === 'Night')
     }
-    this._updateWindowTitle()
   }
 
   // Round Mode isn't a separate opt-in toggle on Easy/Normal - it's just
