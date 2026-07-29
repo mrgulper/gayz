@@ -2154,10 +2154,10 @@ body.reduce-flashing #critical-blood-overlay.show {
   overflow-x: hidden;
 }
 
-/* Procedural backdrop - no image assets, built entirely from gradients/
-   clip-path/box-shadow so the menu never depends on sourcing art. Sits
-   behind #menu-layout/#menu-cards-row (both get position:relative + a
-   higher z-index below) and never intercepts clicks. */
+/* Backdrop - real photo (ruined night-time city block) behind a dark
+   scrim + vignette for text contrast. Sits behind #menu-layout/
+   #menu-cards-row (both get position:relative + a higher z-index below)
+   and never intercepts clicks. */
 #menu-bg {
   position: fixed;
   inset: 0;
@@ -2166,63 +2166,27 @@ body.reduce-flashing #critical-blood-overlay.show {
   overflow: hidden;
 }
 
-#menu-bg-stars {
+#menu-bg-photo {
   position: absolute;
   inset: 0;
-  opacity: 0.5;
-  background-image:
-    radial-gradient(1.5px 1.5px at 8% 15%, #fff, transparent),
-    radial-gradient(1px 1px at 22% 8%, #fff, transparent),
-    radial-gradient(1.5px 1.5px at 38% 22%, #fff, transparent),
-    radial-gradient(1px 1px at 55% 6%, #fff, transparent),
-    radial-gradient(1.5px 1.5px at 68% 18%, #fff, transparent),
-    radial-gradient(1px 1px at 78% 9%, #fff, transparent),
-    radial-gradient(1.5px 1.5px at 88% 24%, #fff, transparent),
-    radial-gradient(1px 1px at 95% 12%, #fff, transparent),
-    radial-gradient(1px 1px at 15% 32%, #fff, transparent),
-    radial-gradient(1px 1px at 45% 14%, #fff, transparent);
-  background-repeat: no-repeat;
+  background-image: url('/images/menu-bg-city.jpg');
+  background-size: cover;
+  background-position: center 35%;
 }
 
-#menu-bg-moon {
+/* Flat dark wash, tinted to match the game's dark green-black palette
+   rather than neutral black, so hero text sitting directly on the photo
+   (no card background under it) stays readable. */
+#menu-bg-scrim {
   position: absolute;
-  top: 8%;
-  right: 12%;
-  width: 130px;
-  height: 130px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 38% 35%, #f2f3ea 0%, #d9dccb 45%, #b8bcaa 70%, transparent 72%);
-  box-shadow: 0 0 70px 20px rgba(220, 225, 200, 0.18);
-}
-
-/* Jagged skyline silhouette - a single clipped div rather than sourced art. */
-/* Lighter slate-green (not flat black) so the silhouette actually reads
-   against the near-black page background instead of disappearing into it -
-   a subtle top-edge glow (radial-gradient layered under the flat color)
-   sells the "moonlit skyline" read without needing a real image asset. */
-#menu-bg-skyline {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 42%;
-  background:
-    linear-gradient(180deg, rgba(90, 110, 95, 0.35) 0%, transparent 12%),
-    #17231c;
-  clip-path: polygon(
-    0% 100%, 0% 55%, 4% 55%, 4% 40%, 9% 40%, 9% 60%, 14% 60%, 14% 30%, 16% 30%, 16% 45%,
-    21% 45%, 21% 20%, 24% 20%, 24% 50%, 29% 50%, 29% 35%, 33% 35%, 33% 65%, 38% 65%, 38% 25%,
-    41% 25%, 41% 42%, 46% 42%, 46% 15%, 49% 15%, 49% 55%, 54% 55%, 54% 38%, 58% 38%, 58% 60%,
-    63% 60%, 63% 28%, 66% 28%, 66% 48%, 71% 48%, 71% 18%, 74% 18%, 74% 52%, 79% 52%, 79% 33%,
-    83% 33%, 83% 62%, 88% 62%, 88% 22%, 91% 22%, 91% 45%, 96% 45%, 96% 58%, 100% 58%, 100% 100%
-  );
-  opacity: 0.95;
+  inset: 0;
+  background: rgba(4, 8, 6, 0.45);
 }
 
 #menu-bg-vignette {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at 50% 40%, transparent 35%, rgba(0, 0, 0, 0.65) 100%);
+  background: radial-gradient(ellipse at 50% 40%, transparent 25%, rgba(0, 0, 0, 0.6) 100%);
 }
 
 /* ==========================================================================
