@@ -879,6 +879,19 @@ body.reduce-flashing #critical-blood-overlay.show {
   border-color: #e3a63c;
 }
 
+/* Per-difficulty accent (green/gold/red, matching the class-grid's own
+   per-class colors above) rather than every difficulty sharing one gold
+   treatment. */
+.difficulty-btn[data-difficulty="easy"] { color: var(--menu-green); border-color: rgba(127, 216, 160, 0.45); }
+.difficulty-btn[data-difficulty="hard"],
+.difficulty-btn[data-difficulty="nightmare"],
+.difficulty-btn[data-difficulty="apex"] { color: var(--menu-red); border-color: rgba(201, 86, 74, 0.45); }
+
+.difficulty-btn[data-difficulty="easy"].active { color: #0c130c; background: var(--menu-green); border-color: var(--menu-green); }
+.difficulty-btn[data-difficulty="hard"].active,
+.difficulty-btn[data-difficulty="nightmare"].active,
+.difficulty-btn[data-difficulty="apex"].active { color: #0c130c; background: var(--menu-red); border-color: var(--menu-red); }
+
 #inventory-hud {
   display: none;
   flex-direction: column;
@@ -2137,6 +2150,9 @@ body.reduce-flashing #critical-blood-overlay.show {
   --menu-gold: #e3a63c;
   --menu-green: #7fd8a0;
   --menu-red: #c9564a;
+  --menu-orange: #e08a4f;
+  --menu-blue: #6fa8dc;
+  --menu-purple: #b07cd6;
   --menu-panel-bg: rgba(8, 14, 10, 0.6);
   --menu-panel-border: rgba(227, 166, 60, 0.22);
   --menu-text-dim: rgba(224, 228, 220, 0.62);
@@ -2290,11 +2306,47 @@ body.reduce-flashing #critical-blood-overlay.show {
 }
 
 .menu-panel {
+  position: relative;
   background: var(--menu-panel-bg);
   border: 1px solid var(--menu-panel-border);
-  border-radius: 10px;
+  border-radius: 4px;
   padding: 14px 16px;
   backdrop-filter: blur(2px);
+}
+
+/* Stamped-metal corner brackets (top-left + bottom-right) on every
+   panel/card/nav-button, instead of a plain rounded-rect border - the
+   squared-off industrial look the reference mockup uses throughout. */
+.menu-panel::before,
+.menu-panel::after,
+.menu-card::before,
+.menu-card::after,
+#menu-nav-buttons button::before,
+#menu-nav-buttons button::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+  opacity: 0.75;
+}
+
+.menu-panel::before,
+.menu-card::before,
+#menu-nav-buttons button::before {
+  top: -1px;
+  left: -1px;
+  border-top: 2px solid var(--menu-gold);
+  border-left: 2px solid var(--menu-gold);
+}
+
+.menu-panel::after,
+.menu-card::after,
+#menu-nav-buttons button::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 2px solid var(--menu-gold);
+  border-right: 2px solid var(--menu-gold);
 }
 
 .menu-panel-title {
@@ -2364,6 +2416,25 @@ body.reduce-flashing #critical-blood-overlay.show {
   height: 26px;
 }
 
+/* Per-class accent colors (Choose Class grid only) - the icon always
+   keeps its class's characteristic color, the border/background/label
+   only pick it up once that class is the active selection. Matches each
+   class's own thematic color rather than everything sharing the one
+   gold "active" treatment. */
+.class-btn[data-role="ranged"] .class-icon { color: var(--menu-green); }
+.class-btn[data-role="melee"] .class-icon { color: var(--menu-orange); }
+.class-btn[data-role="medic"] .class-icon { color: var(--menu-blue); }
+.class-btn[data-loadout="balanced"] .class-icon { color: var(--menu-gold); }
+.class-btn[data-loadout="runner"] .class-icon { color: var(--menu-purple); }
+.class-btn[data-loadout="tank"] .class-icon { color: var(--menu-red); }
+
+.class-btn[data-role="ranged"].active { color: var(--menu-green); background: rgba(127, 216, 160, 0.12); border-color: var(--menu-green); }
+.class-btn[data-role="melee"].active { color: var(--menu-orange); background: rgba(224, 138, 79, 0.12); border-color: var(--menu-orange); }
+.class-btn[data-role="medic"].active { color: var(--menu-blue); background: rgba(111, 168, 220, 0.12); border-color: var(--menu-blue); }
+.class-btn[data-loadout="balanced"].active { color: var(--menu-gold); background: rgba(227, 166, 60, 0.12); border-color: var(--menu-gold); }
+.class-btn[data-loadout="runner"].active { color: var(--menu-purple); background: rgba(176, 124, 214, 0.12); border-color: var(--menu-purple); }
+.class-btn[data-loadout="tank"].active { color: var(--menu-red); background: rgba(201, 86, 74, 0.12); border-color: var(--menu-red); }
+
 .stat-row {
   display: flex;
   justify-content: space-between;
@@ -2398,17 +2469,52 @@ body.reduce-flashing #critical-blood-overlay.show {
   padding-top: 6px;
 }
 
+/* Distressed stencil title - Black Ops One (a stencil-style display font)
+   instead of the condensed Bebas Neue used everywhere else in the menu,
+   layered shadows for a chipped/hand-stenciled edge, plus two small
+   blood-drip accents (::before/::after) rather than sourcing a textured
+   font/image asset. */
 #menu-title {
+  position: relative;
   margin: 0;
-  font-family: var(--menu-display-font);
-  font-size: 84px;
-  line-height: 0.9;
-  letter-spacing: 4px;
+  font-family: 'Black Ops One', var(--menu-display-font);
+  font-size: 72px;
+  line-height: 1;
+  letter-spacing: 2px;
+  text-transform: uppercase;
   color: #eef0e6;
   text-shadow:
-    0 0 24px rgba(227, 166, 60, 0.35),
-    3px 3px 0 rgba(0, 0, 0, 0.5),
-    -1px 0 0 rgba(201, 86, 74, 0.4);
+    3px 3px 0 rgba(0, 0, 0, 0.65),
+    -2px -1px 0 rgba(0, 0, 0, 0.4),
+    2px 2px 0 rgba(122, 12, 12, 0.55),
+    -3px 2px 0 rgba(80, 6, 6, 0.4),
+    0 0 30px rgba(227, 166, 60, 0.3);
+}
+
+#menu-title::before,
+#menu-title::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 22px;
+  background: linear-gradient(180deg, #9a2020 0%, #5a0f0f 100%);
+  border-radius: 50% 50% 50% 50% / 65% 65% 35% 35%;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+#menu-title::before {
+  top: 4px;
+  left: 21%;
+  transform: rotate(10deg);
+}
+
+#menu-title::after {
+  top: 10px;
+  right: 16%;
+  width: 6px;
+  height: 16px;
+  transform: rotate(-14deg);
 }
 
 #menu-tagline {
@@ -2475,22 +2581,36 @@ body.reduce-flashing #critical-blood-overlay.show {
   background: rgba(255, 255, 255, 0.15);
 }
 
+/* Stamped-metal sign: octagonal clip-path + 4 corner "rivets" (small
+   radial-gradient dots layered on top of the gold fill) instead of a
+   plain rounded pill, plus the same stencil display font as the title. */
 #play-btn {
   margin-top: 6px;
-  padding: 15px 56px;
-  font-family: var(--menu-display-font);
+  padding: 17px 60px;
+  font-family: 'Black Ops One', var(--menu-display-font);
   font-size: 24px;
   letter-spacing: 3px;
+  text-transform: uppercase;
   color: #0c130c;
-  background: linear-gradient(180deg, #f0c463 0%, var(--menu-gold) 100%);
-  border: none;
-  border-radius: 8px;
+  background:
+    radial-gradient(3.5px 3.5px at 10% 22%, #6b4a14, transparent 70%),
+    radial-gradient(3.5px 3.5px at 90% 22%, #6b4a14, transparent 70%),
+    radial-gradient(3.5px 3.5px at 10% 78%, #6b4a14, transparent 70%),
+    radial-gradient(3.5px 3.5px at 90% 78%, #6b4a14, transparent 70%),
+    linear-gradient(180deg, #f0c463 0%, var(--menu-gold) 100%);
+  border: 2px solid #8a621c;
+  clip-path: polygon(4% 0%, 96% 0%, 100% 30%, 100% 70%, 96% 100%, 4% 100%, 0% 70%, 0% 30%);
   cursor: pointer;
   box-shadow: 0 4px 0 #8a621c, 0 6px 16px rgba(0, 0, 0, 0.4);
 }
 
 #play-btn:hover {
-  background: linear-gradient(180deg, #f6d488 0%, #eeb856 100%);
+  background:
+    radial-gradient(3.5px 3.5px at 10% 22%, #6b4a14, transparent 70%),
+    radial-gradient(3.5px 3.5px at 90% 22%, #6b4a14, transparent 70%),
+    radial-gradient(3.5px 3.5px at 10% 78%, #6b4a14, transparent 70%),
+    radial-gradient(3.5px 3.5px at 90% 78%, #6b4a14, transparent 70%),
+    linear-gradient(180deg, #f6d488 0%, #eeb856 100%);
 }
 
 #play-btn:active {
@@ -2529,8 +2649,8 @@ body.reduce-flashing #critical-blood-overlay.show {
   padding: 0;
   color: var(--menu-gold);
   background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(227, 166, 60, 0.4);
-  border-radius: 50%;
+  border: 2px solid rgba(227, 166, 60, 0.5);
+  border-radius: 6px;
   cursor: pointer;
 }
 
@@ -2600,7 +2720,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   color: var(--menu-gold);
   background: rgba(227, 166, 60, 0.08);
   border: 2px solid rgba(227, 166, 60, 0.5);
-  border-radius: 50%;
+  border-radius: 6px;
 }
 
 #menu-avatar-icon svg {
@@ -2638,6 +2758,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 }
 
 #menu-nav-buttons button {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -2648,7 +2769,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   color: #d8dcd2;
   background: var(--menu-panel-bg);
   border: 1px solid var(--menu-panel-border);
-  border-radius: 8px;
+  border-radius: 4px;
   cursor: pointer;
   text-align: left;
 }
@@ -2687,9 +2808,10 @@ body.reduce-flashing #critical-blood-overlay.show {
 }
 
 .menu-card {
+  position: relative;
   background: var(--menu-panel-bg);
   border: 1px solid var(--menu-panel-border);
-  border-radius: 10px;
+  border-radius: 4px;
   padding: 12px 14px;
   text-align: left;
 }
