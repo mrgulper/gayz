@@ -3859,6 +3859,10 @@ export class Game {
 
     this.player.controls.addEventListener('lock', () => {
       this.gameStarted = true
+      // Undo the menu-background idle camera sway (_tick, gated on
+      // !this.gameStarted) - real gameplay should always start facing
+      // forward, not wherever that sway last left the view.
+      this.camera.rotation.set(0, 0, 0)
       audioEngine.resume()
       this.pauseOverlay.style.display = 'none'
       this.screenshotCropOverlay.style.display = 'none'
@@ -3867,6 +3871,7 @@ export class Game {
       this.crosshair.style.display = this.driving ? 'none' : 'block'
       this.hudEl.style.display = this.driving ? 'none' : 'block'
       this.hotbarEl.style.display = this.driving ? 'none' : 'flex'
+      if (this.hotbarPowerScoreEl) this.hotbarPowerScoreEl.style.display = this.driving ? 'none' : 'block'
       this.statusHud.style.display = 'flex'
       this.inventoryHud.style.display = 'flex'
       this.progressHud.style.display = 'flex'
@@ -8909,6 +8914,11 @@ export class Game {
     // unlock is never delayed, just its notification.
     if (def.id === 'centurion') this.weapons.setWeaponSkin('pistol', 'gold')
     this._updateTrophyWall()
+    // The live game world (zombies, weather) keeps simulating behind the
+    // menu before Play is ever clicked (see main.js) - no gameplay toast
+    // should actually reach the screen before then, even if whatever
+    // triggered this fired anyway.
+    if (!this.gameStarted) return
     this._achievementToastQueue.push(def)
     this._drainAchievementToastQueue()
   }
@@ -8987,6 +8997,11 @@ export class Game {
   }
 
   _showLoreToast(text) {
+    // The live game world (zombies, weather, the auto perf-mode FPS check
+    // in _tick) keeps running behind the menu before Play is clicked (see
+    // main.js) - without this, a passive background check like that one
+    // could pop a gameplay toast over the main menu.
+    if (!this.gameStarted) return
     this.loreToast.textContent = text
     this.loreToast.classList.remove('show')
     void this.loreToast.offsetWidth
@@ -9375,6 +9390,10 @@ export class Game {
   // strip of notable kills, purely presentational; each entry removes
   // itself on its own timer instead of needing a manual clear.
   _pushKillFeed(text) {
+    // Same reasoning as _showLoreToast - the game world simulates behind
+    // the menu before Play is clicked, so nothing should actually reach
+    // the screen yet.
+    if (!this.gameStarted) return
     const entry = document.createElement('div')
     entry.className = 'kill-feed-entry'
     const nickname = this.settings.nickname.trim()
@@ -12719,6 +12738,18 @@ export class Game {
     this._updateLandingDip(dt)
     this.camera.position.add(this._shakeOffset)
     this.camera.position.y += this._landingDipY
+
+    // Menu-background camera sway - the actual game world renders
+    // continuously behind the menu from the moment Game() finishes
+    // constructing (see main.js), so this just gives that idle "3D
+    // background" a gentle, obviously-deliberate motion rather than a
+    // dead-still frame. A slow oscillation around the default forward
+    // direction rather than a full spin, so it can never pan into an
+    // unknown/unflattering view. Reset to facing forward once real
+    // gameplay begins (see the pointer-lock 'lock' handler below).
+    if (!this.gameStarted) {
+      this.camera.rotation.y = Math.sin(performance.now() / 1000 * 0.26) * 0.3
+    }
 
     this.composer.render()
   }

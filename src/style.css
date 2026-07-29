@@ -2069,6 +2069,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   left: 50%;
   bottom: 70px;
   transform: translateX(-50%);
+  display: none;
   font-size: 12px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.7);
@@ -2147,7 +2148,13 @@ body.reduce-flashing #critical-blood-overlay.show {
   flex-direction: column;
   align-items: center;
   gap: 14px;
-  background: linear-gradient(180deg, #0a1210 0%, #0d1a14 45%, #050807 100%);
+  /* Transparent - the live #scene canvas (already rendering the actual
+     game world continuously from the moment Game() finishes constructing,
+     see _tick's unconditional composer.render()) shows through as the
+     background instead of a flat color/image. #menu-bg-scrim/-vignette
+     below (both still inside #menu, so still above the canvas) provide
+     the dark wash text needs to stay readable over it. */
+  background: transparent;
   color: #eee;
   text-align: center;
   padding: 22px 24px 18px;
@@ -2155,8 +2162,9 @@ body.reduce-flashing #critical-blood-overlay.show {
   overflow-x: hidden;
 }
 
-/* Backdrop - real photo (ruined night-time city block) behind a dark
-   scrim + vignette for text contrast. Sits behind #menu-layout/
+/* Scrim + vignette sit above the live game-world canvas (#scene, a sibling
+   earlier in index.html) for text contrast - there's no background image
+   of our own to layer them over anymore. Still behind #menu-layout/
    #menu-cards-row (both get position:relative + a higher z-index below)
    and never intercepts clicks. */
 #menu-bg {
@@ -2167,21 +2175,16 @@ body.reduce-flashing #critical-blood-overlay.show {
   overflow: hidden;
 }
 
-#menu-bg-photo {
-  position: absolute;
-  inset: 0;
-  background-image: url('/images/menu-bg-city.jpg');
-  background-size: cover;
-  background-position: center 35%;
-}
-
 /* Flat dark wash, tinted to match the game's dark green-black palette
-   rather than neutral black, so hero text sitting directly on the photo
-   (no card background under it) stays readable. */
+   rather than neutral black, so hero text sitting directly on the scene
+   (no card background under it) stays readable - slightly stronger than
+   the old static-photo version since a live, moving scene (day/night
+   cycle, weather, zombies) can't be reasoned about as a fixed image with
+   known-safe-to-overlap dark regions. */
 #menu-bg-scrim {
   position: absolute;
   inset: 0;
-  background: rgba(4, 8, 6, 0.45);
+  background: rgba(4, 8, 6, 0.55);
 }
 
 #menu-bg-vignette {
@@ -2193,16 +2196,53 @@ body.reduce-flashing #critical-blood-overlay.show {
 /* ==========================================================================
    Layout
    ========================================================================== */
-#menu-layout {
+/* Wraps #menu-layout (the original 3-column grid) and #menu-cards-row
+   side by side instead of stacked, so the game-mode/challenge/mutator
+   cards use the wide unused margins either side of the centered 1180px
+   layout instead of adding a whole extra scroll-height row underneath
+   it - the original design left ~700px idle on a 1920px-wide screen
+   while still overflowing vertically on shorter ones. */
+#menu-body {
   position: relative;
   z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+#menu-layout {
   display: grid;
   grid-template-columns: 250px minmax(340px, 560px) 230px;
   gap: 22px;
   align-items: start;
-  width: 100%;
-  max-width: 1180px;
-  margin: 0 auto;
+  flex-shrink: 0;
+}
+
+/* Below this, #menu-layout's own preferred width (up to ~1084px, and it
+   won't shrink further - see flex-shrink:0 above) plus #menu-cards-row's
+   280px min-width plus the gap between them no longer fits side by side
+   without clipping the cards column's own text off the right edge of the
+   viewport. Revert to the original stacked arrangement instead of letting
+   it overflow. */
+@media (max-width: 1500px) {
+  #menu-body {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  #menu-cards-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    max-width: 1180px;
+    width: 100%;
+  }
+
+  #menu-cards-row .menu-card {
+    flex: 1 1 220px;
+  }
 }
 
 #menu-col-left,
@@ -2609,14 +2649,12 @@ body.reduce-flashing #critical-blood-overlay.show {
 
 /* ---- Bottom row: Game Modes / Challenges / Mutators cards ---- */
 #menu-cards-row {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 16px;
-  width: 100%;
-  max-width: 1180px;
-  margin: 4px auto 8px;
+  flex: 1 1 auto;
+  min-width: 280px;
+  max-width: 340px;
 }
 
 .menu-card {
