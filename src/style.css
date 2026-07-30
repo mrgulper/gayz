@@ -2894,7 +2894,7 @@ body.reduce-flashing #critical-blood-overlay.show {
      when the viewport is narrower) - re-verify zero-scroll at the 4
      tracked heights after any further change here, same as every prior
      sizing round in this section. */
-  grid-template-columns: 320px minmax(360px, 700px) 320px;
+  grid-template-columns: 270px minmax(360px, 900px) 270px;
   justify-content: center;
   gap: 24px;
   align-items: start;
@@ -3194,7 +3194,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 
 #menu-title-img {
   display: block;
-  width: min(92%, 480px);
+  width: min(96%, 700px);
   height: auto;
   margin: 0 auto;
   filter:
@@ -3294,7 +3294,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   display: flex;
   align-items: center;
   gap: 22px;
-  margin: 14px 0 6px;
+  margin: 8px 0 4px;
 }
 
 .hero-stat {
@@ -3821,7 +3821,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-height: 20vh;
+  max-height: 15vh;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--menu-gold) transparent;
@@ -3846,7 +3846,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   }
 
   #menu-title-img {
-    width: min(92%, 430px);
+    width: min(90%, 460px);
   }
 }
 
@@ -3856,7 +3856,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   }
 
   #menu-title-img {
-    width: min(92%, 350px);
+    width: min(90%, 440px);
   }
 
   /* At this height the card-list cap alone isn't enough (fixed-px content
