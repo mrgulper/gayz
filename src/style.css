@@ -2613,14 +2613,20 @@ body.reduce-flashing #critical-blood-overlay.show {
 
 #menu-subtitle {
   font-size: 17px;
-  font-weight: 600;
+  font-weight: 400;
   opacity: 0.85 !important;
   letter-spacing: 0.3px;
+  white-space: pre-line;
+  line-height: 1.5;
 }
 
-.menu-subhint {
-  font-size: 12px;
-  opacity: 0.5 !important;
+/* Hidden - the reference layout keeps the hero column to title/tagline/
+   3-line subtitle/stats/Play only, no extra hint or ticker lines. Kept
+   in the DOM (still populated by _updateTexts()) rather than deleted,
+   same reasoning as #round-mode-hint/#controls-list above. */
+.menu-subhint,
+.menu-news-ticker {
+  display: none;
 }
 
 /* Instructional text (round-mode rules, control bindings) removed from

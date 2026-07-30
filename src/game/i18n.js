@@ -30,7 +30,7 @@ export const LANGUAGES = [
 
 const STRINGS = {
   en: {
-    menuSubtitle: 'Broken city block — survive, scavenge, find out why',
+    menuSubtitle: 'Broken city block.\nScavenge supplies. Survive the infected.\nEscape before dawn.',
     menuSubhint: 'Look for lookout platforms up staircases along the avenue — chests inside',
     // Main-menu news ticker (see _updateMenuNewsTicker) - tied to
     // bestStats.bestNight (already persisted, no new tracking needed), so
@@ -39,7 +39,7 @@ const STRINGS = {
     newsTickerEarly: 'BREAKING: City authorities urge calm as quarantine perimeter holds through its first nights.',
     newsTickerMid: 'REPORT: Quarantine perimeter breached in multiple districts. Emergency broadcasts have gone intermittent.',
     newsTickerLate: 'SIGNAL LOST: No official broadcast in days. Whoever is still out there is on their own now.',
-    playBtn: 'Click to Play',
+    playBtn: 'Play',
     settingsBtn: 'Settings',
     upgradesBtn: 'Upgrades',
     upgradesPanelTitle: 'Permanent Upgrades',
