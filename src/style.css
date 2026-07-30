@@ -1239,14 +1239,17 @@ body.reduce-flashing #critical-blood-overlay.show {
    the main layout block) - only .difficulty-btn needs the plain pill
    style here, since Easy/Normal/Hard has no icon-grid treatment. */
 .difficulty-btn {
+  flex: 1;
   padding: 10px 20px;
   font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.5px;
+  text-align: center;
+  text-transform: uppercase;
   color: rgba(255, 255, 255, 0.6);
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 20px;
+  border-radius: 6px;
   cursor: pointer;
 }
 
@@ -2971,7 +2974,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   font-size: 21px;
   font-weight: 700;
   letter-spacing: 1.5px;
-  color: var(--menu-gold);
+  color: #e8e8e2;
   text-transform: uppercase;
 }
 
@@ -3022,6 +3025,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.3px;
+  text-transform: uppercase;
   color: var(--menu-text-dim);
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -3036,7 +3040,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 
 .class-btn.active {
   color: var(--menu-gold);
-  background: rgba(227, 166, 60, 0.12);
+  background: rgba(227, 166, 60, 0.38);
   border-color: var(--menu-gold);
 }
 
@@ -3048,29 +3052,42 @@ body.reduce-flashing #critical-blood-overlay.show {
   box-shadow: 0 0 4px 1px currentColor, inset 0 0 12px -3px currentColor;
 }
 
-.class-icon {
-  width: 36px;
-  height: 36px;
+/* Hexagonal icon badge (reference mockup) - a solid-colored hex behind
+   each class icon instead of just tinting the icon's stroke. The icon
+   itself goes plain white (near-black on the gold Balanced badge, the
+   one accent light enough that white would lose contrast) so it reads
+   against any of the 6 accent colors below. */
+.class-icon-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  background: rgba(255, 255, 255, 0.1);
 }
 
-/* Per-class accent colors (Choose Class grid only) - the icon always
-   keeps its class's characteristic color, the border/background/label
-   only pick it up once that class is the active selection. Matches each
-   class's own thematic color rather than everything sharing the one
-   gold "active" treatment. */
-.class-btn[data-role="ranged"] .class-icon { color: var(--menu-green); }
-.class-btn[data-role="melee"] .class-icon { color: var(--menu-orange); }
-.class-btn[data-role="medic"] .class-icon { color: var(--menu-blue); }
-.class-btn[data-loadout="balanced"] .class-icon { color: var(--menu-gold); }
-.class-btn[data-loadout="runner"] .class-icon { color: var(--menu-purple); }
-.class-btn[data-loadout="tank"] .class-icon { color: var(--menu-red); }
+.class-icon {
+  width: 22px;
+  height: 22px;
+  color: #fff;
+}
 
-.class-btn[data-role="ranged"].active { color: var(--menu-green); background: rgba(127, 216, 160, 0.12); border-color: var(--menu-green); }
-.class-btn[data-role="melee"].active { color: var(--menu-orange); background: rgba(224, 138, 79, 0.12); border-color: var(--menu-orange); }
-.class-btn[data-role="medic"].active { color: var(--menu-blue); background: rgba(111, 168, 220, 0.12); border-color: var(--menu-blue); }
-.class-btn[data-loadout="balanced"].active { color: var(--menu-gold); background: rgba(227, 166, 60, 0.12); border-color: var(--menu-gold); }
-.class-btn[data-loadout="runner"].active { color: var(--menu-purple); background: rgba(176, 124, 214, 0.12); border-color: var(--menu-purple); }
-.class-btn[data-loadout="tank"].active { color: var(--menu-red); background: rgba(201, 86, 74, 0.12); border-color: var(--menu-red); }
+.class-btn[data-role="ranged"] .class-icon-badge { background: var(--menu-green); }
+.class-btn[data-role="melee"] .class-icon-badge { background: var(--menu-orange); }
+.class-btn[data-role="medic"] .class-icon-badge { background: var(--menu-blue); }
+.class-btn[data-loadout="balanced"] .class-icon-badge { background: var(--menu-gold); }
+.class-btn[data-loadout="runner"] .class-icon-badge { background: var(--menu-purple); }
+.class-btn[data-loadout="tank"] .class-icon-badge { background: var(--menu-red); }
+
+.class-btn[data-loadout="balanced"] .class-icon { color: #1a1a1a; }
+
+.class-btn[data-role="ranged"].active { color: var(--menu-green); background: rgba(127, 216, 160, 0.32); border-color: var(--menu-green); }
+.class-btn[data-role="melee"].active { color: var(--menu-orange); background: rgba(224, 138, 79, 0.32); border-color: var(--menu-orange); }
+.class-btn[data-role="medic"].active { color: var(--menu-blue); background: rgba(111, 168, 220, 0.32); border-color: var(--menu-blue); }
+.class-btn[data-loadout="balanced"].active { color: var(--menu-gold); background: rgba(227, 166, 60, 0.32); border-color: var(--menu-gold); }
+.class-btn[data-loadout="runner"].active { color: var(--menu-purple); background: rgba(176, 124, 214, 0.32); border-color: var(--menu-purple); }
+.class-btn[data-loadout="tank"].active { color: var(--menu-red); background: rgba(201, 86, 74, 0.32); border-color: var(--menu-red); }
 
 .stat-row {
   display: flex;
@@ -3437,6 +3454,22 @@ body.reduce-flashing #critical-blood-overlay.show {
   cursor: pointer;
 }
 
+/* Reference mockup shows only the Settings gear below Play - the other
+   5 quick-access shortcuts (mute/colorblind/performance/language/how to
+   play/cloud save) are hidden rather than removed, so nothing here is
+   actually deleted: language and colorblind are both also full settings
+   inside the Settings panel's own tabs, and this is a single reversible
+   CSS rule if the shortcuts are wanted back. Must come after the shared
+   display:flex rule above (same selectors, same specificity) to win. */
+#quick-mute-btn,
+#quick-colorblind-btn,
+#quick-performance-btn,
+#quick-language-btn,
+#howtoplay-btn,
+#quick-cloud-btn {
+  display: none;
+}
+
 #quick-mute-btn svg,
 #quick-colorblind-btn svg,
 #quick-performance-btn svg,
@@ -3701,7 +3734,8 @@ body.reduce-flashing #critical-blood-overlay.show {
   padding: 19px 25px;
   font-size: 17px;
   font-weight: 600;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
   color: #d8dcd2;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 50%), var(--menu-gunmetal-dark);
   border: 2px solid var(--menu-panel-border);
@@ -3810,6 +3844,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   letter-spacing: 1.5px;
   color: var(--menu-gold);
   text-transform: uppercase;
+  text-align: center;
 }
 
 /* Capped + internally scrollable rather than growing the whole page -
@@ -3893,9 +3928,14 @@ body.reduce-flashing #critical-blood-overlay.show {
     font-size: 12px;
   }
 
+  .class-icon-badge {
+    width: 38px;
+    height: 38px;
+  }
+
   .class-icon {
-    width: 30px;
-    height: 30px;
+    width: 18px;
+    height: 18px;
   }
 
   #menu-nav-buttons button {
@@ -3996,6 +4036,24 @@ body.reduce-flashing #critical-blood-overlay.show {
   color: rgba(255, 255, 255, 0.75);
   cursor: pointer;
   transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+/* Reference mockup puts the checkbox at the row's right edge (icon +
+   label read left-to-right first) rather than between the icon and
+   label - reordered via flex `order` alone so the DOM (icon, input,
+   label - see index.html) doesn't need touching. */
+.mode-toggle .mode-icon {
+  order: 1;
+}
+
+.mode-toggle span {
+  order: 2;
+  text-transform: uppercase;
+}
+
+.mode-toggle input {
+  order: 3;
+  margin-left: auto;
 }
 
 .mode-toggle:hover {
