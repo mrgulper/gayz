@@ -6,8 +6,7 @@ const STORAGE_KEY = 'gayz-achievements'
 // tag/color: a short 2-letter monogram + accent color, used only by the
 // homepage Achievement Showcase (see Game.js's _cycleShowcaseSlot) to
 // render a pin-able badge. Colored-swatch-with-text, not an emoji glyph -
-// matches #profile-emblem-row's existing "no-emoji UI" convention (see
-// that rule's own comment in style.css) rather than introducing a new one.
+// this project's established "no-emoji UI" convention.
 // hintKey (Online Features batch, round 4): a locked-state description of
 // how to unlock, shown in the Achievements panel instead of a bare "???"
 // with zero guidance.

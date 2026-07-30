@@ -202,9 +202,12 @@ function loadSettings() {
       // Companion jacket color override (see Companion.js's ROLE_STATS.jacket) -
       // null keeps the existing role-based default color (blue/red/green/tan).
       companionColor: parsed.companionColor || null,
-      // Profile screen emblem (see _openProfilePanel) - purely cosmetic, one
-      // of PROFILE_EMBLEMS, no purchase/unlock gate.
-      profileEmblem: parsed.profileEmblem || 'none',
+      // Profile avatar preset (see _openProfilePanel) - 'male'/'female'/null.
+      // Takes priority over the signed-in Google photo when set (see
+      // _updateCloudQuickIcon).
+      avatarChoice: parsed.avatarChoice || null,
+      // Profile bio - free text, capped at 250 chars (see _renderProfileBio).
+      bio: typeof parsed.bio === 'string' ? parsed.bio.slice(0, 250) : '',
       // Streaming-safe mode (see _updateStreamSafeVisibility) - hides the
       // fps/ms/draw-calls debug overlay specifically, leaving the rest of
       // the HUD untouched.
@@ -237,11 +240,8 @@ function loadSettings() {
       showcaseSlots: Array.isArray(parsed.showcaseSlots) && parsed.showcaseSlots.length === 3 ? parsed.showcaseSlots : [null, null, null],
       menuPresets: Array.isArray(parsed.menuPresets) ? parsed.menuPresets.slice(0, 3) : [],
       mutedBeforeVolumes: parsed.mutedBeforeVolumes || null,
-      // Second Homepage batch - Player Title (an achievement id, reusing
-      // ACHIEVEMENTS' own titleKey as display text - see _renderTitlePicker)
-      // and the Quick Language toggle's remembered "most recent non-English
-      // pick" (see #quick-language-btn's handler).
-      playerTitle: parsed.playerTitle || null,
+      // Second Homepage batch - the Quick Language toggle's remembered
+      // "most recent non-English pick" (see #quick-language-btn's handler).
       quickLanguageAlt: parsed.quickLanguageAlt || 'es',
       // Second Online Features batch - saved friend nicknames (Cloud Save
       // panel's compare box, avoids retyping) and every mutator id ever
@@ -250,15 +250,12 @@ function loadSettings() {
       savedFriends: Array.isArray(parsed.savedFriends) ? parsed.savedFriends.slice(0, 5) : [],
       mutatorsEverEnabled: Array.isArray(parsed.mutatorsEverEnabled) ? parsed.mutatorsEverEnabled : [],
       // Round 4 Online Features batch - region filter for the global
-      // leaderboard (REGION_OPTIONS), a custom color for the Player Title
-      // text, and two extra accessibility modes alongside the existing
-      // colorblind toggle.
+      // leaderboard (REGION_OPTIONS) and two extra accessibility modes
+      // alongside the existing colorblind toggle.
       region: parsed.region || 'global',
-      titleColor: parsed.titleColor || '#ffcf5c',
       largeTextMode: parsed.largeTextMode ?? false,
       highContrastMode: parsed.highContrastMode ?? false,
       keybindCheatSheet: parsed.keybindCheatSheet ?? false,
-      showcaseDetailed: parsed.showcaseDetailed ?? false,
       mutators: {
         hordeRush: parsed.mutators?.hordeRush ?? false,
         lootRush: parsed.mutators?.lootRush ?? false,
@@ -291,7 +288,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, profileEmblem: 'none', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, playerTitle: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', titleColor: '#ffcf5c', largeTextMode: false, highContrastMode: false, keybindCheatSheet: false, showcaseDetailed: false, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, keybindCheatSheet: false, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -1408,9 +1405,6 @@ const RESET_PROGRESS_CONFIRM_MS = 4000
 // animation (see #achievement-toast.show) so one fully fades before the
 // next begins, instead of visually cutting it off mid-animation.
 const ACHIEVEMENT_TOAST_GAP_MS = 3400
-// Profile emblem picker - see _openProfilePanel. Purely cosmetic, no
-// unlock gate, styled per-id in style.css (.emblem-<id>).
-const PROFILE_EMBLEMS = ['none', 'star', 'skull', 'flame', 'shield']
 // Buried caches (see _spawnBuriedCaches/_digBuriedCache) - placed as a ring
 // around the safe zone (offset from this.safeZone.x/z per this project's
 // own "position new safe-zone-adjacent things as an offset from these
@@ -2585,13 +2579,11 @@ export class Game {
     this.achievementsNavCount = document.getElementById('achievements-nav-count')
     this.bestiaryNavCount = document.getElementById('bestiary-nav-count')
     this.seasonProgressLabel = document.getElementById('season-progress-label')
-    this.profileTitleHeading = document.getElementById('profile-title-heading')
-    this.profileTitleRow = document.getElementById('profile-title-row')
-    this.profileTitleColorRow = document.getElementById('profile-title-color-row')
-    this.profileTitleColorLabel = document.getElementById('profile-title-color-label')
-    this.profileTitleColorPicker = document.getElementById('profile-title-color-picker')
-    this.profileShowcaseStyleToggle = document.getElementById('profile-showcase-style-toggle')
-    this.profileShowcaseStyleLabel = document.getElementById('profile-showcase-style-label')
+    this.profileAvatarHeading = document.getElementById('profile-avatar-heading')
+    this.profileAvatarRow = document.getElementById('profile-avatar-row')
+    this.profileBioHeading = document.getElementById('profile-bio-heading')
+    this.profileBioInput = document.getElementById('profile-bio-input')
+    this.profileBioCounter = document.getElementById('profile-bio-counter')
     this.profileNearlyThereList = document.getElementById('profile-nearly-there-list')
     this.profileAnniversaryLine = document.getElementById('profile-anniversary-line')
     this.profileTodayLine = document.getElementById('profile-today-line')
@@ -3550,7 +3542,6 @@ export class Game {
     this.profilePanel = document.getElementById('profile-panel')
     this.profilePanelTitle = document.getElementById('profile-panel-title')
     this.profileOptions = document.getElementById('profile-options')
-    this.profileEmblemRow = document.getElementById('profile-emblem-row')
     this.profileCopyStatsBtn = document.getElementById('profile-copy-stats-btn')
     this.profileRunHistoryBtn = document.getElementById('profile-run-history-btn')
     this.profileRunHistoryList = document.getElementById('profile-run-history-list')
@@ -6415,11 +6406,14 @@ export class Game {
   _updateCloudQuickIcon(signedIn) {
     if (this.quickCloudBtn) this.quickCloudBtn.classList.toggle('signed-in', signedIn)
     if (this.cloudSignedInDot) this.cloudSignedInDot.style.display = signedIn ? '' : 'none'
-    // Google profile picture replaces the generic avatar SVG once signed
-    // in and a picture URL is actually available (some Google accounts
-    // have none) - falls back to the SVG otherwise.
+    // Avatar precedence: a chosen preset (see _renderProfileAvatarPicker)
+    // wins over the Google profile picture, which wins over the generic
+    // hooded-figure SVG - falls back down the chain as each option becomes
+    // unavailable (no preset chosen, not signed in, or no picture URL on
+    // some Google accounts).
     if (this.menuAvatarPhoto) {
-      const url = signedIn && this._cloudProfile ? this._cloudProfile.picture : null
+      const presetUrls = { male: '/images/avatar-male.png', female: '/images/avatar-female.png' }
+      const url = presetUrls[this.settings.avatarChoice] || (signedIn && this._cloudProfile ? this._cloudProfile.picture : null)
       this.menuAvatarPhoto.src = url || ''
       this.menuAvatarPhoto.style.display = url ? '' : 'none'
     }
@@ -8750,19 +8744,9 @@ export class Game {
     }
 
     if (this.menuCareerRank) {
-      // Player Title (see _renderTitlePicker) replaces the auto career-rank
-      // text when set, rather than adding a second line - zero new
-      // homepage height either way. Custom title color (see
-      // _renderTitleColorRow) uses setProperty(...,'important') since
-      // .menu-best-stats' own color rule is itself !important.
-      const titleDef = this.settings.playerTitle ? ACHIEVEMENTS.find((a) => a.id === this.settings.playerTitle) : null
-      if (titleDef) this.menuCareerRank.style.setProperty('color', this.settings.titleColor, 'important')
-      else this.menuCareerRank.style.removeProperty('color')
-      this.menuCareerRank.textContent = titleDef
-        ? t(titleDef.titleKey)
-        : this.careerStats.totalKills === 0
-          ? ''
-          : t('careerRankLabel', { rank: t(careerRankTitleKey(this.careerStats.totalKills)), kills: this.careerStats.totalKills })
+      this.menuCareerRank.textContent = this.careerStats.totalKills === 0
+        ? ''
+        : t('careerRankLabel', { rank: t(careerRankTitleKey(this.careerStats.totalKills)), kills: this.careerStats.totalKills })
     }
     // Avatar level badge - the same tier index careerRankTitleKey already
     // derives from totalKills, just as a plain 1-5 number instead of a title.
@@ -8888,10 +8872,12 @@ export class Game {
   // Achievement Showcase - up to 3 pinned badges next to the player tag.
   // Each slot cycles null -> each unlocked achievement not already pinned
   // elsewhere -> null on click, rather than a separate picker modal (only
-  // 3 slots, cycling is simpler than a whole new UI for this).
+  // 3 slots, cycling is simpler than a whole new UI for this). Always
+  // shows the full achievement name (previously a Settings toggle between
+  // a compact monogram and full name - removed, full name is always clearer).
   _updateAchievementShowcase() {
     if (!this.achievementShowcaseRow) return
-    this.achievementShowcaseRow.classList.toggle('detailed', !!this.settings.showcaseDetailed)
+    this.achievementShowcaseRow.classList.add('detailed')
     this.achievementShowcaseRow.innerHTML = ''
     for (let i = 0; i < 3; i++) {
       const id = this.settings.showcaseSlots[i]
@@ -8902,11 +8888,7 @@ export class Game {
       if (def) {
         slot.style.color = def.color
         slot.style.borderColor = def.color
-        if (this.settings.showcaseDetailed) {
-          slot.innerHTML = `<span class="showcase-tag">${_escapeHtml(def.tag)}</span><span class="showcase-name">${_escapeHtml(t(def.titleKey))}</span>`
-        } else {
-          slot.textContent = def.tag
-        }
+        slot.innerHTML = `<span class="showcase-tag">${_escapeHtml(def.tag)}</span><span class="showcase-name">${_escapeHtml(t(def.titleKey))}</span>`
       } else {
         slot.textContent = '+'
       }
@@ -9181,18 +9163,12 @@ export class Game {
     if (this.savePresetBtn) this.savePresetBtn.addEventListener('click', () => this._saveMenuPreset())
     this._renderMenuPresets()
 
-    if (this.profileTitleColorPicker) {
-      this.profileTitleColorPicker.addEventListener('input', () => {
-        this.settings.titleColor = this.profileTitleColorPicker.value
+    if (this.profileBioInput) {
+      this.profileBioInput.addEventListener('input', () => {
+        this.settings.bio = this.profileBioInput.value.slice(0, 250)
+        if (this.profileBioInput.value.length > 250) this.profileBioInput.value = this.settings.bio
         saveSettings(this.settings)
-        this._updateBestStatsDisplay()
-      })
-    }
-    if (this.profileShowcaseStyleToggle) {
-      this.profileShowcaseStyleToggle.addEventListener('change', () => {
-        this.settings.showcaseDetailed = this.profileShowcaseStyleToggle.checked
-        saveSettings(this.settings)
-        this._updateAchievementShowcase()
+        this._renderProfileBioCounter()
       })
     }
 
@@ -9309,6 +9285,10 @@ export class Game {
         if (e.key === 'Enter') this._handleFriendCompare()
       })
     }
+    // Applies a chosen avatar preset immediately even if Cloud Save isn't
+    // configured (see _restoreCloudSession's own early-return guard) or the
+    // async auth check hasn't resolved yet.
+    this._updateCloudQuickIcon(false)
     this._restoreCloudSession()
   }
 
@@ -10948,21 +10928,8 @@ export class Game {
       this.profileCareerPortraitBtn.textContent = t('profileCareerPortraitBtn')
     }
 
-    // Profile emblem picker - purely cosmetic, no unlock gate, chosen right
-    // here since this is also where it's displayed.
-    this.profileEmblemRow.innerHTML = PROFILE_EMBLEMS.map((id) => `
-      <button class="emblem-swatch emblem-${id}" data-emblem="${id}" aria-label="${id}"></button>
-    `).join('')
-    for (const btn of this.profileEmblemRow.querySelectorAll('.emblem-swatch')) {
-      btn.classList.toggle('active', btn.dataset.emblem === this.settings.profileEmblem)
-      btn.addEventListener('click', () => {
-        this.settings.profileEmblem = btn.dataset.emblem
-        saveSettings(this.settings)
-        this._openProfilePanel()
-      })
-    }
-
-    this._renderTitlePicker()
+    this._renderProfileAvatarPicker()
+    this._renderProfileBio()
     this._renderNearlyThereNudge()
     this._renderWeeklyRecap()
     this._renderRecentActivity()
@@ -10972,8 +10939,48 @@ export class Game {
     this._renderPercentileLine()
     this._renderFavoriteDifficultyLine()
     this._renderBestRunCard()
-    this._renderTitleColorRow()
-    this._renderShowcaseStyleRow()
+  }
+
+  // Avatar picker - two preset portraits (male/female) the player can pick
+  // instead of/on top of the signed-in Google photo. Clicking the already-
+  // active preset toggles it off (falls back to the Google photo or the
+  // generic hooded-figure SVG, same precedence _updateCloudQuickIcon uses).
+  _renderProfileAvatarPicker() {
+    if (!this.profileAvatarRow) return
+    if (this.profileAvatarHeading) this.profileAvatarHeading.textContent = t('profileAvatarHeading')
+    const options = [
+      { id: 'male', src: '/images/avatar-male.png' },
+      { id: 'female', src: '/images/avatar-female.png' },
+    ]
+    this.profileAvatarRow.innerHTML = options.map((o) => `
+      <button class="avatar-swatch${this.settings.avatarChoice === o.id ? ' active' : ''}" data-avatar="${o.id}" aria-label="${o.id}">
+        <img src="${o.src}" alt="" />
+      </button>
+    `).join('')
+    for (const btn of this.profileAvatarRow.querySelectorAll('.avatar-swatch')) {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.avatar
+        this.settings.avatarChoice = this.settings.avatarChoice === id ? null : id
+        saveSettings(this.settings)
+        this._renderProfileAvatarPicker()
+        this._updateCloudQuickIcon(!!this._cloudProfile)
+      })
+    }
+  }
+
+  // Profile bio - free text, capped at 250 chars (enforced both by the
+  // textarea's own maxlength and here, since a paste can exceed maxlength).
+  _renderProfileBio() {
+    if (!this.profileBioInput) return
+    if (this.profileBioHeading) this.profileBioHeading.textContent = t('profileBioHeading')
+    this.profileBioInput.placeholder = t('profileBioPlaceholder')
+    this.profileBioInput.value = this.settings.bio || ''
+    this._renderProfileBioCounter()
+  }
+
+  _renderProfileBioCounter() {
+    if (!this.profileBioCounter) return
+    this.profileBioCounter.textContent = `${(this.settings.bio || '').length}/250`
   }
 
   // "Today" session stats - _sessionKills/_sessionStartTime are
@@ -11055,50 +11062,6 @@ export class Game {
     this.companionColorPreview.style.background = this.settings.companionColor || '#2f4f7a'
   }
 
-  _renderTitleColorRow() {
-    if (!this.profileTitleColorRow) return
-    const hasTitle = !!this.settings.playerTitle
-    this.profileTitleColorRow.style.display = hasTitle ? 'flex' : 'none'
-    if (!hasTitle) return
-    this.profileTitleColorLabel.textContent = t('profileTitleColorLabel')
-    this.profileTitleColorPicker.value = this.settings.titleColor
-  }
-
-  _renderShowcaseStyleRow() {
-    if (!this.profileShowcaseStyleToggle) return
-    this.profileShowcaseStyleToggle.checked = this.settings.showcaseDetailed
-    this.profileShowcaseStyleLabel.textContent = t('showcaseStyleLabel')
-  }
-
-  // Player Title picker - reuses ACHIEVEMENTS' own titleKey (+ tag/color)
-  // as the pool of unlockable titles, same "extend an existing system
-  // instead of inventing a parallel one" reasoning as Achievement Showcase.
-  // Shown on the homepage via #menu-career-rank when set (see
-  // _updateBestStatsDisplay), falling back to the auto-computed career
-  // rank text when not - zero new homepage vertical space either way.
-  _renderTitlePicker() {
-    if (!this.profileTitleRow) return
-    const unlockedIds = ACHIEVEMENTS.filter((a) => this.achievements.unlocked.has(a.id)).map((a) => a.id)
-    if (unlockedIds.length === 0) {
-      this.profileTitleHeading.style.display = 'none'
-      this.profileTitleRow.innerHTML = ''
-      return
-    }
-    this.profileTitleHeading.style.display = ''
-    this.profileTitleHeading.textContent = t('profileTitleHeading')
-    const chips = [{ id: null, label: t('profileTitleNone') }, ...unlockedIds.map((id) => ({ id, label: t(ACHIEVEMENTS.find((a) => a.id === id).titleKey) }))]
-    this.profileTitleRow.innerHTML = chips.map((c) => `
-      <button class="title-chip${this.settings.playerTitle === c.id ? ' active' : ''}" data-title="${c.id || ''}">${_escapeHtml(c.label)}</button>
-    `).join('')
-    for (const btn of this.profileTitleRow.querySelectorAll('.title-chip')) {
-      btn.addEventListener('click', () => {
-        this.settings.playerTitle = btn.dataset.title || null
-        saveSettings(this.settings)
-        this._openProfilePanel()
-        this._updateBestStatsDisplay()
-      })
-    }
-  }
 
   // Nearly There nudge - the single closest-to-unlocking achievement among
   // a small curated set of *persistent, numeric* achievements (most
