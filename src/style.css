@@ -187,6 +187,125 @@ html, body {
   font-size: 12px;
 }
 
+/* Online Features (leaderboard, weekly ranking, friend compare, global
+   kill counter, community poll) - see _renderCloudOnlineSection. Its own
+   scroll region (same max-height+overflow-y pattern #coinshop-options
+   already uses) rather than letting the whole modal grow past the
+   viewport once leaderboard rows + poll options stack up. */
+#cloudsave-online-section {
+  width: 100%;
+  max-height: 46vh;
+  overflow-y: auto;
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#cloudsave-online-section h3 {
+  margin: 8px 0 2px;
+  font-size: 12px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: #e3a63c;
+  opacity: 0.85;
+}
+
+#cloudsave-global-kills {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cloud-leaderboard-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 4px;
+  font-size: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.cloud-leaderboard-row:last-child {
+  border-bottom: none;
+}
+
+.cloud-leaderboard-row.me {
+  color: #ffcf5c;
+  font-weight: 700;
+}
+
+.cloud-leaderboard-empty {
+  margin: 4px 0;
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+#cloudsave-friend-row {
+  display: flex;
+  gap: 6px;
+}
+
+#cloudsave-friend-row .nickname-input {
+  flex: 1;
+}
+
+#cloudsave-friend-result {
+  margin: 6px 0 0;
+  font-size: 12px;
+  text-align: left;
+}
+
+#cloudsave-poll-options {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.poll-option-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  font-size: 12px;
+  text-align: left;
+  color: #eee;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.poll-option-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: var(--poll-pct, 0%);
+  background: rgba(227, 166, 60, 0.18);
+  z-index: 0;
+}
+
+.poll-option-label,
+.poll-option-pct {
+  position: relative;
+  z-index: 1;
+}
+
+.poll-option-btn.voted {
+  border-color: #e3a63c;
+  cursor: default;
+}
+
+#cloudsave-poll-hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  opacity: 0.6;
+}
+
 /* Homepage quick-cloud icon needs position:relative for its signed-in
    dot overlay - same technique as .nav-badge-dot on the Credits button,
    just on a smaller icon button instead of a full nav button. */
@@ -3211,6 +3330,19 @@ body.reduce-flashing #critical-blood-overlay.show {
 #menu-avatar-icon svg {
   width: 50px;
   height: 50px;
+}
+
+/* Google profile picture (Online Features batch) - covers the generic
+   hooded-figure SVG when signed in, same rounded-square frame, doesn't
+   touch the level badge (still absolutely positioned on top of it via
+   DOM order). */
+#menu-avatar-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 3px;
 }
 
 #menu-avatar-level {

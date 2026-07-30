@@ -1604,6 +1604,18 @@ const NEARLY_THERE_CANDIDATES = [
 // onAuthChange restores _cloudProfile/_cloudUid from that directly.
 const CLOUD_LAST_SYNC_KEY = 'gayz-cloud-last-sync'
 
+// Online Features batch - one hardcoded, developer-authored poll (not
+// user-generated content, so no moderation surface beyond picking a new
+// POLL_ID + option set for the next one). Changing POLL_ID starts a fresh
+// vote count from zero rather than resetting the old one's votes.
+const POLL_ID = 'next-feature-2026'
+const POLL_OPTIONS = [
+  { id: 'more_bosses', labelKey: 'pollOptionMoreBosses' },
+  { id: 'new_map_area', labelKey: 'pollOptionNewMapArea' },
+  { id: 'more_weapons', labelKey: 'pollOptionMoreWeapons' },
+  { id: 'coop_multiplayer', labelKey: 'pollOptionCoop' },
+]
+
 const KILLCAM_ZOOM_FOV_MULT = 0.75
 // Killstreak rewards - this.killStreak counts consecutive kills without
 // dying (reset in _onPlayerDeath), distinct from the flat "every 10th kill"
@@ -2468,6 +2480,7 @@ export class Game {
     this.statBestStreak = document.getElementById('stat-best-streak')
     this.statLastRun = document.getElementById('stat-last-run')
     this.menuAvatarLevel = document.getElementById('menu-avatar-level')
+    this.menuAvatarPhoto = document.getElementById('menu-avatar-photo')
     this.menuPlayerTag = document.getElementById('menu-player-tag')
     this.menuCareerRank = document.getElementById('menu-career-rank')
     this.menuPrestigeBadge = document.getElementById('menu-prestige-badge')
@@ -2537,6 +2550,21 @@ export class Game {
     this.cloudsaveUseLocalBtn = document.getElementById('cloudsave-use-local-btn')
     this.cloudsaveSyncNowBtn = document.getElementById('cloudsave-sync-now-btn')
     this.cloudsaveSignoutBtn = document.getElementById('cloudsave-signout-btn')
+    // Online Features batch (leaderboard, weekly ranking, friend compare,
+    // global kill counter, community poll) - see _renderCloudOnlineSection.
+    this.cloudsaveOnlineSection = document.getElementById('cloudsave-online-section')
+    this.cloudsaveGlobalKills = document.getElementById('cloudsave-global-kills')
+    this.cloudsaveLeaderboardTitle = document.getElementById('cloudsave-leaderboard-title')
+    this.cloudsaveLeaderboardList = document.getElementById('cloudsave-leaderboard-list')
+    this.cloudsaveWeeklyLeaderboardList = document.getElementById('cloudsave-weekly-leaderboard-list')
+    this.cloudsaveWeeklyLeaderboardTitle = document.getElementById('cloudsave-weekly-leaderboard-title')
+    this.cloudsaveFriendTitle = document.getElementById('cloudsave-friend-title')
+    this.cloudsaveFriendInput = document.getElementById('cloudsave-friend-input')
+    this.cloudsaveFriendCompareBtn = document.getElementById('cloudsave-friend-compare-btn')
+    this.cloudsaveFriendResult = document.getElementById('cloudsave-friend-result')
+    this.cloudsavePollTitle = document.getElementById('cloudsave-poll-title')
+    this.cloudsavePollOptions = document.getElementById('cloudsave-poll-options')
+    this.cloudsavePollHint = document.getElementById('cloudsave-poll-hint')
     // In-memory only - Firebase Auth owns the real session (IndexedDB);
     // these just mirror it for convenience (see CloudSync.onAuthChange).
     this._cloudProfile = null
@@ -6220,6 +6248,14 @@ export class Game {
   _updateCloudQuickIcon(signedIn) {
     if (this.quickCloudBtn) this.quickCloudBtn.classList.toggle('signed-in', signedIn)
     if (this.cloudSignedInDot) this.cloudSignedInDot.style.display = signedIn ? '' : 'none'
+    // Google profile picture replaces the generic avatar SVG once signed
+    // in and a picture URL is actually available (some Google accounts
+    // have none) - falls back to the SVG otherwise.
+    if (this.menuAvatarPhoto) {
+      const url = signedIn && this._cloudProfile ? this._cloudProfile.picture : null
+      this.menuAvatarPhoto.src = url || ''
+      this.menuAvatarPhoto.style.display = url ? '' : 'none'
+    }
   }
 
   _renderCloudSaveState() {
@@ -6241,6 +6277,7 @@ export class Game {
     this._renderCloudSyncStatus()
     if (this.cloudsaveSyncNowBtn) this.cloudsaveSyncNowBtn.textContent = t('cloudsaveSyncNowBtn')
     if (this.cloudsaveSignoutBtn) this.cloudsaveSignoutBtn.textContent = t('cloudsaveSignoutBtn')
+    this._renderCloudOnlineSection()
   }
 
   _renderCloudSyncStatus() {
@@ -6249,6 +6286,155 @@ export class Game {
     this.cloudsaveSyncStatus.textContent = last
       ? t('cloudsaveLastSynced', { time: _formatRelativeTime(Math.max(0, Date.now() - Number(last))) })
       : t('cloudsaveNeverSynced')
+    // Also on the homepage cloud icon itself (see #7 of the Online
+    // Features ask - a "glance" without permanent new homepage UI).
+    if (this.quickCloudBtn) {
+      this.quickCloudBtn.title = this._cloudProfile
+        ? t('cloudQuickIconTooltip', { name: this._cloudProfile.name || this._cloudProfile.email, status: last ? _formatRelativeTime(Math.max(0, Date.now() - Number(last))) : t('cloudsaveNeverSynced') })
+        : ''
+    }
+  }
+
+  // Online Features - global leaderboard, weekly-challenge ranking, friend
+  // comparison, global kill counter, community poll. All read-only fetches
+  // here (writes happen once per run in _pushOnlineStats, not on every
+  // panel open) - best-effort, a failed fetch just leaves that section
+  // showing its previous/empty state rather than blocking the rest of the
+  // panel.
+  async _renderCloudOnlineSection() {
+    if (!this.cloudsaveOnlineSection || !CloudSync.isConfigured()) return
+    this._renderGlobalKills()
+    this._renderLeaderboardList()
+    this._renderWeeklyLeaderboardList()
+    this._renderPoll()
+    if (this.cloudsaveFriendCompareBtn) this.cloudsaveFriendCompareBtn.textContent = t('cloudsaveFriendCompareBtn')
+    if (this.cloudsaveFriendInput) this.cloudsaveFriendInput.placeholder = t('cloudsaveFriendPlaceholder')
+    if (this.cloudsaveLeaderboardTitle) this.cloudsaveLeaderboardTitle.textContent = t('cloudsaveLeaderboardTitle')
+    if (this.cloudsaveFriendTitle) this.cloudsaveFriendTitle.textContent = t('cloudsaveFriendTitle')
+  }
+
+  async _renderGlobalKills() {
+    if (!this.cloudsaveGlobalKills) return
+    try {
+      const total = await CloudSync.fetchGlobalKills()
+      this.cloudsaveGlobalKills.textContent = total === null ? '' : t('cloudsaveGlobalKillsLine', { n: total.toLocaleString() })
+    } catch {
+      this.cloudsaveGlobalKills.textContent = ''
+    }
+  }
+
+  async _renderLeaderboardList() {
+    if (!this.cloudsaveLeaderboardList) return
+    try {
+      const rows = await CloudSync.fetchTopLeaderboard(10)
+      this.cloudsaveLeaderboardList.innerHTML = rows.length
+        ? rows.map((r, i) => `<div class="cloud-leaderboard-row${r.name === this.settings.nickname ? ' me' : ''}"><span>${i + 1}. ${_escapeHtml(r.name || '???')}</span><span>${t('cloudsaveLeaderboardRow', { night: _safeStatNumber(r.bestNight), kills: _safeStatNumber(r.bestKills) })}</span></div>`).join('')
+        : `<p class="cloud-leaderboard-empty">${t('cloudsaveLeaderboardEmpty')}</p>`
+    } catch {
+      this.cloudsaveLeaderboardList.innerHTML = `<p class="cloud-leaderboard-empty">${t('cloudsaveError')}</p>`
+    }
+  }
+
+  async _renderWeeklyLeaderboardList() {
+    if (!this.cloudsaveWeeklyLeaderboardList) return
+    if (this.cloudsaveWeeklyLeaderboardTitle) this.cloudsaveWeeklyLeaderboardTitle.textContent = t('cloudsaveWeeklyLeaderboardTitle')
+    try {
+      const weekStr = _thisWeekStr()
+      const rows = await CloudSync.fetchTopWeeklyLeaderboard(weekStr, 10)
+      this.cloudsaveWeeklyLeaderboardList.innerHTML = rows.length
+        ? rows.map((r, i) => `<div class="cloud-leaderboard-row${r.name === this.settings.nickname ? ' me' : ''}"><span>${i + 1}. ${_escapeHtml(r.name || '???')}</span><span>${_safeStatNumber(r.progress)}</span></div>`).join('')
+        : `<p class="cloud-leaderboard-empty">${t('cloudsaveLeaderboardEmpty')}</p>`
+    } catch {
+      this.cloudsaveWeeklyLeaderboardList.innerHTML = `<p class="cloud-leaderboard-empty">${t('cloudsaveError')}</p>`
+    }
+  }
+
+  async _handleFriendCompare() {
+    if (!this.cloudsaveFriendInput || !this.cloudsaveFriendResult) return
+    const name = this.cloudsaveFriendInput.value.trim()
+    if (!name) return
+    this.cloudsaveFriendResult.textContent = t('cloudsaveConnecting')
+    try {
+      const entry = await CloudSync.fetchLeaderboardEntryByName(name)
+      if (!entry) {
+        this.cloudsaveFriendResult.textContent = t('cloudsaveFriendNotFound')
+        return
+      }
+      this.cloudsaveFriendResult.textContent = t('cloudsaveFriendResult', {
+        name: entry.name || name,
+        myNight: _safeStatNumber(this.bestStats.bestNight),
+        myKills: _safeStatNumber(this.careerStats.totalKills),
+        theirNight: _safeStatNumber(entry.bestNight),
+        theirKills: _safeStatNumber(entry.bestKills),
+      })
+    } catch {
+      this.cloudsaveFriendResult.textContent = t('cloudsaveError')
+    }
+  }
+
+  // Community Poll - renders each option as a bar showing its live vote
+  // share; once this account has voted (existing vote checked on render),
+  // every option becomes non-interactive so a vote can't be changed
+  // (matches the create-only security rule, which would reject a second
+  // vote from the server side anyway - this just avoids the round trip).
+  async _renderPoll() {
+    if (!this.cloudsavePollOptions || !this._cloudUid) return
+    this.cloudsavePollTitle.textContent = t('pollQuestionNextFeature')
+    try {
+      const [myVote, counts] = await Promise.all([
+        CloudSync.fetchMyPollVote(POLL_ID, this._cloudUid),
+        CloudSync.fetchPollResults(POLL_ID, POLL_OPTIONS.map((o) => o.id)),
+      ])
+      const total = Object.values(counts).reduce((a, b) => a + b, 0)
+      this.cloudsavePollOptions.innerHTML = POLL_OPTIONS.map((o) => {
+        const n = counts[o.id] || 0
+        const pct = total > 0 ? Math.round((n / total) * 100) : 0
+        const voted = myVote === o.id
+        return `<button type="button" class="poll-option-btn${voted ? ' voted' : ''}" data-option="${o.id}" style="--poll-pct: ${myVote ? pct : 0}%">
+          <span class="poll-option-label">${voted ? '✓ ' : ''}${_escapeHtml(t(o.labelKey))}</span>
+          <span class="poll-option-pct">${myVote ? `${pct}%` : ''}</span>
+        </button>`
+      }).join('')
+      this.cloudsavePollHint.textContent = myVote ? t('pollVotedHint', { n: total }) : t('pollNotVotedHint')
+      if (!myVote) {
+        for (const btn of this.cloudsavePollOptions.querySelectorAll('.poll-option-btn')) {
+          btn.addEventListener('click', () => this._castVote(btn.dataset.option))
+        }
+      }
+    } catch {
+      this.cloudsavePollOptions.innerHTML = ''
+      this.cloudsavePollHint.textContent = t('cloudsaveError')
+    }
+  }
+
+  async _castVote(option) {
+    if (!this._cloudUid) return
+    try {
+      await CloudSync.castPollVote(POLL_ID, this._cloudUid, option)
+      this._renderPoll()
+    } catch {
+      this._showLoreToast(t('cloudsaveError'))
+    }
+  }
+
+  // Pushed once per completed run (see _recordRunEnd), alongside the save
+  // sync - separate Firestore writes (leaderboard/weekly/global-kills) so
+  // a failure in one doesn't block the others, all best-effort/silent
+  // like the save push itself.
+  async _pushOnlineStats() {
+    if (!this._cloudUid || !CloudSync.isConfigured()) return
+    const name = this.settings.nickname || t('menuPlayerTagDefault')
+    CloudSync.pushLeaderboardEntry(this._cloudUid, {
+      name,
+      bestNight: _safeStatNumber(this.bestStats.bestNight),
+      bestKills: _safeStatNumber(this.bestStats.bestKills),
+      bestKillStreak: _safeStatNumber(this.bestStats.bestKillStreak),
+    }).catch(() => {})
+    CloudSync.pushWeeklyLeaderboardEntry(_thisWeekStr(), this._cloudUid, {
+      name,
+      progress: _safeStatNumber(this.weeklyChallenge.progress),
+    }).catch(() => {})
+    CloudSync.incrementGlobalKills(_safeStatNumber(this.kills)).catch(() => {})
   }
 
   async _handleCloudSignIn() {
@@ -6702,16 +6888,27 @@ export class Game {
   // so playing several runs in one sitting only ever grants today's bonus
   // the first time. today/yesterday comparison keeps it simple: any bigger
   // gap resets to a fresh streak of 1 rather than trying to partially credit it.
+  // Online Features batch: a broken streak (gap > 1 day) now shows a
+  // "welcome back, it's been N days" toast instead of the normal streak
+  // toast - same hook, no separate tracking needed, since the gap is
+  // already implicit in wasConsecutive/previousLastDate below.
   _checkLoginStreak() {
     const today = todayDateString()
     if (this.loginStreak.lastDate === today) return
-    this.loginStreak.streak = this.loginStreak.lastDate === yesterdayDateString() ? this.loginStreak.streak + 1 : 1
+    const previousLastDate = this.loginStreak.lastDate
+    const wasConsecutive = previousLastDate === yesterdayDateString()
+    this.loginStreak.streak = wasConsecutive ? this.loginStreak.streak + 1 : 1
     this.loginStreak.lastDate = today
     saveLoginStreak(this.loginStreak)
     const bonusDays = Math.min(this.loginStreak.streak, LOGIN_STREAK_MAX_BONUS_DAYS)
     const coinBonus = bonusDays * LOGIN_STREAK_COIN_PER_DAY
     this.coins += coinBonus
-    this._showLoreToast(t('loginStreakToast', { n: this.loginStreak.streak, coins: coinBonus }))
+    if (!wasConsecutive && previousLastDate) {
+      const days = Math.max(1, Math.round((new Date(today) - new Date(previousLastDate)) / 86400000))
+      this._showLoreToast(t('welcomeBackToast', { days, coins: coinBonus }))
+    } else {
+      this._showLoreToast(t('loginStreakToast', { n: this.loginStreak.streak, coins: coinBonus }))
+    }
   }
 
   _updateCompanionName() {
@@ -8753,6 +8950,12 @@ export class Game {
     if (this.cloudsaveSyncNowBtn) this.cloudsaveSyncNowBtn.addEventListener('click', () => this._pushToCloud(true))
     if (this.cloudsaveUseCloudBtn) this.cloudsaveUseCloudBtn.addEventListener('click', () => this._resolveCloudConflict('cloud'))
     if (this.cloudsaveUseLocalBtn) this.cloudsaveUseLocalBtn.addEventListener('click', () => this._resolveCloudConflict('local'))
+    if (this.cloudsaveFriendCompareBtn) this.cloudsaveFriendCompareBtn.addEventListener('click', () => this._handleFriendCompare())
+    if (this.cloudsaveFriendInput) {
+      this.cloudsaveFriendInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') this._handleFriendCompare()
+      })
+    }
     this._restoreCloudSession()
   }
 
@@ -10059,6 +10262,7 @@ export class Game {
     // prompts here; a mid-game consent popup would be jarring). See
     // _pushToCloud's own comment on why manual=false swallows errors.
     this._pushToCloud(false)
+    this._pushOnlineStats()
   }
 
   _onPlayerDeath() {
