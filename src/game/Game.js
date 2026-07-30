@@ -1598,13 +1598,10 @@ const NEARLY_THERE_CANDIDATES = [
   { achievementId: 'fashion_icon', current: (g) => g.ownedOutfits.size, total: (g) => COIN_SHOP_ITEMS.filter((i) => i.outfit).length },
 ]
 
-// Cloud Save (see CloudSync.js) - these two keys hold only display data
-// (the signed-in Google profile's name/email/picture, and a last-sync
-// timestamp), never a token - access tokens are memory-only, per
-// CloudSync.js's own comment, so a page reload always needs at least a
-// silent re-auth to actually sync again, but the UI can show "signed in
-// as X" immediately from this cache without waiting on that.
-const CLOUD_ACCOUNT_KEY = 'gayz-cloud-account'
+// Cloud Save (see CloudSync.js) - just a display-only "when did we last
+// push" timestamp. The signed-in account itself needs no local caching -
+// Firebase Auth persists its own session (IndexedDB) and CloudSync's
+// onAuthChange restores _cloudProfile/_cloudUid from that directly.
 const CLOUD_LAST_SYNC_KEY = 'gayz-cloud-last-sync'
 
 const KILLCAM_ZOOM_FOV_MULT = 0.75
@@ -2540,10 +2537,10 @@ export class Game {
     this.cloudsaveUseLocalBtn = document.getElementById('cloudsave-use-local-btn')
     this.cloudsaveSyncNowBtn = document.getElementById('cloudsave-sync-now-btn')
     this.cloudsaveSignoutBtn = document.getElementById('cloudsave-signout-btn')
-    // In-memory only - the profile object from the most recent sign-in/
-    // silent-restore, used to fill CLOUD_ACCOUNT_KEY back in after a
-    // cloud-save-applies-and-reloads cycle (see _resolveCloudConflict).
+    // In-memory only - Firebase Auth owns the real session (IndexedDB);
+    // these just mirror it for convenience (see CloudSync.onAuthChange).
     this._cloudProfile = null
+    this._cloudUid = null
     this._cloudPendingConflict = null
     this.menuLeaderboard = document.getElementById('menu-leaderboard')
     this.menuBossRushLeaderboard = document.getElementById('menu-bossrush-leaderboard')
@@ -6202,31 +6199,22 @@ export class Game {
     this.cloudsavePanel.style.display = 'none'
   }
 
-  // Silent restore on page load - shows "signed in as X" immediately from
-  // the cached profile (CLOUD_ACCOUNT_KEY), no popup. If a background
-  // silent token request then fails (session actually expired/revoked),
-  // falls back to signed-out rather than leaving a stale "signed in" UI
-  // that can't actually sync.
+  // Session restore on page load - Firebase persists auth state itself
+  // (IndexedDB), so onAuthChange fires immediately with the real signed-in
+  // user (or null) with no popup and no manual token-caching of our own.
+  // Also the single ongoing source of truth: fires again on every future
+  // sign-in/sign-out too, so _cloudProfile/_cloudUid never drift from
+  // Firebase's own notion of the session.
   _restoreCloudSession() {
-    if (!this.quickCloudBtn) return
-    let cached
-    try {
-      cached = JSON.parse(localStorage.getItem(CLOUD_ACCOUNT_KEY) || 'null')
-    } catch {
-      cached = null
-    }
-    if (!cached) return
-    this._cloudProfile = cached
-    this._updateCloudQuickIcon(true)
-    if (!CloudSync.isConfigured()) return
-    CloudSync.getValidToken().catch(() => {
-      // Silent re-auth failed (expired/revoked/not actually signed into
-      // Google in this browser) - revert to signed-out rather than
-      // pretending sync still works.
-      this._cloudProfile = null
-      localStorage.removeItem(CLOUD_ACCOUNT_KEY)
-      this._updateCloudQuickIcon(false)
-    })
+    if (!this.quickCloudBtn || !CloudSync.isConfigured()) return
+    CloudSync.onAuthChange((session) => {
+      this._cloudProfile = session ? session.profile : null
+      this._cloudUid = session ? session.uid : null
+      this._updateCloudQuickIcon(!!session)
+      if (this.cloudsavePanel && getComputedStyle(this.cloudsavePanel).display !== 'none') {
+        this._renderCloudSaveState()
+      }
+    }).catch(() => {})
   }
 
   _updateCloudQuickIcon(signedIn) {
@@ -6270,13 +6258,17 @@ export class Game {
     }
     if (this.cloudsaveSigninBtn) this.cloudsaveSigninBtn.textContent = t('cloudsaveConnecting')
     try {
-      const { token, profile } = await CloudSync.signIn()
+      const { uid, profile } = await CloudSync.signIn()
+      // _restoreCloudSession's onAuthChange listener will also fire from
+      // this same sign-in and set _cloudProfile/_cloudUid again - setting
+      // them here too just means the very next lines (fetchCloudSave)
+      // don't have to wait a tick for that callback to run first.
       this._cloudProfile = profile
-      localStorage.setItem(CLOUD_ACCOUNT_KEY, JSON.stringify(profile))
+      this._cloudUid = uid
       this._updateCloudQuickIcon(true)
       this._renderCloudSaveState()
 
-      const cloud = await CloudSync.fetchCloudSave(token)
+      const cloud = await CloudSync.fetchCloudSave(uid)
       if (!cloud) {
         // First time signing in on any device - nothing to compare against,
         // just push this device's save up.
@@ -6320,12 +6312,13 @@ export class Game {
   _resolveCloudConflict(choice) {
     if (!this._cloudPendingConflict) return
     if (choice === 'cloud') {
-      // Merge the just-signed-in profile + a fresh sync timestamp into the
-      // incoming blob so both survive the clear+repopulate+reload below -
-      // otherwise "Use Cloud Save" would silently sign the player back out.
-      const data = { ...this._cloudPendingConflict }
-      data[CLOUD_ACCOUNT_KEY] = JSON.stringify(this._cloudProfile)
-      data[CLOUD_LAST_SYNC_KEY] = String(Date.now())
+      // Firebase Auth's own session lives in IndexedDB, not localStorage,
+      // so it survives _applyImportedSaveData's localStorage.clear() on
+      // its own - no need to manually re-inject an account marker the way
+      // the earlier Drive-based design had to. Just carry the sync
+      // timestamp forward so the status line doesn't flash back to "Not
+      // synced yet" for one frame after reload.
+      const data = { ...this._cloudPendingConflict, [CLOUD_LAST_SYNC_KEY]: String(Date.now()) }
       this._cloudPendingConflict = null
       this._applyImportedSaveData(data)
     } else {
@@ -6335,14 +6328,13 @@ export class Game {
     }
   }
 
-  // manual=true shows a toast and forces a fresh (silently-prompted-if-
-  // needed) token; manual=false is the best-effort post-run auto-sync -
-  // swallows errors quietly rather than interrupting the death/results flow.
+  // manual=true shows a toast; manual=false is the best-effort post-run
+  // auto-sync - swallows errors quietly rather than interrupting the
+  // death/results flow.
   async _pushToCloud(manual) {
-    if (!this._cloudProfile || !CloudSync.isConfigured()) return
+    if (!this._cloudUid || !CloudSync.isConfigured()) return
     try {
-      const token = await CloudSync.getValidToken()
-      await CloudSync.pushCloudSave(token, this._snapshotLocalSave())
+      await CloudSync.pushCloudSave(this._cloudUid, this._snapshotLocalSave())
       localStorage.setItem(CLOUD_LAST_SYNC_KEY, String(Date.now()))
       this._renderCloudSyncStatus()
       if (manual) this._showLoreToast(t('cloudsaveSynced'))
@@ -6351,11 +6343,19 @@ export class Game {
     }
   }
 
-  _handleCloudSignOut() {
-    CloudSync.signOut()
+  async _handleCloudSignOut() {
+    // The local sign-out (clearing _cloudProfile/_cloudUid, updating the
+    // UI) must happen regardless of whether the remote Firebase signOut
+    // call itself succeeds - a network hiccup shouldn't leave the player
+    // stuck unable to sign out on their own device.
+    try {
+      await CloudSync.signOut()
+    } catch {
+      // Best-effort - local state still clears below either way.
+    }
     this._cloudProfile = null
+    this._cloudUid = null
     this._cloudPendingConflict = null
-    localStorage.removeItem(CLOUD_ACCOUNT_KEY)
     this._updateCloudQuickIcon(false)
     if (this.cloudsaveConflict) this.cloudsaveConflict.style.display = 'none'
     this._renderCloudSaveState()

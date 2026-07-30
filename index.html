@@ -12,17 +12,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Black+Ops+One&display=swap" rel="stylesheet" />
-    <!-- Cloud Save (Google Sign-In) - Google Identity Services' client library,
-         loaded directly in the browser so this stays a pure static site with
-         no backend: token requests + Drive appDataFolder calls all happen
-         client-side, using only a public OAuth Client ID (see CloudSync.js -
-         never a client secret, which this flow doesn't need at all).
-         Deliberately no integrity="sha384-..." here - Google's own Sign In
-         With Google docs specify this script must NOT be pinned via SRI,
-         since it's served dynamically and updates server-side on Google's
-         own schedule with no versioned URL; a hardcoded hash would just
-         break login the next time Google updates it. -->
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body>
     <div id="app">
