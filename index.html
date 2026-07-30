@@ -299,6 +299,7 @@
 
             <section class="menu-panel">
               <h2 class="menu-panel-title">Difficulty</h2>
+              <p class="menu-hint-line" id="recommended-difficulty-hint" style="display: none"></p>
               <div class="difficulty-row" id="difficulty-row">
                 <button class="difficulty-btn" data-difficulty="easy" id="diff-easy">Easy</button>
                 <button class="difficulty-btn active" data-difficulty="normal" id="diff-normal">Normal</button>
@@ -336,6 +337,10 @@
                   <span>Tank</span>
                 </button>
               </div>
+              <div class="menu-preset-row" id="menu-preset-row">
+                <button class="mini-action-btn" id="save-preset-btn" type="button">Save Setup</button>
+                <div id="menu-preset-chips"></div>
+              </div>
             </section>
 
             <section class="menu-panel">
@@ -345,13 +350,19 @@
               <div class="stat-row"><span>Runs Played</span><span id="stat-runs-played">--</span></div>
               <div class="stat-row"><span>Best Kill Streak</span><span id="stat-best-streak">--</span></div>
               <div class="stat-row"><span>Last Run</span><span id="stat-last-run">--</span></div>
+              <div class="continue-actions" id="continue-actions" style="display: none">
+                <button class="mini-action-btn" id="play-again-btn" type="button">Play Again</button>
+                <button class="mini-action-btn" id="share-last-run-btn" type="button">Share</button>
+              </div>
             </section>
           </div>
 
           <div id="menu-hero">
             <h1 id="menu-title">GayZ</h1>
             <p id="menu-tagline">Survive. Scavenge. Discover the truth.</p>
+            <p id="event-banner" style="display: none"></p>
             <p id="menu-subtitle">Broken city block &mdash; survive, scavenge, shoot</p>
+            <p id="menu-spotlight"></p>
             <p class="menu-subhint" id="menu-subhint">Look for lookout platforms up staircases along the avenue &mdash; chests inside</p>
             <p class="menu-news-ticker" id="menu-news-ticker"></p>
             <p class="menu-news-ticker" id="weekly-featured-mutator-line"></p>
@@ -365,9 +376,20 @@
             <button id="accept-challenge-btn" style="display: none"></button>
             <button id="play-btn">Play</button>
 
-            <button id="settings-btn" aria-label="Settings">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.6V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9c.1.7.6 1.2 1.6 1H21a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.6 1z"/></svg>
-            </button>
+            <div id="hero-quick-actions">
+              <button id="quick-mute-btn" aria-label="Mute audio">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+              </button>
+              <button id="quick-colorblind-btn" aria-label="Toggle colorblind mode">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none" opacity="0.5"/></svg>
+              </button>
+              <button id="howtoplay-btn" aria-label="How to play">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.9.7c0 1.7-2.4 1.9-2.4 3.3"/><line x1="12" y1="17" x2="12" y2="17.1"/></svg>
+              </button>
+              <button id="settings-btn" aria-label="Settings">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.6V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9c.1.7.6 1.2 1.6 1H21a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.6 1z"/></svg>
+              </button>
+            </div>
 
             <p id="round-mode-hint">Easy &amp; Normal: kill the wave to advance, no timer. Hard &amp; Nightmare: 90s timed nights.</p>
             <ul id="controls-list">
@@ -388,7 +410,10 @@
               <span id="menu-player-tag">#PLAYER</span>
               <span class="menu-best-stats" id="menu-career-rank"></span>
               <span class="menu-best-stats" id="menu-prestige-badge" style="display: none"></span>
+              <div id="season-progress-track" aria-hidden="true"><div id="season-progress-fill"></div></div>
             </div>
+
+            <div id="achievement-showcase-row" aria-label="Showcased achievements"></div>
 
             <nav id="menu-nav-buttons">
               <button id="coinshop-btn">
@@ -410,6 +435,7 @@
               <button id="credits-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
                 <span>Credits</span>
+                <span class="nav-badge-dot" id="whats-new-dot" style="display: none"></span>
               </button>
             </nav>
 
@@ -819,6 +845,8 @@
         <button id="profile-career-portrait-btn" style="display: none">Save Career Portrait</button>
         <button id="profile-copy-stats-btn">Copy Stats</button>
         <button id="profile-print-btn">Print Stats Sheet</button>
+        <h3 id="profile-gallery-title" style="display: none">Recent Screenshots</h3>
+        <div id="profile-screenshot-gallery"></div>
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>
       <div id="print-stats-sheet"></div>
@@ -834,6 +862,17 @@
           <p>Last updated July 29, 2026 at 4:38 AM &mdash; recent additions: a full menu redesign, crafting and deployable turrets, the Flamethrower and Rocket Launcher, weapon upgrades and the Mystery Box, Akimbo pistols and Last Stand self-revive, and CoD-style movement (mantling, sliding, killstreaks).</p>
         </div>
         <p class="panel-close-hint">Click anywhere to close</p>
+      </div>
+
+      <div id="howtoplay-panel">
+        <h2 id="howtoplay-panel-title">How to Play</h2>
+        <div id="howtoplay-step-content"></div>
+        <div id="howtoplay-dots"></div>
+        <div class="perk-panel-buttons">
+          <button id="howtoplay-back-btn">Back</button>
+          <button id="howtoplay-next-btn">Next</button>
+          <button id="howtoplay-close-btn">Close</button>
+        </div>
       </div>
 
       <div id="xp-levelup-panel">

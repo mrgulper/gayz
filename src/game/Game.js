@@ -228,6 +228,14 @@ function loadSettings() {
       // couple of full weapon setups doesn't mean re-assigning every slot by
       // hand each time. null entries are empty/unsaved slots.
       hotbarPresets: Array.isArray(parsed.hotbarPresets) && parsed.hotbarPresets.length === 3 ? parsed.hotbarPresets : [null, null, null],
+      // Homepage batch - up to 3 pinned achievement ids (Achievement
+      // Showcase) and up to 3 named class+difficulty+companion-role combos
+      // (Loadout Presets, distinct from hotbarPresets above which only
+      // covers the weapon hotbar). Muted volumes remember what to restore
+      // on unmute (Quick Mute).
+      showcaseSlots: Array.isArray(parsed.showcaseSlots) && parsed.showcaseSlots.length === 3 ? parsed.showcaseSlots : [null, null, null],
+      menuPresets: Array.isArray(parsed.menuPresets) ? parsed.menuPresets.slice(0, 3) : [],
+      mutedBeforeVolumes: parsed.mutedBeforeVolumes || null,
       mutators: {
         hordeRush: parsed.mutators?.hordeRush ?? false,
         lootRush: parsed.mutators?.lootRush ?? false,
@@ -260,7 +268,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, profileEmblem: 'none', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, profileEmblem: 'none', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -702,12 +710,19 @@ function loadCareerStats() {
       distanceMilestonesGranted: parsed.distanceMilestonesGranted || [],
       flawlessMilestonesGranted: parsed.flawlessMilestonesGranted || [],
       hallOfRecordsClaimed: parsed.hallOfRecordsClaimed || false,
+      // Homepage batch (see _recordRunEnd/_updateBestStatsDisplay) - lifetime
+      // death count (for a K/D ratio) and per-difficulty run/death tallies
+      // (for the Recommended Difficulty hint), same never-reset shape as
+      // every other axis on this object.
+      totalDeaths: parsed.totalDeaths || 0,
+      difficultyStats: parsed.difficultyStats || {},
     }
   } catch {
     return {
       totalKills: 0, totalRuns: 0, veteranPerksGranted: [],
       lifetimePlaytimeSeconds: 0, lifetimeDistanceMeters: 0, lifetimeCoinsEarned: 0, flawlessRunCount: 0,
       playtimeMilestonesGranted: [], distanceMilestonesGranted: [], flawlessMilestonesGranted: [], hallOfRecordsClaimed: false,
+      totalDeaths: 0, difficultyStats: {},
     }
   }
 }
@@ -1531,6 +1546,38 @@ const PHOTO_FILTERS = ['none', 'grayscale(1)', 'sepia(0.7)', 'contrast(1.4) satu
 const TUTORIAL_SEEN_KEY = 'gayz-tutorial-seen'
 const TUTORIAL_HINT_START_DELAY_MS = 2500
 const TUTORIAL_HINT_INTERVAL_MS = 4200
+
+// Homepage batch - Spotlight ticker tip pool (see _updateMenuSpotlight),
+// Seasonal Event Banner windows (month is 0-indexed, JS Date convention),
+// What's New badge-dot gate, and the replayable How to Play step sequence
+// (distinct from TUTORIAL_SEEN_KEY's one-time toast sequence above).
+const SPOTLIGHT_TIPS = ['spotlightTip1', 'spotlightTip2', 'spotlightTip3', 'spotlightTip4', 'spotlightTip5', 'spotlightTip6', 'spotlightTip7', 'spotlightTip8']
+const EVENT_BANNERS = [
+  { month: 9, startDay: 20, endDay: 31, key: 'eventBannerHalloween' },
+  { month: 11, startDay: 15, endDay: 31, key: 'eventBannerWinter' },
+]
+const WHATS_NEW_VERSION = '2026-07-29-homepage'
+const WHATS_NEW_SEEN_KEY = 'gayz-whatsnew-seen'
+const HOWTOPLAY_STEPS = ['htpMove', 'htpShoot', 'htpInventory', 'htpChests', 'htpSurvive']
+const SCREENSHOT_GALLERY_KEY = 'gayz-screenshot-gallery'
+
+function _loadScreenshotGallery() {
+  try {
+    const raw = localStorage.getItem(SCREENSHOT_GALLERY_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+function _saveScreenshotGallery(list) {
+  try {
+    localStorage.setItem(SCREENSHOT_GALLERY_KEY, JSON.stringify(list))
+  } catch {
+    // Storage unavailable (or quota exceeded by the data-URL thumbnails) -
+    // the gallery just won't persist across sessions.
+  }
+}
 const KILLCAM_ZOOM_FOV_MULT = 0.75
 // Killstreak rewards - this.killStreak counts consecutive kills without
 // dying (reset in _onPlayerDeath), distinct from the flat "every 10th kill"
@@ -2387,6 +2434,35 @@ export class Game {
     this.menuPrestigeBadge = document.getElementById('menu-prestige-badge')
     this.menuNewsTicker = document.getElementById('menu-news-ticker')
     this.weeklyFeaturedMutatorLine = document.getElementById('weekly-featured-mutator-line')
+    // Homepage batch - Continue card, Recommended Difficulty hint, Loadout
+    // Presets, quick-access icons, Achievement Showcase, Season Progress,
+    // Spotlight ticker, Event Banner, What's New dot, How to Play, and the
+    // Profile screenshot gallery. See each feature's own method for how
+    // these get populated.
+    this.continueActions = document.getElementById('continue-actions')
+    this.playAgainBtn = document.getElementById('play-again-btn')
+    this.shareLastRunBtn = document.getElementById('share-last-run-btn')
+    this.recommendedDifficultyHint = document.getElementById('recommended-difficulty-hint')
+    this.menuPresetRow = document.getElementById('menu-preset-row')
+    this.savePresetBtn = document.getElementById('save-preset-btn')
+    this.menuPresetChips = document.getElementById('menu-preset-chips')
+    this.quickMuteBtn = document.getElementById('quick-mute-btn')
+    this.quickColorblindBtn = document.getElementById('quick-colorblind-btn')
+    this.howtoplayBtn = document.getElementById('howtoplay-btn')
+    this.howtoplayPanel = document.getElementById('howtoplay-panel')
+    this.howtoplayPanelTitle = document.getElementById('howtoplay-panel-title')
+    this.howtoplayStepContent = document.getElementById('howtoplay-step-content')
+    this.howtoplayDots = document.getElementById('howtoplay-dots')
+    this.howtoplayBackBtn = document.getElementById('howtoplay-back-btn')
+    this.howtoplayNextBtn = document.getElementById('howtoplay-next-btn')
+    this.howtoplayCloseBtn = document.getElementById('howtoplay-close-btn')
+    this.achievementShowcaseRow = document.getElementById('achievement-showcase-row')
+    this.seasonProgressFill = document.getElementById('season-progress-fill')
+    this.menuSpotlight = document.getElementById('menu-spotlight')
+    this.eventBanner = document.getElementById('event-banner')
+    this.whatsNewDot = document.getElementById('whats-new-dot')
+    this.profileScreenshotGallery = document.getElementById('profile-screenshot-gallery')
+    this.profileGalleryTitle = document.getElementById('profile-gallery-title')
     this.menuLeaderboard = document.getElementById('menu-leaderboard')
     this.menuBossRushLeaderboard = document.getElementById('menu-bossrush-leaderboard')
     this.menuHouseholdLeaderboard = document.getElementById('menu-household-leaderboard')
@@ -4419,6 +4495,11 @@ export class Game {
     ctx.fillText('GayZ', canvas.width - 8, canvas.height - 8)
     ctx.textAlign = 'left'
 
+    // Screenshot Gallery (Profile panel) - every save/copy also stores a
+    // small thumbnail, regardless of mode, so the gallery reflects both
+    // download and clipboard-copy screenshots.
+    this._pushGalleryThumbnail(canvas.toDataURL('image/png'))
+
     if (mode === 'clipboard') {
       if (!navigator.clipboard || !window.ClipboardItem) {
         this._showLoreToast(t('clipboardCopyUnsupported'))
@@ -5888,6 +5969,7 @@ export class Game {
     }
     this.creditsBtn.addEventListener('click', () => this._openCreditsPanel())
     this.coinshopBtn.addEventListener('click', () => this._openCoinShopPanel())
+    this._bindHomepageBatch()
     this.endingContinueBtn.addEventListener('click', () => {
       this.endingPanel.style.display = 'none'
       this.player.controls.lock()
@@ -7880,8 +7962,17 @@ export class Game {
     // matching the redesigned menu's own left-column panel. All pulled
     // from data this game already tracks (careerStats/bestRunPace/
     // runHistory), nothing new recorded just for this display.
-    if (this.statTotalKills) this.statTotalKills.textContent = _safeStatNumber(this.careerStats.totalKills)
-    if (this.statRunsPlayed) this.statRunsPlayed.textContent = _safeStatNumber(this.careerStats.totalRuns)
+    // K/D ratio appended inline rather than as its own stat row - the
+    // Your Stats panel has no spare vertical budget for a new row (see
+    // CLAUDE.md's menu-redesign notes on the zero-scroll fight).
+    if (this.statTotalKills) {
+      const kd = (_safeStatNumber(this.careerStats.totalKills) / Math.max(1, _safeStatNumber(this.careerStats.totalDeaths))).toFixed(1)
+      this.statTotalKills.textContent = `${_safeStatNumber(this.careerStats.totalKills)} (K/D ${kd})`
+    }
+    if (this.statRunsPlayed) {
+      const hours = (_safeStatNumber(this.careerStats.lifetimePlaytimeSeconds) / 3600).toFixed(1)
+      this.statRunsPlayed.textContent = `${_safeStatNumber(this.careerStats.totalRuns)} · ${hours}h played`
+    }
     if (this.statBestStreak) this.statBestStreak.textContent = _safeStatNumber(bestKillStreak)
     if (this.statLongestSurvival) {
       this.statLongestSurvival.textContent = this.bestRunPace && this.bestRunPace.elapsedMs
@@ -7893,6 +7984,7 @@ export class Game {
       this.statLastRun.textContent = last
         ? t(last.survived ? 'runHistorySurvived' : 'runHistoryDied', { night: _safeStatNumber(last.night), kills: _safeStatNumber(last.kills), coins: _safeStatNumber(last.coins) })
         : '--'
+      if (this.continueActions) this.continueActions.style.display = last ? 'flex' : 'none'
     }
 
     if (this.menuCareerRank) {
@@ -7914,6 +8006,369 @@ export class Game {
     }
     this._updateMenuNewsTicker()
     this._updatePrestigeBadge()
+    this._updateRecommendedDifficultyHint()
+    this._updateSeasonProgress()
+    this._updateAchievementShowcase()
+    this._updateMenuSpotlight()
+    this._updateWhatsNewDot()
+  }
+
+  // Recommended Difficulty hint - only shown once a difficulty has at
+  // least MIN_RUNS_FOR_HINT runs logged (career-wide, never resets), so
+  // it never guesses off a single unlucky/lucky run. Flags the current
+  // difficulty specifically when its own death rate is high, nudging
+  // toward Normal rather than computing a full skill rating.
+  _updateRecommendedDifficultyHint() {
+    if (!this.recommendedDifficultyHint) return
+    const MIN_RUNS_FOR_HINT = 3
+    const current = this.careerStats.difficultyStats[this.settings.difficulty]
+    if (!current || current.runs < MIN_RUNS_FOR_HINT) {
+      this.recommendedDifficultyHint.style.display = 'none'
+      return
+    }
+    const deathRate = current.deaths / current.runs
+    if (deathRate >= 0.8 && this.settings.difficulty !== 'easy') {
+      this.recommendedDifficultyHint.textContent = t('recommendedDifficultyEasier')
+      this.recommendedDifficultyHint.style.display = ''
+    } else if (deathRate <= 0.2 && this.settings.difficulty !== 'apex') {
+      this.recommendedDifficultyHint.textContent = t('recommendedDifficultyHarder')
+      this.recommendedDifficultyHint.style.display = ''
+    } else {
+      this.recommendedDifficultyHint.style.display = 'none'
+    }
+  }
+
+  // Season Progress - a thin bar toward the next Career Rank tier, reusing
+  // CAREER_RANK_TITLES/careerStats.totalKills (already computed just above
+  // for menuAvatarLevel) rather than a new XP system.
+  _updateSeasonProgress() {
+    if (!this.seasonProgressFill) return
+    const kills = this.careerStats.totalKills
+    let tierIndex = 0
+    for (let i = 0; i < CAREER_RANK_TITLES.length; i++) {
+      if (kills >= CAREER_RANK_TITLES[i].min) tierIndex = i
+    }
+    const current = CAREER_RANK_TITLES[tierIndex]
+    const next = CAREER_RANK_TITLES[tierIndex + 1]
+    if (!next) {
+      this.seasonProgressFill.style.width = '100%'
+      return
+    }
+    const pct = ((kills - current.min) / (next.min - current.min)) * 100
+    this.seasonProgressFill.style.width = `${Math.max(0, Math.min(100, pct))}%`
+  }
+
+  // Achievement Showcase - up to 3 pinned badges next to the player tag.
+  // Each slot cycles null -> each unlocked achievement not already pinned
+  // elsewhere -> null on click, rather than a separate picker modal (only
+  // 3 slots, cycling is simpler than a whole new UI for this).
+  _updateAchievementShowcase() {
+    if (!this.achievementShowcaseRow) return
+    this.achievementShowcaseRow.innerHTML = ''
+    for (let i = 0; i < 3; i++) {
+      const id = this.settings.showcaseSlots[i]
+      const def = id ? ACHIEVEMENTS.find((a) => a.id === id) : null
+      const slot = document.createElement('button')
+      slot.type = 'button'
+      slot.className = 'showcase-slot' + (def ? ' filled' : '')
+      slot.textContent = def ? def.tag : '+'
+      if (def) {
+        slot.style.color = def.color
+        slot.style.borderColor = def.color
+      }
+      slot.title = def ? t(def.titleKey) : t('showcaseSlotEmpty')
+      slot.addEventListener('click', () => this._cycleShowcaseSlot(i))
+      this.achievementShowcaseRow.appendChild(slot)
+    }
+  }
+
+  _cycleShowcaseSlot(i) {
+    const unlockedIds = ACHIEVEMENTS.filter((a) => this.achievements.unlocked.has(a.id)).map((a) => a.id)
+    if (unlockedIds.length === 0) return
+    const pinnedElsewhere = this.settings.showcaseSlots.filter((id, idx) => idx !== i && id)
+    const options = [null, ...unlockedIds.filter((id) => !pinnedElsewhere.includes(id))]
+    const idx = options.indexOf(this.settings.showcaseSlots[i])
+    this.settings.showcaseSlots[i] = options[(idx + 1) % options.length]
+    saveSettings(this.settings)
+    this._updateAchievementShowcase()
+  }
+
+  // Spotlight ticker - a single rotating hero-column line (Tip of the Day /
+  // Daily Challenge reset countdown / Featured Weekly Challenge), distinct
+  // from the decluttered .menu-news-ticker (see that class's own comment -
+  // it stays hidden per the reference-image pass). Idempotent: safe to call
+  // from _updateBestStatsDisplay repeatedly, only starts its rotation timer
+  // once.
+  _updateMenuSpotlight() {
+    if (!this.menuSpotlight) return
+    const render = () => {
+      const mode = (this._spotlightIndex || 0) % 3
+      if (mode === 0) {
+        const tipKey = SPOTLIGHT_TIPS[Math.floor(Date.now() / 60000) % SPOTLIGHT_TIPS.length]
+        this.menuSpotlight.textContent = t('spotlightTipPrefix', { tip: t(tipKey) })
+      } else if (mode === 1) {
+        const now = new Date()
+        const midnight = new Date(now)
+        midnight.setHours(24, 0, 0, 0)
+        const msLeft = midnight - now
+        const h = Math.floor(msLeft / 3600000)
+        const m = Math.floor((msLeft % 3600000) / 60000)
+        this.menuSpotlight.textContent = t('spotlightDailyReset', { h, m })
+      } else if (this.weeklyDef) {
+        this.menuSpotlight.textContent = t('spotlightWeeklyChallenge', { title: t(this.weeklyDef.titleKey), target: this.weeklyDef.target })
+      }
+      this._spotlightIndex = (this._spotlightIndex || 0) + 1
+    }
+    render()
+    if (this._spotlightIntervalStarted) return
+    this._spotlightIntervalStarted = true
+    setInterval(render, 6000)
+  }
+
+  // Seasonal Event Banner - display:none year-round outside a defined date
+  // window (see EVENT_BANNERS), so it costs zero homepage real estate most
+  // of the year. Doesn't touch #menu-bg-photo itself (see CLAUDE.md's note
+  // on the reverted live-3D-background attempt - anything near that
+  // element needs care).
+  _updateEventBanner() {
+    if (!this.eventBanner) return
+    const now = new Date()
+    const active = EVENT_BANNERS.find((ev) => now.getMonth() === ev.month && now.getDate() >= ev.startDay && now.getDate() <= ev.endDay)
+    if (!active) {
+      this.eventBanner.style.display = 'none'
+      return
+    }
+    this.eventBanner.textContent = t(active.key)
+    this.eventBanner.style.display = ''
+  }
+
+  // What's New badge dot - a small red dot on the Credits nav button until
+  // the player has actually opened Credits at least once since
+  // WHATS_NEW_VERSION last changed (bump that constant on future updates).
+  _updateWhatsNewDot() {
+    if (!this.whatsNewDot) return
+    this.whatsNewDot.style.display = localStorage.getItem(WHATS_NEW_SEEN_KEY) === WHATS_NEW_VERSION ? 'none' : ''
+  }
+
+  // How to Play - a replayable, interactive step-through overlay, distinct
+  // from _maybeShowTutorialHints (a one-time, non-interactive toast
+  // sequence that still runs independently the first time a run starts).
+  _openHowToPlayPanel() {
+    this.howtoplayPanel.style.display = 'flex'
+    this.howtoplayPanelTitle.textContent = t('howtoplayPanelTitle')
+    this._howtoplayStep = 0
+    this._renderHowToPlayStep()
+  }
+
+  _closeHowToPlayPanel() {
+    this.howtoplayPanel.style.display = 'none'
+  }
+
+  _renderHowToPlayStep() {
+    const keys = HOWTOPLAY_STEPS
+    this.howtoplayStepContent.innerHTML = tHtml(keys[this._howtoplayStep])
+    this.howtoplayDots.innerHTML = ''
+    for (let i = 0; i < keys.length; i++) {
+      const dot = document.createElement('span')
+      dot.className = 'howtoplay-dot' + (i === this._howtoplayStep ? ' active' : '')
+      this.howtoplayDots.appendChild(dot)
+    }
+    this.howtoplayBackBtn.style.visibility = this._howtoplayStep === 0 ? 'hidden' : 'visible'
+    this.howtoplayNextBtn.textContent = this._howtoplayStep === keys.length - 1 ? t('howtoplayDoneBtn') : t('howtoplayNextBtn')
+  }
+
+  // Continue card - Play Again replays the exact class/difficulty/companion
+  // combo the last recorded run used (see _recordRunEnd's runHistory entry),
+  // by clicking the real menu buttons rather than duplicating their apply
+  // logic. Share copies a short text recap of that same run.
+  _playAgainFromLastRun() {
+    const last = this.runHistory[0]
+    if (!last) return
+    if (last.difficulty) {
+      const btn = Array.from(this.difficultyBtns).find((b) => b.dataset.difficulty === last.difficulty)
+      if (btn && btn.style.display !== 'none') btn.click()
+    }
+    if (last.loadout) {
+      const btn = Array.from(this.loadoutBtns).find((b) => b.dataset.loadout === last.loadout)
+      if (btn) btn.click()
+    }
+    if (last.companionRole) {
+      const btn = Array.from(this.roleBtns).find((b) => b.dataset.role === last.companionRole)
+      if (btn) btn.click()
+    }
+    if (this.playBtn) this.playBtn.click()
+  }
+
+  _shareLastRun() {
+    const last = this.runHistory[0]
+    if (!last) return
+    const text = t(last.survived ? 'shareLastRunSurvived' : 'shareLastRunDied', { night: _safeStatNumber(last.night), kills: _safeStatNumber(last.kills), coins: _safeStatNumber(last.coins) })
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => this._showLoreToast(t('shareCopiedToast'))).catch(() => {})
+    }
+  }
+
+  // Loadout Presets - extends the existing hotbarPresets (weapon slots
+  // only) with up to 3 named saves of class+difficulty+companion role,
+  // the 3 selections in the "Choose Class"/"Difficulty" panels. Click
+  // Save Setup to add one (round-robin once all 3 slots are full); click
+  // a chip to load it; click a chip's x to delete it.
+  _saveMenuPreset() {
+    // Reads the difficulty button's own current (already-translated) label
+    // rather than a new i18n key map - DIFFICULTY_LABEL_KEYS doesn't exist
+    // in this codebase (only the flavor-text DIFFICULTY_FLAVOR_KEYS does).
+    const diffBtn = Array.from(this.difficultyBtns).find((b) => b.dataset.difficulty === this.settings.difficulty)
+    const preset = {
+      difficulty: this.settings.difficulty,
+      loadout: this.settings.loadout,
+      companionRole: this.settings.companionRole,
+      label: (diffBtn ? diffBtn.textContent : this.settings.difficulty) + ' · ' + t(LOADOUT_LABEL_KEYS[this.settings.loadout]),
+    }
+    if (this.settings.menuPresets.length >= 3) this.settings.menuPresets.shift()
+    this.settings.menuPresets.push(preset)
+    saveSettings(this.settings)
+    this._renderMenuPresets()
+  }
+
+  _loadMenuPreset(i) {
+    const preset = this.settings.menuPresets[i]
+    if (!preset) return
+    const diffBtn = Array.from(this.difficultyBtns).find((b) => b.dataset.difficulty === preset.difficulty)
+    if (diffBtn && diffBtn.style.display !== 'none') diffBtn.click()
+    const loadoutBtn = Array.from(this.loadoutBtns).find((b) => b.dataset.loadout === preset.loadout)
+    if (loadoutBtn) loadoutBtn.click()
+    const roleBtn = Array.from(this.roleBtns).find((b) => b.dataset.role === preset.companionRole)
+    if (roleBtn) roleBtn.click()
+  }
+
+  _deleteMenuPreset(i) {
+    this.settings.menuPresets.splice(i, 1)
+    saveSettings(this.settings)
+    this._renderMenuPresets()
+  }
+
+  _renderMenuPresets() {
+    if (!this.menuPresetChips) return
+    this.menuPresetChips.innerHTML = ''
+    this.settings.menuPresets.forEach((preset, i) => {
+      const chip = document.createElement('div')
+      chip.className = 'preset-chip'
+      const label = document.createElement('span')
+      label.textContent = preset.label
+      label.addEventListener('click', () => this._loadMenuPreset(i))
+      const del = document.createElement('span')
+      del.className = 'preset-chip-delete'
+      del.textContent = '×'
+      del.addEventListener('click', (e) => { e.stopPropagation(); this._deleteMenuPreset(i) })
+      chip.appendChild(label)
+      chip.appendChild(del)
+      this.menuPresetChips.appendChild(chip)
+    })
+  }
+
+  // Screenshot Gallery (Profile panel) - the existing screenshot tool only
+  // ever downloads/copies to clipboard (see CLAUDE.md's duplicate-audit),
+  // never keeps anything retrievable in-app. This stores a small downscaled
+  // thumbnail (not the full-res capture, to keep localStorage cheap)
+  // alongside every save, capped to the last 3.
+  _pushGalleryThumbnail(fullDataUrl) {
+    try {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = 160
+        canvas.height = Math.round((160 * img.height) / img.width)
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        const thumb = canvas.toDataURL('image/jpeg', 0.7)
+        const gallery = _loadScreenshotGallery()
+        gallery.unshift(thumb)
+        _saveScreenshotGallery(gallery.slice(0, 3))
+        this._renderScreenshotGallery()
+      }
+      img.src = fullDataUrl
+    } catch {
+      // Best-effort only - a failed thumbnail never blocks the actual save/copy.
+    }
+  }
+
+  _renderScreenshotGallery() {
+    if (!this.profileScreenshotGallery) return
+    const gallery = _loadScreenshotGallery()
+    this.profileScreenshotGallery.innerHTML = ''
+    if (this.profileGalleryTitle) this.profileGalleryTitle.style.display = gallery.length ? '' : 'none'
+    for (const thumb of gallery) {
+      const img = document.createElement('img')
+      img.src = thumb
+      img.alt = t('galleryThumbnailAlt')
+      this.profileScreenshotGallery.appendChild(img)
+    }
+  }
+
+  // Homepage batch - every quick-action/one-shot listener that isn't
+  // already covered by an existing _bindX() method (difficulty/loadout/
+  // role buttons keep their own _bindDifficulty/_bindLoadout/
+  // _bindCompanionRole - Play Again/preset load click those same real
+  // buttons rather than duplicating their apply logic).
+  _bindHomepageBatch() {
+    if (this.playAgainBtn) this.playAgainBtn.addEventListener('click', () => this._playAgainFromLastRun())
+    if (this.shareLastRunBtn) this.shareLastRunBtn.addEventListener('click', () => this._shareLastRun())
+    if (this.savePresetBtn) this.savePresetBtn.addEventListener('click', () => this._saveMenuPreset())
+    this._renderMenuPresets()
+
+    if (this.quickMuteBtn) {
+      this.quickMuteBtn.classList.toggle('active', !!this.settings.mutedBeforeVolumes)
+      this.quickMuteBtn.addEventListener('click', () => {
+        if (this.settings.mutedBeforeVolumes) {
+          this.settings.musicVolume = this.settings.mutedBeforeVolumes.music
+          this.settings.sfxVolume = this.settings.mutedBeforeVolumes.sfx
+          this.settings.mutedBeforeVolumes = null
+        } else {
+          this.settings.mutedBeforeVolumes = { music: this.settings.musicVolume, sfx: this.settings.sfxVolume }
+          this.settings.musicVolume = 0
+          this.settings.sfxVolume = 0
+        }
+        audioEngine.setMusicVolume(this.settings.musicVolume / 100)
+        audioEngine.setSfxVolume(this.settings.sfxVolume / 100)
+        if (this.musicVolumeSlider) { this.musicVolumeSlider.value = this.settings.musicVolume; this.musicVolumeValue.textContent = `${this.settings.musicVolume}%` }
+        if (this.sfxVolumeSlider) { this.sfxVolumeSlider.value = this.settings.sfxVolume; this.sfxVolumeValue.textContent = `${this.settings.sfxVolume}%` }
+        saveSettings(this.settings)
+        this.quickMuteBtn.classList.toggle('active', !!this.settings.mutedBeforeVolumes)
+      })
+    }
+
+    if (this.quickColorblindBtn) {
+      this.quickColorblindBtn.classList.toggle('active', this.settings.colorblind)
+      this.quickColorblindBtn.addEventListener('click', () => {
+        this.settings.colorblind = !this.settings.colorblind
+        setColorblind(this.settings.colorblind)
+        if (this.colorblindToggle) this.colorblindToggle.checked = this.settings.colorblind
+        saveSettings(this.settings)
+        this.quickColorblindBtn.classList.toggle('active', this.settings.colorblind)
+      })
+    }
+
+    if (this.howtoplayBtn) this.howtoplayBtn.addEventListener('click', () => this._openHowToPlayPanel())
+    if (this.howtoplayNextBtn) {
+      this.howtoplayNextBtn.addEventListener('click', () => {
+        if (this._howtoplayStep < HOWTOPLAY_STEPS.length - 1) { this._howtoplayStep++; this._renderHowToPlayStep() }
+        else this._closeHowToPlayPanel()
+      })
+    }
+    if (this.howtoplayBackBtn) {
+      this.howtoplayBackBtn.addEventListener('click', () => {
+        if (this._howtoplayStep > 0) { this._howtoplayStep--; this._renderHowToPlayStep() }
+      })
+    }
+    if (this.howtoplayCloseBtn) this.howtoplayCloseBtn.addEventListener('click', () => this._closeHowToPlayPanel())
+    if (this.howtoplayPanel) {
+      this.howtoplayPanel.addEventListener('click', (e) => {
+        if (e.target === this.howtoplayPanel) this._closeHowToPlayPanel()
+      })
+    }
+
+    this._renderScreenshotGallery()
+    this._updateEventBanner()
   }
 
   // Prestige cosmetic badges - tiered color escalation (bronze/silver/gold-
@@ -8949,6 +9404,11 @@ export class Game {
   _openCreditsPanel() {
     this.creditsPanel.style.display = 'flex'
     this.creditsPanelTitle.textContent = t('creditsPanelTitle')
+    // What's New badge dot - clears the moment the player actually reads
+    // this panel, not just on page load, so it stays a genuine "have you
+    // seen this" indicator rather than a permanent decoration.
+    try { localStorage.setItem(WHATS_NEW_SEEN_KEY, WHATS_NEW_VERSION) } catch { /* storage unavailable */ }
+    this._updateWhatsNewDot()
   }
 
   _closeCreditsPanel() {
@@ -9147,10 +9607,26 @@ export class Game {
     }
 
     // Run History Log - one capped entry per completed run (see
-    // RUN_HISTORY_KEY's own comment).
-    this.runHistory.unshift({ night: this.night, kills: this.kills, coins: this.coins, survived: !!survived, prestige: this.metaProgress.prestigeLevel, ts: Date.now() })
+    // RUN_HISTORY_KEY's own comment). difficulty/loadout/companionRole
+    // captured alongside (Homepage batch) so a "Play Again" action can
+    // restore the exact setup this run used, not just show its stats.
+    this.runHistory.unshift({
+      night: this.night, kills: this.kills, coins: this.coins, survived: !!survived,
+      prestige: this.metaProgress.prestigeLevel, ts: Date.now(),
+      difficulty: this.settings.difficulty, loadout: this.settings.loadout, companionRole: this.settings.companionRole,
+    })
     this.runHistory = this.runHistory.slice(0, RUN_HISTORY_MAX)
     saveRunHistory(this.runHistory)
+
+    // Homepage batch - lifetime deaths (K/D ratio) and per-difficulty
+    // run/death tallies (Recommended Difficulty hint). Deaths is every
+    // non-survived run; DIFFICULTY_PRESETS keys are the same ids
+    // settings.difficulty already uses everywhere else.
+    if (!survived) this.careerStats.totalDeaths += 1
+    const diffId = this.settings.difficulty
+    if (!this.careerStats.difficultyStats[diffId]) this.careerStats.difficultyStats[diffId] = { runs: 0, deaths: 0 }
+    this.careerStats.difficultyStats[diffId].runs += 1
+    if (!survived) this.careerStats.difficultyStats[diffId].deaths += 1
 
     // Lifetime Playtime/Distance/Coins-Earned/Flawless-Runs (Long-Term Goals
     // batch) - each a new cumulative axis on careerStats, checked against

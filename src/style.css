@@ -79,6 +79,58 @@ html, body {
 .emblem-flame { background: #e0563c; }
 .emblem-shield { background: #4a7ab8; }
 
+/* Screenshot gallery (Profile panel) - last 3 downscaled thumbnails, see
+   _pushGalleryThumbnail. */
+#profile-screenshot-gallery {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+#profile-screenshot-gallery img {
+  width: 96px;
+  height: 54px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  cursor: pointer;
+}
+
+/* How to Play walkthrough - replayable step panel (see
+   _openHowToPlayPanel), distinct from the one-time toast sequence
+   (_maybeShowTutorialHints). */
+#howtoplay-step-content {
+  width: min(420px, 84vw);
+  min-height: 90px;
+  padding: 14px 16px;
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+#howtoplay-step-content b {
+  color: #ffcf5c;
+}
+
+#howtoplay-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.howtoplay-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.howtoplay-dot.active {
+  background: #e3a63c;
+}
+
 #hitmarker {
   position: absolute;
   top: 50%;
@@ -1459,6 +1511,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 #bestiary-panel,
 #profile-panel,
 #credits-panel,
+#howtoplay-panel,
 #xp-levelup-panel,
 #pause-overlay,
 #coinshop-panel,
@@ -1482,6 +1535,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 #bestiary-panel-title,
 #profile-panel-title,
 #credits-panel-title,
+#howtoplay-panel-title,
 #xp-levelup-panel-title,
 #pause-overlay-title,
 #coinshop-panel-title,
@@ -2173,7 +2227,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   background: linear-gradient(180deg, #0a1210 0%, #0d1a14 45%, #050807 100%);
   color: #eee;
   text-align: center;
-  padding: 6px 24px 3px;
+  padding: 3px 24px 3px;
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -2361,7 +2415,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 #menu-col-right {
   display: flex;
   flex-direction: column;
-  gap: 13px;
+  gap: 9px;
   text-align: left;
 }
 
@@ -2379,7 +2433,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 12%), var(--menu-panel-bg);
   border: 2px solid var(--menu-panel-border);
   border-radius: 4px;
-  padding: 10px 16px;
+  padding: 8px 14px;
   backdrop-filter: blur(2px);
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
@@ -2537,6 +2591,83 @@ body.reduce-flashing #critical-blood-overlay.show {
   font-variant-numeric: tabular-nums;
 }
 
+/* Recommended Difficulty hint - a single small line under the panel
+   title, only shown once there's enough run history to base a
+   recommendation on (see _updateRecommendedDifficultyHint). */
+.menu-hint-line {
+  margin: 0 0 2px;
+  font-size: 10px;
+  font-style: italic;
+  color: var(--menu-olive);
+  opacity: 0.85;
+}
+
+/* Shared small button style for compact homepage actions (Continue
+   card's Play Again/Share, Loadout Presets' Save Setup/chips) - a
+   smaller, lower-emphasis sibling of .difficulty-btn rather than a new
+   visual language. */
+.mini-action-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--menu-gold);
+  background: rgba(227, 166, 60, 0.1);
+  border: 1px solid var(--menu-panel-border);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.mini-action-btn:hover {
+  background: rgba(227, 166, 60, 0.2);
+  border-color: var(--menu-gold);
+}
+
+.continue-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.menu-preset-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+#menu-preset-chips {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.preset-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px 4px 9px;
+  font-size: 10px;
+  color: var(--menu-text-dim);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--menu-panel-border);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.preset-chip:hover {
+  color: #eee;
+  border-color: var(--menu-gold);
+}
+
+.preset-chip-delete {
+  color: var(--menu-red);
+  font-weight: 700;
+  padding: 0 2px;
+}
+
 /* ---- Hero (center column) ---- */
 #menu-hero {
   position: relative;
@@ -2646,6 +2777,41 @@ body.reduce-flashing #critical-blood-overlay.show {
   letter-spacing: 0.3px;
   opacity: 0.45 !important;
   max-width: 420px;
+}
+
+/* Spotlight line - distinct from the decluttered .menu-news-ticker above
+   (that one stays hidden per the reference-image pass), a single new
+   compact rotating line (tip of the day / daily reset countdown /
+   featured weekly challenge - see _updateMenuSpotlight). Empty text
+   collapses to 0 height via :empty so it never reserves space before
+   the game has finished computing its first line. */
+#menu-spotlight {
+  margin: 2px 0 0;
+  font-size: 12px;
+  font-style: italic;
+  letter-spacing: 0.2px;
+  color: var(--menu-text-dim);
+  opacity: 0.75;
+  min-height: 15px;
+}
+
+#menu-spotlight:empty {
+  min-height: 0;
+}
+
+/* Seasonal Event Banner - display:none year-round except inside a
+   defined date window (see EVENT_BANNERS in Game.js), so it costs zero
+   vertical space almost all the time. */
+#event-banner {
+  margin: 2px 0 0;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--menu-orange);
+  background: rgba(224, 138, 79, 0.12);
+  border: 1px solid rgba(224, 138, 79, 0.4);
+  border-radius: 3px;
 }
 
 #menu-hero-stats {
@@ -2767,13 +2933,22 @@ body.reduce-flashing #critical-blood-overlay.show {
   transform: translateY(2px);
 }
 
+#hero-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+#quick-mute-btn,
+#quick-colorblind-btn,
+#howtoplay-btn,
 #settings-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 46px;
-  height: 46px;
-  margin-top: 10px;
+  width: 40px;
+  height: 40px;
   padding: 0;
   color: var(--menu-gold);
   background: rgba(0, 0, 0, 0.3);
@@ -2782,9 +2957,28 @@ body.reduce-flashing #critical-blood-overlay.show {
   cursor: pointer;
 }
 
+#quick-mute-btn svg,
+#quick-colorblind-btn svg,
+#howtoplay-btn svg,
 #settings-btn svg {
-  width: 23px;
-  height: 23px;
+  width: 20px;
+  height: 20px;
+}
+
+#quick-mute-btn:hover,
+#quick-colorblind-btn:hover,
+#howtoplay-btn:hover {
+  background: rgba(227, 166, 60, 0.12);
+}
+
+#quick-mute-btn.active {
+  color: var(--menu-red);
+  border-color: var(--menu-red);
+}
+
+#quick-colorblind-btn.active {
+  color: var(--menu-blue);
+  border-color: var(--menu-blue);
 }
 
 #settings-btn:hover {
@@ -2883,6 +3077,64 @@ body.reduce-flashing #critical-blood-overlay.show {
   color: #eee;
 }
 
+/* Season Progress - a thin bar showing progress toward the next Career
+   Rank tier (see _updateSeasonProgress), reusing the existing
+   careerStats.totalKills/CAREER_RANK_TITLES ladder rather than a new
+   XP system. */
+#season-progress-track {
+  width: 100%;
+  max-width: 140px;
+  height: 5px;
+  margin-top: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+#season-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--menu-bronze), var(--menu-gold));
+  transition: width 0.4s ease;
+}
+
+/* Achievement Showcase - up to 3 pinned achievement badges next to the
+   player tag (see _cycleShowcaseSlot). Each slot cycles through your
+   unlocked achievements on click - no separate picker modal needed for
+   just 3 slots. */
+#achievement-showcase-row {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.showcase-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 20px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--menu-panel-border);
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0.5;
+}
+
+.showcase-slot.filled {
+  opacity: 1;
+  border-color: var(--menu-gold);
+  background: rgba(227, 166, 60, 0.12);
+}
+
+.showcase-slot:hover {
+  border-color: var(--menu-gold);
+}
+
 #menu-nav-buttons {
   display: flex;
   flex-direction: column;
@@ -2920,6 +3172,19 @@ body.reduce-flashing #critical-blood-overlay.show {
   border-color: var(--menu-gold);
   color: #fff;
   transform: translateX(2px);
+}
+
+/* What's New badge dot - purely an absolute-positioned overlay, zero
+   layout height cost on the nav row (see _updateWhatsNewDot). */
+.nav-badge-dot {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  width: 9px;
+  height: 9px;
+  background: var(--menu-red);
+  border: 2px solid var(--menu-gunmetal-dark);
+  border-radius: 50%;
 }
 
 #menu-boards {
@@ -2984,10 +3249,50 @@ body.reduce-flashing #critical-blood-overlay.show {
    that none of the 3 lists actually hit the cap. Tightening this further
    for every window height (rather than gating it to short ones) used to
    visibly truncate all 3 lists behind a needless internal scrollbar even
-   on spacious 1080p+ screens, with a lot of empty background left below. */
+   on spacious 1080p+ screens, with a lot of empty background left below.
+   Two tiers now (mid + short) since the Homepage batch's several new
+   left/right-column elements (Continue card, Recommended Difficulty
+   hint, Loadout Presets, Achievement Showcase, Season Progress) added
+   real height that a single 820px breakpoint no longer fully offset at
+   900px-tall screens - source order matters here, the tighter (short)
+   rule must come after the looser (mid) one to win at heights under both. */
+@media (max-height: 960px) {
+  .menu-card-list {
+    max-height: 15vh;
+  }
+}
+
 @media (max-height: 820px) {
   .menu-card-list {
-    max-height: 6vh;
+    max-height: 5vh;
+  }
+
+  /* At this height the card-list cap alone isn't enough (fixed-px content
+     doesn't shrink with a vh-relative cap the way the card list does) -
+     sacrifice the purely-decorative Spotlight ticker and tighten
+     panel padding/column gaps further, same "genuinely short windows
+     lose the nice-to-haves first" precedent as #round-mode-hint/
+     #controls-list above. */
+  #menu-spotlight {
+    display: none;
+  }
+
+  #menu-col-left,
+  #menu-col-right {
+    gap: 6px;
+  }
+
+  .menu-panel {
+    padding: 6px 12px;
+  }
+
+  .menu-preset-row,
+  #achievement-showcase-row {
+    display: none;
+  }
+
+  .menu-hint-line {
+    margin-bottom: 0;
   }
 }
 
