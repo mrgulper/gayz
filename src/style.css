@@ -219,6 +219,52 @@ html, body {
   font-weight: 600;
 }
 
+#cloudsave-rank-line,
+#cloudsave-rival-line {
+  margin: 2px 0 0;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+#cloudsave-saved-friends {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 4px;
+}
+
+.saved-friend-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px 3px 9px;
+  font-size: 11px;
+  color: var(--menu-text-dim, #ccc);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.saved-friend-chip:hover {
+  color: #eee;
+  border-color: #e3a63c;
+}
+
+.saved-friend-remove {
+  color: var(--menu-red, #c9564a);
+  font-weight: 700;
+  padding: 0 1px;
+}
+
+#cloudsave-friend-row #cloudsave-friend-save-btn {
+  flex: 0 0 auto;
+  width: 32px;
+  padding: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
 .cloud-leaderboard-row {
   display: flex;
   justify-content: space-between;
@@ -2124,11 +2170,55 @@ body.reduce-flashing #critical-blood-overlay.show {
   border-color: var(--menu-gold, #e3a63c);
 }
 
-#profile-nearly-there-line,
 #profile-weekly-recap-line {
   margin: 4px 0;
   font-size: 12px;
   opacity: 0.85;
+}
+
+#profile-nearly-there-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nearly-there-line {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+#profile-anniversary-line {
+  margin: 4px 0;
+  font-size: 12px;
+  opacity: 0.7;
+  font-style: italic;
+}
+
+#profile-streak-calendar {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+}
+
+.streak-day {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  font-size: 10px;
+  color: var(--menu-text-dim, #ccc);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+.streak-day.played {
+  color: #0c130c;
+  background: var(--menu-gold, #e3a63c);
+  border-color: var(--menu-gold, #e3a63c);
+  font-weight: 700;
 }
 
 #profile-activity-list {

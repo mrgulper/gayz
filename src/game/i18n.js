@@ -887,7 +887,7 @@ const STRINGS = {
     spotlightTip7: 'Open your inventory (Tab) to save a Loadout Preset for later.',
     spotlightTip8: 'Photo Mode filters cycle with a key press - great for screenshots.',
     spotlightDailyReset: 'Daily Challenge resets in {h}h {m}m',
-    spotlightWeeklyChallenge: 'Weekly Challenge: {title} ({target} kills)',
+    spotlightWeeklyChallenge: 'Weekly Challenge: {title} ({target} kills) - {days}d left',
     eventBannerHalloween: 'Something wicked stirs in the ruins this week...',
     eventBannerWinter: 'A cold snap has settled over the city.',
     howtoplayPanelTitle: 'How to Play',
@@ -956,6 +956,15 @@ const STRINGS = {
     pollVotedHint: '{n} votes so far - thanks for voting!',
     pollNotVotedHint: 'Pick one - you can only vote once.',
     welcomeBackToast: "Welcome back! It's been {days} days. +{coins} coins",
+    // Second Online Features batch (global rank, rival nudge, saved
+    // friends, streak calendar, anniversary line, mutator exploration).
+    globalRankBadge: '#{rank} Worldwide',
+    cloudsaveRankLine: 'Your global rank: #{rank}',
+    cloudsaveRivalLine: '{n} nights to pass {name}',
+    cloudsaveRivalNone: "You're #1 - nobody to catch!",
+    spotlightMutatorNudge: "You haven't tried {mutator} yet",
+    anniversaryLine: '{n} days since your first run',
+    profileStreakTitle: 'Login Streak',
     // Local Sharing batch.
     exportSaveBtn: 'Export Save',
     importSaveBtn: 'Import Save',

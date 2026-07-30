@@ -243,6 +243,12 @@ function loadSettings() {
       // pick" (see #quick-language-btn's handler).
       playerTitle: parsed.playerTitle || null,
       quickLanguageAlt: parsed.quickLanguageAlt || 'es',
+      // Second Online Features batch - saved friend nicknames (Cloud Save
+      // panel's compare box, avoids retyping) and every mutator id ever
+      // toggled on at least once (backs the "you haven't tried X yet"
+      // spotlight nudge).
+      savedFriends: Array.isArray(parsed.savedFriends) ? parsed.savedFriends.slice(0, 5) : [],
+      mutatorsEverEnabled: Array.isArray(parsed.mutatorsEverEnabled) ? parsed.mutatorsEverEnabled : [],
       mutators: {
         hordeRush: parsed.mutators?.hordeRush ?? false,
         lootRush: parsed.mutators?.lootRush ?? false,
@@ -275,7 +281,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, profileEmblem: 'none', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, playerTitle: null, quickLanguageAlt: 'es', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, profileEmblem: 'none', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, playerTitle: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -397,11 +403,25 @@ const WEEKLY_CHALLENGES = [
   { id: 'sharpshooter', titleKey: 'weeklySharpshooter', target: 200, rewardCoins: 150 },
 ]
 
-function _thisWeekStr() {
-  const d = new Date()
+function _thisWeekStr(date) {
+  const d = date || new Date()
   const firstJan = new Date(d.getFullYear(), 0, 1)
   const week = Math.ceil(((d - firstJan) / 86400000 + firstJan.getDay() + 1) / 7)
   return `${d.getFullYear()}-W${week}`
+}
+
+// Days until _thisWeekStr() itself next changes - reuses that same
+// function's own logic (by feeding it future dates) rather than
+// re-deriving the week-boundary math by hand, so this can never drift
+// out of sync with what "this week" actually means elsewhere.
+function _daysUntilWeekReset() {
+  const current = _thisWeekStr()
+  for (let i = 1; i <= 7; i++) {
+    const future = new Date()
+    future.setDate(future.getDate() + i)
+    if (_thisWeekStr(future) !== current) return i
+  }
+  return 7
 }
 
 function _weeklyChallengeIndex(weekStr) {
@@ -438,15 +458,28 @@ function saveWeeklyChallenge(w) {
 // never forced, the player still has to check the box themselves.
 const WEEKLY_FEATURED_MUTATORS = ['hordeRush', 'pureGunplay', 'bossRush', 'hordeMode', 'glassHouse', 'scavenger', 'featuredEnemy', 'blackout']
 const WEEKLY_FEATURED_MUTATOR_BONUS_COINS = 50
-const WEEKLY_FEATURED_MUTATOR_LABEL_KEYS = {
+// Renamed from WEEKLY_FEATURED_MUTATOR_LABEL_KEYS (Online Features batch)
+// and extended to cover every mutator with a real i18n label - the
+// Mutator Exploration spotlight nudge (see _updateMenuSpotlight mode 4)
+// needs the full set, not just the 8 WEEKLY_FEATURED_MUTATORS covers.
+// dailyChallenge deliberately excluded - it's its own distinct system
+// already promoted separately (the daily-reset spotlight mode), not a
+// "try this mutator" flavor pick.
+const MUTATOR_LABEL_KEYS = {
   hordeRush: 'mutatorHordeRush',
+  lootRush: 'mutatorLootRush',
   pureGunplay: 'mutatorPureGunplay',
   bossRush: 'mutatorBossRush',
   hordeMode: 'mutatorHordeMode',
-  glassHouse: 'mutatorGlassHouse',
+  kingOfTheHill: 'mutatorKoth',
+  extraction: 'mutatorExtraction',
+  healthRegen: 'mutatorHealthRegen',
+  ironMode: 'mutatorIronMode',
   scavenger: 'mutatorScavenger',
+  glassHouse: 'mutatorGlassHouse',
   featuredEnemy: 'mutatorFeaturedEnemy',
   blackout: 'mutatorBlackout',
+  bossGauntlet: 'mutatorBossGauntlet',
 }
 
 function _weeklyFeaturedMutatorKey() {
@@ -723,13 +756,18 @@ function loadCareerStats() {
       // every other axis on this object.
       totalDeaths: parsed.totalDeaths || 0,
       difficultyStats: parsed.difficultyStats || {},
+      // Second Online Features batch - set once, on the very first run
+      // this browser/save has ever completed (see _recordRunEnd), never
+      // touched again - backs the Profile panel's "X days since your
+      // first run" anniversary line.
+      firstPlayedDate: parsed.firstPlayedDate || null,
     }
   } catch {
     return {
       totalKills: 0, totalRuns: 0, veteranPerksGranted: [],
       lifetimePlaytimeSeconds: 0, lifetimeDistanceMeters: 0, lifetimeCoinsEarned: 0, flawlessRunCount: 0,
       playtimeMilestonesGranted: [], distanceMilestonesGranted: [], flawlessMilestonesGranted: [], hallOfRecordsClaimed: false,
-      totalDeaths: 0, difficultyStats: {},
+      totalDeaths: 0, difficultyStats: {}, firstPlayedDate: null,
     }
   }
 }
@@ -838,9 +876,18 @@ function loadLoginStreak() {
   try {
     const raw = localStorage.getItem(LOGIN_STREAK_KEY)
     const parsed = raw ? JSON.parse(raw) : {}
-    return { lastDate: parsed.lastDate || null, streak: parsed.streak || 0 }
+    return {
+      lastDate: parsed.lastDate || null,
+      streak: parsed.streak || 0,
+      // Second Online Features batch - last 7 calendar dates actually
+      // played (for the Profile panel's streak calendar), distinct from
+      // `streak` (a single consecutive-days number) - this is a rolling
+      // window capped at 7 entries, not itself a source of truth for the
+      // streak count.
+      recentDates: Array.isArray(parsed.recentDates) ? parsed.recentDates.slice(-7) : [],
+    }
   } catch {
-    return { lastDate: null, streak: 0 }
+    return { lastDate: null, streak: 0, recentDates: [] }
   }
 }
 
@@ -2525,7 +2572,10 @@ export class Game {
     this.seasonProgressLabel = document.getElementById('season-progress-label')
     this.profileTitleHeading = document.getElementById('profile-title-heading')
     this.profileTitleRow = document.getElementById('profile-title-row')
-    this.profileNearlyThereLine = document.getElementById('profile-nearly-there-line')
+    this.profileNearlyThereList = document.getElementById('profile-nearly-there-list')
+    this.profileAnniversaryLine = document.getElementById('profile-anniversary-line')
+    this.profileStreakTitle = document.getElementById('profile-streak-title')
+    this.profileStreakCalendar = document.getElementById('profile-streak-calendar')
     this.profileWeeklyRecapTitle = document.getElementById('profile-weekly-recap-title')
     this.profileWeeklyRecapLine = document.getElementById('profile-weekly-recap-line')
     this.profileActivityTitle = document.getElementById('profile-activity-title')
@@ -2554,6 +2604,10 @@ export class Game {
     // global kill counter, community poll) - see _renderCloudOnlineSection.
     this.cloudsaveOnlineSection = document.getElementById('cloudsave-online-section')
     this.cloudsaveGlobalKills = document.getElementById('cloudsave-global-kills')
+    this.cloudsaveRankLine = document.getElementById('cloudsave-rank-line')
+    this.cloudsaveRivalLine = document.getElementById('cloudsave-rival-line')
+    this.cloudsaveSavedFriends = document.getElementById('cloudsave-saved-friends')
+    this.cloudsaveFriendSaveBtn = document.getElementById('cloudsave-friend-save-btn')
     this.cloudsaveLeaderboardTitle = document.getElementById('cloudsave-leaderboard-title')
     this.cloudsaveLeaderboardList = document.getElementById('cloudsave-leaderboard-list')
     this.cloudsaveWeeklyLeaderboardList = document.getElementById('cloudsave-weekly-leaderboard-list')
@@ -2570,6 +2624,7 @@ export class Game {
     this._cloudProfile = null
     this._cloudUid = null
     this._cloudPendingConflict = null
+    this._cloudGlobalRank = null
     this.menuLeaderboard = document.getElementById('menu-leaderboard')
     this.menuBossRushLeaderboard = document.getElementById('menu-bossrush-leaderboard')
     this.menuHouseholdLeaderboard = document.getElementById('menu-household-leaderboard')
@@ -3840,6 +3895,18 @@ export class Game {
       audioEngine.startAmbient()
       audioEngine.startMusic()
       this._applyLoadout(this.settings.loadout)
+      // Mutator Exploration nudge (see _updateMenuSpotlight's mode 4) -
+      // "tried" means actually started a run with it on, checked here
+      // (once, at the one place every mutator flag is already read for
+      // real) rather than at each of the ~15 individual checkbox handlers.
+      let mutatorsChanged = false
+      for (const [id, on] of Object.entries(this.settings.mutators)) {
+        if (on && !this.settings.mutatorsEverEnabled.includes(id)) {
+          this.settings.mutatorsEverEnabled.push(id)
+          mutatorsChanged = true
+        }
+      }
+      if (mutatorsChanged) saveSettings(this.settings)
       let spawnMult = this.difficulty.spawnRateMult
       if (this.settings.mutators.hordeRush) spawnMult *= 2
       if (this.settings.mutators.hordeMode) spawnMult *= 3
@@ -6034,7 +6101,7 @@ export class Game {
       this.settings.nickname = this.nicknameInput.value
       saveSettings(this.settings)
       this._updateCompanionName()
-      if (this.menuPlayerTag) this.menuPlayerTag.textContent = this.settings.nickname ? `#${this.settings.nickname.toUpperCase()}` : t('menuPlayerTagDefault')
+      this._renderPlayerTag()
     })
     this.companionNameInput.addEventListener('input', () => {
       this.settings.companionName = this.companionNameInput.value
@@ -6304,13 +6371,75 @@ export class Game {
   async _renderCloudOnlineSection() {
     if (!this.cloudsaveOnlineSection || !CloudSync.isConfigured()) return
     this._renderGlobalKills()
+    this._renderMyRank()
+    this._renderRival()
     this._renderLeaderboardList()
     this._renderWeeklyLeaderboardList()
     this._renderPoll()
+    this._renderSavedFriends()
     if (this.cloudsaveFriendCompareBtn) this.cloudsaveFriendCompareBtn.textContent = t('cloudsaveFriendCompareBtn')
     if (this.cloudsaveFriendInput) this.cloudsaveFriendInput.placeholder = t('cloudsaveFriendPlaceholder')
     if (this.cloudsaveLeaderboardTitle) this.cloudsaveLeaderboardTitle.textContent = t('cloudsaveLeaderboardTitle')
     if (this.cloudsaveFriendTitle) this.cloudsaveFriendTitle.textContent = t('cloudsaveFriendTitle')
+  }
+
+  // Global rank badge - also mirrored onto the homepage player tag (see
+  // _updateBestStatsDisplay) once fetched, so signing in and opening this
+  // panel is what refreshes that homepage line rather than a live
+  // subscription (a rank that's a few minutes stale is fine for this).
+  async _renderMyRank() {
+    if (!this.cloudsaveRankLine) return
+    try {
+      this._cloudGlobalRank = await CloudSync.fetchMyGlobalRank(_safeStatNumber(this.bestStats.bestNight))
+      this.cloudsaveRankLine.textContent = t('cloudsaveRankLine', { rank: this._cloudGlobalRank })
+      if (this.menuPlayerTag) this._renderPlayerTag()
+    } catch {
+      this.cloudsaveRankLine.textContent = ''
+    }
+  }
+
+  async _renderRival() {
+    if (!this.cloudsaveRivalLine) return
+    try {
+      const rival = await CloudSync.fetchNearestRivalAbove(_safeStatNumber(this.bestStats.bestNight))
+      if (!rival) {
+        this.cloudsaveRivalLine.textContent = t('cloudsaveRivalNone')
+        return
+      }
+      const gap = _safeStatNumber(rival.bestNight) - _safeStatNumber(this.bestStats.bestNight)
+      this.cloudsaveRivalLine.textContent = t('cloudsaveRivalLine', { n: gap, name: rival.name || '???' })
+    } catch {
+      this.cloudsaveRivalLine.textContent = ''
+    }
+  }
+
+  _renderSavedFriends() {
+    if (!this.cloudsaveSavedFriends) return
+    this.cloudsaveSavedFriends.innerHTML = this.settings.savedFriends.map((name) => `
+      <span class="saved-friend-chip" data-name="${_escapeHtml(name)}">${_escapeHtml(name)}<span class="saved-friend-remove" data-remove="${_escapeHtml(name)}">×</span></span>
+    `).join('')
+    for (const chip of this.cloudsaveSavedFriends.querySelectorAll('.saved-friend-chip')) {
+      chip.addEventListener('click', (e) => {
+        const removeName = e.target.dataset.remove
+        if (removeName) {
+          this.settings.savedFriends = this.settings.savedFriends.filter((n) => n !== removeName)
+          saveSettings(this.settings)
+          this._renderSavedFriends()
+          return
+        }
+        this.cloudsaveFriendInput.value = chip.dataset.name
+        this._handleFriendCompare()
+      })
+    }
+  }
+
+  _saveFriend() {
+    const name = this.cloudsaveFriendInput.value.trim()
+    if (!name || this.settings.savedFriends.includes(name)) return
+    if (this.settings.savedFriends.length >= 5) this.settings.savedFriends.shift()
+    this.settings.savedFriends.push(name)
+    saveSettings(this.settings)
+    this._renderSavedFriends()
   }
 
   async _renderGlobalKills() {
@@ -6542,9 +6671,11 @@ export class Game {
     this._cloudProfile = null
     this._cloudUid = null
     this._cloudPendingConflict = null
+    this._cloudGlobalRank = null
     this._updateCloudQuickIcon(false)
     if (this.cloudsaveConflict) this.cloudsaveConflict.style.display = 'none'
     this._renderCloudSaveState()
+    this._renderPlayerTag()
   }
 
   // Read-only - parses another save file WITHOUT writing anything, just to
@@ -6899,6 +7030,7 @@ export class Game {
     const wasConsecutive = previousLastDate === yesterdayDateString()
     this.loginStreak.streak = wasConsecutive ? this.loginStreak.streak + 1 : 1
     this.loginStreak.lastDate = today
+    this.loginStreak.recentDates = [...(this.loginStreak.recentDates || []), today].slice(-7)
     saveLoginStreak(this.loginStreak)
     const bonusDays = Math.min(this.loginStreak.streak, LOGIN_STREAK_MAX_BONUS_DAYS)
     const coinBonus = bonusDays * LOGIN_STREAK_COIN_PER_DAY
@@ -8485,9 +8617,7 @@ export class Game {
       }
       this.menuAvatarLevel.textContent = level
     }
-    if (this.menuPlayerTag) {
-      this.menuPlayerTag.textContent = this.settings.nickname ? `#${this.settings.nickname.toUpperCase()}` : t('menuPlayerTagDefault')
-    }
+    this._renderPlayerTag()
     this._updateMenuNewsTicker()
     this._updatePrestigeBadge()
     this._updateRecommendedDifficultyHint()
@@ -8497,6 +8627,16 @@ export class Game {
     this._updateWhatsNewDot()
     this._updateLoginStreakBadge()
     this._updateNavCompletionRings()
+  }
+
+  // Player tag - factored out of _updateBestStatsDisplay (also fired on
+  // nickname edits directly) since it now also appends the cached Global
+  // Rank (see _renderMyRank, fetched only when the Cloud Save panel opens
+  // - not a live subscription) when one's available.
+  _renderPlayerTag() {
+    if (!this.menuPlayerTag) return
+    const base = this.settings.nickname ? `#${this.settings.nickname.toUpperCase()}` : t('menuPlayerTagDefault')
+    this.menuPlayerTag.textContent = this._cloudGlobalRank ? `${base} · ${t('globalRankBadge', { rank: this._cloudGlobalRank })}` : base
   }
 
   // Recommended Difficulty hint - only shown once a difficulty has at
@@ -8624,7 +8764,7 @@ export class Game {
   _updateMenuSpotlight() {
     if (!this.menuSpotlight) return
     const render = () => {
-      const mode = (this._spotlightIndex || 0) % 4
+      const mode = (this._spotlightIndex || 0) % 5
       if (mode === 0) {
         const tipKey = SPOTLIGHT_TIPS[Math.floor(Date.now() / 60000) % SPOTLIGHT_TIPS.length]
         this.menuSpotlight.textContent = t('spotlightTipPrefix', { tip: t(tipKey) })
@@ -8637,8 +8777,8 @@ export class Game {
         const m = Math.floor((msLeft % 3600000) / 60000)
         this.menuSpotlight.textContent = t('spotlightDailyReset', { h, m })
       } else if (mode === 2 && this.weeklyDef) {
-        this.menuSpotlight.textContent = t('spotlightWeeklyChallenge', { title: t(this.weeklyDef.titleKey), target: this.weeklyDef.target })
-      } else {
+        this.menuSpotlight.textContent = t('spotlightWeeklyChallenge', { title: t(this.weeklyDef.titleKey), target: this.weeklyDef.target, days: _daysUntilWeekReset() })
+      } else if (mode === 3) {
         // Featured Bestiary entry - day-seeded (same hash-the-date-string
         // technique DAILY_TWISTS uses) so it's stable for the whole day
         // rather than re-rolling every 6s, prioritizing an undiscovered
@@ -8651,6 +8791,17 @@ export class Game {
         this.menuSpotlight.textContent = this.bestiaryEncountered.has(id)
           ? t('spotlightBestiaryKnown', { label: zt.label })
           : t('spotlightBestiaryUnknown')
+      } else {
+        // Mutator Exploration nudge - day-seeded pick among mutators never
+        // once started a run with (see settings.mutatorsEverEnabled,
+        // recorded at Play-click time). Silently falls through to the
+        // next render call's modulo if every mutator's been tried at
+        // least once - nothing to nudge toward.
+        const untried = Object.keys(this.settings.mutators).filter((id) => !this.settings.mutatorsEverEnabled.includes(id))
+        if (untried.length > 0) {
+          const id = untried[_dailyTwistIndex(_todayDateStr()) % untried.length]
+          this.menuSpotlight.textContent = t('spotlightMutatorNudge', { mutator: t(MUTATOR_LABEL_KEYS[id] || id) })
+        }
       }
       this._spotlightIndex = (this._spotlightIndex || 0) + 1
     }
@@ -8951,6 +9102,7 @@ export class Game {
     if (this.cloudsaveUseCloudBtn) this.cloudsaveUseCloudBtn.addEventListener('click', () => this._resolveCloudConflict('cloud'))
     if (this.cloudsaveUseLocalBtn) this.cloudsaveUseLocalBtn.addEventListener('click', () => this._resolveCloudConflict('local'))
     if (this.cloudsaveFriendCompareBtn) this.cloudsaveFriendCompareBtn.addEventListener('click', () => this._handleFriendCompare())
+    if (this.cloudsaveFriendSaveBtn) this.cloudsaveFriendSaveBtn.addEventListener('click', () => this._saveFriend())
     if (this.cloudsaveFriendInput) {
       this.cloudsaveFriendInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') this._handleFriendCompare()
@@ -8987,7 +9139,7 @@ export class Game {
     if (this.weeklyFeaturedMutatorLine) {
       const mutatorKey = _weeklyFeaturedMutatorKey()
       this.weeklyFeaturedMutatorLine.textContent = t('weeklyFeaturedMutatorLine', {
-        mutator: t(WEEKLY_FEATURED_MUTATOR_LABEL_KEYS[mutatorKey]),
+        mutator: t(MUTATOR_LABEL_KEYS[mutatorKey]),
         coins: WEEKLY_FEATURED_MUTATOR_BONUS_COINS,
       })
     }
@@ -10187,6 +10339,7 @@ export class Game {
 
     this.careerStats.totalKills += this.kills
     this.careerStats.totalRuns += 1
+    if (!this.careerStats.firstPlayedDate) this.careerStats.firstPlayedDate = todayDateString()
     for (const perk of VETERAN_PERKS) {
       if (this.careerStats.totalKills >= perk.killThreshold && !this.careerStats.veteranPerksGranted.includes(perk.id)) {
         this.careerStats.veteranPerksGranted.push(perk.id)
@@ -10611,6 +10764,8 @@ export class Game {
     this._renderNearlyThereNudge()
     this._renderWeeklyRecap()
     this._renderRecentActivity()
+    this._renderAnniversaryLine()
+    this._renderStreakCalendar()
   }
 
   // Player Title picker - reuses ACHIEVEMENTS' own titleKey (+ tag/color)
@@ -10647,24 +10802,26 @@ export class Game {
   // a small curated set of *persistent, numeric* achievements (most
   // achievement conditions are per-run counters that reset, so aren't
   // meaningful to show as a lifetime "so close" hint).
+  // Shows every currently-qualifying candidate (sorted closest-first),
+  // not a fixed "top 3" - NEARLY_THERE_CANDIDATES only has 2 entries
+  // right now (see its own comment on why most achievements can't back
+  // this honestly), so this naturally shows 0-2 lines rather than
+  // padding to a number that doesn't reflect what's actually trackable.
   _renderNearlyThereNudge() {
-    if (!this.profileNearlyThereLine) return
-    let best = null
+    if (!this.profileNearlyThereList) return
+    const rows = []
     for (const c of NEARLY_THERE_CANDIDATES) {
       if (this.achievements.unlocked.has(c.achievementId)) continue
       const total = c.total(this)
       if (total <= 0) continue
       const current = Math.min(c.current(this), total)
-      const ratio = current / total
-      if (!best || ratio > best.ratio) best = { ...c, current, total, ratio }
+      rows.push({ ...c, current, total, ratio: current / total })
     }
-    if (!best) {
-      this.profileNearlyThereLine.style.display = 'none'
-      return
-    }
-    const def = ACHIEVEMENTS.find((a) => a.id === best.achievementId)
-    this.profileNearlyThereLine.textContent = t('nearlyThereLine', { title: t(def.titleKey), current: best.current, total: best.total })
-    this.profileNearlyThereLine.style.display = ''
+    rows.sort((a, b) => b.ratio - a.ratio)
+    this.profileNearlyThereList.innerHTML = rows.map((r) => {
+      const def = ACHIEVEMENTS.find((a) => a.id === r.achievementId)
+      return `<p class="nearly-there-line">${_escapeHtml(t('nearlyThereLine', { title: t(def.titleKey), current: r.current, total: r.total }))}</p>`
+    }).join('')
   }
 
   // Weekly Recap - aggregates runHistory entries from the last 7 real days
@@ -10701,6 +10858,41 @@ export class Game {
           return `<p class="activity-entry">${_escapeHtml(def ? t(def.titleKey) : id)}</p>`
         }).join('')
       : `<p class="activity-entry">${t('recentActivityEmpty')}</p>`
+  }
+
+  // "X days since your first run" - careerStats.firstPlayedDate is set
+  // once, on the very first completed run (see _recordRunEnd), never
+  // touched again. Hidden entirely before that first run exists (a
+  // brand-new save has nothing to anniversary yet).
+  _renderAnniversaryLine() {
+    if (!this.profileAnniversaryLine) return
+    if (!this.careerStats.firstPlayedDate) {
+      this.profileAnniversaryLine.style.display = 'none'
+      return
+    }
+    const days = Math.max(0, Math.round((new Date(todayDateString()) - new Date(this.careerStats.firstPlayedDate)) / 86400000))
+    this.profileAnniversaryLine.textContent = t('anniversaryLine', { n: days })
+    this.profileAnniversaryLine.style.display = ''
+  }
+
+  // Login Streak calendar - the last 7 calendar dates actually played
+  // (loginStreak.recentDates, see _checkLoginStreak), shown oldest-to-
+  // newest as small day markers rather than just the streak number
+  // already shown elsewhere (menu-login-streak badge).
+  _renderStreakCalendar() {
+    if (!this.profileStreakCalendar) return
+    const recentDates = this.loginStreak.recentDates || []
+    if (recentDates.length === 0) {
+      this.profileStreakTitle.style.display = 'none'
+      this.profileStreakCalendar.innerHTML = ''
+      return
+    }
+    this.profileStreakTitle.style.display = ''
+    this.profileStreakTitle.textContent = t('profileStreakTitle')
+    this.profileStreakCalendar.innerHTML = recentDates.map((d) => {
+      const day = new Date(d).getDate()
+      return `<span class="streak-day played" title="${_escapeHtml(d)}">${day}</span>`
+    }).join('')
   }
 
   _closeProfilePanel() {

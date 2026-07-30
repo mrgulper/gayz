@@ -199,6 +199,27 @@ export async function fetchLeaderboardEntryByName(name) {
   return snap.empty ? null : snap.docs[0].data()
 }
 
+// Global rank - a COUNT aggregation (how many players have a strictly
+// better bestNight than mine, +1), not a full download-and-sort of the
+// whole leaderboard. Same sort key fetchTopLeaderboard already uses, so
+// "rank" here always means the same thing the Leaderboard list shows.
+export async function fetchMyGlobalRank(bestNight) {
+  const { db, fsMod } = await ensureApp()
+  const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.where('bestNight', '>', bestNight))
+  const snap = await fsMod.getCountFromServer(q)
+  return snap.data().count + 1
+}
+
+// Nearest rival - the single leaderboard entry with the smallest
+// bestNight that's still strictly above mine (i.e. whoever's directly
+// above me in rank), for the "N nights to pass X" nudge.
+export async function fetchNearestRivalAbove(bestNight) {
+  const { db, fsMod } = await ensureApp()
+  const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.where('bestNight', '>', bestNight), fsMod.orderBy('bestNight', 'asc'), fsMod.limit(1))
+  const snap = await fsMod.getDocs(q)
+  return snap.empty ? null : snap.docs[0].data()
+}
+
 // Weekly Challenge cloud leaderboard - a fresh sub-collection per week
 // (weekStr matches _thisWeekStr()'s own format, e.g. "2026-W31"), so old
 // weeks' rankings stay intact rather than getting overwritten every week.
