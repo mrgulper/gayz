@@ -4,6 +4,8 @@ Browser Three.js zombie-survival FPS. Vite build, no framework. No committed tes
 
 **`3D_ASSET_OVERHAUL.md` (repo root)** holds a complete, adversarially-verified research handoff + phased plan for replacing all ~75 procedural models with real 3D assets at zero cost (CC0 packs / free tiers / Blender scripting). Self-contained — read it before starting any asset/visual-overhaul work.
 
+**Cloud Save (`src/game/CloudSync.js`)**: Google Sign-In + Drive `appDataFolder`, no backend at all — this project stays a pure static site. Google Identity Services (loaded via `<script>` in `index.html`'s `<head>`) issues an access token directly in the browser for a Drive scope, using only a public OAuth Client ID (not a secret — see that file's own setup comment for the exact Google Cloud Console steps). The "save blob" synced to Drive is the exact same `{localStorageKey: stringValue}` shape `_exportSave()`/`_importSaveFile()` already used for manual file-based sharing (`_snapshotLocalSave()`/`_applyImportedSaveData()` in `Game.js` are the shared helpers both paths now call) — same untrusted-data handling applies (see the XSS note above), same reasoning: don't invent a second save format. `CloudSync.GOOGLE_CLIENT_ID` is a placeholder (`REPLACE_WITH_YOUR_GOOGLE_CLIENT_ID...`) until the project owner creates a real Google Cloud OAuth client and swaps it in — `CloudSync.isConfigured()` gates the UI (disabled Sign In button + explanatory copy) until then, so this doesn't ship as broken/inert functionality in the meantime.
+
 ## Standing rules for this project
 
 - Every completed update gets committed, pushed to GitHub (`mrgulper/gayz`, private), and deployed to Vercel production (`npx vercel --prod --yes` → `gayz.vercel.app`) without asking each time.
@@ -25,6 +27,7 @@ Browser Three.js zombie-survival FPS. Vite build, no framework. No committed tes
 - `WeaponSystem.current` is a getter off `currentIndex` (`get current() { return this.weapons[this.currentIndex] }`). Assigning `weapons.current = X` is a silent no-op — set `currentIndex` instead.
 - i18n keys (`src/game/i18n.js`) are only added to the English block in this codebase's current state — other language blocks are intentionally not kept in sync yet.
 - Persistent (localStorage) vs per-run state: `MetaProgress.js`, `WeaponMastery.js`, `Achievements.js` persist across runs. `companionTrainingLevel`, `companionGear`, shop purchases reset on a fresh `new Game()` but survive a same-session "restart run" click — match this precedent for any new per-run state.
+- `<script src="https://accounts.google.com/gsi/client">` (Cloud Save, `index.html`'s `<head>`) deliberately has no `integrity="sha384-..."` attribute — a generic security-review pass will flag this as missing SRI, but Google's own Sign In With Google docs specify this script must NOT be pinned that way, since it's served dynamically and updates server-side with no versioned URL; a hardcoded hash would just break login the next time Google updates it. Don't add one back.
 
 ## Playwright verification quirks (no test suite exists — this is the actual verification method)
 

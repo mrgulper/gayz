@@ -131,6 +131,77 @@ html, body {
   background: #e3a63c;
 }
 
+/* Cloud Save panel (see CloudSync.js + Game.js's _openCloudSavePanel) -
+   Google Sign-In state, sync status, and the cloud-vs-local conflict
+   picker all live in this one modal rather than spreading across the
+   homepage, matching this project's "big things go in a panel, homepage
+   only gets a tiny trigger icon" pattern from every prior batch. */
+#cloudsave-signed-out,
+#cloudsave-signed-in {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(360px, 84vw);
+  text-align: center;
+}
+
+#cloudsave-signed-out-desc {
+  margin: 0;
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+#cloudsave-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 2px solid #e3a63c;
+}
+
+#cloudsave-account-name {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+#cloudsave-sync-status {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.65;
+}
+
+#cloudsave-conflict {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+}
+
+#cloudsave-conflict-desc {
+  margin: 0;
+  font-size: 12px;
+}
+
+/* Homepage quick-cloud icon needs position:relative for its signed-in
+   dot overlay - same technique as .nav-badge-dot on the Credits button,
+   just on a smaller icon button instead of a full nav button. */
+#quick-cloud-btn {
+  position: relative;
+}
+
+#quick-cloud-btn .nav-badge-dot {
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  background: var(--menu-green, #7fd8a0);
+}
+
 #hitmarker {
   position: absolute;
   top: 50%;
@@ -1521,6 +1592,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 #profile-panel,
 #credits-panel,
 #howtoplay-panel,
+#cloudsave-panel,
 #xp-levelup-panel,
 #pause-overlay,
 #coinshop-panel,
@@ -1545,6 +1617,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 #profile-panel-title,
 #credits-panel-title,
 #howtoplay-panel-title,
+#cloudsave-panel-title,
 #xp-levelup-panel-title,
 #pause-overlay-title,
 #coinshop-panel-title,
@@ -3012,6 +3085,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 #quick-performance-btn,
 #quick-language-btn,
 #howtoplay-btn,
+#quick-cloud-btn,
 #settings-btn {
   display: flex;
   align-items: center;
@@ -3031,6 +3105,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 #quick-performance-btn svg,
 #quick-language-btn svg,
 #howtoplay-btn svg,
+#quick-cloud-btn svg,
 #settings-btn svg {
   width: 20px;
   height: 20px;
@@ -3040,8 +3115,14 @@ body.reduce-flashing #critical-blood-overlay.show {
 #quick-colorblind-btn:hover,
 #quick-performance-btn:hover,
 #quick-language-btn:hover,
-#howtoplay-btn:hover {
+#howtoplay-btn:hover,
+#quick-cloud-btn:hover {
   background: rgba(227, 166, 60, 0.12);
+}
+
+#quick-cloud-btn.signed-in {
+  color: var(--menu-green, #7fd8a0);
+  border-color: var(--menu-green, #7fd8a0);
 }
 
 #quick-mute-btn.active {

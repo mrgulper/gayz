@@ -12,6 +12,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Black+Ops+One&display=swap" rel="stylesheet" />
+    <!-- Cloud Save (Google Sign-In) - Google Identity Services' client library,
+         loaded directly in the browser so this stays a pure static site with
+         no backend: token requests + Drive appDataFolder calls all happen
+         client-side, using only a public OAuth Client ID (see CloudSync.js -
+         never a client secret, which this flow doesn't need at all).
+         Deliberately no integrity="sha384-..." here - Google's own Sign In
+         With Google docs specify this script must NOT be pinned via SRI,
+         since it's served dynamically and updates server-side on Google's
+         own schedule with no versioned URL; a hardcoded hash would just
+         break login the next time Google updates it. -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body>
     <div id="app">
@@ -391,6 +402,10 @@
               </button>
               <button id="howtoplay-btn" aria-label="How to play">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.9.7c0 1.7-2.4 1.9-2.4 3.3"/><line x1="12" y1="17" x2="12" y2="17.1"/></svg>
+              </button>
+              <button id="quick-cloud-btn" aria-label="Cloud save">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a4.5 4.5 0 0 1-1-8.9 5.5 5.5 0 0 1 10.7-1.9A4.5 4.5 0 0 1 17 18z"/></svg>
+                <span class="nav-badge-dot" id="cloud-signed-in-dot" style="display: none"></span>
               </button>
               <button id="settings-btn" aria-label="Settings">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.6V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9c.1.7.6 1.2 1.6 1H21a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.6 1z"/></svg>
@@ -890,6 +905,31 @@
           <button id="howtoplay-next-btn">Next</button>
           <button id="howtoplay-close-btn">Close</button>
         </div>
+      </div>
+
+      <div id="cloudsave-panel">
+        <h2 id="cloudsave-panel-title">Cloud Save</h2>
+        <div id="cloudsave-signed-out">
+          <p id="cloudsave-signed-out-desc">Sign in with Google to sync your progress across devices.</p>
+          <button id="cloudsave-signin-btn">Sign in with Google</button>
+        </div>
+        <div id="cloudsave-signed-in" style="display: none">
+          <img id="cloudsave-avatar" alt="" />
+          <p id="cloudsave-account-name"></p>
+          <p id="cloudsave-sync-status"></p>
+          <div id="cloudsave-conflict" style="display: none">
+            <p id="cloudsave-conflict-desc"></p>
+            <div class="perk-panel-buttons">
+              <button id="cloudsave-use-cloud-btn">Use Cloud Save</button>
+              <button id="cloudsave-use-local-btn">Keep This Device's Save</button>
+            </div>
+          </div>
+          <div class="perk-panel-buttons">
+            <button id="cloudsave-sync-now-btn">Sync Now</button>
+            <button id="cloudsave-signout-btn">Sign Out</button>
+          </div>
+        </div>
+        <p class="panel-close-hint">Click anywhere to close</p>
       </div>
 
       <div id="xp-levelup-panel">

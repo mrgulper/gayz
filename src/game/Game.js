@@ -38,6 +38,7 @@ import { loadEncountered, saveEncountered } from './Bestiary.js'
 import { ACTIONS, getKeyFor, setBinding, resetBindings, keyLabel } from './Keybinds.js'
 import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
+import * as CloudSync from './CloudSync.js'
 import { setColorblind } from './Accessibility.js'
 import { registerZone } from './Zones.js'
 
@@ -1596,6 +1597,16 @@ const NEARLY_THERE_CANDIDATES = [
   { achievementId: 'bestiary_master', current: (g) => g.bestiaryEncountered.size, total: (g) => Object.keys(ZOMBIE_TYPES).length },
   { achievementId: 'fashion_icon', current: (g) => g.ownedOutfits.size, total: (g) => COIN_SHOP_ITEMS.filter((i) => i.outfit).length },
 ]
+
+// Cloud Save (see CloudSync.js) - these two keys hold only display data
+// (the signed-in Google profile's name/email/picture, and a last-sync
+// timestamp), never a token - access tokens are memory-only, per
+// CloudSync.js's own comment, so a page reload always needs at least a
+// silent re-auth to actually sync again, but the UI can show "signed in
+// as X" immediately from this cache without waiting on that.
+const CLOUD_ACCOUNT_KEY = 'gayz-cloud-account'
+const CLOUD_LAST_SYNC_KEY = 'gayz-cloud-last-sync'
+
 const KILLCAM_ZOOM_FOV_MULT = 0.75
 // Killstreak rewards - this.killStreak counts consecutive kills without
 // dying (reset in _onPlayerDeath), distinct from the flat "every 10th kill"
@@ -2177,6 +2188,19 @@ function formatTime(ms) {
   return `${mm}:${ss}`
 }
 
+// Human "X ago" phrasing (Cloud Save's last-synced line) - distinct from
+// formatTime above, which is MM:SS run-clock formatting and would render
+// nonsense like "1440:00" for a sync from a day ago.
+function _formatRelativeTime(ms) {
+  const sec = Math.floor(ms / 1000)
+  if (sec < 60) return t('relativeTimeJustNow')
+  const min = Math.floor(sec / 60)
+  if (min < 60) return t('relativeTimeMinutes', { n: min })
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return t('relativeTimeHours', { n: hr })
+  return t('relativeTimeDays', { n: Math.floor(hr / 24) })
+}
+
 // Escapes player-entered text (the nickname field, and - since the Local
 // Sharing batch - any name/text field that could round-trip through an
 // uploaded save file) before it goes into any template string, rather than
@@ -2498,6 +2522,29 @@ export class Game {
     this.profileActivityList = document.getElementById('profile-activity-list')
     this.quickPerformanceBtn = document.getElementById('quick-performance-btn')
     this.quickLanguageBtn = document.getElementById('quick-language-btn')
+    // Cloud Save (Google Sign-In + Drive appDataFolder, see CloudSync.js).
+    this.quickCloudBtn = document.getElementById('quick-cloud-btn')
+    this.cloudSignedInDot = document.getElementById('cloud-signed-in-dot')
+    this.cloudsavePanel = document.getElementById('cloudsave-panel')
+    this.cloudsavePanelTitle = document.getElementById('cloudsave-panel-title')
+    this.cloudsaveSignedOut = document.getElementById('cloudsave-signed-out')
+    this.cloudsaveSignedOutDesc = document.getElementById('cloudsave-signed-out-desc')
+    this.cloudsaveSigninBtn = document.getElementById('cloudsave-signin-btn')
+    this.cloudsaveSignedIn = document.getElementById('cloudsave-signed-in')
+    this.cloudsaveAvatar = document.getElementById('cloudsave-avatar')
+    this.cloudsaveAccountName = document.getElementById('cloudsave-account-name')
+    this.cloudsaveSyncStatus = document.getElementById('cloudsave-sync-status')
+    this.cloudsaveConflict = document.getElementById('cloudsave-conflict')
+    this.cloudsaveConflictDesc = document.getElementById('cloudsave-conflict-desc')
+    this.cloudsaveUseCloudBtn = document.getElementById('cloudsave-use-cloud-btn')
+    this.cloudsaveUseLocalBtn = document.getElementById('cloudsave-use-local-btn')
+    this.cloudsaveSyncNowBtn = document.getElementById('cloudsave-sync-now-btn')
+    this.cloudsaveSignoutBtn = document.getElementById('cloudsave-signout-btn')
+    // In-memory only - the profile object from the most recent sign-in/
+    // silent-restore, used to fill CLOUD_ACCOUNT_KEY back in after a
+    // cloud-save-applies-and-reloads cycle (see _resolveCloudConflict).
+    this._cloudProfile = null
+    this._cloudPendingConflict = null
     this.menuLeaderboard = document.getElementById('menu-leaderboard')
     this.menuBossRushLeaderboard = document.getElementById('menu-bossrush-leaderboard')
     this.menuHouseholdLeaderboard = document.getElementById('menu-household-leaderboard')
@@ -6007,6 +6054,7 @@ export class Game {
     this.creditsBtn.addEventListener('click', () => this._openCreditsPanel())
     this.coinshopBtn.addEventListener('click', () => this._openCoinShopPanel())
     this._bindHomepageBatch()
+    this._bindCloudSave()
     this.endingContinueBtn.addEventListener('click', () => {
       this.endingPanel.style.display = 'none'
       this.player.controls.lock()
@@ -6092,11 +6140,7 @@ export class Game {
   // backup is just every key/value pair, no need to enumerate every
   // individual system's own storage key.
   _exportSave() {
-    const data = {}
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-      data[key] = localStorage.getItem(key)
-    }
+    const data = this._snapshotLocalSave()
     const blob = new Blob([JSON.stringify(data)], { type: 'application/json' })
     const link = document.createElement('a')
     link.download = `gayz-save-${Date.now()}.json`
@@ -6110,7 +6154,17 @@ export class Game {
   // confirm dialog" bar as Prestige/Respec, plus a full reload afterward
   // (same reasoning _handleResetProgressClick's own comment gives for
   // Reset Progress - every system reads its state fresh from localStorage
-  // at construction, not via some live-refresh path).
+  // at construction, not via some live-refresh path). Shared with the
+  // Cloud Save "Use Cloud Save" flow below (see _resolveCloudConflict) -
+  // one path for "replace all local data with this parsed blob and
+  // reload", regardless of whether the blob came from an uploaded file or
+  // Google Drive.
+  _applyImportedSaveData(data) {
+    localStorage.clear()
+    for (const [key, value] of Object.entries(data)) localStorage.setItem(key, value)
+    window.location.reload()
+  }
+
   async _importSaveFile(file) {
     if (!file) return
     let data
@@ -6121,9 +6175,190 @@ export class Game {
       return
     }
     if (!window.confirm(t('saveImportConfirm'))) return
-    localStorage.clear()
-    for (const [key, value] of Object.entries(data)) localStorage.setItem(key, value)
-    window.location.reload()
+    this._applyImportedSaveData(data)
+  }
+
+  // Same {key: stringValue} snapshot _exportSave() downloads as a file,
+  // just returned in-memory for Cloud Save's push instead - one source of
+  // truth for "what does a save blob contain."
+  _snapshotLocalSave() {
+    const data = {}
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      data[key] = localStorage.getItem(key)
+    }
+    return data
+  }
+
+  // Cloud Save panel open/close - a normal modal, same shared z-index/
+  // display:flex rule every other panel uses.
+  _openCloudSavePanel() {
+    this.cloudsavePanel.style.display = 'flex'
+    this.cloudsavePanelTitle.textContent = t('cloudsavePanelTitle')
+    this._renderCloudSaveState()
+  }
+
+  _closeCloudSavePanel() {
+    this.cloudsavePanel.style.display = 'none'
+  }
+
+  // Silent restore on page load - shows "signed in as X" immediately from
+  // the cached profile (CLOUD_ACCOUNT_KEY), no popup. If a background
+  // silent token request then fails (session actually expired/revoked),
+  // falls back to signed-out rather than leaving a stale "signed in" UI
+  // that can't actually sync.
+  _restoreCloudSession() {
+    if (!this.quickCloudBtn) return
+    let cached
+    try {
+      cached = JSON.parse(localStorage.getItem(CLOUD_ACCOUNT_KEY) || 'null')
+    } catch {
+      cached = null
+    }
+    if (!cached) return
+    this._cloudProfile = cached
+    this._updateCloudQuickIcon(true)
+    if (!CloudSync.isConfigured()) return
+    CloudSync.getValidToken().catch(() => {
+      // Silent re-auth failed (expired/revoked/not actually signed into
+      // Google in this browser) - revert to signed-out rather than
+      // pretending sync still works.
+      this._cloudProfile = null
+      localStorage.removeItem(CLOUD_ACCOUNT_KEY)
+      this._updateCloudQuickIcon(false)
+    })
+  }
+
+  _updateCloudQuickIcon(signedIn) {
+    if (this.quickCloudBtn) this.quickCloudBtn.classList.toggle('signed-in', signedIn)
+    if (this.cloudSignedInDot) this.cloudSignedInDot.style.display = signedIn ? '' : 'none'
+  }
+
+  _renderCloudSaveState() {
+    const signedIn = !!this._cloudProfile
+    if (this.cloudsaveSignedOut) this.cloudsaveSignedOut.style.display = signedIn ? 'none' : 'flex'
+    if (this.cloudsaveSignedIn) this.cloudsaveSignedIn.style.display = signedIn ? 'flex' : 'none'
+    if (!CloudSync.isConfigured() && this.cloudsaveSignedOutDesc) {
+      this.cloudsaveSignedOutDesc.textContent = t('cloudsaveNotConfigured')
+    } else if (this.cloudsaveSignedOutDesc) {
+      this.cloudsaveSignedOutDesc.textContent = t('cloudsaveSignedOutDesc')
+    }
+    if (this.cloudsaveSigninBtn) {
+      this.cloudsaveSigninBtn.textContent = t('cloudsaveSigninBtn')
+      this.cloudsaveSigninBtn.disabled = !CloudSync.isConfigured()
+    }
+    if (!signedIn) return
+    if (this.cloudsaveAvatar) this.cloudsaveAvatar.src = this._cloudProfile.picture || ''
+    if (this.cloudsaveAccountName) this.cloudsaveAccountName.textContent = this._cloudProfile.name || this._cloudProfile.email || ''
+    this._renderCloudSyncStatus()
+    if (this.cloudsaveSyncNowBtn) this.cloudsaveSyncNowBtn.textContent = t('cloudsaveSyncNowBtn')
+    if (this.cloudsaveSignoutBtn) this.cloudsaveSignoutBtn.textContent = t('cloudsaveSignoutBtn')
+  }
+
+  _renderCloudSyncStatus() {
+    if (!this.cloudsaveSyncStatus) return
+    const last = localStorage.getItem(CLOUD_LAST_SYNC_KEY)
+    this.cloudsaveSyncStatus.textContent = last
+      ? t('cloudsaveLastSynced', { time: _formatRelativeTime(Math.max(0, Date.now() - Number(last))) })
+      : t('cloudsaveNeverSynced')
+  }
+
+  async _handleCloudSignIn() {
+    if (!CloudSync.isConfigured()) {
+      this._showLoreToast(t('cloudsaveNotConfigured'))
+      return
+    }
+    if (this.cloudsaveSigninBtn) this.cloudsaveSigninBtn.textContent = t('cloudsaveConnecting')
+    try {
+      const { token, profile } = await CloudSync.signIn()
+      this._cloudProfile = profile
+      localStorage.setItem(CLOUD_ACCOUNT_KEY, JSON.stringify(profile))
+      this._updateCloudQuickIcon(true)
+      this._renderCloudSaveState()
+
+      const cloud = await CloudSync.fetchCloudSave(token)
+      if (!cloud) {
+        // First time signing in on any device - nothing to compare against,
+        // just push this device's save up.
+        await this._pushToCloud(false)
+        return
+      }
+      this._cloudPendingConflict = cloud.data
+      this._renderCloudConflict(cloud.data)
+    } catch (err) {
+      this._showLoreToast(t('cloudsaveError'))
+      this._renderCloudSaveState()
+    }
+  }
+
+  // Shows a short side-by-side comparison (same safe-parse-untrusted-JSON
+  // pattern _compareSaveFile already uses for an uploaded file - a Drive
+  // file the player controls is no more trustworthy than one they pick
+  // from disk) so the choice isn't blind.
+  _renderCloudConflict(data) {
+    if (!this.cloudsaveConflict) return
+    const safeParse = (raw, fallback) => {
+      try {
+        return raw ? JSON.parse(raw) : fallback
+      } catch {
+        return fallback
+      }
+    }
+    const cloudCareer = safeParse(data['gayz-career-stats'], {})
+    const cloudBest = safeParse(data['gayz-best-stats'], {})
+    this.cloudsaveConflictDesc.textContent = t('cloudsaveConflictDesc', {
+      localKills: _safeStatNumber(this.careerStats.totalKills),
+      localNight: _safeStatNumber(this.bestStats.bestNight),
+      cloudKills: _safeStatNumber(cloudCareer.totalKills),
+      cloudNight: _safeStatNumber(cloudBest.bestNight),
+    })
+    this.cloudsaveConflict.style.display = 'flex'
+    if (this.cloudsaveUseCloudBtn) this.cloudsaveUseCloudBtn.textContent = t('cloudsaveUseCloudBtn')
+    if (this.cloudsaveUseLocalBtn) this.cloudsaveUseLocalBtn.textContent = t('cloudsaveUseLocalBtn')
+  }
+
+  _resolveCloudConflict(choice) {
+    if (!this._cloudPendingConflict) return
+    if (choice === 'cloud') {
+      // Merge the just-signed-in profile + a fresh sync timestamp into the
+      // incoming blob so both survive the clear+repopulate+reload below -
+      // otherwise "Use Cloud Save" would silently sign the player back out.
+      const data = { ...this._cloudPendingConflict }
+      data[CLOUD_ACCOUNT_KEY] = JSON.stringify(this._cloudProfile)
+      data[CLOUD_LAST_SYNC_KEY] = String(Date.now())
+      this._cloudPendingConflict = null
+      this._applyImportedSaveData(data)
+    } else {
+      this._cloudPendingConflict = null
+      if (this.cloudsaveConflict) this.cloudsaveConflict.style.display = 'none'
+      this._pushToCloud(true)
+    }
+  }
+
+  // manual=true shows a toast and forces a fresh (silently-prompted-if-
+  // needed) token; manual=false is the best-effort post-run auto-sync -
+  // swallows errors quietly rather than interrupting the death/results flow.
+  async _pushToCloud(manual) {
+    if (!this._cloudProfile || !CloudSync.isConfigured()) return
+    try {
+      const token = await CloudSync.getValidToken()
+      await CloudSync.pushCloudSave(token, this._snapshotLocalSave())
+      localStorage.setItem(CLOUD_LAST_SYNC_KEY, String(Date.now()))
+      this._renderCloudSyncStatus()
+      if (manual) this._showLoreToast(t('cloudsaveSynced'))
+    } catch {
+      if (manual) this._showLoreToast(t('cloudsaveError'))
+    }
+  }
+
+  _handleCloudSignOut() {
+    CloudSync.signOut()
+    this._cloudProfile = null
+    this._cloudPendingConflict = null
+    localStorage.removeItem(CLOUD_ACCOUNT_KEY)
+    this._updateCloudQuickIcon(false)
+    if (this.cloudsaveConflict) this.cloudsaveConflict.style.display = 'none'
+    this._renderCloudSaveState()
   }
 
   // Read-only - parses another save file WITHOUT writing anything, just to
@@ -8506,6 +8741,21 @@ export class Game {
     this._updateEventBanner()
   }
 
+  _bindCloudSave() {
+    if (this.quickCloudBtn) this.quickCloudBtn.addEventListener('click', () => this._openCloudSavePanel())
+    if (this.cloudsavePanel) {
+      this.cloudsavePanel.addEventListener('click', (e) => {
+        if (e.target === this.cloudsavePanel) this._closeCloudSavePanel()
+      })
+    }
+    if (this.cloudsaveSigninBtn) this.cloudsaveSigninBtn.addEventListener('click', () => this._handleCloudSignIn())
+    if (this.cloudsaveSignoutBtn) this.cloudsaveSignoutBtn.addEventListener('click', () => this._handleCloudSignOut())
+    if (this.cloudsaveSyncNowBtn) this.cloudsaveSyncNowBtn.addEventListener('click', () => this._pushToCloud(true))
+    if (this.cloudsaveUseCloudBtn) this.cloudsaveUseCloudBtn.addEventListener('click', () => this._resolveCloudConflict('cloud'))
+    if (this.cloudsaveUseLocalBtn) this.cloudsaveUseLocalBtn.addEventListener('click', () => this._resolveCloudConflict('local'))
+    this._restoreCloudSession()
+  }
+
   // Prestige cosmetic badges - tiered color escalation (bronze/silver/gold-
   // ish) purely for visual flair, distinct from the numeric +10%/level
   // bonus prestigeLevelLine already shows inside the Legacy panel.
@@ -9804,6 +10054,11 @@ export class Game {
     }
 
     this._captureChallengeHandoff()
+
+    // Cloud Save auto-sync - best-effort, only if already signed in (never
+    // prompts here; a mid-game consent popup would be jarring). See
+    // _pushToCloud's own comment on why manual=false swallows errors.
+    this._pushToCloud(false)
   }
 
   _onPlayerDeath() {
