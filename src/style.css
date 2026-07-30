@@ -2886,12 +2886,19 @@ body.reduce-flashing #critical-blood-overlay.show {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: 290px minmax(360px, 620px) 290px;
+  /* Widened (was 290px/minmax(360,620)/290px, max-width 1320px) - on
+     wide/ultrawide monitors the old cap left a lot of idle background on
+     both sides. Grid's own max-width still caps this on narrower screens
+     (it never forces horizontal overflow, just uses less than the cap
+     when the viewport is narrower) - re-verify zero-scroll at the 4
+     tracked heights after any further change here, same as every prior
+     sizing round in this section. */
+  grid-template-columns: 320px minmax(360px, 700px) 320px;
   justify-content: center;
-  gap: 20px;
+  gap: 24px;
   align-items: start;
   width: 100%;
-  max-width: 1320px;
+  max-width: 1500px;
   margin: 0 auto;
 }
 
@@ -3827,7 +3834,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   grid-template-columns: repeat(3, minmax(220px, 1fr));
   gap: 18px;
   width: 100%;
-  max-width: 1320px;
+  max-width: 1500px;
   margin: 0 auto;
 }
 
