@@ -3182,61 +3182,24 @@ body.reduce-flashing #critical-blood-overlay.show {
   padding-top: 2px;
 }
 
-/* Distressed stencil title - Black Ops One (a stencil-style display font)
-   instead of the condensed Bebas Neue used everywhere else in the menu,
-   layered shadows for a chipped/hand-stenciled edge, plus two small
-   blood-drip accents (::before/::after) rather than sourcing a textured
-   font/image asset. */
+/* Real logo artwork (cracked-stone letters + dripping blood, background
+   removed and drips recolored to red) - replaces the earlier CSS-only
+   stenciled-text title now that a real image asset exists. */
 #menu-title {
   position: relative;
   margin: 0;
-  font-family: 'Black Ops One', var(--menu-display-font);
-  font-size: 156px;
   line-height: 1;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  color: #f4f1e6;
-  /* Bigger + "more 3D and scary" (per direct request) - a stepped
-     1px-increment shadow stack (classic extruded-block-letter technique)
-     stepping from bright red down through near-black, instead of the old
-     2-offset flat shadow, plus a deeper red menace glow layered under
-     the existing gold ambient one. */
-  text-shadow:
-    1px 1px 0 #8a1414,
-    2px 2px 0 #7a1010,
-    3px 3px 0 #6a0d0d,
-    4px 4px 0 #5a0a0a,
-    5px 5px 0 #4a0808,
-    6px 6px 0 #3a0606,
-    7px 7px 14px rgba(0, 0, 0, 0.85),
-    0 0 50px rgba(227, 166, 60, 0.35),
-    0 0 90px rgba(154, 20, 20, 0.5);
 }
 
-#menu-title::before,
-#menu-title::after {
-  content: '';
-  position: absolute;
-  width: 16px;
-  height: 46px;
-  background: linear-gradient(180deg, #9a2020 0%, #5a0f0f 100%);
-  border-radius: 50% 50% 50% 50% / 65% 65% 35% 35%;
-  opacity: 0.85;
-  pointer-events: none;
-}
-
-#menu-title::before {
-  top: 8px;
-  left: 21%;
-  transform: rotate(10deg);
-}
-
-#menu-title::after {
-  top: 22px;
-  right: 16%;
-  width: 12px;
-  height: 32px;
-  transform: rotate(-14deg);
+#menu-title-img {
+  display: block;
+  width: min(92%, 480px);
+  height: auto;
+  margin: 0 auto;
+  filter:
+    drop-shadow(0 0 40px rgba(227, 166, 60, 0.35))
+    drop-shadow(0 0 70px rgba(154, 20, 20, 0.45))
+    drop-shadow(4px 6px 10px rgba(0, 0, 0, 0.6));
 }
 
 #menu-tagline {
@@ -3900,11 +3863,19 @@ body.reduce-flashing #critical-blood-overlay.show {
   .menu-card-list {
     max-height: 15vh;
   }
+
+  #menu-title-img {
+    width: min(92%, 430px);
+  }
 }
 
 @media (max-height: 820px) {
   .menu-card-list {
     max-height: 5vh;
+  }
+
+  #menu-title-img {
+    width: min(92%, 350px);
   }
 
   /* At this height the card-list cap alone isn't enough (fixed-px content
