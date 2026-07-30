@@ -2894,12 +2894,12 @@ body.reduce-flashing #critical-blood-overlay.show {
      when the viewport is narrower) - re-verify zero-scroll at the 4
      tracked heights after any further change here, same as every prior
      sizing round in this section. */
-  grid-template-columns: 270px minmax(360px, 900px) 270px;
+  grid-template-columns: 230px minmax(360px, 1260px) 230px;
   justify-content: center;
   gap: 24px;
   align-items: start;
   width: 100%;
-  max-width: 1500px;
+  max-width: 1800px;
   margin: 0 auto;
 }
 
@@ -3179,7 +3179,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
+  gap: 2px;
   padding-top: 2px;
 }
 
@@ -3188,13 +3188,14 @@ body.reduce-flashing #critical-blood-overlay.show {
    stenciled-text title now that a real image asset exists. */
 #menu-title {
   position: relative;
+  width: 100%;
   margin: 0;
   line-height: 1;
 }
 
 #menu-title-img {
   display: block;
-  width: min(96%, 700px);
+  width: min(96%, 950px);
   height: auto;
   margin: 0 auto;
   filter:
@@ -3294,7 +3295,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   display: flex;
   align-items: center;
   gap: 22px;
-  margin: 8px 0 4px;
+  margin: 4px 0 2px;
 }
 
 .hero-stat {
@@ -3336,8 +3337,8 @@ body.reduce-flashing #critical-blood-overlay.show {
    (small radial-gradient dots) kept from the earlier pass. */
 #play-btn {
   position: relative;
-  margin-top: 6px;
-  padding: 27px 92px;
+  margin-top: 4px;
+  padding: 19px 92px;
   font-family: 'Black Ops One', var(--menu-display-font);
   font-size: 36px;
   letter-spacing: 3px;
@@ -3821,7 +3822,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-height: 15vh;
+  max-height: 10vh;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--menu-gold) transparent;
@@ -3842,11 +3843,11 @@ body.reduce-flashing #critical-blood-overlay.show {
    rule must come after the looser (mid) one to win at heights under both. */
 @media (max-height: 960px) {
   .menu-card-list {
-    max-height: 15vh;
+    max-height: 11vh;
   }
 
   #menu-title-img {
-    width: min(90%, 460px);
+    width: min(90%, 620px);
   }
 }
 
@@ -3856,7 +3857,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   }
 
   #menu-title-img {
-    width: min(90%, 440px);
+    width: min(90%, 480px);
   }
 
   /* At this height the card-list cap alone isn't enough (fixed-px content
