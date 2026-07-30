@@ -249,6 +249,16 @@ function loadSettings() {
       // spotlight nudge).
       savedFriends: Array.isArray(parsed.savedFriends) ? parsed.savedFriends.slice(0, 5) : [],
       mutatorsEverEnabled: Array.isArray(parsed.mutatorsEverEnabled) ? parsed.mutatorsEverEnabled : [],
+      // Round 4 Online Features batch - region filter for the global
+      // leaderboard (REGION_OPTIONS), a custom color for the Player Title
+      // text, and two extra accessibility modes alongside the existing
+      // colorblind toggle.
+      region: parsed.region || 'global',
+      titleColor: parsed.titleColor || '#ffcf5c',
+      largeTextMode: parsed.largeTextMode ?? false,
+      highContrastMode: parsed.highContrastMode ?? false,
+      keybindCheatSheet: parsed.keybindCheatSheet ?? false,
+      showcaseDetailed: parsed.showcaseDetailed ?? false,
       mutators: {
         hordeRush: parsed.mutators?.hordeRush ?? false,
         lootRush: parsed.mutators?.lootRush ?? false,
@@ -281,7 +291,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, profileEmblem: 'none', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, playerTitle: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, profileEmblem: 'none', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, playerTitle: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', titleColor: '#ffcf5c', largeTextMode: false, highContrastMode: false, keybindCheatSheet: false, showcaseDetailed: false, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -1606,6 +1616,9 @@ const TUTORIAL_HINT_INTERVAL_MS = 4200
 // What's New badge-dot gate, and the replayable How to Play step sequence
 // (distinct from TUTORIAL_SEEN_KEY's one-time toast sequence above).
 const SPOTLIGHT_TIPS = ['spotlightTip1', 'spotlightTip2', 'spotlightTip3', 'spotlightTip4', 'spotlightTip5', 'spotlightTip6', 'spotlightTip7', 'spotlightTip8']
+// Round 4 Online Features batch - standalone lore/world trivia, distinct
+// from SPOTLIGHT_TIPS above (actionable gameplay advice vs. pure flavor).
+const TRIVIA_FACTS = ['triviaFact1', 'triviaFact2', 'triviaFact3', 'triviaFact4', 'triviaFact5', 'triviaFact6']
 const EVENT_BANNERS = [
   { month: 9, startDay: 20, endDay: 31, key: 'eventBannerHalloween' },
   { month: 11, startDay: 15, endDay: 31, key: 'eventBannerWinter' },
@@ -2569,11 +2582,24 @@ export class Game {
     this.menuLoginStreak = document.getElementById('menu-login-streak')
     this.achievementsCompletionRing = document.getElementById('achievements-completion-ring')
     this.bestiaryCompletionRing = document.getElementById('bestiary-completion-ring')
+    this.achievementsNavCount = document.getElementById('achievements-nav-count')
+    this.bestiaryNavCount = document.getElementById('bestiary-nav-count')
     this.seasonProgressLabel = document.getElementById('season-progress-label')
     this.profileTitleHeading = document.getElementById('profile-title-heading')
     this.profileTitleRow = document.getElementById('profile-title-row')
+    this.profileTitleColorRow = document.getElementById('profile-title-color-row')
+    this.profileTitleColorLabel = document.getElementById('profile-title-color-label')
+    this.profileTitleColorPicker = document.getElementById('profile-title-color-picker')
+    this.profileShowcaseStyleToggle = document.getElementById('profile-showcase-style-toggle')
+    this.profileShowcaseStyleLabel = document.getElementById('profile-showcase-style-label')
     this.profileNearlyThereList = document.getElementById('profile-nearly-there-list')
     this.profileAnniversaryLine = document.getElementById('profile-anniversary-line')
+    this.profileTodayLine = document.getElementById('profile-today-line')
+    this.profilePercentileLine = document.getElementById('profile-percentile-line')
+    this.profileFavoriteDifficultyLine = document.getElementById('profile-favorite-difficulty-line')
+    this.profileBestRunCard = document.getElementById('profile-best-run-card')
+    this.profileBestRunTitle = document.getElementById('profile-best-run-title')
+    this.profileBestRunLine = document.getElementById('profile-best-run-line')
     this.profileStreakTitle = document.getElementById('profile-streak-title')
     this.profileStreakCalendar = document.getElementById('profile-streak-calendar')
     this.profileWeeklyRecapTitle = document.getElementById('profile-weekly-recap-title')
@@ -2606,6 +2632,10 @@ export class Game {
     this.cloudsaveGlobalKills = document.getElementById('cloudsave-global-kills')
     this.cloudsaveRankLine = document.getElementById('cloudsave-rank-line')
     this.cloudsaveRivalLine = document.getElementById('cloudsave-rival-line')
+    this.cloudsaveAvgLine = document.getElementById('cloudsave-avg-line')
+    this.cloudsaveRegionSelect = document.getElementById('cloudsave-region-select')
+    this.cloudsaveAchievementsLeaderboardTitle = document.getElementById('cloudsave-achievements-leaderboard-title')
+    this.cloudsaveAchievementsLeaderboardList = document.getElementById('cloudsave-achievements-leaderboard-list')
     this.cloudsaveSavedFriends = document.getElementById('cloudsave-saved-friends')
     this.cloudsaveFriendSaveBtn = document.getElementById('cloudsave-friend-save-btn')
     this.cloudsaveLeaderboardTitle = document.getElementById('cloudsave-leaderboard-title')
@@ -2625,6 +2655,12 @@ export class Game {
     this._cloudUid = null
     this._cloudPendingConflict = null
     this._cloudGlobalRank = null
+    // "Today" session stats (round 4 Online Features batch) - deliberately
+    // session-local only (reset on every page load, never persisted) -
+    // distinct from the lifetime careerStats totals shown elsewhere.
+    this._sessionKills = 0
+    this._sessionStartTime = performance.now()
+    this._leaderboardUnsubscribe = null
     this.menuLeaderboard = document.getElementById('menu-leaderboard')
     this.menuBossRushLeaderboard = document.getElementById('menu-bossrush-leaderboard')
     this.menuHouseholdLeaderboard = document.getElementById('menu-household-leaderboard')
@@ -2637,8 +2673,10 @@ export class Game {
     this.languageGrid = document.getElementById('language-grid')
     this.musicVolumeSlider = document.getElementById('music-volume')
     this.musicVolumeValue = document.getElementById('music-volume-value')
+    this.musicTestBtn = document.getElementById('music-test-btn')
     this.sfxVolumeSlider = document.getElementById('sfx-volume')
     this.sfxVolumeValue = document.getElementById('sfx-volume-value')
+    this.sfxTestBtn = document.getElementById('sfx-test-btn')
     this.sensitivitySlider = document.getElementById('sensitivity-slider')
     this.sensitivityValue = document.getElementById('sensitivity-value')
     this.invertYToggle = document.getElementById('invert-y-toggle')
@@ -2649,6 +2687,10 @@ export class Game {
     this.hudOpacitySlider = document.getElementById('hud-opacity-slider')
     this.hudOpacityValue = document.getElementById('hud-opacity-value')
     this.colorblindToggle = document.getElementById('colorblind-toggle')
+    this.largeTextToggle = document.getElementById('large-text-toggle')
+    this.highContrastToggle = document.getElementById('high-contrast-toggle')
+    this.keybindCheatsheetToggle = document.getElementById('keybind-cheatsheet-toggle')
+    this.keybindCheatsheet = document.getElementById('keybind-cheatsheet')
     this.performanceToggle = document.getElementById('performance-toggle')
     this.shakeIntensitySlider = document.getElementById('shake-intensity-slider')
     this.shakeIntensityValue = document.getElementById('shake-intensity-value')
@@ -2666,6 +2708,7 @@ export class Game {
     this.crosshairSizeValue = document.getElementById('crosshair-size-value')
     this.nicknameColorPicker = document.getElementById('nickname-color-picker')
     this.companionColorPicker = document.getElementById('companion-color-picker')
+    this.companionColorPreview = document.getElementById('companion-color-preview')
     this.nicknameInput = document.getElementById('nickname-input')
     this.companionNameInput = document.getElementById('companion-name-input')
     this.challengeCodeInput = document.getElementById('challenge-code-input')
@@ -4122,6 +4165,7 @@ export class Game {
       this.inventoryHud.style.display = 'flex'
       this.progressHud.style.display = 'flex'
       this.statsPanel.style.display = 'flex'
+      if (this.keybindCheatsheet) this.keybindCheatsheet.style.display = this.settings.keybindCheatSheet ? '' : 'none'
       this.minimapWrap.style.display = 'block'
       this.compassStrip.style.display = 'block'
       if (this.driving) {
@@ -5881,10 +5925,12 @@ export class Game {
     // a role swap already does (_rebuildCompanion), so the change is
     // visible immediately rather than only on the next run/rescue.
     this.companionColorPicker.value = this.settings.companionColor || '#2f4f7a'
+    this._renderCompanionColorPreview()
     this.companionColorPicker.addEventListener('input', () => {
       this.settings.companionColor = this.companionColorPicker.value
       saveSettings(this.settings)
       if (this.companion) this._rebuildCompanion(this.settings.companionRole)
+      this._renderCompanionColorPreview()
     })
     this.crosshairSizeSlider.value = this.settings.crosshairSize
     this.crosshairSizeValue.textContent = `${this.settings.crosshairSize}%`
@@ -5983,6 +6029,56 @@ export class Game {
       setColorblind(this.settings.colorblind)
       saveSettings(this.settings)
     })
+
+    // Large Text / High Contrast modes - two more accessibility toggles
+    // alongside colorblind, applied as classes on <html> (document.
+    // documentElement) so the CSS can be a couple of scoped rules rather
+    // than per-element style overrides.
+    if (this.largeTextToggle) {
+      this.largeTextToggle.checked = this.settings.largeTextMode
+      document.documentElement.classList.toggle('large-text-mode', this.settings.largeTextMode)
+      this.largeTextToggle.addEventListener('change', () => {
+        this.settings.largeTextMode = this.largeTextToggle.checked
+        document.documentElement.classList.toggle('large-text-mode', this.settings.largeTextMode)
+        saveSettings(this.settings)
+      })
+    }
+    if (this.highContrastToggle) {
+      this.highContrastToggle.checked = this.settings.highContrastMode
+      document.documentElement.classList.toggle('high-contrast-mode', this.settings.highContrastMode)
+      this.highContrastToggle.addEventListener('change', () => {
+        this.settings.highContrastMode = this.highContrastToggle.checked
+        document.documentElement.classList.toggle('high-contrast-mode', this.settings.highContrastMode)
+        saveSettings(this.settings)
+      })
+    }
+    // Keybind Cheat Sheet - a persistent in-game HUD overlay, distinct
+    // from the one-time tutorial toasts and the replayable How to Play
+    // modal (see #keybind-cheatsheet's own CSS comment). Only actually
+    // visible while gameStarted, same gating every other gameplay-only
+    // HUD element already uses.
+    if (this.keybindCheatsheetToggle) {
+      this.keybindCheatsheetToggle.checked = this.settings.keybindCheatSheet
+      this.keybindCheatsheetToggle.addEventListener('change', () => {
+        this.settings.keybindCheatSheet = this.keybindCheatsheetToggle.checked
+        saveSettings(this.settings)
+        if (this.keybindCheatsheet) this.keybindCheatsheet.style.display = (this.settings.keybindCheatSheet && this.gameStarted) ? '' : 'none'
+      })
+    }
+    if (this.musicTestBtn) {
+      this.musicTestBtn.addEventListener('click', () => {
+        audioEngine.init()
+        audioEngine.resume()
+        audioEngine.startMusic()
+      })
+    }
+    if (this.sfxTestBtn) {
+      this.sfxTestBtn.addEventListener('click', () => {
+        audioEngine.init()
+        audioEngine.resume()
+        audioEngine.playShot('pistol')
+      })
+    }
 
     this.performanceToggle.checked = this.settings.performanceMode
     this._applyPerformanceMode(this.settings.performanceMode)
@@ -6292,6 +6388,10 @@ export class Game {
 
   _closeCloudSavePanel() {
     this.cloudsavePanel.style.display = 'none'
+    if (this._leaderboardUnsubscribe) {
+      this._leaderboardUnsubscribe()
+      this._leaderboardUnsubscribe = null
+    }
   }
 
   // Session restore on page load - Firebase persists auth state itself
@@ -6373,14 +6473,18 @@ export class Game {
     this._renderGlobalKills()
     this._renderMyRank()
     this._renderRival()
-    this._renderLeaderboardList()
+    this._renderGlobalAverages()
+    this._subscribeLeaderboard()
+    this._renderAchievementsLeaderboard()
     this._renderWeeklyLeaderboardList()
     this._renderPoll()
     this._renderSavedFriends()
     if (this.cloudsaveFriendCompareBtn) this.cloudsaveFriendCompareBtn.textContent = t('cloudsaveFriendCompareBtn')
     if (this.cloudsaveFriendInput) this.cloudsaveFriendInput.placeholder = t('cloudsaveFriendPlaceholder')
     if (this.cloudsaveLeaderboardTitle) this.cloudsaveLeaderboardTitle.textContent = t('cloudsaveLeaderboardTitle')
+    if (this.cloudsaveAchievementsLeaderboardTitle) this.cloudsaveAchievementsLeaderboardTitle.textContent = t('cloudsaveAchievementsLeaderboardTitle')
     if (this.cloudsaveFriendTitle) this.cloudsaveFriendTitle.textContent = t('cloudsaveFriendTitle')
+    if (this.cloudsaveRegionSelect) this.cloudsaveRegionSelect.value = this.settings.region
   }
 
   // Global rank badge - also mirrored onto the homepage player tag (see
@@ -6452,18 +6556,56 @@ export class Game {
     }
   }
 
-  async _renderLeaderboardList() {
+  _renderLeaderboardRows(rows) {
     if (!this.cloudsaveLeaderboardList) return
+    this.cloudsaveLeaderboardList.innerHTML = rows.length
+      ? rows.map((r, i) => `<div class="cloud-leaderboard-row${r.name === this.settings.nickname ? ' me' : ''}"><span>${i + 1}. ${_escapeHtml(r.name || '???')}</span><span>${t('cloudsaveLeaderboardRow', { night: _safeStatNumber(r.bestNight), kills: _safeStatNumber(r.bestKills) })}</span></div>`).join('')
+      : `<p class="cloud-leaderboard-empty">${t('cloudsaveLeaderboardEmpty')}</p>`
+  }
+
+  // Live-subscribed (see CloudSync.subscribeTopLeaderboard) rather than a
+  // one-shot fetch - only while this panel is actually open (subscribed
+  // here, unsubscribed in _closeCloudSavePanel/_handleCloudSignOut) so
+  // the read cost stays bounded to "panel is visible," not indefinite.
+  // Re-subscribes with the new filter whenever the region select changes.
+  _subscribeLeaderboard() {
+    if (!this.cloudsaveLeaderboardList) return
+    if (this._leaderboardUnsubscribe) this._leaderboardUnsubscribe()
+    this.cloudsaveLeaderboardList.innerHTML = `<p class="cloud-leaderboard-empty">${t('cloudsaveConnecting')}</p>`
+    this._leaderboardUnsubscribe = CloudSync.subscribeTopLeaderboard(10, this.settings.region, (rows) => this._renderLeaderboardRows(rows))
+  }
+
+  async _renderAchievementsLeaderboard() {
+    if (!this.cloudsaveAchievementsLeaderboardList) return
     try {
-      const rows = await CloudSync.fetchTopLeaderboard(10)
-      this.cloudsaveLeaderboardList.innerHTML = rows.length
-        ? rows.map((r, i) => `<div class="cloud-leaderboard-row${r.name === this.settings.nickname ? ' me' : ''}"><span>${i + 1}. ${_escapeHtml(r.name || '???')}</span><span>${t('cloudsaveLeaderboardRow', { night: _safeStatNumber(r.bestNight), kills: _safeStatNumber(r.bestKills) })}</span></div>`).join('')
+      const rows = await CloudSync.fetchTopByAchievements(10)
+      this.cloudsaveAchievementsLeaderboardList.innerHTML = rows.length
+        ? rows.map((r, i) => `<div class="cloud-leaderboard-row${r.name === this.settings.nickname ? ' me' : ''}"><span>${i + 1}. ${_escapeHtml(r.name || '???')}</span><span>${_safeStatNumber(r.achievementCount)}/${ACHIEVEMENTS.length}</span></div>`).join('')
         : `<p class="cloud-leaderboard-empty">${t('cloudsaveLeaderboardEmpty')}</p>`
     } catch {
-      this.cloudsaveLeaderboardList.innerHTML = `<p class="cloud-leaderboard-empty">${t('cloudsaveError')}</p>`
+      this.cloudsaveAchievementsLeaderboardList.innerHTML = `<p class="cloud-leaderboard-empty">${t('cloudsaveError')}</p>`
     }
   }
 
+  async _renderGlobalAverages() {
+    if (!this.cloudsaveAvgLine) return
+    try {
+      const { avgKills, avgNight } = await CloudSync.fetchGlobalAverages()
+      this.cloudsaveAvgLine.textContent = t('cloudsaveAvgLine', {
+        myKills: _safeStatNumber(this.careerStats.totalKills),
+        avgKills: Math.round(avgKills),
+        myNight: _safeStatNumber(this.bestStats.bestNight),
+        avgNight: avgNight.toFixed(1),
+      })
+    } catch {
+      this.cloudsaveAvgLine.textContent = ''
+    }
+  }
+
+  // "Most Improved This Week" is just a badge on the #1 entry here, not a
+  // separate tracked metric - this week's weekly-challenge progress
+  // already represents "how much you've contributed this week," so the
+  // top entry IS the most-improved player by that same measure.
   async _renderWeeklyLeaderboardList() {
     if (!this.cloudsaveWeeklyLeaderboardList) return
     if (this.cloudsaveWeeklyLeaderboardTitle) this.cloudsaveWeeklyLeaderboardTitle.textContent = t('cloudsaveWeeklyLeaderboardTitle')
@@ -6471,7 +6613,7 @@ export class Game {
       const weekStr = _thisWeekStr()
       const rows = await CloudSync.fetchTopWeeklyLeaderboard(weekStr, 10)
       this.cloudsaveWeeklyLeaderboardList.innerHTML = rows.length
-        ? rows.map((r, i) => `<div class="cloud-leaderboard-row${r.name === this.settings.nickname ? ' me' : ''}"><span>${i + 1}. ${_escapeHtml(r.name || '???')}</span><span>${_safeStatNumber(r.progress)}</span></div>`).join('')
+        ? rows.map((r, i) => `<div class="cloud-leaderboard-row${r.name === this.settings.nickname ? ' me' : ''}"><span>${i + 1}. ${_escapeHtml(r.name || '???')}${i === 0 ? ` ${t('mostImprovedBadge')}` : ''}</span><span>${_safeStatNumber(r.progress)}</span></div>`).join('')
         : `<p class="cloud-leaderboard-empty">${t('cloudsaveLeaderboardEmpty')}</p>`
     } catch {
       this.cloudsaveWeeklyLeaderboardList.innerHTML = `<p class="cloud-leaderboard-empty">${t('cloudsaveError')}</p>`
@@ -6553,12 +6695,18 @@ export class Game {
   async _pushOnlineStats() {
     if (!this._cloudUid || !CloudSync.isConfigured()) return
     const name = this.settings.nickname || t('menuPlayerTagDefault')
-    CloudSync.pushLeaderboardEntry(this._cloudUid, {
+    const entry = {
       name,
       bestNight: _safeStatNumber(this.bestStats.bestNight),
       bestKills: _safeStatNumber(this.bestStats.bestKills),
       bestKillStreak: _safeStatNumber(this.bestStats.bestKillStreak),
-    }).catch(() => {})
+      achievementCount: this.achievements.unlocked.size,
+    }
+    // region is omitted entirely when unset ('global' = no preference
+    // picked) rather than defaulted to some region - the security rule's
+    // own enum check only applies when the field is present at all.
+    if (this.settings.region && this.settings.region !== 'global') entry.region = this.settings.region
+    CloudSync.pushLeaderboardEntry(this._cloudUid, entry).catch(() => {})
     CloudSync.pushWeeklyLeaderboardEntry(_thisWeekStr(), this._cloudUid, {
       name,
       progress: _safeStatNumber(this.weeklyChallenge.progress),
@@ -6672,6 +6820,10 @@ export class Game {
     this._cloudUid = null
     this._cloudPendingConflict = null
     this._cloudGlobalRank = null
+    if (this._leaderboardUnsubscribe) {
+      this._leaderboardUnsubscribe()
+      this._leaderboardUnsubscribe = null
+    }
     this._updateCloudQuickIcon(false)
     if (this.cloudsaveConflict) this.cloudsaveConflict.style.display = 'none'
     this._renderCloudSaveState()
@@ -8331,7 +8483,7 @@ export class Game {
       btn.disabled = true
       btn.innerHTML = `
         <span class="perk-name">${unlocked ? t(ach.titleKey) : '???'}</span>
-        <span class="perk-cost">${unlocked ? t('achievementUnlocked') : t('achievementLocked')}</span>
+        <span class="perk-cost">${unlocked ? t('achievementUnlocked') : (ach.hintKey ? t(ach.hintKey) : t('achievementLocked'))}</span>
       `
       this.achievementsOptions.appendChild(btn)
     }
@@ -8600,8 +8752,12 @@ export class Game {
     if (this.menuCareerRank) {
       // Player Title (see _renderTitlePicker) replaces the auto career-rank
       // text when set, rather than adding a second line - zero new
-      // homepage height either way.
+      // homepage height either way. Custom title color (see
+      // _renderTitleColorRow) uses setProperty(...,'important') since
+      // .menu-best-stats' own color rule is itself !important.
       const titleDef = this.settings.playerTitle ? ACHIEVEMENTS.find((a) => a.id === this.settings.playerTitle) : null
+      if (titleDef) this.menuCareerRank.style.setProperty('color', this.settings.titleColor, 'important')
+      else this.menuCareerRank.style.removeProperty('color')
       this.menuCareerRank.textContent = titleDef
         ? t(titleDef.titleKey)
         : this.careerStats.totalKills === 0
@@ -8616,6 +8772,13 @@ export class Game {
         if (this.careerStats.totalKills >= CAREER_RANK_TITLES[i].min) level = i + 1
       }
       this.menuAvatarLevel.textContent = level
+      // Avatar frame tiers - automatic, not a picker (see that CSS rule's
+      // own comment), reuses this same tier index.
+      const avatarIcon = document.getElementById('menu-avatar-icon')
+      if (avatarIcon) {
+        for (let i = 2; i <= 5; i++) avatarIcon.classList.remove(`avatar-frame-${i}`)
+        if (level >= 2) avatarIcon.classList.add(`avatar-frame-${level}`)
+      }
     }
     this._renderPlayerTag()
     this._updateMenuNewsTicker()
@@ -8711,12 +8874,14 @@ export class Game {
       const pct = Math.round((this.achievements.unlocked.size / ACHIEVEMENTS.length) * 100)
       this.achievementsCompletionRing.style.setProperty('--pct', `${pct}%`)
       this.achievementsCompletionRing.title = t('completionRingTitle', { pct })
+      if (this.achievementsNavCount) this.achievementsNavCount.textContent = `${this.achievements.unlocked.size}/${ACHIEVEMENTS.length}`
     }
     if (this.bestiaryCompletionRing) {
       const total = Object.keys(ZOMBIE_TYPES).length
       const pct = total > 0 ? Math.round((this.bestiaryEncountered.size / total) * 100) : 0
       this.bestiaryCompletionRing.style.setProperty('--pct', `${pct}%`)
       this.bestiaryCompletionRing.title = t('completionRingTitle', { pct })
+      if (this.bestiaryNavCount) this.bestiaryNavCount.textContent = `${this.bestiaryEncountered.size}/${total}`
     }
   }
 
@@ -8726,6 +8891,7 @@ export class Game {
   // 3 slots, cycling is simpler than a whole new UI for this).
   _updateAchievementShowcase() {
     if (!this.achievementShowcaseRow) return
+    this.achievementShowcaseRow.classList.toggle('detailed', !!this.settings.showcaseDetailed)
     this.achievementShowcaseRow.innerHTML = ''
     for (let i = 0; i < 3; i++) {
       const id = this.settings.showcaseSlots[i]
@@ -8733,10 +8899,16 @@ export class Game {
       const slot = document.createElement('button')
       slot.type = 'button'
       slot.className = 'showcase-slot' + (def ? ' filled' : '')
-      slot.textContent = def ? def.tag : '+'
       if (def) {
         slot.style.color = def.color
         slot.style.borderColor = def.color
+        if (this.settings.showcaseDetailed) {
+          slot.innerHTML = `<span class="showcase-tag">${_escapeHtml(def.tag)}</span><span class="showcase-name">${_escapeHtml(t(def.titleKey))}</span>`
+        } else {
+          slot.textContent = def.tag
+        }
+      } else {
+        slot.textContent = '+'
       }
       slot.title = def ? t(def.titleKey) : t('showcaseSlotEmpty')
       slot.addEventListener('click', () => this._cycleShowcaseSlot(i))
@@ -8764,7 +8936,7 @@ export class Game {
   _updateMenuSpotlight() {
     if (!this.menuSpotlight) return
     const render = () => {
-      const mode = (this._spotlightIndex || 0) % 5
+      const mode = (this._spotlightIndex || 0) % 6
       if (mode === 0) {
         const tipKey = SPOTLIGHT_TIPS[Math.floor(Date.now() / 60000) % SPOTLIGHT_TIPS.length]
         this.menuSpotlight.textContent = t('spotlightTipPrefix', { tip: t(tipKey) })
@@ -8791,7 +8963,7 @@ export class Game {
         this.menuSpotlight.textContent = this.bestiaryEncountered.has(id)
           ? t('spotlightBestiaryKnown', { label: zt.label })
           : t('spotlightBestiaryUnknown')
-      } else {
+      } else if (mode === 4) {
         // Mutator Exploration nudge - day-seeded pick among mutators never
         // once started a run with (see settings.mutatorsEverEnabled,
         // recorded at Play-click time). Silently falls through to the
@@ -8802,6 +8974,13 @@ export class Game {
           const id = untried[_dailyTwistIndex(_todayDateStr()) % untried.length]
           this.menuSpotlight.textContent = t('spotlightMutatorNudge', { mutator: t(MUTATOR_LABEL_KEYS[id] || id) })
         }
+      } else {
+        // Standalone lore/world trivia - distinct from SPOTLIGHT_TIPS
+        // (mode 0), which are actionable gameplay advice; these are pure
+        // flavor facts about the world, day-seeded the same way as every
+        // other daily-stable pick in this rotation.
+        const triviaKey = TRIVIA_FACTS[_dailyTwistIndex(_todayDateStr() + 'trivia') % TRIVIA_FACTS.length]
+        this.menuSpotlight.textContent = t(triviaKey)
       }
       this._spotlightIndex = (this._spotlightIndex || 0) + 1
     }
@@ -9002,6 +9181,21 @@ export class Game {
     if (this.savePresetBtn) this.savePresetBtn.addEventListener('click', () => this._saveMenuPreset())
     this._renderMenuPresets()
 
+    if (this.profileTitleColorPicker) {
+      this.profileTitleColorPicker.addEventListener('input', () => {
+        this.settings.titleColor = this.profileTitleColorPicker.value
+        saveSettings(this.settings)
+        this._updateBestStatsDisplay()
+      })
+    }
+    if (this.profileShowcaseStyleToggle) {
+      this.profileShowcaseStyleToggle.addEventListener('change', () => {
+        this.settings.showcaseDetailed = this.profileShowcaseStyleToggle.checked
+        saveSettings(this.settings)
+        this._updateAchievementShowcase()
+      })
+    }
+
     if (this.quickMuteBtn) {
       this.quickMuteBtn.classList.toggle('active', !!this.settings.mutedBeforeVolumes)
       this.quickMuteBtn.addEventListener('click', () => {
@@ -9103,6 +9297,13 @@ export class Game {
     if (this.cloudsaveUseLocalBtn) this.cloudsaveUseLocalBtn.addEventListener('click', () => this._resolveCloudConflict('local'))
     if (this.cloudsaveFriendCompareBtn) this.cloudsaveFriendCompareBtn.addEventListener('click', () => this._handleFriendCompare())
     if (this.cloudsaveFriendSaveBtn) this.cloudsaveFriendSaveBtn.addEventListener('click', () => this._saveFriend())
+    if (this.cloudsaveRegionSelect) {
+      this.cloudsaveRegionSelect.addEventListener('change', () => {
+        this.settings.region = this.cloudsaveRegionSelect.value
+        saveSettings(this.settings)
+        this._subscribeLeaderboard()
+      })
+    }
     if (this.cloudsaveFriendInput) {
       this.cloudsaveFriendInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') this._handleFriendCompare()
@@ -10337,6 +10538,7 @@ export class Game {
     }
     this._recordLeaderboardEntry()
 
+    this._sessionKills += this.kills
     this.careerStats.totalKills += this.kills
     this.careerStats.totalRuns += 1
     if (!this.careerStats.firstPlayedDate) this.careerStats.firstPlayedDate = todayDateString()
@@ -10766,6 +10968,106 @@ export class Game {
     this._renderRecentActivity()
     this._renderAnniversaryLine()
     this._renderStreakCalendar()
+    this._renderTodayLine()
+    this._renderPercentileLine()
+    this._renderFavoriteDifficultyLine()
+    this._renderBestRunCard()
+    this._renderTitleColorRow()
+    this._renderShowcaseStyleRow()
+  }
+
+  // "Today" session stats - _sessionKills/_sessionStartTime are
+  // session-local only (see constructor), never persisted, distinct from
+  // careerStats' lifetime totals shown elsewhere in this same panel.
+  _renderTodayLine() {
+    if (!this.profileTodayLine) return
+    const minutes = Math.round((performance.now() - this._sessionStartTime) / 60000)
+    this.profileTodayLine.textContent = t('todayLine', { kills: this._sessionKills, minutes })
+    this.profileTodayLine.style.display = ''
+  }
+
+  // Percentile - reuses the same "better than me" COUNT query as the
+  // rank badge, plus one more COUNT (no filter) for the total player
+  // count, rather than a separate ranking system. Only shown once
+  // signed in (needs a real leaderboard entry to rank against).
+  async _renderPercentileLine() {
+    if (!this.profilePercentileLine || !this._cloudUid) {
+      if (this.profilePercentileLine) this.profilePercentileLine.style.display = 'none'
+      return
+    }
+    try {
+      const [rank, total] = await Promise.all([
+        CloudSync.fetchMyGlobalRank(_safeStatNumber(this.bestStats.bestNight)),
+        CloudSync.fetchLeaderboardTotalCount(),
+      ])
+      if (total <= 0) {
+        this.profilePercentileLine.style.display = 'none'
+        return
+      }
+      const percentile = Math.max(1, Math.round((rank / total) * 100))
+      this.profilePercentileLine.textContent = t('percentileLine', { pct: percentile })
+      this.profilePercentileLine.style.display = ''
+    } catch {
+      this.profilePercentileLine.style.display = 'none'
+    }
+  }
+
+  _renderFavoriteDifficultyLine() {
+    if (!this.profileFavoriteDifficultyLine) return
+    const entries = Object.entries(this.careerStats.difficultyStats)
+    if (entries.length === 0) {
+      this.profileFavoriteDifficultyLine.style.display = 'none'
+      return
+    }
+    const [favoriteId] = entries.reduce((best, cur) => (cur[1].runs > best[1].runs ? cur : best))
+    const btn = Array.from(this.difficultyBtns).find((b) => b.dataset.difficulty === favoriteId)
+    this.profileFavoriteDifficultyLine.textContent = t('favoriteDifficultyLine', { difficulty: btn ? btn.textContent : favoriteId })
+    this.profileFavoriteDifficultyLine.style.display = ''
+  }
+
+  // Best Run card - the runHistory entry matching bestStats.bestNight
+  // (the same "single best-ever run" bestStats already is the source of
+  // truth for), showing the difficulty/loadout/companion fields
+  // _recordRunEnd already captures on every entry (see CLAUDE.md's note
+  // on why those were added) rather than tracking a new "best run"
+  // snapshot separately.
+  _renderBestRunCard() {
+    if (!this.profileBestRunCard) return
+    const best = this.runHistory.find((r) => _safeStatNumber(r.night) === _safeStatNumber(this.bestStats.bestNight))
+    if (!best) {
+      this.profileBestRunCard.style.display = 'none'
+      return
+    }
+    this.profileBestRunTitle.textContent = t('profileBestRunTitle')
+    const diffBtn = Array.from(this.difficultyBtns).find((b) => b.dataset.difficulty === best.difficulty)
+    this.profileBestRunLine.textContent = t('profileBestRunLine', {
+      night: _safeStatNumber(best.night),
+      kills: _safeStatNumber(best.kills),
+      coins: _safeStatNumber(best.coins),
+      difficulty: diffBtn ? diffBtn.textContent : (best.difficulty || '?'),
+      loadout: best.loadout ? t(LOADOUT_LABEL_KEYS[best.loadout] || best.loadout) : '?',
+    })
+    this.profileBestRunCard.style.display = ''
+  }
+
+  _renderCompanionColorPreview() {
+    if (!this.companionColorPreview) return
+    this.companionColorPreview.style.background = this.settings.companionColor || '#2f4f7a'
+  }
+
+  _renderTitleColorRow() {
+    if (!this.profileTitleColorRow) return
+    const hasTitle = !!this.settings.playerTitle
+    this.profileTitleColorRow.style.display = hasTitle ? 'flex' : 'none'
+    if (!hasTitle) return
+    this.profileTitleColorLabel.textContent = t('profileTitleColorLabel')
+    this.profileTitleColorPicker.value = this.settings.titleColor
+  }
+
+  _renderShowcaseStyleRow() {
+    if (!this.profileShowcaseStyleToggle) return
+    this.profileShowcaseStyleToggle.checked = this.settings.showcaseDetailed
+    this.profileShowcaseStyleLabel.textContent = t('showcaseStyleLabel')
   }
 
   // Player Title picker - reuses ACHIEVEMENTS' own titleKey (+ tag/color)

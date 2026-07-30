@@ -76,7 +76,9 @@ service cloud.firestore {
       allow write: if request.auth != null && request.auth.uid == userId
         && request.resource.data.bestNight is int && request.resource.data.bestNight >= 0 && request.resource.data.bestNight < 1000
         && request.resource.data.bestKills is int && request.resource.data.bestKills >= 0 && request.resource.data.bestKills < 1000000
-        && request.resource.data.bestKillStreak is int && request.resource.data.bestKillStreak >= 0 && request.resource.data.bestKillStreak < 100000;
+        && request.resource.data.bestKillStreak is int && request.resource.data.bestKillStreak >= 0 && request.resource.data.bestKillStreak < 100000
+        && request.resource.data.achievementCount is int && request.resource.data.achievementCount >= 0 && request.resource.data.achievementCount <= 19
+        && (!('region' in request.resource.data) || request.resource.data.region in ['na', 'eu', 'asia', 'sa', 'oceania', 'africa']);
     }
 
     match /weeklyLeaderboard/{week}/entries/{userId} {
@@ -180,11 +182,64 @@ export async function pushLeaderboardEntry(uid, entry) {
   await fsMod.setDoc(fsMod.doc(db, 'leaderboard', uid), { ...entry, updatedAt: Date.now() })
 }
 
-export async function fetchTopLeaderboard(n) {
+// region: optional, one of REGION_OPTIONS (Game.js) - omitted or 'global'
+// means worldwide, no filter applied.
+export async function fetchTopLeaderboard(n, region) {
   const { db, fsMod } = await ensureApp()
-  const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.orderBy('bestNight', 'desc'), fsMod.limit(n))
+  const constraints = [fsMod.orderBy('bestNight', 'desc'), fsMod.limit(n)]
+  if (region && region !== 'global') constraints.unshift(fsMod.where('region', '==', region))
+  const q = fsMod.query(fsMod.collection(db, 'leaderboard'), ...constraints)
   const snap = await fsMod.getDocs(q)
   return snap.docs.map((d) => d.data())
+}
+
+// Live subscription variant of fetchTopLeaderboard - used only while the
+// Cloud Save panel's leaderboard list is actually visible (subscribed on
+// open, unsubscribed on close/sign-out) rather than left running
+// indefinitely, to keep the read cost bounded. Returns an unsubscribe
+// function; callback fires once immediately with current data and again
+// on every future change.
+export function subscribeTopLeaderboard(n, region, callback) {
+  let unsub = () => {}
+  let cancelled = false
+  ensureApp().then(({ db, fsMod }) => {
+    if (cancelled) return
+    const constraints = [fsMod.orderBy('bestNight', 'desc'), fsMod.limit(n)]
+    if (region && region !== 'global') constraints.unshift(fsMod.where('region', '==', region))
+    const q = fsMod.query(fsMod.collection(db, 'leaderboard'), ...constraints)
+    unsub = fsMod.onSnapshot(q, (snap) => callback(snap.docs.map((d) => d.data())), () => {})
+  })
+  return () => {
+    cancelled = true
+    unsub()
+  }
+}
+
+// Achievement-count leaderboard - same collection, sorted by a different
+// field (achievementCount, pushed alongside bestNight/bestKills/
+// bestKillStreak - see pushLeaderboardEntry's caller in Game.js).
+export async function fetchTopByAchievements(n) {
+  const { db, fsMod } = await ensureApp()
+  const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.orderBy('achievementCount', 'desc'), fsMod.limit(n))
+  const snap = await fsMod.getDocs(q)
+  return snap.docs.map((d) => d.data())
+}
+
+// Global average comparison - a real server-side AVG aggregation (not a
+// download-every-doc-and-average-client-side), same cheap-query shape as
+// the COUNT-based rank/rival lookups above. Two separate single-field
+// aggregate calls, not one combined { avgKills, avgNight } call - the
+// combined form made Firestore demand a composite index (a one-time
+// Console step); two independent single-field averages need no index at
+// all, so this stays zero-setup like every other read here.
+export async function fetchGlobalAverages() {
+  const { db, fsMod } = await ensureApp()
+  const coll = fsMod.collection(db, 'leaderboard')
+  const [killsSnap, nightSnap] = await Promise.all([
+    fsMod.getAggregateFromServer(coll, { avgKills: fsMod.average('bestKills') }),
+    fsMod.getAggregateFromServer(coll, { avgNight: fsMod.average('bestNight') }),
+  ])
+  return { avgKills: killsSnap.data().avgKills || 0, avgNight: nightSnap.data().avgNight || 0 }
 }
 
 // Friend/Rival comparison - reuses the same public leaderboard collection
@@ -208,6 +263,14 @@ export async function fetchMyGlobalRank(bestNight) {
   const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.where('bestNight', '>', bestNight))
   const snap = await fsMod.getCountFromServer(q)
   return snap.data().count + 1
+}
+
+// Total leaderboard size - a plain, unfiltered COUNT, used only to turn
+// a rank number into a percentile (see Game.js's _renderPercentileLine).
+export async function fetchLeaderboardTotalCount() {
+  const { db, fsMod } = await ensureApp()
+  const snap = await fsMod.getCountFromServer(fsMod.collection(db, 'leaderboard'))
+  return snap.data().count
 }
 
 // Nearest rival - the single leaderboard entry with the smallest

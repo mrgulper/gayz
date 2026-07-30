@@ -220,10 +220,31 @@ html, body {
 }
 
 #cloudsave-rank-line,
-#cloudsave-rival-line {
+#cloudsave-rival-line,
+#cloudsave-avg-line {
   margin: 2px 0 0;
   font-size: 12px;
   opacity: 0.8;
+}
+
+#cloudsave-leaderboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+#cloudsave-leaderboard-header h3 {
+  margin: 8px 0 2px;
+}
+
+#cloudsave-region-select {
+  padding: 3px 6px;
+  font-size: 11px;
+  color: #eee;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 3px;
 }
 
 #cloudsave-saved-friends {
@@ -489,6 +510,34 @@ html, body {
 :root {
   --hud-scale: 1;
   --hud-opacity: 1;
+}
+
+/* Large Text Mode - scoped to #menu + every modal panel's text (zoom,
+   not a root font-size bump, since almost all sizing in this stylesheet
+   is fixed px rather than rem - a root bump wouldn't cascade). Does NOT
+   touch in-game HUD text, which already has its own --hud-scale slider
+   for exactly this purpose - a second overlapping control there would
+   be confusing, not helpful. */
+html.large-text-mode #menu,
+html.large-text-mode #perk-panel,
+html.large-text-mode #trader-panel,
+html.large-text-mode #upgrades-panel,
+html.large-text-mode #achievements-panel,
+html.large-text-mode #bestiary-panel,
+html.large-text-mode #profile-panel,
+html.large-text-mode #credits-panel,
+html.large-text-mode #howtoplay-panel,
+html.large-text-mode #cloudsave-panel,
+html.large-text-mode #coinshop-panel,
+html.large-text-mode #settings-panel {
+  zoom: 1.18;
+}
+
+/* High Contrast Mode - a global filter bump (works during gameplay too,
+   unlike Large Text Mode above), distinct from Colorblind Mode which
+   only affects zombie health-bar coloring. */
+html.high-contrast-mode #app {
+  filter: contrast(1.35) saturate(1.2);
 }
 
 /* HUD scale/opacity settings - applied to every top-level HUD container
@@ -1501,6 +1550,30 @@ body.reduce-flashing #critical-blood-overlay.show {
   margin-top: 0;
 }
 
+.changelog-entry {
+  display: flex;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.changelog-entry:last-child {
+  border-bottom: none;
+}
+
+.changelog-date {
+  flex: 0 0 auto;
+  color: #e3a63c;
+  opacity: 0.8;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.changelog-text {
+  opacity: 0.85;
+}
+
 #credits-content p {
   margin: 0 0 8px;
   font-size: 13px;
@@ -2188,11 +2261,50 @@ body.reduce-flashing #critical-blood-overlay.show {
   opacity: 0.85;
 }
 
-#profile-anniversary-line {
+#profile-anniversary-line,
+#profile-today-line,
+#profile-percentile-line,
+#profile-favorite-difficulty-line {
   margin: 4px 0;
   font-size: 12px;
   opacity: 0.7;
   font-style: italic;
+}
+
+#profile-title-color-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+#profile-title-color-picker {
+  width: 28px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+#profile-best-run-card {
+  margin: 6px 0;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  text-align: center;
+}
+
+#profile-best-run-title {
+  margin: 0 0 4px !important;
+}
+
+#profile-best-run-line {
+  margin: 0;
+  font-size: 12px;
 }
 
 #profile-streak-calendar {
@@ -2429,6 +2541,29 @@ body.reduce-flashing #critical-blood-overlay.show {
 #ammo.low-ammo {
   color: #ff5a4a;
   animation: low-ammo-pulse 1.1s ease-in-out infinite;
+}
+
+/* Persistent Keybind Cheat Sheet (Settings > Controls toggle) - distinct
+   from the one-time tutorial toasts and the replayable How to Play
+   modal, this is an optional always-on in-game reference, bottom-left,
+   out of the way of the HUD elements above. */
+#keybind-cheatsheet {
+  position: absolute;
+  left: 20px;
+  bottom: 20px;
+  list-style: none;
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: rgba(238, 238, 238, 0.75);
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+#keybind-cheatsheet b {
+  color: #ffcf5c;
 }
 
 @keyframes low-ammo-pulse {
@@ -2844,6 +2979,18 @@ body.reduce-flashing #critical-blood-overlay.show {
   letter-spacing: 0.8px;
   text-transform: uppercase;
   color: var(--menu-text-dim);
+}
+
+/* Companion color preview swatch - inline with the label itself (see
+   markup), zero extra height cost. */
+#companion-color-preview {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: 4px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  vertical-align: middle;
 }
 
 .menu-field-label:first-of-type {
@@ -3417,6 +3564,31 @@ body.reduce-flashing #critical-blood-overlay.show {
     0 0 16px 2px rgba(227, 166, 60, 0.25);
 }
 
+/* Avatar frame tiers - automatic (not a picker), one per CAREER_RANK_TITLES
+   tier (see _updateAvatarFrame), same "career rank already computes a
+   1-5 tier, reuse it" reasoning as the existing avatar-level number
+   badge. Tier 1 (Rookie) intentionally matches the plain default border
+   above - only tiers 2+ actually look different. */
+#menu-avatar-icon.avatar-frame-2 {
+  border-color: var(--menu-bronze, #8a6d47);
+}
+
+#menu-avatar-icon.avatar-frame-3 {
+  border-color: #cfd6de;
+}
+
+#menu-avatar-icon.avatar-frame-4 {
+  border-color: var(--menu-blue, #6fa8dc);
+}
+
+#menu-avatar-icon.avatar-frame-5 {
+  border-color: #ffd35c;
+  box-shadow:
+    inset 0 2px 3px rgba(255, 255, 255, 0.12),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.55),
+    0 0 20px 4px rgba(255, 211, 92, 0.4);
+}
+
 #menu-avatar-icon svg {
   width: 50px;
   height: 50px;
@@ -3498,6 +3670,15 @@ body.reduce-flashing #critical-blood-overlay.show {
   margin-top: 2px;
 }
 
+/* Detailed showcase style (Settings toggle, see _updateAchievementShowcase) -
+   stacks the 3 slots into a column of small two-line cards (tag + full
+   name) instead of the compact single-row swatches, since 3 full
+   achievement names side by side would overflow the 290px right column. */
+#achievement-showcase-row.detailed {
+  flex-direction: column;
+  align-items: center;
+}
+
 .showcase-slot {
   display: flex;
   align-items: center;
@@ -3512,6 +3693,27 @@ body.reduce-flashing #critical-blood-overlay.show {
   border-radius: 4px;
   cursor: pointer;
   opacity: 0.5;
+}
+
+#achievement-showcase-row.detailed .showcase-slot {
+  width: auto;
+  min-width: 120px;
+  height: auto;
+  padding: 3px 8px;
+  gap: 6px;
+}
+
+#achievement-showcase-row.detailed .showcase-slot.filled {
+  flex-direction: row;
+}
+
+.showcase-name {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .showcase-slot.filled {
@@ -3561,6 +3763,17 @@ body.reduce-flashing #critical-blood-overlay.show {
   border-color: var(--menu-gold);
   color: #fff;
   transform: translateX(2px);
+}
+
+/* Achievements/Bestiary completion fraction ("18/50") - a small dim
+   inline span right after the label text, same row, no extra height. */
+.nav-count {
+  margin-left: auto;
+  padding-right: 14px;
+  font-size: 11px;
+  font-weight: 400;
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
 }
 
 /* What's New badge dot - purely an absolute-positioned overlay, zero

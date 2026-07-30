@@ -215,6 +215,13 @@
         <div id="ammo">12 / 36</div>
       </div>
 
+      <ul id="keybind-cheatsheet" style="display: none">
+        <li><b>WASD</b> move · <b>Mouse</b> look · <b>Space</b> jump · <b>E</b> sprint</li>
+        <li><b>Left Click</b> shoot · <b>1</b> melee · <b>2/3/4</b> weapon · <b>R</b> reload</li>
+        <li><b>H</b> health pack · <b>G</b> armor pack · <b>F</b> interact</li>
+        <li><b>Tab</b> inventory · <b>Esc</b> release mouse · <b>O</b> settings</li>
+      </ul>
+
       <div id="hotbar">
         <div class="hotbar-slot" data-slot="0"><span class="hotbar-slot-num">1</span><span class="hotbar-slot-name">-</span></div>
         <div class="hotbar-slot" data-slot="1"><span class="hotbar-slot-num">2</span><span class="hotbar-slot-name">-</span></div>
@@ -291,7 +298,7 @@
               <h2 class="menu-panel-title">Player Setup</h2>
               <label class="menu-field-label" for="nickname-input">Nickname</label>
               <input type="text" id="nickname-input" class="nickname-input" placeholder="Your nickname" maxlength="16" />
-              <label class="menu-field-label" for="companion-name-input">Companion (Optional)</label>
+              <label class="menu-field-label" for="companion-name-input">Companion (Optional) <span id="companion-color-preview" aria-hidden="true"></span></label>
               <input type="text" id="companion-name-input" class="nickname-input" placeholder="Companion name" maxlength="16" />
               <label class="menu-field-label" for="challenge-code-input">Challenge Code (Optional)</label>
               <input type="text" id="challenge-code-input" class="nickname-input" placeholder="Paste a code" maxlength="24" />
@@ -440,11 +447,13 @@
               <button id="achievements-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0z"/><path d="M7 5H4a1 1 0 0 0-1 1c0 3 2 5 4.5 5.3M17 5h3a1 1 0 0 1 1 1c0 3-2 5-4.5 5.3"/></svg>
                 <span>Achievements</span>
+                <span class="nav-count" id="achievements-nav-count"></span>
                 <span class="nav-completion-ring" id="achievements-completion-ring" aria-hidden="true"></span>
               </button>
               <button id="bestiary-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v18H6.5A2.5 2.5 0 0 0 4 22.5z"/><path d="M4 4.5v16"/></svg>
                 <span>Bestiary</span>
+                <span class="nav-count" id="bestiary-nav-count"></span>
                 <span class="nav-completion-ring" id="bestiary-completion-ring" aria-hidden="true"></span>
               </button>
               <button id="credits-btn">
@@ -596,11 +605,13 @@
             <label for="music-volume" id="music-label">Music</label>
             <input type="range" id="music-volume" min="0" max="100" value="100" />
             <span id="music-volume-value" class="audio-value">100%</span>
+            <button id="music-test-btn" class="mini-action-btn">Test</button>
           </div>
           <div class="audio-row">
             <label for="sfx-volume" id="sfx-label">Sound Effects</label>
             <input type="range" id="sfx-volume" min="0" max="100" value="100" />
             <span id="sfx-volume-value" class="audio-value">100%</span>
+            <button id="sfx-test-btn" class="mini-action-btn">Test</button>
           </div>
         </div>
 
@@ -632,6 +643,18 @@
           <div class="audio-row">
             <label for="colorblind-toggle" id="colorblind-label">Colorblind Mode</label>
             <input type="checkbox" id="colorblind-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="large-text-toggle" id="large-text-label">Large Text Mode</label>
+            <input type="checkbox" id="large-text-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="high-contrast-toggle" id="high-contrast-label">High Contrast Mode</label>
+            <input type="checkbox" id="high-contrast-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="keybind-cheatsheet-toggle" id="keybind-cheatsheet-label">Show Keybind Cheat Sheet (in-game)</label>
+            <input type="checkbox" id="keybind-cheatsheet-toggle" class="audio-checkbox" />
           </div>
           <div class="audio-row">
             <label for="performance-toggle" id="performance-label">FPS Optimized (lower graphics quality)</label>
@@ -857,8 +880,23 @@
         <div id="profile-emblem-row"></div>
         <h3 id="profile-title-heading" style="display: none">Title</h3>
         <div id="profile-title-row"></div>
+        <div id="profile-title-color-row" style="display: none">
+          <label for="profile-title-color-picker" id="profile-title-color-label">Title Color</label>
+          <input type="color" id="profile-title-color-picker" value="#ffcf5c" />
+        </div>
+        <label class="hide-empty-inventory-label" id="profile-showcase-style-row">
+          <input type="checkbox" id="profile-showcase-style-toggle" />
+          <span id="profile-showcase-style-label">Show full names in Achievement Showcase</span>
+        </label>
         <div id="profile-nearly-there-list"></div>
         <p id="profile-anniversary-line" style="display: none"></p>
+        <p id="profile-today-line" style="display: none"></p>
+        <p id="profile-percentile-line" style="display: none"></p>
+        <p id="profile-favorite-difficulty-line" style="display: none"></p>
+        <div id="profile-best-run-card" style="display: none">
+          <h3 id="profile-best-run-title">Best Run</h3>
+          <p id="profile-best-run-line"></p>
+        </div>
         <h3 id="profile-streak-title" style="display: none">Login Streak</h3>
         <div id="profile-streak-calendar"></div>
         <h3 id="profile-weekly-recap-title" style="display: none">This Week</h3>
@@ -884,7 +922,11 @@
           <h3>Assets</h3>
           <p>3D models courtesy of Kenney.nl, Quaternius, and the poly.pizza community, all under CC0 &mdash; free for any use, no attribution required, credited here anyway because their work made this game possible.</p>
           <h3>What's New</h3>
-          <p>Last updated July 29, 2026 at 4:38 AM &mdash; recent additions: a full menu redesign, crafting and deployable turrets, the Flamethrower and Rocket Launcher, weapon upgrades and the Mystery Box, Akimbo pistols and Last Stand self-revive, and CoD-style movement (mantling, sliding, killstreaks).</p>
+          <div id="changelog-list">
+            <div class="changelog-entry"><span class="changelog-date">Jul 30, 2026</span><span class="changelog-text">Global leaderboard, rank badges, friend comparison, a community poll, and a dozen more small homepage upgrades (login streak calendar, achievement hints, sound test buttons, and more).</span></div>
+            <div class="changelog-entry"><span class="changelog-date">Jul 30, 2026</span><span class="changelog-text">Cloud Save - sign in with Google to sync your progress across devices.</span></div>
+            <div class="changelog-entry"><span class="changelog-date">Jul 29, 2026</span><span class="changelog-text">A full menu redesign, crafting and deployable turrets, the Flamethrower and Rocket Launcher, weapon upgrades and the Mystery Box, Akimbo pistols and Last Stand self-revive, and CoD-style movement (mantling, sliding, killstreaks).</span></div>
+          </div>
         </div>
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>
@@ -926,9 +968,24 @@
             <p id="cloudsave-global-kills"></p>
             <p id="cloudsave-rank-line"></p>
             <p id="cloudsave-rival-line"></p>
+            <p id="cloudsave-avg-line"></p>
 
-            <h3 id="cloudsave-leaderboard-title">Leaderboard</h3>
+            <div id="cloudsave-leaderboard-header">
+              <h3 id="cloudsave-leaderboard-title">Leaderboard</h3>
+              <select id="cloudsave-region-select">
+                <option value="global">Global</option>
+                <option value="na">North America</option>
+                <option value="eu">Europe</option>
+                <option value="asia">Asia</option>
+                <option value="sa">South America</option>
+                <option value="oceania">Oceania</option>
+                <option value="africa">Africa</option>
+              </select>
+            </div>
             <div id="cloudsave-leaderboard-list"></div>
+
+            <h3 id="cloudsave-achievements-leaderboard-title">Most Achievements</h3>
+            <div id="cloudsave-achievements-leaderboard-list"></div>
 
             <h3 id="cloudsave-weekly-leaderboard-title">Weekly Challenge Ranking</h3>
             <div id="cloudsave-weekly-leaderboard-list"></div>
