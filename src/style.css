@@ -3191,25 +3191,34 @@ body.reduce-flashing #critical-blood-overlay.show {
   position: relative;
   margin: 0;
   font-family: 'Black Ops One', var(--menu-display-font);
-  font-size: 114px;
+  font-size: 156px;
   line-height: 1;
   letter-spacing: 2px;
   text-transform: uppercase;
-  color: #eef0e6;
+  color: #f4f1e6;
+  /* Bigger + "more 3D and scary" (per direct request) - a stepped
+     1px-increment shadow stack (classic extruded-block-letter technique)
+     stepping from bright red down through near-black, instead of the old
+     2-offset flat shadow, plus a deeper red menace glow layered under
+     the existing gold ambient one. */
   text-shadow:
-    4px 4px 0 rgba(0, 0, 0, 0.65),
-    -3px -1px 0 rgba(0, 0, 0, 0.4),
-    3px 3px 0 rgba(122, 12, 12, 0.55),
-    -4px 3px 0 rgba(80, 6, 6, 0.4),
-    0 0 44px rgba(227, 166, 60, 0.35);
+    1px 1px 0 #8a1414,
+    2px 2px 0 #7a1010,
+    3px 3px 0 #6a0d0d,
+    4px 4px 0 #5a0a0a,
+    5px 5px 0 #4a0808,
+    6px 6px 0 #3a0606,
+    7px 7px 14px rgba(0, 0, 0, 0.85),
+    0 0 50px rgba(227, 166, 60, 0.35),
+    0 0 90px rgba(154, 20, 20, 0.5);
 }
 
 #menu-title::before,
 #menu-title::after {
   content: '';
   position: absolute;
-  width: 12px;
-  height: 34px;
+  width: 16px;
+  height: 46px;
   background: linear-gradient(180deg, #9a2020 0%, #5a0f0f 100%);
   border-radius: 50% 50% 50% 50% / 65% 65% 35% 35%;
   opacity: 0.85;
@@ -3217,16 +3226,16 @@ body.reduce-flashing #critical-blood-overlay.show {
 }
 
 #menu-title::before {
-  top: 6px;
+  top: 8px;
   left: 21%;
   transform: rotate(10deg);
 }
 
 #menu-title::after {
-  top: 16px;
+  top: 22px;
   right: 16%;
-  width: 9px;
-  height: 24px;
+  width: 12px;
+  height: 32px;
   transform: rotate(-14deg);
 }
 
@@ -3332,7 +3341,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 
 .hero-stat-value {
   font-family: var(--menu-display-font);
-  font-size: 34px;
+  font-size: 42px;
   color: var(--menu-gold);
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -3340,7 +3349,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 
 .hero-stat-label {
   margin-top: 2px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -3364,9 +3373,9 @@ body.reduce-flashing #critical-blood-overlay.show {
 #play-btn {
   position: relative;
   margin-top: 6px;
-  padding: 22px 76px;
+  padding: 27px 92px;
   font-family: 'Black Ops One', var(--menu-display-font);
-  font-size: 30px;
+  font-size: 36px;
   letter-spacing: 3px;
   text-transform: uppercase;
   color: var(--menu-gold);
@@ -3453,8 +3462,8 @@ body.reduce-flashing #critical-blood-overlay.show {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   padding: 0;
   color: var(--menu-gold);
   background: rgba(0, 0, 0, 0.3);
@@ -3470,8 +3479,8 @@ body.reduce-flashing #critical-blood-overlay.show {
 #howtoplay-btn svg,
 #quick-cloud-btn svg,
 #settings-btn svg {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
 }
 
 #quick-mute-btn:hover,
