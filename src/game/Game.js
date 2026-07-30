@@ -6407,15 +6407,14 @@ export class Game {
     if (this.quickCloudBtn) this.quickCloudBtn.classList.toggle('signed-in', signedIn)
     if (this.cloudSignedInDot) this.cloudSignedInDot.style.display = signedIn ? '' : 'none'
     // Avatar precedence: a chosen preset (see _renderProfileAvatarPicker)
-    // wins over the Google profile picture, which wins over the generic
-    // hooded-figure SVG - falls back down the chain as each option becomes
-    // unavailable (no preset chosen, not signed in, or no picture URL on
-    // some Google accounts).
+    // wins, otherwise a plain anonymous hooded-silhouette image - the
+    // signed-in Google photo is deliberately never used here (kept private
+    // to the Cloud Save panel's own account row instead), so signing in
+    // doesn't silently put a real photo on the public-facing homepage.
     if (this.menuAvatarPhoto) {
       const presetUrls = { male: '/images/avatar-male.png', female: '/images/avatar-female.png' }
-      const url = presetUrls[this.settings.avatarChoice] || (signedIn && this._cloudProfile ? this._cloudProfile.picture : null)
-      this.menuAvatarPhoto.src = url || ''
-      this.menuAvatarPhoto.style.display = url ? '' : 'none'
+      this.menuAvatarPhoto.src = presetUrls[this.settings.avatarChoice] || '/images/avatar-anonymous.png'
+      this.menuAvatarPhoto.style.display = ''
     }
   }
 

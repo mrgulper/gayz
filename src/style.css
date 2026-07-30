@@ -3569,15 +3569,9 @@ body.reduce-flashing #critical-blood-overlay.show {
     0 0 20px 4px rgba(255, 211, 92, 0.4);
 }
 
-#menu-avatar-icon svg {
-  width: 50px;
-  height: 50px;
-}
-
-/* Google profile picture (Online Features batch) - covers the generic
-   hooded-figure SVG when signed in, same rounded-square frame, doesn't
-   touch the level badge (still absolutely positioned on top of it via
-   DOM order). */
+/* Avatar image (preset portrait or the default anonymous silhouette, see
+   _updateCloudQuickIcon) - same rounded-square frame, doesn't touch the
+   level badge (still absolutely positioned on top of it via DOM order). */
 #menu-avatar-photo {
   position: absolute;
   inset: 0;
