@@ -29,12 +29,12 @@
 //    from the Firestore Security Rules (step 3), which is why those matter
 //    much more than keeping this object private.
 const FIREBASE_CONFIG = {
-  apiKey: 'REPLACE_WITH_YOUR_FIREBASE_API_KEY',
-  authDomain: 'REPLACE_WITH_YOUR_PROJECT.firebaseapp.com',
-  projectId: 'REPLACE_WITH_YOUR_PROJECT_ID',
-  storageBucket: 'REPLACE_WITH_YOUR_PROJECT.appspot.com',
-  messagingSenderId: 'REPLACE_WITH_YOUR_SENDER_ID',
-  appId: 'REPLACE_WITH_YOUR_APP_ID',
+  apiKey: 'AIzaSyCCA9e3NAWk6MQJS-pnl-Lzq1Yn3nCZwVY',
+  authDomain: 'gayz-aa69c.firebaseapp.com',
+  projectId: 'gayz-aa69c',
+  storageBucket: 'gayz-aa69c.firebasestorage.app',
+  messagingSenderId: '539710194511',
+  appId: '1:539710194511:web:51a5db83526e9445843b3a',
 }
 
 // Paste this exactly into Firebase Console -> Firestore Database -> Rules.
