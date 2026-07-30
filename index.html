@@ -383,6 +383,12 @@
               <button id="quick-colorblind-btn" aria-label="Toggle colorblind mode">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none" opacity="0.5"/></svg>
               </button>
+              <button id="quick-performance-btn" aria-label="Toggle FPS optimized mode">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
+              </button>
+              <button id="quick-language-btn" aria-label="Quick-switch language">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
+              </button>
               <button id="howtoplay-btn" aria-label="How to play">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.9.7c0 1.7-2.4 1.9-2.4 3.3"/><line x1="12" y1="17" x2="12" y2="17.1"/></svg>
               </button>
@@ -410,7 +416,9 @@
               <span id="menu-player-tag">#PLAYER</span>
               <span class="menu-best-stats" id="menu-career-rank"></span>
               <span class="menu-best-stats" id="menu-prestige-badge" style="display: none"></span>
+              <span class="menu-best-stats" id="menu-login-streak" style="display: none"></span>
               <div id="season-progress-track" aria-hidden="true"><div id="season-progress-fill"></div></div>
+              <p id="season-progress-label" style="display: none"></p>
             </div>
 
             <div id="achievement-showcase-row" aria-label="Showcased achievements"></div>
@@ -427,10 +435,12 @@
               <button id="achievements-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0z"/><path d="M7 5H4a1 1 0 0 0-1 1c0 3 2 5 4.5 5.3M17 5h3a1 1 0 0 1 1 1c0 3-2 5-4.5 5.3"/></svg>
                 <span>Achievements</span>
+                <span class="nav-completion-ring" id="achievements-completion-ring" aria-hidden="true"></span>
               </button>
               <button id="bestiary-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v18H6.5A2.5 2.5 0 0 0 4 22.5z"/><path d="M4 4.5v16"/></svg>
                 <span>Bestiary</span>
+                <span class="nav-completion-ring" id="bestiary-completion-ring" aria-hidden="true"></span>
               </button>
               <button id="credits-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
@@ -840,6 +850,13 @@
         <h2 id="profile-panel-title">Profile</h2>
         <div class="perk-options" id="profile-options"></div>
         <div id="profile-emblem-row"></div>
+        <h3 id="profile-title-heading" style="display: none">Title</h3>
+        <div id="profile-title-row"></div>
+        <p id="profile-nearly-there-line" style="display: none"></p>
+        <h3 id="profile-weekly-recap-title" style="display: none">This Week</h3>
+        <p id="profile-weekly-recap-line" style="display: none"></p>
+        <h3 id="profile-activity-title" style="display: none">Recent Unlocks</h3>
+        <div id="profile-activity-list"></div>
         <button id="profile-run-history-btn">Run History</button>
         <div id="profile-run-history-list" style="display: none"></div>
         <button id="profile-career-portrait-btn" style="display: none">Save Career Portrait</button>

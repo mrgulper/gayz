@@ -858,6 +858,15 @@ body.reduce-flashing #critical-blood-overlay.show {
   text-shadow: 0 0 6px rgba(255, 211, 92, 0.5);
 }
 
+/* Login streak badge - shares the row with career-rank/prestige-badge
+   (all inline .menu-best-stats spans), so a short streak doesn't force a
+   new line at typical column widths. Only shown at streak >= 2 (see
+   _updateLoginStreakBadge) so a first-time player never sees "Streak 1". */
+#menu-login-streak {
+  color: var(--menu-orange) !important;
+  font-weight: 700 !important;
+}
+
 .leaderboard-row {
   display: flex;
   justify-content: space-between;
@@ -1891,6 +1900,64 @@ body.reduce-flashing #critical-blood-overlay.show {
 }
 
 .run-history-entry:last-child {
+  border-bottom: none;
+}
+
+/* Player Title picker (Profile panel) - reuses ACHIEVEMENTS' existing
+   titleKey/tag/color fields as the pool of unlockable titles (see
+   _renderTitlePicker) rather than authoring a whole separate title list -
+   same swatch-row pattern as #profile-emblem-row just above it. */
+#profile-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  max-width: 360px;
+}
+
+.title-chip {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--menu-text-dim, #ccc);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.title-chip.active {
+  color: #0c130c;
+  background: var(--menu-gold, #e3a63c);
+  border-color: var(--menu-gold, #e3a63c);
+}
+
+#profile-nearly-there-line,
+#profile-weekly-recap-line {
+  margin: 4px 0;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+#profile-activity-list {
+  max-height: 120px;
+  overflow-y: auto;
+  margin-top: 4px;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  text-align: left;
+}
+
+.activity-entry {
+  margin: 0;
+  padding: 3px 0;
+  font-size: 12px;
+  color: rgba(238, 238, 238, 0.8);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.activity-entry:last-child {
   border-bottom: none;
 }
 
@@ -2942,6 +3009,8 @@ body.reduce-flashing #critical-blood-overlay.show {
 
 #quick-mute-btn,
 #quick-colorblind-btn,
+#quick-performance-btn,
+#quick-language-btn,
 #howtoplay-btn,
 #settings-btn {
   display: flex;
@@ -2959,6 +3028,8 @@ body.reduce-flashing #critical-blood-overlay.show {
 
 #quick-mute-btn svg,
 #quick-colorblind-btn svg,
+#quick-performance-btn svg,
+#quick-language-btn svg,
 #howtoplay-btn svg,
 #settings-btn svg {
   width: 20px;
@@ -2967,6 +3038,8 @@ body.reduce-flashing #critical-blood-overlay.show {
 
 #quick-mute-btn:hover,
 #quick-colorblind-btn:hover,
+#quick-performance-btn:hover,
+#quick-language-btn:hover,
 #howtoplay-btn:hover {
   background: rgba(227, 166, 60, 0.12);
 }
@@ -2974,6 +3047,11 @@ body.reduce-flashing #critical-blood-overlay.show {
 #quick-mute-btn.active {
   color: var(--menu-red);
   border-color: var(--menu-red);
+}
+
+#quick-performance-btn.active {
+  color: var(--menu-green);
+  border-color: var(--menu-green);
 }
 
 #quick-colorblind-btn.active {
@@ -3098,6 +3176,14 @@ body.reduce-flashing #critical-blood-overlay.show {
   transition: width 0.4s ease;
 }
 
+/* "X kills to next rank" - a concrete number under the bar, see
+   _updateSeasonProgress. Hidden once maxed (no next tier). */
+#season-progress-label {
+  margin: 2px 0 0;
+  font-size: 10px;
+  color: var(--menu-text-dim);
+}
+
 /* Achievement Showcase - up to 3 pinned achievement badges next to the
    player tag (see _cycleShowcaseSlot). Each slot cycles through your
    unlocked achievements on click - no separate picker modal needed for
@@ -3185,6 +3271,28 @@ body.reduce-flashing #critical-blood-overlay.show {
   background: var(--menu-red);
   border: 2px solid var(--menu-gunmetal-dark);
   border-radius: 50%;
+}
+
+/* Completion ring (Achievements/Bestiary nav buttons) - a donut built from
+   a conic-gradient plus an inner-circle cutout, --pct set inline per
+   button in _updateNavCompletionRings. Same zero-layout-cost absolute
+   overlay technique as .nav-badge-dot above. */
+.nav-completion-ring {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: conic-gradient(var(--menu-gold) var(--pct, 0%), rgba(255, 255, 255, 0.15) 0);
+}
+
+.nav-completion-ring::before {
+  content: '';
+  position: absolute;
+  inset: 2.5px;
+  border-radius: 50%;
+  background: var(--menu-gunmetal-dark);
 }
 
 #menu-boards {

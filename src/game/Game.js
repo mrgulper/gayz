@@ -236,6 +236,12 @@ function loadSettings() {
       showcaseSlots: Array.isArray(parsed.showcaseSlots) && parsed.showcaseSlots.length === 3 ? parsed.showcaseSlots : [null, null, null],
       menuPresets: Array.isArray(parsed.menuPresets) ? parsed.menuPresets.slice(0, 3) : [],
       mutedBeforeVolumes: parsed.mutedBeforeVolumes || null,
+      // Second Homepage batch - Player Title (an achievement id, reusing
+      // ACHIEVEMENTS' own titleKey as display text - see _renderTitlePicker)
+      // and the Quick Language toggle's remembered "most recent non-English
+      // pick" (see #quick-language-btn's handler).
+      playerTitle: parsed.playerTitle || null,
+      quickLanguageAlt: parsed.quickLanguageAlt || 'es',
       mutators: {
         hordeRush: parsed.mutators?.hordeRush ?? false,
         lootRush: parsed.mutators?.lootRush ?? false,
@@ -268,7 +274,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, profileEmblem: 'none', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, profileEmblem: 'none', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, playerTitle: null, quickLanguageAlt: 'es', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -1578,6 +1584,18 @@ function _saveScreenshotGallery(list) {
     // the gallery just won't persist across sessions.
   }
 }
+
+// Nearly There nudge (Profile panel) - deliberately a small curated list,
+// not every achievement: most ACHIEVEMENTS conditions are per-run counters
+// (this.totalKills, this.stealthTakedowns, etc.) that reset every session,
+// so showing "progress" toward them would be misleading. These two are the
+// ones with genuinely persistent, numeric backing (see the audit comments
+// at their own unlock() call sites in _onZombieKilled/the outfit-buy
+// handler).
+const NEARLY_THERE_CANDIDATES = [
+  { achievementId: 'bestiary_master', current: (g) => g.bestiaryEncountered.size, total: (g) => Object.keys(ZOMBIE_TYPES).length },
+  { achievementId: 'fashion_icon', current: (g) => g.ownedOutfits.size, total: (g) => COIN_SHOP_ITEMS.filter((i) => i.outfit).length },
+]
 const KILLCAM_ZOOM_FOV_MULT = 0.75
 // Killstreak rewards - this.killStreak counts consecutive kills without
 // dying (reset in _onPlayerDeath), distinct from the flat "every 10th kill"
@@ -2463,6 +2481,23 @@ export class Game {
     this.whatsNewDot = document.getElementById('whats-new-dot')
     this.profileScreenshotGallery = document.getElementById('profile-screenshot-gallery')
     this.profileGalleryTitle = document.getElementById('profile-gallery-title')
+    // Second Homepage batch - login streak badge, nav completion rings,
+    // season-progress countdown label, Player Title picker, Nearly There
+    // nudge, Weekly Recap, Recent Activity feed, and the 2 new quick-action
+    // icons (performance/language).
+    this.menuLoginStreak = document.getElementById('menu-login-streak')
+    this.achievementsCompletionRing = document.getElementById('achievements-completion-ring')
+    this.bestiaryCompletionRing = document.getElementById('bestiary-completion-ring')
+    this.seasonProgressLabel = document.getElementById('season-progress-label')
+    this.profileTitleHeading = document.getElementById('profile-title-heading')
+    this.profileTitleRow = document.getElementById('profile-title-row')
+    this.profileNearlyThereLine = document.getElementById('profile-nearly-there-line')
+    this.profileWeeklyRecapTitle = document.getElementById('profile-weekly-recap-title')
+    this.profileWeeklyRecapLine = document.getElementById('profile-weekly-recap-line')
+    this.profileActivityTitle = document.getElementById('profile-activity-title')
+    this.profileActivityList = document.getElementById('profile-activity-list')
+    this.quickPerformanceBtn = document.getElementById('quick-performance-btn')
+    this.quickLanguageBtn = document.getElementById('quick-language-btn')
     this.menuLeaderboard = document.getElementById('menu-leaderboard')
     this.menuBossRushLeaderboard = document.getElementById('menu-bossrush-leaderboard')
     this.menuHouseholdLeaderboard = document.getElementById('menu-household-leaderboard')
@@ -5558,6 +5593,8 @@ export class Game {
       const btn = e.target.closest('.language-btn')
       if (!btn) return
       this.settings.language = btn.dataset.lang
+      // Remembered for #quick-language-btn's English<->alt toggle.
+      if (btn.dataset.lang !== 'en') this.settings.quickLanguageAlt = btn.dataset.lang
       saveSettings(this.settings)
       setLanguage(this.settings.language)
       this._applyLanguage()
@@ -7981,16 +8018,31 @@ export class Game {
     }
     if (this.statLastRun) {
       const last = this.runHistory[0]
-      this.statLastRun.textContent = last
-        ? t(last.survived ? 'runHistorySurvived' : 'runHistoryDied', { night: _safeStatNumber(last.night), kills: _safeStatNumber(last.kills), coins: _safeStatNumber(last.coins) })
-        : '--'
+      if (last) {
+        let line = t(last.survived ? 'runHistorySurvived' : 'runHistoryDied', { night: _safeStatNumber(last.night), kills: _safeStatNumber(last.kills), coins: _safeStatNumber(last.coins) })
+        // Personal-best delta - compares only against bestStats.bestNight
+        // (already the single source of truth for "your best run ever"),
+        // not a new "is this actually the best" computation of its own.
+        const nightDelta = _safeStatNumber(last.night) - _safeStatNumber(bestNight)
+        if (nightDelta === 0 && _safeStatNumber(last.night) > 0) line += ` — ${t('deltaNewBest')}`
+        else if (nightDelta < 0) line += ` (${t('deltaFromBest', { n: Math.abs(nightDelta) })})`
+        this.statLastRun.textContent = line
+      } else {
+        this.statLastRun.textContent = '--'
+      }
       if (this.continueActions) this.continueActions.style.display = last ? 'flex' : 'none'
     }
 
     if (this.menuCareerRank) {
-      this.menuCareerRank.textContent = this.careerStats.totalKills === 0
-        ? ''
-        : t('careerRankLabel', { rank: t(careerRankTitleKey(this.careerStats.totalKills)), kills: this.careerStats.totalKills })
+      // Player Title (see _renderTitlePicker) replaces the auto career-rank
+      // text when set, rather than adding a second line - zero new
+      // homepage height either way.
+      const titleDef = this.settings.playerTitle ? ACHIEVEMENTS.find((a) => a.id === this.settings.playerTitle) : null
+      this.menuCareerRank.textContent = titleDef
+        ? t(titleDef.titleKey)
+        : this.careerStats.totalKills === 0
+          ? ''
+          : t('careerRankLabel', { rank: t(careerRankTitleKey(this.careerStats.totalKills)), kills: this.careerStats.totalKills })
     }
     // Avatar level badge - the same tier index careerRankTitleKey already
     // derives from totalKills, just as a plain 1-5 number instead of a title.
@@ -8011,6 +8063,8 @@ export class Game {
     this._updateAchievementShowcase()
     this._updateMenuSpotlight()
     this._updateWhatsNewDot()
+    this._updateLoginStreakBadge()
+    this._updateNavCompletionRings()
   }
 
   // Recommended Difficulty hint - only shown once a difficulty has at
@@ -8052,10 +8106,46 @@ export class Game {
     const next = CAREER_RANK_TITLES[tierIndex + 1]
     if (!next) {
       this.seasonProgressFill.style.width = '100%'
+      if (this.seasonProgressLabel) this.seasonProgressLabel.style.display = 'none'
       return
     }
     const pct = ((kills - current.min) / (next.min - current.min)) * 100
     this.seasonProgressFill.style.width = `${Math.max(0, Math.min(100, pct))}%`
+    if (this.seasonProgressLabel) {
+      this.seasonProgressLabel.textContent = t('seasonProgressLabel', { n: next.min - kills, rank: t(next.titleKey) })
+      this.seasonProgressLabel.style.display = ''
+    }
+  }
+
+  // Login Streak badge - surfaces the existing loginStreak tracker (which
+  // otherwise only ever shows once, as a one-time toast on login) as a
+  // small persistent badge, same row as career-rank/prestige-badge. Only
+  // shown from streak 2 onward so day-one players don't see "Streak: 1".
+  _updateLoginStreakBadge() {
+    if (!this.menuLoginStreak) return
+    if (this.loginStreak.streak >= 2) {
+      this.menuLoginStreak.textContent = t('loginStreakBadge', { n: this.loginStreak.streak })
+      this.menuLoginStreak.style.display = ''
+    } else {
+      this.menuLoginStreak.style.display = 'none'
+    }
+  }
+
+  // Completion rings (Achievements/Bestiary nav buttons) - reuses the same
+  // ratios _openProfilePanel's Hall of Records % already computes, just
+  // per-category instead of averaged into one number.
+  _updateNavCompletionRings() {
+    if (this.achievementsCompletionRing) {
+      const pct = Math.round((this.achievements.unlocked.size / ACHIEVEMENTS.length) * 100)
+      this.achievementsCompletionRing.style.setProperty('--pct', `${pct}%`)
+      this.achievementsCompletionRing.title = t('completionRingTitle', { pct })
+    }
+    if (this.bestiaryCompletionRing) {
+      const total = Object.keys(ZOMBIE_TYPES).length
+      const pct = total > 0 ? Math.round((this.bestiaryEncountered.size / total) * 100) : 0
+      this.bestiaryCompletionRing.style.setProperty('--pct', `${pct}%`)
+      this.bestiaryCompletionRing.title = t('completionRingTitle', { pct })
+    }
   }
 
   // Achievement Showcase - up to 3 pinned badges next to the player tag.
@@ -8102,7 +8192,7 @@ export class Game {
   _updateMenuSpotlight() {
     if (!this.menuSpotlight) return
     const render = () => {
-      const mode = (this._spotlightIndex || 0) % 3
+      const mode = (this._spotlightIndex || 0) % 4
       if (mode === 0) {
         const tipKey = SPOTLIGHT_TIPS[Math.floor(Date.now() / 60000) % SPOTLIGHT_TIPS.length]
         this.menuSpotlight.textContent = t('spotlightTipPrefix', { tip: t(tipKey) })
@@ -8114,8 +8204,21 @@ export class Game {
         const h = Math.floor(msLeft / 3600000)
         const m = Math.floor((msLeft % 3600000) / 60000)
         this.menuSpotlight.textContent = t('spotlightDailyReset', { h, m })
-      } else if (this.weeklyDef) {
+      } else if (mode === 2 && this.weeklyDef) {
         this.menuSpotlight.textContent = t('spotlightWeeklyChallenge', { title: t(this.weeklyDef.titleKey), target: this.weeklyDef.target })
+      } else {
+        // Featured Bestiary entry - day-seeded (same hash-the-date-string
+        // technique DAILY_TWISTS uses) so it's stable for the whole day
+        // rather than re-rolling every 6s, prioritizing an undiscovered
+        // type over an already-encountered one to tease the Bestiary.
+        const ids = Object.keys(ZOMBIE_TYPES)
+        const undiscovered = ids.filter((id) => !this.bestiaryEncountered.has(id))
+        const pool = undiscovered.length > 0 ? undiscovered : ids
+        const id = pool[_dailyTwistIndex(_todayDateStr()) % pool.length]
+        const zt = ZOMBIE_TYPES[id]
+        this.menuSpotlight.textContent = this.bestiaryEncountered.has(id)
+          ? t('spotlightBestiaryKnown', { label: zt.label })
+          : t('spotlightBestiaryUnknown')
       }
       this._spotlightIndex = (this._spotlightIndex || 0) + 1
     }
@@ -8345,6 +8448,38 @@ export class Game {
         if (this.colorblindToggle) this.colorblindToggle.checked = this.settings.colorblind
         saveSettings(this.settings)
         this.quickColorblindBtn.classList.toggle('active', this.settings.colorblind)
+      })
+    }
+
+    if (this.quickPerformanceBtn) {
+      this.quickPerformanceBtn.classList.toggle('active', this.settings.performanceMode)
+      this.quickPerformanceBtn.addEventListener('click', () => {
+        this.settings.performanceMode = !this.settings.performanceMode
+        this._applyPerformanceMode(this.settings.performanceMode)
+        if (this.performanceToggle) this.performanceToggle.checked = this.settings.performanceMode
+        saveSettings(this.settings)
+        this.quickPerformanceBtn.classList.toggle('active', this.settings.performanceMode)
+      })
+    }
+
+    // Quick Language toggle - flips between English and settings.
+    // quickLanguageAlt (the most recent non-English language picked via
+    // the full grid in Settings, see _bindSettings' language-btn handler)
+    // rather than cycling all 20 LANGUAGES one at a time, and rather than
+    // just reopening Settings (which already defaults to the Language tab
+    // - a second icon doing the exact same thing would be a pure duplicate).
+    if (this.quickLanguageBtn) {
+      this.quickLanguageBtn.addEventListener('click', () => {
+        const next = this.settings.language === 'en' ? this.settings.quickLanguageAlt : 'en'
+        this.settings.language = next
+        saveSettings(this.settings)
+        setLanguage(next)
+        this._applyLanguage()
+        if (this.languageGrid) {
+          for (const el of this.languageGrid.querySelectorAll('.language-btn')) {
+            el.classList.toggle('active', el.dataset.lang === next)
+          }
+        }
       })
     }
 
@@ -10012,6 +10147,101 @@ export class Game {
         this._openProfilePanel()
       })
     }
+
+    this._renderTitlePicker()
+    this._renderNearlyThereNudge()
+    this._renderWeeklyRecap()
+    this._renderRecentActivity()
+  }
+
+  // Player Title picker - reuses ACHIEVEMENTS' own titleKey (+ tag/color)
+  // as the pool of unlockable titles, same "extend an existing system
+  // instead of inventing a parallel one" reasoning as Achievement Showcase.
+  // Shown on the homepage via #menu-career-rank when set (see
+  // _updateBestStatsDisplay), falling back to the auto-computed career
+  // rank text when not - zero new homepage vertical space either way.
+  _renderTitlePicker() {
+    if (!this.profileTitleRow) return
+    const unlockedIds = ACHIEVEMENTS.filter((a) => this.achievements.unlocked.has(a.id)).map((a) => a.id)
+    if (unlockedIds.length === 0) {
+      this.profileTitleHeading.style.display = 'none'
+      this.profileTitleRow.innerHTML = ''
+      return
+    }
+    this.profileTitleHeading.style.display = ''
+    this.profileTitleHeading.textContent = t('profileTitleHeading')
+    const chips = [{ id: null, label: t('profileTitleNone') }, ...unlockedIds.map((id) => ({ id, label: t(ACHIEVEMENTS.find((a) => a.id === id).titleKey) }))]
+    this.profileTitleRow.innerHTML = chips.map((c) => `
+      <button class="title-chip${this.settings.playerTitle === c.id ? ' active' : ''}" data-title="${c.id || ''}">${_escapeHtml(c.label)}</button>
+    `).join('')
+    for (const btn of this.profileTitleRow.querySelectorAll('.title-chip')) {
+      btn.addEventListener('click', () => {
+        this.settings.playerTitle = btn.dataset.title || null
+        saveSettings(this.settings)
+        this._openProfilePanel()
+        this._updateBestStatsDisplay()
+      })
+    }
+  }
+
+  // Nearly There nudge - the single closest-to-unlocking achievement among
+  // a small curated set of *persistent, numeric* achievements (most
+  // achievement conditions are per-run counters that reset, so aren't
+  // meaningful to show as a lifetime "so close" hint).
+  _renderNearlyThereNudge() {
+    if (!this.profileNearlyThereLine) return
+    let best = null
+    for (const c of NEARLY_THERE_CANDIDATES) {
+      if (this.achievements.unlocked.has(c.achievementId)) continue
+      const total = c.total(this)
+      if (total <= 0) continue
+      const current = Math.min(c.current(this), total)
+      const ratio = current / total
+      if (!best || ratio > best.ratio) best = { ...c, current, total, ratio }
+    }
+    if (!best) {
+      this.profileNearlyThereLine.style.display = 'none'
+      return
+    }
+    const def = ACHIEVEMENTS.find((a) => a.id === best.achievementId)
+    this.profileNearlyThereLine.textContent = t('nearlyThereLine', { title: t(def.titleKey), current: best.current, total: best.total })
+    this.profileNearlyThereLine.style.display = ''
+  }
+
+  // Weekly Recap - aggregates runHistory entries from the last 7 real days
+  // (rolling window, not calendar-week-aligned like WEEKLY_CHALLENGES) -
+  // pure derived display, no new tracking, same reasoning as
+  // _openProfilePanel's completionPct.
+  _renderWeeklyRecap() {
+    if (!this.profileWeeklyRecapLine) return
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000
+    const recent = this.runHistory.filter((r) => _safeStatNumber(r.ts) >= cutoff)
+    this.profileWeeklyRecapTitle.style.display = ''
+    this.profileWeeklyRecapTitle.textContent = t('weeklyRecapTitle')
+    this.profileWeeklyRecapLine.style.display = ''
+    if (recent.length === 0) {
+      this.profileWeeklyRecapLine.textContent = t('weeklyRecapEmpty')
+      return
+    }
+    const kills = recent.reduce((sum, r) => sum + _safeStatNumber(r.kills), 0)
+    const bestNight = recent.reduce((max, r) => Math.max(max, _safeStatNumber(r.night)), 0)
+    this.profileWeeklyRecapLine.textContent = t('weeklyRecapLine', { kills, runs: recent.length, night: bestNight })
+  }
+
+  // Recent Activity - the last 5 achievement unlocks, read straight off
+  // Achievements' own unlocked Set (a JS Set preserves insertion order, so
+  // this needs no separate timestamped history of its own).
+  _renderRecentActivity() {
+    if (!this.profileActivityList) return
+    const recent = [...this.achievements.unlocked].slice(-5).reverse()
+    this.profileActivityTitle.style.display = ''
+    this.profileActivityTitle.textContent = t('recentActivityTitle')
+    this.profileActivityList.innerHTML = recent.length
+      ? recent.map((id) => {
+          const def = ACHIEVEMENTS.find((a) => a.id === id)
+          return `<p class="activity-entry">${_escapeHtml(def ? t(def.titleKey) : id)}</p>`
+        }).join('')
+      : `<p class="activity-entry">${t('recentActivityEmpty')}</p>`
   }
 
   _closeProfilePanel() {
