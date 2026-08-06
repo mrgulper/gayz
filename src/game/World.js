@@ -2899,6 +2899,35 @@ export function buildWorld(scene, trophyCount = 15) {
   }
   const allCullables = [...cullableSet]
 
+  // Freeze every object the map just built. Everything above this line is
+  // static (buildings, roads, decoration) and never moves again after
+  // placement, but three.js still recomputes a fresh local matrix for
+  // matrixAutoUpdate:true objects every single frame regardless - pure
+  // wasted cost at ~15k objects. See docs/PERFORMANCE.md Option A2 (this
+  // is more thorough than that doc's own suggested register()-only edit:
+  // register() only covers objects that also need a collider, which
+  // turned out to be a small minority - most of the object count is
+  // register()-skipping decoration like railings/helipads/rooftops, see
+  // e.g. buildOfficeSkyscraper). Safe to blanket-freeze the whole scene
+  // here specifically because nothing else has been added to it yet at
+  // this point in construction - zombies/companions/seasonal
+  // banners/lore markers/the wrecking pendulum/mine-hazard rubble are all
+  // built later, by Game.js, after buildWorld() has already returned.
+  scene.traverse((obj) => {
+    obj.updateMatrix()
+    obj.matrixAutoUpdate = false
+  })
+
+  // See docs/PERFORMANCE.md Option A1: _updateCulling (Game.js) detaches
+  // out-of-range cullables from the scene graph instead of just hiding
+  // them (a hidden object is still walked and matrix-updated every frame -
+  // hiding isn't removing). Captured once here, before anything is ever
+  // detached, rather than re-derived dynamically at detach time, so
+  // reattachment always targets the object's real original parent (never
+  // the scene root - several cullables are children of building groups and
+  // depend on that group's transform).
+  for (const obj of allCullables) obj.__parkedParent = obj.parent
+
   return {
     colliders,
     solidMeshes,

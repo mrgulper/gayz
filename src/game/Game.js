@@ -2916,6 +2916,18 @@ export class Game {
     // biggest free visual-quality win available (no extra render cost).
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
     this.renderer.toneMappingExposure = 1.1
+    // renderer.info auto-resets at the start of every individual render()
+    // call, and EffectComposer.render() makes several (RenderPass, bloom,
+    // then a final OutputPass that just draws one fullscreen quad) - so
+    // reading renderer.info.render.calls right after composer.render()
+    // used to always read "1" (only the last pass's count survived the
+    // next auto-reset). Turning auto-reset off and resetting/reading it
+    // ourselves around the whole composer.render() call (see _tick) gives
+    // the real total instead. See docs/PERFORMANCE.md §3 "known-bad
+    // diagnostic".
+    this.renderer.info.autoReset = false
+    this._lastFrameDrawCalls = 0
+    this._lastFrameTriangles = 0
 
     // Weapon viewmodel (and every other metalness-tuned surface) env-map
     // reflections - a scene-wide `scene.environment` is the only way PBR
@@ -7230,7 +7242,13 @@ export class Game {
     // was specifically proven not to rescue an already-catastrophic case.
     // This is a flat baseline cost reduction, not trying to "save" a bad
     // frame - a different goal, still worth doing.
-    return LOW_QUALITY_MODE ? 0.75 : window.devicePixelRatio
+    // Capped at 2x even outside LOW_QUALITY_MODE - a 2.5x+ high-DPI
+    // display would otherwise render 6x+ the pixels for a resolution
+    // difference invisible at gameplay viewing distance. Dormant today
+    // (LOW_QUALITY_MODE is hardcoded true, so the branch above always
+    // wins) but see docs/PERFORMANCE.md Option A3/B: this is the landmine
+    // it warns about for whoever turns that flag back off.
+    return LOW_QUALITY_MODE ? 0.75 : Math.min(window.devicePixelRatio, 2)
   }
 
   _applyRenderScale() {
@@ -12676,7 +12694,23 @@ export class Game {
       const dx = obj.position.x - playerPos.x
       const dz = obj.position.z - playerPos.z
       const distSq = dx * dx + dz * dz
-      obj.visible = distSq < cullSq
+      const wantsVisible = distSq < cullSq
+      obj.visible = wantsVisible
+      // A hidden (visible=false) object still gets walked and matrix-
+      // updated by scene.updateMatrixWorld() every frame - hiding isn't
+      // removing. Actually detaching it from the scene graph while out of
+      // range (and reattaching to its ORIGINAL parent - never the scene
+      // root, since some cullables are children of building groups and
+      // rely on that group's transform) skips that cost entirely. See
+      // docs/PERFORMANCE.md Option A1; __parkedParent is captured once per
+      // object at the end of World.js's buildWorld(), before anything is
+      // ever detached. Colliders are a separate Box3 array untouched by
+      // this, so raycasts/collision against culled objects are unaffected.
+      if (wantsVisible) {
+        if (!obj.parent) obj.__parkedParent.add(obj)
+      } else if (obj.parent) {
+        obj.parent.remove(obj)
+      }
       const wantsShadow = distSq < shadowSq
       if (obj.castShadow !== wantsShadow) obj.castShadow = wantsShadow
       if (obj.isMesh) continue
@@ -13887,12 +13921,14 @@ export class Game {
     if (fpsElapsed >= 500) {
       const fps = Math.round((this._fpsFrameCount * 1000) / fpsElapsed)
       const msPerFrame = (fpsElapsed / this._fpsFrameCount).toFixed(1)
-      // Extended perf overlay - zombie count and draw calls (renderer.info
-      // is three.js's own built-in counter, reset automatically every
-      // render() call) alongside the fps/frame-time this already showed,
-      // so a real slowdown's likely cause is visible without opening
-      // devtools.
-      const drawCalls = this.renderer.info.render.calls
+      // Extended perf overlay - zombie count and draw calls alongside the
+      // fps/frame-time this already showed, so a real slowdown's likely
+      // cause is visible without opening devtools. Reads the value
+      // captured right after last frame's composer.render() (see bottom
+      // of _tick and the autoReset=false note near renderer creation) -
+      // reading renderer.info.render.calls live here would always show 1,
+      // see docs/PERFORMANCE.md §3.
+      const drawCalls = this._lastFrameDrawCalls
       this.fpsEl.textContent = `${fps} fps / ${msPerFrame} ms / ${this.zombies.zombies.length} zmb / ${drawCalls} draws`
       this._fpsFrameCount = 0
       this._fpsLastUpdate = nowFps
@@ -14361,6 +14397,9 @@ export class Game {
     this.camera.position.add(this._shakeOffset)
     this.camera.position.y += this._landingDipY
 
+    this.renderer.info.reset()
     this.composer.render()
+    this._lastFrameDrawCalls = this.renderer.info.render.calls
+    this._lastFrameTriangles = this.renderer.info.render.triangles
   }
 }
