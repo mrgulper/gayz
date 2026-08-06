@@ -8267,21 +8267,49 @@ function buildElevatedRoom(scene, colliders, solidMeshes, cx, cz, floorMat, wall
   }
 }
 
+// Was `steps + 1` separate Mesh objects (474 of them summed across the
+// map's 9 staircases) - one InstancedMesh per flight instead, per
+// docs/PERFORMANCE.md Option B2. Deliberately one InstancedMesh PER CALL
+// (per staircase), not one shared across all 9: the doc's own pitfall
+// note ("instance within a chunk, cull the whole InstancedMesh as a
+// unit") applies here because A1's _updateCulling culls/detaches whole
+// cullable objects based on a single obj.position - a flight-local
+// InstancedMesh has a sensible one, a single map-wide one covering all 9
+// scattered staircases would not (there's no one point that's "near" all
+// of them at once). Confirmed via three.js's own InstancedMesh source
+// that Box3.setFromObject (used by World.js's register()/A1's parking and
+// PlayerController's ground-detection grid) already computes a correct
+// per-instance-aware bounding box for InstancedMesh automatically - no
+// changes needed elsewhere for either system to keep working.
 function buildStairFlight(scene, solidMeshes, x0, z0, y0, x1, z1, y1, steps) {
   const stepMat = cachedFlatMaterial({ color: 0x332e26, roughness: 0.9 })
   const geo = new THREE.BoxGeometry(1.6, 0.25, 1.0)
 
-  for (let i = 0; i <= steps; i++) {
+  const count = steps + 1
+  const mesh = new THREE.InstancedMesh(geo, stepMat, count)
+  mesh.castShadow = true
+  mesh.receiveShadow = true
+  // A1/register() read obj.position directly for distance culling/parking
+  // - an InstancedMesh has no single "true" position the way a normally-
+  // placed Mesh does, so this uses the flight's own midpoint and each
+  // instance's matrix is built relative to it below.
+  const midX = (x0 + x1) / 2
+  const midY = (y0 + y1) / 2
+  const midZ = (z0 + z1) / 2
+  mesh.position.set(midX, midY, midZ)
+  const m = new THREE.Matrix4()
+  for (let i = 0; i < count; i++) {
     const t = i / steps
-    const step = new THREE.Mesh(geo, stepMat)
-    step.position.set(
-      THREE.MathUtils.lerp(x0, x1, t),
-      THREE.MathUtils.lerp(y0, y1, t),
-      THREE.MathUtils.lerp(z0, z1, t)
+    m.makeTranslation(
+      THREE.MathUtils.lerp(x0, x1, t) - midX,
+      THREE.MathUtils.lerp(y0, y1, t) - midY,
+      THREE.MathUtils.lerp(z0, z1, t) - midZ
     )
-    step.castShadow = true
-    step.receiveShadow = true
-    scene.add(step)
-    solidMeshes.push(step) // walkable, intentionally not a horizontal collider
+    mesh.setMatrixAt(i, m)
   }
+  mesh.instanceMatrix.needsUpdate = true
+  mesh.computeBoundingBox()
+  mesh.computeBoundingSphere()
+  scene.add(mesh)
+  solidMeshes.push(mesh) // walkable, intentionally not a horizontal collider
 }
