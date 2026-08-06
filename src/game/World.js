@@ -1,6 +1,5 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { registerZone, clearZones } from './Zones.js'
 import { LOOT_WEIGHTS } from './Chests.js'
 import { LOW_QUALITY_MODE, flatMaterial, cachedFlatMaterial, flattenedClone } from './QualitySettings.js'
@@ -278,18 +277,6 @@ export function buildWorld(scene, trophyCount = 15) {
   const register = (object, explicitBox) => {
     object.updateWorldMatrix(true, false)
     colliders.push(explicitBox || new THREE.Box3().setFromObject(object))
-    solidMeshes.push(object)
-    cullables.push(object)
-  }
-  // Split halves of register(), for callers merging several small meshes
-  // into one bigger one (see docs/PERFORMANCE.md Option B3, buildRoom's
-  // wall merging) - the individual per-segment colliders still need to
-  // exist separately (so doorway gaps stay walkable, not sealed by one
-  // big box), but only the ONE merged mesh should be tracked for
-  // rendering/culling. Attached to `register` itself rather than adding
-  // new parameters threaded through every caller (~250+ call sites).
-  register.colliderOnly = (box) => colliders.push(box)
-  register.meshOnly = (object) => {
     solidMeshes.push(object)
     cullables.push(object)
   }
@@ -3780,32 +3767,13 @@ function buildRoom(scene, register, spec) {
   const doorWidth = new Map(doorSides.map((ds) => [ds.side, ds.width]))
   const isOpen = (side) => openSides.includes(side)
 
-  // Wall segments (up to 8 per room: 4 sides, up to 2 each around a door
-  // gap) get merged into ONE mesh per room instead of one draw call each -
-  // see docs/PERFORMANCE.md Option B3. This is the single most-reused
-  // wall-building primitive in the game (nearly every building calls it),
-  // so it's the highest-leverage merge target. Each segment's own Box3
-  // collider is still pushed individually (via register.colliderOnly) so
-  // doorway gaps stay walkable - a merged mesh's combined bounding box
-  // would otherwise seal them. Geometries are translated relative to the
-  // room's own center (x,z) rather than absolute world position, and the
-  // merged mesh's own .position is set to that center afterward - same
-  // reasoning as A1's InstancedMesh stair flights: _updateCulling reads
-  // obj.position directly, and a merged mesh needs ONE sensible
-  // representative point for per-object distance culling to still work.
-  const wallGeoms = []
   const addWallSeg = (wx, wz, sw, sd) => {
-    const geo = new THREE.BoxGeometry(sw, wallHeight, sd)
-    geo.translate(wx, wallHeight / 2, wz)
-    wallGeoms.push(geo)
-
-    const cx = x + wx
-    const cy = floorY + wallHeight / 2
-    const cz = z + wz
-    register.colliderOnly(new THREE.Box3(
-      new THREE.Vector3(cx - sw / 2, cy - wallHeight / 2, cz - sd / 2),
-      new THREE.Vector3(cx + sw / 2, cy + wallHeight / 2, cz + sd / 2)
-    ))
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(sw, wallHeight, sd), wallMat)
+    wall.position.set(x + wx, floorY + wallHeight / 2, z + wz)
+    wall.castShadow = true
+    wall.receiveShadow = true
+    scene.add(wall)
+    register(wall)
   }
 
   if (!isOpen('north')) {
@@ -3847,16 +3815,6 @@ function buildRoom(scene, register, spec) {
       addWallSeg(-halfW, -(gap / 2 + segLen / 2), t, segLen)
       addWallSeg(-halfW, gap / 2 + segLen / 2, t, segLen)
     }
-  }
-
-  if (wallGeoms.length > 0) {
-    const mergedGeo = mergeGeometries(wallGeoms)
-    const wallMesh = new THREE.Mesh(mergedGeo, wallMat)
-    wallMesh.position.set(x, floorY, z)
-    wallMesh.castShadow = true
-    wallMesh.receiveShadow = true
-    scene.add(wallMesh)
-    register.meshOnly(wallMesh)
   }
 
   const doorSpots = doorSides.map((ds) => {
