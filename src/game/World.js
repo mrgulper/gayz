@@ -3267,7 +3267,10 @@ function buildGenerator(scene, register) {
 
   const bodyMat = cachedFlatMaterial({ color: 0x3a4530, roughness: 0.8 })
   const trimMat = cachedFlatMaterial({ color: 0x1c1c1a, roughness: 0.5, metalness: 0.5 })
-  const indicatorMat = cachedFlatMaterial({ color: 0x0a2a0a, emissive: 0x2aff3e, emissiveIntensity: 1 })
+  // NOT cachedFlatMaterial - Game.js's _updateGenerator mutates this
+  // per-instance based on fuel level. See docs/PERFORMANCE.md Option B1's
+  // own warning about exactly this bug class.
+  const indicatorMat = flatMaterial({ color: 0x0a2a0a, emissive: 0x2aff3e, emissiveIntensity: 1 })
 
   const body = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.9, 0.7), bodyMat)
   body.position.y = 0.45
@@ -3440,7 +3443,11 @@ function buildAmmoStation(scene, register) {
   } else {
     const bodyMat = cachedFlatMaterial({ color: 0x5a2a1e, roughness: 0.7, metalness: 0.2 })
     const trimMat = cachedFlatMaterial({ color: 0x1c1c1a, roughness: 0.5, metalness: 0.5 })
-    buttonMat = cachedFlatMaterial({ color: 0x2a0808, emissive: 0xff2a1e, emissiveIntensity: 1.1 })
+    // NOT cachedFlatMaterial - Game.js's _updateAmmoStation mutates this
+    // per-instance while charging. Confirmed this collides with
+    // buildBreakerBox's indicatorMat below (identical opts) if both ever
+    // hit this fallback branch.
+    buttonMat = flatMaterial({ color: 0x2a0808, emissive: 0xff2a1e, emissiveIntensity: 1.1 })
 
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.1, 0.5), bodyMat)
     body.position.y = 0.55
@@ -4156,7 +4163,12 @@ function buildLockableDoor(scene, x, z, width, axis = 'x', floorY = 0) {
   doorMesh.updateWorldMatrix(true, false)
   const doorBox = new THREE.Box3().setFromObject(doorMesh)
 
-  const indicatorMat = cachedFlatMaterial({ color: 0x1a0505, emissive: 0xff2a1e, emissiveIntensity: 0.9 })
+  // NOT cachedFlatMaterial - this function is called once per locked door
+  // (11+ across the map) and Game.js's _tryOpenLockedCell mutates this
+  // per-instance on unlock. Confirmed bug: every locked door was sharing
+  // ONE material, so unlocking any single one visually "unlocked" all of
+  // them at once.
+  const indicatorMat = flatMaterial({ color: 0x1a0505, emissive: 0xff2a1e, emissiveIntensity: 0.9 })
   const light = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 10), indicatorMat)
   const lightOffset = axis === 'x' ? [0, 0.1] : [0.1, 0]
   light.position.set(x + lightOffset[0], floorY + 2.3, z + lightOffset[1])
@@ -5614,7 +5626,10 @@ function buildTacticalStreetlight(scene, register, x, z) {
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 4, 8), poleMat)
   pole.position.set(0, 2, 0)
   group.add(pole)
-  const bulbMat = cachedFlatMaterial({ color: 0xfff2c0, emissive: 0xfff2c0, emissiveIntensity: 1.2 })
+  // NOT cachedFlatMaterial - Game.js darkens this per-light when its bulb
+  // is shot out (light.shotOut). Both call sites of this function were
+  // sharing one bulb material, so shooting either one out darkened both.
+  const bulbMat = flatMaterial({ color: 0xfff2c0, emissive: 0xfff2c0, emissiveIntensity: 1.2 })
   const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), bulbMat)
   bulb.position.set(0, 4, 0)
   group.add(bulb)
@@ -5711,11 +5726,13 @@ function buildPracticeRange(scene, colliders, solidMeshes, safeZone) {
     post.updateWorldMatrix(true, false)
     colliders.push(new THREE.Box3().setFromObject(post))
 
-    // Own material clone (not a shared one) - onHit flashes emissiveIntensity
-    // per-instance, and a shared material would flash every target at once
+    // NOT cachedFlatMaterial - onHit flashes emissiveIntensity per-
+    // instance, and a shared material would flash every target at once
     // whenever any single one was hit (same bug class as the Molotov fire
-    // zone material sharing one instance earlier this session).
-    const boardMat = cachedFlatMaterial({ map: targetTex, emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.6 })
+    // zone material sharing one instance earlier this session). Confirmed
+    // this was a real, live bug: all 3 targets were sharing one cached
+    // material before this fix.
+    const boardMat = flatMaterial({ map: targetTex, emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.6 })
     const board = new THREE.Mesh(new THREE.CircleGeometry(0.4, 24), boardMat)
     board.position.set(x, 1.7, z)
     board.castShadow = true
@@ -6463,7 +6480,10 @@ function buildBreakerBox(scene, x, z) {
   panel.castShadow = true
   scene.add(panel)
 
-  const indicatorMat = cachedFlatMaterial({ color: 0x2a0808, emissive: 0xff2a1e, emissiveIntensity: 1.1 })
+  // NOT cachedFlatMaterial - Game.js's _updateBreakerBox mutates this
+  // per-instance while charging. Confirmed this collides with
+  // buildAmmoStation's buttonMat fallback (identical opts).
+  const indicatorMat = flatMaterial({ color: 0x2a0808, emissive: 0xff2a1e, emissiveIntensity: 1.1 })
   const indicator = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.12, 0.02), indicatorMat)
   indicator.position.set(x, SUBWAY_FLOOR_Y + 1.7, z + 0.08)
   scene.add(indicator)
@@ -6493,7 +6513,9 @@ function buildMaintTurnstileGate(scene, x, z) {
   gateMesh.updateWorldMatrix(true, false)
   const gateBox = new THREE.Box3().setFromObject(gateMesh) // axis-aligned, not rotated - setFromObject is safe here
 
-  const indicatorMat = cachedFlatMaterial({ color: 0x1a0505, emissive: 0xff2a1e, emissiveIntensity: 0.9 })
+  // NOT cachedFlatMaterial - Game.js mutates this on unlock. Confirmed
+  // this collides with buildLockableDoor's indicatorMat (identical opts).
+  const indicatorMat = flatMaterial({ color: 0x1a0505, emissive: 0xff2a1e, emissiveIntensity: 0.9 })
   const indicator = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), indicatorMat)
   indicator.position.set(x, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT - 0.3, z)
   scene.add(indicator)
