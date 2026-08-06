@@ -21,6 +21,45 @@ export const LOW_QUALITY_MODE = true
 // passing them anyway just produces console warnings for no benefit.
 // When the flag is false, behaves exactly like `new
 // THREE.MeshStandardMaterial(opts)` always did.
+// Cached wrapper around flatMaterial(), for callers that build large
+// numbers of static, NEVER-MUTATED-AFTER-CREATION objects with a lot of
+// repeated option combos - see docs/PERFORMANCE.md Option B1. World.js's
+// buildWorld() is the only current caller: measured at 8,869 material
+// instances for only 332 truly distinct combinations (27x duplication),
+// and that count was taken with zero zombies/companions/other dynamic
+// objects alive, meaning the duplication is coming entirely from static
+// world geometry, not gameplay objects - so this is deliberately NOT
+// wired into flatMaterial() itself, which 16 other files (zombies,
+// companions, weapons, pickups, chests...) also call for objects that
+// DO get individually recolored/faded at runtime (hit flashes, tracers,
+// muzzle flash, jacket tints). Sharing those would silently recolor
+// every object sharing the cached instance the moment one of them got
+// hit - see this project's own CLAUDE.md "Shared-material mutation"
+// note. Only use this for material construction whose result is never
+// individually mutated after creation; if in doubt, use flatMaterial().
+const _sharedMatCache = new Map()
+export function cachedFlatMaterial(opts) {
+  // Textures (map/bumpMap/emissiveMap) can't be meaningfully
+  // JSON.stringify'd (circular/huge internal structure) and a fresh
+  // TextureLoader().load(...) or `new THREE.CanvasTexture(...)` call
+  // never produces the same instance twice anyway - keying on each
+  // texture's own stable .uuid instead correctly merges only calls that
+  // were handed the literal same texture object, never two different
+  // ones that just happen to look similar.
+  const key = JSON.stringify({
+    ...opts,
+    map: opts.map?.uuid,
+    bumpMap: opts.bumpMap?.uuid,
+    emissiveMap: opts.emissiveMap?.uuid,
+  })
+  let mat = _sharedMatCache.get(key)
+  if (!mat) {
+    mat = flatMaterial(opts)
+    _sharedMatCache.set(key, mat)
+  }
+  return mat
+}
+
 export function flatMaterial(opts) {
   if (!LOW_QUALITY_MODE) return new THREE.MeshStandardMaterial(opts)
   const simple = {}

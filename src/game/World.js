@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { registerZone, clearZones } from './Zones.js'
 import { LOOT_WEIGHTS } from './Chests.js'
-import { LOW_QUALITY_MODE, flatMaterial, flattenedClone } from './QualitySettings.js'
+import { LOW_QUALITY_MODE, flatMaterial, cachedFlatMaterial, flattenedClone } from './QualitySettings.js'
 
 // Cheap procedural grime: speckle noise + a handful of jagged crack/stain
 // strokes baked onto a canvas once, then tiled via RepeatWrapping. Replaces
@@ -132,7 +132,7 @@ function addIvyOverlay(scene, spec) {
     const tex = getIvyTexture(Math.floor(Math.random() * IVY_VARIANTS))
     const height = Math.min(spec.h, spec.h * (0.4 + Math.random() * 0.45))
     const width = 1.6 + Math.random() * 1.4
-    const mat = flatMaterial({
+    const mat = cachedFlatMaterial({
       map: tex,
       transparent: true,
       alphaTest: 0.3,
@@ -329,7 +329,7 @@ export function buildWorld(scene, trophyCount = 15) {
         const groundBumpTex = getSharedBumpTexture().clone()
         groundBumpTex.needsUpdate = true
         groundBumpTex.repeat.set(groundSize / 3, groundSize / 3)
-        return flatMaterial({ map: groundTex, bumpMap: groundBumpTex, bumpScale: 0.06, roughness: 1 })
+        return cachedFlatMaterial({ map: groundTex, bumpMap: groundBumpTex, bumpScale: 0.06, roughness: 1 })
       })()
   // This is the surface PlayerController._sampleGroundHeight raycasts
   // against for standing height - a plain, hole-less PlaneGeometry here
@@ -874,7 +874,7 @@ export function buildWorld(scene, trophyCount = 15) {
   const stripMallCenters = [-208.5, -200, -191.5]
   for (let i = 0; i < stripMallCenters.length; i++) {
     buildRoom(scene, register, { x: stripMallCenters[i], z: 300, w: 8, d: 10, doorSides: [{ side: 'south', width: 2.2 }] })
-    const floorMat = flatMaterial({ color: 0x8a7868, roughness: 0.85 })
+    const floorMat = cachedFlatMaterial({ color: 0x8a7868, roughness: 0.85 })
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(7.4, 9.4), floorMat)
     floor.rotation.x = -Math.PI / 2
     floor.position.set(stripMallCenters[i], 0.02, 300)
@@ -901,7 +901,7 @@ export function buildWorld(scene, trophyCount = 15) {
   // sourced model" precedent as the gas station's pumps/canopy above).
   buildFillerLocation(scene, register, { x: -200, z: -280, w: 26, d: 20, fenceOnly: true })
   {
-    const stoneMat = flatMaterial({ color: 0x8a887c, roughness: 0.95 })
+    const stoneMat = cachedFlatMaterial({ color: 0x8a887c, roughness: 0.95 })
     let hs = 0
     for (const row of [-6, 0, 6]) {
       for (const col of [-9, -3, 3, 9]) {
@@ -920,8 +920,8 @@ export function buildWorld(scene, trophyCount = 15) {
   // Trailer Park - freestanding low boxes, not a single walled building, so
   // built directly rather than through buildFillerLocation.
   {
-    const trailerMat = flatMaterial({ color: 0xa89c86, roughness: 0.85 })
-    const roofMat = flatMaterial({ color: 0x5a5044, roughness: 0.7 })
+    const trailerMat = cachedFlatMaterial({ color: 0xa89c86, roughness: 0.85 })
+    const roofMat = cachedFlatMaterial({ color: 0x5a5044, roughness: 0.7 })
     const trailerSpots = [[-8, -4, 0], [8, -3, Math.PI], [-6, 6, Math.PI / 2], [6, 5, -Math.PI / 2]]
     for (const [dx, dz, rot] of trailerSpots) {
       const body = new THREE.Mesh(new THREE.BoxGeometry(6, 2, 2.6), trailerMat)
@@ -956,8 +956,8 @@ export function buildWorld(scene, trophyCount = 15) {
   // chest (not every new location needs to be a loot stop).
   buildFillerLocation(scene, register, { x: 100, z: 260, w: 14, d: 14, wallColor: 0xb0331a, fenceOnly: true })
   {
-    const transformerMat = flatMaterial({ color: 0x4a4a48, roughness: 0.6, metalness: 0.6 })
-    const warnMat = flatMaterial({ color: 0xd9a520, roughness: 0.5 })
+    const transformerMat = cachedFlatMaterial({ color: 0x4a4a48, roughness: 0.6, metalness: 0.6 })
+    const warnMat = cachedFlatMaterial({ color: 0xd9a520, roughness: 0.5 })
     for (const [dx, dz] of [[-3, -3], [3, -3], [0, 3]]) {
       const box = new THREE.Mesh(new THREE.BoxGeometry(2, 2.4, 2), transformerMat)
       box.position.set(100 + dx, 1.2, 260 + dz)
@@ -989,7 +989,7 @@ export function buildWorld(scene, trophyCount = 15) {
   // trailer park/cemetery headstones above.
   buildFillerLocation(scene, register, { x: 160, z: 220, w: 32, d: 28, fenceOnly: true })
   {
-    const fenceMat = flatMaterial({ color: 0x2a2a26, roughness: 0.8, metalness: 0.4 })
+    const fenceMat = cachedFlatMaterial({ color: 0x2a2a26, roughness: 0.8, metalness: 0.4 })
     for (const dx of [-8, 8]) {
       const divider = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.4, 28), fenceMat)
       divider.position.set(160 + dx, 0.7, 220)
@@ -1010,8 +1010,8 @@ export function buildWorld(scene, trophyCount = 15) {
     ],
   })
   {
-    const wheelMat = flatMaterial({ color: 0xb0331a, roughness: 0.5, metalness: 0.3 })
-    const poleMat = flatMaterial({ color: 0x2a2a26, roughness: 0.7, metalness: 0.5 })
+    const wheelMat = cachedFlatMaterial({ color: 0xb0331a, roughness: 0.5, metalness: 0.3 })
+    const poleMat = cachedFlatMaterial({ color: 0x2a2a26, roughness: 0.7, metalness: 0.5 })
     const wheelR = 8
     const wheel = new THREE.Mesh(new THREE.TorusGeometry(wheelR, 0.35, 8, 24), wheelMat)
     wheel.position.set(-160, wheelR + 0.5, 214)
@@ -1058,7 +1058,7 @@ export function buildWorld(scene, trophyCount = 15) {
     ],
   })
   {
-    const discoMat = flatMaterial({ color: 0xd0d0d0, roughness: 0.2, metalness: 0.8, emissive: 0x8844cc, emissiveIntensity: 0.6 })
+    const discoMat = cachedFlatMaterial({ color: 0xd0d0d0, roughness: 0.2, metalness: 0.8, emissive: 0x8844cc, emissiveIntensity: 0.6 })
     const disco = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 12), discoMat)
     disco.position.set(-250, 3.6, 180)
     scene.add(disco)
@@ -1074,7 +1074,7 @@ export function buildWorld(scene, trophyCount = 15) {
   // sewer's "toxic water" (that one ticks damage; this one is just visual).
   {
     buildRoom(scene, register, { x: 160, z: -268, w: 6, d: 5, doorSides: [{ side: 'north', width: 2 }] })
-    const dockFloorMat = flatMaterial({ color: 0x6b5a42, roughness: 0.85 })
+    const dockFloorMat = cachedFlatMaterial({ color: 0x6b5a42, roughness: 0.85 })
     const dockFloor = new THREE.Mesh(new THREE.PlaneGeometry(5.4, 4.4), dockFloorMat)
     dockFloor.rotation.x = -Math.PI / 2
     dockFloor.position.set(160, 0.02, -268)
@@ -1082,19 +1082,19 @@ export function buildWorld(scene, trophyCount = 15) {
     scene.add(dockFloor)
     placePropSimple(scene, register, 'counter.glb', 160, -269.5, 0)
 
-    const waterMat = flatMaterial({ color: 0x1c4a52, roughness: 0.3, metalness: 0.1 })
+    const waterMat = cachedFlatMaterial({ color: 0x1c4a52, roughness: 0.3, metalness: 0.1 })
     const water = new THREE.Mesh(new THREE.PlaneGeometry(24, 16), waterMat)
     water.rotation.x = -Math.PI / 2
     water.position.set(160, -0.15, -256)
     scene.add(water)
 
-    const dockMat = flatMaterial({ color: 0x7a6248, roughness: 0.9 })
+    const dockMat = cachedFlatMaterial({ color: 0x7a6248, roughness: 0.9 })
     const walkway = new THREE.Mesh(new THREE.BoxGeometry(3, 0.15, 14), dockMat)
     walkway.position.set(160, 0.05, -258)
     scene.add(walkway)
     register(walkway)
 
-    const hullMat = flatMaterial({ color: 0x3a3a34, roughness: 0.7 })
+    const hullMat = cachedFlatMaterial({ color: 0x3a3a34, roughness: 0.7 })
     // Salvage boat - real collider, low enough (0.5, under the player's own
     // step-up height) to climb onto directly from the "water" the same way
     // the dock itself is reached, no gangplank needed. The second hull
@@ -1105,7 +1105,7 @@ export function buildWorld(scene, trophyCount = 15) {
     salvageHull.castShadow = true
     scene.add(salvageHull)
     register(salvageHull)
-    const deckMat = flatMaterial({ color: 0x5a4a38, roughness: 0.85 })
+    const deckMat = cachedFlatMaterial({ color: 0x5a4a38, roughness: 0.85 })
     const deck = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 5.2), deckMat)
     deck.rotation.x = -Math.PI / 2
     deck.position.set(155, 0.51, -260)
@@ -1134,8 +1134,8 @@ export function buildWorld(scene, trophyCount = 15) {
     dressing: [{ file: 'waterbarrel.glb', dx: -8, dz: 6 }, { file: 'waterbarrel.glb', dx: -6, dz: 6 }],
   })
   {
-    const tankMat = flatMaterial({ color: 0x4a4a48, roughness: 0.6, metalness: 0.5 })
-    const capMat = flatMaterial({ color: 0xd9a520, roughness: 0.5 })
+    const tankMat = cachedFlatMaterial({ color: 0x4a4a48, roughness: 0.6, metalness: 0.5 })
+    const capMat = cachedFlatMaterial({ color: 0xd9a520, roughness: 0.5 })
     for (const dx of [-7, 0, 7]) {
       const tank = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 4.5, 16), tankMat)
       tank.position.set(-160 + dx, 2.25, -264)
@@ -1159,7 +1159,7 @@ export function buildWorld(scene, trophyCount = 15) {
     ],
   })
   {
-    const casketMat = flatMaterial({ color: 0x2a1c14, roughness: 0.4, metalness: 0.2 })
+    const casketMat = cachedFlatMaterial({ color: 0x2a1c14, roughness: 0.4, metalness: 0.2 })
     const casket = new THREE.Mesh(new THREE.BoxGeometry(2, 0.9, 0.8), casketMat)
     casket.position.set(-260, 0.45, -256)
     casket.castShadow = true
@@ -1177,7 +1177,7 @@ export function buildWorld(scene, trophyCount = 15) {
     ],
   })
   {
-    const camMat = flatMaterial({ color: 0x2a2a26, roughness: 0.6, metalness: 0.5 })
+    const camMat = cachedFlatMaterial({ color: 0x2a2a26, roughness: 0.6, metalness: 0.5 })
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 1.6, 8), camMat)
     pole.position.set(255, 0.8, -257)
     scene.add(pole)
@@ -1194,7 +1194,7 @@ export function buildWorld(scene, trophyCount = 15) {
     const tx = 0
     const tz = 250
     buildRoom(scene, register, { x: tx, z: tz, w: 10, d: 7, doorSides: [{ side: 'south', width: 2.2 }] })
-    const floorMat = flatMaterial({ color: 0xc4c0b0, roughness: 0.8 })
+    const floorMat = cachedFlatMaterial({ color: 0xc4c0b0, roughness: 0.8 })
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(9.4, 6.4), floorMat)
     floor.rotation.x = -Math.PI / 2
     floor.position.set(tx, 0.02, tz)
@@ -1202,8 +1202,8 @@ export function buildWorld(scene, trophyCount = 15) {
     scene.add(floor)
     placePropSimple(scene, register, 'counter.glb', tx - 3, tz - 1.5, 0)
 
-    const canopyMat = flatMaterial({ color: 0xb0331a, roughness: 0.6, metalness: 0.2 })
-    const postMat = flatMaterial({ color: 0x2a2a26, roughness: 0.7, metalness: 0.5 })
+    const canopyMat = cachedFlatMaterial({ color: 0xb0331a, roughness: 0.6, metalness: 0.2 })
+    const postMat = cachedFlatMaterial({ color: 0x2a2a26, roughness: 0.7, metalness: 0.5 })
     const forecourtZ = tz - 3.5 - 6
     const canopy = new THREE.Mesh(new THREE.BoxGeometry(13, 0.3, 8), canopyMat)
     canopy.position.set(tx, 4, forecourtZ)
@@ -1217,7 +1217,7 @@ export function buildWorld(scene, trophyCount = 15) {
       scene.add(post)
       register(post)
     }
-    const pumpMat = flatMaterial({ color: 0xdedad0, roughness: 0.5 })
+    const pumpMat = cachedFlatMaterial({ color: 0xdedad0, roughness: 0.5 })
     for (const px of [-2, 2]) {
       const pump = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.4, 0.6), pumpMat)
       pump.position.set(tx + px, 0.7, forecourtZ)
@@ -1229,8 +1229,8 @@ export function buildWorld(scene, trophyCount = 15) {
     // Single parked rig, tucked beside the store (not further out past the
     // forecourt) so it stays clear of the Gas Station's own footprint
     // further south along the same x=0 column.
-    const truckMat = flatMaterial({ color: 0x3a4048, roughness: 0.6, metalness: 0.3 })
-    const trailerMat = flatMaterial({ color: 0x8a8478, roughness: 0.7 })
+    const truckMat = cachedFlatMaterial({ color: 0x3a4048, roughness: 0.6, metalness: 0.3 })
+    const trailerMat = cachedFlatMaterial({ color: 0x8a8478, roughness: 0.7 })
     const cab = new THREE.Mesh(new THREE.BoxGeometry(3, 2.2, 2.4), truckMat)
     cab.position.set(tx + 7, 1.1, tz - 3)
     cab.castShadow = true
@@ -1485,8 +1485,8 @@ export function buildWorld(scene, trophyCount = 15) {
     ],
   })
   {
-    const towerMat = flatMaterial({ color: 0x8a9098, roughness: 0.8, metalness: 0.3 })
-    const legMat = flatMaterial({ color: 0x3a3a38, roughness: 0.7, metalness: 0.5 })
+    const towerMat = cachedFlatMaterial({ color: 0x8a9098, roughness: 0.8, metalness: 0.3 })
+    const legMat = cachedFlatMaterial({ color: 0x3a3a38, roughness: 0.7, metalness: 0.5 })
     const tank = new THREE.Mesh(new THREE.CylinderGeometry(4.2, 4.2, 5, 16), towerMat)
     tank.position.set(320, 11, 0)
     tank.castShadow = true
@@ -1515,13 +1515,13 @@ export function buildWorld(scene, trophyCount = 15) {
     ],
   })
   {
-    const siloMat = flatMaterial({ color: 0xc9c3b0, roughness: 0.85, metalness: 0.15 })
+    const siloMat = cachedFlatMaterial({ color: 0xc9c3b0, roughness: 0.85, metalness: 0.15 })
     const silo = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 12, 16), siloMat)
     silo.position.set(-83, 6, -309)
     silo.castShadow = true
     scene.add(silo)
     register(silo)
-    const capMat = flatMaterial({ color: 0x6b5a48, roughness: 0.9 })
+    const capMat = cachedFlatMaterial({ color: 0x6b5a48, roughness: 0.9 })
     const cap = new THREE.Mesh(new THREE.ConeGeometry(3.1, 2, 16), capMat)
     cap.position.set(-83, 13, -309)
     cap.castShadow = true
@@ -1619,7 +1619,7 @@ export function buildWorld(scene, trophyCount = 15) {
     ],
   })
   {
-    const screenMat = flatMaterial({ color: 0x1e2226, roughness: 0.9 })
+    const screenMat = cachedFlatMaterial({ color: 0x1e2226, roughness: 0.9 })
     const screen = new THREE.Mesh(new THREE.BoxGeometry(9, 6, 0.3), screenMat)
     screen.position.set(-48, 3, 362 - 7)
     screen.castShadow = true
@@ -1737,12 +1737,12 @@ export function buildWorld(scene, trophyCount = 15) {
   // "home base surroundings" dressing, not new named destinations. Only
   // about a third get a chest; the rest are pure atmosphere, matching how
   // they were originally described.
-  const sandbagMat = flatMaterial({ color: 0x5a5138, roughness: 1 })
+  const sandbagMat = cachedFlatMaterial({ color: 0x5a5138, roughness: 1 })
 
   // Campfire Rest Area (42,66) - stacked-log campfire + a flickering light,
   // matching the flicker-light pattern already used for streetlamps.
   {
-    const logMat = flatMaterial({ color: 0x3a2a1c, roughness: 0.9 })
+    const logMat = cachedFlatMaterial({ color: 0x3a2a1c, roughness: 0.9 })
     for (const rot of [0, Math.PI / 3, (2 * Math.PI) / 3]) {
       const log = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 1.6, 8), logMat)
       log.rotation.z = Math.PI / 2
@@ -1763,7 +1763,7 @@ export function buildWorld(scene, trophyCount = 15) {
   // (was 24,84, too clustered south of the safe zone - see the
   // north-of-core-grid rebalance note below).
   {
-    const wallMat = flatMaterial({ color: 0x4a4842, roughness: 1 })
+    const wallMat = cachedFlatMaterial({ color: 0x4a4842, roughness: 1 })
     const wall = new THREE.Mesh(new THREE.BoxGeometry(5, 1.6, 0.3), wallMat)
     wall.position.set(-58, 0.8, -56)
     wall.castShadow = true
@@ -1774,8 +1774,8 @@ export function buildWorld(scene, trophyCount = 15) {
 
   // Notice Board (0,90) - board on two posts, pure lore, no chest.
   {
-    const postMat = flatMaterial({ color: 0x3a3226, roughness: 0.9 })
-    const boardMat = flatMaterial({ color: 0x6b5a42, roughness: 0.85 })
+    const postMat = cachedFlatMaterial({ color: 0x3a3226, roughness: 0.9 })
+    const boardMat = cachedFlatMaterial({ color: 0x6b5a42, roughness: 0.85 })
     for (const dx of [-0.9, 0.9]) {
       const post = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.9, 0.15), postMat)
       post.position.set(dx, 0.95, 90)
@@ -1793,8 +1793,8 @@ export function buildWorld(scene, trophyCount = 15) {
 
   // Water Well (-24,84) - stone rim + small roof, utility flavor, no chest.
   {
-    const stoneMat = flatMaterial({ color: 0x6a6a62, roughness: 0.9 })
-    const roofMat = flatMaterial({ color: 0x4a3a2c, roughness: 0.85 })
+    const stoneMat = cachedFlatMaterial({ color: 0x6a6a62, roughness: 0.9 })
+    const roofMat = cachedFlatMaterial({ color: 0x4a3a2c, roughness: 0.85 })
     const rim = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 1, 16), stoneMat)
     rim.position.set(-24, 0.5, 84)
     rim.castShadow = true
@@ -1824,7 +1824,7 @@ export function buildWorld(scene, trophyCount = 15) {
     ],
   })
   {
-    const tentMat = flatMaterial({ color: 0x4a5238, roughness: 0.9 })
+    const tentMat = cachedFlatMaterial({ color: 0x4a5238, roughness: 0.9 })
     const tent = new THREE.Mesh(new THREE.ConeGeometry(2.6, 2.2, 4), tentMat)
     tent.position.set(-42, 1.1, 66 + 1.5)
     tent.rotation.y = Math.PI / 4
@@ -1857,8 +1857,8 @@ export function buildWorld(scene, trophyCount = 15) {
 
   // Burial Mounds - relocated to flank the core street grid (was 47,89).
   {
-    const moundMat = flatMaterial({ color: 0x4a3a2a, roughness: 1 })
-    const crossMat = flatMaterial({ color: 0x6b5a42, roughness: 0.9 })
+    const moundMat = cachedFlatMaterial({ color: 0x4a3a2a, roughness: 1 })
+    const crossMat = cachedFlatMaterial({ color: 0x6b5a42, roughness: 0.9 })
     for (let i = 0; i < 4; i++) {
       const mx = 58 + (i - 1.5) * 1.8
       const mound = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.9, 0.35, 10), moundMat)
@@ -1879,7 +1879,7 @@ export function buildWorld(scene, trophyCount = 15) {
   // Rainwater Collection Tank - relocated to flank the core street grid
   // (was 17,106).
   {
-    const tankMat = flatMaterial({ color: 0x7a8288, roughness: 0.7, metalness: 0.4 })
+    const tankMat = cachedFlatMaterial({ color: 0x7a8288, roughness: 0.7, metalness: 0.4 })
     const tank = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 1.8, 2.4, 16), tankMat)
     tank.position.set(-57, 1.2, -31)
     tank.castShadow = true
@@ -1893,8 +1893,8 @@ export function buildWorld(scene, trophyCount = 15) {
   // proportions match Vehicle.js's own body, same precedent as the
   // parking garage's static "abandoned car" props.
   {
-    const carMat = flatMaterial({ color: 0x5a3a3a, roughness: 0.6, metalness: 0.3 })
-    const carMat2 = flatMaterial({ color: 0x3a4a5a, roughness: 0.6, metalness: 0.3 })
+    const carMat = cachedFlatMaterial({ color: 0x5a3a3a, roughness: 0.6, metalness: 0.3 })
+    const carMat2 = cachedFlatMaterial({ color: 0x3a4a5a, roughness: 0.6, metalness: 0.3 })
     const car1 = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.2, 3.6), carMat)
     car1.position.set(-2 - 2.5, 0.6, -65)
     car1.castShadow = true
@@ -1921,8 +1921,8 @@ export function buildWorld(scene, trophyCount = 15) {
 
   // Lookout Post (-62,19) - small raised platform, gets a small chest.
   {
-    const legMat = flatMaterial({ color: 0x4a3a2a, roughness: 0.9 })
-    const deckMat = flatMaterial({ color: 0x5a4632, roughness: 0.85 })
+    const legMat = cachedFlatMaterial({ color: 0x4a3a2a, roughness: 0.9 })
+    const deckMat = cachedFlatMaterial({ color: 0x5a4632, roughness: 0.85 })
     for (const [lx, lz] of [[-1.4, -1.4], [1.4, -1.4], [-1.4, 1.4], [1.4, 1.4]]) {
       const leg = new THREE.Mesh(new THREE.BoxGeometry(0.25, 3.2, 0.25), legMat)
       leg.position.set(-62 + lx, 1.6, 19 + lz)
@@ -1949,7 +1949,7 @@ export function buildWorld(scene, trophyCount = 15) {
       scene.add(wall)
       register(wall)
     }
-    const targetMat = flatMaterial({ color: 0xc9c3b0, roughness: 0.8 })
+    const targetMat = cachedFlatMaterial({ color: 0xc9c3b0, roughness: 0.8 })
     for (const dx of [-3, 0, 3]) {
       const target = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.6, 0.08), targetMat)
       target.position.set(60 + dx, 0.9, 14 + 4)
@@ -1962,8 +1962,8 @@ export function buildWorld(scene, trophyCount = 15) {
 
   // Laundry Line (68,67) - simple post-and-line detail, pure atmosphere, no chest.
   {
-    const postMat = flatMaterial({ color: 0x4a4a48, roughness: 0.8, metalness: 0.3 })
-    const clothMat = flatMaterial({ color: 0xd8d0c0, roughness: 0.95 })
+    const postMat = cachedFlatMaterial({ color: 0x4a4a48, roughness: 0.8, metalness: 0.3 })
+    const clothMat = cachedFlatMaterial({ color: 0xd8d0c0, roughness: 0.95 })
     for (const dx of [-2.5, 2.5]) {
       const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2, 6), postMat)
       post.position.set(68 + dx, 1, 67)
@@ -1992,8 +1992,8 @@ export function buildWorld(scene, trophyCount = 15) {
 
   // Radio Relay Mast (-60,-8) - thin utility antenna, no chest.
   {
-    const baseMat = flatMaterial({ color: 0x3a3a38, roughness: 0.8, metalness: 0.4 })
-    const mastMat = flatMaterial({ color: 0x8a8a86, roughness: 0.6, metalness: 0.6 })
+    const baseMat = cachedFlatMaterial({ color: 0x3a3a38, roughness: 0.8, metalness: 0.4 })
+    const mastMat = cachedFlatMaterial({ color: 0x8a8a86, roughness: 0.6, metalness: 0.6 })
     const base = new THREE.Mesh(new THREE.BoxGeometry(1, 0.6, 1), baseMat)
     base.position.set(-60, 0.3, -8)
     base.castShadow = true
@@ -2009,7 +2009,7 @@ export function buildWorld(scene, trophyCount = 15) {
 
   // Prayer Shrine (84,42) - small quiet altar, pure atmosphere, no chest.
   {
-    const baseMat = flatMaterial({ color: 0x8a8278, roughness: 0.9 })
+    const baseMat = cachedFlatMaterial({ color: 0x8a8278, roughness: 0.9 })
     const base = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.6, 1), baseMat)
     base.position.set(84, 0.3, 42)
     base.castShadow = true
@@ -2026,7 +2026,7 @@ export function buildWorld(scene, trophyCount = 15) {
 
   // Rubble Barricade - relocated to flank the core street grid (was 42,115).
   {
-    const rubbleMat = flatMaterial({ color: 0x4a4642, roughness: 1 })
+    const rubbleMat = cachedFlatMaterial({ color: 0x4a4642, roughness: 1 })
     for (const [dx, dz, w, h, d] of [[-1.5, 0, 1.4, 1, 1.2], [0.5, 0.3, 1.8, 1.3, 1], [2, -0.4, 1.2, 0.8, 1.4]]) {
       const chunk = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), rubbleMat)
       chunk.position.set(-28 + dx, h / 2, -70 + dz)
@@ -2333,7 +2333,7 @@ export function buildWorld(scene, trophyCount = 15) {
     ],
   })
   {
-    const towerMat = flatMaterial({ color: 0x6a6a68, roughness: 0.85, metalness: 0.2 })
+    const towerMat = cachedFlatMaterial({ color: 0x6a6a68, roughness: 0.85, metalness: 0.2 })
     const tower = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 4.2, 8, 16), towerMat)
     tower.position.set(-49, 4, 233)
     tower.castShadow = true
@@ -2384,10 +2384,10 @@ export function buildWorld(scene, trophyCount = 15) {
     x: 52, z: -273, w: 26, d: 20, fenceOnly: true,
   })
   {
-    const c1Mat = flatMaterial({ color: 0x8a3a3a, roughness: 0.7, metalness: 0.3 })
-    const c2Mat = flatMaterial({ color: 0x3a6a8a, roughness: 0.7, metalness: 0.3 })
-    const c3Mat = flatMaterial({ color: 0x8a7a3a, roughness: 0.7, metalness: 0.3 })
-    const c4Mat = flatMaterial({ color: 0x4a7a4a, roughness: 0.7, metalness: 0.3 })
+    const c1Mat = cachedFlatMaterial({ color: 0x8a3a3a, roughness: 0.7, metalness: 0.3 })
+    const c2Mat = cachedFlatMaterial({ color: 0x3a6a8a, roughness: 0.7, metalness: 0.3 })
+    const c3Mat = cachedFlatMaterial({ color: 0x8a7a3a, roughness: 0.7, metalness: 0.3 })
+    const c4Mat = cachedFlatMaterial({ color: 0x4a7a4a, roughness: 0.7, metalness: 0.3 })
     const box1 = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.4, 6), c1Mat)
     box1.position.set(52 - 5, 1.2, -273)
     box1.castShadow = true
@@ -2417,7 +2417,7 @@ export function buildWorld(scene, trophyCount = 15) {
     x: 195, z: 175, w: 26, d: 24, fenceOnly: true,
   })
   {
-    const rockMat = flatMaterial({ color: 0x6a655c, roughness: 1 })
+    const rockMat = cachedFlatMaterial({ color: 0x6a655c, roughness: 1 })
     for (const [dx, dz, s] of [[-5, -4, 2.2], [4, -3, 1.8], [-2, 4, 2.6], [5, 3, 1.6], [-9, 7, 2], [9, -7, 2.4], [0, 9, 1.7]]) {
       const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), rockMat)
       rock.position.set(195 + dx, s * 0.5, 175 + dz)
@@ -2436,8 +2436,8 @@ export function buildWorld(scene, trophyCount = 15) {
     x: -263, z: -91, w: 20, d: 16, fenceOnly: true,
   })
   {
-    const mastMat = flatMaterial({ color: 0xd8d8d4, roughness: 0.6 })
-    const bladeMat = flatMaterial({ color: 0xe8e8e4, roughness: 0.5 })
+    const mastMat = cachedFlatMaterial({ color: 0xd8d8d4, roughness: 0.6 })
+    const bladeMat = cachedFlatMaterial({ color: 0xe8e8e4, roughness: 0.5 })
     for (const [tx, tz] of [[-263 - 6, -91 - 3], [-263 + 6, -91 + 3]]) {
       const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.35, 9, 8), mastMat)
       mast.position.set(tx, 4.5, tz)
@@ -2462,8 +2462,8 @@ export function buildWorld(scene, trophyCount = 15) {
     dressing: [{ file: 'cabledrum.glb', dx: -3, dz: 3 }],
   })
   {
-    const baseMat = flatMaterial({ color: 0x3a3a38, roughness: 0.8, metalness: 0.4 })
-    const mastMat = flatMaterial({ color: 0x8a8a86, roughness: 0.6, metalness: 0.6 })
+    const baseMat = cachedFlatMaterial({ color: 0x3a3a38, roughness: 0.8, metalness: 0.4 })
+    const mastMat = cachedFlatMaterial({ color: 0x8a8a86, roughness: 0.6, metalness: 0.6 })
     const base = new THREE.Mesh(new THREE.BoxGeometry(1, 0.6, 1), baseMat)
     base.position.set(256, 0.3, 127)
     base.castShadow = true
@@ -2655,7 +2655,7 @@ export function buildWorld(scene, trophyCount = 15) {
     ],
   })
   {
-    const tentMat = flatMaterial({ color: 0x8a2a2a, roughness: 0.85 })
+    const tentMat = cachedFlatMaterial({ color: 0x8a2a2a, roughness: 0.85 })
     const tent = new THREE.Mesh(new THREE.ConeGeometry(5.5, 5, 8), tentMat)
     tent.position.set(-345, 2.5, 58)
     tent.castShadow = true
@@ -2672,7 +2672,7 @@ export function buildWorld(scene, trophyCount = 15) {
     dressing: [{ file: 'barrel.glb', dx: -6, dz: 8 }, { file: 'cabledrum.glb', dx: 6, dz: 8 }],
   })
   {
-    const hullMat = flatMaterial({ color: 0x3a4a48, roughness: 0.9, metalness: 0.2 })
+    const hullMat = cachedFlatMaterial({ color: 0x3a4a48, roughness: 0.9, metalness: 0.2 })
     const hull = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 14, 8, 1, false, 0, Math.PI), hullMat)
     hull.rotation.z = Math.PI / 2
     hull.rotation.y = Math.PI / 2
@@ -2692,7 +2692,7 @@ export function buildWorld(scene, trophyCount = 15) {
     dressing: [{ file: 'barrel.glb', dx: -8, dz: 6 }, { file: 'roadblock.glb', dx: 8, dz: 6 }],
   })
   {
-    const fuselageMat = flatMaterial({ color: 0x8a8a86, roughness: 0.6, metalness: 0.4 })
+    const fuselageMat = cachedFlatMaterial({ color: 0x8a8a86, roughness: 0.6, metalness: 0.4 })
     const fuselage = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.6, 12, 12), fuselageMat)
     fuselage.rotation.z = Math.PI / 2
     fuselage.rotation.y = 0.3
@@ -2729,8 +2729,8 @@ export function buildWorld(scene, trophyCount = 15) {
     dressing: [{ file: 'waterbarrel.glb', dx: -5, dz: -5 }, { file: 'barrel.glb', dx: 5, dz: -5 }],
   })
   {
-    const towerMat = flatMaterial({ color: 0xd8d4c8, roughness: 0.8 })
-    const stripeMat = flatMaterial({ color: 0x8a2a2a, roughness: 0.8 })
+    const towerMat = cachedFlatMaterial({ color: 0xd8d4c8, roughness: 0.8 })
+    const stripeMat = cachedFlatMaterial({ color: 0x8a2a2a, roughness: 0.8 })
     const tower = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 2.2, 11, 12), towerMat)
     tower.position.set(-103, 5.5, -343)
     tower.castShadow = true
@@ -2739,7 +2739,7 @@ export function buildWorld(scene, trophyCount = 15) {
     const stripe = new THREE.Mesh(new THREE.CylinderGeometry(1.55, 1.9, 2.5, 12), stripeMat)
     stripe.position.set(-103, 6, -343)
     scene.add(stripe)
-    const lightMat = flatMaterial({ color: 0xfff2c0, emissive: 0xfff2c0, emissiveIntensity: 1 })
+    const lightMat = cachedFlatMaterial({ color: 0xfff2c0, emissive: 0xfff2c0, emissiveIntensity: 1 })
     const light = new THREE.Mesh(new THREE.SphereGeometry(0.7, 10, 10), lightMat)
     light.position.set(-103, 11.3, -343)
     scene.add(light)
@@ -2757,8 +2757,8 @@ export function buildWorld(scene, trophyCount = 15) {
     dressing: [{ file: 'barrel.glb', dx: -5, dz: -5 }, { file: 'cabledrum.glb', dx: 5, dz: -5 }],
   })
   {
-    const towerMat = flatMaterial({ color: 0xc9c0a8, roughness: 0.85 })
-    const bladeMat = flatMaterial({ color: 0x6a5838, roughness: 0.8 })
+    const towerMat = cachedFlatMaterial({ color: 0xc9c0a8, roughness: 0.85 })
+    const bladeMat = cachedFlatMaterial({ color: 0x6a5838, roughness: 0.8 })
     const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.4, 8, 10), towerMat)
     tower.position.set(-298, 4, 198)
     tower.castShadow = true
@@ -2787,7 +2787,7 @@ export function buildWorld(scene, trophyCount = 15) {
     ],
   })
   {
-    const markMat = flatMaterial({ color: 0xc9412e, roughness: 0.9 })
+    const markMat = cachedFlatMaterial({ color: 0xc9412e, roughness: 0.9 })
     for (const [dx, rot] of [[-1.2, Math.PI / 4], [1.2, -Math.PI / 4]]) {
       const bar = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.05, 2.4), markMat)
       bar.position.set(362 + dx, 0.03, -53 + 2)
@@ -2806,12 +2806,12 @@ export function buildWorld(scene, trophyCount = 15) {
     dressing: [{ file: 'barrel.glb', dx: -8, dz: -7 }, { file: 'barrel.glb', dx: 8, dz: -7 }],
   })
   {
-    const scorchMat = flatMaterial({ color: 0x2a2622, roughness: 1 })
+    const scorchMat = cachedFlatMaterial({ color: 0x2a2622, roughness: 1 })
     const scorch = new THREE.Mesh(new THREE.CircleGeometry(5, 24), scorchMat)
     scorch.rotation.x = -Math.PI / 2
     scorch.position.set(-343, 0.03, -103)
     scene.add(scorch)
-    const rockMat = flatMaterial({ color: 0x1c1a24, roughness: 0.7, metalness: 0.3 })
+    const rockMat = cachedFlatMaterial({ color: 0x1c1a24, roughness: 0.7, metalness: 0.3 })
     const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(1.6, 0), rockMat)
     rock.position.set(-343, 0.9, -103)
     rock.rotation.set(0.4, 0.7, 0.2)
@@ -3050,14 +3050,14 @@ function buildPark(scene, colliders, solidMeshes) {
   const depth = PARK_Z_END - PARK_Z_START
   const undergroundHoles = [UNDERGROUND_HOLE_SUBWAY, UNDERGROUND_HOLE_NEW_ENTRANCE]
 
-  const grassMat = flatMaterial({ color: 0x2c3a24, roughness: 1 })
+  const grassMat = cachedFlatMaterial({ color: 0x2c3a24, roughness: 1 })
   buildGroundPlaneWithHoles(scene, grassMat, 0, centerZ, PARK_HALF_WIDTH * 2, depth, undergroundHoles, 0.01)
 
   // Path is narrower than the grass (4 wide, x -2..2) - only the subway hole
   // (centered on the path's own x=0) actually falls inside it, clamped a
   // little short of the path's own edges so the hole never touches (let
   // alone exceeds) the outer boundary it's cut from.
-  const pathMat = flatMaterial({ color: 0x4a463c, roughness: 1 })
+  const pathMat = cachedFlatMaterial({ color: 0x4a463c, roughness: 1 })
   const pathHole = { xMin: -1.9, xMax: 1.9, zMin: UNDERGROUND_HOLE_SUBWAY.zMin, zMax: UNDERGROUND_HOLE_SUBWAY.zMax }
   buildGroundPlaneWithHoles(scene, pathMat, 0, centerZ, 4, depth, [pathHole], 0.015)
 
@@ -3070,7 +3070,7 @@ function buildPark(scene, colliders, solidMeshes) {
   plazaTex.wrapT = THREE.RepeatWrapping
   plazaTex.colorSpace = THREE.SRGBColorSpace
   plazaTex.repeat.set(UNDERGROUND_PLAZA.w / 12, UNDERGROUND_PLAZA.d / 12)
-  const plazaMat = flatMaterial({ map: plazaTex, roughness: 1 })
+  const plazaMat = cachedFlatMaterial({ map: plazaTex, roughness: 1 })
   buildGroundPlaneWithHoles(
     scene, plazaMat, UNDERGROUND_PLAZA.x, UNDERGROUND_PLAZA.z, UNDERGROUND_PLAZA.w, UNDERGROUND_PLAZA.d,
     undergroundHoles, 0.02
@@ -3078,8 +3078,8 @@ function buildPark(scene, colliders, solidMeshes) {
 
   // Already flat colors, already shared across every tree instance - only
   // the lighting-model cost changes under LOW_QUALITY_MODE.
-  const trunkMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: 0x2a1f16 }) : flatMaterial({ color: 0x2a1f16, roughness: 1 })
-  const leafMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: 0x3a4d2a }) : flatMaterial({ color: 0x3a4d2a, roughness: 0.9 })
+  const trunkMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: 0x2a1f16 }) : cachedFlatMaterial({ color: 0x2a1f16, roughness: 1 })
+  const leafMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: 0x3a4d2a }) : cachedFlatMaterial({ color: 0x3a4d2a, roughness: 0.9 })
   // Excludes any tree that used to crowd right up against either stairwell
   // (see the reference-photo feedback that trees/grass right next to the
   // kiosks still read as "the park", not a real stairwell plaza).
@@ -3114,7 +3114,7 @@ function buildPark(scene, colliders, solidMeshes) {
     colliders.push(box)
   }
 
-  const benchMat = flatMaterial({ color: 0x3a3226, roughness: 0.85 })
+  const benchMat = cachedFlatMaterial({ color: 0x3a3226, roughness: 0.85 })
   const benchModel = _propModelCache.get('bench.glb')
   const benchSpots = [[-3, 58, 0], [3, 65, Math.PI]]
   for (const [x, z, rot] of benchSpots) {
@@ -3196,14 +3196,14 @@ function buildPark(scene, colliders, solidMeshes) {
 // in-place on detonation, and a shared material would blacken every barrel
 // on the map the instant any single one was shot (same class of bug as the
 // Molotov fire zone material sharing one instance earlier).
-const barrelBodyMat = flatMaterial({
+const barrelBodyMat = cachedFlatMaterial({
   color: 0xb3311f,
   emissive: 0x4a0f06,
   emissiveIntensity: 0.5,
   roughness: 0.55,
   metalness: 0.25,
 })
-const barrelCapMat = flatMaterial({ color: 0x1c1a16, roughness: 0.6, metalness: 0.4 })
+const barrelCapMat = cachedFlatMaterial({ color: 0x1c1a16, roughness: 0.6, metalness: 0.4 })
 
 function buildExplosiveBarrels(scene, colliders, solidMeshes, spots) {
   const model = _propModelCache.get('barrel.glb')
@@ -3265,9 +3265,9 @@ function buildGenerator(scene, register) {
   const group = new THREE.Group()
   group.position.set(x, 0, z)
 
-  const bodyMat = flatMaterial({ color: 0x3a4530, roughness: 0.8 })
-  const trimMat = flatMaterial({ color: 0x1c1c1a, roughness: 0.5, metalness: 0.5 })
-  const indicatorMat = flatMaterial({ color: 0x0a2a0a, emissive: 0x2aff3e, emissiveIntensity: 1 })
+  const bodyMat = cachedFlatMaterial({ color: 0x3a4530, roughness: 0.8 })
+  const trimMat = cachedFlatMaterial({ color: 0x1c1c1a, roughness: 0.5, metalness: 0.5 })
+  const indicatorMat = cachedFlatMaterial({ color: 0x0a2a0a, emissive: 0x2aff3e, emissiveIntensity: 1 })
 
   const body = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.9, 0.7), bodyMat)
   body.position.y = 0.45
@@ -3315,7 +3315,7 @@ function buildTraderStall(scene, register) {
   group.position.set(x, 0, z)
   group.rotation.y = Math.PI * 0.15
 
-  const signMat = flatMaterial({ color: 0x1a1410, emissive: 0xffb347, emissiveIntensity: 1.1 })
+  const signMat = cachedFlatMaterial({ color: 0x1a1410, emissive: 0xffb347, emissiveIntensity: 1.1 })
 
   // Real GLB model (Quaternius "Market Stand", CC0, poly.pizza) in place of
   // the procedural counter+posts+awning. Raw bounds ~0.95w x 1.05h x 1.19d;
@@ -3345,8 +3345,8 @@ function buildTraderStall(scene, register) {
     lantern.position.set(0, 1.6, 0.3)
     group.add(lantern)
   } else {
-    const woodMat = flatMaterial({ color: 0x4a3624, roughness: 0.9 })
-    const tarpMat = flatMaterial({ color: 0x5a2e2a, roughness: 0.85 })
+    const woodMat = cachedFlatMaterial({ color: 0x4a3624, roughness: 0.9 })
+    const tarpMat = cachedFlatMaterial({ color: 0x5a2e2a, roughness: 0.85 })
 
     const COUNTER_W = 1.6
     const COUNTER_D = 0.6
@@ -3438,9 +3438,9 @@ function buildAmmoStation(scene, register) {
     const buttonMesh = clone.getObjectByName('Button')
     buttonMat = buttonMesh.material
   } else {
-    const bodyMat = flatMaterial({ color: 0x5a2a1e, roughness: 0.7, metalness: 0.2 })
-    const trimMat = flatMaterial({ color: 0x1c1c1a, roughness: 0.5, metalness: 0.5 })
-    buttonMat = flatMaterial({ color: 0x2a0808, emissive: 0xff2a1e, emissiveIntensity: 1.1 })
+    const bodyMat = cachedFlatMaterial({ color: 0x5a2a1e, roughness: 0.7, metalness: 0.2 })
+    const trimMat = cachedFlatMaterial({ color: 0x1c1c1a, roughness: 0.5, metalness: 0.5 })
+    buttonMat = cachedFlatMaterial({ color: 0x2a0808, emissive: 0xff2a1e, emissiveIntensity: 1.1 })
 
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.1, 0.5), bodyMat)
     body.position.y = 0.55
@@ -3471,7 +3471,7 @@ function buildAmmoStation(scene, register) {
   ctx.fillStyle = '#c9b8a0'
   ctx.fillText('HOLD TO CHARGE', canvas.width / 2, canvas.height / 2 + 26)
 
-  const screenMat = flatMaterial({
+  const screenMat = cachedFlatMaterial({
     map: new THREE.CanvasTexture(canvas),
     emissive: 0xffffff,
     emissiveMap: new THREE.CanvasTexture(canvas),
@@ -3506,8 +3506,8 @@ function buildWeaponUpgradeMachine(scene, register, x, z) {
   const group = new THREE.Group()
   group.position.set(x, 0, z)
 
-  const bodyMat = flatMaterial({ color: 0x2a3a6a, roughness: 0.5, metalness: 0.5, emissive: 0x1a2a5a, emissiveIntensity: 0.5 })
-  const trimMat = flatMaterial({ color: 0x1c1c1a, roughness: 0.5, metalness: 0.6 })
+  const bodyMat = cachedFlatMaterial({ color: 0x2a3a6a, roughness: 0.5, metalness: 0.5, emissive: 0x1a2a5a, emissiveIntensity: 0.5 })
+  const trimMat = cachedFlatMaterial({ color: 0x1c1c1a, roughness: 0.5, metalness: 0.6 })
 
   const body = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.8, 0.8), bodyMat)
   body.position.y = 0.9
@@ -3535,7 +3535,7 @@ function buildWeaponUpgradeMachine(scene, register, x, z) {
   ctx.fillStyle = '#c9b8a0'
   ctx.fillText('E TO USE', canvas.width / 2, canvas.height / 2 + 24)
 
-  const screenMat = flatMaterial({ map: new THREE.CanvasTexture(canvas), emissive: 0xffffff, emissiveMap: new THREE.CanvasTexture(canvas), emissiveIntensity: 0.9 })
+  const screenMat = cachedFlatMaterial({ map: new THREE.CanvasTexture(canvas), emissive: 0xffffff, emissiveMap: new THREE.CanvasTexture(canvas), emissiveIntensity: 0.9 })
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.6), screenMat)
   screen.position.set(0, 1.1, 0.41)
   group.add(screen)
@@ -3555,8 +3555,8 @@ function buildMysteryBox(scene, register, x, z) {
   const group = new THREE.Group()
   group.position.set(x, 0, z)
 
-  const crateMat = flatMaterial({ color: 0x5a2a6a, roughness: 0.6, metalness: 0.3, emissive: 0x3a1a4a, emissiveIntensity: 0.4 })
-  const trimMat = flatMaterial({ color: 0x2a1a2a, roughness: 0.6, metalness: 0.4 })
+  const crateMat = cachedFlatMaterial({ color: 0x5a2a6a, roughness: 0.6, metalness: 0.3, emissive: 0x3a1a4a, emissiveIntensity: 0.4 })
+  const trimMat = cachedFlatMaterial({ color: 0x2a1a2a, roughness: 0.6, metalness: 0.4 })
 
   const crate = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.1, 1.1), crateMat)
   crate.position.y = 0.55
@@ -3586,7 +3586,7 @@ function buildMysteryBox(scene, register, x, z) {
   ctx.fillStyle = '#c9b8a0'
   ctx.fillText('E TO GAMBLE', canvas.width / 2, canvas.height / 2 + 24)
 
-  const screenMat = flatMaterial({ map: new THREE.CanvasTexture(canvas), emissive: 0xffffff, emissiveMap: new THREE.CanvasTexture(canvas), emissiveIntensity: 0.9 })
+  const screenMat = cachedFlatMaterial({ map: new THREE.CanvasTexture(canvas), emissive: 0xffffff, emissiveMap: new THREE.CanvasTexture(canvas), emissiveIntensity: 0.9 })
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.6), screenMat)
   screen.position.set(0, 1.4, 0)
   screen.rotation.x = -0.3
@@ -3643,11 +3643,11 @@ function buildSafeZone(scene, colliders, solidMeshes) {
         const bumpTex = getSharedBumpTexture().clone()
         bumpTex.needsUpdate = true
         bumpTex.repeat.copy(facadeTex.repeat)
-        return flatMaterial({ map: facadeTex, bumpMap: bumpTex, bumpScale: 0.035, roughness: 0.95 })
+        return cachedFlatMaterial({ map: facadeTex, bumpMap: bumpTex, bumpScale: 0.035, roughness: 0.95 })
       })()
-  const postMat = flatMaterial({ color: 0x1c1a16, roughness: 0.8 })
-  const sandbagMat = flatMaterial({ color: 0x5a5138, roughness: 1 })
-  const lightMat = flatMaterial({ color: 0x1a1408, emissive: 0x6fe08a, emissiveIntensity: 1.3 })
+  const postMat = cachedFlatMaterial({ color: 0x1c1a16, roughness: 0.8 })
+  const sandbagMat = cachedFlatMaterial({ color: 0x5a5138, roughness: 1 })
+  const lightMat = cachedFlatMaterial({ color: 0x1a1408, emissive: 0x6fe08a, emissiveIntensity: 1.3 })
 
   const addWall = (wx, wz, w, d) => {
     const wall = new THREE.Mesh(new THREE.BoxGeometry(w, wallHeight, d), wallMat)
@@ -3751,7 +3751,7 @@ function buildRoom(scene, register, spec) {
     // the lighting-model cost, not appearance.
     wallMat = LOW_QUALITY_MODE
       ? new THREE.MeshLambertMaterial({ color: 0x3a3a34 })
-      : flatMaterial({ color: 0x3a3a34, roughness: 0.95 }),
+      : cachedFlatMaterial({ color: 0x3a3a34, roughness: 0.95 }),
   } = spec
 
   const halfW = w / 2
@@ -3852,7 +3852,7 @@ function buildRetailStore(scene, register, spec) {
 
   const room = buildRoom(scene, register, { x, z, w, d, wallHeight, doorSides })
 
-  const floorMat = flatMaterial({ color: 0xcac6ba, roughness: 0.85 })
+  const floorMat = cachedFlatMaterial({ color: 0xcac6ba, roughness: 0.85 })
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, d - 0.6), floorMat)
   floor.rotation.x = -Math.PI / 2
   floor.position.set(x, 0.02, z)
@@ -3994,7 +3994,7 @@ function buildHospital(scene, register, x, z) {
     openSides: ['south'],
   })
 
-  const floorMat = flatMaterial({ color: 0xd8d8d0, roughness: 0.7 })
+  const floorMat = cachedFlatMaterial({ color: 0xd8d8d0, roughness: 0.7 })
   const totalD = receptionD + corridorD + wardD
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, totalD - 0.6), floorMat)
   floor.rotation.x = -Math.PI / 2
@@ -4027,7 +4027,7 @@ function buildPharmacy(scene, register, x, z) {
     doorSides: [{ side: 'south', width: 2.2 }],
   })
 
-  const floorMat = flatMaterial({ color: 0xd8d8d0, roughness: 0.7 })
+  const floorMat = cachedFlatMaterial({ color: 0xd8d8d0, roughness: 0.7 })
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, d - 0.6), floorMat)
   floor.rotation.x = -Math.PI / 2
   floor.position.set(x, 0.02, z)
@@ -4071,7 +4071,7 @@ function buildGunShop(scene, register, x, z) {
     doorSides: [{ side: 'south', width: 2.2 }],
   })
 
-  const floorMat = flatMaterial({ color: 0x3a3630, roughness: 0.75 })
+  const floorMat = cachedFlatMaterial({ color: 0x3a3630, roughness: 0.75 })
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, d - 0.6), floorMat)
   floor.rotation.x = -Math.PI / 2
   floor.position.set(x, 0.02, z)
@@ -4147,7 +4147,7 @@ function buildGunShop(scene, register, x, z) {
 // need the 'z' orientation the police station's own north-facing cell
 // never needed.
 function buildLockableDoor(scene, x, z, width, axis = 'x', floorY = 0) {
-  const doorMat = flatMaterial({ color: 0x232320, roughness: 0.6, metalness: 0.5 })
+  const doorMat = cachedFlatMaterial({ color: 0x232320, roughness: 0.6, metalness: 0.5 })
   const dims = axis === 'x' ? [width, 2.6, 0.15] : [0.15, 2.6, width]
   const doorMesh = new THREE.Mesh(new THREE.BoxGeometry(dims[0], dims[1], dims[2]), doorMat)
   doorMesh.position.set(x, floorY + 1.3, z)
@@ -4156,7 +4156,7 @@ function buildLockableDoor(scene, x, z, width, axis = 'x', floorY = 0) {
   doorMesh.updateWorldMatrix(true, false)
   const doorBox = new THREE.Box3().setFromObject(doorMesh)
 
-  const indicatorMat = flatMaterial({ color: 0x1a0505, emissive: 0xff2a1e, emissiveIntensity: 0.9 })
+  const indicatorMat = cachedFlatMaterial({ color: 0x1a0505, emissive: 0xff2a1e, emissiveIntensity: 0.9 })
   const light = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 10), indicatorMat)
   const lightOffset = axis === 'x' ? [0, 0.1] : [0.1, 0]
   light.position.set(x + lightOffset[0], floorY + 2.3, z + lightOffset[1])
@@ -4208,7 +4208,7 @@ function buildPoliceStation(scene, register, x, z) {
     doorSides: [{ side: 'north', width: doorGap }],
   })
 
-  const floorMat = flatMaterial({ color: 0x33342e, roughness: 0.8 })
+  const floorMat = cachedFlatMaterial({ color: 0x33342e, roughness: 0.8 })
   const totalD = receptionD + corridorD + cellD
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, totalD - 0.6), floorMat)
   floor.rotation.x = -Math.PI / 2
@@ -4247,9 +4247,9 @@ function buildPoliceStation(scene, register, x, z) {
 // primitives matching this game's established "no texture needed for small
 // set-dressing" style, same as the trader stall's tarp awning).
 function buildMilitaryCheckpoint(scene, register, x, z) {
-  const sandbagMat = flatMaterial({ color: 0x5a5138, roughness: 1 })
-  const tentMat = flatMaterial({ color: 0x3a4a34, roughness: 0.9 })
-  const barrierMat = flatMaterial({ color: 0xb0331a, roughness: 0.7, metalness: 0.2 })
+  const sandbagMat = cachedFlatMaterial({ color: 0x5a5138, roughness: 1 })
+  const tentMat = cachedFlatMaterial({ color: 0x3a4a34, roughness: 0.9 })
+  const barrierMat = cachedFlatMaterial({ color: 0xb0331a, roughness: 0.7, metalness: 0.2 })
 
   for (const side of [-1, 1]) {
     const wallX = x + side * 2.2
@@ -4316,7 +4316,7 @@ function buildPrison(scene, register, x, z) {
     openSides: ['north'],
   })
 
-  const adminFloorMat = flatMaterial({ color: 0x33342e, roughness: 0.8 })
+  const adminFloorMat = cachedFlatMaterial({ color: 0x33342e, roughness: 0.8 })
   const adminFloor = new THREE.Mesh(new THREE.PlaneGeometry(adminW - 0.6, adminD - 0.6), adminFloorMat)
   adminFloor.rotation.x = -Math.PI / 2
   adminFloor.position.set(x, 0.02, adminZ)
@@ -4333,7 +4333,7 @@ function buildPrison(scene, register, x, z) {
 
   // Watchtower at the entrance - a taller sandbag post than the safe zone's
   // own guard posts, same material/approach, no new asset needed.
-  const sandbagMat = flatMaterial({ color: 0x5a5138, roughness: 1 })
+  const sandbagMat = cachedFlatMaterial({ color: 0x5a5138, roughness: 1 })
   const tower = new THREE.Mesh(new THREE.BoxGeometry(1.1, 2.4, 1.1), sandbagMat)
   tower.position.set(x - adminW / 2 + 1, 1.2, adminZ + adminD / 2 + 1)
   tower.castShadow = true
@@ -4395,7 +4395,7 @@ function buildUniversity(scene, register, x, z) {
     openSides: ['south'],
   })
 
-  const floorMat = flatMaterial({ color: 0xc8c4b8, roughness: 0.8 })
+  const floorMat = cachedFlatMaterial({ color: 0xc8c4b8, roughness: 0.8 })
   const entranceFloor = new THREE.Mesh(new THREE.PlaneGeometry(entranceW - 0.6, entranceD - 0.6), floorMat)
   entranceFloor.rotation.x = -Math.PI / 2
   entranceFloor.position.set(x, 0.02, entranceZ)
@@ -4408,7 +4408,7 @@ function buildUniversity(scene, register, x, z) {
   scene.add(hallwayFloor)
 
   const hallwayHalfW = hallwayW / 2
-  const roomFloorMat = flatMaterial({ color: 0xd0ccc0, roughness: 0.75 })
+  const roomFloorMat = cachedFlatMaterial({ color: 0xd0ccc0, roughness: 0.75 })
   const buildAlcove = (roomZ, side, w, d, dressing) => {
     const roomX = x + side * (hallwayHalfW + w / 2)
     buildRoom(scene, register, {
@@ -4496,8 +4496,8 @@ function buildOfficeSkyscraper(scene, colliders, solidMeshes, register, x, z, to
 
   buildStairFlight(scene, solidMeshes, stripCenterX, z - d / 2 + 0.6, floor2Y, stripCenterX, z + d / 2 - 0.6, h, 14)
 
-  const roofMat = flatMaterial({ color: 0x2e2a24, roughness: 0.9 })
-  const railMat = flatMaterial({ color: 0x1c1a16, roughness: 0.7, metalness: 0.5 })
+  const roofMat = cachedFlatMaterial({ color: 0x2e2a24, roughness: 0.9 })
+  const railMat = cachedFlatMaterial({ color: 0x1c1a16, roughness: 0.7, metalness: 0.5 })
   const roof = new THREE.Mesh(new THREE.BoxGeometry(w, 0.3, d), roofMat)
   roof.position.set(x, h - 0.15, z)
   roof.castShadow = true
@@ -4519,7 +4519,7 @@ function buildOfficeSkyscraper(scene, colliders, solidMeshes, register, x, z, to
     solidMeshes.push(rail)
   }
 
-  const helipadMat = flatMaterial({ map: buildHelipadTexture(), roughness: 0.8 })
+  const helipadMat = cachedFlatMaterial({ map: buildHelipadTexture(), roughness: 0.8 })
   const helipad = new THREE.Mesh(new THREE.CircleGeometry(3.2, 24), helipadMat)
   helipad.rotation.x = -Math.PI / 2
   helipad.position.set(x, h + 0.01, z)
@@ -4542,7 +4542,7 @@ function buildOfficeSkyscraper(scene, colliders, solidMeshes, register, x, z, to
     x: bunkerX, z, w: bunkerW, d: bunkerD,
     doorSides: [{ side: bunkerDoorSide, width: 1.8 }, { side: hiddenDoorSide, width: 1.6 }],
   })
-  const bunkerFloorMat = flatMaterial({ color: 0x2a2c28, roughness: 0.85 })
+  const bunkerFloorMat = cachedFlatMaterial({ color: 0x2a2c28, roughness: 0.85 })
   const bunkerFloor = new THREE.Mesh(new THREE.PlaneGeometry(bunkerW - 0.6, bunkerD - 0.6), bunkerFloorMat)
   bunkerFloor.rotation.x = -Math.PI / 2
   bunkerFloor.position.set(bunkerX, 0.02, z)
@@ -4577,7 +4577,7 @@ function buildHiddenComplex(scene, colliders, solidMeshes, register, flickerLigh
   const floorY = -4.6 // "Level -1" depth convention, though otherwise unconnected to the actual subway network
   const wallHeight = 2.6 // matches buildRoom's own default
 
-  const shaftMat = flatMaterial({ color: 0x2c2c2a, roughness: 0.95 })
+  const shaftMat = cachedFlatMaterial({ color: 0x2c2c2a, roughness: 0.95 })
   const SHAFT_RUN = 16
   const STAIR_RUN = 8
   const shaftX0 = doorX
@@ -4619,7 +4619,7 @@ function buildHiddenComplex(scene, colliders, solidMeshes, register, flickerLigh
   // Parking garage - reuses buildRoom's own wall/door-gap machinery, just
   // underground (its floorY param), like every other retail/office interior
   // this session, rather than a bespoke shell.
-  const garageMat = flatMaterial({ color: 0x35342f, roughness: 0.9 })
+  const garageMat = cachedFlatMaterial({ color: 0x35342f, roughness: 0.9 })
   const garageW = 24
   const garageD = 18
   const garageX = shaftX1 + dirSign * (garageW / 2)
@@ -4629,7 +4629,7 @@ function buildHiddenComplex(scene, colliders, solidMeshes, register, flickerLigh
     x: garageX, z, w: garageW, d: garageD, floorY, wallMat: garageMat,
     doorSides: [{ side: garageNearSide, width: 3.4 }, { side: garageFarSide, width: 2.6 }],
   })
-  const garageFloorMat = flatMaterial({ color: 0x28271f, roughness: 1 })
+  const garageFloorMat = cachedFlatMaterial({ color: 0x28271f, roughness: 1 })
   const garageFloor = new THREE.Mesh(new THREE.PlaneGeometry(garageW - 0.6, garageD - 0.6), garageFloorMat)
   garageFloor.rotation.x = -Math.PI / 2
   garageFloor.position.set(garageX, floorY + 0.02, z)
@@ -4651,7 +4651,7 @@ function buildHiddenComplex(scene, colliders, solidMeshes, register, flickerLigh
   // just duller/rustier - not the actual drivable Vehicle class, this is
   // static dressing only) so the room reads as a real garage, not an empty
   // box underground.
-  const pillarMat = flatMaterial({ color: 0x2a2924, roughness: 0.95 })
+  const pillarMat = cachedFlatMaterial({ color: 0x2a2924, roughness: 0.95 })
   for (const [px, pz] of [[-7, -5], [-7, 5], [7, -5], [7, 5]]) {
     const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.6, wallHeight, 0.6), pillarMat)
     pillar.position.set(garageX + px, floorY + wallHeight / 2, z + pz)
@@ -4660,15 +4660,15 @@ function buildHiddenComplex(scene, colliders, solidMeshes, register, flickerLigh
     solidMeshes.push(pillar)
     colliders.push(new THREE.Box3().setFromObject(pillar))
   }
-  const lineMat = flatMaterial({ color: 0xd9d4c4, roughness: 0.8, emissive: 0xd9d4c4, emissiveIntensity: 0.05 })
+  const lineMat = cachedFlatMaterial({ color: 0xd9d4c4, roughness: 0.8, emissive: 0xd9d4c4, emissiveIntensity: 0.05 })
   for (const lx of [-9, -3, 3, 9]) {
     const line = new THREE.Mesh(new THREE.PlaneGeometry(0.15, garageD - 3), lineMat)
     line.rotation.x = -Math.PI / 2
     line.position.set(garageX + lx, floorY + 0.03, z)
     scene.add(line)
   }
-  const carBodyMat = flatMaterial({ color: 0x5a4a3a, roughness: 0.7, metalness: 0.2 })
-  const carCabinMat = flatMaterial({ color: 0x2a2624, roughness: 0.6 })
+  const carBodyMat = cachedFlatMaterial({ color: 0x5a4a3a, roughness: 0.7, metalness: 0.2 })
+  const carCabinMat = cachedFlatMaterial({ color: 0x2a2624, roughness: 0.6 })
   for (const [cx, cz, rot] of [[-6, -2, 0], [6, 3, Math.PI]]) {
     const car = new THREE.Group()
     car.position.set(garageX + cx, floorY, z + cz)
@@ -4716,8 +4716,8 @@ function buildHiddenComplex(scene, colliders, solidMeshes, register, flickerLigh
   const catacombX1 = catacombX0 + dirSign * CATACOMB_RUN
   const catacombWidth = 3.2
   const catacombHeight = 2.4
-  const stoneMat = flatMaterial({ color: 0x4a463e, roughness: 1 })
-  const catacombFloorMat = flatMaterial({ color: 0x38352e, roughness: 1 })
+  const stoneMat = cachedFlatMaterial({ color: 0x4a463e, roughness: 1 })
+  const catacombFloorMat = cachedFlatMaterial({ color: 0x38352e, roughness: 1 })
   const catacombCenterX = (catacombX0 + catacombX1) / 2
 
   const catacombFloor = new THREE.Mesh(new THREE.BoxGeometry(CATACOMB_RUN, 0.08, catacombWidth), catacombFloorMat)
@@ -4745,7 +4745,7 @@ function buildHiddenComplex(scene, colliders, solidMeshes, register, flickerLigh
 
   // Alcove niches (small recessed urn/skull dressing, purely visual - not
   // colliders, they sit flush against the wall out of the walkable path).
-  const urnMat = flatMaterial({ color: 0x5a5648, roughness: 0.9 })
+  const urnMat = cachedFlatMaterial({ color: 0x5a5648, roughness: 0.9 })
   for (const [t, side] of [[0.3, -1], [0.65, 1]]) {
     const nicheX = catacombX0 + dirSign * (CATACOMB_RUN * t)
     const urn = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.24, 0.4, 10), urnMat)
@@ -4772,12 +4772,12 @@ function buildHiddenComplex(scene, colliders, solidMeshes, register, flickerLigh
   const speakeasyW = 12
   const speakeasyD = 10
   const speakeasyX = catacombX1 + dirSign * (speakeasyW / 2)
-  const speakeasyMat = flatMaterial({ color: 0x3a2a1e, roughness: 0.85 })
+  const speakeasyMat = cachedFlatMaterial({ color: 0x3a2a1e, roughness: 0.85 })
   buildRoom(scene, register, {
     x: speakeasyX, z, w: speakeasyW, d: speakeasyD, floorY, wallMat: speakeasyMat,
     doorSides: [], openSides: [dirSign === 1 ? 'west' : 'east'], // the lockable door slab above already covers this gap
   })
-  const speakeasyFloorMat = flatMaterial({ color: 0x2e2116, roughness: 0.8 })
+  const speakeasyFloorMat = cachedFlatMaterial({ color: 0x2e2116, roughness: 0.8 })
   const speakeasyFloor = new THREE.Mesh(new THREE.PlaneGeometry(speakeasyW - 0.6, speakeasyD - 0.6), speakeasyFloorMat)
   speakeasyFloor.rotation.x = -Math.PI / 2
   speakeasyFloor.position.set(speakeasyX, floorY + 0.02, z)
@@ -4794,7 +4794,7 @@ function buildHiddenComplex(scene, colliders, solidMeshes, register, flickerLigh
   // "bottles" (simple colored cylinders - no new asset needed for these).
   const barX = speakeasyX + dirSign * (speakeasyW / 2 - 1.6)
   placePropSimple(scene, register, 'counter.glb', barX, z, dirSign === 1 ? -Math.PI / 2 : Math.PI / 2, 1, true, floorY)
-  const bottleMat = flatMaterial({ color: 0x2a5a3a, roughness: 0.3, metalness: 0.1 })
+  const bottleMat = cachedFlatMaterial({ color: 0x2a5a3a, roughness: 0.3, metalness: 0.1 })
   for (let i = 0; i < 5; i++) {
     const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.32, 8), bottleMat)
     bottle.position.set(barX + dirSign * 0.6, floorY + 1.05, z - 1.5 + i * 0.7)
@@ -4848,7 +4848,7 @@ function buildMegaMall(scene, register, x, z) {
   // Shared open plaza south of the stores - paved ground, benches, and a
   // couple of streetlights, no walls at all (it's the mall's own "common
   // area", not another enclosed room).
-  const plazaMat = flatMaterial({ color: 0xb8b0a0, roughness: 0.75 })
+  const plazaMat = cachedFlatMaterial({ color: 0xb8b0a0, roughness: 0.75 })
   const plaza = new THREE.Mesh(new THREE.PlaneGeometry(52, 20), plazaMat)
   plaza.rotation.x = -Math.PI / 2
   plaza.position.set(x, 0.015, plazaZ)
@@ -4910,7 +4910,7 @@ function buildSignPlankTexture(lines) {
 // wayfinding for a map that's now 750x750 with named locations 100-250
 // units apart, without needing the compass fix above to be the only cue.
 function buildDirectionalSignpost(scene, x, z) {
-  const postMat = flatMaterial({ color: 0x2a1f16, roughness: 0.9 })
+  const postMat = cachedFlatMaterial({ color: 0x2a1f16, roughness: 0.9 })
   const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 2.6, 8), postMat)
   post.position.set(x, 1.3, z)
   post.castShadow = true
@@ -4924,7 +4924,7 @@ function buildDirectionalSignpost(scene, x, z) {
   ]
   let y = 2.2
   for (const arm of arms) {
-    const plankMat = flatMaterial({ map: buildSignPlankTexture(arm.lines), roughness: 0.8 })
+    const plankMat = cachedFlatMaterial({ map: buildSignPlankTexture(arm.lines), roughness: 0.8 })
     const plank = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.33), plankMat)
     plank.position.set(x + Math.sin(arm.rotY) * 0.66, y, z + Math.cos(arm.rotY) * 0.66)
     plank.rotation.y = arm.rotY
@@ -4949,7 +4949,7 @@ function buildWarehouse(scene, register, x, z) {
     wallHeight: 4.5,
   })
 
-  const floorMat = flatMaterial({ color: 0x3a3a34, roughness: 0.9 })
+  const floorMat = cachedFlatMaterial({ color: 0x3a3a34, roughness: 0.9 })
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, d - 0.6), floorMat)
   floor.rotation.x = -Math.PI / 2
   floor.position.set(x, 0.02, z)
@@ -5004,7 +5004,7 @@ function buildGasStation(scene, register, x, z) {
     x, z, w, d,
     doorSides: [{ side: 'south', width: 2.2 }],
   })
-  const floorMat = flatMaterial({ color: 0xc4c0b0, roughness: 0.8 })
+  const floorMat = cachedFlatMaterial({ color: 0xc4c0b0, roughness: 0.8 })
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, d - 0.6), floorMat)
   floor.rotation.x = -Math.PI / 2
   floor.position.set(x, 0.02, z)
@@ -5013,8 +5013,8 @@ function buildGasStation(scene, register, x, z) {
   placePropSimple(scene, register, 'counter.glb', x - 2.5, z - 1.5, 0)
 
   // Canopy + pumps on the forecourt south of the store.
-  const canopyMat = flatMaterial({ color: 0xb0331a, roughness: 0.6, metalness: 0.2 })
-  const postMat = flatMaterial({ color: 0x2a2a26, roughness: 0.7, metalness: 0.5 })
+  const canopyMat = cachedFlatMaterial({ color: 0xb0331a, roughness: 0.6, metalness: 0.2 })
+  const postMat = cachedFlatMaterial({ color: 0x2a2a26, roughness: 0.7, metalness: 0.5 })
   const forecourtZ = z - d / 2 - 5
   const canopy = new THREE.Mesh(new THREE.BoxGeometry(9, 0.3, 6), canopyMat)
   canopy.position.set(x, 3.2, forecourtZ)
@@ -5028,7 +5028,7 @@ function buildGasStation(scene, register, x, z) {
     scene.add(post)
     register(post)
   }
-  const pumpMat = flatMaterial({ color: 0xdedad0, roughness: 0.5 })
+  const pumpMat = cachedFlatMaterial({ color: 0xdedad0, roughness: 0.5 })
   for (const px of [-1.5, 1.5]) {
     const pump = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.2, 0.5), pumpMat)
     pump.position.set(x + px, 0.6, forecourtZ)
@@ -5053,7 +5053,7 @@ function buildBank(scene, register, x, z) {
     x, z, w, d,
     doorSides: [{ side: 'south', width: 2.6 }],
   })
-  const floorMat = flatMaterial({ color: 0xa8a498, roughness: 0.6 })
+  const floorMat = cachedFlatMaterial({ color: 0xa8a498, roughness: 0.6 })
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, d - 0.6), floorMat)
   floor.rotation.x = -Math.PI / 2
   floor.position.set(x, 0.02, z)
@@ -5092,7 +5092,7 @@ function buildDiner(scene, register, x, z) {
     x, z, w, d,
     doorSides: [{ side: 'south', width: 2.4 }],
   })
-  const floorMat = flatMaterial({ color: 0xc9a860, roughness: 0.7 })
+  const floorMat = cachedFlatMaterial({ color: 0xc9a860, roughness: 0.7 })
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, d - 0.6), floorMat)
   floor.rotation.x = -Math.PI / 2
   floor.position.set(x, 0.02, z)
@@ -5122,7 +5122,7 @@ function buildRadioStation(scene, register, x, z) {
     x, z, w, d,
     doorSides: [{ side: 'south', width: 2.2 }],
   })
-  const floorMat = flatMaterial({ color: 0x2e2e2a, roughness: 0.8 })
+  const floorMat = cachedFlatMaterial({ color: 0x2e2e2a, roughness: 0.8 })
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, d - 0.6), floorMat)
   floor.rotation.x = -Math.PI / 2
   floor.position.set(x, 0.02, z)
@@ -5131,13 +5131,13 @@ function buildRadioStation(scene, register, x, z) {
   placePropSimple(scene, register, 'counter.glb', x, z - d / 2 + 1.3, 0)
 
   // Antenna tower on the roof.
-  const towerMat = flatMaterial({ color: 0x8a8478, roughness: 0.5, metalness: 0.7 })
+  const towerMat = cachedFlatMaterial({ color: 0x8a8478, roughness: 0.5, metalness: 0.7 })
   const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.1, 6, 8), towerMat)
   tower.position.set(x, 3 + 3, z)
   tower.castShadow = true
   scene.add(tower)
   register(tower)
-  const beaconMat = flatMaterial({ color: 0x2a0505, emissive: 0xff2a1e, emissiveIntensity: 1.2 })
+  const beaconMat = cachedFlatMaterial({ color: 0x2a0505, emissive: 0xff2a1e, emissiveIntensity: 1.2 })
   const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 10), beaconMat)
   beacon.position.set(x, 6 + 3, z)
   scene.add(beacon)
@@ -5171,7 +5171,7 @@ function buildFireStation(scene, register, x, z) {
     doorSides: [{ side: 'south', width: 3 }],
     wallHeight: 3.6,
   })
-  const floorMat = flatMaterial({ color: 0x3a3630, roughness: 0.85 })
+  const floorMat = cachedFlatMaterial({ color: 0x3a3630, roughness: 0.85 })
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, d - 0.6), floorMat)
   floor.rotation.x = -Math.PI / 2
   floor.position.set(x, 0.02, z)
@@ -5210,7 +5210,7 @@ function buildMotel(scene, register, x, z) {
       x: roomX, z, w: roomW, d: roomD,
       doorSides: [{ side: 'south', width: 1.6 }],
     })
-    const floorMat = flatMaterial({ color: 0xa89870, roughness: 0.8 })
+    const floorMat = cachedFlatMaterial({ color: 0xa89870, roughness: 0.8 })
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(roomW - 0.5, roomD - 0.5), floorMat)
     floor.rotation.x = -Math.PI / 2
     floor.position.set(roomX, 0.02, z)
@@ -5250,7 +5250,7 @@ function buildFillerLocation(scene, register, spec) {
   } = spec
 
   if (fenceOnly) {
-    const fenceMat = flatMaterial({ color: wallColor || 0x2a2a26, roughness: 0.8, metalness: 0.4 })
+    const fenceMat = cachedFlatMaterial({ color: wallColor || 0x2a2a26, roughness: 0.8, metalness: 0.4 })
     const fenceH = 1.4
     const halfW = w / 2
     const halfD = d / 2
@@ -5273,9 +5273,9 @@ function buildFillerLocation(scene, register, spec) {
       x, z, w, d, wallHeight,
       doorSides: [{ side: doorSide, width: doorWidth }],
       ...(openSide ? { openSides: [openSide] } : {}),
-      ...(wallColor ? { wallMat: flatMaterial({ color: wallColor, roughness: 0.9 }) } : {}),
+      ...(wallColor ? { wallMat: cachedFlatMaterial({ color: wallColor, roughness: 0.9 }) } : {}),
     })
-    const floorMat = flatMaterial({ color: floorColor, roughness: 0.85 })
+    const floorMat = cachedFlatMaterial({ color: floorColor, roughness: 0.85 })
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, d - 0.6), floorMat)
     floor.rotation.x = -Math.PI / 2
     floor.position.set(x, 0.02, z)
@@ -5309,7 +5309,7 @@ function buildRoomExtension(scene, register, { x, startZ, w, roomDepths, floorCo
       x, z: roomZ, w, d, wallHeight: 3,
       openSides: isLast ? ['south'] : ['south', 'north'],
     })
-    const floorMat = flatMaterial({ color: floorColor, roughness: 0.85 })
+    const floorMat = cachedFlatMaterial({ color: floorColor, roughness: 0.85 })
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, d - 0.6), floorMat)
     floor.rotation.x = -Math.PI / 2
     floor.position.set(x, 0.02, roomZ)
@@ -5393,7 +5393,7 @@ function buildLocationSign(scene, x, z, approachOffsetZ, text) {
 }
 
 function buildManholeCover(scene, x, z) {
-  const mat = flatMaterial({ color: 0x2a2a26, roughness: 0.6, metalness: 0.6 })
+  const mat = cachedFlatMaterial({ color: 0x2a2a26, roughness: 0.6, metalness: 0.6 })
   const cover = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.05, 16), mat)
   cover.position.set(x, 0.03, z)
   cover.receiveShadow = true
@@ -5417,8 +5417,8 @@ const SCAFFOLDING_HEALTH = 40
 // comment flagged as out of scope. No register() - purely a small
 // walk-through interact prop, same as buildManholeCover above.
 function buildWaterTowerValve(scene, x, z) {
-  const wheelMat = flatMaterial({ color: 0x8a3a2a, roughness: 0.6, metalness: 0.5 })
-  const pipeMat = flatMaterial({ color: 0x4a4a48, roughness: 0.5, metalness: 0.7 })
+  const wheelMat = cachedFlatMaterial({ color: 0x8a3a2a, roughness: 0.6, metalness: 0.5 })
+  const pipeMat = cachedFlatMaterial({ color: 0x4a4a48, roughness: 0.5, metalness: 0.7 })
   const group = new THREE.Group()
   const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.4, 10), pipeMat)
   pipe.position.set(0, 0.7, 0)
@@ -5446,7 +5446,7 @@ export const CAMPFIRE_Z = 66
 // EXISTING mantle mechanic carries the player up both in sequence with no
 // new traversal code - just correctly-sized, correctly-placed geometry.
 function buildContainerStaircase(scene, colliders, solidMeshes, x, z) {
-  const containerMat = flatMaterial({ color: 0x2e5a4a, roughness: 0.75, metalness: 0.3 })
+  const containerMat = cachedFlatMaterial({ color: 0x2e5a4a, roughness: 0.75, metalness: 0.3 })
   const steps = [
     { dx: 0, dz: 0, h: 1.2, w: 2.6, d: 2.2 },
     { dx: 0, dz: -1.0, h: 2.3, w: 2.6, d: 2.2 },
@@ -5474,8 +5474,8 @@ function buildContainerStaircase(scene, colliders, solidMeshes, x, z) {
 // spike distinct from every other hazard in this game (all of which just
 // happen TO the player, never chosen).
 function buildIndustrialSiren(scene, x, z) {
-  const poleMat = flatMaterial({ color: 0x3a3a38, roughness: 0.7, metalness: 0.5 })
-  const hornMat = flatMaterial({ color: 0xb8402a, roughness: 0.6, metalness: 0.4 })
+  const poleMat = cachedFlatMaterial({ color: 0x3a3a38, roughness: 0.7, metalness: 0.5 })
+  const hornMat = cachedFlatMaterial({ color: 0xb8402a, roughness: 0.6, metalness: 0.4 })
   const group = new THREE.Group()
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 2.4, 8), poleMat)
   pole.position.set(0, 1.2, 0)
@@ -5499,9 +5499,9 @@ function buildIndustrialSiren(scene, x, z) {
 // returned explicitly so Game.js can animate the swing from this exact
 // anchor without re-deriving the geometry above.
 function buildWreckingPendulum(scene, x, z) {
-  const frameMat = flatMaterial({ color: 0x4a4640, roughness: 0.7, metalness: 0.4 })
-  const chainMat = flatMaterial({ color: 0x2a2a28, roughness: 0.6, metalness: 0.6 })
-  const ballMat = flatMaterial({ color: 0x1c1c1a, roughness: 0.5, metalness: 0.6 })
+  const frameMat = cachedFlatMaterial({ color: 0x4a4640, roughness: 0.7, metalness: 0.4 })
+  const chainMat = cachedFlatMaterial({ color: 0x2a2a28, roughness: 0.6, metalness: 0.6 })
+  const ballMat = cachedFlatMaterial({ color: 0x1c1c1a, roughness: 0.5, metalness: 0.6 })
   const group = new THREE.Group()
   const beamHeight = 4.5
   const beam = new THREE.Mesh(new THREE.BoxGeometry(0.3, beamHeight, 0.3), frameMat)
@@ -5536,8 +5536,8 @@ function buildWreckingPendulum(scene, x, z) {
 // climbable-looking structure the player should visibly bump into, not
 // walk through, until it's brought down.
 function buildScaffolding(scene, register, x, z) {
-  const poleMat = flatMaterial({ color: 0xb8862a, roughness: 0.6, metalness: 0.5 })
-  const plankMat = flatMaterial({ color: 0x6a5230, roughness: 0.9 })
+  const poleMat = cachedFlatMaterial({ color: 0xb8862a, roughness: 0.6, metalness: 0.5 })
+  const plankMat = cachedFlatMaterial({ color: 0x6a5230, roughness: 0.9 })
   const group = new THREE.Group()
   for (const [lx, lz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
     const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 3.5, 6), poleMat)
@@ -5585,8 +5585,8 @@ function buildScaffolding(scene, register, x, z) {
 // a single shared slot; reusing it here risked one silently overwriting
 // the other), once per run.
 function buildPayphone(scene, register, x, z) {
-  const boothMat = flatMaterial({ color: 0x2a4a6a, roughness: 0.5, metalness: 0.4 })
-  const glassMat = flatMaterial({ color: 0x8ac4d8, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.35 })
+  const boothMat = cachedFlatMaterial({ color: 0x2a4a6a, roughness: 0.5, metalness: 0.4 })
+  const glassMat = cachedFlatMaterial({ color: 0x8ac4d8, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.35 })
   const group = new THREE.Group()
   const frame = new THREE.Mesh(new THREE.BoxGeometry(0.9, 2.2, 0.9), boothMat)
   frame.position.set(0, 1.1, 0)
@@ -5609,12 +5609,12 @@ function buildPayphone(scene, register, x, z) {
 // is used dozens of times across World.js, and retrofitting all of them
 // with hittable flags was out of scope for one batch item.
 function buildTacticalStreetlight(scene, register, x, z) {
-  const poleMat = flatMaterial({ color: 0x2a2a28, roughness: 0.6, metalness: 0.5 })
+  const poleMat = cachedFlatMaterial({ color: 0x2a2a28, roughness: 0.6, metalness: 0.5 })
   const group = new THREE.Group()
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 4, 8), poleMat)
   pole.position.set(0, 2, 0)
   group.add(pole)
-  const bulbMat = flatMaterial({ color: 0xfff2c0, emissive: 0xfff2c0, emissiveIntensity: 1.2 })
+  const bulbMat = cachedFlatMaterial({ color: 0xfff2c0, emissive: 0xfff2c0, emissiveIntensity: 1.2 })
   const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), bulbMat)
   bulb.position.set(0, 4, 0)
   group.add(bulb)
@@ -5633,7 +5633,7 @@ function buildTacticalStreetlight(scene, register, x, z) {
 }
 
 function buildWalkway(scene, register, x0, z0, x1, z1) {
-  const pathMat = flatMaterial({ color: 0x4a463c, roughness: 1 })
+  const pathMat = cachedFlatMaterial({ color: 0x4a463c, roughness: 1 })
   const length = Math.hypot(x1 - x0, z1 - z0)
   const midX = (x0 + x1) / 2
   const midZ = (z0 + z1) / 2
@@ -5688,7 +5688,7 @@ function buildTargetTexture() {
 // actual flash decay is driven by Game.js's own per-frame update since this
 // file only builds geometry.
 function buildPracticeRange(scene, colliders, solidMeshes, safeZone) {
-  const postMat = flatMaterial({ color: 0x3a3226, roughness: 0.85 })
+  const postMat = cachedFlatMaterial({ color: 0x3a3226, roughness: 0.85 })
   const targetTex = buildTargetTexture()
   const targets = []
 
@@ -5715,7 +5715,7 @@ function buildPracticeRange(scene, colliders, solidMeshes, safeZone) {
     // per-instance, and a shared material would flash every target at once
     // whenever any single one was hit (same bug class as the Molotov fire
     // zone material sharing one instance earlier this session).
-    const boardMat = flatMaterial({ map: targetTex, emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.6 })
+    const boardMat = cachedFlatMaterial({ map: targetTex, emissive: 0xffffff, emissiveIntensity: 0, roughness: 0.6 })
     const board = new THREE.Mesh(new THREE.CircleGeometry(0.4, 24), boardMat)
     board.position.set(x, 1.7, z)
     board.castShadow = true
@@ -5766,7 +5766,7 @@ function buildTrophyWall(scene, colliders, solidMeshes, safeZone, count) {
     tex.wrapT = THREE.RepeatWrapping
     tex.repeat.set(backingW / 0.6, backingH / 0.6)
   }
-  const backingMat = flatMaterial({
+  const backingMat = cachedFlatMaterial({
     map: woodColor,
     normalMap: woodNormal,
     roughnessMap: woodRoughness,
@@ -5791,7 +5791,7 @@ function buildTrophyWall(scene, colliders, solidMeshes, safeZone, count) {
     // Own material clone per medallion - each lights up independently as
     // its own achievement unlocks, not all at once (same shared-material
     // pitfall as the practice range targets/fire zones earlier).
-    const mat = flatMaterial({ color: 0x1c1a16, emissive: 0x000000, emissiveIntensity: 0, roughness: 0.4, metalness: 0.5 })
+    const mat = cachedFlatMaterial({ color: 0x1c1a16, emissive: 0x000000, emissiveIntensity: 0, roughness: 0.4, metalness: 0.5 })
     const medallion = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.05, 16), mat)
     medallion.rotation.z = Math.PI / 2
     medallion.position.set(x - 0.06, my, mz)
@@ -5827,9 +5827,9 @@ function buildSewer(scene, colliders, solidMeshes, flickerLights) {
   const length = SEWER_Z_END - SEWER_Z_START
   const centerZ = (SEWER_Z_START + SEWER_Z_END) / 2
 
-  const wallMat = flatMaterial({ color: 0x2a3324, roughness: 1 })
-  const floorMat = flatMaterial({ color: 0x1c2418, roughness: 1 })
-  const pipeMat = flatMaterial({ color: 0x3a4a30, roughness: 0.7, metalness: 0.4 })
+  const wallMat = cachedFlatMaterial({ color: 0x2a3324, roughness: 1 })
+  const floorMat = cachedFlatMaterial({ color: 0x1c2418, roughness: 1 })
+  const pipeMat = cachedFlatMaterial({ color: 0x3a4a30, roughness: 0.7, metalness: 0.4 })
 
   const floor = new THREE.Mesh(new THREE.BoxGeometry(SEWER_WIDTH, 0.08, length), floorMat)
   floor.position.set(SEWER_X, 0.04, centerZ)
@@ -5908,11 +5908,11 @@ function buildSubway(scene, colliders, solidMeshes, flickerLights) {
   const length = SUBWAY_Z_END - SUBWAY_Z_START
   const centerZ = (SUBWAY_Z_START + SUBWAY_Z_END) / 2
 
-  const wallMat = flatMaterial({ color: 0x2c2e30, roughness: 0.95 })
-  const floorMat = flatMaterial({ color: 0x201f1c, roughness: 1 })
-  const tileMat = flatMaterial({ color: 0x3a3f42, roughness: 0.7 })
-  const platformMat = flatMaterial({ color: 0x4a4238, roughness: 0.9 })
-  const railMat = flatMaterial({ color: 0x1a1a18, roughness: 0.4, metalness: 0.7 })
+  const wallMat = cachedFlatMaterial({ color: 0x2c2e30, roughness: 0.95 })
+  const floorMat = cachedFlatMaterial({ color: 0x201f1c, roughness: 1 })
+  const tileMat = cachedFlatMaterial({ color: 0x3a3f42, roughness: 0.7 })
+  const platformMat = cachedFlatMaterial({ color: 0x4a4238, roughness: 0.9 })
+  const railMat = cachedFlatMaterial({ color: 0x1a1a18, roughness: 0.4, metalness: 0.7 })
 
   const floor = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH, 0.08, length), floorMat)
   floor.position.set(SUBWAY_X, SUBWAY_FLOOR_Y, centerZ)
@@ -5968,12 +5968,12 @@ function buildSubway(scene, colliders, solidMeshes, flickerLights) {
     scene.add(rail)
   }
   for (let z = SUBWAY_Z_START + 1; z < SUBWAY_Z_END - 1; z += 1) {
-    const tie = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.04, 0.15), flatMaterial({ color: 0x2a2018, roughness: 1 }))
+    const tie = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.04, 0.15), cachedFlatMaterial({ color: 0x2a2018, roughness: 1 }))
     tie.position.set(trackCenterX, SUBWAY_FLOOR_Y + 0.02, z)
     scene.add(tie)
   }
 
-  const trainMat = flatMaterial({ color: 0x5a4a1c, roughness: 0.6, metalness: 0.3 })
+  const trainMat = cachedFlatMaterial({ color: 0x5a4a1c, roughness: 0.6, metalness: 0.3 })
   const trainCar = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.2, 6.5), trainMat)
   trainCar.position.set(trackCenterX, SUBWAY_FLOOR_Y + 1.3, SUBWAY_Z_END - 5)
   trainCar.castShadow = true
@@ -5981,7 +5981,7 @@ function buildSubway(scene, colliders, solidMeshes, flickerLights) {
   scene.add(trainCar)
   solidMeshes.push(trainCar)
   colliders.push(new THREE.Box3().setFromObject(trainCar))
-  const trainStripeMat = flatMaterial({ color: 0xe3a63c, roughness: 0.5, emissive: 0xe3a63c, emissiveIntensity: 0.15 })
+  const trainStripeMat = cachedFlatMaterial({ color: 0xe3a63c, roughness: 0.5, emissive: 0xe3a63c, emissiveIntensity: 0.15 })
   const trainStripe = new THREE.Mesh(new THREE.BoxGeometry(2.22, 0.2, 6.5), trainStripeMat)
   trainStripe.position.set(trackCenterX, SUBWAY_FLOOR_Y + 1.1, SUBWAY_Z_END - 5)
   scene.add(trainStripe)
@@ -6012,10 +6012,10 @@ function buildSubway(scene, colliders, solidMeshes, flickerLights) {
 // not rotated) still go through solidMeshes exactly like buildStairFlight's
 // own steps do.
 function buildRealStaircase(scene, solidMeshes, flickerLights, x, z0, y0, z1, y1, steps, stairWidth = 3.2) {
-  const wallMat = flatMaterial({ color: 0xaaa392, roughness: 0.9 })
-  const stepMat = flatMaterial({ color: 0x8a8478, roughness: 0.85 })
-  const stepEdgeMat = flatMaterial({ color: 0x46423a, roughness: 0.9 })
-  const railMat = flatMaterial({ color: 0x201f1c, roughness: 0.4, metalness: 0.6 })
+  const wallMat = cachedFlatMaterial({ color: 0xaaa392, roughness: 0.9 })
+  const stepMat = cachedFlatMaterial({ color: 0x8a8478, roughness: 0.85 })
+  const stepEdgeMat = cachedFlatMaterial({ color: 0x46423a, roughness: 0.9 })
+  const railMat = cachedFlatMaterial({ color: 0x201f1c, roughness: 0.4, metalness: 0.6 })
 
   const dz = z1 - z0
   const dy = y1 - y0
@@ -6090,7 +6090,7 @@ const SUBWAY_PARK_ENTRANCE_Z = 61
 const SUBWAY_PARK_LANDING_Z = 56.5
 
 function buildSubwayParkEntrance(scene, colliders, solidMeshes, flickerLights) {
-  const kioskMat = flatMaterial({ color: 0x1c1a16, roughness: 0.85 })
+  const kioskMat = cachedFlatMaterial({ color: 0x1c1a16, roughness: 0.85 })
   const kioskHalfW = SUBWAY_WIDTH / 2 + 0.3
 
   const kioskRoof = new THREE.Mesh(new THREE.BoxGeometry(kioskHalfW * 2, 0.25, 3), kioskMat)
@@ -6129,7 +6129,7 @@ function buildSubwayParkEntrance(scene, colliders, solidMeshes, flickerLights) {
   const signTexture = new THREE.CanvasTexture(signCanvas)
   const sign = new THREE.Mesh(
     new THREE.PlaneGeometry(4.6, 0.86),
-    flatMaterial({ map: signTexture, emissive: 0xffb347, emissiveMap: signTexture, emissiveIntensity: 1.3, side: THREE.DoubleSide })
+    cachedFlatMaterial({ map: signTexture, emissive: 0xffb347, emissiveMap: signTexture, emissiveIntensity: 1.3, side: THREE.DoubleSide })
   )
   sign.position.set(SUBWAY_PARK_ENTRANCE_X, 3.6, SUBWAY_PARK_ENTRANCE_Z + 1.51)
   sign.rotation.y = Math.PI
@@ -6138,7 +6138,7 @@ function buildSubwayParkEntrance(scene, colliders, solidMeshes, flickerLights) {
   // Tall beacon pillar above the kiosk so the entrance itself is spottable
   // from across the whole park before the sign text is even legible -
   // matches the safe zone's own beacon-post pattern (see buildSafeZone).
-  const beaconMat = flatMaterial({ color: 0x1a1408, emissive: 0xffb347, emissiveIntensity: 1.6 })
+  const beaconMat = cachedFlatMaterial({ color: 0x1a1408, emissive: 0xffb347, emissiveIntensity: 1.6 })
   const beaconPole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 4.2, 8), kioskMat)
   beaconPole.position.set(SUBWAY_PARK_ENTRANCE_X, 4.7, SUBWAY_PARK_ENTRANCE_Z)
   scene.add(beaconPole)
@@ -6217,8 +6217,8 @@ const UNDERGROUND_HOLE_HIDDEN_COMPLEX = { xMin: 261, xMax: 279, zMin: -2, zMax: 
 function buildNewUndergroundEntrance(scene, colliders, solidMeshes, flickerLights) {
   const x = NEW_UNDERGROUND_ENTRANCE_X
   const z = NEW_UNDERGROUND_ENTRANCE_Z
-  const kioskMat = flatMaterial({ color: 0x241a14, roughness: 0.9 })
-  const hazardMat = flatMaterial({ color: 0xb0331a, roughness: 0.6, metalness: 0.3 })
+  const kioskMat = cachedFlatMaterial({ color: 0x241a14, roughness: 0.9 })
+  const hazardMat = cachedFlatMaterial({ color: 0xb0331a, roughness: 0.6, metalness: 0.3 })
   const shaftHalfW = 1.6
 
   const roof = new THREE.Mesh(new THREE.BoxGeometry(shaftHalfW * 2 + 0.4, 0.2, 3), kioskMat)
@@ -6251,7 +6251,7 @@ function buildNewUndergroundEntrance(scene, colliders, solidMeshes, flickerLight
   const signTexture = new THREE.CanvasTexture(signCanvas)
   const sign = new THREE.Mesh(
     new THREE.PlaneGeometry(4, 0.75),
-    flatMaterial({ map: signTexture, emissive: 0xff7a3c, emissiveMap: signTexture, emissiveIntensity: 1.3, side: THREE.DoubleSide })
+    cachedFlatMaterial({ map: signTexture, emissive: 0xff7a3c, emissiveMap: signTexture, emissiveIntensity: 1.3, side: THREE.DoubleSide })
   )
   sign.position.set(x, 3.2, z + 1.51)
   sign.rotation.y = Math.PI
@@ -6269,7 +6269,7 @@ function buildNewUndergroundEntrance(scene, colliders, solidMeshes, flickerLight
 
   // Small landing platform at the bottom - just enough to stand on, no
   // tunnel behind it yet.
-  const landingMat = flatMaterial({ color: 0x2a2620, roughness: 0.9 })
+  const landingMat = cachedFlatMaterial({ color: 0x2a2620, roughness: 0.9 })
   const landing = new THREE.Mesh(new THREE.BoxGeometry(shaftHalfW * 2 + 1, 0.3, 4), landingMat)
   landing.position.set(x, NEW_UNDERGROUND_LANDING_Y - 0.15, landingZ - 1)
   landing.receiveShadow = true
@@ -6307,8 +6307,8 @@ function buildSubwayConnector(scene, colliders, solidMeshes, flickerLights, x0, 
   const ux = dx / length
   const uz = dz / length
 
-  const wallMat = flatMaterial({ color: 0x2c2e30, roughness: 0.95 })
-  const floorMat = flatMaterial({ color: 0x201f1c, roughness: 1 })
+  const wallMat = cachedFlatMaterial({ color: 0x2c2e30, roughness: 0.95 })
+  const floorMat = cachedFlatMaterial({ color: 0x201f1c, roughness: 1 })
 
   // One long floor piece is fine - floors are never added to `colliders` in
   // this game (see every other corridor builder), so there's no AABB risk
@@ -6403,8 +6403,8 @@ function buildDarkSubwayConnector(scene, colliders, solidMeshes, x0, z0, x1, z1)
   const ux = dx / length
   const uz = dz / length
 
-  const wallMat = flatMaterial({ color: 0x232426, roughness: 0.95 })
-  const floorMat = flatMaterial({ color: 0x1a1916, roughness: 1 })
+  const wallMat = cachedFlatMaterial({ color: 0x232426, roughness: 0.95 })
+  const floorMat = cachedFlatMaterial({ color: 0x1a1916, roughness: 1 })
 
   const floor = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH, 0.08, length), floorMat)
   floor.position.set((x0 + x1) / 2, SUBWAY_FLOOR_Y, (z0 + z1) / 2)
@@ -6457,18 +6457,18 @@ function buildDarkSubwayConnector(scene, colliders, solidMeshes, x0, z0, x1, z1)
 // buttonMat is swapped red/amber/green the same way the ammo station and
 // lockedCells doors already do, for the same locked/charging/done reading.
 function buildBreakerBox(scene, x, z) {
-  const panelMat = flatMaterial({ color: 0x2a2a26, roughness: 0.7, metalness: 0.3 })
+  const panelMat = cachedFlatMaterial({ color: 0x2a2a26, roughness: 0.7, metalness: 0.3 })
   const panel = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.1, 0.15), panelMat)
   panel.position.set(x, SUBWAY_FLOOR_Y + 1.4, z)
   panel.castShadow = true
   scene.add(panel)
 
-  const indicatorMat = flatMaterial({ color: 0x2a0808, emissive: 0xff2a1e, emissiveIntensity: 1.1 })
+  const indicatorMat = cachedFlatMaterial({ color: 0x2a0808, emissive: 0xff2a1e, emissiveIntensity: 1.1 })
   const indicator = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.12, 0.02), indicatorMat)
   indicator.position.set(x, SUBWAY_FLOOR_Y + 1.7, z + 0.08)
   scene.add(indicator)
 
-  const pipeMat = flatMaterial({ color: 0x1c1c1a, roughness: 0.6, metalness: 0.5 })
+  const pipeMat = cachedFlatMaterial({ color: 0x1c1c1a, roughness: 0.6, metalness: 0.5 })
   const pipeHeight = SUBWAY_HEIGHT - 1.9
   for (const ox of [-0.3, 0.3]) {
     const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, pipeHeight, 8), pipeMat)
@@ -6485,7 +6485,7 @@ function buildBreakerBox(scene, x, z) {
 // _restoreTunnelPower), so it's built by hand here rather than reusing that
 // helper. mesh/sign are hidden together on unlock.
 function buildMaintTurnstileGate(scene, x, z) {
-  const gateMat = flatMaterial({ color: 0x2a2a26, roughness: 0.6, metalness: 0.5 })
+  const gateMat = cachedFlatMaterial({ color: 0x2a2a26, roughness: 0.6, metalness: 0.5 })
   const gateMesh = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH - 0.4, SUBWAY_HEIGHT - 0.4, 0.2), gateMat)
   gateMesh.position.set(x, SUBWAY_FLOOR_Y + (SUBWAY_HEIGHT - 0.4) / 2 + 0.2, z)
   gateMesh.castShadow = true
@@ -6493,7 +6493,7 @@ function buildMaintTurnstileGate(scene, x, z) {
   gateMesh.updateWorldMatrix(true, false)
   const gateBox = new THREE.Box3().setFromObject(gateMesh) // axis-aligned, not rotated - setFromObject is safe here
 
-  const indicatorMat = flatMaterial({ color: 0x1a0505, emissive: 0xff2a1e, emissiveIntensity: 0.9 })
+  const indicatorMat = cachedFlatMaterial({ color: 0x1a0505, emissive: 0xff2a1e, emissiveIntensity: 0.9 })
   const indicator = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), indicatorMat)
   indicator.position.set(x, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT - 0.3, z)
   scene.add(indicator)
@@ -6512,7 +6512,7 @@ function buildMaintTurnstileGate(scene, x, z) {
   const signTex = new THREE.CanvasTexture(signCanvas)
   const sign = new THREE.Mesh(
     new THREE.PlaneGeometry(2.4, 0.6),
-    flatMaterial({ map: signTex, emissive: 0xff5a3c, emissiveMap: signTex, emissiveIntensity: 1.1, side: THREE.DoubleSide })
+    cachedFlatMaterial({ map: signTex, emissive: 0xff5a3c, emissiveMap: signTex, emissiveIntensity: 1.1, side: THREE.DoubleSide })
   )
   sign.position.set(x, SUBWAY_FLOOR_Y + 1.9, z + 0.12)
   scene.add(sign)
@@ -6527,14 +6527,14 @@ function buildMaintTurnstileGate(scene, x, z) {
 // gotcha for the tipped wreck; the rubble is just loose dressing the
 // player can walk past, not through a real obstacle).
 function buildWreckedTrainChamber(scene, colliders, solidMeshes, x, z, chestSpots) {
-  const wallMat = flatMaterial({ color: 0x232426, roughness: 0.95 })
+  const wallMat = cachedFlatMaterial({ color: 0x232426, roughness: 0.95 })
 
   // The lit connector leading here (buildSubwayConnector, x, MAINT_GATE_Z, x,
   // MAINT_WRECK_Z) only lays its own floor down to z - this chamber is a
   // separate room past that point (out to the end wall at z-4) and needs its
   // own floor slab, or _sampleGroundHeight finds nothing underfoot the moment
   // the player steps past z and snaps them back up to street level.
-  const floorMat = flatMaterial({ color: 0x1a1916, roughness: 1 })
+  const floorMat = cachedFlatMaterial({ color: 0x1a1916, roughness: 1 })
   const floor = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH, 0.08, 4.4), floorMat)
   floor.position.set(x, SUBWAY_FLOOR_Y, z - 2)
   floor.receiveShadow = true
@@ -6565,14 +6565,14 @@ function buildWreckedTrainChamber(scene, colliders, solidMeshes, x, z, chestSpot
     colliders.push(new THREE.Box3().setFromObject(wall))
   }
 
-  const bodyMat = flatMaterial({ color: 0x4a2e1e, roughness: 0.9, metalness: 0.1 })
+  const bodyMat = cachedFlatMaterial({ color: 0x4a2e1e, roughness: 0.9, metalness: 0.1 })
   const wreck = new THREE.Mesh(new THREE.BoxGeometry(2.6, 3, 6), bodyMat)
   wreck.position.set(x - 0.6, SUBWAY_FLOOR_Y + 1.3, z - 1)
   wreck.rotation.z = -Math.PI / 2.6
   wreck.castShadow = true
   scene.add(wreck)
 
-  const rubbleMat = flatMaterial({ color: 0x3a352e, roughness: 1 })
+  const rubbleMat = cachedFlatMaterial({ color: 0x3a352e, roughness: 1 })
   for (const [rx, rz, s] of [[1.4, -2.5, 0.5], [1.8, -1, 0.35], [1.2, 0.5, 0.45]]) {
     const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(s), rubbleMat)
     rock.position.set(x + rx, SUBWAY_FLOOR_Y + s * 0.6, z + rz)
@@ -6627,8 +6627,8 @@ function buildMaintenanceTunnelNetwork(scene, colliders, solidMeshes, flickerLig
 // short of this room's center (see buildWorld's call site) so neither leg's
 // own walls intrude into the shared open space.
 function buildSubwayJunctionRoom(scene, colliders, solidMeshes, cx, cz, halfSize, openSides = []) {
-  const floorMat = flatMaterial({ color: 0x201f1c, roughness: 1 })
-  const wallMat = flatMaterial({ color: 0x2c2e30, roughness: 0.95 })
+  const floorMat = cachedFlatMaterial({ color: 0x201f1c, roughness: 1 })
+  const wallMat = cachedFlatMaterial({ color: 0x2c2e30, roughness: 0.95 })
 
   // Slightly larger than the room's nominal halfSize*2 footprint (matching
   // the +0.4 margin the walls below already use for their own width) so
@@ -6708,10 +6708,10 @@ function buildUndergroundStation(scene, colliders, solidMeshes, flickerLights, c
   const length = STATION_Z_END - STATION_Z_START
   const centerZ = (STATION_Z_START + STATION_Z_END) / 2
 
-  const wallMat = flatMaterial({ color: 0x24272a, roughness: 0.95 })
-  const floorMat = flatMaterial({ color: 0x1c1b18, roughness: 1 })
-  const platformMat = flatMaterial({ color: 0x4a4238, roughness: 0.9 })
-  const railMat = flatMaterial({ color: 0x1a1a18, roughness: 0.4, metalness: 0.7 })
+  const wallMat = cachedFlatMaterial({ color: 0x24272a, roughness: 0.95 })
+  const floorMat = cachedFlatMaterial({ color: 0x1c1b18, roughness: 1 })
+  const platformMat = cachedFlatMaterial({ color: 0x4a4238, roughness: 0.9 })
+  const railMat = cachedFlatMaterial({ color: 0x1a1a18, roughness: 0.4, metalness: 0.7 })
 
   const floor = new THREE.Mesh(new THREE.BoxGeometry(STATION_WIDTH, 0.08, length), floorMat)
   floor.position.set(STATION_X, SUBWAY_FLOOR_Y, centerZ)
@@ -6776,7 +6776,7 @@ function buildUndergroundStation(scene, colliders, solidMeshes, flickerLights, c
     scene.add(rail)
   }
   for (let z = STATION_Z_START + 1; z < STATION_Z_END - 1; z += 1) {
-    const tie = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.04, 0.15), flatMaterial({ color: 0x2a2018, roughness: 1 }))
+    const tie = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.04, 0.15), cachedFlatMaterial({ color: 0x2a2018, roughness: 1 }))
     tie.position.set(trackCenterX, SUBWAY_FLOOR_Y + 0.02, z)
     scene.add(tie)
   }
@@ -6840,7 +6840,7 @@ function buildUndergroundStation(scene, colliders, solidMeshes, flickerLights, c
   // this end instead of getting a cap wall.
   buildSubwayConnector(scene, colliders, solidMeshes, flickerLights, STATION_X, STATION_Z_START, STATION_X, STATION_STUB_Z_END)
 
-  const maintenanceSignMat = flatMaterial({ color: 0x1a1408, roughness: 0.7, emissive: 0xffcc44, emissiveIntensity: 0.6 })
+  const maintenanceSignMat = cachedFlatMaterial({ color: 0x1a1408, roughness: 0.7, emissive: 0xffcc44, emissiveIntensity: 0.6 })
   const maintenanceSign = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.35, 0.05), maintenanceSignMat)
   maintenanceSign.position.set(STATION_X, SUBWAY_FLOOR_Y + 2.2, STATION_STUB_Z_END - 0.12)
   scene.add(maintenanceSign)
@@ -6849,7 +6849,7 @@ function buildUndergroundStation(scene, colliders, solidMeshes, flickerLights, c
   // into the east wall near the platform, screen facing into the hall.
   const terminalZ = STATION_Z_END - 3
   const terminalX = STATION_X + STATION_WIDTH / 2 - 0.6
-  const terminalMat = flatMaterial({ color: 0x1a1a1a, roughness: 0.6 })
+  const terminalMat = cachedFlatMaterial({ color: 0x1a1a1a, roughness: 0.6 })
   const terminalBody = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.1, 0.4), terminalMat)
   terminalBody.position.set(terminalX, SUBWAY_FLOOR_Y + 0.55, terminalZ)
   terminalBody.castShadow = true
@@ -6870,7 +6870,7 @@ function buildUndergroundStation(scene, colliders, solidMeshes, flickerLights, c
   screenCtx.fillText('OFFLINE', 4, 46)
   screenCtx.fillText('[ACCESS]', 4, 72)
   const screenTexture = new THREE.CanvasTexture(screenCanvas)
-  const screenMat = flatMaterial({
+  const screenMat = cachedFlatMaterial({
     map: screenTexture,
     emissive: 0xffffff,
     emissiveMap: screenTexture,
@@ -6923,7 +6923,7 @@ function buildUndergroundStation(scene, colliders, solidMeshes, flickerLights, c
   const level2SignTexture = new THREE.CanvasTexture(level2SignCanvas)
   const level2Sign = new THREE.Mesh(
     new THREE.PlaneGeometry(3, 0.5),
-    flatMaterial({ map: level2SignTexture, emissive: 0x8ab4ff, emissiveMap: level2SignTexture, emissiveIntensity: 0.9 })
+    cachedFlatMaterial({ map: level2SignTexture, emissive: 0x8ab4ff, emissiveMap: level2SignTexture, emissiveIntensity: 0.9 })
   )
   level2Sign.position.set(STATION_X, LEVEL2_FLOOR_Y + 2.3, LEVEL2_Z_NEAR + 1.5)
   level2Sign.rotation.y = Math.PI
@@ -7036,9 +7036,9 @@ const SEWER2_WALKWAY_WIDTH = 1.4
 function buildToxicSewerLevel(scene, colliders, solidMeshes, flickerLights, chestSpots) {
   const x = SEWER2_X
   const floorY = LEVEL2_FLOOR_Y
-  const wallMat = flatMaterial({ color: 0x2a3324, roughness: 1 })
-  const floorMat = flatMaterial({ color: 0x1c2418, roughness: 1 })
-  const pipeMat = flatMaterial({ color: 0x3a4a30, roughness: 0.7, metalness: 0.4 })
+  const wallMat = cachedFlatMaterial({ color: 0x2a3324, roughness: 1 })
+  const floorMat = cachedFlatMaterial({ color: 0x1c2418, roughness: 1 })
+  const pipeMat = cachedFlatMaterial({ color: 0x3a4a30, roughness: 0.7, metalness: 0.4 })
 
   const buildStraightSegment = (z0, z1) => {
     const length = z0 - z1
@@ -7091,7 +7091,7 @@ function buildToxicSewerLevel(scene, colliders, solidMeshes, flickerLights, ches
   const poolLength = SEWER2_POOL_Z_START - SEWER2_POOL_Z_END
   const poolCenterZ = (SEWER2_POOL_Z_START + SEWER2_POOL_Z_END) / 2
 
-  const poolMat = flatMaterial({
+  const poolMat = cachedFlatMaterial({
     color: 0x3a5a1a, emissive: 0x5a8a1a, emissiveIntensity: 0.35, roughness: 0.4, metalness: 0.1, transparent: true, opacity: 0.9,
   })
   const pool = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH, 0.1, poolLength), poolMat)
@@ -7116,7 +7116,7 @@ function buildToxicSewerLevel(scene, colliders, solidMeshes, flickerLights, ches
     colliders.push(new THREE.Box3().setFromObject(wall))
   }
 
-  const walkwayMat = flatMaterial({ color: 0x4a4438, roughness: 0.9 })
+  const walkwayMat = cachedFlatMaterial({ color: 0x4a4438, roughness: 0.9 })
   const walkwayX = x - SUBWAY_WIDTH / 2 + SEWER2_WALKWAY_WIDTH / 2 + 0.15
   const walkway = new THREE.Mesh(new THREE.BoxGeometry(SEWER2_WALKWAY_WIDTH, 0.18, poolLength - 0.6), walkwayMat)
   walkway.position.set(walkwayX, floorY + 0.15, poolCenterZ)
@@ -7184,6 +7184,11 @@ const MINE_BEAM_2_Z = MINE_STAIR_Z_BOTTOM - 30
 const MINE_Z_END = MINE_STAIR_Z_BOTTOM - 44
 
 function buildUnstableBeam(scene, x, z, floorY) {
+  // Deliberately NOT cachedFlatMaterial - _triggerRockfall (Game.js)
+  // recolors ONE beam's material when it collapses, and this function is
+  // called twice with identical opts (beam1/beam2) - sharing a cached
+  // instance here would recolor both beams the moment either one
+  // triggers. See docs/PERFORMANCE.md Option B1.
   const beamMat = flatMaterial({ color: 0x4a3624, roughness: 0.95 })
   const beam = new THREE.Mesh(new THREE.BoxGeometry(MINE_WIDTH + 0.2, 0.22, 0.22), beamMat)
   beam.position.set(x, floorY + MINE_HEIGHT - 0.15, z)
@@ -7199,7 +7204,7 @@ function buildUnstableBeam(scene, x, z, floorY) {
 
   // A small warning marker (cracked/discolored patch) so an attentive player
   // has a fair visual cue before triggering it, not a total surprise.
-  const warnMat = flatMaterial({ color: 0x2a1c10, roughness: 1, emissive: 0x3a1a0a, emissiveIntensity: 0.4 })
+  const warnMat = cachedFlatMaterial({ color: 0x2a1c10, roughness: 1, emissive: 0x3a1a0a, emissiveIntensity: 0.4 })
   const warnMark = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.08, 0.08), warnMat)
   warnMark.position.set(x, floorY + MINE_HEIGHT - 0.3, z + 0.12)
   scene.add(warnMark)
@@ -7209,9 +7214,9 @@ function buildUnstableBeam(scene, x, z, floorY) {
 
 function buildMineLevel(scene, colliders, solidMeshes, flickerLights, chestSpots) {
   const x = MINE_X
-  const rockWallMat = flatMaterial({ color: 0x3a3128, roughness: 1 })
-  const dirtFloorMat = flatMaterial({ color: 0x261f16, roughness: 1 })
-  const beamDressMat = flatMaterial({ color: 0x3a2a1a, roughness: 0.95 })
+  const rockWallMat = cachedFlatMaterial({ color: 0x3a3128, roughness: 1 })
+  const dirtFloorMat = cachedFlatMaterial({ color: 0x261f16, roughness: 1 })
+  const beamDressMat = cachedFlatMaterial({ color: 0x3a2a1a, roughness: 0.95 })
 
   // Vertical shaft around the stair run - a straight (not tilted) enclosure
   // is simplest and safest here (axis-aligned Box3().setFromObject is fine,
@@ -7299,7 +7304,7 @@ function buildMineLevel(scene, colliders, solidMeshes, flickerLights, chestSpots
 
   // A small ore vein in the end wall - amber glow, purely visual payoff for
   // reaching the deepest point of the network so far.
-  const oreMat = flatMaterial({ color: 0x8a6a1a, emissive: 0xffb347, emissiveIntensity: 0.6, roughness: 0.5, metalness: 0.3 })
+  const oreMat = cachedFlatMaterial({ color: 0x8a6a1a, emissive: 0xffb347, emissiveIntensity: 0.6, roughness: 0.5, metalness: 0.3 })
   for (const [ox, oy] of [[-0.6, 0.3], [0.5, -0.2], [0, 0.6]]) {
     const ore = new THREE.Mesh(new THREE.DodecahedronGeometry(0.22), oreMat)
     ore.position.set(x + ox, MINE_FLOOR_Y + MINE_HEIGHT / 2 + oy, MINE_Z_END + 0.15)
@@ -7323,7 +7328,7 @@ function buildVireoFacility(scene, colliders, solidMeshes, flickerLights) {
   const length = FACILITY_STAIR_BOTTOM_Z - FACILITY_Z_START
   const centerZ = FACILITY_Z_START + length / 2
 
-  const wallMat = flatMaterial({ color: 0x2a1418, roughness: 0.9 })
+  const wallMat = cachedFlatMaterial({ color: 0x2a1418, roughness: 0.9 })
 
   const stripeCanvas = document.createElement('canvas')
   stripeCanvas.width = 64
@@ -7347,7 +7352,7 @@ function buildVireoFacility(scene, colliders, solidMeshes, flickerLights) {
   stripeTexture.wrapS = THREE.RepeatWrapping
   stripeTexture.wrapT = THREE.RepeatWrapping
   stripeTexture.repeat.set(1, length / 2)
-  const floorMat = flatMaterial({ map: stripeTexture, roughness: 1 })
+  const floorMat = cachedFlatMaterial({ map: stripeTexture, roughness: 1 })
 
   const floor = new THREE.Mesh(new THREE.BoxGeometry(FACILITY_WIDTH, 0.08, length), floorMat)
   // Same Y as buildSubway's own floor (no extra offset) - this corridor is a
@@ -7386,7 +7391,7 @@ function buildVireoFacility(scene, colliders, solidMeshes, flickerLights) {
     flickerLights.push({ light, base: 1.0, seed: Math.random() * 100 })
   }
 
-  const propMat = flatMaterial({ color: 0x3a3a3a, roughness: 0.8 })
+  const propMat = cachedFlatMaterial({ color: 0x3a3a3a, roughness: 0.8 })
   const propSpots = [
     { x: FACILITY_X - 0.7, z: FACILITY_Z_START + 4, w: 0.5, h: 0.9, d: 0.5 },
     { x: FACILITY_X + 0.7, z: FACILITY_Z_START + 8, w: 0.6, h: 0.6, d: 0.6 },
@@ -7401,7 +7406,7 @@ function buildVireoFacility(scene, colliders, solidMeshes, flickerLights) {
   }
 
   const terminalZ = FACILITY_STAIR_BOTTOM_Z - 3
-  const terminalMat = flatMaterial({ color: 0x1a1a1a, roughness: 0.6 })
+  const terminalMat = cachedFlatMaterial({ color: 0x1a1a1a, roughness: 0.6 })
   const terminalBody = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.1, 0.4), terminalMat)
   terminalBody.position.set(FACILITY_X, SUBWAY_FLOOR_Y + 0.55, terminalZ)
   terminalBody.castShadow = true
@@ -7422,7 +7427,7 @@ function buildVireoFacility(scene, colliders, solidMeshes, flickerLights) {
   screenCtx.fillText('...', 8, 48)
   screenCtx.fillText('[ACCESS]', 8, 72)
   const screenTexture = new THREE.CanvasTexture(screenCanvas)
-  const screenMat = flatMaterial({
+  const screenMat = cachedFlatMaterial({
     map: screenTexture,
     emissive: 0xffffff,
     emissiveMap: screenTexture,
@@ -7441,7 +7446,7 @@ function buildVireoFacility(scene, colliders, solidMeshes, flickerLights) {
     18
   )
 
-  const exitKioskMat = flatMaterial({ color: 0x1c1a16, roughness: 0.85 })
+  const exitKioskMat = cachedFlatMaterial({ color: 0x1c1a16, roughness: 0.85 })
   const exitKioskHalfW = FACILITY_WIDTH / 2 + 0.3
   const exitKioskRoof = new THREE.Mesh(new THREE.BoxGeometry(exitKioskHalfW * 2, 0.25, 3), exitKioskMat)
   exitKioskRoof.position.set(FACILITY_X, 2.6, FACILITY_EXIT_Z)
@@ -7455,7 +7460,7 @@ function buildVireoFacility(scene, colliders, solidMeshes, flickerLights) {
     post.castShadow = true
     scene.add(post)
   }
-  const exitSign = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.4, 0.06), flatMaterial({ color: 0x0a1408, emissive: 0x4ee06f, emissiveIntensity: 1 }))
+  const exitSign = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.4, 0.06), cachedFlatMaterial({ color: 0x0a1408, emissive: 0x4ee06f, emissiveIntensity: 1 }))
   exitSign.position.set(FACILITY_X, 2.3, FACILITY_EXIT_Z + 1.51)
   scene.add(exitSign)
 
@@ -7472,7 +7477,7 @@ function buildVireoFacility(scene, colliders, solidMeshes, flickerLights) {
 
 function addPerimeterBarricade(scene, register, groundSize) {
   const wallHeight = 5
-  const wallMat = flatMaterial({ color: 0x23211d, roughness: 1 })
+  const wallMat = cachedFlatMaterial({ color: 0x23211d, roughness: 1 })
   const half = groundSize / 2
 
   const specs = [
@@ -7596,7 +7601,7 @@ function addModelBuilding(scene, register, spec, model) {
   if (spec.broken) {
     const rubbleCap = new THREE.Mesh(
       new THREE.BoxGeometry(spec.w * 0.7, spec.h * 0.15, spec.d * 0.7),
-      flatMaterial({ color: 0x1c1a16, roughness: 1 })
+      cachedFlatMaterial({ color: 0x1c1a16, roughness: 1 })
     )
     rubbleCap.position.set(spec.x + spec.w * 0.1, spec.h + spec.h * 0.05, spec.z)
     rubbleCap.rotation.z = 0.08
@@ -7707,7 +7712,7 @@ function buildWalkableHouse(scene, register, spec) {
     doorSides: [{ side: 'south', width: 2.2 }],
   })
 
-  const floorMat = flatMaterial({ color: 0xb8a888, roughness: 0.8 })
+  const floorMat = cachedFlatMaterial({ color: 0xb8a888, roughness: 0.8 })
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.6, d - 0.6), floorMat)
   floor.rotation.x = -Math.PI / 2
   floor.position.set(spec.x, 0.02, spec.z)
@@ -7726,7 +7731,7 @@ function buildWalkableHouse(scene, register, spec) {
 function buildOuterZones(scene, register, cullables, towerChestSpots) {
   let seed = 1000 // offset clear of buildingLayout()'s own 0-20 range
   const lightModel = _propModelCache.get('streetlight.glb')
-  const poleMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: 0x1c1c1c }) : flatMaterial({ color: 0x1c1c1c, roughness: 0.8 })
+  const poleMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: 0x1c1c1c }) : cachedFlatMaterial({ color: 0x1c1c1c, roughness: 0.8 })
 
   // LOW_QUALITY_MODE: same "one shared flat material per instance" trick
   // as placePropSimple, tinted from the model's own first-mesh color.
@@ -7834,7 +7839,7 @@ function addBuilding(scene, register, spec) {
         const facadeBumpTex = getSharedBumpTexture().clone()
         facadeBumpTex.needsUpdate = true
         facadeBumpTex.repeat.copy(facadeTex.repeat)
-        return flatMaterial({ map: facadeTex, bumpMap: facadeBumpTex, bumpScale: 0.035, roughness: 0.95 })
+        return cachedFlatMaterial({ map: facadeTex, bumpMap: facadeBumpTex, bumpScale: 0.035, roughness: 0.95 })
       })()
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(spec.w, spec.h, spec.d), mat)
   mesh.position.set(spec.x, spec.h / 2, spec.z)
@@ -7846,7 +7851,7 @@ function addBuilding(scene, register, spec) {
   if (spec.broken) {
     const rubbleCap = new THREE.Mesh(
       new THREE.BoxGeometry(spec.w * 0.7, spec.h * 0.15, spec.d * 0.7),
-      flatMaterial({ color: 0x1c1a16, roughness: 1 })
+      cachedFlatMaterial({ color: 0x1c1a16, roughness: 1 })
     )
     rubbleCap.position.set(spec.x + spec.w * 0.1, spec.h + spec.h * 0.05, spec.z)
     rubbleCap.rotation.z = 0.08
@@ -7865,12 +7870,12 @@ function addBuilding(scene, register, spec) {
 }
 
 function addWindows(scene, spec) {
-  const litMat = flatMaterial({
+  const litMat = cachedFlatMaterial({
     color: 0x1a1508,
     emissive: 0xffb646,
     emissiveIntensity: 1.4,
   })
-  const darkMat = flatMaterial({
+  const darkMat = cachedFlatMaterial({
     color: 0x0c0f12,
     emissive: 0x0b1420,
     emissiveIntensity: 0.4,
@@ -7954,8 +7959,8 @@ function scatterCityProps(scene, colliders, solidMeshes) {
 }
 
 function scatterDebris(scene) {
-  const brickMat = flatMaterial({ color: 0x4a4438, roughness: 1 })
-  const plankMat = flatMaterial({ color: 0x2c2418, roughness: 0.9 })
+  const brickMat = cachedFlatMaterial({ color: 0x4a4438, roughness: 1 })
+  const plankMat = cachedFlatMaterial({ color: 0x2c2418, roughness: 0.9 })
 
   for (const [x, z] of DEBRIS_CLUSTERS) {
     const count = 1 + Math.floor(Math.random() * 3)
@@ -7975,7 +7980,7 @@ function scatterDebris(scene) {
 }
 
 function addStreetlights(scene, register, flickerLights) {
-  const poleMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: 0x1c1c1c }) : flatMaterial({ color: 0x1c1c1c, roughness: 0.8 })
+  const poleMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: 0x1c1c1c }) : cachedFlatMaterial({ color: 0x1c1c1c, roughness: 0.8 })
   const positions = [
     { x: -3.5, z: -14, flicker: true },
     { x: 3.5, z: 6, flicker: false },
@@ -8006,7 +8011,7 @@ function addStreetlights(scene, register, flickerLights) {
 
       const lamp = new THREE.Mesh(
         new THREE.SphereGeometry(0.25, 12, 12),
-        flatMaterial({ color: 0x332200, emissive: 0xffbb55, emissiveIntensity: 1.6 })
+        cachedFlatMaterial({ color: 0x332200, emissive: 0xffbb55, emissiveIntensity: 1.6 })
       )
       lamp.position.set(p.x, 5.4, p.z)
       scene.add(lamp)
@@ -8039,8 +8044,8 @@ function buildSkyscraper(scene, colliders, solidMeshes, spec, chestSpots) {
   const half = w / 2
   const facingSign = cx < 0 ? 1 : -1 // open facade faces the central avenue
 
-  const shellMat = flatMaterial({ color: 0x2c2822, roughness: 0.95 })
-  const floorMat = flatMaterial({ color: 0x3a352c, roughness: 0.9 })
+  const shellMat = cachedFlatMaterial({ color: 0x2c2822, roughness: 0.95 })
+  const floorMat = cachedFlatMaterial({ color: 0x3a352c, roughness: 0.9 })
 
   const faceX = cx + facingSign * half
   const stripInnerX = faceX - facingSign * SKYSCRAPER_STRIP_WIDTH
@@ -8113,9 +8118,9 @@ function buildFireEscape(scene, colliders, solidMeshes, spec, chestSpots) {
   // wall it's climbing.
   const escapeX = farX - facingSign * FIRE_ESCAPE_OFFSET
 
-  const stepMat = flatMaterial({ color: 0x4a4038, roughness: 0.6, metalness: 0.6 })
-  const roofMat = flatMaterial({ color: 0x2e2a24, roughness: 0.9 })
-  const railMat = flatMaterial({ color: 0x1c1a16, roughness: 0.7, metalness: 0.5 })
+  const stepMat = cachedFlatMaterial({ color: 0x4a4038, roughness: 0.6, metalness: 0.6 })
+  const roofMat = cachedFlatMaterial({ color: 0x2e2a24, roughness: 0.9 })
+  const railMat = cachedFlatMaterial({ color: 0x1c1a16, roughness: 0.7, metalness: 0.5 })
 
   const nearZ = cz - d / 2 + 1.4
   const farZ = cz + d / 2 - 1.4
@@ -8195,8 +8200,8 @@ const CLUSTER_SPECS = [
 ]
 
 function buildTowers(scene, colliders, solidMeshes) {
-  const floorMat = flatMaterial({ color: 0x3a352c, roughness: 0.9 })
-  const wallMat = flatMaterial({ color: 0x2c2a22, roughness: 0.95 })
+  const floorMat = cachedFlatMaterial({ color: 0x3a352c, roughness: 0.9 })
+  const wallMat = cachedFlatMaterial({ color: 0x2c2a22, roughness: 0.95 })
   const chestSpots = []
 
   for (const c of CLUSTER_SPECS) {
@@ -8234,7 +8239,7 @@ function buildElevatedRoom(scene, colliders, solidMeshes, cx, cz, floorMat, wall
 
   // Purely decorative support struts so the platform doesn't look like it's
   // floating — not registered as colliders or raycast targets.
-  const beamMat = flatMaterial({ color: 0x1c1a15, roughness: 0.9 })
+  const beamMat = cachedFlatMaterial({ color: 0x1c1a15, roughness: 0.9 })
   for (const [ox, oz] of [[-half + 0.3, -half + 0.3], [half - 0.3, -half + 0.3], [-half + 0.3, half - 0.3], [half - 0.3, half - 0.3]]) {
     const beam = new THREE.Mesh(new THREE.BoxGeometry(0.25, FLOOR_Y, 0.25), beamMat)
     beam.position.set(cx + ox, FLOOR_Y / 2, cz + oz)
@@ -8263,7 +8268,7 @@ function buildElevatedRoom(scene, colliders, solidMeshes, cx, cz, floorMat, wall
 }
 
 function buildStairFlight(scene, solidMeshes, x0, z0, y0, x1, z1, y1, steps) {
-  const stepMat = flatMaterial({ color: 0x332e26, roughness: 0.9 })
+  const stepMat = cachedFlatMaterial({ color: 0x332e26, roughness: 0.9 })
   const geo = new THREE.BoxGeometry(1.6, 0.25, 1.0)
 
   for (let i = 0; i <= steps; i++) {
