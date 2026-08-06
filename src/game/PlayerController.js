@@ -27,6 +27,14 @@ const RAYCAST_ORIGIN_Y = 80
 // surfaces a whole floor (3.9 units) higher.
 const MAX_STEP_UP = 0.65
 
+// Used instead of MAX_STEP_UP while _realJumpAirborne is true (see that
+// field's own comment) - effectively zero, just enough to still land
+// normally on a floor at/below the player's own feet (which always
+// passes regardless of this value - see update()'s landing branch),
+// without also treating a thin slab's top surface as a climbable "step"
+// reachable from directly underneath via a jump.
+const REAL_JUMP_STEP_TOLERANCE = 0.05
+
 // Dash-dodge: a short speed burst in the current movement direction (or
 // straight ahead if not moving) with a brief invincibility window (see
 // Game.js's _onZombieAttack, which checks isDodging before applying any
@@ -121,6 +129,13 @@ export class PlayerController {
     this.input = { forward: false, back: false, left: false, right: false, sprint: false, crouch: false }
     this.onGround = true
     this.groundY = 0
+    // See update()'s landing branch: true for the whole airborne period
+    // after an actual jump (not just gravity's per-frame dip while
+    // walking), so MAX_STEP_UP's generous curb-climbing tolerance doesn't
+    // also let a jump snap the player onto the TOP of a thin slab (stair
+    // steps are only 0.25 units thick, well under MAX_STEP_UP's 0.65)
+    // whose underside they just bumped into from below.
+    this._realJumpAirborne = false
     this.stamina = STAMINA_MAX
     this.maxStamina = STAMINA_MAX
     this.sprintMultiplier = SPRINT_MULTIPLIER
@@ -204,6 +219,7 @@ export class PlayerController {
     this.velocity.set(0, 0, 0)
     this.onGround = true
     this.groundY = 0
+    this._realJumpAirborne = false
     this.maxStamina = STAMINA_MAX
     this.stamina = this.maxStamina
     this.sprintMultiplier = SPRINT_MULTIPLIER
@@ -251,6 +267,7 @@ export class PlayerController {
       if (isDown && !this._tryMantle() && this.onGround) {
         this.velocity.y = JUMP_SPEED
         this.onGround = false
+        this._realJumpAirborne = true
       }
     } else if (code === getKeyFor('dodge')) {
       if (isDown) this._tryDodge()
@@ -382,6 +399,7 @@ export class PlayerController {
         obj.position.copy(this._mantleTarget)
         this.isMantling = false
         this.onGround = true
+        this._realJumpAirborne = false
       } else {
         const frac = 1 - (this.mantleUntil - now) / MANTLE_DURATION_MS
         obj.position.lerpVectors(this._mantleStart, this._mantleTarget, Math.min(1, frac))
@@ -471,7 +489,8 @@ export class PlayerController {
     // so a higher floor stacked in the same footprint (see MAX_STEP_UP)
     // can't snap you upward through the floor you're actually standing on.
     const currentFeetY = obj.position.y - this.eyeHeight
-    this.groundY = this._sampleGroundHeight(obj.position.x, obj.position.z, currentFeetY + MAX_STEP_UP)
+    const stepTolerance = this._realJumpAirborne ? REAL_JUMP_STEP_TOLERANCE : MAX_STEP_UP
+    this.groundY = this._sampleGroundHeight(obj.position.x, obj.position.z, currentFeetY + stepTolerance)
     const targetEyeY = this.groundY + this.eyeHeight
 
     this.velocity.y += GRAVITY * dt
@@ -486,6 +505,7 @@ export class PlayerController {
         obj.position.y = targetEyeY
         this.velocity.y = 0
         this.onGround = true
+        this._realJumpAirborne = false
       } else {
         obj.position.y = nextY
         this.onGround = false
