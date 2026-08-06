@@ -2,6 +2,12 @@
 
 Resume-kit for picking this session back up. Written 2026-07-18.
 
+> **Taking this project over? Start with [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) (2026-08-05).**
+> It diagnoses the FPS/stutter problem that was still open when this file was
+> written, and lays out the full plan to fix it. The rest of this document is a
+> point-in-time resume kit from July and its "uncommitted work" section is
+> stale — treat it as history, not as a to-do list.
+
 ## Git state
 
 - Branch: `main`, up to date with `origin/main`, no stashes.
