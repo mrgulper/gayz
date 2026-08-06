@@ -496,9 +496,7 @@ export class Zombie {
     this._glbRoot = cloned
     this.mixer = new THREE.AnimationMixer(cloned)
     this._glbActions = {}
-    for (const clip of _zombieModelCache.animations) {
-      this._glbActions[clip.name] = this.mixer.clipAction(clip)
-    }
+    this._glbClipSource = _zombieModelCache.animations
     this._glbCurrentAction = null
     this._playGlbAction('idle', true)
 
@@ -572,9 +570,7 @@ export class Zombie {
     this._glbRoot = cloned
     this.mixer = new THREE.AnimationMixer(cloned)
     this._glbActions = {}
-    for (const clip of _titanModelCache.animations) {
-      this._glbActions[clip.name] = this.mixer.clipAction(clip)
-    }
+    this._glbClipSource = _titanModelCache.animations
     this._glbCurrentAction = null
     this._playGlbAction('idle', true)
   }
@@ -651,8 +647,22 @@ export class Zombie {
   }
 
   _playGlbAction(name, loop) {
-    const action = this._glbActions[name]
-    if (!action || this._glbCurrentAction === action) return
+    let action = this._glbActions[name]
+    if (!action) {
+      // Built lazily on first use instead of all ~9 (zombie) / fewer
+      // (titan) clips upfront in the constructor - most zombies never
+      // play most of their niche clips (crawl/scream/kick/punch are all
+      // type- or boss-gated), and mixer.clipAction() is a real per-call
+      // cost (~0.1ms, measured) that used to be paid for every clip on
+      // every single spawn regardless of whether it ever ran. Same
+      // resulting AnimationAction either way once created - just created
+      // when actually needed instead of speculatively.
+      const clip = this._glbClipSource.find((c) => c.name === name)
+      if (!clip) return
+      action = this.mixer.clipAction(clip)
+      this._glbActions[name] = action
+    }
+    if (this._glbCurrentAction === action) return
     action.reset()
     action.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity)
     action.clampWhenFinished = !loop
