@@ -3013,7 +3013,8 @@ export class Game {
     this.composer.addPass(this.bloomPass)
     this.composer.addPass(new OutputPass())
 
-    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, upgradeMachine, mysteryBox, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel, toxicSewerLevel, mineLevel, manholeCovers, waterTowerValve, containerStaircase, industrialSiren, wreckingPendulum, scaffolding, payphone, tacticalStreetlights } = buildWorld(this.scene, ACHIEVEMENTS.length)
+    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, upgradeMachine, mysteryBox, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel, toxicSewerLevel, mineLevel, manholeCovers, waterTowerValve, containerStaircase, industrialSiren, wreckingPendulum, scaffolding, payphone, tacticalStreetlights, grassBounds } = buildWorld(this.scene, ACHIEVEMENTS.length)
+    this.grassBounds = grassBounds
     // Base fog distance, captured once - see _applyFogState. Rain/fog-patch
     // used to *= an already-modified fog.near/far every single frame they
     // were active, which compounds toward zero exponentially (0.6 per frame
@@ -14048,7 +14049,9 @@ export class Game {
         this.footstepTimer -= dt
         if (this.footstepTimer <= 0) {
           this.footstepTimer = this.player.isSprinting ? FOOTSTEP_INTERVAL_SPRINT : FOOTSTEP_INTERVAL_WALK
-          audioEngine.playFootstep(this.isIndoors)
+          const p = this.player.controls.object.position
+          const onGrass = this.grassBounds && p.x >= this.grassBounds.xMin && p.x <= this.grassBounds.xMax && p.z >= this.grassBounds.zMin && p.z <= this.grassBounds.zMax
+          audioEngine.playFootstep(this.isIndoors, onGrass ? 'grass' : 'default')
         }
       } else {
         this.footstepTimer = 0

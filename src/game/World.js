@@ -2993,6 +2993,7 @@ export function buildWorld(scene, trophyCount = 15) {
     scaffolding,
     payphone,
     tacticalStreetlights: [tacticalStreetlightA, tacticalStreetlightB],
+    grassBounds: park.grassBounds,
   }
 }
 
@@ -3198,7 +3199,18 @@ function buildPark(scene, colliders, solidMeshes) {
     spawnPoints.push({ x: (Math.random() - 0.5) * 10, z })
   }
 
-  return { chestSpots, spawnPoints }
+  // Footstep surface variety (see PlayerController's groundSurfaceType) -
+  // the grass/path/plaza floors here are decorative overlays on top of
+  // the single real ground plane, same as the marina's water (neither is
+  // actually raycast-hittable for ground detection), so a simple position
+  // bounds check is used instead of trying to tag a mesh that's never
+  // actually the one the ground-height raycast lands on. Approximate
+  // (doesn't carve out the narrow path/plaza strips also inside this
+  // rectangle) - an occasional wrong footstep sound right at the path's
+  // edge is a fine tradeoff for staying simple.
+  const grassBounds = { xMin: -PARK_HALF_WIDTH, xMax: PARK_HALF_WIDTH, zMin: PARK_Z_START, zMax: PARK_Z_END }
+
+  return { chestSpots, spawnPoints, grassBounds }
 }
 
 // Shootable explosive barrels - the world-prop half of WeaponSystem._fire's

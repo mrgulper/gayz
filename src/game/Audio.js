@@ -956,11 +956,17 @@ class AudioEngine {
   // hit but shorter/quieter. muffled (see Game.js's isIndoors) darkens the
   // filter cutoff instead of just lowering volume, reading as "under a roof"
   // rather than just "further away."
-  playFootstep(muffled = false) {
+  // surface: 'default' (concrete/asphalt - the original sound, unchanged)
+  // or 'grass' (softer, duller - a lower lowpass cutoff and slightly
+  // longer/quieter decay reads as a muted thud on turf instead of a crisp
+  // crunch on pavement). See PlayerController's groundSurfaceType for how
+  // this gets picked.
+  playFootstep(muffled = false, surface = 'default') {
     if (!this.ctx) return
     const ctx = this.ctx
     const now = ctx.currentTime
-    const duration = 0.09
+    const onGrass = surface === 'grass'
+    const duration = onGrass ? 0.13 : 0.09
 
     const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * duration, ctx.sampleRate)
     const data = noiseBuffer.getChannelData(0)
@@ -971,10 +977,10 @@ class AudioEngine {
 
     const filter = ctx.createBiquadFilter()
     filter.type = 'lowpass'
-    filter.frequency.value = muffled ? 320 : 850
+    filter.frequency.value = muffled ? 320 : (onGrass ? 380 : 850)
 
     const gain = ctx.createGain()
-    gain.gain.setValueAtTime(muffled ? 0.1 : 0.16, now)
+    gain.gain.setValueAtTime((muffled ? 0.1 : 0.16) * (onGrass ? 0.85 : 1), now)
     gain.gain.exponentialRampToValueAtTime(0.001, now + duration)
 
     noise.connect(filter).connect(gain).connect(this.sfxGain)
