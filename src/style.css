@@ -1285,8 +1285,8 @@ body.reduce-flashing #critical-blood-overlay.show {
    style here, since Easy/Normal/Hard has no icon-grid treatment. */
 .difficulty-btn {
   flex: 1;
-  padding: 10px 20px;
-  font-size: 15px;
+  padding: 12px 22px;
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: 0.5px;
   text-align: center;
@@ -2956,7 +2956,7 @@ body.reduce-flashing #critical-blood-overlay.show {
      when the viewport is narrower) - re-verify zero-scroll at the 4
      tracked heights after any further change here, same as every prior
      sizing round in this section. */
-  grid-template-columns: 280px minmax(360px, 1060px) 280px;
+  grid-template-columns: 320px minmax(360px, 1000px) 320px;
   justify-content: center;
   gap: 24px;
   align-items: start;
@@ -3030,7 +3030,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 .menu-panel-title {
   margin: 0 0 5px;
   font-family: var(--menu-display-font);
-  font-size: 21px;
+  font-size: 23px;
   font-weight: 700;
   letter-spacing: 1.5px;
   color: #e8e8e2;
@@ -3079,9 +3079,9 @@ body.reduce-flashing #critical-blood-overlay.show {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 12px 5px;
-  font-size: 14px;
+  gap: 7px;
+  padding: 13px 6px;
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.3px;
   text-transform: uppercase;
@@ -3120,15 +3120,15 @@ body.reduce-flashing #critical-blood-overlay.show {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 46px;
-  height: 46px;
+  width: 48px;
+  height: 48px;
   clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
   background: rgba(255, 255, 255, 0.1);
 }
 
 .class-icon {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   color: #fff;
 }
 
@@ -3153,7 +3153,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   justify-content: space-between;
   gap: 10px;
   padding: 3px 0;
-  font-size: 15px;
+  font-size: 17px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 
@@ -3789,9 +3789,9 @@ body.reduce-flashing #critical-blood-overlay.show {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 19px 25px;
-  font-size: 17px;
+  gap: 18px;
+  padding: 21px 26px;
+  font-size: 19px;
   font-weight: 600;
   letter-spacing: 0.8px;
   text-transform: uppercase;
@@ -3806,8 +3806,8 @@ body.reduce-flashing #critical-blood-overlay.show {
 }
 
 #menu-nav-buttons button svg {
-  width: 30px;
-  height: 30px;
+  width: 31px;
+  height: 31px;
   flex-shrink: 0;
   color: var(--menu-gold);
 }
@@ -3890,15 +3890,15 @@ body.reduce-flashing #critical-blood-overlay.show {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 12%), var(--menu-panel-bg);
   border: 2px solid var(--menu-panel-border);
   border-radius: 4px;
-  padding: 18px 22px;
+  padding: 19px 23px;
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04);
   text-align: left;
 }
 
 .menu-card-title {
-  margin: 0 0 7px;
+  margin: 0 0 6px;
   font-family: var(--menu-display-font);
-  font-size: 22px;
+  font-size: 23px;
   font-weight: 700;
   letter-spacing: 1.5px;
   color: var(--menu-gold);
@@ -4087,11 +4087,11 @@ body.reduce-flashing #critical-blood-overlay.show {
 .mode-toggle {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 11px;
   padding: 2px 7px;
   margin: 0 -7px;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 15px;
   color: rgba(255, 255, 255, 0.75);
   cursor: pointer;
   transition: background-color 0.15s ease, color 0.15s ease;
@@ -4121,16 +4121,16 @@ body.reduce-flashing #critical-blood-overlay.show {
 }
 
 .mode-icon {
-  width: 25px;
-  height: 25px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
   color: var(--menu-green);
   opacity: 0.85;
 }
 
 .mode-toggle input {
-  width: 21px;
-  height: 21px;
+  width: 23px;
+  height: 23px;
   margin: 0;
   accent-color: var(--menu-gold);
   flex-shrink: 0;
