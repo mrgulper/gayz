@@ -255,6 +255,10 @@ function loadSettings() {
       region: parsed.region || 'global',
       largeTextMode: parsed.largeTextMode ?? false,
       highContrastMode: parsed.highContrastMode ?? false,
+      // Homepage background mood (see _applyBgMood) - 'auto' follows the
+      // same seasonal date windows as EVENT_BANNERS, any other value is an
+      // explicit user override that ignores the calendar.
+      bgMood: parsed.bgMood || 'auto',
       keybindCheatSheet: parsed.keybindCheatSheet ?? false,
       showHitFeedback: parsed.showHitFeedback ?? true,
       mutators: {
@@ -289,7 +293,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, keybindCheatSheet: false, showHitFeedback: true, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -1635,9 +1639,12 @@ const SPOTLIGHT_TIPS = ['spotlightTip1', 'spotlightTip2', 'spotlightTip3', 'spot
 // Round 4 Online Features batch - standalone lore/world trivia, distinct
 // from SPOTLIGHT_TIPS above (actionable gameplay advice vs. pure flavor).
 const TRIVIA_FACTS = ['triviaFact1', 'triviaFact2', 'triviaFact3', 'triviaFact4', 'triviaFact5', 'triviaFact6']
+// bgMood is reused by _applyBgMood() for the "Auto (Seasonal)" background
+// mood default - same date windows as the banner itself rather than a
+// second parallel date table, so a season only ever needs updating here.
 const EVENT_BANNERS = [
-  { month: 9, startDay: 20, endDay: 31, key: 'eventBannerHalloween' },
-  { month: 11, startDay: 15, endDay: 31, key: 'eventBannerWinter' },
+  { month: 9, startDay: 20, endDay: 31, key: 'eventBannerHalloween', bgMood: 'amber' },
+  { month: 11, startDay: 15, endDay: 31, key: 'eventBannerWinter', bgMood: 'foggy' },
 ]
 const WHATS_NEW_VERSION = '2026-07-29-homepage'
 const WHATS_NEW_SEEN_KEY = 'gayz-whatsnew-seen'
@@ -2623,6 +2630,7 @@ export class Game {
     this.whatsNewDot = document.getElementById('whats-new-dot')
     this.profileScreenshotGallery = document.getElementById('profile-screenshot-gallery')
     this.profileGalleryTitle = document.getElementById('profile-gallery-title')
+    this.menuScreenshotGallery = document.getElementById('menu-screenshot-gallery')
     // Second Homepage batch - login streak badge, nav completion rings,
     // season-progress countdown label, Player Title picker, Nearly There
     // nudge, Weekly Recap, Recent Activity feed, and the 2 new quick-action
@@ -2738,6 +2746,7 @@ export class Game {
     this.colorblindToggle = document.getElementById('colorblind-toggle')
     this.largeTextToggle = document.getElementById('large-text-toggle')
     this.highContrastToggle = document.getElementById('high-contrast-toggle')
+    this.bgMoodSelect = document.getElementById('bg-mood-select')
     this.keybindCheatsheetToggle = document.getElementById('keybind-cheatsheet-toggle')
     this.keybindCheatsheet = document.getElementById('keybind-cheatsheet')
     this.hitFeedbackToggle = document.getElementById('hit-feedback-toggle')
@@ -6246,6 +6255,15 @@ export class Game {
         saveSettings(this.settings)
       })
     }
+    if (this.bgMoodSelect) {
+      this.bgMoodSelect.value = this.settings.bgMood
+      this._applyBgMood()
+      this.bgMoodSelect.addEventListener('change', () => {
+        this.settings.bgMood = this.bgMoodSelect.value
+        this._applyBgMood()
+        saveSettings(this.settings)
+      })
+    }
     // Keybind Cheat Sheet - a persistent in-game HUD overlay, distinct
     // from the one-time tutorial toasts and the replayable How to Play
     // modal (see #keybind-cheatsheet's own CSS comment). Only actually
@@ -9115,8 +9133,19 @@ export class Game {
   // once.
   _updateMenuSpotlight() {
     if (!this.menuSpotlight) return
+    // Async data for the Global Activity / Community Poll modes below -
+    // kicked off once (idempotent, same guard style as the interval start
+    // further down) so the numbers are already cached by the time the
+    // rotation reaches those modes, rather than fetching on every render().
+    if (!this._spotlightAsyncStarted) {
+      this._spotlightAsyncStarted = true
+      CloudSync.fetchGlobalKills().then((n) => { this._spotlightGlobalKills = n }).catch(() => {})
+      if (this._cloudUid) {
+        CloudSync.fetchPollResults(POLL_ID, POLL_OPTIONS.map((o) => o.id)).then((counts) => { this._spotlightPollCounts = counts }).catch(() => {})
+      }
+    }
     const render = () => {
-      const mode = (this._spotlightIndex || 0) % 6
+      const mode = (this._spotlightIndex || 0) % 10
       if (mode === 0) {
         const tipKey = SPOTLIGHT_TIPS[Math.floor(Date.now() / 60000) % SPOTLIGHT_TIPS.length]
         this.menuSpotlight.textContent = t('spotlightTipPrefix', { tip: t(tipKey) })
@@ -9154,13 +9183,52 @@ export class Game {
           const id = untried[_dailyTwistIndex(_todayDateStr()) % untried.length]
           this.menuSpotlight.textContent = t('spotlightMutatorNudge', { mutator: t(MUTATOR_LABEL_KEYS[id] || id) })
         }
-      } else {
+      } else if (mode === 5) {
         // Standalone lore/world trivia - distinct from SPOTLIGHT_TIPS
         // (mode 0), which are actionable gameplay advice; these are pure
         // flavor facts about the world, day-seeded the same way as every
         // other daily-stable pick in this rotation.
         const triviaKey = TRIVIA_FACTS[_dailyTwistIndex(_todayDateStr() + 'trivia') % TRIVIA_FACTS.length]
         this.menuSpotlight.textContent = t(triviaKey)
+      } else if (mode === 6) {
+        // Featured Shop Item - day-seeded pick from the real Coin Shop
+        // catalog (no fake "sale"/discount - CoinShop.js has no such
+        // mechanic, and inventing a fake price cut that doesn't apply at
+        // checkout would be misleading).
+        const item = COIN_SHOP_ITEMS[_dailyTwistIndex(_todayDateStr() + 'shop') % COIN_SHOP_ITEMS.length]
+        this.menuSpotlight.textContent = t('spotlightFeaturedItem', { item: t(item.titleKey), cost: item.cost.toLocaleString() })
+      } else if (mode === 7 && this._spotlightGlobalKills) {
+        // Global Activity - the one real cross-player signal this game
+        // tracks (stats/global.totalKills, see CloudSync.fetchGlobalKills).
+        // No presence/session system exists to build a genuine "players
+        // online" count from, so this stays an aggregate-kills line rather
+        // than faking one.
+        this.menuSpotlight.textContent = t('spotlightGlobalActivity', { n: this._spotlightGlobalKills.toLocaleString() })
+      } else if (mode === 8 && this._spotlightPollCounts) {
+        // Community Poll teaser - reuses the same POLL_ID/POLL_OPTIONS and
+        // fetchPollResults aggregation the Cloud Save panel's full poll UI
+        // already uses (see _renderPoll), just condensed to a leader-only
+        // line. Only shown once signed in (fetch is gated on _cloudUid
+        // above), same as the full poll widget.
+        const total = Object.values(this._spotlightPollCounts).reduce((a, b) => a + b, 0)
+        if (total > 0) {
+          const leaderId = Object.keys(this._spotlightPollCounts).sort((a, b) => this._spotlightPollCounts[b] - this._spotlightPollCounts[a])[0]
+          const leaderOpt = POLL_OPTIONS.find((o) => o.id === leaderId)
+          const pct = Math.round((this._spotlightPollCounts[leaderId] / total) * 100)
+          this.menuSpotlight.textContent = t('spotlightPollTeaser', { option: t(leaderOpt.labelKey), pct })
+        }
+      } else if (mode === 9) {
+        // Patch Notes - reads the newest Credits changelog entry straight
+        // from the DOM rather than duplicating it into a second data
+        // source. The changelog is hand-authored static HTML (see
+        // #changelog-list in index.html), not a JS array, so this stays
+        // in sync with whatever's actually shown in Credits automatically.
+        const latest = document.querySelector('#changelog-list .changelog-entry')
+        if (latest) {
+          const date = latest.querySelector('.changelog-date')?.textContent || ''
+          const text = latest.querySelector('.changelog-text')?.textContent || ''
+          this.menuSpotlight.textContent = t('spotlightPatchNotes', { date, text })
+        }
       }
       this._spotlightIndex = (this._spotlightIndex || 0) + 1
     }
@@ -9185,6 +9253,25 @@ export class Game {
     }
     this.eventBanner.textContent = t(active.key)
     this.eventBanner.style.display = ''
+  }
+
+  // Homepage Background Mood (Settings panel) - 'auto' follows the same
+  // EVENT_BANNERS date windows as the banner above (falling back to no
+  // filter outside any window), any other settings.bgMood value is an
+  // explicit user override that always wins regardless of date. Applies
+  // via a class on <html>, matching the large-text-mode/high-contrast-mode
+  // convention, so it's a single CSS filter swap - no new DOM elements.
+  _applyBgMood() {
+    let mood = this.settings.bgMood
+    if (mood === 'auto') {
+      const now = new Date()
+      const active = EVENT_BANNERS.find((ev) => now.getMonth() === ev.month && now.getDate() >= ev.startDay && now.getDate() <= ev.endDay)
+      mood = active ? active.bgMood : 'none'
+    }
+    for (const cls of ['bg-mood-bloodmoon', 'bg-mood-foggy', 'bg-mood-amber']) {
+      document.documentElement.classList.remove(cls)
+    }
+    if (mood !== 'none') document.documentElement.classList.add(`bg-mood-${mood}`)
   }
 
   // What's New badge dot - a small red dot on the Credits nav button until
@@ -9338,15 +9425,21 @@ export class Game {
   }
 
   _renderScreenshotGallery() {
-    if (!this.profileScreenshotGallery) return
     const gallery = _loadScreenshotGallery()
-    this.profileScreenshotGallery.innerHTML = ''
     if (this.profileGalleryTitle) this.profileGalleryTitle.style.display = gallery.length ? '' : 'none'
-    for (const thumb of gallery) {
-      const img = document.createElement('img')
-      img.src = thumb
-      img.alt = t('galleryThumbnailAlt')
-      this.profileScreenshotGallery.appendChild(img)
+    // Homepage preview strip (see #menu-screenshot-gallery) mirrors the same
+    // gallery array - kept at display:none whenever empty (most players,
+    // most of the time) so it costs zero homepage space until earned.
+    if (this.menuScreenshotGallery) this.menuScreenshotGallery.style.display = gallery.length ? '' : 'none'
+    for (const el of [this.profileScreenshotGallery, this.menuScreenshotGallery]) {
+      if (!el) continue
+      el.innerHTML = ''
+      for (const thumb of gallery) {
+        const img = document.createElement('img')
+        img.src = thumb
+        img.alt = t('galleryThumbnailAlt')
+        el.appendChild(img)
+      }
     }
   }
 

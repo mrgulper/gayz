@@ -433,6 +433,8 @@
               <p id="season-progress-label" style="display: none"></p>
             </div>
 
+            <div id="menu-screenshot-gallery" class="screenshot-gallery-shared" style="display: none" aria-label="Recent screenshots"></div>
+
             <nav id="menu-nav-buttons">
               <button id="coinshop-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/><path d="M2 3h2l2.4 12.4a2 2 0 0 0 2 1.6h8.6a2 2 0 0 0 2-1.6L21 7H6"/></svg>
@@ -649,6 +651,16 @@
           <div class="audio-row">
             <label for="high-contrast-toggle" id="high-contrast-label">High Contrast Mode</label>
             <input type="checkbox" id="high-contrast-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="bg-mood-select" id="bg-mood-label">Homepage Background Mood</label>
+            <select id="bg-mood-select">
+              <option value="auto">Auto (Seasonal)</option>
+              <option value="none">Night (Default)</option>
+              <option value="bloodmoon">Blood Moon</option>
+              <option value="foggy">Foggy Blue</option>
+              <option value="amber">Amber Dusk</option>
+            </select>
           </div>
           <div class="audio-row">
             <label for="keybind-cheatsheet-toggle" id="keybind-cheatsheet-label">Show Keybind Cheat Sheet (in-game)</label>
@@ -926,7 +938,7 @@
         <button id="profile-copy-stats-btn">Copy Stats</button>
         <button id="profile-print-btn">Print Stats Sheet</button>
         <h3 id="profile-gallery-title" style="display: none">Recent Screenshots</h3>
-        <div id="profile-screenshot-gallery"></div>
+        <div id="profile-screenshot-gallery" class="screenshot-gallery-shared"></div>
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>
       <div id="print-stats-sheet"></div>
