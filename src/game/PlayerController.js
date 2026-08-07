@@ -95,6 +95,18 @@ const PRONE_DOUBLE_TAP_MS = 300
 const SWIM_EYE_HEIGHT = 0.5
 const SWIM_SPEED_MULT = 0.55
 
+// Ladder climbing - see Game.js's nearLadder (a {x,z,topY} object set live
+// every frame from XZ proximity to the Elevator Tower's ladder, or null),
+// entered here (not a key-press dispatch like prone/dodge) by just holding
+// Forward OR Back while in reach - Forward so approaching from the ground
+// grabs on naturally (same "walk into it" discoverability the mantle hop
+// already has), Back too so someone standing at the TOP wanting to climb
+// down doesn't need to press Forward first to grab on before they can
+// press Back to actually descend. Continuous, not a scripted lerp like
+// mantle/the elevator ride - responds to held input every frame, snapped
+// to the ladder's exact x/z the whole time so there's no drifting off it.
+const LADDER_CLIMB_SPEED = 3
+
 // Browsers occasionally report one wildly wrong mousemove delta right when
 // pointer lock is (re)acquired (pause/resume, respawn, alt-tab). No real
 // mouse movement produces this much delta in a single frame, so any event
@@ -193,6 +205,8 @@ export class PlayerController {
     // light) - same "recomputed live every frame" shape as corpsePileMult.
     this.weaponWeightMult = 1
     this.isSwimming = false
+    this.nearLadder = null
+    this.isOnLadder = false
     this.isSprinting = false
     this.isCrouching = false
     this.isProne = false
@@ -269,6 +283,8 @@ export class PlayerController {
     this.warmthStaminaMult = 1
     this.weaponWeightMult = 1
     this.isSwimming = false
+    this.nearLadder = null
+    this.isOnLadder = false
     this.isCrouching = false
     this.isProne = false
     this._lastCrouchPressAt = 0
@@ -316,7 +332,13 @@ export class PlayerController {
       }
     }
     else if (code === 'Space') {
-      if (isDown && !this.isProne && !this.isSwimming && !this._tryMantle() && this.onGround) {
+      if (isDown && this.isOnLadder) {
+        // Let go and drop - falling from up high still costs the usual
+        // fall damage on landing (see Game.js's _updateLandingDip), same
+        // as jumping off anything else this tall.
+        this.isOnLadder = false
+        this.onGround = false
+      } else if (isDown && !this.isProne && !this.isSwimming && !this._tryMantle() && this.onGround) {
         this.velocity.y = JUMP_SPEED
         this.onGround = false
         this._realJumpAirborne = true
@@ -489,6 +511,34 @@ export class PlayerController {
       } else {
         const frac = 1 - (this.mantleUntil - now) / this._mantleDurationMs
         obj.position.lerpVectors(this._mantleStart, this._mantleTarget, Math.min(1, frac))
+      }
+      return
+    }
+
+    if (!this.isOnLadder && this.nearLadder && (this.input.forward || this.input.back) && !this.isDodging && !this.isSliding && !this.isProne) {
+      this.isOnLadder = true
+      this._ladderX = this.nearLadder.x
+      this._ladderZ = this.nearLadder.z
+      this._ladderTopY = this.nearLadder.topY
+    }
+
+    if (this.isOnLadder) {
+      const feetY = obj.position.y - this.eyeHeight
+      let dy = 0
+      if (this.input.forward) dy = LADDER_CLIMB_SPEED * dt
+      else if (this.input.back) dy = -LADDER_CLIMB_SPEED * dt
+      const newFeetY = THREE.MathUtils.clamp(feetY + dy, 0, this._ladderTopY)
+      obj.position.set(this._ladderX, newFeetY + this.eyeHeight, this._ladderZ)
+      this.velocity.set(0, 0, 0)
+      this.isSprinting = false
+      // Hands off to normal ground physics at either end - arriving at the
+      // top (the elevator's own deck, see buildElevatorTower's ladderX/Z)
+      // or letting go of Forward once back down at the bottom.
+      if (newFeetY >= this._ladderTopY || (newFeetY <= 0 && !this.input.forward)) {
+        this.isOnLadder = false
+        this.onGround = true
+      } else {
+        this.onGround = false
       }
       return
     }

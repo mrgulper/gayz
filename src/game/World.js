@@ -5663,6 +5663,33 @@ function buildElevatorTower(scene, colliders, solidMeshes, register, x, z) {
     register(post)
   }
 
+  // Climbable ladder (see Game.js's isOnLadder) - mounted near the same
+  // far-corner support post used above (the pz=+DECK_HALF-0.2 one, at
+  // deckCenterX+DECK_HALF-0.2), so the climb's own landing spot lands ON
+  // the deck's own walkable footprint rather than needing separately-
+  // verified clearance the way the tower's own location did. Offset an
+  // extra 0.3 further in from that post's exact x (not co-located with
+  // it) - climbing to a spot dead-center on the post's own thin 0.1-radius
+  // top cap instead of the broad deck slab was caught via a live ground-
+  // height sample during testing (returned the post's height, 4.6, not
+  // the deck's, 4.15) - offsetting clear of the post's footprint entirely
+  // guarantees the landing spot resolves to the deck every time.
+  const ladderX = deckCenterX + ELEVATOR_DECK_HALF - 0.5
+  const ladderZ = z + ELEVATOR_DECK_HALF - 0.2
+  const railMatLadder = cachedFlatMaterial({ color: 0x6a6458, roughness: 0.6, metalness: 0.4 })
+  for (const rx of [-0.25, 0.25]) {
+    const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, ELEVATOR_STOP_HEIGHT, 6), railMatLadder)
+    rail.position.set(ladderX + rx, ELEVATOR_STOP_HEIGHT / 2, ladderZ)
+    scene.add(rail)
+  }
+  const rungCount = Math.round(ELEVATOR_STOP_HEIGHT / 0.35)
+  for (let i = 0; i <= rungCount; i++) {
+    const rung = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.5, 6), railMatLadder)
+    rung.rotation.z = Math.PI / 2
+    rung.position.set(ladderX, (i / rungCount) * ELEVATOR_STOP_HEIGHT, ladderZ)
+    scene.add(rung)
+  }
+
   // Permanent top deck, always there regardless of where the car currently
   // is - solidMeshes only, same "walkable floor, intentionally not a
   // horizontal collider" reasoning buildSkyscraper's own floor slabs use:
@@ -5703,7 +5730,7 @@ function buildElevatorTower(scene, colliders, solidMeshes, register, x, z) {
   scene.add(car)
   solidMeshes.push(car)
 
-  return { x, z, car, stopHeight: ELEVATOR_STOP_HEIGHT }
+  return { x, z, car, stopHeight: ELEVATOR_STOP_HEIGHT, ladderX, ladderZ }
 }
 
 // Collapsible Scaffolding - shootable (see WeaponSystem._fire()'s hit loop

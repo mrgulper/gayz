@@ -1891,6 +1891,10 @@ const SCAFFOLDING_COLLAPSE_RADIUS = 2.4
 // the player has to actually be standing where the car currently is.
 const ELEVATOR_INTERACT_RADIUS = 1.6
 const ELEVATOR_RIDE_DURATION_MS = 1800
+// Ladder (see PlayerController's isOnLadder) - pure XZ proximity to the
+// tower's fixed ladder point, independent of current height, so grabbing
+// on works approaching from the ground OR already partway/fully up.
+const LADDER_RADIUS = 0.6
 const SCAFFOLDING_COLLAPSE_DAMAGE = 70
 const PAYPHONE_INTERACT_RADIUS = 2
 const PAYPHONE_CALL_DELAY_MS = 20000
@@ -5480,6 +5484,7 @@ export class Game {
       // position change or the render/raycast never picks up the change.
       car.updateMatrix()
       this.nearElevatorCar = false
+      this.player.nearLadder = null
       if (frac >= 1) {
         this.elevatorRiding = false
         this.elevatorFloor = this.elevatorRideToY > 0 ? 'top' : 'bottom'
@@ -5489,6 +5494,10 @@ export class Game {
     this.nearElevatorCar =
       Math.hypot(playerPos.x - car.position.x, playerPos.z - car.position.z) <= ELEVATOR_INTERACT_RADIUS &&
       Math.abs(playerPos.y - this.player.eyeHeight - car.position.y) < 1.0
+    const tower = this.elevatorTower
+    this.player.nearLadder = Math.hypot(playerPos.x - tower.ladderX, playerPos.z - tower.ladderZ) <= LADDER_RADIUS
+      ? { x: tower.ladderX, z: tower.ladderZ, topY: tower.stopHeight }
+      : null
   }
 
   _rideElevator() {
