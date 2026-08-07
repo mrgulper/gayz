@@ -10,16 +10,25 @@ const TRANSITION = 0.02 // ~29s fade in/out of the day fraction
 // the cool tone here is meant to contrast against the warm practical
 // lights (streetlamps, flashlight, muzzle flash) for a real warm/cool
 // cinematic split rather than a single-hue wash.
+// Brightened from the original 0.7/0.95 (see git history) - these were
+// tuned assuming bloom's glow was still active to help sell "dark but
+// readable" night. LOW_QUALITY_MODE (QualitySettings.js) disables bloom
+// entirely and has been permanently on in production since before this
+// fix, which left night reading as almost solid black outside of
+// emissive-only objects (a zombie's glowing eyes, etc.) - confirmed via
+// a live screenshot, not just a values guess. Kept as a genuinely darker
+// mood than day (not brought up to day brightness), just no longer
+// unreadable without bloom's help.
 const NIGHT = {
-  background: 0x10141b,
-  fog: 0x141922,
-  fogNear: 18,
+  background: 0x1c2230,
+  fog: 0x1e2530,
+  fogNear: 20,
   fogFar: 90,
   skyColor: 0x6b7d94,
   groundColor: 0x1a1c18,
-  hemiIntensity: 0.7,
+  hemiIntensity: 1.15,
   sunColor: 0xa7bfe0,
-  sunIntensity: 0.95,
+  sunIntensity: 1.3,
   sunPos: new THREE.Vector3(30, 45, -15),
 }
 
