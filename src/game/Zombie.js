@@ -65,6 +65,15 @@ const AMBUSH_POP_MS = 220
 const AMBUSH_BURST_MS = 1900
 const AMBUSH_BURST_SPEED_MULT = 2.3
 const DEFAULT_ENRAGE_MULT = 1.4
+// Boss enrage phases - permanent, health-triggered escalation distinct
+// from the temporary scream-triggered enrage() above. Two thresholds
+// give a real "phase 2/3" feel rather than one flat late-fight buff.
+const BOSS_ENRAGE_PHASE1_HEALTH_FRACTION = 0.5
+const BOSS_ENRAGE_PHASE2_HEALTH_FRACTION = 0.25
+const BOSS_ENRAGE_PHASE1_SPEED_MULT = 1.3
+const BOSS_ENRAGE_PHASE2_SPEED_MULT = 1.6
+const BOSS_ENRAGE_PHASE1_COOLDOWN_MULT = 0.85
+const BOSS_ENRAGE_PHASE2_COOLDOWN_MULT = 0.65
 const DEFAULT_WEAKEN_MULT = 0.55
 // Leg-shot crippling (see isCrippled) - a harsher, PERMANENT version of
 // the temporary weaken() slow above. 2 leg hits to trigger.
@@ -323,6 +332,11 @@ export class Zombie {
     // stays badly slowed for the rest of its life, not just 2 seconds.
     this.legHitCount = 0
     this.isCrippled = false
+    // Boss enrage phases (see onHit's _checkEnragePhase call and
+    // _bossPhaseSpeedMult/_bossPhaseCooldownMult below) - permanent once
+    // triggered, unlike the temporary scream-triggered enrage() a regular
+    // zombie can get. 0 = normal, 1 = below 50% health, 2 = below 25%.
+    this.enragePhase = 0
     this.isBerserk = false
     this.specialCooldownUntil = 0
     this.specialTelegraphUntil = 0
@@ -1305,7 +1319,15 @@ export class Zombie {
       }
 
       const burstMult = performance.now() < this.burstUntil ? AMBUSH_BURST_SPEED_MULT : 1
-      const enrageMult = performance.now() < this.enragedUntil ? (this.config.screamEnrageMult ?? DEFAULT_ENRAGE_MULT) : 1
+      // Boss phase multiplier takes priority over the regular scream-
+      // triggered one when both could apply (a boss is never also hit by
+      // a screamer's own enrage() call in practice, but this keeps the
+      // precedence explicit either way).
+      const bossPhaseMult = this.enragePhase >= 2 ? BOSS_ENRAGE_PHASE2_SPEED_MULT
+        : this.enragePhase >= 1 ? BOSS_ENRAGE_PHASE1_SPEED_MULT : null
+      const enrageMult = performance.now() < this.enragedUntil
+        ? (bossPhaseMult ?? this.config.screamEnrageMult ?? DEFAULT_ENRAGE_MULT)
+        : 1
       const weakenMult = performance.now() < this.weakenedUntil ? DEFAULT_WEAKEN_MULT : 1
       const hivemindMult = performance.now() < this.hivemindBuffUntil ? HIVEMIND_SPEED_MULT : 1
       const alphaMult = this.isPackAlpha ? ALPHA_SPEED_MULT : 1
@@ -1400,6 +1422,31 @@ export class Zombie {
     this.enragedUntil = Math.max(this.enragedUntil, performance.now() + durationMs)
   }
 
+  // Called from onHit whenever this boss takes damage - checks its OWN
+  // health against the phase thresholds, rather than needing an external
+  // trigger the way the temporary scream-triggered enrage() above does.
+  // Permanent once reached (enragedUntil = Infinity), and only ever
+  // escalates - taking more damage can't un-enrage a boss back down.
+  _checkEnragePhase() {
+    if (this.state !== 'alive' || this.maxHealth <= 0) return
+    const frac = this.health / this.maxHealth
+    if (frac <= BOSS_ENRAGE_PHASE2_HEALTH_FRACTION && this.enragePhase < 2) {
+      this.enragePhase = 2
+      this.enragedUntil = Infinity
+    } else if (frac <= BOSS_ENRAGE_PHASE1_HEALTH_FRACTION && this.enragePhase < 1) {
+      this.enragePhase = 1
+      this.enragedUntil = Infinity
+    }
+  }
+
+  // Shared by both attack-cooldown assignment sites below - an enraged
+  // boss doesn't just move faster, it swings again sooner too.
+  get bossPhaseCooldownMult() {
+    if (this.enragePhase >= 2) return BOSS_ENRAGE_PHASE2_COOLDOWN_MULT
+    if (this.enragePhase >= 1) return BOSS_ENRAGE_PHASE1_COOLDOWN_MULT
+    return 1
+  }
+
   // UV weapon effect: slows movement (see effectiveSpeed above) and softens
   // its own damage output while lit.
   weaken(durationMs) {
@@ -1484,7 +1531,7 @@ export class Zombie {
       this._tryMove(nx * this.effectiveSpeed * dt, nz * this.effectiveSpeed * dt, colliders)
       this.group.rotation.y = Math.atan2(nx, nz)
     } else if (performance.now() >= this.attackCooldownUntil) {
-      this.attackCooldownUntil = performance.now() + this.config.attackCooldown * 1000
+      this.attackCooldownUntil = performance.now() + this.config.attackCooldown * 1000 * this.bossPhaseCooldownMult
       this.attackAnimUntil = performance.now() + 260
       const weakened = performance.now() < this.weakenedUntil
       const damage = (this.config.damageMin + Math.random() * (this.config.damageMax - this.config.damageMin)) *
@@ -1516,7 +1563,7 @@ export class Zombie {
         if (onAttack) onAttack(damage)
       }
       this.specialCooldownUntil = now + BOSS_SPECIAL_COOLDOWN_MS
-      this.attackCooldownUntil = now + this.config.attackCooldown * 1000
+      this.attackCooldownUntil = now + this.config.attackCooldown * 1000 * this.bossPhaseCooldownMult
       return 'busy'
     }
 
@@ -1925,6 +1972,7 @@ export class Zombie {
     } else {
       this.health = Math.max(0, this.health - damage)
     }
+    if (this.isBoss) this._checkEnragePhase()
     this.staggerUntil = performance.now() + 200
 
     // Varied hit-reaction (see _updateHitReact) - knocked away from roughly
