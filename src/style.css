@@ -1292,7 +1292,10 @@ body.reduce-flashing #critical-blood-overlay.show {
   text-align: center;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.6);
-  background: rgba(255, 255, 255, 0.04);
+  /* Always-on gold wash (see the shared homepage-clickables note near
+     #menu-player-badge) - .active below still overrides with a full
+     solid gold fill for whichever difficulty is actually selected. */
+  background: rgba(227, 166, 60, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 6px;
   cursor: pointer;
@@ -3086,7 +3089,11 @@ body.reduce-flashing #critical-blood-overlay.show {
   letter-spacing: 0.3px;
   text-transform: uppercase;
   color: var(--menu-text-dim);
-  background: rgba(255, 255, 255, 0.03);
+  /* Subtle always-on gold wash (see the shared homepage-clickables note
+     near #menu-player-badge) - .active/its per-role/loadout variants
+     below still override with their own stronger, distinct accent color
+     when selected, so this only shows on the NOT-yet-picked options. */
+  background: rgba(227, 166, 60, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
   cursor: pointer;
@@ -3507,7 +3514,10 @@ body.reduce-flashing #critical-blood-overlay.show {
   height: 48px;
   padding: 0;
   color: var(--menu-gold);
-  background: rgba(0, 0, 0, 0.3);
+  /* Always-on gold wash layered over the existing dark base (see the
+     shared homepage-clickables note near #menu-player-badge) - these
+     already had a gold border, just not a gold background. */
+  background: linear-gradient(rgba(227, 166, 60, 0.12), rgba(227, 166, 60, 0.12)), rgba(0, 0, 0, 0.3);
   border: 2px solid rgba(227, 166, 60, 0.5);
   border-radius: 6px;
   cursor: pointer;
@@ -3601,19 +3611,29 @@ body.reduce-flashing #critical-blood-overlay.show {
 }
 
 /* ---- Right column: player badge + nav + boards ---- */
+/* Always-on subtle gold background behind every clickable thing on the
+   homepage (nav buttons, class/loadout/difficulty pickers, quick-action
+   icons, this badge, mutator/game-mode toggle rows) - a deliberately
+   light wash (rgba(227,166,60, ~0.08-0.12), not the Play button's own
+   full-strength gold) so it reads as "this is clickable" without
+   overpowering the dark theme, and without fighting each button's own
+   distinct hover/active-state color (those still override this resting
+   tint, e.g. .class-btn.active's own per-role color). This badge used to
+   have no background at all except on hover - now it matches the rest.*/
 #menu-player-badge {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
   padding: 14px;
+  background: rgba(227, 166, 60, 0.08);
   border-radius: 10px;
   cursor: pointer;
 }
 
 #menu-player-badge:hover,
 #menu-player-badge:focus-visible {
-  background: rgba(227, 166, 60, 0.08);
+  background: rgba(227, 166, 60, 0.16);
 }
 
 #menu-player-badge:hover #menu-avatar-icon {
@@ -3796,7 +3816,10 @@ body.reduce-flashing #critical-blood-overlay.show {
   letter-spacing: 0.8px;
   text-transform: uppercase;
   color: #d8dcd2;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 50%), var(--menu-gunmetal-dark);
+  /* Always-on gold wash (see the shared homepage-clickables note near
+     #menu-player-badge) - hover below layers a slightly stronger version
+     on top of this same base rather than introducing gold from nothing. */
+  background: linear-gradient(180deg, rgba(227, 166, 60, 0.09) 0%, transparent 50%), var(--menu-gunmetal-dark);
   border: 2px solid var(--menu-panel-border);
   border-radius: 4px;
   cursor: pointer;
@@ -4093,6 +4116,10 @@ body.reduce-flashing #critical-blood-overlay.show {
   border-radius: 4px;
   font-size: 14px;
   color: rgba(255, 255, 255, 0.75);
+  /* Always-on gold wash (see the shared homepage-clickables note near
+     #menu-player-badge) - kept extra light since these are dense,
+     repeated list rows (mutators/game modes), not standalone buttons. */
+  background: rgba(227, 166, 60, 0.05);
   cursor: pointer;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
