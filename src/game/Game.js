@@ -256,6 +256,7 @@ function loadSettings() {
       largeTextMode: parsed.largeTextMode ?? false,
       highContrastMode: parsed.highContrastMode ?? false,
       keybindCheatSheet: parsed.keybindCheatSheet ?? false,
+      showHitFeedback: parsed.showHitFeedback ?? true,
       mutators: {
         hordeRush: parsed.mutators?.hordeRush ?? false,
         lootRush: parsed.mutators?.lootRush ?? false,
@@ -288,7 +289,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, keybindCheatSheet: false, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, keybindCheatSheet: false, showHitFeedback: true, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -2683,6 +2684,7 @@ export class Game {
     this.highContrastToggle = document.getElementById('high-contrast-toggle')
     this.keybindCheatsheetToggle = document.getElementById('keybind-cheatsheet-toggle')
     this.keybindCheatsheet = document.getElementById('keybind-cheatsheet')
+    this.hitFeedbackToggle = document.getElementById('hit-feedback-toggle')
     this.performanceToggle = document.getElementById('performance-toggle')
     this.shakeIntensitySlider = document.getElementById('shake-intensity-slider')
     this.shakeIntensityValue = document.getElementById('shake-intensity-value')
@@ -3749,7 +3751,8 @@ export class Game {
         this._triggerShake(intensity, durationMs)
         this._alertNearbyZombiesToGunfire()
         this._maybeTriggerStampede()
-      }
+      },
+      () => this.settings.showHitFeedback
     )
     this.rivals = new RivalManager(this.scene)
     this.weapons.setRivalManager(this.rivals)
@@ -6066,6 +6069,17 @@ export class Game {
         this.settings.keybindCheatSheet = this.keybindCheatsheetToggle.checked
         saveSettings(this.settings)
         if (this.keybindCheatsheet) this.keybindCheatsheet.style.display = (this.settings.keybindCheatSheet && this.gameStarted) ? '' : 'none'
+      })
+    }
+    // Show Hit Feedback - hides the crosshair hitmarker flash (WeaponSystem's
+    // _showHitmarker) and floating damage numbers (_spawnDamageNumber below)
+    // for players who want a cleaner screen. Defaults ON to match this
+    // game's existing always-on behavior before this setting existed.
+    if (this.hitFeedbackToggle) {
+      this.hitFeedbackToggle.checked = this.settings.showHitFeedback
+      this.hitFeedbackToggle.addEventListener('change', () => {
+        this.settings.showHitFeedback = this.hitFeedbackToggle.checked
+        saveSettings(this.settings)
       })
     }
     if (this.musicTestBtn) {
@@ -9932,6 +9946,7 @@ export class Game {
     // minigun spray still counts even though its own number never
     // actually got to pop up on screen.
     if (damage > this.biggestHitThisRun) this.biggestHitThisRun = damage
+    if (!this.settings.showHitFeedback) return
     this._damageNumberVec.set(x, y, z).project(this.camera)
     if (this._damageNumberVec.z > 1) return // behind the camera
     const sx = (this._damageNumberVec.x * 0.5 + 0.5) * window.innerWidth

@@ -379,7 +379,7 @@ const WEAPON_CHARMS = {
 export const WEAPON_CHARM_IDS = Object.keys(WEAPON_CHARMS)
 
 export class WeaponSystem {
-  constructor(camera, scene, colliderMeshes, hud, zombieManager, onHitSurface, onZombieHit, onStealthTakedown, onDamageDealt = null, onWeaponFired = null) {
+  constructor(camera, scene, colliderMeshes, hud, zombieManager, onHitSurface, onZombieHit, onStealthTakedown, onDamageDealt = null, onWeaponFired = null, shouldShowHitFeedback = () => true) {
     this.camera = camera
     this.scene = scene
     this.colliderMeshes = colliderMeshes
@@ -397,6 +397,10 @@ export class WeaponSystem {
     // it connects, unlike onDamageDealt/onZombieHit above which only ever
     // fire on a successful hit.
     this.onWeaponFired = onWeaponFired
+    // Show Hit Feedback setting (see Game.js's hitFeedbackToggle) - a
+    // getter, not a snapshotted boolean, so toggling it mid-game takes
+    // effect on the very next shot without needing to rewire anything.
+    this.shouldShowHitFeedback = shouldShowHitFeedback
     // Set post-construction via setRivalManager (see RivalScavenger.js) -
     // optional, so nothing else about this class needs to change if it's
     // never set.
@@ -1369,6 +1373,7 @@ export class WeaponSystem {
   }
 
   _showHitmarker() {
+    if (!this.shouldShowHitFeedback()) return
     const marker = document.getElementById('hitmarker')
     marker.classList.remove('show')
     void marker.offsetWidth
