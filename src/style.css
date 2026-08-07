@@ -2108,6 +2108,50 @@ body.reduce-flashing #critical-blood-overlay.show {
   opacity: 0.85;
 }
 
+/* Profile panel's stat grid (#profile-options) - plain label/value text
+   rows instead of the boxed .perk-option card look every other user of
+   this shared class keeps (Shop/Upgrades/etc still get real cards).
+   Reuses .perk-option/.perk-name/.perk-cost as-is (not a new markup
+   structure) so Copy Stats/Print Stats Sheet, which read this exact
+   markup via querySelectorAll('.perk-option'), keep working unchanged -
+   this is a scoped CSS override, not a DOM change. */
+#profile-options {
+  flex-direction: column;
+  gap: 2px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+#profile-options .perk-option {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 3px 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  cursor: default;
+  text-align: left;
+}
+
+#profile-options .perk-option:last-child {
+  border-bottom: none;
+}
+
+#profile-options .perk-name {
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--menu-text-dim);
+}
+
+#profile-options .perk-cost {
+  font-size: 15px;
+  font-weight: 700;
+  color: #eee;
+}
+
 .perk-options {
   display: flex;
   gap: 14px;
