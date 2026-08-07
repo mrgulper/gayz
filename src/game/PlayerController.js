@@ -66,6 +66,16 @@ const SLIDE_DURATION_MS = 400
 const SLIDE_COOLDOWN_MS = 900
 const SLIDE_STAMINA_COST = 15
 
+// Prone: double-tap the crouch key (while standing still enough - not
+// sprinting/sliding/mantling/dodging) to drop flat. Much slower than crouch,
+// can't sprint/jump/dodge/mantle out of it directly (crouch key toggles it
+// back off first) - the payoff is stealth, not mobility: Zombie.js's
+// awareness system (AWARENESS_SIGHT_RANGE) shrinks while prone, so an
+// un-aware zombie has to be much closer before it notices you.
+const PRONE_EYE_HEIGHT = 0.35
+const PRONE_SPEED_MULT = 0.22
+const PRONE_DOUBLE_TAP_MS = 300
+
 // Browsers occasionally report one wildly wrong mousemove delta right when
 // pointer lock is (re)acquired (pause/resume, respawn, alt-tab). No real
 // mouse movement produces this much delta in a single frame, so any event
@@ -162,6 +172,8 @@ export class PlayerController {
     this.warmthStaminaMult = 1
     this.isSprinting = false
     this.isCrouching = false
+    this.isProne = false
+    this._lastCrouchPressAt = 0
     this.eyeHeight = EYE_HEIGHT
     this.isDodging = false
     this.dodgeUntil = 0
@@ -232,6 +244,8 @@ export class PlayerController {
     this.webSlowMult = 1
     this.warmthStaminaMult = 1
     this.isCrouching = false
+    this.isProne = false
+    this._lastCrouchPressAt = 0
     this.eyeHeight = EYE_HEIGHT
     this.isDodging = false
     this.dodgeUntil = 0
@@ -261,16 +275,27 @@ export class PlayerController {
     else if (code === getKeyFor('crouch') || code === 'ControlLeft' || code === 'ControlRight') {
       const wasDown = this.input.crouch
       if (this.toggleCrouch) { if (isDown) this.input.crouch = !this.input.crouch } else { this.input.crouch = isDown }
-      if (isDown && !wasDown) this._trySlide()
+      if (isDown && !wasDown) {
+        const now = performance.now()
+        if (!this.isProne && !this.isSprinting && !this.isSliding && !this.isMantling && !this.isDodging &&
+            now - this._lastCrouchPressAt < PRONE_DOUBLE_TAP_MS) {
+          this.isProne = true
+        } else if (this.isProne) {
+          this.isProne = false
+        } else {
+          this._trySlide()
+        }
+        this._lastCrouchPressAt = now
+      }
     }
     else if (code === 'Space') {
-      if (isDown && !this._tryMantle() && this.onGround) {
+      if (isDown && !this.isProne && !this._tryMantle() && this.onGround) {
         this.velocity.y = JUMP_SPEED
         this.onGround = false
         this._realJumpAirborne = true
       }
     } else if (code === getKeyFor('dodge')) {
-      if (isDown) this._tryDodge()
+      if (isDown && !this.isProne) this._tryDodge()
     }
   }
 
@@ -432,8 +457,8 @@ export class PlayerController {
       if (this.input.left) moveDir.sub(this._right)
 
       const isMoving = moveDir.lengthSq() > 0
-      this.isCrouching = this.input.crouch
-      this.isSprinting = this.input.sprint && this.stamina > 1 && isMoving && !this.isCrouching
+      this.isCrouching = this.isProne ? false : this.input.crouch
+      this.isSprinting = this.isProne ? false : (this.input.sprint && this.stamina > 1 && isMoving && !this.isCrouching)
 
       if (this.isSprinting) {
         this.stamina = Math.max(0, this.stamina - STAMINA_DRAIN_PER_SEC * dt)
@@ -443,6 +468,7 @@ export class PlayerController {
 
       let speedMultiplier = this.isSprinting ? this.sprintMultiplier : 1
       if (this.isCrouching) speedMultiplier *= CROUCH_SPEED_MULT
+      if (this.isProne) speedMultiplier *= PRONE_SPEED_MULT
       speedMultiplier *= this.adrenalineMult
       speedMultiplier *= this.corpsePileMult
       speedMultiplier *= this.webSlowMult
@@ -480,7 +506,7 @@ export class PlayerController {
       }
     }
 
-    const targetEyeHeight = this.isCrouching ? CROUCH_EYE_HEIGHT : EYE_HEIGHT
+    const targetEyeHeight = this.isProne ? PRONE_EYE_HEIGHT : (this.isCrouching ? CROUCH_EYE_HEIGHT : EYE_HEIGHT)
     this.eyeHeight = THREE.MathUtils.damp(this.eyeHeight, targetEyeHeight, EYE_HEIGHT_LERP_SPEED, dt)
 
     // Ground height at the (possibly just-moved) XZ position — this is what

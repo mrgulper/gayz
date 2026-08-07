@@ -195,6 +195,10 @@ const AWARENESS_SIGHT_RANGE = 18
 const AWARENESS_PROXIMITY_RANGE = 6
 const WANDER_SPEED_MULT = 0.35
 const WANDER_RETARGET_MS = 4000
+// Prone stealth (see PlayerController.js's isProne) - only shrinks the
+// sight-based branch of _updateAwareness, not AWARENESS_PROXIMITY_RANGE
+// (getting that close still wakes a zombie regardless of pose).
+const PRONE_SIGHT_RANGE_MULT = 0.4
 
 // Ranged strafe - spitters sidestep while in their attack band instead of
 // planting themselves the instant they're in range, reusing the perpendicular
@@ -1108,7 +1112,7 @@ export class Zombie {
     this._barSprite.material.map.needsUpdate = true
   }
 
-  update(dt, elapsed, playerPos, onAttack, onSpit, onAmbushTrigger, onExplode, playerCrouching = false, onScream = null, colliders = null, solidMeshes = null, allZombies = null, onTrail = null, playerForwardX = null, playerForwardZ = null) {
+  update(dt, elapsed, playerPos, onAttack, onSpit, onAmbushTrigger, onExplode, playerCrouching = false, onScream = null, colliders = null, solidMeshes = null, allZombies = null, onTrail = null, playerForwardX = null, playerForwardZ = null, playerProne = false) {
     // Cached so onHit() - called from outside update(), with no player
     // position of its own - can still bias the hit-reaction knockback away
     // from roughly where the player is, without threading a direction
@@ -1205,7 +1209,7 @@ export class Zombie {
       nz = -nz
     }
 
-    this._updateAwareness(playerPos, solidMeshes, dist)
+    this._updateAwareness(playerPos, solidMeshes, dist, playerProne)
 
     if (!this.aware) {
       // Ambient wander - hasn't noticed the player yet, so no pack
@@ -1719,15 +1723,16 @@ export class Zombie {
   // RANGE for the full rationale. Called every frame for every alive
   // zombie; a no-op the instant `aware` flips true since nothing here ever
   // clears it again.
-  _updateAwareness(playerPos, solidMeshes, dist) {
+  _updateAwareness(playerPos, solidMeshes, dist, playerProne = false) {
     if (this.aware) return
     if (this.isBoss || this.isWandering || this.isAmbush) {
       this.aware = true
       return
     }
+    const sightRange = playerProne ? AWARENESS_SIGHT_RANGE * PRONE_SIGHT_RANGE_MULT : AWARENESS_SIGHT_RANGE
     if (dist <= AWARENESS_PROXIMITY_RANGE) {
       this.aware = true
-    } else if (dist <= AWARENESS_SIGHT_RANGE && this._hasLineOfSight(playerPos, solidMeshes)) {
+    } else if (dist <= sightRange && this._hasLineOfSight(playerPos, solidMeshes)) {
       this.aware = true
     }
   }

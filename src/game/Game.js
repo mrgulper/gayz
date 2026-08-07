@@ -14207,7 +14207,7 @@ export class Game {
         (x, z) => this.pickups.spawnLootDrop('ammo', x, z), // boss-only guaranteed drop, see ZombieManager
         () => audioEngine.playAmbushShriek(),
         (zombieTypeId, weaponId, x, z, isElite, isWandering, isGolden, wasFleeing) => this._onZombieKilled(zombieTypeId, weaponId, x, z, isElite, isWandering, isGolden, wasFleeing),
-        this.player.isCrouching,
+        this.player.isCrouching || this.player.isProne,
         this.dayNight ? this.dayNight.getPhaseInfo().phase === 'Night' : false,
         (x, z) => this._spawnHazardZone('acid', x, z),
         (originX, originZ) => this._onZombiePull(originX, originZ),
@@ -14216,7 +14216,8 @@ export class Game {
         this._camDir.x,
         this._camDir.z,
         this.barricadeWindows.windows,
-        this._collectCompanionTargets()
+        this._collectCompanionTargets(),
+        this.player.isProne
       )
       // Squad Formation Toggle (see _toggleSquadHold) - the whole squad
       // treats a fixed anchor point as "playerPos" instead of the real one

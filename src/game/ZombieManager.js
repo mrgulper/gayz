@@ -1264,7 +1264,7 @@ export class ZombieManager {
     })
   }
 
-  update(dt, playerPos, onPlayerDamage, onZombieLoot, onAmbushTrigger, onZombieKilled, playerCrouching = false, isNight = false, onTrail = null, onPlayerPull = null, onPlayerDisorient = null, onWebLand = null, playerForwardX = null, playerForwardZ = null, barricadeWindows = null, companionTargets = null) {
+  update(dt, playerPos, onPlayerDamage, onZombieLoot, onAmbushTrigger, onZombieKilled, playerCrouching = false, isNight = false, onTrail = null, onPlayerPull = null, onPlayerDisorient = null, onWebLand = null, playerForwardX = null, playerForwardZ = null, barricadeWindows = null, companionTargets = null, playerProne = false) {
     resetLosRaycastBudget()
     this.elapsed += dt
     // Every spawn function below reads this instead of assuming the player
@@ -1436,7 +1436,8 @@ export class ZombieManager {
         this.zombies,
         onTrail,
         playerForwardX,
-        playerForwardZ
+        playerForwardZ,
+        playerProne
       )
 
       // Push back out to the safe zone's radius every frame - simple radial
