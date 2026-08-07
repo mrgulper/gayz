@@ -898,6 +898,7 @@ export class WeaponSystem {
     }
     if (w.ammoInMag === w.magSize || w.ammoReserve === 0) return
     this.reloading = true
+    audioEngine.playReload(w)
     // Tactical Reload - topping off a mag that still has rounds in it is
     // faster than working the slide from completely empty, rewarding a
     // reload before you're actually forced to rather than only after.

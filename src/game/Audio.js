@@ -150,6 +150,49 @@ class AudioEngine {
     }
   }
 
+  // Reload - two short mechanical clacks (mag out, mag in) rather than a
+  // hand-tuned preset per weapon (14 of them, vs. playShot's 3) - pitch
+  // and spacing derive from stats every weapon already has (magSize,
+  // reloadTime), so a heavy weapon with a big mag (minigun, rocket) reads
+  // as a slower, deeper mechanism than a snappy pistol reload, without
+  // needing to author a table by hand.
+  playReload(weapon) {
+    if (!this.ctx) return
+    const ctx = this.ctx
+    const now = ctx.currentTime
+    // Bigger mags -> lower-pitched, slightly longer clacks (a bigger
+    // piece of metal). Clamped so an absurd magSize/reloadTime can't push
+    // this into an inaudible sub-bass thud or a silent dog-whistle click.
+    const sizeFactor = Math.max(0.6, Math.min(1.6, 8 / (weapon.magSize || 8)))
+    const clackFreq = 900 * sizeFactor
+    const clackDuration = 0.05 * sizeFactor
+    // Spacing between the two clacks scales with the weapon's own
+    // reloadTime (bounded so a very slow weapon - AWP, rocket - doesn't
+    // leave an awkwardly long silent gap) instead of a fixed delay.
+    const gap = Math.max(0.12, Math.min(0.5, (weapon.reloadTime || 1.5) * 0.35))
+
+    const playClack = (t, freq, gain) => {
+      const noiseBuffer = ctx.createBuffer(1, Math.max(1, ctx.sampleRate * clackDuration), ctx.sampleRate)
+      const data = noiseBuffer.getChannelData(0)
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+      const noise = ctx.createBufferSource()
+      noise.buffer = noiseBuffer
+      const bandpass = ctx.createBiquadFilter()
+      bandpass.type = 'bandpass'
+      bandpass.frequency.value = freq
+      bandpass.Q.value = 3.5
+      const noiseGain = ctx.createGain()
+      noiseGain.gain.setValueAtTime(gain, t)
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, t + clackDuration)
+      noise.connect(bandpass).connect(noiseGain).connect(this.sfxGain)
+      noise.start(t)
+      noise.stop(t + clackDuration)
+    }
+
+    playClack(now, clackFreq, 0.3) // mag out
+    playClack(now + gap, clackFreq * 1.15, 0.32) // mag in, a touch higher/sharper
+  }
+
   // Blade whoosh for the melee swing.
   playMelee() {
     if (!this.ctx) return
