@@ -667,6 +667,7 @@ const STRINGS = {
     toastPinCleared: 'Map pin cleared',
     toastZiplineUsed: 'Zipline ride complete',
     toastWallDestroyed: 'The wall gave way - a new route just opened up.',
+    toastGlassBroken: 'The glass shatters - whatever was locked inside is yours now.',
     killstreakDamageBoost: 'Kill streak! Damage boosted for a while',
     killstreakAirstrike: 'Kill streak! Airstrike called in',
     killstreakInfiniteAmmo: 'Kill streak! Unlimited ammo for a while',

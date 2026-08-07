@@ -12,7 +12,7 @@ import { PickupManager } from './Pickups.js'
 import { PlayerState } from './PlayerState.js'
 import { Inventory } from './Inventory.js'
 import { DayNightCycle } from './DayNightCycle.js'
-import { ChestManager, Vault } from './Chests.js'
+import { ChestManager, Vault, LOOT_WEIGHTS } from './Chests.js'
 import { RivalManager, RIVAL_BANTER } from './RivalScavenger.js'
 import { loadMastery, saveMastery, MASTERY_THRESHOLD, MASTERY_DAMAGE_MULT, GRANDMASTER_THRESHOLD, GRANDMASTER_DAMAGE_MULT } from './WeaponMastery.js'
 import { BarricadeWindows, REPAIR_REWARD_POINTS } from './BarricadeWindows.js'
@@ -1853,6 +1853,14 @@ const ROAD_PILEUP_COUNT = 3
 // all - see CLAUDE.md's own notes on how risky hand-authored geometry near
 // existing buildings/the safe zone has been in this codebase before.
 const DESTRUCTIBLE_WALL_HEALTH = 220
+// Breakable Glass Case - same "shootable prop with its own health pool,
+// removed from colliders/solidMeshes once broken" shape as the
+// destructible wall above, just fragile (breaks in 1-2 hits from nearly
+// any weapon, unlike the wall's much higher pool) and gated behind loot
+// instead of a shortcut. Standalone structure (own frame + glass, not
+// touching any existing building) at a verified-clear spot, same
+// reasoning the Elevator Tower's placement already established.
+const GLASS_CASE_HEALTH = 20
 // Zipline - reuses the exact position-teleport fast travel already has
 // (see the fullMapCanvas click handler) rather than new traversal physics,
 // bi-directional between 2 fixed points connected by a purely decorative
@@ -3215,6 +3223,7 @@ export class Game {
     this.deathObstacles = []
     this.roadPileups = []
     this.destructibleWalls = []
+    this.breakableGlassCases = []
     this.ziplineA = null
     this.ziplineB = null
     this.nearZiplineEnd = null
@@ -3900,6 +3909,10 @@ export class Game {
       const wallSpot = this.spawnPoints[Math.min(2, this.spawnPoints.length - 1)]
       this._buildDestructibleWall(wallSpot.x + 4, wallSpot.z)
     }
+    // Standalone structure, own verified-clear spot (-300,300 - mirrors
+    // the Elevator Tower's own (300,300) placement, same live
+    // collider-overlap check done before picking it).
+    this._buildGlassCase(-300, 300)
     this._buildZipline()
     this._buildInformant()
     this._buildLoreMarkers()
@@ -5307,6 +5320,76 @@ export class Game {
     const si = this.solidMeshes.indexOf(wall.mesh)
     if (si !== -1) this.solidMeshes.splice(si, 1)
     this._showLoreToast(t('toastWallDestroyed'))
+  }
+
+  // Breakable Glass Case - a small standalone display case (own frame,
+  // not attached to any existing building) blocking a real loot chest
+  // behind a shootable glass pane. Frame walls are tall (3, above
+  // LEDGE_MAX_HEIGHT's 2.6) so vaulting over is never a way to skip
+  // actually breaking the glass. Same "userData flag + onHit health pool"
+  // shape as _buildDestructibleWall above, just fragile.
+  _buildGlassCase(x, z) {
+    const frameMat = flatMaterial({ color: 0x4a4640, roughness: 0.7, metalness: 0.4 })
+    const glassMat = flatMaterial({ color: 0x8fd8e8, roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.35 })
+    const caseHalf = 1.2
+    const caseDepthHalf = 0.8
+    const wallHeight = 3
+
+    const back = new THREE.Mesh(new THREE.BoxGeometry(caseHalf * 2, wallHeight, 0.2), frameMat)
+    back.position.set(x, wallHeight / 2, z - caseDepthHalf)
+    back.castShadow = true
+    this.scene.add(back)
+    this.colliders.push(new THREE.Box3(
+      new THREE.Vector3(x - caseHalf, 0, z - caseDepthHalf - 0.1),
+      new THREE.Vector3(x + caseHalf, wallHeight, z - caseDepthHalf + 0.1)
+    ))
+    this.solidMeshes.push(back)
+
+    for (const sx of [-caseHalf, caseHalf]) {
+      const side = new THREE.Mesh(new THREE.BoxGeometry(0.2, wallHeight, caseDepthHalf * 2), frameMat)
+      side.position.set(x + sx, wallHeight / 2, z)
+      side.castShadow = true
+      this.scene.add(side)
+      this.colliders.push(new THREE.Box3(
+        new THREE.Vector3(x + sx - 0.1, 0, z - caseDepthHalf),
+        new THREE.Vector3(x + sx + 0.1, wallHeight, z + caseDepthHalf)
+      ))
+      this.solidMeshes.push(side)
+    }
+
+    // The breakable pane itself - front side, facing the approach.
+    const glassMesh = new THREE.Mesh(new THREE.BoxGeometry(caseHalf * 2, wallHeight, 0.15), glassMat)
+    glassMesh.position.set(x, wallHeight / 2, z + caseDepthHalf)
+    this.scene.add(glassMesh)
+    const glassBox = new THREE.Box3(
+      new THREE.Vector3(x - caseHalf, 0, z + caseDepthHalf - 0.075),
+      new THREE.Vector3(x + caseHalf, wallHeight, z + caseDepthHalf + 0.075)
+    )
+    this.colliders.push(glassBox)
+    this.solidMeshes.push(glassMesh)
+
+    const glassCase = { health: GLASS_CASE_HEALTH, destroyed: false, mesh: glassMesh, box: glassBox }
+    glassCase.onHit = (damage) => {
+      if (glassCase.destroyed) return
+      glassCase.health -= damage
+      if (glassCase.health <= 0) this._breakGlassCase(glassCase)
+    }
+    glassMesh.userData.breakableGlass = glassCase
+    this.breakableGlassCases.push(glassCase)
+
+    // Loot visible through the glass before it's broken - better-than-usual
+    // odds, the payoff for noticing and shooting it open.
+    this.chests.addChest(x, 0, z, { ...LOOT_WEIGHTS, rare_weapon: 6, legendary_weapon: 3, extended_mag: 3 })
+  }
+
+  _breakGlassCase(glassCase) {
+    glassCase.destroyed = true
+    this.scene.remove(glassCase.mesh)
+    const ci = this.colliders.indexOf(glassCase.box)
+    if (ci !== -1) this.colliders.splice(ci, 1)
+    const si = this.solidMeshes.indexOf(glassCase.mesh)
+    if (si !== -1) this.solidMeshes.splice(si, 1)
+    this._showLoreToast(t('toastGlassBroken'))
   }
 
   // Built once at 2 fixed spawnPoint-derived locations - the cable is

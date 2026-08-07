@@ -1288,6 +1288,12 @@ export class WeaponSystem {
       const destructibleWall = hit.object.userData.destructibleWall
       if (destructibleWall) destructibleWall.onHit(w.damage * this.damageMult)
 
+      // Breakable Glass Case (see Game.js's _buildGlassCase) - same
+      // "check a userData flag, call its own onHit" shape as the
+      // destructible wall above.
+      const breakableGlass = hit.object.userData.breakableGlass
+      if (breakableGlass) breakableGlass.onHit(w.damage * this.damageMult)
+
       // Interactive World batch - two more world props following the exact
       // same "check a userData flag, call its own onHit" shape.
       const scaffolding = hit.object.userData.scaffolding
