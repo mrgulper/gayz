@@ -50,6 +50,51 @@ html, body {
   font-weight: 700;
 }
 
+/* Profile panel account row (see Game.js's _renderProfileAccountRow) -
+   Login/Register when signed out, Sign Out when signed in - both states
+   share the same row, only one visible at a time via inline display
+   toggles set from JS. */
+#profile-account-row {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+#profile-account-signed-out,
+#profile-account-signed-in {
+  display: flex;
+  gap: 10px;
+}
+
+/* Bio (left) beside Your Stats (moved in from the homepage - see
+   Game.js's _updateBestStatsDisplay, unchanged, just a relocated target)
+   on the right (see Game.js's _openProfilePanel). Stacks to one column
+   on narrow viewports since #profile-panel itself can scroll vertically
+   (no zero-scroll constraint here, unlike the homepage). */
+#profile-bio-stats-row {
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+#profile-bio-column {
+  flex: 1;
+  min-width: 0;
+}
+
+#profile-your-stats-column {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 560px) {
+  #profile-bio-stats-row {
+    flex-direction: column;
+  }
+}
+
 /* Avatar preset picker (see Game.js's _renderProfileAvatarPicker) - two
    square portrait thumbnails (male/female) the player can pick instead of
    the signed-in Google photo. */
@@ -2441,9 +2486,11 @@ body.reduce-flashing #critical-blood-overlay.show {
 #perk-reroll-btn,
 #prestige-btn,
 #respec-btn,
-#profile-run-history-btn,
 #profile-career-portrait-btn,
 #profile-print-btn,
+#profile-login-btn,
+#profile-register-btn,
+#profile-signout-btn,
 #export-save-btn,
 #import-save-btn,
 #compare-save-btn,

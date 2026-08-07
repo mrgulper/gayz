@@ -992,7 +992,11 @@ const STRINGS = {
     cloudsaveRivalNone: "You're #1 - nobody to catch!",
     spotlightMutatorNudge: "You haven't tried {mutator} yet",
     anniversaryLine: '{n} days since your first run',
-    profileStreakTitle: 'Login Streak',
+    profileLoginBtn: 'Login',
+    profileRegisterBtn: 'Register',
+    profileSignoutBtn: 'Sign Out',
+    profileCreatedTitle: 'Created',
+    profileCreatedLine: '{days} day(s) {hours} hour(s) {minutes} min {seconds} sec ago',
     // Round 4 Online Features batch (region filter, achievement-count
     // leaderboard, global average, live leaderboard, most-improved
     // badge, today/percentile/favorite-difficulty/best-run lines, title

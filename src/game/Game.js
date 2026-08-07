@@ -769,13 +769,21 @@ function loadCareerStats() {
       // touched again - backs the Profile panel's "X days since your
       // first run" anniversary line.
       firstPlayedDate: parsed.firstPlayedDate || null,
+      // Profile panel's "Created" line (see _renderProfileCreated) - unlike
+      // firstPlayedDate above (date-only, set on first completed RUN), this
+      // is a real millisecond timestamp set on the very first time the game
+      // ever CONSTRUCTS on this device (see the constructor, right after
+      // this load call) - a beginner may never finish a run, but this still
+      // has to be accurate to the second from the moment they first opened
+      // the game at all.
+      accountCreatedAt: parsed.accountCreatedAt || null,
     }
   } catch {
     return {
       totalKills: 0, totalRuns: 0, veteranPerksGranted: [],
       lifetimePlaytimeSeconds: 0, lifetimeDistanceMeters: 0, lifetimeCoinsEarned: 0, flawlessRunCount: 0,
       playtimeMilestonesGranted: [], distanceMilestonesGranted: [], flawlessMilestonesGranted: [], hallOfRecordsClaimed: false,
-      totalDeaths: 0, difficultyStats: {}, firstPlayedDate: null,
+      totalDeaths: 0, difficultyStats: {}, firstPlayedDate: null, accountCreatedAt: null,
     }
   }
 }
@@ -2606,7 +2614,6 @@ export class Game {
     this.howtoplayBackBtn = document.getElementById('howtoplay-back-btn')
     this.howtoplayNextBtn = document.getElementById('howtoplay-next-btn')
     this.howtoplayCloseBtn = document.getElementById('howtoplay-close-btn')
-    this.achievementShowcaseRow = document.getElementById('achievement-showcase-row')
     this.seasonProgressFill = document.getElementById('season-progress-fill')
     this.menuSpotlight = document.getElementById('menu-spotlight')
     this.eventBanner = document.getElementById('event-banner')
@@ -2636,12 +2643,15 @@ export class Game {
     this.profileBestRunCard = document.getElementById('profile-best-run-card')
     this.profileBestRunTitle = document.getElementById('profile-best-run-title')
     this.profileBestRunLine = document.getElementById('profile-best-run-line')
-    this.profileStreakTitle = document.getElementById('profile-streak-title')
-    this.profileStreakCalendar = document.getElementById('profile-streak-calendar')
+    this.profileCreatedTitle = document.getElementById('profile-created-title')
+    this.profileCreatedLine = document.getElementById('profile-created-line')
     this.profileWeeklyRecapTitle = document.getElementById('profile-weekly-recap-title')
     this.profileWeeklyRecapLine = document.getElementById('profile-weekly-recap-line')
-    this.profileActivityTitle = document.getElementById('profile-activity-title')
-    this.profileActivityList = document.getElementById('profile-activity-list')
+    this.profileAccountSignedOut = document.getElementById('profile-account-signed-out')
+    this.profileAccountSignedIn = document.getElementById('profile-account-signed-in')
+    this.profileLoginBtn = document.getElementById('profile-login-btn')
+    this.profileRegisterBtn = document.getElementById('profile-register-btn')
+    this.profileSignoutBtn = document.getElementById('profile-signout-btn')
     this.quickPerformanceBtn = document.getElementById('quick-performance-btn')
     this.quickLanguageBtn = document.getElementById('quick-language-btn')
     // Cloud Save (Google Sign-In + Drive appDataFolder, see CloudSync.js).
@@ -2804,6 +2814,13 @@ export class Game {
     this.endingSeen = loadEndingSeen()
     this.bestStats = loadBestStats()
     this.careerStats = loadCareerStats()
+    // First-ever load on this device - captured once, right here, so it's
+    // accurate even for a player who never finishes a run (see
+    // accountCreatedAt's own comment in loadCareerStats).
+    if (!this.careerStats.accountCreatedAt) {
+      this.careerStats.accountCreatedAt = Date.now()
+      saveCareerStats(this.careerStats)
+    }
     this.runHistory = loadRunHistory()
     this.companionLegacy = loadCompanionLegacy()
     this.narrativeStats = loadNarrativeStats()
@@ -3612,8 +3629,6 @@ export class Game {
     this.profilePanelTitle = document.getElementById('profile-panel-title')
     this.profileOptions = document.getElementById('profile-options')
     this.profileCopyStatsBtn = document.getElementById('profile-copy-stats-btn')
-    this.profileRunHistoryBtn = document.getElementById('profile-run-history-btn')
-    this.profileRunHistoryList = document.getElementById('profile-run-history-list')
     this.profileCareerPortraitBtn = document.getElementById('profile-career-portrait-btn')
     this.killFeedEl = document.getElementById('kill-feed')
     this.tauntTextEl = document.getElementById('taunt-text')
@@ -6412,9 +6427,16 @@ export class Game {
       }
     })
     this.profileCopyStatsBtn.addEventListener('click', () => this._copyProfileStatsToClipboard())
-    if (this.profileRunHistoryBtn) {
-      this.profileRunHistoryBtn.addEventListener('click', () => {
-        this.profileRunHistoryList.style.display = this.profileRunHistoryList.style.display === 'none' ? 'block' : 'none'
+    // Login/Register both trigger the same Google sign-in flow today (see
+    // _handleCloudSignIn) - kept as two separate buttons/labels rather than
+    // one combined "Sign in with Google" button so a second sign-in method
+    // can slot in later without a UI reshuffle.
+    if (this.profileLoginBtn) this.profileLoginBtn.addEventListener('click', () => this._handleCloudSignIn())
+    if (this.profileRegisterBtn) this.profileRegisterBtn.addEventListener('click', () => this._handleCloudSignIn())
+    if (this.profileSignoutBtn) {
+      this.profileSignoutBtn.addEventListener('click', async () => {
+        await this._handleCloudSignOut()
+        this._renderProfileAccountRow()
       })
     }
     if (this.profileCareerPortraitBtn) this.profileCareerPortraitBtn.addEventListener('click', () => this._generateCareerPortrait())
@@ -6919,6 +6941,7 @@ export class Game {
       this._cloudUid = uid
       this._updateCloudQuickIcon(true)
       this._renderCloudSaveState()
+      this._renderProfileAccountRow()
 
       const cloud = await CloudSync.fetchCloudSave(uid)
       if (!cloud) {
@@ -8970,7 +8993,6 @@ export class Game {
     this._updatePrestigeBadge()
     this._updateRecommendedDifficultyHint()
     this._updateSeasonProgress()
-    this._updateAchievementShowcase()
     this._updateMenuSpotlight()
     this._updateWhatsNewDot()
     this._updateLoginStreakBadge()
@@ -9068,46 +9090,6 @@ export class Game {
       this.bestiaryCompletionRing.title = t('completionRingTitle', { pct })
       if (this.bestiaryNavCount) this.bestiaryNavCount.textContent = `${this.bestiaryEncountered.size}/${total}`
     }
-  }
-
-  // Achievement Showcase - up to 3 pinned badges next to the player tag.
-  // Each slot cycles null -> each unlocked achievement not already pinned
-  // elsewhere -> null on click, rather than a separate picker modal (only
-  // 3 slots, cycling is simpler than a whole new UI for this). Always
-  // shows the full achievement name (previously a Settings toggle between
-  // a compact monogram and full name - removed, full name is always clearer).
-  _updateAchievementShowcase() {
-    if (!this.achievementShowcaseRow) return
-    this.achievementShowcaseRow.classList.add('detailed')
-    this.achievementShowcaseRow.innerHTML = ''
-    for (let i = 0; i < 3; i++) {
-      const id = this.settings.showcaseSlots[i]
-      const def = id ? ACHIEVEMENTS.find((a) => a.id === id) : null
-      const slot = document.createElement('button')
-      slot.type = 'button'
-      slot.className = 'showcase-slot' + (def ? ' filled' : '')
-      if (def) {
-        slot.style.color = def.color
-        slot.style.borderColor = def.color
-        slot.innerHTML = `<span class="showcase-tag">${_escapeHtml(def.tag)}</span><span class="showcase-name">${_escapeHtml(t(def.titleKey))}</span>`
-      } else {
-        slot.textContent = '+'
-      }
-      slot.title = def ? t(def.titleKey) : t('showcaseSlotEmpty')
-      slot.addEventListener('click', () => this._cycleShowcaseSlot(i))
-      this.achievementShowcaseRow.appendChild(slot)
-    }
-  }
-
-  _cycleShowcaseSlot(i) {
-    const unlockedIds = ACHIEVEMENTS.filter((a) => this.achievements.unlocked.has(a.id)).map((a) => a.id)
-    if (unlockedIds.length === 0) return
-    const pinnedElsewhere = this.settings.showcaseSlots.filter((id, idx) => idx !== i && id)
-    const options = [null, ...unlockedIds.filter((id) => !pinnedElsewhere.includes(id))]
-    const idx = options.indexOf(this.settings.showcaseSlots[i])
-    this.settings.showcaseSlots[i] = options[(idx + 1) % options.length]
-    saveSettings(this.settings)
-    this._updateAchievementShowcase()
   }
 
   // Spotlight ticker - a single rotating hero-column line (Tip of the Day /
@@ -11125,19 +11107,6 @@ export class Game {
       </button>
     `).join('')
 
-    // Run History Log - toggled list, collapsed by default so the panel
-    // doesn't open already showing 25 rows under the stat grid above.
-    if (this.profileRunHistoryBtn) {
-      this.profileRunHistoryBtn.textContent = t('profileRunHistoryBtn')
-      this.profileRunHistoryList.style.display = 'none'
-      // _safeStatNumber - runHistory is importable via Import Save (Local
-      // Sharing batch), so this needs the same untrusted-data treatment as
-      // every other leaderboard render in this file.
-      this.profileRunHistoryList.innerHTML = this.runHistory.map((r) => `
-        <p class="run-history-entry">${t(r.survived ? 'runHistorySurvived' : 'runHistoryDied', { night: _safeStatNumber(r.night), kills: _safeStatNumber(r.kills), coins: _safeStatNumber(r.coins) })}</p>
-      `).join('') || `<p class="run-history-entry">${t('runHistoryEmpty')}</p>`
-    }
-
     // Career Portrait - gated the same as Prestige (see _renderUpgradesOptions),
     // "beaten the game" being the bar for a capstone memento worth keeping.
     if (this.profileCareerPortraitBtn) {
@@ -11147,11 +11116,12 @@ export class Game {
 
     this._renderProfileAvatarPicker()
     this._renderProfileBio()
+    this._renderProfileAccountRow()
+    this._updateBestStatsDisplay()
     this._renderNearlyThereNudge()
     this._renderWeeklyRecap()
-    this._renderRecentActivity()
     this._renderAnniversaryLine()
-    this._renderStreakCalendar()
+    this._renderProfileCreated()
     this._renderTodayLine()
     this._renderPercentileLine()
     this._renderFavoriteDifficultyLine()
@@ -11326,20 +11296,18 @@ export class Game {
     this.profileWeeklyRecapLine.textContent = t('weeklyRecapLine', { kills, runs: recent.length, night: bestNight })
   }
 
-  // Recent Activity - the last 5 achievement unlocks, read straight off
-  // Achievements' own unlocked Set (a JS Set preserves insertion order, so
-  // this needs no separate timestamped history of its own).
-  _renderRecentActivity() {
-    if (!this.profileActivityList) return
-    const recent = [...this.achievements.unlocked].slice(-5).reverse()
-    this.profileActivityTitle.style.display = ''
-    this.profileActivityTitle.textContent = t('recentActivityTitle')
-    this.profileActivityList.innerHTML = recent.length
-      ? recent.map((id) => {
-          const def = ACHIEVEMENTS.find((a) => a.id === id)
-          return `<p class="activity-entry">${_escapeHtml(def ? t(def.titleKey) : id)}</p>`
-        }).join('')
-      : `<p class="activity-entry">${t('recentActivityEmpty')}</p>`
+  // Profile panel account row - Login/Register when signed out, Sign Out
+  // when signed in. Reuses CloudSync/_handleCloudSignIn/_handleCloudSignOut
+  // wholesale (see their own comments) rather than a second auth path -
+  // this is just a second place to trigger the exact same sign-in/out flow
+  // the Cloud Save panel already has, not a parallel system.
+  _renderProfileAccountRow() {
+    const signedIn = !!this._cloudUid
+    if (this.profileAccountSignedOut) this.profileAccountSignedOut.style.display = signedIn ? 'none' : 'flex'
+    if (this.profileAccountSignedIn) this.profileAccountSignedIn.style.display = signedIn ? 'flex' : 'none'
+    if (this.profileLoginBtn) this.profileLoginBtn.textContent = t('profileLoginBtn')
+    if (this.profileRegisterBtn) this.profileRegisterBtn.textContent = t('profileRegisterBtn')
+    if (this.profileSignoutBtn) this.profileSignoutBtn.textContent = t('profileSignoutBtn')
   }
 
   // "X days since your first run" - careerStats.firstPlayedDate is set
@@ -11357,28 +11325,36 @@ export class Game {
     this.profileAnniversaryLine.style.display = ''
   }
 
-  // Login Streak calendar - the last 7 calendar dates actually played
-  // (loginStreak.recentDates, see _checkLoginStreak), shown oldest-to-
-  // newest as small day markers rather than just the streak number
-  // already shown elsewhere (menu-login-streak badge).
-  _renderStreakCalendar() {
-    if (!this.profileStreakCalendar) return
-    const recentDates = this.loginStreak.recentDates || []
-    if (recentDates.length === 0) {
-      this.profileStreakTitle.style.display = 'none'
-      this.profileStreakCalendar.innerHTML = ''
-      return
+  // "Created" - replaces the old Login Streak calendar. Ticks live every
+  // second while the panel is open (see _closeProfilePanel's matching
+  // clearInterval) off careerStats.accountCreatedAt - a real millisecond
+  // timestamp set once, the very first time the game ever constructed on
+  // this device (see the constructor, right after loadCareerStats()) -
+  // not firstPlayedDate above, which only covers players who've finished
+  // at least one run and has no time-of-day precision.
+  _renderProfileCreated() {
+    if (!this.profileCreatedLine) return
+    if (this.profileCreatedTitle) this.profileCreatedTitle.textContent = t('profileCreatedTitle')
+    if (this._profileCreatedTickInterval) clearInterval(this._profileCreatedTickInterval)
+    const tick = () => {
+      const elapsedMs = Math.max(0, Date.now() - _safeStatNumber(this.careerStats.accountCreatedAt))
+      const totalSeconds = Math.floor(elapsedMs / 1000)
+      const days = Math.floor(totalSeconds / 86400)
+      const hours = Math.floor((totalSeconds % 86400) / 3600)
+      const minutes = Math.floor((totalSeconds % 3600) / 60)
+      const seconds = totalSeconds % 60
+      this.profileCreatedLine.textContent = t('profileCreatedLine', { days, hours, minutes, seconds })
     }
-    this.profileStreakTitle.style.display = ''
-    this.profileStreakTitle.textContent = t('profileStreakTitle')
-    this.profileStreakCalendar.innerHTML = recentDates.map((d) => {
-      const day = new Date(d).getDate()
-      return `<span class="streak-day played" title="${_escapeHtml(d)}">${day}</span>`
-    }).join('')
+    tick()
+    this._profileCreatedTickInterval = setInterval(tick, 1000)
   }
 
   _closeProfilePanel() {
     this.profilePanel.style.display = 'none'
+    if (this._profileCreatedTickInterval) {
+      clearInterval(this._profileCreatedTickInterval)
+      this._profileCreatedTickInterval = null
+    }
   }
 
   // Career Portrait (Long-Term Goals batch, gated behind true_ending - see

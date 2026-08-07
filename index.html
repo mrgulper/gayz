@@ -350,17 +350,9 @@
               </div>
             </section>
 
-            <section class="menu-panel">
-              <h2 class="menu-panel-title">Your Stats</h2>
-              <div class="stat-row"><span>Longest Survival</span><span id="stat-longest-survival">--</span></div>
-              <div class="stat-row"><span>Total Zombies Killed</span><span id="stat-total-kills">--</span></div>
-              <div class="stat-row"><span>Runs Played</span><span id="stat-runs-played">--</span></div>
-              <div class="stat-row"><span>Best Kill Streak</span><span id="stat-best-streak">--</span></div>
-              <div class="stat-row"><span>Last Run</span><span id="stat-last-run">--</span></div>
-              <div class="continue-actions" id="continue-actions" style="display: none">
-                <button class="mini-action-btn" id="play-again-btn" type="button">Play Again</button>
-                <button class="mini-action-btn" id="share-last-run-btn" type="button">Share</button>
-              </div>
+            <section class="menu-panel continue-actions" id="continue-actions" style="display: none">
+              <button class="mini-action-btn" id="play-again-btn" type="button">Play Again</button>
+              <button class="mini-action-btn" id="share-last-run-btn" type="button">Share</button>
             </section>
           </div>
 
@@ -431,8 +423,6 @@
               <div id="season-progress-track" aria-hidden="true"><div id="season-progress-fill"></div></div>
               <p id="season-progress-label" style="display: none"></p>
             </div>
-
-            <div id="achievement-showcase-row" aria-label="Showcased achievements"></div>
 
             <nav id="menu-nav-buttons">
               <button id="coinshop-btn">
@@ -879,12 +869,37 @@
 
       <div id="profile-panel">
         <h2 id="profile-panel-title">Profile</h2>
+
+        <div id="profile-account-row">
+          <div id="profile-account-signed-out">
+            <button id="profile-login-btn" type="button">Login</button>
+            <button id="profile-register-btn" type="button">Register</button>
+          </div>
+          <div id="profile-account-signed-in" style="display: none">
+            <button id="profile-signout-btn" type="button">Sign Out</button>
+          </div>
+        </div>
+
         <div class="perk-options" id="profile-options"></div>
         <h3 id="profile-avatar-heading">Avatar</h3>
         <div id="profile-avatar-row"></div>
-        <h3 id="profile-bio-heading">Bio</h3>
-        <textarea id="profile-bio-input" maxlength="250" placeholder="Say something about yourself..."></textarea>
-        <p id="profile-bio-counter">0/250</p>
+
+        <div id="profile-bio-stats-row">
+          <div id="profile-bio-column">
+            <h3 id="profile-bio-heading">Bio</h3>
+            <textarea id="profile-bio-input" maxlength="250" placeholder="Say something about yourself..."></textarea>
+            <p id="profile-bio-counter">0/250</p>
+          </div>
+          <section class="menu-panel" id="profile-your-stats-column">
+            <h2 class="menu-panel-title">Your Stats</h2>
+            <div class="stat-row"><span>Longest Survival</span><span id="stat-longest-survival">--</span></div>
+            <div class="stat-row"><span>Total Zombies Killed</span><span id="stat-total-kills">--</span></div>
+            <div class="stat-row"><span>Runs Played</span><span id="stat-runs-played">--</span></div>
+            <div class="stat-row"><span>Best Kill Streak</span><span id="stat-best-streak">--</span></div>
+            <div class="stat-row"><span>Last Run</span><span id="stat-last-run">--</span></div>
+          </section>
+        </div>
+
         <div id="profile-nearly-there-list"></div>
         <p id="profile-anniversary-line" style="display: none"></p>
         <p id="profile-today-line" style="display: none"></p>
@@ -894,14 +909,10 @@
           <h3 id="profile-best-run-title">Best Run</h3>
           <p id="profile-best-run-line"></p>
         </div>
-        <h3 id="profile-streak-title" style="display: none">Login Streak</h3>
-        <div id="profile-streak-calendar"></div>
+        <h3 id="profile-created-title">Created</h3>
+        <p id="profile-created-line"></p>
         <h3 id="profile-weekly-recap-title" style="display: none">This Week</h3>
         <p id="profile-weekly-recap-line" style="display: none"></p>
-        <h3 id="profile-activity-title" style="display: none">Recent Unlocks</h3>
-        <div id="profile-activity-list"></div>
-        <button id="profile-run-history-btn">Run History</button>
-        <div id="profile-run-history-list" style="display: none"></div>
         <button id="profile-career-portrait-btn" style="display: none">Save Career Portrait</button>
         <button id="profile-copy-stats-btn">Copy Stats</button>
         <button id="profile-print-btn">Print Stats Sheet</button>
