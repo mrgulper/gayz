@@ -1071,7 +1071,17 @@ export class ZombieManager {
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 12), mat)
     mesh.position.set(x, 1.1, z)
     this.scene.add(mesh)
-    this.explosionFx.push({ mesh, startedAt: performance.now() })
+    // Dynamic explosion lighting - same idea as the muzzle flash light
+    // already used for gunfire (a real THREE.PointLight, not just an
+    // emissive mesh), so a blast actually lights nearby walls/zombies
+    // instead of only the fireball mesh itself glowing. Short-lived and
+    // self-removing (same EXPLOSION_FX_MS timeline as the mesh below), so
+    // this never accumulates as an ongoing cost - a bounded `distance`
+    // keeps any one flash cheap regardless.
+    const light = new THREE.PointLight(0xffaa33, 6, 12, 2)
+    light.position.set(x, 1.5, z)
+    this.scene.add(light)
+    this.explosionFx.push({ mesh, light, startedAt: performance.now() })
     audioEngine.playExplosion()
   }
 
@@ -1081,8 +1091,13 @@ export class ZombieManager {
       const scale = 1 + progress * 14
       fx.mesh.scale.setScalar(scale)
       fx.mesh.material.opacity = 1 - progress
+      // Sharp flash that fades faster than the fireball mesh (real
+      // explosions light up instantly then dim quickly, well before the
+      // fireball itself has fully expanded/faded).
+      fx.light.intensity = 6 * Math.max(0, 1 - progress * 1.8)
       if (progress >= 1) {
         this.scene.remove(fx.mesh)
+        this.scene.remove(fx.light)
         return false
       }
       return true
