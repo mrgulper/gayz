@@ -12410,6 +12410,7 @@ export class Game {
       pan = Math.sin(diff)
     }
     audioEngine.updateZombiePresence(Math.min(1, nearbyCount / 6), pan)
+    audioEngine.updateAmbientZone(this.isIndoors)
   }
 
   // Indoor detection (see Audio.js's playFootstep muffled param) - a

@@ -904,7 +904,32 @@ class AudioEngine {
     wind.connect(windFilter).connect(windGain).connect(this.sfxGain)
     wind.start(now)
 
+    // Ambient variety by zone (see updateAmbientZone, called every frame
+    // from Game.js's _updateMusicIntensity with the isIndoors flag that
+    // function already has on hand - no new detection needed). Kept as
+    // instance refs so that call can smoothly ramp them instead of
+    // needing to rebuild the whole ambient graph per transition.
+    this._windFilter = windFilter
+    this._windGainNode = windGain
+    this._ambientIndoorAmount = 0
+
     this._scheduleAmbientScare()
+  }
+
+  // Underground/indoor spaces (sewer, subway, buildings) get a duller,
+  // more muffled wind bed - the same low-cutoff-lowpass idea playFootstep
+  // already uses for muffled footsteps, applied to the constant ambient
+  // wind instead of a one-shot sound. Smoothly ramped (not snapped) so
+  // walking through a doorway doesn't click between two ambient beds.
+  updateAmbientZone(indoors) {
+    if (!this._windFilter) return
+    const target = indoors ? 1 : 0
+    this._ambientIndoorAmount += (target - this._ambientIndoorAmount) * 0.02
+    const freq = 450 - this._ambientIndoorAmount * 280 // 450 outdoor -> 170 indoor
+    const gain = 0.034 - this._ambientIndoorAmount * 0.012 // slightly quieter indoors
+    const now = this.ctx.currentTime
+    this._windFilter.frequency.setTargetAtTime(freq, now, 0.5)
+    this._windGainNode.gain.setTargetAtTime(gain, now, 0.5)
   }
 
   // Looping background music, faded in from silence. Independent of the
