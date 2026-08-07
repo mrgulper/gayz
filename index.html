@@ -255,6 +255,18 @@
         <p id="shared-profile-line"></p>
       </div>
 
+      <div id="whats-new-digest" style="display: none">
+        <button id="whats-new-digest-close-btn" aria-label="Close">&times;</button>
+        <h3 id="whats-new-digest-title"></h3>
+        <div id="whats-new-digest-list"></div>
+      </div>
+
+      <div id="shortcut-cheatsheet" style="display: none">
+        <button id="shortcut-cheatsheet-close-btn" aria-label="Close">&times;</button>
+        <h3 id="shortcut-cheatsheet-title"></h3>
+        <div id="shortcut-cheatsheet-list"></div>
+      </div>
+
       <div id="companion-bark"></div>
 
       <div id="kill-feed"></div>
@@ -357,6 +369,7 @@
                 <button class="mini-action-btn" id="quick-keybinds-btn" type="button">Keybinds</button>
                 <button class="mini-action-btn" id="beat-this-btn" type="button">Beat This</button>
                 <button class="mini-action-btn" id="copy-setup-btn" type="button">Copy My Setup</button>
+                <button class="mini-action-btn" id="copy-page-url-btn" type="button">Copy Page Link</button>
                 <div id="menu-preset-chips"></div>
               </div>
             </section>
@@ -734,6 +747,16 @@
             <label for="colorblind-toggle" id="colorblind-label">Colorblind Mode</label>
             <input type="checkbox" id="colorblind-toggle" class="audio-checkbox" />
           </div>
+          <div id="colorblind-preview-row">
+            <span id="colorblind-preview-normal-label">Normal:</span>
+            <span class="colorblind-swatch" style="background: #5fcf4a"></span>
+            <span class="colorblind-swatch" style="background: #e0b23f"></span>
+            <span class="colorblind-swatch" style="background: #d64545"></span>
+            <span id="colorblind-preview-safe-label">Colorblind-safe:</span>
+            <span class="colorblind-swatch" style="background: #4a9ecf"></span>
+            <span class="colorblind-swatch" style="background: #e0b23f"></span>
+            <span class="colorblind-swatch" style="background: #e0813f"></span>
+          </div>
           <div class="audio-row">
             <label for="large-text-toggle" id="large-text-label">Large Text Mode</label>
             <input type="checkbox" id="large-text-toggle" class="audio-checkbox" />
@@ -751,9 +774,14 @@
             <input type="checkbox" id="focus-ring-toggle" class="audio-checkbox" />
           </div>
           <div class="audio-row">
+            <label for="underline-links-toggle" id="underline-links-label">Underline Links &amp; Buttons</label>
+            <input type="checkbox" id="underline-links-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
             <label for="bg-mood-select" id="bg-mood-label">Homepage Background Mood</label>
             <select id="bg-mood-select">
               <option value="auto">Auto (Seasonal)</option>
+              <option value="timeofday">Auto (Your Local Time)</option>
               <option value="none">Night (Default)</option>
               <option value="bloodmoon">Blood Moon</option>
               <option value="foggy">Foggy Blue</option>
@@ -1018,6 +1046,9 @@
         <div id="rank-roadmap-list"></div>
         <h3 id="class-comparison-heading">Class Comparison</h3>
         <div id="class-comparison-table"></div>
+        <h3 id="goals-heading">Goals (pick up to 3)</h3>
+        <div id="goals-picker"></div>
+        <div id="goals-checklist"></div>
         <h3 id="profile-avatar-heading">Avatar</h3>
         <div id="profile-avatar-row"></div>
 
@@ -1053,6 +1084,7 @@
         <button id="profile-career-portrait-btn" style="display: none">Save Career Portrait</button>
         <button id="profile-copy-stats-btn">Copy Stats</button>
         <button id="profile-copy-link-btn">Copy Shareable Profile Link</button>
+        <button id="profile-read-aloud-btn">Read My Stats Aloud</button>
         <button id="profile-print-btn">Print Stats Sheet</button>
         <div id="profile-account-signed-in" style="display: none">
           <button id="profile-signout-btn" type="button">Sign Out</button>
@@ -1077,6 +1109,7 @@
             <div class="changelog-entry"><span class="changelog-date">Jul 30, 2026</span><span class="changelog-text">Cloud Save - sign in with Google to sync your progress across devices.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Jul 29, 2026</span><span class="changelog-text">A full menu redesign, crafting and deployable turrets, the Flamethrower and Rocket Launcher, weapon upgrades and the Mystery Box, Akimbo pistols and Last Stand self-revive, and CoD-style movement (mantling, sliding, killstreaks).</span></div>
           </div>
+          <button id="print-changelog-btn">Print Full Changelog</button>
         </div>
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>
@@ -1119,6 +1152,7 @@
             <p id="cloudsave-rank-line"></p>
             <p id="cloudsave-rival-line"></p>
             <p id="cloudsave-avg-line"></p>
+            <div id="cloudsave-avg-bars"></div>
 
             <div id="cloudsave-leaderboard-header">
               <h3 id="cloudsave-leaderboard-title">Leaderboard</h3>

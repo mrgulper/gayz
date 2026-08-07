@@ -1522,6 +1522,112 @@ body.reduce-flashing #critical-blood-overlay.show {
   padding: 0;
 }
 
+/* What's New digest (see _maybeShowWhatsNewDigest) - fixed, top-right so
+   it never overlaps #shared-profile-banner (top-center) if both were ever
+   somehow triggered together; same z-index tier and never participates in
+   #menu-layout's zero-scroll budget, only ever shown once per page load
+   when there's real new changelog content. */
+#whats-new-digest {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 16;
+  max-width: min(360px, 90vw);
+  background: rgba(10, 8, 6, 0.92);
+  border: 2px solid var(--menu-gold, #e0b13e);
+  border-radius: 6px;
+  padding: 14px 40px 14px 18px;
+  color: #e8e0c8;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+#whats-new-digest h3 {
+  margin: 0 0 6px;
+  color: var(--menu-gold, #e0b13e);
+  font-size: 15px;
+}
+
+#whats-new-digest-list {
+  font-size: 12px;
+  line-height: 1.5;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+#whats-new-digest-list p {
+  margin: 0 0 6px;
+}
+
+#whats-new-digest-close-btn {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: #e8e0c8;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* Keyboard shortcut cheat sheet (see _toggleShortcutCheatsheet) - same
+   fixed-card visual language as #whats-new-digest, centered instead of
+   cornered since it's opened deliberately (via "?") rather than
+   auto-surfaced. */
+#shortcut-cheatsheet {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 17;
+  max-width: min(360px, 90vw);
+  background: rgba(10, 8, 6, 0.95);
+  border: 2px solid var(--menu-gold, #e0b13e);
+  border-radius: 6px;
+  padding: 16px 40px 16px 20px;
+  color: #e8e0c8;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+#shortcut-cheatsheet h3 {
+  margin: 0 0 8px;
+  color: var(--menu-gold, #e0b13e);
+  font-size: 16px;
+}
+
+#shortcut-cheatsheet-list {
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+#shortcut-cheatsheet-list .shortcut-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+#shortcut-cheatsheet-list kbd {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-family: monospace;
+}
+
+#shortcut-cheatsheet-close-btn {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: #e8e0c8;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
 #lore-toast {
   position: absolute;
   bottom: 130px;
@@ -2513,6 +2619,74 @@ body.reduce-flashing #critical-blood-overlay.show {
   opacity: 0.85;
 }
 
+/* Nearly There progress bars (see _renderNearlyThereNudge) - same track/
+   fill visual language as #season-progress-track/-fill, reused generically
+   rather than a second bespoke bar style. */
+.mini-progress-track {
+  width: 100%;
+  height: 5px;
+  margin-top: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.mini-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--menu-bronze), var(--menu-gold));
+}
+
+.nearly-there-item {
+  margin: 0 0 6px;
+}
+
+/* Goals picker chips (Profile panel) - plain colors, not the #menu-scoped
+   --menu-* vars .preset-chip uses, since this renders inside #profile-panel
+   (a modal sibling of #menu, not a descendant - those vars don't reach it). */
+#goals-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.goal-chip {
+  padding: 5px 10px;
+  font-size: 11px;
+  color: #ccc;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.goal-chip.active {
+  color: #1a1a1a;
+  background: #e0b13e;
+  border-color: #e0b13e;
+  font-weight: 700;
+}
+
+/* Global average bar chart (Cloud Save panel, see _renderGlobalAverages) */
+.avg-bar-row {
+  display: grid;
+  grid-template-columns: 60px 1fr 50px;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+}
+
+.avg-bar-label {
+  font-size: 11px;
+  color: #ccc;
+}
+
+.avg-bar-value {
+  font-size: 11px;
+  color: #ccc;
+  text-align: right;
+}
+
 #profile-anniversary-line,
 #profile-today-line,
 #profile-percentile-line,
@@ -2658,6 +2832,15 @@ body.reduce-flashing #critical-blood-overlay.show {
   #print-stats-sheet h1 {
     font-size: 20px;
     margin-bottom: 12px;
+  }
+  #print-stats-sheet .changelog-entry {
+    display: block;
+    padding: 6px 0;
+    border-bottom: 1px solid #ccc;
+  }
+  #print-stats-sheet .changelog-date {
+    font-weight: 700;
+    margin-right: 6px;
   }
   #print-stats-sheet .perk-option {
     display: flex;
@@ -3089,6 +3272,23 @@ html.bg-mood-amber #menu-bg-photo {
   50% { filter: hue-rotate(180deg) saturate(1.6); }
 }
 
+/* Idle animation (see _bindIdleAnimation) - a subtle nudge on the Play
+   button after 30s of no interaction, not a new element. */
+.menu-idle #play-btn.play-btn-centered {
+  animation: idlePulse 2s ease-in-out infinite;
+}
+
+@keyframes idlePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-idle #play-btn.play-btn-centered {
+    animation: none;
+  }
+}
+
 /* Menu Panel Flicker toggle (Graphics tab) - same effect as the
    reduced-motion query above, but explicit and independent of the OS
    setting. */
@@ -3104,6 +3304,34 @@ html.no-panel-flicker .menu-card {
 html.focus-ring-mode *:focus-visible {
   outline: 3px solid var(--menu-gold, #e0b13e);
   outline-offset: 2px;
+}
+
+/* Underline Links & Buttons (Controls tab) - readability aid for text-
+   based interactive elements; empty/icon-only buttons show nothing extra
+   since text-decoration only paints actual text content. */
+html.underline-links a,
+html.underline-links button {
+  text-decoration: underline;
+}
+
+/* Colorblind palette preview (Controls tab) - the exact hex values
+   Zombie.js's _redrawHealthBar actually switches between, not
+   placeholder colors, so the swatch never drifts from the real effect. */
+#colorblind-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #aaa;
+  padding: 2px 0 8px;
+}
+
+.colorblind-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
 /* Flat dark wash, tinted to match the game's dark green-black palette

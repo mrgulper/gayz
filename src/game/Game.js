@@ -297,6 +297,14 @@ function loadSettings() {
       // baseline change to every button/input's default focus styling.
       focusRingMode: parsed.focusRingMode ?? false,
       homepageFpsCounter: parsed.homepageFpsCounter ?? false,
+      selectedGoals: Array.isArray(parsed.selectedGoals) ? parsed.selectedGoals.slice(0, 3) : [],
+      underlineLinks: parsed.underlineLinks ?? false,
+      // {name, night} pairs already notified about (see
+      // _checkFriendBeatNotifications) - prevents re-toasting the same
+      // "X is ahead of you" fact every single page load; only re-fires if
+      // that friend's bestNight climbs even higher, or clears once you
+      // catch back up.
+      friendBeatNotified: Array.isArray(parsed.friendBeatNotified) ? parsed.friendBeatNotified : [],
       mutators: {
         hordeRush: parsed.mutators?.hordeRush ?? false,
         lootRush: parsed.mutators?.lootRush ?? false,
@@ -329,7 +337,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -855,6 +863,17 @@ function loadCareerStats() {
       // has to be accurate to the second from the moment they first opened
       // the game at all.
       accountCreatedAt: parsed.accountCreatedAt || null,
+      // More-features batch - longest single continuous browser session
+      // (see _updateLongestSession), and two lifetime tallies aggregated
+      // at the same points totalKills/totalRuns already update, not new
+      // tracking systems of their own.
+      longestSessionSeconds: parsed.longestSessionSeconds || 0,
+      // Reuses the Nemesis system's own "nearest alive zombie at death" proxy
+      // (see _recordNemesis's own comment on why that's the accepted
+      // approximation for "who killed you" in this codebase) rather than
+      // inventing a second, more precise attacker-tracking system.
+      deathsByType: parsed.deathsByType || {},
+      mutatorUseCounts: parsed.mutatorUseCounts || {},
     }
   } catch {
     return {
@@ -862,6 +881,7 @@ function loadCareerStats() {
       lifetimePlaytimeSeconds: 0, lifetimeDistanceMeters: 0, lifetimeCoinsEarned: 0, flawlessRunCount: 0,
       playtimeMilestonesGranted: [], distanceMilestonesGranted: [], flawlessMilestonesGranted: [], hallOfRecordsClaimed: false,
       totalDeaths: 0, difficultyStats: {}, firstPlayedDate: null, accountCreatedAt: null,
+      longestSessionSeconds: 0, deathsByType: {}, mutatorUseCounts: {},
     }
   }
 }
@@ -965,6 +985,7 @@ function careerRankTitleKey(totalKills) {
 const LOGIN_STREAK_KEY = 'gayz-login-streak'
 const LOGIN_STREAK_COIN_PER_DAY = 15
 const LOGIN_STREAK_MAX_BONUS_DAYS = 10
+const LOGIN_STREAK_MAX_FREEZES = 3
 
 function loadLoginStreak() {
   try {
@@ -979,9 +1000,18 @@ function loadLoginStreak() {
       // window capped at 7 entries, not itself a source of truth for the
       // streak count.
       recentDates: Array.isArray(parsed.recentDates) ? parsed.recentDates.slice(-7) : [],
+      // More-features batch - a genuine streak-freeze mechanic (not just a
+      // passive indicator): earns 1 freeze per 7-day streak milestone,
+      // capped at LOGIN_STREAK_MAX_FREEZES, spent automatically to
+      // preserve the streak the next time a day is missed (see
+      // _checkLoginStreak) instead of always hard-resetting to 1.
+      freezesAvailable: parsed.freezesAvailable || 0,
+      // Profile panel's "Last Played" row (see _checkLoginStreak) - the
+      // date before the current page load's own lastDate update.
+      previousDate: parsed.previousDate || null,
     }
   } catch {
-    return { lastDate: null, streak: 0, recentDates: [] }
+    return { lastDate: null, streak: 0, recentDates: [], freezesAvailable: 0, previousDate: null }
   }
 }
 
@@ -1776,6 +1806,24 @@ const NEARLY_THERE_CANDIDATES = [
   { achievementId: 'fashion_icon', current: (g) => g.ownedOutfits.size, total: (g) => COIN_SHOP_ITEMS.filter((i) => i.outfit).length },
 ]
 
+// Goals checklist (Profile panel, see settings.selectedGoals) - a wider
+// candidate pool than NEARLY_THERE_CANDIDATES since these are player-picked
+// (not auto-surfaced achievement hints), so they don't need the same
+// "genuinely persistent, always-visible" bar - any honestly-derivable
+// lifetime metric with a sensible target qualifies. Pick any 3.
+const GOAL_CANDIDATES = [
+  { id: 'goal_kills10k', titleKey: 'goalKills10k', current: (g) => g.careerStats.totalKills, total: () => 10000 },
+  { id: 'goal_achievements50', titleKey: 'goalAchievements50', current: (g) => g.achievements.unlocked.size, total: () => ACHIEVEMENTS.length },
+  { id: 'goal_rankElite', titleKey: 'goalRankElite', current: (g) => g.careerStats.totalKills, total: () => 15000 },
+  { id: 'goal_masterFive', titleKey: 'goalMasterFive', current: (g) => g.weaponMastery.mastered.size + g.weaponMastery.grandmastered.size, total: () => 5 },
+  { id: 'goal_night10', titleKey: 'goalNight10', current: (g) => g.bestStats.bestNight, total: () => 10 },
+  { id: 'goal_coins100k', titleKey: 'goalCoins100k', current: (g) => g.careerStats.lifetimeCoinsEarned, total: () => 100000 },
+  { id: 'goal_playtime10h', titleKey: 'goalPlaytime10h', current: (g) => g.careerStats.lifetimePlaytimeSeconds, total: () => 36000 },
+  { id: 'goal_runs50', titleKey: 'goalRuns50', current: (g) => g.careerStats.totalRuns, total: () => 50 },
+  { id: 'goal_bestiaryFull', titleKey: 'goalBestiaryFull', current: (g) => g.bestiaryEncountered.size, total: () => Object.keys(ZOMBIE_TYPES).length },
+  { id: 'goal_streak30', titleKey: 'goalStreak30', current: (g) => g.bestStats.bestKillStreak, total: () => 30 },
+]
+
 // Cloud Save (see CloudSync.js) - just a display-only "when did we last
 // push" timestamp. The signed-in account itself needs no local caching -
 // Firebase Auth persists its own session (IndexedDB) and CloudSync's
@@ -2440,6 +2488,17 @@ function _escapeHtml(str) {
 // fix (a coerced number can never carry markup) in one step. An uploaded
 // save file is fully attacker-controlled - nothing in it should reach
 // innerHTML unescaped or untyped.
+// Formats a whole-seconds duration as "Xh Ym" (or just "Ym"/"Ys" for
+// anything under an hour) - shared by the Profile panel's Longest Session
+// and Average Run Length rows so the two use identical formatting.
+function _formatDurationShort(totalSeconds) {
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  if (hours > 0) return `${hours}h ${minutes}m`
+  if (minutes > 0) return `${minutes}m`
+  return `${totalSeconds}s`
+}
+
 function _safeStatNumber(v) {
   const n = Number(v)
   return Number.isFinite(n) ? n : 0
@@ -2815,6 +2874,7 @@ export class Game {
     this.cloudsaveRankLine = document.getElementById('cloudsave-rank-line')
     this.cloudsaveRivalLine = document.getElementById('cloudsave-rival-line')
     this.cloudsaveAvgLine = document.getElementById('cloudsave-avg-line')
+    this.cloudsaveAvgBars = document.getElementById('cloudsave-avg-bars')
     this.cloudsaveRegionSelect = document.getElementById('cloudsave-region-select')
     this.cloudsaveAchievementsLeaderboardTitle = document.getElementById('cloudsave-achievements-leaderboard-title')
     this.cloudsaveAchievementsLeaderboardList = document.getElementById('cloudsave-achievements-leaderboard-list')
@@ -2871,6 +2931,7 @@ export class Game {
     this.largeTextToggle = document.getElementById('large-text-toggle')
     this.highContrastToggle = document.getElementById('high-contrast-toggle')
     this.focusRingToggle = document.getElementById('focus-ring-toggle')
+    this.underlineLinksToggle = document.getElementById('underline-links-toggle')
     this.homepageFpsToggle = document.getElementById('homepage-fps-toggle')
     this.bgMoodSelect = document.getElementById('bg-mood-select')
     this.dyslexiaFontToggle = document.getElementById('dyslexia-font-toggle')
@@ -2957,6 +3018,7 @@ export class Game {
     this.importSettingsCodeInput = document.getElementById('import-settings-code-input')
     this.importSettingsCodeApplyBtn = document.getElementById('import-settings-code-apply-btn')
     this.copySetupBtn = document.getElementById('copy-setup-btn')
+    this.copyPageUrlBtn = document.getElementById('copy-page-url-btn')
     this.clearLeaderboardsBtn = document.getElementById('clear-leaderboards-btn')
     this.profilePrintBtn = document.getElementById('profile-print-btn')
     this.printStatsSheet = document.getElementById('print-stats-sheet')
@@ -3821,10 +3883,19 @@ export class Game {
     this.profileOptions = document.getElementById('profile-options')
     this.profileCopyStatsBtn = document.getElementById('profile-copy-stats-btn')
     this.profileCopyLinkBtn = document.getElementById('profile-copy-link-btn')
+    this.profileReadAloudBtn = document.getElementById('profile-read-aloud-btn')
     this.sharedProfileBanner = document.getElementById('shared-profile-banner')
     this.sharedProfileTitle = document.getElementById('shared-profile-title')
     this.sharedProfileLine = document.getElementById('shared-profile-line')
     this.sharedProfileCloseBtn = document.getElementById('shared-profile-close-btn')
+    this.whatsNewDigest = document.getElementById('whats-new-digest')
+    this.whatsNewDigestTitle = document.getElementById('whats-new-digest-title')
+    this.whatsNewDigestList = document.getElementById('whats-new-digest-list')
+    this.whatsNewDigestCloseBtn = document.getElementById('whats-new-digest-close-btn')
+    this.shortcutCheatsheet = document.getElementById('shortcut-cheatsheet')
+    this.shortcutCheatsheetTitle = document.getElementById('shortcut-cheatsheet-title')
+    this.shortcutCheatsheetList = document.getElementById('shortcut-cheatsheet-list')
+    this.shortcutCheatsheetCloseBtn = document.getElementById('shortcut-cheatsheet-close-btn')
     this.profileCareerPortraitBtn = document.getElementById('profile-career-portrait-btn')
     this.killFeedEl = document.getElementById('kill-feed')
     this.tauntTextEl = document.getElementById('taunt-text')
@@ -3832,13 +3903,18 @@ export class Game {
     this.shareRunCardBtn = document.getElementById('share-run-card-btn')
     this.creditsBtn = document.getElementById('credits-btn')
     this.menuAriaSummary = document.getElementById('menu-aria-summary')
+    this.menuTitle = document.getElementById('menu-title')
     this.rankRoadmapHeading = document.getElementById('rank-roadmap-heading')
     this.rankRoadmapList = document.getElementById('rank-roadmap-list')
     this.classComparisonHeading = document.getElementById('class-comparison-heading')
     this.classComparisonTable = document.getElementById('class-comparison-table')
+    this.goalsHeading = document.getElementById('goals-heading')
+    this.goalsPicker = document.getElementById('goals-picker')
+    this.goalsChecklist = document.getElementById('goals-checklist')
     this.creditsPanel = document.getElementById('credits-panel')
     this.creditsPanelTitle = document.getElementById('credits-panel-title')
     this.buildVersionLine = document.getElementById('build-version-line')
+    this.printChangelogBtn = document.getElementById('print-changelog-btn')
     this.coinshopBtn = document.getElementById('coinshop-btn')
     this.coinshopPanel = document.getElementById('coinshop-panel')
     this.coinshopPanelTitle = document.getElementById('coinshop-panel-title')
@@ -4101,6 +4177,7 @@ export class Game {
     // Safety net alongside the _updateStatsPanel save hook - catches a
     // close/reload happening between the last stats-panel update and now.
     window.addEventListener('beforeunload', () => saveShopProgress(this))
+    window.addEventListener('beforeunload', () => this._updateLongestSession())
     this._bindItemKeys()
     this._bindHotbar()
     this._bindSettings()
@@ -4853,6 +4930,25 @@ export class Game {
     navigator.clipboard.writeText(text)
       .then(() => this._showLoreToast(t('clipboardCopySuccess')))
       .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
+  }
+
+  // Manual text-to-speech (Profile panel) - reads the exact same rows
+  // _copyProfileStatsToClipboard already extracts from the rendered grid,
+  // via the standard Web Speech API. A manual button rather than
+  // auto-reading on open, since an unannounced voice suddenly speaking
+  // would surprise a sighted user just browsing the panel.
+  _readProfileStatsAloud() {
+    if (!window.speechSynthesis) {
+      this._showLoreToast(t('ttsUnsupported'))
+      return
+    }
+    const lines = Array.from(this.profileOptions.querySelectorAll('.perk-option')).map((btn) => {
+      const name = btn.querySelector('.perk-name')?.textContent || ''
+      const value = btn.querySelector('.perk-cost')?.textContent || ''
+      return `${name}: ${value}.`
+    })
+    window.speechSynthesis.cancel()
+    window.speechSynthesis.speak(new SpeechSynthesisUtterance(lines.join(' ')))
   }
 
   // Free-fly noclip camera while photo mode is open - reuses the same
@@ -6480,6 +6576,15 @@ export class Game {
         saveSettings(this.settings)
       })
     }
+    if (this.underlineLinksToggle) {
+      this.underlineLinksToggle.checked = this.settings.underlineLinks
+      document.documentElement.classList.toggle('underline-links', this.settings.underlineLinks)
+      this.underlineLinksToggle.addEventListener('change', () => {
+        this.settings.underlineLinks = this.underlineLinksToggle.checked
+        document.documentElement.classList.toggle('underline-links', this.settings.underlineLinks)
+        saveSettings(this.settings)
+      })
+    }
     if (this.dyslexiaFontToggle) {
       this.dyslexiaFontToggle.checked = this.settings.dyslexiaFont
       document.documentElement.classList.toggle('dyslexia-font', this.settings.dyslexiaFont)
@@ -6696,8 +6801,16 @@ export class Game {
     })
     this.profileCopyStatsBtn.addEventListener('click', () => this._copyProfileStatsToClipboard())
     if (this.profileCopyLinkBtn) this.profileCopyLinkBtn.addEventListener('click', () => this._copyProfileLink())
+    if (this.profileReadAloudBtn) this.profileReadAloudBtn.addEventListener('click', () => this._readProfileStatsAloud())
     if (this.sharedProfileCloseBtn) {
       this.sharedProfileCloseBtn.addEventListener('click', () => { this.sharedProfileBanner.style.display = 'none' })
+    }
+    if (this.whatsNewDigestCloseBtn) {
+      this.whatsNewDigestCloseBtn.addEventListener('click', () => {
+        this.whatsNewDigest.style.display = 'none'
+        try { localStorage.setItem(CHANGELOG_LAST_VIEWED_KEY, String(Date.now())) } catch { /* storage unavailable */ }
+        this._updateWhatsNewDot()
+      })
     }
     // Login/Register both trigger the same Google sign-in flow today (see
     // _handleCloudSignIn) - kept as two separate buttons/labels rather than
@@ -6713,6 +6826,7 @@ export class Game {
     }
     if (this.profileCareerPortraitBtn) this.profileCareerPortraitBtn.addEventListener('click', () => this._generateCareerPortrait())
     if (this.profilePrintBtn) this.profilePrintBtn.addEventListener('click', () => this._printProfile())
+    if (this.printChangelogBtn) this.printChangelogBtn.addEventListener('click', () => this._printChangelog())
     this.shareRunCardBtn.addEventListener('click', () => this._generateRunSummaryCard())
     if (this.copyTextRecapBtn) this.copyTextRecapBtn.addEventListener('click', () => this._copyTextRecap())
     if (this.acceptChallengeBtn) this.acceptChallengeBtn.addEventListener('click', () => this._acceptChallenge())
@@ -6726,7 +6840,20 @@ export class Game {
     this._bindCloudSave()
     this._checkBeatThisChallenge()
     this._checkViewProfileLink()
+    this._maybeShowWhatsNewDigest()
+    this._checkFriendBeatNotifications()
     if (this.copySetupBtn) this.copySetupBtn.addEventListener('click', () => this._copySetupCode())
+    if (this.copyPageUrlBtn) {
+      this.copyPageUrlBtn.addEventListener('click', () => {
+        if (!navigator.clipboard) {
+          this._showHomepageToast(t('clipboardCopyUnsupported'))
+          return
+        }
+        navigator.clipboard.writeText(location.href)
+          .then(() => this._showHomepageToast(t('pageUrlCopied')))
+          .catch(() => this._showHomepageToast(t('clipboardCopyUnsupported')))
+      })
+    }
     this.endingContinueBtn.addEventListener('click', () => {
       this.endingPanel.style.display = 'none'
       this.player.controls.lock()
@@ -7387,14 +7514,25 @@ export class Game {
     if (!this.cloudsaveAvgLine) return
     try {
       const { avgKills, avgNight } = await CloudSync.fetchGlobalAverages()
+      const myKills = _safeStatNumber(this.careerStats.totalKills)
+      const myNight = _safeStatNumber(this.bestStats.bestNight)
       this.cloudsaveAvgLine.textContent = t('cloudsaveAvgLine', {
-        myKills: _safeStatNumber(this.careerStats.totalKills),
-        avgKills: Math.round(avgKills),
-        myNight: _safeStatNumber(this.bestStats.bestNight),
-        avgNight: avgNight.toFixed(1),
+        myKills, avgKills: Math.round(avgKills), myNight, avgNight: avgNight.toFixed(1),
       })
+      // Bar-chart visual (see #cloudsave-avg-bars) - same numbers the text
+      // line above already computed, just also drawn as two you-vs-average
+      // bars scaled to whichever side of each pair is larger.
+      if (this.cloudsaveAvgBars) {
+        const killsMax = Math.max(myKills, avgKills, 1)
+        const nightMax = Math.max(myNight, avgNight, 1)
+        this.cloudsaveAvgBars.innerHTML = `
+          <div class="avg-bar-row"><span class="avg-bar-label">${t('avgBarYou')}</span><div class="mini-progress-track"><div class="mini-progress-fill" style="width: ${(myKills / killsMax) * 100}%"></div></div><span class="avg-bar-value">${myKills.toLocaleString()}</span></div>
+          <div class="avg-bar-row"><span class="avg-bar-label">${t('avgBarAverage')}</span><div class="mini-progress-track"><div class="mini-progress-fill" style="width: ${(avgKills / killsMax) * 100}%"></div></div><span class="avg-bar-value">${Math.round(avgKills).toLocaleString()}</span></div>
+        `
+      }
     } catch {
       this.cloudsaveAvgLine.textContent = ''
+      if (this.cloudsaveAvgBars) this.cloudsaveAvgBars.innerHTML = ''
     }
   }
 
@@ -7427,13 +7565,17 @@ export class Game {
         this.cloudsaveFriendResult.textContent = t('cloudsaveFriendNotFound')
         return
       }
+      // Last played - reuses the same updatedAt field every leaderboard
+      // push already writes (see pushLeaderboardEntry), not a new
+      // presence/timestamp system.
+      const lastPlayed = entry.updatedAt ? _formatRelativeTime(Math.max(0, Date.now() - Number(entry.updatedAt))) : null
       this.cloudsaveFriendResult.textContent = t('cloudsaveFriendResult', {
         name: entry.name || name,
         myNight: _safeStatNumber(this.bestStats.bestNight),
         myKills: _safeStatNumber(this.careerStats.totalKills),
         theirNight: _safeStatNumber(entry.bestNight),
         theirKills: _safeStatNumber(entry.bestKills),
-      })
+      }) + (lastPlayed ? ` ${t('cloudsaveFriendLastPlayed', { time: lastPlayed })}` : '')
     } catch {
       this.cloudsaveFriendResult.textContent = t('cloudsaveError')
     }
@@ -7694,6 +7836,17 @@ export class Game {
   _printProfile() {
     if (!this.printStatsSheet) return
     this.printStatsSheet.innerHTML = `<h1>${t('printSheetTitle')}</h1>${this.profileOptions.innerHTML}`
+    window.print()
+  }
+
+  // Print Full Changelog - same #print-stats-sheet element/mechanism as
+  // Print Stats Sheet above (hidden on-screen, shown only by the @media
+  // print rule), just pointed at #changelog-list's real, already-rendered
+  // entries instead of the Profile stat grid.
+  _printChangelog() {
+    if (!this.printStatsSheet) return
+    const list = document.getElementById('changelog-list')
+    this.printStatsSheet.innerHTML = `<h1>${t('printChangelogTitle')}</h1>${list ? list.innerHTML : ''}`
     window.print()
   }
 
@@ -7977,15 +8130,36 @@ export class Game {
     if (this.loginStreak.lastDate === today) return
     const previousLastDate = this.loginStreak.lastDate
     const wasConsecutive = previousLastDate === yesterdayDateString()
-    this.loginStreak.streak = wasConsecutive ? this.loginStreak.streak + 1 : 1
+    // Streak Freeze - a gap of exactly 1 missed day (2 real days since
+    // last play) spends a banked freeze to preserve the streak instead of
+    // resetting to 1. A bigger gap still resets outright - a freeze
+    // covers one missed day, not an open-ended vacation.
+    const gapDays = previousLastDate ? Math.round((new Date(today) - new Date(previousLastDate)) / 86400000) : 0
+    const usedFreeze = !wasConsecutive && gapDays === 2 && this.loginStreak.freezesAvailable > 0
+    if (usedFreeze) {
+      this.loginStreak.freezesAvailable -= 1
+      this.loginStreak.streak += 1
+    } else {
+      this.loginStreak.streak = wasConsecutive ? this.loginStreak.streak + 1 : 1
+    }
+    if (this.loginStreak.streak % 7 === 0 && this.loginStreak.freezesAvailable < LOGIN_STREAK_MAX_FREEZES) {
+      this.loginStreak.freezesAvailable += 1
+    }
+    // Kept distinct from lastDate (which this function itself immediately
+    // overwrites to today, every page load) - Profile panel's "Last
+    // Played" row needs the date BEFORE today's visit, not today's own
+    // date reflected back.
+    if (previousLastDate) this.loginStreak.previousDate = previousLastDate
     this.loginStreak.lastDate = today
     this.loginStreak.recentDates = [...(this.loginStreak.recentDates || []), today].slice(-7)
     saveLoginStreak(this.loginStreak)
     const bonusDays = Math.min(this.loginStreak.streak, LOGIN_STREAK_MAX_BONUS_DAYS)
     const coinBonus = bonusDays * LOGIN_STREAK_COIN_PER_DAY
     this.coins += coinBonus
-    if (!wasConsecutive && previousLastDate) {
-      const days = Math.max(1, Math.round((new Date(today) - new Date(previousLastDate)) / 86400000))
+    if (usedFreeze) {
+      this._showLoreToast(t('loginStreakFreezeUsedToast', { n: this.loginStreak.streak, coins: coinBonus }))
+    } else if (!wasConsecutive && previousLastDate) {
+      const days = Math.max(1, gapDays)
       this._showLoreToast(t('welcomeBackToast', { days, coins: coinBonus }))
     } else {
       this._showLoreToast(t('loginStreakToast', { n: this.loginStreak.streak, coins: coinBonus }))
@@ -9757,6 +9931,7 @@ export class Game {
     this._checkKillMilestones()
     this._updateWeeklyProgressBar()
     this._updateFaviconQuestBadge()
+    this._updateLongestSession()
     if (this.menuAriaSummary) {
       this.menuAriaSummary.textContent = t('menuAriaSummary', {
         night: _safeStatNumber(this.bestStats.bestNight),
@@ -9849,7 +10024,12 @@ export class Game {
   _updateLoginStreakBadge() {
     if (!this.menuLoginStreak) return
     if (this.loginStreak.streak >= 2) {
-      this.menuLoginStreak.textContent = t('loginStreakBadge', { n: this.loginStreak.streak })
+      // Streak Freeze count folded into the same badge text (rather than a
+      // second homepage element) - only shown when there's actually a
+      // freeze banked, so it doesn't add a permanent "0" to the badge.
+      this.menuLoginStreak.textContent = this.loginStreak.freezesAvailable > 0
+        ? t('loginStreakBadgeWithFreeze', { n: this.loginStreak.streak, freezes: this.loginStreak.freezesAvailable })
+        : t('loginStreakBadge', { n: this.loginStreak.streak })
       this.menuLoginStreak.style.display = ''
     } else {
       this.menuLoginStreak.style.display = 'none'
@@ -9930,7 +10110,7 @@ export class Game {
       }
     }
     const render = () => {
-      const mode = (this._spotlightIndex || 0) % 26
+      const mode = (this._spotlightIndex || 0) % 27
       if (mode === 0) {
         const tipKey = SPOTLIGHT_TIPS[Math.floor(Date.now() / 60000) % SPOTLIGHT_TIPS.length]
         this.menuSpotlight.textContent = t('spotlightTipPrefix', { tip: t(tipKey) })
@@ -10143,6 +10323,22 @@ export class Game {
         const mins = Math.floor(totalSeconds / 60)
         const secs = totalSeconds % 60
         this.menuSpotlight.textContent = t('spotlightSessionUptime', { time: `${mins}:${String(secs).padStart(2, '0')}` })
+      } else if (mode === 26) {
+        // On This Day - genuinely checks today's real month+day against
+        // every changelog entry's own date (parsed straight from the DOM,
+        // same source _updateMenuSpotlight's Patch Notes mode already
+        // reads), not a random pick dressed up as a historical match. Only
+        // shows when there's an actual match, same silent-skip precedent
+        // mode 24's Most Improved check already uses.
+        const today = new Date()
+        for (const el of document.querySelectorAll('#changelog-list .changelog-entry')) {
+          const parsed = new Date(el.querySelector('.changelog-date')?.textContent || '')
+          if (Number.isNaN(parsed.getTime())) continue
+          if (parsed.getMonth() === today.getMonth() && parsed.getDate() === today.getDate() && parsed.getFullYear() < today.getFullYear()) {
+            this.menuSpotlight.textContent = t('spotlightOnThisDay', { years: today.getFullYear() - parsed.getFullYear(), text: el.querySelector('.changelog-text')?.textContent || '' })
+            break
+          }
+        }
       }
       this._spotlightIndex = (this._spotlightIndex || 0) + 1
     }
@@ -10213,6 +10409,16 @@ export class Game {
       const now = new Date()
       const active = EVENT_BANNERS.find((ev) => now.getMonth() === ev.month && now.getDate() >= ev.startDay && now.getDate() <= ev.endDay)
       mood = active ? active.bgMood : 'none'
+    } else if (mood === 'timeofday') {
+      // Reuses the same 3 existing tint classes (no new art) mapped to the
+      // player's real local hour rather than a fixed/seasonal schedule -
+      // late night keeps the default night-photo look as-is since there's
+      // no separate daytime photo asset to switch to.
+      const hour = new Date().getHours()
+      if (hour >= 5 && hour < 8) mood = 'foggy'
+      else if (hour >= 8 && hour < 17) mood = 'amber'
+      else if (hour >= 17 && hour < 22) mood = 'bloodmoon'
+      else mood = 'none'
     }
     for (const cls of ['bg-mood-bloodmoon', 'bg-mood-foggy', 'bg-mood-amber']) {
       document.documentElement.classList.remove(cls)
@@ -10429,6 +10635,12 @@ export class Game {
     if (this.beatThisBtn) this.beatThisBtn.addEventListener('click', () => this._copyBeatThisLink())
     this._renderMenuPresets()
     this._bindKonamiCode()
+    this._bindIdleAnimation()
+    this._bindLogoClickCounter()
+    this._bindHomepageShortcutKeys()
+    if (this.shortcutCheatsheetCloseBtn) {
+      this.shortcutCheatsheetCloseBtn.addEventListener('click', () => { this.shortcutCheatsheet.style.display = 'none' })
+    }
 
     if (this.profileBioInput) {
       this.profileBioInput.addEventListener('input', () => {
@@ -11819,6 +12031,12 @@ export class Game {
     this.careerStats.totalKills += this.kills
     this.careerStats.totalRuns += 1
     if (!this.careerStats.firstPlayedDate) this.careerStats.firstPlayedDate = todayDateString()
+    // Most-used mutator (Profile panel) - one increment per active mutator
+    // per completed run, same settings.mutators flags the Coin Shop/Play
+    // button already read, no separate tracking.
+    for (const [id, active] of Object.entries(this.settings.mutators)) {
+      if (active) this.careerStats.mutatorUseCounts[id] = (this.careerStats.mutatorUseCounts[id] || 0) + 1
+    }
     for (const perk of VETERAN_PERKS) {
       if (this.careerStats.totalKills >= perk.killThreshold && !this.careerStats.veteranPerksGranted.includes(perk.id)) {
         this.careerStats.veteranPerksGranted.push(perk.id)
@@ -12205,6 +12423,20 @@ export class Game {
       [t('profileCoinsRatio'), `${_safeStatNumber(this.careerStats.lifetimeCoinsEarned).toLocaleString()} / ${_safeStatNumber(this.totalSpent).toLocaleString()}`],
       [t('profileWeaponsMastered'), `${this.weaponMastery.mastered.size + this.weaponMastery.grandmastered.size}/${this.weapons.weapons.length}`],
       [t('profileCompanionLegacy'), _safeStatNumber(this.companionLegacy.level)],
+      // More-features batch - 5 more pure-derived rows (Personal Stats),
+      // same "zero new tracking beyond what _recordRunEnd/_recordNemesis
+      // already aggregate" reasoning as every row above.
+      [t('profileLongestSession'), _formatDurationShort(_safeStatNumber(this.careerStats.longestSessionSeconds))],
+      [t('profileAvgRunLength'), _safeStatNumber(this.careerStats.totalRuns) > 0
+        ? _formatDurationShort(Math.round(_safeStatNumber(this.careerStats.lifetimePlaytimeSeconds) / this.careerStats.totalRuns))
+        : '—'],
+      [t('profileDeadliestEnemy'), _escapeHtml(this._deadliestZombieLabel())],
+      [t('profileMostUsedMutator'), _escapeHtml(this._mostUsedMutatorLabel())],
+      [t('profileCoinsToday'), `${_safeStatNumber(this._coinsToday()).toLocaleString()} (${t('profileCoinsWeeklyAvg', { n: _safeStatNumber(this._coinsWeeklyAvg()).toLocaleString() })})`],
+      // Reuses loginStreak.previousDate (see _checkLoginStreak) - the
+      // calendar date of the visit before this one, not today's own date
+      // (which lastDate always reflects by the time this panel can open).
+      [t('profileLastPlayed'), this.loginStreak.previousDate || t('profileLastPlayedFirstVisit')],
     ]
     this.profileOptions.innerHTML = rows.map(([label, value]) => `
       <button class="perk-option" disabled>
@@ -12234,6 +12466,50 @@ export class Game {
     this._renderBestRunCard()
     this._renderRankRoadmap()
     this._renderClassComparison()
+    this._renderGoalsPicker()
+    this._renderGoalsChecklist()
+  }
+
+  // Goals picker - toggleable chips, one per GOAL_CANDIDATES entry, capped
+  // at 3 selected (oldest bumped on a 4th pick, same "cap and shift"
+  // precedent settings.savedFriends/menuPresets already use).
+  _renderGoalsPicker() {
+    if (!this.goalsPicker) return
+    if (this.goalsHeading) this.goalsHeading.textContent = t('goalsHeading')
+    this.goalsPicker.innerHTML = GOAL_CANDIDATES.map((goal) => `
+      <button class="goal-chip${this.settings.selectedGoals.includes(goal.id) ? ' active' : ''}" data-goal="${goal.id}">${t(goal.titleKey)}</button>
+    `).join('')
+    for (const btn of this.goalsPicker.querySelectorAll('.goal-chip')) {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.goal
+        if (this.settings.selectedGoals.includes(id)) {
+          this.settings.selectedGoals = this.settings.selectedGoals.filter((g) => g !== id)
+        } else {
+          if (this.settings.selectedGoals.length >= 3) this.settings.selectedGoals.shift()
+          this.settings.selectedGoals.push(id)
+        }
+        saveSettings(this.settings)
+        this._renderGoalsPicker()
+        this._renderGoalsChecklist()
+      })
+    }
+  }
+
+  _renderGoalsChecklist() {
+    if (!this.goalsChecklist) return
+    this.goalsChecklist.innerHTML = this.settings.selectedGoals.map((id) => {
+      const goal = GOAL_CANDIDATES.find((g) => g.id === id)
+      if (!goal) return ''
+      const total = goal.total(this)
+      const current = Math.min(goal.current(this), total)
+      const pct = total > 0 ? Math.round((current / total) * 100) : 0
+      return `
+        <div class="nearly-there-item">
+          <p class="nearly-there-line">${_escapeHtml(t('goalProgressLine', { title: t(goal.titleKey), current: current.toLocaleString(), total: total.toLocaleString() }))}${pct >= 100 ? ` ${t('goalCompleteBadge')}` : ''}</p>
+          <div class="mini-progress-track" aria-hidden="true"><div class="mini-progress-fill" style="width: ${pct}%"></div></div>
+        </div>
+      `
+    }).join('') || `<p class="nearly-there-line">${t('goalsEmpty')}</p>`
   }
 
   // Rank Roadmap - all CAREER_RANK_TITLES tiers at once (the homepage/
@@ -12329,6 +12605,20 @@ export class Game {
     this.profileTodayLine.style.display = ''
   }
 
+  // Longest single session (Profile panel) - compares the CURRENT
+  // session's running length (same _sessionStartTime the Today line above
+  // already reads) against the stored record every time this fires
+  // (menu refresh + beforeunload below), so the record is accurate even
+  // if the tab is just closed mid-session rather than ever returning to
+  // the menu again.
+  _updateLongestSession() {
+    const currentSeconds = Math.floor((performance.now() - this._sessionStartTime) / 1000)
+    if (currentSeconds > this.careerStats.longestSessionSeconds) {
+      this.careerStats.longestSessionSeconds = currentSeconds
+      saveCareerStats(this.careerStats)
+    }
+  }
+
   // Percentile - reuses the same "better than me" COUNT query as the
   // rank badge, plus one more COUNT (no filter) for the total player
   // count, rather than a separate ranking system. Only shown once
@@ -12421,7 +12711,13 @@ export class Game {
     rows.sort((a, b) => b.ratio - a.ratio)
     this.profileNearlyThereList.innerHTML = rows.map((r) => {
       const def = ACHIEVEMENTS.find((a) => a.id === r.achievementId)
-      return `<p class="nearly-there-line">${_escapeHtml(t('nearlyThereLine', { title: t(def.titleKey), current: r.current, total: r.total }))}</p>`
+      const pct = Math.round(r.ratio * 100)
+      return `
+        <div class="nearly-there-item">
+          <p class="nearly-there-line">${_escapeHtml(t('nearlyThereLine', { title: t(def.titleKey), current: r.current, total: r.total }))}</p>
+          <div class="mini-progress-track" aria-hidden="true"><div class="mini-progress-fill" style="width: ${pct}%"></div></div>
+        </div>
+      `
     }).join('')
   }
 
@@ -12685,6 +12981,63 @@ export class Game {
     }
   }
 
+  // What's New digest (see #whats-new-digest) - a fuller, more prominent
+  // one-time surfacing of the same new-entries diff the ticker's
+  // Changelog-diff mode already computes (see mode 20 in
+  // _updateMenuSpotlight), for players who might never happen to land on
+  // that ticker mode in its 27-mode rotation. Same lastViewed gate/logic,
+  // just rendered as a dismissible card instead of one rotating line.
+  // Closing it (or opening Credits, which already does this) marks it
+  // seen - reload before dismissing and it shows again, which is the
+  // correct behavior for "you still haven't caught up."
+  _maybeShowWhatsNewDigest() {
+    if (!this.whatsNewDigest) return
+    const lastViewed = Number(localStorage.getItem(CHANGELOG_LAST_VIEWED_KEY))
+    if (!lastViewed) return
+    const newEntries = Array.from(document.querySelectorAll('#changelog-list .changelog-entry')).filter((el) => {
+      const parsed = Date.parse(el.querySelector('.changelog-date')?.textContent || '')
+      return !isNaN(parsed) && parsed > lastViewed
+    })
+    if (!newEntries.length) return
+    this.whatsNewDigestTitle.textContent = t('whatsNewDigestTitle', { n: newEntries.length })
+    this.whatsNewDigestList.innerHTML = newEntries.map((el) => `<p>${el.querySelector('.changelog-text')?.textContent || ''}</p>`).join('')
+    this.whatsNewDigest.style.display = 'block'
+  }
+
+  // Friend-beats-you notification - checks each saved friend's real public
+  // leaderboard entry (same fetchLeaderboardEntryByName the manual Friend
+  // Compare box already uses) once per page load, bounded to the capped-
+  // at-5 savedFriends list. friendBeatNotified tracks {name, night} pairs
+  // already shown so this doesn't re-toast the same fact on every visit -
+  // only fires again if that friend's bestNight climbs even higher, and
+  // clears once you catch back up (so a real future overtake notifies
+  // again instead of staying silently suppressed forever).
+  async _checkFriendBeatNotifications() {
+    if (!CloudSync.isConfigured() || !this.settings.savedFriends.length) return
+    const myNight = _safeStatNumber(this.bestStats.bestNight)
+    const stillRelevant = []
+    for (const name of this.settings.savedFriends) {
+      let entry
+      try {
+        entry = await CloudSync.fetchLeaderboardEntryByName(name)
+      } catch {
+        continue
+      }
+      if (!entry) continue
+      const theirNight = _safeStatNumber(entry.bestNight)
+      if (theirNight <= myNight) continue
+      const alreadyNotified = this.settings.friendBeatNotified.find((n) => n.name === name)
+      if (alreadyNotified && alreadyNotified.night >= theirNight) {
+        stillRelevant.push(alreadyNotified)
+        continue
+      }
+      this._showHomepageToast(t('friendBeatYouToast', { name, night: theirNight }))
+      stillRelevant.push({ name, night: theirNight })
+    }
+    this.settings.friendBeatNotified = stillRelevant
+    saveSettings(this.settings)
+  }
+
   // Career Almanac helper (see _openProfilePanel) - the single highest kill
   // tally in weaponMastery.kills, purely derived from data that system
   // already tracks for the mastery/grandmaster thresholds.
@@ -12697,6 +13050,53 @@ export class Game {
     if (!bestId) return t('profileFavoriteWeaponNone')
     const w = this.weapons.weapons.find((w) => w.id === bestId)
     return w ? t(this.weapons._nameKeyFor(w)) : bestId
+  }
+
+  // Deaths-by-type helper (see _openProfilePanel) - the single highest
+  // tally in careerStats.deathsByType (see _recordNemesis).
+  _deadliestZombieLabel() {
+    let bestId = null
+    let bestCount = 0
+    for (const [id, count] of Object.entries(this.careerStats.deathsByType)) {
+      if (count > bestCount) { bestCount = count; bestId = id }
+    }
+    if (!bestId) return t('profileDeadliestEnemyNone')
+    const typeInfo = ZOMBIE_TYPES[bestId]
+    return t('profileDeadliestEnemyValue', { name: typeInfo ? typeInfo.label : bestId, n: bestCount })
+  }
+
+  // Most-used mutator helper (see _openProfilePanel) - the single highest
+  // tally in careerStats.mutatorUseCounts (see _recordRunEnd).
+  _mostUsedMutatorLabel() {
+    let bestId = null
+    let bestCount = 0
+    for (const [id, count] of Object.entries(this.careerStats.mutatorUseCounts)) {
+      if (count > bestCount) { bestCount = count; bestId = id }
+    }
+    if (!bestId) return t('profileMostUsedMutatorNone')
+    return t('profileMostUsedMutatorValue', { name: t(MUTATOR_LABEL_KEYS[bestId] || bestId), n: bestCount })
+  }
+
+  // Coins today / weekly average helpers (see _openProfilePanel) - both
+  // pure-derived from runHistory's own ts/coins fields (same rolling
+  // window _renderWeeklyRecap already uses), no new tracking. "Today"
+  // sums coins from runs completed since local midnight; the weekly
+  // average spreads the last 7 days' total coins evenly across 7, not
+  // just the days actually played, so a quiet week reads as a genuinely
+  // lower average rather than being hidden by only counting play-days.
+  _coinsToday() {
+    const todayStr = todayDateString()
+    return this.runHistory
+      .filter((r) => new Date(_safeStatNumber(r.ts)).toISOString().slice(0, 10) === todayStr)
+      .reduce((sum, r) => sum + _safeStatNumber(r.coins), 0)
+  }
+
+  _coinsWeeklyAvg() {
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000
+    const total = this.runHistory
+      .filter((r) => _safeStatNumber(r.ts) >= cutoff)
+      .reduce((sum, r) => sum + _safeStatNumber(r.coins), 0)
+    return Math.round(total / 7)
   }
 
   // Nemesis system (see NEMESIS_KEY's own comment) - the nearest alive
@@ -12720,6 +13120,11 @@ export class Game {
     const typeInfo = ZOMBIE_TYPES[nearest.type]
     this.nemesis = { typeId: nearest.type, label: typeInfo ? typeInfo.label : nearest.type, night: this.night }
     saveNemesis(this.nemesis)
+    // Deaths-by-type tally (Profile panel) - same nearest-zombie proxy as
+    // the nemesis line above, aggregated over every death instead of just
+    // the most recent one.
+    this.careerStats.deathsByType[nearest.type] = (this.careerStats.deathsByType[nearest.type] || 0) + 1
+    saveCareerStats(this.careerStats)
   }
 
   _scheduleNemesisCheck() {
@@ -12842,6 +13247,109 @@ export class Game {
         }
       }
     })
+  }
+
+  // Idle animation - a subtle Play-button pulse after 30s of no homepage
+  // interaction (mouse/keyboard/click, throttled to once per event type
+  // via the timer reset itself, no extra state needed). Only active while
+  // still on the menu - removed the instant a run starts or the player
+  // moves/clicks again.
+  _bindIdleAnimation() {
+    const IDLE_MS = 30000
+    const resetTimer = () => {
+      if (this.gameStarted) return
+      if (this.menu) this.menu.classList.remove('menu-idle')
+      clearTimeout(this._idleTimer)
+      this._idleTimer = setTimeout(() => {
+        if (!this.gameStarted && this.menu) this.menu.classList.add('menu-idle')
+      }, IDLE_MS)
+    }
+    window.addEventListener('mousemove', resetTimer)
+    window.addEventListener('keydown', resetTimer)
+    window.addEventListener('click', resetTimer)
+    resetTimer()
+  }
+
+  // Hidden logo click counter - 10 clicks on the title triggers a tiny,
+  // purely cosmetic easter egg (same konami-flourish CSS class the Konami
+  // code already uses, no second effect to build). Resets after firing or
+  // after a long pause between clicks so it can't be reached by accident.
+  _bindLogoClickCounter() {
+    if (!this.menuTitle) return
+    this._logoClickCount = 0
+    this.menuTitle.addEventListener('click', () => {
+      const now = performance.now()
+      if (this._lastLogoClickAt && now - this._lastLogoClickAt > 2000) this._logoClickCount = 0
+      this._lastLogoClickAt = now
+      this._logoClickCount += 1
+      if (this._logoClickCount >= 10) {
+        this._logoClickCount = 0
+        this._showHomepageToast(t('logoClickEasterEgg'))
+        if (this.menu) {
+          this.menu.classList.add('konami-flourish')
+          setTimeout(() => this.menu.classList.remove('konami-flourish'), 2000)
+        }
+      }
+    })
+  }
+
+  // Homepage-only shortcut keys: "?" opens the cheat sheet below, Escape
+  // closes whichever homepage-reachable panel is currently open (a real
+  // gap this fills - previously the only way to close these was clicking
+  // the panel's own backdrop, so a keyboard-only user had no way to close
+  // one at all; now the cheat sheet's own Escape line is actually true).
+  _bindHomepageShortcutKeys() {
+    const panelCloseFns = [
+      [this.settingsPanel, () => this._toggleSettings(false)],
+      [this.cloudsavePanel, () => this._closeCloudSavePanel()],
+      [this.upgradesPanel, () => this._closeUpgradesPanel()],
+      [this.coinshopPanel, () => this._closeCoinShopPanel()],
+      [this.questsPanel, () => this._closeQuestsPanel()],
+      [this.achievementsPanel, () => this._closeAchievementsPanel()],
+      [this.bestiaryPanel, () => this._closeBestiaryPanel()],
+      [this.howtoplayPanel, () => this._closeHowToPlayPanel()],
+      [this.creditsPanel, () => this._closeCreditsPanel()],
+      [this.profilePanel, () => this._closeProfilePanel()],
+    ]
+    window.addEventListener('keydown', (e) => {
+      if (this.gameStarted) return
+      if (e.key === '?') {
+        e.preventDefault()
+        this._toggleShortcutCheatsheet()
+        return
+      }
+      if (e.code === 'Escape') {
+        if (this.shortcutCheatsheet && this.shortcutCheatsheet.style.display !== 'none') {
+          this.shortcutCheatsheet.style.display = 'none'
+          return
+        }
+        // getComputedStyle, not panel.style.display - a panel that's never
+        // been toggled at least once (fresh page load) is hidden via its
+        // own CSS rule's default display:none, not an inline style, so
+        // checking the inline property alone would misread it as "open"
+        // and swallow the very first Escape press before it ever reaches
+        // a genuinely open panel.
+        for (const [panel, close] of panelCloseFns) {
+          if (panel && getComputedStyle(panel).display !== 'none') { close(); return }
+        }
+      }
+    })
+  }
+
+  _toggleShortcutCheatsheet() {
+    if (!this.shortcutCheatsheet) return
+    const opening = this.shortcutCheatsheet.style.display === 'none'
+    if (opening) {
+      this.shortcutCheatsheetTitle.textContent = t('shortcutCheatsheetTitle')
+      const rows = [
+        ['?', t('shortcutRowHelp')],
+        ['Tab', t('shortcutRowTab')],
+        ['Enter / Space', t('shortcutRowActivate')],
+        ['Escape', t('shortcutRowEscape')],
+      ]
+      this.shortcutCheatsheetList.innerHTML = rows.map(([key, label]) => `<div class="shortcut-row"><kbd>${_escapeHtml(key)}</kbd><span>${_escapeHtml(label)}</span></div>`).join('')
+    }
+    this.shortcutCheatsheet.style.display = opening ? 'block' : 'none'
   }
 
   _updateSecretSequenceBonus() {
