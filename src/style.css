@@ -3431,10 +3431,10 @@ html.bg-mood-amber #menu-bg-photo {
 }
 
 #menu-tagline {
-  margin: 2px 0 10px;
+  margin: 4px 0 14px;
   font-family: var(--menu-display-font);
-  font-size: 16px;
-  letter-spacing: 3px;
+  font-size: 38px;
+  letter-spacing: 5px;
   color: var(--menu-olive);
   text-transform: uppercase;
   opacity: 0.95;
@@ -3446,12 +3446,12 @@ html.bg-mood-amber #menu-bg-photo {
 }
 
 #menu-subtitle {
-  font-size: 17px;
+  font-size: 38px;
   font-weight: 400;
   opacity: 0.85 !important;
   letter-spacing: 0.3px;
   white-space: pre-line;
-  line-height: 1.4;
+  line-height: 1.25;
 }
 
 /* Hidden - the reference layout keeps the hero column to title/tagline/
@@ -3564,15 +3564,15 @@ html.bg-mood-amber #menu-bg-photo {
 
 .hero-stat-value {
   font-family: var(--menu-display-font);
-  font-size: 42px;
+  font-size: 100px;
   color: var(--menu-gold);
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
 .hero-stat-label {
-  margin-top: 2px;
-  font-size: 12px;
+  margin-top: 4px;
+  font-size: 26px;
   font-weight: 600;
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -3595,11 +3595,11 @@ html.bg-mood-amber #menu-bg-photo {
    (small radial-gradient dots) kept from the earlier pass. */
 #play-btn {
   position: relative;
-  margin-top: 0;
-  padding: 20px 105px;
+  margin-top: 4px;
+  padding: 42px 200px;
   font-family: 'Black Ops One', var(--menu-display-font);
-  font-size: 38px;
-  letter-spacing: 3px;
+  font-size: 90px;
+  letter-spacing: 5px;
   text-transform: uppercase;
   color: var(--menu-gold);
   background:
@@ -3727,6 +3727,20 @@ html.bg-mood-amber #menu-bg-photo {
 #settings-btn svg {
   width: 24px;
   height: 24px;
+}
+
+/* Settings gear - scoped size override, coming after the shared
+   quick-action-button rule above (same specificity, later wins) so only
+   this one visible button grows, not the 5 other hidden shortcuts that
+   still share that base rule. */
+#settings-btn {
+  width: 112px;
+  height: 112px;
+}
+
+#settings-btn svg {
+  width: 56px;
+  height: 56px;
 }
 
 #quick-mute-btn:hover,
