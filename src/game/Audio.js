@@ -65,15 +65,17 @@ class AudioEngine {
   }
 
   // Plays a random sample from the given zombie sound pool with slight pitch
-  // jitter so 4-13 clips per pool don't sound like an obvious loop.
-  _playZombieSample(pool, gain) {
+  // jitter so 4-13 clips per pool don't sound like an obvious loop, times an
+  // optional per-type pitchMult (see _pitchForScale) so a titan doesn't
+  // sound identical to a feral dog.
+  _playZombieSample(pool, gain, pitchMult = 1) {
     const buffers = this.zombieBuffers[pool]
     if (!buffers.length) return false
 
     const ctx = this.ctx
     const source = ctx.createBufferSource()
     source.buffer = buffers[Math.floor(Math.random() * buffers.length)]
-    source.playbackRate.value = 0.9 + Math.random() * 0.2
+    source.playbackRate.value = (0.9 + Math.random() * 0.2) * pitchMult
 
     const gainNode = ctx.createGain()
     gainNode.gain.value = gain
@@ -567,12 +569,23 @@ class AudioEngine {
     overtone.stop(now + duration * 0.6)
   }
 
+  // Vocal variety by type (see ZombieTypes.js's scale field, already used
+  // for visual size - reused here rather than authoring a second per-type
+  // number) - bigger zombies get a deeper voice, smaller ones a higher
+  // one, out of the SAME sample pool (no new audio assets needed).
+  // Clamped so even a titan (scale 3.4) or feral dog (scale 0.55) still
+  // reads as a recognizable moan, not a chipmunk or a demon.
+  _pitchForScale(scale) {
+    if (!scale) return 1
+    return Math.max(0.65, Math.min(1.4, 1 / Math.pow(scale, 0.4)))
+  }
+
   // Low, mournful groan for ambient zombie presence (not an attack cue).
   // Uses a triangle tone (not sawtooth) through vowel-like formant filters
   // so it reads as a vocal "aaahh" rather than a buzzy raspberry.
-  playZombieMoan() {
+  playZombieMoan(scale) {
     if (!this.ctx) return
-    if (this._playZombieSample('moan', 0.45)) return
+    if (this._playZombieSample('moan', 0.45, this._pitchForScale(scale))) return
     const ctx = this.ctx
     const now = ctx.currentTime
     const duration = 1.4 + Math.random() * 0.8
@@ -682,9 +695,9 @@ class AudioEngine {
 
   // Short death rattle when a zombie is killed (not used for the exploder,
   // which has its own detonation sound).
-  playZombieDeath() {
+  playZombieDeath(scale) {
     if (!this.ctx) return
-    if (this._playZombieSample('death', 0.5)) return
+    if (this._playZombieSample('death', 0.5, this._pitchForScale(scale))) return
     const ctx = this.ctx
     const now = ctx.currentTime
     const duration = 0.5

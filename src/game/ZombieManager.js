@@ -1213,13 +1213,15 @@ export class ZombieManager {
   _updateAmbientMoan(playerPos) {
     if (performance.now() < this.nextMoanAt) return
 
-    const nearby = this.zombies.some((z) => {
+    // find (not some) so the moan can be pitched for whichever zombie
+    // triggered it (see Audio.js's playZombieMoan/_pitchForScale).
+    const nearby = this.zombies.find((z) => {
       if (z.state !== 'alive' && z.state !== 'dormant') return false
       const dist = Math.hypot(playerPos.x - z.group.position.x, playerPos.z - z.group.position.z)
       return dist <= MOAN_RADIUS
     })
 
-    if (nearby) audioEngine.playZombieMoan()
+    if (nearby) audioEngine.playZombieMoan(nearby.config.scale)
     this.nextMoanAt = performance.now() + this._randomMoanDelay()
   }
 
@@ -1452,7 +1454,7 @@ export class ZombieManager {
         this.pendingRespawns.push({ at: performance.now() + REMOVE_AFTER_DEATH_MS + this.respawnDelay * 1000 })
 
         if (zombie.config.id === 'titan') this.titanAlive = false
-        if (!zombie.config.explodes) audioEngine.playZombieDeath()
+        if (!zombie.config.explodes) audioEngine.playZombieDeath(zombie.config.scale)
         if (onZombieKilled) onZombieKilled(zombie.config.id, zombie.lastHitWeaponId, zombie.group.position.x, zombie.group.position.z, zombie.isElite, !!zombie.isWandering, !!zombie.isGolden, !!zombie.fleeing)
         // Regular kills no longer roll a random loot chance here - see
         // Game.js's _onZombieKilled for the guaranteed every-10th-kill drop.
