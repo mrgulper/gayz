@@ -291,6 +291,12 @@ function loadSettings() {
       // never open the new Graphics tab.
       damageNumbersEnabled: parsed.damageNumbersEnabled ?? true,
       damageNumbersScale: parsed.damageNumbersScale ?? 100,
+      grainIntensity: parsed.grainIntensity ?? 100,
+      panelFlickerEnabled: parsed.panelFlickerEnabled ?? true,
+      // Off by default - an opt-in accessibility enhancement, not a
+      // baseline change to every button/input's default focus styling.
+      focusRingMode: parsed.focusRingMode ?? false,
+      homepageFpsCounter: parsed.homepageFpsCounter ?? false,
       mutators: {
         hordeRush: parsed.mutators?.hordeRush ?? false,
         lootRush: parsed.mutators?.lootRush ?? false,
@@ -323,7 +329,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -508,6 +514,44 @@ const WEEKLY_FEATURED_MUTATOR_BONUS_COINS = 50
 // already promoted separately (the daily-reset spotlight mode), not a
 // "try this mutator" flavor pick.
 const MUTATOR_LABEL_KEYS = {
+  hordeRush: 'mutatorHordeRush',
+  lootRush: 'mutatorLootRush',
+  pureGunplay: 'mutatorPureGunplay',
+  bossRush: 'mutatorBossRush',
+  hordeMode: 'mutatorHordeMode',
+  kingOfTheHill: 'mutatorKoth',
+  extraction: 'mutatorExtraction',
+  healthRegen: 'mutatorHealthRegen',
+  ironMode: 'mutatorIronMode',
+  scavenger: 'mutatorScavenger',
+  glassHouse: 'mutatorGlassHouse',
+  featuredEnemy: 'mutatorFeaturedEnemy',
+  blackout: 'mutatorBlackout',
+  bossGauntlet: 'mutatorBossGauntlet',
+}
+
+// Settings Code (export/import, see _exportSettingsCode/_importSettingsCode)
+// - a deliberate whitelist of pure preference fields (audio/graphics/
+// controls/accessibility), NOT the full settings object. Excludes
+// identity-shaped fields (nickname, companionName, bio, colors tied to a
+// player's identity) since this is meant to be pasted/shared with someone
+// else, unlike Export Save's full-fidelity file backup.
+const SETTINGS_CODE_KEYS = [
+  'musicVolume', 'sfxVolume', 'sensitivity', 'invertY', 'fov', 'hudScale', 'hudOpacity',
+  'colorblind', 'shakeIntensity', 'reduceFlashing', 'toggleSprint', 'toggleCrouch', 'toggleAds',
+  'aimAssist', 'bigInteractPrompt', 'toastDuration', 'crosshairSize', 'largeTextMode',
+  'highContrastMode', 'dyslexiaFont', 'focusRingMode', 'keybindCheatSheet', 'showHitFeedback',
+  'performanceMode', 'bgMood', 'renderResolution', 'brightness', 'contrast', 'aoIntensity',
+  'shadowsEnabled', 'shadowQuality', 'bulletHolesEnabled', 'bloodEffectsEnabled',
+  'damageIndicatorEnabled', 'damageNumbersEnabled', 'damageNumbersScale', 'grainIntensity',
+  'panelFlickerEnabled',
+]
+
+// Setup Code mutator whitelist (see _copySetupCode/_checkSetupCode) -
+// excludes dailyChallenge, same precedent MUTATOR_LABEL_KEYS below already
+// set: that's a distinct system promoted via its own daily-reset spotlight
+// mode, not a "try this mutator" pick a shared setup code should carry.
+const SETUP_CODE_MUTATOR_ELEMENT_KEYS = {
   hordeRush: 'mutatorHordeRush',
   lootRush: 'mutatorLootRush',
   pureGunplay: 'mutatorPureGunplay',
@@ -1479,6 +1523,11 @@ const BURIED_CACHE_INTERACT_RADIUS = 2
 const SECRET_SEQUENCE = ['KeyW', 'KeyW', 'KeyS', 'KeyS', 'KeyA', 'KeyD', 'KeyA', 'KeyD']
 const SECRET_SEQUENCE_BONUS_DURATION_MS = 15000
 const SECRET_SEQUENCE_SPEED_MULT = 1.6
+// Homepage-only Konami code (see _bindKonamiCode) - the classic arrow-key
+// version, unlike SECRET_SEQUENCE above which deliberately avoided arrows
+// because they're a movement fallback in-game. Arrows are unbound on the
+// homepage, so there's no such conflict here.
+const KONAMI_CODE = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'KeyB', 'KeyA']
 // Rare one-time Easter egg (see _maybeTriggerRareEasterEgg) - checked on
 // every night-advance (a low-frequency, natural tick), never more than
 // once per save ever.
@@ -1672,6 +1721,12 @@ const TRIVIA_FACTS = ['triviaFact1', 'triviaFact2', 'triviaFact3', 'triviaFact4'
 // Pure flavor, day-seeded the same way as TRIVIA_FACTS - a silly one-liner,
 // not meant to be taken as real gameplay advice.
 const HOROSCOPES = ['horoscope1', 'horoscope2', 'horoscope3', 'horoscope4', 'horoscope5', 'horoscope6']
+// Dark-comedy flavor lines, day-seeded the same way as HOROSCOPES/
+// TRIVIA_FACTS - pure flavor, not tied to any actual death event.
+const DEATH_QUOTES = ['deathQuote1', 'deathQuote2', 'deathQuote3', 'deathQuote4', 'deathQuote5', 'deathQuote6']
+// Gross/funny variant of TRIVIA_FACTS' lore-trivia pool - same day-seeded
+// pattern, separate array so the two tones don't blend together.
+const FUNNY_TRIVIA = ['funnyTrivia1', 'funnyTrivia2', 'funnyTrivia3', 'funnyTrivia4', 'funnyTrivia5', 'funnyTrivia6']
 // bgMood is reused by _applyBgMood() for the "Auto (Seasonal)" background
 // mood default - same date windows as the banner itself rather than a
 // second parallel date table, so a season only ever needs updating here.
@@ -2815,6 +2870,8 @@ export class Game {
     this.colorblindToggle = document.getElementById('colorblind-toggle')
     this.largeTextToggle = document.getElementById('large-text-toggle')
     this.highContrastToggle = document.getElementById('high-contrast-toggle')
+    this.focusRingToggle = document.getElementById('focus-ring-toggle')
+    this.homepageFpsToggle = document.getElementById('homepage-fps-toggle')
     this.bgMoodSelect = document.getElementById('bg-mood-select')
     this.dyslexiaFontToggle = document.getElementById('dyslexia-font-toggle')
     this.keybindCheatsheetToggle = document.getElementById('keybind-cheatsheet-toggle')
@@ -2841,6 +2898,10 @@ export class Game {
     this.gfxDamageNumbersToggle = document.getElementById('gfx-damage-numbers-toggle')
     this.gfxDamageNumbersScaleSlider = document.getElementById('gfx-damage-numbers-scale-slider')
     this.gfxDamageNumbersScaleValue = document.getElementById('gfx-damage-numbers-scale-value')
+    this.gfxGrainSlider = document.getElementById('gfx-grain-slider')
+    this.gfxGrainValue = document.getElementById('gfx-grain-value')
+    this.gfxPanelFlickerToggle = document.getElementById('gfx-panel-flicker-toggle')
+    this.resetGraphicsDefaultsBtn = document.getElementById('reset-graphics-defaults-btn')
     this.streamSafeModeToggle = document.getElementById('stream-safe-mode-toggle')
     this.toggleSprintToggle = document.getElementById('toggle-sprint-toggle')
     this.toggleCrouchToggle = document.getElementById('toggle-crouch-toggle')
@@ -2890,6 +2951,12 @@ export class Game {
     this.compareSaveInput = document.getElementById('compare-save-input')
     this.compareSaveResult = document.getElementById('compare-save-result')
     this.storageUsageLine = document.getElementById('storage-usage-line')
+    this.copySaveBtn = document.getElementById('copy-save-btn')
+    this.exportSettingsCodeBtn = document.getElementById('export-settings-code-btn')
+    this.importSettingsCodeBtn = document.getElementById('import-settings-code-btn')
+    this.importSettingsCodeInput = document.getElementById('import-settings-code-input')
+    this.importSettingsCodeApplyBtn = document.getElementById('import-settings-code-apply-btn')
+    this.copySetupBtn = document.getElementById('copy-setup-btn')
     this.clearLeaderboardsBtn = document.getElementById('clear-leaderboards-btn')
     this.profilePrintBtn = document.getElementById('profile-print-btn')
     this.printStatsSheet = document.getElementById('print-stats-sheet')
@@ -3742,23 +3809,36 @@ export class Game {
     this.achievementsPanel = document.getElementById('achievements-panel')
     this.achievementsPanelTitle = document.getElementById('achievements-panel-title')
     this.achievementsOptions = document.getElementById('achievements-options')
+    this.achievementsFilterInput = document.getElementById('achievements-filter-input')
     this.bestiaryBtn = document.getElementById('bestiary-btn')
     this.bestiaryPanel = document.getElementById('bestiary-panel')
     this.bestiaryPanelTitle = document.getElementById('bestiary-panel-title')
     this.bestiaryOptions = document.getElementById('bestiary-options')
+    this.bestiaryFilterInput = document.getElementById('bestiary-filter-input')
     this.menuPlayerBadge = document.getElementById('menu-player-badge')
     this.profilePanel = document.getElementById('profile-panel')
     this.profilePanelTitle = document.getElementById('profile-panel-title')
     this.profileOptions = document.getElementById('profile-options')
     this.profileCopyStatsBtn = document.getElementById('profile-copy-stats-btn')
+    this.profileCopyLinkBtn = document.getElementById('profile-copy-link-btn')
+    this.sharedProfileBanner = document.getElementById('shared-profile-banner')
+    this.sharedProfileTitle = document.getElementById('shared-profile-title')
+    this.sharedProfileLine = document.getElementById('shared-profile-line')
+    this.sharedProfileCloseBtn = document.getElementById('shared-profile-close-btn')
     this.profileCareerPortraitBtn = document.getElementById('profile-career-portrait-btn')
     this.killFeedEl = document.getElementById('kill-feed')
     this.tauntTextEl = document.getElementById('taunt-text')
     this.dailyLeaderboardEl = document.getElementById('death-daily-leaderboard')
     this.shareRunCardBtn = document.getElementById('share-run-card-btn')
     this.creditsBtn = document.getElementById('credits-btn')
+    this.menuAriaSummary = document.getElementById('menu-aria-summary')
+    this.rankRoadmapHeading = document.getElementById('rank-roadmap-heading')
+    this.rankRoadmapList = document.getElementById('rank-roadmap-list')
+    this.classComparisonHeading = document.getElementById('class-comparison-heading')
+    this.classComparisonTable = document.getElementById('class-comparison-table')
     this.creditsPanel = document.getElementById('credits-panel')
     this.creditsPanelTitle = document.getElementById('credits-panel-title')
+    this.buildVersionLine = document.getElementById('build-version-line')
     this.coinshopBtn = document.getElementById('coinshop-btn')
     this.coinshopPanel = document.getElementById('coinshop-panel')
     this.coinshopPanelTitle = document.getElementById('coinshop-panel-title')
@@ -4028,6 +4108,14 @@ export class Game {
     this._bindDifficulty()
     this._bindCompanionRole()
     this._bindLoadout()
+    // Must run after the three binds above - _checkSetupCode's payload
+    // apply works by calling .click() on the real difficulty/role/loadout
+    // buttons, which only does anything once their own listeners are
+    // attached. _bindSettings() (called earlier, at the top of the
+    // constructor) runs _checkBeatThisChallenge/_checkViewProfileLink at a
+    // point that predates these binds too, but neither of those touches
+    // these buttons, so only this one actually needed moving.
+    this._checkSetupCode()
     this._bindControlsTab()
     this.perkSkipBtn.addEventListener('click', () => this._closePerkPanel())
     this.perkRerollBtn.addEventListener('click', () => {
@@ -6374,6 +6462,24 @@ export class Game {
         saveSettings(this.settings)
       })
     }
+    if (this.focusRingToggle) {
+      this.focusRingToggle.checked = this.settings.focusRingMode
+      document.documentElement.classList.toggle('focus-ring-mode', this.settings.focusRingMode)
+      this.focusRingToggle.addEventListener('change', () => {
+        this.settings.focusRingMode = this.focusRingToggle.checked
+        document.documentElement.classList.toggle('focus-ring-mode', this.settings.focusRingMode)
+        saveSettings(this.settings)
+      })
+    }
+    if (this.homepageFpsToggle) {
+      this.homepageFpsToggle.checked = this.settings.homepageFpsCounter
+      if (this.settings.homepageFpsCounter) this.fpsEl.style.opacity = '1'
+      this.homepageFpsToggle.addEventListener('change', () => {
+        this.settings.homepageFpsCounter = this.homepageFpsToggle.checked
+        this.fpsEl.style.opacity = (this.settings.homepageFpsCounter || this.gameStarted) ? '1' : '0'
+        saveSettings(this.settings)
+      })
+    }
     if (this.dyslexiaFontToggle) {
       this.dyslexiaFontToggle.checked = this.settings.dyslexiaFont
       document.documentElement.classList.toggle('dyslexia-font', this.settings.dyslexiaFont)
@@ -6573,6 +6679,14 @@ export class Game {
     })
     this.achievementsBtn.addEventListener('click', () => this._openAchievementsPanel())
     this.bestiaryBtn.addEventListener('click', () => this._openBestiaryPanel())
+    if (this.achievementsFilterInput) {
+      this.achievementsFilterInput.addEventListener('click', (e) => e.stopPropagation())
+      this.achievementsFilterInput.addEventListener('input', () => this._renderAchievementsPanel())
+    }
+    if (this.bestiaryFilterInput) {
+      this.bestiaryFilterInput.addEventListener('click', (e) => e.stopPropagation())
+      this.bestiaryFilterInput.addEventListener('input', () => this._renderBestiaryPanel())
+    }
     this.menuPlayerBadge.addEventListener('click', () => this._openProfilePanel())
     this.menuPlayerBadge.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
@@ -6581,6 +6695,10 @@ export class Game {
       }
     })
     this.profileCopyStatsBtn.addEventListener('click', () => this._copyProfileStatsToClipboard())
+    if (this.profileCopyLinkBtn) this.profileCopyLinkBtn.addEventListener('click', () => this._copyProfileLink())
+    if (this.sharedProfileCloseBtn) {
+      this.sharedProfileCloseBtn.addEventListener('click', () => { this.sharedProfileBanner.style.display = 'none' })
+    }
     // Login/Register both trigger the same Google sign-in flow today (see
     // _handleCloudSignIn) - kept as two separate buttons/labels rather than
     // one combined "Sign in with Google" button so a second sign-in method
@@ -6607,6 +6725,8 @@ export class Game {
     this._bindHomepageBatch()
     this._bindCloudSave()
     this._checkBeatThisChallenge()
+    this._checkViewProfileLink()
+    if (this.copySetupBtn) this.copySetupBtn.addEventListener('click', () => this._copySetupCode())
     this.endingContinueBtn.addEventListener('click', () => {
       this.endingPanel.style.display = 'none'
       this.player.controls.lock()
@@ -6790,6 +6910,62 @@ export class Game {
       })
       this._bindEditableSliderValue(this.gfxDamageNumbersScaleValue, this.gfxDamageNumbersScaleSlider)
     }
+
+    // Film Grain - regenerates the shared --grain-texture SVG data URI with
+    // a scaled alpha (0.1 is the original always-on strength) and sets it
+    // on :root, rather than adding a per-usage opacity wrapper around each
+    // of the 4 places --grain-texture is layered into a background-image
+    // list - inline style on :root already beats the stylesheet's own
+    // --grain-texture declaration, so every usage picks it up for free.
+    if (this.gfxGrainSlider) {
+      this.gfxGrainSlider.value = this.settings.grainIntensity
+      this.gfxGrainValue.textContent = `${this.settings.grainIntensity}%`
+      this._applyGrainIntensity()
+      this.gfxGrainSlider.addEventListener('input', () => {
+        const value = Number(this.gfxGrainSlider.value)
+        this.gfxGrainValue.textContent = `${value}%`
+        this.settings.grainIntensity = value
+        this._applyGrainIntensity()
+        saveSettings(this.settings)
+      })
+      this._bindEditableSliderValue(this.gfxGrainValue, this.gfxGrainSlider)
+    }
+
+    // Menu Panel Flicker - the panelFlicker animation on .menu-panel/
+    // .menu-card has no toggle of its own (only prefers-reduced-motion
+    // covers it, see the media query this same batch also extended to
+    // include it); this lets it be turned off regardless of OS setting.
+    if (this.gfxPanelFlickerToggle) {
+      this.gfxPanelFlickerToggle.checked = this.settings.panelFlickerEnabled
+      document.documentElement.classList.toggle('no-panel-flicker', !this.settings.panelFlickerEnabled)
+      this.gfxPanelFlickerToggle.addEventListener('change', () => {
+        this.settings.panelFlickerEnabled = this.gfxPanelFlickerToggle.checked
+        document.documentElement.classList.toggle('no-panel-flicker', !this.settings.panelFlickerEnabled)
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.resetGraphicsDefaultsBtn) {
+      this.resetGraphicsDefaultsBtn.addEventListener('click', () => this._resetGraphicsDefaults())
+    }
+  }
+
+  _applyGrainIntensity() {
+    const alpha = ((this.settings.grainIntensity ?? 100) / 100) * 0.1
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 ${alpha} 0'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>`
+    document.documentElement.style.setProperty('--grain-texture', `url("data:image/svg+xml,${encodeURIComponent(svg)}")`)
+  }
+
+  // Scoped to just the sliders/toggles this batch's Graphics tab actually
+  // owns (not nickname/audio/controls) - reload is the same low-risk
+  // pattern _restoreDefaultSettings already uses, simpler and more
+  // reliable than re-applying every live graphics effect by hand.
+  _resetGraphicsDefaults() {
+    const defaults = defaultSettings()
+    const graphicsKeys = ['renderResolution', 'brightness', 'contrast', 'aoIntensity', 'shadowsEnabled', 'shadowQuality', 'bulletHolesEnabled', 'bloodEffectsEnabled', 'damageIndicatorEnabled', 'damageNumbersEnabled', 'damageNumbersScale', 'grainIntensity', 'panelFlickerEnabled']
+    for (const key of graphicsKeys) this.settings[key] = defaults[key]
+    saveSettings(this.settings)
+    window.location.reload()
   }
 
   _applyGraphicsFilters() {
@@ -6845,6 +7021,18 @@ export class Game {
     this.importSaveInput.addEventListener('change', () => this._importSaveFile(this.importSaveInput.files[0]))
     this.compareSaveBtn.addEventListener('click', () => this.compareSaveInput.click())
     this.compareSaveInput.addEventListener('change', () => this._compareSaveFile(this.compareSaveInput.files[0]))
+    if (this.copySaveBtn) this.copySaveBtn.addEventListener('click', () => this._copySaveToClipboard())
+    if (this.exportSettingsCodeBtn) this.exportSettingsCodeBtn.addEventListener('click', () => this._exportSettingsCode())
+    if (this.importSettingsCodeBtn) {
+      this.importSettingsCodeBtn.addEventListener('click', () => {
+        this.importSettingsCodeInput.style.display = 'inline-block'
+        this.importSettingsCodeApplyBtn.style.display = 'inline-block'
+        this.importSettingsCodeInput.focus()
+      })
+    }
+    if (this.importSettingsCodeApplyBtn) {
+      this.importSettingsCodeApplyBtn.addEventListener('click', () => this._importSettingsCode(this.importSettingsCodeInput.value))
+    }
     this.clearLeaderboardsBtn.addEventListener('click', () => this._clearLeaderboardsOnly())
     this.resetProgressBtn.addEventListener('click', () => this._handleResetProgressClick())
   }
@@ -6895,6 +7083,53 @@ export class Game {
     link.click()
     setTimeout(() => URL.revokeObjectURL(link.href), 1000)
     this._showLoreToast(t('saveExported'))
+  }
+
+  // Same snapshot _exportSave() downloads as a file, copied to the
+  // clipboard as text instead - a one-click backup for anyone who'd
+  // rather paste it somewhere (notes app, chat-to-self) than manage a
+  // downloaded .json file.
+  _copySaveToClipboard() {
+    const data = JSON.stringify(this._snapshotLocalSave())
+    if (!navigator.clipboard) {
+      this._showLoreToast(t('clipboardCopyUnsupported'))
+      return
+    }
+    navigator.clipboard.writeText(data)
+      .then(() => this._showLoreToast(t('saveCopiedToClipboard')))
+      .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
+  }
+
+  // Shareable Settings Code - just the whitelisted preference fields (see
+  // SETTINGS_CODE_KEYS), base64-encoded. Distinct from Export Save (full
+  // fidelity, includes progress/identity, downloads a file) - this is
+  // meant to be pasted into a chat message.
+  _exportSettingsCode() {
+    const payload = {}
+    for (const key of SETTINGS_CODE_KEYS) payload[key] = this.settings[key]
+    const code = btoa(JSON.stringify(payload))
+    if (!navigator.clipboard) {
+      this._showLoreToast(t('clipboardCopyUnsupported'))
+      return
+    }
+    navigator.clipboard.writeText(code)
+      .then(() => this._showLoreToast(t('settingsCodeCopied')))
+      .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
+  }
+
+  _importSettingsCode(code) {
+    let payload
+    try {
+      payload = JSON.parse(atob(code.trim()))
+    } catch {
+      this._showLoreToast(t('settingsCodeInvalid'))
+      return
+    }
+    for (const key of SETTINGS_CODE_KEYS) {
+      if (Object.prototype.hasOwnProperty.call(payload, key)) this.settings[key] = payload[key]
+    }
+    saveSettings(this.settings)
+    window.location.reload()
   }
 
   // Overwrites every current key - same "irreversible, needs a real
@@ -8784,6 +9019,29 @@ export class Game {
       return
     }
 
+    // Best Value tag (guns only) - damage-per-coin using each gun's real
+    // base damage stat vs its real shop cost, both already-tracked numbers
+    // (not a fabricated discount). Skins/hats/perks have no comparable
+    // cross-item unit (a % damage boost, a cosmetic, and companion speed
+    // aren't measured in the same currency), so this deliberately doesn't
+    // extend to those sections rather than fake a metric for them. Only
+    // considers still-unowned guns - already-owned ones don't need a "buy
+    // this" nudge.
+    let bestValueGunId = null
+    {
+      let bestRatio = 0
+      for (const item of COIN_SHOP_ITEMS) {
+        if (!item.gun || item.cost <= 0) continue
+        const w = this.weapons.weapons.find((ww) => ww.id === item.gun)
+        if (w?.unlocked) continue
+        const ratio = (w?.damage || 0) / item.cost
+        if (ratio > bestRatio) {
+          bestRatio = ratio
+          bestValueGunId = item.id
+        }
+      }
+    }
+
     const sections = [
       { id: 'guns', labelKey: 'shopSectionGuns' },
       { id: 'weapons', labelKey: 'shopSectionWeapons' },
@@ -9003,7 +9261,7 @@ export class Game {
           const owned = !!weapon?.unlocked
           btn.disabled = owned || this.coins < item.cost
           btn.innerHTML = `
-            <span class="perk-name">${t(item.titleKey)}</span>
+            <span class="perk-name">${t(item.titleKey)}${item.id === bestValueGunId ? ` <span class="best-value-tag">${t('bestValueTag')}</span>` : ''}</span>
             <span class="perk-cost">${owned ? t('upgradesOwned') : t('coinCostLabel', { n: item.cost })}</span>
           `
           btn.addEventListener('click', () => {
@@ -9097,19 +9355,80 @@ export class Game {
     this._showHomepageToast(t('questClaimedToast', { n: QUESTS.find((q) => q.id === id)?.rewardCoins || 0 }))
     this._renderQuestsPanel()
     this._updateNavCompletionRings()
+    this._updateFaviconQuestBadge()
+  }
+
+  // Favicon Quest Badge - draws the real favicon.svg onto an offscreen
+  // canvas plus a small red count badge (capped display at "9+") when
+  // quests are complete but not yet claimed, then swaps the <link
+  // rel="icon"> href to the resulting data URL. Same-origin SVG, so the
+  // canvas is never tainted and toDataURL works normally. No-ops (leaves
+  // the plain icon alone) if canvas/SVG loading ever fails - a badge that
+  // silently doesn't appear is fine, a thrown error breaking the menu
+  // refresh batch is not.
+  _updateFaviconQuestBadge() {
+    const count = QUESTS.filter((q) => this.quests.isComplete(q, this) && !this.quests.isClaimed(q.id)).length
+    const link = document.querySelector('link[rel="icon"]')
+    if (!link) return
+    if (count <= 0) {
+      if (this._faviconBaseHref) link.href = this._faviconBaseHref
+      return
+    }
+    if (!this._faviconBaseHref) this._faviconBaseHref = link.href
+    if (!this._faviconImg) {
+      this._faviconImg = new Image()
+      this._faviconImg.onload = () => this._updateFaviconQuestBadge()
+      this._faviconImg.src = this._faviconBaseHref
+      return
+    }
+    if (!this._faviconImg.complete || this._faviconImg.naturalWidth === 0) return
+    try {
+      const canvas = document.createElement('canvas')
+      canvas.width = 32
+      canvas.height = 32
+      const ctx = canvas.getContext('2d')
+      ctx.drawImage(this._faviconImg, 0, 0, 32, 32)
+      ctx.beginPath()
+      ctx.arc(24, 8, 8, 0, Math.PI * 2)
+      ctx.fillStyle = '#d3392f'
+      ctx.fill()
+      ctx.strokeStyle = '#1a1a1a'
+      ctx.lineWidth = 1.5
+      ctx.stroke()
+      ctx.fillStyle = '#fff'
+      ctx.font = 'bold 10px sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(count > 9 ? '9+' : String(count), 24, 9)
+      link.href = canvas.toDataURL('image/png')
+    } catch {
+      // Best-effort - leave whatever icon is currently set.
+    }
   }
 
   _openAchievementsPanel() {
     this.achievementsPanel.style.display = 'flex'
     this.achievementsPanelTitle.textContent = t('achievementsPanelTitle')
+    if (this.achievementsFilterInput) this.achievementsFilterInput.placeholder = t('achievementsFilterPlaceholder')
+    this._renderAchievementsPanel()
+  }
+
+  // Filters against the DISPLAYED name only (not the real underlying
+  // title) - a locked entry always shows '???' (see the loop below), same
+  // spoiler-avoidance precedent as everywhere else in this panel, so
+  // typing a real achievement name never reveals a locked one early.
+  _renderAchievementsPanel() {
+    const filter = (this.achievementsFilterInput?.value || '').trim().toLowerCase()
     this.achievementsOptions.innerHTML = ''
     for (const ach of ACHIEVEMENTS) {
       const unlocked = this.achievements.unlocked.has(ach.id)
+      const name = unlocked ? t(ach.titleKey) : '???'
+      if (filter && !name.toLowerCase().includes(filter)) continue
       const btn = document.createElement('button')
       btn.className = 'perk-option'
       btn.disabled = true
       btn.innerHTML = `
-        <span class="perk-name">${unlocked ? t(ach.titleKey) : '???'}</span>
+        <span class="perk-name">${name}</span>
         <span class="perk-cost">${unlocked ? t('achievementUnlocked') : (ach.hintKey ? t(ach.hintKey) : t('achievementLocked'))}</span>
       `
       this.achievementsOptions.appendChild(btn)
@@ -9123,14 +9442,22 @@ export class Game {
   _openBestiaryPanel() {
     this.bestiaryPanel.style.display = 'flex'
     this.bestiaryPanelTitle.textContent = t('bestiaryPanelTitle')
+    if (this.bestiaryFilterInput) this.bestiaryFilterInput.placeholder = t('bestiaryFilterPlaceholder')
+    this._renderBestiaryPanel()
+  }
+
+  _renderBestiaryPanel() {
+    const filter = (this.bestiaryFilterInput?.value || '').trim().toLowerCase()
     this.bestiaryOptions.innerHTML = ''
     for (const type of Object.values(ZOMBIE_TYPES)) {
       const known = this.bestiaryEncountered.has(type.id)
+      const name = known ? type.label : '???'
+      if (filter && !name.toLowerCase().includes(filter)) continue
       const btn = document.createElement('button')
       btn.className = 'perk-option'
       btn.disabled = true
       btn.innerHTML = `
-        <span class="perk-name">${known ? type.label : '???'}</span>
+        <span class="perk-name">${name}</span>
         <span class="perk-cost">${known ? t('achievementUnlocked') : t('achievementLocked')}</span>
         <span class="perk-lore">${known ? type.lore : t('bestiaryUnknown')}</span>
       `
@@ -9429,6 +9756,14 @@ export class Game {
     this._updateNavCompletionRings()
     this._checkKillMilestones()
     this._updateWeeklyProgressBar()
+    this._updateFaviconQuestBadge()
+    if (this.menuAriaSummary) {
+      this.menuAriaSummary.textContent = t('menuAriaSummary', {
+        night: _safeStatNumber(this.bestStats.bestNight),
+        kills: _safeStatNumber(this.careerStats.totalKills),
+        coins: _safeStatNumber(this.coins),
+      })
+    }
   }
 
   // Player tag - factored out of _updateBestStatsDisplay (also fired on
@@ -9581,6 +9916,10 @@ export class Game {
         // display elsewhere), reusing the exact fetchTopWeeklyLeaderboard
         // the Cloud Save panel's weekly leaderboard list already calls.
         CloudSync.fetchTopWeeklyLeaderboard(_thisWeekStr(), 5).then((entries) => {
+          // #1 specifically cached separately from the random MVP pick
+          // below - mode 24's Most Improved check needs the real #1, not
+          // whichever of the top 5 got randomly chosen for the MVP line.
+          if (entries.length) this._spotlightWeeklyTop1 = entries[0]
           if (entries.length) this._spotlightWeeklyMvp = entries[Math.floor(Math.random() * entries.length)]
         }).catch(() => {})
         // Head-to-head rival - same fetchNearestRivalAbove the Cloud Save
@@ -9591,7 +9930,7 @@ export class Game {
       }
     }
     const render = () => {
-      const mode = (this._spotlightIndex || 0) % 21
+      const mode = (this._spotlightIndex || 0) % 26
       if (mode === 0) {
         const tipKey = SPOTLIGHT_TIPS[Math.floor(Date.now() / 60000) % SPOTLIGHT_TIPS.length]
         this.menuSpotlight.textContent = t('spotlightTipPrefix', { tip: t(tipKey) })
@@ -9768,6 +10107,42 @@ export class Game {
           }).length
           if (newCount > 0) this.menuSpotlight.textContent = t('spotlightChangelogDiff', { n: newCount })
         }
+      } else if (mode === 21) {
+        const key = DEATH_QUOTES[_dailyTwistIndex(_todayDateStr() + 'deathquote') % DEATH_QUOTES.length]
+        this.menuSpotlight.textContent = t(key)
+      } else if (mode === 22) {
+        const key = FUNNY_TRIVIA[_dailyTwistIndex(_todayDateStr() + 'funnytrivia') % FUNNY_TRIVIA.length]
+        this.menuSpotlight.textContent = t(key)
+      } else if (mode === 23) {
+        // Silly title generator - a template picked by career-rank tier
+        // (same CAREER_RANK_TITLES lookup _updateSeasonProgress already
+        // uses) combined with the current loadout, so it changes as the
+        // player actually progresses/switches builds rather than being
+        // purely random noise.
+        let tierIndex = 0
+        for (let i = 0; i < CAREER_RANK_TITLES.length; i++) {
+          if (this.careerStats.totalKills >= CAREER_RANK_TITLES[i].min) tierIndex = i
+        }
+        const titleKeys = ['sillyTitleTier0', 'sillyTitleTier1', 'sillyTitleTier2', 'sillyTitleTier3', 'sillyTitleTier4']
+        this.menuSpotlight.textContent = t('spotlightSillyTitle', { title: t(titleKeys[tierIndex], { loadout: t(LOADOUT_LABEL_KEYS[this.settings.loadout]) }) })
+      } else if (mode === 24 && this._spotlightWeeklyTop1 && this.settings.nickname) {
+        // Most Improved badge on your own tag - the weekly leaderboard's
+        // #1 entry already effectively means "most improved this week"
+        // (same reasoning as the existing weekly-leaderboard label per
+        // CLAUDE.md) - checks the real #1 (cached separately above, not
+        // the randomly-picked Weekly MVP), reusing the same
+        // fetchTopWeeklyLeaderboard call rather than a second fetch.
+        if (this._spotlightWeeklyTop1.name === this.settings.nickname) {
+          this.menuSpotlight.textContent = t('spotlightMostImproved')
+        }
+      } else if (mode === 25) {
+        // Session uptime - reuses _sessionStartTime (already tracked for
+        // the "Today" session-stats line, see _renderTodayLine), not a
+        // second timestamp.
+        const totalSeconds = Math.floor((performance.now() - this._sessionStartTime) / 1000)
+        const mins = Math.floor(totalSeconds / 60)
+        const secs = totalSeconds % 60
+        this.menuSpotlight.textContent = t('spotlightSessionUptime', { time: `${mins}:${String(secs).padStart(2, '0')}` })
       }
       this._spotlightIndex = (this._spotlightIndex || 0) + 1
     }
@@ -10053,6 +10428,7 @@ export class Game {
     }
     if (this.beatThisBtn) this.beatThisBtn.addEventListener('click', () => this._copyBeatThisLink())
     this._renderMenuPresets()
+    this._bindKonamiCode()
 
     if (this.profileBioInput) {
       this.profileBioInput.addEventListener('input', () => {
@@ -11224,6 +11600,7 @@ export class Game {
   _openCreditsPanel() {
     this.creditsPanel.style.display = 'flex'
     this.creditsPanelTitle.textContent = t('creditsPanelTitle')
+    if (this.buildVersionLine) this.buildVersionLine.textContent = t('buildVersionLine', { hash: __BUILD_HASH__, date: __BUILD_DATE__ })
     // What's New badge dot - clears the moment the player actually reads
     // this panel, not just on page load, so it stays a genuine "have you
     // seen this" indicator rather than a permanent decoration.
@@ -11820,6 +12197,14 @@ export class Game {
       // above, just reading weaponMastery.kills and bestStats instead.
       [t('profileFavoriteWeapon'), _escapeHtml(this._favoriteWeaponLabel())],
       [t('profileWinRate'), this.runHistory.length > 0 ? `${Math.round((this.runHistory.filter((r) => r.survived).length / this.runHistory.length) * 100)}%` : '—'],
+      // 100-features batch - 4 more pure-derived rows, same "zero new
+      // tracking" reasoning as completionPct/Career Almanac above.
+      [t('profileKillsPerMin'), _safeStatNumber(this.careerStats.lifetimePlaytimeSeconds) > 0
+        ? (_safeStatNumber(this.careerStats.totalKills) / (_safeStatNumber(this.careerStats.lifetimePlaytimeSeconds) / 60)).toFixed(1)
+        : '—'],
+      [t('profileCoinsRatio'), `${_safeStatNumber(this.careerStats.lifetimeCoinsEarned).toLocaleString()} / ${_safeStatNumber(this.totalSpent).toLocaleString()}`],
+      [t('profileWeaponsMastered'), `${this.weaponMastery.mastered.size + this.weaponMastery.grandmastered.size}/${this.weapons.weapons.length}`],
+      [t('profileCompanionLegacy'), _safeStatNumber(this.companionLegacy.level)],
     ]
     this.profileOptions.innerHTML = rows.map(([label, value]) => `
       <button class="perk-option" disabled>
@@ -11847,6 +12232,49 @@ export class Game {
     this._renderPercentileLine()
     this._renderFavoriteDifficultyLine()
     this._renderBestRunCard()
+    this._renderRankRoadmap()
+    this._renderClassComparison()
+  }
+
+  // Rank Roadmap - all CAREER_RANK_TITLES tiers at once (the homepage/
+  // spotlight ticker only ever shows the CURRENT tier one at a time), with
+  // the reached ones checked off and the current one highlighted, so a
+  // player can see the whole ladder rather than just where they stand
+  // right now.
+  _renderRankRoadmap() {
+    if (!this.rankRoadmapList) return
+    if (this.rankRoadmapHeading) this.rankRoadmapHeading.textContent = t('rankRoadmapHeading')
+    const kills = _safeStatNumber(this.careerStats.totalKills)
+    this.rankRoadmapList.innerHTML = CAREER_RANK_TITLES.map((tier, i) => {
+      const reached = kills >= tier.min
+      const isCurrent = reached && (i === CAREER_RANK_TITLES.length - 1 || kills < CAREER_RANK_TITLES[i + 1].min)
+      return `
+        <button class="perk-option${isCurrent ? ' active' : ''}" disabled>
+          <span class="perk-name">${reached ? '✓ ' : ''}${t(tier.titleKey)}</span>
+          <span class="perk-cost">${t('rankRoadmapThreshold', { n: tier.min.toLocaleString() })}</span>
+        </button>
+      `
+    }).join('')
+  }
+
+  // Class Comparison - the real, honest per-loadout stat deltas from
+  // LOADOUT_PRESETS (moveSpeedDelta/maxHealthMult/maxStaminaDelta), the
+  // exact same numbers _applyLoadout uses, not a separately-hand-written
+  // description that could drift out of sync with what the class actually
+  // does.
+  _renderClassComparison() {
+    if (!this.classComparisonTable) return
+    if (this.classComparisonHeading) this.classComparisonHeading.textContent = t('classComparisonHeading')
+    this.classComparisonTable.innerHTML = Object.entries(LOADOUT_PRESETS).map(([id, preset]) => `
+      <button class="perk-option" disabled>
+        <span class="perk-name">${t(LOADOUT_LABEL_KEYS[id])}</span>
+        <span class="perk-cost">${t('classComparisonLine', {
+          speed: preset.moveSpeedDelta > 0 ? `+${preset.moveSpeedDelta}` : preset.moveSpeedDelta,
+          health: Math.round(preset.maxHealthMult * 100),
+          stamina: preset.maxStaminaDelta > 0 ? `+${preset.maxStaminaDelta}` : preset.maxStaminaDelta,
+        })}</span>
+      </button>
+    `).join('')
   }
 
   // Avatar picker - two preset portraits (male/female) the player can pick
@@ -12150,6 +12578,113 @@ export class Game {
     }
   }
 
+  // Copy My Setup - encodes difficulty + loadout class + companion role +
+  // active mutators as a ?setup= URL param, same base64-in-a-link
+  // technique as _copyBeatThisLink above, but for "try my build" instead
+  // of a stat comparison. Distinct from _saveMenuPreset (local-only, up to
+  // 3 saved presets) and _copyLoadoutCode (weapon hotbar only).
+  _copySetupCode() {
+    const activeMutators = Object.keys(SETUP_CODE_MUTATOR_ELEMENT_KEYS).filter((k) => this.settings.mutators[k])
+    const payload = { d: this.settings.difficulty, l: this.settings.loadout, r: this.settings.companionRole, m: activeMutators }
+    const encoded = encodeURIComponent(btoa(JSON.stringify(payload)))
+    const url = `${location.origin}${location.pathname}?setup=${encoded}`
+    if (!navigator.clipboard) {
+      this._showHomepageToast(t('clipboardCopyUnsupported'))
+      return
+    }
+    navigator.clipboard.writeText(url)
+      .then(() => this._showHomepageToast(t('setupLinkCopied')))
+      .catch(() => this._showHomepageToast(t('clipboardCopyUnsupported')))
+  }
+
+  // Reads a ?setup=... param left by _copySetupCode above (if any) and
+  // clicks the real buttons to apply it (same .click()-the-real-button
+  // technique _loadMenuPreset/_surpriseMe already use, so every other
+  // listener tied to those clicks still fires normally). Best-effort, same
+  // untrusted-URL-input caution as _checkBeatThisChallenge.
+  _checkSetupCode() {
+    try {
+      const raw = new URLSearchParams(location.search).get('setup')
+      if (!raw) return
+      const payload = JSON.parse(atob(decodeURIComponent(raw)))
+      if (typeof payload.d === 'string') {
+        const diffBtn = Array.from(this.difficultyBtns).find((b) => b.dataset.difficulty === payload.d)
+        if (diffBtn && diffBtn.style.display !== 'none') diffBtn.click()
+      }
+      if (typeof payload.l === 'string') {
+        const loadoutBtn = Array.from(this.loadoutBtns).find((b) => b.dataset.loadout === payload.l)
+        if (loadoutBtn) loadoutBtn.click()
+      }
+      if (typeof payload.r === 'string') {
+        const roleBtn = Array.from(this.roleBtns).find((b) => b.dataset.role === payload.r)
+        if (roleBtn) roleBtn.click()
+      }
+      if (Array.isArray(payload.m)) {
+        for (const key of payload.m) {
+          const el = this[SETUP_CODE_MUTATOR_ELEMENT_KEYS[key]]
+          if (el && !el.checked) el.click()
+        }
+      }
+      this._showHomepageToast(t('setupLinkApplied'))
+    } catch {
+      // Malformed/tampered param - silently ignored, see comment above.
+    }
+  }
+
+  // Shareable public Profile link - same base64-in-a-URL technique as
+  // _copyBeatThisLink/_copySetupCode, but carries a wider read-only stat
+  // snapshot (not just a head-to-head comparison) for the #shared-profile-
+  // banner below to display.
+  _copyProfileLink() {
+    const payload = {
+      n: this.settings.nickname || t('menuPlayerTagDefault'),
+      tr: _safeStatNumber(this.careerStats.totalRuns),
+      tk: _safeStatNumber(this.careerStats.totalKills),
+      bn: _safeStatNumber(this.bestStats.bestNight),
+      bk: _safeStatNumber(this.bestStats.bestKills),
+      ach: this.achievements.unlocked.size,
+      achTotal: ACHIEVEMENTS.length,
+      fw: this._favoriteWeaponLabel(),
+    }
+    const encoded = encodeURIComponent(btoa(JSON.stringify(payload)))
+    const url = `${location.origin}${location.pathname}?viewprofile=${encoded}`
+    if (!navigator.clipboard) {
+      this._showLoreToast(t('clipboardCopyUnsupported'))
+      return
+    }
+    navigator.clipboard.writeText(url)
+      .then(() => this._showLoreToast(t('profileLinkCopied')))
+      .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
+  }
+
+  // Reads a ?viewprofile=... param left by _copyProfileLink above (if any)
+  // and shows the read-only #shared-profile-banner - untrusted URL input,
+  // same best-effort try/catch caution as _checkBeatThisChallenge/
+  // _checkSetupCode. Set via .textContent (not innerHTML) below, so no
+  // _escapeHtml needed - the browser never interprets this as markup.
+  _checkViewProfileLink() {
+    try {
+      const raw = new URLSearchParams(location.search).get('viewprofile')
+      if (!raw || !this.sharedProfileBanner) return
+      const p = JSON.parse(atob(decodeURIComponent(raw)))
+      const name = typeof p.n === 'string' ? p.n.slice(0, 20) : '???'
+      const weapon = typeof p.fw === 'string' ? p.fw.slice(0, 40) : '?'
+      this.sharedProfileTitle.textContent = t('sharedProfileTitle', { name })
+      this.sharedProfileLine.textContent = t('sharedProfileLine', {
+        runs: _safeStatNumber(p.tr),
+        kills: _safeStatNumber(p.tk),
+        night: _safeStatNumber(p.bn),
+        bestKills: _safeStatNumber(p.bk),
+        ach: _safeStatNumber(p.ach),
+        achTotal: _safeStatNumber(p.achTotal),
+        weapon,
+      })
+      this.sharedProfileBanner.style.display = 'block'
+    } catch {
+      // Malformed/tampered param - silently ignored, see comment above.
+    }
+  }
+
   // Career Almanac helper (see _openProfilePanel) - the single highest kill
   // tally in weaponMastery.kills, purely derived from data that system
   // already tracks for the mastery/grandmaster thresholds.
@@ -12285,6 +12820,28 @@ export class Game {
       this.player.adrenalineMult = SECRET_SEQUENCE_SPEED_MULT
       this._showLoreToast(t('secretSequenceActivated'))
     }
+  }
+
+  // Homepage Konami code (see KONAMI_CODE's own comment) - purely cosmetic
+  // (a toast + brief CSS flourish on #menu), no gameplay effect at all,
+  // unlike _checkSecretSequence above. Only listens while still on the
+  // menu (!gameStarted) - once a run starts, arrow keys are free to mean
+  // whatever gameplay already binds them to.
+  _bindKonamiCode() {
+    this._konamiBuffer = []
+    window.addEventListener('keydown', (e) => {
+      if (this.gameStarted) return
+      this._konamiBuffer.push(e.code)
+      if (this._konamiBuffer.length > KONAMI_CODE.length) this._konamiBuffer.shift()
+      if (this._konamiBuffer.length === KONAMI_CODE.length && this._konamiBuffer.every((c, i) => c === KONAMI_CODE[i])) {
+        this._konamiBuffer = []
+        this._showHomepageToast(t('konamiActivated'))
+        if (this.menu) {
+          this.menu.classList.add('konami-flourish')
+          setTimeout(() => this.menu.classList.remove('konami-flourish'), 2000)
+        }
+      }
+    })
   }
 
   _updateSecretSequenceBonus() {

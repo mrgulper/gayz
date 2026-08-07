@@ -249,6 +249,12 @@
 
       <div id="lore-toast"></div>
 
+      <div id="shared-profile-banner" style="display: none">
+        <button id="shared-profile-close-btn" aria-label="Close">&times;</button>
+        <h3 id="shared-profile-title"></h3>
+        <p id="shared-profile-line"></p>
+      </div>
+
       <div id="companion-bark"></div>
 
       <div id="kill-feed"></div>
@@ -282,6 +288,7 @@
       </div>
 
       <div id="menu">
+        <div id="menu-aria-summary" class="sr-only" aria-live="polite"></div>
         <div id="menu-bg" aria-hidden="true">
           <div id="menu-bg-photo"></div>
           <div id="menu-bg-embers"></div>
@@ -349,6 +356,7 @@
                 <button class="mini-action-btn" id="surprise-me-btn" type="button">Surprise Me</button>
                 <button class="mini-action-btn" id="quick-keybinds-btn" type="button">Keybinds</button>
                 <button class="mini-action-btn" id="beat-this-btn" type="button">Beat This</button>
+                <button class="mini-action-btn" id="copy-setup-btn" type="button">Copy My Setup</button>
                 <div id="menu-preset-chips"></div>
               </div>
             </section>
@@ -658,6 +666,15 @@
               <option value="high">High</option>
             </select>
           </div>
+          <div class="audio-row">
+            <label for="gfx-grain-slider" id="gfx-grain-label">Film Grain</label>
+            <input type="range" id="gfx-grain-slider" min="0" max="100" value="100" />
+            <span id="gfx-grain-value" class="audio-value">100%</span>
+          </div>
+          <div class="audio-row">
+            <label for="gfx-panel-flicker-toggle" id="gfx-panel-flicker-label">Menu Panel Flicker</label>
+            <input type="checkbox" id="gfx-panel-flicker-toggle" class="audio-checkbox" checked />
+          </div>
 
           <h3 class="settings-section-heading">Effects</h3>
           <div class="audio-row">
@@ -685,6 +702,7 @@
             <input type="range" id="gfx-damage-numbers-scale-slider" min="50" max="150" value="100" />
             <span id="gfx-damage-numbers-scale-value" class="audio-value">100%</span>
           </div>
+          <button id="reset-graphics-defaults-btn">Reset Graphics to Defaults</button>
         </div>
 
         <div class="settings-page" id="settings-page-controls" style="display: none">
@@ -729,6 +747,10 @@
             <input type="checkbox" id="high-contrast-toggle" class="audio-checkbox" />
           </div>
           <div class="audio-row">
+            <label for="focus-ring-toggle" id="focus-ring-label">Visible Keyboard Focus Ring</label>
+            <input type="checkbox" id="focus-ring-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
             <label for="bg-mood-select" id="bg-mood-label">Homepage Background Mood</label>
             <select id="bg-mood-select">
               <option value="auto">Auto (Seasonal)</option>
@@ -749,6 +771,10 @@
           <div class="audio-row">
             <label for="performance-toggle" id="performance-label">FPS Optimized (lower graphics quality)</label>
             <input type="checkbox" id="performance-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="homepage-fps-toggle" id="homepage-fps-label">Show FPS Counter on Homepage</label>
+            <input type="checkbox" id="homepage-fps-toggle" class="audio-checkbox" />
           </div>
           <div class="audio-row">
             <label for="shake-intensity-slider" id="shake-intensity-label">Camera Shake &amp; Motion</label>
@@ -816,6 +842,11 @@
             <button id="compare-save-btn">Compare Save</button>
             <input type="file" id="compare-save-input" accept="application/json" style="display: none" />
             <p id="compare-save-result" style="display: none"></p>
+            <button id="copy-save-btn">Copy Save to Clipboard</button>
+            <button id="export-settings-code-btn">Copy Settings Code</button>
+            <button id="import-settings-code-btn">Paste Settings Code</button>
+            <input type="text" id="import-settings-code-input" class="nickname-input" placeholder="Paste settings code" style="display: none" />
+            <button id="import-settings-code-apply-btn" style="display: none">Apply Settings Code</button>
             <button id="clear-leaderboards-btn">Clear Leaderboards Only</button>
           </div>
           <button id="reset-progress-btn" class="danger-btn">Reset All Progress</button>
@@ -960,12 +991,14 @@
 
       <div id="achievements-panel">
         <h2 id="achievements-panel-title">Achievements</h2>
+        <input type="text" id="achievements-filter-input" class="nickname-input" placeholder="Filter achievements..." />
         <div class="perk-options" id="achievements-options"></div>
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>
 
       <div id="bestiary-panel">
         <h2 id="bestiary-panel-title">Bestiary</h2>
+        <input type="text" id="bestiary-filter-input" class="nickname-input" placeholder="Filter bestiary..." />
         <div class="perk-options" id="bestiary-options"></div>
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>
@@ -981,6 +1014,10 @@
         </div>
 
         <div class="perk-options" id="profile-options"></div>
+        <h3 id="rank-roadmap-heading">Rank Roadmap</h3>
+        <div id="rank-roadmap-list"></div>
+        <h3 id="class-comparison-heading">Class Comparison</h3>
+        <div id="class-comparison-table"></div>
         <h3 id="profile-avatar-heading">Avatar</h3>
         <div id="profile-avatar-row"></div>
 
@@ -1015,6 +1052,7 @@
         <p id="profile-weekly-recap-line" style="display: none"></p>
         <button id="profile-career-portrait-btn" style="display: none">Save Career Portrait</button>
         <button id="profile-copy-stats-btn">Copy Stats</button>
+        <button id="profile-copy-link-btn">Copy Shareable Profile Link</button>
         <button id="profile-print-btn">Print Stats Sheet</button>
         <div id="profile-account-signed-in" style="display: none">
           <button id="profile-signout-btn" type="button">Sign Out</button>
@@ -1032,6 +1070,7 @@
           <p>Built solo as a hobby project. Thanks for playing.</p>
           <h3>Assets</h3>
           <p>3D models courtesy of Kenney.nl, Quaternius, and the poly.pizza community, all under CC0 &mdash; free for any use, no attribution required, credited here anyway because their work made this game possible.</p>
+          <p id="build-version-line"></p>
           <h3>What's New</h3>
           <div id="changelog-list">
             <div class="changelog-entry"><span class="changelog-date">Jul 30, 2026</span><span class="changelog-text">Global leaderboard, rank badges, friend comparison, a community poll, and a dozen more small homepage upgrades (login streak calendar, achievement hints, sound test buttons, and more).</span></div>

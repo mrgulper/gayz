@@ -2,6 +2,22 @@
   box-sizing: border-box;
 }
 
+/* Visually hidden but still reachable by screen readers - standard
+   clip-based technique (display:none/visibility:hidden would remove it
+   from the accessibility tree too, defeating the point). Used by the
+   homepage's aria-live stat summary region. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 html, body {
   margin: 0;
   padding: 0;
@@ -1461,6 +1477,51 @@ body.reduce-flashing #critical-blood-overlay.show {
   100% { opacity: 0; transform: translateX(20px); }
 }
 
+/* Shared Profile Link banner - shown only when arriving via a ?viewprofile=
+   link (see _checkViewProfileLink), hidden otherwise. Fixed position so it
+   never participates in #menu-layout's zero-scroll height budget - this
+   only ever appears on a deliberate share-link visit, not normal homepage
+   use. */
+#shared-profile-banner {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 16;
+  max-width: min(520px, 90vw);
+  background: rgba(10, 8, 6, 0.92);
+  border: 2px solid var(--menu-gold, #e0b13e);
+  border-radius: 6px;
+  padding: 14px 40px 14px 18px;
+  color: #e8e0c8;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+#shared-profile-banner h3 {
+  margin: 0 0 6px;
+  color: var(--menu-gold, #e0b13e);
+  font-size: 16px;
+}
+
+#shared-profile-banner p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+#shared-profile-close-btn {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: #e8e0c8;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
 #lore-toast {
   position: absolute;
   bottom: 130px;
@@ -2340,6 +2401,22 @@ body.reduce-flashing #critical-blood-overlay.show {
   font-weight: 700;
 }
 
+/* Best Value tag (Coin Shop guns, see _renderCoinShopOptions) - a small
+   inline badge, not a separate row, so it doesn't add height to the shop
+   grid. */
+.best-value-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  color: #1a1a1a;
+  background: #7fd88f;
+  border-radius: 3px;
+  padding: 1px 5px;
+  margin-left: 4px;
+  vertical-align: middle;
+  text-transform: uppercase;
+}
+
 .perk-option .perk-cost {
   font-size: 12px;
   color: #ffcf5c;
@@ -2993,9 +3070,40 @@ html.bg-mood-amber #menu-bg-photo {
   #menu-bg-embers,
   #menu-bg-rain,
   #menu-bg-ash,
-  #menu-bg-fog {
+  #menu-bg-fog,
+  .menu-panel,
+  .menu-card,
+  #menu.konami-flourish {
     animation: none;
   }
+}
+
+/* Konami code easter egg (see _bindKonamiCode) - a brief, purely cosmetic
+   hue-shift flourish, auto-removed after 2s. */
+#menu.konami-flourish {
+  animation: konamiFlourish 2s ease-in-out;
+}
+
+@keyframes konamiFlourish {
+  0%, 100% { filter: none; }
+  50% { filter: hue-rotate(180deg) saturate(1.6); }
+}
+
+/* Menu Panel Flicker toggle (Graphics tab) - same effect as the
+   reduced-motion query above, but explicit and independent of the OS
+   setting. */
+html.no-panel-flicker .menu-panel,
+html.no-panel-flicker .menu-card {
+  animation: none;
+}
+
+/* Visible Keyboard Focus Ring (Controls tab) - an opt-in, consistent
+   focus outline across every interactive element, for players whose
+   browser/OS default focus ring is too faint against this game's dark
+   palette to rely on. */
+html.focus-ring-mode *:focus-visible {
+  outline: 3px solid var(--menu-gold, #e0b13e);
+  outline-offset: 2px;
 }
 
 /* Flat dark wash, tinted to match the game's dark green-black palette
