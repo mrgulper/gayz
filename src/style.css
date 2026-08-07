@@ -2139,7 +2139,8 @@ body.reduce-flashing #critical-blood-overlay.show {
   padding: 5px 4px;
   font-size: 10px;
   color: #eee;
-  background: rgba(255, 255, 255, 0.04);
+  /* Always-on gold wash (see the homepage note near #menu-player-badge). */
+  background: rgba(227, 166, 60, 0.07);
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 6px;
   cursor: pointer;
@@ -2160,6 +2161,13 @@ body.reduce-flashing #critical-blood-overlay.show {
   font-size: 9px;
 }
 
+/* .perk-option is the shared tile used across Shop, Upgrades,
+   Achievements, Bestiary, and the Profile stat grid - the always-on
+   subtle gold background (see the homepage note near #menu-player-badge)
+   goes here once rather than in each panel separately, so extending it
+   to "everywhere clickable" covers all of them in one place. Special
+   variants below (.featured/.best-deal/.salvage/.blackmarket) keep
+   their own distinct accent colors, deliberately not overridden. */
 .perk-option {
   display: flex;
   flex-direction: column;
@@ -2167,7 +2175,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   gap: 8px;
   width: 160px;
   padding: 18px 14px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(227, 166, 60, 0.07);
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
   color: #eee;
@@ -2535,7 +2543,8 @@ body.reduce-flashing #critical-blood-overlay.show {
   font-weight: 600;
   letter-spacing: 0.5px;
   color: rgba(255, 255, 255, 0.6);
-  background: transparent;
+  /* Always-on gold wash (see the homepage note near #menu-player-badge). */
+  background: rgba(227, 166, 60, 0.07);
   border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 6px;
   cursor: pointer;
