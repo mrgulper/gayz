@@ -133,6 +133,9 @@ const WEAPONS = [
     unlocked: true,
     shakeIntensity: 0.05,
     shakeDuration: 90,
+    // Weapon weight (see PlayerController's weaponWeightMult) - one-handed
+    // sidearms let you move a touch faster than your default speed.
+    light: true,
   },
   {
     id: 'minigun',
@@ -143,6 +146,9 @@ const WEAPONS = [
     magSize: 150,
     reserve: 450,
     damage: 12,
+    // Weapon weight (see PlayerController's weaponWeightMult) - the belt-fed
+    // ammo box drags on movement while it's your active weapon.
+    heavy: true,
     // Barely-there per-shot kick - at this fire rate it reads as a
     // continuous low rumble rather than distinct shake events.
     shakeIntensity: 0.02,
@@ -205,6 +211,7 @@ const WEAPONS = [
     unlocked: false,
     shakeIntensity: 0.03,
     shakeDuration: 60,
+    light: true,
   },
   {
     id: 'flamethrower',
@@ -214,6 +221,9 @@ const WEAPONS = [
     reloadTime: 2.2,
     magSize: 100,
     reserve: 200,
+    // Weapon weight (see PlayerController's weaponWeightMult) - the fuel
+    // tank on your back weighs you down while it's equipped.
+    heavy: true,
     // Low per-tick damage, very short range, wide cone (spread) - the fast
     // fireInterval above is what actually reads as "continuous stream"
     // rather than a real DoT/particle system, same "reuse the existing
@@ -245,6 +255,8 @@ const WEAPONS = [
     unlocked: false,
     shakeIntensity: 0.12,
     shakeDuration: 180,
+    // Weapon weight (see PlayerController's weaponWeightMult).
+    heavy: true,
   },
   {
     id: 'crossbow',
@@ -283,6 +295,8 @@ const WEAPONS = [
     unlocked: false,
     shakeIntensity: 0.1,
     shakeDuration: 160,
+    // Weapon weight (see PlayerController's weaponWeightMult).
+    heavy: true,
   },
   {
     id: 'suppressedsmg',
@@ -301,6 +315,9 @@ const WEAPONS = [
     unlocked: false,
     shakeIntensity: 0.025,
     shakeDuration: 60,
+    // Weapon weight (see PlayerController's weaponWeightMult) - a cheap
+    // stealth spray weapon should also feel nimble to carry.
+    light: true,
   },
   {
     id: 'nailgun',

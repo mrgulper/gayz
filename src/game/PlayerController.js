@@ -179,6 +179,9 @@ export class PlayerController {
     this.environmentMult = 1
     this.puddleMult = 1
     this.warmthStaminaMult = 1
+    // Weapon weight (see Game.js's per-frame set from weapons.current.heavy/
+    // light) - same "recomputed live every frame" shape as corpsePileMult.
+    this.weaponWeightMult = 1
     this.isSprinting = false
     this.isCrouching = false
     this.isProne = false
@@ -253,6 +256,7 @@ export class PlayerController {
     this.corpsePileMult = 1
     this.webSlowMult = 1
     this.warmthStaminaMult = 1
+    this.weaponWeightMult = 1
     this.isCrouching = false
     this.isProne = false
     this._lastCrouchPressAt = 0
@@ -517,6 +521,7 @@ export class PlayerController {
       // fight over the same field, flickering between the two speeds every
       // tick depending on which check happened to run last.
       speedMultiplier *= this.puddleMult
+      speedMultiplier *= this.weaponWeightMult
 
       if (this.slipFactor > 0) {
         // Wet planks over a sewer, not solid ground - momentum carries the

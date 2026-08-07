@@ -1796,6 +1796,12 @@ const CORPSE_PILE_WINDOW_MS = 30000
 const CORPSE_PILE_MIN_KILLS = 6
 const CORPSE_PILE_SPEED_MULT = 0.7
 const CORPSE_PILE_MAX_TRACKED = 200
+// Weapon weight (see PlayerController's weaponWeightMult) - set live every
+// frame from whichever gun is currently equipped (WeaponSystem's `heavy`/
+// `light` flags), same "recomputed every frame, no timer" shape as
+// corpsePileMult above. Neither flag set (most guns, all melee) is neutral.
+const WEAPON_HEAVY_SPEED_MULT = 0.85
+const WEAPON_LIGHT_SPEED_MULT = 1.08
 // Run Score Multiplier (see _comboMultiplier) - a points-only bonus layered
 // on top of the existing on-screen combo counter (this.comboCount, see
 // _registerComboKill) rather than a second parallel "kills close together"
@@ -14110,6 +14116,8 @@ export class Game {
       this._updateGamepad(dt)
       this._updatePingMarker(dt)
       this._updateCorpsePileSlow(playerPos)
+      const currentWeapon = this.weapons.current
+      this.player.weaponWeightMult = currentWeapon.heavy ? WEAPON_HEAVY_SPEED_MULT : (currentWeapon.light ? WEAPON_LIGHT_SPEED_MULT : 1)
       this._updateFlashlightBattery(dt)
       this._updateKillstreakTimers()
 
