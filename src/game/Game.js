@@ -2586,7 +2586,7 @@ export class Game {
     this.statLongestSurvival = document.querySelectorAll('[data-stat="longest-survival"]')
     this.statTotalKills = document.querySelectorAll('[data-stat="total-kills"]')
     this.statRunsPlayed = document.querySelectorAll('[data-stat="runs-played"]')
-    this.statBestStreak = document.querySelectorAll('[data-stat="best-streak"]')
+    this.statFavoriteClass = document.querySelectorAll('[data-stat="favorite-class"]')
     this.statLastRun = document.querySelectorAll('[data-stat="last-run"]')
     this.menuAvatarLevel = document.getElementById('menu-avatar-level')
     this.menuAvatarPhoto = document.getElementById('menu-avatar-photo')
@@ -8947,7 +8947,18 @@ export class Game {
       const hours = (_safeStatNumber(this.careerStats.lifetimePlaytimeSeconds) / 3600).toFixed(1)
       this.statRunsPlayed.forEach((el) => { el.textContent = `${_safeStatNumber(this.careerStats.totalRuns)} · ${hours}h played` })
     }
-    this.statBestStreak.forEach((el) => { el.textContent = _safeStatNumber(bestKillStreak) })
+    {
+      // Favorite Class - purely derived from runHistory's own loadout field
+      // (already captured per run, see _recordRunEnd), same "no new tracking
+      // needed" precedent as the favorite-difficulty line elsewhere.
+      const tally = {}
+      for (const run of this.runHistory) {
+        if (run.loadout) tally[run.loadout] = (tally[run.loadout] || 0) + 1
+      }
+      const topLoadout = Object.keys(tally).sort((a, b) => tally[b] - tally[a])[0]
+      const favoriteClassText = topLoadout ? t(LOADOUT_LABEL_KEYS[topLoadout] || topLoadout) : '--'
+      this.statFavoriteClass.forEach((el) => { el.textContent = favoriteClassText })
+    }
     {
       const survivalText = this.bestRunPace && this.bestRunPace.elapsedMs
         ? formatTime(_safeStatNumber(this.bestRunPace.elapsedMs))

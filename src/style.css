@@ -2956,12 +2956,12 @@ body.reduce-flashing #critical-blood-overlay.show {
      when the viewport is narrower) - re-verify zero-scroll at the 4
      tracked heights after any further change here, same as every prior
      sizing round in this section. */
-  grid-template-columns: 320px minmax(360px, 1000px) 320px;
+  grid-template-columns: 400px minmax(360px, 1000px) 400px;
   justify-content: center;
   gap: 24px;
   align-items: start;
   width: 100%;
-  max-width: 1800px;
+  max-width: 1900px;
   margin: 0 auto;
 }
 
@@ -3079,9 +3079,9 @@ body.reduce-flashing #critical-blood-overlay.show {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 13px 6px;
-  font-size: 15px;
+  gap: 8px;
+  padding: 12px 8px;
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: 0.3px;
   text-transform: uppercase;
@@ -3120,15 +3120,15 @@ body.reduce-flashing #critical-blood-overlay.show {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
   clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
   background: rgba(255, 255, 255, 0.1);
 }
 
 .class-icon {
-  width: 24px;
-  height: 24px;
+  width: 27px;
+  height: 27px;
   color: #fff;
 }
 
@@ -3156,6 +3156,13 @@ body.reduce-flashing #critical-blood-overlay.show {
   font-size: 17px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
+
+/* Reference mockup color-codes each Your Stats value instead of leaving
+   them all plain white - a good/best-run stat in green, a personal-taste
+   stat in purple, a loss/death stat in red. */
+.stat-row [data-stat="longest-survival"]:last-child { color: var(--menu-green); font-weight: 600; }
+.stat-row [data-stat="favorite-class"]:last-child { color: var(--menu-purple); font-weight: 600; }
+.stat-row [data-stat="last-run"]:last-child { color: var(--menu-red); font-weight: 600; }
 
 .stat-row:last-child {
   border-bottom: none;
@@ -3414,9 +3421,9 @@ body.reduce-flashing #critical-blood-overlay.show {
 #play-btn {
   position: relative;
   margin-top: 4px;
-  padding: 19px 92px;
+  padding: 20px 105px;
   font-family: 'Black Ops One', var(--menu-display-font);
-  font-size: 36px;
+  font-size: 38px;
   letter-spacing: 3px;
   text-transform: uppercase;
   color: var(--menu-gold);
@@ -3789,9 +3796,9 @@ body.reduce-flashing #critical-blood-overlay.show {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 21px 26px;
-  font-size: 19px;
+  gap: 20px;
+  padding: 22px 30px;
+  font-size: 21px;
   font-weight: 600;
   letter-spacing: 0.8px;
   text-transform: uppercase;
@@ -3806,8 +3813,8 @@ body.reduce-flashing #critical-blood-overlay.show {
 }
 
 #menu-nav-buttons button svg {
-  width: 31px;
-  height: 31px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
   color: var(--menu-gold);
 }
