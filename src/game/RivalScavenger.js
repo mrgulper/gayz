@@ -41,6 +41,21 @@ const MAX_HEALTH = 90
 const TRACER_MS = 120
 const CLAIM_RADIUS = 1.6
 
+// Combat positioning (see update()'s engaged branch and _hasLineOfSight) -
+// previously a rival just stood in place shooting the instant it was in
+// ENGAGE_RANGE, hitting the player through walls with no LOS check at
+// all. Now: no line of sight means no hit AND no standing around uselessly
+// (advances to try to regain a clear shot instead), and a clear shot at
+// close range backs the rival off while still firing rather than trading
+// hits standing still. Real cover-point selection (finding and evaluating
+// a specific nearby object to duck behind) was scoped out as too risky to
+// get right without live playtesting - this is the safer "reads as
+// tactical positioning" version. No per-frame raycast budget/cache like
+// Zombie.js's own _hasLineOfSight needs - a squad is a handful of rivals,
+// nowhere near the horde-sized counts that budget exists for.
+const MIN_ENGAGE_DISTANCE = 6
+const RETREAT_SPEED_MULT = 0.7
+
 // Rivalry banter (see Game.js's _spawnAirdrop/_updateAirdrop/rival-update
 // call site) - plain English rather than full i18n, same precedent as
 // Game.js's own COMPANION_BARKS (flavor text, not mechanical UI). Only the
@@ -72,8 +87,30 @@ class RivalScavenger {
     this._prevX = x
     this._prevZ = z
     this._glbAttackUntil = 0
+    // Line of sight (see _hasLineOfSight) - reused every call instead of
+    // allocating fresh, same pattern Zombie.js's own version uses.
+    this._losRaycaster = new THREE.Raycaster()
+    this._losOrigin = new THREE.Vector3()
+    this._losDir = new THREE.Vector3()
     this._buildBody()
     scene.add(this.group)
+  }
+
+  // Blocked line of sight (a wall/building between here and the player)
+  // means this rival can't land a hit even within ENGAGE_RANGE - see
+  // update()'s own comment on why this exists. No solidMeshes passed skips
+  // the check (treated as clear), matching Zombie.js's own precedent.
+  _hasLineOfSight(playerPos, solidMeshes) {
+    if (!solidMeshes || solidMeshes.length === 0) return true
+    this._losOrigin.copy(this.group.position)
+    this._losOrigin.y += 1.3
+    this._losDir.copy(playerPos).sub(this._losOrigin)
+    const dist = this._losDir.length()
+    if (dist < 0.001) return true
+    this._losDir.normalize()
+    this._losRaycaster.set(this._losOrigin, this._losDir)
+    this._losRaycaster.far = dist - 0.15
+    return this._losRaycaster.intersectObjects(solidMeshes, true).length === 0
   }
 
   _buildBody() {
@@ -207,7 +244,7 @@ class RivalScavenger {
 
   // Returns true the frame this scavenger reaches the airdrop while still
   // alive - RivalManager.update turns that into "the squad claimed it."
-  update(dt, playerPos, onAttack) {
+  update(dt, playerPos, onAttack, solidMeshes) {
     if (this.state !== 'alive') return false
 
     const dx = playerPos.x - this.group.position.x
@@ -216,7 +253,21 @@ class RivalScavenger {
 
     if (distToPlayer <= ENGAGE_RANGE) {
       this.group.rotation.y = Math.atan2(dx, dz)
-      if (performance.now() >= this.nextFireAt) {
+      const hasLOS = this._hasLineOfSight(playerPos, solidMeshes)
+      const nx = distToPlayer > 0.001 ? dx / distToPlayer : 0
+      const nz = distToPlayer > 0.001 ? dz / distToPlayer : 1
+      if (!hasLOS) {
+        // Blocked - advance to try to regain a clear shot instead of
+        // standing uselessly behind whatever's in the way.
+        this.group.position.x += nx * MOVE_SPEED * dt
+        this.group.position.z += nz * MOVE_SPEED * dt
+      } else if (distToPlayer < MIN_ENGAGE_DISTANCE) {
+        // Clear shot but too close for comfort - back off while still
+        // facing/firing, rather than trading hits standing still.
+        this.group.position.x -= nx * MOVE_SPEED * RETREAT_SPEED_MULT * dt
+        this.group.position.z -= nz * MOVE_SPEED * RETREAT_SPEED_MULT * dt
+      }
+      if (hasLOS && performance.now() >= this.nextFireAt) {
         this.nextFireAt = performance.now() + FIRE_INTERVAL_MS + Math.random() * 400
         const damage = DAMAGE_MIN + Math.random() * (DAMAGE_MAX - DAMAGE_MIN)
         if (onAttack) onAttack(damage)
@@ -337,12 +388,12 @@ export class RivalManager {
   // crate there, not a claim, so they're excluded). defeatedNames names
   // every squad whose last member died this exact tick, for a one-shot
   // rivalry banter line rather than one per individual member kill.
-  update(dt, playerPos, onAttack) {
+  update(dt, playerPos, onAttack, solidMeshes) {
     let claimed = false
     let claimedByName = null
     for (const squad of this.squads) {
       for (const m of squad.members) {
-        const reachedTarget = m.update(dt, playerPos, onAttack)
+        const reachedTarget = m.update(dt, playerPos, onAttack, solidMeshes)
         if (reachedTarget && squad.type === 'airdrop') {
           claimed = true
           claimedByName = squad.members[0].name

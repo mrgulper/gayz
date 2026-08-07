@@ -14600,7 +14600,7 @@ export class Game {
       this._updatePracticeTargets()
       this._updateTraps()
       this._updateAlarms()
-      const rivalResult = this.rivals.update(dt, playerPos, (dmg) => this._onRivalAttack(dmg))
+      const rivalResult = this.rivals.update(dt, playerPos, (dmg) => this._onRivalAttack(dmg), this.solidMeshes)
       if (rivalResult.claimed) {
         this._rivalsClaimedAirdrop = true
         this._rivalsClaimedByName = rivalResult.claimedByName
