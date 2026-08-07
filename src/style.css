@@ -1295,7 +1295,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   /* Always-on gold wash (see the shared homepage-clickables note near
      #menu-player-badge) - .active below still overrides with a full
      solid gold fill for whichever difficulty is actually selected. */
-  background: rgba(227, 166, 60, 0.08);
+  background: rgba(227, 166, 60, 0.22);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 6px;
   cursor: pointer;
@@ -2140,7 +2140,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   font-size: 10px;
   color: #eee;
   /* Always-on gold wash (see the homepage note near #menu-player-badge). */
-  background: rgba(227, 166, 60, 0.07);
+  background: rgba(227, 166, 60, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 6px;
   cursor: pointer;
@@ -2148,7 +2148,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 
 .attach-btn:hover:not(:disabled) {
   border-color: #e3a63c;
-  background: rgba(227, 166, 60, 0.1);
+  background: rgba(227, 166, 60, 0.32);
 }
 
 .attach-btn:disabled {
@@ -2175,7 +2175,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   gap: 8px;
   width: 160px;
   padding: 18px 14px;
-  background: rgba(227, 166, 60, 0.07);
+  background: rgba(227, 166, 60, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
   color: #eee;
@@ -2185,7 +2185,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 
 .perk-option:hover:not(:disabled) {
   border-color: #e3a63c;
-  background: rgba(227, 166, 60, 0.1);
+  background: rgba(227, 166, 60, 0.32);
 }
 
 .perk-option.featured {
@@ -2544,7 +2544,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   letter-spacing: 0.5px;
   color: rgba(255, 255, 255, 0.6);
   /* Always-on gold wash (see the homepage note near #menu-player-badge). */
-  background: rgba(227, 166, 60, 0.07);
+  background: rgba(227, 166, 60, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 6px;
   cursor: pointer;
@@ -3102,7 +3102,7 @@ body.reduce-flashing #critical-blood-overlay.show {
      near #menu-player-badge) - .active/its per-role/loadout variants
      below still override with their own stronger, distinct accent color
      when selected, so this only shows on the NOT-yet-picked options. */
-  background: rgba(227, 166, 60, 0.08);
+  background: rgba(227, 166, 60, 0.22);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
   cursor: pointer;
@@ -3526,7 +3526,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   /* Always-on gold wash layered over the existing dark base (see the
      shared homepage-clickables note near #menu-player-badge) - these
      already had a gold border, just not a gold background. */
-  background: linear-gradient(rgba(227, 166, 60, 0.12), rgba(227, 166, 60, 0.12)), rgba(0, 0, 0, 0.3);
+  background: linear-gradient(rgba(227, 166, 60, 0.28), rgba(227, 166, 60, 0.28)), rgba(0, 0, 0, 0.3);
   border: 2px solid rgba(227, 166, 60, 0.5);
   border-radius: 6px;
   cursor: pointer;
@@ -3635,14 +3635,14 @@ body.reduce-flashing #critical-blood-overlay.show {
   align-items: center;
   gap: 6px;
   padding: 14px;
-  background: rgba(227, 166, 60, 0.08);
+  background: rgba(227, 166, 60, 0.22);
   border-radius: 10px;
   cursor: pointer;
 }
 
 #menu-player-badge:hover,
 #menu-player-badge:focus-visible {
-  background: rgba(227, 166, 60, 0.16);
+  background: rgba(227, 166, 60, 0.34);
 }
 
 #menu-player-badge:hover #menu-avatar-icon {
@@ -3828,7 +3828,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   /* Always-on gold wash (see the shared homepage-clickables note near
      #menu-player-badge) - hover below layers a slightly stronger version
      on top of this same base rather than introducing gold from nothing. */
-  background: linear-gradient(180deg, rgba(227, 166, 60, 0.09) 0%, transparent 50%), var(--menu-gunmetal-dark);
+  background: linear-gradient(180deg, rgba(227, 166, 60, 0.26) 0%, transparent 50%), var(--menu-gunmetal-dark);
   border: 2px solid var(--menu-panel-border);
   border-radius: 4px;
   cursor: pointer;
@@ -3845,7 +3845,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 }
 
 #menu-nav-buttons button:hover {
-  background: linear-gradient(180deg, rgba(227, 166, 60, 0.12) 0%, rgba(227, 166, 60, 0.05) 50%), var(--menu-gunmetal-dark);
+  background: linear-gradient(180deg, rgba(227, 166, 60, 0.4) 0%, rgba(227, 166, 60, 0.15) 50%), var(--menu-gunmetal-dark);
   border-color: var(--menu-gold);
   color: #fff;
   transform: translateX(2px);
@@ -4128,7 +4128,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   /* Always-on gold wash (see the shared homepage-clickables note near
      #menu-player-badge) - kept extra light since these are dense,
      repeated list rows (mutators/game modes), not standalone buttons. */
-  background: rgba(227, 166, 60, 0.05);
+  background: rgba(227, 166, 60, 0.14);
   cursor: pointer;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
@@ -4152,7 +4152,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 }
 
 .mode-toggle:hover {
-  background: rgba(227, 166, 60, 0.08);
+  background: rgba(227, 166, 60, 0.24);
   color: #fff;
 }
 
