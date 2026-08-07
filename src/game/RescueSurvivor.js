@@ -27,14 +27,28 @@ const GLB_SCALE_CORRECTION = 0.556
 // A trapped NPC that occasionally appears (see NightEvents.js's
 // 'survivor_found' event) - walk up and press interact to rescue them for a
 // reward. Purely a stationary interactable, not a companion/combatant.
+// Diseased variant (see Game.js's _spawnRescueSurvivor/_rescueSurvivor) -
+// the signal beacon (already a distinct, colored, pulsing "notice me"
+// element every RescueSurvivor has) turns sickly green instead of amber,
+// the one visual tell an attentive player can use to spot the infection
+// risk before committing - no new geometry/material plumbing needed since
+// both build paths already funnel into this one shared signalMat.
+const DISEASED_SIGNAL_COLOR = 0x1a1a10
+const DISEASED_SIGNAL_EMISSIVE = 0x5ce85c
+
 export class RescueSurvivor {
-  constructor(scene, x, z) {
+  constructor(scene, x, z, diseased = false) {
     this.scene = scene
     this.x = x
     this.z = z
+    this.diseased = diseased
     this.group = new THREE.Group()
     this.group.position.set(x, 0, z)
     this._build()
+    if (diseased) {
+      this.signalMat.color.setHex(DISEASED_SIGNAL_COLOR)
+      this.signalMat.emissive.setHex(DISEASED_SIGNAL_EMISSIVE)
+    }
     scene.add(this.group)
   }
 

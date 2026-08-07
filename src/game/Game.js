@@ -2008,6 +2008,12 @@ const WHEEL_RADIUS = 110
 const WHEEL_DEADZONE = 18
 const RESCUE_INTERACT_RADIUS = 2.5
 const RESCUE_POINTS_REWARD = 25
+// Diseased Survivor - see RescueSurvivor.js's signal-color tell and
+// _rescueSurvivor's infection roll. Noticeably higher than a normal
+// zombie hit's own INFECTION_CHANCE_PER_HIT (0.12, PlayerState.js) - a
+// real gamble, not just a different-flavored version of the same odds.
+const DISEASED_SURVIVOR_CHANCE = 0.3
+const DISEASED_INFECTION_CHANCE = 0.35
 // Survivor Camp Liberation (see _spawnSurvivorCamp/_updateSurvivorCamp) -
 // unlike the single passive rescueSurvivor above, this has a real fail
 // state: a small group of vulnerable Companion NPCs under active zombie
@@ -13604,7 +13610,11 @@ export class Game {
   _spawnRescueSurvivor() {
     if (this.rescueSurvivor) this.rescueSurvivor.dispose()
     const spot = this.spawnPoints[Math.floor(Math.random() * this.spawnPoints.length)]
-    this.rescueSurvivor = new RescueSurvivor(this.scene, spot.x, spot.z)
+    // Diseased Survivor (see RescueSurvivor's own signal-color comment and
+    // _rescueSurvivor's infection roll) - a real risk/reward variant, not
+    // a guaranteed-safe rescue every time.
+    const diseased = Math.random() < DISEASED_SURVIVOR_CHANCE
+    this.rescueSurvivor = new RescueSurvivor(this.scene, spot.x, spot.z, diseased)
   }
 
   _updateRescueSurvivor(playerPos) {
@@ -13763,7 +13773,20 @@ export class Game {
     this.inventory.addHealthPack(1)
     this._updateStatsPanel()
     this._updateInventoryHud()
-    this._showLoreToast(t('survivorRescued', { reward: RESCUE_POINTS_REWARD }))
+    // Diseased Survivor (see RescueSurvivor.js's signal-color tell and
+    // _spawnRescueSurvivor's spawn roll) - the reward is the same either
+    // way, but a diseased one carries a real chance of infecting the
+    // player too, same playerState.infected flag a zombie hit sets
+    // (see cureInfection's own direct-set precedent) - not routed through
+    // takeDamage() since this isn't damage, just an infection risk.
+    if (this.rescueSurvivor.diseased && !this.playerState.infected && Math.random() < DISEASED_INFECTION_CHANCE) {
+      this.playerState.infected = true
+      this._showLoreToast(t('survivorRescuedInfected', { reward: RESCUE_POINTS_REWARD }))
+    } else if (this.rescueSurvivor.diseased) {
+      this._showLoreToast(t('survivorRescuedLucky', { reward: RESCUE_POINTS_REWARD }))
+    } else {
+      this._showLoreToast(t('survivorRescued', { reward: RESCUE_POINTS_REWARD }))
+    }
     this._checkBountyProgress('rescue_survivors', 1)
     this.narrativeStats.rescued += 1
     saveNarrativeStats(this.narrativeStats)
@@ -14496,7 +14519,7 @@ export class Game {
         this.interactPrompt.innerHTML = tHtml('interactTerminal')
         this.interactPrompt.style.display = 'block'
       } else if (this.nearRescueSurvivor) {
-        this.interactPrompt.innerHTML = tHtml('interactRescue')
+        this.interactPrompt.innerHTML = tHtml(this.rescueSurvivor.diseased ? 'interactRescueDiseased' : 'interactRescue')
         this.interactPrompt.style.display = 'block'
       } else if (this.nearRecruitSpot) {
         this.interactPrompt.innerHTML = tHtml('interactRecruit')
