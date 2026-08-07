@@ -560,6 +560,7 @@ const STRINGS = {
     interactRefuelVehicle: 'Press **F** to refuel the vehicle',
     vehicleRefueled: 'Vehicle refueled',
     actionJournal: 'Journal',
+    actionWeaponInspect: 'Inspect Weapon',
     journalTitle: 'Journal',
     journalHint: 'Press I to close',
     journalLocationsHeading: 'Locations Found',

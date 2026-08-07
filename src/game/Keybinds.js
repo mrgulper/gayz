@@ -43,6 +43,7 @@ export const ACTIONS = [
   { id: 'slowMo', defaultKey: 'Equal', labelKey: 'actionSlowMo' },
   { id: 'clipRecording', defaultKey: 'CapsLock', labelKey: 'actionClipRecording' },
   { id: 'barricadeCrate', defaultKey: 'Backslash', labelKey: 'actionBarricadeCrate' },
+  { id: 'weaponInspect', defaultKey: 'Delete', labelKey: 'actionWeaponInspect' },
 ]
 
 function defaultBindings() {

@@ -490,6 +490,8 @@ export class WeaponSystem {
     this.tracers = []
     this._idleTime = 0
     this._idleInspectAmount = 0
+    // Hold-to-inspect key state (see _onKey/the keyup listener above).
+    this.inspecting = false
     this._sprintFovAmount = 0
     // Toggle-to-ADS (accessibility, see the mousedown/mouseup listeners
     // below) - defaults to hold mode (false), set from Game.js's settings.
@@ -535,6 +537,9 @@ export class WeaponSystem {
     })
     window.addEventListener('contextmenu', (e) => e.preventDefault())
     window.addEventListener('keydown', (e) => this._onKey(e))
+    window.addEventListener('keyup', (e) => {
+      if (e.code === getKeyFor('weaponInspect')) this.inspecting = false
+    })
 
     onLanguageChange(() => this._updateHud(this.reloading))
 
@@ -827,6 +832,10 @@ export class WeaponSystem {
   // regardless of loadout.
   _onKey(e) {
     if (e.code === getKeyFor('reload')) this._reload()
+    // Hold-to-inspect - reuses the same idle-sway visual as
+    // _idleInspectAmount (see update()) instead of a separate animation,
+    // just triggered on demand instead of only after 5s of standing still.
+    else if (e.code === getKeyFor('weaponInspect') && !this.current.melee) this.inspecting = true
   }
 
   // Public entry point for switching by slot index - used by Game.js's
@@ -908,7 +917,19 @@ export class WeaponSystem {
     // plays during genuine downtime between fights.
     const idling = !isMoving && !this.triggerDown && !this.aiming && !this.reloading && !this.current.melee
     this._idleTime = idling ? this._idleTime + dt : 0
-    this._idleInspectAmount = THREE.MathUtils.clamp((this._idleTime - IDLE_INSPECT_DELAY_S) / IDLE_INSPECT_FADE_S, 0, 1)
+    // Hold-to-inspect (see _onKey/the keyup listener) auto-cancels the
+    // instant the player fires/aims/reloads/switches to melee, same
+    // "resets instantly" behavior the passive idle version already has -
+    // moving is still fine, matching most FPS games' "walk while checking
+    // your gun" convention.
+    if (this.inspecting && (this.triggerDown || this.aiming || this.reloading || this.current.melee)) this.inspecting = false
+    const autoIdleAmount = THREE.MathUtils.clamp((this._idleTime - IDLE_INSPECT_DELAY_S) / IDLE_INSPECT_FADE_S, 0, 1)
+    // Held-key inspect ramps in/out much faster (a deliberate action) than
+    // the passive idle fade (an ambient fidget) - falls back to the
+    // normal idle amount once released.
+    const inspectTarget = this.inspecting ? 1 : autoIdleAmount
+    const inspectRampSpeed = this.inspecting || !idling ? 8 : 1 / IDLE_INSPECT_FADE_S
+    this._idleInspectAmount = THREE.MathUtils.damp(this._idleInspectAmount, inspectTarget, inspectRampSpeed, dt)
     // Overheat decay - only actually cools while not holding the trigger,
     // so spraying right up to the cooldown threshold and letting off for a
     // moment is a real way to avoid it instead of it being on a fixed timer.
