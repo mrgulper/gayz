@@ -1370,6 +1370,19 @@ const DEATH_KILLCAM_DURATION_MS = 1100
 const LANDING_DIP_MIN_IMPACT = -4
 const LANDING_DIP_SCALE = 0.01
 const LANDING_DIP_MAX = 0.35
+// Fall damage - deliberately a much harder threshold than the camera dip
+// above (-13 vs -4), so routine jumps/stairs never hurt, only a real
+// drop (off a roof, down a stairwell shaft). Scales linearly from 0 at
+// the min impact to FALL_DAMAGE_MAX at the max, then clamps - same
+// severity-ramp shape LANDING_DIP already uses, just for damage instead
+// of camera offset.
+const FALL_DAMAGE_MIN_IMPACT = -13
+const FALL_DAMAGE_MAX_IMPACT = -26
+const FALL_DAMAGE_MAX = 45
+// Landing roll - crouching the instant you land cuts fall damage way
+// down, the same intuitive "crouch to soften a fall" convention several
+// other games already use, so it needs no new dedicated key.
+const FALL_DAMAGE_ROLL_MULT = 0.35
 const LANDING_DIP_RECOVER_SPEED = 9
 // Gunfire alerts nearby zombies (see _alertNearbyZombiesToGunfire) - an
 // unaware zombie within radius instantly notices the player, no line-of-
@@ -10012,6 +10025,21 @@ export class Game {
       if (impact < LANDING_DIP_MIN_IMPACT) {
         // Motion Reduction (see _updateShake's own note) applies here too.
         this._landingDipY = Math.max(-LANDING_DIP_MAX, impact * LANDING_DIP_SCALE) * (this.settings.shakeIntensity / 100)
+      }
+      // Fall damage (see FALL_DAMAGE_MIN_IMPACT's own comment) - same
+      // takeDamage/HUD/flash/last-stand sequence every other damage
+      // source in this file already follows (see e.g. the hazard-zone
+      // tick damage above).
+      if (impact < FALL_DAMAGE_MIN_IMPACT && this.playerState.alive && !this.player.isDodging) {
+        const severity = Math.min(1, (impact - FALL_DAMAGE_MIN_IMPACT) / (FALL_DAMAGE_MAX_IMPACT - FALL_DAMAGE_MIN_IMPACT))
+        let damage = severity * FALL_DAMAGE_MAX
+        if (this.player.isCrouching) damage *= FALL_DAMAGE_ROLL_MULT
+        this.playerState.takeDamage(damage)
+        this._updateHealthHud()
+        this.damageFlash.classList.remove('hit')
+        void this.damageFlash.offsetWidth
+        this.damageFlash.classList.add('hit')
+        if (!this.playerState.alive) this._maybeLastStandOrDie()
       }
     }
     this._landingDipY = THREE.MathUtils.damp(this._landingDipY, 0, LANDING_DIP_RECOVER_SPEED, dt)
