@@ -3606,19 +3606,34 @@ html.bg-mood-amber #menu-bg-photo {
   text-transform: uppercase;
   color: var(--menu-gold);
   background:
+    /* Stitched/riveted-seam tick marks along the top and bottom edges -
+       a thin repeating-hatch strip positioned right inside the border,
+       matching the reference mockup's hash-marked border (an octagon
+       clip-path can't easily follow a repeating pattern around its
+       angled corners, so this covers the two long flat edges where it
+       reads clearly, same tradeoff as any CSS approximation of a hand-
+       drawn border - not literally pixel-identical, closest achievable
+       without a custom border-image asset). */
+    repeating-linear-gradient(90deg, #8a8f96 0px, #8a8f96 2px, transparent 2px, transparent 9px) top 5px left / 100% 3px no-repeat,
+    repeating-linear-gradient(90deg, #8a8f96 0px, #8a8f96 2px, transparent 2px, transparent 9px) bottom 5px left / 100% 3px no-repeat,
     var(--grain-texture),
-    radial-gradient(3.5px 3.5px at 10% 20%, #6b6a63, transparent 70%),
-    radial-gradient(3.5px 3.5px at 90% 20%, #6b6a63, transparent 70%),
-    radial-gradient(3.5px 3.5px at 10% 80%, #6b6a63, transparent 70%),
-    radial-gradient(3.5px 3.5px at 90% 80%, #6b6a63, transparent 70%),
+    radial-gradient(4px 4px at 10% 20%, #8a8f96, transparent 70%),
+    radial-gradient(4px 4px at 90% 20%, #8a8f96, transparent 70%),
+    radial-gradient(4px 4px at 10% 80%, #8a8f96, transparent 70%),
+    radial-gradient(4px 4px at 90% 80%, #8a8f96, transparent 70%),
     /* Extra rivet dots along the mid-edges (not just corners) - a stamped/
        riveted seam look, matching the reference mockup's Play button. */
-    radial-gradient(2.5px 2.5px at 50% 12%, #6b6a63, transparent 70%),
-    radial-gradient(2.5px 2.5px at 50% 88%, #6b6a63, transparent 70%),
-    radial-gradient(2.5px 2.5px at 3% 50%, #6b6a63, transparent 70%),
-    radial-gradient(2.5px 2.5px at 97% 50%, #6b6a63, transparent 70%),
+    radial-gradient(3px 3px at 50% 12%, #8a8f96, transparent 70%),
+    radial-gradient(3px 3px at 50% 88%, #8a8f96, transparent 70%),
+    radial-gradient(3px 3px at 3% 50%, #8a8f96, transparent 70%),
+    radial-gradient(3px 3px at 97% 50%, #8a8f96, transparent 70%),
     linear-gradient(180deg, #52585d 0%, #2c2f33 55%, #17191b 100%);
+  /* Double-border groove (a slightly darker outline sitting just inside
+     the main gold border) - the "reinforced metal plate" look the
+     mockup's edge has, rather than one single flat line. */
   border: 3px solid var(--menu-gold);
+  outline: 1px solid rgba(0, 0, 0, 0.55);
+  outline-offset: -6px;
   clip-path: polygon(2% 0%, 98% 0%, 100% 18%, 100% 82%, 98% 100%, 2% 100%, 0% 82%, 0% 18%);
   cursor: pointer;
   text-shadow: 0 0 12px rgba(227, 166, 60, 0.7), 0 2px 3px rgba(0, 0, 0, 0.9);
@@ -3628,6 +3643,34 @@ html.bg-mood-amber #menu-bg-photo {
     0 0 26px 6px rgba(217, 163, 74, 0.45),
     0 8px 18px rgba(0, 0, 0, 0.55);
   transition: transform 0.15s ease, box-shadow 0.25s ease;
+}
+
+/* Corner reinforcement plates (see the mockup's more elaborate corner
+   treatment than a plain clipped edge) - reuses the same beveled
+   two-tone box-shadow technique the panel corner brackets already use
+   elsewhere, sized for the Play button's larger octagon. */
+#play-btn::before,
+#play-btn::after {
+  content: '';
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  pointer-events: none;
+  box-shadow: -0.5px -0.5px 0 rgba(255, 255, 255, 0.3), 1px 1px 1px rgba(0, 0, 0, 0.5);
+}
+
+#play-btn::before {
+  top: 4px;
+  left: 4px;
+  border-top: 2px solid var(--menu-gold);
+  border-left: 2px solid var(--menu-gold);
+}
+
+#play-btn::after {
+  bottom: 4px;
+  right: 4px;
+  border-bottom: 2px solid var(--menu-gold);
+  border-right: 2px solid var(--menu-gold);
 }
 
 #play-btn:hover {
