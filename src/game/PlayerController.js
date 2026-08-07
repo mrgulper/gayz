@@ -58,6 +58,15 @@ const MANTLE_LAND_DIST = 0.55
 const MANTLE_DURATION_MS = 320
 const MANTLE_STAMINA_COST = 15
 
+// Ledge climb: same trigger/probe as mantle above, just a second, taller
+// height band (starts exactly where MANTLE_MAX_HEIGHT ends) for things a
+// quick hop can't sell - a parked truck's trailer roof, a low rooftop edge.
+// Slower and pricier than a vault so it reads as a real climb, not a hop.
+const LEDGE_MIN_HEIGHT = MANTLE_MAX_HEIGHT
+const LEDGE_MAX_HEIGHT = 2.6
+const LEDGE_DURATION_MS = 550
+const LEDGE_STAMINA_COST = 25
+
 // Sprint-to-slide: tapping crouch mid-sprint instead of just slowing to
 // crouch speed. Same flat-speed-then-stop shape as dodge above, just
 // slower/longer and gated on already sprinting rather than any-direction.
@@ -182,6 +191,7 @@ export class PlayerController {
 
     this.isMantling = false
     this.mantleUntil = 0
+    this._mantleDurationMs = MANTLE_DURATION_MS
     this._mantleStart = new THREE.Vector3()
     this._mantleTarget = new THREE.Vector3()
 
@@ -252,6 +262,7 @@ export class PlayerController {
     this.dodgeCooldownUntil = 0
     this.isMantling = false
     this.mantleUntil = 0
+    this._mantleDurationMs = MANTLE_DURATION_MS
     this.isSliding = false
     this.slideUntil = 0
     this.slideCooldownUntil = 0
@@ -318,13 +329,31 @@ export class PlayerController {
     this.stamina = Math.max(0, this.stamina - DODGE_STAMINA_COST)
   }
 
-  // Returns true (and starts the mantle) only when there's a real obstacle
-  // in the right height band directly ahead AND clear space to land on top
-  // of it - a failed probe falls through to a normal jump instead (see the
-  // Space key handler), so mantle never eats a jump input on flat ground.
+  // Shared obstacle probe for both mantle and ledge climb below - only
+  // differs by which height band it's checking. Grounded low wall, not a
+  // floating platform overhead - only obstacles starting near the player's
+  // own feet read as "climb this", otherwise a doorway lintel or ceiling
+  // would trigger it too.
+  _probeClimbTop(probeX, probeZ, feetY, minHeight, maxHeight) {
+    let obstacleTop = null
+    for (const collider of this._colliderGrid.query(probeX, probeZ)) {
+      if (probeX < collider.min.x || probeX > collider.max.x || probeZ < collider.min.z || probeZ > collider.max.z) continue
+      if (collider.min.y > feetY + 0.4) continue
+      const height = collider.max.y - feetY
+      if (height < minHeight || height > maxHeight) continue
+      if (obstacleTop === null || collider.max.y > obstacleTop) obstacleTop = collider.max.y
+    }
+    return obstacleTop
+  }
+
+  // Returns true (and starts the mantle/ledge-climb) only when there's a
+  // real obstacle in a climbable height band directly ahead AND clear space
+  // to land on top of it - a failed probe falls through to a normal jump
+  // instead (see the Space key handler), so this never eats a jump input
+  // on flat ground. Tries the quick mantle band first, then the taller,
+  // slower ledge-climb band (see its own comment above LEDGE_MIN_HEIGHT).
   _tryMantle() {
     if (this.isMantling || this.isDodging || this.isSliding) return false
-    if (this.stamina < MANTLE_STAMINA_COST) return false
 
     const obj = this.controls.object
     const feetY = obj.position.y - this.eyeHeight
@@ -332,15 +361,17 @@ export class PlayerController {
     const probeZ = obj.position.z + this._forward.z * MANTLE_PROBE_DIST
 
     let obstacleTop = null
-    for (const collider of this._colliderGrid.query(probeX, probeZ)) {
-      if (probeX < collider.min.x || probeX > collider.max.x || probeZ < collider.min.z || probeZ > collider.max.z) continue
-      // Grounded low wall, not a floating platform overhead - only obstacles
-      // starting near the player's own feet read as "climb over this",
-      // otherwise a doorway lintel or ceiling would trigger it too.
-      if (collider.min.y > feetY + 0.4) continue
-      const height = collider.max.y - feetY
-      if (height < MANTLE_MIN_HEIGHT || height > MANTLE_MAX_HEIGHT) continue
-      if (obstacleTop === null || collider.max.y > obstacleTop) obstacleTop = collider.max.y
+    let duration = MANTLE_DURATION_MS
+    let staminaCost = MANTLE_STAMINA_COST
+    if (this.stamina >= MANTLE_STAMINA_COST) {
+      obstacleTop = this._probeClimbTop(probeX, probeZ, feetY, MANTLE_MIN_HEIGHT, MANTLE_MAX_HEIGHT)
+    }
+    if (obstacleTop === null && this.stamina >= LEDGE_STAMINA_COST) {
+      obstacleTop = this._probeClimbTop(probeX, probeZ, feetY, LEDGE_MIN_HEIGHT, LEDGE_MAX_HEIGHT)
+      if (obstacleTop !== null) {
+        duration = LEDGE_DURATION_MS
+        staminaCost = LEDGE_STAMINA_COST
+      }
     }
     if (obstacleTop === null) return false
 
@@ -354,9 +385,10 @@ export class PlayerController {
       if (landBox.intersectsBox(collider)) return false // something's sitting right on the landing spot
     }
 
-    this.stamina = Math.max(0, this.stamina - MANTLE_STAMINA_COST)
+    this.stamina = Math.max(0, this.stamina - staminaCost)
     this.isMantling = true
-    this.mantleUntil = performance.now() + MANTLE_DURATION_MS
+    this.mantleUntil = performance.now() + duration
+    this._mantleDurationMs = duration
     this._mantleStart.copy(obj.position)
     this._mantleTarget.set(landX, obstacleTop + this.eyeHeight, landZ)
     this.velocity.set(0, 0, 0)
@@ -426,7 +458,7 @@ export class PlayerController {
         this.onGround = true
         this._realJumpAirborne = false
       } else {
-        const frac = 1 - (this.mantleUntil - now) / MANTLE_DURATION_MS
+        const frac = 1 - (this.mantleUntil - now) / this._mantleDurationMs
         obj.position.lerpVectors(this._mantleStart, this._mantleTarget, Math.min(1, frac))
       }
       return
