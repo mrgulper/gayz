@@ -3431,10 +3431,10 @@ html.bg-mood-amber #menu-bg-photo {
 }
 
 #menu-tagline {
-  margin: 4px 0 14px;
+  margin: 2px 0 7px;
   font-family: var(--menu-display-font);
-  font-size: 38px;
-  letter-spacing: 5px;
+  font-size: 22px;
+  letter-spacing: 4px;
   color: var(--menu-olive);
   text-transform: uppercase;
   opacity: 0.95;
@@ -3446,7 +3446,7 @@ html.bg-mood-amber #menu-bg-photo {
 }
 
 #menu-subtitle {
-  font-size: 38px;
+  font-size: 19px;
   font-weight: 400;
   opacity: 0.85 !important;
   letter-spacing: 0.3px;
@@ -3564,15 +3564,15 @@ html.bg-mood-amber #menu-bg-photo {
 
 .hero-stat-value {
   font-family: var(--menu-display-font);
-  font-size: 100px;
+  font-size: 44px;
   color: var(--menu-gold);
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
 .hero-stat-label {
-  margin-top: 4px;
-  font-size: 26px;
+  margin-top: 2px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -3595,11 +3595,11 @@ html.bg-mood-amber #menu-bg-photo {
    (small radial-gradient dots) kept from the earlier pass. */
 #play-btn {
   position: relative;
-  margin-top: 4px;
-  padding: 42px 200px;
+  margin-top: 0;
+  padding: 14px 115px;
   font-family: 'Black Ops One', var(--menu-display-font);
-  font-size: 90px;
-  letter-spacing: 5px;
+  font-size: 40px;
+  letter-spacing: 3px;
   text-transform: uppercase;
   color: var(--menu-gold);
   background:
@@ -3734,13 +3734,13 @@ html.bg-mood-amber #menu-bg-photo {
    this one visible button grows, not the 5 other hidden shortcuts that
    still share that base rule. */
 #settings-btn {
-  width: 112px;
-  height: 112px;
+  width: 54px;
+  height: 54px;
 }
 
 #settings-btn svg {
-  width: 56px;
-  height: 56px;
+  width: 26px;
+  height: 26px;
 }
 
 #quick-mute-btn:hover,
