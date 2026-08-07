@@ -255,6 +255,7 @@ function loadSettings() {
       region: parsed.region || 'global',
       largeTextMode: parsed.largeTextMode ?? false,
       highContrastMode: parsed.highContrastMode ?? false,
+      dyslexiaFont: parsed.dyslexiaFont ?? false,
       // Homepage background mood (see _applyBgMood) - 'auto' follows the
       // same seasonal date windows as EVENT_BANNERS, any other value is an
       // explicit user override that ignores the calendar.
@@ -293,7 +294,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -1639,6 +1640,9 @@ const SPOTLIGHT_TIPS = ['spotlightTip1', 'spotlightTip2', 'spotlightTip3', 'spot
 // Round 4 Online Features batch - standalone lore/world trivia, distinct
 // from SPOTLIGHT_TIPS above (actionable gameplay advice vs. pure flavor).
 const TRIVIA_FACTS = ['triviaFact1', 'triviaFact2', 'triviaFact3', 'triviaFact4', 'triviaFact5', 'triviaFact6']
+// Pure flavor, day-seeded the same way as TRIVIA_FACTS - a silly one-liner,
+// not meant to be taken as real gameplay advice.
+const HOROSCOPES = ['horoscope1', 'horoscope2', 'horoscope3', 'horoscope4', 'horoscope5', 'horoscope6']
 // bgMood is reused by _applyBgMood() for the "Auto (Seasonal)" background
 // mood default - same date windows as the banner itself rather than a
 // second parallel date table, so a season only ever needs updating here.
@@ -1648,6 +1652,13 @@ const EVENT_BANNERS = [
 ]
 const WHATS_NEW_VERSION = '2026-07-29-homepage'
 const WHATS_NEW_SEEN_KEY = 'gayz-whatsnew-seen'
+const CHANGELOG_LAST_VIEWED_KEY = 'gayz-changelog-last-viewed'
+// Total-lifetime-kills milestones (see _checkKillMilestones) - a one-time
+// toast the first homepage render after crossing each, tracked separately
+// from CAREER_RANK_TITLES since these are just round-number celebration
+// beats, not rank tiers.
+const KILL_MILESTONES = [1000, 5000, 10000, 25000, 50000, 100000]
+const KILL_MILESTONES_SEEN_KEY = 'gayz-kill-milestones-seen'
 const HOWTOPLAY_STEPS = ['htpMove', 'htpShoot', 'htpInventory', 'htpChests', 'htpSurvive']
 const SCREENSHOT_GALLERY_KEY = 'gayz-screenshot-gallery'
 
@@ -1686,6 +1697,9 @@ const NEARLY_THERE_CANDIDATES = [
 // Firebase Auth persists its own session (IndexedDB) and CloudSync's
 // onAuthChange restores _cloudProfile/_cloudUid from that directly.
 const CLOUD_LAST_SYNC_KEY = 'gayz-cloud-last-sync'
+// Rank velocity arrow (see _renderPlayerTag) - the rank as of the last
+// time it was fetched, so this visit's fetch can compare against it.
+const PREV_GLOBAL_RANK_KEY = 'gayz-prev-global-rank'
 
 // Online Features batch - one hardcoded, developer-authored poll (not
 // user-generated content, so no moderation surface beyond picking a new
@@ -2610,9 +2624,13 @@ export class Game {
     this.continueActions = document.getElementById('continue-actions')
     this.playAgainBtn = document.getElementById('play-again-btn')
     this.shareLastRunBtn = document.getElementById('share-last-run-btn')
+    this.shareCardBtn = document.getElementById('share-card-btn')
     this.recommendedDifficultyHint = document.getElementById('recommended-difficulty-hint')
     this.menuPresetRow = document.getElementById('menu-preset-row')
     this.savePresetBtn = document.getElementById('save-preset-btn')
+    this.surpriseMeBtn = document.getElementById('surprise-me-btn')
+    this.quickKeybindsBtn = document.getElementById('quick-keybinds-btn')
+    this.beatThisBtn = document.getElementById('beat-this-btn')
     this.menuPresetChips = document.getElementById('menu-preset-chips')
     this.quickMuteBtn = document.getElementById('quick-mute-btn')
     this.quickColorblindBtn = document.getElementById('quick-colorblind-btn')
@@ -2626,6 +2644,18 @@ export class Game {
     this.howtoplayCloseBtn = document.getElementById('howtoplay-close-btn')
     this.seasonProgressFill = document.getElementById('season-progress-fill')
     this.menuSpotlight = document.getElementById('menu-spotlight')
+    this.menuSpotlightPauseBtn = document.getElementById('menu-spotlight-pause-btn')
+    this.weeklyProgressTrack = document.getElementById('weekly-progress-track')
+    this.weeklyProgressFill = document.getElementById('weekly-progress-fill')
+    if (this.menuSpotlightPauseBtn) {
+      this.menuSpotlightPauseBtn.addEventListener('click', () => {
+        this._spotlightPaused = !this._spotlightPaused
+        this.menuSpotlightPauseBtn.innerHTML = this._spotlightPaused
+          ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6,4 20,12 6,20"/></svg>'
+          : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>'
+        this.menuSpotlightPauseBtn.setAttribute('aria-label', this._spotlightPaused ? 'Resume ticker' : 'Pause ticker')
+      })
+    }
     this.eventBanner = document.getElementById('event-banner')
     this.whatsNewDot = document.getElementById('whats-new-dot')
     this.profileScreenshotGallery = document.getElementById('profile-screenshot-gallery')
@@ -2638,6 +2668,8 @@ export class Game {
     this.menuLoginStreak = document.getElementById('menu-login-streak')
     this.achievementsCompletionRing = document.getElementById('achievements-completion-ring')
     this.bestiaryCompletionRing = document.getElementById('bestiary-completion-ring')
+    this.cosmeticsCompletionRing = document.getElementById('cosmetics-completion-ring')
+    this.cosmeticsNavCount = document.getElementById('cosmetics-nav-count')
     this.achievementsNavCount = document.getElementById('achievements-nav-count')
     this.bestiaryNavCount = document.getElementById('bestiary-nav-count')
     this.seasonProgressLabel = document.getElementById('season-progress-label')
@@ -2747,6 +2779,7 @@ export class Game {
     this.largeTextToggle = document.getElementById('large-text-toggle')
     this.highContrastToggle = document.getElementById('high-contrast-toggle')
     this.bgMoodSelect = document.getElementById('bg-mood-select')
+    this.dyslexiaFontToggle = document.getElementById('dyslexia-font-toggle')
     this.keybindCheatsheetToggle = document.getElementById('keybind-cheatsheet-toggle')
     this.keybindCheatsheet = document.getElementById('keybind-cheatsheet')
     this.hitFeedbackToggle = document.getElementById('hit-feedback-toggle')
@@ -6255,6 +6288,15 @@ export class Game {
         saveSettings(this.settings)
       })
     }
+    if (this.dyslexiaFontToggle) {
+      this.dyslexiaFontToggle.checked = this.settings.dyslexiaFont
+      document.documentElement.classList.toggle('dyslexia-font', this.settings.dyslexiaFont)
+      this.dyslexiaFontToggle.addEventListener('change', () => {
+        this.settings.dyslexiaFont = this.dyslexiaFontToggle.checked
+        document.documentElement.classList.toggle('dyslexia-font', this.settings.dyslexiaFont)
+        saveSettings(this.settings)
+      })
+    }
     if (this.bgMoodSelect) {
       this.bgMoodSelect.value = this.settings.bgMood
       this._applyBgMood()
@@ -6473,6 +6515,7 @@ export class Game {
     this.coinshopBtn.addEventListener('click', () => this._openCoinShopPanel())
     this._bindHomepageBatch()
     this._bindCloudSave()
+    this._checkBeatThisChallenge()
     this.endingContinueBtn.addEventListener('click', () => {
       this.endingPanel.style.display = 'none'
       this.player.controls.lock()
@@ -9020,6 +9063,15 @@ export class Game {
         for (let i = 2; i <= 5; i++) avatarIcon.classList.remove(`avatar-frame-${i}`)
         if (level >= 2) avatarIcon.classList.add(`avatar-frame-${level}`)
       }
+      // Logo blood-tint intensity - same tier index, purely cosmetic (a
+      // CSS filter, not a different image asset). Doesn't touch the
+      // logo's size, only how saturated/red its existing blood-crack
+      // texture reads.
+      const logoImg = document.getElementById('menu-title-img')
+      if (logoImg) {
+        for (let i = 2; i <= 5; i++) logoImg.classList.remove(`logo-tier-${i}`)
+        if (level >= 2) logoImg.classList.add(`logo-tier-${level}`)
+      }
     }
     this._renderPlayerTag()
     this._updateMenuNewsTicker()
@@ -9030,6 +9082,8 @@ export class Game {
     this._updateWhatsNewDot()
     this._updateLoginStreakBadge()
     this._updateNavCompletionRings()
+    this._checkKillMilestones()
+    this._updateWeeklyProgressBar()
   }
 
   // Player tag - factored out of _updateBestStatsDisplay (also fired on
@@ -9039,7 +9093,23 @@ export class Game {
   _renderPlayerTag() {
     if (!this.menuPlayerTag) return
     const base = this.settings.nickname ? `#${this.settings.nickname.toUpperCase()}` : t('menuPlayerTagDefault')
-    this.menuPlayerTag.textContent = this._cloudGlobalRank ? `${base} · ${t('globalRankBadge', { rank: this._cloudGlobalRank })}` : base
+    let text = base
+    if (this._cloudGlobalRank) {
+      text += ` · ${t('globalRankBadge', { rank: this._cloudGlobalRank })}`
+      // Rank velocity arrow - compares against the rank as of the last
+      // time this ever fetched (localStorage, not per-session), computed
+      // once per session (_rankVelocityArrow caches it) so repeated
+      // _renderPlayerTag calls later in the same session don't keep
+      // comparing against an already-updated baseline and always show
+      // "no change."
+      if (this._rankVelocityArrow === undefined) {
+        const prev = Number(localStorage.getItem(PREV_GLOBAL_RANK_KEY)) || 0
+        this._rankVelocityArrow = !prev ? '' : this._cloudGlobalRank < prev ? ' ▲' : this._cloudGlobalRank > prev ? ' ▼' : ' –'
+        localStorage.setItem(PREV_GLOBAL_RANK_KEY, String(this._cloudGlobalRank))
+      }
+      text += this._rankVelocityArrow
+    }
+    this.menuPlayerTag.textContent = text
   }
 
   // Recommended Difficulty hint - only shown once a difficulty has at
@@ -9123,6 +9193,18 @@ export class Game {
       this.bestiaryCompletionRing.title = t('completionRingTitle', { pct })
       if (this.bestiaryNavCount) this.bestiaryNavCount.textContent = `${this.bestiaryEncountered.size}/${total}`
     }
+    if (this.cosmeticsCompletionRing) {
+      // Same cosmeticsOwned/cosmeticsTotal computation _openProfilePanel
+      // already uses (outfits + hats vs the shop items that have either
+      // field) - just also surfaced as a homepage nav ring, not a new
+      // count.
+      const owned = this.ownedOutfits.size + this.ownedHats.size
+      const total = COIN_SHOP_ITEMS.filter((i) => i.outfit || i.hat).length
+      const pct = total > 0 ? Math.round((owned / total) * 100) : 0
+      this.cosmeticsCompletionRing.style.setProperty('--pct', `${pct}%`)
+      this.cosmeticsCompletionRing.title = t('completionRingTitle', { pct })
+      if (this.cosmeticsNavCount) this.cosmeticsNavCount.textContent = `${owned}/${total}`
+    }
   }
 
   // Spotlight ticker - a single rotating hero-column line (Tip of the Day /
@@ -9142,10 +9224,22 @@ export class Game {
       CloudSync.fetchGlobalKills().then((n) => { this._spotlightGlobalKills = n }).catch(() => {})
       if (this._cloudUid) {
         CloudSync.fetchPollResults(POLL_ID, POLL_OPTIONS.map((o) => o.id)).then((counts) => { this._spotlightPollCounts = counts }).catch(() => {})
+        // Weekly MVP - a random pick among the top 5 (not always #1, so
+        // this doesn't just duplicate the weekly leaderboard's own #1
+        // display elsewhere), reusing the exact fetchTopWeeklyLeaderboard
+        // the Cloud Save panel's weekly leaderboard list already calls.
+        CloudSync.fetchTopWeeklyLeaderboard(_thisWeekStr(), 5).then((entries) => {
+          if (entries.length) this._spotlightWeeklyMvp = entries[Math.floor(Math.random() * entries.length)]
+        }).catch(() => {})
+        // Head-to-head rival - same fetchNearestRivalAbove the Cloud Save
+        // panel's own rival line already uses (_renderRival), just also
+        // surfaced on the homepage ticker rather than only inside that
+        // panel.
+        CloudSync.fetchNearestRivalAbove(_safeStatNumber(this.bestStats.bestNight)).then((rival) => { this._spotlightRival = rival }).catch(() => {})
       }
     }
     const render = () => {
-      const mode = (this._spotlightIndex || 0) % 10
+      const mode = (this._spotlightIndex || 0) % 21
       if (mode === 0) {
         const tipKey = SPOTLIGHT_TIPS[Math.floor(Date.now() / 60000) % SPOTLIGHT_TIPS.length]
         this.menuSpotlight.textContent = t('spotlightTipPrefix', { tip: t(tipKey) })
@@ -9229,13 +9323,106 @@ export class Game {
           const text = latest.querySelector('.changelog-text')?.textContent || ''
           this.menuSpotlight.textContent = t('spotlightPatchNotes', { date, text })
         }
+      } else if (mode === 10) {
+        // Comeback nudge - only shows once there's an actual gap to nudge
+        // about (a first-ever visit has no last run yet, and a same-day
+        // return has nothing meaningful to say). Silently no-ops otherwise,
+        // same precedent as the Mutator Exploration nudge (mode 4).
+        const last = this.runHistory[0]
+        if (last && last.ts) {
+          const days = Math.floor((Date.now() - _safeStatNumber(last.ts)) / 86400000)
+          if (days >= 1) this.menuSpotlight.textContent = t('spotlightComebackNudge', { days })
+        }
+      } else if (mode === 11 && this.nemesis) {
+        // Nemesis teaser - same this.nemesis the Profile panel's own
+        // Nemesis stat already reads (see _recordNemesis), just surfaced
+        // here too rather than only inside Profile.
+        this.menuSpotlight.textContent = t('spotlightNemesisTeaser', { label: this.nemesis.label, night: this.nemesis.night })
+      } else if (mode === 12) {
+        const horoscopeKey = HOROSCOPES[_dailyTwistIndex(_todayDateStr() + 'horoscope') % HOROSCOPES.length]
+        this.menuSpotlight.textContent = t(horoscopeKey)
+      } else if (mode === 13) {
+        // Almost Affordable - the cheapest item still just out of reach,
+        // not the closest-by-any-metric item (a 1-coin-short legendary
+        // gun is a more useful nudge than a 50-coin-short cheap skin).
+        const affordableGap = COIN_SHOP_ITEMS
+          .filter((i) => i.cost > this.coins)
+          .sort((a, b) => a.cost - this.coins - (b.cost - this.coins))[0]
+        if (affordableGap) {
+          this.menuSpotlight.textContent = t('spotlightAlmostAffordable', { item: t(affordableGap.titleKey), gap: (affordableGap.cost - this.coins).toLocaleString() })
+        }
+      } else if (mode === 14 && this._cloudUid) {
+        // Cloud sync status - same CLOUD_LAST_SYNC_KEY/_formatRelativeTime
+        // the Cloud Save panel and the quick-cloud-btn tooltip already use
+        // (see _renderCloudSyncStatus), just visible here too instead of
+        // only on hover. Only shown when signed in.
+        const last = localStorage.getItem(CLOUD_LAST_SYNC_KEY)
+        this.menuSpotlight.textContent = last
+          ? t('spotlightCloudSynced', { time: _formatRelativeTime(Math.max(0, Date.now() - Number(last))) })
+          : t('spotlightCloudNeverSynced')
+      } else if (mode === 15) {
+        // Recently Unlocked - only ever pulls from achievements.unlockTimes
+        // (see Achievements.js), which is forward-only tracked, so this
+        // silently shows nothing (falls through, previous text stays)
+        // until the player earns something new after this feature shipped.
+        const recent = this.achievements.getRecentUnlocks(1)[0]
+        if (recent) this.menuSpotlight.textContent = t('spotlightRecentUnlock', { name: t(recent.titleKey) })
+      } else if (mode === 16 && this.runHistory.length >= 6) {
+        // Win-rate trend - splits runHistory (newest-first, see
+        // _recordRunEnd) into the most recent half vs the older half of
+        // whatever's available, rather than requiring exactly 20 runs on
+        // hand. Needs at least 6 total so each half has a meaningful size.
+        const half = Math.floor(this.runHistory.length / 2)
+        const recentRate = this.runHistory.slice(0, half).filter((r) => r.survived).length / half
+        const olderRate = this.runHistory.slice(half, half * 2).filter((r) => r.survived).length / half
+        const delta = Math.round((recentRate - olderRate) * 100)
+        if (delta > 5) this.menuSpotlight.textContent = t('spotlightWinRateUp', { n: delta })
+        else if (delta < -5) this.menuSpotlight.textContent = t('spotlightWinRateDown', { n: Math.abs(delta) })
+        else this.menuSpotlight.textContent = t('spotlightWinRateSteady', { pct: Math.round(recentRate * 100) })
+      } else if (mode === 17 && this.runHistory.length >= 3) {
+        // Favorite play time - buckets runHistory timestamps into 4
+        // dayparts and picks whichever has the most runs. Only meaningful
+        // with a handful of runs on hand (RUN_HISTORY_MAX caps this at 25
+        // recent ones anyway, so this always reflects recent habits, not
+        // a lifetime average).
+        const buckets = { spotlightPlayTimeMorning: 0, spotlightPlayTimeAfternoon: 0, spotlightPlayTimeEvening: 0, spotlightPlayTimeNight: 0 }
+        for (const r of this.runHistory) {
+          if (!r.ts) continue
+          const h = new Date(r.ts).getHours()
+          if (h >= 5 && h < 12) buckets.spotlightPlayTimeMorning++
+          else if (h >= 12 && h < 17) buckets.spotlightPlayTimeAfternoon++
+          else if (h >= 17 && h < 22) buckets.spotlightPlayTimeEvening++
+          else buckets.spotlightPlayTimeNight++
+        }
+        const topKey = Object.keys(buckets).sort((a, b) => buckets[b] - buckets[a])[0]
+        if (buckets[topKey] > 0) this.menuSpotlight.textContent = t('spotlightFavoritePlayTime', { period: t(topKey) })
+      } else if (mode === 18 && this._spotlightWeeklyMvp) {
+        this.menuSpotlight.textContent = t('spotlightWeeklyMvp', { name: this._spotlightWeeklyMvp.name || '???', progress: _safeStatNumber(this._spotlightWeeklyMvp.progress) })
+      } else if (mode === 19 && this._spotlightRival) {
+        const gap = _safeStatNumber(this._spotlightRival.bestNight) - _safeStatNumber(this.bestStats.bestNight)
+        this.menuSpotlight.textContent = t('spotlightHeadToHead', { name: this._spotlightRival.name || '???', n: gap })
+      } else if (mode === 20) {
+        // Changelog diff - counts real .changelog-entry dates newer than
+        // CHANGELOG_LAST_VIEWED_KEY (set on Credits open, see
+        // _openCreditsPanel), distinct from mode 9's Patch Notes (which
+        // always shows the newest entry regardless of whether it's been
+        // seen). Silently no-ops if there's nothing new or no prior visit
+        // recorded (a first-ever visit has nothing to diff against).
+        const lastViewed = Number(localStorage.getItem(CHANGELOG_LAST_VIEWED_KEY))
+        if (lastViewed) {
+          const newCount = Array.from(document.querySelectorAll('#changelog-list .changelog-entry')).filter((el) => {
+            const parsed = Date.parse(el.querySelector('.changelog-date')?.textContent || '')
+            return !isNaN(parsed) && parsed > lastViewed
+          }).length
+          if (newCount > 0) this.menuSpotlight.textContent = t('spotlightChangelogDiff', { n: newCount })
+        }
       }
       this._spotlightIndex = (this._spotlightIndex || 0) + 1
     }
     render()
     if (this._spotlightIntervalStarted) return
     this._spotlightIntervalStarted = true
-    setInterval(render, 6000)
+    setInterval(() => { if (!this._spotlightPaused) render() }, 6000)
   }
 
   // Seasonal Event Banner - display:none year-round outside a defined date
@@ -9253,6 +9440,38 @@ export class Game {
     }
     this.eventBanner.textContent = t(active.key)
     this.eventBanner.style.display = ''
+  }
+
+  // Weekly Challenge visual progress bar - the homepage ticker's own
+  // Weekly Challenge mode only ever showed the target + days-left as
+  // text (see mode 2 in _updateMenuSpotlight); this reads the real
+  // in-progress count (this.weeklyChallenge.progress, incremented per
+  // qualifying kill by _checkWeeklyChallengeProgress) into an actual bar.
+  _updateWeeklyProgressBar() {
+    if (!this.weeklyProgressTrack) return
+    if (!this.weeklyDef || !this.weeklyChallenge) {
+      this.weeklyProgressTrack.style.display = 'none'
+      return
+    }
+    const pct = Math.min(100, (_safeStatNumber(this.weeklyChallenge.progress) / Math.max(1, this.weeklyDef.target)) * 100)
+    this.weeklyProgressFill.style.width = `${pct}%`
+    this.weeklyProgressTrack.style.display = ''
+  }
+
+  // Kill-count milestone toast - fires once per threshold, ever, tracked
+  // in localStorage so it survives across sessions but never repeats.
+  _checkKillMilestones() {
+    let seen = []
+    try { seen = JSON.parse(localStorage.getItem(KILL_MILESTONES_SEEN_KEY)) || [] } catch { seen = [] }
+    const kills = _safeStatNumber(this.careerStats.totalKills)
+    for (const m of KILL_MILESTONES) {
+      if (kills >= m && !seen.includes(m)) {
+        seen.push(m)
+        this._showHomepageToast(t('milestoneKillsToast', { n: m.toLocaleString() }))
+        localStorage.setItem(KILL_MILESTONES_SEEN_KEY, JSON.stringify(seen))
+        break // one toast per render call, in case multiple thresholds were crossed at once (e.g. imported save)
+      }
+    }
   }
 
   // Homepage Background Mood (Settings panel) - 'auto' follows the same
@@ -9373,6 +9592,19 @@ export class Game {
     if (roleBtn) roleBtn.click()
   }
 
+  // Surprise Me - picks a random visible difficulty + random role + random
+  // loadout, then clicks each real button (same .click() trick
+  // _loadMenuPreset uses above) so every other listener tied to those
+  // clicks still fires normally, rather than setting state directly.
+  _surpriseMe() {
+    const visibleDiffBtns = Array.from(this.difficultyBtns).filter((b) => b.style.display !== 'none')
+    if (visibleDiffBtns.length) visibleDiffBtns[Math.floor(Math.random() * visibleDiffBtns.length)].click()
+    const roleBtns = Array.from(this.roleBtns)
+    if (roleBtns.length) roleBtns[Math.floor(Math.random() * roleBtns.length)].click()
+    const loadoutBtns = Array.from(this.loadoutBtns)
+    if (loadoutBtns.length) loadoutBtns[Math.floor(Math.random() * loadoutBtns.length)].click()
+  }
+
   _deleteMenuPreset(i) {
     this.settings.menuPresets.splice(i, 1)
     saveSettings(this.settings)
@@ -9451,7 +9683,23 @@ export class Game {
   _bindHomepageBatch() {
     if (this.playAgainBtn) this.playAgainBtn.addEventListener('click', () => this._playAgainFromLastRun())
     if (this.shareLastRunBtn) this.shareLastRunBtn.addEventListener('click', () => this._shareLastRun())
+    // Reuses _generateCareerPortrait() as-is (see its own comment - it
+    // already composites a styled stat-card image, not a plain
+    // screenshot). The Profile panel's own button stays gated behind
+    // true_ending; this homepage shortcut uses the same lower bar as
+    // Play Again/Share above it (any completed run at all), since a
+    // shareable stat card is reasonable to want well before the true
+    // ending.
+    if (this.shareCardBtn) this.shareCardBtn.addEventListener('click', () => this._generateCareerPortrait())
     if (this.savePresetBtn) this.savePresetBtn.addEventListener('click', () => this._saveMenuPreset())
+    if (this.surpriseMeBtn) this.surpriseMeBtn.addEventListener('click', () => this._surpriseMe())
+    if (this.quickKeybindsBtn) {
+      this.quickKeybindsBtn.addEventListener('click', () => {
+        this._toggleSettings(true)
+        document.getElementById('tab-controls')?.click()
+      })
+    }
+    if (this.beatThisBtn) this.beatThisBtn.addEventListener('click', () => this._copyBeatThisLink())
     this._renderMenuPresets()
 
     if (this.profileBioInput) {
@@ -10636,6 +10884,12 @@ export class Game {
     // this panel, not just on page load, so it stays a genuine "have you
     // seen this" indicator rather than a permanent decoration.
     try { localStorage.setItem(WHATS_NEW_SEEN_KEY, WHATS_NEW_VERSION) } catch { /* storage unavailable */ }
+    // Separate from WHATS_NEW_SEEN_KEY above (that's a single version
+    // string gating the nav-button dot) - this is an actual timestamp, so
+    // the homepage ticker's "X updates since your last visit" mode (see
+    // _updateMenuSpotlight) can diff real changelog entry dates against
+    // it, not just know "has the dot been cleared."
+    try { localStorage.setItem(CHANGELOG_LAST_VIEWED_KEY, String(Date.now())) } catch { /* storage unavailable */ }
     this._updateWhatsNewDot()
   }
 
@@ -10691,6 +10945,21 @@ export class Game {
     // main.js) - without this, a passive background check like that one
     // could pop a gameplay toast over the main menu.
     if (!this.gameStarted) return
+    this._renderLoreToast(text)
+  }
+
+  // Homepage-safe variant - same toast element/animation as _showLoreToast
+  // above, deliberately WITHOUT its gameStarted guard, for toasts that are
+  // themselves genuinely about the homepage (kill milestones, the Beat
+  // This challenge-link comparison) rather than a background gameplay
+  // system that shouldn't be allowed to surprise-pop over the menu. The
+  // guard's own reasoning doesn't apply here since these calls only ever
+  // originate from homepage-specific code paths.
+  _showHomepageToast(text) {
+    this._renderLoreToast(text)
+  }
+
+  _renderLoreToast(text) {
     this.loreToast.textContent = text
     this.loreToast.classList.remove('show')
     void this.loreToast.offsetWidth
@@ -11495,6 +11764,46 @@ export class Game {
     ctx.fillText(t('careerPortraitStatsLine', { kills: this.careerStats.totalKills, prestige: this.metaProgress.prestigeLevel, runs: this.careerStats.totalRuns }), 16, titleSize + 24)
 
     this._finalizeScreenshotCanvas(canvas, 'download')
+  }
+
+  // Beat This challenge link - encodes just enough to render a comparison
+  // (name + bestNight + totalKills) as a base64 URL param. Deliberately
+  // NOT the same thing as the existing Challenge Code system (see
+  // _pendingChallengeCode/challengeCodeTwist) - that hashes a typed
+  // string into a gameplay difficulty twist; this only carries stats for
+  // a one-time display comparison, nothing gameplay-affecting, and
+  // there's no server round-trip since the whole payload lives in the URL.
+  _copyBeatThisLink() {
+    const payload = { n: this.settings.nickname || t('menuPlayerTagDefault'), bn: _safeStatNumber(this.bestStats.bestNight), tk: _safeStatNumber(this.careerStats.totalKills) }
+    const encoded = encodeURIComponent(btoa(JSON.stringify(payload)))
+    const url = `${location.origin}${location.pathname}?challenge=${encoded}`
+    if (!navigator.clipboard) {
+      this._showLoreToast(t('clipboardCopyUnsupported'))
+      return
+    }
+    navigator.clipboard.writeText(url)
+      .then(() => this._showLoreToast(t('beatThisLinkCopied')))
+      .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
+  }
+
+  // Reads a ?challenge=... param left by _copyBeatThisLink above (if any)
+  // and shows a one-time comparison toast. Best-effort: any malformed/
+  // tampered param (this is untrusted user input arriving via URL, same
+  // caution as _safeStatNumber's own comment on imported save data)
+  // silently no-ops rather than throwing.
+  _checkBeatThisChallenge() {
+    try {
+      const raw = new URLSearchParams(location.search).get('challenge')
+      if (!raw) return
+      const payload = JSON.parse(atob(decodeURIComponent(raw)))
+      const name = typeof payload.n === 'string' ? payload.n.slice(0, 20) : '???'
+      const theirNight = _safeStatNumber(payload.bn)
+      const theirKills = _safeStatNumber(payload.tk)
+      const myNight = _safeStatNumber(this.bestStats.bestNight)
+      this._showHomepageToast(t('beatThisComparison', { name, theirNight, myNight, theirKills, myKills: _safeStatNumber(this.careerStats.totalKills) }))
+    } catch {
+      // Malformed/tampered param - silently ignored, see comment above.
+    }
   }
 
   // Career Almanac helper (see _openProfilePanel) - the single highest kill

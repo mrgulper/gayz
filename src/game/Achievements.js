@@ -1,4 +1,9 @@
 const STORAGE_KEY = 'gayz-achievements'
+// Unlock timestamps (for the homepage "Recently Unlocked" feed) - added
+// after the unlocked Set above already existed, so this is forward-only:
+// achievements unlocked before this shipped have no recorded time and
+// simply never appear in the feed, rather than backfilling a fake time.
+const UNLOCK_TIMES_KEY = 'gayz-achievement-unlock-times'
 
 // Each achievement is unlocked by a direct Game.js call - see the check
 // points threaded through _tick/_onPickup/_onPlayerDeath. titleKey looks up
@@ -51,9 +56,27 @@ function saveUnlocked(set) {
   }
 }
 
+function loadUnlockTimes() {
+  try {
+    const raw = localStorage.getItem(UNLOCK_TIMES_KEY)
+    return raw ? JSON.parse(raw) : {}
+  } catch {
+    return {}
+  }
+}
+
+function saveUnlockTimes(obj) {
+  try {
+    localStorage.setItem(UNLOCK_TIMES_KEY, JSON.stringify(obj))
+  } catch {
+    // Storage unavailable - same best-effort as saveUnlocked above.
+  }
+}
+
 export class Achievements {
   constructor(onUnlock) {
     this.unlocked = loadUnlocked()
+    this.unlockTimes = loadUnlockTimes()
     this.onUnlock = onUnlock
   }
 
@@ -62,6 +85,8 @@ export class Achievements {
     if (this.unlocked.has(id)) return
     this.unlocked.add(id)
     saveUnlocked(this.unlocked)
+    this.unlockTimes[id] = Date.now()
+    saveUnlockTimes(this.unlockTimes)
     const def = ACHIEVEMENTS.find((a) => a.id === id)
     if (def && this.onUnlock) this.onUnlock(def)
     // Completionist - auto-unlocks once every OTHER achievement is earned.
@@ -72,5 +97,16 @@ export class Achievements {
       const others = ACHIEVEMENTS.filter((a) => a.id !== 'completionist')
       if (others.every((a) => this.unlocked.has(a.id))) this.unlock('completionist')
     }
+  }
+
+  // Homepage "Recently Unlocked" feed - only ever includes ids present in
+  // unlockTimes (see UNLOCK_TIMES_KEY's own comment on why that's not
+  // every unlocked achievement).
+  getRecentUnlocks(n) {
+    return Object.keys(this.unlockTimes)
+      .sort((a, b) => this.unlockTimes[b] - this.unlockTimes[a])
+      .slice(0, n)
+      .map((id) => ACHIEVEMENTS.find((a) => a.id === id))
+      .filter(Boolean)
   }
 }

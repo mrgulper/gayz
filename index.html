@@ -11,7 +11,7 @@
          stack. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Black+Ops+One&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Black+Ops+One&family=Lexend:wght@400;600&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="app">
@@ -346,6 +346,9 @@
               </div>
               <div class="menu-preset-row" id="menu-preset-row">
                 <button class="mini-action-btn" id="save-preset-btn" type="button">Save Setup</button>
+                <button class="mini-action-btn" id="surprise-me-btn" type="button">Surprise Me</button>
+                <button class="mini-action-btn" id="quick-keybinds-btn" type="button">Keybinds</button>
+                <button class="mini-action-btn" id="beat-this-btn" type="button">Beat This</button>
                 <div id="menu-preset-chips"></div>
               </div>
             </section>
@@ -362,6 +365,7 @@
             <section class="menu-panel continue-actions" id="continue-actions" style="display: none">
               <button class="mini-action-btn" id="play-again-btn" type="button">Play Again</button>
               <button class="mini-action-btn" id="share-last-run-btn" type="button">Share</button>
+              <button class="mini-action-btn" id="share-card-btn" type="button">Share Card</button>
             </section>
           </div>
 
@@ -370,7 +374,13 @@
             <p id="menu-tagline">Survive. Scavenge. Discover the truth.</p>
             <p id="event-banner" style="display: none"></p>
             <p id="menu-subtitle">Broken city block &mdash; survive, scavenge, shoot</p>
-            <p id="menu-spotlight"></p>
+            <div id="menu-spotlight-row">
+              <p id="menu-spotlight"></p>
+              <button id="menu-spotlight-pause-btn" aria-label="Pause ticker" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+              </button>
+            </div>
+            <div id="weekly-progress-track" style="display: none" aria-hidden="true"><div id="weekly-progress-fill"></div></div>
             <p class="menu-subhint" id="menu-subhint">Look for lookout platforms up staircases along the avenue &mdash; chests inside</p>
             <p class="menu-news-ticker" id="menu-news-ticker"></p>
             <p class="menu-news-ticker" id="weekly-featured-mutator-line"></p>
@@ -439,6 +449,8 @@
               <button id="coinshop-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/><path d="M2 3h2l2.4 12.4a2 2 0 0 0 2 1.6h8.6a2 2 0 0 0 2-1.6L21 7H6"/></svg>
                 <span>Shop</span>
+                <span class="nav-count" id="cosmetics-nav-count"></span>
+                <span class="nav-completion-ring" id="cosmetics-completion-ring" aria-hidden="true"></span>
               </button>
               <button id="upgrades-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="6,11 12,5 18,11"/></svg>
@@ -647,6 +659,10 @@
           <div class="audio-row">
             <label for="large-text-toggle" id="large-text-label">Large Text Mode</label>
             <input type="checkbox" id="large-text-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="dyslexia-font-toggle" id="dyslexia-font-label">Dyslexia-Friendly Font</label>
+            <input type="checkbox" id="dyslexia-font-toggle" class="audio-checkbox" />
           </div>
           <div class="audio-row">
             <label for="high-contrast-toggle" id="high-contrast-label">High Contrast Mode</label>
