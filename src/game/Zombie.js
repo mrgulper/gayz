@@ -200,6 +200,26 @@ const WANDER_RETARGET_MS = 4000
 // (getting that close still wakes a zombie regardless of pose).
 const PRONE_SIGHT_RANGE_MULT = 0.4
 
+// Zombie climbing - see _tryMoveOrClimb/_tryClimb. Same height band as
+// PlayerController's own MANTLE_MIN/MAX_HEIGHT (0.7-1.4) so zombies can
+// climb exactly the same low obstacles the player vaults - previously a
+// zombie that hit one of these (a low wall, a car hood, sandbags) just
+// got stuck sliding along it forever, making "stand on/behind a
+// mantle-height obstacle" a safe spot from melee. A scripted rise-and-
+// fall arc back down to ground level on the far side (not a real per-
+// frame climb, and not landing ON TOP of the obstacle to stay there -
+// see the risk this posed to the "zombies are always at y=0" assumption
+// several other systems read, e.g. LOS ray origin, the death-sink
+// animation) - same "good enough, not a rigid simulation" spirit as the
+// wrecking pendulum's own swing. Crawler/dinosaur (titan) types are
+// excluded - different enough movement/animation shape that a generic
+// arc would look wrong, and neither is common enough at these obstacles
+// to be worth the extra design.
+const ZOMBIE_CLIMB_MIN_HEIGHT = 0.7
+const ZOMBIE_CLIMB_MAX_HEIGHT = 1.4
+const ZOMBIE_CLIMB_LAND_DIST = 1.6
+const ZOMBIE_CLIMB_DURATION_MS = 500
+
 // Ranged strafe - spitters sidestep while in their attack band instead of
 // planting themselves the instant they're in range, reusing the perpendicular
 // of the existing toward-player direction rather than a second target system.
@@ -353,6 +373,17 @@ export class Zombie {
     // fresh objects per zombie per frame - there can be a couple dozen of
     // these alive checking every frame.
     this._moveBox = new THREE.Box3()
+    // Climbing (see _tryClimb/_tryMoveOrClimb) - isClimbing false the vast
+    // majority of the time (only true for the brief scripted arc), the
+    // rest just needs somewhere to live between _tryClimb and update()'s
+    // own climbing branch.
+    this.isClimbing = false
+    this._climbStartX = 0
+    this._climbStartZ = 0
+    this._climbPeakY = 0
+    this._climbTargetX = 0
+    this._climbTargetZ = 0
+    this._climbStartedAt = 0
     this._losRaycaster = new THREE.Raycaster()
     this._losOrigin = new THREE.Vector3()
     this._losDir = new THREE.Vector3()
@@ -1191,6 +1222,11 @@ export class Zombie {
     }
     if (this.state === 'dead') return
 
+    if (this.isClimbing) {
+      this._updateClimb(dt, elapsed)
+      return
+    }
+
     this._updateHitReact()
 
     const staggered = performance.now() < this.staggerUntil
@@ -1532,7 +1568,7 @@ export class Zombie {
     // far away - keep approaching instead of freezing into an attack that
     // should be impossible through solid geometry.
     if (dist > this.config.meleeRange || !this._hasLineOfSight(playerPos, solidMeshes)) {
-      this._tryMove(nx * this.effectiveSpeed * dt, nz * this.effectiveSpeed * dt, colliders)
+      this._tryMoveOrClimb(nx, nz, dt, colliders)
       this.group.rotation.y = Math.atan2(nx, nz)
     } else if (performance.now() >= this.attackCooldownUntil) {
       this.attackCooldownUntil = performance.now() + this.config.attackCooldown * 1000 * this.bossPhaseCooldownMult
@@ -1582,7 +1618,7 @@ export class Zombie {
 
   _updateExploder(dt, dist, nx, nz, playerPos, onAttack, onExplode, colliders) {
     if (dist > this.config.meleeRange) {
-      this._tryMove(nx * this.effectiveSpeed * dt, nz * this.effectiveSpeed * dt, colliders)
+      this._tryMoveOrClimb(nx, nz, dt, colliders)
       this.group.rotation.y = Math.atan2(nx, nz)
     } else {
       this._explode(playerPos, onAttack, onExplode)
@@ -1616,7 +1652,7 @@ export class Zombie {
     if (dist < this.config.retreatRange) {
       this._tryMove(-nx * this.effectiveSpeed * dt, -nz * this.effectiveSpeed * dt, colliders)
     } else if (dist > this.config.engageRange || !this._hasLineOfSight(playerPos, solidMeshes)) {
-      this._tryMove(nx * this.effectiveSpeed * dt, nz * this.effectiveSpeed * dt, colliders)
+      this._tryMoveOrClimb(nx, nz, dt, colliders)
     } else if (performance.now() >= this.attackCooldownUntil) {
       this.attackCooldownUntil = performance.now() + this.config.spitCooldown * 1000
       this.attackAnimUntil = performance.now() + 300
@@ -1680,6 +1716,86 @@ export class Zombie {
       this._moveBox.min.set(this.group.position.x - halfW, 0, nz - halfW)
       this._moveBox.max.set(this.group.position.x + halfW, height, nz + halfW)
       if (!colliders.some((c) => this._moveBox.intersectsBox(c))) this.group.position.z = nz
+    }
+  }
+
+  // Wraps _tryMove for the chase-toward-player callers (melee/ranged/
+  // exploder approach) - falls through to the normal move, and only
+  // probes for a climbable obstacle if that move made little/no progress
+  // (cheap: most zombies most of the time ARE moving freely on open
+  // streets, so the extra probe cost is paid only by the ones that are
+  // actually stuck, not every zombie every frame).
+  _tryMoveOrClimb(nx, nz, dt, colliders) {
+    const beforeX = this.group.position.x
+    const beforeZ = this.group.position.z
+    const stepX = nx * this.effectiveSpeed * dt
+    const stepZ = nz * this.effectiveSpeed * dt
+    this._tryMove(stepX, stepZ, colliders)
+    const intendedDist = Math.hypot(stepX, stepZ)
+    if (intendedDist < 0.0001) return
+    const movedDist = Math.hypot(this.group.position.x - beforeX, this.group.position.z - beforeZ)
+    if (movedDist >= intendedDist * 0.3) return
+    if (this.config.crawler || this.config.dinosaur) return
+    this._tryClimb(nx, nz, colliders)
+  }
+
+  // Probes for a climbable obstacle directly ahead (same height-band idea
+  // as PlayerController's own mantle probe: grounded near the zombie's
+  // own feet, height within ZOMBIE_CLIMB_MIN/MAX) and starts the scripted
+  // arc over it if one's found. No colliders/none found -> normal
+  // _tryMove's own blocked/stuck behavior stands (sliding along the
+  // obstacle, same as before this existed).
+  _tryClimb(nx, nz, colliders) {
+    if (this.isClimbing || !colliders || colliders.length === 0) return false
+    const feetY = this.group.position.y
+    const probeDist = 0.5 * this.config.scale
+    const probeX = this.group.position.x + nx * probeDist
+    const probeZ = this.group.position.z + nz * probeDist
+
+    let obstacleTop = null
+    for (const c of colliders) {
+      if (probeX < c.min.x || probeX > c.max.x || probeZ < c.min.z || probeZ > c.max.z) continue
+      if (c.min.y > feetY + 0.4) continue
+      const height = c.max.y - feetY
+      if (height < ZOMBIE_CLIMB_MIN_HEIGHT || height > ZOMBIE_CLIMB_MAX_HEIGHT) continue
+      if (obstacleTop === null || c.max.y > obstacleTop) obstacleTop = c.max.y
+    }
+    if (obstacleTop === null) return false
+
+    const landDist = ZOMBIE_CLIMB_LAND_DIST * this.config.scale
+    this._climbStartX = this.group.position.x
+    this._climbStartZ = this.group.position.z
+    this._climbPeakY = obstacleTop + 0.1 * this.config.scale
+    this._climbTargetX = this.group.position.x + nx * landDist
+    this._climbTargetZ = this.group.position.z + nz * landDist
+    this.group.rotation.y = Math.atan2(nx, nz)
+    this.isClimbing = true
+    this._climbStartedAt = performance.now()
+    return true
+  }
+
+  // Scripted rise-and-fall arc, always returning to the SAME y it started
+  // at (0, same as every alive zombie always is - see the constants'
+  // own comment on why this doesn't land ON TOP of the obstacle to stay
+  // there). Mirrors PlayerController's own isMantling branch shape - an
+  // early return in update() bypassing all normal AI/movement/attack
+  // logic for the duration, just driving position and the walk
+  // animation directly instead.
+  _updateClimb(dt, elapsed) {
+    const frac = Math.min(1, (performance.now() - this._climbStartedAt) / ZOMBIE_CLIMB_DURATION_MS)
+    this.group.position.x = THREE.MathUtils.lerp(this._climbStartX, this._climbTargetX, frac)
+    this.group.position.z = THREE.MathUtils.lerp(this._climbStartZ, this._climbTargetZ, frac)
+    // Sine arc (0 at start/end, 1 at the midpoint) - same "good enough,
+    // not a rigid simulation" shape the wrecking pendulum's own swing
+    // already uses, not a real per-frame climb.
+    this.group.position.y = Math.sin(frac * Math.PI) * this._climbPeakY
+    if (this.usingGLB) {
+      this._playGlbAction('walk', true)
+      this.mixer.update(dt)
+    }
+    if (frac >= 1) {
+      this.isClimbing = false
+      this.group.position.y = 0
     }
   }
 
