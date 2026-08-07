@@ -1941,6 +1941,18 @@ body.reduce-flashing #critical-blood-overlay.show {
     url('/images/profile-wood-bg.jpg') center/cover;
   overflow-y: auto;
   padding: 24px 0;
+  /* Overrides the shared panel rule's justify-content:center - fine when
+     content is short enough to fit the viewport, but this panel now has
+     enough content (account row + bio/stats columns added on top of
+     everything already here) to need scrolling on most screens, and a
+     centered flex column with overflowing content centers the WHOLE
+     block - pushing early elements (the new Login/Register/Sign Out row)
+     up above the visible top edge instead of anchoring them where you'd
+     actually look first. Caught via a live screenshot + getBoundingClientRect
+     showing the account row's top at a NEGATIVE y coordinate - reported as
+     "where's the login button" from a real user, not something the
+     original DOM-state-only Playwright check had caught. */
+  justify-content: flex-start;
 }
 
 #perk-panel-title,
