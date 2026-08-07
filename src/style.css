@@ -610,6 +610,14 @@ html, body {
 :root {
   --hud-scale: 1;
   --hud-opacity: 1;
+  /* Reference mockup's panels/buttons read as textured stamped metal, not
+     flat color - a subtle fractal-noise grain (SVG feTurbulence, alpha
+     baked into the filter itself so it composites faint) approximates
+     that without needing an actual image asset. On :root (not #menu)
+     since the Shop/Upgrades/Achievements/etc. modal panels that also use
+     it are siblings of #menu in the DOM, not descendants - a custom
+     property scoped to #menu wouldn't reach them. */
+  --grain-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 /* Large Text Mode - scoped to #menu + every modal panel's text (zoom,
@@ -1947,7 +1955,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   align-items: center;
   justify-content: center;
   gap: 14px;
-  background: rgba(6, 8, 6, 0.9);
+  background: var(--grain-texture), rgba(6, 8, 6, 0.9);
 }
 
 /* Profile panel - old broken-wood backdrop instead of the flat dark
@@ -3022,12 +3030,17 @@ html.bg-mood-amber #menu-bg-photo {
 
 .menu-panel {
   position: relative;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 12%), var(--menu-panel-bg);
+  background: var(--grain-texture), linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 12%), var(--menu-panel-bg);
   border: 2px solid var(--menu-panel-border);
   border-radius: 4px;
   padding: 11px 17px;
   backdrop-filter: blur(2px);
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow:
+    0 6px 14px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    inset 1px 0 0 rgba(255, 255, 255, 0.04),
+    inset -1px 0 0 rgba(0, 0, 0, 0.4);
 }
 
 /* Stamped-metal corner brackets (top-left + bottom-right) on every
@@ -3054,6 +3067,10 @@ html.bg-mood-amber #menu-bg-photo {
   left: -1px;
   border-top: 2px solid var(--menu-gold);
   border-left: 2px solid var(--menu-gold);
+  /* Worn stamped-metal look, not a crisp flat line - a highlight riding
+     the outer edge and a dark shadow on the inner edge fake a beveled
+     cross-section. */
+  box-shadow: -0.5px -0.5px 0 rgba(255, 255, 255, 0.35), 1px 1px 1px rgba(0, 0, 0, 0.55);
 }
 
 .menu-panel::after,
@@ -3063,6 +3080,7 @@ html.bg-mood-amber #menu-bg-photo {
   right: -1px;
   border-bottom: 2px solid var(--menu-gold);
   border-right: 2px solid var(--menu-gold);
+  box-shadow: 0.5px 0.5px 0 rgba(255, 255, 255, 0.35), -1px -1px 1px rgba(0, 0, 0, 0.55);
 }
 
 .menu-panel-title {
@@ -3170,12 +3188,15 @@ html.bg-mood-amber #menu-bg-photo {
   color: #fff;
 }
 
-.class-btn[data-role="ranged"] .class-icon-badge { background: var(--menu-green); }
-.class-btn[data-role="melee"] .class-icon-badge { background: var(--menu-orange); }
-.class-btn[data-role="medic"] .class-icon-badge { background: var(--menu-blue); }
-.class-btn[data-loadout="balanced"] .class-icon-badge { background: var(--menu-gold); }
-.class-btn[data-loadout="runner"] .class-icon-badge { background: var(--menu-purple); }
-.class-btn[data-loadout="tank"] .class-icon-badge { background: var(--menu-red); }
+/* Embossed vertical shading (light top, dark bottom) layered over each
+   flat accent color - matches the reference mockup's rounded 3D-looking
+   hex badges rather than a flat color fill. */
+.class-btn[data-role="ranged"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-green); }
+.class-btn[data-role="melee"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-orange); }
+.class-btn[data-role="medic"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-blue); }
+.class-btn[data-loadout="balanced"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-gold); }
+.class-btn[data-loadout="runner"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-purple); }
+.class-btn[data-loadout="tank"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-red); }
 
 .class-btn[data-loadout="balanced"] .class-icon { color: #1a1a1a; }
 
@@ -3466,10 +3487,17 @@ html.bg-mood-amber #menu-bg-photo {
   text-transform: uppercase;
   color: var(--menu-gold);
   background:
+    var(--grain-texture),
     radial-gradient(3.5px 3.5px at 10% 20%, #6b6a63, transparent 70%),
     radial-gradient(3.5px 3.5px at 90% 20%, #6b6a63, transparent 70%),
     radial-gradient(3.5px 3.5px at 10% 80%, #6b6a63, transparent 70%),
     radial-gradient(3.5px 3.5px at 90% 80%, #6b6a63, transparent 70%),
+    /* Extra rivet dots along the mid-edges (not just corners) - a stamped/
+       riveted seam look, matching the reference mockup's Play button. */
+    radial-gradient(2.5px 2.5px at 50% 12%, #6b6a63, transparent 70%),
+    radial-gradient(2.5px 2.5px at 50% 88%, #6b6a63, transparent 70%),
+    radial-gradient(2.5px 2.5px at 3% 50%, #6b6a63, transparent 70%),
+    radial-gradient(2.5px 2.5px at 97% 50%, #6b6a63, transparent 70%),
     linear-gradient(180deg, #52585d 0%, #2c2f33 55%, #17191b 100%);
   border: 3px solid var(--menu-gold);
   clip-path: polygon(2% 0%, 98% 0%, 100% 18%, 100% 82%, 98% 100%, 2% 100%, 0% 82%, 0% 18%);
@@ -3932,11 +3960,16 @@ html.bg-mood-amber #menu-bg-photo {
 
 .menu-card {
   position: relative;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 12%), var(--menu-panel-bg);
+  background: var(--grain-texture), linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 12%), var(--menu-panel-bg);
   border: 2px solid var(--menu-panel-border);
   border-radius: 4px;
   padding: 19px 23px;
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow:
+    0 6px 14px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    inset 1px 0 0 rgba(255, 255, 255, 0.04),
+    inset -1px 0 0 rgba(0, 0, 0, 0.4);
   text-align: left;
 }
 
