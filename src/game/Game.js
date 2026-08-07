@@ -2580,11 +2580,14 @@ export class Game {
     // + player badge, replacing the old single menu-best-stats text blob.
     this.heroBestNight = document.getElementById('hero-best-night')
     this.heroBestStreak = document.getElementById('hero-best-streak')
-    this.statLongestSurvival = document.getElementById('stat-longest-survival')
-    this.statTotalKills = document.getElementById('stat-total-kills')
-    this.statRunsPlayed = document.getElementById('stat-runs-played')
-    this.statBestStreak = document.getElementById('stat-best-streak')
-    this.statLastRun = document.getElementById('stat-last-run')
+    // Each of these now renders in TWO places (homepage Your Stats panel +
+    // Profile panel's stats column) sharing one data-stat attribute rather
+    // than duplicate ids, so querySelectorAll + forEach keeps both in sync.
+    this.statLongestSurvival = document.querySelectorAll('[data-stat="longest-survival"]')
+    this.statTotalKills = document.querySelectorAll('[data-stat="total-kills"]')
+    this.statRunsPlayed = document.querySelectorAll('[data-stat="runs-played"]')
+    this.statBestStreak = document.querySelectorAll('[data-stat="best-streak"]')
+    this.statLastRun = document.querySelectorAll('[data-stat="last-run"]')
     this.menuAvatarLevel = document.getElementById('menu-avatar-level')
     this.menuAvatarPhoto = document.getElementById('menu-avatar-photo')
     this.menuPlayerTag = document.getElementById('menu-player-tag')
@@ -8936,22 +8939,24 @@ export class Game {
     // K/D ratio appended inline rather than as its own stat row - the
     // Your Stats panel has no spare vertical budget for a new row (see
     // CLAUDE.md's menu-redesign notes on the zero-scroll fight).
-    if (this.statTotalKills) {
+    {
       const kd = (_safeStatNumber(this.careerStats.totalKills) / Math.max(1, _safeStatNumber(this.careerStats.totalDeaths))).toFixed(1)
-      this.statTotalKills.textContent = `${_safeStatNumber(this.careerStats.totalKills)} (K/D ${kd})`
+      this.statTotalKills.forEach((el) => { el.textContent = `${_safeStatNumber(this.careerStats.totalKills)} (K/D ${kd})` })
     }
-    if (this.statRunsPlayed) {
+    {
       const hours = (_safeStatNumber(this.careerStats.lifetimePlaytimeSeconds) / 3600).toFixed(1)
-      this.statRunsPlayed.textContent = `${_safeStatNumber(this.careerStats.totalRuns)} · ${hours}h played`
+      this.statRunsPlayed.forEach((el) => { el.textContent = `${_safeStatNumber(this.careerStats.totalRuns)} · ${hours}h played` })
     }
-    if (this.statBestStreak) this.statBestStreak.textContent = _safeStatNumber(bestKillStreak)
-    if (this.statLongestSurvival) {
-      this.statLongestSurvival.textContent = this.bestRunPace && this.bestRunPace.elapsedMs
+    this.statBestStreak.forEach((el) => { el.textContent = _safeStatNumber(bestKillStreak) })
+    {
+      const survivalText = this.bestRunPace && this.bestRunPace.elapsedMs
         ? formatTime(_safeStatNumber(this.bestRunPace.elapsedMs))
         : '--'
+      this.statLongestSurvival.forEach((el) => { el.textContent = survivalText })
     }
-    if (this.statLastRun) {
+    {
       const last = this.runHistory[0]
+      let lastRunText = '--'
       if (last) {
         let line = t(last.survived ? 'runHistorySurvived' : 'runHistoryDied', { night: _safeStatNumber(last.night), kills: _safeStatNumber(last.kills), coins: _safeStatNumber(last.coins) })
         // Personal-best delta - compares only against bestStats.bestNight
@@ -8960,10 +8965,9 @@ export class Game {
         const nightDelta = _safeStatNumber(last.night) - _safeStatNumber(bestNight)
         if (nightDelta === 0 && _safeStatNumber(last.night) > 0) line += ` — ${t('deltaNewBest')}`
         else if (nightDelta < 0) line += ` (${t('deltaFromBest', { n: Math.abs(nightDelta) })})`
-        this.statLastRun.textContent = line
-      } else {
-        this.statLastRun.textContent = '--'
+        lastRunText = line
       }
+      this.statLastRun.forEach((el) => { el.textContent = lastRunText })
       if (this.continueActions) this.continueActions.style.display = last ? 'flex' : 'none'
     }
 
