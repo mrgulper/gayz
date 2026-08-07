@@ -1927,7 +1927,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   align-items: center;
   justify-content: center;
   gap: 14px;
-  background: rgba(6, 8, 6, 0.9);
+  background: rgba(92, 63, 20, 0.95);
 }
 
 /* Profile panel - old broken-wood backdrop instead of the flat dark
@@ -2760,7 +2760,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   --menu-gunmetal-dark: #1c1e20;
   --menu-bronze: #8a6d47;
   --menu-orange-glow: #e67e35;
-  --menu-panel-bg: rgba(7, 8, 8, 0.72);
+  --menu-panel-bg: rgba(92, 63, 20, 0.9);
   --menu-panel-border: rgba(138, 109, 71, 0.5);
   --menu-text-dim: rgba(224, 228, 220, 0.62);
   --menu-display-font: 'Bebas Neue', 'Segoe UI', sans-serif;
