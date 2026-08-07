@@ -2788,7 +2788,6 @@ export class Game {
     this._sessionKills = 0
     this._sessionStartTime = performance.now()
     this._leaderboardUnsubscribe = null
-    this.menuLeaderboard = document.getElementById('menu-leaderboard')
     this.menuBossRushLeaderboard = document.getElementById('menu-bossrush-leaderboard')
     this.menuHouseholdLeaderboard = document.getElementById('menu-household-leaderboard')
     this.menuHardcoreMemorial = document.getElementById('menu-hardcore-memorial')
@@ -9323,7 +9322,6 @@ export class Game {
     document.getElementById('companion-color-label').textContent = t('companionColorLabel')
 
     this._updateBestStatsDisplay()
-    this._updateLeaderboardDisplay()
     this._updateBossRushLeaderboardDisplay()
     this._updateHouseholdLeaderboardDisplay()
     this._updateAcceptChallengeButton()
@@ -10261,7 +10259,6 @@ export class Game {
     this.leaderboard.sort((a, b) => (b.night - a.night) || (b.kills - a.kills) || (b.points - a.points))
     this.leaderboard = this.leaderboard.slice(0, LEADERBOARD_MAX_ENTRIES)
     saveLeaderboard(this.leaderboard)
-    this._updateLeaderboardDisplay()
 
     // Boss Rush leaderboard - a genuinely separate board (see
     // BOSS_RUSH_LEADERBOARD_KEY's own comment), only ever gains an entry
@@ -10301,23 +10298,6 @@ export class Game {
       .map((e, i) => `<div class="leaderboard-row"><span>#${i + 1} ${_escapeHtml(e.name)}</span><span>${t('hudNight', { n: _safeStatNumber(e.night) })}</span><span>${t('hudKills', { n: _safeStatNumber(e.kills) })}</span></div>`)
       .join('')
     this.menuHouseholdLeaderboard.innerHTML = `<p class="menu-best-stats">${t('householdLeaderboardTitle')}</p>${rows}`
-  }
-
-  _updateLeaderboardDisplay() {
-    if (this.leaderboard.length === 0) {
-      this.menuLeaderboard.style.display = 'none'
-      this.menuLeaderboard.innerHTML = ''
-      return
-    }
-    this.menuLeaderboard.style.display = ''
-    // _safeStatNumber - see its own doc comment. Import Save (Local
-    // Sharing batch) can write an arbitrary gayz-leaderboard value, so
-    // every render of persisted leaderboard data needs to treat it as
-    // untrusted, not just the 2 spots the batch's own new UI added.
-    const rows = this.leaderboard
-      .map((e, i) => `<div class="leaderboard-row"><span>#${i + 1}</span><span>${t('hudNight', { n: _safeStatNumber(e.night) })}</span><span>${t('hudKills', { n: _safeStatNumber(e.kills) })}</span></div>`)
-      .join('')
-    this.menuLeaderboard.innerHTML = `<p class="menu-best-stats">${t('leaderboardTitle')}</p>${rows}`
   }
 
   // Shows once this save has ever recorded a Boss Rush run, regardless of
