@@ -66,6 +66,10 @@ const AMBUSH_BURST_MS = 1900
 const AMBUSH_BURST_SPEED_MULT = 2.3
 const DEFAULT_ENRAGE_MULT = 1.4
 const DEFAULT_WEAKEN_MULT = 0.55
+// Leg-shot crippling (see isCrippled) - a harsher, PERMANENT version of
+// the temporary weaken() slow above. 2 leg hits to trigger.
+const CRIPPLE_LEG_HITS = 2
+const CRIPPLED_SPEED_MULT = 0.35
 // Hivemind boss aura - a boss's mere presence speeds up everything near it
 // (see ZombieManager's proximity check), distinct from a Screamer's own
 // enrage (a one-off scream pulse rather than a standing aura).
@@ -313,6 +317,12 @@ export class Zombie {
     // check) - continuously refreshed while within range of an alive
     // boss, same "refresh timer, don't stack" shape as enragedUntil.
     this.hivemindBuffUntil = 0
+    // Limb damage (see WeaponSystem's isLegShot handling) - unlike the
+    // existing brief weaken() slow, this is permanent once triggered:
+    // enough leg hits and the zombie switches to the 'crawl' clip and
+    // stays badly slowed for the rest of its life, not just 2 seconds.
+    this.legHitCount = 0
+    this.isCrippled = false
     this.isBerserk = false
     this.specialCooldownUntil = 0
     this.specialTelegraphUntil = 0
@@ -1306,7 +1316,8 @@ export class Zombie {
       const chokepointMult = THREE.MathUtils.lerp(1, CHOKEPOINT_MIN_SPEED_MULT, this._congestion)
       this.isBerserk = this.health > 0 && this.health / this.maxHealth <= BERSERK_HEALTH_FRACTION
       const berserkMult = this.isBerserk ? BERSERK_SPEED_MULT : 1
-      this.effectiveSpeed = this.speed * Math.max(burstMult, enrageMult, berserkMult, hivemindMult, alphaMult, fleeMult) * weakenMult * chokepointMult
+      const crippledMult = this.isCrippled ? CRIPPLED_SPEED_MULT : 1
+      this.effectiveSpeed = this.speed * Math.max(burstMult, enrageMult, berserkMult, hivemindMult, alphaMult, fleeMult) * weakenMult * chokepointMult * crippledMult
 
       // Excess elevation beyond a normal standing eye height (e.g. the player
       // is up on a car roof) - added into the melee engagement check below
@@ -1394,6 +1405,15 @@ export class Zombie {
   weaken(durationMs) {
     if (this.state !== 'alive') return
     this.weakenedUntil = Math.max(this.weakenedUntil, performance.now() + durationMs)
+  }
+
+  // Called once per leg-shot hit (see WeaponSystem's isLegShot handling).
+  // Bosses are exempt - permanently immobilizing a boss after 2 shots
+  // would trivialize what's meant to be a real fight.
+  onLegShot() {
+    if (this.state !== 'alive' || this.isCrippled || this.isBoss) return
+    this.legHitCount++
+    if (this.legHitCount >= CRIPPLE_LEG_HITS) this.isCrippled = true
   }
 
   // EMP grenade (see ZombieManager's spawnEmpThrow) - reuses the same
@@ -1710,7 +1730,7 @@ export class Zombie {
   // parity pass, not full parity.
   _animateGLB(dt, elapsed) {
     const attacking = performance.now() < this.attackAnimUntil
-    if (this.config.crawler) {
+    if (this.config.crawler || this.isCrippled) {
       this._playGlbAction('crawl', true)
     } else if (attacking) {
       this._playGlbAction(this.isBoss ? 'kick' : 'punch', false)

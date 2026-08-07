@@ -1194,7 +1194,12 @@ export class WeaponSystem {
         }
         // Leg shot - weakens (slows) rather than dealing bonus damage, a
         // tradeoff pick against aiming for the headshot bonus instead.
-        if (isLegShot) zombieHit.weaken(LEG_SHOT_WEAKEN_MS)
+        // Enough leg shots (see Zombie.onLegShot) permanently cripples
+        // them into a crawl instead of just this temporary slow.
+        if (isLegShot) {
+          zombieHit.weaken(LEG_SHOT_WEAKEN_MS)
+          zombieHit.onLegShot()
+        }
         // Flamethrower (see w.ignites) - a lingering burn on top of the
         // direct hit-scan tick, so backing off after a couple of ticks
         // still keeps dealing damage instead of the effect ending the
