@@ -3,6 +3,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
+import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass.js'
 import { buildWorld, WORLD_CULL_DISTANCE, WORLD_SHADOW_CULL_DISTANCE, CAMPFIRE_X, CAMPFIRE_Z } from './World.js'
 import { LOW_QUALITY_MODE, flatMaterial } from './QualitySettings.js'
 import { PlayerController } from './PlayerController.js'
@@ -262,6 +263,33 @@ function loadSettings() {
       bgMood: parsed.bgMood || 'auto',
       keybindCheatSheet: parsed.keybindCheatSheet ?? false,
       showHitFeedback: parsed.showHitFeedback ?? true,
+      // Graphics tab (see _bindGraphicsSettings). renderResolution is a
+      // percentage fed into _basePixelRatio's pixel-ratio math, not a
+      // separate render target size - docs/PERFORMANCE.md already ruled
+      // resolution out as a fix for the real (CPU-bound) stutter, so this
+      // is a genuine visual/GPU-cost lever, not a performance fix.
+      renderResolution: parsed.renderResolution ?? 100,
+      brightness: parsed.brightness ?? 100,
+      contrast: parsed.contrast ?? 100,
+      // 0 = SSAO pass disabled outright (default - it's real added GPU
+      // cost, so it should be an opt-in, not something every player pays
+      // for unasked).
+      aoIntensity: parsed.aoIntensity ?? 0,
+      // Default false to match this build's existing out-of-box behavior
+      // (LOW_QUALITY_MODE already keeps shadows off) - an explicit opt-in
+      // still works, see _resolveShadowsEnabled's own comment on why.
+      shadowsEnabled: parsed.shadowsEnabled ?? false,
+      shadowQuality: parsed.shadowQuality || 'medium',
+      bulletHolesEnabled: parsed.bulletHolesEnabled ?? true,
+      bloodEffectsEnabled: parsed.bloodEffectsEnabled ?? true,
+      damageIndicatorEnabled: parsed.damageIndicatorEnabled ?? true,
+      // Independent from showHitFeedback (which already gates the
+      // hitmarker + damage numbers together, see _spawnDamageNumber) -
+      // this ANDs with it rather than replacing it, so the existing
+      // combined toggle keeps working exactly as before for players who
+      // never open the new Graphics tab.
+      damageNumbersEnabled: parsed.damageNumbersEnabled ?? true,
+      damageNumbersScale: parsed.damageNumbersScale ?? 100,
       mutators: {
         hordeRush: parsed.mutators?.hordeRush ?? false,
         lootRush: parsed.mutators?.lootRush ?? false,
@@ -294,7 +322,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -2410,6 +2438,13 @@ export class Game {
     // Drops fast (one bad sample) but climbs back slowly (avoids visibly
     // flickering between resolutions every time fps hovers near the line).
     this._dynResScale = 1
+    // Graphics tab's manual Resolution slider (50-100%) - see
+    // _applyRenderScale's own comment on why this is a separate
+    // multiplier from _dynResScale above, not a revival of it. Placeholder
+    // 1 here (this.settings doesn't exist yet at this point in the
+    // constructor) - the real value is set from this.settings right after
+    // the renderer itself is created, below.
+    this._userResScale = 1
     // Real fix for "make it stable at 60fps" - unlike resolution (proven
     // this session not to matter), simultaneous zombie count IS a real,
     // confirmed cost (each one runs its own AI/collision/animation work
@@ -2787,6 +2822,23 @@ export class Game {
     this.shakeIntensitySlider = document.getElementById('shake-intensity-slider')
     this.shakeIntensityValue = document.getElementById('shake-intensity-value')
     this.reduceFlashingToggle = document.getElementById('reduce-flashing-toggle')
+    // Graphics tab (see _bindGraphicsSettings)
+    this.gfxResolutionSlider = document.getElementById('gfx-resolution-slider')
+    this.gfxResolutionValue = document.getElementById('gfx-resolution-value')
+    this.gfxBrightnessSlider = document.getElementById('gfx-brightness-slider')
+    this.gfxBrightnessValue = document.getElementById('gfx-brightness-value')
+    this.gfxContrastSlider = document.getElementById('gfx-contrast-slider')
+    this.gfxContrastValue = document.getElementById('gfx-contrast-value')
+    this.gfxAoSlider = document.getElementById('gfx-ao-slider')
+    this.gfxAoValue = document.getElementById('gfx-ao-value')
+    this.gfxShadowsToggle = document.getElementById('gfx-shadows-toggle')
+    this.gfxShadowQualitySelect = document.getElementById('gfx-shadow-quality-select')
+    this.gfxBulletHolesToggle = document.getElementById('gfx-bullet-holes-toggle')
+    this.gfxBloodToggle = document.getElementById('gfx-blood-toggle')
+    this.gfxDamageIndicatorToggle = document.getElementById('gfx-damage-indicator-toggle')
+    this.gfxDamageNumbersToggle = document.getElementById('gfx-damage-numbers-toggle')
+    this.gfxDamageNumbersScaleSlider = document.getElementById('gfx-damage-numbers-scale-slider')
+    this.gfxDamageNumbersScaleValue = document.getElementById('gfx-damage-numbers-scale-value')
     this.streamSafeModeToggle = document.getElementById('stream-safe-mode-toggle')
     this.toggleSprintToggle = document.getElementById('toggle-sprint-toggle')
     this.toggleCrouchToggle = document.getElementById('toggle-crouch-toggle')
@@ -3012,12 +3064,16 @@ export class Game {
     // (bare-bones mode), regardless of the separate Performance Mode
     // setting - a real, free GPU cost cut (no multi-sample resolve pass).
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: !LOW_QUALITY_MODE && !this.settings.performanceMode })
-    this.renderer.setPixelRatio(this._basePixelRatio())
+    this._userResScale = (this.settings.renderResolution ?? 100) / 100
+    this.renderer.setPixelRatio(this._basePixelRatio() * this._userResScale)
     // Shadows off entirely under LOW_QUALITY_MODE - a big chunk of both
     // remaining visual complexity (soft shadow edges) and render cost
     // (a full extra depth pass every frame). Performance Mode's own
     // toggle still layers on top of this if a player enables it manually.
-    this.renderer.shadowMap.enabled = !LOW_QUALITY_MODE
+    // Also respects the Graphics tab's own Shadows checkbox now (see
+    // _resolveShadowsEnabled) - LOW_QUALITY_MODE/Performance Mode still
+    // win regardless of that checkbox's state, same precedent as before.
+    this.renderer.shadowMap.enabled = this._resolveShadowsEnabled()
     this.renderer.shadowMap.type = THREE.PCFShadowMap
     // Cinematic contrast/rolloff instead of the flat default - the single
     // biggest free visual-quality win available (no extra render cost).
@@ -3106,6 +3162,15 @@ export class Game {
     this.composer = new EffectComposer(this.renderer)
     this.renderPass = new RenderPass(this.scene, this.camera)
     this.composer.addPass(this.renderPass)
+    // Ambient Occlusion (Graphics tab) - real added GPU cost (its own
+    // depth+normal render targets every frame), so disabled by default
+    // (kernelRadius 0 below, aoIntensity setting defaults to 0) rather
+    // than something every player pays for unasked. Must come before
+    // bloom/output below so AO shading gets picked up by the tone mapping
+    // like any other lit surface, not applied on top of the final image.
+    this.ssaoPass = new SSAOPass(this.scene, this.camera, window.innerWidth, window.innerHeight)
+    this.ssaoPass.enabled = false
+    this.composer.addPass(this.ssaoPass)
     // Bloom's own internal buffer runs at half the screen's resolution -
     // it's an inherently soft/blurred effect (several downsample+blur
     // passes), so the quarter-the-pixel-count savings from halving both
@@ -3121,6 +3186,11 @@ export class Game {
     const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, upgradeMachine, mysteryBox, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel, toxicSewerLevel, mineLevel, manholeCovers, waterTowerValve, containerStaircase, industrialSiren, wreckingPendulum, scaffolding, elevatorTower, payphone, tacticalStreetlights, grassBounds, waterBounds } = buildWorld(this.scene, ACHIEVEMENTS.length)
     this.grassBounds = grassBounds
     this.waterBounds = waterBounds
+    // The moon DirectionalLight (World.js's only shadow-casting light) -
+    // was previously only passed straight into DayNightCycle, never kept
+    // on `this` itself. Needed here for the Graphics tab's Shadow Quality
+    // setting (see _applyShadowQuality) to reach its shadow.mapSize.
+    this.sunLight = sunLight
     // Base fog distance, captured once - see _applyFogState. Rain/fog-patch
     // used to *= an already-modified fog.near/far every single frame they
     // were active, which compounds toward zero exponentially (0.6 per frame
@@ -3855,7 +3925,15 @@ export class Game {
       solidMeshes,
       hud,
       this.zombies,
-      (point, normal, isZombie) => this.decals.spawn(point, normal, isZombie),
+      (point, normal, isZombie) => {
+        // Gated here (not inside Decals.js itself) since Decals has no
+        // access to this.settings - isZombie true means a blood splat,
+        // false means a bullet hole in the environment (see DecalManager
+        // .spawn's own isBlood param).
+        if (isZombie && !this.settings.bloodEffectsEnabled) return
+        if (!isZombie && !this.settings.bulletHolesEnabled) return
+        this.decals.spawn(point, normal, isZombie)
+      },
       () => {
         this._triggerShake(0.05, 90)
         this._triggerHitstop(40)
@@ -3939,6 +4017,7 @@ export class Game {
     this._bindItemKeys()
     this._bindHotbar()
     this._bindSettings()
+    this._bindGraphicsSettings()
     this._bindDifficulty()
     this._bindCompanionRole()
     this._bindLoadout()
@@ -6546,6 +6625,198 @@ export class Game {
     })
   }
 
+  // Graphics tab (Settings > Graphics, beside Controls) - Rendering/
+  // Effects/Damage Indicator/Damage Numbers sections. Every control here
+  // is a real, working setting (not placeholder UI) - see each one's own
+  // comment for what it actually wires into.
+  _bindGraphicsSettings() {
+    if (this.gfxResolutionSlider) {
+      this.gfxResolutionSlider.value = this.settings.renderResolution
+      this.gfxResolutionValue.textContent = `${this.settings.renderResolution}%`
+      this.gfxResolutionSlider.addEventListener('input', () => {
+        const value = Number(this.gfxResolutionSlider.value)
+        this.gfxResolutionValue.textContent = `${value}%`
+        this.settings.renderResolution = value
+        this._userResScale = value / 100
+        this._applyRenderScale()
+        saveSettings(this.settings)
+      })
+      this._bindEditableSliderValue(this.gfxResolutionValue, this.gfxResolutionSlider)
+    }
+    // Brightness/Contrast - a CSS filter on the actual <canvas> element
+    // (not the DOM-wide #app filter "High Contrast Mode" already uses in
+    // the Controls tab - that's a separate accessibility toggle, this is
+    // a continuous rendering-level control, the two compound rather than
+    // conflict). Applied via _applyGraphicsFilters so both sliders share
+    // one filter string instead of overwriting each other.
+    if (this.gfxBrightnessSlider) {
+      this.gfxBrightnessSlider.value = this.settings.brightness
+      this.gfxBrightnessValue.textContent = `${this.settings.brightness}%`
+      this.gfxBrightnessSlider.addEventListener('input', () => {
+        const value = Number(this.gfxBrightnessSlider.value)
+        this.gfxBrightnessValue.textContent = `${value}%`
+        this.settings.brightness = value
+        this._applyGraphicsFilters()
+        saveSettings(this.settings)
+      })
+      this._bindEditableSliderValue(this.gfxBrightnessValue, this.gfxBrightnessSlider)
+    }
+    if (this.gfxContrastSlider) {
+      this.gfxContrastSlider.value = this.settings.contrast
+      this.gfxContrastValue.textContent = `${this.settings.contrast}%`
+      this.gfxContrastSlider.addEventListener('input', () => {
+        const value = Number(this.gfxContrastSlider.value)
+        this.gfxContrastValue.textContent = `${value}%`
+        this.settings.contrast = value
+        this._applyGraphicsFilters()
+        saveSettings(this.settings)
+      })
+      this._bindEditableSliderValue(this.gfxContrastValue, this.gfxContrastSlider)
+    }
+    this._applyGraphicsFilters()
+
+    // Ambient Occlusion - real SSAOPass in the composer chain (see
+    // constructor), off by default since it's genuine added GPU cost.
+    // kernelRadius scales the effect's reach/strength; 0 keeps the pass
+    // fully disabled rather than just invisible-but-still-costing-a-frame.
+    if (this.gfxAoSlider) {
+      const applyAo = (value) => {
+        if (value <= 0) {
+          this.ssaoPass.enabled = false
+          this.gfxAoValue.textContent = 'Off'
+        } else {
+          this.ssaoPass.enabled = true
+          this.ssaoPass.kernelRadius = 2 + (value / 100) * 18
+          this.gfxAoValue.textContent = `${value}%`
+        }
+      }
+      this.gfxAoSlider.value = this.settings.aoIntensity
+      applyAo(this.settings.aoIntensity)
+      this.gfxAoSlider.addEventListener('input', () => {
+        const value = Number(this.gfxAoSlider.value)
+        this.settings.aoIntensity = value
+        applyAo(value)
+        saveSettings(this.settings)
+      })
+    }
+
+    // Shadows - ORs with Performance Mode/LOW_QUALITY_MODE the same way
+    // _applyPerformanceMode already does (both of those force shadows off
+    // regardless of this toggle - see _resolveShadowsEnabled), so this
+    // and the existing "FPS Optimized" checkbox can't silently fight.
+    if (this.gfxShadowsToggle) {
+      this.gfxShadowsToggle.checked = this.settings.shadowsEnabled
+      this.gfxShadowsToggle.addEventListener('change', () => {
+        this.settings.shadowsEnabled = this.gfxShadowsToggle.checked
+        this.renderer.shadowMap.enabled = this._resolveShadowsEnabled()
+        saveSettings(this.settings)
+      })
+    }
+    if (this.gfxShadowQualitySelect) {
+      this.gfxShadowQualitySelect.value = this.settings.shadowQuality
+      this.gfxShadowQualitySelect.addEventListener('change', () => {
+        this.settings.shadowQuality = this.gfxShadowQualitySelect.value
+        this._applyShadowQuality()
+        saveSettings(this.settings)
+      })
+      this._applyShadowQuality()
+    }
+
+    // Bullet Holes / Blood Animation - gate the existing DecalManager
+    // (see Decals.js) rather than building a second decal system; no
+    // prior toggle existed for either, both were previously always-on.
+    if (this.gfxBulletHolesToggle) {
+      this.gfxBulletHolesToggle.checked = this.settings.bulletHolesEnabled
+      this.gfxBulletHolesToggle.addEventListener('change', () => {
+        this.settings.bulletHolesEnabled = this.gfxBulletHolesToggle.checked
+        saveSettings(this.settings)
+      })
+    }
+    if (this.gfxBloodToggle) {
+      this.gfxBloodToggle.checked = this.settings.bloodEffectsEnabled
+      this.gfxBloodToggle.addEventListener('change', () => {
+        this.settings.bloodEffectsEnabled = this.gfxBloodToggle.checked
+        saveSettings(this.settings)
+      })
+    }
+
+    // Damage Indicator - a brand-new system (see _showDamageIndicator),
+    // this just gates whether it's allowed to show at all.
+    if (this.gfxDamageIndicatorToggle) {
+      this.gfxDamageIndicatorToggle.checked = this.settings.damageIndicatorEnabled
+      this.gfxDamageIndicatorToggle.addEventListener('change', () => {
+        this.settings.damageIndicatorEnabled = this.gfxDamageIndicatorToggle.checked
+        saveSettings(this.settings)
+      })
+    }
+
+    // Damage Numbers - independent from the existing "Show Hit Feedback"
+    // checkbox (which already gates damage numbers + the hitmarker
+    // together, see _spawnDamageNumber) - this ANDs with it rather than
+    // replacing it, so that existing combined toggle's behavior is
+    // unchanged for anyone who never opens this new tab.
+    if (this.gfxDamageNumbersToggle) {
+      this.gfxDamageNumbersToggle.checked = this.settings.damageNumbersEnabled
+      this.gfxDamageNumbersToggle.addEventListener('change', () => {
+        this.settings.damageNumbersEnabled = this.gfxDamageNumbersToggle.checked
+        saveSettings(this.settings)
+      })
+    }
+    if (this.gfxDamageNumbersScaleSlider) {
+      this.gfxDamageNumbersScaleSlider.value = this.settings.damageNumbersScale
+      this.gfxDamageNumbersScaleValue.textContent = `${this.settings.damageNumbersScale}%`
+      document.documentElement.style.setProperty('--damage-number-scale', this.settings.damageNumbersScale / 100)
+      this.gfxDamageNumbersScaleSlider.addEventListener('input', () => {
+        const value = Number(this.gfxDamageNumbersScaleSlider.value)
+        this.gfxDamageNumbersScaleValue.textContent = `${value}%`
+        this.settings.damageNumbersScale = value
+        document.documentElement.style.setProperty('--damage-number-scale', value / 100)
+        saveSettings(this.settings)
+      })
+      this._bindEditableSliderValue(this.gfxDamageNumbersScaleValue, this.gfxDamageNumbersScaleSlider)
+    }
+  }
+
+  _applyGraphicsFilters() {
+    if (!this.canvas) return
+    this.canvas.style.filter = `brightness(${this.settings.brightness}%) contrast(${this.settings.contrast}%)`
+  }
+
+  // Shadows are forced off by Performance Mode/LOW_QUALITY_MODE regardless
+  // of the Graphics tab's own toggle (same precedent as bloom/render-scale
+  // in _applyPerformanceMode) - this is the single source of truth both
+  // that method and the Graphics toggle's own change handler call into,
+  // so they can't disagree.
+  // Deliberately does NOT also check !LOW_QUALITY_MODE (unlike bloom/AA/
+  // materials, which stay hardcoded off under it) - LOW_QUALITY_MODE is
+  // true in this build (see QualitySettings.js), and shadowsEnabled's own
+  // default is false to match its previous always-off behavior, so
+  // out-of-box nothing changes for anyone who never opens the Graphics
+  // tab. But a real user-facing "Shadows" checkbox that can never
+  // actually turn shadows on is inert UI, not a real setting - so an
+  // explicit opt-in here is allowed to win, same as it would with
+  // LOW_QUALITY_MODE off. Performance Mode still forces shadows off
+  // regardless, same precedent as before.
+  _resolveShadowsEnabled() {
+    return this.settings.shadowsEnabled && !this.settings.performanceMode
+  }
+
+  _applyShadowQuality() {
+    const sizes = { low: 512, medium: 1024, high: 2048 }
+    const size = sizes[this.settings.shadowQuality] || 1024
+    if (this.sunLight && this.sunLight.shadow) {
+      this.sunLight.shadow.mapSize.set(size, size)
+      // mapSize only takes effect once the shadow map's own render target
+      // is (re)built - forcing that via needsUpdate rather than waiting
+      // for some other unrelated shadow-camera change to trigger it.
+      if (this.sunLight.shadow.map) {
+        this.sunLight.shadow.map.dispose()
+        this.sunLight.shadow.map = null
+      }
+      this.sunLight.shadow.needsUpdate = true
+    }
+  }
+
   _bindControlsTab() {
     this._renderControlsGrid()
     this.resetBindsBtn.addEventListener('click', () => {
@@ -7523,7 +7794,11 @@ export class Game {
   }
 
   _applyRenderScale() {
-    this.renderer.setPixelRatio(this._basePixelRatio() * this._dynResScale)
+    // _userResScale (Graphics tab's Resolution slider, 50-100%) is a
+    // separate multiplier from _dynResScale (the disabled *automatic*
+    // per-frame scaler above - see its own comment) - this is a manual,
+    // user-chosen setting, not a revival of that dormant auto-scaling.
+    this.renderer.setPixelRatio(this._basePixelRatio() * this._dynResScale * this._userResScale)
   }
 
   _applyPerformanceMode(settingEnabled) {
@@ -7535,7 +7810,15 @@ export class Game {
     // reduced on top when the player explicitly turns it on; it just
     // can't turn bare-bones mode itself back off.
     const enabled = settingEnabled || LOW_QUALITY_MODE
-    this.renderer.shadowMap.enabled = !enabled
+    // Shadows deliberately keyed off settingEnabled alone, NOT the
+    // LOW_QUALITY_MODE-inclusive `enabled` above (unlike bloom right
+    // below, which stays governed by LOW_QUALITY_MODE same as always) -
+    // see _resolveShadowsEnabled's own comment on why an explicit
+    // Graphics-tab opt-in has to be able to win even though this build
+    // has LOW_QUALITY_MODE hardcoded true, or the checkbox is inert UI.
+    // Performance Mode itself (settingEnabled) still forces shadows off
+    // regardless, same as before.
+    this.renderer.shadowMap.enabled = !settingEnabled && this.settings.shadowsEnabled
     this.bloomPass.enabled = !enabled
     // 0.75 (fewer total shaded pixels than native resolution) instead of
     // just capping at 1 - a real, substantial GPU fill-rate win on weak
@@ -10240,7 +10523,12 @@ export class Game {
     void this.damageFlash.offsetWidth
     this.damageFlash.classList.add('hit')
     this._triggerShake(0.12, 220)
-    this._showThreatIndicator()
+    // Graphics tab's Damage Indicator toggle - only gates this automatic
+    // on-hit trigger, not the separate on-demand "ping nearest threat"
+    // accessibility key (_pingNearestThreat also calls
+    // _showThreatIndicator directly) - turning this off shouldn't remove
+    // the player's ability to manually check for nearby threats.
+    if (this.settings.damageIndicatorEnabled) this._showThreatIndicator()
 
     if (!this.playerState.alive) this._maybeLastStandOrDie()
   }
@@ -10455,6 +10743,11 @@ export class Game {
     // actually got to pop up on screen.
     if (damage > this.biggestHitThisRun) this.biggestHitThisRun = damage
     if (!this.settings.showHitFeedback) return
+    // Graphics tab's own Damage Numbers toggle - independent from (ANDs
+    // with) showHitFeedback above, which still controls the hitmarker
+    // flash too (see WeaponSystem._showHitmarker) - this just adds a
+    // second, separate way to turn off the numbers specifically.
+    if (!this.settings.damageNumbersEnabled) return
     this._damageNumberVec.set(x, y, z).project(this.camera)
     if (this._damageNumberVec.z > 1) return // behind the camera
     const sx = (this._damageNumberVec.x * 0.5 + 0.5) * window.innerWidth
@@ -10549,7 +10842,7 @@ export class Game {
   }
 
   _onZombieKilled(zombieTypeId, weaponId, x, z, isElite, isWandering = false, isGolden = false, wasFleeing = false) {
-    this.decals.spawnPuddle(x, z)
+    if (this.settings.bloodEffectsEnabled) this.decals.spawnPuddle(x, z)
     if (weaponId === 'melee') this._spawnMeleeKillFlash(x, z)
     // Golden Zombie bonus (see _maybeSpawnGoldenZombie) - on top of, not
     // instead of, every other reward this kill already earns below.

@@ -596,6 +596,7 @@
         <div class="settings-tabs">
           <button class="settings-tab active" data-page="language" id="tab-language">Language</button>
           <button class="settings-tab" data-page="audio" id="tab-audio">Audio</button>
+          <button class="settings-tab" data-page="graphics" id="tab-graphics">Graphics</button>
           <button class="settings-tab" data-page="controls" id="tab-controls">Controls</button>
         </div>
 
@@ -615,6 +616,69 @@
             <input type="range" id="sfx-volume" min="0" max="100" value="100" />
             <span id="sfx-volume-value" class="audio-value">100%</span>
             <button id="sfx-test-btn" class="mini-action-btn">Test</button>
+          </div>
+        </div>
+
+        <div class="settings-page" id="settings-page-graphics" style="display: none">
+          <h3 class="settings-section-heading">Rendering</h3>
+          <div class="audio-row">
+            <label for="gfx-resolution-slider" id="gfx-resolution-label">Resolution</label>
+            <input type="range" id="gfx-resolution-slider" min="50" max="100" value="100" />
+            <span id="gfx-resolution-value" class="audio-value">100%</span>
+          </div>
+          <div class="audio-row">
+            <label for="gfx-brightness-slider" id="gfx-brightness-label">Brightness</label>
+            <input type="range" id="gfx-brightness-slider" min="50" max="150" value="100" />
+            <span id="gfx-brightness-value" class="audio-value">100%</span>
+          </div>
+          <div class="audio-row">
+            <label for="gfx-contrast-slider" id="gfx-contrast-label">Contrast</label>
+            <input type="range" id="gfx-contrast-slider" min="50" max="150" value="100" />
+            <span id="gfx-contrast-value" class="audio-value">100%</span>
+          </div>
+          <div class="audio-row">
+            <label for="gfx-ao-slider" id="gfx-ao-label">Ambient Occlusion</label>
+            <input type="range" id="gfx-ao-slider" min="0" max="100" value="0" />
+            <span id="gfx-ao-value" class="audio-value">Off</span>
+          </div>
+          <div class="audio-row">
+            <label for="gfx-shadows-toggle" id="gfx-shadows-label">Shadows</label>
+            <input type="checkbox" id="gfx-shadows-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="gfx-shadow-quality-select" id="gfx-shadow-quality-label">Shadow Quality</label>
+            <select id="gfx-shadow-quality-select">
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+
+          <h3 class="settings-section-heading">Effects</h3>
+          <div class="audio-row">
+            <label for="gfx-bullet-holes-toggle" id="gfx-bullet-holes-label">Bullet Holes</label>
+            <input type="checkbox" id="gfx-bullet-holes-toggle" class="audio-checkbox" checked />
+          </div>
+          <div class="audio-row">
+            <label for="gfx-blood-toggle" id="gfx-blood-label">Blood Animation</label>
+            <input type="checkbox" id="gfx-blood-toggle" class="audio-checkbox" checked />
+          </div>
+
+          <h3 class="settings-section-heading">Damage Indicator</h3>
+          <div class="audio-row">
+            <label for="gfx-damage-indicator-toggle" id="gfx-damage-indicator-label">Enabled</label>
+            <input type="checkbox" id="gfx-damage-indicator-toggle" class="audio-checkbox" checked />
+          </div>
+
+          <h3 class="settings-section-heading">Damage Numbers</h3>
+          <div class="audio-row">
+            <label for="gfx-damage-numbers-toggle" id="gfx-damage-numbers-label">Enabled</label>
+            <input type="checkbox" id="gfx-damage-numbers-toggle" class="audio-checkbox" checked />
+          </div>
+          <div class="audio-row">
+            <label for="gfx-damage-numbers-scale-slider" id="gfx-damage-numbers-scale-label">Scale</label>
+            <input type="range" id="gfx-damage-numbers-scale-slider" min="50" max="150" value="100" />
+            <span id="gfx-damage-numbers-scale-value" class="audio-value">100%</span>
           </div>
         </div>
 
