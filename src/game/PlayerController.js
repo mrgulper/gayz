@@ -85,6 +85,16 @@ const PRONE_EYE_HEIGHT = 0.35
 const PRONE_SPEED_MULT = 0.22
 const PRONE_DOUBLE_TAP_MS = 300
 
+// Swimming - set live every frame from Game.js's waterBounds check (same
+// "recomputed live, no timer" shape as weaponWeightMult/corpsePileMult),
+// not a key-triggered state like prone/crouch. Eye height drops toward the
+// water surface (not a fixed crawl-height like prone - this is about
+// looking partly submerged, not a body pose) and movement slows; sprint,
+// dodge, and mantle/ledge-climb are all blocked the same way prone blocks
+// them, since none of those read as "swimming".
+const SWIM_EYE_HEIGHT = 0.5
+const SWIM_SPEED_MULT = 0.55
+
 // Browsers occasionally report one wildly wrong mousemove delta right when
 // pointer lock is (re)acquired (pause/resume, respawn, alt-tab). No real
 // mouse movement produces this much delta in a single frame, so any event
@@ -182,6 +192,7 @@ export class PlayerController {
     // Weapon weight (see Game.js's per-frame set from weapons.current.heavy/
     // light) - same "recomputed live every frame" shape as corpsePileMult.
     this.weaponWeightMult = 1
+    this.isSwimming = false
     this.isSprinting = false
     this.isCrouching = false
     this.isProne = false
@@ -257,6 +268,7 @@ export class PlayerController {
     this.webSlowMult = 1
     this.warmthStaminaMult = 1
     this.weaponWeightMult = 1
+    this.isSwimming = false
     this.isCrouching = false
     this.isProne = false
     this._lastCrouchPressAt = 0
@@ -292,7 +304,7 @@ export class PlayerController {
       if (this.toggleCrouch) { if (isDown) this.input.crouch = !this.input.crouch } else { this.input.crouch = isDown }
       if (isDown && !wasDown) {
         const now = performance.now()
-        if (!this.isProne && !this.isSprinting && !this.isSliding && !this.isMantling && !this.isDodging &&
+        if (!this.isProne && !this.isSwimming && !this.isSprinting && !this.isSliding && !this.isMantling && !this.isDodging &&
             now - this._lastCrouchPressAt < PRONE_DOUBLE_TAP_MS) {
           this.isProne = true
         } else if (this.isProne) {
@@ -304,13 +316,13 @@ export class PlayerController {
       }
     }
     else if (code === 'Space') {
-      if (isDown && !this.isProne && !this._tryMantle() && this.onGround) {
+      if (isDown && !this.isProne && !this.isSwimming && !this._tryMantle() && this.onGround) {
         this.velocity.y = JUMP_SPEED
         this.onGround = false
         this._realJumpAirborne = true
       }
     } else if (code === getKeyFor('dodge')) {
-      if (isDown && !this.isProne) this._tryDodge()
+      if (isDown && !this.isProne && !this.isSwimming) this._tryDodge()
     }
   }
 
@@ -506,8 +518,8 @@ export class PlayerController {
       if (this.input.left) moveDir.sub(this._right)
 
       const isMoving = moveDir.lengthSq() > 0
-      this.isCrouching = this.isProne ? false : this.input.crouch
-      this.isSprinting = this.isProne ? false : (this.input.sprint && this.stamina > 1 && isMoving && !this.isCrouching)
+      this.isCrouching = (this.isProne || this.isSwimming) ? false : this.input.crouch
+      this.isSprinting = (this.isProne || this.isSwimming) ? false : (this.input.sprint && this.stamina > 1 && isMoving && !this.isCrouching)
 
       if (this.isSprinting) {
         this.stamina = Math.max(0, this.stamina - STAMINA_DRAIN_PER_SEC * dt)
@@ -518,6 +530,7 @@ export class PlayerController {
       let speedMultiplier = this.isSprinting ? this.sprintMultiplier : 1
       if (this.isCrouching) speedMultiplier *= CROUCH_SPEED_MULT
       if (this.isProne) speedMultiplier *= PRONE_SPEED_MULT
+      if (this.isSwimming) speedMultiplier *= SWIM_SPEED_MULT
       speedMultiplier *= this.adrenalineMult
       speedMultiplier *= this.corpsePileMult
       speedMultiplier *= this.webSlowMult
@@ -556,7 +569,7 @@ export class PlayerController {
       }
     }
 
-    const targetEyeHeight = this.isProne ? PRONE_EYE_HEIGHT : (this.isCrouching ? CROUCH_EYE_HEIGHT : EYE_HEIGHT)
+    const targetEyeHeight = this.isSwimming ? SWIM_EYE_HEIGHT : (this.isProne ? PRONE_EYE_HEIGHT : (this.isCrouching ? CROUCH_EYE_HEIGHT : EYE_HEIGHT))
     this.eyeHeight = THREE.MathUtils.damp(this.eyeHeight, targetEyeHeight, EYE_HEIGHT_LERP_SPEED, dt)
 
     // Ground height at the (possibly just-moved) XZ position — this is what

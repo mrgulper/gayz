@@ -3038,8 +3038,9 @@ export class Game {
     this.composer.addPass(this.bloomPass)
     this.composer.addPass(new OutputPass())
 
-    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, upgradeMachine, mysteryBox, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel, toxicSewerLevel, mineLevel, manholeCovers, waterTowerValve, containerStaircase, industrialSiren, wreckingPendulum, scaffolding, elevatorTower, payphone, tacticalStreetlights, grassBounds } = buildWorld(this.scene, ACHIEVEMENTS.length)
+    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, upgradeMachine, mysteryBox, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel, toxicSewerLevel, mineLevel, manholeCovers, waterTowerValve, containerStaircase, industrialSiren, wreckingPendulum, scaffolding, elevatorTower, payphone, tacticalStreetlights, grassBounds, waterBounds } = buildWorld(this.scene, ACHIEVEMENTS.length)
     this.grassBounds = grassBounds
+    this.waterBounds = waterBounds
     // Base fog distance, captured once - see _applyFogState. Rain/fog-patch
     // used to *= an already-modified fog.near/far every single frame they
     // were active, which compounds toward zero exponentially (0.6 per frame
@@ -14169,6 +14170,7 @@ export class Game {
       this._updateCorpsePileSlow(playerPos)
       const currentWeapon = this.weapons.current
       this.player.weaponWeightMult = currentWeapon.heavy ? WEAPON_HEAVY_SPEED_MULT : (currentWeapon.light ? WEAPON_LIGHT_SPEED_MULT : 1)
+      this.player.isSwimming = !!this.waterBounds && playerPos.x >= this.waterBounds.xMin && playerPos.x <= this.waterBounds.xMax && playerPos.z >= this.waterBounds.zMin && playerPos.z <= this.waterBounds.zMax
       this._updateFlashlightBattery(dt)
       this._updateKillstreakTimers()
 

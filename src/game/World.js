@@ -1089,10 +1089,21 @@ export function buildWorld(scene, trophyCount = 15) {
 
   // Marina/Docks - the one location here that needed a genuinely new
   // environmental feature (open water) rather than just another shell.
-  // Purely cosmetic water (no collider, no swim mechanic) - the player
-  // walks across it at ground height same as everywhere else, same
-  // simplification the rest of this map already makes for e.g. the
-  // sewer's "toxic water" (that one ticks damage; this one is just visual).
+  // No real collider (the player still walks/swims at the same flat ground
+  // height everywhere, same simplification the sewer's "toxic water" makes -
+  // that one ticks damage, this one now slows movement and dips the camera
+  // instead, see Game.js's isSwimming/waterBounds). Was purely cosmetic
+  // with no swim mechanic at all until that was added.
+  // Water bounds computed here (not inline literals down in the block
+  // below, and not re-derived at buildWorld()'s own return statement far
+  // away) so the visual water plane and the swim-zone check PlayerController
+  // uses (see Game.js's isSwimming) can never drift apart - same reasoning
+  // buildPark's own grassBounds already established for footstep sounds.
+  const WATER_CENTER_X = 160
+  const WATER_CENTER_Z = -256
+  const WATER_HALF_W = 12
+  const WATER_HALF_D = 8
+  const waterBounds = { xMin: WATER_CENTER_X - WATER_HALF_W, xMax: WATER_CENTER_X + WATER_HALF_W, zMin: WATER_CENTER_Z - WATER_HALF_D, zMax: WATER_CENTER_Z + WATER_HALF_D }
   {
     buildRoom(scene, register, { x: 160, z: -268, w: 6, d: 5, doorSides: [{ side: 'north', width: 2 }] })
     const dockFloorMat = cachedFlatMaterial({ color: 0x6b5a42, roughness: 0.85 })
@@ -1104,9 +1115,9 @@ export function buildWorld(scene, trophyCount = 15) {
     placePropSimple(scene, register, 'counter.glb', 160, -269.5, 0)
 
     const waterMat = cachedFlatMaterial({ color: 0x1c4a52, roughness: 0.3, metalness: 0.1 })
-    const water = new THREE.Mesh(new THREE.PlaneGeometry(24, 16), waterMat)
+    const water = new THREE.Mesh(new THREE.PlaneGeometry(WATER_HALF_W * 2, WATER_HALF_D * 2), waterMat)
     water.rotation.x = -Math.PI / 2
-    water.position.set(160, -0.15, -256)
+    water.position.set(WATER_CENTER_X, -0.15, WATER_CENTER_Z)
     scene.add(water)
 
     const dockMat = cachedFlatMaterial({ color: 0x7a6248, roughness: 0.9 })
@@ -3003,6 +3014,7 @@ export function buildWorld(scene, trophyCount = 15) {
     payphone,
     tacticalStreetlights: [tacticalStreetlightA, tacticalStreetlightB],
     grassBounds: park.grassBounds,
+    waterBounds,
   }
 }
 
