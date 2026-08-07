@@ -21,6 +21,7 @@ import { Minimap } from './Minimap.js'
 import { FullMap } from './FullMap.js'
 import { DecalManager } from './Decals.js'
 import { Achievements, ACHIEVEMENTS } from './Achievements.js'
+import { Quests, QUESTS } from './Quests.js'
 import { rollPerks, checkPerkSynergies } from './Perks.js'
 import { rollXpUpgrades } from './XpUpgrades.js'
 import { XpGemManager } from './XpGems.js'
@@ -2704,9 +2705,11 @@ export class Game {
     this.achievementsCompletionRing = document.getElementById('achievements-completion-ring')
     this.bestiaryCompletionRing = document.getElementById('bestiary-completion-ring')
     this.cosmeticsCompletionRing = document.getElementById('cosmetics-completion-ring')
+    this.questsCompletionRing = document.getElementById('quests-completion-ring')
     this.cosmeticsNavCount = document.getElementById('cosmetics-nav-count')
     this.achievementsNavCount = document.getElementById('achievements-nav-count')
     this.bestiaryNavCount = document.getElementById('bestiary-nav-count')
+    this.questsNavCount = document.getElementById('quests-nav-count')
     this.seasonProgressLabel = document.getElementById('season-progress-label')
     this.profileAvatarHeading = document.getElementById('profile-avatar-heading')
     this.profileAvatarRow = document.getElementById('profile-avatar-row')
@@ -3658,6 +3661,7 @@ export class Game {
     this.metaProgress = loadMetaProgress()
     this._applyMetaUpgrades()
     this.achievements = new Achievements((def) => this._showAchievementToast(def))
+    this.quests = new Quests()
     if (this.achievements.unlocked.has('true_ending')) {
       document.getElementById('diff-nightmare').style.display = ''
     }
@@ -3731,6 +3735,10 @@ export class Game {
     this.prestigeBtn = document.getElementById('prestige-btn')
     this.respecSection = document.getElementById('respec-section')
     this.respecBtn = document.getElementById('respec-btn')
+    this.questsBtn = document.getElementById('quests-btn')
+    this.questsPanel = document.getElementById('quests-panel')
+    this.questsPanelTitle = document.getElementById('quests-panel-title')
+    this.questsOptions = document.getElementById('quests-options')
     this.achievementsBtn = document.getElementById('achievements-btn')
     this.achievementsPanel = document.getElementById('achievements-panel')
     this.achievementsPanelTitle = document.getElementById('achievements-panel-title')
@@ -6559,6 +6567,11 @@ export class Game {
     this.upgradesBtn.addEventListener('click', () => this._openUpgradesPanel())
     this.prestigeBtn.addEventListener('click', () => this._prestige())
     this.respecBtn.addEventListener('click', () => this._respecMetaUpgrades())
+    this.questsBtn.addEventListener('click', () => this._openQuestsPanel())
+    this.questsOptions.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-quest-id]')
+      if (btn && !btn.disabled) this._claimQuest(btn.dataset.questId)
+    })
     this.achievementsBtn.addEventListener('click', () => this._openAchievementsPanel())
     this.bestiaryBtn.addEventListener('click', () => this._openBestiaryPanel())
     this.menuPlayerBadge.addEventListener('click', () => this._openProfilePanel())
@@ -6607,6 +6620,9 @@ export class Game {
     })
     this.upgradesPanel.addEventListener('click', (e) => {
       if (e.target === this.upgradesPanel) this._closeUpgradesPanel()
+    })
+    this.questsPanel.addEventListener('click', (e) => {
+      if (e.target === this.questsPanel) this._closeQuestsPanel()
     })
     this.achievementsPanel.addEventListener('click', (e) => {
       if (e.target === this.achievementsPanel) this._closeAchievementsPanel()
@@ -9037,6 +9053,53 @@ export class Game {
     this.coinPopupEl.classList.add('show')
   }
 
+  // Quests panel - tiered career-kill and best-killstreak goals, each a
+  // one-time coin reward (see Quests.js for the exact tiers/amounts).
+  // Uses real clickable buttons (unlike Achievements/Bestiary above,
+  // which are pure display) since completed-but-unclaimed quests need a
+  // Claim action - one delegated click listener on the container handles
+  // every quest button rather than rebinding per-button on every render.
+  _openQuestsPanel() {
+    this.questsPanel.style.display = 'flex'
+    this.questsPanelTitle.textContent = t('questsPanelTitle')
+    this._renderQuestsPanel()
+  }
+
+  _renderQuestsPanel() {
+    this.questsOptions.innerHTML = ''
+    for (const quest of QUESTS) {
+      const claimed = this.quests.isClaimed(quest.id)
+      const progress = Math.min(quest.target, this.quests.currentProgress(quest, this))
+      const complete = this.quests.isComplete(quest, this)
+      const btn = document.createElement('button')
+      btn.className = 'perk-option'
+      btn.dataset.questId = quest.id
+      btn.disabled = claimed || !complete
+      const statusText = claimed
+        ? t('questClaimed')
+        : complete
+          ? t('questClaimReward', { n: quest.rewardCoins })
+          : t('questProgress', { current: progress.toLocaleString(), target: quest.target.toLocaleString() })
+      btn.innerHTML = `
+        <span class="perk-name">${t(quest.titleKey, { n: quest.target.toLocaleString() })}</span>
+        <span class="perk-cost">${statusText}</span>
+      `
+      this.questsOptions.appendChild(btn)
+    }
+  }
+
+  _closeQuestsPanel() {
+    this.questsPanel.style.display = 'none'
+  }
+
+  _claimQuest(id) {
+    if (!this.quests.claim(id, this)) return
+    saveShopProgress(this)
+    this._showHomepageToast(t('questClaimedToast', { n: QUESTS.find((q) => q.id === id)?.rewardCoins || 0 }))
+    this._renderQuestsPanel()
+    this._updateNavCompletionRings()
+  }
+
   _openAchievementsPanel() {
     this.achievementsPanel.style.display = 'flex'
     this.achievementsPanelTitle.textContent = t('achievementsPanelTitle')
@@ -9130,6 +9193,7 @@ export class Game {
     // text node) - target the inner <span>/aria-label instead.
     this.settingsBtn.setAttribute('aria-label', t('settingsBtn'))
     this.upgradesBtn.querySelector('span').textContent = t('upgradesBtn')
+    this.questsBtn.querySelector('span').textContent = t('questsBtn')
     this.achievementsBtn.querySelector('span').textContent = t('achievementsBtn')
     this.bestiaryBtn.querySelector('span').textContent = t('bestiaryBtn')
     this.coinshopBtn.querySelector('span').textContent = t('coinshopBtn')
@@ -9487,6 +9551,13 @@ export class Game {
       this.cosmeticsCompletionRing.style.setProperty('--pct', `${pct}%`)
       this.cosmeticsCompletionRing.title = t('completionRingTitle', { pct })
       if (this.cosmeticsNavCount) this.cosmeticsNavCount.textContent = `${owned}/${total}`
+    }
+    if (this.questsCompletionRing) {
+      const claimedCount = QUESTS.filter((q) => this.quests.isClaimed(q.id)).length
+      const pct = Math.round((claimedCount / QUESTS.length) * 100)
+      this.questsCompletionRing.style.setProperty('--pct', `${pct}%`)
+      this.questsCompletionRing.title = t('completionRingTitle', { pct })
+      if (this.questsNavCount) this.questsNavCount.textContent = `${claimedCount}/${QUESTS.length}`
     }
   }
 

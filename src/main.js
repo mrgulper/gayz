@@ -43,26 +43,16 @@ Promise.all([
   preloadMacheteViewmodel(),
   preloadUvBatonViewmodel(),
 ]).finally(() => {
-  const loader = document.getElementById('asset-loader')
+  // No blocking full-page loading screen anymore (there used to be one
+  // here, masking both the asset preload above and a ~10-frame GPU-
+  // warmup stall after construction - see git history if that's ever
+  // needed again). The homepage's own static HTML/CSS now paints
+  // immediately on page load instead of being hidden behind an overlay;
+  // it just isn't interactive yet until this Promise.all resolves and
+  // Game() finishes constructing, same as any ordinary page where
+  // JS attaches behavior after the markup is already visible. The
+  // tradeoff: the GPU-warmup stall this used to mask is no longer
+  // hidden - a real, brief freeze may be visible right after the page
+  // becomes interactive, on slower hardware especially.
   new Game()
-  // The loader used to hide right here, before `new Game()` even ran -
-  // but construction itself was never the expensive part (it reliably
-  // finishes in under a second). The real cost is the browser's first
-  // few real render/tick passes over a scene this large (first-time GPU
-  // buffer uploads for thousands of meshes, first-ever full culling pass
-  // over every cullable) - a genuine multi-second-plus one-time stall
-  // that, until now, showed up as the game itself freezing right after
-  // the loading screen vanished instead of being masked by it. Chaining
-  // rAF callbacks (rather than a fixed setTimeout) means this naturally
-  // waits out however long that actually takes on the player's hardware,
-  // slow or fast, since each callback only fires once the previous real
-  // frame has actually finished.
-  let framesWaited = 0
-  const WARMUP_FRAMES = 10
-  function waitForWarmup() {
-    framesWaited++
-    if (framesWaited < WARMUP_FRAMES) requestAnimationFrame(waitForWarmup)
-    else if (loader) loader.style.display = 'none'
-  }
-  requestAnimationFrame(waitForWarmup)
 })

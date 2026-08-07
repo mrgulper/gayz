@@ -447,6 +447,12 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="6,11 12,5 18,11"/></svg>
                 <span>Upgrades</span>
               </button>
+              <button id="quests-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                <span>Quests</span>
+                <span class="nav-count" id="quests-nav-count"></span>
+                <span class="nav-completion-ring" id="quests-completion-ring" aria-hidden="true"></span>
+              </button>
               <button id="achievements-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0z"/><path d="M7 5H4a1 1 0 0 0-1 1c0 3 2 5 4.5 5.3M17 5h3a1 1 0 0 1 1 1c0 3-2 5-4.5 5.3"/></svg>
                 <span>Achievements</span>
@@ -947,6 +953,12 @@
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>
 
+      <div id="quests-panel">
+        <h2 id="quests-panel-title">Quests</h2>
+        <div class="perk-options" id="quests-options"></div>
+        <p class="panel-close-hint">Click anywhere to close</p>
+      </div>
+
       <div id="achievements-panel">
         <h2 id="achievements-panel-title">Achievements</h2>
         <div class="perk-options" id="achievements-options"></div>
@@ -1145,10 +1157,6 @@
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>
 
-      <div id="asset-loader">
-        <div id="asset-loader-spinner"></div>
-        <p>Loading main page...</p>
-      </div>
     </div>
     <script type="module" src="/src/main.js"></script>
   </body>
