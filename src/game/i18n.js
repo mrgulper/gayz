@@ -694,6 +694,7 @@ const STRINGS = {
     knifeLabel: 'Throwing Knife',
     interactUpgradeMachine: 'Press **E** to upgrade current weapon',
     interactMysteryBox: 'Press **E** to gamble for a random weapon',
+    interactElevator: 'Press **F** to ride',
     upgradeMachineOutOfUses: "This machine is spent for the night - come back tomorrow",
     upgradeMachineNoMelee: "Can't upgrade melee here - switch to a gun first",
     upgradeMachineNotEnoughPoints: 'Not enough points ({n} needed)',

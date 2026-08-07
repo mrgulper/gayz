@@ -1885,6 +1885,12 @@ const PENDULUM_SWING_DURATION_MS = 1800
 const PENDULUM_HIT_RADIUS = 2.2
 const PENDULUM_DAMAGE = 60
 const SCAFFOLDING_COLLAPSE_RADIUS = 2.4
+// Elevator Tower - see _rideElevator/_updateElevatorTower. Radius checked
+// against the car's own CURRENT x/z+y (not just x/z) since the car and
+// deck occupy different footprints - being near the tower isn't enough,
+// the player has to actually be standing where the car currently is.
+const ELEVATOR_INTERACT_RADIUS = 1.6
+const ELEVATOR_RIDE_DURATION_MS = 1800
 const SCAFFOLDING_COLLAPSE_DAMAGE = 70
 const PAYPHONE_INTERACT_RADIUS = 2
 const PAYPHONE_CALL_DELAY_MS = 20000
@@ -3032,7 +3038,7 @@ export class Game {
     this.composer.addPass(this.bloomPass)
     this.composer.addPass(new OutputPass())
 
-    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, upgradeMachine, mysteryBox, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel, toxicSewerLevel, mineLevel, manholeCovers, waterTowerValve, containerStaircase, industrialSiren, wreckingPendulum, scaffolding, payphone, tacticalStreetlights, grassBounds } = buildWorld(this.scene, ACHIEVEMENTS.length)
+    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, upgradeMachine, mysteryBox, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel, toxicSewerLevel, mineLevel, manholeCovers, waterTowerValve, containerStaircase, industrialSiren, wreckingPendulum, scaffolding, elevatorTower, payphone, tacticalStreetlights, grassBounds } = buildWorld(this.scene, ACHIEVEMENTS.length)
     this.grassBounds = grassBounds
     // Base fog distance, captured once - see _applyFogState. Rain/fog-patch
     // used to *= an already-modified fog.near/far every single frame they
@@ -3283,6 +3289,15 @@ export class Game {
     this._pendulumSwingStartedAt = 0
     this._pendulumHitThisSwing = false
     this.scaffolding = scaffolding
+    this.elevatorTower = elevatorTower
+    this.nearElevatorCar = false
+    // 'bottom'/'top' - which floor the car is currently parked at (only
+    // meaningful while not riding; see _rideElevator/_updateElevatorTower).
+    this.elevatorFloor = 'bottom'
+    this.elevatorRiding = false
+    this.elevatorRideStartedAt = 0
+    this.elevatorRideFromY = 0
+    this.elevatorRideToY = 0
     this.payphone = payphone
     this.nearPayphone = false
     this.payphoneCallActive = false
@@ -4436,6 +4451,8 @@ export class Game {
           this._pullSirenLever()
         } else if (this.nearWreckingPendulum) {
           this._triggerWreckingPendulum()
+        } else if (this.nearElevatorCar) {
+          this._rideElevator()
         } else if (this.nearPayphone && !this.payphoneUsedThisRun) {
           this._usePayphone()
         } else {
@@ -5447,6 +5464,40 @@ export class Game {
     this._pendulumSwingStartedAt = performance.now()
     this._pendulumHitThisSwing = false
     this._showLoreToast(t('toastPendulumTriggered'))
+  }
+
+  _updateElevatorTower(playerPos) {
+    const car = this.elevatorTower.car
+    if (this.elevatorRiding) {
+      const elapsed = performance.now() - this.elevatorRideStartedAt
+      const frac = Math.min(1, elapsed / ELEVATOR_RIDE_DURATION_MS)
+      car.position.y = THREE.MathUtils.lerp(this.elevatorRideFromY, this.elevatorRideToY, frac)
+      // World.js's final buildWorld() pass sets matrixAutoUpdate=false on
+      // every object it builds (a real perf win for the ~15k static
+      // objects that never move again - see its own comment) - a moving
+      // object built there has to manually re-bake its matrix after every
+      // position change or the render/raycast never picks up the change.
+      car.updateMatrix()
+      this.nearElevatorCar = false
+      if (frac >= 1) {
+        this.elevatorRiding = false
+        this.elevatorFloor = this.elevatorRideToY > 0 ? 'top' : 'bottom'
+      }
+      return
+    }
+    this.nearElevatorCar =
+      Math.hypot(playerPos.x - car.position.x, playerPos.z - car.position.z) <= ELEVATOR_INTERACT_RADIUS &&
+      Math.abs(playerPos.y - this.player.eyeHeight - car.position.y) < 1.0
+  }
+
+  _rideElevator() {
+    if (this.elevatorRiding) return
+    const toTop = this.elevatorFloor === 'bottom'
+    this.elevatorRideFromY = this.elevatorTower.car.position.y
+    this.elevatorRideToY = toTop ? this.elevatorTower.stopHeight : 0
+    this.elevatorRideStartedAt = performance.now()
+    this.elevatorRiding = true
+    this.player.startScriptedMove(this.elevatorTower.x, this.elevatorRideToY + this.player.eyeHeight, this.elevatorTower.z, ELEVATOR_RIDE_DURATION_MS)
   }
 
   // Called from WeaponSystem's hit loop via scaffolding.onHit (see
@@ -14287,6 +14338,7 @@ export class Game {
       this._updateWaterTowerValve(playerPos)
       this._updateIndustrialSiren(playerPos)
       this._updateWreckingPendulum(playerPos)
+      this._updateElevatorTower(playerPos)
       this._updatePayphone(playerPos)
       this._updateBarricadeCrates(dt, playerPos)
       this._updateGenerator(dt, playerPos)
@@ -14402,6 +14454,9 @@ export class Game {
         this.interactPrompt.style.display = 'block'
       } else if (this.nearWreckingPendulum) {
         this.interactPrompt.innerHTML = tHtml('interactPendulum')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearElevatorCar) {
+        this.interactPrompt.innerHTML = tHtml('interactElevator')
         this.interactPrompt.style.display = 'block'
       } else if (this.nearPayphone && !this.payphoneUsedThisRun) {
         this.interactPrompt.innerHTML = tHtml('interactPayphone')

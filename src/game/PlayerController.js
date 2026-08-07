@@ -390,14 +390,27 @@ export class PlayerController {
     }
 
     this.stamina = Math.max(0, this.stamina - staminaCost)
+    this.startScriptedMove(landX, obstacleTop + this.eyeHeight, landZ, duration)
+    return true
+  }
+
+  // Shared "possess position for a scripted move" primitive - bypasses
+  // gravity/ground-sampling/input entirely for the duration, same as the
+  // mantle/ledge-climb hop above (reuses its own isMantling/mantleUntil
+  // fields rather than a separate parallel state, since every existing
+  // check that blocks other actions during a mantle - Space, dodge, prone -
+  // already covers this too). Used externally by the Elevator Tower (see
+  // Game.js's _rideElevator) to carry the player smoothly between floors
+  // without needing its own copy of this bypass logic.
+  startScriptedMove(targetX, targetY, targetZ, durationMs) {
+    const obj = this.controls.object
     this.isMantling = true
-    this.mantleUntil = performance.now() + duration
-    this._mantleDurationMs = duration
+    this.mantleUntil = performance.now() + durationMs
+    this._mantleDurationMs = durationMs
     this._mantleStart.copy(obj.position)
-    this._mantleTarget.set(landX, obstacleTop + this.eyeHeight, landZ)
+    this._mantleTarget.set(targetX, targetY, targetZ)
     this.velocity.set(0, 0, 0)
     this.onGround = false
-    return true
   }
 
   // Only triggers off an active sprint (matches the "you were already

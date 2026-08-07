@@ -706,6 +706,14 @@ export function buildWorld(scene, trophyCount = 15) {
   const tacticalStreetlightA = buildTacticalStreetlight(scene, register, -14, -212)
   const tacticalStreetlightB = buildTacticalStreetlight(scene, register, -14, -224)
 
+  // Elevator Tower - standalone lookout structure, well clear of everything
+  // else (confirmed empty via a live collider-overlap check against the
+  // real running game before picking this spot, not just eyeballed against
+  // the registerZone list) and safely inside the perimeter wall (+/-375 on
+  // each axis, see addPerimeterBarricade's groundSize=750).
+  const elevatorTower = buildElevatorTower(scene, colliders, solidMeshes, register, 300, 300)
+  registerZone({ id: 'elevatortower', x: 300, z: 300, radius: 8, densityMult: 0.9 })
+
   const gasStation = buildGasStation(scene, register, 0, 200)
   registerZone({ id: 'gasstation', x: 0, z: 200, radius: 10, densityMult: 1.1 })
   const FUEL_LOOT_WEIGHTS = { ...LOOT_WEIGHTS, fuelcan: 3, health: 1.5 }
@@ -2991,6 +2999,7 @@ export function buildWorld(scene, trophyCount = 15) {
     industrialSiren,
     wreckingPendulum,
     scaffolding,
+    elevatorTower,
     payphone,
     tacticalStreetlights: [tacticalStreetlightA, tacticalStreetlightB],
     grassBounds: park.grassBounds,
@@ -5592,6 +5601,97 @@ function buildWreckingPendulum(scene, x, z) {
   // in the +1.7 local offset from the group's own origin, so Game.js's
   // math never needs to re-derive or re-add it.
   return { x, z, pivot: { x: x + 1.7, y: beamHeight, z }, ropeLength: chainLength + ballRadius, ball, localPivotX: 1.7 }
+}
+
+// Elevator Tower - a standalone lookout structure with a working elevator
+// (see Game.js's _updateElevatorTower/_rideElevator). Deliberately its own
+// freestanding structure in open ground rather than retrofitted into one
+// of the "real" enterable skyscrapers (buildSkyscraper) - that building's
+// interior stairwell already fills the full shaft depth at every floor
+// height, so a moving platform in there risks colliding with the stairs.
+// The permanent top deck sits BESIDE the car's shaft (not directly above
+// it) with a slight footprint overlap for a seamless step-across - the car
+// rising straight up through the same footprint the deck occupies would
+// otherwise end with the two meshes clipping through each other at the
+// top. A separate permanent deck also means the player still has solid
+// ground up top even after the car's been ridden back down to fetch
+// someone else - it can't just BE the car.
+const ELEVATOR_STOP_HEIGHT = 4
+const ELEVATOR_CAR_HALF = 1.1
+const ELEVATOR_DECK_HALF = 1.4
+// Deck center X offset from the car/tower origin - car's right edge is at
+// +CAR_HALF, deck's left edge needs to sit a little inside that (not right
+// at it) so there's no sliver gap to fall through when stepping across.
+const ELEVATOR_DECK_OFFSET_X = ELEVATOR_CAR_HALF + ELEVATOR_DECK_HALF - 0.2
+
+function buildElevatorTower(scene, colliders, solidMeshes, register, x, z) {
+  const postMat = cachedFlatMaterial({ color: 0x4a4640, roughness: 0.7, metalness: 0.4 })
+  const deckMat = cachedFlatMaterial({ color: 0x5a5648, roughness: 0.8 })
+  const railMat = cachedFlatMaterial({ color: 0xd8c840, roughness: 0.5, metalness: 0.3 })
+  const carMat = cachedFlatMaterial({ color: 0x3a3830, roughness: 0.6, metalness: 0.5 })
+  const postHeight = ELEVATOR_STOP_HEIGHT + 0.6
+
+  // Four corner posts framing the car's own vertical shaft.
+  const shaftSpan = ELEVATOR_CAR_HALF + 0.3
+  for (const [px, pz] of [[-shaftSpan, -shaftSpan], [shaftSpan, -shaftSpan], [-shaftSpan, shaftSpan], [shaftSpan, shaftSpan]]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, postHeight, 8), postMat)
+    post.position.set(x + px, postHeight / 2, z + pz)
+    post.castShadow = true
+    scene.add(post)
+    register(post)
+  }
+
+  const deckCenterX = x + ELEVATOR_DECK_OFFSET_X
+  // Two support posts under the deck's own outer (far) corners.
+  for (const pz of [-ELEVATOR_DECK_HALF + 0.2, ELEVATOR_DECK_HALF - 0.2]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, postHeight, 8), postMat)
+    post.position.set(deckCenterX + ELEVATOR_DECK_HALF - 0.2, postHeight / 2, z + pz)
+    post.castShadow = true
+    scene.add(post)
+    register(post)
+  }
+
+  // Permanent top deck, always there regardless of where the car currently
+  // is - solidMeshes only, same "walkable floor, intentionally not a
+  // horizontal collider" reasoning buildSkyscraper's own floor slabs use:
+  // a thin slab pushed to colliders too would block the player's own
+  // collision box from walking freely ACROSS its top surface, not just
+  // stop them walking through its edge.
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(ELEVATOR_DECK_HALF * 2, 0.3, ELEVATOR_DECK_HALF * 2), deckMat)
+  deck.position.set(deckCenterX, ELEVATOR_STOP_HEIGHT, z)
+  deck.receiveShadow = true
+  scene.add(deck)
+  solidMeshes.push(deck)
+  // Railings on the 3 outer sides, left open on the side facing the car
+  // so the player can step straight across from one to the other.
+  for (const [rx, rz, w, d] of [
+    [ELEVATOR_DECK_HALF, 0, 0.1, ELEVATOR_DECK_HALF * 2],
+    [0, ELEVATOR_DECK_HALF, ELEVATOR_DECK_HALF * 2, 0.1],
+    [0, -ELEVATOR_DECK_HALF, ELEVATOR_DECK_HALF * 2, 0.1],
+  ]) {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(w, 0.9, d), railMat)
+    rail.position.set(deckCenterX + rx, ELEVATOR_STOP_HEIGHT + 0.6, z + rz)
+    scene.add(rail)
+    register(rail)
+  }
+
+  // The moving car - solidMeshes only (walkable), deliberately NOT pushed
+  // to colliders: colliders are static Box3 snapshots taken once, which
+  // would go stale the instant this moves, while solidMeshes is raycast
+  // against the mesh's live transform every time (see PlayerController's
+  // ground-height sampling), so a live-updated position.y here just works.
+  // Rests at ELEVATOR_STOP_HEIGHT when parked at the top (matching the
+  // deck's own center height, close enough for a flush-feeling step across
+  // given the two meshes' own half-thicknesses) and 0 when parked at the
+  // bottom (flat ground - no thickness math needed there).
+  const car = new THREE.Mesh(new THREE.BoxGeometry(ELEVATOR_CAR_HALF * 2, 0.25, ELEVATOR_CAR_HALF * 2), carMat)
+  car.position.set(x, 0, z)
+  car.castShadow = true
+  car.receiveShadow = true
+  scene.add(car)
+  solidMeshes.push(car)
+
+  return { x, z, car, stopHeight: ELEVATOR_STOP_HEIGHT }
 }
 
 // Collapsible Scaffolding - shootable (see WeaponSystem._fire()'s hit loop
