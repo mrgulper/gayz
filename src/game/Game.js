@@ -40,6 +40,8 @@ import { loadEncountered, saveEncountered } from './Bestiary.js'
 import { ACTIONS, getKeyFor, setBinding, resetBindings, keyLabel, getAllBindings, setAllBindings } from './Keybinds.js'
 import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
+import * as MenuEasterEggs from './MenuEasterEggs.js'
+import { JOKE_TIPS, FUNNY_TRIVIA } from './MenuEasterEggs.js'
 import * as CloudSync from './CloudSync.js'
 import { setColorblind } from './Accessibility.js'
 import { registerZone } from './Zones.js'
@@ -137,10 +139,6 @@ const MAP_LAP_METERS = 750 * 4
 const RANDOM_NICKNAME_ADJECTIVES = ['Rusty', 'Silent', 'Grim', 'Feral', 'Lucky', 'Rogue', 'Shady', 'Blunt', 'Sneaky', 'Iron']
 const RANDOM_NICKNAME_NOUNS = ['Wolf', 'Scav', 'Reaper', 'Nomad', 'Ghost', 'Viper', 'Ranger', 'Drifter', 'Hound', 'Raven']
 
-// Obviously-fake joke "tips" (hidden zombie icon, and the Joke Tip ticker
-// mode) - deliberately absurd, distinct from SPOTLIGHT_TIPS (genuinely
-// actionable survival advice) so the two tones never blend together.
-const JOKE_TIPS = ['jokeTip1', 'jokeTip2', 'jokeTip3', 'jokeTip4', 'jokeTip5', 'jokeTip6']
 
 // Leaderboard podium styling (ranks 1-3, see _renderLeaderboardRows/
 // _renderWeeklyLeaderboardList) - plain ordinal text + a gold/silver/
@@ -1650,11 +1648,6 @@ const BURIED_CACHE_INTERACT_RADIUS = 2
 const SECRET_SEQUENCE = ['KeyW', 'KeyW', 'KeyS', 'KeyS', 'KeyA', 'KeyD', 'KeyA', 'KeyD']
 const SECRET_SEQUENCE_BONUS_DURATION_MS = 15000
 const SECRET_SEQUENCE_SPEED_MULT = 1.6
-// Homepage-only Konami code (see _bindKonamiCode) - the classic arrow-key
-// version, unlike SECRET_SEQUENCE above which deliberately avoided arrows
-// because they're a movement fallback in-game. Arrows are unbound on the
-// homepage, so there's no such conflict here.
-const KONAMI_CODE = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'KeyB', 'KeyA']
 // Rare one-time Easter egg (see _maybeTriggerRareEasterEgg) - checked on
 // every night-advance (a low-frequency, natural tick), never more than
 // once per save ever.
@@ -1851,9 +1844,6 @@ const HOROSCOPES = ['horoscope1', 'horoscope2', 'horoscope3', 'horoscope4', 'hor
 // Dark-comedy flavor lines, day-seeded the same way as HOROSCOPES/
 // TRIVIA_FACTS - pure flavor, not tied to any actual death event.
 const DEATH_QUOTES = ['deathQuote1', 'deathQuote2', 'deathQuote3', 'deathQuote4', 'deathQuote5', 'deathQuote6']
-// Gross/funny variant of TRIVIA_FACTS' lore-trivia pool - same day-seeded
-// pattern, separate array so the two tones don't blend together.
-const FUNNY_TRIVIA = ['funnyTrivia1', 'funnyTrivia2', 'funnyTrivia3', 'funnyTrivia4', 'funnyTrivia5', 'funnyTrivia6']
 // bgMood is reused by _applyBgMood() for the "Auto (Seasonal)" background
 // mood default - same date windows as the banner itself rather than a
 // second parallel date table, so a season only ever needs updating here.
@@ -2570,7 +2560,7 @@ function _formatRelativeTime(ms) {
 // Sharing batch - any name/text field that could round-trip through an
 // uploaded save file) before it goes into any template string, rather than
 // interpolating it raw.
-function _escapeHtml(str) {
+export function _escapeHtml(str) {
   const div = document.createElement('div')
   div.textContent = str
   return div.innerHTML
@@ -11571,15 +11561,7 @@ export class Game {
     }
     if (this.beatThisBtn) this.beatThisBtn.addEventListener('click', () => this._copyBeatThisLink())
     this._renderMenuPresets()
-    this._bindKonamiCode()
-    this._bindBackgroundParallax()
-    this._bindIdleAnimation()
-    this._bindLogoClickCounter()
-    this._bindHiddenZombieIcon()
-    this._bindZombieTypedSecret()
-    this._bindChangelogFactClicks()
-    this._applyAprilFools()
-    this._bindHomepageShortcutKeys()
+    MenuEasterEggs.bindAll(this)
     window.addEventListener('online', () => this._updateOnlineStatus())
     window.addEventListener('offline', () => this._updateOnlineStatus())
     if (this.shortcutCheatsheetCloseBtn) {
@@ -14454,28 +14436,6 @@ export class Game {
     }
   }
 
-  // Homepage Konami code (see KONAMI_CODE's own comment) - purely cosmetic
-  // (a toast + brief CSS flourish on #menu), no gameplay effect at all,
-  // unlike _checkSecretSequence above. Only listens while still on the
-  // menu (!gameStarted) - once a run starts, arrow keys are free to mean
-  // whatever gameplay already binds them to.
-  _bindKonamiCode() {
-    this._konamiBuffer = []
-    window.addEventListener('keydown', (e) => {
-      if (this.gameStarted) return
-      this._konamiBuffer.push(e.code)
-      if (this._konamiBuffer.length > KONAMI_CODE.length) this._konamiBuffer.shift()
-      if (this._konamiBuffer.length === KONAMI_CODE.length && this._konamiBuffer.every((c, i) => c === KONAMI_CODE[i])) {
-        this._konamiBuffer = []
-        this._showHomepageToast(t('konamiActivated'))
-        if (this.menu) {
-          this.menu.classList.add('konami-flourish')
-          setTimeout(() => this.menu.classList.remove('konami-flourish'), 2000)
-        }
-      }
-    })
-  }
-
   // Frame-Time Graph visibility/draw (see settings.frameTimeGraph) -
   // opacity follows the same "visible once gameplay/homepage-fps-toggle
   // has shown fpsEl at least once" rule fpsEl itself already uses, so
@@ -14504,25 +14464,6 @@ export class Game {
     ctx.stroke()
   }
 
-  // Subtle mouse-move parallax on the background photo layer - a small
-  // translate offset scaled off cursor position relative to viewport
-  // center, homepage-only, skipped entirely under reduced-motion (same
-  // guard the Ken Burns/embers/rain animations already respect).
-  _bindBackgroundParallax() {
-    // Applied to #menu-bg (the plain, un-animated container), not
-    // #menu-bg-photo directly - that element already has its own
-    // menuBgKenBurns CSS animation driving `transform`, and setting an
-    // inline transform here would silently override/freeze it.
-    const bg = document.getElementById('menu-bg')
-    if (!bg || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    window.addEventListener('mousemove', (e) => {
-      if (this.gameStarted) return
-      const x = (e.clientX / window.innerWidth - 0.5) * 12
-      const y = (e.clientY / window.innerHeight - 0.5) * 12
-      bg.style.transform = `translate(${x}px, ${y}px)`
-    })
-  }
-
   // Confetti burst on a new personal best (see _recordRunEnd's
   // _pendingConfetti flag) - a handful of plain colored divs falling and
   // fading via CSS, no canvas/library, auto-removed after the animation
@@ -14539,169 +14480,6 @@ export class Game {
       piece.style.animationDuration = `${1.8 + Math.random() * 0.8}s`
       document.body.appendChild(piece)
       piece.addEventListener('animationend', () => piece.remove())
-    }
-  }
-
-  // Idle animation - a subtle Play-button pulse after 30s of no homepage
-  // interaction (mouse/keyboard/click, throttled to once per event type
-  // via the timer reset itself, no extra state needed). Only active while
-  // still on the menu - removed the instant a run starts or the player
-  // moves/clicks again.
-  _bindIdleAnimation() {
-    const IDLE_MS = 30000
-    const resetTimer = () => {
-      if (this.gameStarted) return
-      if (this.menu) this.menu.classList.remove('menu-idle')
-      clearTimeout(this._idleTimer)
-      this._idleTimer = setTimeout(() => {
-        if (!this.gameStarted && this.menu) this.menu.classList.add('menu-idle')
-      }, IDLE_MS)
-    }
-    window.addEventListener('mousemove', resetTimer)
-    window.addEventListener('keydown', resetTimer)
-    window.addEventListener('click', resetTimer)
-    resetTimer()
-  }
-
-  // Hidden logo click counter - 10 clicks on the title triggers a tiny,
-  // purely cosmetic easter egg (same konami-flourish CSS class the Konami
-  // code already uses, no second effect to build). Resets after firing or
-  // after a long pause between clicks so it can't be reached by accident.
-  _bindLogoClickCounter() {
-    if (!this.menuTitle) return
-    this._logoClickCount = 0
-    this.menuTitle.addEventListener('click', () => {
-      const now = performance.now()
-      if (this._lastLogoClickAt && now - this._lastLogoClickAt > 2000) this._logoClickCount = 0
-      this._lastLogoClickAt = now
-      this._logoClickCount += 1
-      if (this._logoClickCount >= 10) {
-        this._logoClickCount = 0
-        this._showHomepageToast(t('logoClickEasterEgg'))
-        if (this.menu) {
-          this.menu.classList.add('konami-flourish')
-          setTimeout(() => this.menu.classList.remove('konami-flourish'), 2000)
-        }
-      }
-    })
-  }
-
-  // Homepage-only shortcut keys: "?" opens the cheat sheet below, Escape
-  // closes whichever homepage-reachable panel is currently open (a real
-  // gap this fills - previously the only way to close these was clicking
-  // the panel's own backdrop, so a keyboard-only user had no way to close
-  // one at all; now the cheat sheet's own Escape line is actually true).
-  _bindHomepageShortcutKeys() {
-    const panelCloseFns = [
-      [this.settingsPanel, () => this._toggleSettings(false)],
-      [this.cloudsavePanel, () => this._closeCloudSavePanel()],
-      [this.upgradesPanel, () => this._closeUpgradesPanel()],
-      [this.coinshopPanel, () => this._closeCoinShopPanel()],
-      [this.questsPanel, () => this._closeQuestsPanel()],
-      [this.achievementsPanel, () => this._closeAchievementsPanel()],
-      [this.bestiaryPanel, () => this._closeBestiaryPanel()],
-      [this.howtoplayPanel, () => this._closeHowToPlayPanel()],
-      [this.creditsPanel, () => this._closeCreditsPanel()],
-      [this.profilePanel, () => this._closeProfilePanel()],
-    ]
-    window.addEventListener('keydown', (e) => {
-      if (this.gameStarted) return
-      if (e.key === '?') {
-        e.preventDefault()
-        this._toggleShortcutCheatsheet()
-        return
-      }
-      if (e.code === 'KeyR' && this._lastPanelOpener) {
-        this._lastPanelOpener()
-        return
-      }
-      if (e.code === 'Escape') {
-        if (this.shortcutCheatsheet && this.shortcutCheatsheet.style.display !== 'none') {
-          this.shortcutCheatsheet.style.display = 'none'
-          return
-        }
-        // getComputedStyle, not panel.style.display - a panel that's never
-        // been toggled at least once (fresh page load) is hidden via its
-        // own CSS rule's default display:none, not an inline style, so
-        // checking the inline property alone would misread it as "open"
-        // and swallow the very first Escape press before it ever reaches
-        // a genuinely open panel.
-        for (const [panel, close] of panelCloseFns) {
-          if (panel && getComputedStyle(panel).display !== 'none') { close(); return }
-        }
-      }
-    })
-  }
-
-  _toggleShortcutCheatsheet() {
-    if (!this.shortcutCheatsheet) return
-    const opening = this.shortcutCheatsheet.style.display === 'none'
-    if (opening) {
-      this.shortcutCheatsheetTitle.textContent = t('shortcutCheatsheetTitle')
-      const rows = [
-        ['?', t('shortcutRowHelp')],
-        ['Tab', t('shortcutRowTab')],
-        ['Enter / Space', t('shortcutRowActivate')],
-        ['Escape', t('shortcutRowEscape')],
-        ['R', t('shortcutRowReopen')],
-      ]
-      this.shortcutCheatsheetList.innerHTML = rows.map(([key, label]) => `<div class="shortcut-row"><kbd>${_escapeHtml(key)}</kbd><span>${_escapeHtml(label)}</span></div>`).join('')
-    }
-    this.shortcutCheatsheet.style.display = opening ? 'block' : 'none'
-  }
-
-  // Hidden zombie icon click (see #hidden-zombie-icon's own comment) -
-  // purely a joke toast, no gameplay effect.
-  _bindHiddenZombieIcon() {
-    const icon = document.getElementById('hidden-zombie-icon')
-    if (!icon) return
-    icon.addEventListener('click', () => {
-      const key = JOKE_TIPS[Math.floor(Math.random() * JOKE_TIPS.length)]
-      this._showHomepageToast(t(key))
-    })
-  }
-
-  // Typing "zombie" anywhere on the homepage triggers the same cosmetic
-  // flourish the Konami code/logo-click secrets already use - a rolling
-  // letter buffer against the literal word, same shape as KONAMI_CODE's
-  // own check.
-  _bindZombieTypedSecret() {
-    this._zombieTypedBuffer = ''
-    window.addEventListener('keydown', (e) => {
-      if (this.gameStarted || !e.key || e.key.length !== 1) return
-      this._zombieTypedBuffer = (this._zombieTypedBuffer + e.key).slice(-6).toLowerCase()
-      if (this._zombieTypedBuffer === 'zombie') {
-        this._zombieTypedBuffer = ''
-        this._showHomepageToast(t('zombieTypedSecret'))
-        if (this.menu) {
-          this.menu.classList.add('konami-flourish')
-          setTimeout(() => this.menu.classList.remove('konami-flourish'), 2000)
-        }
-      }
-    })
-  }
-
-  // Clicking a Credits changelog entry shows a bonus flavor fact - reuses
-  // the existing FUNNY_TRIVIA pool (see its own comment) rather than
-  // authoring a unique fact per entry, which would need editing every
-  // time a new changelog line is added.
-  _bindChangelogFactClicks() {
-    const list = document.getElementById('changelog-list')
-    if (!list) return
-    list.addEventListener('click', (e) => {
-      if (!e.target.closest('.changelog-entry')) return
-      const key = FUNNY_TRIVIA[Math.floor(Math.random() * FUNNY_TRIVIA.length)]
-      this._showHomepageToast(t(key))
-    })
-  }
-
-  // April Fools - a single date-gated cosmetic flip (upside-down title),
-  // real UTC/local date check, not a random chance. Reverts itself
-  // naturally the next day since this just checks today's date on load.
-  _applyAprilFools() {
-    const now = new Date()
-    if (now.getMonth() === 3 && now.getDate() === 1 && this.menuTitle) {
-      this.menuTitle.classList.add('april-fools-flip')
     }
   }
 
