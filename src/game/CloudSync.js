@@ -64,8 +64,31 @@ const FIREBASE_CONFIG = {
 //   fetchPollResults), never by downloading every vote, so read access
 //   can stay public without leaking who voted for what beyond "a doc
 //   with their uid exists."
+// - stats/telemetry: same increment-only shape as stats/global, but
+//   deliberately does NOT require request.auth != null - unlike the kill
+//   counter, this is meant to capture usage from every visitor, not just
+//   signed-in ones. hasOnly(TELEMETRY_FIELDS) caps which fields a write
+//   can touch (keep this list and incrementTelemetry's TELEMETRY_FIELDS
+//   in sync by hand), each field must independently be strictly
+//   increasing and capped per write, same reasoning as totalKills. This
+//   doc also must be created once by hand (Firestore Console -> Start
+//   collection -> "stats" -> doc ID "telemetry" -> 5 number fields,
+//   settingsOpened/mutatorUsed/challengeStarted/shareUsed/crtEnabled,
+//   each set to 0) since `allow create: if false` blocks clients here too.
 export const FIRESTORE_SECURITY_RULES = `rules_version = '2';
 service cloud.firestore {
+  // Shared by stats/telemetry below - one field changed per write (see
+  // incrementTelemetry, always a single-field updateDoc call), each field
+  // independently must be a strictly-increasing int, capped per write so
+  // one call can't fake a huge spike. Small cap (5, vs totalKills' 500) -
+  // these are coarse UI-action counters, not per-run kill totals.
+  function validTelemetryBump(field) {
+    return resource.data[field] is int
+      && request.resource.data[field] is int
+      && request.resource.data[field] > resource.data[field]
+      && request.resource.data[field] <= resource.data[field] + 5;
+  }
+
   match /databases/{database}/documents {
     match /saves/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
@@ -96,6 +119,18 @@ service cloud.firestore {
         && request.resource.data.totalKills is int
         && request.resource.data.totalKills > resource.data.totalKills
         && request.resource.data.totalKills <= resource.data.totalKills + 500;
+    }
+
+    match /stats/telemetry {
+      allow read: if true;
+      allow create: if false;
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['settingsOpened', 'mutatorUsed', 'challengeStarted', 'shareUsed', 'crtEnabled'])
+        && request.resource.data.diff(resource.data).affectedKeys().size() == 1
+        && (!('settingsOpened' in request.resource.data.diff(resource.data).affectedKeys()) || validTelemetryBump('settingsOpened'))
+        && (!('mutatorUsed' in request.resource.data.diff(resource.data).affectedKeys()) || validTelemetryBump('mutatorUsed'))
+        && (!('challengeStarted' in request.resource.data.diff(resource.data).affectedKeys()) || validTelemetryBump('challengeStarted'))
+        && (!('shareUsed' in request.resource.data.diff(resource.data).affectedKeys()) || validTelemetryBump('shareUsed'))
+        && (!('crtEnabled' in request.resource.data.diff(resource.data).affectedKeys()) || validTelemetryBump('crtEnabled'));
     }
 
     match /polls/{pollId}/votes/{userId} {
@@ -339,6 +374,32 @@ export async function fetchGlobalKills() {
   const { db, fsMod } = await ensureApp()
   const snap = await fsMod.getDoc(fsMod.doc(db, 'stats', 'global'))
   return snap.exists() ? snap.data().totalKills : null
+}
+
+// Anonymous usage telemetry - Foundation Update: coarse counters (how many
+// times has Settings ever been opened, a mutator used, etc. - no per-user
+// breakdown, no personal data, nothing tied to an account) to get real
+// usage signal on which of the ~400 features this project has shipped are
+// actually used, instead of guessing. Same atomic-increment doc pattern as
+// incrementGlobalKills above, but deliberately does NOT require
+// request.auth != null (see FIRESTORE_SECURITY_RULES) - unlike the kill
+// counter, this needs to work for every visitor, including the majority
+// who never sign in, since "opened Settings" happens before anyone would.
+// TELEMETRY_FIELDS is the one place both this function and the security
+// rule's hasOnly(...) list need to agree on - keep them in sync by hand
+// if a new field is ever added.
+export const TELEMETRY_FIELDS = ['settingsOpened', 'mutatorUsed', 'challengeStarted', 'shareUsed', 'crtEnabled']
+
+export async function incrementTelemetry(field) {
+  if (!TELEMETRY_FIELDS.includes(field)) return
+  const { db, fsMod } = await ensureApp()
+  try {
+    await fsMod.updateDoc(fsMod.doc(db, 'stats', 'telemetry'), { [field]: fsMod.increment(1) })
+  } catch {
+    // Doc doesn't exist yet (see this project's own manual-setup step,
+    // same as stats/global) or hit the per-write cap - either way, never
+    // worth surfacing to the player over a background usage counter.
+  }
 }
 
 // Community Poll - one vote doc per account (id = uid), `create`-only

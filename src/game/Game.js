@@ -4569,6 +4569,7 @@ export class Game {
         }
       }
       if (mutatorsChanged) saveSettings(this.settings)
+      if (Object.values(this.settings.mutators).some(Boolean)) CloudSync.incrementTelemetry('mutatorUsed').catch(() => {})
       let spawnMult = this.difficulty.spawnRateMult
       if (this.settings.mutators.hordeRush) spawnMult *= 2
       if (this.settings.mutators.hordeMode) spawnMult *= 3
@@ -4578,6 +4579,7 @@ export class Game {
         this.dailyTwist = DAILY_TWISTS[_dailyTwistIndex(_todayDateStr())]
         this.dailyDamageMult = this.dailyTwist.damageMult
         spawnMult *= this.dailyTwist.spawnMult
+        CloudSync.incrementTelemetry('challengeStarted').catch(() => {})
       }
       // Custom Challenge Code (Local Sharing batch) - same twist-selection
       // mechanism as Daily Challenge above (_dailyTwistIndex is a generic
@@ -7073,6 +7075,7 @@ export class Game {
         this.settings.crtScanlines = this.crtScanlinesToggle.checked
         document.documentElement.classList.toggle('crt-scanlines', this.settings.crtScanlines)
         saveSettings(this.settings)
+        if (this.settings.crtScanlines) CloudSync.incrementTelemetry('crtEnabled').catch(() => {})
       })
     }
     if (this.weatherParticlesToggle) {
@@ -8988,6 +8991,7 @@ export class Game {
     if (open) {
       this._settingsOpenSnapshot = JSON.stringify(this.settings)
       this._renderRecentlyChangedList()
+      CloudSync.incrementTelemetry('settingsOpened').catch(() => {})
     }
   }
 
@@ -10441,6 +10445,7 @@ export class Game {
     if (!this.sharePanel) return
     this.sharePanel.style.display = 'flex'
     if (this.sharePanelTitle) this.sharePanelTitle.textContent = t('sharePanelTitle')
+    CloudSync.incrementTelemetry('shareUsed').catch(() => {})
   }
 
   _closeSharePanel() {
