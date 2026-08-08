@@ -182,15 +182,19 @@ export function loadMetaProgress() {
       legacyPoints: parsed.legacyPoints ?? parsed.legacyScrap ?? 0,
       purchased: new Set(parsed.purchased || []),
       prestigeLevel: parsed.prestigeLevel ?? 0,
+      // Prestige History Log (Profile panel) - {level, ts} per past
+      // prestige, forward-only same as Achievements.js's unlockTimes (no
+      // backfilled history for resets before this shipped).
+      prestigeHistory: Array.isArray(parsed.prestigeHistory) ? parsed.prestigeHistory : [],
     }
   } catch {
-    return { legacyPoints: 0, purchased: new Set(), prestigeLevel: 0 }
+    return { legacyPoints: 0, purchased: new Set(), prestigeLevel: 0, prestigeHistory: [] }
   }
 }
 
 export function saveMetaProgress(meta) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ legacyPoints: meta.legacyPoints, purchased: [...meta.purchased], prestigeLevel: meta.prestigeLevel }))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ legacyPoints: meta.legacyPoints, purchased: [...meta.purchased], prestigeLevel: meta.prestigeLevel, prestigeHistory: meta.prestigeHistory }))
   } catch {
     // Storage unavailable (e.g. private browsing) - progress just won't persist.
   }

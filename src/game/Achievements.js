@@ -15,28 +15,32 @@ const UNLOCK_TIMES_KEY = 'gayz-achievement-unlock-times'
 // hintKey (Online Features batch, round 4): a locked-state description of
 // how to unlock, shown in the Achievements panel instead of a bare "???"
 // with zero guidance.
+// category: added for the Achievements panel's category filter (Game.js's
+// _renderAchievementsPanel) - a hand-assigned grouping, not derived from
+// anything else, since nothing else in this data already carries that
+// classification.
 export const ACHIEVEMENTS = [
-  { id: 'first_blood', titleKey: 'achFirstBlood', tag: 'FB', color: '#c9564a', hintKey: 'achHintFirstBlood' },
-  { id: 'survivor_5', titleKey: 'achSurvivor5', tag: '5N', color: '#6fa8dc', hintKey: 'achHintSurvivor5' },
-  { id: 'survivor_10', titleKey: 'achSurvivor10', tag: '10N', color: '#6fa8dc', hintKey: 'achHintSurvivor10' },
-  { id: 'brute_knife', titleKey: 'achBruteKnife', tag: 'BK', color: '#e08a4f', hintKey: 'achHintBruteKnife' },
-  { id: 'minigun_unlocked', titleKey: 'achMinigunUnlocked', tag: 'MG', color: '#92a05e', hintKey: 'achHintMinigunUnlocked' },
-  { id: 'centurion', titleKey: 'achCenturion', tag: '100', color: '#d9a34a', hintKey: 'achHintCenturion' },
-  { id: 'first_death', titleKey: 'achFirstDeath', tag: 'RIP', color: '#8a6d47', hintKey: 'achHintFirstDeath' },
-  { id: 'meat_grinder', titleKey: 'achMeatGrinder', tag: 'MG', color: '#c9564a', hintKey: 'achHintMeatGrinder' },
-  { id: 'full_story', titleKey: 'achFullStory', tag: 'FS', color: '#b07cd6', hintKey: 'achHintFullStory' },
-  { id: 'true_ending', titleKey: 'achTrueEnding', tag: 'TE', color: '#d9a34a', hintKey: 'achHintTrueEnding' },
-  { id: 'shadow_hunter', titleKey: 'achShadowHunter', tag: 'SH', color: '#34383c', hintKey: 'achHintShadowHunter' },
-  { id: 'weapon_evolved', titleKey: 'achWeaponEvolved', tag: 'WE', color: '#92a05e', hintKey: 'achHintWeaponEvolved' },
-  { id: 'elite_hunter', titleKey: 'achEliteHunter', tag: 'EH', color: '#7fd8a0', hintKey: 'achHintEliteHunter' },
-  { id: 'road_kill', titleKey: 'achRoadKill', tag: 'RK', color: '#e08a4f', hintKey: 'achHintRoadKill' },
-  { id: 'bestiary_master', titleKey: 'achBestiaryMaster', tag: 'BM', color: '#b07cd6', hintKey: 'achHintBestiaryMaster' },
-  { id: 'nightmare_survivor_5', titleKey: 'achNightmareSurvivor5', tag: 'N5', color: '#c9564a', hintKey: 'achHintNightmareSurvivor5' },
-  { id: 'nightmare_conqueror', titleKey: 'achNightmareConqueror', tag: 'NC', color: '#c9564a', hintKey: 'achHintNightmareConqueror' },
-  { id: 'fashion_icon', titleKey: 'achFashionIcon', tag: 'FI', color: '#6fa8dc', hintKey: 'achHintFashionIcon' },
+  { id: 'first_blood', titleKey: 'achFirstBlood', tag: 'FB', color: '#c9564a', hintKey: 'achHintFirstBlood', category: 'combat' },
+  { id: 'survivor_5', titleKey: 'achSurvivor5', tag: '5N', color: '#6fa8dc', hintKey: 'achHintSurvivor5', category: 'survival' },
+  { id: 'survivor_10', titleKey: 'achSurvivor10', tag: '10N', color: '#6fa8dc', hintKey: 'achHintSurvivor10', category: 'survival' },
+  { id: 'brute_knife', titleKey: 'achBruteKnife', tag: 'BK', color: '#e08a4f', hintKey: 'achHintBruteKnife', category: 'combat' },
+  { id: 'minigun_unlocked', titleKey: 'achMinigunUnlocked', tag: 'MG', color: '#92a05e', hintKey: 'achHintMinigunUnlocked', category: 'collection' },
+  { id: 'centurion', titleKey: 'achCenturion', tag: '100', color: '#d9a34a', hintKey: 'achHintCenturion', category: 'combat' },
+  { id: 'first_death', titleKey: 'achFirstDeath', tag: 'RIP', color: '#8a6d47', hintKey: 'achHintFirstDeath', category: 'survival' },
+  { id: 'meat_grinder', titleKey: 'achMeatGrinder', tag: 'MG', color: '#c9564a', hintKey: 'achHintMeatGrinder', category: 'combat' },
+  { id: 'full_story', titleKey: 'achFullStory', tag: 'FS', color: '#b07cd6', hintKey: 'achHintFullStory', category: 'story' },
+  { id: 'true_ending', titleKey: 'achTrueEnding', tag: 'TE', color: '#d9a34a', hintKey: 'achHintTrueEnding', category: 'story' },
+  { id: 'shadow_hunter', titleKey: 'achShadowHunter', tag: 'SH', color: '#34383c', hintKey: 'achHintShadowHunter', category: 'combat' },
+  { id: 'weapon_evolved', titleKey: 'achWeaponEvolved', tag: 'WE', color: '#92a05e', hintKey: 'achHintWeaponEvolved', category: 'collection' },
+  { id: 'elite_hunter', titleKey: 'achEliteHunter', tag: 'EH', color: '#7fd8a0', hintKey: 'achHintEliteHunter', category: 'combat' },
+  { id: 'road_kill', titleKey: 'achRoadKill', tag: 'RK', color: '#e08a4f', hintKey: 'achHintRoadKill', category: 'combat' },
+  { id: 'bestiary_master', titleKey: 'achBestiaryMaster', tag: 'BM', color: '#b07cd6', hintKey: 'achHintBestiaryMaster', category: 'exploration' },
+  { id: 'nightmare_survivor_5', titleKey: 'achNightmareSurvivor5', tag: 'N5', color: '#c9564a', hintKey: 'achHintNightmareSurvivor5', category: 'survival' },
+  { id: 'nightmare_conqueror', titleKey: 'achNightmareConqueror', tag: 'NC', color: '#c9564a', hintKey: 'achHintNightmareConqueror', category: 'survival' },
+  { id: 'fashion_icon', titleKey: 'achFashionIcon', tag: 'FI', color: '#6fa8dc', hintKey: 'achHintFashionIcon', category: 'collection' },
   // Deliberately last in the array - see unlock()'s own completionist
   // check, which excludes this id from "every OTHER achievement."
-  { id: 'completionist', titleKey: 'achCompletionist', tag: '★', color: '#d9a34a', hintKey: 'achHintCompletionist' },
+  { id: 'completionist', titleKey: 'achCompletionist', tag: '★', color: '#d9a34a', hintKey: 'achHintCompletionist', category: 'story' },
 ]
 
 function loadUnlocked() {

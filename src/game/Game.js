@@ -37,7 +37,7 @@ import { pickBounty } from './BountyBoard.js'
 import { ZOMBIE_TYPES } from './ZombieTypes.js'
 import { RescueSurvivor } from './RescueSurvivor.js'
 import { loadEncountered, saveEncountered } from './Bestiary.js'
-import { ACTIONS, getKeyFor, setBinding, resetBindings, keyLabel } from './Keybinds.js'
+import { ACTIONS, getKeyFor, setBinding, resetBindings, keyLabel, getAllBindings, setAllBindings } from './Keybinds.js'
 import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
 import * as CloudSync from './CloudSync.js'
@@ -116,6 +116,38 @@ const PICKUP_LABELS = {
 // Starting stat tradeoffs, picked once on the main menu and applied a
 // single time when a fresh run begins (see the playBtn click handler) -
 // not reapplied on respawn, same as XP upgrades/perks.
+// Nickname Font (see --nickname-font) - web-safe stacks only, no new font
+// file loads (unlike the title's Black Ops One Google Font, already
+// loaded regardless).
+const NICKNAME_FONT_STACKS = {
+  default: "'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+  mono: "'Courier New', Courier, monospace",
+  serif: "Georgia, 'Times New Roman', serif",
+  display: "'Bebas Neue', 'Segoe UI', sans-serif",
+}
+
+// "Laps around the map" flavor stat (Profile panel) - the real perimeter
+// of World.js's 750x750 square play area (see addPerimeterBarricade's
+// groundSize param there), not an arbitrary made-up lap length.
+const MAP_LAP_METERS = 750 * 4
+
+// Random Nickname Generator (see _generateRandomNickname) - a small
+// adjective+noun word bank combined with a 2-digit suffix, plenty of
+// distinct combinations without needing a name-generation service.
+const RANDOM_NICKNAME_ADJECTIVES = ['Rusty', 'Silent', 'Grim', 'Feral', 'Lucky', 'Rogue', 'Shady', 'Blunt', 'Sneaky', 'Iron']
+const RANDOM_NICKNAME_NOUNS = ['Wolf', 'Scav', 'Reaper', 'Nomad', 'Ghost', 'Viper', 'Ranger', 'Drifter', 'Hound', 'Raven']
+
+// Obviously-fake joke "tips" (hidden zombie icon, and the Joke Tip ticker
+// mode) - deliberately absurd, distinct from SPOTLIGHT_TIPS (genuinely
+// actionable survival advice) so the two tones never blend together.
+const JOKE_TIPS = ['jokeTip1', 'jokeTip2', 'jokeTip3', 'jokeTip4', 'jokeTip5', 'jokeTip6']
+
+// Leaderboard podium styling (ranks 1-3, see _renderLeaderboardRows/
+// _renderWeeklyLeaderboardList) - plain ordinal text + a gold/silver/
+// bronze CSS class, not emoji medals (this codebase has a documented
+// no-emoji UI convention, see #profile-emblem-row's own comment).
+const PODIUM_MEDALS = ['1st', '2nd', '3rd']
+
 const LOADOUT_PRESETS = {
   balanced: { moveSpeedDelta: 0, maxHealthMult: 1, maxStaminaDelta: 0 },
   runner: { moveSpeedDelta: 1.2, maxHealthMult: 0.75, maxStaminaDelta: 15 },
@@ -299,12 +331,39 @@ function loadSettings() {
       homepageFpsCounter: parsed.homepageFpsCounter ?? false,
       selectedGoals: Array.isArray(parsed.selectedGoals) ? parsed.selectedGoals.slice(0, 3) : [],
       underlineLinks: parsed.underlineLinks ?? false,
+      shopWishlist: Array.isArray(parsed.shopWishlist) ? parsed.shopWishlist : [],
+      shopSortMode: parsed.shopSortMode || 'default',
+      shopSpendingLog: Array.isArray(parsed.shopSpendingLog) ? parsed.shopSpendingLog.slice(0, 10) : [],
       // {name, night} pairs already notified about (see
       // _checkFriendBeatNotifications) - prevents re-toasting the same
       // "X is ahead of you" fact every single page load; only re-fires if
       // that friend's bestNight climbs even higher, or clears once you
       // catch back up.
       friendBeatNotified: Array.isArray(parsed.friendBeatNotified) ? parsed.friendBeatNotified : [],
+      // Third features batch - Personalization group.
+      accentColor: parsed.accentColor || null,
+      playBtnColor: parsed.playBtnColor || null,
+      nicknameFont: parsed.nicknameFont || 'default',
+      motto: typeof parsed.motto === 'string' ? parsed.motto.slice(0, 60) : '',
+      layoutDensity: parsed.layoutDensity || 'cozy',
+      pinnedStat: parsed.pinnedStat || null,
+      companionNameColor: parsed.companionNameColor || null,
+      pinnedPreset: Number.isInteger(parsed.pinnedPreset) ? parsed.pinnedPreset : null,
+      navOrder: Array.isArray(parsed.navOrder) && parsed.navOrder.length === 6 ? parsed.navOrder : ['coinshop-btn', 'upgrades-btn', 'quests-btn', 'achievements-btn', 'bestiary-btn', 'credits-btn'],
+      bioPresets: Array.isArray(parsed.bioPresets) ? parsed.bioPresets.slice(0, 3) : [],
+      // Third features batch - Accessibility group.
+      uiFont: parsed.uiFont || 'default',
+      textSpacing: parsed.textSpacing ?? 100,
+      buttonSize: parsed.buttonSize ?? 100,
+      reduceTransparency: parsed.reduceTransparency ?? false,
+      cursorTrail: parsed.cursorTrail ?? false,
+      crtScanlines: parsed.crtScanlines ?? false,
+      weatherParticles: parsed.weatherParticles ?? true,
+      frameTimeGraph: parsed.frameTimeGraph ?? false,
+      hoverAudioCue: parsed.hoverAudioCue ?? false,
+      highVisCursor: parsed.highVisCursor ?? false,
+      captionBackground: parsed.captionBackground ?? false,
+      themePreset: parsed.themePreset || 'none',
       mutators: {
         hordeRush: parsed.mutators?.hordeRush ?? false,
         lootRush: parsed.mutators?.lootRush ?? false,
@@ -337,7 +396,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['coinshop-btn', 'upgrades-btn', 'quests-btn', 'achievements-btn', 'bestiary-btn', 'credits-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -626,11 +685,29 @@ function saveEndingSeen() {
 
 const ENDING_MILESTONE_NIGHT = 10
 
+let _settingsSavedPulseTimer = null
 function saveSettings(settings) {
   try {
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
   } catch {
     // Storage unavailable (e.g. private browsing) - setting just won't persist.
+  }
+  // Subtle autosave confirmation - only pulses while the Settings panel is
+  // actually open (a plain computed-style check, since this is a
+  // standalone function with no `this`), debounced so a rapid slider drag
+  // (many saveSettings calls per second) shows one steady pulse instead of
+  // a flicker.
+  const panel = document.getElementById('settings-panel')
+  const indicator = document.getElementById('settings-saved-indicator')
+  if (panel && indicator && getComputedStyle(panel).display !== 'none') {
+    indicator.classList.add('show')
+    clearTimeout(_settingsSavedPulseTimer)
+    _settingsSavedPulseTimer = setTimeout(() => indicator.classList.remove('show'), 1200)
+    // Recently Changed / Undo - reuses window.__game (see the constructor's
+    // own comment on why it's set) since this is a standalone function
+    // with no `this` of its own, to live-update the diff on every change
+    // while the panel is actually open.
+    if (window.__game) window.__game._renderRecentlyChangedList()
   }
 }
 
@@ -640,9 +717,14 @@ function loadBestStats() {
   try {
     const raw = localStorage.getItem(BEST_STATS_KEY)
     const parsed = raw ? JSON.parse(raw) : {}
-    return { bestNight: parsed.bestNight || 0, bestKills: parsed.bestKills || 0, bestKillStreak: parsed.bestKillStreak || 0 }
+    return {
+      bestNight: parsed.bestNight || 0, bestKills: parsed.bestKills || 0, bestKillStreak: parsed.bestKillStreak || 0,
+      // Third features batch - the calendar date the current bestKillStreak
+      // record was actually set (see _recordRunEnd), not just the number.
+      bestKillStreakDate: parsed.bestKillStreakDate || null,
+    }
   } catch {
-    return { bestNight: 0, bestKills: 0, bestKillStreak: 0 }
+    return { bestNight: 0, bestKills: 0, bestKillStreak: 0, bestKillStreakDate: null }
   }
 }
 
@@ -874,6 +956,19 @@ function loadCareerStats() {
       // inventing a second, more precise attacker-tracking system.
       deathsByType: parsed.deathsByType || {},
       mutatorUseCounts: parsed.mutatorUseCounts || {},
+      // Third features batch - lifetime damage/accuracy (see the
+      // WeaponSystem callbacks in the constructor) and how many times
+      // you've revived your companion (see the reviveTarget interact
+      // handler). No matching "revived BY companion" counter - that
+      // mechanic doesn't exist in this codebase (Last Stand is entirely
+      // self-revive, see _tryLastStand's own comment), so it isn't built.
+      lifetimeDamageDealt: parsed.lifetimeDamageDealt || 0,
+      shotsFired: parsed.shotsFired || 0,
+      shotsHit: parsed.shotsHit || 0,
+      timesRevivedCompanion: parsed.timesRevivedCompanion || 0,
+      mostProfitableRun: parsed.mostProfitableRun || 0,
+      companionRoleUseCounts: parsed.companionRoleUseCounts || {},
+      playButtonClicks: parsed.playButtonClicks || 0,
     }
   } catch {
     return {
@@ -882,6 +977,8 @@ function loadCareerStats() {
       playtimeMilestonesGranted: [], distanceMilestonesGranted: [], flawlessMilestonesGranted: [], hallOfRecordsClaimed: false,
       totalDeaths: 0, difficultyStats: {}, firstPlayedDate: null, accountCreatedAt: null,
       longestSessionSeconds: 0, deathsByType: {}, mutatorUseCounts: {},
+      lifetimeDamageDealt: 0, shotsFired: 0, shotsHit: 0, timesRevivedCompanion: 0, mostProfitableRun: 0,
+      companionRoleUseCounts: {}, playButtonClicks: 0,
     }
   }
 }
@@ -2535,6 +2632,15 @@ export class Game {
     this.coordsEl.style.cssText = 'position:fixed;top:28px;left:6px;background:rgba(0,0,0,0.55);color:#8fc8ff;font:13px monospace;padding:3px 7px;border-radius:4px;z-index:9999;pointer-events:none;opacity:0;transition:opacity 0.8s ease;'
     this.coordsEl.textContent = 'x:0 z:0 y:0'
     document.body.appendChild(this.coordsEl)
+    // Frame-Time Graph (opt-in, see settings.frameTimeGraph) - same
+    // fixed-position/opacity-fade pattern as fpsEl/coordsEl above, a
+    // small canvas sparkline instead of text.
+    this.frameTimeCanvas = document.createElement('canvas')
+    this.frameTimeCanvas.id = 'frame-time-canvas'
+    this.frameTimeCanvas.width = 120
+    this.frameTimeCanvas.height = 30
+    this.frameTimeCanvas.style.cssText = 'position:fixed;top:50px;left:6px;background:rgba(0,0,0,0.55);border-radius:4px;z-index:9999;pointer-events:none;opacity:0;transition:opacity 0.8s ease;'
+    document.body.appendChild(this.frameTimeCanvas)
     // Auto-enable Performance Mode on genuinely bad, sustained frame rate
     // instead of leaving it as a settings checkbox someone has to already
     // know exists - a user reporting single-digit fps shouldn't need to
@@ -2834,6 +2940,7 @@ export class Game {
     this.profileAnniversaryLine = document.getElementById('profile-anniversary-line')
     this.profileTodayLine = document.getElementById('profile-today-line')
     this.profilePercentileLine = document.getElementById('profile-percentile-line')
+    this.profilePercentileBar = document.getElementById('profile-percentile-bar')
     this.profileFavoriteDifficultyLine = document.getElementById('profile-favorite-difficulty-line')
     this.profileBestRunCard = document.getElementById('profile-best-run-card')
     this.profileBestRunTitle = document.getElementById('profile-best-run-title')
@@ -2842,6 +2949,7 @@ export class Game {
     this.profileCreatedLine = document.getElementById('profile-created-line')
     this.profileWeeklyRecapTitle = document.getElementById('profile-weekly-recap-title')
     this.profileWeeklyRecapLine = document.getElementById('profile-weekly-recap-line')
+    this.profileWeeklyDeltaLine = document.getElementById('profile-weekly-delta-line')
     this.profileAccountSignedOut = document.getElementById('profile-account-signed-out')
     this.profileAccountSignedIn = document.getElementById('profile-account-signed-in')
     this.profileLoginBtn = document.getElementById('profile-login-btn')
@@ -2873,6 +2981,10 @@ export class Game {
     this.cloudsaveGlobalKills = document.getElementById('cloudsave-global-kills')
     this.cloudsaveRankLine = document.getElementById('cloudsave-rank-line')
     this.cloudsaveRivalLine = document.getElementById('cloudsave-rival-line')
+    this.cloudsaveNearbyRankTitle = document.getElementById('cloudsave-nearby-rank-title')
+    this.cloudsaveNearbyRankList = document.getElementById('cloudsave-nearby-rank-list')
+    this.cloudsaveRandomOpponentBtn = document.getElementById('cloudsave-random-opponent-btn')
+    this.cloudsaveOfflineWarning = document.getElementById('cloudsave-offline-warning')
     this.cloudsaveAvgLine = document.getElementById('cloudsave-avg-line')
     this.cloudsaveAvgBars = document.getElementById('cloudsave-avg-bars')
     this.cloudsaveRegionSelect = document.getElementById('cloudsave-region-select')
@@ -2977,6 +3089,46 @@ export class Game {
     this.nicknameColorPicker = document.getElementById('nickname-color-picker')
     this.companionColorPicker = document.getElementById('companion-color-picker')
     this.companionColorPreview = document.getElementById('companion-color-preview')
+    this.companionNameColorPicker = document.getElementById('companion-name-color-picker')
+    this.accentColorPicker = document.getElementById('accent-color-picker')
+    this.accentColorResetBtn = document.getElementById('accent-color-reset-btn')
+    this.playBtnColorPicker = document.getElementById('play-btn-color-picker')
+    this.playBtnColorResetBtn = document.getElementById('play-btn-color-reset-btn')
+    this.nicknameFontSelect = document.getElementById('nickname-font-select')
+    this.layoutDensitySelect = document.getElementById('layout-density-select')
+    this.mottoInput = document.getElementById('motto-input')
+    this.randomNicknameBtn = document.getElementById('random-nickname-btn')
+    this.bioPresetSaveBtn = document.getElementById('bio-preset-save-btn')
+    this.bioPresetChips = document.getElementById('bio-preset-chips')
+    this.recentUnlocksHeading = document.getElementById('recent-unlocks-heading')
+    this.recentUnlocksList = document.getElementById('recent-unlocks-list')
+    this.prestigeHistoryHeading = document.getElementById('prestige-history-heading')
+    this.prestigeHistoryList = document.getElementById('prestige-history-list')
+    this.highlightReelHeading = document.getElementById('highlight-reel-heading')
+    this.highlightReelList = document.getElementById('highlight-reel-list')
+    this.pinnedStatSelect = document.getElementById('pinned-stat-select')
+    this.navOrderList = document.getElementById('nav-order-list')
+    this.settingsSearchInput = document.getElementById('settings-search-input')
+    this.recentlyChangedList = document.getElementById('recently-changed-list')
+    this.exportKeybindsBtn = document.getElementById('export-keybinds-btn')
+    this.importKeybindsBtn = document.getElementById('import-keybinds-btn')
+    this.importKeybindsInput = document.getElementById('import-keybinds-input')
+    this.importKeybindsApplyBtn = document.getElementById('import-keybinds-apply-btn')
+    this.resetAudioDefaultsBtn = document.getElementById('reset-audio-defaults-btn')
+    this.resetControlsDefaultsBtn = document.getElementById('reset-controls-defaults-btn')
+    this.uiFontSelect = document.getElementById('ui-font-select')
+    this.textSpacingSlider = document.getElementById('text-spacing-slider')
+    this.textSpacingValue = document.getElementById('text-spacing-value')
+    this.buttonSizeSlider = document.getElementById('button-size-slider')
+    this.buttonSizeValue = document.getElementById('button-size-value')
+    this.reduceTransparencyToggle = document.getElementById('reduce-transparency-toggle')
+    this.hoverAudioCueToggle = document.getElementById('hover-audio-cue-toggle')
+    this.highVisCursorToggle = document.getElementById('high-vis-cursor-toggle')
+    this.captionBackgroundToggle = document.getElementById('caption-background-toggle')
+    this.themePresetSelect = document.getElementById('theme-preset-select')
+    this.cursorTrailToggle = document.getElementById('cursor-trail-toggle')
+    this.crtScanlinesToggle = document.getElementById('crt-scanlines-toggle')
+    this.weatherParticlesToggle = document.getElementById('weather-particles-toggle')
     this.nicknameInput = document.getElementById('nickname-input')
     this.companionNameInput = document.getElementById('companion-name-input')
     this.challengeCodeInput = document.getElementById('challenge-code-input')
@@ -3012,6 +3164,7 @@ export class Game {
     this.compareSaveInput = document.getElementById('compare-save-input')
     this.compareSaveResult = document.getElementById('compare-save-result')
     this.storageUsageLine = document.getElementById('storage-usage-line')
+    this.storageQuotaWarning = document.getElementById('storage-quota-warning')
     this.copySaveBtn = document.getElementById('copy-save-btn')
     this.exportSettingsCodeBtn = document.getElementById('export-settings-code-btn')
     this.importSettingsCodeBtn = document.getElementById('import-settings-code-btn')
@@ -3872,6 +4025,9 @@ export class Game {
     this.achievementsPanelTitle = document.getElementById('achievements-panel-title')
     this.achievementsOptions = document.getElementById('achievements-options')
     this.achievementsFilterInput = document.getElementById('achievements-filter-input')
+    this.achievementsCategorySelect = document.getElementById('achievements-category-select')
+    this.achievementsSortSelect = document.getElementById('achievements-sort-select')
+    this.printAchievementsBtn = document.getElementById('print-achievements-btn')
     this.bestiaryBtn = document.getElementById('bestiary-btn')
     this.bestiaryPanel = document.getElementById('bestiary-panel')
     this.bestiaryPanelTitle = document.getElementById('bestiary-panel-title')
@@ -3904,6 +4060,8 @@ export class Game {
     this.creditsBtn = document.getElementById('credits-btn')
     this.menuAriaSummary = document.getElementById('menu-aria-summary')
     this.menuTitle = document.getElementById('menu-title')
+    this.menuBgRain = document.getElementById('menu-bg-rain')
+    this.menuBgAsh = document.getElementById('menu-bg-ash')
     this.rankRoadmapHeading = document.getElementById('rank-roadmap-heading')
     this.rankRoadmapList = document.getElementById('rank-roadmap-list')
     this.classComparisonHeading = document.getElementById('class-comparison-heading')
@@ -3914,7 +4072,18 @@ export class Game {
     this.creditsPanel = document.getElementById('credits-panel')
     this.creditsPanelTitle = document.getElementById('credits-panel-title')
     this.buildVersionLine = document.getElementById('build-version-line')
+    this.shopSortSelect = document.getElementById('shop-sort-select')
+    this.shopSpendingLogRow = document.getElementById('shop-spending-log-row')
+    this.shopSpendingLogHeading = document.getElementById('shop-spending-log-heading')
+    this.shopSpendingLogList = document.getElementById('shop-spending-log-list')
     this.printChangelogBtn = document.getElementById('print-changelog-btn')
+    this.copyChangelogBtn = document.getElementById('copy-changelog-btn')
+    this.buildSessionIdLine = document.getElementById('build-session-id-line')
+    this.checkUpdatesBtn = document.getElementById('check-updates-btn')
+    this.diagnosticsHeading = document.getElementById('diagnostics-heading')
+    this.diagnosticsLine = document.getElementById('diagnostics-line')
+    this.copyDiagnosticsBtn = document.getElementById('copy-diagnostics-btn')
+    this.copyErrorLogBtn = document.getElementById('copy-error-log-btn')
     this.coinshopBtn = document.getElementById('coinshop-btn')
     this.coinshopPanel = document.getElementById('coinshop-panel')
     this.coinshopPanelTitle = document.getElementById('coinshop-panel-title')
@@ -4100,15 +4269,26 @@ export class Game {
       () => {
         this._triggerShake(0.05, 90)
         this._triggerHitstop(40)
+        // Shot-accuracy tracking (Profile panel) - fires once per shot
+        // that connected (hitZombies.size > 0 in _fire(), not per pellet),
+        // same granularity as onShotFired below.
+        this.careerStats.shotsHit = (this.careerStats.shotsHit || 0) + 1
       },
       () => this._onStealthTakedown(),
-      (x, y, z, damage, isHeadshot) => this._spawnDamageNumber(x, y, z, damage, isHeadshot),
+      (x, y, z, damage, isHeadshot) => {
+        this._spawnDamageNumber(x, y, z, damage, isHeadshot)
+        // Lifetime damage dealt (Profile panel) - per pellet is correct
+        // here (unlike shotsHit above), since multi-pellet weapons really
+        // do deal that much total damage per shot.
+        this.careerStats.lifetimeDamageDealt = (this.careerStats.lifetimeDamageDealt || 0) + damage
+      },
       (intensity, durationMs) => {
         this._triggerShake(intensity, durationMs)
         this._alertNearbyZombiesToGunfire()
         this._maybeTriggerStampede()
       },
-      () => this.settings.showHitFeedback
+      () => this.settings.showHitFeedback,
+      () => { this.careerStats.shotsFired = (this.careerStats.shotsFired || 0) + 1 }
     )
     this.rivals = new RivalManager(this.scene)
     this.weapons.setRivalManager(this.rivals)
@@ -4178,6 +4358,17 @@ export class Game {
     // close/reload happening between the last stats-panel update and now.
     window.addEventListener('beforeunload', () => saveShopProgress(this))
     window.addEventListener('beforeunload', () => this._updateLongestSession())
+    // Copy Error Log (Credits) / Session ID - both purely diagnostic, for
+    // pasting into a bug report. Session ID is a fresh random string per
+    // page load, not persisted - it only needs to be stable within one
+    // session so a report and a follow-up question can reference "the
+    // same session," not a lasting player identifier.
+    this._sessionId = Math.random().toString(36).slice(2, 10)
+    this._errorLog = []
+    window.addEventListener('error', (e) => {
+      if (this._errorLog.length >= 20) this._errorLog.shift()
+      this._errorLog.push(`[${new Date().toISOString()}] ${e.message} (${e.filename}:${e.lineno})`)
+    })
     this._bindItemKeys()
     this._bindHotbar()
     this._bindSettings()
@@ -4292,6 +4483,12 @@ export class Game {
 
   _bindMenu() {
     this.playBtn.addEventListener('click', () => {
+      // Lifetime Play-button click count (Profile panel) - not saved
+      // immediately (matches every other high-frequency careerStats
+      // counter's batching precedent - persisted at the next
+      // saveCareerStats call, e.g. _recordRunEnd).
+      this.careerStats.playButtonClicks = (this.careerStats.playButtonClicks || 0) + 1
+      saveCareerStats(this.careerStats)
       // Screen fade transition - masks the otherwise-instant menu-to-game
       // switch with a brief flash-to-black-then-fade, same show/hide
       // re-trigger pattern as every toast in this codebase.
@@ -4309,6 +4506,7 @@ export class Game {
       // gameplay starts (see their own opacity/transition setup).
       this.fpsEl.style.opacity = '1'
       this.coordsEl.style.opacity = '1'
+      this._applyFrameTimeGraphVisibility()
       audioEngine.init()
       audioEngine.resume()
       audioEngine.startAmbient()
@@ -4744,6 +4942,7 @@ export class Game {
           this.reviveTarget.revive()
           this._showLoreToast(t('toastCompanionRevived'))
           this.reviveTarget = null
+          this.careerStats.timesRevivedCompanion += 1
         } else if (this.nearVireoTerminal) {
           this._interactVireoTerminal()
         } else if (this.nearStationTerminal) {
@@ -6438,6 +6637,104 @@ export class Game {
       if (this.companion) this._rebuildCompanion(this.settings.companionRole)
       this._renderCompanionColorPreview()
     })
+    // Companion Name Tag Color - a plain CSS var applied to the input
+    // field itself (the only current on-screen "companion name tag"
+    // display), same --nickname-color technique above.
+    if (this.companionNameColorPicker) {
+      this.companionNameColorPicker.value = this.settings.companionNameColor || '#8fc8ff'
+      document.documentElement.style.setProperty('--companion-name-color', this.settings.companionNameColor || '#8fc8ff')
+      this.companionNameColorPicker.addEventListener('input', () => {
+        this.settings.companionNameColor = this.companionNameColorPicker.value
+        document.documentElement.style.setProperty('--companion-name-color', this.settings.companionNameColor)
+        saveSettings(this.settings)
+      })
+    }
+
+    // Homepage Accent Color - overrides --menu-gold on #menu itself
+    // (inline style beats the stylesheet's own #menu rule), recoloring
+    // every gold highlight/border/active-state across the homepage at
+    // once. Reset restores the original gold by clearing the override.
+    if (this.accentColorPicker) {
+      const defaultAccent = '#d9a34a'
+      this.accentColorPicker.value = this.settings.accentColor || defaultAccent
+      if (this.settings.accentColor && this.menu) this.menu.style.setProperty('--menu-gold', this.settings.accentColor)
+      this.accentColorPicker.addEventListener('input', () => {
+        this.settings.accentColor = this.accentColorPicker.value
+        if (this.menu) this.menu.style.setProperty('--menu-gold', this.settings.accentColor)
+        saveSettings(this.settings)
+      })
+      if (this.accentColorResetBtn) {
+        this.accentColorResetBtn.addEventListener('click', () => {
+          this.settings.accentColor = null
+          this.accentColorPicker.value = defaultAccent
+          if (this.menu) this.menu.style.removeProperty('--menu-gold')
+          saveSettings(this.settings)
+        })
+      }
+    }
+
+    // Play Button Color - a dedicated CSS var (--play-btn-color) the
+    // #play-btn gradient reads, independent of the accent color above so
+    // the two can be set separately.
+    if (this.playBtnColorPicker) {
+      const defaultPlayColor = '#d9a34a'
+      this.playBtnColorPicker.value = this.settings.playBtnColor || defaultPlayColor
+      if (this.settings.playBtnColor) document.documentElement.style.setProperty('--play-btn-color', this.settings.playBtnColor)
+      this.playBtnColorPicker.addEventListener('input', () => {
+        this.settings.playBtnColor = this.playBtnColorPicker.value
+        document.documentElement.style.setProperty('--play-btn-color', this.settings.playBtnColor)
+        saveSettings(this.settings)
+      })
+      if (this.playBtnColorResetBtn) {
+        this.playBtnColorResetBtn.addEventListener('click', () => {
+          this.settings.playBtnColor = null
+          this.playBtnColorPicker.value = defaultPlayColor
+          document.documentElement.style.removeProperty('--play-btn-color')
+          saveSettings(this.settings)
+        })
+      }
+    }
+
+    if (this.nicknameFontSelect) {
+      this.nicknameFontSelect.value = this.settings.nicknameFont
+      document.documentElement.style.setProperty('--nickname-font', NICKNAME_FONT_STACKS[this.settings.nicknameFont] || NICKNAME_FONT_STACKS.default)
+      this.nicknameFontSelect.addEventListener('change', () => {
+        this.settings.nicknameFont = this.nicknameFontSelect.value
+        document.documentElement.style.setProperty('--nickname-font', NICKNAME_FONT_STACKS[this.settings.nicknameFont] || NICKNAME_FONT_STACKS.default)
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.layoutDensitySelect) {
+      this.layoutDensitySelect.value = this.settings.layoutDensity
+      document.documentElement.classList.toggle('layout-compact', this.settings.layoutDensity === 'compact')
+      this.layoutDensitySelect.addEventListener('change', () => {
+        this.settings.layoutDensity = this.layoutDensitySelect.value
+        document.documentElement.classList.toggle('layout-compact', this.settings.layoutDensity === 'compact')
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.randomNicknameBtn) {
+      this.randomNicknameBtn.addEventListener('click', () => {
+        const adj = RANDOM_NICKNAME_ADJECTIVES[Math.floor(Math.random() * RANDOM_NICKNAME_ADJECTIVES.length)]
+        const noun = RANDOM_NICKNAME_NOUNS[Math.floor(Math.random() * RANDOM_NICKNAME_NOUNS.length)]
+        const suffix = Math.floor(Math.random() * 90) + 10
+        this.nicknameInput.value = `${adj}${noun}${suffix}`.slice(0, 16)
+        this.settings.nickname = this.nicknameInput.value
+        saveSettings(this.settings)
+        this._renderPlayerTag()
+      })
+    }
+    if (this.mottoInput) {
+      this.mottoInput.value = this.settings.motto
+      this.mottoInput.addEventListener('input', () => {
+        this.settings.motto = this.mottoInput.value.slice(0, 60)
+        saveSettings(this.settings)
+        this._renderPlayerTag()
+      })
+    }
+
     this.crosshairSizeSlider.value = this.settings.crosshairSize
     this.crosshairSizeValue.textContent = `${this.settings.crosshairSize}%`
     document.documentElement.style.setProperty('--crosshair-size', this.settings.crosshairSize / 100)
@@ -6567,12 +6864,24 @@ export class Game {
         saveSettings(this.settings)
       })
     }
+    this.frameTimeGraphToggle = document.getElementById('frame-time-graph-toggle')
+    if (this.frameTimeGraphToggle) {
+      this.frameTimeGraphToggle.checked = this.settings.frameTimeGraph
+      this._applyFrameTimeGraphVisibility()
+      this.frameTimeGraphToggle.addEventListener('change', () => {
+        this.settings.frameTimeGraph = this.frameTimeGraphToggle.checked
+        this._applyFrameTimeGraphVisibility()
+        saveSettings(this.settings)
+      })
+    }
     if (this.homepageFpsToggle) {
       this.homepageFpsToggle.checked = this.settings.homepageFpsCounter
       if (this.settings.homepageFpsCounter) this.fpsEl.style.opacity = '1'
+      this._applyFrameTimeGraphVisibility()
       this.homepageFpsToggle.addEventListener('change', () => {
         this.settings.homepageFpsCounter = this.homepageFpsToggle.checked
         this.fpsEl.style.opacity = (this.settings.homepageFpsCounter || this.gameStarted) ? '1' : '0'
+        this._applyFrameTimeGraphVisibility()
         saveSettings(this.settings)
       })
     }
@@ -6582,6 +6891,155 @@ export class Game {
       this.underlineLinksToggle.addEventListener('change', () => {
         this.settings.underlineLinks = this.underlineLinksToggle.checked
         document.documentElement.classList.toggle('underline-links', this.settings.underlineLinks)
+        saveSettings(this.settings)
+      })
+    }
+    if (this.uiFontSelect) {
+      this.uiFontSelect.value = this.settings.uiFont
+      document.documentElement.style.setProperty('--ui-font', NICKNAME_FONT_STACKS[this.settings.uiFont] || NICKNAME_FONT_STACKS.default)
+      this.uiFontSelect.addEventListener('change', () => {
+        this.settings.uiFont = this.uiFontSelect.value
+        document.documentElement.style.setProperty('--ui-font', NICKNAME_FONT_STACKS[this.settings.uiFont] || NICKNAME_FONT_STACKS.default)
+        saveSettings(this.settings)
+      })
+    }
+    if (this.textSpacingSlider) {
+      this.textSpacingSlider.value = this.settings.textSpacing
+      this.textSpacingValue.textContent = `${this.settings.textSpacing}%`
+      document.documentElement.style.setProperty('--text-spacing', this.settings.textSpacing)
+      document.documentElement.classList.toggle('text-spacing-active', this.settings.textSpacing !== 100)
+      this.textSpacingSlider.addEventListener('input', () => {
+        const value = Number(this.textSpacingSlider.value)
+        this.textSpacingValue.textContent = `${value}%`
+        this.settings.textSpacing = value
+        document.documentElement.style.setProperty('--text-spacing', value)
+        document.documentElement.classList.toggle('text-spacing-active', value !== 100)
+        saveSettings(this.settings)
+      })
+      this._bindEditableSliderValue(this.textSpacingValue, this.textSpacingSlider)
+    }
+    if (this.buttonSizeSlider) {
+      const applyButtonSize = (value) => {
+        document.documentElement.classList.toggle('button-size-scaled', value !== 100)
+        document.documentElement.style.setProperty('--button-size-scale', value / 100)
+      }
+      this.buttonSizeSlider.value = this.settings.buttonSize
+      this.buttonSizeValue.textContent = `${this.settings.buttonSize}%`
+      applyButtonSize(this.settings.buttonSize)
+      this.buttonSizeSlider.addEventListener('input', () => {
+        const value = Number(this.buttonSizeSlider.value)
+        this.buttonSizeValue.textContent = `${value}%`
+        this.settings.buttonSize = value
+        applyButtonSize(value)
+        saveSettings(this.settings)
+      })
+      this._bindEditableSliderValue(this.buttonSizeValue, this.buttonSizeSlider)
+    }
+    if (this.reduceTransparencyToggle) {
+      this.reduceTransparencyToggle.checked = this.settings.reduceTransparency
+      document.documentElement.classList.toggle('reduce-transparency', this.settings.reduceTransparency)
+      this.reduceTransparencyToggle.addEventListener('change', () => {
+        this.settings.reduceTransparency = this.reduceTransparencyToggle.checked
+        document.documentElement.classList.toggle('reduce-transparency', this.settings.reduceTransparency)
+        saveSettings(this.settings)
+      })
+    }
+    if (this.hoverAudioCueToggle) {
+      this.hoverAudioCueToggle.checked = this.settings.hoverAudioCue
+      this.hoverAudioCueToggle.addEventListener('change', () => {
+        this.settings.hoverAudioCue = this.hoverAudioCueToggle.checked
+        saveSettings(this.settings)
+      })
+    }
+    if (this.highVisCursorToggle) {
+      this.highVisCursorToggle.checked = this.settings.highVisCursor
+      document.documentElement.classList.toggle('high-vis-cursor', this.settings.highVisCursor)
+      this.highVisCursorToggle.addEventListener('change', () => {
+        this.settings.highVisCursor = this.highVisCursorToggle.checked
+        document.documentElement.classList.toggle('high-vis-cursor', this.settings.highVisCursor)
+        saveSettings(this.settings)
+      })
+    }
+    if (this.captionBackgroundToggle) {
+      this.captionBackgroundToggle.checked = this.settings.captionBackground
+      document.documentElement.classList.toggle('caption-background', this.settings.captionBackground)
+      this.captionBackgroundToggle.addEventListener('change', () => {
+        this.settings.captionBackground = this.captionBackgroundToggle.checked
+        document.documentElement.classList.toggle('caption-background', this.settings.captionBackground)
+        saveSettings(this.settings)
+      })
+    }
+    if (this.themePresetSelect) {
+      const applyTheme = (preset) => {
+        for (const cls of ['theme-sepia', 'theme-darker', 'theme-lighter']) document.documentElement.classList.remove(cls)
+        if (preset !== 'none') document.documentElement.classList.add(`theme-${preset}`)
+      }
+      this.themePresetSelect.value = this.settings.themePreset
+      applyTheme(this.settings.themePreset)
+      this.themePresetSelect.addEventListener('change', () => {
+        this.settings.themePreset = this.themePresetSelect.value
+        applyTheme(this.settings.themePreset)
+        saveSettings(this.settings)
+      })
+    }
+    // Audio Cue on Hover/Focus - a single delegated listener on #menu
+    // (event bubbling from focusin, which - unlike focus - does bubble)
+    // covers every current and future homepage button without needing
+    // one listener per element.
+    if (this.menu) {
+      this.menu.addEventListener('mouseover', (e) => {
+        if (this.settings.hoverAudioCue && e.target.closest('button')) audioEngine.playUiHover?.()
+      })
+      this.menu.addEventListener('focusin', (e) => {
+        if (this.settings.hoverAudioCue && e.target.closest('button')) audioEngine.playUiHover?.()
+      })
+    }
+
+    if (this.cursorTrailToggle) {
+      this.cursorTrailToggle.checked = this.settings.cursorTrail
+      this.cursorTrailToggle.addEventListener('change', () => {
+        this.settings.cursorTrail = this.cursorTrailToggle.checked
+        saveSettings(this.settings)
+      })
+    }
+    // Cursor Trail Effect - one throttled listener, homepage-only
+    // (checks !this.gameStarted, same guard the idle-animation/Konami
+    // listeners already use), spawns a small fading dot per movement,
+    // capped by a timestamp check rather than a per-frame budget.
+    if (this.menu) {
+      let lastTrailAt = 0
+      this.menu.addEventListener('mousemove', (e) => {
+        if (!this.settings.cursorTrail || this.gameStarted) return
+        const now = performance.now()
+        if (now - lastTrailAt < 40) return
+        lastTrailAt = now
+        const dot = document.createElement('div')
+        dot.className = 'cursor-trail-dot'
+        dot.style.left = `${e.clientX}px`
+        dot.style.top = `${e.clientY}px`
+        document.body.appendChild(dot)
+        dot.addEventListener('animationend', () => dot.remove())
+      })
+    }
+    if (this.crtScanlinesToggle) {
+      this.crtScanlinesToggle.checked = this.settings.crtScanlines
+      document.documentElement.classList.toggle('crt-scanlines', this.settings.crtScanlines)
+      this.crtScanlinesToggle.addEventListener('change', () => {
+        this.settings.crtScanlines = this.crtScanlinesToggle.checked
+        document.documentElement.classList.toggle('crt-scanlines', this.settings.crtScanlines)
+        saveSettings(this.settings)
+      })
+    }
+    if (this.weatherParticlesToggle) {
+      const applyWeather = (on) => {
+        if (this.menuBgRain) this.menuBgRain.style.display = on ? '' : 'none'
+        if (this.menuBgAsh) this.menuBgAsh.style.display = on ? '' : 'none'
+      }
+      this.weatherParticlesToggle.checked = this.settings.weatherParticles
+      applyWeather(this.settings.weatherParticles)
+      this.weatherParticlesToggle.addEventListener('change', () => {
+        this.settings.weatherParticles = this.weatherParticlesToggle.checked
+        applyWeather(this.settings.weatherParticles)
         saveSettings(this.settings)
       })
     }
@@ -6774,19 +7232,39 @@ export class Game {
     })
 
     this.settingsBtn.addEventListener('click', () => this._toggleSettings(!this.settingsOpen))
-    this.upgradesBtn.addEventListener('click', () => this._openUpgradesPanel())
+    // Recently Viewed Panel quick-return (see the shortcut cheat sheet's
+    // "R" row) - remembers whichever of these 6 nav-reachable panels was
+    // opened most recently, so it can be reopened with one keypress
+    // without re-navigating the homepage nav row.
+    const trackAndOpen = (openFn) => { this._lastPanelOpener = openFn; openFn() }
+    this.upgradesBtn.addEventListener('click', () => trackAndOpen(() => this._openUpgradesPanel()))
     this.prestigeBtn.addEventListener('click', () => this._prestige())
     this.respecBtn.addEventListener('click', () => this._respecMetaUpgrades())
-    this.questsBtn.addEventListener('click', () => this._openQuestsPanel())
+    this.questsBtn.addEventListener('click', () => trackAndOpen(() => this._openQuestsPanel()))
     this.questsOptions.addEventListener('click', (e) => {
       const btn = e.target.closest('button[data-quest-id]')
       if (btn && !btn.disabled) this._claimQuest(btn.dataset.questId)
     })
-    this.achievementsBtn.addEventListener('click', () => this._openAchievementsPanel())
-    this.bestiaryBtn.addEventListener('click', () => this._openBestiaryPanel())
+    this.achievementsBtn.addEventListener('click', () => trackAndOpen(() => this._openAchievementsPanel()))
+    this.bestiaryBtn.addEventListener('click', () => trackAndOpen(() => this._openBestiaryPanel()))
     if (this.achievementsFilterInput) {
       this.achievementsFilterInput.addEventListener('click', (e) => e.stopPropagation())
       this.achievementsFilterInput.addEventListener('input', () => this._renderAchievementsPanel())
+    }
+    if (this.achievementsCategorySelect) {
+      this.achievementsCategorySelect.addEventListener('click', (e) => e.stopPropagation())
+      this.achievementsCategorySelect.addEventListener('change', () => this._renderAchievementsPanel())
+    }
+    if (this.achievementsSortSelect) {
+      this.achievementsSortSelect.addEventListener('click', (e) => e.stopPropagation())
+      this.achievementsSortSelect.addEventListener('change', () => this._renderAchievementsPanel())
+    }
+    if (this.printAchievementsBtn) {
+      this.printAchievementsBtn.addEventListener('click', () => {
+        if (!this.printStatsSheet) return
+        this.printStatsSheet.innerHTML = `<h1>${t('printAchievementsTitle')}</h1>${this.achievementsOptions.innerHTML}`
+        window.print()
+      })
     }
     if (this.bestiaryFilterInput) {
       this.bestiaryFilterInput.addEventListener('click', (e) => e.stopPropagation())
@@ -6827,6 +7305,38 @@ export class Game {
     if (this.profileCareerPortraitBtn) this.profileCareerPortraitBtn.addEventListener('click', () => this._generateCareerPortrait())
     if (this.profilePrintBtn) this.profilePrintBtn.addEventListener('click', () => this._printProfile())
     if (this.printChangelogBtn) this.printChangelogBtn.addEventListener('click', () => this._printChangelog())
+    if (this.copyChangelogBtn) {
+      this.copyChangelogBtn.addEventListener('click', () => {
+        const entries = Array.from(document.querySelectorAll('#changelog-list .changelog-entry'))
+          .map((el) => `${el.querySelector('.changelog-date')?.textContent || ''}: ${el.querySelector('.changelog-text')?.textContent || ''}`)
+        if (!navigator.clipboard) { this._showLoreToast(t('clipboardCopyUnsupported')); return }
+        navigator.clipboard.writeText(entries.join('\n'))
+          .then(() => this._showLoreToast(t('clipboardCopySuccess')))
+          .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
+      })
+    }
+    // Check for Updates - this app has no service worker/version-check
+    // API of its own (a plain static Vite build), so a real reload IS
+    // the actual "check for updates" mechanism - it re-fetches whatever
+    // is currently deployed, same as the browser's own refresh button.
+    if (this.checkUpdatesBtn) this.checkUpdatesBtn.addEventListener('click', () => window.location.reload())
+    if (this.copyDiagnosticsBtn) {
+      this.copyDiagnosticsBtn.addEventListener('click', () => {
+        if (!navigator.clipboard) { this._showLoreToast(t('clipboardCopyUnsupported')); return }
+        navigator.clipboard.writeText(this._buildDiagnosticsText())
+          .then(() => this._showLoreToast(t('clipboardCopySuccess')))
+          .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
+      })
+    }
+    if (this.copyErrorLogBtn) {
+      this.copyErrorLogBtn.addEventListener('click', () => {
+        if (!navigator.clipboard) { this._showLoreToast(t('clipboardCopyUnsupported')); return }
+        const text = this._errorLog.length ? this._errorLog.join('\n') : t('errorLogEmpty')
+        navigator.clipboard.writeText(text)
+          .then(() => this._showLoreToast(t('clipboardCopySuccess')))
+          .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
+      })
+    }
     this.shareRunCardBtn.addEventListener('click', () => this._generateRunSummaryCard())
     if (this.copyTextRecapBtn) this.copyTextRecapBtn.addEventListener('click', () => this._copyTextRecap())
     if (this.acceptChallengeBtn) this.acceptChallengeBtn.addEventListener('click', () => this._acceptChallenge())
@@ -6834,14 +7344,26 @@ export class Game {
     if (this.applyLoadoutCodeBtn) {
       this.applyLoadoutCodeBtn.addEventListener('click', () => this._applyLoadoutCode(this.loadoutCodeInput.value))
     }
-    this.creditsBtn.addEventListener('click', () => this._openCreditsPanel())
-    this.coinshopBtn.addEventListener('click', () => this._openCoinShopPanel())
+    this.creditsBtn.addEventListener('click', () => trackAndOpen(() => this._openCreditsPanel()))
+    this.coinshopBtn.addEventListener('click', () => trackAndOpen(() => this._openCoinShopPanel()))
+    if (this.shopSortSelect) {
+      this.shopSortSelect.value = this.settings.shopSortMode
+      this.shopSortSelect.addEventListener('click', (e) => e.stopPropagation())
+      this.shopSortSelect.addEventListener('change', () => {
+        this.settings.shopSortMode = this.shopSortSelect.value
+        saveSettings(this.settings)
+        this._renderCoinShopOptions()
+      })
+    }
     this._bindHomepageBatch()
     this._bindCloudSave()
     this._checkBeatThisChallenge()
     this._checkViewProfileLink()
     this._maybeShowWhatsNewDigest()
     this._checkFriendBeatNotifications()
+    this._checkSettingsTabDeepLink()
+    this._checkWeeklyResetImminent()
+    this._checkUnclaimedQuestsReminder()
     if (this.copySetupBtn) this.copySetupBtn.addEventListener('click', () => this._copySetupCode())
     if (this.copyPageUrlBtn) {
       this.copyPageUrlBtn.addEventListener('click', () => {
@@ -7135,13 +7657,108 @@ export class Game {
     }
   }
 
+  // Homepage Nav Order (Controls tab) - up/down reordering of an id list,
+  // applied purely via CSS `order` on the real buttons (#menu-nav-buttons
+  // is already flex-column, see style.css) rather than touching the DOM
+  // structure, so every button's own click listener/id/state is untouched.
+  _renderNavOrderList() {
+    if (!this.navOrderList) return
+    const labels = { 'coinshop-btn': t('navOrderShop'), 'upgrades-btn': t('navOrderUpgrades'), 'quests-btn': t('navOrderQuests'), 'achievements-btn': t('navOrderAchievements'), 'bestiary-btn': t('navOrderBestiary'), 'credits-btn': t('navOrderCredits') }
+    this.navOrderList.innerHTML = this.settings.navOrder.map((id, i) => `
+      <div class="nav-order-row" data-id="${id}">
+        <span>${labels[id] || id}</span>
+        <button class="mini-action-btn nav-order-up" type="button" ${i === 0 ? 'disabled' : ''}>↑</button>
+        <button class="mini-action-btn nav-order-down" type="button" ${i === this.settings.navOrder.length - 1 ? 'disabled' : ''}>↓</button>
+      </div>
+    `).join('')
+    for (const row of this.navOrderList.querySelectorAll('.nav-order-row')) {
+      const id = row.dataset.id
+      row.querySelector('.nav-order-up').addEventListener('click', () => this._moveNavOrder(id, -1))
+      row.querySelector('.nav-order-down').addEventListener('click', () => this._moveNavOrder(id, 1))
+    }
+  }
+
+  _moveNavOrder(id, delta) {
+    const i = this.settings.navOrder.indexOf(id)
+    const j = i + delta
+    if (i < 0 || j < 0 || j >= this.settings.navOrder.length) return
+    ;[this.settings.navOrder[i], this.settings.navOrder[j]] = [this.settings.navOrder[j], this.settings.navOrder[i]]
+    saveSettings(this.settings)
+    this._renderNavOrderList()
+    this._applyNavOrder()
+  }
+
+  _applyNavOrder() {
+    this.settings.navOrder.forEach((id, i) => {
+      const btn = document.getElementById(id)
+      if (btn) btn.style.order = i
+    })
+  }
+
+  // Settings Search - filters .audio-row rows within whichever tab is
+  // currently active by their <label> text (case-insensitive substring),
+  // same filter-by-visible-text approach the Achievements/Bestiary filter
+  // boxes already use. Doesn't cross tabs - a match on a different tab's
+  // setting stays hidden until that tab is opened, same as this panel's
+  // existing tab-based organization.
+  _bindSettingsSearch() {
+    if (!this.settingsSearchInput) return
+    this.settingsSearchInput.addEventListener('click', (e) => e.stopPropagation())
+    this.settingsSearchInput.addEventListener('input', () => {
+      const filter = this.settingsSearchInput.value.trim().toLowerCase()
+      const activePage = document.querySelector('.settings-page:not([style*="display: none"])')
+      if (!activePage) return
+      for (const row of activePage.querySelectorAll('.audio-row')) {
+        const label = row.querySelector('label')?.textContent.toLowerCase() || ''
+        row.style.display = !filter || label.includes(filter) ? '' : 'none'
+      }
+    })
+  }
+
   _bindControlsTab() {
     this._renderControlsGrid()
+    this._renderNavOrderList()
+    this._applyNavOrder()
+    this._bindSettingsSearch()
     this.resetBindsBtn.addEventListener('click', () => {
       resetBindings()
       this._renderControlsGrid()
     })
     this.restoreDefaultsBtn.addEventListener('click', () => this._restoreDefaultSettings())
+    if (this.exportKeybindsBtn) this.exportKeybindsBtn.addEventListener('click', () => this._exportKeybindsCode())
+    if (this.importKeybindsBtn) {
+      this.importKeybindsBtn.addEventListener('click', () => {
+        this.importKeybindsInput.style.display = 'inline-block'
+        this.importKeybindsApplyBtn.style.display = 'inline-block'
+        this.importKeybindsInput.focus()
+      })
+    }
+    if (this.importKeybindsApplyBtn) {
+      this.importKeybindsApplyBtn.addEventListener('click', () => this._importKeybindsCode(this.importKeybindsInput.value))
+    }
+    // Per-tab resets (Audio/Controls) - same scoped-reset-then-reload
+    // pattern _resetGraphicsDefaults already established for the Graphics
+    // tab, just a different key whitelist per tab.
+    if (this.resetAudioDefaultsBtn) {
+      this.resetAudioDefaultsBtn.addEventListener('click', () => {
+        const defaults = defaultSettings()
+        for (const key of ['musicVolume', 'sfxVolume']) this.settings[key] = defaults[key]
+        saveSettings(this.settings)
+        window.location.reload()
+      })
+    }
+    if (this.resetControlsDefaultsBtn) {
+      this.resetControlsDefaultsBtn.addEventListener('click', () => {
+        const defaults = defaultSettings()
+        const keys = ['sensitivity', 'invertY', 'fov', 'hudScale', 'hudOpacity', 'colorblind', 'shakeIntensity', 'reduceFlashing',
+          'toggleSprint', 'toggleCrouch', 'toggleAds', 'aimAssist', 'bigInteractPrompt', 'toastDuration', 'crosshairColor', 'crosshairSize',
+          'largeTextMode', 'highContrastMode', 'dyslexiaFont', 'bgMood', 'keybindCheatSheet', 'showHitFeedback', 'performanceMode',
+          'streamSafeMode', 'focusRingMode', 'homepageFpsCounter', 'underlineLinks', 'nicknameFont', 'layoutDensity']
+        for (const key of keys) this.settings[key] = defaults[key]
+        saveSettings(this.settings)
+        window.location.reload()
+      })
+    }
     this._updateStorageUsageLine()
     this.exportSaveBtn.addEventListener('click', () => this._exportSave())
     this.importSaveBtn.addEventListener('click', () => this.importSaveInput.click())
@@ -7259,6 +7876,34 @@ export class Game {
     window.location.reload()
   }
 
+  // Export/Import Keybinds Code - just the rebindable action->key map
+  // (see Keybinds.js's getAllBindings/setAllBindings), separate from the
+  // wider Settings Code above (which deliberately excludes keybinds
+  // entirely - two different things to share independently).
+  _exportKeybindsCode() {
+    const code = btoa(JSON.stringify(getAllBindings()))
+    if (!navigator.clipboard) {
+      this._showLoreToast(t('clipboardCopyUnsupported'))
+      return
+    }
+    navigator.clipboard.writeText(code)
+      .then(() => this._showLoreToast(t('keybindsCodeCopied')))
+      .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
+  }
+
+  _importKeybindsCode(code) {
+    let payload
+    try {
+      payload = JSON.parse(atob(code.trim()))
+    } catch {
+      this._showLoreToast(t('keybindsCodeInvalid'))
+      return
+    }
+    setAllBindings(payload)
+    this._renderControlsGrid()
+    this._showLoreToast(t('keybindsCodeApplied'))
+  }
+
   // Overwrites every current key - same "irreversible, needs a real
   // confirm dialog" bar as Prestige/Respec, plus a full reload afterward
   // (same reasoning _handleResetProgressClick's own comment gives for
@@ -7305,6 +7950,20 @@ export class Game {
     this.cloudsavePanel.style.display = 'flex'
     this.cloudsavePanelTitle.textContent = t('cloudsavePanelTitle')
     this._renderCloudSaveState()
+    this._updateOnlineStatus()
+  }
+
+  // Online/Offline indicator (Cloud Save panel) - navigator.onLine plus
+  // the real online/offline events (registered once, see _bindHomepageBatch)
+  // rather than only checking at panel-open time, so the warning also
+  // appears/clears if connectivity changes while the panel is already open.
+  _updateOnlineStatus() {
+    if (!this.cloudsaveOfflineWarning) return
+    const offline = !navigator.onLine
+    this.cloudsaveOfflineWarning.style.display = offline ? '' : 'none'
+    for (const btn of [this.cloudsaveSigninBtn, this.cloudsaveSyncNowBtn]) {
+      if (btn) btn.disabled = offline
+    }
   }
 
   _closeCloudSavePanel() {
@@ -7396,6 +8055,7 @@ export class Game {
     this._renderGlobalKills()
     this._renderMyRank()
     this._renderRival()
+    this._renderNearbyRank()
     this._renderGlobalAverages()
     this._subscribeLeaderboard()
     this._renderAchievementsLeaderboard()
@@ -7435,9 +8095,54 @@ export class Game {
       }
       const gap = _safeStatNumber(rival.bestNight) - _safeStatNumber(this.bestStats.bestNight)
       this.cloudsaveRivalLine.textContent = t('cloudsaveRivalLine', { n: gap, name: rival.name || '???' })
+      // Urgent variant - a toast (not just the panel text above) when the
+      // gap is genuinely small, once per session per rival name so it
+      // doesn't refire every time the Cloud Save panel happens to open.
+      if (gap <= 2 && this._urgentRivalToastedFor !== rival.name) {
+        this._urgentRivalToastedFor = rival.name
+        this._showHomepageToast(t('urgentRivalToast', { name: rival.name || '???', n: gap }))
+      }
     } catch {
       this.cloudsaveRivalLine.textContent = ''
     }
+  }
+
+  // Nearby Rank mini-leaderboard - 3 entries above you, 3 below (see
+  // CloudSync.fetchNearbyRank), reversing "above" so the combined list
+  // reads highest-to-lowest, same order as the main leaderboard.
+  async _renderNearbyRank() {
+    if (!this.cloudsaveNearbyRankList) return
+    if (this.cloudsaveNearbyRankTitle) this.cloudsaveNearbyRankTitle.textContent = t('cloudsaveNearbyRankTitle')
+    try {
+      const { above, below } = await CloudSync.fetchNearbyRank(_safeStatNumber(this.bestStats.bestNight), 3)
+      const mine = { name: this.settings.nickname || t('menuPlayerTagDefault'), bestNight: this.bestStats.bestNight, bestKills: this.careerStats.totalKills, __me: true }
+      const combined = [...above.reverse(), mine, ...below]
+      this.cloudsaveNearbyRankList.innerHTML = combined.map((r) => `
+        <div class="cloud-leaderboard-row${r.__me ? ' me' : ''}"><span>${_escapeHtml(r.name || '???')}</span><span>${t('cloudsaveLeaderboardRow', { night: _safeStatNumber(r.bestNight), kills: _safeStatNumber(r.bestKills) })}</span></div>
+      `).join('')
+    } catch {
+      this.cloudsaveNearbyRankList.innerHTML = `<p class="cloud-leaderboard-empty">${t('cloudsaveError')}</p>`
+    }
+  }
+
+  // Random Top Player compare - picks randomly among whatever the main
+  // leaderboard list already has rendered (its own top 10, see
+  // _subscribeLeaderboard), not a separate "truly random among every
+  // player ever" query - Firestore has no native random-row primitive,
+  // and downloading the whole collection client-side to pick one is the
+  // exact "download-and-sort" pattern this codebase's aggregate queries
+  // deliberately avoid elsewhere.
+  _compareVsRandomOpponent() {
+    const rows = Array.from(this.cloudsaveLeaderboardList?.querySelectorAll('.cloud-leaderboard-row') || [])
+      .filter((el) => !el.classList.contains('me'))
+    if (!rows.length) {
+      this.cloudsaveFriendResult.textContent = t('cloudsaveFriendNotFound')
+      return
+    }
+    const row = rows[Math.floor(Math.random() * rows.length)]
+    const name = row.querySelector('span')?.textContent.replace(/^(1st|2nd|3rd|\d+\.)\s*/, '') || ''
+    if (this.cloudsaveFriendInput) this.cloudsaveFriendInput.value = name
+    this._handleFriendCompare()
   }
 
   _renderSavedFriends() {
@@ -7481,8 +8186,10 @@ export class Game {
 
   _renderLeaderboardRows(rows) {
     if (!this.cloudsaveLeaderboardList) return
+    // Podium styling (ranks 1-3) - PODIUM_MEDALS below, same treatment
+    // _renderWeeklyLeaderboardList uses.
     this.cloudsaveLeaderboardList.innerHTML = rows.length
-      ? rows.map((r, i) => `<div class="cloud-leaderboard-row${r.name === this.settings.nickname ? ' me' : ''}"><span>${i + 1}. ${_escapeHtml(r.name || '???')}</span><span>${t('cloudsaveLeaderboardRow', { night: _safeStatNumber(r.bestNight), kills: _safeStatNumber(r.bestKills) })}</span></div>`).join('')
+      ? rows.map((r, i) => `<div class="cloud-leaderboard-row${r.name === this.settings.nickname ? ' me' : ''}${i < 3 ? ` podium-${i + 1}` : ''}"><span>${PODIUM_MEDALS[i] || `${i + 1}.`} ${_escapeHtml(r.name || '???')}</span><span>${t('cloudsaveLeaderboardRow', { night: _safeStatNumber(r.bestNight), kills: _safeStatNumber(r.bestKills) })}</span></div>`).join('')
       : `<p class="cloud-leaderboard-empty">${t('cloudsaveLeaderboardEmpty')}</p>`
   }
 
@@ -7547,7 +8254,7 @@ export class Game {
       const weekStr = _thisWeekStr()
       const rows = await CloudSync.fetchTopWeeklyLeaderboard(weekStr, 10)
       this.cloudsaveWeeklyLeaderboardList.innerHTML = rows.length
-        ? rows.map((r, i) => `<div class="cloud-leaderboard-row${r.name === this.settings.nickname ? ' me' : ''}"><span>${i + 1}. ${_escapeHtml(r.name || '???')}${i === 0 ? ` ${t('mostImprovedBadge')}` : ''}</span><span>${_safeStatNumber(r.progress)}</span></div>`).join('')
+        ? rows.map((r, i) => `<div class="cloud-leaderboard-row${r.name === this.settings.nickname ? ' me' : ''}${i < 3 ? ` podium-${i + 1}` : ''}"><span>${PODIUM_MEDALS[i] || `${i + 1}.`} ${_escapeHtml(r.name || '???')}${i === 0 ? ` ${t('mostImprovedBadge')}` : ''}</span><span>${_safeStatNumber(r.progress)}</span></div>`).join('')
         : `<p class="cloud-leaderboard-empty">${t('cloudsaveLeaderboardEmpty')}</p>`
     } catch {
       this.cloudsaveWeeklyLeaderboardList.innerHTML = `<p class="cloud-leaderboard-empty">${t('cloudsaveError')}</p>`
@@ -7815,6 +8522,14 @@ export class Game {
       count++
     }
     this.storageUsageLine.textContent = t('storageUsageLine', { kb: (totalChars / 1024).toFixed(1), count })
+    // Quota warning - most browsers cap localStorage around 5MB/origin
+    // (varies, some allow more); warns approaching that rather than only
+    // failing silently later (every save() in this codebase already
+    // catches quota errors and just skips persisting, so a save actually
+    // failing has no other visible symptom without this).
+    if (this.storageQuotaWarning) {
+      this.storageQuotaWarning.style.display = totalChars > 4 * 1024 * 1024 ? '' : 'none'
+    }
   }
 
   // Narrower than Reset All Progress below - only the leaderboard-shaped
@@ -7833,6 +8548,30 @@ export class Game {
   // populated by the time this can be clicked) rather than recomputing the
   // same rows a second time. #print-stats-sheet is hidden on-screen and
   // only shown by the @media print rule in style.css.
+  // Diagnostics text (Credits) - browser/GPU info for a bug report,
+  // reading the same live WebGL context this.renderer already owns
+  // (WEBGL_debug_renderer_info is the standard way to get the real GPU
+  // name, not just "WebGL 2.0" generically) rather than opening a second
+  // context just to inspect it.
+  _buildDiagnosticsText() {
+    let gpu = 'unknown'
+    try {
+      const gl = this.renderer?.getContext()
+      const ext = gl?.getExtension('WEBGL_debug_renderer_info')
+      if (gl && ext) gpu = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)
+    } catch {
+      // Best-effort - some browsers block this extension entirely.
+    }
+    return [
+      `Session: ${this._sessionId}`,
+      `Build: ${__BUILD_HASH__} (${__BUILD_DATE__})`,
+      `User Agent: ${navigator.userAgent}`,
+      `GPU: ${gpu}`,
+      `Screen: ${window.innerWidth}x${window.innerHeight}`,
+      `Language: ${navigator.language}`,
+    ].join('\n')
+  }
+
   _printProfile() {
     if (!this.printStatsSheet) return
     this.printStatsSheet.innerHTML = `<h1>${t('printSheetTitle')}</h1>${this.profileOptions.innerHTML}`
@@ -8190,6 +8929,42 @@ export class Game {
   _toggleSettings(open) {
     this.settingsOpen = open
     this.settingsPanel.style.display = open ? 'flex' : 'none'
+    // Recently Changed / Undo (see _renderRecentlyChangedList/
+    // _undoSettingsSession) - a snapshot taken fresh every time the panel
+    // opens, so "recently changed" and "undo" both mean "since I opened
+    // Settings this time," not some longer rolling history.
+    if (open) {
+      this._settingsOpenSnapshot = JSON.stringify(this.settings)
+      this._renderRecentlyChangedList()
+    }
+  }
+
+  // Diffs the live settings object against the snapshot taken when the
+  // panel was opened (see _toggleSettings) - shallow key comparison, good
+  // enough since nearly every settings field is a primitive; the handful
+  // of object/array fields (mutators, navOrder, etc.) just compare by
+  // JSON string equality, which still correctly detects "did this change."
+  _renderRecentlyChangedList() {
+    if (!this.recentlyChangedList || !this._settingsOpenSnapshot) return
+    const before = JSON.parse(this._settingsOpenSnapshot)
+    const changed = Object.keys(this.settings).filter((k) => JSON.stringify(this.settings[k]) !== JSON.stringify(before[k]))
+    if (!changed.length) {
+      this.recentlyChangedList.style.display = 'none'
+      return
+    }
+    this.recentlyChangedList.style.display = ''
+    this.recentlyChangedList.innerHTML = `<p>${t('recentlyChangedLabel', { list: changed.join(', ') })}</p><button id="undo-settings-session-btn" class="mini-action-btn" type="button">${t('undoSettingsBtn')}</button>`
+    document.getElementById('undo-settings-session-btn')?.addEventListener('click', () => this._undoSettingsSession())
+  }
+
+  // Reverts every field back to the snapshot from when Settings was
+  // opened, then reloads - same "resync every scattered UI control from a
+  // clean construction" reasoning _restoreDefaultSettings already uses,
+  // just restoring the pre-session snapshot instead of hardcoded defaults.
+  _undoSettingsSession() {
+    if (!this._settingsOpenSnapshot) return
+    localStorage.setItem(SETTINGS_STORAGE_KEY, this._settingsOpenSnapshot)
+    window.location.reload()
   }
 
   // Trades visual fidelity for frame rate on weaker machines: drops the
@@ -9054,6 +9829,7 @@ export class Game {
     this.metaProgress.prestigeLevel += 1
     this.metaProgress.legacyPoints = 0
     this.metaProgress.purchased = new Set()
+    this.metaProgress.prestigeHistory.push({ level: this.metaProgress.prestigeLevel, ts: Date.now() })
     saveMetaProgress(this.metaProgress)
     this._showLoreToast(t('prestigeComplete', { level: this.metaProgress.prestigeLevel, bonus: this.metaProgress.prestigeLevel * 10 }))
     this._renderUpgradesOptions()
@@ -9182,8 +9958,32 @@ export class Game {
     `
   }
 
+  // Spending History Log - capped at 10, newest first, persisted (see
+  // settings.shopSpendingLog). item.titleKey is resolved to text at log
+  // time (not re-resolved later), so a future language switch doesn't
+  // retroactively change what an old log entry says it was.
+  _logShopPurchase(item) {
+    this.settings.shopSpendingLog.unshift({ name: t(item.titleKey), cost: item.cost, ts: Date.now() })
+    this.settings.shopSpendingLog = this.settings.shopSpendingLog.slice(0, 10)
+    saveSettings(this.settings)
+  }
+
+  _renderShopSpendingLog() {
+    if (!this.shopSpendingLogRow) return
+    if (!this.settings.shopSpendingLog.length) {
+      this.shopSpendingLogRow.style.display = 'none'
+      return
+    }
+    this.shopSpendingLogRow.style.display = ''
+    this.shopSpendingLogHeading.textContent = t('shopSpendingLogHeading')
+    this.shopSpendingLogList.innerHTML = this.settings.shopSpendingLog.map((entry) => `
+      <div class="shop-spending-log-row"><span>${_escapeHtml(entry.name)}</span><span>${t('coinCostLabel', { n: _safeStatNumber(entry.cost) })}</span></div>
+    `).join('')
+  }
+
   _renderCoinShopOptions() {
     this.coinshopCoinLine.textContent = t('coinsLabel', { n: this.coins })
+    this._renderShopSpendingLog()
     this.coinshopOptions.innerHTML = ''
     // Iron Mode - gated once here rather than at every individual buy
     // button, since every Coin Shop purchase path renders through this one
@@ -9362,8 +10162,17 @@ export class Game {
         row.appendChild(defaultBtn)
       }
 
-      for (const item of COIN_SHOP_ITEMS) {
-        if (item.section !== section.id) continue
+      // Sort (see #shop-sort-select) - reorders items WITHIN each section
+      // rather than across all sections at once, so the existing guns/
+      // skins/perks grouping stays intact regardless of sort mode.
+      const sectionItems = COIN_SHOP_ITEMS.filter((i) => i.section === section.id)
+      const sortMode = this.settings.shopSortMode || 'default'
+      if (sortMode === 'costAsc') sectionItems.sort((a, b) => a.cost - b.cost)
+      else if (sortMode === 'costDesc') sectionItems.sort((a, b) => b.cost - a.cost)
+      else if (sortMode === 'alpha') sectionItems.sort((a, b) => t(a.titleKey).localeCompare(t(b.titleKey)))
+      else if (sortMode === 'wishlist') sectionItems.sort((a, b) => (this.settings.shopWishlist.includes(b.id) ? 1 : 0) - (this.settings.shopWishlist.includes(a.id) ? 1 : 0))
+
+      for (const item of sectionItems) {
         const btn = document.createElement('button')
         btn.className = 'perk-option'
 
@@ -9380,6 +10189,7 @@ export class Game {
             if (!owned) {
               if (this.coins < item.cost) return
               this.coins -= item.cost
+            this._logShopPurchase(item)
               this.ownedSkins.add(item.skin)
               this._updateStatsPanel()
             }
@@ -9400,6 +10210,7 @@ export class Game {
             if (!owned) {
               if (this.coins < item.cost) return
               this.coins -= item.cost
+            this._logShopPurchase(item)
               this.ownedOutfits.add(item.outfit)
               this._updateStatsPanel()
               // Fashion Icon - every outfit color owned at once.
@@ -9423,6 +10234,7 @@ export class Game {
             if (!owned) {
               if (this.coins < item.cost) return
               this.coins -= item.cost
+            this._logShopPurchase(item)
               this.ownedHats.add(item.hat)
               this._updateStatsPanel()
             }
@@ -9441,6 +10253,7 @@ export class Game {
           btn.addEventListener('click', () => {
             if (owned || this.coins < item.cost) return
             this.coins -= item.cost
+            this._logShopPurchase(item)
             this.weapons.unlockWeapon(item.gun)
             if (item.onUnlock) item.onUnlock(this)
             this._updateStatsPanel()
@@ -9462,12 +10275,54 @@ export class Game {
           btn.addEventListener('click', () => {
             if (owned || lifetimeLocked || this.coins < item.cost) return
             this.coins -= item.cost
+            this._logShopPurchase(item)
             item.apply(this)
             this._updateStatsPanel()
             this._renderCoinShopOptions()
           })
         }
-        row.appendChild(btn)
+
+        // Wrapper (not appended as a child of btn) - a disabled <button>
+        // suppresses pointer events on its whole subtree, so the wishlist
+        // star's own click would silently never fire for any owned/
+        // unaffordable item if it were nested inside btn instead of
+        // beside it. Same "wrap, don't nest into a possibly-disabled
+        // button" precedent the per-gun attachment row already uses.
+        const wrap = document.createElement('div')
+        wrap.className = 'shop-item-wrap'
+        wrap.appendChild(btn)
+
+        const star = document.createElement('span')
+        star.className = `shop-wishlist-star${this.settings.shopWishlist.includes(item.id) ? ' active' : ''}`
+        star.textContent = '★'
+        star.title = t('wishlistStarTooltip')
+        star.addEventListener('click', (e) => {
+          e.stopPropagation()
+          if (this.settings.shopWishlist.includes(item.id)) {
+            this.settings.shopWishlist = this.settings.shopWishlist.filter((id) => id !== item.id)
+          } else {
+            this.settings.shopWishlist.push(item.id)
+          }
+          saveSettings(this.settings)
+          this._renderCoinShopOptions()
+        })
+        wrap.appendChild(star)
+
+        // Runs-to-afford estimator - avgCoinsPerRun is the exact same
+        // lifetime-earned/totalRuns ratio the Profile panel's own
+        // careerStats rows already use, not a separately-invented rate.
+        if (this.coins < item.cost && this.careerStats.totalRuns > 0) {
+          const avgCoinsPerRun = this.careerStats.lifetimeCoinsEarned / this.careerStats.totalRuns
+          if (avgCoinsPerRun > 0) {
+            const runsNeeded = Math.ceil((item.cost - this.coins) / avgCoinsPerRun)
+            const estimate = document.createElement('span')
+            estimate.className = 'shop-afford-estimate'
+            estimate.textContent = t('affordEstimate', { n: runsNeeded })
+            wrap.appendChild(estimate)
+          }
+        }
+
+        row.appendChild(wrap)
       }
     }
   }
@@ -9593,8 +10448,22 @@ export class Game {
   // typing a real achievement name never reveals a locked one early.
   _renderAchievementsPanel() {
     const filter = (this.achievementsFilterInput?.value || '').trim().toLowerCase()
+    const category = this.achievementsCategorySelect?.value || 'all'
+    const sortMode = this.achievementsSortSelect?.value || 'default'
+    let list = ACHIEVEMENTS.filter((ach) => category === 'all' || ach.category === category)
+    // Sort by unlock date - unlocked-with-a-known-time first (newest
+    // first, same source Achievements.js's getRecentUnlocks already
+    // reads), then everything else (locked, or unlocked before
+    // unlockTimes existed) in original array order after.
+    if (sortMode === 'unlockDate') {
+      list = [...list].sort((a, b) => {
+        const ta = this.achievements.unlockTimes[a.id] || 0
+        const tb = this.achievements.unlockTimes[b.id] || 0
+        return tb - ta
+      })
+    }
     this.achievementsOptions.innerHTML = ''
-    for (const ach of ACHIEVEMENTS) {
+    for (const ach of list) {
       const unlocked = this.achievements.unlocked.has(ach.id)
       const name = unlocked ? t(ach.titleKey) : '???'
       if (filter && !name.toLowerCase().includes(filter)) continue
@@ -9932,6 +10801,11 @@ export class Game {
     this._updateWeeklyProgressBar()
     this._updateFaviconQuestBadge()
     this._updateLongestSession()
+    if (this._pendingConfetti && !this.gameStarted) {
+      this._pendingConfetti = false
+      this._fireConfetti()
+      this._showHomepageToast(t('newPersonalBestToast'))
+    }
     if (this.menuAriaSummary) {
       this.menuAriaSummary.textContent = t('menuAriaSummary', {
         night: _safeStatNumber(this.bestStats.bestNight),
@@ -9948,7 +10822,7 @@ export class Game {
   _renderPlayerTag() {
     if (!this.menuPlayerTag) return
     const base = this.settings.nickname ? `#${this.settings.nickname.toUpperCase()}` : t('menuPlayerTagDefault')
-    let text = base
+    let text = base + (this.settings.motto ? ` "${this.settings.motto}"` : '')
     if (this._cloudGlobalRank) {
       text += ` · ${t('globalRankBadge', { rank: this._cloudGlobalRank })}`
       // Rank velocity arrow - compares against the rank as of the last
@@ -9960,6 +10834,10 @@ export class Game {
       if (this._rankVelocityArrow === undefined) {
         const prev = Number(localStorage.getItem(PREV_GLOBAL_RANK_KEY)) || 0
         this._rankVelocityArrow = !prev ? '' : this._cloudGlobalRank < prev ? ' ▲' : this._cloudGlobalRank > prev ? ' ▼' : ' –'
+        // Rank-change toast - the arrow above is a passive, easy-to-miss
+        // badge; this surfaces the same "you moved up" fact as an actual
+        // toast, once per session, only on genuine improvement.
+        if (prev && this._cloudGlobalRank < prev) this._showHomepageToast(t('rankImprovedToast', { rank: this._cloudGlobalRank }))
         localStorage.setItem(PREV_GLOBAL_RANK_KEY, String(this._cloudGlobalRank))
       }
       text += this._rankVelocityArrow
@@ -10110,7 +10988,7 @@ export class Game {
       }
     }
     const render = () => {
-      const mode = (this._spotlightIndex || 0) % 27
+      const mode = (this._spotlightIndex || 0) % 28
       if (mode === 0) {
         const tipKey = SPOTLIGHT_TIPS[Math.floor(Date.now() / 60000) % SPOTLIGHT_TIPS.length]
         this.menuSpotlight.textContent = t('spotlightTipPrefix', { tip: t(tipKey) })
@@ -10339,6 +11217,12 @@ export class Game {
             break
           }
         }
+      } else if (mode === 27) {
+        // Joke Tip - day-seeded like every other flavor-array mode, see
+        // JOKE_TIPS' own comment on why this stays separate from
+        // SPOTLIGHT_TIPS.
+        const key = JOKE_TIPS[_dailyTwistIndex(_todayDateStr() + 'joketip') % JOKE_TIPS.length]
+        this.menuSpotlight.textContent = t(key)
       }
       this._spotlightIndex = (this._spotlightIndex || 0) + 1
     }
@@ -10550,14 +11434,67 @@ export class Game {
     this.settings.menuPresets.forEach((preset, i) => {
       const chip = document.createElement('div')
       chip.className = 'preset-chip'
+      // Favorite Loadout Pin - a starred preset, visible right here on the
+      // homepage (this chip row already lives outside any panel) rather
+      // than needing a second display somewhere else.
+      const pin = document.createElement('span')
+      pin.className = `preset-pin${this.settings.pinnedPreset === i ? ' active' : ''}`
+      pin.textContent = '★'
+      pin.title = t('pinPresetTooltip')
+      pin.addEventListener('click', (e) => {
+        e.stopPropagation()
+        this.settings.pinnedPreset = this.settings.pinnedPreset === i ? null : i
+        saveSettings(this.settings)
+        this._renderMenuPresets()
+      })
       const label = document.createElement('span')
       label.textContent = preset.label
+      label.title = t('presetClickToLoad')
       label.addEventListener('click', () => this._loadMenuPreset(i))
+      // Rename via inline edit (double-click) - a real <input> swapped in
+      // for the span, not window.prompt(); this codebase has no existing
+      // prompt() usage anywhere else and consistently uses real inputs
+      // instead (see the Settings Code paste flow's own comment on the
+      // same choice).
+      label.addEventListener('dblclick', (e) => {
+        e.stopPropagation()
+        const input = document.createElement('input')
+        input.type = 'text'
+        input.className = 'preset-rename-input'
+        input.value = preset.label
+        input.maxLength = 40
+        const commit = () => {
+          const trimmed = input.value.trim().slice(0, 40)
+          if (trimmed) {
+            this.settings.menuPresets[i] = { ...preset, label: trimmed }
+            saveSettings(this.settings)
+          }
+          this._renderMenuPresets()
+        }
+        input.addEventListener('blur', commit)
+        input.addEventListener('keydown', (ke) => { if (ke.key === 'Enter') input.blur() })
+        label.replaceWith(input)
+        input.focus()
+        input.select()
+      })
+      const dup = document.createElement('span')
+      dup.className = 'preset-chip-dup'
+      dup.textContent = '⎘'
+      dup.title = t('presetDuplicateTooltip')
+      dup.addEventListener('click', (e) => {
+        e.stopPropagation()
+        if (this.settings.menuPresets.length >= 3) this.settings.menuPresets.shift()
+        this.settings.menuPresets.push({ ...preset, label: t('presetCopyLabel', { label: preset.label }) })
+        saveSettings(this.settings)
+        this._renderMenuPresets()
+      })
       const del = document.createElement('span')
       del.className = 'preset-chip-delete'
       del.textContent = '×'
       del.addEventListener('click', (e) => { e.stopPropagation(); this._deleteMenuPreset(i) })
+      chip.appendChild(pin)
       chip.appendChild(label)
+      chip.appendChild(dup)
       chip.appendChild(del)
       this.menuPresetChips.appendChild(chip)
     })
@@ -10635,9 +11572,16 @@ export class Game {
     if (this.beatThisBtn) this.beatThisBtn.addEventListener('click', () => this._copyBeatThisLink())
     this._renderMenuPresets()
     this._bindKonamiCode()
+    this._bindBackgroundParallax()
     this._bindIdleAnimation()
     this._bindLogoClickCounter()
+    this._bindHiddenZombieIcon()
+    this._bindZombieTypedSecret()
+    this._bindChangelogFactClicks()
+    this._applyAprilFools()
     this._bindHomepageShortcutKeys()
+    window.addEventListener('online', () => this._updateOnlineStatus())
+    window.addEventListener('offline', () => this._updateOnlineStatus())
     if (this.shortcutCheatsheetCloseBtn) {
       this.shortcutCheatsheetCloseBtn.addEventListener('click', () => { this.shortcutCheatsheet.style.display = 'none' })
     }
@@ -10648,6 +11592,17 @@ export class Game {
         if (this.profileBioInput.value.length > 250) this.profileBioInput.value = this.settings.bio
         saveSettings(this.settings)
         this._renderProfileBioCounter()
+      })
+    }
+
+    if (this.bioPresetSaveBtn) {
+      this.bioPresetSaveBtn.addEventListener('click', () => {
+        if (!this.settings.bio) return
+        if (this.settings.bioPresets.includes(this.settings.bio)) return
+        if (this.settings.bioPresets.length >= 3) this.settings.bioPresets.shift()
+        this.settings.bioPresets.push(this.settings.bio)
+        saveSettings(this.settings)
+        this._renderBioPresets()
       })
     }
 
@@ -10751,6 +11706,7 @@ export class Game {
     if (this.cloudsaveUseCloudBtn) this.cloudsaveUseCloudBtn.addEventListener('click', () => this._resolveCloudConflict('cloud'))
     if (this.cloudsaveUseLocalBtn) this.cloudsaveUseLocalBtn.addEventListener('click', () => this._resolveCloudConflict('local'))
     if (this.cloudsaveFriendCompareBtn) this.cloudsaveFriendCompareBtn.addEventListener('click', () => this._handleFriendCompare())
+    if (this.cloudsaveRandomOpponentBtn) this.cloudsaveRandomOpponentBtn.addEventListener('click', () => this._compareVsRandomOpponent())
     if (this.cloudsaveFriendSaveBtn) this.cloudsaveFriendSaveBtn.addEventListener('click', () => this._saveFriend())
     if (this.cloudsaveRegionSelect) {
       this.cloudsaveRegionSelect.addEventListener('change', () => {
@@ -11813,6 +12769,9 @@ export class Game {
     this.creditsPanel.style.display = 'flex'
     this.creditsPanelTitle.textContent = t('creditsPanelTitle')
     if (this.buildVersionLine) this.buildVersionLine.textContent = t('buildVersionLine', { hash: __BUILD_HASH__, date: __BUILD_DATE__ })
+    if (this.buildSessionIdLine) this.buildSessionIdLine.textContent = t('sessionIdLine', { id: this._sessionId })
+    if (this.diagnosticsHeading) this.diagnosticsHeading.textContent = t('diagnosticsHeading')
+    if (this.diagnosticsLine) this.diagnosticsLine.textContent = this._buildDiagnosticsText()
     // What's New badge dot - clears the moment the player actually reads
     // this panel, not just on page load, so it stays a genuine "have you
     // seen this" indicator rather than a permanent decoration.
@@ -12020,9 +12979,18 @@ export class Game {
       saveBestRunPace(this.bestRunPace)
     }
     if (this.kills > this.bestStats.bestKills) { this.bestStats.bestKills = this.kills; improved = true }
-    if (this.peakKillStreakThisRun > this.bestStats.bestKillStreak) { this.bestStats.bestKillStreak = this.peakKillStreakThisRun; improved = true }
+    if (this.peakKillStreakThisRun > this.bestStats.bestKillStreak) {
+      this.bestStats.bestKillStreak = this.peakKillStreakThisRun
+      this.bestStats.bestKillStreakDate = todayDateString()
+      improved = true
+    }
     if (improved) {
       saveBestStats(this.bestStats)
+      // Confetti burst - armed here, actually fired the next time
+      // _updateBestStatsDisplay runs with gameStarted false (i.e. once
+      // the menu is genuinely showing again, not this same synchronous
+      // call which still fires mid-run right as the record is set).
+      this._pendingConfetti = true
       this._updateBestStatsDisplay()
     }
     this._recordLeaderboardEntry()
@@ -12073,6 +13041,15 @@ export class Game {
     this.careerStats.lifetimeDistanceMeters += this._runDistanceTraveled
     this.careerStats.lifetimeCoinsEarned += Math.max(0, this.coins - this._runStartCoins)
     if (!Number.isFinite(this.lowestHealthThisRun)) this.careerStats.flawlessRunCount += 1
+    // Most Profitable Run (Profile panel) - a single-run coin delta, same
+    // Math.max(0, ...) clamp lifetimeCoinsEarned above already uses (a
+    // run that ended with fewer coins than it started, e.g. after a big
+    // Coin Shop purchase mid-run, shouldn't count as negative profit).
+    this.careerStats.mostProfitableRun = Math.max(this.careerStats.mostProfitableRun, Math.max(0, this.coins - this._runStartCoins))
+    // Favorite companion role (Profile panel) - one increment per
+    // completed run, same pattern as mutatorUseCounts above.
+    const roleId = this.settings.companionRole
+    this.careerStats.companionRoleUseCounts[roleId] = (this.careerStats.companionRoleUseCounts[roleId] || 0) + 1
 
     for (const m of PLAYTIME_MILESTONES) {
       if (this.careerStats.lifetimePlaytimeSeconds >= m.seconds && !this.careerStats.playtimeMilestonesGranted.includes(m.id)) {
@@ -12392,58 +13369,84 @@ export class Game {
     // localStorage, all of which Import Save (Local Sharing batch) lets an
     // uploaded file overwrite wholesale, so none of it can be trusted to
     // already be the right type by the time it reaches this render.
-    const rows = [
-      [t('profileTotalRuns'), _safeStatNumber(this.careerStats.totalRuns)],
-      [t('profileTotalKills'), _safeStatNumber(this.careerStats.totalKills)],
-      [t('profileBestNight'), _safeStatNumber(this.bestStats.bestNight)],
-      [t('profileBestKills'), _safeStatNumber(this.bestStats.bestKills)],
-      [t('profileBestKillStreak'), _safeStatNumber(this.bestStats.bestKillStreak)],
-      [t('profileAchievements'), `${this.achievements.unlocked.size}/${ACHIEVEMENTS.length}`],
-      [t('profileCosmetics'), `${cosmeticsOwned}/${cosmeticsTotal}`],
-      [t('profilePrestige'), _safeStatNumber(this.metaProgress.prestigeLevel)],
-      [t('profileNemesisLabel'), this.nemesis ? t('profileNemesisValue', { name: _escapeHtml(this.nemesis.label), n: _safeStatNumber(this.nemesis.night) }) : t('profileNemesisNone')],
-      [t('profileSecretsFound'), _safeStatNumber(this.secretsProgress.cachesDug) + (this.secretsProgress.easterEggSeen ? 1 : 0)],
-      [t('profileNetWorth'), _safeStatNumber(this.coins) + _safeStatNumber(this.points) + _safeStatNumber(this.metaProgress.legacyPoints)],
-      [t('profileTotalSpent'), _safeStatNumber(this.totalSpent)],
+    // Each row now carries a stable id (the i18n key itself, language-
+    // independent) as its first element - Pin a Stat (see
+    // _renderPinnedStatSelect) needs something durable to store in
+    // settings.pinnedStat, and a translated label isn't stable across a
+    // language switch.
+    let rows = [
+      ['profileTotalRuns', t('profileTotalRuns'), _safeStatNumber(this.careerStats.totalRuns)],
+      ['profileTotalKills', t('profileTotalKills'), _safeStatNumber(this.careerStats.totalKills)],
+      ['profileBestNight', t('profileBestNight'), _safeStatNumber(this.bestStats.bestNight)],
+      ['profileBestKills', t('profileBestKills'), _safeStatNumber(this.bestStats.bestKills)],
+      ['profileBestKillStreak', t('profileBestKillStreak'), _safeStatNumber(this.bestStats.bestKillStreak)],
+      ['profileAchievements', t('profileAchievements'), `${this.achievements.unlocked.size}/${ACHIEVEMENTS.length}`],
+      ['profileCosmetics', t('profileCosmetics'), `${cosmeticsOwned}/${cosmeticsTotal}`],
+      ['profilePrestige', t('profilePrestige'), _safeStatNumber(this.metaProgress.prestigeLevel)],
+      ['profileNemesisLabel', t('profileNemesisLabel'), this.nemesis ? t('profileNemesisValue', { name: _escapeHtml(this.nemesis.label), n: _safeStatNumber(this.nemesis.night) }) : t('profileNemesisNone')],
+      ['profileSecretsFound', t('profileSecretsFound'), _safeStatNumber(this.secretsProgress.cachesDug) + (this.secretsProgress.easterEggSeen ? 1 : 0)],
+      ['profileNetWorth', t('profileNetWorth'), _safeStatNumber(this.coins) + _safeStatNumber(this.points) + _safeStatNumber(this.metaProgress.legacyPoints)],
+      ['profileTotalSpent', t('profileTotalSpent'), _safeStatNumber(this.totalSpent)],
       // Long-Term Goals batch additions below.
-      [t('profileCompletionPct'), `${completionPct}%`],
-      [t('profilePlaytime'), `${Math.floor(_safeStatNumber(this.careerStats.lifetimePlaytimeSeconds) / 3600)}h`],
-      [t('profileDistance'), `${(_safeStatNumber(this.careerStats.lifetimeDistanceMeters) / 1000).toFixed(1)}km`],
-      [t('profileFlawlessRuns'), _safeStatNumber(this.careerStats.flawlessRunCount)],
+      ['profileCompletionPct', t('profileCompletionPct'), `${completionPct}%`],
+      ['profilePlaytime', t('profilePlaytime'), `${Math.floor(_safeStatNumber(this.careerStats.lifetimePlaytimeSeconds) / 3600)}h`],
+      ['profileDistance', t('profileDistance'), `${(_safeStatNumber(this.careerStats.lifetimeDistanceMeters) / 1000).toFixed(1)}km`],
+      ['profileFlawlessRuns', t('profileFlawlessRuns'), _safeStatNumber(this.careerStats.flawlessRunCount)],
       // Career Almanac - derived favorite-weapon/avg-night/win-rate view,
       // same "pure display, zero new tracking" reasoning as completionPct
       // above, just reading weaponMastery.kills and bestStats instead.
-      [t('profileFavoriteWeapon'), _escapeHtml(this._favoriteWeaponLabel())],
-      [t('profileWinRate'), this.runHistory.length > 0 ? `${Math.round((this.runHistory.filter((r) => r.survived).length / this.runHistory.length) * 100)}%` : '—'],
+      ['profileFavoriteWeapon', t('profileFavoriteWeapon'), _escapeHtml(this._favoriteWeaponLabel())],
+      ['profileWinRate', t('profileWinRate'), this.runHistory.length > 0 ? `${Math.round((this.runHistory.filter((r) => r.survived).length / this.runHistory.length) * 100)}%` : '—'],
       // 100-features batch - 4 more pure-derived rows, same "zero new
       // tracking" reasoning as completionPct/Career Almanac above.
-      [t('profileKillsPerMin'), _safeStatNumber(this.careerStats.lifetimePlaytimeSeconds) > 0
+      ['profileKillsPerMin', t('profileKillsPerMin'), _safeStatNumber(this.careerStats.lifetimePlaytimeSeconds) > 0
         ? (_safeStatNumber(this.careerStats.totalKills) / (_safeStatNumber(this.careerStats.lifetimePlaytimeSeconds) / 60)).toFixed(1)
         : '—'],
-      [t('profileCoinsRatio'), `${_safeStatNumber(this.careerStats.lifetimeCoinsEarned).toLocaleString()} / ${_safeStatNumber(this.totalSpent).toLocaleString()}`],
-      [t('profileWeaponsMastered'), `${this.weaponMastery.mastered.size + this.weaponMastery.grandmastered.size}/${this.weapons.weapons.length}`],
-      [t('profileCompanionLegacy'), _safeStatNumber(this.companionLegacy.level)],
+      ['profileCoinsRatio', t('profileCoinsRatio'), `${_safeStatNumber(this.careerStats.lifetimeCoinsEarned).toLocaleString()} / ${_safeStatNumber(this.totalSpent).toLocaleString()}`],
+      ['profileWeaponsMastered', t('profileWeaponsMastered'), `${this.weaponMastery.mastered.size + this.weaponMastery.grandmastered.size}/${this.weapons.weapons.length}`],
+      ['profileCompanionLegacy', t('profileCompanionLegacy'), _safeStatNumber(this.companionLegacy.level)],
       // More-features batch - 5 more pure-derived rows (Personal Stats),
       // same "zero new tracking beyond what _recordRunEnd/_recordNemesis
       // already aggregate" reasoning as every row above.
-      [t('profileLongestSession'), _formatDurationShort(_safeStatNumber(this.careerStats.longestSessionSeconds))],
-      [t('profileAvgRunLength'), _safeStatNumber(this.careerStats.totalRuns) > 0
+      ['profileLongestSession', t('profileLongestSession'), _formatDurationShort(_safeStatNumber(this.careerStats.longestSessionSeconds))],
+      ['profileAvgRunLength', t('profileAvgRunLength'), _safeStatNumber(this.careerStats.totalRuns) > 0
         ? _formatDurationShort(Math.round(_safeStatNumber(this.careerStats.lifetimePlaytimeSeconds) / this.careerStats.totalRuns))
         : '—'],
-      [t('profileDeadliestEnemy'), _escapeHtml(this._deadliestZombieLabel())],
-      [t('profileMostUsedMutator'), _escapeHtml(this._mostUsedMutatorLabel())],
-      [t('profileCoinsToday'), `${_safeStatNumber(this._coinsToday()).toLocaleString()} (${t('profileCoinsWeeklyAvg', { n: _safeStatNumber(this._coinsWeeklyAvg()).toLocaleString() })})`],
+      ['profileDeadliestEnemy', t('profileDeadliestEnemy'), _escapeHtml(this._deadliestZombieLabel())],
+      ['profileMostUsedMutator', t('profileMostUsedMutator'), _escapeHtml(this._mostUsedMutatorLabel())],
+      ['profileCoinsToday', t('profileCoinsToday'), `${_safeStatNumber(this._coinsToday()).toLocaleString()} (${t('profileCoinsWeeklyAvg', { n: _safeStatNumber(this._coinsWeeklyAvg()).toLocaleString() })})`],
       // Reuses loginStreak.previousDate (see _checkLoginStreak) - the
       // calendar date of the visit before this one, not today's own date
       // (which lastDate always reflects by the time this panel can open).
-      [t('profileLastPlayed'), this.loginStreak.previousDate || t('profileLastPlayedFirstVisit')],
+      ['profileLastPlayed', t('profileLastPlayed'), this.loginStreak.previousDate || t('profileLastPlayedFirstVisit')],
+      // Third features batch - Stats & Data group.
+      ['profileDamageDealt', t('profileDamageDealt'), Math.round(_safeStatNumber(this.careerStats.lifetimeDamageDealt)).toLocaleString()],
+      ['profileAccuracy', t('profileAccuracy'), _safeStatNumber(this.careerStats.shotsFired) > 0
+        ? `${Math.round((_safeStatNumber(this.careerStats.shotsHit) / _safeStatNumber(this.careerStats.shotsFired)) * 100)}%`
+        : '—'],
+      ['profileBestStreakDate', t('profileBestStreakDate'), this.bestStats.bestKillStreakDate || '—'],
+      ['profileTimesRevivedCompanion', t('profileTimesRevivedCompanion'), _safeStatNumber(this.careerStats.timesRevivedCompanion)],
+      ['profileMostProfitableRun', t('profileMostProfitableRun'), _safeStatNumber(this.careerStats.mostProfitableRun).toLocaleString()],
+      // MAP_LAP_METERS below is the real perimeter of World.js's 750x750
+      // play area (see addPerimeterBarricade's groundSize param), not an
+      // arbitrary made-up "lap" length.
+      ['profileLaps', t('profileLaps'), (_safeStatNumber(this.careerStats.lifetimeDistanceMeters) / MAP_LAP_METERS).toFixed(1)],
+      ['profileFavoriteCompanionRole', t('profileFavoriteCompanionRole'), this._favoriteCompanionRoleLabel()],
+      ['profileFavoriteDayOfWeek', t('profileFavoriteDayOfWeek'), this._favoriteDayOfWeekLabel()],
+      ['profilePlayClicks', t('profilePlayClicks'), _safeStatNumber(this.careerStats.playButtonClicks).toLocaleString()],
     ]
-    this.profileOptions.innerHTML = rows.map(([label, value]) => `
+    this._renderPinnedStatSelect(rows)
+    if (this.settings.pinnedStat) {
+      const pinnedIndex = rows.findIndex((r) => r[0] === this.settings.pinnedStat)
+      if (pinnedIndex > 0) rows = [rows[pinnedIndex], ...rows.slice(0, pinnedIndex), ...rows.slice(pinnedIndex + 1)]
+    }
+    this.profileOptions.innerHTML = rows.map(([, label, value]) => `
       <button class="perk-option" disabled>
         <span class="perk-name">${label}</span>
         <span class="perk-cost">${value}</span>
       </button>
     `).join('')
+    this._animateStatCountUp()
 
     // Career Portrait - gated the same as Prestige (see _renderUpgradesOptions),
     // "beaten the game" being the bar for a capstone memento worth keeping.
@@ -12468,6 +13471,75 @@ export class Game {
     this._renderClassComparison()
     this._renderGoalsPicker()
     this._renderGoalsChecklist()
+    this._renderHighlightReel()
+    this._renderRecentUnlocksStrip()
+    this._renderPrestigeHistory()
+  }
+
+  // Recently Unlocked strip (Profile panel) - a persistent list, not just
+  // the ticker's single rotating line (mode 15 in _updateMenuSpotlight,
+  // see its own comment) - same getRecentUnlocks(n) data source, just n=5
+  // here instead of 1.
+  _renderRecentUnlocksStrip() {
+    if (!this.recentUnlocksList) return
+    if (this.recentUnlocksHeading) this.recentUnlocksHeading.textContent = t('recentUnlocksHeading')
+    const recent = this.achievements.getRecentUnlocks(5)
+    this.recentUnlocksList.innerHTML = recent.length
+      ? recent.map((ach) => `<button class="perk-option" disabled><span class="perk-name">${t(ach.titleKey)}</span></button>`).join('')
+      : `<p class="nearly-there-line">${t('recentUnlocksEmpty')}</p>`
+  }
+
+  // Prestige History Log (Profile panel) - forward-only, see
+  // metaProgress.prestigeHistory's own comment. Hidden entirely (not just
+  // empty) for players who have never prestiged, same show/hide pattern
+  // Weekly Recap's own title/line pair already uses.
+  _renderPrestigeHistory() {
+    if (!this.prestigeHistoryList) return
+    if (!this.metaProgress.prestigeHistory.length) {
+      if (this.prestigeHistoryHeading) this.prestigeHistoryHeading.style.display = 'none'
+      this.prestigeHistoryList.style.display = 'none'
+      return
+    }
+    if (this.prestigeHistoryHeading) {
+      this.prestigeHistoryHeading.style.display = ''
+      this.prestigeHistoryHeading.textContent = t('prestigeHistoryHeading')
+    }
+    this.prestigeHistoryList.style.display = ''
+    this.prestigeHistoryList.innerHTML = [...this.metaProgress.prestigeHistory].reverse().map((entry) => `
+      <p class="nearly-there-line">${_escapeHtml(t('prestigeHistoryLine', { level: entry.level, date: new Date(entry.ts).toLocaleDateString() }))}</p>
+    `).join('')
+  }
+
+  // Highlight Reel - auto-picks the 3 most impressive numbers from a
+  // curated candidate list, ranked by value/benchmark ratio (not just
+  // raw magnitude, which would always favor whichever stat happens to
+  // use the smallest unit). "Benchmark" is a round, clearly-labeled
+  // reference point for each stat (not a hidden fabricated threshold),
+  // shown alongside the value so the ranking is legible, not mysterious.
+  _renderHighlightReel() {
+    if (!this.highlightReelList) return
+    if (this.highlightReelHeading) this.highlightReelHeading.textContent = t('highlightReelHeading')
+    const candidates = [
+      { labelKey: 'profileTotalKills', value: _safeStatNumber(this.careerStats.totalKills), benchmark: 5000 },
+      { labelKey: 'profileDamageDealt', value: _safeStatNumber(this.careerStats.lifetimeDamageDealt), benchmark: 500000 },
+      { labelKey: 'profileDistance', value: _safeStatNumber(this.careerStats.lifetimeDistanceMeters) / 1000, benchmark: 50 },
+      { labelKey: 'profilePlaytime', value: Math.floor(_safeStatNumber(this.careerStats.lifetimePlaytimeSeconds) / 3600), benchmark: 20 },
+      { labelKey: 'profileBestKillStreak', value: _safeStatNumber(this.bestStats.bestKillStreak), benchmark: 30 },
+      { labelKey: 'profileTotalRuns', value: _safeStatNumber(this.careerStats.totalRuns), benchmark: 100 },
+      { labelKey: 'profileMostProfitableRun', value: _safeStatNumber(this.careerStats.mostProfitableRun), benchmark: 5000 },
+    ]
+    const top3 = candidates
+      .filter((c) => c.value > 0)
+      .sort((a, b) => (b.value / b.benchmark) - (a.value / a.benchmark))
+      .slice(0, 3)
+    this.highlightReelList.innerHTML = top3.length
+      ? top3.map((c) => `
+          <button class="perk-option" disabled>
+            <span class="perk-name">${t(c.labelKey)}</span>
+            <span class="perk-cost">${Math.round(c.value).toLocaleString()}</span>
+          </button>
+        `).join('')
+      : `<p class="nearly-there-line">${t('highlightReelEmpty')}</p>`
   }
 
   // Goals picker - toggleable chips, one per GOAL_CANDIDATES entry, capped
@@ -12588,6 +13660,31 @@ export class Game {
     this.profileBioInput.placeholder = t('profileBioPlaceholder')
     this.profileBioInput.value = this.settings.bio || ''
     this._renderProfileBioCounter()
+    this._renderBioPresets()
+  }
+
+  // Bio Presets - up to 3 saved bio strings, switchable via chips (same
+  // "cap at 3, oldest bumped" pattern as menuPresets/savedFriends), so
+  // switching between a couple of go-to bios doesn't mean retyping.
+  _renderBioPresets() {
+    if (!this.bioPresetChips) return
+    this.bioPresetChips.innerHTML = this.settings.bioPresets.map((preset, i) => `
+      <span class="preset-chip" data-index="${i}">${_escapeHtml(preset.slice(0, 20))}${preset.length > 20 ? '…' : ''}<span class="saved-friend-remove" data-remove="${i}">×</span></span>
+    `).join('')
+    for (const chip of this.bioPresetChips.querySelectorAll('.preset-chip')) {
+      chip.addEventListener('click', (e) => {
+        const removeIndex = e.target.dataset.remove
+        if (removeIndex !== undefined) {
+          this.settings.bioPresets.splice(Number(removeIndex), 1)
+          saveSettings(this.settings)
+          this._renderBioPresets()
+          return
+        }
+        this.settings.bio = this.settings.bioPresets[Number(chip.dataset.index)]
+        saveSettings(this.settings)
+        this._renderProfileBio()
+      })
+    }
   }
 
   _renderProfileBioCounter() {
@@ -12640,8 +13737,16 @@ export class Game {
       const percentile = Math.max(1, Math.round((rank / total) * 100))
       this.profilePercentileLine.textContent = t('percentileLine', { pct: percentile })
       this.profilePercentileLine.style.display = ''
+      // Visual bar - fills to (100 - percentile) so "top 5%" reads as a
+      // 95%-full bar (better-than-X-percent-of-players), not a nearly-
+      // empty one.
+      if (this.profilePercentileBar) {
+        this.profilePercentileBar.style.display = ''
+        this.profilePercentileBar.querySelector('.mini-progress-fill').style.width = `${100 - percentile}%`
+      }
     } catch {
       this.profilePercentileLine.style.display = 'none'
+      if (this.profilePercentileBar) this.profilePercentileBar.style.display = 'none'
     }
   }
 
@@ -12739,6 +13844,22 @@ export class Game {
     const kills = recent.reduce((sum, r) => sum + _safeStatNumber(r.kills), 0)
     const bestNight = recent.reduce((max, r) => Math.max(max, _safeStatNumber(r.night)), 0)
     this.profileWeeklyRecapLine.textContent = t('weeklyRecapLine', { kills, runs: recent.length, night: bestNight })
+    // "vs last week" delta - the same rolling-7-day window one step back
+    // (days 8-14 ago), bounded by RUN_HISTORY_MAX same as everything else
+    // reading runHistory, so a very inactive stretch may show no prior-
+    // week data at all rather than a misleading zero.
+    if (this.profileWeeklyDeltaLine) {
+      const priorCutoffStart = Date.now() - 14 * 24 * 60 * 60 * 1000
+      const prior = this.runHistory.filter((r) => _safeStatNumber(r.ts) >= priorCutoffStart && _safeStatNumber(r.ts) < cutoff)
+      if (prior.length === 0) {
+        this.profileWeeklyDeltaLine.style.display = 'none'
+      } else {
+        const priorKills = prior.reduce((sum, r) => sum + _safeStatNumber(r.kills), 0)
+        const delta = kills - priorKills
+        this.profileWeeklyDeltaLine.textContent = t('weeklyDeltaLine', { delta: delta >= 0 ? `+${delta}` : delta })
+        this.profileWeeklyDeltaLine.style.display = ''
+      }
+    }
   }
 
   // Profile panel account row - Login/Register when signed out, Sign Out
@@ -13038,6 +14159,82 @@ export class Game {
     saveSettings(this.settings)
   }
 
+  // Count-up animation for Profile stat numbers - only touches values
+  // that are a plain whole number (with optional thousands commas), so
+  // percentages/ratios/dates/text values are left exactly as rendered
+  // rather than mangled by a naive count-up. Skipped under reduced-motion
+  // (the real final value is already on screen from the synchronous
+  // render above, nothing more to do).
+  _animateStatCountUp() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    for (const el of this.profileOptions.querySelectorAll('.perk-cost')) {
+      const text = el.textContent
+      if (!/^[\d,]+$/.test(text)) continue
+      const target = Number(text.replace(/,/g, ''))
+      if (!Number.isFinite(target) || target <= 0) continue
+      const duration = 500
+      const start = performance.now()
+      const step = (now) => {
+        const progress = Math.min(1, (now - start) / duration)
+        el.textContent = Math.round(target * progress).toLocaleString()
+        if (progress < 1) requestAnimationFrame(step)
+        else el.textContent = target.toLocaleString()
+      }
+      requestAnimationFrame(step)
+    }
+  }
+
+  // Pin a Stat (see _openProfilePanel) - populates the select fresh every
+  // render (cheap, just <option> elements) but wires its change listener
+  // only once (_pinnedStatBound guard) so repeated panel opens don't stack
+  // duplicate listeners.
+  _renderPinnedStatSelect(rows) {
+    if (!this.pinnedStatSelect) return
+    const current = this.settings.pinnedStat
+    this.pinnedStatSelect.innerHTML = `<option value="">${t('pinnedStatNone')}</option>` +
+      rows.map(([id, label]) => `<option value="${id}"${id === current ? ' selected' : ''}>${label}</option>`).join('')
+    if (!this._pinnedStatBound) {
+      this._pinnedStatBound = true
+      this.pinnedStatSelect.addEventListener('change', () => {
+        this.settings.pinnedStat = this.pinnedStatSelect.value || null
+        saveSettings(this.settings)
+        this._openProfilePanel()
+      })
+    }
+  }
+
+  // Deep-link a Settings tab (?settingstab=controls) - opens Settings and
+  // clicks the real tab button (reuses its own click handler, same
+  // "click the real element" precedent _loadMenuPreset uses) rather than
+  // duplicating tab-switch logic here.
+  _checkSettingsTabDeepLink() {
+    const tab = new URLSearchParams(location.search).get('settingstab')
+    if (!tab) return
+    const btn = document.getElementById(`tab-${tab}`)
+    if (!btn) return
+    this._toggleSettings(true)
+    btn.click()
+  }
+
+  // Weekly Challenge reset imminent - _daysUntilWeekReset() is day-
+  // granularity by design (see its own comment), so "a few hours left"
+  // is approximated as "the last day of the week, and it's evening
+  // local time" rather than rewriting that shared function for hour
+  // precision just for this one toast.
+  _checkWeeklyResetImminent() {
+    if (!this.weeklyDef) return
+    if (_daysUntilWeekReset() === 1 && new Date().getHours() >= 20) {
+      this._showHomepageToast(t('weeklyResetImminentToast', { title: t(this.weeklyDef.titleKey) }))
+    }
+  }
+
+  // Unclaimed Quests reminder - a dedicated toast alongside the passive
+  // favicon badge (see _updateFaviconQuestBadge), once per page load.
+  _checkUnclaimedQuestsReminder() {
+    const count = QUESTS.filter((q) => this.quests.isComplete(q, this) && !this.quests.isClaimed(q.id)).length
+    if (count > 0) this._showHomepageToast(t('unclaimedQuestsToast', { n: count }))
+  }
+
   // Career Almanac helper (see _openProfilePanel) - the single highest kill
   // tally in weaponMastery.kills, purely derived from data that system
   // already tracks for the mastery/grandmaster thresholds.
@@ -13050,6 +14247,36 @@ export class Game {
     if (!bestId) return t('profileFavoriteWeaponNone')
     const w = this.weapons.weapons.find((w) => w.id === bestId)
     return w ? t(this.weapons._nameKeyFor(w)) : bestId
+  }
+
+  // Favorite companion role helper (see _openProfilePanel) - the highest
+  // tally in careerStats.companionRoleUseCounts (see _recordRunEnd). Role
+  // names are plain English here, same as the homepage class-grid's own
+  // static (non-i18n) Melee/Ranged/Medic span text.
+  _favoriteCompanionRoleLabel() {
+    const labels = { melee: 'Melee', ranged: 'Ranged', medic: 'Medic' }
+    let bestId = null
+    let bestCount = 0
+    for (const [id, count] of Object.entries(this.careerStats.companionRoleUseCounts)) {
+      if (count > bestCount) { bestCount = count; bestId = id }
+    }
+    return bestId ? (labels[bestId] || bestId) : '—'
+  }
+
+  // Favorite day-of-week helper (see _openProfilePanel) - buckets
+  // runHistory timestamps by weekday, same "recent habits, not lifetime
+  // average" caveat the ticker's Favorite Play Time mode already
+  // documents (runHistory is capped at RUN_HISTORY_MAX).
+  _favoriteDayOfWeekLabel() {
+    if (this.runHistory.length < 3) return '—'
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    const counts = [0, 0, 0, 0, 0, 0, 0]
+    for (const r of this.runHistory) {
+      if (!r.ts) continue
+      counts[new Date(r.ts).getDay()]++
+    }
+    const bestIndex = counts.indexOf(Math.max(...counts))
+    return counts[bestIndex] > 0 ? dayNames[bestIndex] : '—'
   }
 
   // Deaths-by-type helper (see _openProfilePanel) - the single highest
@@ -13249,6 +14476,72 @@ export class Game {
     })
   }
 
+  // Frame-Time Graph visibility/draw (see settings.frameTimeGraph) -
+  // opacity follows the same "visible once gameplay/homepage-fps-toggle
+  // has shown fpsEl at least once" rule fpsEl itself already uses, so
+  // the graph never appears without its own text readout also present.
+  _applyFrameTimeGraphVisibility() {
+    if (!this.frameTimeCanvas) return
+    this.frameTimeCanvas.style.opacity = this.settings.frameTimeGraph && this.fpsEl.style.opacity === '1' ? '1' : '0'
+  }
+
+  _drawFrameTimeGraph() {
+    if (!this.frameTimeCanvas || !this._frameTimeHistory) return
+    this._applyFrameTimeGraphVisibility()
+    const ctx = this.frameTimeCanvas.getContext('2d')
+    const w = this.frameTimeCanvas.width
+    const h = this.frameTimeCanvas.height
+    ctx.clearRect(0, 0, w, h)
+    const maxMs = Math.max(33, ...this._frameTimeHistory)
+    ctx.strokeStyle = '#7fd88f'
+    ctx.beginPath()
+    this._frameTimeHistory.forEach((ms, i) => {
+      const x = (i / 59) * w
+      const y = h - (ms / maxMs) * h
+      if (i === 0) ctx.moveTo(x, y)
+      else ctx.lineTo(x, y)
+    })
+    ctx.stroke()
+  }
+
+  // Subtle mouse-move parallax on the background photo layer - a small
+  // translate offset scaled off cursor position relative to viewport
+  // center, homepage-only, skipped entirely under reduced-motion (same
+  // guard the Ken Burns/embers/rain animations already respect).
+  _bindBackgroundParallax() {
+    // Applied to #menu-bg (the plain, un-animated container), not
+    // #menu-bg-photo directly - that element already has its own
+    // menuBgKenBurns CSS animation driving `transform`, and setting an
+    // inline transform here would silently override/freeze it.
+    const bg = document.getElementById('menu-bg')
+    if (!bg || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    window.addEventListener('mousemove', (e) => {
+      if (this.gameStarted) return
+      const x = (e.clientX / window.innerWidth - 0.5) * 12
+      const y = (e.clientY / window.innerHeight - 0.5) * 12
+      bg.style.transform = `translate(${x}px, ${y}px)`
+    })
+  }
+
+  // Confetti burst on a new personal best (see _recordRunEnd's
+  // _pendingConfetti flag) - a handful of plain colored divs falling and
+  // fading via CSS, no canvas/library, auto-removed after the animation
+  // ends. Skipped entirely under prefers-reduced-motion.
+  _fireConfetti() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const colors = ['#e0b13e', '#7fd88f', '#6fa8dc', '#c9564a', '#b07cd6']
+    for (let i = 0; i < 24; i++) {
+      const piece = document.createElement('div')
+      piece.className = 'confetti-piece'
+      piece.style.left = `${Math.random() * 100}vw`
+      piece.style.background = colors[Math.floor(Math.random() * colors.length)]
+      piece.style.animationDelay = `${Math.random() * 0.3}s`
+      piece.style.animationDuration = `${1.8 + Math.random() * 0.8}s`
+      document.body.appendChild(piece)
+      piece.addEventListener('animationend', () => piece.remove())
+    }
+  }
+
   // Idle animation - a subtle Play-button pulse after 30s of no homepage
   // interaction (mouse/keyboard/click, throttled to once per event type
   // via the timer reset itself, no extra state needed). Only active while
@@ -13318,6 +14611,10 @@ export class Game {
         this._toggleShortcutCheatsheet()
         return
       }
+      if (e.code === 'KeyR' && this._lastPanelOpener) {
+        this._lastPanelOpener()
+        return
+      }
       if (e.code === 'Escape') {
         if (this.shortcutCheatsheet && this.shortcutCheatsheet.style.display !== 'none') {
           this.shortcutCheatsheet.style.display = 'none'
@@ -13346,10 +14643,66 @@ export class Game {
         ['Tab', t('shortcutRowTab')],
         ['Enter / Space', t('shortcutRowActivate')],
         ['Escape', t('shortcutRowEscape')],
+        ['R', t('shortcutRowReopen')],
       ]
       this.shortcutCheatsheetList.innerHTML = rows.map(([key, label]) => `<div class="shortcut-row"><kbd>${_escapeHtml(key)}</kbd><span>${_escapeHtml(label)}</span></div>`).join('')
     }
     this.shortcutCheatsheet.style.display = opening ? 'block' : 'none'
+  }
+
+  // Hidden zombie icon click (see #hidden-zombie-icon's own comment) -
+  // purely a joke toast, no gameplay effect.
+  _bindHiddenZombieIcon() {
+    const icon = document.getElementById('hidden-zombie-icon')
+    if (!icon) return
+    icon.addEventListener('click', () => {
+      const key = JOKE_TIPS[Math.floor(Math.random() * JOKE_TIPS.length)]
+      this._showHomepageToast(t(key))
+    })
+  }
+
+  // Typing "zombie" anywhere on the homepage triggers the same cosmetic
+  // flourish the Konami code/logo-click secrets already use - a rolling
+  // letter buffer against the literal word, same shape as KONAMI_CODE's
+  // own check.
+  _bindZombieTypedSecret() {
+    this._zombieTypedBuffer = ''
+    window.addEventListener('keydown', (e) => {
+      if (this.gameStarted || !e.key || e.key.length !== 1) return
+      this._zombieTypedBuffer = (this._zombieTypedBuffer + e.key).slice(-6).toLowerCase()
+      if (this._zombieTypedBuffer === 'zombie') {
+        this._zombieTypedBuffer = ''
+        this._showHomepageToast(t('zombieTypedSecret'))
+        if (this.menu) {
+          this.menu.classList.add('konami-flourish')
+          setTimeout(() => this.menu.classList.remove('konami-flourish'), 2000)
+        }
+      }
+    })
+  }
+
+  // Clicking a Credits changelog entry shows a bonus flavor fact - reuses
+  // the existing FUNNY_TRIVIA pool (see its own comment) rather than
+  // authoring a unique fact per entry, which would need editing every
+  // time a new changelog line is added.
+  _bindChangelogFactClicks() {
+    const list = document.getElementById('changelog-list')
+    if (!list) return
+    list.addEventListener('click', (e) => {
+      if (!e.target.closest('.changelog-entry')) return
+      const key = FUNNY_TRIVIA[Math.floor(Math.random() * FUNNY_TRIVIA.length)]
+      this._showHomepageToast(t(key))
+    })
+  }
+
+  // April Fools - a single date-gated cosmetic flip (upside-down title),
+  // real UTC/local date check, not a random chance. Reverts itself
+  // naturally the next day since this just checks today's date on load.
+  _applyAprilFools() {
+    const now = new Date()
+    if (now.getMonth() === 3 && now.getDate() === 1 && this.menuTitle) {
+      this.menuTitle.classList.add('april-fools-flip')
+    }
   }
 
   _updateSecretSequenceBonus() {
@@ -15950,6 +17303,15 @@ export class Game {
       // see docs/PERFORMANCE.md §3.
       const drawCalls = this._lastFrameDrawCalls
       this.fpsEl.textContent = `${fps} fps / ${msPerFrame} ms / ${this.zombies.zombies.length} zmb / ${drawCalls} draws`
+      // Frame-Time Graph (opt-in, Controls tab) - a small history buffer
+      // of the same msPerFrame value the text readout above already
+      // computes, drawn as a sparkline rather than just the latest number.
+      if (this.settings.frameTimeGraph) {
+        if (!this._frameTimeHistory) this._frameTimeHistory = []
+        this._frameTimeHistory.push(Number(msPerFrame))
+        if (this._frameTimeHistory.length > 60) this._frameTimeHistory.shift()
+        this._drawFrameTimeGraph()
+      }
       this._fpsFrameCount = 0
       this._fpsLastUpdate = nowFps
       this._updateAdaptiveShadowQuality(fps)

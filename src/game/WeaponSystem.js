@@ -396,7 +396,7 @@ const WEAPON_CHARMS = {
 export const WEAPON_CHARM_IDS = Object.keys(WEAPON_CHARMS)
 
 export class WeaponSystem {
-  constructor(camera, scene, colliderMeshes, hud, zombieManager, onHitSurface, onZombieHit, onStealthTakedown, onDamageDealt = null, onWeaponFired = null, shouldShowHitFeedback = () => true) {
+  constructor(camera, scene, colliderMeshes, hud, zombieManager, onHitSurface, onZombieHit, onStealthTakedown, onDamageDealt = null, onWeaponFired = null, shouldShowHitFeedback = () => true, onShotFired = null) {
     this.camera = camera
     this.scene = scene
     this.colliderMeshes = colliderMeshes
@@ -414,6 +414,11 @@ export class WeaponSystem {
     // it connects, unlike onDamageDealt/onZombieHit above which only ever
     // fire on a successful hit.
     this.onWeaponFired = onWeaponFired
+    // Lifetime shot-accuracy tracking (see Game.js's careerStats.shotsFired)
+    // - deliberately separate from onWeaponFired above, which only fires
+    // when w.shakeIntensity is truthy (shake/tracer purposes only) and
+    // would undercount shots for any weapon without one.
+    this.onShotFired = onShotFired
     // Show Hit Feedback setting (see Game.js's hitFeedbackToggle) - a
     // getter, not a snapshotted boolean, so toggling it mid-game takes
     // effect on the very next shot without needing to rewire anything.
@@ -1096,6 +1101,7 @@ export class WeaponSystem {
         this.meleeComboCount = 0
       }
     } else {
+      if (this.onShotFired) this.onShotFired()
       if (!this.infiniteAmmo) w.ammoInMag -= 1
       // Minigun Overheat (see w.overheats) - this shot itself still lands,
       // but if it pushes heat over the top the gun seizes right after,

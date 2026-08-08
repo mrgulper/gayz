@@ -86,6 +86,25 @@ export function resetBindings() {
   saveBindings()
 }
 
+// Export/Import Keybinds Code (Controls tab) - a plain {action: code}
+// snapshot, same shape saveBindings already persists, just exposed for
+// Game.js to base64-encode/decode rather than looping setBinding per
+// action (which would call saveBindings() once per key instead of once
+// total).
+export function getAllBindings() {
+  return { ...bindings }
+}
+
+export function setAllBindings(map) {
+  const validIds = new Set(ACTIONS.map((a) => a.id))
+  const next = { ...bindings }
+  for (const [id, code] of Object.entries(map)) {
+    if (validIds.has(id) && typeof code === 'string') next[id] = code
+  }
+  bindings = next
+  saveBindings()
+}
+
 // Human-readable label for a KeyboardEvent.code, for the rebind UI.
 export function keyLabel(code) {
   if (!code) return '-'

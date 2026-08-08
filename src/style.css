@@ -75,6 +75,23 @@ html.dyslexia-font body {
 .nickname-tag {
   color: var(--nickname-color, #ffe08a);
   font-weight: 700;
+  font-family: var(--nickname-font, inherit);
+}
+
+#companion-name-input {
+  color: var(--companion-name-color, inherit);
+}
+
+/* Homepage Layout Density (Controls tab) - tightens the same gap/padding
+   spots the short-window @media rules already tighten for genuinely
+   short screens, just as an explicit opt-in at any height. */
+html.layout-compact #menu-col-left,
+html.layout-compact #menu-col-right {
+  gap: 6px;
+}
+
+html.layout-compact .menu-panel {
+  padding: 6px 12px;
 }
 
 /* Profile panel account row (see Game.js's _renderProfileAccountRow) -
@@ -421,6 +438,11 @@ html.dyslexia-font body {
   font-size: 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
+
+/* Leaderboard podium (top 3, see PODIUM_MEDALS) */
+.cloud-leaderboard-row.podium-1 { color: #e0c040; font-weight: 700; }
+.cloud-leaderboard-row.podium-2 { color: #c8ccd4; font-weight: 700; }
+.cloud-leaderboard-row.podium-3 { color: #cd8a52; font-weight: 700; }
 
 .cloud-leaderboard-row:last-child {
   border-bottom: none;
@@ -2634,6 +2656,13 @@ body.reduce-flashing #critical-blood-overlay.show {
 .mini-progress-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--menu-bronze), var(--menu-gold));
+  transition: width 0.6s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mini-progress-fill {
+    transition: none;
+  }
 }
 
 .nearly-there-item {
@@ -2660,11 +2689,89 @@ body.reduce-flashing #critical-blood-overlay.show {
   cursor: pointer;
 }
 
+/* Coin Shop wishlist star / afford estimator (see _renderCoinShopOptions) */
+.shop-item-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.shop-wishlist-star {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+}
+
+.shop-wishlist-star.active {
+  color: #e0b13e;
+}
+
+.shop-afford-estimate {
+  font-size: 10px;
+  color: #999;
+}
+
+#achievements-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #ccc;
+  margin: 6px 0;
+}
+
+#shop-sort-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #ccc;
+  margin: 6px 0;
+}
+
+.shop-spending-log-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  padding: 2px 0;
+}
+
 .goal-chip.active {
   color: #1a1a1a;
   background: #e0b13e;
   border-color: #e0b13e;
   font-weight: 700;
+}
+
+/* Homepage Nav Order list (Settings > Controls) */
+.nav-order-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 13px;
+  color: #ccc;
+}
+
+.nav-order-row .mini-action-btn {
+  padding: 2px 8px;
+}
+
+/* Subtle autosave confirmation (see saveSettings) */
+#settings-saved-indicator {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 11px;
+  color: #7fd88f;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+#settings-saved-indicator.show {
+  opacity: 1;
 }
 
 /* Global average bar chart (Cloud Save panel, see _renderGlobalAverages) */
@@ -3116,7 +3223,12 @@ body.reduce-flashing #critical-blood-overlay.show {
    intercepts clicks. */
 #menu-bg {
   position: fixed;
-  inset: 0;
+  /* Extends 8px past the viewport on every side (not inset:0) - gives
+     the mouse-parallax translate (see _bindBackgroundParallax, max ~±6px)
+     room to shift without ever exposing a blank edge gap; background-size:
+     cover on #menu-bg-photo still fills this slightly larger box exactly
+     the same way, no letterboxing. */
+  inset: -8px;
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
@@ -3278,6 +3390,138 @@ html.bg-mood-amber #menu-bg-photo {
   animation: idlePulse 2s ease-in-out infinite;
 }
 
+/* Confetti burst (see _fireConfetti) - each piece is a plain positioned
+   div, removed on its own animationend, no canvas/library. */
+/* Cursor Trail Effect (opt-in, see the mousemove listener in Game.js) */
+.cursor-trail-dot {
+  position: fixed;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--menu-gold, #d9a34a);
+  z-index: 19;
+  pointer-events: none;
+  animation: cursorTrailFade 0.5s ease-out forwards;
+}
+
+@keyframes cursorTrailFade {
+  0% { opacity: 0.7; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.3); }
+}
+
+/* Retro CRT Scanlines (opt-in, Controls tab) - a repeating horizontal
+   line pattern over #app, same layer #app's High Contrast/Theme Preset
+   filters already sit on. */
+html.crt-scanlines #app::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 26;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.15) 0px,
+    rgba(0, 0, 0, 0.15) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+/* Profile stat-row entrance animation - staggered per row via nth-child,
+   auto-plays on element insertion (these are genuinely new elements each
+   time innerHTML is rewritten, not a display:none toggle, so a plain CSS
+   animation reliably fires without any JS trigger). Capped stagger delay
+   (nth-child beyond 15 shares 15's delay) so a long stat grid doesn't
+   take seconds to finish appearing. */
+#profile-options .perk-option {
+  animation: statRowEnter 0.35s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #profile-options .perk-option {
+    animation: none;
+  }
+}
+
+@keyframes statRowEnter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+#profile-options .perk-option:nth-child(1) { animation-delay: 0s; }
+#profile-options .perk-option:nth-child(2) { animation-delay: 0.02s; }
+#profile-options .perk-option:nth-child(3) { animation-delay: 0.04s; }
+#profile-options .perk-option:nth-child(4) { animation-delay: 0.06s; }
+#profile-options .perk-option:nth-child(5) { animation-delay: 0.08s; }
+#profile-options .perk-option:nth-child(6) { animation-delay: 0.1s; }
+#profile-options .perk-option:nth-child(7) { animation-delay: 0.12s; }
+#profile-options .perk-option:nth-child(8) { animation-delay: 0.14s; }
+#profile-options .perk-option:nth-child(9) { animation-delay: 0.16s; }
+#profile-options .perk-option:nth-child(10) { animation-delay: 0.18s; }
+#profile-options .perk-option:nth-child(n+11) { animation-delay: 0.2s; }
+
+.confetti-piece {
+  position: fixed;
+  top: -12px;
+  width: 8px;
+  height: 8px;
+  z-index: 18;
+  pointer-events: none;
+  animation-name: confettiFall;
+  animation-timing-function: ease-in;
+  animation-fill-mode: forwards;
+}
+
+@keyframes confettiFall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+}
+
+/* Hidden zombie icon easter egg (see _bindHiddenZombieIcon) - low-opacity
+   until hover, tucked in a bottom corner of the background layer so it's
+   genuinely easy to miss rather than an obvious button. */
+#hidden-zombie-icon {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  z-index: 1;
+  transition: color 0.3s ease;
+}
+
+#hidden-zombie-icon:hover {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* April Fools (see _applyAprilFools) - date-gated, only ever applies on
+   April 1st. */
+.april-fools-flip {
+  display: inline-block;
+  transform: rotate(180deg);
+}
+
+#hidden-zombie-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+#nickname-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+#nickname-row .nickname-input {
+  flex: 1;
+}
+
 @keyframes idlePulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.04); }
@@ -3312,6 +3556,134 @@ html.focus-ring-mode *:focus-visible {
 html.underline-links a,
 html.underline-links button {
   text-decoration: underline;
+}
+
+/* Skip to Play button - standard visually-hidden-until-focused skip link. */
+#skip-to-play-link {
+  position: fixed;
+  top: -100px;
+  left: 8px;
+  z-index: 30;
+  background: #1a1a1a;
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 4px;
+  text-decoration: none;
+  transition: top 0.15s ease;
+}
+
+#skip-to-play-link:focus {
+  top: 8px;
+}
+
+/* UI Font (see settings.uiFont) - applied broadly via :root, not scoped
+   to nicknames like --nickname-font. */
+html {
+  font-family: var(--ui-font, inherit);
+}
+
+/* Text Spacing (see settings.textSpacing) - gated behind html.text-
+   spacing-active (only added once the setting actually differs from its
+   100% default, see the toggle wiring) rather than an always-applied
+   rule - an earlier version set line-height: calc(1.4 * .../100) directly
+   on #menu/.menu-panel, which unconditionally forced line-height:1.4
+   even at the 100% default (no prior rule set an explicit line-height
+   there, so this silently added real height across many homepage text
+   elements at once and blew the zero-scroll budget by 13px - caught by
+   the standard 4-height overflow measurement this project always
+   re-checks after a size-affecting change). */
+html.text-spacing-active #menu, html.text-spacing-active .menu-panel, html.text-spacing-active #upgrades-panel,
+html.text-spacing-active #coinshop-panel, html.text-spacing-active #credits-panel, html.text-spacing-active #achievements-panel,
+html.text-spacing-active #bestiary-panel, html.text-spacing-active #profile-panel, html.text-spacing-active #settings-panel,
+html.text-spacing-active #quests-panel, html.text-spacing-active #cloudsave-panel, html.text-spacing-active #howtoplay-panel {
+  letter-spacing: calc((var(--text-spacing, 100) - 100) * 0.005px);
+  line-height: calc(1.4 * var(--text-spacing, 100) / 100);
+}
+
+/* Button Size (see settings.buttonSize) - a transform scale on every
+   button, from its own center, so layout position doesn't shift. */
+html.button-size-scaled button {
+  transform: scale(var(--button-size-scale, 1));
+}
+
+/* Reduce Transparency - flattens every translucent panel background to a
+   solid color, for players who find blurred/translucent backgrounds hard
+   to read text over. */
+html.reduce-transparency .menu-panel,
+html.reduce-transparency #upgrades-panel,
+html.reduce-transparency #coinshop-panel,
+html.reduce-transparency #credits-panel,
+html.reduce-transparency #achievements-panel,
+html.reduce-transparency #bestiary-panel,
+html.reduce-transparency #profile-panel,
+html.reduce-transparency #settings-panel,
+html.reduce-transparency #quests-panel,
+html.reduce-transparency #cloudsave-panel,
+html.reduce-transparency #howtoplay-panel {
+  background: #0a0a0a !important;
+  backdrop-filter: none !important;
+}
+
+/* High-Visibility Cursor - a large, high-contrast custom cursor, homepage
+   only (in-game uses Pointer Lock, so this never applies there). */
+html.high-vis-cursor #menu * {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Cpath d='M4 2 L4 26 L11 20 L15 28 L19 26 L15 18 L24 18 Z' fill='%23ffff00' stroke='%23000' stroke-width='2'/%3E%3C/svg%3E") 4 2, auto;
+}
+
+/* Caption-Style Text Backgrounds - a solid dark box behind stat/label
+   text for readability, opt-in since it changes the visual style a fair
+   bit. */
+html.caption-background .perk-name,
+html.caption-background .perk-cost,
+html.caption-background .nearly-there-line {
+  background: rgba(0, 0, 0, 0.6);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+/* Theme Presets (see settings.themePreset) - a filter on #app, same
+   technique High Contrast Mode already uses, just different filter
+   values per preset instead of one fixed contrast boost. */
+html.theme-sepia #app { filter: sepia(0.4); }
+html.theme-darker #app { filter: brightness(0.75); }
+html.theme-lighter #app { filter: brightness(1.25); }
+
+/* Reduced Flashing preview swatches (Controls tab) - illustrative only,
+   not tied to any real in-game effect; "before" flashes fast/hard,
+   "after" pulses slow/gentle, so the difference is visible without
+   needing to trigger anything in-game. */
+#reduce-flashing-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #aaa;
+  padding: 2px 0 8px;
+}
+
+#reduce-flashing-preview-before,
+#reduce-flashing-preview-after {
+  display: inline-block;
+  width: 24px;
+  height: 14px;
+  border-radius: 3px;
+  background: #d64545;
+}
+
+#reduce-flashing-preview-before {
+  animation: reduceFlashPreviewFast 0.4s step-start infinite;
+}
+
+#reduce-flashing-preview-after {
+  animation: reduceFlashPreviewSlow 2.4s ease-in-out infinite;
+}
+
+@keyframes reduceFlashPreviewFast {
+  50% { background: #ffffff; }
+}
+
+@keyframes reduceFlashPreviewSlow {
+  50% { background: #e08a4f; }
 }
 
 /* Colorblind palette preview (Controls tab) - the exact hex values
@@ -3708,6 +4080,32 @@ html.underline-links button {
   padding: 0 2px;
 }
 
+.preset-pin {
+  color: rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.preset-pin.active {
+  color: var(--menu-gold);
+}
+
+.preset-chip-dup {
+  color: var(--menu-text-dim);
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.preset-rename-input {
+  width: 90px;
+  font-size: 10px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--menu-panel-border);
+  border-radius: 2px;
+  color: #fff;
+  padding: 1px 3px;
+}
+
 /* ---- Hero (center column) ---- */
 #menu-hero {
   position: relative;
@@ -3985,6 +4383,17 @@ html.underline-links button {
    treatment than a plain clipped edge) - reuses the same beveled
    two-tone box-shadow technique the panel corner brackets already use
    elsewhere, sized for the Play button's larger octagon. */
+/* Play Button Color (Controls tab) - independent from the Homepage
+   Accent Color above even though #play-btn's base rule already reads
+   --menu-gold for color/border/shadows; this reapplies just those same
+   properties with a dedicated --play-btn-color var (falling back to
+   --menu-gold when unset), so the two settings can diverge. */
+#play-btn {
+  color: var(--play-btn-color, var(--menu-gold));
+  border-color: var(--play-btn-color, var(--menu-gold));
+  text-shadow: 0 0 12px color-mix(in srgb, var(--play-btn-color, var(--menu-gold)) 70%, transparent), 0 2px 3px rgba(0, 0, 0, 0.9);
+}
+
 #play-btn::before,
 #play-btn::after {
   content: '';
@@ -4385,6 +4794,27 @@ html.underline-links button {
   border-color: var(--menu-gold);
 }
 
+/* Card-flip hover flourish (filled achievement slots only) - a rotateY
+   wobble, not a true two-sided flip (this DOM has no back-face content
+   to reveal), still reads as a genuine "flip" motion on hover. */
+.showcase-slot.filled {
+  transition: transform 0.4s ease;
+  transform-style: preserve-3d;
+}
+
+.showcase-slot.filled:hover {
+  transform: rotateY(360deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .showcase-slot.filled {
+    transition: none;
+  }
+  .showcase-slot.filled:hover {
+    transform: none;
+  }
+}
+
 #menu-nav-buttons {
   display: flex;
   flex-direction: column;
@@ -4423,6 +4853,7 @@ html.underline-links button {
   border-color: var(--menu-gold);
   color: #fff;
   transform: translateX(2px);
+  box-shadow: 0 0 14px 1px rgba(227, 166, 60, 0.25);
 }
 
 /* Achievements/Bestiary completion fraction ("18/50") - a small dim
@@ -5033,6 +5464,12 @@ html.underline-links button {
    distinct red/warning styling since this is the single most destructive
    action in the settings panel, separate from the neutral reset-bindings/
    restore-defaults buttons above. */
+.danger-text {
+  color: #e07a7a;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .danger-btn {
   margin-top: 8px;
   padding: 8px 20px;

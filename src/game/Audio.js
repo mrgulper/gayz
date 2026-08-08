@@ -1075,6 +1075,25 @@ class AudioEngine {
       osc.stop(now + duration)
     }
   }
+
+  // Homepage Audio Cue on Hover/Focus (Controls tab) - a short, quiet
+  // synthesized blip, same "no external file needed" approach as every
+  // other sound here rather than a new audio asset.
+  playUiHover() {
+    if (!this.ctx) return
+    const ctx = this.ctx
+    const now = ctx.currentTime
+    const duration = 0.05
+    const osc = ctx.createOscillator()
+    osc.type = 'sine'
+    osc.frequency.value = 900
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(0.12, now)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration)
+    osc.connect(gain).connect(this.sfxGain)
+    osc.start(now)
+    osc.stop(now + duration)
+  }
 }
 
 export const audioEngine = new AudioEngine()

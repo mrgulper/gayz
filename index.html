@@ -14,6 +14,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Black+Ops+One&family=Lexend:wght@400;600&display=swap" rel="stylesheet" />
   </head>
   <body>
+    <a href="#play-btn" id="skip-to-play-link">Skip to Play button</a>
     <div id="app">
       <canvas id="scene"></canvas>
 
@@ -309,6 +310,9 @@
           <div id="menu-bg-ash"></div>
           <div id="menu-bg-scrim"></div>
           <div id="menu-bg-vignette"></div>
+          <button id="hidden-zombie-icon" aria-hidden="true" tabindex="-1">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="10" r="1"/><circle cx="15" cy="10" r="1"/><path d="M8 16c1.5 1 6.5 1 8 0"/><circle cx="12" cy="12" r="9"/></svg>
+          </button>
         </div>
 
         <div id="menu-layout">
@@ -316,7 +320,10 @@
             <section class="menu-panel">
               <h2 class="menu-panel-title">Player Setup</h2>
               <label class="menu-field-label" for="nickname-input">Nickname</label>
-              <input type="text" id="nickname-input" class="nickname-input" placeholder="Your nickname" maxlength="16" />
+              <div id="nickname-row">
+                <input type="text" id="nickname-input" class="nickname-input" placeholder="Your nickname" maxlength="16" />
+                <button id="random-nickname-btn" class="mini-action-btn" type="button" title="Random nickname">Random</button>
+              </div>
               <label class="menu-field-label" for="companion-name-input">Companion (Optional) <span id="companion-color-preview" aria-hidden="true"></span></label>
               <input type="text" id="companion-name-input" class="nickname-input" placeholder="Companion name" maxlength="16" />
               <label class="menu-field-label" for="challenge-code-input">Challenge Code (Optional)</label>
@@ -619,6 +626,8 @@
 
       <div id="settings-panel">
         <h2 id="settings-title">Settings</h2>
+        <span id="settings-saved-indicator">Saved</span>
+        <input type="text" id="settings-search-input" placeholder="Search settings..." class="nickname-input" />
         <div class="settings-tabs">
           <button class="settings-tab active" data-page="language" id="tab-language">Language</button>
           <button class="settings-tab" data-page="audio" id="tab-audio">Audio</button>
@@ -778,6 +787,67 @@
             <input type="checkbox" id="underline-links-toggle" class="audio-checkbox" />
           </div>
           <div class="audio-row">
+            <label for="ui-font-select" id="ui-font-label">UI Font</label>
+            <select id="ui-font-select">
+              <option value="default">Default</option>
+              <option value="mono">Monospace</option>
+              <option value="serif">Serif</option>
+              <option value="display">Display</option>
+            </select>
+          </div>
+          <div class="audio-row">
+            <label for="text-spacing-slider" id="text-spacing-label">Text Spacing</label>
+            <input type="range" id="text-spacing-slider" min="100" max="180" value="100" />
+            <span id="text-spacing-value" class="audio-value">100%</span>
+          </div>
+          <div class="audio-row">
+            <label for="button-size-slider" id="button-size-label">Button Size</label>
+            <input type="range" id="button-size-slider" min="100" max="150" value="100" />
+            <span id="button-size-value" class="audio-value">100%</span>
+          </div>
+          <div class="audio-row">
+            <label for="reduce-transparency-toggle" id="reduce-transparency-label">Reduce Transparency</label>
+            <input type="checkbox" id="reduce-transparency-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="hover-audio-cue-toggle" id="hover-audio-cue-label">Audio Cue on Hover/Focus</label>
+            <input type="checkbox" id="hover-audio-cue-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="high-vis-cursor-toggle" id="high-vis-cursor-label">High-Visibility Cursor</label>
+            <input type="checkbox" id="high-vis-cursor-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="caption-background-toggle" id="caption-background-label">Caption-Style Text Backgrounds</label>
+            <input type="checkbox" id="caption-background-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="theme-preset-select" id="theme-preset-label">Theme Preset</label>
+            <select id="theme-preset-select">
+              <option value="none">Default</option>
+              <option value="sepia">Sepia</option>
+              <option value="darker">Darker</option>
+              <option value="lighter">Lighter</option>
+            </select>
+          </div>
+          <div class="audio-row">
+            <label for="cursor-trail-toggle" id="cursor-trail-label">Cursor Trail Effect (homepage)</label>
+            <input type="checkbox" id="cursor-trail-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="crt-scanlines-toggle" id="crt-scanlines-label">Retro CRT Scanlines</label>
+            <input type="checkbox" id="crt-scanlines-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="weather-particles-toggle" id="weather-particles-label">Homepage Weather Particles</label>
+            <input type="checkbox" id="weather-particles-toggle" class="audio-checkbox" checked />
+          </div>
+          <div id="reduce-flashing-preview-row">
+            <span>Preview:</span>
+            <span id="reduce-flashing-preview-before" title="Before (fast flash)"></span>
+            <span id="reduce-flashing-preview-after" title="After (gentle pulse)"></span>
+          </div>
+          <div class="audio-row">
             <label for="bg-mood-select" id="bg-mood-label">Homepage Background Mood</label>
             <select id="bg-mood-select">
               <option value="auto">Auto (Seasonal)</option>
@@ -803,6 +873,10 @@
           <div class="audio-row">
             <label for="homepage-fps-toggle" id="homepage-fps-label">Show FPS Counter on Homepage</label>
             <input type="checkbox" id="homepage-fps-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="frame-time-graph-toggle" id="frame-time-graph-label">Frame-Time Graph</label>
+            <input type="checkbox" id="frame-time-graph-toggle" class="audio-checkbox" />
           </div>
           <div class="audio-row">
             <label for="shake-intensity-slider" id="shake-intensity-label">Camera Shake &amp; Motion</label>
@@ -855,15 +929,54 @@
             <input type="color" id="companion-color-picker" value="#2f4f7a" />
           </div>
           <div class="audio-row">
+            <label for="companion-name-color-picker" id="companion-name-color-label">Companion Name Tag Color</label>
+            <input type="color" id="companion-name-color-picker" value="#8fc8ff" />
+          </div>
+          <div class="audio-row">
+            <label for="accent-color-picker" id="accent-color-label">Homepage Accent Color</label>
+            <input type="color" id="accent-color-picker" value="#d9a34a" />
+            <button id="accent-color-reset-btn" class="mini-action-btn" type="button">Reset</button>
+          </div>
+          <div class="audio-row">
+            <label for="play-btn-color-picker" id="play-btn-color-label">Play Button Color</label>
+            <input type="color" id="play-btn-color-picker" value="#d9a34a" />
+            <button id="play-btn-color-reset-btn" class="mini-action-btn" type="button">Reset</button>
+          </div>
+          <div class="audio-row">
+            <label for="nickname-font-select" id="nickname-font-label">Nickname Font</label>
+            <select id="nickname-font-select">
+              <option value="default">Default</option>
+              <option value="mono">Monospace</option>
+              <option value="serif">Serif</option>
+              <option value="display">Display</option>
+            </select>
+          </div>
+          <div class="audio-row">
+            <label for="layout-density-select" id="layout-density-label">Homepage Layout Density</label>
+            <select id="layout-density-select">
+              <option value="cozy">Cozy</option>
+              <option value="compact">Compact</option>
+            </select>
+          </div>
+          <div class="audio-row">
             <label for="crosshair-size-slider" id="crosshair-size-label">Crosshair Size</label>
             <input type="range" id="crosshair-size-slider" min="50" max="250" value="100" />
             <span id="crosshair-size-value" class="audio-value">100%</span>
           </div>
+          <h3 class="settings-section-heading">Homepage Nav Order</h3>
+          <div id="nav-order-list"></div>
           <div id="controls-grid" class="controls-grid"></div>
           <button id="reset-binds-btn">Reset to Defaults</button>
+          <button id="export-keybinds-btn">Copy Keybinds Code</button>
+          <button id="import-keybinds-btn">Paste Keybinds Code</button>
+          <input type="text" id="import-keybinds-input" class="nickname-input" placeholder="Paste keybinds code" style="display: none" />
+          <button id="import-keybinds-apply-btn" style="display: none">Apply Keybinds Code</button>
+          <button id="reset-audio-defaults-btn">Reset Audio to Defaults</button>
+          <button id="reset-controls-defaults-btn">Reset Accessibility/Controls to Defaults</button>
           <button id="restore-defaults-btn">Restore Default Settings</button>
           <div id="local-sharing-section">
             <p id="storage-usage-line"></p>
+            <p id="storage-quota-warning" class="danger-text" style="display: none">Storage is getting full - export your save as a backup soon.</p>
             <button id="export-save-btn">Export Save</button>
             <button id="import-save-btn">Import Save</button>
             <input type="file" id="import-save-input" accept="application/json" style="display: none" />
@@ -880,6 +993,7 @@
           <button id="reset-progress-btn" class="danger-btn">Reset All Progress</button>
         </div>
 
+        <div id="recently-changed-list" style="display: none"></div>
         <p id="settings-hint">Click anywhere to close</p>
       </div>
 
@@ -1020,7 +1134,24 @@
       <div id="achievements-panel">
         <h2 id="achievements-panel-title">Achievements</h2>
         <input type="text" id="achievements-filter-input" class="nickname-input" placeholder="Filter achievements..." />
+        <div id="achievements-controls-row">
+          <label for="achievements-category-select">Category:</label>
+          <select id="achievements-category-select">
+            <option value="all">All</option>
+            <option value="combat">Combat</option>
+            <option value="survival">Survival</option>
+            <option value="exploration">Exploration</option>
+            <option value="story">Story</option>
+            <option value="collection">Collection</option>
+          </select>
+          <label for="achievements-sort-select">Sort:</label>
+          <select id="achievements-sort-select">
+            <option value="default">Default</option>
+            <option value="unlockDate">Unlock Date</option>
+          </select>
+        </div>
         <div class="perk-options" id="achievements-options"></div>
+        <button id="print-achievements-btn">Print Achievements List</button>
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>
 
@@ -1041,11 +1172,23 @@
           </div>
         </div>
 
+        <h3 id="highlight-reel-heading">Highlight Reel</h3>
+        <div id="highlight-reel-list"></div>
+        <div id="pinned-stat-row">
+          <label for="pinned-stat-select" id="pinned-stat-label">Pin a stat to the top</label>
+          <select id="pinned-stat-select">
+            <option value="">None</option>
+          </select>
+        </div>
         <div class="perk-options" id="profile-options"></div>
         <h3 id="rank-roadmap-heading">Rank Roadmap</h3>
         <div id="rank-roadmap-list"></div>
         <h3 id="class-comparison-heading">Class Comparison</h3>
         <div id="class-comparison-table"></div>
+        <h3 id="recent-unlocks-heading">Recently Unlocked</h3>
+        <div id="recent-unlocks-list"></div>
+        <h3 id="prestige-history-heading" style="display: none">Prestige History</h3>
+        <div id="prestige-history-list"></div>
         <h3 id="goals-heading">Goals (pick up to 3)</h3>
         <div id="goals-picker"></div>
         <div id="goals-checklist"></div>
@@ -1057,6 +1200,12 @@
             <h3 id="profile-bio-heading">Bio</h3>
             <textarea id="profile-bio-input" maxlength="250" placeholder="Say something about yourself..."></textarea>
             <p id="profile-bio-counter">0/250</p>
+            <div id="bio-preset-row">
+              <button id="bio-preset-save-btn" class="mini-action-btn" type="button">Save as Preset</button>
+              <div id="bio-preset-chips"></div>
+            </div>
+            <h3 id="motto-heading">Motto (shown on homepage)</h3>
+            <input type="text" id="motto-input" class="nickname-input" maxlength="60" placeholder="A short line under your name" />
           </div>
           <section class="menu-panel" id="profile-your-stats-column">
             <h2 class="menu-panel-title">Your Stats</h2>
@@ -1072,6 +1221,7 @@
         <p id="profile-anniversary-line" style="display: none"></p>
         <p id="profile-today-line" style="display: none"></p>
         <p id="profile-percentile-line" style="display: none"></p>
+        <div id="profile-percentile-bar" class="mini-progress-track" style="display: none"><div class="mini-progress-fill"></div></div>
         <p id="profile-favorite-difficulty-line" style="display: none"></p>
         <div id="profile-best-run-card" style="display: none">
           <h3 id="profile-best-run-title">Best Run</h3>
@@ -1081,6 +1231,7 @@
         <p id="profile-created-line"></p>
         <h3 id="profile-weekly-recap-title" style="display: none">This Week</h3>
         <p id="profile-weekly-recap-line" style="display: none"></p>
+        <p id="profile-weekly-delta-line" style="display: none"></p>
         <button id="profile-career-portrait-btn" style="display: none">Save Career Portrait</button>
         <button id="profile-copy-stats-btn">Copy Stats</button>
         <button id="profile-copy-link-btn">Copy Shareable Profile Link</button>
@@ -1110,6 +1261,13 @@
             <div class="changelog-entry"><span class="changelog-date">Jul 29, 2026</span><span class="changelog-text">A full menu redesign, crafting and deployable turrets, the Flamethrower and Rocket Launcher, weapon upgrades and the Mystery Box, Akimbo pistols and Last Stand self-revive, and CoD-style movement (mantling, sliding, killstreaks).</span></div>
           </div>
           <button id="print-changelog-btn">Print Full Changelog</button>
+          <button id="copy-changelog-btn">Copy Changelog as Text</button>
+          <p id="build-session-id-line"></p>
+          <button id="check-updates-btn">Check for Updates</button>
+          <h3 id="diagnostics-heading">Diagnostics (for bug reports)</h3>
+          <p id="diagnostics-line"></p>
+          <button id="copy-diagnostics-btn">Copy Diagnostics</button>
+          <button id="copy-error-log-btn">Copy Error Log</button>
         </div>
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>
@@ -1127,6 +1285,7 @@
 
       <div id="cloudsave-panel">
         <h2 id="cloudsave-panel-title">Cloud Save</h2>
+        <p id="cloudsave-offline-warning" class="danger-text" style="display: none">You're offline - Cloud Save features need a connection.</p>
         <div id="cloudsave-signed-out">
           <p id="cloudsave-signed-out-desc">Sign in with Google to sync your progress across devices.</p>
           <button id="cloudsave-signin-btn">Sign in with Google</button>
@@ -1168,6 +1327,9 @@
             </div>
             <div id="cloudsave-leaderboard-list"></div>
 
+            <h3 id="cloudsave-nearby-rank-title">Your Nearby Rank</h3>
+            <div id="cloudsave-nearby-rank-list"></div>
+
             <h3 id="cloudsave-achievements-leaderboard-title">Most Achievements</h3>
             <div id="cloudsave-achievements-leaderboard-list"></div>
 
@@ -1182,6 +1344,7 @@
               <button id="cloudsave-friend-save-btn" aria-label="Save friend">+</button>
             </div>
             <p id="cloudsave-friend-result"></p>
+            <button id="cloudsave-random-opponent-btn">Compare vs Random Top Player</button>
 
             <h3 id="cloudsave-poll-title"></h3>
             <div id="cloudsave-poll-options"></div>
@@ -1225,6 +1388,20 @@
       <div id="coinshop-panel">
         <h2 id="coinshop-panel-title">Coin Shop</h2>
         <div id="coinshop-coin-line"></div>
+        <div id="shop-sort-row">
+          <label for="shop-sort-select">Sort:</label>
+          <select id="shop-sort-select">
+            <option value="default">Default</option>
+            <option value="costAsc">Cost: Low to High</option>
+            <option value="costDesc">Cost: High to Low</option>
+            <option value="alpha">Alphabetical</option>
+            <option value="wishlist">Wishlisted First</option>
+          </select>
+        </div>
+        <div id="shop-spending-log-row" style="display: none">
+          <h3 id="shop-spending-log-heading">Recent Purchases</h3>
+          <div id="shop-spending-log-list"></div>
+        </div>
         <div id="coinshop-options"></div>
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>

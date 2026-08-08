@@ -283,6 +283,24 @@ export async function fetchNearestRivalAbove(bestNight) {
   return snap.empty ? null : snap.docs[0].data()
 }
 
+// Nearby Rank mini-leaderboard (Cloud Save panel) - same two-directional
+// query shape as fetchNearestRivalAbove, just n docs each way instead of
+// 1, run in parallel. "above" comes back ascending (nearest-to-you
+// first), "below" descending (also nearest-to-you first) - the caller
+// reverses "above" before rendering so the combined list reads
+// highest-to-lowest top to bottom, same as the main leaderboard.
+export async function fetchNearbyRank(bestNight, n) {
+  const { db, fsMod } = await ensureApp()
+  const [aboveSnap, belowSnap] = await Promise.all([
+    fsMod.getDocs(fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.where('bestNight', '>', bestNight), fsMod.orderBy('bestNight', 'asc'), fsMod.limit(n))),
+    fsMod.getDocs(fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.where('bestNight', '<', bestNight), fsMod.orderBy('bestNight', 'desc'), fsMod.limit(n))),
+  ])
+  return {
+    above: aboveSnap.docs.map((d) => d.data()),
+    below: belowSnap.docs.map((d) => d.data()),
+  }
+}
+
 // Weekly Challenge cloud leaderboard - a fresh sub-collection per week
 // (weekStr matches _thisWeekStr()'s own format, e.g. "2026-W31"), so old
 // weeks' rankings stay intact rather than getting overwritten every week.
