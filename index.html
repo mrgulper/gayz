@@ -728,6 +728,7 @@
         </div>
 
         <div class="settings-page" id="settings-page-controls" style="display: none">
+          <h3 class="settings-section-heading">Movement &amp; Aim</h3>
           <div class="audio-row">
             <label for="sensitivity-slider" id="sensitivity-label">Sensitivity</label>
             <input type="range" id="sensitivity-slider" min="20" max="300" value="100" />
@@ -743,6 +744,24 @@
             <span id="fov-value" class="audio-value">75</span>
           </div>
           <div class="audio-row">
+            <label for="toggle-sprint-toggle" id="toggle-sprint-label">Toggle to Sprint (instead of hold)</label>
+            <input type="checkbox" id="toggle-sprint-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="toggle-crouch-toggle" id="toggle-crouch-label">Toggle to Crouch (instead of hold)</label>
+            <input type="checkbox" id="toggle-crouch-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="toggle-ads-toggle" id="toggle-ads-label">Toggle to Aim (instead of hold)</label>
+            <input type="checkbox" id="toggle-ads-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="aim-assist-toggle" id="aim-assist-label">Aim Assist (more forgiving hit detection)</label>
+            <input type="checkbox" id="aim-assist-toggle" class="audio-checkbox" />
+          </div>
+
+          <h3 class="settings-section-heading">HUD</h3>
+          <div class="audio-row">
             <label for="hud-scale-slider" id="hud-scale-label">HUD Scale</label>
             <input type="range" id="hud-scale-slider" min="70" max="150" value="100" />
             <span id="hud-scale-value" class="audio-value">100%</span>
@@ -752,6 +771,37 @@
             <input type="range" id="hud-opacity-slider" min="30" max="100" value="100" />
             <span id="hud-opacity-value" class="audio-value">100%</span>
           </div>
+          <div class="audio-row">
+            <label for="crosshair-color-picker" id="crosshair-color-label">Crosshair Color</label>
+            <input type="color" id="crosshair-color-picker" value="#ffffff" />
+          </div>
+          <div class="audio-row">
+            <label for="crosshair-size-slider" id="crosshair-size-label">Crosshair Size</label>
+            <input type="range" id="crosshair-size-slider" min="50" max="250" value="100" />
+            <span id="crosshair-size-value" class="audio-value">100%</span>
+          </div>
+          <div class="audio-row">
+            <label for="hit-feedback-toggle" id="hit-feedback-label">Show Hit Feedback (hitmarker &amp; damage numbers)</label>
+            <input type="checkbox" id="hit-feedback-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="big-interact-prompt-toggle" id="big-interact-prompt-label">Large Interact Prompt</label>
+            <input type="checkbox" id="big-interact-prompt-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="keybind-cheatsheet-toggle" id="keybind-cheatsheet-label">Show Keybind Cheat Sheet (in-game)</label>
+            <input type="checkbox" id="keybind-cheatsheet-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="performance-toggle" id="performance-label">FPS Optimized (lower graphics quality)</label>
+            <input type="checkbox" id="performance-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="frame-time-graph-toggle" id="frame-time-graph-label">Frame-Time Graph</label>
+            <input type="checkbox" id="frame-time-graph-toggle" class="audio-checkbox" />
+          </div>
+
+          <h3 class="settings-section-heading">Accessibility</h3>
           <div class="audio-row">
             <label for="colorblind-toggle" id="colorblind-label">Colorblind Mode</label>
             <input type="checkbox" id="colorblind-toggle" class="audio-checkbox" />
@@ -787,15 +837,6 @@
             <input type="checkbox" id="underline-links-toggle" class="audio-checkbox" />
           </div>
           <div class="audio-row">
-            <label for="ui-font-select" id="ui-font-label">UI Font</label>
-            <select id="ui-font-select">
-              <option value="default">Default</option>
-              <option value="mono">Monospace</option>
-              <option value="serif">Serif</option>
-              <option value="display">Display</option>
-            </select>
-          </div>
-          <div class="audio-row">
             <label for="text-spacing-slider" id="text-spacing-label">Text Spacing</label>
             <input type="range" id="text-spacing-slider" min="100" max="180" value="100" />
             <span id="text-spacing-value" class="audio-value">100%</span>
@@ -822,6 +863,40 @@
             <input type="checkbox" id="caption-background-toggle" class="audio-checkbox" />
           </div>
           <div class="audio-row">
+            <label for="shake-intensity-slider" id="shake-intensity-label">Camera Shake &amp; Motion</label>
+            <input type="range" id="shake-intensity-slider" min="0" max="100" value="100" />
+            <span id="shake-intensity-value" class="audio-value">100%</span>
+          </div>
+          <div id="reduce-flashing-preview-row">
+            <span>Preview:</span>
+            <span id="reduce-flashing-preview-before" title="Before (fast flash)"></span>
+            <span id="reduce-flashing-preview-after" title="After (gentle pulse)"></span>
+          </div>
+          <div class="audio-row">
+            <label for="reduce-flashing-toggle" id="reduce-flashing-label">Reduce Flashing Effects</label>
+            <input type="checkbox" id="reduce-flashing-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="stream-safe-mode-toggle" id="stream-safe-mode-label">Streaming-Safe Mode</label>
+            <input type="checkbox" id="stream-safe-mode-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="toast-duration-slider" id="toast-duration-label">On-Screen Text Duration</label>
+            <input type="range" id="toast-duration-slider" min="50" max="250" value="100" />
+            <span id="toast-duration-value" class="audio-value">100%</span>
+          </div>
+
+          <h3 class="settings-section-heading">Personalization</h3>
+          <div class="audio-row">
+            <label for="ui-font-select" id="ui-font-label">UI Font</label>
+            <select id="ui-font-select">
+              <option value="default">Default</option>
+              <option value="mono">Monospace</option>
+              <option value="serif">Serif</option>
+              <option value="display">Display</option>
+            </select>
+          </div>
+          <div class="audio-row">
             <label for="theme-preset-select" id="theme-preset-label">Theme Preset</label>
             <select id="theme-preset-select">
               <option value="none">Default</option>
@@ -837,88 +912,6 @@
           <div class="audio-row">
             <label for="crt-scanlines-toggle" id="crt-scanlines-label">Retro CRT Scanlines</label>
             <input type="checkbox" id="crt-scanlines-toggle" class="audio-checkbox" />
-          </div>
-          <div class="audio-row">
-            <label for="weather-particles-toggle" id="weather-particles-label">Homepage Weather Particles</label>
-            <input type="checkbox" id="weather-particles-toggle" class="audio-checkbox" checked />
-          </div>
-          <div id="reduce-flashing-preview-row">
-            <span>Preview:</span>
-            <span id="reduce-flashing-preview-before" title="Before (fast flash)"></span>
-            <span id="reduce-flashing-preview-after" title="After (gentle pulse)"></span>
-          </div>
-          <div class="audio-row">
-            <label for="bg-mood-select" id="bg-mood-label">Homepage Background Mood</label>
-            <select id="bg-mood-select">
-              <option value="auto">Auto (Seasonal)</option>
-              <option value="timeofday">Auto (Your Local Time)</option>
-              <option value="none">Night (Default)</option>
-              <option value="bloodmoon">Blood Moon</option>
-              <option value="foggy">Foggy Blue</option>
-              <option value="amber">Amber Dusk</option>
-            </select>
-          </div>
-          <div class="audio-row">
-            <label for="keybind-cheatsheet-toggle" id="keybind-cheatsheet-label">Show Keybind Cheat Sheet (in-game)</label>
-            <input type="checkbox" id="keybind-cheatsheet-toggle" class="audio-checkbox" />
-          </div>
-          <div class="audio-row">
-            <label for="hit-feedback-toggle" id="hit-feedback-label">Show Hit Feedback (hitmarker &amp; damage numbers)</label>
-            <input type="checkbox" id="hit-feedback-toggle" class="audio-checkbox" />
-          </div>
-          <div class="audio-row">
-            <label for="performance-toggle" id="performance-label">FPS Optimized (lower graphics quality)</label>
-            <input type="checkbox" id="performance-toggle" class="audio-checkbox" />
-          </div>
-          <div class="audio-row">
-            <label for="homepage-fps-toggle" id="homepage-fps-label">Show FPS Counter on Homepage</label>
-            <input type="checkbox" id="homepage-fps-toggle" class="audio-checkbox" />
-          </div>
-          <div class="audio-row">
-            <label for="frame-time-graph-toggle" id="frame-time-graph-label">Frame-Time Graph</label>
-            <input type="checkbox" id="frame-time-graph-toggle" class="audio-checkbox" />
-          </div>
-          <div class="audio-row">
-            <label for="shake-intensity-slider" id="shake-intensity-label">Camera Shake &amp; Motion</label>
-            <input type="range" id="shake-intensity-slider" min="0" max="100" value="100" />
-            <span id="shake-intensity-value" class="audio-value">100%</span>
-          </div>
-          <div class="audio-row">
-            <label for="reduce-flashing-toggle" id="reduce-flashing-label">Reduce Flashing Effects</label>
-            <input type="checkbox" id="reduce-flashing-toggle" class="audio-checkbox" />
-          </div>
-          <div class="audio-row">
-            <label for="stream-safe-mode-toggle" id="stream-safe-mode-label">Streaming-Safe Mode</label>
-            <input type="checkbox" id="stream-safe-mode-toggle" class="audio-checkbox" />
-          </div>
-          <div class="audio-row">
-            <label for="toggle-sprint-toggle" id="toggle-sprint-label">Toggle to Sprint (instead of hold)</label>
-            <input type="checkbox" id="toggle-sprint-toggle" class="audio-checkbox" />
-          </div>
-          <div class="audio-row">
-            <label for="toggle-crouch-toggle" id="toggle-crouch-label">Toggle to Crouch (instead of hold)</label>
-            <input type="checkbox" id="toggle-crouch-toggle" class="audio-checkbox" />
-          </div>
-          <div class="audio-row">
-            <label for="toggle-ads-toggle" id="toggle-ads-label">Toggle to Aim (instead of hold)</label>
-            <input type="checkbox" id="toggle-ads-toggle" class="audio-checkbox" />
-          </div>
-          <div class="audio-row">
-            <label for="aim-assist-toggle" id="aim-assist-label">Aim Assist (more forgiving hit detection)</label>
-            <input type="checkbox" id="aim-assist-toggle" class="audio-checkbox" />
-          </div>
-          <div class="audio-row">
-            <label for="big-interact-prompt-toggle" id="big-interact-prompt-label">Large Interact Prompt</label>
-            <input type="checkbox" id="big-interact-prompt-toggle" class="audio-checkbox" />
-          </div>
-          <div class="audio-row">
-            <label for="toast-duration-slider" id="toast-duration-label">On-Screen Text Duration</label>
-            <input type="range" id="toast-duration-slider" min="50" max="250" value="100" />
-            <span id="toast-duration-value" class="audio-value">100%</span>
-          </div>
-          <div class="audio-row">
-            <label for="crosshair-color-picker" id="crosshair-color-label">Crosshair Color</label>
-            <input type="color" id="crosshair-color-picker" value="#ffffff" />
           </div>
           <div class="audio-row">
             <label for="nickname-color-picker" id="nickname-color-label">Nickname Color</label>
@@ -958,13 +951,29 @@
               <option value="compact">Compact</option>
             </select>
           </div>
-          <div class="audio-row">
-            <label for="crosshair-size-slider" id="crosshair-size-label">Crosshair Size</label>
-            <input type="range" id="crosshair-size-slider" min="50" max="250" value="100" />
-            <span id="crosshair-size-value" class="audio-value">100%</span>
-          </div>
-          <h3 class="settings-section-heading">Homepage Nav Order</h3>
+
+          <h3 class="settings-section-heading">Homepage</h3>
           <div id="nav-order-list"></div>
+          <div class="audio-row">
+            <label for="bg-mood-select" id="bg-mood-label">Homepage Background Mood</label>
+            <select id="bg-mood-select">
+              <option value="auto">Auto (Seasonal)</option>
+              <option value="timeofday">Auto (Your Local Time)</option>
+              <option value="none">Night (Default)</option>
+              <option value="bloodmoon">Blood Moon</option>
+              <option value="foggy">Foggy Blue</option>
+              <option value="amber">Amber Dusk</option>
+            </select>
+          </div>
+          <div class="audio-row">
+            <label for="weather-particles-toggle" id="weather-particles-label">Homepage Weather Particles</label>
+            <input type="checkbox" id="weather-particles-toggle" class="audio-checkbox" checked />
+          </div>
+          <div class="audio-row">
+            <label for="homepage-fps-toggle" id="homepage-fps-label">Show FPS Counter on Homepage</label>
+            <input type="checkbox" id="homepage-fps-toggle" class="audio-checkbox" />
+          </div>
+
           <div id="controls-grid" class="controls-grid"></div>
           <button id="reset-binds-btn">Reset to Defaults</button>
           <button id="export-keybinds-btn">Copy Keybinds Code</button>
