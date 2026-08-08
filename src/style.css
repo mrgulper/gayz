@@ -5326,6 +5326,42 @@ html.theme-lighter #app { filter: brightness(1.25); }
   padding: 12px 4px;
 }
 
+/* Advanced disclosure (Settings > Controls > Personalization) - collapsed
+   by default, holding the cosmetic-only settings someone might genuinely
+   want but shouldn't be first-tier UI (CRT scanlines/cursor trail/theme
+   presets). Native <details> rather than a custom JS toggle - free
+   keyboard/screen-reader support, no state to wire up. */
+.settings-advanced {
+  margin: 4px 0;
+}
+
+.settings-advanced summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--menu-gold, #d9a34a);
+  opacity: 0.85;
+  padding: 4px;
+  list-style: none;
+}
+
+.settings-advanced summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-advanced summary::before {
+  content: '\25B8';
+  display: inline-block;
+  margin-right: 6px;
+  transition: transform 0.15s ease;
+}
+
+.settings-advanced[open] summary::before {
+  transform: rotate(90deg);
+}
+
 /* Sub-section headings within a settings page (Graphics tab's Rendering/
    Effects/Damage Indicator/Damage Numbers groups) - uppercase like the
    panel titles elsewhere, but smaller/left-aligned since it's grouping

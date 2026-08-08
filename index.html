@@ -894,23 +894,26 @@
               <option value="display">Display</option>
             </select>
           </div>
-          <div class="audio-row">
-            <label for="theme-preset-select" id="theme-preset-label">Theme Preset</label>
-            <select id="theme-preset-select">
-              <option value="none">Default</option>
-              <option value="sepia">Sepia</option>
-              <option value="darker">Darker</option>
-              <option value="lighter">Lighter</option>
-            </select>
-          </div>
-          <div class="audio-row">
-            <label for="cursor-trail-toggle" id="cursor-trail-label">Cursor Trail Effect (homepage)</label>
-            <input type="checkbox" id="cursor-trail-toggle" class="audio-checkbox" />
-          </div>
-          <div class="audio-row">
-            <label for="crt-scanlines-toggle" id="crt-scanlines-label">Retro CRT Scanlines</label>
-            <input type="checkbox" id="crt-scanlines-toggle" class="audio-checkbox" />
-          </div>
+          <details class="settings-advanced">
+            <summary>Advanced</summary>
+            <div class="audio-row">
+              <label for="theme-preset-select" id="theme-preset-label">Theme Preset</label>
+              <select id="theme-preset-select">
+                <option value="none">Default</option>
+                <option value="sepia">Sepia</option>
+                <option value="darker">Darker</option>
+                <option value="lighter">Lighter</option>
+              </select>
+            </div>
+            <div class="audio-row">
+              <label for="cursor-trail-toggle" id="cursor-trail-label">Cursor Trail Effect (homepage)</label>
+              <input type="checkbox" id="cursor-trail-toggle" class="audio-checkbox" />
+            </div>
+            <div class="audio-row">
+              <label for="crt-scanlines-toggle" id="crt-scanlines-label">Retro CRT Scanlines</label>
+              <input type="checkbox" id="crt-scanlines-toggle" class="audio-checkbox" />
+            </div>
+          </details>
           <div class="audio-row">
             <label for="nickname-color-picker" id="nickname-color-label">Nickname Color</label>
             <input type="color" id="nickname-color-picker" value="#ffe08a" />

@@ -7752,7 +7752,17 @@ export class Game {
       if (!activePage) return
       for (const row of activePage.querySelectorAll('.audio-row')) {
         const label = row.querySelector('label')?.textContent.toLowerCase() || ''
-        row.style.display = !filter || label.includes(filter) ? '' : 'none'
+        const matches = !filter || label.includes(filter)
+        row.style.display = matches ? '' : 'none'
+        // A <details> (see the Advanced disclosure in Personalization)
+        // hides its content via the UA's own collapsed state, ignoring a
+        // child's own `display` override entirely - a real filter match
+        // inside one would otherwise stay invisible even though this loop
+        // just un-hid it. Auto-expand on a real match; leave collapsed
+        // state alone when the search is cleared rather than re-collapsing
+        // it out from under someone who opened it on purpose.
+        const details = row.closest('details')
+        if (details && matches && filter) details.open = true
       }
     })
   }
