@@ -18,6 +18,10 @@
     <div id="app">
       <canvas id="scene"></canvas>
 
+      <button id="build-mode-exit-btn" style="display: none">Exit Build Mode</button>
+      <button id="build-mode-save-btn" style="display: none">Save</button>
+      <div id="build-picker" style="display: none"></div>
+
       <div id="crosshair"></div>
 
       <div id="damage-flash"></div>
@@ -495,6 +499,10 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
                 <span>Credits</span>
                 <span class="nav-badge-dot" id="whats-new-dot" style="display: none"></span>
+              </button>
+              <button id="build-mode-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                <span>Build</span>
               </button>
             </nav>
 

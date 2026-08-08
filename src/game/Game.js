@@ -43,6 +43,7 @@ import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
 import * as MenuEasterEggs from './MenuEasterEggs.js'
 import { JOKE_TIPS, FUNNY_TRIVIA } from './MenuEasterEggs.js'
 import * as MenuPresets from './MenuPresets.js'
+import { BuildMode } from './BuildMode.js'
 import * as CloudSync from './CloudSync.js'
 import { setColorblind } from './Accessibility.js'
 import { registerZone } from './Zones.js'
@@ -3390,6 +3391,7 @@ export class Game {
     // (bare-bones mode), regardless of the separate Performance Mode
     // setting - a real, free GPU cost cut (no multi-sample resolve pass).
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: !LOW_QUALITY_MODE && !this.settings.performanceMode })
+    this.buildMode = new BuildMode(this.renderer)
     this._userResScale = (this.settings.renderResolution ?? 100) / 100
     this.renderer.setPixelRatio(this._basePixelRatio() * this._userResScale)
     // Shadows off entirely under LOW_QUALITY_MODE - a big chunk of both
@@ -4099,6 +4101,7 @@ export class Game {
     this.dailyLeaderboardEl = document.getElementById('death-daily-leaderboard')
     this.shareRunCardBtn = document.getElementById('share-run-card-btn')
     this.creditsBtn = document.getElementById('credits-btn')
+    this.buildModeBtn = document.getElementById('build-mode-btn')
     this.menuAriaSummary = document.getElementById('menu-aria-summary')
     this.menuTitle = document.getElementById('menu-title')
     this.menuBgRain = document.getElementById('menu-bg-rain')
@@ -8991,6 +8994,40 @@ export class Game {
     }
   }
 
+  // Build Mode - a standalone block-placing sandbox (see BuildMode.js's own
+  // comment), reachable from the homepage. Reuses this.menu's existing
+  // hide/show pattern (same as starting a real run) rather than a new panel.
+  _enterBuildMode() {
+    this.menu.style.display = 'none'
+    const exitBtn = document.getElementById('build-mode-exit-btn')
+    if (exitBtn) exitBtn.style.display = 'block'
+    const saveBtn = document.getElementById('build-mode-save-btn')
+    if (saveBtn) saveBtn.style.display = 'block'
+    this.buildMode.enter()
+    // requestPointerLock() genuinely fails when not triggered by a real,
+    // trusted user gesture (e.g. Playwright driving this programmatically,
+    // or headless Chromium in general - see this project's own documented
+    // Pointer Lock gotcha) and can both throw synchronously and reject its
+    // returned promise; swallow both rather than letting either surface as
+    // an uncaught page error.
+    try {
+      this.renderer.domElement.requestPointerLock()?.catch(() => {})
+    } catch {
+      // Not available in this environment - Build Mode still works via
+      // mouse-move events, it just won't be pointer-locked.
+    }
+  }
+
+  _exitBuildMode() {
+    this.buildMode.exit()
+    document.exitPointerLock()
+    const exitBtn = document.getElementById('build-mode-exit-btn')
+    if (exitBtn) exitBtn.style.display = 'none'
+    const saveBtn = document.getElementById('build-mode-save-btn')
+    if (saveBtn) saveBtn.style.display = 'none'
+    this.menu.style.display = ''
+  }
+
   // Diffs the live settings object against the snapshot taken when the
   // panel was opened (see _toggleSettings) - shallow key comparison, good
   // enough since nearly every settings field is a primitive; the handful
@@ -11525,6 +11562,11 @@ export class Game {
         document.getElementById('tab-controls')?.click()
       })
     }
+    if (this.buildModeBtn) this.buildModeBtn.addEventListener('click', () => this._enterBuildMode())
+    const buildExitBtn = document.getElementById('build-mode-exit-btn')
+    if (buildExitBtn) buildExitBtn.addEventListener('click', () => this._exitBuildMode())
+    const buildSaveBtn = document.getElementById('build-mode-save-btn')
+    if (buildSaveBtn) buildSaveBtn.addEventListener('click', () => this.buildMode.save())
     MenuPresets.renderMenuPresets(this)
     MenuEasterEggs.bindAll(this)
     window.addEventListener('online', () => this._updateOnlineStatus())
@@ -12744,6 +12786,13 @@ export class Game {
     const lines = ['tutorialHint1', 'tutorialHint2', 'tutorialHint3', 'tutorialHint4']
     lines.forEach((key, i) => {
       setTimeout(() => {
+        // Build Mode is a separate standalone sandbox (see BuildMode.js's
+        // own comment) that doesn't set gameStarted, so the usual
+        // "if (!this.gameStarted) return" guard this codebase uses for
+        // homepage-only toasts wouldn't catch it - a delayed hint firing
+        // while the player has since entered Build Mode would otherwise
+        // render on top of that completely different canvas.
+        if (this.buildMode.active) return
         this.tutorialHintEl.innerHTML = tHtml(key)
         this.tutorialHintEl.classList.remove('show')
         void this.tutorialHintEl.offsetWidth
@@ -17063,6 +17112,15 @@ export class Game {
   }
 
   _tick() {
+    // Build Mode is a fully standalone sandbox (see BuildMode.js's own
+    // comment) - while active, none of the normal survival tick logic
+    // below runs at all, not even the FPS counter.
+    if (this.buildMode.active) {
+      const dt = Math.min(this.timer.getDelta(), 0.1)
+      this.buildMode.update(dt)
+      this.buildMode.render()
+      return
+    }
     this._fpsFrameCount++
     const nowFps = performance.now()
     const fpsElapsed = nowFps - this._fpsLastUpdate

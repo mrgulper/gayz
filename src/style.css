@@ -52,6 +52,51 @@ html.dyslexia-font body {
   height: 100%;
 }
 
+#build-mode-exit-btn,
+#build-mode-save-btn {
+  position: fixed;
+  top: 16px;
+  z-index: 20;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(10, 10, 10, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#build-mode-exit-btn { right: 16px; }
+#build-mode-save-btn { right: 168px; }
+
+#build-picker {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(3, 64px);
+  gap: 10px;
+  padding: 16px;
+  background: rgba(10, 10, 10, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+}
+
+.build-picker-swatch {
+  width: 64px;
+  height: 64px;
+  border-radius: 4px;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+
+.build-picker-swatch.selected {
+  border-color: #d9a34a;
+}
+
 #crosshair {
   position: absolute;
   top: 50%;
@@ -5119,6 +5164,25 @@ html.theme-lighter #app { filter: brightness(1.25); }
 
   #menu-title-img {
     width: min(90%, 480px);
+  }
+
+  /* Build Mode's nav button (Foundation Update-era rows already claimed
+     the rest of this breakpoint's slack) pushed #menu-nav-buttons' own
+     column past budget at 1366x768 specifically - one more size step
+     down from the 960px breakpoint's own #menu-nav-buttons override,
+     same "shrink before removing" precedent as everything else here. */
+  #menu-nav-buttons {
+    gap: 5px;
+  }
+
+  #menu-nav-buttons button {
+    padding: 10px 20px;
+    font-size: 14px;
+  }
+
+  #menu-nav-buttons button svg {
+    width: 20px;
+    height: 20px;
   }
 
   /* At this height the card-list cap alone isn't enough (fixed-px content
