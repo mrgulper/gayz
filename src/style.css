@@ -4385,106 +4385,38 @@ html.theme-lighter #app { filter: brightness(1.25); }
 #play-btn {
   position: relative;
   margin-top: 0;
-  padding: 14px 115px;
-  font-family: 'Black Ops One', var(--menu-display-font);
-  font-size: 40px;
-  letter-spacing: 3px;
-  text-transform: uppercase;
-  color: var(--menu-gold);
-  background:
-    /* Stitched/riveted-seam tick marks along the top and bottom edges -
-       a thin repeating-hatch strip positioned right inside the border,
-       matching the reference mockup's hash-marked border (an octagon
-       clip-path can't easily follow a repeating pattern around its
-       angled corners, so this covers the two long flat edges where it
-       reads clearly, same tradeoff as any CSS approximation of a hand-
-       drawn border - not literally pixel-identical, closest achievable
-       without a custom border-image asset). */
-    repeating-linear-gradient(90deg, #8a8f96 0px, #8a8f96 2px, transparent 2px, transparent 9px) top 5px left / 100% 3px no-repeat,
-    repeating-linear-gradient(90deg, #8a8f96 0px, #8a8f96 2px, transparent 2px, transparent 9px) bottom 5px left / 100% 3px no-repeat,
-    var(--grain-texture),
-    radial-gradient(4px 4px at 10% 20%, #8a8f96, transparent 70%),
-    radial-gradient(4px 4px at 90% 20%, #8a8f96, transparent 70%),
-    radial-gradient(4px 4px at 10% 80%, #8a8f96, transparent 70%),
-    radial-gradient(4px 4px at 90% 80%, #8a8f96, transparent 70%),
-    /* Extra rivet dots along the mid-edges (not just corners) - a stamped/
-       riveted seam look, matching the reference mockup's Play button. */
-    radial-gradient(3px 3px at 50% 12%, #8a8f96, transparent 70%),
-    radial-gradient(3px 3px at 50% 88%, #8a8f96, transparent 70%),
-    radial-gradient(3px 3px at 3% 50%, #8a8f96, transparent 70%),
-    radial-gradient(3px 3px at 97% 50%, #8a8f96, transparent 70%),
-    linear-gradient(180deg, #52585d 0%, #2c2f33 55%, #17191b 100%);
-  /* Double-border groove (a slightly darker outline sitting just inside
-     the main gold border) - the "reinforced metal plate" look the
-     mockup's edge has, rather than one single flat line. */
-  border: 3px solid var(--menu-gold);
-  outline: 1px solid rgba(0, 0, 0, 0.55);
-  outline-offset: -6px;
-  clip-path: polygon(2% 0%, 98% 0%, 100% 18%, 100% 82%, 98% 100%, 2% 100%, 0% 82%, 0% 18%);
+  width: min(260px, 50vw);
+  aspect-ratio: 1364 / 436;
+  padding: 0;
+  border: none;
+  outline: none;
   cursor: pointer;
-  text-shadow: 0 0 12px rgba(227, 166, 60, 0.7), 0 2px 3px rgba(0, 0, 0, 0.9);
-  box-shadow:
-    inset 0 2px 3px rgba(255, 255, 255, 0.2),
-    inset 0 -5px 8px rgba(0, 0, 0, 0.65),
-    0 0 26px 6px rgba(217, 163, 74, 0.45),
-    0 8px 18px rgba(0, 0, 0, 0.55);
+  background-color: transparent;
+  background-image: url('/images/play-btn-plate.webp');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  /* The plate graphic already has "PLAY" baked into it (gold text, its
+     own bevel/rivets/border) - the real <button> text stays in the DOM
+     for accessibility and so _updateTexts() doesn't need touching, just
+     painted invisible so it doesn't double up with the image's own text. */
+  color: transparent;
+  text-shadow: none;
+  /* Play Button Color (Controls tab) keeps doing something real even
+     though it can no longer recolor the image's baked-in gold text -
+     it now drives the ambient glow behind the plate instead. */
+  box-shadow: 0 0 26px 6px color-mix(in srgb, var(--play-btn-color, var(--menu-gold)) 45%, transparent);
   transition: transform 0.15s ease, box-shadow 0.25s ease;
-}
-
-/* Corner reinforcement plates (see the mockup's more elaborate corner
-   treatment than a plain clipped edge) - reuses the same beveled
-   two-tone box-shadow technique the panel corner brackets already use
-   elsewhere, sized for the Play button's larger octagon. */
-/* Play Button Color (Controls tab) - independent from the Homepage
-   Accent Color above even though #play-btn's base rule already reads
-   --menu-gold for color/border/shadows; this reapplies just those same
-   properties with a dedicated --play-btn-color var (falling back to
-   --menu-gold when unset), so the two settings can diverge. */
-#play-btn {
-  color: var(--play-btn-color, var(--menu-gold));
-  border-color: var(--play-btn-color, var(--menu-gold));
-  text-shadow: 0 0 12px color-mix(in srgb, var(--play-btn-color, var(--menu-gold)) 70%, transparent), 0 2px 3px rgba(0, 0, 0, 0.9);
-}
-
-#play-btn::before,
-#play-btn::after {
-  content: '';
-  position: absolute;
-  width: 22px;
-  height: 22px;
-  pointer-events: none;
-  box-shadow: -0.5px -0.5px 0 rgba(255, 255, 255, 0.3), 1px 1px 1px rgba(0, 0, 0, 0.5);
-}
-
-#play-btn::before {
-  top: 4px;
-  left: 4px;
-  border-top: 2px solid var(--menu-gold);
-  border-left: 2px solid var(--menu-gold);
-}
-
-#play-btn::after {
-  bottom: 4px;
-  right: 4px;
-  border-bottom: 2px solid var(--menu-gold);
-  border-right: 2px solid var(--menu-gold);
 }
 
 #play-btn:hover {
   transform: translateY(-3px);
-  box-shadow:
-    inset 0 2px 3px rgba(255, 255, 255, 0.25),
-    inset 0 -5px 8px rgba(0, 0, 0, 0.6),
-    0 0 38px 10px rgba(217, 163, 74, 0.6),
-    0 10px 22px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 38px 10px color-mix(in srgb, var(--play-btn-color, var(--menu-gold)) 60%, transparent);
 }
 
 #play-btn:active {
   transform: translateY(2px);
-  box-shadow:
-    inset 0 3px 6px rgba(0, 0, 0, 0.7),
-    0 0 18px 4px rgba(217, 163, 74, 0.35),
-    0 3px 8px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 18px 4px color-mix(in srgb, var(--play-btn-color, var(--menu-gold)) 35%, transparent);
 }
 
 /* Fixed + centered so it sits exactly in the middle of the viewport -
