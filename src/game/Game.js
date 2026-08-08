@@ -1497,10 +1497,6 @@ const HEALTH_REGEN_PER_SEC = 4
 // check - simpler than tracking attacker angle, and still reads as "block"
 // since it's a large, constant reduction).
 const SHIELD_DAMAGE_REDUCTION = 0.7
-// Throwing Knife - a fast, silent one-hit-kill throwable, distinct from the
-// grenade's slow lob + AOE.
-const KNIFE_THROW_SPEED = 24
-const KNIFE_DAMAGE = 500
 // Weapon Upgrade Machine - cost doubles each use *this run* (resets with
 // everything else on a fresh run), capped uses *per night* so it can't be
 // abused as a single mega-grind session.
@@ -1651,8 +1647,7 @@ const SECRET_SEQUENCE_BONUS_DURATION_MS = 15000
 const SECRET_SEQUENCE_SPEED_MULT = 1.6
 // Rare one-time Easter egg (see _maybeTriggerRareEasterEgg) - checked on
 // every night-advance (a low-frequency, natural tick), never more than
-// once per save ever.
-const RARE_EASTER_EGG_KEY = 'gayz-easter-egg-seen'
+// once per save ever (gated by secretsProgress.easterEggSeen).
 const RARE_EASTER_EGG_CHANCE = 0.05
 // Vault bonus second reward roll (see _openVault).
 const VAULT_BONUS_ROLL_CHANCE = 0.25
@@ -15265,6 +15260,10 @@ export class Game {
       this.rainOverlayEl.style.display = 'none'
       this.snowOverlayEl.style.display = 'none'
       if (this.sandstormOverlayEl) this.sandstormOverlayEl.style.display = 'none'
+      // Guarded the same way as flood below - don't clobber an in-progress
+      // flood's slowdown (_checkFlooding clears this on its own timer) just
+      // because the weather re-rolled to Perfect in the same window.
+      if (this.player && !this._floodActiveUntil) this.player.environmentMult = 1
       this.nextLightningAt = 0
       // Guarded - _rollWeather is called once from the constructor itself,
       // before this.loreToast (a DOM ref assigned later in it) exists yet.
@@ -15282,6 +15281,15 @@ export class Game {
     this.rainOverlayEl.style.display = this.raining ? 'block' : 'none'
     this.snowOverlayEl.style.display = this.snowing ? 'block' : 'none'
     if (this.sandstormOverlayEl) this.sandstormOverlayEl.style.display = this.sandstorming ? 'block' : 'none'
+    // Sandstorm's actual movement slowdown (see SANDSTORM_SPEED_MULT's own
+    // comment) - was previously only ever a visual overlay + toast with no
+    // real gameplay effect, unlike heatwave's thirst-drain multiplier just
+    // below this function. Shares PlayerController's environmentMult slot
+    // with flood (see that field's own comment - the two are mutually
+    // exclusive by construction, sandstorm only rolls when !raining and
+    // flood only rolls when raining) - guarded so a re-roll can't clobber
+    // an in-progress flood still counting down on its own timer.
+    if (this.player && !this._floodActiveUntil) this.player.environmentMult = this.sandstorming ? SANDSTORM_SPEED_MULT : 1
     // Same constructor-ordering guard as the perfectWeather branch above.
     if (this.loreToast) {
       if (this.sandstorming) this._showLoreToast(t('sandstormToast'))

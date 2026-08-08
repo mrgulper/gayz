@@ -80,10 +80,10 @@ const DEFAULT_WEAKEN_MULT = 0.55
 const CRIPPLE_LEG_HITS = 2
 const CRIPPLED_SPEED_MULT = 0.35
 // Hivemind boss aura - a boss's mere presence speeds up everything near it
-// (see ZombieManager's proximity check), distinct from a Screamer's own
-// enrage (a one-off scream pulse rather than a standing aura).
+// (the actual radius check/constant lives in ZombieManager.js, next to the
+// proximity scan itself), distinct from a Screamer's own enrage (a one-off
+// scream pulse rather than a standing aura).
 const HIVEMIND_SPEED_MULT = 1.3
-const HIVEMIND_RADIUS = 14
 
 // Varied hit-reaction stagger - a brief world-space knockback away from
 // (roughly) the player, scaled by damage so a pistol tap barely registers
