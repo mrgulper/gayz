@@ -12,17 +12,120 @@ const MAX_INSTANCES_PER_TYPE = 4096
 const SAVE_KEY = 'gayz-build-mode'
 
 export const BLOCK_TYPES = [
-  { id: 'concrete', color: 0x9a9a92 },
-  { id: 'brick', color: 0xa8503a },
-  { id: 'wood', color: 0x8a5a34 },
-  { id: 'metal', color: 0xb0b8bd },
-  { id: 'grass', color: 0x5fa84a },
-  { id: 'dirt', color: 0x6b4a30 },
-  { id: 'glass', color: 0xaee0e8 },
-  { id: 'asphalt', color: 0x3a3a3c },
-  { id: 'stone', color: 0x808078 },
+  { id: 'concrete', color: 0x9a9a92, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'brick', color: 0xa8503a, pattern: 'brick', roughness: 0.85, metalness: 0 },
+  { id: 'wood', color: 0x8a5a34, pattern: 'wood', roughness: 0.7, metalness: 0 },
+  { id: 'metal', color: 0xb0b8bd, pattern: 'metal', roughness: 0.35, metalness: 0.7 },
+  { id: 'grass', color: 0x5fa84a, pattern: 'speckle', roughness: 1, metalness: 0 },
+  { id: 'dirt', color: 0x6b4a30, pattern: 'speckle', roughness: 1, metalness: 0 },
+  { id: 'glass', color: 0xaee0e8, pattern: 'glass', roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.55 },
+  { id: 'asphalt', color: 0x3a3a3c, pattern: 'speckle', roughness: 0.95, metalness: 0 },
+  { id: 'stone', color: 0x808078, pattern: 'speckle', roughness: 0.9, metalness: 0 },
 ]
 const VALID_TYPE_IDS = new Set(BLOCK_TYPES.map((b) => b.id))
+
+// Flat MeshStandardMaterial colors read as plain painted planes rather than
+// distinct blocks once several sit side by side - real Minecraft-style
+// building games sell "3D block" via a per-face texture (grain/speckle/
+// mortar lines) plus a darker edge border, not geometry. Baked once per
+// type into a small canvas at construction time, not per-instance (all
+// instances of a type share one InstancedMesh material/texture).
+function _shade(base, delta) {
+  return base.clone().offsetHSL(0, 0, delta)
+}
+function _rgb(c) {
+  return `${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)}`
+}
+function _drawSpeckle(ctx, base, size) {
+  for (let i = 0; i < 90; i++) {
+    const c = _shade(base, (Math.random() - 0.5) * 0.18)
+    ctx.fillStyle = `rgb(${_rgb(c)})`
+    const s = 1 + Math.random() * 2
+    ctx.fillRect(Math.random() * size, Math.random() * size, s, s)
+  }
+}
+function _drawBrick(ctx, base, size) {
+  const mortar = _shade(base, 0.3)
+  ctx.strokeStyle = `rgb(${_rgb(mortar)})`
+  ctx.lineWidth = 2
+  const rows = 4
+  const rowH = size / rows
+  for (let r = 0; r <= rows; r++) {
+    ctx.beginPath(); ctx.moveTo(0, r * rowH); ctx.lineTo(size, r * rowH); ctx.stroke()
+  }
+  for (let r = 0; r < rows; r++) {
+    const offset = r % 2 === 0 ? 0 : size / 4
+    for (let x = offset; x <= size; x += size / 2) {
+      ctx.beginPath(); ctx.moveTo(x, r * rowH); ctx.lineTo(x, (r + 1) * rowH); ctx.stroke()
+    }
+  }
+}
+function _drawWood(ctx, base, size) {
+  const planks = 4
+  const plankW = size / planks
+  for (let p = 0; p < planks; p++) {
+    const shade = _shade(base, (Math.random() - 0.5) * 0.1)
+    ctx.fillStyle = `rgb(${_rgb(shade)})`
+    ctx.fillRect(p * plankW, 0, plankW, size)
+  }
+  const grain = _shade(base, -0.2)
+  ctx.strokeStyle = `rgba(${_rgb(grain)},0.5)`
+  ctx.lineWidth = 1
+  for (let p = 1; p < planks; p++) {
+    ctx.beginPath(); ctx.moveTo(p * plankW, 0); ctx.lineTo(p * plankW, size); ctx.stroke()
+  }
+  for (let i = 0; i < 10; i++) {
+    const y = Math.random() * size
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(size, y + (Math.random() - 0.5) * 4); ctx.stroke()
+  }
+}
+function _drawMetal(ctx, base, size) {
+  const line = _shade(base, -0.25)
+  ctx.strokeStyle = `rgb(${_rgb(line)})`
+  ctx.lineWidth = 2
+  ctx.strokeRect(1, 1, size - 2, size - 2)
+  ctx.beginPath(); ctx.moveTo(0, size / 2); ctx.lineTo(size, size / 2); ctx.stroke()
+  ctx.beginPath(); ctx.moveTo(size / 2, 0); ctx.lineTo(size / 2, size); ctx.stroke()
+  const rivet = _shade(base, 0.35)
+  ctx.fillStyle = `rgb(${_rgb(rivet)})`
+  const pad = 4
+  for (const [x, y] of [[pad, pad], [size - pad, pad], [pad, size - pad], [size - pad, size - pad]]) {
+    ctx.beginPath(); ctx.arc(x, y, 1.6, 0, Math.PI * 2); ctx.fill()
+  }
+}
+function _drawGlass(ctx, base, size) {
+  const line = _shade(base, -0.3)
+  ctx.strokeStyle = `rgba(${_rgb(line)},0.8)`
+  ctx.lineWidth = 2
+  ctx.beginPath(); ctx.moveTo(size / 2, 0); ctx.lineTo(size / 2, size); ctx.stroke()
+  ctx.beginPath(); ctx.moveTo(0, size / 2); ctx.lineTo(size, size / 2); ctx.stroke()
+  const shine = _shade(base, 0.4)
+  ctx.fillStyle = `rgba(${_rgb(shine)},0.5)`
+  ctx.beginPath(); ctx.moveTo(3, 3); ctx.lineTo(size / 2 - 2, 3); ctx.lineTo(3, size / 2 - 2); ctx.closePath(); ctx.fill()
+}
+const PATTERN_DRAWERS = { speckle: _drawSpeckle, brick: _drawBrick, wood: _drawWood, metal: _drawMetal, glass: _drawGlass }
+
+function _makeBlockTexture(colorHex, pattern) {
+  const size = 32
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+  const base = new THREE.Color(colorHex)
+  ctx.fillStyle = `rgb(${_rgb(base)})`
+  ctx.fillRect(0, 0, size, size)
+  const draw = PATTERN_DRAWERS[pattern]
+  if (draw) draw(ctx, base, size)
+  const edge = _shade(base, -0.32)
+  ctx.strokeStyle = `rgba(${_rgb(edge)},0.6)`
+  ctx.lineWidth = 2
+  ctx.strokeRect(1, 1, size - 2, size - 2)
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.magFilter = THREE.NearestFilter
+  tex.minFilter = THREE.NearestFilter
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
+}
 
 export class BuildMode {
   constructor(renderer) {
@@ -36,12 +139,25 @@ export class BuildMode {
     this.scene.add(hemiLight)
     const sunLight = new THREE.DirectionalLight(0xffffff, 1.0)
     sunLight.position.set(20, 30, 10)
+    // Real cast shadows (not just per-face lighting) are what actually
+    // reads as "3D" from a distance - a flat-shaded cube and a shadowed
+    // one look very different even with the same geometry.
+    sunLight.castShadow = true
+    sunLight.shadow.mapSize.set(1024, 1024)
+    const shadowSpan = GROUND_SIZE / 2 + 8
+    sunLight.shadow.camera.left = -shadowSpan
+    sunLight.shadow.camera.right = shadowSpan
+    sunLight.shadow.camera.top = shadowSpan
+    sunLight.shadow.camera.bottom = -shadowSpan
+    sunLight.shadow.camera.near = 1
+    sunLight.shadow.camera.far = 100
     this.scene.add(sunLight)
 
     const groundGeo = new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE)
     const groundMat = new THREE.MeshStandardMaterial({ color: 0x6b8f4e })
     this.ground = new THREE.Mesh(groundGeo, groundMat)
     this.ground.rotation.x = -Math.PI / 2
+    this.ground.receiveShadow = true
     this.scene.add(this.ground)
 
     this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 500)
@@ -71,12 +187,21 @@ export class BuildMode {
     this._instancedMeshes = {}
     this._instanceKeyByIndex = {} // type id -> array mapping instance index -> "x,y,z" key, for swap-remove
     const blockGeo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)
-    for (const { id, color } of BLOCK_TYPES) {
-      const mesh = new THREE.InstancedMesh(blockGeo, new THREE.MeshStandardMaterial({ color }), MAX_INSTANCES_PER_TYPE)
+    for (const bt of BLOCK_TYPES) {
+      const material = new THREE.MeshStandardMaterial({
+        map: _makeBlockTexture(bt.color, bt.pattern),
+        roughness: bt.roughness,
+        metalness: bt.metalness,
+        transparent: !!bt.transparent,
+        opacity: bt.opacity ?? 1,
+      })
+      const mesh = new THREE.InstancedMesh(blockGeo, material, MAX_INSTANCES_PER_TYPE)
       mesh.count = 0
+      mesh.castShadow = true
+      mesh.receiveShadow = true
       this.scene.add(mesh)
-      this._instancedMeshes[id] = mesh
-      this._instanceKeyByIndex[id] = []
+      this._instancedMeshes[bt.id] = mesh
+      this._instanceKeyByIndex[bt.id] = []
     }
 
     this._raycaster = new THREE.Raycaster()

@@ -1179,33 +1179,6 @@ function saveBossRushLeaderboard(entries) {
   }
 }
 
-// Household Leaderboard (Local Sharing batch) - same shape as the main
-// leaderboard above, but keyed by settings.nickname per entry, so multiple
-// people sharing one browser/computer can compare runs against EACH OTHER
-// by name, not just against their own single best. Guest Mode runs never
-// reach this (see _recordRunEnd's own guard) - a guest's scores shouldn't
-// crowd out the household's own names.
-const HOUSEHOLD_LEADERBOARD_KEY = 'gayz-household-leaderboard'
-const HOUSEHOLD_LEADERBOARD_MAX = 10
-
-function loadHouseholdLeaderboard() {
-  try {
-    const raw = localStorage.getItem(HOUSEHOLD_LEADERBOARD_KEY)
-    const parsed = raw ? JSON.parse(raw) : []
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
-}
-
-function saveHouseholdLeaderboard(entries) {
-  try {
-    localStorage.setItem(HOUSEHOLD_LEADERBOARD_KEY, JSON.stringify(entries))
-  } catch {
-    // Storage unavailable - leaderboard just won't persist across sessions.
-  }
-}
-
 // Pass-the-Controller Challenge (Local Sharing batch) - a single stored
 // snapshot (not a list) of the most recent run's config, offered to
 // whoever plays next via #accept-challenge-btn (see _updateAcceptChallengeButton).
@@ -2564,8 +2537,8 @@ export function _escapeHtml(str) {
 }
 
 // Coerces an untrusted value to a plain finite number before it's allowed
-// anywhere near an innerHTML template (see _compareSaveFile/
-// _updateHouseholdLeaderboardDisplay) - both read stat-shaped fields
+// anywhere near an innerHTML template (see _compareSaveFile) - it reads
+// stat-shaped fields
 // (night/kills/bestNight/totalKills) that, unlike free-form name text
 // above, are supposed to always be numbers, so coercion is both the
 // correctness fix (a string here is already wrong data) and the security
@@ -3054,7 +3027,6 @@ export class Game {
     this._sessionStartTime = performance.now()
     this._leaderboardUnsubscribe = null
     this.menuBossRushLeaderboard = document.getElementById('menu-bossrush-leaderboard')
-    this.menuHouseholdLeaderboard = document.getElementById('menu-household-leaderboard')
     this.menuHardcoreMemorial = document.getElementById('menu-hardcore-memorial')
     this.difficultyBtns = document.querySelectorAll('.difficulty-btn')
     this.roleBtns = document.querySelectorAll('.role-btn')
@@ -3250,7 +3222,6 @@ export class Game {
     this.narrativeStats = loadNarrativeStats()
     this.loginStreak = loadLoginStreak()
     this.leaderboard = loadLeaderboard()
-    this.householdLeaderboard = loadHouseholdLeaderboard()
     this.bossRushLeaderboard = loadBossRushLeaderboard()
     this.hardcoreMemorial = loadHardcoreMemorial()
     this.dailyBest = loadDailyBest()
@@ -8592,7 +8563,6 @@ export class Game {
     if (!window.confirm(t('clearLeaderboardsConfirm'))) return
     localStorage.removeItem(LEADERBOARD_KEY)
     localStorage.removeItem(BOSS_RUSH_LEADERBOARD_KEY)
-    localStorage.removeItem(HOUSEHOLD_LEADERBOARD_KEY)
     localStorage.removeItem(DAILY_LEADERBOARD_KEY)
     window.location.reload()
   }
@@ -8664,7 +8634,7 @@ export class Game {
   // rather than needing to be told or guess the settings verbally.
   _captureChallengeHandoff() {
     saveChallengeHandoff({
-      name: this.settings.nickname || t('householdAnonymous'),
+      name: this.settings.nickname || t('anonymousPlayerName'),
       night: this.night,
       kills: this.kills,
       difficulty: this.settings.difficulty,
@@ -8999,6 +8969,11 @@ export class Game {
   // hide/show pattern (same as starting a real run) rather than a new panel.
   _enterBuildMode() {
     this.menu.style.display = 'none'
+    // _maybeShowTutorialHints' own guard only stops FUTURE hints from
+    // firing once Build Mode is active - it can't stop one already
+    // mid-animation at the exact moment Build Mode is entered. Hide it
+    // directly here too, for that already-in-flight case.
+    if (this.tutorialHintEl) this.tutorialHintEl.classList.remove('show')
     const exitBtn = document.getElementById('build-mode-exit-btn')
     if (exitBtn) exitBtn.style.display = 'block'
     const saveBtn = document.getElementById('build-mode-save-btn')
@@ -10810,7 +10785,6 @@ export class Game {
 
     this._updateBestStatsDisplay()
     this._updateBossRushLeaderboardDisplay()
-    this._updateHouseholdLeaderboardDisplay()
     this._updateAcceptChallengeButton()
     this._updateHardcoreMemorialDisplay()
     if (this.inventoryOpen) this._refreshInventoryPanel()
@@ -11803,34 +11777,6 @@ export class Game {
       saveBossRushLeaderboard(this.bossRushLeaderboard)
     }
     this._updateBossRushLeaderboardDisplay()
-
-    // Household Leaderboard (Local Sharing batch) - same entry shape plus
-    // a name, so multiple people sharing this browser can tell whose run
-    // was whose. Falls back to a plain label rather than skipping the
-    // entry outright when nobody's typed a nickname.
-    this.householdLeaderboard.push({ name: this.settings.nickname || t('householdAnonymous'), night: this.night, kills: this.kills, points: this.points, date: Date.now() })
-    this.householdLeaderboard.sort((a, b) => (b.night - a.night) || (b.kills - a.kills) || (b.points - a.points))
-    this.householdLeaderboard = this.householdLeaderboard.slice(0, HOUSEHOLD_LEADERBOARD_MAX)
-    saveHouseholdLeaderboard(this.householdLeaderboard)
-    this._updateHouseholdLeaderboardDisplay()
-  }
-
-  _updateHouseholdLeaderboardDisplay() {
-    if (!this.menuHouseholdLeaderboard) return
-    if (this.householdLeaderboard.length === 0) {
-      this.menuHouseholdLeaderboard.style.display = 'none'
-      this.menuHouseholdLeaderboard.innerHTML = ''
-      return
-    }
-    this.menuHouseholdLeaderboard.style.display = ''
-    // night/kills also go through _safeStatNumber, not just name through
-    // _escapeHtml - entries here can arrive via Import Save (see its own
-    // doc comment), an uploaded file that's just as attacker-controlled as
-    // Compare Save's, not just from this game's own real gameplay.
-    const rows = this.householdLeaderboard
-      .map((e, i) => `<div class="leaderboard-row"><span>#${i + 1} ${_escapeHtml(e.name)}</span><span>${t('hudNight', { n: _safeStatNumber(e.night) })}</span><span>${t('hudKills', { n: _safeStatNumber(e.kills) })}</span></div>`)
-      .join('')
-    this.menuHouseholdLeaderboard.innerHTML = `<p class="menu-best-stats">${t('householdLeaderboardTitle')}</p>${rows}`
   }
 
   // Shows once this save has ever recorded a Boss Rush run, regardless of
