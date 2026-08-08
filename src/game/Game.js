@@ -42,6 +42,7 @@ import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
 import * as MenuEasterEggs from './MenuEasterEggs.js'
 import { JOKE_TIPS, FUNNY_TRIVIA } from './MenuEasterEggs.js'
+import * as MenuPresets from './MenuPresets.js'
 import * as CloudSync from './CloudSync.js'
 import { setColorblind } from './Accessibility.js'
 import { registerZone } from './Zones.js'
@@ -171,7 +172,7 @@ const RUN_START_TRAITS = [
 const DIFFICULTY_FLAVOR_KEYS = { easy: 'diffFlavorEasy', normal: 'diffFlavorNormal', hard: 'diffFlavorHard', nightmare: 'diffFlavorNightmare', apex: 'diffFlavorApex' }
 // Shared with _updateTexts' loadout button labels and the Journal's World
 // State section (see _renderJournal) - one lookup instead of two copies.
-const LOADOUT_LABEL_KEYS = { balanced: 'loadoutBalanced', runner: 'loadoutRunner', tank: 'loadoutTank' }
+export const LOADOUT_LABEL_KEYS = { balanced: 'loadoutBalanced', runner: 'loadoutRunner', tank: 'loadoutTank' }
 // Main-menu news ticker thresholds (see _updateMenuNewsTicker) - both read
 // against bestStats.bestNight.
 const NEWS_TICKER_MID_NIGHT = 5
@@ -684,7 +685,7 @@ function saveEndingSeen() {
 const ENDING_MILESTONE_NIGHT = 10
 
 let _settingsSavedPulseTimer = null
-function saveSettings(settings) {
+export function saveSettings(settings) {
   try {
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
   } catch {
@@ -11460,130 +11461,6 @@ export class Game {
     }
   }
 
-  // Loadout Presets - extends the existing hotbarPresets (weapon slots
-  // only) with up to 3 named saves of class+difficulty+companion role,
-  // the 3 selections in the "Choose Class"/"Difficulty" panels. Click
-  // Save Setup to add one (round-robin once all 3 slots are full); click
-  // a chip to load it; click a chip's x to delete it.
-  _saveMenuPreset() {
-    // Reads the difficulty button's own current (already-translated) label
-    // rather than a new i18n key map - DIFFICULTY_LABEL_KEYS doesn't exist
-    // in this codebase (only the flavor-text DIFFICULTY_FLAVOR_KEYS does).
-    const diffBtn = Array.from(this.difficultyBtns).find((b) => b.dataset.difficulty === this.settings.difficulty)
-    const preset = {
-      difficulty: this.settings.difficulty,
-      loadout: this.settings.loadout,
-      companionRole: this.settings.companionRole,
-      label: (diffBtn ? diffBtn.textContent : this.settings.difficulty) + ' · ' + t(LOADOUT_LABEL_KEYS[this.settings.loadout]),
-    }
-    if (this.settings.menuPresets.length >= 3) this.settings.menuPresets.shift()
-    this.settings.menuPresets.push(preset)
-    saveSettings(this.settings)
-    this._renderMenuPresets()
-  }
-
-  _loadMenuPreset(i) {
-    const preset = this.settings.menuPresets[i]
-    if (!preset) return
-    const diffBtn = Array.from(this.difficultyBtns).find((b) => b.dataset.difficulty === preset.difficulty)
-    if (diffBtn && diffBtn.style.display !== 'none') diffBtn.click()
-    const loadoutBtn = Array.from(this.loadoutBtns).find((b) => b.dataset.loadout === preset.loadout)
-    if (loadoutBtn) loadoutBtn.click()
-    const roleBtn = Array.from(this.roleBtns).find((b) => b.dataset.role === preset.companionRole)
-    if (roleBtn) roleBtn.click()
-  }
-
-  // Surprise Me - picks a random visible difficulty + random role + random
-  // loadout, then clicks each real button (same .click() trick
-  // _loadMenuPreset uses above) so every other listener tied to those
-  // clicks still fires normally, rather than setting state directly.
-  _surpriseMe() {
-    const visibleDiffBtns = Array.from(this.difficultyBtns).filter((b) => b.style.display !== 'none')
-    if (visibleDiffBtns.length) visibleDiffBtns[Math.floor(Math.random() * visibleDiffBtns.length)].click()
-    const roleBtns = Array.from(this.roleBtns)
-    if (roleBtns.length) roleBtns[Math.floor(Math.random() * roleBtns.length)].click()
-    const loadoutBtns = Array.from(this.loadoutBtns)
-    if (loadoutBtns.length) loadoutBtns[Math.floor(Math.random() * loadoutBtns.length)].click()
-  }
-
-  _deleteMenuPreset(i) {
-    this.settings.menuPresets.splice(i, 1)
-    saveSettings(this.settings)
-    this._renderMenuPresets()
-  }
-
-  _renderMenuPresets() {
-    if (!this.menuPresetChips) return
-    this.menuPresetChips.innerHTML = ''
-    this.settings.menuPresets.forEach((preset, i) => {
-      const chip = document.createElement('div')
-      chip.className = 'preset-chip'
-      // Favorite Loadout Pin - a starred preset, visible right here on the
-      // homepage (this chip row already lives outside any panel) rather
-      // than needing a second display somewhere else.
-      const pin = document.createElement('span')
-      pin.className = `preset-pin${this.settings.pinnedPreset === i ? ' active' : ''}`
-      pin.textContent = '★'
-      pin.title = t('pinPresetTooltip')
-      pin.addEventListener('click', (e) => {
-        e.stopPropagation()
-        this.settings.pinnedPreset = this.settings.pinnedPreset === i ? null : i
-        saveSettings(this.settings)
-        this._renderMenuPresets()
-      })
-      const label = document.createElement('span')
-      label.textContent = preset.label
-      label.title = t('presetClickToLoad')
-      label.addEventListener('click', () => this._loadMenuPreset(i))
-      // Rename via inline edit (double-click) - a real <input> swapped in
-      // for the span, not window.prompt(); this codebase has no existing
-      // prompt() usage anywhere else and consistently uses real inputs
-      // instead (see the Settings Code paste flow's own comment on the
-      // same choice).
-      label.addEventListener('dblclick', (e) => {
-        e.stopPropagation()
-        const input = document.createElement('input')
-        input.type = 'text'
-        input.className = 'preset-rename-input'
-        input.value = preset.label
-        input.maxLength = 40
-        const commit = () => {
-          const trimmed = input.value.trim().slice(0, 40)
-          if (trimmed) {
-            this.settings.menuPresets[i] = { ...preset, label: trimmed }
-            saveSettings(this.settings)
-          }
-          this._renderMenuPresets()
-        }
-        input.addEventListener('blur', commit)
-        input.addEventListener('keydown', (ke) => { if (ke.key === 'Enter') input.blur() })
-        label.replaceWith(input)
-        input.focus()
-        input.select()
-      })
-      const dup = document.createElement('span')
-      dup.className = 'preset-chip-dup'
-      dup.textContent = '⎘'
-      dup.title = t('presetDuplicateTooltip')
-      dup.addEventListener('click', (e) => {
-        e.stopPropagation()
-        if (this.settings.menuPresets.length >= 3) this.settings.menuPresets.shift()
-        this.settings.menuPresets.push({ ...preset, label: t('presetCopyLabel', { label: preset.label }) })
-        saveSettings(this.settings)
-        this._renderMenuPresets()
-      })
-      const del = document.createElement('span')
-      del.className = 'preset-chip-delete'
-      del.textContent = '×'
-      del.addEventListener('click', (e) => { e.stopPropagation(); this._deleteMenuPreset(i) })
-      chip.appendChild(pin)
-      chip.appendChild(label)
-      chip.appendChild(dup)
-      chip.appendChild(del)
-      this.menuPresetChips.appendChild(chip)
-    })
-  }
-
   // Screenshot Gallery (Profile panel) - the existing screenshot tool only
   // ever downloads/copies to clipboard (see CLAUDE.md's duplicate-audit),
   // never keeps anything retrievable in-app. This stores a small downscaled
@@ -11645,16 +11522,15 @@ export class Game {
     // shareable stat card is reasonable to want well before the true
     // ending.
     if (this.shareCardBtn) this.shareCardBtn.addEventListener('click', () => this._generateCareerPortrait())
-    if (this.savePresetBtn) this.savePresetBtn.addEventListener('click', () => this._saveMenuPreset())
-    if (this.surpriseMeBtn) this.surpriseMeBtn.addEventListener('click', () => this._surpriseMe())
+    if (this.savePresetBtn) this.savePresetBtn.addEventListener('click', () => MenuPresets.saveMenuPreset(this))
+    if (this.surpriseMeBtn) this.surpriseMeBtn.addEventListener('click', () => MenuPresets.surpriseMe(this))
     if (this.quickKeybindsBtn) {
       this.quickKeybindsBtn.addEventListener('click', () => {
         this._toggleSettings(true)
         document.getElementById('tab-controls')?.click()
       })
     }
-    if (this.beatThisBtn) this.beatThisBtn.addEventListener('click', () => this._copyBeatThisLink())
-    this._renderMenuPresets()
+    MenuPresets.renderMenuPresets(this)
     MenuEasterEggs.bindAll(this)
     window.addEventListener('online', () => this._updateOnlineStatus())
     window.addEventListener('offline', () => this._updateOnlineStatus())
