@@ -10472,7 +10472,7 @@ export class Game {
       btn.disabled = true
       btn.innerHTML = `
         <span class="perk-name">${name}</span>
-        <span class="perk-cost">${unlocked ? t('achievementUnlocked') : (ach.hintKey ? t(ach.hintKey) : t('achievementLocked'))}</span>
+        <span class="perk-cost">${unlocked ? t('achievementUnlockedShort') : (ach.hintKey ? t(ach.hintKey) : t('achievementLocked'))}</span>
       `
       this.achievementsOptions.appendChild(btn)
     }
@@ -10501,7 +10501,7 @@ export class Game {
       btn.disabled = true
       btn.innerHTML = `
         <span class="perk-name">${name}</span>
-        <span class="perk-cost">${known ? t('achievementUnlocked') : t('achievementLocked')}</span>
+        <span class="perk-cost">${known ? t('achievementUnlockedShort') : t('achievementLocked')}</span>
         <span class="perk-lore">${known ? type.lore : t('bestiaryUnknown')}</span>
       `
       this.bestiaryOptions.appendChild(btn)
@@ -11268,7 +11268,7 @@ export class Game {
   // Kill-count milestone toast - fires once per threshold, ever, tracked
   // in localStorage so it survives across sessions but never repeats.
   _checkKillMilestones() {
-    let seen = []
+    let seen
     try { seen = JSON.parse(localStorage.getItem(KILL_MILESTONES_SEEN_KEY)) || [] } catch { seen = [] }
     const kills = _safeStatNumber(this.careerStats.totalKills)
     for (const m of KILL_MILESTONES) {

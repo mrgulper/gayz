@@ -64,7 +64,7 @@ const STRINGS = {
     questStreak50: 'Reach a {n}-Kill Streak',
     achievementsBtn: 'Achievements',
     achievementsPanelTitle: 'Achievements',
-    achievementUnlocked: 'Unlocked',
+    achievementUnlockedShort: 'Unlocked',
     achievementLocked: 'Locked',
     bestiaryBtn: 'Bestiary',
     bestiaryPanelTitle: 'Bestiary',
