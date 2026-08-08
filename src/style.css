@@ -5337,6 +5337,15 @@ html.theme-lighter #app { filter: brightness(1.25); }
   margin-top: 4px;
 }
 
+/* Profile panel groups its stat rows within #profile-options, a flex-wrap
+   grid (see .perk-options) rather than the Settings panel's block-flow
+   layout - flex-basis:100% is what forces a heading onto its own full-width
+   row instead of just becoming another wrapped flex item. */
+.perk-options .settings-section-heading {
+  flex-basis: 100%;
+  text-align: center;
+}
+
 .audio-row label {
   font-size: 14px;
   opacity: 0.85;

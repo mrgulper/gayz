@@ -2591,6 +2591,58 @@ function _safeStatNumber(v) {
   return Number.isFinite(n) ? n : 0
 }
 
+// Profile panel grouping (see _openProfilePanel) - every stat row's stable
+// id (the first element of its row tuple) mapped to one of 4 categories,
+// rendered in PROFILE_GROUP_ORDER's fixed order. A row with no entry here
+// falls back to Social & Meta (the catch-all group) rather than being
+// silently dropped, so a future new row can't vanish from the panel just
+// because this table wasn't updated for it.
+const PROFILE_STAT_GROUPS = {
+  profileTotalKills: 'combat',
+  profileBestKills: 'combat',
+  profileBestKillStreak: 'combat',
+  profileBestStreakDate: 'combat',
+  profileFavoriteWeapon: 'combat',
+  profileKillsPerMin: 'combat',
+  profileWeaponsMastered: 'combat',
+  profileDeadliestEnemy: 'combat',
+  profileDamageDealt: 'combat',
+  profileAccuracy: 'combat',
+  profileTotalRuns: 'survival',
+  profileBestNight: 'survival',
+  profilePlaytime: 'survival',
+  profileDistance: 'survival',
+  profileFlawlessRuns: 'survival',
+  profileWinRate: 'survival',
+  profileLongestSession: 'survival',
+  profileAvgRunLength: 'survival',
+  profileLaps: 'survival',
+  profileNetWorth: 'economy',
+  profileTotalSpent: 'economy',
+  profileCoinsRatio: 'economy',
+  profileCoinsToday: 'economy',
+  profileMostProfitableRun: 'economy',
+  profileAchievements: 'socialMeta',
+  profileCosmetics: 'socialMeta',
+  profilePrestige: 'socialMeta',
+  profileNemesisLabel: 'socialMeta',
+  profileSecretsFound: 'socialMeta',
+  profileCompletionPct: 'socialMeta',
+  profileCompanionLegacy: 'socialMeta',
+  profileMostUsedMutator: 'socialMeta',
+  profileLastPlayed: 'socialMeta',
+  profileTimesRevivedCompanion: 'socialMeta',
+  profileFavoriteCompanionRole: 'socialMeta',
+  profileFavoriteDayOfWeek: 'socialMeta',
+  profilePlayClicks: 'socialMeta',
+}
+const PROFILE_GROUP_ORDER = [
+  ['combat', 'profileGroupCombat'],
+  ['survival', 'profileGroupSurvival'],
+  ['economy', 'profileGroupEconomy'],
+  ['socialMeta', 'profileGroupSocialMeta'],
+]
+
 export class Game {
   constructor() {
     this.canvas = document.getElementById('scene')
@@ -13418,16 +13470,35 @@ export class Game {
       ['profilePlayClicks', t('profilePlayClicks'), _safeStatNumber(this.careerStats.playButtonClicks).toLocaleString()],
     ]
     this._renderPinnedStatSelect(rows)
+    // Pinned stat (if any) is pulled out and rendered first, same "always
+    // the very first thing in the panel" position it already had before
+    // grouping existed - it stays a single ungrouped row up top rather
+    // than getting its own heading or appearing a second time inside its
+    // normal category below.
+    let pinnedRow = null
     if (this.settings.pinnedStat) {
       const pinnedIndex = rows.findIndex((r) => r[0] === this.settings.pinnedStat)
-      if (pinnedIndex > 0) rows = [rows[pinnedIndex], ...rows.slice(0, pinnedIndex), ...rows.slice(pinnedIndex + 1)]
+      if (pinnedIndex >= 0) {
+        pinnedRow = rows[pinnedIndex]
+        rows = [...rows.slice(0, pinnedIndex), ...rows.slice(pinnedIndex + 1)]
+      }
     }
-    this.profileOptions.innerHTML = rows.map(([, label, value]) => `
+    const rowButton = ([, label, value]) => `
       <button class="perk-option" disabled>
         <span class="perk-name">${label}</span>
         <span class="perk-cost">${value}</span>
       </button>
-    `).join('')
+    `
+    const grouped = PROFILE_GROUP_ORDER.map(([groupId, labelKey]) => [
+      labelKey,
+      rows.filter((r) => (PROFILE_STAT_GROUPS[r[0]] || 'socialMeta') === groupId),
+    ]).filter(([, groupRows]) => groupRows.length > 0)
+    this.profileOptions.innerHTML =
+      (pinnedRow ? rowButton(pinnedRow) : '') +
+      grouped.map(([labelKey, groupRows]) => `
+        <h3 class="settings-section-heading">${t(labelKey)}</h3>
+        ${groupRows.map(rowButton).join('')}
+      `).join('')
     this._animateStatCountUp()
 
     // Career Portrait - gated the same as Prestige (see _renderUpgradesOptions),
