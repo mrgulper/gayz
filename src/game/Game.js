@@ -2928,7 +2928,6 @@ export class Game {
     this.savePresetBtn = document.getElementById('save-preset-btn')
     this.surpriseMeBtn = document.getElementById('surprise-me-btn')
     this.quickKeybindsBtn = document.getElementById('quick-keybinds-btn')
-    this.beatThisBtn = document.getElementById('beat-this-btn')
     this.menuPresetChips = document.getElementById('menu-preset-chips')
     this.quickMuteBtn = document.getElementById('quick-mute-btn')
     this.quickColorblindBtn = document.getElementById('quick-colorblind-btn')
@@ -3212,16 +3211,21 @@ export class Game {
     this.importSettingsCodeBtn = document.getElementById('import-settings-code-btn')
     this.importSettingsCodeInput = document.getElementById('import-settings-code-input')
     this.importSettingsCodeApplyBtn = document.getElementById('import-settings-code-apply-btn')
-    this.copySetupBtn = document.getElementById('copy-setup-btn')
-    this.copyPageUrlBtn = document.getElementById('copy-page-url-btn')
     this.clearLeaderboardsBtn = document.getElementById('clear-leaderboards-btn')
     this.profilePrintBtn = document.getElementById('profile-print-btn')
     this.printStatsSheet = document.getElementById('print-stats-sheet')
     this.copyTextRecapBtn = document.getElementById('copy-text-recap-btn')
     this.acceptChallengeBtn = document.getElementById('accept-challenge-btn')
-    this.copyLoadoutCodeBtn = document.getElementById('copy-loadout-code-btn')
     this.loadoutCodeInput = document.getElementById('loadout-code-input')
     this.applyLoadoutCodeBtn = document.getElementById('apply-loadout-code-btn')
+    this.sharePanel = document.getElementById('share-panel')
+    this.sharePanelTitle = document.getElementById('share-panel-title')
+    this.openShareBtn = document.getElementById('open-share-btn')
+    this.shareSetupBtn = document.getElementById('share-setup-btn')
+    this.shareProfileBtn = document.getElementById('share-profile-btn')
+    this.shareChallengeBtn = document.getElementById('share-challenge-btn')
+    this.shareLoadoutBtn = document.getElementById('share-loadout-btn')
+    this.sharePageLinkBtn = document.getElementById('share-page-link-btn')
     this.screenFadeEl = document.getElementById('screen-fade')
     this.cinematicBarsEl = document.getElementById('cinematic-bars')
     this.tutorialHintEl = document.getElementById('tutorial-hint')
@@ -4080,7 +4084,6 @@ export class Game {
     this.profilePanelTitle = document.getElementById('profile-panel-title')
     this.profileOptions = document.getElementById('profile-options')
     this.profileCopyStatsBtn = document.getElementById('profile-copy-stats-btn')
-    this.profileCopyLinkBtn = document.getElementById('profile-copy-link-btn')
     this.profileReadAloudBtn = document.getElementById('profile-read-aloud-btn')
     this.sharedProfileBanner = document.getElementById('shared-profile-banner')
     this.sharedProfileTitle = document.getElementById('shared-profile-title')
@@ -7320,7 +7323,6 @@ export class Game {
       }
     })
     this.profileCopyStatsBtn.addEventListener('click', () => this._copyProfileStatsToClipboard())
-    if (this.profileCopyLinkBtn) this.profileCopyLinkBtn.addEventListener('click', () => this._copyProfileLink())
     if (this.profileReadAloudBtn) this.profileReadAloudBtn.addEventListener('click', () => this._readProfileStatsAloud())
     if (this.sharedProfileCloseBtn) {
       this.sharedProfileCloseBtn.addEventListener('click', () => { this.sharedProfileBanner.style.display = 'none' })
@@ -7382,7 +7384,6 @@ export class Game {
     this.shareRunCardBtn.addEventListener('click', () => this._generateRunSummaryCard())
     if (this.copyTextRecapBtn) this.copyTextRecapBtn.addEventListener('click', () => this._copyTextRecap())
     if (this.acceptChallengeBtn) this.acceptChallengeBtn.addEventListener('click', () => this._acceptChallenge())
-    if (this.copyLoadoutCodeBtn) this.copyLoadoutCodeBtn.addEventListener('click', () => this._copyLoadoutCode())
     if (this.applyLoadoutCodeBtn) {
       this.applyLoadoutCodeBtn.addEventListener('click', () => this._applyLoadoutCode(this.loadoutCodeInput.value))
     }
@@ -7406,18 +7407,17 @@ export class Game {
     this._checkSettingsTabDeepLink()
     this._checkWeeklyResetImminent()
     this._checkUnclaimedQuestsReminder()
-    if (this.copySetupBtn) this.copySetupBtn.addEventListener('click', () => this._copySetupCode())
-    if (this.copyPageUrlBtn) {
-      this.copyPageUrlBtn.addEventListener('click', () => {
-        if (!navigator.clipboard) {
-          this._showHomepageToast(t('clipboardCopyUnsupported'))
-          return
-        }
-        navigator.clipboard.writeText(location.href)
-          .then(() => this._showHomepageToast(t('pageUrlCopied')))
-          .catch(() => this._showHomepageToast(t('clipboardCopyUnsupported')))
+    if (this.openShareBtn) this.openShareBtn.addEventListener('click', () => trackAndOpen(() => this._openSharePanel()))
+    if (this.sharePanel) {
+      this.sharePanel.addEventListener('click', (e) => {
+        if (e.target === this.sharePanel) this._closeSharePanel()
       })
     }
+    if (this.shareSetupBtn) this.shareSetupBtn.addEventListener('click', () => this._copySetupCode())
+    if (this.shareProfileBtn) this.shareProfileBtn.addEventListener('click', () => this._copyProfileLink())
+    if (this.shareChallengeBtn) this.shareChallengeBtn.addEventListener('click', () => this._copyBeatThisLink())
+    if (this.shareLoadoutBtn) this.shareLoadoutBtn.addEventListener('click', () => this._copyLoadoutCode())
+    if (this.sharePageLinkBtn) this.sharePageLinkBtn.addEventListener('click', () => this._copyPageUrl())
     this.endingContinueBtn.addEventListener('click', () => {
       this.endingPanel.style.display = 'none'
       this.player.controls.lock()
@@ -10418,6 +10418,33 @@ export class Game {
 
   _closeQuestsPanel() {
     this.questsPanel.style.display = 'none'
+  }
+
+  // Share panel - single entry point consolidating what used to be 5
+  // scattered buttons (homepage row + Inventory panel + Profile panel),
+  // each already backed by its own real encode/decode function. This is a
+  // UI consolidation only - every button here calls an existing _copy*
+  // method (or, for Copy Page Link, the equally-existing inline handler
+  // now named _copyPageUrl) as-is, none of the underlying sharing logic
+  // changed.
+  _openSharePanel() {
+    if (!this.sharePanel) return
+    this.sharePanel.style.display = 'flex'
+    if (this.sharePanelTitle) this.sharePanelTitle.textContent = t('sharePanelTitle')
+  }
+
+  _closeSharePanel() {
+    if (this.sharePanel) this.sharePanel.style.display = 'none'
+  }
+
+  _copyPageUrl() {
+    if (!navigator.clipboard) {
+      this._showHomepageToast(t('clipboardCopyUnsupported'))
+      return
+    }
+    navigator.clipboard.writeText(location.href)
+      .then(() => this._showHomepageToast(t('pageUrlCopied')))
+      .catch(() => this._showHomepageToast(t('clipboardCopyUnsupported')))
   }
 
   _claimQuest(id) {

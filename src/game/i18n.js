@@ -48,6 +48,7 @@ const STRINGS = {
     upgradesRequires: 'Requires: {name}',
     questsBtn: 'Quests',
     questsPanelTitle: 'Quests',
+    sharePanelTitle: 'Share',
     questProgress: '{current}/{target}',
     questClaimReward: 'Claim {n} Coins',
     questClaimed: 'Claimed',

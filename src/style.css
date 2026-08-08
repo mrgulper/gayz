@@ -687,6 +687,7 @@ html.large-text-mode #perk-panel,
 html.large-text-mode #trader-panel,
 html.large-text-mode #upgrades-panel,
 html.large-text-mode #quests-panel,
+html.large-text-mode #share-panel,
 html.large-text-mode #achievements-panel,
 html.large-text-mode #bestiary-panel,
 html.large-text-mode #profile-panel,
@@ -2145,6 +2146,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 #trader-panel,
 #upgrades-panel,
 #quests-panel,
+#share-panel,
 #achievements-panel,
 #bestiary-panel,
 #profile-panel,
@@ -2972,8 +2974,12 @@ body.reduce-flashing #critical-blood-overlay.show {
 #clear-leaderboards-btn,
 #copy-text-recap-btn,
 #accept-challenge-btn,
-#copy-loadout-code-btn,
 #apply-loadout-code-btn,
+#share-setup-btn,
+#share-profile-btn,
+#share-challenge-btn,
+#share-loadout-btn,
+#share-page-link-btn,
 #upgrades-close-btn,
 #achievements-close-btn,
 #bestiary-close-btn,
@@ -3595,7 +3601,7 @@ html {
 html.text-spacing-active #menu, html.text-spacing-active .menu-panel, html.text-spacing-active #upgrades-panel,
 html.text-spacing-active #coinshop-panel, html.text-spacing-active #credits-panel, html.text-spacing-active #achievements-panel,
 html.text-spacing-active #bestiary-panel, html.text-spacing-active #profile-panel, html.text-spacing-active #settings-panel,
-html.text-spacing-active #quests-panel, html.text-spacing-active #cloudsave-panel, html.text-spacing-active #howtoplay-panel {
+html.text-spacing-active #quests-panel, html.text-spacing-active #share-panel, html.text-spacing-active #cloudsave-panel, html.text-spacing-active #howtoplay-panel {
   letter-spacing: calc((var(--text-spacing, 100) - 100) * 0.005px);
   line-height: calc(1.4 * var(--text-spacing, 100) / 100);
 }
@@ -3618,6 +3624,7 @@ html.reduce-transparency #bestiary-panel,
 html.reduce-transparency #profile-panel,
 html.reduce-transparency #settings-panel,
 html.reduce-transparency #quests-panel,
+html.reduce-transparency #share-panel,
 html.reduce-transparency #cloudsave-panel,
 html.reduce-transparency #howtoplay-panel {
   background: #0a0a0a !important;

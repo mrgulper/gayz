@@ -374,9 +374,7 @@
                 <button class="mini-action-btn" id="save-preset-btn" type="button">Save Setup</button>
                 <button class="mini-action-btn" id="surprise-me-btn" type="button">Surprise Me</button>
                 <button class="mini-action-btn" id="quick-keybinds-btn" type="button">Keybinds</button>
-                <button class="mini-action-btn" id="beat-this-btn" type="button">Beat This</button>
-                <button class="mini-action-btn" id="copy-setup-btn" type="button">Copy My Setup</button>
-                <button class="mini-action-btn" id="copy-page-url-btn" type="button">Copy Page Link</button>
+                <button class="mini-action-btn" id="open-share-btn" type="button">Share</button>
                 <div id="menu-preset-chips"></div>
               </div>
             </section>
@@ -1065,7 +1063,6 @@
         <h2 id="loadout-presets-title">Loadouts</h2>
         <div class="inv-panel-section" id="panel-loadout-presets"></div>
         <div id="loadout-code-row">
-          <button id="copy-loadout-code-btn">Copy Loadout Code</button>
           <input type="text" id="loadout-code-input" placeholder="Paste a loadout code" maxlength="40" />
           <button id="apply-loadout-code-btn">Apply</button>
         </div>
@@ -1137,6 +1134,16 @@
       <div id="quests-panel">
         <h2 id="quests-panel-title">Quests</h2>
         <div class="perk-options" id="quests-options"></div>
+        <p class="panel-close-hint">Click anywhere to close</p>
+      </div>
+
+      <div id="share-panel">
+        <h2 id="share-panel-title">Share</h2>
+        <button id="share-setup-btn">Share My Setup</button>
+        <button id="share-profile-btn">Share My Profile</button>
+        <button id="share-challenge-btn">Challenge a Friend</button>
+        <button id="share-loadout-btn">Share My Loadout</button>
+        <button id="share-page-link-btn">Copy Page Link</button>
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>
 
@@ -1243,7 +1250,6 @@
         <p id="profile-weekly-delta-line" style="display: none"></p>
         <button id="profile-career-portrait-btn" style="display: none">Save Career Portrait</button>
         <button id="profile-copy-stats-btn">Copy Stats</button>
-        <button id="profile-copy-link-btn">Copy Shareable Profile Link</button>
         <button id="profile-read-aloud-btn">Read My Stats Aloud</button>
         <button id="profile-print-btn">Print Stats Sheet</button>
         <div id="profile-account-signed-in" style="display: none">
