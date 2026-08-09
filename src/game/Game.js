@@ -22,6 +22,7 @@ import { FullMap } from './FullMap.js'
 import { DecalManager } from './Decals.js'
 import { Achievements, ACHIEVEMENTS } from './Achievements.js'
 import { Quests, QUESTS } from './Quests.js'
+import { RollingQuests, EXPIRE_MS as ROLLING_QUEST_EXPIRE_MS } from './RollingQuests.js'
 import { rollPerks, checkPerkSynergies } from './Perks.js'
 import { rollXpUpgrades } from './XpUpgrades.js'
 import { XpGemManager } from './XpGems.js'
@@ -3963,6 +3964,7 @@ export class Game {
     this._applyMetaUpgrades()
     this.achievements = new Achievements((def) => this._showAchievementToast(def))
     this.quests = new Quests()
+    this.rollingQuests = new RollingQuests()
     if (this.achievements.unlocked.has('true_ending')) {
       document.getElementById('diff-nightmare').style.display = ''
     }
@@ -4040,6 +4042,10 @@ export class Game {
     this.questsPanel = document.getElementById('quests-panel')
     this.questsPanelTitle = document.getElementById('quests-panel-title')
     this.questsOptions = document.getElementById('quests-options')
+    this.rollingQuestsHeading = document.getElementById('rolling-quests-heading')
+    this.rollingQuestsSubtitle = document.getElementById('rolling-quests-subtitle')
+    this.rollingQuestsOptions = document.getElementById('rolling-quests-options')
+    this.lifetimeQuestsHeading = document.getElementById('lifetime-quests-heading')
     this.achievementsBtn = document.getElementById('achievements-btn')
     this.achievementsPanel = document.getElementById('achievements-panel')
     this.achievementsPanelTitle = document.getElementById('achievements-panel-title')
@@ -7287,6 +7293,10 @@ export class Game {
       const btn = e.target.closest('button[data-quest-id]')
       if (btn && !btn.disabled) this._claimQuest(btn.dataset.questId)
     })
+    this.rollingQuestsOptions.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-spawned-at]')
+      if (btn && !btn.disabled) this._claimRollingQuest(Number(btn.dataset.spawnedAt))
+    })
     this.achievementsBtn.addEventListener('click', () => trackAndOpen(() => this._openAchievementsPanel()))
     this.bestiaryBtn.addEventListener('click', () => trackAndOpen(() => this._openBestiaryPanel()))
     if (this.achievementsFilterInput) {
@@ -10307,7 +10317,11 @@ export class Game {
   _openQuestsPanel() {
     this.questsPanel.style.display = 'flex'
     this.questsPanelTitle.textContent = t('questsPanelTitle')
+    this.rollingQuestsHeading.textContent = t('rollingQuestsTitle')
+    this.rollingQuestsSubtitle.textContent = t('rollingQuestsSubtitle')
+    this.lifetimeQuestsHeading.textContent = t('lifetimeQuestsTitle')
     this._renderQuestsPanel()
+    this._renderRollingQuestsPanel()
   }
 
   _renderQuestsPanel() {
@@ -10330,6 +10344,40 @@ export class Game {
         <span class="perk-cost">${statusText}</span>
       `
       this.questsOptions.appendChild(btn)
+    }
+  }
+
+  // Rolling Quests - separate from the lifetime tiers above (see
+  // RollingQuests.js): each expires 3 hours after it spawns, and a new one
+  // spawns every 30 minutes (up to 6 active at once). refresh() prunes
+  // anything expired and catches up on any spawns due since the panel was
+  // last opened, so opening this panel is also what keeps the rotation
+  // moving forward - it doesn't need its own always-running timer loop.
+  _renderRollingQuestsPanel() {
+    this.rollingQuests.refresh()
+    this.rollingQuestsOptions.innerHTML = ''
+    const active = this.rollingQuests.activeQuests()
+    if (active.length === 0) {
+      this.rollingQuestsOptions.innerHTML = `<p class="menu-best-stats">${t('rollingQuestNone')}</p>`
+      return
+    }
+    const now = Date.now()
+    for (const q of active) {
+      const progress = Math.min(q.template.target, q.progress)
+      const complete = progress >= q.template.target
+      const timeLeftSeconds = Math.max(0, Math.floor((q.spawnedAt + ROLLING_QUEST_EXPIRE_MS - now) / 1000))
+      const btn = document.createElement('button')
+      btn.className = 'perk-option'
+      btn.dataset.spawnedAt = q.spawnedAt
+      btn.disabled = !complete
+      const statusText = complete
+        ? t('rollingQuestClaimReward', { coins: q.template.rewardCoins, xp: q.template.rewardXp })
+        : `${t('questProgress', { current: progress.toLocaleString(), target: q.template.target.toLocaleString() })} · ${t('rollingQuestTimeLeft', { time: _formatDurationShort(timeLeftSeconds) })}`
+      btn.innerHTML = `
+        <span class="perk-name">${t(q.template.titleKey, { n: q.template.target.toLocaleString() })}</span>
+        <span class="perk-cost">${statusText}</span>
+      `
+      this.rollingQuestsOptions.appendChild(btn)
     }
   }
 
@@ -10374,6 +10422,27 @@ export class Game {
     this._updateFaviconQuestBadge()
   }
 
+  _claimRollingQuest(spawnedAt) {
+    const reward = this.rollingQuests.claim(spawnedAt, this)
+    if (!reward) return
+    // RollingQuests.claim() applies the coin reward itself (mirrors
+    // Quests.claim()) but deliberately leaves XP to us - game.xp has its
+    // own HUD/level-up side effects that belong here, not duplicated in a
+    // plain data module. _checkXpLevelUp() can open the run-buff picker
+    // panel (_openXpLevelupPanel, designed for picking a passive buff
+    // mid-combat) - only run that side effect if a run is actually active;
+    // claiming from the homepage just banks the XP toward the next
+    // level-up, which gets caught for real the next time xp is gained
+    // during real play.
+    this.xp += reward.xp
+    this._updateXpHud()
+    if (this.gameStarted) this._checkXpLevelUp()
+    saveShopProgress(this)
+    this._showHomepageToast(t('rollingQuestClaimedToast', { coins: reward.coins, xp: reward.xp }))
+    this._renderRollingQuestsPanel()
+    this._updateFaviconQuestBadge()
+  }
+
   // Favicon Quest Badge - draws the real favicon.svg onto an offscreen
   // canvas plus a small red count badge (capped display at "9+") when
   // quests are complete but not yet claimed, then swaps the <link
@@ -10383,7 +10452,9 @@ export class Game {
   // silently doesn't appear is fine, a thrown error breaking the menu
   // refresh batch is not.
   _updateFaviconQuestBadge() {
-    const count = QUESTS.filter((q) => this.quests.isComplete(q, this) && !this.quests.isClaimed(q.id)).length
+    const lifetimeCount = QUESTS.filter((q) => this.quests.isComplete(q, this) && !this.quests.isClaimed(q.id)).length
+    const rollingCount = this.rollingQuests.activeQuests().filter((q) => q.progress >= q.template.target).length
+    const count = lifetimeCount + rollingCount
     const link = document.querySelector('link[rel="icon"]')
     if (!link) return
     if (count <= 0) {
@@ -12246,6 +12317,7 @@ export class Game {
     // _checkRoundModeSpecialEvents) - a small capstone bonus/flavor line
     // for finishing what would otherwise have gotten away.
     if (wasFleeing) this._showLoreToast(t('caughtFleeingZombie'))
+    this.rollingQuests.recordKill()
     this.kills += 1
     this.killStreak += 1
     if (this.killStreak > this.peakKillStreakThisRun) this.peakKillStreakThisRun = this.killStreak
@@ -12771,6 +12843,10 @@ export class Game {
     // skipping it wholesale is the correct behavior, not a shortcut - a
     // guest run genuinely shouldn't move any of these numbers.
     if (this.settings.guestMode) return
+    // Guest Mode already gates the whole method above (same "guest runs
+    // don't move persistent records" reasoning applies here too, since
+    // claiming a rolling quest grants real coins).
+    this.rollingQuests.recordRunComplete()
     let improved = false
     if (this.night > this.bestStats.bestNight) {
       this.bestStats.bestNight = this.night
@@ -17135,6 +17211,7 @@ export class Game {
         if (this.snowing) this._checkBountyProgress('survive_snow_night', 1)
         this._checkBountyProgress('reach_3_nights', 1)
         this.night += 1
+        this.rollingQuests.recordNight(this.night)
         this._checkBestRunPace()
         this._maybeTriggerRareEasterEgg()
         this.upgradeMachineUsesThisNight = 0
