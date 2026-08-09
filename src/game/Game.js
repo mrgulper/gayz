@@ -259,12 +259,12 @@ function loadSettings() {
       guestMode: parsed.guestMode ?? false,
       endlessMode: parsed.endlessMode ?? false,
       loadout: LOADOUT_PRESETS[parsed.loadout] ? parsed.loadout : 'balanced',
-      // 5-slot hotbar (see Game.js's _bindHotbar) - a weapon id per slot,
-      // or null for empty. Defaults match the request this was built for:
-      // melee/AK-47/M1911 filled in, two open slots for whatever's bought.
-      hotbar: Array.isArray(parsed.hotbar) && parsed.hotbar.length === 5 ? parsed.hotbar : ['melee', 'rifle', 'pistol', null, null],
+      // 3-slot hotbar (see Game.js's _bindHotbar) - slot 0 is whatever gun
+      // was picked in the Play/Pause weapon picker, slots 1-2 are the fixed
+      // M1911/Knife backup weapons every run starts with.
+      hotbar: Array.isArray(parsed.hotbar) && parsed.hotbar.length === 3 ? parsed.hotbar : ['rifle', 'pistol', 'melee'],
       // Loadout save slots (see Game.js's _saveHotbarPreset/_loadHotbarPreset) -
-      // 3 named snapshots of the 5-slot hotbar above, so switching between a
+      // 3 named snapshots of the 3-slot hotbar above, so switching between a
       // couple of full weapon setups doesn't mean re-assigning every slot by
       // hand each time. null entries are empty/unsaved slots.
       hotbarPresets: Array.isArray(parsed.hotbarPresets) && parsed.hotbarPresets.length === 3 ? parsed.hotbarPresets : [null, null, null],
@@ -398,7 +398,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['coinshop-btn', 'upgrades-btn', 'quests-btn', 'achievements-btn', 'credits-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['coinshop-btn', 'upgrades-btn', 'quests-btn', 'achievements-btn', 'credits-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -9198,14 +9198,14 @@ export class Game {
       `
       btn.addEventListener('click', () => {
         const index = this.weapons.weapons.indexOf(w)
-        // Assign into hotbar slot 2 (not just switchToIndex alone) - the
-        // hotbar HUD and Digit1-5 switching both read settings.hotbar
+        // Assign into hotbar slot 1 - "main gun" (see the 3-slot hotbar's
+        // own comment in loadSettings) - not just switchToIndex alone. The
+        // hotbar HUD and Digit1-3 switching both read settings.hotbar
         // directly (see _updateHotbarHud/_bindHotbar), not whatever's
         // currently equipped. Without this, the pick looked like it did
-        // nothing (still showed the old Knife/Rifle/Pistol loadout with
-        // nothing highlighted) and pressing "2" would silently switch back
-        // to the default rifle out from under the player.
-        this._assignHotbarSlot(1, w.id)
+        // nothing and pressing "1" would silently switch back to whatever
+        // was already in that slot out from under the player.
+        this._assignHotbarSlot(0, w.id)
         this.weapons.switchToIndex(index)
         this._updateHotbarHud()
         this.weaponPickerPanel.style.display = 'none'
@@ -15104,7 +15104,7 @@ export class Game {
       // up would switch weapons immediately underneath it instead of
       // waiting for the wheel's own release-to-confirm.
       if (!this.player.controls.isLocked || !this.playerState.alive || this.inventoryOpen || this.driving || this.weaponWheelOpen || this.playerDowned) return
-      const digitIndex = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5'].indexOf(e.code)
+      const digitIndex = ['Digit1', 'Digit2', 'Digit3'].indexOf(e.code)
       if (digitIndex === -1) return
       const weaponId = this.settings.hotbar[digitIndex]
       if (!weaponId) return
