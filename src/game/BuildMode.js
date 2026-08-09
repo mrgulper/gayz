@@ -5,8 +5,20 @@
 import * as THREE from 'three'
 
 const GROUND_SIZE = 64
+// A flat zero-thickness PlaneGeometry has no volume at all - viewed from
+// high altitude toward the horizon (a shallow, near edge-on angle), it
+// rendered as a paper-thin line instead of a solid slab. A real BoxGeometry
+// gives it actual depth from every angle; this is how far it extends below
+// the y=0 top surface blocks are placed on.
+const GROUND_THICKNESS = 6
 const BLOCK_SIZE = 1
 const FLY_SPEED = 8
+// Movement used to snap straight to full speed the instant a key went down
+// and stop dead the instant it came up - velocity damps toward the target
+// speed instead (same THREE.MathUtils.damp technique WeaponSystem.js uses
+// for its own aim/sprint smoothing), giving a real accelerate-then-coast
+// feel rather than an on/off toggle.
+const FLY_ACCEL_LERP_SPEED = 8
 const LOOK_SENSITIVITY = 0.0022
 const MAX_INSTANCES_PER_TYPE = 4096
 const SAVE_KEY = 'gayz-build-mode'
@@ -45,6 +57,12 @@ export const BLOCK_TYPES = [
   { id: 'ice', name: 'Ice', color: 0xaee4f0, pattern: 'glass', roughness: 0.05, metalness: 0, transparent: true, opacity: 0.7 },
   { id: 'leaves', name: 'Leaves', color: 0x3f7d3a, pattern: 'speckle', roughness: 1, metalness: 0, transparent: true, opacity: 0.88 },
   { id: 'lava', name: 'Lava', color: 0xff5a1f, pattern: 'speckle', roughness: 0.8, metalness: 0, emissive: 0xff3300, emissiveIntensity: 0.9 },
+  { id: 'granite', name: 'Granite', color: 0x8a5a52, pattern: 'speckle', roughness: 0.85, metalness: 0 },
+  { id: 'marble', name: 'Marble', color: 0xe4e0da, pattern: 'brick', roughness: 0.3, metalness: 0 },
+  { id: 'copper', name: 'Copper', color: 0xc17a4a, pattern: 'metal', roughness: 0.3, metalness: 0.85 },
+  { id: 'iron', name: 'Iron', color: 0xd8d8d2, pattern: 'metal', roughness: 0.4, metalness: 0.9 },
+  { id: 'clay', name: 'Clay', color: 0xb5654a, pattern: 'speckle', roughness: 0.95, metalness: 0 },
+  { id: 'moss', name: 'Moss', color: 0x3d6b32, pattern: 'speckle', roughness: 1, metalness: 0 },
 ]
 const VALID_TYPE_IDS = new Set(BLOCK_TYPES.map((b) => b.id))
 
@@ -130,7 +148,11 @@ function _drawGlass(ctx, base, size) {
 const PATTERN_DRAWERS = { speckle: _drawSpeckle, brick: _drawBrick, wood: _drawWood, metal: _drawMetal, glass: _drawGlass }
 
 function _makeBlockTexture(colorHex, pattern) {
-  const size = 32
+  // 64, up from 32 - NearestFilter magnification means every texel is a
+  // visibly hard-edged square up close, and at 32px that read as coarse,
+  // blocky pixelation rather than an intentional pattern. Doubling halves
+  // that at the same viewing distance.
+  const size = 64
   const canvas = document.createElement('canvas')
   canvas.width = size
   canvas.height = size
@@ -140,6 +162,25 @@ function _makeBlockTexture(colorHex, pattern) {
   ctx.fillRect(0, 0, size, size)
   const draw = PATTERN_DRAWERS[pattern]
   if (draw) draw(ctx, base, size)
+
+  // Soft ambient-occlusion vignette - real surfaces catch less light right
+  // at their own edges/corners than dead center; without this every
+  // pattern above reads as a flat painted plane no matter how much detail
+  // it has.
+  const vignette = ctx.createRadialGradient(size / 2, size / 2, size * 0.25, size / 2, size / 2, size * 0.75)
+  vignette.addColorStop(0, 'rgba(0,0,0,0)')
+  vignette.addColorStop(1, 'rgba(0,0,0,0.28)')
+  ctx.fillStyle = vignette
+  ctx.fillRect(0, 0, size, size)
+
+  // Faint directional sheen (upper-left, roughly matching the scene's own
+  // sun position) instead of flat, uniform brightness across the whole face.
+  const highlight = ctx.createLinearGradient(0, 0, size, size)
+  highlight.addColorStop(0, 'rgba(255,255,255,0.14)')
+  highlight.addColorStop(0.5, 'rgba(255,255,255,0)')
+  ctx.fillStyle = highlight
+  ctx.fillRect(0, 0, size, size)
+
   const edge = _shade(base, -0.32)
   ctx.strokeStyle = `rgba(${_rgb(edge)},0.6)`
   ctx.lineWidth = 2
@@ -177,10 +218,10 @@ export class BuildMode {
     sunLight.shadow.camera.far = 100
     this.scene.add(sunLight)
 
-    const groundGeo = new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE)
+    const groundGeo = new THREE.BoxGeometry(GROUND_SIZE, GROUND_THICKNESS, GROUND_SIZE)
     const groundMat = new THREE.MeshStandardMaterial({ color: 0x6b8f4e })
     this.ground = new THREE.Mesh(groundGeo, groundMat)
-    this.ground.rotation.x = -Math.PI / 2
+    this.ground.position.y = -GROUND_THICKNESS / 2
     this.ground.receiveShadow = true
     this.scene.add(this.ground)
 
@@ -191,9 +232,22 @@ export class BuildMode {
     // while pointer-locked. No gravity, no collision (see spec's "why this
     // shape" section).
     this._keys = new Set()
+    this._velocity = new THREE.Vector3()
     this._yaw = 0
     this._pitch = 0
-    this._onKeyDown = (e) => this._keys.add(e.code)
+    // preventDefault on the movement keys specifically - Space's browser
+    // default is "scroll the page down a viewport height", which was never
+    // suppressed here. It fired right alongside the camera's own upward
+    // movement, so the page (with the canvas inside it) could visibly
+    // scroll out from under the camera - easy to misread as "falling" when
+    // flying high enough that the drop is dramatic, and confusing to
+    // recover from since a second Space press scrolls further rather than
+    // undoing the first.
+    const MOVEMENT_KEY_CODES = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft'])
+    this._onKeyDown = (e) => {
+      this._keys.add(e.code)
+      if (MOVEMENT_KEY_CODES.has(e.code)) e.preventDefault()
+    }
     this._onKeyUp = (e) => this._keys.delete(e.code)
     this._onMouseMove = (e) => {
       if (document.pointerLockElement !== this.renderer.domElement) return
@@ -334,8 +388,16 @@ export class BuildMode {
     const index = mesh.count
     const matrix = new THREE.Matrix4().makeTranslation(x + 0.5, y + 0.5, z + 0.5)
     mesh.setMatrixAt(index, matrix)
+    // Slight per-instance brightness variation (±12%) - every block of a
+    // type otherwise shares one exact texture, which reads as an obviously
+    // tiled/repeated pattern once several sit side by side. This is the
+    // same trick real voxel-building games use to break that up cheaply,
+    // without needing a second texture variant per block type.
+    const tint = 0.88 + Math.random() * 0.24
+    mesh.setColorAt(index, new THREE.Color(tint, tint, tint))
     mesh.count++
     mesh.instanceMatrix.needsUpdate = true
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
     // InstancedMesh's frustum-culling bounding sphere isn't recomputed
     // automatically as instances are added/moved - left stale, blocks
     // would flicker in and out of view depending on camera angle,
@@ -354,17 +416,24 @@ export class BuildMode {
     const removedIndex = keys.indexOf(key)
     const lastIndex = mesh.count - 1
     if (removedIndex !== lastIndex) {
-      // Swap-remove: move the last instance's transform into the removed
-      // slot, then shrink count - InstancedMesh has no native "delete at
-      // index", this is the standard technique.
+      // Swap-remove: move the last instance's transform (and its per-
+      // instance tint color, see placeBlock) into the removed slot, then
+      // shrink count - InstancedMesh has no native "delete at index",
+      // this is the standard technique.
       const lastMatrix = new THREE.Matrix4()
       mesh.getMatrixAt(lastIndex, lastMatrix)
       mesh.setMatrixAt(removedIndex, lastMatrix)
+      if (mesh.instanceColor) {
+        const lastColor = new THREE.Color()
+        mesh.getColorAt(lastIndex, lastColor)
+        mesh.setColorAt(removedIndex, lastColor)
+      }
       keys[removedIndex] = keys[lastIndex]
     }
     keys.pop()
     mesh.count--
     mesh.instanceMatrix.needsUpdate = true
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
     mesh.computeBoundingSphere()
     this._blocks.delete(key)
   }
@@ -529,23 +598,33 @@ export class BuildMode {
 
     const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion)
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion)
-    const move = new THREE.Vector3()
-    if (this._keys.has('KeyW')) move.add(forward)
-    if (this._keys.has('KeyS')) move.sub(forward)
-    if (this._keys.has('KeyD')) move.add(right)
-    if (this._keys.has('KeyA')) move.sub(right)
-    if (this._keys.has('Space')) move.y += 1
-    if (this._keys.has('ShiftLeft')) move.y -= 1
-    if (move.lengthSq() > 0) {
-      move.normalize().multiplyScalar(FLY_SPEED * dt)
+    const inputDir = new THREE.Vector3()
+    if (this._keys.has('KeyW')) inputDir.add(forward)
+    if (this._keys.has('KeyS')) inputDir.sub(forward)
+    if (this._keys.has('KeyD')) inputDir.add(right)
+    if (this._keys.has('KeyA')) inputDir.sub(right)
+    if (this._keys.has('Space')) inputDir.y += 1
+    if (this._keys.has('ShiftLeft')) inputDir.y -= 1
+    if (inputDir.lengthSq() > 0) inputDir.normalize()
+    const targetVelocity = inputDir.multiplyScalar(FLY_SPEED)
+    this._velocity.x = THREE.MathUtils.damp(this._velocity.x, targetVelocity.x, FLY_ACCEL_LERP_SPEED, dt)
+    this._velocity.y = THREE.MathUtils.damp(this._velocity.y, targetVelocity.y, FLY_ACCEL_LERP_SPEED, dt)
+    this._velocity.z = THREE.MathUtils.damp(this._velocity.z, targetVelocity.z, FLY_ACCEL_LERP_SPEED, dt)
+    if (this._velocity.lengthSq() > 0.0001) {
+      const move = this._velocity.clone().multiplyScalar(dt)
       // Axis-separated: resolve x, then y, then z independently rather than
       // rejecting the whole move when any part of it hits a block - this is
       // what lets the camera slide along a wall instead of stopping dead
-      // the moment it grazes one.
+      // the moment it grazes one. Zeroing the blocked axis's velocity (not
+      // just skipping that frame's position update) keeps it from silently
+      // building up speed while pressed against a wall.
       const pos = this.camera.position
       if (!this._blockedAt(pos.x + move.x, pos.y, pos.z)) pos.x += move.x
+      else this._velocity.x = 0
       if (!this._blockedAt(pos.x, pos.y + move.y, pos.z)) pos.y += move.y
+      else this._velocity.y = 0
       if (!this._blockedAt(pos.x, pos.y, pos.z + move.z)) pos.z += move.z
+      else this._velocity.z = 0
     }
     // Placed blocks have real collision (_blockedAt above), but the ground
     // plane itself never did - it's a flat THREE.Mesh, not tracked in

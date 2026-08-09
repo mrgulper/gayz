@@ -8822,6 +8822,11 @@ export class Game {
     // true here would make Build Mode's own pointer-lock cycle re-trigger
     // the entire real-run HUD on top of it.
     this.gameStarted = false
+    // See PlayerController's own comment on why this exists - without it,
+    // Space/Ctrl/C while flying around in Build Mode silently set real
+    // jump/crouch/prone/dodge state that fires unexpectedly the moment
+    // Build Mode is exited.
+    this.player.suspended = true
     // _maybeShowTutorialHints' own guard only stops FUTURE hints from
     // firing once Build Mode is active - it can't stop one already
     // mid-animation at the exact moment Build Mode is entered. Hide it
@@ -8880,6 +8885,12 @@ export class Game {
   _exitBuildMode() {
     this.buildMode.exit()
     document.exitPointerLock()
+    this.player.suspended = false
+    // Defensive reset, not just un-suspending - a stray real jump/fall
+    // velocity firing for real the instant _tick() resumes calling
+    // this.player.update() again would be a jarring launch off the
+    // homepage's own spawn point.
+    this.player.velocity.y = 0
     const exitBtn = document.getElementById('build-mode-exit-btn')
     if (exitBtn) exitBtn.style.display = 'none'
     const saveBtn = document.getElementById('build-mode-save-btn')

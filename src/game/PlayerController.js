@@ -117,6 +117,14 @@ const MAX_MOUSE_DELTA = 250
 export class PlayerController {
   constructor(camera, domElement, colliders, groundMeshes) {
     this.invertY = false
+    // Build Mode shares this same PlayerController/canvas for its own
+    // free-fly pointer lock (see Game.js's _enterBuildMode/_exitBuildMode,
+    // which set this) - without it, pressing Space/Ctrl/C while flying
+    // around a build would silently set real jump/crouch/prone/dodge state
+    // on the (otherwise-idle) real player, which then fires unexpectedly
+    // for real the moment Build Mode is exited and _tick() resumes calling
+    // this.player.update() again.
+    this.suspended = false
     document.addEventListener('mousemove', (e) => {
       if (Math.abs(e.movementX) > MAX_MOUSE_DELTA || Math.abs(e.movementY) > MAX_MOUSE_DELTA) {
         e.stopImmediatePropagation()
@@ -304,6 +312,7 @@ export class PlayerController {
   // always-available fallback (arrows for movement, Ctrl for crouch) so a
   // remap can never lock movement out entirely.
   _onKey(e, isDown) {
+    if (this.suspended) return
     const code = e.code
     if (code === getKeyFor('moveForward') || code === 'ArrowUp') this.input.forward = isDown
     else if (code === getKeyFor('moveBack') || code === 'ArrowDown') this.input.back = isDown
