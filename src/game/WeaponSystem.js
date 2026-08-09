@@ -68,6 +68,15 @@ const PERFECT_RELOAD_BONUS_DURATION_MS = 6000
 const CORRODE_DURATION_MS = 4000
 const ELECTRIC_CHAIN_RANGE = 6
 const ELECTRIC_CHAIN_STUN_MS = 900
+// Void Ripper wonder weapon (w.wonderVortex, Mystery Box only - see
+// Game.js's _tryMysteryBox) - a slow-traveling orb that pulls nearby
+// zombies into a vortex before detonating, distinct from every other
+// explosive weapon's instant hitscan-to-AOE (see w.explosive above).
+const VOID_RIPPER_TRAVEL_MS = 380
+const VOID_RIPPER_VORTEX_MS = 750
+const VOID_RIPPER_PULL_RADIUS = 9
+const VOID_RIPPER_PULL_SPEED = 7
+const VOID_RIPPER_ORB_COLOR = 0x9b5cff
 // Headshot bonus - geometric height check against hit.point rather than
 // tagging every individual head mesh across every zombie body-builder
 // variant (GLB/procedural/dinosaur-skulled bosses all differ). Reads each
@@ -353,6 +362,31 @@ const WEAPONS = [
     shakeIntensity: 0.08,
     shakeDuration: 140,
   },
+  {
+    id: 'voidripper',
+    name: 'Void Ripper',
+    auto: false,
+    fireInterval: 1.6,
+    reloadTime: 2.2,
+    magSize: 1,
+    reserve: 5,
+    damage: 0, // unused - see w.wonderVortex below, damage comes from explosiveDamageMin/Max on detonation
+    // Slow orb + zombie-pulling vortex + delayed AOE detonation (see
+    // _spawnVoidRipperOrb/_updateVoidRipperOrbs) - not the instant
+    // hitscan-to-AOE every other w.explosive weapon uses.
+    wonderVortex: true,
+    explosiveRadius: 8,
+    explosiveDamageMin: 150,
+    explosiveDamageMax: 400,
+    muzzleColor: 0x9b5cff,
+    // Mystery Box only (see Game.js's _tryMysteryBox rare-weighting) - never
+    // purchasable, never starts unlocked.
+    unlocked: false,
+    rare: true,
+    shakeIntensity: 0.16,
+    shakeDuration: 220,
+    heavy: true,
+  },
 ]
 
 // Alternate stat blocks for the melee slot - see setMeleeVariant(). Found as
@@ -510,6 +544,10 @@ export class WeaponSystem {
     // puddle/decal arrays. Each tracer gets its own material instance (never
     // shared) since several can be fading concurrently under sustained fire.
     this.tracers = []
+    // Void Ripper orbs in flight/vortex (see _spawnVoidRipperOrb) - a plain
+    // array since at most one or two are ever active at once (single-shot,
+    // low-reserve wonder weapon), same shape as tracers above.
+    this.voidRipperOrbs = []
     this._idleTime = 0
     this._idleInspectAmount = 0
     // Hold-to-inspect key state (see _onKey/the keyup listener above).
@@ -935,6 +973,7 @@ export class WeaponSystem {
     this.recoil = Math.max(0, this.recoil - dt * 6)
     this.isSprinting = isSprinting
     this._updateTracers()
+    this._updateVoidRipperOrbs(dt)
     // Idle weapon inspect (see _updateViewmodelTransform) - resets the
     // instant the player does anything with the weapon, so it only ever
     // plays during genuine downtime between fights.
@@ -1038,6 +1077,90 @@ export class WeaponSystem {
         continue
       }
       tr.mesh.material.opacity = 0.85 * (1 - age / TRACER_LIFETIME_MS)
+    }
+  }
+
+  // Void Ripper (see w.wonderVortex) - a small glowing orb that lerps from
+  // the muzzle to the raycast impact point over VOID_RIPPER_TRAVEL_MS, then
+  // hands off to _updateVoidRipperOrbs' vortex phase.
+  _spawnVoidRipperOrb(target, w) {
+    const origin = this.muzzleLight.getWorldPosition(new THREE.Vector3())
+    const geo = new THREE.SphereGeometry(0.18, 12, 12)
+    const mat = new THREE.MeshBasicMaterial({ color: VOID_RIPPER_ORB_COLOR, transparent: true, opacity: 0.9 })
+    const mesh = new THREE.Mesh(geo, mat)
+    mesh.position.copy(origin)
+    const light = new THREE.PointLight(VOID_RIPPER_ORB_COLOR, 3, 6)
+    mesh.add(light)
+    this.scene.add(mesh)
+    this.voidRipperOrbs.push({
+      mesh,
+      origin,
+      target,
+      bornAt: performance.now(),
+      phase: 'travel',
+      vortexStartAt: 0,
+      explosiveRadius: w.explosiveRadius,
+      explosiveDamageMin: w.explosiveDamageMin,
+      explosiveDamageMax: w.explosiveDamageMax,
+    })
+  }
+
+  _updateVoidRipperOrbs(dt) {
+    if (this.voidRipperOrbs.length === 0) return
+    const now = performance.now()
+    for (let i = this.voidRipperOrbs.length - 1; i >= 0; i--) {
+      const orb = this.voidRipperOrbs[i]
+      if (orb.phase === 'travel') {
+        const t = Math.min(1, (now - orb.bornAt) / VOID_RIPPER_TRAVEL_MS)
+        orb.mesh.position.lerpVectors(orb.origin, orb.target, t)
+        // Slight upward bob so it reads as a slow, heavy orb rather than
+        // another straight-line tracer.
+        orb.mesh.position.y += Math.sin(t * Math.PI) * 0.25
+        if (t >= 1) {
+          orb.phase = 'vortex'
+          orb.vortexStartAt = now
+          // Freeze every zombie caught in the pull radius for the whole
+          // vortex window - same staggerUntil mechanism EMP stun and the
+          // brief hit-reaction knockback already use to suspend a zombie's
+          // own AI movement (see Zombie.js's `staggered` check), so the
+          // pull below can walk them toward the orb without fighting their
+          // normal chase-the-player pathing. A zombie shot by the player
+          // mid-vortex can still break free early (onHit resets
+          // staggerUntil to its own short window) - an accepted rare edge
+          // case, not worth extra plumbing for.
+          if (this.zombieManager) {
+            for (const z of this.zombieManager.zombies) {
+              if (z.state !== 'alive') continue
+              const d = Math.hypot(z.group.position.x - orb.target.x, z.group.position.z - orb.target.z)
+              if (d <= VOID_RIPPER_PULL_RADIUS) z.staggerUntil = Math.max(z.staggerUntil, now + VOID_RIPPER_VORTEX_MS + 100)
+            }
+          }
+        }
+      } else {
+        const elapsed = now - orb.vortexStartAt
+        if (this.zombieManager) {
+          for (const z of this.zombieManager.zombies) {
+            if (z.state !== 'alive') continue
+            const dx = orb.target.x - z.group.position.x
+            const dz = orb.target.z - z.group.position.z
+            const d = Math.hypot(dx, dz)
+            if (d <= VOID_RIPPER_PULL_RADIUS && d > 0.4) {
+              const pull = Math.min(d, VOID_RIPPER_PULL_SPEED * dt)
+              z.group.position.x += (dx / d) * pull
+              z.group.position.z += (dz / d) * pull
+            }
+          }
+        }
+        orb.mesh.rotation.y += dt * 10
+        orb.mesh.scale.setScalar(1 + Math.sin(now * 0.02) * 0.15)
+        if (elapsed >= VOID_RIPPER_VORTEX_MS) {
+          if (this.zombieManager) this.zombieManager.damageInRadius(orb.target.x, orb.target.z, orb.explosiveRadius, orb.explosiveDamageMin, orb.explosiveDamageMax)
+          this.scene.remove(orb.mesh)
+          orb.mesh.geometry.dispose()
+          orb.mesh.material.dispose()
+          this.voidRipperOrbs.splice(i, 1)
+        }
+      }
     }
   }
 
@@ -1189,6 +1312,14 @@ export class WeaponSystem {
       // weapons never have more than 1 pellet anyway.
       if (w.explosive) {
         if (this.zombieManager) this.zombieManager.damageInRadius(hit.point.x, hit.point.z, w.explosiveRadius, w.explosiveDamageMin, w.explosiveDamageMax)
+        continue
+      }
+
+      // Void Ripper (see w.wonderVortex) - same impact point as the
+      // explosive weapons above, but the AOE detonation is delayed behind
+      // a travel-then-pull sequence instead of firing instantly.
+      if (w.wonderVortex) {
+        this._spawnVoidRipperOrb(hit.point.clone(), w)
         continue
       }
 

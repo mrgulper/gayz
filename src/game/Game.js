@@ -45,6 +45,7 @@ import { JOKE_TIPS, FUNNY_TRIVIA } from './MenuEasterEggs.js'
 import * as MenuPresets from './MenuPresets.js'
 import { BuildMode } from './BuildMode.js'
 import * as CloudSync from './CloudSync.js'
+import * as CloudSaveUI from './CloudSaveUI.js'
 import { setColorblind } from './Accessibility.js'
 import { registerZone } from './Zones.js'
 
@@ -1482,6 +1483,10 @@ const UPGRADE_MACHINE_RADIUS = 2.2
 // re-rolling isn't meant to get progressively harder to discourage, just to
 // cost something each time).
 const MYSTERY_BOX_COST = 950
+// Rare/wonder weapons (w.rare, e.g. the Void Ripper) hit low odds instead of
+// joining the normal uniform-random pool - a pull should feel like a real
+// jackpot, not just as likely as any other gun.
+const MYSTERY_BOX_RARE_CHANCE = 0.05
 const MYSTERY_BOX_RADIUS = 2.2
 const MAX_DEPLOYED_TURRETS = 3
 // Field power-ups - a small chance per kill (see _onZombieKilled) to drop
@@ -1885,7 +1890,7 @@ const GOAL_CANDIDATES = [
 // push" timestamp. The signed-in account itself needs no local caching -
 // Firebase Auth persists its own session (IndexedDB) and CloudSync's
 // onAuthChange restores _cloudProfile/_cloudUid from that directly.
-const CLOUD_LAST_SYNC_KEY = 'gayz-cloud-last-sync'
+export const CLOUD_LAST_SYNC_KEY = 'gayz-cloud-last-sync'
 // Rank velocity arrow (see _renderPlayerTag) - the rank as of the last
 // time it was fetched, so this visit's fetch can compare against it.
 const PREV_GLOBAL_RANK_KEY = 'gayz-prev-global-rank'
@@ -2516,7 +2521,7 @@ function formatTime(ms) {
 // Human "X ago" phrasing (Cloud Save's last-synced line) - distinct from
 // formatTime above, which is MM:SS run-clock formatting and would render
 // nonsense like "1440:00" for a sync from a day ago.
-function _formatRelativeTime(ms) {
+export function _formatRelativeTime(ms) {
   const sec = Math.floor(ms / 1000)
   if (sec < 60) return t('relativeTimeJustNow')
   const min = Math.floor(sec / 60)
@@ -2556,7 +2561,7 @@ function _formatDurationShort(totalSeconds) {
   return `${totalSeconds}s`
 }
 
-function _safeStatNumber(v) {
+export function _safeStatNumber(v) {
   const n = Number(v)
   return Number.isFinite(n) ? n : 0
 }
@@ -7315,7 +7320,7 @@ export class Game {
     if (this.profileRegisterBtn) this.profileRegisterBtn.addEventListener('click', () => this._handleCloudSignIn())
     if (this.profileSignoutBtn) {
       this.profileSignoutBtn.addEventListener('click', async () => {
-        await this._handleCloudSignOut()
+        await CloudSaveUI.handleCloudSignOut(this)
         this._renderProfileAccountRow()
       })
     }
@@ -7372,7 +7377,7 @@ export class Game {
       })
     }
     this._bindHomepageBatch()
-    this._bindCloudSave()
+    CloudSaveUI.bindCloudSave(this)
     this._checkBeatThisChallenge()
     this._checkViewProfileLink()
     this._maybeShowWhatsNewDigest()
@@ -7971,104 +7976,6 @@ export class Game {
 
   // Cloud Save panel open/close - a normal modal, same shared z-index/
   // display:flex rule every other panel uses.
-  _openCloudSavePanel() {
-    this.cloudsavePanel.style.display = 'flex'
-    this.cloudsavePanelTitle.textContent = t('cloudsavePanelTitle')
-    this._renderCloudSaveState()
-    this._updateOnlineStatus()
-  }
-
-  // Online/Offline indicator (Cloud Save panel) - navigator.onLine plus
-  // the real online/offline events (registered once, see _bindHomepageBatch)
-  // rather than only checking at panel-open time, so the warning also
-  // appears/clears if connectivity changes while the panel is already open.
-  _updateOnlineStatus() {
-    if (!this.cloudsaveOfflineWarning) return
-    const offline = !navigator.onLine
-    this.cloudsaveOfflineWarning.style.display = offline ? '' : 'none'
-    for (const btn of [this.cloudsaveSigninBtn, this.cloudsaveSyncNowBtn]) {
-      if (btn) btn.disabled = offline
-    }
-  }
-
-  _closeCloudSavePanel() {
-    this.cloudsavePanel.style.display = 'none'
-    if (this._leaderboardUnsubscribe) {
-      this._leaderboardUnsubscribe()
-      this._leaderboardUnsubscribe = null
-    }
-  }
-
-  // Session restore on page load - Firebase persists auth state itself
-  // (IndexedDB), so onAuthChange fires immediately with the real signed-in
-  // user (or null) with no popup and no manual token-caching of our own.
-  // Also the single ongoing source of truth: fires again on every future
-  // sign-in/sign-out too, so _cloudProfile/_cloudUid never drift from
-  // Firebase's own notion of the session.
-  _restoreCloudSession() {
-    if (!this.quickCloudBtn || !CloudSync.isConfigured()) return
-    CloudSync.onAuthChange((session) => {
-      this._cloudProfile = session ? session.profile : null
-      this._cloudUid = session ? session.uid : null
-      this._updateCloudQuickIcon(!!session)
-      if (this.cloudsavePanel && getComputedStyle(this.cloudsavePanel).display !== 'none') {
-        this._renderCloudSaveState()
-      }
-    }).catch(() => {})
-  }
-
-  _updateCloudQuickIcon(signedIn) {
-    if (this.quickCloudBtn) this.quickCloudBtn.classList.toggle('signed-in', signedIn)
-    if (this.cloudSignedInDot) this.cloudSignedInDot.style.display = signedIn ? '' : 'none'
-    // Avatar precedence: a chosen preset (see _renderProfileAvatarPicker)
-    // wins, otherwise a plain anonymous hooded-silhouette image - the
-    // signed-in Google photo is deliberately never used here (kept private
-    // to the Cloud Save panel's own account row instead), so signing in
-    // doesn't silently put a real photo on the public-facing homepage.
-    if (this.menuAvatarPhoto) {
-      const presetUrls = { male: '/images/avatar-male.png', female: '/images/avatar-female.png' }
-      this.menuAvatarPhoto.src = presetUrls[this.settings.avatarChoice] || '/images/avatar-anonymous.png'
-      this.menuAvatarPhoto.style.display = ''
-    }
-  }
-
-  _renderCloudSaveState() {
-    const signedIn = !!this._cloudProfile
-    if (this.cloudsaveSignedOut) this.cloudsaveSignedOut.style.display = signedIn ? 'none' : 'flex'
-    if (this.cloudsaveSignedIn) this.cloudsaveSignedIn.style.display = signedIn ? 'flex' : 'none'
-    if (!CloudSync.isConfigured() && this.cloudsaveSignedOutDesc) {
-      this.cloudsaveSignedOutDesc.textContent = t('cloudsaveNotConfigured')
-    } else if (this.cloudsaveSignedOutDesc) {
-      this.cloudsaveSignedOutDesc.textContent = t('cloudsaveSignedOutDesc')
-    }
-    if (this.cloudsaveSigninBtn) {
-      this.cloudsaveSigninBtn.textContent = t('cloudsaveSigninBtn')
-      this.cloudsaveSigninBtn.disabled = !CloudSync.isConfigured()
-    }
-    if (!signedIn) return
-    if (this.cloudsaveAvatar) this.cloudsaveAvatar.src = this._cloudProfile.picture || ''
-    if (this.cloudsaveAccountName) this.cloudsaveAccountName.textContent = this._cloudProfile.name || this._cloudProfile.email || ''
-    this._renderCloudSyncStatus()
-    if (this.cloudsaveSyncNowBtn) this.cloudsaveSyncNowBtn.textContent = t('cloudsaveSyncNowBtn')
-    if (this.cloudsaveSignoutBtn) this.cloudsaveSignoutBtn.textContent = t('cloudsaveSignoutBtn')
-    this._renderCloudOnlineSection()
-  }
-
-  _renderCloudSyncStatus() {
-    if (!this.cloudsaveSyncStatus) return
-    const last = localStorage.getItem(CLOUD_LAST_SYNC_KEY)
-    this.cloudsaveSyncStatus.textContent = last
-      ? t('cloudsaveLastSynced', { time: _formatRelativeTime(Math.max(0, Date.now() - Number(last))) })
-      : t('cloudsaveNeverSynced')
-    // Also on the homepage cloud icon itself (see #7 of the Online
-    // Features ask - a "glance" without permanent new homepage UI).
-    if (this.quickCloudBtn) {
-      this.quickCloudBtn.title = this._cloudProfile
-        ? t('cloudQuickIconTooltip', { name: this._cloudProfile.name || this._cloudProfile.email, status: last ? _formatRelativeTime(Math.max(0, Date.now() - Number(last))) : t('cloudsaveNeverSynced') })
-        : ''
-    }
-  }
-
   // Online Features - global leaderboard, weekly-challenge ranking, friend
   // comparison, global kill counter, community poll. All read-only fetches
   // here (writes happen once per run in _pushOnlineStats, not on every
@@ -8398,22 +8305,22 @@ export class Game {
       // don't have to wait a tick for that callback to run first.
       this._cloudProfile = profile
       this._cloudUid = uid
-      this._updateCloudQuickIcon(true)
-      this._renderCloudSaveState()
+      CloudSaveUI.updateCloudQuickIcon(this, true)
+      CloudSaveUI.renderCloudSaveState(this)
       this._renderProfileAccountRow()
 
       const cloud = await CloudSync.fetchCloudSave(uid)
       if (!cloud) {
         // First time signing in on any device - nothing to compare against,
         // just push this device's save up.
-        await this._pushToCloud(false)
+        await CloudSaveUI.pushToCloud(this, false)
         return
       }
       this._cloudPendingConflict = cloud.data
-      this._renderCloudConflict(cloud.data)
+      CloudSaveUI.renderCloudConflict(this, cloud.data)
     } catch (err) {
       this._showLoreToast(t('cloudsaveError'))
-      this._renderCloudSaveState()
+      CloudSaveUI.renderCloudSaveState(this)
     }
   }
 
@@ -8421,86 +8328,6 @@ export class Game {
   // pattern _compareSaveFile already uses for an uploaded file - a Drive
   // file the player controls is no more trustworthy than one they pick
   // from disk) so the choice isn't blind.
-  _renderCloudConflict(data) {
-    if (!this.cloudsaveConflict) return
-    const safeParse = (raw, fallback) => {
-      try {
-        return raw ? JSON.parse(raw) : fallback
-      } catch {
-        return fallback
-      }
-    }
-    const cloudCareer = safeParse(data['gayz-career-stats'], {})
-    const cloudBest = safeParse(data['gayz-best-stats'], {})
-    this.cloudsaveConflictDesc.textContent = t('cloudsaveConflictDesc', {
-      localKills: _safeStatNumber(this.careerStats.totalKills),
-      localNight: _safeStatNumber(this.bestStats.bestNight),
-      cloudKills: _safeStatNumber(cloudCareer.totalKills),
-      cloudNight: _safeStatNumber(cloudBest.bestNight),
-    })
-    this.cloudsaveConflict.style.display = 'flex'
-    if (this.cloudsaveUseCloudBtn) this.cloudsaveUseCloudBtn.textContent = t('cloudsaveUseCloudBtn')
-    if (this.cloudsaveUseLocalBtn) this.cloudsaveUseLocalBtn.textContent = t('cloudsaveUseLocalBtn')
-  }
-
-  _resolveCloudConflict(choice) {
-    if (!this._cloudPendingConflict) return
-    if (choice === 'cloud') {
-      // Firebase Auth's own session lives in IndexedDB, not localStorage,
-      // so it survives _applyImportedSaveData's localStorage.clear() on
-      // its own - no need to manually re-inject an account marker the way
-      // the earlier Drive-based design had to. Just carry the sync
-      // timestamp forward so the status line doesn't flash back to "Not
-      // synced yet" for one frame after reload.
-      const data = { ...this._cloudPendingConflict, [CLOUD_LAST_SYNC_KEY]: String(Date.now()) }
-      this._cloudPendingConflict = null
-      this._applyImportedSaveData(data)
-    } else {
-      this._cloudPendingConflict = null
-      if (this.cloudsaveConflict) this.cloudsaveConflict.style.display = 'none'
-      this._pushToCloud(true)
-    }
-  }
-
-  // manual=true shows a toast; manual=false is the best-effort post-run
-  // auto-sync - swallows errors quietly rather than interrupting the
-  // death/results flow.
-  async _pushToCloud(manual) {
-    if (!this._cloudUid || !CloudSync.isConfigured()) return
-    try {
-      await CloudSync.pushCloudSave(this._cloudUid, this._snapshotLocalSave())
-      localStorage.setItem(CLOUD_LAST_SYNC_KEY, String(Date.now()))
-      this._renderCloudSyncStatus()
-      if (manual) this._showLoreToast(t('cloudsaveSynced'))
-    } catch {
-      if (manual) this._showLoreToast(t('cloudsaveError'))
-    }
-  }
-
-  async _handleCloudSignOut() {
-    // The local sign-out (clearing _cloudProfile/_cloudUid, updating the
-    // UI) must happen regardless of whether the remote Firebase signOut
-    // call itself succeeds - a network hiccup shouldn't leave the player
-    // stuck unable to sign out on their own device.
-    try {
-      await CloudSync.signOut()
-    } catch {
-      // Best-effort - local state still clears below either way.
-    }
-    this._cloudProfile = null
-    this._cloudUid = null
-    this._cloudPendingConflict = null
-    this._cloudGlobalRank = null
-    if (this._leaderboardUnsubscribe) {
-      this._leaderboardUnsubscribe()
-      this._leaderboardUnsubscribe = null
-    }
-    this._updateCloudQuickIcon(false)
-    if (this.cloudsaveConflict) this.cloudsaveConflict.style.display = 'none'
-    this._renderCloudSaveState()
-    this._renderPlayerTag()
-  }
-
   // Read-only - parses another save file WITHOUT writing anything, just to
   // show a side-by-side stat comparison (e.g. two family members comparing
   // progress without either one's save getting overwritten). Reads the
@@ -11574,8 +11401,8 @@ export class Game {
     if (buildSaveBtn) buildSaveBtn.addEventListener('click', () => this.buildMode.save())
     MenuPresets.renderMenuPresets(this)
     MenuEasterEggs.bindAll(this)
-    window.addEventListener('online', () => this._updateOnlineStatus())
-    window.addEventListener('offline', () => this._updateOnlineStatus())
+    window.addEventListener('online', () => CloudSaveUI.updateOnlineStatus(this))
+    window.addEventListener('offline', () => CloudSaveUI.updateOnlineStatus(this))
     if (this.shortcutCheatsheetCloseBtn) {
       this.shortcutCheatsheetCloseBtn.addEventListener('click', () => { this.shortcutCheatsheet.style.display = 'none' })
     }
@@ -11685,40 +11512,6 @@ export class Game {
 
     this._renderScreenshotGallery()
     this._updateEventBanner()
-  }
-
-  _bindCloudSave() {
-    if (this.quickCloudBtn) this.quickCloudBtn.addEventListener('click', () => this._openCloudSavePanel())
-    if (this.cloudsavePanel) {
-      this.cloudsavePanel.addEventListener('click', (e) => {
-        if (e.target === this.cloudsavePanel) this._closeCloudSavePanel()
-      })
-    }
-    if (this.cloudsaveSigninBtn) this.cloudsaveSigninBtn.addEventListener('click', () => this._handleCloudSignIn())
-    if (this.cloudsaveSignoutBtn) this.cloudsaveSignoutBtn.addEventListener('click', () => this._handleCloudSignOut())
-    if (this.cloudsaveSyncNowBtn) this.cloudsaveSyncNowBtn.addEventListener('click', () => this._pushToCloud(true))
-    if (this.cloudsaveUseCloudBtn) this.cloudsaveUseCloudBtn.addEventListener('click', () => this._resolveCloudConflict('cloud'))
-    if (this.cloudsaveUseLocalBtn) this.cloudsaveUseLocalBtn.addEventListener('click', () => this._resolveCloudConflict('local'))
-    if (this.cloudsaveFriendCompareBtn) this.cloudsaveFriendCompareBtn.addEventListener('click', () => this._handleFriendCompare())
-    if (this.cloudsaveRandomOpponentBtn) this.cloudsaveRandomOpponentBtn.addEventListener('click', () => this._compareVsRandomOpponent())
-    if (this.cloudsaveFriendSaveBtn) this.cloudsaveFriendSaveBtn.addEventListener('click', () => this._saveFriend())
-    if (this.cloudsaveRegionSelect) {
-      this.cloudsaveRegionSelect.addEventListener('change', () => {
-        this.settings.region = this.cloudsaveRegionSelect.value
-        saveSettings(this.settings)
-        this._subscribeLeaderboard()
-      })
-    }
-    if (this.cloudsaveFriendInput) {
-      this.cloudsaveFriendInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') this._handleFriendCompare()
-      })
-    }
-    // Applies a chosen avatar preset immediately even if Cloud Save isn't
-    // configured (see _restoreCloudSession's own early-return guard) or the
-    // async auth check hasn't resolved yet.
-    this._updateCloudQuickIcon(false)
-    this._restoreCloudSession()
   }
 
   // Prestige cosmetic badges - tiered color escalation (bronze/silver/gold-
@@ -13060,8 +12853,8 @@ export class Game {
 
     // Cloud Save auto-sync - best-effort, only if already signed in (never
     // prompts here; a mid-game consent popup would be jarring). See
-    // _pushToCloud's own comment on why manual=false swallows errors.
-    this._pushToCloud(false)
+    // pushToCloud's own comment on why manual=false swallows errors.
+    CloudSaveUI.pushToCloud(this, false)
     this._pushOnlineStats()
   }
 
@@ -13639,7 +13432,7 @@ export class Game {
         this.settings.avatarChoice = this.settings.avatarChoice === id ? null : id
         saveSettings(this.settings)
         this._renderProfileAvatarPicker()
-        this._updateCloudQuickIcon(!!this._cloudProfile)
+        CloudSaveUI.updateCloudQuickIcon(this, !!this._cloudProfile)
       })
     }
   }
@@ -16202,7 +15995,10 @@ export class Game {
     }
     this.points -= MYSTERY_BOX_COST
     const candidates = this.weapons.weapons.filter((w) => !w.melee)
-    const pick = candidates[Math.floor(Math.random() * candidates.length)]
+    const rareCandidates = candidates.filter((w) => w.rare)
+    const commonCandidates = candidates.filter((w) => !w.rare)
+    const pool = rareCandidates.length > 0 && Math.random() < MYSTERY_BOX_RARE_CHANCE ? rareCandidates : commonCandidates
+    const pick = pool[Math.floor(Math.random() * pool.length)]
     this.weapons.markUnlocked(pick.id)
     this.weapons.currentIndex = this.weapons.weapons.indexOf(pick)
     this._updateStatsPanel()

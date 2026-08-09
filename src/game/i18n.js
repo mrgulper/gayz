@@ -161,6 +161,7 @@ const STRINGS = {
     weaponSuppressedSmg: 'Suppressed SMG',
     weaponNailgun: 'Nail Gun',
     weaponHarpoon: 'Harpoon Gun',
+    weaponVoidripper: 'Void Ripper',
     craftingSectionLabel: 'Craft',
     stashSectionLabel: 'Stash (banked here carries into your next run)',
     stashBankedLabel: 'banked: {n}',
