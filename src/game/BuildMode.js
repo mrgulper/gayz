@@ -230,8 +230,8 @@ export class BuildMode {
     this._raycaster = new THREE.Raycaster()
     this._onPointerDown = (e) => {
       if (document.pointerLockElement !== this.renderer.domElement) return
-      if (e.button === 0) this._placeFromCamera()
-      else if (e.button === 2) this._removeFromCamera()
+      if (e.button === 2) this._placeFromCamera()
+      else if (e.button === 0) this._removeFromCamera()
     }
     this._onContextMenu = (e) => { if (this.active) e.preventDefault() }
 
