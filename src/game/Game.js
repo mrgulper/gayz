@@ -8974,6 +8974,37 @@ export class Game {
     // mid-animation at the exact moment Build Mode is entered. Hide it
     // directly here too, for that already-in-flight case.
     if (this.tutorialHintEl) this.tutorialHintEl.classList.remove('show')
+    // Build Mode is a standalone sandbox with its own scene/camera, but it
+    // reuses the same shared renderer/DOM as the zombie survival game (see
+    // BuildMode.js's own comment) - so any real-run HUD element that was
+    // left visible (health/armor, weather overlay, etc.) sits on top of it
+    // with nothing to cover it, since #menu is hidden here too. Every one
+    // of these is normally hidden the moment a run ends (death/extraction)
+    // or pointer lock is released, but force them off here too rather than
+    // trust that every path that can precede a Build Mode click already
+    // did - same "don't assume a shared toast/HUD is in the state you
+    // expect" lesson as the tutorial hint above.
+    this.crosshair.style.display = 'none'
+    this.hudEl.style.display = 'none'
+    this.hotbarEl.style.display = 'none'
+    if (this.hotbarPowerScoreEl) this.hotbarPowerScoreEl.style.display = 'none'
+    this.statusHud.style.display = 'none'
+    this.inventoryHud.style.display = 'none'
+    this.progressHud.style.display = 'none'
+    this.statsPanel.style.display = 'none'
+    this.minimapWrap.style.display = 'none'
+    this.compassStrip.style.display = 'none'
+    this.interactPrompt.style.display = 'none'
+    if (this.keybindCheatsheet) this.keybindCheatsheet.style.display = 'none'
+    this.infectionIndicator.style.display = 'none'
+    this.damageFlash.classList.remove('low-health')
+    this.criticalBloodOverlay.classList.remove('show')
+    // Weather overlay isn't gated to a real run at all - _rollWeather()
+    // fires once from the constructor itself, so a fresh page load can
+    // already be sitting at rainOverlayEl display:block before the player
+    // has ever started (or finished) a real run.
+    if (this.rainOverlayEl) this.rainOverlayEl.style.display = 'none'
+    if (this.snowOverlayEl) this.snowOverlayEl.style.display = 'none'
     const exitBtn = document.getElementById('build-mode-exit-btn')
     if (exitBtn) exitBtn.style.display = 'block'
     const saveBtn = document.getElementById('build-mode-save-btn')

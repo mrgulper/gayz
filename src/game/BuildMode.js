@@ -10,6 +10,11 @@ const FLY_SPEED = 8
 const LOOK_SENSITIVITY = 0.0022
 const MAX_INSTANCES_PER_TYPE = 4096
 const SAVE_KEY = 'gayz-build-mode'
+// Free-fly still has no gravity/ground collision (see spec's "why this
+// shape" section) - this radius only stops the camera from passing through
+// a placed block, treating the camera as a small sphere rather than a
+// zero-size point.
+const COLLISION_RADIUS = 0.35
 
 export const BLOCK_TYPES = [
   { id: 'concrete', color: 0x9a9a92, pattern: 'speckle', roughness: 0.9, metalness: 0 },
@@ -425,8 +430,31 @@ export class BuildMode {
     if (this._keys.has('ShiftLeft')) move.y -= 1
     if (move.lengthSq() > 0) {
       move.normalize().multiplyScalar(FLY_SPEED * dt)
-      this.camera.position.add(move)
+      // Axis-separated: resolve x, then y, then z independently rather than
+      // rejecting the whole move when any part of it hits a block - this is
+      // what lets the camera slide along a wall instead of stopping dead
+      // the moment it grazes one.
+      const pos = this.camera.position
+      if (!this._blockedAt(pos.x + move.x, pos.y, pos.z)) pos.x += move.x
+      if (!this._blockedAt(pos.x, pos.y + move.y, pos.z)) pos.y += move.y
+      if (!this._blockedAt(pos.x, pos.y, pos.z + move.z)) pos.z += move.z
     }
+  }
+
+  // Treats the camera as a small sphere (COLLISION_RADIUS), not a point, so
+  // it can't tuck its center right up against a block's face - checks the
+  // grid cell at each of the 8 corners of that sphere's bounding box, since
+  // near a cell boundary the sphere can overlap the neighboring cell too.
+  _blockedAt(x, y, z) {
+    const r = COLLISION_RADIUS
+    for (const ox of [-r, r]) {
+      for (const oy of [-r, r]) {
+        for (const oz of [-r, r]) {
+          if (this.getBlockAt(Math.floor(x + ox), Math.floor(y + oy), Math.floor(z + oz))) return true
+        }
+      }
+    }
+    return false
   }
 
   render() {
