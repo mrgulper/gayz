@@ -4390,6 +4390,8 @@ html.theme-lighter #app { filter: brightness(1.25); }
   padding: 0;
   border: none;
   outline: none;
+  appearance: none;
+  -webkit-appearance: none;
   cursor: pointer;
   background-color: transparent;
   background-image: url('/images/play-btn-plate.webp');
@@ -4404,19 +4406,30 @@ html.theme-lighter #app { filter: brightness(1.25); }
   text-shadow: none;
   /* Play Button Color (Controls tab) keeps doing something real even
      though it can no longer recolor the image's baked-in gold text -
-     it now drives the ambient glow behind the plate instead. */
-  box-shadow: 0 0 26px 6px color-mix(in srgb, var(--play-btn-color, var(--menu-gold)) 45%, transparent);
-  transition: transform 0.15s ease, box-shadow 0.25s ease;
+     it now drives the ambient glow behind the plate instead.
+     drop-shadow, not box-shadow: box-shadow projects from the element's
+     rectangular layout box, and on this element that box is bigger than
+     the visible octagon (the plate image has transparent corners cut
+     into an otherwise-rectangular canvas) - it rendered as a solid dark
+     square showing through those transparent corners instead of a soft
+     glow (reproduced with a plain rgba() color too, so it wasn't a
+     color-mix() quirk - some box-shadow/blur interaction with the
+     image's own alpha). filter: drop-shadow() glows around the actual
+     rendered alpha shape instead of the bounding box, which sidesteps
+     the bug entirely and, as a bonus, hugs the octagon's real outline
+     rather than glowing as a rectangle. */
+  filter: drop-shadow(0 0 16px color-mix(in srgb, var(--play-btn-color, var(--menu-gold)) 75%, transparent));
+  transition: transform 0.15s ease, filter 0.25s ease;
 }
 
 #play-btn:hover {
   transform: translateY(-3px);
-  box-shadow: 0 0 38px 10px color-mix(in srgb, var(--play-btn-color, var(--menu-gold)) 60%, transparent);
+  filter: drop-shadow(0 0 22px color-mix(in srgb, var(--play-btn-color, var(--menu-gold)) 90%, transparent));
 }
 
 #play-btn:active {
   transform: translateY(2px);
-  box-shadow: 0 0 18px 4px color-mix(in srgb, var(--play-btn-color, var(--menu-gold)) 35%, transparent);
+  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--play-btn-color, var(--menu-gold)) 60%, transparent));
 }
 
 /* Fixed + centered so it sits exactly in the middle of the viewport -
