@@ -8901,6 +8901,10 @@ export class Game {
     if (exitBtn) exitBtn.style.display = 'block'
     const saveBtn = document.getElementById('build-mode-save-btn')
     if (saveBtn) saveBtn.style.display = 'block'
+    const exportBtn = document.getElementById('build-mode-export-btn')
+    if (exportBtn) exportBtn.style.display = 'block'
+    const importBtn = document.getElementById('build-mode-import-btn')
+    if (importBtn) importBtn.style.display = 'block'
     this.buildMode.enter()
     // requestPointerLock() genuinely fails when not triggered by a real,
     // trusted user gesture (e.g. Playwright driving this programmatically,
@@ -8929,6 +8933,10 @@ export class Game {
     if (exitBtn) exitBtn.style.display = 'none'
     const saveBtn = document.getElementById('build-mode-save-btn')
     if (saveBtn) saveBtn.style.display = 'none'
+    const exportBtn = document.getElementById('build-mode-export-btn')
+    if (exportBtn) exportBtn.style.display = 'none'
+    const importBtn = document.getElementById('build-mode-import-btn')
+    if (importBtn) importBtn.style.display = 'none'
     this.menu.style.display = ''
   }
 
@@ -11534,6 +11542,25 @@ export class Game {
     if (buildExitBtn) buildExitBtn.addEventListener('click', () => this._exitBuildMode())
     const buildSaveBtn = document.getElementById('build-mode-save-btn')
     if (buildSaveBtn) buildSaveBtn.addEventListener('click', () => this.buildMode.save())
+    const buildExportBtn = document.getElementById('build-mode-export-btn')
+    if (buildExportBtn) buildExportBtn.addEventListener('click', () => this.buildMode.exportMap())
+    const buildImportBtn = document.getElementById('build-mode-import-btn')
+    const buildImportInput = document.getElementById('build-mode-import-input')
+    if (buildImportBtn && buildImportInput) {
+      buildImportBtn.addEventListener('click', () => buildImportInput.click())
+      buildImportInput.addEventListener('change', async () => {
+        const file = buildImportInput.files[0]
+        buildImportInput.value = ''
+        if (!file) return
+        if (!window.confirm(t('buildImportConfirm'))) return
+        const ok = await this.buildMode.importMapFile(file)
+        // _showLoreToast no-ops here - it's gated on gameStarted, which
+        // Build Mode deliberately sets false (see _enterBuildMode). This is
+        // the same "homepage-safe" ungated variant used elsewhere for
+        // toasts that genuinely belong to a pre-gameStarted context.
+        this._showHomepageToast(t(ok ? 'buildImportSuccess' : 'buildImportInvalid'))
+      })
+    }
     MenuPresets.renderMenuPresets(this)
     MenuEasterEggs.bindAll(this)
     window.addEventListener('online', () => CloudSaveUI.updateOnlineStatus(this))

@@ -53,7 +53,9 @@ html.dyslexia-font body {
 }
 
 #build-mode-exit-btn,
-#build-mode-save-btn {
+#build-mode-save-btn,
+#build-mode-export-btn,
+#build-mode-import-btn {
   position: fixed;
   top: 16px;
   z-index: 20;
@@ -69,6 +71,8 @@ html.dyslexia-font body {
 
 #build-mode-exit-btn { right: 16px; }
 #build-mode-save-btn { right: 168px; }
+#build-mode-export-btn { right: 320px; }
+#build-mode-import-btn { right: 472px; }
 
 #build-picker {
   position: fixed;

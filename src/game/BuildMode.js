@@ -4,8 +4,17 @@
 // context - only the scene/camera passed to render() changes.
 import * as THREE from 'three'
 
-const GROUND_SIZE = 64
-const BLOCK_SIZE = 1
+// GROUND_SIZE is a CELL count (not world units) - bumped up from 64 as
+// BLOCK_SIZE shrank, so the buildable footprint's actual physical size
+// (GROUND_SIZE * BLOCK_SIZE) stays close to what it was before rather than
+// shrinking just because each cell got smaller.
+const GROUND_SIZE = 76
+// Down from 1 - a full 1-unit cube next to a 1.7-tall camera (see the
+// camera spawn position below) read as chest-height and, several placed
+// in a row, closer and more enclosing than Bloxd/Kirka's own blocks feel
+// at the same camera height. ~half the "character height" this project's
+// eye-height convention already uses elsewhere (PlayerController, WeaponSystem).
+const BLOCK_SIZE = 0.85
 const FLY_SPEED = 8
 // Movement used to snap straight to full speed the instant a key went down
 // and stop dead the instant it came up - velocity damps toward the target
@@ -79,6 +88,19 @@ export const BLOCK_TYPES = [
   { id: 'tnt', name: 'TNT', color: 0xc23b22, pattern: 'stripe', roughness: 0.85, metalness: 0 },
   { id: 'quartz', name: 'Quartz Block', color: 0xe8e4dc, pattern: 'brick', roughness: 0.4, metalness: 0 },
   { id: 'andesite', name: 'Andesite', color: 0x888888, pattern: 'speckle', roughness: 0.85, metalness: 0 },
+  // Second common-blocks pass.
+  { id: 'ironore', name: 'Iron Ore', color: 0x8a8570, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'goldore', name: 'Gold Ore', color: 0x9c8a4a, pattern: 'speckle', roughness: 0.85, metalness: 0 },
+  { id: 'diamondore', name: 'Diamond Ore', color: 0x7ba8a0, pattern: 'speckle', roughness: 0.85, metalness: 0 },
+  { id: 'coalore', name: 'Coal Ore', color: 0x3a3a38, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'emeraldblock', name: 'Emerald Block', color: 0x1a9850, pattern: 'metal', roughness: 0.2, metalness: 0.8 },
+  { id: 'lapisblock', name: 'Lapis Block', color: 0x1f4d9c, pattern: 'metal', roughness: 0.25, metalness: 0.75 },
+  { id: 'bedrock', name: 'Bedrock', color: 0x2a2a2a, pattern: 'speckle', roughness: 1, metalness: 0 },
+  { id: 'endstone', name: 'End Stone', color: 0xdcd7a0, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'sandstone', name: 'Sandstone', color: 0xc9b183, pattern: 'brick', roughness: 0.85, metalness: 0 },
+  { id: 'cactus', name: 'Cactus', color: 0x3f8f3a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'netherbrick', name: 'Nether Bricks', color: 0x35181c, pattern: 'brick', roughness: 0.8, metalness: 0 },
+  { id: 'haybale', name: 'Hay Bale', color: 0xd4b03c, pattern: 'wood', roughness: 0.9, metalness: 0 },
 ]
 const VALID_TYPE_IDS = new Set(BLOCK_TYPES.map((b) => b.id))
 
@@ -270,7 +292,9 @@ export class BuildMode {
     // one look very different even with the same geometry.
     sunLight.castShadow = true
     sunLight.shadow.mapSize.set(1024, 1024)
-    const shadowSpan = GROUND_SIZE / 2 + 8
+    // GROUND_SIZE is a cell count, not world units (see its own comment) -
+    // the shadow frustum needs to cover the ground's actual physical size.
+    const shadowSpan = (GROUND_SIZE * BLOCK_SIZE) / 2 + 8
     sunLight.shadow.camera.left = -shadowSpan
     sunLight.shadow.camera.right = shadowSpan
     sunLight.shadow.camera.top = shadowSpan
@@ -303,6 +327,16 @@ export class BuildMode {
     // recover from since a second Space press scrolls further rather than
     // undoing the first.
     const MOVEMENT_KEY_CODES = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft'])
+    // Double-tap Space toggles hands-free ascend (Bloxd/Kirka creative-mode
+    // convention) - on top of the existing hold-Space-to-rise behavior,
+    // which still works unchanged for a single press. Each Space press
+    // within DOUBLE_TAP_WINDOW_MS of the previous one flips the toggle, so
+    // two quick taps turn it on, two more turn it back off; a slow, isolated
+    // tap never triggers it. Shift (the existing "descend" key) also cancels
+    // it outright - the clearest possible "stop rising" signal.
+    const DOUBLE_TAP_WINDOW_MS = 300
+    this._flyUpActive = false
+    this._lastSpaceTapAt = 0
     this._onKeyDown = (e) => {
       // Without this, typing a block name into the picker's search box
       // (see _pickerSearchInput) both flew the camera around on every W/A/
@@ -312,6 +346,13 @@ export class BuildMode {
       // existed (the picker's Tab-toggle key handling never blocked
       // movement input while open), the search box just made it obvious.
       if (this.pickerOpen) return
+      if (e.code === 'Space' && !e.repeat) {
+        const now = performance.now()
+        if (now - this._lastSpaceTapAt < DOUBLE_TAP_WINDOW_MS) this._flyUpActive = !this._flyUpActive
+        this._lastSpaceTapAt = now
+      } else if (e.code === 'ShiftLeft') {
+        this._flyUpActive = false
+      }
       this._keys.add(e.code)
       if (MOVEMENT_KEY_CODES.has(e.code)) e.preventDefault()
     }
@@ -438,6 +479,7 @@ export class BuildMode {
     this.save()
     this.active = false
     this._keys.clear()
+    this._flyUpActive = false
     window.removeEventListener('keydown', this._onKeyDown)
     window.removeEventListener('keyup', this._onKeyUp)
     window.removeEventListener('mousemove', this._onMouseMove)
@@ -483,7 +525,11 @@ export class BuildMode {
     const mesh = this._instancedMeshes[type]
     if (!mesh || mesh.count >= MAX_INSTANCES_PER_TYPE) return
     const index = mesh.count
-    const matrix = new THREE.Matrix4().makeTranslation(x + 0.5, y + 0.5, z + 0.5)
+    // x/y/z are integer grid cell indices (unaffected by BLOCK_SIZE - saved
+    // builds, _blocks' sparse map keys, and every raycast/collision cell
+    // lookup all stay in this same cell-index space); only the WORLD
+    // position of that cell's center needs the *BLOCK_SIZE conversion.
+    const matrix = new THREE.Matrix4().makeTranslation((x + 0.5) * BLOCK_SIZE, (y + 0.5) * BLOCK_SIZE, (z + 0.5) * BLOCK_SIZE)
     mesh.setMatrixAt(index, matrix)
     // Slight per-instance brightness variation (±12%) - every block of a
     // type otherwise shares one exact texture, which reads as an obviously
@@ -570,7 +616,9 @@ export class BuildMode {
       const px = origin.x + dir.x * t
       const py = origin.y + dir.y * t
       const pz = origin.z + dir.z * t
-      const cell = [Math.floor(px), Math.floor(py), Math.floor(pz)]
+      // World position -> cell index (see placeBlock's own comment on the
+      // same conversion the other direction).
+      const cell = [Math.floor(px / BLOCK_SIZE), Math.floor(py / BLOCK_SIZE), Math.floor(pz / BLOCK_SIZE)]
       if (this.getBlockAt(cell[0], cell[1], cell[2])) {
         return { placeAt: prevCell || cell, existingBlock: cell }
       }
@@ -672,16 +720,22 @@ export class BuildMode {
   }
 
   save() {
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(this._snapshot()))
+    } catch {
+      // Storage unavailable (e.g. private browsing) - build just won't persist.
+    }
+  }
+
+  // Shared by save() (local persistence) and exportMap() (downloadable
+  // file) - one source of truth for "what does a saved build contain."
+  _snapshot() {
     const blocks = []
     for (const [key, type] of this._blocks) {
       const [x, y, z] = key.split(',').map(Number)
       blocks.push({ x, y, z, type })
     }
-    try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify({ blocks, hotbar: this.hotbar }))
-    } catch {
-      // Storage unavailable (e.g. private browsing) - build just won't persist.
-    }
+    return { blocks, hotbar: this.hotbar }
   }
 
   load() {
@@ -701,27 +755,82 @@ export class BuildMode {
         // (but still grounded) layout rather than crashing.
       }
     }
-    if (parsed) {
-      // Save format used to be a bare array of block entries, before the
-      // hotbar existed - keep reading those the same way rather than
-      // silently dropping every build saved before this change.
-      const blocks = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.blocks) ? parsed.blocks : null
-      if (blocks) {
-        for (const entry of blocks) {
-          if (!entry || typeof entry !== 'object') continue
-          const { x, y, z, type } = entry
-          if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) continue
-          if (!VALID_TYPE_IDS.has(type)) continue
-          this.placeBlock(Math.trunc(x), Math.trunc(y), Math.trunc(z), type)
-        }
-      }
-      const hotbar = parsed?.hotbar
-      if (Array.isArray(hotbar) && hotbar.length === 10) {
-        this.hotbar = hotbar.map((id) => (id === null || VALID_TYPE_IDS.has(id) ? id : null))
-        this._renderHotbar()
+    this._applyParsedData(parsed)
+    this._ensureGroundLayer()
+  }
+
+  // Shared by load() (local storage, called on entering Build Mode with an
+  // already-empty scene) and importMapFile() (an uploaded file, called
+  // into a scene that may already have a build in it - the caller clears
+  // first, see clearAllBlocks). Save format used to be a bare array of
+  // block entries, before the hotbar existed - keep reading those the same
+  // way rather than silently dropping every build saved before that change.
+  _applyParsedData(parsed) {
+    if (!parsed) return
+    const blocks = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.blocks) ? parsed.blocks : null
+    if (blocks) {
+      for (const entry of blocks) {
+        if (!entry || typeof entry !== 'object') continue
+        const { x, y, z, type } = entry
+        if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) continue
+        if (!VALID_TYPE_IDS.has(type)) continue
+        this.placeBlock(Math.trunc(x), Math.trunc(y), Math.trunc(z), type)
       }
     }
+    const hotbar = parsed?.hotbar
+    if (Array.isArray(hotbar) && hotbar.length === 10) {
+      this.hotbar = hotbar.map((id) => (id === null || VALID_TYPE_IDS.has(id) ? id : null))
+      this._renderHotbar()
+    }
+  }
+
+  // Downloads the current build (same shape save() writes to localStorage)
+  // as a JSON file, matching Game.js's own _exportSave() Blob-download
+  // pattern for the main survival-game save.
+  exportMap() {
+    const data = this._snapshot()
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' })
+    const link = document.createElement('a')
+    link.download = `gayz-build-${Date.now()}.json`
+    link.href = URL.createObjectURL(blob)
+    link.click()
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000)
+  }
+
+  // Wipes every currently-placed block (including the ground layer) back
+  // to a truly empty InstancedMesh/sparse-map state - needed before
+  // importing a file into a scene that may already have a build in it,
+  // since placeBlock only ever adds (see its own occupied-cell no-op).
+  clearAllBlocks() {
+    for (const type in this._instancedMeshes) {
+      const mesh = this._instancedMeshes[type]
+      mesh.count = 0
+      mesh.instanceMatrix.needsUpdate = true
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
+      this._instanceKeyByIndex[type] = []
+    }
+    this._blocks.clear()
+  }
+
+  // Returns true on a successful import (caller shows its own toast/error
+  // UI) - unlike the main game's save import, this doesn't need a page
+  // reload: Build Mode's own scene/sparse-map is the only place this data
+  // lives, so re-populating it directly is enough.
+  async importMapFile(file) {
+    if (!file) return false
+    let parsed
+    try {
+      parsed = JSON.parse(await file.text())
+    } catch {
+      return false
+    }
+    const blocks = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.blocks) ? parsed.blocks : null
+    if (!blocks) return false
+    this.clearAllBlocks()
+    this._applyParsedData(parsed)
     this._ensureGroundLayer()
+    this.save()
+    return true
   }
 
   // Backfills any still-empty ground-level (y=GROUND_LAYER_Y) cell across
@@ -752,7 +861,10 @@ export class BuildMode {
     if (this._keys.has('KeyS')) inputDir.sub(forward)
     if (this._keys.has('KeyD')) inputDir.add(right)
     if (this._keys.has('KeyA')) inputDir.sub(right)
-    if (this._keys.has('Space')) inputDir.y += 1
+    // this.pickerOpen check: the toggle is a persistent flag, not tied to a
+    // held key, so without this it would keep pulling the camera upward
+    // even while just browsing the block picker.
+    if (this._keys.has('Space') || (this._flyUpActive && !this.pickerOpen)) inputDir.y += 1
     if (this._keys.has('ShiftLeft')) inputDir.y -= 1
     if (inputDir.lengthSq() > 0) inputDir.normalize()
     const targetVelocity = inputDir.multiplyScalar(FLY_SPEED)
@@ -791,7 +903,8 @@ export class BuildMode {
     for (const ox of [-r, r]) {
       for (const oy of [-r, r]) {
         for (const oz of [-r, r]) {
-          if (this.getBlockAt(Math.floor(x + ox), Math.floor(y + oy), Math.floor(z + oz))) return true
+          // World position -> cell index (see placeBlock's own comment).
+          if (this.getBlockAt(Math.floor((x + ox) / BLOCK_SIZE), Math.floor((y + oy) / BLOCK_SIZE), Math.floor((z + oz) / BLOCK_SIZE))) return true
         }
       }
     }

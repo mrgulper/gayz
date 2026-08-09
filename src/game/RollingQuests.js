@@ -1,12 +1,14 @@
 // Rolling quests - distinct from Quests.js's fixed lifetime milestones
 // (kill_100, streak_20, etc., each claimed once ever). These expire 3
-// hours after they spawn and a new one spawns every 30 minutes (so up to
-// 6 can be active at once), matching Kirka.io's own quest cadence per the
-// user's explicit ask. Real-clock-time based (not the date-string-seeded
-// pattern the existing Daily Challenge mutator uses), since these rotate
-// within a day, not once per day.
+// hours after they spawn and a batch of 3 spawns every 3 minutes (so up to
+// 6 can be active at once - a batch that would push past that just spawns
+// however many still fit), a faster cadence than the original 1-every-30-
+// min Kirka-matching pace, per a later explicit ask. Real-clock-time based
+// (not the date-string-seeded pattern the existing Daily Challenge mutator
+// uses), since these rotate within a day, not once per day.
 const STORAGE_KEY = 'gayz-rolling-quests'
-export const SPAWN_INTERVAL_MS = 30 * 60 * 1000
+export const SPAWN_INTERVAL_MS = 3 * 60 * 1000
+export const QUESTS_PER_SPAWN = 3
 export const EXPIRE_MS = 3 * 60 * 60 * 1000
 const MAX_ACTIVE = 6
 
@@ -39,7 +41,11 @@ function loadState() {
   } catch {
     // Malformed/unavailable - fresh state below.
   }
-  return { active: [], lastSpawnAt: Date.now() }
+  // Backdated by one full interval (not Date.now()) so a brand new player's
+  // very first _tick() call immediately sees "an interval's worth of time
+  // has already passed" and spawns the first batch right away, instead of
+  // showing zero quests until the real-world SPAWN_INTERVAL_MS elapses.
+  return { active: [], lastSpawnAt: Date.now() - SPAWN_INTERVAL_MS }
 }
 
 function saveState(state) {
@@ -59,19 +65,28 @@ export class RollingQuests {
   // Prunes expired entries and spawns any quests that should have appeared
   // while the game wasn't open, one real SPAWN_INTERVAL_MS at a time (not
   // jumping straight to now) so a long absence still only ever fills up to
-  // MAX_ACTIVE rather than dumping a huge backlog in one go.
+  // MAX_ACTIVE rather than dumping a huge backlog in one go. Each interval
+  // spawns up to QUESTS_PER_SPAWN at once (fewer if that would overflow
+  // MAX_ACTIVE).
   _tick() {
     const now = Date.now()
     this.state.active = this.state.active.filter((q) => now - q.spawnedAt < EXPIRE_MS)
     let spawnedAny = false
     while (now - this.state.lastSpawnAt >= SPAWN_INTERVAL_MS && this.state.active.length < MAX_ACTIVE) {
       this.state.lastSpawnAt += SPAWN_INTERVAL_MS
-      const activeTemplateIndexes = new Set(this.state.active.map((q) => q.templateIndex))
-      const candidates = QUEST_TEMPLATES.map((_, i) => i).filter((i) => !activeTemplateIndexes.has(i))
-      const pool = candidates.length > 0 ? candidates : QUEST_TEMPLATES.map((_, i) => i)
-      const templateIndex = pool[Math.floor(Math.random() * pool.length)]
-      this.state.active.push({ templateIndex, spawnedAt: this.state.lastSpawnAt, progress: 0, claimed: false })
-      spawnedAny = true
+      for (let i = 0; i < QUESTS_PER_SPAWN && this.state.active.length < MAX_ACTIVE; i++) {
+        const activeTemplateIndexes = new Set(this.state.active.map((q) => q.templateIndex))
+        const candidates = QUEST_TEMPLATES.map((_, i2) => i2).filter((i2) => !activeTemplateIndexes.has(i2))
+        const pool = candidates.length > 0 ? candidates : QUEST_TEMPLATES.map((_, i2) => i2)
+        const templateIndex = pool[Math.floor(Math.random() * pool.length)]
+        // +i keeps spawnedAt unique within a batch - Game.js's UI and
+        // claim() both use it as this quest's identity key (data-spawned-at/
+        // the lookup below), which broke the instant more than one quest
+        // could share a spawn timestamp. A few milliseconds of drift on
+        // EXPIRE_MS (3 hours) is immaterial.
+        this.state.active.push({ templateIndex, spawnedAt: this.state.lastSpawnAt + i, progress: 0, claimed: false })
+        spawnedAny = true
+      }
     }
     // lastSpawnAt can drift behind "now" forever once MAX_ACTIVE is full
     // (the while loop above stops early) - catch it back up so a slot that
