@@ -15,6 +15,13 @@ const SAVE_KEY = 'gayz-build-mode'
 // a placed block, treating the camera as a small sphere rather than a
 // zero-size point.
 const COLLISION_RADIUS = 0.35
+// Minecraft-style hotbar key mapping - Digit1-9 are slots 0-8, Digit0 is
+// slot 9 (the 10th slot), matching the real keyboard row's left-to-right
+// order rather than numeric value.
+const DIGIT_KEY_TO_HOTBAR_INDEX = {
+  Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4,
+  Digit6: 5, Digit7: 6, Digit8: 7, Digit9: 8, Digit0: 9,
+}
 
 export const BLOCK_TYPES = [
   { id: 'concrete', color: 0x9a9a92, pattern: 'speckle', roughness: 0.9, metalness: 0 },
@@ -229,10 +236,22 @@ export class BuildMode {
     this._onContextMenu = (e) => { if (this.active) e.preventDefault() }
 
     // Tab picker overlay - a plain DOM grid (not part of the 3D scene) of
-    // the 9 block types, toggled with Tab.
+    // every block type, toggled with Tab.
     this.pickerOpen = false
     this._pickerEl = document.getElementById('build-picker')
     this._renderPicker()
+
+    // Always-on-screen quick-select bar (Minecraft-style, Digit1-9/0) -
+    // first 10 block types, no need to open the Tab picker for those.
+    this._hotbarEl = document.getElementById('build-hotbar')
+    this._renderHotbar()
+    this._onKeyDownHotbar = (e) => {
+      const digitIndex = DIGIT_KEY_TO_HOTBAR_INDEX[e.code]
+      if (digitIndex === undefined) return
+      const bt = BLOCK_TYPES[digitIndex]
+      if (bt) this._selectType(bt.id)
+    }
+
     this._onKeyDownPicker = (e) => {
       if (e.code === 'Tab') {
         e.preventDefault()
@@ -249,8 +268,10 @@ export class BuildMode {
     window.addEventListener('keyup', this._onKeyUp)
     window.addEventListener('mousemove', this._onMouseMove)
     window.addEventListener('keydown', this._onKeyDownPicker)
+    window.addEventListener('keydown', this._onKeyDownHotbar)
     this.renderer.domElement.addEventListener('pointerdown', this._onPointerDown)
     window.addEventListener('contextmenu', this._onContextMenu)
+    if (this._hotbarEl) this._hotbarEl.style.display = 'flex'
     this.load()
   }
 
@@ -262,10 +283,21 @@ export class BuildMode {
     window.removeEventListener('keyup', this._onKeyUp)
     window.removeEventListener('mousemove', this._onMouseMove)
     window.removeEventListener('keydown', this._onKeyDownPicker)
+    window.removeEventListener('keydown', this._onKeyDownHotbar)
     this.renderer.domElement.removeEventListener('pointerdown', this._onPointerDown)
     window.removeEventListener('contextmenu', this._onContextMenu)
     this.pickerOpen = false
     if (this._pickerEl) this._pickerEl.style.display = 'none'
+    if (this._hotbarEl) this._hotbarEl.style.display = 'none'
+  }
+
+  // Shared by the Tab picker's swatch click, the hotbar's slot click, and
+  // the Digit1-9/0 hotbar keys - keeps selectedType and both UIs' "selected"
+  // highlight in sync regardless of which of the three just changed it.
+  _selectType(id) {
+    this.selectedType = id
+    this._renderHotbar()
+    if (this.pickerOpen) this._renderPicker()
   }
 
   _key(x, y, z) {
@@ -286,6 +318,11 @@ export class BuildMode {
     mesh.setMatrixAt(index, matrix)
     mesh.count++
     mesh.instanceMatrix.needsUpdate = true
+    // InstancedMesh's frustum-culling bounding sphere isn't recomputed
+    // automatically as instances are added/moved - left stale, blocks
+    // would flicker in and out of view depending on camera angle,
+    // independent of whether they're actually on-screen.
+    mesh.computeBoundingSphere()
     this._blocks.set(key, type)
     this._instanceKeyByIndex[type][index] = key
   }
@@ -310,6 +347,7 @@ export class BuildMode {
     keys.pop()
     mesh.count--
     mesh.instanceMatrix.needsUpdate = true
+    mesh.computeBoundingSphere()
     this._blocks.delete(key)
   }
 
@@ -364,11 +402,29 @@ export class BuildMode {
       swatch.className = 'build-picker-swatch' + (id === this.selectedType ? ' selected' : '')
       swatch.style.background = `#${color.toString(16).padStart(6, '0')}`
       swatch.addEventListener('click', () => {
-        this.selectedType = id
+        this._selectType(id)
         this.togglePicker()
       })
       this._pickerEl.appendChild(swatch)
     }
+  }
+
+  // First 10 of BLOCK_TYPES, always on screen - see DIGIT_KEY_TO_HOTBAR_INDEX
+  // for the matching Digit1-9/0 key handling.
+  _renderHotbar() {
+    if (!this._hotbarEl) return
+    this._hotbarEl.innerHTML = ''
+    BLOCK_TYPES.slice(0, 10).forEach(({ id, color }, i) => {
+      const slot = document.createElement('div')
+      slot.className = 'build-hotbar-slot' + (id === this.selectedType ? ' selected' : '')
+      slot.style.background = `#${color.toString(16).padStart(6, '0')}`
+      const num = document.createElement('span')
+      num.className = 'build-hotbar-slot-num'
+      num.textContent = i === 9 ? '0' : String(i + 1)
+      slot.appendChild(num)
+      slot.addEventListener('click', () => this._selectType(id))
+      this._hotbarEl.appendChild(slot)
+    })
   }
 
   togglePicker() {
