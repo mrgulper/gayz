@@ -4823,6 +4823,12 @@ export class Game {
 
   _bindItemKeys() {
     window.addEventListener('keydown', (e) => {
+      // Build Mode acquires pointer lock too (its own free-fly look
+      // controls, see BuildMode.js) - controls.isLocked alone can't tell
+      // these two apart, so without this guard Tab was opening the real
+      // Inventory panel (plus every item hotkey below it) right on top of
+      // Build Mode's own block picker.
+      if (this.buildMode.active) return
       if (!this.player.controls.isLocked || !this.playerState.alive) return
 
       this._checkSecretSequence(e.code)
@@ -14973,6 +14979,10 @@ export class Game {
   // inventory panel (_refreshInventoryPanel's per-weapon slot buttons).
   _bindHotbar() {
     window.addEventListener('keydown', (e) => {
+      // Same shared-controls.isLocked reasoning as _bindItemKeys - without
+      // this, Digit1-5 in Build Mode would silently switch the real
+      // (hidden) weapon system's equipped gun in the background.
+      if (this.buildMode.active) return
       // weaponWheelOpen isn't covered by the isLocked check below - the
       // wheel is deliberately opened while still locked (it drives its own
       // virtual cursor off the same mouse deltas that steer the camera, see
