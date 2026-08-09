@@ -159,8 +159,11 @@ const WEAPONS = [
     // continuous low rumble rather than distinct shake events.
     shakeIntensity: 0.02,
     shakeDuration: 50,
-    // Shop-exclusive (see CoinShop.js) - no longer findable as loot.
-    unlocked: false,
+    // Unlocked by default like every other weapon now - the in-world
+    // minigun spot pickup (Game.js's _onPickup) still grants the
+    // 'minigun_unlocked' achievement on first interact, independent of
+    // whether the weapon itself was already owned.
+    unlocked: true,
     // Overheat (see _fire/update's heat handling) - sustained fire builds
     // toward maxHeat, then forces the same jammedUntil cooldown a real jam
     // would, so ripping the trigger the whole fight has a real cost instead
@@ -185,7 +188,7 @@ const WEAPONS = [
     // farDist and beyond - a shotgun that's brutal at close range and weak
     // at a distance instead of one flat damage number regardless of range.
     damageFalloff: { near: 22, far: 6, nearDist: 4, farDist: 16 },
-    unlocked: false,
+    unlocked: true,
     shakeIntensity: 0.09,
     shakeDuration: 150,
   },
@@ -199,7 +202,7 @@ const WEAPONS = [
     reserve: 20,
     damage: 140,
     hasScope: true,
-    unlocked: false,
+    unlocked: true,
     // Heaviest kick of any hitscan gun - slow fire rate means it never
     // stacks into the nausea territory minigun/rifle have to avoid.
     shakeIntensity: 0.14,
@@ -214,7 +217,7 @@ const WEAPONS = [
     magSize: 20,
     reserve: 80,
     damage: 10,
-    unlocked: false,
+    unlocked: true,
     shakeIntensity: 0.03,
     shakeDuration: 60,
     light: true,
@@ -240,7 +243,7 @@ const WEAPONS = [
     spread: 0.14,
     ignites: true,
     muzzleColor: 0xff6a1a,
-    unlocked: false,
+    unlocked: true,
     shakeIntensity: 0.015,
     shakeDuration: 50,
   },
@@ -258,7 +261,7 @@ const WEAPONS = [
     explosiveDamageMin: 120,
     explosiveDamageMax: 320,
     muzzleColor: 0xff5a2a,
-    unlocked: false,
+    unlocked: true,
     shakeIntensity: 0.12,
     shakeDuration: 180,
     // Weapon weight (see PlayerController's weaponWeightMult).
@@ -280,7 +283,7 @@ const WEAPONS = [
     // chance to refund straight to reserve, so it never fully runs dry the
     // way every other gun's ammo does.
     boltRetrieveChance: 0.6,
-    unlocked: false,
+    unlocked: true,
     shakeIntensity: 0.04,
     shakeDuration: 80,
   },
@@ -298,7 +301,7 @@ const WEAPONS = [
     explosiveDamageMin: 55,
     explosiveDamageMax: 130,
     muzzleColor: 0xff8a3a,
-    unlocked: false,
+    unlocked: true,
     shakeIntensity: 0.1,
     shakeDuration: 160,
     // Weapon weight (see PlayerController's weaponWeightMult).
@@ -318,7 +321,7 @@ const WEAPONS = [
     // CoinShop.js's own note on why this is a separate weapon, not a variant.
     suppressed: true,
     muzzleColor: 0x8ab0ff,
-    unlocked: false,
+    unlocked: true,
     shakeIntensity: 0.025,
     shakeDuration: 60,
     // Weapon weight (see PlayerController's weaponWeightMult) - a cheap
@@ -338,7 +341,7 @@ const WEAPONS = [
     // fire keeps a target pinned in place instead of a one-off knockdown.
     stunMs: 350,
     muzzleColor: 0xd8d8d8,
-    unlocked: false,
+    unlocked: true,
     shakeIntensity: 0.05,
     shakeDuration: 90,
   },
@@ -355,7 +358,7 @@ const WEAPONS = [
     // the player instead of just dealing damage in place.
     pullsTarget: true,
     muzzleColor: 0x6ad8ff,
-    unlocked: false,
+    unlocked: true,
     shakeIntensity: 0.08,
     shakeDuration: 140,
   },
@@ -376,9 +379,10 @@ const WEAPONS = [
     explosiveDamageMin: 150,
     explosiveDamageMax: 400,
     muzzleColor: 0x9b5cff,
-    // Mystery Box only (see Game.js's _tryMysteryBox rare-weighting) - never
-    // purchasable, never starts unlocked.
-    unlocked: false,
+    // Unlocked by default like every other weapon now, but keeps `rare`
+    // (see Game.js's _tryMysteryBox rare-weighting) - Mystery Box can still
+    // reroll you onto it mid-run even though you already own it.
+    unlocked: true,
     rare: true,
     shakeIntensity: 0.16,
     shakeDuration: 220,

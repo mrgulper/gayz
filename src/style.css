@@ -2256,6 +2256,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 #howtoplay-panel,
 #cloudsave-panel,
 #xp-levelup-panel,
+#weapon-picker-panel,
 #pause-overlay,
 #coinshop-panel,
 #journal-panel,
@@ -2317,6 +2318,27 @@ body.reduce-flashing #critical-blood-overlay.show {
   opacity: 0.85;
 }
 
+/* 14 weapon cards is a lot more than the trait-draw panel's usual 3 - same
+   overflow-y override as the Achievements/Profile panels above. */
+#weapon-picker-panel {
+  overflow-y: auto;
+  padding: 24px 0;
+  justify-content: flex-start;
+}
+
+#weapon-picker-options {
+  max-width: 900px;
+}
+
+.weapon-picker-card .perk-tag {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  opacity: 0.7;
+  margin-top: 2px;
+}
+
 #perk-panel-title,
 #trader-panel-title,
 #upgrades-panel-title,
@@ -2327,6 +2349,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 #howtoplay-panel-title,
 #cloudsave-panel-title,
 #xp-levelup-panel-title,
+#weapon-picker-panel-title,
 #pause-overlay-title,
 #coinshop-panel-title,
 #journal-panel-title {

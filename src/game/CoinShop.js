@@ -2,12 +2,13 @@
 // currency separate from points that every kill guarantees some of, unlike
 // points' 25%-chance drop.
 //
-// Every item has a `section` ('guns' | 'skins' | 'perks') so Game.js's
+// Every weapon unlocks by default now (see WeaponSystem.js) and is picked
+// per-run from the Play-button weapon picker instead of bought here - guns
+// are no longer a purchasable item shape in this list.
+//
+// Every item has a `section` ('skins' | 'perks') so Game.js's
 // _renderCoinShopOptions can group them under their own headers instead of
-// one flat list, plus one of three purchase shapes:
-// - Guns (the `gun` field set): a one-time unlock via WeaponSystem's own
-//   `unlocked` flag on that weapon - owned check reads it directly rather
-//   than duplicating a second "do I own this" set.
+// one flat list, plus one of two purchase shapes:
 // - Skins (the `skin` field set): equip-toggle rather than one-time-owned -
 //   buying one equips it immediately, and once owned it can be re-equipped
 //   for free any time. Used to be a separate Skins panel/currency (in-run
@@ -15,84 +16,6 @@
 // - Stat perks (the `isOwned`/`apply` pair): a permanent one-time purchase
 //   tracked in game.coinShopPurchased.
 export const COIN_SHOP_ITEMS = [
-  {
-    id: 'gun_shotgun',
-    titleKey: 'weaponShotgun',
-    cost: 25000,
-    section: 'guns',
-    gun: 'shotgun',
-  },
-  {
-    id: 'gun_glock18',
-    titleKey: 'weaponGlock18',
-    cost: 20000,
-    section: 'guns',
-    gun: 'glock18',
-  },
-  {
-    id: 'gun_awp',
-    titleKey: 'weaponAwp',
-    cost: 35000,
-    section: 'guns',
-    gun: 'awp',
-  },
-  {
-    id: 'gun_minigun',
-    titleKey: 'weaponMinigun',
-    cost: 50000,
-    section: 'guns',
-    gun: 'minigun',
-    onUnlock: (game) => game.achievements.unlock('minigun_unlocked'),
-  },
-  {
-    id: 'gun_flamethrower',
-    titleKey: 'weaponFlamethrower',
-    cost: 30000,
-    section: 'guns',
-    gun: 'flamethrower',
-  },
-  {
-    id: 'gun_rocket',
-    titleKey: 'weaponRocket',
-    cost: 45000,
-    section: 'guns',
-    gun: 'rocket',
-  },
-  {
-    id: 'gun_crossbow',
-    titleKey: 'weaponCrossbow',
-    cost: 15000,
-    section: 'guns',
-    gun: 'crossbow',
-  },
-  {
-    id: 'gun_launcher',
-    titleKey: 'weaponLauncher',
-    cost: 38000,
-    section: 'guns',
-    gun: 'launcher',
-  },
-  {
-    id: 'gun_suppressedsmg',
-    titleKey: 'weaponSuppressedSmg',
-    cost: 22000,
-    section: 'guns',
-    gun: 'suppressedsmg',
-  },
-  {
-    id: 'gun_nailgun',
-    titleKey: 'weaponNailgun',
-    cost: 18000,
-    section: 'guns',
-    gun: 'nailgun',
-  },
-  {
-    id: 'gun_harpoon',
-    titleKey: 'weaponHarpoon',
-    cost: 26000,
-    section: 'guns',
-    gun: 'harpoon',
-  },
   { id: 'skin_ember', titleKey: 'coinShopEmberSkin', cost: 1500, section: 'skins', skin: 'ember' },
   { id: 'skin_gold', titleKey: 'skinGold', cost: 1200, section: 'skins', skin: 'gold' },
   { id: 'skin_crimson', titleKey: 'skinCrimson', cost: 1200, section: 'skins', skin: 'crimson' },

@@ -4136,6 +4136,9 @@ export class Game {
     this.xpLevelupPanel = document.getElementById('xp-levelup-panel')
     this.xpLevelupPanelTitle = document.getElementById('xp-levelup-panel-title')
     this.xpLevelupOptions = document.getElementById('xp-levelup-options')
+    this.weaponPickerPanel = document.getElementById('weapon-picker-panel')
+    this.weaponPickerPanelTitle = document.getElementById('weapon-picker-panel-title')
+    this.weaponPickerOptions = document.getElementById('weapon-picker-options')
     this.pauseOverlay = document.getElementById('pause-overlay')
     this.pauseOverlayTitle = document.getElementById('pause-overlay-title')
     this.pauseResumeBtn = document.getElementById('pause-resume-btn')
@@ -4645,7 +4648,7 @@ export class Game {
         this._showLoreToast(t('weeklyFeaturedMutatorBonusToast', { coins: WEEKLY_FEATURED_MUTATOR_BONUS_COINS }))
       }
       this._showLoreToast(t(DIFFICULTY_FLAVOR_KEYS[this.settings.difficulty] || DIFFICULTY_FLAVOR_KEYS.normal))
-      this._openTraitDrawPanel()
+      this._openWeaponPickerPanel()
     })
 
     this.respawnBtn.addEventListener('click', () => {
@@ -9128,6 +9131,42 @@ export class Game {
     return picks
   }
 
+  // Shown right when Play is clicked, before the trait draw - every gun
+  // unlocks by default now (see WeaponSystem.js), so this replaces the old
+  // "buy it in the Shop first" gate with a per-run pick of which one you
+  // start with instead. Melee is left out - it's always available as
+  // hotbar slot 1 regardless of this pick, so it's not a meaningful choice
+  // here the way the other 14 guns are.
+  _openWeaponPickerPanel() {
+    this.weaponPickerPanel.style.display = 'flex'
+    this.weaponPickerPanelTitle.textContent = t('weaponPickerPanelTitle')
+    this._renderWeaponPickerOptions()
+  }
+
+  _renderWeaponPickerOptions() {
+    this.weaponPickerOptions.innerHTML = ''
+    for (const w of this.weapons.weapons) {
+      if (w.id === 'melee') continue
+      const btn = document.createElement('button')
+      btn.className = 'perk-option weapon-picker-card'
+      const tags = []
+      if (w.heavy) tags.push(t('weaponPickerTagHeavy'))
+      if (w.rare) tags.push(t('weaponPickerTagRare'))
+      btn.innerHTML = `
+        <span class="perk-name">${t(this.weapons._nameKeyFor(w))}</span>
+        ${tags.length ? `<span class="perk-tag">${tags.join(' - ')}</span>` : ''}
+      `
+      btn.addEventListener('click', () => {
+        const index = this.weapons.weapons.indexOf(w)
+        this.weapons.switchToIndex(index)
+        this._updateHotbarHud()
+        this.weaponPickerPanel.style.display = 'none'
+        this._openTraitDrawPanel()
+      })
+      this.weaponPickerOptions.appendChild(btn)
+    }
+  }
+
   _openTraitDrawPanel() {
     this.xpLevelupPanelOpen = true
     this.xpLevelupPanel.style.display = 'flex'
@@ -9954,31 +9993,7 @@ export class Game {
       return
     }
 
-    // Best Value tag (guns only) - damage-per-coin using each gun's real
-    // base damage stat vs its real shop cost, both already-tracked numbers
-    // (not a fabricated discount). Skins/hats/perks have no comparable
-    // cross-item unit (a % damage boost, a cosmetic, and companion speed
-    // aren't measured in the same currency), so this deliberately doesn't
-    // extend to those sections rather than fake a metric for them. Only
-    // considers still-unowned guns - already-owned ones don't need a "buy
-    // this" nudge.
-    let bestValueGunId = null
-    {
-      let bestRatio = 0
-      for (const item of COIN_SHOP_ITEMS) {
-        if (!item.gun || item.cost <= 0) continue
-        const w = this.weapons.weapons.find((ww) => ww.id === item.gun)
-        if (w?.unlocked) continue
-        const ratio = (w?.damage || 0) / item.cost
-        if (ratio > bestRatio) {
-          bestRatio = ratio
-          bestValueGunId = item.id
-        }
-      }
-    }
-
     const sections = [
-      { id: 'guns', labelKey: 'shopSectionGuns' },
       { id: 'weapons', labelKey: 'shopSectionWeapons' },
       { id: 'skins', labelKey: 'shopSectionSkins' },
       { id: 'outfits', labelKey: 'shopSectionOutfits' },
@@ -10201,23 +10216,6 @@ export class Game {
             }
             this.equippedHat = item.hat
             this.playerBody.setHat(item.hat, item.hatColor)
-            this._renderCoinShopOptions()
-          })
-        } else if (item.gun) {
-          const weapon = this.weapons.weapons.find((w) => w.id === item.gun)
-          const owned = !!weapon?.unlocked
-          btn.disabled = owned || this.coins < item.cost
-          btn.innerHTML = `
-            <span class="perk-name">${t(item.titleKey)}${item.id === bestValueGunId ? ` <span class="best-value-tag">${t('bestValueTag')}</span>` : ''}</span>
-            <span class="perk-cost">${owned ? t('upgradesOwned') : t('coinCostLabel', { n: item.cost })}</span>
-          `
-          btn.addEventListener('click', () => {
-            if (owned || this.coins < item.cost) return
-            this.coins -= item.cost
-            this._logShopPurchase(item)
-            this.weapons.unlockWeapon(item.gun)
-            if (item.onUnlock) item.onUnlock(this)
-            this._updateStatsPanel()
             this._renderCoinShopOptions()
           })
         } else {
