@@ -79,7 +79,7 @@ html.dyslexia-font body {
   display: grid;
   /* 18 block types (up from the original 9) - 6 columns keeps this a
      wide-but-short 3-row grid instead of a tall 6-row one. */
-  grid-template-columns: repeat(6, 64px);
+  grid-template-columns: repeat(6, 68px);
   gap: 10px;
   padding: 16px;
   background: rgba(10, 10, 10, 0.9);
@@ -87,16 +87,32 @@ html.dyslexia-font body {
   border-radius: 6px;
 }
 
+.build-picker-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 68px;
+  cursor: pointer;
+}
+
 .build-picker-swatch {
-  width: 64px;
-  height: 64px;
+  width: 68px;
+  height: 50px;
   border-radius: 4px;
   border: 2px solid transparent;
-  cursor: pointer;
 }
 
 .build-picker-swatch.selected {
   border-color: #d9a34a;
+}
+
+.build-picker-label {
+  font-size: 10px;
+  line-height: 1.15;
+  color: #e8e8e8;
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
 }
 
 /* Minecraft-style always-on-screen quick-select bar (Digit1-9/0), separate

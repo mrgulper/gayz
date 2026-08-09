@@ -10,11 +10,14 @@ const FLY_SPEED = 8
 const LOOK_SENSITIVITY = 0.0022
 const MAX_INSTANCES_PER_TYPE = 4096
 const SAVE_KEY = 'gayz-build-mode'
-// Free-fly still has no gravity/ground collision (see spec's "why this
-// shape" section) - this radius only stops the camera from passing through
-// a placed block, treating the camera as a small sphere rather than a
-// zero-size point.
+// Free-fly still has no gravity (see spec's "why this shape" section) -
+// this radius only stops the camera from passing through a placed block,
+// treating the camera as a small sphere rather than a zero-size point.
 const COLLISION_RADIUS = 0.35
+// Floor clamp (see update()'s own comment) - just above the ground plane
+// (y=0) by a bit more than COLLISION_RADIUS, so the camera's own collision
+// sphere doesn't clip into it either.
+const GROUND_MIN_Y = 0.5
 // Minecraft-style hotbar key mapping - Digit1-9 are slots 0-8, Digit0 is
 // slot 9 (the 10th slot), matching the real keyboard row's left-to-right
 // order rather than numeric value.
@@ -24,24 +27,24 @@ const DIGIT_KEY_TO_HOTBAR_INDEX = {
 }
 
 export const BLOCK_TYPES = [
-  { id: 'concrete', color: 0x9a9a92, pattern: 'speckle', roughness: 0.9, metalness: 0 },
-  { id: 'brick', color: 0xa8503a, pattern: 'brick', roughness: 0.85, metalness: 0 },
-  { id: 'wood', color: 0x8a5a34, pattern: 'wood', roughness: 0.7, metalness: 0 },
-  { id: 'metal', color: 0xb0b8bd, pattern: 'metal', roughness: 0.35, metalness: 0.7 },
-  { id: 'grass', color: 0x5fa84a, pattern: 'speckle', roughness: 1, metalness: 0 },
-  { id: 'dirt', color: 0x6b4a30, pattern: 'speckle', roughness: 1, metalness: 0 },
-  { id: 'glass', color: 0xaee0e8, pattern: 'glass', roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.55 },
-  { id: 'asphalt', color: 0x3a3a3c, pattern: 'speckle', roughness: 0.95, metalness: 0 },
-  { id: 'stone', color: 0x808078, pattern: 'speckle', roughness: 0.9, metalness: 0 },
-  { id: 'sand', color: 0xd9c48f, pattern: 'speckle', roughness: 1, metalness: 0 },
-  { id: 'snow', color: 0xf0f0f5, pattern: 'speckle', roughness: 0.95, metalness: 0 },
-  { id: 'planks', color: 0xb98a52, pattern: 'wood', roughness: 0.6, metalness: 0 },
-  { id: 'gold', color: 0xf4c430, pattern: 'metal', roughness: 0.2, metalness: 1 },
-  { id: 'obsidian', color: 0x1c1024, pattern: 'speckle', roughness: 0.3, metalness: 0.1 },
-  { id: 'water', color: 0x3a7bd5, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.6 },
-  { id: 'ice', color: 0xaee4f0, pattern: 'glass', roughness: 0.05, metalness: 0, transparent: true, opacity: 0.7 },
-  { id: 'leaves', color: 0x3f7d3a, pattern: 'speckle', roughness: 1, metalness: 0, transparent: true, opacity: 0.88 },
-  { id: 'lava', color: 0xff5a1f, pattern: 'speckle', roughness: 0.8, metalness: 0, emissive: 0xff3300, emissiveIntensity: 0.9 },
+  { id: 'concrete', name: 'Concrete', color: 0x9a9a92, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'brick', name: 'Brick', color: 0xa8503a, pattern: 'brick', roughness: 0.85, metalness: 0 },
+  { id: 'wood', name: 'Wood', color: 0x8a5a34, pattern: 'wood', roughness: 0.7, metalness: 0 },
+  { id: 'metal', name: 'Metal', color: 0xb0b8bd, pattern: 'metal', roughness: 0.35, metalness: 0.7 },
+  { id: 'grass', name: 'Grass', color: 0x5fa84a, pattern: 'speckle', roughness: 1, metalness: 0 },
+  { id: 'dirt', name: 'Dirt', color: 0x6b4a30, pattern: 'speckle', roughness: 1, metalness: 0 },
+  { id: 'glass', name: 'Glass', color: 0xaee0e8, pattern: 'glass', roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.55 },
+  { id: 'asphalt', name: 'Asphalt', color: 0x3a3a3c, pattern: 'speckle', roughness: 0.95, metalness: 0 },
+  { id: 'stone', name: 'Stone Brick', color: 0x808078, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'sand', name: 'Sand', color: 0xd9c48f, pattern: 'speckle', roughness: 1, metalness: 0 },
+  { id: 'snow', name: 'Snow', color: 0xf0f0f5, pattern: 'speckle', roughness: 0.95, metalness: 0 },
+  { id: 'planks', name: 'Planks', color: 0xb98a52, pattern: 'wood', roughness: 0.6, metalness: 0 },
+  { id: 'gold', name: 'Gold', color: 0xf4c430, pattern: 'metal', roughness: 0.2, metalness: 1 },
+  { id: 'obsidian', name: 'Obsidian', color: 0x1c1024, pattern: 'speckle', roughness: 0.3, metalness: 0.1 },
+  { id: 'water', name: 'Water', color: 0x3a7bd5, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.6 },
+  { id: 'ice', name: 'Ice', color: 0xaee4f0, pattern: 'glass', roughness: 0.05, metalness: 0, transparent: true, opacity: 0.7 },
+  { id: 'leaves', name: 'Leaves', color: 0x3f7d3a, pattern: 'speckle', roughness: 1, metalness: 0, transparent: true, opacity: 0.88 },
+  { id: 'lava', name: 'Lava', color: 0xff5a1f, pattern: 'speckle', roughness: 0.8, metalness: 0, emissive: 0xff3300, emissiveIntensity: 0.9 },
 ]
 const VALID_TYPE_IDS = new Set(BLOCK_TYPES.map((b) => b.id))
 
@@ -203,7 +206,13 @@ export class BuildMode {
     // scene graph at a fixed 9 objects regardless of how many blocks are
     // placed, avoiding this project's own documented CPU-bound-on-scene-
     // graph-traversal bottleneck (see docs/PERFORMANCE.md).
-    this.selectedType = BLOCK_TYPES[0].id
+    // Hotbar starts empty (10 nulls) rather than pre-filled with the first
+    // 10 BLOCK_TYPES - you choose what goes in it (see _assignToActiveSlot),
+    // same as a fresh Minecraft creative hotbar. selectedType stays null
+    // until a slot with something in it is actually selected.
+    this.hotbar = new Array(10).fill(null)
+    this.activeHotbarIndex = 0
+    this.selectedType = null
     this._blocks = new Map() // "x,y,z" -> type id
     this._instancedMeshes = {}
     this._instanceKeyByIndex = {} // type id -> array mapping instance index -> "x,y,z" key, for swap-remove
@@ -241,15 +250,15 @@ export class BuildMode {
     this._pickerEl = document.getElementById('build-picker')
     this._renderPicker()
 
-    // Always-on-screen quick-select bar (Minecraft-style, Digit1-9/0) -
-    // first 10 block types, no need to open the Tab picker for those.
+    // Always-on-screen quick-select bar (Minecraft-style, Digit1-9/0) - 10
+    // slots you assign yourself from the Tab picker (see
+    // _assignToActiveSlot), not pre-filled.
     this._hotbarEl = document.getElementById('build-hotbar')
     this._renderHotbar()
     this._onKeyDownHotbar = (e) => {
       const digitIndex = DIGIT_KEY_TO_HOTBAR_INDEX[e.code]
       if (digitIndex === undefined) return
-      const bt = BLOCK_TYPES[digitIndex]
-      if (bt) this._selectType(bt.id)
+      this._selectHotbarSlot(digitIndex)
     }
 
     this._onKeyDownPicker = (e) => {
@@ -291,13 +300,22 @@ export class BuildMode {
     if (this._hotbarEl) this._hotbarEl.style.display = 'none'
   }
 
-  // Shared by the Tab picker's swatch click, the hotbar's slot click, and
-  // the Digit1-9/0 hotbar keys - keeps selectedType and both UIs' "selected"
-  // highlight in sync regardless of which of the three just changed it.
-  _selectType(id) {
+  // Tab picker swatch click - assigns that block to whichever hotbar slot
+  // is currently active (see _selectHotbarSlot) and equips it immediately,
+  // same as picking an item up in Minecraft's creative inventory drops it
+  // straight into your held hand.
+  _assignToActiveSlot(id) {
+    this.hotbar[this.activeHotbarIndex] = id
     this.selectedType = id
     this._renderHotbar()
-    if (this.pickerOpen) this._renderPicker()
+  }
+
+  // Hotbar slot click or Digit1-9/0 - makes that slot the active one and
+  // equips whatever's in it (or nothing, if the slot is still empty).
+  _selectHotbarSlot(index) {
+    this.activeHotbarIndex = index
+    this.selectedType = this.hotbar[index]
+    this._renderHotbar()
   }
 
   _key(x, y, z) {
@@ -394,35 +412,48 @@ export class BuildMode {
     return null
   }
 
+  // Click a block here to put it in the currently active hotbar slot (see
+  // _assignToActiveSlot) - this is the "inventory" you assign the hotbar
+  // from, it doesn't select blocks directly itself.
   _renderPicker() {
     if (!this._pickerEl) return
     this._pickerEl.innerHTML = ''
-    for (const { id, color } of BLOCK_TYPES) {
+    for (const { id, name, color } of BLOCK_TYPES) {
+      const item = document.createElement('div')
+      item.className = 'build-picker-item'
+      item.title = name
       const swatch = document.createElement('div')
       swatch.className = 'build-picker-swatch' + (id === this.selectedType ? ' selected' : '')
       swatch.style.background = `#${color.toString(16).padStart(6, '0')}`
-      swatch.addEventListener('click', () => {
-        this._selectType(id)
+      const label = document.createElement('span')
+      label.className = 'build-picker-label'
+      label.textContent = name
+      item.appendChild(swatch)
+      item.appendChild(label)
+      item.addEventListener('click', () => {
+        this._assignToActiveSlot(id)
         this.togglePicker()
       })
-      this._pickerEl.appendChild(swatch)
+      this._pickerEl.appendChild(item)
     }
   }
 
-  // First 10 of BLOCK_TYPES, always on screen - see DIGIT_KEY_TO_HOTBAR_INDEX
-  // for the matching Digit1-9/0 key handling.
+  // 10 slots, empty until assigned from the picker above - see
+  // DIGIT_KEY_TO_HOTBAR_INDEX for the matching Digit1-9/0 key handling.
   _renderHotbar() {
     if (!this._hotbarEl) return
     this._hotbarEl.innerHTML = ''
-    BLOCK_TYPES.slice(0, 10).forEach(({ id, color }, i) => {
+    this.hotbar.forEach((id, i) => {
+      const bt = id ? BLOCK_TYPES.find((b) => b.id === id) : null
       const slot = document.createElement('div')
-      slot.className = 'build-hotbar-slot' + (id === this.selectedType ? ' selected' : '')
-      slot.style.background = `#${color.toString(16).padStart(6, '0')}`
+      slot.className = 'build-hotbar-slot' + (i === this.activeHotbarIndex ? ' selected' : '')
+      slot.title = bt ? bt.name : ''
+      if (bt) slot.style.background = `#${bt.color.toString(16).padStart(6, '0')}`
       const num = document.createElement('span')
       num.className = 'build-hotbar-slot-num'
       num.textContent = i === 9 ? '0' : String(i + 1)
       slot.appendChild(num)
-      slot.addEventListener('click', () => this._selectType(id))
+      slot.addEventListener('click', () => this._selectHotbarSlot(i))
       this._hotbarEl.appendChild(slot)
     })
   }
@@ -445,13 +476,13 @@ export class BuildMode {
   }
 
   save() {
-    const entries = []
+    const blocks = []
     for (const [key, type] of this._blocks) {
       const [x, y, z] = key.split(',').map(Number)
-      entries.push({ x, y, z, type })
+      blocks.push({ x, y, z, type })
     }
     try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify(entries))
+      localStorage.setItem(SAVE_KEY, JSON.stringify({ blocks, hotbar: this.hotbar }))
     } catch {
       // Storage unavailable (e.g. private browsing) - build just won't persist.
     }
@@ -465,19 +496,29 @@ export class BuildMode {
       return
     }
     if (!raw) return
-    let entries
+    let parsed
     try {
-      entries = JSON.parse(raw)
+      parsed = JSON.parse(raw)
     } catch {
       return
     }
-    if (!Array.isArray(entries)) return
-    for (const entry of entries) {
-      if (!entry || typeof entry !== 'object') continue
-      const { x, y, z, type } = entry
-      if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) continue
-      if (!VALID_TYPE_IDS.has(type)) continue
-      this.placeBlock(Math.trunc(x), Math.trunc(y), Math.trunc(z), type)
+    // Save format used to be a bare array of block entries, before the
+    // hotbar existed - keep reading those the same way rather than
+    // silently dropping every build saved before this change.
+    const blocks = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.blocks) ? parsed.blocks : null
+    if (blocks) {
+      for (const entry of blocks) {
+        if (!entry || typeof entry !== 'object') continue
+        const { x, y, z, type } = entry
+        if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) continue
+        if (!VALID_TYPE_IDS.has(type)) continue
+        this.placeBlock(Math.trunc(x), Math.trunc(y), Math.trunc(z), type)
+      }
+    }
+    const hotbar = parsed?.hotbar
+    if (Array.isArray(hotbar) && hotbar.length === 10) {
+      this.hotbar = hotbar.map((id) => (id === null || VALID_TYPE_IDS.has(id) ? id : null))
+      this._renderHotbar()
     }
   }
 
@@ -506,6 +547,12 @@ export class BuildMode {
       if (!this._blockedAt(pos.x, pos.y + move.y, pos.z)) pos.y += move.y
       if (!this._blockedAt(pos.x, pos.y, pos.z + move.z)) pos.z += move.z
     }
+    // Placed blocks have real collision (_blockedAt above), but the ground
+    // plane itself never did - it's a flat THREE.Mesh, not tracked in
+    // _blocks, so flying downward (Shift) could pass straight through it
+    // into empty space below with nothing to stop you. Simple floor clamp,
+    // not real physics - free-fly still has no gravity by design.
+    if (this.camera.position.y < GROUND_MIN_Y) this.camera.position.y = GROUND_MIN_Y
   }
 
   // Treats the camera as a small sphere (COLLISION_RADIUS), not a point, so
