@@ -26,6 +26,15 @@ export const BLOCK_TYPES = [
   { id: 'glass', color: 0xaee0e8, pattern: 'glass', roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.55 },
   { id: 'asphalt', color: 0x3a3a3c, pattern: 'speckle', roughness: 0.95, metalness: 0 },
   { id: 'stone', color: 0x808078, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'sand', color: 0xd9c48f, pattern: 'speckle', roughness: 1, metalness: 0 },
+  { id: 'snow', color: 0xf0f0f5, pattern: 'speckle', roughness: 0.95, metalness: 0 },
+  { id: 'planks', color: 0xb98a52, pattern: 'wood', roughness: 0.6, metalness: 0 },
+  { id: 'gold', color: 0xf4c430, pattern: 'metal', roughness: 0.2, metalness: 1 },
+  { id: 'obsidian', color: 0x1c1024, pattern: 'speckle', roughness: 0.3, metalness: 0.1 },
+  { id: 'water', color: 0x3a7bd5, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.6 },
+  { id: 'ice', color: 0xaee4f0, pattern: 'glass', roughness: 0.05, metalness: 0, transparent: true, opacity: 0.7 },
+  { id: 'leaves', color: 0x3f7d3a, pattern: 'speckle', roughness: 1, metalness: 0, transparent: true, opacity: 0.88 },
+  { id: 'lava', color: 0xff5a1f, pattern: 'speckle', roughness: 0.8, metalness: 0, emissive: 0xff3300, emissiveIntensity: 0.9 },
 ]
 const VALID_TYPE_IDS = new Set(BLOCK_TYPES.map((b) => b.id))
 
@@ -199,6 +208,8 @@ export class BuildMode {
         metalness: bt.metalness,
         transparent: !!bt.transparent,
         opacity: bt.opacity ?? 1,
+        emissive: bt.emissive ?? 0x000000,
+        emissiveIntensity: bt.emissiveIntensity ?? 0,
       })
       const mesh = new THREE.InstancedMesh(blockGeo, material, MAX_INSTANCES_PER_TYPE)
       mesh.count = 0

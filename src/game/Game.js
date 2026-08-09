@@ -4747,6 +4747,13 @@ export class Game {
     this.pauseShopBtn.addEventListener('click', () => this._openCoinShopPanel())
 
     this.player.controls.addEventListener('lock', () => {
+      // Build Mode acquires pointer lock too (its own free-fly look
+      // controls, see BuildMode.js) - it shares the same canvas/
+      // PlayerController as the real game, so every time its Tab-picker
+      // toggle re-locks the pointer, this handler was firing right along
+      // with it, setting gameStarted = true and showing the entire real-run
+      // HUD (health/hotbar/stats/etc.) on top of the Build Mode scene.
+      if (this.buildMode.active) return
       this.gameStarted = true
       audioEngine.resume()
       this.pauseOverlay.style.display = 'none'
@@ -4771,6 +4778,12 @@ export class Game {
     })
 
     this.player.controls.addEventListener('unlock', () => {
+      // Same shared-canvas reasoning as the 'lock' handler above - Build
+      // Mode's picker calls document.exitPointerLock() itself, which fires
+      // this handler too. Without this guard it was popping the real
+      // pause overlay (Resume/Upgrades/Shop/Settings/Quit) right on top of
+      // the block picker.
+      if (this.buildMode.active) return
       this.inventoryOpen = false
       this.inventoryPanel.style.display = 'none'
       this.interactPrompt.style.display = 'none'
@@ -8796,6 +8809,13 @@ export class Game {
   // hide/show pattern (same as starting a real run) rather than a new panel.
   _enterBuildMode() {
     this.menu.style.display = 'none'
+    // Build Mode is only ever reachable from the homepage nav (#menu is
+    // hidden the instant a real run starts, see the 'lock' handler), but
+    // force this false regardless rather than trust that precondition -
+    // the 'lock'/'unlock' handlers above both gate on it, and a stray
+    // true here would make Build Mode's own pointer-lock cycle re-trigger
+    // the entire real-run HUD on top of it.
+    this.gameStarted = false
     // _maybeShowTutorialHints' own guard only stops FUTURE hints from
     // firing once Build Mode is active - it can't stop one already
     // mid-animation at the exact moment Build Mode is entered. Hide it
