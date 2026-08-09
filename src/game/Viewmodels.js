@@ -68,6 +68,14 @@ function buildGunFromGLB(cache, tintMatName, skinId) {
   cloned.traverse((child) => {
     if (!child.isMesh) return
     child.castShadow = false
+    // Every material in this pack's source GLBs except the one designated
+    // tint slot exports at opacity 0 (asset-source/build-guns.py's Blender
+    // export step, not something this code ever set) - most of every gun
+    // was rendering invisible, leaving only the tinted part (usually
+    // "Metal") visible. Force full opacity on every material here rather
+    // than just the one this function already touches for tinting.
+    child.material.opacity = 1
+    child.material.transparent = false
     if (child.material.name === tintMatName) {
       child.material = flattenedClone(child.material)
       if (tint) {
