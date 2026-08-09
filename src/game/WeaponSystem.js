@@ -118,8 +118,8 @@ const WEAPONS = [
     auto: true,
     fireInterval: 0.1,
     reloadTime: 0.8,
-    magSize: 30,
-    reserve: 90,
+    magSize: 60,
+    reserve: 180,
     damage: 14,
     unlocked: true,
     // Per-shot camera shake (see onWeaponFired) - light since this fires
@@ -133,8 +133,8 @@ const WEAPONS = [
     auto: false,
     fireInterval: 0.32,
     reloadTime: 0.55,
-    magSize: 12,
-    reserve: 48,
+    magSize: 24,
+    reserve: 96,
     damage: 26,
     unlocked: true,
     shakeIntensity: 0.05,
@@ -149,8 +149,8 @@ const WEAPONS = [
     auto: true,
     fireInterval: 0.06,
     reloadTime: 1.6,
-    magSize: 150,
-    reserve: 450,
+    magSize: 300,
+    reserve: 900,
     damage: 12,
     // Weapon weight (see PlayerController's weaponWeightMult) - the belt-fed
     // ammo box drags on movement while it's your active weapon.
@@ -179,8 +179,8 @@ const WEAPONS = [
     auto: false,
     fireInterval: 0.8,
     reloadTime: 1.3,
-    magSize: 6,
-    reserve: 24,
+    magSize: 12,
+    reserve: 48,
     damage: 22,
     pellets: 8,
     spread: 0.09,
@@ -198,8 +198,8 @@ const WEAPONS = [
     auto: false,
     fireInterval: 1.3,
     reloadTime: 1.8,
-    magSize: 5,
-    reserve: 20,
+    magSize: 10,
+    reserve: 40,
     damage: 140,
     hasScope: true,
     unlocked: true,
@@ -214,8 +214,8 @@ const WEAPONS = [
     auto: true,
     fireInterval: 0.07,
     reloadTime: 0.5,
-    magSize: 20,
-    reserve: 80,
+    magSize: 40,
+    reserve: 160,
     damage: 10,
     unlocked: true,
     shakeIntensity: 0.03,
@@ -228,8 +228,8 @@ const WEAPONS = [
     auto: true,
     fireInterval: 0.05,
     reloadTime: 2.2,
-    magSize: 100,
-    reserve: 200,
+    magSize: 200,
+    reserve: 400,
     // Weapon weight (see PlayerController's weaponWeightMult) - the fuel
     // tank on your back weighs you down while it's equipped.
     heavy: true,
@@ -253,8 +253,8 @@ const WEAPONS = [
     auto: false,
     fireInterval: 1.8,
     reloadTime: 2.4,
-    magSize: 1,
-    reserve: 5,
+    magSize: 2,
+    reserve: 10,
     damage: 0, // unused - see w.explosive below, damage comes from explosiveDamageMin/Max instead
     explosive: true,
     explosiveRadius: 6,
@@ -273,8 +273,8 @@ const WEAPONS = [
     auto: false,
     fireInterval: 1.1,
     reloadTime: 1.4,
-    magSize: 1,
-    reserve: 12,
+    magSize: 2,
+    reserve: 24,
     damage: 140,
     // suppressed baked in rather than attachment-granted (see applyAttachment) -
     // it's inherently the quiet option, not a gun that becomes quiet once upgraded.
@@ -293,8 +293,8 @@ const WEAPONS = [
     auto: false,
     fireInterval: 0.9,
     reloadTime: 2.0,
-    magSize: 4,
-    reserve: 12,
+    magSize: 8,
+    reserve: 24,
     damage: 0, // unused - see w.explosive below, same shape as the Rocket Launcher
     explosive: true,
     explosiveRadius: 4,
@@ -313,8 +313,8 @@ const WEAPONS = [
     auto: true,
     fireInterval: 0.09,
     reloadTime: 1.1,
-    magSize: 35,
-    reserve: 140,
+    magSize: 70,
+    reserve: 280,
     damage: 9,
     // Always-suppressed by design (a cheap stealth spray weapon), distinct
     // from buying the suppressor attachment for an existing gun - see
@@ -334,8 +334,8 @@ const WEAPONS = [
     auto: true,
     fireInterval: 0.15,
     reloadTime: 1.0,
-    magSize: 40,
-    reserve: 120,
+    magSize: 80,
+    reserve: 240,
     damage: 16,
     // Every connecting hit extends staggerUntil (see Zombie.stun) - sustained
     // fire keeps a target pinned in place instead of a one-off knockdown.
@@ -351,8 +351,8 @@ const WEAPONS = [
     auto: false,
     fireInterval: 1.6,
     reloadTime: 2.0,
-    magSize: 1,
-    reserve: 8,
+    magSize: 2,
+    reserve: 16,
     damage: 90,
     // See _fire()'s hitZombies loop - yanks whatever it connects with toward
     // the player instead of just dealing damage in place.
@@ -368,8 +368,8 @@ const WEAPONS = [
     auto: false,
     fireInterval: 1.6,
     reloadTime: 2.2,
-    magSize: 1,
-    reserve: 5,
+    magSize: 2,
+    reserve: 10,
     damage: 0, // unused - see w.wonderVortex below, damage comes from explosiveDamageMin/Max on detonation
     // Slow orb + zombie-pulling vortex + delayed AOE detonation (see
     // _spawnVoidRipperOrb/_updateVoidRipperOrbs) - not the instant
@@ -846,6 +846,19 @@ export class WeaponSystem {
 
   addAmmoToCurrent(amount) {
     this.current.ammoReserve += amount
+    this._updateHud()
+  }
+
+  // Regular ammo pickups (see Game.js's _onPickup) used to only benefit
+  // whichever gun happened to be equipped at the moment you walked over
+  // one - every other owned weapon's reserve sat untouched even though the
+  // pickup is generic "ammo," not tagged to one specific gun. Adds the
+  // same flat amount to every unlocked weapon instead, melee excluded
+  // (it has no ammo to add to).
+  addAmmoToAll(amount) {
+    for (const w of this.weapons) {
+      if (w.unlocked && !w.melee) w.ammoReserve += amount
+    }
     this._updateHud()
   }
 

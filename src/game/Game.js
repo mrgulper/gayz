@@ -14738,8 +14738,8 @@ export class Game {
     if (type === 'health') this.inventory.addHealthPack(count || 1)
     else if (type === 'armor') this.inventory.addArmorPack(1)
     else if (type === 'ammo') {
-      if (isLoot) this.weapons.addAmmoToCurrent(12)
-      else if (count) this.weapons.addAmmoToCurrent(12 * count)
+      if (isLoot) this.weapons.addAmmoToAll(12)
+      else if (count) this.weapons.addAmmoToAll(12 * count)
       else this.weapons.refillReserveAmmo()
     } else if (type === 'minigun') {
       this.weapons.unlockWeapon('minigun')
