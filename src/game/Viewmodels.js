@@ -840,6 +840,375 @@ function buildAwpProcedural(skinId = null) {
   return g
 }
 
+const FLAME_GLOW = flatMaterial({ color: 0x3a1a0a, emissive: 0xff7a1a, emissiveIntensity: 2.2 })
+const TOOL_ORANGE = flatMaterial({ color: 0xd8600f, roughness: 0.6 })
+const VOID_GLOW = flatMaterial({ color: 0x2a0a44, emissive: 0x9b5cff, emissiveIntensity: 2.4 })
+
+// Flamethrower - a slung fuel tank above a thin nozzle wand, the opposite
+// silhouette of every barrel-forward gun here (the "barrel" reads as a
+// completely different diameter/height than the tank feeding it).
+function buildFlamethrower(skinId = null) {
+  const g = new THREE.Group()
+
+  const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.34, 12), skinMaterial(skinId, DARK_METAL))
+  tank.rotation.x = Math.PI / 2
+  tank.position.set(0, 0.09, 0.02)
+  g.add(tank)
+
+  const tankCap = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.03, 10), METAL)
+  tankCap.rotation.x = Math.PI / 2
+  tankCap.position.set(0, 0.09, -0.16)
+  g.add(tankCap)
+
+  const hose = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.13, 8), DARK_METAL)
+  hose.position.set(0, 0.04, 0.02)
+  hose.rotation.x = 1.15
+  g.add(hose)
+
+  const wand = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.026, 0.4, 10), METAL)
+  wand.rotation.x = Math.PI / 2
+  wand.position.set(0, -0.01, -0.14)
+  g.add(wand)
+
+  const nozzleTip = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.02, 0.06, 10), DARK_METAL)
+  nozzleTip.rotation.x = Math.PI / 2
+  nozzleTip.position.set(0, -0.01, -0.35)
+  g.add(nozzleTip)
+
+  const pilotLight = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 8), FLAME_GLOW)
+  pilotLight.position.set(0, -0.01, -0.39)
+  g.add(pilotLight)
+
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.14, 0.08), GRIP)
+  grip.position.set(0, -0.08, 0.12)
+  grip.rotation.x = -0.2
+  g.add(grip)
+
+  const foregrip = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.06, 0.06), GRIP)
+  foregrip.position.set(0, -0.03, -0.1)
+  g.add(foregrip)
+
+  attachHandToGrip(g, grip)
+
+  const foreHand = buildHand()
+  foreHand.position.copy(foregrip.position)
+  foreHand.rotation.x = -0.15
+  foreHand.rotation.z = Math.PI
+  g.add(foreHand)
+
+  return g
+}
+
+// Rocket Launcher - a fat open-ended tube with a shoulder pad, the widest
+// barrel diameter of any gun here by a wide margin.
+function buildRocketLauncher(skinId = null) {
+  const g = new THREE.Group()
+
+  const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.08, 0.62, 14), skinMaterial(skinId, DARK_METAL))
+  tube.rotation.x = Math.PI / 2
+  tube.position.set(0, 0.02, -0.08)
+  g.add(tube)
+
+  const muzzleRing = new THREE.Mesh(new THREE.CylinderGeometry(0.088, 0.088, 0.03, 14), METAL)
+  muzzleRing.rotation.x = Math.PI / 2
+  muzzleRing.position.set(0, 0.02, -0.4)
+  g.add(muzzleRing)
+
+  const shoulderPad = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.05), GRIP)
+  shoulderPad.position.set(0, 0.02, 0.25)
+  g.add(shoulderPad)
+
+  const sight = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.05, 0.08), DARK_METAL)
+  sight.position.set(0, 0.11, -0.05)
+  g.add(sight)
+
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.14, 0.08), GRIP)
+  grip.position.set(0, -0.08, 0.02)
+  grip.rotation.x = -0.2
+  g.add(grip)
+
+  const foregrip = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, 0.06), GRIP)
+  foregrip.position.set(0, -0.07, -0.22)
+  g.add(foregrip)
+
+  attachHandToGrip(g, grip)
+
+  const foreHand = buildHand()
+  foreHand.position.copy(foregrip.position)
+  foreHand.rotation.x = -0.15
+  foreHand.rotation.z = Math.PI
+  g.add(foreHand)
+
+  return g
+}
+
+// Crossbow - horizontal limbs + a string are the whole silhouette story;
+// every other gun here reads front-to-back, this one reads side-to-side.
+function buildCrossbow(skinId = null) {
+  const g = new THREE.Group()
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, 0.38), skinMaterial(skinId, WOOD))
+  body.position.set(0, 0.01, -0.02)
+  g.add(body)
+
+  const limbs = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.02, 0.035), DARK_METAL)
+  limbs.position.set(0, 0.02, -0.16)
+  g.add(limbs)
+
+  const limbTipL = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.02, 0.05), METAL)
+  limbTipL.position.set(-0.26, 0.02, -0.16)
+  g.add(limbTipL)
+  const limbTipR = limbTipL.clone()
+  limbTipR.position.x = 0.26
+  g.add(limbTipR)
+
+  const string = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.006, 0.006), NAIL)
+  string.position.set(0, 0.02, -0.14)
+  g.add(string)
+
+  const rail = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.015, 0.3), METAL)
+  rail.position.set(0, 0.05, -0.05)
+  g.add(rail)
+
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.14, 0.07), GRIP)
+  grip.position.set(0, -0.08, 0.14)
+  grip.rotation.x = -0.25
+  g.add(grip)
+
+  const foregrip = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.05, 0.05), GRIP)
+  foregrip.position.set(0, -0.02, -0.14)
+  g.add(foregrip)
+
+  attachHandToGrip(g, grip)
+
+  const foreHand = buildHand()
+  foreHand.position.copy(foregrip.position)
+  foreHand.rotation.x = -0.15
+  foreHand.rotation.z = Math.PI
+  g.add(foreHand)
+
+  return g
+}
+
+// Grenade Launcher - short and fat with a drum magazine, distinct from the
+// Rocket Launcher's much longer open tube despite both being explosive.
+function buildGrenadeLauncher(skinId = null) {
+  const g = new THREE.Group()
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.1, 0.22), skinMaterial(skinId, DARK_METAL))
+  body.position.set(0, 0.02, 0.02)
+  g.add(body)
+
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.038, 0.24, 14), METAL)
+  barrel.rotation.x = Math.PI / 2
+  barrel.position.set(0, 0.02, -0.22)
+  g.add(barrel)
+
+  const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.07, 14), DARK_METAL)
+  drum.rotation.x = Math.PI / 2
+  drum.position.set(0, -0.09, 0.0)
+  g.add(drum)
+
+  const stock = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.09, 0.16), WOOD)
+  stock.position.set(0, -0.01, 0.22)
+  g.add(stock)
+
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.14, 0.07), GRIP)
+  grip.position.set(0, -0.09, 0.1)
+  grip.rotation.x = -0.25
+  g.add(grip)
+
+  const foregrip = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, 0.06), GRIP)
+  foregrip.position.set(0, -0.03, -0.16)
+  g.add(foregrip)
+
+  attachHandToGrip(g, grip)
+
+  const foreHand = buildHand()
+  foreHand.position.copy(foregrip.position)
+  foreHand.rotation.x = -0.15
+  foreHand.rotation.z = Math.PI
+  g.add(foreHand)
+
+  return g
+}
+
+// Nail Gun - boxy orange construction-tool colors and an angled nail-strip
+// magazine, one-handed like the pistols rather than shouldered like the
+// other automatics.
+function buildNailgun(skinId = null) {
+  const g = new THREE.Group()
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.1, 0.2), skinMaterial(skinId, TOOL_ORANGE))
+  body.position.set(0, 0.03, -0.02)
+  g.add(body)
+
+  const nozzle = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 0.08), DARK_METAL)
+  nozzle.position.set(0, 0.0, -0.16)
+  g.add(nozzle)
+
+  const magazine = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.2, 0.05), DARK_METAL)
+  magazine.position.set(0, -0.11, 0.06)
+  magazine.rotation.x = 0.45
+  g.add(magazine)
+
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.15, 0.08), TOOL_ORANGE)
+  grip.position.set(0, -0.07, 0.08)
+  grip.rotation.x = -0.2
+  g.add(grip)
+
+  attachHandToGrip(g, grip)
+
+  return g
+}
+
+// Harpoon Gun - a barbed shaft protruding well past the muzzle plus an
+// off-center rope spool, the only gun here whose "barrel" load is visible
+// at rest rather than hidden inside.
+function buildHarpoonGun(skinId = null) {
+  const g = new THREE.Group()
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.09, 0.22), skinMaterial(skinId, DARK_METAL))
+  body.position.set(0, 0.02, 0.02)
+  g.add(body)
+
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.3, 12), METAL)
+  barrel.rotation.x = Math.PI / 2
+  barrel.position.set(0, 0.03, -0.24)
+  g.add(barrel)
+
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.22, 8), METAL)
+  shaft.rotation.x = Math.PI / 2
+  shaft.position.set(0, 0.03, -0.45)
+  g.add(shaft)
+
+  const barb = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.05, 8), METAL)
+  barb.rotation.x = -Math.PI / 2
+  barb.position.set(0, 0.03, -0.58)
+  g.add(barb)
+
+  const spool = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.03, 14), WOOD)
+  spool.rotation.z = Math.PI / 2
+  spool.position.set(0.06, 0.02, 0.08)
+  g.add(spool)
+
+  const stock = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.08, 0.16), WOOD)
+  stock.position.set(0, -0.01, 0.22)
+  g.add(stock)
+
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.14, 0.07), GRIP)
+  grip.position.set(0, -0.09, 0.1)
+  grip.rotation.x = -0.25
+  g.add(grip)
+
+  const foregrip = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.05, 0.05), GRIP)
+  foregrip.position.set(0, -0.02, -0.1)
+  g.add(foregrip)
+
+  attachHandToGrip(g, grip)
+
+  const foreHand = buildHand()
+  foreHand.position.copy(foregrip.position)
+  foreHand.rotation.x = -0.15
+  foreHand.rotation.z = Math.PI
+  g.add(foreHand)
+
+  return g
+}
+
+// Void Ripper - Mystery Box exclusive (see WeaponSystem.js's own note on
+// `rare`). A glowing floating core ringed by two thin orbiting torii
+// instead of a barrel - the one weapon here with no real-world silhouette
+// to read against, so it leans fully into "this doesn't belong."
+function buildVoidRipper(skinId = null) {
+  const g = new THREE.Group()
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.09, 0.3), skinMaterial(skinId, DARK_METAL))
+  body.position.set(0, 0.02, 0.0)
+  g.add(body)
+
+  const core = new THREE.Mesh(new THREE.SphereGeometry(0.045, 14, 14), VOID_GLOW)
+  core.position.set(0, 0.025, -0.2)
+  g.add(core)
+
+  const ringGeo = new THREE.TorusGeometry(0.06, 0.006, 8, 20)
+  const ring1 = new THREE.Mesh(ringGeo, DARK_METAL)
+  ring1.position.copy(core.position)
+  ring1.rotation.x = Math.PI / 2.3
+  g.add(ring1)
+  const ring2 = new THREE.Mesh(ringGeo, DARK_METAL)
+  ring2.position.copy(core.position)
+  ring2.rotation.y = Math.PI / 2.6
+  g.add(ring2)
+
+  const stock = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.09, 0.18), DARK_METAL)
+  stock.position.set(0, -0.01, 0.22)
+  g.add(stock)
+
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.14, 0.07), GRIP)
+  grip.position.set(0, -0.09, 0.1)
+  grip.rotation.x = -0.25
+  g.add(grip)
+
+  const foregrip = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, 0.06), GRIP)
+  foregrip.position.set(0, -0.02, -0.05)
+  g.add(foregrip)
+
+  attachHandToGrip(g, grip)
+
+  const foreHand = buildHand()
+  foreHand.position.copy(foregrip.position)
+  foreHand.rotation.x = -0.15
+  foreHand.rotation.z = Math.PI
+  g.add(foreHand)
+
+  return g
+}
+
+// MP5-SD - a fat integrated-suppressor sleeve running the front half of the
+// barrel is the "SD" model's real-world signature, distinct from Glock 18's
+// handgun shape and every other rifle-length gun's bare thin barrel.
+function buildSuppressedSmg(skinId = null) {
+  const g = new THREE.Group()
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.09, 0.24), skinMaterial(skinId))
+  body.position.set(0, 0.02, 0.02)
+  g.add(body)
+
+  const suppressor = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.28, 12), DARK_METAL)
+  suppressor.rotation.x = Math.PI / 2
+  suppressor.position.set(0, 0.025, -0.24)
+  g.add(suppressor)
+
+  const mag = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.16, 0.05), DARK_METAL)
+  mag.position.set(0, -0.12, -0.02)
+  mag.rotation.x = 0.15
+  g.add(mag)
+
+  const stock = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.05, 0.16), DARK_METAL)
+  stock.position.set(0, 0.02, 0.22)
+  g.add(stock)
+
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.13, 0.07), GRIP)
+  grip.position.set(0, -0.08, 0.08)
+  grip.rotation.x = -0.2
+  g.add(grip)
+
+  const foregrip = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.05, 0.05), GRIP)
+  foregrip.position.set(0, -0.02, -0.12)
+  g.add(foregrip)
+
+  attachHandToGrip(g, grip)
+
+  const foreHand = buildHand()
+  foreHand.position.copy(foregrip.position)
+  foreHand.rotation.x = -0.15
+  foreHand.rotation.z = Math.PI
+  g.add(foreHand)
+
+  return g
+}
+
 const BUILDERS = {
   pistol: buildPistol,
   rifle: buildRifle,
@@ -848,6 +1217,14 @@ const BUILDERS = {
   shotgun: buildShotgun,
   awp: buildAwp,
   glock18: buildGlock18,
+  flamethrower: buildFlamethrower,
+  rocket: buildRocketLauncher,
+  crossbow: buildCrossbow,
+  launcher: buildGrenadeLauncher,
+  nailgun: buildNailgun,
+  harpoon: buildHarpoonGun,
+  voidripper: buildVoidRipper,
+  suppressedsmg: buildSuppressedSmg,
 }
 
 export function buildViewmodel(weaponId, options = {}) {
