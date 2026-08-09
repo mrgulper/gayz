@@ -4798,8 +4798,6 @@ export class Game {
       // pause overlay (Resume/Upgrades/Shop/Settings/Quit) right on top of
       // the block picker.
       if (this.buildMode.active) return
-      this.inventoryOpen = false
-      this.inventoryPanel.style.display = 'none'
       this.interactPrompt.style.display = 'none'
       this.infectionIndicator.style.display = 'none'
       if (!this.playerState.alive) return
@@ -4808,8 +4806,10 @@ export class Game {
       // their buttons are actually clickable - a locked pointer only
       // reports relative mouse deltas for the camera, not a usable cursor.
       // Don't also reset them or pop the pause menu on top when that's why
-      // we just unlocked.
-      if (this.screenshotCropOpen || this.perkPanelOpen || this.xpLevelupPanelOpen || this.traderPanelOpen) {
+      // we just unlocked. Inventory (see _bindItemKeys) now does the same
+      // unlock-on-open/lock-on-close dance as the others, closed via its
+      // own always-on Tab/Escape listener rather than here.
+      if (this.screenshotCropOpen || this.perkPanelOpen || this.xpLevelupPanelOpen || this.traderPanelOpen || this.inventoryOpen) {
         // handled by whichever panel is open
       } else if (this.gameStarted) {
         audioEngine.pause()
@@ -4851,9 +4851,18 @@ export class Game {
       if (e.code === 'Tab') {
         e.preventDefault()
         if (this.mapOpen) return // don't let the inventory open on top of the map
-        this.inventoryOpen = !this.inventoryOpen
-        this.inventoryPanel.style.display = this.inventoryOpen ? 'flex' : 'none'
-        if (this.inventoryOpen) this._refreshInventoryPanel()
+        this.inventoryOpen = true
+        this.inventoryPanel.style.display = 'flex'
+        this._refreshInventoryPanel()
+        // Pointer lock only reports relative mouse deltas for the camera,
+        // not a usable cursor - every other clickable panel unlocks itself
+        // on open for exactly this reason (see _openTraderPanel etc.); this
+        // one never did, so its hotbar-assign buttons looked clickable but
+        // never actually were. Closing now goes through the always-on
+        // Tab/Escape listener below instead of this handler, since once
+        // unlocked this whole handler's own isLocked guard stops it from
+        // ever firing again.
+        this.player.controls.unlock()
         return
       }
 
@@ -5462,6 +5471,9 @@ export class Game {
         this._closeTraderPanel()
       } else if (this.perkPanelOpen && e.code === 'Escape') {
         this._closePerkPanel()
+      } else if (this.inventoryOpen && (e.code === 'Tab' || e.code === 'Escape')) {
+        e.preventDefault()
+        this._closeInventoryPanel()
       }
     })
   }
@@ -8812,6 +8824,13 @@ export class Game {
   }
 
   _toggleSettings(open) {
+    // Opened from the pause overlay (still on screen, unlocked) as well as
+    // the homepage/HUD gear icon - hide it explicitly rather than relying
+    // on DOM/paint order, same reasoning (and bug, until now missed here)
+    // as _openUpgradesPanel/_openCoinShopPanel: #pause-overlay comes after
+    // #settings-panel in index.html and would otherwise render on top and
+    // eat every click meant for a setting underneath it.
+    if (open) this.pauseOverlay.style.display = 'none'
     this.settingsOpen = open
     this.settingsPanel.style.display = open ? 'flex' : 'none'
     // Recently Changed / Undo (see _renderRecentlyChangedList/
@@ -9070,6 +9089,12 @@ export class Game {
   _closePerkPanel() {
     this.perkPanelOpen = false
     this.perkPanel.style.display = 'none'
+    this.player.controls.lock()
+  }
+
+  _closeInventoryPanel() {
+    this.inventoryOpen = false
+    this.inventoryPanel.style.display = 'none'
     this.player.controls.lock()
   }
 
