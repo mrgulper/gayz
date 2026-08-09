@@ -5,12 +5,6 @@
 import * as THREE from 'three'
 
 const GROUND_SIZE = 64
-// A flat zero-thickness PlaneGeometry has no volume at all - viewed from
-// high altitude toward the horizon (a shallow, near edge-on angle), it
-// rendered as a paper-thin line instead of a solid slab. A real BoxGeometry
-// gives it actual depth from every angle; this is how far it extends below
-// the y=0 top surface blocks are placed on.
-const GROUND_THICKNESS = 6
 const BLOCK_SIZE = 1
 const FLY_SPEED = 8
 // Movement used to snap straight to full speed the instant a key went down
@@ -20,16 +14,22 @@ const FLY_SPEED = 8
 // feel rather than an on/off toggle.
 const FLY_ACCEL_LERP_SPEED = 8
 const LOOK_SENSITIVITY = 0.0022
-const MAX_INSTANCES_PER_TYPE = 4096
+// Raised from the original 4096 - the ground itself is now a real,
+// breakable layer of blocks (see _ensureGroundLayer), and a single
+// GROUND_SIZE x GROUND_SIZE layer already uses the full original cap on
+// its own with zero headroom left to actually build anything.
+const MAX_INSTANCES_PER_TYPE = 8192
 const SAVE_KEY = 'gayz-build-mode'
 // Free-fly still has no gravity (see spec's "why this shape" section) -
 // this radius only stops the camera from passing through a placed block,
 // treating the camera as a small sphere rather than a zero-size point.
 const COLLISION_RADIUS = 0.35
-// Floor clamp (see update()'s own comment) - just above the ground plane
-// (y=0) by a bit more than COLLISION_RADIUS, so the camera's own collision
-// sphere doesn't clip into it either.
-const GROUND_MIN_Y = 0.5
+// The ground layer sits one cell below the walkable surface (y=0) - a
+// block "at y" occupies the space from y to y+1, so a block at y=-1 has
+// its top face flush with y=0, matching where the old static ground mesh's
+// top surface used to sit.
+const GROUND_LAYER_Y = -1
+const GROUND_BLOCK_TYPE = 'grass'
 // Minecraft-style hotbar key mapping - Digit1-9 are slots 0-8, Digit0 is
 // slot 9 (the 10th slot), matching the real keyboard row's left-to-right
 // order rather than numeric value.
@@ -206,12 +206,12 @@ function _drawStripe(ctx, base, size) {
 const PATTERN_DRAWERS = { speckle: _drawSpeckle, brick: _drawBrick, wood: _drawWood, metal: _drawMetal, glass: _drawGlass, log: _drawLog, wool: _drawWool, stripe: _drawStripe }
 
 function _makeBlockTexture(colorHex, pattern) {
-  // 96, up from 64 (which itself was up from 32) - NearestFilter
+  // 128, up from 96 (64 before that, 32 originally) - NearestFilter
   // magnification means every texel is a visibly hard-edged square up
   // close, so each bump buys back some sharpness at the same viewing
   // distance while still keeping the intentional pixel-art look (not
   // switching to LinearFilter, which would blur the pattern edges away).
-  const size = 96
+  const size = 128
   const canvas = document.createElement('canvas')
   canvas.width = size
   canvas.height = size
@@ -225,10 +225,12 @@ function _makeBlockTexture(colorHex, pattern) {
   // Soft ambient-occlusion vignette - real surfaces catch less light right
   // at their own edges/corners than dead center; without this every
   // pattern above reads as a flat painted plane no matter how much detail
-  // it has.
-  const vignette = ctx.createRadialGradient(size / 2, size / 2, size * 0.25, size / 2, size / 2, size * 0.75)
+  // it has. Lightened from 0.28 to 0.18 (and pulled the inner radius out
+  // to 0.35) - the stronger version was muddying the pattern detail
+  // underneath it instead of just grounding the block's edges.
+  const vignette = ctx.createRadialGradient(size / 2, size / 2, size * 0.35, size / 2, size / 2, size * 0.75)
   vignette.addColorStop(0, 'rgba(0,0,0,0)')
-  vignette.addColorStop(1, 'rgba(0,0,0,0.28)')
+  vignette.addColorStop(1, 'rgba(0,0,0,0.18)')
   ctx.fillStyle = vignette
   ctx.fillRect(0, 0, size, size)
 
@@ -276,13 +278,6 @@ export class BuildMode {
     sunLight.shadow.camera.near = 1
     sunLight.shadow.camera.far = 100
     this.scene.add(sunLight)
-
-    const groundGeo = new THREE.BoxGeometry(GROUND_SIZE, GROUND_THICKNESS, GROUND_SIZE)
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0x6b8f4e })
-    this.ground = new THREE.Mesh(groundGeo, groundMat)
-    this.ground.position.y = -GROUND_THICKNESS / 2
-    this.ground.receiveShadow = true
-    this.scene.add(this.ground)
 
     this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 500)
     // Standing eye height (1.7, matching PlayerController's real-game eye
@@ -560,6 +555,11 @@ export class BuildMode {
   // block map at each grid cell - simpler and more robust for a uniform
   // grid than THREE's mesh-based raycasting against InstancedMesh (which
   // needs per-instance bounding data this project doesn't otherwise need).
+  // No special ground-plane case anymore - the ground is just blocks now
+  // (see _ensureGroundLayer), so a real one at y=-1 hits this same
+  // getBlockAt check like everything else, and is breakable/removable the
+  // same way; aiming through a dug-out hole just keeps stepping until it
+  // finds something else or runs out of maxDist.
   _raycastGridAligned() {
     const origin = this._raycaster.ray.origin
     const dir = this._raycaster.ray.direction
@@ -571,10 +571,6 @@ export class BuildMode {
       const py = origin.y + dir.y * t
       const pz = origin.z + dir.z * t
       const cell = [Math.floor(px), Math.floor(py), Math.floor(pz)]
-      if (py <= 0) {
-        // Hit the ground plane before hitting any block.
-        return prevCell ? { placeAt: prevCell, existingBlock: null } : { placeAt: cell, existingBlock: null }
-      }
       if (this.getBlockAt(cell[0], cell[1], cell[2])) {
         return { placeAt: prevCell || cell, existingBlock: cell }
       }
@@ -689,36 +685,58 @@ export class BuildMode {
   }
 
   load() {
-    let raw
+    let raw = null
     try {
       raw = localStorage.getItem(SAVE_KEY)
     } catch {
-      return
+      // Storage unavailable - fall through to _ensureGroundLayer below,
+      // same as a fresh/empty save.
     }
-    if (!raw) return
-    let parsed
-    try {
-      parsed = JSON.parse(raw)
-    } catch {
-      return
-    }
-    // Save format used to be a bare array of block entries, before the
-    // hotbar existed - keep reading those the same way rather than
-    // silently dropping every build saved before this change.
-    const blocks = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.blocks) ? parsed.blocks : null
-    if (blocks) {
-      for (const entry of blocks) {
-        if (!entry || typeof entry !== 'object') continue
-        const { x, y, z, type } = entry
-        if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) continue
-        if (!VALID_TYPE_IDS.has(type)) continue
-        this.placeBlock(Math.trunc(x), Math.trunc(y), Math.trunc(z), type)
+    let parsed = null
+    if (raw) {
+      try {
+        parsed = JSON.parse(raw)
+      } catch {
+        // Malformed - fall through the same way, start from an empty
+        // (but still grounded) layout rather than crashing.
       }
     }
-    const hotbar = parsed?.hotbar
-    if (Array.isArray(hotbar) && hotbar.length === 10) {
-      this.hotbar = hotbar.map((id) => (id === null || VALID_TYPE_IDS.has(id) ? id : null))
-      this._renderHotbar()
+    if (parsed) {
+      // Save format used to be a bare array of block entries, before the
+      // hotbar existed - keep reading those the same way rather than
+      // silently dropping every build saved before this change.
+      const blocks = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.blocks) ? parsed.blocks : null
+      if (blocks) {
+        for (const entry of blocks) {
+          if (!entry || typeof entry !== 'object') continue
+          const { x, y, z, type } = entry
+          if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) continue
+          if (!VALID_TYPE_IDS.has(type)) continue
+          this.placeBlock(Math.trunc(x), Math.trunc(y), Math.trunc(z), type)
+        }
+      }
+      const hotbar = parsed?.hotbar
+      if (Array.isArray(hotbar) && hotbar.length === 10) {
+        this.hotbar = hotbar.map((id) => (id === null || VALID_TYPE_IDS.has(id) ? id : null))
+        this._renderHotbar()
+      }
+    }
+    this._ensureGroundLayer()
+  }
+
+  // Backfills any still-empty ground-level (y=GROUND_LAYER_Y) cell across
+  // the whole GROUND_SIZE x GROUND_SIZE footprint with grass - runs after
+  // loading (or failing to load) a save, so a fresh Build Mode always
+  // starts with real, breakable ground instead of nothing, while never
+  // overwriting a cell the player (or a saved build) already explicitly
+  // placed something in - placeBlock already no-ops on an occupied cell,
+  // so this is just "call it for every cell and let that guard do the work."
+  _ensureGroundLayer() {
+    const half = GROUND_SIZE / 2
+    for (let x = -half; x < half; x++) {
+      for (let z = -half; z < half; z++) {
+        this.placeBlock(x, GROUND_LAYER_Y, z, GROUND_BLOCK_TYPE)
+      }
     }
   }
 
@@ -757,12 +775,11 @@ export class BuildMode {
       if (!this._blockedAt(pos.x, pos.y, pos.z + move.z)) pos.z += move.z
       else this._velocity.z = 0
     }
-    // Placed blocks have real collision (_blockedAt above), but the ground
-    // plane itself never did - it's a flat THREE.Mesh, not tracked in
-    // _blocks, so flying downward (Shift) could pass straight through it
-    // into empty space below with nothing to stop you. Simple floor clamp,
-    // not real physics - free-fly still has no gravity by design.
-    if (this.camera.position.y < GROUND_MIN_Y) this.camera.position.y = GROUND_MIN_Y
+    // No separate floor clamp needed anymore - the ground is now a real,
+    // breakable block layer (see _ensureGroundLayer), so _blockedAt above
+    // already stops the camera at solid ground the same way it stops it at
+    // any other placed block, and correctly lets it fly on through wherever
+    // that layer has been dug out.
   }
 
   // Treats the camera as a small sphere (COLLISION_RADIUS), not a point, so

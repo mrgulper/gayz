@@ -8,7 +8,10 @@ test('entering Build Mode shows a scene with a ground plane, exiting returns to 
     const g = window.__game
     g._enterBuildMode()
     const enteredActive = g.buildMode.active
-    const hasGround = !!g.buildMode.ground
+    // The ground is now a real, breakable block layer (see
+    // _ensureGroundLayer), not a standalone mesh - check for an actual
+    // ground block instead of the removed `ground` property.
+    const hasGround = g.buildMode.getBlockAt(0, -1, 0) !== null
     const menuHiddenWhileActive = getComputedStyle(g.menu).display === 'none'
     g._exitBuildMode()
     const exitedActive = g.buildMode.active
@@ -141,7 +144,7 @@ test('a saved build reloads correctly in a fresh BuildMode instance', async ({ p
   expect(result.glass).toBe('glass')
 })
 
-test('malformed save data does not crash Build Mode - starts empty instead', async ({ page }) => {
+test('malformed save data does not crash Build Mode - starts with just the default ground instead', async ({ page }) => {
   await gotoAndWaitForGame(page)
   const errors = []
   page.on('pageerror', (err) => errors.push(err.message))
@@ -150,12 +153,15 @@ test('malformed save data does not crash Build Mode - starts empty instead', asy
     localStorage.setItem('gayz-build-mode', 'not valid json {{{')
     const g = window.__game
     g._enterBuildMode()
+    // No player-built blocks survive a malformed save, but the ground
+    // layer (see _ensureGroundLayer) still backfills every cell - a full
+    // GROUND_SIZE x GROUND_SIZE (64x64) layer, none of it player-placed.
     const blockCount = g.buildMode._blocks.size
     g._exitBuildMode()
     return { blockCount }
   })
 
-  expect(result.blockCount).toBe(0)
+  expect(result.blockCount).toBe(64 * 64)
   expect(errors).toEqual([])
 })
 
