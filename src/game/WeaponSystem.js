@@ -990,6 +990,15 @@ export class WeaponSystem {
     this.camera.fov = baseFov + this._sprintFovAmount * SPRINT_FOV_KICK * (1 - this.aimAmount)
     this.camera.updateProjectionMatrix()
 
+    // Scoped ADS (see aimFov above) narrows the FOV far more aggressively
+    // than regular ADS (0.35x vs 0.6x) - VIEWMODEL_ADS's distance was only
+    // ever tuned against the milder 0.6x case (see its own comment on the
+    // earlier "gun balloons huge" fix), and at 0.35x the same gun model
+    // balloons up again and fills the whole screen. No scope-reticle
+    // overlay exists in this game, so the real fix is the same one actual
+    // sniper scopes use: hide the gun body while looking through it.
+    if (this.current.hasScope) this.viewmodels[this.current.id].visible = !this.aiming
+
     this._updateViewmodelTransform(isMoving)
     this._updateBarrelSpin(dt)
 

@@ -480,6 +480,7 @@ const STRINGS = {
     xpUpgradeChainDamage: 'Overcharged Chain',
     pauseOverlayTitle: 'Paused',
     pauseResumeBtn: 'Resume',
+    pauseWeaponBtn: 'Switch Weapon',
     pauseQuitBtn: 'Quit to Menu',
     skinsBtn: 'Skins',
     skinsPanelTitle: 'Weapon Skins',

@@ -4146,6 +4146,7 @@ export class Game {
     this.pauseQuitBtn = document.getElementById('pause-quit-btn')
     this.pauseUpgradesBtn = document.getElementById('pause-upgrades-btn')
     this.pauseShopBtn = document.getElementById('pause-shop-btn')
+    this.pauseWeaponBtn = document.getElementById('pause-weapon-btn')
     this.screenshotCropOverlay = document.getElementById('screenshot-crop-overlay')
     this.screenshotCropStage = document.getElementById('screenshot-crop-stage')
     this.screenshotCropImage = document.getElementById('screenshot-crop-image')
@@ -4750,6 +4751,14 @@ export class Game {
     this.pauseQuitBtn.addEventListener('click', () => window.location.reload())
     this.pauseUpgradesBtn.addEventListener('click', () => this._openUpgradesPanel())
     this.pauseShopBtn.addEventListener('click', () => this._openCoinShopPanel())
+    this.pauseWeaponBtn.addEventListener('click', () => {
+      // Hide Pause first - both panels share the shared panel rule's
+      // z-index:15, so with Pause left open underneath, DOM order (it
+      // comes after the weapon picker in index.html) would let it paint on
+      // top of the picker instead of the other way around.
+      this.pauseOverlay.style.display = 'none'
+      this._openWeaponPickerPanel(true)
+    })
 
     this.player.controls.addEventListener('lock', () => {
       // Build Mode acquires pointer lock too (its own free-fly look
@@ -4808,6 +4817,7 @@ export class Game {
         this.pauseResumeBtn.textContent = t('pauseResumeBtn')
         this.pauseUpgradesBtn.textContent = t('upgradesBtn')
         this.pauseShopBtn.textContent = t('coinshopBtn')
+        this.pauseWeaponBtn.textContent = t('pauseWeaponBtn')
         this.pauseSettingsBtn.textContent = t('settingsBtn')
         this.pauseQuitBtn.textContent = t('pauseQuitBtn')
         this.pauseOverlay.style.display = 'flex'
@@ -9137,7 +9147,12 @@ export class Game {
   // start with instead. Melee is left out - it's always available as
   // hotbar slot 1 regardless of this pick, so it's not a meaningful choice
   // here the way the other 14 guns are.
-  _openWeaponPickerPanel() {
+  //
+  // Also reused mid-run from the Pause menu's "Switch Weapon" button
+  // (fromPause=true) - same picker grid, but a pick just re-equips and
+  // resumes instead of chaining into the trait draw.
+  _openWeaponPickerPanel(fromPause = false) {
+    this._weaponPickerFromPause = fromPause
     this.weaponPickerPanel.style.display = 'flex'
     this.weaponPickerPanelTitle.textContent = t('weaponPickerPanelTitle')
     this._renderWeaponPickerOptions()
@@ -9158,10 +9173,19 @@ export class Game {
       `
       btn.addEventListener('click', () => {
         const index = this.weapons.weapons.indexOf(w)
+        // Assign into hotbar slot 2 (not just switchToIndex alone) - the
+        // hotbar HUD and Digit1-5 switching both read settings.hotbar
+        // directly (see _updateHotbarHud/_bindHotbar), not whatever's
+        // currently equipped. Without this, the pick looked like it did
+        // nothing (still showed the old Knife/Rifle/Pistol loadout with
+        // nothing highlighted) and pressing "2" would silently switch back
+        // to the default rifle out from under the player.
+        this._assignHotbarSlot(1, w.id)
         this.weapons.switchToIndex(index)
         this._updateHotbarHud()
         this.weaponPickerPanel.style.display = 'none'
-        this._openTraitDrawPanel()
+        if (this._weaponPickerFromPause) this.player.controls.lock()
+        else this._openTraitDrawPanel()
       })
       this.weaponPickerOptions.appendChild(btn)
     }
