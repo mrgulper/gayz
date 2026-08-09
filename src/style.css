@@ -76,15 +76,51 @@ html.dyslexia-font body {
   left: 50%;
   transform: translate(-50%, -50%);
   z-index: 20;
-  display: grid;
-  /* 18 block types (up from the original 9) - 6 columns keeps this a
-     wide-but-short 3-row grid instead of a tall 6-row one. */
-  grid-template-columns: repeat(6, 68px);
+  display: flex;
+  flex-direction: column;
   gap: 10px;
   padding: 16px;
   background: rgba(10, 10, 10, 0.9);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 6px;
+  /* Grid can grow past 6 rows now (36 block types) - cap height and let it
+     scroll internally rather than push the panel off the bottom of short
+     windows, same reasoning every other scrollable panel in this project
+     already applies. */
+  max-height: 80vh;
+}
+
+.build-picker-search {
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #e8e8e8;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  outline: none;
+}
+
+.build-picker-search:focus {
+  border-color: #d9a34a;
+}
+
+.build-picker-grid {
+  display: grid;
+  /* 36 block types (up from the original 9) - 6 columns keeps this a
+     wide-but-short grid instead of a tall narrow one. */
+  grid-template-columns: repeat(6, 68px);
+  gap: 10px;
+  overflow-y: auto;
+}
+
+.build-picker-empty {
+  grid-column: 1 / -1;
+  margin: 12px 0;
+  font-size: 12px;
+  color: rgba(232, 232, 232, 0.6);
+  text-align: center;
 }
 
 .build-picker-item {

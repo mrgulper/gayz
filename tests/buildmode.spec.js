@@ -111,7 +111,7 @@ test('Tab opens the picker, clicking a swatch changes the selected block type', 
   })
 
   expect(result.openAfterToggle).toBe(true)
-  expect(result.swatchCount).toBe(24)
+  expect(result.swatchCount).toBe(36)
   expect(result.afterClickType).not.toBe(result.beforeType)
   expect(result.closedAfterClick).toBe(false)
 })

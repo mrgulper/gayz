@@ -63,6 +63,22 @@ export const BLOCK_TYPES = [
   { id: 'iron', name: 'Iron', color: 0xd8d8d2, pattern: 'metal', roughness: 0.4, metalness: 0.9 },
   { id: 'clay', name: 'Clay', color: 0xb5654a, pattern: 'speckle', roughness: 0.95, metalness: 0 },
   { id: 'moss', name: 'Moss', color: 0x3d6b32, pattern: 'speckle', roughness: 1, metalness: 0 },
+  // Most-common-blocks pass (matched against Minecraft's own most-placed
+  // types) - fills real gaps the original 24 left, like there being no log/
+  // wool pattern at all, and several blocks players expect (cobblestone,
+  // TNT, ore blocks) missing entirely.
+  { id: 'cobblestone', name: 'Cobblestone', color: 0x7d7d7d, pattern: 'speckle', roughness: 0.95, metalness: 0 },
+  { id: 'oaklog', name: 'Oak Log', color: 0x6b4423, pattern: 'log', roughness: 0.8, metalness: 0 },
+  { id: 'bookshelf', name: 'Bookshelf', color: 0x8a6239, pattern: 'wood', roughness: 0.75, metalness: 0 },
+  { id: 'wool', name: 'Wool', color: 0xe8e4d8, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'netherrack', name: 'Netherrack', color: 0x723232, pattern: 'speckle', roughness: 1, metalness: 0 },
+  { id: 'diamondblock', name: 'Diamond Block', color: 0x5fd4d4, pattern: 'metal', roughness: 0.15, metalness: 0.9 },
+  { id: 'redstoneblock', name: 'Redstone Block', color: 0xa61b1b, pattern: 'metal', roughness: 0.3, metalness: 0.6, emissive: 0x8a0000, emissiveIntensity: 0.4 },
+  { id: 'coalblock', name: 'Coal Block', color: 0x1c1c1c, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'pumpkin', name: 'Pumpkin', color: 0xd9761a, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'tnt', name: 'TNT', color: 0xc23b22, pattern: 'stripe', roughness: 0.85, metalness: 0 },
+  { id: 'quartz', name: 'Quartz Block', color: 0xe8e4dc, pattern: 'brick', roughness: 0.4, metalness: 0 },
+  { id: 'andesite', name: 'Andesite', color: 0x888888, pattern: 'speckle', roughness: 0.85, metalness: 0 },
 ]
 const VALID_TYPE_IDS = new Set(BLOCK_TYPES.map((b) => b.id))
 
@@ -145,14 +161,57 @@ function _drawGlass(ctx, base, size) {
   ctx.fillStyle = `rgba(${_rgb(shine)},0.5)`
   ctx.beginPath(); ctx.moveTo(3, 3); ctx.lineTo(size / 2 - 2, 3); ctx.lineTo(3, size / 2 - 2); ctx.closePath(); ctx.fill()
 }
-const PATTERN_DRAWERS = { speckle: _drawSpeckle, brick: _drawBrick, wood: _drawWood, metal: _drawMetal, glass: _drawGlass }
+// Concentric bark rings - the signature "log" tell (Oak Log etc.), distinct
+// from the plank-strip look _drawWood already covers.
+function _drawLog(ctx, base, size) {
+  const dark = _shade(base, -0.28)
+  ctx.strokeStyle = `rgba(${_rgb(dark)},0.55)`
+  ctx.lineWidth = 1.5
+  const cx = size / 2
+  const cy = size / 2
+  for (let r = size * 0.1; r < size * 0.55; r += size * 0.09) {
+    ctx.beginPath()
+    ctx.ellipse(cx, cy, r, r * (0.85 + Math.random() * 0.15), 0, 0, Math.PI * 2)
+    ctx.stroke()
+  }
+  const bark = _shade(base, -0.4)
+  ctx.strokeStyle = `rgba(${_rgb(bark)},0.4)`
+  ctx.lineWidth = 2
+  ctx.strokeRect(1, 1, size - 2, size - 2)
+}
+// Fine woven cross-hatch - Wool's tell, distinct from every hard-surface
+// pattern above.
+function _drawWool(ctx, base, size) {
+  const step = size / 8
+  for (let i = 0; i <= 8; i++) {
+    const shade = _shade(base, (Math.random() - 0.5) * 0.08)
+    ctx.strokeStyle = `rgba(${_rgb(shade)},0.35)`
+    ctx.lineWidth = 1
+    ctx.beginPath(); ctx.moveTo(i * step, 0); ctx.lineTo(i * step, size); ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(0, i * step); ctx.lineTo(size, i * step); ctx.stroke()
+  }
+}
+// Alternating bands - TNT's tell.
+function _drawStripe(ctx, base, size) {
+  const alt = _shade(base, base.getHSL({}).l > 0.5 ? -0.55 : 0.55)
+  const bands = 3
+  const bandH = size / bands
+  for (let b = 0; b < bands; b++) {
+    if (b % 2 === 1) {
+      ctx.fillStyle = `rgb(${_rgb(alt)})`
+      ctx.fillRect(0, b * bandH, size, bandH)
+    }
+  }
+}
+const PATTERN_DRAWERS = { speckle: _drawSpeckle, brick: _drawBrick, wood: _drawWood, metal: _drawMetal, glass: _drawGlass, log: _drawLog, wool: _drawWool, stripe: _drawStripe }
 
 function _makeBlockTexture(colorHex, pattern) {
-  // 64, up from 32 - NearestFilter magnification means every texel is a
-  // visibly hard-edged square up close, and at 32px that read as coarse,
-  // blocky pixelation rather than an intentional pattern. Doubling halves
-  // that at the same viewing distance.
-  const size = 64
+  // 96, up from 64 (which itself was up from 32) - NearestFilter
+  // magnification means every texel is a visibly hard-edged square up
+  // close, so each bump buys back some sharpness at the same viewing
+  // distance while still keeping the intentional pixel-art look (not
+  // switching to LinearFilter, which would blur the pattern edges away).
+  const size = 96
   const canvas = document.createElement('canvas')
   canvas.width = size
   canvas.height = size
@@ -226,7 +285,12 @@ export class BuildMode {
     this.scene.add(this.ground)
 
     this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 500)
-    this.camera.position.set(0, 5, 10)
+    // Standing eye height (1.7, matching PlayerController's real-game eye
+    // height) rather than floating well above it - the old y=5 spawn made
+    // 1-unit blocks read as small/distant the instant Build Mode opened,
+    // since everything was seen from a bird's-eye vantage before the
+    // player had a chance to fly down to a natural scale reference.
+    this.camera.position.set(0, 1.7, 10)
 
     // Free-fly input state - WASD + Space/Shift for up/down, mouse look
     // while pointer-locked. No gravity, no collision (see spec's "why this
@@ -245,6 +309,14 @@ export class BuildMode {
     // undoing the first.
     const MOVEMENT_KEY_CODES = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft'])
     this._onKeyDown = (e) => {
+      // Without this, typing a block name into the picker's search box
+      // (see _pickerSearchInput) both flew the camera around on every W/A/
+      // S/D keystroke and silently ate the character itself, since
+      // preventDefault() on a movement key stops the input from ever
+      // receiving it - this guard was needed even before the search box
+      // existed (the picker's Tab-toggle key handling never blocked
+      // movement input while open), the search box just made it obvious.
+      if (this.pickerOpen) return
       this._keys.add(e.code)
       if (MOVEMENT_KEY_CODES.has(e.code)) e.preventDefault()
     }
@@ -299,9 +371,24 @@ export class BuildMode {
     this._onContextMenu = (e) => { if (this.active) e.preventDefault() }
 
     // Tab picker overlay - a plain DOM grid (not part of the 3D scene) of
-    // every block type, toggled with Tab.
+    // every block type, toggled with Tab. The search input is built once
+    // and never touched by innerHTML rebuilds (only the grid below it is)
+    // so typing doesn't lose focus/cursor position on every keystroke.
     this.pickerOpen = false
     this._pickerEl = document.getElementById('build-picker')
+    if (this._pickerEl) {
+      this._pickerEl.innerHTML = ''
+      this._pickerSearchInput = document.createElement('input')
+      this._pickerSearchInput.type = 'text'
+      this._pickerSearchInput.className = 'build-picker-search'
+      this._pickerSearchInput.placeholder = 'Search blocks...'
+      this._pickerSearchInput.addEventListener('click', (e) => e.stopPropagation())
+      this._pickerSearchInput.addEventListener('input', () => this._renderPickerGrid())
+      this._pickerEl.appendChild(this._pickerSearchInput)
+      this._pickerGridEl = document.createElement('div')
+      this._pickerGridEl.className = 'build-picker-grid'
+      this._pickerEl.appendChild(this._pickerGridEl)
+    }
     this._renderPicker()
 
     // Always-on-screen quick-select bar (Minecraft-style, Digit1-9/0) - 10
@@ -310,6 +397,10 @@ export class BuildMode {
     this._hotbarEl = document.getElementById('build-hotbar')
     this._renderHotbar()
     this._onKeyDownHotbar = (e) => {
+      // Same reasoning as _onKeyDown's guard - without it, typing a digit
+      // while searching the picker (e.g. "TNT" has none, but plenty of
+      // names could) would also switch the active hotbar slot underneath.
+      if (this.pickerOpen) return
       const digitIndex = DIGIT_KEY_TO_HOTBAR_INDEX[e.code]
       if (digitIndex === undefined) return
       this._selectHotbarSlot(digitIndex)
@@ -323,6 +414,15 @@ export class BuildMode {
         this.togglePicker()
       }
     }
+
+    // Click anywhere outside the picker's own grid to close it - the
+    // picker has no backdrop element of its own (it's just the centered
+    // grid, position:fixed with nothing behind it), so this listens on
+    // document and checks the click target instead of adding one.
+    this._onPickerBackdropClick = (e) => {
+      if (!this.pickerOpen || !this._pickerEl) return
+      if (!this._pickerEl.contains(e.target)) this.togglePicker()
+    }
   }
 
   enter() {
@@ -334,6 +434,7 @@ export class BuildMode {
     window.addEventListener('keydown', this._onKeyDownHotbar)
     this.renderer.domElement.addEventListener('pointerdown', this._onPointerDown)
     window.addEventListener('contextmenu', this._onContextMenu)
+    document.addEventListener('click', this._onPickerBackdropClick)
     if (this._hotbarEl) this._hotbarEl.style.display = 'flex'
     this.load()
   }
@@ -349,6 +450,7 @@ export class BuildMode {
     window.removeEventListener('keydown', this._onKeyDownHotbar)
     this.renderer.domElement.removeEventListener('pointerdown', this._onPointerDown)
     window.removeEventListener('contextmenu', this._onContextMenu)
+    document.removeEventListener('click', this._onPickerBackdropClick)
     this.pickerOpen = false
     if (this._pickerEl) this._pickerEl.style.display = 'none'
     if (this._hotbarEl) this._hotbarEl.style.display = 'none'
@@ -483,11 +585,23 @@ export class BuildMode {
 
   // Click a block here to put it in the currently active hotbar slot (see
   // _assignToActiveSlot) - this is the "inventory" you assign the hotbar
-  // from, it doesn't select blocks directly itself.
+  // from, it doesn't select blocks directly itself. Called on every open -
+  // resets the search box back to empty each time, same "fresh state per
+  // open" the search input's own event listener doesn't otherwise reset.
   _renderPicker() {
-    if (!this._pickerEl) return
-    this._pickerEl.innerHTML = ''
-    for (const { id, name, color } of BLOCK_TYPES) {
+    if (this._pickerSearchInput) this._pickerSearchInput.value = ''
+    this._renderPickerGrid()
+  }
+
+  // Just the swatch grid, filtered by the search box's current value -
+  // split out from _renderPicker so typing doesn't rebuild (and lose focus
+  // on) the search input itself, only the grid below it.
+  _renderPickerGrid() {
+    if (!this._pickerGridEl) return
+    this._pickerGridEl.innerHTML = ''
+    const query = (this._pickerSearchInput?.value || '').trim().toLowerCase()
+    const matches = query ? BLOCK_TYPES.filter((bt) => bt.name.toLowerCase().includes(query)) : BLOCK_TYPES
+    for (const { id, name, color } of matches) {
       const item = document.createElement('div')
       item.className = 'build-picker-item'
       item.title = name
@@ -503,7 +617,13 @@ export class BuildMode {
         this._assignToActiveSlot(id)
         this.togglePicker()
       })
-      this._pickerEl.appendChild(item)
+      this._pickerGridEl.appendChild(item)
+    }
+    if (matches.length === 0) {
+      const empty = document.createElement('p')
+      empty.className = 'build-picker-empty'
+      empty.textContent = 'No blocks match.'
+      this._pickerGridEl.appendChild(empty)
     }
   }
 
@@ -529,8 +649,19 @@ export class BuildMode {
 
   togglePicker() {
     this.pickerOpen = !this.pickerOpen
-    if (this._pickerEl) this._pickerEl.style.display = this.pickerOpen ? 'grid' : 'none'
-    if (this.pickerOpen) this._renderPicker()
+    if (this._pickerEl) this._pickerEl.style.display = this.pickerOpen ? 'flex' : 'none'
+    if (this.pickerOpen) {
+      // Stop any movement already in progress from a key held down right as
+      // the picker opened - _onKeyDown itself now ignores new keys while
+      // pickerOpen, but a key pressed just before this toggle already made
+      // it into the set.
+      this._keys.clear()
+      this._renderPicker()
+      // Real cursor isn't usable until pointer lock actually releases (see
+      // the exitPointerLock() call right below) - focusing before that
+      // resolves is a silent no-op in some browsers.
+      setTimeout(() => this._pickerSearchInput?.focus(), 0)
+    }
     if (document.pointerLockElement === this.renderer.domElement && this.pickerOpen) {
       document.exitPointerLock()
     } else if (!this.pickerOpen) {
