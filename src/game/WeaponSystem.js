@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { audioEngine } from './Audio.js'
-import { buildViewmodel, buildQuickMeleeKnifeModel } from './Viewmodels.js'
+import { buildViewmodel } from './Viewmodels.js'
 import { t, onLanguageChange } from './i18n.js'
 import { getKeyFor } from './Keybinds.js'
 import { flatMaterial } from './QualitySettings.js'
@@ -14,7 +14,13 @@ const DEFAULT_MUZZLE_COLOR = 0xfff2b0
 const EXPLOSIVE_PROP_RADIUS = 5
 const EXPLOSIVE_PROP_DAMAGE_MIN = 70
 const EXPLOSIVE_PROP_DAMAGE_MAX = 160
-const VIEWMODEL_ADS = new THREE.Vector3(0.02, -0.1, -0.32)
+// Z matches VIEWMODEL_BASE deliberately - aiming already narrows the
+// camera's own FOV (see aimFov/hasScope below), which magnifies anything
+// close to the camera on its own. Pulling the viewmodel closer too (the
+// old z was -0.32, noticeably nearer than VIEWMODEL_BASE's -0.5) compounded
+// with that FOV zoom multiplicatively, making the gun balloon to a huge,
+// distorted size while aiming instead of just centering under the sights.
+const VIEWMODEL_ADS = new THREE.Vector3(0.02, -0.1, -0.5)
 const ADS_LERP_SPEED = 9
 // Bullet tracers - unit-height geometry shared across every tracer instance,
 // stretched via mesh.scale.y per shot instead of rebuilding geometry every
@@ -44,11 +50,6 @@ const IDLE_INSPECT_FADE_S = 1.5
 const SPRINT_FOV_KICK = 8
 const SPRINT_FOV_LERP_SPEED = 6
 
-// The off-hand knife (buildQuickMeleeKnifeModel) rides along in the left
-// hand for as long as any gun is equipped (hidden only for the melee slot
-// itself, see _switchTo) - purely a held-ready visual now, not a separate
-// instant-stab attack (that used to live on Digit1, retired since the
-// hotbar - see Game.js - now owns Digit1-5 for slot switching).
 const KNIFE_DAMAGE = 150
 const IGNITE_DURATION_MS = 3000
 const IGNITE_DPS = 8
@@ -97,10 +98,6 @@ const HEADSHOT_DAMAGE_MULT = 1.75
 const MELEE_COMBO_WINDOW_MS = 2000
 const MELEE_COMBO_THRESHOLD = 5
 const MELEE_COMBO_BONUS_MULT = 1.8
-// Held low on the off-hand (left) side, well clear of the equipped gun's
-// own position (see VIEWMODEL_BASE, positive X).
-const QUICK_MELEE_REST_POS = new THREE.Vector3(-0.36, -0.28, -0.28)
-const QUICK_MELEE_REST_ROT = new THREE.Vector3(0.35, 0.55, -0.25)
 
 const WEAPONS = [
   {
@@ -572,18 +569,6 @@ export class WeaponSystem {
     }
     this.viewmodels[this.current.id].visible = true
 
-    // Quick-melee's own knife, parented to the same viewmodelRoot as every
-    // other weapon so it inherits the same camera-relative positioning.
-    // Unlike every other viewmodel it isn't toggled by _switchTo alone -
-    // it stays visible in the off-hand for as long as any gun is equipped
-    // (hidden only when the melee slot itself is out, since that viewmodel
-    // already shows a held knife/bat/machete).
-    this.quickMeleeKnife = buildQuickMeleeKnifeModel()
-    this.quickMeleeKnife.position.copy(QUICK_MELEE_REST_POS)
-    this.quickMeleeKnife.rotation.setFromVector3(QUICK_MELEE_REST_ROT)
-    this.quickMeleeKnife.visible = !this.current.melee
-    this.viewmodelRoot.add(this.quickMeleeKnife)
-
     window.addEventListener('mousedown', (e) => {
       if (e.button === 0) this.triggerDown = true
       if (e.button === 2) {
@@ -924,12 +909,6 @@ export class WeaponSystem {
     this.heat = 0
     for (const id in this.viewmodels) this.viewmodels[id].visible = false
     this.viewmodels[this.weapons[index].id].visible = true
-    // Off-hand knife rides along with every gun, hidden only for the melee
-    // slot itself (that viewmodel already has its own knife/bat/machete in
-    // hand).
-    this.quickMeleeKnife.visible = !this.weapons[index].melee
-    this.quickMeleeKnife.position.copy(QUICK_MELEE_REST_POS)
-    this.quickMeleeKnife.rotation.setFromVector3(QUICK_MELEE_REST_ROT)
     this._updateHud()
   }
 
