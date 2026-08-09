@@ -1,6 +1,6 @@
 // Tracks which zombie types the player has ever killed, for the bestiary
-// menu screen (see Game.js's _openBestiaryPanel). Lore blurbs themselves
-// live on each entry in ZombieTypes.js.
+// section of the Achievements panel (see Game.js's _renderBestiaryPanel).
+// Lore blurbs themselves live on each entry in ZombieTypes.js.
 const STORAGE_KEY = 'gayz-bestiary'
 
 export function loadEncountered() {

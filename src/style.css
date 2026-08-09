@@ -793,7 +793,6 @@ html.large-text-mode #upgrades-panel,
 html.large-text-mode #quests-panel,
 html.large-text-mode #share-panel,
 html.large-text-mode #achievements-panel,
-html.large-text-mode #bestiary-panel,
 html.large-text-mode #profile-panel,
 html.large-text-mode #credits-panel,
 html.large-text-mode #howtoplay-panel,
@@ -2252,7 +2251,6 @@ body.reduce-flashing #critical-blood-overlay.show {
 #quests-panel,
 #share-panel,
 #achievements-panel,
-#bestiary-panel,
 #profile-panel,
 #credits-panel,
 #howtoplay-panel,
@@ -2301,12 +2299,29 @@ body.reduce-flashing #critical-blood-overlay.show {
   justify-content: flex-start;
 }
 
+/* Achievements panel now holds the merged Bestiary section underneath its
+   own list (see index.html) - two full option grids no longer reliably fit
+   one screen, same reasoning as the Profile panel override above. */
+#achievements-panel {
+  overflow-y: auto;
+  padding: 24px 0;
+  justify-content: flex-start;
+}
+
+#bestiary-section-heading {
+  margin: 10px 0 0;
+  font-size: 15px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #e3a63c;
+  opacity: 0.85;
+}
+
 #perk-panel-title,
 #trader-panel-title,
 #upgrades-panel-title,
 #quests-panel-title,
 #achievements-panel-title,
-#bestiary-panel-title,
 #profile-panel-title,
 #credits-panel-title,
 #howtoplay-panel-title,
@@ -3704,7 +3719,7 @@ html {
    re-checks after a size-affecting change). */
 html.text-spacing-active #menu, html.text-spacing-active .menu-panel, html.text-spacing-active #upgrades-panel,
 html.text-spacing-active #coinshop-panel, html.text-spacing-active #credits-panel, html.text-spacing-active #achievements-panel,
-html.text-spacing-active #bestiary-panel, html.text-spacing-active #profile-panel, html.text-spacing-active #settings-panel,
+html.text-spacing-active #profile-panel, html.text-spacing-active #settings-panel,
 html.text-spacing-active #quests-panel, html.text-spacing-active #share-panel, html.text-spacing-active #cloudsave-panel, html.text-spacing-active #howtoplay-panel {
   letter-spacing: calc((var(--text-spacing, 100) - 100) * 0.005px);
   line-height: calc(1.4 * var(--text-spacing, 100) / 100);
@@ -3724,7 +3739,6 @@ html.reduce-transparency #upgrades-panel,
 html.reduce-transparency #coinshop-panel,
 html.reduce-transparency #credits-panel,
 html.reduce-transparency #achievements-panel,
-html.reduce-transparency #bestiary-panel,
 html.reduce-transparency #profile-panel,
 html.reduce-transparency #settings-panel,
 html.reduce-transparency #quests-panel,

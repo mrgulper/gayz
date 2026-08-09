@@ -351,7 +351,7 @@ function loadSettings() {
       pinnedStat: parsed.pinnedStat || null,
       companionNameColor: parsed.companionNameColor || null,
       pinnedPreset: Number.isInteger(parsed.pinnedPreset) ? parsed.pinnedPreset : null,
-      navOrder: Array.isArray(parsed.navOrder) && parsed.navOrder.length === 6 ? parsed.navOrder : ['coinshop-btn', 'upgrades-btn', 'quests-btn', 'achievements-btn', 'bestiary-btn', 'credits-btn'],
+      navOrder: Array.isArray(parsed.navOrder) && parsed.navOrder.length === 5 ? parsed.navOrder : ['coinshop-btn', 'upgrades-btn', 'quests-btn', 'achievements-btn', 'credits-btn'],
       bioPresets: Array.isArray(parsed.bioPresets) ? parsed.bioPresets.slice(0, 3) : [],
       // Third features batch - Accessibility group.
       uiFont: parsed.uiFont || 'default',
@@ -398,7 +398,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['coinshop-btn', 'upgrades-btn', 'quests-btn', 'achievements-btn', 'bestiary-btn', 'credits-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['melee', 'rifle', 'pistol', null, null], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['coinshop-btn', 'upgrades-btn', 'quests-btn', 'achievements-btn', 'credits-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -2940,12 +2940,10 @@ export class Game {
     // icons (performance/language).
     this.menuLoginStreak = document.getElementById('menu-login-streak')
     this.achievementsCompletionRing = document.getElementById('achievements-completion-ring')
-    this.bestiaryCompletionRing = document.getElementById('bestiary-completion-ring')
     this.cosmeticsCompletionRing = document.getElementById('cosmetics-completion-ring')
     this.questsCompletionRing = document.getElementById('quests-completion-ring')
     this.cosmeticsNavCount = document.getElementById('cosmetics-nav-count')
     this.achievementsNavCount = document.getElementById('achievements-nav-count')
-    this.bestiaryNavCount = document.getElementById('bestiary-nav-count')
     this.questsNavCount = document.getElementById('quests-nav-count')
     this.seasonProgressLabel = document.getElementById('season-progress-label')
     this.profileAvatarHeading = document.getElementById('profile-avatar-heading')
@@ -4054,9 +4052,7 @@ export class Game {
     this.achievementsCategorySelect = document.getElementById('achievements-category-select')
     this.achievementsSortSelect = document.getElementById('achievements-sort-select')
     this.printAchievementsBtn = document.getElementById('print-achievements-btn')
-    this.bestiaryBtn = document.getElementById('bestiary-btn')
-    this.bestiaryPanel = document.getElementById('bestiary-panel')
-    this.bestiaryPanelTitle = document.getElementById('bestiary-panel-title')
+    this.bestiarySectionHeading = document.getElementById('bestiary-section-heading')
     this.bestiaryOptions = document.getElementById('bestiary-options')
     this.bestiaryFilterInput = document.getElementById('bestiary-filter-input')
     this.menuPlayerBadge = document.getElementById('menu-player-badge')
@@ -7298,7 +7294,6 @@ export class Game {
       if (btn && !btn.disabled) this._claimRollingQuest(Number(btn.dataset.spawnedAt))
     })
     this.achievementsBtn.addEventListener('click', () => trackAndOpen(() => this._openAchievementsPanel()))
-    this.bestiaryBtn.addEventListener('click', () => trackAndOpen(() => this._openBestiaryPanel()))
     if (this.achievementsFilterInput) {
       this.achievementsFilterInput.addEventListener('click', (e) => e.stopPropagation())
       this.achievementsFilterInput.addEventListener('input', () => this._renderAchievementsPanel())
@@ -7443,9 +7438,6 @@ export class Game {
     })
     this.achievementsPanel.addEventListener('click', (e) => {
       if (e.target === this.achievementsPanel) this._closeAchievementsPanel()
-    })
-    this.bestiaryPanel.addEventListener('click', (e) => {
-      if (e.target === this.bestiaryPanel) this._closeBestiaryPanel()
     })
     this.profilePanel.addEventListener('click', (e) => {
       if (e.target === this.profilePanel) this._closeProfilePanel()
@@ -7712,7 +7704,7 @@ export class Game {
   // structure, so every button's own click listener/id/state is untouched.
   _renderNavOrderList() {
     if (!this.navOrderList) return
-    const labels = { 'coinshop-btn': t('navOrderShop'), 'upgrades-btn': t('navOrderUpgrades'), 'quests-btn': t('navOrderQuests'), 'achievements-btn': t('navOrderAchievements'), 'bestiary-btn': t('navOrderBestiary'), 'credits-btn': t('navOrderCredits') }
+    const labels = { 'coinshop-btn': t('navOrderShop'), 'upgrades-btn': t('navOrderUpgrades'), 'quests-btn': t('navOrderQuests'), 'achievements-btn': t('navOrderAchievements'), 'credits-btn': t('navOrderCredits') }
     this.navOrderList.innerHTML = this.settings.navOrder.map((id, i) => `
       <div class="nav-order-row" data-id="${id}">
         <span>${labels[id] || id}</span>
@@ -10497,7 +10489,10 @@ export class Game {
     this.achievementsPanel.style.display = 'flex'
     this.achievementsPanelTitle.textContent = t('achievementsPanelTitle')
     if (this.achievementsFilterInput) this.achievementsFilterInput.placeholder = t('achievementsFilterPlaceholder')
+    if (this.bestiarySectionHeading) this.bestiarySectionHeading.textContent = t('bestiaryPanelTitle')
+    if (this.bestiaryFilterInput) this.bestiaryFilterInput.placeholder = t('bestiaryFilterPlaceholder')
     this._renderAchievementsPanel()
+    this._renderBestiaryPanel()
   }
 
   // Filters against the DISPLAYED name only (not the real underlying
@@ -10540,13 +10535,6 @@ export class Game {
     this.achievementsPanel.style.display = 'none'
   }
 
-  _openBestiaryPanel() {
-    this.bestiaryPanel.style.display = 'flex'
-    this.bestiaryPanelTitle.textContent = t('bestiaryPanelTitle')
-    if (this.bestiaryFilterInput) this.bestiaryFilterInput.placeholder = t('bestiaryFilterPlaceholder')
-    this._renderBestiaryPanel()
-  }
-
   _renderBestiaryPanel() {
     const filter = (this.bestiaryFilterInput?.value || '').trim().toLowerCase()
     this.bestiaryOptions.innerHTML = ''
@@ -10564,10 +10552,6 @@ export class Game {
       `
       this.bestiaryOptions.appendChild(btn)
     }
-  }
-
-  _closeBestiaryPanel() {
-    this.bestiaryPanel.style.display = 'none'
   }
 
   // Entering/exiting the drivable car (see Vehicle.js). While driving, the
@@ -10622,7 +10606,6 @@ export class Game {
     this.upgradesBtn.querySelector('span').textContent = t('upgradesBtn')
     this.questsBtn.querySelector('span').textContent = t('questsBtn')
     this.achievementsBtn.querySelector('span').textContent = t('achievementsBtn')
-    this.bestiaryBtn.querySelector('span').textContent = t('bestiaryBtn')
     this.coinshopBtn.querySelector('span').textContent = t('coinshopBtn')
     document.getElementById('stats-coins-label').textContent = t('coinsStatLabel')
 
@@ -10971,22 +10954,19 @@ export class Game {
     }
   }
 
-  // Completion rings (Achievements/Bestiary nav buttons) - reuses the same
-  // ratios _openProfilePanel's Hall of Records % already computes, just
-  // per-category instead of averaged into one number.
+  // Completion ring (Achievements nav button, which also now covers the
+  // merged-in Bestiary section) - combines both categories into one
+  // unlocked/total ratio rather than the old two-ring split, since there's
+  // only the one nav button left to show it on.
   _updateNavCompletionRings() {
     if (this.achievementsCompletionRing) {
-      const pct = Math.round((this.achievements.unlocked.size / ACHIEVEMENTS.length) * 100)
+      const bestiaryTotal = Object.keys(ZOMBIE_TYPES).length
+      const unlocked = this.achievements.unlocked.size + this.bestiaryEncountered.size
+      const total = ACHIEVEMENTS.length + bestiaryTotal
+      const pct = total > 0 ? Math.round((unlocked / total) * 100) : 0
       this.achievementsCompletionRing.style.setProperty('--pct', `${pct}%`)
       this.achievementsCompletionRing.title = t('completionRingTitle', { pct })
-      if (this.achievementsNavCount) this.achievementsNavCount.textContent = `${this.achievements.unlocked.size}/${ACHIEVEMENTS.length}`
-    }
-    if (this.bestiaryCompletionRing) {
-      const total = Object.keys(ZOMBIE_TYPES).length
-      const pct = total > 0 ? Math.round((this.bestiaryEncountered.size / total) * 100) : 0
-      this.bestiaryCompletionRing.style.setProperty('--pct', `${pct}%`)
-      this.bestiaryCompletionRing.title = t('completionRingTitle', { pct })
-      if (this.bestiaryNavCount) this.bestiaryNavCount.textContent = `${this.bestiaryEncountered.size}/${total}`
+      if (this.achievementsNavCount) this.achievementsNavCount.textContent = `${unlocked}/${total}`
     }
     if (this.cosmeticsCompletionRing) {
       // Same cosmeticsOwned/cosmeticsTotal computation _openProfilePanel
