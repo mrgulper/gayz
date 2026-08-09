@@ -50,25 +50,6 @@ export function bindKonamiCode(game) {
   })
 }
 
-// Subtle mouse-move parallax on the background photo layer - a small
-// translate offset scaled off cursor position relative to viewport
-// center, homepage-only, skipped entirely under reduced-motion (same
-// guard the Ken Burns/embers/rain animations already respect).
-export function bindBackgroundParallax(game) {
-  // Applied to #menu-bg (the plain, un-animated container), not
-  // #menu-bg-photo directly - that element already has its own
-  // menuBgKenBurns CSS animation driving `transform`, and setting an
-  // inline transform here would silently override/freeze it.
-  const bg = document.getElementById('menu-bg')
-  if (!bg || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-  window.addEventListener('mousemove', (e) => {
-    if (game.gameStarted) return
-    const x = (e.clientX / window.innerWidth - 0.5) * 12
-    const y = (e.clientY / window.innerHeight - 0.5) * 12
-    bg.style.transform = `translate(${x}px, ${y}px)`
-  })
-}
-
 // Idle animation - a subtle Play-button pulse after 30s of no homepage
 // interaction (mouse/keyboard/click, throttled to once per event type via
 // the timer reset itself, no extra state needed). Only active while still
@@ -234,7 +215,6 @@ export function applyAprilFools(game) {
 
 export function bindAll(game) {
   bindKonamiCode(game)
-  bindBackgroundParallax(game)
   bindIdleAnimation(game)
   bindLogoClickCounter(game)
   bindHiddenZombieIcon(game)

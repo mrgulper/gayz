@@ -168,7 +168,7 @@ const STRINGS = {
     weaponRocket: 'Rocket Launcher',
     weaponCrossbow: 'Crossbow',
     weaponLauncher: 'Grenade Launcher',
-    weaponSuppressedSmg: 'Suppressed SMG',
+    weaponSuppressedsmg: 'MP5-SD',
     weaponNailgun: 'Nail Gun',
     weaponHarpoon: 'Harpoon Gun',
     weaponVoidripper: 'Void Ripper',

@@ -3132,6 +3132,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 #pause-quit-btn,
 #pause-upgrades-btn,
 #pause-shop-btn,
+#pause-weapon-btn,
 #coinshop-close-btn,
 #screenshot-crop-save,
 #screenshot-crop-full,
@@ -3195,6 +3196,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 #pause-quit-btn:hover,
 #pause-upgrades-btn:hover,
 #pause-shop-btn:hover,
+#pause-weapon-btn:hover,
 #coinshop-close-btn:hover {
   border-color: rgba(255, 255, 255, 0.5);
 }
