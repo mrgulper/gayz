@@ -325,6 +325,9 @@
           <div id="menu-col-left">
             <section class="menu-panel">
               <h2 class="menu-panel-title">Player Setup</h2>
+              <div id="setup-avatar-wrap" title="Drag to spin">
+                <canvas id="setup-avatar-canvas"></canvas>
+              </div>
               <label class="menu-field-label" for="nickname-input">Nickname</label>
               <div id="nickname-row">
                 <input type="text" id="nickname-input" class="nickname-input" placeholder="Your nickname" maxlength="16" />
@@ -401,10 +404,15 @@
           <div id="menu-col-right">
             <div id="menu-player-badge" role="button" tabindex="0" aria-label="Open profile">
               <div id="menu-avatar-icon">
-                <canvas id="menu-avatar-photo"></canvas>
+                <img id="menu-avatar-photo" alt="" draggable="false" />
                 <span id="menu-avatar-level">1</span>
               </div>
-              <span id="menu-player-tag">#PLAYER</span>
+              <span id="menu-player-name-row">
+                <span id="menu-player-tag">#PLAYER</span>
+                <button id="edit-nickname-btn" aria-label="Edit nickname" title="Edit nickname">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>
+                </button>
+              </span>
               <span class="menu-best-stats" id="menu-career-rank"></span>
               <span class="menu-best-stats" id="menu-prestige-badge" style="display: none"></span>
               <span class="menu-best-stats" id="menu-login-streak" style="display: none"></span>

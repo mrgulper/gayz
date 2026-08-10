@@ -203,7 +203,12 @@ function loadSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_STORAGE_KEY)
     const parsed = raw ? JSON.parse(raw) : {}
-    return {
+    // A genuinely new player (no settings saved at all yet) gets a
+    // "Warrior####" starter nickname instead of a blank field - an
+    // existing player who has settings saved but left their nickname
+    // blank on purpose keeps it blank, never overwritten on a later load.
+    const defaultNickname = raw ? '' : `Warrior${Math.floor(1000 + Math.random() * 9000)}`
+    const settings = {
       language: parsed.language || 'en',
       musicVolume: parsed.musicVolume ?? 100,
       sfxVolume: parsed.sfxVolume ?? 100,
@@ -228,7 +233,7 @@ function loadSettings() {
       toastDuration: parsed.toastDuration ?? 100,
       crosshairColor: parsed.crosshairColor || '#ffffff',
       crosshairSize: parsed.crosshairSize ?? 100,
-      nickname: parsed.nickname || '',
+      nickname: parsed.nickname || defaultNickname,
       // Nickname color (see nickname display sites - Hardcore Memorial, kill
       // feed) - a plain hex string like crosshairColor above, not tied to
       // any purchase.
@@ -389,6 +394,12 @@ function loadSettings() {
         bossGauntlet: parsed.mutators?.bossGauntlet ?? false,
       },
     }
+    // A genuinely new player's generated defaults (starter nickname, etc.)
+    // only exist in memory otherwise - persist them right away so a page
+    // refresh before any real settings change doesn't silently generate a
+    // second, different "Warrior####" and lose the first one.
+    if (!raw) localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
+    return settings
   } catch {
     return defaultSettings()
   }
@@ -2886,10 +2897,12 @@ export class Game {
     this.statLastRun = document.querySelectorAll('[data-stat="last-run"]')
     this.menuAvatarLevel = document.getElementById('menu-avatar-level')
     this.menuAvatarPhoto = document.getElementById('menu-avatar-photo')
-    if (this.menuAvatarPhoto) {
-      this._menuAvatar3D = new MenuAvatar3D(this.menuAvatarPhoto)
+    this.setupAvatarCanvas = document.getElementById('setup-avatar-canvas')
+    if (this.setupAvatarCanvas) {
+      this._menuAvatar3D = new MenuAvatar3D(this.setupAvatarCanvas)
       this._menuAvatar3D.start()
     }
+    this.editNicknameBtn = document.getElementById('edit-nickname-btn')
     this.menuPlayerTag = document.getElementById('menu-player-tag')
     this.menuCareerRank = document.getElementById('menu-career-rank')
     this.menuPrestigeBadge = document.getElementById('menu-prestige-badge')
@@ -7374,6 +7387,17 @@ export class Game {
         this._openProfilePanel()
       }
     })
+    // Pencil icon next to the corner name display - jumps straight to the
+    // real, already-editable Nickname field in Player Setup rather than
+    // building a second parallel rename surface. stopPropagation so this
+    // doesn't also trigger the parent badge's "open profile" click.
+    if (this.editNicknameBtn) {
+      this.editNicknameBtn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        this.nicknameInput.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        this.nicknameInput.focus()
+      })
+    }
     this.profileCopyStatsBtn.addEventListener('click', () => this._copyProfileStatsToClipboard())
     if (this.profileReadAloudBtn) this.profileReadAloudBtn.addEventListener('click', () => this._readProfileStatsAloud())
     if (this.sharedProfileCloseBtn) {

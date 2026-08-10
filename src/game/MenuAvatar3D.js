@@ -1,10 +1,13 @@
 // A tiny standalone Three.js scene (its own renderer/camera/lights, not
 // the game's main one) that renders a plain blocky Minecraft-style
-// character into the homepage avatar canvas (#menu-avatar-photo).
-// Deliberately just one fixed default look for now - no skin/color
-// picker yet (the player plans to supply a real custom skin texture
-// later; this is built so swapping the block materials for a textured
-// skin later is a small change, not a rewrite).
+// character into Player Setup's #setup-avatar-canvas. Deliberately just
+// one fixed default look for now - no skin/color picker yet (the player
+// plans to supply a real custom skin texture later; this is built so
+// swapping the block materials for a textured skin later is a small
+// change, not a rewrite).
+//
+// No idle auto-rotation - the character only turns when the player drags
+// it (pointerdown+move on the canvas), so it holds still until touched.
 import * as THREE from 'three'
 
 // Classic Minecraft player proportions (in arbitrary "skin pixel" units,
@@ -80,15 +83,41 @@ export class MenuAvatar3D {
     this.scene.add(rim)
 
     this.character = buildCharacter()
+    // Slight starting turn so it doesn't read as a flat front-on sprite -
+    // a static angle, not motion, so prefers-reduced-motion needs no
+    // special case here.
+    this.character.rotation.y = 0.5
     this.scene.add(this.character)
-
-    this._reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (this._reduceMotion) this.character.rotation.y = 0.5
 
     this._running = false
     this._raf = null
     this._resize()
     window.addEventListener('resize', () => this._resize())
+    this._bindDrag()
+  }
+
+  // Click-and-drag to spin, in whichever direction the player drags -
+  // deliberately not an auto-spin or a canned one-shot animation. Pointer
+  // Events (not mouse-only) so this also works via touch.
+  _bindDrag() {
+    let dragging = false
+    let lastX = 0
+    this.canvas.style.touchAction = 'none'
+    this.canvas.addEventListener('pointerdown', (e) => {
+      dragging = true
+      lastX = e.clientX
+      this.canvas.setPointerCapture(e.pointerId)
+    })
+    this.canvas.addEventListener('pointermove', (e) => {
+      if (!dragging) return
+      const dx = e.clientX - lastX
+      lastX = e.clientX
+      this.character.rotation.y += dx * 0.02
+    })
+    const stop = () => { dragging = false }
+    this.canvas.addEventListener('pointerup', stop)
+    this.canvas.addEventListener('pointercancel', stop)
+    this.canvas.addEventListener('pointerleave', stop)
   }
 
   _resize() {
@@ -108,7 +137,6 @@ export class MenuAvatar3D {
       // during gameplay) - cheap to check, avoids fighting the main
       // game's own render loop for GPU time.
       if (this.canvas.offsetParent === null) return
-      if (!this._reduceMotion) this.character.rotation.y += 0.006
       this.renderer.render(this.scene, this.camera)
     }
     loop()

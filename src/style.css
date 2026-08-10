@@ -4773,14 +4773,15 @@ html.theme-lighter #app { filter: brightness(1.25); }
     0 0 20px 4px rgba(255, 211, 92, 0.4);
 }
 
-/* Live 3D avatar canvas (see MenuAvatar3D.js) - same rounded-square frame
-   the old flat avatar image used, doesn't touch the level badge (still
-   absolutely positioned on top of it via DOM order). */
+/* Avatar image (anonymous silhouette, see updateCloudQuickIcon) - same
+   rounded-square frame, doesn't touch the level badge (still absolutely
+   positioned on top of it via DOM order). */
 #menu-avatar-photo {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+  object-fit: cover;
   border-radius: 3px;
 }
 
@@ -4799,12 +4800,64 @@ html.theme-lighter #app { filter: brightness(1.25); }
   line-height: 1.3;
 }
 
-#menu-player-tag {
+#menu-player-name-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   margin-top: 7px;
+}
+
+#menu-player-tag {
   font-size: 17px;
   font-weight: 700;
   letter-spacing: 0.5px;
   color: #eee;
+}
+
+#edit-nickname-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  color: var(--menu-text-dim);
+  background: none;
+  border: none;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+#edit-nickname-btn:hover {
+  color: var(--menu-gold);
+  opacity: 1;
+}
+
+#edit-nickname-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Player Setup's own 3D character preview - drag to spin (see
+   MenuAvatar3D.js), sits above the Nickname field it's paired with. */
+#setup-avatar-wrap {
+  width: 84px;
+  height: 84px;
+  margin: 0 auto 8px;
+  border: 2px solid var(--menu-gold);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(227, 166, 60, 0.1) 0%, rgba(0, 0, 0, 0.3) 100%);
+  cursor: grab;
+}
+
+#setup-avatar-wrap:active {
+  cursor: grabbing;
+}
+
+#setup-avatar-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 /* Season Progress - a thin bar showing progress toward the next Career
