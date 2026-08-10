@@ -4981,7 +4981,26 @@ html.theme-lighter #app { filter: brightness(1.25); }
 /* Player showcase panel (replaces the old Player Setup form - Companion
    Name/Challenge Code moved into the Hub panel's new "Player" section,
    Nickname collapses into #nickname-row below, hidden until the pencil is
-   clicked) - just a heading + pencil button side by side. */
+   clicked) - just a heading + pencil button side by side. Deliberately
+   NOT a card: strips every visual the shared .menu-panel class normally
+   paints (background, border, corner brackets, shadow, flicker
+   animation) so it reads as bare text/avatar floating on the homepage
+   background, not a boxed-in form. */
+#player-showcase-panel {
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  backdrop-filter: none;
+  box-shadow: none;
+  animation: none;
+}
+
+#player-showcase-panel::before,
+#player-showcase-panel::after {
+  content: none;
+}
+
 #player-showcase-header {
   display: flex;
   align-items: center;

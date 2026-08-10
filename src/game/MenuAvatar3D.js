@@ -96,23 +96,30 @@ export class MenuAvatar3D {
     this._bindDrag()
   }
 
-  // Click-and-drag to spin, in whichever direction the player drags -
-  // deliberately not an auto-spin or a canned one-shot animation. Pointer
-  // Events (not mouse-only) so this also works via touch.
+  // Click-and-drag to spin freely in any direction (horizontal drag yaws,
+  // vertical drag pitches - a trackball, not a turntable) - deliberately
+  // not an auto-spin or a canned one-shot animation. No clamp on the pitch
+  // axis, so it really can spin all the way around, not just side to side.
+  // Pointer Events (not mouse-only) so this also works via touch.
   _bindDrag() {
     let dragging = false
     let lastX = 0
+    let lastY = 0
     this.canvas.style.touchAction = 'none'
     this.canvas.addEventListener('pointerdown', (e) => {
       dragging = true
       lastX = e.clientX
+      lastY = e.clientY
       this.canvas.setPointerCapture(e.pointerId)
     })
     this.canvas.addEventListener('pointermove', (e) => {
       if (!dragging) return
       const dx = e.clientX - lastX
+      const dy = e.clientY - lastY
       lastX = e.clientX
+      lastY = e.clientY
       this.character.rotation.y += dx * 0.02
+      this.character.rotation.x += dy * 0.02
     })
     const stop = () => { dragging = false }
     this.canvas.addEventListener('pointerup', stop)
