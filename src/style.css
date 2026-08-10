@@ -2302,6 +2302,7 @@ select option {
 #cloudsave-panel,
 #friends-panel,
 #menu-inventory-panel,
+#server-panel,
 #xp-levelup-panel,
 #weapon-picker-panel,
 #pause-overlay,
@@ -2351,13 +2352,21 @@ select option {
   justify-content: flex-start;
 }
 
-/* Achievements panel now holds the merged Bestiary section underneath its
-   own list (see index.html) - two full option grids no longer reliably fit
-   one screen, same reasoning as the Profile panel override above. */
+/* Achievements panel now also renders every Bestiary creature into the
+   same list (see index.html/_renderAchievementsPanel) - the combined list
+   no longer reliably fits one screen, same reasoning as the Profile panel
+   override above. */
 #achievements-panel {
   overflow-y: auto;
   padding: 24px 0;
   justify-content: flex-start;
+}
+
+/* Filter search box - was inheriting .nickname-input's width:100%, which
+   at this panel's full viewport width was a huge, mostly-empty bar. */
+#achievements-filter-input {
+  width: 25%;
+  min-width: 180px;
 }
 
 /* Hub panel - 3 full sections (Game Modes/Challenges/Mutators) rarely fit
@@ -2366,15 +2375,6 @@ select option {
   overflow-y: auto;
   padding: 24px 0;
   justify-content: flex-start;
-}
-
-#bestiary-section-heading {
-  margin: 10px 0 0;
-  font-size: 15px;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: #e3a63c;
-  opacity: 0.85;
 }
 
 /* 14 weapon cards is a lot more than the trait-draw panel's usual 3 - same
@@ -2410,6 +2410,7 @@ select option {
 #cloudsave-panel-title,
 #friends-panel-title,
 #menu-inventory-panel-title,
+#server-panel-title,
 #xp-levelup-panel-title,
 #weapon-picker-panel-title,
 #pause-overlay-title,
@@ -4949,7 +4950,11 @@ html.theme-lighter #app { filter: brightness(1.25); }
   color: #eee;
 }
 
-#edit-nickname-btn {
+/* Shared by the corner badge's pencil (#edit-nickname-btn) and the new
+   Player showcase panel's pencil (#player-showcase-rename-btn) - both open
+   the same nickname editor (see _revealNicknameEditor in Game.js), so they
+   share one visual style instead of two near-identical rule blocks. */
+.pencil-edit-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4963,21 +4968,38 @@ html.theme-lighter #app { filter: brightness(1.25); }
   opacity: 0.7;
 }
 
-#edit-nickname-btn:hover {
+.pencil-edit-btn:hover {
   color: var(--menu-gold);
   opacity: 1;
 }
 
-#edit-nickname-btn svg {
+.pencil-edit-btn svg {
   width: 13px;
   height: 13px;
 }
 
-/* Player Setup's own 3D character preview - drag to spin (see
-   MenuAvatar3D.js), sits above the Nickname field it's paired with. */
+/* Player showcase panel (replaces the old Player Setup form - Companion
+   Name/Challenge Code moved into the Hub panel's new "Player" section,
+   Nickname collapses into #nickname-row below, hidden until the pencil is
+   clicked) - just a heading + pencil button side by side. */
+#player-showcase-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+#player-showcase-header .menu-panel-title {
+  margin: 0;
+}
+
+/* 3D character preview - drag to spin (see MenuAvatar3D.js). Sized as a
+   tall portrait (not the old 84x84 square) to showcase the full standing
+   character - MenuAvatar3D's _resize() reads real width/height instead of
+   forcing a square render, so this works as a non-square box. */
 #setup-avatar-wrap {
-  width: 84px;
-  height: 84px;
+  width: 200px;
+  height: 400px;
   margin: 10px auto 0;
   cursor: grab;
 }
@@ -5774,6 +5796,45 @@ html.theme-lighter #app { filter: brightness(1.25); }
   color: #0c130c;
   background: #e3a63c;
   border-color: #e3a63c;
+}
+
+/* Quests panel tab strip (Quests/Monthly/Yearly/Lifetime) - visually
+   identical to .settings-tab but kept as its own class rather than reusing
+   .settings-tab directly, since Game.js's settings-tab click handler
+   queries .settings-tab/.settings-page globally by class - sharing the
+   class would wire quest tabs into that same handler and break both. */
+.quest-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.quest-tab {
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.quest-tab.active {
+  color: #0c130c;
+  background: #e3a63c;
+  border-color: #e3a63c;
+}
+
+.quest-tab-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
 }
 
 .settings-page {

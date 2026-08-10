@@ -323,17 +323,17 @@
 
         <div id="menu-layout">
           <div id="menu-col-left">
-            <section class="menu-panel">
-              <h2 class="menu-panel-title">Player Setup</h2>
-              <label class="menu-field-label" for="nickname-input">Nickname</label>
-              <div id="nickname-row">
+            <section class="menu-panel" id="player-showcase-panel">
+              <div id="player-showcase-header">
+                <h2 class="menu-panel-title">Player</h2>
+                <button id="player-showcase-rename-btn" class="pencil-edit-btn" type="button" aria-label="Edit nickname" title="Edit nickname">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>
+                </button>
+              </div>
+              <div id="nickname-row" style="display: none">
                 <input type="text" id="nickname-input" class="nickname-input" placeholder="Your nickname" maxlength="16" />
                 <button id="random-nickname-btn" class="mini-action-btn" type="button" title="Random nickname">Random</button>
               </div>
-              <label class="menu-field-label" for="companion-name-input">Companion (Optional) <span id="companion-color-preview" aria-hidden="true"></span></label>
-              <input type="text" id="companion-name-input" class="nickname-input" placeholder="Companion name" maxlength="16" />
-              <label class="menu-field-label" for="challenge-code-input">Challenge Code (Optional)</label>
-              <input type="text" id="challenge-code-input" class="nickname-input" placeholder="Paste a code" maxlength="24" />
               <div id="setup-avatar-wrap" title="Drag to spin">
                 <canvas id="setup-avatar-canvas"></canvas>
               </div>
@@ -422,7 +422,7 @@
               </div>
               <span id="menu-player-name-row">
                 <span id="menu-player-tag">#PLAYER</span>
-                <button id="edit-nickname-btn" aria-label="Edit nickname" title="Edit nickname">
+                <button id="edit-nickname-btn" class="pencil-edit-btn" aria-label="Edit nickname" title="Edit nickname">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>
                 </button>
               </span>
@@ -988,6 +988,16 @@
         <h2 id="hub-panel-title">Hub</h2>
         <div id="hub-content">
           <section class="hub-section">
+            <h3 class="hub-section-title">Player</h3>
+            <div class="hub-section-list">
+              <label class="menu-field-label" for="companion-name-input">Companion (Optional) <span id="companion-color-preview" aria-hidden="true"></span></label>
+              <input type="text" id="companion-name-input" class="nickname-input" placeholder="Companion name" maxlength="16" />
+              <label class="menu-field-label" for="challenge-code-input">Challenge Code (Optional)</label>
+              <input type="text" id="challenge-code-input" class="nickname-input" placeholder="Paste a code" maxlength="24" />
+            </div>
+          </section>
+
+          <section class="hub-section">
             <h3 class="hub-section-title">Difficulty</h3>
             <div class="hub-section-list">
               <p class="menu-hint-line" id="recommended-difficulty-hint" style="display: none"></p>
@@ -1166,11 +1176,25 @@
 
       <div id="quests-panel">
         <h2 id="quests-panel-title">Quests</h2>
-        <h3 id="rolling-quests-heading">Rolling Quests</h3>
-        <p id="rolling-quests-subtitle" class="menu-best-stats"></p>
-        <div class="perk-options" id="rolling-quests-options"></div>
-        <h3 id="lifetime-quests-heading">Lifetime Quests</h3>
-        <div class="perk-options" id="quests-options"></div>
+        <div class="quest-tabs">
+          <button class="quest-tab active" data-quest-page="rolling" id="quest-tab-rolling">Quests</button>
+          <button class="quest-tab" data-quest-page="monthly" id="quest-tab-monthly">Monthly Quests</button>
+          <button class="quest-tab" data-quest-page="yearly" id="quest-tab-yearly">Yearly Quest</button>
+          <button class="quest-tab" data-quest-page="lifetime" id="quest-tab-lifetime">Lifetime Quest</button>
+        </div>
+        <div class="quest-tab-page" id="quests-page-rolling">
+          <p id="rolling-quests-subtitle" class="menu-best-stats"></p>
+          <div class="perk-options" id="rolling-quests-options"></div>
+        </div>
+        <div class="quest-tab-page" id="quests-page-monthly" style="display: none">
+          <p id="monthly-quests-placeholder">Coming soon.</p>
+        </div>
+        <div class="quest-tab-page" id="quests-page-yearly" style="display: none">
+          <p id="yearly-quests-placeholder">Coming soon.</p>
+        </div>
+        <div class="quest-tab-page" id="quests-page-lifetime" style="display: none">
+          <div class="perk-options" id="quests-options"></div>
+        </div>
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>
 
@@ -1204,11 +1228,7 @@
           </select>
         </div>
         <div class="perk-options" id="achievements-options"></div>
-        <button id="print-achievements-btn">Print Achievements List</button>
-
-        <h3 id="bestiary-section-heading">Bestiary</h3>
-        <input type="text" id="bestiary-filter-input" class="nickname-input" placeholder="Filter bestiary..." />
-        <div class="perk-options" id="bestiary-options"></div>
+        <button id="print-achievements-btn" class="mini-action-btn" type="button">Print Achievements List</button>
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>
 

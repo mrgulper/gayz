@@ -120,10 +120,16 @@ export class MenuAvatar3D {
     this.canvas.addEventListener('pointerleave', stop)
   }
 
+  // Reads real layout dimensions live (not a cached window size), so this
+  // stays correct through a browser fullscreen toggle or any other resize
+  // - and now supports a non-square box (the showcase panel uses a tall
+  // portrait frame, not the old fixed 84x84 square) by sizing width/height
+  // independently instead of forcing both to the same value.
   _resize() {
-    const size = this.canvas.clientWidth || this.canvas.parentElement?.clientWidth || 112
-    this.renderer.setSize(size, size, false)
-    this.camera.aspect = 1
+    const width = this.canvas.clientWidth || this.canvas.parentElement?.clientWidth || 112
+    const height = this.canvas.clientHeight || this.canvas.parentElement?.clientHeight || width
+    this.renderer.setSize(width, height, false)
+    this.camera.aspect = width / height
     this.camera.updateProjectionMatrix()
   }
 

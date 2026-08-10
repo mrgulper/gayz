@@ -3167,6 +3167,8 @@ export class Game {
     this.crtScanlinesToggle = document.getElementById('crt-scanlines-toggle')
     this.weatherParticlesToggle = document.getElementById('weather-particles-toggle')
     this.nicknameInput = document.getElementById('nickname-input')
+    this.nicknameRow = document.getElementById('nickname-row')
+    this.playerShowcaseRenameBtn = document.getElementById('player-showcase-rename-btn')
     this.companionNameInput = document.getElementById('companion-name-input')
     this.challengeCodeInput = document.getElementById('challenge-code-input')
     this.scoreAttackToggle = document.getElementById('score-attack-toggle')
@@ -4063,10 +4065,10 @@ export class Game {
     this.questsPanel = document.getElementById('quests-panel')
     this.questsPanelTitle = document.getElementById('quests-panel-title')
     this.questsOptions = document.getElementById('quests-options')
-    this.rollingQuestsHeading = document.getElementById('rolling-quests-heading')
     this.rollingQuestsSubtitle = document.getElementById('rolling-quests-subtitle')
     this.rollingQuestsOptions = document.getElementById('rolling-quests-options')
-    this.lifetimeQuestsHeading = document.getElementById('lifetime-quests-heading')
+    this.monthlyQuestsPlaceholder = document.getElementById('monthly-quests-placeholder')
+    this.yearlyQuestsPlaceholder = document.getElementById('yearly-quests-placeholder')
     this.hubBtn = document.getElementById('hub-btn')
     this.hubPanel = document.getElementById('hub-panel')
     this.hubPanelTitle = document.getElementById('hub-panel-title')
@@ -4100,9 +4102,6 @@ export class Game {
     this.achievementsCategorySelect = document.getElementById('achievements-category-select')
     this.achievementsSortSelect = document.getElementById('achievements-sort-select')
     this.printAchievementsBtn = document.getElementById('print-achievements-btn')
-    this.bestiarySectionHeading = document.getElementById('bestiary-section-heading')
-    this.bestiaryOptions = document.getElementById('bestiary-options')
-    this.bestiaryFilterInput = document.getElementById('bestiary-filter-input')
     this.menuPlayerBadge = document.getElementById('menu-player-badge')
     this.profilePanel = document.getElementById('profile-panel')
     this.profilePanelTitle = document.getElementById('profile-panel-title')
@@ -6611,6 +6610,18 @@ export class Game {
       })
     }
 
+    // Quests panel tab strip - same pattern as .settings-tab above, kept as
+    // a separate class/loop so quest tabs don't get swept into the
+    // settings-tab handler's global .settings-tab/.settings-page queries.
+    for (const tab of document.querySelectorAll('.quest-tab')) {
+      tab.addEventListener('click', () => {
+        for (const tabEl of document.querySelectorAll('.quest-tab')) tabEl.classList.toggle('active', tabEl === tab)
+        for (const page of document.querySelectorAll('.quest-tab-page')) {
+          page.style.display = page.id === `quests-page-${tab.dataset.questPage}` ? 'flex' : 'none'
+        }
+      })
+    }
+
     this.musicVolumeSlider.value = this.settings.musicVolume
     this.musicVolumeValue.textContent = `${this.settings.musicVolume}%`
     this.sfxVolumeSlider.value = this.settings.sfxVolume
@@ -7388,10 +7399,6 @@ export class Game {
         window.print()
       })
     }
-    if (this.bestiaryFilterInput) {
-      this.bestiaryFilterInput.addEventListener('click', (e) => e.stopPropagation())
-      this.bestiaryFilterInput.addEventListener('input', () => this._renderBestiaryPanel())
-    }
     this.menuPlayerBadge.addEventListener('click', () => this._openProfilePanel())
     this.menuPlayerBadge.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
@@ -7399,15 +7406,32 @@ export class Game {
         this._openProfilePanel()
       }
     })
-    // Pencil icon next to the corner name display - jumps straight to the
-    // real, already-editable Nickname field in Player Setup rather than
-    // building a second parallel rename surface. stopPropagation so this
+    // Pencil icon next to the corner name display, and the matching one in
+    // the Player showcase panel - both reveal the same #nickname-row
+    // (hidden by default since the old always-visible Player Setup form
+    // was replaced with just "Player" + the big avatar) rather than each
+    // building its own rename surface. stopPropagation so the corner one
     // doesn't also trigger the parent badge's "open profile" click.
     if (this.editNicknameBtn) {
       this.editNicknameBtn.addEventListener('click', (e) => {
         e.stopPropagation()
-        this.nicknameInput.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        this.nicknameInput.focus()
+        this._revealNicknameEditor()
+      })
+    }
+    if (this.playerShowcaseRenameBtn) {
+      this.playerShowcaseRenameBtn.addEventListener('click', () => this._revealNicknameEditor())
+    }
+    if (this.nicknameInput && this.nicknameRow) {
+      // Short delay before hiding on blur so a click on the adjacent
+      // Random button (which also steals focus) has time to register
+      // first - a plain synchronous hide would swallow that click.
+      this.nicknameInput.addEventListener('blur', () => {
+        setTimeout(() => {
+          if (document.activeElement !== this.nicknameInput) this.nicknameRow.style.display = 'none'
+        }, 150)
+      })
+      this.nicknameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') this.nicknameInput.blur()
       })
     }
     this.profileCopyStatsBtn.addEventListener('click', () => this._copyProfileStatsToClipboard())
@@ -10524,9 +10548,9 @@ export class Game {
   _openQuestsPanel() {
     this.questsPanel.style.display = 'flex'
     this.questsPanelTitle.textContent = t('questsPanelTitle')
-    this.rollingQuestsHeading.textContent = t('rollingQuestsTitle')
     this.rollingQuestsSubtitle.textContent = t('rollingQuestsSubtitle')
-    this.lifetimeQuestsHeading.textContent = t('lifetimeQuestsTitle')
+    if (this.monthlyQuestsPlaceholder) this.monthlyQuestsPlaceholder.textContent = t('monthlyQuestsPlaceholder')
+    if (this.yearlyQuestsPlaceholder) this.yearlyQuestsPlaceholder.textContent = t('yearlyQuestsPlaceholder')
     this._renderQuestsPanel()
     this._renderRollingQuestsPanel()
   }
@@ -10706,10 +10730,7 @@ export class Game {
     this.achievementsPanel.style.display = 'flex'
     this.achievementsPanelTitle.textContent = t('achievementsPanelTitle')
     if (this.achievementsFilterInput) this.achievementsFilterInput.placeholder = t('achievementsFilterPlaceholder')
-    if (this.bestiarySectionHeading) this.bestiarySectionHeading.textContent = t('bestiaryPanelTitle')
-    if (this.bestiaryFilterInput) this.bestiaryFilterInput.placeholder = t('bestiaryFilterPlaceholder')
     this._renderAchievementsPanel()
-    this._renderBestiaryPanel()
     this._markAchievementsSeen()
   }
 
@@ -10717,6 +10738,10 @@ export class Game {
   // title) - a locked entry always shows '???' (see the loop below), same
   // spoiler-avoidance precedent as everywhere else in this panel, so
   // typing a real achievement name never reveals a locked one early.
+  // Bestiary creatures render into this SAME list, appended after the
+  // achievements - there's no separate "Bestiary" section/heading/filter
+  // any more (merged per user request), only the text filter applies to
+  // them since creatures have no category/sort concept of their own.
   _renderAchievementsPanel() {
     const filter = (this.achievementsFilterInput?.value || '').trim().toLowerCase()
     const category = this.achievementsCategorySelect?.value || 'all'
@@ -10747,10 +10772,35 @@ export class Game {
       `
       this.achievementsOptions.appendChild(btn)
     }
+    for (const type of Object.values(ZOMBIE_TYPES)) {
+      const known = this.bestiaryEncountered.has(type.id)
+      const name = known ? type.label : '???'
+      if (filter && !name.toLowerCase().includes(filter)) continue
+      const btn = document.createElement('button')
+      btn.className = 'perk-option'
+      btn.disabled = true
+      btn.innerHTML = `
+        <span class="perk-name">${name}</span>
+        <span class="perk-cost">${known ? t('achievementUnlockedShort') : t('achievementLocked')}</span>
+        <span class="perk-lore">${known ? type.lore : t('bestiaryUnknown')}</span>
+      `
+      this.achievementsOptions.appendChild(btn)
+    }
   }
 
   _closeAchievementsPanel() {
     this.achievementsPanel.style.display = 'none'
+  }
+
+  // Shared by both nickname pencils (corner badge + Player showcase panel)
+  // - reveals the same #nickname-row (hidden by default) and focuses the
+  // input, rather than each pencil building its own edit surface. A normal,
+  // reusable edit - not a one-time-only lock.
+  _revealNicknameEditor() {
+    if (!this.nicknameRow || !this.nicknameInput) return
+    this.nicknameRow.style.display = 'flex'
+    this.nicknameInput.focus()
+    this.nicknameInput.select()
   }
 
   // Difficulty/Choose Class/Game Modes/Challenges & Mutators - used to be
@@ -10810,25 +10860,6 @@ export class Game {
 
   _closeServerPanel() {
     if (this.serverPanel) this.serverPanel.style.display = 'none'
-  }
-
-  _renderBestiaryPanel() {
-    const filter = (this.bestiaryFilterInput?.value || '').trim().toLowerCase()
-    this.bestiaryOptions.innerHTML = ''
-    for (const type of Object.values(ZOMBIE_TYPES)) {
-      const known = this.bestiaryEncountered.has(type.id)
-      const name = known ? type.label : '???'
-      if (filter && !name.toLowerCase().includes(filter)) continue
-      const btn = document.createElement('button')
-      btn.className = 'perk-option'
-      btn.disabled = true
-      btn.innerHTML = `
-        <span class="perk-name">${name}</span>
-        <span class="perk-cost">${known ? t('achievementUnlockedShort') : t('achievementLocked')}</span>
-        <span class="perk-lore">${known ? type.lore : t('bestiaryUnknown')}</span>
-      `
-      this.bestiaryOptions.appendChild(btn)
-    }
   }
 
   // Entering/exiting the drivable car (see Vehicle.js). While driving, the
@@ -12178,6 +12209,16 @@ export class Game {
     this.camera.updateProjectionMatrix()
     this.tpCamera.aspect = window.innerWidth / window.innerHeight
     this.tpCamera.updateProjectionMatrix()
+    // Build Mode reuses this same renderer/canvas but owns its own camera
+    // (see BuildMode.js), created once at startup with whatever
+    // window.innerWidth/innerHeight was at page load and never touched
+    // again - toggling browser fullscreen (or any window resize) while
+    // inside Build Mode visibly stretched the view since the renderer's
+    // output size changed but this camera's aspect didn't follow it.
+    if (this.buildMode?.camera) {
+      this.buildMode.camera.aspect = window.innerWidth / window.innerHeight
+      this.buildMode.camera.updateProjectionMatrix()
+    }
     this.renderer.setSize(window.innerWidth, window.innerHeight)
     this.composer.setSize(window.innerWidth, window.innerHeight)
     this.bloomPass.resolution.set(window.innerWidth * BLOOM_RESOLUTION_SCALE, window.innerHeight * BLOOM_RESOLUTION_SCALE)
