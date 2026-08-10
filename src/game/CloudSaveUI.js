@@ -65,16 +65,6 @@ export function restoreCloudSession(game) {
 export function updateCloudQuickIcon(game, signedIn) {
   if (game.quickCloudBtn) game.quickCloudBtn.classList.toggle('signed-in', signedIn)
   if (game.cloudSignedInDot) game.cloudSignedInDot.style.display = signedIn ? '' : 'none'
-  // Avatar precedence: a chosen preset (see _renderProfileAvatarPicker)
-  // wins, otherwise a plain anonymous hooded-silhouette image - the
-  // signed-in Google photo is deliberately never used here (kept private
-  // to the Cloud Save panel's own account row instead), so signing in
-  // doesn't silently put a real photo on the public-facing homepage.
-  if (game.menuAvatarPhoto) {
-    const presetUrls = { male: '/images/avatar-male.png', female: '/images/avatar-female.png' }
-    game.menuAvatarPhoto.src = presetUrls[game.settings.avatarChoice] || '/images/avatar-anonymous.png'
-    game.menuAvatarPhoto.style.display = ''
-  }
 }
 
 export function renderCloudSaveState(game) {

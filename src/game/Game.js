@@ -43,6 +43,7 @@ import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
 import * as MenuEasterEggs from './MenuEasterEggs.js'
 import { JOKE_TIPS, FUNNY_TRIVIA } from './MenuEasterEggs.js'
+import { MenuAvatar3D } from './MenuAvatar3D.js'
 import * as MenuPresets from './MenuPresets.js'
 import { BuildMode } from './BuildMode.js'
 import * as CloudSync from './CloudSync.js'
@@ -2885,6 +2886,10 @@ export class Game {
     this.statLastRun = document.querySelectorAll('[data-stat="last-run"]')
     this.menuAvatarLevel = document.getElementById('menu-avatar-level')
     this.menuAvatarPhoto = document.getElementById('menu-avatar-photo')
+    if (this.menuAvatarPhoto) {
+      this._menuAvatar3D = new MenuAvatar3D(this.menuAvatarPhoto)
+      this._menuAvatar3D.start()
+    }
     this.menuPlayerTag = document.getElementById('menu-player-tag')
     this.menuCareerRank = document.getElementById('menu-career-rank')
     this.menuPrestigeBadge = document.getElementById('menu-prestige-badge')
@@ -2946,8 +2951,6 @@ export class Game {
     this.achievementsNavCount = document.getElementById('achievements-nav-count')
     this.questsNavCount = document.getElementById('quests-nav-count')
     this.seasonProgressLabel = document.getElementById('season-progress-label')
-    this.profileAvatarHeading = document.getElementById('profile-avatar-heading')
-    this.profileAvatarRow = document.getElementById('profile-avatar-row')
     this.profileBioHeading = document.getElementById('profile-bio-heading')
     this.profileBioInput = document.getElementById('profile-bio-input')
     this.profileBioCounter = document.getElementById('profile-bio-counter')
@@ -13445,7 +13448,6 @@ export class Game {
       this.profileCareerPortraitBtn.textContent = t('profileCareerPortraitBtn')
     }
 
-    this._renderProfileAvatarPicker()
     this._renderProfileBio()
     this._renderProfileAccountRow()
     this._updateBestStatsDisplay()
@@ -13613,33 +13615,6 @@ export class Game {
         })}</span>
       </button>
     `).join('')
-  }
-
-  // Avatar picker - two preset portraits (male/female) the player can pick
-  // instead of/on top of the signed-in Google photo. Clicking the already-
-  // active preset toggles it off (falls back to the Google photo or the
-  // generic hooded-figure SVG, same precedence _updateCloudQuickIcon uses).
-  _renderProfileAvatarPicker() {
-    if (!this.profileAvatarRow) return
-    if (this.profileAvatarHeading) this.profileAvatarHeading.textContent = t('profileAvatarHeading')
-    const options = [
-      { id: 'male', src: '/images/avatar-male.png' },
-      { id: 'female', src: '/images/avatar-female.png' },
-    ]
-    this.profileAvatarRow.innerHTML = options.map((o) => `
-      <button class="avatar-swatch${this.settings.avatarChoice === o.id ? ' active' : ''}" data-avatar="${o.id}" aria-label="${o.id}">
-        <img src="${o.src}" alt="" />
-      </button>
-    `).join('')
-    for (const btn of this.profileAvatarRow.querySelectorAll('.avatar-swatch')) {
-      btn.addEventListener('click', () => {
-        const id = btn.dataset.avatar
-        this.settings.avatarChoice = this.settings.avatarChoice === id ? null : id
-        saveSettings(this.settings)
-        this._renderProfileAvatarPicker()
-        CloudSaveUI.updateCloudQuickIcon(this, !!this._cloudProfile)
-      })
-    }
   }
 
   // Profile bio - free text, capped at 250 chars (enforced both by the

@@ -1136,7 +1136,6 @@ const STRINGS = {
     deltaFromBest: '{n} short of your best',
     spotlightBestiaryKnown: 'Bestiary: {label} is in your logs',
     spotlightBestiaryUnknown: "There's an unlogged threat out there - check the Bestiary",
-    profileAvatarHeading: 'Avatar',
     profileBioHeading: 'Bio',
     profileBioPlaceholder: 'Say something about yourself...',
     nearlyThereLine: '{current}/{total} toward "{title}"',

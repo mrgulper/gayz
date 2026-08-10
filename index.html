@@ -336,60 +336,6 @@
               <input type="text" id="challenge-code-input" class="nickname-input" placeholder="Paste a code" maxlength="24" />
             </section>
 
-            <section class="menu-panel">
-              <h2 class="menu-panel-title">Difficulty</h2>
-              <p class="menu-hint-line" id="recommended-difficulty-hint" style="display: none"></p>
-              <div class="difficulty-row" id="difficulty-row">
-                <button class="difficulty-btn" data-difficulty="easy" id="diff-easy">Easy</button>
-                <button class="difficulty-btn active" data-difficulty="normal" id="diff-normal">Normal</button>
-                <button class="difficulty-btn" data-difficulty="hard" id="diff-hard">Hard</button>
-                <button class="difficulty-btn" data-difficulty="nightmare" id="diff-nightmare" style="display: none">Nightmare</button>
-                <button class="difficulty-btn" data-difficulty="apex" id="diff-apex" style="display: none">Apex</button>
-              </div>
-            </section>
-
-            <section class="menu-panel">
-              <h2 class="menu-panel-title">Choose Class</h2>
-              <div class="class-grid class-grid-merged">
-                <button class="role-btn class-btn active" data-role="ranged" id="role-ranged">
-                  <div class="class-icon-badge"><svg class="class-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="1" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="23"/><line x1="1" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="23" y2="12"/></svg></div>
-                  <span>Ranged</span>
-                </button>
-                <button class="role-btn class-btn" data-role="melee" id="role-melee">
-                  <div class="class-icon-badge"><svg class="class-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"/><line x1="19" y1="19" x2="5" y2="5"/></svg></div>
-                  <span>Bruiser</span>
-                </button>
-                <button class="role-btn class-btn" data-role="medic" id="role-medic">
-                  <div class="class-icon-badge"><svg class="class-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div>
-                  <span>Medic</span>
-                </button>
-                <button class="loadout-btn class-btn active" data-loadout="balanced" id="loadout-balanced">
-                  <div class="class-icon-badge"><svg class="class-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="3" x2="12" y2="21"/><path d="M5 7h14"/><path d="M5 7l-3 6a3 3 0 0 0 6 0z"/><path d="M19 7l-3 6a3 3 0 0 0 6 0z"/></svg></div>
-                  <span>Balanced</span>
-                </button>
-                <button class="loadout-btn class-btn" data-loadout="runner" id="loadout-runner">
-                  <div class="class-icon-badge"><svg class="class-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13,2 4,14 11,14 9,22 20,9 13,9"/></svg></div>
-                  <span>Runner</span>
-                </button>
-                <button class="loadout-btn class-btn" data-loadout="tank" id="loadout-tank">
-                  <div class="class-icon-badge"><svg class="class-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5z"/></svg></div>
-                  <span>Tank</span>
-                </button>
-              </div>
-              <div class="menu-preset-row" id="menu-preset-row">
-                <button class="mini-action-btn" id="save-preset-btn" type="button">Save Setup</button>
-                <button class="mini-action-btn" id="surprise-me-btn" type="button">Surprise Me</button>
-                <button class="mini-action-btn" id="quick-keybinds-btn" type="button">Keybinds</button>
-                <button class="mini-action-btn" id="open-share-btn" type="button">Share</button>
-                <div id="menu-preset-chips"></div>
-              </div>
-            </section>
-
-            <section class="menu-panel continue-actions" id="continue-actions" style="display: none">
-              <button class="mini-action-btn" id="play-again-btn" type="button">Play Again</button>
-              <button class="mini-action-btn" id="share-last-run-btn" type="button">Share</button>
-              <button class="mini-action-btn" id="share-card-btn" type="button">Share Card</button>
-            </section>
           </div>
 
           <div id="menu-hero">
@@ -455,7 +401,7 @@
           <div id="menu-col-right">
             <div id="menu-player-badge" role="button" tabindex="0" aria-label="Open profile">
               <div id="menu-avatar-icon">
-                <img id="menu-avatar-photo" alt="" draggable="false" />
+                <canvas id="menu-avatar-photo"></canvas>
                 <span id="menu-avatar-level">1</span>
               </div>
               <span id="menu-player-tag">#PLAYER</span>
@@ -465,8 +411,6 @@
               <div id="season-progress-track" aria-hidden="true"><div id="season-progress-fill"></div></div>
               <p id="season-progress-label" style="display: none"></p>
             </div>
-
-            <div id="menu-screenshot-gallery" class="screenshot-gallery-shared" style="display: none" aria-label="Recent screenshots"></div>
 
             <nav id="menu-nav-buttons">
               <button id="hub-btn">
@@ -1032,6 +976,59 @@
         <h2 id="hub-panel-title">Hub</h2>
         <div id="hub-content">
           <section class="hub-section">
+            <h3 class="hub-section-title">Difficulty</h3>
+            <div class="hub-section-list">
+              <p class="menu-hint-line" id="recommended-difficulty-hint" style="display: none"></p>
+              <div class="difficulty-row" id="difficulty-row">
+                <button class="difficulty-btn" data-difficulty="easy" id="diff-easy">Easy</button>
+                <button class="difficulty-btn active" data-difficulty="normal" id="diff-normal">Normal</button>
+                <button class="difficulty-btn" data-difficulty="hard" id="diff-hard">Hard</button>
+                <button class="difficulty-btn" data-difficulty="nightmare" id="diff-nightmare" style="display: none">Nightmare</button>
+                <button class="difficulty-btn" data-difficulty="apex" id="diff-apex" style="display: none">Apex</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="hub-section">
+            <h3 class="hub-section-title">Choose Class</h3>
+            <div class="hub-section-list">
+              <div class="class-grid class-grid-merged">
+                <button class="role-btn class-btn active" data-role="ranged" id="role-ranged">
+                  <div class="class-icon-badge"><svg class="class-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="1" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="23"/><line x1="1" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="23" y2="12"/></svg></div>
+                  <span>Ranged</span>
+                </button>
+                <button class="role-btn class-btn" data-role="melee" id="role-melee">
+                  <div class="class-icon-badge"><svg class="class-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"/><line x1="19" y1="19" x2="5" y2="5"/></svg></div>
+                  <span>Bruiser</span>
+                </button>
+                <button class="role-btn class-btn" data-role="medic" id="role-medic">
+                  <div class="class-icon-badge"><svg class="class-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div>
+                  <span>Medic</span>
+                </button>
+                <button class="loadout-btn class-btn active" data-loadout="balanced" id="loadout-balanced">
+                  <div class="class-icon-badge"><svg class="class-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="3" x2="12" y2="21"/><path d="M5 7h14"/><path d="M5 7l-3 6a3 3 0 0 0 6 0z"/><path d="M19 7l-3 6a3 3 0 0 0 6 0z"/></svg></div>
+                  <span>Balanced</span>
+                </button>
+                <button class="loadout-btn class-btn" data-loadout="runner" id="loadout-runner">
+                  <div class="class-icon-badge"><svg class="class-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13,2 4,14 11,14 9,22 20,9 13,9"/></svg></div>
+                  <span>Runner</span>
+                </button>
+                <button class="loadout-btn class-btn" data-loadout="tank" id="loadout-tank">
+                  <div class="class-icon-badge"><svg class="class-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5z"/></svg></div>
+                  <span>Tank</span>
+                </button>
+              </div>
+              <div class="menu-preset-row" id="menu-preset-row">
+                <button class="mini-action-btn" id="save-preset-btn" type="button">Save Setup</button>
+                <button class="mini-action-btn" id="surprise-me-btn" type="button">Surprise Me</button>
+                <button class="mini-action-btn" id="quick-keybinds-btn" type="button">Keybinds</button>
+                <button class="mini-action-btn" id="open-share-btn" type="button">Share</button>
+                <div id="menu-preset-chips"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="hub-section">
             <h3 class="hub-section-title">Game Modes</h3>
             <div class="hub-section-list">
               <label class="mode-toggle" for="score-attack-toggle">
@@ -1239,9 +1236,6 @@
         <h3 id="goals-heading">Goals (pick up to 3)</h3>
         <div id="goals-picker"></div>
         <div id="goals-checklist"></div>
-        <h3 id="profile-avatar-heading">Avatar</h3>
-        <div id="profile-avatar-row"></div>
-
         <div id="profile-bio-stats-row">
           <div id="profile-bio-column">
             <h3 id="profile-bio-heading">Bio</h3>
