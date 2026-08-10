@@ -4024,7 +4024,9 @@ html.theme-lighter #app { filter: brightness(1.25); }
 .menu-panel::before,
 .menu-panel::after,
 .menu-card::before,
-.menu-card::after {
+.menu-card::after,
+#menu-nav-buttons button::before,
+#menu-nav-buttons button::after {
   content: '';
   position: absolute;
   width: 12px;
@@ -4034,7 +4036,8 @@ html.theme-lighter #app { filter: brightness(1.25); }
 }
 
 .menu-panel::before,
-.menu-card::before {
+.menu-card::before,
+#menu-nav-buttons button::before {
   top: -1px;
   left: -1px;
   border-top: 2px solid var(--menu-gold);
@@ -4046,7 +4049,8 @@ html.theme-lighter #app { filter: brightness(1.25); }
 }
 
 .menu-panel::after,
-.menu-card::after {
+.menu-card::after,
+#menu-nav-buttons button::after {
   bottom: -1px;
   right: -1px;
   border-bottom: 2px solid var(--menu-gold);
@@ -4965,14 +4969,97 @@ html.theme-lighter #app { filter: brightness(1.25); }
   }
 }
 
-/* Pill-style text-link nav bar (replaces the old vertical stack of big
-   icon cards) - a rounded pill container holding plain underlined text
-   links, wrapping to multiple lines inside the narrow right column
-   instead of the single-line bar a full-width top nav would allow.
-   Still every nav item, not just Credits - matches the reference image's
-   visual language (compact text links + a dot divider) at this column's
-   width. */
 #menu-nav-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* _applyNavOrder() (Game.js) only sets flex `order` on the 5 user-
+   reorderable buttons (0-4) - #build-mode-btn was never included (it's
+   not part of the Nav Order settings feature), so it defaulted to the
+   CSS-initial order:0, tying it with whichever button is currently first
+   and visually displacing it there instead of staying put at the end.
+   Fixed above the reorderable range so it always renders last regardless
+   of how nav order is customized. */
+#build-mode-btn {
+  order: 6;
+}
+
+#menu-nav-buttons button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 22px 30px;
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: #d8dcd2;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 50%), var(--menu-gunmetal-dark);
+  border: 2px solid var(--menu-panel-border);
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+}
+
+#menu-nav-buttons button svg {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  color: var(--menu-gold);
+}
+
+#menu-nav-buttons button:hover {
+  background: linear-gradient(180deg, rgba(227, 166, 60, 0.12) 0%, rgba(227, 166, 60, 0.05) 50%), var(--menu-gunmetal-dark);
+  border-color: var(--menu-gold);
+  color: #fff;
+  transform: translateX(2px);
+  box-shadow: 0 0 14px 1px rgba(227, 166, 60, 0.25);
+}
+
+/* Store/Achievements completion fraction ("18/50") - a small dim inline
+   span right after the label text, same row, no extra height. */
+.nav-count {
+  margin-left: auto;
+  padding-right: 14px;
+  font-size: 11px;
+  font-weight: 400;
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Completion ring (Store/Quests/Achievements nav buttons) - a donut built
+   from a conic-gradient plus an inner-circle cutout, --pct set inline per
+   button in _updateNavCompletionRings. Same zero-layout-cost absolute
+   overlay technique as .nav-badge-dot below. */
+.nav-completion-ring {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: conic-gradient(var(--menu-gold) var(--pct, 0%), rgba(255, 255, 255, 0.15) 0);
+}
+
+.nav-completion-ring::before {
+  content: '';
+  position: absolute;
+  inset: 2.5px;
+  border-radius: 50%;
+  background: var(--menu-gunmetal-dark);
+}
+
+/* Small pill-style utility link row (Rules & Info / What's New / Credits /
+   Discord) - a compact rounded pill of plain underlined text links with a
+   dot divider between them, distinct from the big icon-card nav above.
+   Matches a reference screenshot's homepage nav style, scoped to just
+   these secondary/informational links rather than the whole main nav. */
+#menu-links-row {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
@@ -4984,25 +5071,8 @@ html.theme-lighter #app { filter: brightness(1.25); }
   border-radius: 999px;
 }
 
-/* _applyNavOrder() (Game.js) only sets flex `order` on the 6 user-
-   reorderable buttons (0-5) - #build-mode-btn was never included (it's
-   not part of the Nav Order settings feature), so it defaulted to the
-   CSS-initial order:0, tying it with whichever button is currently first
-   and visually displacing it there instead of staying put at the end.
-   Fixed above the reorderable range so it always renders last regardless
-   of how nav order is customized. */
-#build-mode-btn {
-  order: 6;
-}
-
-/* Discord link always renders last, alongside Build Mode - it isn't part
-   of the reorderable Nav Order set either. */
-#nav-discord-link {
-  order: 7;
-}
-
-#menu-nav-buttons button,
-#menu-nav-buttons a {
+#menu-links-row button,
+#menu-links-row a {
   position: relative;
   display: flex;
   align-items: center;
@@ -5011,7 +5081,6 @@ html.theme-lighter #app { filter: brightness(1.25); }
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.3px;
-  text-transform: none;
   text-decoration: underline;
   text-decoration-color: rgba(216, 220, 210, 0.35);
   text-underline-offset: 3px;
@@ -5023,12 +5092,10 @@ html.theme-lighter #app { filter: brightness(1.25); }
   white-space: nowrap;
 }
 
-/* Dot divider between pills - a per-button ::before so it travels
-   correctly with navOrder's drag-reorder (CSS `order`), not a DOM-
-   position-based selector. #build-mode-btn/#nav-discord-link opt out
-   since they always render at the visual end of two separate groups. */
-#menu-nav-buttons button:not(:first-child)::before,
-#menu-nav-buttons a:not(:first-child)::before {
+/* Dot divider between pills - a per-item ::before so DOM order alone
+   decides it (this row isn't reorderable, unlike the main nav above). */
+#menu-links-row button:not(:first-child)::before,
+#menu-links-row a:not(:first-child)::before {
   content: '\00b7';
   position: static;
   margin-right: 5px;
@@ -5036,28 +5103,21 @@ html.theme-lighter #app { filter: brightness(1.25); }
   text-decoration: none;
 }
 
-#menu-nav-buttons button svg {
+#menu-links-row svg {
   width: 14px;
   height: 14px;
   flex-shrink: 0;
   color: var(--menu-gold);
 }
 
-#menu-nav-buttons a svg {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-  color: var(--menu-gold);
-}
-
-#menu-nav-buttons button:hover,
-#menu-nav-buttons a:hover {
+#menu-links-row button:hover,
+#menu-links-row a:hover {
   color: #fff;
   text-decoration-color: var(--menu-gold);
 }
 
 /* What's New badge dot - purely an absolute-positioned overlay, zero
-   layout height cost on the nav row (see _updateWhatsNewDot). */
+   layout height cost on the row (see _updateWhatsNewDot). */
 .nav-badge-dot {
   position: absolute;
   top: -2px;
@@ -5290,6 +5350,17 @@ html.theme-lighter #app { filter: brightness(1.25); }
     height: 18px;
   }
 
+  #menu-nav-buttons button {
+    gap: 14px;
+    padding: 16px 22px;
+    font-size: 15px;
+  }
+
+  #menu-nav-buttons button svg {
+    width: 26px;
+    height: 26px;
+  }
+
   .stat-row {
     padding: 1px 0;
     font-size: 13px;
@@ -5335,6 +5406,24 @@ html.theme-lighter #app { filter: brightness(1.25); }
 
   #menu-title-img {
     width: min(90%, 480px);
+  }
+
+  /* Build Mode's nav button pushed #menu-nav-buttons' own column past
+     budget at 1366x768 specifically - one more size step down from the
+     960px breakpoint's own #menu-nav-buttons override, same "shrink
+     before removing" precedent as everything else here. */
+  #menu-nav-buttons {
+    gap: 5px;
+  }
+
+  #menu-nav-buttons button {
+    padding: 10px 20px;
+    font-size: 14px;
+  }
+
+  #menu-nav-buttons button svg {
+    width: 20px;
+    height: 20px;
   }
 
   /* At this height the card-list cap alone isn't enough (fixed-px content

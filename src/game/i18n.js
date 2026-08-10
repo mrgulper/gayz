@@ -802,6 +802,8 @@ const STRINGS = {
     // not i18n-driven.
     creditsBtn: 'Credits',
     creditsPanelTitle: 'Credits & What\'s New',
+    navLinkRules: 'Rules & Info',
+    navLinkWhatsNew: 'What\'s New',
     buildVersionLine: 'Build {hash} - {date}',
     menuAriaSummary: 'Best night reached: {night}. Total kills: {kills}. Coins: {coins}.',
     rankRoadmapHeading: 'Rank Roadmap',
@@ -833,7 +835,6 @@ const STRINGS = {
     navOrderQuests: 'Quests',
     navOrderAchievements: 'Achievements',
     navOrderBestiary: 'Bestiary',
-    navOrderCredits: 'Credits',
     profileDamageDealt: 'Total damage dealt',
     profileAccuracy: 'Shot accuracy',
     profileBestStreakDate: 'Best streak achieved on',
