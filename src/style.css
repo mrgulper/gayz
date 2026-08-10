@@ -464,10 +464,11 @@ html.layout-compact .menu-panel {
 }
 
 #cloudsave-region-select {
-  padding: 3px 6px;
+  padding: 3px 20px 3px 6px;
   font-size: 11px;
   color: #eee;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.06) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0L5 6L10 0Z' fill='%23e3a63c'/%3E%3C/svg%3E") no-repeat right 6px center;
+  background-size: 8px 5px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 3px;
 }
@@ -1454,6 +1455,41 @@ body.reduce-flashing #critical-blood-overlay.show {
 
 .nickname-input::placeholder {
   color: rgba(238, 238, 238, 0.4);
+}
+
+/* Base dark styling for every <select> in the app - without this, a
+   select with no id-specific rule falls back to the browser's plain
+   white dropdown chrome, which stands out badly against this game's
+   dark panels (caught via #gfx-shadow-quality-select). ID-specific
+   rules like #cloudsave-region-select still win on top of this for
+   their own sizing. */
+select {
+  /* appearance: none is required here - a plain background-color on a
+     native <select> is silently ignored by the browser's own menulist
+     chrome (it still painted white even with a dark computed style)
+     unless the default appearance is stripped, which also means the
+     native dropdown arrow disappears and has to be redrawn by hand. */
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding: 6px 26px 6px 10px;
+  font-size: 14px;
+  color: #eee;
+  background: rgba(0, 0, 0, 0.4) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0L5 6L10 0Z' fill='%23e3a63c'/%3E%3C/svg%3E") no-repeat right 10px center;
+  background-size: 10px 6px;
+  border: 1px solid rgba(227, 166, 60, 0.4);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+select:focus {
+  outline: none;
+  border-color: #e3a63c;
+}
+
+select option {
+  background: #1a1a1a;
+  color: #eee;
 }
 
 #round-mode-hint {
