@@ -2044,6 +2044,15 @@ body.reduce-flashing #critical-blood-overlay.show {
   color: rgba(255, 255, 255, 0.75);
 }
 
+#credits-content a {
+  color: #e3a63c;
+  text-decoration: none;
+}
+
+#credits-content a:hover {
+  text-decoration: underline;
+}
+
 
 @keyframes toast {
   0% { opacity: 0; transform: translate(-50%, 8px); }
