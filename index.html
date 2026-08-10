@@ -468,38 +468,21 @@
 
             <div id="menu-screenshot-gallery" class="screenshot-gallery-shared" style="display: none" aria-label="Recent screenshots"></div>
 
-            <nav id="menu-nav-buttons">
-              <button id="coinshop-btn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/><path d="M2 3h2l2.4 12.4a2 2 0 0 0 2 1.6h8.6a2 2 0 0 0 2-1.6L21 7H6"/></svg>
-                <span>Shop</span>
-                <span class="nav-count" id="cosmetics-nav-count"></span>
-                <span class="nav-completion-ring" id="cosmetics-completion-ring" aria-hidden="true"></span>
-              </button>
-              <button id="upgrades-btn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="6,11 12,5 18,11"/></svg>
-                <span>Upgrades</span>
-              </button>
-              <button id="quests-btn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                <span>Quests</span>
-                <span class="nav-count" id="quests-nav-count"></span>
-                <span class="nav-completion-ring" id="quests-completion-ring" aria-hidden="true"></span>
-              </button>
-              <button id="achievements-btn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0z"/><path d="M7 5H4a1 1 0 0 0-1 1c0 3 2 5 4.5 5.3M17 5h3a1 1 0 0 1 1 1c0 3-2 5-4.5 5.3"/></svg>
-                <span>Achievements</span>
-                <span class="nav-count" id="achievements-nav-count"></span>
-                <span class="nav-completion-ring" id="achievements-completion-ring" aria-hidden="true"></span>
-              </button>
+            <nav id="menu-nav-buttons" class="pill-nav">
+              <button id="hub-btn"><span>Hub</span></button>
+              <button id="coinshop-btn"><span>Store</span></button>
+              <button id="upgrades-btn"><span>Upgrades</span></button>
+              <button id="quests-btn"><span>Quests</span></button>
+              <button id="achievements-btn"><span>Achievements</span></button>
               <button id="credits-btn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
                 <span>Credits</span>
                 <span class="nav-badge-dot" id="whats-new-dot" style="display: none"></span>
               </button>
-              <button id="build-mode-btn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                <span>Build</span>
-              </button>
+              <button id="build-mode-btn"><span>Build</span></button>
+              <a id="nav-discord-link" href="https://discord.gg/WHhXZEWGYh" target="_blank" rel="noopener noreferrer">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <span>Discord</span>
+              </a>
             </nav>
 
             <div id="menu-boards">
@@ -510,118 +493,11 @@
         </div>
 
         <div id="menu-cards-row">
-          <section class="menu-card">
-            <h2 class="menu-card-title">Game Modes</h2>
-            <div class="menu-card-list">
-              <label class="mode-toggle" for="score-attack-toggle">
-                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>
-                <input type="checkbox" id="score-attack-toggle" />
-                <span id="score-attack-label">Score Attack Mode</span>
-              </label>
-              <label class="mode-toggle" for="mutator-horde-rush">
-                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M14 14.5c2.5 0.3 4.5 2.3 4.5 5.5"/></svg>
-                <input type="checkbox" id="mutator-horde-rush" />
-                <span id="mutator-horde-rush-label">Horde Rush (2x zombies)</span>
-              </label>
-              <label class="mode-toggle" for="mutator-loot-rush">
-                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6,3 18,3 22,9 12,21 2,9"/><line x1="2" y1="9" x2="22" y2="9"/></svg>
-                <input type="checkbox" id="mutator-loot-rush" />
-                <span id="mutator-loot-rush-label">Loot Rush (2x XP &amp; points)</span>
-              </label>
-              <label class="mode-toggle" for="mutator-pure-gunplay">
-                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h9v-3h6v3h1v3H3z"/><path d="M6 16v3h3v-3"/></svg>
-                <input type="checkbox" id="mutator-pure-gunplay" />
-                <span id="mutator-pure-gunplay-label">Pure Gunplay (no auto-weapons)</span>
-              </label>
-              <label class="mode-toggle" for="mutator-horde-mode">
-                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="7"/><circle cx="9" cy="9" r="1.2" fill="currentColor"/><circle cx="15" cy="9" r="1.2" fill="currentColor"/><path d="M9 17v3M15 17v3M10 14h4"/></svg>
-                <input type="checkbox" id="mutator-horde-mode" />
-                <span id="mutator-horde-mode-label">Horde Mode (relentless close-range waves)</span>
-              </label>
-              <label class="mode-toggle" for="mutator-koth">
-                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21c5-1 9-5 9-10H3c0 5 4 9 9 10z"/><line x1="12" y1="11" x2="12" y2="2"/><path d="M12 2l6 3-6 3"/></svg>
-                <input type="checkbox" id="mutator-koth" />
-                <span id="mutator-koth-label">King of the Hill (hold the zone for bonus points)</span>
-              </label>
-              <label class="mode-toggle" for="mutator-extraction">
-                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="14" width="16" height="7" rx="1"/><line x1="12" y1="12" x2="12" y2="2"/><polyline points="7,7 12,2 17,7"/></svg>
-                <input type="checkbox" id="mutator-extraction" />
-                <span id="mutator-extraction-label">Extraction (reach and hold the LZ to win the run)</span>
-              </label>
-              <label class="mode-toggle" for="mutator-scavenger">
-                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="8" width="12" height="13" rx="2"/><path d="M9 8V5a3 3 0 0 1 6 0v3"/><line x1="9" y1="13" x2="15" y2="13"/></svg>
-                <input type="checkbox" id="mutator-scavenger" />
-                <span id="mutator-scavenger-label">Scavenger Run (start with just melee, earn the rest)</span>
-              </label>
-            </div>
-          </section>
-
-          <section class="menu-card">
-            <h2 class="menu-card-title">Challenges</h2>
-            <div class="menu-card-list">
-              <label class="mode-toggle" for="hardcore-toggle">
-                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="7"/><circle cx="9" cy="9" r="1.2" fill="currentColor"/><circle cx="15" cy="9" r="1.2" fill="currentColor"/><path d="M9 17v3M15 17v3M10 14h4"/></svg>
-                <input type="checkbox" id="hardcore-toggle" />
-                <span id="hardcore-label">Hardcore Mode (no respawn)</span>
-              </label>
-              <label class="mode-toggle" for="guest-mode-toggle">
-                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
-                <input type="checkbox" id="guest-mode-toggle" />
-                <span id="guest-mode-label">Guest Mode (don't save this run's stats)</span>
-              </label>
-              <label class="mode-toggle" for="mutator-boss-rush">
-                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="4,8 8,16 12,7 16,16 20,8 20,19 4,19"/></svg>
-                <input type="checkbox" id="mutator-boss-rush" />
-                <span id="mutator-boss-rush-label">Boss Rush (a boss every night)</span>
-              </label>
-              <label class="mode-toggle" for="mutator-daily">
-                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
-                <input type="checkbox" id="mutator-daily" />
-                <span id="mutator-daily-label">Daily Challenge (today's fixed twist, beat your best)</span>
-              </label>
-              <label class="mode-toggle" for="mutator-iron-mode">
-                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5z"/></svg>
-                <input type="checkbox" id="mutator-iron-mode" />
-                <span id="mutator-iron-mode-label">Iron Mode (no Trader or Coin Shop spending)</span>
-              </label>
-            </div>
-          </section>
-
-          <section class="menu-card">
-            <h2 class="menu-card-title">Mutators</h2>
-            <div class="menu-card-list">
-              <label class="mode-toggle" for="mutator-health-regen">
-                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-                <input type="checkbox" id="mutator-health-regen" />
-                <span id="mutator-health-regen-label">Health Regen (slowly heal on your own after a few seconds out of combat)</span>
-              </label>
-              <label class="mode-toggle" for="mutator-glass-house">
-                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12,2 22,8.5 22,15.5 12,22 2,15.5 2,8.5"/><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="8.5" x2="12" y2="13"/><line x1="22" y1="8.5" x2="12" y2="13"/></svg>
-                <input type="checkbox" id="mutator-glass-house" />
-                <span id="mutator-glass-house-label">Glass House (2x damage dealt and taken)</span>
-              </label>
-              <label class="mode-toggle" for="mutator-featured-enemy">
-                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12,2 15,9 22,9.5 16.5,14 18.5,21 12,17 5.5,21 7.5,14 2,9.5 9,9"/></svg>
-                <input type="checkbox" id="mutator-featured-enemy" />
-                <span id="mutator-featured-enemy-label">Featured Enemy (one random type spawns far more this run)</span>
-              </label>
-              <label class="mode-toggle" for="mutator-blackout">
-                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/><line x1="3" y1="3" x2="21" y2="21"/></svg>
-                <input type="checkbox" id="mutator-blackout" />
-                <span id="mutator-blackout-label">Blackout (near-zero ambient light, flashlight or bust)</span>
-              </label>
-              <label class="mode-toggle" for="mutator-boss-gauntlet">
-                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="4,8 8,16 12,7 16,16 20,8 20,19 4,19"/></svg>
-                <input type="checkbox" id="mutator-boss-gauntlet" />
-                <span id="mutator-boss-gauntlet-label">Boss Gauntlet (next boss spawns immediately on the last one's death, no waiting for the next night)</span>
-              </label>
-              <label class="mode-toggle" for="endless-toggle">
-                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.229-8-5.096 0-5.096 8 0 8 5.096 0 7.135-8 12.229-8z"/></svg>
-                <input type="checkbox" id="endless-toggle" />
-                <span id="endless-label">Endless Mode (wave after wave, no timer, how far can you go)</span>
-              </label>
-            </div>
-          </section>
+          <button id="credits-summary-card" class="menu-card" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
+            <span id="credits-summary-title">Credits &amp; What's New</span>
+            <span id="credits-summary-desc">See the latest changes and who made this.</span>
+          </button>
         </div>
       </div>
 
@@ -1121,6 +997,125 @@
           <button class="role-btn" data-role="medic" id="trader-role-medic">Medic Support</button>
         </div>
         <p id="trader-hint">Press F to leave</p>
+      </div>
+
+      <div id="hub-panel">
+        <h2 id="hub-panel-title">Hub</h2>
+        <div id="hub-content">
+          <section class="hub-section">
+            <h3 class="hub-section-title">Game Modes</h3>
+            <div class="hub-section-list">
+              <label class="mode-toggle" for="score-attack-toggle">
+                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>
+                <input type="checkbox" id="score-attack-toggle" />
+                <span id="score-attack-label">Score Attack Mode</span>
+              </label>
+              <label class="mode-toggle" for="mutator-horde-rush">
+                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M14 14.5c2.5 0.3 4.5 2.3 4.5 5.5"/></svg>
+                <input type="checkbox" id="mutator-horde-rush" />
+                <span id="mutator-horde-rush-label">Horde Rush (2x zombies)</span>
+              </label>
+              <label class="mode-toggle" for="mutator-loot-rush">
+                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6,3 18,3 22,9 12,21 2,9"/><line x1="2" y1="9" x2="22" y2="9"/></svg>
+                <input type="checkbox" id="mutator-loot-rush" />
+                <span id="mutator-loot-rush-label">Loot Rush (2x XP &amp; points)</span>
+              </label>
+              <label class="mode-toggle" for="mutator-pure-gunplay">
+                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h9v-3h6v3h1v3H3z"/><path d="M6 16v3h3v-3"/></svg>
+                <input type="checkbox" id="mutator-pure-gunplay" />
+                <span id="mutator-pure-gunplay-label">Pure Gunplay (no auto-weapons)</span>
+              </label>
+              <label class="mode-toggle" for="mutator-horde-mode">
+                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="7"/><circle cx="9" cy="9" r="1.2" fill="currentColor"/><circle cx="15" cy="9" r="1.2" fill="currentColor"/><path d="M9 17v3M15 17v3M10 14h4"/></svg>
+                <input type="checkbox" id="mutator-horde-mode" />
+                <span id="mutator-horde-mode-label">Horde Mode (relentless close-range waves)</span>
+              </label>
+              <label class="mode-toggle" for="mutator-koth">
+                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21c5-1 9-5 9-10H3c0 5 4 9 9 10z"/><line x1="12" y1="11" x2="12" y2="2"/><path d="M12 2l6 3-6 3"/></svg>
+                <input type="checkbox" id="mutator-koth" />
+                <span id="mutator-koth-label">King of the Hill (hold the zone for bonus points)</span>
+              </label>
+              <label class="mode-toggle" for="mutator-extraction">
+                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="14" width="16" height="7" rx="1"/><line x1="12" y1="12" x2="12" y2="2"/><polyline points="7,7 12,2 17,7"/></svg>
+                <input type="checkbox" id="mutator-extraction" />
+                <span id="mutator-extraction-label">Extraction (reach and hold the LZ to win the run)</span>
+              </label>
+              <label class="mode-toggle" for="mutator-scavenger">
+                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="8" width="12" height="13" rx="2"/><path d="M9 8V5a3 3 0 0 1 6 0v3"/><line x1="9" y1="13" x2="15" y2="13"/></svg>
+                <input type="checkbox" id="mutator-scavenger" />
+                <span id="mutator-scavenger-label">Scavenger Run (start with just melee, earn the rest)</span>
+              </label>
+            </div>
+          </section>
+
+          <section class="hub-section">
+            <h3 class="hub-section-title">Challenges</h3>
+            <div class="hub-section-list">
+              <label class="mode-toggle" for="hardcore-toggle">
+                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="7"/><circle cx="9" cy="9" r="1.2" fill="currentColor"/><circle cx="15" cy="9" r="1.2" fill="currentColor"/><path d="M9 17v3M15 17v3M10 14h4"/></svg>
+                <input type="checkbox" id="hardcore-toggle" />
+                <span id="hardcore-label">Hardcore Mode (no respawn)</span>
+              </label>
+              <label class="mode-toggle" for="guest-mode-toggle">
+                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+                <input type="checkbox" id="guest-mode-toggle" />
+                <span id="guest-mode-label">Guest Mode (don't save this run's stats)</span>
+              </label>
+              <label class="mode-toggle" for="mutator-boss-rush">
+                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="4,8 8,16 12,7 16,16 20,8 20,19 4,19"/></svg>
+                <input type="checkbox" id="mutator-boss-rush" />
+                <span id="mutator-boss-rush-label">Boss Rush (a boss every night)</span>
+              </label>
+              <label class="mode-toggle" for="mutator-daily">
+                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
+                <input type="checkbox" id="mutator-daily" />
+                <span id="mutator-daily-label">Daily Challenge (today's fixed twist, beat your best)</span>
+              </label>
+              <label class="mode-toggle" for="mutator-iron-mode">
+                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5z"/></svg>
+                <input type="checkbox" id="mutator-iron-mode" />
+                <span id="mutator-iron-mode-label">Iron Mode (no Trader or Coin Shop spending)</span>
+              </label>
+            </div>
+          </section>
+
+          <section class="hub-section">
+            <h3 class="hub-section-title">Mutators</h3>
+            <div class="hub-section-list">
+              <label class="mode-toggle" for="mutator-health-regen">
+                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                <input type="checkbox" id="mutator-health-regen" />
+                <span id="mutator-health-regen-label">Health Regen (slowly heal on your own after a few seconds out of combat)</span>
+              </label>
+              <label class="mode-toggle" for="mutator-glass-house">
+                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12,2 22,8.5 22,15.5 12,22 2,15.5 2,8.5"/><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="8.5" x2="12" y2="13"/><line x1="22" y1="8.5" x2="12" y2="13"/></svg>
+                <input type="checkbox" id="mutator-glass-house" />
+                <span id="mutator-glass-house-label">Glass House (2x damage dealt and taken)</span>
+              </label>
+              <label class="mode-toggle" for="mutator-featured-enemy">
+                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12,2 15,9 22,9.5 16.5,14 18.5,21 12,17 5.5,21 7.5,14 2,9.5 9,9"/></svg>
+                <input type="checkbox" id="mutator-featured-enemy" />
+                <span id="mutator-featured-enemy-label">Featured Enemy (one random type spawns far more this run)</span>
+              </label>
+              <label class="mode-toggle" for="mutator-blackout">
+                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/><line x1="3" y1="3" x2="21" y2="21"/></svg>
+                <input type="checkbox" id="mutator-blackout" />
+                <span id="mutator-blackout-label">Blackout (near-zero ambient light, flashlight or bust)</span>
+              </label>
+              <label class="mode-toggle" for="mutator-boss-gauntlet">
+                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="4,8 8,16 12,7 16,16 20,8 20,19 4,19"/></svg>
+                <input type="checkbox" id="mutator-boss-gauntlet" />
+                <span id="mutator-boss-gauntlet-label">Boss Gauntlet (next boss spawns immediately on the last one's death, no waiting for the next night)</span>
+              </label>
+              <label class="mode-toggle" for="endless-toggle">
+                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.229-8-5.096 0-5.096 8 0 8 5.096 0 7.135-8 12.229-8z"/></svg>
+                <input type="checkbox" id="endless-toggle" />
+                <span id="endless-label">Endless Mode (wave after wave, no timer, how far can you go)</span>
+              </label>
+            </div>
+          </section>
+        </div>
+        <p class="panel-close-hint">Click anywhere to close</p>
       </div>
 
       <div id="upgrades-panel">

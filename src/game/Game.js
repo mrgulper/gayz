@@ -351,7 +351,7 @@ function loadSettings() {
       pinnedStat: parsed.pinnedStat || null,
       companionNameColor: parsed.companionNameColor || null,
       pinnedPreset: Number.isInteger(parsed.pinnedPreset) ? parsed.pinnedPreset : null,
-      navOrder: Array.isArray(parsed.navOrder) && parsed.navOrder.length === 5 ? parsed.navOrder : ['coinshop-btn', 'upgrades-btn', 'quests-btn', 'achievements-btn', 'credits-btn'],
+      navOrder: Array.isArray(parsed.navOrder) && parsed.navOrder.length === 6 ? parsed.navOrder : ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'quests-btn', 'achievements-btn', 'credits-btn'],
       bioPresets: Array.isArray(parsed.bioPresets) ? parsed.bioPresets.slice(0, 3) : [],
       // Third features batch - Accessibility group.
       uiFont: parsed.uiFont || 'default',
@@ -398,7 +398,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['coinshop-btn', 'upgrades-btn', 'quests-btn', 'achievements-btn', 'credits-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'quests-btn', 'achievements-btn', 'credits-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -4044,6 +4044,12 @@ export class Game {
     this.rollingQuestsSubtitle = document.getElementById('rolling-quests-subtitle')
     this.rollingQuestsOptions = document.getElementById('rolling-quests-options')
     this.lifetimeQuestsHeading = document.getElementById('lifetime-quests-heading')
+    this.hubBtn = document.getElementById('hub-btn')
+    this.hubPanel = document.getElementById('hub-panel')
+    this.hubPanelTitle = document.getElementById('hub-panel-title')
+    this.creditsSummaryCard = document.getElementById('credits-summary-card')
+    this.creditsSummaryTitle = document.getElementById('credits-summary-title')
+    this.creditsSummaryDesc = document.getElementById('credits-summary-desc')
     this.achievementsBtn = document.getElementById('achievements-btn')
     this.achievementsPanel = document.getElementById('achievements-panel')
     this.achievementsPanelTitle = document.getElementById('achievements-panel-title')
@@ -7318,6 +7324,8 @@ export class Game {
       const btn = e.target.closest('button[data-spawned-at]')
       if (btn && !btn.disabled) this._claimRollingQuest(Number(btn.dataset.spawnedAt))
     })
+    if (this.hubBtn) this.hubBtn.addEventListener('click', () => trackAndOpen(() => this._openHubPanel()))
+    if (this.creditsSummaryCard) this.creditsSummaryCard.addEventListener('click', () => trackAndOpen(() => this._openCreditsPanel()))
     this.achievementsBtn.addEventListener('click', () => trackAndOpen(() => this._openAchievementsPanel()))
     if (this.achievementsFilterInput) {
       this.achievementsFilterInput.addEventListener('click', (e) => e.stopPropagation())
@@ -7464,6 +7472,11 @@ export class Game {
     this.achievementsPanel.addEventListener('click', (e) => {
       if (e.target === this.achievementsPanel) this._closeAchievementsPanel()
     })
+    if (this.hubPanel) {
+      this.hubPanel.addEventListener('click', (e) => {
+        if (e.target === this.hubPanel) this._closeHubPanel()
+      })
+    }
     this.profilePanel.addEventListener('click', (e) => {
       if (e.target === this.profilePanel) this._closeProfilePanel()
     })
@@ -7729,7 +7742,7 @@ export class Game {
   // structure, so every button's own click listener/id/state is untouched.
   _renderNavOrderList() {
     if (!this.navOrderList) return
-    const labels = { 'coinshop-btn': t('navOrderShop'), 'upgrades-btn': t('navOrderUpgrades'), 'quests-btn': t('navOrderQuests'), 'achievements-btn': t('navOrderAchievements'), 'credits-btn': t('navOrderCredits') }
+    const labels = { 'hub-btn': t('navOrderHub'), 'coinshop-btn': t('navOrderShop'), 'upgrades-btn': t('navOrderUpgrades'), 'quests-btn': t('navOrderQuests'), 'achievements-btn': t('navOrderAchievements'), 'credits-btn': t('navOrderCredits') }
     this.navOrderList.innerHTML = this.settings.navOrder.map((id, i) => `
       <div class="nav-order-row" data-id="${id}">
         <span>${labels[id] || id}</span>
@@ -10590,6 +10603,22 @@ export class Game {
     this.achievementsPanel.style.display = 'none'
   }
 
+  // Game Modes/Challenges/Mutators - used to be 3 cards directly on the
+  // homepage (#menu-cards-row), moved into their own panel to make room
+  // for the Credits summary card that replaced them there. Purely static
+  // toggle content (every checkbox already has its own change listener
+  // bound elsewhere, same elements/ids, just relocated) - no render step
+  // needed on open, unlike Achievements/Upgrades.
+  _openHubPanel() {
+    if (!this.hubPanel) return
+    this.hubPanel.style.display = 'flex'
+    if (this.hubPanelTitle) this.hubPanelTitle.textContent = t('hubPanelTitle')
+  }
+
+  _closeHubPanel() {
+    if (this.hubPanel) this.hubPanel.style.display = 'none'
+  }
+
   _renderBestiaryPanel() {
     const filter = (this.bestiaryFilterInput?.value || '').trim().toLowerCase()
     this.bestiaryOptions.innerHTML = ''
@@ -10662,6 +10691,9 @@ export class Game {
     this.questsBtn.querySelector('span').textContent = t('questsBtn')
     this.achievementsBtn.querySelector('span').textContent = t('achievementsBtn')
     this.coinshopBtn.querySelector('span').textContent = t('coinshopBtn')
+    if (this.hubBtn) this.hubBtn.querySelector('span').textContent = t('hubBtn')
+    if (this.creditsSummaryTitle) this.creditsSummaryTitle.textContent = t('creditsPanelTitle')
+    if (this.creditsSummaryDesc) this.creditsSummaryDesc.textContent = t('creditsSummaryDesc')
     document.getElementById('stats-coins-label').textContent = t('coinsStatLabel')
 
     document.getElementById('ctrl-line-1').innerHTML = tHtml('ctrlLine1')
