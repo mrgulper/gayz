@@ -357,7 +357,7 @@ function loadSettings() {
       pinnedStat: parsed.pinnedStat || null,
       companionNameColor: parsed.companionNameColor || null,
       pinnedPreset: Number.isInteger(parsed.pinnedPreset) ? parsed.pinnedPreset : null,
-      navOrder: Array.isArray(parsed.navOrder) && parsed.navOrder.length === 7 ? parsed.navOrder : ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'],
+      navOrder: Array.isArray(parsed.navOrder) && parsed.navOrder.length === 8 ? parsed.navOrder : ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'],
       bioPresets: Array.isArray(parsed.bioPresets) ? parsed.bioPresets.slice(0, 3) : [],
       // Third features batch - Accessibility group.
       uiFont: parsed.uiFont || 'default',
@@ -410,7 +410,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -1842,6 +1842,33 @@ const EVENT_BANNERS = [
 const WHATS_NEW_VERSION = '2026-07-29-homepage'
 const WHATS_NEW_SEEN_KEY = 'gayz-whatsnew-seen'
 const CHANGELOG_LAST_VIEWED_KEY = 'gayz-changelog-last-viewed'
+// Nav badge dots (Store/Upgrades/Achievements) - "seen ids" persistence
+// shared by all three "new item added" checks. First-ever check seeds the
+// seen set with whatever already exists/is already unlocked, so shipping
+// this feature doesn't retroactively flag today's content as new - only
+// something added/unlocked AFTER a player's first check ever lights the
+// dot. null return (vs an empty Set) is how callers tell "never checked
+// before, needs seeding" apart from "checked before, genuinely empty."
+const SHOP_SEEN_IDS_KEY = 'gayz-shop-seen-ids'
+const UPGRADES_SEEN_IDS_KEY = 'gayz-upgrades-seen-ids'
+const ACHIEVEMENTS_SEEN_IDS_KEY = 'gayz-achievements-seen-ids'
+
+function _loadSeenIds(key) {
+  try {
+    const raw = localStorage.getItem(key)
+    return raw ? new Set(JSON.parse(raw)) : null
+  } catch {
+    return null
+  }
+}
+
+function _saveSeenIds(key, idsIterable) {
+  try {
+    localStorage.setItem(key, JSON.stringify([...idsIterable]))
+  } catch {
+    // Storage unavailable - the dot just won't remember what's been seen.
+  }
+}
 // Total-lifetime-kills milestones (see _checkKillMilestones) - a one-time
 // toast the first homepage render after crossing each, tracked separately
 // from CAREER_RANK_TITLES since these are just round-number celebration
@@ -2930,6 +2957,11 @@ export class Game {
     }
     this.eventBanner = document.getElementById('event-banner')
     this.whatsNewDot = document.getElementById('whats-new-dot')
+    this.questsClaimDot = document.getElementById('quests-claim-dot')
+    this.achievementsNewDot = document.getElementById('achievements-new-dot')
+    this.storeNewDot = document.getElementById('store-new-dot')
+    this.upgradesDot = document.getElementById('upgrades-dot')
+    this.friendsRequestDot = document.getElementById('friends-request-dot')
     // Second Homepage batch - login streak badge, nav completion rings,
     // season-progress countdown label, Player Title picker, Nearly There
     // nudge, Weekly Recap, Recent Activity feed, and the 2 new quick-action
@@ -4047,10 +4079,19 @@ export class Game {
     this.friendsSignedOutDesc = document.getElementById('friends-signed-out-desc')
     this.friendsSigninBtn = document.getElementById('friends-signin-btn')
     this.friendsSignedIn = document.getElementById('friends-signed-in')
+    this.friendRequestsHeading = document.getElementById('friend-requests-heading')
+    this.friendRequestsList = document.getElementById('friend-requests-list')
+    this.sendFriendRequestBtn = document.getElementById('send-friend-request-btn')
+    this._incomingFriendRequests = []
+    this._friendRequestsUnsubscribe = null
     this.menuInventoryBtn = document.getElementById('menu-inventory-btn')
     this.menuInventoryPanel = document.getElementById('menu-inventory-panel')
     this.menuInventoryPanelTitle = document.getElementById('menu-inventory-panel-title')
     this.menuInventoryPlaceholder = document.getElementById('menu-inventory-placeholder')
+    this.serverBtn = document.getElementById('server-btn')
+    this.serverPanel = document.getElementById('server-panel')
+    this.serverPanelTitle = document.getElementById('server-panel-title')
+    this.serverPlaceholder = document.getElementById('server-panel-placeholder')
     this.achievementsBtn = document.getElementById('achievements-btn')
     this.achievementsPanel = document.getElementById('achievements-panel')
     this.achievementsPanelTitle = document.getElementById('achievements-panel-title')
@@ -7326,6 +7367,7 @@ export class Game {
     if (this.friendsBtn) this.friendsBtn.addEventListener('click', () => trackAndOpen(() => this._openFriendsPanel()))
     if (this.friendsSigninBtn) this.friendsSigninBtn.addEventListener('click', () => this._handleCloudSignIn())
     if (this.menuInventoryBtn) this.menuInventoryBtn.addEventListener('click', () => trackAndOpen(() => this._openMenuInventoryPanel()))
+    if (this.serverBtn) this.serverBtn.addEventListener('click', () => trackAndOpen(() => this._openServerPanel()))
     this.achievementsBtn.addEventListener('click', () => trackAndOpen(() => this._openAchievementsPanel()))
     if (this.achievementsFilterInput) {
       this.achievementsFilterInput.addEventListener('click', (e) => e.stopPropagation())
@@ -7496,6 +7538,11 @@ export class Game {
     if (this.menuInventoryPanel) {
       this.menuInventoryPanel.addEventListener('click', (e) => {
         if (e.target === this.menuInventoryPanel) this._closeMenuInventoryPanel()
+      })
+    }
+    if (this.serverPanel) {
+      this.serverPanel.addEventListener('click', (e) => {
+        if (e.target === this.serverPanel) this._closeServerPanel()
       })
     }
     this.profilePanel.addEventListener('click', (e) => {
@@ -7763,7 +7810,7 @@ export class Game {
   // structure, so every button's own click listener/id/state is untouched.
   _renderNavOrderList() {
     if (!this.navOrderList) return
-    const labels = { 'hub-btn': t('navOrderHub'), 'coinshop-btn': t('navOrderShop'), 'upgrades-btn': t('navOrderUpgrades'), 'quests-btn': t('navOrderQuests'), 'friends-btn': t('navOrderFriends'), 'menu-inventory-btn': t('navOrderInventory'), 'achievements-btn': t('navOrderAchievements') }
+    const labels = { 'hub-btn': t('navOrderHub'), 'coinshop-btn': t('navOrderShop'), 'upgrades-btn': t('navOrderUpgrades'), 'server-btn': t('navOrderServer'), 'quests-btn': t('navOrderQuests'), 'friends-btn': t('navOrderFriends'), 'menu-inventory-btn': t('navOrderInventory'), 'achievements-btn': t('navOrderAchievements') }
     this.navOrderList.innerHTML = this.settings.navOrder.map((id, i) => `
       <div class="nav-order-row" data-id="${id}">
         <span>${labels[id] || id}</span>
@@ -8075,6 +8122,7 @@ export class Game {
     this._renderPoll()
     this._renderSavedFriends()
     if (this.cloudsaveFriendCompareBtn) this.cloudsaveFriendCompareBtn.textContent = t('cloudsaveFriendCompareBtn')
+    if (this.sendFriendRequestBtn) this.sendFriendRequestBtn.textContent = t('sendFriendRequestBtn')
     if (this.cloudsaveFriendInput) this.cloudsaveFriendInput.placeholder = t('cloudsaveFriendPlaceholder')
     if (this.cloudsaveLeaderboardTitle) this.cloudsaveLeaderboardTitle.textContent = t('cloudsaveLeaderboardTitle')
     if (this.cloudsaveAchievementsLeaderboardTitle) this.cloudsaveAchievementsLeaderboardTitle.textContent = t('cloudsaveAchievementsLeaderboardTitle')
@@ -8184,6 +8232,81 @@ export class Game {
     this.settings.savedFriends.push(name)
     saveSettings(this.settings)
     this._renderSavedFriends()
+  }
+
+  // Send Friend Request - reuses the same nickname->leaderboard-entry
+  // lookup Compare already uses (fetchLeaderboardEntryByName now also
+  // returns the doc's own uid, needed here but not by Compare/Save,
+  // which only ever wanted the stats fields). Requires being signed in,
+  // same gate the rest of this panel already has.
+  async _sendFriendRequestClick() {
+    if (!this.cloudsaveFriendInput || !this.cloudsaveFriendResult || !this._cloudUid) return
+    const name = this.cloudsaveFriendInput.value.trim()
+    if (!name) return
+    if (name === this.settings.nickname) {
+      this.cloudsaveFriendResult.textContent = t('friendRequestSelfError')
+      return
+    }
+    this.cloudsaveFriendResult.textContent = t('cloudsaveConnecting')
+    try {
+      const entry = await CloudSync.fetchLeaderboardEntryByName(name)
+      if (!entry || !entry.uid) {
+        this.cloudsaveFriendResult.textContent = t('cloudsaveFriendNotFound')
+        return
+      }
+      await CloudSync.sendFriendRequest(entry.uid, this._cloudUid, this.settings.nickname || t('cloudsaveFriendNotFound'))
+      this.cloudsaveFriendResult.textContent = t('friendRequestSent', { name: entry.name || name })
+    } catch {
+      this.cloudsaveFriendResult.textContent = t('cloudsaveError')
+    }
+  }
+
+  // Incoming Friend Requests - _incomingFriendRequests is kept live by the
+  // subscribeIncomingFriendRequests listener started in restoreCloudSession
+  // (CloudSaveUI.js), so this is just a render of already-current state,
+  // not a fetch of its own.
+  _renderFriendRequests() {
+    if (!this.friendRequestsList) return
+    if (this.friendRequestsHeading) this.friendRequestsHeading.textContent = t('friendRequestsHeading')
+    const requests = this._incomingFriendRequests
+    this.friendRequestsList.innerHTML = requests.length
+      ? requests.map((r) => `
+          <div class="friend-request-row" data-from-uid="${_escapeHtml(r.fromUid)}">
+            <span>${_escapeHtml(r.fromNickname || '???')}</span>
+            <span>
+              <button class="mini-action-btn friend-request-accept" data-from-uid="${_escapeHtml(r.fromUid)}" data-from-name="${_escapeHtml(r.fromNickname || '')}" type="button">${t('friendRequestAccept')}</button>
+              <button class="mini-action-btn friend-request-decline" data-from-uid="${_escapeHtml(r.fromUid)}" type="button">${t('friendRequestDecline')}</button>
+            </span>
+          </div>
+        `).join('')
+      : `<p class="nearly-there-line">${t('friendRequestNone')}</p>`
+    for (const btn of this.friendRequestsList.querySelectorAll('.friend-request-accept')) {
+      btn.addEventListener('click', () => this._respondToFriendRequest(btn.dataset.fromUid, btn.dataset.fromName, true))
+    }
+    for (const btn of this.friendRequestsList.querySelectorAll('.friend-request-decline')) {
+      btn.addEventListener('click', () => this._respondToFriendRequest(btn.dataset.fromUid, null, false))
+    }
+  }
+
+  async _respondToFriendRequest(fromUid, fromNickname, accept) {
+    if (!this._cloudUid) return
+    if (accept && fromNickname && !this.settings.savedFriends.includes(fromNickname)) {
+      if (this.settings.savedFriends.length >= 5) this.settings.savedFriends.shift()
+      this.settings.savedFriends.push(fromNickname)
+      saveSettings(this.settings)
+      this._renderSavedFriends()
+    }
+    try {
+      await CloudSync.respondToFriendRequest(this._cloudUid, fromUid)
+    } catch {
+      // Best-effort - the live subscription will resync the list either
+      // way the next time it fires.
+    }
+  }
+
+  _updateFriendsDot() {
+    if (!this.friendsRequestDot) return
+    this.friendsRequestDot.style.display = this._incomingFriendRequests.length ? '' : 'none'
   }
 
   async _renderGlobalKills() {
@@ -9863,6 +9986,7 @@ export class Game {
     this.upgradesPanel.style.display = 'flex'
     this.upgradesPanelTitle.textContent = t('upgradesPanelTitle')
     this._renderUpgradesOptions()
+    this._markUpgradesSeen()
   }
 
   _renderUpgradesOptions() {
@@ -9889,6 +10013,7 @@ export class Game {
         this.metaProgress.purchased.add(upgrade.id)
         saveMetaProgress(this.metaProgress)
         this._renderUpgradesOptions()
+        this._updateUpgradesDot()
       })
       this.upgradesOptions.appendChild(btn)
     }
@@ -9966,6 +10091,7 @@ export class Game {
     this.coinshopPanel.style.display = 'flex'
     this.coinshopPanelTitle.textContent = t('coinshopPanelTitle')
     this._renderCoinShopOptions()
+    this._markStoreSeen()
   }
 
   // Journal - built entirely from state the game already tracks (discovered
@@ -10500,6 +10626,7 @@ export class Game {
     this._showHomepageToast(t('questClaimedToast', { n: QUESTS.find((q) => q.id === id)?.rewardCoins || 0 }))
     this._renderQuestsPanel()
     this._updateNavCompletionRings()
+    this._updateQuestsDot()
     this._updateFaviconQuestBadge()
   }
 
@@ -10521,6 +10648,7 @@ export class Game {
     saveShopProgress(this)
     this._showHomepageToast(t('rollingQuestClaimedToast', { coins: reward.coins, xp: reward.xp }))
     this._renderRollingQuestsPanel()
+    this._updateQuestsDot()
     this._updateFaviconQuestBadge()
   }
 
@@ -10582,6 +10710,7 @@ export class Game {
     if (this.bestiaryFilterInput) this.bestiaryFilterInput.placeholder = t('bestiaryFilterPlaceholder')
     this._renderAchievementsPanel()
     this._renderBestiaryPanel()
+    this._markAchievementsSeen()
   }
 
   // Filters against the DISPLAYED name only (not the real underlying
@@ -10650,6 +10779,7 @@ export class Game {
     if (!this.friendsPanel) return
     this.friendsPanel.style.display = 'flex'
     if (this.friendsPanelTitle) this.friendsPanelTitle.textContent = t('friendsPanelTitle')
+    this._renderFriendRequests()
   }
 
   _closeFriendsPanel() {
@@ -10669,6 +10799,17 @@ export class Game {
 
   _closeMenuInventoryPanel() {
     if (this.menuInventoryPanel) this.menuInventoryPanel.style.display = 'none'
+  }
+
+  _openServerPanel() {
+    if (!this.serverPanel) return
+    this.serverPanel.style.display = 'flex'
+    if (this.serverPanelTitle) this.serverPanelTitle.textContent = t('serverPanelTitle')
+    if (this.serverPlaceholder) this.serverPlaceholder.textContent = t('serverPlaceholder')
+  }
+
+  _closeServerPanel() {
+    if (this.serverPanel) this.serverPanel.style.display = 'none'
   }
 
   _renderBestiaryPanel() {
@@ -10750,6 +10891,7 @@ export class Game {
     if (this.friendsSignedOutDesc) this.friendsSignedOutDesc.textContent = t('friendsSignedOutDesc')
     if (this.friendsSigninBtn) this.friendsSigninBtn.textContent = t('cloudsaveSigninBtn')
     if (this.menuInventoryBtn) this.menuInventoryBtn.querySelector('span').textContent = t('menuInventoryBtn')
+    if (this.serverBtn) this.serverBtn.querySelector('span').textContent = t('serverBtn')
     document.getElementById('stats-coins-label').textContent = t('coinsStatLabel')
 
     document.getElementById('ctrl-line-1').innerHTML = tHtml('ctrlLine1')
@@ -10980,6 +11122,10 @@ export class Game {
     this._updateWhatsNewDot()
     this._updateLoginStreakBadge()
     this._updateNavCompletionRings()
+    this._updateStoreDot()
+    this._updateUpgradesDot()
+    this._updateAchievementsDot()
+    this._updateQuestsDot()
     this._checkKillMilestones()
     this._updateWeeklyProgressBar()
     this._updateFaviconQuestBadge()
@@ -11496,6 +11642,78 @@ export class Game {
   _updateWhatsNewDot() {
     if (!this.whatsNewDot) return
     this.whatsNewDot.style.display = localStorage.getItem(WHATS_NEW_SEEN_KEY) === WHATS_NEW_VERSION ? 'none' : ''
+  }
+
+  // Store nav dot - red, lights up if any item in COIN_SHOP_ITEMS wasn't
+  // there the last time this player opened the Store (see SHOP_SEEN_IDS_KEY's
+  // own comment for the first-check seeding rule).
+  _updateStoreDot() {
+    if (!this.storeNewDot) return
+    let seen = _loadSeenIds(SHOP_SEEN_IDS_KEY)
+    if (!seen) {
+      seen = new Set(COIN_SHOP_ITEMS.map((i) => i.id))
+      _saveSeenIds(SHOP_SEEN_IDS_KEY, seen)
+    }
+    this.storeNewDot.style.display = COIN_SHOP_ITEMS.some((i) => !seen.has(i.id)) ? '' : 'none'
+  }
+
+  _markStoreSeen() {
+    _saveSeenIds(SHOP_SEEN_IDS_KEY, COIN_SHOP_ITEMS.map((i) => i.id))
+    this._updateStoreDot()
+  }
+
+  // Upgrades nav dot - red, lights up if either (a) a new upgrade was
+  // added since this player last opened Upgrades, or (b) they can afford
+  // an upgrade they haven't bought yet right now (checked live, not
+  // persisted - this one naturally turns off the moment they buy it or
+  // spend their points elsewhere).
+  _updateUpgradesDot() {
+    if (!this.upgradesDot) return
+    let seen = _loadSeenIds(UPGRADES_SEEN_IDS_KEY)
+    if (!seen) {
+      seen = new Set(META_UPGRADES.map((u) => u.id))
+      _saveSeenIds(UPGRADES_SEEN_IDS_KEY, seen)
+    }
+    const hasNewUpgrade = META_UPGRADES.some((u) => !seen.has(u.id))
+    const canAffordOne = META_UPGRADES.some((u) => {
+      if (this.metaProgress.purchased.has(u.id)) return false
+      if (u.requires && !this.metaProgress.purchased.has(u.requires)) return false
+      return this.metaProgress.legacyPoints >= u.cost
+    })
+    this.upgradesDot.style.display = (hasNewUpgrade || canAffordOne) ? '' : 'none'
+  }
+
+  _markUpgradesSeen() {
+    _saveSeenIds(UPGRADES_SEEN_IDS_KEY, META_UPGRADES.map((u) => u.id))
+    this._updateUpgradesDot()
+  }
+
+  // Achievements nav dot - gold, lights up if an achievement unlocked
+  // since this player last opened the Achievements panel.
+  _updateAchievementsDot() {
+    if (!this.achievementsNewDot) return
+    let seen = _loadSeenIds(ACHIEVEMENTS_SEEN_IDS_KEY)
+    if (!seen) {
+      seen = new Set(this.achievements.unlocked)
+      _saveSeenIds(ACHIEVEMENTS_SEEN_IDS_KEY, seen)
+    }
+    this.achievementsNewDot.style.display = [...this.achievements.unlocked].some((id) => !seen.has(id)) ? '' : 'none'
+  }
+
+  _markAchievementsSeen() {
+    _saveSeenIds(ACHIEVEMENTS_SEEN_IDS_KEY, this.achievements.unlocked)
+    this._updateAchievementsDot()
+  }
+
+  // Quests nav dot - gold, lights up if any lifetime or rolling quest is
+  // complete and waiting to be claimed. Purely live-computed (no seen-
+  // tracking needed) since "claimable right now" already turns itself off
+  // the instant the reward is claimed.
+  _updateQuestsDot() {
+    if (!this.questsClaimDot) return
+    const lifetimeReady = QUESTS.some((q) => this.quests.isComplete(q, this) && !this.quests.isClaimed(q.id))
+    const rollingReady = this.rollingQuests.activeQuests().some((q) => q.progress >= q.template.target)
+    this.questsClaimDot.style.display = (lifetimeReady || rollingReady) ? '' : 'none'
   }
 
   // How to Play - a replayable, interactive step-through overlay, distinct

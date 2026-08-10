@@ -111,6 +111,7 @@ export function bindHomepageShortcutKeys(game) {
     [game.hubPanel, () => game._closeHubPanel()],
     [game.friendsPanel, () => game._closeFriendsPanel()],
     [game.menuInventoryPanel, () => game._closeMenuInventoryPanel()],
+    [game.serverPanel, () => game._closeServerPanel()],
     [game.howtoplayPanel, () => game._closeHowToPlayPanel()],
     [game.creditsPanel, () => game._closeCreditsPanel()],
     [game.profilePanel, () => game._closeProfilePanel()],

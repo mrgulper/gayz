@@ -75,6 +75,14 @@ const FIREBASE_CONFIG = {
 //   collection -> "stats" -> doc ID "telemetry" -> 5 number fields,
 //   settingsOpened/mutatorUsed/challengeStarted/shareUsed/crtEnabled,
 //   each set to 0) since `allow create: if false` blocks clients here too.
+// - friendRequests/{toUid}/incoming/{fromUid}: a real incoming-friend-
+//   request inbox. No manual Console setup needed here (unlike stats/
+//   above) - subcollections don't need to pre-exist, the first real
+//   sendFriendRequest() call creates one on the fly. Only the recipient
+//   can read their own inbox (not public like leaderboard/polls); the
+//   doc ID being the sender's own uid caps them to one outstanding
+//   request per recipient at a time, same trick polls/{pollId}/votes
+//   uses for one-vote-per-account.
 export const FIRESTORE_SECURITY_RULES = `rules_version = '2';
 service cloud.firestore {
   // Shared by stats/telemetry below - one field changed per write (see
@@ -137,6 +145,25 @@ service cloud.firestore {
       allow read: if true;
       allow create: if request.auth != null && request.auth.uid == userId;
       allow update, delete: if false;
+    }
+
+    match /friendRequests/{toUid}/incoming/{fromUid} {
+      // Only the recipient can read their own inbox - a sent request isn't
+      // public data (unlike the leaderboard), so no one else's requests
+      // are visible.
+      allow read: if request.auth != null && request.auth.uid == toUid;
+      // Anyone signed in can create a doc in someone ELSE's inbox (that's
+      // how "sending" a request works - you write to their subcollection,
+      // you just can't read it back) as long as the doc ID matches your
+      // own uid (mirrors polls' one-per-account pattern) and you're not
+      // sending to yourself.
+      allow create: if request.auth != null && request.auth.uid == fromUid && fromUid != toUid
+        && request.resource.data.fromNickname is string && request.resource.data.fromNickname.size() > 0 && request.resource.data.fromNickname.size() <= 16
+        && request.resource.data.sentAt is int;
+      // Either side can clear it - the recipient accepting/declining, or
+      // the sender canceling their own outstanding request.
+      allow delete: if request.auth != null && (request.auth.uid == toUid || request.auth.uid == fromUid);
+      allow update: if false;
     }
   }
 }`
@@ -281,12 +308,51 @@ export async function fetchGlobalAverages() {
 // (name is already public data there) rather than a separate "friends"
 // system with its own lookup/storage. Exact, case-sensitive match on the
 // nickname the friend chose - simplest thing that works without a
-// dedicated username index.
+// dedicated username index. uid comes from the doc's own ID (leaderboard
+// docs are keyed by uid, see pushLeaderboardEntry - never a stored field),
+// needed by sendFriendRequest below to know who to actually send to.
 export async function fetchLeaderboardEntryByName(name) {
   const { db, fsMod } = await ensureApp()
   const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.where('name', '==', name), fsMod.limit(1))
   const snap = await fsMod.getDocs(q)
-  return snap.empty ? null : snap.docs[0].data()
+  return snap.empty ? null : { ...snap.docs[0].data(), uid: snap.docs[0].id }
+}
+
+// Friend Requests - one doc per pending request, ID'd by the SENDER's uid
+// (mirrors polls/{pollId}/votes/{userId}'s "doc ID is the actor's own uid"
+// pattern) so a given sender can only ever have one outstanding request to
+// a given recipient at a time. Accepting/declining both just delete the
+// doc (see FIRESTORE_SECURITY_RULES) - Game.js decides what accepting
+// means locally (adding to settings.savedFriends), there's no separate
+// "accepted" state stored server-side.
+export async function sendFriendRequest(toUid, fromUid, fromNickname) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.setDoc(fsMod.doc(db, 'friendRequests', toUid, 'incoming', fromUid), { fromNickname, sentAt: Date.now() })
+}
+
+// Live subscription (not a one-off fetch) so the Friends nav dot can light
+// up without the player having opened the panel - same onSnapshot shape as
+// subscribeTopLeaderboard above.
+export function subscribeIncomingFriendRequests(uid, callback) {
+  let unsub = () => {}
+  let cancelled = false
+  ensureApp().then(({ db, fsMod }) => {
+    if (cancelled) return
+    const q = fsMod.collection(db, 'friendRequests', uid, 'incoming')
+    unsub = fsMod.onSnapshot(q, (snap) => callback(snap.docs.map((d) => ({ fromUid: d.id, ...d.data() }))), () => {})
+  })
+  return () => {
+    cancelled = true
+    unsub()
+  }
+}
+
+// Both accept and decline just clear the request from the recipient's
+// inbox - see this function's own doc comment above for why there's no
+// separate accepted/declined state to write.
+export async function respondToFriendRequest(myUid, fromUid) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.deleteDoc(fsMod.doc(db, 'friendRequests', myUid, 'incoming', fromUid))
 }
 
 // Global rank - a COUNT aggregation (how many players have a strictly

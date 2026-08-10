@@ -56,6 +56,26 @@ export function restoreCloudSession(game) {
     game._cloudProfile = session ? session.profile : null
     game._cloudUid = session ? session.uid : null
     updateCloudQuickIcon(game, !!session)
+    // Friend Requests - a persistent live subscription (not gated to a
+    // panel being open, unlike the leaderboard one below) so the Friends
+    // nav dot can light up without ever opening the panel. Restarted on
+    // every auth change so it always points at the current account.
+    if (game._friendRequestsUnsubscribe) {
+      game._friendRequestsUnsubscribe()
+      game._friendRequestsUnsubscribe = null
+    }
+    if (session) {
+      game._friendRequestsUnsubscribe = CloudSync.subscribeIncomingFriendRequests(session.uid, (requests) => {
+        game._incomingFriendRequests = requests
+        game._updateFriendsDot()
+        if (game.friendsPanel && getComputedStyle(game.friendsPanel).display !== 'none') {
+          game._renderFriendRequests()
+        }
+      })
+    } else {
+      game._incomingFriendRequests = []
+      game._updateFriendsDot()
+    }
     if (game.cloudsavePanel && getComputedStyle(game.cloudsavePanel).display !== 'none') {
       renderCloudSaveState(game)
     }
@@ -214,6 +234,7 @@ export function bindCloudSave(game) {
   if (game.cloudsaveFriendCompareBtn) game.cloudsaveFriendCompareBtn.addEventListener('click', () => game._handleFriendCompare())
   if (game.cloudsaveRandomOpponentBtn) game.cloudsaveRandomOpponentBtn.addEventListener('click', () => game._compareVsRandomOpponent())
   if (game.cloudsaveFriendSaveBtn) game.cloudsaveFriendSaveBtn.addEventListener('click', () => game._saveFriend())
+  if (game.sendFriendRequestBtn) game.sendFriendRequestBtn.addEventListener('click', () => game._sendFriendRequestClick())
   if (game.cloudsaveRegionSelect) {
     game.cloudsaveRegionSelect.addEventListener('change', () => {
       game.settings.region = game.cloudsaveRegionSelect.value

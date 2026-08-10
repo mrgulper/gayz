@@ -438,20 +438,28 @@
                 <span>Store</span>
                 <span class="nav-count" id="cosmetics-nav-count"></span>
                 <span class="nav-completion-ring" id="cosmetics-completion-ring" aria-hidden="true"></span>
+                <span class="nav-badge-dot" id="store-new-dot" style="display: none"></span>
               </button>
               <button id="upgrades-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="6,11 12,5 18,11"/></svg>
                 <span>Upgrades</span>
+                <span class="nav-badge-dot" id="upgrades-dot" style="display: none"></span>
+              </button>
+              <button id="server-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="7" rx="1.5"/><rect x="2" y="14" width="20" height="7" rx="1.5"/><line x1="6" y1="6.5" x2="6.01" y2="6.5"/><line x1="6" y1="17.5" x2="6.01" y2="17.5"/></svg>
+                <span>Server</span>
               </button>
               <button id="quests-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                 <span>Quests</span>
                 <span class="nav-count" id="quests-nav-count"></span>
                 <span class="nav-completion-ring" id="quests-completion-ring" aria-hidden="true"></span>
+                <span class="nav-badge-dot gold" id="quests-claim-dot" style="display: none"></span>
               </button>
               <button id="friends-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 <span>Friends</span>
+                <span class="nav-badge-dot" id="friends-request-dot" style="display: none"></span>
               </button>
               <button id="menu-inventory-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 8H4a1 1 0 0 0-1 1v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a1 1 0 0 0-1-1z"/><path d="M16 8V6a4 4 0 0 0-8 0v2"/></svg>
@@ -462,6 +470,7 @@
                 <span>Achievements</span>
                 <span class="nav-count" id="achievements-nav-count"></span>
                 <span class="nav-completion-ring" id="achievements-completion-ring" aria-hidden="true"></span>
+                <span class="nav-badge-dot gold" id="achievements-new-dot" style="display: none"></span>
               </button>
               <button id="build-mode-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
@@ -1386,12 +1395,15 @@
           <button id="friends-signin-btn">Sign in with Google</button>
         </div>
         <div id="friends-signed-in" style="display: none">
+          <h3 id="friend-requests-heading">Friend Requests</h3>
+          <div id="friend-requests-list"></div>
           <h3 id="cloudsave-friend-title">Compare with a Friend</h3>
           <div id="cloudsave-saved-friends"></div>
           <div id="cloudsave-friend-row">
             <input type="text" id="cloudsave-friend-input" class="nickname-input" placeholder="Friend's nickname" maxlength="16" />
             <button id="cloudsave-friend-compare-btn">Compare</button>
             <button id="cloudsave-friend-save-btn" aria-label="Save friend">+</button>
+            <button id="send-friend-request-btn">Add Friend</button>
           </div>
           <p id="cloudsave-friend-result"></p>
           <button id="cloudsave-random-opponent-btn">Compare vs Random Top Player</button>
@@ -1402,6 +1414,12 @@
       <div id="menu-inventory-panel">
         <h2 id="menu-inventory-panel-title">Inventory</h2>
         <p id="menu-inventory-placeholder">Coming soon.</p>
+        <p class="panel-close-hint">Click anywhere to close</p>
+      </div>
+
+      <div id="server-panel">
+        <h2 id="server-panel-title">Server</h2>
+        <p id="server-panel-placeholder">Coming soon.</p>
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>
 

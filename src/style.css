@@ -497,6 +497,28 @@ html.layout-compact .menu-panel {
   border-color: #e3a63c;
 }
 
+#friend-requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto 8px;
+}
+
+.friend-request-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: #eee;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
 .saved-friend-remove {
   color: var(--menu-red, #c9564a);
   font-weight: 700;
@@ -2261,7 +2283,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   background:
     radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.55) 100%),
     var(--grain-texture),
-    rgba(6, 8, 6, 0.9);
+    rgba(6, 8, 6, 0.98);
 }
 
 /* Profile panel - old broken-wood backdrop instead of the flat dark
@@ -3445,7 +3467,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   --menu-gunmetal-dark: #1c1e20;
   --menu-bronze: #8a6d47;
   --menu-orange-glow: #e67e35;
-  --menu-panel-bg: rgba(7, 8, 8, 0.72);
+  --menu-panel-bg: rgba(7, 8, 8, 0.95);
   --menu-panel-border: rgba(138, 109, 71, 0.5);
   --menu-text-dim: rgba(224, 228, 220, 0.62);
   --menu-display-font: 'Bebas Neue', 'Segoe UI', sans-serif;
@@ -4378,7 +4400,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 
 #menu-title-img {
   display: block;
-  width: min(96%, 950px);
+  width: min(96%, 850px);
   height: auto;
   margin: 0 auto;
   filter:
@@ -4417,10 +4439,10 @@ html.theme-lighter #app { filter: brightness(1.25); }
 }
 
 #menu-tagline {
-  margin: 2px 0 7px;
+  margin: 2px 0 4px;
   font-family: var(--menu-display-font);
-  font-size: 22px;
-  letter-spacing: 4px;
+  font-size: 34px;
+  letter-spacing: 4.5px;
   color: var(--menu-olive);
   text-transform: uppercase;
   opacity: 0.95;
@@ -4432,7 +4454,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 }
 
 #menu-subtitle {
-  font-size: 19px;
+  font-size: 29px;
   font-weight: 400;
   opacity: 0.85 !important;
   letter-spacing: 0.3px;
@@ -4538,8 +4560,8 @@ html.theme-lighter #app { filter: brightness(1.25); }
 #menu-hero-stats {
   display: flex;
   align-items: center;
-  gap: 22px;
-  margin: 4px 0 2px;
+  gap: 30px;
+  margin: 3px 0;
 }
 
 .hero-stat {
@@ -4550,7 +4572,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 
 .hero-stat-value {
   font-family: var(--menu-display-font);
-  font-size: 44px;
+  font-size: 68px;
   color: var(--menu-gold);
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -4558,16 +4580,16 @@ html.theme-lighter #app { filter: brightness(1.25); }
 
 .hero-stat-label {
   margin-top: 2px;
-  font-size: 13px;
+  font-size: 18px;
   font-weight: 600;
-  letter-spacing: 1px;
+  letter-spacing: 1.2px;
   text-transform: uppercase;
   color: var(--menu-text-dim);
 }
 
 .hero-stat-divider {
   width: 1px;
-  height: 34px;
+  height: 50px;
   background: rgba(255, 255, 255, 0.15);
 }
 
@@ -4582,7 +4604,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 #play-btn {
   position: relative;
   margin-top: 0;
-  width: min(260px, 50vw);
+  width: min(400px, 56vw);
   aspect-ratio: 1364 / 436;
   padding: 0;
   border: none;
@@ -4664,7 +4686,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 4px;
 }
 
 #quick-mute-btn,
@@ -4719,13 +4741,13 @@ html.theme-lighter #app { filter: brightness(1.25); }
    this one visible button grows, not the 5 other hidden shortcuts that
    still share that base rule. */
 #settings-btn {
-  width: 54px;
-  height: 54px;
+  width: 84px;
+  height: 84px;
 }
 
 #settings-btn svg {
-  width: 26px;
-  height: 26px;
+  width: 40px;
+  height: 40px;
 }
 
 #quick-mute-btn:hover,
@@ -4921,9 +4943,6 @@ html.theme-lighter #app { filter: brightness(1.25); }
   width: 84px;
   height: 84px;
   margin: 10px auto 0;
-  border: 2px solid var(--menu-gold);
-  border-radius: 6px;
-  background: linear-gradient(180deg, rgba(227, 166, 60, 0.1) 0%, rgba(0, 0, 0, 0.3) 100%);
   cursor: grab;
 }
 
@@ -5067,15 +5086,15 @@ html.theme-lighter #app { filter: brightness(1.25); }
   gap: 8px;
 }
 
-/* _applyNavOrder() (Game.js) only sets flex `order` on the 7 user-
-   reorderable buttons (0-6) - #build-mode-btn was never included (it's
+/* _applyNavOrder() (Game.js) only sets flex `order` on the 8 user-
+   reorderable buttons (0-7) - #build-mode-btn was never included (it's
    not part of the Nav Order settings feature), so it defaulted to the
    CSS-initial order:0, tying it with whichever button is currently first
    and visually displacing it there instead of staying put at the end.
    Fixed above the reorderable range so it always renders last regardless
    of how nav order is customized. */
 #build-mode-btn {
-  order: 8;
+  order: 9;
 }
 
 #menu-nav-buttons button {
@@ -5221,6 +5240,13 @@ html.theme-lighter #app { filter: brightness(1.25); }
   background: var(--menu-red);
   border: 2px solid var(--menu-gunmetal-dark);
   border-radius: 50%;
+}
+
+/* Yellow/gold variant - "something you finished/earned" (Quests ready to
+   claim, a new achievement unlocked), distinct from the red variant's
+   "something new/actionable waiting" meaning (Store, Upgrades, Friends). */
+.nav-badge-dot.gold {
+  background: var(--menu-gold);
 }
 
 #menu-boards {
@@ -5433,6 +5459,36 @@ html.theme-lighter #app { filter: brightness(1.25); }
     width: 19px;
     height: 19px;
   }
+
+  /* Same reasoning as the logo/panel pulls-back above - the hero text/
+     stats/Play/Settings enlargement pass only has full headroom above
+     this tier. Midpoint between the full size and the tighter 820px
+     tier below, not the pre-enlargement size. */
+  #menu-tagline {
+    font-size: 32px;
+  }
+
+  #menu-subtitle {
+    font-size: 27px;
+  }
+
+  .hero-stat-value {
+    font-size: 63px;
+  }
+
+  #play-btn {
+    width: min(370px, 58vw);
+  }
+
+  #settings-btn {
+    width: 77px;
+    height: 77px;
+  }
+
+  #settings-btn svg {
+    width: 37px;
+    height: 37px;
+  }
 }
 
 @media (max-height: 820px) {
@@ -5488,6 +5544,54 @@ html.theme-lighter #app { filter: brightness(1.25); }
 
   .menu-hint-line {
     margin-bottom: 0;
+  }
+
+  /* Hero elements (tagline/subtitle/stats/Play/Settings) grew a lot in
+     this pass - still meaningfully bigger than their pre-enlargement
+     size at short heights, just not the full amount, same "shrink
+     before removing" precedent as everything else in this breakpoint. */
+  #menu-tagline {
+    font-size: 30px;
+    margin: 2px 0 3px;
+  }
+
+  #menu-subtitle {
+    font-size: 25px;
+  }
+
+  .hero-stat-value {
+    font-size: 58px;
+  }
+
+  .hero-stat-label {
+    font-size: 16px;
+  }
+
+  .hero-stat-divider {
+    height: 44px;
+  }
+
+  #menu-hero-stats {
+    gap: 26px;
+    margin: 2px 0;
+  }
+
+  #play-btn {
+    width: min(340px, 52vw);
+  }
+
+  #settings-btn {
+    width: 70px;
+    height: 70px;
+  }
+
+  #settings-btn svg {
+    width: 34px;
+    height: 34px;
+  }
+
+  #hero-quick-actions {
+    margin-top: 2px;
   }
 
   /* Profile panel - same "genuinely short windows lose density first"
