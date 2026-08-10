@@ -387,7 +387,9 @@ html.layout-compact .menu-panel {
    homepage, matching this project's "big things go in a panel, homepage
    only gets a tiny trigger icon" pattern from every prior batch. */
 #cloudsave-signed-out,
-#cloudsave-signed-in {
+#cloudsave-signed-in,
+#friends-signed-out,
+#friends-signed-in {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -396,7 +398,8 @@ html.layout-compact .menu-panel {
   text-align: center;
 }
 
-#cloudsave-signed-out-desc {
+#cloudsave-signed-out-desc,
+#friends-signed-out-desc {
   margin: 0;
   font-size: 13px;
   opacity: 0.75;
@@ -2267,6 +2270,8 @@ body.reduce-flashing #critical-blood-overlay.show {
 #credits-panel,
 #howtoplay-panel,
 #cloudsave-panel,
+#friends-panel,
+#menu-inventory-panel,
 #xp-levelup-panel,
 #weapon-picker-panel,
 #pause-overlay,
@@ -2369,6 +2374,8 @@ body.reduce-flashing #critical-blood-overlay.show {
 #credits-panel-title,
 #howtoplay-panel-title,
 #cloudsave-panel-title,
+#friends-panel-title,
+#menu-inventory-panel-title,
 #xp-levelup-panel-title,
 #weapon-picker-panel-title,
 #pause-overlay-title,
@@ -3389,9 +3396,9 @@ body.reduce-flashing #critical-blood-overlay.show {
 /* Backdrop - real photo (ruined night-time city block) with a few
    animated layers over it (slow zoom, flickering embers, light rain) so
    it reads as alive rather than a frozen frame, behind a dark scrim +
-   vignette for text contrast. Sits behind #menu-layout/#menu-cards-row
-   (both get position:relative + a higher z-index below) and never
-   intercepts clicks. */
+   vignette for text contrast. Sits behind #menu-layout (which gets
+   position:relative + a higher z-index below) and never intercepts
+   clicks. */
 #menu-bg {
   position: fixed;
   /* Extends 8px past the viewport on every side (not inset:0) - gives
@@ -4930,15 +4937,15 @@ html.theme-lighter #app { filter: brightness(1.25); }
   gap: 8px;
 }
 
-/* _applyNavOrder() (Game.js) only sets flex `order` on the 5 user-
-   reorderable buttons (0-4) - #build-mode-btn was never included (it's
+/* _applyNavOrder() (Game.js) only sets flex `order` on the 7 user-
+   reorderable buttons (0-6) - #build-mode-btn was never included (it's
    not part of the Nav Order settings feature), so it defaulted to the
    CSS-initial order:0, tying it with whichever button is currently first
    and visually displacing it there instead of staying put at the end.
    Fixed above the reorderable range so it always renders last regardless
    of how nav order is customized. */
 #build-mode-btn {
-  order: 6;
+  order: 8;
 }
 
 #menu-nav-buttons button {
@@ -5090,53 +5097,6 @@ html.theme-lighter #app { filter: brightness(1.25); }
   gap: 8px;
   max-height: 260px;
   overflow-y: auto;
-}
-
-/* ---- Bottom row: Game Modes / Challenges / Mutators cards ---- */
-/* Used to be a 3-column grid (Game Modes/Challenges/Mutators) - those
-   moved into the Hub panel (see #hub-panel), leaving just the one Credits
-   summary card, so this now centers a single card instead of stretching
-   it across 3 grid tracks. */
-#menu-cards-row {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  justify-content: center;
-  width: 100%;
-  max-width: 1500px;
-  margin: 0 auto;
-}
-
-#credits-summary-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  max-width: 420px;
-  font-family: inherit;
-  cursor: pointer;
-}
-
-#credits-summary-card svg {
-  width: 26px;
-  height: 26px;
-  color: var(--menu-gold);
-  margin-bottom: 2px;
-}
-
-#credits-summary-title {
-  font-family: var(--menu-display-font);
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: 1.2px;
-  color: var(--menu-gold);
-  text-transform: uppercase;
-}
-
-#credits-summary-desc {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.65);
 }
 
 /* Hub panel - Game Modes/Challenges/Mutators, moved here from the

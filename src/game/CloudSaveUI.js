@@ -80,6 +80,12 @@ export function renderCloudSaveState(game) {
     game.cloudsaveSigninBtn.textContent = t('cloudsaveSigninBtn')
     game.cloudsaveSigninBtn.disabled = !CloudSync.isConfigured()
   }
+  // Friends panel - the Compare-with-a-Friend feature (see Game.js's
+  // _openFriendsPanel) needs the same Cloud Save account, so it mirrors
+  // this exact signed-in toggle rather than tracking its own state.
+  if (game.friendsSignedOut) game.friendsSignedOut.style.display = signedIn ? 'none' : 'flex'
+  if (game.friendsSignedIn) game.friendsSignedIn.style.display = signedIn ? 'flex' : 'none'
+  if (game.friendsSigninBtn) game.friendsSigninBtn.disabled = !CloudSync.isConfigured()
   if (!signedIn) return
   if (game.cloudsaveAvatar) game.cloudsaveAvatar.src = game._cloudProfile.picture || ''
   if (game.cloudsaveAccountName) game.cloudsaveAccountName.textContent = game._cloudProfile.name || game._cloudProfile.email || ''

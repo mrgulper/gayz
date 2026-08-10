@@ -18,7 +18,7 @@
     <div id="app">
       <canvas id="scene"></canvas>
 
-      <button id="build-mode-exit-btn" style="display: none">Exit Build Mode</button>
+      <button id="build-mode-exit-btn" style="display: none">Exit Map Editor</button>
       <button id="build-mode-save-btn" style="display: none">Save</button>
       <button id="build-mode-export-btn" style="display: none">Export Map</button>
       <button id="build-mode-import-btn" style="display: none">Import Map</button>
@@ -433,6 +433,14 @@
                 <span class="nav-count" id="quests-nav-count"></span>
                 <span class="nav-completion-ring" id="quests-completion-ring" aria-hidden="true"></span>
               </button>
+              <button id="friends-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <span>Friends</span>
+              </button>
+              <button id="menu-inventory-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 8H4a1 1 0 0 0-1 1v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a1 1 0 0 0-1-1z"/><path d="M16 8V6a4 4 0 0 0-8 0v2"/></svg>
+                <span>Inventory</span>
+              </button>
               <button id="achievements-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0z"/><path d="M7 5H4a1 1 0 0 0-1 1c0 3 2 5 4.5 5.3M17 5h3a1 1 0 0 1 1 1c0 3-2 5-4.5 5.3"/></svg>
                 <span>Achievements</span>
@@ -441,7 +449,7 @@
               </button>
               <button id="build-mode-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                <span>Build</span>
+                <span>Map Editor</span>
               </button>
             </nav>
 
@@ -463,14 +471,6 @@
               <div id="menu-hardcore-memorial" style="display: none"></div>
             </div>
           </div>
-        </div>
-
-        <div id="menu-cards-row">
-          <button id="credits-summary-card" class="menu-card" type="button">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
-            <span id="credits-summary-title">Credits &amp; What's New</span>
-            <span id="credits-summary-desc">See the latest changes and who made this.</span>
-          </button>
         </div>
       </div>
 
@@ -1075,7 +1075,7 @@
           </section>
 
           <section class="hub-section">
-            <h3 class="hub-section-title">Challenges</h3>
+            <h3 class="hub-section-title">Challenges &amp; Mutators</h3>
             <div class="hub-section-list">
               <label class="mode-toggle" for="hardcore-toggle">
                 <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="7"/><circle cx="9" cy="9" r="1.2" fill="currentColor"/><circle cx="15" cy="9" r="1.2" fill="currentColor"/><path d="M9 17v3M15 17v3M10 14h4"/></svg>
@@ -1102,12 +1102,6 @@
                 <input type="checkbox" id="mutator-iron-mode" />
                 <span id="mutator-iron-mode-label">Iron Mode (no Trader or Coin Shop spending)</span>
               </label>
-            </div>
-          </section>
-
-          <section class="hub-section">
-            <h3 class="hub-section-title">Mutators</h3>
-            <div class="hub-section-list">
               <label class="mode-toggle" for="mutator-health-regen">
                 <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
                 <input type="checkbox" id="mutator-health-regen" />
@@ -1377,21 +1371,37 @@
             <h3 id="cloudsave-weekly-leaderboard-title">Weekly Challenge Ranking</h3>
             <div id="cloudsave-weekly-leaderboard-list"></div>
 
-            <h3 id="cloudsave-friend-title">Compare with a Friend</h3>
-            <div id="cloudsave-saved-friends"></div>
-            <div id="cloudsave-friend-row">
-              <input type="text" id="cloudsave-friend-input" class="nickname-input" placeholder="Friend's nickname" maxlength="16" />
-              <button id="cloudsave-friend-compare-btn">Compare</button>
-              <button id="cloudsave-friend-save-btn" aria-label="Save friend">+</button>
-            </div>
-            <p id="cloudsave-friend-result"></p>
-            <button id="cloudsave-random-opponent-btn">Compare vs Random Top Player</button>
-
             <h3 id="cloudsave-poll-title"></h3>
             <div id="cloudsave-poll-options"></div>
             <p id="cloudsave-poll-hint"></p>
           </div>
         </div>
+        <p class="panel-close-hint">Click anywhere to close</p>
+      </div>
+
+      <div id="friends-panel">
+        <h2 id="friends-panel-title">Friends</h2>
+        <div id="friends-signed-out">
+          <p id="friends-signed-out-desc">Sign in with Google (via Cloud Save) to compare stats with friends.</p>
+          <button id="friends-signin-btn">Sign in with Google</button>
+        </div>
+        <div id="friends-signed-in" style="display: none">
+          <h3 id="cloudsave-friend-title">Compare with a Friend</h3>
+          <div id="cloudsave-saved-friends"></div>
+          <div id="cloudsave-friend-row">
+            <input type="text" id="cloudsave-friend-input" class="nickname-input" placeholder="Friend's nickname" maxlength="16" />
+            <button id="cloudsave-friend-compare-btn">Compare</button>
+            <button id="cloudsave-friend-save-btn" aria-label="Save friend">+</button>
+          </div>
+          <p id="cloudsave-friend-result"></p>
+          <button id="cloudsave-random-opponent-btn">Compare vs Random Top Player</button>
+        </div>
+        <p class="panel-close-hint">Click anywhere to close</p>
+      </div>
+
+      <div id="menu-inventory-panel">
+        <h2 id="menu-inventory-panel-title">Inventory</h2>
+        <p id="menu-inventory-placeholder">Coming soon.</p>
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>
 

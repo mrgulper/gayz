@@ -352,7 +352,7 @@ function loadSettings() {
       pinnedStat: parsed.pinnedStat || null,
       companionNameColor: parsed.companionNameColor || null,
       pinnedPreset: Number.isInteger(parsed.pinnedPreset) ? parsed.pinnedPreset : null,
-      navOrder: Array.isArray(parsed.navOrder) && parsed.navOrder.length === 5 ? parsed.navOrder : ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'quests-btn', 'achievements-btn'],
+      navOrder: Array.isArray(parsed.navOrder) && parsed.navOrder.length === 7 ? parsed.navOrder : ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'],
       bioPresets: Array.isArray(parsed.bioPresets) ? parsed.bioPresets.slice(0, 3) : [],
       // Third features batch - Accessibility group.
       uiFont: parsed.uiFont || 'default',
@@ -399,7 +399,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'quests-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -4050,11 +4050,19 @@ export class Game {
     this.hubBtn = document.getElementById('hub-btn')
     this.hubPanel = document.getElementById('hub-panel')
     this.hubPanelTitle = document.getElementById('hub-panel-title')
-    this.creditsSummaryCard = document.getElementById('credits-summary-card')
-    this.creditsSummaryTitle = document.getElementById('credits-summary-title')
-    this.creditsSummaryDesc = document.getElementById('credits-summary-desc')
     this.rulesInfoLink = document.getElementById('nav-rules-link')
     this.whatsNewLink = document.getElementById('nav-whatsnew-link')
+    this.friendsBtn = document.getElementById('friends-btn')
+    this.friendsPanel = document.getElementById('friends-panel')
+    this.friendsPanelTitle = document.getElementById('friends-panel-title')
+    this.friendsSignedOut = document.getElementById('friends-signed-out')
+    this.friendsSignedOutDesc = document.getElementById('friends-signed-out-desc')
+    this.friendsSigninBtn = document.getElementById('friends-signin-btn')
+    this.friendsSignedIn = document.getElementById('friends-signed-in')
+    this.menuInventoryBtn = document.getElementById('menu-inventory-btn')
+    this.menuInventoryPanel = document.getElementById('menu-inventory-panel')
+    this.menuInventoryPanelTitle = document.getElementById('menu-inventory-panel-title')
+    this.menuInventoryPlaceholder = document.getElementById('menu-inventory-placeholder')
     this.achievementsBtn = document.getElementById('achievements-btn')
     this.achievementsPanel = document.getElementById('achievements-panel')
     this.achievementsPanelTitle = document.getElementById('achievements-panel-title')
@@ -7330,9 +7338,11 @@ export class Game {
       if (btn && !btn.disabled) this._claimRollingQuest(Number(btn.dataset.spawnedAt))
     })
     if (this.hubBtn) this.hubBtn.addEventListener('click', () => trackAndOpen(() => this._openHubPanel()))
-    if (this.creditsSummaryCard) this.creditsSummaryCard.addEventListener('click', () => trackAndOpen(() => this._openCreditsPanel()))
     if (this.rulesInfoLink) this.rulesInfoLink.addEventListener('click', () => this._openHowToPlayPanel())
     if (this.whatsNewLink) this.whatsNewLink.addEventListener('click', () => trackAndOpen(() => this._openCreditsPanel()))
+    if (this.friendsBtn) this.friendsBtn.addEventListener('click', () => trackAndOpen(() => this._openFriendsPanel()))
+    if (this.friendsSigninBtn) this.friendsSigninBtn.addEventListener('click', () => this._handleCloudSignIn())
+    if (this.menuInventoryBtn) this.menuInventoryBtn.addEventListener('click', () => trackAndOpen(() => this._openMenuInventoryPanel()))
     this.achievementsBtn.addEventListener('click', () => trackAndOpen(() => this._openAchievementsPanel()))
     if (this.achievementsFilterInput) {
       this.achievementsFilterInput.addEventListener('click', (e) => e.stopPropagation())
@@ -7482,6 +7492,16 @@ export class Game {
     if (this.hubPanel) {
       this.hubPanel.addEventListener('click', (e) => {
         if (e.target === this.hubPanel) this._closeHubPanel()
+      })
+    }
+    if (this.friendsPanel) {
+      this.friendsPanel.addEventListener('click', (e) => {
+        if (e.target === this.friendsPanel) this._closeFriendsPanel()
+      })
+    }
+    if (this.menuInventoryPanel) {
+      this.menuInventoryPanel.addEventListener('click', (e) => {
+        if (e.target === this.menuInventoryPanel) this._closeMenuInventoryPanel()
       })
     }
     this.profilePanel.addEventListener('click', (e) => {
@@ -7749,7 +7769,7 @@ export class Game {
   // structure, so every button's own click listener/id/state is untouched.
   _renderNavOrderList() {
     if (!this.navOrderList) return
-    const labels = { 'hub-btn': t('navOrderHub'), 'coinshop-btn': t('navOrderShop'), 'upgrades-btn': t('navOrderUpgrades'), 'quests-btn': t('navOrderQuests'), 'achievements-btn': t('navOrderAchievements') }
+    const labels = { 'hub-btn': t('navOrderHub'), 'coinshop-btn': t('navOrderShop'), 'upgrades-btn': t('navOrderUpgrades'), 'quests-btn': t('navOrderQuests'), 'friends-btn': t('navOrderFriends'), 'menu-inventory-btn': t('navOrderInventory'), 'achievements-btn': t('navOrderAchievements') }
     this.navOrderList.innerHTML = this.settings.navOrder.map((id, i) => `
       <div class="nav-order-row" data-id="${id}">
         <span>${labels[id] || id}</span>
@@ -10610,12 +10630,12 @@ export class Game {
     this.achievementsPanel.style.display = 'none'
   }
 
-  // Game Modes/Challenges/Mutators - used to be 3 cards directly on the
-  // homepage (#menu-cards-row), moved into their own panel to make room
-  // for the Credits summary card that replaced them there. Purely static
-  // toggle content (every checkbox already has its own change listener
-  // bound elsewhere, same elements/ids, just relocated) - no render step
-  // needed on open, unlike Achievements/Upgrades.
+  // Difficulty/Choose Class/Game Modes/Challenges & Mutators - used to be
+  // spread across the homepage's left column and #menu-cards-row, moved
+  // into their own panel instead. Purely static toggle content (every
+  // control already has its own change listener bound elsewhere, same
+  // elements/ids, just relocated) - no render step needed on open, unlike
+  // Achievements/Upgrades.
   _openHubPanel() {
     if (!this.hubPanel) return
     this.hubPanel.style.display = 'flex'
@@ -10624,6 +10644,37 @@ export class Game {
 
   _closeHubPanel() {
     if (this.hubPanel) this.hubPanel.style.display = 'none'
+  }
+
+  // Friends - the existing Compare-with-a-Friend feature (see CloudSaveUI's
+  // renderCloudSaveState, which toggles friendsSignedOut/friendsSignedIn
+  // alongside the Cloud Save panel's own signed-in state), moved here from
+  // inside the Cloud Save panel so it's a first-class nav destination.
+  // Same underlying settings.savedFriends/CloudSync lookups, just relocated
+  // markup - no behavior change to the feature itself.
+  _openFriendsPanel() {
+    if (!this.friendsPanel) return
+    this.friendsPanel.style.display = 'flex'
+    if (this.friendsPanelTitle) this.friendsPanelTitle.textContent = t('friendsPanelTitle')
+  }
+
+  _closeFriendsPanel() {
+    if (this.friendsPanel) this.friendsPanel.style.display = 'none'
+  }
+
+  // Inventory - homepage placeholder only for now, no functionality yet
+  // (distinct from the in-game Tab inventory - #inventory-panel - which
+  // already exists and does something different: managing the run's
+  // equipped weapons/hotbar mid-game).
+  _openMenuInventoryPanel() {
+    if (!this.menuInventoryPanel) return
+    this.menuInventoryPanel.style.display = 'flex'
+    if (this.menuInventoryPanelTitle) this.menuInventoryPanelTitle.textContent = t('menuInventoryPanelTitle')
+    if (this.menuInventoryPlaceholder) this.menuInventoryPlaceholder.textContent = t('menuInventoryPlaceholder')
+  }
+
+  _closeMenuInventoryPanel() {
+    if (this.menuInventoryPanel) this.menuInventoryPanel.style.display = 'none'
   }
 
   _renderBestiaryPanel() {
@@ -10699,10 +10750,12 @@ export class Game {
     this.achievementsBtn.querySelector('span').textContent = t('achievementsBtn')
     this.coinshopBtn.querySelector('span').textContent = t('coinshopBtn')
     if (this.hubBtn) this.hubBtn.querySelector('span').textContent = t('hubBtn')
-    if (this.creditsSummaryTitle) this.creditsSummaryTitle.textContent = t('creditsPanelTitle')
-    if (this.creditsSummaryDesc) this.creditsSummaryDesc.textContent = t('creditsSummaryDesc')
     if (this.rulesInfoLink) this.rulesInfoLink.querySelector('span').textContent = t('navLinkRules')
     if (this.whatsNewLink) this.whatsNewLink.querySelector('span').textContent = t('navLinkWhatsNew')
+    if (this.friendsBtn) this.friendsBtn.querySelector('span').textContent = t('friendsBtn')
+    if (this.friendsSignedOutDesc) this.friendsSignedOutDesc.textContent = t('friendsSignedOutDesc')
+    if (this.friendsSigninBtn) this.friendsSigninBtn.textContent = t('cloudsaveSigninBtn')
+    if (this.menuInventoryBtn) this.menuInventoryBtn.querySelector('span').textContent = t('menuInventoryBtn')
     document.getElementById('stats-coins-label').textContent = t('coinsStatLabel')
 
     document.getElementById('ctrl-line-1').innerHTML = tHtml('ctrlLine1')
@@ -11758,16 +11811,15 @@ export class Game {
   // ticker/weekly mutator lines above are variable-length text, so how
   // much clearance actually exists shifts with them - this measures the
   // real gap between the hero column's true end (with play-btn briefly
-  // popped out of flow) and the game-mode cards row below it, live.
-  // Uses #settings-btn (not #controls-list/#round-mode-hint, both
+  // popped out of flow) and the bottom of the viewport, live. Uses
+  // #settings-btn (not #controls-list/#round-mode-hint, both
   // display:none now that the instructional text was removed from the
   // visible menu) as the "last visible hero element" reference - a
   // display:none element's getBoundingClientRect() is always all-zero,
   // which would silently make this measurement meaningless.
   _updatePlayBtnCentering() {
     const settingsBtn = document.getElementById('settings-btn')
-    const cardsRow = document.getElementById('menu-cards-row')
-    if (!this.playBtn || !settingsBtn || !cardsRow) return
+    if (!this.playBtn || !settingsBtn) return
 
     this.playBtn.classList.remove('play-btn-centered')
     const btnHeight = this.playBtn.getBoundingClientRect().height
@@ -11777,7 +11829,7 @@ export class Game {
     const safeTop = settingsBtn.getBoundingClientRect().bottom
     this.playBtn.style.display = prevDisplay
 
-    const safeBottom = cardsRow.getBoundingClientRect().top
+    const safeBottom = window.innerHeight
     const centerY = window.innerHeight / 2
     const margin = 20
     const fits = (centerY - btnHeight / 2) > (safeTop + margin) && (centerY + btnHeight / 2) < (safeBottom - margin)
