@@ -3993,17 +3993,20 @@ html.theme-lighter #app { filter: brightness(1.25); }
   position: relative;
   z-index: 1;
   display: grid;
-  /* Side columns pulled back in (were 400px each, briefly widened from an
-     original 290px to use more of the screen on wide monitors) - the nav
-     column in particular was reported as taking too much space. Left and
-     right stay equal width on purpose (see the hero-centering note below)
-     even though only the right column's content was flagged, since an
-     asymmetric grid re-breaks that fix. Grid's own max-width still caps
-     this on narrower screens (it never forces horizontal overflow, just
-     uses less than the cap when the viewport is narrower) - re-verify
+  /* Side columns pulled back in further (were 400px each, briefly widened
+     from an original 290px to use more of the screen on wide monitors,
+     then 280px - the nav column was reported as still too wide even at
+     that size, and the small pill link row that used to live at the
+     bottom of this column moved into the hero column instead, so there's
+     less content to make room for here too). Left and right stay equal
+     width on purpose (see the hero-centering note below) even though
+     only the right column's content was flagged, since an asymmetric
+     grid re-breaks that fix. Grid's own max-width still caps this on
+     narrower screens (it never forces horizontal overflow, just uses
+     less than the cap when the viewport is narrower) - re-verify
      zero-scroll at the 4 tracked heights after any further change here,
      same as every prior sizing round in this section. */
-  grid-template-columns: 280px minmax(360px, 1000px) 280px;
+  grid-template-columns: 240px minmax(360px, 1000px) 240px;
   justify-content: center;
   gap: 24px;
   align-items: start;
@@ -4917,7 +4920,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 #setup-avatar-wrap {
   width: 84px;
   height: 84px;
-  margin: 0 auto 8px;
+  margin: 10px auto 0;
   border: 2px solid var(--menu-gold);
   border-radius: 6px;
   background: linear-gradient(180deg, rgba(227, 166, 60, 0.1) 0%, rgba(0, 0, 0, 0.3) 100%);
@@ -5079,11 +5082,11 @@ html.theme-lighter #app { filter: brightness(1.25); }
   position: relative;
   display: flex;
   align-items: center;
-  gap: 20px;
-  padding: 22px 30px;
-  font-size: 21px;
+  gap: 12px;
+  padding: 14px 16px;
+  font-size: 15px;
   font-weight: 600;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.6px;
   text-transform: uppercase;
   color: #d8dcd2;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 50%), var(--menu-gunmetal-dark);
@@ -5096,8 +5099,8 @@ html.theme-lighter #app { filter: brightness(1.25); }
 }
 
 #menu-nav-buttons button svg {
-  width: 36px;
-  height: 36px;
+  width: 24px;
+  height: 24px;
   flex-shrink: 0;
   color: var(--menu-gold);
 }
@@ -5153,8 +5156,10 @@ html.theme-lighter #app { filter: brightness(1.25); }
   flex-direction: row;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 3px 0;
   padding: 6px 4px;
+  margin-top: 8px;
   background: var(--menu-gunmetal-dark);
   border: 1px solid var(--menu-panel-border);
   border-radius: 999px;
@@ -5390,17 +5395,6 @@ html.theme-lighter #app { filter: brightness(1.25); }
   .class-icon {
     width: 18px;
     height: 18px;
-  }
-
-  #menu-nav-buttons button {
-    gap: 14px;
-    padding: 16px 22px;
-    font-size: 15px;
-  }
-
-  #menu-nav-buttons button svg {
-    width: 26px;
-    height: 26px;
   }
 
   .stat-row {
