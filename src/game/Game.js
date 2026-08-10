@@ -1849,25 +1849,6 @@ const CHANGELOG_LAST_VIEWED_KEY = 'gayz-changelog-last-viewed'
 const KILL_MILESTONES = [1000, 5000, 10000, 25000, 50000, 100000]
 const KILL_MILESTONES_SEEN_KEY = 'gayz-kill-milestones-seen'
 const HOWTOPLAY_STEPS = ['htpMove', 'htpShoot', 'htpInventory', 'htpChests', 'htpSurvive']
-const SCREENSHOT_GALLERY_KEY = 'gayz-screenshot-gallery'
-
-function _loadScreenshotGallery() {
-  try {
-    const raw = localStorage.getItem(SCREENSHOT_GALLERY_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch {
-    return []
-  }
-}
-
-function _saveScreenshotGallery(list) {
-  try {
-    localStorage.setItem(SCREENSHOT_GALLERY_KEY, JSON.stringify(list))
-  } catch {
-    // Storage unavailable (or quota exceeded by the data-URL thumbnails) -
-    // the gallery just won't persist across sessions.
-  }
-}
 
 // Nearly There nudge (Profile panel) - deliberately a small curated list,
 // not every achievement: most ACHIEVEMENTS conditions are per-run counters
@@ -2949,9 +2930,6 @@ export class Game {
     }
     this.eventBanner = document.getElementById('event-banner')
     this.whatsNewDot = document.getElementById('whats-new-dot')
-    this.profileScreenshotGallery = document.getElementById('profile-screenshot-gallery')
-    this.profileGalleryTitle = document.getElementById('profile-gallery-title')
-    this.menuScreenshotGallery = document.getElementById('menu-screenshot-gallery')
     // Second Homepage batch - login streak badge, nav completion rings,
     // season-progress countdown label, Player Title picker, Nearly There
     // nudge, Weekly Recap, Recent Activity feed, and the 2 new quick-action
@@ -2978,9 +2956,6 @@ export class Game {
     this.profileBestRunLine = document.getElementById('profile-best-run-line')
     this.profileCreatedTitle = document.getElementById('profile-created-title')
     this.profileCreatedLine = document.getElementById('profile-created-line')
-    this.profileWeeklyRecapTitle = document.getElementById('profile-weekly-recap-title')
-    this.profileWeeklyRecapLine = document.getElementById('profile-weekly-recap-line')
-    this.profileWeeklyDeltaLine = document.getElementById('profile-weekly-delta-line')
     this.profileAccountSignedOut = document.getElementById('profile-account-signed-out')
     this.profileAccountSignedIn = document.getElementById('profile-account-signed-in')
     this.profileLoginBtn = document.getElementById('profile-login-btn')
@@ -5405,11 +5380,6 @@ export class Game {
     ctx.font = `${Math.max(10, Math.round(canvas.width * 0.015))}px sans-serif`
     ctx.fillText('GayZ', canvas.width - 8, canvas.height - 8)
     ctx.textAlign = 'left'
-
-    // Screenshot Gallery (Profile panel) - every save/copy also stores a
-    // small thumbnail, regardless of mode, so the gallery reflects both
-    // download and clipboard-copy screenshots.
-    this._pushGalleryThumbnail(canvas.toDataURL('image/png'))
 
     if (mode === 'clipboard') {
       if (!navigator.clipboard || !window.ClipboardItem) {
@@ -11586,51 +11556,6 @@ export class Game {
     }
   }
 
-  // Screenshot Gallery (Profile panel) - the existing screenshot tool only
-  // ever downloads/copies to clipboard (see CLAUDE.md's duplicate-audit),
-  // never keeps anything retrievable in-app. This stores a small downscaled
-  // thumbnail (not the full-res capture, to keep localStorage cheap)
-  // alongside every save, capped to the last 3.
-  _pushGalleryThumbnail(fullDataUrl) {
-    try {
-      const img = new Image()
-      img.onload = () => {
-        const canvas = document.createElement('canvas')
-        canvas.width = 160
-        canvas.height = Math.round((160 * img.height) / img.width)
-        const ctx = canvas.getContext('2d')
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-        const thumb = canvas.toDataURL('image/jpeg', 0.7)
-        const gallery = _loadScreenshotGallery()
-        gallery.unshift(thumb)
-        _saveScreenshotGallery(gallery.slice(0, 3))
-        this._renderScreenshotGallery()
-      }
-      img.src = fullDataUrl
-    } catch {
-      // Best-effort only - a failed thumbnail never blocks the actual save/copy.
-    }
-  }
-
-  _renderScreenshotGallery() {
-    const gallery = _loadScreenshotGallery()
-    if (this.profileGalleryTitle) this.profileGalleryTitle.style.display = gallery.length ? '' : 'none'
-    // Homepage preview strip (see #menu-screenshot-gallery) mirrors the same
-    // gallery array - kept at display:none whenever empty (most players,
-    // most of the time) so it costs zero homepage space until earned.
-    if (this.menuScreenshotGallery) this.menuScreenshotGallery.style.display = gallery.length ? '' : 'none'
-    for (const el of [this.profileScreenshotGallery, this.menuScreenshotGallery]) {
-      if (!el) continue
-      el.innerHTML = ''
-      for (const thumb of gallery) {
-        const img = document.createElement('img')
-        img.src = thumb
-        img.alt = t('galleryThumbnailAlt')
-        el.appendChild(img)
-      }
-    }
-  }
-
   // Homepage batch - every quick-action/one-shot listener that isn't
   // already covered by an existing _bindX() method (difficulty/loadout/
   // role buttons keep their own _bindDifficulty/_bindLoadout/
@@ -11790,7 +11715,6 @@ export class Game {
       })
     }
 
-    this._renderScreenshotGallery()
     this._updateEventBanner()
   }
 
@@ -13528,7 +13452,6 @@ export class Game {
     this._renderProfileAccountRow()
     this._updateBestStatsDisplay()
     this._renderNearlyThereNudge()
-    this._renderWeeklyRecap()
     this._renderAnniversaryLine()
     this._renderProfileCreated()
     this._renderTodayLine()
@@ -13865,42 +13788,6 @@ export class Game {
         </div>
       `
     }).join('')
-  }
-
-  // Weekly Recap - aggregates runHistory entries from the last 7 real days
-  // (rolling window, not calendar-week-aligned like WEEKLY_CHALLENGES) -
-  // pure derived display, no new tracking, same reasoning as
-  // _openProfilePanel's completionPct.
-  _renderWeeklyRecap() {
-    if (!this.profileWeeklyRecapLine) return
-    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000
-    const recent = this.runHistory.filter((r) => _safeStatNumber(r.ts) >= cutoff)
-    this.profileWeeklyRecapTitle.style.display = ''
-    this.profileWeeklyRecapTitle.textContent = t('weeklyRecapTitle')
-    this.profileWeeklyRecapLine.style.display = ''
-    if (recent.length === 0) {
-      this.profileWeeklyRecapLine.textContent = t('weeklyRecapEmpty')
-      return
-    }
-    const kills = recent.reduce((sum, r) => sum + _safeStatNumber(r.kills), 0)
-    const bestNight = recent.reduce((max, r) => Math.max(max, _safeStatNumber(r.night)), 0)
-    this.profileWeeklyRecapLine.textContent = t('weeklyRecapLine', { kills, runs: recent.length, night: bestNight })
-    // "vs last week" delta - the same rolling-7-day window one step back
-    // (days 8-14 ago), bounded by RUN_HISTORY_MAX same as everything else
-    // reading runHistory, so a very inactive stretch may show no prior-
-    // week data at all rather than a misleading zero.
-    if (this.profileWeeklyDeltaLine) {
-      const priorCutoffStart = Date.now() - 14 * 24 * 60 * 60 * 1000
-      const prior = this.runHistory.filter((r) => _safeStatNumber(r.ts) >= priorCutoffStart && _safeStatNumber(r.ts) < cutoff)
-      if (prior.length === 0) {
-        this.profileWeeklyDeltaLine.style.display = 'none'
-      } else {
-        const priorKills = prior.reduce((sum, r) => sum + _safeStatNumber(r.kills), 0)
-        const delta = kills - priorKills
-        this.profileWeeklyDeltaLine.textContent = t('weeklyDeltaLine', { delta: delta >= 0 ? `+${delta}` : delta })
-        this.profileWeeklyDeltaLine.style.display = ''
-      }
-    }
   }
 
   // Profile panel account row - Login/Register when signed out, Sign Out

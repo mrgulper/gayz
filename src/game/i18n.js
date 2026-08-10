@@ -853,7 +853,6 @@ const STRINGS = {
     highlightReelHeading: 'Highlight Reel',
     highlightReelEmpty: 'Play a few runs to build your highlight reel.',
     cloudsaveNearbyRankTitle: 'Your Nearby Rank',
-    weeklyDeltaLine: '{delta} kills vs. last week',
     recentlyChangedLabel: 'Changed this session: {list}',
     undoSettingsBtn: 'Undo All Changes This Session',
     keybindsCodeCopied: 'Keybinds code copied!',
@@ -1133,7 +1132,6 @@ const STRINGS = {
     htpChests: '**F** opens chests. Look for lookout platforms up staircases along the avenue.',
     htpSurvive: 'Use **H** for a health pack and **G** for an armor pack. Survive until dawn!',
     showcaseSlotEmpty: 'Empty slot - click to pin an unlocked achievement',
-    galleryThumbnailAlt: 'Saved screenshot thumbnail',
     // Second Homepage batch.
     seasonProgressLabel: '{n} kills to {rank}',
     loginStreakBadge: 'Streak: {n}',
@@ -1146,9 +1144,6 @@ const STRINGS = {
     profileBioHeading: 'Bio',
     profileBioPlaceholder: 'Say something about yourself...',
     nearlyThereLine: '{current}/{total} toward "{title}"',
-    weeklyRecapTitle: 'This Week',
-    weeklyRecapEmpty: "You haven't played this week yet.",
-    weeklyRecapLine: '{kills} kills across {runs} runs - best Night {night}',
     recentActivityTitle: 'Recent Unlocks',
     recentActivityEmpty: 'No achievements unlocked yet.',
     // Cloud Save (Google Sign-In + Drive appDataFolder, see CloudSync.js).
