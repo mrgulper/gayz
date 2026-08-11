@@ -4086,9 +4086,21 @@ html.theme-lighter #app { filter: brightness(1.25); }
    Stream-Safe/Photo Mode - see _updateStreamSafeVisibility/
    _setPhotoModeHudHidden) sits at the true top-left of the screen. Nothing
    used to be there on the old centered-title menu; this panel is now the
-   first thing in that corner, so give it enough clearance not to overlap. */
+   first thing in that corner, so give it enough clearance not to overlap.
+   align-self:stretch overrides #menu-layout's grid-level align-items:start
+   just for this column (the nav sidebar on the right stays top-aligned,
+   unaffected) - without it, this column's own box is only as tall as its
+   content, so justify-content:flex-end below would have no extra space to
+   push against. Stretching it to the full row height (set by the taller
+   hero column) then bottom-aligning the Player showcase inside it is what
+   lands the avatar's feet near the bottom of the page instead of glued to
+   the top - and it's self-adjusting across every tracked viewport height,
+   not a hardcoded margin guess. */
 #menu-col-left {
   padding-top: 2px;
+  padding-left: 12px;
+  align-self: stretch;
+  justify-content: flex-end;
 }
 
 .menu-panel {
@@ -5001,10 +5013,13 @@ html.theme-lighter #app { filter: brightness(1.25); }
   content: none;
 }
 
+/* Centered as a unit (name + pencil together) rather than space-between's
+   name-left/pencil-right split, so "PLAYER" reads as a nameplate centered
+   above the character instead of pinned to the column's left edge. */
 #player-showcase-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 8px;
 }
 
