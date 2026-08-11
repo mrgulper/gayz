@@ -432,7 +432,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -1907,7 +1907,6 @@ const HOWTOPLAY_STEPS = ['htpMove', 'htpShoot', 'htpInventory', 'htpChests', 'ht
 // at their own unlock() call sites in _onZombieKilled/the outfit-buy
 // handler).
 const NEARLY_THERE_CANDIDATES = [
-  { achievementId: 'bestiary_master', current: (g) => g.bestiaryEncountered.size, total: (g) => Object.keys(ZOMBIE_TYPES).length },
   { achievementId: 'fashion_icon', current: (g) => g.ownedOutfits.size, total: (g) => COIN_SHOP_ITEMS.filter((i) => i.outfit).length },
 ]
 
@@ -3007,12 +3006,6 @@ export class Game {
     // nudge, Weekly Recap, Recent Activity feed, and the 2 new quick-action
     // icons (performance/language).
     this.menuLoginStreak = document.getElementById('menu-login-streak')
-    this.achievementsCompletionRing = document.getElementById('achievements-completion-ring')
-    this.cosmeticsCompletionRing = document.getElementById('cosmetics-completion-ring')
-    this.questsCompletionRing = document.getElementById('quests-completion-ring')
-    this.cosmeticsNavCount = document.getElementById('cosmetics-nav-count')
-    this.achievementsNavCount = document.getElementById('achievements-nav-count')
-    this.questsNavCount = document.getElementById('quests-nav-count')
     this.seasonProgressLabel = document.getElementById('season-progress-label')
     this.profileBioHeading = document.getElementById('profile-bio-heading')
     this.profileBioInput = document.getElementById('profile-bio-input')
@@ -3020,8 +3013,6 @@ export class Game {
     this.profileNearlyThereList = document.getElementById('profile-nearly-there-list')
     this.profileAnniversaryLine = document.getElementById('profile-anniversary-line')
     this.profileTodayLine = document.getElementById('profile-today-line')
-    this.profilePercentileLine = document.getElementById('profile-percentile-line')
-    this.profilePercentileBar = document.getElementById('profile-percentile-bar')
     this.profileFavoriteDifficultyLine = document.getElementById('profile-favorite-difficulty-line')
     this.profileBestRunCard = document.getElementById('profile-best-run-card')
     this.profileBestRunTitle = document.getElementById('profile-best-run-title')
@@ -4186,9 +4177,6 @@ export class Game {
     this.shopSpendingLogHeading = document.getElementById('shop-spending-log-heading')
     this.shopSpendingLogList = document.getElementById('shop-spending-log-list')
     this.buildSessionIdLine = document.getElementById('build-session-id-line')
-    this.diagnosticsHeading = document.getElementById('diagnostics-heading')
-    this.diagnosticsLine = document.getElementById('diagnostics-line')
-    this.copyDiagnosticsBtn = document.getElementById('copy-diagnostics-btn')
     this.coinshopBtn = document.getElementById('coinshop-btn')
     this.coinshopPanel = document.getElementById('coinshop-panel')
     this.coinshopPanelTitle = document.getElementById('coinshop-panel-title')
@@ -7508,14 +7496,6 @@ export class Game {
     }
     if (this.profileCareerPortraitBtn) this.profileCareerPortraitBtn.addEventListener('click', () => this._generateCareerPortrait())
     if (this.profilePrintBtn) this.profilePrintBtn.addEventListener('click', () => this._printProfile())
-    if (this.copyDiagnosticsBtn) {
-      this.copyDiagnosticsBtn.addEventListener('click', () => {
-        if (!navigator.clipboard) { this._showLoreToast(t('clipboardCopyUnsupported')); return }
-        navigator.clipboard.writeText(this._buildDiagnosticsText())
-          .then(() => this._showLoreToast(t('clipboardCopySuccess')))
-          .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
-      })
-    }
     this.shareRunCardBtn.addEventListener('click', () => this._generateRunSummaryCard())
     if (this.copyTextRecapBtn) this.copyTextRecapBtn.addEventListener('click', () => this._copyTextRecap())
     if (this.acceptChallengeBtn) this.acceptChallengeBtn.addEventListener('click', () => this._acceptChallenge())
@@ -8605,30 +8585,6 @@ export class Game {
   // populated by the time this can be clicked) rather than recomputing the
   // same rows a second time. #print-stats-sheet is hidden on-screen and
   // only shown by the @media print rule in style.css.
-  // Diagnostics text (Credits) - browser/GPU info for a bug report,
-  // reading the same live WebGL context this.renderer already owns
-  // (WEBGL_debug_renderer_info is the standard way to get the real GPU
-  // name, not just "WebGL 2.0" generically) rather than opening a second
-  // context just to inspect it.
-  _buildDiagnosticsText() {
-    let gpu = 'unknown'
-    try {
-      const gl = this.renderer?.getContext()
-      const ext = gl?.getExtension('WEBGL_debug_renderer_info')
-      if (gl && ext) gpu = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)
-    } catch {
-      // Best-effort - some browsers block this extension entirely.
-    }
-    return [
-      `Session: ${this._sessionId}`,
-      `Build: ${__BUILD_HASH__} (${__BUILD_DATE__})`,
-      `User Agent: ${navigator.userAgent}`,
-      `GPU: ${gpu}`,
-      `Screen: ${window.innerWidth}x${window.innerHeight}`,
-      `Language: ${navigator.language}`,
-    ].join('\n')
-  }
-
   _printProfile() {
     if (!this.printStatsSheet) return
     this.printStatsSheet.innerHTML = `<h1>${t('printSheetTitle')}</h1>${this.profileOptions.innerHTML}`
@@ -10662,7 +10618,6 @@ export class Game {
     saveShopProgress(this)
     this._showHomepageToast(t('questClaimedToast', { n: QUESTS.find((q) => q.id === id)?.rewardCoins || 0 }))
     this._renderQuestsPanel()
-    this._updateNavCompletionRings()
     this._updateQuestsDot()
     this._updateFaviconQuestBadge()
   }
@@ -10742,9 +10697,8 @@ export class Game {
   _openAchievementsPanel() {
     this.achievementsPanel.style.display = 'flex'
     // Same move as the Quests panel title above - the X/Y count used to
-    // live on the homepage nav button (#achievements-nav-count), now shown
-    // here instead when the panel is actually open. Matches the same
-    // achievements+bestiary total _updateNavCompletionRings() computes.
+    // live on the homepage nav button, now shown here instead when the
+    // panel is actually open.
     const bestiaryTotal = Object.keys(ZOMBIE_TYPES).length
     const unlocked = this.achievements.unlocked.size + this.bestiaryEncountered.size
     const total = ACHIEVEMENTS.length + bestiaryTotal
@@ -10965,6 +10919,8 @@ export class Game {
     document.getElementById('tab-language').textContent = t('tabLanguage')
     document.getElementById('tab-audio').textContent = t('tabAudio')
     document.getElementById('tab-controls').textContent = t('tabControls')
+    const generalPlaceholder = document.getElementById('settings-general-placeholder')
+    if (generalPlaceholder) generalPlaceholder.textContent = t('settingsGeneralPlaceholder')
     this.resetBindsBtn.textContent = t('resetBinds')
     this._renderControlsGrid()
     // Local Sharing batch - static settings-panel labels.
@@ -11180,7 +11136,6 @@ export class Game {
     this._updateMenuSpotlight()
     this._updateWhatsNewDot()
     this._updateLoginStreakBadge()
-    this._updateNavCompletionRings()
     this._updateStoreDot()
     this._updateUpgradesDot()
     this._updateAchievementsDot()
@@ -11232,7 +11187,7 @@ export class Game {
 
   _copyPlayerId() {
     if (!this.settings.playerId || !navigator.clipboard || !navigator.clipboard.writeText) return
-    navigator.clipboard.writeText(this.settings.playerId).then(() => this._showLoreToast(t('shareCopiedToast'))).catch(() => {})
+    navigator.clipboard.writeText(`#${this.settings.playerId}`).then(() => this._showLoreToast(t('idCopiedToast'))).catch(() => {})
   }
 
   // Recommended Difficulty hint - only shown once a difficulty has at
@@ -11301,41 +11256,6 @@ export class Game {
       this.menuLoginStreak.style.display = ''
     } else {
       this.menuLoginStreak.style.display = 'none'
-    }
-  }
-
-  // Completion ring (Achievements nav button, which also now covers the
-  // merged-in Bestiary section) - combines both categories into one
-  // unlocked/total ratio rather than the old two-ring split, since there's
-  // only the one nav button left to show it on.
-  _updateNavCompletionRings() {
-    if (this.achievementsCompletionRing) {
-      const bestiaryTotal = Object.keys(ZOMBIE_TYPES).length
-      const unlocked = this.achievements.unlocked.size + this.bestiaryEncountered.size
-      const total = ACHIEVEMENTS.length + bestiaryTotal
-      const pct = total > 0 ? Math.round((unlocked / total) * 100) : 0
-      this.achievementsCompletionRing.style.setProperty('--pct', `${pct}%`)
-      this.achievementsCompletionRing.title = t('completionRingTitle', { pct })
-      if (this.achievementsNavCount) this.achievementsNavCount.textContent = `${unlocked}/${total}`
-    }
-    if (this.cosmeticsCompletionRing) {
-      // Same cosmeticsOwned/cosmeticsTotal computation _openProfilePanel
-      // already uses (outfits + hats vs the shop items that have either
-      // field) - just also surfaced as a homepage nav ring, not a new
-      // count.
-      const owned = this.ownedOutfits.size + this.ownedHats.size
-      const total = COIN_SHOP_ITEMS.filter((i) => i.outfit || i.hat).length
-      const pct = total > 0 ? Math.round((owned / total) * 100) : 0
-      this.cosmeticsCompletionRing.style.setProperty('--pct', `${pct}%`)
-      this.cosmeticsCompletionRing.title = t('completionRingTitle', { pct })
-      if (this.cosmeticsNavCount) this.cosmeticsNavCount.textContent = `${owned}/${total}`
-    }
-    if (this.questsCompletionRing) {
-      const claimedCount = QUESTS.filter((q) => this.quests.isClaimed(q.id)).length
-      const pct = Math.round((claimedCount / QUESTS.length) * 100)
-      this.questsCompletionRing.style.setProperty('--pct', `${pct}%`)
-      this.questsCompletionRing.title = t('completionRingTitle', { pct })
-      if (this.questsNavCount) this.questsNavCount.textContent = `${claimedCount}/${QUESTS.length}`
     }
   }
 
@@ -13025,17 +12945,15 @@ export class Game {
   }
 
   // What's New panel - split out from Credits (used to be one combined
-  // panel/nav entry point for both) so the changelog/build info/
-  // diagnostics content has its own dedicated place, distinct from the
-  // static dev-credits prose.
+  // panel/nav entry point for both) so the changelog/build info content
+  // has its own dedicated place, distinct from the static dev-credits
+  // prose.
   _openWhatsNewPanel() {
     if (!this.whatsNewPanel) return
     this.whatsNewPanel.style.display = 'flex'
     if (this.whatsNewPanelTitle) this.whatsNewPanelTitle.textContent = t('whatsNewPanelTitle')
     if (this.buildVersionLine) this.buildVersionLine.textContent = t('buildVersionLine', { hash: __BUILD_HASH__, date: __BUILD_DATE__ })
     if (this.buildSessionIdLine) this.buildSessionIdLine.textContent = t('sessionIdLine', { id: this._sessionId })
-    if (this.diagnosticsHeading) this.diagnosticsHeading.textContent = t('diagnosticsHeading')
-    if (this.diagnosticsLine) this.diagnosticsLine.textContent = this._buildDiagnosticsText()
     // What's New badge dot - clears the moment the player actually reads
     // this panel, not just on page load, so it stays a genuine "have you
     // seen this" indicator rather than a permanent decoration.
@@ -13756,7 +13674,6 @@ export class Game {
     this._renderAnniversaryLine()
     this._renderProfileCreated()
     this._renderTodayLine()
-    this._renderPercentileLine()
     this._renderFavoriteDifficultyLine()
     this._renderBestRunCard()
     this._renderRankRoadmap()
@@ -13978,40 +13895,6 @@ export class Game {
     if (currentSeconds > this.careerStats.longestSessionSeconds) {
       this.careerStats.longestSessionSeconds = currentSeconds
       saveCareerStats(this.careerStats)
-    }
-  }
-
-  // Percentile - reuses the same "better than me" COUNT query as the
-  // rank badge, plus one more COUNT (no filter) for the total player
-  // count, rather than a separate ranking system. Only shown once
-  // signed in (needs a real leaderboard entry to rank against).
-  async _renderPercentileLine() {
-    if (!this.profilePercentileLine || !this._cloudUid) {
-      if (this.profilePercentileLine) this.profilePercentileLine.style.display = 'none'
-      return
-    }
-    try {
-      const [rank, total] = await Promise.all([
-        CloudSync.fetchMyGlobalRank(_safeStatNumber(this.bestStats.bestNight)),
-        CloudSync.fetchLeaderboardTotalCount(),
-      ])
-      if (total <= 0) {
-        this.profilePercentileLine.style.display = 'none'
-        return
-      }
-      const percentile = Math.max(1, Math.round((rank / total) * 100))
-      this.profilePercentileLine.textContent = t('percentileLine', { pct: percentile })
-      this.profilePercentileLine.style.display = ''
-      // Visual bar - fills to (100 - percentile) so "top 5%" reads as a
-      // 95%-full bar (better-than-X-percent-of-players), not a nearly-
-      // empty one.
-      if (this.profilePercentileBar) {
-        this.profilePercentileBar.style.display = ''
-        this.profilePercentileBar.querySelector('.mini-progress-fill').style.width = `${100 - percentile}%`
-      }
-    } catch {
-      this.profilePercentileLine.style.display = 'none'
-      if (this.profilePercentileBar) this.profilePercentileBar.style.display = 'none'
     }
   }
 

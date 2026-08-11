@@ -388,14 +388,6 @@ export async function fetchMyGlobalRank(bestNight) {
   return snap.data().count + 1
 }
 
-// Total leaderboard size - a plain, unfiltered COUNT, used only to turn
-// a rank number into a percentile (see Game.js's _renderPercentileLine).
-export async function fetchLeaderboardTotalCount() {
-  const { db, fsMod } = await ensureApp()
-  const snap = await fsMod.getCountFromServer(fsMod.collection(db, 'leaderboard'))
-  return snap.data().count
-}
-
 // Nearest rival - the single leaderboard entry with the smallest
 // bestNight that's still strictly above mine (i.e. whoever's directly
 // above me in rank), for the "N nights to pass X" nudge.

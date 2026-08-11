@@ -751,6 +751,17 @@ export class WeaponSystem {
     vm.visible = wasVisible
     this.viewmodelRoot.add(vm)
     this.viewmodels[weaponId] = vm
+    // buildMelee() always rebuilds with the knife variant visible and every
+    // other found-loot variant (bat/machete/etc) hidden - if the player had
+    // switched to one of those via setMeleeVariant before buying a skin,
+    // this rebuild would otherwise silently show the knife again despite
+    // this.meleeVariant/the weapon's own stats still being the other one.
+    if (weaponId === 'melee' && this.meleeVariant) {
+      const variants = vm.userData.meleeVariants
+      if (variants) {
+        for (const id in variants) variants[id].visible = id === this.meleeVariant
+      }
+    }
   }
 
   // Akimbo (see CoinShop.js) - pistol-only, permanent once purchased.
@@ -802,12 +813,11 @@ export class WeaponSystem {
     this.setWeaponSkin(weaponId, 'packapunch')
   }
 
-  // Coin Shop skins apply to every gun at once (melee excluded - it doesn't
-  // read as a "gun" cosmetically) instead of just the pistol, so buying one
-  // skin reskins the whole loadout.
+  // Coin Shop skins apply to every weapon at once (knife included, same as
+  // every gun) instead of just the pistol, so buying one skin reskins the
+  // whole loadout.
   setSkinAllGuns(skinId) {
     for (const w of this.weapons) {
-      if (w.melee) continue
       this.setWeaponSkin(w.id, skinId)
     }
   }

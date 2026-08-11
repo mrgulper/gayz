@@ -433,8 +433,6 @@
               <button id="coinshop-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/><path d="M2 3h2l2.4 12.4a2 2 0 0 0 2 1.6h8.6a2 2 0 0 0 2-1.6L21 7H6"/></svg>
                 <span>Store</span>
-                <span class="nav-count" id="cosmetics-nav-count"></span>
-                <span class="nav-completion-ring" id="cosmetics-completion-ring" aria-hidden="true"></span>
                 <span class="nav-badge-dot" id="store-new-dot" style="display: none"></span>
               </button>
               <button id="upgrades-btn">
@@ -449,8 +447,6 @@
               <button id="quests-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                 <span>Quests</span>
-                <span class="nav-count" id="quests-nav-count"></span>
-                <span class="nav-completion-ring" id="quests-completion-ring" aria-hidden="true"></span>
                 <span class="nav-badge-dot gold" id="quests-claim-dot" style="display: none"></span>
               </button>
               <button id="friends-btn">
@@ -465,8 +461,6 @@
               <button id="achievements-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0z"/><path d="M7 5H4a1 1 0 0 0-1 1c0 3 2 5 4.5 5.3M17 5h3a1 1 0 0 1 1 1c0 3-2 5-4.5 5.3"/></svg>
                 <span>Achievements</span>
-                <span class="nav-count" id="achievements-nav-count"></span>
-                <span class="nav-completion-ring" id="achievements-completion-ring" aria-hidden="true"></span>
                 <span class="nav-badge-dot gold" id="achievements-new-dot" style="display: none"></span>
               </button>
               <button id="build-mode-btn">
@@ -488,10 +482,15 @@
         <span id="settings-saved-indicator">Saved</span>
         <input type="text" id="settings-search-input" placeholder="Search settings..." class="nickname-input" />
         <div class="settings-tabs">
+          <button class="settings-tab" data-page="general" id="tab-general">General</button>
           <button class="settings-tab active" data-page="language" id="tab-language">Language</button>
           <button class="settings-tab" data-page="audio" id="tab-audio">Audio</button>
-          <button class="settings-tab" data-page="graphics" id="tab-graphics">Graphics</button>
           <button class="settings-tab" data-page="controls" id="tab-controls">Controls</button>
+          <button class="settings-tab" data-page="graphics" id="tab-graphics">Graphics</button>
+        </div>
+
+        <div class="settings-page" id="settings-page-general" style="display: none">
+          <p id="settings-general-placeholder">Coming soon.</p>
         </div>
 
         <div class="settings-page" id="settings-page-language">
@@ -1308,8 +1307,6 @@
         <div id="profile-nearly-there-list"></div>
         <p id="profile-anniversary-line" style="display: none"></p>
         <p id="profile-today-line" style="display: none"></p>
-        <p id="profile-percentile-line" style="display: none"></p>
-        <div id="profile-percentile-bar" class="mini-progress-track" style="display: none"><div class="mini-progress-fill"></div></div>
         <p id="profile-favorite-difficulty-line" style="display: none"></p>
         <div id="profile-best-run-card" style="display: none">
           <h3 id="profile-best-run-title">Best Run</h3>
@@ -1347,14 +1344,14 @@
         <div id="whatsnew-content">
           <p id="build-version-line"></p>
           <div id="changelog-list">
+            <div class="changelog-entry"><span class="changelog-date">Aug 11, 2026</span><span class="changelog-text">Settings got a new General tab and Controls now comes before Graphics; the search bar no longer jumps around between tabs. The Knife can now be reskinned like every other weapon. Profile panel cleanup (removed a couple of confusing stat lines, matched button styling) and What's New no longer shows raw diagnostics info.</span></div>
+            <div class="changelog-entry"><span class="changelog-date">Aug 11, 2026</span><span class="changelog-text">Friends is now Friend List - add a friend by their player ID instead of nickname. Your 3D character on the homepage now spins on its own.</span></div>
+            <div class="changelog-entry"><span class="changelog-date">Aug 10, 2026</span><span class="changelog-text">Many new Build Mode blocks (71 total), richer block textures, and the V key now eases smoothly in and out of its zoomed view instead of snapping.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Jul 30, 2026</span><span class="changelog-text">Global leaderboard, rank badges, friend comparison, a community poll, and a dozen more small homepage upgrades (login streak calendar, achievement hints, sound test buttons, and more).</span></div>
             <div class="changelog-entry"><span class="changelog-date">Jul 30, 2026</span><span class="changelog-text">Cloud Save - sign in with Google to sync your progress across devices.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Jul 29, 2026</span><span class="changelog-text">A full menu redesign, crafting and deployable turrets, the Flamethrower and Rocket Launcher, weapon upgrades and the Mystery Box, Akimbo pistols and Last Stand self-revive, and CoD-style movement (mantling, sliding, killstreaks).</span></div>
           </div>
           <p id="build-session-id-line"></p>
-          <h3 id="diagnostics-heading">Diagnostics (for bug reports)</h3>
-          <p id="diagnostics-line"></p>
-          <button id="copy-diagnostics-btn">Copy Diagnostics</button>
         </div>
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>

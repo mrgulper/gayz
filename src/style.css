@@ -3296,6 +3296,8 @@ select option {
 #respec-btn,
 #profile-career-portrait-btn,
 #profile-print-btn,
+#profile-copy-stats-btn,
+#profile-read-aloud-btn,
 #profile-login-btn,
 #profile-register-btn,
 #profile-signout-btn,
@@ -4526,7 +4528,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 #menu-tagline {
   margin: 2px 0 4px;
   font-family: var(--menu-display-font);
-  font-size: 17px;
+  font-size: 25.5px;
   letter-spacing: 4.5px;
   color: var(--menu-olive);
   text-transform: uppercase;
@@ -4539,7 +4541,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 }
 
 #menu-subtitle {
-  font-size: 14.5px;
+  font-size: 21.75px;
   font-weight: 400;
   opacity: 0.85 !important;
   letter-spacing: 0.3px;
@@ -4657,7 +4659,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 
 .hero-stat-value {
   font-family: var(--menu-display-font);
-  font-size: 34px;
+  font-size: 51px;
   color: var(--menu-gold);
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -4665,7 +4667,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 
 .hero-stat-label {
   margin-top: 2px;
-  font-size: 9px;
+  font-size: 13.5px;
   font-weight: 600;
   letter-spacing: 1.2px;
   text-transform: uppercase;
@@ -4674,7 +4676,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 
 .hero-stat-divider {
   width: 1px;
-  height: 25px;
+  height: 37.5px;
   background: rgba(255, 255, 255, 0.15);
 }
 
@@ -5273,51 +5275,6 @@ html.theme-lighter #app { filter: brightness(1.25); }
   box-shadow: 0 0 14px 1px rgba(227, 166, 60, 0.25);
 }
 
-/* Store/Achievements completion fraction ("18/50") - a small dim inline
-   span right after the label text, same row, no extra height. */
-.nav-count {
-  margin-left: auto;
-  padding-right: 14px;
-  font-size: 11px;
-  font-weight: 400;
-  opacity: 0.55;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Store/Quests/Achievements counts ("0/10", "0/47") all hidden from the
-   homepage per request - the count now shows in the panel's own title
-   once opened instead (see _openQuestsPanel/_openAchievementsPanel in
-   Game.js), keeping the homepage nav row uncluttered. Scoped to these
-   3 ids rather than the shared .nav-count class in case a future nav
-   button wants to keep its count visible. */
-#cosmetics-nav-count,
-#quests-nav-count,
-#achievements-nav-count {
-  display: none;
-}
-
-/* Completion ring (Store/Quests/Achievements nav buttons) - a donut built
-   from a conic-gradient plus an inner-circle cutout, --pct set inline per
-   button in _updateNavCompletionRings. Same zero-layout-cost absolute
-   overlay technique as .nav-badge-dot below. */
-.nav-completion-ring {
-  position: absolute;
-  top: 8px;
-  right: 10px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: conic-gradient(var(--menu-gold) var(--pct, 0%), rgba(255, 255, 255, 0.15) 0);
-}
-
-.nav-completion-ring::before {
-  content: '';
-  position: absolute;
-  inset: 2.5px;
-  border-radius: 50%;
-  background: var(--menu-gunmetal-dark);
-}
-
 /* Small pill-style utility link row (Rules & Info / What's New / Credits /
    Discord) - a compact rounded pill of plain underlined text links with a
    dot divider between them, distinct from the big icon-card nav above.
@@ -5618,15 +5575,15 @@ html.theme-lighter #app { filter: brightness(1.25); }
      this tier. Midpoint between the full size and the tighter 820px
      tier below, not the pre-enlargement size. */
   #menu-tagline {
-    font-size: 16px;
+    font-size: 24px;
   }
 
   #menu-subtitle {
-    font-size: 13.5px;
+    font-size: 20.25px;
   }
 
   .hero-stat-value {
-    font-size: 31.5px;
+    font-size: 47.25px;
   }
 
   #play-btn {
@@ -5704,24 +5661,24 @@ html.theme-lighter #app { filter: brightness(1.25); }
      size at short heights, just not the full amount, same "shrink
      before removing" precedent as everything else in this breakpoint. */
   #menu-tagline {
-    font-size: 15px;
+    font-size: 22.5px;
     margin: 2px 0 3px;
   }
 
   #menu-subtitle {
-    font-size: 12.5px;
+    font-size: 18.75px;
   }
 
   .hero-stat-value {
-    font-size: 29px;
+    font-size: 43.5px;
   }
 
   .hero-stat-label {
-    font-size: 8px;
+    font-size: 12px;
   }
 
   .hero-stat-divider {
-    height: 22px;
+    height: 33px;
   }
 
   #menu-hero-stats {
@@ -5807,25 +5764,25 @@ html.theme-lighter #app { filter: brightness(1.25); }
   }
 
   #menu-tagline {
-    font-size: 12px;
+    font-size: 18px;
     margin: 1px 0 2px;
   }
 
   #menu-subtitle {
-    font-size: 10px;
+    font-size: 15px;
   }
 
   .hero-stat-value {
-    font-size: 23px;
+    font-size: 34.5px;
   }
 
   .hero-stat-label {
-    font-size: 6.5px;
+    font-size: 9.75px;
     margin-top: 1px;
   }
 
   .hero-stat-divider {
-    height: 17px;
+    height: 25.5px;
   }
 
   #menu-hero-stats {
@@ -6084,7 +6041,14 @@ html.theme-lighter #app { filter: brightness(1.25); }
 
 .settings-page {
   width: min(520px, 88vw);
-  max-height: 52vh;
+  /* A fixed height (not max-height) so every tab reserves the same
+     vertical space, whether or not its content fills it - #settings-panel
+     centers this whole column as one flex block (justify-content:
+     center), so a tab with less content (e.g. Audio) used to shrink the
+     block's total height and drag the search bar/tabs above it down with
+     it. A constant height keeps the header pinned at the same spot
+     regardless of which tab is active. */
+  height: 52vh;
   overflow-y: auto;
   /* Firefox */
   scrollbar-width: thin;

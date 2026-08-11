@@ -316,12 +316,28 @@ function buildRifleProcedural(skinId = null) {
 // Shared builder for any single-mesh GLB melee weapon - no skin tinting
 // (the melee slot never had SKIN_TINTS), just clone + castShadow off +
 // hand attached at the model's own Grip empty.
-function buildMeleeFromGLB(cache) {
+// skinId tinting mirrors buildGunFromGLB's "Metal"-named-slot convention
+// (same asset pipeline, see build-guns.py) so Coin Shop skins can reskin
+// the knife the same way they reskin every gun.
+function buildMeleeFromGLB(cache, skinId = null) {
   const g = new THREE.Group()
   const cloned = cache.clone(true)
+  const tint = SKIN_TINTS[skinId]
   cloned.traverse((child) => {
     if (!child.isMesh) return
     child.castShadow = false
+    // Same opacity-0-on-export quirk buildGunFromGLB works around - force
+    // full opacity on every material here, not just the tint slot below.
+    child.material.opacity = 1
+    child.material.transparent = false
+    if (tint && child.material.name === 'Metal') {
+      child.material = flattenedClone(child.material)
+      child.material.color.setHex(tint.color)
+      child.material.emissive.setHex(tint.emissive)
+      child.material.emissiveIntensity = 0.3
+      child.material.roughness = 0.25
+      child.material.metalness = 0.9
+    }
   })
   g.add(cloned)
   const grip = cloned.getObjectByName('Grip')
@@ -340,17 +356,17 @@ function buildMeleeFromGLB(cache) {
 // "knife" and panic-stabbing with it are the same weapon, not two different
 // knives with different stats/looks. Sharper/more angular than a plain
 // kitchen knife on purpose: a tanto-style tip and a serrated spine.
-export function buildQuickMeleeKnifeModel() {
+export function buildQuickMeleeKnifeModel(skinId = null) {
   if (USE_GLB_KNIFE && GUN_MODEL_CACHE.knife) {
-    return buildMeleeFromGLB(GUN_MODEL_CACHE.knife)
+    return buildMeleeFromGLB(GUN_MODEL_CACHE.knife, skinId)
   }
-  return buildQuickMeleeKnifeModelProcedural()
+  return buildQuickMeleeKnifeModelProcedural(skinId)
 }
 
-function buildQuickMeleeKnifeModelProcedural() {
+function buildQuickMeleeKnifeModelProcedural(skinId = null) {
   const g = new THREE.Group()
 
-  const bladeMat = flatMaterial({ color: 0x7d838a, roughness: 0.15, metalness: 0.95 })
+  const bladeMat = skinMaterial(skinId, flatMaterial({ color: 0x7d838a, roughness: 0.15, metalness: 0.95 }))
   const tacticalGrip = flatMaterial({ color: 0x14140f, roughness: 0.85 })
 
   const blade = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.01, 0.26), bladeMat)
@@ -563,10 +579,13 @@ function buildSledgehammerModelProcedural() {
 
 // All melee variants are pre-built inside one group, toggling visibility
 // instead of adding new weapon slots/keys - see WeaponSystem.setMeleeVariant().
-function buildMelee() {
+// skinId only reskins the knife variant (the default/most-used one, and
+// the one Coin Shop skin previews show) - the found-loot variants
+// (bat/machete/etc) keep their own distinct look regardless of skin.
+function buildMelee(skinId = null) {
   const g = new THREE.Group()
 
-  const knife = buildQuickMeleeKnifeModel()
+  const knife = buildQuickMeleeKnifeModel(skinId)
   const bat = buildBatModel()
   const machete = buildMacheteModel()
   const uvbaton = buildUvBatonModel()
