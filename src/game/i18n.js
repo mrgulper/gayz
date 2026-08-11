@@ -74,7 +74,7 @@ const STRINGS = {
     questStreak20: 'Reach a {n}-Kill Streak',
     questStreak30: 'Reach a {n}-Kill Streak',
     questStreak50: 'Reach a {n}-Kill Streak',
-    rollingQuestsSubtitle: '3 new quests every 3 min - each lasts 3 hours',
+    rollingQuestsSubtitle: '5 new quests every 30 min - each lasts 3 hours',
     monthlyQuestsPlaceholder: 'Coming soon.',
     yearlyQuestsPlaceholder: 'Coming soon.',
     rollingQuestKills: 'Kill {n} Zombies',

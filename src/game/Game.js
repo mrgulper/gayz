@@ -10614,11 +10614,14 @@ export class Game {
   }
 
   // Rolling Quests - separate from the lifetime tiers above (see
-  // RollingQuests.js): each expires 3 hours after it spawns, and a new one
-  // spawns every 30 minutes (up to 6 active at once). refresh() prunes
-  // anything expired and catches up on any spawns due since the panel was
-  // last opened, so opening this panel is also what keeps the rotation
-  // moving forward - it doesn't need its own always-running timer loop.
+  // RollingQuests.js): a GLOBAL rotation of 5 quests every 30 minutes
+  // (up to 10 active at once, each expiring 3 hours after its spawn
+  // window), computed deterministically from wall-clock time rather than
+  // per-player spawn history - every player sees the same quests at the
+  // same real-world moment, reset on schedule whether or not anyone was
+  // online to trigger it. refresh() just prunes expired local
+  // progress/claim records; it doesn't need its own always-running timer
+  // loop since the active set itself is recomputed fresh on every call.
   _renderRollingQuestsPanel() {
     this.rollingQuests.refresh()
     this.rollingQuestsOptions.innerHTML = ''
@@ -10864,6 +10867,14 @@ export class Game {
     if (!this.friendsPanel) return
     this.friendsPanel.style.display = 'flex'
     if (this.friendsPanelTitle) this.friendsPanelTitle.textContent = t('friendsPanelTitle')
+    // Re-sync signed-in/signed-out visibility against the CURRENT
+    // _cloudProfile every time the panel opens, rather than trusting
+    // whatever was last rendered - previously this only happened when the
+    // Cloud Save panel itself was open (see renderCloudSaveState's caller
+    // in restoreCloudSession), so Friends could keep showing a stale
+    // "Sign in with Google" view after navigating away and back even
+    // though the account was still actually signed in.
+    CloudSaveUI.renderCloudSaveState(this)
     this._renderFriendRequests()
   }
 

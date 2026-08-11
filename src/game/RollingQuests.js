@@ -1,26 +1,32 @@
 // Rolling quests - distinct from Quests.js's fixed lifetime milestones
-// (kill_100, streak_20, etc., each claimed once ever). These expire 3
-// hours after they spawn and a batch of 3 spawns every 3 minutes (so up to
-// 6 can be active at once - a batch that would push past that just spawns
-// however many still fit), a faster cadence than the original 1-every-30-
-// min Kirka-matching pace, per a later explicit ask. Real-clock-time based
-// (not the date-string-seeded pattern the existing Daily Challenge mutator
-// uses), since these rotate within a day, not once per day.
-const STORAGE_KEY = 'gayz-rolling-quests'
-export const SPAWN_INTERVAL_MS = 3 * 60 * 1000
-export const QUESTS_PER_SPAWN = 3
+// (kill_100, streak_20, etc., each claimed once ever). A GLOBAL rotation:
+// every player sees the exact same currently-active quests at the same
+// real-world moment, computed deterministically from wall-clock time (a
+// seeded PRNG keyed by a fixed-length time bucket index) rather than each
+// player tracking their own local spawn history from whenever they first
+// opened the game. This means the rotation "resets" on a real schedule
+// even if nobody was online to trigger it - whoever logs in next sees
+// whatever's currently active, same as everyone else, with no backend
+// needed (every browser derives the identical selection independently).
+// Only PROGRESS and CLAIMED status are personal/local - this player's own
+// kill count toward a shared quest, not a shared counter.
+const STORAGE_KEY = 'gayz-rolling-quests-v2'
+export const SPAWN_INTERVAL_MS = 30 * 60 * 1000
+export const QUESTS_PER_SPAWN = 5
 export const EXPIRE_MS = 3 * 60 * 60 * 1000
-const MAX_ACTIVE = 6
+// How many of the most recent non-expired quest instances to actually
+// surface at once - 2 spawn-cycles' worth, same "generous completion
+// window without an unbounded list" balance the original 3-min/6-cap
+// design struck, just retuned for the slower 30-min cadence.
+const MAX_ACTIVE = QUESTS_PER_SPAWN * 2
+const BUCKET_LOOKBACK = Math.ceil(EXPIRE_MS / SPAWN_INTERVAL_MS) + 1
 
-// Three objective types, each with a single clean live hook point in
-// Game.js (_onZombieKilled, the this.night += 1 line, _recordRunEnd) -
-// deliberately not points/coins (incremented from a dozen+ scattered call
-// sites across Game.js, no single place to hook without a much bigger
-// refactor).
+// Deliberately non-round targets (11/23/58, not 10/25/50) so a quest
+// reads like a found number, not an obviously-generated one.
 export const QUEST_TEMPLATES = [
-  { type: 'kills', target: 10, titleKey: 'rollingQuestKills', rewardCoins: 80, rewardXp: 30 },
-  { type: 'kills', target: 25, titleKey: 'rollingQuestKills', rewardCoins: 180, rewardXp: 60 },
-  { type: 'kills', target: 50, titleKey: 'rollingQuestKills', rewardCoins: 350, rewardXp: 120 },
+  { type: 'kills', target: 11, titleKey: 'rollingQuestKills', rewardCoins: 80, rewardXp: 30 },
+  { type: 'kills', target: 23, titleKey: 'rollingQuestKills', rewardCoins: 180, rewardXp: 60 },
+  { type: 'kills', target: 58, titleKey: 'rollingQuestKills', rewardCoins: 350, rewardXp: 120 },
   { type: 'night', target: 2, titleKey: 'rollingQuestNight', rewardCoins: 120, rewardXp: 40 },
   { type: 'night', target: 4, titleKey: 'rollingQuestNight', rewardCoins: 280, rewardXp: 90 },
   { type: 'night', target: 6, titleKey: 'rollingQuestNight', rewardCoins: 500, rewardXp: 160 },
@@ -28,86 +34,113 @@ export const QUEST_TEMPLATES = [
   { type: 'runs', target: 3, titleKey: 'rollingQuestRuns', rewardCoins: 280, rewardXp: 90 },
 ]
 
+// Deterministic PRNG (mulberry32) - the same seed always produces the same
+// sequence, which is the whole point here: every player's browser derives
+// the identical quest selection for a given bucket index with no server
+// round-trip involved.
+function mulberry32(seed) {
+  let t = seed >>> 0
+  return function () {
+    t += 0x6d2b79f5
+    let r = Math.imul(t ^ (t >>> 15), t | 1)
+    r ^= r + Math.imul(r ^ (r >>> 7), r | 61)
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+// Which QUEST_TEMPLATES indexes are active for a given 30-minute bucket -
+// pure function of the bucket index, so it's cheap to recompute on every
+// call rather than caching (no per-kill hot path concerns; this runs at
+// most BUCKET_LOOKBACK times per activeQuests() call).
+function templatesForBucket(bucket) {
+  const rand = mulberry32(bucket)
+  const pool = QUEST_TEMPLATES.map((_, i) => i)
+  const picked = []
+  for (let i = 0; i < QUESTS_PER_SPAWN && pool.length > 0; i++) {
+    const idx = Math.floor(rand() * pool.length)
+    picked.push(pool.splice(idx, 1)[0])
+  }
+  return picked
+}
+
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     const parsed = raw ? JSON.parse(raw) : null
-    if (parsed && Array.isArray(parsed.active) && Number.isFinite(parsed.lastSpawnAt)) {
-      return {
-        active: parsed.active.filter((q) => q && Number.isFinite(q.templateIndex) && Number.isFinite(q.spawnedAt) && Number.isFinite(q.progress)),
-        lastSpawnAt: parsed.lastSpawnAt,
-      }
+    if (parsed && parsed.progress && typeof parsed.progress === 'object' && Array.isArray(parsed.claimed)) {
+      return { progress: parsed.progress, claimed: new Set(parsed.claimed) }
     }
   } catch {
     // Malformed/unavailable - fresh state below.
   }
-  // Backdated by one full interval (not Date.now()) so a brand new player's
-  // very first _tick() call immediately sees "an interval's worth of time
-  // has already passed" and spawns the first batch right away, instead of
-  // showing zero quests until the real-world SPAWN_INTERVAL_MS elapses.
-  return { active: [], lastSpawnAt: Date.now() - SPAWN_INTERVAL_MS }
+  return { progress: {}, claimed: new Set() }
 }
 
 function saveState(state) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ progress: state.progress, claimed: [...state.claimed] }))
   } catch {
-    // Storage unavailable - quests just won't persist across sessions.
+    // Storage unavailable - progress just won't persist across sessions.
   }
 }
 
 export class RollingQuests {
   constructor() {
     this.state = loadState()
-    this._tick()
+    this._prune()
   }
 
-  // Prunes expired entries and spawns any quests that should have appeared
-  // while the game wasn't open, one real SPAWN_INTERVAL_MS at a time (not
-  // jumping straight to now) so a long absence still only ever fills up to
-  // MAX_ACTIVE rather than dumping a huge backlog in one go. Each interval
-  // spawns up to QUESTS_PER_SPAWN at once (fewer if that would overflow
-  // MAX_ACTIVE).
-  _tick() {
+  // Drops progress/claimed entries whose bucket has fully expired, so
+  // localStorage doesn't grow forever. Safe to call often - it's just a
+  // filter over two small collections, no real work most of the time.
+  _prune() {
     const now = Date.now()
-    this.state.active = this.state.active.filter((q) => now - q.spawnedAt < EXPIRE_MS)
-    let spawnedAny = false
-    while (now - this.state.lastSpawnAt >= SPAWN_INTERVAL_MS && this.state.active.length < MAX_ACTIVE) {
-      this.state.lastSpawnAt += SPAWN_INTERVAL_MS
-      for (let i = 0; i < QUESTS_PER_SPAWN && this.state.active.length < MAX_ACTIVE; i++) {
-        const activeTemplateIndexes = new Set(this.state.active.map((q) => q.templateIndex))
-        const candidates = QUEST_TEMPLATES.map((_, i2) => i2).filter((i2) => !activeTemplateIndexes.has(i2))
-        const pool = candidates.length > 0 ? candidates : QUEST_TEMPLATES.map((_, i2) => i2)
-        const templateIndex = pool[Math.floor(Math.random() * pool.length)]
-        // +i keeps spawnedAt unique within a batch - Game.js's UI and
-        // claim() both use it as this quest's identity key (data-spawned-at/
-        // the lookup below), which broke the instant more than one quest
-        // could share a spawn timestamp. A few milliseconds of drift on
-        // EXPIRE_MS (3 hours) is immaterial.
-        this.state.active.push({ templateIndex, spawnedAt: this.state.lastSpawnAt + i, progress: 0, claimed: false })
-        spawnedAny = true
+    let changed = false
+    for (const key of Object.keys(this.state.progress)) {
+      if (now - Number(key) >= EXPIRE_MS + SPAWN_INTERVAL_MS) {
+        delete this.state.progress[key]
+        changed = true
       }
     }
-    // lastSpawnAt can drift behind "now" forever once MAX_ACTIVE is full
-    // (the while loop above stops early) - catch it back up so a slot that
-    // frees up later (expiry or claim) doesn't immediately spawn a whole
-    // backlog of intervals that piled up while the list was full.
-    if (this.state.active.length >= MAX_ACTIVE && now - this.state.lastSpawnAt >= SPAWN_INTERVAL_MS) {
-      this.state.lastSpawnAt = now - (now % SPAWN_INTERVAL_MS)
+    for (const key of this.state.claimed) {
+      if (now - key >= EXPIRE_MS + SPAWN_INTERVAL_MS) {
+        this.state.claimed.delete(key)
+        changed = true
+      }
     }
-    saveState(this.state)
-    return spawnedAny
+    if (changed) saveState(this.state)
   }
 
-  // Call periodically (e.g. whenever the homepage/panel re-renders) so
-  // expiry and new spawns are reflected without needing a real-time timer
-  // loop of their own.
+  // No real "spawning" happens here any more - the active set is a pure
+  // function of the current time, recomputed fresh every call. Kept as a
+  // method since Game.js calls this as its panel-open/render refresh hook.
   refresh() {
-    this._tick()
+    this._prune()
   }
 
+  // Union of every non-expired, non-claimed quest instance across recent
+  // buckets, most recent first, capped at MAX_ACTIVE - same overall shape
+  // (spawnedAt/progress/template) the old per-player version returned, so
+  // nothing downstream in Game.js needed to change.
   activeQuests() {
-    return this.state.active.map((q) => ({ ...q, template: QUEST_TEMPLATES[q.templateIndex] }))
+    const now = Date.now()
+    const currentBucket = Math.floor(now / SPAWN_INTERVAL_MS)
+    const results = []
+    for (let b = currentBucket; b > currentBucket - BUCKET_LOOKBACK && b >= 0; b--) {
+      const spawnedAtBase = b * SPAWN_INTERVAL_MS
+      if (now - spawnedAtBase >= EXPIRE_MS) continue
+      for (const [slot, templateIndex] of templatesForBucket(b).entries()) {
+        const spawnedAt = spawnedAtBase + slot
+        if (this.state.claimed.has(spawnedAt)) continue
+        results.push({
+          spawnedAt,
+          progress: this.state.progress[spawnedAt] || 0,
+          template: QUEST_TEMPLATES[templateIndex],
+        })
+      }
+      if (results.length >= MAX_ACTIVE) break
+    }
+    return results.slice(0, MAX_ACTIVE)
   }
 
   // additive=true accumulates (kills, runs - each event adds to a running
@@ -116,13 +149,12 @@ export class RollingQuests {
   // later run only gets to Night 2, not get overwritten downward).
   _recordProgress(type, value, additive) {
     let changed = false
-    for (const q of this.state.active) {
-      if (q.claimed) continue
-      const template = QUEST_TEMPLATES[q.templateIndex]
-      if (template.type !== type) continue
-      const next = additive ? q.progress + value : Math.max(q.progress, value)
-      if (next !== q.progress) {
-        q.progress = next
+    for (const q of this.activeQuests()) {
+      if (q.template.type !== type) continue
+      const current = this.state.progress[q.spawnedAt] || 0
+      const next = additive ? current + value : Math.max(current, value)
+      if (next !== current) {
+        this.state.progress[q.spawnedAt] = next
         changed = true
       }
     }
@@ -143,18 +175,20 @@ export class RollingQuests {
 
   // Safe to call repeatedly - a no-op if already claimed or not yet at
   // target. Returns the reward on an actual successful claim (so the
-  // caller knows whether/what to show a toast for), otherwise null. Applies
-  // the coin reward directly (same as Quests.js's own claim()), but
-  // deliberately leaves XP for the caller to apply - game.xp has its own
-  // _updateXpHud()/_checkXpLevelUp() side effects that belong on the
-  // Game.js side, not duplicated in here.
+  // caller knows whether/what to show a toast for), otherwise null.
+  // Re-derives which template spawnedAt refers to from its bucket+slot
+  // (spawnedAt = bucket*SPAWN_INTERVAL_MS + slot) rather than needing a
+  // stored list, matching activeQuests()'s own pure-function approach.
   claim(spawnedAt, game) {
-    const q = this.state.active.find((x) => x.spawnedAt === spawnedAt)
-    if (!q || q.claimed) return null
-    const template = QUEST_TEMPLATES[q.templateIndex]
-    if (q.progress < template.target) return null
-    q.claimed = true
-    this.state.active = this.state.active.filter((x) => x.spawnedAt !== spawnedAt)
+    if (this.state.claimed.has(spawnedAt)) return null
+    const bucket = Math.floor(spawnedAt / SPAWN_INTERVAL_MS)
+    const slot = spawnedAt - bucket * SPAWN_INTERVAL_MS
+    const templateIndex = templatesForBucket(bucket)[slot]
+    if (templateIndex === undefined) return null
+    const template = QUEST_TEMPLATES[templateIndex]
+    const progress = this.state.progress[spawnedAt] || 0
+    if (progress < template.target) return null
+    this.state.claimed.add(spawnedAt)
     saveState(this.state)
     game.coins += template.rewardCoins
     return { coins: template.rewardCoins, xp: template.rewardXp }
