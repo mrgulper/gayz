@@ -2248,6 +2248,28 @@ const WEAPON_MASTERY_LORE_KEYS = {
   nailgun: 'masteryLoreNailgun',
   harpoon: 'masteryLoreHarpoon',
 }
+// Simple line-icon silhouette per weapon (same 24x24/stroke-only visual
+// language as every other icon in the game - .mode-icon, .class-icon -
+// not a photorealistic render, since nothing else in this UI is). Used by
+// _renderWeaponPickerOptions so the "Choose Your Weapon" screen shown
+// right after clicking Play has a distinct image per card instead of
+// name-only text.
+const WEAPON_ICON_PATHS = {
+  rifle: '<line x1="2" y1="12" x2="22" y2="12"/><line x1="20" y1="12" x2="20" y2="9"/><line x1="2" y1="12" x2="1" y2="17"/><line x1="13" y1="12" x2="14" y2="17"/><path d="M10 12q0 6 3 7"/>',
+  pistol: '<rect x="5" y="9" width="12" height="4" rx="1"/><line x1="17" y1="10.5" x2="20" y2="10.5"/><path d="M6 13v6h4v-6"/><path d="M9 13a3 3 0 0 0 3 3"/>',
+  minigun: '<circle cx="9" cy="12" r="5"/><circle cx="9" cy="12" r="2.5"/><circle cx="9" cy="12" r="0.8" fill="currentColor" stroke="none"/><line x1="13.5" y1="12" x2="19" y2="12"/><line x1="16" y1="12" x2="16" y2="18"/>',
+  shotgun: '<line x1="3" y1="10.5" x2="21" y2="10.5"/><line x1="3" y1="14" x2="15" y2="14"/><line x1="3" y1="10.5" x2="2" y2="17"/>',
+  awp: '<line x1="2" y1="15" x2="21" y2="15"/><circle cx="11" cy="9" r="3"/><line x1="11" y1="12" x2="11" y2="15"/><line x1="2" y1="15" x2="2" y2="19"/><line x1="15" y1="15" x2="17" y2="19"/>',
+  glock18: '<rect x="7" y="9" width="8" height="4"/><rect x="8" y="13" width="4" height="6"/><rect x="10.5" y="13.5" width="1.5" height="1.5" fill="currentColor" stroke="none"/>',
+  flamethrower: '<rect x="3" y="9" width="6" height="8" rx="1.5"/><line x1="9" y1="13" x2="14" y2="13"/><path d="M17.5 6.5c1.5 2 3 4 3 6.3a3.3 3.3 0 0 1-6.6 0c0-.9.4-1.8.9-2.7.3.7.7.9 1.2.6-.5-1.4 0-2.6 1.5-4.2z" fill="currentColor" stroke="none"/>',
+  rocket: '<rect x="2" y="11" width="14" height="4" rx="0.5"/><polygon points="16,8.5 22,13 16,17.5" fill="currentColor" stroke="none"/><line x1="3" y1="15" x2="2" y2="19"/>',
+  crossbow: '<path d="M3 4q7 8 0 16"/><line x1="3" y1="4" x2="3" y2="20"/><line x1="3" y1="12" x2="20" y2="12"/><line x1="14" y1="12" x2="14" y2="16"/>',
+  launcher: '<rect x="4" y="10" width="9" height="5" rx="1"/><circle cx="16.5" cy="12.5" r="3.5"/><line x1="10" y1="15" x2="13" y2="19"/>',
+  suppressedsmg: '<rect x="6" y="11" width="6" height="4"/><rect x="12" y="12" width="10" height="2" rx="1"/><line x1="3" y1="12.5" x2="6" y2="12.5"/><path d="M8 15v4h3v-4"/>',
+  nailgun: '<rect x="4" y="8" width="10" height="6" rx="1"/><path d="M7 14v5h4v-5"/><line x1="7" y1="19" x2="11" y2="19"/><line x1="14" y1="10" x2="19" y2="10"/><line x1="19" y1="8" x2="19" y2="12"/>',
+  harpoon: '<line x1="3" y1="13" x2="17" y2="13"/><polygon points="17,10 23,13 17,16" fill="currentColor" stroke="none"/><line x1="17" y1="11" x2="14" y2="9"/><line x1="17" y1="15" x2="14" y2="17"/><rect x="1" y="11" width="4" height="4" rx="0.8"/>',
+  voidripper: '<polygon points="13,2 5,13 10,13 8,22 19,10 13,10 15,2" fill="currentColor" stroke="none"/>',
+}
 const WHEEL_RADIUS = 110
 const WHEEL_DEADZONE = 18
 const RESCUE_INTERACT_RADIUS = 2.5
@@ -9392,7 +9414,9 @@ export class Game {
       const tags = []
       if (w.heavy) tags.push(t('weaponPickerTagHeavy'))
       if (w.rare) tags.push(t('weaponPickerTagRare'))
+      const iconPath = WEAPON_ICON_PATHS[w.id] || ''
       btn.innerHTML = `
+        <div class="weapon-icon-badge"><svg class="weapon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${iconPath}</svg></div>
         <span class="perk-name">${t(this.weapons._nameKeyFor(w))}</span>
         ${tags.length ? `<span class="perk-tag">${tags.join(' - ')}</span>` : ''}
       `

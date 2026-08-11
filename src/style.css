@@ -2398,6 +2398,27 @@ select option {
   margin-top: 2px;
 }
 
+/* Weapon icon badge - same hexagonal "featured icon in a card" treatment
+   as .class-icon-badge in Choose Class, reused here rather than inventing
+   a second visual language, just neutral-toned since weapons don't carry
+   a per-item accent color the way classes do. */
+.weapon-icon-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 4px;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.weapon-icon {
+  width: 30px;
+  height: 30px;
+  color: #fff;
+}
+
 #perk-panel-title,
 #trader-panel-title,
 #hub-panel-title,
