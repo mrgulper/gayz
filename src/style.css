@@ -5901,6 +5901,46 @@ html.theme-lighter #app { filter: brightness(1.25); }
   width: 100%;
 }
 
+/* Hub panel tab strip (Zombie Survival/Deathmatch) - same reasoning as
+   .quest-tabs above: kept as its own class rather than reusing
+   .settings-tab/.quest-tab, so it doesn't get swept into either of those
+   handlers' global .class queries. */
+.hub-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.hub-tab {
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.hub-tab.active {
+  color: #0c130c;
+  background: #e3a63c;
+  border-color: #e3a63c;
+}
+
+/* Stretch (not center) - unlike .quest-tab-page's card grid, this holds
+   full-width .hub-section blocks (difficulty buttons, class grid,
+   mode-toggle lists) that need to fill #hub-content's own width, same as
+   its direct-child .hub-section siblings did before tabs existed. */
+.hub-tab-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
 .settings-page {
   width: min(520px, 88vw);
   max-height: 52vh;

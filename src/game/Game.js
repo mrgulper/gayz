@@ -6622,6 +6622,17 @@ export class Game {
       })
     }
 
+    // Hub panel tab strip (Zombie Survival/Deathmatch) - same isolated
+    // class/loop pattern as the quest tabs above.
+    for (const tab of document.querySelectorAll('.hub-tab')) {
+      tab.addEventListener('click', () => {
+        for (const tabEl of document.querySelectorAll('.hub-tab')) tabEl.classList.toggle('active', tabEl === tab)
+        for (const page of document.querySelectorAll('.hub-tab-page')) {
+          page.style.display = page.id === `hub-page-${tab.dataset.hubPage}` ? 'flex' : 'none'
+        }
+      })
+    }
+
     this.musicVolumeSlider.value = this.settings.musicVolume
     this.musicVolumeValue.textContent = `${this.settings.musicVolume}%`
     this.sfxVolumeSlider.value = this.settings.sfxVolume
