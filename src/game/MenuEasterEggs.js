@@ -114,6 +114,7 @@ export function bindHomepageShortcutKeys(game) {
     [game.serverPanel, () => game._closeServerPanel()],
     [game.howtoplayPanel, () => game._closeHowToPlayPanel()],
     [game.creditsPanel, () => game._closeCreditsPanel()],
+    [game.whatsNewPanel, () => game._closeWhatsNewPanel()],
     [game.profilePanel, () => game._closeProfilePanel()],
   ]
   window.addEventListener('keydown', (e) => {

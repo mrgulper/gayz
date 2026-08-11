@@ -803,11 +803,13 @@ const STRINGS = {
     // top-N attempts for today's date specifically, distinct from
     // dailyBest's single lifetime-best score.
     dailyLeaderboardTitle: "Today's Top Runs",
-    // Credits & What's New panel (see _openCreditsPanel) - the panel's own
-    // body content is hardcoded directly in index.html's #credits-content,
-    // not i18n-driven.
+    // Credits panel (see _openCreditsPanel) - the panel's own body content
+    // is hardcoded directly in index.html's #credits-content, not
+    // i18n-driven. What's New (see _openWhatsNewPanel) split out into its
+    // own separate panel, previously combined with Credits.
     creditsBtn: 'Credits',
-    creditsPanelTitle: 'Credits & What\'s New',
+    creditsPanelTitle: 'Credits',
+    whatsNewPanelTitle: 'What\'s New',
     navLinkRules: 'Rules & Info',
     navLinkWhatsNew: 'What\'s New',
     buildVersionLine: 'Build {hash} - {date}',
@@ -830,7 +832,6 @@ const STRINGS = {
     shortcutRowTab: 'Move between controls',
     shortcutRowActivate: 'Activate the focused control',
     shortcutRowEscape: 'Close the open panel',
-    printChangelogTitle: 'GayZ - Full Changelog',
     friendBeatYouToast: '{name} just passed your best night - they reached Night {night}',
     pinnedStatNone: 'None',
     pinPresetTooltip: 'Pin as favorite',
@@ -875,7 +876,6 @@ const STRINGS = {
     jokeTip4: 'Pro tip: zombies cannot read road signs, but neither can you at 3am.',
     jokeTip5: 'Pro tip: a really firm handshake has never worked on a zombie. Do not test this.',
     jokeTip6: 'Pro tip: the best weapon against a zombie horde is a second zombie horde, allegedly.',
-    rankImprovedToast: 'Your global rank improved - now #{rank}',
     weeklyResetImminentToast: 'Weekly Challenge "{title}" resets soon - last chance to finish it',
     unclaimedQuestsToast: 'You have {n} completed quest(s) waiting to be claimed',
     newPersonalBestToast: 'New personal best!',
@@ -1197,7 +1197,6 @@ const STRINGS = {
     welcomeBackToast: "Welcome back! It's been {days} days. +{coins} coins",
     // Second Online Features batch (global rank, rival nudge, saved
     // friends, streak calendar, anniversary line, mutator exploration).
-    globalRankBadge: '#{rank} Worldwide',
     cloudsaveRankLine: 'Your global rank: #{rank}',
     cloudsaveRivalLine: '{n} nights to pass {name}',
     cloudsaveRivalNone: "You're #1 - nobody to catch!",

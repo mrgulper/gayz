@@ -1334,28 +1334,30 @@
       <div id="print-stats-sheet"></div>
 
       <div id="credits-panel">
-        <h2 id="credits-panel-title">Credits &amp; What's New</h2>
+        <h2 id="credits-panel-title">Credits</h2>
         <div id="credits-content">
           <h3>GayZ</h3>
           <p>Built solo as a hobby project. Thanks for playing.</p>
           <p>Questions, feedback, or data requests: <a href="https://discord.gg/8fhmGv2k" target="_blank" rel="noopener noreferrer">Discord</a> &middot; <a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy Policy</a></p>
           <h3>Assets</h3>
           <p>3D models courtesy of Kenney.nl, Quaternius, and the poly.pizza community, all under CC0 &mdash; free for any use, no attribution required, credited here anyway because their work made this game possible.</p>
+        </div>
+        <p class="panel-close-hint">Click anywhere to close</p>
+      </div>
+
+      <div id="whatsnew-panel">
+        <h2 id="whatsnew-panel-title">What's New</h2>
+        <div id="whatsnew-content">
           <p id="build-version-line"></p>
-          <h3>What's New</h3>
           <div id="changelog-list">
             <div class="changelog-entry"><span class="changelog-date">Jul 30, 2026</span><span class="changelog-text">Global leaderboard, rank badges, friend comparison, a community poll, and a dozen more small homepage upgrades (login streak calendar, achievement hints, sound test buttons, and more).</span></div>
             <div class="changelog-entry"><span class="changelog-date">Jul 30, 2026</span><span class="changelog-text">Cloud Save - sign in with Google to sync your progress across devices.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Jul 29, 2026</span><span class="changelog-text">A full menu redesign, crafting and deployable turrets, the Flamethrower and Rocket Launcher, weapon upgrades and the Mystery Box, Akimbo pistols and Last Stand self-revive, and CoD-style movement (mantling, sliding, killstreaks).</span></div>
           </div>
-          <button id="print-changelog-btn">Print Full Changelog</button>
-          <button id="copy-changelog-btn">Copy Changelog as Text</button>
           <p id="build-session-id-line"></p>
-          <button id="check-updates-btn">Check for Updates</button>
           <h3 id="diagnostics-heading">Diagnostics (for bug reports)</h3>
           <p id="diagnostics-line"></p>
           <button id="copy-diagnostics-btn">Copy Diagnostics</button>
-          <button id="copy-error-log-btn">Copy Error Log</button>
         </div>
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>
@@ -1367,8 +1369,8 @@
         <div class="perk-panel-buttons">
           <button id="howtoplay-back-btn">Back</button>
           <button id="howtoplay-next-btn">Next</button>
-          <button id="howtoplay-close-btn">Close</button>
         </div>
+        <p class="panel-close-hint">Click anywhere to close</p>
       </div>
 
       <div id="cloudsave-panel">
@@ -1450,7 +1452,6 @@
             <button id="send-friend-request-btn" class="mini-action-btn" type="button">Add Friend</button>
           </div>
           <p id="cloudsave-friend-result"></p>
-          <button id="cloudsave-random-opponent-btn" class="mini-action-btn" type="button">Compare vs Random Top Player</button>
         </div>
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>

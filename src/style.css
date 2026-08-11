@@ -795,6 +795,7 @@ html.large-text-mode #share-panel,
 html.large-text-mode #achievements-panel,
 html.large-text-mode #profile-panel,
 html.large-text-mode #credits-panel,
+html.large-text-mode #whatsnew-panel,
 html.large-text-mode #howtoplay-panel,
 html.large-text-mode #cloudsave-panel,
 html.large-text-mode #coinshop-panel,
@@ -2298,6 +2299,7 @@ select option {
 #achievements-panel,
 #profile-panel,
 #credits-panel,
+#whatsnew-panel,
 #howtoplay-panel,
 #cloudsave-panel,
 #friends-panel,
@@ -2365,6 +2367,14 @@ select option {
 /* Filter search box - was inheriting .nickname-input's width:100%, which
    at this panel's full viewport width was a huge, mostly-empty bar. */
 #achievements-filter-input {
+  width: 25%;
+  min-width: 180px;
+}
+
+/* Settings search bar - same width fix and same reasoning as
+   #achievements-filter-input above (also inherited .nickname-input's
+   100% by default). */
+#settings-search-input {
   width: 25%;
   min-width: 180px;
 }
@@ -2731,6 +2741,7 @@ select option {
 .weapon-slot-wrap {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 6px;
 }
 
@@ -3024,8 +3035,11 @@ select option {
   gap: 2px;
 }
 
+/* Bigger than the original 12px, plus real padding for a proper hit area -
+   at 12px with no padding this was easy to miss/misclick. */
 .shop-wishlist-star {
-  font-size: 12px;
+  font-size: 20px;
+  padding: 4px 8px;
   color: rgba(255, 255, 255, 0.25);
   cursor: pointer;
 }
@@ -3322,6 +3336,8 @@ select option {
 #screenshot-crop-save,
 #screenshot-crop-full,
 #screenshot-crop-cancel,
+#howtoplay-back-btn,
+#howtoplay-next-btn,
 #share-run-card-btn {
   margin-top: 6px;
   padding: 8px 20px;
@@ -3928,7 +3944,7 @@ html {
    the standard 4-height overflow measurement this project always
    re-checks after a size-affecting change). */
 html.text-spacing-active #menu, html.text-spacing-active .menu-panel, html.text-spacing-active #upgrades-panel,
-html.text-spacing-active #coinshop-panel, html.text-spacing-active #credits-panel, html.text-spacing-active #achievements-panel,
+html.text-spacing-active #coinshop-panel, html.text-spacing-active #credits-panel, html.text-spacing-active #whatsnew-panel, html.text-spacing-active #achievements-panel,
 html.text-spacing-active #profile-panel, html.text-spacing-active #settings-panel,
 html.text-spacing-active #quests-panel, html.text-spacing-active #share-panel, html.text-spacing-active #cloudsave-panel, html.text-spacing-active #howtoplay-panel {
   letter-spacing: calc((var(--text-spacing, 100) - 100) * 0.005px);
@@ -3948,6 +3964,7 @@ html.reduce-transparency .menu-panel,
 html.reduce-transparency #upgrades-panel,
 html.reduce-transparency #coinshop-panel,
 html.reduce-transparency #credits-panel,
+html.reduce-transparency #whatsnew-panel,
 html.reduce-transparency #achievements-panel,
 html.reduce-transparency #profile-panel,
 html.reduce-transparency #settings-panel,
@@ -6090,6 +6107,93 @@ html.theme-lighter #app { filter: brightness(1.25); }
 }
 
 .settings-page::-webkit-scrollbar-thumb:hover {
+  background: rgba(227, 166, 60, 0.55);
+}
+
+/* Same gold scrollbar as .settings-page/#coinshop-options above, applied
+   to every other panel/list that scrolls - previously only Settings and
+   the Coin Shop had it, so Achievements/Profile/Hub/etc fell back to the
+   browser's stark white default scrollbar. */
+#profile-panel,
+#achievements-panel,
+#hub-panel,
+#weapon-picker-panel,
+#credits-content,
+#whatsnew-content,
+#whats-new-digest-list,
+#cloudsave-online-section,
+#journal-content,
+#profile-run-history-list,
+#profile-activity-list,
+#menu-boards {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(227, 166, 60, 0.4) transparent;
+}
+
+#profile-panel::-webkit-scrollbar,
+#achievements-panel::-webkit-scrollbar,
+#hub-panel::-webkit-scrollbar,
+#weapon-picker-panel::-webkit-scrollbar,
+#credits-content::-webkit-scrollbar,
+#whatsnew-content::-webkit-scrollbar,
+#whats-new-digest-list::-webkit-scrollbar,
+#cloudsave-online-section::-webkit-scrollbar,
+#journal-content::-webkit-scrollbar,
+#profile-run-history-list::-webkit-scrollbar,
+#profile-activity-list::-webkit-scrollbar,
+#menu-boards::-webkit-scrollbar {
+  width: 8px;
+}
+
+#profile-panel::-webkit-scrollbar-track,
+#achievements-panel::-webkit-scrollbar-track,
+#hub-panel::-webkit-scrollbar-track,
+#weapon-picker-panel::-webkit-scrollbar-track,
+#credits-content::-webkit-scrollbar-track,
+#whatsnew-content::-webkit-scrollbar-track,
+#whats-new-digest-list::-webkit-scrollbar-track,
+#cloudsave-online-section::-webkit-scrollbar-track,
+#journal-content::-webkit-scrollbar-track,
+#profile-run-history-list::-webkit-scrollbar-track,
+#profile-activity-list::-webkit-scrollbar-track,
+#menu-boards::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#profile-panel::-webkit-scrollbar-thumb,
+#achievements-panel::-webkit-scrollbar-thumb,
+#hub-panel::-webkit-scrollbar-thumb,
+#weapon-picker-panel::-webkit-scrollbar-thumb,
+#credits-content::-webkit-scrollbar-thumb,
+#whatsnew-content::-webkit-scrollbar-thumb,
+#whats-new-digest-list::-webkit-scrollbar-thumb,
+#cloudsave-online-section::-webkit-scrollbar-thumb,
+#journal-content::-webkit-scrollbar-thumb,
+#profile-run-history-list::-webkit-scrollbar-thumb,
+#profile-activity-list::-webkit-scrollbar-thumb,
+#menu-boards::-webkit-scrollbar-thumb {
+  background: rgba(227, 166, 60, 0.35);
+  border-radius: 4px;
+}
+
+#profile-panel::-webkit-scrollbar-thumb:hover,
+#achievements-panel::-webkit-scrollbar-thumb:hover,
+#hub-panel::-webkit-scrollbar-thumb:hover,
+#weapon-picker-panel::-webkit-scrollbar-thumb:hover,
+#credits-content::-webkit-scrollbar-thumb:hover,
+#whatsnew-content::-webkit-scrollbar-thumb:hover,
+#whats-new-digest-list::-webkit-scrollbar-thumb:hover,
+#cloudsave-online-section::-webkit-scrollbar-thumb:hover,
+#journal-content::-webkit-scrollbar-thumb:hover,
+#profile-run-history-list::-webkit-scrollbar-thumb:hover,
+#profile-activity-list::-webkit-scrollbar-thumb:hover,
+#menu-boards::-webkit-scrollbar-thumb:hover {
+  background: rgba(227, 166, 60, 0.55);
+}
+
+/* #coinshop-options gets the same hover polish the rest above have -
+   it previously had the base gold thumb but no :hover state. */
+#coinshop-options::-webkit-scrollbar-thumb:hover {
   background: rgba(227, 166, 60, 0.55);
 }
 

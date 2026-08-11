@@ -199,6 +199,18 @@ const APEX_UNLOCK_NIGHT = 15
 
 const SETTINGS_STORAGE_KEY = 'gayz-settings'
 
+// Corner-badge player ID - 6-10 uppercase letters/digits, generated once
+// and kept stable for that account. Distinct from the nickname (still
+// editable, still used for companion naming/leaderboards/friend search
+// elsewhere) - this is only what the corner badge itself displays now.
+const PLAYER_ID_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+function _generatePlayerId() {
+  const length = 6 + Math.floor(Math.random() * 5) // 6-10 inclusive
+  let id = ''
+  for (let i = 0; i < length; i++) id += PLAYER_ID_CHARS[Math.floor(Math.random() * PLAYER_ID_CHARS.length)]
+  return id
+}
+
 function loadSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_STORAGE_KEY)
@@ -233,6 +245,11 @@ function loadSettings() {
       toastDuration: parsed.toastDuration ?? 100,
       crosshairColor: parsed.crosshairColor || '#ffffff',
       crosshairSize: parsed.crosshairSize ?? 100,
+      // Corner-badge ID (see _generatePlayerId above) - unlike nickname,
+      // this always backfills if missing (not just for a fully-fresh
+      // player), since it's a new field every already-existing save is
+      // missing the first time this ships.
+      playerId: parsed.playerId || _generatePlayerId(),
       nickname: parsed.nickname || defaultNickname,
       // Nickname color (see nickname display sites - Hardcore Memorial, kill
       // feed) - a plain hex string like crosshairColor above, not tied to
@@ -397,8 +414,13 @@ function loadSettings() {
     // A genuinely new player's generated defaults (starter nickname, etc.)
     // only exist in memory otherwise - persist them right away so a page
     // refresh before any real settings change doesn't silently generate a
-    // second, different "Warrior####" and lose the first one.
-    if (!raw) localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
+    // second, different "Warrior####" and lose the first one. Also fires
+    // for an EXISTING player whose saved settings predate the playerId
+    // field (just backfilled above) - otherwise that freshly-generated ID
+    // only lives in memory until their next unrelated settings change,
+    // and would get silently regenerated (losing the first one) if they
+    // leave before that happens.
+    if (!raw || !parsed.playerId) localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
     return settings
   } catch {
     return defaultSettings()
@@ -1912,9 +1934,6 @@ const GOAL_CANDIDATES = [
 // Firebase Auth persists its own session (IndexedDB) and CloudSync's
 // onAuthChange restores _cloudProfile/_cloudUid from that directly.
 export const CLOUD_LAST_SYNC_KEY = 'gayz-cloud-last-sync'
-// Rank velocity arrow (see _renderPlayerTag) - the rank as of the last
-// time it was fetched, so this visit's fetch can compare against it.
-const PREV_GLOBAL_RANK_KEY = 'gayz-prev-global-rank'
 
 // Online Features batch - one hardcoded, developer-authored poll (not
 // user-generated content, so no moderation surface beyond picking a new
@@ -2962,7 +2981,6 @@ export class Game {
     this.howtoplayDots = document.getElementById('howtoplay-dots')
     this.howtoplayBackBtn = document.getElementById('howtoplay-back-btn')
     this.howtoplayNextBtn = document.getElementById('howtoplay-next-btn')
-    this.howtoplayCloseBtn = document.getElementById('howtoplay-close-btn')
     this.seasonProgressFill = document.getElementById('season-progress-fill')
     this.menuSpotlight = document.getElementById('menu-spotlight')
     this.menuSpotlightPauseBtn = document.getElementById('menu-spotlight-pause-btn')
@@ -3043,7 +3061,6 @@ export class Game {
     this.cloudsaveRivalLine = document.getElementById('cloudsave-rival-line')
     this.cloudsaveNearbyRankTitle = document.getElementById('cloudsave-nearby-rank-title')
     this.cloudsaveNearbyRankList = document.getElementById('cloudsave-nearby-rank-list')
-    this.cloudsaveRandomOpponentBtn = document.getElementById('cloudsave-random-opponent-btn')
     this.cloudsaveOfflineWarning = document.getElementById('cloudsave-offline-warning')
     this.cloudsaveAvgLine = document.getElementById('cloudsave-avg-line')
     this.cloudsaveAvgBars = document.getElementById('cloudsave-avg-bars')
@@ -4162,19 +4179,17 @@ export class Game {
     this.goalsChecklist = document.getElementById('goals-checklist')
     this.creditsPanel = document.getElementById('credits-panel')
     this.creditsPanelTitle = document.getElementById('credits-panel-title')
+    this.whatsNewPanel = document.getElementById('whatsnew-panel')
+    this.whatsNewPanelTitle = document.getElementById('whatsnew-panel-title')
     this.buildVersionLine = document.getElementById('build-version-line')
     this.shopSortSelect = document.getElementById('shop-sort-select')
     this.shopSpendingLogRow = document.getElementById('shop-spending-log-row')
     this.shopSpendingLogHeading = document.getElementById('shop-spending-log-heading')
     this.shopSpendingLogList = document.getElementById('shop-spending-log-list')
-    this.printChangelogBtn = document.getElementById('print-changelog-btn')
-    this.copyChangelogBtn = document.getElementById('copy-changelog-btn')
     this.buildSessionIdLine = document.getElementById('build-session-id-line')
-    this.checkUpdatesBtn = document.getElementById('check-updates-btn')
     this.diagnosticsHeading = document.getElementById('diagnostics-heading')
     this.diagnosticsLine = document.getElementById('diagnostics-line')
     this.copyDiagnosticsBtn = document.getElementById('copy-diagnostics-btn')
-    this.copyErrorLogBtn = document.getElementById('copy-error-log-btn')
     this.coinshopBtn = document.getElementById('coinshop-btn')
     this.coinshopPanel = document.getElementById('coinshop-panel')
     this.coinshopPanelTitle = document.getElementById('coinshop-panel-title')
@@ -7407,7 +7422,7 @@ export class Game {
     })
     if (this.hubBtn) this.hubBtn.addEventListener('click', () => trackAndOpen(() => this._openHubPanel()))
     if (this.rulesInfoLink) this.rulesInfoLink.addEventListener('click', () => this._openHowToPlayPanel())
-    if (this.whatsNewLink) this.whatsNewLink.addEventListener('click', () => trackAndOpen(() => this._openCreditsPanel()))
+    if (this.whatsNewLink) this.whatsNewLink.addEventListener('click', () => trackAndOpen(() => this._openWhatsNewPanel()))
     if (this.friendsBtn) this.friendsBtn.addEventListener('click', () => trackAndOpen(() => this._openFriendsPanel()))
     if (this.friendsSigninBtn) this.friendsSigninBtn.addEventListener('click', () => this._handleCloudSignIn())
     if (this.menuInventoryBtn) this.menuInventoryBtn.addEventListener('click', () => trackAndOpen(() => this._openMenuInventoryPanel()))
@@ -7493,35 +7508,10 @@ export class Game {
     }
     if (this.profileCareerPortraitBtn) this.profileCareerPortraitBtn.addEventListener('click', () => this._generateCareerPortrait())
     if (this.profilePrintBtn) this.profilePrintBtn.addEventListener('click', () => this._printProfile())
-    if (this.printChangelogBtn) this.printChangelogBtn.addEventListener('click', () => this._printChangelog())
-    if (this.copyChangelogBtn) {
-      this.copyChangelogBtn.addEventListener('click', () => {
-        const entries = Array.from(document.querySelectorAll('#changelog-list .changelog-entry'))
-          .map((el) => `${el.querySelector('.changelog-date')?.textContent || ''}: ${el.querySelector('.changelog-text')?.textContent || ''}`)
-        if (!navigator.clipboard) { this._showLoreToast(t('clipboardCopyUnsupported')); return }
-        navigator.clipboard.writeText(entries.join('\n'))
-          .then(() => this._showLoreToast(t('clipboardCopySuccess')))
-          .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
-      })
-    }
-    // Check for Updates - this app has no service worker/version-check
-    // API of its own (a plain static Vite build), so a real reload IS
-    // the actual "check for updates" mechanism - it re-fetches whatever
-    // is currently deployed, same as the browser's own refresh button.
-    if (this.checkUpdatesBtn) this.checkUpdatesBtn.addEventListener('click', () => window.location.reload())
     if (this.copyDiagnosticsBtn) {
       this.copyDiagnosticsBtn.addEventListener('click', () => {
         if (!navigator.clipboard) { this._showLoreToast(t('clipboardCopyUnsupported')); return }
         navigator.clipboard.writeText(this._buildDiagnosticsText())
-          .then(() => this._showLoreToast(t('clipboardCopySuccess')))
-          .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
-      })
-    }
-    if (this.copyErrorLogBtn) {
-      this.copyErrorLogBtn.addEventListener('click', () => {
-        if (!navigator.clipboard) { this._showLoreToast(t('clipboardCopyUnsupported')); return }
-        const text = this._errorLog.length ? this._errorLog.join('\n') : t('errorLogEmpty')
-        navigator.clipboard.writeText(text)
           .then(() => this._showLoreToast(t('clipboardCopySuccess')))
           .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
       })
@@ -7608,6 +7598,11 @@ export class Game {
     this.creditsPanel.addEventListener('click', (e) => {
       if (e.target === this.creditsPanel) this._closeCreditsPanel()
     })
+    if (this.whatsNewPanel) {
+      this.whatsNewPanel.addEventListener('click', (e) => {
+        if (e.target === this.whatsNewPanel) this._closeWhatsNewPanel()
+      })
+    }
     this.coinshopPanel.addEventListener('click', (e) => {
       if (e.target === this.coinshopPanel) this._closeCoinShopPanel()
     })
@@ -8001,7 +7996,11 @@ export class Game {
   // correctly from a clean construction, same reload-to-resync precedent
   // Hardcore Mode's respawn already uses.
   _restoreDefaultSettings() {
-    saveSettings(defaultSettings())
+    // playerId carried over explicitly - unlike nickname (which
+    // legitimately goes back to blank here, an existing precedent),
+    // wiping the account's corner-badge ID on a settings reset would be
+    // a surprising identity change, not just a preference reset.
+    saveSettings({ ...defaultSettings(), playerId: this.settings.playerId })
     window.location.reload()
   }
 
@@ -8240,26 +8239,6 @@ export class Game {
     } catch {
       this.cloudsaveNearbyRankList.innerHTML = `<p class="cloud-leaderboard-empty">${t('cloudsaveError')}</p>`
     }
-  }
-
-  // Random Top Player compare - picks randomly among whatever the main
-  // leaderboard list already has rendered (its own top 10, see
-  // _subscribeLeaderboard), not a separate "truly random among every
-  // player ever" query - Firestore has no native random-row primitive,
-  // and downloading the whole collection client-side to pick one is the
-  // exact "download-and-sort" pattern this codebase's aggregate queries
-  // deliberately avoid elsewhere.
-  _compareVsRandomOpponent() {
-    const rows = Array.from(this.cloudsaveLeaderboardList?.querySelectorAll('.cloud-leaderboard-row') || [])
-      .filter((el) => !el.classList.contains('me'))
-    if (!rows.length) {
-      this.cloudsaveFriendResult.textContent = t('cloudsaveFriendNotFound')
-      return
-    }
-    const row = rows[Math.floor(Math.random() * rows.length)]
-    const name = row.querySelector('span')?.textContent.replace(/^(1st|2nd|3rd|\d+\.)\s*/, '') || ''
-    if (this.cloudsaveFriendInput) this.cloudsaveFriendInput.value = name
-    this._handleFriendCompare()
   }
 
   _renderSavedFriends() {
@@ -8686,17 +8665,6 @@ export class Game {
   _printProfile() {
     if (!this.printStatsSheet) return
     this.printStatsSheet.innerHTML = `<h1>${t('printSheetTitle')}</h1>${this.profileOptions.innerHTML}`
-    window.print()
-  }
-
-  // Print Full Changelog - same #print-stats-sheet element/mechanism as
-  // Print Stats Sheet above (hidden on-screen, shown only by the @media
-  // print rule), just pointed at #changelog-list's real, already-rendered
-  // entries instead of the Profile stat grid.
-  _printChangelog() {
-    if (!this.printStatsSheet) return
-    const list = document.getElementById('changelog-list')
-    this.printStatsSheet.innerHTML = `<h1>${t('printChangelogTitle')}</h1>${list ? list.innerHTML : ''}`
     window.print()
   }
 
@@ -10292,13 +10260,29 @@ export class Game {
       row.className = 'perk-options shop-section-row'
       this.coinshopOptions.appendChild(row)
 
+      // Moved up from below (was declared after this block, only reachable
+      // by the generic COIN_SHOP_ITEMS path further down) so the weapons
+      // block below can also sort/wishlist by it - base weapons used to
+      // render via a completely separate path with no wishlist star at
+      // all, so wishlisting one had nothing to click and "Wishlisted
+      // First" never affected weapon order, a real bug caught via a live
+      // test that wishlisted a base weapon and found it not reflected in
+      // the sort.
+      const sortMode = this.settings.shopSortMode || 'default'
+
       // Every weapon the player has (or could buy) in one place, so
       // switching back to an already-owned gun never depends on
       // remembering its number key - buying a gun elsewhere in this same
       // panel doesn't auto-refresh this list, but closing/reopening Shop
       // does (see _renderCoinShopOptions being re-run on every purchase).
       if (section.id === 'weapons') {
-        for (const w of this.weapons.getSummary()) {
+        const weaponList = [...this.weapons.getSummary()]
+        if (sortMode === 'wishlist') {
+          weaponList.sort((a, b) => (this.settings.shopWishlist.includes(b.id) ? 1 : 0) - (this.settings.shopWishlist.includes(a.id) ? 1 : 0))
+        } else if (sortMode === 'alpha') {
+          weaponList.sort((a, b) => t(a.nameKey).localeCompare(t(b.nameKey)))
+        }
+        for (const w of weaponList) {
           const wrap = document.createElement('div')
           wrap.className = 'weapon-slot-wrap'
 
@@ -10320,6 +10304,26 @@ export class Game {
             this._renderCoinShopOptions()
           })
           wrap.appendChild(btn)
+
+          // Wishlist star - base weapons never had one before (only the
+          // skins/outfits/hats/weapon-variant items rendered through the
+          // generic COIN_SHOP_ITEMS path below did), so there was nothing
+          // to click to wishlist a plain gun like the AK-47 or Nail Gun.
+          const weaponStar = document.createElement('span')
+          weaponStar.className = `shop-wishlist-star${this.settings.shopWishlist.includes(w.id) ? ' active' : ''}`
+          weaponStar.textContent = '★'
+          weaponStar.title = t('wishlistStarTooltip')
+          weaponStar.addEventListener('click', (e) => {
+            e.stopPropagation()
+            if (this.settings.shopWishlist.includes(w.id)) {
+              this.settings.shopWishlist = this.settings.shopWishlist.filter((id) => id !== w.id)
+            } else {
+              this.settings.shopWishlist.push(w.id)
+            }
+            saveSettings(this.settings)
+            this._renderCoinShopOptions()
+          })
+          wrap.appendChild(weaponStar)
 
           // Per-gun permanent attachments (see CoinShop.js's
           // ATTACHMENT_TYPES) - melee has no ammo/scope/sound to attach to,
@@ -10418,7 +10422,6 @@ export class Game {
       // rather than across all sections at once, so the existing guns/
       // skins/perks grouping stays intact regardless of sort mode.
       const sectionItems = COIN_SHOP_ITEMS.filter((i) => i.section === section.id)
-      const sortMode = this.settings.shopSortMode || 'default'
       if (sortMode === 'costAsc') sectionItems.sort((a, b) => a.cost - b.cost)
       else if (sortMode === 'costDesc') sectionItems.sort((a, b) => b.cost - a.cost)
       else if (sortMode === 'alpha') sectionItems.sort((a, b) => t(a.titleKey).localeCompare(t(b.titleKey)))
@@ -11225,30 +11228,17 @@ export class Game {
   // nickname edits directly) since it now also appends the cached Global
   // Rank (see _renderMyRank, fetched only when the Cloud Save panel opens
   // - not a live subscription) when one's available.
+  // Shows the account's stable random ID (see _generatePlayerId), not the
+  // nickname - the nickname is still editable via the pencil icon and
+  // still used everywhere else (companion naming, leaderboards, friend
+  // search), just not on this specific badge any more. The "#{rank}
+  // Worldwide" suffix this used to show was removed per request; the
+  // global rank itself is still fetched/shown separately in the Cloud
+  // Save panel's own online section (#cloudsave-rank-line).
   _renderPlayerTag() {
     if (!this.menuPlayerTag) return
-    const base = this.settings.nickname ? `#${this.settings.nickname.toUpperCase()}` : t('menuPlayerTagDefault')
-    let text = base + (this.settings.motto ? ` "${this.settings.motto}"` : '')
-    if (this._cloudGlobalRank) {
-      text += ` · ${t('globalRankBadge', { rank: this._cloudGlobalRank })}`
-      // Rank velocity arrow - compares against the rank as of the last
-      // time this ever fetched (localStorage, not per-session), computed
-      // once per session (_rankVelocityArrow caches it) so repeated
-      // _renderPlayerTag calls later in the same session don't keep
-      // comparing against an already-updated baseline and always show
-      // "no change."
-      if (this._rankVelocityArrow === undefined) {
-        const prev = Number(localStorage.getItem(PREV_GLOBAL_RANK_KEY)) || 0
-        this._rankVelocityArrow = !prev ? '' : this._cloudGlobalRank < prev ? ' ▲' : this._cloudGlobalRank > prev ? ' ▼' : ' –'
-        // Rank-change toast - the arrow above is a passive, easy-to-miss
-        // badge; this surfaces the same "you moved up" fact as an actual
-        // toast, once per session, only on genuine improvement.
-        if (prev && this._cloudGlobalRank < prev) this._showHomepageToast(t('rankImprovedToast', { rank: this._cloudGlobalRank }))
-        localStorage.setItem(PREV_GLOBAL_RANK_KEY, String(this._cloudGlobalRank))
-      }
-      text += this._rankVelocityArrow
-    }
-    this.menuPlayerTag.textContent = text
+    const base = this.settings.playerId ? `#${this.settings.playerId}` : t('menuPlayerTagDefault')
+    this.menuPlayerTag.textContent = base + (this.settings.motto ? ` "${this.settings.motto}"` : '')
   }
 
   // Recommended Difficulty hint - only shown once a difficulty has at
@@ -12003,7 +11993,6 @@ export class Game {
         if (this._howtoplayStep > 0) { this._howtoplayStep--; this._renderHowToPlayStep() }
       })
     }
-    if (this.howtoplayCloseBtn) this.howtoplayCloseBtn.addEventListener('click', () => this._closeHowToPlayPanel())
     if (this.howtoplayPanel) {
       this.howtoplayPanel.addEventListener('click', (e) => {
         if (e.target === this.howtoplayPanel) this._closeHowToPlayPanel()
@@ -13030,12 +13019,25 @@ export class Game {
     }, ACHIEVEMENT_TOAST_GAP_MS)
   }
 
-  // Credits & What's New panel - static prose, not a data-driven list like
-  // achievements/bestiary, so this just sets textContent once rather than
-  // building rows.
+  // Credits panel - static prose (dev/asset credits only), not a
+  // data-driven list, so no render step needed beyond the title.
   _openCreditsPanel() {
     this.creditsPanel.style.display = 'flex'
     this.creditsPanelTitle.textContent = t('creditsPanelTitle')
+  }
+
+  _closeCreditsPanel() {
+    this.creditsPanel.style.display = 'none'
+  }
+
+  // What's New panel - split out from Credits (used to be one combined
+  // panel/nav entry point for both) so the changelog/build info/
+  // diagnostics content has its own dedicated place, distinct from the
+  // static dev-credits prose.
+  _openWhatsNewPanel() {
+    if (!this.whatsNewPanel) return
+    this.whatsNewPanel.style.display = 'flex'
+    if (this.whatsNewPanelTitle) this.whatsNewPanelTitle.textContent = t('whatsNewPanelTitle')
     if (this.buildVersionLine) this.buildVersionLine.textContent = t('buildVersionLine', { hash: __BUILD_HASH__, date: __BUILD_DATE__ })
     if (this.buildSessionIdLine) this.buildSessionIdLine.textContent = t('sessionIdLine', { id: this._sessionId })
     if (this.diagnosticsHeading) this.diagnosticsHeading.textContent = t('diagnosticsHeading')
@@ -13053,8 +13055,8 @@ export class Game {
     this._updateWhatsNewDot()
   }
 
-  _closeCreditsPanel() {
-    this.creditsPanel.style.display = 'none'
+  _closeWhatsNewPanel() {
+    if (this.whatsNewPanel) this.whatsNewPanel.style.display = 'none'
   }
 
   // First-time tutorial hint sequence - a one-time (localStorage-gated)
