@@ -2427,6 +2427,7 @@ select option {
 #achievements-panel-title,
 #profile-panel-title,
 #credits-panel-title,
+#whatsnew-panel-title,
 #howtoplay-panel-title,
 #cloudsave-panel-title,
 #friends-panel-title,
@@ -2438,7 +2439,10 @@ select option {
 #coinshop-panel-title,
 #journal-panel-title {
   margin: 0;
-  font-size: 15px;
+  /* Doubled from 15px per request - this is the title shown right after
+     opening any of these panels (Hub, Store, Achievements, etc.), not
+     the homepage nav button label. */
+  font-size: 30px;
   letter-spacing: 1.5px;
   text-transform: uppercase;
   color: #e3a63c;
@@ -4463,15 +4467,11 @@ html.theme-lighter #app { filter: brightness(1.25); }
 /* Real logo artwork (cracked-stone letters + dripping blood, background
    removed and drips recolored to red) - replaces the earlier CSS-only
    stenciled-text title now that a real image asset exists. */
-/* Hidden per request - the background photo underneath (#menu-bg-photo,
-   already the same city-street image) stays untouched, this just removes
-   the bloody "GAYZ" wordmark that used to sit on top of it. display:none
-   rather than removing the element outright - _updateBestStatsDisplay
-   still toggles logo-tier-N classes on #menu-title-img (a cosmetic CSS
-   filter, harmless on a hidden element) and nothing else reads its
-   layout/dimensions. */
 #menu-title {
-  display: none;
+  position: relative;
+  width: 100%;
+  margin: 0;
+  line-height: 1;
 }
 
 #menu-title-img {
@@ -5270,6 +5270,13 @@ html.theme-lighter #app { filter: brightness(1.25); }
   font-weight: 400;
   opacity: 0.55;
   font-variant-numeric: tabular-nums;
+}
+
+/* Store's own count ("0/10") hidden per request - Quests/Achievements
+   keep theirs, this is scoped to the Store button specifically rather
+   than touching the shared .nav-count class every nav button uses. */
+#cosmetics-nav-count {
+  display: none;
 }
 
 /* Completion ring (Store/Quests/Achievements nav buttons) - a donut built
