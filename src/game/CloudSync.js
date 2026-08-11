@@ -47,7 +47,13 @@ const FIREBASE_CONFIG = {
 //   read (that's the point of a leaderboard), but only the account that
 //   owns a doc can write it, and only with plausible values - a client-
 //   side edit could still lie about its own single entry, but can't
-//   touch anyone else's or write absurd numbers.
+//   touch anyone else's or write absurd numbers. leaderboard/{uid} also
+//   carries playerId now (Add Friend by ID's lookup field, see
+//   fetchLeaderboardEntryByPlayerId) - this rule doesn't hasOnly-restrict
+//   fields at all, so the client was already free to write it under the
+//   OLD deployed rules too; the playerId format check added here is just
+//   optional hardening, not required for the feature to work - re-pasting
+//   this ruleset isn't a blocking step this time.
 // - stats/global: public read, signed-in write, but ONLY as a small
 //   incremental bump to totalKills (never a full overwrite) - the
 //   pre-existing value must be a number, the new value must be strictly
@@ -109,7 +115,8 @@ service cloud.firestore {
         && request.resource.data.bestKills is int && request.resource.data.bestKills >= 0 && request.resource.data.bestKills < 1000000
         && request.resource.data.bestKillStreak is int && request.resource.data.bestKillStreak >= 0 && request.resource.data.bestKillStreak < 100000
         && request.resource.data.achievementCount is int && request.resource.data.achievementCount >= 0 && request.resource.data.achievementCount <= 19
-        && (!('region' in request.resource.data) || request.resource.data.region in ['na', 'eu', 'asia', 'sa', 'oceania', 'africa']);
+        && (!('region' in request.resource.data) || request.resource.data.region in ['na', 'eu', 'asia', 'sa', 'oceania', 'africa'])
+        && (!('playerId' in request.resource.data) || (request.resource.data.playerId is string && request.resource.data.playerId.size() >= 6 && request.resource.data.playerId.size() <= 10));
     }
 
     match /weeklyLeaderboard/{week}/entries/{userId} {
@@ -314,6 +321,21 @@ export async function fetchGlobalAverages() {
 export async function fetchLeaderboardEntryByName(name) {
   const { db, fsMod } = await ensureApp()
   const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.where('name', '==', name), fsMod.limit(1))
+  const snap = await fsMod.getDocs(q)
+  return snap.empty ? null : { ...snap.docs[0].data(), uid: snap.docs[0].id }
+}
+
+// Add Friend by ID - same shape as fetchLeaderboardEntryByName above, just
+// keyed on the stable random playerId (see Game.js's _generatePlayerId)
+// instead of the nickname, since a nickname can change and isn't
+// guaranteed unique. playerId is only present on a leaderboard doc once
+// its owner has completed at least one run (see _pushOnlineStats in
+// Game.js, same as every other field on this doc) - a brand new signed-in
+// account with zero runs can't be found by ID yet, same existing
+// limitation nickname lookup already has.
+export async function fetchLeaderboardEntryByPlayerId(playerId) {
+  const { db, fsMod } = await ensureApp()
+  const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.where('playerId', '==', playerId), fsMod.limit(1))
   const snap = await fsMod.getDocs(q)
   return snap.empty ? null : { ...snap.docs[0].data(), uid: snap.docs[0].id }
 }

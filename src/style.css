@@ -526,14 +526,6 @@ html.layout-compact .menu-panel {
   padding: 0 1px;
 }
 
-#cloudsave-friend-row #cloudsave-friend-save-btn {
-  flex: 0 0 auto;
-  width: 32px;
-  padding: 0;
-  font-size: 16px;
-  font-weight: 700;
-}
-
 .cloud-leaderboard-row {
   display: flex;
   justify-content: space-between;
@@ -4534,7 +4526,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 #menu-tagline {
   margin: 2px 0 4px;
   font-family: var(--menu-display-font);
-  font-size: 34px;
+  font-size: 17px;
   letter-spacing: 4.5px;
   color: var(--menu-olive);
   text-transform: uppercase;
@@ -4547,7 +4539,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 }
 
 #menu-subtitle {
-  font-size: 29px;
+  font-size: 14.5px;
   font-weight: 400;
   opacity: 0.85 !important;
   letter-spacing: 0.3px;
@@ -4665,7 +4657,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 
 .hero-stat-value {
   font-family: var(--menu-display-font);
-  font-size: 68px;
+  font-size: 34px;
   color: var(--menu-gold);
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -4673,7 +4665,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 
 .hero-stat-label {
   margin-top: 2px;
-  font-size: 18px;
+  font-size: 9px;
   font-weight: 600;
   letter-spacing: 1.2px;
   text-transform: uppercase;
@@ -4682,7 +4674,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 
 .hero-stat-divider {
   width: 1px;
-  height: 50px;
+  height: 25px;
   background: rgba(255, 255, 255, 0.15);
 }
 
@@ -5004,12 +4996,15 @@ html.theme-lighter #app { filter: brightness(1.25); }
   font-weight: 700;
   letter-spacing: 0.5px;
   color: #eee;
+  cursor: pointer;
 }
 
-/* Shared by the corner badge's pencil (#edit-nickname-btn) and the new
-   Player showcase panel's pencil (#player-showcase-rename-btn) - both open
-   the same nickname editor (see _revealNicknameEditor in Game.js), so they
-   share one visual style instead of two near-identical rule blocks. */
+#menu-player-tag:hover {
+  color: var(--menu-gold);
+}
+
+/* Used by the Player showcase panel's pencil (#player-showcase-rename-btn),
+   which opens the nickname editor (see _revealNicknameEditor in Game.js). */
 .pencil-edit-btn {
   display: flex;
   align-items: center;
@@ -5289,10 +5284,15 @@ html.theme-lighter #app { filter: brightness(1.25); }
   font-variant-numeric: tabular-nums;
 }
 
-/* Store's own count ("0/10") hidden per request - Quests/Achievements
-   keep theirs, this is scoped to the Store button specifically rather
-   than touching the shared .nav-count class every nav button uses. */
-#cosmetics-nav-count {
+/* Store/Quests/Achievements counts ("0/10", "0/47") all hidden from the
+   homepage per request - the count now shows in the panel's own title
+   once opened instead (see _openQuestsPanel/_openAchievementsPanel in
+   Game.js), keeping the homepage nav row uncluttered. Scoped to these
+   3 ids rather than the shared .nav-count class in case a future nav
+   button wants to keep its count visible. */
+#cosmetics-nav-count,
+#quests-nav-count,
+#achievements-nav-count {
   display: none;
 }
 
@@ -5618,15 +5618,15 @@ html.theme-lighter #app { filter: brightness(1.25); }
      this tier. Midpoint between the full size and the tighter 820px
      tier below, not the pre-enlargement size. */
   #menu-tagline {
-    font-size: 32px;
+    font-size: 16px;
   }
 
   #menu-subtitle {
-    font-size: 27px;
+    font-size: 13.5px;
   }
 
   .hero-stat-value {
-    font-size: 63px;
+    font-size: 31.5px;
   }
 
   #play-btn {
@@ -5704,24 +5704,24 @@ html.theme-lighter #app { filter: brightness(1.25); }
      size at short heights, just not the full amount, same "shrink
      before removing" precedent as everything else in this breakpoint. */
   #menu-tagline {
-    font-size: 30px;
+    font-size: 15px;
     margin: 2px 0 3px;
   }
 
   #menu-subtitle {
-    font-size: 25px;
+    font-size: 12.5px;
   }
 
   .hero-stat-value {
-    font-size: 58px;
+    font-size: 29px;
   }
 
   .hero-stat-label {
-    font-size: 16px;
+    font-size: 8px;
   }
 
   .hero-stat-divider {
-    height: 44px;
+    height: 22px;
   }
 
   #menu-hero-stats {
@@ -5807,25 +5807,25 @@ html.theme-lighter #app { filter: brightness(1.25); }
   }
 
   #menu-tagline {
-    font-size: 24px;
+    font-size: 12px;
     margin: 1px 0 2px;
   }
 
   #menu-subtitle {
-    font-size: 20px;
+    font-size: 10px;
   }
 
   .hero-stat-value {
-    font-size: 46px;
+    font-size: 23px;
   }
 
   .hero-stat-label {
-    font-size: 13px;
+    font-size: 6.5px;
     margin-top: 1px;
   }
 
   .hero-stat-divider {
-    height: 34px;
+    height: 17px;
   }
 
   #menu-hero-stats {

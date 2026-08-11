@@ -325,7 +325,7 @@
           <div id="menu-col-left">
             <section class="menu-panel" id="player-showcase-panel">
               <div id="player-showcase-header">
-                <h2 class="menu-panel-title">Player</h2>
+                <h2 class="menu-panel-title" id="player-showcase-title">Player</h2>
                 <button id="player-showcase-rename-btn" class="pencil-edit-btn" type="button" aria-label="Edit nickname" title="Edit nickname">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>
                 </button>
@@ -421,10 +421,7 @@
                 <span id="menu-avatar-level">1</span>
               </div>
               <span id="menu-player-name-row">
-                <span id="menu-player-tag">#PLAYER</span>
-                <button id="edit-nickname-btn" class="pencil-edit-btn" aria-label="Edit nickname" title="Edit nickname">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>
-                </button>
+                <span id="menu-player-tag" title="Click to copy your ID">#PLAYER</span>
               </span>
             </div>
 
@@ -458,7 +455,7 @@
               </button>
               <button id="friends-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                <span>Friends</span>
+                <span>Friend List</span>
                 <span class="nav-badge-dot" id="friends-request-dot" style="display: none"></span>
               </button>
               <button id="menu-inventory-btn">
@@ -1435,7 +1432,7 @@
       </div>
 
       <div id="friends-panel">
-        <h2 id="friends-panel-title">Friends</h2>
+        <h2 id="friends-panel-title">Friend List</h2>
         <div id="friends-signed-out">
           <p id="friends-signed-out-desc">Sign in with Google (via Cloud Save) to compare stats with friends.</p>
           <button id="friends-signin-btn">Sign in with Google</button>
@@ -1443,12 +1440,11 @@
         <div id="friends-signed-in" style="display: none">
           <h3 id="friend-requests-heading">Friend Requests</h3>
           <div id="friend-requests-list"></div>
-          <h3 id="cloudsave-friend-title">Compare with a Friend</h3>
+          <h3 id="cloudsave-friend-title">Your Friends</h3>
           <div id="cloudsave-saved-friends"></div>
+          <h3 id="add-friend-heading">Add a Friend</h3>
           <div id="cloudsave-friend-row">
-            <input type="text" id="cloudsave-friend-input" class="nickname-input" placeholder="Friend's nickname" maxlength="16" />
-            <button id="cloudsave-friend-compare-btn" class="mini-action-btn" type="button">Compare</button>
-            <button id="cloudsave-friend-save-btn" class="mini-action-btn" type="button" aria-label="Save friend">+</button>
+            <input type="text" id="cloudsave-friend-input" class="nickname-input" placeholder="Friend's ID" maxlength="10" />
             <button id="send-friend-request-btn" class="mini-action-btn" type="button">Add Friend</button>
           </div>
           <p id="cloudsave-friend-result"></p>

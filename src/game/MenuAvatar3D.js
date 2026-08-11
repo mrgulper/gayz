@@ -6,9 +6,16 @@
 // swapping the block materials for a textured skin later is a small
 // change, not a rewrite).
 //
-// No idle auto-rotation - the character only turns when the player drags
-// it (pointerdown+move on the canvas), so it holds still until touched.
+// Auto-spins on its own (a slow full 360 turn on the vertical axis, on
+// repeat) whenever the player isn't dragging it - see IDLE_SPIN_SPEED and
+// the loop() function. Dragging still works too, but only yaws (turns
+// left/right) rather than the old free-trackball pitch+yaw - one axis of
+// spin either way, auto or manual, not two.
 import * as THREE from 'three'
+
+// Radians/second - a slow, ambient turn, not a fast spinning-coin effect.
+// A full 360 takes 2*PI / IDLE_SPIN_SPEED =~ 26 seconds.
+const IDLE_SPIN_SPEED = 0.24
 
 // Classic Minecraft player proportions (in arbitrary "skin pixel" units,
 // same 8/12/12 head/torso-and-arms/legs split the real game uses) so the
@@ -104,37 +111,34 @@ export class MenuAvatar3D {
 
     this._running = false
     this._raf = null
+    this._dragging = false
+    this._lastFrameTime = 0
     this._resize()
     window.addEventListener('resize', () => this._resize())
     this._bindDrag()
   }
 
-  // Click-and-drag to spin freely in any direction (horizontal drag yaws,
-  // vertical drag pitches - a trackball, not a turntable) - deliberately
-  // not an auto-spin or a canned one-shot animation. No clamp on the pitch
-  // axis, so it really can spin all the way around, not just side to side.
-  // Pointer Events (not mouse-only) so this also works via touch.
+  // Click-and-drag to spin on the vertical axis only (horizontal drag
+  // yaws) - matches the auto-spin's own single axis, so manual and idle
+  // rotation never fight each other or leave the character at some
+  // half-pitched angle. Pointer Events (not mouse-only) so this also
+  // works via touch. Sets _dragging so the idle auto-spin in start()'s
+  // loop() pauses itself while the player is actively turning it by hand.
   _bindDrag() {
-    let dragging = false
     let lastX = 0
-    let lastY = 0
     this.canvas.style.touchAction = 'none'
     this.canvas.addEventListener('pointerdown', (e) => {
-      dragging = true
+      this._dragging = true
       lastX = e.clientX
-      lastY = e.clientY
       this.canvas.setPointerCapture(e.pointerId)
     })
     this.canvas.addEventListener('pointermove', (e) => {
-      if (!dragging) return
+      if (!this._dragging) return
       const dx = e.clientX - lastX
-      const dy = e.clientY - lastY
       lastX = e.clientX
-      lastY = e.clientY
       this.character.rotation.y += dx * 0.02
-      this.character.rotation.x += dy * 0.02
     })
-    const stop = () => { dragging = false }
+    const stop = () => { this._dragging = false }
     this.canvas.addEventListener('pointerup', stop)
     this.canvas.addEventListener('pointercancel', stop)
     this.canvas.addEventListener('pointerleave', stop)
@@ -175,16 +179,29 @@ export class MenuAvatar3D {
   start() {
     if (this._running) return
     this._running = true
-    const loop = () => {
+    this._lastFrameTime = performance.now()
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const loop = (now) => {
       if (!this._running) return
       this._raf = requestAnimationFrame(loop)
+      const dt = Math.min((now - this._lastFrameTime) / 1000, 0.1)
+      this._lastFrameTime = now
       // Skip actual rendering while the canvas isn't visible (menu hidden
       // during gameplay) - cheap to check, avoids fighting the main
-      // game's own render loop for GPU time.
+      // game's own render loop for GPU time. _lastFrameTime is still
+      // updated above even while skipped, so a long hidden stretch (e.g.
+      // a whole run) doesn't come back as one huge dt-driven spin jump.
       if (this.canvas.offsetParent === null) return
+      // Idle auto-spin - paused while the player is dragging it themselves
+      // (see _bindDrag), and skipped entirely under prefers-reduced-motion
+      // (same convention as every other ambient animation in this
+      // codebase - ash/embers/rain on the homepage background, etc.).
+      if (!this._dragging && !reduceMotion) {
+        this.character.rotation.y += IDLE_SPIN_SPEED * dt
+      }
       this.renderer.render(this.scene, this.camera)
     }
-    loop()
+    this._raf = requestAnimationFrame(loop)
   }
 
   stop() {

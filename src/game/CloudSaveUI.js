@@ -109,8 +109,8 @@ export function renderCloudSaveState(game) {
     game.cloudsaveSigninBtn.textContent = t('cloudsaveSigninBtn')
     game.cloudsaveSigninBtn.disabled = !CloudSync.isConfigured()
   }
-  // Friends panel - the Compare-with-a-Friend feature (see Game.js's
-  // _openFriendsPanel) needs the same Cloud Save account, so it mirrors
+  // Friends panel - Add Friend / Friend Requests (see Game.js's
+  // _openFriendsPanel) need the same Cloud Save account, so it mirrors
   // this exact signed-in toggle rather than tracking its own state.
   if (game.friendsSignedOut) game.friendsSignedOut.style.display = signedIn ? 'none' : 'flex'
   if (game.friendsSignedIn) game.friendsSignedIn.style.display = signedIn ? 'flex' : 'none'
@@ -231,9 +231,6 @@ export function bindCloudSave(game) {
   if (game.cloudsaveSyncNowBtn) game.cloudsaveSyncNowBtn.addEventListener('click', () => pushToCloud(game, true))
   if (game.cloudsaveUseCloudBtn) game.cloudsaveUseCloudBtn.addEventListener('click', () => resolveCloudConflict(game, 'cloud'))
   if (game.cloudsaveUseLocalBtn) game.cloudsaveUseLocalBtn.addEventListener('click', () => resolveCloudConflict(game, 'local'))
-  if (game.cloudsaveFriendCompareBtn) game.cloudsaveFriendCompareBtn.addEventListener('click', () => game._handleFriendCompare())
-  if (game.cloudsaveRandomOpponentBtn) game.cloudsaveRandomOpponentBtn.addEventListener('click', () => game._compareVsRandomOpponent())
-  if (game.cloudsaveFriendSaveBtn) game.cloudsaveFriendSaveBtn.addEventListener('click', () => game._saveFriend())
   if (game.sendFriendRequestBtn) game.sendFriendRequestBtn.addEventListener('click', () => game._sendFriendRequestClick())
   if (game.cloudsaveRegionSelect) {
     game.cloudsaveRegionSelect.addEventListener('change', () => {
@@ -244,7 +241,7 @@ export function bindCloudSave(game) {
   }
   if (game.cloudsaveFriendInput) {
     game.cloudsaveFriendInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') game._handleFriendCompare()
+      if (e.key === 'Enter') game._sendFriendRequestClick()
     })
   }
   // Applies a chosen avatar preset immediately even if Cloud Save isn't

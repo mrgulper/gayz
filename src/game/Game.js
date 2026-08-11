@@ -2951,8 +2951,8 @@ export class Game {
       this._menuAvatar3D = new MenuAvatar3D(this.setupAvatarCanvas)
       this._menuAvatar3D.start()
     }
-    this.editNicknameBtn = document.getElementById('edit-nickname-btn')
     this.menuPlayerTag = document.getElementById('menu-player-tag')
+    this.playerShowcaseTitle = document.getElementById('player-showcase-title')
     this.menuCareerRank = document.getElementById('menu-career-rank')
     this.menuPrestigeBadge = document.getElementById('menu-prestige-badge')
     this.menuNewsTicker = document.getElementById('menu-news-ticker')
@@ -3068,14 +3068,13 @@ export class Game {
     this.cloudsaveAchievementsLeaderboardTitle = document.getElementById('cloudsave-achievements-leaderboard-title')
     this.cloudsaveAchievementsLeaderboardList = document.getElementById('cloudsave-achievements-leaderboard-list')
     this.cloudsaveSavedFriends = document.getElementById('cloudsave-saved-friends')
-    this.cloudsaveFriendSaveBtn = document.getElementById('cloudsave-friend-save-btn')
     this.cloudsaveLeaderboardTitle = document.getElementById('cloudsave-leaderboard-title')
     this.cloudsaveLeaderboardList = document.getElementById('cloudsave-leaderboard-list')
     this.cloudsaveWeeklyLeaderboardList = document.getElementById('cloudsave-weekly-leaderboard-list')
     this.cloudsaveWeeklyLeaderboardTitle = document.getElementById('cloudsave-weekly-leaderboard-title')
     this.cloudsaveFriendTitle = document.getElementById('cloudsave-friend-title')
+    this.addFriendHeading = document.getElementById('add-friend-heading')
     this.cloudsaveFriendInput = document.getElementById('cloudsave-friend-input')
-    this.cloudsaveFriendCompareBtn = document.getElementById('cloudsave-friend-compare-btn')
     this.cloudsaveFriendResult = document.getElementById('cloudsave-friend-result')
     this.cloudsavePollTitle = document.getElementById('cloudsave-poll-title')
     this.cloudsavePollOptions = document.getElementById('cloudsave-poll-options')
@@ -7454,16 +7453,17 @@ export class Game {
         this._openProfilePanel()
       }
     })
-    // Pencil icon next to the corner name display, and the matching one in
-    // the Player showcase panel - both reveal the same #nickname-row
-    // (hidden by default since the old always-visible Player Setup form
-    // was replaced with just "Player" + the big avatar) rather than each
-    // building its own rename surface. stopPropagation so the corner one
-    // doesn't also trigger the parent badge's "open profile" click.
-    if (this.editNicknameBtn) {
-      this.editNicknameBtn.addEventListener('click', (e) => {
+    // Pencil icon in the Player showcase panel reveals the same
+    // #nickname-row (hidden by default since the old always-visible
+    // Player Setup form was replaced with just "Player" + the big avatar).
+    // The corner ID tag has no editor of its own - it's not editable,
+    // it's a stable random id - clicking it copies it instead (see below),
+    // stopPropagation so that doesn't also trigger the parent badge's
+    // "open profile" click.
+    if (this.menuPlayerTag) {
+      this.menuPlayerTag.addEventListener('click', (e) => {
         e.stopPropagation()
-        this._revealNicknameEditor()
+        this._copyPlayerId()
       })
     }
     if (this.playerShowcaseRenameBtn) {
@@ -8177,12 +8177,12 @@ export class Game {
     this._renderWeeklyLeaderboardList()
     this._renderPoll()
     this._renderSavedFriends()
-    if (this.cloudsaveFriendCompareBtn) this.cloudsaveFriendCompareBtn.textContent = t('cloudsaveFriendCompareBtn')
     if (this.sendFriendRequestBtn) this.sendFriendRequestBtn.textContent = t('sendFriendRequestBtn')
     if (this.cloudsaveFriendInput) this.cloudsaveFriendInput.placeholder = t('cloudsaveFriendPlaceholder')
     if (this.cloudsaveLeaderboardTitle) this.cloudsaveLeaderboardTitle.textContent = t('cloudsaveLeaderboardTitle')
     if (this.cloudsaveAchievementsLeaderboardTitle) this.cloudsaveAchievementsLeaderboardTitle.textContent = t('cloudsaveAchievementsLeaderboardTitle')
     if (this.cloudsaveFriendTitle) this.cloudsaveFriendTitle.textContent = t('cloudsaveFriendTitle')
+    if (this.addFriendHeading) this.addFriendHeading.textContent = t('addFriendHeading')
     if (this.cloudsaveRegionSelect) this.cloudsaveRegionSelect.value = this.settings.region
   }
 
@@ -8241,6 +8241,10 @@ export class Game {
     }
   }
 
+  // "Your Friends" chip list - now populated only by accepting an incoming
+  // friend request (see _respondToFriendRequest), not by manually typing a
+  // name any more (that was the removed Save/Compare flow). Chips are
+  // display + remove-from-list only now.
   _renderSavedFriends() {
     if (!this.cloudsaveSavedFriends) return
     this.cloudsaveSavedFriends.innerHTML = this.settings.savedFriends.map((name) => `
@@ -8249,49 +8253,35 @@ export class Game {
     for (const chip of this.cloudsaveSavedFriends.querySelectorAll('.saved-friend-chip')) {
       chip.addEventListener('click', (e) => {
         const removeName = e.target.dataset.remove
-        if (removeName) {
-          this.settings.savedFriends = this.settings.savedFriends.filter((n) => n !== removeName)
-          saveSettings(this.settings)
-          this._renderSavedFriends()
-          return
-        }
-        this.cloudsaveFriendInput.value = chip.dataset.name
-        this._handleFriendCompare()
+        if (!removeName) return
+        this.settings.savedFriends = this.settings.savedFriends.filter((n) => n !== removeName)
+        saveSettings(this.settings)
+        this._renderSavedFriends()
       })
     }
   }
 
-  _saveFriend() {
-    const name = this.cloudsaveFriendInput.value.trim()
-    if (!name || this.settings.savedFriends.includes(name)) return
-    if (this.settings.savedFriends.length >= 5) this.settings.savedFriends.shift()
-    this.settings.savedFriends.push(name)
-    saveSettings(this.settings)
-    this._renderSavedFriends()
-  }
-
-  // Send Friend Request - reuses the same nickname->leaderboard-entry
-  // lookup Compare already uses (fetchLeaderboardEntryByName now also
-  // returns the doc's own uid, needed here but not by Compare/Save,
-  // which only ever wanted the stats fields). Requires being signed in,
-  // same gate the rest of this panel already has.
+  // Send Friend Request - looked up by the recipient's stable random
+  // playerId (see CloudSync.fetchLeaderboardEntryByPlayerId) rather than
+  // their nickname, since a nickname can change/collide and an ID can't.
+  // Requires being signed in, same gate the rest of this panel already has.
   async _sendFriendRequestClick() {
     if (!this.cloudsaveFriendInput || !this.cloudsaveFriendResult || !this._cloudUid) return
-    const name = this.cloudsaveFriendInput.value.trim()
-    if (!name) return
-    if (name === this.settings.nickname) {
+    const id = this.cloudsaveFriendInput.value.trim().toUpperCase()
+    if (!id) return
+    if (id === this.settings.playerId) {
       this.cloudsaveFriendResult.textContent = t('friendRequestSelfError')
       return
     }
     this.cloudsaveFriendResult.textContent = t('cloudsaveConnecting')
     try {
-      const entry = await CloudSync.fetchLeaderboardEntryByName(name)
+      const entry = await CloudSync.fetchLeaderboardEntryByPlayerId(id)
       if (!entry || !entry.uid) {
         this.cloudsaveFriendResult.textContent = t('cloudsaveFriendNotFound')
         return
       }
       await CloudSync.sendFriendRequest(entry.uid, this._cloudUid, this.settings.nickname || t('cloudsaveFriendNotFound'))
-      this.cloudsaveFriendResult.textContent = t('friendRequestSent', { name: entry.name || name })
+      this.cloudsaveFriendResult.textContent = t('friendRequestSent', { name: entry.name || id })
     } catch {
       this.cloudsaveFriendResult.textContent = t('cloudsaveError')
     }
@@ -8432,33 +8422,6 @@ export class Game {
     }
   }
 
-  async _handleFriendCompare() {
-    if (!this.cloudsaveFriendInput || !this.cloudsaveFriendResult) return
-    const name = this.cloudsaveFriendInput.value.trim()
-    if (!name) return
-    this.cloudsaveFriendResult.textContent = t('cloudsaveConnecting')
-    try {
-      const entry = await CloudSync.fetchLeaderboardEntryByName(name)
-      if (!entry) {
-        this.cloudsaveFriendResult.textContent = t('cloudsaveFriendNotFound')
-        return
-      }
-      // Last played - reuses the same updatedAt field every leaderboard
-      // push already writes (see pushLeaderboardEntry), not a new
-      // presence/timestamp system.
-      const lastPlayed = entry.updatedAt ? _formatRelativeTime(Math.max(0, Date.now() - Number(entry.updatedAt))) : null
-      this.cloudsaveFriendResult.textContent = t('cloudsaveFriendResult', {
-        name: entry.name || name,
-        myNight: _safeStatNumber(this.bestStats.bestNight),
-        myKills: _safeStatNumber(this.careerStats.totalKills),
-        theirNight: _safeStatNumber(entry.bestNight),
-        theirKills: _safeStatNumber(entry.bestKills),
-      }) + (lastPlayed ? ` ${t('cloudsaveFriendLastPlayed', { time: lastPlayed })}` : '')
-    } catch {
-      this.cloudsaveFriendResult.textContent = t('cloudsaveError')
-    }
-  }
-
   // Community Poll - renders each option as a bar showing its live vote
   // share; once this account has voted (existing vote checked on render),
   // every option becomes non-interactive so a vote can't be changed
@@ -8517,6 +8480,10 @@ export class Game {
       bestKills: _safeStatNumber(this.bestStats.bestKills),
       bestKillStreak: _safeStatNumber(this.bestStats.bestKillStreak),
       achievementCount: this.achievements.unlocked.size,
+      // Synced so Add Friend can look someone up by their stable random ID
+      // instead of their (changeable, non-unique) nickname - see
+      // CloudSync.fetchLeaderboardEntryByPlayerId.
+      playerId: this.settings.playerId,
     }
     // region is omitted entirely when unset ('global' = no preference
     // picked) rather than defaulted to some region - the security rule's
@@ -10585,7 +10552,12 @@ export class Game {
   // every quest button rather than rebinding per-button on every render.
   _openQuestsPanel() {
     this.questsPanel.style.display = 'flex'
-    this.questsPanelTitle.textContent = t('questsPanelTitle')
+    // The X/Y claimed count used to live on the homepage nav button itself
+    // (#quests-nav-count) - moved into the panel title on open instead, so
+    // the homepage stays uncluttered and the count is still visible right
+    // where the actual quest list is.
+    const claimedCount = QUESTS.filter((q) => this.quests.isClaimed(q.id)).length
+    this.questsPanelTitle.textContent = `${t('questsPanelTitle')} (${claimedCount}/${QUESTS.length})`
     this.rollingQuestsSubtitle.textContent = t('rollingQuestsSubtitle')
     if (this.monthlyQuestsPlaceholder) this.monthlyQuestsPlaceholder.textContent = t('monthlyQuestsPlaceholder')
     if (this.yearlyQuestsPlaceholder) this.yearlyQuestsPlaceholder.textContent = t('yearlyQuestsPlaceholder')
@@ -10769,7 +10741,14 @@ export class Game {
 
   _openAchievementsPanel() {
     this.achievementsPanel.style.display = 'flex'
-    this.achievementsPanelTitle.textContent = t('achievementsPanelTitle')
+    // Same move as the Quests panel title above - the X/Y count used to
+    // live on the homepage nav button (#achievements-nav-count), now shown
+    // here instead when the panel is actually open. Matches the same
+    // achievements+bestiary total _updateNavCompletionRings() computes.
+    const bestiaryTotal = Object.keys(ZOMBIE_TYPES).length
+    const unlocked = this.achievements.unlocked.size + this.bestiaryEncountered.size
+    const total = ACHIEVEMENTS.length + bestiaryTotal
+    this.achievementsPanelTitle.textContent = `${t('achievementsPanelTitle')} (${unlocked}/${total})`
     if (this.achievementsFilterInput) this.achievementsFilterInput.placeholder = t('achievementsFilterPlaceholder')
     this._renderAchievementsPanel()
     this._markAchievementsSeen()
@@ -11229,16 +11208,31 @@ export class Game {
   // Rank (see _renderMyRank, fetched only when the Cloud Save panel opens
   // - not a live subscription) when one's available.
   // Shows the account's stable random ID (see _generatePlayerId), not the
-  // nickname - the nickname is still editable via the pencil icon and
-  // still used everywhere else (companion naming, leaderboards, friend
-  // search), just not on this specific badge any more. The "#{rank}
-  // Worldwide" suffix this used to show was removed per request; the
-  // global rank itself is still fetched/shown separately in the Cloud
-  // Save panel's own online section (#cloudsave-rank-line).
+  // nickname - the nickname is still editable via the Player showcase
+  // panel's pencil icon and still used everywhere else (companion naming,
+  // leaderboards, friend search), just not on this specific badge any
+  // more. This tag isn't editable at all (it's not a nickname), so it has
+  // no pencil of its own - clicking it copies it instead, see
+  // _copyPlayerId(). The "#{rank} Worldwide" suffix this used to show was
+  // removed per request; the global rank itself is still fetched/shown
+  // separately in the Cloud Save panel's own online section
+  // (#cloudsave-rank-line).
   _renderPlayerTag() {
     if (!this.menuPlayerTag) return
     const base = this.settings.playerId ? `#${this.settings.playerId}` : t('menuPlayerTagDefault')
     this.menuPlayerTag.textContent = base + (this.settings.motto ? ` "${this.settings.motto}"` : '')
+    // The "Player" section heading above the 3D avatar - shows the
+    // player's own chosen nickname once they've set one, falls back to
+    // the generic "Player" label otherwise (same default the heading
+    // ships with in index.html).
+    if (this.playerShowcaseTitle) {
+      this.playerShowcaseTitle.textContent = this.settings.nickname || t('playerShowcaseTitleDefault')
+    }
+  }
+
+  _copyPlayerId() {
+    if (!this.settings.playerId || !navigator.clipboard || !navigator.clipboard.writeText) return
+    navigator.clipboard.writeText(this.settings.playerId).then(() => this._showLoreToast(t('shareCopiedToast'))).catch(() => {})
   }
 
   // Recommended Difficulty hint - only shown once a difficulty has at
