@@ -63,6 +63,14 @@ function buildCharacter() {
   return group
 }
 
+// Approx character bounding box (see buildCharacter's "skin pixel" units
+// above: head top y=30 down to leg bottom y=-2, arms reaching to x=+-8) -
+// used by _resize() to keep the camera far enough back to fit the WHOLE
+// character regardless of the canvas's aspect ratio, not just its height.
+const CHAR_HALF_HEIGHT = 16
+const CHAR_HALF_WIDTH = 8
+const CHAR_FIT_MARGIN = 0.85 // leaves ~15% breathing room on whichever axis is tightest
+
 export class MenuAvatar3D {
   constructor(canvas) {
     this.canvas = canvas
@@ -70,7 +78,12 @@ export class MenuAvatar3D {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
     this.scene = new THREE.Scene()
-    this.camera = new THREE.PerspectiveCamera(28, 1, 0.1, 100)
+    // far=100 used to be plenty for a roughly-square box - now that
+    // _resize() can push the camera much further back to fit a very
+    // narrow/tall aspect ratio without clipping the character's width,
+    // the far plane has to cover that too, or the character silently
+    // renders as nothing (clipped past the far plane, not an error).
+    this.camera = new THREE.PerspectiveCamera(28, 1, 0.1, 300)
     this.camera.position.set(0, 20, 62)
     this.camera.lookAt(0, 16, 0)
 
@@ -129,14 +142,33 @@ export class MenuAvatar3D {
 
   // Reads real layout dimensions live (not a cached window size), so this
   // stays correct through a browser fullscreen toggle or any other resize
-  // - and now supports a non-square box (the showcase panel uses a tall
+  // - and supports a non-square box (the showcase panel uses a tall
   // portrait frame, not the old fixed 84x84 square) by sizing width/height
   // independently instead of forcing both to the same value.
+  //
+  // The camera's distance is recomputed every resize, not fixed - a fixed
+  // distance was tuned for a roughly square box, and once the showcase
+  // panel grew into a much taller/narrower portrait, the vertical framing
+  // stayed fine (vFOV never changed) but the character's shoulders/arms
+  // clipped off the sides, since aspect ratio alone was shrinking the
+  // horizontal FOV with nothing compensating. Solving for BOTH the
+  // height-fit and width-fit distance and taking whichever is larger
+  // guarantees the full character stays in frame no matter how extreme
+  // the box's aspect ratio gets.
   _resize() {
     const width = this.canvas.clientWidth || this.canvas.parentElement?.clientWidth || 112
     const height = this.canvas.clientHeight || this.canvas.parentElement?.clientHeight || width
     this.renderer.setSize(width, height, false)
-    this.camera.aspect = width / height
+    const aspect = width / height
+    this.camera.aspect = aspect
+    const halfVFov = THREE.MathUtils.degToRad(this.camera.fov) / 2
+    const distForHeight = (CHAR_HALF_HEIGHT / CHAR_FIT_MARGIN) / Math.tan(halfVFov)
+    const distForWidth = (CHAR_HALF_WIDTH / CHAR_FIT_MARGIN) / (Math.tan(halfVFov) * aspect)
+    this.camera.position.z = Math.max(distForHeight, distForWidth, 20)
+    // Moving along z while x/y stay fixed changes the angle to the look
+    // target, so the camera has to re-aim itself - lookAt isn't "sticky"
+    // across a later position change, it only orients at call time.
+    this.camera.lookAt(0, 16, 0)
     this.camera.updateProjectionMatrix()
   }
 

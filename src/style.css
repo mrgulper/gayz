@@ -5013,12 +5013,22 @@ html.theme-lighter #app { filter: brightness(1.25); }
 }
 
 /* 3D character preview - drag to spin (see MenuAvatar3D.js). Sized as a
-   tall portrait (not the old 84x84 square) to showcase the full standing
-   character - MenuAvatar3D's _resize() reads real width/height instead of
-   forcing a square render, so this works as a non-square box. */
+   tall portrait, bigger than the original 84x84/200x400 passes, but kept
+   close to the character's own natural ~1:2 width:height proportions
+   (230x480) rather than stretched into a much taller narrow box - a first
+   attempt at 210x950 (chasing a much taller reference drawing literally)
+   left the character rendering small with a lot of dead space above/below,
+   since a standing humanoid can't fill a box that much narrower than its
+   own shape without either clipping the sides or the camera backing off
+   far enough to shrink the whole figure. This size uses the full 240px
+   column width and needs no per-viewport-height shrinking (480px comfortably
+   fits under the hero column's height at every tracked breakpoint, unlike
+   the 950px attempt). MenuAvatar3D's _resize() reads real width/height
+   instead of forcing a square render, and recomputes camera distance
+   per-resize so the character never clips regardless of aspect ratio. */
 #setup-avatar-wrap {
-  width: 200px;
-  height: 400px;
+  width: 230px;
+  height: 480px;
   margin: 10px auto 0;
   cursor: grab;
 }
