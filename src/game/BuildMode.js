@@ -4,17 +4,17 @@
 // context - only the scene/camera passed to render() changes.
 import * as THREE from 'three'
 
-// GROUND_SIZE is a CELL count (not world units) - bumped up from 64 as
-// BLOCK_SIZE shrank, so the buildable footprint's actual physical size
-// (GROUND_SIZE * BLOCK_SIZE) stays close to what it was before rather than
-// shrinking just because each cell got smaller.
-const GROUND_SIZE = 76
-// Down from 1 - a full 1-unit cube next to a 1.7-tall camera (see the
-// camera spawn position below) read as chest-height and, several placed
-// in a row, closer and more enclosing than Bloxd/Kirka's own blocks feel
-// at the same camera height. ~half the "character height" this project's
-// eye-height convention already uses elsewhere (PlayerController, WeaponSystem).
-const BLOCK_SIZE = 0.85
+// GROUND_SIZE is a CELL count (not world units) - bumped up from 64, then
+// 76, as BLOCK_SIZE shrank each time, so the buildable footprint's actual
+// physical size (GROUND_SIZE * BLOCK_SIZE) stays close to what it was
+// before rather than shrinking just because each cell got smaller.
+const GROUND_SIZE = 128
+// Down from 1, then 0.85 - a first-person view right up against a placed
+// block still read as way too large/enclosing at 0.85 (a real user
+// screenshot showed a single block face filling almost the entire frame),
+// so this went smaller again rather than assuming the earlier pass had
+// already solved it.
+const BLOCK_SIZE = 0.5
 const FLY_SPEED = 8
 // Movement used to snap straight to full speed the instant a key went down
 // and stop dead the instant it came up - velocity damps toward the target
@@ -23,12 +23,17 @@ const FLY_SPEED = 8
 // feel rather than an on/off toggle.
 const FLY_ACCEL_LERP_SPEED = 8
 const LOOK_SENSITIVITY = 0.0022
-// Raised from the original 4096 - the ground itself is now a real,
-// breakable layer of blocks (see _ensureGroundLayer), and a single
-// GROUND_SIZE x GROUND_SIZE layer already uses the full original cap on
-// its own with zero headroom left to actually build anything.
-const MAX_INSTANCES_PER_TYPE = 8192
+// Raised from 4096, then 8192, alongside each BLOCK_SIZE/GROUND_SIZE bump -
+// a single GROUND_SIZE x GROUND_SIZE ground layer (128*128=16384 cells) now
+// needs more headroom on its own than the old cap allowed, with zero left
+// over to actually build anything above it.
+const MAX_INSTANCES_PER_TYPE = 20000
 const SAVE_KEY = 'gayz-build-mode'
+// Toggled by pressing V (see _onKeyDown) - narrows the FOV for a "look
+// further" zoomed view rather than a real render-distance change, same
+// convention as a spyglass/binoculars toggle.
+const ZOOM_FOV = 20
+const NORMAL_FOV = 75
 // Free-fly still has no gravity (see spec's "why this shape" section) -
 // this radius only stops the camera from passing through a placed block,
 // treating the camera as a small sphere rather than a zero-size point.
@@ -303,7 +308,7 @@ export class BuildMode {
     sunLight.shadow.camera.far = 100
     this.scene.add(sunLight)
 
-    this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 500)
+    this.camera = new THREE.PerspectiveCamera(NORMAL_FOV, window.innerWidth / window.innerHeight, 0.1, 500)
     // Standing eye height (1.7, matching PlayerController's real-game eye
     // height) rather than floating well above it - the old y=5 spawn made
     // 1-unit blocks read as small/distant the instant Build Mode opened,
@@ -327,16 +332,16 @@ export class BuildMode {
     // recover from since a second Space press scrolls further rather than
     // undoing the first.
     const MOVEMENT_KEY_CODES = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft'])
-    // Double-tap Space toggles hands-free ascend (Bloxd/Kirka creative-mode
-    // convention) - on top of the existing hold-Space-to-rise behavior,
-    // which still works unchanged for a single press. Each Space press
-    // within DOUBLE_TAP_WINDOW_MS of the previous one flips the toggle, so
-    // two quick taps turn it on, two more turn it back off; a slow, isolated
-    // tap never triggers it. Shift (the existing "descend" key) also cancels
-    // it outright - the clearest possible "stop rising" signal.
+    // Double-tap Space hops the camera straight up exactly one block -
+    // instant, not a held/continuous ascend (a hands-free continuous-fly
+    // toggle was tried here first and explicitly asked to be removed: it
+    // kept climbing until double-tapped again, which read as "flying away"
+    // rather than a quick vertical nudge). Each Space press within
+    // DOUBLE_TAP_WINDOW_MS of the previous one triggers the hop; a slow,
+    // isolated tap never does, same detection window as before.
     const DOUBLE_TAP_WINDOW_MS = 300
-    this._flyUpActive = false
     this._lastSpaceTapAt = 0
+    this._zoomActive = false
     this._onKeyDown = (e) => {
       // Without this, typing a block name into the picker's search box
       // (see _pickerSearchInput) both flew the camera around on every W/A/
@@ -348,10 +353,15 @@ export class BuildMode {
       if (this.pickerOpen) return
       if (e.code === 'Space' && !e.repeat) {
         const now = performance.now()
-        if (now - this._lastSpaceTapAt < DOUBLE_TAP_WINDOW_MS) this._flyUpActive = !this._flyUpActive
+        if (now - this._lastSpaceTapAt < DOUBLE_TAP_WINDOW_MS) this._hopUp()
         this._lastSpaceTapAt = now
-      } else if (e.code === 'ShiftLeft') {
-        this._flyUpActive = false
+      } else if (e.code === 'KeyV' && !e.repeat) {
+        // "V" for a zoomed-in "look further" view (narrows FOV, doesn't
+        // change render distance) - toggles on/off, same double-purpose
+        // key you'd find on a spyglass/binoculars.
+        this._zoomActive = !this._zoomActive
+        this.camera.fov = this._zoomActive ? ZOOM_FOV : NORMAL_FOV
+        this.camera.updateProjectionMatrix()
       }
       this._keys.add(e.code)
       if (MOVEMENT_KEY_CODES.has(e.code)) e.preventDefault()
@@ -479,7 +489,11 @@ export class BuildMode {
     this.save()
     this.active = false
     this._keys.clear()
-    this._flyUpActive = false
+    if (this._zoomActive) {
+      this._zoomActive = false
+      this.camera.fov = NORMAL_FOV
+      this.camera.updateProjectionMatrix()
+    }
     window.removeEventListener('keydown', this._onKeyDown)
     window.removeEventListener('keyup', this._onKeyUp)
     window.removeEventListener('mousemove', this._onMouseMove)
@@ -861,10 +875,7 @@ export class BuildMode {
     if (this._keys.has('KeyS')) inputDir.sub(forward)
     if (this._keys.has('KeyD')) inputDir.add(right)
     if (this._keys.has('KeyA')) inputDir.sub(right)
-    // this.pickerOpen check: the toggle is a persistent flag, not tied to a
-    // held key, so without this it would keep pulling the camera upward
-    // even while just browsing the block picker.
-    if (this._keys.has('Space') || (this._flyUpActive && !this.pickerOpen)) inputDir.y += 1
+    if (this._keys.has('Space')) inputDir.y += 1
     if (this._keys.has('ShiftLeft')) inputDir.y -= 1
     if (inputDir.lengthSq() > 0) inputDir.normalize()
     const targetVelocity = inputDir.multiplyScalar(FLY_SPEED)
@@ -892,6 +903,15 @@ export class BuildMode {
     // already stops the camera at solid ground the same way it stops it at
     // any other placed block, and correctly lets it fly on through wherever
     // that layer has been dug out.
+  }
+
+  // Instant one-block vertical hop (double-tap Space) - a no-op if a solid
+  // block sits directly overhead, same collision check the normal frame-by-
+  // frame movement uses, just applied as a single teleport-sized step
+  // instead of accumulated over several frames of held input.
+  _hopUp() {
+    const pos = this.camera.position
+    if (!this._blockedAt(pos.x, pos.y + BLOCK_SIZE, pos.z)) pos.y += BLOCK_SIZE
   }
 
   // Treats the camera as a small sphere (COLLISION_RADIUS), not a point, so

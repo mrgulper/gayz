@@ -4463,11 +4463,15 @@ html.theme-lighter #app { filter: brightness(1.25); }
 /* Real logo artwork (cracked-stone letters + dripping blood, background
    removed and drips recolored to red) - replaces the earlier CSS-only
    stenciled-text title now that a real image asset exists. */
+/* Hidden per request - the background photo underneath (#menu-bg-photo,
+   already the same city-street image) stays untouched, this just removes
+   the bloody "GAYZ" wordmark that used to sit on top of it. display:none
+   rather than removing the element outright - _updateBestStatsDisplay
+   still toggles logo-tier-N classes on #menu-title-img (a cosmetic CSS
+   filter, harmless on a hidden element) and nothing else reads its
+   layout/dimensions. */
 #menu-title {
-  position: relative;
-  width: 100%;
-  margin: 0;
-  line-height: 1;
+  display: none;
 }
 
 #menu-title-img {
@@ -5761,6 +5765,96 @@ html.theme-lighter #app { filter: brightness(1.25); }
   #profile-today-line,
   #pinned-stat-row {
     display: none;
+  }
+}
+
+/* A real (non-maximized) browser window is very often shorter than every
+   height this project had actually measured against (1366x768 was the
+   shortest tracked breakpoint) - #menu's own overflow-y:auto then kicks
+   in and the homepage becomes an internally-scrollable box, which reads
+   to a player as "the page can scroll" even though the outer page itself
+   never does. Confirmed via a real measurement at 1200x700/1000x650/
+   1440x750 (63px/123px/13px of #menu overflow) before guessing at values -
+   same "shrink before removing" precedent as the 820px tier above, just
+   pushed one step further for genuinely short windows. */
+@media (max-height: 750px) {
+  #menu-title-img {
+    width: min(85%, 380px);
+  }
+
+  #menu-tagline {
+    font-size: 24px;
+    margin: 1px 0 2px;
+  }
+
+  #menu-subtitle {
+    font-size: 20px;
+  }
+
+  .hero-stat-value {
+    font-size: 46px;
+  }
+
+  .hero-stat-label {
+    font-size: 13px;
+    margin-top: 1px;
+  }
+
+  .hero-stat-divider {
+    height: 34px;
+  }
+
+  #menu-hero-stats {
+    gap: 18px;
+    margin: 1px 0;
+  }
+
+  #play-btn {
+    width: min(260px, 46vw);
+  }
+
+  #settings-btn {
+    width: 56px;
+    height: 56px;
+  }
+
+  #settings-btn svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  #hero-quick-actions {
+    margin-top: 1px;
+  }
+
+  .menu-panel {
+    padding: 4px 10px;
+  }
+
+  #menu-col-left,
+  #menu-col-right {
+    gap: 4px;
+  }
+
+  /* The Player showcase avatar (#player-showcase-panel/#setup-avatar-wrap)
+     is bottom-aligned to fill whatever height the hero column ends up
+     with (see its own comment in this file) rather than adding its own
+     fixed height on top - but its 480px base height can still exceed a
+     genuinely short hero column, so it needs its own reduction at this
+     tier too, not just the text above. */
+  #setup-avatar-wrap {
+    width: 180px;
+    height: 360px;
+  }
+
+  #menu-nav-buttons button {
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+
+  #menu-nav-buttons button svg {
+    width: 18px;
+    height: 18px;
   }
 }
 

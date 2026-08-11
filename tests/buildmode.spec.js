@@ -155,13 +155,13 @@ test('malformed save data does not crash Build Mode - starts with just the defau
     g._enterBuildMode()
     // No player-built blocks survive a malformed save, but the ground
     // layer (see _ensureGroundLayer) still backfills every cell - a full
-    // GROUND_SIZE x GROUND_SIZE (76x76) layer, none of it player-placed.
+    // GROUND_SIZE x GROUND_SIZE (128x128) layer, none of it player-placed.
     const blockCount = g.buildMode._blocks.size
     g._exitBuildMode()
     return { blockCount }
   })
 
-  expect(result.blockCount).toBe(76 * 76)
+  expect(result.blockCount).toBe(128 * 128)
   expect(errors).toEqual([])
 })
 
