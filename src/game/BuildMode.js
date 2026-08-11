@@ -479,7 +479,16 @@ export class BuildMode {
 
     this._raycaster = new THREE.Raycaster()
     this._onPointerDown = (e) => {
-      if (document.pointerLockElement !== this.renderer.domElement) return
+      if (document.pointerLockElement !== this.renderer.domElement) {
+        // Cursor is free (Build Mode no longer auto-locks the instant you
+        // enter, see Game.js's _enterBuildMode - it was disorienting to
+        // have the mouse captured before you'd even gotten oriented).
+        // Clicking into the viewport re-acquires it instead of placing/
+        // removing a block, so this first click is never mistaken for a
+        // build action.
+        try { this.renderer.domElement.requestPointerLock()?.catch(() => {}) } catch { /* not available in this environment */ }
+        return
+      }
       if (e.button === 2) this._placeFromCamera()
       else if (e.button === 0) this._removeFromCamera()
     }
@@ -527,6 +536,13 @@ export class BuildMode {
         this.togglePicker()
       } else if (e.code === 'Escape' && this.pickerOpen) {
         this.togglePicker()
+      } else if (e.code === 'Escape' && document.pointerLockElement === this.renderer.domElement) {
+        // Picker already handles its own Escape-to-close above - this is
+        // the OTHER case, actively pointer-locked with the picker closed,
+        // where there was previously no way to get the cursor back except
+        // opening the picker first. Click anywhere in the viewport (see
+        // _onPointerDown) re-acquires it.
+        document.exitPointerLock()
       }
     }
 

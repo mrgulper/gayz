@@ -9110,19 +9110,12 @@ export class Game {
     if (exportBtn) exportBtn.style.display = 'block'
     const importBtn = document.getElementById('build-mode-import-btn')
     if (importBtn) importBtn.style.display = 'block'
+    // No auto requestPointerLock() here any more - the mouse used to get
+    // captured the instant Build Mode opened, before the player had even
+    // gotten oriented. It now starts free; clicking into the viewport
+    // acquires it (see BuildMode.js's _onPointerDown), and Escape releases
+    // it again at any time (see _onKeyDownPicker).
     this.buildMode.enter()
-    // requestPointerLock() genuinely fails when not triggered by a real,
-    // trusted user gesture (e.g. Playwright driving this programmatically,
-    // or headless Chromium in general - see this project's own documented
-    // Pointer Lock gotcha) and can both throw synchronously and reject its
-    // returned promise; swallow both rather than letting either surface as
-    // an uncaught page error.
-    try {
-      this.renderer.domElement.requestPointerLock()?.catch(() => {})
-    } catch {
-      // Not available in this environment - Build Mode still works via
-      // mouse-move events, it just won't be pointer-locked.
-    }
   }
 
   _exitBuildMode() {
@@ -10608,12 +10601,10 @@ export class Game {
   // every quest button rather than rebinding per-button on every render.
   _openQuestsPanel() {
     this.questsPanel.style.display = 'flex'
-    // The X/Y claimed count used to live on the homepage nav button itself
-    // (#quests-nav-count) - moved into the panel title on open instead, so
-    // the homepage stays uncluttered and the count is still visible right
-    // where the actual quest list is.
-    const claimedCount = QUESTS.filter((q) => this.quests.isClaimed(q.id)).length
-    this.questsPanelTitle.textContent = `${t('questsPanelTitle')} (${claimedCount}/${QUESTS.length})`
+    // The X/Y claimed count used to live on the homepage nav button, then
+    // briefly moved into the panel title on open - removed per direct
+    // follow-up request, not shown anywhere any more.
+    this.questsPanelTitle.textContent = t('questsPanelTitle')
     this.rollingQuestsSubtitle.textContent = t('rollingQuestsSubtitle')
     if (this.monthlyQuestsPlaceholder) this.monthlyQuestsPlaceholder.textContent = t('monthlyQuestsPlaceholder')
     if (this.yearlyQuestsPlaceholder) this.yearlyQuestsPlaceholder.textContent = t('yearlyQuestsPlaceholder')

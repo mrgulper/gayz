@@ -21,19 +21,19 @@ const IDLE_SPIN_SPEED = 0.24
 // same 8/12/12 head/torso-and-arms/legs split the real game uses) so the
 // silhouette reads as instantly recognizable. This is the DEFAULT skin
 // every new player gets (no skin-customization system exists yet) -
-// colors/details match a reference look supplied directly (white hoodie
-// with a drawstring, dark pants, brown shoes, black hair, two-tone eyes)
-// rather than the earlier arbitrary teal-shirt/navy-pants placeholder.
+// colors match a small reference skin thumbnail supplied directly (dark
+// hair, tan skin, a dark teal top, purple/violet pants) - the thumbnail
+// was very small/low-res, so this is a best-effort color match, not a
+// pixel-exact copy; flag it if it's off and it can be re-tuned.
 const SKIN_TONE = 0xd9a066
-const SHIRT_COLOR = 0xf0f0ec
-const PANTS_COLOR = 0x2c3446
+const SHIRT_COLOR = 0x2a6e6e
+const PANTS_COLOR = 0x4a2c78
 const EYE_WHITE_COLOR = 0xffffff
 const EYE_IRIS_COLOR = 0x6a5acd
 const EYE_PUPIL_COLOR = 0x14141a
 const HAIR_COLOR = 0x1c1a18
 const MOUTH_COLOR = 0x8a5a4a
-const SHOE_COLOR = 0x5a3a22
-const DRAWSTRING_COLOR = 0xb8bcc4
+const SHOE_COLOR = 0x241830
 
 function buildCharacter() {
   const group = new THREE.Group()
@@ -86,18 +86,6 @@ function buildCharacter() {
   const torso = new THREE.Mesh(new THREE.BoxGeometry(8, 12, 4), shirtMat)
   torso.position.y = 16
   group.add(torso)
-
-  // Hoodie drawstrings - two thin light-gray cords hanging from the
-  // collar, the one detail that most reads as "hoodie" rather than a
-  // plain shirt at this scale.
-  const stringGeo = new THREE.BoxGeometry(0.35, 2.6, 0.35)
-  const stringMat = new THREE.MeshStandardMaterial({ color: DRAWSTRING_COLOR, roughness: 0.6 })
-  const stringL = new THREE.Mesh(stringGeo, stringMat)
-  stringL.position.set(-0.9, 20.5, 2.1)
-  group.add(stringL)
-  const stringR = new THREE.Mesh(stringGeo, stringMat)
-  stringR.position.set(0.9, 20.5, 2.1)
-  group.add(stringR)
 
   const armGeo = new THREE.BoxGeometry(4, 12, 4)
   const armL = new THREE.Mesh(armGeo, skinMat)

@@ -5002,14 +5002,13 @@ html.theme-lighter #app { filter: brightness(1.25); }
   background: rgba(201, 86, 74, 0.2);
 }
 
-/* True top-right corner overlay - independent of #menu-layout's grid (was
-   the first element of #menu-col-left, reading as "above the character
-   name" since that column's next item is the Player panel) so it can't
-   collide with or visually attach to any column content. */
+/* True top-left corner overlay - independent of #menu-layout's grid (was
+   briefly top-right, corrected back to top-left) so it can't collide
+   with or visually attach to any column content. */
 #menu-currency-bar {
   position: fixed;
   top: 16px;
-  right: 16px;
+  left: 16px;
   z-index: 2;
   display: flex;
   gap: 14px;
