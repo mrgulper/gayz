@@ -29,11 +29,14 @@ const LOOK_SENSITIVITY = 0.0022
 // over to actually build anything above it.
 const MAX_INSTANCES_PER_TYPE = 20000
 const SAVE_KEY = 'gayz-build-mode'
-// Toggled by pressing V (see _onKeyDown) - narrows the FOV for a "look
+// Held with V (see update()'s zoomTarget) - narrows the FOV for a "look
 // further" zoomed view rather than a real render-distance change, same
-// convention as a spyglass/binoculars toggle.
+// convention as a scope/binoculars. FOV_LERP_SPEED controls how quickly
+// it eases toward whichever target is active, same THREE.MathUtils.damp
+// technique/units as FLY_ACCEL_LERP_SPEED below.
 const ZOOM_FOV = 20
 const NORMAL_FOV = 75
+const FOV_LERP_SPEED = 10
 // Free-fly still has no gravity (see spec's "why this shape" section) -
 // this radius only stops the camera from passing through a placed block,
 // treating the camera as a small sphere rather than a zero-size point.
@@ -106,6 +109,32 @@ export const BLOCK_TYPES = [
   { id: 'cactus', name: 'Cactus', color: 0x3f8f3a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
   { id: 'netherbrick', name: 'Nether Bricks', color: 0x35181c, pattern: 'brick', roughness: 0.8, metalness: 0 },
   { id: 'haybale', name: 'Hay Bale', color: 0xd4b03c, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  // Third pass - fills in stone variants (polished/smooth finishes, extra
+  // natural terrain blocks) and a set of dyed concrete/wool colors, the
+  // two categories most requested-but-missing after the first two passes.
+  { id: 'gravel', name: 'Gravel', color: 0x8f8f88, pattern: 'speckle', roughness: 1, metalness: 0 },
+  { id: 'mud', name: 'Mud', color: 0x4a3728, pattern: 'speckle', roughness: 1, metalness: 0 },
+  { id: 'deepslate', name: 'Deepslate', color: 0x3a3a40, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'blackstone', name: 'Blackstone', color: 0x2b2530, pattern: 'speckle', roughness: 0.85, metalness: 0 },
+  { id: 'diorite', name: 'Diorite', color: 0xd0d0d0, pattern: 'speckle', roughness: 0.85, metalness: 0 },
+  { id: 'polishedgranite', name: 'Polished Granite', color: 0x9c5548, pattern: 'metal', roughness: 0.4, metalness: 0.05 },
+  { id: 'polishedandesite', name: 'Polished Andesite', color: 0x9a9a9a, pattern: 'metal', roughness: 0.4, metalness: 0.05 },
+  { id: 'smoothstone', name: 'Smooth Stone', color: 0xa8a8a0, pattern: 'metal', roughness: 0.5, metalness: 0 },
+  { id: 'prismarine', name: 'Prismarine', color: 0x4f9e94, pattern: 'metal', roughness: 0.35, metalness: 0.2 },
+  { id: 'sealantern', name: 'Sea Lantern', color: 0xc8e8e0, pattern: 'metal', roughness: 0.3, metalness: 0.1, emissive: 0xa0e8d8, emissiveIntensity: 0.5 },
+  { id: 'amethystblock', name: 'Amethyst Block', color: 0x9a5fd4, pattern: 'metal', roughness: 0.25, metalness: 0.3 },
+  { id: 'honeyblock', name: 'Honey Block', color: 0xe8a723, pattern: 'glass', roughness: 0.2, metalness: 0, transparent: true, opacity: 0.85 },
+  { id: 'slimeblock', name: 'Slime Block', color: 0x6fcc3f, pattern: 'glass', roughness: 0.25, metalness: 0, transparent: true, opacity: 0.75 },
+  { id: 'purpurblock', name: 'Purpur Block', color: 0xa374b5, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'terracotta', name: 'Terracotta', color: 0x9c5232, pattern: 'brick', roughness: 0.85, metalness: 0 },
+  { id: 'redconcrete', name: 'Red Concrete', color: 0xa32424, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'blueconcrete', name: 'Blue Concrete', color: 0x2451a3, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'yellowconcrete', name: 'Yellow Concrete', color: 0xd4c020, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'greenconcrete', name: 'Green Concrete', color: 0x3f7d3a, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'blackconcrete', name: 'Black Concrete', color: 0x1c1c1e, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'whiteconcrete', name: 'White Concrete', color: 0xe8e8e4, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'redwool', name: 'Red Wool', color: 0xa8382a, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'bluewool', name: 'Blue Wool', color: 0x2c4fa0, pattern: 'wool', roughness: 1, metalness: 0 },
 ]
 const VALID_TYPE_IDS = new Set(BLOCK_TYPES.map((b) => b.id))
 
@@ -121,11 +150,23 @@ function _shade(base, delta) {
 function _rgb(c) {
   return `${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)}`
 }
+// Two size classes - fine dust (most of the count) plus a handful of
+// larger chunks - reads as real aggregate/rock texture rather than a
+// uniform noise field, which is what a single speck size produced no
+// matter how many were added. This is the most-reused pattern (roughly
+// half of BLOCK_TYPES), so it carries most of the "does this look like a
+// real material or a painted plane" impression.
 function _drawSpeckle(ctx, base, size) {
-  for (let i = 0; i < 90; i++) {
-    const c = _shade(base, (Math.random() - 0.5) * 0.18)
+  for (let i = 0; i < 150; i++) {
+    const c = _shade(base, (Math.random() - 0.5) * 0.22)
     ctx.fillStyle = `rgb(${_rgb(c)})`
-    const s = 1 + Math.random() * 2
+    const s = 1 + Math.random() * 2.4
+    ctx.fillRect(Math.random() * size, Math.random() * size, s, s)
+  }
+  for (let i = 0; i < 16; i++) {
+    const c = _shade(base, (Math.random() - 0.5) * 0.32)
+    ctx.fillStyle = `rgb(${_rgb(c)})`
+    const s = 3 + Math.random() * 5
     ctx.fillRect(Math.random() * size, Math.random() * size, s, s)
   }
 }
@@ -233,12 +274,15 @@ function _drawStripe(ctx, base, size) {
 const PATTERN_DRAWERS = { speckle: _drawSpeckle, brick: _drawBrick, wood: _drawWood, metal: _drawMetal, glass: _drawGlass, log: _drawLog, wool: _drawWool, stripe: _drawStripe }
 
 function _makeBlockTexture(colorHex, pattern) {
-  // 128, up from 96 (64 before that, 32 originally) - NearestFilter
-  // magnification means every texel is a visibly hard-edged square up
-  // close, so each bump buys back some sharpness at the same viewing
-  // distance while still keeping the intentional pixel-art look (not
-  // switching to LinearFilter, which would blur the pattern edges away).
-  const size = 128
+  // 192, up from 128 (96 before that, 64 before that, 32 originally) -
+  // NearestFilter magnification means every texel is a visibly hard-edged
+  // square up close, so each bump buys back some sharpness at the same
+  // viewing distance while still keeping the intentional pixel-art look
+  // (not switching to LinearFilter, which would blur the pattern edges
+  // away). The pattern drawers themselves (_drawSpeckle etc.) work in
+  // proportional "size" units, not fixed pixel counts, so they scale up
+  // automatically with this - no per-pattern changes needed.
+  const size = 192
   const canvas = document.createElement('canvas')
   canvas.width = size
   canvas.height = size
@@ -341,7 +385,6 @@ export class BuildMode {
     // isolated tap never does, same detection window as before.
     const DOUBLE_TAP_WINDOW_MS = 300
     this._lastSpaceTapAt = 0
-    this._zoomActive = false
     this._onKeyDown = (e) => {
       // Without this, typing a block name into the picker's search box
       // (see _pickerSearchInput) both flew the camera around on every W/A/
@@ -355,14 +398,14 @@ export class BuildMode {
         const now = performance.now()
         if (now - this._lastSpaceTapAt < DOUBLE_TAP_WINDOW_MS) this._hopUp()
         this._lastSpaceTapAt = now
-      } else if (e.code === 'KeyV' && !e.repeat) {
-        // "V" for a zoomed-in "look further" view (narrows FOV, doesn't
-        // change render distance) - toggles on/off, same double-purpose
-        // key you'd find on a spyglass/binoculars.
-        this._zoomActive = !this._zoomActive
-        this.camera.fov = this._zoomActive ? ZOOM_FOV : NORMAL_FOV
-        this.camera.updateProjectionMatrix()
       }
+      // "V" for a zoomed-in "look further" view (narrows FOV, doesn't
+      // change render distance) - hold to zoom in, release to smoothly
+      // return to normal, same feel as a scope. No special-case handling
+      // needed here beyond the generic _keys.add(e.code) below - update()
+      // reads _keys.has('KeyV') every frame and damps the FOV toward
+      // whichever target that implies, the same way it already damps
+      // movement velocity toward its own target.
       this._keys.add(e.code)
       if (MOVEMENT_KEY_CODES.has(e.code)) e.preventDefault()
     }
@@ -489,8 +532,10 @@ export class BuildMode {
     this.save()
     this.active = false
     this._keys.clear()
-    if (this._zoomActive) {
-      this._zoomActive = false
+    // No toggle state to reset any more (V is a held key, read live from
+    // _keys in update()) - just snap the FOV back in case V happened to
+    // be held mid-zoom when Build Mode was exited.
+    if (this.camera.fov !== NORMAL_FOV) {
       this.camera.fov = NORMAL_FOV
       this.camera.updateProjectionMatrix()
     }
@@ -864,6 +909,15 @@ export class BuildMode {
   }
 
   update(dt) {
+    // Hold-V zoom - damped toward its target the same way movement
+    // velocity is below, instead of an instant snap, so both zooming in
+    // and the release back to normal ease smoothly rather than jump-cutting.
+    const zoomTarget = this._keys.has('KeyV') ? ZOOM_FOV : NORMAL_FOV
+    if (Math.abs(this.camera.fov - zoomTarget) > 0.01) {
+      this.camera.fov = THREE.MathUtils.damp(this.camera.fov, zoomTarget, FOV_LERP_SPEED, dt)
+      this.camera.updateProjectionMatrix()
+    }
+
     this.camera.rotation.set(0, 0, 0)
     this.camera.rotateY(this._yaw)
     this.camera.rotateX(this._pitch)
