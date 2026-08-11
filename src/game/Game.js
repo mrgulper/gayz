@@ -7,7 +7,7 @@ import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass.js'
 import { buildWorld, WORLD_CULL_DISTANCE, WORLD_SHADOW_CULL_DISTANCE, CAMPFIRE_X, CAMPFIRE_Z } from './World.js'
 import { LOW_QUALITY_MODE, flatMaterial } from './QualitySettings.js'
 import { PlayerController } from './PlayerController.js'
-import { WeaponSystem, WEAPON_CHARM_IDS } from './WeaponSystem.js'
+import { WeaponSystem } from './WeaponSystem.js'
 import { ZombieManager } from './ZombieManager.js'
 import { PickupManager } from './Pickups.js'
 import { PlayerState } from './PlayerState.js'
@@ -116,7 +116,6 @@ const PICKUP_LABELS = {
   melee_spear: () => t('toastSpearAdded'),
   melee_nunchaku: () => t('toastNunchakuAdded'),
   smokebomb: () => t('toastSmokeBombAdded'),
-  weapon_charm: () => t('toastCharmAdded'),
   ration: () => t('toastRationAdded'),
 }
 
@@ -2793,12 +2792,13 @@ export class Game {
     }
     this._damageNumberPoolIndex = 0
     this.hudEl = document.getElementById('hud')
-    this.hotbarEl = document.getElementById('hotbar')
-    this.hotbarSlotEls = Array.from(this.hotbarEl.querySelectorAll('.hotbar-slot'))
-    // _updateHotbarHud runs every frame - resolve each slot's name element
-    // once here instead of a fresh querySelector per slot per frame (the
-    // DOM structure itself never changes after this point).
-    this.hotbarNameEls = this.hotbarSlotEls.map((el) => el.querySelector('.hotbar-slot-name'))
+    this.hotbarEl = document.getElementById('weapon-quick-list')
+    this.hotbarSlotEls = Array.from(this.hotbarEl.querySelectorAll('.weapon-quick-slot'))
+    // _updateHotbarHud runs every frame - resolve each slot's name/ammo
+    // element once here instead of a fresh querySelector per slot per
+    // frame (the DOM structure itself never changes after this point).
+    this.hotbarNameEls = this.hotbarSlotEls.map((el) => el.querySelector('.weapon-quick-name'))
+    this.hotbarAmmoEls = this.hotbarSlotEls.map((el) => el.querySelector('.weapon-quick-ammo'))
     this.hotbarPowerScoreEl = document.getElementById('hotbar-power-score')
     this.statusHud = document.getElementById('status-hud')
     this.healthFill = document.getElementById('health-fill')
@@ -13661,9 +13661,7 @@ export class Game {
     this.profilePanelTitle.textContent = t('profilePanelTitle')
     if (this.profileCopyStatsBtn) this.profileCopyStatsBtn.textContent = t('profileCopyStatsBtn')
     if (this.profilePrintBtn) this.profilePrintBtn.textContent = t('profilePrintBtn')
-    // Cosmetics counter - outfits+hats only (charms are randomly equipped
-    // one at a time via field pickups, see WeaponSystem.equipCharm, with no
-    // persistent "owned charms" set to count against).
+    // Cosmetics counter - outfits+hats only.
     const cosmeticsOwned = this.ownedOutfits.size + this.ownedHats.size
     const cosmeticsTotal = COIN_SHOP_ITEMS.filter((i) => i.outfit || i.hat).length
 
@@ -15097,7 +15095,6 @@ export class Game {
     else if (type === 'melee_nunchaku') this.weapons.setMeleeVariant('nunchaku')
     else if (type === 'smokebomb') this.inventory.addSmokeBomb(count || 1)
     else if (type === 'barricadecrate') this.inventory.addBarricadeCrate(count || 1)
-    else if (type === 'weapon_charm') this.weapons.equipCharm(WEAPON_CHARM_IDS[Math.floor(Math.random() * WEAPON_CHARM_IDS.length)])
     else if (type === 'ration') this.inventory.addRation(1)
     else if (type === 'vaultkey') {
       this.inventory.vaultKey = true
@@ -15381,23 +15378,28 @@ export class Game {
     this._updateInventoryHud()
   }
 
-  // Bottom-of-screen 5-slot hotbar (see _bindHotbar for Digit1-5 switching
-  // and _refreshInventoryPanel for the Tab-opened assignment UI) - just
-  // reflects this.settings.hotbar's weapon-id-per-slot array plus which
-  // slot (if any) matches the currently equipped weapon.
+  // Bottom-right 3-slot weapon quick list (see _bindHotbar for Digit1-3
+  // switching and _refreshInventoryPanel for the Tab-opened assignment UI) -
+  // replaces the old bottom-center hotbar bar with a compact list sitting
+  // just above #hud's big ammo readout, each entry showing its OWN ammo
+  // (not just the currently-equipped weapon's, which is all #hud can show)
+  // - the knife shows an infinity symbol instead, since melee has no ammo.
   _updateHotbarHud() {
     const summary = this.weapons.getSummary()
     const currentId = this.weapons.current.id
     this.settings.hotbar.forEach((weaponId, i) => {
       const el = this.hotbarSlotEls[i]
       const nameEl = this.hotbarNameEls[i]
+      const ammoEl = this.hotbarAmmoEls[i]
       if (!weaponId) {
         nameEl.textContent = '-'
+        if (ammoEl) ammoEl.textContent = ''
         el.classList.remove('active', 'locked', 'mastered', 'grandmastered')
         return
       }
       const w = summary.find((ww) => ww.id === weaponId)
       nameEl.textContent = w ? t(w.nameKey) : '-'
+      if (ammoEl) ammoEl.textContent = w ? (weaponId === 'melee' ? '∞' : `${w.ammoInMag}`) : ''
       el.classList.toggle('locked', !!w && !w.unlocked)
       el.classList.toggle('active', weaponId === currentId)
       // Mastery-tier badge (see WeaponMastery.js) - already-tracked data,
@@ -15547,7 +15549,42 @@ export class Game {
   // screen overlay. Snow is deliberately lighter than rain (no thunder,
   // smaller fog reduction) so it reads as a calmer, colder night rather
   // than reskinned rain.
+  // Real falling particles (was a tiled CSS background-position shift,
+  // which reads as an obviously repeating pattern rather than rain/snow
+  // actually descending from the sky, per direct follow-up feedback) -
+  // built once, lazily, the first time weather actually rolls (idempotent
+  // via the dataset flag, so re-rolling weather every night doesn't keep
+  // appending more particles). Each particle gets its own randomized
+  // left position, fall duration, and a negative animation-delay (so they
+  // don't all start their fall in visible lockstep the moment the overlay
+  // shows) - see .rain-particle/.snow-particle/@keyframes particle-fall
+  // in style.css for the actual fall motion.
+  _ensureWeatherParticles(el, count, className, durationRange, sway) {
+    if (!el || el.dataset.particlesBuilt) return
+    el.dataset.particlesBuilt = '1'
+    const frag = document.createDocumentFragment()
+    for (let i = 0; i < count; i++) {
+      const p = document.createElement('div')
+      p.className = className
+      const duration = durationRange[0] + Math.random() * (durationRange[1] - durationRange[0])
+      p.style.left = `${Math.random() * 100}%`
+      p.style.animationDuration = `${duration}s`
+      p.style.animationDelay = `-${Math.random() * duration}s`
+      if (sway) p.style.setProperty('--sway', `${(Math.random() * 2 - 1) * sway}px`)
+      // Size varies via width/height, not a transform:scale() - the fall
+      // animation below already owns `transform` (translate + sway), and
+      // an inline transform here would fight it instead of combining.
+      const size = 3 + Math.random() * 3
+      p.style.width = `${size}px`
+      p.style.height = `${size}px`
+      frag.appendChild(p)
+    }
+    el.appendChild(frag)
+  }
+
   _rollWeather() {
+    this._ensureWeatherParticles(this.rainOverlayEl, 80, 'rain-particle', [0.7, 1.3])
+    this._ensureWeatherParticles(this.snowOverlayEl, 50, 'snow-particle', [5, 10], 15)
     // Perfect Weather (see PERFECT_WEATHER_CHANCE's own comment) - checked
     // first and, if it hits, short-circuits every other weather state off
     // for the night rather than being just another slice of the same roll.

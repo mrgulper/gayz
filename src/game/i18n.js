@@ -704,7 +704,6 @@ const STRINGS = {
     toastUvBatonAdded: 'UV Baton collected',
     toastFireaxeAdded: 'Fire Axe collected - wide cleave on nearby zombies',
     toastSledgehammerAdded: 'Sledgehammer collected - heavy damage, stuns on hit',
-    toastCharmAdded: 'Weapon charm found - purely cosmetic, looks nice on the grip',
     toastRareWeapon: 'Rare {weapon} part found! (+15% damage)',
     toastLegendaryWeapon: 'Legendary {weapon} part found! (+30% damage)',
     toastRarityWasted: 'Weapon part found, but you already have better',

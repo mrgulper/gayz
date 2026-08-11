@@ -894,7 +894,7 @@ html.high-contrast-mode #app {
    absolute anchor point; transform-origin matches each one's own anchor
    corner so scaling doesn't visibly drift it away from that anchor. */
 #hud,
-#hotbar,
+#weapon-quick-list,
 #status-hud,
 #progress-hud,
 #minimap-wrap,
@@ -3538,55 +3538,56 @@ select option {
   50% { opacity: 0.55; }
 }
 
-#hotbar {
+/* Replaces the old bottom-center hotbar bar - a compact right-aligned list
+   sitting just above #hud's big ammo readout (same right:24px anchor),
+   each row showing that weapon's OWN ammo (not just whichever's currently
+   equipped, which is all #hud alone could show). */
+#weapon-quick-list {
   position: absolute;
-  left: 50%;
-  bottom: 20px;
-  transform: translateX(-50%);
+  right: 24px;
+  bottom: 90px;
   display: none;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
   pointer-events: none;
+  transform-origin: bottom right;
 }
 
-.hotbar-slot {
+.weapon-quick-slot {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 2px;
-  width: 58px;
-  height: 46px;
+  gap: 6px;
+  padding: 3px 8px;
   background: rgba(10, 10, 10, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 6px;
+  border-radius: 4px;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
-.hotbar-slot-num {
+.weapon-quick-num {
   font-size: 10px;
   font-weight: 700;
   opacity: 0.55;
 }
 
-/* Hotbar mastery badge (see Game.js's _updateHotbarHud) - same gold/cyan
-   pair as .mastery-tag above, just applied to the whole slot's border
-   instead of a small inline tag. */
-.hotbar-slot.mastered {
+/* Mastery badge (see Game.js's _updateHotbarHud) - same gold/cyan pair as
+   .mastery-tag elsewhere, applied to the whole row's border. */
+.weapon-quick-slot.mastered {
   border-color: #ffcf5c;
 }
 
-.hotbar-slot.grandmastered {
+.weapon-quick-slot.grandmastered {
   border-color: #7ce0ff;
   box-shadow: 0 0 6px rgba(124, 224, 255, 0.5);
 }
 
 /* Loadout Power Score (see Game.js's _computeLoadoutPowerScore) - a single
-   at-a-glance number for the whole hotbar, sitting just above it. */
+   at-a-glance number for the whole loadout, sitting just above the list. */
 #hotbar-power-score {
   position: absolute;
-  left: 50%;
-  bottom: 70px;
-  transform: translateX(-50%);
+  right: 24px;
+  bottom: 175px;
   display: none;
   font-size: 12px;
   font-weight: 600;
@@ -3595,28 +3596,36 @@ select option {
   pointer-events: none;
 }
 
-.hotbar-slot-name {
+.weapon-quick-name {
   font-size: 11px;
   font-weight: 600;
-  text-align: center;
-  line-height: 1.15;
   opacity: 0.85;
-  max-width: 100%;
+  max-width: 90px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.hotbar-slot.active {
+.weapon-quick-ammo {
+  min-width: 22px;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+.weapon-quick-slot.active {
   border-color: #e3a63c;
   background: rgba(227, 166, 60, 0.18);
 }
 
-.hotbar-slot.active .hotbar-slot-name {
+.weapon-quick-slot.active .weapon-quick-name,
+.weapon-quick-slot.active .weapon-quick-ammo {
   opacity: 1;
 }
 
-.hotbar-slot.locked .hotbar-slot-name {
+.weapon-quick-slot.locked .weapon-quick-name {
   opacity: 0.4;
 }
 
@@ -6575,78 +6584,48 @@ html.theme-lighter #app { filter: brightness(1.25); }
   overflow: hidden;
 }
 
-/* Blocky square particles (not realistic streaks) per request, matching
-   the reference screenshot's look - small solid-color squares scattered
-   sparsely, blue for rain / white for snow. Each SVG data URI (no
-   external asset) is drawn at its own full tile size (matching
-   background-size exactly) with ONE small square positioned inside an
-   otherwise-transparent canvas, then tiled via background-repeat - background-size
-   scales an image to fill its box, so a bare small square used as the
-   whole image (an earlier version of this rule) stretched into a solid
-   fill instead of staying small; drawing the square inside a
-   tile-sized transparent canvas is what actually keeps it small and
-   sparse. 3 layers per weather type at different tile sizes/positions
-   give the scatter a non-uniform, less obviously-repeating look, same
-   depth trick the old streak/dot layers used. */
-#rain-overlay {
-  position: absolute;
-  inset: -20% -10%;
-  background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='110' height='110'%3E%3Crect x='15' y='10' width='5' height='5' fill='%234d9fff'/%3E%3C/svg%3E"),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='75' height='150'%3E%3Crect x='55' y='90' width='4' height='4' fill='%2377b8ff'/%3E%3C/svg%3E"),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='90'%3E%3Crect x='100' y='40' width='3' height='3' fill='%23a8d4ff'/%3E%3C/svg%3E");
-  background-size: 110px 110px, 75px 150px, 140px 90px;
-  background-repeat: repeat;
-  animation: rain-fall 0.9s linear infinite;
-  mix-blend-mode: screen;
-}
-
-/* Second layer at a different speed/offset so the squares don't all fall
-   in visible lockstep. */
-#rain-overlay::after {
-  content: '';
-  position: absolute;
-  inset: -20% -10%;
-  background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='95' height='130'%3E%3Crect x='40' y='60' width='4' height='4' fill='%235cabff'/%3E%3C/svg%3E");
-  background-size: 95px 130px;
-  background-repeat: repeat;
-  animation: rain-fall 0.65s linear infinite reverse;
-}
-
-@keyframes rain-fall {
-  0% { transform: translate(0, -12%); }
-  100% { transform: translate(-3%, 12%); }
-}
-
-/* Falling snow - the same blocky-square treatment as rain above, just
-   white and drifting slower/straighter, so it reads as a distinct
-   weather state rather than reskinned rain. */
+/* Real individual falling particles (was a tiled CSS background-position
+   shift - looked like an obviously repeating pattern rather than rain/
+   snow actually descending, per direct follow-up feedback) - each
+   particle is its own small DOM element (built once by Game.js's
+   _ensureWeatherParticles, sized/positioned/timed via inline style per
+   particle for genuine randomness a shared background-image tile can't
+   give) that travels the full height of the screen top-to-bottom on a
+   loop, not a short back-and-forth shift. */
+#rain-overlay,
 #snow-overlay {
   position: absolute;
-  inset: -20% -10%;
-  background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='80'%3E%3Crect x='0' y='0' width='4' height='4' fill='%23ffffff'/%3E%3C/svg%3E"),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='120'%3E%3Crect x='20' y='30' width='3' height='3' fill='%23ffffff'/%3E%3C/svg%3E");
-  background-size: 60px 80px, 90px 120px;
-  background-repeat: repeat;
-  animation: snow-fall 6s linear infinite;
+  inset: 0;
+  overflow: hidden;
 }
 
-#snow-overlay::after {
-  content: '';
+.rain-particle,
+.snow-particle {
   position: absolute;
-  inset: -20% -10%;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='130' height='170'%3E%3Crect x='45' y='10' width='5' height='5' fill='%23ffffff'/%3E%3C/svg%3E");
-  background-size: 130px 170px;
-  background-repeat: repeat;
-  opacity: 0.7;
-  animation: snow-fall 9s linear infinite reverse;
+  top: -10px;
+  border-radius: 1px;
+  animation-name: particle-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
 }
 
-@keyframes snow-fall {
-  0% { transform: translate(0, -10%); }
-  100% { transform: translate(1%, 10%); }
+.rain-particle {
+  background: #4d9fff;
+}
+
+.snow-particle {
+  background: #ffffff;
+}
+
+/* --sway (set per-particle by Game.js, snow only) bends the fall path
+   into a gentle S-curve instead of a dead-straight line - rain has no
+   --sway set, so it defaults to 0 and falls straight down. */
+@keyframes particle-fall {
+  0% { transform: translate(0, -5vh); }
+  25% { transform: translate(var(--sway, 0px), 25vh); }
+  50% { transform: translate(0, 50vh); }
+  75% { transform: translate(calc(var(--sway, 0px) * -1), 75vh); }
+  100% { transform: translate(0, 105vh); }
 }
 
 /* Sandstorm (see Game.js's _rollWeather) - a uniform tan haze with a slow

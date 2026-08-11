@@ -31,8 +31,8 @@ const EYE_HEIGHT = 1.7
 // Exported so a zone-tagged location can build an override table by
 // spreading/adjusting this base table (e.g. `{ ...LOOT_WEIGHTS, rare_weapon: 1 }`
 // for a "high loot complexity" spot) instead of hand-duplicating every entry.
-export const LOOT_WEIGHTS = { health: 1, ammo: 1, noisemaker: 0.4, scope: 0.2, extended_mag: 0.3, fuelcan: 0.5, grenade: 0.35, melee_bat: 0.15, melee_machete: 0.15, melee_uvbaton: 0.1, melee_fireaxe: 0.1, melee_sledgehammer: 0.08, melee_spear: 0.12, melee_nunchaku: 0.12, weapon_charm: 0.3, ration: 0.6, rare_weapon: 0.25, legendary_weapon: 0.08, smokebomb: 0.35, barricadecrate: 0.3 }
-const LOOT_LABELS = { health: 'Health Pack', ammo: 'Ammo Crate', noisemaker: 'Noisemaker', scope: 'Scope', extended_mag: 'Extended Mag', fuelcan: 'Fuel Can', grenade: 'Grenade', melee_bat: 'Bat', melee_machete: 'Machete', melee_uvbaton: 'UV Baton', melee_fireaxe: 'Fire Axe', melee_sledgehammer: 'Sledgehammer', melee_spear: 'Spear', melee_nunchaku: 'Nunchaku', weapon_charm: 'Weapon Charm', ration: 'Ration', rare_weapon: 'Rare Weapon Part', legendary_weapon: 'Legendary Weapon Part', smokebomb: 'Smoke Bomb', barricadecrate: 'Barricade Crate' }
+export const LOOT_WEIGHTS = { health: 1, ammo: 1, noisemaker: 0.4, scope: 0.2, extended_mag: 0.3, fuelcan: 0.5, grenade: 0.35, melee_bat: 0.15, melee_machete: 0.15, melee_uvbaton: 0.1, melee_fireaxe: 0.1, melee_sledgehammer: 0.08, melee_spear: 0.12, melee_nunchaku: 0.12, ration: 0.6, rare_weapon: 0.25, legendary_weapon: 0.08, smokebomb: 0.35, barricadecrate: 0.3 }
+const LOOT_LABELS = { health: 'Health Pack', ammo: 'Ammo Crate', noisemaker: 'Noisemaker', scope: 'Scope', extended_mag: 'Extended Mag', fuelcan: 'Fuel Can', grenade: 'Grenade', melee_bat: 'Bat', melee_machete: 'Machete', melee_uvbaton: 'UV Baton', melee_fireaxe: 'Fire Axe', melee_sledgehammer: 'Sledgehammer', melee_spear: 'Spear', melee_nunchaku: 'Nunchaku', ration: 'Ration', rare_weapon: 'Rare Weapon Part', legendary_weapon: 'Legendary Weapon Part', smokebomb: 'Smoke Bomb', barricadecrate: 'Barricade Crate' }
 const LOOT_COUNT_MIN = 1
 const LOOT_COUNT_MAX = 2
 

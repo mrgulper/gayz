@@ -19,11 +19,18 @@ const IDLE_SPIN_SPEED = 0.24
 
 // Classic Minecraft player proportions (in arbitrary "skin pixel" units,
 // same 8/12/12 head/torso-and-arms/legs split the real game uses) so the
-// silhouette reads as instantly recognizable.
+// silhouette reads as instantly recognizable. This is the DEFAULT skin
+// every new player gets (no skin-customization system exists yet) - a few
+// extra low-poly details (hair, a mouth, shoes) on top of the original
+// bare boxes give it more presence without adding real complexity/cost,
+// still just flat-shaded boxes, no new geometry types or textures.
 const SKIN_TONE = 0xd9a066
 const SHIRT_COLOR = 0x4fb3b3
 const PANTS_COLOR = 0x3c4a8a
 const EYE_COLOR = 0x1a1a1a
+const HAIR_COLOR = 0x3b2a1e
+const MOUTH_COLOR = 0x8a5a4a
+const SHOE_COLOR = 0x2b2320
 
 function buildCharacter() {
   const group = new THREE.Group()
@@ -31,13 +38,25 @@ function buildCharacter() {
   const skinMat = new THREE.MeshStandardMaterial({ color: SKIN_TONE, roughness: 0.85 })
   const shirtMat = new THREE.MeshStandardMaterial({ color: SHIRT_COLOR, roughness: 0.85 })
   const pantsMat = new THREE.MeshStandardMaterial({ color: PANTS_COLOR, roughness: 0.85 })
+  const hairMat = new THREE.MeshStandardMaterial({ color: HAIR_COLOR, roughness: 0.9 })
+  const shoeMat = new THREE.MeshStandardMaterial({ color: SHOE_COLOR, roughness: 0.8 })
 
   const head = new THREE.Mesh(new THREE.BoxGeometry(8, 8, 8), skinMat)
   head.position.y = 26
   group.add(head)
 
-  // Simple flat eyes on the head's front face - just enough to read as a
-  // face at this size, not a real textured skin.
+  // Short, neutral hair cap - a slightly wider/taller box sitting over the
+  // top-back of the head, not full coverage (leaves the face clear), so it
+  // reads as hair rather than a helmet.
+  const hairTop = new THREE.Mesh(new THREE.BoxGeometry(8.4, 2, 8.4), hairMat)
+  hairTop.position.set(0, 30.4, 0)
+  group.add(hairTop)
+  const hairBack = new THREE.Mesh(new THREE.BoxGeometry(8.4, 6, 2.4), hairMat)
+  hairBack.position.set(0, 28, -2.9)
+  group.add(hairBack)
+
+  // Simple flat eyes + a mouth line on the head's front face - just enough
+  // to read as a face at this size, not a real textured skin.
   const eyeGeo = new THREE.BoxGeometry(1.2, 1.2, 0.2)
   const eyeMat = new THREE.MeshBasicMaterial({ color: EYE_COLOR })
   const eyeL = new THREE.Mesh(eyeGeo, eyeMat)
@@ -46,6 +65,9 @@ function buildCharacter() {
   const eyeR = new THREE.Mesh(eyeGeo, eyeMat)
   eyeR.position.set(1.8, 26.5, 4.05)
   group.add(eyeR)
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.7, 0.2), new THREE.MeshBasicMaterial({ color: MOUTH_COLOR }))
+  mouth.position.set(0, 23.8, 4.05)
+  group.add(mouth)
 
   const torso = new THREE.Mesh(new THREE.BoxGeometry(8, 12, 4), shirtMat)
   torso.position.y = 16
@@ -67,15 +89,27 @@ function buildCharacter() {
   legR.position.set(2, 4, 0)
   group.add(legR)
 
+  // Shoes - a short, slightly wider cap at the bottom of each leg, the
+  // one other small detail real Minecraft-style skins almost always have
+  // that the original bare pants-colored box was missing entirely.
+  const shoeGeo = new THREE.BoxGeometry(4.3, 2.4, 4.3)
+  const shoeL = new THREE.Mesh(shoeGeo, shoeMat)
+  shoeL.position.set(-2, -0.8, 0.15)
+  group.add(shoeL)
+  const shoeR = new THREE.Mesh(shoeGeo, shoeMat)
+  shoeR.position.set(2, -0.8, 0.15)
+  group.add(shoeR)
+
   return group
 }
 
 // Approx character bounding box (see buildCharacter's "skin pixel" units
-// above: head top y=30 down to leg bottom y=-2, arms reaching to x=+-8) -
-// used by _resize() to keep the camera far enough back to fit the WHOLE
-// character regardless of the canvas's aspect ratio, not just its height.
-const CHAR_HALF_HEIGHT = 16
-const CHAR_HALF_WIDTH = 8
+// above: hair top y=~31.4 down to shoe bottom y=~-2, arms reaching to
+// x=+-8) - used by _resize() to keep the camera far enough back to fit
+// the WHOLE character regardless of the canvas's aspect ratio, not just
+// its height. Bumped slightly (was 16/8) to cover the added hair/shoes.
+const CHAR_HALF_HEIGHT = 17
+const CHAR_HALF_WIDTH = 8.5
 const CHAR_FIT_MARGIN = 0.85 // leaves ~15% breathing room on whichever axis is tightest
 
 export class MenuAvatar3D {

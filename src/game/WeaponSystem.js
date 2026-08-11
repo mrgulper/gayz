@@ -3,7 +3,6 @@ import { audioEngine } from './Audio.js'
 import { buildViewmodel } from './Viewmodels.js'
 import { t, onLanguageChange } from './i18n.js'
 import { getKeyFor } from './Keybinds.js'
-import { flatMaterial } from './QualitySettings.js'
 
 const VIEWMODEL_BASE = new THREE.Vector3(0.26, -0.22, -0.5)
 // Was intensity 4 / distance 8 - blew out everything nearby on every shot.
@@ -98,6 +97,11 @@ const HEADSHOT_DAMAGE_MULT = 1.75
 const MELEE_COMBO_WINDOW_MS = 2000
 const MELEE_COMBO_THRESHOLD = 5
 const MELEE_COMBO_BONUS_MULT = 1.8
+// Melee swing animation (see _meleeSwing/_updateViewmodelTransform) - 1/this
+// is the swing's full duration in seconds; 3 completes in ~0.33s, snappy
+// enough to keep up with the knife's own 0.45s fireInterval without the
+// next swing visibly cutting the previous one off mid-arc.
+const MELEE_SWING_SPEED = 3
 
 const WEAPONS = [
   {
@@ -413,22 +417,6 @@ const MELEE_VARIANTS = {
   nunchaku: { name: 'Nunchaku', damage: 30, fireInterval: 0.22, range: 1.9 },
 }
 
-// Weapon charms - found as loot (see Game.js's toastCharmAdded), purely
-// cosmetic (no stat effect, unlike every other loot pickup this game has).
-// One small mesh built per palette entry rather than per gun model: it's
-// parented directly to viewmodelRoot (see equipCharm below), so it stays
-// visible near the grip no matter which weapon is currently equipped
-// instead of needing bespoke integration into all 8+ viewmodel builders.
-const WEAPON_CHARMS = {
-  skull: { color: 0xe8e4d8, geometry: () => new THREE.OctahedronGeometry(0.03, 0) },
-  star: { color: 0xffcf5c, geometry: () => new THREE.OctahedronGeometry(0.032, 0) },
-  clover: { color: 0x5ca85c, geometry: () => new THREE.TorusGeometry(0.024, 0.012, 6, 10) },
-  dice: { color: 0xd8483a, geometry: () => new THREE.BoxGeometry(0.04, 0.04, 0.04) },
-  heart: { color: 0xd8485a, geometry: () => new THREE.SphereGeometry(0.028, 8, 6) },
-  horseshoe: { color: 0xb8a068, geometry: () => new THREE.TorusGeometry(0.026, 0.01, 6, 10, Math.PI * 1.5) },
-  gem: { color: 0x5ac8d8, geometry: () => new THREE.ConeGeometry(0.028, 0.045, 5) },
-}
-export const WEAPON_CHARM_IDS = Object.keys(WEAPON_CHARMS)
 
 export class WeaponSystem {
   constructor(camera, scene, colliderMeshes, hud, zombieManager, onHitSurface, onZombieHit, onStealthTakedown, onDamageDealt = null, onWeaponFired = null, shouldShowHitFeedback = () => true, onShotFired = null) {
@@ -534,6 +522,14 @@ export class WeaponSystem {
 
     this._time = 0
     this.recoil = 0
+    // Melee swing (see _fire's melee branch / _updateViewmodelTransform) -
+    // 1 at the instant a swing starts, decays to 0 over MELEE_SWING_SPEED
+    // seconds. Separate from `recoil` (still set for melee too, in case
+    // anything generic keys off "a shot/swing just happened") because a
+    // knife swinging forward-then-back reads completely differently from
+    // a gun kicking straight back - reusing recoil's motion for both made
+    // every melee hit look like a weak gunshot instead of a real slash.
+    this._meleeSwing = 0
     this.aiming = false
     this.aimAmount = 0
     this.defaultFov = camera.fov
@@ -682,20 +678,6 @@ export class WeaponSystem {
     } else if (attachmentId === 'acid') {
       w.corrodes = true
     }
-  }
-
-  // See WEAPON_CHARMS' own doc comment - swaps in place rather than
-  // stacking, so finding a second charm replaces the first instead of
-  // cluttering the grip with several.
-  equipCharm(charmId) {
-    const charm = WEAPON_CHARMS[charmId]
-    if (!charm) return
-    if (this.charmMesh) this.viewmodelRoot.remove(this.charmMesh)
-    const mat = flatMaterial({ color: charm.color, emissive: charm.color, emissiveIntensity: 0.4, roughness: 0.5 })
-    this.charmMesh = new THREE.Mesh(charm.geometry(), mat)
-    this.charmMesh.position.set(-0.11, -0.09, 0.08)
-    this.viewmodelRoot.add(this.charmMesh)
-    this.currentCharm = charmId
   }
 
   // Chest-found rarity upgrade (see Chests.js's rare_weapon/legendary_weapon
@@ -977,6 +959,7 @@ export class WeaponSystem {
     this.timeSinceLastShot += dt
     this._time += dt
     this.recoil = Math.max(0, this.recoil - dt * 6)
+    this._meleeSwing = Math.max(0, this._meleeSwing - dt * MELEE_SWING_SPEED)
     this.isSprinting = isSprinting
     this._updateTracers()
     this._updateVoidRipperOrbs(dt)
@@ -1203,14 +1186,25 @@ export class WeaponSystem {
     const inspectAmt = this._idleInspectAmount
     const inspectY = inspectAmt > 0 ? Math.sin(this._time * 0.5) * 0.01 * inspectAmt : 0
 
+    // Melee swing - a real forward-thrust-and-arc slash instead of reusing
+    // a gun's straight-back recoil kick (see _meleeSwing's own comment).
+    // swingPhase runs 0 (just swung) -> 1 (fully settled); arc peaks at the
+    // midpoint of the swing (sin(phase*PI)) for the forward thrust, while
+    // the rotations sweep linearly from wound-back to followed-through so
+    // the blade visibly travels across the screen, not just jolts in place.
+    const isMelee = this.current.melee
+    const swingPhase = 1 - this._meleeSwing
+    const swingArc = isMelee ? Math.sin(swingPhase * Math.PI) : 0
+    const swingSweep = isMelee ? 0.5 - swingPhase : 0
+
     this.viewmodelRoot.position.set(
       this._lerpedViewmodelPos.x + bobX,
       this._lerpedViewmodelPos.y + bobY + inspectY,
-      this._lerpedViewmodelPos.z + this.recoil * 0.12
+      this._lerpedViewmodelPos.z + this.recoil * 0.12 - swingArc * 0.14
     )
-    this.viewmodelRoot.rotation.x = -this.recoil * 0.18
-    this.viewmodelRoot.rotation.y = inspectAmt > 0 ? Math.sin(this._time * 0.6) * 0.06 * inspectAmt : 0
-    this.viewmodelRoot.rotation.z = inspectAmt > 0 ? Math.sin(this._time * 0.35 + 1) * 0.04 * inspectAmt : 0
+    this.viewmodelRoot.rotation.x = -this.recoil * 0.18 - swingArc * 0.15
+    this.viewmodelRoot.rotation.y = (inspectAmt > 0 ? Math.sin(this._time * 0.6) * 0.06 * inspectAmt : 0) + swingSweep * 0.5
+    this.viewmodelRoot.rotation.z = (inspectAmt > 0 ? Math.sin(this._time * 0.35 + 1) * 0.04 * inspectAmt : 0) + swingSweep * 0.25
   }
 
   _fire() {
@@ -1229,6 +1223,7 @@ export class WeaponSystem {
     if (chargeBash) meleeComboBonus *= 1.5
     if (w.melee) {
       this.recoil = 0.6
+      this._meleeSwing = 1
       audioEngine.playMelee()
       const nowMs = performance.now()
       if (nowMs - this.lastMeleeHitAt > MELEE_COMBO_WINDOW_MS) this.meleeComboCount = 0

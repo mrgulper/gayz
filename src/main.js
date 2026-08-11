@@ -14,7 +14,6 @@ import {
   preloadShotgunViewmodel,
   preloadAwpViewmodel,
   preloadGlock18Viewmodel,
-  preloadKnifeViewmodel,
   preloadBatViewmodel,
   preloadMacheteViewmodel,
   preloadUvBatonViewmodel,
@@ -38,7 +37,8 @@ Promise.all([
   preloadShotgunViewmodel(),
   preloadAwpViewmodel(),
   preloadGlock18Viewmodel(),
-  preloadKnifeViewmodel(),
+  // No preloadKnifeViewmodel() here - USE_GLB_KNIFE is off (see
+  // Viewmodels.js), the procedural knife needs no asset fetch.
   preloadBatViewmodel(),
   preloadMacheteViewmodel(),
   preloadUvBatonViewmodel(),

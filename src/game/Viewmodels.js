@@ -42,7 +42,11 @@ export const preloadGlock18Viewmodel = preloadGunModel('glock18', '/models/weapo
 // says "gun" (it's just "load a GLB into a keyed cache", not gun-specific).
 // Unlike the guns, these ship real PBR textures (baked into the GLB at
 // build time), not flat colors.
-export const USE_GLB_KNIFE = true
+// Switched off (was true) so the redesigned procedural knife
+// (buildQuickMeleeKnifeModelProcedural) actually renders - the GLB asset's
+// own mesh geometry can't be reshaped from code, and "make it sharper" is
+// a real shape redesign, not just a re-tint.
+export const USE_GLB_KNIFE = false
 export const preloadKnifeViewmodel = preloadGunModel('knife', '/models/weapons/knife.glb')
 export const USE_GLB_BAT = true
 export const preloadBatViewmodel = preloadGunModel('bat', '/models/weapons/bat.glb')
@@ -363,42 +367,49 @@ export function buildQuickMeleeKnifeModel(skinId = null) {
   return buildQuickMeleeKnifeModelProcedural(skinId)
 }
 
+// Redesigned for a genuinely sharp, tapered profile (a flat box + a cone
+// tip, the previous version, read as blunt/toy-like up close) - the blade
+// is one continuous extruded 2D outline (drop-point silhouette: a slight
+// concave swage near the spine, straight taper down to a real point)
+// instead of two separate primitives glued together.
 function buildQuickMeleeKnifeModelProcedural(skinId = null) {
   const g = new THREE.Group()
 
-  const bladeMat = skinMaterial(skinId, flatMaterial({ color: 0x7d838a, roughness: 0.15, metalness: 0.95 }))
+  const bladeMat = skinMaterial(skinId, flatMaterial({ color: 0x9aa0a6, roughness: 0.1, metalness: 1 }))
   const tacticalGrip = flatMaterial({ color: 0x14140f, roughness: 0.85 })
 
-  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.01, 0.26), bladeMat)
-  blade.position.set(0, 0, -0.15)
+  const bladeShape = new THREE.Shape()
+  bladeShape.moveTo(-0.017, 0) // spine, base
+  bladeShape.lineTo(0.018, -0.01) // edge, base (slightly forward of the spine - a real cutting edge starts just ahead of the guard)
+  bladeShape.lineTo(0.015, -0.2) // edge taper
+  bladeShape.lineTo(0, -0.3) // point
+  bladeShape.lineTo(-0.013, -0.21) // spine taper (swage) back toward the point
+  bladeShape.lineTo(-0.017, 0)
+  const bladeGeo = new THREE.ExtrudeGeometry(bladeShape, { depth: 0.005, bevelEnabled: true, bevelThickness: 0.0015, bevelSize: 0.0015, bevelSegments: 2 })
+  bladeGeo.translate(0, 0, -0.0025) // center the thin extrusion on its own axis instead of offset to one side
+  const blade = new THREE.Mesh(bladeGeo, bladeMat)
+  blade.rotation.x = Math.PI / 2
   g.add(blade)
 
-  // Angled tanto tip instead of the regular knife's straight cone point.
-  const tip = new THREE.Mesh(new THREE.ConeGeometry(0.024, 0.09, 4), bladeMat)
-  tip.rotation.x = -Math.PI / 2
-  tip.rotation.z = Math.PI / 4
-  tip.position.set(0, -0.006, -0.32)
-  g.add(tip)
-
-  // Serrated spine: a row of small teeth along the top back edge of the
-  // blade, the main visual tell that this isn't the plain melee-slot knife.
-  const toothCount = 6
+  // Serrated spine - a row of small teeth along the back (non-cutting)
+  // edge, the main visual tell that this isn't the plain melee-slot knife.
+  const toothCount = 5
   for (let i = 0; i < toothCount; i++) {
-    const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.012, 0.022, 3), bladeMat)
+    const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.011, 0.02, 3), bladeMat)
     tooth.rotation.x = Math.PI / 2
     tooth.rotation.z = Math.PI / 2
-    tooth.position.set(0, 0.011, -0.05 - i * 0.032)
+    tooth.position.set(-0.015, 0, -0.04 - i * 0.034)
     g.add(tooth)
   }
 
   const guard = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.022, 0.018), DARK_METAL)
   guard.rotation.z = Math.PI / 4
-  guard.position.set(0, 0, -0.03)
+  guard.position.set(0, 0, -0.005)
   g.add(guard)
 
   const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.024, 0.16, 8), tacticalGrip)
   handle.rotation.x = Math.PI / 2
-  handle.position.set(0, 0, 0.06)
+  handle.position.set(0, 0, 0.08)
   g.add(handle)
 
   const knifeHand = buildHand()
@@ -600,14 +611,14 @@ function buildMelee(skinId = null) {
   g.add(knife, bat, machete, uvbaton, fireaxe, sledgehammer)
   g.userData.meleeVariants = { knife, bat, machete, uvbaton, fireaxe, sledgehammer }
 
-  // Held in the left hand instead of the standard right-hand gun spot -
-  // local offset of -0.62 lands at the same world x (~-0.36) the off-hand
-  // quick-melee knife already uses (see WeaponSystem's QUICK_MELEE_REST_POS),
-  // so the equipped and off-hand knives read as the same held position.
-  // Rotated to face left and lean right, a knife-fighter stance rather than
-  // a gun-shaped weapon just relocated to the other hand.
-  g.position.set(-0.5, 0.02, -0.12)
-  g.rotation.set(-0.1, 0.5, -0.3)
+  // Right hand now (was the left, offset to roughly -0.36 world x) - per
+  // request, matching every gun's own convention of no group-level offset
+  // at all and relying on the shared VIEWMODEL_BASE (WeaponSystem.js) for
+  // right-hand placement. A small residual local offset/lean, not zero,
+  // so it doesn't sit dead-center of the screen like a gun's barrel would -
+  // a knife held for a stab reads more natural slightly off-axis.
+  g.position.set(0.03, 0.01, -0.05)
+  g.rotation.set(-0.05, -0.15, 0.08)
 
   return g
 }

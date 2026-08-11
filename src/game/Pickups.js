@@ -49,7 +49,6 @@ const TYPES = {
   melee_sledgehammer: { weight: 0.3, label: 'Sledgehammer' },
   melee_spear: { weight: 0.4, label: 'Spear' },
   melee_nunchaku: { weight: 0.4, label: 'Nunchaku' },
-  weapon_charm: { weight: 0.35, label: 'Weapon Charm' },
   ration: { weight: 1.2, label: 'Ration' },
   smokebomb: { weight: 1, label: 'Smoke Bomb' },
   barricadecrate: { weight: 0.8, label: 'Barricade Crate' },
@@ -198,10 +197,6 @@ function buildVisual(type) {
     const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.06, 6), chainMat)
     chain.rotation.z = Math.PI / 2
     group.add(chain)
-  } else if (type === 'weapon_charm') {
-    const mat = flatMaterial({ color: 0xffcf5c, emissive: 0xffcf5c, emissiveIntensity: 0.8, roughness: 0.4 })
-    const bead = new THREE.Mesh(new THREE.OctahedronGeometry(0.16, 0), mat)
-    group.add(bead)
   } else if (type === 'smokebomb') {
     const bodyMat = flatMaterial({ color: 0x3a3a3a, roughness: 0.6, metalness: 0.3 })
     const capMat = flatMaterial({ color: 0x6a6a5a, roughness: 0.5, metalness: 0.4 })
