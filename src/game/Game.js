@@ -302,11 +302,17 @@ function loadSettings() {
       // Second Homepage batch - the Quick Language toggle's remembered
       // "most recent non-English pick" (see #quick-language-btn's handler).
       quickLanguageAlt: parsed.quickLanguageAlt || 'es',
-      // Second Online Features batch - saved friend nicknames (Cloud Save
-      // panel's compare box, avoids retyping) and every mutator id ever
-      // toggled on at least once (backs the "you haven't tried X yet"
-      // spotlight nudge).
-      savedFriends: Array.isArray(parsed.savedFriends) ? parsed.savedFriends.slice(0, 5) : [],
+      // Second Online Features batch - saved friends (now `{name, uid}`
+      // objects, was a plain nickname string until the presence/status
+      // batch needed a real uid to look status up by - normalize any
+      // pre-existing plain-string entries here rather than a one-time
+      // migration, since a saved friend re-accepted after that point
+      // already writes the new shape anyway, see _respondToFriendRequest)
+      // and every mutator id ever toggled on at least once (backs the
+      // "you haven't tried X yet" spotlight nudge).
+      savedFriends: Array.isArray(parsed.savedFriends)
+        ? parsed.savedFriends.slice(0, 5).map((f) => (typeof f === 'string' ? { name: f, uid: null } : f))
+        : [],
       mutatorsEverEnabled: Array.isArray(parsed.mutatorsEverEnabled) ? parsed.mutatorsEverEnabled : [],
       // Round 4 Online Features batch - region filter for the global
       // leaderboard (REGION_OPTIONS) and two extra accessibility modes
@@ -432,7 +438,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], doNotDisturb: false, hideOnlineStatus: false, mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -1399,6 +1405,7 @@ function loadShopProgress() {
     return {
       points: parsed.points || 0,
       coins: parsed.coins || 0,
+      gems: parsed.gems || 0,
       ownedSkins: new Set(parsed.ownedSkins || []),
       equippedSkin: parsed.equippedSkin || null,
       ownedOutfits: new Set(parsed.ownedOutfits || []),
@@ -1421,7 +1428,7 @@ function loadShopProgress() {
       attachments: parsed.attachments || [],
     }
   } catch {
-    return { points: 0, coins: 0, ownedSkins: new Set(), equippedSkin: null, ownedOutfits: new Set(), equippedOutfit: null, ownedHats: new Set(), equippedHat: null, challengeKillCounts: {}, weaponChallengesUnlocked: new Set(), shopPurchased: new Set(), unlockedGuns: [], attachments: [] }
+    return { points: 0, coins: 0, gems: 0, ownedSkins: new Set(), equippedSkin: null, ownedOutfits: new Set(), equippedOutfit: null, ownedHats: new Set(), equippedHat: null, challengeKillCounts: {}, weaponChallengesUnlocked: new Set(), shopPurchased: new Set(), unlockedGuns: [], attachments: [] }
   }
 }
 
@@ -1430,6 +1437,7 @@ function saveShopProgress(game) {
     localStorage.setItem(SHOP_PROGRESS_KEY, JSON.stringify({
       points: game.points,
       coins: game.coins,
+      gems: game.gems,
       ownedSkins: [...game.ownedSkins],
       equippedSkin: game.equippedSkin,
       ownedOutfits: [...game.ownedOutfits],
@@ -1452,6 +1460,16 @@ function saveShopProgress(game) {
     // Storage unavailable - shop progress just won't persist across sessions.
   }
 }
+
+// Friend presence (see _computeFriendStatus/_startPresenceHeartbeat) -
+// FRIEND_HEARTBEAT_INTERVAL_MS is how often a signed-in player's own
+// lastActiveAt gets pushed; the two threshold constants below classify a
+// FRIEND's staleness against that same cadence with headroom for a missed
+// tick or two, not an exact 1:1 match to the interval.
+const FRIEND_HEARTBEAT_INTERVAL_MS = 60000
+const FRIEND_ONLINE_THRESHOLD_MS = 2 * 60 * 1000
+const FRIEND_OFFLINE_THRESHOLD_MS = 5 * 60 * 1000
+const FRIEND_STATUS_LABEL_KEYS = { online: 'friendStatusOnline', idle: 'friendStatusIdle', dnd: 'friendStatusDnd', offline: 'friendStatusOffline' }
 
 const NIGHT_DURATION_MS = 90000
 const FLASHLIGHT_DRAIN_PER_SEC = 1.5
@@ -2935,6 +2953,9 @@ export class Game {
     // + player badge, replacing the old single menu-best-stats text blob.
     this.heroBestNight = document.getElementById('hero-best-night')
     this.heroBestStreak = document.getElementById('hero-best-streak')
+    this.currencyCoinsAmount = document.getElementById('currency-coins-amount')
+    this.currencyPointsAmount = document.getElementById('currency-points-amount')
+    this.currencyGemsAmount = document.getElementById('currency-gems-amount')
     // Each of these now renders in TWO places (homepage Your Stats panel +
     // Profile panel's stats column) sharing one data-stat attribute rather
     // than duplicate ids, so querySelectorAll + forEach keeps both in sync.
@@ -2949,6 +2970,18 @@ export class Game {
     if (this.setupAvatarCanvas) {
       this._menuAvatar3D = new MenuAvatar3D(this.setupAvatarCanvas)
       this._menuAvatar3D.start()
+    }
+    // Same character shown again inside the Profile panel - MenuAvatar3D's
+    // own start() loop already skips rendering while its canvas is hidden
+    // (canvas.offsetParent === null, see that class), which is exactly
+    // true whenever #profile-panel itself is closed, so this needs no
+    // extra open/close wiring of its own. Not a personalized skin (no
+    // skin-customization system exists yet, see MenuAvatar3D's own header
+    // comment) - both instances render the same fixed default look.
+    this.profileAvatarCanvas = document.getElementById('profile-avatar-canvas')
+    if (this.profileAvatarCanvas) {
+      this._profileAvatar3D = new MenuAvatar3D(this.profileAvatarCanvas)
+      this._profileAvatar3D.start()
     }
     this.menuPlayerTag = document.getElementById('menu-player-tag')
     this.playerShowcaseTitle = document.getElementById('player-showcase-title')
@@ -3358,6 +3391,7 @@ export class Game {
     this.tempCompanion = null
     this.tempCompanionExpiresAtNight = 0
     this.coins = this.shopProgress.coins
+    this.gems = this.shopProgress.gems
     this.coinShopPurchased = this.shopProgress.shopPurchased
     this._shakeOffset = new THREE.Vector3()
     this._shakeMagnitude = 0
@@ -4111,7 +4145,14 @@ export class Game {
     this.friendsSigninBtn = document.getElementById('friends-signin-btn')
     this.friendsSignedIn = document.getElementById('friends-signed-in')
     this.friendRequestsHeading = document.getElementById('friend-requests-heading')
+    this.friendRequestsCount = document.getElementById('friend-requests-count')
+    this.deleteAllRequestsBtn = document.getElementById('delete-all-requests-btn')
     this.friendRequestsList = document.getElementById('friend-requests-list')
+    this.friendsOwnId = document.getElementById('friends-own-id')
+    this.dndToggle = document.getElementById('dnd-toggle')
+    this.dndToggleRow = document.getElementById('dnd-toggle-row')
+    this.hideStatusToggle = document.getElementById('hide-status-toggle')
+    this.hideStatusToggleRow = document.getElementById('hide-status-toggle-row')
     this.sendFriendRequestBtn = document.getElementById('send-friend-request-btn')
     this._incomingFriendRequests = []
     this._friendRequestsUnsubscribe = null
@@ -4176,7 +4217,6 @@ export class Game {
     this.shopSpendingLogRow = document.getElementById('shop-spending-log-row')
     this.shopSpendingLogHeading = document.getElementById('shop-spending-log-heading')
     this.shopSpendingLogList = document.getElementById('shop-spending-log-list')
-    this.buildSessionIdLine = document.getElementById('build-session-id-line')
     this.coinshopBtn = document.getElementById('coinshop-btn')
     this.coinshopPanel = document.getElementById('coinshop-panel')
     this.coinshopPanelTitle = document.getElementById('coinshop-panel-title')
@@ -7515,6 +7555,7 @@ export class Game {
     }
     this._bindHomepageBatch()
     CloudSaveUI.bindCloudSave(this)
+    this._startPresenceHeartbeat()
     this._checkBeatThisChallenge()
     this._checkViewProfileLink()
     this._maybeShowWhatsNewDigest()
@@ -8221,24 +8262,69 @@ export class Game {
     }
   }
 
-  // "Your Friends" chip list - now populated only by accepting an incoming
+  // "Your Friends" list - now populated only by accepting an incoming
   // friend request (see _respondToFriendRequest), not by manually typing a
-  // name any more (that was the removed Save/Compare flow). Chips are
-  // display + remove-from-list only now.
+  // name any more (that was the removed Save/Compare flow). Each row shows
+  // a live presence status (see _fetchFriendPresences/_computeFriendStatus)
+  // fetched right after the list itself renders, since the status read is
+  // its own async Firestore call per friend, not part of settings.
   _renderSavedFriends() {
     if (!this.cloudsaveSavedFriends) return
-    this.cloudsaveSavedFriends.innerHTML = this.settings.savedFriends.map((name) => `
-      <span class="saved-friend-chip" data-name="${_escapeHtml(name)}">${_escapeHtml(name)}<span class="saved-friend-remove" data-remove="${_escapeHtml(name)}">×</span></span>
+    const friends = this.settings.savedFriends
+    this.cloudsaveSavedFriends.innerHTML = friends.map((f) => `
+      <div class="saved-friend-row">
+        <span class="friend-status-dot" data-status="offline"></span>
+        <span class="friend-name">${_escapeHtml(f.name)}</span>
+        <span class="friend-status-label">${t('friendStatusOffline')}</span>
+        <span class="saved-friend-remove" data-remove="${_escapeHtml(f.name)}">×</span>
+      </div>
     `).join('')
-    for (const chip of this.cloudsaveSavedFriends.querySelectorAll('.saved-friend-chip')) {
-      chip.addEventListener('click', (e) => {
-        const removeName = e.target.dataset.remove
-        if (!removeName) return
-        this.settings.savedFriends = this.settings.savedFriends.filter((n) => n !== removeName)
+    for (const btn of this.cloudsaveSavedFriends.querySelectorAll('.saved-friend-remove')) {
+      btn.addEventListener('click', () => {
+        this.settings.savedFriends = this.settings.savedFriends.filter((f) => f.name !== btn.dataset.remove)
         saveSettings(this.settings)
         this._renderSavedFriends()
       })
     }
+    this._fetchFriendPresences(friends)
+  }
+
+  // Fetches each friend's live status (see _computeFriendStatus) by their
+  // stored uid - index-paired with the rows _renderSavedFriends just built
+  // rather than re-querying by a data-uid attribute selector, simplest way
+  // to avoid needing to escape uid for use in a CSS selector. A friend
+  // saved before this presence system existed has uid: null (see
+  // loadSettings' savedFriends normalizer) and is skipped, staying at the
+  // default "Offline" the row already renders.
+  async _fetchFriendPresences(friends) {
+    if (!CloudSync.isConfigured() || !this.cloudsaveSavedFriends) return
+    const rows = this.cloudsaveSavedFriends.querySelectorAll('.saved-friend-row')
+    await Promise.all(friends.map(async (f, i) => {
+      if (!f.uid) return
+      try {
+        const presence = await CloudSync.fetchPresence(f.uid)
+        const status = this._computeFriendStatus(presence)
+        const row = rows[i]
+        if (!row) return
+        row.querySelector('.friend-status-dot').dataset.status = status
+        row.querySelector('.friend-status-label').textContent = t(FRIEND_STATUS_LABEL_KEYS[status])
+      } catch {
+        // Best-effort - stays "Offline" default on a failed read.
+      }
+    }))
+  }
+
+  // Online: heartbeat seen in the last 2 min. Idle: seen more than 2 but
+  // less than 5 min ago. Offline: no heartbeat at all, or older than 5 min
+  // (this wins over Do Not Disturb even if that flag is still set from
+  // their last active session - a friend who's actually gone offline
+  // shouldn't show as "busy," they should show as gone).
+  _computeFriendStatus(presence) {
+    if (!presence || !presence.lastActiveAt) return 'offline'
+    const elapsed = Date.now() - presence.lastActiveAt
+    if (elapsed > FRIEND_OFFLINE_THRESHOLD_MS) return 'offline'
+    if (presence.doNotDisturb) return 'dnd'
+    return elapsed < FRIEND_ONLINE_THRESHOLD_MS ? 'online' : 'idle'
   }
 
   // Send Friend Request - looked up by the recipient's stable random
@@ -8275,6 +8361,11 @@ export class Game {
     if (!this.friendRequestsList) return
     if (this.friendRequestsHeading) this.friendRequestsHeading.textContent = t('friendRequestsHeading')
     const requests = this._incomingFriendRequests
+    if (this.friendRequestsCount) this.friendRequestsCount.textContent = t('friendRequestsCount', { n: requests.length })
+    if (this.deleteAllRequestsBtn) {
+      this.deleteAllRequestsBtn.textContent = t('deleteAllRequestsBtn')
+      this.deleteAllRequestsBtn.style.display = requests.length ? '' : 'none'
+    }
     this.friendRequestsList.innerHTML = requests.length
       ? requests.map((r) => `
           <div class="friend-request-row" data-from-uid="${_escapeHtml(r.fromUid)}">
@@ -8296,9 +8387,9 @@ export class Game {
 
   async _respondToFriendRequest(fromUid, fromNickname, accept) {
     if (!this._cloudUid) return
-    if (accept && fromNickname && !this.settings.savedFriends.includes(fromNickname)) {
+    if (accept && fromNickname && !this.settings.savedFriends.some((f) => f.uid === fromUid)) {
       if (this.settings.savedFriends.length >= 5) this.settings.savedFriends.shift()
-      this.settings.savedFriends.push(fromNickname)
+      this.settings.savedFriends.push({ name: fromNickname, uid: fromUid })
       saveSettings(this.settings)
       this._renderSavedFriends()
     }
@@ -8307,6 +8398,15 @@ export class Game {
     } catch {
       // Best-effort - the live subscription will resync the list either
       // way the next time it fires.
+    }
+  }
+
+  async _deleteAllFriendRequests() {
+    if (!this._cloudUid || !this._incomingFriendRequests.length) return
+    try {
+      await Promise.all(this._incomingFriendRequests.map((r) => CloudSync.respondToFriendRequest(this._cloudUid, r.fromUid)))
+    } catch {
+      // Best-effort - same reasoning as _respondToFriendRequest above.
     }
   }
 
@@ -10812,6 +10912,13 @@ export class Game {
     // though the account was still actually signed in.
     CloudSaveUI.renderCloudSaveState(this)
     this._renderFriendRequests()
+    if (this.friendsOwnId) this.friendsOwnId.textContent = this.settings.playerId ? `#${this.settings.playerId}` : ''
+    // .textContent on the <label> itself would wipe out its child checkbox
+    // (see CLAUDE.md's documented _updateTexts() gotcha for buttons with a
+    // child <svg> - same issue, different element) - each label wraps its
+    // text in its own <span> for exactly this reason.
+    if (this.dndToggleRow) this.dndToggleRow.querySelector('span').textContent = t('dndToggleLabel')
+    if (this.hideStatusToggleRow) this.hideStatusToggleRow.querySelector('span').textContent = t('hideStatusToggleLabel')
   }
 
   _closeFriendsPanel() {
@@ -11040,6 +11147,16 @@ export class Game {
     this._updateProgressHud()
   }
 
+  // Homepage corner currency bar (Coins/Points/Gems) - piggybacks on the
+  // same two already-everywhere call sites _updateStatsPanel's own comment
+  // describes (in-game HUD refresh + this homepage stats refresh) rather
+  // than a save call/listener at each individual currency mutation site.
+  _renderCurrencyBar() {
+    if (this.currencyCoinsAmount) this.currencyCoinsAmount.textContent = _safeStatNumber(this.coins)
+    if (this.currencyPointsAmount) this.currencyPointsAmount.textContent = _safeStatNumber(this.points)
+    if (this.currencyGemsAmount) this.currencyGemsAmount.textContent = _safeStatNumber(this.gems)
+  }
+
   _updateBestStatsDisplay() {
     const { bestNight, bestKills, bestKillStreak } = this.bestStats
     // Hero stat pair (Best Night / Best Streak) - all textContent, so a
@@ -11047,6 +11164,7 @@ export class Game {
     // comment on this exact risk) just renders as text, never HTML.
     if (this.heroBestNight) this.heroBestNight.textContent = _safeStatNumber(bestNight)
     if (this.heroBestStreak) this.heroBestStreak.textContent = _safeStatNumber(bestKillStreak)
+    this._renderCurrencyBar()
 
     // Your Stats panel - a different stat slice than the hero pair above,
     // matching the redesigned menu's own left-column panel. All pulled
@@ -12953,7 +13071,6 @@ export class Game {
     this.whatsNewPanel.style.display = 'flex'
     if (this.whatsNewPanelTitle) this.whatsNewPanelTitle.textContent = t('whatsNewPanelTitle')
     if (this.buildVersionLine) this.buildVersionLine.textContent = t('buildVersionLine', { hash: __BUILD_HASH__, date: __BUILD_DATE__ })
-    if (this.buildSessionIdLine) this.buildSessionIdLine.textContent = t('sessionIdLine', { id: this._sessionId })
     // What's New badge dot - clears the moment the player actually reads
     // this panel, not just on page load, so it stays a genuine "have you
     // seen this" indicator rather than a permanent decoration.
@@ -13161,6 +13278,20 @@ export class Game {
     // don't move persistent records" reasoning applies here too, since
     // claiming a rolling quest grants real coins).
     this.rollingQuests.recordRunComplete()
+
+    // Gems - a new currency, earned per completed run based on nights
+    // survived (1 gem per 10 nights, capped at 10 gems in a single run) -
+    // no shop use for them yet (display-only for now, per direct request),
+    // same "build the earn side now, spend side later" precedent as the
+    // empty Settings > General tab. Saved explicitly here rather than
+    // relying on a later _updateStatsPanel() piggyback call, since this
+    // runs strictly before that in both the death and survive-to-dawn
+    // call sites.
+    const gemsEarned = Math.min(10, Math.floor(this.night / 10))
+    if (gemsEarned > 0) {
+      this.gems += gemsEarned
+      saveShopProgress(this)
+    }
     let improved = false
     if (this.night > this.bestStats.bestNight) {
       this.bestStats.bestNight = this.night
@@ -14237,6 +14368,23 @@ export class Game {
     this.whatsNewDigest.style.display = 'block'
   }
 
+  // Friend presence heartbeat - runs for the whole page lifetime (not just
+  // while the Friends panel is open), so a friend can see you're online
+  // even while you're mid-run. Skips the write entirely (rather than
+  // writing an "invisible" flag for others to check) whenever signed out,
+  // Cloud Save isn't configured, or the player has "Hide my online status
+  // from friends" on - simplest way to actually hide: never publish a
+  // fresh timestamp, so your last real one just ages past
+  // FRIEND_OFFLINE_THRESHOLD_MS and you read as offline to everyone.
+  _startPresenceHeartbeat() {
+    const tick = () => {
+      if (!this._cloudUid || !CloudSync.isConfigured() || this.settings.hideOnlineStatus) return
+      CloudSync.updateLastActive(this._cloudUid, this.settings.doNotDisturb).catch(() => {})
+    }
+    tick()
+    setInterval(tick, FRIEND_HEARTBEAT_INTERVAL_MS)
+  }
+
   // Friend-beats-you notification - checks each saved friend's real public
   // leaderboard entry (same fetchLeaderboardEntryByName the manual Friend
   // Compare box already uses) once per page load, bounded to the capped-
@@ -14249,7 +14397,8 @@ export class Game {
     if (!CloudSync.isConfigured() || !this.settings.savedFriends.length) return
     const myNight = _safeStatNumber(this.bestStats.bestNight)
     const stillRelevant = []
-    for (const name of this.settings.savedFriends) {
+    for (const f of this.settings.savedFriends) {
+      const name = f.name
       let entry
       try {
         entry = await CloudSync.fetchLeaderboardEntryByName(name)
@@ -15332,6 +15481,7 @@ export class Game {
     this.statsKills.textContent = this.totalKills
     this.statsPoints.textContent = this.points
     this.statsCoins.textContent = this.coins
+    this._renderCurrencyBar()
     // Career Rank HUD badge - the same title menuCareerRank already shows
     // on the main menu, kept visible during gameplay too instead of only
     // being checkable from the menu between runs.

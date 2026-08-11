@@ -323,6 +323,20 @@
 
         <div id="menu-layout">
           <div id="menu-col-left">
+            <div id="menu-currency-bar">
+              <div class="currency-item" id="currency-coins" title="Coins">
+                <svg class="currency-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#e8c14a" stroke="#a8841f" stroke-width="1.5"/><circle cx="12" cy="12" r="5.5" fill="none" stroke="#a8841f" stroke-width="1.2"/></svg>
+                <span id="currency-coins-amount">0</span>
+              </div>
+              <div class="currency-item" id="currency-points" title="Points">
+                <svg class="currency-icon" viewBox="0 0 24 24"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.3 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8L12 2z" fill="#7db8e8" stroke="#3a6fa8" stroke-width="1"/></svg>
+                <span id="currency-points-amount">0</span>
+              </div>
+              <div class="currency-item" id="currency-gems" title="Gems - earned 1 per 10 nights survived in a run, up to 10">
+                <svg class="currency-icon" viewBox="0 0 24 24"><path d="M12 2L22 12L12 22L2 12Z" fill="#e8384a" stroke="#a8202f" stroke-width="1.2"/></svg>
+                <span id="currency-gems-amount">0</span>
+              </div>
+            </div>
             <section class="menu-panel" id="player-showcase-panel">
               <div id="player-showcase-header">
                 <h2 class="menu-panel-title" id="player-showcase-title">Player</h2>
@@ -1255,6 +1269,10 @@
       <div id="profile-panel">
         <h2 id="profile-panel-title">Profile</h2>
 
+        <div id="profile-avatar-wrap" title="Drag to spin">
+          <canvas id="profile-avatar-canvas"></canvas>
+        </div>
+
         <div id="profile-account-row">
           <div id="profile-account-signed-out">
             <button id="profile-login-btn" type="button">Login</button>
@@ -1344,6 +1362,7 @@
         <div id="whatsnew-content">
           <p id="build-version-line"></p>
           <div id="changelog-list">
+            <div class="changelog-entry"><span class="changelog-date">Aug 11, 2026</span><span class="changelog-text">Friend List redesign - your own ID and Add a Friend on one side, your friends and their live online/idle/offline/Do Not Disturb status on the other, plus a friend request count and a Delete All button. New Gems currency (earn 1 per 10 nights survived, up to 10 a run) alongside a Coins/Points/Gems bar on the homepage. Build Mode: smaller blocks, more of them, an orange scrollbar, and you can no longer place a block on top of yourself. Your Minecraft-style character now also shows in your Profile.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 11, 2026</span><span class="changelog-text">Rain and snow now fall as small blocky squares (blue for rain, white for snow) instead of streaks and dots.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 11, 2026</span><span class="changelog-text">Settings got a new General tab and Controls now comes before Graphics; the search bar no longer jumps around between tabs. The Knife can now be reskinned like every other weapon. Profile panel cleanup (removed a couple of confusing stat lines, matched button styling) and What's New no longer shows raw diagnostics info.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 11, 2026</span><span class="changelog-text">Friends is now Friend List - add a friend by their player ID instead of nickname. Your 3D character on the homepage now spins on its own.</span></div>
@@ -1352,7 +1371,6 @@
             <div class="changelog-entry"><span class="changelog-date">Jul 30, 2026</span><span class="changelog-text">Cloud Save - sign in with Google to sync your progress across devices.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Jul 29, 2026</span><span class="changelog-text">A full menu redesign, crafting and deployable turrets, the Flamethrower and Rocket Launcher, weapon upgrades and the Mystery Box, Akimbo pistols and Last Stand self-revive, and CoD-style movement (mantling, sliding, killstreaks).</span></div>
           </div>
-          <p id="build-session-id-line"></p>
         </div>
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>
@@ -1436,16 +1454,30 @@
           <button id="friends-signin-btn">Sign in with Google</button>
         </div>
         <div id="friends-signed-in" style="display: none">
-          <h3 id="friend-requests-heading">Friend Requests</h3>
-          <div id="friend-requests-list"></div>
-          <h3 id="cloudsave-friend-title">Your Friends</h3>
-          <div id="cloudsave-saved-friends"></div>
-          <h3 id="add-friend-heading">Add a Friend</h3>
-          <div id="cloudsave-friend-row">
-            <input type="text" id="cloudsave-friend-input" class="nickname-input" placeholder="Friend's ID" maxlength="10" />
-            <button id="send-friend-request-btn" class="mini-action-btn" type="button">Add Friend</button>
+          <div id="friend-requests-header">
+            <h3 id="friend-requests-heading">Friend Requests</h3>
+            <span id="friend-requests-count"></span>
+            <button id="delete-all-requests-btn" class="mini-action-btn" type="button" style="display: none">Delete All</button>
           </div>
-          <p id="cloudsave-friend-result"></p>
+          <div id="friend-requests-list"></div>
+
+          <div id="friends-two-col">
+            <div id="friends-col-add">
+              <h3 id="add-friend-heading">Add a Friend</h3>
+              <p id="friends-own-id-line">Your ID: <span id="friends-own-id"></span></p>
+              <div id="cloudsave-friend-row">
+                <input type="text" id="cloudsave-friend-input" class="nickname-input" placeholder="Friend's ID" maxlength="10" />
+                <button id="send-friend-request-btn" class="mini-action-btn" type="button">Add Friend</button>
+              </div>
+              <p id="cloudsave-friend-result"></p>
+              <label id="dnd-toggle-row" class="friend-toggle-row"><input type="checkbox" id="dnd-toggle" /><span>Do Not Disturb</span></label>
+              <label id="hide-status-toggle-row" class="friend-toggle-row"><input type="checkbox" id="hide-status-toggle" /><span>Hide my online status from friends</span></label>
+            </div>
+            <div id="friends-col-list">
+              <h3 id="cloudsave-friend-title">Your Friends</h3>
+              <div id="cloudsave-saved-friends"></div>
+            </div>
+          </div>
         </div>
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>

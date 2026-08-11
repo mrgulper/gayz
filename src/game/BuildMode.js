@@ -9,12 +9,15 @@ import * as THREE from 'three'
 // physical size (GROUND_SIZE * BLOCK_SIZE) stays close to what it was
 // before rather than shrinking just because each cell got smaller.
 const GROUND_SIZE = 128
-// Down from 1, then 0.85 - a first-person view right up against a placed
-// block still read as way too large/enclosing at 0.85 (a real user
-// screenshot showed a single block face filling almost the entire frame),
-// so this went smaller again rather than assuming the earlier pass had
-// already solved it.
-const BLOCK_SIZE = 0.5
+// Down from 1, then 0.85, then 0.5 - still read as too large up close in
+// first person even at 0.5, per direct follow-up feedback, so this went
+// smaller again rather than assuming the previous pass had already solved
+// it. GROUND_SIZE deliberately isn't scaled up to compensate this time
+// (unlike every previous BLOCK_SIZE cut) - doing so would need
+// MAX_INSTANCES_PER_TYPE raised too (GROUND_SIZE^2 cells must fit under it),
+// which multiplies GPU memory reserved per block type across all 71 types;
+// a smaller total buildable footprint is the safer tradeoff than that.
+const BLOCK_SIZE = 0.35
 const FLY_SPEED = 8
 // Movement used to snap straight to full speed the instant a key went down
 // and stop dead the instant it came up - velocity damps toward the target
@@ -135,6 +138,29 @@ export const BLOCK_TYPES = [
   { id: 'whiteconcrete', name: 'White Concrete', color: 0xe8e8e4, pattern: 'speckle', roughness: 0.8, metalness: 0 },
   { id: 'redwool', name: 'Red Wool', color: 0xa8382a, pattern: 'wool', roughness: 1, metalness: 0 },
   { id: 'bluewool', name: 'Blue Wool', color: 0x2c4fa0, pattern: 'wool', roughness: 1, metalness: 0 },
+  // Fourth pass - rounds out wool to a full dyed set (only red/blue existed
+  // before), adds a few stained-glass colors alongside honey/slime's
+  // existing transparent 'glass' pattern, and 3 wood plank tones plus 2
+  // more metal-pattern ore/alloy blocks.
+  { id: 'yellowwool', name: 'Yellow Wool', color: 0xd4c020, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'greenwool', name: 'Green Wool', color: 0x3f7d3a, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'blackwool', name: 'Black Wool', color: 0x1c1c1e, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'whitewool', name: 'White Wool', color: 0xe8e8e4, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'purplewool', name: 'Purple Wool', color: 0x7a3fa8, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'orangewool', name: 'Orange Wool', color: 0xd47a28, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'pinkwool', name: 'Pink Wool', color: 0xe89ab8, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'cyanwool', name: 'Cyan Wool', color: 0x2a9c9c, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'graywool', name: 'Gray Wool', color: 0x5c5c5c, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'brownwool', name: 'Brown Wool', color: 0x6b4a2c, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'limewool', name: 'Lime Wool', color: 0x7dd42a, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'bluestainedglass', name: 'Blue Stained Glass', color: 0x3a6fc8, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'greenstainedglass', name: 'Green Stained Glass', color: 0x3f9c4a, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'redstainedglass', name: 'Red Stained Glass', color: 0xc03a3a, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'oakplanks', name: 'Oak Planks', color: 0xb4864a, pattern: 'wood', roughness: 0.85, metalness: 0 },
+  { id: 'spruceplanks', name: 'Spruce Planks', color: 0x6b4a2c, pattern: 'wood', roughness: 0.85, metalness: 0 },
+  { id: 'birchplanks', name: 'Birch Planks', color: 0xd8c898, pattern: 'wood', roughness: 0.85, metalness: 0 },
+  { id: 'copperblock', name: 'Copper Block', color: 0xb87043, pattern: 'metal', roughness: 0.35, metalness: 0.7 },
+  { id: 'netherite', name: 'Netherite Block', color: 0x3c3438, pattern: 'metal', roughness: 0.3, metalness: 0.6 },
 ]
 const VALID_TYPE_IDS = new Set(BLOCK_TYPES.map((b) => b.id))
 
@@ -645,7 +671,34 @@ export class BuildMode {
     const hit = this._raycastGridAligned()
     if (!hit) return
     const [px, py, pz] = hit.placeAt
+    if (this._wouldOverlapCamera(px, py, pz)) return
     this.placeBlock(px, py, pz, this.selectedType)
+  }
+
+  // Same 8-corner COLLISION_RADIUS-sphere technique _blockedAt uses for
+  // movement collision below, just checking the camera's OWN current
+  // position against the cell about to be placed into instead of an
+  // existing block - without this, placing a block right where you're
+  // standing (e.g. aiming down/behind yourself in a tight space) left you
+  // visibly clipped/stuck inside it afterward.
+  // Also checks the exact center position, not just the 8 corners - if
+  // COLLISION_RADIUS happens to equal (or exceed) BLOCK_SIZE, a camera
+  // sitting exactly on a cell boundary (e.g. the default spawn at x=0) has
+  // its corner offsets land a full cell over on either side, jumping clean
+  // over its own actual cell and missing it entirely. Caught via the
+  // default spawn position itself in testing, not a contrived case.
+  _wouldOverlapCamera(x, y, z) {
+    const pos = this.camera.position
+    if (Math.floor(pos.x / BLOCK_SIZE) === x && Math.floor(pos.y / BLOCK_SIZE) === y && Math.floor(pos.z / BLOCK_SIZE) === z) return true
+    const r = COLLISION_RADIUS
+    for (const ox of [-r, r]) {
+      for (const oy of [-r, r]) {
+        for (const oz of [-r, r]) {
+          if (Math.floor((pos.x + ox) / BLOCK_SIZE) === x && Math.floor((pos.y + oy) / BLOCK_SIZE) === y && Math.floor((pos.z + oz) / BLOCK_SIZE) === z) return true
+        }
+      }
+    }
+    return false
   }
 
   _removeFromCamera() {

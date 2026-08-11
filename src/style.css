@@ -360,13 +360,24 @@ html.layout-compact .menu-panel {
    only gets a tiny trigger icon" pattern from every prior batch. */
 #cloudsave-signed-out,
 #cloudsave-signed-in,
-#friends-signed-out,
-#friends-signed-in {
+#friends-signed-out {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
   width: min(360px, 84vw);
+  text-align: center;
+}
+
+/* Wider than the shared min(360px) rule above - the two-column split
+   (#friends-two-col) needs real room for an add-friend form on one side
+   and a friends list on the other. */
+#friends-signed-in {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(640px, 90vw);
   text-align: center;
 }
 
@@ -473,29 +484,104 @@ html.layout-compact .menu-panel {
   border-radius: 3px;
 }
 
-#cloudsave-saved-friends {
+/* Two-column split: left = add-friend form (+ your own ID, DND/hide
+   toggles), right = your friends list with live status. Stacks to one
+   column on genuinely narrow windows rather than squeezing both. */
+#friends-two-col {
   display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-bottom: 4px;
+  gap: 20px;
+  width: 100%;
+  text-align: left;
 }
 
-.saved-friend-chip {
+#friends-col-add,
+#friends-col-list {
+  flex: 1;
+  min-width: 220px;
+}
+
+@media (max-width: 560px) {
+  #friends-two-col {
+    flex-direction: column;
+  }
+}
+
+#friends-own-id-line {
+  margin: 2px 0 10px;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+#friends-own-id {
+  font-weight: 700;
+  color: #e3a63c;
+  user-select: all;
+}
+
+.friend-toggle-row {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 6px 3px 9px;
-  font-size: 11px;
-  color: var(--menu-text-dim, #ccc);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 10px;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12px;
+  opacity: 0.85;
   cursor: pointer;
 }
 
-.saved-friend-chip:hover {
-  color: #eee;
-  border-color: #e3a63c;
+#cloudsave-saved-friends {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.saved-friend-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  font-size: 12px;
+  color: var(--menu-text-dim, #ccc);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+}
+
+.friend-name {
+  flex: 1;
+}
+
+/* Status dot - color keyed off data-status, set live per friend by
+   _fetchFriendPresences/_computeFriendStatus in Game.js. */
+.friend-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #6b6b6b;
+}
+
+.friend-status-dot[data-status="online"] { background: #4caf50; }
+.friend-status-dot[data-status="idle"] { background: #e0a83c; }
+.friend-status-dot[data-status="dnd"] { background: #c9564a; }
+.friend-status-dot[data-status="offline"] { background: #6b6b6b; }
+
+.friend-status-label {
+  font-size: 10px;
+  opacity: 0.7;
+  white-space: nowrap;
+}
+
+#friend-requests-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
+#friend-requests-count {
+  font-size: 12px;
+  opacity: 0.65;
 }
 
 #friend-requests-list {
@@ -524,6 +610,7 @@ html.layout-compact .menu-panel {
   color: var(--menu-red, #c9564a);
   font-weight: 700;
   padding: 0 1px;
+  cursor: pointer;
 }
 
 .cloud-leaderboard-row {
@@ -1984,6 +2071,15 @@ select option {
    profile panels since this content isn't a data-driven list. */
 #credits-content {
   width: min(420px, 84vw);
+  max-height: 60vh;
+  overflow-y: auto;
+  text-align: left;
+}
+
+/* Narrower than #credits-content (0.8x) per request - the changelog text
+   was reading as too wide a line length at the full Credits-panel width. */
+#whatsnew-content {
+  width: min(336px, 84vw);
   max-height: 60vh;
   overflow-y: auto;
   text-align: left;
@@ -4897,6 +4993,31 @@ html.theme-lighter #app { filter: brightness(1.25); }
   background: rgba(201, 86, 74, 0.2);
 }
 
+/* ---- Left column: currency bar (mirrors the right column's player
+   badge sitting in its own corner) ---- */
+#menu-currency-bar {
+  display: flex;
+  gap: 14px;
+  padding: 10px 14px;
+  margin-bottom: 6px;
+}
+
+.currency-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--menu-display-font);
+  font-size: 16px;
+  color: #eee;
+  font-variant-numeric: tabular-nums;
+}
+
+.currency-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
 /* ---- Right column: player badge + nav + boards ---- */
 #menu-player-badge {
   display: flex;
@@ -5094,6 +5215,26 @@ html.theme-lighter #app { filter: brightness(1.25); }
 }
 
 #setup-avatar-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Smaller than #setup-avatar-wrap - the Profile panel already has a lot
+   of stat content below it, this is just a quick "here's your character"
+   glance at the top, not the main showcase the homepage one is. */
+#profile-avatar-wrap {
+  width: 140px;
+  height: 220px;
+  margin: 4px auto 8px;
+  cursor: grab;
+}
+
+#profile-avatar-wrap:active {
+  cursor: grabbing;
+}
+
+#profile-avatar-canvas {
   width: 100%;
   height: 100%;
   display: block;
@@ -6089,7 +6230,8 @@ html.theme-lighter #app { filter: brightness(1.25); }
 #journal-content,
 #profile-run-history-list,
 #profile-activity-list,
-#menu-boards {
+#menu-boards,
+.build-picker-grid {
   scrollbar-width: thin;
   scrollbar-color: rgba(227, 166, 60, 0.4) transparent;
 }
@@ -6105,7 +6247,8 @@ html.theme-lighter #app { filter: brightness(1.25); }
 #journal-content::-webkit-scrollbar,
 #profile-run-history-list::-webkit-scrollbar,
 #profile-activity-list::-webkit-scrollbar,
-#menu-boards::-webkit-scrollbar {
+#menu-boards::-webkit-scrollbar,
+.build-picker-grid::-webkit-scrollbar {
   width: 8px;
 }
 
@@ -6120,7 +6263,8 @@ html.theme-lighter #app { filter: brightness(1.25); }
 #journal-content::-webkit-scrollbar-track,
 #profile-run-history-list::-webkit-scrollbar-track,
 #profile-activity-list::-webkit-scrollbar-track,
-#menu-boards::-webkit-scrollbar-track {
+#menu-boards::-webkit-scrollbar-track,
+.build-picker-grid::-webkit-scrollbar-track {
   background: transparent;
 }
 
@@ -6135,7 +6279,8 @@ html.theme-lighter #app { filter: brightness(1.25); }
 #journal-content::-webkit-scrollbar-thumb,
 #profile-run-history-list::-webkit-scrollbar-thumb,
 #profile-activity-list::-webkit-scrollbar-thumb,
-#menu-boards::-webkit-scrollbar-thumb {
+#menu-boards::-webkit-scrollbar-thumb,
+.build-picker-grid::-webkit-scrollbar-thumb {
   background: rgba(227, 166, 60, 0.35);
   border-radius: 4px;
 }
@@ -6151,7 +6296,8 @@ html.theme-lighter #app { filter: brightness(1.25); }
 #journal-content::-webkit-scrollbar-thumb:hover,
 #profile-run-history-list::-webkit-scrollbar-thumb:hover,
 #profile-activity-list::-webkit-scrollbar-thumb:hover,
-#menu-boards::-webkit-scrollbar-thumb:hover {
+#menu-boards::-webkit-scrollbar-thumb:hover,
+.build-picker-grid::-webkit-scrollbar-thumb:hover {
   background: rgba(227, 166, 60, 0.55);
 }
 

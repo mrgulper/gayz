@@ -49,11 +49,12 @@ const FIREBASE_CONFIG = {
 //   side edit could still lie about its own single entry, but can't
 //   touch anyone else's or write absurd numbers. leaderboard/{uid} also
 //   carries playerId now (Add Friend by ID's lookup field, see
-//   fetchLeaderboardEntryByPlayerId) - this rule doesn't hasOnly-restrict
-//   fields at all, so the client was already free to write it under the
-//   OLD deployed rules too; the playerId format check added here is just
-//   optional hardening, not required for the feature to work - re-pasting
-//   this ruleset isn't a blocking step this time.
+//   fetchLeaderboardEntryByPlayerId) and lastActiveAt/doNotDisturb (friend
+//   presence heartbeat, see updateLastActive/fetchPresence) - this rule
+//   doesn't hasOnly-restrict fields at all, so the client was already free
+//   to write any of these under the OLD deployed rules too; the format
+//   checks added here are just optional hardening, not required for the
+//   features to work - re-pasting this ruleset isn't a blocking step.
 // - stats/global: public read, signed-in write, but ONLY as a small
 //   incremental bump to totalKills (never a full overwrite) - the
 //   pre-existing value must be a number, the new value must be strictly
@@ -116,7 +117,9 @@ service cloud.firestore {
         && request.resource.data.bestKillStreak is int && request.resource.data.bestKillStreak >= 0 && request.resource.data.bestKillStreak < 100000
         && request.resource.data.achievementCount is int && request.resource.data.achievementCount >= 0 && request.resource.data.achievementCount <= 19
         && (!('region' in request.resource.data) || request.resource.data.region in ['na', 'eu', 'asia', 'sa', 'oceania', 'africa'])
-        && (!('playerId' in request.resource.data) || (request.resource.data.playerId is string && request.resource.data.playerId.size() >= 6 && request.resource.data.playerId.size() <= 10));
+        && (!('playerId' in request.resource.data) || (request.resource.data.playerId is string && request.resource.data.playerId.size() >= 6 && request.resource.data.playerId.size() <= 10))
+        && (!('lastActiveAt' in request.resource.data) || request.resource.data.lastActiveAt is int)
+        && (!('doNotDisturb' in request.resource.data) || request.resource.data.doNotDisturb is bool);
     }
 
     match /weeklyLeaderboard/{week}/entries/{userId} {
@@ -249,6 +252,35 @@ export async function pushCloudSave(uid, dataObj) {
 export async function pushLeaderboardEntry(uid, entry) {
   const { db, fsMod } = await ensureApp()
   await fsMod.setDoc(fsMod.doc(db, 'leaderboard', uid), { ...entry, updatedAt: Date.now() })
+}
+
+// Friend presence heartbeat - a `{merge: true}` write touching only
+// lastActiveAt/doNotDisturb, not the full pushLeaderboardEntry payload,
+// since this fires periodically (every ~60s, see Game.js's heartbeat
+// interval) while signed in and re-sending bestNight/bestKills/etc every
+// tick would be both wasteful and require the caller to have all of that
+// on hand just to update a timestamp. Only ever called for an account
+// that has already pushed a real leaderboard entry once (see
+// fetchLeaderboardEntryByPlayerId's own comment on this same
+// "doc must already exist" precondition) - merge onto a nonexistent doc
+// would still create one, just missing the required validated fields,
+// which the security rule would then reject anyway.
+export async function updateLastActive(uid, doNotDisturb) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.setDoc(fsMod.doc(db, 'leaderboard', uid), { lastActiveAt: Date.now(), doNotDisturb: !!doNotDisturb }, { merge: true })
+}
+
+// One direct doc read by uid (not a query) - used to check a single
+// friend's live lastActiveAt/doNotDisturb when rendering "Your Friends"
+// (see Game.js's _renderSavedFriends). A friend who has never synced
+// (or whose account predates the presence heartbeat) simply has no
+// lastActiveAt field - treated as offline, not an error.
+export async function fetchPresence(uid) {
+  const { db, fsMod } = await ensureApp()
+  const snap = await fsMod.getDoc(fsMod.doc(db, 'leaderboard', uid))
+  if (!snap.exists()) return null
+  const data = snap.data()
+  return { lastActiveAt: data.lastActiveAt || null, doNotDisturb: !!data.doNotDisturb }
 }
 
 // region: optional, one of REGION_OPTIONS (Game.js) - omitted or 'global'
