@@ -6429,59 +6429,61 @@ html.theme-lighter #app { filter: brightness(1.25); }
   overflow: hidden;
 }
 
+/* Blocky square particles (not realistic streaks) per request, matching
+   the reference screenshot's look - small solid-color squares scattered
+   sparsely, blue for rain / white for snow. Each SVG data URI (no
+   external asset) is drawn at its own full tile size (matching
+   background-size exactly) with ONE small square positioned inside an
+   otherwise-transparent canvas, then tiled via background-repeat - background-size
+   scales an image to fill its box, so a bare small square used as the
+   whole image (an earlier version of this rule) stretched into a solid
+   fill instead of staying small; drawing the square inside a
+   tile-sized transparent canvas is what actually keeps it small and
+   sparse. 3 layers per weather type at different tile sizes/positions
+   give the scatter a non-uniform, less obviously-repeating look, same
+   depth trick the old streak/dot layers used. */
 #rain-overlay {
   position: absolute;
   inset: -20% -10%;
-  background:
-    repeating-linear-gradient(
-      100deg,
-      transparent 0px,
-      transparent 3px,
-      rgba(180, 220, 255, 0.12) 3px,
-      rgba(180, 220, 255, 0.12) 4px,
-      transparent 5px,
-      transparent 60px
-    );
-  animation: rain-fall 0.3s linear infinite;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='110' height='110'%3E%3Crect x='15' y='10' width='5' height='5' fill='%234d9fff'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='75' height='150'%3E%3Crect x='55' y='90' width='4' height='4' fill='%2377b8ff'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='90'%3E%3Crect x='100' y='40' width='3' height='3' fill='%23a8d4ff'/%3E%3C/svg%3E");
+  background-size: 110px 110px, 75px 150px, 140px 90px;
+  background-repeat: repeat;
+  animation: rain-fall 0.9s linear infinite;
   mix-blend-mode: screen;
 }
 
-/* Second, finer/denser streak layer at a slightly different angle+speed so
-   the rain reads as heavier/layered instead of one flat repeating pattern. */
+/* Second layer at a different speed/offset so the squares don't all fall
+   in visible lockstep. */
 #rain-overlay::after {
   content: '';
   position: absolute;
   inset: -20% -10%;
-  background:
-    repeating-linear-gradient(
-      107deg,
-      transparent 0px,
-      transparent 2px,
-      rgba(160, 200, 235, 0.09) 2px,
-      rgba(160, 200, 235, 0.09) 3px,
-      transparent 4px,
-      transparent 30px
-    );
-  animation: rain-fall 0.22s linear infinite reverse;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='95' height='130'%3E%3Crect x='40' y='60' width='4' height='4' fill='%235cabff'/%3E%3C/svg%3E");
+  background-size: 95px 130px;
+  background-repeat: repeat;
+  animation: rain-fall 0.65s linear infinite reverse;
 }
 
 @keyframes rain-fall {
-  0% { transform: translate(0, -4%); }
-  100% { transform: translate(-2%, 4%); }
+  0% { transform: translate(0, -12%); }
+  100% { transform: translate(-3%, 12%); }
 }
 
-/* Falling snow - dots instead of rain's diagonal streaks, drifting mostly
-   straight down and much slower, so it reads as a distinct weather state
-   rather than reskinned rain. Two layers (small/dense + larger/sparser)
-   for the same depth trick rain's own two layers use. */
+/* Falling snow - the same blocky-square treatment as rain above, just
+   white and drifting slower/straighter, so it reads as a distinct
+   weather state rather than reskinned rain. */
 #snow-overlay {
   position: absolute;
   inset: -20% -10%;
   background-image:
-    radial-gradient(circle, rgba(255, 255, 255, 0.55) 1px, transparent 1.5px),
-    radial-gradient(circle, rgba(255, 255, 255, 0.4) 1px, transparent 1.5px);
-  background-size: 40px 60px, 65px 90px;
-  background-position: 0 0, 20px 30px;
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='80'%3E%3Crect x='0' y='0' width='4' height='4' fill='%23ffffff'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='120'%3E%3Crect x='20' y='30' width='3' height='3' fill='%23ffffff'/%3E%3C/svg%3E");
+  background-size: 60px 80px, 90px 120px;
+  background-repeat: repeat;
   animation: snow-fall 6s linear infinite;
 }
 
@@ -6489,9 +6491,10 @@ html.theme-lighter #app { filter: brightness(1.25); }
   content: '';
   position: absolute;
   inset: -20% -10%;
-  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.7) 1.5px, transparent 2px);
-  background-size: 90px 130px;
-  background-position: 45px 10px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='130' height='170'%3E%3Crect x='45' y='10' width='5' height='5' fill='%23ffffff'/%3E%3C/svg%3E");
+  background-size: 130px 170px;
+  background-repeat: repeat;
+  opacity: 0.7;
   animation: snow-fall 9s linear infinite reverse;
 }
 
