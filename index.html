@@ -1053,6 +1053,11 @@
           <section class="hub-section">
             <h3 class="hub-section-title">Game Modes</h3>
             <div class="hub-section-list">
+              <label class="mode-toggle locked" for="gamemode-zombie-survival">
+                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="10" r="1"/><circle cx="15" cy="10" r="1"/><path d="M8 16c1.5 1 6.5 1 8 0"/><circle cx="12" cy="12" r="9"/></svg>
+                <input type="checkbox" id="gamemode-zombie-survival" checked disabled />
+                <span>3D Zombie Survival</span>
+              </label>
               <label class="mode-toggle" for="score-attack-toggle">
                 <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>
                 <input type="checkbox" id="score-attack-toggle" />
@@ -1092,6 +1097,22 @@
                 <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="8" width="12" height="13" rx="2"/><path d="M9 8V5a3 3 0 0 1 6 0v3"/><line x1="9" y1="13" x2="15" y2="13"/></svg>
                 <input type="checkbox" id="mutator-scavenger" />
                 <span id="mutator-scavenger-label">Scavenger Run (start with just melee, earn the rest)</span>
+              </label>
+            </div>
+          </section>
+
+          <section class="hub-section">
+            <h3 class="hub-section-title">PVP</h3>
+            <div class="hub-section-list">
+              <label class="mode-toggle locked" for="pvp-ffa-toggle">
+                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"/><line x1="19" y1="19" x2="5" y2="5"/></svg>
+                <input type="checkbox" id="pvp-ffa-toggle" disabled />
+                <span>FFA (Coming Soon)</span>
+              </label>
+              <label class="mode-toggle locked" for="pvp-team-toggle">
+                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 21c0-3.5 2.7-6.3 6-6.3s6 2.8 6 6.3"/><path d="M13.5 15c2.3 0.4 4 2.6 4 6"/></svg>
+                <input type="checkbox" id="pvp-team-toggle" disabled />
+                <span>Team (Coming Soon)</span>
               </label>
             </div>
           </section>

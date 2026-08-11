@@ -5777,6 +5777,26 @@ html.theme-lighter #app { filter: brightness(1.25); }
   color: #fff;
 }
 
+/* 3D Zombie Survival (always-on - just labels the mode you're already
+   playing, checkbox can't be unchecked) and the PVP FFA/Team entries
+   (not built yet) - dimmed and inert rather than a checkbox that looks
+   interactive but silently does nothing, matching this project's "don't
+   ship inert UI" standing rule with an explicit, visibly-disabled state
+   instead. */
+.mode-toggle.locked {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.mode-toggle.locked:hover {
+  background: none;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.mode-toggle.locked input {
+  cursor: not-allowed;
+}
+
 .mode-icon {
   width: 28px;
   height: 28px;
