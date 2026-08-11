@@ -20,23 +20,26 @@ const IDLE_SPIN_SPEED = 0.24
 // Classic Minecraft player proportions (in arbitrary "skin pixel" units,
 // same 8/12/12 head/torso-and-arms/legs split the real game uses) so the
 // silhouette reads as instantly recognizable. This is the DEFAULT skin
-// every new player gets (no skin-customization system exists yet) - a few
-// extra low-poly details (hair, a mouth, shoes) on top of the original
-// bare boxes give it more presence without adding real complexity/cost,
-// still just flat-shaded boxes, no new geometry types or textures.
+// every new player gets (no skin-customization system exists yet) -
+// colors/details match a reference look supplied directly (white hoodie
+// with a drawstring, dark pants, brown shoes, black hair, two-tone eyes)
+// rather than the earlier arbitrary teal-shirt/navy-pants placeholder.
 const SKIN_TONE = 0xd9a066
-const SHIRT_COLOR = 0x4fb3b3
-const PANTS_COLOR = 0x3c4a8a
-const EYE_COLOR = 0x1a1a1a
-const HAIR_COLOR = 0x3b2a1e
+const SHIRT_COLOR = 0xf0f0ec
+const PANTS_COLOR = 0x2c3446
+const EYE_WHITE_COLOR = 0xffffff
+const EYE_IRIS_COLOR = 0x6a5acd
+const EYE_PUPIL_COLOR = 0x14141a
+const HAIR_COLOR = 0x1c1a18
 const MOUTH_COLOR = 0x8a5a4a
-const SHOE_COLOR = 0x2b2320
+const SHOE_COLOR = 0x5a3a22
+const DRAWSTRING_COLOR = 0xb8bcc4
 
 function buildCharacter() {
   const group = new THREE.Group()
 
   const skinMat = new THREE.MeshStandardMaterial({ color: SKIN_TONE, roughness: 0.85 })
-  const shirtMat = new THREE.MeshStandardMaterial({ color: SHIRT_COLOR, roughness: 0.85 })
+  const shirtMat = new THREE.MeshStandardMaterial({ color: SHIRT_COLOR, roughness: 0.8 })
   const pantsMat = new THREE.MeshStandardMaterial({ color: PANTS_COLOR, roughness: 0.85 })
   const hairMat = new THREE.MeshStandardMaterial({ color: HAIR_COLOR, roughness: 0.9 })
   const shoeMat = new THREE.MeshStandardMaterial({ color: SHOE_COLOR, roughness: 0.8 })
@@ -55,16 +58,27 @@ function buildCharacter() {
   hairBack.position.set(0, 28, -2.9)
   group.add(hairBack)
 
-  // Simple flat eyes + a mouth line on the head's front face - just enough
-  // to read as a face at this size, not a real textured skin.
-  const eyeGeo = new THREE.BoxGeometry(1.2, 1.2, 0.2)
-  const eyeMat = new THREE.MeshBasicMaterial({ color: EYE_COLOR })
-  const eyeL = new THREE.Mesh(eyeGeo, eyeMat)
-  eyeL.position.set(-1.8, 26.5, 4.05)
-  group.add(eyeL)
-  const eyeR = new THREE.Mesh(eyeGeo, eyeMat)
-  eyeR.position.set(1.8, 26.5, 4.05)
-  group.add(eyeR)
+  // Two-tone eyes (white + a colored iris band + a black pupil, 3 layered
+  // boxes each) instead of a single flat black square - a lot more
+  // expressive at this size for barely any extra cost.
+  const eyeWhiteGeo = new THREE.BoxGeometry(1.6, 1.6, 0.16)
+  const eyeWhiteMat = new THREE.MeshBasicMaterial({ color: EYE_WHITE_COLOR })
+  const irisGeo = new THREE.BoxGeometry(1.6, 0.6, 0.18)
+  const irisMat = new THREE.MeshBasicMaterial({ color: EYE_IRIS_COLOR })
+  const pupilGeo = new THREE.BoxGeometry(0.55, 0.55, 0.2)
+  const pupilMat = new THREE.MeshBasicMaterial({ color: EYE_PUPIL_COLOR })
+  for (const side of [-1, 1]) {
+    const x = side * 1.9
+    const eyeWhite = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat)
+    eyeWhite.position.set(x, 26.6, 4.02)
+    group.add(eyeWhite)
+    const iris = new THREE.Mesh(irisGeo, irisMat)
+    iris.position.set(x, 26.75, 4.08)
+    group.add(iris)
+    const pupil = new THREE.Mesh(pupilGeo, pupilMat)
+    pupil.position.set(x, 26.4, 4.12)
+    group.add(pupil)
+  }
   const mouth = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.7, 0.2), new THREE.MeshBasicMaterial({ color: MOUTH_COLOR }))
   mouth.position.set(0, 23.8, 4.05)
   group.add(mouth)
@@ -72,6 +86,18 @@ function buildCharacter() {
   const torso = new THREE.Mesh(new THREE.BoxGeometry(8, 12, 4), shirtMat)
   torso.position.y = 16
   group.add(torso)
+
+  // Hoodie drawstrings - two thin light-gray cords hanging from the
+  // collar, the one detail that most reads as "hoodie" rather than a
+  // plain shirt at this scale.
+  const stringGeo = new THREE.BoxGeometry(0.35, 2.6, 0.35)
+  const stringMat = new THREE.MeshStandardMaterial({ color: DRAWSTRING_COLOR, roughness: 0.6 })
+  const stringL = new THREE.Mesh(stringGeo, stringMat)
+  stringL.position.set(-0.9, 20.5, 2.1)
+  group.add(stringL)
+  const stringR = new THREE.Mesh(stringGeo, stringMat)
+  stringR.position.set(0.9, 20.5, 2.1)
+  group.add(stringR)
 
   const armGeo = new THREE.BoxGeometry(4, 12, 4)
   const armL = new THREE.Mesh(armGeo, skinMat)

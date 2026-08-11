@@ -11305,7 +11305,12 @@ export class Game {
 
   _copyPlayerId() {
     if (!this.settings.playerId || !navigator.clipboard || !navigator.clipboard.writeText) return
-    navigator.clipboard.writeText(`#${this.settings.playerId}`).then(() => this._showLoreToast(t('idCopiedToast'))).catch(() => {})
+    // _showHomepageToast, not _showLoreToast - the ID is always clicked
+    // from the homepage badge, before a run has started, and
+    // _showLoreToast's own gameStarted guard was silently swallowing this
+    // toast every time (copy itself worked, the confirmation just never
+    // showed) until caught via direct testing.
+    navigator.clipboard.writeText(`#${this.settings.playerId}`).then(() => this._showHomepageToast(t('idCopiedToast'))).catch(() => {})
   }
 
   // Recommended Difficulty hint - only shown once a difficulty has at

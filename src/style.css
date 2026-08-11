@@ -5002,19 +5002,28 @@ html.theme-lighter #app { filter: brightness(1.25); }
   background: rgba(201, 86, 74, 0.2);
 }
 
-/* ---- Left column: currency bar (mirrors the right column's player
-   badge sitting in its own corner) ---- */
+/* True top-right corner overlay - independent of #menu-layout's grid (was
+   the first element of #menu-col-left, reading as "above the character
+   name" since that column's next item is the Player panel) so it can't
+   collide with or visually attach to any column content. */
 #menu-currency-bar {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 2;
   display: flex;
   gap: 14px;
-  padding: 10px 14px;
-  margin-bottom: 6px;
+  padding: 8px 14px;
+  background: rgba(10, 10, 10, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  pointer-events: none;
 }
 
 .currency-item {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   font-family: var(--menu-display-font);
   font-size: 16px;
   color: #eee;
@@ -5022,8 +5031,8 @@ html.theme-lighter #app { filter: brightness(1.25); }
 }
 
 .currency-icon {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   flex-shrink: 0;
 }
 
@@ -5463,17 +5472,6 @@ html.theme-lighter #app { filter: brightness(1.25); }
   border-radius: 999px;
   cursor: pointer;
   white-space: nowrap;
-}
-
-/* Dot divider between pills - a per-item ::before so DOM order alone
-   decides it (this row isn't reorderable, unlike the main nav above). */
-#menu-links-row button:not(:first-child)::before,
-#menu-links-row a:not(:first-child)::before {
-  content: '\00b7';
-  position: static;
-  margin-right: 5px;
-  color: rgba(216, 220, 210, 0.35);
-  text-decoration: none;
 }
 
 #menu-links-row svg {
