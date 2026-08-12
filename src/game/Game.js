@@ -4143,6 +4143,7 @@ export class Game {
     this.questsPanelTitle = document.getElementById('quests-panel-title')
     this.questsOptions = document.getElementById('quests-options')
     this.rollingQuestsSubtitle = document.getElementById('rolling-quests-subtitle')
+    this.gemsInfoLine = document.getElementById('gems-info-line')
     this.rollingQuestsOptions = document.getElementById('rolling-quests-options')
     this.monthlyQuestsPlaceholder = document.getElementById('monthly-quests-placeholder')
     this.yearlyQuestsPlaceholder = document.getElementById('yearly-quests-placeholder')
@@ -10673,6 +10674,7 @@ export class Game {
     // follow-up request, not shown anywhere any more.
     this.questsPanelTitle.textContent = t('questsPanelTitle')
     this.rollingQuestsSubtitle.textContent = t('rollingQuestsSubtitle')
+    if (this.gemsInfoLine) this.gemsInfoLine.textContent = t('gemsInfoLine')
     if (this.monthlyQuestsPlaceholder) this.monthlyQuestsPlaceholder.textContent = t('monthlyQuestsPlaceholder')
     if (this.yearlyQuestsPlaceholder) this.yearlyQuestsPlaceholder.textContent = t('yearlyQuestsPlaceholder')
     this._renderQuestsPanel()
@@ -13386,15 +13388,20 @@ export class Game {
     // claiming a rolling quest grants real coins).
     this.rollingQuests.recordRunComplete()
 
-    // Gems - a new currency, earned per completed run based on nights
-    // survived (1 gem per 10 nights, capped at 10 gems in a single run) -
-    // no shop use for them yet (display-only for now, per direct request),
-    // same "build the earn side now, spend side later" precedent as the
-    // empty Settings > General tab. Saved explicitly here rather than
-    // relying on a later _updateStatsPanel() piggyback call, since this
-    // runs strictly before that in both the death and survive-to-dawn
-    // call sites.
-    const gemsEarned = Math.min(10, Math.floor(this.night / 10))
+    // Gems - earned per completed run from two independent sources, added
+    // together: 1 gem per 5 nights survived (5=1, 10=2, 15=3...) and 1 gem
+    // per 50 kills (50=1, 100=2, 150=3...). No shop use for them yet
+    // (display-only for now, per direct request), same "build the earn
+    // side now, spend side later" precedent as the empty Settings >
+    // General tab. Dying before reaching either threshold naturally earns
+    // 0 from that source (Math.floor of a value under the first tier is
+    // 0) - no separate zero-case needed. Saved explicitly here rather
+    // than relying on a later _updateStatsPanel() piggyback call, since
+    // this runs strictly before that in both the death and survive-to-
+    // dawn call sites.
+    const nightsGems = Math.floor(this.night / 5)
+    const killsGems = Math.floor(this.kills / 50)
+    const gemsEarned = nightsGems + killsGems
     if (gemsEarned > 0) {
       this.gems += gemsEarned
       saveShopProgress(this)

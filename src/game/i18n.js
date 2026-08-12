@@ -1212,6 +1212,7 @@ const STRINGS = {
     profileLoginBtn: 'Login',
     profileRegisterBtn: 'Register',
     profileLoginGateText: 'Login or Register to view your Profile',
+    gemsInfoLine: 'Gems: earned automatically each run - +1 per 5 nights survived, +1 per 50 kills.',
     profileSignoutBtn: 'Sign Out',
     profileCreatedTitle: 'Created',
     profileCreatedLine: '{days} day(s) {hours} hour(s) {minutes} min {seconds} sec ago',
