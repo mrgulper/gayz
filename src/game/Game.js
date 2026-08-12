@@ -1899,6 +1899,7 @@ const CHANGELOG_LAST_VIEWED_KEY = 'gayz-changelog-last-viewed'
 const SHOP_SEEN_IDS_KEY = 'gayz-shop-seen-ids'
 const UPGRADES_SEEN_IDS_KEY = 'gayz-upgrades-seen-ids'
 const ACHIEVEMENTS_SEEN_IDS_KEY = 'gayz-achievements-seen-ids'
+const QUESTS_SEEN_IDS_KEY = 'gayz-quests-seen-ids'
 
 function _loadSeenIds(key) {
   try {
@@ -3031,10 +3032,13 @@ export class Game {
     this.eventBanner = document.getElementById('event-banner')
     this.whatsNewDot = document.getElementById('whats-new-dot')
     this.questsClaimDot = document.getElementById('quests-claim-dot')
+    this.questsNewDot = document.getElementById('quests-new-dot')
     this.achievementsNewDot = document.getElementById('achievements-new-dot')
     this.storeNewDot = document.getElementById('store-new-dot')
     this.upgradesDot = document.getElementById('upgrades-dot')
     this.friendsRequestDot = document.getElementById('friends-request-dot')
+    this.friendsAcceptedDot = document.getElementById('friends-accepted-dot')
+    this._friendAcceptedNotifications = []
     // Second Homepage batch - login streak badge, nav completion rings,
     // season-progress countdown label, Player Title picker, Nearly There
     // nudge, Weekly Recap, Recent Activity feed, and the 2 new quick-action
@@ -8424,6 +8428,10 @@ export class Game {
     }
     try {
       await CloudSync.respondToFriendRequest(this._cloudUid, fromUid)
+      // Lets the ORIGINAL SENDER find out their request was accepted even
+      // if they're not online right now (see CloudSync.notifyFriendAccepted)
+      // - only on accept, a decline stays silent same as before.
+      if (accept) await CloudSync.notifyFriendAccepted(fromUid, this._cloudUid)
     } catch {
       // Best-effort - the live subscription will resync the list either
       // way the next time it fires.
@@ -8442,6 +8450,36 @@ export class Game {
   _updateFriendsDot() {
     if (!this.friendsRequestDot) return
     this.friendsRequestDot.style.display = this._incomingFriendRequests.length ? '' : 'none'
+  }
+
+  // Friends nav dot - gold, lights up if someone accepted a friend request
+  // you sent them (see CloudSync.notifyFriendAccepted/fetchAcceptedNotifications).
+  // A one-off fetch (not a live subscription like incoming requests) run
+  // alongside the other homepage nav dots, not on its own timer.
+  async _checkFriendAcceptedNotifications() {
+    if (!this._cloudUid || !CloudSync.isConfigured() || !this.friendsAcceptedDot) return
+    try {
+      this._friendAcceptedNotifications = await CloudSync.fetchAcceptedNotifications(this._cloudUid)
+    } catch {
+      return // Best-effort - leaves the dot at whatever it last showed.
+    }
+    this.friendsAcceptedDot.style.display = this._friendAcceptedNotifications.length ? '' : 'none'
+  }
+
+  // Clears every accepted-notification doc once the player has opened
+  // Friends to see it - mirrors the other panels' _markXSeen pattern,
+  // just against Firestore docs instead of a localStorage seen-id set.
+  async _markFriendAcceptedSeen() {
+    if (!this._cloudUid || !this._friendAcceptedNotifications.length) return
+    const notifications = this._friendAcceptedNotifications
+    this._friendAcceptedNotifications = []
+    if (this.friendsAcceptedDot) this.friendsAcceptedDot.style.display = 'none'
+    try {
+      await Promise.all(notifications.map((n) => CloudSync.clearAcceptedNotification(this._cloudUid, n.accepterUid)))
+    } catch {
+      // Best-effort - a leftover doc just gets re-fetched (and re-cleared)
+      // next time the dot check runs.
+    }
   }
 
   async _renderGlobalKills() {
@@ -10630,6 +10668,7 @@ export class Game {
     if (this.yearlyQuestsPlaceholder) this.yearlyQuestsPlaceholder.textContent = t('yearlyQuestsPlaceholder')
     this._renderQuestsPanel()
     this._renderRollingQuestsPanel()
+    this._markQuestsSeen()
   }
 
   _renderQuestsPanel() {
@@ -10935,6 +10974,7 @@ export class Game {
     CloudSaveUI.renderCloudSaveState(this)
     this._renderFriendRequests()
     if (this.friendsOwnId) this.friendsOwnId.textContent = this.settings.playerId ? `#${this.settings.playerId}` : ''
+    this._markFriendAcceptedSeen()
   }
 
   _closeFriendsPanel() {
@@ -11274,6 +11314,7 @@ export class Game {
     this._updateUpgradesDot()
     this._updateAchievementsDot()
     this._updateQuestsDot()
+    this._checkFriendAcceptedNotifications()
     this._checkKillMilestones()
     this._updateWeeklyProgressBar()
     this._updateFaviconQuestBadge()
@@ -11877,6 +11918,31 @@ export class Game {
     const lifetimeReady = QUESTS.some((q) => this.quests.isComplete(q, this) && !this.quests.isClaimed(q.id))
     const rollingReady = this.rollingQuests.activeQuests().some((q) => q.progress >= q.template.target)
     this.questsClaimDot.style.display = (lifetimeReady || rollingReady) ? '' : 'none'
+    this._updateQuestsNewDot()
+  }
+
+  // Quests nav dot - red, lights up if there's a lifetime quest (id-based)
+  // or an active rolling quest (spawnedAt-based, since rolling quests
+  // don't have a fixed id - see RollingQuests.activeQuests()) the player
+  // hasn't opened the Quests panel to see yet. Same seen-id pattern as
+  // Store/Upgrades/Achievements, just tracking two different kinds of id
+  // in one set since lifetime ids and rolling spawnedAt timestamps can
+  // never collide (one's a short string, the other's a large number).
+  _updateQuestsNewDot() {
+    if (!this.questsNewDot) return
+    let seen = _loadSeenIds(QUESTS_SEEN_IDS_KEY)
+    if (!seen) {
+      seen = new Set([...QUESTS.map((q) => q.id), ...this.rollingQuests.activeQuests().map((q) => q.spawnedAt)])
+      _saveSeenIds(QUESTS_SEEN_IDS_KEY, seen)
+    }
+    const hasNewLifetime = QUESTS.some((q) => !seen.has(q.id))
+    const hasNewRolling = this.rollingQuests.activeQuests().some((q) => !seen.has(q.spawnedAt))
+    this.questsNewDot.style.display = (hasNewLifetime || hasNewRolling) ? '' : 'none'
+  }
+
+  _markQuestsSeen() {
+    _saveSeenIds(QUESTS_SEEN_IDS_KEY, [...QUESTS.map((q) => q.id), ...this.rollingQuests.activeQuests().map((q) => q.spawnedAt)])
+    this._updateQuestsNewDot()
   }
 
   // How to Play - a replayable, interactive step-through overlay, distinct

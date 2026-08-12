@@ -477,11 +477,13 @@
               <button id="quests-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                 <span>Quests</span>
+                <span class="nav-badge-dot" id="quests-new-dot" style="display: none"></span>
                 <span class="nav-badge-dot gold" id="quests-claim-dot" style="display: none"></span>
               </button>
               <button id="friends-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 <span>Friend List</span>
+                <span class="nav-badge-dot gold" id="friends-accepted-dot" style="display: none"></span>
                 <span class="nav-badge-dot" id="friends-request-dot" style="display: none"></span>
               </button>
               <button id="menu-inventory-btn">
@@ -1387,6 +1389,7 @@
         <div id="whatsnew-content">
           <p id="build-version-line"></p>
           <div id="changelog-list">
+            <div class="changelog-entry"><span class="changelog-date">Aug 12, 2026</span><span class="changelog-text">Quests nav button now shows a red dot for a new quest (alongside the existing gold "ready to claim" dot), and Friend List shows a gold dot when someone accepts a request you sent them.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 12, 2026</span><span class="changelog-text">Restyled the "Copied" badge (dark background, gold border, tag icon) and fixed a real bug where every body part's texture rendered upside down on real uploaded Minecraft skins - most noticeable on shoes/pants seen from behind, but it affected every part on every angle.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 12, 2026</span><span class="changelog-text">Big batch of fixes and tweaks: your nickname keeps its real capitalization above your character now, Random only previews a name until you confirm it with the pencil, Points shows a clean whole number, Friend List reordered with a new Status picker (Online/Idle/Do Not Disturb/Offline, with "last seen" for offline friends), Credits now lists Owner/Co-Owner/Testers, What's New is wider, page text is no longer draggable/selectable, copying an ID shows a "Copied" badge, Zombie Survival mode got Build Mode's V-key zoom, C4 is now one key (J) instead of two, the Weapons list moved beside your items in the Tab inventory, healing now caps at 2000 (spawn is still 1000), and the hotbar's 1/2/3 numbers are bigger and reordered (3 on top).</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 12, 2026</span><span class="changelog-text">Touched up the default character's skin - a small black patch at the hip is now gray, matching the rest of the design.</span></div>

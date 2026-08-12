@@ -5643,6 +5643,20 @@ html.theme-lighter #app { filter: brightness(1.25); }
   background: var(--menu-gold);
 }
 
+/* Quests is the one nav button that can show both dots at once (a new
+   quest AND a completed-but-unclaimed one) - offset the red "new" dot
+   left of the default corner spot so it doesn't sit on top of the gold
+   "claim" dot next to it. */
+#quests-new-dot {
+  right: 9px;
+}
+
+/* Friend List can also show both dots at once (an incoming request AND a
+   sent request that just got accepted) - same offset trick as Quests. */
+#friends-accepted-dot {
+  right: 9px;
+}
+
 #menu-boards {
   display: flex;
   flex-direction: column;

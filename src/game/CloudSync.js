@@ -176,6 +176,19 @@ service cloud.firestore {
       allow delete: if request.auth != null && (request.auth.uid == toUid || request.auth.uid == fromUid);
       allow update: if false;
     }
+
+    // friendRequests/{uid}/accepted/{accepterUid}: the reverse notification
+    // - when someone accepts YOUR sent request, they write a doc into
+    // *your* accepted subcollection (mirrors incoming's "write into the
+    // other person's space" trick) so you can tell without them needing to
+    // be online. Cleared by you once seen (see _markFriendAcceptedSeen).
+    match /friendRequests/{uid}/accepted/{accepterUid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == accepterUid && accepterUid != uid
+        && request.resource.data.acceptedAt is int;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+      allow update: if false;
+    }
   }
 }`
 
@@ -378,8 +391,9 @@ export async function fetchLeaderboardEntryByPlayerId(playerId) {
 // pattern) so a given sender can only ever have one outstanding request to
 // a given recipient at a time. Accepting/declining both just delete the
 // doc (see FIRESTORE_SECURITY_RULES) - Game.js decides what accepting
-// means locally (adding to settings.savedFriends), there's no separate
-// "accepted" state stored server-side.
+// means locally (adding to settings.savedFriends). An accept ALSO writes
+// a separate notifyFriendAccepted doc (below) so the original sender can
+// find out even if they weren't online at the moment of acceptance.
 export async function sendFriendRequest(toUid, fromUid, fromNickname) {
   const { db, fsMod } = await ensureApp()
   await fsMod.setDoc(fsMod.doc(db, 'friendRequests', toUid, 'incoming', fromUid), { fromNickname, sentAt: Date.now() })
@@ -403,11 +417,37 @@ export function subscribeIncomingFriendRequests(uid, callback) {
 }
 
 // Both accept and decline just clear the request from the recipient's
-// inbox - see this function's own doc comment above for why there's no
-// separate accepted/declined state to write.
+// inbox - the separate accepted-notification (below) is written
+// independently, only on accept.
 export async function respondToFriendRequest(myUid, fromUid) {
   const { db, fsMod } = await ensureApp()
   await fsMod.deleteDoc(fsMod.doc(db, 'friendRequests', myUid, 'incoming', fromUid))
+}
+
+// Notifies the ORIGINAL SENDER that their request was accepted - writes
+// into their accepted subcollection (see FIRESTORE_SECURITY_RULES), same
+// "write into the other person's space" trick incoming requests use.
+// Called only on accept (see Game.js's _respondToFriendRequest), never
+// decline.
+export async function notifyFriendAccepted(originalSenderUid, myUid) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.setDoc(fsMod.doc(db, 'friendRequests', originalSenderUid, 'accepted', myUid), { acceptedAt: Date.now() })
+}
+
+// One-off fetch (not a live subscription like incoming requests) - checked
+// alongside the other homepage nav dots, doesn't need to update itself
+// mid-session.
+export async function fetchAcceptedNotifications(uid) {
+  const { db, fsMod } = await ensureApp()
+  const snap = await fsMod.getDocs(fsMod.collection(db, 'friendRequests', uid, 'accepted'))
+  return snap.docs.map((d) => ({ accepterUid: d.id, ...d.data() }))
+}
+
+// Clears one accepted-notification doc once the player has seen it (opened
+// the Friends panel) - mirrors respondToFriendRequest's delete-to-clear.
+export async function clearAcceptedNotification(uid, accepterUid) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.deleteDoc(fsMod.doc(db, 'friendRequests', uid, 'accepted', accepterUid))
 }
 
 // Global rank - a COUNT aggregation (how many players have a strictly
