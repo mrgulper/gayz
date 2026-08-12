@@ -4038,7 +4038,6 @@ export class Game {
     this.weeklyChallenge = loadWeeklyChallenge()
     this.weeklyDef = WEEKLY_CHALLENGES[_weeklyChallengeIndex(this.weeklyChallenge.week)]
     this.metaProgress = loadMetaProgress()
-    this._applyMetaUpgrades()
     this.achievements = new Achievements((def) => this._showAchievementToast(def))
     this.quests = new Quests()
     this.rollingQuests = new RollingQuests()
@@ -4418,6 +4417,14 @@ export class Game {
       () => this.settings.showHitFeedback,
       () => { this.careerStats.shotsFired = (this.careerStats.shotsFired || 0) + 1 }
     )
+    // Moved here from right after loadMetaProgress() above - several
+    // meta upgrades' apply() (marksman/deadeye/quickhands/stockpile) touch
+    // game.weapons, which didn't exist yet at that earlier point. Called
+    // this early crashed the constructor for anyone who owned one of those
+    // upgrades, TypeError: Cannot read properties of undefined (reading
+    // 'boostReloadSpeed') - the entire page loaded but nothing was
+    // clickable since click handlers never finished binding.
+    this._applyMetaUpgrades()
     this.rivals = new RivalManager(this.scene)
     this.weapons.setRivalManager(this.rivals)
     this._rivalsClaimedAirdrop = false
