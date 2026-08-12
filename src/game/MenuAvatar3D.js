@@ -72,6 +72,20 @@ function _mirrorFaceRectsH(rects, u, w, h, d) {
 // order. faceRects keys map to 3D faces as: right->-x, left->+x,
 // top->+y, bottom->-y, front->+z, back->-z (matches the character
 // facing +z by default, same as every other part of this file).
+//
+// Vertex 0/1 of every face are BoxGeometry's own fixed "top" edge in 3D
+// space (confirmed by inspecting a fresh BoxGeometry's default position/uv
+// attributes directly) and 2/3 are the "bottom" edge - that pairing never
+// changes regardless of what UVs get written here. v0/v1 (source-image
+// pixel rows, image-space where a SMALLER v is higher up the source
+// image) must be assigned to match: the smaller row (v0, visually the top
+// of the source pixels) goes on the 3D-top vertices, the larger row (v1,
+// the bottom of the source pixels) goes on the 3D-bottom vertices - was
+// backwards before (v1 on top/v0 on bottom), which combined with this
+// texture's flipY=false (see loadSkinTexture) rendered every face upside
+// down. Verified by rendering a two-color test texture (red top half/blue
+// bottom half) onto an isolated face and reading back actual pixels
+// before/after this swap.
 function _applyFaceRectsToBox(geometry, faceRects, texW, texH) {
   const uvAttr = geometry.attributes.uv
   const order = [faceRects.left, faceRects.right, faceRects.top, faceRects.bottom, faceRects.front, faceRects.back]
@@ -82,10 +96,10 @@ function _applyFaceRectsToBox(geometry, faceRects, texW, texH) {
     const nv0 = v0 / texH
     const nv1 = v1 / texH
     const base = face * 4
-    uvAttr.setXY(base + 0, nu0, nv1)
-    uvAttr.setXY(base + 1, nu1, nv1)
-    uvAttr.setXY(base + 2, nu0, nv0)
-    uvAttr.setXY(base + 3, nu1, nv0)
+    uvAttr.setXY(base + 0, nu0, nv0)
+    uvAttr.setXY(base + 1, nu1, nv0)
+    uvAttr.setXY(base + 2, nu0, nv1)
+    uvAttr.setXY(base + 3, nu1, nv1)
   }
   uvAttr.needsUpdate = true
 }

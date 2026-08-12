@@ -1935,17 +1935,29 @@ select option {
 .copied-oval-badge {
   position: fixed;
   transform: translate(-50%, -100%);
-  padding: 4px 16px;
-  background: #e3a63c;
-  color: #1a1a1a;
-  font-weight: 700;
-  font-size: 12px;
-  letter-spacing: 0.3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  background: #161c33;
+  color: #fff;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  border: 2px solid #e3a63c;
   border-radius: 999px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
   pointer-events: none;
   opacity: 0;
   z-index: 40;
+}
+
+.copied-oval-badge-icon {
+  width: 16px;
+  height: 16px;
+  color: #e3a63c;
+  flex-shrink: 0;
 }
 
 .copied-oval-badge.show {

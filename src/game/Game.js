@@ -11336,9 +11336,14 @@ export class Game {
     if (!this._copiedBadgeEl) {
       this._copiedBadgeEl = document.createElement('div')
       this._copiedBadgeEl.className = 'copied-oval-badge'
+      // A plain SVG tag icon, not an emoji - this codebase has an existing
+      // documented no-emoji-in-the-UI convention (see the Achievement
+      // Showcase badges, which use a colored swatch instead of an emoji).
+      this._copiedBadgeEl.innerHTML = `<span class="copied-oval-badge-text"></span><svg class="copied-oval-badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82Z"/><circle cx="7" cy="7" r="1"/></svg>`
+      this._copiedBadgeTextEl = this._copiedBadgeEl.querySelector('.copied-oval-badge-text')
       document.body.appendChild(this._copiedBadgeEl)
     }
-    this._copiedBadgeEl.textContent = t('copiedBadgeLabel')
+    this._copiedBadgeTextEl.textContent = t('copiedBadgeLabel')
     const rect = anchorEl.getBoundingClientRect()
     this._copiedBadgeEl.style.left = `${rect.left + rect.width / 2}px`
     this._copiedBadgeEl.style.top = `${rect.top}px`
