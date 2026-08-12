@@ -126,7 +126,7 @@ const OVERLAY_ORIGINS = {
   rightArm: [40, 32],
   leftArm: [48, 48],
   rightLeg: [0, 32],
-  leftLeg: [16, 48],
+  leftLeg: [0, 48],
 }
 const PART_DIMS = {
   head: [8, 8, 8],
