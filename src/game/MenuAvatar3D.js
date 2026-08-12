@@ -245,13 +245,22 @@ function buildTexturedCharacter(skin) {
   torso.position.y = 16
   group.add(torso)
 
+  // x=5 (not the leg/torso-implied 6) and z=0 (flush, no depth gap) - a
+  // depth offset here used to be tried instead (push the arm back in Z
+  // so it stops eclipsing the leg's texture at a profile view), but that
+  // opened a gap next to the torso that exposed the torso's own side
+  // color, reading as a stray dark patch stuck to the arm. Pulling the
+  // arm in slightly on X fixes the leg visibility with no such gap -
+  // confirmed clean (full 360-degree render sweep, both this and the
+  // front-on silhouette) at x=5; x=4.5 already visibly overlaps the
+  // torso's chest design from the front, so this is close to the limit.
   const armR = _texturedBoxMesh(4, 12, 4, 40, 16, texture, width, height, false)
-  armR.position.set(6, 16, 0)
+  armR.position.set(5, 16, 0)
   group.add(armR)
   const armL = legacy
     ? _texturedBoxMesh(4, 12, 4, 40, 16, texture, width, height, true)
     : _texturedBoxMesh(4, 12, 4, 32, 48, texture, width, height, false)
-  armL.position.set(-6, 16, 0)
+  armL.position.set(-5, 16, 0)
   group.add(armL)
 
   const legR = _texturedBoxMesh(4, 12, 4, 0, 16, texture, width, height, false)
@@ -333,10 +342,10 @@ function buildCharacter(skin) {
 
   const armGeo = new THREE.BoxGeometry(4, 12, 4)
   const armL = new THREE.Mesh(armGeo, skinMat)
-  armL.position.set(-6, 16, 0)
+  armL.position.set(-5, 16, 0)
   group.add(armL)
   const armR = new THREE.Mesh(armGeo, skinMat)
-  armR.position.set(6, 16, 0)
+  armR.position.set(5, 16, 0)
   group.add(armR)
 
   const legGeo = new THREE.BoxGeometry(4, 12, 4)
