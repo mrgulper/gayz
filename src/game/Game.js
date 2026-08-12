@@ -3294,6 +3294,7 @@ export class Game {
     // (both true by this point), so it can't move any earlier than here.
     this._bindSkinUpload()
     if (this.settings.customSkinDataUrl) this._applyStoredSkin()
+    else this._applyDefaultBundledSkin()
     setLanguage(this.settings.language)
     this.difficulty = DIFFICULTY_PRESETS[this.settings.difficulty] || DIFFICULTY_PRESETS.normal
     this.nightDurationMs = this.settings.scoreAttackMode ? SCORE_ATTACK_NIGHT_DURATION_MS : NIGHT_DURATION_MS
@@ -13685,6 +13686,23 @@ export class Game {
       // retry forever on every future load.
       this.settings.customSkinDataUrl = null
       saveSettings(this.settings)
+      return
+    }
+    if (this._menuAvatar3D) this._menuAvatar3D.setSkin(skin)
+    if (this._profileAvatar3D) this._profileAvatar3D.setSkin(skin)
+  }
+
+  // The actual default look for every player who hasn't uploaded their
+  // own skin - a real skin file (public/images/default-skin.png), not
+  // the old hand-guessed flat-color character. That flat-color builder
+  // (see MenuAvatar3D.js's buildCharacter with no skin argument) still
+  // renders first and stays as the fallback if this fails to load, same
+  // "briefly shows default, then swaps in" pattern as an uploaded skin.
+  async _applyDefaultBundledSkin() {
+    let skin
+    try {
+      skin = await loadSkinTexture('/images/default-skin.png')
+    } catch {
       return
     }
     if (this._menuAvatar3D) this._menuAvatar3D.setSkin(skin)

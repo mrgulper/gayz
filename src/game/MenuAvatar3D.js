@@ -108,6 +108,43 @@ function _texturedBoxMesh(w, h, d, u, v, texture, texW, texH, mirror) {
 // pixel coordinates in the helpers above (image space, y increasing
 // downward, same as every 2D image format) map directly to UV space
 // without a mental flip.
+// Every base-layer part has a matching overlay-layer part (hat over
+// head, jacket over torso, sleeves over arms, pants over legs) at a
+// fixed second location in the texture, same total block size as its
+// base counterpart. Real skin editors vary in how much they actually
+// use the base vs. the overlay - a genuine real-world file was found
+// during testing that puts its ENTIRE visible design on the overlay
+// layer, leaving the base layer fully transparent - so the overlay
+// can't be treated as optional detail, it has to be composited onto
+// the base before UV mapping, the same way Minecraft itself layers
+// them (overlay drawn on top, alpha blended, wins wherever it has
+// non-transparent pixels). Legacy 64x32 only has room for a head
+// overlay (everything else would fall outside the image's 32 rows).
+const OVERLAY_ORIGINS = {
+  head: [32, 0],
+  torso: [16, 32],
+  rightArm: [40, 32],
+  leftArm: [48, 48],
+  rightLeg: [0, 32],
+  leftLeg: [16, 48],
+}
+const PART_DIMS = {
+  head: [8, 8, 8],
+  torso: [8, 12, 4],
+  rightArm: [4, 12, 4],
+  leftArm: [4, 12, 4],
+  rightLeg: [4, 12, 4],
+  leftLeg: [4, 12, 4],
+}
+const BASE_ORIGINS = {
+  head: [0, 0],
+  torso: [16, 16],
+  rightArm: [40, 16],
+  leftArm: [32, 48],
+  rightLeg: [0, 16],
+  leftLeg: [16, 48],
+}
+
 export function loadSkinTexture(source) {
   return new Promise((resolve, reject) => {
     const isBlob = source instanceof Blob
@@ -115,13 +152,34 @@ export function loadSkinTexture(source) {
     const img = new Image()
     img.onload = () => {
       if (isBlob) URL.revokeObjectURL(url)
-      const texture = new THREE.Texture(img)
+      const w = img.naturalWidth
+      const h = img.naturalHeight
+      const legacy = h <= 32
+
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d')
+      ctx.imageSmoothingEnabled = false
+      ctx.drawImage(img, 0, 0)
+      for (const part of Object.keys(BASE_ORIGINS)) {
+        if (legacy && part !== 'head') continue // no room for other overlays at 32px tall
+        const [bw, bh, bd] = PART_DIMS[part]
+        const blockW = 2 * bw + 2 * bd
+        const blockH = bd + bh
+        const [ou, ov] = OVERLAY_ORIGINS[part]
+        if (ov + blockH > h) continue // overlay block falls outside the image entirely
+        const [bu, bv] = BASE_ORIGINS[part]
+        ctx.drawImage(canvas, ou, ov, blockW, blockH, bu, bv, blockW, blockH)
+      }
+
+      const texture = new THREE.CanvasTexture(canvas)
       texture.magFilter = THREE.NearestFilter
       texture.minFilter = THREE.NearestFilter
       texture.flipY = false
       texture.colorSpace = THREE.SRGBColorSpace
       texture.needsUpdate = true
-      resolve({ texture, width: img.naturalWidth, height: img.naturalHeight })
+      resolve({ texture, width: w, height: h })
     }
     img.onerror = () => {
       if (isBlob) URL.revokeObjectURL(url)
