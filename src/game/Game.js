@@ -9015,6 +9015,16 @@ export class Game {
       this._settingsOpenSnapshot = JSON.stringify(this.settings)
       this._renderRecentlyChangedList()
       CloudSync.incrementTelemetry('settingsOpened').catch(() => {})
+    } else if (this.gameStarted && this.playerState.alive) {
+      // Settings reached mid-run only comes from the pause overlay (see
+      // pauseSettingsBtn above), which this function hides the instant
+      // Settings opens. Closing Settings (via its backdrop click, the only
+      // way to close it) used to leave BOTH hidden - no pause overlay, no
+      // HUD (still hidden from the earlier 'unlock' event), pointer still
+      // unlocked - a real stuck screen with nothing on it to click. Bring
+      // the pause overlay back, same condition the 'unlock' handler itself
+      // uses to decide whether to show it.
+      this.pauseOverlay.style.display = 'flex'
     }
   }
 
