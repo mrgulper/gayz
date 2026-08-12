@@ -21,21 +21,25 @@ const IDLE_SPIN_SPEED = 0.24
 // same 8/12/12 head/torso-and-arms/legs split the real game uses) so the
 // silhouette reads as instantly recognizable. This is the DEFAULT skin
 // every new player gets (no skin-customization system exists yet) -
-// colors match a small reference skin thumbnail supplied directly (dark
-// hair, tan skin, a near-black top with a white collar patch, purple/
-// violet pants) - the thumbnail was very small/low-res, so this is a
-// best-effort color match, not a pixel-exact copy; flag it if it's off
-// and it can be re-tuned.
-const SKIN_TONE = 0xd9a066
-const SHIRT_COLOR = 0x18181f
-const SHIRT_ACCENT_COLOR = 0xf0f0ec
-const PANTS_COLOR = 0x4a2c78
+// colors match a real skin file the player built at minecraftskins.com's
+// skin editor and shared as clean full-resolution screenshots (front +
+// side views), with the exact hex values called out directly: #929292
+// (gray body), #000000 (hair/vest/pants), #1f1f1f (a slightly lighter
+// dark accent on the pants - close enough to the black main pants color
+// that it's skipped here rather than added as its own tiny stripe),
+// #ffffff (eyes + a "G" chest logo), #d72323 (nose). The chest logo
+// itself can't be reproduced - this character is solid-color boxes, not
+// a textured/UV-mapped model, so there's no surface to put a letter on.
+const SKIN_TONE = 0x929292
+const SHIRT_COLOR = 0x000000
+const SHIRT_ACCENT_COLOR = 0x929292
+const PANTS_COLOR = 0x000000
 const EYE_WHITE_COLOR = 0xffffff
-const EYE_IRIS_COLOR = 0x6a5acd
-const EYE_PUPIL_COLOR = 0x14141a
-const HAIR_COLOR = 0x1c1a18
-const MOUTH_COLOR = 0x8a5a4a
-const SHOE_COLOR = 0x241830
+const EYE_PUPIL_COLOR = 0x000000
+const HAIR_COLOR = 0x000000
+const MOUTH_COLOR = 0x000000
+const NOSE_COLOR = 0xd72323
+const SHOE_COLOR = 0x929292
 
 function buildCharacter() {
   const group = new THREE.Group()
@@ -61,13 +65,11 @@ function buildCharacter() {
   hairBack.position.set(0, 28, -2.9)
   group.add(hairBack)
 
-  // Two-tone eyes (white + a colored iris band + a black pupil, 3 layered
-  // boxes each) instead of a single flat black square - a lot more
-  // expressive at this size for barely any extra cost.
+  // White eyes with a black pupil square in the corner (the reference
+  // skin only uses white + black for the eyes, no separate iris tone -
+  // simpler than the previous 3-layer white/iris/pupil version).
   const eyeWhiteGeo = new THREE.BoxGeometry(1.6, 1.6, 0.16)
   const eyeWhiteMat = new THREE.MeshBasicMaterial({ color: EYE_WHITE_COLOR })
-  const irisGeo = new THREE.BoxGeometry(1.6, 0.6, 0.18)
-  const irisMat = new THREE.MeshBasicMaterial({ color: EYE_IRIS_COLOR })
   const pupilGeo = new THREE.BoxGeometry(0.55, 0.55, 0.2)
   const pupilMat = new THREE.MeshBasicMaterial({ color: EYE_PUPIL_COLOR })
   for (const side of [-1, 1]) {
@@ -75,13 +77,15 @@ function buildCharacter() {
     const eyeWhite = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat)
     eyeWhite.position.set(x, 26.6, 4.02)
     group.add(eyeWhite)
-    const iris = new THREE.Mesh(irisGeo, irisMat)
-    iris.position.set(x, 26.75, 4.08)
-    group.add(iris)
     const pupil = new THREE.Mesh(pupilGeo, pupilMat)
     pupil.position.set(x, 26.4, 4.12)
     group.add(pupil)
   }
+  // Red nose square between the eyes - a real facial feature in the
+  // reference skin, not something the character had before.
+  const nose = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.4, 0.2), new THREE.MeshBasicMaterial({ color: NOSE_COLOR }))
+  nose.position.set(0, 25.6, 4.05)
+  group.add(nose)
   const mouth = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.7, 0.2), new THREE.MeshBasicMaterial({ color: MOUTH_COLOR }))
   mouth.position.set(0, 23.8, 4.05)
   group.add(mouth)
