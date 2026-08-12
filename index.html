@@ -1287,6 +1287,15 @@
       <div id="profile-panel">
         <h2 id="profile-panel-title">Profile</h2>
 
+        <div id="profile-login-gate" style="display: none">
+          <p id="profile-login-gate-text" class="typewriter-text"></p>
+          <div id="profile-login-gate-buttons">
+            <button id="profile-gate-login-btn" type="button" class="mini-action-btn">Login</button>
+            <button id="profile-gate-register-btn" type="button" class="mini-action-btn">Register</button>
+          </div>
+        </div>
+
+        <div id="profile-content">
         <div id="profile-avatar-wrap" title="Drag to spin">
           <canvas id="profile-avatar-canvas"></canvas>
         </div>
@@ -1364,6 +1373,7 @@
         <div id="profile-account-signed-in" style="display: none">
           <button id="profile-signout-btn" type="button">Sign Out</button>
         </div>
+        </div>
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>
       <div id="print-stats-sheet"></div>
@@ -1389,6 +1399,7 @@
         <div id="whatsnew-content">
           <p id="build-version-line"></p>
           <div id="changelog-list">
+            <div class="changelog-entry"><span class="changelog-date">Aug 12, 2026</span><span class="changelog-text">Profile is now signed-in only - if you're not logged in, opening it shows a black screen with a typewriter "Login or Register" prompt instead of your stats/bio/highlights. Sign in and everything's back to normal.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 12, 2026</span><span class="changelog-text">Quests nav button now shows a red dot for a new quest (alongside the existing gold "ready to claim" dot), and Friend List shows a gold dot when someone accepts a request you sent them.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 12, 2026</span><span class="changelog-text">Restyled the "Copied" badge (dark background, gold border, tag icon) and fixed a real bug where every body part's texture rendered upside down on real uploaded Minecraft skins - most noticeable on shoes/pants seen from behind, but it affected every part on every angle.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 12, 2026</span><span class="changelog-text">Big batch of fixes and tweaks: your nickname keeps its real capitalization above your character now, Random only previews a name until you confirm it with the pencil, Points shows a clean whole number, Friend List reordered with a new Status picker (Online/Idle/Do Not Disturb/Offline, with "last seen" for offline friends), Credits now lists Owner/Co-Owner/Testers, What's New is wider, page text is no longer draggable/selectable, copying an ID shows a "Copied" badge, Zombie Survival mode got Build Mode's V-key zoom, C4 is now one key (J) instead of two, the Weapons list moved beside your items in the Tab inventory, healing now caps at 2000 (spawn is still 1000), and the hotbar's 1/2/3 numbers are bigger and reordered (3 on top).</span></div>

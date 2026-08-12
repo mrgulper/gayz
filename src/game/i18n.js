@@ -1211,6 +1211,7 @@ const STRINGS = {
     anniversaryLine: '{n} days since your first run',
     profileLoginBtn: 'Login',
     profileRegisterBtn: 'Register',
+    profileLoginGateText: 'Login or Register to view your Profile',
     profileSignoutBtn: 'Sign Out',
     profileCreatedTitle: 'Created',
     profileCreatedLine: '{days} day(s) {hours} hour(s) {minutes} min {seconds} sec ago',

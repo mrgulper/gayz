@@ -3062,6 +3062,11 @@ export class Game {
     this.profileLoginBtn = document.getElementById('profile-login-btn')
     this.profileRegisterBtn = document.getElementById('profile-register-btn')
     this.profileSignoutBtn = document.getElementById('profile-signout-btn')
+    this.profileLoginGate = document.getElementById('profile-login-gate')
+    this.profileLoginGateText = document.getElementById('profile-login-gate-text')
+    this.profileContent = document.getElementById('profile-content')
+    this.profileGateLoginBtn = document.getElementById('profile-gate-login-btn')
+    this.profileGateRegisterBtn = document.getElementById('profile-gate-register-btn')
     this.quickPerformanceBtn = document.getElementById('quick-performance-btn')
     this.quickLanguageBtn = document.getElementById('quick-language-btn')
     // Cloud Save (Google Sign-In + Drive appDataFolder, see CloudSync.js).
@@ -7557,6 +7562,10 @@ export class Game {
     // can slot in later without a UI reshuffle.
     if (this.profileLoginBtn) this.profileLoginBtn.addEventListener('click', () => this._handleCloudSignIn())
     if (this.profileRegisterBtn) this.profileRegisterBtn.addEventListener('click', () => this._handleCloudSignIn())
+    // Same handler as the two above - Google Sign-In is the only auth
+    // method here, so "Login" and "Register" both just trigger it.
+    if (this.profileGateLoginBtn) this.profileGateLoginBtn.addEventListener('click', () => this._handleCloudSignIn())
+    if (this.profileGateRegisterBtn) this.profileGateRegisterBtn.addEventListener('click', () => this._handleCloudSignIn())
     if (this.profileSignoutBtn) {
       this.profileSignoutBtn.addEventListener('click', async () => {
         await CloudSaveUI.handleCloudSignOut(this)
@@ -13853,6 +13862,30 @@ export class Game {
   _openProfilePanel() {
     this.profilePanel.style.display = 'flex'
     this.profilePanelTitle.textContent = t('profilePanelTitle')
+    // Signed-out players get a black screen + typewriter Login/Register
+    // prompt instead of the profile itself - everything below this branch
+    // (stats, bio, highlights, the 3D avatar, etc.) is real profile
+    // content that a guest no longer sees at all, not just cosmetically
+    // hidden behind it.
+    if (!this._cloudUid) {
+      if (this.profileContent) this.profileContent.style.display = 'none'
+      if (this.profileLoginGate) this.profileLoginGate.style.display = 'flex'
+      if (this.profileLoginGateText) {
+        this.profileLoginGateText.textContent = t('profileLoginGateText')
+        // Re-trigger the CSS typewriter animation every time the gate is
+        // shown (same remove/reflow/add trick #lore-toast uses) - it only
+        // plays once per element by default, so re-opening Profile a
+        // second time would otherwise show static already-typed text.
+        this.profileLoginGateText.style.animation = 'none'
+        void this.profileLoginGateText.offsetWidth
+        this.profileLoginGateText.style.animation = ''
+      }
+      if (this.profileGateLoginBtn) this.profileGateLoginBtn.textContent = t('profileLoginBtn')
+      if (this.profileGateRegisterBtn) this.profileGateRegisterBtn.textContent = t('profileRegisterBtn')
+      return
+    }
+    if (this.profileContent) this.profileContent.style.display = ''
+    if (this.profileLoginGate) this.profileLoginGate.style.display = 'none'
     if (this.profileCopyStatsBtn) this.profileCopyStatsBtn.textContent = t('profileCopyStatsBtn')
     if (this.profilePrintBtn) this.profilePrintBtn.textContent = t('profilePrintBtn')
     // Cosmetics counter - outfits+hats only.

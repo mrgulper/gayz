@@ -2552,6 +2552,70 @@ select option {
     rgba(6, 8, 6, 0.98);
 }
 
+/* Logged-out Profile gate - replaces the entire profile (stats/bio/
+   highlights/etc, all normally visible even to a local guest) with a
+   plain black screen + typewriter prompt, since viewing a Profile now
+   requires being signed in. See _openProfilePanel's early-return branch. */
+#profile-login-gate {
+  width: 100%;
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: #000;
+  border-radius: 4px;
+}
+
+.typewriter-text {
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 2px solid var(--menu-gold);
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: 1px;
+  color: #e8e8e2;
+  animation:
+    typewriterReveal 1.8s steps(30, end),
+    typewriterCursor 0.8s step-end infinite;
+}
+
+@keyframes typewriterReveal {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+@keyframes typewriterCursor {
+  from, to { border-color: transparent; }
+  50% { border-color: var(--menu-gold); }
+}
+
+#profile-login-gate-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .typewriter-text {
+    animation: none;
+    width: auto;
+    border-right: none;
+  }
+}
+
+/* Wraps every existing piece of profile content so it can be toggled as
+   one unit against #profile-login-gate - replicates the flex-column
+   layout #profile-panel's shared rule (below) gives its direct children,
+   since this content is now nested one level deeper than before. */
+#profile-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
 /* Profile panel - old broken-wood backdrop instead of the flat dark
    background every other panel shares, fitting a survivor's personal
    page. Dark gradient layered under the wood photo (not just over it, so
