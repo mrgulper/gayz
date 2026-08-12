@@ -15,13 +15,16 @@ export const ACTIONS = [
   { id: 'armor', defaultKey: 'KeyG', labelKey: 'actionArmor' },
   { id: 'interact', defaultKey: 'KeyF', labelKey: 'actionInteract' },
   { id: 'flashlight', defaultKey: 'KeyT', labelKey: 'actionFlashlight' },
-  { id: 'noisemaker', defaultKey: 'KeyV', labelKey: 'actionNoisemaker' },
+  // Moved off KeyV (its old default) to make room for the hold-to-zoom
+  // feature, which uses V to match Build Mode's existing zoom key.
+  { id: 'noisemaker', defaultKey: 'End', labelKey: 'actionNoisemaker' },
   { id: 'grenade', defaultKey: 'KeyB', labelKey: 'actionGrenade' },
   { id: 'barricade', defaultKey: 'KeyN', labelKey: 'actionBarricade' },
   { id: 'trap', defaultKey: 'KeyM', labelKey: 'actionTrap' },
   { id: 'molotov', defaultKey: 'KeyZ', labelKey: 'actionMolotov' },
+  // Places a charge if none is armed yet, detonates the armed one if there
+  // already is one - one key does both now (see Game.js's keydown handler).
   { id: 'c4', defaultKey: 'KeyJ', labelKey: 'actionC4' },
-  { id: 'detonateC4', defaultKey: 'KeyK', labelKey: 'actionDetonateC4' },
   { id: 'adrenaline', defaultKey: 'KeyY', labelKey: 'actionAdrenaline' },
   { id: 'emp', defaultKey: 'KeyU', labelKey: 'actionEmp' },
   { id: 'weaponWheel', defaultKey: 'KeyQ', labelKey: 'actionWeaponWheel' },

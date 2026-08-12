@@ -317,6 +317,9 @@ function loadSettings() {
       savedFriends: Array.isArray(parsed.savedFriends)
         ? parsed.savedFriends.slice(0, 5).map((f) => (typeof f === 'string' ? { name: f, uid: null } : f))
         : [],
+      // Presence status the player picks in the Friends panel - one of
+      // 'online'/'idle'/'dnd'/'offline' (see _computeFriendStatus).
+      statusMode: ['online', 'idle', 'dnd', 'offline'].includes(parsed.statusMode) ? parsed.statusMode : 'online',
       mutatorsEverEnabled: Array.isArray(parsed.mutatorsEverEnabled) ? parsed.mutatorsEverEnabled : [],
       // Round 4 Online Features batch - region filter for the global
       // leaderboard (REGION_OPTIONS) and two extra accessibility modes
@@ -442,7 +445,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], doNotDisturb: false, hideOnlineStatus: false, mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -4151,10 +4154,7 @@ export class Game {
     this.deleteAllRequestsBtn = document.getElementById('delete-all-requests-btn')
     this.friendRequestsList = document.getElementById('friend-requests-list')
     this.friendsOwnId = document.getElementById('friends-own-id')
-    this.dndToggle = document.getElementById('dnd-toggle')
-    this.dndToggleRow = document.getElementById('dnd-toggle-row')
-    this.hideStatusToggle = document.getElementById('hide-status-toggle')
-    this.hideStatusToggleRow = document.getElementById('hide-status-toggle-row')
+    this.statusPickBtns = document.querySelectorAll('.status-pick-btn')
     this.sendFriendRequestBtn = document.getElementById('send-friend-request-btn')
     this._incomingFriendRequests = []
     this._friendRequestsUnsubscribe = null
@@ -5092,9 +5092,10 @@ export class Game {
       } else if (e.code === getKeyFor('molotov')) {
         this._throwMolotov()
       } else if (e.code === getKeyFor('c4')) {
-        this._throwC4()
-      } else if (e.code === getKeyFor('detonateC4')) {
-        this._detonateC4()
+        // One key does both now - throws a fresh charge if nothing's
+        // armed yet, detonates the armed one if there already is one.
+        if (this.zombies.placedC4) this._detonateC4()
+        else this._throwC4()
       } else if (e.code === getKeyFor('adrenaline')) {
         this._useAdrenaline()
       } else if (e.code === getKeyFor('emp')) {
@@ -6924,13 +6925,14 @@ export class Game {
 
     if (this.randomNicknameBtn) {
       this.randomNicknameBtn.addEventListener('click', () => {
+        // Only previews a candidate name in the box - doesn't save/apply it.
+        // Player can click Random again to reroll, then confirm via the
+        // pencil icon (see _confirmNicknameEdit) once they like one.
         const adj = RANDOM_NICKNAME_ADJECTIVES[Math.floor(Math.random() * RANDOM_NICKNAME_ADJECTIVES.length)]
         const noun = RANDOM_NICKNAME_NOUNS[Math.floor(Math.random() * RANDOM_NICKNAME_NOUNS.length)]
         const suffix = Math.floor(Math.random() * 90) + 10
         this.nicknameInput.value = `${adj}${noun}${suffix}`.slice(0, 16)
-        this.settings.nickname = this.nicknameInput.value
-        saveSettings(this.settings)
-        this._renderPlayerTag()
+        this.nicknameInput.focus()
       })
     }
     if (this.mottoInput) {
@@ -7422,6 +7424,10 @@ export class Game {
     this._updateCompanionName()
 
     this.nicknameInput.addEventListener('input', () => {
+      // Standard keyboard characters only (letters, numbers, punctuation) -
+      // strips emoji/other unicode a player might paste in.
+      const filtered = this.nicknameInput.value.replace(/[^\x20-\x7E]/g, '')
+      if (filtered !== this.nicknameInput.value) this.nicknameInput.value = filtered
       this.settings.nickname = this.nicknameInput.value
       saveSettings(this.settings)
       this._updateCompanionName()
@@ -7505,7 +7511,16 @@ export class Game {
       })
     }
     if (this.playerShowcaseRenameBtn) {
-      this.playerShowcaseRenameBtn.addEventListener('click', () => this._revealNicknameEditor())
+      // Toggle: first click opens the editor, a second click (while it's
+      // already open) confirms whatever's in the box - including a random
+      // suggestion the player hasn't typed themselves - and closes it.
+      this.playerShowcaseRenameBtn.addEventListener('click', () => {
+        if (this.nicknameRow && this.nicknameRow.style.display !== 'none') {
+          this._confirmNicknameEdit()
+        } else {
+          this._revealNicknameEditor()
+        }
+      })
     }
     if (this.nicknameInput && this.nicknameRow) {
       // Short delay before hiding on blur so a click on the adjacent
@@ -8314,7 +8329,13 @@ export class Game {
         const row = rows[i]
         if (!row) return
         row.querySelector('.friend-status-dot').dataset.status = status
-        row.querySelector('.friend-status-label').textContent = t(FRIEND_STATUS_LABEL_KEYS[status])
+        const label = row.querySelector('.friend-status-label')
+        // Offline shows how long ago they were last seen instead of a bare
+        // "Offline" - falls back to the plain label if we never got a
+        // timestamp at all (e.g. they've never synced).
+        label.textContent = status === 'offline' && presence && presence.lastActiveAt
+          ? t('friendStatusOfflineAgo', { time: _formatRelativeTime(Date.now() - presence.lastActiveAt) })
+          : t(FRIEND_STATUS_LABEL_KEYS[status])
       } catch {
         // Best-effort - stays "Offline" default on a failed read.
       }
@@ -8331,6 +8352,7 @@ export class Game {
     const elapsed = Date.now() - presence.lastActiveAt
     if (elapsed > FRIEND_OFFLINE_THRESHOLD_MS) return 'offline'
     if (presence.doNotDisturb) return 'dnd'
+    if (presence.manualIdle) return 'idle'
     return elapsed < FRIEND_ONLINE_THRESHOLD_MS ? 'online' : 'idle'
   }
 
@@ -9265,7 +9287,7 @@ export class Game {
   }
 
   _renderPerkOptions(perks) {
-    this.perkPointsLine.textContent = t('scrapLabel', { n: this.points })
+    this.perkPointsLine.textContent = t('scrapLabel', { n: Math.round(this.points) })
     this.perkRerollBtn.textContent = t('perkRerollLabel', { n: PERK_REROLL_COST })
     this.perkRerollBtn.disabled = this.points < PERK_REROLL_COST
     this.perkOptions.innerHTML = ''
@@ -9695,7 +9717,7 @@ export class Game {
   }
 
   _renderTraderOptions() {
-    this.traderPointsLine.textContent = t('scrapLabel', { n: this.points })
+    this.traderPointsLine.textContent = t('scrapLabel', { n: Math.round(this.points) })
     this.traderOptions.innerHTML = ''
     // Iron Mode - blocks spending specifically (this list and the Black
     // Market below), not salvage/crafting (converting resources you
@@ -10866,6 +10888,17 @@ export class Game {
     this.nicknameInput.select()
   }
 
+  // Confirms whatever's currently in the nickname box (typed or a Random
+  // preview) as the real saved nickname, then closes the editor row.
+  _confirmNicknameEdit() {
+    if (!this.nicknameRow || !this.nicknameInput) return
+    this.settings.nickname = this.nicknameInput.value
+    saveSettings(this.settings)
+    this._renderPlayerTag()
+    this.nicknameRow.style.display = 'none'
+    this.nicknameInput.blur()
+  }
+
   // Difficulty/Choose Class/Game Modes/Challenges & Mutators - used to be
   // spread across the homepage's left column and #menu-cards-row, moved
   // into their own panel instead. Purely static toggle content (every
@@ -10902,12 +10935,6 @@ export class Game {
     CloudSaveUI.renderCloudSaveState(this)
     this._renderFriendRequests()
     if (this.friendsOwnId) this.friendsOwnId.textContent = this.settings.playerId ? `#${this.settings.playerId}` : ''
-    // .textContent on the <label> itself would wipe out its child checkbox
-    // (see CLAUDE.md's documented _updateTexts() gotcha for buttons with a
-    // child <svg> - same issue, different element) - each label wraps its
-    // text in its own <span> for exactly this reason.
-    if (this.dndToggleRow) this.dndToggleRow.querySelector('span').textContent = t('dndToggleLabel')
-    if (this.hideStatusToggleRow) this.hideStatusToggleRow.querySelector('span').textContent = t('hideStatusToggleLabel')
   }
 
   _closeFriendsPanel() {
@@ -11142,7 +11169,7 @@ export class Game {
   // than a save call/listener at each individual currency mutation site.
   _renderCurrencyBar() {
     if (this.currencyCoinsAmount) this.currencyCoinsAmount.textContent = _safeStatNumber(this.coins)
-    if (this.currencyPointsAmount) this.currencyPointsAmount.textContent = _safeStatNumber(this.points)
+    if (this.currencyPointsAmount) this.currencyPointsAmount.textContent = Math.round(_safeStatNumber(this.points))
     if (this.currencyGemsAmount) this.currencyGemsAmount.textContent = _safeStatNumber(this.gems)
   }
 
@@ -11294,12 +11321,30 @@ export class Game {
 
   _copyPlayerId() {
     if (!this.settings.playerId || !navigator.clipboard || !navigator.clipboard.writeText) return
-    // _showHomepageToast, not _showLoreToast - the ID is always clicked
-    // from the homepage badge, before a run has started, and
-    // _showLoreToast's own gameStarted guard was silently swallowing this
-    // toast every time (copy itself worked, the confirmation just never
-    // showed) until caught via direct testing.
-    navigator.clipboard.writeText(`#${this.settings.playerId}`).then(() => this._showHomepageToast(t('idCopiedToast'))).catch(() => {})
+    // A small oval "Copied" badge right above the ID you clicked, not the
+    // shared homepage toast - a dedicated confirmation for a copy action
+    // reads clearer than reusing the same banner used for lore/milestones.
+    navigator.clipboard.writeText(`#${this.settings.playerId}`).then(() => this._showCopiedBadge(this.menuPlayerTag)).catch(() => {})
+  }
+
+  // Shared "Copied" oval badge - pops up right above whichever element was
+  // clicked to copy an ID, then fades on its own (CSS animation, same
+  // self-contained pattern as #lore-toast). One reused element rather than
+  // creating a new one per click.
+  _showCopiedBadge(anchorEl) {
+    if (!anchorEl) return
+    if (!this._copiedBadgeEl) {
+      this._copiedBadgeEl = document.createElement('div')
+      this._copiedBadgeEl.className = 'copied-oval-badge'
+      document.body.appendChild(this._copiedBadgeEl)
+    }
+    this._copiedBadgeEl.textContent = t('copiedBadgeLabel')
+    const rect = anchorEl.getBoundingClientRect()
+    this._copiedBadgeEl.style.left = `${rect.left + rect.width / 2}px`
+    this._copiedBadgeEl.style.top = `${rect.top}px`
+    this._copiedBadgeEl.classList.remove('show')
+    void this._copiedBadgeEl.offsetWidth
+    this._copiedBadgeEl.classList.add('show')
   }
 
   // Recommended Difficulty hint - only shown once a difficulty has at
@@ -11737,9 +11782,23 @@ export class Game {
     this.whatsNewDot.style.display = localStorage.getItem(WHATS_NEW_SEEN_KEY) === WHATS_NEW_VERSION ? 'none' : ''
   }
 
-  // Store nav dot - red, lights up if any item in COIN_SHOP_ITEMS wasn't
-  // there the last time this player opened the Store (see SHOP_SEEN_IDS_KEY's
-  // own comment for the first-check seeding rule).
+  // Whether a Coin Shop item is already owned - mirrors the exact
+  // ownership check each item type uses in _renderCoinShopOptions
+  // (skin/outfit/hat use their own owned-sets, everything else has its
+  // own isOwned(game)).
+  _isShopItemOwned(item) {
+    if (item.skin) return this.ownedSkins.has(item.skin)
+    if (item.outfit) return this.ownedOutfits.has(item.outfit)
+    if (item.hat) return this.ownedHats.has(item.hat)
+    if (item.isOwned) return item.isOwned(this)
+    return false
+  }
+
+  // Store nav dot - red, lights up if either (a) any item in
+  // COIN_SHOP_ITEMS wasn't there the last time this player opened the
+  // Store (see SHOP_SEEN_IDS_KEY's own comment for the first-check seeding
+  // rule), or (b) they can afford an unowned item right now (checked live,
+  // same pattern as the Upgrades dot below).
   _updateStoreDot() {
     if (!this.storeNewDot) return
     let seen = _loadSeenIds(SHOP_SEEN_IDS_KEY)
@@ -11747,7 +11806,13 @@ export class Game {
       seen = new Set(COIN_SHOP_ITEMS.map((i) => i.id))
       _saveSeenIds(SHOP_SEEN_IDS_KEY, seen)
     }
-    this.storeNewDot.style.display = COIN_SHOP_ITEMS.some((i) => !seen.has(i.id)) ? '' : 'none'
+    const hasNewItem = COIN_SHOP_ITEMS.some((i) => !seen.has(i.id))
+    const canAffordOne = COIN_SHOP_ITEMS.some((i) => {
+      if (this._isShopItemOwned(i)) return false
+      if (i.requiresLifetimeCoins && this.careerStats.lifetimeCoinsEarned < i.requiresLifetimeCoins) return false
+      return this.coins >= i.cost
+    })
+    this.storeNewDot.style.display = (hasNewItem || canAffordOne) ? '' : 'none'
   }
 
   _markStoreSeen() {
@@ -12780,7 +12845,9 @@ export class Game {
     this._checkWeaponChallenge(weaponId)
     if (Math.random() < 0.25) {
       const doublePointsMult = this.doublePointsUntil && performance.now() < this.doublePointsUntil ? 2 : 1
-      this.points += (2 + Math.floor(Math.random() * 4)) * lootMult * doublePointsMult * this._comboMultiplier()
+      // Rounded here (not just at display) since _comboMultiplier() returns
+      // a fractional value - without this, points drifts into long decimals.
+      this.points += Math.round((2 + Math.floor(Math.random() * 4)) * lootMult * doublePointsMult * this._comboMultiplier())
       this._updateStatsPanel()
     }
 
@@ -14432,11 +14499,32 @@ export class Game {
   // FRIEND_OFFLINE_THRESHOLD_MS and you read as offline to everyone.
   _startPresenceHeartbeat() {
     const tick = () => {
-      if (!this._cloudUid || !CloudSync.isConfigured() || this.settings.hideOnlineStatus) return
-      CloudSync.updateLastActive(this._cloudUid, this.settings.doNotDisturb).catch(() => {})
+      if (!this._cloudUid || !CloudSync.isConfigured() || this.settings.statusMode === 'offline') return
+      CloudSync.updateLastActive(this._cloudUid, this.settings.statusMode === 'dnd', this.settings.statusMode === 'idle').catch(() => {})
     }
     tick()
     setInterval(tick, FRIEND_HEARTBEAT_INTERVAL_MS)
+  }
+
+  // Applies the player's chosen Status pill (Online/Idle/Do Not
+  // Disturb/Offline) - highlights the active pick and immediately pushes
+  // a fresh heartbeat so the change reflects to friends right away instead
+  // of waiting for the next periodic tick.
+  _applyStatusMode(mode) {
+    this.settings.statusMode = mode
+    saveSettings(this.settings)
+    this._renderStatusPicker()
+    if (this._cloudUid && CloudSync.isConfigured()) {
+      if (mode === 'offline') return
+      CloudSync.updateLastActive(this._cloudUid, mode === 'dnd', mode === 'idle').catch(() => {})
+    }
+  }
+
+  _renderStatusPicker() {
+    if (!this.statusPickBtns) return
+    for (const btn of this.statusPickBtns) {
+      btn.classList.toggle('active', btn.dataset.status === this.settings.statusMode)
+    }
   }
 
   // Friend-beats-you notification - checks each saved friend's real public
@@ -15537,7 +15625,7 @@ export class Game {
     this.statsDay.textContent = this.dayNight ? this.dayNight.getDayNumber() : 1
     this.statsDeaths.textContent = this.totalDeaths
     this.statsKills.textContent = this.totalKills
-    this.statsPoints.textContent = this.points
+    this.statsPoints.textContent = Math.round(this.points)
     this.statsCoins.textContent = this.coins
     this._renderCurrencyBar()
     // Career Rank HUD badge - the same title menuCareerRank already shows

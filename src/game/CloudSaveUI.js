@@ -233,25 +233,11 @@ export function bindCloudSave(game) {
   if (game.cloudsaveUseLocalBtn) game.cloudsaveUseLocalBtn.addEventListener('click', () => resolveCloudConflict(game, 'local'))
   if (game.sendFriendRequestBtn) game.sendFriendRequestBtn.addEventListener('click', () => game._sendFriendRequestClick())
   if (game.deleteAllRequestsBtn) game.deleteAllRequestsBtn.addEventListener('click', () => game._deleteAllFriendRequests())
-  if (game.dndToggle) {
-    game.dndToggle.checked = game.settings.doNotDisturb
-    game.dndToggle.addEventListener('change', () => {
-      game.settings.doNotDisturb = game.dndToggle.checked
-      saveSettings(game.settings)
-      // Push the change immediately rather than waiting up to
-      // FRIEND_HEARTBEAT_INTERVAL_MS for the next scheduled heartbeat -
-      // toggling this should feel instant to whoever's watching your status.
-      if (game._cloudUid && CloudSync.isConfigured() && !game.settings.hideOnlineStatus) {
-        CloudSync.updateLastActive(game._cloudUid, game.settings.doNotDisturb).catch(() => {})
-      }
-    })
-  }
-  if (game.hideStatusToggle) {
-    game.hideStatusToggle.checked = game.settings.hideOnlineStatus
-    game.hideStatusToggle.addEventListener('change', () => {
-      game.settings.hideOnlineStatus = game.hideStatusToggle.checked
-      saveSettings(game.settings)
-    })
+  if (game.statusPickBtns) {
+    game._renderStatusPicker()
+    for (const btn of game.statusPickBtns) {
+      btn.addEventListener('click', () => game._applyStatusMode(btn.dataset.status))
+    }
   }
   if (game.cloudsaveRegionSelect) {
     game.cloudsaveRegionSelect.addEventListener('change', () => {

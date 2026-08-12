@@ -933,26 +933,32 @@
           <input type="checkbox" id="hide-empty-inventory-toggle" />
           <span id="hide-empty-inventory-text">Hide empty</span>
         </label>
-        <div class="inv-panel-section">
-          <div class="inv-panel-row"><span id="panel-health-label">Health Pack</span><span id="panel-health-count">0</span><span class="inv-key">H</span></div>
-          <div class="inv-panel-row"><span id="panel-armor-label">Armor Pack</span><span id="panel-armor-count">0</span><span class="inv-key">G</span></div>
-          <div class="inv-panel-row"><span id="panel-noisemaker-label">Noisemaker</span><span id="panel-noisemaker-count">0</span><span class="inv-key">V</span></div>
-          <div class="inv-panel-row"><span id="panel-grenade-label">Grenade</span><span id="panel-grenade-count">0</span><span class="inv-key">B</span></div>
-          <div class="inv-panel-row"><span id="panel-barricade-label">Barricade</span><span id="panel-barricade-count">0</span><span class="inv-key">N</span></div>
-          <div class="inv-panel-row"><span id="panel-trap-label">Spike Trap</span><span id="panel-trap-count">0</span><span class="inv-key">M</span></div>
-          <div class="inv-panel-row"><span id="panel-molotov-label">Molotov</span><span id="panel-molotov-count">0</span><span class="inv-key">Z</span></div>
-          <div class="inv-panel-row"><span id="panel-c4-label">C4</span><span id="panel-c4-count">0</span><span class="inv-key">J / K</span></div>
-          <div class="inv-panel-row"><span id="panel-adrenaline-label">Adrenaline Shot</span><span id="panel-adrenaline-count">0</span><span class="inv-key">Y</span></div>
-          <div class="inv-panel-row"><span id="panel-emp-label">EMP Grenade</span><span id="panel-emp-count">0</span><span class="inv-key">U</span></div>
-          <div class="inv-panel-row"><span id="panel-shield-label">Riot Shield</span><span id="panel-shield-count">0</span><span class="inv-key">6</span></div>
-          <div class="inv-panel-row"><span id="panel-knife-label">Throwing Knife</span><span id="panel-knife-count">0</span><span class="inv-key">7</span></div>
-          <div class="inv-panel-row"><span id="panel-turretkit-label">Turret Kit</span><span id="panel-turretkit-count">0</span><span class="inv-key">8</span></div>
-          <div class="inv-panel-row"><span id="panel-alarmkit-label">Alarm Kit</span><span id="panel-alarmkit-count">0</span><span class="inv-key">9</span></div>
-          <div class="inv-panel-row"><span id="panel-ration-label">Ration</span><span id="panel-ration-count">0</span><span class="inv-key">0</span></div>
-          <div class="inv-panel-row"><span id="panel-water-label">Water Bottle</span><span id="panel-water-count">0</span><span class="inv-key">'</span></div>
+        <div id="inventory-columns">
+          <div id="inventory-weapons-col">
+            <h2 id="weapons-title">Weapons</h2>
+            <div class="inv-panel-section" id="panel-weapons-list"></div>
+          </div>
+          <div id="inventory-items-col">
+            <div class="inv-panel-section">
+              <div class="inv-panel-row"><span id="panel-health-label">Health Pack</span><span id="panel-health-count">0</span><span class="inv-key">H</span></div>
+              <div class="inv-panel-row"><span id="panel-armor-label">Armor Pack</span><span id="panel-armor-count">0</span><span class="inv-key">G</span></div>
+              <div class="inv-panel-row"><span id="panel-noisemaker-label">Noisemaker</span><span id="panel-noisemaker-count">0</span><span class="inv-key">End</span></div>
+              <div class="inv-panel-row"><span id="panel-grenade-label">Grenade</span><span id="panel-grenade-count">0</span><span class="inv-key">B</span></div>
+              <div class="inv-panel-row"><span id="panel-barricade-label">Barricade</span><span id="panel-barricade-count">0</span><span class="inv-key">N</span></div>
+              <div class="inv-panel-row"><span id="panel-trap-label">Spike Trap</span><span id="panel-trap-count">0</span><span class="inv-key">M</span></div>
+              <div class="inv-panel-row"><span id="panel-molotov-label">Molotov</span><span id="panel-molotov-count">0</span><span class="inv-key">Z</span></div>
+              <div class="inv-panel-row"><span id="panel-c4-label">C4</span><span id="panel-c4-count">0</span><span class="inv-key">J</span></div>
+              <div class="inv-panel-row"><span id="panel-adrenaline-label">Adrenaline Shot</span><span id="panel-adrenaline-count">0</span><span class="inv-key">Y</span></div>
+              <div class="inv-panel-row"><span id="panel-emp-label">EMP Grenade</span><span id="panel-emp-count">0</span><span class="inv-key">U</span></div>
+              <div class="inv-panel-row"><span id="panel-shield-label">Riot Shield</span><span id="panel-shield-count">0</span><span class="inv-key">6</span></div>
+              <div class="inv-panel-row"><span id="panel-knife-label">Throwing Knife</span><span id="panel-knife-count">0</span><span class="inv-key">7</span></div>
+              <div class="inv-panel-row"><span id="panel-turretkit-label">Turret Kit</span><span id="panel-turretkit-count">0</span><span class="inv-key">8</span></div>
+              <div class="inv-panel-row"><span id="panel-alarmkit-label">Alarm Kit</span><span id="panel-alarmkit-count">0</span><span class="inv-key">9</span></div>
+              <div class="inv-panel-row"><span id="panel-ration-label">Ration</span><span id="panel-ration-count">0</span><span class="inv-key">0</span></div>
+              <div class="inv-panel-row"><span id="panel-water-label">Water Bottle</span><span id="panel-water-count">0</span><span class="inv-key">'</span></div>
+            </div>
+          </div>
         </div>
-        <h2 id="weapons-title">Weapons</h2>
-        <div class="inv-panel-section" id="panel-weapons-list"></div>
         <p id="inventory-hint">Press TAB to close</p>
       </div>
 
@@ -1366,8 +1372,12 @@
           <h3>GayZ</h3>
           <p>Built solo as a hobby project. Thanks for playing.</p>
           <p>Questions, feedback, or data requests: <a href="https://discord.gg/8fhmGv2k" target="_blank" rel="noopener noreferrer">Discord</a> &middot; <a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy Policy</a></p>
-          <h3>Assets</h3>
-          <p>3D models courtesy of Kenney.nl, Quaternius, and the poly.pizza community, all under CC0 &mdash; free for any use, no attribution required, credited here anyway because their work made this game possible.</p>
+          <h3>Owner</h3>
+          <p>Gaymi</p>
+          <h3>Co-Owner</h3>
+          <p>Gaybot</p>
+          <h3>Testers &amp; Contributors</h3>
+          <p>&mdash;</p>
         </div>
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>
@@ -1377,6 +1387,7 @@
         <div id="whatsnew-content">
           <p id="build-version-line"></p>
           <div id="changelog-list">
+            <div class="changelog-entry"><span class="changelog-date">Aug 12, 2026</span><span class="changelog-text">Big batch of fixes and tweaks: your nickname keeps its real capitalization above your character now, Random only previews a name until you confirm it with the pencil, Points shows a clean whole number, Friend List reordered with a new Status picker (Online/Idle/Do Not Disturb/Offline, with "last seen" for offline friends), Credits now lists Owner/Co-Owner/Testers, What's New is wider, page text is no longer draggable/selectable, copying an ID shows a "Copied" badge, Zombie Survival mode got Build Mode's V-key zoom, C4 is now one key (J) instead of two, the Weapons list moved beside your items in the Tab inventory, healing now caps at 2000 (spawn is still 1000), and the hotbar's 1/2/3 numbers are bigger and reordered (3 on top).</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 12, 2026</span><span class="changelog-text">Touched up the default character's skin - a small black patch at the hip is now gray, matching the rest of the design.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 12, 2026</span><span class="changelog-text">Fixed a coordinate bug that made the left leg's pants texture come out garbled/misaligned instead of matching the right leg.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 12, 2026</span><span class="changelog-text">The default character is now your actual minecraftskins.com design, pixel-accurate - "G" logo and all. Also fixed skin uploads rendering as a near-black blob for skins that put their design on the overlay layer (a common thing skin editors do) instead of the base layer - both are now read correctly.</span></div>
@@ -1480,24 +1491,34 @@
           <button id="friends-signin-btn">Sign in with Google</button>
         </div>
         <div id="friends-signed-in" style="display: none">
-          <div id="friend-requests-header">
-            <h3 id="friend-requests-heading">Friend Requests</h3>
-            <span id="friend-requests-count"></span>
-            <button id="delete-all-requests-btn" class="mini-action-btn" type="button" style="display: none">Delete All</button>
+          <div id="friends-col-add">
+            <h3 id="add-friend-heading">Add a Friend</h3>
+            <p id="friends-own-id-line">Your ID: <span id="friends-own-id"></span></p>
+            <div id="cloudsave-friend-row">
+              <input type="text" id="cloudsave-friend-input" class="nickname-input" placeholder="Friend's ID" maxlength="10" />
+              <button id="send-friend-request-btn" class="mini-action-btn" type="button">Add Friend</button>
+            </div>
+            <p id="cloudsave-friend-result"></p>
           </div>
-          <div id="friend-requests-list"></div>
+
+          <div id="status-row">
+            <h3 id="status-row-heading">Status</h3>
+            <div id="status-picker-options">
+              <button type="button" class="status-pick-btn" data-status="online"><span class="friend-status-dot" data-status="online"></span>Online</button>
+              <button type="button" class="status-pick-btn" data-status="idle"><span class="friend-status-dot" data-status="idle"></span>Idle</button>
+              <button type="button" class="status-pick-btn" data-status="dnd"><span class="friend-status-dot" data-status="dnd"></span>Do Not Disturb</button>
+              <button type="button" class="status-pick-btn" data-status="offline"><span class="friend-status-dot" data-status="offline"></span>Offline</button>
+            </div>
+          </div>
 
           <div id="friends-two-col">
-            <div id="friends-col-add">
-              <h3 id="add-friend-heading">Add a Friend</h3>
-              <p id="friends-own-id-line">Your ID: <span id="friends-own-id"></span></p>
-              <div id="cloudsave-friend-row">
-                <input type="text" id="cloudsave-friend-input" class="nickname-input" placeholder="Friend's ID" maxlength="10" />
-                <button id="send-friend-request-btn" class="mini-action-btn" type="button">Add Friend</button>
+            <div id="friends-col-requests">
+              <div id="friend-requests-header">
+                <h3 id="friend-requests-heading">Friend Requests</h3>
+                <span id="friend-requests-count"></span>
+                <button id="delete-all-requests-btn" class="mini-action-btn" type="button" style="display: none">Delete All</button>
               </div>
-              <p id="cloudsave-friend-result"></p>
-              <label id="dnd-toggle-row" class="friend-toggle-row"><input type="checkbox" id="dnd-toggle" /><span>Do Not Disturb</span></label>
-              <label id="hide-status-toggle-row" class="friend-toggle-row"><input type="checkbox" id="hide-status-toggle" /><span>Hide my online status from friends</span></label>
+              <div id="friend-requests-list"></div>
             </div>
             <div id="friends-col-list">
               <h3 id="cloudsave-friend-title">Your Friends</h3>

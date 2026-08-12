@@ -27,6 +27,22 @@ html, body {
   background: #000;
   font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   color: #eee;
+  /* Text and images throughout the game are unselectable/undraggable by
+     default (can't be highlighted or dragged out) - re-enabled below for
+     the handful of elements that actually need it (real text inputs, and
+     #friends-own-id which is deliberately select-all for easy copying). */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+input, textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+img {
+  -webkit-user-drag: none;
+  user-drag: none;
 }
 
 /* Dyslexia-friendly font (Settings > Controls) - Lexend, a real font
@@ -494,10 +510,15 @@ html.layout-compact .menu-panel {
   text-align: left;
 }
 
-#friends-col-add,
+#friends-col-requests,
 #friends-col-list {
   flex: 1;
   min-width: 220px;
+}
+
+#friends-col-add {
+  width: 100%;
+  text-align: left;
 }
 
 @media (max-width: 560px) {
@@ -526,6 +547,44 @@ html.layout-compact .menu-panel {
   font-size: 12px;
   opacity: 0.85;
   cursor: pointer;
+}
+
+/* Player's own presence Status picker - sits between "Add a Friend" and
+   the Friend Requests/Your Friends columns. Reuses .friend-status-dot's
+   data-status color keying so the pill colors always match the dots shown
+   next to friends in "Your Friends" below. */
+#status-row {
+  width: 100%;
+  text-align: left;
+}
+
+#status-picker-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.status-pick-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  color: #ccc;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 14px;
+  cursor: pointer;
+}
+
+.status-pick-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.status-pick-btn.active {
+  color: #e8e8e2;
+  background: rgba(227, 166, 60, 0.16);
+  border-color: #e3a63c;
 }
 
 #cloudsave-saved-friends {
@@ -1869,6 +1928,39 @@ select option {
   padding: 0;
 }
 
+/* "Copied" oval badge - shown right above an ID after clicking it (see
+   _showCopiedBadge). Fixed positioning + JS-set left/top since it needs
+   to appear above whatever element was actually clicked, not one fixed
+   screen slot like the other toasts here. */
+.copied-oval-badge {
+  position: fixed;
+  transform: translate(-50%, -100%);
+  padding: 4px 16px;
+  background: #e3a63c;
+  color: #1a1a1a;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  opacity: 0;
+  z-index: 40;
+}
+
+.copied-oval-badge.show {
+  animation-name: copiedBadgePop;
+  animation-duration: 1.4s;
+  animation-timing-function: ease-out;
+}
+
+@keyframes copiedBadgePop {
+  0% { opacity: 0; transform: translate(-50%, -90%); }
+  15% { opacity: 1; transform: translate(-50%, -110%); }
+  80% { opacity: 1; transform: translate(-50%, -110%); }
+  100% { opacity: 0; transform: translate(-50%, -125%); }
+}
+
 #lore-toast {
   position: absolute;
   bottom: 130px;
@@ -2076,10 +2168,11 @@ select option {
   text-align: left;
 }
 
-/* Narrower than #credits-content (0.8x) per request - the changelog text
-   was reading as too wide a line length at the full Credits-panel width. */
+/* Widened past #credits-content per request (less scrolling to read the
+   changelog) - capped at 88vw rather than 100vw so it never touches the
+   edges of the screen on a narrow window. */
 #whatsnew-content {
-  width: min(336px, 84vw);
+  width: min(480px, 88vw);
   max-height: 60vh;
   overflow-y: auto;
   text-align: left;
@@ -2260,6 +2353,32 @@ select option {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   overflow: hidden;
+}
+
+/* Weapons (left) + consumable items (right), side by side instead of
+   weapons stacked underneath the long items list. */
+#inventory-columns {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+#inventory-weapons-col,
+#inventory-items-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#inventory-weapons-col .inv-panel-section {
+  width: 220px;
+}
+
+@media (max-width: 640px) {
+  #inventory-columns {
+    flex-direction: column;
+    align-items: center;
+  }
 }
 
 .inv-panel-row {
@@ -3536,7 +3655,11 @@ select option {
   right: 24px;
   bottom: 90px;
   display: none;
-  flex-direction: column;
+  /* Reversed so slot 3 renders on top / slot 1 on bottom - visual order
+     only, DOM/JS order (and which number key selects which weapon) is
+     untouched, see Game.js's hotbarSlotEls which indexes by document
+     order. */
+  flex-direction: column-reverse;
   align-items: flex-end;
   gap: 4px;
   pointer-events: none;
@@ -3555,7 +3678,7 @@ select option {
 }
 
 .weapon-quick-num {
-  font-size: 10px;
+  font-size: 30px;
   font-weight: 700;
   opacity: 0.55;
 }
@@ -4319,6 +4442,12 @@ html.theme-lighter #app { filter: brightness(1.25); }
 
 .menu-panel-title:not(:first-child) {
   margin-top: 12px;
+}
+
+/* Player's chosen nickname keeps its original casing (not forced uppercase
+   like other panel titles that share .menu-panel-title). */
+#player-showcase-title {
+  text-transform: none;
 }
 
 .menu-field-label {

@@ -119,7 +119,8 @@ service cloud.firestore {
         && (!('region' in request.resource.data) || request.resource.data.region in ['na', 'eu', 'asia', 'sa', 'oceania', 'africa'])
         && (!('playerId' in request.resource.data) || (request.resource.data.playerId is string && request.resource.data.playerId.size() >= 6 && request.resource.data.playerId.size() <= 10))
         && (!('lastActiveAt' in request.resource.data) || request.resource.data.lastActiveAt is int)
-        && (!('doNotDisturb' in request.resource.data) || request.resource.data.doNotDisturb is bool);
+        && (!('doNotDisturb' in request.resource.data) || request.resource.data.doNotDisturb is bool)
+        && (!('manualIdle' in request.resource.data) || request.resource.data.manualIdle is bool);
     }
 
     match /weeklyLeaderboard/{week}/entries/{userId} {
@@ -265,9 +266,9 @@ export async function pushLeaderboardEntry(uid, entry) {
 // "doc must already exist" precondition) - merge onto a nonexistent doc
 // would still create one, just missing the required validated fields,
 // which the security rule would then reject anyway.
-export async function updateLastActive(uid, doNotDisturb) {
+export async function updateLastActive(uid, doNotDisturb, manualIdle) {
   const { db, fsMod } = await ensureApp()
-  await fsMod.setDoc(fsMod.doc(db, 'leaderboard', uid), { lastActiveAt: Date.now(), doNotDisturb: !!doNotDisturb }, { merge: true })
+  await fsMod.setDoc(fsMod.doc(db, 'leaderboard', uid), { lastActiveAt: Date.now(), doNotDisturb: !!doNotDisturb, manualIdle: !!manualIdle }, { merge: true })
 }
 
 // One direct doc read by uid (not a query) - used to check a single
@@ -280,7 +281,7 @@ export async function fetchPresence(uid) {
   const snap = await fsMod.getDoc(fsMod.doc(db, 'leaderboard', uid))
   if (!snap.exists()) return null
   const data = snap.data()
-  return { lastActiveAt: data.lastActiveAt || null, doNotDisturb: !!data.doNotDisturb }
+  return { lastActiveAt: data.lastActiveAt || null, doNotDisturb: !!data.doNotDisturb, manualIdle: !!data.manualIdle }
 }
 
 // region: optional, one of REGION_OPTIONS (Game.js) - omitted or 'global'

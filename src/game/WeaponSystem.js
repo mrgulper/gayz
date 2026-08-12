@@ -48,6 +48,12 @@ const IDLE_INSPECT_FADE_S = 1.5
 // subtle sense-of-speed widen rather than a full sprint-specific FOV value.
 const SPRINT_FOV_KICK = 8
 const SPRINT_FOV_LERP_SPEED = 6
+// Hold-V zoom (same binoculars/scope-style zoom Build Mode already has,
+// mirrored here) - blends in via zoomAmount rather than overriding
+// camera.fov directly, so it combines smoothly with ADS/sprint instead of
+// fighting them for control of the same frame's FOV.
+const VKEY_ZOOM_FOV = 20
+const VKEY_ZOOM_LERP_SPEED = 10
 
 const KNIFE_DAMAGE = 150
 const IGNITE_DURATION_MS = 3000
@@ -532,6 +538,8 @@ export class WeaponSystem {
     this._meleeSwing = 0
     this.aiming = false
     this.aimAmount = 0
+    this.manualZoom = false
+    this.zoomAmount = 0
     this.defaultFov = camera.fov
     this.aimFov = camera.fov * 0.6
     this._lerpedViewmodelPos = new THREE.Vector3()
@@ -584,6 +592,7 @@ export class WeaponSystem {
     window.addEventListener('keydown', (e) => this._onKey(e))
     window.addEventListener('keyup', (e) => {
       if (e.code === getKeyFor('weaponInspect')) this.inspecting = false
+      if (e.code === 'KeyV') this.manualZoom = false
     })
 
     onLanguageChange(() => this._updateHud(this.reloading))
@@ -890,6 +899,8 @@ export class WeaponSystem {
     // _idleInspectAmount (see update()) instead of a separate animation,
     // just triggered on demand instead of only after 5s of standing still.
     else if (e.code === getKeyFor('weaponInspect') && !this.current.melee) this.inspecting = true
+    // Hold-V zoom, same key as Build Mode's zoom (see VKEY_ZOOM_FOV above).
+    else if (e.code === 'KeyV') this.manualZoom = true
   }
 
   // Public entry point for switching by slot index - used by Game.js's
@@ -993,7 +1004,9 @@ export class WeaponSystem {
     // than a hard gate, so it never fights the much larger ADS FOV pull.
     this._sprintFovAmount = THREE.MathUtils.damp(this._sprintFovAmount, isSprinting ? 1 : 0, SPRINT_FOV_LERP_SPEED, dt)
     const baseFov = THREE.MathUtils.lerp(this.defaultFov, aimFov, this.aimAmount)
-    this.camera.fov = baseFov + this._sprintFovAmount * SPRINT_FOV_KICK * (1 - this.aimAmount)
+    const preZoomFov = baseFov + this._sprintFovAmount * SPRINT_FOV_KICK * (1 - this.aimAmount)
+    this.zoomAmount = THREE.MathUtils.damp(this.zoomAmount, this.manualZoom ? 1 : 0, VKEY_ZOOM_LERP_SPEED, dt)
+    this.camera.fov = THREE.MathUtils.lerp(preZoomFov, VKEY_ZOOM_FOV, this.zoomAmount)
     this.camera.updateProjectionMatrix()
 
     // Scoped ADS (see aimFov above) narrows the FOV far more aggressively

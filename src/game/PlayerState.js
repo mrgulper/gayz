@@ -1,4 +1,10 @@
 const MAX_HEALTH = 1000
+// Hard ceiling on maxHealth regardless of how many health-boosting
+// upgrades/perks/traits a player stacks (CoinShop/MetaProgress/Perks/
+// XpUpgrades/Game.js all do `playerState.maxHealth += X` in various
+// places) - enforced via the get/set pair below instead of touching every
+// one of those call sites individually.
+const MAX_HEALTH_CEILING = 2000
 const MAX_ARMOR = 100
 const ARMOR_ABSORB_RATIO = 0.5
 const INFECTION_DRAIN_PER_SEC = 3
@@ -7,7 +13,7 @@ const INFECTION_MIN_HEALTH = 40 // infection alone can never finish the player o
 
 export class PlayerState {
   constructor() {
-    this.maxHealth = MAX_HEALTH
+    this._maxHealth = MAX_HEALTH
     this.maxArmor = MAX_ARMOR
     this.health = MAX_HEALTH
     this.armor = 0
@@ -17,6 +23,14 @@ export class PlayerState {
     // Run summary screen (see Game.js's _onPlayerDeath) - actual health
     // lost, after armor absorption, not the raw pre-absorption amount.
     this.totalDamageTaken = 0
+  }
+
+  get maxHealth() {
+    return this._maxHealth
+  }
+
+  set maxHealth(value) {
+    this._maxHealth = Math.min(MAX_HEALTH_CEILING, value)
   }
 
   takeDamage(amount) {
