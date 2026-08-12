@@ -2263,14 +2263,22 @@ select option {
 }
 
 .inv-panel-row {
-  display: flex;
+  display: grid;
+  /* Fixed count column so numbers line up across rows regardless of how
+     long each row's label is - a flex space-between here let a short
+     label like "Molotov" push its count far left of a long label like
+     "Health Pack"'s count, so the numbers never actually formed a column. */
+  grid-template-columns: 1fr 56px auto;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   padding: 10px 14px;
   font-size: 15px;
   font-variant-numeric: tabular-nums;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.inv-panel-row > span:nth-child(2) {
+  text-align: right;
 }
 
 .inv-panel-row:last-child {
@@ -3322,24 +3330,6 @@ select option {
   text-align: left;
 }
 
-#loadout-code-row {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  margin-top: 8px;
-}
-
-#loadout-code-input {
-  flex: 1;
-  min-width: 0;
-  padding: 6px 8px;
-  font-size: 12px;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 6px;
-  color: #eee;
-}
-
 #challenge-code-input {
   margin-top: 4px;
 }
@@ -3405,7 +3395,6 @@ select option {
 #clear-leaderboards-btn,
 #copy-text-recap-btn,
 #accept-challenge-btn,
-#apply-loadout-code-btn,
 #share-setup-btn,
 #share-profile-btn,
 #share-challenge-btn,

@@ -22,11 +22,13 @@ const IDLE_SPIN_SPEED = 0.24
 // silhouette reads as instantly recognizable. This is the DEFAULT skin
 // every new player gets (no skin-customization system exists yet) -
 // colors match a small reference skin thumbnail supplied directly (dark
-// hair, tan skin, a dark teal top, purple/violet pants) - the thumbnail
-// was very small/low-res, so this is a best-effort color match, not a
-// pixel-exact copy; flag it if it's off and it can be re-tuned.
+// hair, tan skin, a near-black top with a white collar patch, purple/
+// violet pants) - the thumbnail was very small/low-res, so this is a
+// best-effort color match, not a pixel-exact copy; flag it if it's off
+// and it can be re-tuned.
 const SKIN_TONE = 0xd9a066
-const SHIRT_COLOR = 0x2a6e6e
+const SHIRT_COLOR = 0x18181f
+const SHIRT_ACCENT_COLOR = 0xf0f0ec
 const PANTS_COLOR = 0x4a2c78
 const EYE_WHITE_COLOR = 0xffffff
 const EYE_IRIS_COLOR = 0x6a5acd
@@ -40,6 +42,7 @@ function buildCharacter() {
 
   const skinMat = new THREE.MeshStandardMaterial({ color: SKIN_TONE, roughness: 0.85 })
   const shirtMat = new THREE.MeshStandardMaterial({ color: SHIRT_COLOR, roughness: 0.8 })
+  const shirtAccentMat = new THREE.MeshStandardMaterial({ color: SHIRT_ACCENT_COLOR, roughness: 0.7 })
   const pantsMat = new THREE.MeshStandardMaterial({ color: PANTS_COLOR, roughness: 0.85 })
   const hairMat = new THREE.MeshStandardMaterial({ color: HAIR_COLOR, roughness: 0.9 })
   const shoeMat = new THREE.MeshStandardMaterial({ color: SHOE_COLOR, roughness: 0.8 })
@@ -86,6 +89,12 @@ function buildCharacter() {
   const torso = new THREE.Mesh(new THREE.BoxGeometry(8, 12, 4), shirtMat)
   torso.position.y = 16
   group.add(torso)
+
+  // White collar/undershirt patch at the neckline, matching the reference
+  // image's light-colored band across the top of the near-black shirt.
+  const collar = new THREE.Mesh(new THREE.BoxGeometry(8.1, 1.6, 4.1), shirtAccentMat)
+  collar.position.y = 21.2
+  group.add(collar)
 
   const armGeo = new THREE.BoxGeometry(4, 12, 4)
   const armL = new THREE.Mesh(armGeo, skinMat)

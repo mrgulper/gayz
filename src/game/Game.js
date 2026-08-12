@@ -2853,7 +2853,6 @@ export class Game {
     this.panelRationCount = document.getElementById('panel-ration-count')
     this.panelWaterCount = document.getElementById('panel-water-count')
     this.panelWeaponsList = document.getElementById('panel-weapons-list')
-    this.panelLoadoutPresets = document.getElementById('panel-loadout-presets')
     // Delegated once (not re-bound on every _refreshInventoryPanel render,
     // since that rebuilds the row HTML from scratch) - reads which weapon/
     // slot the clicked button belongs to off its own data attributes.
@@ -2861,12 +2860,6 @@ export class Game {
       const btn = e.target.closest('.hotbar-assign-btn')
       if (!btn || btn.disabled) return
       this._assignHotbarSlot(Number(btn.dataset.slot), btn.dataset.weapon)
-    })
-    this.panelLoadoutPresets.addEventListener('click', (e) => {
-      const saveBtn = e.target.closest('.loadout-save-btn')
-      const loadBtn = e.target.closest('.loadout-load-btn')
-      if (saveBtn) this._saveHotbarPreset(Number(saveBtn.dataset.slot))
-      else if (loadBtn && !loadBtn.disabled) this._loadHotbarPreset(Number(loadBtn.dataset.slot))
     })
     this.inventoryOpen = false
     this.staminaFill = document.getElementById('stamina-fill')
@@ -3276,8 +3269,6 @@ export class Game {
     this.printStatsSheet = document.getElementById('print-stats-sheet')
     this.copyTextRecapBtn = document.getElementById('copy-text-recap-btn')
     this.acceptChallengeBtn = document.getElementById('accept-challenge-btn')
-    this.loadoutCodeInput = document.getElementById('loadout-code-input')
-    this.applyLoadoutCodeBtn = document.getElementById('apply-loadout-code-btn')
     this.sharePanel = document.getElementById('share-panel')
     this.sharePanelTitle = document.getElementById('share-panel-title')
     this.openShareBtn = document.getElementById('open-share-btn')
@@ -7539,9 +7530,6 @@ export class Game {
     this.shareRunCardBtn.addEventListener('click', () => this._generateRunSummaryCard())
     if (this.copyTextRecapBtn) this.copyTextRecapBtn.addEventListener('click', () => this._copyTextRecap())
     if (this.acceptChallengeBtn) this.acceptChallengeBtn.addEventListener('click', () => this._acceptChallenge())
-    if (this.applyLoadoutCodeBtn) {
-      this.applyLoadoutCodeBtn.addEventListener('click', () => this._applyLoadoutCode(this.loadoutCodeInput.value))
-    }
     this.creditsBtn.addEventListener('click', () => trackAndOpen(() => this._openCreditsPanel()))
     this.coinshopBtn.addEventListener('click', () => trackAndOpen(() => this._openCoinShopPanel()))
     if (this.shopSortSelect) {
@@ -8758,25 +8746,6 @@ export class Game {
     navigator.clipboard.writeText(code)
       .then(() => this._showLoreToast(t('loadoutCodeCopied')))
       .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
-  }
-
-  _applyLoadoutCode(code) {
-    const ids = code.trim().split('-').map((s) => (s === '_' ? null : s))
-    if (ids.length !== this.settings.hotbar.length) {
-      this._showLoreToast(t('loadoutCodeInvalid'))
-      return
-    }
-    const validIds = new Set(this.weapons.weapons.map((w) => w.id))
-    for (const id of ids) {
-      if (id !== null && !validIds.has(id)) {
-        this._showLoreToast(t('loadoutCodeInvalid'))
-        return
-      }
-    }
-    this.settings.hotbar = ids
-    saveSettings(this.settings)
-    this._updateHotbarHud()
-    this._showLoreToast(t('loadoutCodeApplied'))
   }
 
   _renderControlsGrid() {
@@ -12197,8 +12166,13 @@ export class Game {
       row.style.display = this.hideEmptyInventory && countEl.textContent === '0' ? 'none' : ''
     }
 
+    // Only the weapons actually equipped in the 3-slot hotbar - the full
+    // weapon roster (unlocked or not) used to show here, which was
+    // confusing next to the HUD's own 3-weapon list.
     this.panelWeaponsList.innerHTML = this.weapons
       .getSummary()
+      .filter((w) => this.settings.hotbar.includes(w.id))
+      .sort((a, b) => this.settings.hotbar.indexOf(a.id) - this.settings.hotbar.indexOf(b.id))
       .map((w) => {
         const grandmastered = this.weaponMastery.grandmastered.has(w.id)
         const mastered = w.masteryMult > 1
@@ -12226,45 +12200,6 @@ export class Game {
       `
       })
       .join('')
-    this._renderLoadoutPresets()
-  }
-
-  // 3 named snapshots of the 5-slot hotbar (see settings.hotbarPresets'
-  // own doc comment) - save copies the CURRENT hotbar into a slot, load
-  // restores it, so switching between a couple of full weapon setups
-  // doesn't mean re-assigning every slot by hand each time.
-  _renderLoadoutPresets() {
-    this.panelLoadoutPresets.innerHTML = this.settings.hotbarPresets
-      .map((preset, i) => {
-        const summary = preset ? (preset.filter(Boolean).join(', ') || t('loadoutPresetEmptySlots')) : t('loadoutPresetEmpty')
-        return `
-        <div class="inv-panel-row">
-          <span>${t('loadoutPresetSlot', { n: i + 1 })}: ${summary}</span>
-          <span>
-            <button class="loadout-save-btn" data-slot="${i}">${t('loadoutPresetSave')}</button>
-            <button class="loadout-load-btn" data-slot="${i}" ${preset ? '' : 'disabled'}>${t('loadoutPresetLoad')}</button>
-          </span>
-        </div>
-      `
-      })
-      .join('')
-  }
-
-  _saveHotbarPreset(slot) {
-    this.settings.hotbarPresets[slot] = [...this.settings.hotbar]
-    saveSettings(this.settings)
-    this._renderLoadoutPresets()
-    this._showLoreToast(t('toastLoadoutSaved', { n: slot + 1 }))
-  }
-
-  _loadHotbarPreset(slot) {
-    const preset = this.settings.hotbarPresets[slot]
-    if (!preset) return
-    this.settings.hotbar = [...preset]
-    saveSettings(this.settings)
-    this._updateHotbarHud()
-    this._refreshInventoryPanel()
-    this._showLoreToast(t('toastLoadoutLoaded', { n: slot + 1 }))
   }
 
   _onResize() {
