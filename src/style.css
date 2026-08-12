@@ -600,9 +600,27 @@ html.layout-compact .menu-panel {
   padding: 5px 8px;
   font-size: 12px;
   color: var(--menu-text-dim, #ccc);
+  cursor: pointer;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 6px;
+}
+
+.saved-friend-row:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(227, 166, 60, 0.4);
+}
+
+#other-profile-id {
+  font-weight: 700;
+  color: #e3a63c;
+  cursor: pointer;
+  user-select: all;
+}
+
+#other-profile-stats {
+  width: 100%;
+  max-width: 320px;
 }
 
 .friend-name {
@@ -2530,6 +2548,7 @@ select option {
 #howtoplay-panel,
 #cloudsave-panel,
 #friends-panel,
+#other-profile-panel,
 #menu-inventory-panel,
 #server-panel,
 #xp-levelup-panel,

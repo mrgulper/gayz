@@ -297,6 +297,20 @@ export async function fetchPresence(uid) {
   return { lastActiveAt: data.lastActiveAt || null, doNotDisturb: !!data.doNotDisturb, manualIdle: !!data.manualIdle }
 }
 
+// One direct doc read by uid, returning the FULL public leaderboard doc
+// (unlike fetchPresence above, which only pulls out the presence fields) -
+// used to view another player's profile (see Game.js's
+// _openOtherPlayerProfile) from a friends-list click. Same doc
+// fetchLeaderboardEntryByName/ByPlayerId already read, just by uid
+// directly since a saved friend's uid is already on hand (no query
+// needed). A friend who's never completed a run has no leaderboard doc at
+// all - null, same "not an error" precedent as fetchPresence.
+export async function fetchLeaderboardEntryByUid(uid) {
+  const { db, fsMod } = await ensureApp()
+  const snap = await fsMod.getDoc(fsMod.doc(db, 'leaderboard', uid))
+  return snap.exists() ? { ...snap.data(), uid } : null
+}
+
 // region: optional, one of REGION_OPTIONS (Game.js) - omitted or 'global'
 // means worldwide, no filter applied.
 export async function fetchTopLeaderboard(n, region) {

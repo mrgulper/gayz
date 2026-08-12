@@ -3102,6 +3102,15 @@ export class Game {
     this.cloudsaveAchievementsLeaderboardTitle = document.getElementById('cloudsave-achievements-leaderboard-title')
     this.cloudsaveAchievementsLeaderboardList = document.getElementById('cloudsave-achievements-leaderboard-list')
     this.cloudsaveSavedFriends = document.getElementById('cloudsave-saved-friends')
+    this.otherProfilePanel = document.getElementById('other-profile-panel')
+    this.otherProfileName = document.getElementById('other-profile-name')
+    this.otherProfileId = document.getElementById('other-profile-id')
+    this.otherProfileLoading = document.getElementById('other-profile-loading')
+    this.otherProfileNone = document.getElementById('other-profile-none')
+    this.otherProfileStats = document.getElementById('other-profile-stats')
+    this.otherProfileBestNightValue = document.getElementById('other-profile-bestnight-value')
+    this.otherProfileBestKillsValue = document.getElementById('other-profile-bestkills-value')
+    this.otherProfileAchievementsValue = document.getElementById('other-profile-achievements-value')
     this.cloudsaveLeaderboardTitle = document.getElementById('cloudsave-leaderboard-title')
     this.cloudsaveLeaderboardList = document.getElementById('cloudsave-leaderboard-list')
     this.cloudsaveWeeklyLeaderboardList = document.getElementById('cloudsave-weekly-leaderboard-list')
@@ -7655,6 +7664,28 @@ export class Game {
     this.creditsPanel.addEventListener('click', (e) => {
       if (e.target === this.creditsPanel) this._closeCreditsPanel()
     })
+    if (this.otherProfilePanel) {
+      this.otherProfilePanel.addEventListener('click', (e) => {
+        if (e.target === this.otherProfilePanel) this._closeOtherPlayerProfile()
+      })
+    }
+    if (this.otherProfileId) {
+      this.otherProfileId.addEventListener('click', () => {
+        if (!this._otherProfileIdText) return
+        navigator.clipboard.writeText(this._otherProfileIdText).then(() => this._showCopiedBadge(this.otherProfileId)).catch(() => {})
+      })
+    }
+    // Delegated (one listener survives every _renderSavedFriends re-render,
+    // rather than needing to rebind per row) - clicking a friend's row
+    // opens their public profile, clicking the × still just removes them.
+    if (this.cloudsaveSavedFriends) {
+      this.cloudsaveSavedFriends.addEventListener('click', (e) => {
+        if (e.target.closest('.saved-friend-remove')) return
+        const row = e.target.closest('.saved-friend-row')
+        if (!row || !row.dataset.uid) return
+        this._openOtherPlayerProfile(row.dataset.uid, row.dataset.name)
+      })
+    }
     if (this.whatsNewPanel) {
       this.whatsNewPanel.addEventListener('click', (e) => {
         if (e.target === this.whatsNewPanel) this._closeWhatsNewPanel()
@@ -8308,7 +8339,7 @@ export class Game {
     if (!this.cloudsaveSavedFriends) return
     const friends = this.settings.savedFriends
     this.cloudsaveSavedFriends.innerHTML = friends.map((f) => `
-      <div class="saved-friend-row">
+      <div class="saved-friend-row" data-uid="${_escapeHtml(f.uid || '')}" data-name="${_escapeHtml(f.name)}" title="Click to view profile">
         <span class="friend-status-dot" data-status="offline"></span>
         <span class="friend-name">${_escapeHtml(f.name)}</span>
         <span class="friend-status-label">${t('friendStatusOffline')}</span>
@@ -8323,6 +8354,51 @@ export class Game {
       })
     }
     this._fetchFriendPresences(friends)
+  }
+
+  // Viewing another player's live profile - a small public read-only panel
+  // (name/id/best stats, all already-public leaderboard fields, see
+  // CloudSync.fetchLeaderboardEntryByUid) opened by clicking a row in
+  // "Your Friends". Distinct from the existing static ?viewprofile= share
+  // link (a snapshot someone posts elsewhere) - this always reflects their
+  // CURRENT live stats since it fetches fresh on every open.
+  async _openOtherPlayerProfile(uid, fallbackName) {
+    if (!this.otherProfilePanel) return
+    this.otherProfilePanel.style.display = 'flex'
+    this.otherProfileName.textContent = fallbackName || '???'
+    this._otherProfileIdText = null
+    this.otherProfileId.textContent = ''
+    this.otherProfileStats.style.display = 'none'
+    this.otherProfileNone.style.display = 'none'
+    this.otherProfileLoading.style.display = 'block'
+    let entry = null
+    try {
+      entry = await CloudSync.fetchLeaderboardEntryByUid(uid)
+    } catch {
+      // Best-effort - falls through to the "hasn't completed a run yet"
+      // state below, same as a genuine null result.
+    }
+    // The panel may have been closed (or reopened for a different friend)
+    // while this fetch was in flight - don't clobber whatever's showing now.
+    if (this.otherProfilePanel.style.display === 'none') return
+    this.otherProfileLoading.style.display = 'none'
+    if (!entry) {
+      this.otherProfileNone.style.display = 'block'
+      return
+    }
+    this.otherProfileName.textContent = entry.name || fallbackName || '???'
+    if (entry.playerId) {
+      this._otherProfileIdText = `#${entry.playerId}`
+      this.otherProfileId.textContent = this._otherProfileIdText
+    }
+    this.otherProfileBestNightValue.textContent = _safeStatNumber(entry.bestNight)
+    this.otherProfileBestKillsValue.textContent = _safeStatNumber(entry.bestKills)
+    this.otherProfileAchievementsValue.textContent = _safeStatNumber(entry.achievementCount)
+    this.otherProfileStats.style.display = 'block'
+  }
+
+  _closeOtherPlayerProfile() {
+    if (this.otherProfilePanel) this.otherProfilePanel.style.display = 'none'
   }
 
   // Fetches each friend's live status (see _computeFriendStatus) by their
