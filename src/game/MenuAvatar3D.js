@@ -226,6 +226,10 @@ const HAIR_COLOR = 0x000000
 const MOUTH_COLOR = 0x000000
 const NOSE_COLOR = 0xd72323
 const SHOE_COLOR = 0x929292
+// See the arm-positioning comment in buildTexturedCharacter for why this
+// exists - keeps the legs visible through a full side rotation instead
+// of the wider-set arms blocking them the whole way through.
+const ARM_Z_OFFSET = -3
 
 // A real uploaded skin - 6 textured boxes at Minecraft's actual skin-
 // pixel dimensions (this project's own proportions already match 1:1,
@@ -245,13 +249,21 @@ function buildTexturedCharacter(skin) {
   torso.position.y = 16
   group.add(torso)
 
+  // Arms sit a little behind the torso/legs' own z=0 plane (ARM_Z_OFFSET)
+  // rather than flush with them - with everything at the same depth, a
+  // profile view rotates the wider-set arms (x=+-6) directly in front of
+  // the narrower legs (x=+-2), fully blocking the leg's texture the
+  // whole time the camera passes that angle. The two box depths (4 each)
+  // no longer overlap once pushed apart, so the leg wins the depth test
+  // and stays visible through a full side rotation. Doesn't change the
+  // silhouette from the front (that's an X/Y projection, unaffected by Z).
   const armR = _texturedBoxMesh(4, 12, 4, 40, 16, texture, width, height, false)
-  armR.position.set(6, 16, 0)
+  armR.position.set(6, 16, ARM_Z_OFFSET)
   group.add(armR)
   const armL = legacy
     ? _texturedBoxMesh(4, 12, 4, 40, 16, texture, width, height, true)
     : _texturedBoxMesh(4, 12, 4, 32, 48, texture, width, height, false)
-  armL.position.set(-6, 16, 0)
+  armL.position.set(-6, 16, ARM_Z_OFFSET)
   group.add(armL)
 
   const legR = _texturedBoxMesh(4, 12, 4, 0, 16, texture, width, height, false)
@@ -333,10 +345,10 @@ function buildCharacter(skin) {
 
   const armGeo = new THREE.BoxGeometry(4, 12, 4)
   const armL = new THREE.Mesh(armGeo, skinMat)
-  armL.position.set(-6, 16, 0)
+  armL.position.set(-6, 16, ARM_Z_OFFSET)
   group.add(armL)
   const armR = new THREE.Mesh(armGeo, skinMat)
-  armR.position.set(6, 16, 0)
+  armR.position.set(6, 16, ARM_Z_OFFSET)
   group.add(armR)
 
   const legGeo = new THREE.BoxGeometry(4, 12, 4)
