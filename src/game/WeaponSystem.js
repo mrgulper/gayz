@@ -814,10 +814,21 @@ export class WeaponSystem {
   }
 
   // Settings hook: keeps ADS zoom math (which lerps from defaultFov) correct
-  // after the player changes their base field of view.
+  // after the player changes their base field of view. aimFov used to be
+  // hardcoded as a fixed 0.6 ratio of the base FOV - now independently
+  // settable (see setAdsFov), this just re-derives the same 0.6 default
+  // so a player who's never touched the ADS FOV setting still gets the
+  // original scaling behavior as their base FOV changes.
   setBaseFov(value) {
     this.defaultFov = value
-    this.aimFov = value * 0.6
+    if (!this._adsFovExplicitlySet) this.aimFov = value * 0.6
+  }
+
+  // Independent ADS FOV (see settings.adsFov) - once set, no longer
+  // re-derived from base FOV changes (see setBaseFov's own guard).
+  setAdsFov(value) {
+    this._adsFovExplicitlySet = true
+    this.aimFov = value
   }
 
   // Perk hook: speeds up reload across every non-melee weapon at once.

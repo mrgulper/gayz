@@ -1282,6 +1282,20 @@ html.high-contrast-mode #app {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
+/* Always centered - the current facing direction, not a landmark, so it
+   doesn't slide with bearing the way .compass-marker icons do. Style
+   (letters vs degrees) is settings.compassStyle, see _updateCompass. */
+#compass-bearing-label {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  font-weight: 700;
+  color: #f0f0f0;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
 #compass-ammo {
   color: #3fa9f5;
 }
@@ -2092,6 +2106,16 @@ select option {
   align-items: flex-end;
   gap: 4px;
   pointer-events: none;
+}
+
+/* Kill Feed Position (General tab, settings.killFeedPosition) - each
+   entry right-aligns its own text either way (kill-feed-entry has no
+   directional styling of its own), so swapping sides is just this one
+   position+alignment flip. */
+#kill-feed.kill-feed-left {
+  right: auto;
+  left: 16px;
+  align-items: flex-start;
 }
 
 .kill-feed-entry {
@@ -5230,6 +5254,24 @@ html.theme-lighter #app { filter: brightness(1.25); }
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
   pointer-events: none;
+}
+
+/* Real-time clock (General tab, settings.timeFormat) - sits just below
+   the currency bar, same corner, same pill styling. */
+#homepage-clock {
+  position: fixed;
+  top: 58px;
+  left: 16px;
+  z-index: 2;
+  padding: 4px 14px;
+  font-family: var(--menu-display-font);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(10, 10, 10, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
 }
 
 .currency-item {

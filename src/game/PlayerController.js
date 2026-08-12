@@ -83,6 +83,9 @@ const SLIDE_STAMINA_COST = 15
 // un-aware zombie has to be much closer before it notices you.
 const PRONE_EYE_HEIGHT = 0.35
 const PRONE_SPEED_MULT = 0.22
+// Default only - actual value read live off this.doubleClickSpeed (see
+// settings.doubleClickSpeed), so a player who wants a more forgiving or
+// stricter double-tap window can tune it directly.
 const PRONE_DOUBLE_TAP_MS = 300
 
 // Swimming - set live every frame from Game.js's waterBounds check (same
@@ -125,10 +128,26 @@ export class PlayerController {
     // for real the moment Build Mode is exited and _tick() resumes calling
     // this.player.update() again.
     this.suspended = false
+    this.mouseAcceleration = false
     document.addEventListener('mousemove', (e) => {
       if (Math.abs(e.movementX) > MAX_MOUSE_DELTA || Math.abs(e.movementY) > MAX_MOUSE_DELTA) {
         e.stopImmediatePropagation()
         return
+      }
+      let mx = e.movementX
+      let my = e.movementY
+      // Mouse Acceleration (see settings.mouseAcceleration) - a fast flick
+      // turns further than a slow one at the same raw distance, same idea
+      // as OS-level mouse acceleration but implemented here instead so it
+      // behaves identically across every OS/browser rather than depending
+      // on whatever acceleration curve (if any) the player's own system
+      // happens to apply. Off by default - most FPS players actually want
+      // raw 1:1 input, which is why this needs opting into.
+      if (this.mouseAcceleration) {
+        const mag = Math.hypot(mx, my)
+        const accelMult = 1 + Math.min(1, mag / 30) * 0.5
+        mx *= accelMult
+        my *= accelMult
       }
       // Invert-Y look (see this.invertY) - PointerLockControls has no
       // built-in invert option, and movementY is read-only on the native
@@ -136,9 +155,9 @@ export class PlayerController {
       // reaches PointerLockControls' own bubble-phase listener (registered
       // without capture, so it always runs after this one - same ordering
       // guarantee the delta-clamp above already relies on).
-      if (this.invertY) {
-        Object.defineProperty(e, 'movementY', { value: -e.movementY, configurable: true })
-      }
+      if (this.invertY) my = -my
+      if (mx !== e.movementX) Object.defineProperty(e, 'movementX', { value: mx, configurable: true })
+      if (my !== e.movementY) Object.defineProperty(e, 'movementY', { value: my, configurable: true })
     }, { capture: true })
 
     this.controls = new PointerLockControls(camera, domElement)
@@ -330,7 +349,7 @@ export class PlayerController {
       if (isDown && !wasDown) {
         const now = performance.now()
         if (!this.isProne && !this.isSwimming && !this.isSprinting && !this.isSliding && !this.isMantling && !this.isDodging &&
-            now - this._lastCrouchPressAt < PRONE_DOUBLE_TAP_MS) {
+            now - this._lastCrouchPressAt < (this.doubleClickSpeed || PRONE_DOUBLE_TAP_MS)) {
           this.isProne = true
         } else if (this.isProne) {
           this.isProne = false

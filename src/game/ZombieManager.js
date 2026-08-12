@@ -1225,7 +1225,7 @@ export class ZombieManager {
     })
   }
 
-  _updateAmbientMoan(playerPos) {
+  _updateAmbientMoan(playerPos, playerForwardX, playerForwardZ) {
     if (performance.now() < this.nextMoanAt) return
 
     // find (not some) so the moan can be pitched for whichever zombie
@@ -1236,7 +1236,21 @@ export class ZombieManager {
       return dist <= MOAN_RADIUS
     })
 
-    if (nearby) audioEngine.playZombieMoan(nearby.config.scale)
+    if (nearby) {
+      // Camera-relative left/right pan (see Audio.js's setPositionalAudio) -
+      // rotate the direction to the zombie into view space by taking its
+      // dot product with the camera's own right vector (a 90-degree turn
+      // of the forward vector in the XZ plane), not just raw world-space X,
+      // so panning still reads correctly no matter which way the player is
+      // currently facing.
+      const dx = nearby.group.position.x - playerPos.x
+      const dz = nearby.group.position.z - playerPos.z
+      const dist = Math.hypot(dx, dz) || 1
+      const rightX = -playerForwardZ
+      const rightZ = playerForwardX
+      const pan = (dx / dist) * rightX + (dz / dist) * rightZ
+      audioEngine.playZombieMoan(nearby.config.scale, pan)
+    }
     this.nextMoanAt = performance.now() + this._randomMoanDelay()
   }
 
@@ -1513,7 +1527,7 @@ export class ZombieManager {
     this._updateProjectiles(dt, playerPos, onPlayerDamage, onPlayerPull, onPlayerDisorient, onWebLand)
     this._updateExplosionFx()
     this._updateScreamFx()
-    this._updateAmbientMoan(playerPos)
+    this._updateAmbientMoan(playerPos, playerForwardX, playerForwardZ)
     this._updateNoisemakerThrows(dt)
     this._updateGrenadeThrows(dt)
     this._updateKnifeThrows(dt)

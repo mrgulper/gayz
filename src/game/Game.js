@@ -4,6 +4,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass.js'
+import { AfterimagePass } from 'three/examples/jsm/postprocessing/AfterimagePass.js'
 import { buildWorld, WORLD_CULL_DISTANCE, WORLD_SHADOW_CULL_DISTANCE, CAMPFIRE_X, CAMPFIRE_Z } from './World.js'
 import { LOW_QUALITY_MODE, flatMaterial } from './QualitySettings.js'
 import { PlayerController } from './PlayerController.js'
@@ -223,6 +224,9 @@ function loadSettings() {
       language: parsed.language || 'en',
       musicVolume: parsed.musicVolume ?? 100,
       sfxVolume: parsed.sfxVolume ?? 100,
+      ambientVolume: parsed.ambientVolume ?? 100,
+      muteOnTabBlur: parsed.muteOnTabBlur ?? false,
+      positionalAudio: parsed.positionalAudio ?? true,
       difficulty: DIFFICULTY_PRESETS[parsed.difficulty] ? parsed.difficulty : 'normal',
       sensitivity: parsed.sensitivity ?? 100,
       invertY: parsed.invertY ?? false,
@@ -234,7 +238,12 @@ function loadSettings() {
       // Accessibility (see the settings-page-controls HTML section) -
       // shakeIntensity/toastDuration are percentages of the normal/default
       // value, not absolute units.
-      shakeIntensity: parsed.shakeIntensity ?? 100,
+      // Split from the old single shakeIntensity into two independent
+      // sliders (weapon recoil kick vs damage/explosion impact shake) -
+      // both fall back to whatever the old combined value already was, so
+      // an existing save doesn't silently reset to 100/100.
+      recoilShakeIntensity: parsed.recoilShakeIntensity ?? parsed.shakeIntensity ?? 100,
+      damageShakeIntensity: parsed.damageShakeIntensity ?? parsed.shakeIntensity ?? 100,
       reduceFlashing: parsed.reduceFlashing ?? false,
       toggleSprint: parsed.toggleSprint ?? false,
       toggleCrouch: parsed.toggleCrouch ?? false,
@@ -244,6 +253,20 @@ function loadSettings() {
       toastDuration: parsed.toastDuration ?? 100,
       crosshairColor: parsed.crosshairColor || '#ffffff',
       crosshairSize: parsed.crosshairSize ?? 100,
+      adsFov: parsed.adsFov ?? 45,
+      motionBlur: parsed.motionBlur ?? false,
+      fpsCap: parsed.fpsCap ?? 0,
+      mouseAcceleration: parsed.mouseAcceleration ?? false,
+      invertScrollWeaponSwitch: parsed.invertScrollWeaponSwitch ?? false,
+      doubleClickSpeed: parsed.doubleClickSpeed ?? 300,
+      killFeedPosition: parsed.killFeedPosition === 'left' ? 'left' : 'right',
+      compassStyle: parsed.compassStyle === 'degrees' ? 'degrees' : 'letters',
+      showWeaponNameHud: parsed.showWeaponNameHud ?? true,
+      minimapDefaultZoom: parsed.minimapDefaultZoom ?? 1,
+      friendPresenceNotify: parsed.friendPresenceNotify ?? true,
+      dailyChallengeReminder: parsed.dailyChallengeReminder ?? true,
+      timeFormat: parsed.timeFormat === '24h' ? '24h' : '12h',
+      autoSaveFrequencySec: parsed.autoSaveFrequencySec ?? 30,
       // Corner-badge ID (see _generatePlayerId above) - unlike nickname,
       // this always backfills if missing (not just for a fully-fresh
       // player), since it's a new field every already-existing save is
@@ -445,7 +468,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, killFeedPosition: 'right', compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -653,8 +676,8 @@ const MUTATOR_LABEL_KEYS = {
 // player's identity) since this is meant to be pasted/shared with someone
 // else, unlike Export Save's full-fidelity file backup.
 const SETTINGS_CODE_KEYS = [
-  'musicVolume', 'sfxVolume', 'sensitivity', 'invertY', 'fov', 'hudScale', 'hudOpacity',
-  'colorblind', 'shakeIntensity', 'reduceFlashing', 'toggleSprint', 'toggleCrouch', 'toggleAds',
+  'musicVolume', 'sfxVolume', 'ambientVolume', 'sensitivity', 'invertY', 'fov', 'adsFov', 'hudScale', 'hudOpacity',
+  'colorblind', 'recoilShakeIntensity', 'damageShakeIntensity', 'reduceFlashing', 'toggleSprint', 'toggleCrouch', 'toggleAds',
   'aimAssist', 'bigInteractPrompt', 'toastDuration', 'crosshairSize', 'largeTextMode',
   'highContrastMode', 'dyslexiaFont', 'focusRingMode', 'keybindCheatSheet', 'showHitFeedback',
   'performanceMode', 'bgMood', 'renderResolution', 'brightness', 'contrast', 'aoIntensity',
@@ -2900,6 +2923,7 @@ export class Game {
     this._wheelHighlightIndex = -1
     this._wheelSegments = []
     this.compassStrip = document.getElementById('compass-strip')
+    this.compassBearingLabel = document.getElementById('compass-bearing-label')
     this.compassTrader = document.getElementById('compass-trader')
     this.compassAmmo = document.getElementById('compass-ammo')
     this.compassVehicle = document.getElementById('compass-vehicle')
@@ -3148,11 +3172,21 @@ export class Game {
     this.sfxVolumeSlider = document.getElementById('sfx-volume')
     this.sfxVolumeValue = document.getElementById('sfx-volume-value')
     this.sfxTestBtn = document.getElementById('sfx-test-btn')
+    this.ambientVolumeSlider = document.getElementById('ambient-volume')
+    this.ambientVolumeValue = document.getElementById('ambient-volume-value')
+    this.muteOnBlurToggle = document.getElementById('mute-on-blur-toggle')
+    this.positionalAudioToggle = document.getElementById('positional-audio-toggle')
     this.sensitivitySlider = document.getElementById('sensitivity-slider')
     this.sensitivityValue = document.getElementById('sensitivity-value')
     this.invertYToggle = document.getElementById('invert-y-toggle')
     this.fovSlider = document.getElementById('fov-slider')
     this.fovValue = document.getElementById('fov-value')
+    this.adsFovSlider = document.getElementById('ads-fov-slider')
+    this.adsFovValue = document.getElementById('ads-fov-value')
+    this.mouseAccelerationToggle = document.getElementById('mouse-acceleration-toggle')
+    this.invertScrollToggle = document.getElementById('invert-scroll-toggle')
+    this.doubleClickSpeedSlider = document.getElementById('double-click-speed-slider')
+    this.doubleClickSpeedValue = document.getElementById('double-click-speed-value')
     this.hudScaleSlider = document.getElementById('hud-scale-slider')
     this.hudScaleValue = document.getElementById('hud-scale-value')
     this.hudOpacitySlider = document.getElementById('hud-opacity-slider')
@@ -3169,12 +3203,16 @@ export class Game {
     this.keybindCheatsheet = document.getElementById('keybind-cheatsheet')
     this.hitFeedbackToggle = document.getElementById('hit-feedback-toggle')
     this.performanceToggle = document.getElementById('performance-toggle')
-    this.shakeIntensitySlider = document.getElementById('shake-intensity-slider')
-    this.shakeIntensityValue = document.getElementById('shake-intensity-value')
+    this.recoilShakeSlider = document.getElementById('recoil-shake-slider')
+    this.recoilShakeValue = document.getElementById('recoil-shake-value')
+    this.damageShakeSlider = document.getElementById('damage-shake-slider')
+    this.damageShakeValue = document.getElementById('damage-shake-value')
     this.reduceFlashingToggle = document.getElementById('reduce-flashing-toggle')
     // Graphics tab (see _bindGraphicsSettings)
     this.gfxResolutionSlider = document.getElementById('gfx-resolution-slider')
     this.gfxResolutionValue = document.getElementById('gfx-resolution-value')
+    this.fpsCapSelect = document.getElementById('fps-cap-select')
+    this.motionBlurToggle = document.getElementById('motion-blur-toggle')
     this.gfxBrightnessSlider = document.getElementById('gfx-brightness-slider')
     this.gfxBrightnessValue = document.getElementById('gfx-brightness-value')
     this.gfxContrastSlider = document.getElementById('gfx-contrast-slider')
@@ -3193,6 +3231,17 @@ export class Game {
     this.gfxGrainValue = document.getElementById('gfx-grain-value')
     this.gfxPanelFlickerToggle = document.getElementById('gfx-panel-flicker-toggle')
     this.resetGraphicsDefaultsBtn = document.getElementById('reset-graphics-defaults-btn')
+    // General tab (see _bindGeneralSettings)
+    this.killFeedPositionSelect = document.getElementById('kill-feed-position-select')
+    this.compassStyleSelect = document.getElementById('compass-style-select')
+    this.weaponNameHudToggle = document.getElementById('weapon-name-hud-toggle')
+    this.minimapZoomSelect = document.getElementById('minimap-zoom-select')
+    this.friendPresenceNotifyToggle = document.getElementById('friend-presence-notify-toggle')
+    this.dailyChallengeReminderToggle = document.getElementById('daily-challenge-reminder-toggle')
+    this.timeFormatSelect = document.getElementById('time-format-select')
+    this.autosaveFrequencySlider = document.getElementById('autosave-frequency-slider')
+    this.autosaveFrequencyValue = document.getElementById('autosave-frequency-value')
+    this.homepageClockEl = document.getElementById('homepage-clock')
     this.streamSafeModeToggle = document.getElementById('stream-safe-mode-toggle')
     this.toggleSprintToggle = document.getElementById('toggle-sprint-toggle')
     this.toggleCrouchToggle = document.getElementById('toggle-crouch-toggle')
@@ -3596,6 +3645,17 @@ export class Game {
     // purely cosmetic effect - off by default under LOW_QUALITY_MODE.
     this.bloomPass.enabled = !LOW_QUALITY_MODE
     this.composer.addPass(this.bloomPass)
+    // Motion Blur (Graphics tab, settings.motionBlur) - AfterimagePass
+    // blends each frame with a damped copy of the previous one, a cheap
+    // accumulation-style trail rather than a true per-object velocity-
+    // buffer blur, but reads convincingly as motion blur for camera
+    // turns/movement, which is what most players actually mean by the
+    // setting. Off by default - some players find any trailing genuinely
+    // uncomfortable, not just a preference.
+    this.afterimagePass = new AfterimagePass()
+    this.afterimagePass.uniforms.damp.value = 0.75
+    this.afterimagePass.enabled = false
+    this.composer.addPass(this.afterimagePass)
     this.composer.addPass(new OutputPass())
 
     const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, upgradeMachine, mysteryBox, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel, toxicSewerLevel, mineLevel, manholeCovers, waterTowerValve, containerStaircase, industrialSiren, wreckingPendulum, scaffolding, elevatorTower, payphone, tacticalStreetlights, grassBounds, waterBounds } = buildWorld(this.scene, ACHIEVEMENTS.length)
@@ -4293,6 +4353,11 @@ export class Game {
     this.gameStarted = false
     this.decals = new DecalManager(this.scene)
     this.minimap = new Minimap(this.minimapCanvas)
+    // Default Minimap Zoom (General tab, settings.minimapDefaultZoom) -
+    // the in-game zoom keybind (see cycleZoom) still works exactly the
+    // same afterward, this just picks which of the 3 levels a fresh run
+    // starts on instead of always defaulting to "Normal."
+    this.minimap.zoomIndex = this.settings.minimapDefaultZoom
     this._camDir = new THREE.Vector3()
     this._gamepadEuler = new THREE.Euler(0, 0, 0, 'YXZ')
     this._gamepadInteractWasDown = false
@@ -4425,7 +4490,7 @@ export class Game {
         this.decals.spawn(point, normal, isZombie)
       },
       () => {
-        this._triggerShake(0.05, 90)
+        this._triggerShake(0.05, 90, 0, 0, 'recoil')
         this._triggerHitstop(40)
         // Shot-accuracy tracking (Profile panel) - fires once per shot
         // that connected (hitZombies.size > 0 in _fire(), not per pellet),
@@ -4441,7 +4506,7 @@ export class Game {
         this.careerStats.lifetimeDamageDealt = (this.careerStats.lifetimeDamageDealt || 0) + damage
       },
       (intensity, durationMs) => {
-        this._triggerShake(intensity, durationMs)
+        this._triggerShake(intensity, durationMs, 0, 0, 'recoil')
         this._alertNearbyZombiesToGunfire()
         this._maybeTriggerStampede()
       },
@@ -4539,6 +4604,7 @@ export class Game {
     this._bindHotbar()
     this._bindSettings()
     this._bindGraphicsSettings()
+    this._bindGeneralSettings()
     this._bindDifficulty()
     this._bindCompanionRole()
     this._bindLoadout()
@@ -6748,6 +6814,40 @@ export class Game {
       saveSettings(this.settings)
     })
 
+    this.ambientVolumeSlider.value = this.settings.ambientVolume
+    this.ambientVolumeValue.textContent = `${this.settings.ambientVolume}%`
+    audioEngine.setAmbientVolume(this.settings.ambientVolume / 100)
+    this.ambientVolumeSlider.addEventListener('input', () => {
+      const value = Number(this.ambientVolumeSlider.value)
+      this.ambientVolumeValue.textContent = `${value}%`
+      this.settings.ambientVolume = value
+      audioEngine.setAmbientVolume(value / 100)
+      saveSettings(this.settings)
+    })
+
+    this.muteOnBlurToggle.checked = this.settings.muteOnTabBlur
+    this.muteOnBlurToggle.addEventListener('change', () => {
+      this.settings.muteOnTabBlur = this.muteOnBlurToggle.checked
+      saveSettings(this.settings)
+    })
+    // Belongs here rather than a per-tab bind since it needs to keep
+    // working regardless of which settings tab (or panel) is open when
+    // the player alt-tabs away - checked live off this.settings each
+    // time, not captured once at bind time.
+    document.addEventListener('visibilitychange', () => {
+      if (!this.settings.muteOnTabBlur) return
+      if (document.hidden) audioEngine.pause()
+      else if (this.gameStarted && this.player.controls.isLocked) audioEngine.resume()
+    })
+
+    this.positionalAudioToggle.checked = this.settings.positionalAudio
+    audioEngine.setPositionalAudio(this.settings.positionalAudio)
+    this.positionalAudioToggle.addEventListener('change', () => {
+      this.settings.positionalAudio = this.positionalAudioToggle.checked
+      audioEngine.setPositionalAudio(this.settings.positionalAudio)
+      saveSettings(this.settings)
+    })
+
     this.sensitivitySlider.value = this.settings.sensitivity
     this.sensitivityValue.textContent = `${this.settings.sensitivity}%`
     this.player.controls.pointerSpeed = this.settings.sensitivity / 100
@@ -6791,6 +6891,42 @@ export class Game {
       saveSettings(this.settings)
     })
 
+    this.adsFovSlider.value = this.settings.adsFov
+    this.adsFovValue.textContent = `${this.settings.adsFov}`
+    this.weapons.setAdsFov(this.settings.adsFov)
+    this.adsFovSlider.addEventListener('input', () => {
+      const value = Number(this.adsFovSlider.value)
+      this.adsFovValue.textContent = `${value}`
+      this.settings.adsFov = value
+      this.weapons.setAdsFov(value)
+      saveSettings(this.settings)
+    })
+
+    this.mouseAccelerationToggle.checked = this.settings.mouseAcceleration
+    this.player.mouseAcceleration = this.settings.mouseAcceleration
+    this.mouseAccelerationToggle.addEventListener('change', () => {
+      this.settings.mouseAcceleration = this.mouseAccelerationToggle.checked
+      this.player.mouseAcceleration = this.settings.mouseAcceleration
+      saveSettings(this.settings)
+    })
+
+    this.invertScrollToggle.checked = this.settings.invertScrollWeaponSwitch
+    this.invertScrollToggle.addEventListener('change', () => {
+      this.settings.invertScrollWeaponSwitch = this.invertScrollToggle.checked
+      saveSettings(this.settings)
+    })
+
+    this.doubleClickSpeedSlider.value = this.settings.doubleClickSpeed
+    this.doubleClickSpeedValue.textContent = `${this.settings.doubleClickSpeed}ms`
+    this.player.doubleClickSpeed = this.settings.doubleClickSpeed
+    this.doubleClickSpeedSlider.addEventListener('input', () => {
+      const value = Number(this.doubleClickSpeedSlider.value)
+      this.doubleClickSpeedValue.textContent = `${value}ms`
+      this.settings.doubleClickSpeed = value
+      this.player.doubleClickSpeed = value
+      saveSettings(this.settings)
+    })
+
     this.hudScaleSlider.addEventListener('input', () => {
       const value = Number(this.hudScaleSlider.value)
       this.hudScaleValue.textContent = `${value}%`
@@ -6808,13 +6944,25 @@ export class Game {
     })
 
     // Motion Reduction (accessibility) - see _updateShake/_updateLandingDip's
-    // own use of settings.shakeIntensity, no DOM/CSS effect to apply here.
-    this.shakeIntensitySlider.value = this.settings.shakeIntensity
-    this.shakeIntensityValue.textContent = `${this.settings.shakeIntensity}%`
-    this.shakeIntensitySlider.addEventListener('input', () => {
-      const value = Number(this.shakeIntensitySlider.value)
-      this.shakeIntensityValue.textContent = `${value}%`
-      this.settings.shakeIntensity = value
+    // own use of settings.recoilShakeIntensity/damageShakeIntensity, no
+    // DOM/CSS effect to apply here. Split from one combined slider into
+    // two (weapon recoil vs damage/impact) so a player who wants to feel
+    // gunfire kick but not get jolted by explosions (or the reverse) can
+    // tune them independently.
+    this.recoilShakeSlider.value = this.settings.recoilShakeIntensity
+    this.recoilShakeValue.textContent = `${this.settings.recoilShakeIntensity}%`
+    this.recoilShakeSlider.addEventListener('input', () => {
+      const value = Number(this.recoilShakeSlider.value)
+      this.recoilShakeValue.textContent = `${value}%`
+      this.settings.recoilShakeIntensity = value
+      saveSettings(this.settings)
+    })
+    this.damageShakeSlider.value = this.settings.damageShakeIntensity
+    this.damageShakeValue.textContent = `${this.settings.damageShakeIntensity}%`
+    this.damageShakeSlider.addEventListener('input', () => {
+      const value = Number(this.damageShakeSlider.value)
+      this.damageShakeValue.textContent = `${value}%`
+      this.settings.damageShakeIntensity = value
       saveSettings(this.settings)
     })
 
@@ -7048,7 +7196,8 @@ export class Game {
     this._bindEditableSliderValue(this.fovValue, this.fovSlider)
     this._bindEditableSliderValue(this.hudScaleValue, this.hudScaleSlider)
     this._bindEditableSliderValue(this.hudOpacityValue, this.hudOpacitySlider)
-    this._bindEditableSliderValue(this.shakeIntensityValue, this.shakeIntensitySlider)
+    this._bindEditableSliderValue(this.recoilShakeValue, this.recoilShakeSlider)
+    this._bindEditableSliderValue(this.damageShakeValue, this.damageShakeSlider)
     this._bindEditableSliderValue(this.toastDurationValue, this.toastDurationSlider)
     this._bindEditableSliderValue(this.crosshairSizeValue, this.crosshairSizeSlider)
 
@@ -7714,6 +7863,32 @@ export class Game {
       })
       this._bindEditableSliderValue(this.gfxResolutionValue, this.gfxResolutionSlider)
     }
+    // FPS Cap - throttles how often _tick's requestAnimationFrame loop
+    // actually renders (see the frame-skip check there), not a real
+    // browser-level VSync toggle (no such API exists for a web page -
+    // the browser always syncs requestAnimationFrame to the display's own
+    // refresh rate already). A cap is the closest meaningful equivalent:
+    // caps GPU/battery usage same as VSync would for a player who doesn't
+    // want or need every frame their monitor can show.
+    if (this.fpsCapSelect) {
+      this.fpsCapSelect.value = String(this.settings.fpsCap)
+      this._fpsCapMinFrameMs = this.settings.fpsCap > 0 ? 1000 / this.settings.fpsCap : 0
+      this.fpsCapSelect.addEventListener('change', () => {
+        const value = Number(this.fpsCapSelect.value)
+        this.settings.fpsCap = value
+        this._fpsCapMinFrameMs = value > 0 ? 1000 / value : 0
+        saveSettings(this.settings)
+      })
+    }
+    if (this.motionBlurToggle) {
+      this.motionBlurToggle.checked = this.settings.motionBlur
+      if (this.afterimagePass) this.afterimagePass.enabled = this.settings.motionBlur
+      this.motionBlurToggle.addEventListener('change', () => {
+        this.settings.motionBlur = this.motionBlurToggle.checked
+        if (this.afterimagePass) this.afterimagePass.enabled = this.settings.motionBlur
+        saveSettings(this.settings)
+      })
+    }
     // Brightness/Contrast - a CSS filter on the actual <canvas> element
     // (not the DOM-wide #app filter "High Contrast Mode" already uses in
     // the Controls tab - that's a separate accessibility toggle, this is
@@ -7886,6 +8061,124 @@ export class Game {
     }
   }
 
+  // General tab (Settings > General) - HUD/Notifications/Account &amp; Data
+  // sections. Was an empty "Coming soon" placeholder before this batch.
+  _bindGeneralSettings() {
+    if (this.killFeedPositionSelect) {
+      this.killFeedPositionSelect.value = this.settings.killFeedPosition
+      this.killFeedEl.classList.toggle('kill-feed-left', this.settings.killFeedPosition === 'left')
+      this.killFeedPositionSelect.addEventListener('change', () => {
+        this.settings.killFeedPosition = this.killFeedPositionSelect.value
+        this.killFeedEl.classList.toggle('kill-feed-left', this.settings.killFeedPosition === 'left')
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.compassStyleSelect) {
+      this.compassStyleSelect.value = this.settings.compassStyle
+      this.compassStyleSelect.addEventListener('change', () => {
+        this.settings.compassStyle = this.compassStyleSelect.value
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.weaponNameHudToggle) {
+      this.weaponNameHudToggle.checked = this.settings.showWeaponNameHud
+      this.weaponNameHudToggle.addEventListener('change', () => {
+        this.settings.showWeaponNameHud = this.weaponNameHudToggle.checked
+        this._updateHotbarHud()
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.minimapZoomSelect) {
+      this.minimapZoomSelect.value = String(this.settings.minimapDefaultZoom)
+      this.minimapZoomSelect.addEventListener('change', () => {
+        this.settings.minimapDefaultZoom = Number(this.minimapZoomSelect.value)
+        this.minimap.zoomIndex = this.settings.minimapDefaultZoom
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.friendPresenceNotifyToggle) {
+      this.friendPresenceNotifyToggle.checked = this.settings.friendPresenceNotify
+      this.friendPresenceNotifyToggle.addEventListener('change', () => {
+        this.settings.friendPresenceNotify = this.friendPresenceNotifyToggle.checked
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.dailyChallengeReminderToggle) {
+      this.dailyChallengeReminderToggle.checked = this.settings.dailyChallengeReminder
+      this.dailyChallengeReminderToggle.addEventListener('change', () => {
+        this.settings.dailyChallengeReminder = this.dailyChallengeReminderToggle.checked
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.timeFormatSelect) {
+      this.timeFormatSelect.value = this.settings.timeFormat
+      this.timeFormatSelect.addEventListener('change', () => {
+        this.settings.timeFormat = this.timeFormatSelect.value
+        saveSettings(this.settings)
+        this._updateHomepageClock()
+      })
+    }
+    if (this.homepageClockEl) {
+      this._updateHomepageClock()
+      setInterval(() => this._updateHomepageClock(), 1000)
+    }
+
+    if (this.autosaveFrequencySlider) {
+      this.autosaveFrequencySlider.value = this.settings.autoSaveFrequencySec
+      this.autosaveFrequencyValue.textContent = `${this.settings.autoSaveFrequencySec}s`
+      this._restartAutoSaveTimer()
+      this.autosaveFrequencySlider.addEventListener('input', () => {
+        const value = Number(this.autosaveFrequencySlider.value)
+        this.autosaveFrequencyValue.textContent = `${value}s`
+        this.settings.autoSaveFrequencySec = value
+        saveSettings(this.settings)
+        this._restartAutoSaveTimer()
+      })
+    }
+
+    // Once-per-session reminder, not once-per-homepage-visit - checking
+    // loadDailyBest()'s own date field (already the source of truth for
+    // "have I posted a daily score today") rather than tracking a second
+    // parallel "have I seen the reminder" flag.
+    if (this.settings.dailyChallengeReminder && this.dailyBest.date !== _todayDateStr()) {
+      this._showHomepageToast(t('dailyChallengeReminderToast'))
+    }
+  }
+
+  // Auto-Save Frequency (General tab, settings.autoSaveFrequencySec) -
+  // this game already saves immediately after every meaningful change
+  // (settings tweaks, run-end stats, etc.), so this is a defensive
+  // "just in case" periodic re-flush of the same snapshot rather than
+  // something that newly becomes possible - re-persists current
+  // settings on an interval so a crash/force-quit between explicit saves
+  // loses less. Cleared and restarted (not just left running) whenever
+  // the frequency itself changes, so a shorter interval takes effect
+  // immediately instead of waiting out the old one first.
+  _restartAutoSaveTimer() {
+    if (this._autoSaveTimer) clearInterval(this._autoSaveTimer)
+    this._autoSaveTimer = setInterval(() => saveSettings(this.settings), this.settings.autoSaveFrequencySec * 1000)
+  }
+
+  // Homepage clock (General tab, settings.timeFormat) - the only place
+  // in the game that shows an absolute (not relative/countdown) local
+  // time, so it's the one thing the 12h/24h setting actually controls.
+  _updateHomepageClock() {
+    const now = new Date()
+    if (this.settings.timeFormat === '24h') {
+      this.homepageClockEl.textContent = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+    } else {
+      const h24 = now.getHours()
+      const h12 = h24 % 12 || 12
+      this.homepageClockEl.textContent = `${h12}:${String(now.getMinutes()).padStart(2, '0')} ${h24 < 12 ? 'AM' : 'PM'}`
+    }
+  }
+
   _applyGrainIntensity() {
     const alpha = ((this.settings.grainIntensity ?? 100) / 100) * 0.1
     const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 ${alpha} 0'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>`
@@ -8047,10 +8340,11 @@ export class Game {
     if (this.resetControlsDefaultsBtn) {
       this.resetControlsDefaultsBtn.addEventListener('click', () => {
         const defaults = defaultSettings()
-        const keys = ['sensitivity', 'invertY', 'fov', 'hudScale', 'hudOpacity', 'colorblind', 'shakeIntensity', 'reduceFlashing',
+        const keys = ['sensitivity', 'invertY', 'fov', 'adsFov', 'hudScale', 'hudOpacity', 'colorblind', 'recoilShakeIntensity', 'damageShakeIntensity', 'reduceFlashing',
           'toggleSprint', 'toggleCrouch', 'toggleAds', 'aimAssist', 'bigInteractPrompt', 'toastDuration', 'crosshairColor', 'crosshairSize',
           'largeTextMode', 'highContrastMode', 'dyslexiaFont', 'bgMood', 'keybindCheatSheet', 'showHitFeedback', 'performanceMode',
-          'streamSafeMode', 'focusRingMode', 'homepageFpsCounter', 'underlineLinks', 'nicknameFont', 'layoutDensity']
+          'streamSafeMode', 'focusRingMode', 'homepageFpsCounter', 'underlineLinks', 'nicknameFont', 'layoutDensity',
+          'mouseAcceleration', 'invertScrollWeaponSwitch', 'doubleClickSpeed', 'killFeedPosition', 'compassStyle', 'showWeaponNameHud', 'minimapDefaultZoom']
         for (const key of keys) this.settings[key] = defaults[key]
         saveSettings(this.settings)
         window.location.reload()
@@ -8411,11 +8705,23 @@ export class Game {
   async _fetchFriendPresences(friends) {
     if (!CloudSync.isConfigured() || !this.cloudsaveSavedFriends) return
     const rows = this.cloudsaveSavedFriends.querySelectorAll('.saved-friend-row')
+    if (!this._lastFriendStatuses) this._lastFriendStatuses = {}
     await Promise.all(friends.map(async (f, i) => {
       if (!f.uid) return
       try {
         const presence = await CloudSync.fetchPresence(f.uid)
         const status = this._computeFriendStatus(presence)
+        // Friend Online/Offline Alerts (General tab) - fires only on an
+        // actual offline->online transition (not idle/dnd shuffling, and
+        // not the very first read this session, which would otherwise
+        // fire once for every already-online friend the moment the panel
+        // opens - _lastFriendStatuses starting undefined for a uid is
+        // exactly that "first read" case).
+        const prevStatus = this._lastFriendStatuses[f.uid]
+        if (this.settings.friendPresenceNotify && prevStatus === 'offline' && status !== 'offline') {
+          this._showHomepageToast(t('friendCameOnlineToast', { name: f.name || t('friendStatusOnline') }))
+        }
+        this._lastFriendStatuses[f.uid] = status
         const row = rows[i]
         if (!row) return
         row.querySelector('.friend-status-dot').dataset.status = status
@@ -11268,7 +11574,25 @@ export class Game {
     document.getElementById('mutator-featured-enemy-label').textContent = t('mutatorFeaturedEnemy')
     document.getElementById('mutator-blackout-label').textContent = t('mutatorBlackout')
     document.getElementById('mutator-boss-gauntlet-label').textContent = t('mutatorBossGauntlet')
-    document.getElementById('shake-intensity-label').textContent = t('shakeIntensityLabel')
+    document.getElementById('recoil-shake-label').textContent = t('recoilShakeLabel')
+    document.getElementById('damage-shake-label').textContent = t('damageShakeLabel')
+    document.getElementById('ambient-volume-label').textContent = t('ambientVolumeLabel')
+    document.getElementById('mute-on-blur-label').textContent = t('muteOnBlurLabel')
+    document.getElementById('positional-audio-label').textContent = t('positionalAudioLabel')
+    document.getElementById('ads-fov-label').textContent = t('adsFovLabel')
+    document.getElementById('mouse-acceleration-label').textContent = t('mouseAccelerationLabel')
+    document.getElementById('invert-scroll-label').textContent = t('invertScrollLabel')
+    document.getElementById('double-click-speed-label').textContent = t('doubleClickSpeedLabel')
+    document.getElementById('fps-cap-label').textContent = t('fpsCapLabel')
+    document.getElementById('motion-blur-label').textContent = t('motionBlurLabel')
+    document.getElementById('kill-feed-position-label').textContent = t('killFeedPositionLabel')
+    document.getElementById('compass-style-label').textContent = t('compassStyleLabel')
+    document.getElementById('weapon-name-hud-label').textContent = t('weaponNameHudLabel')
+    document.getElementById('minimap-zoom-label').textContent = t('minimapZoomLabel')
+    document.getElementById('friend-presence-notify-label').textContent = t('friendPresenceNotifyLabel')
+    document.getElementById('daily-challenge-reminder-label').textContent = t('dailyChallengeReminderLabel')
+    document.getElementById('time-format-label').textContent = t('timeFormatLabel')
+    document.getElementById('autosave-frequency-label').textContent = t('autosaveFrequencyLabel')
     document.getElementById('reduce-flashing-label').textContent = t('reduceFlashingLabel')
     document.getElementById('stream-safe-mode-label').textContent = t('streamSafeModeLabel')
     document.getElementById('toggle-sprint-label').textContent = t('toggleSprintLabel')
@@ -12772,13 +13096,18 @@ export class Game {
   // bias the shake's jitter toward a direction instead of pure random noise
   // - see _showThreatIndicator's own bearing math, reused for "punch the
   // camera away from whatever just hit you" instead of pure noise.
-  _triggerShake(magnitude, durationMs, dirX = 0, dirZ = 0) {
+  // type: 'recoil' (weapon fire kick) or 'damage' (everything else - taking
+  // a hit, explosions, environmental impacts) - each has its own intensity
+  // slider (see settings.recoilShakeIntensity/damageShakeIntensity),
+  // applied wherever the actual shake magnitude gets computed.
+  _triggerShake(magnitude, durationMs, dirX = 0, dirZ = 0, type = 'damage') {
     if (magnitude < this._shakeMagnitude) return
     this._shakeMagnitude = magnitude
     this._shakeDuration = durationMs / 1000
     this._shakeTime = this._shakeDuration
     this._shakeBiasX = dirX
     this._shakeBiasZ = dirZ
+    this._shakeType = type
   }
 
   // Fired by WeaponSystem when a melee hit lands on a zombie facing away
@@ -12787,7 +13116,7 @@ export class Game {
   // by the time this runs.
   _onStealthTakedown() {
     this.stealthTakedowns += 1
-    this._triggerShake(0.07, 100)
+    this._triggerShake(0.07, 100, 0, 0, 'recoil')
     if (this.stealthTakedowns >= 10) this.achievements.unlock('shadow_hunter')
   }
 
@@ -12851,10 +13180,13 @@ export class Game {
   _updateShake(dt) {
     if (this._shakeTime > 0) {
       this._shakeTime = Math.max(0, this._shakeTime - dt)
-      // Motion Reduction (accessibility, see settings.shakeIntensity) -
-      // scales every shake event down (or to exactly 0) without touching
-      // any of the individual _triggerShake call sites' own magnitudes.
-      const mag = this._shakeMagnitude * (this._shakeTime / this._shakeDuration) * (this.settings.shakeIntensity / 100)
+      // Motion Reduction (accessibility, see settings.recoilShakeIntensity/
+      // damageShakeIntensity) - scales every shake event down (or to
+      // exactly 0) without touching any of the individual _triggerShake
+      // call sites' own magnitudes. Which slider applies depends on the
+      // type the shake was triggered with (see _triggerShake).
+      const shakeSetting = this._shakeType === 'recoil' ? this.settings.recoilShakeIntensity : this.settings.damageShakeIntensity
+      const mag = this._shakeMagnitude * (this._shakeTime / this._shakeDuration) * (shakeSetting / 100)
       this._shakeOffset.set(
         (Math.random() - 0.5) * 2 * mag + (this._shakeBiasX || 0) * mag,
         (Math.random() - 0.5) * 2 * mag * 0.6,
@@ -12876,8 +13208,10 @@ export class Game {
       this._lastSeenLandingSeq = this.player.landingSeq
       const impact = this.player.lastLandingImpact
       if (impact < LANDING_DIP_MIN_IMPACT) {
-        // Motion Reduction (see _updateShake's own note) applies here too.
-        this._landingDipY = Math.max(-LANDING_DIP_MAX, impact * LANDING_DIP_SCALE) * (this.settings.shakeIntensity / 100)
+        // Motion Reduction (see _updateShake's own note) applies here too -
+        // a landing impact, not a weapon recoil, so it uses the damage/
+        // impact slider.
+        this._landingDipY = Math.max(-LANDING_DIP_MAX, impact * LANDING_DIP_SCALE) * (this.settings.damageShakeIntensity / 100)
       }
       // Fall damage (see FALL_DAMAGE_MIN_IMPACT's own comment) - same
       // takeDamage/HUD/flash/last-stand sequence every other damage
@@ -15729,7 +16063,9 @@ export class Game {
         return
       }
       const w = summary.find((ww) => ww.id === weaponId)
-      nameEl.textContent = w ? t(w.nameKey) : '-'
+      // Show Weapon Name on HUD (General tab) - icon-only when off, name
+      // shown alongside when on (the default).
+      nameEl.textContent = this.settings.showWeaponNameHud ? (w ? t(w.nameKey) : '-') : ''
       if (ammoEl) ammoEl.textContent = w ? (weaponId === 'melee' ? '∞' : `${w.ammoInMag}`) : ''
       el.classList.toggle('locked', !!w && !w.unlocked)
       el.classList.toggle('active', weaponId === currentId)
@@ -15786,6 +16122,32 @@ export class Game {
         this._updateHotbarHud()
       }
     })
+    // Scroll wheel cycles through the same 3 hotbar slots Digit1-3
+    // switch to, in whichever order settings.invertScrollWeaponSwitch
+    // says (scrolling down = next slot by default, matching most other
+    // shooters' convention). Finds the CURRENT weapon's own hotbar slot
+    // (not weapons.currentIndex directly) so cycling stays anchored to
+    // the 3-slot hotbar even if the equipped weapon isn't one of them.
+    window.addEventListener('wheel', (e) => {
+      if (this.buildMode.active) return
+      if (!this.player.controls.isLocked || !this.playerState.alive || this.inventoryOpen || this.driving || this.weaponWheelOpen || this.playerDowned) return
+      const hotbar = this.settings.hotbar
+      const currentSlot = hotbar.indexOf(this.weapons.current.id)
+      const dir = (e.deltaY > 0) !== this.settings.invertScrollWeaponSwitch ? 1 : -1
+      let nextSlot = (currentSlot === -1 ? 0 : currentSlot + dir + hotbar.length) % hotbar.length
+      // Skip empty slots (a hotbar slot can be unassigned) rather than
+      // switching to nothing - bails out entirely if genuinely all 3 are
+      // empty, rather than looping forever.
+      for (let tries = 0; tries < hotbar.length && !hotbar[nextSlot]; tries++) {
+        nextSlot = (nextSlot + dir + hotbar.length) % hotbar.length
+      }
+      if (!hotbar[nextSlot]) return
+      const index = this.weapons.weapons.findIndex((w) => w.id === hotbar[nextSlot])
+      if (index !== -1) {
+        this.weapons.switchToIndex(index)
+        this._updateHotbarHud()
+      }
+    }, { passive: true })
     this._updateHotbarHud()
   }
 
@@ -17616,6 +17978,19 @@ export class Game {
     this.camera.getWorldDirection(this._camDir)
     const facingRad = Math.atan2(this._camDir.x, -this._camDir.z)
 
+    // Bearing label (settings.compassStyle) - degrees where 0 is north,
+    // increasing clockwise (standard compass bearing convention), or the
+    // nearest of 8 cardinal/intercardinal letters for that same angle.
+    if (this.compassBearingLabel) {
+      const deg = (((facingRad * 180) / Math.PI) + 360) % 360
+      if (this.settings.compassStyle === 'degrees') {
+        this.compassBearingLabel.textContent = `${Math.round(deg)}°`
+      } else {
+        const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        this.compassBearingLabel.textContent = dirs[Math.round(deg / 45) % 8]
+      }
+    }
+
     const landmarks = [
       { el: this.compassTrader, x: this.trader.x, z: this.trader.z },
       { el: this.compassAmmo, x: this.ammoStation.x, z: this.ammoStation.z },
@@ -17734,6 +18109,16 @@ export class Game {
   }
 
   _tick() {
+    // FPS Cap (Graphics tab, settings.fpsCap) - skips this frame entirely
+    // (no update, no render) if not enough real time has passed since the
+    // last one that actually ran. requestAnimationFrame itself still
+    // fires at the display's native refresh rate regardless - this just
+    // makes most of those calls no-ops once a cap is set.
+    if (this._fpsCapMinFrameMs) {
+      const nowCap = performance.now()
+      if (nowCap - (this._lastCappedFrameAt || 0) < this._fpsCapMinFrameMs) return
+      this._lastCappedFrameAt = nowCap
+    }
     // Build Mode is a fully standalone sandbox (see BuildMode.js's own
     // comment) - while active, none of the normal survival tick logic
     // below runs at all, not even the FPS counter.

@@ -162,6 +162,7 @@
       </div>
 
       <div id="compass-strip">
+        <span id="compass-bearing-label">N</span>
         <div class="compass-marker" id="compass-trader" style="display: none">Trader</div>
         <div class="compass-marker" id="compass-ammo" style="display: none">Ammo</div>
         <div class="compass-marker" id="compass-vehicle" style="display: none">Car</div>
@@ -350,6 +351,7 @@
             <span id="currency-gems-amount">0</span>
           </div>
         </div>
+        <div id="homepage-clock" title="Current time"></div>
 
         <div id="menu-layout">
           <div id="menu-col-left">
@@ -522,7 +524,57 @@
         </div>
 
         <div class="settings-page" id="settings-page-general" style="display: none">
-          <p id="settings-general-placeholder">Coming soon.</p>
+          <h3 class="settings-section-heading">HUD</h3>
+          <div class="audio-row">
+            <label for="kill-feed-position-select" id="kill-feed-position-label">Kill Feed Position</label>
+            <select id="kill-feed-position-select">
+              <option value="right">Top-Right</option>
+              <option value="left">Top-Left</option>
+            </select>
+          </div>
+          <div class="audio-row">
+            <label for="compass-style-select" id="compass-style-label">Compass Style</label>
+            <select id="compass-style-select">
+              <option value="letters">Letters (N/S/E/W)</option>
+              <option value="degrees">Degrees</option>
+            </select>
+          </div>
+          <div class="audio-row">
+            <label for="weapon-name-hud-toggle" id="weapon-name-hud-label">Show Weapon Name on HUD</label>
+            <input type="checkbox" id="weapon-name-hud-toggle" class="audio-checkbox" checked />
+          </div>
+          <div class="audio-row">
+            <label for="minimap-zoom-select" id="minimap-zoom-label">Default Minimap Zoom</label>
+            <select id="minimap-zoom-select">
+              <option value="0">Close</option>
+              <option value="1" selected>Normal</option>
+              <option value="2">Far</option>
+            </select>
+          </div>
+
+          <h3 class="settings-section-heading">Notifications</h3>
+          <div class="audio-row">
+            <label for="friend-presence-notify-toggle" id="friend-presence-notify-label">Friend Online/Offline Alerts</label>
+            <input type="checkbox" id="friend-presence-notify-toggle" class="audio-checkbox" checked />
+          </div>
+          <div class="audio-row">
+            <label for="daily-challenge-reminder-toggle" id="daily-challenge-reminder-label">Daily Challenge Reset Reminder</label>
+            <input type="checkbox" id="daily-challenge-reminder-toggle" class="audio-checkbox" checked />
+          </div>
+
+          <h3 class="settings-section-heading">Account &amp; Data</h3>
+          <div class="audio-row">
+            <label for="time-format-select" id="time-format-label">Time Format</label>
+            <select id="time-format-select">
+              <option value="12h">12-hour</option>
+              <option value="24h">24-hour</option>
+            </select>
+          </div>
+          <div class="audio-row">
+            <label for="autosave-frequency-slider" id="autosave-frequency-label">Auto-Save Frequency</label>
+            <input type="range" id="autosave-frequency-slider" min="10" max="120" step="10" value="30" />
+            <span id="autosave-frequency-value" class="audio-value">30s</span>
+          </div>
         </div>
 
         <div class="settings-page" id="settings-page-language">
@@ -542,6 +594,19 @@
             <span id="sfx-volume-value" class="audio-value">100%</span>
             <button id="sfx-test-btn" class="mini-action-btn">Test</button>
           </div>
+          <div class="audio-row">
+            <label for="ambient-volume" id="ambient-volume-label">Ambient/Environment</label>
+            <input type="range" id="ambient-volume" min="0" max="100" value="100" />
+            <span id="ambient-volume-value" class="audio-value">100%</span>
+          </div>
+          <div class="audio-row">
+            <label for="mute-on-blur-toggle" id="mute-on-blur-label">Mute When Tab Loses Focus</label>
+            <input type="checkbox" id="mute-on-blur-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="positional-audio-toggle" id="positional-audio-label">Positional Audio (zombie sounds pan left/right)</label>
+            <input type="checkbox" id="positional-audio-toggle" class="audio-checkbox" checked />
+          </div>
         </div>
 
         <div class="settings-page" id="settings-page-graphics" style="display: none">
@@ -550,6 +615,19 @@
             <label for="gfx-resolution-slider" id="gfx-resolution-label">Resolution</label>
             <input type="range" id="gfx-resolution-slider" min="50" max="100" value="100" />
             <span id="gfx-resolution-value" class="audio-value">100%</span>
+          </div>
+          <div class="audio-row">
+            <label for="fps-cap-select" id="fps-cap-label">FPS Cap</label>
+            <select id="fps-cap-select">
+              <option value="0">Uncapped</option>
+              <option value="60">60</option>
+              <option value="120">120</option>
+              <option value="144">144</option>
+            </select>
+          </div>
+          <div class="audio-row">
+            <label for="motion-blur-toggle" id="motion-blur-label">Motion Blur</label>
+            <input type="checkbox" id="motion-blur-toggle" class="audio-checkbox" />
           </div>
           <div class="audio-row">
             <label for="gfx-brightness-slider" id="gfx-brightness-label">Brightness</label>
@@ -632,6 +710,24 @@
             <label for="fov-slider" id="fov-label">Field of View</label>
             <input type="range" id="fov-slider" min="60" max="100" value="75" />
             <span id="fov-value" class="audio-value">75</span>
+          </div>
+          <div class="audio-row">
+            <label for="ads-fov-slider" id="ads-fov-label">Aim-Down-Sights FOV</label>
+            <input type="range" id="ads-fov-slider" min="20" max="70" value="45" />
+            <span id="ads-fov-value" class="audio-value">45</span>
+          </div>
+          <div class="audio-row">
+            <label for="mouse-acceleration-toggle" id="mouse-acceleration-label">Mouse Acceleration</label>
+            <input type="checkbox" id="mouse-acceleration-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="invert-scroll-toggle" id="invert-scroll-label">Invert Scroll-Wheel Weapon Switch</label>
+            <input type="checkbox" id="invert-scroll-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="double-click-speed-slider" id="double-click-speed-label">Double-Click Speed</label>
+            <input type="range" id="double-click-speed-slider" min="150" max="600" step="10" value="300" />
+            <span id="double-click-speed-value" class="audio-value">300ms</span>
           </div>
           <div class="audio-row">
             <label for="toggle-sprint-toggle" id="toggle-sprint-label">Toggle to Sprint (instead of hold)</label>
@@ -753,9 +849,14 @@
             <input type="checkbox" id="caption-background-toggle" class="audio-checkbox" />
           </div>
           <div class="audio-row">
-            <label for="shake-intensity-slider" id="shake-intensity-label">Camera Shake &amp; Motion</label>
-            <input type="range" id="shake-intensity-slider" min="0" max="100" value="100" />
-            <span id="shake-intensity-value" class="audio-value">100%</span>
+            <label for="recoil-shake-slider" id="recoil-shake-label">Weapon Recoil Shake</label>
+            <input type="range" id="recoil-shake-slider" min="0" max="100" value="100" />
+            <span id="recoil-shake-value" class="audio-value">100%</span>
+          </div>
+          <div class="audio-row">
+            <label for="damage-shake-slider" id="damage-shake-label">Damage &amp; Impact Shake</label>
+            <input type="range" id="damage-shake-slider" min="0" max="100" value="100" />
+            <span id="damage-shake-value" class="audio-value">100%</span>
           </div>
           <div id="reduce-flashing-preview-row">
             <span>Preview:</span>
@@ -1400,6 +1501,8 @@
         <div id="whatsnew-content">
           <p id="build-version-line"></p>
           <div id="changelog-list">
+            <div class="changelog-entry"><span class="changelog-date">Aug 12, 2026</span><span class="changelog-text">Fixed a black patch that showed up on your character's arm when spinning it to a side view - it was your shirt's own color peeking through a gap, caused by the last fix that moved the arms back. Arms are back in their original spot and the glitch is gone.</span></div>
+            <div class="changelog-entry"><span class="changelog-date">Aug 12, 2026</span><span class="changelog-text">19 new Settings options: separate ambient/SFX volume, mute-on-tab-switch, positional (left/right) zombie audio, separate ADS zoom vs hip-fire FOV, motion blur, an FPS cap, split camera shake into recoil vs damage sliders, mouse acceleration, scroll-wheel weapon switching (with an invert option), double-click speed, kill feed side, a compass with letters or degrees, a toggle for the weapon name on your HUD, minimap zoom, friend-came-online and Daily Challenge reminders, a 12h/24h homepage clock, and auto-save frequency. All under Audio/Graphics/Controls/General.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 12, 2026</span><span class="changelog-text">Your character's pants no longer disappear when you spin it to a side view - the arms sit slightly further back now so they don't block the legs while rotating.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 12, 2026</span><span class="changelog-text">You can now click a friend in your Friend List to view their live profile (best night, best kills, achievements) and copy their player ID - the same "Copied" badge you get copying your own.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 12, 2026</span><span class="changelog-text">Gems now have a real earning formula: +1 Gem per 5 nights survived, +1 Gem per 50 kills, added together each run (a note explaining this now shows in the Quests panel too). Replaces the old flat "1 per 10 nights" bonus.</span></div>

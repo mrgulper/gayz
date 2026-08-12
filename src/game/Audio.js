@@ -34,6 +34,8 @@ class AudioEngine {
     this.zombieBuffers = { attack: [], moan: [], death: [] }
     this.sfxVolume = 1
     this.musicVolume = 1
+    this.ambientVolume = 1
+    this.positionalAudioEnabled = true
     // Threat-based dynamic intensity (see Game.js's _updateMusicIntensity) -
     // 0 at rest, up to 1 when zombies are close/a boss is up/health is low.
     // Modulates the same single music track's volume and playback rate
@@ -49,6 +51,14 @@ class AudioEngine {
     this.sfxGain = this.ctx.createGain()
     this.sfxGain.gain.value = this.sfxVolume
     this.sfxGain.connect(this.ctx.destination)
+    // Separate from sfxGain - only the continuous ambient bed (drone +
+    // wind, see startAmbient) routes through here, so it has its own
+    // volume slider independent of weapon/UI sound effects. One-shot
+    // ambient event sounds (distant creaks/screams) stay on sfxGain -
+    // they're closer to immersion stingers than the ambient bed itself.
+    this.ambientGain = this.ctx.createGain()
+    this.ambientGain.gain.value = this.ambientVolume
+    this.ambientGain.connect(this.ctx.destination)
     this._loadZombieSounds()
   }
 
@@ -67,8 +77,11 @@ class AudioEngine {
   // Plays a random sample from the given zombie sound pool with slight pitch
   // jitter so 4-13 clips per pool don't sound like an obvious loop, times an
   // optional per-type pitchMult (see _pitchForScale) so a titan doesn't
-  // sound identical to a feral dog.
-  _playZombieSample(pool, gain, pitchMult = 1) {
+  // sound identical to a feral dog. pan (-1 left to 1 right, camera-
+  // relative - see ZombieManager's _updateAmbientMoan for how it's
+  // computed) is only actually applied when settings.positionalAudio is
+  // on (see setPositionalAudio) - centered otherwise.
+  _playZombieSample(pool, gain, pitchMult = 1, pan = 0) {
     const buffers = this.zombieBuffers[pool]
     if (!buffers.length) return false
 
@@ -80,7 +93,13 @@ class AudioEngine {
     const gainNode = ctx.createGain()
     gainNode.gain.value = gain
 
-    source.connect(gainNode).connect(this.sfxGain)
+    if (this.positionalAudioEnabled && pan !== 0) {
+      const panner = ctx.createStereoPanner()
+      panner.pan.value = Math.max(-1, Math.min(1, pan))
+      source.connect(gainNode).connect(panner).connect(this.sfxGain)
+    } else {
+      source.connect(gainNode).connect(this.sfxGain)
+    }
     source.start()
     return true
   }
@@ -626,9 +645,9 @@ class AudioEngine {
   // Low, mournful groan for ambient zombie presence (not an attack cue).
   // Uses a triangle tone (not sawtooth) through vowel-like formant filters
   // so it reads as a vocal "aaahh" rather than a buzzy raspberry.
-  playZombieMoan(scale) {
+  playZombieMoan(scale, pan = 0) {
     if (!this.ctx) return
-    if (this._playZombieSample('moan', 0.45, this._pitchForScale(scale))) return
+    if (this._playZombieSample('moan', 0.45, this._pitchForScale(scale), pan)) return
     const ctx = this.ctx
     const now = ctx.currentTime
     const duration = 1.4 + Math.random() * 0.8
@@ -738,9 +757,9 @@ class AudioEngine {
 
   // Short death rattle when a zombie is killed (not used for the exploder,
   // which has its own detonation sound).
-  playZombieDeath(scale) {
+  playZombieDeath(scale, pan = 0) {
     if (!this.ctx) return
-    if (this._playZombieSample('death', 0.5, this._pitchForScale(scale))) return
+    if (this._playZombieSample('death', 0.5, this._pitchForScale(scale), pan)) return
     const ctx = this.ctx
     const now = ctx.currentTime
     const duration = 0.5
@@ -850,7 +869,7 @@ class AudioEngine {
     // nearby horde shifts the whole ambient bed toward its direction
     // instead of needing a second, competing drone system.
     const dronePanner = ctx.createStereoPanner()
-    dronePanner.connect(this.sfxGain)
+    dronePanner.connect(this.ambientGain)
 
     const droneGain = ctx.createGain()
     droneGain.gain.value = 0.065
@@ -901,7 +920,7 @@ class AudioEngine {
     windLfo.connect(windLfoGain).connect(windGain.gain)
     windLfo.start(now)
 
-    wind.connect(windFilter).connect(windGain).connect(this.sfxGain)
+    wind.connect(windFilter).connect(windGain).connect(this.ambientGain)
     wind.start(now)
 
     // Ambient variety by zone (see updateAmbientZone, called every frame
@@ -975,6 +994,15 @@ class AudioEngine {
   setSfxVolume(volume) {
     this.sfxVolume = Math.max(0, Math.min(1, volume))
     if (this.sfxGain) this.sfxGain.gain.value = this.sfxVolume
+  }
+
+  setAmbientVolume(volume) {
+    this.ambientVolume = Math.max(0, Math.min(1, volume))
+    if (this.ambientGain) this.ambientGain.gain.value = this.ambientVolume
+  }
+
+  setPositionalAudio(enabled) {
+    this.positionalAudioEnabled = enabled
   }
 
   // Footstep - a short filtered noise burst, same shape as playMelee's noise
