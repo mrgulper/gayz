@@ -43,7 +43,7 @@ import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
 import * as MenuEasterEggs from './MenuEasterEggs.js'
 import { JOKE_TIPS, FUNNY_TRIVIA } from './MenuEasterEggs.js'
-import { MenuAvatar3D } from './MenuAvatar3D.js'
+import { MenuAvatar3D, loadSkinTexture } from './MenuAvatar3D.js'
 import * as MenuPresets from './MenuPresets.js'
 import { BuildMode } from './BuildMode.js'
 import * as CloudSync from './CloudSync.js'
@@ -264,6 +264,11 @@ function loadSettings() {
       // Takes priority over the signed-in Google photo when set (see
       // _updateCloudQuickIcon).
       avatarChoice: parsed.avatarChoice || null,
+      // A real uploaded Minecraft skin PNG (see MenuAvatar3D.js's UV
+      // support + _bindSkinUpload/_applyStoredSkin below), stored as a
+      // data URL so it survives a reload without needing a server. null
+      // means "no custom skin, use the default flat-color character."
+      customSkinDataUrl: typeof parsed.customSkinDataUrl === 'string' ? parsed.customSkinDataUrl : null,
       // Profile bio - free text, capped at 250 chars (see _renderProfileBio).
       bio: typeof parsed.bio === 'string' ? parsed.bio.slice(0, 250) : '',
       // Streaming-safe mode (see _updateStreamSafeVisibility) - hides the
@@ -437,7 +442,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], doNotDisturb: false, hideOnlineStatus: false, mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, shakeIntensity: 100, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], doNotDisturb: false, hideOnlineStatus: false, mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -2968,9 +2973,9 @@ export class Game {
     // own start() loop already skips rendering while its canvas is hidden
     // (canvas.offsetParent === null, see that class), which is exactly
     // true whenever #profile-panel itself is closed, so this needs no
-    // extra open/close wiring of its own. Not a personalized skin (no
-    // skin-customization system exists yet, see MenuAvatar3D's own header
-    // comment) - both instances render the same fixed default look.
+    // extra open/close wiring of its own. Both instances always show the
+    // SAME character (default, or the player's uploaded skin once one
+    // exists) - there's no separate skin per-canvas.
     this.profileAvatarCanvas = document.getElementById('profile-avatar-canvas')
     if (this.profileAvatarCanvas) {
       this._profileAvatar3D = new MenuAvatar3D(this.profileAvatarCanvas)
@@ -3283,6 +3288,12 @@ export class Game {
     this.rebindingAction = null
     this.settingsOpen = false
     this.settings = loadSettings()
+    // Real skin upload (see MenuAvatar3D.js's UV support) - needs
+    // this.settings to already exist (customSkinDataUrl lives there) and
+    // this._menuAvatar3D/_profileAvatar3D to already be constructed
+    // (both true by this point), so it can't move any earlier than here.
+    this._bindSkinUpload()
+    if (this.settings.customSkinDataUrl) this._applyStoredSkin()
     setLanguage(this.settings.language)
     this.difficulty = DIFFICULTY_PRESETS[this.settings.difficulty] || DIFFICULTY_PRESETS.normal
     this.nightDurationMs = this.settings.scoreAttackMode ? SCORE_ATTACK_NIGHT_DURATION_MS : NIGHT_DURATION_MS
@@ -13599,6 +13610,85 @@ export class Game {
     this.tauntTextEl.classList.remove('show')
     void this.tauntTextEl.offsetWidth
     this.tauntTextEl.classList.add('show')
+  }
+
+  // Real Minecraft skin upload (see MenuAvatar3D.js's UV-mapping support)
+  // - Upload Skin reads a PNG straight from the player's computer, Reset
+  // goes back to the default flat-color character. Both buttons live in
+  // the Profile panel, next to the character.
+  _bindSkinUpload() {
+    const uploadBtn = document.getElementById('upload-skin-btn')
+    const input = document.getElementById('upload-skin-input')
+    const resetBtn = document.getElementById('reset-skin-btn')
+    if (!uploadBtn || !input || !resetBtn) return
+    if (this.settings.customSkinDataUrl) resetBtn.style.display = ''
+
+    uploadBtn.addEventListener('click', () => input.click())
+
+    input.addEventListener('change', async () => {
+      const file = input.files && input.files[0]
+      input.value = '' // lets the same filename be re-selected later
+      if (!file) return
+      let skin
+      try {
+        skin = await loadSkinTexture(file)
+      } catch {
+        this._showHomepageToast(t('skinUploadFailedToast'))
+        return
+      }
+      // Every real Minecraft skin is 64px wide, 64px (modern) or 32px
+      // (legacy) tall - anything else almost certainly isn't a skin file
+      // and would just paint garbage across the character's faces.
+      if (skin.width !== 64 || (skin.height !== 64 && skin.height !== 32)) {
+        this._showHomepageToast(t('skinUploadWrongSizeToast'))
+        return
+      }
+      let dataUrl
+      try {
+        const buf = await file.arrayBuffer()
+        const bytes = new Uint8Array(buf)
+        let binary = ''
+        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+        dataUrl = `data:image/png;base64,${btoa(binary)}`
+      } catch {
+        this._showHomepageToast(t('skinUploadFailedToast'))
+        return
+      }
+      this.settings.customSkinDataUrl = dataUrl
+      saveSettings(this.settings)
+      if (this._menuAvatar3D) this._menuAvatar3D.setSkin(skin)
+      if (this._profileAvatar3D) this._profileAvatar3D.setSkin(skin)
+      resetBtn.style.display = ''
+      this._showHomepageToast(t('skinUploadSuccessToast'))
+    })
+
+    resetBtn.addEventListener('click', () => {
+      this.settings.customSkinDataUrl = null
+      saveSettings(this.settings)
+      if (this._menuAvatar3D) this._menuAvatar3D.setSkin(null)
+      if (this._profileAvatar3D) this._profileAvatar3D.setSkin(null)
+      resetBtn.style.display = 'none'
+      this._showHomepageToast(t('skinResetToast'))
+    })
+  }
+
+  // Restores a previously-uploaded skin on page load - async (image
+  // decode), so both avatar instances briefly show the default character
+  // first, same as any other image that takes a moment to load in.
+  async _applyStoredSkin() {
+    let skin
+    try {
+      skin = await loadSkinTexture(this.settings.customSkinDataUrl)
+    } catch {
+      // Corrupted/unreadable stored data - fall back to default rather
+      // than getting stuck, and stop treating it as set so this doesn't
+      // retry forever on every future load.
+      this.settings.customSkinDataUrl = null
+      saveSettings(this.settings)
+      return
+    }
+    if (this._menuAvatar3D) this._menuAvatar3D.setSkin(skin)
+    if (this._profileAvatar3D) this._profileAvatar3D.setSkin(skin)
   }
 
   // Local Profile screen - read-only aggregation of stats already

@@ -5246,6 +5246,13 @@ html.theme-lighter #app { filter: brightness(1.25); }
   display: block;
 }
 
+#profile-skin-upload-row {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+
 /* Season Progress - a thin bar showing progress toward the next Career
    Rank tier (see _updateSeasonProgress), reusing the existing
    careerStats.totalKills/CAREER_RANK_TITLES ladder rather than a new

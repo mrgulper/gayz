@@ -1282,6 +1282,11 @@
         <div id="profile-avatar-wrap" title="Drag to spin">
           <canvas id="profile-avatar-canvas"></canvas>
         </div>
+        <div id="profile-skin-upload-row">
+          <button id="upload-skin-btn" class="mini-action-btn" type="button">Upload Skin (PNG)</button>
+          <input type="file" id="upload-skin-input" accept="image/png" style="display: none" />
+          <button id="reset-skin-btn" class="mini-action-btn" type="button" style="display: none">Reset to Default</button>
+        </div>
 
         <div id="profile-account-row">
           <div id="profile-account-signed-out">
@@ -1372,6 +1377,7 @@
         <div id="whatsnew-content">
           <p id="build-version-line"></p>
           <div id="changelog-list">
+            <div class="changelog-entry"><span class="changelog-date">Aug 12, 2026</span><span class="changelog-text">You can now upload a real Minecraft skin PNG (Profile panel) - it's read pixel-for-pixel and mapped onto your character properly, instead of us guessing colors from a screenshot. Works with standard 64x64 skin files. Reset to Default is right next to it if you want the old look back.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 11, 2026</span><span class="changelog-text">Default character now matches a real player-made skin - gray body, black hair/vest/pants, white eyes, and a red nose.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 11, 2026</span><span class="changelog-text">Fixed a real bug where the whole page could load unresponsive - nothing clickable anywhere - for anyone who owned certain permanent upgrades (Marksman, Deadeye, Quick Hands, Stockpile). Sorry about that one.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 11, 2026</span><span class="changelog-text">Fixed a bug where opening Settings from the pause menu mid-run, then closing it, could leave the screen frozen with nothing clickable and no way to resume.</span></div>

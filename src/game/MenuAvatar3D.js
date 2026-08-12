@@ -17,6 +17,120 @@ import * as THREE from 'three'
 // A full 360 takes 2*PI / IDLE_SPIN_SPEED =~ 26 seconds.
 const IDLE_SPIN_SPEED = 0.24
 
+// --- Real Minecraft skin PNG support -----------------------------------
+//
+// A skin file isn't a picture of a character - it's a flattened "unfolded
+// box" texture atlas. Every official skin (and every skin exported by
+// third-party editors like minecraftskins.com) follows the same fixed
+// pixel layout, "modern" 64x64 (adds separate left arm/leg + a hat/
+// jacket/sleeve/pants overlay layer) or "legacy" 64x32 (right arm/leg
+// only - the left side reuses the right side's pixels, horizontally
+// mirrored, since a 32px-tall image has no room for a separate region).
+// This project's own character proportions (head 8x8x8, torso 8x12x4,
+// each limb 4x12x4) already happen to match Minecraft's real skin-pixel
+// dimensions exactly, so no scaling/conversion is needed - only mapping
+// each box face to its correct rectangle of the source image.
+//
+// Overlay layer (hat/jacket/sleeves/pants) is intentionally not
+// supported yet - base layer only for this first pass.
+
+// Standard box-UV-unwrap: given a body part's pixel origin (u,v) in the
+// skin texture and its block dimensions (w,h,d), returns the pixel rect
+// for each of its 6 faces. This exact layout isn't a choice we get to
+// make - it's what every skin file's pixels are already arranged as.
+function _partFaceRects(u, v, w, h, d) {
+  return {
+    top: [u + d, v, u + d + w, v + d],
+    bottom: [u + d + w, v, u + d + w + w, v + d],
+    right: [u, v + d, u + d, v + d + h],
+    front: [u + d, v + d, u + d + w, v + d + h],
+    left: [u + d + w, v + d, u + d + w + d, v + d + h],
+    back: [u + d + w + d, v + d, u + d + w + d + w, v + d + h],
+  }
+}
+
+// Legacy 64x32 skins only store the right arm/leg - the left side reuses
+// those same pixels mirrored horizontally (both the left<->right swap
+// and each individual face's own horizontal flip), since flipping a box
+// left-to-right swaps which face reads as "left" vs "right".
+function _mirrorFaceRectsH(rects, u, w, h, d) {
+  const totalW = 2 * w + 2 * d
+  const flip = ([u0, v0, u1, v1]) => [2 * u + totalW - u1, v0, 2 * u + totalW - u0, v1]
+  return {
+    top: flip(rects.top),
+    bottom: flip(rects.bottom),
+    right: flip(rects.left),
+    front: flip(rects.front),
+    left: flip(rects.right),
+    back: flip(rects.back),
+  }
+}
+
+// Writes 6 face rects (in source-image pixel space) onto a BoxGeometry's
+// UV attribute, matching THREE.BoxGeometry's own fixed face construction
+// order (+x, -x, +y, -y, +z, -z) and its default 4-vertices-per-face
+// order. faceRects keys map to 3D faces as: right->-x, left->+x,
+// top->+y, bottom->-y, front->+z, back->-z (matches the character
+// facing +z by default, same as every other part of this file).
+function _applyFaceRectsToBox(geometry, faceRects, texW, texH) {
+  const uvAttr = geometry.attributes.uv
+  const order = [faceRects.left, faceRects.right, faceRects.top, faceRects.bottom, faceRects.front, faceRects.back]
+  for (let face = 0; face < 6; face++) {
+    const [u0, v0, u1, v1] = order[face]
+    const nu0 = u0 / texW
+    const nu1 = u1 / texW
+    const nv0 = v0 / texH
+    const nv1 = v1 / texH
+    const base = face * 4
+    uvAttr.setXY(base + 0, nu0, nv1)
+    uvAttr.setXY(base + 1, nu1, nv1)
+    uvAttr.setXY(base + 2, nu0, nv0)
+    uvAttr.setXY(base + 3, nu1, nv0)
+  }
+  uvAttr.needsUpdate = true
+}
+
+// Builds a textured box for one body part, reading its pixels from the
+// given origin in the skin image (mirrored for legacy left limbs).
+function _texturedBoxMesh(w, h, d, u, v, texture, texW, texH, mirror) {
+  let rects = _partFaceRects(u, v, w, h, d)
+  if (mirror) rects = _mirrorFaceRectsH(rects, u, w, h, d)
+  const geo = new THREE.BoxGeometry(w, h, d)
+  _applyFaceRectsToBox(geo, rects, texW, texH)
+  return new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: texture, roughness: 0.9 }))
+}
+
+// Loads a skin PNG into a ready-to-use THREE.Texture - source is either
+// a File/Blob (a fresh upload from <input type="file">) or a data URL
+// string (a previously-uploaded skin restored from localStorage, see
+// Game.js's settings.customSkinDataUrl). Nearest-neighbor filtering
+// keeps the pixel art crisp instead of going blurry, and flipY=false so
+// pixel coordinates in the helpers above (image space, y increasing
+// downward, same as every 2D image format) map directly to UV space
+// without a mental flip.
+export function loadSkinTexture(source) {
+  return new Promise((resolve, reject) => {
+    const isBlob = source instanceof Blob
+    const url = isBlob ? URL.createObjectURL(source) : source
+    const img = new Image()
+    img.onload = () => {
+      if (isBlob) URL.revokeObjectURL(url)
+      const texture = new THREE.Texture(img)
+      texture.magFilter = THREE.NearestFilter
+      texture.minFilter = THREE.NearestFilter
+      texture.flipY = false
+      texture.colorSpace = THREE.SRGBColorSpace
+      texture.needsUpdate = true
+      resolve({ texture, width: img.naturalWidth, height: img.naturalHeight })
+    }
+    img.onerror = () => {
+      if (isBlob) URL.revokeObjectURL(url)
+      reject(new Error('Could not load image'))
+    }
+    img.src = url
+  })
+}
+
 // Classic Minecraft player proportions (in arbitrary "skin pixel" units,
 // same 8/12/12 head/torso-and-arms/legs split the real game uses) so the
 // silhouette reads as instantly recognizable. This is the DEFAULT skin
@@ -41,7 +155,52 @@ const MOUTH_COLOR = 0x000000
 const NOSE_COLOR = 0xd72323
 const SHOE_COLOR = 0x929292
 
-function buildCharacter() {
+// A real uploaded skin - 6 textured boxes at Minecraft's actual skin-
+// pixel dimensions (this project's own proportions already match 1:1,
+// see the UV support comment above), no hand-crafted hair/face/collar
+// extras layered on top since a real skin's texture already carries all
+// of that itself.
+function buildTexturedCharacter(skin) {
+  const { texture, width, height } = skin
+  const legacy = height <= 32
+  const group = new THREE.Group()
+
+  const head = _texturedBoxMesh(8, 8, 8, 0, 0, texture, width, height, false)
+  head.position.y = 26
+  group.add(head)
+
+  const torso = _texturedBoxMesh(8, 12, 4, 16, 16, texture, width, height, false)
+  torso.position.y = 16
+  group.add(torso)
+
+  const armR = _texturedBoxMesh(4, 12, 4, 40, 16, texture, width, height, false)
+  armR.position.set(6, 16, 0)
+  group.add(armR)
+  const armL = legacy
+    ? _texturedBoxMesh(4, 12, 4, 40, 16, texture, width, height, true)
+    : _texturedBoxMesh(4, 12, 4, 32, 48, texture, width, height, false)
+  armL.position.set(-6, 16, 0)
+  group.add(armL)
+
+  const legR = _texturedBoxMesh(4, 12, 4, 0, 16, texture, width, height, false)
+  legR.position.set(2, 4, 0)
+  group.add(legR)
+  const legL = legacy
+    ? _texturedBoxMesh(4, 12, 4, 0, 16, texture, width, height, true)
+    : _texturedBoxMesh(4, 12, 4, 16, 48, texture, width, height, false)
+  legL.position.set(-2, 4, 0)
+  group.add(legL)
+
+  return group
+}
+
+// skin (optional) - {texture, width, height} from loadSkinTexture(), a
+// real uploaded skin file. Without one, falls back to the original
+// hand-built flat-color character (today's default look for anyone who
+// hasn't uploaded a skin).
+function buildCharacter(skin) {
+  if (skin) return buildTexturedCharacter(skin)
+
   const group = new THREE.Group()
 
   const skinMat = new THREE.MeshStandardMaterial({ color: SKIN_TONE, roughness: 0.85 })
@@ -140,7 +299,7 @@ const CHAR_HALF_WIDTH = 8.5
 const CHAR_FIT_MARGIN = 0.85 // leaves ~15% breathing room on whichever axis is tightest
 
 export class MenuAvatar3D {
-  constructor(canvas) {
+  constructor(canvas, skin) {
     this.canvas = canvas
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -163,7 +322,7 @@ export class MenuAvatar3D {
     rim.position.set(-20, 10, -30)
     this.scene.add(rim)
 
-    this.character = buildCharacter()
+    this.character = buildCharacter(skin)
     // Slight starting turn so it doesn't read as a flat front-on sprite -
     // a static angle, not motion, so prefers-reduced-motion needs no
     // special case here.
@@ -177,6 +336,26 @@ export class MenuAvatar3D {
     this._resize()
     window.addEventListener('resize', () => this._resize())
     this._bindDrag()
+  }
+
+  // Swaps in a new skin (or back to the flat-color default if skin is
+  // falsy) without recreating the renderer/camera/lights - just rebuilds
+  // the character group. Disposes the old geometries/materials first;
+  // the default character's shared skinMat/shirtMat/etc. would double-
+  // dispose harmlessly if this is ever called twice in a row with no
+  // skin both times, but a textured character's per-part BoxGeometry and
+  // MeshStandardMaterial are each unique to that build and would
+  // otherwise leak every time the player re-uploads a skin.
+  setSkin(skin) {
+    const oldRotation = this.character.rotation.y
+    this.scene.remove(this.character)
+    this.character.traverse((obj) => {
+      if (obj.geometry) obj.geometry.dispose()
+      if (obj.material) obj.material.dispose()
+    })
+    this.character = buildCharacter(skin)
+    this.character.rotation.y = oldRotation
+    this.scene.add(this.character)
   }
 
   // Click-and-drag to spin on the vertical axis only (horizontal drag
