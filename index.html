@@ -464,23 +464,29 @@
               <span id="homepage-greeting" style="display: none"></span>
             </div>
             <script>
-              // Anti-flash: paints the real player ID + last-known skin
-              // face immediately, before Game.js's real constructor (and
-              // its own async skin-texture decode) ever runs - otherwise
-              // a returning player briefly sees the static "#PLAYER" +
-              // anonymous-silhouette placeholders above flash before
-              // swapping to their real values a moment later. Plain
-              // synchronous inline script placed right after the elements
-              // it touches (not deferred/module), same technique sites
-              // use to avoid a dark/light theme flash on load. Genuinely
-              // first-ever visits have no cache yet, so briefly see the
-              // static placeholders above regardless - unavoidable, there's
-              // nothing to show yet.
+              // Anti-flash: paints the real player ID, nickname, and
+              // last-known skin face immediately, before Game.js's real
+              // constructor (and its own async skin-texture decode) ever
+              // runs - otherwise a returning player briefly sees the
+              // static "#PLAYER"/"Player"/anonymous-silhouette
+              // placeholders flash before swapping to their real values a
+              // moment later. Plain synchronous inline script placed
+              // right after the elements it touches (not deferred/
+              // module), same technique sites use to avoid a dark/light
+              // theme flash on load. #player-showcase-title lives earlier
+              // in the document (inside #menu-col-left) so it already
+              // exists by the time this runs. Genuinely first-ever
+              // visits have no cache yet, so briefly see the static
+              // placeholders regardless - unavoidable, nothing to show yet.
               try {
                 var s = JSON.parse(localStorage.getItem('gayz-settings') || 'null')
                 if (s && s.playerId) {
                   var tag = document.getElementById('menu-player-tag')
                   if (tag) tag.textContent = '#' + s.playerId + (s.motto ? ' "' + s.motto + '"' : '')
+                }
+                if (s && s.nickname) {
+                  var title = document.getElementById('player-showcase-title')
+                  if (title) title.textContent = s.nickname
                 }
                 var face = localStorage.getItem('gayz-avatar-face-cache')
                 if (face) {

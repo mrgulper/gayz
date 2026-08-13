@@ -4600,12 +4600,6 @@ html.theme-lighter #app { filter: brightness(1.25); }
   margin-top: 12px;
 }
 
-/* Player's chosen nickname keeps its original casing (not forced uppercase
-   like other panel titles that share .menu-panel-title). */
-#player-showcase-title {
-  text-transform: none;
-}
-
 .menu-field-label {
   display: block;
   margin: 4px 0 2px;
