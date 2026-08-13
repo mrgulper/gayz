@@ -1471,6 +1471,7 @@ function loadShopProgress() {
     return {
       points: parsed.points || 0,
       coins: parsed.coins || 0,
+      cash: parsed.cash || 0,
       gems: parsed.gems || 0,
       ownedSkins: new Set(parsed.ownedSkins || []),
       equippedSkin: parsed.equippedSkin || null,
@@ -1494,7 +1495,7 @@ function loadShopProgress() {
       attachments: parsed.attachments || [],
     }
   } catch {
-    return { points: 0, coins: 0, gems: 0, ownedSkins: new Set(), equippedSkin: null, ownedOutfits: new Set(), equippedOutfit: null, ownedHats: new Set(), equippedHat: null, challengeKillCounts: {}, weaponChallengesUnlocked: new Set(), shopPurchased: new Set(), unlockedGuns: [], attachments: [] }
+    return { points: 0, coins: 0, cash: 0, gems: 0, ownedSkins: new Set(), equippedSkin: null, ownedOutfits: new Set(), equippedOutfit: null, ownedHats: new Set(), equippedHat: null, challengeKillCounts: {}, weaponChallengesUnlocked: new Set(), shopPurchased: new Set(), unlockedGuns: [], attachments: [] }
   }
 }
 
@@ -1503,6 +1504,7 @@ function saveShopProgress(game) {
     localStorage.setItem(SHOP_PROGRESS_KEY, JSON.stringify({
       points: game.points,
       coins: game.coins,
+      cash: game.cash,
       gems: game.gems,
       ownedSkins: [...game.ownedSkins],
       equippedSkin: game.equippedSkin,
@@ -3018,6 +3020,7 @@ export class Game {
     this.heroBestStreak = document.getElementById('hero-best-streak')
     this.currencyCoinsAmount = document.getElementById('currency-coins-amount')
     this.currencyPointsAmount = document.getElementById('currency-points-amount')
+    this.currencyCashAmount = document.getElementById('currency-cash-amount')
     this.currencyGemsAmount = document.getElementById('currency-gems-amount')
     // Each of these now renders in TWO places (homepage Your Stats panel +
     // Profile panel's stats column) sharing one data-stat attribute rather
@@ -3535,6 +3538,10 @@ export class Game {
     this.tempCompanion = null
     this.tempCompanionExpiresAtNight = 0
     this.coins = this.shopProgress.coins
+    // Cash - a 4th currency alongside Coins/Points/Gems, not yet spendable
+    // anywhere (same as Gems currently isn't) and with no earning mechanic
+    // wired up yet either - just the tracked value + display for now.
+    this.cash = this.shopProgress.cash
     this.gems = this.shopProgress.gems
     this.coinShopPurchased = this.shopProgress.shopPurchased
     this._shakeOffset = new THREE.Vector3()
@@ -9983,11 +9990,17 @@ export class Game {
       this._settingsOpenSnapshot = JSON.stringify(this.settings)
       this._renderRecentlyChangedList()
       if (this.settings.shareTelemetry) CloudSync.incrementTelemetry('settingsOpened').catch(() => {})
-      // Reopen Settings to Last-Used Tab (General tab).
-      if (this.settings.rememberSettingsTab) {
-        const tab = document.querySelector(`.settings-tab[data-page="${this.settings.lastSettingsTab}"]`)
-        if (tab) tab.click()
-      }
+      // Reopen Settings to Last-Used Tab (General tab) - always resets to a
+      // specific tab on open (General unless the toggle is on), rather than
+      // only doing so when the toggle is on. The tab strip's own "active"
+      // CSS class otherwise just carries over from whatever was last
+      // clicked (recorded regardless of this toggle, see the click handler
+      // above) - even from a much earlier session - so without this,
+      // opening Settings could silently land on a random leftover tab
+      // instead of General.
+      const targetTabPage = this.settings.rememberSettingsTab ? this.settings.lastSettingsTab : 'general'
+      const tab = document.querySelector(`.settings-tab[data-page="${targetTabPage}"]`)
+      if (tab) tab.click()
     } else if (this.gameStarted && this.playerState.alive) {
       // Settings reached mid-run only comes from the pause overlay (see
       // pauseSettingsBtn above), which this function hides the instant
@@ -12157,6 +12170,7 @@ export class Game {
   _renderCurrencyBar() {
     if (this.currencyCoinsAmount) this.currencyCoinsAmount.textContent = _safeStatNumber(this.coins)
     if (this.currencyPointsAmount) this.currencyPointsAmount.textContent = Math.round(_safeStatNumber(this.points))
+    if (this.currencyCashAmount) this.currencyCashAmount.textContent = _safeStatNumber(this.cash)
     if (this.currencyGemsAmount) this.currencyGemsAmount.textContent = _safeStatNumber(this.gems)
   }
 

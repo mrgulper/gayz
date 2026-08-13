@@ -6350,7 +6350,15 @@ html.theme-lighter #app { filter: brightness(1.25); }
   display: none;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  /* Top-anchored with a fixed offset, not justify-content:center - each
+     settings tab's content is a different height (General is shorter than
+     Language's big grid, etc.), and centering means the WHOLE panel (its
+     header/tabs included, since they're flex siblings of the page content)
+     re-centers and visibly shifts position every time the active tab
+     changes. A fixed top offset keeps the header pinned in place
+     regardless of which tab (or how tall its content) is currently shown. */
+  justify-content: flex-start;
+  padding-top: 64px;
   gap: 8px;
   background: rgba(6, 8, 6, 0.9);
   /* Settings can be opened from the pause overlay, which comes later in

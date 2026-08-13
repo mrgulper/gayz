@@ -346,6 +346,16 @@
             </svg>
             <span id="currency-points-amount">0</span>
           </div>
+          <div class="currency-item" id="currency-cash" title="Cash">
+            <svg class="currency-icon" viewBox="0 0 24 24">
+              <rect x="1.5" y="6" width="21" height="12" rx="1.5" fill="#3f9354" stroke="#1f5c2a" stroke-width="1.2"/>
+              <rect x="3.3" y="7.6" width="17.4" height="8.8" rx="4.4" fill="none" stroke="#d8f5dd" stroke-width="0.7" opacity="0.7"/>
+              <ellipse cx="12" cy="12" rx="3" ry="3.6" fill="#2b6b3a" stroke="#d8f5dd" stroke-width="0.6"/>
+              <circle cx="4.6" cy="12" r="1" fill="#d8f5dd" opacity="0.6"/>
+              <circle cx="19.4" cy="12" r="1" fill="#d8f5dd" opacity="0.6"/>
+            </svg>
+            <span id="currency-cash-amount">0</span>
+          </div>
           <div class="currency-item" id="currency-gems" title="Gems - earned 1 per 10 nights survived in a run, up to 10">
             <svg class="currency-icon" viewBox="0 0 24 24">
               <path d="M7 4h10l5 5-10 11L2 9z" fill="#e8384a" stroke="#7a1420" stroke-width="1"/>
@@ -557,14 +567,14 @@ Escape before dawn.</p>
         <span id="settings-saved-indicator">Saved</span>
         <input type="text" id="settings-search-input" placeholder="Search settings..." class="nickname-input" />
         <div class="settings-tabs">
-          <button class="settings-tab" data-page="general" id="tab-general">General</button>
-          <button class="settings-tab active" data-page="language" id="tab-language">Language</button>
+          <button class="settings-tab active" data-page="general" id="tab-general">General</button>
+          <button class="settings-tab" data-page="language" id="tab-language">Language</button>
           <button class="settings-tab" data-page="audio" id="tab-audio">Audio</button>
           <button class="settings-tab" data-page="controls" id="tab-controls">Controls</button>
           <button class="settings-tab" data-page="graphics" id="tab-graphics">Graphics</button>
         </div>
 
-        <div class="settings-page" id="settings-page-general" style="display: none">
+        <div class="settings-page" id="settings-page-general">
           <h3 class="settings-section-heading">HUD</h3>
           <div class="audio-row">
             <label for="kill-feed-position-select" id="kill-feed-position-label">Kill Feed Position</label>
@@ -768,7 +778,7 @@ Escape before dawn.</p>
           </div>
         </div>
 
-        <div class="settings-page" id="settings-page-language">
+        <div class="settings-page" id="settings-page-language" style="display: none">
           <div id="language-grid" class="language-grid"></div>
         </div>
 
