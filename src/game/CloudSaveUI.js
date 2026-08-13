@@ -92,15 +92,12 @@ export function restoreCloudSession(game) {
 export function updateCloudQuickIcon(game, signedIn) {
   if (game.quickCloudBtn) game.quickCloudBtn.classList.toggle('signed-in', signedIn)
   if (game.cloudSignedInDot) game.cloudSignedInDot.style.display = signedIn ? '' : 'none'
-  // Plain anonymous silhouette - the signed-in Google photo is deliberately
-  // never used here (kept private to the Cloud Save panel's own account row
-  // instead), so signing in doesn't silently put a real photo on the
-  // public-facing homepage. The live 3D character (see MenuAvatar3D.js)
-  // lives in the Player Setup panel now, not this corner badge.
-  if (game.menuAvatarPhoto) {
-    game.menuAvatarPhoto.src = '/images/avatar-anonymous.png'
-    game.menuAvatarPhoto.style.display = ''
-  }
+  // The corner badge shows the player's Minecraft skin face (see
+  // Game.js's _updateMenuAvatarPhoto, called whenever a skin loads/
+  // changes) - deliberately untouched here regardless of sign-in state.
+  // The signed-in Google photo is never used for it (kept private to the
+  // Cloud Save panel's own account row instead), so signing in doesn't
+  // silently put a real photo on the public-facing homepage.
 }
 
 export function renderCloudSaveState(game) {

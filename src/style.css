@@ -5389,9 +5389,12 @@ html.theme-lighter #app { filter: brightness(1.25); }
     0 0 20px 4px rgba(255, 211, 92, 0.4);
 }
 
-/* Avatar image (anonymous silhouette, see updateCloudQuickIcon) - same
-   rounded-square frame, doesn't touch the level badge (still absolutely
-   positioned on top of it via DOM order). */
+/* Avatar image - a crop of the player's own Minecraft skin face (see
+   Game.js's _updateMenuAvatarPhoto), anonymous silhouette only until that
+   first resolves. Same rounded-square frame, doesn't touch the level
+   badge (still absolutely positioned on top of it via DOM order).
+   image-rendering: pixelated keeps the skin crop crisp instead of blurry
+   at this frame's larger display size. */
 #menu-avatar-photo {
   position: absolute;
   inset: 0;
@@ -5399,6 +5402,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
   height: 100%;
   object-fit: cover;
   border-radius: 3px;
+  image-rendering: pixelated;
 }
 
 #menu-avatar-level {
@@ -5524,26 +5528,6 @@ html.theme-lighter #app { filter: brightness(1.25); }
 }
 
 #setup-avatar-canvas {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-/* Smaller than #setup-avatar-wrap - the Profile panel already has a lot
-   of stat content below it, this is just a quick "here's your character"
-   glance at the top, not the main showcase the homepage one is. */
-#profile-avatar-wrap {
-  width: 140px;
-  height: 220px;
-  margin: 4px auto 8px;
-  cursor: grab;
-}
-
-#profile-avatar-wrap:active {
-  cursor: grabbing;
-}
-
-#profile-avatar-canvas {
   width: 100%;
   height: 100%;
   display: block;

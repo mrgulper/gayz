@@ -3034,18 +3034,10 @@ export class Game {
       this._menuAvatar3D = new MenuAvatar3D(this.setupAvatarCanvas)
       this._menuAvatar3D.start()
     }
-    // Same character shown again inside the Profile panel - MenuAvatar3D's
-    // own start() loop already skips rendering while its canvas is hidden
-    // (canvas.offsetParent === null, see that class), which is exactly
-    // true whenever #profile-panel itself is closed, so this needs no
-    // extra open/close wiring of its own. Both instances always show the
-    // SAME character (default, or the player's uploaded skin once one
-    // exists) - there's no separate skin per-canvas.
-    this.profileAvatarCanvas = document.getElementById('profile-avatar-canvas')
-    if (this.profileAvatarCanvas) {
-      this._profileAvatar3D = new MenuAvatar3D(this.profileAvatarCanvas)
-      this._profileAvatar3D.start()
-    }
+    // The Profile panel used to show this same live 3D character again in
+    // its own canvas - removed by request in favor of just the corner
+    // photo badge (see _updateMenuAvatarPhoto), so there's only ever the
+    // one spinning instance now (the Player Setup panel's).
     this.menuPlayerTag = document.getElementById('menu-player-tag')
     this.playerShowcaseTitle = document.getElementById('player-showcase-title')
     this.menuCareerRank = document.getElementById('menu-career-rank')
@@ -3439,8 +3431,8 @@ export class Game {
     this.settings = loadSettings()
     // Real skin upload (see MenuAvatar3D.js's UV support) - needs
     // this.settings to already exist (customSkinDataUrl lives there) and
-    // this._menuAvatar3D/_profileAvatar3D to already be constructed
-    // (both true by this point), so it can't move any earlier than here.
+    // this._menuAvatar3D to already be constructed (both true by this
+    // point), so it can't move any earlier than here.
     this._bindSkinUpload()
     if (this.settings.customSkinDataUrl) this._applyStoredSkin()
     else this._applyDefaultBundledSkin()
@@ -14777,24 +14769,46 @@ export class Game {
       this.settings.customSkinDataUrl = dataUrl
       saveSettings(this.settings)
       if (this._menuAvatar3D) this._menuAvatar3D.setSkin(skin)
-      if (this._profileAvatar3D) this._profileAvatar3D.setSkin(skin)
+      this._updateMenuAvatarPhoto(skin)
       resetBtn.style.display = ''
       this._showHomepageToast(t('skinUploadSuccessToast'))
     })
 
-    resetBtn.addEventListener('click', () => {
+    resetBtn.addEventListener('click', async () => {
       this.settings.customSkinDataUrl = null
       saveSettings(this.settings)
       if (this._menuAvatar3D) this._menuAvatar3D.setSkin(null)
-      if (this._profileAvatar3D) this._profileAvatar3D.setSkin(null)
       resetBtn.style.display = 'none'
       this._showHomepageToast(t('skinResetToast'))
+      // Corner photo badge has no flat-color fallback of its own (unlike
+      // the 3D avatar) - re-derive it from the bundled default skin rather
+      // than leaving the just-removed custom photo up on screen.
+      await this._applyDefaultBundledSkin()
     })
   }
 
+  // Crops the classic 8x8 "face" square (see MenuAvatar3D.js's
+  // _partFaceRects - always at pixel (8,8) in every skin regardless of
+  // legacy/modern format, since the overlay-compositing loop in
+  // loadSkinTexture() pastes onto that same base position) out of an
+  // already-loaded skin texture and puts it on the corner profile badge.
+  // texture.image is a plain 2D <canvas> (see loadSkinTexture), so this is
+  // a synchronous 2D crop - no extra render pass needed.
+  _updateMenuAvatarPhoto(skin) {
+    if (!this.menuAvatarPhoto) return
+    const face = document.createElement('canvas')
+    face.width = 64
+    face.height = 64
+    const fctx = face.getContext('2d')
+    fctx.imageSmoothingEnabled = false
+    fctx.drawImage(skin.texture.image, 8, 8, 8, 8, 0, 0, 64, 64)
+    this.menuAvatarPhoto.src = face.toDataURL('image/png')
+    this.menuAvatarPhoto.style.display = ''
+  }
+
   // Restores a previously-uploaded skin on page load - async (image
-  // decode), so both avatar instances briefly show the default character
-  // first, same as any other image that takes a moment to load in.
+  // decode), so the avatar briefly shows the default character first,
+  // same as any other image that takes a moment to load in.
   async _applyStoredSkin() {
     let skin
     try {
@@ -14808,7 +14822,7 @@ export class Game {
       return
     }
     if (this._menuAvatar3D) this._menuAvatar3D.setSkin(skin)
-    if (this._profileAvatar3D) this._profileAvatar3D.setSkin(skin)
+    this._updateMenuAvatarPhoto(skin)
   }
 
   // The actual default look for every player who hasn't uploaded their
@@ -14825,7 +14839,7 @@ export class Game {
       return
     }
     if (this._menuAvatar3D) this._menuAvatar3D.setSkin(skin)
-    if (this._profileAvatar3D) this._profileAvatar3D.setSkin(skin)
+    this._updateMenuAvatarPhoto(skin)
   }
 
   // Local Profile screen - read-only aggregation of stats already
