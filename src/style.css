@@ -4953,9 +4953,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 /* Spotlight line - distinct from the decluttered .menu-news-ticker above
    (that one stays hidden per the reference-image pass), a single new
    compact rotating line (tip of the day / daily reset countdown /
-   featured weekly challenge - see _updateMenuSpotlight). Empty text
-   collapses to 0 height via :empty so it never reserves space before
-   the game has finished computing its first line. */
+   featured weekly challenge - see _updateMenuSpotlight). */
 #menu-spotlight-row {
   display: flex;
   align-items: center;
@@ -4996,10 +4994,6 @@ html.theme-lighter #app { filter: brightness(1.25); }
 #menu-spotlight-pause-btn svg {
   width: 12px;
   height: 12px;
-}
-
-#menu-spotlight:empty {
-  min-height: 0;
 }
 
 /* Seasonal Event Banner - display:none year-round except inside a
