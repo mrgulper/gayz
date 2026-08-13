@@ -230,6 +230,17 @@ export async function signOut() {
   await authMod.signOut(auth)
 }
 
+// Stay Signed In (General tab) - Firebase's own default (browserLocalPersistence)
+// already survives a closed tab/browser, so "on" (the default here) needs no
+// call at all; "off" switches to session-only persistence so signing out
+// happens automatically the next time the browser closes. Applied before the
+// next signIn() call, not retroactively to an already-active session -
+// Firebase's own documented behavior for setPersistence.
+export async function setAuthPersistence(staySignedIn) {
+  const { auth, authMod } = await ensureApp()
+  await authMod.setPersistence(auth, staySignedIn ? authMod.browserLocalPersistence : authMod.browserSessionPersistence)
+}
+
 // Fires immediately with the current user (or null) and again on every
 // sign-in/sign-out/session-restore - Firebase persists auth state itself
 // (IndexedDB), so unlike a raw OAuth access token this survives a page

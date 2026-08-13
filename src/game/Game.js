@@ -267,6 +267,39 @@ function loadSettings() {
       dailyChallengeReminder: parsed.dailyChallengeReminder ?? true,
       timeFormat: parsed.timeFormat === '24h' ? '24h' : '12h',
       autoSaveFrequencySec: parsed.autoSaveFrequencySec ?? 30,
+      hudFpsCounter: parsed.hudFpsCounter ?? true,
+      ammoPosition: parsed.ammoPosition === 'left' || parsed.ammoPosition === 'center' ? parsed.ammoPosition : 'right',
+      healthDisplayStyle: ['bar', 'number', 'both'].includes(parsed.healthDisplayStyle) ? parsed.healthDisplayStyle : 'both',
+      lowAmmoFlash: parsed.lowAmmoFlash ?? true,
+      sessionTimerHud: parsed.sessionTimerHud ?? false,
+      difficultyLabelHud: parsed.difficultyLabelHud ?? false,
+      objectiveDistanceHud: parsed.objectiveDistanceHud ?? true,
+      achievementToasts: parsed.achievementToasts ?? true,
+      rankUpToasts: parsed.rankUpToasts ?? true,
+      leaderboardRankAlerts: parsed.leaderboardRankAlerts ?? true,
+      weeklyChallengeReminder: parsed.weeklyChallengeReminder ?? true,
+      lowCurrencyReminder: parsed.lowCurrencyReminder ?? true,
+      backupReminder: parsed.backupReminder ?? true,
+      lastExportAt: parsed.lastExportAt || 0,
+      confirmSignOut: parsed.confirmSignOut ?? false,
+      stayEmbedSignedIn: parsed.stayEmbedSignedIn ?? true,
+      anonymousLeaderboard: parsed.anonymousLeaderboard ?? false,
+      shareTelemetry: parsed.shareTelemetry ?? true,
+      autoDeclineFriendRequests: parsed.autoDeclineFriendRequests ?? false,
+      exactLastSeen: parsed.exactLastSeen ?? false,
+      rememberSettingsTab: parsed.rememberSettingsTab ?? false,
+      lastSettingsTab: parsed.lastSettingsTab || 'general',
+      confirmRemoveFriend: parsed.confirmRemoveFriend ?? false,
+      reduceBgEffects: parsed.reduceBgEffects ?? false,
+      autoReloadOnEmpty: parsed.autoReloadOnEmpty ?? true,
+      showPausePlaytime: parsed.showPausePlaytime ?? true,
+      instantStationInteract: parsed.instantStationInteract ?? false,
+      confirmQuitRun: parsed.confirmQuitRun ?? false,
+      damageFlashColor: typeof parsed.damageFlashColor === 'string' ? parsed.damageFlashColor : '#c80000',
+      oneHandedLayout: parsed.oneHandedLayout ?? false,
+      sortWeaponsAlpha: parsed.sortWeaponsAlpha ?? false,
+      homepageGreeting: typeof parsed.homepageGreeting === 'string' ? parsed.homepageGreeting.slice(0, 40) : '',
+      whatsNewEveryLaunch: parsed.whatsNewEveryLaunch ?? false,
       // Corner-badge ID (see _generatePlayerId above) - unlike nickname,
       // this always backfills if missing (not just for a fully-fresh
       // player), since it's a new field every already-existing save is
@@ -468,7 +501,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, killFeedPosition: 'right', compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, killFeedPosition: 'right', compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, showPausePlaytime: true, instantStationInteract: false, confirmQuitRun: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -961,6 +994,9 @@ function saveNarrativeStats(stats) {
 // deliberate reset-everything choice) - purely a "how much have you played,
 // ever" number, feeding both a display title and the Veteran Perks below.
 const CAREER_STATS_KEY = 'gayz-career-stats'
+// Low Coins Reminder (General tab) - a fixed floor, not tied to any one
+// item's real shop price, so it fires for "almost nothing left" moments.
+const LOW_COINS_THRESHOLD = 50
 const CAREER_RANK_TITLES = [
   { min: 0, titleKey: 'careerRankRookie' },
   { min: 1000, titleKey: 'careerRankSurvivor' },
@@ -2824,6 +2860,7 @@ export class Game {
     }
     this._damageNumberPoolIndex = 0
     this.hudEl = document.getElementById('hud')
+    this.statusHudEl = document.getElementById('status-hud')
     this.hotbarEl = document.getElementById('weapon-quick-list')
     this.hotbarSlotEls = Array.from(this.hotbarEl.querySelectorAll('.weapon-quick-slot'))
     // _updateHotbarHud runs every frame - resolve each slot's name/ammo
@@ -3242,6 +3279,48 @@ export class Game {
     this.autosaveFrequencySlider = document.getElementById('autosave-frequency-slider')
     this.autosaveFrequencyValue = document.getElementById('autosave-frequency-value')
     this.homepageClockEl = document.getElementById('homepage-clock')
+    this.hudFpsToggle = document.getElementById('hud-fps-toggle')
+    this.ammoPositionSelect = document.getElementById('ammo-position-select')
+    this.healthDisplayStyleSelect = document.getElementById('health-display-style-select')
+    this.lowAmmoFlashToggle = document.getElementById('low-ammo-flash-toggle')
+    this.sessionTimerToggle = document.getElementById('session-timer-toggle')
+    this.difficultyLabelToggle = document.getElementById('difficulty-label-toggle')
+    this.objectiveDistanceToggle = document.getElementById('objective-distance-toggle')
+    this.achievementToastToggle = document.getElementById('achievement-toast-toggle')
+    this.rankUpToastToggle = document.getElementById('rank-up-toast-toggle')
+    this.leaderboardRankToggle = document.getElementById('leaderboard-rank-toggle')
+    this.weeklyReminderToggle = document.getElementById('weekly-reminder-toggle')
+    this.lowCurrencyToggle = document.getElementById('low-currency-toggle')
+    this.backupReminderToggle = document.getElementById('backup-reminder-toggle')
+    this.saveSizeValueEl = document.getElementById('save-size-value')
+    this.clearCacheBtn = document.getElementById('clear-cache-btn')
+    this.confirmSignoutToggle = document.getElementById('confirm-signout-toggle')
+    this.staySignedinToggle = document.getElementById('stay-signedin-toggle')
+    this.anonymousLeaderboardToggle = document.getElementById('anonymous-leaderboard-toggle')
+    this.shareTelemetryToggle = document.getElementById('share-telemetry-toggle')
+    this.autoDeclineToggle = document.getElementById('auto-decline-toggle')
+    this.exactLastseenToggle = document.getElementById('exact-lastseen-toggle')
+    this.rememberSettingsTabToggle = document.getElementById('remember-settings-tab-toggle')
+    this.confirmRemoveFriendToggle = document.getElementById('confirm-remove-friend-toggle')
+    this.reduceBgEffectsToggle = document.getElementById('reduce-bg-effects-toggle')
+    this.homepageGreetingInput = document.getElementById('homepage-greeting-input')
+    this.autoReloadToggle = document.getElementById('auto-reload-toggle')
+    this.showPausePlaytimeToggle = document.getElementById('show-pause-playtime-toggle')
+    this.instantInteractToggle = document.getElementById('instant-interact-toggle')
+    this.confirmQuitToggle = document.getElementById('confirm-quit-toggle')
+    this.damageFlashColorInput = document.getElementById('damage-flash-color-input')
+    this.oneHandedToggle = document.getElementById('one-handed-toggle')
+    this.sortWeaponsToggle = document.getElementById('sort-weapons-toggle')
+    this.whatsNewEveryLaunchToggle = document.getElementById('whatsnew-every-launch-toggle')
+    this.hudSessionTimerEl = document.getElementById('hud-session-timer')
+    this.sessionTimerSepEl = document.getElementById('session-timer-sep')
+    this.hudDifficultyLabelEl = document.getElementById('hud-difficulty-label')
+    this.difficultyLabelSepEl = document.getElementById('difficulty-label-sep')
+    this.hudObjectiveDistanceEl = document.getElementById('hud-objective-distance')
+    this.objectiveDistanceSepEl = document.getElementById('objective-distance-sep')
+    this.pausePlaytimeLineEl = document.getElementById('pause-playtime-line')
+    this.damageFlashEl = document.getElementById('damage-flash')
+    this.homepageGreetingEl = document.getElementById('homepage-greeting')
     this.streamSafeModeToggle = document.getElementById('stream-safe-mode-toggle')
     this.toggleSprintToggle = document.getElementById('toggle-sprint-toggle')
     this.toggleCrouchToggle = document.getElementById('toggle-crouch-toggle')
@@ -4513,6 +4592,7 @@ export class Game {
       () => this.settings.showHitFeedback,
       () => { this.careerStats.shotsFired = (this.careerStats.shotsFired || 0) + 1 }
     )
+    this.weapons.autoReloadEnabled = this.settings.autoReloadOnEmpty
     // Moved here from right after loadMetaProgress() above - several
     // meta upgrades' apply() (marksman/deadeye/quickhands/stockpile) touch
     // game.weapons, which didn't exist yet at that earlier point. Called
@@ -4735,8 +4815,11 @@ export class Game {
       // opacity backdrop the entire time it was up.
       this.menu.style.display = 'none'
       // FPS/coords debug readout - hidden on the menu, fades in once real
-      // gameplay starts (see their own opacity/transition setup).
-      this.fpsEl.style.opacity = '1'
+      // gameplay starts (see their own opacity/transition setup). FPS
+      // counter itself also respects Show FPS Counter During Gameplay
+      // (General tab) - homepageFpsCounter being on independently still
+      // works, since that's a separate always-on-homepage toggle.
+      this.fpsEl.style.opacity = this.settings.hudFpsCounter ? '1' : '0'
       this.coordsEl.style.opacity = '1'
       this._applyFrameTimeGraphVisibility()
       audioEngine.init()
@@ -4756,7 +4839,7 @@ export class Game {
         }
       }
       if (mutatorsChanged) saveSettings(this.settings)
-      if (Object.values(this.settings.mutators).some(Boolean)) CloudSync.incrementTelemetry('mutatorUsed').catch(() => {})
+      if (this.settings.shareTelemetry && Object.values(this.settings.mutators).some(Boolean)) CloudSync.incrementTelemetry('mutatorUsed').catch(() => {})
       let spawnMult = this.difficulty.spawnRateMult
       if (this.settings.mutators.hordeRush) spawnMult *= 2
       if (this.settings.mutators.hordeMode) spawnMult *= 3
@@ -4766,7 +4849,7 @@ export class Game {
         this.dailyTwist = DAILY_TWISTS[_dailyTwistIndex(_todayDateStr())]
         this.dailyDamageMult = this.dailyTwist.damageMult
         spawnMult *= this.dailyTwist.spawnMult
-        CloudSync.incrementTelemetry('challengeStarted').catch(() => {})
+        if (this.settings.shareTelemetry) CloudSync.incrementTelemetry('challengeStarted').catch(() => {})
       }
       // Custom Challenge Code (Local Sharing batch) - same twist-selection
       // mechanism as Daily Challenge above (_dailyTwistIndex is a generic
@@ -4954,7 +5037,10 @@ export class Game {
 
     this.pauseResumeBtn.addEventListener('click', () => this.player.controls.lock())
     this.pauseSettingsBtn.addEventListener('click', () => this._toggleSettings(true))
-    this.pauseQuitBtn.addEventListener('click', () => window.location.reload())
+    this.pauseQuitBtn.addEventListener('click', () => {
+      if (this.settings.confirmQuitRun && !window.confirm(t('confirmQuitRunMessage'))) return
+      window.location.reload()
+    })
     this.pauseUpgradesBtn.addEventListener('click', () => this._openUpgradesPanel())
     this.pauseShopBtn.addEventListener('click', () => this._openCoinShopPanel())
     this.pauseWeaponBtn.addEventListener('click', () => {
@@ -5026,6 +5112,15 @@ export class Game {
         this.pauseWeaponBtn.textContent = t('pauseWeaponBtn')
         this.pauseSettingsBtn.textContent = t('settingsBtn')
         this.pauseQuitBtn.textContent = t('pauseQuitBtn')
+        if (this.pausePlaytimeLineEl) {
+          this.pausePlaytimeLineEl.style.display = this.settings.showPausePlaytime ? '' : 'none'
+          if (this.settings.showPausePlaytime) {
+            const totalSeconds = (this.careerStats.lifetimePlaytimeSeconds || 0) + Math.floor((performance.now() - this._sessionStartTime) / 1000)
+            const hours = Math.floor(totalSeconds / 3600)
+            const mins = Math.floor((totalSeconds % 3600) / 60)
+            this.pausePlaytimeLineEl.textContent = t('pausePlaytimeLine', { hours, mins })
+          }
+        }
         this.pauseOverlay.style.display = 'flex'
       } else {
         this.menu.style.display = 'flex'
@@ -6767,6 +6862,12 @@ export class Game {
         for (const page of document.querySelectorAll('.settings-page')) {
           page.style.display = page.id === `settings-page-${tab.dataset.page}` ? 'block' : 'none'
         }
+        // Reopen Settings to Last-Used Tab (General tab) - recorded on
+        // every click regardless of whether the setting is on, so turning
+        // it on later immediately has a real tab to restore rather than
+        // needing one more click first.
+        this.settings.lastSettingsTab = tab.dataset.page
+        saveSettings(this.settings)
       })
     }
 
@@ -7405,7 +7506,7 @@ export class Game {
         this.settings.crtScanlines = this.crtScanlinesToggle.checked
         document.documentElement.classList.toggle('crt-scanlines', this.settings.crtScanlines)
         saveSettings(this.settings)
-        if (this.settings.crtScanlines) CloudSync.incrementTelemetry('crtEnabled').catch(() => {})
+        if (this.settings.crtScanlines && this.settings.shareTelemetry) CloudSync.incrementTelemetry('crtEnabled').catch(() => {})
       })
     }
     if (this.weatherParticlesToggle) {
@@ -7737,7 +7838,17 @@ export class Game {
     if (this.copyTextRecapBtn) this.copyTextRecapBtn.addEventListener('click', () => this._copyTextRecap())
     if (this.acceptChallengeBtn) this.acceptChallengeBtn.addEventListener('click', () => this._acceptChallenge())
     this.creditsBtn.addEventListener('click', () => trackAndOpen(() => this._openCreditsPanel()))
-    this.coinshopBtn.addEventListener('click', () => trackAndOpen(() => this._openCoinShopPanel()))
+    this.coinshopBtn.addEventListener('click', () => trackAndOpen(() => {
+      // Low Coins Reminder (General tab) - a heads-up, not a blocker; the
+      // shop still opens either way. LOW_COINS_THRESHOLD is deliberately
+      // low (a fixed floor, not tied to any item's real price) since this
+      // is meant to catch "I have almost nothing" moments, not gate every
+      // visit for players who just haven't saved up for one specific item.
+      if (this.settings.lowCurrencyReminder && this.coins < LOW_COINS_THRESHOLD) {
+        this._showHomepageToast(t('lowCurrencyToast', { coins: this.coins }))
+      }
+      this._openCoinShopPanel()
+    }))
     if (this.shopSortSelect) {
       this.shopSortSelect.value = this.settings.shopSortMode
       this.shopSortSelect.addEventListener('click', (e) => e.stopPropagation())
@@ -8149,6 +8260,381 @@ export class Game {
     if (this.settings.dailyChallengeReminder && this.dailyBest.date !== _todayDateStr()) {
       this._showHomepageToast(t('dailyChallengeReminderToast'))
     }
+    if (this.settings.weeklyChallengeReminder && this.weeklyChallenge.week !== _thisWeekStr()) {
+      this._showHomepageToast(t('weeklyChallengeReminderToast'))
+    }
+
+    if (this.hudFpsToggle) {
+      this.hudFpsToggle.checked = this.settings.hudFpsCounter
+      this.hudFpsToggle.addEventListener('change', () => {
+        this.settings.hudFpsCounter = this.hudFpsToggle.checked
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.ammoPositionSelect) {
+      this.ammoPositionSelect.value = this.settings.ammoPosition
+      this.hudEl.classList.toggle('hud-pos-left', this.settings.ammoPosition === 'left')
+      this.hudEl.classList.toggle('hud-pos-center', this.settings.ammoPosition === 'center')
+      this.ammoPositionSelect.addEventListener('change', () => {
+        this.settings.ammoPosition = this.ammoPositionSelect.value
+        this.hudEl.classList.toggle('hud-pos-left', this.settings.ammoPosition === 'left')
+        this.hudEl.classList.toggle('hud-pos-center', this.settings.ammoPosition === 'center')
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.healthDisplayStyleSelect) {
+      this.healthDisplayStyleSelect.value = this.settings.healthDisplayStyle
+      this.statusHudEl.classList.toggle('health-style-bar', this.settings.healthDisplayStyle === 'bar')
+      this.statusHudEl.classList.toggle('health-style-number', this.settings.healthDisplayStyle === 'number')
+      this.healthDisplayStyleSelect.addEventListener('change', () => {
+        this.settings.healthDisplayStyle = this.healthDisplayStyleSelect.value
+        this.statusHudEl.classList.toggle('health-style-bar', this.settings.healthDisplayStyle === 'bar')
+        this.statusHudEl.classList.toggle('health-style-number', this.settings.healthDisplayStyle === 'number')
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.lowAmmoFlashToggle) {
+      this.lowAmmoFlashToggle.checked = this.settings.lowAmmoFlash
+      this.lowAmmoFlashToggle.addEventListener('change', () => {
+        this.settings.lowAmmoFlash = this.lowAmmoFlashToggle.checked
+        if (!this.settings.lowAmmoFlash) this.ammoHudEl.classList.remove('low-ammo')
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.sessionTimerToggle) {
+      this.sessionTimerToggle.checked = this.settings.sessionTimerHud
+      this.sessionTimerToggle.addEventListener('change', () => {
+        this.settings.sessionTimerHud = this.sessionTimerToggle.checked
+        this._updateExtraHudRow()
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.difficultyLabelToggle) {
+      this.difficultyLabelToggle.checked = this.settings.difficultyLabelHud
+      this.difficultyLabelToggle.addEventListener('change', () => {
+        this.settings.difficultyLabelHud = this.difficultyLabelToggle.checked
+        this._updateExtraHudRow()
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.objectiveDistanceToggle) {
+      this.objectiveDistanceToggle.checked = this.settings.objectiveDistanceHud
+      this.objectiveDistanceToggle.addEventListener('change', () => {
+        this.settings.objectiveDistanceHud = this.objectiveDistanceToggle.checked
+        this._updateExtraHudRow()
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.achievementToastToggle) {
+      this.achievementToastToggle.checked = this.settings.achievementToasts
+      this.achievementToastToggle.addEventListener('change', () => {
+        this.settings.achievementToasts = this.achievementToastToggle.checked
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.rankUpToastToggle) {
+      this.rankUpToastToggle.checked = this.settings.rankUpToasts
+      this.rankUpToastToggle.addEventListener('change', () => {
+        this.settings.rankUpToasts = this.rankUpToastToggle.checked
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.leaderboardRankToggle) {
+      this.leaderboardRankToggle.checked = this.settings.leaderboardRankAlerts
+      this.leaderboardRankToggle.addEventListener('change', () => {
+        this.settings.leaderboardRankAlerts = this.leaderboardRankToggle.checked
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.weeklyReminderToggle) {
+      this.weeklyReminderToggle.checked = this.settings.weeklyChallengeReminder
+      this.weeklyReminderToggle.addEventListener('change', () => {
+        this.settings.weeklyChallengeReminder = this.weeklyReminderToggle.checked
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.lowCurrencyToggle) {
+      this.lowCurrencyToggle.checked = this.settings.lowCurrencyReminder
+      this.lowCurrencyToggle.addEventListener('change', () => {
+        this.settings.lowCurrencyReminder = this.lowCurrencyToggle.checked
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.backupReminderToggle) {
+      this.backupReminderToggle.checked = this.settings.backupReminder
+      this.backupReminderToggle.addEventListener('change', () => {
+        this.settings.backupReminder = this.backupReminderToggle.checked
+        saveSettings(this.settings)
+      })
+      // Nudges at most once a week - lastExportAt is set by _exportSave().
+      const DAYS_MS = 7 * 24 * 60 * 60 * 1000
+      if (this.settings.backupReminder && Date.now() - (this.settings.lastExportAt || 0) > DAYS_MS) {
+        this._showHomepageToast(t('backupReminderToast'))
+      }
+    }
+
+    if (this.saveSizeValueEl) {
+      let totalChars = 0
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        totalChars += key.length + (localStorage.getItem(key) || '').length
+      }
+      this.saveSizeValueEl.textContent = totalChars > 1024 ? `${(totalChars / 1024).toFixed(1)} KB` : `${totalChars} B`
+    }
+
+    if (this.clearCacheBtn) {
+      this.clearCacheBtn.addEventListener('click', () => {
+        if (!window.confirm(t('clearCacheConfirm'))) return
+        // Only genuinely disposable caches - never the save itself
+        // (settings/careerStats/achievements/etc, none of which are
+        // prefixed 'gayz-cache-') and never keybinds.
+        const keys = []
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key && key.startsWith('gayz-cache-')) keys.push(key)
+        }
+        for (const key of keys) localStorage.removeItem(key)
+        this._showHomepageToast(t('clearCacheDoneToast', { n: keys.length }))
+      })
+    }
+
+    if (this.confirmSignoutToggle) {
+      this.confirmSignoutToggle.checked = this.settings.confirmSignOut
+      this.confirmSignoutToggle.addEventListener('change', () => {
+        this.settings.confirmSignOut = this.confirmSignoutToggle.checked
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.staySignedinToggle) {
+      this.staySignedinToggle.checked = this.settings.stayEmbedSignedIn
+      this.staySignedinToggle.addEventListener('change', () => {
+        this.settings.stayEmbedSignedIn = this.staySignedinToggle.checked
+        saveSettings(this.settings)
+        CloudSync.setAuthPersistence(this.settings.stayEmbedSignedIn).catch(() => {})
+      })
+    }
+
+    if (this.anonymousLeaderboardToggle) {
+      this.anonymousLeaderboardToggle.checked = this.settings.anonymousLeaderboard
+      this.anonymousLeaderboardToggle.addEventListener('change', () => {
+        this.settings.anonymousLeaderboard = this.anonymousLeaderboardToggle.checked
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.shareTelemetryToggle) {
+      this.shareTelemetryToggle.checked = this.settings.shareTelemetry
+      this.shareTelemetryToggle.addEventListener('change', () => {
+        this.settings.shareTelemetry = this.shareTelemetryToggle.checked
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.autoDeclineToggle) {
+      this.autoDeclineToggle.checked = this.settings.autoDeclineFriendRequests
+      this.autoDeclineToggle.addEventListener('change', () => {
+        this.settings.autoDeclineFriendRequests = this.autoDeclineToggle.checked
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.exactLastseenToggle) {
+      this.exactLastseenToggle.checked = this.settings.exactLastSeen
+      this.exactLastseenToggle.addEventListener('change', () => {
+        this.settings.exactLastSeen = this.exactLastseenToggle.checked
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.rememberSettingsTabToggle) {
+      this.rememberSettingsTabToggle.checked = this.settings.rememberSettingsTab
+      this.rememberSettingsTabToggle.addEventListener('change', () => {
+        this.settings.rememberSettingsTab = this.rememberSettingsTabToggle.checked
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.confirmRemoveFriendToggle) {
+      this.confirmRemoveFriendToggle.checked = this.settings.confirmRemoveFriend
+      this.confirmRemoveFriendToggle.addEventListener('change', () => {
+        this.settings.confirmRemoveFriend = this.confirmRemoveFriendToggle.checked
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.reduceBgEffectsToggle) {
+      this.reduceBgEffectsToggle.checked = this.settings.reduceBgEffects
+      document.body.classList.toggle('reduce-bg-effects', this.settings.reduceBgEffects)
+      this.reduceBgEffectsToggle.addEventListener('change', () => {
+        this.settings.reduceBgEffects = this.reduceBgEffectsToggle.checked
+        document.body.classList.toggle('reduce-bg-effects', this.settings.reduceBgEffects)
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.homepageGreetingInput) {
+      this.homepageGreetingInput.value = this.settings.homepageGreeting
+      this._updateHomepageGreeting()
+      this.homepageGreetingInput.addEventListener('input', () => {
+        this.settings.homepageGreeting = this.homepageGreetingInput.value.slice(0, 40)
+        this._updateHomepageGreeting()
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.autoReloadToggle) {
+      this.autoReloadToggle.checked = this.settings.autoReloadOnEmpty
+      this.autoReloadToggle.addEventListener('change', () => {
+        this.settings.autoReloadOnEmpty = this.autoReloadToggle.checked
+        this.weapons.autoReloadEnabled = this.settings.autoReloadOnEmpty
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.showPausePlaytimeToggle) {
+      this.showPausePlaytimeToggle.checked = this.settings.showPausePlaytime
+      this.showPausePlaytimeToggle.addEventListener('change', () => {
+        this.settings.showPausePlaytime = this.showPausePlaytimeToggle.checked
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.instantInteractToggle) {
+      this.instantInteractToggle.checked = this.settings.instantStationInteract
+      this.instantInteractToggle.addEventListener('change', () => {
+        this.settings.instantStationInteract = this.instantInteractToggle.checked
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.confirmQuitToggle) {
+      this.confirmQuitToggle.checked = this.settings.confirmQuitRun
+      this.confirmQuitToggle.addEventListener('change', () => {
+        this.settings.confirmQuitRun = this.confirmQuitToggle.checked
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.damageFlashColorInput) {
+      this.damageFlashColorInput.value = this.settings.damageFlashColor
+      this._applyDamageFlashColor()
+      this.damageFlashColorInput.addEventListener('input', () => {
+        this.settings.damageFlashColor = this.damageFlashColorInput.value
+        this._applyDamageFlashColor()
+        saveSettings(this.settings)
+      })
+    }
+
+    if (this.oneHandedToggle) {
+      this.oneHandedToggle.checked = this.settings.oneHandedLayout
+      this.oneHandedToggle.addEventListener('change', () => {
+        this.settings.oneHandedLayout = this.oneHandedToggle.checked
+        saveSettings(this.settings)
+      })
+    }
+    // One-Handed Key Layout - rather than remapping keyboard keys (the
+    // right half of a full keyboard has more bound actions than the left
+    // half has free keys to receive them, so a genuine full remap doesn't
+    // fit), extra mouse buttons (4/5 - Back/Forward on most mice) trigger
+    // Interact/Reload while enabled, reusing the real bound key via a
+    // synthetic keydown/keyup pair rather than duplicating each action's
+    // own handler logic. The same hand already on the mouse can reach
+    // these without ever touching the keyboard.
+    window.addEventListener('mousedown', (e) => {
+      if (!this.settings.oneHandedLayout || !this.gameStarted) return
+      const action = e.button === 3 ? 'interact' : e.button === 4 ? 'reload' : null
+      if (!action) return
+      e.preventDefault()
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: getKeyFor(action) }))
+    })
+    window.addEventListener('mouseup', (e) => {
+      if (!this.settings.oneHandedLayout || !this.gameStarted) return
+      const action = e.button === 3 ? 'interact' : e.button === 4 ? 'reload' : null
+      if (!action) return
+      window.dispatchEvent(new KeyboardEvent('keyup', { code: getKeyFor(action) }))
+    })
+
+    if (this.sortWeaponsToggle) {
+      this.sortWeaponsToggle.checked = this.settings.sortWeaponsAlpha
+      this.sortWeaponsToggle.addEventListener('change', () => {
+        this.settings.sortWeaponsAlpha = this.sortWeaponsToggle.checked
+        saveSettings(this.settings)
+        this._refreshInventoryPanel()
+      })
+    }
+
+    if (this.whatsNewEveryLaunchToggle) {
+      this.whatsNewEveryLaunchToggle.checked = this.settings.whatsNewEveryLaunch
+      this.whatsNewEveryLaunchToggle.addEventListener('change', () => {
+        this.settings.whatsNewEveryLaunch = this.whatsNewEveryLaunchToggle.checked
+        saveSettings(this.settings)
+      })
+    }
+
+    this._updateExtraHudRow()
+  }
+
+  // HUD (General tab): Session Timer / Difficulty Label / Distance to
+  // Extraction Point - three optional entries appended to #progress-hud,
+  // each with its own separator dot so hiding one doesn't leave a stray
+  // "· ·" behind. Called on toggle and once a second while gameStarted
+  // (see _tick), not continuously - none of these need per-frame accuracy.
+  _updateExtraHudRow() {
+    const showTimer = this.settings.sessionTimerHud
+    this.hudSessionTimerEl.style.display = showTimer ? '' : 'none'
+    this.sessionTimerSepEl.style.display = showTimer ? '' : 'none'
+    if (showTimer) {
+      const totalSeconds = Math.floor((performance.now() - this._sessionStartTime) / 1000)
+      const m = Math.floor(totalSeconds / 60)
+      const s = totalSeconds % 60
+      this.hudSessionTimerEl.textContent = `${m}:${String(s).padStart(2, '0')}`
+    }
+
+    const showDiff = this.settings.difficultyLabelHud
+    this.hudDifficultyLabelEl.style.display = showDiff ? '' : 'none'
+    this.difficultyLabelSepEl.style.display = showDiff ? '' : 'none'
+    if (showDiff) this.hudDifficultyLabelEl.textContent = t('difficulty' + this.settings.difficulty[0].toUpperCase() + this.settings.difficulty.slice(1))
+
+    const showObj = this.settings.objectiveDistanceHud && this.extractionActive && this.gameStarted && this.playerState?.alive
+    this.hudObjectiveDistanceEl.style.display = showObj ? '' : 'none'
+    this.objectiveDistanceSepEl.style.display = showObj ? '' : 'none'
+    if (showObj && this.extractionMarker) {
+      const dx = this.extractionMarker.position.x - this.camera.position.x
+      const dz = this.extractionMarker.position.z - this.camera.position.z
+      const dist = Math.round(Math.hypot(dx, dz))
+      this.hudObjectiveDistanceEl.textContent = t('objectiveDistanceValue', { m: dist })
+    }
+  }
+
+  _applyDamageFlashColor() {
+    if (!this.damageFlashEl) return
+    const hex = this.settings.damageFlashColor.replace('#', '')
+    const r = parseInt(hex.slice(0, 2), 16) || 0
+    const g = parseInt(hex.slice(2, 4), 16) || 0
+    const b = parseInt(hex.slice(4, 6), 16) || 0
+    this.damageFlashEl.style.setProperty('--damage-flash-color', `${r}, ${g}, ${b}`)
+  }
+
+  // Homepage Greeting (General tab) - shown right under the player tag,
+  // purely decorative custom text, empty by default so nothing new shows
+  // for anyone who never sets one.
+  _updateHomepageGreeting() {
+    if (!this.homepageGreetingEl) return
+    this.homepageGreetingEl.textContent = this.settings.homepageGreeting
+    this.homepageGreetingEl.style.display = this.settings.homepageGreeting ? '' : 'none'
   }
 
   // Auto-Save Frequency (General tab, settings.autoSaveFrequencySec) -
@@ -8422,6 +8908,8 @@ export class Game {
     link.click()
     setTimeout(() => URL.revokeObjectURL(link.href), 1000)
     this._showLoreToast(t('saveExported'))
+    this.settings.lastExportAt = Date.now()
+    saveSettings(this.settings)
   }
 
   // Same snapshot _exportSave() downloads as a file, copied to the
@@ -8575,7 +9063,15 @@ export class Game {
   async _renderMyRank() {
     if (!this.cloudsaveRankLine) return
     try {
-      this._cloudGlobalRank = await CloudSync.fetchMyGlobalRank(_safeStatNumber(this.bestStats.bestNight))
+      const newRank = await CloudSync.fetchMyGlobalRank(_safeStatNumber(this.bestStats.bestNight))
+      // Leaderboard Rank Change Alerts (General tab) - only a real
+      // improvement (lower rank number), not the first fetch this
+      // session, and not a worsening (someone else beating your old
+      // score isn't something to nag about here).
+      if (this.settings.leaderboardRankAlerts && this._cloudGlobalRank !== undefined && newRank < this._cloudGlobalRank) {
+        this._showHomepageToast(t('leaderboardRankUpToast', { rank: newRank }))
+      }
+      this._cloudGlobalRank = newRank
       this.cloudsaveRankLine.textContent = t('cloudsaveRankLine', { rank: this._cloudGlobalRank })
       if (this.menuPlayerTag) this._renderPlayerTag()
     } catch {
@@ -8642,6 +9138,7 @@ export class Game {
     `).join('')
     for (const btn of this.cloudsaveSavedFriends.querySelectorAll('.saved-friend-remove')) {
       btn.addEventListener('click', () => {
+        if (this.settings.confirmRemoveFriend && !window.confirm(t('confirmRemoveFriendMessage', { name: btn.dataset.remove }))) return
         this.settings.savedFriends = this.settings.savedFriends.filter((f) => f.name !== btn.dataset.remove)
         saveSettings(this.settings)
         this._renderSavedFriends()
@@ -8730,7 +9227,11 @@ export class Game {
         // "Offline" - falls back to the plain label if we never got a
         // timestamp at all (e.g. they've never synced).
         label.textContent = status === 'offline' && presence && presence.lastActiveAt
-          ? t('friendStatusOfflineAgo', { time: _formatRelativeTime(Date.now() - presence.lastActiveAt) })
+          ? t('friendStatusOfflineAgo', {
+            time: this.settings.exactLastSeen
+              ? new Date(presence.lastActiveAt).toLocaleString(undefined, { hour: 'numeric', minute: '2-digit', month: 'short', day: 'numeric', hour12: this.settings.timeFormat === '12h' })
+              : _formatRelativeTime(Date.now() - presence.lastActiveAt),
+          })
           : t(FRIEND_STATUS_LABEL_KEYS[status])
       } catch {
         // Best-effort - stays "Offline" default on a failed read.
@@ -9012,7 +9513,11 @@ export class Game {
   // like the save push itself.
   async _pushOnlineStats() {
     if (!this._cloudUid || !CloudSync.isConfigured()) return
-    const name = this.settings.nickname || t('menuPlayerTagDefault')
+    // Anonymous Mode (General tab) - only swaps the displayed name; every
+    // other field (playerId, stats) still writes normally, so Friend
+    // Compare/lookup-by-ID keeps working even while anonymous on the
+    // public leaderboard itself.
+    const name = this.settings.anonymousLeaderboard ? t('anonymousLeaderboardName') : (this.settings.nickname || t('menuPlayerTagDefault'))
     const entry = {
       name,
       bestNight: _safeStatNumber(this.bestStats.bestNight),
@@ -9485,7 +9990,12 @@ export class Game {
     if (open) {
       this._settingsOpenSnapshot = JSON.stringify(this.settings)
       this._renderRecentlyChangedList()
-      CloudSync.incrementTelemetry('settingsOpened').catch(() => {})
+      if (this.settings.shareTelemetry) CloudSync.incrementTelemetry('settingsOpened').catch(() => {})
+      // Reopen Settings to Last-Used Tab (General tab).
+      if (this.settings.rememberSettingsTab) {
+        const tab = document.querySelector(`.settings-tab[data-page="${this.settings.lastSettingsTab}"]`)
+        if (tab) tab.click()
+      }
     } else if (this.gameStarted && this.playerState.alive) {
       // Settings reached mid-run only comes from the pause overlay (see
       // pauseSettingsBtn above), which this function hides the instant
@@ -11139,7 +11649,7 @@ export class Game {
     if (!this.sharePanel) return
     this.sharePanel.style.display = 'flex'
     if (this.sharePanelTitle) this.sharePanelTitle.textContent = t('sharePanelTitle')
-    CloudSync.incrementTelemetry('shareUsed').catch(() => {})
+    if (this.settings.shareTelemetry) CloudSync.incrementTelemetry('shareUsed').catch(() => {})
   }
 
   _closeSharePanel() {
@@ -11593,6 +12103,40 @@ export class Game {
     document.getElementById('daily-challenge-reminder-label').textContent = t('dailyChallengeReminderLabel')
     document.getElementById('time-format-label').textContent = t('timeFormatLabel')
     document.getElementById('autosave-frequency-label').textContent = t('autosaveFrequencyLabel')
+    document.getElementById('hud-fps-label').textContent = t('hudFpsLabel')
+    document.getElementById('ammo-position-label').textContent = t('ammoPositionLabel')
+    document.getElementById('health-display-style-label').textContent = t('healthDisplayStyleLabel')
+    document.getElementById('low-ammo-flash-label').textContent = t('lowAmmoFlashLabel')
+    document.getElementById('session-timer-label').textContent = t('sessionTimerLabel')
+    document.getElementById('difficulty-label-label').textContent = t('difficultyLabelLabel')
+    document.getElementById('objective-distance-label').textContent = t('objectiveDistanceLabel')
+    document.getElementById('achievement-toast-label').textContent = t('achievementToastLabel')
+    document.getElementById('rank-up-toast-label').textContent = t('rankUpToastLabel')
+    document.getElementById('leaderboard-rank-label').textContent = t('leaderboardRankLabel')
+    document.getElementById('weekly-reminder-label').textContent = t('weeklyReminderLabel')
+    document.getElementById('low-currency-label').textContent = t('lowCurrencyLabel')
+    document.getElementById('backup-reminder-label').textContent = t('backupReminderLabel')
+    document.getElementById('save-size-label').textContent = t('saveSizeLabel')
+    document.getElementById('clear-cache-label').textContent = t('clearCacheLabel')
+    document.getElementById('clear-cache-btn').textContent = t('clearCacheLabel')
+    document.getElementById('confirm-signout-label').textContent = t('confirmSignoutLabel')
+    document.getElementById('stay-signedin-label').textContent = t('staySignedinLabel')
+    document.getElementById('anonymous-leaderboard-label').textContent = t('anonymousLeaderboardLabel')
+    document.getElementById('share-telemetry-label').textContent = t('shareTelemetryLabel')
+    document.getElementById('auto-decline-label').textContent = t('autoDeclineLabel')
+    document.getElementById('exact-lastseen-label').textContent = t('exactLastseenLabel')
+    document.getElementById('remember-settings-tab-label').textContent = t('rememberSettingsTabLabel')
+    document.getElementById('confirm-remove-friend-label').textContent = t('confirmRemoveFriendLabel')
+    document.getElementById('reduce-bg-effects-label').textContent = t('reduceBgEffectsLabel')
+    document.getElementById('homepage-greeting-label').textContent = t('homepageGreetingLabel')
+    document.getElementById('auto-reload-label').textContent = t('autoReloadLabel')
+    document.getElementById('show-pause-playtime-label').textContent = t('showPausePlaytimeLabel')
+    document.getElementById('instant-interact-label').textContent = t('instantInteractLabel')
+    document.getElementById('confirm-quit-label').textContent = t('confirmQuitLabel')
+    document.getElementById('damage-flash-color-label').textContent = t('damageFlashColorLabel')
+    document.getElementById('one-handed-label').textContent = t('oneHandedLabel')
+    document.getElementById('sort-weapons-label').textContent = t('sortWeaponsLabel')
+    document.getElementById('whatsnew-every-launch-label').textContent = t('whatsNewEveryLaunchLabel')
     document.getElementById('reduce-flashing-label').textContent = t('reduceFlashingLabel')
     document.getElementById('stream-safe-mode-label').textContent = t('streamSafeModeLabel')
     document.getElementById('toggle-sprint-label').textContent = t('toggleSprintLabel')
@@ -11696,6 +12240,14 @@ export class Game {
         if (this.careerStats.totalKills >= CAREER_RANK_TITLES[i].min) level = i + 1
       }
       this.menuAvatarLevel.textContent = level
+      // Rank-Up Toasts (General tab) - fires only on an actual increase,
+      // not the first read this session (_lastAvatarLevel starting
+      // undefined would otherwise fire once on page load for anyone
+      // already above level 1).
+      if (this.settings.rankUpToasts && this._lastAvatarLevel !== undefined && level > this._lastAvatarLevel) {
+        this._showHomepageToast(t('rankUpToast', { level }))
+      }
+      this._lastAvatarLevel = level
       // Avatar frame tiers - automatic, not a picker (see that CSS rule's
       // own comment), reuses this same tier index.
       const avatarIcon = document.getElementById('menu-avatar-icon')
@@ -12748,7 +13300,9 @@ export class Game {
     this.panelWeaponsList.innerHTML = this.weapons
       .getSummary()
       .filter((w) => this.settings.hotbar.includes(w.id))
-      .sort((a, b) => this.settings.hotbar.indexOf(a.id) - this.settings.hotbar.indexOf(b.id))
+      .sort((a, b) => this.settings.sortWeaponsAlpha
+        ? t(a.nameKey).localeCompare(t(b.nameKey))
+        : this.settings.hotbar.indexOf(a.id) - this.settings.hotbar.indexOf(b.id))
       .map((w) => {
         const grandmastered = this.weaponMastery.grandmastered.has(w.id)
         const mastered = w.masteryMult > 1
@@ -13547,6 +14101,7 @@ export class Game {
     // should actually reach the screen before then, even if whatever
     // triggered this fired anyway.
     if (!this.gameStarted) return
+    if (!this.settings.achievementToasts) return
     this._achievementToastQueue.push(def)
     this._drainAchievementToastQueue()
   }
@@ -14998,12 +15553,21 @@ export class Game {
   // correct behavior for "you still haven't caught up."
   _maybeShowWhatsNewDigest() {
     if (!this.whatsNewDigest) return
-    const lastViewed = Number(localStorage.getItem(CHANGELOG_LAST_VIEWED_KEY))
-    if (!lastViewed) return
-    const newEntries = Array.from(document.querySelectorAll('#changelog-list .changelog-entry')).filter((el) => {
-      const parsed = Date.parse(el.querySelector('.changelog-date')?.textContent || '')
-      return !isNaN(parsed) && parsed > lastViewed
-    })
+    // Show What's New Every Launch (General tab) - bypasses the normal
+    // "only entries newer than my last visit" gate below and just shows
+    // the most recent entries unconditionally, for anyone who wants the
+    // reminder every time rather than only once per real update.
+    let newEntries
+    if (this.settings.whatsNewEveryLaunch) {
+      newEntries = Array.from(document.querySelectorAll('#changelog-list .changelog-entry')).slice(0, 3)
+    } else {
+      const lastViewed = Number(localStorage.getItem(CHANGELOG_LAST_VIEWED_KEY))
+      if (!lastViewed) return
+      newEntries = Array.from(document.querySelectorAll('#changelog-list .changelog-entry')).filter((el) => {
+        const parsed = Date.parse(el.querySelector('.changelog-date')?.textContent || '')
+        return !isNaN(parsed) && parsed > lastViewed
+      })
+    }
     if (!newEntries.length) return
     this.whatsNewDigestTitle.textContent = t('whatsNewDigestTitle', { n: newEntries.length })
     this.whatsNewDigestList.innerHTML = newEntries.map((el) => `<p>${el.querySelector('.changelog-text')?.textContent || ''}</p>`).join('')
@@ -16971,7 +17535,7 @@ export class Game {
 
     const charging = this.nearAmmoStation && this.ammoStationKeyHeld && this.weapons.timeSinceLastShot > 0.3
     if (charging) {
-      this.ammoStationHoldProgress = Math.min(AMMO_STATION_HOLD_SECONDS, this.ammoStationHoldProgress + dt)
+      this.ammoStationHoldProgress = Math.min(AMMO_STATION_HOLD_SECONDS, this.ammoStationHoldProgress + (this.settings.instantStationInteract ? AMMO_STATION_HOLD_SECONDS : dt))
       if (this.ammoStationHoldProgress >= AMMO_STATION_HOLD_SECONDS) {
         this.ammoStationHoldProgress = 0
         this._onPickup('ammo', 'Ammo Crate', false) // refillReserveAmmo() runs inside _onPickup's ammo branch
@@ -17014,7 +17578,7 @@ export class Game {
 
     const charging = this.nearBreakerBox && this.breakerBoxKeyHeld && this.weapons.timeSinceLastShot > 0.3
     if (charging) {
-      this.breakerBoxHoldProgress = Math.min(BREAKER_BOX_HOLD_SECONDS, this.breakerBoxHoldProgress + dt)
+      this.breakerBoxHoldProgress = Math.min(BREAKER_BOX_HOLD_SECONDS, this.breakerBoxHoldProgress + (this.settings.instantStationInteract ? BREAKER_BOX_HOLD_SECONDS : dt))
       if (this.breakerBoxHoldProgress >= BREAKER_BOX_HOLD_SECONDS) {
         this._restoreTunnelPower()
       }
@@ -18143,6 +18707,10 @@ export class Game {
       // see docs/PERFORMANCE.md §3.
       const drawCalls = this._lastFrameDrawCalls
       this.fpsEl.textContent = `${fps} fps / ${msPerFrame} ms / ${this.zombies.zombies.length} zmb / ${drawCalls} draws`
+      // Session Timer / Difficulty Label / Distance to Extraction Point
+      // (General tab) - same ~500ms cadence as the FPS readout above,
+      // no reason for per-frame accuracy on any of these three.
+      if (this.gameStarted) this._updateExtraHudRow()
       // Frame-Time Graph (opt-in, Controls tab) - a small history buffer
       // of the same msPerFrame value the text readout above already
       // computes, drawn as a sparkline rather than just the latest number.

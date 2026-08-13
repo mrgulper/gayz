@@ -991,12 +991,30 @@ html.high-contrast-mode #app {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
+#hud.hud-pos-left {
+  right: auto;
+  left: 24px;
+  text-align: left;
+  transform-origin: bottom left;
+}
+
+#hud.hud-pos-center {
+  right: 0;
+  left: 0;
+  bottom: 20px;
+  text-align: center;
+  transform-origin: bottom center;
+  margin: 0 auto;
+  width: fit-content;
+}
+
 #damage-flash {
   position: absolute;
   inset: 0;
   pointer-events: none;
   opacity: 0;
-  background: radial-gradient(ellipse at center, rgba(200, 0, 0, 0) 45%, rgba(160, 0, 0, 0.55) 100%);
+  --damage-flash-color: 200, 0, 0;
+  background: radial-gradient(ellipse at center, rgba(var(--damage-flash-color), 0) 45%, rgba(var(--damage-flash-color), 0.55) 100%);
 }
 
 #damage-flash.hit {
@@ -1086,6 +1104,16 @@ html.high-contrast-mode #app {
   flex-direction: column;
   gap: 6px;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+/* Health Display Style (Settings > General) - only affects the health
+   row's own bar/number, not armor/stamina/hunger/thirst/warmth/xp. */
+#status-hud.health-style-bar #health-value {
+  display: none;
+}
+
+#status-hud.health-style-number .status-row:has(#health-fill) .status-bar {
+  display: none;
 }
 
 #infection-indicator {
@@ -3953,6 +3981,15 @@ html.bg-mood-amber #menu-bg-photo {
    sine wave) so they read as fire rather than a pulsing LED. Approximate
    positions, not tied to exact pixels in the photo - close enough reads
    as ambient ember light regardless. */
+/* Reduce Homepage Background Effects (General tab) - dims/stills the
+   embers and rain overlays without fully hiding them like
+   prefers-reduced-motion's own stricter media query does elsewhere. */
+body.reduce-bg-effects #menu-bg-embers,
+body.reduce-bg-effects #menu-bg-rain {
+  opacity: 0.35;
+  animation: none !important;
+}
+
 #menu-bg-embers {
   position: absolute;
   inset: 0;

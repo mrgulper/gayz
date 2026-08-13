@@ -452,6 +452,11 @@ export class WeaponSystem {
     // getter, not a snapshotted boolean, so toggling it mid-game takes
     // effect on the very next shot without needing to rewire anything.
     this.shouldShowHitFeedback = shouldShowHitFeedback
+    // Auto-Reload When Empty (General tab) - set directly by Game.js from
+    // settings.autoReloadOnEmpty, read at the point it's checked below
+    // rather than snapshotted, so toggling it mid-game takes effect
+    // immediately.
+    this.autoReloadEnabled = true
     // Set post-construction via setRivalManager (see RivalScavenger.js) -
     // optional, so nothing else about this class needs to change if it's
     // never set.
@@ -1064,7 +1069,7 @@ export class WeaponSystem {
       if (!w.auto) this.triggerDown = false
     }
 
-    if (!w.melee && w.ammoInMag === 0 && w.ammoReserve > 0) this._reload()
+    if (this.autoReloadEnabled && !w.melee && w.ammoInMag === 0 && w.ammoReserve > 0) this._reload()
   }
 
   _spawnTracer(start, end, color) {

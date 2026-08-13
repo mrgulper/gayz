@@ -159,6 +159,12 @@
         <span id="time-value">00:00</span>
         <span class="progress-sep">&middot;</span>
         <span id="kills-value">0 kills</span>
+        <span class="progress-sep" id="session-timer-sep" style="display: none">&middot;</span>
+        <span id="hud-session-timer" style="display: none">0:00</span>
+        <span class="progress-sep" id="difficulty-label-sep" style="display: none">&middot;</span>
+        <span id="hud-difficulty-label" style="display: none"></span>
+        <span class="progress-sep" id="objective-distance-sep" style="display: none">&middot;</span>
+        <span id="hud-objective-distance" style="display: none"></span>
       </div>
 
       <div id="compass-strip">
@@ -455,6 +461,7 @@
               <span id="menu-player-name-row">
                 <span id="menu-player-tag" title="Click to copy your ID">#PLAYER</span>
               </span>
+              <span id="homepage-greeting" style="display: none"></span>
             </div>
 
             <nav id="menu-nav-buttons">
@@ -551,6 +558,42 @@
               <option value="2">Far</option>
             </select>
           </div>
+          <div class="audio-row">
+            <label for="hud-fps-toggle" id="hud-fps-label">Show FPS Counter During Gameplay</label>
+            <input type="checkbox" id="hud-fps-toggle" class="audio-checkbox" checked />
+          </div>
+          <div class="audio-row">
+            <label for="ammo-position-select" id="ammo-position-label">Ammo Counter Position</label>
+            <select id="ammo-position-select">
+              <option value="right" selected>Right</option>
+              <option value="left">Left</option>
+              <option value="center">Center</option>
+            </select>
+          </div>
+          <div class="audio-row">
+            <label for="health-display-style-select" id="health-display-style-label">Health Display Style</label>
+            <select id="health-display-style-select">
+              <option value="both" selected>Bar + Number</option>
+              <option value="bar">Bar Only</option>
+              <option value="number">Number Only</option>
+            </select>
+          </div>
+          <div class="audio-row">
+            <label for="low-ammo-flash-toggle" id="low-ammo-flash-label">Low Ammo Warning Flash</label>
+            <input type="checkbox" id="low-ammo-flash-toggle" class="audio-checkbox" checked />
+          </div>
+          <div class="audio-row">
+            <label for="session-timer-toggle" id="session-timer-label">Show Session Timer on HUD</label>
+            <input type="checkbox" id="session-timer-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="difficulty-label-toggle" id="difficulty-label-label">Show Difficulty Label on HUD</label>
+            <input type="checkbox" id="difficulty-label-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="objective-distance-toggle" id="objective-distance-label">Show Distance to Extraction Point</label>
+            <input type="checkbox" id="objective-distance-toggle" class="audio-checkbox" checked />
+          </div>
 
           <h3 class="settings-section-heading">Notifications</h3>
           <div class="audio-row">
@@ -560,6 +603,26 @@
           <div class="audio-row">
             <label for="daily-challenge-reminder-toggle" id="daily-challenge-reminder-label">Daily Challenge Reset Reminder</label>
             <input type="checkbox" id="daily-challenge-reminder-toggle" class="audio-checkbox" checked />
+          </div>
+          <div class="audio-row">
+            <label for="achievement-toast-toggle" id="achievement-toast-label">Achievement Unlock Toasts</label>
+            <input type="checkbox" id="achievement-toast-toggle" class="audio-checkbox" checked />
+          </div>
+          <div class="audio-row">
+            <label for="rank-up-toast-toggle" id="rank-up-toast-label">Rank-Up Toasts</label>
+            <input type="checkbox" id="rank-up-toast-toggle" class="audio-checkbox" checked />
+          </div>
+          <div class="audio-row">
+            <label for="leaderboard-rank-toggle" id="leaderboard-rank-label">Leaderboard Rank Change Alerts</label>
+            <input type="checkbox" id="leaderboard-rank-toggle" class="audio-checkbox" checked />
+          </div>
+          <div class="audio-row">
+            <label for="weekly-reminder-toggle" id="weekly-reminder-label">Weekly Challenge Reset Reminder</label>
+            <input type="checkbox" id="weekly-reminder-toggle" class="audio-checkbox" checked />
+          </div>
+          <div class="audio-row">
+            <label for="low-currency-toggle" id="low-currency-label">Low Coins Reminder Before Shop</label>
+            <input type="checkbox" id="low-currency-toggle" class="audio-checkbox" checked />
           </div>
 
           <h3 class="settings-section-heading">Account &amp; Data</h3>
@@ -574,6 +637,100 @@
             <label for="autosave-frequency-slider" id="autosave-frequency-label">Auto-Save Frequency</label>
             <input type="range" id="autosave-frequency-slider" min="10" max="120" step="10" value="30" />
             <span id="autosave-frequency-value" class="audio-value">30s</span>
+          </div>
+          <div class="audio-row">
+            <label for="backup-reminder-toggle" id="backup-reminder-label">Remind Me to Back Up My Save</label>
+            <input type="checkbox" id="backup-reminder-toggle" class="audio-checkbox" checked />
+          </div>
+          <div class="audio-row">
+            <span id="save-size-label">Local Save Size</span>
+            <span id="save-size-value" class="audio-value">-</span>
+          </div>
+          <div class="audio-row">
+            <span id="clear-cache-label">Clear Cache / Temp Data</span>
+            <button id="clear-cache-btn" type="button">Clear</button>
+          </div>
+          <div class="audio-row">
+            <label for="confirm-signout-toggle" id="confirm-signout-label">Confirm Before Signing Out</label>
+            <input type="checkbox" id="confirm-signout-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="stay-signedin-toggle" id="stay-signedin-label">Stay Signed In</label>
+            <input type="checkbox" id="stay-signedin-toggle" class="audio-checkbox" checked />
+          </div>
+          <div class="audio-row">
+            <label for="anonymous-leaderboard-toggle" id="anonymous-leaderboard-label">Anonymous Mode (Hide Name on Leaderboards)</label>
+            <input type="checkbox" id="anonymous-leaderboard-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="share-telemetry-toggle" id="share-telemetry-label">Share Anonymous Usage Stats</label>
+            <input type="checkbox" id="share-telemetry-toggle" class="audio-checkbox" checked />
+          </div>
+
+          <h3 class="settings-section-heading">Social</h3>
+          <div class="audio-row">
+            <label for="auto-decline-toggle" id="auto-decline-label">Auto-Decline Friend Requests</label>
+            <input type="checkbox" id="auto-decline-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="exact-lastseen-toggle" id="exact-lastseen-label">Show Exact Last-Seen Time</label>
+            <input type="checkbox" id="exact-lastseen-toggle" class="audio-checkbox" />
+          </div>
+
+          <h3 class="settings-section-heading">Homepage</h3>
+          <div class="audio-row">
+            <label for="remember-settings-tab-toggle" id="remember-settings-tab-label">Reopen Settings to Last-Used Tab</label>
+            <input type="checkbox" id="remember-settings-tab-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="confirm-remove-friend-toggle" id="confirm-remove-friend-label">Confirm Before Removing a Friend</label>
+            <input type="checkbox" id="confirm-remove-friend-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="reduce-bg-effects-toggle" id="reduce-bg-effects-label">Reduce Homepage Background Effects</label>
+            <input type="checkbox" id="reduce-bg-effects-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="homepage-greeting-input" id="homepage-greeting-label">Homepage Greeting</label>
+            <input type="text" id="homepage-greeting-input" maxlength="40" placeholder="Welcome back!" />
+          </div>
+
+          <h3 class="settings-section-heading">Gameplay</h3>
+          <div class="audio-row">
+            <label for="auto-reload-toggle" id="auto-reload-label">Auto-Reload When Empty</label>
+            <input type="checkbox" id="auto-reload-toggle" class="audio-checkbox" checked />
+          </div>
+          <div class="audio-row">
+            <label for="show-pause-playtime-toggle" id="show-pause-playtime-label">Show Total Playtime on Pause Menu</label>
+            <input type="checkbox" id="show-pause-playtime-toggle" class="audio-checkbox" checked />
+          </div>
+          <div class="audio-row">
+            <label for="instant-interact-toggle" id="instant-interact-label">Instant Interact at Stations (Skip the Hold)</label>
+            <input type="checkbox" id="instant-interact-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="confirm-quit-toggle" id="confirm-quit-label">Confirm Before Quitting Mid-Run</label>
+            <input type="checkbox" id="confirm-quit-toggle" class="audio-checkbox" />
+          </div>
+
+          <h3 class="settings-section-heading">Accessibility</h3>
+          <div class="audio-row">
+            <label for="damage-flash-color-input" id="damage-flash-color-label">Damage Flash Color</label>
+            <input type="color" id="damage-flash-color-input" value="#c80000" />
+          </div>
+          <div class="audio-row">
+            <label for="one-handed-toggle" id="one-handed-label">One-Handed Key Layout</label>
+            <input type="checkbox" id="one-handed-toggle" class="audio-checkbox" />
+          </div>
+
+          <h3 class="settings-section-heading">Misc</h3>
+          <div class="audio-row">
+            <label for="sort-weapons-toggle" id="sort-weapons-label">Sort Weapons List Alphabetically</label>
+            <input type="checkbox" id="sort-weapons-toggle" class="audio-checkbox" />
+          </div>
+          <div class="audio-row">
+            <label for="whatsnew-every-launch-toggle" id="whatsnew-every-launch-label">Show What's New Every Launch</label>
+            <input type="checkbox" id="whatsnew-every-launch-toggle" class="audio-checkbox" />
           </div>
         </div>
 
@@ -1501,6 +1658,7 @@
         <div id="whatsnew-content">
           <p id="build-version-line"></p>
           <div id="changelog-list">
+            <div class="changelog-entry"><span class="changelog-date">Aug 12, 2026</span><span class="changelog-text">33 more real Settings options added to General: an in-game FPS toggle, ammo counter position, health display style, session timer, difficulty label, distance-to-extraction, achievement/rank-up/leaderboard-rank toasts, weekly challenge and low-coins reminders, a save backup reminder and save-size readout, a Clear Cache button, sign-out/quit/remove-friend confirmations, stay-signed-in, anonymous leaderboard mode, a usage-stats opt-out, auto-decline friend requests, exact last-seen time, remembering your last Settings tab, reduced homepage background effects, a homepage greeting, an auto-reload opt-out, total playtime on the pause menu, instant station interacts, a damage flash color picker, one-handed play (extra mouse buttons for Interact/Reload), and alphabetical weapon sorting.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 12, 2026</span><span class="changelog-text">One more follow-up: the "pull the arms in" fix caused a new flickering glitch (two body parts overlapping). Reverted the arms to their original spot - no black patch, no flicker. Pants can still get partly covered by the arm at some angles, same as it's always been; a proper fix for that needs bigger changes than a quick position tweak.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 12, 2026</span><span class="changelog-text">Fixed a black patch that showed up on your character's arm when spinning it to a side view - it was your shirt's own color peeking through a gap, caused by the last fix that moved the arms back. Arms are back in their original spot and the glitch is gone.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 12, 2026</span><span class="changelog-text">19 new Settings options: separate ambient/SFX volume, mute-on-tab-switch, positional (left/right) zombie audio, separate ADS zoom vs hip-fire FOV, motion blur, an FPS cap, split camera shake into recoil vs damage sliders, mouse acceleration, scroll-wheel weapon switching (with an invert option), double-click speed, kill feed side, a compass with letters or degrees, a toggle for the weapon name on your HUD, minimap zoom, friend-came-online and Daily Challenge reminders, a 12h/24h homepage clock, and auto-save frequency. All under Audio/Graphics/Controls/General.</span></div>
@@ -1689,6 +1847,7 @@
 
       <div id="pause-overlay">
         <h2 id="pause-overlay-title">Paused</h2>
+        <div id="pause-playtime-line" style="display: none"></div>
         <div class="perk-panel-buttons">
           <button id="pause-resume-btn">Resume</button>
           <button id="pause-weapon-btn">Switch Weapon</button>

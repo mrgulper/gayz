@@ -66,6 +66,13 @@ export function restoreCloudSession(game) {
     }
     if (session) {
       game._friendRequestsUnsubscribe = CloudSync.subscribeIncomingFriendRequests(session.uid, (requests) => {
+        // Auto-Decline Friend Requests (General tab) - declines every
+        // incoming request as soon as it's seen, before it ever reaches
+        // the visible list, rather than hiding-but-keeping them pending.
+        if (game.settings.autoDeclineFriendRequests && requests.length) {
+          for (const r of requests) CloudSync.respondToFriendRequest(session.uid, r.fromUid).catch(() => {})
+          requests = []
+        }
         game._incomingFriendRequests = requests
         game._updateFriendsDot()
         if (game.friendsPanel && getComputedStyle(game.friendsPanel).display !== 'none') {
@@ -196,6 +203,10 @@ export async function pushToCloud(game, manual) {
 }
 
 export async function handleCloudSignOut(game) {
+  // Confirm Before Signing Out (General tab) - off by default, matching
+  // this action's existing no-confirmation behavior for anyone who never
+  // opens that setting.
+  if (game.settings.confirmSignOut && !window.confirm(t('confirmSignOutMessage'))) return
   // The local sign-out (clearing _cloudProfile/_cloudUid, updating the UI)
   // must happen regardless of whether the remote Firebase signOut call
   // itself succeeds - a network hiccup shouldn't leave the player stuck
