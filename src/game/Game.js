@@ -14802,7 +14802,13 @@ export class Game {
     const fctx = face.getContext('2d')
     fctx.imageSmoothingEnabled = false
     fctx.drawImage(skin.texture.image, 8, 8, 8, 8, 0, 0, 64, 64)
-    this.menuAvatarPhoto.src = face.toDataURL('image/png')
+    const dataUrl = face.toDataURL('image/png')
+    this.menuAvatarPhoto.src = dataUrl
+    // Cached separately from settings.customSkinDataUrl (the full 64x64
+    // skin file) - this is just the small pre-cropped face, read by
+    // index.html's own inline anti-flash script on the very next load so
+    // the corner badge never has to show the anonymous placeholder again.
+    try { localStorage.setItem('gayz-avatar-face-cache', dataUrl) } catch (e) {}
     this.menuAvatarPhoto.style.display = ''
   }
 
