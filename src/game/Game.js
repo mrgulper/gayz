@@ -4656,6 +4656,7 @@ export class Game {
     // point that predates these binds too, but neither of those touches
     // these buttons, so only this one actually needed moving.
     this._checkSetupCode()
+    this._checkImportSkinCode()
     this._bindControlsTab()
     this.perkSkipBtn.addEventListener('click', () => this._closePerkPanel())
     this.perkRerollBtn.addEventListener('click', () => {
@@ -15124,6 +15125,34 @@ export class Game {
     } catch {
       // Malformed/tampered param - silently ignored, see comment above.
     }
+  }
+
+  // Reads a ?importskin=<base64 PNG, no data: prefix> param - the GayZ
+  // Character Skin Designer tool's "Send to GayZ" button builds this link
+  // so a custom skin can be applied without a manual download+upload round
+  // trip. loadSkinTexture() itself is the validation step here (rejects
+  // anything that isn't a real decodable image), not a hand-rolled check -
+  // same untrusted-URL-input caution as _checkBeatThisChallenge/
+  // _checkSetupCode, just async since image decoding is.
+  _checkImportSkinCode() {
+    const raw = new URLSearchParams(location.search).get('importskin')
+    if (!raw) return
+    const dataUrl = `data:image/png;base64,${decodeURIComponent(raw)}`
+    loadSkinTexture(dataUrl).then((skin) => {
+      this.settings.customSkinDataUrl = dataUrl
+      saveSettings(this.settings)
+      if (this._menuAvatar3D) this._menuAvatar3D.setSkin(skin)
+      this._updateMenuAvatarPhoto(skin)
+      this._showHomepageToast(t('importSkinApplied'))
+    }).catch(() => {
+      this._showHomepageToast(t('importSkinFailed'))
+    }).finally(() => {
+      // One-shot - strip the (very long) param so a refresh doesn't try to
+      // re-apply it and so the URL bar doesn't stay full of base64 forever.
+      const clean = new URL(location.href)
+      clean.searchParams.delete('importskin')
+      history.replaceState(null, '', clean)
+    })
   }
 
   // Shareable public Profile link - same base64-in-a-URL technique as

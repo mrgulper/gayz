@@ -1331,6 +1331,8 @@ const STRINGS = {
     settingsCodeInvalid: "That doesn't look like a valid settings code.",
     setupLinkCopied: 'Setup link copied - send it to a friend',
     setupLinkApplied: "A friend's setup was applied to your class/difficulty picks.",
+    importSkinApplied: 'Your custom skin from the Skin Designer was applied!',
+    importSkinFailed: "Couldn't apply that skin - the link may be broken. Try again from the Skin Designer.",
     // Main menu redesign.
     menuPlayerTagDefault: '#PLAYER',
     playerShowcaseTitleDefault: 'Player',
