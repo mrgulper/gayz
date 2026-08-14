@@ -161,6 +161,43 @@ export const BLOCK_TYPES = [
   { id: 'birchplanks', name: 'Birch Planks', color: 0xd8c898, pattern: 'wood', roughness: 0.85, metalness: 0 },
   { id: 'copperblock', name: 'Copper Block', color: 0xb87043, pattern: 'metal', roughness: 0.35, metalness: 0.7 },
   { id: 'netherite', name: 'Netherite Block', color: 0x3c3438, pattern: 'metal', roughness: 0.3, metalness: 0.6 },
+  // Fifth pass - rounds concrete and wool out to the full 16-color dyed
+  // set (only 6 and 13 of 16 existed respectively), a few more stained-
+  // glass colors, more wood/log variants, a handful of natural stone
+  // types, and some glowing/decorative specials that were missing.
+  { id: 'orangeconcrete', name: 'Orange Concrete', color: 0xd87a1a, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'magentaconcrete', name: 'Magenta Concrete', color: 0xb44ac2, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'lightblueconcrete', name: 'Light Blue Concrete', color: 0x6bb9d9, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'limeconcrete', name: 'Lime Concrete', color: 0x7cc82a, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'pinkconcrete', name: 'Pink Concrete', color: 0xe08fab, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'grayconcrete', name: 'Gray Concrete', color: 0x4a4a4e, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'lightgrayconcrete', name: 'Light Gray Concrete', color: 0x9a9a96, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'cyanconcrete', name: 'Cyan Concrete', color: 0x1a7f8c, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'purpleconcrete', name: 'Purple Concrete', color: 0x7a2fa8, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'brownconcrete', name: 'Brown Concrete', color: 0x5a3a24, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'magentawool', name: 'Magenta Wool', color: 0xc74ebd, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'lightbluewool', name: 'Light Blue Wool', color: 0x6cb0d6, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'lightgraywool', name: 'Light Gray Wool', color: 0x9d9d97, pattern: 'wool', roughness: 1, metalness: 0 },
+  { id: 'yellowstainedglass', name: 'Yellow Stained Glass', color: 0xd4c020, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'purplestainedglass', name: 'Purple Stained Glass', color: 0x7a3fa8, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'blackstainedglass', name: 'Black Stained Glass', color: 0x2a2a2c, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'whitestainedglass', name: 'White Stained Glass', color: 0xe8e8e4, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'darkoakplanks', name: 'Dark Oak Planks', color: 0x4a3524, pattern: 'wood', roughness: 0.85, metalness: 0 },
+  { id: 'jungleplanks', name: 'Jungle Planks', color: 0xb5895a, pattern: 'wood', roughness: 0.85, metalness: 0 },
+  { id: 'acaciaplanks', name: 'Acacia Planks', color: 0xb85a3a, pattern: 'wood', roughness: 0.85, metalness: 0 },
+  { id: 'sprucelog', name: 'Spruce Log', color: 0x4a3324, pattern: 'log', roughness: 0.8, metalness: 0 },
+  { id: 'birchlog', name: 'Birch Log', color: 0xd8cba8, pattern: 'log', roughness: 0.8, metalness: 0 },
+  { id: 'basalt', name: 'Basalt', color: 0x4a4a4e, pattern: 'speckle', roughness: 0.85, metalness: 0 },
+  { id: 'tuff', name: 'Tuff', color: 0x6a6a5e, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'calcite', name: 'Calcite', color: 0xe0dcd0, pattern: 'speckle', roughness: 0.7, metalness: 0 },
+  { id: 'mossycobblestone', name: 'Mossy Cobblestone', color: 0x6a7d5a, pattern: 'speckle', roughness: 0.95, metalness: 0 },
+  { id: 'mossystonebricks', name: 'Mossy Stone Bricks', color: 0x6a7d5a, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'glowstone', name: 'Glowstone', color: 0xe8c060, pattern: 'metal', roughness: 0.5, metalness: 0, emissive: 0xe8a020, emissiveIntensity: 0.7 },
+  { id: 'magmablock', name: 'Magma Block', color: 0xc23a1f, pattern: 'speckle', roughness: 0.8, metalness: 0, emissive: 0xff4400, emissiveIntensity: 0.6 },
+  { id: 'cryingobsidian', name: 'Crying Obsidian', color: 0x2f1440, pattern: 'speckle', roughness: 0.3, metalness: 0.1, emissive: 0x9a2fd4, emissiveIntensity: 0.5 },
+  { id: 'boneblock', name: 'Bone Block', color: 0xe8e0c8, pattern: 'stripe', roughness: 0.7, metalness: 0 },
+  { id: 'spongeblock', name: 'Sponge', color: 0xc9c024, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'jackolantern', name: "Jack o'Lantern", color: 0xd9761a, pattern: 'speckle', roughness: 0.8, metalness: 0, emissive: 0xff8800, emissiveIntensity: 0.6 },
 ]
 const VALID_TYPE_IDS = new Set(BLOCK_TYPES.map((b) => b.id))
 
@@ -299,16 +336,38 @@ function _drawStripe(ctx, base, size) {
 }
 const PATTERN_DRAWERS = { speckle: _drawSpeckle, brick: _drawBrick, wood: _drawWood, metal: _drawMetal, glass: _drawGlass, log: _drawLog, wool: _drawWool, stripe: _drawStripe }
 
+// Fine per-pixel grain, applied over the finished pattern before the AO/
+// sheen passes below - every pattern drawer above fills with flat solid
+// colors (fillRect/stroke), which reads as an obviously computer-generated
+// flat plane up close in first person. A subtle per-texel brightness jitter
+// is the same cheap trick real material textures use to fake surface
+// micro-detail without needing an actual bump/normal map. Skipped for
+// glass-pattern blocks - grain on a transparent pane reads as dirty rather
+// than textured, and blurs the sharp cross-mullion lines _drawGlass relies on.
+function _addGrain(ctx, size, pattern) {
+  if (pattern === 'glass') return
+  const imgData = ctx.getImageData(0, 0, size, size)
+  const d = imgData.data
+  for (let i = 0; i < d.length; i += 4) {
+    const jitter = (Math.random() - 0.5) * 14
+    d[i] = Math.max(0, Math.min(255, d[i] + jitter))
+    d[i + 1] = Math.max(0, Math.min(255, d[i + 1] + jitter))
+    d[i + 2] = Math.max(0, Math.min(255, d[i + 2] + jitter))
+  }
+  ctx.putImageData(imgData, 0, 0)
+}
+
 function _makeBlockTexture(colorHex, pattern) {
-  // 192, up from 128 (96 before that, 64 before that, 32 originally) -
-  // NearestFilter magnification means every texel is a visibly hard-edged
-  // square up close, so each bump buys back some sharpness at the same
-  // viewing distance while still keeping the intentional pixel-art look
-  // (not switching to LinearFilter, which would blur the pattern edges
-  // away). The pattern drawers themselves (_drawSpeckle etc.) work in
-  // proportional "size" units, not fixed pixel counts, so they scale up
-  // automatically with this - no per-pattern changes needed.
-  const size = 192
+  // 256, up from 192 (128 before that, 96 before that, 64 before that, 32
+  // originally) - NearestFilter magnification means every texel is a
+  // visibly hard-edged square up close, so each bump buys back some
+  // sharpness at the same viewing distance while still keeping the
+  // intentional pixel-art look (not switching to LinearFilter, which would
+  // blur the pattern edges away). The pattern drawers themselves
+  // (_drawSpeckle etc.) work in proportional "size" units, not fixed pixel
+  // counts, so they scale up automatically with this - no per-pattern
+  // changes needed.
+  const size = 256
   const canvas = document.createElement('canvas')
   canvas.width = size
   canvas.height = size
@@ -318,6 +377,7 @@ function _makeBlockTexture(colorHex, pattern) {
   ctx.fillRect(0, 0, size, size)
   const draw = PATTERN_DRAWERS[pattern]
   if (draw) draw(ctx, base, size)
+  _addGrain(ctx, size, pattern)
 
   // Soft ambient-occlusion vignette - real surfaces catch less light right
   // at their own edges/corners than dead center; without this every
@@ -620,7 +680,17 @@ export class BuildMode {
     return this._blocks.get(this._key(x, y, z)) ?? null
   }
 
-  placeBlock(x, y, z, type) {
+  // skipBoundsUpdate lets a bulk caller (_ensureGroundLayer, the saved-
+  // build loader in _applyParsedData) defer the bounding-sphere recompute
+  // below until after their whole loop finishes, instead of paying for it
+  // on every single block. computeBoundingSphere() scans ALL of a mesh's
+  // current instances every time it's called, so calling it once per
+  // placement while filling the 128x128 (16,384-cell) ground layer was
+  // roughly triangular-number-many instance visits - the real cause of
+  // Build Mode taking ~10 real seconds to open. A plain single placeBlock()
+  // call (the player clicking to place one block) still updates its bounds
+  // immediately, same as before - only bulk fills opt out.
+  placeBlock(x, y, z, type, skipBoundsUpdate = false) {
     const key = this._key(x, y, z)
     if (this._blocks.has(key)) return
     const mesh = this._instancedMeshes[type]
@@ -646,7 +716,7 @@ export class BuildMode {
     // automatically as instances are added/moved - left stale, blocks
     // would flicker in and out of view depending on camera angle,
     // independent of whether they're actually on-screen.
-    mesh.computeBoundingSphere()
+    if (!skipBoundsUpdate) mesh.computeBoundingSphere()
     this._blocks.set(key, type)
     this._instanceKeyByIndex[type][index] = key
   }
@@ -897,12 +967,22 @@ export class BuildMode {
     if (!parsed) return
     const blocks = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.blocks) ? parsed.blocks : null
     if (blocks) {
+      // Same bulk-fill deferral as _ensureGroundLayer - a saved build can
+      // touch many different block types, so track which meshes actually
+      // received a placement and recompute bounds once per type afterward,
+      // rather than once per block placed.
+      const touchedTypes = new Set()
       for (const entry of blocks) {
         if (!entry || typeof entry !== 'object') continue
         const { x, y, z, type } = entry
         if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) continue
         if (!VALID_TYPE_IDS.has(type)) continue
-        this.placeBlock(Math.trunc(x), Math.trunc(y), Math.trunc(z), type)
+        this.placeBlock(Math.trunc(x), Math.trunc(y), Math.trunc(z), type, true)
+        touchedTypes.add(type)
+      }
+      for (const type of touchedTypes) {
+        const mesh = this._instancedMeshes[type]
+        if (mesh) mesh.computeBoundingSphere()
       }
     }
     const hotbar = parsed?.hotbar
@@ -972,9 +1052,14 @@ export class BuildMode {
     const half = GROUND_SIZE / 2
     for (let x = -half; x < half; x++) {
       for (let z = -half; z < half; z++) {
-        this.placeBlock(x, GROUND_LAYER_Y, z, GROUND_BLOCK_TYPE)
+        this.placeBlock(x, GROUND_LAYER_Y, z, GROUND_BLOCK_TYPE, true)
       }
     }
+    // One bounds recompute for the whole fill instead of one per cell (see
+    // placeBlock's skipBoundsUpdate comment) - this single call is what
+    // actually collapses the ~10 second stall down to instant.
+    const groundMesh = this._instancedMeshes[GROUND_BLOCK_TYPE]
+    if (groundMesh) groundMesh.computeBoundingSphere()
   }
 
   update(dt) {
