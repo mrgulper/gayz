@@ -2881,7 +2881,8 @@ select option {
   opacity: 0.55;
 }
 
-.iron-mode-notice {
+.iron-mode-notice,
+.shop-coming-soon {
   font-size: 13px;
   font-style: italic;
   opacity: 0.6;

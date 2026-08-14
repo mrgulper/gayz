@@ -78,6 +78,7 @@ const STRINGS = {
     rollingQuestsSubtitle: '5 new quests every 30 min - each lasts 3 hours',
     monthlyQuestsPlaceholder: 'Coming soon.',
     yearlyQuestsPlaceholder: 'Coming soon.',
+    shopSkinsComingSoon: 'Coming soon.',
     rollingQuestKills: 'Kill {n} Zombies',
     rollingQuestNight: 'Reach Night {n}',
     rollingQuestRuns: 'Complete {n} Run(s)',

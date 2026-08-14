@@ -1463,19 +1463,6 @@ function saveHaggleStreak(streak) {
 // touching the rest of the run-state reset behavior on death/respawn.
 const SHOP_PROGRESS_KEY = 'gayz-shop-progress'
 const COIN_SHOP_GUN_IDS = new Set(COIN_SHOP_ITEMS.filter((i) => i.gun).map((i) => i.gun))
-// Weapon skins no longer for sale (see CoinShop.js's own header comment)
-// but still grantable free by achievements (_checkAchievements) - listed
-// here so _renderCoinShopOptions' Shop > Skins section has titles to show
-// for whichever of these a player has actually earned. 'ember' isn't
-// here - it was shop-purchase-only with no achievement path, so removing
-// it from sale retired it outright rather than leaving an orphaned entry
-// nothing could ever earn.
-const SKIN_EQUIP_ITEMS = [
-  { skin: 'gold', titleKey: 'skinGold' },
-  { skin: 'crimson', titleKey: 'skinCrimson' },
-  { skin: 'cobalt', titleKey: 'skinCobalt' },
-  { skin: 'obsidian', titleKey: 'skinObsidian' },
-]
 
 function loadShopProgress() {
   try {
@@ -11352,46 +11339,18 @@ export class Game {
         }
       }
 
-      // The "unequip skin" option belongs at the front of the Skins
-      // section, not as its own top-level item outside any section.
+      // Skins section fully paused, not just "not for sale" - no equip UI
+      // at all right now, same "Coming soon" placeholder convention as
+      // Monthly/Yearly Quests (see #monthly-quests-placeholder). The
+      // underlying data (ownedSkins/equippedSkin, achievement skin-grants
+      // in _checkAchievements) is untouched - a currently-equipped skin
+      // keeps rendering as-is, and anything already earned stays owned
+      // for whenever this comes back, just nothing to click meanwhile.
       if (section.id === 'skins') {
-        const defaultBtn = document.createElement('button')
-        defaultBtn.className = 'perk-option'
-        defaultBtn.disabled = this.equippedSkin === null
-        defaultBtn.innerHTML = `
-          <span class="perk-name">${t('skinDefault')}</span>
-          <span class="perk-cost">${this.equippedSkin === null ? t('skinEquipped') : t('skinEquip')}</span>
-        `
-        defaultBtn.addEventListener('click', () => {
-          this.equippedSkin = null
-          this.weapons.setSkinAllGuns(null)
-          this._renderCoinShopOptions()
-        })
-        row.appendChild(defaultBtn)
-
-        // Achievement-earned skins only, never for sale - only shown once
-        // owned (nothing to click for one not yet earned, same "don't
-        // clutter with locked cosmetics" reasoning other reward systems
-        // here use). See _checkAchievements' skin-grant branches for how
-        // these get added to ownedSkins in the first place.
-        for (const skinItem of SKIN_EQUIP_ITEMS) {
-          if (!this.ownedSkins.has(skinItem.skin)) continue
-          const equipped = this.equippedSkin === skinItem.skin
-          const skinBtn = document.createElement('button')
-          skinBtn.className = 'perk-option'
-          skinBtn.disabled = equipped
-          skinBtn.innerHTML = `
-            <span class="perk-name">${t(skinItem.titleKey)}</span>
-            <span class="perk-cost">${equipped ? t('skinEquipped') : t('skinEquip')}</span>
-          `
-          skinBtn.addEventListener('click', () => {
-            if (equipped) return
-            this.equippedSkin = skinItem.skin
-            this.weapons.setSkinAllGuns(skinItem.skin)
-            this._renderCoinShopOptions()
-          })
-          row.appendChild(skinBtn)
-        }
+        const comingSoon = document.createElement('p')
+        comingSoon.className = 'shop-coming-soon'
+        comingSoon.textContent = t('shopSkinsComingSoon')
+        row.appendChild(comingSoon)
       }
 
       // Same "unequip" front-of-section button, mirrored for outfits.
