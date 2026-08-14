@@ -227,6 +227,13 @@ const MOUTH_COLOR = 0x000000
 const NOSE_COLOR = 0xd72323
 const SHOE_COLOR = 0x929292
 
+// The real default-skin.png (public/images/default-skin.png), embedded so
+// applying it never needs a network round trip - see the "flash of the
+// old flat-color placeholder on reload" fix in Game.js's
+// _applyDefaultBundledSkin(), which is the only place this gets used.
+// Keep this in sync if that file's contents ever change.
+export const DEFAULT_SKIN_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAEOklEQVR4AeyaW07rMBCGEyQkFsB72czZDUhdCA9IsJuzmfLOApAQ6pnPpz9MHBOnTZwLCsrfudoz+etcanFVZf6en5+PQ5CZPhseUpuxuQJZAnITrD2+egIeHh7qLuS+oMEEUNwXwfbwsSXqgwngpNZ0wvTrMZgAbjRd8MWWqA8mYO6T6iKfWK6/1ROQO8Fc/AqWupCbIBfvmrtPLDd/Lp6rsa2AHIP39/eVoFzZSPlKSWoIqiEbKd+lstcKqOu6NX9dt32tpJEcdd2uVddt3yXlehFwPB7D3H+eniqAIR96aagWtQH15EMfgiwBLy8vlaBCspHylZLUEFRDNlK+S2WWACa2N70K/N3vK4AOiE0BagFqA3QwRu1eBNijJNSiKMCQD700VIvagHryoZ+DOPfKJuz1a4qCwCbg7tMYY76Lj1x9xa1AqEsPwOzkofy+stcKSFZyTl/MuZOqz0VPJk3oHIWACfsdvdTkBNjy/f9MtVNB9zBXOFI+AviRYwICaOhH2DKtHh8fA9Ct+HG32wWg05SH+cITA+lxGhtcyg+GfSjm/bGPmKVmD/I8cgMgoNrtdgFKjm35f6MMBIx5YvrmkB7UwEamQMwjlVPCN5gA3zS6mtQqkpSfnBjElCeJjzxkSQwmgOZ807KRHuTIRgfeli7p4/KVkIGA19fXCqgAOuhrK8/Lw+FQHRx8bEl6IKBUQ3d3d9XdCaVqDJ13VAJub29b/WgV3NzctGJLcLAnWNlz82LkToIVQM77+zticRh1BejsPj4+gqpvPxgL/RiVgLe3t3Ca19fXX9c+KwCEwAI/RiGAJwbQ+aGnEMdjOx6j+BCZG9u5H9A12F5Swp6A5YTf6ZK5+4ny+krVkbRxnYfyJDuTLdi5ApjEchoHPtBwrtjoJGDF59W79Y0Ao+rHvQBiLHcPfPaefvF+gN0jWv9zxJyxP+Ujx/yNw/eGTo5HIzlhhBVgJzTafsB+v0+UWa4rEDBme5+fn2E6+zbCzpAkTnRkCsQ8UjklfIMJ8E2jq0mtKkn5yYlBTHmS+MhDlsRgAmjONy0b6UGObHTgbemSPi5fCRkI0BuYCsS2/JK5OHn6HSCJb4kIBJRqjN8AQqkaQ+cdlYBfuR8QM2zP2MbeQRyPbVYAvm0/ABYWiFEvgW0/4PQN6ykRy1M47EATi218HoqfI8/N7dwPsBeR2q75xrs7Pg8r2NgPiG0bH98zzs23Kb8PXxv9O5LWrH6j/zhr1EsgnnwN9kbAnN+SX55z9ZFaAY39AbvOwv8G8D8C6NZo2Auwd/WvPHRALAZjGAvQiZMLTra5Ku4T4VoNRseHJw29IzUZYoxHioCwN2ANJifo42Qs6JM7d06SgLmbmrL+RsCUbC+xVnIF6G1MDZe2VWcOmSRgjkbmqrkREDNvz0ieyZMhrj+1va2AqRlfWr3Vr4ChhP4DAAD//+jxjE4AAAAGSURBVAMAXZBW/V37cJIAAAAASUVORK5CYII='
+
 // A real uploaded skin - 6 textured boxes at Minecraft's actual skin-
 // pixel dimensions (this project's own proportions already match 1:1,
 // see the UV support comment above), no hand-crafted hair/face/collar
@@ -383,6 +390,17 @@ const CHAR_FIT_MARGIN = 0.85 // leaves ~15% breathing room on whichever axis is 
 export class MenuAvatar3D {
   constructor(canvas, skin) {
     this.canvas = canvas
+    // Hidden until the first real setSkin() call (see reveal()/setSkin()
+    // below) - the very first character built a few lines down is always
+    // the hand-guessed flat-color placeholder (buildCharacter with no skin
+    // yet), and briefly showing that before the real default/uploaded skin
+    // swaps in read as "the old character flashes on reload." A capped
+    // safety timeout guarantees it becomes visible either way, even if
+    // whatever call site was supposed to setSkin() never does.
+    canvas.style.opacity = '0'
+    canvas.style.transition = 'opacity 0.15s ease'
+    this._revealed = false
+    setTimeout(() => this.reveal(), 600)
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
@@ -438,6 +456,13 @@ export class MenuAvatar3D {
     this.character = buildCharacter(skin)
     this.character.rotation.y = oldRotation
     this.scene.add(this.character)
+    this.reveal()
+  }
+
+  reveal() {
+    if (this._revealed) return
+    this._revealed = true
+    this.canvas.style.opacity = '1'
   }
 
   // Click-and-drag to spin on the vertical axis only (horizontal drag

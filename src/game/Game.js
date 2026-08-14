@@ -44,7 +44,7 @@ import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
 import * as MenuEasterEggs from './MenuEasterEggs.js'
 import { JOKE_TIPS, FUNNY_TRIVIA } from './MenuEasterEggs.js'
-import { MenuAvatar3D, loadSkinTexture } from './MenuAvatar3D.js'
+import { MenuAvatar3D, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 import * as MenuPresets from './MenuPresets.js'
 import { BuildMode } from './BuildMode.js'
 import * as CloudSync from './CloudSync.js'
@@ -1287,28 +1287,6 @@ function saveBossRushLeaderboard(entries) {
   }
 }
 
-// Pass-the-Controller Challenge (Local Sharing batch) - a single stored
-// snapshot (not a list) of the most recent run's config, offered to
-// whoever plays next via #accept-challenge-btn (see _updateAcceptChallengeButton).
-const CHALLENGE_HANDOFF_KEY = 'gayz-challenge-handoff'
-
-function loadChallengeHandoff() {
-  try {
-    const raw = localStorage.getItem(CHALLENGE_HANDOFF_KEY)
-    return raw ? JSON.parse(raw) : null
-  } catch {
-    return null
-  }
-}
-
-function saveChallengeHandoff(handoff) {
-  try {
-    localStorage.setItem(CHALLENGE_HANDOFF_KEY, JSON.stringify(handoff))
-  } catch {
-    // Storage unavailable - the challenge handoff just won't persist.
-  }
-}
-
 // Hardcore Mode death memorial - a permanent, never-pruned-by-cap record of
 // every one-life character lost (unlike the leaderboards above, this isn't
 // a top-N ranking, it's a full history, so each hardcore attempt becomes
@@ -1926,13 +1904,11 @@ const TUTORIAL_SEEN_KEY = 'gayz-tutorial-seen'
 const TUTORIAL_HINT_START_DELAY_MS = 2500
 const TUTORIAL_HINT_INTERVAL_MS = 4200
 
-// Homepage batch - Spotlight ticker tip pool (see _updateMenuSpotlight),
-// Seasonal Event Banner windows (month is 0-indexed, JS Date convention),
-// What's New badge-dot gate, and the replayable How to Play step sequence
-// (distinct from TUTORIAL_SEEN_KEY's one-time toast sequence above).
-const SPOTLIGHT_TIPS = ['spotlightTip1', 'spotlightTip2', 'spotlightTip3', 'spotlightTip4', 'spotlightTip5', 'spotlightTip6', 'spotlightTip7', 'spotlightTip8']
-// Round 4 Online Features batch - standalone lore/world trivia, distinct
-// from SPOTLIGHT_TIPS above (actionable gameplay advice vs. pure flavor).
+// Homepage batch - Seasonal Event Banner windows (month is 0-indexed, JS
+// Date convention), What's New badge-dot gate, and the replayable How to
+// Play step sequence (distinct from TUTORIAL_SEEN_KEY's one-time toast
+// sequence above).
+// Round 4 Online Features batch - standalone lore/world trivia.
 const TRIVIA_FACTS = ['triviaFact1', 'triviaFact2', 'triviaFact3', 'triviaFact4', 'triviaFact5', 'triviaFact6']
 // Pure flavor, day-seeded the same way as TRIVIA_FACTS - a silly one-liner,
 // not meant to be taken as real gameplay advice.
@@ -3014,10 +2990,8 @@ export class Game {
     this.statsKills = document.getElementById('stats-kills')
     this.minimapWrap = document.getElementById('minimap-wrap')
     this.minimapCanvas = document.getElementById('minimap')
-    // Main menu redesign - hero stat pair + left-column "Your Stats" panel
-    // + player badge, replacing the old single menu-best-stats text blob.
-    this.heroBestNight = document.getElementById('hero-best-night')
-    this.heroBestStreak = document.getElementById('hero-best-streak')
+    // Main menu redesign - left-column "Your Stats" panel + player badge,
+    // replacing the old single menu-best-stats text blob.
     this.currencyCoinsAmount = document.getElementById('currency-coins-amount')
     this.currencyPointsAmount = document.getElementById('currency-points-amount')
     this.currencyCashAmount = document.getElementById('currency-cash-amount')
@@ -3072,19 +3046,8 @@ export class Game {
     this.howtoplayBackBtn = document.getElementById('howtoplay-back-btn')
     this.howtoplayNextBtn = document.getElementById('howtoplay-next-btn')
     this.seasonProgressFill = document.getElementById('season-progress-fill')
-    this.menuSpotlight = document.getElementById('menu-spotlight')
-    this.menuSpotlightPauseBtn = document.getElementById('menu-spotlight-pause-btn')
     this.weeklyProgressTrack = document.getElementById('weekly-progress-track')
     this.weeklyProgressFill = document.getElementById('weekly-progress-fill')
-    if (this.menuSpotlightPauseBtn) {
-      this.menuSpotlightPauseBtn.addEventListener('click', () => {
-        this._spotlightPaused = !this._spotlightPaused
-        this.menuSpotlightPauseBtn.innerHTML = this._spotlightPaused
-          ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6,4 20,12 6,20"/></svg>'
-          : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>'
-        this.menuSpotlightPauseBtn.setAttribute('aria-label', this._spotlightPaused ? 'Resume ticker' : 'Pause ticker')
-      })
-    }
     this.eventBanner = document.getElementById('event-banner')
     this.whatsNewDot = document.getElementById('whats-new-dot')
     this.questsClaimDot = document.getElementById('quests-claim-dot')
@@ -3417,7 +3380,6 @@ export class Game {
     this.profilePrintBtn = document.getElementById('profile-print-btn')
     this.printStatsSheet = document.getElementById('print-stats-sheet')
     this.copyTextRecapBtn = document.getElementById('copy-text-recap-btn')
-    this.acceptChallengeBtn = document.getElementById('accept-challenge-btn')
     this.sharePanel = document.getElementById('share-panel')
     this.sharePanelTitle = document.getElementById('share-panel-title')
     this.openShareBtn = document.getElementById('open-share-btn')
@@ -7834,7 +7796,6 @@ export class Game {
     if (this.profilePrintBtn) this.profilePrintBtn.addEventListener('click', () => this._printProfile())
     this.shareRunCardBtn.addEventListener('click', () => this._generateRunSummaryCard())
     if (this.copyTextRecapBtn) this.copyTextRecapBtn.addEventListener('click', () => this._copyTextRecap())
-    if (this.acceptChallengeBtn) this.acceptChallengeBtn.addEventListener('click', () => this._acceptChallenge())
     this.creditsBtn.addEventListener('click', () => trackAndOpen(() => this._openCreditsPanel()))
     this.coinshopBtn.addEventListener('click', () => trackAndOpen(() => {
       // Low Coins Reminder (General tab) - a heads-up, not a blocker; the
@@ -9666,46 +9627,6 @@ export class Game {
     navigator.clipboard.writeText(text)
       .then(() => this._showLoreToast(t('clipboardCopySuccess')))
       .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
-  }
-
-  // Pass-the-Controller Challenge - captures the exact config a run was
-  // played under so whoever plays next (same session or a different local
-  // player) can accept the identical difficulty/mutators with one click,
-  // rather than needing to be told or guess the settings verbally.
-  _captureChallengeHandoff() {
-    saveChallengeHandoff({
-      name: this.settings.nickname || t('anonymousPlayerName'),
-      night: this.night,
-      kills: this.kills,
-      difficulty: this.settings.difficulty,
-      mutators: { ...this.settings.mutators },
-    })
-  }
-
-  _updateAcceptChallengeButton() {
-    if (!this.acceptChallengeBtn) return
-    const handoff = loadChallengeHandoff()
-    if (!handoff) {
-      this.acceptChallengeBtn.style.display = 'none'
-      return
-    }
-    this.acceptChallengeBtn.style.display = ''
-    this.acceptChallengeBtn.textContent = t('acceptChallengeBtn', { name: handoff.name, night: handoff.night })
-  }
-
-  // Applies via settings + a reload rather than live-patching every
-  // difficulty/mutator checkbox in the menu by hand - this project's own
-  // per-mutator checkboxes are each their own named field (mutatorHordeRush,
-  // mutatorLootRush, ...), not a generic map, and every one of them already
-  // syncs its .checked state from settings at construction time. A reload
-  // gets that sync for free and correctly, instead of re-deriving it here.
-  _acceptChallenge() {
-    const handoff = loadChallengeHandoff()
-    if (!handoff) return
-    this.settings.difficulty = handoff.difficulty
-    this.settings.mutators = { ...this.settings.mutators, ...handoff.mutators }
-    saveSettings(this.settings)
-    window.location.reload()
   }
 
   // Shareable Loadout Code - encodes the current 5-slot hotbar (weapon ids
@@ -12124,7 +12045,6 @@ export class Game {
 
     this._updateBestStatsDisplay()
     this._updateBossRushLeaderboardDisplay()
-    this._updateAcceptChallengeButton()
     this._updateHardcoreMemorialDisplay()
     if (this.inventoryOpen) this._refreshInventoryPanel()
     this._updateProgressHud()
@@ -12142,12 +12062,7 @@ export class Game {
   }
 
   _updateBestStatsDisplay() {
-    const { bestNight, bestKills, bestKillStreak } = this.bestStats
-    // Hero stat pair (Best Night / Best Streak) - all textContent, so a
-    // malicious imported bestStats value (see _safeStatNumber's own
-    // comment on this exact risk) just renders as text, never HTML.
-    if (this.heroBestNight) this.heroBestNight.textContent = _safeStatNumber(bestNight)
-    if (this.heroBestStreak) this.heroBestStreak.textContent = _safeStatNumber(bestKillStreak)
+    const { bestNight } = this.bestStats
     this._renderCurrencyBar()
 
     // Your Stats panel - a different stat slice than the hero pair above,
@@ -12243,7 +12158,6 @@ export class Game {
     this._updatePrestigeBadge()
     this._updateRecommendedDifficultyHint()
     this._updateSeasonProgress()
-    this._updateMenuSpotlight()
     this._updateWhatsNewDot()
     this._updateLoginStreakBadge()
     this._updateStoreDot()
@@ -12398,285 +12312,6 @@ export class Game {
     }
   }
 
-  // Spotlight ticker - a single rotating hero-column line (Tip of the Day /
-  // Daily Challenge reset countdown / Featured Weekly Challenge), distinct
-  // from the decluttered .menu-news-ticker (see that class's own comment -
-  // it stays hidden per the reference-image pass). Idempotent: safe to call
-  // from _updateBestStatsDisplay repeatedly, only starts its rotation timer
-  // once.
-  _updateMenuSpotlight() {
-    if (!this.menuSpotlight) return
-    // Async data for the Global Activity / Community Poll modes below -
-    // kicked off once (idempotent, same guard style as the interval start
-    // further down) so the numbers are already cached by the time the
-    // rotation reaches those modes, rather than fetching on every render().
-    if (!this._spotlightAsyncStarted) {
-      this._spotlightAsyncStarted = true
-      CloudSync.fetchGlobalKills().then((n) => { this._spotlightGlobalKills = n }).catch(() => {})
-      if (this._cloudUid) {
-        CloudSync.fetchPollResults(POLL_ID, POLL_OPTIONS.map((o) => o.id)).then((counts) => { this._spotlightPollCounts = counts }).catch(() => {})
-        // Weekly MVP - a random pick among the top 5 (not always #1, so
-        // this doesn't just duplicate the weekly leaderboard's own #1
-        // display elsewhere), reusing the exact fetchTopWeeklyLeaderboard
-        // the Cloud Save panel's weekly leaderboard list already calls.
-        CloudSync.fetchTopWeeklyLeaderboard(_thisWeekStr(), 5).then((entries) => {
-          // #1 specifically cached separately from the random MVP pick
-          // below - mode 24's Most Improved check needs the real #1, not
-          // whichever of the top 5 got randomly chosen for the MVP line.
-          if (entries.length) this._spotlightWeeklyTop1 = entries[0]
-          if (entries.length) this._spotlightWeeklyMvp = entries[Math.floor(Math.random() * entries.length)]
-        }).catch(() => {})
-        // Head-to-head rival - same fetchNearestRivalAbove the Cloud Save
-        // panel's own rival line already uses (_renderRival), just also
-        // surfaced on the homepage ticker rather than only inside that
-        // panel.
-        CloudSync.fetchNearestRivalAbove(_safeStatNumber(this.bestStats.bestNight)).then((rival) => { this._spotlightRival = rival }).catch(() => {})
-      }
-    }
-    const render = () => {
-      const mode = (this._spotlightIndex || 0) % 28
-      if (mode === 0) {
-        const tipKey = SPOTLIGHT_TIPS[Math.floor(Date.now() / 60000) % SPOTLIGHT_TIPS.length]
-        this.menuSpotlight.textContent = t('spotlightTipPrefix', { tip: t(tipKey) })
-      } else if (mode === 1) {
-        const now = new Date()
-        const midnight = new Date(now)
-        midnight.setHours(24, 0, 0, 0)
-        const msLeft = midnight - now
-        const h = Math.floor(msLeft / 3600000)
-        const m = Math.floor((msLeft % 3600000) / 60000)
-        this.menuSpotlight.textContent = t('spotlightDailyReset', { h, m })
-      } else if (mode === 2 && this.weeklyDef) {
-        this.menuSpotlight.textContent = t('spotlightWeeklyChallenge', { title: t(this.weeklyDef.titleKey), target: this.weeklyDef.target, days: _daysUntilWeekReset() })
-      } else if (mode === 3) {
-        // Featured Bestiary entry - day-seeded (same hash-the-date-string
-        // technique DAILY_TWISTS uses) so it's stable for the whole day
-        // rather than re-rolling every 6s, prioritizing an undiscovered
-        // type over an already-encountered one to tease the Bestiary.
-        const ids = Object.keys(ZOMBIE_TYPES)
-        const undiscovered = ids.filter((id) => !this.bestiaryEncountered.has(id))
-        const pool = undiscovered.length > 0 ? undiscovered : ids
-        const id = pool[_dailyTwistIndex(_todayDateStr()) % pool.length]
-        const zt = ZOMBIE_TYPES[id]
-        this.menuSpotlight.textContent = this.bestiaryEncountered.has(id)
-          ? t('spotlightBestiaryKnown', { label: zt.label })
-          : t('spotlightBestiaryUnknown')
-      } else if (mode === 4) {
-        // Mutator Exploration nudge - day-seeded pick among mutators never
-        // once started a run with (see settings.mutatorsEverEnabled,
-        // recorded at Play-click time). Silently falls through to the
-        // next render call's modulo if every mutator's been tried at
-        // least once - nothing to nudge toward.
-        const untried = Object.keys(this.settings.mutators).filter((id) => !this.settings.mutatorsEverEnabled.includes(id))
-        if (untried.length > 0) {
-          const id = untried[_dailyTwistIndex(_todayDateStr()) % untried.length]
-          this.menuSpotlight.textContent = t('spotlightMutatorNudge', { mutator: t(MUTATOR_LABEL_KEYS[id] || id) })
-        }
-      } else if (mode === 5) {
-        // Standalone lore/world trivia - distinct from SPOTLIGHT_TIPS
-        // (mode 0), which are actionable gameplay advice; these are pure
-        // flavor facts about the world, day-seeded the same way as every
-        // other daily-stable pick in this rotation.
-        const triviaKey = TRIVIA_FACTS[_dailyTwistIndex(_todayDateStr() + 'trivia') % TRIVIA_FACTS.length]
-        this.menuSpotlight.textContent = t(triviaKey)
-      } else if (mode === 6) {
-        // Featured Shop Item - day-seeded pick from the real Coin Shop
-        // catalog (no fake "sale"/discount - CoinShop.js has no such
-        // mechanic, and inventing a fake price cut that doesn't apply at
-        // checkout would be misleading).
-        const item = COIN_SHOP_ITEMS[_dailyTwistIndex(_todayDateStr() + 'shop') % COIN_SHOP_ITEMS.length]
-        this.menuSpotlight.textContent = t('spotlightFeaturedItem', { item: t(item.titleKey), cost: item.cost.toLocaleString() })
-      } else if (mode === 7 && this._spotlightGlobalKills) {
-        // Global Activity - the one real cross-player signal this game
-        // tracks (stats/global.totalKills, see CloudSync.fetchGlobalKills).
-        // No presence/session system exists to build a genuine "players
-        // online" count from, so this stays an aggregate-kills line rather
-        // than faking one.
-        this.menuSpotlight.textContent = t('spotlightGlobalActivity', { n: this._spotlightGlobalKills.toLocaleString() })
-      } else if (mode === 8 && this._spotlightPollCounts) {
-        // Community Poll teaser - reuses the same POLL_ID/POLL_OPTIONS and
-        // fetchPollResults aggregation the Cloud Save panel's full poll UI
-        // already uses (see _renderPoll), just condensed to a leader-only
-        // line. Only shown once signed in (fetch is gated on _cloudUid
-        // above), same as the full poll widget.
-        const total = Object.values(this._spotlightPollCounts).reduce((a, b) => a + b, 0)
-        if (total > 0) {
-          const leaderId = Object.keys(this._spotlightPollCounts).sort((a, b) => this._spotlightPollCounts[b] - this._spotlightPollCounts[a])[0]
-          const leaderOpt = POLL_OPTIONS.find((o) => o.id === leaderId)
-          const pct = Math.round((this._spotlightPollCounts[leaderId] / total) * 100)
-          this.menuSpotlight.textContent = t('spotlightPollTeaser', { option: t(leaderOpt.labelKey), pct })
-        }
-      } else if (mode === 9) {
-        // Patch Notes - reads the newest Credits changelog entry straight
-        // from the DOM rather than duplicating it into a second data
-        // source. The changelog is hand-authored static HTML (see
-        // #changelog-list in index.html), not a JS array, so this stays
-        // in sync with whatever's actually shown in Credits automatically.
-        const latest = document.querySelector('#changelog-list .changelog-entry')
-        if (latest) {
-          const date = latest.querySelector('.changelog-date')?.textContent || ''
-          const text = latest.querySelector('.changelog-text')?.textContent || ''
-          this.menuSpotlight.textContent = t('spotlightPatchNotes', { date, text })
-        }
-      } else if (mode === 10) {
-        // Comeback nudge - only shows once there's an actual gap to nudge
-        // about (a first-ever visit has no last run yet, and a same-day
-        // return has nothing meaningful to say). Silently no-ops otherwise,
-        // same precedent as the Mutator Exploration nudge (mode 4).
-        const last = this.runHistory[0]
-        if (last && last.ts) {
-          const days = Math.floor((Date.now() - _safeStatNumber(last.ts)) / 86400000)
-          if (days >= 1) this.menuSpotlight.textContent = t('spotlightComebackNudge', { days })
-        }
-      } else if (mode === 11 && this.nemesis) {
-        // Nemesis teaser - same this.nemesis the Profile panel's own
-        // Nemesis stat already reads (see _recordNemesis), just surfaced
-        // here too rather than only inside Profile.
-        this.menuSpotlight.textContent = t('spotlightNemesisTeaser', { label: this.nemesis.label, night: this.nemesis.night })
-      } else if (mode === 12) {
-        const horoscopeKey = HOROSCOPES[_dailyTwistIndex(_todayDateStr() + 'horoscope') % HOROSCOPES.length]
-        this.menuSpotlight.textContent = t(horoscopeKey)
-      } else if (mode === 13) {
-        // Almost Affordable - the cheapest item still just out of reach,
-        // not the closest-by-any-metric item (a 1-coin-short legendary
-        // gun is a more useful nudge than a 50-coin-short cheap skin).
-        const affordableGap = COIN_SHOP_ITEMS
-          .filter((i) => i.cost > this.coins)
-          .sort((a, b) => a.cost - this.coins - (b.cost - this.coins))[0]
-        if (affordableGap) {
-          this.menuSpotlight.textContent = t('spotlightAlmostAffordable', { item: t(affordableGap.titleKey), gap: (affordableGap.cost - this.coins).toLocaleString() })
-        }
-      } else if (mode === 14 && this._cloudUid) {
-        // Cloud sync status - same CLOUD_LAST_SYNC_KEY/_formatRelativeTime
-        // the Cloud Save panel and the quick-cloud-btn tooltip already use
-        // (see _renderCloudSyncStatus), just visible here too instead of
-        // only on hover. Only shown when signed in.
-        const last = localStorage.getItem(CLOUD_LAST_SYNC_KEY)
-        this.menuSpotlight.textContent = last
-          ? t('spotlightCloudSynced', { time: _formatRelativeTime(Math.max(0, Date.now() - Number(last))) })
-          : t('spotlightCloudNeverSynced')
-      } else if (mode === 15) {
-        // Recently Unlocked - only ever pulls from achievements.unlockTimes
-        // (see Achievements.js), which is forward-only tracked, so this
-        // silently shows nothing (falls through, previous text stays)
-        // until the player earns something new after this feature shipped.
-        const recent = this.achievements.getRecentUnlocks(1)[0]
-        if (recent) this.menuSpotlight.textContent = t('spotlightRecentUnlock', { name: t(recent.titleKey) })
-      } else if (mode === 16 && this.runHistory.length >= 6) {
-        // Win-rate trend - splits runHistory (newest-first, see
-        // _recordRunEnd) into the most recent half vs the older half of
-        // whatever's available, rather than requiring exactly 20 runs on
-        // hand. Needs at least 6 total so each half has a meaningful size.
-        const half = Math.floor(this.runHistory.length / 2)
-        const recentRate = this.runHistory.slice(0, half).filter((r) => r.survived).length / half
-        const olderRate = this.runHistory.slice(half, half * 2).filter((r) => r.survived).length / half
-        const delta = Math.round((recentRate - olderRate) * 100)
-        if (delta > 5) this.menuSpotlight.textContent = t('spotlightWinRateUp', { n: delta })
-        else if (delta < -5) this.menuSpotlight.textContent = t('spotlightWinRateDown', { n: Math.abs(delta) })
-        else this.menuSpotlight.textContent = t('spotlightWinRateSteady', { pct: Math.round(recentRate * 100) })
-      } else if (mode === 17 && this.runHistory.length >= 3) {
-        // Favorite play time - buckets runHistory timestamps into 4
-        // dayparts and picks whichever has the most runs. Only meaningful
-        // with a handful of runs on hand (RUN_HISTORY_MAX caps this at 25
-        // recent ones anyway, so this always reflects recent habits, not
-        // a lifetime average).
-        const buckets = { spotlightPlayTimeMorning: 0, spotlightPlayTimeAfternoon: 0, spotlightPlayTimeEvening: 0, spotlightPlayTimeNight: 0 }
-        for (const r of this.runHistory) {
-          if (!r.ts) continue
-          const h = new Date(r.ts).getHours()
-          if (h >= 5 && h < 12) buckets.spotlightPlayTimeMorning++
-          else if (h >= 12 && h < 17) buckets.spotlightPlayTimeAfternoon++
-          else if (h >= 17 && h < 22) buckets.spotlightPlayTimeEvening++
-          else buckets.spotlightPlayTimeNight++
-        }
-        const topKey = Object.keys(buckets).sort((a, b) => buckets[b] - buckets[a])[0]
-        if (buckets[topKey] > 0) this.menuSpotlight.textContent = t('spotlightFavoritePlayTime', { period: t(topKey) })
-      } else if (mode === 18 && this._spotlightWeeklyMvp) {
-        this.menuSpotlight.textContent = t('spotlightWeeklyMvp', { name: this._spotlightWeeklyMvp.name || '???', progress: _safeStatNumber(this._spotlightWeeklyMvp.progress) })
-      } else if (mode === 19 && this._spotlightRival) {
-        const gap = _safeStatNumber(this._spotlightRival.bestNight) - _safeStatNumber(this.bestStats.bestNight)
-        this.menuSpotlight.textContent = t('spotlightHeadToHead', { name: this._spotlightRival.name || '???', n: gap })
-      } else if (mode === 20) {
-        // Changelog diff - counts real .changelog-entry dates newer than
-        // CHANGELOG_LAST_VIEWED_KEY (set on Credits open, see
-        // _openCreditsPanel), distinct from mode 9's Patch Notes (which
-        // always shows the newest entry regardless of whether it's been
-        // seen). Silently no-ops if there's nothing new or no prior visit
-        // recorded (a first-ever visit has nothing to diff against).
-        const lastViewed = Number(localStorage.getItem(CHANGELOG_LAST_VIEWED_KEY))
-        if (lastViewed) {
-          const newCount = Array.from(document.querySelectorAll('#changelog-list .changelog-entry')).filter((el) => {
-            const parsed = Date.parse(el.querySelector('.changelog-date')?.textContent || '')
-            return !isNaN(parsed) && parsed > lastViewed
-          }).length
-          if (newCount > 0) this.menuSpotlight.textContent = t('spotlightChangelogDiff', { n: newCount })
-        }
-      } else if (mode === 21) {
-        const key = DEATH_QUOTES[_dailyTwistIndex(_todayDateStr() + 'deathquote') % DEATH_QUOTES.length]
-        this.menuSpotlight.textContent = t(key)
-      } else if (mode === 22) {
-        const key = FUNNY_TRIVIA[_dailyTwistIndex(_todayDateStr() + 'funnytrivia') % FUNNY_TRIVIA.length]
-        this.menuSpotlight.textContent = t(key)
-      } else if (mode === 23) {
-        // Silly title generator - a template picked by career-rank tier
-        // (same CAREER_RANK_TITLES lookup _updateSeasonProgress already
-        // uses) combined with the current loadout, so it changes as the
-        // player actually progresses/switches builds rather than being
-        // purely random noise.
-        let tierIndex = 0
-        for (let i = 0; i < CAREER_RANK_TITLES.length; i++) {
-          if (this.careerStats.totalKills >= CAREER_RANK_TITLES[i].min) tierIndex = i
-        }
-        const titleKeys = ['sillyTitleTier0', 'sillyTitleTier1', 'sillyTitleTier2', 'sillyTitleTier3', 'sillyTitleTier4']
-        this.menuSpotlight.textContent = t('spotlightSillyTitle', { title: t(titleKeys[tierIndex], { loadout: t(LOADOUT_LABEL_KEYS[this.settings.loadout]) }) })
-      } else if (mode === 24 && this._spotlightWeeklyTop1 && this.settings.nickname) {
-        // Most Improved badge on your own tag - the weekly leaderboard's
-        // #1 entry already effectively means "most improved this week"
-        // (same reasoning as the existing weekly-leaderboard label per
-        // CLAUDE.md) - checks the real #1 (cached separately above, not
-        // the randomly-picked Weekly MVP), reusing the same
-        // fetchTopWeeklyLeaderboard call rather than a second fetch.
-        if (this._spotlightWeeklyTop1.name === this.settings.nickname) {
-          this.menuSpotlight.textContent = t('spotlightMostImproved')
-        }
-      } else if (mode === 25) {
-        // Session uptime - reuses _sessionStartTime (already tracked for
-        // the "Today" session-stats line, see _renderTodayLine), not a
-        // second timestamp.
-        const totalSeconds = Math.floor((performance.now() - this._sessionStartTime) / 1000)
-        const mins = Math.floor(totalSeconds / 60)
-        const secs = totalSeconds % 60
-        this.menuSpotlight.textContent = t('spotlightSessionUptime', { time: `${mins}:${String(secs).padStart(2, '0')}` })
-      } else if (mode === 26) {
-        // On This Day - genuinely checks today's real month+day against
-        // every changelog entry's own date (parsed straight from the DOM,
-        // same source _updateMenuSpotlight's Patch Notes mode already
-        // reads), not a random pick dressed up as a historical match. Only
-        // shows when there's an actual match, same silent-skip precedent
-        // mode 24's Most Improved check already uses.
-        const today = new Date()
-        for (const el of document.querySelectorAll('#changelog-list .changelog-entry')) {
-          const parsed = new Date(el.querySelector('.changelog-date')?.textContent || '')
-          if (Number.isNaN(parsed.getTime())) continue
-          if (parsed.getMonth() === today.getMonth() && parsed.getDate() === today.getDate() && parsed.getFullYear() < today.getFullYear()) {
-            this.menuSpotlight.textContent = t('spotlightOnThisDay', { years: today.getFullYear() - parsed.getFullYear(), text: el.querySelector('.changelog-text')?.textContent || '' })
-            break
-          }
-        }
-      } else if (mode === 27) {
-        // Joke Tip - day-seeded like every other flavor-array mode, see
-        // JOKE_TIPS' own comment on why this stays separate from
-        // SPOTLIGHT_TIPS.
-        const key = JOKE_TIPS[_dailyTwistIndex(_todayDateStr() + 'joketip') % JOKE_TIPS.length]
-        this.menuSpotlight.textContent = t(key)
-      }
-      this._spotlightIndex = (this._spotlightIndex || 0) + 1
-    }
-    render()
-    if (this._spotlightIntervalStarted) return
-    this._spotlightIntervalStarted = true
-    setInterval(() => { if (!this._spotlightPaused) render() }, 6000)
-  }
 
   // Seasonal Event Banner - display:none year-round outside a defined date
   // window (see EVENT_BANNERS), so it costs zero homepage real estate most
@@ -14457,8 +14092,6 @@ export class Game {
       saveCompanionLegacy(this.companionLegacy)
     }
 
-    this._captureChallengeHandoff()
-
     // Cloud Save auto-sync - best-effort, only if already signed in (never
     // prompts here; a mid-game consent popup would be jarring). See
     // pushToCloud's own comment on why manual=false swallows errors.
@@ -14819,8 +14452,14 @@ export class Game {
   async _applyDefaultBundledSkin() {
     let skin
     try {
-      skin = await loadSkinTexture('/images/default-skin.png')
+      // Embedded data URL, not a '/images/default-skin.png' network fetch -
+      // no request round trip means this resolves within a frame or two
+      // instead of tens/hundreds of ms, closing most of the gap where the
+      // old flat-color placeholder used to be visible on reload (the rest
+      // is covered by MenuAvatar3D's own hide-until-revealed canvas).
+      skin = await loadSkinTexture(DEFAULT_SKIN_DATA_URL)
     } catch {
+      if (this._menuAvatar3D) this._menuAvatar3D.reveal()
       return
     }
     if (this._menuAvatar3D) this._menuAvatar3D.setSkin(skin)
