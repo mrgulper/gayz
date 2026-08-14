@@ -170,6 +170,165 @@ export const META_UPGRADES = [
     // fortifiedRest above.
     apply: () => {},
   },
+  // Moved from the Coin Shop's perks/base/legacy/weapons sections (see
+  // CoinShop.js's own header comment) - same ids and apply() effects,
+  // just re-priced in Legacy Points onto this panel's existing 250-600
+  // scale instead of Coins' 500-5000 scale, roughly preserving relative
+  // ordering. apply() no longer self-tracks ownership (the old
+  // coinShopPurchased.add(id) calls are gone) since _applyMetaUpgrades
+  // already re-applies every id in metaProgress.purchased generically -
+  // that's what CoinShop's own items didn't have until now.
+  {
+    id: 'coin_damage',
+    titleKey: 'coinShopDamage',
+    cost: 500,
+    apply: (game) => {
+      game.weapons.damageMult += 0.1
+    },
+  },
+  {
+    id: 'coin_health',
+    titleKey: 'coinShopHealth',
+    cost: 300,
+    apply: (game) => {
+      game.playerState.maxHealth += 25
+      game.playerState.heal(25)
+      game._updateHealthHud()
+    },
+  },
+  {
+    id: 'companion_speed',
+    titleKey: 'coinShopCompanionSpeed',
+    cost: 550,
+    // Also checked directly in Game.js's _rebuildCompanion (companion
+    // objects get rebuilt mid-session, not just re-created on page load,
+    // so the generic _applyMetaUpgrades pass alone isn't enough here).
+    apply: (game) => {
+      game.companion.equipSpeedBoost()
+    },
+  },
+  {
+    id: 'companion_autorevive',
+    titleKey: 'coinShopCompanionAutoRevive',
+    cost: 650,
+    apply: (game) => {
+      game.companion.equipAutoRevive()
+    },
+  },
+  {
+    id: 'coin_stamina',
+    titleKey: 'coinShopStamina',
+    cost: 300,
+    apply: (game) => {
+      game.player.maxStamina += 25
+      game.player.stamina = game.player.maxStamina
+    },
+  },
+  {
+    id: 'akimbo',
+    titleKey: 'coinShopAkimbo',
+    cost: 750,
+    apply: (game) => {
+      game.weapons.setAkimbo(true)
+    },
+  },
+  {
+    id: 'akimbo_shotgun',
+    titleKey: 'coinShopAkimboShotgun',
+    cost: 800,
+    apply: (game) => {
+      game.weapons.setShotgunAkimbo(true)
+    },
+  },
+  {
+    id: 'turret',
+    titleKey: 'coinShopTurret',
+    cost: 600,
+    apply: (game) => {
+      game._buildAutoTurret()
+    },
+  },
+  {
+    id: 'turret_upgrade_1',
+    titleKey: 'coinShopTurretUpgrade1',
+    cost: 400,
+    apply: (game) => {
+      if (game.turret) game.turret.upgrade()
+    },
+  },
+  {
+    id: 'turret_upgrade_2',
+    titleKey: 'coinShopTurretUpgrade2',
+    cost: 550,
+    apply: (game) => {
+      if (game.turret) game.turret.upgrade()
+    },
+  },
+  {
+    id: 'turret_upgrade_3',
+    titleKey: 'coinShopTurretUpgrade3',
+    cost: 750,
+    apply: (game) => {
+      if (game.turret) game.turret.upgrade()
+    },
+  },
+  {
+    id: 'base_walls',
+    titleKey: 'coinShopBaseWalls',
+    cost: 850,
+    apply: (game) => {
+      game._buildBaseWalls()
+    },
+  },
+  {
+    id: 'watchtower',
+    titleKey: 'coinShopWatchtower',
+    cost: 700,
+    apply: (game) => {
+      game._buildWatchtower()
+    },
+  },
+  {
+    id: 'farm_plot',
+    titleKey: 'coinShopFarmPlot',
+    cost: 650,
+    apply: (game) => {
+      game._buildFarmPlot()
+    },
+  },
+  {
+    id: 'ammo_press',
+    titleKey: 'coinShopAmmoPress',
+    cost: 700,
+    apply: (game) => {
+      game._buildAmmoPress()
+    },
+  },
+  // Veteran's Cache pair - kept their requiresLifetimeCoins gate (careerStats.
+  // lifetimeCoinsEarned, a never-reset cumulative total) even though every
+  // other field here uses `requires` (another upgrade's id) - see Game.js's
+  // _renderUpgradesOptions for how this second, different kind of lock is
+  // now handled there too.
+  {
+    id: 'cache_resolve',
+    titleKey: 'coinShopCacheResolve',
+    cost: 350,
+    requiresLifetimeCoins: 100000,
+    apply: (game) => {
+      game.playerState.maxHealth += 15
+      game.playerState.heal(15)
+      game._updateHealthHud()
+    },
+  },
+  {
+    id: 'cache_fortune',
+    titleKey: 'coinShopCacheFortune',
+    cost: 500,
+    requiresLifetimeCoins: 250000,
+    apply: (game) => {
+      game.weapons.damageMult += 0.08
+    },
+  },
 ]
 
 export function loadMetaProgress() {

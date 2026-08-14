@@ -1463,6 +1463,19 @@ function saveHaggleStreak(streak) {
 // touching the rest of the run-state reset behavior on death/respawn.
 const SHOP_PROGRESS_KEY = 'gayz-shop-progress'
 const COIN_SHOP_GUN_IDS = new Set(COIN_SHOP_ITEMS.filter((i) => i.gun).map((i) => i.gun))
+// Weapon skins no longer for sale (see CoinShop.js's own header comment)
+// but still grantable free by achievements (_checkAchievements) - listed
+// here so _renderCoinShopOptions' Shop > Skins section has titles to show
+// for whichever of these a player has actually earned. 'ember' isn't
+// here - it was shop-purchase-only with no achievement path, so removing
+// it from sale retired it outright rather than leaving an orphaned entry
+// nothing could ever earn.
+const SKIN_EQUIP_ITEMS = [
+  { skin: 'gold', titleKey: 'skinGold' },
+  { skin: 'crimson', titleKey: 'skinCrimson' },
+  { skin: 'cobalt', titleKey: 'skinCobalt' },
+  { skin: 'obsidian', titleKey: 'skinObsidian' },
+]
 
 function loadShopProgress() {
   try {
@@ -4655,7 +4668,6 @@ export class Game {
       const item = COIN_SHOP_ITEMS.find((i) => i.hat === this.equippedHat)
       if (item) this.playerBody.setHat(item.hat, item.hatColor)
     }
-    this._applyCoinShopPerks()
     this._applyVeteranPerks()
 
     audioEngine.setMusicVolume(this.settings.musicVolume / 100)
@@ -9831,8 +9843,8 @@ export class Game {
     }
     if (this.companionGear.vest) this.companion.equipVest()
     if (this.companionGear.rig) this.companion.equipRig()
-    if (this.coinShopPurchased.has('companion_speed')) this.companion.equipSpeedBoost()
-    if (this.coinShopPurchased.has('companion_autorevive')) this.companion.equipAutoRevive()
+    if (this.metaProgress.purchased.has('companion_speed')) this.companion.equipSpeedBoost()
+    if (this.metaProgress.purchased.has('companion_autorevive')) this.companion.equipAutoRevive()
     this._updateCompanionName()
   }
 
@@ -9869,26 +9881,6 @@ export class Game {
   _applyMetaUpgrades() {
     for (const upgrade of META_UPGRADES) {
       if (this.metaProgress.purchased.has(upgrade.id)) upgrade.apply(this)
-    }
-  }
-
-  // Mirrors _applyMetaUpgrades' exact reasoning, for Coin Shop's own
-  // permanent items (perks section: coin_damage/coin_health/coin_stamina,
-  // and base: turret) - these were a real gap found while adding the
-  // turret purchase: their apply() mutates a fresh WeaponSystem/PlayerState/
-  // PlayerController directly (unlike traderDiscount/fortifiedRest, which
-  // are no-op-apply and checked live via coinShopPurchased.has() at their
-  // own use site instead), so without this they silently reset to baseline
-  // every fresh page load despite coinShopPurchased still correctly
-  // remembering they're owned. Guns/skins/attachments already have their
-  // own separate, correct restoration a few lines above this call site -
-  // 'weapons' section added for Akimbo (also mutates live WeaponSystem
-  // state - fireInterval/skin - the same way perks/base items mutate their
-  // own live state, and setAkimbo's own !w.akimbo check keeps re-calling
-  // apply() here every load harmless).
-  _applyCoinShopPerks() {
-    for (const item of COIN_SHOP_ITEMS) {
-      if ((item.section === 'perks' || item.section === 'base' || item.section === 'weapons') && item.isOwned && item.isOwned(this)) item.apply(this)
     }
   }
 
@@ -11003,20 +10995,29 @@ export class Game {
     for (const upgrade of META_UPGRADES) {
       const owned = this.metaProgress.purchased.has(upgrade.id)
       const locked = !!upgrade.requires && !this.metaProgress.purchased.has(upgrade.requires)
+      // Veteran's Cache pair moved here from the Coin Shop keeps its
+      // lifetime-earned-coins gate (see MetaProgress.js's own comment on
+      // requiresLifetimeCoins) - a second, different kind of lock from
+      // `requires` above, shown with the same "locked" treatment but its
+      // own distinct label (you have the Legacy Points, you just haven't
+      // played long enough yet).
+      const lifetimeLocked = !!upgrade.requiresLifetimeCoins && this.careerStats.lifetimeCoinsEarned < upgrade.requiresLifetimeCoins
       const btn = document.createElement('button')
-      btn.className = locked ? 'perk-option locked' : 'perk-option'
-      btn.disabled = owned || locked || this.metaProgress.legacyPoints < upgrade.cost
+      btn.className = (locked || lifetimeLocked) ? 'perk-option locked' : 'perk-option'
+      btn.disabled = owned || locked || lifetimeLocked || this.metaProgress.legacyPoints < upgrade.cost
       const costLine = owned
         ? t('upgradesOwned')
         : locked
           ? t('upgradesRequires', { name: t(META_UPGRADES.find((u) => u.id === upgrade.requires)?.titleKey) })
-          : t('perkCostLabel', { n: upgrade.cost })
+          : lifetimeLocked
+            ? t('cacheLifetimeLocked', { have: _safeStatNumber(this.careerStats.lifetimeCoinsEarned), need: upgrade.requiresLifetimeCoins })
+            : t('perkCostLabel', { n: upgrade.cost })
       btn.innerHTML = `
         <span class="perk-name">${t(upgrade.titleKey)}</span>
         <span class="perk-cost">${costLine}</span>
       `
       btn.addEventListener('click', () => {
-        if (owned || locked || this.metaProgress.legacyPoints < upgrade.cost) return
+        if (owned || locked || lifetimeLocked || this.metaProgress.legacyPoints < upgrade.cost) return
         this.metaProgress.legacyPoints -= upgrade.cost
         this.metaProgress.purchased.add(upgrade.id)
         saveMetaProgress(this.metaProgress)
@@ -11218,17 +11219,21 @@ export class Game {
       return
     }
 
+    // Perks, base structures, and the Veteran's Cache all moved out to
+    // Upgrades (see CoinShop.js's own header comment) - 'weapons' stays
+    // (the actual gun-switcher + per-gun attachment shop below, unrelated
+    // to the akimbo perks that used to also render under this same
+    // heading - those moved too). 'skins' stays for a different reason:
+    // gold/crimson/cobalt/obsidian are also granted free by achievements
+    // (see _checkAchievements' skin-grant branches), so even though
+    // they're no longer FOR SALE, players still need somewhere to equip
+    // an earned one - see the special-cased render below instead of the
+    // generic per-item loop every other section uses.
     const sections = [
       { id: 'weapons', labelKey: 'shopSectionWeapons' },
       { id: 'skins', labelKey: 'shopSectionSkins' },
       { id: 'outfits', labelKey: 'shopSectionOutfits' },
       { id: 'hats', labelKey: 'shopSectionHats' },
-      { id: 'perks', labelKey: 'shopSectionPerks' },
-      { id: 'base', labelKey: 'shopSectionBase' },
-      // Veteran's Cache (Long-Term Goals batch) - own section, last, since
-      // it's gated by lifetime-earned coins rather than current balance
-      // like every section above it.
-      { id: 'legacy', labelKey: 'shopSectionLegacy' },
     ]
 
     for (const section of sections) {
@@ -11363,6 +11368,30 @@ export class Game {
           this._renderCoinShopOptions()
         })
         row.appendChild(defaultBtn)
+
+        // Achievement-earned skins only, never for sale - only shown once
+        // owned (nothing to click for one not yet earned, same "don't
+        // clutter with locked cosmetics" reasoning other reward systems
+        // here use). See _checkAchievements' skin-grant branches for how
+        // these get added to ownedSkins in the first place.
+        for (const skinItem of SKIN_EQUIP_ITEMS) {
+          if (!this.ownedSkins.has(skinItem.skin)) continue
+          const equipped = this.equippedSkin === skinItem.skin
+          const skinBtn = document.createElement('button')
+          skinBtn.className = 'perk-option'
+          skinBtn.disabled = equipped
+          skinBtn.innerHTML = `
+            <span class="perk-name">${t(skinItem.titleKey)}</span>
+            <span class="perk-cost">${equipped ? t('skinEquipped') : t('skinEquip')}</span>
+          `
+          skinBtn.addEventListener('click', () => {
+            if (equipped) return
+            this.equippedSkin = skinItem.skin
+            this.weapons.setSkinAllGuns(skinItem.skin)
+            this._renderCoinShopOptions()
+          })
+          row.appendChild(skinBtn)
+        }
       }
 
       // Same "unequip" front-of-section button, mirrored for outfits.
@@ -11412,28 +11441,7 @@ export class Game {
         const btn = document.createElement('button')
         btn.className = 'perk-option'
 
-        if (item.skin) {
-          const owned = this.ownedSkins.has(item.skin)
-          const equipped = this.equippedSkin === item.skin
-          btn.disabled = equipped || (!owned && this.coins < item.cost)
-          btn.innerHTML = `
-            <span class="perk-name">${t(item.titleKey)}</span>
-            <span class="perk-cost">${equipped ? t('skinEquipped') : owned ? t('skinEquip') : t('coinCostLabel', { n: item.cost })}</span>
-          `
-          btn.addEventListener('click', () => {
-            if (equipped) return
-            if (!owned) {
-              if (this.coins < item.cost) return
-              this.coins -= item.cost
-            this._logShopPurchase(item)
-              this.ownedSkins.add(item.skin)
-              this._updateStatsPanel()
-            }
-            this.equippedSkin = item.skin
-            this.weapons.setSkinAllGuns(item.skin)
-            this._renderCoinShopOptions()
-          })
-        } else if (item.outfit) {
+        if (item.outfit) {
           const owned = this.ownedOutfits.has(item.outfit)
           const equipped = this.equippedOutfit === item.outfit
           btn.disabled = equipped || (!owned && this.coins < item.cost)
@@ -12799,13 +12807,11 @@ export class Game {
 
   // Whether a Coin Shop item is already owned - mirrors the exact
   // ownership check each item type uses in _renderCoinShopOptions
-  // (skin/outfit/hat use their own owned-sets, everything else has its
-  // own isOwned(game)).
+  // (outfit/hat use their own owned-sets - the only two shapes left now
+  // that Shop is purely cosmetic, see CoinShop.js's own header comment).
   _isShopItemOwned(item) {
-    if (item.skin) return this.ownedSkins.has(item.skin)
     if (item.outfit) return this.ownedOutfits.has(item.outfit)
     if (item.hat) return this.ownedHats.has(item.hat)
-    if (item.isOwned) return item.isOwned(this)
     return false
   }
 
@@ -17849,12 +17855,13 @@ export class Game {
     this.safeZoneGuards.push(guard)
   }
 
-  // Base building (see CoinShop.js's 'turret' item) - a genuine placed prop
-  // rather than another Companion instance, so it reads as base
-  // infrastructure being built up rather than just another guard hired.
-  // Only ever built once - _applyCoinShopPerks() re-calls this on every
-  // fresh page load for an already-owned turret, and this.turret already
-  // existing would just mean building a second one, so guard against that.
+  // Base building (see MetaProgress.js's 'turret' upgrade, moved here from
+  // the old Coin Shop) - a genuine placed prop rather than another
+  // Companion instance, so it reads as base infrastructure being built up
+  // rather than just another guard hired. Only ever built once -
+  // _applyMetaUpgrades() re-calls this on every fresh page load for an
+  // already-owned turret, and this.turret already existing would just mean
+  // building a second one, so guard against that.
   _buildAutoTurret() {
     if (this.turret) return
     this.turret = new Turret(this.scene, this.safeZone.x + 2, this.safeZone.z + 4)
@@ -17883,11 +17890,12 @@ export class Game {
     registerZone({ id: 'safezone_fortified', x: this.safeZone.x, z: this.safeZone.z, radius: 20, densityMult: 0.4 })
   }
 
-  // Coin Shop 'watchtower' perk - a decorative axis-aligned tower (no
-  // stairs/climbable geometry, so no new collider risk) near the safe
-  // zone, plus a flat ranged damage bonus. Guarded the same way
-  // _buildAutoTurret is, since _applyCoinShopPerks re-calls apply() for
-  // every already-owned 'base' item on every fresh page load.
+  // 'watchtower' upgrade (moved here from the old Coin Shop, see
+  // MetaProgress.js) - a decorative axis-aligned tower (no stairs/
+  // climbable geometry, so no new collider risk) near the safe zone, plus
+  // a flat ranged damage bonus. Guarded the same way _buildAutoTurret is,
+  // since _applyMetaUpgrades re-calls apply() for every already-owned
+  // upgrade on every fresh page load.
   _buildWatchtower() {
     if (this.watchtowerBuilt) return
     this.watchtowerBuilt = true
