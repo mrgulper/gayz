@@ -203,30 +203,6 @@ export function loadSkinTexture(source) {
   })
 }
 
-// Classic Minecraft player proportions (in arbitrary "skin pixel" units,
-// same 8/12/12 head/torso-and-arms/legs split the real game uses) so the
-// silhouette reads as instantly recognizable. This is the DEFAULT skin
-// every new player gets (no skin-customization system exists yet) -
-// colors match a real skin file the player built at minecraftskins.com's
-// skin editor and shared as clean full-resolution screenshots (front +
-// side views), with the exact hex values called out directly: #929292
-// (gray body), #000000 (hair/vest/pants), #1f1f1f (a slightly lighter
-// dark accent on the pants - close enough to the black main pants color
-// that it's skipped here rather than added as its own tiny stripe),
-// #ffffff (eyes + a "G" chest logo), #d72323 (nose). The chest logo
-// itself can't be reproduced - this character is solid-color boxes, not
-// a textured/UV-mapped model, so there's no surface to put a letter on.
-const SKIN_TONE = 0x929292
-const SHIRT_COLOR = 0x000000
-const SHIRT_ACCENT_COLOR = 0x929292
-const PANTS_COLOR = 0x000000
-const EYE_WHITE_COLOR = 0xffffff
-const EYE_PUPIL_COLOR = 0x000000
-const HAIR_COLOR = 0x000000
-const MOUTH_COLOR = 0x000000
-const NOSE_COLOR = 0xd72323
-const SHOE_COLOR = 0x929292
-
 // The real default-skin.png (public/images/default-skin.png), embedded so
 // applying it never needs a network round trip - see the "flash of the
 // old flat-color placeholder on reload" fix in Game.js's
@@ -284,98 +260,16 @@ function buildTexturedCharacter(skin) {
 }
 
 // skin (optional) - {texture, width, height} from loadSkinTexture(), a
-// real uploaded skin file. Without one, falls back to the original
-// hand-built flat-color character (today's default look for anyone who
-// hasn't uploaded a skin).
+// real uploaded skin file. The old hand-built flat-color fallback
+// character (grey boxes with a black shirt) has been fully deleted - a
+// real user kept seeing it flash briefly on reload/reset even after the
+// hide-until-loaded fix below, so rather than fight that timing forever,
+// there is now simply no other character it could ever show: no skin
+// means an empty, invisible group until a real one (the bundled default,
+// an upload, or a shared link) loads in via setSkin().
 function buildCharacter(skin) {
   if (skin) return buildTexturedCharacter(skin)
-
-  const group = new THREE.Group()
-
-  const skinMat = new THREE.MeshStandardMaterial({ color: SKIN_TONE, roughness: 0.85 })
-  const shirtMat = new THREE.MeshStandardMaterial({ color: SHIRT_COLOR, roughness: 0.8 })
-  const shirtAccentMat = new THREE.MeshStandardMaterial({ color: SHIRT_ACCENT_COLOR, roughness: 0.7 })
-  const pantsMat = new THREE.MeshStandardMaterial({ color: PANTS_COLOR, roughness: 0.85 })
-  const hairMat = new THREE.MeshStandardMaterial({ color: HAIR_COLOR, roughness: 0.9 })
-  const shoeMat = new THREE.MeshStandardMaterial({ color: SHOE_COLOR, roughness: 0.8 })
-
-  const head = new THREE.Mesh(new THREE.BoxGeometry(8, 8, 8), skinMat)
-  head.position.y = 26
-  group.add(head)
-
-  // Short, neutral hair cap - a slightly wider/taller box sitting over the
-  // top-back of the head, not full coverage (leaves the face clear), so it
-  // reads as hair rather than a helmet.
-  const hairTop = new THREE.Mesh(new THREE.BoxGeometry(8.4, 2, 8.4), hairMat)
-  hairTop.position.set(0, 30.4, 0)
-  group.add(hairTop)
-  const hairBack = new THREE.Mesh(new THREE.BoxGeometry(8.4, 6, 2.4), hairMat)
-  hairBack.position.set(0, 28, -2.9)
-  group.add(hairBack)
-
-  // White eyes with a black pupil square in the corner (the reference
-  // skin only uses white + black for the eyes, no separate iris tone -
-  // simpler than the previous 3-layer white/iris/pupil version).
-  const eyeWhiteGeo = new THREE.BoxGeometry(1.6, 1.6, 0.16)
-  const eyeWhiteMat = new THREE.MeshBasicMaterial({ color: EYE_WHITE_COLOR })
-  const pupilGeo = new THREE.BoxGeometry(0.55, 0.55, 0.2)
-  const pupilMat = new THREE.MeshBasicMaterial({ color: EYE_PUPIL_COLOR })
-  for (const side of [-1, 1]) {
-    const x = side * 1.9
-    const eyeWhite = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat)
-    eyeWhite.position.set(x, 26.6, 4.02)
-    group.add(eyeWhite)
-    const pupil = new THREE.Mesh(pupilGeo, pupilMat)
-    pupil.position.set(x, 26.4, 4.12)
-    group.add(pupil)
-  }
-  // Red nose square between the eyes - a real facial feature in the
-  // reference skin, not something the character had before.
-  const nose = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.4, 0.2), new THREE.MeshBasicMaterial({ color: NOSE_COLOR }))
-  nose.position.set(0, 25.6, 4.05)
-  group.add(nose)
-  const mouth = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.7, 0.2), new THREE.MeshBasicMaterial({ color: MOUTH_COLOR }))
-  mouth.position.set(0, 23.8, 4.05)
-  group.add(mouth)
-
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(8, 12, 4), shirtMat)
-  torso.position.y = 16
-  group.add(torso)
-
-  // White collar/undershirt patch at the neckline, matching the reference
-  // image's light-colored band across the top of the near-black shirt.
-  const collar = new THREE.Mesh(new THREE.BoxGeometry(8.1, 1.6, 4.1), shirtAccentMat)
-  collar.position.y = 21.2
-  group.add(collar)
-
-  const armGeo = new THREE.BoxGeometry(4, 12, 4)
-  const armL = new THREE.Mesh(armGeo, skinMat)
-  armL.position.set(-6, 16, 0)
-  group.add(armL)
-  const armR = new THREE.Mesh(armGeo, skinMat)
-  armR.position.set(6, 16, 0)
-  group.add(armR)
-
-  const legGeo = new THREE.BoxGeometry(4, 12, 4)
-  const legL = new THREE.Mesh(legGeo, pantsMat)
-  legL.position.set(-2, 4, 0)
-  group.add(legL)
-  const legR = new THREE.Mesh(legGeo, pantsMat)
-  legR.position.set(2, 4, 0)
-  group.add(legR)
-
-  // Shoes - a short, slightly wider cap at the bottom of each leg, the
-  // one other small detail real Minecraft-style skins almost always have
-  // that the original bare pants-colored box was missing entirely.
-  const shoeGeo = new THREE.BoxGeometry(4.3, 2.4, 4.3)
-  const shoeL = new THREE.Mesh(shoeGeo, shoeMat)
-  shoeL.position.set(-2, -0.8, 0.15)
-  group.add(shoeL)
-  const shoeR = new THREE.Mesh(shoeGeo, shoeMat)
-  shoeR.position.set(2, -0.8, 0.15)
-  group.add(shoeR)
-
-  return group
+  return new THREE.Group()
 }
 
 // Approx character bounding box (see buildCharacter's "skin pixel" units

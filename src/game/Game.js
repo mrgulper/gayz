@@ -3046,8 +3046,6 @@ export class Game {
     this.howtoplayBackBtn = document.getElementById('howtoplay-back-btn')
     this.howtoplayNextBtn = document.getElementById('howtoplay-next-btn')
     this.seasonProgressFill = document.getElementById('season-progress-fill')
-    this.weeklyProgressTrack = document.getElementById('weekly-progress-track')
-    this.weeklyProgressFill = document.getElementById('weekly-progress-fill')
     this.eventBanner = document.getElementById('event-banner')
     this.whatsNewDot = document.getElementById('whats-new-dot')
     this.questsClaimDot = document.getElementById('quests-claim-dot')
@@ -4259,6 +4257,11 @@ export class Game {
     this.hubBtn = document.getElementById('hub-btn')
     this.hubPanel = document.getElementById('hub-panel')
     this.hubPanelTitle = document.getElementById('hub-panel-title')
+    this.gamemodeBtn = document.getElementById('gamemode-btn')
+    this.comingSoonPanel = document.getElementById('coming-soon-panel')
+    this.comingSoonTitle = document.getElementById('coming-soon-title')
+    this.comingSoonBody = document.getElementById('coming-soon-body')
+    this.comingSoonCloseBtn = document.getElementById('coming-soon-close-btn')
     this.rulesInfoLink = document.getElementById('nav-rules-link')
     this.whatsNewLink = document.getElementById('nav-whatsnew-link')
     this.friendsBtn = document.getElementById('friends-btn')
@@ -7693,7 +7696,9 @@ export class Game {
       const btn = e.target.closest('button[data-spawned-at]')
       if (btn && !btn.disabled) this._claimRollingQuest(Number(btn.dataset.spawnedAt))
     })
-    if (this.hubBtn) this.hubBtn.addEventListener('click', () => trackAndOpen(() => this._openHubPanel()))
+    if (this.hubBtn) this.hubBtn.addEventListener('click', () => trackAndOpen(() => this._openComingSoonPanel()))
+    if (this.gamemodeBtn) this.gamemodeBtn.addEventListener('click', () => trackAndOpen(() => this._openHubPanel()))
+    if (this.comingSoonCloseBtn) this.comingSoonCloseBtn.addEventListener('click', () => this._closeComingSoonPanel())
     if (this.rulesInfoLink) this.rulesInfoLink.addEventListener('click', () => this._openHowToPlayPanel())
     if (this.whatsNewLink) this.whatsNewLink.addEventListener('click', () => trackAndOpen(() => this._openWhatsNewPanel()))
     if (this.friendsBtn) this.friendsBtn.addEventListener('click', () => trackAndOpen(() => this._openFriendsPanel()))
@@ -7861,6 +7866,11 @@ export class Game {
     if (this.hubPanel) {
       this.hubPanel.addEventListener('click', (e) => {
         if (e.target === this.hubPanel) this._closeHubPanel()
+      })
+    }
+    if (this.comingSoonPanel) {
+      this.comingSoonPanel.addEventListener('click', (e) => {
+        if (e.target === this.comingSoonPanel) this._closeComingSoonPanel()
       })
     }
     if (this.friendsPanel) {
@@ -11751,6 +11761,21 @@ export class Game {
     if (this.hubPanel) this.hubPanel.style.display = 'none'
   }
 
+  // What the Hub nav button opens now - the real Hub content (Player/
+  // Difficulty/Choose Class/Game Modes/Challenges & Mutators) moved to the
+  // new Game Mode button under Play (see gamemodeBtn's listener, still
+  // calling _openHubPanel unchanged), so this spot is a placeholder.
+  _openComingSoonPanel() {
+    if (!this.comingSoonPanel) return
+    this.comingSoonPanel.style.display = 'flex'
+    if (this.comingSoonTitle) this.comingSoonTitle.textContent = t('comingSoonTitle')
+    if (this.comingSoonBody) this.comingSoonBody.textContent = t('comingSoonBody')
+  }
+
+  _closeComingSoonPanel() {
+    if (this.comingSoonPanel) this.comingSoonPanel.style.display = 'none'
+  }
+
   // Friends - the existing Compare-with-a-Friend feature (see CloudSaveUI's
   // renderCloudSaveState, which toggles friendsSignedOut/friendsSignedIn
   // alongside the Cloud Save panel's own signed-in state), moved here from
@@ -12167,7 +12192,6 @@ export class Game {
     this._updateQuestsDot()
     this._checkFriendAcceptedNotifications()
     this._checkKillMilestones()
-    this._updateWeeklyProgressBar()
     this._updateFaviconQuestBadge()
     this._updateLongestSession()
     if (this._pendingConfetti && !this.gameStarted) {
@@ -12329,22 +12353,6 @@ export class Game {
     }
     this.eventBanner.textContent = t(active.key)
     this.eventBanner.style.display = ''
-  }
-
-  // Weekly Challenge visual progress bar - the homepage ticker's own
-  // Weekly Challenge mode only ever showed the target + days-left as
-  // text (see mode 2 in _updateMenuSpotlight); this reads the real
-  // in-progress count (this.weeklyChallenge.progress, incremented per
-  // qualifying kill by _checkWeeklyChallengeProgress) into an actual bar.
-  _updateWeeklyProgressBar() {
-    if (!this.weeklyProgressTrack) return
-    if (!this.weeklyDef || !this.weeklyChallenge) {
-      this.weeklyProgressTrack.style.display = 'none'
-      return
-    }
-    const pct = Math.min(100, (_safeStatNumber(this.weeklyChallenge.progress) / Math.max(1, this.weeklyDef.target)) * 100)
-    this.weeklyProgressFill.style.width = `${pct}%`
-    this.weeklyProgressTrack.style.display = ''
   }
 
   // Kill-count milestone toast - fires once per threshold, ever, tracked

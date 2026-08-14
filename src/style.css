@@ -2590,6 +2590,7 @@ select option {
 #perk-panel,
 #trader-panel,
 #hub-panel,
+#coming-soon-panel,
 #upgrades-panel,
 #quests-panel,
 #share-panel,
@@ -2749,6 +2750,29 @@ select option {
   justify-content: flex-start;
 }
 
+#coming-soon-body {
+  max-width: 420px;
+  text-align: center;
+  color: var(--menu-text-dim);
+  font-size: 15px;
+  line-height: 1.5;
+}
+#coming-soon-close-btn {
+  padding: 10px 28px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--menu-gold);
+  background: var(--menu-gunmetal-dark);
+  border: 2px solid var(--menu-panel-border);
+  border-radius: 5px;
+  cursor: pointer;
+}
+#coming-soon-close-btn:hover {
+  border-color: var(--menu-gold);
+}
+
 /* 14 weapon cards is a lot more than the trait-draw panel's usual 3 - same
    overflow-y override as the Achievements/Profile panels above. */
 #weapon-picker-panel {
@@ -2794,6 +2818,7 @@ select option {
 #perk-panel-title,
 #trader-panel-title,
 #hub-panel-title,
+#coming-soon-title,
 #upgrades-panel-title,
 #quests-panel-title,
 #achievements-panel-title,
@@ -5099,6 +5124,31 @@ html.theme-lighter #app { filter: brightness(1.25); }
 #play-btn:hover {
   transform: translateY(-3px);
   filter: drop-shadow(0 0 22px color-mix(in srgb, var(--play-btn-color, var(--menu-gold)) 90%, transparent));
+}
+
+/* Game Mode - a smaller secondary button directly under Play, opens the
+   same content that used to live behind the Hub nav button (see
+   _openHubPanel/#gamemode-btn's listener in Game.js). Deliberately plainer
+   than Play's own octagon-plate image treatment - it's a secondary
+   action, not the primary call to action. */
+#gamemode-btn {
+  margin-top: 10px;
+  padding: 8px 22px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--menu-gold);
+  background: var(--menu-gunmetal-dark);
+  border: 2px solid var(--menu-panel-border);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+}
+#gamemode-btn:hover {
+  border-color: var(--menu-gold);
+  background: color-mix(in srgb, var(--menu-gold) 12%, var(--menu-gunmetal-dark));
+  transform: translateY(-1px);
 }
 
 #play-btn:active {
