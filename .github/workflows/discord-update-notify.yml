@@ -18,19 +18,25 @@ jobs:
         run: |
           export SHORT_SHA="${COMMIT_SHA:0:7}"
           export TITLE="$(echo "$COMMIT_MESSAGE" | head -n1)"
+          echo "Debug - TITLE='$TITLE' SHORT_SHA='$SHORT_SHA' COMMIT_URL='$COMMIT_URL' COMMIT_AUTHOR='$COMMIT_AUTHOR'"
           PAYLOAD=$(python3 -c "
           import json, os
+          title = os.environ.get('TITLE') or '(no commit message)'
+          short_sha = os.environ.get('SHORT_SHA') or 'unknown'
+          commit_url = os.environ.get('COMMIT_URL') or ''
+          author = os.environ.get('COMMIT_AUTHOR') or 'unknown'
           payload = {
               'embeds': [{
                   'color': 14919228,
                   'title': 'GayZ Update Shipped',
-                  'description': os.environ['TITLE'],
+                  'description': title,
                   'fields': [
-                      {'name': 'Commit', 'value': f\"[{os.environ['SHORT_SHA']}]({os.environ['COMMIT_URL']})\", 'inline': True},
-                      {'name': 'By', 'value': os.environ['COMMIT_AUTHOR'], 'inline': True},
+                      {'name': 'Commit', 'value': f'[{short_sha}]({commit_url})', 'inline': True},
+                      {'name': 'By', 'value': author, 'inline': True},
                   ],
               }]
           }
           print(json.dumps(payload))
           ")
-          curl -s -X POST "$WEBHOOK_URL" -H "Content-Type: application/json" -d "$PAYLOAD"
+          echo "Payload: $PAYLOAD"
+          curl -sf -X POST "$WEBHOOK_URL" -H "Content-Type: application/json" -d "$PAYLOAD"
