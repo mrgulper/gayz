@@ -68,51 +68,43 @@ html.dyslexia-font body {
   height: 100%;
 }
 
-#build-mode-exit-btn,
-#build-mode-save-btn,
-#build-mode-export-btn,
-#build-mode-import-btn,
-#build-mode-undo-btn,
-#build-mode-redo-btn,
-#build-mode-mirror-btn,
-#build-mode-line-btn,
-#build-mode-copy-btn,
-#build-mode-paste-btn {
+/* Build Mode's action menu (see BuildMode.js's toggleMenu) - hidden until
+   Escape is pressed, instead of every action button sitting on screen the
+   whole time you're building. Same fixed-centered-panel pattern as
+   #build-picker below. */
+#build-menu {
   position: fixed;
-  top: 16px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   z-index: 20;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 16px;
+  background: rgba(10, 10, 10, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  min-width: 220px;
+}
+
+#build-menu-hint {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+}
+
+#build-menu button {
   padding: 8px 16px;
   font-size: 13px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.85);
-  background: rgba(10, 10, 10, 0.75);
+  background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 4px;
   cursor: pointer;
 }
-
-#build-mode-exit-btn { right: 16px; }
-#build-mode-save-btn { right: 168px; }
-#build-mode-export-btn { right: 320px; }
-#build-mode-import-btn { right: 472px; }
-
-/* Second row - the newer tool-toggle buttons, kept off the first row so
-   the whole toolbar doesn't run off-screen on a narrower window (10
-   buttons in one row overflows well before 1366px wide). */
-#build-mode-undo-btn,
-#build-mode-redo-btn,
-#build-mode-mirror-btn,
-#build-mode-line-btn,
-#build-mode-copy-btn,
-#build-mode-paste-btn {
-  top: 58px;
-}
-#build-mode-redo-btn { right: 16px; }
-#build-mode-undo-btn { right: 168px; }
-#build-mode-mirror-btn { right: 320px; }
-#build-mode-line-btn { right: 472px; }
-#build-mode-copy-btn { right: 624px; }
-#build-mode-paste-btn { right: 776px; }
 
 #build-mode-mirror-btn.active {
   border-color: #5be3ff;
@@ -123,6 +115,11 @@ html.dyslexia-font body {
 #build-mode-copy-btn.active {
   border-color: #ffcf5c;
   color: #ffcf5c;
+}
+
+#build-mode-exit-btn {
+  margin-top: 4px;
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
 #build-picker {

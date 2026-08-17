@@ -39,9 +39,6 @@ const SAVE_KEY = 'gayz-build-mode'
 // source (see _loadSlots) so a build saved before slots existed isn't lost.
 const SAVE_SLOTS_KEY = 'gayz-build-mode-slots'
 const SAVE_SLOT_COUNT = 3
-// Undo/Redo (see _pushUndoChange/undo/redo) - capped so a very long build
-// session doesn't grow the history array without bound.
-const MAX_UNDO_STEPS = 100
 // Held with V (see update()'s zoomTarget) - narrows the FOV for a "look
 // further" zoomed view rather than a real render-distance change, same
 // convention as a scope/binoculars. FOV_LERP_SPEED controls how quickly
@@ -504,20 +501,6 @@ export class BuildMode {
       // existed (the picker's Tab-toggle key handling never blocked
       // movement input while open), the search box just made it obvious.
       if (this.pickerOpen) return
-      // Ctrl+Z undo, Ctrl+Y or Ctrl+Shift+Z redo - the two common bindings
-      // for the same action across editors, both wired here rather than
-      // picking one.
-      if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ' && !e.repeat) {
-        e.preventDefault()
-        if (e.shiftKey) this.redo()
-        else this.undo()
-        return
-      }
-      if ((e.ctrlKey || e.metaKey) && e.code === 'KeyY' && !e.repeat) {
-        e.preventDefault()
-        this.redo()
-        return
-      }
       if (e.code === 'KeyM' && !e.repeat) {
         this.toggleMirror()
         return
@@ -570,13 +553,6 @@ export class BuildMode {
     this.selectedType = null
     this._blocks = new Map() // "x,y,z" -> type id
     this._blockLights = new Map() // "x,y,z" -> THREE.PointLight, see LIGHT_BLOCK_COLORS
-    // Undo/Redo - each undo-stack entry is a batch (array) of individual
-    // {x, y, z, beforeType, afterType} changes, so a single user action
-    // (one click, or a whole line/mirror/paste batch) undoes/redoes as one
-    // step rather than one block at a time. See _beginBatch/_endBatch.
-    this._undoStack = []
-    this._redoStack = []
-    this._pendingBatch = null
     // Multiple save slots (see switchSlot) - which of SAVE_SLOT_COUNT slots
     // is currently loaded/being edited. Not persisted itself (always opens
     // back on slot 0) - keeping it simple rather than adding a second
@@ -589,9 +565,9 @@ export class BuildMode {
     this.mirrorMode = false
     // Line tool (see toggleLineTool/_lineToolClick) - place-only (right-
     // click), two clicks per line: first sets the start point, second sets
-    // the end point and fills every cell between them in one undo step.
-    // Left-click removal is untouched (still single-block) - a line-remove
-    // mode would double the interaction surface for a much rarer use case.
+    // the end point and fills every cell between them. Left-click removal
+    // is untouched (still single-block) - a line-remove mode would double
+    // the interaction surface for a much rarer use case.
     this.lineToolMode = false
     this._lineStart = null
     // Copy/Paste (see toggleCopyTool/_copyToolClick/pasteClipboard) - same
@@ -716,6 +692,11 @@ export class BuildMode {
     this._pasteBtnEl = document.getElementById('build-mode-paste-btn')
     if (this._pasteBtnEl) this._pasteBtnEl.addEventListener('click', () => this.pasteClipboard())
 
+    // Action menu (Exit/Save/Export/Import/Mirror/Line/Copy/Paste) - see
+    // toggleMenu, opened with Escape.
+    this.menuOpen = false
+    this._menuEl = document.getElementById('build-menu')
+
     this._onKeyDownHotbar = (e) => {
       // Same reasoning as _onKeyDown's guard - without it, typing a digit
       // while searching the picker (e.g. "TNT" has none, but plenty of
@@ -732,13 +713,11 @@ export class BuildMode {
         this.togglePicker()
       } else if (e.code === 'Escape' && this.pickerOpen) {
         this.togglePicker()
-      } else if (e.code === 'Escape' && document.pointerLockElement === this.renderer.domElement) {
-        // Picker already handles its own Escape-to-close above - this is
-        // the OTHER case, actively pointer-locked with the picker closed,
-        // where there was previously no way to get the cursor back except
-        // opening the picker first. Click anywhere in the viewport (see
-        // _onPointerDown) re-acquires it.
-        document.exitPointerLock()
+      } else if (e.code === 'Escape') {
+        // Opens/closes the action menu (see toggleMenu) - which also
+        // releases/reacquires pointer lock as part of that, so this
+        // replaces what used to be a bare exitPointerLock() call here.
+        this.toggleMenu()
       }
     }
 
@@ -764,10 +743,11 @@ export class BuildMode {
     document.addEventListener('click', this._onPickerBackdropClick)
     if (this._hotbarEl) this._hotbarEl.style.display = 'flex'
     if (this._slotsEl) this._slotsEl.style.display = 'flex'
-    if (this._mirrorBtnEl) this._mirrorBtnEl.style.display = 'block'
-    if (this._lineToolBtnEl) this._lineToolBtnEl.style.display = 'block'
-    if (this._copyToolBtnEl) this._copyToolBtnEl.style.display = 'block'
-    if (this._pasteBtnEl) this._pasteBtnEl.style.display = 'block'
+    // #build-menu (Exit/Save/Export/Import/Mirror/Line/Copy/Paste) starts
+    // closed - see toggleMenu, opened with Escape rather than sitting on
+    // screen the whole time.
+    this.menuOpen = false
+    if (this._menuEl) this._menuEl.style.display = 'none'
     this.load()
     this._renderSlots()
   }
@@ -801,10 +781,8 @@ export class BuildMode {
     if (this._pickerEl) this._pickerEl.style.display = 'none'
     if (this._hotbarEl) this._hotbarEl.style.display = 'none'
     if (this._slotsEl) this._slotsEl.style.display = 'none'
-    if (this._mirrorBtnEl) this._mirrorBtnEl.style.display = 'none'
-    if (this._lineToolBtnEl) this._lineToolBtnEl.style.display = 'none'
-    if (this._copyToolBtnEl) this._copyToolBtnEl.style.display = 'none'
-    if (this._pasteBtnEl) this._pasteBtnEl.style.display = 'none'
+    this.menuOpen = false
+    if (this._menuEl) this._menuEl.style.display = 'none'
   }
 
   // Tab picker swatch click - assigns that block to whichever hotbar slot
@@ -920,105 +898,14 @@ export class BuildMode {
     }
   }
 
-  // Records one cell's change for undo/redo - called by the *Undoable
-  // wrappers below, never by placeBlock/removeBlock directly (bulk callers
-  // like load()/_ensureGroundLayer()/_applyParsedData() deliberately don't
-  // touch undo history; undoing back through a whole freshly-loaded build
-  // one cell at a time would be meaningless). Outside a batch, every change
-  // becomes its own single-entry undo step; during a batch (see
-  // _beginBatch), changes accumulate and become one step together.
-  _pushUndoChange(x, y, z, beforeType, afterType) {
-    if (beforeType === afterType) return
-    if (this._pendingBatch) {
-      this._pendingBatch.push({ x, y, z, beforeType, afterType })
-      return
-    }
-    this._undoStack.push([{ x, y, z, beforeType, afterType }])
-    if (this._undoStack.length > MAX_UNDO_STEPS) this._undoStack.shift()
-    // Any new action invalidates whatever redo history existed - same
-    // standard undo/redo convention every editor uses.
-    this._redoStack.length = 0
-  }
-
-  // Groups every _pushUndoChange call between _beginBatch/_endBatch into
-  // one undo step - used by the line tool and mirror mode so dragging a
-  // whole wall (or placing one block that mirrors to a second cell) undoes
-  // in a single Ctrl+Z, not once per individual cell touched.
-  _beginBatch() {
-    this._pendingBatch = []
-  }
-
-  _endBatch() {
-    const batch = this._pendingBatch
-    this._pendingBatch = null
-    if (!batch || batch.length === 0) return
-    this._undoStack.push(batch)
-    if (this._undoStack.length > MAX_UNDO_STEPS) this._undoStack.shift()
-    this._redoStack.length = 0
-  }
-
-  // placeBlock/removeBlock already no-op on an occupied/empty cell
-  // respectively, so beforeType is read here (rather than trusted from the
-  // caller) to know whether the raw call actually did anything - avoids
-  // recording a phantom no-op change.
-  _placeBlockUndoable(x, y, z, type) {
-    const before = this.getBlockAt(x, y, z)
-    if (before !== null) return
-    this.placeBlock(x, y, z, type)
-    this._pushUndoChange(x, y, z, null, type)
-  }
-
-  _removeBlockUndoable(x, y, z) {
-    const before = this.getBlockAt(x, y, z)
-    if (before === null) return
-    this.removeBlock(x, y, z)
-    this._pushUndoChange(x, y, z, before, null)
-  }
-
-  // Ctrl+Z - reverses the most recent batch, most-recent-cell-first within
-  // it (matters if a batch ever touches the same cell twice; reversing in
-  // the opposite order changes were made keeps every intermediate state
-  // consistent). Returns whether there was anything to undo, so the caller
-  // can skip showing a toast for a no-op press.
-  undo() {
-    const batch = this._undoStack.pop()
-    if (!batch) return false
-    for (let i = batch.length - 1; i >= 0; i--) {
-      const { x, y, z, beforeType } = batch[i]
-      if (beforeType === null) this.removeBlock(x, y, z)
-      else this.placeBlock(x, y, z, beforeType)
-    }
-    this._redoStack.push(batch)
-    return true
-  }
-
-  // Ctrl+Y / Ctrl+Shift+Z - replays a previously-undone batch forward,
-  // original order this time.
-  redo() {
-    const batch = this._redoStack.pop()
-    if (!batch) return false
-    for (const { x, y, z, afterType } of batch) {
-      if (afterType === null) this.removeBlock(x, y, z)
-      else this.placeBlock(x, y, z, afterType)
-    }
-    this._undoStack.push(batch)
-    return true
-  }
-
   _placeFromCamera() {
     this._raycaster.setFromCamera({ x: 0, y: 0 }, this.camera)
     const hit = this._raycastGridAligned()
     if (!hit) return
     const [px, py, pz] = hit.placeAt
     if (this._wouldOverlapCamera(px, py, pz)) return
-    if (this.mirrorMode) {
-      this._beginBatch()
-      this._placeBlockUndoable(px, py, pz, this.selectedType)
-      this._placeBlockUndoable(this._mirrorX(px), py, pz, this.selectedType)
-      this._endBatch()
-    } else {
-      this._placeBlockUndoable(px, py, pz, this.selectedType)
-    }
+    this.placeBlock(px, py, pz, this.selectedType)
+    if (this.mirrorMode) this.placeBlock(this._mirrorX(px), py, pz, this.selectedType)
   }
 
   // Same 8-corner COLLISION_RADIUS-sphere technique _blockedAt uses for
@@ -1052,14 +939,8 @@ export class BuildMode {
     const hit = this._raycastGridAligned()
     if (!hit || !hit.existingBlock) return
     const [rx, ry, rz] = hit.existingBlock
-    if (this.mirrorMode) {
-      this._beginBatch()
-      this._removeBlockUndoable(rx, ry, rz)
-      this._removeBlockUndoable(this._mirrorX(rx), ry, rz)
-      this._endBatch()
-    } else {
-      this._removeBlockUndoable(rx, ry, rz)
-    }
+    this.removeBlock(rx, ry, rz)
+    if (this.mirrorMode) this.removeBlock(this._mirrorX(rx), ry, rz)
   }
 
   // Steps a ray forward in fixed small increments and checks the sparse
@@ -1213,7 +1094,7 @@ export class BuildMode {
 
   // First right-click while lineToolMode is on sets the start point;
   // the second fills every cell on the straight line between start and
-  // end (inclusive) with the selected block, as one undo step.
+  // end (inclusive) with the selected block.
   _lineToolClick() {
     this._raycaster.setFromCamera({ x: 0, y: 0 }, this.camera)
     const hit = this._raycastGridAligned()
@@ -1229,12 +1110,10 @@ export class BuildMode {
       return
     }
     const [sx, sy, sz] = this._lineStart
-    this._beginBatch()
     for (const [cx, cy, cz] of this._lineCells(sx, sy, sz, x, y, z)) {
-      this._placeBlockUndoable(cx, cy, cz, this.selectedType)
-      if (this.mirrorMode) this._placeBlockUndoable(this._mirrorX(cx), cy, cz, this.selectedType)
+      this.placeBlock(cx, cy, cz, this.selectedType)
+      if (this.mirrorMode) this.placeBlock(this._mirrorX(cx), cy, cz, this.selectedType)
     }
-    this._endBatch()
     this._lineStart = null
     if (this._lineMarkerMesh) this._lineMarkerMesh.visible = false
   }
@@ -1316,27 +1195,29 @@ export class BuildMode {
   }
 
   // P key or toolbar button - stamps the copied selection with its minimum
-  // corner at the currently-aimed empty cell, as one undo step. A no-op if
-  // nothing's been copied yet, or nothing's currently aimed at.
+  // corner at the currently-aimed empty cell. A no-op if nothing's been
+  // copied yet, or nothing's currently aimed at.
   pasteClipboard() {
     if (!this._clipboard || this._clipboard.blocks.length === 0) return 0
     this._raycaster.setFromCamera({ x: 0, y: 0 }, this.camera)
     const hit = this._raycastGridAligned()
     if (!hit) return 0
     const [ox, oy, oz] = hit.placeAt
-    this._beginBatch()
     for (const { dx, dy, dz, type } of this._clipboard.blocks) {
       const px = ox + dx, py = oy + dy, pz = oz + dz
-      this._placeBlockUndoable(px, py, pz, type)
-      if (this.mirrorMode) this._placeBlockUndoable(this._mirrorX(px), py, pz, type)
+      this.placeBlock(px, py, pz, type)
+      if (this.mirrorMode) this.placeBlock(this._mirrorX(px), py, pz, type)
     }
-    this._endBatch()
     return this._clipboard.blocks.length
   }
 
   togglePicker() {
     this.pickerOpen = !this.pickerOpen
     if (this._pickerEl) this._pickerEl.style.display = this.pickerOpen ? 'flex' : 'none'
+    // Avoid the picker grid and the action menu both showing at once (Tab
+    // while the menu's open) - closing the menu here rather than blocking
+    // Tab keeps Tab's behavior consistent regardless of what else is open.
+    if (this.pickerOpen && this.menuOpen) this.toggleMenu()
     if (this.pickerOpen) {
       // Stop any movement already in progress from a key held down right as
       // the picker opened - _onKeyDown itself now ignores new keys while
@@ -1354,6 +1235,25 @@ export class BuildMode {
     } else if (!this.pickerOpen) {
       // See _enterBuildMode's own comment on why this is guarded - fails
       // in headless/programmatically-triggered contexts, harmless to swallow.
+      try {
+        this.renderer.domElement.requestPointerLock()?.catch(() => {})
+      } catch {
+        // Not available in this environment.
+      }
+    }
+  }
+
+  // Escape - opens/closes the action menu (Exit/Save/Export/Import/Mirror/
+  // Line/Copy/Paste), which sits hidden the rest of the time instead of
+  // permanently on screen. Same pointer-lock release/reacquire dance as
+  // togglePicker, since the menu's buttons need a real usable cursor too.
+  toggleMenu() {
+    this.menuOpen = !this.menuOpen
+    if (this._menuEl) this._menuEl.style.display = this.menuOpen ? 'flex' : 'none'
+    if (this.menuOpen && this.pickerOpen) this.togglePicker()
+    if (document.pointerLockElement === this.renderer.domElement && this.menuOpen) {
+      document.exitPointerLock()
+    } else if (!this.menuOpen) {
       try {
         this.renderer.domElement.requestPointerLock()?.catch(() => {})
       } catch {
@@ -1501,11 +1401,6 @@ export class BuildMode {
       light.dispose()
     }
     this._blockLights.clear()
-    // Old undo/redo history refers to cells from whatever build just got
-    // wiped - keeping it around would let Ctrl+Z resurrect blocks from a
-    // build that (from the player's perspective) no longer exists.
-    this._undoStack.length = 0
-    this._redoStack.length = 0
   }
 
   // Returns true on a successful import (caller shows its own toast/error
