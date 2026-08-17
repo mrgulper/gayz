@@ -1067,7 +1067,7 @@ const STRINGS = {
     profileCopyStatsBtn: 'Copy Stats',
     streamSafeModeLabel: 'Streaming-Safe Mode (hide debug overlay)',
     // Long-Term Goals batch.
-    respecBtn: 'Respec Upgrades',
+    respecBtn: 'Reset Upgrades',
     respecConfirm: 'Respec refunds every Permanent Upgrade you\'ve bought back into Legacy Points, so you can redistribute them differently. Continue?',
     respecComplete: 'Upgrades reset - {n} Legacy Points refunded.',
     shopSectionLegacy: "Veteran's Cache",

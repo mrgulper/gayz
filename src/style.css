@@ -3320,8 +3320,6 @@ select option {
    of its own to display. */
 #respec-section {
   margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
   text-align: center;
 }
 
