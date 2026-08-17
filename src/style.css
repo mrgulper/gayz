@@ -7194,6 +7194,32 @@ html.theme-lighter #app { filter: brightness(1.25); }
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
+/* Stacked below #daily-wrap (top: 178px + its own ~30px height) so the
+   two never overlap if Daily Challenge and Zombie Rush both end up active
+   in the same run. */
+#zombie-rush-wrap {
+  position: absolute;
+  top: 214px;
+  left: 20px;
+  width: 150px;
+  pointer-events: none;
+}
+
+#zombie-rush-timer {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #ff9c4a;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  margin-bottom: 2px;
+}
+
+#zombie-rush-best {
+  font-size: 11px;
+  color: #d8d8d0;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
 #extraction-screen {
   position: absolute;
   inset: 0;

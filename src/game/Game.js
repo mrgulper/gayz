@@ -347,7 +347,7 @@ function loadSettings() {
       // mode behind it so far (bossHunt/zombieRush/zombieExtraction stay
       // locked in the grid until each is actually built) - see
       // _bindGameModeSelect for how this drives settings.mutators.zombieDefense.
-      selectedGameMode: ['classic', 'zombieDefense'].includes(parsed.selectedGameMode) ? parsed.selectedGameMode : 'classic',
+      selectedGameMode: ['classic', 'zombieDefense', 'bossHunt', 'zombieRush'].includes(parsed.selectedGameMode) ? parsed.selectedGameMode : 'classic',
       // 3-slot hotbar (see Game.js's _bindHotbar) - slot 0 is whatever gun
       // was picked in the Play/Pause weapon picker, slots 1-2 are the fixed
       // M1911/Knife backup weapons every run starts with.
@@ -485,6 +485,8 @@ function loadSettings() {
         blackout: parsed.mutators?.blackout ?? false,
         bossGauntlet: parsed.mutators?.bossGauntlet ?? false,
         zombieDefense: parsed.mutators?.zombieDefense ?? false,
+        bossHunt: parsed.mutators?.bossHunt ?? false,
+        zombieRush: parsed.mutators?.zombieRush ?? false,
       },
     }
     // A genuinely new player's generated defaults (starter nickname, etc.)
@@ -508,7 +510,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, killFeedPosition: 'right', compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, showPausePlaytime: true, instantStationInteract: false, confirmQuitRun: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false } }
+  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, killFeedPosition: 'right', compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, showPausePlaytime: true, instantStationInteract: false, confirmQuitRun: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -707,6 +709,9 @@ const MUTATOR_LABEL_KEYS = {
   featuredEnemy: 'mutatorFeaturedEnemy',
   blackout: 'mutatorBlackout',
   bossGauntlet: 'mutatorBossGauntlet',
+  zombieDefense: 'mutatorZombieDefense',
+  bossHunt: 'mutatorBossHunt',
+  zombieRush: 'mutatorZombieRush',
 }
 
 // Settings Code (export/import, see _exportSettingsCode/_importSettingsCode)
@@ -2446,6 +2451,52 @@ const ZOMBIE_DEFENSE_WAVES_TO_WIN = 10
 const ZOMBIE_DEFENSE_POINTS_BONUS = 400
 const ZOMBIE_DEFENSE_COINS_BONUS = 200
 
+// Boss Hunt mode: one dedicated boss encounter, not the "a boss every
+// night" repeating cadence Boss Rush already covers. Reuses ZombieManager's
+// existing spawnGuardian (isBoss + nextAddSummonAt already set up, so
+// ambient adds during the fight need zero new code) and Zombie.js's
+// existing 3-phase enrage system (permanent speed/attack-cadence ramp
+// below 50%/25% health - see BOSS_ENRAGE_PHASE1/2 in Zombie.js) rather
+// than designing new attack move sets per phase, which would be a much
+// bigger animation project on its own.
+const BOSS_HUNT_SPAWN_RADIUS = 30
+const BOSS_HUNT_POINTS_BONUS = 500
+const BOSS_HUNT_COINS_BONUS = 250
+
+// Zombie Rush mode: no waves, no win condition - zombies just keep coming,
+// gradually faster and more numerous the longer the run lasts, until the
+// player dies. "Limited resources" reuses Iron Mode's existing no-Trader/
+// no-Shop-spending restriction rather than a new rationing system (see
+// _bindGameModeSelect). speedMult is a plain mutable property on
+// ZombieManager (baked into each zombie at spawn, not a live setter) - fine
+// here since it only needs to affect zombies spawned from this point on,
+// not retroactively speed up ones already on screen. setDifficultyMultiplier
+// already exists as ZombieManager's live-updatable spawn-rate lever.
+const ZOMBIE_RUSH_RAMP_INTERVAL_MS = 3000
+const ZOMBIE_RUSH_SPEED_RAMP_PER_MIN = 0.08
+const ZOMBIE_RUSH_SPEED_CAP = 2.2
+const ZOMBIE_RUSH_SPAWN_RAMP_PER_MIN = 0.15
+const ZOMBIE_RUSH_SPAWN_CAP = 3.5
+const ZOMBIE_RUSH_BEST_KEY = 'gayz-zombie-rush-best'
+
+function loadZombieRushBest() {
+  try {
+    const raw = localStorage.getItem(ZOMBIE_RUSH_BEST_KEY)
+    const parsed = raw ? JSON.parse(raw) : null
+    return parsed && typeof parsed.ms === 'number' ? parsed : { ms: 0 }
+  } catch {
+    return { ms: 0 }
+  }
+}
+
+function saveZombieRushBest(best) {
+  try {
+    localStorage.setItem(ZOMBIE_RUSH_BEST_KEY, JSON.stringify(best))
+  } catch {
+    // Storage unavailable - best time just won't persist.
+  }
+}
+
 const SHOP_ITEMS = [
   { id: 'health', cost: 15, titleKey: 'shopHealthPack', give: (game) => game.inventory.addHealthPack(1) },
   { id: 'armor', cost: 18, titleKey: 'shopArmorPack', give: (game) => game.inventory.addArmorPack(1) },
@@ -3953,6 +4004,14 @@ export class Game {
     this.zombieDefenseMarker.position.set(SAFE_ZONE_X, 0.06, SAFE_ZONE_Z)
     this.zombieDefenseMarker.visible = false
     this.scene.add(this.zombieDefenseMarker)
+
+    this.bossHuntActive = false
+    this.bossHuntBoss = null
+    this.bossHuntLastToastedPhase = 0
+
+    this.zombieRushActive = false
+    this.zombieRushNextRampAt = 0
+    this.zombieRushBest = loadZombieRushBest()
     this.practiceTargets = practiceTargets
     this.traps = []
     this.alarms = []
@@ -4367,7 +4426,6 @@ export class Game {
     this.dailyLeaderboardEl = document.getElementById('death-daily-leaderboard')
     this.shareRunCardBtn = document.getElementById('share-run-card-btn')
     this.creditsBtn = document.getElementById('credits-btn')
-    this.termsBtn = document.getElementById('terms-btn')
     this.buildModeBtn = document.getElementById('build-mode-btn')
     this.menuAriaSummary = document.getElementById('menu-aria-summary')
     this.menuTitle = document.getElementById('menu-title')
@@ -4410,6 +4468,9 @@ export class Game {
     this.dailyWrap = document.getElementById('daily-wrap')
     this.dailyLabel = document.getElementById('daily-label')
     this.dailyBestEl = document.getElementById('daily-best')
+    this.zombieRushWrap = document.getElementById('zombie-rush-wrap')
+    this.zombieRushTimerEl = document.getElementById('zombie-rush-timer')
+    this.zombieRushBestEl = document.getElementById('zombie-rush-best')
     this.xpFill = document.getElementById('xp-fill')
     this.xpLevelBadge = document.getElementById('xp-level-badge')
     this.xpLevelupPanel = document.getElementById('xp-levelup-panel')
@@ -4877,23 +4938,6 @@ export class Game {
       if (spawnMult !== this.difficulty.spawnRateMult) this.zombies.setDifficultyMultiplier(spawnMult)
       if (this.settings.mutators.hordeMode) this.zombies.setHordeMode(true)
       if (this.settings.mutators.bossRush) this.zombies.bossRushMode = true
-      this.kothActive = this.settings.mutators.kingOfTheHill
-      this.kothMarker.visible = this.kothActive
-      if (this.kothActive) {
-        this.kothProgress = 0
-        this.kothZone.x = KOTH_SPOTS[0].x
-        this.kothZone.z = KOTH_SPOTS[0].z
-        this.kothMarker.position.set(this.kothZone.x, 0.06, this.kothZone.z)
-      }
-      this.extractionActive = this.settings.mutators.extraction
-      this.extractionMarker.visible = this.extractionActive
-      if (this.extractionActive) {
-        this.extractionProgress = 0
-        this.extractionNextSurgeAt = 0
-      }
-      this.zombieDefenseActive = this.settings.mutators.zombieDefense
-      this.zombieDefenseMarker.visible = this.zombieDefenseActive
-      if (this.zombieDefenseActive) this.zombieDefenseHp = ZOMBIE_DEFENSE_MAX_HP
       if (this.dailyChallengeActive) {
         this.dailyBest = loadDailyBest()
         this.dailyWrap.style.display = 'block'
@@ -4908,6 +4952,7 @@ export class Game {
         this.zombies.startRound(1)
         this.roundIntermissionUntil = 0
       }
+      this._setupGameModeRun()
       // Scavenger Run - locks the two normally-free starting guns back down
       // to melee-only; earned back through the Trader/Coin Shop's existing
       // economy same as every other non-starting weapon, not a separate
@@ -4971,6 +5016,7 @@ export class Game {
       this.zombies.reset()
       if (this._isRoundMode()) this.zombies.startRound(1)
       this.roundIntermissionUntil = 0
+      this._setupGameModeRun()
       this.barricadeWindows.reset()
       this.chests.reset()
       this.rivals.reset()
@@ -5025,16 +5071,6 @@ export class Game {
       this._updateProgressHud()
       this.deathScreen.style.display = 'none'
       this.extractionScreen.style.display = 'none'
-      if (this.kothActive) {
-        this.kothProgress = 0
-        this.kothZone.x = KOTH_SPOTS[0].x
-        this.kothZone.z = KOTH_SPOTS[0].z
-        this.kothMarker.position.set(this.kothZone.x, 0.06, this.kothZone.z)
-      }
-      if (this.extractionActive) {
-        this.extractionProgress = 0
-        this.extractionNextSurgeAt = 0
-      }
       if (this.dailyChallengeActive) {
         this.dailyBest = loadDailyBest()
         this.dailyBestEl.textContent = t('dailyBest', { score: this.dailyBest.score })
@@ -7864,7 +7900,6 @@ export class Game {
     this.shareRunCardBtn.addEventListener('click', () => this._generateRunSummaryCard())
     if (this.copyTextRecapBtn) this.copyTextRecapBtn.addEventListener('click', () => this._copyTextRecap())
     this.creditsBtn.addEventListener('click', () => trackAndOpen(() => this._openCreditsPanel()))
-    if (this.termsBtn) this.termsBtn.addEventListener('click', () => trackAndOpen(() => this._openComingSoonPanel()))
     this.coinshopBtn.addEventListener('click', () => trackAndOpen(() => this._openComingSoonPanel()))
     this._bindHomepageBatch()
     CloudSaveUI.bindCloudSave(this)
@@ -9807,6 +9842,69 @@ export class Game {
     this._updateCompanionName()
   }
 
+  // Shared by the Play button (first run of the session) and the Respawn/
+  // "Start New Run" button (every run after - including the one right
+  // after winning Boss Hunt/Zombie Defense, since extractionContinueBtn
+  // just calls respawnBtn.click()). Previously each mutator-driven mode
+  // (King of the Hill, Extraction, and now Zombie Defense/Boss Hunt/
+  // Zombie Rush) only had its *Active flag derived from settings.mutators
+  // inside the Play handler - since every one of these win/loss paths
+  // explicitly sets its own *Active back to false, and nothing ever set
+  // it true again outside Play, a mode that was still selected would
+  // silently stop doing anything the moment a player respawned or started
+  // a new run, for the rest of the session. Re-deriving everything here,
+  // called from both places, fixes that at the root instead of patching
+  // each mode's win/loss handler individually.
+  // Deliberately does NOT touch zombies.reset()/roundMode/startRound - the
+  // Play and Respawn handlers already sequence those slightly differently
+  // (Respawn always resets since there can be zombies alive from the run
+  // that just ended; Play only does when round mode, since nothing exists
+  // yet to clear) and call this method right after, so Boss Hunt's spawn
+  // below still lands after whichever reset already ran.
+  _setupGameModeRun() {
+    this.kothActive = this.settings.mutators.kingOfTheHill
+    this.kothMarker.visible = this.kothActive
+    if (this.kothActive) {
+      this.kothProgress = 0
+      this.kothZone.x = KOTH_SPOTS[0].x
+      this.kothZone.z = KOTH_SPOTS[0].z
+      this.kothMarker.position.set(this.kothZone.x, 0.06, this.kothZone.z)
+    }
+
+    this.extractionActive = this.settings.mutators.extraction
+    this.extractionMarker.visible = this.extractionActive
+    if (this.extractionActive) {
+      this.extractionProgress = 0
+      this.extractionNextSurgeAt = 0
+    }
+
+    this.zombieDefenseActive = this.settings.mutators.zombieDefense
+    this.zombieDefenseMarker.visible = this.zombieDefenseActive
+    if (this.zombieDefenseActive) this.zombieDefenseHp = ZOMBIE_DEFENSE_MAX_HP
+
+    // Boss Hunt - spawned after the Round Mode reset above, not before -
+    // that reset would otherwise wipe the boss the instant it's spawned.
+    this.bossHuntActive = this.settings.mutators.bossHunt
+    this.bossHuntLastToastedPhase = 0
+    if (this.bossHuntActive) {
+      const angle = Math.random() * Math.PI * 2
+      const bx = this.camera.position.x + Math.sin(angle) * BOSS_HUNT_SPAWN_RADIUS
+      const bz = this.camera.position.z + Math.cos(angle) * BOSS_HUNT_SPAWN_RADIUS
+      this.bossHuntBoss = this.zombies.spawnGuardian(bx, bz, ZOMBIE_TYPES.colossus)
+      this._showLoreToast(t('bossHuntSpawned'))
+    } else {
+      this.bossHuntBoss = null
+    }
+
+    this.zombieRushActive = this.settings.mutators.zombieRush
+    this.zombieRushWrap.style.display = this.zombieRushActive ? 'block' : 'none'
+    if (this.zombieRushActive) {
+      this.zombies.speedMult = 1
+      this.zombieRushNextRampAt = 0
+      this.zombieRushBestEl.textContent = t('zombieRushBest', { time: formatTime(this.zombieRushBest.ms) })
+    }
+  }
+
   // Selection-only here - the actual stat deltas (see LOADOUT_PRESETS) get
   // applied once, when the very first "Click to Play" starts a run (see
   // playBtn's click handler), not on every settings change.
@@ -9838,18 +9936,37 @@ export class Game {
   // Class's role/loadout buttons above, not the general checkbox mutators
   // list. Locked (Coming Soon) entries carry a real `disabled` attribute
   // in the HTML, so they never reach this click handler at all - no extra
-  // guard needed here for those. Only zombieDefense has a real mode wired
-  // up so far; picking it just flips the same settings.mutators.zombieDefense
-  // flag the run-start block already reads (see this mutator's own
-  // top-of-file comment) - future modes get their own flag the same way
-  // once they're built.
+  // guard needed here for those. zombieDefense/bossHunt/zombieRush each
+  // just flip the matching settings.mutators.* flag the run-start setup
+  // (see _setupGameModeRun) already reads.
   _bindGameModeSelect() {
     for (const btn of this.gameModeSelectBtns) {
       btn.classList.toggle('active', btn.dataset.gameMode === this.settings.selectedGameMode)
       btn.addEventListener('click', () => {
         const mode = btn.dataset.gameMode
+        const wasZombieRush = this.settings.selectedGameMode === 'zombieRush'
+        const isZombieRush = mode === 'zombieRush'
         this.settings.selectedGameMode = mode
         this.settings.mutators.zombieDefense = mode === 'zombieDefense'
+        this.settings.mutators.bossHunt = mode === 'bossHunt'
+        this.settings.mutators.zombieRush = isZombieRush
+        // Zombie Rush's "limited resources" - reuses Iron Mode's existing
+        // no-Trader/no-Shop-spending restriction rather than a new one.
+        // Only touched on an actual enter/exit of Zombie Rush (not on
+        // every click, e.g. re-clicking the already-active tile or
+        // switching between two other modes) - forcing it on remembers
+        // whatever the player's own Iron Mode checkbox was set to first,
+        // so leaving Zombie Rush restores their real preference instead
+        // of always resetting it to off. Also re-syncs the actual
+        // checkbox in the Mutators panel, which otherwise silently
+        // disagreed with settings.mutators.ironMode.
+        if (isZombieRush && !wasZombieRush) {
+          this._ironModeBeforeZombieRush = this.settings.mutators.ironMode
+          this.settings.mutators.ironMode = true
+        } else if (!isZombieRush && wasZombieRush) {
+          this.settings.mutators.ironMode = this._ironModeBeforeZombieRush ?? false
+        }
+        if (this.mutatorIronMode) this.mutatorIronMode.checked = this.settings.mutators.ironMode
         saveSettings(this.settings)
         for (const b of this.gameModeSelectBtns) b.classList.toggle('active', b === btn)
       })
@@ -13714,6 +13831,15 @@ export class Game {
     this.killcamUntil = performance.now() + DEATH_KILLCAM_DURATION_MS
     this._recordDeathMemorial()
     this._recordNemesis()
+    if (this.zombieRushActive) {
+      this.zombieRushActive = false
+      const elapsedMs = performance.now() - this.runStartedAt
+      if (elapsedMs > this.zombieRushBest.ms) {
+        this.zombieRushBest = { ms: elapsedMs }
+        saveZombieRushBest(this.zombieRushBest)
+        this._showLoreToast(t('zombieRushNewBestToast', { time: formatTime(elapsedMs) }))
+      }
+    }
     this.player.controls.unlock()
     this.crosshair.style.display = 'none'
     this.hudEl.style.display = 'none'
@@ -16043,6 +16169,12 @@ export class Game {
   // difficulty (and its zombie health/elite/loot tuning) is selected, so a
   // Nightmare-difficulty Endless run is deliberately possible.
   _isRoundMode() {
+    // Zombie Rush wants a genuinely continuous, no-waves-no-lull spawn
+    // (see _updateZombieRush's own comment) - this overrides every other
+    // reason this would otherwise be true (Easy/Normal difficulty,
+    // Endless Mode), rather than being just one more OR term the way
+    // Zombie Defense is below.
+    if (this.settings.mutators.zombieRush) return false
     return this.settings.endlessMode || this.settings.difficulty === 'easy' || this.settings.difficulty === 'normal' || this.settings.mutators.zombieDefense
   }
 
@@ -17462,6 +17594,83 @@ export class Game {
     this.bossHealthFill.style.width = `${Math.max(0, boss.health / boss.maxHealth) * 100}%`
   }
 
+  // Boss Hunt mode: watches the one tracked boss for its (already-existing,
+  // see Zombie.js's enragePhase) phase transitions to surface a toast the
+  // player would otherwise have to infer from it just getting faster, and
+  // for its death to trigger the win screen. Ambient ads during the fight
+  // need no code here at all - spawnGuardian already wired that up.
+  _updateBossHunt() {
+    if (!this.bossHuntActive || !this.bossHuntBoss) return
+    const boss = this.bossHuntBoss
+    if (boss.state === 'dead') {
+      this._onBossHuntWin()
+      return
+    }
+    if (boss.enragePhase > this.bossHuntLastToastedPhase) {
+      this.bossHuntLastToastedPhase = boss.enragePhase
+      this._showLoreToast(t(boss.enragePhase >= 2 ? 'bossHuntPhase2' : 'bossHuntPhase1'))
+    }
+  }
+
+  // Shared by every "win the run" screen (Extraction, Boss Hunt, Zombie
+  // Defense) - same HUD teardown, _recordRunEnd/legacy-points math, stats
+  // text, and screen reveal every time, just a different title/reward/
+  // which mode's own HUD wrap needs hiding. The Daily Challenge result
+  // line stays out of this helper and gets set by the caller beforehand -
+  // only Extraction is actually wired to that score comparison.
+  _showRunWinScreen(titleKey, pointsBonus, coinsBonus, modeWrapEl) {
+    this.player.controls.unlock()
+    this.crosshair.style.display = 'none'
+    this.hudEl.style.display = 'none'
+    this.hotbarEl.style.display = 'none'
+    this.statusHud.style.display = 'none'
+    this.inventoryHud.style.display = 'none'
+    this.progressHud.style.display = 'none'
+    this.interactPrompt.style.display = 'none'
+    this.statsPanel.style.display = 'none'
+    this.minimapWrap.style.display = 'none'
+    if (modeWrapEl) modeWrapEl.style.display = 'none'
+
+    this._recordRunEnd(true)
+
+    this.points += pointsBonus
+    this.coins += coinsBonus
+    this._updateStatsPanel()
+
+    const legacyEarned = Math.floor(this.points * DEATH_POINTS_CONVERSION * (1 + this.metaProgress.prestigeLevel * 0.1))
+    this.metaProgress.legacyPoints += legacyEarned
+    saveMetaProgress(this.metaProgress)
+
+    const elapsed = formatTime(performance.now() - this.runStartedAt)
+    if (this.extractionTitle) this.extractionTitle.textContent = t(titleKey)
+    this.extractionStats.textContent = t('extractionStats', { night: this.night, kills: this.kills, time: elapsed, points: pointsBonus, coins: coinsBonus, legacy: legacyEarned })
+    this.extractionScreen.style.display = 'flex'
+  }
+
+  _onBossHuntWin() {
+    this.bossHuntActive = false
+    this.bossHuntBoss = null
+    this.extractionDaily.style.display = 'none'
+    this._showRunWinScreen('bossHuntTitle', BOSS_HUNT_POINTS_BONUS, BOSS_HUNT_COINS_BONUS, this.bossHealthWrap)
+  }
+
+  // Zombie Rush mode: no win condition, just a live timer plus a
+  // periodic (not per-frame - setDifficultyMultiplier re-derives the
+  // whole spawn schedule, wasteful to call 60x/sec) ramp of spawn rate
+  // and future-zombie speed the longer the run lasts. Ends the normal
+  // way, through _onPlayerDeath - the only Zombie-Rush-specific thing
+  // that happens on death is the best-time check (see that method).
+  _updateZombieRush() {
+    if (!this.zombieRushActive) return
+    const elapsedMs = performance.now() - this.runStartedAt
+    this.zombieRushTimerEl.textContent = t('zombieRushLabel', { time: formatTime(elapsedMs) })
+    if (performance.now() < this.zombieRushNextRampAt) return
+    this.zombieRushNextRampAt = performance.now() + ZOMBIE_RUSH_RAMP_INTERVAL_MS
+    const minutes = elapsedMs / 60000
+    this.zombies.speedMult = Math.min(ZOMBIE_RUSH_SPEED_CAP, 1 + minutes * ZOMBIE_RUSH_SPEED_RAMP_PER_MIN)
+    this.zombies.setDifficultyMultiplier(Math.min(ZOMBIE_RUSH_SPAWN_CAP, 1 + minutes * ZOMBIE_RUSH_SPAWN_RAMP_PER_MIN))
+  }
+
   // King of the Hill mutator: standing inside the marked ring fills the
   // capture bar; leaving it drains the bar instead of resetting it outright,
   // so a brief retreat under fire doesn't erase all progress. A full capture
@@ -17511,33 +17720,7 @@ export class Game {
   }
 
   _onExtractionSuccess() {
-    if (this.extractionTitle) this.extractionTitle.textContent = t('extractionTitle')
     this.extractionActive = false
-    this.player.controls.unlock()
-    this.crosshair.style.display = 'none'
-    this.hudEl.style.display = 'none'
-    this.hotbarEl.style.display = 'none'
-    this.statusHud.style.display = 'none'
-    this.inventoryHud.style.display = 'none'
-    this.progressHud.style.display = 'none'
-    this.interactPrompt.style.display = 'none'
-    this.statsPanel.style.display = 'none'
-    this.minimapWrap.style.display = 'none'
-    this.extractionWrap.style.display = 'none'
-
-    this._recordRunEnd(true)
-
-    this.points += EXTRACTION_POINTS_BONUS
-    this.coins += EXTRACTION_COINS_BONUS
-    this._updateStatsPanel()
-
-    const legacyEarned = Math.floor(this.points * DEATH_POINTS_CONVERSION * (1 + this.metaProgress.prestigeLevel * 0.1))
-    this.metaProgress.legacyPoints += legacyEarned
-    saveMetaProgress(this.metaProgress)
-
-    const elapsed = formatTime(performance.now() - this.runStartedAt)
-    this.extractionStats.textContent = t('extractionStats', { night: this.night, kills: this.kills, time: elapsed, points: EXTRACTION_POINTS_BONUS, coins: EXTRACTION_COINS_BONUS, legacy: legacyEarned })
-
     if (this.dailyChallengeActive) {
       const score = this.kills * 10 + this.night * 100
       this.dailyBest = loadDailyBest()
@@ -17550,8 +17733,7 @@ export class Game {
     } else {
       this.extractionDaily.style.display = 'none'
     }
-
-    this.extractionScreen.style.display = 'flex'
+    this._showRunWinScreen('extractionTitle', EXTRACTION_POINTS_BONUS, EXTRACTION_COINS_BONUS, this.extractionWrap)
   }
 
   // Zombie Defense mutator: base HP drains per second per zombie lingering
@@ -17578,33 +17760,8 @@ export class Game {
 
   _onZombieDefenseWin() {
     this.zombieDefenseActive = false
-    this.player.controls.unlock()
-    this.crosshair.style.display = 'none'
-    this.hudEl.style.display = 'none'
-    this.hotbarEl.style.display = 'none'
-    this.statusHud.style.display = 'none'
-    this.inventoryHud.style.display = 'none'
-    this.progressHud.style.display = 'none'
-    this.interactPrompt.style.display = 'none'
-    this.statsPanel.style.display = 'none'
-    this.minimapWrap.style.display = 'none'
-    this.zombieDefenseWrap.style.display = 'none'
-
-    this._recordRunEnd(true)
-
-    this.points += ZOMBIE_DEFENSE_POINTS_BONUS
-    this.coins += ZOMBIE_DEFENSE_COINS_BONUS
-    this._updateStatsPanel()
-
-    const legacyEarned = Math.floor(this.points * DEATH_POINTS_CONVERSION * (1 + this.metaProgress.prestigeLevel * 0.1))
-    this.metaProgress.legacyPoints += legacyEarned
-    saveMetaProgress(this.metaProgress)
-
-    const elapsed = formatTime(performance.now() - this.runStartedAt)
-    if (this.extractionTitle) this.extractionTitle.textContent = t('zombieDefenseTitle')
-    this.extractionStats.textContent = t('extractionStats', { night: this.night, kills: this.kills, time: elapsed, points: ZOMBIE_DEFENSE_POINTS_BONUS, coins: ZOMBIE_DEFENSE_COINS_BONUS, legacy: legacyEarned })
     this.extractionDaily.style.display = 'none'
-    this.extractionScreen.style.display = 'flex'
+    this._showRunWinScreen('zombieDefenseTitle', ZOMBIE_DEFENSE_POINTS_BONUS, ZOMBIE_DEFENSE_COINS_BONUS, this.zombieDefenseWrap)
   }
 
   // Base destroyed - ends the run through the same _onPlayerDeath flow
@@ -18395,6 +18552,8 @@ export class Game {
       this._updateInformant(playerPos)
       this._updateLoreMarkers(dt, playerPos)
       this._updateBossHealthBar()
+      this._updateBossHunt()
+      this._updateZombieRush()
       this._updateKingOfTheHill(dt, playerPos)
       this._updateExtraction(dt, playerPos)
       this._updateZombieDefense(dt)
