@@ -5,7 +5,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass.js'
 import { AfterimagePass } from 'three/examples/jsm/postprocessing/AfterimagePass.js'
-import { buildWorld, WORLD_CULL_DISTANCE, WORLD_SHADOW_CULL_DISTANCE, CAMPFIRE_X, CAMPFIRE_Z } from './World.js'
+import { buildWorld, WORLD_CULL_DISTANCE, WORLD_SHADOW_CULL_DISTANCE, CAMPFIRE_X, CAMPFIRE_Z, SAFE_ZONE_X, SAFE_ZONE_Z } from './World.js'
 import { LOW_QUALITY_MODE, flatMaterial } from './QualitySettings.js'
 import { PlayerController } from './PlayerController.js'
 import { WeaponSystem } from './WeaponSystem.js'
@@ -478,6 +478,7 @@ function loadSettings() {
         featuredEnemy: parsed.mutators?.featuredEnemy ?? false,
         blackout: parsed.mutators?.blackout ?? false,
         bossGauntlet: parsed.mutators?.bossGauntlet ?? false,
+        zombieDefense: parsed.mutators?.zombieDefense ?? false,
       },
     }
     // A genuinely new player's generated defaults (starter nickname, etc.)
@@ -501,7 +502,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, killFeedPosition: 'right', compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, showPausePlaytime: true, instantStationInteract: false, confirmQuitRun: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false } }
+  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, killFeedPosition: 'right', compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, showPausePlaytime: true, instantStationInteract: false, confirmQuitRun: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -2422,6 +2423,23 @@ const EXTRACTION_POINTS_BONUS = 300
 const EXTRACTION_COINS_BONUS = 150
 const EXTRACTION_SPOT = { x: 8, z: -8 }
 
+// Zombie Defense mutator: forces Round Mode (see _isRoundMode) regardless
+// of difficulty, so waves already come from the same startRound() ramp
+// Easy/Normal use, and win is just "survive to wave 10" instead of a
+// separate spawn system. The base itself is the Safe Zone (SAFE_ZONE_X/Z,
+// World.js) - zombies don't get new AI to path onto/attack it (Zombie.js's
+// update() is deeply hardcoded around a single player target, see this
+// mode's own investigation notes), so base HP instead drains per second
+// per zombie lingering within ZOMBIE_DEFENSE_RADIUS of it. A deliberate
+// simplification: the real defense is keeping zombies from massing near
+// the base at all, not tanking hits on a structure.
+const ZOMBIE_DEFENSE_RADIUS = 10
+const ZOMBIE_DEFENSE_MAX_HP = 500
+const ZOMBIE_DEFENSE_DPS_PER_ZOMBIE = 4
+const ZOMBIE_DEFENSE_WAVES_TO_WIN = 10
+const ZOMBIE_DEFENSE_POINTS_BONUS = 400
+const ZOMBIE_DEFENSE_COINS_BONUS = 200
+
 const SHOP_ITEMS = [
   { id: 'health', cost: 15, titleKey: 'shopHealthPack', give: (game) => game.inventory.addHealthPack(1) },
   { id: 'armor', cost: 18, titleKey: 'shopArmorPack', give: (game) => game.inventory.addArmorPack(1) },
@@ -3347,6 +3365,7 @@ export class Game {
     this.mutatorHordeMode = document.getElementById('mutator-horde-mode')
     this.mutatorKoth = document.getElementById('mutator-koth')
     this.mutatorExtraction = document.getElementById('mutator-extraction')
+    this.mutatorZombieDefense = document.getElementById('mutator-zombie-defense')
     this.mutatorDaily = document.getElementById('mutator-daily')
     this.mutatorHealthRegen = document.getElementById('mutator-health-regen')
     this.mutatorIronMode = document.getElementById('mutator-iron-mode')
@@ -3912,6 +3931,22 @@ export class Game {
     this.extractionMarker.position.set(EXTRACTION_SPOT.x, 0.06, EXTRACTION_SPOT.z)
     this.extractionMarker.visible = false
     this.scene.add(this.extractionMarker)
+
+    this.zombieDefenseActive = false
+    this.zombieDefenseHp = ZOMBIE_DEFENSE_MAX_HP
+    const zombieDefenseMarkerMat = flatMaterial({
+      color: 0x3a1f0f,
+      emissive: 0xff9c4a,
+      emissiveIntensity: 0.9,
+      transparent: true,
+      opacity: 0.55,
+      side: THREE.DoubleSide,
+    })
+    this.zombieDefenseMarker = new THREE.Mesh(new THREE.RingGeometry(ZOMBIE_DEFENSE_RADIUS - 0.2, ZOMBIE_DEFENSE_RADIUS, 32), zombieDefenseMarkerMat)
+    this.zombieDefenseMarker.rotation.x = -Math.PI / 2
+    this.zombieDefenseMarker.position.set(SAFE_ZONE_X, 0.06, SAFE_ZONE_Z)
+    this.zombieDefenseMarker.visible = false
+    this.scene.add(this.zombieDefenseMarker)
     this.practiceTargets = practiceTargets
     this.traps = []
     this.alarms = []
@@ -4359,9 +4394,13 @@ export class Game {
     this.extractionLabel = document.getElementById('extraction-label')
     this.extractionFill = document.getElementById('extraction-fill')
     this.extractionScreen = document.getElementById('extraction-screen')
+    this.extractionTitle = document.getElementById('extraction-title')
     this.extractionStats = document.getElementById('extraction-stats')
     this.extractionDaily = document.getElementById('extraction-daily')
     this.extractionContinueBtn = document.getElementById('extraction-continue-btn')
+    this.zombieDefenseWrap = document.getElementById('zombie-defense-wrap')
+    this.zombieDefenseLabel = document.getElementById('zombie-defense-label')
+    this.zombieDefenseFill = document.getElementById('zombie-defense-fill')
     this.dailyWrap = document.getElementById('daily-wrap')
     this.dailyLabel = document.getElementById('daily-label')
     this.dailyBestEl = document.getElementById('daily-best')
@@ -4845,6 +4884,9 @@ export class Game {
         this.extractionProgress = 0
         this.extractionNextSurgeAt = 0
       }
+      this.zombieDefenseActive = this.settings.mutators.zombieDefense
+      this.zombieDefenseMarker.visible = this.zombieDefenseActive
+      if (this.zombieDefenseActive) this.zombieDefenseHp = ZOMBIE_DEFENSE_MAX_HP
       if (this.dailyChallengeActive) {
         this.dailyBest = loadDailyBest()
         this.dailyWrap.style.display = 'block'
@@ -7622,6 +7664,11 @@ export class Game {
     this.mutatorExtraction.checked = this.settings.mutators.extraction
     this.mutatorExtraction.addEventListener('change', () => {
       this.settings.mutators.extraction = this.mutatorExtraction.checked
+      saveSettings(this.settings)
+    })
+    this.mutatorZombieDefense.checked = this.settings.mutators.zombieDefense
+    this.mutatorZombieDefense.addEventListener('change', () => {
+      this.settings.mutators.zombieDefense = this.mutatorZombieDefense.checked
       saveSettings(this.settings)
     })
     this.mutatorDaily.checked = this.settings.mutators.dailyChallenge
@@ -11555,6 +11602,7 @@ export class Game {
     document.getElementById('mutator-horde-mode-label').textContent = t('mutatorHordeMode')
     document.getElementById('mutator-koth-label').textContent = t('mutatorKoth')
     document.getElementById('mutator-extraction-label').textContent = t('mutatorExtraction')
+    document.getElementById('mutator-zombie-defense-label').textContent = t('mutatorZombieDefense')
     document.getElementById('mutator-daily-label').textContent = t('mutatorDaily')
     document.getElementById('mutator-health-regen-label').textContent = t('mutatorHealthRegen')
     document.getElementById('mutator-iron-mode-label').textContent = t('mutatorIronMode')
@@ -15972,7 +16020,7 @@ export class Game {
   // difficulty (and its zombie health/elite/loot tuning) is selected, so a
   // Nightmare-difficulty Endless run is deliberately possible.
   _isRoundMode() {
-    return this.settings.endlessMode || this.settings.difficulty === 'easy' || this.settings.difficulty === 'normal'
+    return this.settings.endlessMode || this.settings.difficulty === 'easy' || this.settings.difficulty === 'normal' || this.settings.mutators.zombieDefense
   }
 
   // One-life-only check, shared by Hardcore Mode, the Daily Challenge's
@@ -17440,6 +17488,7 @@ export class Game {
   }
 
   _onExtractionSuccess() {
+    if (this.extractionTitle) this.extractionTitle.textContent = t('extractionTitle')
     this.extractionActive = false
     this.player.controls.unlock()
     this.crosshair.style.display = 'none'
@@ -17480,6 +17529,70 @@ export class Game {
     }
 
     this.extractionScreen.style.display = 'flex'
+  }
+
+  // Zombie Defense mutator: base HP drains per second per zombie lingering
+  // within ZOMBIE_DEFENSE_RADIUS of the Safe Zone (no bespoke "attack the
+  // base" AI - Zombie.js's update() is deeply hardcoded around a single
+  // player target, so this is a deliberate simplification rather than a
+  // guess). Round Mode (forced on via _isRoundMode) already supplies the
+  // wave escalation - this just watches base HP and the win condition
+  // once wave ZOMBIE_DEFENSE_WAVES_TO_WIN clears (see the round-advance
+  // block in the main tick).
+  _updateZombieDefense(dt) {
+    if (!this.zombieDefenseActive) {
+      this.zombieDefenseWrap.style.display = 'none'
+      return
+    }
+    this.zombieDefenseWrap.style.display = 'block'
+    const nearby = this.zombies.zombies.filter((z) => z.state !== 'dead' &&
+      Math.hypot(z.group.position.x - SAFE_ZONE_X, z.group.position.z - SAFE_ZONE_Z) <= ZOMBIE_DEFENSE_RADIUS).length
+    if (nearby > 0) this.zombieDefenseHp = Math.max(0, this.zombieDefenseHp - nearby * ZOMBIE_DEFENSE_DPS_PER_ZOMBIE * dt)
+    this.zombieDefenseLabel.textContent = t('zombieDefenseLabel')
+    this.zombieDefenseFill.style.width = `${(this.zombieDefenseHp / ZOMBIE_DEFENSE_MAX_HP) * 100}%`
+    if (this.zombieDefenseHp <= 0) this._onZombieDefenseFail()
+  }
+
+  _onZombieDefenseWin() {
+    this.zombieDefenseActive = false
+    this.player.controls.unlock()
+    this.crosshair.style.display = 'none'
+    this.hudEl.style.display = 'none'
+    this.hotbarEl.style.display = 'none'
+    this.statusHud.style.display = 'none'
+    this.inventoryHud.style.display = 'none'
+    this.progressHud.style.display = 'none'
+    this.interactPrompt.style.display = 'none'
+    this.statsPanel.style.display = 'none'
+    this.minimapWrap.style.display = 'none'
+    this.zombieDefenseWrap.style.display = 'none'
+
+    this._recordRunEnd(true)
+
+    this.points += ZOMBIE_DEFENSE_POINTS_BONUS
+    this.coins += ZOMBIE_DEFENSE_COINS_BONUS
+    this._updateStatsPanel()
+
+    const legacyEarned = Math.floor(this.points * DEATH_POINTS_CONVERSION * (1 + this.metaProgress.prestigeLevel * 0.1))
+    this.metaProgress.legacyPoints += legacyEarned
+    saveMetaProgress(this.metaProgress)
+
+    const elapsed = formatTime(performance.now() - this.runStartedAt)
+    if (this.extractionTitle) this.extractionTitle.textContent = t('zombieDefenseTitle')
+    this.extractionStats.textContent = t('extractionStats', { night: this.night, kills: this.kills, time: elapsed, points: ZOMBIE_DEFENSE_POINTS_BONUS, coins: ZOMBIE_DEFENSE_COINS_BONUS, legacy: legacyEarned })
+    this.extractionDaily.style.display = 'none'
+    this.extractionScreen.style.display = 'flex'
+  }
+
+  // Base destroyed - ends the run through the same _onPlayerDeath flow
+  // every other run-ending path uses (killcam/memorial/death screen),
+  // with a toast first so it reads as "the base fell", not "you personally
+  // died".
+  _onZombieDefenseFail() {
+    this.zombieDefenseActive = false
+    this.zombieDefenseWrap.style.display = 'none'
+    this._showLoreToast(t('zombieDefenseFallToast'))
+    this._onPlayerDeath()
   }
 
   _captureKothZone() {
@@ -18080,8 +18193,14 @@ export class Game {
         shouldAdvance = false
         if (!this.roundIntermissionUntil) {
           if (this.zombies.aliveCount() === 0) {
-            this.roundIntermissionUntil = performance.now() + ROUND_INTERMISSION_MS
-            this._showLoreToast(`Round ${this.night} cleared! Next wave in ${ROUND_INTERMISSION_MS / 1000}s...`)
+            if (this.zombieDefenseActive && this.night >= ZOMBIE_DEFENSE_WAVES_TO_WIN) {
+              this._onZombieDefenseWin()
+            } else {
+              this.roundIntermissionUntil = performance.now() + ROUND_INTERMISSION_MS
+              this._showLoreToast(this.zombieDefenseActive
+                ? t('zombieDefenseWaveToast', { wave: this.night, remaining: ZOMBIE_DEFENSE_WAVES_TO_WIN - this.night })
+                : `Round ${this.night} cleared! Next wave in ${ROUND_INTERMISSION_MS / 1000}s...`)
+            }
           }
         } else if (performance.now() >= this.roundIntermissionUntil) {
           this.roundIntermissionUntil = 0
@@ -18255,6 +18374,7 @@ export class Game {
       this._updateBossHealthBar()
       this._updateKingOfTheHill(dt, playerPos)
       this._updateExtraction(dt, playerPos)
+      this._updateZombieDefense(dt)
 
       this.barricadeWindows.update(dt, this.zombies.zombies, (w) => {
         this._showLoreToast('A barricade was breached! Zombies are pouring through.')

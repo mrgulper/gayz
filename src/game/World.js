@@ -3666,8 +3666,8 @@ function buildMysteryBox(scene, register, x, z) {
 // centers it on the avenue, replacing the scavenger lookout cluster that
 // used to sit at (-3, 44) - see CLUSTER_SPECS, now down to just the one
 // cluster at the south end.
-const SAFE_ZONE_X = 0
-const SAFE_ZONE_Z = 42
+export const SAFE_ZONE_X = 0
+export const SAFE_ZONE_Z = 42
 
 // A walled compound with a single entrance gap - guard NPCs (see Game.js,
 // which spawns Companion instances at guardSpots) stand watch just inside
