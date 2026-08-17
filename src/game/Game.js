@@ -16,7 +16,7 @@ import { Inventory } from './Inventory.js'
 import { DayNightCycle } from './DayNightCycle.js'
 import { ChestManager, Vault, LOOT_WEIGHTS } from './Chests.js'
 import { RivalManager, RIVAL_BANTER } from './RivalScavenger.js'
-import { loadMastery, saveMastery, MASTERY_THRESHOLD, MASTERY_DAMAGE_MULT, GRANDMASTER_THRESHOLD, GRANDMASTER_DAMAGE_MULT } from './WeaponMastery.js'
+import { loadMastery, saveMastery, MASTERY_THRESHOLD, MASTERY_DAMAGE_MULT, GRANDMASTER_THRESHOLD, GRANDMASTER_DAMAGE_MULT, LEGENDARY_THRESHOLD, LEGENDARY_RELOAD_MULT } from './WeaponMastery.js'
 import { BarricadeWindows, REPAIR_REWARD_POINTS } from './BarricadeWindows.js'
 import { Minimap } from './Minimap.js'
 import { FullMap } from './FullMap.js'
@@ -1007,9 +1007,13 @@ function loadNarrativeStats() {
       rescued: parsed.rescued || 0,
       lost: parsed.lost || 0,
       bossEpitaphsSeen: Array.isArray(parsed.bossEpitaphsSeen) ? parsed.bossEpitaphsSeen : [],
+      // Trader's Past mini arc (see _completeTraderQuest) - which of
+      // TRADER_QUESTS' 3 quest ids have ever been completed at least once,
+      // cumulative across every run, same shape as bossEpitaphsSeen above.
+      traderArcSeen: Array.isArray(parsed.traderArcSeen) ? parsed.traderArcSeen : [],
     }
   } catch {
-    return { rescued: 0, lost: 0, bossEpitaphsSeen: [] }
+    return { rescued: 0, lost: 0, bossEpitaphsSeen: [], traderArcSeen: [] }
   }
 }
 
@@ -2311,6 +2315,14 @@ const VEHICLE_RAM_SELF_DAMAGE = 2
 const VEHICLE_MOTORCYCLE_CHANCE = 0.3
 const VEHICLE_REFUEL_PER_CAN = 35
 const VEHICLE_HORN_DISTRACTION_MS = 6000
+// Trader upgrade (see SHOP_ITEMS's vehicle_armor) - a flat maxHealth
+// increase, applied to both current and max so it also heals the vehicle
+// by that amount rather than only raising its ceiling.
+const VEHICLE_ARMOR_BONUS_HEALTH = 60
+// Trader repair (see SHOP_ITEMS's vehicle_repair) - Vehicle.repair() already
+// existed (re-enables a disabled vehicle once health > 0) but had no caller
+// anywhere in Game.js, so a wrecked vehicle had no in-run recovery at all.
+const VEHICLE_REPAIR_AMOUNT = 999
 const LIGHTNING_MIN_DELAY_MS = 8000
 const LIGHTNING_DELAY_RANGE_MS = 12000
 const LIGHTNING_FLINCH_RADIUS = 18
@@ -2337,10 +2349,15 @@ const AIRDROP_CLAIM_RADIUS = 2
 const AIRDROP_REST_Y = 1.1
 const AIRDROP_FALL_HEIGHT = 16
 const AIRDROP_FALL_DURATION_MS = 2200
-const BOSS_TIER_IDS = new Set(['colossus', 'titan'])
-// Boss Gauntlet mutator (see _onZombieKilled) - broader than BOSS_TIER_IDS
-// above on purpose: this needs every type _spawnBoss's own colossus/
-// broodmother alternation can produce, not just the epitaph/killcam subset.
+// broodmother was missing here until this batch (only colossus/titan got
+// the boss coin bonus/killcam/epitaph/wave-clear-cam exclusion) - never
+// caught before because the only path that could kill a broodmother was
+// the Boss Rush mutator, and Boss Hunt now shares this same set.
+const BOSS_TIER_IDS = new Set(['colossus', 'titan', 'broodmother'])
+// Boss Gauntlet mutator (see _onZombieKilled) - same membership as
+// BOSS_TIER_IDS now that broodmother was added there too, kept as its own
+// named set since the two check conceptually different things (gauntlet
+// continuation vs. reward tier) even though they currently agree.
 const BOSS_GAUNTLET_TYPE_IDS = new Set(['colossus', 'broodmother', 'titan'])
 // Trophy Wall Nightmare-tier variant (see _updateTrophyWall) - which
 // medallions glow the hot red-orange instead of standard gold.
@@ -2349,7 +2366,7 @@ const NIGHTMARE_TIER_ACHIEVEMENT_IDS = new Set(['nightmare_survivor_5', 'nightma
 // once per boss type, ever (see narrativeStats.bossEpitaphsSeen), not once
 // per kill - a boss killed for the tenth time doesn't need its epitaph
 // re-read every single time.
-const BOSS_EPITAPH_KEYS = { colossus: 'bossEpitaphColossus', titan: 'bossEpitaphTitan' }
+const BOSS_EPITAPH_KEYS = { colossus: 'bossEpitaphColossus', titan: 'bossEpitaphTitan', broodmother: 'bossEpitaphBroodmother' }
 // Named loot lore blurbs (see _trackWeaponMastery) - a one-line "why this
 // gun in particular" appended to the existing mastery toast, keyed by
 // weapon id rather than added as a field on WEAPONS itself so this stays a
@@ -2431,7 +2448,10 @@ const INFORMANT_COST = 60
 // Fixed roles rather than random - each recruit spot is a reason to visit
 // both underground station offices (see buildUndergroundStation), not just
 // duplicate whatever role the player already picked for their main companion.
-const RECRUIT_ROLES = ['melee', 'medic']
+// 'ranged' added as a 3rd recruit role/spot - the squad cap used to sit at
+// 3 total (main companion + 2 recruits); this is the first recruit that can
+// give a ranged-only squad some actual ranged backup instead of just melee/medic.
+const RECRUIT_ROLES = ['melee', 'medic', 'ranged']
 
 // King of the Hill mutator: hold the marked zone to fill the capture bar,
 // then it pays out and relocates to keep the fight moving. Spots are fixed,
@@ -2515,6 +2535,12 @@ const PHOTO_MODE_FILTERS = [
 const BOSS_HUNT_SPAWN_RADIUS = 30
 const BOSS_HUNT_POINTS_BONUS = 500
 const BOSS_HUNT_COINS_BONUS = 250
+// Boss Hunt's target pool (see _setupGameModeRun) - all 3 of ZombieTypes.js's
+// weight:0 boss-tier entries, picked randomly each run. titan (label
+// 'Dinosaur') otherwise only ever shows up as ZombieManager's own rare
+// off-schedule roaming encounter (_maybeSpawnTitan) - including it here
+// doesn't change that, Boss Hunt is a separate opt-in spawn path.
+const BOSS_HUNT_BOSS_POOL = [ZOMBIE_TYPES.colossus, ZOMBIE_TYPES.broodmother, ZOMBIE_TYPES.titan]
 
 // Zombie Rush mode: no waves, no win condition - zombies just keep coming,
 // gradually faster and more numerous the longer the run lasts, until the
@@ -2610,6 +2636,23 @@ const SHOP_ITEMS = [
     give: (game) => game.weapons.addMagBonus(game.weapons.current.id === 'minigun' ? 50 : 10),
   },
   { id: 'craft_scope', cost: 30, titleKey: 'shopScope', give: (game) => game.weapons.attachScope('rifle') },
+  // Vehicle upgrades - the vehicle previously had no Trader presence at all
+  // despite Vehicle.js already having stats/health/a repair() method ready
+  // for exactly this. Armor is one-time per-run (isOwned); Repair is
+  // repeatable like the other consumable-style items, since a badly-rammed
+  // or fully wrecked vehicle otherwise had no in-run recovery path.
+  {
+    id: 'vehicle_armor',
+    cost: 50,
+    titleKey: 'shopVehicleArmor',
+    isOwned: (game) => game.vehicleUpgrades.armor,
+    give: (game) => {
+      game.vehicleUpgrades.armor = true
+      game.vehicle.stats.maxHealth += VEHICLE_ARMOR_BONUS_HEALTH
+      game.vehicle.health = Math.min(game.vehicle.stats.maxHealth, game.vehicle.health + VEHICLE_ARMOR_BONUS_HEALTH)
+    },
+  },
+  { id: 'vehicle_repair', cost: 25, titleKey: 'shopVehicleRepair', give: (game) => game.vehicle.repair(VEHICLE_REPAIR_AMOUNT) },
 ]
 
 // Salvage: the inverse of SHOP_ITEMS - convert consumables sitting unused in
@@ -2729,6 +2772,16 @@ const TRADER_QUESTS = [
   { id: 'grenade_cache', titleKey: 'questGrenadeCache', fetchInvKey: 'grenades', fetchCount: 2, fetchLabelKey: 'shopGrenade', killCount: 12, rewardPoints: 300, rewardCoins: 100 },
   { id: 'medical_supply', titleKey: 'questMedicalSupply', fetchInvKey: 'healthPacks', fetchCount: 2, fetchLabelKey: 'shopHealthPack', killCount: 10, rewardPoints: 275, rewardCoins: 90 },
 ]
+
+// Trader's Past mini arc (see _completeTraderQuest/narrativeStats.traderArcSeen) -
+// a one-time lore beat the first time each quest TYPE is ever completed, on
+// top of the normal repeatable reward. The 3 quest types are picked at
+// random each time a new Trader Request is assigned (not sequentially), so
+// this deliberately doesn't promise a fixed chapter order - just 3 pieces
+// of the Trader's backstory that surface as you happen to complete each
+// type, capped by an epilogue once all 3 are known.
+const TRADER_ARC_LORE_KEYS = { fuel_run: 'traderArcFuelRun', grenade_cache: 'traderArcGrenadeCache', medical_supply: 'traderArcMedicalSupply' }
+const TRADER_ARC_EPILOGUE_COINS = 150
 
 // Hidden Trader tier, only shown once Achievements.js's 'centurion' (100
 // kills, see _onZombieKilled) has ever been unlocked - a permanent,
@@ -3624,6 +3677,10 @@ export class Game {
     this.eliteKills = 0
     this.companionTrainingLevel = 0
     this.companionGear = { vest: false, rig: false }
+    // Vehicle Armor (see SHOP_ITEMS's vehicle_armor) - one-time per-run
+    // purchase, same reset precedent as companionGear (fresh on a new
+    // Game(), survives a same-session restart-run).
+    this.vehicleUpgrades = { armor: false }
     this.perksOwned = new Set()
     this.perkSynergiesUnlocked = new Set()
     this.tempCompanion = null
@@ -4166,7 +4223,7 @@ export class Game {
     // { survivors: Companion[] } (see _spawnEscortConvoy/_updateEscortConvoy)
     this.escortConvoy = null
     // Permanent squad additions (unlike tempCompanion, which leaves at dawn)
-    // - one fixed recruit per underground station office, reusing
+    // - one fixed recruit per world spot (see recruitSpots below), reusing
     // RescueSurvivor's stationary-NPC visual for the marker since it needs
     // no combat/movement behavior until actually recruited.
     // Ground-level spots only (Companion/RescueSurvivor never update their
@@ -4186,6 +4243,11 @@ export class Game {
     this.recruitSpots = [
       { x: -3, z: -36, role: RECRUIT_ROLES[0] },
       { x: 3, z: 28, role: RECRUIT_ROLES[1] },
+      // Verified clear of every world collider (4+ units of clearance) via
+      // a live Playwright check against game.colliders before picking this
+      // spot - open central-avenue ground south of the first recruit spot,
+      // same x=0 corridor SAFE_ZONE_X/the street grid's own gaps use.
+      { x: 0, z: -52, role: RECRUIT_ROLES[2] },
     ]
     for (const spot of this.recruitSpots) {
       spot.marker = new RescueSurvivor(this.scene, spot.x, spot.z)
@@ -4773,6 +4835,15 @@ export class Game {
       // are true.
       if (this.weaponMastery.grandmastered.has(w.id)) w.masteryMult = GRANDMASTER_DAMAGE_MULT
       else if (this.weaponMastery.mastered.has(w.id)) w.masteryMult = MASTERY_DAMAGE_MULT
+      // Legendary - a separate reload-speed multiplier rather than another
+      // damage tier (see WeaponMastery.js), so it applies alongside
+      // whichever damage tier the weapon is also at, not instead of it.
+      // Guns read masteryReloadMult directly in _reload(); melee has no
+      // reload, so its bonus is baked into fireInterval instead - both need
+      // reapplying here since the whole weapons array is rebuilt from
+      // scratch every run.
+      w.masteryReloadMult = this.weaponMastery.legendary.has(w.id) ? LEGENDARY_RELOAD_MULT : 1
+      if (w.melee && this.weaponMastery.legendary.has(w.id)) w.fireInterval *= LEGENDARY_RELOAD_MULT
     }
     // Re-apply already-earned per-weapon challenge camos - before
     // equippedSkin below, which (if the player has chosen a global skin)
@@ -10081,7 +10152,11 @@ export class Game {
       const angle = Math.random() * Math.PI * 2
       const bx = this.camera.position.x + Math.sin(angle) * BOSS_HUNT_SPAWN_RADIUS
       const bz = this.camera.position.z + Math.cos(angle) * BOSS_HUNT_SPAWN_RADIUS
-      this.bossHuntBoss = this.zombies.spawnGuardian(bx, bz, ZOMBIE_TYPES.colossus)
+      // Random boss pick (see BOSS_HUNT_BOSS_POOL) - used to be Colossus
+      // every single time, so choosing Boss Hunt from the mode picker was
+      // never actually a surprise past the first run.
+      const bossType = BOSS_HUNT_BOSS_POOL[Math.floor(Math.random() * BOSS_HUNT_BOSS_POOL.length)]
+      this.bossHuntBoss = this.zombies.spawnGuardian(bx, bz, bossType)
       this._showLoreToast(t('bossHuntSpawned'))
     } else {
       this.bossHuntBoss = null
@@ -10915,7 +10990,27 @@ export class Game {
     this.points += q.rewardPoints
     this.coins += q.rewardCoins
     this._updateStatsPanel()
-    this._showLoreToast(t('questComplete', { title: t(q.titleKey), points: q.rewardPoints, coins: q.rewardCoins }))
+    const completeText = t('questComplete', { title: t(q.titleKey), points: q.rewardPoints, coins: q.rewardCoins })
+    // Trader's Past mini arc - combined into the same toast as the normal
+    // completion message rather than a second _showLoreToast call in the
+    // same tick (see this project's documented shared-toast gotcha: two
+    // calls to the same shared toast element in one synchronous tick
+    // silently clobber each other, only the second would ever show).
+    if (!this.narrativeStats.traderArcSeen.includes(q.id)) {
+      this.narrativeStats.traderArcSeen.push(q.id)
+      saveNarrativeStats(this.narrativeStats)
+      const arcComplete = this.narrativeStats.traderArcSeen.length >= TRADER_QUESTS.length
+      if (arcComplete) this.coins += TRADER_ARC_EPILOGUE_COINS
+      const arcText = t(TRADER_ARC_LORE_KEYS[q.id])
+      const epilogueText = arcComplete ? ` ${t('traderArcEpilogue', { coins: TRADER_ARC_EPILOGUE_COINS })}` : ''
+      this._showLoreToast(`${completeText} ${arcText}${epilogueText}`)
+      // Achievement unlock uses its own separate toast element/queue (see
+      // Achievements.js's onUnlock), so it's safe to fire in the same tick
+      // as the loreToast above without clobbering it.
+      if (arcComplete) this.achievements.unlock('trader_confidant')
+    } else {
+      this._showLoreToast(completeText)
+    }
     this._assignTraderQuest(q.id)
     if (this.traderPanelOpen) this._renderQuestLine()
   }
@@ -12849,16 +12944,19 @@ export class Game {
         ? t(a.nameKey).localeCompare(t(b.nameKey))
         : this.settings.hotbar.indexOf(a.id) - this.settings.hotbar.indexOf(b.id))
       .map((w) => {
+        const legendary = this.weaponMastery.legendary.has(w.id)
         const grandmastered = this.weaponMastery.grandmastered.has(w.id)
         const mastered = w.masteryMult > 1
         const kills = this.weaponMastery.kills[w.id] || 0
-        const masteryTag = grandmastered
-          ? `<span class="mastery-tag grandmastered" title="${t('masteryGrandmasteredTitle', { pct: Math.round((GRANDMASTER_DAMAGE_MULT - 1) * 100) })}">★★</span>`
-          : mastered
-            ? `<span class="mastery-tag mastered" title="${t('masteryMasteredTitle', { pct: Math.round((MASTERY_DAMAGE_MULT - 1) * 100) })}">★</span>`
-            : w.unlocked
-              ? `<span class="mastery-tag" title="${t('masteryProgressTitle')}">${Math.min(kills, MASTERY_THRESHOLD)}/${MASTERY_THRESHOLD}</span>`
-              : ''
+        const masteryTag = legendary
+          ? `<span class="mastery-tag legendary" title="${t('masteryLegendaryTitle', { pct: Math.round((1 - LEGENDARY_RELOAD_MULT) * 100) })}">★★★</span>`
+          : grandmastered
+            ? `<span class="mastery-tag grandmastered" title="${t('masteryGrandmasteredTitle', { pct: Math.round((GRANDMASTER_DAMAGE_MULT - 1) * 100) })}">★★</span>`
+            : mastered
+              ? `<span class="mastery-tag mastered" title="${t('masteryMasteredTitle', { pct: Math.round((MASTERY_DAMAGE_MULT - 1) * 100) })}">★</span>`
+              : w.unlocked
+                ? `<span class="mastery-tag" title="${t('masteryProgressTitle')}">${Math.min(kills, MASTERY_THRESHOLD)}/${MASTERY_THRESHOLD}</span>`
+                : ''
         const name = `${t(w.nameKey)} ${masteryTag}`
         const slotButtons = this.settings.hotbar
           .map((slotWeaponId, i) => {
@@ -13596,10 +13694,10 @@ export class Game {
   // guns/melee slot, not an environmental kill source (trap/C4/vehicle/etc,
   // none of which have a matching weapons[] entry to apply a bonus to).
   _trackWeaponMastery(weaponId) {
-    // Grandmaster (see WeaponMastery.js) is the real stopping point now -
-    // kills need to keep tallying past the mastery threshold below for a
-    // weapon to ever reach it.
-    if (this.weaponMastery.grandmastered.has(weaponId)) return
+    // Legendary (see WeaponMastery.js) is the real stopping point now -
+    // kills need to keep tallying past Grandmaster below for a weapon to
+    // ever reach it.
+    if (this.weaponMastery.legendary.has(weaponId)) return
     const w = this.weapons.weapons.find((w) => w.id === weaponId)
     if (!w) return
 
@@ -13610,7 +13708,7 @@ export class Game {
       const loreKey = WEAPON_MASTERY_LORE_KEYS[weaponId]
       const masteredText = t('toastWeaponMastered', { weapon: t(this.weapons._nameKeyFor(w)) })
       this._showLoreToast(loreKey ? `${masteredText} ${t(loreKey)}` : masteredText)
-    } else if (this.weaponMastery.mastered.has(weaponId) && this.weaponMastery.kills[weaponId] >= GRANDMASTER_THRESHOLD) {
+    } else if (!this.weaponMastery.grandmastered.has(weaponId) && this.weaponMastery.mastered.has(weaponId) && this.weaponMastery.kills[weaponId] >= GRANDMASTER_THRESHOLD) {
       this.weaponMastery.grandmastered.add(weaponId)
       w.masteryMult = GRANDMASTER_DAMAGE_MULT
       // Heirloom forge (Long-Term Goals batch) - auto-granted the instant a
@@ -13631,6 +13729,15 @@ export class Game {
       } else {
         this._showLoreToast(t('toastWeaponGrandmastered', { weapon: t(this.weapons._nameKeyFor(w)) }))
       }
+    } else if (this.weaponMastery.grandmastered.has(weaponId) && this.weaponMastery.kills[weaponId] >= LEGENDARY_THRESHOLD) {
+      this.weaponMastery.legendary.add(weaponId)
+      // Guns get a faster reload (see the reload-time calc in
+      // WeaponSystem.js's _reload); melee has no reload, so it gets the
+      // same ratio applied to its attack cadence instead - one constant,
+      // whichever stat actually applies to that weapon.
+      if (w.melee) w.fireInterval *= LEGENDARY_RELOAD_MULT
+      else w.masteryReloadMult = LEGENDARY_RELOAD_MULT
+      this._showLoreToast(t('toastWeaponLegendary', { weapon: t(this.weapons._nameKeyFor(w)) }))
     }
     saveMastery(this.weaponMastery)
   }
@@ -16289,7 +16396,7 @@ export class Game {
       if (!weaponId) {
         nameEl.textContent = '-'
         if (ammoEl) ammoEl.textContent = ''
-        el.classList.remove('active', 'locked', 'mastered', 'grandmastered')
+        el.classList.remove('active', 'locked', 'mastered', 'grandmastered', 'legendary')
         return
       }
       const w = summary.find((ww) => ww.id === weaponId)
@@ -16302,8 +16409,9 @@ export class Game {
       // Mastery-tier badge (see WeaponMastery.js) - already-tracked data,
       // previously only ever surfaced as a one-time unlock toast, never
       // shown persistently anywhere during play.
-      el.classList.toggle('grandmastered', this.weaponMastery.grandmastered.has(weaponId))
-      el.classList.toggle('mastered', !this.weaponMastery.grandmastered.has(weaponId) && this.weaponMastery.mastered.has(weaponId))
+      el.classList.toggle('legendary', this.weaponMastery.legendary.has(weaponId))
+      el.classList.toggle('grandmastered', !this.weaponMastery.legendary.has(weaponId) && this.weaponMastery.grandmastered.has(weaponId))
+      el.classList.toggle('mastered', !this.weaponMastery.legendary.has(weaponId) && !this.weaponMastery.grandmastered.has(weaponId) && this.weaponMastery.mastered.has(weaponId))
     })
     if (this.hotbarPowerScoreEl) this.hotbarPowerScoreEl.textContent = t('hotbarPowerScore', { n: this._computeLoadoutPowerScore() })
   }

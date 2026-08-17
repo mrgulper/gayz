@@ -126,6 +126,13 @@ const STRINGS = {
     questStage2Line: 'Trader Request: {title} — kill {progress}/{target} zombies',
     questStage1Complete: '{title}: supplies handed in - now clear some zombies for the trader',
     questComplete: 'Trader Request complete: {title}! +{points} Points, +{coins} Coins',
+    // Trader's Past mini arc (see TRADER_ARC_LORE_KEYS) - one line of the
+    // Trader's backstory revealed the first time each quest type is ever
+    // completed, in any order.
+    traderArcFuelRun: "The Trader goes quiet a moment. \"Used to run supply convoys out that way. Before.\"",
+    traderArcGrenadeCache: 'The grenades disappear into a lockbox fast, like muscle memory. "Lost the group I ran with to something we couldn\'t outrun. Not making that mistake twice."',
+    traderArcMedicalSupply: 'The Trader counts the medical supplies twice before setting them aside. "Had someone I couldn\'t get these to in time. Doesn\'t happen on my watch again."',
+    traderArcEpilogue: 'Something\'s shifted between you and the Trader. "Most people don\'t stick around long enough to ask. Appreciate it." +{coins} Coins',
     metaVitality: '+50 Max Health (permanent)',
     metaPlating: '+25 Max Armor (permanent)',
     metaProvisions: 'Start with +1 Health Pack, +1 Armor Pack',
@@ -444,6 +451,7 @@ const STRINGS = {
     achBestiaryMaster: 'Bestiary Master',
     achNightmareSurvivor5: 'Nightmare: 5 Nights',
     achNightmareConqueror: 'Nightmare Conqueror',
+    achTraderConfidant: 'Trader\'s Confidant',
     achCompletionist: 'Completionist',
     // Achievement unlock hints (Online Features batch, round 4) - shown
     // in the Achievements panel instead of a bare "???" for locked ones.
@@ -466,6 +474,7 @@ const STRINGS = {
     achHintNightmareConqueror: 'Beat the game on Nightmare difficulty',
     achHintFashionIcon: 'Own every outfit in the Coin Shop',
     achHintInseparable: 'Reach Night 10 with your companion still standing',
+    achHintTraderConfidant: "Complete all 3 of the Trader's requests at least once",
     achHintCompletionist: 'Unlock every other achievement',
     interactTerminal: 'Press **F** to access terminal',
     loreVireoTerminal: 'SUBJECT LOG 0 - RESTRICTED. "Wellness Light" was never about calm. Sustained exposure suppresses higher brain function while leaving the motor cortex and aggression response intact. We didn\'t cause an outbreak. We manufactured one, city-wide, through every streetlight we \'donated.\' Termination of the program was denied. Continue observation.',
@@ -523,9 +532,11 @@ const STRINGS = {
     // the purely mechanical BOSS DEFEATED toast above.
     bossEpitaphColossus: 'Whatever fed it kept feeding it long after it stopped looking human. It just got bigger, and hungrier, and slower to fall.',
     bossEpitaphTitan: "Somebody's containment experiment. It walked out of whatever lab made it wearing bones that were never meant to hold something that size.",
+    bossEpitaphBroodmother: "Every sewer dweller down there came from somewhere. You just found the somewhere, and it's not down there anymore.",
     toastWaveCleared: 'AREA CLEAR',
     toastWeaponMastered: '{weapon} Mastered! Permanent damage bonus earned.',
     toastWeaponGrandmastered: '{weapon} Grandmastered! An even bigger permanent damage bonus earned.',
+    toastWeaponLegendary: '{weapon} is now Legendary! Permanently faster to handle.',
     // Named loot lore blurbs - shown right under the mastery toast above,
     // a one-line "why this gun in particular" instead of the toast being
     // purely a stat announcement.
@@ -545,6 +556,7 @@ const STRINGS = {
     masteryLoreHarpoon: "Meant for something that swims. Works surprisingly well on something that doesn't.",
     masteryMasteredTitle: 'Mastered: +{pct}% damage, permanent',
     masteryGrandmasteredTitle: 'Grandmastered: +{pct}% damage, permanent',
+    masteryLegendaryTitle: 'Legendary: {pct}% faster reload/attack, permanent',
     masteryProgressTitle: 'Kills toward Mastery (permanent damage bonus)',
     rivalsSpotted: 'Rival scavengers are moving in on that airdrop!',
     airdropStolenByRivals: 'The rival scavengers grabbed the airdrop first.',
@@ -564,6 +576,8 @@ const STRINGS = {
     shopCompanionRig: 'Companion Tactical Rig (+15% dmg)',
     shopExtendedMag: 'Craft: Extended Mag',
     shopScope: 'Craft: Scope (Rifle)',
+    shopVehicleArmor: 'Vehicle Armor Plating (+60 Max Health)',
+    shopVehicleRepair: 'Vehicle Repair',
     traderFeaturedLabel: "Tonight's Deal",
     toastFuelCanAdded: 'Fuel Can collected',
     perkPanelTitle: 'Choose a Perk',

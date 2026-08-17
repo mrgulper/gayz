@@ -39,6 +39,7 @@ export const ACHIEVEMENTS = [
   { id: 'nightmare_conqueror', titleKey: 'achNightmareConqueror', tag: 'NC', color: '#c9564a', hintKey: 'achHintNightmareConqueror', category: 'survival' },
   { id: 'fashion_icon', titleKey: 'achFashionIcon', tag: 'FI', color: '#6fa8dc', hintKey: 'achHintFashionIcon', category: 'collection' },
   { id: 'inseparable', titleKey: 'achInseparable', tag: 'IS', color: '#7fd8a0', hintKey: 'achHintInseparable', category: 'survival' },
+  { id: 'trader_confidant', titleKey: 'achTraderConfidant', tag: 'TC', color: '#d9a34a', hintKey: 'achHintTraderConfidant', category: 'story' },
   // Deliberately last in the array - see unlock()'s own completionist
   // check, which excludes this id from "every OTHER achievement."
   { id: 'completionist', titleKey: 'achCompletionist', tag: '★', color: '#d9a34a', hintKey: 'achHintCompletionist', category: 'story' },

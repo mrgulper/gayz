@@ -13,6 +13,12 @@ export const MASTERY_DAMAGE_MULT = 1.12
 // weapon stays a single clean multiplier instead of two compounding ones.
 export const GRANDMASTER_THRESHOLD = 250
 export const GRANDMASTER_DAMAGE_MULT = 1.25
+// Legendary - a 3rd tier past Grandmaster (see Game.js's _trackWeaponMastery).
+// Deliberately a different stat (reload speed) rather than a 3rd damage
+// multiplier stacked on top, so a fully-progressed weapon feels distinct at
+// each tier instead of just "the same bonus, bigger number" again.
+export const LEGENDARY_THRESHOLD = 600
+export const LEGENDARY_RELOAD_MULT = 0.8
 
 export function loadMastery() {
   try {
@@ -22,6 +28,7 @@ export function loadMastery() {
       kills: parsed.kills || {},
       mastered: new Set(parsed.mastered || []),
       grandmastered: new Set(parsed.grandmastered || []),
+      legendary: new Set(parsed.legendary || []),
       // Heirlooms (see Game.js's _offerHeirloomForge) - a purely cosmetic,
       // player-opted-into 'heirloom' skin tier on top of an already-
       // grandmastered weapon, the one cosmetic payoff Grandmaster's flat
@@ -29,7 +36,7 @@ export function loadMastery() {
       heirlooms: new Set(parsed.heirlooms || []),
     }
   } catch {
-    return { kills: {}, mastered: new Set(), grandmastered: new Set(), heirlooms: new Set() }
+    return { kills: {}, mastered: new Set(), grandmastered: new Set(), legendary: new Set(), heirlooms: new Set() }
   }
 }
 
@@ -39,6 +46,7 @@ export function saveMastery(mastery) {
       kills: mastery.kills,
       mastered: [...mastery.mastered],
       grandmastered: [...mastery.grandmastered],
+      legendary: [...mastery.legendary],
       heirlooms: [...mastery.heirlooms],
     }))
   } catch {

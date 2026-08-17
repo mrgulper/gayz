@@ -2563,6 +2563,12 @@ select option {
   text-shadow: 0 0 5px rgba(124, 224, 255, 0.6);
 }
 
+.mastery-tag.legendary {
+  color: #ff8a3d;
+  opacity: 1;
+  text-shadow: 0 0 6px rgba(255, 138, 61, 0.7);
+}
+
 .hotbar-assign-btn {
   width: 20px;
   height: 20px;
@@ -3913,6 +3919,11 @@ select option {
 .weapon-quick-slot.grandmastered {
   border-color: #7ce0ff;
   box-shadow: 0 0 6px rgba(124, 224, 255, 0.5);
+}
+
+.weapon-quick-slot.legendary {
+  border-color: #ff8a3d;
+  box-shadow: 0 0 6px rgba(255, 138, 61, 0.55);
 }
 
 /* Loadout Power Score (see Game.js's _computeLoadoutPowerScore) - a single

@@ -487,7 +487,7 @@ export class WeaponSystem {
     // WeaponMastery.js) once a weapon crosses its permanent kill threshold -
     // persists across runs, unlike rarityMult which resets with a fresh
     // weapon roll.
-    this.weapons = WEAPONS.map((w) => ({ ...w, ammoInMag: w.magSize, ammoReserve: w.reserve, rarityMult: 1, rarityTier: null, hasExtMag: false, suppressed: !!w.suppressed, scopeOwned: !!w.hasScope, masteryMult: 1, upgradeMult: 1, jammedUntil: 0 }))
+    this.weapons = WEAPONS.map((w) => ({ ...w, ammoInMag: w.magSize, ammoReserve: w.reserve, rarityMult: 1, rarityTier: null, hasExtMag: false, suppressed: !!w.suppressed, scopeOwned: !!w.hasScope, masteryMult: 1, masteryReloadMult: 1, upgradeMult: 1, jammedUntil: 0 }))
     this.currentIndex = 0
     this.meleeVariant = 'knife'
     // Global damage multiplier - the XP-gem level-up pool's damage upgrade
@@ -1000,7 +1000,7 @@ export class WeaponSystem {
     // faster than working the slide from completely empty, rewarding a
     // reload before you're actually forced to rather than only after.
     const tacticalMult = w.ammoInMag > 0 ? 0.6 : 1
-    this.reloadEndsAt = performance.now() / 1000 + w.reloadTime * tacticalMult
+    this.reloadEndsAt = performance.now() / 1000 + w.reloadTime * tacticalMult * (w.masteryReloadMult || 1)
     this._updateHud(true)
   }
 
