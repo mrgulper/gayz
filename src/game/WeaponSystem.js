@@ -10,6 +10,11 @@ const MUZZLE_FLASH_PEAK = 1.6
 // Per-weapon muzzle color (see w.muzzleColor) - this is the previous single
 // hardcoded color every weapon used to share, now just the fallback.
 const DEFAULT_MUZZLE_COLOR = 0xfff2b0
+// Tier-colored tracers (see applyRarityBoost/w.rarityTier) - only overrides
+// the normal per-weapon muzzleColor for a gun that's actually found a rare/
+// legendary chest boost, same 2 tiers that system already tracks. A
+// common/un-boosted weapon keeps its own tuned muzzleColor untouched.
+const RARITY_TRACER_COLORS = { rare: 0x6fa8dc, legendary: 0xd9a34a }
 const EXPLOSIVE_PROP_RADIUS = 5
 const EXPLOSIVE_PROP_DAMAGE_MIN = 70
 const EXPLOSIVE_PROP_DAMAGE_MAX = 160
@@ -542,6 +547,10 @@ export class WeaponSystem {
     // every melee hit look like a weak gunshot instead of a real slash.
     this._meleeSwing = 0
     this.aiming = false
+    // Quickscope window (Game.js's onDamageDealt reads this) - timestamp of
+    // the most recent false->true aiming transition, not just "started
+    // aiming at some point" - re-toggling ADS resets the window each time.
+    this.aimStartedAt = 0
     this.aimAmount = 0
     this.manualZoom = false
     this.zoomAmount = 0
@@ -585,8 +594,10 @@ export class WeaponSystem {
     window.addEventListener('mousedown', (e) => {
       if (e.button === 0) this.triggerDown = true
       if (e.button === 2) {
+        const wasAiming = this.aiming
         if (this.toggleAds) this.aiming = !this.aiming
         else this.aiming = true
+        if (this.aiming && !wasAiming) this.aimStartedAt = performance.now()
       }
     })
     window.addEventListener('mouseup', (e) => {
@@ -1334,7 +1345,7 @@ export class WeaponSystem {
         const end = hits.length > 0
           ? hits[0].point.clone()
           : this.raycaster.ray.origin.clone().addScaledVector(this.raycaster.ray.direction, TRACER_MAX_RANGE)
-        this._spawnTracer(origin, end, w.muzzleColor ?? DEFAULT_MUZZLE_COLOR)
+        this._spawnTracer(origin, end, RARITY_TRACER_COLORS[w.rarityTier] ?? w.muzzleColor ?? DEFAULT_MUZZLE_COLOR)
       }
       if (hits.length === 0) continue
       if (w.melee && hits[0].distance > w.range) continue

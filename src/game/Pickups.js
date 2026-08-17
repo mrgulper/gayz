@@ -383,14 +383,18 @@ export class PickupManager {
   // site without a companion nearby behaves exactly as before. Checked
   // alongside playerPos rather than a second full update() pass, which
   // would tick each pickup's own bob/spin animation twice as fast.
-  update(dt, elapsed, playerPos, handlers, companionPos = null) {
+  // radiusMult (Auto-Loot setting, Game.js) - defaults to 1 (unchanged
+  // behavior) for every other call site; only General tab's Auto-Loot
+  // toggle passes anything else.
+  update(dt, elapsed, playerPos, handlers, companionPos = null, radiusMult = 1) {
+    const radius = PICKUP_RADIUS * radiusMult
     for (const pickup of this.pickups) {
       pickup.update(dt, elapsed)
       if (!pickup.active) continue
 
       const dist = Math.hypot(playerPos.x - pickup.group.position.x, playerPos.z - pickup.group.position.z)
       const companionDist = companionPos ? Math.hypot(companionPos.x - pickup.group.position.x, companionPos.z - pickup.group.position.z) : Infinity
-      if (dist <= PICKUP_RADIUS || companionDist <= PICKUP_RADIUS) {
+      if (dist <= radius || companionDist <= radius) {
         this._collect(pickup, handlers)
       }
     }

@@ -867,6 +867,11 @@ html.layout-compact .menu-panel {
   color: #ffcf5c;
 }
 
+.damage-number.big {
+  font-size: calc(18px * var(--damage-number-scale, 1));
+  color: #ff9c4a;
+}
+
 @keyframes damageNumberRise {
   0% {
     opacity: 1;
@@ -1021,12 +1026,33 @@ html.high-contrast-mode #app {
   animation: dmgflash 380ms ease-out;
 }
 
+/* Blood-splatter decal layered under the existing radial flash - same
+   irregular-corner-blotch technique #critical-blood-overlay already uses,
+   so a hit reads as a spatter landing on screen rather than a perfectly
+   smooth vignette every time. Lingers a beat longer than the flash itself
+   (600ms vs 380ms) so it doesn't disappear the instant the flash fades. */
+#damage-flash.hit::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 30% 40% at 12% 82%, rgba(var(--damage-flash-color), 0.5) 0%, rgba(var(--damage-flash-color), 0) 70%),
+    radial-gradient(ellipse 22% 32% at 85% 20%, rgba(var(--damage-flash-color), 0.4) 0%, rgba(var(--damage-flash-color), 0) 70%);
+  animation: dmgdecal 600ms ease-out;
+}
+
 #damage-flash.low-health {
   animation: lowhealth-pulse 1.6s ease-in-out infinite;
 }
 
 @keyframes dmgflash {
   0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes dmgdecal {
+  0% { opacity: 1; }
+  70% { opacity: 0.6; }
   100% { opacity: 0; }
 }
 
@@ -1239,6 +1265,25 @@ html.high-contrast-mode #app {
 
 .status-fill.armor {
   background: #3fa9f5;
+}
+
+/* Colorblind Mode (previously only touched zombie health bars, see
+   Accessibility.js) - health shifts from red toward amber/orange, which
+   stays distinguishable from armor's blue across protanopia/deuteranopia/
+   tritanopia, unlike red-vs-blue which can wash toward similar under some
+   of those. Damage numbers get the same amber treatment instead of relying
+   on the red/gold/orange hue distinctions the default palette uses. */
+html.colorblind-mode .status-fill.health {
+  background: #e8952e;
+}
+
+html.colorblind-mode .damage-number {
+  color: #f2e6c9;
+}
+
+html.colorblind-mode .damage-number.big,
+html.colorblind-mode .damage-number.headshot {
+  color: #4fb3ff;
 }
 
 .status-fill.stamina {
@@ -2785,6 +2830,16 @@ select option {
   max-width: 900px;
 }
 
+.weapon-picker-stats {
+  display: block;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.3px;
+  color: var(--menu-gold, #e3a63c);
+  opacity: 0.85;
+  margin-top: 2px;
+}
+
 .weapon-picker-card .perk-tag {
   display: block;
   font-size: 11px;
@@ -3692,6 +3747,7 @@ select option {
 #credits-close-btn,
 #pause-resume-btn,
 #pause-settings-btn,
+#pause-howtoplay-btn,
 #pause-quit-btn,
 #pause-upgrades-btn,
 #pause-shop-btn,
@@ -3757,6 +3813,7 @@ select option {
 #credits-close-btn:hover,
 #pause-resume-btn:hover,
 #pause-settings-btn:hover,
+#pause-howtoplay-btn:hover,
 #pause-quit-btn:hover,
 #pause-upgrades-btn:hover,
 #pause-shop-btn:hover,

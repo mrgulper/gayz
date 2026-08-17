@@ -1001,6 +1001,22 @@ class AudioEngine {
     if (this.ambientGain) this.ambientGain.gain.value = this.ambientVolume
   }
 
+  // Quiet pacing beat before a scripted night event (see Game.js's
+  // _scheduleNightEvent) - dips the ambient bed down to a quarter of
+  // whatever the player's own Ambient Volume slider is set to, then ramps
+  // it back over the same span, so a deliberate lull actually lands before
+  // the event's own toast/effect fires rather than everything staying at
+  // one constant level the whole night.
+  duckAmbient(durationMs) {
+    if (!this.ambientGain) return
+    const now = this.ctx.currentTime
+    const g = this.ambientGain.gain
+    g.cancelScheduledValues(now)
+    g.setValueAtTime(this.ambientVolume, now)
+    g.linearRampToValueAtTime(this.ambientVolume * 0.25, now + durationMs / 2000)
+    g.linearRampToValueAtTime(this.ambientVolume, now + durationMs / 1000)
+  }
+
   setPositionalAudio(enabled) {
     this.positionalAudioEnabled = enabled
   }

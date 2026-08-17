@@ -5,4 +5,11 @@ export const accessibility = { colorblind: false }
 
 export function setColorblind(enabled) {
   accessibility.colorblind = enabled
+  // html.colorblind-mode - lets plain CSS (damage numbers, health/armor
+  // bars) react too, not just the JS-driven zombie health bars this flag
+  // originally existed for. Colorblind Mode previously only touched those,
+  // per this project's own notes ("distinct from Colorblind Mode which
+  // only affects zombie health-bar coloring") - this extends the same
+  // toggle to cover the other places red/green alone carries meaning.
+  document.documentElement.classList.toggle('colorblind-mode', enabled)
 }

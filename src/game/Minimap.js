@@ -23,7 +23,7 @@ export class Minimap {
     return MINIMAP_ZOOM_RANGES[this.zoomIndex]
   }
 
-  update(playerPos, facingRad, zombies, chestLandmarks, minigunLandmark, traderLandmark, ammoLandmark, airdropLandmark, hordeLandmark, extraLandmarks = [], discoveredCells = null, cellSize = 20) {
+  update(playerPos, facingRad, zombies, chestLandmarks, minigunLandmark, traderLandmark, ammoLandmark, airdropLandmark, hordeLandmark, extraLandmarks = [], discoveredCells = null, cellSize = 20, ping = null) {
     const ctx = this.ctx
     const s = this.size
     const cx = s / 2
@@ -135,6 +135,21 @@ export class Minimap {
         ctx.arc(px + ox, py + oy, 2, 0, Math.PI * 2)
         ctx.fill()
       }
+    }
+
+    // Threat Ping (on-demand keypress, see Game.js's _pingNearestThreat) -
+    // an expanding ring rather than the airdrop's steady pulse, so it reads
+    // as a one-off marker fading out, not an ongoing landmark.
+    if (ping) {
+      const px = cx + (ping.x - playerPos.x) * scale
+      const py = cy + (ping.z - playerPos.z) * scale
+      const remaining = Math.max(0, (ping.until - performance.now()) / 3000)
+      const expand = (1 - remaining) * 10
+      ctx.strokeStyle = `rgba(240, 90, 90, ${0.85 * remaining})`
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.arc(px, py, 3 + expand, 0, Math.PI * 2)
+      ctx.stroke()
     }
 
     // Extended Metropolitan Grid locations - a small violet diamond, once

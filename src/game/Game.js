@@ -292,6 +292,7 @@ function loadSettings() {
       confirmRemoveFriend: parsed.confirmRemoveFriend ?? false,
       reduceBgEffects: parsed.reduceBgEffects ?? false,
       autoReloadOnEmpty: parsed.autoReloadOnEmpty ?? true,
+      autoLoot: parsed.autoLoot ?? false,
       showPausePlaytime: parsed.showPausePlaytime ?? true,
       instantStationInteract: parsed.instantStationInteract ?? false,
       confirmQuitRun: parsed.confirmQuitRun ?? false,
@@ -510,7 +511,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, killFeedPosition: 'right', compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, showPausePlaytime: true, instantStationInteract: false, confirmQuitRun: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false } }
+  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, killFeedPosition: 'right', compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, showPausePlaytime: true, instantStationInteract: false, confirmQuitRun: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -687,6 +688,9 @@ function saveWeeklyChallenge(w) {
 // never forced, the player still has to check the box themselves.
 const WEEKLY_FEATURED_MUTATORS = ['hordeRush', 'pureGunplay', 'bossRush', 'hordeMode', 'glassHouse', 'scavenger', 'featuredEnemy', 'blackout']
 const WEEKLY_FEATURED_MUTATOR_BONUS_COINS = 50
+const WEEKLY_REMIX_BONUS_COINS = 75
+const GLOBAL_KILLS_MILESTONE_STEP = 100000
+const AUTO_LOOT_RADIUS_MULT = 2.5
 // Renamed from WEEKLY_FEATURED_MUTATOR_LABEL_KEYS (Online Features batch)
 // and extended to cover every mutator with a real i18n label - the
 // Mutator Exploration spotlight nudge (see _updateMenuSpotlight mode 4)
@@ -759,6 +763,21 @@ function _weeklyFeaturedMutatorKey() {
   let hash = 7
   for (let i = 0; i < weekStr.length; i++) hash = (hash * 31 + weekStr.charCodeAt(i)) | 0
   return WEEKLY_FEATURED_MUTATORS[Math.abs(hash) % WEEKLY_FEATURED_MUTATORS.length]
+}
+
+// Weekly Remix - a second featured mutator, picked the same deterministic
+// per-week way as _weeklyFeaturedMutatorKey above (different hash seed so
+// it doesn't just always land on the same bucket), re-rolled forward one
+// slot if it happens to collide with the first pick so the two are always
+// distinct.
+function _weeklyRemixMutatorKeys() {
+  const first = _weeklyFeaturedMutatorKey()
+  const weekStr = _thisWeekStr()
+  let hash = 13
+  for (let i = 0; i < weekStr.length; i++) hash = (hash * 31 + weekStr.charCodeAt(i)) | 0
+  let second = WEEKLY_FEATURED_MUTATORS[Math.abs(hash) % WEEKLY_FEATURED_MUTATORS.length]
+  if (second === first) second = WEEKLY_FEATURED_MUTATORS[(WEEKLY_FEATURED_MUTATORS.indexOf(second) + 1) % WEEKLY_FEATURED_MUTATORS.length]
+  return [first, second]
 }
 
 const DAILY_BEST_KEY = 'gayz-daily-best'
@@ -1985,6 +2004,15 @@ const NEARLY_THERE_CANDIDATES = [
   { achievementId: 'fashion_icon', current: (g) => g.ownedOutfits.size, total: (g) => COIN_SHOP_ITEMS.filter((i) => i.outfit).length },
 ]
 
+// Achievement chain previews (Achievements panel) - the handful of
+// achievements that genuinely form a tiered sequence, hand-picked rather
+// than inferred from naming (most achievements are standalone, not a
+// series - guessing from id/title text would false-match unrelated ones).
+const ACHIEVEMENT_CHAINS = {
+  survivor_5: 'survivor_10',
+  nightmare_survivor_5: 'nightmare_conqueror',
+}
+
 // Goals checklist (Profile panel, see settings.selectedGoals) - a wider
 // candidate pool than NEARLY_THERE_CANDIDATES since these are player-picked
 // (not auto-surfaced achievement hints), so they don't need the same
@@ -2459,6 +2487,28 @@ const ZOMBIE_DEFENSE_COINS_BONUS = 200
 // below 50%/25% health - see BOSS_ENRAGE_PHASE1/2 in Zombie.js) rather
 // than designing new attack move sets per phase, which would be a much
 // bigger animation project on its own.
+// Gameplay-quality batch (100-ideas list, quick-batch pass) - small,
+// self-contained feel/feedback tuning constants, grouped here rather than
+// scattered one-off magic numbers next to each use site.
+const HEAVY_HIT_DAMAGE_THRESHOLD = 60 // bat/machete/fireaxe/sledgehammer land here; the starting knife (KNIFE_DAMAGE) and guns don't
+const QUICKSCOPE_WINDOW_MS = 350 // aim-to-headshot window that counts as a "quickscope"
+const QUICKSCOPE_POINTS_BONUS = 25
+const BIG_HIT_DAMAGE_THRESHOLD = 45 // damage-number "big hit" tier, independent of the headshot tier
+const MINIMAP_PING_DURATION_MS = 3000
+const EVENT_HUSH_LEAD_MS = 3000
+// Photo Mode filters - same CSS filter() syntax works on both the live
+// canvas (style.filter, for the on-screen look) and Canvas 2D's ctx.filter
+// (for actually baking it into a saved screenshot - a CSS filter on the
+// source element alone would look right on screen but never show up in
+// toDataURL()'s pixel data, so both need setting from this one list).
+const PHOTO_MODE_FILTERS = [
+  { id: 'none', labelKey: 'photoFilterNone', css: 'none' },
+  { id: 'sepia', labelKey: 'photoFilterSepia', css: 'sepia(0.65) contrast(1.05)' },
+  { id: 'noir', labelKey: 'photoFilterNoir', css: 'grayscale(1) contrast(1.25) brightness(0.95)' },
+  { id: 'vivid', labelKey: 'photoFilterVivid', css: 'saturate(1.6) contrast(1.15)' },
+  { id: 'faded', labelKey: 'photoFilterFaded', css: 'contrast(0.85) saturate(0.75) brightness(1.08)' },
+]
+
 const BOSS_HUNT_SPAWN_RADIUS = 30
 const BOSS_HUNT_POINTS_BONUS = 500
 const BOSS_HUNT_COINS_BONUS = 250
@@ -3337,6 +3387,7 @@ export class Game {
     this.reduceBgEffectsToggle = document.getElementById('reduce-bg-effects-toggle')
     this.homepageGreetingInput = document.getElementById('homepage-greeting-input')
     this.autoReloadToggle = document.getElementById('auto-reload-toggle')
+    this.autoLootToggle = document.getElementById('auto-loot-toggle')
     this.showPausePlaytimeToggle = document.getElementById('show-pause-playtime-toggle')
     this.instantInteractToggle = document.getElementById('instant-interact-toggle')
     this.confirmQuitToggle = document.getElementById('confirm-quit-toggle')
@@ -4486,6 +4537,7 @@ export class Game {
     this.pauseOverlayTitle = document.getElementById('pause-overlay-title')
     this.pauseResumeBtn = document.getElementById('pause-resume-btn')
     this.pauseSettingsBtn = document.getElementById('pause-settings-btn')
+    this.pauseHowtoplayBtn = document.getElementById('pause-howtoplay-btn')
     this.pauseQuitBtn = document.getElementById('pause-quit-btn')
     this.pauseUpgradesBtn = document.getElementById('pause-upgrades-btn')
     this.pauseShopBtn = document.getElementById('pause-shop-btn')
@@ -4504,6 +4556,7 @@ export class Game {
     this.gameStarted = false
     this.decals = new DecalManager(this.scene)
     this.minimap = new Minimap(this.minimapCanvas)
+    this.minimapPing = null
     // Default Minimap Zoom (General tab, settings.minimapDefaultZoom) -
     // the in-game zoom keybind (see cycleZoom) still works exactly the
     // same afterward, this just picks which of the 3 levels a fresh run
@@ -4595,6 +4648,7 @@ export class Game {
     // screenshots, joining the same "gameplay freezes" gating condition as
     // mapOpen/inventoryOpen so nothing moves/spawns while composing a shot.
     this.photoModeOpen = false
+    this.photoModeFilterIndex = 0
     this._photoModeReturnPos = new THREE.Vector3()
     this._photoForward = new THREE.Vector3()
     this._photoRight = new THREE.Vector3()
@@ -4655,6 +4709,24 @@ export class Game {
         // here (unlike shotsHit above), since multi-pellet weapons really
         // do deal that much total damage per shot.
         this.careerStats.lifetimeDamageDealt = (this.careerStats.lifetimeDamageDealt || 0) + damage
+        // Heavy-hit hitstop - the flat 40ms from onZombieHit above already
+        // covers every hit; this stacks a longer freeze on top for a real
+        // heavy-melee swing (bat/machete/fireaxe/sledgehammer, not the
+        // starting knife) so it reads as weightier than a rifle tap.
+        // _triggerHitstop takes the max of the two, so this only ever
+        // extends the freeze, never shortens it.
+        if (damage >= HEAVY_HIT_DAMAGE_THRESHOLD) this._triggerHitstop(isHeadshot ? 120 : 90)
+        // Quickscope bonus - a headshot landed within QUICKSCOPE_WINDOW_MS
+        // of starting to aim down sights. Gated to non-melee (aiming has no
+        // real "scope in" moment on a knife/bat) and once per aim cycle
+        // (aimStartedAt reset to 0 after paying out) so holding a headshot
+        // streak while aiming continuously doesn't re-trigger every hit.
+        if (isHeadshot && !this.weapons.current.melee && this.weapons.aiming && this.weapons.aimStartedAt &&
+          performance.now() - this.weapons.aimStartedAt < QUICKSCOPE_WINDOW_MS) {
+          this.weapons.aimStartedAt = 0
+          this.points += QUICKSCOPE_POINTS_BONUS
+          this._showLoreToast(t('quickscopeToast', { points: QUICKSCOPE_POINTS_BONUS }))
+        }
       },
       (intensity, durationMs) => {
         this._triggerShake(intensity, durationMs, 0, 0, 'recoil')
@@ -4904,13 +4976,24 @@ export class Game {
       // "tried" means actually started a run with it on, checked here
       // (once, at the one place every mutator flag is already read for
       // real) rather than at each of the ~15 individual checkbox handlers.
+      // First-Encounter Glossary - reuses the exact same "never enabled
+      // before" check above rather than a second pass, and only ever
+      // shows one explanation per run even if several mutators are newly
+      // on at once (a wall of toasts at run start would defeat the
+      // purpose). The mutator checkbox labels already carry a plain-
+      // language description (see MUTATOR_LABEL_KEYS) - this just
+      // surfaces that same text once, in-run, instead of only ever being
+      // visible back in the menu.
       let mutatorsChanged = false
+      let firstEncounterId = null
       for (const [id, on] of Object.entries(this.settings.mutators)) {
         if (on && !this.settings.mutatorsEverEnabled.includes(id)) {
           this.settings.mutatorsEverEnabled.push(id)
           mutatorsChanged = true
+          if (!firstEncounterId && MUTATOR_LABEL_KEYS[id]) firstEncounterId = id
         }
       }
+      if (firstEncounterId) this._showLoreToast(t('firstEncounterGlossary', { text: t(MUTATOR_LABEL_KEYS[firstEncounterId]) }))
       if (mutatorsChanged) saveSettings(this.settings)
       if (this.settings.shareTelemetry && Object.values(this.settings.mutators).some(Boolean)) CloudSync.incrementTelemetry('mutatorUsed').catch(() => {})
       let spawnMult = this.difficulty.spawnRateMult
@@ -4996,6 +5079,18 @@ export class Game {
       if (this.settings.mutators[_weeklyFeaturedMutatorKey()]) {
         this.coins += WEEKLY_FEATURED_MUTATOR_BONUS_COINS
         this._showLoreToast(t('weeklyFeaturedMutatorBonusToast', { coins: WEEKLY_FEATURED_MUTATOR_BONUS_COINS }))
+      }
+      // Weekly Remix - a second, independently-picked featured mutator
+      // (see _weeklyRemixMutatorKeys) alongside the existing single one
+      // above. Only pays out if BOTH are on for the same run, on top of
+      // (not instead of) the normal single-mutator bonus - a nudge to
+      // combine two mutators together, not a replacement system.
+      {
+        const [remixA, remixB] = _weeklyRemixMutatorKeys()
+        if (this.settings.mutators[remixA] && this.settings.mutators[remixB]) {
+          this.coins += WEEKLY_REMIX_BONUS_COINS
+          this._showLoreToast(t('weeklyRemixBonusToast', { a: t(MUTATOR_LABEL_KEYS[remixA]), b: t(MUTATOR_LABEL_KEYS[remixB]), coins: WEEKLY_REMIX_BONUS_COINS }))
+        }
       }
       this._showLoreToast(t(DIFFICULTY_FLAVOR_KEYS[this.settings.difficulty] || DIFFICULTY_FLAVOR_KEYS.normal))
       this._openWeaponPickerPanel()
@@ -5088,6 +5183,7 @@ export class Game {
 
     this.pauseResumeBtn.addEventListener('click', () => this.player.controls.lock())
     this.pauseSettingsBtn.addEventListener('click', () => this._toggleSettings(true))
+    if (this.pauseHowtoplayBtn) this.pauseHowtoplayBtn.addEventListener('click', () => this._openHowToPlayPanel())
     this.pauseQuitBtn.addEventListener('click', () => {
       if (this.settings.confirmQuitRun && !window.confirm(t('confirmQuitRunMessage'))) return
       window.location.reload()
@@ -5162,6 +5258,7 @@ export class Game {
         this.pauseShopBtn.textContent = t('coinshopBtn')
         this.pauseWeaponBtn.textContent = t('pauseWeaponBtn')
         this.pauseSettingsBtn.textContent = t('settingsBtn')
+        if (this.pauseHowtoplayBtn) this.pauseHowtoplayBtn.textContent = t('howtoplayPanelTitle')
         this.pauseQuitBtn.textContent = t('pauseQuitBtn')
         if (this.pausePlaytimeLineEl) {
           this.pausePlaytimeLineEl.style.display = this.settings.showPausePlaytime ? '' : 'none'
@@ -5241,8 +5338,15 @@ export class Game {
       }
 
       if (e.code === getKeyFor('minimapZoom')) {
-        const newRange = this.minimap.cycleZoom()
-        this._showLoreToast(t('minimapZoomToast', { range: newRange }))
+        // Repurposed while in Photo Mode - the minimap isn't relevant to a
+        // free-fly camera shot, and reusing this key avoids adding a whole
+        // new remappable action just for cycling a filter.
+        if (this.photoModeOpen) {
+          this._cyclePhotoModeFilter()
+        } else {
+          const newRange = this.minimap.cycleZoom()
+          this._showLoreToast(t('minimapZoomToast', { range: newRange }))
+        }
         return
       }
 
@@ -5270,6 +5374,8 @@ export class Game {
           this.camera.position.copy(this._photoModeReturnPos)
           this._setPhotoModeHudHidden(false)
           this._showLoreToast(t('photoModeOff'))
+          this.photoModeFilterIndex = 0
+          this.canvas.style.filter = 'none'
         }
         return
       }
@@ -5568,6 +5674,18 @@ export class Game {
     window.speechSynthesis.speak(new SpeechSynthesisUtterance(lines.join(' ')))
   }
 
+  // Cycles PHOTO_MODE_FILTERS and applies it live to the canvas so the
+  // effect is visible while composing the shot, not just after saving -
+  // _buildScreenshotCanvas re-applies the same filter string via Canvas
+  // 2D's ctx.filter when the screenshot is actually captured, since a CSS
+  // filter on the source canvas alone never makes it into toDataURL().
+  _cyclePhotoModeFilter() {
+    this.photoModeFilterIndex = (this.photoModeFilterIndex + 1) % PHOTO_MODE_FILTERS.length
+    const filter = PHOTO_MODE_FILTERS[this.photoModeFilterIndex]
+    this.canvas.style.filter = filter.css
+    this._showLoreToast(t(filter.labelKey))
+  }
+
   // Free-fly noclip camera while photo mode is open - reuses the same
   // held-state WASD flags PlayerController already tracks (input tracking
   // itself isn't gated, only its consumption in player.update() is, which
@@ -5688,6 +5806,12 @@ export class Game {
   _buildScreenshotCanvas(rect) {
     const img = this.screenshotCropImage
     const canvas = document.createElement('canvas')
+    // Photo Mode filter (see _cyclePhotoModeFilter) - _takeScreenshot
+    // captures from the live (already CSS-filtered-looking) canvas, but
+    // that filter never reaches toDataURL()'s raw pixels, so it has to be
+    // re-applied here via Canvas 2D's own ctx.filter to actually land in
+    // the saved image. A no-op outside Photo Mode (filter stays 'none').
+    const filterCss = this.photoModeOpen ? PHOTO_MODE_FILTERS[this.photoModeFilterIndex].css : 'none'
     if (rect) {
       const scaleX = img.naturalWidth / img.clientWidth
       const scaleY = img.naturalHeight / img.clientHeight
@@ -5697,11 +5821,15 @@ export class Game {
       const sh = Math.round(rect.height * scaleY)
       canvas.width = sw
       canvas.height = sh
-      canvas.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh)
+      const ctx = canvas.getContext('2d')
+      ctx.filter = filterCss
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh)
     } else {
       canvas.width = img.naturalWidth
       canvas.height = img.naturalHeight
-      canvas.getContext('2d').drawImage(img, 0, 0)
+      const ctx = canvas.getContext('2d')
+      ctx.filter = filterCss
+      ctx.drawImage(img, 0, 0)
     }
     return canvas
   }
@@ -5710,6 +5838,22 @@ export class Game {
   // result or writes it to the OS clipboard.
   _finalizeScreenshotCanvas(canvas, mode) {
     const ctx = canvas.getContext('2d')
+    // Photo Mode frame - a soft corner vignette plus a thin gold border,
+    // matching the menu's own gold accent. Only for shots actually taken
+    // in Photo Mode, not every regular in-run screenshot - this is meant
+    // to read as a deliberate "composed shot" flourish, not a default.
+    if (this.photoModeOpen) {
+      const { width: w, height: h } = canvas
+      const vignette = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.7)
+      vignette.addColorStop(0, 'rgba(0, 0, 0, 0)')
+      vignette.addColorStop(1, 'rgba(0, 0, 0, 0.45)')
+      ctx.fillStyle = vignette
+      ctx.fillRect(0, 0, w, h)
+      const borderW = Math.max(3, Math.round(Math.min(w, h) * 0.006))
+      ctx.strokeStyle = 'rgba(217, 163, 74, 0.85)'
+      ctx.lineWidth = borderW
+      ctx.strokeRect(borderW / 2, borderW / 2, w - borderW, h - borderW)
+    }
     const caption = this.screenshotCaptionInput ? this.screenshotCaptionInput.value.trim() : ''
     if (caption) {
       const bannerH = Math.max(28, Math.round(canvas.height * 0.06))
@@ -8555,6 +8699,14 @@ export class Game {
       })
     }
 
+    if (this.autoLootToggle) {
+      this.autoLootToggle.checked = this.settings.autoLoot
+      this.autoLootToggle.addEventListener('change', () => {
+        this.settings.autoLoot = this.autoLootToggle.checked
+        saveSettings(this.settings)
+      })
+    }
+
     if (this.showPausePlaytimeToggle) {
       this.showPausePlaytimeToggle.checked = this.settings.showPausePlaytime
       this.showPausePlaytimeToggle.addEventListener('change', () => {
@@ -9431,6 +9583,19 @@ export class Game {
     try {
       const total = await CloudSync.fetchGlobalKills()
       this.cloudsaveGlobalKills.textContent = total === null ? '' : t('cloudsaveGlobalKillsLine', { n: total.toLocaleString() })
+      // Server-wide milestone bulletin - a one-time homepage toast the
+      // first time this session's fetch sees the global total past a
+      // round 100k mark, rather than a permanent new homepage line (this
+      // menu's own zero-scroll height budget is a real, easy thing to
+      // break - see the menu-redesign notes - so a toast is the safer
+      // way to surface this).
+      if (total !== null) {
+        const milestone = Math.floor(total / GLOBAL_KILLS_MILESTONE_STEP) * GLOBAL_KILLS_MILESTONE_STEP
+        if (milestone > 0 && this._globalKillsMilestoneToastedFor !== milestone) {
+          this._globalKillsMilestoneToastedFor = milestone
+          this._showHomepageToast(t('globalKillsMilestoneToast', { n: milestone.toLocaleString() }))
+        }
+      }
     } catch {
       this.cloudsaveGlobalKills.textContent = ''
     }
@@ -10460,9 +10625,16 @@ export class Game {
       if (w.heavy) tags.push(t('weaponPickerTagHeavy'))
       if (w.rare) tags.push(t('weaponPickerTagRare'))
       const iconPath = WEAPON_ICON_PATHS[w.id] || ''
+      // Compare-at-a-glance stats - damage and mag size side by side so
+      // picking between two guns doesn't mean remembering (or alt-tabbing
+      // to look up) which one actually hits harder or reloads less often.
+      const statsLine = w.magSize
+        ? `${t('weaponPickerDamage', { n: w.damage })} &middot; ${t('weaponPickerMag', { n: w.magSize })}`
+        : t('weaponPickerDamage', { n: w.damage })
       btn.innerHTML = `
         <div class="weapon-icon-badge"><svg class="weapon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${iconPath}</svg></div>
         <span class="perk-name">${t(this.weapons._nameKeyFor(w))}</span>
+        <span class="weapon-picker-stats">${statsLine}</span>
         ${tags.length ? `<span class="perk-tag">${tags.join(' - ')}</span>` : ''}
       `
       btn.addEventListener('click', () => {
@@ -11445,9 +11617,15 @@ export class Game {
       const btn = document.createElement('button')
       btn.className = 'perk-option'
       btn.disabled = true
+      // Chain preview - only for an achievement that's both unlocked and
+      // has a defined next tier still locked, so it reads as "here's
+      // what's next," not a spoiler of a locked achievement's own name.
+      const nextId = ACHIEVEMENT_CHAINS[ach.id]
+      const next = nextId && unlocked && !this.achievements.unlocked.has(nextId) ? ACHIEVEMENTS.find((a) => a.id === nextId) : null
       btn.innerHTML = `
         <span class="perk-name">${name}</span>
         <span class="perk-cost">${unlocked ? t('achievementUnlockedShort') : (ach.hintKey ? t(ach.hintKey) : t('achievementLocked'))}</span>
+        ${next ? `<span class="perk-lore">${_escapeHtml(t('achievementChainNext', { name: t(next.titleKey) }))}</span>` : ''}
       `
       this.achievementsOptions.appendChild(btn)
     }
@@ -12244,6 +12422,10 @@ export class Game {
   // from _maybeShowTutorialHints (a one-time, non-interactive toast
   // sequence that still runs independently the first time a run starts).
   _openHowToPlayPanel() {
+    // Now also reachable from the pause menu (pause-howtoplay-btn), not
+    // just the homepage - same #pause-overlay-comes-after-in-DOM click-
+    // eating issue _openUpgradesPanel already had to work around.
+    this.pauseOverlay.style.display = 'none'
     this.howtoplayPanel.style.display = 'flex'
     this.howtoplayPanelTitle.textContent = t('howtoplayPanelTitle')
     this._howtoplayStep = 0
@@ -12252,6 +12434,7 @@ export class Game {
 
   _closeHowToPlayPanel() {
     this.howtoplayPanel.style.display = 'none'
+    if (this.gameStarted) this.pauseOverlay.style.display = 'flex'
   }
 
   _renderHowToPlayStep() {
@@ -12859,10 +13042,15 @@ export class Game {
       this._showLoreToast(t('threatPingNoneNearby'))
       return
     }
-    this._showThreatIndicator()
+    this._showThreatIndicator(true)
   }
 
-  _showThreatIndicator() {
+  // manual=true only for the on-demand keypress (_pingNearestThreat) - the
+  // automatic version already fires constantly during a firefight (every
+  // hit taken), and a minimap blip on every single one would be noise, not
+  // signal. The keypress is the deliberate "where's the nearest one" check
+  // this is actually useful for.
+  _showThreatIndicator(manual = false) {
     const playerPos = this.player.controls.object.position
     let nearest = null
     let nearestDist = Infinity
@@ -12899,6 +13087,9 @@ export class Game {
     this.threatIndicator.classList.remove('show')
     void this.threatIndicator.offsetWidth
     this.threatIndicator.classList.add('show')
+    if (manual) {
+      this.minimapPing = { x: nearest.group.position.x, z: nearest.group.position.z, until: performance.now() + MINIMAP_PING_DURATION_MS }
+    }
   }
 
   // Anchor zombie (see ZombieTypes.js's pullsPlayer) - its spit lands as a
@@ -13040,7 +13231,10 @@ export class Game {
     // trick) rather than relying on class-add to trigger it fresh.
     const el = this._damageNumberPool[this._damageNumberPoolIndex]
     this._damageNumberPoolIndex = (this._damageNumberPoolIndex + 1) % this._damageNumberPool.length
-    el.className = isHeadshot ? 'damage-number headshot' : 'damage-number'
+    // Impact-scaled - a big non-headshot hit (heavy melee, a shotgun blast)
+    // still deserves to stand out, not just headshots. Headshot wins if
+    // both apply, same as it already visually dominated before this.
+    el.className = isHeadshot ? 'damage-number headshot' : (damage >= BIG_HIT_DAMAGE_THRESHOLD ? 'damage-number big' : 'damage-number')
     el.textContent = String(damage)
     el.style.left = `${sx}px`
     el.style.top = `${sy}px`
@@ -16219,6 +16413,7 @@ export class Game {
   _scheduleNightEvent() {
     this.nextEventAt = this.nightStartedAt + 10000 + Math.random() * (this.nightDurationMs - 15000)
     this.eventTriggeredForNight = false
+    this._eventHushed = false
   }
 
   // Rolled once per night-round: a chance of rain OR snow for the whole
@@ -17446,8 +17641,21 @@ export class Game {
   // Rolled alongside _rollWeather/_rollNightMutation (see their own call
   // sites) - banner meshes are built once, lazily, then just recolored on
   // every later call rather than rebuilt from scratch.
+  // Real-calendar-month theme (Sep-Nov harvest, Dec-Feb frost, otherwise
+  // default) - previously cycled off this.night % SEASONAL_THEMES.length,
+  // which meant "harvest" or "frost" banners could show up in the middle
+  // of summer just because a run happened to be on an unlucky night
+  // number. Tying it to the real date makes the dressing actually mean
+  // something instead of being arbitrary.
+  _seasonalThemeForToday() {
+    const month = new Date().getMonth() // 0 = January
+    if (month >= 8 && month <= 10) return SEASONAL_THEMES.find((t) => t.id === 'harvest')
+    if (month === 11 || month <= 1) return SEASONAL_THEMES.find((t) => t.id === 'frost')
+    return SEASONAL_THEMES.find((t) => t.id === 'default')
+  }
+
   _applySeasonalDressing() {
-    const theme = SEASONAL_THEMES[this.night % SEASONAL_THEMES.length]
+    const theme = this._seasonalThemeForToday()
     if (!this.seasonalBanners) {
       this.seasonalBanners = []
       for (const [ox, oz] of [[-6, 6], [6, 6], [-6, -6], [6, -6]]) {
@@ -18116,6 +18324,10 @@ export class Game {
       if (z.state !== 'alive') continue
       zombiePositions.push({ x: z.group.position.x, z: z.group.position.z })
     }
+    // Threat Ping minimap blip (see _showThreatIndicator's manual param) -
+    // just times out on its own rather than needing an explicit clear call
+    // anywhere.
+    if (this.minimapPing && performance.now() >= this.minimapPing.until) this.minimapPing = null
     this.minimap.update(
       playerPos,
       facingRad,
@@ -18130,7 +18342,8 @@ export class Game {
       this.zombies.wanderingHorde,
       this.newLocationLandmarks,
       this.discoveredCells,
-      EXPLORE_CELL_SIZE
+      EXPLORE_CELL_SIZE,
+      this.minimapPing
     )
   }
 
@@ -18377,6 +18590,16 @@ export class Game {
       this.playerState.tickInfection(dt)
       this._updateHealthHud()
 
+      // Quiet pacing beat - a deliberate ambient dip a few seconds before
+      // the scripted event actually fires, so there's a real lull leading
+      // into it instead of the event just landing on top of a constant
+      // ambient level. _eventHushed guards it to fire once per scheduled
+      // event (reset by _scheduleNightEvent below assigning a fresh
+      // nextEventAt for the next night).
+      if (!this._eventHushed && !this.eventTriggeredForNight && performance.now() >= this.nextEventAt - EVENT_HUSH_LEAD_MS) {
+        this._eventHushed = true
+        audioEngine.duckAmbient(EVENT_HUSH_LEAD_MS)
+      }
       if (!this.eventTriggeredForNight && performance.now() >= this.nextEventAt) {
         this.eventTriggeredForNight = true
         const event = pickNightEvent()
@@ -18441,6 +18664,11 @@ export class Game {
         this._companionBark('nightStart')
         if (this.night >= 5) this.achievements.unlock('survivor_5')
         if (this.night >= 10) this.achievements.unlock('survivor_10')
+        // Companion-tied achievement - reaching night 10 with the
+        // companion still standing (not dead/downed), same night
+        // threshold as survivor_10 but a distinct condition, checked
+        // alongside it rather than needing its own separate tracker.
+        if (this.night >= 10 && !this.companion.dead && !this.companion.downed) this.achievements.unlock('inseparable')
         // Nightmare-tier achievements - same night thresholds as
         // survivor_5/10 above, gated on actually being on Nightmare rather
         // than new milestones, since surviving 5-10 nights means something
@@ -18516,7 +18744,7 @@ export class Game {
       const companionLootPos = (!this.companion.dead && !this.companion.downed) ? this.companion.group.position : null
       this.pickups.update(dt, elapsed, playerPos, {
         onPickup: (type, label, isLoot) => this._onPickup(type, label, isLoot),
-      }, companionLootPos)
+      }, companionLootPos, this.settings.autoLoot ? AUTO_LOOT_RADIUS_MULT : 1)
       this.xpGems.update(dt, elapsed, playerPos, (value) => this._onXpGemCollected(value))
       this.autoWeapons.update(dt, playerPos, this.zombies.zombies, () => {
         this._triggerShake(0.04, 80)
