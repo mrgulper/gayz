@@ -441,7 +441,7 @@ html.layout-compact .menu-panel {
 
 /* Online Features (leaderboard, weekly ranking, friend compare, global
    kill counter, community poll) - see _renderCloudOnlineSection. Its own
-   scroll region (same max-height+overflow-y pattern #coinshop-options
+   scroll region (same max-height+overflow-y pattern #whats-new-digest-list
    already uses) rather than letting the whole modal grow past the
    viewport once leaderboard rows + poll options stack up. */
 #cloudsave-online-section {
@@ -954,7 +954,6 @@ html.large-text-mode #credits-panel,
 html.large-text-mode #whatsnew-panel,
 html.large-text-mode #howtoplay-panel,
 html.large-text-mode #cloudsave-panel,
-html.large-text-mode #coinshop-panel,
 html.large-text-mode #settings-panel {
   zoom: 1.18;
 }
@@ -2607,7 +2606,6 @@ select option {
 #xp-levelup-panel,
 #weapon-picker-panel,
 #pause-overlay,
-#coinshop-panel,
 #journal-panel,
 #screenshot-crop-overlay {
   position: absolute;
@@ -2833,7 +2831,6 @@ select option {
 #xp-levelup-panel-title,
 #weapon-picker-panel-title,
 #pause-overlay-title,
-#coinshop-panel-title,
 #journal-panel-title {
   margin: 0;
   /* Doubled from 15px per request - this is the title shown right after
@@ -2844,6 +2841,44 @@ select option {
   text-transform: uppercase;
   color: #e3a63c;
   opacity: 0.85;
+}
+
+/* Inventory panel sections (Skins, then Crates) - each still a "Coming
+   soon" placeholder for now, but structured as real sections so content
+   can drop in later without another layout pass. */
+.inventory-section {
+  width: min(360px, 86vw);
+  padding: 10px 0;
+}
+
+.inventory-section + .inventory-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.inventory-section-title {
+  margin: 0 0 8px;
+  font-size: 15px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--menu-gold, #e3a63c);
+  opacity: 0.9;
+  text-align: center;
+}
+
+#inventory-skins-sort-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #ccc;
+  margin: 0 0 8px;
+}
+
+.inventory-section-placeholder {
+  margin: 0;
+  text-align: center;
+  opacity: 0.6;
 }
 
 #journal-content {
@@ -2885,8 +2920,7 @@ select option {
 
 #perk-points-line,
 #trader-points-line,
-#upgrades-points-line,
-#coinshop-coin-line {
+#upgrades-points-line {
   font-size: 14px;
   color: #ffcf5c;
   opacity: 0.9;
@@ -3085,31 +3119,6 @@ select option {
   flex-wrap: wrap;
   justify-content: center;
   max-width: 90vw;
-}
-
-#coinshop-options {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  max-width: 90vw;
-  max-height: 62vh;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(227, 166, 60, 0.4) transparent;
-}
-
-#coinshop-options::-webkit-scrollbar {
-  width: 8px;
-}
-
-#coinshop-options::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-#coinshop-options::-webkit-scrollbar-thumb {
-  background: rgba(227, 166, 60, 0.35);
-  border-radius: 4px;
 }
 
 .shop-section-heading {
@@ -3448,23 +3457,6 @@ select option {
   margin: 6px 0;
 }
 
-#shop-sort-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #ccc;
-  margin: 6px 0;
-}
-
-.shop-spending-log-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 12px;
-  padding: 2px 0;
-}
-
 .goal-chip.active {
   color: #1a1a1a;
   background: #e0b13e;
@@ -3701,7 +3693,6 @@ select option {
 #pause-upgrades-btn,
 #pause-shop-btn,
 #pause-weapon-btn,
-#coinshop-close-btn,
 #screenshot-crop-save,
 #screenshot-crop-full,
 #screenshot-crop-cancel,
@@ -3766,8 +3757,7 @@ select option {
 #pause-quit-btn:hover,
 #pause-upgrades-btn:hover,
 #pause-shop-btn:hover,
-#pause-weapon-btn:hover,
-#coinshop-close-btn:hover {
+#pause-weapon-btn:hover {
   border-color: rgba(255, 255, 255, 0.5);
 }
 
@@ -4335,7 +4325,7 @@ html {
    the standard 4-height overflow measurement this project always
    re-checks after a size-affecting change). */
 html.text-spacing-active #menu, html.text-spacing-active .menu-panel, html.text-spacing-active #upgrades-panel,
-html.text-spacing-active #coinshop-panel, html.text-spacing-active #credits-panel, html.text-spacing-active #whatsnew-panel, html.text-spacing-active #achievements-panel,
+html.text-spacing-active #credits-panel, html.text-spacing-active #whatsnew-panel, html.text-spacing-active #achievements-panel,
 html.text-spacing-active #profile-panel, html.text-spacing-active #settings-panel,
 html.text-spacing-active #quests-panel, html.text-spacing-active #share-panel, html.text-spacing-active #cloudsave-panel, html.text-spacing-active #howtoplay-panel {
   letter-spacing: calc((var(--text-spacing, 100) - 100) * 0.005px);
@@ -4353,7 +4343,6 @@ html.button-size-scaled button {
    to read text over. */
 html.reduce-transparency .menu-panel,
 html.reduce-transparency #upgrades-panel,
-html.reduce-transparency #coinshop-panel,
 html.reduce-transparency #credits-panel,
 html.reduce-transparency #whatsnew-panel,
 html.reduce-transparency #achievements-panel,
@@ -5131,8 +5120,8 @@ html.theme-lighter #app { filter: brightness(1.25); }
    action, not the primary call to action. */
 #gamemode-btn {
   margin-top: 10px;
-  padding: 8px 22px;
-  font-size: 13px;
+  padding: 14px 38px;
+  font-size: 22px;
   font-weight: 600;
   letter-spacing: 0.8px;
   text-transform: uppercase;
@@ -5189,7 +5178,9 @@ html.theme-lighter #app { filter: brightness(1.25); }
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 4px;
+  /* Bumped from 4px - #gamemode-btn above grew ~1.7x (font-size 13px->22px)
+     and needed real clearance so Settings doesn't sit flush against it. */
+  margin-top: 26px;
 }
 
 #quick-mute-btn,
@@ -5764,9 +5755,13 @@ html.theme-lighter #app { filter: brightness(1.25); }
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 3px 0;
+  gap: 3px 12px;
   padding: 6px 4px;
-  margin-top: 8px;
+  /* Now a full-width footer below #menu-layout (moved out of #menu-hero) -
+     a bigger gap than its old 8px so it reads as its own bottom-of-page
+     row rather than sitting flush under the nav buttons above it. */
+  margin: 24px auto 4px;
+  width: fit-content;
   background: var(--menu-gunmetal-dark);
   border: 1px solid var(--menu-panel-border);
   border-radius: 999px;
@@ -6528,6 +6523,35 @@ html.theme-lighter #app { filter: brightness(1.25); }
   width: 100%;
 }
 
+/* Achievements panel mode tabs (Zombie Survival/Deathmatch) - same
+   reasoning as .hub-tabs above, own class so it doesn't get swept into
+   another tab-strip's handler. */
+.achievements-mode-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.achievements-mode-tab {
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.achievements-mode-tab.active {
+  color: #0c130c;
+  background: #e3a63c;
+  border-color: #e3a63c;
+}
+
 .settings-page {
   width: min(520px, 88vw);
   /* A fixed height (not max-height) so every tab reserves the same
@@ -6563,10 +6587,10 @@ html.theme-lighter #app { filter: brightness(1.25); }
   background: rgba(227, 166, 60, 0.55);
 }
 
-/* Same gold scrollbar as .settings-page/#coinshop-options above, applied
-   to every other panel/list that scrolls - previously only Settings and
-   the Coin Shop had it, so Achievements/Profile/Hub/etc fell back to the
-   browser's stark white default scrollbar. */
+/* Same gold scrollbar as .settings-page above, applied to every other
+   panel/list that scrolls - previously only Settings had it, so
+   Achievements/Profile/Hub/etc fell back to the browser's stark white
+   default scrollbar. */
 #profile-panel,
 #achievements-panel,
 #hub-panel,
@@ -6646,12 +6670,6 @@ html.theme-lighter #app { filter: brightness(1.25); }
 #profile-activity-list::-webkit-scrollbar-thumb:hover,
 #menu-boards::-webkit-scrollbar-thumb:hover,
 .build-picker-grid::-webkit-scrollbar-thumb:hover {
-  background: rgba(227, 166, 60, 0.55);
-}
-
-/* #coinshop-options gets the same hover polish the rest above have -
-   it previously had the base gold thumb but no :hover state. */
-#coinshop-options::-webkit-scrollbar-thumb:hover {
   background: rgba(227, 166, 60, 0.55);
 }
 

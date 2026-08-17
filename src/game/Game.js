@@ -4250,7 +4250,6 @@ export class Game {
     this.questsPanelTitle = document.getElementById('quests-panel-title')
     this.questsOptions = document.getElementById('quests-options')
     this.rollingQuestsSubtitle = document.getElementById('rolling-quests-subtitle')
-    this.gemsInfoLine = document.getElementById('gems-info-line')
     this.rollingQuestsOptions = document.getElementById('rolling-quests-options')
     this.monthlyQuestsPlaceholder = document.getElementById('monthly-quests-placeholder')
     this.yearlyQuestsPlaceholder = document.getElementById('yearly-quests-placeholder')
@@ -4283,7 +4282,11 @@ export class Game {
     this.menuInventoryBtn = document.getElementById('menu-inventory-btn')
     this.menuInventoryPanel = document.getElementById('menu-inventory-panel')
     this.menuInventoryPanelTitle = document.getElementById('menu-inventory-panel-title')
-    this.menuInventoryPlaceholder = document.getElementById('menu-inventory-placeholder')
+    this.inventorySkinsTitle = document.getElementById('inventory-skins-title')
+    this.inventorySkinsSortLabel = document.getElementById('inventory-skins-sort-label')
+    this.inventorySkinsPlaceholder = document.getElementById('inventory-skins-placeholder')
+    this.inventoryCratesTitle = document.getElementById('inventory-crates-title')
+    this.inventoryCratesPlaceholder = document.getElementById('inventory-crates-placeholder')
     this.serverBtn = document.getElementById('server-btn')
     this.serverPanel = document.getElementById('server-panel')
     this.serverPanelTitle = document.getElementById('server-panel-title')
@@ -4296,6 +4299,9 @@ export class Game {
     this.achievementsCategorySelect = document.getElementById('achievements-category-select')
     this.achievementsSortSelect = document.getElementById('achievements-sort-select')
     this.printAchievementsBtn = document.getElementById('print-achievements-btn')
+    this.achievementsControlsRow = document.getElementById('achievements-controls-row')
+    this.achievementsDeathmatchPlaceholder = document.getElementById('achievements-deathmatch-placeholder')
+    this._achievementsMode = 'survival'
     this.menuPlayerBadge = document.getElementById('menu-player-badge')
     this.profilePanel = document.getElementById('profile-panel')
     this.profilePanelTitle = document.getElementById('profile-panel-title')
@@ -4320,6 +4326,7 @@ export class Game {
     this.dailyLeaderboardEl = document.getElementById('death-daily-leaderboard')
     this.shareRunCardBtn = document.getElementById('share-run-card-btn')
     this.creditsBtn = document.getElementById('credits-btn')
+    this.termsBtn = document.getElementById('terms-btn')
     this.buildModeBtn = document.getElementById('build-mode-btn')
     this.menuAriaSummary = document.getElementById('menu-aria-summary')
     this.menuTitle = document.getElementById('menu-title')
@@ -4337,15 +4344,7 @@ export class Game {
     this.whatsNewPanel = document.getElementById('whatsnew-panel')
     this.whatsNewPanelTitle = document.getElementById('whatsnew-panel-title')
     this.buildVersionLine = document.getElementById('build-version-line')
-    this.shopSortSelect = document.getElementById('shop-sort-select')
-    this.shopSpendingLogRow = document.getElementById('shop-spending-log-row')
-    this.shopSpendingLogHeading = document.getElementById('shop-spending-log-heading')
-    this.shopSpendingLogList = document.getElementById('shop-spending-log-list')
     this.coinshopBtn = document.getElementById('coinshop-btn')
-    this.coinshopPanel = document.getElementById('coinshop-panel')
-    this.coinshopPanelTitle = document.getElementById('coinshop-panel-title')
-    this.coinshopCoinLine = document.getElementById('coinshop-coin-line')
-    this.coinshopOptions = document.getElementById('coinshop-options')
     this.statsCoins = document.getElementById('stats-coins')
     this.statsRankRow = document.getElementById('stats-rank-row')
     this.statsRank = document.getElementById('stats-rank')
@@ -6858,6 +6857,19 @@ export class Game {
       })
     }
 
+    // Achievements panel mode tabs (Zombie Survival/Deathmatch) - no
+    // achievement is tagged to a mode (Deathmatch itself is still locked/
+    // "Coming Soon" everywhere else in the game, see the Hub's own
+    // deathmatch tab), so Zombie Survival just shows the existing full
+    // list and Deathmatch shows a plain placeholder in its place.
+    for (const tab of document.querySelectorAll('.achievements-mode-tab')) {
+      tab.addEventListener('click', () => {
+        for (const tabEl of document.querySelectorAll('.achievements-mode-tab')) tabEl.classList.toggle('active', tabEl === tab)
+        this._achievementsMode = tab.dataset.achievementsMode
+        this._renderAchievementsPanel()
+      })
+    }
+
     this.musicVolumeSlider.value = this.settings.musicVolume
     this.musicVolumeValue.textContent = `${this.settings.musicVolume}%`
     this.sfxVolumeSlider.value = this.settings.sfxVolume
@@ -7803,6 +7815,7 @@ export class Game {
     this.shareRunCardBtn.addEventListener('click', () => this._generateRunSummaryCard())
     if (this.copyTextRecapBtn) this.copyTextRecapBtn.addEventListener('click', () => this._copyTextRecap())
     this.creditsBtn.addEventListener('click', () => trackAndOpen(() => this._openCreditsPanel()))
+    if (this.termsBtn) this.termsBtn.addEventListener('click', () => trackAndOpen(() => this._openComingSoonPanel()))
     this.coinshopBtn.addEventListener('click', () => trackAndOpen(() => this._openComingSoonPanel()))
     this._bindHomepageBatch()
     CloudSaveUI.bindCloudSave(this)
@@ -9865,7 +9878,7 @@ export class Game {
     // Opened from the pause overlay (still on screen, unlocked) as well as
     // the homepage/HUD gear icon - hide it explicitly rather than relying
     // on DOM/paint order, same reasoning (and bug, until now missed here)
-    // as _openUpgradesPanel/_openCoinShopPanel: #pause-overlay comes after
+    // as _openUpgradesPanel: #pause-overlay comes after
     // #settings-panel in index.html and would otherwise render on top and
     // eat every click meant for a setting underneath it.
     if (open) this.pauseOverlay.style.display = 'none'
@@ -11006,7 +11019,6 @@ export class Game {
     // follow-up request, not shown anywhere any more.
     this.questsPanelTitle.textContent = t('questsPanelTitle')
     this.rollingQuestsSubtitle.textContent = t('rollingQuestsSubtitle')
-    if (this.gemsInfoLine) this.gemsInfoLine.textContent = t('gemsInfoLine')
     if (this.monthlyQuestsPlaceholder) this.monthlyQuestsPlaceholder.textContent = t('monthlyQuestsPlaceholder')
     if (this.yearlyQuestsPlaceholder) this.yearlyQuestsPlaceholder.textContent = t('yearlyQuestsPlaceholder')
     this._renderQuestsPanel()
@@ -11210,21 +11222,27 @@ export class Game {
   // any more (merged per user request), only the text filter applies to
   // them since creatures have no category/sort concept of their own.
   _renderAchievementsPanel() {
+    const deathmatch = this._achievementsMode === 'deathmatch'
+    if (this.achievementsFilterInput) this.achievementsFilterInput.style.display = deathmatch ? 'none' : ''
+    if (this.achievementsControlsRow) this.achievementsControlsRow.style.display = deathmatch ? 'none' : ''
+    if (this.printAchievementsBtn) this.printAchievementsBtn.style.display = deathmatch ? 'none' : ''
+    this.achievementsOptions.style.display = deathmatch ? 'none' : ''
+    if (this.achievementsDeathmatchPlaceholder) {
+      this.achievementsDeathmatchPlaceholder.style.display = deathmatch ? '' : 'none'
+      this.achievementsDeathmatchPlaceholder.textContent = t('menuInventoryPlaceholder')
+    }
+    if (deathmatch) return
+
     const filter = (this.achievementsFilterInput?.value || '').trim().toLowerCase()
     const category = this.achievementsCategorySelect?.value || 'all'
     const sortMode = this.achievementsSortSelect?.value || 'default'
     let list = ACHIEVEMENTS.filter((ach) => category === 'all' || ach.category === category)
-    // Sort by unlock date - unlocked-with-a-known-time first (newest
-    // first, same source Achievements.js's getRecentUnlocks already
-    // reads), then everything else (locked, or unlocked before
-    // unlockTimes existed) in original array order after.
-    if (sortMode === 'unlockDate') {
-      list = [...list].sort((a, b) => {
-        const ta = this.achievements.unlockTimes[a.id] || 0
-        const tb = this.achievements.unlockTimes[b.id] || 0
-        return tb - ta
-      })
-    }
+    // Achieved/Incomplete - a straight filter on unlock state, not a sort
+    // (replaced the old Unlock Date sort per direct request). Applied to
+    // the bestiary loop below too via the same `known` check, since both
+    // lists share this one sort control.
+    if (sortMode === 'achieved') list = list.filter((ach) => this.achievements.unlocked.has(ach.id))
+    else if (sortMode === 'incomplete') list = list.filter((ach) => !this.achievements.unlocked.has(ach.id))
     this.achievementsOptions.innerHTML = ''
     for (const ach of list) {
       const unlocked = this.achievements.unlocked.has(ach.id)
@@ -11241,6 +11259,8 @@ export class Game {
     }
     for (const type of Object.values(ZOMBIE_TYPES)) {
       const known = this.bestiaryEncountered.has(type.id)
+      if (sortMode === 'achieved' && !known) continue
+      if (sortMode === 'incomplete' && known) continue
       const name = known ? type.label : '???'
       if (filter && !name.toLowerCase().includes(filter)) continue
       const btn = document.createElement('button')
@@ -11347,7 +11367,11 @@ export class Game {
     if (!this.menuInventoryPanel) return
     this.menuInventoryPanel.style.display = 'flex'
     if (this.menuInventoryPanelTitle) this.menuInventoryPanelTitle.textContent = t('menuInventoryPanelTitle')
-    if (this.menuInventoryPlaceholder) this.menuInventoryPlaceholder.textContent = t('menuInventoryPlaceholder')
+    if (this.inventorySkinsTitle) this.inventorySkinsTitle.textContent = t('inventorySkinsTitle')
+    if (this.inventorySkinsSortLabel) this.inventorySkinsSortLabel.textContent = t('inventorySortLabel')
+    if (this.inventorySkinsPlaceholder) this.inventorySkinsPlaceholder.textContent = t('menuInventoryPlaceholder')
+    if (this.inventoryCratesTitle) this.inventoryCratesTitle.textContent = t('inventoryCratesTitle')
+    if (this.inventoryCratesPlaceholder) this.inventoryCratesPlaceholder.textContent = t('menuInventoryPlaceholder')
   }
 
   _closeMenuInventoryPanel() {

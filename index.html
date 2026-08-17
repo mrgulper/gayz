@@ -428,19 +428,6 @@ Escape before dawn.</p>
               </button>
             </div>
 
-            <nav id="menu-links-row" class="pill-nav">
-              <button id="nav-rules-link" type="button"><span>Rules &amp; Info</span></button>
-              <button id="nav-whatsnew-link" type="button">
-                <span>What's New</span>
-                <span class="nav-badge-dot" id="whats-new-dot" style="display: none"></span>
-              </button>
-              <button id="credits-btn" type="button"><span>Credits</span></button>
-              <a id="nav-discord-link" href="https://discord.gg/8fhmGv2k" target="_blank" rel="noopener noreferrer">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                <span>Discord</span>
-              </a>
-            </nav>
-
             <p id="round-mode-hint">Easy &amp; Normal: kill the wave to advance, no timer. Hard &amp; Nightmare: 90s timed nights.</p>
             <ul id="controls-list">
               <li id="ctrl-line-1"><b>WASD</b> move &middot; <b>Mouse</b> look &middot; <b>Space</b> jump &middot; <b>E</b> sprint</li>
@@ -547,6 +534,20 @@ Escape before dawn.</p>
             </div>
           </div>
         </div>
+
+        <nav id="menu-links-row" class="pill-nav">
+          <button id="nav-rules-link" type="button"><span>Rules &amp; Info</span></button>
+          <button id="nav-whatsnew-link" type="button">
+            <span>What's New</span>
+            <span class="nav-badge-dot" id="whats-new-dot" style="display: none"></span>
+          </button>
+          <button id="credits-btn" type="button"><span>Credits</span></button>
+          <button id="terms-btn" type="button"><span>Terms of Use</span></button>
+          <a id="nav-discord-link" href="https://discord.gg/8fhmGv2k" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span>Discord</span>
+          </a>
+        </nav>
       </div>
 
       <div id="settings-panel">
@@ -1529,7 +1530,6 @@ Escape before dawn.</p>
           <button class="quest-tab" data-quest-page="yearly" id="quest-tab-yearly">Yearly Quest</button>
           <button class="quest-tab" data-quest-page="lifetime" id="quest-tab-lifetime">Lifetime Quest</button>
         </div>
-        <p id="gems-info-line" class="menu-best-stats"></p>
         <div class="quest-tab-page" id="quests-page-rolling">
           <p id="rolling-quests-subtitle" class="menu-best-stats"></p>
           <div class="perk-options" id="rolling-quests-options"></div>
@@ -1558,7 +1558,11 @@ Escape before dawn.</p>
 
       <div id="achievements-panel">
         <h2 id="achievements-panel-title">Achievements</h2>
-        <input type="text" id="achievements-filter-input" class="nickname-input" placeholder="Filter achievements..." />
+        <div class="achievements-mode-tabs" id="achievements-mode-tabs">
+          <button class="achievements-mode-tab active" data-achievements-mode="survival" id="achievements-tab-survival">Zombie Survival</button>
+          <button class="achievements-mode-tab" data-achievements-mode="deathmatch" id="achievements-tab-deathmatch">Deathmatch</button>
+        </div>
+        <input type="text" id="achievements-filter-input" class="nickname-input" placeholder="Search achievements..." />
         <div id="achievements-controls-row">
           <label for="achievements-category-select">Category:</label>
           <select id="achievements-category-select">
@@ -1572,10 +1576,12 @@ Escape before dawn.</p>
           <label for="achievements-sort-select">Sort:</label>
           <select id="achievements-sort-select">
             <option value="default">Default</option>
-            <option value="unlockDate">Unlock Date</option>
+            <option value="achieved">Achieved Achievements</option>
+            <option value="incomplete">Incomplete Achievements</option>
           </select>
         </div>
         <div class="perk-options" id="achievements-options"></div>
+        <p id="achievements-deathmatch-placeholder" style="display: none">Coming soon.</p>
         <button id="print-achievements-btn" class="mini-action-btn" type="button">Print Achievements List</button>
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>
@@ -1861,7 +1867,23 @@ Escape before dawn.</p>
 
       <div id="menu-inventory-panel">
         <h2 id="menu-inventory-panel-title">Inventory</h2>
-        <p id="menu-inventory-placeholder">Coming soon.</p>
+        <section class="inventory-section" id="inventory-skins-section">
+          <h3 class="inventory-section-title" id="inventory-skins-title">Skins</h3>
+          <div id="inventory-skins-sort-row">
+            <label for="inventory-skins-sort-select" id="inventory-skins-sort-label">Sort:</label>
+            <select id="inventory-skins-sort-select">
+              <option value="default">Default</option>
+              <option value="costAsc">Cost: Low to High</option>
+              <option value="costDesc">Cost: High to Low</option>
+              <option value="alpha">Alphabetical</option>
+            </select>
+          </div>
+          <p class="inventory-section-placeholder" id="inventory-skins-placeholder">Coming soon.</p>
+        </section>
+        <section class="inventory-section" id="inventory-crates-section">
+          <h3 class="inventory-section-title" id="inventory-crates-title">Crates</h3>
+          <p class="inventory-section-placeholder" id="inventory-crates-placeholder">Coming soon.</p>
+        </section>
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>
 
@@ -1907,27 +1929,6 @@ Escape before dawn.</p>
           <button id="screenshot-copy-clipboard">Copy to Clipboard</button>
           <button id="screenshot-crop-cancel">Cancel</button>
         </div>
-      </div>
-
-      <div id="coinshop-panel">
-        <h2 id="coinshop-panel-title">Coin Shop</h2>
-        <div id="coinshop-coin-line"></div>
-        <div id="shop-sort-row">
-          <label for="shop-sort-select">Sort:</label>
-          <select id="shop-sort-select">
-            <option value="default">Default</option>
-            <option value="costAsc">Cost: Low to High</option>
-            <option value="costDesc">Cost: High to Low</option>
-            <option value="alpha">Alphabetical</option>
-            <option value="wishlist">Wishlisted First</option>
-          </select>
-        </div>
-        <div id="shop-spending-log-row" style="display: none">
-          <h3 id="shop-spending-log-heading">Recent Purchases</h3>
-          <div id="shop-spending-log-list"></div>
-        </div>
-        <div id="coinshop-options"></div>
-        <p class="panel-close-hint">Click anywhere to close</p>
       </div>
 
     </div>
