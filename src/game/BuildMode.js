@@ -32,6 +32,16 @@ const LOOK_SENSITIVITY = 0.0022
 // over to actually build anything above it.
 const MAX_INSTANCES_PER_TYPE = 20000
 const SAVE_KEY = 'gayz-build-mode'
+// Multiple save slots (see switchSlot/save/load) - was a single fixed key
+// (v1's deliberately-scoped-down "one save slot" design). SAVE_SLOTS_KEY
+// holds an array of SAVE_SLOT_COUNT entries (null = empty slot, or a
+// snapshot object); SAVE_KEY itself is kept only as a one-time migration
+// source (see _loadSlots) so a build saved before slots existed isn't lost.
+const SAVE_SLOTS_KEY = 'gayz-build-mode-slots'
+const SAVE_SLOT_COUNT = 3
+// Undo/Redo (see _pushUndoChange/undo/redo) - capped so a very long build
+// session doesn't grow the history array without bound.
+const MAX_UNDO_STEPS = 100
 // Held with V (see update()'s zoomTarget) - narrows the FOV for a "look
 // further" zoomed view rather than a real render-distance change, same
 // convention as a scope/binoculars. FOV_LERP_SPEED controls how quickly
@@ -200,6 +210,20 @@ export const BLOCK_TYPES = [
   { id: 'jackolantern', name: "Jack o'Lantern", color: 0xd9761a, pattern: 'speckle', roughness: 0.8, metalness: 0, emissive: 0xff8800, emissiveIntensity: 0.6 },
 ]
 const VALID_TYPE_IDS = new Set(BLOCK_TYPES.map((b) => b.id))
+// Real point lights on glowing blocks (see placeBlock/removeBlock) - every
+// block whose material already has an emissive color (lava, glowstone,
+// jack o'lantern, etc.) previously only glowed on its own face; it never
+// actually lit up the blocks around it. Derived from BLOCK_TYPES' own
+// emissive field rather than a separate hardcoded id list, so any future
+// glowing block type picks this up automatically. Capped at
+// MAX_ACTIVE_LIGHTS - real THREE.PointLights are real render cost, unlike
+// the InstancedMesh blocks themselves; past the cap, a placed glow block
+// still looks lit (its own emissive material), it just stops casting light
+// onto its neighbors.
+const LIGHT_BLOCK_COLORS = new Map(BLOCK_TYPES.filter((bt) => bt.emissive).map((bt) => [bt.id, bt.emissive]))
+const MAX_ACTIVE_LIGHTS = 40
+const LIGHT_INTENSITY = 1.4
+const LIGHT_DISTANCE = 6
 
 // Flat MeshStandardMaterial colors read as plain painted planes rather than
 // distinct blocks once several sit side by side - real Minecraft-style
@@ -480,6 +504,36 @@ export class BuildMode {
       // existed (the picker's Tab-toggle key handling never blocked
       // movement input while open), the search box just made it obvious.
       if (this.pickerOpen) return
+      // Ctrl+Z undo, Ctrl+Y or Ctrl+Shift+Z redo - the two common bindings
+      // for the same action across editors, both wired here rather than
+      // picking one.
+      if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ' && !e.repeat) {
+        e.preventDefault()
+        if (e.shiftKey) this.redo()
+        else this.undo()
+        return
+      }
+      if ((e.ctrlKey || e.metaKey) && e.code === 'KeyY' && !e.repeat) {
+        e.preventDefault()
+        this.redo()
+        return
+      }
+      if (e.code === 'KeyM' && !e.repeat) {
+        this.toggleMirror()
+        return
+      }
+      if (e.code === 'KeyL' && !e.repeat) {
+        this.toggleLineTool()
+        return
+      }
+      if (e.code === 'KeyC' && !e.repeat) {
+        this.toggleCopyTool()
+        return
+      }
+      if (e.code === 'KeyP' && !e.repeat) {
+        this.pasteClipboard()
+        return
+      }
       if (e.code === 'Space' && !e.repeat) {
         const now = performance.now()
         if (now - this._lastSpaceTapAt < DOUBLE_TAP_WINDOW_MS) this._hopUp()
@@ -515,6 +569,41 @@ export class BuildMode {
     this.activeHotbarIndex = 0
     this.selectedType = null
     this._blocks = new Map() // "x,y,z" -> type id
+    this._blockLights = new Map() // "x,y,z" -> THREE.PointLight, see LIGHT_BLOCK_COLORS
+    // Undo/Redo - each undo-stack entry is a batch (array) of individual
+    // {x, y, z, beforeType, afterType} changes, so a single user action
+    // (one click, or a whole line/mirror/paste batch) undoes/redoes as one
+    // step rather than one block at a time. See _beginBatch/_endBatch.
+    this._undoStack = []
+    this._redoStack = []
+    this._pendingBatch = null
+    // Multiple save slots (see switchSlot) - which of SAVE_SLOT_COUNT slots
+    // is currently loaded/being edited. Not persisted itself (always opens
+    // back on slot 0) - keeping it simple rather than adding a second
+    // "remember last slot" storage key for a minor convenience.
+    this.activeSlot = 0
+    // Mirror mode (see toggleMirror/_mirrorX) - off by default. Mirrors
+    // across world x=0, the same plane the free-fly camera spawns facing
+    // down (see the constructor's camera.position), so it lines up with
+    // where a player naturally starts building.
+    this.mirrorMode = false
+    // Line tool (see toggleLineTool/_lineToolClick) - place-only (right-
+    // click), two clicks per line: first sets the start point, second sets
+    // the end point and fills every cell between them in one undo step.
+    // Left-click removal is untouched (still single-block) - a line-remove
+    // mode would double the interaction surface for a much rarer use case.
+    this.lineToolMode = false
+    this._lineStart = null
+    // Copy/Paste (see toggleCopyTool/_copyToolClick/pasteClipboard) - same
+    // two-click flow as the line tool, but marking opposite corners of a
+    // box instead of two ends of a line. Mutually exclusive with the line
+    // tool (see toggleLineTool/toggleCopyTool) so right-click always has
+    // one unambiguous meaning. Paste (P key) works independently of
+    // whether copy tool mode is currently on, as long as something's been
+    // copied.
+    this.copyToolMode = false
+    this._copyStart = null
+    this._clipboard = null
     this._instancedMeshes = {}
     this._instanceKeyByIndex = {} // type id -> array mapping instance index -> "x,y,z" key, for swap-remove
     const blockGeo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)
@@ -537,6 +626,26 @@ export class BuildMode {
       this._instanceKeyByIndex[bt.id] = []
     }
 
+    // Mirror-plane visual (see toggleMirror) - a large, thin, translucent
+    // panel at world x=0 so the mirror line is actually visible while
+    // building, not just an invisible rule. Hidden until mirror mode is
+    // switched on.
+    const mirrorPlaneGeo = new THREE.PlaneGeometry(GROUND_SIZE * BLOCK_SIZE, 60)
+    const mirrorPlaneMat = new THREE.MeshBasicMaterial({ color: 0x5be3ff, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false })
+    this._mirrorPlaneMesh = new THREE.Mesh(mirrorPlaneGeo, mirrorPlaneMat)
+    this._mirrorPlaneMesh.rotation.y = Math.PI / 2
+    this._mirrorPlaneMesh.position.set(0, 20, 0)
+    this._mirrorPlaneMesh.visible = false
+    this.scene.add(this._mirrorPlaneMesh)
+
+    // Line tool's pending-start marker - a wireframe outline around the
+    // first-clicked cell, visible while waiting for the second click so the
+    // start point isn't invisible/easy to forget about.
+    const lineMarkerGeo = new THREE.BoxGeometry(BLOCK_SIZE * 1.05, BLOCK_SIZE * 1.05, BLOCK_SIZE * 1.05)
+    this._lineMarkerMesh = new THREE.LineSegments(new THREE.EdgesGeometry(lineMarkerGeo), new THREE.LineBasicMaterial({ color: 0xffcf5c }))
+    this._lineMarkerMesh.visible = false
+    this.scene.add(this._lineMarkerMesh)
+
     this._raycaster = new THREE.Raycaster()
     this._onPointerDown = (e) => {
       if (document.pointerLockElement !== this.renderer.domElement) {
@@ -549,8 +658,11 @@ export class BuildMode {
         try { this.renderer.domElement.requestPointerLock()?.catch(() => {}) } catch { /* not available in this environment */ }
         return
       }
-      if (e.button === 2) this._placeFromCamera()
-      else if (e.button === 0) this._removeFromCamera()
+      if (e.button === 2) {
+        if (this.lineToolMode) this._lineToolClick()
+        else if (this.copyToolMode) this._copyToolClick()
+        else this._placeFromCamera()
+      } else if (e.button === 0) this._removeFromCamera()
     }
     this._onContextMenu = (e) => { if (this.active) e.preventDefault() }
 
@@ -580,6 +692,30 @@ export class BuildMode {
     // _assignToActiveSlot), not pre-filled.
     this._hotbarEl = document.getElementById('build-hotbar')
     this._renderHotbar()
+
+    // Save-slot picker (see switchSlot) - a small always-visible row of
+    // SAVE_SLOT_COUNT buttons, not tucked inside a menu, since switching
+    // slots is meant to be a quick one-click action mid-build.
+    this._slotsEl = document.getElementById('build-slots')
+    this._renderSlots()
+
+    // Mirror toggle button (see toggleMirror) - the M key does the same
+    // thing, this is just the discoverable/clickable equivalent.
+    this._mirrorBtnEl = document.getElementById('build-mode-mirror-btn')
+    if (this._mirrorBtnEl) this._mirrorBtnEl.addEventListener('click', () => this.toggleMirror())
+
+    // Line tool toggle button (see toggleLineTool) - the L key does the
+    // same thing.
+    this._lineToolBtnEl = document.getElementById('build-mode-line-btn')
+    if (this._lineToolBtnEl) this._lineToolBtnEl.addEventListener('click', () => this.toggleLineTool())
+
+    // Copy tool + Paste buttons (see toggleCopyTool/pasteClipboard) - C and
+    // P keys do the same things.
+    this._copyToolBtnEl = document.getElementById('build-mode-copy-btn')
+    if (this._copyToolBtnEl) this._copyToolBtnEl.addEventListener('click', () => this.toggleCopyTool())
+    this._pasteBtnEl = document.getElementById('build-mode-paste-btn')
+    if (this._pasteBtnEl) this._pasteBtnEl.addEventListener('click', () => this.pasteClipboard())
+
     this._onKeyDownHotbar = (e) => {
       // Same reasoning as _onKeyDown's guard - without it, typing a digit
       // while searching the picker (e.g. "TNT" has none, but plenty of
@@ -627,13 +763,25 @@ export class BuildMode {
     window.addEventListener('contextmenu', this._onContextMenu)
     document.addEventListener('click', this._onPickerBackdropClick)
     if (this._hotbarEl) this._hotbarEl.style.display = 'flex'
+    if (this._slotsEl) this._slotsEl.style.display = 'flex'
+    if (this._mirrorBtnEl) this._mirrorBtnEl.style.display = 'block'
+    if (this._lineToolBtnEl) this._lineToolBtnEl.style.display = 'block'
+    if (this._copyToolBtnEl) this._copyToolBtnEl.style.display = 'block'
+    if (this._pasteBtnEl) this._pasteBtnEl.style.display = 'block'
     this.load()
+    this._renderSlots()
   }
 
   exit() {
     this.save()
     this.active = false
     this._keys.clear()
+    // Mirror resets off on exit - a returning player starting a fresh
+    // session shouldn't be surprised by a toggle they don't remember
+    // leaving on.
+    if (this.mirrorMode) this.toggleMirror()
+    if (this.lineToolMode) this.toggleLineTool()
+    if (this.copyToolMode) this.toggleCopyTool()
     // No toggle state to reset any more (V is a held key, read live from
     // _keys in update()) - just snap the FOV back in case V happened to
     // be held mid-zoom when Build Mode was exited.
@@ -652,6 +800,11 @@ export class BuildMode {
     this.pickerOpen = false
     if (this._pickerEl) this._pickerEl.style.display = 'none'
     if (this._hotbarEl) this._hotbarEl.style.display = 'none'
+    if (this._slotsEl) this._slotsEl.style.display = 'none'
+    if (this._mirrorBtnEl) this._mirrorBtnEl.style.display = 'none'
+    if (this._lineToolBtnEl) this._lineToolBtnEl.style.display = 'none'
+    if (this._copyToolBtnEl) this._copyToolBtnEl.style.display = 'none'
+    if (this._pasteBtnEl) this._pasteBtnEl.style.display = 'none'
   }
 
   // Tab picker swatch click - assigns that block to whichever hotbar slot
@@ -719,6 +872,14 @@ export class BuildMode {
     if (!skipBoundsUpdate) mesh.computeBoundingSphere()
     this._blocks.set(key, type)
     this._instanceKeyByIndex[type][index] = key
+
+    const lightColor = LIGHT_BLOCK_COLORS.get(type)
+    if (lightColor !== undefined && this._blockLights.size < MAX_ACTIVE_LIGHTS) {
+      const light = new THREE.PointLight(lightColor, LIGHT_INTENSITY, LIGHT_DISTANCE)
+      light.position.set((x + 0.5) * BLOCK_SIZE, (y + 0.5) * BLOCK_SIZE, (z + 0.5) * BLOCK_SIZE)
+      this.scene.add(light)
+      this._blockLights.set(key, light)
+    }
   }
 
   removeBlock(x, y, z) {
@@ -750,6 +911,98 @@ export class BuildMode {
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
     mesh.computeBoundingSphere()
     this._blocks.delete(key)
+
+    const light = this._blockLights.get(key)
+    if (light) {
+      this.scene.remove(light)
+      light.dispose()
+      this._blockLights.delete(key)
+    }
+  }
+
+  // Records one cell's change for undo/redo - called by the *Undoable
+  // wrappers below, never by placeBlock/removeBlock directly (bulk callers
+  // like load()/_ensureGroundLayer()/_applyParsedData() deliberately don't
+  // touch undo history; undoing back through a whole freshly-loaded build
+  // one cell at a time would be meaningless). Outside a batch, every change
+  // becomes its own single-entry undo step; during a batch (see
+  // _beginBatch), changes accumulate and become one step together.
+  _pushUndoChange(x, y, z, beforeType, afterType) {
+    if (beforeType === afterType) return
+    if (this._pendingBatch) {
+      this._pendingBatch.push({ x, y, z, beforeType, afterType })
+      return
+    }
+    this._undoStack.push([{ x, y, z, beforeType, afterType }])
+    if (this._undoStack.length > MAX_UNDO_STEPS) this._undoStack.shift()
+    // Any new action invalidates whatever redo history existed - same
+    // standard undo/redo convention every editor uses.
+    this._redoStack.length = 0
+  }
+
+  // Groups every _pushUndoChange call between _beginBatch/_endBatch into
+  // one undo step - used by the line tool and mirror mode so dragging a
+  // whole wall (or placing one block that mirrors to a second cell) undoes
+  // in a single Ctrl+Z, not once per individual cell touched.
+  _beginBatch() {
+    this._pendingBatch = []
+  }
+
+  _endBatch() {
+    const batch = this._pendingBatch
+    this._pendingBatch = null
+    if (!batch || batch.length === 0) return
+    this._undoStack.push(batch)
+    if (this._undoStack.length > MAX_UNDO_STEPS) this._undoStack.shift()
+    this._redoStack.length = 0
+  }
+
+  // placeBlock/removeBlock already no-op on an occupied/empty cell
+  // respectively, so beforeType is read here (rather than trusted from the
+  // caller) to know whether the raw call actually did anything - avoids
+  // recording a phantom no-op change.
+  _placeBlockUndoable(x, y, z, type) {
+    const before = this.getBlockAt(x, y, z)
+    if (before !== null) return
+    this.placeBlock(x, y, z, type)
+    this._pushUndoChange(x, y, z, null, type)
+  }
+
+  _removeBlockUndoable(x, y, z) {
+    const before = this.getBlockAt(x, y, z)
+    if (before === null) return
+    this.removeBlock(x, y, z)
+    this._pushUndoChange(x, y, z, before, null)
+  }
+
+  // Ctrl+Z - reverses the most recent batch, most-recent-cell-first within
+  // it (matters if a batch ever touches the same cell twice; reversing in
+  // the opposite order changes were made keeps every intermediate state
+  // consistent). Returns whether there was anything to undo, so the caller
+  // can skip showing a toast for a no-op press.
+  undo() {
+    const batch = this._undoStack.pop()
+    if (!batch) return false
+    for (let i = batch.length - 1; i >= 0; i--) {
+      const { x, y, z, beforeType } = batch[i]
+      if (beforeType === null) this.removeBlock(x, y, z)
+      else this.placeBlock(x, y, z, beforeType)
+    }
+    this._redoStack.push(batch)
+    return true
+  }
+
+  // Ctrl+Y / Ctrl+Shift+Z - replays a previously-undone batch forward,
+  // original order this time.
+  redo() {
+    const batch = this._redoStack.pop()
+    if (!batch) return false
+    for (const { x, y, z, afterType } of batch) {
+      if (afterType === null) this.removeBlock(x, y, z)
+      else this.placeBlock(x, y, z, afterType)
+    }
+    this._undoStack.push(batch)
+    return true
   }
 
   _placeFromCamera() {
@@ -758,7 +1011,14 @@ export class BuildMode {
     if (!hit) return
     const [px, py, pz] = hit.placeAt
     if (this._wouldOverlapCamera(px, py, pz)) return
-    this.placeBlock(px, py, pz, this.selectedType)
+    if (this.mirrorMode) {
+      this._beginBatch()
+      this._placeBlockUndoable(px, py, pz, this.selectedType)
+      this._placeBlockUndoable(this._mirrorX(px), py, pz, this.selectedType)
+      this._endBatch()
+    } else {
+      this._placeBlockUndoable(px, py, pz, this.selectedType)
+    }
   }
 
   // Same 8-corner COLLISION_RADIUS-sphere technique _blockedAt uses for
@@ -792,7 +1052,14 @@ export class BuildMode {
     const hit = this._raycastGridAligned()
     if (!hit || !hit.existingBlock) return
     const [rx, ry, rz] = hit.existingBlock
-    this.removeBlock(rx, ry, rz)
+    if (this.mirrorMode) {
+      this._beginBatch()
+      this._removeBlockUndoable(rx, ry, rz)
+      this._removeBlockUndoable(this._mirrorX(rx), ry, rz)
+      this._endBatch()
+    } else {
+      this._removeBlockUndoable(rx, ry, rz)
+    }
   }
 
   // Steps a ray forward in fixed small increments and checks the sparse
@@ -889,6 +1156,184 @@ export class BuildMode {
     })
   }
 
+  // Small "1 / 2 / 3" row - the active slot is highlighted, a slot with
+  // something saved in it gets a filled dot so it's clear at a glance
+  // which slots actually have a build before clicking into one.
+  _renderSlots() {
+    if (!this._slotsEl) return
+    this._slotsEl.innerHTML = ''
+    const slots = this._loadSlots()
+    for (let i = 0; i < SAVE_SLOT_COUNT; i++) {
+      const btn = document.createElement('button')
+      btn.className = 'build-slot-btn' + (i === this.activeSlot ? ' active' : '')
+      btn.title = slots[i] ? `Slot ${i + 1} (has a build)` : `Slot ${i + 1} (empty)`
+      btn.textContent = String(i + 1)
+      if (slots[i]) {
+        const dot = document.createElement('span')
+        dot.className = 'build-slot-dot'
+        btn.appendChild(dot)
+      }
+      btn.addEventListener('click', () => {
+        this.switchSlot(i)
+        this._renderSlots()
+      })
+      this._slotsEl.appendChild(btn)
+    }
+  }
+
+  // M key or toolbar button - see mirrorMode's own comment for why x=0.
+  toggleMirror() {
+    this.mirrorMode = !this.mirrorMode
+    if (this._mirrorPlaneMesh) this._mirrorPlaneMesh.visible = this.mirrorMode
+    if (this._mirrorBtnEl) this._mirrorBtnEl.classList.toggle('active', this.mirrorMode)
+  }
+
+  // World x cell index -> its mirrored cell index across x=0. A cell at
+  // index x spans world space [x*BLOCK_SIZE, (x+1)*BLOCK_SIZE) - reflecting
+  // that span across 0 gives [(-x-1)*BLOCK_SIZE, -x*BLOCK_SIZE), i.e. cell
+  // index -x-1. Never equal to x for an integer x, so mirroring never
+  // collides with the original cell.
+  _mirrorX(x) {
+    return -x - 1
+  }
+
+  // L key or toolbar button. Clears any pending start point on toggle
+  // (both on and off) - a half-finished line from before a toggle-off/on
+  // cycle would otherwise silently resume, confusing the very next click.
+  toggleLineTool() {
+    this.lineToolMode = !this.lineToolMode
+    this._lineStart = null
+    if (this._lineMarkerMesh) this._lineMarkerMesh.visible = false
+    if (this._lineToolBtnEl) this._lineToolBtnEl.classList.toggle('active', this.lineToolMode)
+    // Mutually exclusive with copy tool (see its own comment) - turning
+    // line tool on while copy tool was active would otherwise leave two
+    // different two-click flows both listening to the same right-click.
+    if (this.lineToolMode && this.copyToolMode) this.toggleCopyTool()
+  }
+
+  // First right-click while lineToolMode is on sets the start point;
+  // the second fills every cell on the straight line between start and
+  // end (inclusive) with the selected block, as one undo step.
+  _lineToolClick() {
+    this._raycaster.setFromCamera({ x: 0, y: 0 }, this.camera)
+    const hit = this._raycastGridAligned()
+    if (!hit) return
+    const [x, y, z] = hit.placeAt
+    if (this._wouldOverlapCamera(x, y, z)) return
+    if (!this._lineStart) {
+      this._lineStart = [x, y, z]
+      if (this._lineMarkerMesh) {
+        this._lineMarkerMesh.position.set((x + 0.5) * BLOCK_SIZE, (y + 0.5) * BLOCK_SIZE, (z + 0.5) * BLOCK_SIZE)
+        this._lineMarkerMesh.visible = true
+      }
+      return
+    }
+    const [sx, sy, sz] = this._lineStart
+    this._beginBatch()
+    for (const [cx, cy, cz] of this._lineCells(sx, sy, sz, x, y, z)) {
+      this._placeBlockUndoable(cx, cy, cz, this.selectedType)
+      if (this.mirrorMode) this._placeBlockUndoable(this._mirrorX(cx), cy, cz, this.selectedType)
+    }
+    this._endBatch()
+    this._lineStart = null
+    if (this._lineMarkerMesh) this._lineMarkerMesh.visible = false
+  }
+
+  // Every integer cell from (x0,y0,z0) to (x1,y1,z1) inclusive, stepped
+  // along the longest axis and rounded to the nearest cell each step - not
+  // a true Bresenham line, but a simple, well-understood approach that
+  // produces a visually contiguous line, which is all a building tool
+  // needs. De-duplicated (see `seen`) since two different steps can round
+  // to the same cell on a shallow line.
+  _lineCells(x0, y0, z0, x1, y1, z1) {
+    const dx = x1 - x0
+    const dy = y1 - y0
+    const dz = z1 - z0
+    const steps = Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dz), 1)
+    const seen = new Set()
+    const cells = []
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps
+      const cx = Math.round(x0 + dx * t)
+      const cy = Math.round(y0 + dy * t)
+      const cz = Math.round(z0 + dz * t)
+      const key = this._key(cx, cy, cz)
+      if (seen.has(key)) continue
+      seen.add(key)
+      cells.push([cx, cy, cz])
+    }
+    return cells
+  }
+
+  // C key or toolbar button. Clears any pending first corner on toggle,
+  // same reasoning as toggleLineTool.
+  toggleCopyTool() {
+    this.copyToolMode = !this.copyToolMode
+    this._copyStart = null
+    if (this._lineMarkerMesh) this._lineMarkerMesh.visible = false
+    if (this._copyToolBtnEl) this._copyToolBtnEl.classList.toggle('active', this.copyToolMode)
+    if (this.copyToolMode && this.lineToolMode) this.toggleLineTool()
+  }
+
+  // First right-click while copyToolMode is on marks one corner; the
+  // second marks the opposite corner and copies every placed block inside
+  // that axis-aligned box into this._clipboard, as offsets from the box's
+  // minimum corner (so pasteClipboard can re-anchor it anywhere).
+  _copyToolClick() {
+    this._raycaster.setFromCamera({ x: 0, y: 0 }, this.camera)
+    const hit = this._raycastGridAligned()
+    // Copying reads existing blocks, so this targets whatever cell was
+    // actually hit (existingBlock), not the adjacent empty one placeAt
+    // would give - the corner you aim at should be a real block, not the
+    // air next to it.
+    if (!hit || !hit.existingBlock) return
+    const [x, y, z] = hit.existingBlock
+    if (!this._copyStart) {
+      this._copyStart = [x, y, z]
+      if (this._lineMarkerMesh) {
+        this._lineMarkerMesh.position.set((x + 0.5) * BLOCK_SIZE, (y + 0.5) * BLOCK_SIZE, (z + 0.5) * BLOCK_SIZE)
+        this._lineMarkerMesh.visible = true
+      }
+      return
+    }
+    const [sx, sy, sz] = this._copyStart
+    const minX = Math.min(sx, x), maxX = Math.max(sx, x)
+    const minY = Math.min(sy, y), maxY = Math.max(sy, y)
+    const minZ = Math.min(sz, z), maxZ = Math.max(sz, z)
+    const blocks = []
+    for (let cx = minX; cx <= maxX; cx++) {
+      for (let cy = minY; cy <= maxY; cy++) {
+        for (let cz = minZ; cz <= maxZ; cz++) {
+          const type = this.getBlockAt(cx, cy, cz)
+          if (type) blocks.push({ dx: cx - minX, dy: cy - minY, dz: cz - minZ, type })
+        }
+      }
+    }
+    this._clipboard = { blocks, width: maxX - minX + 1, height: maxY - minY + 1, depth: maxZ - minZ + 1 }
+    this._copyStart = null
+    if (this._lineMarkerMesh) this._lineMarkerMesh.visible = false
+    return this._clipboard.blocks.length
+  }
+
+  // P key or toolbar button - stamps the copied selection with its minimum
+  // corner at the currently-aimed empty cell, as one undo step. A no-op if
+  // nothing's been copied yet, or nothing's currently aimed at.
+  pasteClipboard() {
+    if (!this._clipboard || this._clipboard.blocks.length === 0) return 0
+    this._raycaster.setFromCamera({ x: 0, y: 0 }, this.camera)
+    const hit = this._raycastGridAligned()
+    if (!hit) return 0
+    const [ox, oy, oz] = hit.placeAt
+    this._beginBatch()
+    for (const { dx, dy, dz, type } of this._clipboard.blocks) {
+      const px = ox + dx, py = oy + dy, pz = oz + dz
+      this._placeBlockUndoable(px, py, pz, type)
+      if (this.mirrorMode) this._placeBlockUndoable(this._mirrorX(px), py, pz, type)
+    }
+    this._endBatch()
+    return this._clipboard.blocks.length
+  }
+
   togglePicker() {
     this.pickerOpen = !this.pickerOpen
     if (this._pickerEl) this._pickerEl.style.display = this.pickerOpen ? 'flex' : 'none'
@@ -917,12 +1362,60 @@ export class BuildMode {
     }
   }
 
-  save() {
+  // Reads the slots array from storage, migrating a pre-slots single save
+  // (the old SAVE_KEY) into slot 0 the first time this ever runs after
+  // slots were introduced - a build made before this feature existed
+  // should still be there, not silently lost.
+  _loadSlots() {
     try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify(this._snapshot()))
+      const raw = localStorage.getItem(SAVE_SLOTS_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed)) {
+          const slots = parsed.slice(0, SAVE_SLOT_COUNT)
+          while (slots.length < SAVE_SLOT_COUNT) slots.push(null)
+          return slots
+        }
+      }
+    } catch {
+      // Malformed - fall through to a fresh empty set of slots below.
+    }
+    const slots = new Array(SAVE_SLOT_COUNT).fill(null)
+    try {
+      const legacyRaw = localStorage.getItem(SAVE_KEY)
+      if (legacyRaw) slots[0] = JSON.parse(legacyRaw)
+    } catch {
+      // Malformed legacy save - start slot 0 empty too rather than crash.
+    }
+    return slots
+  }
+
+  _saveSlots(slots) {
+    try {
+      localStorage.setItem(SAVE_SLOTS_KEY, JSON.stringify(slots))
     } catch {
       // Storage unavailable (e.g. private browsing) - build just won't persist.
     }
+  }
+
+  save() {
+    const slots = this._loadSlots()
+    slots[this.activeSlot] = this._snapshot()
+    this._saveSlots(slots)
+  }
+
+  // Switches to a different slot: saves the current build into whichever
+  // slot is active now (so work in progress is never silently lost by
+  // switching away from it), then loads the target slot's data into a
+  // freshly-cleared scene. No-op if already on that slot.
+  switchSlot(index) {
+    if (index === this.activeSlot || index < 0 || index >= SAVE_SLOT_COUNT) return
+    this.save()
+    this.clearAllBlocks()
+    this.activeSlot = index
+    const slots = this._loadSlots()
+    this._applyParsedData(slots[index])
+    this._ensureGroundLayer()
   }
 
   // Shared by save() (local persistence) and exportMap() (downloadable
@@ -937,23 +1430,8 @@ export class BuildMode {
   }
 
   load() {
-    let raw = null
-    try {
-      raw = localStorage.getItem(SAVE_KEY)
-    } catch {
-      // Storage unavailable - fall through to _ensureGroundLayer below,
-      // same as a fresh/empty save.
-    }
-    let parsed = null
-    if (raw) {
-      try {
-        parsed = JSON.parse(raw)
-      } catch {
-        // Malformed - fall through the same way, start from an empty
-        // (but still grounded) layout rather than crashing.
-      }
-    }
-    this._applyParsedData(parsed)
+    const slots = this._loadSlots()
+    this._applyParsedData(slots[this.activeSlot])
     this._ensureGroundLayer()
   }
 
@@ -1018,6 +1496,16 @@ export class BuildMode {
       this._instanceKeyByIndex[type] = []
     }
     this._blocks.clear()
+    for (const light of this._blockLights.values()) {
+      this.scene.remove(light)
+      light.dispose()
+    }
+    this._blockLights.clear()
+    // Old undo/redo history refers to cells from whatever build just got
+    // wiped - keeping it around would let Ctrl+Z resurrect blocks from a
+    // build that (from the player's perspective) no longer exists.
+    this._undoStack.length = 0
+    this._redoStack.length = 0
   }
 
   // Returns true on a successful import (caller shows its own toast/error

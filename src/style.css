@@ -71,7 +71,13 @@ html.dyslexia-font body {
 #build-mode-exit-btn,
 #build-mode-save-btn,
 #build-mode-export-btn,
-#build-mode-import-btn {
+#build-mode-import-btn,
+#build-mode-undo-btn,
+#build-mode-redo-btn,
+#build-mode-mirror-btn,
+#build-mode-line-btn,
+#build-mode-copy-btn,
+#build-mode-paste-btn {
   position: fixed;
   top: 16px;
   z-index: 20;
@@ -89,6 +95,35 @@ html.dyslexia-font body {
 #build-mode-save-btn { right: 168px; }
 #build-mode-export-btn { right: 320px; }
 #build-mode-import-btn { right: 472px; }
+
+/* Second row - the newer tool-toggle buttons, kept off the first row so
+   the whole toolbar doesn't run off-screen on a narrower window (10
+   buttons in one row overflows well before 1366px wide). */
+#build-mode-undo-btn,
+#build-mode-redo-btn,
+#build-mode-mirror-btn,
+#build-mode-line-btn,
+#build-mode-copy-btn,
+#build-mode-paste-btn {
+  top: 58px;
+}
+#build-mode-redo-btn { right: 16px; }
+#build-mode-undo-btn { right: 168px; }
+#build-mode-mirror-btn { right: 320px; }
+#build-mode-line-btn { right: 472px; }
+#build-mode-copy-btn { right: 624px; }
+#build-mode-paste-btn { right: 776px; }
+
+#build-mode-mirror-btn.active {
+  border-color: #5be3ff;
+  color: #5be3ff;
+}
+
+#build-mode-line-btn.active,
+#build-mode-copy-btn.active {
+  border-color: #ffcf5c;
+  color: #ffcf5c;
+}
 
 #build-picker {
   position: fixed;
@@ -210,6 +245,46 @@ html.dyslexia-font body {
   color: #fff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
   pointer-events: none;
+}
+
+/* Save-slot picker (see BuildMode.js's switchSlot/_renderSlots) - top-left,
+   opposite corner from the exit/undo/save/export/import toolbar row. */
+#build-slots {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 20;
+  display: flex;
+  gap: 6px;
+}
+
+.build-slot-btn {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(10, 10, 10, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.build-slot-btn.active {
+  border-color: #d9a34a;
+  color: #d9a34a;
+}
+
+.build-slot-dot {
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #7fd8a0;
 }
 
 #crosshair {

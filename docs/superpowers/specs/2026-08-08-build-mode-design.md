@@ -65,8 +65,15 @@ Following this project's existing Playwright-driven verification (real game meth
 
 ## Deferred (explicitly out of scope for v1)
 
-- Multiple block categories / dozens of textured block types (Kirka's "cube / HB / plants / different" tabs).
-- Named, multiple save slots ("My Maps" list).
-- Import/export as a shareable code (matches this project's existing setup/loadout-code pattern, but not built yet).
-- Lighting, skybox, and fog controls.
-- Any connection to zombie survival gameplay (explicitly ruled out for v1, see "Why this shape").
+- Multiple block categories / dozens of textured block types (Kirka's "cube / HB / plants / different" tabs) - since built out to 90+ textured types (see `BLOCK_TYPES` in `BuildMode.js`), well past v1's scope.
+- Import/export as a shareable code (matches this project's existing setup/loadout-code pattern, but not built yet) - file-based export/import (`exportMap`/`importMapFile`) was built instead.
+- Skybox and fog controls (still deferred). Lighting itself is no longer fully deferred - block types with an emissive material (lava, glowstone, sea lantern, etc.) now spawn a real `THREE.PointLight` when placed (see `LIGHT_BLOCK_COLORS`/`MAX_ACTIVE_LIGHTS`), not just a glowing texture. No player-controlled skybox/fog/global lighting settings yet.
+- Any connection to zombie survival gameplay (explicitly ruled out for v1, confirmed again directly with the user in a later round - see "Why this shape").
+
+## Since v1 (not exhaustive - see BuildMode.js's own comments for detail)
+
+- **Undo/Redo** (Ctrl+Z / Ctrl+Y or Ctrl+Shift+Z) - a batched history (`_undoStack`/`_redoStack`), so one user action (a single click, or a whole line/mirror/paste) undoes as one step.
+- **Multiple save slots** (`SAVE_SLOT_COUNT = 3`) - the "one save slot" v1 decision above was superseded once a save-slot picker UI was actually built; `SAVE_SLOTS_KEY` holds the 3 slots, with the original single `SAVE_KEY` kept only as a one-time migration source.
+- **Mirror mode** (M key) - mirrors every placement/removal across world x=0.
+- **Line tool** (L key) - two clicks (start, end) fills a straight line of the selected block between them, as one undo step.
+- **Copy/Paste** (C key to mark a box, P key to paste) - copies every placed block inside an axis-aligned box (as offsets from its minimum corner) and can stamp it anywhere, as one undo step.

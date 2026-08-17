@@ -10435,6 +10435,10 @@ export class Game {
     if (this.snowOverlayEl) this.snowOverlayEl.style.display = 'none'
     const exitBtn = document.getElementById('build-mode-exit-btn')
     if (exitBtn) exitBtn.style.display = 'block'
+    const undoBtn = document.getElementById('build-mode-undo-btn')
+    if (undoBtn) undoBtn.style.display = 'block'
+    const redoBtn = document.getElementById('build-mode-redo-btn')
+    if (redoBtn) redoBtn.style.display = 'block'
     const saveBtn = document.getElementById('build-mode-save-btn')
     if (saveBtn) saveBtn.style.display = 'block'
     const exportBtn = document.getElementById('build-mode-export-btn')
@@ -10460,6 +10464,10 @@ export class Game {
     this.player.velocity.y = 0
     const exitBtn = document.getElementById('build-mode-exit-btn')
     if (exitBtn) exitBtn.style.display = 'none'
+    const undoBtn = document.getElementById('build-mode-undo-btn')
+    if (undoBtn) undoBtn.style.display = 'none'
+    const redoBtn = document.getElementById('build-mode-redo-btn')
+    if (redoBtn) redoBtn.style.display = 'none'
     const saveBtn = document.getElementById('build-mode-save-btn')
     if (saveBtn) saveBtn.style.display = 'none'
     const exportBtn = document.getElementById('build-mode-export-btn')
@@ -12633,6 +12641,10 @@ export class Game {
     if (this.buildModeBtn) this.buildModeBtn.addEventListener('click', () => this._enterBuildMode())
     const buildExitBtn = document.getElementById('build-mode-exit-btn')
     if (buildExitBtn) buildExitBtn.addEventListener('click', () => this._exitBuildMode())
+    const buildUndoBtn = document.getElementById('build-mode-undo-btn')
+    if (buildUndoBtn) buildUndoBtn.addEventListener('click', () => this.buildMode.undo())
+    const buildRedoBtn = document.getElementById('build-mode-redo-btn')
+    if (buildRedoBtn) buildRedoBtn.addEventListener('click', () => this.buildMode.redo())
     const buildSaveBtn = document.getElementById('build-mode-save-btn')
     if (buildSaveBtn) buildSaveBtn.addEventListener('click', () => this.buildMode.save())
     const buildExportBtn = document.getElementById('build-mode-export-btn')
