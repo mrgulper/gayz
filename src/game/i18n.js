@@ -280,7 +280,6 @@ const STRINGS = {
     extractionTitle: 'EXTRACTED',
     extractionStats: 'Survived Night {night} · {kills} kills · {time} · +{points} points · +{coins} coins · +{legacy} Legacy Points',
     extractionContinueBtn: 'Start New Run',
-    mutatorZombieDefense: 'Zombie Defense (protect the base through 10 waves)',
     zombieDefenseLabel: 'Base Health',
     zombieDefenseTitle: 'BASE DEFENDED',
     zombieDefenseFallToast: 'The base has fallen! Zombies overran it before you could hold the line.',

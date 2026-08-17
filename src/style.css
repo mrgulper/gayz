@@ -4707,6 +4707,47 @@ html.theme-lighter #app { filter: brightness(1.25); }
 /* Embossed vertical shading (light top, dark bottom) layered over each
    flat accent color - matches the reference mockup's rounded 3D-looking
    hex badges rather than a flat color fill. */
+/* Game Modes grid (Choose Your Challenge) - same .class-btn/.class-icon-badge
+   base as Choose Class above, just with an emoji glyph instead of an SVG
+   (explicit request for this one section - the rest of the UI keeps this
+   project's usual no-emoji convention). */
+.class-icon-emoji {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.class-btn[data-game-mode="classic"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-olive); }
+.class-btn[data-game-mode="zombieDefense"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-blue); }
+.class-btn[data-game-mode="bossHunt"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-gold); }
+.class-btn[data-game-mode="zombieRush"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-red); }
+.class-btn[data-game-mode="zombieExtraction"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-green); }
+
+.class-btn[data-game-mode="classic"].active { color: var(--menu-olive); background: rgba(146, 160, 94, 0.32); border-color: var(--menu-olive); }
+.class-btn[data-game-mode="zombieDefense"].active { color: var(--menu-blue); background: rgba(111, 168, 220, 0.32); border-color: var(--menu-blue); }
+.class-btn[data-game-mode="bossHunt"].active { color: var(--menu-gold); background: rgba(217, 163, 74, 0.32); border-color: var(--menu-gold); }
+.class-btn[data-game-mode="zombieRush"].active { color: var(--menu-red); background: rgba(201, 86, 74, 0.32); border-color: var(--menu-red); }
+.class-btn[data-game-mode="zombieExtraction"].active { color: var(--menu-green); background: rgba(127, 216, 160, 0.32); border-color: var(--menu-green); }
+
+/* Locked (Coming Soon) entries - same dimmed/inert treatment as the
+   Deathmatch FFA/Team toggles (.mode-toggle.locked), not a button that
+   looks clickable but silently does nothing. */
+.class-btn.locked {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.class-btn.locked:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+  color: var(--menu-text-dim);
+}
+
+.mode-select-soon {
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
 .class-btn[data-role="ranged"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-green); }
 .class-btn[data-role="melee"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-orange); }
 .class-btn[data-role="medic"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-blue); }

@@ -342,6 +342,12 @@ function loadSettings() {
       guestMode: parsed.guestMode ?? false,
       endlessMode: parsed.endlessMode ?? false,
       loadout: LOADOUT_PRESETS[parsed.loadout] ? parsed.loadout : 'balanced',
+      // Game Modes grid (Choose Your Challenge) - 'classic' is plain
+      // Zombie Survival, no special mutator. Only zombieDefense has a real
+      // mode behind it so far (bossHunt/zombieRush/zombieExtraction stay
+      // locked in the grid until each is actually built) - see
+      // _bindGameModeSelect for how this drives settings.mutators.zombieDefense.
+      selectedGameMode: ['classic', 'zombieDefense'].includes(parsed.selectedGameMode) ? parsed.selectedGameMode : 'classic',
       // 3-slot hotbar (see Game.js's _bindHotbar) - slot 0 is whatever gun
       // was picked in the Play/Pause weapon picker, slots 1-2 are the fixed
       // M1911/Knife backup weapons every run starts with.
@@ -502,7 +508,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, killFeedPosition: 'right', compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, showPausePlaytime: true, instantStationInteract: false, confirmQuitRun: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false } }
+  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, killFeedPosition: 'right', compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, showPausePlaytime: true, instantStationInteract: false, confirmQuitRun: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -3174,6 +3180,7 @@ export class Game {
     this.difficultyBtns = document.querySelectorAll('.difficulty-btn')
     this.roleBtns = document.querySelectorAll('.role-btn')
     this.loadoutBtns = document.querySelectorAll('.loadout-btn')
+    this.gameModeSelectBtns = document.querySelectorAll('.mode-select-btn')
     this.settingsBtn = document.getElementById('settings-btn')
     this.settingsPanel = document.getElementById('settings-panel')
     this.languageGrid = document.getElementById('language-grid')
@@ -3365,7 +3372,6 @@ export class Game {
     this.mutatorHordeMode = document.getElementById('mutator-horde-mode')
     this.mutatorKoth = document.getElementById('mutator-koth')
     this.mutatorExtraction = document.getElementById('mutator-extraction')
-    this.mutatorZombieDefense = document.getElementById('mutator-zombie-defense')
     this.mutatorDaily = document.getElementById('mutator-daily')
     this.mutatorHealthRegen = document.getElementById('mutator-health-regen')
     this.mutatorIronMode = document.getElementById('mutator-iron-mode')
@@ -4689,6 +4695,7 @@ export class Game {
     this._bindDifficulty()
     this._bindCompanionRole()
     this._bindLoadout()
+    this._bindGameModeSelect()
     // Must run after the three binds above - _checkSetupCode's payload
     // apply works by calling .click() on the real difficulty/role/loadout
     // buttons, which only does anything once their own listeners are
@@ -7666,11 +7673,6 @@ export class Game {
       this.settings.mutators.extraction = this.mutatorExtraction.checked
       saveSettings(this.settings)
     })
-    this.mutatorZombieDefense.checked = this.settings.mutators.zombieDefense
-    this.mutatorZombieDefense.addEventListener('change', () => {
-      this.settings.mutators.zombieDefense = this.mutatorZombieDefense.checked
-      saveSettings(this.settings)
-    })
     this.mutatorDaily.checked = this.settings.mutators.dailyChallenge
     this.mutatorDaily.addEventListener('change', () => {
       this.settings.mutators.dailyChallenge = this.mutatorDaily.checked
@@ -9832,6 +9834,28 @@ export class Game {
     }
   }
 
+  // Game Modes grid (Choose Your Challenge) - single-select like Choose
+  // Class's role/loadout buttons above, not the general checkbox mutators
+  // list. Locked (Coming Soon) entries carry a real `disabled` attribute
+  // in the HTML, so they never reach this click handler at all - no extra
+  // guard needed here for those. Only zombieDefense has a real mode wired
+  // up so far; picking it just flips the same settings.mutators.zombieDefense
+  // flag the run-start block already reads (see this mutator's own
+  // top-of-file comment) - future modes get their own flag the same way
+  // once they're built.
+  _bindGameModeSelect() {
+    for (const btn of this.gameModeSelectBtns) {
+      btn.classList.toggle('active', btn.dataset.gameMode === this.settings.selectedGameMode)
+      btn.addEventListener('click', () => {
+        const mode = btn.dataset.gameMode
+        this.settings.selectedGameMode = mode
+        this.settings.mutators.zombieDefense = mode === 'zombieDefense'
+        saveSettings(this.settings)
+        for (const b of this.gameModeSelectBtns) b.classList.toggle('active', b === btn)
+      })
+    }
+  }
+
   // Applied once per page load (not on respawn - inventory/points already
   // survive respawns as-is, so re-granting these would let repeated
   // dying farm free items).
@@ -11602,7 +11626,6 @@ export class Game {
     document.getElementById('mutator-horde-mode-label').textContent = t('mutatorHordeMode')
     document.getElementById('mutator-koth-label').textContent = t('mutatorKoth')
     document.getElementById('mutator-extraction-label').textContent = t('mutatorExtraction')
-    document.getElementById('mutator-zombie-defense-label').textContent = t('mutatorZombieDefense')
     document.getElementById('mutator-daily-label').textContent = t('mutatorDaily')
     document.getElementById('mutator-health-regen-label').textContent = t('mutatorHealthRegen')
     document.getElementById('mutator-iron-mode-label').textContent = t('mutatorIronMode')
