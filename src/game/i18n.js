@@ -895,6 +895,8 @@ const STRINGS = {
     // own separate panel, previously combined with Credits.
     creditsBtn: 'Credits',
     creditsPanelTitle: 'Credits',
+    shopPanelTitle: 'Shop',
+    shopPanelSoonNote: "More on the way - crates aren't openable yet.",
     whatsNewPanelTitle: 'What\'s New',
     navLinkRules: 'Rules & Info',
     navLinkWhatsNew: 'What\'s New',

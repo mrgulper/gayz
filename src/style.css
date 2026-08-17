@@ -951,6 +951,7 @@ html.large-text-mode #share-panel,
 html.large-text-mode #achievements-panel,
 html.large-text-mode #profile-panel,
 html.large-text-mode #credits-panel,
+html.large-text-mode #shop-panel,
 html.large-text-mode #whatsnew-panel,
 html.large-text-mode #howtoplay-panel,
 html.large-text-mode #cloudsave-panel,
@@ -2596,6 +2597,7 @@ select option {
 #achievements-panel,
 #profile-panel,
 #credits-panel,
+#shop-panel,
 #whatsnew-panel,
 #howtoplay-panel,
 #cloudsave-panel,
@@ -2822,6 +2824,7 @@ select option {
 #achievements-panel-title,
 #profile-panel-title,
 #credits-panel-title,
+#shop-panel-title,
 #whatsnew-panel-title,
 #howtoplay-panel-title,
 #cloudsave-panel-title,
@@ -4325,7 +4328,7 @@ html {
    the standard 4-height overflow measurement this project always
    re-checks after a size-affecting change). */
 html.text-spacing-active #menu, html.text-spacing-active .menu-panel, html.text-spacing-active #upgrades-panel,
-html.text-spacing-active #credits-panel, html.text-spacing-active #whatsnew-panel, html.text-spacing-active #achievements-panel,
+html.text-spacing-active #credits-panel, html.text-spacing-active #shop-panel, html.text-spacing-active #whatsnew-panel, html.text-spacing-active #achievements-panel,
 html.text-spacing-active #profile-panel, html.text-spacing-active #settings-panel,
 html.text-spacing-active #quests-panel, html.text-spacing-active #share-panel, html.text-spacing-active #cloudsave-panel, html.text-spacing-active #howtoplay-panel {
   letter-spacing: calc((var(--text-spacing, 100) - 100) * 0.005px);
@@ -4344,6 +4347,7 @@ html.button-size-scaled button {
 html.reduce-transparency .menu-panel,
 html.reduce-transparency #upgrades-panel,
 html.reduce-transparency #credits-panel,
+html.reduce-transparency #shop-panel,
 html.reduce-transparency #whatsnew-panel,
 html.reduce-transparency #achievements-panel,
 html.reduce-transparency #profile-panel,
@@ -4727,6 +4731,52 @@ html.theme-lighter #app { filter: brightness(1.25); }
 .class-btn[data-game-mode="bossHunt"].active { color: var(--menu-gold); background: rgba(217, 163, 74, 0.32); border-color: var(--menu-gold); }
 .class-btn[data-game-mode="zombieRush"].active { color: var(--menu-red); background: rgba(201, 86, 74, 0.32); border-color: var(--menu-red); }
 .class-btn[data-game-mode="zombieExtraction"].active { color: var(--menu-green); background: rgba(127, 216, 160, 0.32); border-color: var(--menu-green); }
+
+/* Shop crate rarities - visual only for now (see .shop-crate-card below),
+   so these are colored unconditionally rather than only on .active like
+   the game-mode/class buttons above - there's no "selected" crate here,
+   all 6 show their own color at once. */
+.class-btn[data-rarity="common"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), #9a9a94; }
+.class-btn[data-rarity="uncommon"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-green); }
+.class-btn[data-rarity="rare"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-blue); }
+.class-btn[data-rarity="epic"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-purple); }
+.class-btn[data-rarity="legendary"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-gold); }
+.class-btn[data-rarity="mythic"] .class-icon-badge { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 45%, rgba(0, 0, 0, 0.3) 100%), var(--menu-red); }
+
+.class-btn[data-rarity="common"] { color: #9a9a94; border-color: rgba(154, 154, 148, 0.4); }
+.class-btn[data-rarity="uncommon"] { color: var(--menu-green); border-color: rgba(127, 216, 160, 0.4); }
+.class-btn[data-rarity="rare"] { color: var(--menu-blue); border-color: rgba(111, 168, 220, 0.4); }
+.class-btn[data-rarity="epic"] { color: var(--menu-purple); border-color: rgba(176, 124, 214, 0.4); }
+.class-btn[data-rarity="legendary"] { color: var(--menu-gold); border-color: rgba(217, 163, 74, 0.4); }
+.class-btn[data-rarity="mythic"] { color: var(--menu-red); border-color: rgba(201, 86, 74, 0.4); }
+
+/* Not clickable yet (see the Shop panel's own comment in Game.js) - no
+   pointer cursor or hover lift, so it doesn't look like a button that
+   silently does nothing. */
+.shop-crate-card {
+  cursor: default;
+  gap: 4px;
+}
+
+.shop-crate-card:hover {
+  color: inherit;
+  border-color: inherit;
+}
+
+.shop-crate-rarity-note {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.65;
+}
+
+#shop-panel-soon-note {
+  margin-top: 4px;
+  font-size: 13px;
+  opacity: 0.6;
+  text-align: center;
+}
 
 /* Locked (Coming Soon) entries - same dimmed/inert treatment as the
    Deathmatch FFA/Team toggles (.mode-toggle.locked), not a button that

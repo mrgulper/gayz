@@ -4440,6 +4440,9 @@ export class Game {
     this.goalsChecklist = document.getElementById('goals-checklist')
     this.creditsPanel = document.getElementById('credits-panel')
     this.creditsPanelTitle = document.getElementById('credits-panel-title')
+    this.shopPanel = document.getElementById('shop-panel')
+    this.shopPanelTitle = document.getElementById('shop-panel-title')
+    this.shopPanelSoonNote = document.getElementById('shop-panel-soon-note')
     this.whatsNewPanel = document.getElementById('whatsnew-panel')
     this.whatsNewPanelTitle = document.getElementById('whatsnew-panel-title')
     this.buildVersionLine = document.getElementById('build-version-line')
@@ -5090,7 +5093,7 @@ export class Game {
       window.location.reload()
     })
     this.pauseUpgradesBtn.addEventListener('click', () => this._openUpgradesPanel())
-    this.pauseShopBtn.addEventListener('click', () => this._openComingSoonPanel())
+    this.pauseShopBtn.addEventListener('click', () => this._openShopPanel())
     this.pauseWeaponBtn.addEventListener('click', () => {
       // Hide Pause first - both panels share the shared panel rule's
       // z-index:15, so with Pause left open underneath, DOM order (it
@@ -7900,7 +7903,7 @@ export class Game {
     this.shareRunCardBtn.addEventListener('click', () => this._generateRunSummaryCard())
     if (this.copyTextRecapBtn) this.copyTextRecapBtn.addEventListener('click', () => this._copyTextRecap())
     this.creditsBtn.addEventListener('click', () => trackAndOpen(() => this._openCreditsPanel()))
-    this.coinshopBtn.addEventListener('click', () => trackAndOpen(() => this._openComingSoonPanel()))
+    this.coinshopBtn.addEventListener('click', () => trackAndOpen(() => this._openShopPanel()))
     this._bindHomepageBatch()
     CloudSaveUI.bindCloudSave(this)
     this._startPresenceHeartbeat()
@@ -7971,6 +7974,9 @@ export class Game {
     })
     this.creditsPanel.addEventListener('click', (e) => {
       if (e.target === this.creditsPanel) this._closeCreditsPanel()
+    })
+    this.shopPanel.addEventListener('click', (e) => {
+      if (e.target === this.shopPanel) this._closeShopPanel()
     })
     if (this.otherProfilePanel) {
       this.otherProfilePanel.addEventListener('click', (e) => {
@@ -13460,6 +13466,20 @@ export class Game {
 
   _closeCreditsPanel() {
     this.creditsPanel.style.display = 'none'
+  }
+
+  // Shop - first pass is visual only (see the panel's own comment in
+  // index.html): a crate for each rarity tier, colored per the rarity
+  // table, no purchase/open logic wired up yet. .shop-crate-card entries
+  // are plain divs, not buttons - nothing to click through to yet.
+  _openShopPanel() {
+    this.shopPanel.style.display = 'flex'
+    this.shopPanelTitle.textContent = t('shopPanelTitle')
+    this.shopPanelSoonNote.textContent = t('shopPanelSoonNote')
+  }
+
+  _closeShopPanel() {
+    this.shopPanel.style.display = 'none'
   }
 
   // What's New panel - split out from Credits (used to be one combined
