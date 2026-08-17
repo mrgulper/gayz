@@ -36,7 +36,7 @@ export const ACTIONS = [
   { id: 'journal', defaultKey: 'KeyI', labelKey: 'actionJournal' },
   { id: 'photoMode', defaultKey: 'KeyO', labelKey: 'actionPhotoMode' },
   { id: 'screenshot', defaultKey: 'KeyP', labelKey: 'actionScreenshot' },
-  { id: 'toggleView', defaultKey: 'KeyX', labelKey: 'actionToggleView' },
+  { id: 'toggleView', defaultKey: 'KeyK', labelKey: 'actionToggleView' },
   { id: 'dodge', defaultKey: 'ShiftLeft', labelKey: 'actionDodge' },
   { id: 'threatPing', defaultKey: 'Backquote', labelKey: 'actionThreatPing' },
   { id: 'taunt', defaultKey: 'Slash', labelKey: 'actionTaunt' },
