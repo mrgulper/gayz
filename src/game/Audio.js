@@ -31,6 +31,7 @@ class AudioEngine {
     this.ambientStarted = false
     this.music = null
     this.musicStarted = false
+    this.radioMuted = false
     this.zombieBuffers = { attack: [], moan: [], death: [] }
     this.sfxVolume = 1
     this.musicVolume = 1
@@ -932,7 +933,55 @@ class AudioEngine {
     this._windGainNode = windGain
     this._ambientIndoorAmount = 0
 
+    // Weather-reactive audio (see setWeatherAudio, called from Game.js's
+    // _rollWeather) - same looped-noise-buffer technique as the wind bed
+    // just above, but bandpassed higher (rain hiss vs wind rumble) so the
+    // two read as distinct layers rather than one just being a louder
+    // version of the other. Starts at 0 gain - setWeatherAudio ramps it up
+    // only once a night actually rolls rain, never audible on a clear one.
+    const rainBuffer = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate)
+    const rainData = rainBuffer.getChannelData(0)
+    for (let i = 0; i < rainData.length; i++) rainData[i] = Math.random() * 2 - 1
+    const rain = ctx.createBufferSource()
+    rain.buffer = rainBuffer
+    rain.loop = true
+    const rainFilter = ctx.createBiquadFilter()
+    rainFilter.type = 'bandpass'
+    rainFilter.frequency.value = 3200
+    rainFilter.Q.value = 0.5
+    const rainGain = ctx.createGain()
+    rainGain.gain.value = 0
+    rain.connect(rainFilter).connect(rainGain).connect(this.ambientGain)
+    rain.start(now)
+    this._rainGainNode = rainGain
+
     this._scheduleAmbientScare()
+  }
+
+  // Weather-reactive audio mix - ramps the rain-hiss bed in/out (see
+  // startAmbient above) and muffles the SFX bus the same way indoor spaces
+  // already do (see setIndoorAmount's lowpass idea), so gunfire genuinely
+  // sounds duller in a storm instead of weather only being a visual/
+  // gameplay-vision effect. Snow gets a much lighter version - no hiss,
+  // just a touch of muffling - matching how the visual weather system
+  // already treats snow as calmer than rain (no thunder, less fog).
+  setWeatherAudio(raining, snowing) {
+    if (!this.ctx || !this._rainGainNode || !this.sfxGain) return
+    const now = this.ctx.currentTime
+    const targetRainGain = raining ? 0.05 : 0
+    this._rainGainNode.gain.cancelScheduledValues(now)
+    this._rainGainNode.gain.linearRampToValueAtTime(targetRainGain, now + 2)
+    if (!this._weatherMuffleFilter) {
+      const f = this.ctx.createBiquadFilter()
+      f.type = 'lowpass'
+      f.frequency.value = 22000
+      this.sfxGain.disconnect()
+      this.sfxGain.connect(f).connect(this.ctx.destination)
+      this._weatherMuffleFilter = f
+    }
+    const targetCutoff = raining ? 5200 : snowing ? 9000 : 22000
+    this._weatherMuffleFilter.frequency.cancelScheduledValues(now)
+    this._weatherMuffleFilter.frequency.linearRampToValueAtTime(targetCutoff, now + 2)
   }
 
   // Underground/indoor spaces (sewer, subway, buildings) get a duller,
@@ -982,7 +1031,16 @@ class AudioEngine {
     // Louder (not just faster) at high threat, on top of whatever the base
     // fade-in/settings-slider volume already is - capped well under 1 so it
     // never clips or drowns out SFX even at max intensity.
-    this.music.volume = MUSIC_VOLUME * this.musicVolume * (0.85 + this.musicIntensity * 0.3)
+    this.music.volume = this.radioMuted ? 0 : MUSIC_VOLUME * this.musicVolume * (0.85 + this.musicIntensity * 0.3)
+  }
+
+  // Car Radio toggle - mutes/unmutes the same music track rather than
+  // adding a second audio source, since this game only has the one music
+  // bed to begin with. Returns the new muted state for the caller's toast.
+  toggleRadio() {
+    this.radioMuted = !this.radioMuted
+    this._applyMusicVolume()
+    return this.radioMuted
   }
 
   setMusicIntensity(intensity) {

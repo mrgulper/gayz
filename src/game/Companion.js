@@ -36,6 +36,8 @@ const FOLLOW_DISTANCE = 3.2
 const CATCH_UP_DISTANCE = 6
 const MOVE_SPEED = 4.2
 const CATCH_UP_SPEED_MULT = 1.8
+const AGGRESSIVE_ENGAGE_MULT = 1.5
+const AGGRESSIVE_FIRE_RATE_MULT = 0.7
 const TRACER_MS = 120
 
 // Downed state (vulnerable companions only, see the constructor's
@@ -99,6 +101,12 @@ export class Companion {
     this.group.position.set(x, 0, z)
     this._buildBody()
     this._buildNameTag()
+    // Downed-state beacon (see update's pulse + _goDown/revive) - off
+    // (intensity 0) whenever standing, so it costs nothing visually or
+    // performance-wise until actually needed.
+    this._downedBeacon = new THREE.PointLight(0xff2a2a, 0, 6)
+    this._downedBeacon.position.set(0, 1.6 / this.group.scale.x, 0)
+    this.group.add(this._downedBeacon)
     scene.add(this.group)
 
     this.nextFireAt = 0
@@ -376,10 +384,14 @@ export class Companion {
     this.group.add(this.weaponProp)
   }
 
-  update(dt, playerPos, zombies, onHeal) {
+  update(dt, playerPos, zombies, onHeal, aggressive = false) {
     if (this.dead) return
     if (this.downed) {
       if (this.usingGLB) this.mixer.update(dt)
+      // Pulsing red beacon (see _goDown/revive) - a distance-visible cue
+      // that a squadmate is down and revivable, since the ground-level
+      // tip-over pose alone is easy to miss from across a street.
+      this._downedBeacon.intensity = 1 + Math.sin(performance.now() / 220) * 0.6
       if (this.canAutoRevive && !this.autoRevivedUsed && performance.now() - this.downedAt > AUTO_REVIVE_DELAY_MS) {
         this.autoRevivedUsed = true
         this.downed = false
@@ -387,6 +399,7 @@ export class Companion {
         this.health = this.maxHealth * AUTO_REVIVE_HEALTH_FRACTION
         this.nextSwarmTickAt = performance.now() + SWARM_TICK_MS
         this.group.rotation.x = 0
+        this._downedBeacon.intensity = 0
         if (this.usingGLB) this._playGlbAction('standup', false)
         this._restoreNameTag()
         return
@@ -394,6 +407,7 @@ export class Companion {
       if (!this.dead && performance.now() - this.downedAt > DOWNED_BLEED_OUT_MS) {
         this.dead = true
         this.justDied = true
+        this._downedBeacon.intensity = 0
       }
       return
     }
@@ -421,7 +435,7 @@ export class Companion {
     }
 
     let nearest = null
-    let nearestDist = this.stats.engageRange
+    let nearestDist = aggressive ? this.stats.engageRange * AGGRESSIVE_ENGAGE_MULT : this.stats.engageRange
     for (const z of zombies) {
       if (z.state !== 'alive') continue
       const d = Math.hypot(z.group.position.x - this.group.position.x, z.group.position.z - this.group.position.z)
@@ -455,9 +469,10 @@ export class Companion {
       }
     }
 
-    const attackRange = this.role === 'melee' ? this.stats.meleeRange : this.stats.engageRange
+    const baseAttackRange = this.role === 'melee' ? this.stats.meleeRange : this.stats.engageRange
+    const attackRange = aggressive ? baseAttackRange * AGGRESSIVE_ENGAGE_MULT : baseAttackRange
     if (nearest && nearestDist <= attackRange && performance.now() >= this.nextFireAt) {
-      this.nextFireAt = performance.now() + this.stats.fireInterval * 1000
+      this.nextFireAt = performance.now() + this.stats.fireInterval * 1000 * (aggressive ? AGGRESSIVE_FIRE_RATE_MULT : 1)
       const damage = (this.stats.damageMin + Math.random() * (this.stats.damageMax - this.stats.damageMin)) * this.gearDamageMult
       nearest.onHit(damage)
       this._glbAttackUntil = performance.now() + 400
@@ -560,6 +575,7 @@ export class Companion {
     } else {
       this.group.rotation.x = -Math.PI / 2
     }
+    this._downedBeacon.intensity = 1.5
     this._showDownedTag()
   }
 
@@ -574,6 +590,7 @@ export class Companion {
     this.health = this.maxHealth * REVIVE_HEALTH_FRACTION
     this.nextSwarmTickAt = performance.now() + SWARM_TICK_MS
     this.group.rotation.x = 0
+    this._downedBeacon.intensity = 0
     if (this.usingGLB) this._playGlbAction('standup', false)
     this._restoreNameTag()
   }
@@ -593,6 +610,7 @@ export class Companion {
     this.justDied = false
     this.nextSwarmTickAt = 0
     this.group.rotation.x = 0
+    this._downedBeacon.intensity = 0
     if (this.usingGLB) this._playGlbAction('idle', true)
     this._restoreNameTag()
   }

@@ -34,6 +34,16 @@ const TRACER_UP = new THREE.Vector3(0, 1, 0)
 const TRACER_LIFETIME_MS = 80
 const TRACER_MAX_RANGE = 60
 const MAX_TRACERS = 20
+// Shell ejection - a tiny brass-colored box, not a real casing model (this
+// project has no such asset), tossed sideways-and-up from the muzzle then
+// pulled down by a flat fake gravity constant and rotated for tumble. Reuses
+// the exact same pooled-array/bornAt/MAX-cap shape as tracers just above,
+// same reasoning (a sustained spray shouldn't leak dozens of live meshes).
+const SHELL_GEOMETRY = new THREE.BoxGeometry(0.012, 0.012, 0.03)
+const SHELL_MATERIAL = new THREE.MeshBasicMaterial({ color: 0xd9b04a })
+const SHELL_LIFETIME_MS = 900
+const SHELL_GRAVITY = 9.8
+const MAX_SHELLS = 24
 // Aim Assist (accessibility, see this.aimAssist) - a small forgiving radius
 // tried only when the precise shot missed every zombie, an 8-point ring in
 // normalized device coordinates rather than actually widening spread for
@@ -563,6 +573,7 @@ export class WeaponSystem {
     // puddle/decal arrays. Each tracer gets its own material instance (never
     // shared) since several can be fading concurrently under sustained fire.
     this.tracers = []
+    this.shellCasings = []
     // Void Ripper orbs in flight/vortex (see _spawnVoidRipperOrb) - a plain
     // array since at most one or two are ever active at once (single-shot,
     // low-reserve wonder weapon), same shape as tracers above.
@@ -1000,6 +1011,7 @@ export class WeaponSystem {
     this._meleeSwing = Math.max(0, this._meleeSwing - dt * MELEE_SWING_SPEED)
     this.isSprinting = isSprinting
     this._updateTracers()
+    this._updateShellCasings(dt)
     this._updateVoidRipperOrbs(dt)
     // Idle weapon inspect (see _updateViewmodelTransform) - resets the
     // instant the player does anything with the weapon, so it only ever
@@ -1115,6 +1127,61 @@ export class WeaponSystem {
         continue
       }
       tr.mesh.material.opacity = 0.85 * (1 - age / TRACER_LIFETIME_MS)
+    }
+  }
+
+  // Shell ejection - spawned from _fire() for any non-melee shot. Tossed
+  // sideways off the gun's right-hand side (camera-relative) with a bit of
+  // upward pop, gravity pulls it down, a per-shell random spin rate keeps
+  // it tumbling. SHELL_MATERIAL is one shared instance across every shell
+  // (never mutated per-instance - see this project's own "shared-material
+  // mutation" bug class note), so removal never disposes it; only the
+  // per-mesh scale is animated (shrinking briefly before despawn), which is
+  // safe to do per-instance without touching the shared material at all.
+  _spawnShellCasing(origin) {
+    const mesh = new THREE.Mesh(SHELL_GEOMETRY, SHELL_MATERIAL)
+    mesh.position.copy(origin)
+    this.scene.add(mesh)
+    const right = new THREE.Vector3()
+    this.camera.getWorldDirection(right)
+    right.set(right.z, 0, -right.x) // camera-relative right, ground-plane only
+    const vel = right.multiplyScalar(1.1 + Math.random() * 0.6)
+    vel.y = 1.6 + Math.random() * 0.8
+    vel.addScaledVector(new THREE.Vector3(0, 0, 1).applyQuaternion(this.camera.quaternion), -0.3)
+    this.shellCasings.push({
+      mesh,
+      vel,
+      spin: new THREE.Vector3((Math.random() - 0.5) * 14, (Math.random() - 0.5) * 14, (Math.random() - 0.5) * 14),
+      bornAt: performance.now(),
+    })
+    if (this.shellCasings.length > MAX_SHELLS) {
+      const oldest = this.shellCasings.shift()
+      this.scene.remove(oldest.mesh)
+    }
+  }
+
+  _updateShellCasings(dt) {
+    if (this.shellCasings.length === 0) return
+    const now = performance.now()
+    for (let i = this.shellCasings.length - 1; i >= 0; i--) {
+      const s = this.shellCasings[i]
+      const age = now - s.bornAt
+      if (age >= SHELL_LIFETIME_MS) {
+        this.scene.remove(s.mesh)
+        this.shellCasings.splice(i, 1)
+        continue
+      }
+      s.vel.y -= SHELL_GRAVITY * dt
+      s.mesh.position.addScaledVector(s.vel, dt)
+      s.mesh.rotation.x += s.spin.x * dt
+      s.mesh.rotation.y += s.spin.y * dt
+      s.mesh.rotation.z += s.spin.z * dt
+      if (s.mesh.position.y < 0) s.mesh.position.y = 0
+      const shrinkStart = SHELL_LIFETIME_MS - 200
+      if (age > shrinkStart) {
+        const scale = Math.max(0, 1 - (age - shrinkStart) / 200)
+        s.mesh.scale.setScalar(scale)
+      }
     }
   }
 
@@ -1303,6 +1370,7 @@ export class WeaponSystem {
       this._updateHud()
       audioEngine.playShot(w.id, w.suppressed)
       if (this.onWeaponFired && w.shakeIntensity) this.onWeaponFired(w.shakeIntensity, w.shakeDuration)
+      this._spawnShellCasing(this.muzzleLight.getWorldPosition(this._shellSpawnVec || (this._shellSpawnVec = new THREE.Vector3())))
     }
 
     const zombieMeshes = this.zombieManager ? this.zombieManager.hittableMeshes : []

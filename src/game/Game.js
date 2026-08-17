@@ -68,6 +68,7 @@ const COMPANION_BARKS = {
   bondTier1: ["Guess we're stuck together for tonight.", "Don't slow me down and we'll get along fine."],
   bondTier2: ["You're better at this than I expected.", "Alright, I trust you to watch my back now."],
   bondTier3: ["Whatever happens out here, I'm glad it's you I ended up with.", "We've made it this far. Let's make it further."],
+  ambushWarning: ['Something\'s hiding nearby - stay alert.', "I don't like this - there's one close, watching.", 'Careful - I can feel something waiting close by.'],
 }
 
 // Squad banter - a 2-line back-and-forth between companions, distinct
@@ -2495,6 +2496,8 @@ const QUICKSCOPE_WINDOW_MS = 350 // aim-to-headshot window that counts as a "qui
 const QUICKSCOPE_POINTS_BONUS = 25
 const BIG_HIT_DAMAGE_THRESHOLD = 45 // damage-number "big hit" tier, independent of the headshot tier
 const MINIMAP_PING_DURATION_MS = 3000
+const AMBUSH_WARNING_RADIUS = 9
+const AMBUSH_WARNING_COOLDOWN_MS = 20000
 const EVENT_HUSH_LEAD_MS = 3000
 // Photo Mode filters - same CSS filter() syntax works on both the live
 // canvas (style.filter, for the on-screen look) and Canvas 2D's ctx.filter
@@ -3077,6 +3080,7 @@ export class Game {
     this.deathSummary = document.getElementById('death-summary')
     this.deathGrade = document.getElementById('death-grade')
     this.deathHighlights = document.getElementById('death-highlights')
+    this.deathCauseBreakdown = document.getElementById('death-cause-breakdown')
     this.deathLegacyPoints = document.getElementById('death-legacy-points')
     this.deathScoreAttack = document.getElementById('death-score-attack')
     this.deathEndless = document.getElementById('death-endless')
@@ -4174,6 +4178,11 @@ export class Game {
     // the whole squad follows the player exactly like before this existed.
     this.squadHoldPosition = false
     this.squadHoldAnchor = null
+    // Focus Fire - third squad order alongside Follow/Hold Position (see
+    // _toggleSquadHold), cycled with the same key. Widens engage range and
+    // speeds up fire rate (see AGGRESSIVE_ENGAGE_MULT/AGGRESSIVE_FIRE_RATE_MULT
+    // in Companion.js) instead of introducing a separate targeting system.
+    this.squadAggressive = false
     this.recruitSpots = [
       { x: -3, z: -36, role: RECRUIT_ROLES[0] },
       { x: 3, z: 28, role: RECRUIT_ROLES[1] },
@@ -4581,6 +4590,8 @@ export class Game {
     // zone id per run, not re-shown every time the player passes back
     // through the same zone.
     this.warnedZones = new Set()
+    this._ambushWarnedZombies = new WeakSet()
+    this._nextAmbushWarningAt = 0
     this.loreMarkersFound = new Set()
     this.mapOpen = false
     this.fullMapPanel = document.getElementById('fullmap-panel')
@@ -5357,6 +5368,12 @@ export class Game {
 
       if (e.code === getKeyFor('horn') && this.driving) {
         this._useHorn()
+        return
+      }
+
+      if (e.code === getKeyFor('radio') && this.driving) {
+        const muted = audioEngine.toggleRadio()
+        this._showLoreToast(t(muted ? 'radioOffToast' : 'radioOnToast'))
         return
       }
 
@@ -6898,6 +6915,7 @@ export class Game {
         zone.nextTickAt = now + HAZARD_TICK_MS
         if (this.player.isDodging) return true // brief invincibility window, same as a zombie hit
         this.playerState.takeDamage(TICK_DAMAGE[zone.type])
+        this._logDamageTaken('deathCauseEnvironment', TICK_DAMAGE[zone.type])
         this._updateHealthHud()
         this.damageFlash.classList.remove('hit')
         void this.damageFlash.offsetWidth
@@ -10033,6 +10051,8 @@ export class Game {
   // yet to clear) and call this method right after, so Boss Hunt's spawn
   // below still lands after whichever reset already ran.
   _setupGameModeRun() {
+    this._damageBySource = { deathCauseZombies: 0, deathCauseEnvironment: 0, deathCauseOther: 0 }
+
     this.kothActive = this.settings.mutators.kingOfTheHill
     this.kothMarker.visible = this.kothActive
     if (this.kothActive) {
@@ -10074,6 +10094,16 @@ export class Game {
       this.zombieRushNextRampAt = 0
       this.zombieRushBestEl.textContent = t('zombieRushBest', { time: formatTime(this.zombieRushBest.ms) })
     }
+  }
+
+  // "Why did I die" breakdown - buckets damage into 3 broad sources rather
+  // than per-zombie-type, since ZombieManager's attack callback doesn't
+  // thread the attacker's identity through to Game.js. Infection is
+  // deliberately excluded: PlayerState.tickInfection has a health floor,
+  // so it structurally can never be a fatal cause on its own.
+  _logDamageTaken(source, amount) {
+    if (!this._damageBySource) return
+    this._damageBySource[source] = (this._damageBySource[source] || 0) + Math.max(0, amount)
   }
 
   // Selection-only here - the actual stat deltas (see LOADOUT_PRESETS) get
@@ -12974,7 +13004,9 @@ export class Game {
       this._showLoreToast(t('parrySuccess'))
     }
     if (this.shieldActive) damage *= 1 - SHIELD_DAMAGE_REDUCTION
-    this.playerState.takeDamage(damage * this.difficulty.damageMult * this.dailyDamageMult)
+    const appliedDamage = damage * this.difficulty.damageMult * this.dailyDamageMult
+    this.playerState.takeDamage(appliedDamage)
+    this._logDamageTaken('deathCauseZombies', appliedDamage)
     this._updateHealthHud()
     audioEngine.playZombieSnarl()
     audioEngine.playPlayerHurt()
@@ -13155,7 +13187,9 @@ export class Game {
     if (this.player.isDodging) return
     this.lastHitTakenAt = performance.now()
     if (this.shieldActive) damage *= 1 - SHIELD_DAMAGE_REDUCTION
-    this.playerState.takeDamage(damage * this.difficulty.damageMult * this.dailyDamageMult)
+    const appliedRivalDamage = damage * this.difficulty.damageMult * this.dailyDamageMult
+    this.playerState.takeDamage(appliedRivalDamage)
+    this._logDamageTaken('deathCauseOther', appliedRivalDamage)
     this._updateHealthHud()
     this.damageFlash.classList.remove('hit')
     void this.damageFlash.offsetWidth
@@ -13302,6 +13336,7 @@ export class Game {
         let damage = severity * FALL_DAMAGE_MAX
         if (this.player.isCrouching) damage *= FALL_DAMAGE_ROLL_MULT
         this.playerState.takeDamage(damage)
+        this._logDamageTaken('deathCauseOther', damage)
         this._updateHealthHud()
         this.damageFlash.classList.remove('hit')
         void this.damageFlash.offsetWidth
@@ -14089,6 +14124,7 @@ export class Game {
     const elapsed = formatTime(performance.now() - this.runStartedAt)
     this.deathStats.textContent = t('deathStats', { night: this.night, kills: this.kills, time: elapsed })
     this._renderRunSummary()
+    this._renderDeathCauseBreakdown()
 
     const legacyEarned = Math.floor(this.points * DEATH_POINTS_CONVERSION * (1 + this.metaProgress.prestigeLevel * 0.1))
     this.metaProgress.legacyPoints += legacyEarned
@@ -14150,6 +14186,26 @@ export class Game {
     setTimeout(() => {
       this.deathScreen.style.display = 'flex'
     }, DEATH_CAM_MS)
+  }
+
+  // "Why did I die" - shows the dominant damage source(s) for the run that
+  // just ended, from the buckets _logDamageTaken accumulated. Hidden
+  // entirely if nothing was logged (e.g. a hardcore respawn wiping the run
+  // before any damage source got recorded).
+  _renderDeathCauseBreakdown() {
+    const log = this._damageBySource || {}
+    const total = (log.deathCauseZombies || 0) + (log.deathCauseEnvironment || 0) + (log.deathCauseOther || 0)
+    if (total <= 0) {
+      this.deathCauseBreakdown.style.display = 'none'
+      return
+    }
+    const sources = ['deathCauseZombies', 'deathCauseEnvironment', 'deathCauseOther']
+      .map((key) => ({ key, amount: log[key] || 0 }))
+      .filter((s) => s.amount > 0)
+      .sort((a, b) => b.amount - a.amount)
+    const parts = sources.map((s) => t(s.key, { pct: Math.round((s.amount / total) * 100) }))
+    this.deathCauseBreakdown.textContent = t('deathCauseBreakdown', { breakdown: parts.join(', ') })
+    this.deathCauseBreakdown.style.display = 'block'
   }
 
   // Best-Run Pace Comparison (see BEST_RUN_PACE_KEY's own comment) - a
@@ -15839,6 +15895,7 @@ export class Game {
     this._nextSwarmBiteCheckAt = now + SWARM_BITE_CHECK_INTERVAL_MS
     if (Math.random() > SWARM_BITE_CHANCE) return
     this.playerState.takeDamage(SWARM_BITE_DAMAGE)
+    this._logDamageTaken('deathCauseEnvironment', SWARM_BITE_DAMAGE)
     this._updateHealthHud()
     this._showLoreToast(t('swarmBiteToast'))
   }
@@ -16475,6 +16532,7 @@ export class Game {
       // because the weather re-rolled to Perfect in the same window.
       if (this.player && !this._floodActiveUntil) this.player.environmentMult = 1
       this.nextLightningAt = 0
+      audioEngine.setWeatherAudio(false, false)
       // Guarded - _rollWeather is called once from the constructor itself,
       // before this.loreToast (a DOM ref assigned later in it) exists yet.
       if (this.loreToast) this._showLoreToast(t('perfectWeatherToast'))
@@ -16506,6 +16564,7 @@ export class Game {
       else if (this.heatwave) this._showLoreToast(t('heatwaveToast'))
     }
     this.nextLightningAt = this.raining ? performance.now() + LIGHTNING_MIN_DELAY_MS + Math.random() * LIGHTNING_DELAY_RANGE_MS : 0
+    audioEngine.setWeatherAudio(this.raining, this.snowing)
     // Flashlight range in heavy rain (see FLASHLIGHT_RAIN_RANGE_MULT's own
     // comment) - restored the instant rain stops, same as every other
     // per-night weather toggle here.
@@ -16686,6 +16745,7 @@ export class Game {
     // zombie-flinch effect above, not a replacement for it).
     if (this.playerState.alive && Math.random() < LIGHTNING_PLAYER_STRIKE_CHANCE) {
       this.playerState.takeDamage(LIGHTNING_PLAYER_STRIKE_DAMAGE)
+      this._logDamageTaken('deathCauseEnvironment', LIGHTNING_PLAYER_STRIKE_DAMAGE)
       this._updateHealthHud()
       this._triggerShake(0.2, 300)
       this._showLoreToast(t('lightningStruckToast'))
@@ -16856,17 +16916,25 @@ export class Game {
   // go down instead of just tanking hits forever - this reacts to the
   // one-shot justWentDown/justDied flags each companion sets on itself and
   // figures out who (if anyone) the player can currently revive.
-  // Squad Formation Toggle - "Hold Position" freezes the companion/temp
-  // companion/every recruit at wherever the player is standing right now
-  // (see the squadTargetPos substitution in the main tick); "Follow" (the
-  // default) goes right back to chasing the real player.
+  // Squad Formation Toggle - cycles Follow (default) -> Hold Position ->
+  // Focus Fire -> back to Follow, all off the same key. "Hold Position"
+  // freezes the companion/temp companion/every recruit at wherever the
+  // player is standing right now (see the squadTargetPos substitution in
+  // the main tick). "Focus Fire" keeps them following the player but fires
+  // at nearly a 1.5x wider range and faster (see the aggressive param
+  // threaded through Companion.update).
   _toggleSquadHold() {
-    this.squadHoldPosition = !this.squadHoldPosition
-    if (this.squadHoldPosition) {
+    if (!this.squadHoldPosition && !this.squadAggressive) {
+      this.squadHoldPosition = true
       const pos = this.player.controls.object.position
       this.squadHoldAnchor = { x: pos.x, z: pos.z }
       this._showLoreToast(t('squadHoldToast'))
+    } else if (this.squadHoldPosition) {
+      this.squadHoldPosition = false
+      this.squadAggressive = true
+      this._showLoreToast(t('squadAggressiveToast'))
     } else {
+      this.squadAggressive = false
       this._showLoreToast(t('squadFollowToast'))
     }
   }
@@ -18385,6 +18453,29 @@ export class Game {
     this._showLoreToast(t('zoneDangerToast'))
   }
 
+  // Ambush Warning - a companion callout for a genuinely hidden threat: an
+  // ambush-flagged zombie (see ZombieManager's isAmbush, a closer-than-
+  // normal spawn) that hasn't noticed the player yet (z.aware still false)
+  // and is already close by. WeakSet + a flat cooldown between warnings
+  // keeps this from repeating for the same zombie or firing constantly
+  // once several ambush spawns are nearby at once. Only fires with a real
+  // companion up and about, same guard every other companion-ability
+  // check in this file uses.
+  _updateAmbushWarning(playerPos) {
+    if (this.companion.dead || this.companion.downed) return
+    if (performance.now() < this._nextAmbushWarningAt) return
+    for (const z of this.zombies.zombies) {
+      if (!z.isAmbush || z.aware || z.state !== 'alive') continue
+      if (this._ambushWarnedZombies.has(z)) continue
+      const d = Math.hypot(z.group.position.x - playerPos.x, z.group.position.z - playerPos.z)
+      if (d > AMBUSH_WARNING_RADIUS) continue
+      this._ambushWarnedZombies.add(z)
+      this._nextAmbushWarningAt = performance.now() + AMBUSH_WARNING_COOLDOWN_MS
+      this._companionBark('ambushWarning')
+      return
+    }
+  }
+
   // Announces a wandering horde exactly once per appearance (see
   // ZombieManager's _maybeSpawnWanderingHorde) by watching for the
   // null-to-object transition, rather than needing a dedicated callback
@@ -18724,9 +18815,9 @@ export class Game {
       this.companion.update(dt, squadTargetPos, this.zombies.zombies, (amount) => {
         this.playerState.heal(amount)
         this._updateHealthHud()
-      })
-      if (this.tempCompanion) this.tempCompanion.update(dt, squadTargetPos, this.zombies.zombies, null)
-      for (const recruit of this.recruits) recruit.update(dt, squadTargetPos, this.zombies.zombies, null)
+      }, this.squadAggressive)
+      if (this.tempCompanion) this.tempCompanion.update(dt, squadTargetPos, this.zombies.zombies, null, this.squadAggressive)
+      for (const recruit of this.recruits) recruit.update(dt, squadTargetPos, this.zombies.zombies, null, this.squadAggressive)
       this._updateCompanionDownedState(playerPos)
       this._updateCompanionBond()
       for (const guard of this.safeZoneGuards) {
@@ -18788,6 +18879,7 @@ export class Game {
       this._updateMineHazards(playerPos)
       this._updateExploration(playerPos)
       this._updateZoneDangerWarning()
+      this._updateAmbushWarning(playerPos)
       this._updateVehicleProximity(playerPos)
       this._updateVireoTerminal(playerPos)
       this._updateStationTerminal(playerPos)
