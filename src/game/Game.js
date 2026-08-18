@@ -47,7 +47,10 @@ import * as MenuEasterEggs from './MenuEasterEggs.js'
 import { JOKE_TIPS, FUNNY_TRIVIA } from './MenuEasterEggs.js'
 import { MenuAvatar3D, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 import * as MenuPresets from './MenuPresets.js'
-import { BuildMode } from './BuildMode.js'
+// BuildMode.js is deliberately NOT statically imported here - it's a big,
+// self-contained system most visitors never touch (a whole separate
+// scene/camera/90+ block types), so it's dynamically imported on first use
+// instead (see _enterBuildMode) to keep it out of the initial page load.
 import * as CloudSync from './CloudSync.js'
 import * as CloudSaveUI from './CloudSaveUI.js'
 import { setColorblind } from './Accessibility.js'
@@ -1936,10 +1939,6 @@ const CLIP_RECORDING_FPS = 30
 // _onZombieKilled's own priority chain), just also logged with a
 // timestamp instead of only shown as a transient feed entry.
 const HIGHLIGHT_LOG_MAX_ENTRIES = 20
-// Photo mode filters (see _cyclePhotoFilter) - plain CSS filter presets
-// applied to the canvas element itself, cycled with a key while in photo
-// mode.
-const PHOTO_FILTERS = ['none', 'grayscale(1)', 'sepia(0.7)', 'contrast(1.4) saturate(1.3)']
 // First-time tutorial hint sequence - see _maybeShowTutorialHints.
 const TUTORIAL_SEEN_KEY = 'gayz-tutorial-seen'
 const TUTORIAL_HINT_START_DELAY_MS = 2500
@@ -3735,7 +3734,6 @@ export class Game {
     this._manualSlowMoActive = false
     this._clipRecorder = null
     this._highlightLog = []
-    this._photoFilterIndex = 0
     this._cinematicBarsActive = false
     this._reclaimedCells = new Map()
     this._lastAliveCountSeen = 0
@@ -3768,7 +3766,11 @@ export class Game {
     // (bare-bones mode), regardless of the separate Performance Mode
     // setting - a real, free GPU cost cut (no multi-sample resolve pass).
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: !LOW_QUALITY_MODE && !this.settings.performanceMode })
-    this.buildMode = new BuildMode(this.renderer)
+    // Lightweight placeholder until the player actually clicks Build (see
+    // _enterBuildMode) - satisfies every `this.buildMode.active` check
+    // scattered through the per-frame tick/keydown handlers without needing
+    // to touch every one of those call sites for a null-safety check.
+    this.buildMode = { active: false }
     this._userResScale = (this.settings.renderResolution ?? 100) / 100
     this.renderer.setPixelRatio(this._basePixelRatio() * this._userResScale)
     // Shadows off entirely under LOW_QUALITY_MODE - a big chunk of both
@@ -4748,11 +4750,17 @@ export class Game {
       if (e.code === 'Space') this._photoUp = true
       else if (e.code === 'ControlLeft' || e.code === 'ControlRight') this._photoDown = true
       else if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this._photoBoost = true
-      // Photo mode filters/cinematic bars - hardcoded to this listener
-      // (already isolated to photoModeOpen, same precedent as Space/Ctrl/
-      // Shift above) rather than added to the rebindable Keybinds.js list,
-      // since these only ever do anything while frozen in photo mode.
-      else if (e.code === 'KeyF') this._cyclePhotoFilter()
+      // Cinematic bars - hardcoded to this listener (already isolated to
+      // photoModeOpen, same precedent as Space/Ctrl/Shift above) rather
+      // than added to the rebindable Keybinds.js list, since it only ever
+      // does anything while frozen in photo mode. The real filter cycle
+      // lives on the repurposed minimapZoom key (see _cyclePhotoModeFilter) -
+      // there used to be a second, KeyF-bound filter cycle here too, but it
+      // only ever changed canvas.style.filter as a live preview that never
+      // made it into an actual saved/copied screenshot, and silently
+      // fought with the brightness/contrast graphics setting over that
+      // same CSS property. Removed rather than fixed, since the other
+      // system already covers "cycle a filter that actually applies."
       else if (e.code === 'KeyC') this._toggleCinematicBars()
     })
     window.addEventListener('keyup', (e) => {
@@ -5480,7 +5488,12 @@ export class Game {
           this._setPhotoModeHudHidden(false)
           this._showLoreToast(t('photoModeOff'))
           this.photoModeFilterIndex = 0
-          this.canvas.style.filter = 'none'
+          // Was a bare 'none', which silently wiped out the player's own
+          // brightness/contrast setting (same canvas.style.filter property,
+          // see _applyGraphicsFilters) every time Photo Mode was closed,
+          // whether or not its own filter was ever touched - restoring the
+          // real graphics filter instead of clearing it outright.
+          this._applyGraphicsFilters()
         }
         return
       }
@@ -5727,14 +5740,6 @@ export class Game {
   _flagHighlightMoment(label) {
     this._highlightLog.unshift({ label, night: this.night, elapsed: performance.now() - this.runStartedAt })
     if (this._highlightLog.length > HIGHLIGHT_LOG_MAX_ENTRIES) this._highlightLog.length = HIGHLIGHT_LOG_MAX_ENTRIES
-  }
-
-  // Photo mode filters (see PHOTO_FILTERS's own comment) - a plain CSS
-  // filter cycled on the canvas element itself.
-  _cyclePhotoFilter() {
-    this._photoFilterIndex = (this._photoFilterIndex + 1) % PHOTO_FILTERS.length
-    this.canvas.style.filter = PHOTO_FILTERS[this._photoFilterIndex]
-    this._showLoreToast(t('photoFilterChanged', { n: this._photoFilterIndex + 1, total: PHOTO_FILTERS.length }))
   }
 
   // Cinematic letterbox bars (see #cinematic-bars) - a purely visual CSS
@@ -10423,7 +10428,7 @@ export class Game {
   // Build Mode - a standalone block-placing sandbox (see BuildMode.js's own
   // comment), reachable from the homepage. Reuses this.menu's existing
   // hide/show pattern (same as starting a real run) rather than a new panel.
-  _enterBuildMode() {
+  async _enterBuildMode() {
     this.menu.style.display = 'none'
     // Build Mode is only ever reachable from the homepage nav (#menu is
     // hidden the instant a real run starts, see the 'lock' handler), but
@@ -10482,6 +10487,17 @@ export class Game {
     // gotten oriented. It now starts free; clicking into the viewport
     // acquires it (see BuildMode.js's _onPointerDown), and Escape releases
     // it again at any time (see _onKeyDownPicker).
+    // First visit this session - dynamically load the real class (see the
+    // top-of-file comment on why this isn't a static import) and swap it in
+    // for the placeholder. Every _tick()/keydown check in the meantime just
+    // reads active: false off the placeholder and no-ops, same as before
+    // Build Mode was ever touched at all - no race condition, just a few
+    // extra frames of the normal game rendering underneath until this
+    // resolves.
+    if (typeof this.buildMode.enter !== 'function') {
+      const { BuildMode } = await import('./BuildMode.js')
+      this.buildMode = new BuildMode(this.renderer)
+    }
     this.buildMode.enter()
   }
 

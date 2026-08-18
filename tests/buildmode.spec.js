@@ -4,9 +4,9 @@ import { gotoAndWaitForGame } from './helpers.js'
 test('entering Build Mode shows a scene with a ground plane, exiting returns to the homepage', async ({ page }) => {
   await gotoAndWaitForGame(page)
 
-  const result = await page.evaluate(() => {
+  const result = await page.evaluate(async () => {
     const g = window.__game
-    g._enterBuildMode()
+    await g._enterBuildMode()
     const enteredActive = g.buildMode.active
     // The ground is now a real, breakable block layer (see
     // _ensureGroundLayer), not a standalone mesh - check for an actual
@@ -31,7 +31,7 @@ test('free-fly movement moves the camera in Build Mode', async ({ page }) => {
 
   const result = await page.evaluate(async () => {
     const g = window.__game
-    g._enterBuildMode()
+    await g._enterBuildMode()
     const before = g.buildMode.camera.position.clone()
     g.buildMode._keys.add('KeyW')
     g.buildMode.update(0.5)
@@ -47,9 +47,9 @@ test('free-fly movement moves the camera in Build Mode', async ({ page }) => {
 test('placing and removing a block updates both the InstancedMesh and the internal map', async ({ page }) => {
   await gotoAndWaitForGame(page)
 
-  const result = await page.evaluate(() => {
+  const result = await page.evaluate(async () => {
     const g = window.__game
-    g._enterBuildMode()
+    await g._enterBuildMode()
     g.buildMode.placeBlock(2, 0, 3, 'brick')
     const afterPlace = {
       atBlock: g.buildMode.getBlockAt(2, 0, 3),
@@ -73,9 +73,9 @@ test('placing and removing a block updates both the InstancedMesh and the intern
 test('removing one block does not remove a different still-placed block of the same type (swap-remove correctness)', async ({ page }) => {
   await gotoAndWaitForGame(page)
 
-  const result = await page.evaluate(() => {
+  const result = await page.evaluate(async () => {
     const g = window.__game
-    g._enterBuildMode()
+    await g._enterBuildMode()
     g.buildMode.placeBlock(0, 0, 0, 'stone')
     g.buildMode.placeBlock(1, 0, 0, 'stone')
     g.buildMode.placeBlock(2, 0, 0, 'stone')
@@ -101,7 +101,7 @@ test('Tab opens the picker, clicking a swatch changes the selected block type', 
 
   const result = await page.evaluate(async () => {
     const g = window.__game
-    g._enterBuildMode()
+    await g._enterBuildMode()
     const beforeType = g.buildMode.selectedType
     g.buildMode.togglePicker()
     const openAfterToggle = g.buildMode.pickerOpen
@@ -122,9 +122,9 @@ test('Tab opens the picker, clicking a swatch changes the selected block type', 
 test('a saved build reloads correctly in a fresh BuildMode instance', async ({ page }) => {
   await gotoAndWaitForGame(page)
 
-  const result = await page.evaluate(() => {
+  const result = await page.evaluate(async () => {
     const g = window.__game
-    g._enterBuildMode()
+    await g._enterBuildMode()
     g.buildMode.placeBlock(5, 0, 5, 'metal')
     g.buildMode.placeBlock(6, 0, 5, 'glass')
     g.buildMode.save()
@@ -149,10 +149,10 @@ test('malformed save data does not crash Build Mode - starts with just the defau
   const errors = []
   page.on('pageerror', (err) => errors.push(err.message))
 
-  const result = await page.evaluate(() => {
+  const result = await page.evaluate(async () => {
     localStorage.setItem('gayz-build-mode', 'not valid json {{{')
     const g = window.__game
-    g._enterBuildMode()
+    await g._enterBuildMode()
     // No player-built blocks survive a malformed save, but the ground
     // layer (see _ensureGroundLayer) still backfills every cell - a full
     // GROUND_SIZE x GROUND_SIZE (128x128) layer, none of it player-placed.
@@ -168,15 +168,15 @@ test('malformed save data does not crash Build Mode - starts with just the defau
 test('re-entering Build Mode multiple times does not accumulate duplicate movement listeners', async ({ page }) => {
   await gotoAndWaitForGame(page)
 
-  const result = await page.evaluate(() => {
+  const result = await page.evaluate(async () => {
     const g = window.__game
     // Enter/exit 3 times before the real measurement - if listeners were
     // leaking, this is where duplicates would build up.
     for (let i = 0; i < 3; i++) {
-      g._enterBuildMode()
+      await g._enterBuildMode()
       g._exitBuildMode()
     }
-    g._enterBuildMode()
+    await g._enterBuildMode()
     const before = g.buildMode.camera.position.clone()
     g.buildMode._keys.add('KeyW')
     g.buildMode.update(0.5)

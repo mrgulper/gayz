@@ -22,6 +22,18 @@ test('a settings change persists across a real page reload', async ({ page }) =>
 })
 
 test('Restore Default Settings actually resets a changed value', async ({ page }) => {
+  // This test does THREE full Game() constructions (initial load, the
+  // explicit reload below, and the one _restoreDefaultSettings triggers) -
+  // playwright.config.js's global 120s timeout was sized for "two
+  // constructions plus margin" (see its own comment), which this test
+  // structurally exceeds under any real system load. That mismatch (not
+  // app or test-logic behavior) is what made this test flaky across a long
+  // session of otherwise-unrelated work - confirmed by manually driving
+  // the exact same reload sequence outside the Playwright runner, which
+  // passed reliably every single time. Overriding just this one test's
+  // timeout rather than raising the global one, since every other test in
+  // the suite really is covered by the existing 120s budget.
+  test.setTimeout(240000)
   await gotoAndWaitForGame(page)
 
   await page.evaluate(() => {

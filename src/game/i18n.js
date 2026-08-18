@@ -1124,7 +1124,6 @@ const STRINGS = {
     clipRecordingUnsupported: "This browser can't record video clips.",
     clipRecordingStarted: 'Recording clip...',
     clipSaved: 'Clip saved!',
-    photoFilterChanged: 'Filter {n}/{total}',
     clipboardCopyUnsupported: "Couldn't access the clipboard.",
     clipboardCopySuccess: 'Copied to clipboard!',
     ttsUnsupported: "Your browser doesn't support text-to-speech.",
