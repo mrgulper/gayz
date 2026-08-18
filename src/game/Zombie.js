@@ -25,6 +25,130 @@ export async function preloadZombieModel() {
   }
 }
 
+// Skin detail textures (see _buildBodyFromGLB/_buildBodyFromTitanGLB) - the
+// source GLBs ship one totally flat, untextured material per body, tinted
+// only by a solid per-instance color (bodyTint). These add real surface
+// detail (grime/wounds/wrinkles for zombies, overlapping scales for the
+// Titan) as a *multiply* layer on top of that same tint, rather than
+// replacing the tint system: drawn near-white with darker/reddish blotches,
+// so `material.map * material.color` still lands on whatever random tone
+// this instance picked, just no longer perfectly flat plastic. Built once
+// at module scope and shared by every instance (like Build Mode's per-type
+// canvas textures) - it's a detail layer, not a per-tone-specific skin, so
+// one shared texture works for every zombie type/tone/Titan alike.
+function _grimeBlobs(ctx, size, count, colorFn, radiusMin, radiusMax) {
+  for (let i = 0; i < count; i++) {
+    ctx.fillStyle = colorFn()
+    const r = radiusMin + Math.random() * (radiusMax - radiusMin)
+    ctx.beginPath()
+    ctx.arc(Math.random() * size, Math.random() * size, r, 0, Math.PI * 2)
+    ctx.fill()
+  }
+}
+
+function _buildZombieSkinTexture() {
+  const size = 512
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#f2f0ea'
+  ctx.fillRect(0, 0, size, size)
+  // Grime/dirt patches - broad, soft, low-opacity.
+  _grimeBlobs(ctx, size, 70, () => `rgba(40,35,25,${0.05 + Math.random() * 0.12})`, 6, 26)
+  // Wounds/blood - a handful of smaller, more saturated reddish blotches.
+  // These read as muted brownish-red against any tint, not pure red, since
+  // multiply can only darken/tint toward the texture's own hue, never add
+  // brightness the base tint doesn't already have.
+  _grimeBlobs(ctx, size, 10, () => `rgba(120,20,15,${0.25 + Math.random() * 0.25})`, 4, 14)
+  // Wrinkle/vein lines - thin, dark, low-opacity strokes.
+  ctx.lineWidth = 1.4
+  for (let i = 0; i < 40; i++) {
+    ctx.strokeStyle = `rgba(30,25,18,${0.08 + Math.random() * 0.1})`
+    let x = Math.random() * size
+    let y = Math.random() * size
+    ctx.beginPath()
+    ctx.moveTo(x, y)
+    for (let s = 0; s < 3; s++) {
+      x += (Math.random() - 0.5) * 40
+      y += (Math.random() - 0.5) * 40
+      ctx.lineTo(x, y)
+    }
+    ctx.stroke()
+  }
+  // Fine per-pixel grain - same cheap "isn't a flat computer-generated
+  // plane" trick Build Mode's block textures use.
+  const imgData = ctx.getImageData(0, 0, size, size)
+  const d = imgData.data
+  for (let i = 0; i < d.length; i += 4) {
+    const jitter = (Math.random() - 0.5) * 14
+    d[i] = Math.max(0, Math.min(255, d[i] + jitter))
+    d[i + 1] = Math.max(0, Math.min(255, d[i + 1] + jitter))
+    d[i + 2] = Math.max(0, Math.min(255, d[i + 2] + jitter))
+  }
+  ctx.putImageData(imgData, 0, 0)
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.wrapS = THREE.RepeatWrapping
+  tex.wrapT = THREE.RepeatWrapping
+  tex.repeat.set(2, 2)
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
+}
+
+function _buildTitanScaleTexture() {
+  const size = 512
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#eef0e6'
+  ctx.fillRect(0, 0, size, size)
+  // Overlapping scale rows - each scale a small downward-curved arc, offset
+  // every other row so they interlock like real reptile scales.
+  const rows = 18
+  const rowH = size / rows
+  for (let r = 0; r < rows; r++) {
+    const y = r * rowH
+    const offset = r % 2 === 0 ? 0 : rowH * 0.5
+    for (let x = -rowH; x < size + rowH; x += rowH) {
+      ctx.strokeStyle = `rgba(35,40,25,${0.1 + Math.random() * 0.1})`
+      ctx.lineWidth = 1.2
+      ctx.beginPath()
+      ctx.arc(x + offset, y, rowH * 0.55, 0.15 * Math.PI, 0.85 * Math.PI)
+      ctx.stroke()
+    }
+  }
+  // Broad mottled patches for organic color variation, same technique as
+  // the zombie skin texture's grime blobs.
+  _grimeBlobs(ctx, size, 30, () => `rgba(30,35,20,${0.06 + Math.random() * 0.1})`, 10, 34)
+  const imgData = ctx.getImageData(0, 0, size, size)
+  const d = imgData.data
+  for (let i = 0; i < d.length; i += 4) {
+    const jitter = (Math.random() - 0.5) * 12
+    d[i] = Math.max(0, Math.min(255, d[i] + jitter))
+    d[i + 1] = Math.max(0, Math.min(255, d[i + 1] + jitter))
+    d[i + 2] = Math.max(0, Math.min(255, d[i + 2] + jitter))
+  }
+  ctx.putImageData(imgData, 0, 0)
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.wrapS = THREE.RepeatWrapping
+  tex.wrapT = THREE.RepeatWrapping
+  tex.repeat.set(3, 3)
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
+}
+
+let _zombieSkinTexture = null
+let _titanScaleTexture = null
+function getZombieSkinTexture() {
+  if (!_zombieSkinTexture) _zombieSkinTexture = _buildZombieSkinTexture()
+  return _zombieSkinTexture
+}
+function getTitanScaleTexture() {
+  if (!_titanScaleTexture) _titanScaleTexture = _buildTitanScaleTexture()
+  return _titanScaleTexture
+}
+
 // Titan (dinosaur silhouette) - a real Quaternius T-Rex, entirely separate
 // from the humanoid zombie rig/animations above (different skeleton, own
 // walk/run/idle/attack/death/jump clips already baked in by the source
@@ -516,7 +640,14 @@ export class Zombie {
     // BRDF), on top of literally being "1 colour" as asked. Kept as a
     // simple flag rather than deleting the real-material path - see
     // QualitySettings.js.
-    const sharedLowQualityMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: bodyTint }) : null
+    // map is included even under LOW_QUALITY_MODE - Lambert genuinely
+    // supports it (see flatMaterial's own comment), and it's still just
+    // one shared texture object referenced here, not a per-instance
+    // clone, so this doesn't reopen the performance cost this mode exists
+    // to avoid. Without it, LOW_QUALITY_MODE being the game's current
+    // actual default (see QualitySettings.js) meant this whole skin-detail
+    // feature would never actually be visible in the live game at all.
+    const sharedLowQualityMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: bodyTint, map: getZombieSkinTexture() }) : null
 
     cloned.traverse((child) => {
       if (!child.isMesh) return
@@ -530,6 +661,12 @@ export class Zombie {
         // zombie sharing the same source material.
         child.material = flattenedClone(child.material)
         child.material.color.setHex(bodyTint)
+        // Shared grime/wound detail texture (see getZombieSkinTexture's own
+        // comment) - multiplies against bodyTint above, so this still
+        // reads as this instance's own random tone, just no longer a flat
+        // plastic plane. Skipped in LOW_QUALITY_MODE along with the rest
+        // of the real-material path above.
+        child.material.map = getZombieSkinTexture()
       }
       child.userData.zombie = this
       this.hittableMeshes.push(child)
@@ -615,7 +752,14 @@ export class Zombie {
       child.castShadow = true
       const isSkin = SKIN_MATERIAL_NAMES.has(child.material.name)
       child.material = flattenedClone(child.material)
-      if (isSkin) child.material.color.setHex(bodyTint)
+      if (isSkin) {
+        child.material.color.setHex(bodyTint)
+        // Shared scale-detail texture (see getTitanScaleTexture) - same
+        // multiply-over-tint approach as the humanoid zombie's skin
+        // texture, only on the actual skin materials so claws/eyes/teeth
+        // keep their own flat colors untouched.
+        child.material.map = getTitanScaleTexture()
+      }
       child.userData.zombie = this
       this.hittableMeshes.push(child)
       this.materials.add(child.material)
