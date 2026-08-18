@@ -3574,7 +3574,6 @@ export class Game {
     this.importSettingsCodeInput = document.getElementById('import-settings-code-input')
     this.importSettingsCodeApplyBtn = document.getElementById('import-settings-code-apply-btn')
     this.clearLeaderboardsBtn = document.getElementById('clear-leaderboards-btn')
-    this.profilePrintBtn = document.getElementById('profile-print-btn')
     this.printStatsSheet = document.getElementById('print-stats-sheet')
     this.copyTextRecapBtn = document.getElementById('copy-text-recap-btn')
     this.sharePanel = document.getElementById('share-panel')
@@ -4550,8 +4549,6 @@ export class Game {
     this.profilePanel = document.getElementById('profile-panel')
     this.profilePanelTitle = document.getElementById('profile-panel-title')
     this.profileOptions = document.getElementById('profile-options')
-    this.profileCopyStatsBtn = document.getElementById('profile-copy-stats-btn')
-    this.profileReadAloudBtn = document.getElementById('profile-read-aloud-btn')
     this.sharedProfileBanner = document.getElementById('shared-profile-banner')
     this.sharedProfileTitle = document.getElementById('shared-profile-title')
     this.sharedProfileLine = document.getElementById('shared-profile-line')
@@ -5752,43 +5749,6 @@ export class Game {
   _toggleCinematicBars() {
     this._cinematicBarsActive = !this._cinematicBarsActive
     if (this.cinematicBarsEl) this.cinematicBarsEl.style.display = this._cinematicBarsActive ? 'block' : 'none'
-  }
-
-  // Copy Profile stats as shareable text (see _openProfilePanel) - plain
-  // text via the Clipboard API, not an image.
-  _copyProfileStatsToClipboard() {
-    const lines = Array.from(this.profileOptions.querySelectorAll('.perk-option')).map((btn) => {
-      const name = btn.querySelector('.perk-name')?.textContent || ''
-      const value = btn.querySelector('.perk-cost')?.textContent || ''
-      return `${name}: ${value}`
-    })
-    const text = `GayZ Profile\n${lines.join('\n')}`
-    if (!navigator.clipboard) {
-      this._showLoreToast(t('clipboardCopyUnsupported'))
-      return
-    }
-    navigator.clipboard.writeText(text)
-      .then(() => this._showLoreToast(t('clipboardCopySuccess')))
-      .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
-  }
-
-  // Manual text-to-speech (Profile panel) - reads the exact same rows
-  // _copyProfileStatsToClipboard already extracts from the rendered grid,
-  // via the standard Web Speech API. A manual button rather than
-  // auto-reading on open, since an unannounced voice suddenly speaking
-  // would surprise a sighted user just browsing the panel.
-  _readProfileStatsAloud() {
-    if (!window.speechSynthesis) {
-      this._showLoreToast(t('ttsUnsupported'))
-      return
-    }
-    const lines = Array.from(this.profileOptions.querySelectorAll('.perk-option')).map((btn) => {
-      const name = btn.querySelector('.perk-name')?.textContent || ''
-      const value = btn.querySelector('.perk-cost')?.textContent || ''
-      return `${name}: ${value}.`
-    })
-    window.speechSynthesis.cancel()
-    window.speechSynthesis.speak(new SpeechSynthesisUtterance(lines.join(' ')))
   }
 
   // Cycles PHOTO_MODE_FILTERS and applies it live to the canvas so the
@@ -8150,8 +8110,6 @@ export class Game {
         if (e.key === 'Enter') this.nicknameInput.blur()
       })
     }
-    this.profileCopyStatsBtn.addEventListener('click', () => this._copyProfileStatsToClipboard())
-    if (this.profileReadAloudBtn) this.profileReadAloudBtn.addEventListener('click', () => this._readProfileStatsAloud())
     if (this.sharedProfileCloseBtn) {
       this.sharedProfileCloseBtn.addEventListener('click', () => { this.sharedProfileBanner.style.display = 'none' })
     }
@@ -8179,7 +8137,6 @@ export class Game {
       })
     }
     if (this.profileCareerPortraitBtn) this.profileCareerPortraitBtn.addEventListener('click', () => this._generateCareerPortrait())
-    if (this.profilePrintBtn) this.profilePrintBtn.addEventListener('click', () => this._printProfile())
     this.shareRunCardBtn.addEventListener('click', () => this._generateRunSummaryCard())
     if (this.copyTextRecapBtn) this.copyTextRecapBtn.addEventListener('click', () => this._copyTextRecap())
     this.creditsBtn.addEventListener('click', () => trackAndOpen(() => this._openCreditsPanel()))
@@ -9994,17 +9951,6 @@ export class Game {
     localStorage.removeItem(BOSS_RUSH_LEADERBOARD_KEY)
     localStorage.removeItem(DAILY_LEADERBOARD_KEY)
     window.location.reload()
-  }
-
-  // Print Stats Sheet - reuses profileOptions' already-rendered innerHTML
-  // (this button only exists inside the open Profile panel, so it's always
-  // populated by the time this can be clicked) rather than recomputing the
-  // same rows a second time. #print-stats-sheet is hidden on-screen and
-  // only shown by the @media print rule in style.css.
-  _printProfile() {
-    if (!this.printStatsSheet) return
-    this.printStatsSheet.innerHTML = `<h1>${t('printSheetTitle')}</h1>${this.profileOptions.innerHTML}`
-    window.print()
   }
 
   // Text Recap - a pure-text, Wordle-style shareable summary (no image),
@@ -14653,8 +14599,6 @@ export class Game {
     }
     if (this.profileContent) this.profileContent.style.display = ''
     if (this.profileLoginGate) this.profileLoginGate.style.display = 'none'
-    if (this.profileCopyStatsBtn) this.profileCopyStatsBtn.textContent = t('profileCopyStatsBtn')
-    if (this.profilePrintBtn) this.profilePrintBtn.textContent = t('profilePrintBtn')
     // Cosmetics counter - outfits+hats only.
     const cosmeticsOwned = this.ownedOutfits.size + this.ownedHats.size
     const cosmeticsTotal = COIN_SHOP_ITEMS.filter((i) => i.outfit || i.hat).length
