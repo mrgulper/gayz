@@ -11,15 +11,15 @@
          stack. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- display=optional (not swap) - on a hard refresh, swap would paint
-         the tagline/title in the fallback font first (different letter
-         proportions than Bebas Neue/Black Ops One at the same font-size)
-         then visibly snap to the real font a moment later once it
-         downloads, reading as a "big to normal" size jump. optional tells
-         the browser to skip that late swap entirely: use the custom font
-         only if it's already ready almost immediately, otherwise just keep
-         the fallback for this whole page view - no swap, no jump. -->
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Black+Ops+One&family=Lexend:wght@400;600&display=optional" rel="stylesheet" />
+    <!-- display=swap (reverted from optional - direct user feedback that
+         optional left the tagline/title permanently stuck on the fallback
+         font's larger-looking proportions instead of ever correcting to
+         the real one, which is worse than the original brief flash this
+         was meant to fix). swap guarantees the real font eventually
+         applies; the tradeoff is a brief flash on a cold hard-refresh,
+         which is standard, largely unavoidable behavior for any site using
+         a custom web font. -->
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Black+Ops+One&family=Lexend:wght@400;600&display=swap" rel="stylesheet" />
   </head>
   <body>
     <a href="#play-btn" id="skip-to-play-link">Skip to Play button</a>

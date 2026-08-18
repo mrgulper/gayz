@@ -24,12 +24,11 @@ const EXPLOSIVE_PROP_DAMAGE_MAX = 160
 // old z was -0.32, noticeably nearer than VIEWMODEL_BASE's -0.5) compounded
 // with that FOV zoom multiplicatively, making the gun balloon to a huge,
 // distorted size while aiming instead of just centering under the sights.
-// x=0 (dead-center, not just close to it) so the gun's own centerline lines
-// up with the crosshair instead of sitting slightly right of it; y a touch
-// lower than the old -0.1 so the gun sits just under the crosshair rather
-// than overlapping it, matching direct user feedback after seeing the
-// previous offset in-game ("fully middle and a bit under").
-const VIEWMODEL_ADS = new THREE.Vector3(0, -0.15, -0.5)
+// x=0, y=0 - dead-center on both axes, not offset below. An earlier pass
+// had y sitting a touch lower per an initial "a bit under" request, which
+// was then walked back ("i didnt mean to say that") - straight to the
+// middle of the screen when aiming.
+const VIEWMODEL_ADS = new THREE.Vector3(0, 0, -0.5)
 const ADS_LERP_SPEED = 9
 // Bullet tracers - unit-height geometry shared across every tracer instance,
 // stretched via mesh.scale.y per shot instead of rebuilding geometry every
