@@ -1069,6 +1069,12 @@ function loadCareerStats() {
       lifetimePlaytimeSeconds: parsed.lifetimePlaytimeSeconds || 0,
       lifetimeDistanceMeters: parsed.lifetimeDistanceMeters || 0,
       lifetimeCoinsEarned: parsed.lifetimeCoinsEarned || 0,
+      // Lifetime Points quest tier (see Quests.js) - unlike this.points
+      // itself (spent on perks/rerolls, goes back down), this only ever
+      // grows, same never-reset shape as lifetimeCoinsEarned above. Every
+      // points award routes through Game.js's _gainPoints so this can't
+      // drift out of sync with a scattered set of individual += sites.
+      lifetimePointsEarned: parsed.lifetimePointsEarned || 0,
       flawlessRunCount: parsed.flawlessRunCount || 0,
       playtimeMilestonesGranted: parsed.playtimeMilestonesGranted || [],
       distanceMilestonesGranted: parsed.distanceMilestonesGranted || [],
@@ -1121,7 +1127,7 @@ function loadCareerStats() {
   } catch {
     return {
       totalKills: 0, totalRuns: 0, veteranPerksGranted: [],
-      lifetimePlaytimeSeconds: 0, lifetimeDistanceMeters: 0, lifetimeCoinsEarned: 0, flawlessRunCount: 0,
+      lifetimePlaytimeSeconds: 0, lifetimeDistanceMeters: 0, lifetimeCoinsEarned: 0, lifetimePointsEarned: 0, flawlessRunCount: 0,
       playtimeMilestonesGranted: [], distanceMilestonesGranted: [], flawlessMilestonesGranted: [], hallOfRecordsClaimed: false,
       totalDeaths: 0, difficultyStats: {}, firstPlayedDate: null, accountCreatedAt: null,
       longestSessionSeconds: 0, deathsByType: {}, mutatorUseCounts: {},
@@ -2967,6 +2973,15 @@ export class Game {
     this.coordsEl.style.cssText = 'position:fixed;top:28px;left:6px;background:rgba(0,0,0,0.55);color:#8fc8ff;font:13px monospace;padding:3px 7px;border-radius:4px;z-index:9999;pointer-events:none;opacity:0;transition:opacity 0.8s ease;'
     this.coordsEl.textContent = 'x:0 z:0 y:0'
     document.body.appendChild(this.coordsEl)
+    // Spectate mode's own HUD label (see _enterSpectate/_exitSpectate) -
+    // bottom-left rather than stacked with fpsEl/coordsEl's top-left column
+    // since it's a mode indicator, not a debug readout, and should read
+    // clearly on its own even with those two also visible.
+    this.spectatingLabelEl = document.createElement('div')
+    this.spectatingLabelEl.id = 'spectating-label'
+    this.spectatingLabelEl.style.cssText = 'position:fixed;bottom:10px;left:10px;background:rgba(0,0,0,0.55);color:#e3a63c;font:14px sans-serif;font-weight:600;letter-spacing:1px;padding:5px 10px;border-radius:4px;z-index:9999;pointer-events:none;display:none;'
+    this.spectatingLabelEl.textContent = t('spectatingLabel')
+    document.body.appendChild(this.spectatingLabelEl)
     // Frame-Time Graph (opt-in, see settings.frameTimeGraph) - same
     // fixed-position/opacity-fade pattern as fpsEl/coordsEl above, a
     // small canvas sparkline instead of text.
@@ -4627,10 +4642,9 @@ export class Game {
     this.pauseOverlayTitle = document.getElementById('pause-overlay-title')
     this.pauseResumeBtn = document.getElementById('pause-resume-btn')
     this.pauseSettingsBtn = document.getElementById('pause-settings-btn')
-    this.pauseHowtoplayBtn = document.getElementById('pause-howtoplay-btn')
     this.pauseQuitBtn = document.getElementById('pause-quit-btn')
     this.pauseUpgradesBtn = document.getElementById('pause-upgrades-btn')
-    this.pauseShopBtn = document.getElementById('pause-shop-btn')
+    this.pauseSpectateBtn = document.getElementById('pause-spectate-btn')
     this.pauseWeaponBtn = document.getElementById('pause-weapon-btn')
     this.screenshotCropOverlay = document.getElementById('screenshot-crop-overlay')
     this.screenshotCropStage = document.getElementById('screenshot-crop-stage')
@@ -4747,8 +4761,15 @@ export class Game {
     this._photoUp = false
     this._photoDown = false
     this._photoBoost = false
+    // Spectate (see _enterSpectate/_exitSpectate) - a separate mode from
+    // Photo Mode, but reuses the exact same free-fly camera movement
+    // (_updatePhotoMode itself, and the Space/Ctrl/Shift up/down/boost
+    // flags right above) rather than duplicating that math, since the
+    // mechanic is identical: detach the camera, fly freely, no collision.
+    this.spectateOpen = false
+    this._spectateReturnPos = new THREE.Vector3()
     window.addEventListener('keydown', (e) => {
-      if (!this.photoModeOpen) return
+      if (!this.photoModeOpen && !this.spectateOpen) return
       if (e.code === 'Space') this._photoUp = true
       else if (e.code === 'ControlLeft' || e.code === 'ControlRight') this._photoDown = true
       else if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this._photoBoost = true
@@ -4822,7 +4843,7 @@ export class Game {
         if (isHeadshot && !this.weapons.current.melee && this.weapons.aiming && this.weapons.aimStartedAt &&
           performance.now() - this.weapons.aimStartedAt < QUICKSCOPE_WINDOW_MS) {
           this.weapons.aimStartedAt = 0
-          this.points += QUICKSCOPE_POINTS_BONUS
+          this._gainPoints(QUICKSCOPE_POINTS_BONUS)
           this._showLoreToast(t('quickscopeToast', { points: QUICKSCOPE_POINTS_BONUS }))
         }
       },
@@ -5290,15 +5311,24 @@ export class Game {
     // extraction just starts a fresh run, same as respawning after death.
     this.extractionContinueBtn.addEventListener('click', () => this.respawnBtn.click())
 
-    this.pauseResumeBtn.addEventListener('click', () => this.player.controls.lock())
+    this.pauseResumeBtn.addEventListener('click', () => {
+      // Resume always means "go back to actually playing" - if the pause
+      // menu was opened via Escape while spectating, exit spectate first
+      // so the camera returns to the player's body instead of just
+      // re-locking pointer while still floating free.
+      if (this.spectateOpen) this._exitSpectate()
+      this.player.controls.lock()
+    })
     this.pauseSettingsBtn.addEventListener('click', () => this._toggleSettings(true))
-    if (this.pauseHowtoplayBtn) this.pauseHowtoplayBtn.addEventListener('click', () => this._openHowToPlayPanel())
     this.pauseQuitBtn.addEventListener('click', () => {
       if (this.settings.confirmQuitRun && !window.confirm(t('confirmQuitRunMessage'))) return
       window.location.reload()
     })
     this.pauseUpgradesBtn.addEventListener('click', () => this._openUpgradesPanel())
-    this.pauseShopBtn.addEventListener('click', () => this._openShopPanel())
+    this.pauseSpectateBtn.addEventListener('click', () => {
+      this.pauseOverlay.style.display = 'none'
+      this._enterSpectate()
+    })
     this.pauseWeaponBtn.addEventListener('click', () => {
       // Hide Pause first - both panels share the shared panel rule's
       // z-index:15, so with Pause left open underneath, DOM order (it
@@ -5364,18 +5394,24 @@ export class Game {
         this.pauseOverlayTitle.textContent = t('pauseOverlayTitle')
         this.pauseResumeBtn.textContent = t('pauseResumeBtn')
         this.pauseUpgradesBtn.textContent = t('upgradesBtn')
-        this.pauseShopBtn.textContent = t('coinshopBtn')
+        this.pauseSpectateBtn.textContent = t('pauseSpectateBtn')
         this.pauseWeaponBtn.textContent = t('pauseWeaponBtn')
         this.pauseSettingsBtn.textContent = t('settingsBtn')
-        if (this.pauseHowtoplayBtn) this.pauseHowtoplayBtn.textContent = t('howtoplayPanelTitle')
         this.pauseQuitBtn.textContent = t('pauseQuitBtn')
         if (this.pausePlaytimeLineEl) {
           this.pausePlaytimeLineEl.style.display = this.settings.showPausePlaytime ? '' : 'none'
           if (this.settings.showPausePlaytime) {
-            const totalSeconds = (this.careerStats.lifetimePlaytimeSeconds || 0) + Math.floor((performance.now() - this._sessionStartTime) / 1000)
+            // Was measuring elapsed time from _sessionStartTime (the whole
+            // browser session, set once at construction) instead of
+            // runStartedAt (the current run) - lifetimePlaytimeSeconds
+            // already gets the previous run's duration folded in at
+            // _recordRunEnd, so adding session-elapsed on top double-counted
+            // every prior run in the same session once a second run started.
+            const totalSeconds = (this.careerStats.lifetimePlaytimeSeconds || 0) + Math.floor((performance.now() - this.runStartedAt) / 1000)
             const hours = Math.floor(totalSeconds / 3600)
             const mins = Math.floor((totalSeconds % 3600) / 60)
-            this.pausePlaytimeLineEl.textContent = t('pausePlaytimeLine', { hours, mins })
+            const secs = Math.floor(totalSeconds % 60)
+            this.pausePlaytimeLineEl.textContent = t('pausePlaytimeLine', { hours, mins, secs })
           }
         }
         this.pauseOverlay.style.display = 'flex'
@@ -5600,7 +5636,7 @@ export class Game {
         } else if (this.nearBarricadeWindow) {
           const reward = this.barricadeWindows.repair(this.nearBarricadeWindow)
           if (reward > 0) {
-            this.points += reward
+            this._gainPoints(reward)
             this._updateStatsPanel()
           }
         } else if (this.nearBuriedCache) {
@@ -5780,6 +5816,32 @@ export class Game {
     if (input.left) this.camera.position.addScaledVector(this._photoRight, -speed)
     if (this._photoUp) this.camera.position.y += speed
     if (this._photoDown) this.camera.position.y -= speed
+  }
+
+  // Spectate (pause menu, see the pause-spectate-btn listener below) -
+  // same free-fly camera as Photo Mode (_updatePhotoMode), just without
+  // Photo Mode's filter-cycling/screenshot trappings, plus its own
+  // bottom-left "Spectating" label instead of just hiding the HUD with no
+  // indicator at all of what state you're in.
+  _enterSpectate() {
+    if (this.spectateOpen || this.photoModeOpen) return
+    this.spectateOpen = true
+    this._spectateReturnPos.copy(this.camera.position)
+    this._setPhotoModeHudHidden(true)
+    this.spectatingLabelEl.textContent = t('spectatingLabel')
+    this.spectatingLabelEl.style.display = 'block'
+    this.player.controls.lock()
+  }
+
+  _exitSpectate() {
+    if (!this.spectateOpen) return
+    this.spectateOpen = false
+    this._photoUp = false
+    this._photoDown = false
+    this._photoBoost = false
+    this.camera.position.copy(this._spectateReturnPos)
+    this._setPhotoModeHudHidden(false)
+    this.spectatingLabelEl.style.display = 'none'
   }
 
   _openWeaponWheel() {
@@ -10902,7 +10964,7 @@ export class Game {
     this.bountyStreak += 1
     saveBountyStreak(this.bountyStreak)
     const streakBonus = Math.min(BOUNTY_STREAK_MAX_BONUS_POINTS, this.bountyStreak * BOUNTY_STREAK_BONUS_PER_LEVEL)
-    this.points += b.reward + streakBonus
+    this._gainPoints(b.reward + streakBonus)
     this._updateStatsPanel()
     this._showLoreToast(t('bountyCompleteWithStreak', { title: t(b.titleKey, { n: b.target }), reward: b.reward, streak: this.bountyStreak, bonus: streakBonus }))
     this._assignBounty(b.id)
@@ -10982,7 +11044,7 @@ export class Game {
 
   _completeTraderQuest() {
     const q = this.traderQuest
-    this.points += q.rewardPoints
+    this._gainPoints(q.rewardPoints)
     this.coins += q.rewardCoins
     this._updateStatsPanel()
     const completeText = t('questComplete', { title: t(q.titleKey), points: q.rewardPoints, coins: q.rewardCoins })
@@ -11295,7 +11357,7 @@ export class Game {
       `
       btn.addEventListener('click', () => {
         if (!item.sell(this)) return
-        this.points += item.sellValue
+        this._gainPoints(item.sellValue)
         this.traderTotalSales += item.sellValue
         saveTraderSales(this.traderTotalSales)
         this._updateStatsPanel()
@@ -12543,10 +12605,6 @@ export class Game {
   // from _maybeShowTutorialHints (a one-time, non-interactive toast
   // sequence that still runs independently the first time a run starts).
   _openHowToPlayPanel() {
-    // Now also reachable from the pause menu (pause-howtoplay-btn), not
-    // just the homepage - same #pause-overlay-comes-after-in-DOM click-
-    // eating issue _openUpgradesPanel already had to work around.
-    this.pauseOverlay.style.display = 'none'
     this.howtoplayPanel.style.display = 'flex'
     this.howtoplayPanelTitle.textContent = t('howtoplayPanelTitle')
     this._howtoplayStep = 0
@@ -13489,7 +13547,7 @@ export class Game {
     // population you happen to run into - a small guaranteed bonus per kill,
     // on top of (not instead of) the normal 25%-chance points roll below.
     if (isWandering) {
-      this.points += 5
+      this._gainPoints(5)
       this._updateStatsPanel()
     }
     const lootMult = (this.settings.mutators.lootRush ? 2 : 1) * this.difficulty.lootMult * (this.perfectWeather ? PERFECT_WEATHER_LOOT_BONUS_MULT : 1)
@@ -13549,7 +13607,7 @@ export class Game {
       const doublePointsMult = this.doublePointsUntil && performance.now() < this.doublePointsUntil ? 2 : 1
       // Rounded here (not just at display) since _comboMultiplier() returns
       // a fractional value - without this, points drifts into long decimals.
-      this.points += Math.round((2 + Math.floor(Math.random() * 4)) * lootMult * doublePointsMult * this._comboMultiplier())
+      this._gainPoints(Math.round((2 + Math.floor(Math.random() * 4)) * lootMult * doublePointsMult * this._comboMultiplier()))
       this._updateStatsPanel()
     }
 
@@ -14014,6 +14072,17 @@ export class Game {
     if (score >= 150) return 'B'
     if (score >= 80) return 'C'
     return 'D'
+  }
+
+  // Single funnel for every points award (kills, bounties, quests, loot
+  // sales, vault/escort/rescue/KOTH rewards, quickscope bonus, etc.) - see
+  // Quests.js's points-tier comment for why: this.points itself gets spent
+  // on perks/rerolls and goes back down, so a lifetime "earn X points"
+  // milestone needs a separate never-reset counter fed from one place
+  // rather than every individual += site remembering to update it too.
+  _gainPoints(amount) {
+    this.points += amount
+    this.careerStats.lifetimePointsEarned = (this.careerStats.lifetimePointsEarned || 0) + amount
   }
 
   // Shared by _onPlayerDeath and the survive-to-dawn/extraction win path -
@@ -16826,7 +16895,7 @@ export class Game {
 
   _claimAirdrop() {
     this.scene.remove(this.airdrop.mesh)
-    this.points += 40
+    this._gainPoints(40)
     this.pickups.spawnLootDrop('ammo', this.airdrop.x, this.airdrop.z)
     this._showLoreToast(t('airdropClaimed'))
     this.airdrop = null
@@ -17281,7 +17350,7 @@ export class Game {
       return
     }
     this.vault.open()
-    this.points += VAULT_REWARD_POINTS
+    this._gainPoints(VAULT_REWARD_POINTS)
     this._updateStatsPanel()
     this.pickups.spawnLootDrop('legendary_weapon', this.vault.x, this.vault.z + 1)
     // Rare bonus second reward roll - the vault only ever opens once per
@@ -18050,7 +18119,7 @@ export class Game {
 
     this._recordRunEnd(true)
 
-    this.points += pointsBonus
+    this._gainPoints(pointsBonus)
     this.coins += coinsBonus
     this._updateStatsPanel()
 
@@ -18193,7 +18262,7 @@ export class Game {
   }
 
   _captureKothZone() {
-    this.points += KOTH_CAPTURE_POINTS
+    this._gainPoints(KOTH_CAPTURE_POINTS)
     this.coins += KOTH_CAPTURE_COINS
     this._updateStatsPanel()
     this._showLoreToast(t('kothCaptured'))
@@ -18206,7 +18275,7 @@ export class Game {
   }
 
   _rescueSurvivor() {
-    this.points += RESCUE_POINTS_REWARD
+    this._gainPoints(RESCUE_POINTS_REWARD)
     this.inventory.addHealthPack(1)
     this._updateStatsPanel()
     this._updateInventoryHud()
@@ -18290,7 +18359,7 @@ export class Game {
   // or a loot cache instead when none join, so the reward stays interesting
   // whether the player kept every survivor alive or just barely enough.
   _resolveCampSuccess(camp) {
-    this.points += CAMP_LOOT_REWARD_POINTS
+    this._gainPoints(CAMP_LOOT_REWARD_POINTS)
     this._updateStatsPanel()
     if (Math.random() < 0.5) {
       const recruit = camp.survivors.shift()
@@ -18343,7 +18412,7 @@ export class Game {
   }
 
   _resolveConvoySuccess(convoy) {
-    this.points += ESCORT_REWARD_POINTS
+    this._gainPoints(ESCORT_REWARD_POINTS)
     this._updateStatsPanel()
     if (Math.random() < 0.5) {
       const recruit = convoy.survivors.shift()
@@ -18737,7 +18806,7 @@ export class Game {
       this.vehicle.getDriverSeatWorld(this._vehicleSeatPos)
       this.camera.position.copy(this._vehicleSeatPos)
       this._updateVehicleRamming()
-    } else if (this.photoModeOpen) {
+    } else if (this.photoModeOpen || this.spectateOpen) {
       this._updatePhotoMode(dt)
     } else if (this.player.controls.isLocked && this.playerState.alive && !this.inventoryOpen && !this.perkPanelOpen && !this.traderPanelOpen && !this.xpLevelupPanelOpen && !this.mapOpen && !this.journalOpen) {
       this.player.update(dt)
