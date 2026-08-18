@@ -1057,6 +1057,18 @@ export class WeaponSystem {
     // sniper scopes use: hide the gun body while looking through it.
     if (this.current.hasScope) this.viewmodels[this.current.id].visible = !this.aiming
 
+    // The off-hand prop (see attachHandToGrip) sits close to the camera at
+    // the grip - fine at the hip, but ADS pulls the whole viewmodel toward
+    // screen-center while narrowing the FOV, and the hand (being the
+    // nearest geometry to the camera) balloons up to fill almost the whole
+    // screen right where the crosshair is. Same "hide it while looking
+    // through/down the sights" fix as the scope case above, just for the
+    // hand instead of the whole gun, and for every weapon rather than only
+    // scoped ones. Gated on aimAmount (not the raw this.aiming flag) so it
+    // naturally excludes melee, which never ramps aimAmount up at all.
+    const hand = this.viewmodels[this.current.id].userData.hand
+    if (hand) hand.visible = this.aimAmount < 0.5
+
     this._updateViewmodelTransform(isMoving)
     this._updateBarrelSpin(dt)
 

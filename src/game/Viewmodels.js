@@ -175,6 +175,11 @@ function attachHandToGrip(parent, grip, nudge = 0.01) {
   hand.rotation.copy(grip.rotation)
   hand.translateY(nudge)
   parent.add(hand)
+  // Tagged here (not per call site) so WeaponSystem's ADS handling can find
+  // and hide it generically - see its own comment on why: this same hand
+  // prop is what balloons up and blocks the screen during ADS for every
+  // gun, not just one.
+  parent.userData.hand = hand
   return hand
 }
 
