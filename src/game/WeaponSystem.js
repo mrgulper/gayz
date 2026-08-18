@@ -24,7 +24,12 @@ const EXPLOSIVE_PROP_DAMAGE_MAX = 160
 // old z was -0.32, noticeably nearer than VIEWMODEL_BASE's -0.5) compounded
 // with that FOV zoom multiplicatively, making the gun balloon to a huge,
 // distorted size while aiming instead of just centering under the sights.
-const VIEWMODEL_ADS = new THREE.Vector3(0.02, -0.1, -0.5)
+// x=0 (dead-center, not just close to it) so the gun's own centerline lines
+// up with the crosshair instead of sitting slightly right of it; y a touch
+// lower than the old -0.1 so the gun sits just under the crosshair rather
+// than overlapping it, matching direct user feedback after seeing the
+// previous offset in-game ("fully middle and a bit under").
+const VIEWMODEL_ADS = new THREE.Vector3(0, -0.15, -0.5)
 const ADS_LERP_SPEED = 9
 // Bullet tracers - unit-height geometry shared across every tracer instance,
 // stretched via mesh.scale.y per shot instead of rebuilding geometry every
@@ -1056,18 +1061,6 @@ export class WeaponSystem {
     // overlay exists in this game, so the real fix is the same one actual
     // sniper scopes use: hide the gun body while looking through it.
     if (this.current.hasScope) this.viewmodels[this.current.id].visible = !this.aiming
-
-    // The off-hand prop (see attachHandToGrip) sits close to the camera at
-    // the grip - fine at the hip, but ADS pulls the whole viewmodel toward
-    // screen-center while narrowing the FOV, and the hand (being the
-    // nearest geometry to the camera) balloons up to fill almost the whole
-    // screen right where the crosshair is. Same "hide it while looking
-    // through/down the sights" fix as the scope case above, just for the
-    // hand instead of the whole gun, and for every weapon rather than only
-    // scoped ones. Gated on aimAmount (not the raw this.aiming flag) so it
-    // naturally excludes melee, which never ramps aimAmount up at all.
-    const hand = this.viewmodels[this.current.id].userData.hand
-    if (hand) hand.visible = this.aimAmount < 0.5
 
     this._updateViewmodelTransform(isMoving)
     this._updateBarrelSpin(dt)

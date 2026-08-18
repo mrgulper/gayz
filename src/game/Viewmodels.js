@@ -175,10 +175,14 @@ function attachHandToGrip(parent, grip, nudge = 0.01) {
   hand.rotation.copy(grip.rotation)
   hand.translateY(nudge)
   parent.add(hand)
-  // Tagged here (not per call site) so WeaponSystem's ADS handling can find
-  // and hide it generically - see its own comment on why: this same hand
-  // prop is what balloons up and blocks the screen during ADS for every
-  // gun, not just one.
+  // Hidden outright, all the time - not just during ADS. This prop was the
+  // "big thing" blocking the view while aiming (see WeaponSystem's earlier
+  // fix comment, now removed since it's redundant with this), and at the
+  // hip it read as an oversized, distractingly pale/yellow-tan fist rather
+  // than a convincing hand - direct user feedback after seeing it in-game
+  // both ways. Left in the scene graph (not skipped) rather than removed
+  // from each build function, so re-enabling it later is a one-line flip.
+  hand.visible = false
   parent.userData.hand = hand
   return hand
 }
