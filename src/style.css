@@ -6642,7 +6642,11 @@ html.theme-lighter #app { filter: brightness(1.25); }
   justify-content: flex-start;
   padding-top: 64px;
   gap: 8px;
-  background: rgba(6, 8, 6, 0.9);
+  /* Bumped from 0.9 (the opacity every other full-screen modal panel here
+     shares) to near-solid - direct feedback that the homepage underneath
+     (Play button, hero art) was still visibly showing through, which read
+     as broken/see-through rather than a real settings screen. */
+  background: rgba(6, 8, 6, 0.98);
   /* Settings can be opened from the pause overlay, which comes later in
      the HTML and would otherwise stack on top and block clicks - settings
      needs to always win regardless of what it was opened from. */
@@ -6948,6 +6952,22 @@ html.theme-lighter #app { filter: brightness(1.25); }
 .language-btn .lang-native {
   font-size: 12px;
   opacity: 0.6;
+}
+
+#language-missing-hint {
+  margin: 14px 4px 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+}
+
+#language-missing-discord-link {
+  color: #e3a63c;
+  text-decoration: underline;
+}
+
+#language-missing-discord-link:hover {
+  color: #f4c470;
 }
 
 .audio-row {
