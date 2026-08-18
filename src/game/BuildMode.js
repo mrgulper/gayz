@@ -3,6 +3,7 @@
 // Reuses Game.js's existing renderer/canvas rather than a second WebGL
 // context - only the scene/camera passed to render() changes.
 import * as THREE from 'three'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 // GROUND_SIZE is a CELL count (not world units) - bumped up from 64, then
 // 76, as BLOCK_SIZE shrank each time, so the buildable footprint's actual
@@ -80,10 +81,10 @@ export const BLOCK_TYPES = [
   { id: 'planks', name: 'Planks', color: 0xb98a52, pattern: 'wood', roughness: 0.6, metalness: 0 },
   { id: 'gold', name: 'Gold', color: 0xf4c430, pattern: 'metal', roughness: 0.2, metalness: 1 },
   { id: 'obsidian', name: 'Obsidian', color: 0x1c1024, pattern: 'speckle', roughness: 0.3, metalness: 0.1 },
-  { id: 'water', name: 'Water', color: 0x3a7bd5, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.6 },
-  { id: 'ice', name: 'Ice', color: 0xaee4f0, pattern: 'glass', roughness: 0.05, metalness: 0, transparent: true, opacity: 0.7 },
-  { id: 'leaves', name: 'Leaves', color: 0x3f7d3a, pattern: 'speckle', roughness: 1, metalness: 0, transparent: true, opacity: 0.88 },
-  { id: 'lava', name: 'Lava', color: 0xff5a1f, pattern: 'speckle', roughness: 0.8, metalness: 0, emissive: 0xff3300, emissiveIntensity: 0.9 },
+  { id: 'water', name: 'Water', color: 0x3a7bd5, pattern: 'liquid', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.6 },
+  { id: 'ice', name: 'Ice', color: 0xaee4f0, pattern: 'crack', roughness: 0.05, metalness: 0, transparent: true, opacity: 0.7 },
+  { id: 'leaves', name: 'Leaves', color: 0x3f7d3a, pattern: 'leaves', roughness: 1, metalness: 0, transparent: true, opacity: 0.88 },
+  { id: 'lava', name: 'Lava', color: 0xff5a1f, pattern: 'liquid', roughness: 0.8, metalness: 0, emissive: 0xff3300, emissiveIntensity: 0.9 },
   { id: 'granite', name: 'Granite', color: 0x8a5a52, pattern: 'speckle', roughness: 0.85, metalness: 0 },
   { id: 'marble', name: 'Marble', color: 0xe4e0da, pattern: 'brick', roughness: 0.3, metalness: 0 },
   { id: 'copper', name: 'Copper', color: 0xc17a4a, pattern: 'metal', roughness: 0.3, metalness: 0.85 },
@@ -96,21 +97,21 @@ export const BLOCK_TYPES = [
   // TNT, ore blocks) missing entirely.
   { id: 'cobblestone', name: 'Cobblestone', color: 0x7d7d7d, pattern: 'speckle', roughness: 0.95, metalness: 0 },
   { id: 'oaklog', name: 'Oak Log', color: 0x6b4423, pattern: 'log', roughness: 0.8, metalness: 0 },
-  { id: 'bookshelf', name: 'Bookshelf', color: 0x8a6239, pattern: 'wood', roughness: 0.75, metalness: 0 },
+  { id: 'bookshelf', name: 'Bookshelf', color: 0x8a6239, pattern: 'spine', roughness: 0.75, metalness: 0 },
   { id: 'wool', name: 'Wool', color: 0xe8e4d8, pattern: 'wool', roughness: 1, metalness: 0 },
   { id: 'netherrack', name: 'Netherrack', color: 0x723232, pattern: 'speckle', roughness: 1, metalness: 0 },
   { id: 'diamondblock', name: 'Diamond Block', color: 0x5fd4d4, pattern: 'metal', roughness: 0.15, metalness: 0.9 },
   { id: 'redstoneblock', name: 'Redstone Block', color: 0xa61b1b, pattern: 'metal', roughness: 0.3, metalness: 0.6, emissive: 0x8a0000, emissiveIntensity: 0.4 },
   { id: 'coalblock', name: 'Coal Block', color: 0x1c1c1c, pattern: 'speckle', roughness: 0.9, metalness: 0 },
-  { id: 'pumpkin', name: 'Pumpkin', color: 0xd9761a, pattern: 'speckle', roughness: 0.8, metalness: 0 },
+  { id: 'pumpkin', name: 'Pumpkin', color: 0xd9761a, pattern: 'ridged', roughness: 0.8, metalness: 0 },
   { id: 'tnt', name: 'TNT', color: 0xc23b22, pattern: 'stripe', roughness: 0.85, metalness: 0 },
   { id: 'quartz', name: 'Quartz Block', color: 0xe8e4dc, pattern: 'brick', roughness: 0.4, metalness: 0 },
   { id: 'andesite', name: 'Andesite', color: 0x888888, pattern: 'speckle', roughness: 0.85, metalness: 0 },
   // Second common-blocks pass.
-  { id: 'ironore', name: 'Iron Ore', color: 0x8a8570, pattern: 'speckle', roughness: 0.9, metalness: 0 },
-  { id: 'goldore', name: 'Gold Ore', color: 0x9c8a4a, pattern: 'speckle', roughness: 0.85, metalness: 0 },
-  { id: 'diamondore', name: 'Diamond Ore', color: 0x7ba8a0, pattern: 'speckle', roughness: 0.85, metalness: 0 },
-  { id: 'coalore', name: 'Coal Ore', color: 0x3a3a38, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'ironore', name: 'Iron Ore', color: 0x8a8570, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'goldore', name: 'Gold Ore', color: 0x9c8a4a, pattern: 'ore', roughness: 0.85, metalness: 0 },
+  { id: 'diamondore', name: 'Diamond Ore', color: 0x7ba8a0, pattern: 'ore', roughness: 0.85, metalness: 0 },
+  { id: 'coalore', name: 'Coal Ore', color: 0x3a3a38, pattern: 'ore', roughness: 0.9, metalness: 0 },
   { id: 'emeraldblock', name: 'Emerald Block', color: 0x1a9850, pattern: 'metal', roughness: 0.2, metalness: 0.8 },
   { id: 'lapisblock', name: 'Lapis Block', color: 0x1f4d9c, pattern: 'metal', roughness: 0.25, metalness: 0.75 },
   { id: 'bedrock', name: 'Bedrock', color: 0x2a2a2a, pattern: 'speckle', roughness: 1, metalness: 0 },
@@ -132,7 +133,7 @@ export const BLOCK_TYPES = [
   { id: 'smoothstone', name: 'Smooth Stone', color: 0xa8a8a0, pattern: 'metal', roughness: 0.5, metalness: 0 },
   { id: 'prismarine', name: 'Prismarine', color: 0x4f9e94, pattern: 'metal', roughness: 0.35, metalness: 0.2 },
   { id: 'sealantern', name: 'Sea Lantern', color: 0xc8e8e0, pattern: 'metal', roughness: 0.3, metalness: 0.1, emissive: 0xa0e8d8, emissiveIntensity: 0.5 },
-  { id: 'amethystblock', name: 'Amethyst Block', color: 0x9a5fd4, pattern: 'metal', roughness: 0.25, metalness: 0.3 },
+  { id: 'amethystblock', name: 'Amethyst Block', color: 0x9a5fd4, pattern: 'crystal', roughness: 0.25, metalness: 0.3 },
   { id: 'honeyblock', name: 'Honey Block', color: 0xe8a723, pattern: 'glass', roughness: 0.2, metalness: 0, transparent: true, opacity: 0.85 },
   { id: 'slimeblock', name: 'Slime Block', color: 0x6fcc3f, pattern: 'glass', roughness: 0.25, metalness: 0, transparent: true, opacity: 0.75 },
   { id: 'purpurblock', name: 'Purpur Block', color: 0xa374b5, pattern: 'speckle', roughness: 0.8, metalness: 0 },
@@ -203,8 +204,22 @@ export const BLOCK_TYPES = [
   { id: 'magmablock', name: 'Magma Block', color: 0xc23a1f, pattern: 'speckle', roughness: 0.8, metalness: 0, emissive: 0xff4400, emissiveIntensity: 0.6 },
   { id: 'cryingobsidian', name: 'Crying Obsidian', color: 0x2f1440, pattern: 'speckle', roughness: 0.3, metalness: 0.1, emissive: 0x9a2fd4, emissiveIntensity: 0.5 },
   { id: 'boneblock', name: 'Bone Block', color: 0xe8e0c8, pattern: 'stripe', roughness: 0.7, metalness: 0 },
-  { id: 'spongeblock', name: 'Sponge', color: 0xc9c024, pattern: 'speckle', roughness: 0.9, metalness: 0 },
-  { id: 'jackolantern', name: "Jack o'Lantern", color: 0xd9761a, pattern: 'speckle', roughness: 0.8, metalness: 0, emissive: 0xff8800, emissiveIntensity: 0.6 },
+  { id: 'spongeblock', name: 'Sponge', color: 0xc9c024, pattern: 'porous', roughness: 0.9, metalness: 0 },
+  { id: 'jackolantern', name: "Jack o'Lantern", color: 0xd9761a, pattern: 'ridged', roughness: 0.8, metalness: 0, emissive: 0xff8800, emissiveIntensity: 0.6 },
+  // Shaped blocks (see CUSTOM_BLOCK_GEOMETRY) - every block above is a full
+  // 1x1x1 cube; these use their own geometry instead (a stair-stepped
+  // silhouette, a post-and-rail fence, a thin ladder panel). `shape` picks
+  // the geometry; `pattern`/`color` still drive the texture exactly like
+  // any cube block - a stair or fence just wears its material on a
+  // different-shaped mesh.
+  { id: 'ladder', name: 'Ladder', color: 0x8a6239, pattern: 'ladder', roughness: 0.7, metalness: 0, shape: 'ladder' },
+  { id: 'oakstairs', name: 'Oak Stairs', color: 0xb4864a, pattern: 'wood', roughness: 0.85, metalness: 0, shape: 'stairs' },
+  { id: 'stonestairs', name: 'Stone Stairs', color: 0x808078, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'stairs' },
+  { id: 'brickstairs', name: 'Brick Stairs', color: 0xa8503a, pattern: 'brick', roughness: 0.85, metalness: 0, shape: 'stairs' },
+  { id: 'cobblestonestairs', name: 'Cobblestone Stairs', color: 0x7d7d7d, pattern: 'speckle', roughness: 0.95, metalness: 0, shape: 'stairs' },
+  { id: 'oakfence', name: 'Oak Fence', color: 0xb4864a, pattern: 'wood', roughness: 0.85, metalness: 0, shape: 'fence' },
+  { id: 'stonefence', name: 'Stone Fence', color: 0x808078, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'fence' },
+  { id: 'netherbrickfence', name: 'Nether Brick Fence', color: 0x35181c, pattern: 'brick', roughness: 0.8, metalness: 0, shape: 'fence' },
 ]
 const VALID_TYPE_IDS = new Set(BLOCK_TYPES.map((b) => b.id))
 // Real point lights on glowing blocks (see placeBlock/removeBlock) - every
@@ -355,7 +370,208 @@ function _drawStripe(ctx, base, size) {
     }
   }
 }
-const PATTERN_DRAWERS = { speckle: _drawSpeckle, brick: _drawBrick, wood: _drawWood, metal: _drawMetal, glass: _drawGlass, log: _drawLog, wool: _drawWool, stripe: _drawStripe }
+// Two side rails + evenly spaced rungs - Ladder's tell. Drawn on the wood
+// base color same as planks, but the actual "ladder" read comes entirely
+// from this silhouette, not the base color - readable even from the thin
+// LADDER_GEO panel's edge-on faces where the pattern just repeats.
+function _drawLadder(ctx, base, size) {
+  // Lighter, not darker, for both accents - a negative shade delta here
+  // crushes toward pure black (this pipeline's THREE.Color->rgb() string
+  // conversion runs in linear space, so already-dark base colors like this
+  // one darken much faster than the delta number suggests - _drawBrick's
+  // mortar hits the same thing, which is why it lightens instead of
+  // darkening too). Confirmed by direct pixel sampling: -0.3/-0.15 deltas
+  // rendered as near-(0,0,0) bands instead of the intended subtle shading.
+  const rail = _shade(base, 0.32)
+  ctx.fillStyle = `rgb(${_rgb(rail)})`
+  const railW = size * 0.14
+  ctx.fillRect(size * 0.06, 0, railW, size)
+  ctx.fillRect(size * 0.94 - railW, 0, railW, size)
+  const rung = _shade(base, 0.18)
+  ctx.fillStyle = `rgb(${_rgb(rung)})`
+  const rungCount = 5
+  const rungH = size * 0.09
+  for (let i = 0; i < rungCount; i++) {
+    const y = (size / rungCount) * (i + 0.5) - rungH / 2
+    ctx.fillRect(size * 0.06, y, size * 0.88, rungH)
+  }
+}
+
+// Texture quality pass - the 8 patterns above were shared across all 123
+// blocks, so several very different real materials (ore vs plain stone,
+// leaves vs solid green, bookshelf vs plain planks, ice vs glass) rendered
+// almost identically, only differing by base color. These 8 give the most
+// visually-distinct block categories their own real per-block detail
+// instead of reusing a generic pattern. Every accent here lightens rather
+// than darkens (or darkens only via low alpha over the base, never a
+// full-opacity solid fill) - see _drawLadder's comment for why a plain
+// negative _shade delta crushes toward black in this pipeline.
+
+// Stone-speckle base plus a handful of raised, saturated vein clusters -
+// Ore's tell. Reuses _drawSpeckle for the rock matrix rather than
+// duplicating it, then layers clusters on top so it still reads as "stone
+// with something valuable in it" rather than a totally different rock.
+function _drawOre(ctx, base, size) {
+  _drawSpeckle(ctx, base, size)
+  const vein = base.clone().offsetHSL(0, 0.3, 0.22)
+  ctx.fillStyle = `rgb(${_rgb(vein)})`
+  const clusters = 6
+  for (let c = 0; c < clusters; c++) {
+    const cx = Math.random() * size
+    const cy = Math.random() * size
+    const blobs = 3 + Math.floor(Math.random() * 3)
+    for (let b = 0; b < blobs; b++) {
+      const r = size * (0.02 + Math.random() * 0.035)
+      ctx.beginPath()
+      ctx.arc(cx + (Math.random() - 0.5) * size * 0.08, cy + (Math.random() - 0.5) * size * 0.08, r, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
+}
+
+// Overlapping soft round clusters - Leaves' tell, distinct from every
+// hard-surface/geometric pattern above. Faint dark gaps between clusters
+// use low alpha rather than a solid fill so they read as depth, not holes.
+function _drawLeaves(ctx, base, size) {
+  for (let i = 0; i < 55; i++) {
+    const shade = base.clone().offsetHSL((Math.random() - 0.5) * 0.04, (Math.random() - 0.5) * 0.08, (Math.random() - 0.3) * 0.2)
+    ctx.fillStyle = `rgb(${_rgb(shade)})`
+    const r = size * (0.045 + Math.random() * 0.05)
+    ctx.beginPath()
+    ctx.arc(Math.random() * size, Math.random() * size, r, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  const gap = _shade(base, -0.1)
+  ctx.fillStyle = `rgba(${_rgb(gap)},0.4)`
+  for (let i = 0; i < 12; i++) {
+    const r = size * (0.015 + Math.random() * 0.02)
+    ctx.beginPath()
+    ctx.arc(Math.random() * size, Math.random() * size, r, 0, Math.PI * 2)
+    ctx.fill()
+  }
+}
+
+// Wavy horizontal ripple bands - Water/Lava's tell, distinct from Glass's
+// straight cross-mullion look despite both being "shiny and see-through
+// or hot" materials.
+function _drawLiquid(ctx, base, size) {
+  const bands = 6
+  for (let i = 0; i < bands; i++) {
+    const y = (size / bands) * i + (size / bands) * 0.35
+    const shade = base.clone().offsetHSL(0, 0.1, 0.14 + Math.random() * 0.1)
+    ctx.strokeStyle = `rgba(${_rgb(shade)},0.55)`
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.moveTo(0, y)
+    for (let x = 0; x <= size; x += size / 8) {
+      ctx.quadraticCurveTo(x + size / 16, y + Math.sin(x * 0.05 + i) * 6, x + size / 8, y)
+    }
+    ctx.stroke()
+  }
+}
+
+// Jagged branching crack lines over the base - Ice's tell, distinct from
+// Glass's clean geometric mullion cross.
+function _drawCrack(ctx, base, size) {
+  const line = base.clone().offsetHSL(0, 0.05, 0.22)
+  ctx.strokeStyle = `rgba(${_rgb(line)},0.55)`
+  ctx.lineWidth = 1.5
+  for (let i = 0; i < 8; i++) {
+    let x = Math.random() * size
+    let y = Math.random() * size
+    ctx.beginPath()
+    ctx.moveTo(x, y)
+    const segments = 3 + Math.floor(Math.random() * 3)
+    for (let s = 0; s < segments; s++) {
+      x += (Math.random() - 0.5) * size * 0.25
+      y += (Math.random() - 0.5) * size * 0.25
+      ctx.lineTo(x, y)
+    }
+    ctx.stroke()
+  }
+}
+
+// Rows of colored book spines on a wood-frame base - Bookshelf's tell.
+// Spine hues are picked from a fixed palette (not derived from `base` at
+// all) since real books come in varied colors independent of the shelf's
+// own wood tone - the one deliberate exception to every other pattern
+// here staying within `base`'s own hue.
+const _SPINE_HUES = [0.02, 0.08, 0.33, 0.55, 0.62, 0.78, 0.95]
+function _drawSpine(ctx, base, size) {
+  const rows = 3
+  const rowH = size / rows
+  for (let r = 0; r < rows; r++) {
+    let x = 0
+    while (x < size - 4) {
+      const w = size * (0.05 + Math.random() * 0.09)
+      const hue = _SPINE_HUES[Math.floor(Math.random() * _SPINE_HUES.length)]
+      const col = new THREE.Color().setHSL(hue, 0.35, 0.32 + Math.random() * 0.12)
+      ctx.fillStyle = `rgb(${_rgb(col)})`
+      ctx.fillRect(x, r * rowH + rowH * 0.08, w, rowH * 0.84)
+      x += w + 2
+    }
+  }
+  const shelfLine = _shade(base, 0.3)
+  ctx.strokeStyle = `rgba(${_rgb(shelfLine)},0.5)`
+  ctx.lineWidth = 2
+  for (let r = 1; r < rows; r++) {
+    ctx.beginPath(); ctx.moveTo(0, r * rowH); ctx.lineTo(size, r * rowH); ctx.stroke()
+  }
+}
+
+// Evenly spaced vertical ridge lines - Pumpkin/Jack o'Lantern's tell.
+function _drawRidged(ctx, base, size) {
+  const ridges = 7
+  for (let i = 0; i <= ridges; i++) {
+    const x = (size / ridges) * i
+    const shade = base.clone().offsetHSL(0, 0, i % 2 === 0 ? 0.16 : -0.08)
+    ctx.strokeStyle = `rgba(${_rgb(shade)},0.5)`
+    ctx.lineWidth = 3
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, size); ctx.stroke()
+  }
+}
+
+// Faceted diamond-shaped shards - Amethyst's tell.
+function _drawCrystal(ctx, base, size) {
+  for (let i = 0; i < 10; i++) {
+    const cx = Math.random() * size
+    const cy = Math.random() * size
+    const h = size * (0.12 + Math.random() * 0.18)
+    const w = h * 0.35
+    const shade = base.clone().offsetHSL(0, 0.15, 0.18 + Math.random() * 0.15)
+    ctx.fillStyle = `rgb(${_rgb(shade)})`
+    ctx.beginPath()
+    ctx.moveTo(cx, cy - h / 2)
+    ctx.lineTo(cx + w / 2, cy)
+    ctx.lineTo(cx, cy + h / 2)
+    ctx.lineTo(cx - w / 2, cy)
+    ctx.closePath()
+    ctx.fill()
+    const edge = base.clone().offsetHSL(0, 0.1, 0.32)
+    ctx.strokeStyle = `rgba(${_rgb(edge)},0.6)`
+    ctx.lineWidth = 1
+    ctx.stroke()
+  }
+}
+
+// Small scattered round holes - Sponge's tell.
+function _drawPorous(ctx, base, size) {
+  const hole = _shade(base, -0.1)
+  ctx.fillStyle = `rgba(${_rgb(hole)},0.55)`
+  for (let i = 0; i < 40; i++) {
+    const r = size * (0.015 + Math.random() * 0.03)
+    ctx.beginPath()
+    ctx.arc(Math.random() * size, Math.random() * size, r, 0, Math.PI * 2)
+    ctx.fill()
+  }
+}
+
+const PATTERN_DRAWERS = {
+  speckle: _drawSpeckle, brick: _drawBrick, wood: _drawWood, metal: _drawMetal, glass: _drawGlass,
+  log: _drawLog, wool: _drawWool, stripe: _drawStripe, ladder: _drawLadder, ore: _drawOre,
+  leaves: _drawLeaves, liquid: _drawLiquid, crack: _drawCrack, spine: _drawSpine, ridged: _drawRidged,
+  crystal: _drawCrystal, porous: _drawPorous,
+}
 
 // Fine per-pixel grain, applied over the finished pattern before the AO/
 // sheen passes below - every pattern drawer above fills with flat solid
@@ -429,6 +645,54 @@ function _makeBlockTexture(colorHex, pattern) {
   tex.minFilter = THREE.NearestFilter
   tex.colorSpace = THREE.SRGBColorSpace
   return tex
+}
+
+// Non-cube block shapes (see BLOCK_TYPES' `shape` field) - every other
+// block reuses one shared full-cube BoxGeometry across its whole
+// InstancedMesh; these three build their own once, referenced by `shape`
+// in the per-type mesh loop below. Collision/placement (_blockedAt,
+// getBlockAt) stay shape-blind on purpose - a placed stair/fence/ladder
+// still occupies its whole grid cell for movement the exact same way a
+// solid cube would, matching every existing thin-looking block (glass,
+// leaves) which already collides as a full cube despite not looking
+// solid. Only the render geometry is different; nothing about placement,
+// removal, save/load, or collision needed to change.
+function _buildStairGeometry() {
+  const half = BLOCK_SIZE / 2
+  const bottom = new THREE.BoxGeometry(BLOCK_SIZE, half, BLOCK_SIZE)
+  bottom.translate(0, -half / 2, 0)
+  const top = new THREE.BoxGeometry(BLOCK_SIZE, half, half)
+  top.translate(0, half / 2, half / 2)
+  return mergeGeometries([bottom, top])
+}
+
+function _buildFenceGeometry() {
+  const postW = BLOCK_SIZE * 0.16
+  const railH = BLOCK_SIZE * 0.12
+  const post = new THREE.BoxGeometry(postW, BLOCK_SIZE, postW)
+  const railX1 = new THREE.BoxGeometry(BLOCK_SIZE, railH, postW * 0.8)
+  railX1.translate(0, BLOCK_SIZE * 0.18, 0)
+  const railX2 = railX1.clone()
+  railX2.translate(0, -BLOCK_SIZE * 0.36, 0)
+  const railZ1 = new THREE.BoxGeometry(postW * 0.8, railH, BLOCK_SIZE)
+  railZ1.translate(0, BLOCK_SIZE * 0.18, 0)
+  const railZ2 = railZ1.clone()
+  railZ2.translate(0, -BLOCK_SIZE * 0.36, 0)
+  return mergeGeometries([post, railX1, railX2, railZ1, railZ2])
+}
+
+function _buildLadderGeometry() {
+  const geo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE * 0.12)
+  return geo
+}
+
+// Keyed by `shape`, not block id - every stair variant (Oak/Stone/Brick/
+// Cobblestone) shares this one geometry, same as how every cube block
+// already shares blockGeo; only the material/texture differs per type.
+const CUSTOM_BLOCK_GEOMETRY = {
+  stairs: _buildStairGeometry(),
+  fence: _buildFenceGeometry(),
+  ladder: _buildLadderGeometry(),
 }
 
 export class BuildMode {
@@ -593,7 +857,8 @@ export class BuildMode {
         emissive: bt.emissive ?? 0x000000,
         emissiveIntensity: bt.emissiveIntensity ?? 0,
       })
-      const mesh = new THREE.InstancedMesh(blockGeo, material, MAX_INSTANCES_PER_TYPE)
+      const geo = (bt.shape && CUSTOM_BLOCK_GEOMETRY[bt.shape]) || blockGeo
+      const mesh = new THREE.InstancedMesh(geo, material, MAX_INSTANCES_PER_TYPE)
       mesh.count = 0
       mesh.castShadow = true
       mesh.receiveShadow = true
