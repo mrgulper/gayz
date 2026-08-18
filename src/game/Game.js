@@ -2979,7 +2979,11 @@ export class Game {
     // clearly on its own even with those two also visible.
     this.spectatingLabelEl = document.createElement('div')
     this.spectatingLabelEl.id = 'spectating-label'
-    this.spectatingLabelEl.style.cssText = 'position:fixed;bottom:10px;left:10px;background:rgba(0,0,0,0.55);color:#e3a63c;font:14px sans-serif;font-weight:600;letter-spacing:1px;padding:5px 10px;border-radius:4px;z-index:9999;pointer-events:none;display:none;'
+    // Matches the pause menu's own button look (#pause-resume-btn etc. in
+    // style.css) - dark translucent panel, thin white-ish border, gold
+    // accent text - rather than an ad-hoc one-off style, per direct
+    // feedback that it should look consistent with Resume/Upgrades/etc.
+    this.spectatingLabelEl.style.cssText = 'position:fixed;bottom:10px;left:10px;background:rgba(0,0,0,0.55);color:#e3a63c;font-size:13px;font-weight:600;letter-spacing:0.5px;padding:8px 20px;border:1px solid rgba(255,255,255,0.25);border-radius:6px;z-index:9999;pointer-events:none;display:none;'
     this.spectatingLabelEl.textContent = t('spectatingLabel')
     document.body.appendChild(this.spectatingLabelEl)
     // Frame-Time Graph (opt-in, see settings.frameTimeGraph) - same
@@ -4654,7 +4658,7 @@ export class Game {
     this.screenshotCropFullBtn = document.getElementById('screenshot-crop-full')
     this.screenshotCropCancelBtn = document.getElementById('screenshot-crop-cancel')
     this.screenshotCaptionInput = document.getElementById('screenshot-caption-input')
-    this.screenshotCopyClipboardBtn = document.getElementById('screenshot-copy-clipboard')
+    this.screenshotToggleRecordingBtn = document.getElementById('screenshot-toggle-recording')
     this.screenshotCropOpen = false
     this.screenshotCropSelectionRect = null
     this.gameStarted = false
@@ -5320,8 +5324,12 @@ export class Game {
       this.player.controls.lock()
     })
     this.pauseSettingsBtn.addEventListener('click', () => this._toggleSettings(true))
-    this.pauseQuitBtn.addEventListener('click', () => {
+    this.pauseQuitBtn.addEventListener('click', async () => {
       if (this.settings.confirmQuitRun && !window.confirm(t('confirmQuitRunMessage'))) return
+      // Awaited - MediaRecorder.stop() is async, and reloading before its
+      // 'stop' event fires would tear down the page mid-save and lose the
+      // clip entirely instead of downloading it.
+      await this._stopClipRecordingIfActive()
       window.location.reload()
     })
     this.pauseUpgradesBtn.addEventListener('click', () => this._openUpgradesPanel())
@@ -5710,11 +5718,14 @@ export class Game {
   // Hides the whole HUD surface for a clean screenshot - same element set
   // the pointer-unlock handler already hides, plus the debug fps/coords
   // readouts, which have no place in a "photo mode" shot.
-  _setPhotoModeHudHidden(hidden) {
+  _setPhotoModeHudHidden(hidden, keepHotbar = false) {
     const display = hidden ? 'none' : ''
     this.crosshair.style.display = hidden ? 'none' : 'block'
     this.hudEl.style.display = display
-    this.hotbarEl.style.display = display
+    // Spectate (see _enterSpectate) wants the weapon hotbar (1/2/3 slots)
+    // to stay visible even though everything else hides - direct request,
+    // distinct from Photo Mode which hides it along with the rest.
+    if (!keepHotbar) this.hotbarEl.style.display = display
     this.statusHud.style.display = display
     this.inventoryHud.style.display = display
     this.progressHud.style.display = display
@@ -5767,10 +5778,30 @@ export class Game {
       link.click()
       setTimeout(() => URL.revokeObjectURL(link.href), 1000)
       this._showLoreToast(t('clipSaved'))
+      if (this.screenshotToggleRecordingBtn) this.screenshotToggleRecordingBtn.textContent = t('startRecordingBtn')
     }
     recorder.start()
     this._clipRecorder = recorder
     this._showLoreToast(t('clipRecordingStarted'))
+    if (this.screenshotToggleRecordingBtn) this.screenshotToggleRecordingBtn.textContent = t('saveFullRecordingBtn')
+  }
+
+  // Shared by every "the run just ended/is ending" exit point (death, quit
+  // to menu, extraction/leaving win screens, closing the Screenshots &
+  // Recording panel with P) - see each call site. Resolves once the clip
+  // has actually finished saving (or immediately if nothing was
+  // recording) - MediaRecorder.stop() is async, so the quit-to-menu path
+  // specifically needs to await this before reloading the page, or the
+  // page context (and the in-flight download) would be torn down first.
+  _stopClipRecordingIfActive() {
+    return new Promise((resolve) => {
+      if (this._clipRecorder && this._clipRecorder.state === 'recording') {
+        this._clipRecorder.addEventListener('stop', () => resolve(), { once: true })
+        this._clipRecorder.stop()
+      } else {
+        resolve()
+      }
+    })
   }
 
   // Auto-highlight moment flagging (see HIGHLIGHT_LOG_MAX_ENTRIES's own
@@ -5827,10 +5858,15 @@ export class Game {
     if (this.spectateOpen || this.photoModeOpen) return
     this.spectateOpen = true
     this._spectateReturnPos.copy(this.camera.position)
-    this._setPhotoModeHudHidden(true)
+    this._setPhotoModeHudHidden(true, true)
     this.spectatingLabelEl.textContent = t('spectatingLabel')
     this.spectatingLabelEl.style.display = 'block'
-    this.player.controls.lock()
+    // Deferred one tick - calling lock() in the same synchronous handler
+    // that also hides the whole pause overlay (a lot of DOM churn) was
+    // reported as sometimes leaving the camera unable to rotate even
+    // though movement worked, suggesting the pointer lock request was
+    // racing that DOM update rather than cleanly re-acquiring lock.
+    requestAnimationFrame(() => this.player.controls.lock())
   }
 
   _exitSpectate() {
@@ -5913,6 +5949,7 @@ export class Game {
   }
 
   _closeScreenshotCrop() {
+    this._stopClipRecordingIfActive()
     this.screenshotCropOpen = false
     this.screenshotCropOverlay.style.display = 'none'
     this.player.controls.lock()
@@ -5923,20 +5960,11 @@ export class Game {
   // resolution to fit the overlay), composites the watermark/caption, and
   // downloads the result.
   _saveScreenshotCrop(rect) {
-    this._finalizeScreenshotCanvas(this._buildScreenshotCanvas(rect), 'download')
+    this._finalizeScreenshotCanvas(this._buildScreenshotCanvas(rect))
   }
 
   _saveFullScreenshot() {
-    this._finalizeScreenshotCanvas(this._buildScreenshotCanvas(null), 'download')
-  }
-
-  // Copy to Clipboard (see navigator.clipboard.write below) - same
-  // rect-or-full logic _saveScreenshotCrop/_saveFullScreenshot already
-  // follow, just written to the OS clipboard instead of downloaded.
-  _copyScreenshotToClipboard() {
-    const rect = this.screenshotCropSelectionRect
-    const usableRect = rect && rect.width > 4 && rect.height > 4 ? rect : null
-    this._finalizeScreenshotCanvas(this._buildScreenshotCanvas(usableRect), 'clipboard')
+    this._finalizeScreenshotCanvas(this._buildScreenshotCanvas(null))
   }
 
   // Shared by all three screenshot actions above - builds the actual pixel
@@ -5975,7 +6003,7 @@ export class Game {
 
   // Watermark + optional caption compositing, then either downloads the
   // result or writes it to the OS clipboard.
-  _finalizeScreenshotCanvas(canvas, mode) {
+  _finalizeScreenshotCanvas(canvas) {
     const ctx = canvas.getContext('2d')
     // Photo Mode frame - a soft corner vignette plus a thin gold border,
     // matching the menu's own gold accent. Only for shots actually taken
@@ -6010,23 +6038,10 @@ export class Game {
     ctx.fillText('GayZ', canvas.width - 8, canvas.height - 8)
     ctx.textAlign = 'left'
 
-    if (mode === 'clipboard') {
-      if (!navigator.clipboard || !window.ClipboardItem) {
-        this._showLoreToast(t('clipboardCopyUnsupported'))
-        return
-      }
-      canvas.toBlob((blob) => {
-        if (!blob) return
-        navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
-          .then(() => this._showLoreToast(t('clipboardCopySuccess')))
-          .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
-      })
-    } else {
-      const link = document.createElement('a')
-      link.download = `gayz-${Date.now()}.png`
-      link.href = canvas.toDataURL('image/png')
-      link.click()
-    }
+    const link = document.createElement('a')
+    link.download = `gayz-${Date.now()}.png`
+    link.href = canvas.toDataURL('image/png')
+    link.click()
   }
 
   // Simple click-drag-release rectangle selector over the captured image -
@@ -6078,12 +6093,16 @@ export class Game {
       this._saveFullScreenshot()
       this._closeScreenshotCrop()
     })
-    this.screenshotCopyClipboardBtn.addEventListener('click', () => this._copyScreenshotToClipboard())
     this.screenshotCropCancelBtn.addEventListener('click', () => this._closeScreenshotCrop())
+    if (this.screenshotToggleRecordingBtn) this.screenshotToggleRecordingBtn.addEventListener('click', () => this._toggleClipRecording())
 
     window.addEventListener('keydown', (e) => {
       if (!this.screenshotCropOpen) return
-      if (e.code === 'Escape') this._closeScreenshotCrop()
+      // Pressing the screenshot key again (default P) while this panel is
+      // already open closes it, same as Escape - direct request, since
+      // this is also how a recording started from here gets stopped/saved
+      // if you don't explicitly click a button.
+      if (e.code === 'Escape' || e.code === getKeyFor('screenshot')) this._closeScreenshotCrop()
       else if (e.code === 'Enter') this.screenshotCropSaveBtn.click()
     })
 
@@ -14242,6 +14261,7 @@ export class Game {
   }
 
   _onPlayerDeath() {
+    this._stopClipRecordingIfActive()
     // Shareable run-summary card (see _generateRunSummaryCard) - captures
     // the actual moment-of-death frame before any HUD teardown/UI change,
     // same composer.render()+toDataURL technique _takeScreenshot uses.
@@ -15206,7 +15226,7 @@ export class Game {
     ctx.font = `${lineSize}px sans-serif`
     ctx.fillText(t('careerPortraitStatsLine', { kills: this.careerStats.totalKills, prestige: this.metaProgress.prestigeLevel, runs: this.careerStats.totalRuns }), 16, titleSize + 24)
 
-    this._finalizeScreenshotCanvas(canvas, 'download')
+    this._finalizeScreenshotCanvas(canvas)
   }
 
   // Beat This challenge link - encodes just enough to render a comparison
@@ -18105,6 +18125,7 @@ export class Game {
   // line stays out of this helper and gets set by the caller beforehand -
   // only Extraction is actually wired to that score comparison.
   _showRunWinScreen(titleKey, pointsBonus, coinsBonus, modeWrapEl) {
+    this._stopClipRecordingIfActive()
     this.player.controls.unlock()
     this.crosshair.style.display = 'none'
     this.hudEl.style.display = 'none'

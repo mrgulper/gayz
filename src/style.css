@@ -3832,10 +3832,9 @@ select option {
 #credits-close-btn,
 #pause-resume-btn,
 #pause-settings-btn,
-#pause-howtoplay-btn,
 #pause-quit-btn,
 #pause-upgrades-btn,
-#pause-shop-btn,
+#pause-spectate-btn,
 #pause-weapon-btn,
 #screenshot-crop-save,
 #screenshot-crop-full,
@@ -3859,6 +3858,19 @@ select option {
   margin: 0;
   font-size: 13px;
   opacity: 0.65;
+}
+
+/* Screenshots/Recording section labels - same small gold uppercase
+   sub-heading convention as #profile-panel h3. */
+#screenshot-section-title,
+#recording-section-title {
+  margin: 8px 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--menu-gold, #d9a34a);
+  text-align: center;
 }
 
 #screenshot-crop-stage {
@@ -3898,10 +3910,9 @@ select option {
 #credits-close-btn:hover,
 #pause-resume-btn:hover,
 #pause-settings-btn:hover,
-#pause-howtoplay-btn:hover,
 #pause-quit-btn:hover,
 #pause-upgrades-btn:hover,
-#pause-shop-btn:hover,
+#pause-spectate-btn:hover,
 #pause-weapon-btn:hover {
   border-color: rgba(255, 255, 255, 0.5);
 }

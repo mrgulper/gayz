@@ -1138,6 +1138,8 @@ const STRINGS = {
     clipRecordingUnsupported: "This browser can't record video clips.",
     clipRecordingStarted: 'Recording clip...',
     clipSaved: 'Clip saved!',
+    startRecordingBtn: 'Start Recording',
+    saveFullRecordingBtn: 'Save Full Recording',
     clipboardCopyUnsupported: "Couldn't access the clipboard.",
     clipboardCopySuccess: 'Copied to clipboard!',
     streamSafeModeLabel: 'Streaming-Safe Mode (hide debug overlay)',
