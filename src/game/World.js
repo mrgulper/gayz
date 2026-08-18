@@ -3677,7 +3677,17 @@ export const SAFE_ZONE_Z = 42
 function buildSafeZone(scene, colliders, solidMeshes) {
   const x = SAFE_ZONE_X
   const z = SAFE_ZONE_Z
-  const half = 7
+  // Widened from a uniform half=7 square to a wider-than-deep rectangle -
+  // halfX grew (7 -> 10) since there's a lot of clear avenue on the east/
+  // west sides before buildingLayout's rows start at x=+-18; halfZ stayed
+  // at 7 since the park starts just 3 units past the old north wall
+  // (PARK_Z_START=52 vs the old wall at z=49) and growing north would have
+  // walked straight into it. halfZ is also still what safeZone.radius (see
+  // the return below) is derived from - Game.js's _updateSafeZoneHeal uses
+  // it as a circular heal radius, and keeping it tied to the SMALLER
+  // dimension means the heal effect never leaks past the actual walls.
+  const halfX = 10
+  const halfZ = 7
   const gapHalfWidth = 1.6
   const wallHeight = 3.2
 
@@ -3692,7 +3702,7 @@ function buildSafeZone(scene, colliders, solidMeshes) {
     : (() => {
         const facadeTex = getFacadeTexture(wallColor).clone()
         facadeTex.needsUpdate = true
-        facadeTex.repeat.set(Math.max(1, (half * 2) / 4), Math.max(1, wallHeight / 4))
+        facadeTex.repeat.set(Math.max(1, (halfX * 2) / 4), Math.max(1, wallHeight / 4))
         const bumpTex = getSharedBumpTexture().clone()
         bumpTex.needsUpdate = true
         bumpTex.repeat.copy(facadeTex.repeat)
@@ -3738,22 +3748,22 @@ function buildSafeZone(scene, colliders, solidMeshes) {
   // now that the safe zone sits at the north end: the player approaches
   // from the south (the main street/city), so the entrance should face
   // back the way they came, not toward the park behind it.
-  addWall(0, half, half * 2, 0.6)
-  addSandbagRow(0, half - 0.6, half * 2, 0.6, true)
-  addWall(-half, 0, 0.6, half * 2)
-  addSandbagRow(-half + 0.6, 0, 0.6, half * 2, false)
-  addWall(half, 0, 0.6, half * 2)
-  addSandbagRow(half - 0.6, 0, 0.6, half * 2, false)
-  const sideWallLen = half - gapHalfWidth
-  addWall(-(gapHalfWidth + sideWallLen / 2), -half, sideWallLen, 0.6)
-  addWall(gapHalfWidth + sideWallLen / 2, -half, sideWallLen, 0.6)
+  addWall(0, halfZ, halfX * 2, 0.6)
+  addSandbagRow(0, halfZ - 0.6, halfX * 2, 0.6, true)
+  addWall(-halfX, 0, 0.6, halfZ * 2)
+  addSandbagRow(-halfX + 0.6, 0, 0.6, halfZ * 2, false)
+  addWall(halfX, 0, 0.6, halfZ * 2)
+  addSandbagRow(halfX - 0.6, 0, 0.6, halfZ * 2, false)
+  const sideWallLen = halfX - gapHalfWidth
+  addWall(-(gapHalfWidth + sideWallLen / 2), -halfZ, sideWallLen, 0.6)
+  addWall(gapHalfWidth + sideWallLen / 2, -halfZ, sideWallLen, 0.6)
 
   // Sandbag-topped watchtower posts flanking the entrance, doubling as the
   // first two guardSpots so the gap is covered from the moment it's built.
   const guardSpots = []
   for (const side of [-1, 1]) {
     const postX = x + side * (gapHalfWidth + 0.5)
-    const postZ = z - half + 1.2
+    const postZ = z - halfZ + 1.2
     const post = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.1, 0.9), sandbagMat)
     post.position.set(postX, 0.55, postZ)
     post.castShadow = true
@@ -3765,7 +3775,7 @@ function buildSafeZone(scene, colliders, solidMeshes) {
   }
   // Third guard further back inside the compound, covering anything that
   // makes it past the gap.
-  guardSpots.push({ x: x, z: z + half - 2 })
+  guardSpots.push({ x: x, z: z + halfZ - 2 })
 
   // A green glow post at the center - the visual "this spot is safe" tell,
   // matching the heal-while-inside radius Game.js applies around {x, z}.
@@ -3779,7 +3789,106 @@ function buildSafeZone(scene, colliders, solidMeshes) {
   beaconLight.position.set(x, 1.9, z)
   scene.add(beaconLight)
 
-  return { x, z, radius: half - 0.5, guardSpots }
+  // Exit platform + staircase (see World.js's own comment on why the west
+  // wall, north half was picked - clear of the Vault at safeZone.x-4).
+  // Sits astride the west wall: the platform's own bottom face (y=wallHeight
+  // + 0.05) is above the wall's own collider box (0 to wallHeight), so the
+  // two never overlap despite occupying the same x - a player walks up the
+  // stairs, across the platform, and off its outer edge steps them down
+  // outside the wall instead of back inside.
+  const platformY = wallHeight + 0.2
+  const platformCenterX = x - halfX
+  const platformCenterZ = z + 5
+  const stepMat = cachedFlatMaterial({ color: 0x4a4438, roughness: 0.85 })
+  const platformMat = cachedFlatMaterial({ color: 0x4a4438, roughness: 0.8 })
+  const railMat = cachedFlatMaterial({ color: 0x2a2620, roughness: 0.7, metalness: 0.3 })
+
+  const STEP_COUNT = 8
+  const stepRise = platformY / STEP_COUNT
+  const stepDepth = 0.55
+  // Steps run from the interior (a couple units in front of the wall,
+  // ground-level) toward the wall, growing taller with each step so the
+  // last one is flush with the platform's own height right where it meets
+  // it - i=0 is furthest from the wall/shortest, i=STEP_COUNT-1 is closest
+  // to the wall/tallest.
+  const stepsStartX = platformCenterX + 1.4 + (STEP_COUNT - 1) * stepDepth
+  for (let i = 0; i < STEP_COUNT; i++) {
+    const stepHeight = stepRise * (i + 1)
+    // stepDepth (spacing direction, X) first, 1.6 (the stair's own width,
+    // Z) last - each step's own X footprint has to match its X spacing or
+    // consecutive steps overlap/clip through each other.
+    const step = new THREE.Mesh(new THREE.BoxGeometry(stepDepth, stepHeight, 1.6), stepMat)
+    step.position.set(stepsStartX - i * stepDepth, stepHeight / 2, platformCenterZ)
+    step.castShadow = true
+    step.receiveShadow = true
+    scene.add(step)
+    solidMeshes.push(step)
+    colliders.push(new THREE.Box3().setFromObject(step))
+  }
+
+  // Platform's X extent (2.4) is what straddles the wall (the wall's own
+  // length runs along Z, at fixed x=-halfX) - centered on the wall, so
+  // roughly half sits over the interior side (east, where the stairs meet
+  // it) and half extends past the outer wall face (west), making the west
+  // edge genuinely outside the compound to step off of.
+  const platform = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.25, 2.6), platformMat)
+  platform.position.set(platformCenterX, platformY, platformCenterZ)
+  platform.castShadow = true
+  platform.receiveShadow = true
+  scene.add(platform)
+  solidMeshes.push(platform)
+  colliders.push(new THREE.Box3().setFromObject(platform))
+
+  // Waist-high rails on the two Z-extremes (the sides running along the
+  // direction of travel) - guards against falling off sideways while
+  // crossing, but deliberately leaves both X-ends open: the east end is
+  // where the stairs connect, the west end is the actual exit edge.
+  for (const railZ of [platformCenterZ - 1.2, platformCenterZ + 1.2]) {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.9, 0.1), railMat)
+    rail.position.set(platformCenterX, platformY + 0.55, railZ)
+    rail.castShadow = true
+    scene.add(rail)
+    solidMeshes.push(rail)
+    colliders.push(new THREE.Box3().setFromObject(rail))
+  }
+
+  // Extra decoration filling the wider footprint (see the widened halfX
+  // above) - a handful of crates and a couple of extra lights, echoing the
+  // sandbag-and-post language the rest of the compound already uses rather
+  // than introducing a new visual style.
+  const crateMat = cachedFlatMaterial({ color: 0x5a4a30, roughness: 0.9 })
+  const decorLightMat = cachedFlatMaterial({ color: 0x1a1408, emissive: 0x6fe08a, emissiveIntensity: 1.1 })
+  const crateSpots = [
+    { x: x - 8.5, z: z + 2 },
+    { x: x - 8.5, z: z - 2 },
+    { x: x + 8.5, z: z - 5 },
+  ]
+  for (const spot of crateSpots) {
+    for (const [ox, oz, s] of [[0, 0, 0.7], [0.55, 0.1, 0.55]]) {
+      const crate = new THREE.Mesh(new THREE.BoxGeometry(s, s, s), crateMat)
+      crate.position.set(spot.x + ox, s / 2, spot.z + oz)
+      crate.rotation.y = (spot.x * 13.7 + spot.z * 7.3) % 1
+      crate.castShadow = true
+      crate.receiveShadow = true
+      scene.add(crate)
+      solidMeshes.push(crate)
+      colliders.push(new THREE.Box3().setFromObject(crate))
+    }
+  }
+  for (const lx of [x - 8.5, x + 8.5]) {
+    const lampPost = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 2.2, 8), postMat)
+    lampPost.position.set(lx, 1.1, z + 6)
+    lampPost.castShadow = true
+    scene.add(lampPost)
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 10), decorLightMat)
+    lamp.position.set(lx, 2.25, z + 6)
+    scene.add(lamp)
+    const lampLight = new THREE.PointLight(0x6fe08a, 1, 7, 2)
+    lampLight.position.set(lx, 2.3, z + 6)
+    scene.add(lampLight)
+  }
+
+  return { x, z, radius: halfZ - 0.5, halfX, halfZ, guardSpots }
 }
 
 // Blueprint-locations infrastructure (Phase 0 of the Extended Metropolitan

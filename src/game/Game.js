@@ -17690,7 +17690,11 @@ export class Game {
     this.watchtowerBuilt = true
     const postMat = flatMaterial({ color: 0x4a3d2c, roughness: 0.9 })
     const platformMat = flatMaterial({ color: 0x3a3024, roughness: 0.85 })
-    const towerX = this.safeZone.x - 9
+    // Offset from safeZone.halfX (not a bare hardcoded number) - the safe
+    // zone walls were widened after this was first built, and a fixed
+    // offset would have left this either inside the new walls or jammed
+    // right up against them. See World.js's buildSafeZone.
+    const towerX = this.safeZone.x - (this.safeZone.halfX + 2)
     const towerZ = this.safeZone.z - 6
     for (const [ox, oz] of [[-0.8, -0.8], [0.8, -0.8], [-0.8, 0.8], [0.8, 0.8]]) {
       const post = new THREE.Mesh(new THREE.BoxGeometry(0.25, 4, 0.25), postMat)
@@ -17714,7 +17718,8 @@ export class Game {
     this.farmPlotBuilt = true
     const soilMat = flatMaterial({ color: 0x3a2c1e, roughness: 1 })
     const cropMat = flatMaterial({ color: 0x5a8a3a, roughness: 0.9 })
-    const plotX = this.safeZone.x + 9
+    // Offset from safeZone.halfX - see _buildWatchtower's own comment.
+    const plotX = this.safeZone.x + (this.safeZone.halfX + 2)
     const plotZ = this.safeZone.z - 6
     for (let row = 0; row < 3; row++) {
       const soil = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.15, 0.6), soilMat)
@@ -17750,8 +17755,13 @@ export class Game {
     this.ammoPressBuilt = true
     const bodyMat = flatMaterial({ color: 0x3a3a3e, roughness: 0.7, metalness: 0.4 })
     const beltMat = flatMaterial({ color: 0x1c1c1e, roughness: 0.9 })
-    const x = this.safeZone.x - 9
-    const z = this.safeZone.z - 6
+    // Offset from safeZone.halfX (see _buildWatchtower's own comment) - also
+    // a different z than the Watchtower now (was the exact same x/z as the
+    // Watchtower above, so a player who bought both would see them spawn on
+    // top of each other; caught while fixing the widened-wall offsets, not
+    // something this change introduced).
+    const x = this.safeZone.x - (this.safeZone.halfX + 2)
+    const z = this.safeZone.z - 3
     const body = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.4, 1.2), bodyMat)
     body.position.set(x, 0.7, z)
     body.castShadow = true
@@ -17778,7 +17788,8 @@ export class Game {
   _buildInformant() {
     const mat = flatMaterial({ color: 0x2a2420, roughness: 0.85 })
     const capMat = flatMaterial({ color: 0x3a3228, emissive: 0xffb84a, emissiveIntensity: 0.5, roughness: 0.6 })
-    this.informantX = this.safeZone.x + 9
+    // Offset from safeZone.halfX (see _buildWatchtower's own comment).
+    this.informantX = this.safeZone.x + (this.safeZone.halfX + 2)
     this.informantZ = this.safeZone.z + 6
     const post = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.4, 1.7, 8), mat)
     post.position.set(this.informantX, 0.85, this.informantZ)
