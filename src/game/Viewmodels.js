@@ -36,6 +36,8 @@ export const USE_GLB_AWP = true
 export const preloadAwpViewmodel = preloadGunModel('awp', '/models/weapons/awp.glb')
 export const USE_GLB_GLOCK18 = true
 export const preloadGlock18Viewmodel = preloadGunModel('glock18', '/models/weapons/glock18.glb')
+export const USE_GLB_SUPPRESSEDSMG = true
+export const preloadSuppressedSmgViewmodel = preloadGunModel('suppressedsmg', '/models/weapons/suppressedsmg.glb')
 
 // Melee lane (3dmodelscc0's CC0 pack, asset-source/build-melee.py) - reuses
 // the same generic cache/loader as the guns even though the function name
@@ -1208,6 +1210,25 @@ function buildVoidRipper(skinId = null) {
 // barrel is the "SD" model's real-world signature, distinct from Glock 18's
 // handgun shape and every other rifle-length gun's bare thin barrel.
 function buildSuppressedSmg(skinId = null) {
+  if (USE_GLB_SUPPRESSEDSMG && GUN_MODEL_CACHE.suppressedsmg) {
+    const g = buildGunFromGLB(GUN_MODEL_CACHE.suppressedsmg, 'Metal', skinId)
+    const root = g.children[0]
+    const grip = root.getObjectByName('Grip')
+    if (grip) attachHandToGrip(g, grip)
+    const foregrip = root.getObjectByName('Foregrip')
+    if (foregrip) {
+      const foreHand = buildHand()
+      foreHand.position.copy(foregrip.position)
+      foreHand.rotation.x = -0.15
+      foreHand.rotation.z = Math.PI
+      g.add(foreHand)
+    }
+    return g
+  }
+  return buildSuppressedSmgProcedural(skinId)
+}
+
+function buildSuppressedSmgProcedural(skinId = null) {
   const g = new THREE.Group()
 
   const body = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.09, 0.24), skinMaterial(skinId))
