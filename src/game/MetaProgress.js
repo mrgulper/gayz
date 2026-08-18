@@ -215,6 +215,38 @@ export const META_UPGRADES = [
       game.companion.equipAutoRevive()
     },
   },
+  // Companion Perk Tree - a small requires-chained mini tree (root -> tier 2
+  // -> capstone), same shape as the player's own Survival/Combat/Utility
+  // chains above, just aimed at the companion. Also re-applied directly in
+  // Game.js's _rebuildCompanion (a role swap builds a fresh Companion
+  // instance mid-session, same reason companion_speed/companion_autorevive
+  // already needed that second call site).
+  {
+    id: 'companion_vitality',
+    titleKey: 'metaCompanionVitality',
+    cost: 350,
+    apply: (game) => {
+      game.companion.equipVitalityBoost()
+    },
+  },
+  {
+    id: 'companion_marksman',
+    titleKey: 'metaCompanionMarksman',
+    cost: 450,
+    requires: 'companion_vitality',
+    apply: (game) => {
+      game.companion.equipMarksman()
+    },
+  },
+  {
+    id: 'companion_elite',
+    titleKey: 'metaCompanionElite',
+    cost: 650,
+    requires: 'companion_marksman',
+    apply: (game) => {
+      game.companion.equipElite()
+    },
+  },
   {
     id: 'coin_stamina',
     titleKey: 'coinShopStamina',

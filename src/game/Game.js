@@ -32,6 +32,7 @@ import { COIN_SHOP_ITEMS, ATTACHMENT_TYPES } from './CoinShop.js'
 import { pickNightEvent, NIGHT_MUTATIONS, NIGHT_MUTATION_CHANCE } from './NightEvents.js'
 import { Companion } from './Companion.js'
 import { Turret } from './Turret.js'
+import { MedStation } from './MedStation.js'
 import { PlayerBody } from './PlayerBody.js'
 import { Vehicle } from './Vehicle.js'
 import { META_UPGRADES, loadMetaProgress, saveMetaProgress, DEATH_POINTS_CONVERSION } from './MetaProgress.js'
@@ -1624,6 +1625,10 @@ const MYSTERY_BOX_COST = 950
 const MYSTERY_BOX_RARE_CHANCE = 0.05
 const MYSTERY_BOX_RADIUS = 2.2
 const MAX_DEPLOYED_TURRETS = 3
+// Med Station - support-archetype counterpart to Turret Kit (see
+// MedStation.js). Capped slightly lower than turrets since sustained
+// healing is a stronger effect per-instance than one more gun.
+const MAX_DEPLOYED_MED_STATIONS = 2
 // Field power-ups - a small chance per kill (see _onZombieKilled) to drop
 // one of these instead of (not in addition to) the normal loot roll,
 // mirroring spawnKillDrop's own "every 10th kill" guaranteed drop but at a
@@ -2530,6 +2535,8 @@ const PHOTO_MODE_FILTERS = [
   { id: 'noir', labelKey: 'photoFilterNoir', css: 'grayscale(1) contrast(1.25) brightness(0.95)' },
   { id: 'vivid', labelKey: 'photoFilterVivid', css: 'saturate(1.6) contrast(1.15)' },
   { id: 'faded', labelKey: 'photoFilterFaded', css: 'contrast(0.85) saturate(0.75) brightness(1.08)' },
+  { id: 'warm', labelKey: 'photoFilterWarm', css: 'sepia(0.25) saturate(1.3) hue-rotate(-8deg) brightness(1.05)' },
+  { id: 'cool', labelKey: 'photoFilterCool', css: 'saturate(1.15) hue-rotate(12deg) brightness(0.95) contrast(1.1)' },
 ]
 
 const BOSS_HUNT_SPAWN_RADIUS = 30
@@ -2591,6 +2598,7 @@ const SHOP_ITEMS = [
   { id: 'shield', cost: 30, titleKey: 'shopShield', give: (game) => game.inventory.addShield(1) },
   { id: 'knife', cost: 18, titleKey: 'shopKnife', give: (game) => game.inventory.addThrowingKnife(1) },
   { id: 'turretkit', cost: 120, titleKey: 'shopTurretKit', give: (game) => game.inventory.addTurretKit(1) },
+  { id: 'medstationkit', cost: 130, titleKey: 'shopMedStationKit', give: (game) => game.inventory.addMedStationKit(1) },
   { id: 'alarmkit', cost: 25, titleKey: 'shopAlarmKit', give: (game) => game.inventory.addAlarmKit(1) },
   { id: 'ration', cost: 12, titleKey: 'shopRation', give: (game) => game.inventory.addRation(1) },
   { id: 'water', cost: 10, titleKey: 'shopWater', give: (game) => game.inventory.addWaterBottle(1) },
@@ -2680,6 +2688,7 @@ const SALVAGE_ITEMS = [
   { id: 'shield', invKey: 'shields', titleKey: 'shopShield', sellValue: salvageValue('shield'), sell: (game) => game.inventory.useShield() },
   { id: 'knife', invKey: 'throwingKnives', titleKey: 'shopKnife', sellValue: salvageValue('knife'), sell: (game) => game.inventory.useThrowingKnife() },
   { id: 'turretkit', invKey: 'turretKits', titleKey: 'shopTurretKit', sellValue: salvageValue('turretkit'), sell: (game) => game.inventory.useTurretKit() },
+  { id: 'medstationkit', invKey: 'medStationKits', titleKey: 'shopMedStationKit', sellValue: salvageValue('medstationkit'), sell: (game) => game.inventory.useMedStationKit() },
   { id: 'alarmkit', invKey: 'alarmKits', titleKey: 'shopAlarmKit', sellValue: salvageValue('alarmkit'), sell: (game) => game.inventory.useAlarmKit() },
   { id: 'ration', invKey: 'rations', titleKey: 'shopRation', sellValue: salvageValue('ration'), sell: (game) => game.inventory.useRation() },
   { id: 'water', invKey: 'waterBottles', titleKey: 'shopWater', sellValue: salvageValue('water'), sell: (game) => game.inventory.useWaterBottle() },
@@ -3052,6 +3061,7 @@ export class Game {
     this.shieldCount = document.getElementById('shield-count')
     this.knifeCount = document.getElementById('knife-count')
     this.turretkitCount = document.getElementById('turretkit-count')
+    this.medstationCount = document.getElementById('medstation-count')
     this.alarmkitCount = document.getElementById('alarmkit-count')
     this.rationCount = document.getElementById('ration-count')
     this.inventoryPanel = document.getElementById('inventory-panel')
@@ -3077,6 +3087,7 @@ export class Game {
     this.panelShieldCount = document.getElementById('panel-shield-count')
     this.panelKnifeCount = document.getElementById('panel-knife-count')
     this.panelTurretkitCount = document.getElementById('panel-turretkit-count')
+    this.panelMedstationCount = document.getElementById('panel-medstation-count')
     this.panelAlarmkitCount = document.getElementById('panel-alarmkit-count')
     this.panelRationCount = document.getElementById('panel-ration-count')
     this.panelWaterCount = document.getElementById('panel-water-count')
@@ -3644,6 +3655,10 @@ export class Game {
     // safe zone), these are player-placed anywhere, consumed from
     // inventory.turretKits, capped at MAX_DEPLOYED_TURRETS alive at once.
     this.deployedTurrets = []
+    // Deployable Med Stations (see _deployMedStation) - the support
+    // counterpart, same shape as deployedTurrets above just healing instead
+    // of shooting, consumed from inventory.medStationKits.
+    this.deployedMedStations = []
     this.doublePointsUntil = 0
     this.instakillUntil = 0
     this.cleaningKitUntil = 0
@@ -5219,6 +5234,8 @@ export class Game {
       this.downedUntil = 0
       for (const t of this.deployedTurrets) t.dispose()
       this.deployedTurrets = []
+      for (const m of this.deployedMedStations) m.dispose()
+      this.deployedMedStations = []
       this.activeBounty = null
       if (this.rescueSurvivor) {
         this.rescueSurvivor.dispose()
@@ -5531,6 +5548,8 @@ export class Game {
         this._throwKnife()
       } else if (e.code === 'Digit8') {
         this._deployTurret()
+      } else if (e.code === getKeyFor('medStation')) {
+        this._deployMedStation()
       } else if (e.code === 'Digit9') {
         this._deployAlarm()
       } else if (e.code === 'Digit0') {
@@ -6189,6 +6208,24 @@ export class Game {
     this.deployedTurrets.push(turret)
     this._updateInventoryHud()
     this._showLoreToast(t('toastTurretDeployed'))
+  }
+
+  // Support counterpart to _deployTurret above - same shape, heals instead
+  // of shoots (see MedStation.js).
+  _deployMedStation() {
+    if (!this.inventory.useMedStationKit()) {
+      this._showLoreToast(t('toastNoMedStationKit'))
+      return
+    }
+    if (this.deployedMedStations.length >= MAX_DEPLOYED_MED_STATIONS) {
+      const oldest = this.deployedMedStations.shift()
+      oldest.dispose()
+    }
+    const pos = this.player.controls.object.position
+    const station = new MedStation(this.scene, pos.x, pos.z)
+    this.deployedMedStations.push(station)
+    this._updateInventoryHud()
+    this._showLoreToast(t('toastMedStationDeployed'))
   }
 
   // Panic-button speed + fire-rate boost, distinct from health/armor packs -
@@ -10099,6 +10136,9 @@ export class Game {
     if (this.companionGear.rig) this.companion.equipRig()
     if (this.metaProgress.purchased.has('companion_speed')) this.companion.equipSpeedBoost()
     if (this.metaProgress.purchased.has('companion_autorevive')) this.companion.equipAutoRevive()
+    if (this.metaProgress.purchased.has('companion_vitality')) this.companion.equipVitalityBoost()
+    if (this.metaProgress.purchased.has('companion_marksman')) this.companion.equipMarksman()
+    if (this.metaProgress.purchased.has('companion_elite')) this.companion.equipElite()
     this._updateCompanionName()
   }
 
@@ -11992,6 +12032,7 @@ export class Game {
     document.getElementById('panel-shield-label').textContent = t('shieldLabel')
     document.getElementById('panel-knife-label').textContent = t('knifeLabel')
     document.getElementById('panel-turretkit-label').textContent = t('shopTurretKit')
+    document.getElementById('panel-medstation-label').textContent = t('shopMedStationKit')
     document.getElementById('panel-alarmkit-label').textContent = t('shopAlarmKit')
     document.getElementById('panel-ration-label').textContent = t('shopRation')
     document.getElementById('panel-water-label').textContent = t('shopWater')
@@ -12902,6 +12943,7 @@ export class Game {
     this.panelShieldCount.textContent = this.inventory.shields
     this.panelKnifeCount.textContent = this.inventory.throwingKnives
     this.panelTurretkitCount.textContent = this.inventory.turretKits
+    this.panelMedstationCount.textContent = this.inventory.medStationKits
     this.panelAlarmkitCount.textContent = this.inventory.alarmKits
     this.panelRationCount.textContent = this.inventory.rations
     this.panelWaterCount.textContent = this.inventory.waterBottles
@@ -14635,7 +14677,13 @@ export class Game {
       ['profileBestKillStreak', t('profileBestKillStreak'), _safeStatNumber(this.bestStats.bestKillStreak)],
       ['profileAchievements', t('profileAchievements'), `${this.achievements.unlocked.size}/${ACHIEVEMENTS.length}`],
       ['profileCosmetics', t('profileCosmetics'), `${cosmeticsOwned}/${cosmeticsTotal}`],
-      ['profilePrestige', t('profilePrestige'), _safeStatNumber(this.metaProgress.prestigeLevel)],
+      // Same tier color as the homepage's #menu-prestige-badge (see
+      // _updatePrestigeBadge) - prestige only ever showed its color in that
+      // one homepage spot before; this carries the same visual identity
+      // into the Profile panel instead of a plain number.
+      ['profilePrestige', t('profilePrestige'), this.metaProgress.prestigeLevel > 0
+        ? `<span class="prestige-tier-${this.metaProgress.prestigeLevel >= 6 ? 3 : this.metaProgress.prestigeLevel >= 3 ? 2 : 1}">${_safeStatNumber(this.metaProgress.prestigeLevel)}</span>`
+        : _safeStatNumber(this.metaProgress.prestigeLevel)],
       ['profileNemesisLabel', t('profileNemesisLabel'), this.nemesis ? t('profileNemesisValue', { name: _escapeHtml(this.nemesis.label), n: _safeStatNumber(this.nemesis.night) }) : t('profileNemesisNone')],
       ['profileSecretsFound', t('profileSecretsFound'), _safeStatNumber(this.secretsProgress.cachesDug) + (this.secretsProgress.easterEggSeen ? 1 : 0)],
       ['profileNetWorth', t('profileNetWorth'), _safeStatNumber(this.coins) + _safeStatNumber(this.points) + _safeStatNumber(this.metaProgress.legacyPoints)],
@@ -16156,6 +16204,7 @@ export class Game {
     this.shieldCount.textContent = this.inventory.shields
     this.knifeCount.textContent = this.inventory.throwingKnives
     this.turretkitCount.textContent = this.inventory.turretKits
+    this.medstationCount.textContent = this.inventory.medStationKits
     this.alarmkitCount.textContent = this.inventory.alarmKits
     this.rationCount.textContent = this.inventory.rations
     this.barricadeCount.textContent = this.inventory.barricades
@@ -18921,6 +18970,15 @@ export class Game {
       }
       if (this.turret) this.turret.update(this.zombies.zombies)
       for (const t of this.deployedTurrets) t.update(this.zombies.zombies)
+      if (this.deployedMedStations.length > 0) {
+        const medStationCompanions = [this.companion, this.tempCompanion, ...this.recruits].filter(Boolean)
+        for (const m of this.deployedMedStations) {
+          m.update(playerPos, (amount) => {
+            this.playerState.heal(amount)
+            this._updateHealthHud()
+          }, medStationCompanions)
+        }
+      }
       this._updateSafeZoneHeal(dt, playerPos)
       if (this.settings.mutators.healthRegen) this._updateHealthRegen(dt)
       if (this.flashlightOn) this._updateLightLure(playerPos)

@@ -1728,6 +1728,13 @@ body.reduce-flashing #critical-blood-overlay.show {
   text-shadow: 0 0 6px rgba(255, 211, 92, 0.5);
 }
 
+/* Same 3 tier colors, generic (not #menu-prestige-badge-scoped) - used by
+   the Profile panel's Prestige stat row so the same visual identity shows
+   up there too, not just the one homepage badge. */
+.prestige-tier-1 { color: #c98a4b; font-weight: 700; }
+.prestige-tier-2 { color: #cfd6de; font-weight: 700; }
+.prestige-tier-3 { color: #ffd35c; font-weight: 700; text-shadow: 0 0 6px rgba(255, 211, 92, 0.5); }
+
 /* Login streak badge - shares the row with career-rank/prestige-badge
    (all inline .menu-best-stats spans), so a short streak doesn't force a
    new line at typical column widths. Only shown at streak >= 2 (see

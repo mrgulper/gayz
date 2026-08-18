@@ -133,6 +133,11 @@ export class Companion {
     // Companion is constructed on every role-swap/rescue/recruit anyway.
     this.canAutoRevive = false
     this.autoRevivedUsed = false
+    // Companion perk tree (see equipVitalityBoost/equipMarksman/equipElite) -
+    // same per-companion-instance-lifetime reasoning as canAutoRevive above.
+    this.hasVitalityBoost = false
+    this.hasMarksmanPerk = false
+    this.hasElitePerk = false
 
     // Movement-driven walk/idle animation (GLB bodies only) - tracked here
     // rather than passed in, since none of update()'s callers currently
@@ -197,6 +202,34 @@ export class Companion {
 
   equipAutoRevive() {
     this.canAutoRevive = true
+  }
+
+  // Companion perk tree (see META_UPGRADES' companion_vitality/marksman/
+  // elite entries) - a small requires-chained mini tree spent with Legacy
+  // Points, same shape as the player's own Survival/Combat/Utility chains
+  // in that same panel, just aimed at the companion instead. Same no-op-
+  // if-already-applied guard as every equip* method above.
+  equipVitalityBoost() {
+    if (this.hasVitalityBoost) return
+    this.hasVitalityBoost = true
+    this.maxHealth += 30
+    this.health += 30
+  }
+
+  equipMarksman() {
+    if (this.hasMarksmanPerk) return
+    this.hasMarksmanPerk = true
+    this.gearDamageMult *= 1.2
+  }
+
+  // Capstone - requires marksman, which requires vitality, so this is only
+  // ever reachable after both roots are already owned.
+  equipElite() {
+    if (this.hasElitePerk) return
+    this.hasElitePerk = true
+    this.maxHealth += 40
+    this.health += 40
+    this.gearDamageMult *= 1.15
   }
 
   // Floating name label above the head - same canvas-texture-sprite trick

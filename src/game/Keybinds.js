@@ -48,6 +48,7 @@ export const ACTIONS = [
   { id: 'barricadeCrate', defaultKey: 'Backslash', labelKey: 'actionBarricadeCrate' },
   { id: 'weaponInspect', defaultKey: 'Delete', labelKey: 'actionWeaponInspect' },
   { id: 'radio', defaultKey: 'Home', labelKey: 'actionRadio' },
+  { id: 'medStation', defaultKey: 'Insert', labelKey: 'actionMedStation' },
 ]
 
 function defaultBindings() {

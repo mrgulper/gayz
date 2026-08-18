@@ -18,6 +18,10 @@ export class Inventory {
     this.rations = 0
     this.waterBottles = 0
     this.smokeBombs = 0
+    // Med Station Kits - a support-archetype deployable (see Game.js's
+    // _deployMedStation) distinct from the existing Turret Kit, which is
+    // purely offensive. Same one-shot-consumable shape as every other kit.
+    this.medStationKits = 0
     // Barricade Crates (Interactive World batch) - distinct from
     // `barricades` above (that one repairs the fixed window barricades;
     // this is a portable, player-placed obstacle - see Game.js's
@@ -91,6 +95,10 @@ export class Inventory {
 
   addTurretKit(n = 1) {
     this.turretKits += n
+  }
+
+  addMedStationKit(n = 1) {
+    this.medStationKits += n
   }
 
   addAlarmKit(n = 1) {
@@ -192,6 +200,12 @@ export class Inventory {
   useTurretKit() {
     if (this.turretKits <= 0) return false
     this.turretKits -= 1
+    return true
+  }
+
+  useMedStationKit() {
+    if (this.medStationKits <= 0) return false
+    this.medStationKits -= 1
     return true
   }
 

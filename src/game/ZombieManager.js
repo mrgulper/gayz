@@ -104,6 +104,18 @@ const BOSS_COMPANION_TARGET_RANGE = 20
 // traffic to converge there.
 const BARRICADE_PULL_RADIUS = 12
 
+// Flanking AI (see the targetPos override in update()) - some zombies curve
+// in from the side instead of beelining straight at the player, so a horde
+// doesn't read as a single-file conga line. FLANK_CHANCE is per-zombie at
+// spawn (ranged/burrower types never roll it - a spitter circling instead
+// of lining up a shot would look wrong, and burrowers already ambush from
+// underground). The lateral offset fades to 0 as the zombie closes to its
+// own melee range, so it converges on the real player position exactly
+// when it's close enough to actually attack, rather than orbiting forever.
+const FLANK_CHANCE = 0.35
+const FLANK_MAX_OFFSET = 5
+const FLANK_FADE_DISTANCE = 14
+
 // Round Mode (Obsidian Ops-style kill-to-advance loop, see Game.js's
 // settings.mutators.roundMode): count scales roughly linearly with round
 // number rather than the small fixed band timed-night difficulty uses, so
@@ -682,6 +694,13 @@ export class ZombieManager {
     if (enabled) this.respawnDelay = Math.min(this.respawnDelay, MIN_RESPAWN_DELAY)
   }
 
+  // See FLANK_CHANCE's own comment. 0 = walks straight at the player
+  // (most zombies); -1/1 = curves in from that side instead.
+  _rollFlankSide(type) {
+    if (type.ranged || type.burrower || Math.random() >= FLANK_CHANCE) return 0
+    return Math.random() < 0.5 ? 1 : -1
+  }
+
   _spawnRandom() {
     const type = pickZombieType(this.featuredEnemyId, FEATURED_ENEMY_WEIGHT_MULT)
     const isAmbush = type.burrower || (!type.ranged && Math.random() < this.ambushChance)
@@ -695,6 +714,7 @@ export class ZombieManager {
 
     const isElite = Math.random() < ELITE_CHANCE * this.eliteChanceMult
     const zombie = new Zombie(x, z, type, isAmbush, isElite, this.currentNight, this.healthMult, this.speedMult)
+    zombie.flankSide = this._rollFlankSide(type)
     if (this.roundMode && this.roundHealthMult !== 1) {
       zombie.maxHealth *= this.roundHealthMult
       zombie.health = zombie.maxHealth
@@ -752,6 +772,7 @@ export class ZombieManager {
   // does the expensive part (the actual construction) one at a time.
   _spawnOneAt(spot) {
     const zombie = new Zombie(spot.x, spot.z, spot.type, spot.isAmbush, spot.isElite, this.currentNight, this.healthMult, this.speedMult)
+    zombie.flankSide = this._rollFlankSide(spot.type)
     zombie.deathHandled = false
     this.zombies.push(zombie)
     this.scene.add(zombie.group)
@@ -1428,6 +1449,26 @@ export class ZombieManager {
             spitCb = null
             break
           }
+        }
+      }
+
+      // Flanking (see FLANK_CHANCE) - only applies if nothing else above
+      // already redirected this zombie. Unlike the other overrides here,
+      // attackCb stays pointed at the real player - the zombie IS still
+      // after the player, just approaching from an angle instead of head-on.
+      if (!zombie.isBoss && zombie.state === 'alive' && targetPos === playerPos && zombie.flankSide) {
+        const dx = zombie.group.position.x - playerPos.x
+        const dz = zombie.group.position.z - playerPos.z
+        const dist = Math.hypot(dx, dz)
+        if (dist > 0.001) {
+          const meleeRange = zombie.config.meleeRange || 2
+          const t = Math.min(1, Math.max(0, (dist - meleeRange) / FLANK_FADE_DISTANCE))
+          const offset = FLANK_MAX_OFFSET * t * zombie.flankSide
+          // Perpendicular to the player->zombie direction, so the offset
+          // reads as "off to the side" rather than "further away."
+          const perpX = -dz / dist
+          const perpZ = dx / dist
+          targetPos = { x: playerPos.x + perpX * offset, y: playerPos.y, z: playerPos.z + perpZ * offset }
         }
       }
 
