@@ -2000,7 +2000,12 @@ function _saveSeenIds(key, idsIterable) {
 // beats, not rank tiers.
 const KILL_MILESTONES = [1000, 5000, 10000, 25000, 50000, 100000]
 const KILL_MILESTONES_SEEN_KEY = 'gayz-kill-milestones-seen'
-const HOWTOPLAY_STEPS = ['htpMove', 'htpShoot', 'htpInventory', 'htpChests', 'htpSurvive']
+// 3 steps added on top of the original 5 - the game has grown a lot since
+// those were written (companions, the Trader, Game Modes/Mutators all
+// exist now) and a new player had zero signposting toward any of them.
+// Deliberately still short and high-level, not trying to explain every
+// system - just "these exist, go look."
+const HOWTOPLAY_STEPS = ['htpMove', 'htpShoot', 'htpInventory', 'htpChests', 'htpSurvive', 'htpCompanion', 'htpTrader', 'htpModes']
 
 // Nearly There nudge (Profile panel) - deliberately a small curated list,
 // not every achievement: most ACHIEVEMENTS conditions are per-run counters

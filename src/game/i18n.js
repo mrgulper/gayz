@@ -1268,6 +1268,9 @@ const STRINGS = {
     htpInventory: '**Tab** opens your inventory. Walk over pickups to collect them automatically.',
     htpChests: '**F** opens chests. Look for lookout platforms up staircases along the avenue.',
     htpSurvive: 'Use **H** for a health pack and **G** for an armor pack. Survive until dawn!',
+    htpCompanion: 'A companion fights beside you from the start. Find 3 more survivors to recruit out in the world, and spend Points at the Trader to train and gear up your squad.',
+    htpTrader: 'The walled Safe Zone (north of the avenue) heals you while you\'re inside. The Trader there sells supplies, ammo, and upgrades - and has a few requests for you too.',
+    htpModes: 'Click **Game Mode** on the homepage before you start a run to try Zombie Defense, Boss Hunt, and more, or turn on Mutators for extra twists and bonus rewards.',
     showcaseSlotEmpty: 'Empty slot - click to pin an unlocked achievement',
     // Second Homepage batch.
     seasonProgressLabel: '{n} kills to {rank}',
