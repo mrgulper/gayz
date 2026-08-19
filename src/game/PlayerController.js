@@ -10,6 +10,11 @@ const RADIUS = 0.4
 const MOVE_SPEED = 6
 const CROUCH_SPEED_MULT = 0.5
 const JUMP_SPEED = 10
+// Bunny hop (batch 9 feature) - each consecutive sprint-jump chained within
+// this window stacks a small speed bonus, capped at BUNNY_HOP_MAX_STACKS.
+const BUNNY_HOP_WINDOW_MS = 700
+const BUNNY_HOP_MAX_STACKS = 4
+const BUNNY_HOP_MULT_PER_STACK = 0.06
 const GRAVITY = -18
 const SPRINT_MULTIPLIER = 1.6
 const STAMINA_MAX = 100
@@ -66,6 +71,19 @@ const LEDGE_MIN_HEIGHT = MANTLE_MAX_HEIGHT
 const LEDGE_MAX_HEIGHT = 2.6
 const LEDGE_DURATION_MS = 550
 const LEDGE_STAMINA_COST = 25
+
+// Wall-run: jumping while airborne next to a tall vertical surface (a
+// skyscraper shell, a building wall) grants a brief gravity-free run along
+// it instead of just falling - the min-height gate keeps this from firing
+// off the same low walls/sandbags mantle already handles (MANTLE_MAX_HEIGHT
+// tops out at 1.4, this starts at 2.2, so the two never compete for the
+// same obstacle). Ends on its own timer, not on player choice, same "scripted
+// window" shape as dodge/slide above.
+const WALLRUN_PROBE_DIST = 0.7
+const WALLRUN_MIN_HEIGHT = 2.2
+const WALLRUN_DURATION_MS = 650
+const WALLRUN_SPEED = 8
+const WALLRUN_STAMINA_COST = 20
 
 // Sprint-to-slide: tapping crouch mid-sprint instead of just slowing to
 // crouch speed. Same flat-speed-then-stop shape as dodge above, just
@@ -186,6 +204,9 @@ export class PlayerController {
     // value again (two falls can land at an identical speed).
     this.lastLandingImpact = 0
     this.landingSeq = 0
+    // Bunny hop (batch 9 feature) - see BUNNY_HOP_WINDOW_MS's own comment.
+    this.lastLandingAt = 0
+    this.bunnyHopStreak = 0
     // Stage 11's slippery walkway (see Game.js's _updateSlipperyZone) - set
     // externally to >0 while standing on it, 0 everywhere else in the game.
     // Horizontal movement normally snaps straight to the target direction
@@ -249,6 +270,10 @@ export class PlayerController {
     this._mantleDurationMs = MANTLE_DURATION_MS
     this._mantleStart = new THREE.Vector3()
     this._mantleTarget = new THREE.Vector3()
+
+    this.isWallRunning = false
+    this.wallRunUntil = 0
+    this.wallRunDir = new THREE.Vector3()
 
     this.isSliding = false
     this.slideUntil = 0
@@ -322,6 +347,8 @@ export class PlayerController {
     this.isMantling = false
     this.mantleUntil = 0
     this._mantleDurationMs = MANTLE_DURATION_MS
+    this.isWallRunning = false
+    this.wallRunUntil = 0
     this.isSliding = false
     this.slideUntil = 0
     this.slideCooldownUntil = 0
@@ -370,6 +397,8 @@ export class PlayerController {
         this.velocity.y = JUMP_SPEED
         this.onGround = false
         this._realJumpAirborne = true
+      } else if (isDown && !this.isProne && !this.isSwimming && !this.onGround) {
+        this._tryWallRun()
       }
     } else if (code === getKeyFor('dodge')) {
       if (isDown && !this.isProne && !this.isSwimming) this._tryDodge()
@@ -454,6 +483,45 @@ export class PlayerController {
     this.stamina = Math.max(0, this.stamina - staminaCost)
     this.startScriptedMove(landX, obstacleTop + this.eyeHeight, landZ, duration)
     return true
+  }
+
+  // Wall-run trigger: only fires off Space while airborne (see the Space
+  // handler below) - grounded jumps still go through the normal onGround
+  // branch untouched. Checks both the left and right side for a tall
+  // enough surface (WALLRUN_MIN_HEIGHT) close by; picks whichever side has
+  // one, preferring the current facing direction's own left/right so the
+  // run continues roughly the way the player was already moving.
+  _tryWallRun() {
+    if (this.isWallRunning || this.isMantling || this.isDodging || this.isSliding) return false
+    if (this.stamina < WALLRUN_STAMINA_COST) return false
+
+    const obj = this.controls.object
+    const feetY = obj.position.y - this.eyeHeight
+    for (const side of [this._right, this._right.clone().negate()]) {
+      const probeX = obj.position.x + side.x * WALLRUN_PROBE_DIST
+      const probeZ = obj.position.z + side.z * WALLRUN_PROBE_DIST
+      let found = false
+      for (const collider of this._colliderGrid.query(probeX, probeZ)) {
+        if (probeX < collider.min.x || probeX > collider.max.x || probeZ < collider.min.z || probeZ > collider.max.z) continue
+        if (collider.min.y > feetY + 0.6) continue // wall has to start near the player's own feet, not float overhead
+        if (collider.max.y - feetY < WALLRUN_MIN_HEIGHT) continue
+        found = true
+        break
+      }
+      if (found) {
+        this.isWallRunning = true
+        this.wallRunUntil = performance.now() + WALLRUN_DURATION_MS
+        // Run along the wall, not into it - forward projected flat, falling
+        // back to the player's plain forward if they're facing dead into it.
+        this.wallRunDir.copy(this._forward)
+        if (this.wallRunDir.lengthSq() < 0.01) this.wallRunDir.set(0, 0, -1)
+        this.wallRunDir.normalize()
+        this.stamina = Math.max(0, this.stamina - WALLRUN_STAMINA_COST)
+        this.velocity.y = 0
+        return true
+      }
+    }
+    return false
   }
 
   // Shared "possess position for a scripted move" primitive - bypasses
@@ -573,8 +641,20 @@ export class PlayerController {
 
     if (this.isDodging && performance.now() >= this.dodgeUntil) this.isDodging = false
     if (this.isSliding && performance.now() >= this.slideUntil) this.isSliding = false
+    if (this.isWallRunning && performance.now() >= this.wallRunUntil) this.isWallRunning = false
 
-    if (this.isDodging) {
+    if (this.isWallRunning) {
+      this.isSprinting = false
+      const step = WALLRUN_SPEED * dt
+      this._tryMove(obj, this.wallRunDir.x * step, 0)
+      this._tryMove(obj, 0, this.wallRunDir.z * step)
+      // Held near zero each frame instead of accumulating GRAVITY*dt across
+      // the whole run - keeps altitude effectively flat for the duration
+      // without needing a separate no-gravity code path through the
+      // landing/ceiling logic below, which every other state already shares.
+      this.velocity.y = 0
+      this.onGround = false
+    } else if (this.isDodging) {
       this.isSprinting = false
       this.stamina = Math.min(this.maxStamina, this.stamina + STAMINA_REGEN_PER_SEC * this.warmthStaminaMult * dt)
       const dash = DODGE_SPEED * dt
@@ -626,6 +706,12 @@ export class PlayerController {
       // tick depending on which check happened to run last.
       speedMultiplier *= this.puddleMult
       speedMultiplier *= this.weaponWeightMult
+      // Bunny hop (batch 9 feature) - decays the streak once the window
+      // since the last landing has run out without a fresh one extending
+      // it, so the bonus doesn't linger indefinitely after the player stops
+      // chaining jumps.
+      if (this.bunnyHopStreak > 0 && performance.now() - this.lastLandingAt > BUNNY_HOP_WINDOW_MS) this.bunnyHopStreak = 0
+      if (this.bunnyHopStreak > 0) speedMultiplier *= 1 + this.bunnyHopStreak * BUNNY_HOP_MULT_PER_STACK
 
       if (this.slipFactor > 0) {
         // Wet planks over a sewer, not solid ground - momentum carries the
@@ -668,6 +754,17 @@ export class PlayerController {
         if (!this.onGround) {
           this.lastLandingImpact = this.velocity.y
           this.landingSeq++
+          // Bunny hop (batch 9 feature) - consecutive sprint-jumps (landing
+          // and immediately jumping again) build a stacking speed bonus;
+          // any gap longer than BUNNY_HOP_WINDOW_MS, or not sprinting,
+          // resets the streak instead of extending it.
+          const nowMs = performance.now()
+          if (this.isSprinting && nowMs - this.lastLandingAt < BUNNY_HOP_WINDOW_MS) {
+            this.bunnyHopStreak = Math.min(BUNNY_HOP_MAX_STACKS, this.bunnyHopStreak + 1)
+          } else {
+            this.bunnyHopStreak = 0
+          }
+          this.lastLandingAt = nowMs
         }
         obj.position.y = targetEyeY
         this.velocity.y = 0

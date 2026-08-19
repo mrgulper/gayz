@@ -58,4 +58,8 @@ export const ATTACHMENT_TYPES = [
   // Acid Rounds - a damage-taken debuff (see Zombie.corrode) rather than a
   // damage-over-time tick, distinct from Incendiary's burn.
   { id: 'acid', titleKey: 'attachAcid', cost: 4000 },
+  // Cryo Rounds (batch 10 feature) - a full immobilize (see Zombie.freeze),
+  // distinct from Electric's chain-stun (hits a NEIGHBOR, not the target)
+  // and from every damage-modifying attachment above - pure crowd control.
+  { id: 'cryo', titleKey: 'attachCryo', cost: 4000 },
 ]

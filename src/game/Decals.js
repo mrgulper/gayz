@@ -84,6 +84,35 @@ const puddleTexture = buildPuddleTexture()
 // leak geometry.
 const MAX_PUDDLES = 24
 
+// Footprint decals (batch 4 feature) - a single shared shoe-print texture
+// on an InstancedMesh, same "never mutated per-instance, so sharing across
+// a ring buffer is safe" reasoning as HOLE_DECAL_GEOMETRY/MATERIAL above.
+function buildFootprintTexture() {
+  const canvas = document.createElement('canvas')
+  canvas.width = 32
+  canvas.height = 64
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = 'rgba(30, 26, 20, 0.5)'
+  ctx.beginPath()
+  ctx.ellipse(16, 20, 9, 14, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.beginPath()
+  ctx.ellipse(16, 46, 7, 10, 0, 0, Math.PI * 2)
+  ctx.fill()
+  return new THREE.CanvasTexture(canvas)
+}
+const footprintTexture = buildFootprintTexture()
+const FOOTPRINT_GEOMETRY = new THREE.PlaneGeometry(0.14, 0.28)
+const FOOTPRINT_MATERIAL = new THREE.MeshBasicMaterial({
+  map: footprintTexture,
+  transparent: true,
+  depthWrite: false,
+  polygonOffset: true,
+  polygonOffsetFactor: -2,
+})
+const MAX_FOOTPRINTS = 50
+const FOOTPRINT_UP = new THREE.Vector3(0, 1, 0)
+
 export class DecalManager {
   constructor(scene) {
     this.scene = scene
@@ -104,14 +133,54 @@ export class DecalManager {
     this.scene.add(this.holeMesh)
     this._holeNextIndex = 0
     this._holeObj = new THREE.Object3D()
+
+    // Footprint instanced pool (see FOOTPRINT_GEOMETRY/MATERIAL's own
+    // comment) - same ring-buffer-over-a-fixed-capacity shape as the bullet
+    // hole pool above.
+    this.footprintMesh = new THREE.InstancedMesh(FOOTPRINT_GEOMETRY, FOOTPRINT_MATERIAL, MAX_FOOTPRINTS)
+    this.footprintMesh.count = 0
+    this.footprintMesh.frustumCulled = false
+    this.scene.add(this.footprintMesh)
+    this._footprintNextIndex = 0
+    this._footprintObj = new THREE.Object3D()
   }
 
-  spawn(point, normal, isBlood) {
+  // dirX/dirZ: normalized ground-plane travel direction, used to both
+  // rotate the print to face the way the player was walking and to offset
+  // it sideways (perpendicular to travel) so left/right prints don't stack
+  // on the same spot - isLeft alternates which side each call lands on.
+  spawnFootprint(x, z, dirX, dirZ, isLeft) {
+    const len = Math.hypot(dirX, dirZ)
+    const fx = len > 0.0001 ? dirX / len : 0
+    const fz = len > 0.0001 ? dirZ / len : 1
+    const perpX = -fz
+    const perpZ = fx
+    const side = isLeft ? -1 : 1
+    const offset = 0.13
+    // Same lookAt(normal)-then-rotateZ(yaw) technique as _spawnHole above -
+    // lookAt lays the plane flat facing up, then rotateZ spins it around
+    // that now-vertical local Z axis, which is exactly what "which way is
+    // this print pointing" means for a decal lying on the ground.
+    this._footprintObj.position.set(x + perpX * offset * side, 0.015, z + perpZ * offset * side)
+    this._footprintObj.lookAt(this._footprintObj.position.clone().add(FOOTPRINT_UP))
+    this._footprintObj.rotateZ(Math.atan2(fx, fz))
+    this._footprintObj.updateMatrix()
+    this.footprintMesh.setMatrixAt(this._footprintNextIndex, this._footprintObj.matrix)
+    this.footprintMesh.instanceMatrix.needsUpdate = true
+    this._footprintNextIndex = (this._footprintNextIndex + 1) % MAX_FOOTPRINTS
+    this.footprintMesh.count = Math.min(MAX_FOOTPRINTS, this.footprintMesh.count + 1)
+  }
+
+  // caliberScale (batch 7 feature) - a shotgun blast/heavy melee hit should
+  // visibly do more than a pistol tap on the same target (see Game.js's own
+  // caller comment for how it's derived). Defaults to 1 for callers that
+  // don't pass one, same size as before this feature existed.
+  spawn(point, normal, isBlood, caliberScale = 1) {
     if (!isBlood) {
       this._spawnHole(point, normal)
       return
     }
-    const size = 0.3 + Math.random() * 0.25
+    const size = (0.3 + Math.random() * 0.25) * caliberScale
     const material = new THREE.MeshBasicMaterial({
       map: bloodTexture,
       transparent: true,

@@ -168,14 +168,42 @@ export class Minimap {
       ctx.restore()
     }
 
+    // Shape-based icons (batch feature) - shape carries the type info, not
+    // just color, so it still reads for colorblind players. Plain zombies
+    // keep the original dot; boss/ranged/exploder get a distinct outline on
+    // top of the same red fill so the icon set stays a single family at a
+    // glance rather than a rainbow of unrelated colors.
     ctx.fillStyle = '#e04b4b'
+    ctx.strokeStyle = '#2a0808'
+    ctx.lineWidth = 1
     for (const z of zombies) {
       const dx = (z.x - playerPos.x) * scale
       const dz = (z.z - playerPos.z) * scale
       if (Math.hypot(dx, dz) > s / 2) continue
+      const ix = cx + dx
+      const iy = cy + dz
       ctx.beginPath()
-      ctx.arc(cx + dx, cy + dz, 2.6, 0, Math.PI * 2)
+      if (z.shape === 'boss') {
+        const r = 5
+        ctx.moveTo(ix, iy - r)
+        ctx.lineTo(ix + r, iy)
+        ctx.lineTo(ix, iy + r)
+        ctx.lineTo(ix - r, iy)
+        ctx.closePath()
+      } else if (z.shape === 'square') {
+        const r = 2.4
+        ctx.rect(ix - r, iy - r, r * 2, r * 2)
+      } else if (z.shape === 'triangle') {
+        const r = 3
+        ctx.moveTo(ix, iy - r)
+        ctx.lineTo(ix + r, iy + r)
+        ctx.lineTo(ix - r, iy + r)
+        ctx.closePath()
+      } else {
+        ctx.arc(ix, iy, 2.6, 0, Math.PI * 2)
+      }
       ctx.fill()
+      if (z.shape && z.shape !== 'dot') ctx.stroke()
     }
 
     ctx.restore()

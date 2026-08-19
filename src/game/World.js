@@ -356,7 +356,7 @@ export function buildWorld(scene, trophyCount = 15) {
     scene,
     groundMat,
     0, 0, groundSize, groundSize,
-    [UNDERGROUND_HOLE_SUBWAY, UNDERGROUND_HOLE_NEW_ENTRANCE, UNDERGROUND_HOLE_HIDDEN_COMPLEX],
+    [UNDERGROUND_HOLE_SUBWAY, UNDERGROUND_HOLE_NEW_ENTRANCE, UNDERGROUND_HOLE_HIDDEN_COMPLEX, UNDERGROUND_HOLE_VIREO_EXIT],
     0
   )
   solidMeshes.push(ground) // walkable ground for the player's floor-height raycast
@@ -413,11 +413,19 @@ export function buildWorld(scene, trophyCount = 15) {
   const EXTRA_FIRE_ESCAPE_IDXS = new Set([0, 1, 18, 19])
 
   const towerChestSpots = []
+  // Elevator Shortcuts (batch feature) - one ground-floor call point per
+  // real walkable skyscraper, {x, z, topY}. Game.js turns each into an
+  // interact prompt that scripted-moves the player straight to the top
+  // floor, reusing PlayerController's existing startScriptedMove (the same
+  // primitive the Elevator Tower ride and mantle hop already use) rather
+  // than building a second visual elevator car system from scratch.
+  const skyscraperShortcuts = []
   for (let i = 0; i < buildings.length; i++) {
     const b = buildings[i]
     if (b.skyscraper) {
       buildSkyscraper(scene, colliders, solidMeshes, b, towerChestSpots)
       buildFireEscape(scene, colliders, solidMeshes, b, towerChestSpots)
+      skyscraperShortcuts.push({ x: b.x, z: b.z, topY: (SKYSCRAPER_FLOORS - 1) * SKYSCRAPER_FLOOR_H })
     } else if (!EXCLUDED_BUILDING_IDXS.has(i)) {
       addBuilding(scene, register, b)
       if (EXTRA_FIRE_ESCAPE_IDXS.has(i)) {
@@ -442,9 +450,11 @@ export function buildWorld(scene, trophyCount = 15) {
   // entirely under LOW_QUALITY_MODE (bare-bones mode) rather than just
   // simplifying their materials, since not creating the objects at all
   // cuts their draw calls too, not just their shading cost.
+  let ambientWildlife = []
   if (!LOW_QUALITY_MODE) {
     scatterDebris(scene)
     scatterCityProps(scene, colliders, solidMeshes)
+    ambientWildlife = spawnAmbientWildlife(scene)
   }
   addStreetlights(scene, register, flickerLights)
   for (const spot of buildTowers(scene, colliders, solidMeshes)) towerChestSpots.push(spot)
@@ -474,6 +484,7 @@ export function buildWorld(scene, trophyCount = 15) {
   spawnPoints.push({ x: vireoFacility.exitSpot.x, z: vireoFacility.exitSpot.z })
   const safeZone = buildSafeZone(scene, colliders, solidMeshes)
   const practiceTargets = buildPracticeRange(scene, colliders, solidMeshes, safeZone)
+  const adjustableDummy = buildAdjustableDummy(scene, colliders, solidMeshes, safeZone)
   const trophyWall = buildTrophyWall(scene, colliders, solidMeshes, safeZone, trophyCount)
   const upgradeMachine = buildWeaponUpgradeMachine(scene, register, -15, 60)
   registerZone({ id: 'upgrademachine', x: -15, z: 60, radius: 8, densityMult: 1.0 })
@@ -483,6 +494,27 @@ export function buildWorld(scene, trophyCount = 15) {
   // safe zone (see the Vault/practice range/trophy wall precedent), clear
   // of the upgrade machine/mystery box at x=+-15 above.
   const payphone = buildPayphone(scene, register, SAFE_ZONE_X, SAFE_ZONE_Z + 23)
+  const jukebox = buildJukebox(scene, register, SAFE_ZONE_X - 3, SAFE_ZONE_Z + 6)
+  const workbench = buildWorkbench(scene, register, SAFE_ZONE_X + 3, SAFE_ZONE_Z + 6)
+  const bulletinBoard = buildBulletinBoard(scene, register, SAFE_ZONE_X - 5, SAFE_ZONE_Z - 5)
+  const hallOfFame = buildHallOfFame(scene, register, SAFE_ZONE_X + 5, SAFE_ZONE_Z - 5)
+  const pet = buildPet(scene, SAFE_ZONE_X - 3, SAFE_ZONE_Z + 3)
+
+  // Climbable Drainpipes (batch feature) - 2 fixed spots next to 2 of the
+  // 3 real downtown skyscrapers, at their known-safe hand-verified
+  // coordinates (see skyscraperIdxs's own comment above for how those were
+  // picked), offset 5.5 units out from center to clear the 10-wide shell.
+  // topY (7.8) matches (SKYSCRAPER_FLOORS-1)*SKYSCRAPER_FLOOR_H exactly -
+  // same top-floor height the elevator shortcuts already use.
+  const drainpipeSpots = [
+    { x: -31.2 + 5.5, z: 16, topY: 7.8 },
+    { x: 17.2 + 5.5, z: -44, topY: 7.8 },
+  ]
+  for (const d of drainpipeSpots) buildDrainpipe(scene, d.x, d.z, d.topY)
+
+  // Jump Pad (batch 3 feature) - one, in the park, clear open ground.
+  const jumpPadSpot = { x: 8, z: 62 }
+  buildJumpPad(scene, jumpPadSpot.x, jumpPadSpot.z)
   registerZone({ id: 'mysterybox', x: 15, z: 60, radius: 8, densityMult: 1.0 })
 
   // Second area: a small park beyond the north end of the street, in the
@@ -558,7 +590,7 @@ export function buildWorld(scene, trophyCount = 15) {
   // Perf test concluded (2026-07-21): skipping these 4 outer zones (64
   // buildings/houses) made fps WORSE, not better - map size confirmed NOT
   // to be the bottleneck. Restored.
-  buildOuterZones(scene, register, cullables, towerChestSpots)
+  buildOuterZones(scene, register, cullables, towerChestSpots, colliders, solidMeshes, skyscraperShortcuts)
 
   // Phase 1 of the Extended Metropolitan Grid plan - the first real
   // blueprint location. Placed well clear of the commercial zone's own
@@ -2965,6 +2997,16 @@ export function buildWorld(scene, trophyCount = 15) {
     solidMeshes,
     flickerLights,
     spawnPoints,
+    ambientWildlife,
+    jukebox,
+    workbench,
+    bulletinBoard,
+    hallOfFame,
+    skyscraperShortcuts,
+    adjustableDummy,
+    pet,
+    drainpipeSpots,
+    jumpPadSpot,
     hemiLight: hemi,
     sunLight: moon,
     towerChestSpots,
@@ -5898,6 +5940,151 @@ function buildScaffolding(scene, register, x, z) {
 // independent of the existing random-timer Airdrop system (this.airdrop is
 // a single shared slot; reusing it here risked one silently overwriting
 // the other), once per run.
+// Jukebox (batch feature) - a physical, walk-up-and-press-E interact prop
+// for the existing audioEngine.toggleRadio() mute toggle (previously
+// keybind-only, see Game.js's radio keybind handler), same "give a hidden
+// system a real object in the world" reasoning as the Coin Shop's physical
+// trader stall. Only one music track exists in this codebase (see Audio.js's
+// own comment on MUSIC_URL) so this toggles it on/off rather than cycling
+// between tracks that don't exist yet.
+function buildJukebox(scene, register, x, z) {
+  const caseMat = cachedFlatMaterial({ color: 0x6a2a2a, roughness: 0.5, metalness: 0.3 })
+  const trimMat = cachedFlatMaterial({ color: 0xd8b840, roughness: 0.4, metalness: 0.6 })
+  const glassMat = flatMaterial({ color: 0x2a1408, emissive: 0xffb646, emissiveIntensity: 0.9, roughness: 0.3 })
+  const group = new THREE.Group()
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.3, 0.6), caseMat)
+  body.position.set(0, 0.65, 0)
+  group.add(body)
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.1, 12, 1, false, 0, Math.PI), trimMat)
+  top.rotation.x = Math.PI / 2
+  top.position.set(0, 1.3, 0)
+  group.add(top)
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.7, 0.04), glassMat)
+  panel.position.set(0, 0.75, 0.32)
+  group.add(panel)
+  const trimBottom = new THREE.Mesh(new THREE.BoxGeometry(0.94, 0.08, 0.64), trimMat)
+  trimBottom.position.set(0, 0.04, 0)
+  group.add(trimBottom)
+  group.position.set(x, 0, z)
+  group.traverse((o) => { o.castShadow = true })
+  scene.add(group)
+  register(group)
+  return { x, z, panelMat: glassMat }
+}
+
+// Adoptable Pet/Mascot (batch feature) - simple procedural dog shape (no
+// dog/cat GLB in this project's asset pack, see BUILDING_MODEL_FILES/
+// PROP_MODEL_FILES - low-poly boxes read fine at this size, same "build it
+// from primitives" approach the practice range's own targets use). Sits at
+// a fixed spot until adopted (see Game.js's settings.petAdopted), then
+// Game.js's per-frame tick takes over its position to follow the player -
+// this function only builds the geometry and returns the group to move.
+function buildPet(scene, x, z) {
+  const furMat = cachedFlatMaterial({ color: 0xb08050, roughness: 0.9 })
+  const group = new THREE.Group()
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.3, 0.28), furMat)
+  body.position.set(0, 0.22, 0)
+  group.add(body)
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 0.22), furMat)
+  head.position.set(0.32, 0.28, 0)
+  group.add(head)
+  const earMat = cachedFlatMaterial({ color: 0x805030, roughness: 0.9 })
+  for (const ez of [-0.08, 0.08]) {
+    const ear = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.1, 0.06), earMat)
+    ear.position.set(0.36, 0.4, ez)
+    group.add(ear)
+  }
+  for (const [lx, lz] of [[-0.16, -0.09], [-0.16, 0.09], [0.16, -0.09], [0.16, 0.09]]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.2, 0.07), furMat)
+    leg.position.set(lx, 0.1, lz)
+    group.add(leg)
+  }
+  const tail = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.22), furMat)
+  tail.position.set(-0.3, 0.3, 0)
+  group.add(tail)
+  group.position.set(x, 0, z)
+  group.traverse((o) => { o.castShadow = true })
+  scene.add(group)
+  return { group, x, z, wanderPhase: Math.random() * Math.PI * 2 }
+}
+
+// Workbench (batch 3 feature) - reduces weapon jam chance the same way
+// Game.js's existing Cleaning Kit pickup does (jamChanceMult), just as a
+// physical safe-zone interact instead of a run-only pickup.
+function buildWorkbench(scene, register, x, z) {
+  const benchMat = cachedFlatMaterial({ color: 0x4a3a28, roughness: 0.7 })
+  const group = new THREE.Group()
+  const top = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.1, 0.7), benchMat)
+  top.position.set(0, 0.85, 0)
+  group.add(top)
+  const legMat = cachedFlatMaterial({ color: 0x2a2018, roughness: 0.8 })
+  for (const [lx, lz] of [[-0.6, -0.3], [-0.6, 0.3], [0.6, -0.3], [0.6, 0.3]]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.85, 0.08), legMat)
+    leg.position.set(lx, 0.425, lz)
+    group.add(leg)
+  }
+  const toolMat = cachedFlatMaterial({ color: 0x8a8a80, roughness: 0.5, metalness: 0.6 })
+  const wrench = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.05, 0.08), toolMat)
+  wrench.position.set(0.1, 0.92, 0)
+  wrench.rotation.y = 0.4
+  group.add(wrench)
+  group.position.set(x, 0, z)
+  group.traverse((o) => { o.castShadow = true })
+  scene.add(group)
+  register(group)
+  return { x, z }
+}
+
+// Bulletin Board (batch 3 feature) - a corkboard prop; Game.js's interact
+// reads your most-recently-unlocked achievement off the existing
+// Achievements.unlocked Set (a Set iterates in insertion order, so its
+// last entry IS the most recent unlock - no new tracking needed).
+function buildBulletinBoard(scene, register, x, z) {
+  const boardMat = cachedFlatMaterial({ color: 0x6a5030, roughness: 0.9 })
+  const group = new THREE.Group()
+  const board = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.9, 0.06), boardMat)
+  board.position.set(0, 1.3, 0)
+  group.add(board)
+  const frameMat = cachedFlatMaterial({ color: 0x3a2e1c, roughness: 0.8 })
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(1.32, 1.02, 0.04), frameMat)
+  frame.position.set(0, 1.3, -0.02)
+  group.add(frame)
+  const noteMat = cachedFlatMaterial({ color: 0xe8dcb0, roughness: 0.7 })
+  for (const [nx, ny] of [[-0.3, 1.45], [0.25, 1.4], [-0.1, 1.15], [0.3, 1.1]]) {
+    const note = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.16), noteMat)
+    note.position.set(nx, ny, 0.04)
+    group.add(note)
+  }
+  group.position.set(x, 0, z)
+  group.traverse((o) => { o.castShadow = true })
+  scene.add(group)
+  register(group)
+  return { x, z }
+}
+
+// Hall-of-Fame Wall (batch 3 feature) - reuses the trophy wall's plain
+// wood-panel look; Game.js's interact fetches the real top-3 global
+// leaderboard (already-existing CloudSync.fetchTopLeaderboard) rather than
+// this file inventing any new data source.
+function buildHallOfFame(scene, register, x, z) {
+  const panelMat = cachedFlatMaterial({ color: 0x5a4428, roughness: 0.85 })
+  const group = new THREE.Group()
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.1, 0.08), panelMat)
+  panel.position.set(0, 1.4, 0)
+  group.add(panel)
+  const plaqueMat = cachedFlatMaterial({ color: 0xd8b840, roughness: 0.4, metalness: 0.6 })
+  for (let i = 0; i < 3; i++) {
+    const plaque = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.22, 0.03), plaqueMat)
+    plaque.position.set(0, 1.75 - i * 0.32, 0.06)
+    group.add(plaque)
+  }
+  group.position.set(x, 0, z)
+  group.traverse((o) => { o.castShadow = true })
+  scene.add(group)
+  register(group)
+  return { x, z }
+}
+
 function buildPayphone(scene, register, x, z) {
   const boothMat = cachedFlatMaterial({ color: 0x2a4a6a, roughness: 0.5, metalness: 0.4 })
   const glassMat = cachedFlatMaterial({ color: 0x8ac4d8, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.35 })
@@ -5922,6 +6109,42 @@ function buildPayphone(scene, register, x, z) {
 // streetlight on the map - this project's shared streetlight.glb placement
 // is used dozens of times across World.js, and retrofitting all of them
 // with hittable flags was out of scope for one batch item.
+// Climbable Drainpipes (batch feature) - pure visual, no collider (same
+// "decoration only" reasoning ambientWildlife/the pet use) - the actual
+// climb behavior is driven by Game.js reusing PlayerController's existing
+// ladder mechanic (see its own nearLadder comment), same primitive the
+// Elevator Tower's ladder already uses. This just needs to look like a
+// pipe at the matching x/z.
+// Jump Pad (batch 3 feature) - pure visual, no collider (player walks onto
+// it, not into it) - Game.js's own per-frame proximity check does the
+// actual launch, same "geometry here, behavior in Game.js" split the
+// drainpipes/pet/dummy above already use.
+function buildJumpPad(scene, x, z) {
+  const padMat = flatMaterial({ color: 0x1a3a2a, emissive: 0x4ee06f, emissiveIntensity: 0.7, roughness: 0.4 })
+  const pad = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.15, 16), padMat)
+  pad.position.set(x, 0.08, z)
+  scene.add(pad)
+  const ringMat = cachedFlatMaterial({ color: 0x2a2a26, roughness: 0.6, metalness: 0.5 })
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1, 0.08, 8, 20), ringMat)
+  ring.rotation.x = Math.PI / 2
+  ring.position.set(x, 0.16, z)
+  scene.add(ring)
+}
+
+function buildDrainpipe(scene, x, z, height) {
+  const pipeMat = cachedFlatMaterial({ color: 0x4a4438, roughness: 0.6, metalness: 0.5 })
+  const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, height, 8), pipeMat)
+  pipe.position.set(x, height / 2, z)
+  pipe.castShadow = true
+  scene.add(pipe)
+  const bracketMat = cachedFlatMaterial({ color: 0x2a2620, roughness: 0.7, metalness: 0.4 })
+  for (let y = 1; y < height; y += 2.4) {
+    const bracket = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.08, 0.08), bracketMat)
+    bracket.position.set(x, y, z)
+    scene.add(bracket)
+  }
+}
+
 function buildTacticalStreetlight(scene, register, x, z) {
   const poleMat = cachedFlatMaterial({ color: 0x2a2a28, roughness: 0.6, metalness: 0.5 })
   const group = new THREE.Group()
@@ -6052,6 +6275,78 @@ function buildPracticeRange(scene, colliders, solidMeshes, safeZone) {
   return targets
 }
 
+// Adjustable HP/Armor Practice Dummy (batch feature) - unlike the 3 flash-
+// only ding targets above (which have no real health at all), this one
+// tracks actual HP/armor and reports real damage-per-hit, so a player can
+// actually test how hard a weapon hits instead of just its spread/recoil.
+// Presets (not a free-form slider) are cycled via the interact key rather
+// than needing new settings UI for a single practice-range prop.
+const DUMMY_PRESETS = [
+  { labelKey: 'dummyPresetRookie', hp: 100, armor: 0 },
+  { labelKey: 'dummyPresetVeteran', hp: 250, armor: 15 },
+  { labelKey: 'dummyPresetElite', hp: 500, armor: 30 },
+]
+
+function buildAdjustableDummy(scene, colliders, solidMeshes, safeZone) {
+  const x = safeZone.x + 4
+  const z = safeZone.z - 2.5
+  const postMat = cachedFlatMaterial({ color: 0x3a3226, roughness: 0.85 })
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 1.8, 8), postMat)
+  post.position.set(x, 0.9, z)
+  post.castShadow = true
+  scene.add(post)
+  solidMeshes.push(post)
+  post.updateWorldMatrix(true, false)
+  colliders.push(new THREE.Box3().setFromObject(post))
+
+  // NOT cachedFlatMaterial - same per-instance flash reasoning as the
+  // ding-only targets above.
+  const boardMat = flatMaterial({ color: 0x8a3a2a, emissive: 0xff5030, emissiveIntensity: 0, roughness: 0.6 })
+  const board = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.4, 0.15), boardMat)
+  board.position.set(x, 1.6, z)
+  board.castShadow = true
+  scene.add(board)
+  solidMeshes.push(board)
+
+  const dummy = {
+    mat: boardMat,
+    flashUntil: 0,
+    presetIndex: 0,
+    hp: DUMMY_PRESETS[0].hp,
+    maxHp: DUMMY_PRESETS[0].hp,
+    armor: DUMMY_PRESETS[0].armor,
+    x, z,
+    // Practice dummy leaderboard (batch 3 feature) - runStartAt is set on
+    // the first hit after a reset/preset-switch, so time-to-kill only ever
+    // measures one continuous kill attempt, never a break-then-resume.
+    runStartAt: null,
+    onKill: null, // set by Game.js - (presetIndex, elapsedMs) => void
+  }
+  dummy.onHit = (rawDamage) => {
+    dummy.flashUntil = performance.now() + 180
+    if (dummy.runStartAt == null) dummy.runStartAt = performance.now()
+    const dealt = Math.max(1, Math.round(rawDamage * (1 - dummy.armor / 100)))
+    dummy.hp = Math.max(0, dummy.hp - dealt)
+    if (dummy.hp === 0) {
+      if (dummy.onKill) dummy.onKill(dummy.presetIndex, performance.now() - dummy.runStartAt)
+      dummy.runStartAt = null
+      dummy.hp = dummy.maxHp // auto-reset, endless practice
+    }
+    return dealt
+  }
+  dummy.cyclePreset = () => {
+    dummy.presetIndex = (dummy.presetIndex + 1) % DUMMY_PRESETS.length
+    const preset = DUMMY_PRESETS[dummy.presetIndex]
+    dummy.maxHp = preset.hp
+    dummy.hp = preset.hp
+    dummy.armor = preset.armor
+    dummy.runStartAt = null
+    return preset
+  }
+  board.userData.adjustableDummy = dummy
+  return dummy
+}
+
 // A wall-mounted grid of medallions, one per achievement - built dark/unlit
 // by default, with the actual lit/unlit state driven live by Game.js's
 // _updateTrophyWall (this file only builds the geometry, it has no idea
@@ -6101,6 +6396,7 @@ function buildTrophyWall(scene, colliders, solidMeshes, safeZone, count) {
   colliders.push(new THREE.Box3().setFromObject(backing))
 
   const medallions = []
+  const medallionMeshes = []
   for (let i = 0; i < count; i++) {
     const col = i % cols
     const row = Math.floor(i / cols)
@@ -6115,11 +6411,17 @@ function buildTrophyWall(scene, colliders, solidMeshes, safeZone, count) {
     medallion.rotation.z = Math.PI / 2
     medallion.position.set(x - 0.06, my, mz)
     medallion.castShadow = true
+    // Trophy wall hover tooltip (batch 9 feature) - achievementIndex lets
+    // Game.js's crosshair raycast identify which achievement a hit medallion
+    // represents, index-matched to ACHIEVEMENTS (this file stays decoupled
+    // from that data, same reasoning as the medallion count param above).
+    medallion.userData.achievementIndex = i
     scene.add(medallion)
     medallions.push(mat)
+    medallionMeshes.push(medallion)
   }
 
-  return { x, z, medallions }
+  return { x, z, medallions, medallionMeshes }
 }
 
 // Second hidden biome - a grimy sewer corridor, home to the Sewer Dweller
@@ -6532,6 +6834,19 @@ const UNDERGROUND_PLAZA = { x: 3.75, z: 57, w: 18.5, d: 11 }
 // (x=262, ground-level like the skyscraper itself - no hole needed under
 // the bunker or skyscraper, only where the shaft actually descends).
 const UNDERGROUND_HOLE_HIDDEN_COMPLEX = { xMin: 261, xMax: 279, zMin: -2, zMax: 2 }
+// The Vireo Facility's own exit staircase (see buildVireoFacility) needs this
+// same fix a third time - it climbs back up to y=0 on the far side of the
+// underground loop from the two entrances above, and without a matching hole
+// here the intact street ground plane wins the player's floor-height raycast
+// a step or two before the real stairs finish, popping them onto solid
+// ground mid-climb instead of walking out the actual exit kiosk (confirmed
+// via the same _sampleGroundHeight stepping simulation used to root-cause
+// the other two). Hand-computed like UNDERGROUND_HOLE_HIDDEN_COMPLEX above,
+// for the same reason: buildVireoFacility's own FACILITY_X/FACILITY_STAIR_
+// BOTTOM_Z/FACILITY_EXIT_Z constants (13, 25.5, 30) aren't defined yet at
+// this point in the file, and this ground plane is built long before
+// buildVireoFacility ever runs.
+const UNDERGROUND_HOLE_VIREO_EXIT = { xMin: 13 - 2.85, xMax: 13 + 2.85, zMin: 25.5 - 2, zMax: 30 + 0.5 }
 
 function buildNewUndergroundEntrance(scene, colliders, solidMeshes, flickerLights) {
   const x = NEW_UNDERGROUND_ENTRANCE_X
@@ -8010,11 +8325,16 @@ function outerZoneBuildingSpecs(centerX, centerZ, axis, seedBase) {
   return { list, nextSeed: seed }
 }
 
+// Pulled in from the original +-140/160 placement (2026-08-19, at the
+// user's request to shrink the overall map) - still clear of the core's
+// occupied envelope (x=+-33.2, z=[-89,72], see the comment above
+// outerZoneBuildingSpecs()) by a comfortable margin on every side, just a
+// smaller one than the original "+-150 anywhere is safe" heuristic used.
 const OUTER_ZONES = [
-  { name: 'suburbs', centerX: 0, centerZ: 140, axis: 'z' },
-  { name: 'industrial', centerX: 0, centerZ: -160, axis: 'z' },
-  { name: 'commercial', centerX: 160, centerZ: 0, axis: 'x' },
-  { name: 'residential', centerX: -160, centerZ: 0, axis: 'x' },
+  { name: 'suburbs', centerX: 0, centerZ: 125, axis: 'z' },
+  { name: 'industrial', centerX: 0, centerZ: -140, axis: 'z' },
+  { name: 'commercial', centerX: 85, centerZ: 0, axis: 'x' },
+  { name: 'residential', centerX: -85, centerZ: 0, axis: 'x' },
 ]
 
 // Stage 7 of the Extended Metropolitan Grid plan - "upgrade N existing
@@ -8052,7 +8372,22 @@ function buildWalkableHouse(scene, register, spec) {
   return { x: spec.x, z: spec.z }
 }
 
-function buildOuterZones(scene, register, cullables, towerChestSpots) {
+// One real walkable skyscraper per district that doesn't already get the
+// walkable-house treatment (suburbs/residential are all houses via
+// WALKABLE_HOUSE_IDXS - see below), added at the user's request after
+// they described the far-out commercial/industrial buildings as "just
+// boxes, no real building". Reuses the exact same buildSkyscraper/
+// buildFireEscape functions the 3 downtown skyscrapers already use, at
+// the outer corner (rowOffset=+-26, step=+-30) of each district's 4x4
+// grid, chosen the same way the original downtown picks were: the corner
+// spot's "blind" side (away from the district center) faces open
+// perimeter with no neighbor, not another building, and the skyscraper's
+// 10x10 footprint override is smaller than the original spec at every
+// one of these indices, so it only improves neighbor clearance versus
+// what was already safely standing there.
+const OUTER_SKYSCRAPER_PICKS = { commercial: 3, industrial: 0 }
+
+function buildOuterZones(scene, register, cullables, towerChestSpots, colliders, solidMeshes, skyscraperShortcuts) {
   let seed = 1000 // offset clear of buildingLayout()'s own 0-20 range
   const lightModel = _propModelCache.get('streetlight.glb')
   const poleMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: 0x1c1c1c }) : cachedFlatMaterial({ color: 0x1c1c1c, roughness: 0.8 })
@@ -8121,6 +8456,14 @@ function buildOuterZones(scene, register, cullables, towerChestSpots) {
         // Deliberately no lootWeights override - "residential = common
         // salvage" per the blueprint's own legend, the plain default table.
         towerChestSpots.push({ x: house.x, y: 0, z: house.z })
+      } else if (OUTER_SKYSCRAPER_PICKS[zone.name] === i) {
+        spec.w = 10
+        spec.d = 10
+        spec.h = SKYSCRAPER_FLOOR_H * SKYSCRAPER_FLOORS
+        buildSkyscraper(scene, colliders, solidMeshes, spec, towerChestSpots)
+        buildFireEscape(scene, colliders, solidMeshes, spec, towerChestSpots)
+        registerZone({ id: `${zone.name}skyscraper`, x: spec.x, z: spec.z, radius: 10, densityMult: 1.1 })
+        skyscraperShortcuts.push({ x: spec.x, z: spec.z, topY: (SKYSCRAPER_FLOORS - 1) * SKYSCRAPER_FLOOR_H })
       } else {
         addBuilding(scene, register, spec)
       }
@@ -8280,6 +8623,63 @@ function scatterCityProps(scene, colliders, solidMeshes) {
   place('mailbox.glb', -7, 30)
   place('payphone.glb', 7, -20, Math.PI / 2)
   place('busstop.glb', -12, -24, Math.PI / 2)
+}
+
+// Ambient Wildlife (batch feature) - purely decorative birds circling and
+// rats scurrying for atmosphere, distinct from the insect/rat SWARM hazard
+// (see Game.js's insect-swarm bite damage) which is a real gameplay threat.
+// No collider, no gameplay effect at all - Game.js's per-frame tick just
+// orbits/scurries these for visual life. Returned as plain {mesh, ...orbit
+// params} objects rather than THREE.Group subclasses, since Game.js only
+// ever needs to read/write a handful of numbers on them each frame.
+function spawnAmbientWildlife(scene) {
+  const wildlife = []
+  const birdMat = cachedFlatMaterial({ color: 0x1c1a18, roughness: 0.8 })
+  const birdSpots = [
+    { x: 0, z: 62, y: 14 }, // over the park
+    { x: 0, z: 30, y: 16 }, // over the safe zone
+    { x: -10, z: 0, y: 15 }, // downtown
+  ]
+  for (const spot of birdSpots) {
+    for (let i = 0; i < 3; i++) {
+      const bird = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.6, 3), birdMat)
+      bird.rotation.x = Math.PI / 2
+      scene.add(bird)
+      wildlife.push({
+        mesh: bird,
+        type: 'bird',
+        cx: spot.x,
+        cz: spot.z,
+        baseY: spot.y + i * 0.6,
+        radius: 5 + i * 1.5,
+        speed: 0.4 + i * 0.08,
+        phase: Math.random() * Math.PI * 2,
+      })
+    }
+  }
+
+  const ratMat = cachedFlatMaterial({ color: 0x2a241e, roughness: 0.9 })
+  const ratSpots = [
+    { x: 6, z: 45 },
+    { x: -30, z: -10 },
+  ]
+  for (const spot of ratSpots) {
+    const rat = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, 0.22), ratMat)
+    rat.position.set(spot.x, 0.05, spot.z)
+    scene.add(rat)
+    wildlife.push({
+      mesh: rat,
+      type: 'rat',
+      cx: spot.x,
+      cz: spot.z,
+      baseY: 0.05,
+      radius: 1.2,
+      speed: 1.1,
+      phase: Math.random() * Math.PI * 2,
+    })
+  }
+
+  return wildlife
 }
 
 function scatterDebris(scene) {

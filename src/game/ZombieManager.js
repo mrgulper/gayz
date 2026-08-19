@@ -44,6 +44,12 @@ const MOAN_MIN_DELAY_MS = 4500
 const MOAN_MAX_DELAY_MS = 9500
 const NOISEMAKER_THROW_SPEED = 14
 const NOISEMAKER_DISTRACTION_MS = 9000
+// Smoke grenade (batch 4 feature) - a stealth utility throw, same arc-then-
+// land shape as the noisemaker above, but leaves a lingering area instead
+// of firing once.
+const SMOKE_THROW_SPEED = 14
+const SMOKE_RADIUS = 5
+const SMOKE_DURATION_MS = 8000
 const GRENADE_THROW_SPEED = 16
 const GRENADE_DAMAGE_RADIUS = 5
 const GRENADE_DAMAGE_MIN = 80
@@ -64,6 +70,22 @@ const EMP_THROW_SPEED = 16
 const EMP_STUN_RADIUS = 6
 const EMP_STUN_DURATION_MS = 4500
 const ELITE_CHANCE = 0.08
+// Elite carrier zombies (batch 7 feature)
+const ELITE_CARRIER_CHANCE = 0.2
+// Alpha zombie (batch 3 feature)
+const ALPHA_ZOMBIE_CHANCE = 0.04
+const ALPHA_SELF_HEALTH_MULT = 1.6
+const ALPHA_BUFF_RADIUS = 14
+const ALPHA_BUFF_HEALTH_MULT = 1.25
+// Fire spread (batch 4 feature) - an ignited zombie has a small per-tick
+// chance to ignite an unignited zombie standing close to it. Weaker/shorter
+// than the original flamethrower ignite (see WeaponSystem's IGNITE_DURATION_MS/
+// IGNITE_DPS) so a spread chain decays instead of burning forever.
+const FIRE_SPREAD_RADIUS = 2.5
+const FIRE_SPREAD_CHECK_INTERVAL_MS = 500
+const FIRE_SPREAD_CHANCE = 0.35
+const FIRE_SPREAD_DURATION_MS = 2000
+const FIRE_SPREAD_DPS = 5
 // Boss "adds" - periodically summons a handful of regular zombies while
 // still alive, so a boss fight isn't purely a 1v1 damage race and
 // barricades/traps stay relevant even during it. See _spawnBoss/
@@ -85,6 +107,10 @@ const HORDE_SPAWN_RADIUS_MAX = 22
 // _updateMinimap/_updateCompass) so the player can choose to intercept it
 // for a per-kill points bonus or just let it pass by.
 const HORDE_EVENT_MIN_DELAY_MS = 60000
+// Quiet pacing beat before a wandering horde (batch 7 feature) - same
+// duckAmbient lead-in Game.js's own scripted night events already use (see
+// its EVENT_HUSH_LEAD_MS), wired to this separate horde timer too.
+const HORDE_HUSH_LEAD_MS = 3000
 const HORDE_EVENT_MAX_DELAY_MS = 120000
 const HORDE_EVENT_SIZE_MIN = 6
 const HORDE_EVENT_SIZE_MAX = 10
@@ -154,6 +180,14 @@ const noisemakerMat = flatMaterial({
 // dispose() call to every removal site.
 const projectileGeometry = new THREE.SphereGeometry(0.13, 10, 10)
 const noisemakerGeometry = new THREE.CylinderGeometry(0.06, 0.06, 0.16, 10)
+// Smoke grenade (batch 4 feature) - canister shares the noisemaker's shape/
+// scale, cloud is its own bigger sphere. Cloud material NOT shared/cached -
+// its opacity is animated per-instance (fade in, hold, fade out), which is
+// exactly the per-instance mutation this project's shared-material bug
+// class note warns against reusing a single instance for.
+const smokeCanisterMat = flatMaterial({ color: 0x555550, emissive: 0x333330, emissiveIntensity: 0.2, roughness: 0.6, metalness: 0.3 })
+const smokeCanisterGeometry = noisemakerGeometry
+const smokeCloudGeometry = new THREE.SphereGeometry(SMOKE_RADIUS, 12, 10)
 
 const grenadeMat = flatMaterial({
   color: 0x3a4a2e,
@@ -228,6 +262,11 @@ export class ZombieManager {
     this.knifeThrows = []
     this.molotovThrows = []
     this.fireZones = []
+    // Smoke grenade (batch 4 feature) - landed clouds, own array/own
+    // lifetime, separate from noisemakerThrows/grenadeThrows above since
+    // this leaves a lingering AREA rather than firing once on landing.
+    this.smokeGrenadeThrows = []
+    this.smokeZones = []
     this.c4Throws = []
     this.placedC4 = null
     this.empThrows = []
@@ -290,9 +329,14 @@ export class ZombieManager {
     this.titanAlive = false
     this.nextTitanCheckAt = performance.now() + this._randomTitanDelay()
 
+    // Fire spread (batch 4 feature) - throttled independently of dt so the
+    // ignited-zombie scan only runs a couple times a second, not every frame.
+    this.nextFireSpreadCheckAt = 0
+
     // Wandering horde event - see _maybeSpawnWanderingHorde.
     this.wanderingHorde = null
     this.nextHordeEventAt = performance.now() + HORDE_EVENT_MIN_DELAY_MS + Math.random() * (HORDE_EVENT_MAX_DELAY_MS - HORDE_EVENT_MIN_DELAY_MS)
+    this._hordeHushed = false
     // Dead Silence perk (see Perks.js) - shrinks HORDE_EVENT_AGGRO_RADIUS
     // below for wandering zombies specifically. Doesn't affect zombies
     // already actively chasing (those always target the player directly,
@@ -376,6 +420,28 @@ export class ZombieManager {
 
   // Re-rolled on its own recurring timer (see the constructor/update) rather
   // than tied to a night number - only one Titan roams at a time.
+  // Fire spread (batch 4 feature) - throttled to FIRE_SPREAD_CHECK_INTERVAL_MS
+  // rather than running every frame. Only scans if at least one zombie is
+  // currently ignited (the common case is zero), so the O(ignited * total)
+  // nested loop below almost never actually runs its inner body.
+  _updateFireSpread() {
+    const now = performance.now()
+    if (now < this.nextFireSpreadCheckAt) return
+    this.nextFireSpreadCheckAt = now + FIRE_SPREAD_CHECK_INTERVAL_MS
+    const ignited = this.zombies.filter((z) => z.state === 'alive' && z.igniteUntil > now)
+    if (ignited.length === 0) return
+    for (const source of ignited) {
+      for (const target of this.zombies) {
+        if (target === source || target.state !== 'alive') continue
+        if (target.igniteUntil > now) continue // already burning
+        const d = Math.hypot(target.group.position.x - source.group.position.x, target.group.position.z - source.group.position.z)
+        if (d <= FIRE_SPREAD_RADIUS && Math.random() < FIRE_SPREAD_CHANCE) {
+          target.ignite(FIRE_SPREAD_DURATION_MS, FIRE_SPREAD_DPS)
+        }
+      }
+    }
+  }
+
   _maybeSpawnTitan() {
     this.nextTitanCheckAt = performance.now() + this._randomTitanDelay()
     if (this.titanAlive || Math.random() >= TITAN_SPAWN_CHANCE) return
@@ -395,8 +461,14 @@ export class ZombieManager {
   // than ambient population that always beelines the player - see
   // update()'s per-zombie loop for the wander-vs-aggro targeting switch.
   _maybeSpawnWanderingHorde() {
-    if (performance.now() < this.nextHordeEventAt) return
-    this.nextHordeEventAt = performance.now() + HORDE_EVENT_MIN_DELAY_MS + Math.random() * (HORDE_EVENT_MAX_DELAY_MS - HORDE_EVENT_MIN_DELAY_MS)
+    const now = performance.now()
+    if (!this._hordeHushed && !this.wanderingHorde && now >= this.nextHordeEventAt - HORDE_HUSH_LEAD_MS) {
+      this._hordeHushed = true
+      audioEngine.duckAmbient(HORDE_HUSH_LEAD_MS)
+    }
+    if (now < this.nextHordeEventAt) return
+    this._hordeHushed = false
+    this.nextHordeEventAt = now + HORDE_EVENT_MIN_DELAY_MS + Math.random() * (HORDE_EVENT_MAX_DELAY_MS - HORDE_EVENT_MIN_DELAY_MS)
     if (this.wanderingHorde) return // one at a time
 
     const angle = Math.random() * Math.PI * 2
@@ -630,6 +702,8 @@ export class ZombieManager {
     for (const fx of this.explosionFx) this.scene.remove(fx.mesh)
     for (const fx of this.screamFx) this.scene.remove(fx.mesh)
     for (const n of this.noisemakerThrows) this.scene.remove(n.mesh)
+    for (const s of this.smokeGrenadeThrows) this.scene.remove(s.mesh)
+    for (const z of this.smokeZones) this.scene.remove(z.mesh)
     for (const g of this.grenadeThrows) this.scene.remove(g.mesh)
     for (const m of this.molotovThrows) this.scene.remove(m.mesh)
     for (const f of this.fireZones) {
@@ -648,6 +722,8 @@ export class ZombieManager {
     this.explosionFx = []
     this.screamFx = []
     this.noisemakerThrows = []
+    this.smokeGrenadeThrows = []
+    this.smokeZones = []
     this.grenadeThrows = []
     this.knifeThrows = []
     this.molotovThrows = []
@@ -666,6 +742,7 @@ export class ZombieManager {
     this.nextMoanAt = performance.now() + this._randomMoanDelay()
     this.wanderingHorde = null
     this.nextHordeEventAt = performance.now() + HORDE_EVENT_MIN_DELAY_MS + Math.random() * (HORDE_EVENT_MAX_DELAY_MS - HORDE_EVENT_MIN_DELAY_MS)
+    this._hordeHushed = false
     // Cleared here rather than only in the constructor - reset() also runs
     // on a same-session restart, where a previous game's still-unspawned
     // burst shouldn't carry over into the new one.
@@ -715,11 +792,39 @@ export class ZombieManager {
     const isElite = Math.random() < ELITE_CHANCE * this.eliteChanceMult
     const zombie = new Zombie(x, z, type, isAmbush, isElite, this.currentNight, this.healthMult, this.speedMult)
     zombie.flankSide = this._rollFlankSide(type)
+    // Elite carrier zombies (batch 7 feature) - a subset of elites tagged
+    // to guarantee a rare-tier weapon drop on death (see Game.js's
+    // _onZombieKilled), a real reason to hunt a specific elite down rather
+    // than just farming elites generically for their existing loot roll.
+    if (isElite && Math.random() < ELITE_CARRIER_CHANCE) zombie.isCarrier = true
     if (this.roundMode && this.roundHealthMult !== 1) {
       zombie.maxHealth *= this.roundHealthMult
       zombie.health = zombie.maxHealth
     }
     zombie.deathHandled = false
+
+    // Alpha zombie (batch 3 feature) - a small chance to buff itself and
+    // every other currently-alive zombie within ALPHA_BUFF_RADIUS with a
+    // one-time HP top-up at the moment it spawns, rather than a continuous
+    // per-frame aura - avoids fighting over any of the existing shared
+    // multiplier fields (aggroRadiusMult etc. are already claimed by other
+    // systems, e.g. the Dead Silence perk) and avoids the shared-material
+    // tint landmine documented elsewhere in this codebase (no visual
+    // change, mechanical effect only).
+    if (!type.burrower && Math.random() < ALPHA_ZOMBIE_CHANCE) {
+      zombie.isAlpha = true
+      zombie.maxHealth *= ALPHA_SELF_HEALTH_MULT
+      zombie.health = zombie.maxHealth
+      for (const other of this.zombies) {
+        if (other.state !== 'alive') continue
+        const d = Math.hypot(other.group.position.x - x, other.group.position.z - z)
+        if (d <= ALPHA_BUFF_RADIUS) {
+          other.maxHealth *= ALPHA_BUFF_HEALTH_MULT
+          other.health = Math.min(other.maxHealth, other.health * ALPHA_BUFF_HEALTH_MULT)
+        }
+      }
+    }
+
     this.zombies.push(zombie)
     this.scene.add(zombie.group)
 
@@ -836,6 +941,72 @@ export class ZombieManager {
       p.mesh.rotation.x += dt * 12
       return true
     })
+  }
+
+  // Smoke grenade (batch 4 feature) - arcs to the target point like the
+  // noisemaker above, then pops into a lingering cloud that reduces zombie
+  // sight range for anyone standing inside it (see Zombie.js's own
+  // playerInSmoke param on _updateAwareness).
+  spawnSmokeGrenadeThrow(origin, target) {
+    const mesh = new THREE.Mesh(smokeCanisterGeometry, smokeCanisterMat)
+    mesh.position.copy(origin)
+    this.scene.add(mesh)
+
+    const distance = origin.distanceTo(target)
+    const travelTime = Math.max(0.2, distance / SMOKE_THROW_SPEED)
+
+    this.smokeGrenadeThrows.push({ mesh, origin: origin.clone(), target: target.clone(), travelTime, t: 0 })
+  }
+
+  _updateSmokeGrenadeThrows(dt) {
+    this.smokeGrenadeThrows = this.smokeGrenadeThrows.filter((p) => {
+      p.t += dt / p.travelTime
+      if (p.t >= 1) {
+        this.scene.remove(p.mesh)
+        const cloudMat = new THREE.MeshBasicMaterial({ color: 0xaaaaaa, transparent: true, opacity: 0, depthWrite: false })
+        const cloudMesh = new THREE.Mesh(smokeCloudGeometry, cloudMat)
+        cloudMesh.position.set(p.target.x, 1, p.target.z)
+        this.scene.add(cloudMesh)
+        this.smokeZones.push({ x: p.target.x, z: p.target.z, radius: SMOKE_RADIUS, mesh: cloudMesh, bornAt: performance.now(), expiresAt: performance.now() + SMOKE_DURATION_MS })
+        return false
+      }
+      p.mesh.position.lerpVectors(p.origin, p.target, p.t)
+      p.mesh.position.y += Math.sin(p.t * Math.PI) * 1.2
+      p.mesh.rotation.x += dt * 12
+      return true
+    })
+  }
+
+  _updateSmokeZones() {
+    if (this.smokeZones.length === 0) return
+    const now = performance.now()
+    for (let i = this.smokeZones.length - 1; i >= 0; i--) {
+      const z = this.smokeZones[i]
+      const age = now - z.bornAt
+      const remaining = z.expiresAt - now
+      if (remaining <= 0) {
+        this.scene.remove(z.mesh)
+        z.mesh.material.dispose()
+        this.smokeZones.splice(i, 1)
+        continue
+      }
+      // Fade in over the first 500ms, hold, fade out over the last 800ms -
+      // same "opacity as a function of age/remaining" shape as every other
+      // transient effect in this file (tracers, gibs, shell casings).
+      const fadeIn = Math.min(1, age / 500)
+      const fadeOut = Math.min(1, remaining / 800)
+      z.mesh.material.opacity = 0.35 * Math.min(fadeIn, fadeOut)
+    }
+  }
+
+  // Whether playerPos currently sits inside any active smoke cloud - see
+  // Zombie.js's playerInSmoke param, threaded through from Game.js's own
+  // per-frame update() call.
+  isPointInSmoke(x, z) {
+    for (const zone of this.smokeZones) {
+      if (Math.hypot(x - zone.x, z - zone.z) <= zone.radius) return true
+    }
+    return false
   }
 
   // Player-thrown frag grenade: arcs to the target point, then explodes -
@@ -1339,6 +1510,11 @@ export class ZombieManager {
       spawnBudget--
     }
 
+    this._updateFireSpread()
+    this._updateSmokeGrenadeThrows(dt)
+    this._updateSmokeZones()
+    const playerInSmoke = this.isPointInSmoke(playerPos.x, playerPos.z)
+
     if (performance.now() >= this.nextTitanCheckAt) this._maybeSpawnTitan()
     this._maybeSpawnWanderingHorde()
     this._updateWanderingHorde(dt, spawnBudget)
@@ -1492,7 +1668,8 @@ export class ZombieManager {
         onTrail,
         playerForwardX,
         playerForwardZ,
-        playerProne
+        playerProne,
+        playerInSmoke
       )
 
       // Push back out to the safe zone's radius every frame - simple radial
@@ -1526,7 +1703,7 @@ export class ZombieManager {
 
         if (zombie.config.id === 'titan') this.titanAlive = false
         if (!zombie.config.explodes) audioEngine.playZombieDeath(zombie.config.scale)
-        if (onZombieKilled) onZombieKilled(zombie.config.id, zombie.lastHitWeaponId, zombie.group.position.x, zombie.group.position.z, zombie.isElite, !!zombie.isWandering, !!zombie.isGolden, !!zombie.fleeing)
+        if (onZombieKilled) onZombieKilled(zombie.config.id, zombie.lastHitWeaponId, zombie.group.position.x, zombie.group.position.z, zombie.isElite, !!zombie.isWandering, !!zombie.isGolden, !!zombie.fleeing, !!zombie.isCarrier)
         // Regular kills no longer roll a random loot chance here - see
         // Game.js's _onZombieKilled for the guaranteed every-10th-kill drop.
         // Bosses still always drop on top of that.

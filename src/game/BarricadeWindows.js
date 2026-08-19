@@ -17,6 +17,13 @@ const TEAR_COOLDOWN_RATE = 500
 // capped so a real horde doesn't make a window vanish in one tick.
 const TEAR_MULT_PER_EXTRA_ATTACKER = 0.4
 const MAX_TEAR_MULT = 3
+// Siege escalation (batch 3 feature)
+const SIEGE_MULT_PER_SEC = 0.05
+const MAX_SIEGE_MULT = 2.5
+// Barricade Medic perk (batch 4 feature) - passive re-board rate, deliberately
+// much slower than a manual repair() so the perk is a nice trickle, not a
+// replacement for actually walking up and pressing interact.
+const AUTO_REPAIR_MS_PER_PLANK = 20000
 const REPAIR_RADIUS = 3.5
 export const REPAIR_REWARD_POINTS = 10
 export const REPAIR_REWARD_CAP_PER_ROUND = 100
@@ -56,7 +63,7 @@ export class BarricadeWindows {
       plankMeshes.push(plank)
     }
 
-    const window = { x, z, group, opening, planks: MAX_PLANKS, maxPlanks: MAX_PLANKS, plankMeshes, tearProgress: 0 }
+    const window = { x, z, group, opening, planks: MAX_PLANKS, maxPlanks: MAX_PLANKS, plankMeshes, tearProgress: 0, underAttackSince: null, autoRepairProgress: 0 }
     this._syncVisuals(window)
     return window
   }
@@ -64,6 +71,10 @@ export class BarricadeWindows {
   _syncVisuals(w) {
     for (let i = 0; i < w.plankMeshes.length; i++) w.plankMeshes[i].visible = i < w.planks
     w.opening.visible = w.planks <= 0
+    // Barricade visible strain (batch 7 feature) - a freshly re-boarded
+    // plank (repair/reset/auto-repair all funnel through here) should never
+    // start out already bowed from whatever the previous plank's strain was.
+    for (const mesh of w.plankMeshes) mesh.rotation.x = 0
   }
 
   // Called on respawn and each new round/night - fully re-boards every
@@ -85,7 +96,7 @@ export class BarricadeWindows {
     this.rewardEarnedThisRound = 0
   }
 
-  update(dt, zombies, onBreach) {
+  update(dt, zombies, onBreach, autoRepairActive = false) {
     for (const w of this.windows) {
       if (w.planks <= 0) continue
       let attackerCount = 0
@@ -94,9 +105,39 @@ export class BarricadeWindows {
         const d = Math.hypot(z.group.position.x - w.x, z.group.position.z - w.z)
         if (d <= TEAR_RADIUS) attackerCount++
       }
+      // Barricade Medic perk (batch 4 feature) - only ticks while nothing
+      // is actively attacking this window (checked below, attackerCount
+      // === 0 branch) and only for windows already missing a plank.
+      if (autoRepairActive && attackerCount === 0 && w.planks < w.maxPlanks) {
+        w.autoRepairProgress += dt * 1000
+        if (w.autoRepairProgress >= AUTO_REPAIR_MS_PER_PLANK) {
+          w.autoRepairProgress = 0
+          w.planks += 1
+          this._syncVisuals(w)
+        }
+      } else if (attackerCount === 0) {
+        w.autoRepairProgress = 0
+      }
       if (attackerCount > 0) {
-        const tearMult = Math.min(MAX_TEAR_MULT, 1 + (attackerCount - 1) * TEAR_MULT_PER_EXTRA_ATTACKER)
+        // Siege escalation (batch 3 feature) - a SEPARATE multiplier from
+        // the existing attacker-count one above (composed together, not
+        // replacing it): the longer this window has been under continuous
+        // attack (no gap where attackerCount hit 0), the faster it tears,
+        // capped the same way. w.underAttackSince resets the instant the
+        // window gets a breather (attackerCount 0 below), so retreating
+        // zombies genuinely buys the window a reset, not just a pause.
+        if (w.underAttackSince == null) w.underAttackSince = performance.now()
+        const siegeSeconds = (performance.now() - w.underAttackSince) / 1000
+        const siegeMult = Math.min(MAX_SIEGE_MULT, 1 + siegeSeconds * SIEGE_MULT_PER_SEC)
+        const tearMult = Math.min(MAX_TEAR_MULT, 1 + (attackerCount - 1) * TEAR_MULT_PER_EXTRA_ATTACKER) * siegeMult
         w.tearProgress += dt * 1000 * tearMult
+        // Barricade visible strain (batch 7 feature) - the next plank due to
+        // break visibly bows outward as tearProgress climbs, so a besieged
+        // window reads as straining before it actually gives way rather than
+        // planks just vanishing with no warning.
+        if (w.plankMeshes[w.planks - 1]) {
+          w.plankMeshes[w.planks - 1].rotation.x = (w.tearProgress / TEAR_INTERVAL_MS) * 0.5
+        }
         if (w.tearProgress >= TEAR_INTERVAL_MS) {
           w.tearProgress = 0
           w.planks -= 1
@@ -104,7 +145,14 @@ export class BarricadeWindows {
           if (w.planks <= 0 && onBreach) onBreach(w)
         }
       } else {
+        w.underAttackSince = null
         w.tearProgress = Math.max(0, w.tearProgress - dt * TEAR_COOLDOWN_RATE)
+        // Strain relief - the currently-straining plank (if any) settles
+        // back as tearProgress cools down, same easing shape as the strain
+        // itself above rather than snapping flat.
+        if (w.plankMeshes[w.planks - 1]) {
+          w.plankMeshes[w.planks - 1].rotation.x = (w.tearProgress / TEAR_INTERVAL_MS) * 0.5
+        }
       }
     }
   }

@@ -1085,6 +1085,21 @@ html.high-contrast-mode #app {
   width: fit-content;
 }
 
+/* Zombies-remaining HUD counter (batch 4 feature) - top-center, small and
+   unobtrusive since it's ambient info, not something to stare at. */
+#zombie-counter-hud {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 13px;
+  letter-spacing: 0.4px;
+  color: #e8e8e8;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+  display: none;
+}
+
 #damage-flash {
   position: absolute;
   inset: 0;
@@ -1358,6 +1373,24 @@ html.colorblind-mode .damage-number.headshot {
   color: #4fb3ff;
 }
 
+/* Colorblind-safe damage/health palette, extended (batch 8 feature) -
+   completes the amber-vs-blue scheme above to the two remaining red-reliant
+   HUD elements it hadn't reached yet: the low-ammo text pulse (previously
+   plain red, same amber family as the health bar now) and the critical-
+   health screen vignette (previously plain red, shifted to the same amber
+   as everything else rather than being the one holdout still red). */
+html.colorblind-mode #ammo.low-ammo {
+  color: #e8952e;
+}
+
+html.colorblind-mode #critical-blood-overlay {
+  background:
+    radial-gradient(ellipse 40% 55% at 0% 0%, rgba(184, 122, 6, 0.75) 0%, rgba(184, 122, 6, 0) 70%),
+    radial-gradient(ellipse 40% 55% at 100% 0%, rgba(184, 122, 6, 0.75) 0%, rgba(184, 122, 6, 0) 70%),
+    radial-gradient(ellipse 45% 60% at 0% 100%, rgba(184, 122, 6, 0.8) 0%, rgba(184, 122, 6, 0) 70%),
+    radial-gradient(ellipse 45% 60% at 100% 100%, rgba(184, 122, 6, 0.8) 0%, rgba(184, 122, 6, 0) 70%);
+}
+
 .status-fill.stamina {
   background: #e0c93f;
 }
@@ -1613,6 +1646,30 @@ html.colorblind-mode .damage-number.headshot {
   border-radius: 5px;
   display: none;
   pointer-events: none;
+}
+
+/* Trophy wall hover tooltip (batch 9 feature) - same positioning shape as
+   #interact-prompt, sat a bit higher so it doesn't collide with it. */
+#trophy-wall-tooltip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, 0);
+  font-size: 13px;
+  color: #f2e7b0;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  background: rgba(0, 0, 0, 0.55);
+  padding: 5px 12px;
+  border-radius: 5px;
+  display: none;
+  pointer-events: none;
+  text-align: center;
+}
+
+#trophy-wall-tooltip .trophy-tooltip-title {
+  color: #ffe08a;
+  font-weight: 700;
+  display: block;
 }
 
 #interact-prompt b {
@@ -2287,6 +2344,21 @@ select option {
   100% { opacity: 1; transform: translateX(0); }
 }
 
+/* Kill-feed icon tags (batch feature) - short text tags, not emoji (see the
+   no-emoji UI convention elsewhere: plain colored labels instead). */
+.kill-feed-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  vertical-align: middle;
+}
+.kill-feed-tag-boss { background: #e3a63c; color: #1a1408; }
+.kill-feed-tag-elite { background: #b45cff; color: #1a0f26; }
+.kill-feed-tag-combo { background: #4ee06f; color: #0a1c0e; }
+
 /* Screen fade transition (see Game.js's playBtn click handler) - masks the
    otherwise-instant menu-to-game switch. Same show/hide re-trigger pattern
    as every toast in this codebase, just a full-viewport black layer whose
@@ -2515,6 +2587,29 @@ select option {
   font-size: 52px;
   letter-spacing: 3px;
   color: #d64545;
+}
+
+/* Death-cam replay trail (batch feature) - a small top-down path of the
+   last ~10s before death, drawn once when the death screen shows. */
+#death-replay-canvas {
+  display: block;
+  margin: 10px auto;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(214, 69, 69, 0.4);
+  border-radius: 6px;
+}
+
+/* Personal stats dashboard (batch feature) - a small bar chart of kills
+   per run, most recent on the right, in the Profile panel. */
+#stats-dashboard-canvas {
+  display: block;
+  width: 100%;
+  max-width: 280px;
+  height: 90px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(227, 166, 60, 0.3);
+  border-radius: 6px;
+  margin-bottom: 10px;
 }
 
 #respawn-btn {
@@ -2932,6 +3027,64 @@ select option {
   text-transform: uppercase;
   opacity: 0.7;
   margin-top: 2px;
+}
+
+/* Loadout compare view (batch 3 feature) - a toggle above the weapon
+   grid; while active, clicking cards selects up to 2 for a side-by-side
+   stat table instead of equipping them. */
+.weapon-compare-toggle-btn {
+  display: block;
+  margin: 0 auto 10px;
+  padding: 6px 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(227, 166, 60, 0.4);
+  border-radius: 6px;
+  color: var(--menu-gold, #e3a63c);
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.weapon-compare-toggle-btn.active {
+  background: rgba(227, 166, 60, 0.25);
+  border-color: var(--menu-gold, #e3a63c);
+}
+
+.weapon-picker-card.compare-selected {
+  border-color: var(--menu-gold, #e3a63c);
+  box-shadow: 0 0 0 2px rgba(227, 166, 60, 0.5) inset;
+}
+
+.weapon-compare-table {
+  max-width: 500px;
+  margin: 14px auto 0;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.weapon-compare-table .compare-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 4px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.weapon-compare-table .compare-row.compare-header {
+  color: var(--menu-gold, #e3a63c);
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+}
+
+.weapon-compare-table .compare-row span:first-child {
+  opacity: 0.7;
+}
+
+.weapon-compare-table .compare-row span:not(:first-child) {
+  text-align: center;
 }
 
 /* Weapon icon badge - same hexagonal "featured icon in a card" treatment
@@ -4929,6 +5082,109 @@ html.theme-lighter #app { filter: brightness(1.25); }
   opacity: 0.65;
 }
 
+/* Weapon Attachments shop section (batch 11 feature) - the one real
+   purchase flow in this panel; crates below stay non-interactive per the
+   existing shop-crate-card note above. */
+#shop-attachment-coins-line {
+  font-size: 13px;
+  color: var(--menu-gold, #e3a63c);
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+#shop-weapon-picker {
+  max-width: 480px;
+  margin: 0 auto 10px;
+}
+
+.shop-weapon-btn {
+  width: 54px;
+  height: 54px;
+  padding: 6px;
+}
+
+.shop-weapon-btn .weapon-icon-badge {
+  width: 32px;
+  height: 32px;
+  margin-bottom: 0;
+}
+
+.shop-weapon-btn .weapon-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.shop-weapon-btn.active {
+  border-color: var(--menu-gold, #e3a63c);
+  box-shadow: 0 0 0 2px rgba(227, 166, 60, 0.4) inset;
+}
+
+#shop-attachment-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.shop-attachment-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+.shop-attachment-row .attachment-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.shop-attachment-row .attachment-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.shop-attachment-row .attachment-desc {
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+.shop-attachment-buy-btn {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(227, 166, 60, 0.4);
+  background: rgba(227, 166, 60, 0.14);
+  color: var(--menu-gold, #e3a63c);
+  cursor: pointer;
+}
+
+.shop-attachment-buy-btn:disabled {
+  cursor: default;
+  opacity: 0.4;
+  border-color: rgba(255, 255, 255, 0.15);
+  background: transparent;
+  color: inherit;
+}
+
+.shop-attachment-row.owned {
+  border-color: rgba(127, 216, 160, 0.3);
+}
+
+.shop-attachment-owned-tag {
+  flex-shrink: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #7fd8a0;
+}
+
 #shop-panel-soon-note {
   margin-top: 4px;
   font-size: 13px;
@@ -5041,6 +5297,39 @@ html.theme-lighter #app { filter: brightness(1.25); }
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 4px;
+}
+
+/* Auto-suggested best loadout (batch 8 feature) */
+#suggested-loadout-hint {
+  font-size: 11px;
+  color: var(--menu-gold, #e3a63c);
+  opacity: 0.85;
+  margin-top: 4px;
+}
+
+/* Quick-compare tooltips (batch 8 feature) - anchored above the hovered
+   weapon card via left/top set in JS, transform pulls it fully above and
+   horizontally centered on that point rather than the tooltip's own corner. */
+#weapon-quick-compare-tooltip {
+  position: fixed;
+  transform: translate(-50%, -100%);
+  background: rgba(10, 10, 9, 0.95);
+  border: 1px solid rgba(227, 166, 60, 0.4);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #e8e6df;
+  pointer-events: none;
+  z-index: 20;
+  white-space: nowrap;
+}
+
+#weapon-quick-compare-tooltip .quick-compare-vs {
+  color: var(--menu-gold, #e3a63c);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 2px;
 }
 
 #menu-preset-chips {
@@ -7268,6 +7557,21 @@ html.theme-lighter #app { filter: brightness(1.25); }
 @keyframes sandstorm-pulse {
   0%, 100% { opacity: 0.7; }
   50% { opacity: 1; }
+}
+
+/* Night Vision Goggles (batch 5 feature) - unlike sandstorm's multiply
+   blend (darkens), this uses screen blend (brightens) plus a brightness
+   filter on #app itself for the classic "everything lit green" NVG look. */
+#night-vision-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(60, 255, 90, 0.16);
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+html.night-vision-active #app {
+  filter: brightness(1.55) saturate(1.15) hue-rotate(-12deg);
 }
 
 #nightmare-overlay {

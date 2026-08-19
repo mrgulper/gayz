@@ -49,6 +49,11 @@ export const ACTIONS = [
   { id: 'weaponInspect', defaultKey: 'Delete', labelKey: 'actionWeaponInspect' },
   { id: 'radio', defaultKey: 'Home', labelKey: 'actionRadio' },
   { id: 'medStation', defaultKey: 'Insert', labelKey: 'actionMedStation' },
+  { id: 'grapple', defaultKey: 'KeyX', labelKey: 'actionGrapple' },
+  { id: 'stealthScreen', defaultKey: 'PageUp', labelKey: 'actionStealthScreen' },
+  { id: 'nightVision', defaultKey: 'PageDown', labelKey: 'actionNightVision' },
+  { id: 'decoyDummy', defaultKey: 'F2', labelKey: 'actionDecoyDummy' },
+  { id: 'whistle', defaultKey: 'F3', labelKey: 'actionWhistle' },
 ]
 
 function defaultBindings() {

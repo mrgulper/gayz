@@ -46,11 +46,32 @@ const MAX_TRACERS = 20
 // pulled down by a flat fake gravity constant and rotated for tumble. Reuses
 // the exact same pooled-array/bornAt/MAX-cap shape as tracers just above,
 // same reasoning (a sustained spray shouldn't leak dozens of live meshes).
+// Melee weapon durability (batch 4 feature) - a single scalar for whichever
+// melee weapon is currently equipped (there's only ever one melee slot, see
+// setMeleeVariant), not per-weapon-id, since only one can be active at a
+// time anyway. Repaired at the Workbench (see Game.js's _useWorkbench,
+// which already restores jam chance there - this rides along with it).
+export const MELEE_DURABILITY_MAX = 100
+const MELEE_DURABILITY_LOSS_PER_SWING = 2
+const MELEE_BROKEN_DAMAGE_MULT = 0.5
+
 const SHELL_GEOMETRY = new THREE.BoxGeometry(0.012, 0.012, 0.03)
 const SHELL_MATERIAL = new THREE.MeshBasicMaterial({ color: 0xd9b04a })
 const SHELL_LIFETIME_MS = 900
 const SHELL_GRAVITY = 9.8
 const MAX_SHELLS = 24
+// Headshot gib effect (batch 4 feature) - same physics-particle shape as
+// the shell casings above (velocity + gravity + spin, capped, auto-expire),
+// just a handful of dark-red fragments instead of one brass casing. NOT
+// cachedFlatMaterial/a single shared instance - see this project's own
+// "shared-material mutation" bug class note - each fragment gets its own
+// material instance so per-fragment opacity fade-out never fights another
+// still-fading fragment sharing the same material.
+const GIB_FRAGMENT_COUNT = 5
+const GIB_GEOMETRY = new THREE.TetrahedronGeometry(0.09)
+const GIB_LIFETIME_MS = 700
+const GIB_GRAVITY = 12
+const MAX_GIB_FRAGMENTS = 30
 // Aim Assist (accessibility, see this.aimAssist) - a small forgiving radius
 // tried only when the precise shot missed every zombie, an 8-point ring in
 // normalized device coordinates rather than actually widening spread for
@@ -94,6 +115,8 @@ const PERFECT_RELOAD_DAMAGE_MULT = 1.15
 const PERFECT_RELOAD_BONUS_DURATION_MS = 6000
 // Acid/Electric Rounds attachments - see applyAttachment's w.corrodes/w.shocks.
 const CORRODE_DURATION_MS = 4000
+// Cryo Rounds attachment (batch 10 feature)
+const FREEZE_DURATION_MS = 2500
 const ELECTRIC_CHAIN_RANGE = 6
 const ELECTRIC_CHAIN_STUN_MS = 900
 // Void Ripper wonder weapon (w.wonderVortex, Mystery Box only - see
@@ -581,6 +604,10 @@ export class WeaponSystem {
     // shared) since several can be fading concurrently under sustained fire.
     this.tracers = []
     this.shellCasings = []
+    this.gibFragments = []
+    this.meleeDurability = MELEE_DURABILITY_MAX
+    // Parry counter-attack bonus (batch 9 feature)
+    this.meleeCounterMult = 1
     // Void Ripper orbs in flight/vortex (see _spawnVoidRipperOrb) - a plain
     // array since at most one or two are ever active at once (single-shot,
     // low-reserve wonder weapon), same shape as tracers above.
@@ -720,6 +747,11 @@ export class WeaponSystem {
       w.shocks = true
     } else if (attachmentId === 'acid') {
       w.corrodes = true
+    } else if (attachmentId === 'cryo') {
+      // Cryo Rounds (batch 10 feature) - see Zombie.freeze's own comment
+      // for why this is distinct from Acid (damage-taken debuff) and
+      // Electric (chain-stun) rather than overlapping either.
+      w.freezes = true
     }
   }
 
@@ -757,6 +789,9 @@ export class WeaponSystem {
     w.cleaveRadius = stats.cleaveRadius || null
     w.stunMs = stats.stunMs || null
     this.meleeVariant = variantId
+    // Melee durability (batch 4 feature) - a freshly found/equipped melee
+    // weapon starts in full condition, same as any other loot pickup.
+    this.meleeDurability = MELEE_DURABILITY_MAX
 
     const variants = this.viewmodels.melee?.userData.meleeVariants
     if (variants) {
@@ -1019,6 +1054,7 @@ export class WeaponSystem {
     this.isSprinting = isSprinting
     this._updateTracers()
     this._updateShellCasings(dt)
+    this._updateHeadshotGibs(dt)
     this._updateVoidRipperOrbs(dt)
     // Idle weapon inspect (see _updateViewmodelTransform) - resets the
     // instant the player does anything with the weapon, so it only ever
@@ -1192,6 +1228,54 @@ export class WeaponSystem {
     }
   }
 
+  // Headshot gib effect (batch 4 feature) - a small burst of dark-red
+  // fragments scattered from the head position, called once per headshot
+  // KILL (see _fire's kill check right after zombie.onHit), not every
+  // headshot hit - a non-lethal headshot already has its own damage-number/
+  // hitmarker feedback and doesn't need this too.
+  _spawnHeadshotGib(x, y, z) {
+    for (let i = 0; i < GIB_FRAGMENT_COUNT; i++) {
+      const mat = new THREE.MeshBasicMaterial({ color: 0x7a0f0f, transparent: true, opacity: 0.95 })
+      const mesh = new THREE.Mesh(GIB_GEOMETRY, mat)
+      mesh.position.set(x, y, z)
+      this.scene.add(mesh)
+      const angle = Math.random() * Math.PI * 2
+      const speed = 1.5 + Math.random() * 2.5
+      this.gibFragments.push({
+        mesh,
+        vel: new THREE.Vector3(Math.cos(angle) * speed, 2 + Math.random() * 2.5, Math.sin(angle) * speed),
+        spin: new THREE.Vector3((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12),
+        bornAt: performance.now(),
+      })
+      if (this.gibFragments.length > MAX_GIB_FRAGMENTS) {
+        const oldest = this.gibFragments.shift()
+        this.scene.remove(oldest.mesh)
+        oldest.mesh.material.dispose()
+      }
+    }
+  }
+
+  _updateHeadshotGibs(dt) {
+    if (this.gibFragments.length === 0) return
+    const now = performance.now()
+    for (let i = this.gibFragments.length - 1; i >= 0; i--) {
+      const g = this.gibFragments[i]
+      const age = now - g.bornAt
+      if (age >= GIB_LIFETIME_MS) {
+        this.scene.remove(g.mesh)
+        g.mesh.material.dispose()
+        this.gibFragments.splice(i, 1)
+        continue
+      }
+      g.vel.y -= GIB_GRAVITY * dt
+      g.mesh.position.addScaledVector(g.vel, dt)
+      g.mesh.rotation.x += g.spin.x * dt
+      g.mesh.rotation.y += g.spin.y * dt
+      g.mesh.rotation.z += g.spin.z * dt
+      g.mesh.material.opacity = 0.95 * (1 - age / GIB_LIFETIME_MS)
+    }
+  }
+
   // Void Ripper (see w.wonderVortex) - a small glowing orb that lerps from
   // the muzzle to the raycast impact point over VOID_RIPPER_TRAVEL_MS, then
   // hands off to _updateVoidRipperOrbs' vortex phase.
@@ -1339,6 +1423,13 @@ export class WeaponSystem {
       this.recoil = 0.6
       this._meleeSwing = 1
       audioEngine.playMelee()
+      // Melee durability (batch 4 feature) - one loss per swing regardless
+      // of whether it connects, same "cost is in the attempt" shape as a
+      // gun burning ammo on a miss. onMeleeBroken fires once, right on the
+      // swing that crosses zero, not on every swing after.
+      const wasIntact = this.meleeDurability > 0
+      this.meleeDurability = Math.max(0, this.meleeDurability - MELEE_DURABILITY_LOSS_PER_SWING)
+      if (wasIntact && this.meleeDurability <= 0 && this.onMeleeBroken) this.onMeleeBroken()
       const nowMs = performance.now()
       if (nowMs - this.lastMeleeHitAt > MELEE_COMBO_WINDOW_MS) this.meleeComboCount = 0
       this.meleeComboCount += 1
@@ -1487,6 +1578,9 @@ export class WeaponSystem {
         if (w.ignites) zombieHit.ignite(IGNITE_DURATION_MS, IGNITE_DPS)
         // Acid Rounds attachment (see applyAttachment's w.corrodes).
         if (w.corrodes) zombieHit.corrode(CORRODE_DURATION_MS)
+        // Cryo Rounds attachment (batch 10 feature, see applyAttachment's
+        // w.freezes) - a full immobilize, not a damage effect at all.
+        if (w.freezes) zombieHit.freeze(FREEZE_DURATION_MS)
         // Electric Rounds attachment (see applyAttachment's w.shocks) -
         // chain-stuns (not damages) the single nearest OTHER living zombie
         // in range, same nearest-neighbor scan shape Ricochet/cleave below
@@ -1544,6 +1638,20 @@ export class WeaponSystem {
         audioEngine.playTargetDing()
       }
 
+      // Adjustable HP/Armor Practice Dummy (batch feature) - real damage,
+      // not just a ding. Reuses the same onDamageDealt floating-number
+      // callback zombie hits already use, so the actual damage-per-hit is
+      // visible the same way, instead of needing a separate HUD readout.
+      const adjustableDummy = hit.object.userData.adjustableDummy
+      if (adjustableDummy) {
+        const dealt = adjustableDummy.onHit(w.damage || 0)
+        audioEngine.playTargetDing()
+        if (this.onDamageDealt) {
+          const popupY = hit.point.y + 0.3
+          this.onDamageDealt(adjustableDummy.x, popupY, adjustableDummy.z, dealt, false)
+        }
+      }
+
       // Destructible shortcut wall (see Game.js's _buildDestructibleWall) -
       // a world prop with its own health pool, same "check a userData flag,
       // call its own onHit" shape as practiceTarget above.
@@ -1594,6 +1702,15 @@ export class WeaponSystem {
         // stack with each other and with everything else above.
         if (info.headshot) damage *= HEADSHOT_DAMAGE_MULT
         if (w.melee) damage *= meleeComboBonus
+        // Parry counter-attack bonus (batch 9 feature) - a separate melee-
+        // only multiplier slot from damageMult (already claimed by the
+        // headshot streak bonus, which applies to every weapon, not just
+        // melee) - Game.js sets this briefly after a successful parry.
+        if (w.melee) damage *= this.meleeCounterMult
+        // Melee durability (batch 4 feature) - a fully worn-down weapon
+        // still swings, just noticeably weaker, rather than becoming
+        // unusable outright (see MELEE_BROKEN_DAMAGE_MULT's own comment).
+        if (w.melee && this.meleeDurability <= 0) damage *= MELEE_BROKEN_DAMAGE_MULT
         // Perfect Reload bonus (see PERFECT_RELOAD_WINDOW_S's own comment) -
         // a flat window after the last perfect-timed reload, stacks with
         // everything else the same way headshot/combo above do.
@@ -1631,6 +1748,11 @@ export class WeaponSystem {
           damage = Math.max(damage, zombie.health)
         }
         zombie.onHit(damage, { bypassShield: !!w.armorPierce })
+        // Headshot gib effect (batch 4 feature) - only on the shot that
+        // actually finishes the kill, not every headshot hit.
+        if (info.headshot && zombie.health <= 0) {
+          this._spawnHeadshotGib(zombie.group.position.x, zombie.group.position.y + zombie.getHeadWorldHeight(), zombie.group.position.z)
+        }
         if (w.stunMs) zombie.stun(w.stunMs)
         if (this.onDamageDealt) {
           const popupY = zombie.group.position.y + zombie.getHeadWorldHeight() * (info.headshot ? 1 : 0.6)

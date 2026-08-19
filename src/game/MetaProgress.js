@@ -215,6 +215,18 @@ export const META_UPGRADES = [
       game.companion.equipAutoRevive()
     },
   },
+  // Night Vision Goggles (batch 5 feature) - a one-time permanent unlock,
+  // same shape as every other META_UPGRADES entry: apply() just sets a flag
+  // Game.js reads elsewhere (see hasNightVision/_toggleNightVision), rather
+  // than this file needing to know anything about the toggle/overlay itself.
+  {
+    id: 'night_vision',
+    titleKey: 'coinShopNightVision',
+    cost: 400,
+    apply: (game) => {
+      game.hasNightVision = true
+    },
+  },
   // Companion Perk Tree - a small requires-chained mini tree (root -> tier 2
   // -> capstone), same shape as the player's own Survival/Combat/Utility
   // chains above, just aimed at the companion. Also re-applied directly in

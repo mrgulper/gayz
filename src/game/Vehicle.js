@@ -18,6 +18,18 @@ const VEHICLE_STATS = {
 }
 const CRASH_DAMAGE_MIN_SPEED = 8
 const CRASH_DAMAGE_PER_SPEED = 3.5
+// Nitro Boost (batch 6 feature) - reuses the player's existing sprint input
+// (see Game.js's vehicle.update() call site, which already hands this class
+// the same input object PlayerController uses on foot) rather than a new
+// keybind - holding E while driving already reads naturally as "go faster."
+// Own resource (nitroFuel), separate from the vehicle's regular fuel tank,
+// so boosting doesn't just silently drain the tank you need to actually get
+// anywhere.
+const NITRO_MAX_FUEL = 100
+const NITRO_DRAIN_PER_SEC = 45
+const NITRO_REGEN_PER_SEC = 12
+const NITRO_SPEED_MULT = 1.35
+const NITRO_ACCEL_MULT = 1.25
 
 // Local-space seat/exit offsets, relative to the car's own position+heading.
 const DRIVER_SEAT_OFFSET = new THREE.Vector3(-0.35, 1.05, 0.1)
@@ -44,6 +56,9 @@ export class Vehicle {
     this.fuel = this.stats.maxFuel
     this.health = this.stats.maxHealth
     this.disabled = false
+    // Nitro Boost (batch 6 feature)
+    this.nitroFuel = NITRO_MAX_FUEL
+    this.boosting = false
     // Same fix as PlayerController/ZombieManager (see ColliderGrid.js) -
     // _tryMove used to linear-scan every world collider every frame while
     // driving. Built lazily on first update() call since the colliders
@@ -98,9 +113,16 @@ export class Vehicle {
     // stop under normal friction - still steerable while rolling, same as
     // a real stalled car, rather than instantly freezing in place.
     const canDrive = this.fuel > 0 && !this.disabled
-    const accel = canDrive ? this.stats.accel : 0
+    // Nitro Boost (batch 6 feature) - only while actually accelerating
+    // forward, so holding E at a standstill doesn't just burn nitro fuel
+    // for nothing.
+    this.boosting = canDrive && input.sprint && input.forward && this.nitroFuel > 0
+    if (this.boosting) this.nitroFuel = Math.max(0, this.nitroFuel - NITRO_DRAIN_PER_SEC * dt)
+    else this.nitroFuel = Math.min(NITRO_MAX_FUEL, this.nitroFuel + NITRO_REGEN_PER_SEC * dt)
+    const maxSpeed = this.boosting ? this.stats.maxSpeed * NITRO_SPEED_MULT : this.stats.maxSpeed
+    const accel = canDrive ? this.stats.accel * (this.boosting ? NITRO_ACCEL_MULT : 1) : 0
 
-    if (input.forward && canDrive) this.speed = Math.min(this.stats.maxSpeed, this.speed + accel * dt)
+    if (input.forward && canDrive) this.speed = Math.min(maxSpeed, this.speed + accel * dt)
     else if (input.back && canDrive) this.speed = Math.max(-this.stats.reverseMaxSpeed, this.speed - accel * dt)
     else if (this.speed > 0) this.speed = Math.max(0, this.speed - this.stats.frictionDecel * dt)
     else if (this.speed < 0) this.speed = Math.min(0, this.speed + this.stats.frictionDecel * dt)

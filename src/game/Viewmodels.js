@@ -82,6 +82,15 @@ function buildGunFromGLB(cache, tintMatName, skinId) {
     // than just the one this function already touches for tinting.
     child.material.opacity = 1
     child.material.transparent = false
+    // Every GLB gun material ships completely flat/untextured from the
+    // source pack - same shared brushed-metal/scratch detail texture the
+    // procedural guns' METAL/DARK_METAL/GRIP/WOOD materials use (see
+    // getGunDetailTexture's own comment), applied here so it covers every
+    // material slot on every real gun model, not just the tinted one.
+    // Guarded so a material shared across multiple spawned instances of
+    // the same gun (every slot except tintMatName isn't cloned per-spawn)
+    // only gets this set once rather than redundantly on every spawn.
+    if (!child.material.map) child.material.map = getGunDetailTexture()
     if (child.material.name === tintMatName) {
       child.material = flattenedClone(child.material)
       if (tint) {
@@ -97,10 +106,83 @@ function buildGunFromGLB(cache, tintMatName, skinId) {
   return g
 }
 
-const METAL = flatMaterial({ color: 0x2b2b2d, roughness: 0.4, metalness: 0.7 })
-const DARK_METAL = flatMaterial({ color: 0x1a1a1c, roughness: 0.5, metalness: 0.6 })
-const GRIP = flatMaterial({ color: 0x2a1e14, roughness: 0.9 })
-const WOOD = flatMaterial({ color: 0x4a3018, roughness: 0.8 })
+// Shared gun-surface detail texture - every weapon material in this file
+// (GLB and procedural alike) is flat/untextured out of the box, same
+// situation Zombie.js's skin was in before its own detail-texture pass
+// (see that file's getZombieSkinTexture comment for the full reasoning).
+// Drawn near-white so it multiplies against whatever color/tint a given
+// material already has rather than replacing it - brushed-metal streaks
+// plus scattered scratches, both lightened (not darkened) for contrast,
+// since a plain negative delta crushes toward black in this rendering
+// pipeline (confirmed the hard way on the ladder texture in Build Mode).
+function _buildGunDetailTexture() {
+  const size = 512
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#e9e9e6'
+  ctx.fillRect(0, 0, size, size)
+  // Brushed-metal streaks - fine horizontal lines, low opacity.
+  for (let y = 0; y < size; y += 2) {
+    const shade = 200 + Math.random() * 55
+    ctx.strokeStyle = `rgba(${shade},${shade},${shade},${0.04 + Math.random() * 0.05})`
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.moveTo(0, y + (Math.random() - 0.5) * 2)
+    ctx.lineTo(size, y + (Math.random() - 0.5) * 2)
+    ctx.stroke()
+  }
+  // Scratches - short, angled, lighter than the base so they catch like
+  // real scuffed metal instead of reading as dirt.
+  for (let i = 0; i < 45; i++) {
+    ctx.strokeStyle = `rgba(255,255,255,${0.08 + Math.random() * 0.14})`
+    ctx.lineWidth = 0.8 + Math.random() * 0.8
+    const x = Math.random() * size
+    const y = Math.random() * size
+    const len = 8 + Math.random() * 22
+    const ang = Math.random() * Math.PI
+    ctx.beginPath()
+    ctx.moveTo(x, y)
+    ctx.lineTo(x + Math.cos(ang) * len, y + Math.sin(ang) * len)
+    ctx.stroke()
+  }
+  // Sparse edge/panel wear - soft, very low-opacity dark patches, blended
+  // rather than solid-filled so nothing crushes to black.
+  for (let i = 0; i < 18; i++) {
+    ctx.fillStyle = `rgba(40,38,34,${0.05 + Math.random() * 0.07})`
+    const r = size * (0.015 + Math.random() * 0.03)
+    ctx.beginPath()
+    ctx.arc(Math.random() * size, Math.random() * size, r, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  const imgData = ctx.getImageData(0, 0, size, size)
+  const d = imgData.data
+  for (let i = 0; i < d.length; i += 4) {
+    const jitter = (Math.random() - 0.5) * 10
+    d[i] = Math.max(0, Math.min(255, d[i] + jitter))
+    d[i + 1] = Math.max(0, Math.min(255, d[i + 1] + jitter))
+    d[i + 2] = Math.max(0, Math.min(255, d[i + 2] + jitter))
+  }
+  ctx.putImageData(imgData, 0, 0)
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.wrapS = THREE.RepeatWrapping
+  tex.wrapT = THREE.RepeatWrapping
+  tex.repeat.set(2, 2)
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
+}
+
+let _gunDetailTexture = null
+function getGunDetailTexture() {
+  if (!_gunDetailTexture) _gunDetailTexture = _buildGunDetailTexture()
+  return _gunDetailTexture
+}
+
+const METAL = flatMaterial({ color: 0x2b2b2d, roughness: 0.4, metalness: 0.7, map: getGunDetailTexture() })
+const DARK_METAL = flatMaterial({ color: 0x1a1a1c, roughness: 0.5, metalness: 0.6, map: getGunDetailTexture() })
+const GRIP = flatMaterial({ color: 0x2a1e14, roughness: 0.9, map: getGunDetailTexture() })
+const WOOD = flatMaterial({ color: 0x4a3018, roughness: 0.8, map: getGunDetailTexture() })
 
 const SKIN = flatMaterial({ color: 0xc99a72, roughness: 0.88 })
 const SKIN_SHADE = flatMaterial({ color: 0xb0805a, roughness: 0.88 })
@@ -226,7 +308,7 @@ const SKIN_TINTS = {
 function skinMaterial(skinId, base = METAL) {
   const tint = SKIN_TINTS[skinId]
   if (!tint) return base
-  return flatMaterial({ color: tint.color, roughness: 0.25, metalness: 0.9, emissive: tint.emissive, emissiveIntensity: 0.3 })
+  return flatMaterial({ color: tint.color, roughness: 0.25, metalness: 0.9, emissive: tint.emissive, emissiveIntensity: 0.3, map: getGunDetailTexture() })
 }
 
 function buildPistol(skinId = null) {

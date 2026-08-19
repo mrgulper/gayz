@@ -18,6 +18,16 @@ export class Inventory {
     this.rations = 0
     this.waterBottles = 0
     this.smokeBombs = 0
+    // Stealth Screens (batch 4 feature) - distinct from smokeBombs above:
+    // that one is a reactive instant awareness-reset panic button; this is
+    // a proactive thrown cloud you can walk through/stand in that lingers
+    // for several seconds, reducing zombie sight range the whole time (see
+    // ZombieManager's smokeZones / Zombie.js's playerInSmoke).
+    this.stealthScreens = 0
+    // Decoy Dummy (batch 5 feature) - distinct from the Noisemaker's
+    // instant thrown distraction: this is a placed, visible prop that
+    // holds zombie aggro at a fixed spot for a much longer duration.
+    this.decoyDummies = 0
     // Med Station Kits - a support-archetype deployable (see Game.js's
     // _deployMedStation) distinct from the existing Turret Kit, which is
     // purely offensive. Same one-shot-consumable shape as every other kit.
@@ -47,6 +57,14 @@ export class Inventory {
 
   addSmokeBomb(n = 1) {
     this.smokeBombs += n
+  }
+
+  addStealthScreen(n = 1) {
+    this.stealthScreens += n
+  }
+
+  addDecoyDummy(n = 1) {
+    this.decoyDummies += n
   }
 
   addBarricadeCrate(n = 1) {
@@ -134,6 +152,18 @@ export class Inventory {
   useSmokeBomb() {
     if (this.smokeBombs <= 0) return false
     this.smokeBombs -= 1
+    return true
+  }
+
+  useStealthScreen() {
+    if (this.stealthScreens <= 0) return false
+    this.stealthScreens -= 1
+    return true
+  }
+
+  useDecoyDummy() {
+    if (this.decoyDummies <= 0) return false
+    this.decoyDummies -= 1
     return true
   }
 

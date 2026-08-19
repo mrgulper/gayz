@@ -50,6 +50,40 @@ export const PERK_DEFS = [
       game.zombies.aggroRadiusMult *= 0.5
     },
   },
+  // Insurance (batch feature) - doesn't touch a live stat like the others
+  // above, just sets a flag _onPlayerDeath reads to floor the Legacy
+  // Points payout, so a bad early death still banks something meaningful.
+  {
+    id: 'insurance',
+    titleKey: 'perkInsurance',
+    cost: 20,
+    apply: (game) => {
+      game.hasInsurance = true
+    },
+  },
+  // Barricade Medic (batch 4 feature) - same "flag-only, another system
+  // reads it" shape as Insurance above. BarricadeWindows.update() reads
+  // game.hasBarricadeMedic to passively re-board damaged windows over time.
+  {
+    id: 'barricade_medic',
+    titleKey: 'perkBarricadeMedic',
+    cost: 30,
+    apply: (game) => {
+      game.hasBarricadeMedic = true
+    },
+  },
+  // Pickup Magnet (batch 10 feature) - reuses the exact radiusMult param
+  // PickupManager.update() already takes (currently only ever driven by the
+  // Auto-Loot setting toggle) - this stacks a further multiplier on top
+  // rather than needing a second, parallel pickup-radius mechanism.
+  {
+    id: 'pickup_magnet',
+    titleKey: 'perkPickupMagnet',
+    cost: 25,
+    apply: (game) => {
+      game.hasPickupMagnet = true
+    },
+  },
 ]
 
 // Fisher-Yates-ish partial shuffle: picks `count` distinct perks at random.

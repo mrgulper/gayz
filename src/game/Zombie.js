@@ -203,6 +203,16 @@ const DEFAULT_WEAKEN_MULT = 0.55
 // the temporary weaken() slow above. 2 leg hits to trigger.
 const CRIPPLE_LEG_HITS = 2
 const CRIPPLED_SPEED_MULT = 0.35
+// Chase fatigue (batch 7 feature) - a zombie that's been chasing a long
+// time visibly slows, ramping down from full speed to CHASE_FATIGUE_MIN_MULT
+// over CHASE_FATIGUE_RAMP_MS once CHASE_FATIGUE_START_MS has passed since it
+// first noticed the player. Bosses/wandering-horde/ambush types are exempt
+// (see the fatigueMult read site) - a boss "giving up" would undercut the
+// fight, and wandering/ambush zombies are auto-aware from spawn, so they'd
+// otherwise fatigue almost immediately for reasons unrelated to a real chase.
+const CHASE_FATIGUE_START_MS = 90000
+const CHASE_FATIGUE_RAMP_MS = 60000
+const CHASE_FATIGUE_MIN_MULT = 0.55
 // Hivemind boss aura - a boss's mere presence speeds up everything near it
 // (the actual radius check/constant lives in ZombieManager.js, next to the
 // proximity scan itself), distinct from a Screamer's own enrage (a one-off
@@ -323,6 +333,9 @@ const WANDER_RETARGET_MS = 4000
 // sight-based branch of _updateAwareness, not AWARENESS_PROXIMITY_RANGE
 // (getting that close still wakes a zombie regardless of pose).
 const PRONE_SIGHT_RANGE_MULT = 0.4
+const CROUCH_SIGHT_RANGE_MULT = 0.7
+// Smoke grenade (batch 4 feature)
+const SMOKE_SIGHT_RANGE_MULT = 0.35
 
 // Zombie climbing - see _tryMoveOrClimb/_tryClimb. Same height band as
 // PlayerController's own MANTLE_MIN/MAX_HEIGHT (0.7-1.4) so zombies can
@@ -436,6 +449,7 @@ export class Zombie {
     // true the first time _updateAwareness runs (their own spawn is already
     // the "noticed you" moment), so isAmbush isn't read directly here.
     this.aware = false
+    this.awareSince = 0
     this.wanderDirX = 0
     this.wanderDirZ = 1
     this.wanderRetargetAt = 0
@@ -1287,7 +1301,7 @@ export class Zombie {
     this._barSprite.material.map.needsUpdate = true
   }
 
-  update(dt, elapsed, playerPos, onAttack, onSpit, onAmbushTrigger, onExplode, playerCrouching = false, onScream = null, colliders = null, solidMeshes = null, allZombies = null, onTrail = null, playerForwardX = null, playerForwardZ = null, playerProne = false) {
+  update(dt, elapsed, playerPos, onAttack, onSpit, onAmbushTrigger, onExplode, playerCrouching = false, onScream = null, colliders = null, solidMeshes = null, allZombies = null, onTrail = null, playerForwardX = null, playerForwardZ = null, playerProne = false, playerInSmoke = false) {
     // Cached so onHit() - called from outside update(), with no player
     // position of its own - can still bias the hit-reaction knockback away
     // from roughly where the player is, without threading a direction
@@ -1389,7 +1403,7 @@ export class Zombie {
       nz = -nz
     }
 
-    this._updateAwareness(playerPos, solidMeshes, dist, playerProne)
+    this._updateAwareness(playerPos, solidMeshes, dist, playerProne, playerCrouching, playerInSmoke)
 
     if (!this.aware) {
       // Ambient wander - hasn't noticed the player yet, so no pack
@@ -1523,7 +1537,23 @@ export class Zombie {
       this.isBerserk = this.health > 0 && this.health / this.maxHealth <= BERSERK_HEALTH_FRACTION
       const berserkMult = this.isBerserk ? BERSERK_SPEED_MULT : 1
       const crippledMult = this.isCrippled ? CRIPPLED_SPEED_MULT : 1
-      this.effectiveSpeed = this.speed * Math.max(burstMult, enrageMult, berserkMult, hivemindMult, alphaMult, fleeMult) * weakenMult * chokepointMult * crippledMult
+      // Chase fatigue (batch 7 feature) - see CHASE_FATIGUE_START_MS's own
+      // comment for the exemptions.
+      let fatigueMult = 1
+      if (!this.isBoss && !this.isWandering && !this.isAmbush && this.awareSince > 0) {
+        const chaseMs = performance.now() - this.awareSince
+        if (chaseMs > CHASE_FATIGUE_START_MS) {
+          const frac = Math.min(1, (chaseMs - CHASE_FATIGUE_START_MS) / CHASE_FATIGUE_RAMP_MS)
+          fatigueMult = THREE.MathUtils.lerp(1, CHASE_FATIGUE_MIN_MULT, frac)
+        }
+      }
+      this.effectiveSpeed = this.speed * Math.max(burstMult, enrageMult, berserkMult, hivemindMult, alphaMult, fleeMult) * weakenMult * chokepointMult * crippledMult * fatigueMult
+      // Cryo Rounds attachment (batch 10 feature) - a full stop, applied
+      // after every other multiplier above rather than folded into the
+      // Math.max boost group or the other slow multipliers, since frozen
+      // should always win regardless of what else is active (burst/enrage
+      // included) rather than just being one more factor in the mix.
+      if (this.frozenUntil && performance.now() < this.frozenUntil) this.effectiveSpeed = 0
 
       // Excess elevation beyond a normal standing eye height (e.g. the player
       // is up on a car roof) - added into the melee engagement check below
@@ -1674,6 +1704,15 @@ export class Zombie {
   corrode(durationMs) {
     if (this.state !== 'alive') return
     this.corrodedUntil = Math.max(this.corrodedUntil || 0, performance.now() + durationMs)
+  }
+
+  // Cryo Rounds attachment (batch 10 feature, see WeaponSystem's w.freezes) -
+  // a genuine full immobilize (effectiveSpeed forced to 0 - see that field's
+  // own comment), distinct from weaken() (a partial slow) and stun() (a
+  // brief ~200ms-1.5s hit-reaction freeze) by both duration and completeness.
+  freeze(durationMs) {
+    if (this.state !== 'alive') return
+    this.frozenUntil = Math.max(this.frozenUntil || 0, performance.now() + durationMs)
   }
 
   // Called every frame from update() below - applies burn damage on a
@@ -1983,18 +2022,37 @@ export class Zombie {
   // RANGE for the full rationale. Called every frame for every alive
   // zombie; a no-op the instant `aware` flips true since nothing here ever
   // clears it again.
-  _updateAwareness(playerPos, solidMeshes, dist, playerProne = false) {
+  _updateAwareness(playerPos, solidMeshes, dist, playerProne = false, playerCrouching = false, playerInSmoke = false) {
     if (this.aware) return
     if (this.isBoss || this.isWandering || this.isAmbush) {
       this.aware = true
+      this.awareSince = performance.now()
       return
     }
-    const sightRange = playerProne ? AWARENESS_SIGHT_RANGE * PRONE_SIGHT_RANGE_MULT : AWARENESS_SIGHT_RANGE
+    // Crouch stealth bonus (batch 3 feature) - a smaller version of prone's
+    // own sight-range reduction, only when not ALSO prone (prone already
+    // wins with the bigger reduction - the two states aren't simultaneous
+    // in PlayerController anyway, but this keeps the precedence explicit).
+    let sightRange = playerProne
+      ? AWARENESS_SIGHT_RANGE * PRONE_SIGHT_RANGE_MULT
+      : playerCrouching
+        ? AWARENESS_SIGHT_RANGE * CROUCH_SIGHT_RANGE_MULT
+        : AWARENESS_SIGHT_RANGE
+    // Smoke grenade (batch 4 feature) - stacks with (multiplies on top of)
+    // whichever stance multiplier already applied above, so prone+smoke is
+    // genuinely stealthier than either alone.
+    if (playerInSmoke) sightRange *= SMOKE_SIGHT_RANGE_MULT
     if (dist <= AWARENESS_PROXIMITY_RANGE) {
       this.aware = true
     } else if (dist <= sightRange && this._hasLineOfSight(playerPos, solidMeshes)) {
       this.aware = true
     }
+    // Chase fatigue (batch 7 feature) - awareSince timestamps the moment
+    // this zombie first noticed the player, read by the fatigueMult in the
+    // main movement update (see that field's own comment) - this function
+    // never clears `aware` again (see the doc comment above), so this only
+    // ever needs to fire once per zombie.
+    if (this.aware) this.awareSince = performance.now()
   }
 
   // Ambient wander (see _updateAwareness) - a slow, aimless drift used

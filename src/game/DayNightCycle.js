@@ -72,6 +72,15 @@ export class DayNightCycle {
     return { phase: 'Night', remainingMs: CYCLE_MS - pos }
   }
 
+  // Sleep-to-skip-to-morning (batch feature) - jumps straight to the start
+  // of the next day. Computed from the current day NUMBER rather than just
+  // resetting startedAt to now, so getDayNumber() correctly advances by one
+  // instead of resetting back to day 1.
+  skipToMorning() {
+    const dayNumber = this.getDayNumber()
+    this.startedAt = performance.now() - dayNumber * CYCLE_MS
+  }
+
   update() {
     const elapsed = performance.now() - this.startedAt
     const pos = (elapsed % CYCLE_MS) / CYCLE_MS

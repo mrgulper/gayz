@@ -8,7 +8,7 @@ import { AfterimagePass } from 'three/examples/jsm/postprocessing/AfterimagePass
 import { buildWorld, WORLD_CULL_DISTANCE, WORLD_SHADOW_CULL_DISTANCE, CAMPFIRE_X, CAMPFIRE_Z, SAFE_ZONE_X, SAFE_ZONE_Z } from './World.js'
 import { LOW_QUALITY_MODE, flatMaterial } from './QualitySettings.js'
 import { PlayerController } from './PlayerController.js'
-import { WeaponSystem } from './WeaponSystem.js'
+import { WeaponSystem, MELEE_DURABILITY_MAX } from './WeaponSystem.js'
 import { ZombieManager } from './ZombieManager.js'
 import { PickupManager } from './Pickups.js'
 import { PlayerState } from './PlayerState.js'
@@ -265,6 +265,9 @@ function loadSettings() {
       invertScrollWeaponSwitch: parsed.invertScrollWeaponSwitch ?? false,
       doubleClickSpeed: parsed.doubleClickSpeed ?? 300,
       killFeedPosition: parsed.killFeedPosition === 'left' ? 'left' : 'right',
+      killFeedIcons: parsed.killFeedIcons ?? true,
+      killFeedVerbosity: parsed.killFeedVerbosity === 'important' ? 'important' : 'all',
+      petAdopted: parsed.petAdopted ?? false,
       compassStyle: parsed.compassStyle === 'degrees' ? 'degrees' : 'letters',
       showWeaponNameHud: parsed.showWeaponNameHud ?? true,
       minimapDefaultZoom: parsed.minimapDefaultZoom ?? 1,
@@ -493,6 +496,9 @@ function loadSettings() {
         zombieDefense: parsed.mutators?.zombieDefense ?? false,
         bossHunt: parsed.mutators?.bossHunt ?? false,
         zombieRush: parsed.mutators?.zombieRush ?? false,
+        escalation: parsed.mutators?.escalation ?? false,
+        cursedRun: parsed.mutators?.cursedRun ?? false,
+        randomizer: parsed.mutators?.randomizer ?? false,
       },
     }
     // A genuinely new player's generated defaults (starter nickname, etc.)
@@ -516,7 +522,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, killFeedPosition: 'right', compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, showPausePlaytime: true, instantStationInteract: false, confirmQuitRun: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false } }
+  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, showPausePlaytime: true, instantStationInteract: false, confirmQuitRun: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -696,6 +702,11 @@ const WEEKLY_FEATURED_MUTATOR_BONUS_COINS = 50
 const WEEKLY_REMIX_BONUS_COINS = 75
 const GLOBAL_KILLS_MILESTONE_STEP = 100000
 const AUTO_LOOT_RADIUS_MULT = 2.5
+// Pickup Magnet perk (batch 10 feature)
+const PICKUP_MAGNET_MULT = 1.6
+// Surrender (batch 10 feature) - a fraction of the normal death payout,
+// the cost of bailing out deliberately instead of actually surviving/dying.
+const SURRENDER_LEGACY_MULT = 0.5
 // Renamed from WEEKLY_FEATURED_MUTATOR_LABEL_KEYS (Online Features batch)
 // and extended to cover every mutator with a real i18n label - the
 // Mutator Exploration spotlight nudge (see _updateMenuSpotlight mode 4)
@@ -721,6 +732,7 @@ const MUTATOR_LABEL_KEYS = {
   zombieDefense: 'mutatorZombieDefense',
   bossHunt: 'mutatorBossHunt',
   zombieRush: 'mutatorZombieRush',
+  escalation: 'mutatorEscalation',
 }
 
 // Settings Code (export/import, see _exportSettingsCode/_importSettingsCode)
@@ -768,6 +780,29 @@ function _weeklyFeaturedMutatorKey() {
   let hash = 7
   for (let i = 0; i < weekStr.length; i++) hash = (hash * 31 + weekStr.charCodeAt(i)) | 0
   return WEEKLY_FEATURED_MUTATORS[Math.abs(hash) % WEEKLY_FEATURED_MUTATORS.length]
+}
+
+// Cursed Run (batch 3 feature) - 3 mutators forced on together, picked the
+// same deterministic per-week way as _weeklyFeaturedMutatorKey above (3
+// different hash seeds, re-rolled forward on collision like the remix pair
+// does), so every player sees the same "curse" for a given week and it's
+// stable across their own retries.
+function _cursedRunMutatorKeys() {
+  const weekStr = _thisWeekStr()
+  const seeds = [17, 29, 41]
+  const picks = []
+  for (const seed of seeds) {
+    let hash = seed
+    for (let i = 0; i < weekStr.length; i++) hash = (hash * 31 + weekStr.charCodeAt(i)) | 0
+    let pick = WEEKLY_FEATURED_MUTATORS[Math.abs(hash) % WEEKLY_FEATURED_MUTATORS.length]
+    let guard = 0
+    while (picks.includes(pick) && guard < WEEKLY_FEATURED_MUTATORS.length) {
+      pick = WEEKLY_FEATURED_MUTATORS[(WEEKLY_FEATURED_MUTATORS.indexOf(pick) + 1) % WEEKLY_FEATURED_MUTATORS.length]
+      guard++
+    }
+    picks.push(pick)
+  }
+  return picks
 }
 
 // Weekly Remix - a second featured mutator, picked the same deterministic
@@ -1175,6 +1210,10 @@ const HALL_OF_RECORDS_REWARD_COINS = 2500
 // it's simple list storage, not a system with its own logic of its own.
 const RUN_HISTORY_KEY = 'gayz-run-history'
 const RUN_HISTORY_MAX = 25
+// Auto-suggested best loadout (batch 8 feature)
+const SUGGESTED_LOADOUT_MIN_RUNS = 3
+// Environmental melee kills (batch 8 feature)
+const ENVIRONMENTAL_MELEE_KILL_POINTS = 15
 
 function loadRunHistory() {
   try {
@@ -1341,6 +1380,72 @@ function saveBossRushLeaderboard(entries) {
 const HARDCORE_MEMORIAL_KEY = 'gayz-hardcore-memorial'
 const HARDCORE_MEMORIAL_MAX_ENTRIES = 20
 
+// Self-imposed challenge tracker (batch feature) - same load/save shape as
+// the hardcore memorial below, just an object of counts instead of an
+// array of entries.
+const CHALLENGE_BADGES_KEY = 'gayz-challenge-badges'
+function loadChallengeBadges() {
+  try {
+    const raw = localStorage.getItem(CHALLENGE_BADGES_KEY)
+    const parsed = raw ? JSON.parse(raw) : {}
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function saveChallengeBadges(badges) {
+  try {
+    localStorage.setItem(CHALLENGE_BADGES_KEY, JSON.stringify(badges))
+  } catch {
+    // Storage unavailable - badges just won't persist across sessions.
+  }
+}
+
+// Practice dummy leaderboard (batch 3 feature) - best (lowest) time-to-kill
+// per dummy preset tier, same load/save shape as the challenge badges above
+// (an object keyed by preset index, not an array).
+const DUMMY_LEADERBOARD_KEY = 'gayz-dummy-leaderboard'
+function loadDummyLeaderboard() {
+  try {
+    const raw = localStorage.getItem(DUMMY_LEADERBOARD_KEY)
+    const parsed = raw ? JSON.parse(raw) : {}
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function saveDummyLeaderboard(entries) {
+  try {
+    localStorage.setItem(DUMMY_LEADERBOARD_KEY, JSON.stringify(entries))
+  } catch {
+    // Storage unavailable - leaderboard just won't persist across sessions.
+  }
+}
+
+// Field Notes (batch 5 feature) - same array-of-ids shape as
+// loadHardcoreMemorial below, just collected-note ids instead of death
+// entries.
+const FIELD_NOTES_KEY = 'gayz-field-notes'
+function loadFieldNotes() {
+  try {
+    const raw = localStorage.getItem(FIELD_NOTES_KEY)
+    const parsed = raw ? JSON.parse(raw) : []
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function saveFieldNotes(ids) {
+  try {
+    localStorage.setItem(FIELD_NOTES_KEY, JSON.stringify(ids))
+  } catch {
+    // Storage unavailable - collected notes just won't persist across sessions.
+  }
+}
+
 function loadHardcoreMemorial() {
   try {
     const raw = localStorage.getItem(HARDCORE_MEMORIAL_KEY)
@@ -1487,6 +1592,35 @@ function saveHaggleStreak(streak) {
 // touching the rest of the run-state reset behavior on death/respawn.
 const SHOP_PROGRESS_KEY = 'gayz-shop-progress'
 const COIN_SHOP_GUN_IDS = new Set(COIN_SHOP_ITEMS.filter((i) => i.gun).map((i) => i.gun))
+// Weapon Attachments shop section (batch 11 feature) - one runtime-flag
+// check per ATTACHMENT_TYPES id, the single source of truth both
+// saveShopProgress (persistence) and the shop UI (ownership display) read
+// from, so the two can never drift out of sync with each other. scope
+// excludes the AWP (already has one baked in - same reasoning as the
+// suppressor exclusion set below) - matches this file's pre-existing
+// w.id !== 'awp' check, just generalized to the other 10 attachments too.
+const ATTACHMENT_OWNED_CHECK = {
+  scope: (w) => w.scopeOwned && w.id !== 'awp',
+  extmag: (w) => w.hasExtMag,
+  suppressor: (w) => w.suppressed,
+  laser: (w) => w.hasLaser,
+  incendiary: (w) => w.ignites,
+  ricochet: (w) => w.ricochet,
+  armorpierce: (w) => w.armorPierce,
+  precision: (w) => !!w.critChance,
+  electric: (w) => w.shocks,
+  acid: (w) => w.corrodes,
+  cryo: (w) => w.freezes,
+}
+// Weapons that already have a given attachment's effect baked in at
+// baseline (see each weapon's own "baked in, not attachment-granted"
+// comment in WEAPONS) - excluded from the shop's buy list for that specific
+// attachment entirely, rather than letting the player spend coins on
+// something that does nothing new.
+const ATTACHMENT_BAKED_IN = {
+  scope: new Set(['awp']),
+  suppressor: new Set(['crossbow', 'suppressedsmg']),
+}
 
 function loadShopProgress() {
   try {
@@ -1540,11 +1674,18 @@ function saveShopProgress(game) {
       weaponChallengesUnlocked: [...game.weaponChallengesUnlocked],
       shopPurchased: [...game.coinShopPurchased],
       unlockedGuns: game.weapons.weapons.filter((w) => w.unlocked && COIN_SHOP_GUN_IDS.has(w.id)).map((w) => w.id),
+      // Weapon Attachments shop section (batch 11 feature) - was only ever
+      // deriving 3 of the 11 real ATTACHMENT_TYPES (scope/extmag/suppressor)
+      // from their runtime flags; the other 8 (laser/incendiary/ricochet/
+      // armorpierce/precision/electric/acid/cryo) would silently vanish on
+      // reload even after being bought - see ATTACHMENT_OWNED_CHECK's own
+      // comment for why this now covers all 11 generically instead.
       attachments: game.weapons.weapons.flatMap((w) => {
         const ids = []
-        if (w.scopeOwned && w.id !== 'awp') ids.push(`${w.id}:scope`)
-        if (w.hasExtMag) ids.push(`${w.id}:extmag`)
-        if (w.suppressed) ids.push(`${w.id}:suppressor`)
+        for (const item of ATTACHMENT_TYPES) {
+          const check = ATTACHMENT_OWNED_CHECK[item.id]
+          if (check && check(w)) ids.push(`${w.id}:${item.id}`)
+        }
         return ids
       }),
     }))
@@ -1571,6 +1712,10 @@ const GENERATOR_PASSIVE_REFUEL_PER_SEC = 6
 const GENERATOR_FUELCAN_AMOUNT = 35
 const VAULT_REWARD_POINTS = 150
 const TROPHY_WALL_INTERACT_RADIUS = 2.4
+// Trophy wall hover tooltip (batch 9 feature) - caps how far the crosshair
+// raycast counts as "looking at" a medallion, independent of
+// TROPHY_WALL_INTERACT_RADIUS (proximity to the wall as a whole) above.
+const TROPHY_WALL_LOOK_MAX_DIST = 3
 const TRADER_INTERACT_RADIUS = 2.5
 const AMMO_STATION_RADIUS = 2.2
 const AMMO_STATION_HOLD_SECONDS = 10
@@ -1601,8 +1746,28 @@ const LORE_MARKERS = [
   { id: 'library', x: 324, z: 160, textKey: 'loreMarkerLibrary' },
   { id: 'church', x: 334, z: 70, textKey: 'loreMarkerChurch' },
   { id: 'school', x: -324, z: 150, textKey: 'loreMarkerSchool' },
+  // Environmental storytelling props (batch 3 feature) - reuses the exact
+  // same lore marker mechanic above, just 2 more, offset a few units from
+  // 2 already-verified-clear landmark spots (the warehouse and fire
+  // station) rather than needing a fresh clearance check of their own.
+  { id: 'warehouse_scene', x: 4, z: -213, textKey: 'loreMarkerWarehouseScene' },
+  { id: 'firestation_scene', x: 104, z: -148, textKey: 'loreMarkerFirestationScene' },
 ]
 const LORE_MARKER_INTERACT_RADIUS = 2.5
+// Field Notes (batch 5 feature) - distinct from LORE_MARKERS above: those
+// are a one-time-per-visit toast with nothing persisted; these are real
+// pickups (walked over, not just approached), permanently collected across
+// runs (see FIELD_NOTES_KEY), and reviewable anytime in the Journal (see
+// _renderJournal). Positions are small offsets from LORE_MARKERS' own
+// already-clear landmark spots rather than needing a fresh clearance check.
+const FIELD_NOTES = [
+  { id: 'note_library', x: 327, z: 163, textKey: 'fieldNoteLibrary' },
+  { id: 'note_church', x: 337, z: 73, textKey: 'fieldNoteChurch' },
+  { id: 'note_school', x: -327, z: 153, textKey: 'fieldNoteSchool' },
+  { id: 'note_warehouse', x: 7, z: -216, textKey: 'fieldNoteWarehouse' },
+  { id: 'note_firestation', x: 107, z: -151, textKey: 'fieldNoteFirestation' },
+]
+const FIELD_NOTE_PICKUP_RADIUS = 2
 const LIGHT_LURE_RADIUS = 20
 const LIGHT_LURE_INTERVAL_MS = 2000
 const SAFE_ZONE_HEAL_PER_SEC = 6
@@ -1727,6 +1892,7 @@ const LANDING_DIP_RECOVER_SPEED = 9
 // still a gun going off, just a quieter one.
 const GUNFIRE_ALERT_RADIUS = 22
 const GUNFIRE_ALERT_RADIUS_SUPPRESSED = 6
+const GUNFIRE_INNER_GUARANTEED_FRAC = 0.5
 // Taunt (see _triggerTaunt) - a free, player-initiated shout that alerts
 // every unaware zombie in a wide radius, no ammo cost. Deliberately a much
 // bigger radius than gunfire's above since it's meant as a deliberate
@@ -1794,6 +1960,9 @@ const SMOKE_BOMB_CLOUD_DURATION_MS = 4000
 const PARRY_WINDOW_MS = 350
 const PARRY_COOLDOWN_MS = 3000
 const PARRY_DAMAGE_REDUCTION = 0.9
+// Parry counter-attack bonus (batch 9 feature)
+const PARRY_COUNTER_DAMAGE_MULT = 1.6
+const PARRY_COUNTER_WINDOW_MS = 2000
 const PARRY_STAGGER_MS = 1500
 // Melee kill visual effect (see _spawnMeleeKillFlash) - a brief colored
 // point light per variant, distinct game feel per melee weapon without
@@ -1881,6 +2050,11 @@ const FREE_BONUS_ITEM_CHANCE = 0.1
 // shape), the rest are periodic checks in the main tick.
 const SANDSTORM_CHANCE = 0.1
 const SANDSTORM_SPEED_MULT = 0.85
+// Rain slowdown (batch 5 feature) - much milder than sandstorm/flood above
+// since plain rain is common weather, not a rare punishing event. Shares
+// the same environmentMult slot (see that field's own comment) - only
+// applies when neither sandstorm nor an active flood already claimed it.
+const RAIN_SPEED_MULT = 0.94
 const HEATWAVE_CHANCE = 0.1
 const HEATWAVE_THIRST_MULT = 1.8
 // Earthquake - a rare mid-night event, not tied to any weather roll.
@@ -2127,6 +2301,12 @@ const RATION_HUNGER_RESTORE = 40
 const THIRST_DECAY_PER_SEC = 100 / 420
 const THIRST_DEHYDRATE_DPS = 2
 const WATER_THIRST_RESTORE = 45
+// Bleed status effect (batch 4 feature) - a small chance per zombie hit
+// (see _onZombieAttack) to apply a short DoT on top of the direct damage,
+// same "refresh duration, don't stack" shape as Zombie.js's own ignite().
+const BLEED_CHANCE = 0.15
+const BLEED_DURATION_MS = 4000
+const BLEED_DPS = 3
 // Temperature/Exposure - unlike Hunger/Thirst (always draining, restored by
 // consumables), warmth passively drifts toward whichever end the player's
 // current situation favors: rain or an outdoor night chills it, being
@@ -2172,6 +2352,12 @@ const HAZARD_ACID_DAMAGE_PER_TICK = 6
 const HAZARD_WEB_RADIUS = 4
 const HAZARD_WEB_DURATION_MS = 6000
 const WEB_SLOW_MULT = 0.55
+// Radiation zone (batch 5 feature) - a permanent (not timed-out) hazard
+// fixed at the mine level's dead end, same risk/reward as any real
+// irradiated area: the audio log pickup already placed there is worth
+// grabbing, the lingering damage is the cost of doing it slowly.
+const HAZARD_RADIATION_RADIUS = 6
+const HAZARD_RADIATION_DAMAGE_PER_TICK = 4
 // Corpse pile-up - a cluster of recent kills slows the player passing
 // through it (see PlayerController's corpsePileMult), recomputed live
 // every frame from a rolling window of recent kill spots rather than a
@@ -2219,6 +2405,18 @@ const INDOOR_CHECK_INTERVAL_MS = 400
 const INDOOR_RAY_MAX_DIST = 6
 const FOOTSTEP_INTERVAL_WALK = 0.42
 const FOOTSTEP_INTERVAL_SPRINT = 0.27
+// Shape-based minimap icons (batch feature) - which zombie type ids draw as
+// the ranged/support "square" icon; everything else not a boss or exploder
+// falls through to the plain dot.
+const RANGED_ZOMBIE_TYPES = new Set(['spitter', 'spitter_bomber', 'siren'])
+// Terrain-based Footstep Loudness (batch feature) - reuses the same
+// aware-flip mechanism _alertNearbyZombiesToGunfire already uses, just at
+// footstep scale/frequency instead of per-shot. Grass and crouching quiet
+// it down; sprinting on hard ground carries further.
+const FOOTSTEP_NOISE_RADIUS_DEFAULT = 7
+const FOOTSTEP_NOISE_RADIUS_GRASS = 4
+const FOOTSTEP_NOISE_RADIUS_SPRINT_MULT = 1.6
+const FOOTSTEP_NOISE_RADIUS_CROUCH_MULT = 0.35
 // Seasonal map dressing - purely additive banner props at the safe zone
 // (no new geometry touching World.js/buildSafeZone), recolored based on
 // night number so there's rotating visual variety across a long run.
@@ -2290,9 +2488,106 @@ const ELEVATOR_RIDE_DURATION_MS = 1800
 const LADDER_RADIUS = 0.6
 const SCAFFOLDING_COLLAPSE_DAMAGE = 70
 const PAYPHONE_INTERACT_RADIUS = 2
+const JUKEBOX_INTERACT_RADIUS = 2
+const WORKBENCH_INTERACT_RADIUS = 2
+const WORKBENCH_JAM_MULT = 0.5
+const BULLETIN_BOARD_INTERACT_RADIUS = 2
+const HALL_OF_FAME_INTERACT_RADIUS = 2
+const SKYSCRAPER_SHORTCUT_RADIUS = 2.5
+const SKYSCRAPER_SHORTCUT_DURATION_MS = 900
+const DUMMY_INTERACT_RADIUS = 2
+const PET_INTERACT_RADIUS = 2
+const PET_FOLLOW_DISTANCE = 1.8
+// Death-cam replay (batch feature) - 10s of trail at one sample every
+// 250ms is 40 points, plenty for a small top-down path with no real memory
+// cost.
+const DEATH_REPLAY_SAMPLE_MS = 250
+const DEATH_REPLAY_MAX_SAMPLES = 40
+// Escalation Mode (batch feature) - +15% spawn pressure per elapsed minute,
+// unbounded (no cap), checked every few seconds rather than every frame -
+// this only ever needs to notice minute-scale changes.
+const ESCALATION_RATE_PER_MIN = 0.15
+const ESCALATION_CHECK_INTERVAL_S = 5
+const INSURANCE_MIN_LEGACY_PAYOUT = 50
+// Personal Grapple-and-Swing (batch feature)
+const GRAPPLE_MIN_RANGE = 3
+const GRAPPLE_MAX_RANGE = 20
+const GRAPPLE_STOP_SHORT = 1.2
+const GRAPPLE_DURATION_MS = 400
+const GRAPPLE_COOLDOWN_MS = 1500
+// Near-death music stinger (batch feature) - deliberately lower than the
+// existing 0.3 continuous-floor threshold in _updateMusicIntensity, so the
+// sharp one-shot sting reads as a distinct, rarer "this is bad" beat on top
+// of (not on every same frame as) the smoother intensity floor.
+const NEAR_DEATH_STINGER_THRESHOLD = 0.15
+// Minecart shortcut (batch 3 feature) - rides the subway's own tunnel
+// length end-to-end. Coordinates mirror World.js's SUBWAY_X/Z_START/
+// Z_END/FLOOR_Y constants directly (not exported/threaded through
+// buildWorld's return, same "known-safe hardcoded spot" approach the
+// drainpipes already use) - inset 2 units from each literal tunnel end so
+// the ride's start/stop points aren't flush against a wall.
+const MINECART_STOPS = [
+  { x: 13, z: -7, y: -4.6 },
+  { x: 13, z: 9, y: -4.6 },
+]
+const MINECART_INTERACT_RADIUS = 2
+const MINECART_RIDE_DURATION_MS = 1200
+const JUMP_PAD_RADIUS = 1.2
+const JUMP_PAD_BOOST_SPEED = 18
+const JUMP_PAD_COOLDOWN_MS = 600
 const PAYPHONE_CALL_DELAY_MS = 20000
 const BARRICADE_CRATE_HEALTH = 150
 const BARRICADE_CRATE_PLACE_DIST = 1.5
+// Decoy Dummy (batch 5 feature) - a placed, visible prop that holds zombie
+// aggro at a fixed spot, distinct from the Noisemaker's instant thrown
+// distraction (see _throwNoisemaker) both in placement (set-in-front-of-you
+// vs thrown-with-an-arc) and in how long it holds attention.
+const DECOY_DUMMY_PLACE_DIST = 2
+const DECOY_DUMMY_DURATION_MS = 25000
+// Companion Whistle/Recall (batch 6 feature)
+const WHISTLE_COOLDOWN_MS = 8000
+// Headshot streak (batch 6 feature) - distinct from killStreak (tracks
+// kills, any weapon/hit-location) - this only counts consecutive HEADSHOTS,
+// reset by any non-headshot hit or too long a gap between them. Writes
+// directly to WeaponSystem's own damageMult field, confirmed unclaimed by
+// anything else (initialized once to 1, never reassigned elsewhere).
+const HEADSHOT_STREAK_WINDOW_MS = 2500
+const HEADSHOT_STREAK_THRESHOLD = 4
+const HEADSHOT_STREAK_DAMAGE_MULT = 1.25
+const HEADSHOT_STREAK_BONUS_DURATION_MS = 6000
+// Encirclement (batch 6 feature) - a zombie hit deals more when several
+// others are also crowded in close, rewarding clearing space/using
+// chokepoints over just tanking a crowd. Checked per-hit in _onZombieAttack
+// (radius/threshold are both about the ATTACK moment, not a standing debuff).
+const ENCIRCLEMENT_RADIUS = 2.5
+const ENCIRCLEMENT_THRESHOLD = 3
+const ENCIRCLEMENT_DAMAGE_MULT = 1.3
+// Rarity-tinted crate-opening burst (batch 7 feature)
+const CRATE_BURST_MOTE_COUNT = 8
+const CRATE_BURST_MOTE_GEOMETRY = new THREE.SphereGeometry(0.05, 6, 6)
+const CRATE_BURST_MOTE_LIFETIME_MS = 900
+// Pain-scream alert (batch 6 feature) - a heavily-hit zombie has a chance
+// to alert nearby unaware zombies, same aware-flip shape as
+// _alertNearbyZombiesToGunfire/_alertNearbyZombiesToFootstep just centered
+// on the WOUNDED ZOMBIE's position instead of the player's - closes the gap
+// where a stealthy melee kill currently alerts nobody at all. Globally
+// cooldown-gated (not per-zombie) so sustained combat can't fire this once
+// per hit landed.
+const PAIN_SCREAM_MIN_DAMAGE = 40
+const PAIN_SCREAM_CHANCE = 0.3
+const PAIN_SCREAM_RADIUS = 10
+const PAIN_SCREAM_COOLDOWN_MS = 3000
+// Mercy after a near-death (batch 7 feature) - a brief incoming-damage
+// reduction right after surviving a hit that dropped health below
+// CRITICAL_HEALTH_THRESHOLD, so the pressure eases right after a close call
+// instead of piling straight into a second one. Scoped to zombie melee/
+// ranged attacks (_onZombieAttack) - same precedent Shield/Bleed/
+// Encirclement above already follow, not every damage source in the file.
+const MERCY_DURATION_MS = 2500
+const MERCY_DAMAGE_REDUCTION = 0.4
+// Duplicate trade-in (batch 7 feature)
+const DUPLICATE_TRADE_IN_RARE_COINS = 15
+const DUPLICATE_TRADE_IN_LEGENDARY_COINS = 40
 const BARRICADE_CRATE_INTERACT_RADIUS = 2.2
 const BARRICADE_CRATE_CHIP_PER_SEC = 12
 
@@ -2612,6 +2907,8 @@ const SHOP_ITEMS = [
   { id: 'alarmkit', cost: 25, titleKey: 'shopAlarmKit', give: (game) => game.inventory.addAlarmKit(1) },
   { id: 'ration', cost: 12, titleKey: 'shopRation', give: (game) => game.inventory.addRation(1) },
   { id: 'water', cost: 10, titleKey: 'shopWater', give: (game) => game.inventory.addWaterBottle(1) },
+  { id: 'stealthscreen', cost: 24, titleKey: 'shopStealthScreen', give: (game) => game.inventory.addStealthScreen(1) },
+  { id: 'decoydummy', cost: 22, titleKey: 'shopDecoyDummy', give: (game) => game.inventory.addDecoyDummy(1) },
   {
     id: 'train_companion',
     cost: 30,
@@ -3168,6 +3465,8 @@ export class Game {
     this.deathGrade = document.getElementById('death-grade')
     this.deathHighlights = document.getElementById('death-highlights')
     this.deathCauseBreakdown = document.getElementById('death-cause-breakdown')
+    this.deathReplayCanvas = document.getElementById('death-replay-canvas')
+    this.statsDashboardCanvas = document.getElementById('stats-dashboard-canvas')
     this.deathLegacyPoints = document.getElementById('death-legacy-points')
     this.deathScoreAttack = document.getElementById('death-score-attack')
     this.deathEndless = document.getElementById('death-endless')
@@ -3177,6 +3476,8 @@ export class Game {
     this.endingCredits = document.getElementById('ending-credits')
     this.endingContinueBtn = document.getElementById('ending-continue-btn')
     this.interactPrompt = document.getElementById('interact-prompt')
+    this.trophyWallTooltip = document.getElementById('trophy-wall-tooltip')
+    this._trophyWallRaycaster = new THREE.Raycaster()
     this.ammoStationProgressWrap = document.getElementById('ammo-station-progress-wrap')
     this.ammoStationFill = document.getElementById('ammo-station-fill')
     this.breakerBoxProgressWrap = document.getElementById('breaker-box-progress-wrap')
@@ -3184,6 +3485,7 @@ export class Game {
     this.rainOverlayEl = document.getElementById('rain-overlay')
     this.snowOverlayEl = document.getElementById('snow-overlay')
     this.sandstormOverlayEl = document.getElementById('sandstorm-overlay')
+    this.nightVisionOverlayEl = document.getElementById('night-vision-overlay')
     this.lightningFlashEl = document.getElementById('lightning-flash')
     this.nextLightningAt = 0
     this.fogPatch = null
@@ -3219,6 +3521,7 @@ export class Game {
     this.statTotalKills = document.querySelectorAll('[data-stat="total-kills"]')
     this.statRunsPlayed = document.querySelectorAll('[data-stat="runs-played"]')
     this.statFavoriteClass = document.querySelectorAll('[data-stat="favorite-class"]')
+    this.suggestedLoadoutHint = document.getElementById('suggested-loadout-hint')
     this.statLastRun = document.querySelectorAll('[data-stat="last-run"]')
     this.menuAvatarLevel = document.getElementById('menu-avatar-level')
     this.menuAvatarPhoto = document.getElementById('menu-avatar-photo')
@@ -3443,6 +3746,8 @@ export class Game {
     this.resetGraphicsDefaultsBtn = document.getElementById('reset-graphics-defaults-btn')
     // General tab (see _bindGeneralSettings)
     this.killFeedPositionSelect = document.getElementById('kill-feed-position-select')
+    this.killFeedVerbositySelect = document.getElementById('kill-feed-verbosity-select')
+    this.killFeedIconsToggle = document.getElementById('kill-feed-icons-toggle')
     this.compassStyleSelect = document.getElementById('compass-style-select')
     this.weaponNameHudToggle = document.getElementById('weapon-name-hud-toggle')
     this.minimapZoomSelect = document.getElementById('minimap-zoom-select')
@@ -3563,6 +3868,9 @@ export class Game {
     this.mutatorPureGunplay = document.getElementById('mutator-pure-gunplay')
     this.mutatorBossRush = document.getElementById('mutator-boss-rush')
     this.mutatorHordeMode = document.getElementById('mutator-horde-mode')
+    this.mutatorEscalation = document.getElementById('mutator-escalation')
+    this.mutatorCursedRun = document.getElementById('mutator-cursed-run')
+    this.mutatorRandomizer = document.getElementById('mutator-randomizer')
     this.mutatorKoth = document.getElementById('mutator-koth')
     this.mutatorExtraction = document.getElementById('mutator-extraction')
     this.mutatorDaily = document.getElementById('mutator-daily')
@@ -3595,6 +3903,7 @@ export class Game {
     this.clearLeaderboardsBtn = document.getElementById('clear-leaderboards-btn')
     this.printStatsSheet = document.getElementById('print-stats-sheet')
     this.copyTextRecapBtn = document.getElementById('copy-text-recap-btn')
+    this.reportBugBtn = document.getElementById('report-bug-btn')
     this.sharePanel = document.getElementById('share-panel')
     this.sharePanelTitle = document.getElementById('share-panel-title')
     this.openShareBtn = document.getElementById('open-share-btn')
@@ -3639,6 +3948,7 @@ export class Game {
     this.leaderboard = loadLeaderboard()
     this.bossRushLeaderboard = loadBossRushLeaderboard()
     this.hardcoreMemorial = loadHardcoreMemorial()
+    this.fieldNotesCollected = new Set(loadFieldNotes())
     this.dailyBest = loadDailyBest()
     this.dailyLeaderboard = loadDailyLeaderboard()
     this.dailyChallengeActive = false
@@ -3720,6 +4030,26 @@ export class Game {
     this.vehicleUpgrades = { armor: false }
     this.perksOwned = new Set()
     this.perkSynergiesUnlocked = new Set()
+    this.hasInsurance = false
+    this.hasBarricadeMedic = false
+    this.hasPickupMagnet = false
+    this.hasNightVision = false
+    this.nightVisionOn = false
+    this._whistleCooldownUntil = 0
+    this.headshotStreak = 0
+    this._lastHeadshotAt = 0
+    this._headshotStreakBonusUntil = 0
+    this._nextPainScreamAt = 0
+    this._crateBurstMotes = []
+    this._mercyUntil = 0
+    this._parryCounterUntil = 0
+    this.bleedUntil = 0
+    this._bleedAccum = 0
+    this._grappleRaycaster = new THREE.Raycaster()
+    this.grappleCooldownUntil = 0
+    this._wasBelowStingerThreshold = false
+    this._cursedRunOriginalValues = null
+    this.nearMinecart = null
     this.tempCompanion = null
     this.tempCompanionExpiresAtNight = 0
     this.coins = this.shopProgress.coins
@@ -3883,6 +4213,7 @@ export class Game {
     this.isIndoors = false
     this.nextIndoorCheckAt = 0
     this.footstepTimer = 0
+    this._footprintLeftNext = true
 
     // Post-processing: render pass -> bloom (makes practical lights - street
     // lamps, muzzle flash, headlights, neon signage - actually glow instead
@@ -3924,7 +4255,34 @@ export class Game {
     this.composer.addPass(this.afterimagePass)
     this.composer.addPass(new OutputPass())
 
-    const { colliders, solidMeshes, flickerLights, spawnPoints, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, upgradeMachine, mysteryBox, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel, toxicSewerLevel, mineLevel, manholeCovers, waterTowerValve, containerStaircase, industrialSiren, wreckingPendulum, scaffolding, elevatorTower, payphone, tacticalStreetlights, grassBounds, waterBounds } = buildWorld(this.scene, ACHIEVEMENTS.length)
+    const { colliders, solidMeshes, flickerLights, spawnPoints, ambientWildlife, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, upgradeMachine, mysteryBox, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel, toxicSewerLevel, mineLevel, manholeCovers, waterTowerValve, containerStaircase, industrialSiren, wreckingPendulum, scaffolding, elevatorTower, payphone, jukebox, workbench, bulletinBoard, hallOfFame, skyscraperShortcuts, adjustableDummy, pet, drainpipeSpots, jumpPadSpot, tacticalStreetlights, grassBounds, waterBounds } = buildWorld(this.scene, ACHIEVEMENTS.length)
+    this.drainpipeSpots = drainpipeSpots
+    this.jumpPadSpot = jumpPadSpot
+    this._jumpPadCooldownUntil = 0
+    this.ambientWildlife = ambientWildlife
+    this.adjustableDummy = adjustableDummy
+    this.adjustableDummy.onKill = (presetIndex, elapsedMs) => this._onDummyKill(presetIndex, elapsedMs)
+    this.nearAdjustableDummy = false
+    this.pet = pet
+    this.nearPet = false
+
+    // Death-cam replay (batch feature) - rolling buffer of recent player
+    // positions, sampled every DEATH_REPLAY_SAMPLE_MS, capped to the last
+    // ~10s. Cleared on respawn (see _onPlayerDeath's own respawn handler)
+    // so a new run starts with an empty trail instead of the old run's tail.
+    this._deathReplayBuffer = []
+    this._deathReplaySampleTimer = 0
+    this.jukebox = jukebox
+    this.nearJukebox = false
+    this.workbench = workbench
+    this.nearWorkbench = false
+    this.bulletinBoard = bulletinBoard
+    this.nearBulletinBoard = false
+    this.hallOfFame = hallOfFame
+    this.nearHallOfFame = false
+    this._hallOfFameLoading = false
+    this.skyscraperShortcuts = skyscraperShortcuts
+    this.nearSkyscraperShortcut = null
     this.grassBounds = grassBounds
     this.waterBounds = waterBounds
     // The moon DirectionalLight (World.js's only shadow-casting light) -
@@ -4099,6 +4457,11 @@ export class Game {
     this.trophyWall = trophyWall
     this.barricades = []
     this.hazardZones = []
+    // Radiation zone (batch 5 feature) - permanent (see HAZARD_RADIATION's
+    // own Infinity duration), spawned once here rather than re-rolled per
+    // run/round like the other hazard types, which are all player/zombie
+    // triggered rather than fixed world features.
+    this._spawnHazardZone('radiation', this.mineLevel.deadEndSpot.x, this.mineLevel.deadEndSpot.z)
     this.deathObstacles = []
     this.roadPileups = []
     this.destructibleWalls = []
@@ -4222,6 +4585,7 @@ export class Game {
     this.payphoneUsedThisRun = false
     this.tacticalStreetlights = tacticalStreetlights
     this.barricadeCrates = []
+    this.placedDecoyDummies = []
     this.nearBarricadeCrate = null
     // Attach real onHit closures now that `this` exists - buildScaffolding/
     // buildTacticalStreetlight (World.js) return their object with
@@ -4603,6 +4967,12 @@ export class Game {
     this.shopPanel = document.getElementById('shop-panel')
     this.shopPanelTitle = document.getElementById('shop-panel-title')
     this.shopPanelSoonNote = document.getElementById('shop-panel-soon-note')
+    // Weapon Attachments shop section (batch 11 feature)
+    this.shopAttachmentsHeading = document.getElementById('shop-attachments-heading')
+    this.shopAttachmentCoinsLine = document.getElementById('shop-attachment-coins-line')
+    this.shopWeaponPicker = document.getElementById('shop-weapon-picker')
+    this.shopAttachmentGrid = document.getElementById('shop-attachment-grid')
+    this._shopSelectedWeaponId = null
     this.whatsNewPanel = document.getElementById('whatsnew-panel')
     this.whatsNewPanelTitle = document.getElementById('whatsnew-panel-title')
     this.buildVersionLine = document.getElementById('build-version-line')
@@ -4642,14 +5012,29 @@ export class Game {
     this.weaponPickerPanel = document.getElementById('weapon-picker-panel')
     this.weaponPickerPanelTitle = document.getElementById('weapon-picker-panel-title')
     this.weaponPickerOptions = document.getElementById('weapon-picker-options')
+    this.zombieCounterHud = document.getElementById('zombie-counter-hud')
+    this.weaponCompareToggleBtn = document.getElementById('weapon-compare-toggle-btn')
+    this.weaponQuickCompareTooltip = document.getElementById('weapon-quick-compare-tooltip')
+    this.weaponCompareTable = document.getElementById('weapon-compare-table')
+    this._weaponCompareMode = false
+    this._weaponCompareSelection = []
+    this.weaponCompareToggleBtn.addEventListener('click', () => {
+      this._weaponCompareMode = !this._weaponCompareMode
+      this._weaponCompareSelection = []
+      this.weaponCompareToggleBtn.classList.toggle('active', this._weaponCompareMode)
+      this._hideWeaponQuickCompareTooltip()
+      this._renderWeaponPickerOptions()
+    })
     this.pauseOverlay = document.getElementById('pause-overlay')
     this.pauseOverlayTitle = document.getElementById('pause-overlay-title')
     this.pauseResumeBtn = document.getElementById('pause-resume-btn')
     this.pauseSettingsBtn = document.getElementById('pause-settings-btn')
     this.pauseQuitBtn = document.getElementById('pause-quit-btn')
+    this.pauseSurrenderBtn = document.getElementById('pause-surrender-btn')
     this.pauseUpgradesBtn = document.getElementById('pause-upgrades-btn')
     this.pauseSpectateBtn = document.getElementById('pause-spectate-btn')
     this.pauseWeaponBtn = document.getElementById('pause-weapon-btn')
+    this.pauseHowToPlayBtn = document.getElementById('pause-howtoplay-btn')
     this.screenshotCropOverlay = document.getElementById('screenshot-crop-overlay')
     this.screenshotCropStage = document.getElementById('screenshot-crop-stage')
     this.screenshotCropImage = document.getElementById('screenshot-crop-image')
@@ -4815,7 +5200,14 @@ export class Game {
         // .spawn's own isBlood param).
         if (isZombie && !this.settings.bloodEffectsEnabled) return
         if (!isZombie && !this.settings.bulletHolesEnabled) return
-        this.decals.spawn(point, normal, isZombie)
+        // Caliber-scaled gore feedback (batch 7 feature) - a shotgun blast
+        // or heavy melee hit should visibly do more than a pistol tap on
+        // the same surface. Explosive weapons (rocket/launcher) use their
+        // own damage field for this too - it's unused for their actual
+        // damage roll (see WEAPONS' own comment on that), but still a
+        // reasonable per-weapon "how big should this look" proxy.
+        const caliberScale = isZombie ? Math.min(2, 0.6 + this.weapons.current.damage / 60) : 1
+        this.decals.spawn(point, normal, isZombie, caliberScale)
       },
       () => {
         this._triggerShake(0.05, 90, 0, 0, 'recoil')
@@ -4850,6 +5242,31 @@ export class Game {
           this._gainPoints(QUICKSCOPE_POINTS_BONUS)
           this._showLoreToast(t('quickscopeToast', { points: QUICKSCOPE_POINTS_BONUS }))
         }
+        // Headshot streak (batch 6 feature) - consecutive headshots only,
+        // reset by any non-headshot hit (via this.headshotStreak = 0 in the
+        // else branch) or by too long a gap since the last one.
+        if (isHeadshot) {
+          const nowMs = performance.now()
+          if (nowMs - this._lastHeadshotAt > HEADSHOT_STREAK_WINDOW_MS) this.headshotStreak = 0
+          this.headshotStreak += 1
+          this._lastHeadshotAt = nowMs
+          if (this.headshotStreak >= HEADSHOT_STREAK_THRESHOLD) {
+            if (this.weapons.damageMult === 1) this._showLoreToast(t('toastHeadshotStreak'))
+            this.weapons.damageMult = HEADSHOT_STREAK_DAMAGE_MULT
+            this._headshotStreakBonusUntil = nowMs + HEADSHOT_STREAK_BONUS_DURATION_MS
+          }
+        } else {
+          this.headshotStreak = 0
+        }
+        // Pain-scream alert (batch 6 feature) - see PAIN_SCREAM_MIN_DAMAGE's
+        // own comment.
+        if (damage >= PAIN_SCREAM_MIN_DAMAGE) {
+          const nowMs2 = performance.now()
+          if (nowMs2 >= this._nextPainScreamAt && Math.random() < PAIN_SCREAM_CHANCE) {
+            this._nextPainScreamAt = nowMs2 + PAIN_SCREAM_COOLDOWN_MS
+            this._alertNearbyZombiesToPainScream(x, z)
+          }
+        }
       },
       (intensity, durationMs) => {
         this._triggerShake(intensity, durationMs, 0, 0, 'recoil')
@@ -4860,6 +5277,9 @@ export class Game {
       () => { this.careerStats.shotsFired = (this.careerStats.shotsFired || 0) + 1 }
     )
     this.weapons.autoReloadEnabled = this.settings.autoReloadOnEmpty
+    // Melee durability (batch 4 feature) - fires once, the swing that
+    // actually breaks the weapon (see WeaponSystem's own edge-trigger).
+    this.weapons.onMeleeBroken = () => this._showLoreToast(t('toastMeleeBroken'))
     // Moved here from right after loadMetaProgress() above - several
     // meta upgrades' apply() (marksman/deadeye/quickhands/stockpile) touch
     // game.weapons, which didn't exist yet at that earlier point. Called
@@ -5128,6 +5548,19 @@ export class Game {
       if (firstEncounterId) this._showLoreToast(t('firstEncounterGlossary', { text: t(MUTATOR_LABEL_KEYS[firstEncounterId]) }))
       if (mutatorsChanged) saveSettings(this.settings)
       if (this.settings.shareTelemetry && Object.values(this.settings.mutators).some(Boolean)) CloudSync.incrementTelemetry('mutatorUsed').catch(() => {})
+      // Cursed Run (batch 3 feature) - forces this week's 3 picks true for
+      // this run only. Real mutator code throughout this file reads
+      // settings.mutators directly (both once at setup and continuously,
+      // e.g. Escalation's own check), so this has to actually flip those
+      // live - _cursedRunOriginalValues remembers what to put back, and
+      // _onPlayerDeath restores it, so the player's own saved checkbox
+      // picks survive a Cursed Run untouched once the run ends.
+      this._cursedRunOriginalValues = null
+      if (this.settings.mutators.cursedRun) {
+        const keys = _cursedRunMutatorKeys()
+        this._cursedRunOriginalValues = keys.map((key) => [key, this.settings.mutators[key]])
+        for (const key of keys) this.settings.mutators[key] = true
+      }
       let spawnMult = this.difficulty.spawnRateMult
       if (this.settings.mutators.hordeRush) spawnMult *= 2
       if (this.settings.mutators.hordeMode) spawnMult *= 3
@@ -5154,6 +5587,20 @@ export class Game {
         this._showLoreToast(t('challengeCodeApplied', { twist: t(this.challengeCodeTwist.nameKey) }))
       }
       if (spawnMult !== this.difficulty.spawnRateMult) this.zombies.setDifficultyMultiplier(spawnMult)
+      // Escalation Mode (batch feature) - base captured here (after every
+      // other mutator's fixed multiplier is folded in), then _updateEscalation
+      // grows it continuously for the rest of the run, no cap.
+      this._escalationBaseSpawnMult = spawnMult
+      this._escalationCheckTimer = 0
+
+      // Self-imposed challenge tracker (batch feature) - all 3 flip to
+      // false the instant they're broken (see _updateChallengeTracker),
+      // checked at death against the persistent badge log. Deliberately
+      // simple/pollable conditions (current weapon, sprint state) rather
+      // than needing new hooks into WeaponSystem's fire/reload internals.
+      this._challengePistolOnly = true
+      this._challengeMeleeOnly = true
+      this._challengeNoSprint = true
       if (this.settings.mutators.hordeMode) this.zombies.setHordeMode(true)
       if (this.settings.mutators.bossRush) this.zombies.bossRushMode = true
       if (this.dailyChallengeActive) {
@@ -5241,6 +5688,7 @@ export class Game {
       this.lowHealthBarked = false
       this.companionBondTier = 0
       this.bossAnnounced = false
+      this._deathReplayBuffer.length = 0
       this.player.resetPosition()
       this.zombies.roundMode = this._isRoundMode()
       this.zombies.reset()
@@ -5265,6 +5713,14 @@ export class Game {
       this.lowestHealthThisRun = Infinity
       this.killStreak = 0
       this.lastStandUsed = false
+      this.bleedUntil = 0
+      this._bleedAccum = 0
+      this.headshotStreak = 0
+      this._headshotStreakBonusUntil = 0
+      this.weapons.damageMult = 1
+      this._mercyUntil = 0
+      this._parryCounterUntil = 0
+      this.weapons.meleeCounterMult = 1
       this.playerDowned = false
       this.downedUntil = 0
       for (const t of this.deployedTurrets) t.dispose()
@@ -5332,7 +5788,27 @@ export class Game {
       await this._stopClipRecordingIfActive()
       window.location.reload()
     })
+    // Surrender (batch 10 feature) - distinct from Quit to Menu above: that
+    // one abandons the run with nothing banked at all (no _recordRunEnd
+    // call, no legacy points); this deliberately banks a reduced payout
+    // first (see SURRENDER_LEGACY_MULT's own comment), a real middle ground
+    // between fighting to a real end and losing everything on rage-quit.
+    this.pauseSurrenderBtn.addEventListener('click', async () => {
+      // Legacy payout computed and shown BEFORE the confirm, not after (see
+      // _surrenderRun's own comment on why this skips the normal death
+      // screen) - the player should know what they're banking before
+      // committing, not find out on the next page load.
+      const legacyPreview = Math.floor(this.points * DEATH_POINTS_CONVERSION * SURRENDER_LEGACY_MULT * (1 + this.metaProgress.prestigeLevel * 0.1))
+      if (!window.confirm(t('confirmSurrenderMessage', { n: legacyPreview }))) return
+      await this._stopClipRecordingIfActive()
+      this._surrenderRun()
+    })
     this.pauseUpgradesBtn.addEventListener('click', () => this._openUpgradesPanel())
+    // Pause-menu tutorial refresher (batch 7 feature) - How to Play used to
+    // live here (see the pause menu's own changelog entry) before Spectate
+    // replaced it; still reachable from the main menu, this just restores
+    // the mid-run access point too.
+    this.pauseHowToPlayBtn.addEventListener('click', () => this._openHowToPlayPanel())
     this.pauseSpectateBtn.addEventListener('click', () => {
       this.pauseOverlay.style.display = 'none'
       this._enterSpectate()
@@ -5402,10 +5878,12 @@ export class Game {
         this.pauseOverlayTitle.textContent = t('pauseOverlayTitle')
         this.pauseResumeBtn.textContent = t('pauseResumeBtn')
         this.pauseUpgradesBtn.textContent = t('upgradesBtn')
+        this.pauseHowToPlayBtn.textContent = t('pauseHowToPlayBtn')
         this.pauseSpectateBtn.textContent = t('pauseSpectateBtn')
         this.pauseWeaponBtn.textContent = t('pauseWeaponBtn')
         this.pauseSettingsBtn.textContent = t('settingsBtn')
         this.pauseQuitBtn.textContent = t('pauseQuitBtn')
+        this.pauseSurrenderBtn.textContent = t('pauseSurrenderBtn')
         if (this.pausePlaytimeLineEl) {
           this.pausePlaytimeLineEl.style.display = this.settings.showPausePlaytime ? '' : 'none'
           if (this.settings.showPausePlaytime) {
@@ -5565,8 +6043,12 @@ export class Game {
         this._triggerTaunt()
       } else if (e.code === getKeyFor('fastTravelNearest')) {
         this._fastTravelToNearest()
+      } else if (e.code === getKeyFor('grapple')) {
+        this._tryGrapple()
       } else if (e.code === getKeyFor('smokeBomb')) {
         this._throwSmokeBomb()
+      } else if (e.code === getKeyFor('stealthScreen')) {
+        this._throwStealthScreen()
       } else if (e.code === getKeyFor('parry')) {
         this._triggerParry()
       } else if (e.code === getKeyFor('slowMo')) {
@@ -5582,6 +6064,12 @@ export class Game {
           this.flashlightLoreShown = true
           this._showLoreToast(t('loreFlashlightWarning'))
         }
+      } else if (e.code === getKeyFor('nightVision')) {
+        this._toggleNightVision()
+      } else if (e.code === getKeyFor('decoyDummy')) {
+        this._placeDecoyDummy()
+      } else if (e.code === getKeyFor('whistle')) {
+        this._whistleCompanion()
       } else if (e.code === getKeyFor('noisemaker')) {
         this._throwNoisemaker()
       } else if (e.code === getKeyFor('grenade')) {
@@ -5679,13 +6167,36 @@ export class Game {
           this._rideElevator()
         } else if (this.nearPayphone && !this.payphoneUsedThisRun) {
           this._usePayphone()
+        } else if (this.nearJukebox) {
+          this._useJukebox()
+        } else if (this.nearWorkbench) {
+          this._useWorkbench()
+        } else if (this.nearBulletinBoard) {
+          this._readBulletinBoard()
+        } else if (this.nearHallOfFame) {
+          this._readHallOfFame()
+        } else if (this.nearSkyscraperShortcut) {
+          this._useSkyscraperShortcut()
+        } else if (this.nearAdjustableDummy) {
+          this._cycleDummyPreset()
+        } else if (this.nearMinecart) {
+          this._rideMinecart()
+        } else if (this.nearPet && !this.settings.petAdopted) {
+          this._adoptPet()
         } else {
+          const openedChestPos = this.chests.nearbyChest ? { x: this.chests.nearbyChest.x, y: this.chests.nearbyChest.y, z: this.chests.nearbyChest.z } : null
           const loot = this.chests.tryInteract()
           if (loot) {
             this._onPickup(loot.type, loot.label, false, loot.count)
             this.interactPrompt.style.display = 'none'
+            // Rarity-tinted crate-opening burst (batch 7 feature) - captured
+            // the chest's position above, before tryInteract() cleared
+            // nearbyChest, since this is the only handle Game.js has on it.
+            if (openedChestPos) this._spawnCrateOpenBurst(openedChestPos.x, openedChestPos.y, openedChestPos.z, loot.type)
           } else if (this.nearGenerator && this.inventory.useFuelCan()) {
             this.generatorFuel = Math.min(this.maxGeneratorFuel, this.generatorFuel + GENERATOR_FUELCAN_AMOUNT)
+          } else {
+            this._trySleep()
           }
         }
       } else if (e.code === getKeyFor('screenshot')) {
@@ -5743,6 +6254,21 @@ export class Game {
   }
 
   // Manual slow-motion toggle (see MANUAL_SLOWMO_FACTOR's own comment).
+  // Night Vision Goggles (batch 5 feature) - a screen-space brightness/tint
+  // effect only (see #night-vision-overlay/html.night-vision-active in
+  // style.css), not a change to the actual scene lighting - same "purely
+  // perceptual, no real gameplay stat" scope as the existing High Contrast
+  // Mode toggle uses its own html-class-driven filter for.
+  _toggleNightVision() {
+    if (!this.hasNightVision) {
+      this._showLoreToast(t('toastNightVisionLocked'))
+      return
+    }
+    this.nightVisionOn = !this.nightVisionOn
+    document.documentElement.classList.toggle('night-vision-active', this.nightVisionOn)
+    if (this.nightVisionOverlayEl) this.nightVisionOverlayEl.style.display = this.nightVisionOn ? 'block' : 'none'
+  }
+
   _toggleSlowMo() {
     this._manualSlowMoActive = !this._manualSlowMoActive
     this._showLoreToast(this._manualSlowMoActive ? t('slowMoOn') : t('slowMoOff'))
@@ -6170,6 +6696,21 @@ export class Game {
     target.y = 0.3
     origin.y -= 0.3
     this.zombies.spawnGrenadeThrow(origin, target)
+    this._updateInventoryHud()
+  }
+
+  // Stealth Screen (batch 4 feature) - distinct from the existing Smoke
+  // Bomb (_throwSmokeBomb, an instant one-time awareness reset): this one
+  // is a lingering thrown cloud (see ZombieManager's spawnSmokeGrenadeThrow)
+  // that reduces zombie sight range for as long as you stand in it.
+  _throwStealthScreen() {
+    if (!this.inventory.useStealthScreen()) return
+    this.camera.getWorldDirection(this._camDir)
+    const origin = this.player.controls.object.position.clone()
+    const target = origin.clone().addScaledVector(this._camDir, 9)
+    target.y = 0.3
+    origin.y -= 0.3
+    this.zombies.spawnSmokeGrenadeThrow(origin, target)
     this._updateInventoryHud()
   }
 
@@ -6854,6 +7395,81 @@ export class Game {
       : null
   }
 
+  // Personal Grapple-and-Swing (batch feature) - not a real rope-physics
+  // swing, a scripted pull toward whatever solid surface the camera is
+  // aimed at, reusing the exact same startScriptedMove primitive as mantle/
+  // the elevator/skyscraper shortcuts. One raycast, on key-press only (not
+  // per-frame), so cost is negligible even against the full solidMeshes list.
+  _tryGrapple() {
+    if (this.player.isMantling || this.player.isWallRunning || this.player.isOnLadder) return
+    if (this.grappleCooldownUntil && performance.now() < this.grappleCooldownUntil) return
+    this._grappleRaycaster.setFromCamera({ x: 0, y: 0 }, this.camera)
+    const hits = this._grappleRaycaster.intersectObjects(this.solidMeshes, true)
+    const hit = hits.find((h) => h.distance >= GRAPPLE_MIN_RANGE && h.distance <= GRAPPLE_MAX_RANGE)
+    if (!hit) {
+      this._showLoreToast(t('toastGrappleNoTarget'))
+      this.grappleCooldownUntil = performance.now() + GRAPPLE_COOLDOWN_MS
+      return
+    }
+    const obj = this.player.controls.object
+    const dir = hit.point.clone().sub(obj.position).normalize()
+    const targetX = hit.point.x - dir.x * GRAPPLE_STOP_SHORT
+    const targetZ = hit.point.z - dir.z * GRAPPLE_STOP_SHORT
+    const targetY = hit.point.y - dir.y * GRAPPLE_STOP_SHORT
+    this.player.startScriptedMove(targetX, targetY, targetZ, GRAPPLE_DURATION_MS)
+    this.grappleCooldownUntil = performance.now() + GRAPPLE_COOLDOWN_MS
+  }
+
+  // Jump Pad (batch 3 feature) - a plain velocity.y kick, same field the
+  // normal Space-jump uses (JUMP_SPEED), just bigger, so it interacts
+  // correctly with the existing gravity/landing code with no separate
+  // airborne state of its own. Cooldown stops it from re-triggering every
+  // single frame while standing on it.
+  _updateJumpPad(playerPos) {
+    if (performance.now() < this._jumpPadCooldownUntil) return
+    if (!this.player.onGround) return
+    if (Math.hypot(playerPos.x - this.jumpPadSpot.x, playerPos.z - this.jumpPadSpot.z) > JUMP_PAD_RADIUS) return
+    this.player.velocity.y = JUMP_PAD_BOOST_SPEED
+    this.player.onGround = false
+    this._jumpPadCooldownUntil = performance.now() + JUMP_PAD_COOLDOWN_MS
+  }
+
+  // Minecart shortcut (batch 3 feature) - a ride between the 2 fixed
+  // MINECART_STOPS, whichever one the player is near going to the other.
+  _updateMinecart(playerPos) {
+    this.nearMinecart = null
+    for (const stop of MINECART_STOPS) {
+      if (Math.hypot(playerPos.x - stop.x, playerPos.z - stop.z) <= MINECART_INTERACT_RADIUS) {
+        this.nearMinecart = stop
+        break
+      }
+    }
+  }
+
+  _rideMinecart() {
+    const from = this.nearMinecart
+    if (!from) return
+    const to = MINECART_STOPS.find((s) => s !== from)
+    this.player.startScriptedMove(to.x, to.y + this.player.eyeHeight, to.z, MINECART_RIDE_DURATION_MS)
+    this._showLoreToast(t('toastMinecartRide'))
+  }
+
+  // Climbable Drainpipes (batch feature) - reuses PlayerController's
+  // existing ladder mechanic (player.nearLadder/isOnLadder), same as the
+  // Elevator Tower's own ladder. Only claims nearLadder if the elevator
+  // tower's own check (which runs first in the tick, see its own comment)
+  // didn't already - a real ladder always wins over a drainpipe if both
+  // were somehow in range at once.
+  _updateDrainpipes(playerPos) {
+    if (this.player.nearLadder) return
+    for (const d of this.drainpipeSpots) {
+      if (Math.hypot(playerPos.x - d.x, playerPos.z - d.z) <= LADDER_RADIUS) {
+        this.player.nearLadder = { x: d.x, z: d.z, topY: d.topY }
+        return
+      }
+    }
+  }
+
   _rideElevator() {
     if (this.elevatorRiding) return
     const toTop = this.elevatorFloor === 'bottom'
@@ -6906,6 +7522,350 @@ export class Game {
     this._showLoreToast(t('toastPayphoneCalled'))
   }
 
+  // Jukebox (batch feature) - see buildJukebox's own comment for why this
+  // toggles the single existing track rather than cycling several.
+  _updateJukebox(playerPos) {
+    this.nearJukebox = Math.hypot(playerPos.x - this.jukebox.x, playerPos.z - this.jukebox.z) <= JUKEBOX_INTERACT_RADIUS
+  }
+
+  _useJukebox() {
+    if (!this.nearJukebox) return
+    const muted = audioEngine.toggleRadio()
+    this._showLoreToast(t(muted ? 'toastJukeboxOff' : 'toastJukeboxOn'))
+  }
+
+  // Workbench (batch 3 feature) - reuses the exact jamChanceMult field the
+  // Cleaning Kit pickup already sets, Math.min'd so this never makes the
+  // jam chance WORSE than an already-active Cleaning Kit.
+  _updateWorkbench(playerPos) {
+    this.nearWorkbench = Math.hypot(playerPos.x - this.workbench.x, playerPos.z - this.workbench.z) <= WORKBENCH_INTERACT_RADIUS
+  }
+
+  _useWorkbench() {
+    if (!this.nearWorkbench) return
+    this.weapons.jamChanceMult = Math.min(this.weapons.jamChanceMult, WORKBENCH_JAM_MULT)
+    // Melee durability (batch 4 feature) - rides along with the existing
+    // jam-chance service rather than needing its own separate station.
+    this.weapons.meleeDurability = MELEE_DURABILITY_MAX
+    this._showLoreToast(t('toastWorkbenchUsed'))
+  }
+
+  // Bulletin Board (batch 3 feature) - reads the Achievements.unlocked Set's
+  // own insertion order for "most recent" rather than tracking a separate
+  // timestamp.
+  // Zombies-remaining HUD counter (batch 4 feature) - counts live zombies
+  // every frame, same `.state === 'alive'` filter every other alive-count
+  // check in this file already uses. Own gameStarted guard since this runs
+  // even before Play is clicked (see _showLoreToast's own comment on why).
+  _updateZombieCounterHud() {
+    if (!this.gameStarted) {
+      this.zombieCounterHud.style.display = 'none'
+      return
+    }
+    this.zombieCounterHud.style.display = 'block'
+    const alive = this.zombies.zombies.filter((z) => z.state === 'alive').length
+    this.zombieCounterHud.textContent = t('zombieCounterHud', { n: alive })
+  }
+
+  // Field Notes (batch 5 feature) - auto-collects on walk-over (no interact
+  // key needed, same "just walk into it" UX as XP gems/pickups), unlike the
+  // press-F pattern every other new-prop feature this session has used -
+  // deliberately different since these are meant to read as incidental
+  // finds while exploring, not a destination you navigate to and interact
+  // with on purpose.
+  _updateFieldNotes(playerPos) {
+    for (const note of FIELD_NOTES) {
+      if (this.fieldNotesCollected.has(note.id)) continue
+      const dist = Math.hypot(playerPos.x - note.x, playerPos.z - note.z)
+      if (dist <= FIELD_NOTE_PICKUP_RADIUS) {
+        this.fieldNotesCollected.add(note.id)
+        saveFieldNotes([...this.fieldNotesCollected])
+        this._showLoreToast(t('toastFieldNoteFound', { text: t(note.textKey) }))
+      }
+    }
+  }
+
+  // Headshot streak (batch 6 feature) - reverts the temporary damageMult
+  // bonus once its window passes. Guarded on damageMult !== 1 so this is a
+  // no-op every frame the bonus isn't active, not a redundant write.
+  _updateHeadshotStreakBonus() {
+    if (this.weapons.damageMult !== 1 && performance.now() >= this._headshotStreakBonusUntil) {
+      this.weapons.damageMult = 1
+    }
+  }
+
+  // Parry counter-attack bonus (batch 9 feature) - same revert-tick shape
+  // as _updateHeadshotStreakBonus above, own field since the two bonuses
+  // are independent (meleeCounterMult is melee-only, damageMult is every
+  // weapon).
+  _updateParryCounterBonus() {
+    if (this.weapons.meleeCounterMult !== 1 && performance.now() >= this._parryCounterUntil) {
+      this.weapons.meleeCounterMult = 1
+    }
+  }
+
+  _updateBulletinBoard(playerPos) {
+    this.nearBulletinBoard = Math.hypot(playerPos.x - this.bulletinBoard.x, playerPos.z - this.bulletinBoard.z) <= BULLETIN_BOARD_INTERACT_RADIUS
+  }
+
+  // Hall-of-Fame Wall (batch 3 feature) - real top-3 global leaderboard,
+  // fetched on demand (not subscribed continuously - same "only while
+  // actually being looked at" cost discipline the Cloud Save panel's own
+  // leaderboard subscription already follows).
+  _updateHallOfFame(playerPos) {
+    this.nearHallOfFame = Math.hypot(playerPos.x - this.hallOfFame.x, playerPos.z - this.hallOfFame.z) <= HALL_OF_FAME_INTERACT_RADIUS
+  }
+
+  _readHallOfFame() {
+    if (!this.nearHallOfFame || this._hallOfFameLoading) return
+    this._hallOfFameLoading = true
+    this._showLoreToast(t('toastHallOfFameLoading'))
+    CloudSync.fetchTopLeaderboard(3, 'global')
+      .then((entries) => {
+        this._hallOfFameLoading = false
+        if (!entries || entries.length === 0) {
+          this._showLoreToast(t('toastHallOfFameEmpty'))
+          return
+        }
+        const lines = entries.map((e, i) => `${i + 1}. ${e.name || '???'} - Night ${_safeStatNumber(e.bestNight)}`)
+        this._showLoreToast(lines.join('  |  '))
+      })
+      .catch(() => {
+        this._hallOfFameLoading = false
+        this._showLoreToast(t('toastHallOfFameError'))
+      })
+  }
+
+  _readBulletinBoard() {
+    if (!this.nearBulletinBoard) return
+    const ids = [...this.achievements.unlocked]
+    if (ids.length === 0) {
+      this._showLoreToast(t('toastBulletinBoardEmpty'))
+      return
+    }
+    const latestId = ids[ids.length - 1]
+    const def = ACHIEVEMENTS.find((a) => a.id === latestId)
+    this._showLoreToast(t('toastBulletinBoardLatest', { name: def ? t(def.titleKey) : latestId }))
+  }
+
+  // Elevator Shortcuts (batch feature) - see World.js's skyscraperShortcuts
+  // comment. Ground-floor call point only (no ride back down) - matches
+  // the fire escape's own one-way-up shape those buildings already have.
+  _updateSkyscraperShortcut(playerPos) {
+    this.nearSkyscraperShortcut = null
+    for (const s of this.skyscraperShortcuts) {
+      if (Math.hypot(playerPos.x - s.x, playerPos.z - s.z) <= SKYSCRAPER_SHORTCUT_RADIUS) {
+        this.nearSkyscraperShortcut = s
+        break
+      }
+    }
+  }
+
+  _useSkyscraperShortcut() {
+    const s = this.nearSkyscraperShortcut
+    if (!s) return
+    this.player.startScriptedMove(s.x, s.topY + this.player.eyeHeight, s.z, SKYSCRAPER_SHORTCUT_DURATION_MS)
+    this._showLoreToast(t('toastSkyscraperShortcut'))
+  }
+
+  // Adjustable HP/Armor Practice Dummy (batch feature) - interact cycles
+  // preset (see World.js's DUMMY_PRESETS/dummy.cyclePreset), doesn't fire a
+  // weapon, so this is a separate interact target from the practice range's
+  // 3 ding-only ones (which have no interact of their own - only WeaponSystem
+  // touches them).
+  _updateAdjustableDummy(playerPos) {
+    this.nearAdjustableDummy = Math.hypot(playerPos.x - this.adjustableDummy.x, playerPos.z - this.adjustableDummy.z) <= DUMMY_INTERACT_RADIUS
+  }
+
+  _cycleDummyPreset() {
+    if (!this.nearAdjustableDummy) return
+    const preset = this.adjustableDummy.cyclePreset()
+    const best = loadDummyLeaderboard()[this.adjustableDummy.presetIndex]
+    const bestText = best ? t('toastDummyPresetBest', { time: (best / 1000).toFixed(1) }) : ''
+    this._showLoreToast(t('toastDummyPreset', { name: t(preset.labelKey), hp: preset.hp, armor: preset.armor }) + bestText)
+  }
+
+  // Practice dummy leaderboard (batch 3 feature) - fires from
+  // World.js's dummy.onHit the instant a preset's HP hits 0, before it
+  // auto-resets for endless practice. Lower elapsedMs is better (faster
+  // kill), so this is a min-tracking record, not a max one.
+  _onDummyKill(presetIndex, elapsedMs) {
+    const board = loadDummyLeaderboard()
+    const prevBest = board[presetIndex]
+    if (prevBest == null || elapsedMs < prevBest) {
+      board[presetIndex] = elapsedMs
+      saveDummyLeaderboard(board)
+      if (this.nearAdjustableDummy) this._showLoreToast(t('toastDummyNewRecord', { time: (elapsedMs / 1000).toFixed(1) }))
+    }
+  }
+
+  // Adoptable Pet/Mascot (batch feature) - pure decoration, no combat/stat
+  // effect. Sits and idly bobs at its spawn spot until adopted (persisted
+  // via settings.petAdopted, so it stays adopted across sessions like any
+  // other save-carried choice), then trails behind the player instead.
+  _updatePet(playerPos, dt) {
+    this.nearPet = Math.hypot(playerPos.x - this.pet.x, playerPos.z - this.pet.z) <= PET_INTERACT_RADIUS
+    this.pet.wanderPhase += dt
+    if (this.settings.petAdopted) {
+      // Simple leash follow - only closes the gap once it's past
+      // PET_FOLLOW_DISTANCE, trailing wherever it already is relative to
+      // the player rather than snapping to a fixed "behind" spot. Avoids
+      // needing to know which way the player is facing at all.
+      const dx = this.pet.group.position.x - playerPos.x
+      const dz = this.pet.group.position.z - playerPos.z
+      const dist = Math.hypot(dx, dz)
+      if (dist > PET_FOLLOW_DISTANCE) {
+        const pull = (dist - PET_FOLLOW_DISTANCE) / dist
+        this.pet.group.position.x -= dx * pull * Math.min(1, dt * 3)
+        this.pet.group.position.z -= dz * pull * Math.min(1, dt * 3)
+        this.pet.group.rotation.y = Math.atan2(dz, dx) + Math.PI / 2
+      }
+      this.pet.group.position.y = Math.abs(Math.sin(this.pet.wanderPhase * 4)) * 0.06
+    } else {
+      this.pet.group.position.y = Math.abs(Math.sin(this.pet.wanderPhase * 1.5)) * 0.03
+      this.pet.group.rotation.y = Math.sin(this.pet.wanderPhase * 0.4) * 0.5
+    }
+  }
+
+  _adoptPet() {
+    if (!this.nearPet || this.settings.petAdopted) return
+    this.settings.petAdopted = true
+    saveSettings(this.settings)
+    this._showLoreToast(t('toastPetAdopted'))
+  }
+
+  // Escalation Mode (batch feature) - re-derives the spawn multiplier from
+  // elapsed run time every ESCALATION_CHECK_INTERVAL_S, layered on top of
+  // whatever _escalationBaseSpawnMult already folded in from difficulty/
+  // other mutators at run start (see the setup block that sets it).
+  _updateEscalation(dt) {
+    if (!this.settings.mutators.escalation) return
+    this._escalationCheckTimer -= dt
+    if (this._escalationCheckTimer > 0) return
+    this._escalationCheckTimer = ESCALATION_CHECK_INTERVAL_S
+    const elapsedMin = (performance.now() - this.runStartedAt) / 60000
+    const mult = this._escalationBaseSpawnMult * (1 + elapsedMin * ESCALATION_RATE_PER_MIN)
+    this.zombies.setDifficultyMultiplier(mult)
+  }
+
+  // Self-imposed challenge tracker (batch feature) - polls current weapon/
+  // sprint state each frame rather than hooking WeaponSystem's fire/reload
+  // internals. A challenge only ever flips true->false, never back.
+  _updateChallengeTracker() {
+    const currentId = this.weapons.current && this.weapons.current.id
+    if (currentId && currentId !== 'pistol') this._challengePistolOnly = false
+    if (currentId && currentId !== 'melee') this._challengeMeleeOnly = false
+    if (this.player.isSprinting) this._challengeNoSprint = false
+  }
+
+  // Checked at death against a minimum-progress bar (surviving at least
+  // Night 1) so instantly dying doesn't trivially "complete" every
+  // challenge. Persisted badge counts live in localStorage, one toast per
+  // newly-completed challenge per run (a run can complete more than one at
+  // once, e.g. pistol-only + no-sprint together).
+  _checkChallengeBadges() {
+    if (this.night < 1) return
+    const badges = loadChallengeBadges()
+    const completed = []
+    if (this._challengePistolOnly) completed.push(['pistolOnly', 'challengeBadgePistolOnly'])
+    if (this._challengeMeleeOnly) completed.push(['meleeOnly', 'challengeBadgeMeleeOnly'])
+    if (this._challengeNoSprint) completed.push(['noSprint', 'challengeBadgeNoSprint'])
+    if (completed.length === 0) return
+    for (const [key, labelKey] of completed) {
+      badges[key] = (badges[key] || 0) + 1
+      this._showLoreToast(t('toastChallengeBadge', { name: t(labelKey), count: badges[key] }))
+    }
+    saveChallengeBadges(badges)
+  }
+
+  // Personal stats dashboard (batch feature) - a simple bar chart of kills
+  // per run from runHistory (already tracked, newest-first, see
+  // _onPlayerDeath's own unshift), most recent run on the right so reading
+  // left-to-right matches reading oldest-to-newest.
+  _drawStatsDashboard() {
+    const canvas = this.statsDashboardCanvas
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    const w = canvas.width
+    const h = canvas.height
+    ctx.clearRect(0, 0, w, h)
+    const runs = this.runHistory.slice(0, 10).reverse()
+    if (runs.length === 0) return
+    const maxKills = Math.max(1, ...runs.map((r) => r.kills))
+    const barW = w / runs.length
+    runs.forEach((run, i) => {
+      const barH = (run.kills / maxKills) * (h - 14)
+      const x = i * barW + 2
+      ctx.fillStyle = run.survived ? 'rgba(78, 224, 111, 0.8)' : 'rgba(214, 69, 69, 0.8)'
+      ctx.fillRect(x, h - barH - 12, barW - 4, barH)
+      ctx.fillStyle = 'rgba(232, 232, 232, 0.6)'
+      ctx.font = '9px monospace'
+      ctx.textAlign = 'center'
+      ctx.fillText(String(run.kills), x + (barW - 4) / 2, h - 2)
+    })
+  }
+
+  // Death-cam replay (batch feature) - a small top-down path of the
+  // buffered positions, drawn once at the moment of death. Canvas 2D, same
+  // "plain 2D drawing, no THREE involved" approach Minimap.js uses.
+  _drawDeathReplayTrail() {
+    const canvas = this.deathReplayCanvas
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    const w = canvas.width
+    const h = canvas.height
+    ctx.clearRect(0, 0, w, h)
+    const points = this._deathReplayBuffer
+    if (points.length < 2) return
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity
+    for (const pt of points) {
+      minX = Math.min(minX, pt.x); maxX = Math.max(maxX, pt.x)
+      minZ = Math.min(minZ, pt.z); maxZ = Math.max(maxZ, pt.z)
+    }
+    const pad = 16
+    const spanX = Math.max(1, maxX - minX)
+    const spanZ = Math.max(1, maxZ - minZ)
+    const scale = Math.min((w - pad * 2) / spanX, (h - pad * 2) / spanZ)
+    const toCanvas = (pt) => ({
+      x: pad + (pt.x - minX) * scale + (w - pad * 2 - spanX * scale) / 2,
+      y: pad + (pt.z - minZ) * scale + (h - pad * 2 - spanZ * scale) / 2,
+    })
+    ctx.strokeStyle = 'rgba(214, 69, 69, 0.85)'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    points.forEach((pt, i) => {
+      const c = toCanvas(pt)
+      if (i === 0) ctx.moveTo(c.x, c.y)
+      else ctx.lineTo(c.x, c.y)
+    })
+    ctx.stroke()
+    // Death spot marker at the trail's own end.
+    const last = toCanvas(points[points.length - 1])
+    ctx.fillStyle = '#ff3333'
+    ctx.beginPath()
+    ctx.arc(last.x, last.y, 4, 0, Math.PI * 2)
+    ctx.fill()
+  }
+
+  // Sleep-to-skip-to-morning (batch feature) - only available inside the
+  // safe zone, and only at night (skipping an already-bright day would just
+  // be a free do-nothing button). Small rest bonus (full HP/stamina) is the
+  // payoff for giving up whatever's left of the night's XP/loot window.
+  _updateNearSafeZoneCenter(playerPos) {
+    this.nearSafeZoneCenter = Math.hypot(playerPos.x - this.safeZone.x, playerPos.z - this.safeZone.z) <= this.safeZone.radius
+  }
+
+  _trySleep() {
+    if (!this.nearSafeZoneCenter) return
+    const isNight = this.dayNight ? this.dayNight.getPhaseInfo().phase === 'Night' : false
+    if (!isNight) return
+    this.dayNight.skipToMorning()
+    this.playerState.health = this.playerState.maxHealth
+    this.player.stamina = this.player.maxStamina
+    this._updateHealthHud()
+    this._showLoreToast(t('toastSlept'))
+  }
+
   // Barricade Crates - a placeable, portable chokepoint obstacle (mirrors
   // _throwC4's placement math) with its own health pool like
   // _buildDestructibleWall, but purely a movement blocker - no damage
@@ -6939,6 +7899,53 @@ export class Game {
     this.barricadeCrates.push(crate)
     this._updateInventoryHud()
     this._showLoreToast(t('toastBarricadeCratePlaced'))
+  }
+
+  // Decoy Dummy (batch 5 feature) - reuses ZombieManager's existing
+  // `distraction` field (the same one _throwNoisemaker's landed throw sets)
+  // rather than inventing a second parallel distraction-tracking system -
+  // this just writes a longer-lived one directly, no throw arc needed since
+  // it's placed, not thrown. Overwrites any noisemaker distraction still
+  // active - the two were never meant to stack (distraction is a single
+  // slot, not a list), and placing a dummy is a deliberate choice to
+  // supersede whatever's currently holding aggro.
+  _placeDecoyDummy() {
+    if (!this.inventory.useDecoyDummy()) {
+      this._showLoreToast(t('toastNoDecoyDummy'))
+      return
+    }
+    this.camera.getWorldDirection(this._camDir)
+    const playerPos = this.player.controls.object.position
+    const x = playerPos.x + this._camDir.x * DECOY_DUMMY_PLACE_DIST
+    const z = playerPos.z + this._camDir.z * DECOY_DUMMY_PLACE_DIST
+
+    const mat = flatMaterial({ color: 0xc4a568, roughness: 0.85 })
+    const group = new THREE.Group()
+    group.position.set(x, 0, z)
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 1.1, 8), mat)
+    body.position.y = 0.75
+    group.add(body)
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), mat)
+    head.position.y = 1.45
+    group.add(head)
+    this.scene.add(group)
+
+    this.placedDecoyDummies.push({ x, z, group, expiresAt: performance.now() + DECOY_DUMMY_DURATION_MS })
+    this.zombies.distraction = { x, z, expiresAt: performance.now() + DECOY_DUMMY_DURATION_MS }
+    this._updateInventoryHud()
+    this._showLoreToast(t('toastDecoyDummyPlaced'))
+  }
+
+  _updateDecoyDummies() {
+    if (this.placedDecoyDummies.length === 0) return
+    const now = performance.now()
+    this.placedDecoyDummies = this.placedDecoyDummies.filter((d) => {
+      if (now >= d.expiresAt) {
+        this.scene.remove(d.group)
+        return false
+      }
+      return true
+    })
   }
 
   _removeBarricadeCrate(crate) {
@@ -7001,6 +8008,7 @@ export class Game {
       toxic_spread: { color: 0x6ecf3a, radius: TOXIC_SPREAD_START_RADIUS, duration: TOXIC_SPREAD_DURATION_MS },
       acid: { color: 0x8fd93a, radius: HAZARD_ACID_RADIUS, duration: HAZARD_ACID_DURATION_MS },
       web: { color: 0xe8e4d0, radius: HAZARD_WEB_RADIUS, duration: HAZARD_WEB_DURATION_MS },
+      radiation: { color: 0xa8ff2e, radius: HAZARD_RADIATION_RADIUS, duration: Infinity },
     }
     const def = ZONE_DEFS[type]
     const mat = flatMaterial({
@@ -7047,7 +8055,7 @@ export class Game {
     const now = performance.now()
     let playerInEmp = false
     let playerInWeb = false
-    const TICK_DAMAGE = { gas: HAZARD_GAS_DAMAGE_PER_TICK, toxic_spread: TOXIC_SPREAD_DAMAGE_PER_TICK, acid: HAZARD_ACID_DAMAGE_PER_TICK }
+    const TICK_DAMAGE = { gas: HAZARD_GAS_DAMAGE_PER_TICK, toxic_spread: TOXIC_SPREAD_DAMAGE_PER_TICK, acid: HAZARD_ACID_DAMAGE_PER_TICK, radiation: HAZARD_RADIATION_DAMAGE_PER_TICK }
 
     this.hazardZones = this.hazardZones.filter((zone) => {
       if (now >= zone.expiresAt) {
@@ -8023,6 +9031,21 @@ export class Game {
       this.settings.mutators.hordeMode = this.mutatorHordeMode.checked
       saveSettings(this.settings)
     })
+    this.mutatorEscalation.checked = this.settings.mutators.escalation
+    this.mutatorEscalation.addEventListener('change', () => {
+      this.settings.mutators.escalation = this.mutatorEscalation.checked
+      saveSettings(this.settings)
+    })
+    this.mutatorCursedRun.checked = this.settings.mutators.cursedRun
+    this.mutatorCursedRun.addEventListener('change', () => {
+      this.settings.mutators.cursedRun = this.mutatorCursedRun.checked
+      saveSettings(this.settings)
+    })
+    this.mutatorRandomizer.checked = this.settings.mutators.randomizer
+    this.mutatorRandomizer.addEventListener('change', () => {
+      this.settings.mutators.randomizer = this.mutatorRandomizer.checked
+      saveSettings(this.settings)
+    })
     this.mutatorKoth.checked = this.settings.mutators.kingOfTheHill
     this.mutatorKoth.addEventListener('change', () => {
       this.settings.mutators.kingOfTheHill = this.mutatorKoth.checked
@@ -8220,6 +9243,7 @@ export class Game {
     if (this.profileCareerPortraitBtn) this.profileCareerPortraitBtn.addEventListener('click', () => this._generateCareerPortrait())
     this.shareRunCardBtn.addEventListener('click', () => this._generateRunSummaryCard())
     if (this.copyTextRecapBtn) this.copyTextRecapBtn.addEventListener('click', () => this._copyTextRecap())
+    if (this.reportBugBtn) this.reportBugBtn.addEventListener('click', () => this._reportBug())
     this.creditsBtn.addEventListener('click', () => trackAndOpen(() => this._openCreditsPanel()))
     this.coinshopBtn.addEventListener('click', () => trackAndOpen(() => this._openShopPanel()))
     this._bindHomepageBatch()
@@ -8558,6 +9582,22 @@ export class Game {
       this.compassStyleSelect.value = this.settings.compassStyle
       this.compassStyleSelect.addEventListener('change', () => {
         this.settings.compassStyle = this.compassStyleSelect.value
+        saveSettings(this.settings)
+      })
+    }
+
+    // Kill Feed icon/verbosity (batch feature)
+    if (this.killFeedVerbositySelect) {
+      this.killFeedVerbositySelect.value = this.settings.killFeedVerbosity
+      this.killFeedVerbositySelect.addEventListener('change', () => {
+        this.settings.killFeedVerbosity = this.killFeedVerbositySelect.value
+        saveSettings(this.settings)
+      })
+    }
+    if (this.killFeedIconsToggle) {
+      this.killFeedIconsToggle.checked = this.settings.killFeedIcons
+      this.killFeedIconsToggle.addEventListener('change', () => {
+        this.settings.killFeedIcons = this.killFeedIconsToggle.checked
         saveSettings(this.settings)
       })
     }
@@ -9207,7 +10247,7 @@ export class Game {
           'toggleSprint', 'toggleCrouch', 'toggleAds', 'aimAssist', 'bigInteractPrompt', 'toastDuration', 'crosshairColor', 'crosshairSize',
           'largeTextMode', 'highContrastMode', 'dyslexiaFont', 'bgMood', 'keybindCheatSheet', 'showHitFeedback', 'performanceMode',
           'streamSafeMode', 'focusRingMode', 'homepageFpsCounter', 'underlineLinks', 'nicknameFont', 'layoutDensity',
-          'mouseAcceleration', 'invertScrollWeaponSwitch', 'doubleClickSpeed', 'killFeedPosition', 'compassStyle', 'showWeaponNameHud', 'minimapDefaultZoom']
+          'mouseAcceleration', 'invertScrollWeaponSwitch', 'doubleClickSpeed', 'killFeedPosition', 'killFeedIcons', 'killFeedVerbosity', 'compassStyle', 'showWeaponNameHud', 'minimapDefaultZoom']
         for (const key of keys) this.settings[key] = defaults[key]
         saveSettings(this.settings)
         window.location.reload()
@@ -10049,6 +11089,36 @@ export class Game {
       .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
   }
 
+  // In-game bug report (batch feature) - copies a plain-text report to the
+  // clipboard (same navigator.clipboard pattern _copyTextRecap already
+  // uses) with real live state auto-attached, so a player doesn't have to
+  // remember to describe what they were doing - reads it straight off the
+  // game/kill-feed rather than needing a new "recent actions" log of its
+  // own. No backend - the player pastes it into Discord themselves (see
+  // the game's own Terms/Credits, same support channel already listed
+  // there), not a silent submission anywhere.
+  _reportBug() {
+    const pos = this.player.controls.object.position
+    const recentEvents = this.killFeedEl
+      ? Array.from(this.killFeedEl.children).map((el) => el.textContent).join(' | ') || '(none)'
+      : '(none)'
+    const report = [
+      `GayZ bug report`,
+      `Night: ${this.night}  Kills: ${this.kills}  Points: ${this.points}  Coins: ${this.coins}`,
+      `Difficulty: ${this.settings.difficulty}  Weapon: ${this.weapons.current ? this.weapons.current.id : 'n/a'}`,
+      `Position: x=${pos.x.toFixed(1)} y=${pos.y.toFixed(1)} z=${pos.z.toFixed(1)}`,
+      `Recent kill-feed: ${recentEvents}`,
+      `--- describe what happened above this line ---`,
+    ].join('\n')
+    if (!navigator.clipboard) {
+      this._showLoreToast(t('clipboardCopyUnsupported'))
+      return
+    }
+    navigator.clipboard.writeText(report)
+      .then(() => this._showLoreToast(t('bugReportCopied')))
+      .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
+  }
+
   // Shareable Loadout Code - encodes the current 5-slot hotbar (weapon ids
   // only, same array shape as settings.hotbar/hotbarPresets) as a short
   // delimited string, no new dependency needed for something this simple.
@@ -10422,7 +11492,10 @@ export class Game {
     // as _openUpgradesPanel: #pause-overlay comes after
     // #settings-panel in index.html and would otherwise render on top and
     // eat every click meant for a setting underneath it.
-    if (open) this.pauseOverlay.style.display = 'none'
+    if (open) {
+      this.pauseOverlay.style.display = 'none'
+      this._closeAllMenuPanels()
+    }
     this.settingsOpen = open
     this.settingsPanel.style.display = open ? 'flex' : 'none'
     // Recently Changed / Undo (see _renderRecentlyChangedList/
@@ -10793,15 +11866,22 @@ export class Game {
     this._weaponPickerFromPause = fromPause
     this.weaponPickerPanel.style.display = 'flex'
     this.weaponPickerPanelTitle.textContent = t('weaponPickerPanelTitle')
+    this._weaponCompareMode = false
+    this._weaponCompareSelection = []
+    this.weaponCompareToggleBtn.classList.remove('active')
+    this.weaponCompareToggleBtn.textContent = t('weaponCompareToggle')
+    this._hideWeaponQuickCompareTooltip()
     this._renderWeaponPickerOptions()
   }
 
   _renderWeaponPickerOptions() {
     this.weaponPickerOptions.innerHTML = ''
+    this.weaponCompareTable.style.display = 'none'
     for (const w of this.weapons.weapons) {
       if (w.id === 'melee') continue
       const btn = document.createElement('button')
       btn.className = 'perk-option weapon-picker-card'
+      if (this._weaponCompareMode && this._weaponCompareSelection.includes(w.id)) btn.classList.add('compare-selected')
       const tags = []
       if (w.heavy) tags.push(t('weaponPickerTagHeavy'))
       if (w.rare) tags.push(t('weaponPickerTagRare'))
@@ -10819,7 +11899,31 @@ export class Game {
         ${tags.length ? `<span class="perk-tag">${tags.join(' - ')}</span>` : ''}
       `
       btn.addEventListener('click', () => {
-        const index = this.weapons.weapons.indexOf(w)
+        // Loadout compare view (batch 3 feature) - while compare mode is
+        // active, clicking cards toggles a selection (capped at 2) and
+        // renders a stat table instead of equipping anything.
+        if (this._weaponCompareMode) {
+          const i = this._weaponCompareSelection.indexOf(w.id)
+          if (i !== -1) this._weaponCompareSelection.splice(i, 1)
+          else {
+            if (this._weaponCompareSelection.length >= 2) this._weaponCompareSelection.shift()
+            this._weaponCompareSelection.push(w.id)
+          }
+          this._renderWeaponPickerOptions()
+          this._renderWeaponCompareTable()
+          return
+        }
+        // Randomizer Mode (batch 3 feature) - whichever card gets clicked,
+        // the actual weapon assigned is random. The clicked card's own w
+        // still drives the trait-draw flow below unchanged - only the
+        // weapon itself is swapped.
+        let pickedId = w.id
+        if (this.settings.mutators.randomizer) {
+          const randomId = this.weapons.randomUnlockedWeaponId()
+          if (randomId) pickedId = randomId
+        }
+        const pickedWeapon = this.weapons.weapons.find((x) => x.id === pickedId) || w
+        const index = this.weapons.weapons.indexOf(pickedWeapon)
         // Assign into hotbar slot 1 - "main gun" (see the 3-slot hotbar's
         // own comment in loadSettings) - not just switchToIndex alone. The
         // hotbar HUD and Digit1-3 switching both read settings.hotbar
@@ -10827,15 +11931,78 @@ export class Game {
         // currently equipped. Without this, the pick looked like it did
         // nothing and pressing "1" would silently switch back to whatever
         // was already in that slot out from under the player.
-        this._assignHotbarSlot(0, w.id)
+        this._assignHotbarSlot(0, pickedId)
         this.weapons.switchToIndex(index)
         this._updateHotbarHud()
         this.weaponPickerPanel.style.display = 'none'
         if (this._weaponPickerFromPause) this.player.controls.lock()
         else this._openTraitDrawPanel()
       })
+      // Quick-compare tooltips (batch 8 feature) - a zero-click, ambient
+      // delta against whatever's currently equipped, distinct from the
+      // deliberate 2-weapon Compare Weapons mode above (that one needs a
+      // click per side; this is just "hovering this card, how does it
+      // stack up against what I have right now").
+      btn.addEventListener('mouseenter', () => this._showWeaponQuickCompareTooltip(btn, w))
+      btn.addEventListener('mouseleave', () => this._hideWeaponQuickCompareTooltip())
       this.weaponPickerOptions.appendChild(btn)
     }
+  }
+
+  _showWeaponQuickCompareTooltip(btn, w) {
+    if (this._weaponCompareMode || !this.weaponQuickCompareTooltip) return
+    const current = this.weapons.current
+    if (!current || current.id === w.id) return
+    const dmgDelta = w.damage - current.damage
+    const rows = [`${t('weaponCompareRowDamage')}: ${dmgDelta > 0 ? '+' : ''}${dmgDelta}`]
+    if (w.magSize && current.magSize) {
+      const magDelta = w.magSize - current.magSize
+      rows.push(`${t('weaponCompareRowMag')}: ${magDelta > 0 ? '+' : ''}${magDelta}`)
+    }
+    this.weaponQuickCompareTooltip.innerHTML = `<div class="quick-compare-vs">${t('weaponQuickCompareVs', { weapon: t(this.weapons._nameKeyFor(current)) })}</div>${rows.map((r) => `<div>${_escapeHtml(r)}</div>`).join('')}`
+    const rect = btn.getBoundingClientRect()
+    this.weaponQuickCompareTooltip.style.left = `${rect.left + rect.width / 2}px`
+    this.weaponQuickCompareTooltip.style.top = `${rect.top - 8}px`
+    this.weaponQuickCompareTooltip.style.display = 'block'
+  }
+
+  _hideWeaponQuickCompareTooltip() {
+    if (this.weaponQuickCompareTooltip) this.weaponQuickCompareTooltip.style.display = 'none'
+  }
+
+  // Loadout compare view (batch 3 feature) - side-by-side stat table for
+  // the up to 2 weapons picked in _weaponCompareSelection. DPS is a simple
+  // damage/fireInterval estimate (pellets factored in for the shotgun,
+  // explosive weapons show their min-max blast damage instead since their
+  // damage field is unused - see WEAPONS' own comment on that field).
+  _renderWeaponCompareTable() {
+    if (this._weaponCompareSelection.length < 2) {
+      this.weaponCompareTable.style.display = 'none'
+      return
+    }
+    const weapons = this._weaponCompareSelection.map((id) => this.weapons.weapons.find((x) => x.id === id)).filter(Boolean)
+    if (weapons.length < 2) return
+    const dpsOf = (w) => {
+      if (w.explosive) return `${w.explosiveDamageMin}-${w.explosiveDamageMax}`
+      const perShot = w.pellets ? w.damage * w.pellets : w.damage
+      return Math.round(perShot / w.fireInterval)
+    }
+    const rows = [
+      ['weaponCompareRowName', ...weapons.map((w) => t(this.weapons._nameKeyFor(w)))],
+      ['weaponCompareRowDamage', ...weapons.map((w) => w.damage || '-')],
+      ['weaponCompareRowDps', ...weapons.map((w) => dpsOf(w))],
+      ['weaponCompareRowMag', ...weapons.map((w) => w.magSize || '-')],
+      ['weaponCompareRowReserve', ...weapons.map((w) => w.reserve || '-')],
+      ['weaponCompareRowReload', ...weapons.map((w) => w.reloadTime ? `${w.reloadTime}s` : '-')],
+    ]
+    this.weaponCompareTable.innerHTML = rows.map((r, i) => `
+      <div class="compare-row${i === 0 ? ' compare-header' : ''}">
+        <span>${i === 0 ? '' : t(r[0])}</span>
+        <span>${_escapeHtml(String(r[1]))}</span>
+        <span>${_escapeHtml(String(r[2]))}</span>
+      </div>
+    `).join('')
+    this.weaponCompareTable.style.display = 'block'
   }
 
   _openTraitDrawPanel() {
@@ -11451,9 +12618,40 @@ export class Game {
     this.player.controls.lock()
   }
 
+  // Every top-level menu panel shares the same z-index (see style.css), so
+  // opening a second one (e.g. Upgrades) without closing whichever was
+  // already open (e.g. Shop) used to leave both stacked on top of each
+  // other - only the topmost got the backdrop-click-to-close, so closing
+  // fully needed two separate clicks. Each _open*Panel() below calls this
+  // first so at most one is ever visible at once. Upgrades/How to
+  // Play/Settings close via a direct display='none' here rather than their
+  // own close method, since those methods also re-show #pause-overlay -
+  // whichever panel is actually being opened decides that for itself.
+  _closeAllMenuPanels() {
+    if (this.upgradesPanel) this.upgradesPanel.style.display = 'none'
+    if (this.howtoplayPanel) this.howtoplayPanel.style.display = 'none'
+    if (this.settingsPanel && this.settingsOpen) {
+      this.settingsOpen = false
+      this.settingsPanel.style.display = 'none'
+    }
+    if (this.questsPanel) this._closeQuestsPanel()
+    if (this.achievementsPanel) this._closeAchievementsPanel()
+    if (this.hubPanel) this._closeHubPanel()
+    if (this.comingSoonPanel) this._closeComingSoonPanel()
+    if (this.friendsPanel) this._closeFriendsPanel()
+    if (this.menuInventoryPanel) this._closeMenuInventoryPanel()
+    if (this.serverPanel) this._closeServerPanel()
+    if (this.profilePanel) this._closeProfilePanel()
+    if (this.creditsPanel) this._closeCreditsPanel()
+    if (this.shopPanel) this._closeShopPanel()
+    if (this.whatsNewPanel) this._closeWhatsNewPanel()
+    if (this.sharePanel) this._closeSharePanel()
+  }
+
   // Opened from the main menu (not gameplay) - spends persistent Legacy
   // Points (see MetaProgress.js) on one-time permanent upgrades.
   _openUpgradesPanel() {
+    this._closeAllMenuPanels()
     // Opened from the pause overlay (still on screen, unlocked) as well as
     // the main menu - hide it explicitly rather than relying on DOM/paint
     // order, since #pause-overlay comes after #upgrades-panel in index.html
@@ -11580,6 +12778,7 @@ export class Game {
   // Claim action - one delegated click listener on the container handles
   // every quest button rather than rebinding per-button on every render.
   _openQuestsPanel() {
+    this._closeAllMenuPanels()
     this.questsPanel.style.display = 'flex'
     // The X/Y claimed count used to live on the homepage nav button, then
     // briefly moved into the panel title on open - removed per direct
@@ -11666,6 +12865,7 @@ export class Game {
   // changed.
   _openSharePanel() {
     if (!this.sharePanel) return
+    this._closeAllMenuPanels()
     this.sharePanel.style.display = 'flex'
     if (this.sharePanelTitle) this.sharePanelTitle.textContent = t('sharePanelTitle')
     if (this.settings.shareTelemetry) CloudSync.incrementTelemetry('shareUsed').catch(() => {})
@@ -11767,6 +12967,7 @@ export class Game {
   }
 
   _openAchievementsPanel() {
+    this._closeAllMenuPanels()
     this.achievementsPanel.style.display = 'flex'
     // Same move as the Quests panel title above - the X/Y count used to
     // live on the homepage nav button, now shown here instead when the
@@ -11788,6 +12989,83 @@ export class Game {
   // achievements - there's no separate "Bestiary" section/heading/filter
   // any more (merged per user request), only the text filter applies to
   // them since creatures have no category/sort concept of their own.
+  // Journal panel - i18n keys for this (journalBountyHeading, journalLoreHeading,
+  // journalWorldStateRescues, etc.) already existed, along with the
+  // .journal-section CSS, but _renderJournal itself was never actually
+  // written - opening the panel silently threw (this._renderJournal is not
+  // a function) and left it showing its empty shell. Each section below
+  // reuses the exact same live fields the Trader panel's own bounty/quest/
+  // weekly-challenge lines already read (see _renderBounty/_renderQuestLine/
+  // _renderWeeklyChallengeLine), just as a simpler read-only summary rather
+  // than the Trader panel's fuller interactive version. Locations Found
+  // (journalLocationsHeading) has no backing tracker anywhere in the
+  // codebase - left out rather than faked. Field Notes section (batch 5
+  // feature) is the only genuinely new part.
+  _renderJournal() {
+    if (!this.journalContent) return
+    const sections = []
+
+    const b = this.activeBounty
+    sections.push(`
+      <div class="journal-section">
+        <h3>${t('journalBountyHeading')}</h3>
+        <p>${b ? `${t(b.titleKey, { n: b.target, location: b.locationLabel })} - ${t('journalBountyProgress', { progress: Math.min(b.progress, b.target), target: b.target })}` : t('journalNoBounty')}</p>
+      </div>
+    `)
+
+    const q = this.traderQuest
+    sections.push(`
+      <div class="journal-section">
+        <h3>${t('journalTraderQuestHeading')}</h3>
+        <p>${q ? t(q.titleKey) : t('journalNoTraderQuest')}</p>
+      </div>
+    `)
+
+    const w = this.weeklyChallenge
+    sections.push(`
+      <div class="journal-section">
+        <h3>${t('journalWeeklyHeading')}</h3>
+        <p>${w.completed ? t('weeklyChallengeDoneLine', { title: t(this.weeklyDef.titleKey) }) : t('weeklyChallengeLine', { title: t(this.weeklyDef.titleKey), progress: Math.min(w.progress, this.weeklyDef.target), target: this.weeklyDef.target, coins: this.weeklyDef.rewardCoins })}</p>
+      </div>
+    `)
+
+    sections.push(`
+      <div class="journal-section">
+        <h3>${t('journalLoreHeading')}</h3>
+        <p>${t('journalLoreCount', { found: this.audioLogsFound.size, total: 8 })}</p>
+      </div>
+    `)
+
+    sections.push(`
+      <div class="journal-section">
+        <h3>${t('journalMarkersHeading')}</h3>
+        <p>${t('journalMarkersCount', { found: this.loreMarkersFound.size, total: LORE_MARKERS.length })}</p>
+      </div>
+    `)
+
+    sections.push(`
+      <div class="journal-section">
+        <h3>${t('journalWorldStateHeading')}</h3>
+        <p>${t('journalWorldStateRescues', { rescued: this.narrativeStats.rescued, lost: this.narrativeStats.lost })}</p>
+        <p>${t('journalWorldStateBosses', { count: this.narrativeStats.bossEpitaphsSeen.length, total: BOSS_TIER_IDS.size })}</p>
+        <p>${t('journalWorldStateBackstory', { loadout: t(LOADOUT_LABEL_KEYS[this.settings.loadout] || 'loadoutBalanced') })}</p>
+      </div>
+    `)
+
+    // Field Notes (batch 5 feature) - the new section.
+    const collectedNotes = FIELD_NOTES.filter((n) => this.fieldNotesCollected.has(n.id))
+    sections.push(`
+      <div class="journal-section">
+        <h3>${t('journalFieldNotesHeading', { collected: collectedNotes.length, total: FIELD_NOTES.length })}</h3>
+        ${collectedNotes.length === 0
+          ? `<p>${t('journalFieldNotesEmpty')}</p>`
+          : collectedNotes.map((n) => `<p>${_escapeHtml(t(n.textKey))}</p>`).join('')}
+      </div>
+    `)
+
+    this.journalContent.innerHTML = sections.join('')
+  }
+
   _renderAchievementsPanel() {
     const deathmatch = this._achievementsMode === 'deathmatch'
     if (this.achievementsFilterInput) this.achievementsFilterInput.style.display = deathmatch ? 'none' : ''
@@ -11882,6 +13160,7 @@ export class Game {
   // Achievements/Upgrades.
   _openHubPanel() {
     if (!this.hubPanel) return
+    this._closeAllMenuPanels()
     this.hubPanel.style.display = 'flex'
     if (this.hubPanelTitle) this.hubPanelTitle.textContent = t('hubPanelTitle')
   }
@@ -11896,6 +13175,7 @@ export class Game {
   // calling _openHubPanel unchanged), so this spot is a placeholder.
   _openComingSoonPanel() {
     if (!this.comingSoonPanel) return
+    this._closeAllMenuPanels()
     this.comingSoonPanel.style.display = 'flex'
     if (this.comingSoonTitle) this.comingSoonTitle.textContent = t('comingSoonTitle')
     if (this.comingSoonBody) this.comingSoonBody.textContent = t('comingSoonBody')
@@ -11913,6 +13193,7 @@ export class Game {
   // markup - no behavior change to the feature itself.
   _openFriendsPanel() {
     if (!this.friendsPanel) return
+    this._closeAllMenuPanels()
     this.friendsPanel.style.display = 'flex'
     if (this.friendsPanelTitle) this.friendsPanelTitle.textContent = t('friendsPanelTitle')
     // Re-sync signed-in/signed-out visibility against the CURRENT
@@ -11938,6 +13219,7 @@ export class Game {
   // equipped weapons/hotbar mid-game).
   _openMenuInventoryPanel() {
     if (!this.menuInventoryPanel) return
+    this._closeAllMenuPanels()
     this.menuInventoryPanel.style.display = 'flex'
     if (this.menuInventoryPanelTitle) this.menuInventoryPanelTitle.textContent = t('menuInventoryPanelTitle')
     if (this.inventorySkinsTitle) this.inventorySkinsTitle.textContent = t('inventorySkinsTitle')
@@ -11953,6 +13235,7 @@ export class Game {
 
   _openServerPanel() {
     if (!this.serverPanel) return
+    this._closeAllMenuPanels()
     this.serverPanel.style.display = 'flex'
     if (this.serverPanelTitle) this.serverPanelTitle.textContent = t('serverPanelTitle')
     if (this.serverPlaceholder) this.serverPlaceholder.textContent = t('serverPlaceholder')
@@ -12127,6 +13410,9 @@ export class Game {
     document.getElementById('mutator-pure-gunplay-label').textContent = t('mutatorPureGunplay')
     document.getElementById('mutator-boss-rush-label').textContent = t('mutatorBossRush')
     document.getElementById('mutator-horde-mode-label').textContent = t('mutatorHordeMode')
+    document.getElementById('mutator-escalation-label').textContent = t('mutatorEscalation')
+    document.getElementById('mutator-cursed-run-label').textContent = t('mutatorCursedRun')
+    document.getElementById('mutator-randomizer-label').textContent = t('mutatorRandomizer')
     document.getElementById('mutator-koth-label').textContent = t('mutatorKoth')
     document.getElementById('mutator-extraction-label').textContent = t('mutatorExtraction')
     document.getElementById('mutator-daily-label').textContent = t('mutatorDaily')
@@ -12149,6 +13435,8 @@ export class Game {
     document.getElementById('fps-cap-label').textContent = t('fpsCapLabel')
     document.getElementById('motion-blur-label').textContent = t('motionBlurLabel')
     document.getElementById('kill-feed-position-label').textContent = t('killFeedPositionLabel')
+    document.getElementById('kill-feed-verbosity-label').textContent = t('killFeedVerbosityLabel')
+    document.getElementById('kill-feed-icons-label').textContent = t('killFeedIconsLabel')
     document.getElementById('compass-style-label').textContent = t('compassStyleLabel')
     document.getElementById('weapon-name-hud-label').textContent = t('weaponNameHudLabel')
     document.getElementById('minimap-zoom-label').textContent = t('minimapZoomLabel')
@@ -12169,6 +13457,8 @@ export class Game {
     document.getElementById('weekly-reminder-label').textContent = t('weeklyReminderLabel')
     document.getElementById('low-currency-label').textContent = t('lowCurrencyLabel')
     document.getElementById('backup-reminder-label').textContent = t('backupReminderLabel')
+    document.getElementById('report-bug-label').textContent = t('reportBugLabel')
+    if (this.reportBugBtn) this.reportBugBtn.textContent = t('reportBugBtn')
     document.getElementById('save-size-label').textContent = t('saveSizeLabel')
     document.getElementById('clear-cache-label').textContent = t('clearCacheLabel')
     document.getElementById('clear-cache-btn').textContent = t('clearCacheLabel')
@@ -12251,6 +13541,40 @@ export class Game {
       const topLoadout = Object.keys(tally).sort((a, b) => tally[b] - tally[a])[0]
       const favoriteClassText = topLoadout ? t(LOADOUT_LABEL_KEYS[topLoadout] || topLoadout) : '--'
       this.statFavoriteClass.forEach((el) => { el.textContent = favoriteClassText })
+    }
+    if (this.suggestedLoadoutHint) {
+      // Auto-suggested best loadout (batch 8 feature) - based on this
+      // player's own past runHistory (average night reached per loadout+
+      // companion-role combo actually played), not a generic default.
+      // Requires a real sample (SUGGESTED_LOADOUT_MIN_RUNS per combo) so one
+      // lucky/unlucky early run doesn't skew the recommendation.
+      const combos = {}
+      for (const run of this.runHistory) {
+        if (!run.loadout || !run.companionRole) continue
+        const key = `${run.loadout}|${run.companionRole}`
+        if (!combos[key]) combos[key] = { totalNight: 0, count: 0 }
+        combos[key].totalNight += _safeStatNumber(run.night)
+        combos[key].count += 1
+      }
+      let best = null
+      for (const key in combos) {
+        const c = combos[key]
+        if (c.count < SUGGESTED_LOADOUT_MIN_RUNS) continue
+        const avg = c.totalNight / c.count
+        if (!best || avg > best.avg) best = { key, avg }
+      }
+      if (best) {
+        const [loadout, role] = best.key.split('|')
+        const roleLabelKeys = { ranged: 'roleRanged', melee: 'roleMelee', medic: 'roleMedic' }
+        this.suggestedLoadoutHint.textContent = t('suggestedLoadoutHint', {
+          loadout: t(LOADOUT_LABEL_KEYS[loadout] || loadout),
+          role: t(roleLabelKeys[role] || role),
+          night: best.avg.toFixed(1),
+        })
+        this.suggestedLoadoutHint.style.display = 'block'
+      } else {
+        this.suggestedLoadoutHint.style.display = 'none'
+      }
     }
     {
       const survivalText = this.bestRunPace && this.bestRunPace.elapsedMs
@@ -12624,6 +13948,7 @@ export class Game {
   // from _maybeShowTutorialHints (a one-time, non-interactive toast
   // sequence that still runs independently the first time a run starts).
   _openHowToPlayPanel() {
+    this._closeAllMenuPanels()
     this.howtoplayPanel.style.display = 'flex'
     this.howtoplayPanelTitle.textContent = t('howtoplayPanelTitle')
     this._howtoplayStep = 0
@@ -13174,13 +14499,53 @@ export class Game {
       }
       if (nearest) nearest.stun(PARRY_STAGGER_MS)
       this._showLoreToast(t('parrySuccess'))
+      // Parry counter-attack bonus (batch 9 feature) - a brief melee-only
+      // damage window right after a successful parry, rewarding actually
+      // following up on it rather than just tanking the reduced hit.
+      this.weapons.meleeCounterMult = PARRY_COUNTER_DAMAGE_MULT
+      this._parryCounterUntil = performance.now() + PARRY_COUNTER_WINDOW_MS
     }
     if (this.shieldActive) damage *= 1 - SHIELD_DAMAGE_REDUCTION
+    // Encirclement (batch 6 feature) - see ENCIRCLEMENT_RADIUS's own comment.
+    const encirclePos = this.player.controls.object.position
+    let nearbyAttackers = 0
+    // Distinct growls per type (batch 8 feature) - same "nearest as attacker
+    // proxy" convention the parry block above already uses, reusing this
+    // existing scan instead of a second full zombie-array pass just to find
+    // the nearest one for playZombieSnarl's pitch below.
+    let nearestAttacker = null
+    let nearestAttackerDist = Infinity
+    for (const z of this.zombies.zombies) {
+      if (z.state !== 'alive') continue
+      const d = Math.hypot(z.group.position.x - encirclePos.x, z.group.position.z - encirclePos.z)
+      if (d <= ENCIRCLEMENT_RADIUS) nearbyAttackers++
+      if (d < nearestAttackerDist) {
+        nearestAttackerDist = d
+        nearestAttacker = z
+      }
+    }
+    if (nearbyAttackers >= ENCIRCLEMENT_THRESHOLD) damage *= ENCIRCLEMENT_DAMAGE_MULT
+    // Mercy after a near-death (batch 7 feature) - applied AFTER the
+    // encirclement bonus above (a mercy window should soften the very
+    // crowd that nearly killed you, not get overridden by it).
+    const inMercyWindow = performance.now() < this._mercyUntil
+    if (inMercyWindow) damage *= 1 - MERCY_DAMAGE_REDUCTION
+    const wasAboveCritical = this.playerState.health >= CRITICAL_HEALTH_THRESHOLD
     const appliedDamage = damage * this.difficulty.damageMult * this.dailyDamageMult
     this.playerState.takeDamage(appliedDamage)
+    if (wasAboveCritical && this.playerState.alive && this.playerState.health < CRITICAL_HEALTH_THRESHOLD) {
+      this._mercyUntil = performance.now() + MERCY_DURATION_MS
+    }
+    // Bleed status effect (batch 4 feature) - refreshes the duration on a
+    // re-hit rather than stacking, same shape as Zombie.js's own ignite().
+    if (this.playerState.alive && Math.random() < BLEED_CHANCE) {
+      const wasBleeding = performance.now() < this.bleedUntil
+      this.bleedUntil = performance.now() + BLEED_DURATION_MS
+      if (!wasBleeding) this._showLoreToast(t('toastBleedStarted'))
+    }
     this._logDamageTaken('deathCauseZombies', appliedDamage)
     this._updateHealthHud()
-    audioEngine.playZombieSnarl()
+    audioEngine.playZombieSnarl(nearestAttacker && nearestAttacker.config.scale)
     audioEngine.playPlayerHurt()
     this.damageFlash.classList.remove('hit')
     void this.damageFlash.offsetWidth
@@ -13212,13 +14577,77 @@ export class Game {
     return targets
   }
 
+  // Companion Whistle/Recall (batch 6 feature) - instantly teleports every
+  // living companion/recruit to just behind the player, same candidate list
+  // _collectCompanionTargets right above already uses, skipping downed/dead
+  // ones the same way. Cooldown-gated so it can't be spammed to cheese past
+  // pathing obstacles the AI would otherwise have to navigate around.
+  _whistleCompanion() {
+    const now = performance.now()
+    if (now < this._whistleCooldownUntil) return
+    this._whistleCooldownUntil = now + WHISTLE_COOLDOWN_MS
+    this.camera.getWorldDirection(this._camDir)
+    const playerPos = this.player.controls.object.position
+    const candidates = [this.companion, this.tempCompanion, ...this.recruits]
+    let recalledAny = false
+    let i = 0
+    for (const c of candidates) {
+      if (!c || c.downed || c.dead) continue
+      i += 1
+      const spreadAngle = (i - 1) * 0.6
+      const bx = playerPos.x - this._camDir.x * (1.5 + i * 0.4) + Math.sin(spreadAngle) * 0.8
+      const bz = playerPos.z - this._camDir.z * (1.5 + i * 0.4) + Math.cos(spreadAngle) * 0.8
+      c.teleportTo(bx, bz)
+      recalledAny = true
+    }
+    if (recalledAny) this._showLoreToast(t('toastWhistleRecall'))
+  }
+
   // Gunfire alerting (see GUNFIRE_ALERT_RADIUS/_SUPPRESSED and Zombie.js's
   // awareness system) - fired from WeaponSystem's onWeaponFired callback,
   // so this runs once per shot regardless of whether it actually connects.
   // Only ever flips unaware zombies to aware; never re-checked against
   // already-aware ones.
+  // Distance-scaled gunfire realism (batch 3 feature) - inside
+  // GUNFIRE_INNER_GUARANTEED_FRAC of the radius, still a guaranteed alert
+  // (unchanged from before). Beyond that, a chance that falls off linearly
+  // toward the outer edge instead of the old hard cutoff - some zombies
+  // right at the boundary now might not hear it, closer ones almost always
+  // will, matching how real sound attenuates instead of an all-or-nothing
+  // circle.
   _alertNearbyZombiesToGunfire() {
     const radius = this.weapons.current.suppressed ? GUNFIRE_ALERT_RADIUS_SUPPRESSED : GUNFIRE_ALERT_RADIUS
+    const innerRadius = radius * GUNFIRE_INNER_GUARANTEED_FRAC
+    const playerPos = this.player.controls.object.position
+    for (const z of this.zombies.zombies) {
+      if (z.state !== 'alive' || z.aware) continue
+      const d = Math.hypot(z.group.position.x - playerPos.x, z.group.position.z - playerPos.z)
+      if (d > radius) continue
+      if (d <= innerRadius) {
+        z.aware = true
+      } else {
+        const falloff = 1 - (d - innerRadius) / (radius - innerRadius)
+        if (Math.random() < falloff) z.aware = true
+      }
+    }
+  }
+
+  // Pain-scream alert (batch 6 feature) - same aware-flip shape as the two
+  // player-centered alert functions around it, just centered on a wounded
+  // zombie's own position (see PAIN_SCREAM_MIN_DAMAGE's own comment).
+  _alertNearbyZombiesToPainScream(x, z) {
+    for (const zo of this.zombies.zombies) {
+      if (zo.state !== 'alive' || zo.aware) continue
+      const d = Math.hypot(zo.group.position.x - x, zo.group.position.z - z)
+      if (d <= PAIN_SCREAM_RADIUS) zo.aware = true
+    }
+  }
+
+  // Terrain-based Footstep Loudness (batch feature) - same aware-flip shape
+  // as _alertNearbyZombiesToGunfire above, called every footstep instead of
+  // every shot, with a radius computed by the caller from terrain/crouch/
+  // sprint state rather than a fixed constant.
+  _alertNearbyZombiesToFootstep(radius) {
     const playerPos = this.player.controls.object.position
     for (const z of this.zombies.zombies) {
       if (z.state !== 'alive' || z.aware) continue
@@ -13528,9 +14957,18 @@ export class Game {
     return Math.min(COMBO_MULT_CAP, 1 + Math.max(0, this.comboCount - 1) * COMBO_MULT_PER_KILL)
   }
 
-  _onZombieKilled(zombieTypeId, weaponId, x, z, isElite, isWandering = false, isGolden = false, wasFleeing = false) {
+  _onZombieKilled(zombieTypeId, weaponId, x, z, isElite, isWandering = false, isGolden = false, wasFleeing = false, isCarrier = false) {
     if (this.settings.bloodEffectsEnabled) this.decals.spawnPuddle(x, z)
     if (weaponId === 'melee') this._spawnMeleeKillFlash(x, z)
+    // Environmental melee kills (batch 8 feature) - a melee kill landed
+    // inside an active hazard zone (gas/acid/web/toxic spread/radiation)
+    // rewards using the environment as a weapon, same spirit as shoving a
+    // zombie into a real hazard - reuses the existing hazard-zone system
+    // rather than needing a new spikes/traffic mechanic of its own.
+    if (weaponId === 'melee' && this.hazardZones.some((zone) => Math.hypot(zone.x - x, zone.z - z) <= zone.radius)) {
+      this._gainPoints(ENVIRONMENTAL_MELEE_KILL_POINTS)
+      this._showLoreToast(t('toastEnvironmentalKill'))
+    }
     // Golden Zombie bonus (see _maybeSpawnGoldenZombie) - on top of, not
     // instead of, every other reward this kill already earns below.
     if (isGolden) {
@@ -13583,6 +15021,13 @@ export class Game {
           this._showLoreToast(t('crimsonSkinUnlocked'))
         }
       }
+    }
+    // Elite carrier zombies (batch 7 feature) - a guaranteed rare/legendary
+    // weapon drop, independent of (on top of) the every-10th-kill and
+    // random field-power-up drops below.
+    if (isCarrier) {
+      this.pickups.spawnLootDrop(Math.random() < 0.3 ? 'legendary_weapon' : 'rare_weapon', x, z)
+      this._showLoreToast(t('toastCarrierDropped'))
     }
     if (weaponId === 'vehicle') this.achievements.unlock('road_kill')
     this._registerComboKill()
@@ -13650,13 +15095,13 @@ export class Game {
     // priority (boss > big combo > elite > melee) so a kill that qualifies
     // for several categories at once doesn't spam multiple stacked entries.
     if (BOSS_TIER_IDS.has(zombieTypeId)) {
-      this._pushKillFeed('BOSS DOWN')
+      this._pushKillFeed('BOSS DOWN', 'boss')
       this._flagHighlightMoment('Boss down')
     } else if (this.comboCount >= COMBO_TIER3_THRESHOLD) {
-      this._pushKillFeed(`${this.comboCount}x COMBO`)
+      this._pushKillFeed(`${this.comboCount}x COMBO`, 'combo')
       this._flagHighlightMoment(`${this.comboCount}x combo`)
     } else if (isElite) {
-      this._pushKillFeed('Elite eliminated')
+      this._pushKillFeed('Elite eliminated', 'elite')
     } else if (weaponId === 'melee') {
       this._pushKillFeed('Melee finish')
     }
@@ -13870,6 +15315,7 @@ export class Game {
   // Credits panel - static prose (dev/asset credits only), not a
   // data-driven list, so no render step needed beyond the title.
   _openCreditsPanel() {
+    this._closeAllMenuPanels()
     this.creditsPanel.style.display = 'flex'
     this.creditsPanelTitle.textContent = t('creditsPanelTitle')
   }
@@ -13883,9 +15329,100 @@ export class Game {
   // table, no purchase/open logic wired up yet. .shop-crate-card entries
   // are plain divs, not buttons - nothing to click through to yet.
   _openShopPanel() {
+    this._closeAllMenuPanels()
     this.shopPanel.style.display = 'flex'
     this.shopPanelTitle.textContent = t('shopPanelTitle')
     this.shopPanelSoonNote.textContent = t('shopPanelSoonNote')
+    this.shopAttachmentsHeading.textContent = t('shopAttachmentsHeading')
+    // Weapon Attachments shop section (batch 11 feature) - defaults to
+    // whichever weapon is currently equipped (a sensible starting point),
+    // falling back to the first non-melee weapon if equipped is melee.
+    if (!this._shopSelectedWeaponId) {
+      const current = this.weapons.current
+      this._shopSelectedWeaponId = (current && !current.melee) ? current.id : this.weapons.weapons.find((w) => !w.melee).id
+    }
+    this._renderShopWeaponPicker()
+    this._renderShopAttachments()
+  }
+
+  // Weapon Attachments shop section (batch 11 feature) - the row of
+  // weapons to pick from. Melee excluded (see ATTACHMENT_TYPES' own
+  // comment - no ammo/scope/sound to attach to).
+  _renderShopWeaponPicker() {
+    this.shopWeaponPicker.innerHTML = ''
+    for (const w of this.weapons.weapons) {
+      if (w.melee) continue
+      const btn = document.createElement('button')
+      btn.className = 'class-btn shop-weapon-btn'
+      if (w.id === this._shopSelectedWeaponId) btn.classList.add('active')
+      const iconPath = WEAPON_ICON_PATHS[w.id] || ''
+      btn.innerHTML = `<div class="weapon-icon-badge"><svg class="weapon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${iconPath}</svg></div>`
+      btn.title = t(this.weapons._nameKeyFor(w))
+      btn.addEventListener('click', () => {
+        this._shopSelectedWeaponId = w.id
+        this._renderShopWeaponPicker()
+        this._renderShopAttachments()
+      })
+      this.shopWeaponPicker.appendChild(btn)
+    }
+  }
+
+  // Weapon Attachments shop section (batch 11 feature) - one row per
+  // ATTACHMENT_TYPES entry for the currently-selected weapon. Ownership
+  // reads the weapon's own live flag via ATTACHMENT_OWNED_CHECK - the same
+  // thing saveShopProgress derives its persisted list from, so this always
+  // matches what's actually equipped rather than a separately-tracked
+  // record that could drift out of sync with it.
+  _renderShopAttachments() {
+    this.shopAttachmentCoinsLine.textContent = t('shopAttachmentCoinsLine', { n: this.coins })
+    this.shopAttachmentGrid.innerHTML = ''
+    const weaponId = this._shopSelectedWeaponId
+    const weapon = this.weapons.weapons.find((w) => w.id === weaponId)
+    if (!weapon) return
+    for (const item of ATTACHMENT_TYPES) {
+      // Baked-in exclusion (see ATTACHMENT_BAKED_IN's own comment) - this
+      // weapon already has the attachment's effect for free, so there's
+      // nothing meaningful to sell here at all.
+      if (ATTACHMENT_BAKED_IN[item.id] && ATTACHMENT_BAKED_IN[item.id].has(weaponId)) continue
+      const owned = ATTACHMENT_OWNED_CHECK[item.id] ? ATTACHMENT_OWNED_CHECK[item.id](weapon) : false
+      const row = document.createElement('div')
+      row.className = 'shop-attachment-row' + (owned ? ' owned' : '')
+      const info = document.createElement('div')
+      info.className = 'attachment-info'
+      const name = document.createElement('span')
+      name.className = 'attachment-name'
+      name.textContent = t(item.titleKey)
+      info.appendChild(name)
+      row.appendChild(info)
+      if (owned) {
+        const tag = document.createElement('span')
+        tag.className = 'shop-attachment-owned-tag'
+        tag.textContent = t('shopAttachmentOwned')
+        row.appendChild(tag)
+      } else {
+        const buyBtn = document.createElement('button')
+        buyBtn.className = 'shop-attachment-buy-btn'
+        buyBtn.textContent = t('shopAttachmentBuy', { n: item.cost })
+        buyBtn.disabled = this.coins < item.cost
+        buyBtn.addEventListener('click', () => this._buyAttachment(weaponId, item.id, item.cost))
+        row.appendChild(buyBtn)
+      }
+      this.shopAttachmentGrid.appendChild(row)
+    }
+  }
+
+  _buyAttachment(weaponId, attachmentId, cost) {
+    if (this.coins < cost) return
+    this.coins -= cost
+    this.weapons.applyAttachment(weaponId, attachmentId)
+    // No separate shopProgress.attachments write needed - applyAttachment
+    // above already set the weapon's own live flag, and saveShopProgress
+    // (called next) derives its persisted list straight from that flag via
+    // ATTACHMENT_OWNED_CHECK, so this one save call is the whole round trip.
+    saveShopProgress(this)
+    this._updateStatsPanel()
+    this._showLoreToast(t('toastAttachmentBought', { name: t(ATTACHMENT_TYPES.find((a) => a.id === attachmentId).titleKey) }))
+    this._renderShopAttachments()
   }
 
   _closeShopPanel() {
@@ -13898,6 +15435,7 @@ export class Game {
   // prose.
   _openWhatsNewPanel() {
     if (!this.whatsNewPanel) return
+    this._closeAllMenuPanels()
     this.whatsNewPanel.style.display = 'flex'
     if (this.whatsNewPanelTitle) this.whatsNewPanelTitle.textContent = t('whatsNewPanelTitle')
     if (this.buildVersionLine) this.buildVersionLine.textContent = t('buildVersionLine', { hash: __BUILD_HASH__, date: __BUILD_DATE__ })
@@ -14260,6 +15798,21 @@ export class Game {
     this._pushOnlineStats()
   }
 
+  // Surrender (batch 10 feature) - deliberately lean: reuses _recordRunEnd
+  // (the generic persistent-record update, same call both death and
+  // extraction-success already make) for the run-history/stats bookkeeping,
+  // but skips every death-SPECIFIC narrative side effect _onPlayerDeath has
+  // (killcam, nemesis, hardcore memorial, totalDeaths/first_death - none of
+  // those honestly apply to a run the player chose to end, not one where
+  // they were actually killed).
+  _surrenderRun() {
+    const legacyEarned = Math.floor(this.points * DEATH_POINTS_CONVERSION * SURRENDER_LEGACY_MULT * (1 + this.metaProgress.prestigeLevel * 0.1))
+    this.metaProgress.legacyPoints += legacyEarned
+    saveMetaProgress(this.metaProgress)
+    this._recordRunEnd(false)
+    window.location.reload()
+  }
+
   _onPlayerDeath() {
     this._stopClipRecordingIfActive()
     // Shareable run-summary card (see _generateRunSummaryCard) - captures
@@ -14273,6 +15826,14 @@ export class Game {
     this.killcamUntil = performance.now() + DEATH_KILLCAM_DURATION_MS
     this._recordDeathMemorial()
     this._recordNemesis()
+    this._checkChallengeBadges()
+    // Cursed Run (batch 3 feature) - restore whatever the 3 forced
+    // mutators were actually set to before this run started.
+    if (this._cursedRunOriginalValues) {
+      for (const [key, value] of this._cursedRunOriginalValues) this.settings.mutators[key] = value
+      this._cursedRunOriginalValues = null
+    }
+    this._drawDeathReplayTrail()
     if (this.zombieRushActive) {
       this.zombieRushActive = false
       const elapsedMs = performance.now() - this.runStartedAt
@@ -14319,7 +15880,11 @@ export class Game {
     this._renderRunSummary()
     this._renderDeathCauseBreakdown()
 
-    const legacyEarned = Math.floor(this.points * DEATH_POINTS_CONVERSION * (1 + this.metaProgress.prestigeLevel * 0.1))
+    let legacyEarned = Math.floor(this.points * DEATH_POINTS_CONVERSION * (1 + this.metaProgress.prestigeLevel * 0.1))
+    // Insurance perk (batch feature) - floors the payout so a bad early
+    // death still banks something meaningful. Death-only, not extraction -
+    // the point of insurance is protecting against dying badly.
+    if (this.hasInsurance) legacyEarned = Math.max(legacyEarned, INSURANCE_MIN_LEGACY_PAYOUT)
     this.metaProgress.legacyPoints += legacyEarned
     saveMetaProgress(this.metaProgress)
     this.deathLegacyPoints.textContent = t('deathLegacyScrap', { n: legacyEarned })
@@ -14486,17 +16051,28 @@ export class Game {
   // Kill Feed (see KILL_FEED_MAX_ENTRIES/_MS) - a multiplayer-style stacked
   // strip of notable kills, purely presentational; each entry removes
   // itself on its own timer instead of needing a manual clear.
-  _pushKillFeed(text) {
+  // Kill-feed icon/verbosity (batch feature) - `type` picks a short text
+  // tag (no emoji - see the codebase's own no-emoji UI convention) and, in
+  // 'important' verbosity mode, whether the entry shows at all. 'kill' is
+  // the default/lowest tier so ordinary kills are exactly what gets
+  // dropped when verbosity is tightened, while boss/elite/combo still
+  // show through.
+  _pushKillFeed(text, type = 'kill') {
     // Same reasoning as _showLoreToast - the game world simulates behind
     // the menu before Play is clicked, so nothing should actually reach
     // the screen yet.
     if (!this.gameStarted) return
+    if (this.settings.killFeedVerbosity === 'important' && type === 'kill') return
     const entry = document.createElement('div')
     entry.className = 'kill-feed-entry'
     const nickname = this.settings.nickname.trim()
-    entry.innerHTML = nickname
+    const KILL_FEED_TAGS = { boss: 'BOSS', elite: 'ELITE', combo: 'COMBO' }
+    const tag = this.settings.killFeedIcons && KILL_FEED_TAGS[type]
+      ? `<span class="kill-feed-tag kill-feed-tag-${type}">${KILL_FEED_TAGS[type]}</span> `
+      : ''
+    entry.innerHTML = tag + (nickname
       ? `<span class="nickname-tag">${_escapeHtml(nickname)}</span> ${_escapeHtml(text)}`
-      : _escapeHtml(text)
+      : _escapeHtml(text))
     this.killFeedEl.appendChild(entry)
     while (this.killFeedEl.children.length > KILL_FEED_MAX_ENTRIES) {
       this.killFeedEl.removeChild(this.killFeedEl.firstChild)
@@ -14662,6 +16238,7 @@ export class Game {
   // persisted elsewhere (careerStats/bestStats/achievements/prestige/
   // nemesis), no new tracking of its own besides the Nemesis record.
   _openProfilePanel() {
+    this._closeAllMenuPanels()
     this.profilePanel.style.display = 'flex'
     this.profilePanelTitle.textContent = t('profilePanelTitle')
     // Signed-out players get a black screen + typewriter Login/Register
@@ -14688,6 +16265,7 @@ export class Game {
     }
     if (this.profileContent) this.profileContent.style.display = ''
     if (this.profileLoginGate) this.profileLoginGate.style.display = 'none'
+    this._drawStatsDashboard()
     // Cosmetics counter - outfits+hats only.
     const cosmeticsOwned = this.ownedOutfits.size + this.ownedHats.size
     const cosmeticsTotal = COIN_SHOP_ITEMS.filter((i) => i.outfit || i.hat).length
@@ -14890,6 +16468,8 @@ export class Game {
   _renderHighlightReel() {
     if (!this.highlightReelList) return
     if (this.highlightReelHeading) this.highlightReelHeading.textContent = t('highlightReelHeading')
+    const statsDashboardHeading = document.getElementById('stats-dashboard-heading')
+    if (statsDashboardHeading) statsDashboardHeading.textContent = t('statsDashboardHeading')
     const candidates = [
       { labelKey: 'profileTotalKills', value: _safeStatNumber(this.careerStats.totalKills), benchmark: 5000 },
       { labelKey: 'profileDamageDealt', value: _safeStatNumber(this.careerStats.lifetimeDamageDealt), benchmark: 500000 },
@@ -15967,6 +17547,51 @@ export class Game {
   // Melee kill visual effect - a brief colored point light per variant
   // (see MELEE_KILL_FLASH_COLORS), distinct game feel per weapon without
   // needing real per-weapon kill animations on these procedural viewmodels.
+  // Rarity-tinted crate-opening burst (batch 7 feature) - a real animated
+  // reveal now that crates are actually functional, colored by what came
+  // out (legendary gold, rare blue, common white). A point-light pop (same
+  // instant-flash shape as _spawnMeleeKillFlash below) plus a handful of
+  // small motes that float up and fade, ticked in _updateCrateBurstMotes.
+  _spawnCrateOpenBurst(x, y, z, lootType) {
+    const color = lootType === 'legendary_weapon' ? 0xffd24a : lootType === 'rare_weapon' ? 0x4a9eff : 0xe8e6df
+    const light = new THREE.PointLight(color, 2.5, 5, 2)
+    light.position.set(x, y + 0.6, z)
+    this.scene.add(light)
+    setTimeout(() => this.scene.remove(light), 300)
+
+    for (let i = 0; i < CRATE_BURST_MOTE_COUNT; i++) {
+      const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 })
+      const mesh = new THREE.Mesh(CRATE_BURST_MOTE_GEOMETRY, mat)
+      mesh.position.set(x, y + 0.3, z)
+      this.scene.add(mesh)
+      const angle = Math.random() * Math.PI * 2
+      const radius = 0.3 + Math.random() * 0.5
+      this._crateBurstMotes.push({
+        mesh,
+        vel: new THREE.Vector3(Math.cos(angle) * radius, 1.2 + Math.random() * 1.2, Math.sin(angle) * radius),
+        bornAt: performance.now(),
+      })
+    }
+  }
+
+  _updateCrateBurstMotes(dt) {
+    if (this._crateBurstMotes.length === 0) return
+    const now = performance.now()
+    for (let i = this._crateBurstMotes.length - 1; i >= 0; i--) {
+      const m = this._crateBurstMotes[i]
+      const age = now - m.bornAt
+      if (age >= CRATE_BURST_MOTE_LIFETIME_MS) {
+        this.scene.remove(m.mesh)
+        m.mesh.material.dispose()
+        this._crateBurstMotes.splice(i, 1)
+        continue
+      }
+      m.vel.y -= 1.5 * dt
+      m.mesh.position.addScaledVector(m.vel, dt)
+      m.mesh.material.opacity = 0.9 * (1 - age / CRATE_BURST_MOTE_LIFETIME_MS)
+    }
+  }
+
   _spawnMeleeKillFlash(x, z) {
     const color = MELEE_KILL_FLASH_COLORS[this.weapons.meleeVariant] || 0xffffff
     const light = new THREE.PointLight(color, 2.2, 4, 2)
@@ -16073,7 +17698,11 @@ export class Game {
     const now = performance.now()
     if (this._floodActiveUntil && now >= this._floodActiveUntil) {
       this._floodActiveUntil = 0
-      this.player.environmentMult = 1
+      // Rain slowdown (batch 5 feature) - the flood that just ended was
+      // itself only ever triggered while raining, so the mild rain slow
+      // (not a full reset to 1) is the correct thing to fall back to if
+      // it's still raining now.
+      this.player.environmentMult = this.raining ? RAIN_SPEED_MULT : 1
     }
     if (!this.raining || this._floodActiveUntil) return
     if (now < this._nextFloodCheckAt) return
@@ -16199,9 +17828,21 @@ export class Game {
       const weaponId = this.weapons.randomUnlockedWeaponId()
       const w = weaponId && this.weapons.weapons.find((w) => w.id === weaponId)
       const boosted = w && this.weapons.applyRarityBoost(weaponId, legendary ? 1.3 : 1.15, legendary ? 'legendary' : 'rare')
+      // Rare drop stinger (batch 7 feature) - only on an actual boosted
+      // pickup, not the toastRarityWasted fallback (already owning every
+      // weapon at max rarity shouldn't still get the fanfare).
+      if (boosted) audioEngine.playRareDropStinger()
+      // Duplicate trade-in (batch 7 feature) - a rare/legendary drop that
+      // would otherwise be wasted (every weapon already maxed) converts
+      // into a currency reward instead of just vanishing.
+      if (!boosted) {
+        const tradeInReward = legendary ? DUPLICATE_TRADE_IN_LEGENDARY_COINS : DUPLICATE_TRADE_IN_RARE_COINS
+        this.coins += tradeInReward
+        this._showCoinPopup(tradeInReward)
+      }
       this.pickupToast.textContent = boosted
         ? t(legendary ? 'toastLegendaryWeapon' : 'toastRareWeapon', { weapon: t(this.weapons._nameKeyFor(w)) })
-        : t('toastRarityWasted')
+        : t('toastDuplicateTradeIn', { n: legendary ? DUPLICATE_TRADE_IN_LEGENDARY_COINS : DUPLICATE_TRADE_IN_RARE_COINS })
       this.pickupToast.classList.remove('show')
       void this.pickupToast.offsetWidth
       this.pickupToast.classList.add('show')
@@ -16328,6 +17969,14 @@ export class Game {
       } else if (t.mat.emissiveIntensity !== 0) {
         t.mat.emissiveIntensity = 0
       }
+    }
+    // Adjustable HP/Armor Practice Dummy (batch feature) - same decay
+    // curve as the ding-only targets above, one extra object.
+    const d = this.adjustableDummy
+    if (now < d.flashUntil) {
+      d.mat.emissiveIntensity = ((d.flashUntil - now) / 180) * 3
+    } else if (d.mat.emissiveIntensity !== 0) {
+      d.mat.emissiveIntensity = 0
     }
   }
 
@@ -16756,7 +18405,7 @@ export class Game {
     // exclusive by construction, sandstorm only rolls when !raining and
     // flood only rolls when raining) - guarded so a re-roll can't clobber
     // an in-progress flood still counting down on its own timer.
-    if (this.player && !this._floodActiveUntil) this.player.environmentMult = this.sandstorming ? SANDSTORM_SPEED_MULT : 1
+    if (this.player && !this._floodActiveUntil) this.player.environmentMult = this.sandstorming ? SANDSTORM_SPEED_MULT : (this.raining ? RAIN_SPEED_MULT : 1)
     // Same constructor-ordering guard as the perfectWeather branch above.
     if (this.loreToast) {
       if (this.sandstorming) this._showLoreToast(t('sandstormToast'))
@@ -16976,6 +18625,20 @@ export class Game {
     if (this.zombies.zombies.some((z) => z.isBoss && z.state === 'alive')) threat = Math.max(threat, 0.8)
     const healthFrac = this.playerState.maxHealth > 0 ? this.playerState.health / this.playerState.maxHealth : 1
     if (healthFrac < 0.3) threat = Math.max(threat, 0.7)
+
+    // Near-death music stinger (batch feature) - the line above already
+    // smoothly RAISES the floor once under 30% health; this is a separate,
+    // sharper one-shot on the exact moment health first crosses under
+    // NEAR_DEATH_STINGER_THRESHOLD, jumping musicIntensityCurrent straight
+    // to 1 instead of letting the usual lerp ease into it - the "sting" IS
+    // that abruptness. Edge-triggered (transitions the flag, not a level
+    // check) so it only fires once per drop below the line, not every frame
+    // spent under it.
+    const belowStingerThreshold = healthFrac > 0 && healthFrac < NEAR_DEATH_STINGER_THRESHOLD
+    if (belowStingerThreshold && !this._wasBelowStingerThreshold) {
+      this.musicIntensityCurrent = 1
+    }
+    this._wasBelowStingerThreshold = belowStingerThreshold
 
     this.musicIntensityCurrent = THREE.MathUtils.lerp(this.musicIntensityCurrent, threat, 0.04)
     audioEngine.setMusicIntensity(this.musicIntensityCurrent)
@@ -17342,6 +19005,32 @@ export class Game {
   _updateTrophyWallProximity(playerPos) {
     const dist = Math.hypot(playerPos.x - this.trophyWall.x, playerPos.z - this.trophyWall.z)
     this.nearTrophyWall = dist <= TROPHY_WALL_INTERACT_RADIUS
+    if (!this.nearTrophyWall) {
+      if (this.trophyWallTooltip.style.display !== 'none') this.trophyWallTooltip.style.display = 'none'
+      return
+    }
+    // Trophy wall hover tooltip (batch 9 feature) - a real per-medallion
+    // crosshair raycast, only run while actually in range (see the early
+    // return above) so this isn't one more raycast happening globally every
+    // frame regardless of where the player is.
+    this._trophyWallRaycaster.setFromCamera(this._screenCenterNDC || (this._screenCenterNDC = new THREE.Vector2(0, 0)), this.camera)
+    const hits = this._trophyWallRaycaster.intersectObjects(this.trophyWall.medallionMeshes, false)
+    if (hits.length === 0 || hits[0].distance > TROPHY_WALL_LOOK_MAX_DIST) {
+      this.trophyWallTooltip.style.display = 'none'
+      return
+    }
+    const idx = hits[0].object.userData.achievementIndex
+    const ach = ACHIEVEMENTS[idx]
+    if (!ach) {
+      this.trophyWallTooltip.style.display = 'none'
+      return
+    }
+    const unlocked = this.achievements.unlocked.has(ach.id)
+    const unlockTime = this.achievements.unlockTimes[ach.id]
+    this.trophyWallTooltip.innerHTML = unlocked
+      ? `<span class="trophy-tooltip-title">${_escapeHtml(t(ach.titleKey))}</span>${unlockTime ? _escapeHtml(new Date(unlockTime).toLocaleDateString()) : ''}`
+      : `<span class="trophy-tooltip-title">${t('trophyTooltipLocked')}</span>${_escapeHtml(t(ach.hintKey))}`
+    this.trophyWallTooltip.style.display = 'block'
   }
 
   // Purely informational - a quick progress readout rather than opening the
@@ -17680,6 +19369,23 @@ export class Game {
   // Health Regen mutator - reuses lastHitTakenAt (already tracked for the
   // Director AI's own "brief relief window right after a hit" scoring),
   // rather than a second timestamp doing the same job.
+  // Bleed status effect (batch 4 feature) - fixed-tick DoT, same shape as
+  // Zombie.js's own _tickIgnite (accumulate dt, apply damage every 0.5s
+  // rather than draining smoothly every frame).
+  _updateBleed(dt) {
+    if (!this.playerState.alive || performance.now() >= this.bleedUntil) {
+      this._bleedAccum = 0
+      return
+    }
+    this._bleedAccum += dt
+    if (this._bleedAccum >= 0.5) {
+      this._bleedAccum = 0
+      this.playerState.takeDamage(BLEED_DPS * 0.5)
+      this._updateHealthHud()
+      if (!this.playerState.alive) this._maybeLastStandOrDie()
+    }
+  }
+
   _updateHealthRegen(dt) {
     if (!this.playerState.alive || this.playerState.health >= this.playerState.maxHealth) return
     const secsSinceHit = (performance.now() - this.lastHitTakenAt) / 1000
@@ -18139,6 +19845,12 @@ export class Game {
     if (modeWrapEl) modeWrapEl.style.display = 'none'
 
     this._recordRunEnd(true)
+    // Cursed Run (batch 3 feature) - same restore as the death path, for
+    // the extraction-success ending.
+    if (this._cursedRunOriginalValues) {
+      for (const [key, value] of this._cursedRunOriginalValues) this.settings.mutators[key] = value
+      this._cursedRunOriginalValues = null
+    }
 
     this._gainPoints(pointsBonus)
     this.coins += coinsBonus
@@ -18601,7 +20313,15 @@ export class Game {
     zombiePositions.length = 0
     for (const z of this.zombies.zombies) {
       if (z.state !== 'alive') continue
-      zombiePositions.push({ x: z.group.position.x, z: z.group.position.z })
+      // Shape-based minimap icons (batch feature) - every zombie used to be
+      // an identical red dot, so type info existed on the object but never
+      // reached the map. Shape (not just color) so it reads for colorblind
+      // players too, not only as a color-swap.
+      let shape = 'dot'
+      if (z.isBoss) shape = 'boss'
+      else if (RANGED_ZOMBIE_TYPES.has(z.config?.id)) shape = 'square'
+      else if (z.config?.id === 'exploder') shape = 'triangle'
+      zombiePositions.push({ x: z.group.position.x, z: z.group.position.z, shape })
     }
     // Threat Ping minimap blip (see _showThreatIndicator's manual param) -
     // just times out on its own rather than needing an explicit clear call
@@ -18843,6 +20563,17 @@ export class Game {
         this._lastDistPos = { x: playerPos.x, z: playerPos.z }
       }
       this._updateThirdPerson()
+      // Ambient Wildlife (batch feature) - pure decoration, simple circular
+      // orbit for birds / small pace for rats, no gameplay effect.
+      for (const w of this.ambientWildlife) {
+        w.phase += dt * w.speed
+        w.mesh.position.set(
+          w.cx + Math.cos(w.phase) * w.radius,
+          w.baseY + (w.type === 'bird' ? Math.sin(w.phase * 2) * 0.3 : 0),
+          w.cz + Math.sin(w.phase) * w.radius
+        )
+        w.mesh.rotation.y = -w.phase + Math.PI / 2
+      }
       const isMoving = this.player.onGround && (
         this.player.input.forward || this.player.input.back ||
         this.player.input.left || this.player.input.right
@@ -18854,6 +20585,17 @@ export class Game {
           const p = this.player.controls.object.position
           const onGrass = this.grassBounds && p.x >= this.grassBounds.xMin && p.x <= this.grassBounds.xMax && p.z >= this.grassBounds.zMin && p.z <= this.grassBounds.zMax
           audioEngine.playFootstep(this.isIndoors, onGrass ? 'grass' : 'default')
+          let noiseRadius = onGrass ? FOOTSTEP_NOISE_RADIUS_GRASS : FOOTSTEP_NOISE_RADIUS_DEFAULT
+          if (this.player.isSprinting) noiseRadius *= FOOTSTEP_NOISE_RADIUS_SPRINT_MULT
+          if (this.player.isCrouching) noiseRadius *= FOOTSTEP_NOISE_RADIUS_CROUCH_MULT
+          this._alertNearbyZombiesToFootstep(noiseRadius)
+          // Footprint decals (batch 4 feature) - one per footstep, same
+          // cadence the sound/noise-radius above already uses. Skipped
+          // while swimming - feet aren't on the ground to leave a print.
+          if (!this.player.isSwimming) {
+            this.decals.spawnFootprint(p.x, p.z, this._camDir.x, this._camDir.z, this._footprintLeftNext)
+            this._footprintLeftNext = !this._footprintLeftNext
+          }
         }
       } else {
         this.footstepTimer = 0
@@ -18950,6 +20692,11 @@ export class Game {
           this.tempCompanion = null
         }
         this.nightStartedAt = performance.now()
+        // Horde roar (batch feature) - reuses the existing zombie-snarl
+        // cue (no new audio asset), just at a moment it wasn't triggered
+        // from before: the instant a new night's wave of spawns begins,
+        // not tied to any specific zombie being nearby.
+        audioEngine.playZombieSnarl()
         this._scheduleNightEvent()
         this._rollWeather()
         this._applySeasonalDressing()
@@ -19004,7 +20751,7 @@ export class Game {
         (dmg) => this._onZombieAttack(dmg),
         (x, z) => this.pickups.spawnLootDrop('ammo', x, z), // boss-only guaranteed drop, see ZombieManager
         () => audioEngine.playAmbushShriek(),
-        (zombieTypeId, weaponId, x, z, isElite, isWandering, isGolden, wasFleeing) => this._onZombieKilled(zombieTypeId, weaponId, x, z, isElite, isWandering, isGolden, wasFleeing),
+        (zombieTypeId, weaponId, x, z, isElite, isWandering, isGolden, wasFleeing, isCarrier) => this._onZombieKilled(zombieTypeId, weaponId, x, z, isElite, isWandering, isGolden, wasFleeing, isCarrier),
         this.player.isCrouching || this.player.isProne,
         this.dayNight ? this.dayNight.getPhaseInfo().phase === 'Night' : false,
         (x, z) => this._spawnHazardZone('acid', x, z),
@@ -19047,21 +20794,32 @@ export class Game {
       }
       this._updateSafeZoneHeal(dt, playerPos)
       if (this.settings.mutators.healthRegen) this._updateHealthRegen(dt)
+      this._updateBleed(dt)
       if (this.flashlightOn) this._updateLightLure(playerPos)
       // Companion Auto-Loot - the companion sweeps up anything it walks
       // near too, not just the player (see Pickups.update's companionPos
       // param). Only while actually up and about, same guard every other
       // companion-ability check in this file uses.
       const companionLootPos = (!this.companion.dead && !this.companion.downed) ? this.companion.group.position : null
+      // Pickup Magnet perk (batch 10 feature) - stacks on top of the
+      // Auto-Loot setting's own radius bonus rather than replacing it, so
+      // owning the perk with Auto-Loot on is a real combo, not a wasted pick.
+      const pickupRadiusMult = (this.settings.autoLoot ? AUTO_LOOT_RADIUS_MULT : 1) * (this.hasPickupMagnet ? PICKUP_MAGNET_MULT : 1)
       this.pickups.update(dt, elapsed, playerPos, {
         onPickup: (type, label, isLoot) => this._onPickup(type, label, isLoot),
-      }, companionLootPos, this.settings.autoLoot ? AUTO_LOOT_RADIUS_MULT : 1)
+      }, companionLootPos, pickupRadiusMult)
       this.xpGems.update(dt, elapsed, playerPos, (value) => this._onXpGemCollected(value))
       this.autoWeapons.update(dt, playerPos, this.zombies.zombies, () => {
         this._triggerShake(0.04, 80)
         this._triggerHitstop(30)
       })
 
+      this._updateZombieCounterHud()
+      this._updateDecoyDummies()
+      this._updateFieldNotes(playerPos)
+      this._updateHeadshotStreakBonus()
+      this._updateParryCounterBonus()
+      this._updateCrateBurstMotes(dt)
       this._updateCulling(playerPos)
       this.chests.update(dt, elapsed, playerPos)
       this._updateVault(dt, playerPos)
@@ -19087,7 +20845,26 @@ export class Game {
       this._updateIndustrialSiren(playerPos)
       this._updateWreckingPendulum(playerPos)
       this._updateElevatorTower(playerPos)
+      this._updateDrainpipes(playerPos)
+      this._updateMinecart(playerPos)
+      this._updateJumpPad(playerPos)
       this._updatePayphone(playerPos)
+      this._updateJukebox(playerPos)
+      this._updateWorkbench(playerPos)
+      this._updateBulletinBoard(playerPos)
+      this._updateHallOfFame(playerPos)
+      this._updateNearSafeZoneCenter(playerPos)
+      this._updateSkyscraperShortcut(playerPos)
+      this._updateAdjustableDummy(playerPos)
+      this._updatePet(playerPos, dt)
+      this._updateEscalation(dt)
+      this._updateChallengeTracker()
+      this._deathReplaySampleTimer -= dt
+      if (this._deathReplaySampleTimer <= 0) {
+        this._deathReplaySampleTimer = DEATH_REPLAY_SAMPLE_MS / 1000
+        this._deathReplayBuffer.push({ x: playerPos.x, z: playerPos.z })
+        if (this._deathReplayBuffer.length > DEATH_REPLAY_MAX_SAMPLES) this._deathReplayBuffer.shift()
+      }
       this._updateBarricadeCrates(dt, playerPos)
       this._updateGenerator(dt, playerPos)
       this._updateTrader(playerPos)
@@ -19122,7 +20899,7 @@ export class Game {
         this._showLoreToast('A barricade was breached! Zombies are pouring through.')
         this.zombies.spawnSurge(2)
         void w
-      })
+      }, this.hasBarricadeMedic)
       this.nearBarricadeWindow = this.barricadeWindows.nearestRepairable(playerPos)
 
       const canRefuelGenerator = this.nearGenerator && this.inventory.fuelCans > 0 && this.generatorFuel < this.maxGeneratorFuel
@@ -19212,6 +20989,33 @@ export class Game {
         this.interactPrompt.style.display = 'block'
       } else if (this.nearPayphone && !this.payphoneUsedThisRun) {
         this.interactPrompt.innerHTML = tHtml('interactPayphone')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearJukebox) {
+        this.interactPrompt.innerHTML = tHtml('interactJukebox')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearWorkbench) {
+        this.interactPrompt.innerHTML = tHtml('interactWorkbench')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearBulletinBoard) {
+        this.interactPrompt.innerHTML = tHtml('interactBulletinBoard')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearHallOfFame) {
+        this.interactPrompt.innerHTML = tHtml('interactHallOfFame')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearSkyscraperShortcut) {
+        this.interactPrompt.innerHTML = tHtml('interactSkyscraperShortcut')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearAdjustableDummy) {
+        this.interactPrompt.innerHTML = tHtml('interactDummy')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearMinecart) {
+        this.interactPrompt.innerHTML = tHtml('interactMinecart')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearPet && !this.settings.petAdopted) {
+        this.interactPrompt.innerHTML = tHtml('interactPet')
+        this.interactPrompt.style.display = 'block'
+      } else if (this.nearSafeZoneCenter && this.dayNight && this.dayNight.getPhaseInfo().phase === 'Night') {
+        this.interactPrompt.innerHTML = tHtml('interactSleep')
         this.interactPrompt.style.display = 'block'
       } else {
         this.interactPrompt.style.display = 'none'

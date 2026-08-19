@@ -715,9 +715,14 @@ class AudioEngine {
   }
 
   // Sharp snarl/bite burst when a zombie actually lands a hit on the player.
-  playZombieSnarl() {
+  // Distinct growls per type (batch 8 feature) - scale reuses the same
+  // config.scale/pitchMult convention playZombieMoan/playZombieDeath
+  // already established, so a titan's snarl reads as bigger/lower and a
+  // crawler's as smaller/higher instead of every attack sounding identical.
+  playZombieSnarl(scale) {
     if (!this.ctx) return
-    if (this._playZombieSample('attack', 0.55)) return
+    if (this._playZombieSample('attack', 0.55, this._pitchForScale(scale))) return
+    const pitchMult = this._pitchForScale(scale)
     const ctx = this.ctx
     const now = ctx.currentTime
     const duration = 0.22
@@ -731,7 +736,7 @@ class AudioEngine {
 
     const bandpass = ctx.createBiquadFilter()
     bandpass.type = 'bandpass'
-    bandpass.frequency.value = 900 + Math.random() * 400
+    bandpass.frequency.value = (900 + Math.random() * 400) * pitchMult
     bandpass.Q.value = 2.5
 
     const noiseGain = ctx.createGain()
@@ -744,8 +749,8 @@ class AudioEngine {
 
     const snarl = ctx.createOscillator()
     snarl.type = 'sawtooth'
-    snarl.frequency.setValueAtTime(180 + Math.random() * 60, now)
-    snarl.frequency.exponentialRampToValueAtTime(60, now + duration)
+    snarl.frequency.setValueAtTime((180 + Math.random() * 60) * pitchMult, now)
+    snarl.frequency.exponentialRampToValueAtTime(60 * pitchMult, now + duration)
 
     const snarlGain = ctx.createGain()
     snarlGain.gain.setValueAtTime(0.4, now)
@@ -845,14 +850,61 @@ class AudioEngine {
     scream.stop(now + duration)
   }
 
-  // Self-scheduling loop of random distant creaks/screams, layered under the
-  // constant drone/wind for a city that never quite feels empty.
+  // Ambient audio storytelling (batch 8 feature) - a garbled radio
+  // transmission drifting by, distinct from the wordless creak/scream above:
+  // white-noise "static" with a bandpass sweep and choppy on/off gating
+  // (implying cut-off speech) rather than a single tonal cue. No actual
+  // words - genuinely synthesizing intelligible speech is out of scope for
+  // this project's oscillator-based SFX, so this leans into "barely
+  // readable transmission" rather than faking clarity it can't deliver.
+  playRadioChatter() {
+    if (!this.ctx) return
+    const ctx = this.ctx
+    const now = ctx.currentTime
+    const duration = 1.8 + Math.random() * 1.4
+
+    const bufferSize = ctx.sampleRate * duration
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
+    const data = buffer.getChannelData(0)
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1
+    const noise = ctx.createBufferSource()
+    noise.buffer = buffer
+
+    const bandpass = ctx.createBiquadFilter()
+    bandpass.type = 'bandpass'
+    bandpass.frequency.setValueAtTime(1400, now)
+    bandpass.frequency.linearRampToValueAtTime(2200, now + duration)
+    bandpass.Q.value = 3
+
+    // Choppy gating - a handful of on/off gain steps across the duration,
+    // reading as cut-off, garbled transmission rather than a clean tone.
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(0, now)
+    let t = now
+    const stepCount = 5 + Math.floor(Math.random() * 4)
+    for (let i = 0; i < stepCount; i++) {
+      const on = Math.random() < 0.7
+      gain.gain.setValueAtTime(on ? 0.05 + Math.random() * 0.03 : 0, t)
+      t += duration / stepCount
+    }
+    gain.gain.linearRampToValueAtTime(0.0001, now + duration)
+
+    noise.connect(bandpass).connect(gain).connect(this.sfxGain)
+    noise.start(now)
+    noise.stop(now + duration)
+  }
+
+  // Self-scheduling loop of random distant creaks/screams/radio chatter,
+  // layered under the constant drone/wind for a city that never quite
+  // feels empty.
   _scheduleAmbientScare() {
     const delay = 14000 + Math.random() * 22000
     setTimeout(() => {
       if (!this.ambientStarted) return
-      if (Math.random() < 0.6) this.playDistantCreak()
-      else this.playDistantScream()
+      const roll = Math.random()
+      if (roll < 0.45) this.playDistantCreak()
+      else if (roll < 0.75) this.playDistantScream()
+      else this.playRadioChatter()
       this._scheduleAmbientScare()
     }, delay)
   }
@@ -1153,6 +1205,32 @@ class AudioEngine {
     osc.connect(filter).connect(gain).connect(this.sfxGain)
     osc.start(now)
     osc.stop(now + duration)
+  }
+
+  // Rare drop stinger (batch 7 feature) - a Legendary crate/weapon should
+  // sound like an event, not a routine pickup. Distinct in character from
+  // playBossStinger above (bright rising arpeggio, not a dark descending
+  // drone) - same "sine bell" timbre as playTargetDing, just three notes
+  // instead of one so it reads as a fanfare rather than a single ding.
+  playRareDropStinger() {
+    if (!this.ctx) return
+    const ctx = this.ctx
+    const now = ctx.currentTime
+    const notes = [660, 880, 1320]
+    notes.forEach((freq, i) => {
+      const startAt = now + i * 0.09
+      const dur = 0.4
+      const osc = ctx.createOscillator()
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(freq, startAt)
+      const gain = ctx.createGain()
+      gain.gain.setValueAtTime(0.0001, startAt)
+      gain.gain.exponentialRampToValueAtTime(0.32, startAt + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.001, startAt + dur)
+      osc.connect(gain).connect(this.sfxGain)
+      osc.start(startAt)
+      osc.stop(startAt + dur)
+    })
   }
 
   // Vehicle Horn - two slightly-detuned square oscillators (a real car horn
