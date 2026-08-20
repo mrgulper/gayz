@@ -8767,7 +8767,12 @@ function buildSkyscraper(scene, colliders, solidMeshes, spec, chestSpots) {
   const half = w / 2
   const facingSign = cx < 0 ? 1 : -1 // open facade faces the central avenue
 
-  const shellMat = cachedFlatMaterial({ color: 0x2c2822, roughness: 0.95 })
+  const shellTex = new THREE.TextureLoader().load('/textures/building-wall-decay.png')
+  shellTex.wrapS = THREE.RepeatWrapping
+  shellTex.wrapT = THREE.RepeatWrapping
+  shellTex.colorSpace = THREE.SRGBColorSpace
+  shellTex.repeat.set(Math.max(1, Math.round(w / 7)), Math.max(1, Math.round(h / 7)))
+  const shellMat = cachedFlatMaterial({ map: shellTex, roughness: 0.95 })
   const floorMat = cachedFlatMaterial({ color: 0x3a352c, roughness: 0.9 })
 
   const faceX = cx + facingSign * half
