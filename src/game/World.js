@@ -623,24 +623,31 @@ export function buildWorld(scene, trophyCount = 15) {
   towerChestSpots.push({ x: 145, y: 0, z: -100, lootWeights: WEAPON_ONLY_LOOT_WEIGHTS })
 
   // Stage 4: Police Station + Military Checkpoint, one more block south
-  // along the x=160 strip. "Fortresses" per the blueprint's own zone name -
+  // along the x=-160 strip. "Fortresses" per the blueprint's own zone name -
   // highest density so far, and the first "reinforced entry" (a real
   // lockable door, not just dressing - see Game.js's lockedCells wiring
-  // right after buildWorld() returns).
-  const policeStation = buildPoliceStation(scene, register, 160, -115)
-  registerZone({ id: 'police', x: 160, z: -121, radius: 16, densityMult: 1.6 })
-  towerChestSpots.push({ x: 160, y: 0, z: -116, lootWeights: WEAPON_ONLY_LOOT_WEIGHTS })
+  // right after buildWorld() returns). Mirrored to the west side (x negated
+  // from the original x=160/140) 2026-08-20 at the user's request - nearly
+  // every named landmark had ended up east of center, leaving the whole
+  // west side empty. Confirmed clear of the industrial zone (x=[-30,30],
+  // same clearance reasoning as the prison comment below, symmetric around
+  // x=0) and of the residential zone (x=[-115,-55], z=[-30,30] - no
+  // z-overlap with anything placed here).
+  const policeStation = buildPoliceStation(scene, register, -160, -115)
+  registerZone({ id: 'police', x: -160, z: -121, radius: 16, densityMult: 1.6 })
+  towerChestSpots.push({ x: -160, y: 0, z: -116, lootWeights: WEAPON_ONLY_LOOT_WEIGHTS })
 
-  const militaryCheckpoint = buildMilitaryCheckpoint(scene, register, 140, -115)
-  registerZone({ id: 'checkpoint', x: 140, z: -115, radius: 8, densityMult: 1.4 })
-  towerChestSpots.push({ x: 140, y: 0, z: -112, lootWeights: WEAPON_ONLY_LOOT_WEIGHTS })
+  const militaryCheckpoint = buildMilitaryCheckpoint(scene, register, -140, -115)
+  registerZone({ id: 'checkpoint', x: -140, z: -115, radius: 8, densityMult: 1.4 })
+  towerChestSpots.push({ x: -140, y: 0, z: -112, lootWeights: WEAPON_ONLY_LOOT_WEIGHTS })
 
   // Stage 5: Prison Complex, another block south of the police station -
   // 30+ units of clearance from its cell (z=[-130,-112]), and no x-overlap
-  // with the industrial zone (x=[-30,30]) despite similar z-range.
-  const prison = buildPrison(scene, register, 160, -170)
-  registerZone({ id: 'prison', x: 160, z: -180, radius: 20, densityMult: 1.6 })
-  towerChestSpots.push({ x: 160, y: 0, z: -170, lootWeights: WEAPON_ONLY_LOOT_WEIGHTS })
+  // with the industrial zone (x=[-30,30]) despite similar z-range. Mirrored
+  // west alongside the two locations above, same reasoning.
+  const prison = buildPrison(scene, register, -160, -170)
+  registerZone({ id: 'prison', x: -160, z: -180, radius: 20, densityMult: 1.6 })
+  towerChestSpots.push({ x: -160, y: 0, z: -170, lootWeights: WEAPON_ONLY_LOOT_WEIGHTS })
 
   // Stage 6: Abandoned University Campus, north of the residential zone's
   // own building grid (x=[-190,-130] z=[-27,27]) - 40+ units of z-clearance.
