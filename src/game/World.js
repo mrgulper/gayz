@@ -360,6 +360,16 @@ export function buildWorld(scene, trophyCount = 15) {
   // which is exactly what ruled out index 12 as a third skyscraper.
   const EXTRA_FIRE_ESCAPE_IDXS = new Set([0, 1, 18, 19])
 
+  // Every non-pinned building can end up close enough to a neighbor to
+  // visually touch/clip - too many pairs to hand-verify individually the
+  // way skyscraperIdxs/EXTRA_FIRE_ESCAPE_IDXS were (found after converting
+  // all of them to real hollow skyscrapers made the touching pairs
+  // actually visible as a "glitch" instead of hidden behind solid boxes).
+  // Nudges any too-close pair apart deterministically instead - pinned
+  // indices (the 7 above, whose exact position IS hand-verified against a
+  // fire escape's exterior protrusion) never move, only their neighbors do.
+  resolveBuildingSpacing(buildings, new Set([...skyscraperIdxs, ...EXTRA_FIRE_ESCAPE_IDXS, ...EXCLUDED_BUILDING_IDXS]))
+
   const towerChestSpots = []
   // Elevator Shortcuts (batch feature) - one ground-floor call point per
   // real walkable skyscraper, {x, z, topY}. Game.js turns each into an
@@ -8126,6 +8136,50 @@ export async function preloadPropModels() {
   }))
 }
 
+// Deterministic pairwise separation pass - pushes any two building specs
+// (each just needs x/z/w/d) apart by shifting their x/z whenever their
+// footprints, inflated by minGap, would overlap or come too close. Purely
+// arithmetic on the already-deterministic seeded x/z/w/d values (no
+// Math.random), so buildingLayout()'s "fully deterministic" guarantee
+// (see this project's own CLAUDE.md) still holds - the same map comes out
+// every time. pinnedIdxs never move (their exact position is load-bearing
+// elsewhere, e.g. hand-verified fire-escape clearance) - only their
+// neighbors get nudged away from them. A few relaxation passes so a
+// three-in-a-row squeeze (A pushed into B's space, B into C's) has time to
+// settle instead of leaving a leftover overlap from a single pass.
+function resolveBuildingSpacing(list, pinnedIdxs = new Set(), minGap = 4) {
+  for (let pass = 0; pass < 3; pass++) {
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        const a = list[i]
+        const b = list[j]
+        const dx = b.x - a.x
+        const dz = b.z - a.z
+        const overlapX = (a.w + b.w) / 2 + minGap - Math.abs(dx)
+        const overlapZ = (a.d + b.d) / 2 + minGap - Math.abs(dz)
+        if (overlapX <= 0 || overlapZ <= 0) continue // already clear on at least one axis
+        const aPinned = pinnedIdxs.has(i)
+        const bPinned = pinnedIdxs.has(j)
+        if (aPinned && bPinned) continue // both fixed - shouldn't happen for hand-verified pairs
+        // Resolve along whichever axis needs the smaller push to clear.
+        const pushOnX = overlapX < overlapZ
+        const amount = pushOnX ? overlapX : overlapZ
+        const sign = Math.sign((pushOnX ? dx : dz) || 1)
+        if (aPinned) {
+          if (pushOnX) b.x += sign * amount
+          else b.z += sign * amount
+        } else if (bPinned) {
+          if (pushOnX) a.x -= sign * amount
+          else a.z -= sign * amount
+        } else {
+          if (pushOnX) { a.x -= sign * amount / 2; b.x += sign * amount / 2 }
+          else { a.z -= sign * amount / 2; b.z += sign * amount / 2 }
+        }
+      }
+    }
+  }
+}
+
 // Two rows of buildings flanking a central street (+z is the main avenue),
 // plus a couple set further back to break up the skyline.
 function buildingLayout() {
@@ -8316,6 +8370,15 @@ function buildOuterZones(scene, register, cullables, towerChestSpots, colliders,
   for (const zone of OUTER_ZONES) {
     const { list, nextSeed } = outerZoneBuildingSpecs(zone.centerX, zone.centerZ, zone.axis, seed)
     seed = nextSeed
+    // Same spacing pass as the core downtown grid in buildWorld - only for
+    // industrial/commercial (all-skyscraper zones); suburbs/residential
+    // are all single-story houses (WALKABLE_HOUSE_IDXS covers every slot
+    // there), which never hit the "tall hollow shells touching" glitch
+    // this fixes. OUTER_SKYSCRAPER_PICKS' one pinned index per zone has
+    // its own hand-verified clearance (see that const's own comment).
+    if (zone.name === 'industrial' || zone.name === 'commercial') {
+      resolveBuildingSpacing(list, new Set([OUTER_SKYSCRAPER_PICKS[zone.name]]))
+    }
     for (let i = 0; i < list.length; i++) {
       const spec = list[i]
       if ((zone.name === 'suburbs' || zone.name === 'residential') && WALKABLE_HOUSE_IDXS.has(i)) {
