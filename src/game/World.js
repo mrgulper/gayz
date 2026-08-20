@@ -8620,6 +8620,29 @@ function buildSkyscraper(scene, colliders, solidMeshes, spec, chestSpots) {
       14
     )
 
+    // Landing bridges - buildStairFlight's steps are only 1.6 wide and
+    // centered on stripCenterX, which sits ~1.7 units short of stripInnerX
+    // (where the slab above actually starts), leaving a real ~0.9-unit gap
+    // you can fall through right where the stairwell strip meets the main
+    // room - at both ends of every flight, on every floor. Present in the
+    // original hand-built skyscraper design too (this code is unchanged
+    // there), just never reported until there were many more of these to
+    // walk through. One short bridge at each end (near-z, where the next
+    // flight up starts, and far-z, where this flight lands) closes it,
+    // generously overlapping both the end step and the slab's own edge.
+    const landingCenterX = (stripCenterX + stripInnerX) / 2
+    const landingWidth = Math.abs(stripCenterX - stripInnerX) + 2.0
+    for (const landingZ of [cz - d / 2 + 0.6, cz + d / 2 - 0.6]) {
+      const landing = new THREE.Mesh(
+        new THREE.BoxGeometry(landingWidth, SKYSCRAPER_SLAB_THICKNESS, 1.6),
+        floorMat
+      )
+      landing.position.set(landingCenterX, y - SKYSCRAPER_SLAB_THICKNESS / 2, landingZ)
+      landing.receiveShadow = true
+      scene.add(landing)
+      solidMeshes.push(landing)
+    }
+
     chestSpots.push({ x: mainRoomCenterX, y, z: cz })
   }
 
