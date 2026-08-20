@@ -1,4 +1,5 @@
 import './style.css'
+import './consoleBridge.js'
 import { Game } from './game/Game.js'
 import { preloadBuildingModels, preloadPropModels, preloadGunShopDisplayModels } from './game/World.js'
 import { preloadZombieModel, preloadTitanModel } from './game/Zombie.js'

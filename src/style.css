@@ -5457,6 +5457,13 @@ html.theme-lighter #app { filter: brightness(1.25); }
   color: var(--menu-olive);
   text-transform: uppercase;
   opacity: 0.95;
+  /* Shifts the tagline up into the logo image's own lower whitespace
+     (the blood-drip art has empty space below the visible drips) without
+     touching layout flow - position:relative still reserves this
+     element's original space below it, so #play-btn and everything after
+     stays exactly where it was. */
+  position: relative;
+  top: -40px;
 }
 
 #menu p {
@@ -5471,6 +5478,9 @@ html.theme-lighter #app { filter: brightness(1.25); }
   letter-spacing: 0.3px;
   white-space: pre-line;
   line-height: 1.25;
+  /* Moves with #menu-tagline above - see its comment. */
+  position: relative;
+  top: -40px;
 }
 
 /* Hidden - the reference layout keeps the hero column to title/tagline/
@@ -6066,6 +6076,20 @@ html.theme-lighter #app { filter: brightness(1.25); }
 
 #player-showcase-header .menu-panel-title {
   margin: 0;
+  /* Overrides the shared .menu-panel-title uppercase styling - this one
+     shows the player's actual nickname, which should keep whatever real
+     upper/lowercase mix they typed (see settings.nickname), not get
+     force-capitalized like the other panel section headers that share
+     this class. text-transform alone isn't enough either: .menu-panel-title
+     also sets font-family to Bebas Neue, which has no true lowercase
+     glyphs at all (renders as small-caps regardless of text-transform) -
+     the .nickname-tag class added alongside this one in index.html carries
+     the fix, but ties with .menu-panel-title on specificity and loses on
+     source order, so it's restated here at higher specificity to actually
+     win. */
+  text-transform: none;
+  font-family: var(--nickname-font, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif);
+  color: var(--nickname-color, #e8e8e2);
 }
 
 /* 3D character preview - drag to spin (see MenuAvatar3D.js). Sized as a
@@ -6295,10 +6319,11 @@ html.theme-lighter #app { filter: brightness(1.25); }
   justify-content: center;
   gap: 3px 12px;
   padding: 6px 4px;
-  /* Now a full-width footer below #menu-layout (moved out of #menu-hero) -
-     a bigger gap than its old 8px so it reads as its own bottom-of-page
-     row rather than sitting flush under the nav buttons above it. */
-  margin: 24px auto 4px;
+  /* Full-width footer, last child of #menu's flex column - margin-top:auto
+     is the standard flex trick to dock a child to the far end of its
+     container, pushing this all the way to the bottom of the page instead
+     of just sitting wherever the content above it happens to end. */
+  margin: auto auto 4px;
   width: fit-content;
   background: var(--menu-gunmetal-dark);
   border: 1px solid var(--menu-panel-border);
