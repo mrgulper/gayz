@@ -19,17 +19,6 @@ const TRUSTED_CONSOLE_ORIGIN = 'https://gayzconsole.vercel.app'
 
 let pickerEnabled = false
 let selectedEl = null
-let highlightEl = null
-
-function ensureHighlightEl() {
-  if (highlightEl) return highlightEl
-  highlightEl = document.createElement('div')
-  highlightEl.style.cssText =
-    'position:fixed;pointer-events:none;z-index:999999;border:2px solid #4ee06f;' +
-    'background:rgba(78,224,111,0.12);display:none;box-sizing:border-box;'
-  document.body.appendChild(highlightEl)
-  return highlightEl
-}
 
 function elementId(el) {
   if (el.id) return `#${el.id}`
@@ -48,16 +37,6 @@ function elementId(el) {
   return parts.join(' > ')
 }
 
-function highlightRect(el) {
-  const h = ensureHighlightEl()
-  const r = el.getBoundingClientRect()
-  h.style.display = 'block'
-  h.style.left = `${r.left}px`
-  h.style.top = `${r.top}px`
-  h.style.width = `${r.width}px`
-  h.style.height = `${r.height}px`
-}
-
 // Single click selects an element for editing; double-click instead lets
 // the real page do its real thing (open the Hub/Store/whatever panel) -
 // same "single click selects, double click enters" convention design
@@ -70,7 +49,6 @@ let replaying = false
 
 function selectElement(el) {
   selectedEl = el
-  highlightRect(el)
   const cs = getComputedStyle(el)
   window.parent.postMessage(
     {
@@ -134,7 +112,6 @@ window.addEventListener('message', (event) => {
     pickerEnabled = false
     document.removeEventListener('click', onPickerClick, true)
     if (pendingClickTimer) { clearTimeout(pendingClickTimer); pendingClickTimer = null }
-    if (highlightEl) highlightEl.style.display = 'none'
   } else if (msg.type === 'gzc-edit' && selectedEl) {
     if (msg.prop === 'text') selectedEl.textContent = msg.value
     else if (msg.prop === 'color') selectedEl.style.color = msg.value
@@ -146,6 +123,5 @@ window.addEventListener('message', (event) => {
       selectedEl.style.left = `${cur.x}px`
       selectedEl.style.top = `${cur.y}px`
     }
-    highlightRect(selectedEl)
   }
 })
