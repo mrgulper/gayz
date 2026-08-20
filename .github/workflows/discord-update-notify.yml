@@ -18,6 +18,14 @@ jobs:
         run: |
           export SHORT_SHA="${COMMIT_SHA:0:7}"
           export TITLE="$(echo "$COMMIT_MESSAGE" | head -n1)"
+
+          # Commits about the private GayzConsole tool are marked with a
+          # [console] prefix and skipped here on purpose - that project is
+          # meant to stay unlisted, not show up in the public #updates feed.
+          if echo "$TITLE" | grep -qi '^\[console\]'; then
+            echo "Skipping Discord post - [console]-tagged commit"
+            exit 0
+          fi
           echo "Debug - TITLE='$TITLE' SHORT_SHA='$SHORT_SHA' COMMIT_URL='$COMMIT_URL' COMMIT_AUTHOR='$COMMIT_AUTHOR'"
           PAYLOAD=$(python3 -c "
           import json, os
