@@ -5663,9 +5663,10 @@ html.theme-lighter #app { filter: brightness(1.25); }
 
 /* Game Mode - a smaller secondary button directly under Play, opens the
    same content that used to live behind the Hub nav button (see
-   _openHubPanel/#gamemode-btn's listener in Game.js). Deliberately plainer
-   than Play's own octagon-plate image treatment - it's a secondary
-   action, not the primary call to action. */
+   _openHubPanel/#gamemode-btn's listener in Game.js). Reskinned with the
+   same gold-plate image as Hub/Store/Upgrades (2026-08-20) - see that
+   rule's own comment for the background-size/border reasoning, same
+   deal here. */
 #gamemode-btn {
   margin-top: 10px;
   padding: 14px 38px;
@@ -5674,15 +5675,14 @@ html.theme-lighter #app { filter: brightness(1.25); }
   letter-spacing: 0.8px;
   text-transform: uppercase;
   color: var(--menu-gold);
-  background: var(--menu-gunmetal-dark);
-  border: 2px solid var(--menu-panel-border);
-  border-radius: 5px;
+  background: url('/images/plate-blank.webp') center / 100% 100% no-repeat;
+  border: none;
+  border-radius: 0;
   cursor: pointer;
-  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+  transition: filter 0.2s ease, transform 0.15s ease;
 }
 #gamemode-btn:hover {
-  border-color: var(--menu-gold);
-  background: color-mix(in srgb, var(--menu-gold) 12%, var(--menu-gunmetal-dark));
+  filter: brightness(1.18);
   transform: translateY(-1px);
 }
 
@@ -6304,6 +6304,35 @@ html.theme-lighter #app { filter: brightness(1.25); }
   color: #fff;
   transform: translateX(2px);
   box-shadow: 0 0 14px 1px rgba(227, 166, 60, 0.25);
+}
+
+/* Hub/Store/Upgrades reskinned with the user's gold-plate image
+   (2026-08-20) - just these 3 of the 8 nav buttons, not the whole list.
+   Needs #menu-nav-buttons prefixed on the selector for specificity (the
+   shared button rule above is already #id + type, which beats a bare
+   #hub-btn on its own). border/box-shadow/border-radius cleared since the
+   plate image already has its own frame baked in - a CSS border around it
+   would double up. background-size stretches the plate to fill each
+   button's own box (100% 100%, not contain/cover) since these buttons'
+   fixed layout dimensions don't match the plate's own aspect ratio and
+   there's no per-button flexibility to give it room otherwise. */
+#menu-nav-buttons #hub-btn,
+#menu-nav-buttons #coinshop-btn,
+#menu-nav-buttons #upgrades-btn {
+  background: url('/images/plate-blank.webp') center / 100% 100% no-repeat;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+#menu-nav-buttons #hub-btn:hover,
+#menu-nav-buttons #coinshop-btn:hover,
+#menu-nav-buttons #upgrades-btn:hover {
+  background: url('/images/plate-blank.webp') center / 100% 100% no-repeat;
+  border: none;
+  filter: brightness(1.18);
+  transform: translateX(2px);
+  box-shadow: 0 0 14px 1px rgba(227, 166, 60, 0.35);
 }
 
 /* Small pill-style utility link row (Rules & Info / What's New / Credits /
