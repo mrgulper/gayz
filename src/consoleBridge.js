@@ -20,6 +20,17 @@ const TRUSTED_CONSOLE_ORIGIN = 'https://gayz-console.onrender.com'
 let pickerEnabled = false
 let selectedEl = null
 
+function getOffset(el) {
+  return el.dataset.gzcOffset ? JSON.parse(el.dataset.gzcOffset) : { x: 0, y: 0 }
+}
+
+function setOffset(el, x, y) {
+  el.dataset.gzcOffset = JSON.stringify({ x, y })
+  el.style.position = 'relative'
+  el.style.left = `${x}px`
+  el.style.top = `${y}px`
+}
+
 function elementId(el) {
   if (el.id) return `#${el.id}`
   // Fallback for un-id'd elements - an nth-child path good enough to
@@ -83,6 +94,7 @@ function activateElement(el) {
 
 function onPickerClick(e) {
   if (!pickerEnabled || replaying) return
+  if (dragJustHappened) { dragJustHappened = false; return }
   e.preventDefault()
   e.stopPropagation()
   const el = e.target
@@ -99,6 +111,47 @@ function onPickerClick(e) {
   }, DBLCLICK_WINDOW_MS)
 }
 
+// Free-drag - press and drag any element to reposition it live, instead of
+// only nudging it via the sidebar's X/Y number fields. A press that never
+// moves past DRAG_THRESHOLD px still falls through to onPickerClick as a
+// normal click/double-click; one that does becomes a drag instead, and
+// dragJustHappened suppresses the click that would otherwise follow it.
+const DRAG_THRESHOLD = 4
+let dragState = null
+let dragJustHappened = false
+
+function onPickerMouseDown(e) {
+  if (!pickerEnabled || replaying) return
+  dragState = { el: e.target, startX: e.clientX, startY: e.clientY, dragging: false }
+}
+
+function onPickerMouseMove(e) {
+  if (!pickerEnabled || !dragState) return
+  const dx = e.clientX - dragState.startX
+  const dy = e.clientY - dragState.startY
+
+  if (!dragState.dragging) {
+    if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return
+    dragState.dragging = true
+    dragJustHappened = true
+    if (pendingClickTimer) { clearTimeout(pendingClickTimer); pendingClickTimer = null }
+    const origin = getOffset(dragState.el)
+    dragState.origX = origin.x
+    dragState.origY = origin.y
+    selectElement(dragState.el)
+  }
+
+  e.preventDefault()
+  const newX = dragState.origX + dx
+  const newY = dragState.origY + dy
+  setOffset(dragState.el, newX, newY)
+  window.parent.postMessage({ type: 'gzc-position', x: newX, y: newY }, TRUSTED_CONSOLE_ORIGIN)
+}
+
+function onPickerMouseUp() {
+  dragState = null
+}
+
 window.addEventListener('message', (event) => {
   if (event.origin !== TRUSTED_CONSOLE_ORIGIN) return
   if (event.source !== window.parent) return
@@ -108,20 +161,24 @@ window.addEventListener('message', (event) => {
   if (msg.type === 'gzc-enable-picker') {
     pickerEnabled = true
     document.addEventListener('click', onPickerClick, true)
+    document.addEventListener('mousedown', onPickerMouseDown, true)
+    document.addEventListener('mousemove', onPickerMouseMove, true)
+    document.addEventListener('mouseup', onPickerMouseUp, true)
   } else if (msg.type === 'gzc-disable-picker') {
     pickerEnabled = false
     document.removeEventListener('click', onPickerClick, true)
+    document.removeEventListener('mousedown', onPickerMouseDown, true)
+    document.removeEventListener('mousemove', onPickerMouseMove, true)
+    document.removeEventListener('mouseup', onPickerMouseUp, true)
     if (pendingClickTimer) { clearTimeout(pendingClickTimer); pendingClickTimer = null }
+    dragState = null
   } else if (msg.type === 'gzc-edit' && selectedEl) {
     if (msg.prop === 'text') selectedEl.textContent = msg.value
     else if (msg.prop === 'color') selectedEl.style.color = msg.value
     else if (msg.prop === 'x' || msg.prop === 'y') {
-      const cur = selectedEl.dataset.gzcOffset ? JSON.parse(selectedEl.dataset.gzcOffset) : { x: 0, y: 0 }
+      const cur = getOffset(selectedEl)
       cur[msg.prop] = Number(msg.value) || 0
-      selectedEl.dataset.gzcOffset = JSON.stringify(cur)
-      selectedEl.style.position = 'relative'
-      selectedEl.style.left = `${cur.x}px`
-      selectedEl.style.top = `${cur.y}px`
+      setOffset(selectedEl, cur.x, cur.y)
     }
   }
 })
