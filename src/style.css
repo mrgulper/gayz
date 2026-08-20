@@ -2672,7 +2672,7 @@ select option {
 }
 
 #inventory-weapons-col .inv-panel-section {
-  width: 220px;
+  width: 260px;
 }
 
 @media (max-width: 640px) {
