@@ -721,9 +721,11 @@ const GLOBAL_KILLS_MILESTONE_STEP = 100000
 const AUTO_LOOT_RADIUS_MULT = 2.5
 // Pickup Magnet perk (batch 10 feature)
 const PICKUP_MAGNET_MULT = 1.6
-// Surrender (batch 10 feature) - a fraction of the normal death payout,
-// the cost of bailing out deliberately instead of actually surviving/dying.
-const SURRENDER_LEGACY_MULT = 0.5
+// Quit to Menu's Legacy Points payout (was Surrender Run's, folded into
+// Quit 2026-08-20 - see pauseQuitBtn's own comment) - a fraction of the
+// normal death payout, the cost of bailing out deliberately instead of
+// actually surviving/dying.
+const QUIT_LEGACY_MULT = 0.5
 // Renamed from WEEKLY_FEATURED_MUTATOR_LABEL_KEYS (Online Features batch)
 // and extended to cover every mutator with a real i18n label - the
 // Mutator Exploration spotlight nudge (see _updateMenuSpotlight mode 4)
@@ -5047,11 +5049,9 @@ export class Game {
     this.pauseResumeBtn = document.getElementById('pause-resume-btn')
     this.pauseSettingsBtn = document.getElementById('pause-settings-btn')
     this.pauseQuitBtn = document.getElementById('pause-quit-btn')
-    this.pauseSurrenderBtn = document.getElementById('pause-surrender-btn')
     this.pauseUpgradesBtn = document.getElementById('pause-upgrades-btn')
     this.pauseSpectateBtn = document.getElementById('pause-spectate-btn')
     this.pauseWeaponBtn = document.getElementById('pause-weapon-btn')
-    this.pauseHowToPlayBtn = document.getElementById('pause-howtoplay-btn')
     this.screenshotCropOverlay = document.getElementById('screenshot-crop-overlay')
     this.screenshotCropStage = document.getElementById('screenshot-crop-stage')
     this.screenshotCropImage = document.getElementById('screenshot-crop-image')
@@ -5809,35 +5809,23 @@ export class Game {
       this.player.controls.lock()
     })
     this.pauseSettingsBtn.addEventListener('click', () => this._toggleSettings(true))
+    // Quit to Menu (2026-08-20: now always banks a reduced Legacy Points
+    // payout - see QUIT_LEGACY_MULT's own comment - folding in what the
+    // separate Surrender Run button used to do, since that button's whole
+    // purpose was exactly this and having both was redundant. No extra
+    // points-preview confirm here (unlike Surrender's old one) - this is
+    // now just how quitting works, not a special separate action; the
+    // existing confirmQuitRun setting still covers "are you sure" for
+    // players who want that.
     this.pauseQuitBtn.addEventListener('click', async () => {
       if (this.settings.confirmQuitRun && !window.confirm(t('confirmQuitRunMessage'))) return
       // Awaited - MediaRecorder.stop() is async, and reloading before its
       // 'stop' event fires would tear down the page mid-save and lose the
       // clip entirely instead of downloading it.
       await this._stopClipRecordingIfActive()
-      window.location.reload()
-    })
-    // Surrender (batch 10 feature) - distinct from Quit to Menu above: that
-    // one abandons the run with nothing banked at all (no _recordRunEnd
-    // call, no legacy points); this deliberately banks a reduced payout
-    // first (see SURRENDER_LEGACY_MULT's own comment), a real middle ground
-    // between fighting to a real end and losing everything on rage-quit.
-    this.pauseSurrenderBtn.addEventListener('click', async () => {
-      // Legacy payout computed and shown BEFORE the confirm, not after (see
-      // _surrenderRun's own comment on why this skips the normal death
-      // screen) - the player should know what they're banking before
-      // committing, not find out on the next page load.
-      const legacyPreview = Math.floor(this.points * DEATH_POINTS_CONVERSION * SURRENDER_LEGACY_MULT * (1 + this.metaProgress.prestigeLevel * 0.1))
-      if (!window.confirm(t('confirmSurrenderMessage', { n: legacyPreview }))) return
-      await this._stopClipRecordingIfActive()
-      this._surrenderRun()
+      this._quitRunWithLegacyPayout()
     })
     this.pauseUpgradesBtn.addEventListener('click', () => this._openUpgradesPanel())
-    // Pause-menu tutorial refresher (batch 7 feature) - How to Play used to
-    // live here (see the pause menu's own changelog entry) before Spectate
-    // replaced it; still reachable from the main menu, this just restores
-    // the mid-run access point too.
-    this.pauseHowToPlayBtn.addEventListener('click', () => this._openHowToPlayPanel())
     this.pauseSpectateBtn.addEventListener('click', () => {
       this.pauseOverlay.style.display = 'none'
       this._enterSpectate()
@@ -5907,12 +5895,10 @@ export class Game {
         this.pauseOverlayTitle.textContent = t('pauseOverlayTitle')
         this.pauseResumeBtn.textContent = t('pauseResumeBtn')
         this.pauseUpgradesBtn.textContent = t('upgradesBtn')
-        this.pauseHowToPlayBtn.textContent = t('pauseHowToPlayBtn')
         this.pauseSpectateBtn.textContent = t('pauseSpectateBtn')
         this.pauseWeaponBtn.textContent = t('pauseWeaponBtn')
         this.pauseSettingsBtn.textContent = t('settingsBtn')
         this.pauseQuitBtn.textContent = t('pauseQuitBtn')
-        this.pauseSurrenderBtn.textContent = t('pauseSurrenderBtn')
         if (this.pausePlaytimeLineEl) {
           this.pausePlaytimeLineEl.style.display = this.settings.showPausePlaytime ? '' : 'none'
           if (this.settings.showPausePlaytime) {
@@ -15827,15 +15813,17 @@ export class Game {
     this._pushOnlineStats()
   }
 
-  // Surrender (batch 10 feature) - deliberately lean: reuses _recordRunEnd
+  // Quit to Menu's Legacy Points payout (originally the Surrender Run
+  // button, batch 10 feature - folded into Quit 2026-08-20, see
+  // pauseQuitBtn's own comment) - deliberately lean: reuses _recordRunEnd
   // (the generic persistent-record update, same call both death and
   // extraction-success already make) for the run-history/stats bookkeeping,
   // but skips every death-SPECIFIC narrative side effect _onPlayerDeath has
   // (killcam, nemesis, hardcore memorial, totalDeaths/first_death - none of
   // those honestly apply to a run the player chose to end, not one where
   // they were actually killed).
-  _surrenderRun() {
-    const legacyEarned = Math.floor(this.points * DEATH_POINTS_CONVERSION * SURRENDER_LEGACY_MULT * (1 + this.metaProgress.prestigeLevel * 0.1))
+  _quitRunWithLegacyPayout() {
+    const legacyEarned = Math.floor(this.points * DEATH_POINTS_CONVERSION * QUIT_LEGACY_MULT * (1 + this.metaProgress.prestigeLevel * 0.1))
     this.metaProgress.legacyPoints += legacyEarned
     saveMetaProgress(this.metaProgress)
     this._recordRunEnd(false)
