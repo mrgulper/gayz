@@ -326,24 +326,23 @@ export function buildWorld(scene, trophyCount = 15) {
   scene.add(moon)
 
   const groundSize = 750
-  // LOW_QUALITY_MODE: flat color, no image texture loaded over the network
-  // and no bump map generated at all - the single biggest remaining
-  // texture-memory/tiling cost in the whole map (a real photo tiled ~62x
-  // across 750 units, plus a bump map tiled 250x). Real textured path
-  // fully intact below, just skipped for now - see QualitySettings.js.
-  const groundMat = LOW_QUALITY_MODE
-    ? new THREE.MeshLambertMaterial({ color: 0x444443 })
-    : (() => {
-        const groundTex = new THREE.TextureLoader().load('/textures/ground-asphalt.png')
-        groundTex.wrapS = THREE.RepeatWrapping
-        groundTex.wrapT = THREE.RepeatWrapping
-        groundTex.colorSpace = THREE.SRGBColorSpace
-        groundTex.repeat.set(groundSize / 12, groundSize / 12)
-        const groundBumpTex = getSharedBumpTexture().clone()
-        groundBumpTex.needsUpdate = true
-        groundBumpTex.repeat.set(groundSize / 3, groundSize / 3)
-        return cachedFlatMaterial({ map: groundTex, bumpMap: groundBumpTex, bumpScale: 0.06, roughness: 1 })
-      })()
+  // Ground always gets the real asphalt photo texture, regardless of
+  // LOW_QUALITY_MODE - explicitly requested even at the cost of the
+  // tiling/memory savings LOW_QUALITY_MODE otherwise gets here (see
+  // QualitySettings.js). bumpMap/roughness still get silently dropped by
+  // cachedFlatMaterial under LOW_QUALITY_MODE (Lambert has no use for
+  // them), but `map` is kept either way.
+  const groundMat = (() => {
+    const groundTex = new THREE.TextureLoader().load('/textures/ground-asphalt.png')
+    groundTex.wrapS = THREE.RepeatWrapping
+    groundTex.wrapT = THREE.RepeatWrapping
+    groundTex.colorSpace = THREE.SRGBColorSpace
+    groundTex.repeat.set(groundSize / 12, groundSize / 12)
+    const groundBumpTex = getSharedBumpTexture().clone()
+    groundBumpTex.needsUpdate = true
+    groundBumpTex.repeat.set(groundSize / 3, groundSize / 3)
+    return cachedFlatMaterial({ map: groundTex, bumpMap: groundBumpTex, bumpScale: 0.06, roughness: 1 })
+  })()
   // This is the surface PlayerController._sampleGroundHeight raycasts
   // against for standing height - a plain, hole-less PlaneGeometry here
   // would physically stop the player at y=0 above either underground
