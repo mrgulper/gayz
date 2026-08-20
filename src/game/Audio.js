@@ -25,6 +25,18 @@ const ZOMBIE_SOUND_FILES = {
   death: ['zombie-21.wav', 'zombie-18.wav', 'zombie-16.wav', 'zombie-17.wav'],
 }
 
+// Weather ambience (batch 2026-08-20, at the user's request - the rain/snow
+// bandpassed-noise bed in startAmbient was too quiet/thin to actually read
+// as rain or snow, and snow had no dedicated layer of its own at all).
+// "Rain (loopable)" by qubodup (CC0, opengameart.org/content/rain-loopable) -
+// the longest (45s) of its 4 clips, picked for the least noticeable loop
+// seam. "wind whoosh loop" by qubodup (CC0,
+// opengameart.org/content/wind-whoosh-loop) doubles as the snow bed - snow
+// itself is silent, what you actually hear in a snowfall is the cold wind,
+// which is exactly what this clip is.
+const RAIN_AMBIENCE_URL = '/audio/weather/rain-ambience.mp3'
+const SNOW_AMBIENCE_URL = '/audio/weather/snow-wind-ambience.ogg'
+
 class AudioEngine {
   constructor() {
     this.ctx = null
@@ -33,6 +45,8 @@ class AudioEngine {
     this.musicStarted = false
     this.radioMuted = false
     this.zombieBuffers = { attack: [], moan: [], death: [] }
+    this._rainBuffer = null
+    this._snowBuffer = null
     this.sfxVolume = 1
     this.musicVolume = 1
     this.ambientVolume = 1
@@ -61,6 +75,27 @@ class AudioEngine {
     this.ambientGain.gain.value = this.ambientVolume
     this.ambientGain.connect(this.ctx.destination)
     this._loadZombieSounds()
+    this._loadWeatherSounds()
+  }
+
+  // Same fetch+decodeAudioData pattern as _loadZombieSounds. Kicked off here
+  // (well before startAmbient/setWeatherAudio ever run) so the buffers are
+  // usually already decoded by the time a rainy/snowy night actually rolls;
+  // startAmbient wires up the gain nodes immediately regardless and
+  // _startWeatherSource (called from both startAmbient and, if it missed
+  // the buffer, setWeatherAudio) attaches the real source whenever the
+  // buffer becomes available.
+  _loadWeatherSounds() {
+    fetch(RAIN_AMBIENCE_URL)
+      .then((res) => res.arrayBuffer())
+      .then((data) => this.ctx.decodeAudioData(data))
+      .then((buffer) => { this._rainBuffer = buffer; this._startWeatherSource('rain') })
+      .catch(() => {})
+    fetch(SNOW_AMBIENCE_URL)
+      .then((res) => res.arrayBuffer())
+      .then((data) => this.ctx.decodeAudioData(data))
+      .then((buffer) => { this._snowBuffer = buffer; this._startWeatherSource('snow') })
+      .catch(() => {})
   }
 
   _loadZombieSounds() {
@@ -986,43 +1021,65 @@ class AudioEngine {
     this._ambientIndoorAmount = 0
 
     // Weather-reactive audio (see setWeatherAudio, called from Game.js's
-    // _rollWeather) - same looped-noise-buffer technique as the wind bed
-    // just above, but bandpassed higher (rain hiss vs wind rumble) so the
-    // two read as distinct layers rather than one just being a louder
-    // version of the other. Starts at 0 gain - setWeatherAudio ramps it up
-    // only once a night actually rolls rain, never audible on a clear one.
-    const rainBuffer = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate)
-    const rainData = rainBuffer.getChannelData(0)
-    for (let i = 0; i < rainData.length; i++) rainData[i] = Math.random() * 2 - 1
-    const rain = ctx.createBufferSource()
-    rain.buffer = rainBuffer
-    rain.loop = true
-    const rainFilter = ctx.createBiquadFilter()
-    rainFilter.type = 'bandpass'
-    rainFilter.frequency.value = 3200
-    rainFilter.Q.value = 0.5
+    // _rollWeather) - real recorded rain/wind loops now (see
+    // RAIN_AMBIENCE_URL/SNOW_AMBIENCE_URL's own comment for why - the
+    // previous bandpassed-noise-buffer version read as too thin/quiet to
+    // register as actual weather). Gain nodes are created here,
+    // unconditionally, so setWeatherAudio always has something to ramp;
+    // the real BufferSource gets attached to each whenever its buffer
+    // finishes decoding (_startWeatherSource, called from both
+    // _loadWeatherSounds and here in case it's already decoded by now).
     const rainGain = ctx.createGain()
     rainGain.gain.value = 0
-    rain.connect(rainFilter).connect(rainGain).connect(this.ambientGain)
-    rain.start(now)
+    rainGain.connect(this.ambientGain)
     this._rainGainNode = rainGain
+
+    const snowGain = ctx.createGain()
+    snowGain.gain.value = 0
+    snowGain.connect(this.ambientGain)
+    this._snowGainNode = snowGain
+
+    this._startWeatherSource('rain')
+    this._startWeatherSource('snow')
 
     this._scheduleAmbientScare()
   }
 
-  // Weather-reactive audio mix - ramps the rain-hiss bed in/out (see
-  // startAmbient above) and muffles the SFX bus the same way indoor spaces
-  // already do (see setIndoorAmount's lowpass idea), so gunfire genuinely
-  // sounds duller in a storm instead of weather only being a visual/
-  // gameplay-vision effect. Snow gets a much lighter version - no hiss,
-  // just a touch of muffling - matching how the visual weather system
-  // already treats snow as calmer than rain (no thunder, less fog).
+  // Attaches the decoded rain/snow buffer to its (already-connected) gain
+  // node and starts looped playback - a no-op until the buffer has finished
+  // loading, and guarded against running twice for the same kind.
+  _startWeatherSource(kind) {
+    if (!this.ctx || !this.ambientStarted) return
+    const buffer = kind === 'rain' ? this._rainBuffer : this._snowBuffer
+    const gainNode = kind === 'rain' ? this._rainGainNode : this._snowGainNode
+    if (!buffer || !gainNode || gainNode._sourceStarted) return
+    const source = this.ctx.createBufferSource()
+    source.buffer = buffer
+    source.loop = true
+    source.connect(gainNode)
+    source.start(this.ctx.currentTime)
+    gainNode._sourceStarted = true
+  }
+
+  // Weather-reactive audio mix - ramps the real rain/wind ambience beds
+  // in/out (see startAmbient above) and muffles the SFX bus the same way
+  // indoor spaces already do (see setIndoorAmount's lowpass idea), so
+  // gunfire genuinely sounds duller in a storm instead of weather only
+  // being a visual/gameplay-vision effect. Snow's wind bed is a good deal
+  // quieter than rain's - matching how the visual weather system already
+  // treats snow as calmer than rain (no thunder, less fog) - but it's a
+  // real audible layer now, not silence.
   setWeatherAudio(raining, snowing) {
     if (!this.ctx || !this._rainGainNode || !this.sfxGain) return
     const now = this.ctx.currentTime
-    const targetRainGain = raining ? 0.05 : 0
+    const targetRainGain = raining ? 0.4 : 0
     this._rainGainNode.gain.cancelScheduledValues(now)
     this._rainGainNode.gain.linearRampToValueAtTime(targetRainGain, now + 2)
+    if (this._snowGainNode) {
+      const targetSnowGain = snowing ? 0.22 : 0
+      this._snowGainNode.gain.cancelScheduledValues(now)
+      this._snowGainNode.gain.linearRampToValueAtTime(targetSnowGain, now + 2)
+    }
     if (!this._weatherMuffleFilter) {
       const f = this.ctx.createBiquadFilter()
       f.type = 'lowpass'
