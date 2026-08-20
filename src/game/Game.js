@@ -501,6 +501,23 @@ function loadSettings() {
         randomizer: parsed.mutators?.randomizer ?? false,
       },
     }
+    // Repairs a hotbar with empty (null) slots - a real save could have
+    // gotten into this state from _assignHotbarSlot's old overwrite bug
+    // (fixed 2026-08-20, see that function's own comment: assigning a
+    // weapon to an occupied slot used to just drop the previous occupant
+    // instead of swapping it elsewhere). The array-shape check just above
+    // only replaces the whole hotbar if it isn't a valid 3-length array,
+    // so a save with e.g. ['harpoon', null, null] passed through
+    // untouched - backfill each null slot with the first default weapon
+    // not already present elsewhere on the hotbar.
+    if (settings.hotbar.includes(null)) {
+      const fallbacks = ['rifle', 'pistol', 'melee']
+      for (let i = 0; i < settings.hotbar.length; i++) {
+        if (settings.hotbar[i] !== null) continue
+        const fill = fallbacks.find((id) => !settings.hotbar.includes(id))
+        if (fill) settings.hotbar[i] = fill
+      }
+    }
     // A genuinely new player's generated defaults (starter nickname, etc.)
     // only exist in memory otherwise - persist them right away so a page
     // refresh before any real settings change doesn't silently generate a
