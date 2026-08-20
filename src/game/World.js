@@ -8572,7 +8572,16 @@ function buildSkyscraper(scene, colliders, solidMeshes, spec, chestSpots) {
 
   const shellTex = getSharedWallDecayTexture().clone()
   shellTex.needsUpdate = true
-  shellTex.repeat.set(Math.max(1, Math.round(w / 7)), Math.max(1, Math.round(h / 7)))
+  // No Math.round here (unlike an earlier version of this line) - rounding
+  // the repeat count to a whole number forces a fixed texel density onto
+  // whatever height happens to round down to, which visibly stretches the
+  // image on shorter buildings (h=7.8, the shortest a 2-floor conversion
+  // gets, rounds to a single full-height tile - the classic symptom a user
+  // reported: one wall looking oddly smeared/distorted vertically compared
+  // to its neighbors). groundTex/plazaTex elsewhere in this file never
+  // round their repeat either, for the same reason - keep the raw division
+  // so texel density stays consistent across every building size.
+  shellTex.repeat.set(Math.max(1, w / 7), Math.max(1, h / 7))
   const shellMat = cachedFlatMaterial({ map: shellTex, roughness: 0.95 })
   const floorMat = cachedFlatMaterial({ color: 0x3a352c, roughness: 0.9 })
 
