@@ -15,7 +15,7 @@
 // checked on every inbound message, and used as the explicit target for
 // every outbound one (instead of '*') so selected-element data is never
 // handed to some other page that happened to iframe this one.
-const TRUSTED_CONSOLE_ORIGIN = 'https://gayz-console.onrender.com'
+const TRUSTED_CONSOLE_ORIGIN = 'https://gayzconsole.vercel.app'
 
 let pickerEnabled = false
 let selectedEl = null
