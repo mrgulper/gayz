@@ -332,7 +332,7 @@ export function buildWorld(scene, trophyCount = 15) {
   // across 750 units, plus a bump map tiled 250x). Real textured path
   // fully intact below, just skipped for now - see QualitySettings.js.
   const groundMat = LOW_QUALITY_MODE
-    ? new THREE.MeshLambertMaterial({ color: 0x3a3a38 })
+    ? new THREE.MeshLambertMaterial({ color: 0x444443 })
     : (() => {
         const groundTex = new THREE.TextureLoader().load('/textures/ground-asphalt.png')
         groundTex.wrapS = THREE.RepeatWrapping
