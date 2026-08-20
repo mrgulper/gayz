@@ -3544,7 +3544,7 @@ function buildAmmoStation(scene, register) {
   const ctx = canvas.getContext('2d')
   ctx.fillStyle = '#0a0a0a'
   ctx.fillRect(0, 0, canvas.width, canvas.height)
-  ctx.fillStyle = '#e3a63c'
+  ctx.fillStyle = '#e3c23c'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.font = 'bold 20px sans-serif'
@@ -6731,7 +6731,7 @@ function buildSubwayParkEntrance(scene, colliders, solidMeshes, flickerLights) {
   const signCtx = signCanvas.getContext('2d')
   signCtx.fillStyle = '#1a1408'
   signCtx.fillRect(0, 0, signCanvas.width, signCanvas.height)
-  signCtx.fillStyle = '#ffb347'
+  signCtx.fillStyle = '#ffda47'
   signCtx.font = 'bold 52px sans-serif'
   signCtx.textAlign = 'center'
   signCtx.textBaseline = 'middle'

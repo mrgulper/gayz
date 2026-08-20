@@ -80,7 +80,7 @@ export class Minimap {
     if (minigunLandmark) {
       const px = cx + (minigunLandmark.x - playerPos.x) * scale
       const py = cy + (minigunLandmark.z - playerPos.z) * scale
-      ctx.fillStyle = '#ffcf5c'
+      ctx.fillStyle = '#ffde5c'
       ctx.beginPath()
       ctx.moveTo(px, py - 6)
       ctx.lineTo(px + 5.5, py + 4.5)
@@ -92,7 +92,7 @@ export class Minimap {
     if (traderLandmark) {
       const px = cx + (traderLandmark.x - playerPos.x) * scale
       const py = cy + (traderLandmark.z - playerPos.z) * scale
-      ctx.fillStyle = '#e3a63c'
+      ctx.fillStyle = '#e3c23c'
       ctx.save()
       ctx.translate(px, py)
       ctx.rotate(Math.PI / 4)

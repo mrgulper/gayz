@@ -113,8 +113,8 @@ html.dyslexia-font body {
 
 #build-mode-line-btn.active,
 #build-mode-copy-btn.active {
-  border-color: #ffcf5c;
-  color: #ffcf5c;
+  border-color: #ffde5c;
+  color: #ffde5c;
 }
 
 #build-mode-exit-btn {
@@ -155,7 +155,7 @@ html.dyslexia-font body {
 }
 
 .build-picker-search:focus {
-  border-color: #d9a34a;
+  border-color: #d9bc4a;
 }
 
 .build-picker-grid {
@@ -192,7 +192,7 @@ html.dyslexia-font body {
 }
 
 .build-picker-swatch.selected {
-  border-color: #d9a34a;
+  border-color: #d9bc4a;
 }
 
 .build-picker-label {
@@ -230,7 +230,7 @@ html.dyslexia-font body {
 }
 
 .build-hotbar-slot.selected {
-  border-color: #d9a34a;
+  border-color: #d9bc4a;
 }
 
 .build-hotbar-slot-num {
@@ -270,8 +270,8 @@ html.dyslexia-font body {
 }
 
 .build-slot-btn.active {
-  border-color: #d9a34a;
-  color: #d9a34a;
+  border-color: #d9bc4a;
+  color: #d9bc4a;
 }
 
 .build-slot-dot {
@@ -305,7 +305,7 @@ html.dyslexia-font body {
    display site (Hardcore Memorial, Kill Feed), same --X-color-from-JS
    pattern as --crosshair-color above. */
 .nickname-tag {
-  color: var(--nickname-color, #ffe08a);
+  color: var(--nickname-color, #ffe88a);
   font-weight: 700;
   font-family: var(--nickname-font, inherit);
 }
@@ -422,7 +422,7 @@ html.layout-compact .menu-panel {
 }
 
 #howtoplay-step-content b {
-  color: #ffcf5c;
+  color: #ffde5c;
 }
 
 #howtoplay-dots {
@@ -438,7 +438,7 @@ html.layout-compact .menu-panel {
 }
 
 .howtoplay-dot.active {
-  background: #e3a63c;
+  background: #e3c23c;
 }
 
 /* Cloud Save panel (see CloudSync.js + Game.js's _openCloudSavePanel) -
@@ -480,7 +480,7 @@ html.layout-compact .menu-panel {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  border: 2px solid #e3a63c;
+  border: 2px solid #e3c23c;
 }
 
 #cloudsave-account-name {
@@ -533,7 +533,7 @@ html.layout-compact .menu-panel {
   font-size: 12px;
   letter-spacing: 0.8px;
   text-transform: uppercase;
-  color: #e3a63c;
+  color: #e3c23c;
   opacity: 0.85;
 }
 
@@ -607,7 +607,7 @@ html.layout-compact .menu-panel {
 
 #friends-own-id {
   font-weight: 700;
-  color: #e3a63c;
+  color: #e3c23c;
   user-select: all;
 }
 
@@ -656,7 +656,7 @@ html.layout-compact .menu-panel {
 .status-pick-btn.active {
   color: #e8e8e2;
   background: rgba(227, 166, 60, 0.16);
-  border-color: #e3a63c;
+  border-color: #e3c23c;
 }
 
 #cloudsave-saved-friends {
@@ -685,7 +685,7 @@ html.layout-compact .menu-panel {
 
 #other-profile-id {
   font-weight: 700;
-  color: #e3a63c;
+  color: #e3c23c;
   cursor: pointer;
   user-select: all;
 }
@@ -710,7 +710,7 @@ html.layout-compact .menu-panel {
 }
 
 .friend-status-dot[data-status="online"] { background: #4caf50; }
-.friend-status-dot[data-status="idle"] { background: #e0a83c; }
+.friend-status-dot[data-status="idle"] { background: #e0bf3c; }
 .friend-status-dot[data-status="dnd"] { background: #c9564a; }
 .friend-status-dot[data-status="offline"] { background: #6b6b6b; }
 
@@ -774,14 +774,14 @@ html.layout-compact .menu-panel {
 /* Leaderboard podium (top 3, see PODIUM_MEDALS) */
 .cloud-leaderboard-row.podium-1 { color: #e0c040; font-weight: 700; }
 .cloud-leaderboard-row.podium-2 { color: #c8ccd4; font-weight: 700; }
-.cloud-leaderboard-row.podium-3 { color: #cd8a52; font-weight: 700; }
+.cloud-leaderboard-row.podium-3 { color: #cdb452; font-weight: 700; }
 
 .cloud-leaderboard-row:last-child {
   border-bottom: none;
 }
 
 .cloud-leaderboard-row.me {
-  color: #ffcf5c;
+  color: #ffde5c;
   font-weight: 700;
 }
 
@@ -844,7 +844,7 @@ html.layout-compact .menu-panel {
 }
 
 .poll-option-btn.voted {
-  border-color: #e3a63c;
+  border-color: #e3c23c;
   cursor: default;
 }
 
@@ -936,12 +936,12 @@ html.layout-compact .menu-panel {
 
 .damage-number.headshot {
   font-size: calc(19px * var(--damage-number-scale, 1));
-  color: #ffcf5c;
+  color: #ffde5c;
 }
 
 .damage-number.big {
   font-size: calc(18px * var(--damage-number-scale, 1));
-  color: #ff9c4a;
+  color: #ffdb4a;
 }
 
 @keyframes damageNumberRise {
@@ -1298,7 +1298,7 @@ html.high-contrast-mode #app {
 }
 
 .phase-row.is-day .stats-label {
-  color: #f0c95f;
+  color: #f0d35f;
 }
 
 .phase-row.is-night .stats-label {
@@ -1361,7 +1361,7 @@ html.high-contrast-mode #app {
    of those. Damage numbers get the same amber treatment instead of relying
    on the red/gold/orange hue distinctions the default palette uses. */
 html.colorblind-mode .status-fill.health {
-  background: #e8952e;
+  background: #e8c32e;
 }
 
 html.colorblind-mode .damage-number {
@@ -1380,7 +1380,7 @@ html.colorblind-mode .damage-number.headshot {
    health screen vignette (previously plain red, shifted to the same amber
    as everything else rather than being the one holdout still red). */
 html.colorblind-mode #ammo.low-ammo {
-  color: #e8952e;
+  color: #e8c32e;
 }
 
 html.colorblind-mode #critical-blood-overlay {
@@ -1396,7 +1396,7 @@ html.colorblind-mode #critical-blood-overlay {
 }
 
 .status-fill.hunger {
-  background: #c47a3f;
+  background: #c4a93f;
 }
 
 .status-fill.thirst {
@@ -1412,7 +1412,7 @@ html.colorblind-mode #critical-blood-overlay {
 }
 
 .status-fill.battery {
-  background: #f2c14e;
+  background: #f2d14e;
 }
 
 #progress-hud {
@@ -1456,7 +1456,7 @@ html.colorblind-mode #critical-blood-overlay {
   letter-spacing: 0.5px;
   text-transform: uppercase;
   white-space: nowrap;
-  color: #e3a63c;
+  color: #e3c23c;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
@@ -1487,7 +1487,7 @@ html.colorblind-mode #critical-blood-overlay {
 }
 
 #compass-subway {
-  color: #ffb347;
+  color: #ffda47;
 }
 
 #night-banner {
@@ -1541,8 +1541,8 @@ html.colorblind-mode #critical-blood-overlay {
 
 .wheel-segment.highlight {
   color: #0c130c;
-  background: #e3a63c;
-  border-color: #e3a63c;
+  background: #e3c23c;
+  border-color: #e3c23c;
 }
 
 #weapon-wheel-cursor {
@@ -1552,7 +1552,7 @@ html.colorblind-mode #critical-blood-overlay {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #ffcf5c;
+  background: #ffde5c;
   transform: translate(-50%, -50%);
   box-shadow: 0 0 6px rgba(255, 207, 92, 0.8);
 }
@@ -1587,7 +1587,7 @@ html.colorblind-mode #critical-blood-overlay {
   font-size: 26px;
   font-weight: 800;
   letter-spacing: 1px;
-  color: #ffcf5c;
+  color: #ffde5c;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
   pointer-events: none;
 }
@@ -1605,7 +1605,7 @@ html.colorblind-mode #critical-blood-overlay {
    and hotter-colored than a bare-minimum combo, not just a larger number. */
 #combo-counter.combo-tier-2 {
   font-size: 34px;
-  color: #ff9d3c;
+  color: #ffd83c;
   text-shadow: 0 2px 14px rgba(255, 110, 0, 0.55);
 }
 
@@ -1667,13 +1667,13 @@ html.colorblind-mode #critical-blood-overlay {
 }
 
 #trophy-wall-tooltip .trophy-tooltip-title {
-  color: #ffe08a;
+  color: #ffe88a;
   font-weight: 700;
   display: block;
 }
 
 #interact-prompt b {
-  color: #ffe08a;
+  color: #ffe88a;
 }
 
 /* Large Interact Prompt (accessibility, see body.big-interact-prompt) */
@@ -1725,7 +1725,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 .ammo-station-fill {
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, #e3a63c, #ffcf5c);
+  background: linear-gradient(90deg, #e3c23c, #ffde5c);
   transition: width 100ms linear;
 }
 
@@ -1760,7 +1760,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 
 .menu-best-stats {
   font-size: 12px !important;
-  color: #ffcf5c !important;
+  color: #ffde5c !important;
   opacity: 0.85 !important;
 }
 
@@ -1773,7 +1773,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 }
 
 #menu-prestige-badge.prestige-tier-1 {
-  color: #c98a4b !important;
+  color: #c9b04b !important;
 }
 
 #menu-prestige-badge.prestige-tier-2 {
@@ -1781,16 +1781,16 @@ body.reduce-flashing #critical-blood-overlay.show {
 }
 
 #menu-prestige-badge.prestige-tier-3 {
-  color: #ffd35c !important;
+  color: #ffde5c !important;
   text-shadow: 0 0 6px rgba(255, 211, 92, 0.5);
 }
 
 /* Same 3 tier colors, generic (not #menu-prestige-badge-scoped) - used by
    the Profile panel's Prestige stat row so the same visual identity shows
    up there too, not just the one homepage badge. */
-.prestige-tier-1 { color: #c98a4b; font-weight: 700; }
+.prestige-tier-1 { color: #c9b04b; font-weight: 700; }
 .prestige-tier-2 { color: #cfd6de; font-weight: 700; }
-.prestige-tier-3 { color: #ffd35c; font-weight: 700; text-shadow: 0 0 6px rgba(255, 211, 92, 0.5); }
+.prestige-tier-3 { color: #ffde5c; font-weight: 700; text-shadow: 0 0 6px rgba(255, 211, 92, 0.5); }
 
 /* Login streak badge - shares the row with career-rank/prestige-badge
    (all inline .menu-best-stats spans), so a short streak doesn't force a
@@ -1811,7 +1811,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 }
 
 .leaderboard-row span:first-child {
-  color: #ffcf5c;
+  color: #ffde5c;
   min-width: 20px;
 }
 
@@ -1830,7 +1830,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 
 .nickname-input:focus {
   outline: none;
-  border-color: #e3a63c;
+  border-color: #e3c23c;
 }
 
 .nickname-input::placeholder {
@@ -1864,7 +1864,7 @@ select {
 
 select:focus {
   outline: none;
-  border-color: #e3a63c;
+  border-color: #e3c23c;
 }
 
 select option {
@@ -1908,8 +1908,8 @@ select option {
 
 .difficulty-btn.active {
   color: #0c130c;
-  background: #e3a63c;
-  border-color: #e3a63c;
+  background: #e3c23c;
+  border-color: #e3c23c;
 }
 
 /* Per-difficulty accent (green/gold/red, matching the class-grid's own
@@ -1998,13 +1998,13 @@ select option {
   font-weight: 700;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: #e3a63c;
+  color: #e3c23c;
 }
 
 .achievement-title {
   font-size: 16px;
   font-weight: 700;
-  color: #ffe08a;
+  color: #ffe88a;
 }
 
 #achievement-toast.show {
@@ -2031,7 +2031,7 @@ select option {
   z-index: 16;
   max-width: min(520px, 90vw);
   background: rgba(10, 8, 6, 0.92);
-  border: 2px solid var(--menu-gold, #e0b13e);
+  border: 2px solid var(--menu-gold, #e0c03e);
   border-radius: 6px;
   padding: 14px 40px 14px 18px;
   color: #e8e0c8;
@@ -2040,7 +2040,7 @@ select option {
 
 #shared-profile-banner h3 {
   margin: 0 0 6px;
-  color: var(--menu-gold, #e0b13e);
+  color: var(--menu-gold, #e0c03e);
   font-size: 16px;
 }
 
@@ -2075,7 +2075,7 @@ select option {
   z-index: 16;
   max-width: min(360px, 90vw);
   background: rgba(10, 8, 6, 0.92);
-  border: 2px solid var(--menu-gold, #e0b13e);
+  border: 2px solid var(--menu-gold, #e0c03e);
   border-radius: 6px;
   padding: 14px 40px 14px 18px;
   color: #e8e0c8;
@@ -2084,7 +2084,7 @@ select option {
 
 #whats-new-digest h3 {
   margin: 0 0 6px;
-  color: var(--menu-gold, #e0b13e);
+  color: var(--menu-gold, #e0c03e);
   font-size: 15px;
 }
 
@@ -2124,7 +2124,7 @@ select option {
   z-index: 17;
   max-width: min(360px, 90vw);
   background: rgba(10, 8, 6, 0.95);
-  border: 2px solid var(--menu-gold, #e0b13e);
+  border: 2px solid var(--menu-gold, #e0c03e);
   border-radius: 6px;
   padding: 16px 40px 16px 20px;
   color: #e8e0c8;
@@ -2133,7 +2133,7 @@ select option {
 
 #shortcut-cheatsheet h3 {
   margin: 0 0 8px;
-  color: var(--menu-gold, #e0b13e);
+  color: var(--menu-gold, #e0c03e);
   font-size: 16px;
 }
 
@@ -2186,7 +2186,7 @@ select option {
   font-size: 13px;
   letter-spacing: 0.8px;
   text-transform: uppercase;
-  border: 2px solid #e3a63c;
+  border: 2px solid #e3c23c;
   border-radius: 999px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
   pointer-events: none;
@@ -2197,7 +2197,7 @@ select option {
 .copied-oval-badge-icon {
   width: 16px;
   height: 16px;
-  color: #e3a63c;
+  color: #e3c23c;
   flex-shrink: 0;
 }
 
@@ -2252,7 +2252,7 @@ select option {
   max-width: min(420px, 80vw);
   text-align: center;
   font-size: 13px;
-  color: #e3a63c;
+  color: #e3c23c;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
   opacity: 0;
   pointer-events: none;
@@ -2331,7 +2331,7 @@ select option {
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.3px;
-  color: #e3a63c;
+  color: #e3c23c;
   background: rgba(6, 8, 6, 0.55);
   padding: 4px 10px;
   border-radius: 4px;
@@ -2355,7 +2355,7 @@ select option {
   border-radius: 3px;
   vertical-align: middle;
 }
-.kill-feed-tag-boss { background: #e3a63c; color: #1a1408; }
+.kill-feed-tag-boss { background: #e3c23c; color: #1a1408; }
 .kill-feed-tag-elite { background: #b45cff; color: #1a0f26; }
 .kill-feed-tag-combo { background: #4ee06f; color: #0a1c0e; }
 
@@ -2419,7 +2419,7 @@ select option {
   max-width: min(420px, 80vw);
   text-align: center;
   font-size: 14px;
-  color: #ffe08a;
+  color: #ffe88a;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
   opacity: 0;
   pointer-events: none;
@@ -2461,7 +2461,7 @@ select option {
   font-size: 13px;
   letter-spacing: 0.5px;
   text-transform: uppercase;
-  color: #e3a63c;
+  color: #e3c23c;
 }
 
 #credits-content h3:first-child {
@@ -2482,7 +2482,7 @@ select option {
 
 .changelog-date {
   flex: 0 0 auto;
-  color: #e3a63c;
+  color: #e3c23c;
   opacity: 0.8;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -2500,7 +2500,7 @@ select option {
 }
 
 #credits-content a {
-  color: #e3a63c;
+  color: #e3c23c;
   text-decoration: none;
 }
 
@@ -2569,8 +2569,8 @@ select option {
   font-weight: 600;
   letter-spacing: 0.5px;
   color: #0c130c;
-  background: #e3a63c;
-  border: 1px solid #e3a63c;
+  background: #e3c23c;
+  border: 1px solid #e3c23c;
   border-radius: 6px;
   cursor: pointer;
 }
@@ -2644,7 +2644,7 @@ select option {
   font-size: 15px;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  color: #e3a63c;
+  color: #e3c23c;
   opacity: 0.85;
 }
 
@@ -2727,7 +2727,7 @@ select option {
 }
 
 .mastery-tag.mastered {
-  color: #ffcf5c;
+  color: #ffde5c;
   opacity: 1;
 }
 
@@ -2738,7 +2738,7 @@ select option {
 }
 
 .mastery-tag.legendary {
-  color: #ff8a3d;
+  color: #ffd83d;
   opacity: 1;
   text-shadow: 0 0 6px rgba(255, 138, 61, 0.7);
 }
@@ -2767,8 +2767,8 @@ select option {
 }
 
 .hotbar-assign-btn.assigned {
-  background: #e3a63c;
-  border-color: #e3a63c;
+  background: #e3c23c;
+  border-color: #e3c23c;
   color: #1a1408;
 }
 
@@ -2794,7 +2794,7 @@ select option {
   font-size: 15px;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  color: #e3a63c;
+  color: #e3c23c;
   opacity: 0.85;
 }
 
@@ -3015,7 +3015,7 @@ select option {
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.3px;
-  color: var(--menu-gold, #e3a63c);
+  color: var(--menu-gold, #e3c23c);
   opacity: 0.85;
   margin-top: 2px;
 }
@@ -3039,7 +3039,7 @@ select option {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(227, 166, 60, 0.4);
   border-radius: 6px;
-  color: var(--menu-gold, #e3a63c);
+  color: var(--menu-gold, #e3c23c);
   font-size: 12px;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -3048,11 +3048,11 @@ select option {
 
 .weapon-compare-toggle-btn.active {
   background: rgba(227, 166, 60, 0.25);
-  border-color: var(--menu-gold, #e3a63c);
+  border-color: var(--menu-gold, #e3c23c);
 }
 
 .weapon-picker-card.compare-selected {
-  border-color: var(--menu-gold, #e3a63c);
+  border-color: var(--menu-gold, #e3c23c);
   box-shadow: 0 0 0 2px rgba(227, 166, 60, 0.5) inset;
 }
 
@@ -3073,7 +3073,7 @@ select option {
 }
 
 .weapon-compare-table .compare-row.compare-header {
-  color: var(--menu-gold, #e3a63c);
+  color: var(--menu-gold, #e3c23c);
   text-transform: uppercase;
   font-size: 11px;
   letter-spacing: 0.5px;
@@ -3135,7 +3135,7 @@ select option {
   font-size: 30px;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  color: #e3a63c;
+  color: #e3c23c;
   opacity: 0.85;
 }
 
@@ -3156,7 +3156,7 @@ select option {
   font-size: 15px;
   letter-spacing: 0.5px;
   text-transform: uppercase;
-  color: var(--menu-gold, #e3a63c);
+  color: var(--menu-gold, #e3c23c);
   opacity: 0.9;
   text-align: center;
 }
@@ -3198,7 +3198,7 @@ select option {
   font-size: 13px;
   letter-spacing: 0.5px;
   text-transform: uppercase;
-  color: #ffcf5c;
+  color: #ffde5c;
   opacity: 0.9;
 }
 
@@ -3218,7 +3218,7 @@ select option {
 #trader-points-line,
 #upgrades-points-line {
   font-size: 14px;
-  color: #ffcf5c;
+  color: #ffde5c;
   opacity: 0.9;
   margin-top: -8px;
 }
@@ -3401,7 +3401,7 @@ select option {
   font-weight: 700;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: var(--menu-gold, #d9a34a);
+  color: var(--menu-gold, #d9bc4a);
   text-align: center;
 }
 
@@ -3423,7 +3423,7 @@ select option {
   font-weight: 700;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  color: #e3a63c;
+  color: #e3c23c;
   opacity: 0.8;
 }
 
@@ -3459,7 +3459,7 @@ select option {
 }
 
 .attach-btn:hover:not(:disabled) {
-  border-color: #e3a63c;
+  border-color: #e3c23c;
   background: rgba(227, 166, 60, 0.1);
 }
 
@@ -3469,7 +3469,7 @@ select option {
 }
 
 .attach-btn span:last-child {
-  color: #ffcf5c;
+  color: #ffde5c;
   font-size: 9px;
 }
 
@@ -3489,17 +3489,17 @@ select option {
 }
 
 .perk-option:hover:not(:disabled) {
-  border-color: #e3a63c;
+  border-color: #e3c23c;
   background: rgba(227, 166, 60, 0.1);
 }
 
 .perk-option.featured {
-  border-color: #ffcf5c;
+  border-color: #ffde5c;
   background: rgba(255, 207, 92, 0.08);
 }
 
 .perk-option.featured:hover:not(:disabled) {
-  border-color: #ffcf5c;
+  border-color: #ffde5c;
   background: rgba(255, 207, 92, 0.16);
 }
 
@@ -3578,7 +3578,7 @@ select option {
 
 .perk-option .perk-cost {
   font-size: 12px;
-  color: #ffcf5c;
+  color: #ffde5c;
 }
 
 .price-tag {
@@ -3617,7 +3617,7 @@ select option {
 #prestige-level-line {
   margin: 0 0 4px;
   font-size: 13px;
-  color: #ffcf5c;
+  color: #ffde5c;
 }
 
 /* Respec section - Long-Term Goals batch, same layout as #prestige-section
@@ -3736,7 +3736,7 @@ select option {
 }
 
 .shop-wishlist-star.active {
-  color: #e0b13e;
+  color: #e0c03e;
 }
 
 .shop-afford-estimate {
@@ -3755,8 +3755,8 @@ select option {
 
 .goal-chip.active {
   color: #1a1a1a;
-  background: #e0b13e;
-  border-color: #e0b13e;
+  background: #e0c03e;
+  border-color: #e0c03e;
   font-weight: 700;
 }
 
@@ -3858,8 +3858,8 @@ select option {
 
 .streak-day.played {
   color: #0c130c;
-  background: var(--menu-gold, #e3a63c);
-  border-color: var(--menu-gold, #e3a63c);
+  background: var(--menu-gold, #e3c23c);
+  border-color: var(--menu-gold, #e3c23c);
   font-weight: 700;
 }
 
@@ -4022,7 +4022,7 @@ select option {
   font-weight: 700;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: var(--menu-gold, #d9a34a);
+  color: var(--menu-gold, #d9bc4a);
   text-align: center;
 }
 
@@ -4044,7 +4044,7 @@ select option {
 
 #screenshot-crop-selection {
   position: absolute;
-  border: 2px dashed #e3a63c;
+  border: 2px dashed #e3c23c;
   background: rgba(227, 166, 60, 0.15);
   pointer-events: none;
 }
@@ -4108,7 +4108,7 @@ select option {
 }
 
 #keybind-cheatsheet b {
-  color: #ffcf5c;
+  color: #ffde5c;
 }
 
 @keyframes low-ammo-pulse {
@@ -4156,7 +4156,7 @@ select option {
 /* Mastery badge (see Game.js's _updateHotbarHud) - same gold/cyan pair as
    .mastery-tag elsewhere, applied to the whole row's border. */
 .weapon-quick-slot.mastered {
-  border-color: #ffcf5c;
+  border-color: #ffde5c;
 }
 
 .weapon-quick-slot.grandmastered {
@@ -4165,7 +4165,7 @@ select option {
 }
 
 .weapon-quick-slot.legendary {
-  border-color: #ff8a3d;
+  border-color: #ffd83d;
   box-shadow: 0 0 6px rgba(255, 138, 61, 0.55);
 }
 
@@ -4203,7 +4203,7 @@ select option {
 }
 
 .weapon-quick-slot.active {
-  border-color: #e3a63c;
+  border-color: #e3c23c;
   background: rgba(227, 166, 60, 0.18);
 }
 
@@ -4221,10 +4221,10 @@ select option {
    Main menu redesign - design tokens
    ========================================================================== */
 #menu {
-  --menu-gold: #d9a34a;
+  --menu-gold: #d9bc4a;
   --menu-green: #7fd8a0;
   --menu-red: #c9564a;
-  --menu-orange: #e08a4f;
+  --menu-orange: #e0c34f;
   --menu-blue: #6fa8dc;
   --menu-purple: #b07cd6;
   --menu-olive: #92a05e;
@@ -4232,7 +4232,7 @@ select option {
   --menu-gunmetal: #34383c;
   --menu-gunmetal-dark: #1c1e20;
   --menu-bronze: #8a6d47;
-  --menu-orange-glow: #e67e35;
+  --menu-orange-glow: #e6c335;
   --menu-panel-bg: rgba(7, 8, 8, 0.95);
   --menu-panel-border: rgba(138, 109, 71, 0.5);
   --menu-text-dim: rgba(224, 228, 220, 0.62);
@@ -4445,7 +4445,7 @@ body.reduce-bg-effects #menu-bg-rain {
   height: 6px;
   margin: -3px 0 0 -3px;
   border-radius: 50%;
-  background: var(--menu-gold, #d9a34a);
+  background: var(--menu-gold, #d9bc4a);
   z-index: 19;
   pointer-events: none;
   animation: cursorTrailFade 0.5s ease-out forwards;
@@ -4592,7 +4592,7 @@ html.no-panel-flicker .menu-card {
    browser/OS default focus ring is too faint against this game's dark
    palette to rely on. */
 html.focus-ring-mode *:focus-visible {
-  outline: 3px solid var(--menu-gold, #e0b13e);
+  outline: 3px solid var(--menu-gold, #e0c03e);
   outline-offset: 2px;
 }
 
@@ -4730,7 +4730,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 }
 
 @keyframes reduceFlashPreviewSlow {
-  50% { background: #e08a4f; }
+  50% { background: #e0c34f; }
 }
 
 /* Colorblind palette preview (Controls tab) - the exact hex values
@@ -5087,7 +5087,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
    existing shop-crate-card note above. */
 #shop-attachment-coins-line {
   font-size: 13px;
-  color: var(--menu-gold, #e3a63c);
+  color: var(--menu-gold, #e3c23c);
   text-align: center;
   margin-bottom: 6px;
 }
@@ -5115,7 +5115,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 }
 
 .shop-weapon-btn.active {
-  border-color: var(--menu-gold, #e3a63c);
+  border-color: var(--menu-gold, #e3c23c);
   box-shadow: 0 0 0 2px rgba(227, 166, 60, 0.4) inset;
 }
 
@@ -5161,7 +5161,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
   border-radius: 6px;
   border: 1px solid rgba(227, 166, 60, 0.4);
   background: rgba(227, 166, 60, 0.14);
-  color: var(--menu-gold, #e3a63c);
+  color: var(--menu-gold, #e3c23c);
   cursor: pointer;
 }
 
@@ -5302,7 +5302,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 /* Auto-suggested best loadout (batch 8 feature) */
 #suggested-loadout-hint {
   font-size: 11px;
-  color: var(--menu-gold, #e3a63c);
+  color: var(--menu-gold, #e3c23c);
   opacity: 0.85;
   margin-top: 4px;
 }
@@ -5325,7 +5325,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 }
 
 #weapon-quick-compare-tooltip .quick-compare-vs {
-  color: var(--menu-gold, #e3a63c);
+  color: var(--menu-gold, #e3c23c);
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -5781,15 +5781,19 @@ html.theme-lighter #app { filter: brightness(1.25); }
 /* Settings gear - scoped size override, coming after the shared
    quick-action-button rule above (same specificity, later wins) so only
    this one visible button grows, not the 5 other hidden shortcuts that
-   still share that base rule. */
+   still share that base rule. Reskinned with the user's own gold-gear
+   plate image (2026-08-20) - the plate has the gear baked in, so the
+   inline SVG (kept in the DOM for markup/history reasons) is hidden
+   rather than removed. */
 #settings-btn {
   width: 84px;
   height: 84px;
+  background: url('/images/settings-gear.webp') center / cover no-repeat;
+  border: none;
 }
 
 #settings-btn svg {
-  width: 40px;
-  height: 40px;
+  display: none;
 }
 
 #quick-mute-btn:hover,
@@ -5822,7 +5826,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 }
 
 #settings-btn:hover {
-  background: rgba(227, 166, 60, 0.12);
+  filter: brightness(1.18);
   transform: rotate(25deg);
 }
 
@@ -5958,7 +5962,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 }
 
 #menu-avatar-icon.avatar-frame-5 {
-  border-color: #ffd35c;
+  border-color: #ffde5c;
   box-shadow:
     inset 0 2px 3px rgba(255, 255, 255, 0.12),
     inset 0 -3px 6px rgba(0, 0, 0, 0.55),
@@ -7012,7 +7016,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
   font-size: 15px;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  color: #e3a63c;
+  color: #e3c23c;
   opacity: 0.85;
 }
 
@@ -7036,8 +7040,8 @@ html.theme-lighter #app { filter: brightness(1.25); }
 
 .settings-tab.active {
   color: #0c130c;
-  background: #e3a63c;
-  border-color: #e3a63c;
+  background: #e3c23c;
+  border-color: #e3c23c;
 }
 
 /* Quests panel tab strip (Quests/Monthly/Yearly/Lifetime) - visually
@@ -7067,8 +7071,8 @@ html.theme-lighter #app { filter: brightness(1.25); }
 
 .quest-tab.active {
   color: #0c130c;
-  background: #e3a63c;
-  border-color: #e3a63c;
+  background: #e3c23c;
+  border-color: #e3c23c;
 }
 
 .quest-tab-page {
@@ -7104,8 +7108,8 @@ html.theme-lighter #app { filter: brightness(1.25); }
 
 .hub-tab.active {
   color: #0c130c;
-  background: #e3a63c;
-  border-color: #e3a63c;
+  background: #e3c23c;
+  border-color: #e3c23c;
 }
 
 /* Stretch (not center) - unlike .quest-tab-page's card grid, this holds
@@ -7144,8 +7148,8 @@ html.theme-lighter #app { filter: brightness(1.25); }
 
 .achievements-mode-tab.active {
   color: #0c130c;
-  background: #e3a63c;
-  border-color: #e3a63c;
+  background: #e3c23c;
+  border-color: #e3c23c;
 }
 
 .settings-page {
@@ -7295,7 +7299,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 
 .language-btn.active {
   background: rgba(227, 166, 60, 0.14);
-  border-color: #e3a63c;
+  border-color: #e3c23c;
 }
 
 .language-btn .lang-name {
@@ -7316,12 +7320,12 @@ html.theme-lighter #app { filter: brightness(1.25); }
 }
 
 #language-missing-discord-link {
-  color: #e3a63c;
+  color: #e3c23c;
   text-decoration: underline;
 }
 
 #language-missing-discord-link:hover {
-  color: #f4c470;
+  color: #f4da70;
 }
 
 .audio-row {
@@ -7347,7 +7351,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
   font-weight: 700;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  color: var(--menu-gold, #d9a34a);
+  color: var(--menu-gold, #d9bc4a);
   opacity: 0.85;
   padding: 4px;
   list-style: none;
@@ -7378,7 +7382,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
   font-weight: 700;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  color: var(--menu-gold, #d9a34a);
+  color: var(--menu-gold, #d9bc4a);
   text-align: left;
 }
 
@@ -7402,13 +7406,13 @@ html.theme-lighter #app { filter: brightness(1.25); }
 
 .audio-row input[type='range'] {
   width: 100%;
-  accent-color: #e3a63c;
+  accent-color: #e3c23c;
 }
 
 .audio-checkbox {
   width: 18px;
   height: 18px;
-  accent-color: #e3a63c;
+  accent-color: #e3c23c;
   justify-self: start;
 }
 
@@ -7495,8 +7499,8 @@ html.theme-lighter #app { filter: brightness(1.25); }
 
 .control-key-btn.listening {
   color: #0c130c;
-  background: #e3a63c;
-  border-color: #e3a63c;
+  background: #e3c23c;
+  border-color: #e3c23c;
 }
 
 #reset-binds-btn,
@@ -7691,7 +7695,7 @@ html.night-vision-active #app {
   font-weight: 700;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  color: #ffcf5c;
+  color: #ffde5c;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
   margin-bottom: 4px;
 }
@@ -7699,7 +7703,7 @@ html.night-vision-active #app {
 .koth-fill {
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, #ffcf5c, #e3a63c);
+  background: linear-gradient(90deg, #ffde5c, #e3c23c);
   transition: width 150ms ease-out;
 }
 
@@ -7745,7 +7749,7 @@ html.night-vision-active #app {
   font-weight: 700;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  color: #ff9c4a;
+  color: #ffdb4a;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
   margin-bottom: 4px;
 }
@@ -7753,7 +7757,7 @@ html.night-vision-active #app {
 .zombie-defense-fill {
   height: 100%;
   width: 100%;
-  background: linear-gradient(90deg, #ff9c4a, #d9631a);
+  background: linear-gradient(90deg, #ffdb4a, #d9b31a);
   transition: width 200ms ease-out;
 }
 
@@ -7795,7 +7799,7 @@ html.night-vision-active #app {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.5px;
-  color: #ff9c4a;
+  color: #ffdb4a;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
   margin-bottom: 2px;
 }

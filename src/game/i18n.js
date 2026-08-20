@@ -406,8 +406,6 @@ const STRINGS = {
     reduceBgEffectsLabel: 'Reduce Homepage Background Effects',
     homepageGreetingLabel: 'Homepage Greeting',
     autoReloadLabel: 'Auto-Reload When Empty',
-    showPausePlaytimeLabel: 'Show Total Playtime on Pause Menu',
-    pausePlaytimeLine: 'Total playtime: {hours}h {mins}m {secs}s',
     instantInteractLabel: 'Instant Interact at Stations (Skip the Hold)',
     confirmQuitLabel: 'Confirm Before Quitting Mid-Run',
     confirmQuitRunMessage: 'Quit this run and return to the menu?',

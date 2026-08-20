@@ -301,7 +301,6 @@ function loadSettings() {
       reduceBgEffects: parsed.reduceBgEffects ?? false,
       autoReloadOnEmpty: parsed.autoReloadOnEmpty ?? true,
       autoLoot: parsed.autoLoot ?? false,
-      showPausePlaytime: parsed.showPausePlaytime ?? true,
       instantStationInteract: parsed.instantStationInteract ?? false,
       confirmQuitRun: parsed.confirmQuitRun ?? false,
       damageFlashColor: typeof parsed.damageFlashColor === 'string' ? parsed.damageFlashColor : '#c80000',
@@ -318,7 +317,7 @@ function loadSettings() {
       // Nickname color (see nickname display sites - Hardcore Memorial, kill
       // feed) - a plain hex string like crosshairColor above, not tied to
       // any purchase.
-      nicknameColor: parsed.nicknameColor || '#ffe08a',
+      nicknameColor: parsed.nicknameColor || '#ffe88a',
       // Custom companion name (see _updateCompanionName) - falls back to
       // the auto-generated "{nickname}'s Assistant" pattern when empty.
       companionName: parsed.companionName || '',
@@ -539,7 +538,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, showPausePlaytime: true, instantStationInteract: false, confirmQuitRun: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe08a', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
+  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, instantStationInteract: false, confirmQuitRun: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffe88a', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -3299,7 +3298,7 @@ export class Game {
     // style.css) - dark translucent panel, thin white-ish border, gold
     // accent text - rather than an ad-hoc one-off style, per direct
     // feedback that it should look consistent with Resume/Upgrades/etc.
-    this.spectatingLabelEl.style.cssText = 'position:fixed;bottom:10px;left:10px;background:rgba(0,0,0,0.55);color:#e3a63c;font-size:13px;font-weight:600;letter-spacing:0.5px;padding:8px 20px;border:1px solid rgba(255,255,255,0.25);border-radius:6px;z-index:9999;pointer-events:none;display:none;'
+    this.spectatingLabelEl.style.cssText = 'position:fixed;bottom:10px;left:10px;background:rgba(0,0,0,0.55);color:#e3c23c;font-size:13px;font-weight:600;letter-spacing:0.5px;padding:8px 20px;border:1px solid rgba(255,255,255,0.25);border-radius:6px;z-index:9999;pointer-events:none;display:none;'
     this.spectatingLabelEl.textContent = t('spectatingLabel')
     document.body.appendChild(this.spectatingLabelEl)
     // Frame-Time Graph (opt-in, see settings.frameTimeGraph) - same
@@ -3803,7 +3802,6 @@ export class Game {
     this.homepageGreetingInput = document.getElementById('homepage-greeting-input')
     this.autoReloadToggle = document.getElementById('auto-reload-toggle')
     this.autoLootToggle = document.getElementById('auto-loot-toggle')
-    this.showPausePlaytimeToggle = document.getElementById('show-pause-playtime-toggle')
     this.instantInteractToggle = document.getElementById('instant-interact-toggle')
     this.confirmQuitToggle = document.getElementById('confirm-quit-toggle')
     this.damageFlashColorInput = document.getElementById('damage-flash-color-input')
@@ -3816,7 +3814,6 @@ export class Game {
     this.difficultyLabelSepEl = document.getElementById('difficulty-label-sep')
     this.hudObjectiveDistanceEl = document.getElementById('hud-objective-distance')
     this.objectiveDistanceSepEl = document.getElementById('objective-distance-sep')
-    this.pausePlaytimeLineEl = document.getElementById('pause-playtime-line')
     this.damageFlashEl = document.getElementById('damage-flash')
     this.homepageGreetingEl = document.getElementById('homepage-greeting')
     this.streamSafeModeToggle = document.getElementById('stream-safe-mode-toggle')
@@ -5899,22 +5896,6 @@ export class Game {
         this.pauseWeaponBtn.textContent = t('pauseWeaponBtn')
         this.pauseSettingsBtn.textContent = t('settingsBtn')
         this.pauseQuitBtn.textContent = t('pauseQuitBtn')
-        if (this.pausePlaytimeLineEl) {
-          this.pausePlaytimeLineEl.style.display = this.settings.showPausePlaytime ? '' : 'none'
-          if (this.settings.showPausePlaytime) {
-            // Was measuring elapsed time from _sessionStartTime (the whole
-            // browser session, set once at construction) instead of
-            // runStartedAt (the current run) - lifetimePlaytimeSeconds
-            // already gets the previous run's duration folded in at
-            // _recordRunEnd, so adding session-elapsed on top double-counted
-            // every prior run in the same session once a second run started.
-            const totalSeconds = (this.careerStats.lifetimePlaytimeSeconds || 0) + Math.floor((performance.now() - this.runStartedAt) / 1000)
-            const hours = Math.floor(totalSeconds / 3600)
-            const mins = Math.floor((totalSeconds % 3600) / 60)
-            const secs = Math.floor(totalSeconds % 60)
-            this.pausePlaytimeLineEl.textContent = t('pausePlaytimeLine', { hours, mins, secs })
-          }
-        }
         this.pauseOverlay.style.display = 'flex'
       } else {
         this.menu.style.display = 'flex'
@@ -8539,7 +8520,7 @@ export class Game {
     // every gold highlight/border/active-state across the homepage at
     // once. Reset restores the original gold by clearing the override.
     if (this.accentColorPicker) {
-      const defaultAccent = '#d9a34a'
+      const defaultAccent = '#d9bc4a'
       this.accentColorPicker.value = this.settings.accentColor || defaultAccent
       if (this.settings.accentColor && this.menu) this.menu.style.setProperty('--menu-gold', this.settings.accentColor)
       this.accentColorPicker.addEventListener('input', () => {
@@ -8561,7 +8542,7 @@ export class Game {
     // #play-btn gradient reads, independent of the accent color above so
     // the two can be set separately.
     if (this.playBtnColorPicker) {
-      const defaultPlayColor = '#d9a34a'
+      const defaultPlayColor = '#d9bc4a'
       this.playBtnColorPicker.value = this.settings.playBtnColor || defaultPlayColor
       if (this.settings.playBtnColor) document.documentElement.style.setProperty('--play-btn-color', this.settings.playBtnColor)
       this.playBtnColorPicker.addEventListener('input', () => {
@@ -9932,14 +9913,6 @@ export class Game {
       this.autoLootToggle.checked = this.settings.autoLoot
       this.autoLootToggle.addEventListener('change', () => {
         this.settings.autoLoot = this.autoLootToggle.checked
-        saveSettings(this.settings)
-      })
-    }
-
-    if (this.showPausePlaytimeToggle) {
-      this.showPausePlaytimeToggle.checked = this.settings.showPausePlaytime
-      this.showPausePlaytimeToggle.addEventListener('change', () => {
-        this.settings.showPausePlaytime = this.showPausePlaytimeToggle.checked
         saveSettings(this.settings)
       })
     }
@@ -13488,7 +13461,6 @@ export class Game {
     document.getElementById('reduce-bg-effects-label').textContent = t('reduceBgEffectsLabel')
     document.getElementById('homepage-greeting-label').textContent = t('homepageGreetingLabel')
     document.getElementById('auto-reload-label').textContent = t('autoReloadLabel')
-    document.getElementById('show-pause-playtime-label').textContent = t('showPausePlaytimeLabel')
     document.getElementById('instant-interact-label').textContent = t('instantInteractLabel')
     document.getElementById('confirm-quit-label').textContent = t('confirmQuitLabel')
     document.getElementById('damage-flash-color-label').textContent = t('damageFlashColorLabel')
@@ -17435,7 +17407,7 @@ export class Game {
   // ends. Skipped entirely under prefers-reduced-motion.
   _fireConfetti() {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    const colors = ['#e0b13e', '#7fd88f', '#6fa8dc', '#c9564a', '#b07cd6']
+    const colors = ['#e0c03e', '#7fd88f', '#6fa8dc', '#c9564a', '#b07cd6']
     for (let i = 0; i < 24; i++) {
       const piece = document.createElement('div')
       piece.className = 'confetti-piece'
