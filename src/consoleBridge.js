@@ -48,15 +48,6 @@ function elementId(el) {
   return parts.join(' > ')
 }
 
-function findByElementId(id) {
-  if (id.startsWith('#')) return document.getElementById(id.slice(1))
-  try {
-    return document.querySelector(id)
-  } catch {
-    return null
-  }
-}
-
 function highlightRect(el) {
   const h = ensureHighlightEl()
   const r = el.getBoundingClientRect()
@@ -67,11 +58,17 @@ function highlightRect(el) {
   h.style.height = `${r.height}px`
 }
 
-function onPickerClick(e) {
-  if (!pickerEnabled) return
-  e.preventDefault()
-  e.stopPropagation()
-  const el = e.target
+// Single click selects an element for editing; double-click instead lets
+// the real page do its real thing (open the Hub/Store/whatever panel) -
+// same "single click selects, double click enters" convention design
+// tools like Figma use. Implemented by debouncing each click: if a second
+// one lands within DBLCLICK_WINDOW_MS, the pending selection is cancelled
+// and the real action replays instead.
+const DBLCLICK_WINDOW_MS = 300
+let pendingClickTimer = null
+let replaying = false
+
+function selectElement(el) {
   selectedEl = el
   highlightRect(el)
   const cs = getComputedStyle(el)
@@ -87,6 +84,43 @@ function onPickerClick(e) {
   )
 }
 
+// Double-clicking the 3D character avatar opens the real skin-upload file
+// picker directly (see Game.js's upload-skin-input) instead of replaying a
+// plain click on the canvas, which has no click handler of its own to
+// replay in the first place.
+function activateElement(el) {
+  if (el.closest('#setup-avatar-wrap')) {
+    const input = document.getElementById('upload-skin-input')
+    if (input) {
+      replaying = true
+      input.click()
+      replaying = false
+      return
+    }
+  }
+  replaying = true
+  el.click()
+  replaying = false
+}
+
+function onPickerClick(e) {
+  if (!pickerEnabled || replaying) return
+  e.preventDefault()
+  e.stopPropagation()
+  const el = e.target
+
+  if (pendingClickTimer) {
+    clearTimeout(pendingClickTimer)
+    pendingClickTimer = null
+    activateElement(el)
+    return
+  }
+  pendingClickTimer = setTimeout(() => {
+    pendingClickTimer = null
+    selectElement(el)
+  }, DBLCLICK_WINDOW_MS)
+}
+
 window.addEventListener('message', (event) => {
   if (event.origin !== TRUSTED_CONSOLE_ORIGIN) return
   if (event.source !== window.parent) return
@@ -99,6 +133,7 @@ window.addEventListener('message', (event) => {
   } else if (msg.type === 'gzc-disable-picker') {
     pickerEnabled = false
     document.removeEventListener('click', onPickerClick, true)
+    if (pendingClickTimer) { clearTimeout(pendingClickTimer); pendingClickTimer = null }
     if (highlightEl) highlightEl.style.display = 'none'
   } else if (msg.type === 'gzc-edit' && selectedEl) {
     if (msg.prop === 'text') selectedEl.textContent = msg.value
