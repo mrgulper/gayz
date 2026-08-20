@@ -18243,13 +18243,20 @@ export class Game {
 
   // Assigns a weapon to a hotbar slot from the inventory panel's per-row
   // slot buttons (see _refreshInventoryPanel) - only one slot may hold a
-  // given weapon at a time, so assigning it elsewhere clears its old slot
-  // rather than leaving a duplicate.
+  // given weapon at a time. Swaps rather than overwrites: whatever the
+  // target slot held before moves into the weapon's own old slot (if it
+  // had one), instead of just vanishing from all 3 number-key slots. A
+  // plain overwrite here used to silently drop the previous occupant
+  // (still owned, just no longer reachable by pressing 1/2/3) - reported
+  // by the user as a weapon "disappearing" after reassigning a different
+  // one to its slot.
   _assignHotbarSlot(slotIndex, weaponId) {
-    for (let i = 0; i < this.settings.hotbar.length; i++) {
-      if (this.settings.hotbar[i] === weaponId) this.settings.hotbar[i] = null
-    }
+    const oldSlotOfWeapon = this.settings.hotbar.indexOf(weaponId)
+    const displaced = this.settings.hotbar[slotIndex]
     this.settings.hotbar[slotIndex] = weaponId
+    if (oldSlotOfWeapon !== -1 && oldSlotOfWeapon !== slotIndex) {
+      this.settings.hotbar[oldSlotOfWeapon] = displaced
+    }
     saveSettings(this.settings)
     this._updateHotbarHud()
     this._refreshInventoryPanel()
