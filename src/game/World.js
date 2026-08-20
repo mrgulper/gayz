@@ -8204,27 +8204,20 @@ const MODEL_TINTS = [
 
 function addModelBuilding(scene, register, spec, model) {
   const group = model.scene.clone(true)
-  const tint = MODEL_TINTS[Math.abs(Math.floor(spec.x + spec.z)) % MODEL_TINTS.length]
-  const tintColor = new THREE.Color(tint.mul)
-  // LOW_QUALITY_MODE: one shared, cheap MeshLambertMaterial for the WHOLE
-  // building instead of a cloned-per-mesh textured PBR material per part -
-  // real GPU win (Lambertian diffuse vs. Standard's roughness/metalness
-  // BRDF, evaluated per pixel against ~65 scene lights) plus literally "1
-  // colour per building" as asked. See QualitySettings.js - the real
-  // textured/tinted path below is untouched, just skipped for now.
-  const sharedLowQualityMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: tintColor }) : null
+  // These Kenney building models' own UVs aren't laid out for a single
+  // full-photo texture (tried the same building-wall-decay.png used on
+  // addBuilding's plain boxes and buildSkyscraper's shells - it came out
+  // smeared into horizontal stripes here, since these models' UVs repeat
+  // many times over per mesh rather than spanning a clean 0-1 range per
+  // face like a BoxGeometry does). Flat color matching that texture's
+  // average tone instead - see the same average-color approach used for
+  // World.js's ground fallback color.
+  const sharedWallMat = new THREE.MeshLambertMaterial({ color: 0x444443 })
   group.traverse((o) => {
     if (!o.isMesh) return
     o.castShadow = true
     o.receiveShadow = true
-    if (LOW_QUALITY_MODE) {
-      o.material = sharedLowQualityMat
-      return
-    }
-    o.material = flattenedClone(o.material)
-    o.material.color.multiply(tintColor)
-    o.material.roughness = tint.roughness
-    o.material.metalness = 0
+    o.material = sharedWallMat
   })
 
   // Kenney models are pivoted at their own base footprint size, not the
@@ -8491,22 +8484,17 @@ function addBuilding(scene, register, spec) {
   const model = spec.modelFile && _modelCache.get(spec.modelFile)
   if (model) return addModelBuilding(scene, register, spec, model)
 
-  const color = BUILDING_COLORS[Math.floor(Math.abs(spec.x + spec.z)) % BUILDING_COLORS.length]
-  // LOW_QUALITY_MODE: flat MeshLambertMaterial, no facade/bump texture
-  // canvases generated at all (real CPU + GPU memory win on top of the
-  // cheaper lighting model) - see QualitySettings.js. Real textured path
-  // untouched below it.
-  const mat = LOW_QUALITY_MODE
-    ? new THREE.MeshLambertMaterial({ color })
-    : (() => {
-        const facadeTex = getFacadeTexture(color).clone()
-        facadeTex.needsUpdate = true
-        facadeTex.repeat.set(Math.max(1, spec.w / 4), Math.max(1, spec.h / 4))
-        const facadeBumpTex = getSharedBumpTexture().clone()
-        facadeBumpTex.needsUpdate = true
-        facadeBumpTex.repeat.copy(facadeTex.repeat)
-        return cachedFlatMaterial({ map: facadeTex, bumpMap: facadeBumpTex, bumpScale: 0.035, roughness: 0.95 })
-      })()
+  // Every generic building box (the labeled-shop ones use addModelBuilding
+  // above instead) gets the same decayed-concrete wall texture, regardless
+  // of LOW_QUALITY_MODE - explicitly requested even at the cost of the
+  // tiling/memory savings LOW_QUALITY_MODE otherwise gets here (see
+  // buildSkyscraper's shellTex for the same reasoning/pattern).
+  const wallTex = new THREE.TextureLoader().load('/textures/building-wall-decay.png')
+  wallTex.wrapS = THREE.RepeatWrapping
+  wallTex.wrapT = THREE.RepeatWrapping
+  wallTex.colorSpace = THREE.SRGBColorSpace
+  wallTex.repeat.set(Math.max(1, Math.round(spec.w / 7)), Math.max(1, Math.round(spec.h / 7)))
+  const mat = cachedFlatMaterial({ map: wallTex, roughness: 0.95 })
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(spec.w, spec.h, spec.d), mat)
   mesh.position.set(spec.x, spec.h / 2, spec.z)
   mesh.castShadow = true
