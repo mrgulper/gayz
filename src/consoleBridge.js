@@ -92,12 +92,59 @@ function activateElement(el) {
   replaying = false
 }
 
+// Console-only "+" button, appended under Map Editor (the real last nav
+// button) whenever the picker is active - lets a new placeholder nav
+// button be prototyped (renamed, recolored, dragged) using the exact same
+// editing tools as everything else, without ever touching the real
+// deployed game. Purely a DOM insertion in this browser tab; nothing here
+// is saved or sent anywhere on its own - same "preview, then tell Claude
+// to make it permanent" flow as every other edit.
+const ADD_BTN_ID = 'gzc-add-btn'
+let newButtonCount = 0
+
+function ensureAddButton() {
+  const navList = document.getElementById('menu-nav-buttons')
+  const lastBtn = document.getElementById('build-mode-btn')
+  if (!navList || !lastBtn || document.getElementById(ADD_BTN_ID)) return
+  const addBtn = lastBtn.cloneNode(true)
+  addBtn.id = ADD_BTN_ID
+  addBtn.innerHTML = ''
+  const span = document.createElement('span')
+  span.textContent = '+ New Feature'
+  addBtn.appendChild(span)
+  navList.appendChild(addBtn)
+}
+
+function removeAddButton() {
+  const addBtn = document.getElementById(ADD_BTN_ID)
+  if (addBtn) addBtn.remove()
+}
+
+function insertNewButton() {
+  const addBtn = document.getElementById(ADD_BTN_ID)
+  const lastBtn = document.getElementById('build-mode-btn')
+  if (!addBtn || !lastBtn) return
+  newButtonCount++
+  const btn = lastBtn.cloneNode(true)
+  btn.id = `gzc-new-feature-${newButtonCount}`
+  btn.innerHTML = ''
+  const span = document.createElement('span')
+  span.textContent = 'New Feature'
+  btn.appendChild(span)
+  addBtn.parentElement.insertBefore(btn, addBtn)
+}
+
 function onPickerClick(e) {
   if (!pickerEnabled || replaying) return
   if (dragJustHappened) { dragJustHappened = false; return }
   e.preventDefault()
   e.stopPropagation()
   const el = e.target
+
+  if (el.closest(`#${ADD_BTN_ID}`)) {
+    insertNewButton()
+    return
+  }
 
   if (pendingClickTimer) {
     clearTimeout(pendingClickTimer)
@@ -164,6 +211,7 @@ window.addEventListener('message', (event) => {
     document.addEventListener('mousedown', onPickerMouseDown, true)
     document.addEventListener('mousemove', onPickerMouseMove, true)
     document.addEventListener('mouseup', onPickerMouseUp, true)
+    ensureAddButton()
   } else if (msg.type === 'gzc-disable-picker') {
     pickerEnabled = false
     document.removeEventListener('click', onPickerClick, true)
@@ -172,6 +220,7 @@ window.addEventListener('message', (event) => {
     document.removeEventListener('mouseup', onPickerMouseUp, true)
     if (pendingClickTimer) { clearTimeout(pendingClickTimer); pendingClickTimer = null }
     dragState = null
+    removeAddButton()
   } else if (msg.type === 'gzc-edit' && selectedEl) {
     if (msg.prop === 'text') selectedEl.textContent = msg.value
     else if (msg.prop === 'color') selectedEl.style.color = msg.value
