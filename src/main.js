@@ -1,7 +1,7 @@
 import './style.css'
 import './consoleBridge.js'
 import { Game } from './game/Game.js'
-import { preloadBuildingModels, preloadPropModels, preloadGunShopDisplayModels } from './game/World.js'
+import { preloadPropModels, preloadGunShopDisplayModels } from './game/World.js'
 import { preloadZombieModel, preloadTitanModel } from './game/Zombie.js'
 import { preloadCompanionModel } from './game/Companion.js'
 import { preloadRivalModel } from './game/RivalScavenger.js'
@@ -23,7 +23,6 @@ import {
 } from './game/Viewmodels.js'
 
 Promise.all([
-  preloadBuildingModels(),
   preloadPropModels(),
   preloadGunShopDisplayModels(),
   preloadFuelcanModel(),

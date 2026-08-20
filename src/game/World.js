@@ -78,76 +78,6 @@ function getFacadeTexture(hexColor) {
   return _facadeTextureCache.get(hexColor)
 }
 
-// Small alpha-cutout canvas texture of a hanging vine + leaf clusters, used
-// as a cheap stand-in for ivy/moss overgrowth on building facades. A few
-// cached variants (not just one) so repeated strips across a block don't all
-// look identical.
-const IVY_VARIANTS = 3
-const _ivyTextures = []
-function createIvyTexture(size = 128) {
-  const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-  const ctx = canvas.getContext('2d')
-  ctx.clearRect(0, 0, size, size)
-
-  ctx.strokeStyle = 'rgba(42, 58, 26, 0.9)'
-  ctx.lineWidth = 2
-  let x = size / 2
-  ctx.beginPath()
-  ctx.moveTo(x, size)
-  for (let y = size; y > 0; y -= size / 12) {
-    x += (Math.random() - 0.5) * size * 0.12
-    ctx.lineTo(x, y)
-  }
-  ctx.stroke()
-
-  const leafColors = ['rgba(58, 92, 40, 0.88)', 'rgba(74, 110, 48, 0.82)', 'rgba(45, 72, 34, 0.88)', 'rgba(90, 96, 40, 0.75)']
-  const leafCount = Math.floor(size * 0.55)
-  for (let i = 0; i < leafCount; i++) {
-    const ly = size * (0.15 + Math.random() * 0.85)
-    const spread = size * 0.32 * (ly / size)
-    const lx = size / 2 + (Math.random() - 0.5) * spread
-    const r = 3 + Math.random() * 5
-    ctx.fillStyle = leafColors[Math.floor(Math.random() * leafColors.length)]
-    ctx.beginPath()
-    ctx.ellipse(lx, ly, r, r * 0.6, Math.random() * Math.PI, 0, Math.PI * 2)
-    ctx.fill()
-  }
-
-  return new THREE.CanvasTexture(canvas)
-}
-function getIvyTexture(i) {
-  if (!_ivyTextures[i]) _ivyTextures[i] = createIvyTexture()
-  return _ivyTextures[i]
-}
-
-// Scatters 0-2 ivy/moss strips across a building's street-facing wall. Purely
-// decorative planes (no collider) laid over the existing facade mesh.
-function addIvyOverlay(scene, spec) {
-  if (Math.random() > 0.5) return
-  const facingSign = spec.x < 0 ? 1 : -1
-  const faceX = spec.x + facingSign * (spec.w / 2 + 0.03)
-  const stripCount = 1 + Math.floor(Math.random() * 2)
-  for (let i = 0; i < stripCount; i++) {
-    const tex = getIvyTexture(Math.floor(Math.random() * IVY_VARIANTS))
-    const height = Math.min(spec.h, spec.h * (0.4 + Math.random() * 0.45))
-    const width = 1.6 + Math.random() * 1.4
-    const mat = cachedFlatMaterial({
-      map: tex,
-      transparent: true,
-      alphaTest: 0.3,
-      roughness: 1,
-      side: THREE.DoubleSide,
-    })
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, height), mat)
-    mesh.rotation.y = facingSign > 0 ? Math.PI / 2 : -Math.PI / 2
-    const z = spec.z - spec.d / 2 + width / 2 + Math.random() * Math.max(0.1, spec.d - width)
-    mesh.position.set(faceX, height / 2, z)
-    scene.add(mesh)
-  }
-}
-
 // Grayscale companion to createGrimeTexture, fed into MeshStandardMaterial's
 // bumpMap - panel seams + the same noise/crack pattern read as real surface
 // relief under the scene's directional moonlight instead of a flat color
@@ -210,6 +140,25 @@ let _sharedBumpTexture = null
 function getSharedBumpTexture() {
   if (!_sharedBumpTexture) _sharedBumpTexture = createBumpTexture()
   return _sharedBumpTexture
+}
+
+// Same "load once, .clone() per instance" pattern as getSharedBumpTexture
+// above - buildSkyscraper used to call `new THREE.TextureLoader().load(...)`
+// itself on every single call, which fetched and GPU-uploaded this same
+// 1.8MB image separately for every one of the 51 skyscrapers in the map
+// (measured ~1.7x slower frame time than sharing it - see the tall-building-
+// to-skyscraper conversion this was found during). .clone() shares the
+// already-decoded image/GPU texture, only the wrapper Texture object (and
+// its own .repeat) is new per call, which is cheap.
+let _sharedWallDecayTexture = null
+function getSharedWallDecayTexture() {
+  if (!_sharedWallDecayTexture) {
+    _sharedWallDecayTexture = new THREE.TextureLoader().load('/textures/building-wall-decay.png')
+    _sharedWallDecayTexture.wrapS = THREE.RepeatWrapping
+    _sharedWallDecayTexture.wrapT = THREE.RepeatWrapping
+    _sharedWallDecayTexture.colorSpace = THREE.SRGBColorSpace
+  }
+  return _sharedWallDecayTexture
 }
 
 // Builds a small broken-city block: cracked streets, damaged buildings with
@@ -426,22 +375,28 @@ export function buildWorld(scene, trophyCount = 15) {
       buildFireEscape(scene, colliders, solidMeshes, b, towerChestSpots)
       skyscraperShortcuts.push({ x: b.x, z: b.z, topY: (SKYSCRAPER_FLOORS - 1) * SKYSCRAPER_FLOOR_H })
     } else if (!EXCLUDED_BUILDING_IDXS.has(i)) {
-      addBuilding(scene, register, b)
+      // Every other building is now a real walkable skyscraper too (the
+      // decorative, unenterable "tall building" GLB models were removed
+      // entirely at the user's request 2026-08-20 - they looked tall but
+      // were solid boxes with no interior). Floor count comes from this
+      // building's own randomized height (see buildSkyscraper's h->floors
+      // math), so the skyline keeps its size variety even though every
+      // building is hollow with real floors/stairs now. No fire escape for
+      // these (unlike EXTRA_FIRE_ESCAPE_IDXS below) since their footprints
+      // were never hand-verified against a fire escape's 0.9-unit exterior
+      // protrusion into a neighboring lot the way skyscraperIdxs' 3 were -
+      // see that set's own comment for why that specifically mattered. The
+      // base shell itself carries no new collision risk though: it's built
+      // at exactly the w x d footprint the decorative box already safely
+      // occupied, never larger, so no equivalent verification is needed
+      // for the shell/interior/stairs, only for an exterior add-on like
+      // the fire escape.
+      b.broken = false
+      const floors = buildSkyscraper(scene, colliders, solidMeshes, b, towerChestSpots)
       if (EXTRA_FIRE_ESCAPE_IDXS.has(i)) {
-        // addBuilding's own register() call just pushed one solid collider
-        // spanning the building's full height - fine for a decorative box
-        // nobody reaches the top of, but standing on this building's own
-        // new roof means the player's collision box sits right at that same
-        // top face, so the building would block itself from ever being
-        // steppable. Real skyscrapers don't hit this because they're hollow
-        // shells, not one solid box for the whole volume. Cap the collider
-        // (just-pushed, nothing registers between it and here) a bit below
-        // roof height instead - confirmed empirically via a Playwright
-        // _tryMove walk from the escape's top landing onto the roof, which
-        // failed before this cap and passes cleanly after.
-        colliders[colliders.length - 1].max.y = Math.min(colliders[colliders.length - 1].max.y, b.h - 1.2)
         buildFireEscape(scene, colliders, solidMeshes, b, towerChestSpots)
       }
+      skyscraperShortcuts.push({ x: b.x, z: b.z, topY: (floors - 1) * SKYSCRAPER_FLOOR_H })
     }
   }
 
@@ -8134,36 +8089,6 @@ function addPerimeterBarricade(scene, register, groundSize) {
   }
 }
 
-// Real modeled buildings (Kenney City Kit - Commercial, CC0) used in place of
-// flat procedural boxes wherever available. Loaded once up front via
-// preloadBuildingModels() (awaited in main.js before the game starts, behind
-// a loading screen) so buildWorld() itself can stay synchronous - it just
-// reads whatever finished loading out of this cache. If a file failed to
-// load (or preload was skipped), addBuilding falls back to the original
-// box-with-canvas-texture look, so nothing can hard-crash on a bad network.
-const BUILDING_MODEL_FILES = [
-  'building-a.glb', 'building-b.glb', 'building-c.glb', 'building-d.glb',
-  'building-e.glb', 'building-f.glb', 'building-g.glb', 'building-h.glb',
-  'building-i.glb', 'building-k.glb', 'building-l.glb', 'building-m.glb',
-  'building-n.glb',
-]
-const _modelCache = new Map()
-
-export async function preloadBuildingModels() {
-  const loader = new GLTFLoader()
-  await Promise.all(BUILDING_MODEL_FILES.map(async (file) => {
-    try {
-      const gltf = await loader.loadAsync(`/models/buildings/${file}`)
-      const box = new THREE.Box3().setFromObject(gltf.scene)
-      const size = new THREE.Vector3()
-      box.getSize(size)
-      _modelCache.set(file, { scene: gltf.scene, size })
-    } catch (err) {
-      console.warn(`Building model failed to load, falling back to procedural box: ${file}`, err)
-    }
-  }))
-}
-
 // Phase 5 of the 3D asset overhaul - real props (3dmodelscc0's CC0
 // Industrial/City Environment packs, asset-source/build-props.py) in
 // place of procedural primitives, same "load once, cache, fall back to
@@ -8191,61 +8116,6 @@ export async function preloadPropModels() {
   }))
 }
 
-// Weathering tint applied per building instance (on top of each model's own
-// clean Kenney texture) so 20-odd buildings drawing from ~13 shared model
-// files don't all look like identical copy-paste, and so they read as
-// worn/abandoned rather than a bright modern city kit.
-const MODEL_TINTS = [
-  { mul: 0x554a3c, roughness: 0.95 },
-  { mul: 0x3f4842, roughness: 1.0 },
-  { mul: 0x4a4038, roughness: 0.9 },
-  { mul: 0x454540, roughness: 1.0 },
-]
-
-function addModelBuilding(scene, register, spec, model) {
-  const group = model.scene.clone(true)
-  // These Kenney building models' own UVs aren't laid out for a single
-  // full-photo texture (tried the same building-wall-decay.png used on
-  // addBuilding's plain boxes and buildSkyscraper's shells - it came out
-  // smeared into horizontal stripes here, since these models' UVs repeat
-  // many times over per mesh rather than spanning a clean 0-1 range per
-  // face like a BoxGeometry does). Flat color matching that texture's
-  // average tone instead - see the same average-color approach used for
-  // World.js's ground fallback color.
-  const sharedWallMat = new THREE.MeshLambertMaterial({ color: 0x444443 })
-  group.traverse((o) => {
-    if (!o.isMesh) return
-    o.castShadow = true
-    o.receiveShadow = true
-    o.material = sharedWallMat
-  })
-
-  // Kenney models are pivoted at their own base footprint size, not the
-  // procedural layout's target box - scale per axis to fit the same w/h/d
-  // slot a box building would have occupied, so the rest of buildWorld
-  // (spawn points, skyscraper picks, minimap) needs zero changes.
-  group.scale.set(spec.w / model.size.x, spec.h / model.size.y, spec.d / model.size.z)
-  group.position.set(spec.x, 0, spec.z)
-  scene.add(group)
-  register(group)
-
-  if (spec.broken) {
-    const rubbleCap = new THREE.Mesh(
-      new THREE.BoxGeometry(spec.w * 0.7, spec.h * 0.15, spec.d * 0.7),
-      cachedFlatMaterial({ color: 0x1c1a16, roughness: 1 })
-    )
-    rubbleCap.position.set(spec.x + spec.w * 0.1, spec.h + spec.h * 0.05, spec.z)
-    rubbleCap.rotation.z = 0.08
-    rubbleCap.castShadow = true
-    scene.add(rubbleCap)
-  }
-
-  // Pure decoration, no gameplay purpose - skipped entirely under
-  // LOW_QUALITY_MODE like the procedural building path's own windows/ivy
-  // already are, instead of leaving this one GLB-building path un-gated.
-  if (!LOW_QUALITY_MODE) addIvyOverlay(scene, spec)
-}
-
 // Two rows of buildings flanking a central street (+z is the main avenue),
 // plus a couple set further back to break up the skyline.
 function buildingLayout() {
@@ -8263,14 +8133,11 @@ function buildingLayout() {
         d: 11 + ((seed * 3) % 4) * 1.6,
         h: 9 + ((seed * 5) % 6) * 2.6,
         broken: seed % 3 === 0,
-        modelFile: BUILDING_MODEL_FILES[seed % BUILDING_MODEL_FILES.length],
       })
     }
   }
   return list
 }
-
-const BUILDING_COLORS = [0x38342e, 0x33373a, 0x3c302a, 0x2e3630]
 
 // Phase 6 of the 3D asset overhaul - four outer zones extending buildingLayout's
 // same "rows flanking a street" formula out into the open space of the
@@ -8302,7 +8169,6 @@ function outerZoneBuildingSpecs(centerX, centerZ, axis, seedBase) {
         d: 11 + ((seed * 3) % 4) * 1.6,
         h: 8 + ((seed * 5) % 6) * 2.2,
         broken: seed % 4 === 0,
-        modelFile: BUILDING_MODEL_FILES[seed % BUILDING_MODEL_FILES.length],
       }
       if (axis === 'z') {
         spec.x = centerX + rowOffset + jitter * 0.4
@@ -8457,7 +8323,14 @@ function buildOuterZones(scene, register, cullables, towerChestSpots, colliders,
         registerZone({ id: `${zone.name}skyscraper`, x: spec.x, z: spec.z, radius: 10, densityMult: 1.1 })
         skyscraperShortcuts.push({ x: spec.x, z: spec.z, topY: (SKYSCRAPER_FLOORS - 1) * SKYSCRAPER_FLOOR_H })
       } else {
-        addBuilding(scene, register, spec)
+        // Same conversion as the core downtown loop in buildWorld - every
+        // remaining decorative "tall building" model is now a real walkable
+        // skyscraper instead, floor count derived from its own height. No
+        // fire escape (unverified footprint clearance, same reasoning as
+        // the core loop's comment on this).
+        spec.broken = false
+        const floors = buildSkyscraper(scene, colliders, solidMeshes, spec, towerChestSpots)
+        skyscraperShortcuts.push({ x: spec.x, z: spec.z, topY: (floors - 1) * SKYSCRAPER_FLOOR_H })
       }
     }
 
@@ -8480,78 +8353,6 @@ function buildOuterZones(scene, register, cullables, towerChestSpots, colliders,
   }
 }
 
-function addBuilding(scene, register, spec) {
-  const model = spec.modelFile && _modelCache.get(spec.modelFile)
-  if (model) return addModelBuilding(scene, register, spec, model)
-
-  // Every generic building box (the labeled-shop ones use addModelBuilding
-  // above instead) gets the same decayed-concrete wall texture, regardless
-  // of LOW_QUALITY_MODE - explicitly requested even at the cost of the
-  // tiling/memory savings LOW_QUALITY_MODE otherwise gets here (see
-  // buildSkyscraper's shellTex for the same reasoning/pattern).
-  const wallTex = new THREE.TextureLoader().load('/textures/building-wall-decay.png')
-  wallTex.wrapS = THREE.RepeatWrapping
-  wallTex.wrapT = THREE.RepeatWrapping
-  wallTex.colorSpace = THREE.SRGBColorSpace
-  wallTex.repeat.set(Math.max(1, Math.round(spec.w / 7)), Math.max(1, Math.round(spec.h / 7)))
-  const mat = cachedFlatMaterial({ map: wallTex, roughness: 0.95 })
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(spec.w, spec.h, spec.d), mat)
-  mesh.position.set(spec.x, spec.h / 2, spec.z)
-  mesh.castShadow = true
-  mesh.receiveShadow = true
-  scene.add(mesh)
-  register(mesh)
-
-  if (spec.broken) {
-    const rubbleCap = new THREE.Mesh(
-      new THREE.BoxGeometry(spec.w * 0.7, spec.h * 0.15, spec.d * 0.7),
-      cachedFlatMaterial({ color: 0x1c1a16, roughness: 1 })
-    )
-    rubbleCap.position.set(spec.x + spec.w * 0.1, spec.h + spec.h * 0.05, spec.z)
-    rubbleCap.rotation.z = 0.08
-    rubbleCap.castShadow = true
-    scene.add(rubbleCap)
-  }
-
-  // LOW_QUALITY_MODE: skip entirely rather than merge/simplify - each
-  // building would otherwise place 10-30+ individual window planes plus an
-  // ivy decal overlay, pure decoration with no gameplay purpose, so the
-  // cheapest and simplest win is not creating them at all for now.
-  if (!LOW_QUALITY_MODE) {
-    addWindows(scene, spec)
-    addIvyOverlay(scene, spec)
-  }
-}
-
-function addWindows(scene, spec) {
-  const litMat = cachedFlatMaterial({
-    color: 0x1a1508,
-    emissive: 0xffb646,
-    emissiveIntensity: 1.4,
-  })
-  const darkMat = cachedFlatMaterial({
-    color: 0x0c0f12,
-    emissive: 0x0b1420,
-    emissiveIntensity: 0.4,
-  })
-
-  const facingSign = spec.x < 0 ? 1 : -1
-  const faceX = spec.x + facingSign * (spec.w / 2 + 0.02)
-  const cols = Math.max(2, Math.floor(spec.d / 3))
-  const rowsCount = Math.max(2, Math.floor(spec.h / 3))
-
-  for (let r = 0; r < rowsCount; r++) {
-    for (let c = 0; c < cols; c++) {
-      const lit = Math.random() < 0.22 && !spec.broken
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.2), lit ? litMat : darkMat)
-      mesh.rotation.y = facingSign > 0 ? Math.PI / 2 : -Math.PI / 2
-      const z = spec.z - spec.d / 2 + 1.5 + c * ((spec.d - 3) / Math.max(1, cols - 1))
-      const y = 1.8 + r * 2.6
-      mesh.position.set(faceX, Math.min(y, spec.h - 1), z)
-      scene.add(mesh)
-    }
-  }
-}
 
 // Small piles of splintered planks/bricks scattered around the street -
 // purely decorative clutter, no collider.
@@ -8753,12 +8554,24 @@ const SKYSCRAPER_FLOORS = 3 // ground + 2 upper
 function buildSkyscraper(scene, colliders, solidMeshes, spec, chestSpots) {
   const { x: cx, z: cz, w, d, h } = spec
   const half = w / 2
-  const facingSign = cx < 0 ? 1 : -1 // open facade faces the central avenue
+  // spec.facingSign is an explicit override for callers whose "which side
+  // faces the street" axis isn't simply cx's sign relative to x=0 (e.g. the
+  // 'x'-axis outer zones, where rows run along z instead) - see
+  // buildOuterZones' own conversion of that axis. Falls back to the
+  // original x=0-relative auto-detect for every existing call site, which
+  // never set this field, so behavior there is unchanged.
+  const facingSign = spec.facingSign !== undefined ? spec.facingSign : (cx < 0 ? 1 : -1)
+  // Floor count derived from this building's own height rather than the
+  // fixed SKYSCRAPER_FLOORS constant, so callers converting buildings of
+  // varying height (see the tall-building-to-skyscraper conversion in
+  // buildWorld/buildOuterZones) get a proportionate number of floors
+  // instead of every building becoming identically tall. The 5 original
+  // call sites all pass h = SKYSCRAPER_FLOOR_H * SKYSCRAPER_FLOORS exactly,
+  // so this recomputes to exactly SKYSCRAPER_FLOORS for them - no change.
+  const floors = Math.max(2, Math.round(h / SKYSCRAPER_FLOOR_H))
 
-  const shellTex = new THREE.TextureLoader().load('/textures/building-wall-decay.png')
-  shellTex.wrapS = THREE.RepeatWrapping
-  shellTex.wrapT = THREE.RepeatWrapping
-  shellTex.colorSpace = THREE.SRGBColorSpace
+  const shellTex = getSharedWallDecayTexture().clone()
+  shellTex.needsUpdate = true
   shellTex.repeat.set(Math.max(1, Math.round(w / 7)), Math.max(1, Math.round(h / 7)))
   const shellMat = cachedFlatMaterial({ map: shellTex, roughness: 0.95 })
   const floorMat = cachedFlatMaterial({ color: 0x3a352c, roughness: 0.9 })
@@ -8787,7 +8600,7 @@ function buildSkyscraper(scene, colliders, solidMeshes, spec, chestSpots) {
     solidMeshes.push(wall)
   }
 
-  for (let floor = 1; floor < SKYSCRAPER_FLOORS; floor++) {
+  for (let floor = 1; floor < floors; floor++) {
     const y = floor * SKYSCRAPER_FLOOR_H
 
     const slab = new THREE.Mesh(
@@ -8809,6 +8622,8 @@ function buildSkyscraper(scene, colliders, solidMeshes, spec, chestSpots) {
 
     chestSpots.push({ x: mainRoomCenterX, y, z: cz })
   }
+
+  return floors
 }
 
 // Exterior fire escape granting a low-rooftop vantage on the two "real"
