@@ -5523,6 +5523,18 @@ export class Game {
       audioEngine.resume()
       audioEngine.startAmbient()
       audioEngine.startMusic()
+      // Weather was already rolled once by the constructor's own
+      // _rollWeather() call, well before this - which sets this.raining/
+      // this.snowing (and the visual overlay) fine, but its own
+      // audioEngine.setWeatherAudio() call was a silent no-op back then
+      // since audioEngine.ctx didn't exist yet (only created by init()
+      // just above). Without this, a session that started already raining
+      // showed rain visually but played it silently until the next
+      // _rollWeather() call - a respawn or a full night cycle away, which
+      // is exactly the "I don't hear rain/snow" bug this line fixes: sync
+      // the audio to whatever weather state is already current now that
+      // the engine can actually receive it.
+      audioEngine.setWeatherAudio(this.raining, this.snowing)
       this._applyLoadout(this.settings.loadout)
       // Mutator Exploration nudge (see _updateMenuSpotlight's mode 4) -
       // "tried" means actually started a run with it on, checked here
