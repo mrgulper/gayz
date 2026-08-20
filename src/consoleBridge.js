@@ -11,6 +11,12 @@
 // linked from anywhere in this game) for the actual password-gated editor
 // UI that talks to this bridge.
 
+// Only GayzConsole's real deployed origin may talk to this bridge -
+// checked on every inbound message, and used as the explicit target for
+// every outbound one (instead of '*') so selected-element data is never
+// handed to some other page that happened to iframe this one.
+const TRUSTED_CONSOLE_ORIGIN = 'https://gayzconsole.vercel.app'
+
 let pickerEnabled = false
 let selectedEl = null
 let highlightEl = null
@@ -77,11 +83,12 @@ function onPickerClick(e) {
       text: el.children.length === 0 ? el.textContent : null,
       color: cs.color,
     },
-    '*'
+    TRUSTED_CONSOLE_ORIGIN
   )
 }
 
 window.addEventListener('message', (event) => {
+  if (event.origin !== TRUSTED_CONSOLE_ORIGIN) return
   if (event.source !== window.parent) return
   const msg = event.data
   if (!msg || typeof msg !== 'object') return
