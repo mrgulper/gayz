@@ -391,6 +391,16 @@ export function buildWorld(scene, trophyCount = 15) {
       // occupied, never larger, so no equivalent verification is needed
       // for the shell/interior/stairs, only for an exterior add-on like
       // the fire escape.
+      //
+      // Height capped at 4 floors - the shell's entrance side is fully
+      // open, no wall, top to bottom (by design, so you can walk in), and
+      // at this building's original randomized height (up to ~22, 6
+      // floors) that leaves the ENTIRE interior staircase run visible from
+      // outside/nearby buildings - reported as "glitching" between close
+      // buildings, and it really was jarring at that scale. The original
+      // 3 hand-built skyscrapers never hit this because they were capped
+      // at exactly 3 floors (h = SKYSCRAPER_FLOOR_H * SKYSCRAPER_FLOORS).
+      b.h = Math.max(2, Math.min(4, Math.round(b.h / SKYSCRAPER_FLOOR_H))) * SKYSCRAPER_FLOOR_H
       b.broken = false
       const floors = buildSkyscraper(scene, colliders, solidMeshes, b, towerChestSpots)
       if (EXTRA_FIRE_ESCAPE_IDXS.has(i)) {
@@ -8327,7 +8337,10 @@ function buildOuterZones(scene, register, cullables, towerChestSpots, colliders,
         // remaining decorative "tall building" model is now a real walkable
         // skyscraper instead, floor count derived from its own height. No
         // fire escape (unverified footprint clearance, same reasoning as
-        // the core loop's comment on this).
+        // the core loop's comment on this). Height capped at 4 floors -
+        // same "fully-open entrance wall reveals the whole interior stair
+        // run from outside" reasoning as the core loop's own comment.
+        spec.h = Math.max(2, Math.min(4, Math.round(spec.h / SKYSCRAPER_FLOOR_H))) * SKYSCRAPER_FLOOR_H
         spec.broken = false
         const floors = buildSkyscraper(scene, colliders, solidMeshes, spec, towerChestSpots)
         skyscraperShortcuts.push({ x: spec.x, z: spec.z, topY: (floors - 1) * SKYSCRAPER_FLOOR_H })
