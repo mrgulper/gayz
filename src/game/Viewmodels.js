@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import { flatMaterial, flattenedClone } from './QualitySettings.js'
 
 // Phase 4 of the 3D asset overhaul (see 3D_ASSET_OVERHAUL.md) - real rigged
@@ -18,6 +19,11 @@ function preloadGunModel(id, url) {
   return async () => {
     try {
       const loader = new GLTFLoader()
+      // Needed for any GLB run through gltf-transform's meshopt geometry
+      // compression (see asset-source's build scripts + 3D_ASSET_OVERHAUL.md
+      // §2.6) - harmless no-op for GLBs that were never meshopt-compressed,
+      // so this is safe to set unconditionally for every gun.
+      loader.setMeshoptDecoder(MeshoptDecoder)
       const gltf = await loader.loadAsync(url)
       GUN_MODEL_CACHE[id] = gltf.scene
     } catch (err) {
@@ -38,6 +44,14 @@ export const USE_GLB_GLOCK18 = true
 export const preloadGlock18Viewmodel = preloadGunModel('glock18', '/models/weapons/glock18.glb')
 export const USE_GLB_SUPPRESSEDSMG = true
 export const preloadSuppressedSmgViewmodel = preloadGunModel('suppressedsmg', '/models/weapons/suppressedsmg.glb')
+// First of the "never had real geometry at all" lane (see
+// asset-source/build-grenadelauncher.py) - built from scratch in Blender
+// at the exact same dimensions as buildGrenadeLauncherProcedural below
+// (not sourced from the Quaternius pack, which is modern firearms only
+// and has nothing shaped like this), with the same wear-texture bake
+// pass proven on the firearms lane.
+export const USE_GLB_GRENADELAUNCHER = true
+export const preloadGrenadeLauncherViewmodel = preloadGunModel('grenadelauncher', '/models/weapons/grenadelauncher.glb')
 
 // Melee lane (3dmodelscc0's CC0 pack, asset-source/build-melee.py) - reuses
 // the same generic cache/loader as the guns even though the function name
@@ -1116,6 +1130,25 @@ function buildCrossbow(skinId = null) {
 // Grenade Launcher - short and fat with a drum magazine, distinct from the
 // Rocket Launcher's much longer open tube despite both being explosive.
 function buildGrenadeLauncher(skinId = null) {
+  if (USE_GLB_GRENADELAUNCHER && GUN_MODEL_CACHE.grenadelauncher) {
+    const g = buildGunFromGLB(GUN_MODEL_CACHE.grenadelauncher, 'DarkMetal', skinId)
+    const root = g.children[0]
+    const grip = root.getObjectByName('Grip')
+    if (grip) attachHandToGrip(g, grip)
+    const foregrip = root.getObjectByName('Foregrip')
+    if (foregrip) {
+      const foreHand = buildHand()
+      foreHand.position.copy(foregrip.position)
+      foreHand.rotation.x = -0.15
+      foreHand.rotation.z = Math.PI
+      g.add(foreHand)
+    }
+    return g
+  }
+  return buildGrenadeLauncherProcedural(skinId)
+}
+
+function buildGrenadeLauncherProcedural(skinId = null) {
   const g = new THREE.Group()
 
   const body = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.1, 0.22), skinMaterial(skinId, DARK_METAL))
