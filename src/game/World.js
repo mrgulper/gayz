@@ -674,10 +674,18 @@ export function buildWorld(scene, trophyCount = 15) {
   // pattern as bank.vaultDoor above.
   skyscraper.hiddenComplex.speakeasyDoor.lootWeights = { legendary_weapon: 8, rare_weapon: 8, extended_mag: 3 }
 
-  // Stage 9: Mega-Mall, south of the skyscraper along the same x=250
-  // column - 90+ units of z-clearance.
-  const megaMall = buildMegaMall(scene, register, 250, -100)
-  registerZone({ id: 'megamall', x: 250, z: -100, radius: 25, densityMult: 1.5 })
+  // Stage 9: Mega-Mall - moved further east to x=340 2026-08-20 at the
+  // user's request (previously x=250, directly south of the skyscraper).
+  // Its own footprint is roughly 53 units wide (3 stores spanning dx -20
+  // to +20, plus store depth) - centered at x=340 keeps it comfortably
+  // inside the 750-wide ground plane (edge at x=375) with margin to spare,
+  // and the nearest filler decorations out that far (x=358/362) sit at
+  // z=-7/-53, 40+ units clear of this mall's z=[-115,-92] footprint.
+  // buildWalkway below computes its own angle from both endpoints, so the
+  // skyscraper-to-mall path automatically goes diagonal instead of needing
+  // a separate fix.
+  const megaMall = buildMegaMall(scene, register, 340, -100)
+  registerZone({ id: 'megamall', x: 340, z: -100, radius: 25, densityMult: 1.5 })
   for (const spot of megaMall.chestSpots) {
     const lootWeights = spot.loot === 'weapon' ? WEAPON_ONLY_LOOT_WEIGHTS : spot.loot === 'retail' ? RETAIL_LOOT_WEIGHTS : undefined
     towerChestSpots.push({ x: spot.x, y: 0, z: spot.z, lootWeights })
