@@ -5620,7 +5620,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
   position: relative;
   margin-top: 0;
   width: min(400px, 56vw);
-  aspect-ratio: 1364 / 436;
+  aspect-ratio: 1400 / 467;
   padding: 0;
   border: none;
   outline: none;
