@@ -2051,11 +2051,18 @@ Escape before dawn.</p>
 
           <div id="status-row">
             <h3 id="status-row-heading">Status</h3>
-            <div id="status-picker-options">
-              <button type="button" class="status-pick-btn" data-status="online"><span class="friend-status-dot" data-status="online"></span>Online</button>
-              <button type="button" class="status-pick-btn" data-status="idle"><span class="friend-status-dot" data-status="idle"></span>Idle</button>
-              <button type="button" class="status-pick-btn" data-status="dnd"><span class="friend-status-dot" data-status="dnd"></span>Do Not Disturb</button>
-              <button type="button" class="status-pick-btn" data-status="offline"><span class="friend-status-dot" data-status="offline"></span>Offline</button>
+            <div id="status-picker">
+              <button type="button" id="status-picker-toggle">
+                <span class="friend-status-dot" data-status="online" id="status-picker-dot"></span>
+                <span id="status-picker-label">Online</span>
+                <svg id="status-picker-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div id="status-picker-options">
+                <button type="button" class="status-pick-btn" data-status="online"><span class="friend-status-dot" data-status="online"></span>Online</button>
+                <button type="button" class="status-pick-btn" data-status="idle"><span class="friend-status-dot" data-status="idle"></span>Idle</button>
+                <button type="button" class="status-pick-btn" data-status="dnd"><span class="friend-status-dot" data-status="dnd"></span>Do Not Disturb</button>
+                <button type="button" class="status-pick-btn" data-status="offline"><span class="friend-status-dot" data-status="offline"></span>Offline</button>
+              </div>
             </div>
           </div>
 

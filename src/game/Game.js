@@ -4921,6 +4921,10 @@ export class Game {
     this.friendRequestsList = document.getElementById('friend-requests-list')
     this.friendsOwnId = document.getElementById('friends-own-id')
     this.statusPickBtns = document.querySelectorAll('.status-pick-btn')
+    this.statusPicker = document.getElementById('status-picker')
+    this.statusPickerToggle = document.getElementById('status-picker-toggle')
+    this.statusPickerDot = document.getElementById('status-picker-dot')
+    this.statusPickerLabel = document.getElementById('status-picker-label')
     this.sendFriendRequestBtn = document.getElementById('send-friend-request-btn')
     this._incomingFriendRequests = []
     this._friendRequestsUnsubscribe = null
@@ -9151,6 +9155,23 @@ export class Game {
     }
     if (this.whatsNewLink) this.whatsNewLink.addEventListener('click', () => trackAndOpen(() => this._openWhatsNewPanel()))
     if (this.friendsBtn) this.friendsBtn.addEventListener('click', () => trackAndOpen(() => this._openFriendsPanel()))
+    if (this.statusPickerToggle) {
+      this.statusPickerToggle.addEventListener('click', (e) => {
+        e.stopPropagation()
+        this.statusPicker.classList.toggle('open')
+      })
+    }
+    for (const btn of this.statusPickBtns) {
+      btn.addEventListener('click', () => {
+        this._applyStatusMode(btn.dataset.status)
+        this.statusPicker.classList.remove('open')
+      })
+    }
+    document.addEventListener('click', (e) => {
+      if (this.statusPicker && this.statusPicker.classList.contains('open') && !this.statusPicker.contains(e.target)) {
+        this.statusPicker.classList.remove('open')
+      }
+    })
     if (this.friendsSigninBtn) this.friendsSigninBtn.addEventListener('click', () => this._handleCloudSignIn())
     if (this.menuInventoryBtn) this.menuInventoryBtn.addEventListener('click', () => trackAndOpen(() => this._openMenuInventoryPanel()))
     if (this.serverBtn) this.serverBtn.addEventListener('click', () => trackAndOpen(() => this._openServerPanel()))
@@ -13209,12 +13230,14 @@ export class Game {
     // though the account was still actually signed in.
     CloudSaveUI.renderCloudSaveState(this)
     this._renderFriendRequests()
+    this._renderStatusPicker()
     if (this.friendsOwnId) this.friendsOwnId.textContent = this.settings.playerId ? `#${this.settings.playerId}` : ''
     this._markFriendAcceptedSeen()
   }
 
   _closeFriendsPanel() {
     if (this.friendsPanel) this.friendsPanel.style.display = 'none'
+    if (this.statusPicker) this.statusPicker.classList.remove('open')
   }
 
   // Inventory - homepage placeholder only for now, no functionality yet
@@ -17066,9 +17089,13 @@ export class Game {
 
   _renderStatusPicker() {
     if (!this.statusPickBtns) return
+    const mode = this.settings.statusMode
     for (const btn of this.statusPickBtns) {
-      btn.classList.toggle('active', btn.dataset.status === this.settings.statusMode)
+      btn.classList.toggle('active', btn.dataset.status === mode)
     }
+    const labels = { online: 'Online', idle: 'Idle', dnd: 'Do Not Disturb', offline: 'Offline' }
+    if (this.statusPickerDot) this.statusPickerDot.dataset.status = mode
+    if (this.statusPickerLabel) this.statusPickerLabel.textContent = labels[mode] || labels.online
   }
 
   // Friend-beats-you notification - checks each saved friend's real public
