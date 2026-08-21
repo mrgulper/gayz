@@ -1874,6 +1874,33 @@ Escape before dawn.</p>
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>
 
+      <div id="multiplayer-panel">
+        <h2 id="multiplayer-panel-title">Play with Friends</h2>
+        <div id="multiplayer-create-view">
+          <p id="multiplayer-create-desc">Invite a friend to join your game.</p>
+          <button id="multiplayer-create-btn">Create Invite Link</button>
+        </div>
+        <div id="multiplayer-join-view" style="display: none">
+          <p id="multiplayer-join-desc">You've been invited to a game.</p>
+          <button id="multiplayer-join-btn">Join Game</button>
+        </div>
+        <div id="multiplayer-link-view" style="display: none">
+          <p id="multiplayer-link-desc">Send this link to a friend:</p>
+          <div id="multiplayer-link-row">
+            <input type="text" id="multiplayer-link-input" readonly />
+            <button id="multiplayer-copy-link-btn" class="mini-action-btn">Copy</button>
+          </div>
+          <button id="multiplayer-continue-to-lobby-btn">Continue to Lobby</button>
+        </div>
+        <div id="multiplayer-lobby-view" style="display: none">
+          <h3 id="multiplayer-lobby-title">Lobby</h3>
+          <div id="multiplayer-player-list"></div>
+          <button id="multiplayer-start-btn" style="display: none">Start Game</button>
+          <p id="multiplayer-waiting-line" style="display: none">Waiting for the host to start...</p>
+        </div>
+        <p class="panel-close-hint">Click anywhere to close</p>
+      </div>
+
       <div id="credits-panel">
         <h2 id="credits-panel-title">Credits</h2>
         <div id="credits-content">
@@ -2146,6 +2173,7 @@ Escape before dawn.</p>
         <h2 id="pause-overlay-title">Paused</h2>
         <div class="perk-panel-buttons">
           <button id="pause-resume-btn">Resume</button>
+          <button id="pause-invite-btn">Invite Friend</button>
           <button id="pause-weapon-btn">Switch Weapon</button>
           <button id="pause-upgrades-btn">Upgrades</button>
           <button id="pause-spectate-btn">Spectate</button>

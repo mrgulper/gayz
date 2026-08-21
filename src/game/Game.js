@@ -4924,6 +4924,24 @@ export class Game {
     this.rulesInfoLink = document.getElementById('nav-rulesinfo-link')
     this.rulesInfoPanel = document.getElementById('rulesinfo-panel')
     this.rulesInfoPanelTitle = document.getElementById('rulesinfo-panel-title')
+    this.pauseInviteBtn = document.getElementById('pause-invite-btn')
+    this.multiplayerPanel = document.getElementById('multiplayer-panel')
+    this.multiplayerPanelTitle = document.getElementById('multiplayer-panel-title')
+    this.multiplayerCreateView = document.getElementById('multiplayer-create-view')
+    this.multiplayerCreateBtn = document.getElementById('multiplayer-create-btn')
+    this.multiplayerJoinView = document.getElementById('multiplayer-join-view')
+    this.multiplayerJoinBtn = document.getElementById('multiplayer-join-btn')
+    this.multiplayerLinkView = document.getElementById('multiplayer-link-view')
+    this.multiplayerLinkInput = document.getElementById('multiplayer-link-input')
+    this.multiplayerCopyLinkBtn = document.getElementById('multiplayer-copy-link-btn')
+    this.multiplayerContinueToLobbyBtn = document.getElementById('multiplayer-continue-to-lobby-btn')
+    this.multiplayerLobbyView = document.getElementById('multiplayer-lobby-view')
+    this.multiplayerPlayerList = document.getElementById('multiplayer-player-list')
+    this.multiplayerStartBtn = document.getElementById('multiplayer-start-btn')
+    this.multiplayerWaitingLine = document.getElementById('multiplayer-waiting-line')
+    this._multiplayerSessionId = null
+    this._multiplayerUnsubscribe = null
+    this._pendingJoinSessionId = new URLSearchParams(window.location.search).get('join') || null
     this.whatsNewLink = document.getElementById('nav-whatsnew-link')
     this.friendsBtn = document.getElementById('friends-btn')
     this.friendsPanel = document.getElementById('friends-panel')
@@ -5474,6 +5492,10 @@ export class Game {
     // Debug/QA hook - lets Playwright (or the browser console) drive real
     // game methods directly, since this project has no test suite.
     window.__game = this
+
+    // Arrived via a friend's invite link (?join=<sessionId>) - show the
+    // Join prompt right away rather than making them find the pause menu.
+    if (this._pendingJoinSessionId) this._openMultiplayerPanel()
   }
 
   _addFlashlight() {
@@ -5822,6 +5844,7 @@ export class Game {
       if (this.spectateOpen) this._exitSpectate()
       this.player.controls.lock()
     })
+    if (this.pauseInviteBtn) this.pauseInviteBtn.addEventListener('click', () => this._openMultiplayerPanel())
     this.pauseSettingsBtn.addEventListener('click', () => this._toggleSettings(true))
     // Quit to Menu (2026-08-20: now always banks a reduced Legacy Points
     // payout - see QUIT_LEGACY_MULT's own comment - folding in what the
@@ -9161,6 +9184,61 @@ export class Game {
     if (this.rulesInfoPanel) {
       this.rulesInfoPanel.addEventListener('click', (e) => {
         if (e.target === this.rulesInfoPanel) this._closeRulesInfoPanel()
+      })
+    }
+    if (this.multiplayerPanel) {
+      this.multiplayerPanel.addEventListener('click', (e) => {
+        if (e.target === this.multiplayerPanel) this._closeMultiplayerPanel()
+      })
+    }
+    if (this.multiplayerCreateBtn) {
+      this.multiplayerCreateBtn.addEventListener('click', async () => {
+        const Multiplayer = await import('./Multiplayer.js')
+        const uid = this._cloudUid || this.settings.playerId
+        const nickname = this.settings.nickname || 'Player'
+        let sessionId
+        try {
+          sessionId = await Multiplayer.createSession(uid, nickname)
+        } catch {
+          this._showLoreToast(t('multiplayerCreateFailed'))
+          return
+        }
+        this._multiplayerSessionId = sessionId
+        const link = `${window.location.origin}${window.location.pathname}?join=${sessionId}`
+        this.multiplayerLinkInput.value = link
+        this.multiplayerCreateView.style.display = 'none'
+        this.multiplayerLinkView.style.display = 'flex'
+        this._subscribeMultiplayerLobby(Multiplayer, sessionId)
+      })
+    }
+    if (this.multiplayerCopyLinkBtn) {
+      this.multiplayerCopyLinkBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(this.multiplayerLinkInput.value)
+          .then(() => this._showLoreToast(t('multiplayerLinkCopied')))
+          .catch(() => {})
+      })
+    }
+    if (this.multiplayerContinueToLobbyBtn) {
+      this.multiplayerContinueToLobbyBtn.addEventListener('click', () => {
+        this.multiplayerLinkView.style.display = 'none'
+        this.multiplayerLobbyView.style.display = 'flex'
+      })
+    }
+    if (this.multiplayerJoinBtn) {
+      this.multiplayerJoinBtn.addEventListener('click', () => {
+        if (this._pendingJoinSessionId) this._joinMultiplayerSession(this._pendingJoinSessionId)
+      })
+    }
+    if (this.multiplayerStartBtn) {
+      this.multiplayerStartBtn.addEventListener('click', async () => {
+        const Multiplayer = await import('./Multiplayer.js')
+        const uid = this._cloudUid || this.settings.playerId
+        await Multiplayer.startSession(this._multiplayerSessionId, uid)
+        this._closeMultiplayerPanel()
+        // Phase 1 has no shared gameplay yet - starting just closes the
+        // lobby and lets each player's own game proceed exactly as a solo
+        // run does today. Phase 2 replaces this with the real shared-start
+        // flow (see docs/superpowers/specs/2026-08-21-multiplayer-design.md).
       })
     }
     if (this.whatsNewLink) this.whatsNewLink.addEventListener('click', () => trackAndOpen(() => this._openWhatsNewPanel()))
@@ -12664,6 +12742,7 @@ export class Game {
   _closeAllMenuPanels() {
     if (this.upgradesPanel) this.upgradesPanel.style.display = 'none'
     if (this.howtoplayPanel) this.howtoplayPanel.style.display = 'none'
+    if (this.multiplayerPanel) this.multiplayerPanel.style.display = 'none'
     if (this.settingsPanel && this.settingsOpen) {
       this.settingsOpen = false
       this.settingsPanel.style.display = 'none'
@@ -15337,6 +15416,75 @@ export class Game {
 
   _closeRulesInfoPanel() {
     this.rulesInfoPanel.style.display = 'none'
+  }
+
+  // Multiplayer (Phase 1: invite link + lobby only, see Multiplayer.js and
+  // docs/superpowers/specs/2026-08-21-multiplayer-design.md) - shows the
+  // Join prompt instead of the Create option when arriving via a friend's
+  // link (_pendingJoinSessionId set in the constructor from ?join=).
+  _openMultiplayerPanel() {
+    if (!this.multiplayerPanel) return
+    this._closeAllMenuPanels()
+    // Opened from the pause overlay (still on screen, unlocked) - hide it
+    // explicitly rather than relying on DOM/paint order, since #pause-
+    // overlay comes after #multiplayer-panel in index.html and would
+    // otherwise render on top and eat every click meant for this panel
+    // (same reasoning as _openUpgradesPanel's identical fix).
+    if (this.pauseOverlay) this.pauseOverlay.style.display = 'none'
+    this.multiplayerPanel.style.display = 'flex'
+    this.multiplayerPanelTitle.textContent = t('multiplayerPanelTitle')
+    this.multiplayerLinkView.style.display = 'none'
+    this.multiplayerLobbyView.style.display = 'none'
+    if (this._pendingJoinSessionId) {
+      this.multiplayerCreateView.style.display = 'none'
+      this.multiplayerJoinView.style.display = 'flex'
+    } else {
+      this.multiplayerCreateView.style.display = 'flex'
+      this.multiplayerJoinView.style.display = 'none'
+    }
+  }
+
+  _closeMultiplayerPanel() {
+    if (this.multiplayerPanel) this.multiplayerPanel.style.display = 'none'
+    if (this.gameStarted) this.pauseOverlay.style.display = 'flex'
+  }
+
+  async _joinMultiplayerSession(sessionId) {
+    const Multiplayer = await import('./Multiplayer.js')
+    const uid = this._cloudUid || this.settings.playerId
+    const nickname = this.settings.nickname || 'Player'
+    try {
+      await Multiplayer.joinSession(sessionId, uid, nickname)
+    } catch {
+      this._showLoreToast(t('multiplayerJoinFailed'))
+      return
+    }
+    this._multiplayerSessionId = sessionId
+    this._subscribeMultiplayerLobby(Multiplayer, sessionId)
+    this.multiplayerJoinView.style.display = 'none'
+    this.multiplayerLinkView.style.display = 'none'
+    this.multiplayerCreateView.style.display = 'none'
+    this.multiplayerLobbyView.style.display = 'flex'
+  }
+
+  _subscribeMultiplayerLobby(Multiplayer, sessionId) {
+    const uid = this._cloudUid || this.settings.playerId
+    Multiplayer.subscribeToSession(sessionId, (state) => {
+      if (!state) return
+      this._renderMultiplayerLobby(state, uid)
+    }).then((unsub) => { this._multiplayerUnsubscribe = unsub })
+  }
+
+  _renderMultiplayerLobby(state, myUid) {
+    this.multiplayerPlayerList.innerHTML = state.players.map((p) => `
+      <div class="multiplayer-player-row${p.connected ? '' : ' disconnected'}${p.uid === state.host ? ' is-host' : ''}">
+        <span class="friend-status-dot"></span>
+        <span>${_escapeHtml(p.nickname)}</span>
+      </div>
+    `).join('')
+    const isHost = state.host === myUid
+    this.multiplayerStartBtn.style.display = isHost ? 'block' : 'none'
+    this.multiplayerWaitingLine.style.display = isHost ? 'none' : 'block'
   }
 
   // Shop - emptied out (was Weapon Attachments + a visual-only crate grid,

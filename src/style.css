@@ -2893,6 +2893,7 @@ select option {
 #profile-panel,
 #credits-panel,
 #rulesinfo-panel,
+#multiplayer-panel,
 #shop-panel,
 #whatsnew-panel,
 #howtoplay-panel,
@@ -5251,6 +5252,59 @@ html.theme-lighter #app { filter: brightness(1.25); }
 .mini-action-btn:hover {
   background: rgba(227, 166, 60, 0.2);
   border-color: var(--menu-gold);
+}
+
+#multiplayer-link-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  max-width: 360px;
+}
+
+#multiplayer-link-input {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #e8e8e2;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+}
+
+#multiplayer-player-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  max-width: 320px;
+  margin: 10px 0;
+}
+
+.multiplayer-player-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+.multiplayer-player-row .friend-status-dot {
+  background: #4caf50;
+}
+
+.multiplayer-player-row.disconnected .friend-status-dot {
+  background: #6b6b6b;
+}
+
+.multiplayer-player-row.is-host::after {
+  content: 'HOST';
+  margin-left: auto;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  color: #e3c23c;
 }
 
 .menu-preset-row {
