@@ -2975,6 +2975,14 @@ select option {
   justify-content: flex-start;
 }
 
+/* Upgrades panel - 30+ perk cards never fit one screen either, same
+   overflow-y override as the Profile/Achievements/Hub panels above. */
+#upgrades-panel {
+  overflow-y: auto;
+  padding: 24px 0;
+  justify-content: flex-start;
+}
+
 #coming-soon-body {
   max-width: 420px;
   text-align: center;
@@ -5920,7 +5928,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 }
 
 #menu-player-badge:hover #menu-avatar-icon {
-  border-color: var(--menu-gold);
+  --avatar-frame-color: var(--menu-gold);
 }
 
 #menu-avatar-icon {
@@ -5932,33 +5940,62 @@ html.theme-lighter #app { filter: brightness(1.25); }
   height: 112px;
   color: var(--menu-gold);
   background: linear-gradient(180deg, rgba(227, 166, 60, 0.1) 0%, rgba(0, 0, 0, 0.3) 100%);
-  border: 3px solid var(--menu-gold);
   border-radius: 6px;
+  --avatar-frame-color: var(--menu-gold);
   box-shadow:
     inset 0 2px 3px rgba(255, 255, 255, 0.12),
     inset 0 -3px 6px rgba(0, 0, 0, 0.55),
     0 0 16px 2px rgba(227, 166, 60, 0.25);
 }
 
+/* Corner-bracket frame instead of a plain solid border - same stamped-metal
+   technique as .menu-panel/.menu-card's own corner brackets, scaled up for
+   this larger focal element. Recolored per tier via --avatar-frame-color
+   rather than a plain border-color override. */
+#menu-avatar-icon::before,
+#menu-avatar-icon::after {
+  content: '';
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  pointer-events: none;
+}
+
+#menu-avatar-icon::before {
+  top: -3px;
+  left: -3px;
+  border-top: 3px solid var(--avatar-frame-color);
+  border-left: 3px solid var(--avatar-frame-color);
+  box-shadow: -0.5px -0.5px 0 rgba(255, 255, 255, 0.35), 1px 1px 1px rgba(0, 0, 0, 0.55);
+}
+
+#menu-avatar-icon::after {
+  bottom: -3px;
+  right: -3px;
+  border-bottom: 3px solid var(--avatar-frame-color);
+  border-right: 3px solid var(--avatar-frame-color);
+  box-shadow: 0.5px 0.5px 0 rgba(255, 255, 255, 0.35), -1px -1px 1px rgba(0, 0, 0, 0.55);
+}
+
 /* Avatar frame tiers - automatic (not a picker), one per CAREER_RANK_TITLES
    tier (see _updateAvatarFrame), same "career rank already computes a
    1-5 tier, reuse it" reasoning as the existing avatar-level number
-   badge. Tier 1 (Rookie) intentionally matches the plain default border
+   badge. Tier 1 (Rookie) intentionally matches the plain default frame
    above - only tiers 2+ actually look different. */
 #menu-avatar-icon.avatar-frame-2 {
-  border-color: var(--menu-bronze, #8a6d47);
+  --avatar-frame-color: var(--menu-bronze, #8a6d47);
 }
 
 #menu-avatar-icon.avatar-frame-3 {
-  border-color: #cfd6de;
+  --avatar-frame-color: #cfd6de;
 }
 
 #menu-avatar-icon.avatar-frame-4 {
-  border-color: var(--menu-blue, #6fa8dc);
+  --avatar-frame-color: var(--menu-blue, #6fa8dc);
 }
 
 #menu-avatar-icon.avatar-frame-5 {
-  border-color: #ffde5c;
+  --avatar-frame-color: #ffde5c;
   box-shadow:
     inset 0 2px 3px rgba(255, 255, 255, 0.12),
     inset 0 -3px 6px rgba(0, 0, 0, 0.55),

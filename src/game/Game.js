@@ -9172,6 +9172,12 @@ export class Game {
         this._openProfilePanel()
       }
     })
+    if (this.menuAvatarLevel) {
+      this.menuAvatarLevel.addEventListener('click', (e) => {
+        e.stopPropagation()
+        this._openComingSoonPanel()
+      })
+    }
     // Pencil icon in the Player showcase panel reveals the same
     // #nickname-row (hidden by default since the old always-visible
     // Player Setup form was replaced with just "Player" + the big avatar).
