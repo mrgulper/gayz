@@ -13655,13 +13655,6 @@ export class Game {
         this._showHomepageToast(t('rankUpToast', { level }))
       }
       this._lastAvatarLevel = level
-      // Avatar frame tiers - automatic, not a picker (see that CSS rule's
-      // own comment), reuses this same tier index.
-      const avatarIcon = document.getElementById('menu-avatar-icon')
-      if (avatarIcon) {
-        for (let i = 2; i <= 5; i++) avatarIcon.classList.remove(`avatar-frame-${i}`)
-        if (level >= 2) avatarIcon.classList.add(`avatar-frame-${level}`)
-      }
       // Logo blood-tint intensity - same tier index, purely cosmetic (a
       // CSS filter, not a different image asset). Doesn't touch the
       // logo's size, only how saturated/red its existing blood-crack

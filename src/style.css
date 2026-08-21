@@ -631,7 +631,7 @@ html.layout-compact .menu-panel {
 
 #status-picker-toggle:hover,
 #status-picker.open #status-picker-toggle {
-  border-color: var(--menu-gold);
+  border-color: #d9bc4a;
 }
 
 #status-picker-label {
@@ -643,7 +643,7 @@ html.layout-compact .menu-panel {
   width: 14px;
   height: 14px;
   flex-shrink: 0;
-  color: var(--menu-gold);
+  color: #d9bc4a;
   transition: transform 0.15s ease;
 }
 
@@ -651,6 +651,11 @@ html.layout-compact .menu-panel {
   transform: rotate(180deg);
 }
 
+/* Literal hex, not var(--menu-gunmetal-dark)/var(--menu-gold) - those are
+   defined as custom properties on #menu itself, and #friends-panel sits
+   outside #menu in the DOM, so the var() calls silently resolved to
+   nothing here and this rendered fully transparent (Friend Requests
+   content visibly bleeding through underneath it) until caught live. */
 #status-picker-options {
   display: none;
   position: absolute;
@@ -660,7 +665,7 @@ html.layout-compact .menu-panel {
   flex-direction: column;
   gap: 2px;
   padding: 4px;
-  background: var(--menu-gunmetal-dark);
+  background: #1c1e20;
   border: 1px solid rgba(227, 166, 60, 0.4);
   border-radius: 8px;
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
@@ -5683,9 +5688,9 @@ html.theme-lighter #app { filter: brightness(1.25); }
   display: flex;
   align-items: center;
   gap: 8px;
-  /* Bumped from 4px - #gamemode-btn above grew ~1.7x (font-size 13px->22px)
-     and needed real clearance so Settings doesn't sit flush against it. */
-  margin-top: 26px;
+  /* Pulled back in from 26px per request (move Settings closer to Game
+     Mode) - still enough clearance not to sit flush against it. */
+  margin-top: 10px;
 }
 
 #quick-mute-btn,
@@ -5885,78 +5890,26 @@ html.theme-lighter #app { filter: brightness(1.25); }
 }
 
 #menu-player-badge:hover #menu-avatar-icon {
-  --avatar-frame-color: var(--menu-gold);
+  filter: brightness(1.18);
 }
 
+/* Same gold-plate background as #menu-nav-buttons button (see
+   plate-blank.webp) instead of the old corner-bracket frame - "same
+   style, same everything, just bigger" per request. background-size:
+   cover (not the nav buttons' 100% 100%) since the plate image is a
+   wide rectangle (1000x361) and this box is square - stretching it
+   to 100% 100% here would visibly warp the border/rivets, cover crops
+   the sides instead and keeps the plate looking correct. */
 #menu-avatar-icon {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 112px;
-  height: 112px;
+  width: 128px;
+  height: 108px;
   color: var(--menu-gold);
-  background: linear-gradient(180deg, rgba(227, 166, 60, 0.1) 0%, rgba(0, 0, 0, 0.3) 100%);
-  border-radius: 6px;
-  --avatar-frame-color: var(--menu-gold);
-  box-shadow:
-    inset 0 2px 3px rgba(255, 255, 255, 0.12),
-    inset 0 -3px 6px rgba(0, 0, 0, 0.55),
-    0 0 16px 2px rgba(227, 166, 60, 0.25);
-}
-
-/* Corner-bracket frame instead of a plain solid border - same stamped-metal
-   technique as .menu-panel/.menu-card's own corner brackets, scaled up for
-   this larger focal element. Recolored per tier via --avatar-frame-color
-   rather than a plain border-color override. */
-#menu-avatar-icon::before,
-#menu-avatar-icon::after {
-  content: '';
-  position: absolute;
-  width: 22px;
-  height: 22px;
-  pointer-events: none;
-}
-
-#menu-avatar-icon::before {
-  top: -3px;
-  left: -3px;
-  border-top: 3px solid var(--avatar-frame-color);
-  border-left: 3px solid var(--avatar-frame-color);
-  box-shadow: -0.5px -0.5px 0 rgba(255, 255, 255, 0.35), 1px 1px 1px rgba(0, 0, 0, 0.55);
-}
-
-#menu-avatar-icon::after {
-  bottom: -3px;
-  right: -3px;
-  border-bottom: 3px solid var(--avatar-frame-color);
-  border-right: 3px solid var(--avatar-frame-color);
-  box-shadow: 0.5px 0.5px 0 rgba(255, 255, 255, 0.35), -1px -1px 1px rgba(0, 0, 0, 0.55);
-}
-
-/* Avatar frame tiers - automatic (not a picker), one per CAREER_RANK_TITLES
-   tier (see _updateAvatarFrame), same "career rank already computes a
-   1-5 tier, reuse it" reasoning as the existing avatar-level number
-   badge. Tier 1 (Rookie) intentionally matches the plain default frame
-   above - only tiers 2+ actually look different. */
-#menu-avatar-icon.avatar-frame-2 {
-  --avatar-frame-color: var(--menu-bronze, #8a6d47);
-}
-
-#menu-avatar-icon.avatar-frame-3 {
-  --avatar-frame-color: #cfd6de;
-}
-
-#menu-avatar-icon.avatar-frame-4 {
-  --avatar-frame-color: var(--menu-blue, #6fa8dc);
-}
-
-#menu-avatar-icon.avatar-frame-5 {
-  --avatar-frame-color: #ffde5c;
-  box-shadow:
-    inset 0 2px 3px rgba(255, 255, 255, 0.12),
-    inset 0 -3px 6px rgba(0, 0, 0, 0.55),
-    0 0 20px 4px rgba(255, 211, 92, 0.4);
+  background: url('/images/plate-blank.webp') center / 100% 100% no-repeat;
+  transition: filter 0.2s ease;
 }
 
 /* Avatar image - a crop of the player's own Minecraft skin face (see
@@ -5967,9 +5920,9 @@ html.theme-lighter #app { filter: brightness(1.25); }
    at this frame's larger display size. */
 #menu-avatar-photo {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  inset: 14px;
+  width: calc(100% - 28px);
+  height: calc(100% - 28px);
   object-fit: cover;
   border-radius: 3px;
   image-rendering: pixelated;
