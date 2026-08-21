@@ -5241,6 +5241,41 @@ html.theme-lighter #app { filter: brightness(1.25); }
   color: #7fd8a0;
 }
 
+/* Weapon Gear Guide (Settings) / Special Ammo Guide (Upgrades) - pure
+   reference lists explaining what each Coin Shop attachment does,
+   requested as a standalone list rather than description text on the
+   Shop's own buy rows. Same look as .shop-attachment-row's name+desc
+   pairing (see .attachment-desc above), just without a buy button. */
+.attachment-guide-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.attachment-guide-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  text-align: left;
+}
+
+.attachment-guide-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--menu-gold, #e3c23c);
+}
+
+.attachment-guide-desc {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
 #shop-panel-soon-note {
   margin-top: 4px;
   font-size: 13px;
