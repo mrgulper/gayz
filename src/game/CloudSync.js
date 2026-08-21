@@ -28,7 +28,7 @@
 //    "which project is this," not "who's allowed in." Real security comes
 //    from the Firestore Security Rules (step 3), which is why those matter
 //    much more than keeping this object private.
-const FIREBASE_CONFIG = {
+export const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyCCA9e3NAWk6MQJS-pnl-Lzq1Yn3nCZwVY',
   authDomain: 'gayz-aa69c.firebaseapp.com',
   projectId: 'gayz-aa69c',
