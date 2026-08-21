@@ -1326,8 +1326,6 @@ const STRINGS = {
     eventBannerHalloween: 'Something wicked stirs in the ruins this week...',
     eventBannerWinter: 'A cold snap has settled over the city.',
     howtoplayPanelTitle: 'How to Play',
-    howtoplayNextBtn: 'Next',
-    howtoplayDoneBtn: 'Got it',
     htpMove: '**WASD** to move, **Mouse** to look, **Space** to jump, **E** to sprint.',
     htpShoot: '**Left Click** to shoot, **1** for a quick melee, **2/3/4** to switch weapons, **R** to reload.',
     htpInventory: '**Tab** opens your inventory. Walk over pickups to collect them automatically.',

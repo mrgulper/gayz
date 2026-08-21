@@ -2211,7 +2211,19 @@ const KILL_MILESTONES_SEEN_KEY = 'gayz-kill-milestones-seen'
 // exist now) and a new player had zero signposting toward any of them.
 // Deliberately still short and high-level, not trying to explain every
 // system - just "these exist, go look."
-const HOWTOPLAY_STEPS = ['htpMove', 'htpShoot', 'htpInventory', 'htpChests', 'htpSurvive', 'htpCompanion', 'htpTrader', 'htpModes']
+// How to Play used to be a paginated Next/Back stepper - now rendered as
+// one static scrollable list (see _openHowToPlayPanel), same format as
+// Credits/Rules & Info, so each step needs a short heading of its own.
+const HOWTOPLAY_STEPS = [
+  { key: 'htpMove', heading: 'Movement' },
+  { key: 'htpShoot', heading: 'Combat' },
+  { key: 'htpInventory', heading: 'Inventory' },
+  { key: 'htpChests', heading: 'Chests' },
+  { key: 'htpSurvive', heading: 'Survival' },
+  { key: 'htpCompanion', heading: 'Companion' },
+  { key: 'htpTrader', heading: 'Safe Zone & Trader' },
+  { key: 'htpModes', heading: 'Game Modes' },
+]
 
 // Nearly There nudge (Profile panel) - deliberately a small curated list,
 // not every achievement: most ACHIEVEMENTS conditions are per-run counters
@@ -3586,10 +3598,7 @@ export class Game {
     this.howtoplayBtn = document.getElementById('howtoplay-btn')
     this.howtoplayPanel = document.getElementById('howtoplay-panel')
     this.howtoplayPanelTitle = document.getElementById('howtoplay-panel-title')
-    this.howtoplayStepContent = document.getElementById('howtoplay-step-content')
-    this.howtoplayDots = document.getElementById('howtoplay-dots')
-    this.howtoplayBackBtn = document.getElementById('howtoplay-back-btn')
-    this.howtoplayNextBtn = document.getElementById('howtoplay-next-btn')
+    this.howtoplayContent = document.getElementById('howtoplay-content')
     this.seasonProgressFill = document.getElementById('season-progress-fill')
     this.eventBanner = document.getElementById('event-banner')
     this.whatsNewDot = document.getElementById('whats-new-dot')
@@ -13979,33 +13988,20 @@ export class Game {
     this._updateQuestsNewDot()
   }
 
-  // How to Play - a replayable, interactive step-through overlay, distinct
-  // from _maybeShowTutorialHints (a one-time, non-interactive toast
-  // sequence that still runs independently the first time a run starts).
+  // How to Play - a replayable overlay, distinct from _maybeShowTutorialHints
+  // (a one-time, non-interactive toast sequence that still runs
+  // independently the first time a run starts). Renders every step as one
+  // static scrollable list rather than a Next/Back stepper.
   _openHowToPlayPanel() {
     this._closeAllMenuPanels()
     this.howtoplayPanel.style.display = 'flex'
     this.howtoplayPanelTitle.textContent = t('howtoplayPanelTitle')
-    this._howtoplayStep = 0
-    this._renderHowToPlayStep()
+    this.howtoplayContent.innerHTML = HOWTOPLAY_STEPS.map((step) => `<h3>${step.heading}</h3><p>${tHtml(step.key)}</p>`).join('')
   }
 
   _closeHowToPlayPanel() {
     this.howtoplayPanel.style.display = 'none'
     if (this.gameStarted) this.pauseOverlay.style.display = 'flex'
-  }
-
-  _renderHowToPlayStep() {
-    const keys = HOWTOPLAY_STEPS
-    this.howtoplayStepContent.innerHTML = tHtml(keys[this._howtoplayStep])
-    this.howtoplayDots.innerHTML = ''
-    for (let i = 0; i < keys.length; i++) {
-      const dot = document.createElement('span')
-      dot.className = 'howtoplay-dot' + (i === this._howtoplayStep ? ' active' : '')
-      this.howtoplayDots.appendChild(dot)
-    }
-    this.howtoplayBackBtn.style.visibility = this._howtoplayStep === 0 ? 'hidden' : 'visible'
-    this.howtoplayNextBtn.textContent = this._howtoplayStep === keys.length - 1 ? t('howtoplayDoneBtn') : t('howtoplayNextBtn')
   }
 
   // Continue card - Play Again replays the exact class/difficulty/companion
@@ -14180,17 +14176,6 @@ export class Game {
     }
 
     if (this.howtoplayBtn) this.howtoplayBtn.addEventListener('click', () => this._openHowToPlayPanel())
-    if (this.howtoplayNextBtn) {
-      this.howtoplayNextBtn.addEventListener('click', () => {
-        if (this._howtoplayStep < HOWTOPLAY_STEPS.length - 1) { this._howtoplayStep++; this._renderHowToPlayStep() }
-        else this._closeHowToPlayPanel()
-      })
-    }
-    if (this.howtoplayBackBtn) {
-      this.howtoplayBackBtn.addEventListener('click', () => {
-        if (this._howtoplayStep > 0) { this._howtoplayStep--; this._renderHowToPlayStep() }
-      })
-    }
     if (this.howtoplayPanel) {
       this.howtoplayPanel.addEventListener('click', (e) => {
         if (e.target === this.howtoplayPanel) this._closeHowToPlayPanel()
