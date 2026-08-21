@@ -1028,6 +1028,7 @@ html.large-text-mode #share-panel,
 html.large-text-mode #achievements-panel,
 html.large-text-mode #profile-panel,
 html.large-text-mode #credits-panel,
+html.large-text-mode #rulesinfo-panel,
 html.large-text-mode #shop-panel,
 html.large-text-mode #whatsnew-panel,
 html.large-text-mode #howtoplay-panel,
@@ -2439,7 +2440,8 @@ select option {
 /* Credits & What's New (see #credits-content) - static prose, scrollable
    rather than laid out as perk-option rows like the achievements/bestiary/
    profile panels since this content isn't a data-driven list. */
-#credits-content {
+#credits-content,
+#rulesinfo-content {
   width: min(420px, 84vw);
   max-height: 60vh;
   overflow-y: auto;
@@ -2456,7 +2458,8 @@ select option {
   text-align: left;
 }
 
-#credits-content h3 {
+#credits-content h3,
+#rulesinfo-content h3 {
   margin: 14px 0 4px;
   font-size: 13px;
   letter-spacing: 0.5px;
@@ -2464,7 +2467,8 @@ select option {
   color: #e3c23c;
 }
 
-#credits-content h3:first-child {
+#credits-content h3:first-child,
+#rulesinfo-content h3:first-child {
   margin-top: 0;
 }
 
@@ -2492,19 +2496,22 @@ select option {
   opacity: 0.85;
 }
 
-#credits-content p {
+#credits-content p,
+#rulesinfo-content p {
   margin: 0 0 8px;
   font-size: 13px;
   line-height: 1.5;
   color: rgba(255, 255, 255, 0.75);
 }
 
-#credits-content a {
+#credits-content a,
+#rulesinfo-content a {
   color: #e3c23c;
   text-decoration: none;
 }
 
-#credits-content a:hover {
+#credits-content a:hover,
+#rulesinfo-content a:hover {
   text-decoration: underline;
 }
 
@@ -2822,6 +2829,7 @@ select option {
 #achievements-panel,
 #profile-panel,
 #credits-panel,
+#rulesinfo-panel,
 #shop-panel,
 #whatsnew-panel,
 #howtoplay-panel,
@@ -3125,6 +3133,7 @@ select option {
 #achievements-panel-title,
 #profile-panel-title,
 #credits-panel-title,
+#rulesinfo-panel-title,
 #shop-panel-title,
 #whatsnew-panel-title,
 #howtoplay-panel-title,
@@ -4647,7 +4656,7 @@ html {
    the standard 4-height overflow measurement this project always
    re-checks after a size-affecting change). */
 html.text-spacing-active #menu, html.text-spacing-active .menu-panel, html.text-spacing-active #upgrades-panel,
-html.text-spacing-active #credits-panel, html.text-spacing-active #shop-panel, html.text-spacing-active #whatsnew-panel, html.text-spacing-active #achievements-panel,
+html.text-spacing-active #credits-panel, html.text-spacing-active #rulesinfo-panel, html.text-spacing-active #shop-panel, html.text-spacing-active #whatsnew-panel, html.text-spacing-active #achievements-panel,
 html.text-spacing-active #profile-panel, html.text-spacing-active #settings-panel,
 html.text-spacing-active #quests-panel, html.text-spacing-active #share-panel, html.text-spacing-active #cloudsave-panel, html.text-spacing-active #howtoplay-panel {
   letter-spacing: calc((var(--text-spacing, 100) - 100) * 0.005px);
@@ -4666,6 +4675,7 @@ html.button-size-scaled button {
 html.reduce-transparency .menu-panel,
 html.reduce-transparency #upgrades-panel,
 html.reduce-transparency #credits-panel,
+html.reduce-transparency #rulesinfo-panel,
 html.reduce-transparency #shop-panel,
 html.reduce-transparency #whatsnew-panel,
 html.reduce-transparency #achievements-panel,
@@ -6387,9 +6397,9 @@ html.theme-lighter #app { filter: brightness(1.25); }
   font-weight: 600;
   letter-spacing: 0.3px;
   text-decoration: underline;
-  text-decoration-color: rgba(216, 220, 210, 0.35);
+  text-decoration-color: rgba(227, 194, 60, 0.35);
   text-underline-offset: 3px;
-  color: #d8dcd2;
+  color: var(--menu-gold);
   background: none;
   border: none;
   border-radius: 999px;
@@ -7209,6 +7219,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 #hub-panel,
 #weapon-picker-panel,
 #credits-content,
+#rulesinfo-content,
 #whatsnew-content,
 #whats-new-digest-list,
 #cloudsave-online-section,
@@ -7226,6 +7237,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 #hub-panel::-webkit-scrollbar,
 #weapon-picker-panel::-webkit-scrollbar,
 #credits-content::-webkit-scrollbar,
+#rulesinfo-content::-webkit-scrollbar,
 #whatsnew-content::-webkit-scrollbar,
 #whats-new-digest-list::-webkit-scrollbar,
 #cloudsave-online-section::-webkit-scrollbar,
@@ -7242,6 +7254,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 #hub-panel::-webkit-scrollbar-track,
 #weapon-picker-panel::-webkit-scrollbar-track,
 #credits-content::-webkit-scrollbar-track,
+#rulesinfo-content::-webkit-scrollbar-track,
 #whatsnew-content::-webkit-scrollbar-track,
 #whats-new-digest-list::-webkit-scrollbar-track,
 #cloudsave-online-section::-webkit-scrollbar-track,
@@ -7258,6 +7271,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 #hub-panel::-webkit-scrollbar-thumb,
 #weapon-picker-panel::-webkit-scrollbar-thumb,
 #credits-content::-webkit-scrollbar-thumb,
+#rulesinfo-content::-webkit-scrollbar-thumb,
 #whatsnew-content::-webkit-scrollbar-thumb,
 #whats-new-digest-list::-webkit-scrollbar-thumb,
 #cloudsave-online-section::-webkit-scrollbar-thumb,
@@ -7275,6 +7289,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 #hub-panel::-webkit-scrollbar-thumb:hover,
 #weapon-picker-panel::-webkit-scrollbar-thumb:hover,
 #credits-content::-webkit-scrollbar-thumb:hover,
+#rulesinfo-content::-webkit-scrollbar-thumb:hover,
 #whatsnew-content::-webkit-scrollbar-thumb:hover,
 #whats-new-digest-list::-webkit-scrollbar-thumb:hover,
 #cloudsave-online-section::-webkit-scrollbar-thumb:hover,

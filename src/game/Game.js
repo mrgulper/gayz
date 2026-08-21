@@ -4903,7 +4903,10 @@ export class Game {
     this.comingSoonTitle = document.getElementById('coming-soon-title')
     this.comingSoonBody = document.getElementById('coming-soon-body')
     this.comingSoonCloseBtn = document.getElementById('coming-soon-close-btn')
-    this.rulesInfoLink = document.getElementById('nav-rules-link')
+    this.howtoplayNavLink = document.getElementById('nav-howtoplay-link')
+    this.rulesInfoLink = document.getElementById('nav-rulesinfo-link')
+    this.rulesInfoPanel = document.getElementById('rulesinfo-panel')
+    this.rulesInfoPanelTitle = document.getElementById('rulesinfo-panel-title')
     this.whatsNewLink = document.getElementById('nav-whatsnew-link')
     this.friendsBtn = document.getElementById('friends-btn')
     this.friendsPanel = document.getElementById('friends-panel')
@@ -9139,7 +9142,13 @@ export class Game {
     if (this.hubBtn) this.hubBtn.addEventListener('click', () => trackAndOpen(() => this._openComingSoonPanel()))
     if (this.gamemodeBtn) this.gamemodeBtn.addEventListener('click', () => trackAndOpen(() => this._openHubPanel()))
     if (this.comingSoonCloseBtn) this.comingSoonCloseBtn.addEventListener('click', () => this._closeComingSoonPanel())
-    if (this.rulesInfoLink) this.rulesInfoLink.addEventListener('click', () => this._openHowToPlayPanel())
+    if (this.howtoplayNavLink) this.howtoplayNavLink.addEventListener('click', () => this._openHowToPlayPanel())
+    if (this.rulesInfoLink) this.rulesInfoLink.addEventListener('click', () => this._openRulesInfoPanel())
+    if (this.rulesInfoPanel) {
+      this.rulesInfoPanel.addEventListener('click', (e) => {
+        if (e.target === this.rulesInfoPanel) this._closeRulesInfoPanel()
+      })
+    }
     if (this.whatsNewLink) this.whatsNewLink.addEventListener('click', () => trackAndOpen(() => this._openWhatsNewPanel()))
     if (this.friendsBtn) this.friendsBtn.addEventListener('click', () => trackAndOpen(() => this._openFriendsPanel()))
     if (this.friendsSigninBtn) this.friendsSigninBtn.addEventListener('click', () => this._handleCloudSignIn())
@@ -12637,6 +12646,7 @@ export class Game {
     if (this.serverPanel) this._closeServerPanel()
     if (this.profilePanel) this._closeProfilePanel()
     if (this.creditsPanel) this._closeCreditsPanel()
+    if (this.rulesInfoPanel) this._closeRulesInfoPanel()
     if (this.shopPanel) this._closeShopPanel()
     if (this.whatsNewPanel) this._closeWhatsNewPanel()
     if (this.sharePanel) this._closeSharePanel()
@@ -13293,6 +13303,7 @@ export class Game {
     this.achievementsBtn.querySelector('span').textContent = t('achievementsBtn')
     this.coinshopBtn.querySelector('span').textContent = t('coinshopBtn')
     if (this.hubBtn) this.hubBtn.querySelector('span').textContent = t('hubBtn')
+    if (this.howtoplayNavLink) this.howtoplayNavLink.querySelector('span').textContent = t('howtoplayPanelTitle')
     if (this.rulesInfoLink) this.rulesInfoLink.querySelector('span').textContent = t('navLinkRules')
     if (this.whatsNewLink) this.whatsNewLink.querySelector('span').textContent = t('navLinkWhatsNew')
     if (this.friendsBtn) this.friendsBtn.querySelector('span').textContent = t('friendsBtn')
@@ -15315,6 +15326,17 @@ export class Game {
 
   _closeCreditsPanel() {
     this.creditsPanel.style.display = 'none'
+  }
+
+  // Rules & Info panel - static prose, same pattern as Credits above.
+  _openRulesInfoPanel() {
+    this._closeAllMenuPanels()
+    this.rulesInfoPanel.style.display = 'flex'
+    this.rulesInfoPanelTitle.textContent = t('navLinkRules')
+  }
+
+  _closeRulesInfoPanel() {
+    this.rulesInfoPanel.style.display = 'none'
   }
 
   // Shop - first pass is visual only (see the panel's own comment in
