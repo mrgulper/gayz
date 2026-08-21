@@ -15375,7 +15375,7 @@ export class Game {
     this._closeAllMenuPanels()
     this.whatsNewPanel.style.display = 'flex'
     if (this.whatsNewPanelTitle) this.whatsNewPanelTitle.textContent = t('whatsNewPanelTitle')
-    if (this.buildVersionLine) this.buildVersionLine.textContent = t('buildVersionLine', { hash: __BUILD_HASH__, date: __BUILD_DATE__ })
+    if (this.buildVersionLine) this.buildVersionLine.textContent = t('buildVersionLine')
     // What's New badge dot - clears the moment the player actually reads
     // this panel, not just on page load, so it stays a genuine "have you
     // seen this" indicator rather than a permanent decoration.

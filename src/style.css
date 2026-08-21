@@ -2483,17 +2483,17 @@ select option {
 #credits-content,
 #rulesinfo-content,
 #howtoplay-content {
-  width: min(420px, 84vw);
+  width: min(840px, 92vw);
   height: 60vh;
   overflow-y: auto;
   text-align: left;
 }
 
 /* Widened past #credits-content per request (less scrolling to read the
-   changelog) - capped at 88vw rather than 100vw so it never touches the
-   edges of the screen on a narrow window. */
+   changelog) - capped below 100vw so it never touches the edges of the
+   screen on a narrow window. */
 #whatsnew-content {
-  width: min(480px, 88vw);
+  width: min(960px, 94vw);
   height: 60vh;
   overflow-y: auto;
   text-align: left;
@@ -2513,6 +2513,15 @@ select option {
 #rulesinfo-content h3:first-child,
 #howtoplay-content h3:first-child {
   margin-top: 0;
+}
+
+#build-version-line {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #e3c23c;
 }
 
 .changelog-entry {
@@ -2557,6 +2566,11 @@ select option {
 #credits-content a:hover,
 #rulesinfo-content a:hover {
   text-decoration: underline;
+}
+
+.credits-links-row {
+  display: flex;
+  gap: 18px;
 }
 
 

@@ -1002,7 +1002,7 @@ const STRINGS = {
     whatsNewPanelTitle: 'What\'s New',
     navLinkRules: 'Rules & Info',
     navLinkWhatsNew: 'What\'s New',
-    buildVersionLine: 'Build {hash} - {date}',
+    buildVersionLine: 'Update Logs',
     menuAriaSummary: 'Best night reached: {night}. Total kills: {kills}. Coins: {coins}.',
     rankRoadmapHeading: 'Rank Roadmap',
     rankRoadmapThreshold: '{n} lifetime kills',
