@@ -4951,8 +4951,6 @@ export class Game {
     this.inventorySkinsTitle = document.getElementById('inventory-skins-title')
     this.inventorySkinsSortLabel = document.getElementById('inventory-skins-sort-label')
     this.inventorySkinsPlaceholder = document.getElementById('inventory-skins-placeholder')
-    this.inventoryCratesTitle = document.getElementById('inventory-crates-title')
-    this.inventoryCratesPlaceholder = document.getElementById('inventory-crates-placeholder')
     this.serverBtn = document.getElementById('server-btn')
     this.serverPanel = document.getElementById('server-panel')
     this.serverPanelTitle = document.getElementById('server-panel-title')
@@ -5006,13 +5004,8 @@ export class Game {
     this.creditsPanelTitle = document.getElementById('credits-panel-title')
     this.shopPanel = document.getElementById('shop-panel')
     this.shopPanelTitle = document.getElementById('shop-panel-title')
-    this.shopPanelSoonNote = document.getElementById('shop-panel-soon-note')
-    // Weapon Attachments shop section (batch 11 feature)
-    this.shopAttachmentsHeading = document.getElementById('shop-attachments-heading')
-    this.shopAttachmentCoinsLine = document.getElementById('shop-attachment-coins-line')
-    this.shopWeaponPicker = document.getElementById('shop-weapon-picker')
-    this.shopAttachmentGrid = document.getElementById('shop-attachment-grid')
-    this._shopSelectedWeaponId = null
+    this.shopCratesTitle = document.getElementById('shop-crates-title')
+    this.shopCratesPlaceholder = document.getElementById('shop-crates-placeholder')
     this.whatsNewPanel = document.getElementById('whatsnew-panel')
     this.whatsNewPanelTitle = document.getElementById('whatsnew-panel-title')
     this.buildVersionLine = document.getElementById('build-version-line')
@@ -13269,8 +13262,6 @@ export class Game {
     if (this.inventorySkinsTitle) this.inventorySkinsTitle.textContent = t('inventorySkinsTitle')
     if (this.inventorySkinsSortLabel) this.inventorySkinsSortLabel.textContent = t('inventorySortLabel')
     if (this.inventorySkinsPlaceholder) this.inventorySkinsPlaceholder.textContent = t('menuInventoryPlaceholder')
-    if (this.inventoryCratesTitle) this.inventoryCratesTitle.textContent = t('inventoryCratesTitle')
-    if (this.inventoryCratesPlaceholder) this.inventoryCratesPlaceholder.textContent = t('menuInventoryPlaceholder')
   }
 
   _closeMenuInventoryPanel() {
@@ -15355,105 +15346,20 @@ export class Game {
     this.rulesInfoPanel.style.display = 'none'
   }
 
-  // Shop - first pass is visual only (see the panel's own comment in
-  // index.html): a crate for each rarity tier, colored per the rarity
-  // table, no purchase/open logic wired up yet. .shop-crate-card entries
-  // are plain divs, not buttons - nothing to click through to yet.
+  // Shop - emptied out (was Weapon Attachments + a visual-only crate grid,
+  // see this file's git history) down to just the Crates placeholder,
+  // moved here from the Inventory panel's own Crates section since crates
+  // are sold here, not held in Inventory. Weapon attachment purchasing has
+  // no UI anywhere right now - see the Settings/Upgrades attachment guide
+  // lists for what those items do, and WeaponSystem.applyAttachment /
+  // saveShopProgress for the still-live persistence of any already-owned
+  // attachments from before this change.
   _openShopPanel() {
     this._closeAllMenuPanels()
     this.shopPanel.style.display = 'flex'
     this.shopPanelTitle.textContent = t('shopPanelTitle')
-    this.shopPanelSoonNote.textContent = t('shopPanelSoonNote')
-    this.shopAttachmentsHeading.textContent = t('shopAttachmentsHeading')
-    // Weapon Attachments shop section (batch 11 feature) - defaults to
-    // whichever weapon is currently equipped (a sensible starting point),
-    // falling back to the first non-melee weapon if equipped is melee.
-    if (!this._shopSelectedWeaponId) {
-      const current = this.weapons.current
-      this._shopSelectedWeaponId = (current && !current.melee) ? current.id : this.weapons.weapons.find((w) => !w.melee).id
-    }
-    this._renderShopWeaponPicker()
-    this._renderShopAttachments()
-  }
-
-  // Weapon Attachments shop section (batch 11 feature) - the row of
-  // weapons to pick from. Melee excluded (see ATTACHMENT_TYPES' own
-  // comment - no ammo/scope/sound to attach to).
-  _renderShopWeaponPicker() {
-    this.shopWeaponPicker.innerHTML = ''
-    for (const w of this.weapons.weapons) {
-      if (w.melee) continue
-      const btn = document.createElement('button')
-      btn.className = 'class-btn shop-weapon-btn'
-      if (w.id === this._shopSelectedWeaponId) btn.classList.add('active')
-      const iconPath = WEAPON_ICON_PATHS[w.id] || ''
-      btn.innerHTML = `<div class="weapon-icon-badge"><svg class="weapon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${iconPath}</svg></div>`
-      btn.title = t(this.weapons._nameKeyFor(w))
-      btn.addEventListener('click', () => {
-        this._shopSelectedWeaponId = w.id
-        this._renderShopWeaponPicker()
-        this._renderShopAttachments()
-      })
-      this.shopWeaponPicker.appendChild(btn)
-    }
-  }
-
-  // Weapon Attachments shop section (batch 11 feature) - one row per
-  // ATTACHMENT_TYPES entry for the currently-selected weapon. Ownership
-  // reads the weapon's own live flag via ATTACHMENT_OWNED_CHECK - the same
-  // thing saveShopProgress derives its persisted list from, so this always
-  // matches what's actually equipped rather than a separately-tracked
-  // record that could drift out of sync with it.
-  _renderShopAttachments() {
-    this.shopAttachmentCoinsLine.textContent = t('shopAttachmentCoinsLine', { n: this.coins })
-    this.shopAttachmentGrid.innerHTML = ''
-    const weaponId = this._shopSelectedWeaponId
-    const weapon = this.weapons.weapons.find((w) => w.id === weaponId)
-    if (!weapon) return
-    for (const item of ATTACHMENT_TYPES) {
-      // Baked-in exclusion (see ATTACHMENT_BAKED_IN's own comment) - this
-      // weapon already has the attachment's effect for free, so there's
-      // nothing meaningful to sell here at all.
-      if (ATTACHMENT_BAKED_IN[item.id] && ATTACHMENT_BAKED_IN[item.id].has(weaponId)) continue
-      const owned = ATTACHMENT_OWNED_CHECK[item.id] ? ATTACHMENT_OWNED_CHECK[item.id](weapon) : false
-      const row = document.createElement('div')
-      row.className = 'shop-attachment-row' + (owned ? ' owned' : '')
-      const info = document.createElement('div')
-      info.className = 'attachment-info'
-      const name = document.createElement('span')
-      name.className = 'attachment-name'
-      name.textContent = t(item.titleKey)
-      info.appendChild(name)
-      row.appendChild(info)
-      if (owned) {
-        const tag = document.createElement('span')
-        tag.className = 'shop-attachment-owned-tag'
-        tag.textContent = t('shopAttachmentOwned')
-        row.appendChild(tag)
-      } else {
-        const buyBtn = document.createElement('button')
-        buyBtn.className = 'shop-attachment-buy-btn'
-        buyBtn.textContent = t('shopAttachmentBuy', { n: item.cost })
-        buyBtn.disabled = this.coins < item.cost
-        buyBtn.addEventListener('click', () => this._buyAttachment(weaponId, item.id, item.cost))
-        row.appendChild(buyBtn)
-      }
-      this.shopAttachmentGrid.appendChild(row)
-    }
-  }
-
-  _buyAttachment(weaponId, attachmentId, cost) {
-    if (this.coins < cost) return
-    this.coins -= cost
-    this.weapons.applyAttachment(weaponId, attachmentId)
-    // No separate shopProgress.attachments write needed - applyAttachment
-    // above already set the weapon's own live flag, and saveShopProgress
-    // (called next) derives its persisted list straight from that flag via
-    // ATTACHMENT_OWNED_CHECK, so this one save call is the whole round trip.
-    saveShopProgress(this)
-    this._updateStatsPanel()
-    this._showLoreToast(t('toastAttachmentBought', { name: t(ATTACHMENT_TYPES.find((a) => a.id === attachmentId).titleKey) }))
-    this._renderShopAttachments()
+    if (this.shopCratesTitle) this.shopCratesTitle.textContent = t('inventoryCratesTitle')
+    if (this.shopCratesPlaceholder) this.shopCratesPlaceholder.textContent = t('menuInventoryPlaceholder')
   }
 
   _closeShopPanel() {
