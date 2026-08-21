@@ -4880,9 +4880,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 .menu-panel::before,
 .menu-panel::after,
 .menu-card::before,
-.menu-card::after,
-#menu-nav-buttons button::before,
-#menu-nav-buttons button::after {
+.menu-card::after {
   content: '';
   position: absolute;
   width: 12px;
@@ -4892,8 +4890,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 }
 
 .menu-panel::before,
-.menu-card::before,
-#menu-nav-buttons button::before {
+.menu-card::before {
   top: -1px;
   left: -1px;
   border-top: 2px solid var(--menu-gold);
@@ -4905,8 +4902,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 }
 
 .menu-panel::after,
-.menu-card::after,
-#menu-nav-buttons button::after {
+.menu-card::after {
   bottom: -1px;
   right: -1px;
   border-bottom: 2px solid var(--menu-gold);
@@ -5668,7 +5664,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
    rule's own comment for the background-size/border reasoning, same
    deal here. */
 #gamemode-btn {
-  margin-top: 10px;
+  margin-top: 2px;
   padding: 14px 38px;
   font-size: 22px;
   font-weight: 600;
@@ -6275,6 +6271,16 @@ html.theme-lighter #app { filter: brightness(1.25); }
   order: 9;
 }
 
+/* Gold-plate reskin (2026-08-20, at the user's request) - applies to
+   EVERY button in the nav list via this shared rule (not per-ID
+   overrides), specifically so any nav button added later inherits the
+   same look automatically instead of needing a matching new rule each
+   time. border/box-shadow/border-radius cleared since the plate image
+   already has its own frame baked in - a CSS border around it would
+   double up. background-size stretches the plate to fill each button's
+   own box (100% 100%, not contain/cover) since these buttons' fixed
+   layout dimensions don't match the plate's own aspect ratio and
+   there's no per-button flexibility to give it room otherwise. */
 #menu-nav-buttons button {
   position: relative;
   display: flex;
@@ -6286,13 +6292,13 @@ html.theme-lighter #app { filter: brightness(1.25); }
   letter-spacing: 0.6px;
   text-transform: uppercase;
   color: #d8dcd2;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 50%), var(--menu-gunmetal-dark);
-  border: 2px solid var(--menu-panel-border);
-  border-radius: 4px;
+  background: url('/images/plate-blank.webp') center / 100% 100% no-repeat;
+  border: none;
+  border-radius: 0;
   cursor: pointer;
   text-align: left;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+  box-shadow: none;
+  transition: filter 0.2s ease, transform 0.15s ease;
 }
 
 #menu-nav-buttons button svg {
@@ -6303,38 +6309,8 @@ html.theme-lighter #app { filter: brightness(1.25); }
 }
 
 #menu-nav-buttons button:hover {
-  background: linear-gradient(180deg, rgba(227, 166, 60, 0.12) 0%, rgba(227, 166, 60, 0.05) 50%), var(--menu-gunmetal-dark);
-  border-color: var(--menu-gold);
-  color: #fff;
-  transform: translateX(2px);
-  box-shadow: 0 0 14px 1px rgba(227, 166, 60, 0.25);
-}
-
-/* Hub/Store/Upgrades reskinned with the user's gold-plate image
-   (2026-08-20) - just these 3 of the 8 nav buttons, not the whole list.
-   Needs #menu-nav-buttons prefixed on the selector for specificity (the
-   shared button rule above is already #id + type, which beats a bare
-   #hub-btn on its own). border/box-shadow/border-radius cleared since the
-   plate image already has its own frame baked in - a CSS border around it
-   would double up. background-size stretches the plate to fill each
-   button's own box (100% 100%, not contain/cover) since these buttons'
-   fixed layout dimensions don't match the plate's own aspect ratio and
-   there's no per-button flexibility to give it room otherwise. */
-#menu-nav-buttons #hub-btn,
-#menu-nav-buttons #coinshop-btn,
-#menu-nav-buttons #upgrades-btn {
-  background: url('/images/plate-blank.webp') center / 100% 100% no-repeat;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
-}
-
-#menu-nav-buttons #hub-btn:hover,
-#menu-nav-buttons #coinshop-btn:hover,
-#menu-nav-buttons #upgrades-btn:hover {
-  background: url('/images/plate-blank.webp') center / 100% 100% no-repeat;
-  border: none;
   filter: brightness(1.18);
+  color: #fff;
   transform: translateX(2px);
   box-shadow: 0 0 14px 1px rgba(227, 166, 60, 0.35);
 }
