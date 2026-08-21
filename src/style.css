@@ -5450,7 +5450,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
   font-family: var(--menu-display-font);
   font-size: 25.5px;
   letter-spacing: 4.5px;
-  color: var(--menu-olive);
+  color: var(--menu-gold);
   text-transform: uppercase;
   opacity: 0.95;
   /* Shifts the tagline up into the logo image's own lower whitespace

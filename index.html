@@ -20,6 +20,39 @@
          which is standard, largely unavoidable behavior for any site using
          a custom web font. -->
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Black+Ops+One&family=Lexend:wght@400;600&display=swap" rel="stylesheet" />
+    <!-- Fixes the same tagline/title "big to normal" flash the display=swap
+         comment above describes, without display=optional's own downside
+         (font sometimes never applies at all - see that revert's commit
+         message). Instead of choosing between the two font-display
+         tradeoffs, this hides just the handful of elements that use the
+         display font until document.fonts.ready actually confirms it
+         loaded - no visible wrong-sized flash, and the real font still
+         always applies once ready, on every visit, not just cache-warm
+         ones. Inlined here (not in style.css) and run this early
+         specifically so the hiding rule is in effect for the very first
+         paint - if it only applied once the external stylesheet loaded,
+         the wrong-sized text could flash briefly before being hidden.
+         Fallback: if the Font Loading API isn't supported at all (very old
+         browsers), .fonts-loading just never gets added, so nothing is
+         ever hidden - equivalent to the original display=swap flash, not
+         a regression. -->
+    <style>
+      .fonts-loading #menu-tagline,
+      .fonts-loading .hero-stat-value,
+      .fonts-loading .menu-card-title,
+      .fonts-loading .menu-panel-title,
+      .fonts-loading .hub-section-title {
+        visibility: hidden;
+      }
+    </style>
+    <script>
+      if (document.fonts && document.fonts.ready) {
+        document.documentElement.classList.add('fonts-loading')
+        document.fonts.ready.then(function () {
+          document.documentElement.classList.remove('fonts-loading')
+        })
+      }
+    </script>
   </head>
   <body>
     <a href="#play-btn" id="skip-to-play-link">Skip to Play button</a>
