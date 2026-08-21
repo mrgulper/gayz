@@ -17,7 +17,7 @@ import { FIREBASE_CONFIG } from './CloudSync.js'
 // Database in Firebase Console (see setup steps above). isConfigured()
 // stays false, and every function below throws a clear error, until this
 // is set to the real URL.
-const MULTIPLAYER_DATABASE_URL = 'REPLACE_WITH_DATABASE_URL'
+const MULTIPLAYER_DATABASE_URL = 'https://gayz-aa69c-default-rtdb.firebaseio.com'
 
 export const MULTIPLAYER_SECURITY_RULES = `{
   "rules": {
