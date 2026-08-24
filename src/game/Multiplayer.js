@@ -1,209 +1,108 @@
-// Multiplayer (Phase 1: invite link + lobby) - Firebase Realtime Database,
-// not Firestore (Cloud Save's product) - RTDB is built for fast streaming
-// updates, which is what a live player list (and later, live zombie/loot
-// state) needs. Same Firebase project as Cloud Save, different product.
+// Multiplayer - routes everything through this site's own /api/multiplayer/*
+// serverless functions instead of talking to Firebase directly from the
+// browser. This exists specifically because ad blockers / privacy
+// extensions commonly block firebaseio.com (Firebase Realtime Database's
+// domain), which silently broke position-syncing for some players even
+// though nothing about this traffic is ad- or tracking-related - see
+// docs/superpowers/specs/2026-08-24-multiplayer-proxy-design.md.
 //
+// The actual data still lives in the same Firebase Realtime Database
+// project as before - only the PATH there changed. The server-side half
+// of this (api/_lib/firebaseAdmin.js + api/multiplayer/*.js) is what now
+// talks to Firebase, using an admin credential that never reaches the
+// browser, so no browser-side ad blocker can ever see or block it.
+//
+// Player identity is a random ID our own create/join endpoints hand out
+// (replacing Firebase Anonymous Auth) - remembered here per session, the
+// same role auth.uid used to play. This module stores it in _playerIdFor
+// rather than requiring every caller in Game.js to track and pass it
+// around themselves.
+
 // SETUP (one-time, done by the project owner):
-// 1. Firebase Console -> Build -> Realtime Database -> Create Database ->
-//    locked mode. Copy the databaseURL it shows you into
-//    MULTIPLAYER_DATABASE_URL below.
-// 2. Firebase Console -> Build -> Authentication -> Sign-in method -> add
-//    the Anonymous provider.
+// 1. Firebase Console -> gear icon -> Project settings -> Service
+//    accounts tab -> Generate new private key.
+// 2. Vercel dashboard -> this project -> Settings -> Environment
+//    Variables -> add FIREBASE_SERVICE_ACCOUNT_KEY, value = the entire
+//    contents of that downloaded key file, for all three environments.
 // 3. Realtime Database -> Rules tab -> paste MULTIPLAYER_SECURITY_RULES
-//    (exported below) -> Publish.
-import { FIREBASE_CONFIG } from './CloudSync.js'
+//    (exported below) -> Publish. Safe to do any time after the server
+//    endpoints are deployed and working - the Admin SDK bypasses these
+//    rules entirely, they only ever governed direct client access, which
+//    no longer happens at all.
 
-const MULTIPLAYER_DATABASE_URL = 'https://gayz-aa69c-default-rtdb.firebaseio.com'
-
-// Every rule below keys off auth.uid (the real Firebase Auth identity, see
-// ensureSignedIn() below) - never a client-supplied nickname/ID, since a
-// client could claim to be anyone. A player who's already Google-signed-in
-// for Cloud Save uses that same uid here too (ensureSignedIn() only signs
-// in anonymously if nobody's signed in yet).
-//
-// .read is a plain "any signed-in user" check, not gated on already being
-// a player - a first version required already being listed in `players`
-// to read a session at all, which made it impossible for a brand-new
-// guest to ever read the session to check its status before joining
-// (joinSession's own get() call was rejected by this exact rule, caught
-// live via a real two-browser test). Sessions hold nothing sensitive
-// (nicknames + game state), so open read access is a safe simplification.
+// Deny-all: only the server's Admin SDK touches this data now (see the
+// setup comment above) - there is no longer any legitimate reason for a
+// browser to read or write this data directly, so this closes that off
+// entirely rather than leaving an unused, unnecessarily-open door.
 export const MULTIPLAYER_SECURITY_RULES = `{
   "rules": {
     "multiplayerSessions": {
-      "$sessionId": {
-        ".read": "auth != null",
-        ".write": "auth != null && (!data.exists() || data.child('host').val() === auth.uid)",
-        "host": {
-          ".validate": "!data.parent().parent().child('host').exists() || newData.val() === data.parent().parent().child('host').val()"
-        },
-        "players": {
-          "$uid": {
-            ".write": "auth != null && auth.uid === $uid",
-            ".read": "auth != null"
-          }
-        },
-        "playerState": {
-          "$uid": {
-            ".write": "auth != null && auth.uid === $uid",
-            ".read": "auth != null"
-          }
-        }
-      }
+      ".read": false,
+      ".write": false
     }
   }
 }`
 
-export function isConfigured() {
-  return MULTIPLAYER_DATABASE_URL !== 'REPLACE_WITH_DATABASE_URL'
+async function _apiCall(path, body) {
+  const res = await fetch(`/api/multiplayer/${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`)
+  return data
 }
 
-let contextPromise = null
+// sessionId -> playerId, set by createSession/joinSession, read by
+// syncPlayerState/leave/leaveBeacon - this is this module's replacement
+// for Firebase Auth's "who am I" concept, scoped per session instead of
+// per browser tab.
+const _playerIdFor = new Map()
 
-// Mirrors CloudSync.js's ensureApp() lazy-import pattern, but MUST NOT call
-// initializeApp() unconditionally - CloudSync.js's own ensureApp() may have
-// already initialized the default Firebase app (e.g. the player opened
-// Cloud Save or Friends before ever touching multiplayer). Calling
-// initializeApp() twice for the same unnamed app throws
-// `Firebase: Firebase App named '[DEFAULT]' already exists`. getApps()
-// lets both modules safely share one instance regardless of which one
-// runs first.
-async function ensureContext() {
-  if (contextPromise) return contextPromise
-  contextPromise = (async () => {
-    if (!isConfigured()) throw new Error('Multiplayer is not configured yet - see Multiplayer.js setup comment')
-    const [appMod, authMod, dbMod] = await Promise.all([
-      import('firebase/app'),
-      import('firebase/auth'),
-      import('firebase/database'),
-    ])
-    const existing = appMod.getApps()
-    const app = existing.length ? appMod.getApp() : appMod.initializeApp(FIREBASE_CONFIG)
-    const auth = authMod.getAuth(app)
-    const db = dbMod.getDatabase(app, MULTIPLAYER_DATABASE_URL)
-    return { app, auth, authMod, db, dbMod }
-  })()
-  return contextPromise
-}
-
-// The security rules require auth != null on every read/write - a player
-// who's already Google-signed-in (Cloud Save) already satisfies that, but
-// most players never sign in at all, so this signs them in anonymously the
-// first time multiplayer is actually used. Anonymous auth has to be turned
-// on in Firebase Console (see setup comment above) or this throws.
-export async function ensureSignedIn() {
-  const { auth, authMod } = await ensureContext()
-  if (auth.currentUser) return auth.currentUser.uid
-  const result = await authMod.signInAnonymously(auth)
-  return result.user.uid
-}
-
-// Same character set and length range as Game.js's own _generatePlayerId
-// (friend/leaderboard IDs) - one consistent "short code" shape across the
-// whole game rather than inventing a second format just for this.
-const SESSION_ID_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-
-export function generateSessionId() {
-  const length = 6 + Math.floor(Math.random() * 5) // 6-10 inclusive
-  let id = ''
-  for (let i = 0; i < length; i++) id += SESSION_ID_CHARS[Math.floor(Math.random() * SESSION_ID_CHARS.length)]
-  return id
-}
-
-// Returns { sessionId, uid } - callers need their own uid back (not just
-// the session), e.g. to compare against a session's `host` field. There's
-// no lobby/active status gate any more (see joinSession below) - a session
-// is joinable and playable the instant it's created, no waiting room, no
-// one player designated to "start" it for everyone else.
 export async function createSession(nickname) {
-  const { db, dbMod } = await ensureContext()
-  const uid = await ensureSignedIn()
-  const sessionId = generateSessionId()
-  const sessionRef = dbMod.ref(db, `multiplayerSessions/${sessionId}`)
-  await dbMod.set(sessionRef, {
-    host: uid,
-    createdAt: dbMod.serverTimestamp(),
-    players: {
-      [uid]: { nickname, joinedAt: dbMod.serverTimestamp(), connected: true },
-    },
-  })
-  // Presence: if this tab closes/loses connection, flip connected false
-  // automatically - Firebase runs this server-side the moment the socket
-  // drops, no client-side cleanup code required.
-  const presenceRef = dbMod.ref(db, `multiplayerSessions/${sessionId}/players/${uid}/connected`)
-  dbMod.onDisconnect(presenceRef).set(false)
-  return { sessionId, uid }
+  const { sessionId, playerId } = await _apiCall('create', { nickname })
+  _playerIdFor.set(sessionId, playerId)
+  return { sessionId, uid: playerId }
 }
 
-// Returns { uid } for the same reason createSession does. Joinable any
-// time after creation - there used to be a status check here blocking a
-// join once the host had "started" the session, but that whole concept
-// (a host who gates when everyone else gets to play) was removed at
-// Gaymi's request in favor of everyone just dropping straight in.
 export async function joinSession(sessionId, nickname) {
-  const { db, dbMod } = await ensureContext()
-  const uid = await ensureSignedIn()
-  const sessionRef = dbMod.ref(db, `multiplayerSessions/${sessionId}`)
-  const snapshot = await dbMod.get(sessionRef)
-  if (!snapshot.exists()) throw new Error('Session not found')
-  const playerRef = dbMod.ref(db, `multiplayerSessions/${sessionId}/players/${uid}`)
-  await dbMod.set(playerRef, { nickname, joinedAt: dbMod.serverTimestamp(), connected: true })
-  const presenceRef = dbMod.ref(db, `multiplayerSessions/${sessionId}/players/${uid}/connected`)
-  dbMod.onDisconnect(presenceRef).set(false)
-  return { uid }
+  const { playerId } = await _apiCall('join', { sessionId, nickname })
+  _playerIdFor.set(sessionId, playerId)
+  return { uid: playerId }
 }
 
-export async function leaveSession(sessionId) {
-  const { db, dbMod } = await ensureContext()
-  const uid = await ensureSignedIn()
-  const playerRef = dbMod.ref(db, `multiplayerSessions/${sessionId}/players/${uid}`)
-  await dbMod.remove(playerRef)
+// Writes this player's own state and returns everyone else's current
+// state in the same round trip - replaces the old separate
+// updatePlayerState (write) + subscribeToPlayerStates (live subscribe)
+// pair. There's no persistent connection any more; the caller (Game.js's
+// _tick() throttle) is expected to call this repeatedly, a few times a
+// second, and re-render from whatever it gets back each time.
+export async function syncPlayerState(sessionId, state) {
+  const playerId = _playerIdFor.get(sessionId)
+  if (!playerId) throw new Error('Not in this session')
+  const { states } = await _apiCall('sync', { sessionId, playerId, ...state })
+  return states
 }
 
-// Phase 2 (see docs/superpowers/specs/2026-08-21-multiplayer-design.md) -
-// streamed a few times a second while a shared run is active (see
-// Game.js's _tick() throttle) - one player's own position/facing/weapon/
-// firing state. updatedAt lets a future phase detect a stale/stuck
-// player (e.g. one whose tab froze) without needing presence tracking
-// beyond what players/{uid}/connected already gives.
-
-// Tracks which sessionId already has an onDisconnect() cleanup hook
-// registered, so updatePlayerState (called ~10x/second from _tick()'s
-// throttle) doesn't re-register it on every single call.
-const _disconnectHookRegisteredFor = new Set()
-
-export async function updatePlayerState(sessionId, state) {
-  const { db, dbMod } = await ensureContext()
-  const uid = await ensureSignedIn()
-  const stateRef = dbMod.ref(db, `multiplayerSessions/${sessionId}/playerState/${uid}`)
-  if (!_disconnectHookRegisteredFor.has(sessionId)) {
-    _disconnectHookRegisteredFor.add(sessionId)
-    // This is the reliable cleanup path, not the explicit removePlayerState()
-    // call Game.js makes on a graceful Quit to Menu - that call races
-    // against _quitRunWithLegacyPayout()'s own window.location.reload()
-    // (a real, already-documented hazard in this codebase - a reload can
-    // tear down the page before an in-flight async write finishes) and
-    // wouldn't fire at all for a closed tab or crashed browser. RTDB runs
-    // onDisconnect() hooks server-side the moment the connection actually
-    // drops, regardless of why - same pattern Phase 1 already uses for
-    // players/{uid}/connected.
-    dbMod.onDisconnect(stateRef).remove()
-  }
-  await dbMod.set(stateRef, { ...state, updatedAt: dbMod.serverTimestamp() })
+export async function leave(sessionId) {
+  const playerId = _playerIdFor.get(sessionId)
+  if (!playerId) return
+  await _apiCall('leave', { sessionId, playerId })
+  _playerIdFor.delete(sessionId)
 }
 
-export async function subscribeToPlayerStates(sessionId, callback) {
-  const { db, dbMod } = await ensureContext()
-  const statesRef = dbMod.ref(db, `multiplayerSessions/${sessionId}/playerState`)
-  const unsubscribe = dbMod.onValue(statesRef, (snapshot) => {
-    callback(snapshot.val() || {})
-  })
-  return unsubscribe
-}
-
-export async function removePlayerState(sessionId) {
-  const { db, dbMod } = await ensureContext()
-  const uid = await ensureSignedIn()
-  const stateRef = dbMod.ref(db, `multiplayerSessions/${sessionId}/playerState/${uid}`)
-  await dbMod.remove(stateRef)
+// Synchronous, fire-and-forget version of leave() specifically for the
+// "quitting the game" moment - navigator.sendBeacon() is a browser
+// feature guaranteed to actually deliver the request even as the page is
+// closing/reloading, unlike a normal fetch() (which can and does lose
+// that race - see this codebase's own documented window.location.reload()
+// hazard). No .catch() needed - sendBeacon doesn't return a promise to
+// reject, just a boolean for whether the browser accepted queuing it.
+export function leaveBeacon(sessionId) {
+  const playerId = _playerIdFor.get(sessionId)
+  if (!playerId) return
+  const blob = new Blob([JSON.stringify({ sessionId, playerId })], { type: 'application/json' })
+  navigator.sendBeacon('/api/multiplayer/leave', blob)
+  _playerIdFor.delete(sessionId)
 }
