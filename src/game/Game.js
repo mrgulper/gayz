@@ -9215,14 +9215,23 @@ export class Game {
       })
     }
     if (this.multiplayerStartBtn) {
-      this.multiplayerStartBtn.addEventListener('click', async () => {
-        const Multiplayer = await import('./Multiplayer.js')
-        await Multiplayer.startSession(this._multiplayerSessionId)
+      this.multiplayerStartBtn.addEventListener('click', () => {
+        // playBtn.click() MUST happen synchronously, before any await - the
+        // real run-start chain ends in a requestPointerLock() call several
+        // clicks later (see the weapon-picker and trait-draw panels' own
+        // handlers), and browsers only allow that inside a live user-gesture
+        // window. Awaiting the Firebase call first would risk that window
+        // closing before playBtn's own click-triggered chain gets to run.
+        const sessionId = this._multiplayerSessionId
         this._closeMultiplayerPanel()
-        // Phase 1 has no shared gameplay yet - starting just closes the
-        // lobby and lets each player's own game proceed exactly as a solo
-        // run does today. Phase 2 replaces this with the real shared-start
-        // flow (see docs/superpowers/specs/2026-08-21-multiplayer-design.md).
+        if (this.playBtn) this.playBtn.click()
+        // Marks the session active for every other connected player - fired
+        // off after the click chain, not awaited by it. A failure here just
+        // means guests never see the "Join Now" prompt - it doesn't block
+        // the host's own run from starting.
+        import('./Multiplayer.js').then((Multiplayer) => {
+          Multiplayer.startSession(sessionId).catch(() => {})
+        })
       })
     }
     if (this.whatsNewLink) this.whatsNewLink.addEventListener('click', () => trackAndOpen(() => this._openWhatsNewPanel()))
