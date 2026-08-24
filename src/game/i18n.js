@@ -1002,6 +1002,7 @@ const STRINGS = {
     whatsNewPanelTitle: 'What\'s New',
     navLinkRules: 'Rules & Info',
     multiplayerPanelTitle: 'Play with Friends',
+    multiplayerCreating: 'Creating your invite link...',
     multiplayerLinkCopied: 'Invite link copied!',
     multiplayerJoinFailed: "Couldn't join - the game may have already started or the link may be wrong.",
     multiplayerCreateFailed: "Couldn't create an invite right now - try again in a moment.",

@@ -4928,6 +4928,7 @@ export class Game {
     this.multiplayerPanel = document.getElementById('multiplayer-panel')
     this.multiplayerPanelTitle = document.getElementById('multiplayer-panel-title')
     this.multiplayerCreateView = document.getElementById('multiplayer-create-view')
+    this.multiplayerCreateDesc = document.getElementById('multiplayer-create-desc')
     this.multiplayerCreateBtn = document.getElementById('multiplayer-create-btn')
     this.multiplayerJoinView = document.getElementById('multiplayer-join-view')
     this.multiplayerJoinBtn = document.getElementById('multiplayer-join-btn')
@@ -9193,24 +9194,7 @@ export class Game {
       })
     }
     if (this.multiplayerCreateBtn) {
-      this.multiplayerCreateBtn.addEventListener('click', async () => {
-        const Multiplayer = await import('./Multiplayer.js')
-        const nickname = this.settings.nickname || 'Player'
-        let sessionId, uid
-        try {
-          ({ sessionId, uid } = await Multiplayer.createSession(nickname))
-        } catch {
-          this._showLoreToast(t('multiplayerCreateFailed'))
-          return
-        }
-        this._multiplayerSessionId = sessionId
-        this._multiplayerUid = uid
-        const link = `${window.location.origin}${window.location.pathname}?join=${sessionId}`
-        this.multiplayerLinkInput.value = link
-        this.multiplayerCreateView.style.display = 'none'
-        this.multiplayerLinkView.style.display = 'flex'
-        this._subscribeMultiplayerLobby(Multiplayer, sessionId)
-      })
+      this.multiplayerCreateBtn.addEventListener('click', () => this._createMultiplayerSession())
     }
     if (this.multiplayerCopyLinkBtn) {
       this.multiplayerCopyLinkBtn.addEventListener('click', () => {
@@ -15441,7 +15425,37 @@ export class Game {
     } else {
       this.multiplayerCreateView.style.display = 'flex'
       this.multiplayerJoinView.style.display = 'none'
+      // Auto-create rather than making "Invite Friend" a two-click flow -
+      // the earlier version needed a separate "Create Invite Link" click
+      // before showing the link at all, which was pure friction for the
+      // common case. The one real cost (an unused session record left
+      // behind if someone opens this panel and immediately closes it
+      // without sharing the link) is cheap enough on Realtime Database to
+      // not matter for a hobby-scale friends game.
+      this._createMultiplayerSession()
     }
+  }
+
+  async _createMultiplayerSession() {
+    this.multiplayerCreateDesc.textContent = t('multiplayerCreating')
+    this.multiplayerCreateBtn.style.display = 'none'
+    const Multiplayer = await import('./Multiplayer.js')
+    const nickname = this.settings.nickname || 'Player'
+    let sessionId, uid
+    try {
+      ({ sessionId, uid } = await Multiplayer.createSession(nickname))
+    } catch {
+      this.multiplayerCreateDesc.textContent = t('multiplayerCreateFailed')
+      this.multiplayerCreateBtn.style.display = 'block'
+      return
+    }
+    this._multiplayerSessionId = sessionId
+    this._multiplayerUid = uid
+    const link = `${window.location.origin}${window.location.pathname}?join=${sessionId}`
+    this.multiplayerLinkInput.value = link
+    this.multiplayerCreateView.style.display = 'none'
+    this.multiplayerLinkView.style.display = 'flex'
+    this._subscribeMultiplayerLobby(Multiplayer, sessionId)
   }
 
   _closeMultiplayerPanel() {
