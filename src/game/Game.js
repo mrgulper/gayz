@@ -4939,7 +4939,6 @@ export class Game {
     this._multiplayerSessionId = null
     this._multiplayerUid = null
     this._remotePlayerBodies = new Map() // uid -> PlayerBody
-    this._multiplayerPlayerStatesUnsubscribe = null
     this._pendingJoinSessionId = new URLSearchParams(window.location.search).get('join') || null
     this.whatsNewLink = document.getElementById('nav-whatsnew-link')
     this.friendsBtn = document.getElementById('friends-btn')
@@ -15481,8 +15480,13 @@ export class Game {
 
   // Streams this player's own position/facing/weapon/firing state a few
   // times a second (see _tick()'s throttle) while a multiplayer run is
-  // active. Feet position, not eye position - same subtraction
-  // _updateThirdPerson already uses for the local player's own body.
+  // active, and renders whatever it gets back in the same call - there's
+  // no separate live subscription any more (see
+  // docs/superpowers/specs/2026-08-24-multiplayer-proxy-design.md): the
+  // proxy is a polling API, not a push connection, so every sync call
+  // both sends and receives. Feet position, not eye position - same
+  // subtraction _updateThirdPerson already uses for the local player's
+  // own body.
   _syncNetworkPlayerState() {
     if (!this._multiplayerSessionId) return
     const feetX = this.camera.position.x
@@ -15490,53 +15494,42 @@ export class Game {
     const feetZ = this.camera.position.z
     const yaw = new THREE.Euler().setFromQuaternion(this.camera.quaternion, 'YXZ').y
     import('./Multiplayer.js').then((Multiplayer) => {
-      Multiplayer.updatePlayerState(this._multiplayerSessionId, {
+      Multiplayer.syncPlayerState(this._multiplayerSessionId, {
         x: feetX,
         y: feetY,
         z: feetZ,
         rotY: yaw,
         currentWeapon: this.weapons.current.id,
         isFiring: !!this.weapons.triggerDown,
+      }).then((states) => {
+        this._renderRemotePlayers(states)
       }).catch(() => {})
     })
   }
 
-  // Starts the remote-player render subscription. Called once, the first
-  // time _syncNetworkPlayerState actually runs (i.e. once we know we're
-  // really in a multiplayer run) rather than eagerly on every session -
-  // _tick()'s own guard (this._multiplayerSessionId) already only calls
-  // _syncNetworkPlayerState during real gameplay.
-  _ensureMultiplayerPlayerStatesSubscription() {
-    if (this._multiplayerPlayerStatesUnsubscribe || !this._multiplayerSessionId) return
-    import('./Multiplayer.js').then((Multiplayer) => {
-      Multiplayer.subscribeToPlayerStates(this._multiplayerSessionId, (states) => {
-        this._renderRemotePlayers(states)
-      }).then((unsub) => { this._multiplayerPlayerStatesUnsubscribe = unsub })
-    })
-  }
-
-  // One PlayerBody per remote uid, created lazily the first time that uid
+  // One PlayerBody per remote id, created lazily the first time that id
   // is seen and reused after that - never recreated every update (that
   // would reload/re-clone the GLB skeleton every frame, expensive and
-  // pointless). A uid that stops appearing in `states` (left the session,
-  // or removePlayerState ran on their end) gets its body removed from the
-  // scene and dropped from the map.
+  // pointless). An id that stops appearing in `states` (left the session,
+  // disconnected, or went stale on the server) gets its body removed from
+  // the scene and dropped from the map. `states` already excludes this
+  // player's own id (the sync endpoint filters that out server-side), so
+  // there's no self-check needed here any more.
   _renderRemotePlayers(states) {
-    const seenUids = new Set()
-    for (const [uid, state] of Object.entries(states)) {
-      if (uid === this._multiplayerUid) continue // never render my own body as a "remote" player
-      seenUids.add(uid)
-      let body = this._remotePlayerBodies.get(uid)
+    const seenIds = new Set()
+    for (const [id, state] of Object.entries(states)) {
+      seenIds.add(id)
+      let body = this._remotePlayerBodies.get(id)
       if (!body) {
         body = new PlayerBody(this.scene)
-        this._remotePlayerBodies.set(uid, body)
+        this._remotePlayerBodies.set(id, body)
       }
       body.update(state.x, state.y, state.z, state.rotY, true)
     }
-    for (const [uid, body] of this._remotePlayerBodies) {
-      if (seenUids.has(uid)) continue
+    for (const [id, body] of this._remotePlayerBodies) {
+      if (seenIds.has(id)) continue
       body.group.parent?.remove(body.group)
-      this._remotePlayerBodies.delete(uid)
+      this._remotePlayerBodies.delete(id)
     }
   }
 
@@ -15941,13 +15934,9 @@ export class Game {
   _quitRunWithLegacyPayout() {
     if (this._multiplayerSessionId) {
       import('./Multiplayer.js').then((Multiplayer) => {
-        Multiplayer.removePlayerState(this._multiplayerSessionId).catch(() => {})
+        Multiplayer.leaveBeacon(this._multiplayerSessionId)
       })
       this._multiplayerSessionId = null
-    }
-    if (this._multiplayerPlayerStatesUnsubscribe) {
-      this._multiplayerPlayerStatesUnsubscribe()
-      this._multiplayerPlayerStatesUnsubscribe = null
     }
     for (const body of this._remotePlayerBodies.values()) {
       body.group.parent?.remove(body.group)
@@ -20778,7 +20767,6 @@ export class Game {
       if (this._multiplayerSessionId && nowNet >= (this._nextNetworkSyncAt || 0)) {
         this._nextNetworkSyncAt = nowNet + 100
         this._syncNetworkPlayerState()
-        this._ensureMultiplayerPlayerStatesSubscription()
       }
       this._updateStaminaHud()
       this._updateHunger(dt)
