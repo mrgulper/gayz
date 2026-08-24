@@ -4944,6 +4944,8 @@ export class Game {
     this._multiplayerSessionId = null
     this._multiplayerUid = null
     this._multiplayerUnsubscribe = null
+    this._remotePlayerBodies = new Map() // uid -> PlayerBody
+    this._multiplayerPlayerStatesUnsubscribe = null
     this._pendingJoinSessionId = new URLSearchParams(window.location.search).get('join') || null
     this.whatsNewLink = document.getElementById('nav-whatsnew-link')
     this.friendsBtn = document.getElementById('friends-btn')
@@ -15522,6 +15524,67 @@ export class Game {
     this.multiplayerJoinNowBtn.style.display = (!isHost && isActive) ? 'block' : 'none'
   }
 
+  // Streams this player's own position/facing/weapon/firing state a few
+  // times a second (see _tick()'s throttle) while a multiplayer run is
+  // active. Feet position, not eye position - same subtraction
+  // _updateThirdPerson already uses for the local player's own body.
+  _syncNetworkPlayerState() {
+    if (!this._multiplayerSessionId) return
+    const feetX = this.camera.position.x
+    const feetY = this.camera.position.y - this.player.eyeHeight
+    const feetZ = this.camera.position.z
+    const yaw = new THREE.Euler().setFromQuaternion(this.camera.quaternion, 'YXZ').y
+    import('./Multiplayer.js').then((Multiplayer) => {
+      Multiplayer.updatePlayerState(this._multiplayerSessionId, {
+        x: feetX,
+        y: feetY,
+        z: feetZ,
+        rotY: yaw,
+        currentWeapon: this.weapons.current.id,
+        isFiring: !!this.weapons.triggerDown,
+      }).catch(() => {})
+    })
+  }
+
+  // Starts the remote-player render subscription. Called once, the first
+  // time _syncNetworkPlayerState actually runs (i.e. once we know we're
+  // really in a multiplayer run) rather than eagerly on every session -
+  // _tick()'s own guard (this._multiplayerSessionId) already only calls
+  // _syncNetworkPlayerState during real gameplay.
+  _ensureMultiplayerPlayerStatesSubscription() {
+    if (this._multiplayerPlayerStatesUnsubscribe || !this._multiplayerSessionId) return
+    import('./Multiplayer.js').then((Multiplayer) => {
+      Multiplayer.subscribeToPlayerStates(this._multiplayerSessionId, (states) => {
+        this._renderRemotePlayers(states)
+      }).then((unsub) => { this._multiplayerPlayerStatesUnsubscribe = unsub })
+    })
+  }
+
+  // One PlayerBody per remote uid, created lazily the first time that uid
+  // is seen and reused after that - never recreated every update (that
+  // would reload/re-clone the GLB skeleton every frame, expensive and
+  // pointless). A uid that stops appearing in `states` (left the session,
+  // or removePlayerState ran on their end) gets its body removed from the
+  // scene and dropped from the map.
+  _renderRemotePlayers(states) {
+    const seenUids = new Set()
+    for (const [uid, state] of Object.entries(states)) {
+      if (uid === this._multiplayerUid) continue // never render my own body as a "remote" player
+      seenUids.add(uid)
+      let body = this._remotePlayerBodies.get(uid)
+      if (!body) {
+        body = new PlayerBody(this.scene)
+        this._remotePlayerBodies.set(uid, body)
+      }
+      body.update(state.x, state.y, state.z, state.rotY, true)
+    }
+    for (const [uid, body] of this._remotePlayerBodies) {
+      if (seenUids.has(uid)) continue
+      body.group.parent?.remove(body.group)
+      this._remotePlayerBodies.delete(uid)
+    }
+  }
+
   // Shop - emptied out (was Weapon Attachments + a visual-only crate grid,
   // see this file's git history) down to just the Crates placeholder,
   // moved here from the Inventory panel's own Crates section since crates
@@ -15921,6 +15984,20 @@ export class Game {
   // those honestly apply to a run the player chose to end, not one where
   // they were actually killed).
   _quitRunWithLegacyPayout() {
+    if (this._multiplayerSessionId) {
+      import('./Multiplayer.js').then((Multiplayer) => {
+        Multiplayer.removePlayerState(this._multiplayerSessionId).catch(() => {})
+      })
+      this._multiplayerSessionId = null
+    }
+    if (this._multiplayerPlayerStatesUnsubscribe) {
+      this._multiplayerPlayerStatesUnsubscribe()
+      this._multiplayerPlayerStatesUnsubscribe = null
+    }
+    for (const body of this._remotePlayerBodies.values()) {
+      body.group.parent?.remove(body.group)
+    }
+    this._remotePlayerBodies.clear()
     const legacyEarned = Math.floor(this.points * DEATH_POINTS_CONVERSION * QUIT_LEGACY_MULT * (1 + this.metaProgress.prestigeLevel * 0.1))
     this.metaProgress.legacyPoints += legacyEarned
     saveMetaProgress(this.metaProgress)
@@ -20741,6 +20818,12 @@ export class Game {
       if (nowHotbar >= (this._nextHotbarHudAt || 0)) {
         this._nextHotbarHudAt = nowHotbar + 200
         this._updateHotbarHud()
+      }
+      const nowNet = performance.now()
+      if (this._multiplayerSessionId && nowNet >= (this._nextNetworkSyncAt || 0)) {
+        this._nextNetworkSyncAt = nowNet + 100
+        this._syncNetworkPlayerState()
+        this._ensureMultiplayerPlayerStatesSubscription()
       }
       this._updateStaminaHud()
       this._updateHunger(dt)
