@@ -1004,7 +1004,7 @@ const STRINGS = {
     multiplayerPanelTitle: 'Play with Friends',
     multiplayerCreating: 'Creating your invite link...',
     multiplayerLinkCopied: 'Invite link copied!',
-    multiplayerJoinFailed: "Couldn't join - the game may have already started or the link may be wrong.",
+    multiplayerJoinFailed: "Couldn't join - the invite link may be wrong or expired. You're playing solo for now.",
     multiplayerCreateFailed: "Couldn't create an invite right now - try again in a moment.",
     navLinkWhatsNew: 'What\'s New',
     buildVersionLine: 'Update Logs',

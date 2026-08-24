@@ -5271,42 +5271,6 @@ html.theme-lighter #app { filter: brightness(1.25); }
   border-radius: 8px;
 }
 
-#multiplayer-player-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: 100%;
-  max-width: 320px;
-  margin: 10px 0;
-}
-
-.multiplayer-player-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  font-size: 13px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-}
-
-.multiplayer-player-row .friend-status-dot {
-  background: #4caf50;
-}
-
-.multiplayer-player-row.disconnected .friend-status-dot {
-  background: #6b6b6b;
-}
-
-.multiplayer-player-row.is-host::after {
-  content: 'HOST';
-  margin-left: auto;
-  font-size: 10px;
-  letter-spacing: 0.5px;
-  color: #e3c23c;
-}
-
 .menu-preset-row {
   display: flex;
   align-items: center;
@@ -7844,17 +7808,3 @@ html.night-vision-active #app {
   background: #8fe8a4;
 }
 
-#multiplayer-join-now-btn {
-  padding: 10px 20px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #0c130c;
-  background: #7fd8a0;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-#multiplayer-join-now-btn:hover {
-  background: #93e0b1;
-}

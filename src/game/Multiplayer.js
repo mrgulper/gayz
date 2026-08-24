@@ -111,8 +111,10 @@ export function generateSessionId() {
 }
 
 // Returns { sessionId, uid } - callers need their own uid back (not just
-// the session), e.g. to compare against a session's `host` field to decide
-// whether to show the Start button.
+// the session), e.g. to compare against a session's `host` field. There's
+// no lobby/active status gate any more (see joinSession below) - a session
+// is joinable and playable the instant it's created, no waiting room, no
+// one player designated to "start" it for everyone else.
 export async function createSession(nickname) {
   const { db, dbMod } = await ensureContext()
   const uid = await ensureSignedIn()
@@ -121,7 +123,6 @@ export async function createSession(nickname) {
   await dbMod.set(sessionRef, {
     host: uid,
     createdAt: dbMod.serverTimestamp(),
-    status: 'lobby',
     players: {
       [uid]: { nickname, joinedAt: dbMod.serverTimestamp(), connected: true },
     },
@@ -134,14 +135,17 @@ export async function createSession(nickname) {
   return { sessionId, uid }
 }
 
-// Returns { uid } for the same reason createSession does.
+// Returns { uid } for the same reason createSession does. Joinable any
+// time after creation - there used to be a status check here blocking a
+// join once the host had "started" the session, but that whole concept
+// (a host who gates when everyone else gets to play) was removed at
+// Gaymi's request in favor of everyone just dropping straight in.
 export async function joinSession(sessionId, nickname) {
   const { db, dbMod } = await ensureContext()
   const uid = await ensureSignedIn()
   const sessionRef = dbMod.ref(db, `multiplayerSessions/${sessionId}`)
   const snapshot = await dbMod.get(sessionRef)
   if (!snapshot.exists()) throw new Error('Session not found')
-  if (snapshot.val().status !== 'lobby') throw new Error('Session already started')
   const playerRef = dbMod.ref(db, `multiplayerSessions/${sessionId}/players/${uid}`)
   await dbMod.set(playerRef, { nickname, joinedAt: dbMod.serverTimestamp(), connected: true })
   const presenceRef = dbMod.ref(db, `multiplayerSessions/${sessionId}/players/${uid}/connected`)
@@ -154,32 +158,6 @@ export async function leaveSession(sessionId) {
   const uid = await ensureSignedIn()
   const playerRef = dbMod.ref(db, `multiplayerSessions/${sessionId}/players/${uid}`)
   await dbMod.remove(playerRef)
-}
-
-export async function subscribeToSession(sessionId, callback) {
-  const { db, dbMod } = await ensureContext()
-  const sessionRef = dbMod.ref(db, `multiplayerSessions/${sessionId}`)
-  const unsubscribe = dbMod.onValue(sessionRef, (snapshot) => {
-    if (!snapshot.exists()) {
-      callback(null)
-      return
-    }
-    const val = snapshot.val()
-    const players = Object.entries(val.players || {}).map(([uid, p]) => ({
-      uid, nickname: p.nickname, connected: p.connected !== false,
-    }))
-    callback({ host: val.host, status: val.status, players })
-  })
-  return unsubscribe
-}
-
-export async function startSession(sessionId) {
-  const { db, dbMod } = await ensureContext()
-  const uid = await ensureSignedIn()
-  const sessionRef = dbMod.ref(db, `multiplayerSessions/${sessionId}`)
-  const snapshot = await dbMod.get(sessionRef)
-  if (!snapshot.exists() || snapshot.val().host !== uid) throw new Error('Only the host can start the session')
-  await dbMod.update(sessionRef, { status: 'active' })
 }
 
 // Phase 2 (see docs/superpowers/specs/2026-08-21-multiplayer-design.md) -

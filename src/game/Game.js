@@ -4935,15 +4935,9 @@ export class Game {
     this.multiplayerLinkView = document.getElementById('multiplayer-link-view')
     this.multiplayerLinkInput = document.getElementById('multiplayer-link-input')
     this.multiplayerCopyLinkBtn = document.getElementById('multiplayer-copy-link-btn')
-    this.multiplayerContinueToLobbyBtn = document.getElementById('multiplayer-continue-to-lobby-btn')
-    this.multiplayerLobbyView = document.getElementById('multiplayer-lobby-view')
-    this.multiplayerPlayerList = document.getElementById('multiplayer-player-list')
-    this.multiplayerStartBtn = document.getElementById('multiplayer-start-btn')
-    this.multiplayerWaitingLine = document.getElementById('multiplayer-waiting-line')
-    this.multiplayerJoinNowBtn = document.getElementById('multiplayer-join-now-btn')
+    this.multiplayerStartPlayingBtn = document.getElementById('multiplayer-start-playing-btn')
     this._multiplayerSessionId = null
     this._multiplayerUid = null
-    this._multiplayerUnsubscribe = null
     this._remotePlayerBodies = new Map() // uid -> PlayerBody
     this._multiplayerPlayerStatesUnsubscribe = null
     this._pendingJoinSessionId = new URLSearchParams(window.location.search).get('join') || null
@@ -9206,44 +9200,29 @@ export class Game {
           .catch(() => {})
       })
     }
-    if (this.multiplayerContinueToLobbyBtn) {
-      this.multiplayerContinueToLobbyBtn.addEventListener('click', () => {
-        this.multiplayerLinkView.style.display = 'none'
-        this.multiplayerLobbyView.style.display = 'flex'
-      })
-    }
-    if (this.multiplayerJoinBtn) {
-      this.multiplayerJoinBtn.addEventListener('click', () => {
-        if (this._pendingJoinSessionId) this._joinMultiplayerSession(this._pendingJoinSessionId)
-      })
-    }
-    if (this.multiplayerJoinNowBtn) {
-      this.multiplayerJoinNowBtn.addEventListener('click', () => {
-        // Same reasoning as the host's Start Game handler - click playBtn
-        // synchronously, before anything async, to stay inside this
-        // click's real user-gesture window.
-        this._closeMultiplayerPanel()
-        if (this.playBtn) this.playBtn.click()
-      })
-    }
-    if (this.multiplayerStartBtn) {
-      this.multiplayerStartBtn.addEventListener('click', () => {
+    if (this.multiplayerStartPlayingBtn) {
+      this.multiplayerStartPlayingBtn.addEventListener('click', () => {
         // playBtn.click() MUST happen synchronously, before any await - the
         // real run-start chain ends in a requestPointerLock() call several
         // clicks later (see the weapon-picker and trait-draw panels' own
         // handlers), and browsers only allow that inside a live user-gesture
-        // window. Awaiting the Firebase call first would risk that window
-        // closing before playBtn's own click-triggered chain gets to run.
-        const sessionId = this._multiplayerSessionId
+        // window.
         this._closeMultiplayerPanel()
         if (this.playBtn) this.playBtn.click()
-        // Marks the session active for every other connected player - fired
-        // off after the click chain, not awaited by it. A failure here just
-        // means guests never see the "Join Now" prompt - it doesn't block
-        // the host's own run from starting.
-        import('./Multiplayer.js').then((Multiplayer) => {
-          Multiplayer.startSession(sessionId).catch(() => {})
-        })
+      })
+    }
+    if (this.multiplayerJoinBtn) {
+      this.multiplayerJoinBtn.addEventListener('click', () => {
+        if (!this._pendingJoinSessionId) return
+        // Same gesture-window reasoning as multiplayerStartPlayingBtn above -
+        // click playBtn synchronously here, then let the Firebase join call
+        // (inside _joinMultiplayerSession) resolve on its own time. If it
+        // fails, the player still ends up playing (solo), just with a toast
+        // explaining the join didn't attach - better than blocking on a
+        // network round-trip before honoring the click's gesture at all.
+        this._joinMultiplayerSession(this._pendingJoinSessionId)
+        this._closeMultiplayerPanel()
+        if (this.playBtn) this.playBtn.click()
       })
     }
     if (this.whatsNewLink) this.whatsNewLink.addEventListener('click', () => trackAndOpen(() => this._openWhatsNewPanel()))
@@ -15439,7 +15418,6 @@ export class Game {
     this.multiplayerPanel.style.display = 'flex'
     this.multiplayerPanelTitle.textContent = t('multiplayerPanelTitle')
     this.multiplayerLinkView.style.display = 'none'
-    this.multiplayerLobbyView.style.display = 'none'
     if (this._pendingJoinSessionId) {
       this.multiplayerCreateView.style.display = 'none'
       this.multiplayerJoinView.style.display = 'flex'
@@ -15476,7 +15454,6 @@ export class Game {
     this.multiplayerLinkInput.value = link
     this.multiplayerCreateView.style.display = 'none'
     this.multiplayerLinkView.style.display = 'flex'
-    this._subscribeMultiplayerLobby(Multiplayer, sessionId)
   }
 
   _closeMultiplayerPanel() {
@@ -15484,49 +15461,22 @@ export class Game {
     if (this.gameStarted) this.pauseOverlay.style.display = 'flex'
   }
 
+  // Fire-and-forget from the Join Game click handler (see its own comment)
+  // rather than awaited - playBtn.click() already ran synchronously in
+  // that handler to stay inside the click's real user-gesture window, so
+  // this only needs to attach the session in the background and surface a
+  // toast if it fails. A failed join still leaves the player playing (solo)
+  // rather than blocked on a network round-trip mid-gesture.
   async _joinMultiplayerSession(sessionId) {
     const Multiplayer = await import('./Multiplayer.js')
     const nickname = this.settings.nickname || 'Player'
-    let uid
     try {
-      ({ uid } = await Multiplayer.joinSession(sessionId, nickname))
+      const { uid } = await Multiplayer.joinSession(sessionId, nickname)
+      this._multiplayerSessionId = sessionId
+      this._multiplayerUid = uid
     } catch {
-      // _showLoreToast no-ops before Play is ever clicked (gameStarted
-      // guard, see its own comment) - a guest joining via an invite link
-      // is always on the homepage at this point, so a failure here would
-      // otherwise be completely silent. _showHomepageToast is the
-      // existing guard-free variant meant for exactly this case.
       this._showHomepageToast(t('multiplayerJoinFailed'))
-      return
     }
-    this._multiplayerSessionId = sessionId
-    this._multiplayerUid = uid
-    this._subscribeMultiplayerLobby(Multiplayer, sessionId)
-    this.multiplayerJoinView.style.display = 'none'
-    this.multiplayerLinkView.style.display = 'none'
-    this.multiplayerCreateView.style.display = 'none'
-    this.multiplayerLobbyView.style.display = 'flex'
-  }
-
-  _subscribeMultiplayerLobby(Multiplayer, sessionId) {
-    Multiplayer.subscribeToSession(sessionId, (state) => {
-      if (!state) return
-      this._renderMultiplayerLobby(state, this._multiplayerUid)
-    }).then((unsub) => { this._multiplayerUnsubscribe = unsub })
-  }
-
-  _renderMultiplayerLobby(state, myUid) {
-    this.multiplayerPlayerList.innerHTML = state.players.map((p) => `
-      <div class="multiplayer-player-row${p.connected ? '' : ' disconnected'}${p.uid === state.host ? ' is-host' : ''}">
-        <span class="friend-status-dot"></span>
-        <span>${_escapeHtml(p.nickname)}</span>
-      </div>
-    `).join('')
-    const isHost = state.host === myUid
-    const isActive = state.status === 'active'
-    this.multiplayerStartBtn.style.display = isHost ? 'block' : 'none'
-    this.multiplayerWaitingLine.style.display = (!isHost && !isActive) ? 'block' : 'none'
-    this.multiplayerJoinNowBtn.style.display = (!isHost && isActive) ? 'block' : 'none'
   }
 
   // Streams this player's own position/facing/weapon/firing state a few
