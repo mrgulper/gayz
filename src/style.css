@@ -4070,6 +4070,10 @@ select option {
 #pause-upgrades-btn,
 #pause-spectate-btn,
 #pause-weapon-btn,
+#pause-invite-btn,
+#multiplayer-create-btn,
+#multiplayer-join-btn,
+#multiplayer-start-playing-btn,
 #screenshot-crop-save,
 #screenshot-crop-full,
 #screenshot-crop-cancel,
@@ -4145,7 +4149,11 @@ select option {
 #pause-quit-btn:hover,
 #pause-upgrades-btn:hover,
 #pause-spectate-btn:hover,
-#pause-weapon-btn:hover {
+#pause-weapon-btn:hover,
+#pause-invite-btn:hover,
+#multiplayer-create-btn:hover,
+#multiplayer-join-btn:hover,
+#multiplayer-start-playing-btn:hover {
   border-color: rgba(255, 255, 255, 0.5);
 }
 

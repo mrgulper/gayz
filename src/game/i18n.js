@@ -1001,7 +1001,7 @@ const STRINGS = {
     shopPanelTitle: 'Shop',
     whatsNewPanelTitle: 'What\'s New',
     navLinkRules: 'Rules & Info',
-    multiplayerPanelTitle: 'Play with Friends',
+    multiplayerPanelTitle: 'Players in Game',
     multiplayerCreating: 'Creating your invite link...',
     multiplayerLinkCopied: 'Invite link copied!',
     multiplayerJoinFailed: "Couldn't join - the invite link may be wrong or expired. You're playing solo for now.",
