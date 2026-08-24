@@ -4940,6 +4940,7 @@ export class Game {
     this.multiplayerStartBtn = document.getElementById('multiplayer-start-btn')
     this.multiplayerWaitingLine = document.getElementById('multiplayer-waiting-line')
     this._multiplayerSessionId = null
+    this._multiplayerUid = null
     this._multiplayerUnsubscribe = null
     this._pendingJoinSessionId = new URLSearchParams(window.location.search).get('join') || null
     this.whatsNewLink = document.getElementById('nav-whatsnew-link')
@@ -9194,16 +9195,16 @@ export class Game {
     if (this.multiplayerCreateBtn) {
       this.multiplayerCreateBtn.addEventListener('click', async () => {
         const Multiplayer = await import('./Multiplayer.js')
-        const uid = this._cloudUid || this.settings.playerId
         const nickname = this.settings.nickname || 'Player'
-        let sessionId
+        let sessionId, uid
         try {
-          sessionId = await Multiplayer.createSession(uid, nickname)
+          ({ sessionId, uid } = await Multiplayer.createSession(nickname))
         } catch {
           this._showLoreToast(t('multiplayerCreateFailed'))
           return
         }
         this._multiplayerSessionId = sessionId
+        this._multiplayerUid = uid
         const link = `${window.location.origin}${window.location.pathname}?join=${sessionId}`
         this.multiplayerLinkInput.value = link
         this.multiplayerCreateView.style.display = 'none'
@@ -9232,8 +9233,7 @@ export class Game {
     if (this.multiplayerStartBtn) {
       this.multiplayerStartBtn.addEventListener('click', async () => {
         const Multiplayer = await import('./Multiplayer.js')
-        const uid = this._cloudUid || this.settings.playerId
-        await Multiplayer.startSession(this._multiplayerSessionId, uid)
+        await Multiplayer.startSession(this._multiplayerSessionId)
         this._closeMultiplayerPanel()
         // Phase 1 has no shared gameplay yet - starting just closes the
         // lobby and lets each player's own game proceed exactly as a solo
@@ -15451,15 +15451,16 @@ export class Game {
 
   async _joinMultiplayerSession(sessionId) {
     const Multiplayer = await import('./Multiplayer.js')
-    const uid = this._cloudUid || this.settings.playerId
     const nickname = this.settings.nickname || 'Player'
+    let uid
     try {
-      await Multiplayer.joinSession(sessionId, uid, nickname)
+      ({ uid } = await Multiplayer.joinSession(sessionId, nickname))
     } catch {
       this._showLoreToast(t('multiplayerJoinFailed'))
       return
     }
     this._multiplayerSessionId = sessionId
+    this._multiplayerUid = uid
     this._subscribeMultiplayerLobby(Multiplayer, sessionId)
     this.multiplayerJoinView.style.display = 'none'
     this.multiplayerLinkView.style.display = 'none'
@@ -15468,10 +15469,9 @@ export class Game {
   }
 
   _subscribeMultiplayerLobby(Multiplayer, sessionId) {
-    const uid = this._cloudUid || this.settings.playerId
     Multiplayer.subscribeToSession(sessionId, (state) => {
       if (!state) return
-      this._renderMultiplayerLobby(state, uid)
+      this._renderMultiplayerLobby(state, this._multiplayerUid)
     }).then((unsub) => { this._multiplayerUnsubscribe = unsub })
   }
 

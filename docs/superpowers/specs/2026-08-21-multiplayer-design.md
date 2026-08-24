@@ -2,7 +2,9 @@
 
 ## Goal
 
-Let a player invite friends (via a shareable link, opened from the pause menu) into a real shared game: up to 4 players in one world, seeing the same zombies, loot, and map state, fighting together. Individual coins/points/XP still accrue per player, same as a solo run.
+Let a player invite friends (via a shareable link, opened from the pause menu) into a real shared game: no fixed player cap, seeing the same zombies, loot, and map state, fighting together. Individual coins/points/XP still accrue per player, same as a solo run.
+
+**On "no limit":** the lobby itself (Phase 1) genuinely has no cap anywhere in the code - any number of people can join a session and show up in the player list. Once shared *gameplay* is built (Phase 3+), there's a real practical ceiling worth being upfront about: the host's own browser has to simulate every zombie for the whole group, and Realtime Database's bandwidth scales with player count × update rate. A handful of friends will run great; dozens of simultaneous players in one world would likely need the host to visibly struggle before anyone hits a hard-coded wall. Revisit with a real number once Phase 3 is actually running and its performance is measured, rather than guessing one now.
 
 This is the first real-time multiplayer feature this project has ever had. Everything else online so far (Cloud Save, leaderboards, Friend List, community poll) is turn-based/eventual — a document write here, a read there, no strict timing requirement. This is different: player positions and zombie state need to update many times a second and stay close enough to in-sync that combat feels fair.
 
@@ -12,7 +14,7 @@ One player (whoever creates the session) is the **host**. Their browser runs the
 
 **Why RTDB, not Firestore.** This project already uses Firestore for Cloud Save, leaderboards, and friends — but Firestore is priced and designed around discrete document writes, not a fast stream of small updates. RTDB is Firebase's other product, built specifically for exactly this (a single JSON tree that pushes incremental updates to every listener with low latency). Same Firebase project, same billing account, no new service to create.
 
-**Why host-authoritative, not fully peer-to-peer.** With 4 players, letting every client run its own independent zombie AI and trying to reconcile 4 diverging simulations is a much harder synchronization problem than one client being the single source of truth that everyone else mirrors. It also closes the obvious cheating angle (a viewer client cannot just decide a zombie died) for individually-tracked rewards to mean anything.
+**Why host-authoritative, not fully peer-to-peer.** With multiple players, letting every client run its own independent zombie AI and trying to reconcile several diverging simulations is a much harder synchronization problem than one client being the single source of truth that everyone else mirrors. It also closes the obvious cheating angle (a viewer client cannot just decide a zombie died) for individually-tracked rewards to mean anything.
 
 **Why not a dedicated game server (Colyseus/Photon/custom Node).** That is the "textbook correct" architecture for this kind of game, and worth reconsidering if this outgrows RTDB's limits later. But it requires standing up and paying for an always-on server process — a fundamentally new piece of infrastructure this project has never needed, on top of the free static hosting (Vercel) and serverless Firebase products it uses today. Not worth that jump for a first version.
 
@@ -55,7 +57,7 @@ Kills/loot are attributed to whichever player's `playerState` the host's hit-det
 3. **Shared zombies** — host becomes the sole zombie simulation; viewers render from the stream; a viewer's shot is sent to the host to resolve, not applied locally.
 4. **Shared loot/doors/interactables** — host-arbitrated so two players can't double-claim the same pickup.
 5. **Reward integrity** — confirm per-player coin/point/XP crediting is correct under real shared play, add the abuse guard above.
-6. **Scale to 4 players + host-leaves handling** — expand past 2 players, decide and implement what happens when the host disconnects mid-session (end gracefully vs. migrate host).
+6. **Scale past 2 players + host-leaves handling** — test and tune real group sizes (see the Goal section's "On 'no limit'" note for why this isn't a fixed number), and decide/implement what happens when the host disconnects mid-session (end gracefully vs. migrate host).
 
 Each phase ships as its own tested, working state before the next starts — matching how every other batch of work on this project has been built and verified this session, just at a much larger scale per phase.
 
