@@ -15491,7 +15491,12 @@ export class Game {
     try {
       ({ uid } = await Multiplayer.joinSession(sessionId, nickname))
     } catch {
-      this._showLoreToast(t('multiplayerJoinFailed'))
+      // _showLoreToast no-ops before Play is ever clicked (gameStarted
+      // guard, see its own comment) - a guest joining via an invite link
+      // is always on the homepage at this point, so a failure here would
+      // otherwise be completely silent. _showHomepageToast is the
+      // existing guard-free variant meant for exactly this case.
+      this._showHomepageToast(t('multiplayerJoinFailed'))
       return
     }
     this._multiplayerSessionId = sessionId
