@@ -7843,3 +7843,18 @@ html.night-vision-active #app {
 #extraction-continue-btn:hover {
   background: #8fe8a4;
 }
+
+#multiplayer-join-now-btn {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0c130c;
+  background: #7fd8a0;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+#multiplayer-join-now-btn:hover {
+  background: #93e0b1;
+}

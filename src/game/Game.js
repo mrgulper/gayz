@@ -4940,6 +4940,7 @@ export class Game {
     this.multiplayerPlayerList = document.getElementById('multiplayer-player-list')
     this.multiplayerStartBtn = document.getElementById('multiplayer-start-btn')
     this.multiplayerWaitingLine = document.getElementById('multiplayer-waiting-line')
+    this.multiplayerJoinNowBtn = document.getElementById('multiplayer-join-now-btn')
     this._multiplayerSessionId = null
     this._multiplayerUid = null
     this._multiplayerUnsubscribe = null
@@ -9212,6 +9213,15 @@ export class Game {
     if (this.multiplayerJoinBtn) {
       this.multiplayerJoinBtn.addEventListener('click', () => {
         if (this._pendingJoinSessionId) this._joinMultiplayerSession(this._pendingJoinSessionId)
+      })
+    }
+    if (this.multiplayerJoinNowBtn) {
+      this.multiplayerJoinNowBtn.addEventListener('click', () => {
+        // Same reasoning as the host's Start Game handler - click playBtn
+        // synchronously, before anything async, to stay inside this
+        // click's real user-gesture window.
+        this._closeMultiplayerPanel()
+        if (this.playBtn) this.playBtn.click()
       })
     }
     if (this.multiplayerStartBtn) {
@@ -15506,8 +15516,10 @@ export class Game {
       </div>
     `).join('')
     const isHost = state.host === myUid
+    const isActive = state.status === 'active'
     this.multiplayerStartBtn.style.display = isHost ? 'block' : 'none'
-    this.multiplayerWaitingLine.style.display = isHost ? 'none' : 'block'
+    this.multiplayerWaitingLine.style.display = (!isHost && !isActive) ? 'block' : 'none'
+    this.multiplayerJoinNowBtn.style.display = (!isHost && isActive) ? 'block' : 'none'
   }
 
   // Shop - emptied out (was Weapon Attachments + a visual-only crate grid,
