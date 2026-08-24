@@ -42,6 +42,12 @@ export const MULTIPLAYER_SECURITY_RULES = `{
             ".write": "auth != null && auth.uid === $uid",
             ".read": "auth != null"
           }
+        },
+        "playerState": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid",
+            ".read": "auth != null"
+          }
         }
       }
     }
@@ -174,4 +180,52 @@ export async function startSession(sessionId) {
   const snapshot = await dbMod.get(sessionRef)
   if (!snapshot.exists() || snapshot.val().host !== uid) throw new Error('Only the host can start the session')
   await dbMod.update(sessionRef, { status: 'active' })
+}
+
+// Phase 2 (see docs/superpowers/specs/2026-08-21-multiplayer-design.md) -
+// streamed a few times a second while a shared run is active (see
+// Game.js's _tick() throttle) - one player's own position/facing/weapon/
+// firing state. updatedAt lets a future phase detect a stale/stuck
+// player (e.g. one whose tab froze) without needing presence tracking
+// beyond what players/{uid}/connected already gives.
+
+// Tracks which sessionId already has an onDisconnect() cleanup hook
+// registered, so updatePlayerState (called ~10x/second from _tick()'s
+// throttle) doesn't re-register it on every single call.
+const _disconnectHookRegisteredFor = new Set()
+
+export async function updatePlayerState(sessionId, state) {
+  const { db, dbMod } = await ensureContext()
+  const uid = await ensureSignedIn()
+  const stateRef = dbMod.ref(db, `multiplayerSessions/${sessionId}/playerState/${uid}`)
+  if (!_disconnectHookRegisteredFor.has(sessionId)) {
+    _disconnectHookRegisteredFor.add(sessionId)
+    // This is the reliable cleanup path, not the explicit removePlayerState()
+    // call Game.js makes on a graceful Quit to Menu - that call races
+    // against _quitRunWithLegacyPayout()'s own window.location.reload()
+    // (a real, already-documented hazard in this codebase - a reload can
+    // tear down the page before an in-flight async write finishes) and
+    // wouldn't fire at all for a closed tab or crashed browser. RTDB runs
+    // onDisconnect() hooks server-side the moment the connection actually
+    // drops, regardless of why - same pattern Phase 1 already uses for
+    // players/{uid}/connected.
+    dbMod.onDisconnect(stateRef).remove()
+  }
+  await dbMod.set(stateRef, { ...state, updatedAt: dbMod.serverTimestamp() })
+}
+
+export async function subscribeToPlayerStates(sessionId, callback) {
+  const { db, dbMod } = await ensureContext()
+  const statesRef = dbMod.ref(db, `multiplayerSessions/${sessionId}/playerState`)
+  const unsubscribe = dbMod.onValue(statesRef, (snapshot) => {
+    callback(snapshot.val() || {})
+  })
+  return unsubscribe
+}
+
+export async function removePlayerState(sessionId) {
+  const { db, dbMod } = await ensureContext()
+  const uid = await ensureSignedIn()
+  const stateRef = dbMod.ref(db, `multiplayerSessions/${sessionId}/playerState/${uid}`)
+  await dbMod.remove(stateRef)
 }
