@@ -15791,7 +15791,16 @@ export class Game {
           }
         }
         this._renderRemotePlayers(states)
-        if (this._multiplayerIsHost) {
+        if (this._multiplayerIsHost && host && host !== this._multiplayerUid) {
+          // Phase 6 multiplayer - this client still thinks it's host, but
+          // the server disagrees (someone else has already been granted
+          // the role - see api/multiplayer/claim-host.js). Every world-
+          // state write this client just sent was silently ignored
+          // server-side (sync.js's own isHost check already handles
+          // that) - this is purely about THIS client noticing and
+          // stepping down, not a security concern.
+          this._onDemotedFromHost(host)
+        } else if (this._multiplayerIsHost) {
           for (const hit of pendingHits) {
             const zombie = this.zombies.zombies.find((z) => z.id === hit.zombieId)
             if (zombie) zombie.onHit(hit.damage, { bypassShield: hit.bypassShield, fromPlayerId: hit.fromPlayerId })
@@ -16010,6 +16019,29 @@ export class Game {
     this._collectedGemIds.clear()
 
     this._showLoreToast(t('multiplayerBecameHost'))
+  }
+
+  // Phase 6 multiplayer - this client was simulating the world as host,
+  // but the server says someone else now holds that role (see this
+  // method's own call site). Tears down this client's own now-orphaned
+  // real zombies/pickups/gems (nobody else was ever seeing them anyway,
+  // once migration completed) and switches to rendering the NEW host's
+  // broadcast instead - the exact same guest-rendering path a client
+  // that was always a guest already uses, so nothing extra is needed
+  // beyond flipping the flag and clearing what this client used to own.
+  _onDemotedFromHost(newHostId) {
+    for (const zombie of this.zombies.zombies) {
+      this.scene.remove(zombie.group)
+      zombie.dispose()
+    }
+    this.zombies.zombies = []
+    for (const pickup of this.pickups.pickups) this.scene.remove(pickup.group)
+    this.pickups.pickups = []
+    for (const gem of this.xpGems.gems) this.scene.remove(gem.mesh)
+    this.xpGems.gems = []
+    this._multiplayerIsHost = false
+    this._hostPlayerId = newHostId
+    this._showLoreToast(t('multiplayerDemoted'))
   }
 
   // after that - never recreated every update, wasteful for no reason.
