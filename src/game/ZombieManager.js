@@ -262,6 +262,19 @@ export class ZombieManager {
     // existing raycast (which reads hittableMeshes below) can still hit
     // them with zero changes to WeaponSystem.js itself.
     this.sharedZombies = []
+    // Phase 3c multiplayer (docs/superpowers/specs/2026-08-25-multiplayer-phase3c-remaining-zombies-design.md) -
+    // a hit that lands on a NON-host player (see update()'s new targeting
+    // redirect below) can't be applied locally - only that player's own
+    // browser can touch its own health. Queued here instead, drained by
+    // Game.js's _syncNetworkPlayerState, which relays it to that specific
+    // player.
+    this.remoteDamageQueue = []
+    // Only the ZOMBIE-caused explosion (exploder/spitter_bomber/brittle's
+    // detonation, via the onExplode callback below) pushes here, not every
+    // _spawnExplosionFX call in this file (grenades/airstrike are
+    // player-caused and stay purely local - out of this phase's scope).
+    this.worldEvents = []
+    this._nextExplosionEventId = 0
     this.projectiles = []
     this.explosionFx = []
     this.screamFx = []
@@ -1563,7 +1576,7 @@ export class ZombieManager {
       let targetPos = playerPos
       let attackCb = onPlayerDamage
       const spitEffect = zombie.config.pullsPlayer ? 'pull' : zombie.config.disorients ? 'disorient' : zombie.config.plantsWeb ? 'web' : 'damage'
-      let spitCb = (origin, target, damage, speed) => this._spawnProjectile(origin, target, damage, speed, spitEffect)
+      let spitCb = (origin, target, damage, speed) => this._spawnProjectile(origin, target, damage, speed, spitEffect, targetPlayerId)
 
       // Wandering horde members ignore the player entirely and drift toward
       // the horde's waypoint until the player closes to within aggro range -
@@ -1619,6 +1632,35 @@ export class ZombieManager {
           targetPos = { x: nearestCompanion.x, y: playerPos.y, z: nearestCompanion.z }
           attackCb = (dmg) => nearestCompanion.takeDamage(dmg)
           spitCb = null
+        }
+      }
+
+      // Phase 3c multiplayer - picks whichever REAL connected player (the
+      // host's own position, or any guest's last-known synced position) is
+      // actually nearest to this zombie, so it doesn't keep chasing the
+      // host's stale position while a guest stands right next to it.
+      // otherPlayers is always [] in solo play, so nothing here ever
+      // changes solo behavior. Only applies if nothing above already
+      // redirected this zombie away from a real player entirely (still
+      // pointing at the exact original playerPos reference) - runs before
+      // barricade-pull/flanking below, both of which only make sense once
+      // a real player target is already chosen.
+      let targetPlayerId = null
+      if (zombie.state === 'alive' && targetPos === playerPos && otherPlayers && otherPlayers.length > 0) {
+        const distToLocal = Math.hypot(playerPos.x - zombie.group.position.x, playerPos.z - zombie.group.position.z)
+        let nearestOther = null
+        let nearestOtherDist = distToLocal
+        for (const p of otherPlayers) {
+          const d = Math.hypot(p.x - zombie.group.position.x, p.z - zombie.group.position.z)
+          if (d < nearestOtherDist) {
+            nearestOtherDist = d
+            nearestOther = p
+          }
+        }
+        if (nearestOther) {
+          targetPos = { x: nearestOther.x, y: playerPos.y, z: nearestOther.z }
+          targetPlayerId = nearestOther.playerId
+          attackCb = (dmg) => this.remoteDamageQueue.push({ playerId: nearestOther.playerId, damage: dmg, kind: 'damage' })
         }
       }
 
