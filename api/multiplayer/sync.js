@@ -49,7 +49,11 @@ export default async function handler(req, res) {
     for (const zb of zombies) {
       zombiesById[zb.id] = {
         x: zb.x, z: zb.z, rotY: zb.rotY, health: zb.health,
-        maxHealth: zb.maxHealth, state: zb.state, type: zb.type, updatedAt: now,
+        maxHealth: zb.maxHealth, state: zb.state, type: zb.type,
+        // Phase 3b (docs/superpowers/specs/2026-08-24-multiplayer-phase3b-groupa-zombies-design.md) -
+        // drives a guest-side cosmetic throat-glow pulse for the screamer
+        // type only; harmless/ignored for every other type.
+        screaming: !!zb.screaming, updatedAt: now,
       }
     }
     await sessionRef.child('world/zombies').set(zombiesById)
