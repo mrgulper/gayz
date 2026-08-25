@@ -136,11 +136,13 @@ export default async function handler(req, res) {
     // guest's own interactions never need delivering back to a specific
     // player (only the host ever needs to know "apply this to my real
     // managers"), so one unkeyed list is enough, unlike remoteDamage which
-    // needed per-player delivery.
+    // needed per-player delivery. fromPlayerId (Phase 5) lets a handler
+    // that DOES need to know who sent it (becameDowned) find out, while
+    // every existing kind that doesn't need it just ignores the extra field.
     const updates = {}
     for (const interaction of interactions) {
       const key = sessionRef.child('world/pendingInteractions').push().key
-      updates[`world/pendingInteractions/${key}`] = interaction
+      updates[`world/pendingInteractions/${key}`] = { ...interaction, fromPlayerId: playerId }
     }
     await sessionRef.update(updates)
   }
@@ -203,7 +205,12 @@ export default async function handler(req, res) {
   for (const [otherId, state] of Object.entries(allStates)) {
     if (otherId === playerId) continue
     if (now - state.updatedAt > STALE_MS) continue
-    states[otherId] = { ...state, nickname: allPlayers[otherId]?.nickname || 'Player' }
+    // Phase 5 multiplayer - the host uses this for the anti-abuse guard
+    // (a player who joined less than 30s ago has their kill credit fall
+    // back to the host instead of themselves). allPlayers already has
+    // this - api/multiplayer/join.js and create.js both record it at
+    // join/create time - this is the first read of it.
+    states[otherId] = { ...state, nickname: allPlayers[otherId]?.nickname || 'Player', joinedAt: allPlayers[otherId]?.joinedAt || 0 }
   }
 
   const allEvents = eventsSnapshot.val() || {}
