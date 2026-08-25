@@ -55,6 +55,8 @@ const STRINGS = {
     menuInventoryPlaceholder: 'Coming soon.',
     inventorySkinsTitle: 'Skins',
     inventoryCratesTitle: 'Crates',
+    inventoryCharacterCratesTitle: 'Character Crates',
+    inventoryWeaponsTitle: 'Weapons',
     inventorySortLabel: 'Sort:',
     serverBtn: 'Server',
     serverPanelTitle: 'Server',

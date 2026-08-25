@@ -4982,6 +4982,10 @@ export class Game {
     this.inventorySkinsTitle = document.getElementById('inventory-skins-title')
     this.inventorySkinsSortLabel = document.getElementById('inventory-skins-sort-label')
     this.inventorySkinsPlaceholder = document.getElementById('inventory-skins-placeholder')
+    this.inventoryCharacterCratesTitle = document.getElementById('inventory-charactercrates-title')
+    this.inventoryCharacterCratesPlaceholder = document.getElementById('inventory-charactercrates-placeholder')
+    this.inventoryWeaponsTitle = document.getElementById('inventory-weapons-title')
+    this.inventoryWeaponsPlaceholder = document.getElementById('inventory-weapons-placeholder')
     this.serverBtn = document.getElementById('server-btn')
     this.serverPanel = document.getElementById('server-panel')
     this.serverPanelTitle = document.getElementById('server-panel-title')
@@ -13354,6 +13358,10 @@ export class Game {
     if (this.inventorySkinsTitle) this.inventorySkinsTitle.textContent = t('inventorySkinsTitle')
     if (this.inventorySkinsSortLabel) this.inventorySkinsSortLabel.textContent = t('inventorySortLabel')
     if (this.inventorySkinsPlaceholder) this.inventorySkinsPlaceholder.textContent = t('menuInventoryPlaceholder')
+    if (this.inventoryCharacterCratesTitle) this.inventoryCharacterCratesTitle.textContent = t('inventoryCharacterCratesTitle')
+    if (this.inventoryCharacterCratesPlaceholder) this.inventoryCharacterCratesPlaceholder.textContent = t('menuInventoryPlaceholder')
+    if (this.inventoryWeaponsTitle) this.inventoryWeaponsTitle.textContent = t('inventoryWeaponsTitle')
+    if (this.inventoryWeaponsPlaceholder) this.inventoryWeaponsPlaceholder.textContent = t('menuInventoryPlaceholder')
   }
 
   _closeMenuInventoryPanel() {
