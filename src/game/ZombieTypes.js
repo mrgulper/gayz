@@ -611,6 +611,17 @@ export const ZOMBIE_TYPES = {
   },
 }
 
+// Phase 3 of multiplayer (docs/superpowers/specs/2026-08-24-multiplayer-phase3-shared-zombies-design.md) -
+// only these plain melee types are shared across a session; everything
+// else (ranged attackers, anything that explodes/gasses on death,
+// burrowers, the shielded type, scream-summoners, and every boss tier)
+// stays an independent per-player fight for now. See that spec's
+// "Scope for this phase" section for the reasoning behind each exclusion.
+export const SHARED_ZOMBIE_TYPE_IDS = new Set([
+  'feral_dog', 'feral_child', 'shambler', 'runner', 'brute',
+  'crawler', 'sewer_dweller', 'leaper', 'regenerator', 'bloodhound', 'vampire',
+])
+
 // Cached once at module load rather than rebuilt (Object.values + reduce)
 // on every single call - this runs once per zombie spawn, which during a
 // horde/wandering-horde burst can be many times in one frame.
