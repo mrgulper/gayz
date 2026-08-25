@@ -15756,7 +15756,10 @@ export class Game {
       this._pendingInteractions = []
     }
     import('./Multiplayer.js').then((Multiplayer) => {
-      Multiplayer.syncPlayerState(this._multiplayerSessionId, payload).then(({ states, zombies, pendingHits, worldEvents, remoteDamage, pickups, chests, vaultOpened, windows, interactions, killEvents, xpGems }) => {
+      Multiplayer.syncPlayerState(this._multiplayerSessionId, payload).then(({ states, zombies, pendingHits, worldEvents, remoteDamage, pickups, chests, vaultOpened, windows, interactions, killEvents, xpGems, host, director }) => {
+        // Phase 6 multiplayer - kept warm the same way per-zombie full
+        // state is (Step 1 above), for the same reason - see Task 14.
+        this._lastDirectorSnapshot = director
         this._renderRemotePlayers(states)
         if (this._multiplayerIsHost) {
           for (const hit of pendingHits) {
@@ -15919,6 +15922,11 @@ export class Game {
         this.zombies.sharedZombies.push(zombie)
       }
       zombie.applyNetworkState(state.x, state.z, state.rotY, state.health, state.maxHealth, state.state, localPlayerX, localPlayerZ, !!state.screaming)
+      // Phase 6 multiplayer - kept "warm" on every sync so this zombie can
+      // be upgraded in place into a real, fully-simulated instance with
+      // zero visual reset if THIS client is ever elected the new host
+      // (see Task 14). Never read for rendering purposes - only takeover.
+      zombie._lastFullState = state.full || null
     }
     for (const [id, zombie] of this._sharedZombieBodies) {
       if (seenIds.has(id)) continue
