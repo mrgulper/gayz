@@ -1050,6 +1050,114 @@ export class ZombieManager {
     this.grenadeThrows.push({ mesh, origin: origin.clone(), target: target.clone(), travelTime, t: 0 })
   }
 
+  // Phase 6 multiplayer (docs/superpowers/specs/2026-08-25-multiplayer-phase6-scaling-migration-design.md) -
+  // "what the simulation is about to do next" - spawn/wave timers and
+  // horde state, none of which is per-zombie (see Zombie.js's own
+  // exportFullState for that half). Same duration-not-timestamp
+  // conversion discipline as Zombie.js - see this plan's Global
+  // Constraints.
+  //
+  // wanderingHorde.members holds live Zombie object REFERENCES, which
+  // can't be serialized directly (circular structure, THREE.js objects
+  // inside) - exported as an array of zombie ids instead. This is why
+  // restoreDirectorState (below) must be called AFTER the new host's own
+  // zombies have already been reconstructed from the full-state broadcast
+  // (see Task 14) - resolving those ids back into real references needs
+  // them to already exist.
+  exportDirectorState() {
+    const now = performance.now()
+    const remaining = (until) => (until ? Math.max(0, until - now) : 0)
+    return {
+      targetCount: this.targetCount,
+      baseTargetCount: this.baseTargetCount,
+      respawnDelay: this.respawnDelay,
+      ambushChance: this.ambushChance,
+      spawnRateMult: this.spawnRateMult,
+      healthMult: this.healthMult,
+      speedMult: this.speedMult,
+      eliteChanceMult: this.eliteChanceMult,
+      roundHealthMult: this.roundHealthMult,
+      directorMult: this.directorMult,
+      currentNight: this.currentNight,
+      bossSpawnedForNight: this.bossSpawnedForNight,
+      bossRushMode: !!this.bossRushMode,
+      bossRushSpawnCount: this.bossRushSpawnCount,
+      hordeMode: !!this.hordeMode,
+      roundMode: !!this.roundMode,
+      currentZone: this.currentZone ?? null,
+      nextHordeEventInMs: remaining(this.nextHordeEventAt),
+      hordeHushed: !!this._hordeHushed,
+      titanAlive: !!this.titanAlive,
+      nextTitanCheckInMs: remaining(this.nextTitanCheckAt),
+      nextMoanInMs: remaining(this.nextMoanAt),
+      nextFireSpreadCheckInMs: remaining(this.nextFireSpreadCheckAt),
+      aggroRadiusMult: this.aggroRadiusMult,
+      invisibleInMs: remaining(this.invisibleUntil),
+      featuredEnemyId: this.featuredEnemyId ?? null,
+      wanderingHorde: this.wanderingHorde
+        ? {
+            memberIds: this.wanderingHorde.members.map((z) => z.id),
+            x: this.wanderingHorde.x,
+            z: this.wanderingHorde.z,
+            targetX: this.wanderingHorde.targetX,
+            targetZ: this.wanderingHorde.targetZ,
+            size: this.wanderingHorde.size,
+            pendingSpawns: this.wanderingHorde.pendingSpawns,
+          }
+        : null,
+    }
+  }
+
+  // The inverse of exportDirectorState() above. Call this ONLY after
+  // this.zombies has already been repopulated with the migrated-in
+  // host's own reconstructed Zombie instances (see this method's own
+  // wanderingHorde handling, and Task 14's ordering).
+  restoreDirectorState(data) {
+    if (!data) return
+    const now = performance.now()
+    const inFuture = (ms) => (ms > 0 ? now + ms : 0)
+    this.targetCount = data.targetCount
+    this.baseTargetCount = data.baseTargetCount
+    this.respawnDelay = data.respawnDelay
+    this.ambushChance = data.ambushChance
+    this.spawnRateMult = data.spawnRateMult
+    this.healthMult = data.healthMult
+    this.speedMult = data.speedMult
+    this.eliteChanceMult = data.eliteChanceMult
+    this.roundHealthMult = data.roundHealthMult
+    this.directorMult = data.directorMult
+    this.currentNight = data.currentNight
+    this.bossSpawnedForNight = data.bossSpawnedForNight
+    this.bossRushMode = !!data.bossRushMode
+    this.bossRushSpawnCount = data.bossRushSpawnCount
+    this.hordeMode = !!data.hordeMode
+    this.roundMode = !!data.roundMode
+    this.currentZone = data.currentZone ?? null
+    this.nextHordeEventAt = inFuture(data.nextHordeEventInMs)
+    this._hordeHushed = !!data.hordeHushed
+    this.titanAlive = !!data.titanAlive
+    this.nextTitanCheckAt = inFuture(data.nextTitanCheckInMs)
+    this.nextMoanAt = inFuture(data.nextMoanInMs)
+    this.nextFireSpreadCheckAt = inFuture(data.nextFireSpreadCheckInMs)
+    this.aggroRadiusMult = data.aggroRadiusMult
+    this.invisibleUntil = inFuture(data.invisibleInMs)
+    this.featuredEnemyId = data.featuredEnemyId ?? null
+    if (data.wanderingHorde) {
+      const idSet = new Set(data.wanderingHorde.memberIds)
+      this.wanderingHorde = {
+        members: this.zombies.filter((z) => idSet.has(z.id)),
+        x: data.wanderingHorde.x,
+        z: data.wanderingHorde.z,
+        targetX: data.wanderingHorde.targetX,
+        targetZ: data.wanderingHorde.targetZ,
+        size: data.wanderingHorde.size,
+        pendingSpawns: data.wanderingHorde.pendingSpawns,
+      }
+    } else {
+      this.wanderingHorde = null
+    }
+  }
+
   // Generic falloff-damage burst, same shape as the grenade explosion loop
   // below just without a thrown projectile leading into it - used by
   // Game.js's killstreak "airstrike" reward (a call-it-in strike centered
