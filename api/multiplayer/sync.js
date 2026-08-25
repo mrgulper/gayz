@@ -25,10 +25,18 @@ import { getAdminDb } from '../_lib/firebaseAdmin.js'
 // "Disconnect Handling") since a normal quit uses navigator.sendBeacon
 // via the leave endpoint instead and doesn't rely on this timeout at all.
 const STALE_MS = 2500
+// World events (Phase 3c: docs/superpowers/specs/2026-08-25-multiplayer-phase3c-remaining-zombies-design.md) -
+// broadcast (not delivered-and-cleared like pendingHits, since every
+// player needs to see the same ones, not just one recipient) but still
+// need pruning eventually so the stored list doesn't grow forever over a
+// long session. 15s is comfortably longer than any real sync interval, so
+// an actively-polling client will always see an event at least once
+// before it's pruned.
+const WORLD_EVENT_TTL_MS = 15000
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
-  const { sessionId, playerId, x, y, z, rotY, currentWeapon, isFiring, zombies, hits } = req.body || {}
+  const { sessionId, playerId, x, y, z, rotY, currentWeapon, isFiring, zombies, hits, worldEvents, remoteDamage } = req.body || {}
   if (!sessionId || !playerId) {
     return res.status(400).json({ error: 'sessionId and playerId are required' })
   }
@@ -70,6 +78,33 @@ export default async function handler(req, res) {
     await sessionRef.child('world/zombies').set(zombiesById)
   }
 
+  if (isHost && Array.isArray(worldEvents) && worldEvents.length) {
+    const updates = {}
+    for (const ev of worldEvents) {
+      // ev.id already arrives prefixed ('x...' or 'h...' - see Game.js/
+      // ZombieManager.js) - reusing it directly as the Firebase key avoids
+      // the same sparse-array gotcha the zombie snapshot fix addressed,
+      // and lets a client dedupe by simply remembering which ids it's
+      // already replayed.
+      updates[`world/events/${ev.id}`] = { type: ev.type, x: ev.x, z: ev.z, at: now }
+    }
+    await sessionRef.update(updates)
+  }
+
+  if (Array.isArray(remoteDamage) && remoteDamage.length) {
+    // Keyed per target player (unlike pendingHits' single shared inbox) so
+    // a damage report addressed to one player can never be delivered to a
+    // different one - see the per-caller drain below.
+    const updates = {}
+    for (const entry of remoteDamage) {
+      const key = sessionRef.child(`world/remoteDamage/${entry.playerId}`).push().key
+      updates[`world/remoteDamage/${entry.playerId}/${key}`] = {
+        damage: entry.damage, kind: entry.kind, originX: entry.originX ?? null, originZ: entry.originZ ?? null,
+      }
+    }
+    await sessionRef.update(updates)
+  }
+
   if (!isHost && Array.isArray(hits) && hits.length) {
     // Guests append to a shared inbox the host drains on its own next
     // sync call below - never applied here server-side. The host's own
@@ -95,10 +130,20 @@ export default async function handler(req, res) {
     if (pendingHits.length) await sessionRef.child('world/pendingHits').remove()
   }
 
-  const [stateSnapshot, playersSnapshot, zombiesSnapshot] = await Promise.all([
+  // Any player (host or guest) can be on the receiving end of a remote
+  // damage report - a guest gets hit by a zombie that picked it as the
+  // nearest target, delivered here under its own playerId. Same
+  // deliver-and-clear reasoning as pendingHits above.
+  const myRemoteDamageSnapshot = await sessionRef.child(`world/remoteDamage/${playerId}`).once('value')
+  const myRemoteDamage = myRemoteDamageSnapshot.val() || {}
+  const remoteDamageOut = Object.values(myRemoteDamage)
+  if (remoteDamageOut.length) await sessionRef.child(`world/remoteDamage/${playerId}`).remove()
+
+  const [stateSnapshot, playersSnapshot, zombiesSnapshot, eventsSnapshot] = await Promise.all([
     sessionRef.child('playerState').once('value'),
     sessionRef.child('players').once('value'),
     sessionRef.child('world/zombies').once('value'),
+    sessionRef.child('world/events').once('value'),
   ])
   const allStates = stateSnapshot.val() || {}
   const allPlayers = playersSnapshot.val() || {}
@@ -109,5 +154,18 @@ export default async function handler(req, res) {
     states[otherId] = { ...state, nickname: allPlayers[otherId]?.nickname || 'Player' }
   }
 
-  res.status(200).json({ states, zombies: zombiesSnapshot.val() || {}, pendingHits })
+  const allEvents = eventsSnapshot.val() || {}
+  const worldEventsOut = []
+  const staleEventUpdates = {}
+  for (const [key, ev] of Object.entries(allEvents)) {
+    if (!ev) continue
+    if (now - ev.at > WORLD_EVENT_TTL_MS) {
+      staleEventUpdates[`world/events/${key}`] = null
+      continue
+    }
+    worldEventsOut.push({ id: key, type: ev.type, x: ev.x, z: ev.z })
+  }
+  if (Object.keys(staleEventUpdates).length) await sessionRef.update(staleEventUpdates)
+
+  res.status(200).json({ states, zombies: zombiesSnapshot.val() || {}, pendingHits, worldEvents: worldEventsOut, remoteDamage: remoteDamageOut })
 }
