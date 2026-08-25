@@ -32,6 +32,12 @@ export async function preloadFuelcanModel() {
 const PICKUP_RADIUS = 1.4
 const LOOT_EXPIRE_MS = 25000
 
+// Phase 4 multiplayer (docs/superpowers/specs/2026-08-25-multiplayer-phase4-shared-loot-design.md) -
+// same globally-incrementing-id pattern as Zombie.js's zombieIdCounter,
+// needed so the host can broadcast "this exact drop exists" and a guest
+// can report back "I collected id N" without any ambiguity.
+let pickupIdCounter = 0
+
 const TYPES = {
   health: { weight: 4, label: 'Health Pack' },
   ammo: { weight: 4, label: 'Ammo Crate' },
@@ -309,9 +315,10 @@ function buildVisual(type) {
   return group
 }
 
-class Pickup {
+export class Pickup {
   constructor(type, x, z, isLoot = false, options = {}) {
     const { floatY } = options
+    this.id = pickupIdCounter++
     this.type = type
     this.active = true
     this.phase = Math.random() * Math.PI * 2
