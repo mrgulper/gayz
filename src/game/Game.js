@@ -4959,6 +4959,16 @@ export class Game {
     // chest/the vault, repairing a window) - discriminated by entry.kind,
     // same shape as ZombieManager.remoteDamageQueue's own kind field.
     this._pendingInteractions = []
+    // A guest removes a pickup from sharedPickups the instant it collects
+    // it (see _renderSharedPickups/updateSharedPickups), but the host only
+    // stops broadcasting that id once it's actually processed the
+    // collectPickup interaction - a real network round trip later. Without
+    // tracking "already collected, ignore until it's truly gone", the very
+    // next (still-stale) snapshot would see the id missing from
+    // sharedPickups and recreate it, letting the guest collect - and get
+    // credited for - the same drop again on every sync tick until the host
+    // catches up.
+    this._collectedPickupIds = new Set()
     this._remotePlayerBodies = new Map() // uid -> PlayerBody
     this._pendingJoinSessionId = new URLSearchParams(window.location.search).get('join') || null
     this.whatsNewLink = document.getElementById('nav-whatsnew-link')
@@ -15767,6 +15777,12 @@ export class Game {
       if (!state) continue
       const id = Number(idStr.slice(1))
       seenIds.add(id)
+      // Already collected locally, just waiting for the host to catch up
+      // and stop broadcasting it - see this._collectedPickupIds's own
+      // comment. Skipping the re-render here is what stops the guest from
+      // re-colliding with (and re-collecting) the same drop every tick
+      // until that happens.
+      if (this._collectedPickupIds.has(id)) continue
       const alreadyRendered = this.pickups.sharedPickups.some((p) => p.id === id)
       if (!alreadyRendered) {
         const pickup = new Pickup(state.type, state.x, state.z, true)
@@ -15774,6 +15790,12 @@ export class Game {
         this.pickups.sharedPickups.push(pickup)
         this.scene.add(pickup.group)
       }
+    }
+    // Once an id truly stops appearing in the snapshot (the host has
+    // caught up), forget we were ignoring it - keeps this set from growing
+    // forever over a long session.
+    for (const id of this._collectedPickupIds) {
+      if (!seenIds.has(id)) this._collectedPickupIds.delete(id)
     }
     for (const pickup of [...this.pickups.sharedPickups]) {
       if (seenIds.has(pickup.id)) continue
@@ -21272,6 +21294,7 @@ export class Game {
         // solo pickup - only the "tell the host to stop broadcasting this
         // one" part needs a network round trip.
         this.pickups.updateSharedPickups(dt, elapsed, playerPos, (id, type) => {
+          this._collectedPickupIds.add(id)
           if (type) this._onPickup(type, type, true)
           this._queueMultiplayerInteraction({ kind: 'collectPickup', pickupId: id })
         })
