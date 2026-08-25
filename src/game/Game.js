@@ -15760,6 +15760,36 @@ export class Game {
         // Phase 6 multiplayer - kept warm the same way per-zombie full
         // state is (Step 1 above), for the same reason - see Task 14.
         this._lastDirectorSnapshot = director
+        // Phase 6 multiplayer - host-absence detection. Only a GUEST ever
+        // needs to watch for this (the host already knows it's the host).
+        // `host` (the session's STORED host field) is basically always
+        // present - it doesn't tell you whether that player is actually
+        // still active. `states` is the real signal: it's already
+        // filtered server-side to exclude anyone who's gone stale (see
+        // sync.js's STALE_MS), so checking whether the host's id appears
+        // as a key in `states` is what actually detects "the host looks
+        // gone," not the mere presence/absence of the `host` field itself.
+        if (!this._multiplayerIsHost && host) {
+          if (host !== this._hostPlayerId) {
+            // The host id changed since this client last knew - either
+            // this is its very first sync (learning who's host for the
+            // first time) or a migration already completed (possibly
+            // claimed by a different client than this one). Either way,
+            // just adopt it - no action needed from this client.
+            this._hostPlayerId = host
+            this._hostMissingStreak = 0
+          } else if (host !== this._multiplayerUid && !(host in states)) {
+            // The player who's SUPPOSED to be host isn't among the
+            // currently-active other players this sync call returned.
+            this._hostMissingStreak = (this._hostMissingStreak || 0) + 1
+            if (this._hostMissingStreak >= 2) {
+              this._hostMissingStreak = 0
+              this._onHostConfirmedGone(states)
+            }
+          } else {
+            this._hostMissingStreak = 0
+          }
+        }
         this._renderRemotePlayers(states)
         if (this._multiplayerIsHost) {
           for (const hit of pendingHits) {
@@ -15853,6 +15883,60 @@ export class Game {
   // shown spinning on the homepage's Player Setup panel - deliberately
   // NOT the local player's own realistic PlayerBody, see that class's own
   // comment), created lazily the first time that id is seen and reused
+  // Phase 6 multiplayer - called once the host has been confirmed absent
+  // across 2 consecutive syncs. `states` is the SAME already-staleness-
+  // filtered list of currently-active other players this sync call just
+  // returned (see sync.js's own STALE_MS filtering) - by construction it
+  // already excludes the departed host, so no extra filtering is needed
+  // here beyond adding this client's own id/joinedAt to the pool.
+  //
+  // Every remaining client runs this exact same deterministic computation
+  // from data every client already has (each player's own server-
+  // recorded joinedAt), so every client independently arrives at the
+  // SAME winner without any voting or coordination round-trip. If two
+  // clients' views briefly disagree (e.g. one's last sync is a hair
+  // staler than another's right at this exact moment), the claim
+  // endpoint's own atomic transaction (Task 12) is the real tie-breaker -
+  // only one claim can ever actually succeed, and a losing claimant here
+  // just quietly waits to see the host id update on a future sync rather
+  // than erroring.
+  _onHostConfirmedGone(states) {
+    const candidates = [{ id: this._multiplayerUid, joinedAt: this._myJoinedAt || 0 }]
+    for (const [id, state] of Object.entries(states)) {
+      candidates.push({ id, joinedAt: state.joinedAt || 0 })
+    }
+    candidates.sort((a, b) => a.joinedAt - b.joinedAt)
+    if (candidates[0].id === this._multiplayerUid) {
+      this._tryClaimHost()
+    }
+    // Not the winner - do nothing. This same method fires again in
+    // another couple of sync ticks if the host is still missing by then
+    // (see the detection logic), re-checking whether the winner's claim
+    // has taken effect yet.
+  }
+
+  // Phase 6 multiplayer - attempts to actually become the new host.
+  // Fire-and-forget from the caller's perspective (no return value
+  // needed) - success is reflected by _multiplayerIsHost flipping true
+  // and the takeover running; failure just leaves this client waiting,
+  // same as any non-winning client.
+  async _tryClaimHost() {
+    const Multiplayer = await import('./Multiplayer.js')
+    let result
+    try {
+      result = await Multiplayer.claimHost(this._multiplayerSessionId)
+    } catch {
+      return
+    }
+    if (result && result.ok) {
+      this._performHostTakeover()
+    }
+    // A rejected claim (someone else's claim already won, or the "old"
+    // host turned out not to actually be stale server-side) needs no
+    // handling here - this client just keeps rendering as a guest, and
+    // the next sync's host-absence detection naturally re-evaluates.
+  }
+
   // after that - never recreated every update, wasteful for no reason.
   // An id that stops appearing in `states` (left the session,
   // disconnected, or went stale on the server) gets its body removed from
