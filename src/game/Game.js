@@ -1974,6 +1974,12 @@ const SECRET_SEQUENCE_SPEED_MULT = 1.6
 const RARE_EASTER_EGG_CHANCE = 0.05
 // Vault bonus second reward roll (see _openVault).
 const VAULT_BONUS_ROLL_CHANCE = 0.25
+// Phase 5 multiplayer (docs/superpowers/specs/2026-08-25-multiplayer-phase5-reward-integrity-design.md) -
+// a guest credited with a kill this soon after joining has that credit
+// silently fall back to the host instead - the anti-abuse guard the
+// original master multiplayer doc called out, without needing any real
+// anti-cheat validation.
+const MIN_SESSION_TIME_FOR_REWARDS_MS = 30000
 // Undiscovered-landmark proximity chime (see _checkUndiscoveredLandmarkChime).
 const UNDISCOVERED_CHIME_RADIUS = 25
 // Smoke Bomb (see _throwSmokeBomb) - a one-time awareness reset within
@@ -4946,6 +4952,7 @@ export class Game {
     this._pendingZombieHits = [] // {zombieId, damage, bypassShield} queued locally, drained into the next sync call
     this._sharedZombieBodies = new Map() // zombieId -> Zombie (network-driven, guest side only)
     this._otherPlayerPositions = [] // {playerId, x, z}[] - every OTHER connected player's last-known position, host-side AI targeting input (Phase 3c)
+    this._otherPlayerJoinedAt = new Map() // playerId -> server-recorded join timestamp (ms), Phase 5's anti-abuse guard input
     // Phase 3c multiplayer - fester's gas-on-death and acid_trail/webber's
     // hazard-zone drops, queued here (host-only) so a guest can replay the
     // same puddle/gas cloud on its own screen. Drained by
@@ -14886,6 +14893,22 @@ export class Game {
     this._pendingInteractions.push(entry)
   }
 
+  // Phase 5 multiplayer - the host calls this once per shared kill to turn
+  // the raw "who last hit this zombie" id into a real decision: null (or
+  // an id that isn't currently a connected player - they may have just
+  // disconnected) falls back to the host; a guest who joined less than
+  // MIN_SESSION_TIME_FOR_REWARDS_MS ago also falls back to the host (the
+  // anti-abuse guard - see this plan's own Global Constraints). The host
+  // itself never needs this guard (it created or has always been in its
+  // own session), so this only ever restricts a NON-null id.
+  _resolveKillCreditPlayerId(rawCreditPlayerId) {
+    if (rawCreditPlayerId === null) return null
+    const joinedAt = this._otherPlayerJoinedAt.get(rawCreditPlayerId)
+    if (joinedAt === undefined) return null
+    if (Date.now() - joinedAt < MIN_SESSION_TIME_FOR_REWARDS_MS) return null
+    return rawCreditPlayerId
+  }
+
   // Shared by every damage source that can kill the player (zombie/rival
   // melee+ranged, gas/toxic hazard ticks, rockfall) - Last Stand gets one
   // chance per run regardless of which of those actually landed the blow.
@@ -15705,6 +15728,10 @@ export class Game {
     // otherPlayers param) know where every OTHER connected player actually
     // is, not just the host's own position.
     this._otherPlayerPositions = []
+    // Phase 5 multiplayer - the anti-abuse guard's own source of truth for
+    // "how long has this guest actually been in the session" (server-
+    // recorded, not guest-claimed - see api/multiplayer/sync.js's own
+    // comment on this field).
     for (const [id, state] of Object.entries(states)) {
       seenIds.add(id)
       let body = this._remotePlayerBodies.get(id)
@@ -15715,6 +15742,7 @@ export class Game {
       body.update(state.x, state.y, state.z, state.rotY, true)
       body.setNickname(state.nickname || 'Player')
       this._otherPlayerPositions.push({ playerId: id, x: state.x, z: state.z })
+      this._otherPlayerJoinedAt.set(id, state.joinedAt || 0)
     }
     for (const [id, body] of this._remotePlayerBodies) {
       if (seenIds.has(id)) continue
