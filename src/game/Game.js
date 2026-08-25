@@ -15125,9 +15125,101 @@ export class Game {
     return Math.min(COMBO_MULT_CAP, 1 + Math.max(0, this.comboCount - 1) * COMBO_MULT_PER_KILL)
   }
 
-  _onZombieKilled(zombieTypeId, weaponId, x, z, isElite, isWandering = false, isGolden = false, wasFleeing = false, isCarrier = false) {
+  // Phase 5 multiplayer - the dispatcher every ZombieManager death-
+  // detection callback still targets, unchanged from the outside. Always
+  // runs the world-effects half locally (only the host's own
+  // zombies.update() ever calls this at all, per Phase 3's own gating, so
+  // "locally" here always means "on the host"), then either runs the
+  // personal-rewards half locally too (this was the host's own kill, or
+  // the anti-abuse guard fell back to the host) or relays it to whichever
+  // guest actually earned it.
+  _onZombieKilled(zombieTypeId, weaponId, x, z, isElite, isWandering = false, isGolden = false, wasFleeing = false, isCarrier = false, rawCreditPlayerId = null) {
+    const waveCleared = this._onZombieKilledWorldEffects(zombieTypeId, weaponId, x, z, isElite, isWandering, isGolden, wasFleeing, isCarrier)
+    const creditPlayerId = this._resolveKillCreditPlayerId(rawCreditPlayerId)
+    if (creditPlayerId === null) {
+      this._onZombieKilledPersonalRewards(zombieTypeId, weaponId, x, z, isElite, isWandering, isGolden, wasFleeing, isCarrier, waveCleared)
+    } else {
+      this._queueKillEvent(creditPlayerId, { kind: 'kill', zombieTypeId, weaponId, x, z, isElite, isWandering, isGolden, wasFleeing, isCarrier, waveCleared })
+    }
+  }
+
+  // World-state side effects - always run here (the host), regardless of
+  // which player actually gets credited for the kill, since only the
+  // host's own instances of PickupManager/XpGemManager/ZombieManager/etc.
+  // are the real ones anyone else's game ever sees. Returns whether this
+  // kill cleared the last alive zombie, since _onZombieKilledPersonalRewards
+  // (which may run on a GUEST, whose own this.zombies.zombies is never the
+  // real simulated array - see Phase 3/4's own gating) can't safely
+  // recompute that itself.
+  _onZombieKilledWorldEffects(zombieTypeId, weaponId, x, z, isElite, isWandering, isGolden, wasFleeing, isCarrier) {
     if (this.settings.bloodEffectsEnabled) this.decals.spawnPuddle(x, z)
     if (weaponId === 'melee') this._spawnMeleeKillFlash(x, z)
+    // Last Stand - clawing back up under your own power, not a passive
+    // timer-only wait (see _tryLastStand/downedKillsNeeded). The host's own
+    // downed state (unchanged from before this phase) plus every tracked
+    // guest's downed state (Task 10) both decrement on every kill,
+    // regardless of who's credited - a teammate's kill should be able to
+    // save you, per Gaymi's explicit choice.
+    if (this.playerDowned) {
+      this.downedKillsNeeded -= 1
+      if (this.downedKillsNeeded <= 0) this._reviveFromLastStand()
+    }
+    // Corpse pile-up (see CORPSE_PILE_RADIUS's own comment) - capped so a
+    // long run can't grow this array unbounded.
+    this.recentKillSpots.push({ x, z, at: performance.now() })
+    if (this.recentKillSpots.length > CORPSE_PILE_MAX_TRACKED) this.recentKillSpots.shift()
+    const lootMult = (this.settings.mutators.lootRush ? 2 : 1) * this.difficulty.lootMult * (this.perfectWeather ? PERFECT_WEATHER_LOOT_BONUS_MULT : 1)
+    // XP gem spawning is world-state (only the host's own XpGemManager
+    // broadcasts - see Task 7/8) even though collecting one is a personal
+    // reward, same split ground loot already has.
+    this.xpGems.spawn(x, z, (isElite ? 4 : 1) * lootMult)
+    // Elite carrier zombies (batch 7 feature) - a guaranteed rare/legendary
+    // weapon drop, independent of (on top of) the every-10th-kill and
+    // random field-power-up drops below.
+    if (isCarrier) this.pickups.spawnLootDrop(Math.random() < 0.3 ? 'legendary_weapon' : 'rare_weapon', x, z)
+    // Guaranteed loot every 10th shared-session kill - a dedicated
+    // host-owned counter, not this.kills (which is now a personal stat
+    // that may live on a guest's own client, invisible to this always-
+    // host method).
+    this._sharedKillCountForLoot = (this._sharedKillCountForLoot || 0) + 1
+    if (this._sharedKillCountForLoot % 10 === 0) this.pickups.spawnKillDrop(x, z)
+    // Field power-ups - independent of (not instead of) the guaranteed
+    // every-10th-kill drop above, so they can land on any kill.
+    if (Math.random() < POWERUP_DROP_CHANCE) {
+      const powerupType = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)]
+      this.pickups.spawnLootDrop(powerupType, x, z)
+    }
+    if (zombieTypeId === 'fester') {
+      this._spawnHazardZone('gas', x, z)
+      if (this._multiplayerIsHost) this._pendingWorldEvents.push({ id: 'h' + (this._nextHazardEventId++), type: 'gas', x, z })
+    }
+    this._maybeDropObstacle(x, z)
+    // Boss Gauntlet mutator - the next boss walks in immediately on this
+    // one's death, no waiting for the next night boundary. Checked
+    // separately from the boss-tier coin/killcam reward (personal half)
+    // since _spawnBoss's own alternation also treats broodmother as an
+    // equal boss slot.
+    if (this.settings.mutators.bossGauntlet && BOSS_GAUNTLET_TYPE_IDS.has(zombieTypeId)) {
+      this.zombies.spawnBossGauntletNext()
+    }
+    // Guaranteed boss loot - on top of the normal chance-based ammo drop,
+    // not instead of it.
+    if (zombieTypeId === 'colossus') this.pickups.spawnLootDrop('extended_mag', x, z)
+    // Wave-Clear Finisher Cam's own trigger condition - computed here
+    // (where this.zombies.zombies is always the real array) and handed
+    // back as a flag for the personal half (which may run on a guest,
+    // where that array is never real) to act on instead of re-deriving it.
+    return !BOSS_TIER_IDS.has(zombieTypeId) && this.zombies.zombies.filter((z) => z.state === 'alive').length === 0
+  }
+
+  // Personal rewards - runs on whichever client actually gets credit for
+  // the kill (the host's own client if this was its kill, or a specific
+  // guest's client via a relayed killEvent - see _onZombieKilled/
+  // _syncNetworkPlayerState). Every line here mutates only "my own"
+  // client-local state (coins, achievements, quest progress, etc.) -
+  // nothing here may read this.zombies/this.pickups/this.chests/etc.
+  // directly, since those are only the real, shared instances on the host.
+  _onZombieKilledPersonalRewards(zombieTypeId, weaponId, x, z, isElite, isWandering, isGolden, wasFleeing, isCarrier, waveCleared) {
     // Environmental melee kills (batch 8 feature) - a melee kill landed
     // inside an active hazard zone (gas/acid/web/toxic spread/radiation)
     // rewards using the environment as a weapon, same spirit as shoving a
@@ -15156,17 +15248,7 @@ export class Game {
     this.totalKills += 1
     this.killCountsThisRun[weaponId] = (this.killCountsThisRun[weaponId] || 0) + 1
     this._checkWeeklyChallengeProgress()
-    // Last Stand - clawing back up under your own power, not a passive
-    // timer-only wait (see _tryLastStand/downedKillsNeeded).
-    if (this.playerDowned) {
-      this.downedKillsNeeded -= 1
-      if (this.downedKillsNeeded <= 0) this._reviveFromLastStand()
-    }
     this.recentKillTimestamps.push(performance.now())
-    // Corpse pile-up (see CORPSE_PILE_RADIUS's own comment) - capped so a
-    // long run can't grow this array unbounded.
-    this.recentKillSpots.push({ x, z, at: performance.now() })
-    if (this.recentKillSpots.length > CORPSE_PILE_MAX_TRACKED) this.recentKillSpots.shift()
     // Wandering horde members (see ZombieManager's _maybeSpawnWanderingHorde)
     // are worth intercepting for their own sake rather than just background
     // population you happen to run into - a small guaranteed bonus per kill,
@@ -15176,7 +15258,6 @@ export class Game {
       this._updateStatsPanel()
     }
     const lootMult = (this.settings.mutators.lootRush ? 2 : 1) * this.difficulty.lootMult * (this.perfectWeather ? PERFECT_WEATHER_LOOT_BONUS_MULT : 1)
-    this.xpGems.spawn(x, z, (isElite ? 4 : 1) * lootMult)
     if (isElite) {
       this.eliteKills += 1
       if (this.eliteKills >= 5) {
@@ -15190,34 +15271,12 @@ export class Game {
         }
       }
     }
-    // Elite carrier zombies (batch 7 feature) - a guaranteed rare/legendary
-    // weapon drop, independent of (on top of) the every-10th-kill and
-    // random field-power-up drops below.
-    if (isCarrier) {
-      this.pickups.spawnLootDrop(Math.random() < 0.3 ? 'legendary_weapon' : 'rare_weapon', x, z)
-      this._showLoreToast(t('toastCarrierDropped'))
-    }
+    if (isCarrier) this._showLoreToast(t('toastCarrierDropped'))
     if (weaponId === 'vehicle') this.achievements.unlock('road_kill')
     this._registerComboKill()
-    if (this.kills % 10 === 0) {
-      this._companionBark('killStreak')
-      // Guaranteed loot every 10th kill - replaces the old flat per-kill
-      // random-chance drop so supplies come from actually fighting instead
-      // of the world just handing them out.
-      this.pickups.spawnKillDrop(x, z)
-    }
-    // Field power-ups - independent of (not instead of) the guaranteed
-    // every-10th-kill drop above, so they can land on any kill.
-    if (Math.random() < POWERUP_DROP_CHANCE) {
-      const powerupType = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)]
-      this.pickups.spawnLootDrop(powerupType, x, z)
-    }
+    if (this.kills % 10 === 0) this._companionBark('killStreak')
     this.achievements.unlock('first_blood')
     if (this.totalKills >= 100) this.achievements.unlock('centurion')
-    if (zombieTypeId === 'fester') {
-      this._spawnHazardZone('gas', x, z)
-      if (this._multiplayerIsHost) this._pendingWorldEvents.push({ id: 'h' + (this._nextHazardEventId++), type: 'gas', x, z })
-    }
     if (this.activeBounty && this.activeBounty.id === 'clear_location') {
       const dist = Math.hypot(x - this.activeBounty.locationX, z - this.activeBounty.locationZ)
       if (dist <= CLEAR_LOCATION_RADIUS) this._checkBountyProgress('clear_location', 1)
@@ -15286,16 +15345,6 @@ export class Game {
     this.coins += coinsEarned
     this._showCoinPopup(coinsEarned)
     this._updateStatsPanel()
-    this._maybeDropObstacle(x, z)
-
-    // Boss Gauntlet mutator - the next boss walks in immediately on this
-    // one's death, no waiting for the next night boundary. Checked
-    // separately from the BOSS_TIER_IDS branch above (which only covers
-    // colossus/titan for the epitaph/killcam reward) since _spawnBoss's own
-    // alternation also treats broodmother as an equal boss slot.
-    if (this.settings.mutators.bossGauntlet && BOSS_GAUNTLET_TYPE_IDS.has(zombieTypeId)) {
-      this.zombies.spawnBossGauntletNext()
-    }
 
     if (!this.bestiaryEncountered.has(zombieTypeId)) {
       this.bestiaryEncountered.add(zombieTypeId)
@@ -15309,18 +15358,7 @@ export class Game {
       }
     }
 
-    // Guaranteed boss loot - on top of the normal chance-based ammo drop,
-    // not instead of it.
-    if (zombieTypeId === 'colossus') this.pickups.spawnLootDrop('extended_mag', x, z)
-
-    // Wave-Clear Finisher Cam - reuses the exact same killcamUntil slow-mo/
-    // zoom mechanism _triggerBossKillcam already drives, just triggered by
-    // "nothing left alive" instead of "that alive thing was a boss" - boss
-    // kills are excluded here since _triggerBossKillcam above already fired
-    // for those, and stacking both would just restart the same effect.
-    if (!BOSS_TIER_IDS.has(zombieTypeId) && this.zombies.zombies.filter((z) => z.state === 'alive').length === 0) {
-      this._triggerWaveClearedCam()
-    }
+    if (waveCleared) this._triggerWaveClearedCam()
   }
 
   _triggerWaveClearedCam() {
@@ -21243,7 +21281,7 @@ export class Game {
         (dmg) => this._onZombieAttack(dmg),
         (x, z) => this.pickups.spawnLootDrop('ammo', x, z), // boss-only guaranteed drop, see ZombieManager
         () => audioEngine.playAmbushShriek(),
-        (zombieTypeId, weaponId, x, z, isElite, isWandering, isGolden, wasFleeing, isCarrier) => this._onZombieKilled(zombieTypeId, weaponId, x, z, isElite, isWandering, isGolden, wasFleeing, isCarrier),
+        (zombieTypeId, weaponId, x, z, isElite, isWandering, isGolden, wasFleeing, isCarrier, lastHitFromPlayerId) => this._onZombieKilled(zombieTypeId, weaponId, x, z, isElite, isWandering, isGolden, wasFleeing, isCarrier, lastHitFromPlayerId),
         this.player.isCrouching || this.player.isProne,
         this.dayNight ? this.dayNight.getPhaseInfo().phase === 'Night' : false,
         (x, z) => {
