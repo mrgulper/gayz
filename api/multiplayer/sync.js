@@ -36,7 +36,7 @@ const WORLD_EVENT_TTL_MS = 15000
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
-  const { sessionId, playerId, x, y, z, rotY, currentWeapon, isFiring, zombies, hits, worldEvents, remoteDamage, pickups, chests, vaultOpened, windows, interactions, killEvents, xpGems } = req.body || {}
+  const { sessionId, playerId, x, y, z, rotY, currentWeapon, isFiring, zombies, hits, worldEvents, remoteDamage, pickups, chests, vaultOpened, windows, interactions, killEvents, xpGems, director } = req.body || {}
   if (!sessionId || !playerId) {
     return res.status(400).json({ error: 'sessionId and playerId are required' })
   }
@@ -74,6 +74,12 @@ export default async function handler(req, res) {
         // drives a guest-side cosmetic throat-glow pulse for the screamer
         // type only; harmless/ignored for every other type.
         screaming: !!zb.screaming, updatedAt: now,
+        // Phase 6 multiplayer - the full non-rendering simulation state
+        // (see Zombie.js's exportFullState), passed straight through
+        // unmodified - this server never needs to understand its shape,
+        // just carry it. Every player, not just an eventual new host,
+        // receives it, so whoever ends up elected is always already warm.
+        full: zb.full || null,
       }
     }
     await sessionRef.child('world/zombies').set(zombiesById)
@@ -98,6 +104,13 @@ export default async function handler(req, res) {
       gemsById['g' + g.id] = { value: g.value, x: g.x, z: g.z }
     }
     await sessionRef.child('world/xpGems').set(gemsById)
+  }
+
+  if (isHost && director) {
+    // Phase 6 multiplayer - ZombieManager's own spawn/wave state (see
+    // exportDirectorState). A plain object, not an array - no sparse-key
+    // gotcha to worry about here.
+    await sessionRef.child('world/director').set(director)
   }
 
   if (isHost && Array.isArray(chests)) {
@@ -218,7 +231,7 @@ export default async function handler(req, res) {
   const killEventsOut = Object.values(myKillEvents)
   if (killEventsOut.length) await sessionRef.child(`world/killEvents/${playerId}`).remove()
 
-  const [stateSnapshot, playersSnapshot, zombiesSnapshot, eventsSnapshot, pickupsSnapshot, chestsSnapshot, vaultOpenedSnapshot, windowsSnapshot, xpGemsSnapshot] = await Promise.all([
+  const [stateSnapshot, playersSnapshot, zombiesSnapshot, eventsSnapshot, pickupsSnapshot, chestsSnapshot, vaultOpenedSnapshot, windowsSnapshot, xpGemsSnapshot, directorSnapshot] = await Promise.all([
     sessionRef.child('playerState').once('value'),
     sessionRef.child('players').once('value'),
     sessionRef.child('world/zombies').once('value'),
@@ -228,6 +241,7 @@ export default async function handler(req, res) {
     sessionRef.child('world/vaultOpened').once('value'),
     sessionRef.child('world/windows').once('value'),
     sessionRef.child('world/xpGems').once('value'),
+    sessionRef.child('world/director').once('value'),
   ])
   const allStates = stateSnapshot.val() || {}
   const allPlayers = playersSnapshot.val() || {}
@@ -260,6 +274,6 @@ export default async function handler(req, res) {
     states, zombies: zombiesSnapshot.val() || {}, pendingHits, worldEvents: worldEventsOut, remoteDamage: remoteDamageOut,
     pickups: pickupsSnapshot.val() || {}, chests: chestsSnapshot.val() || [], vaultOpened: vaultOpenedSnapshot.val() || false,
     windows: windowsSnapshot.val() || [], interactions: pendingInteractions, killEvents: killEventsOut,
-    xpGems: xpGemsSnapshot.val() || {}, host: currentHostId,
+    xpGems: xpGemsSnapshot.val() || {}, host: currentHostId, director: directorSnapshot.val() || null,
   })
 }
