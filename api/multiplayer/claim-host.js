@@ -54,11 +54,18 @@ export default async function handler(req, res) {
   }
 
   const txResult = await sessionRef.child('host').transaction((current) => {
-    // Abort if someone else's claim already won between the read above
-    // and this transaction actually running - the standard optimistic-
-    // concurrency guard, and the real tie-breaker if two clients' own
-    // election computations briefly disagreed.
-    if (current !== currentHostId) return undefined
+    // Firebase RTDB transaction gotcha: on this specific Admin SDK
+    // connection's first pass over a path it hasn't locally cached yet,
+    // `current` can come back `null` even though we already confirmed
+    // (via the read above) that a real value exists server-side -
+    // returning `undefined` here tells Firebase to abort outright rather
+    // than retry with the authoritative value, so treating that `null`
+    // the same as a genuine conflict made every single claim fail with
+    // "lost-race" regardless of whether anyone had actually raced us.
+    // Only a real, non-null, DIFFERENT value means someone else's claim
+    // actually already won - that's the real optimistic-concurrency
+    // guard and tie-breaker this transaction exists for.
+    if (current !== null && current !== currentHostId) return undefined
     return playerId
   })
 
