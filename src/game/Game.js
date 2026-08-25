@@ -4953,6 +4953,12 @@ export class Game {
     this._pendingWorldEvents = []
     this._nextHazardEventId = 0
     this._seenWorldEventIds = new Set() // Phase 3c - dedupes replayed world events across sync calls, both host and guest
+    // Phase 4 multiplayer (docs/superpowers/specs/2026-08-25-multiplayer-phase4-shared-loot-design.md) -
+    // one combined queue for every kind of "I did something" report a
+    // GUEST needs to tell the host about (collecting a pickup, opening a
+    // chest/the vault, repairing a window) - discriminated by entry.kind,
+    // same shape as ZombieManager.remoteDamageQueue's own kind field.
+    this._pendingInteractions = []
     this._remotePlayerBodies = new Map() // uid -> PlayerBody
     this._pendingJoinSessionId = new URLSearchParams(window.location.search).get('join') || null
     this.whatsNewLink = document.getElementById('nav-whatsnew-link')
@@ -5777,7 +5783,7 @@ export class Game {
       this.roundIntermissionUntil = 0
       this._setupGameModeRun()
       this.barricadeWindows.reset()
-      this.chests.reset()
+      if (!this._multiplayerSessionId || this._multiplayerIsHost) this.chests.reset()
       this.rivals.reset()
       this._rivalsClaimedAirdrop = false
       this._rivalsClaimedByName = null
@@ -6182,11 +6188,22 @@ export class Game {
         } else if (this.nearRecruitSpot) {
           this._recruitSurvivor(this.nearRecruitSpot)
         } else if (this.nearBarricadeWindow) {
+          // Fixed positions (see Phase 4's own plan header note) - an
+          // index into this.barricadeWindows.windows is a stable,
+          // globally-shared identity, captured before repair() below
+          // changes this window's own state.
+          const repairedWindowIndex = this.barricadeWindows.windows.indexOf(this.nearBarricadeWindow)
           const reward = this.barricadeWindows.repair(this.nearBarricadeWindow)
           if (reward > 0) {
             this._gainPoints(reward)
             this._updateStatsPanel()
           }
+          // reward can be 0 even on a real repair once the per-round cap is
+          // hit (see REPAIR_REWARD_CAP_PER_ROUND) - repair() itself already
+          // guards "nothing to repair" (returns 0, leaves planks
+          // untouched), so repairedWindowIndex being a valid index is the
+          // real signal a repair happened, not reward > 0 alone.
+          if (repairedWindowIndex !== -1) this._queueMultiplayerInteraction({ kind: 'repairWindow', windowIndex: repairedWindowIndex })
         } else if (this.nearBuriedCache) {
           this._digBuriedCache()
         } else if (this.nearVault) {
@@ -6237,6 +6254,11 @@ export class Game {
           this._adoptPet()
         } else {
           const openedChestPos = this.chests.nearbyChest ? { x: this.chests.nearbyChest.x, y: this.chests.nearbyChest.y, z: this.chests.nearbyChest.z } : null
+          // Captured before tryInteract() clears nearbyChest - chests are
+          // fixed, deterministic positions (see Phase 4's own plan header
+          // note), so an index into this.chests.chests is a stable,
+          // globally-shared identity with no new id needed.
+          const openedChestIndex = this.chests.nearbyChest ? this.chests.chests.indexOf(this.chests.nearbyChest) : -1
           const loot = this.chests.tryInteract()
           if (loot) {
             this._onPickup(loot.type, loot.label, false, loot.count)
@@ -6245,6 +6267,7 @@ export class Game {
             // the chest's position above, before tryInteract() cleared
             // nearbyChest, since this is the only handle Game.js has on it.
             if (openedChestPos) this._spawnCrateOpenBurst(openedChestPos.x, openedChestPos.y, openedChestPos.z, loot.type)
+            if (openedChestIndex !== -1) this._queueMultiplayerInteraction({ kind: 'openChest', chestIndex: openedChestIndex })
           } else if (this.nearGenerator && this.inventory.useFuelCan()) {
             this.generatorFuel = Math.min(this.maxGeneratorFuel, this.generatorFuel + GENERATOR_FUELCAN_AMOUNT)
           } else {
@@ -14844,6 +14867,15 @@ export class Game {
     pos.z += (dz / dist) * pull
   }
 
+  // Only ever meaningful for a guest (the host applies its own
+  // interactions directly, it never needs to report them to itself) -
+  // still safe to call unconditionally, since it's a no-op whenever
+  // _multiplayerIsHost is true or there's no session at all.
+  _queueMultiplayerInteraction(entry) {
+    if (!this._multiplayerSessionId || this._multiplayerIsHost) return
+    this._pendingInteractions.push(entry)
+  }
+
   // Shared by every damage source that can kill the player (zombie/rival
   // melee+ranged, gas/toxic hazard ticks, rockfall) - Last Stand gets one
   // chance per run regardless of which of those actually landed the blow.
@@ -19375,14 +19407,26 @@ export class Game {
     this.vault.open()
     this._gainPoints(VAULT_REWARD_POINTS)
     this._updateStatsPanel()
-    this.pickups.spawnLootDrop('legendary_weapon', this.vault.x, this.vault.z + 1)
-    // Rare bonus second reward roll - the vault only ever opens once per
-    // run (this.vault.opened above), so this is the one chance to roll it.
-    if (Math.random() < VAULT_BONUS_ROLL_CHANCE) {
-      this.pickups.spawnLootDrop('rare_weapon', this.vault.x, this.vault.z - 1)
-      this._showLoreToast(t('toastVaultBonusRoll'))
+    // Phase 4 multiplayer - the bonus loot drops only ever mean anything if
+    // they end up in the HOST's own PickupManager.pickups (the array that
+    // actually gets broadcast - see _syncNetworkPlayerState). A guest
+    // opening the vault reports {kind: 'openVault'} instead of spawning
+    // these itself (which nobody would ever see); the host spawns them
+    // when it processes that report - see the interactions-handling code
+    // in _syncNetworkPlayerState.
+    if (!this._multiplayerSessionId || this._multiplayerIsHost) {
+      this.pickups.spawnLootDrop('legendary_weapon', this.vault.x, this.vault.z + 1)
+      // Rare bonus second reward roll - the vault only ever opens once per
+      // run (this.vault.opened above), so this is the one chance to roll it.
+      if (Math.random() < VAULT_BONUS_ROLL_CHANCE) {
+        this.pickups.spawnLootDrop('rare_weapon', this.vault.x, this.vault.z - 1)
+        this._showLoreToast(t('toastVaultBonusRoll'))
+      } else {
+        this._showLoreToast(t('toastVaultOpened', { n: VAULT_REWARD_POINTS }))
+      }
     } else {
       this._showLoreToast(t('toastVaultOpened', { n: VAULT_REWARD_POINTS }))
+      this._queueMultiplayerInteraction({ kind: 'openVault' })
     }
   }
 
@@ -21024,7 +21068,11 @@ export class Game {
       this._rollNightMutation()
         this._rollFeaturedItem()
         this._rollTraderPrices()
-        this.chests.refillNight()
+        // A guest never rerolls its own chest lock state - refillNight()
+        // picks 3 random chests to unlock, and an independent roll would
+        // desync from the host's real choice immediately. The host's
+        // choice reaches a guest via the chests broadcast instead.
+        if (!this._multiplayerSessionId || this._multiplayerIsHost) this.chests.refillNight()
         this.barricadeWindows.onRoundStart()
         if (this._isRoundMode()) this.zombies.startRound(this.night)
         else this.zombies.applyDifficulty(this.night)
@@ -21135,9 +21183,28 @@ export class Game {
       // Auto-Loot setting's own radius bonus rather than replacing it, so
       // owning the perk with Auto-Loot on is a real combo, not a wasted pick.
       const pickupRadiusMult = (this.settings.autoLoot ? AUTO_LOOT_RADIUS_MULT : 1) * (this.hasPickupMagnet ? PICKUP_MAGNET_MULT : 1)
-      this.pickups.update(dt, elapsed, playerPos, {
-        onPickup: (type, label, isLoot) => this._onPickup(type, label, isLoot),
-      }, companionLootPos, pickupRadiusMult)
+      // A guest in a shared session never runs its own real pickup
+      // simulation - it would only ever be empty anyway, since a guest
+      // never processes zombie kills (see ZombieManager gating from Phase
+      // 3) or chest openings for itself. It only ever collects from what
+      // the host broadcasts - see _renderSharedPickups/_syncNetworkPlayerState.
+      if (!this._multiplayerSessionId || this._multiplayerIsHost) {
+        this.pickups.update(dt, elapsed, playerPos, {
+          onPickup: (type, label, isLoot) => this._onPickup(type, label, isLoot),
+        }, companionLootPos, pickupRadiusMult)
+      } else {
+        // Guest side - collect from whatever the host has broadcast
+        // instead of a real local simulation. The pickup's own real type
+        // (passed straight through by updateSharedPickups, since the
+        // pickup is already spliced out of sharedPickups by the time this
+        // fires) is enough to apply its effect immediately, exactly like a
+        // solo pickup - only the "tell the host to stop broadcasting this
+        // one" part needs a network round trip.
+        this.pickups.updateSharedPickups(dt, elapsed, playerPos, (id, type) => {
+          if (type) this._onPickup(type, type, true)
+          this._queueMultiplayerInteraction({ kind: 'collectPickup', pickupId: id })
+        })
+      }
       this.xpGems.update(dt, elapsed, playerPos, (value) => this._onXpGemCollected(value))
       this.autoWeapons.update(dt, playerPos, this.zombies.zombies, () => {
         this._triggerShake(0.04, 80)
