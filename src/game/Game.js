@@ -4985,6 +4985,11 @@ export class Game {
     // next sync payload. payload is either a kill event (kind: 'kill') or
     // a Last Stand revival (kind: 'revive') - see _queueKillEvent/Task 10.
     this._pendingKillEvents = []
+    // Phase 5 multiplayer - host-only. A guest becoming downed reports it
+    // (see _tryLastStand below); every kill (regardless of who's
+    // credited) decrements every entry here, same as the host's own
+    // playerDowned/downedKillsNeeded - see _onZombieKilledWorldEffects.
+    this._guestDownedState = new Map()
     this._remotePlayerBodies = new Map() // uid -> PlayerBody
     this._pendingJoinSessionId = new URLSearchParams(window.location.search).get('join') || null
     this.whatsNewLink = document.getElementById('nav-whatsnew-link')
@@ -14953,6 +14958,16 @@ export class Game {
     this._updateHealthHud()
     this._updateHotbarHud()
     this._showLoreToast(t('lastStandEntered', { n: LAST_STAND_KILLS_NEEDED }))
+    // Phase 5 multiplayer - the host already has authoritative access to
+    // its own playerDowned/downedKillsNeeded (checked directly in
+    // _onZombieKilledWorldEffects), no report needed. A guest needs to
+    // tell the host it's now down and how many kills it needs, so ANY
+    // kill (by either player) can start counting down - per Gaymi's
+    // explicit choice that either player's kills should be able to save
+    // a downed teammate.
+    if (this._multiplayerSessionId && !this._multiplayerIsHost) {
+      this._queueMultiplayerInteraction({ kind: 'becameDowned', killsNeeded: LAST_STAND_KILLS_NEEDED })
+    }
     return true
   }
 
@@ -15747,6 +15762,8 @@ export class Game {
                 const idx = this.xpGems.gems.indexOf(gem)
                 if (idx !== -1) this.xpGems.gems.splice(idx, 1)
               }
+            } else if (interaction.kind === 'becameDowned' && interaction.fromPlayerId) {
+              this._guestDownedState.set(interaction.fromPlayerId, interaction.killsNeeded)
             }
           }
         } else {
