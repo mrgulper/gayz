@@ -15514,6 +15514,7 @@ export class Game {
         .map((z) => ({
           id: z.id, x: z.group.position.x, z: z.group.position.z, rotY: z.group.rotation.y,
           health: z.health, maxHealth: z.maxHealth, state: z.state, type: z.type,
+          screaming: performance.now() < z.screamPulseUntil,
         }))
     } else if (this._pendingZombieHits.length) {
       payload.hits = this._pendingZombieHits
@@ -15528,7 +15529,7 @@ export class Game {
             if (zombie) zombie.onHit(hit.damage, { bypassShield: hit.bypassShield })
           }
         } else {
-          this._renderSharedZombies(zombies)
+          this._renderSharedZombies(zombies, feetX, feetZ)
         }
       }).catch(() => {})
     })
@@ -15572,7 +15573,7 @@ export class Game {
   // scene, disposed, and dropped from both this._sharedZombieBodies and
   // the manager's sharedZombies array (so WeaponSystem's raycast stops
   // considering it too).
-  _renderSharedZombies(zombiesSnapshot) {
+  _renderSharedZombies(zombiesSnapshot, localPlayerX, localPlayerZ) {
     const seenIds = new Set()
     for (const [idStr, state] of Object.entries(zombiesSnapshot)) {
       const id = Number(idStr)
@@ -15589,7 +15590,7 @@ export class Game {
         this._sharedZombieBodies.set(id, zombie)
         this.zombies.sharedZombies.push(zombie)
       }
-      zombie.applyNetworkState(state.x, state.z, state.rotY, state.health, state.maxHealth, state.state)
+      zombie.applyNetworkState(state.x, state.z, state.rotY, state.health, state.maxHealth, state.state, localPlayerX, localPlayerZ, !!state.screaming)
     }
     for (const [id, zombie] of this._sharedZombieBodies) {
       if (seenIds.has(id)) continue
