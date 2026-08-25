@@ -78,11 +78,16 @@ export async function joinSession(sessionId, nickname) {
 // pair. There's no persistent connection any more; the caller (Game.js's
 // _tick() throttle) is expected to call this repeatedly, a few times a
 // second, and re-render from whatever it gets back each time.
+// state may include zombies (host's snapshot) and/or hits (a guest's
+// self-reported shots) alongside the usual position fields - see
+// docs/superpowers/specs/2026-08-24-multiplayer-phase3-shared-zombies-design.md.
+// Returns the whole response now (states/zombies/pendingHits), not just
+// states, since callers need all three.
 export async function syncPlayerState(sessionId, state) {
   const playerId = _playerIdFor.get(sessionId)
   if (!playerId) throw new Error('Not in this session')
-  const { states } = await _apiCall('sync', { sessionId, playerId, ...state })
-  return states
+  const { states, zombies, pendingHits } = await _apiCall('sync', { sessionId, playerId, ...state })
+  return { states, zombies: zombies || {}, pendingHits: pendingHits || [] }
 }
 
 export async function leave(sessionId) {
