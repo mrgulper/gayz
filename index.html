@@ -632,6 +632,7 @@ Escape before dawn.</p>
           <button class="settings-tab" data-page="language" id="tab-language">Language</button>
           <button class="settings-tab" data-page="audio" id="tab-audio">Audio</button>
           <button class="settings-tab" data-page="controls" id="tab-controls">Controls</button>
+          <button class="settings-tab" data-page="theme" id="tab-theme">Theme</button>
           <button class="settings-tab" data-page="graphics" id="tab-graphics">Graphics</button>
         </div>
 
@@ -1185,15 +1186,6 @@ Escape before dawn.</p>
               <option value="display">Display</option>
             </select>
           </div>
-
-          <h3 class="settings-section-heading">Theme</h3>
-          <div class="audio-row">
-            <label for="ui-theme-select" id="ui-theme-label">Theme</label>
-            <select id="ui-theme-select">
-              <option value="golden" selected>Golden</option>
-              <option value="old">Old</option>
-            </select>
-          </div>
           <details class="settings-advanced">
             <summary>Advanced</summary>
             <div class="audio-row">
@@ -1301,6 +1293,17 @@ Escape before dawn.</p>
             <button id="clear-leaderboards-btn">Clear Leaderboards Only</button>
           </div>
           <button id="reset-progress-btn" class="danger-btn">Reset All Progress</button>
+        </div>
+
+        <div class="settings-page" id="settings-page-theme" style="display: none">
+          <h3 class="settings-section-heading">Theme</h3>
+          <div class="audio-row">
+            <label for="ui-theme-select" id="ui-theme-label">Theme</label>
+            <select id="ui-theme-select">
+              <option value="golden" selected>Golden</option>
+              <option value="old">Old</option>
+            </select>
+          </div>
         </div>
 
         <div id="recently-changed-list" style="display: none"></div>
