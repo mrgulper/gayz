@@ -10,7 +10,7 @@ import { LOW_QUALITY_MODE, flatMaterial } from './QualitySettings.js'
 import { PlayerController } from './PlayerController.js'
 import { WeaponSystem, MELEE_DURABILITY_MAX } from './WeaponSystem.js'
 import { ZombieManager } from './ZombieManager.js'
-import { Zombie } from './Zombie.js'
+import { Zombie, bumpZombieIdCounterPast } from './Zombie.js'
 import { PickupManager, Pickup } from './Pickups.js'
 import { PlayerState } from './PlayerState.js'
 import { Inventory } from './Inventory.js'
@@ -15935,6 +15935,81 @@ export class Game {
     // host turned out not to actually be stale server-side) needs no
     // handling here - this client just keeps rendering as a guest, and
     // the next sync's host-absence detection naturally re-evaluates.
+  }
+
+  // Phase 6 multiplayer - runs once, immediately after a successful
+  // claim-host call (see _tryClaimHost). Upgrades everything this client
+  // was passively rendering as a guest into the real, authoritative
+  // simulation, reusing the same objects/meshes throughout so nothing
+  // visually pops or resets.
+  //
+  // Confirmed via fresh reads while planning this: this.zombies.update(...)
+  // is already gated `if (!this._multiplayerSessionId || this._multiplayerIsHost)`
+  // (see the main tick loop) - simply flipping _multiplayerIsHost to true
+  // below is enough to make the real per-frame zombie AI/spawn loop start
+  // running on this client on the very next frame, no separate "start the
+  // loop" call needed. Chests/Vault/BarricadeWindows/hazard zones also
+  // need nothing here - chest/vault/window state is already applied
+  // directly onto this client's own local objects on every sync (not a
+  // separate "shared" mirror the way zombies/pickups are), and hazard
+  // zones are already independently simulated by every client from the
+  // same one-shot spawn event. Pickups/XP gems DO need explicit handling
+  // below - unlike chests/vault/windows, they use a separate "shared"
+  // mirror that was never applied onto the real pickups/gems arrays.
+  _performHostTakeover() {
+    this._multiplayerIsHost = true
+    this._hostPlayerId = this._multiplayerUid
+
+    // --- Zombies ---
+    let maxZombieId = -1
+    for (const [id, zombie] of this._sharedZombieBodies) {
+      if (id > maxZombieId) maxZombieId = id
+      // The critical flag - onHit() checks this FIRST, before anything
+      // else, to decide whether to redirect to _onNetworkHit (a guest's
+      // report-only path) instead of applying real damage.
+      zombie.isNetworkDriven = false
+      zombie._onNetworkHit = null
+      zombie.restoreFullState(zombie._lastFullState)
+      this.zombies.zombies.push(zombie)
+    }
+    if (maxZombieId >= 0) bumpZombieIdCounterPast(maxZombieId)
+    // These zombies now live for real in this.zombies.zombies - clear the
+    // guest-only bookkeeping that tracked them as shared/network-driven,
+    // so they're never double-counted (see ZombieManager's own
+    // hittableMeshes getter, which concatenates both arrays).
+    this.zombies.sharedZombies = []
+    this._sharedZombieBodies.clear()
+
+    // --- Spawn/wave director state - AFTER zombies above, since
+    // restoreDirectorState needs to resolve wanderingHorde.members ids
+    // against zombies that already exist in this.zombies.zombies. ---
+    this.zombies.restoreDirectorState(this._lastDirectorSnapshot)
+
+    // --- Pickups (ground loot) - a guest's sharedPickups mirror was
+    // never applied onto the real pickups array, unlike chests/vault/
+    // windows - without this, the instant this client becomes host it
+    // would broadcast an EMPTY pickups array, and every existing pickup
+    // would vanish for everyone. spawnedAt resets to "just spawned now"
+    // rather than preserving the exact remaining expire time - a
+    // deliberate, purely cosmetic simplification (an item might last a
+    // few seconds longer than it originally would have), unlike the
+    // zombie AI state above. ---
+    for (const pickup of this.pickups.sharedPickups) {
+      pickup.spawnedAt = performance.now()
+      this.pickups.pickups.push(pickup)
+    }
+    this.pickups.sharedPickups = []
+    this._collectedPickupIds.clear()
+
+    // --- XP gems - same treatment as pickups above. ---
+    for (const gem of this.xpGems.sharedGems) {
+      gem.spawnedAt = performance.now()
+      this.xpGems.gems.push(gem)
+    }
+    this.xpGems.sharedGems = []
+    this._collectedGemIds.clear()
+
+    this._showLoreToast(t('multiplayerBecameHost'))
   }
 
   // after that - never recreated every update, wasteful for no reason.

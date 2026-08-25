@@ -1008,6 +1008,8 @@ const STRINGS = {
     multiplayerLinkCopied: 'Invite link copied!',
     multiplayerJoinFailed: "Couldn't join - the invite link may be wrong or expired. You're playing solo for now.",
     multiplayerCreateFailed: "Couldn't create an invite right now - try again in a moment.",
+    multiplayerBecameHost: "The host disconnected - you're now hosting the world.",
+    multiplayerDemoted: 'Reconnected - another player took over hosting while you were away.',
     navLinkWhatsNew: 'What\'s New',
     buildVersionLine: 'Update Logs',
     menuAriaSummary: 'Best night reached: {night}. Total kills: {kills}. Coins: {coins}.',
