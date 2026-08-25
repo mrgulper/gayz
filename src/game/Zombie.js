@@ -428,6 +428,15 @@ export class Zombie {
     // health bar) runs exactly the same either way; only update()
     // (never called for these) and onHit() (redirected below) differ.
     this.isNetworkDriven = isNetworkDriven
+    // Phase 3b (docs/superpowers/specs/2026-08-24-multiplayer-phase3b-groupa-zombies-design.md) -
+    // local timestamps applyNetworkState uses to replicate the
+    // dormant->popping scale/eye-glow animation and the screamer's
+    // throat-glow pulse, neither of which this class's real per-frame
+    // update() ever runs for a network-driven instance. Purely cosmetic
+    // local approximations - never sent over the network themselves.
+    this._netPopStartedAt = 0
+    this._netScreamPulseUntil = 0
+    this._netWasScreaming = false
 
     // speedMult: Game.js's nightly mutation roll (see NightEvents.js's
     // NIGHT_MUTATIONS) - a whole-round modifier, distinct from the several
@@ -1633,20 +1642,61 @@ export class Zombie {
   // (Game.js's _renderSharedZombies), not every render frame - same
   // precedent as MinecraftPlayerBody's remote-player rendering, which
   // updates on the same cadence.
-  applyNetworkState(x, z, rotY, health, maxHealth, state) {
+  applyNetworkState(x, z, rotY, health, maxHealth, state, localPlayerX = null, localPlayerZ = null, screaming = false) {
     const moved = Math.hypot(x - this.group.position.x, z - this.group.position.z)
     this.group.position.set(x, 0, z)
     this.group.rotation.y = rotY
     this.health = health
     this.maxHealth = maxHealth
+    if (state === 'popping' && this.state === 'dormant') this._netPopStartedAt = performance.now()
     if (state !== this.state) {
       this.state = state
       if (state === 'dying' || state === 'dead') this._playGlbAction('death', false)
+    }
+    // Burrower (and any other shared type that happened to roll an ambush
+    // spawn - see ZombieManager._spawnRandom's ambushChance, which applies
+    // to every non-ranged type, not just burrower) - mirrors update()'s
+    // own dormant->popping scale+eye-glow lerp, which never runs for a
+    // network-driven instance since update() itself never runs for one.
+    // Only Y scale changes - X/Z stay at the construction-time
+    // baseScale*glbWidthMult, same as the AI-driven version.
+    if (state === 'dormant') {
+      this.group.scale.y = this.baseScale * 0.35
+      for (const mat of this.eyeMaterials) mat.emissiveIntensity = 0.25
+    } else if (state === 'popping') {
+      const progress = Math.min(1, (performance.now() - this._netPopStartedAt) / this.popDurationMs)
+      this.group.scale.y = THREE.MathUtils.lerp(this.baseScale * 0.35, this.baseScale, progress)
+      for (const mat of this.eyeMaterials) mat.emissiveIntensity = THREE.MathUtils.lerp(0.25, 2.4, progress)
+    } else if (state === 'alive') {
+      this.group.scale.y = this.baseScale
     }
     if (state === 'alive' || state === 'popping') {
       this._barSprite.visible = true
       this._redrawHealthBar()
       this._playGlbAction(moved > 0.01 ? 'walk' : 'idle', true)
+    }
+    // Stalker - same distance-to-opacity fade update() already does for an
+    // AI-driven instance (see this.config.stealthy in update()), computed
+    // against the LOCAL viewer's own position (passed in by Game.js's
+    // _renderSharedZombies) rather than the host's, so it fades in
+    // correctly for whichever player is actually looking at it.
+    if (this.config.stealthy && localPlayerX !== null && localPlayerZ !== null) {
+      const dist = Math.hypot(localPlayerX - x, localPlayerZ - z)
+      const targetOpacity = THREE.MathUtils.clamp(1 - dist / this.config.revealRadius, 0.12, 1)
+      for (const mat of this.materials) {
+        mat.transparent = true
+        mat.opacity = targetOpacity
+      }
+    }
+    // Screamer's throat-glow pulse - cosmetic only (the real effect, waking
+    // nearby dormant zombies, is entirely host-side already and needs no
+    // network changes at all). Simplified to a flat on/off glow rather
+    // than replicating the sine-wave scale pulse _animate() does, since
+    // this only updates a few times a second (sync cadence) anyway.
+    if (this.throatMat) {
+      if (screaming && !this._netWasScreaming) this._netScreamPulseUntil = performance.now() + 500
+      this._netWasScreaming = screaming
+      this.throatMat.emissiveIntensity = performance.now() < this._netScreamPulseUntil ? 2.4 : 0.9
     }
     const now = performance.now()
     const dt = Math.min(0.2, (now - (this._lastNetworkUpdateAt || now)) / 1000)
@@ -2321,7 +2371,19 @@ export class Zombie {
       // locally at all. Game.js sets _onNetworkHit right after
       // constructing one of these (see _renderSharedZombies) to queue
       // the hit for the next sync call instead.
-      if (typeof this._onNetworkHit === 'function') this._onNetworkHit(damage, opts)
+      // Phase 3b shielded fix: the real (non-network) onHit below treats
+      // a melee hit (this.lastHitWeaponId === 'melee', set by
+      // WeaponSystem._fire right before every onHit call) as bypassing
+      // the shield, same as opts.bypassShield (Armor-Piercing Rounds).
+      // Without folding that in here too, a guest's melee hit against a
+      // shared shielded zombie would be reported with bypassShield only
+      // reflecting opts (never true for a plain melee swing), and the
+      // host would incorrectly drain the shield pool instead of health
+      // when it replays the report.
+      if (typeof this._onNetworkHit === 'function') {
+        const effectiveBypass = !!opts.bypassShield || this.lastHitWeaponId === 'melee'
+        this._onNetworkHit(damage, { ...opts, bypassShield: effectiveBypass })
+      }
       return
     }
     if (this.state !== 'alive' && this.state !== 'popping') return
