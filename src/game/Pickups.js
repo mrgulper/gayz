@@ -361,6 +361,11 @@ export class PickupManager {
     this.scene = scene
     this.spawnPoints = spawnPoints
     this.pickups = []
+    // Phase 4 multiplayer - a guest's network-driven Pickup instances (see
+    // Game.js's _renderSharedPickups), kept separate from this.pickups (the
+    // real, host-simulated array) the same way ZombieManager.sharedZombies
+    // is kept separate from ZombieManager.zombies.
+    this.sharedPickups = []
   }
 
   // One-off drop (e.g. zombie loot) that doesn't occupy a fixed street slot
@@ -414,6 +419,33 @@ export class PickupManager {
       }
       return true
     })
+  }
+
+  // Guest-side only counterpart to update() above, checked against
+  // sharedPickups (network-driven, see _renderSharedPickups) instead of
+  // this.pickups (the real array, which only the host ever populates in a
+  // shared session). Reuses the exact same radius math as update() but
+  // calls onCollect(id, type) instead of a full handlers object, since
+  // applying the actual pickup effect (ammo/health/etc.) is the caller's
+  // job here - this method's only responsibility is "is the local player
+  // standing on this one, and if so, stop showing/considering it locally
+  // right away."
+  updateSharedPickups(dt, elapsed, playerPos, onCollect) {
+    for (const pickup of this.sharedPickups) pickup.update(dt, elapsed)
+    const toRemove = []
+    for (const pickup of this.sharedPickups) {
+      const dist = Math.hypot(playerPos.x - pickup.group.position.x, playerPos.z - pickup.group.position.z)
+      if (dist <= PICKUP_RADIUS) toRemove.push(pickup)
+    }
+    for (const pickup of toRemove) {
+      this.scene.remove(pickup.group)
+      const idx = this.sharedPickups.indexOf(pickup)
+      if (idx !== -1) this.sharedPickups.splice(idx, 1)
+      // Pass the type along too - by this point the pickup is already
+      // spliced out of sharedPickups, so the caller can't look it back up
+      // by id to find out what it was.
+      onCollect(pickup.id, pickup.type)
+    }
   }
 
   _collect(pickup, handlers) {
