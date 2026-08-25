@@ -47,7 +47,7 @@ import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
 import * as MenuEasterEggs from './MenuEasterEggs.js'
 import { JOKE_TIPS, FUNNY_TRIVIA } from './MenuEasterEggs.js'
-import { MenuAvatar3D, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
+import { MenuAvatar3D, loadSkinTexture, DEFAULT_SKIN_DATA_URL, SHOP_SKIN_PREVIEW_DATA_URL } from './MenuAvatar3D.js'
 import * as MenuPresets from './MenuPresets.js'
 // BuildMode.js is deliberately NOT statically imported here - it's a big,
 // self-contained system most visitors never touch (a whole separate
@@ -5039,8 +5039,7 @@ export class Game {
     this.creditsPanelTitle = document.getElementById('credits-panel-title')
     this.shopPanel = document.getElementById('shop-panel')
     this.shopPanelTitle = document.getElementById('shop-panel-title')
-    this.shopCratesTitle = document.getElementById('shop-crates-title')
-    this.shopCratesPlaceholder = document.getElementById('shop-crates-placeholder')
+    this.shopSkinCanvas = document.getElementById('shop-skin-canvas')
     this.whatsNewPanel = document.getElementById('whatsnew-panel')
     this.whatsNewPanelTitle = document.getElementById('whatsnew-panel-title')
     this.buildVersionLine = document.getElementById('build-version-line')
@@ -15681,24 +15680,37 @@ export class Game {
     }
   }
 
-  // Shop - emptied out (was Weapon Attachments + a visual-only crate grid,
-  // see this file's git history) down to just the Crates placeholder,
-  // moved here from the Inventory panel's own Crates section since crates
-  // are sold here, not held in Inventory. Weapon attachment purchasing has
-  // no UI anywhere right now - see the Settings/Upgrades attachment guide
-  // lists for what those items do, and WeaponSystem.applyAttachment /
-  // saveShopProgress for the still-live persistence of any already-owned
-  // attachments from before this change.
+  // Shop - was just a Crates placeholder (see this file's git history for
+  // that and the even older Weapon Attachments UI before it) - now shows
+  // one purchasable character skin instead, spinning the same way as the
+  // Player Setup panel's own avatar (MenuAvatar3D). Not actually
+  // purchasable yet - no click handler, no currency deduction, no
+  // ownedSkins-equivalent storage for it - this is a preview only, priced
+  // display-only at 10000 Gems, until that's built for real. Weapon
+  // attachment purchasing still has no UI anywhere right now either - see
+  // the Settings/Upgrades attachment guide lists for what those items do,
+  // and WeaponSystem.applyAttachment / saveShopProgress for the still-live
+  // persistence of any already-owned attachments from before that change.
   _openShopPanel() {
     this._closeAllMenuPanels()
     this.shopPanel.style.display = 'flex'
     this.shopPanelTitle.textContent = t('shopPanelTitle')
-    if (this.shopCratesTitle) this.shopCratesTitle.textContent = t('inventoryCratesTitle')
-    if (this.shopCratesPlaceholder) this.shopCratesPlaceholder.textContent = t('menuInventoryPlaceholder')
+    if (this.shopSkinCanvas) {
+      if (!this._shopSkinAvatar3D) {
+        this._shopSkinAvatar3D = new MenuAvatar3D(this.shopSkinCanvas)
+        loadSkinTexture(SHOP_SKIN_PREVIEW_DATA_URL).then((skin) => {
+          if (this._shopSkinAvatar3D) this._shopSkinAvatar3D.setSkin(skin)
+        }).catch(() => {
+          if (this._shopSkinAvatar3D) this._shopSkinAvatar3D.reveal()
+        })
+      }
+      this._shopSkinAvatar3D.start()
+    }
   }
 
   _closeShopPanel() {
     this.shopPanel.style.display = 'none'
+    if (this._shopSkinAvatar3D) this._shopSkinAvatar3D.stop()
   }
 
   // What's New panel - split out from Credits (used to be one combined

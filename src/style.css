@@ -6099,6 +6099,47 @@ html.theme-lighter #app { filter: brightness(1.25); }
   display: block;
 }
 
+/* Shop skin preview - same spinning-character setup as #setup-avatar-wrap
+   above (MenuAvatar3D), just a second instance and a smaller size, since
+   it's one item in a panel rather than the hero column's main avatar. */
+#shop-skin-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+#shop-skin-avatar-wrap {
+  width: 170px;
+  height: 320px;
+  cursor: grab;
+}
+
+#shop-skin-avatar-wrap:active {
+  cursor: grabbing;
+}
+
+#shop-skin-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#shop-skin-price {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+  color: #ffcf5c;
+}
+
+#shop-skin-badge {
+  font-size: 13px;
+  color: #9aa0a6;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 #profile-skin-upload-row {
   display: flex;
   justify-content: center;
