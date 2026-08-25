@@ -62,6 +62,10 @@ body {
   color: var(--text);
   font-family: 'Inter', 'Segoe UI', sans-serif;
   line-height: 1.5;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
 }
 
 ::selection { background: var(--gold); color: var(--charcoal); }
