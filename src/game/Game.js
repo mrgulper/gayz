@@ -4949,6 +4949,20 @@ export class Game {
     this._multiplayerSessionId = null
     this._multiplayerUid = null
     this._multiplayerIsHost = false
+    // Phase 6 multiplayer (docs/superpowers/specs/2026-08-25-multiplayer-phase6-scaling-migration-design.md) -
+    // sync calls fire every ~100ms and are fire-and-forget; under real
+    // network/CPU jitter their responses can arrive out of order. Found
+    // this the hard way testing host-absence detection: a single late-
+    // arriving STALE response (captured server-side before the host
+    // actually went stale) would silently reset _hostMissingStreak right
+    // back down, so the streak could flicker forever and migration would
+    // never trigger. _nextSyncSequence/_lastProcessedSyncSequence guard
+    // the whole response-handling block (not just migration detection -
+    // every field a stale response carries, positions included, has the
+    // same going-backward risk) by dropping any response older than the
+    // most recent one already processed.
+    this._nextSyncSequence = 0
+    this._lastProcessedSyncSequence = 0
     this._pendingZombieHits = [] // {zombieId, damage, bypassShield} queued locally, drained into the next sync call
     this._sharedZombieBodies = new Map() // zombieId -> Zombie (network-driven, guest side only)
     this._otherPlayerPositions = [] // {playerId, x, z}[] - every OTHER connected player's last-known position, host-side AI targeting input (Phase 3c)
@@ -15755,8 +15769,16 @@ export class Game {
       payload.interactions = this._pendingInteractions
       this._pendingInteractions = []
     }
+    // Phase 6 multiplayer - captured now (synchronously, before either
+    // async hop below), so the response handler can tell whether a NEWER
+    // call's response already landed and was processed while this one
+    // was still in flight - see this class's own field comment.
+    this._nextSyncSequence += 1
+    const mySyncSequence = this._nextSyncSequence
     import('./Multiplayer.js').then((Multiplayer) => {
       Multiplayer.syncPlayerState(this._multiplayerSessionId, payload).then(({ states, zombies, pendingHits, worldEvents, remoteDamage, pickups, chests, vaultOpened, windows, interactions, killEvents, xpGems, host, director }) => {
+        if (mySyncSequence <= this._lastProcessedSyncSequence) return
+        this._lastProcessedSyncSequence = mySyncSequence
         // Phase 6 multiplayer - kept warm the same way per-zombie full
         // state is (Step 1 above), for the same reason - see Task 14.
         this._lastDirectorSnapshot = director
