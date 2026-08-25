@@ -11,7 +11,7 @@ import { PlayerController } from './PlayerController.js'
 import { WeaponSystem, MELEE_DURABILITY_MAX } from './WeaponSystem.js'
 import { ZombieManager } from './ZombieManager.js'
 import { Zombie } from './Zombie.js'
-import { PickupManager } from './Pickups.js'
+import { PickupManager, Pickup } from './Pickups.js'
 import { PlayerState } from './PlayerState.js'
 import { Inventory } from './Inventory.js'
 import { DayNightCycle } from './DayNightCycle.js'
@@ -15709,6 +15709,33 @@ export class Game {
       this._sharedZombieBodies.delete(id)
       const idx = this.zombies.sharedZombies.indexOf(zombie)
       if (idx !== -1) this.zombies.sharedZombies.splice(idx, 1)
+    }
+  }
+
+  // Guest-side only - mirrors _renderSharedZombies' exact lazily-create/
+  // reuse/remove-when-gone pattern, just for loot drops instead of
+  // zombies. Reuses Pickups.js's own Pickup class directly (same visual-
+  // building code every pickup already uses) rather than a parallel
+  // rendering system.
+  _renderSharedPickups(pickupsSnapshot) {
+    const seenIds = new Set()
+    for (const [idStr, state] of Object.entries(pickupsSnapshot)) {
+      if (!state) continue
+      const id = Number(idStr.slice(1))
+      seenIds.add(id)
+      const alreadyRendered = this.pickups.sharedPickups.some((p) => p.id === id)
+      if (!alreadyRendered) {
+        const pickup = new Pickup(state.type, state.x, state.z, true)
+        pickup.id = id
+        this.pickups.sharedPickups.push(pickup)
+        this.scene.add(pickup.group)
+      }
+    }
+    for (const pickup of [...this.pickups.sharedPickups]) {
+      if (seenIds.has(pickup.id)) continue
+      this.scene.remove(pickup.group)
+      const idx = this.pickups.sharedPickups.indexOf(pickup)
+      if (idx !== -1) this.pickups.sharedPickups.splice(idx, 1)
     }
   }
 
