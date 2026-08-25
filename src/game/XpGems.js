@@ -4,6 +4,11 @@ import { flatMaterial } from './QualitySettings.js'
 const PICKUP_RADIUS = 1.6
 const EXPIRE_MS = 20000
 
+// Phase 5 multiplayer (docs/superpowers/specs/2026-08-25-multiplayer-phase5-reward-integrity-design.md) -
+// same globally-incrementing-id pattern as Zombie.js's zombieIdCounter and
+// Pickups.js's pickupIdCounter.
+let gemIdCounter = 0
+
 const gemMat = flatMaterial({
   color: 0x1c3a4a,
   emissive: 0x4fd1e8,
@@ -11,8 +16,9 @@ const gemMat = flatMaterial({
 })
 const gemGeo = new THREE.OctahedronGeometry(0.14, 0)
 
-class XpGem {
+export class XpGem {
   constructor(x, z, value) {
+    this.id = gemIdCounter++
     this.value = value
     this.spawnedAt = performance.now()
     this.phase = Math.random() * Math.PI * 2
@@ -36,6 +42,10 @@ export class XpGemManager {
   constructor(scene) {
     this.scene = scene
     this.gems = []
+    // Phase 5 multiplayer - a guest's network-driven XpGem instances (see
+    // Game.js's _renderSharedGems), kept separate from this.gems (the
+    // real, host-simulated array) - same pattern as PickupManager.sharedPickups.
+    this.sharedGems = []
   }
 
   spawn(x, z, value = 1) {
@@ -60,6 +70,27 @@ export class XpGemManager {
       }
       return true
     })
+  }
+
+  // Guest-side only counterpart to update() above, checked against
+  // sharedGems (network-driven) instead of this.gems (the real array,
+  // which only the host ever populates in a shared session). Reuses the
+  // same radius math as update() but calls onCollect(id, value) once per
+  // collected gem, with that gem already spliced out of sharedGems - same
+  // shape as PickupManager.updateSharedPickups.
+  updateSharedGems(dt, elapsed, playerPos, onCollect) {
+    for (const gem of this.sharedGems) gem.update(dt, elapsed)
+    const toRemove = []
+    for (const gem of this.sharedGems) {
+      const dist = Math.hypot(playerPos.x - gem.mesh.position.x, playerPos.z - gem.mesh.position.z)
+      if (dist <= PICKUP_RADIUS) toRemove.push(gem)
+    }
+    for (const gem of toRemove) {
+      this.scene.remove(gem.mesh)
+      const idx = this.sharedGems.indexOf(gem)
+      if (idx !== -1) this.sharedGems.splice(idx, 1)
+      onCollect(gem.id, gem.value)
+    }
   }
 
   reset() {
