@@ -215,7 +215,7 @@ export const DEFAULT_SKIN_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhE
 // see the UV support comment above), no hand-crafted hair/face/collar
 // extras layered on top since a real skin's texture already carries all
 // of that itself.
-function buildTexturedCharacter(skin) {
+export function buildTexturedCharacter(skin) {
   const { texture, width, height } = skin
   const legacy = height <= 32
   const group = new THREE.Group()

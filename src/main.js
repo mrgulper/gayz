@@ -7,6 +7,7 @@ import { preloadCompanionModel } from './game/Companion.js'
 import { preloadRivalModel } from './game/RivalScavenger.js'
 import { preloadSurvivorModel } from './game/RescueSurvivor.js'
 import { preloadPlayerBodyModel } from './game/PlayerBody.js'
+import { preloadMinecraftPlayerSkin } from './game/MinecraftPlayerBody.js'
 import { preloadFuelcanModel } from './game/Pickups.js'
 import { preloadChestModel, preloadVaultModel } from './game/Chests.js'
 import {
@@ -34,6 +35,7 @@ Promise.all([
   preloadRivalModel(),
   preloadSurvivorModel(),
   preloadPlayerBodyModel(),
+  preloadMinecraftPlayerSkin(),
   preloadPistolViewmodel(),
   preloadRifleViewmodel(),
   preloadShotgunViewmodel(),

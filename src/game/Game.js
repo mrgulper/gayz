@@ -34,6 +34,7 @@ import { Companion } from './Companion.js'
 import { Turret } from './Turret.js'
 import { MedStation } from './MedStation.js'
 import { PlayerBody } from './PlayerBody.js'
+import { MinecraftPlayerBody } from './MinecraftPlayerBody.js'
 import { Vehicle } from './Vehicle.js'
 import { META_UPGRADES, loadMetaProgress, saveMetaProgress, DEATH_POINTS_CONVERSION } from './MetaProgress.js'
 import { pickBounty } from './BountyBoard.js'
@@ -15507,10 +15508,12 @@ export class Game {
     })
   }
 
-  // One PlayerBody per remote id, created lazily the first time that id
-  // is seen and reused after that - never recreated every update (that
-  // would reload/re-clone the GLB skeleton every frame, expensive and
-  // pointless). An id that stops appearing in `states` (left the session,
+  // One MinecraftPlayerBody per remote id (the same blocky character
+  // shown spinning on the homepage's Player Setup panel - deliberately
+  // NOT the local player's own realistic PlayerBody, see that class's own
+  // comment), created lazily the first time that id is seen and reused
+  // after that - never recreated every update, wasteful for no reason.
+  // An id that stops appearing in `states` (left the session,
   // disconnected, or went stale on the server) gets its body removed from
   // the scene and dropped from the map. `states` already excludes this
   // player's own id (the sync endpoint filters that out server-side), so
@@ -15521,7 +15524,7 @@ export class Game {
       seenIds.add(id)
       let body = this._remotePlayerBodies.get(id)
       if (!body) {
-        body = new PlayerBody(this.scene)
+        body = new MinecraftPlayerBody(this.scene)
         this._remotePlayerBodies.set(id, body)
       }
       body.update(state.x, state.y, state.z, state.rotY, true)
