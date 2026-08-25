@@ -36,7 +36,7 @@ const WORLD_EVENT_TTL_MS = 15000
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
-  const { sessionId, playerId, x, y, z, rotY, currentWeapon, isFiring, zombies, hits, worldEvents, remoteDamage } = req.body || {}
+  const { sessionId, playerId, x, y, z, rotY, currentWeapon, isFiring, zombies, hits, worldEvents, remoteDamage, pickups, chests, vaultOpened, windows, interactions } = req.body || {}
   if (!sessionId || !playerId) {
     return res.status(400).json({ error: 'sessionId and playerId are required' })
   }
@@ -78,6 +78,32 @@ export default async function handler(req, res) {
     await sessionRef.child('world/zombies').set(zombiesById)
   }
 
+  if (isHost && Array.isArray(pickups)) {
+    const pickupsById = {}
+    for (const p of pickups) {
+      // Same Firebase RTDB sparse-array precaution as world/zombies -
+      // pickup ids are also a plain incrementing counter, so this is
+      // exactly as likely to have gaps.
+      pickupsById['p' + p.id] = { type: p.type, x: p.x, z: p.z }
+    }
+    await sessionRef.child('world/pickups').set(pickupsById)
+  }
+
+  if (isHost && Array.isArray(chests)) {
+    // A plain array is safe here (no sparse-gap risk) - chest count and
+    // order are fixed for the whole session, every index is always
+    // present, never a candidate for Firebase's array-coercion gotcha.
+    await sessionRef.child('world/chests').set(chests)
+  }
+
+  if (isHost && typeof vaultOpened === 'boolean') {
+    await sessionRef.child('world/vaultOpened').set(vaultOpened)
+  }
+
+  if (isHost && Array.isArray(windows)) {
+    await sessionRef.child('world/windows').set(windows)
+  }
+
   if (isHost && Array.isArray(worldEvents) && worldEvents.length) {
     const updates = {}
     for (const ev of worldEvents) {
@@ -101,6 +127,20 @@ export default async function handler(req, res) {
       updates[`world/remoteDamage/${entry.playerId}/${key}`] = {
         damage: entry.damage, kind: entry.kind, originX: entry.originX ?? null, originZ: entry.originZ ?? null,
       }
+    }
+    await sessionRef.update(updates)
+  }
+
+  if (!isHost && Array.isArray(interactions) && interactions.length) {
+    // Same shared-inbox-the-host-drains shape as pendingHits below - a
+    // guest's own interactions never need delivering back to a specific
+    // player (only the host ever needs to know "apply this to my real
+    // managers"), so one unkeyed list is enough, unlike remoteDamage which
+    // needed per-player delivery.
+    const updates = {}
+    for (const interaction of interactions) {
+      const key = sessionRef.child('world/pendingInteractions').push().key
+      updates[`world/pendingInteractions/${key}`] = interaction
     }
     await sessionRef.update(updates)
   }
@@ -130,6 +170,14 @@ export default async function handler(req, res) {
     if (pendingHits.length) await sessionRef.child('world/pendingHits').remove()
   }
 
+  let pendingInteractions = []
+  if (isHost) {
+    const pendingInteractionsSnapshot = await sessionRef.child('world/pendingInteractions').once('value')
+    const pendingInteractionsVal = pendingInteractionsSnapshot.val() || {}
+    pendingInteractions = Object.values(pendingInteractionsVal)
+    if (pendingInteractions.length) await sessionRef.child('world/pendingInteractions').remove()
+  }
+
   // Any player (host or guest) can be on the receiving end of a remote
   // damage report - a guest gets hit by a zombie that picked it as the
   // nearest target, delivered here under its own playerId. Same
@@ -139,11 +187,15 @@ export default async function handler(req, res) {
   const remoteDamageOut = Object.values(myRemoteDamage)
   if (remoteDamageOut.length) await sessionRef.child(`world/remoteDamage/${playerId}`).remove()
 
-  const [stateSnapshot, playersSnapshot, zombiesSnapshot, eventsSnapshot] = await Promise.all([
+  const [stateSnapshot, playersSnapshot, zombiesSnapshot, eventsSnapshot, pickupsSnapshot, chestsSnapshot, vaultOpenedSnapshot, windowsSnapshot] = await Promise.all([
     sessionRef.child('playerState').once('value'),
     sessionRef.child('players').once('value'),
     sessionRef.child('world/zombies').once('value'),
     sessionRef.child('world/events').once('value'),
+    sessionRef.child('world/pickups').once('value'),
+    sessionRef.child('world/chests').once('value'),
+    sessionRef.child('world/vaultOpened').once('value'),
+    sessionRef.child('world/windows').once('value'),
   ])
   const allStates = stateSnapshot.val() || {}
   const allPlayers = playersSnapshot.val() || {}
@@ -167,5 +219,9 @@ export default async function handler(req, res) {
   }
   if (Object.keys(staleEventUpdates).length) await sessionRef.update(staleEventUpdates)
 
-  res.status(200).json({ states, zombies: zombiesSnapshot.val() || {}, pendingHits, worldEvents: worldEventsOut, remoteDamage: remoteDamageOut })
+  res.status(200).json({
+    states, zombies: zombiesSnapshot.val() || {}, pendingHits, worldEvents: worldEventsOut, remoteDamage: remoteDamageOut,
+    pickups: pickupsSnapshot.val() || {}, chests: chestsSnapshot.val() || [], vaultOpened: vaultOpenedSnapshot.val() || false,
+    windows: windowsSnapshot.val() || [], interactions: pendingInteractions,
+  })
 }
