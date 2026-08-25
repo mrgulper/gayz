@@ -15125,7 +15125,10 @@ export class Game {
     }
     this.achievements.unlock('first_blood')
     if (this.totalKills >= 100) this.achievements.unlock('centurion')
-    if (zombieTypeId === 'fester') this._spawnHazardZone('gas', x, z)
+    if (zombieTypeId === 'fester') {
+      this._spawnHazardZone('gas', x, z)
+      if (this._multiplayerIsHost) this._pendingWorldEvents.push({ id: 'h' + (this._nextHazardEventId++), type: 'gas', x, z })
+    }
     if (this.activeBounty && this.activeBounty.id === 'clear_location') {
       const dist = Math.hypot(x - this.activeBounty.locationX, z - this.activeBounty.locationZ)
       if (dist <= CLEAR_LOCATION_RADIUS) this._checkBountyProgress('clear_location', 1)
@@ -21006,10 +21009,16 @@ export class Game {
         (zombieTypeId, weaponId, x, z, isElite, isWandering, isGolden, wasFleeing, isCarrier) => this._onZombieKilled(zombieTypeId, weaponId, x, z, isElite, isWandering, isGolden, wasFleeing, isCarrier),
         this.player.isCrouching || this.player.isProne,
         this.dayNight ? this.dayNight.getPhaseInfo().phase === 'Night' : false,
-        (x, z) => this._spawnHazardZone('acid', x, z),
+        (x, z) => {
+          this._spawnHazardZone('acid', x, z)
+          if (this._multiplayerIsHost) this._pendingWorldEvents.push({ id: 'h' + (this._nextHazardEventId++), type: 'acid', x, z })
+        },
         (originX, originZ) => this._onZombiePull(originX, originZ),
         () => this._triggerShake(0.18, 600),
-        (x, z) => this._spawnHazardZone('web', x, z),
+        (x, z) => {
+          this._spawnHazardZone('web', x, z)
+          if (this._multiplayerIsHost) this._pendingWorldEvents.push({ id: 'h' + (this._nextHazardEventId++), type: 'web', x, z })
+        },
         this._camDir.x,
         this._camDir.z,
         this.barricadeWindows.windows,

@@ -1733,7 +1733,10 @@ export class ZombieManager {
         attackCb,
         spitCb,
         onAmbushTrigger,
-        (x, z) => this._spawnExplosionFX(x, z),
+        (x, z) => {
+          this._spawnExplosionFX(x, z)
+          this.worldEvents.push({ id: 'x' + (this._nextExplosionEventId++), type: 'explosion', x, z })
+        },
         playerCrouching,
         (x, z, radius, enrageMs) => this._onZombieScream(x, z, radius, enrageMs),
         nearbyColliders,
