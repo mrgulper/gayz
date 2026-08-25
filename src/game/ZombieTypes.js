@@ -611,18 +611,21 @@ export const ZOMBIE_TYPES = {
   },
 }
 
-// Phase 3 of multiplayer (docs/superpowers/specs/2026-08-24-multiplayer-phase3-shared-zombies-design.md)
-// plus Phase 3b (docs/superpowers/specs/2026-08-24-multiplayer-phase3b-groupa-zombies-design.md,
-// which added shielded/screamer/stalker/burrower) - these types are shared
-// across a session; everything else (ranged attackers, anything that
-// explodes/gasses on death, scream-summoners like screamer_swarmer, and
-// every boss tier) stays an independent per-player fight for now. See
-// those specs' "Scope for this phase" sections for the reasoning behind
-// each exclusion.
+// Multiplayer Phases 3/3b/3c (see docs/superpowers/specs/2026-08-24-multiplayer-phase3-shared-zombies-design.md,
+// -phase3b-groupa-zombies-design.md, and -phase3c-remaining-zombies-design.md) -
+// every zombie type is now shared across a session. Phase 3c is what
+// finally made the ranged/explosive/hazard types safe to share - it added
+// host-side awareness of every connected player (not just whoever's
+// hosting) so these types can actually threaten either player, plus a
+// small broadcast channel for effects that are otherwise invisible to a
+// guest (gas clouds, acid puddles, explosions).
 export const SHARED_ZOMBIE_TYPE_IDS = new Set([
   'feral_dog', 'feral_child', 'shambler', 'runner', 'brute',
   'crawler', 'sewer_dweller', 'leaper', 'regenerator', 'bloodhound', 'vampire',
   'shielded', 'screamer', 'stalker', 'burrower',
+  'spitter', 'spitter_bomber', 'anchor', 'siren', 'webber',
+  'exploder', 'fester', 'acid_trail', 'brittle', 'screamer_swarmer',
+  'colossus', 'titan', 'broodmother',
 ])
 
 // Cached once at module load rather than rebuilt (Object.values + reduce)
