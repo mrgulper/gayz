@@ -15597,20 +15597,64 @@ export class Game {
         payload.remoteDamage = this.zombies.remoteDamageQueue
         this.zombies.remoteDamageQueue = []
       }
+      payload.pickups = this.pickups.pickups.map((p) => ({ id: p.id, type: p.type, x: p.group.position.x, z: p.group.position.z }))
+      payload.chests = this.chests.chests.map((c) => ({ locked: c.locked, opened: c.opened }))
+      payload.vaultOpened = this.vault.opened
+      payload.windows = this.barricadeWindows.windows.map((w) => ({ planks: w.planks }))
     } else if (this._pendingZombieHits.length) {
       payload.hits = this._pendingZombieHits
       this._pendingZombieHits = []
     }
+    if (this._pendingInteractions.length) {
+      payload.interactions = this._pendingInteractions
+      this._pendingInteractions = []
+    }
     import('./Multiplayer.js').then((Multiplayer) => {
-      Multiplayer.syncPlayerState(this._multiplayerSessionId, payload).then(({ states, zombies, pendingHits, worldEvents, remoteDamage }) => {
+      Multiplayer.syncPlayerState(this._multiplayerSessionId, payload).then(({ states, zombies, pendingHits, worldEvents, remoteDamage, pickups, chests, vaultOpened, windows, interactions }) => {
         this._renderRemotePlayers(states)
         if (this._multiplayerIsHost) {
           for (const hit of pendingHits) {
             const zombie = this.zombies.zombies.find((z) => z.id === hit.zombieId)
             if (zombie) zombie.onHit(hit.damage, { bypassShield: hit.bypassShield })
           }
+          for (const interaction of interactions) {
+            if (interaction.kind === 'collectPickup') {
+              const pickup = this.pickups.pickups.find((p) => p.id === interaction.pickupId)
+              if (pickup) {
+                this.scene.remove(pickup.group)
+                const idx = this.pickups.pickups.indexOf(pickup)
+                if (idx !== -1) this.pickups.pickups.splice(idx, 1)
+              }
+            } else if (interaction.kind === 'openChest') {
+              const chest = this.chests.chests[interaction.chestIndex]
+              if (chest && !chest.opened && !chest.locked) chest.open()
+            } else if (interaction.kind === 'openVault') {
+              if (!this.vault.opened) {
+                this.vault.open()
+                this.pickups.spawnLootDrop('legendary_weapon', this.vault.x, this.vault.z + 1)
+                if (Math.random() < VAULT_BONUS_ROLL_CHANCE) this.pickups.spawnLootDrop('rare_weapon', this.vault.x, this.vault.z - 1)
+              }
+            } else if (interaction.kind === 'repairWindow') {
+              this.barricadeWindows.repair(this.barricadeWindows.windows[interaction.windowIndex])
+            }
+          }
         } else {
           this._renderSharedZombies(zombies, feetX, feetZ)
+          this._renderSharedPickups(pickups)
+          for (let i = 0; i < chests.length; i++) {
+            const chest = this.chests.chests[i]
+            const state = chests[i]
+            if (!chest || !state) continue
+            if (state.locked && !chest.locked) chest.lock()
+            else if (!state.locked && chest.locked) chest.unlock()
+            if (state.opened && !chest.opened) chest.open()
+          }
+          if (vaultOpened && !this.vault.opened) this.vault.open()
+          for (let i = 0; i < windows.length; i++) {
+            const window = this.barricadeWindows.windows[i]
+            const state = windows[i]
+            if (window && state) window.planks = state.planks
+          }
         }
         // Phase 3c - world events are broadcast to everyone (not filtered
         // per-recipient like remoteDamage below), so both the host and
