@@ -415,12 +415,19 @@ function jitterGeometry(geometry, amount) {
 }
 
 export class Zombie {
-  constructor(x, z, typeConfig, isAmbush = false, isElite = false, night = 1, healthMult = 1, speedMult = 1) {
+  constructor(x, z, typeConfig, isAmbush = false, isElite = false, night = 1, healthMult = 1, speedMult = 1, isNetworkDriven = false) {
     this.id = zombieIdCounter++
     this.type = typeConfig.id
     this.config = typeConfig
     this.isAmbush = isAmbush
     this.isElite = isElite
+    // Phase 3 multiplayer (see this class's applyNetworkState/onHit below,
+    // and docs/superpowers/specs/2026-08-24-multiplayer-phase3-shared-zombies-design.md) -
+    // true only for a guest's rendering of a zombie the HOST is actually
+    // simulating. Everything else about construction (visuals, materials,
+    // health bar) runs exactly the same either way; only update()
+    // (never called for these) and onHit() (redirected below) differ.
+    this.isNetworkDriven = isNetworkDriven
 
     // speedMult: Game.js's nightly mutation roll (see NightEvents.js's
     // NIGHT_MUTATIONS) - a whole-round modifier, distinct from the several
@@ -1617,6 +1624,36 @@ export class Zombie {
   // `.dispose()` call does that, and until now nothing ever called it for
   // a dead zombie, so every kill for the entire life of a session was
   // leaking its own material/shader-program GPU resources permanently.
+  // Drives this zombie purely from network state instead of the normal
+  // AI update() loop - only ever called for isNetworkDriven instances
+  // (a guest's rendering of a zombie the host is really simulating).
+  // Never touches pathfinding/aggro/attack-decision code at all - just
+  // position, health bar, and the same walk/idle/death animation clips
+  // the AI-driven path already uses. Called once per sync response
+  // (Game.js's _renderSharedZombies), not every render frame - same
+  // precedent as MinecraftPlayerBody's remote-player rendering, which
+  // updates on the same cadence.
+  applyNetworkState(x, z, rotY, health, maxHealth, state) {
+    const moved = Math.hypot(x - this.group.position.x, z - this.group.position.z)
+    this.group.position.set(x, 0, z)
+    this.group.rotation.y = rotY
+    this.health = health
+    this.maxHealth = maxHealth
+    if (state !== this.state) {
+      this.state = state
+      if (state === 'dying' || state === 'dead') this._playGlbAction('death', false)
+    }
+    if (state === 'alive' || state === 'popping') {
+      this._barSprite.visible = true
+      this._redrawHealthBar()
+      this._playGlbAction(moved > 0.01 ? 'walk' : 'idle', true)
+    }
+    const now = performance.now()
+    const dt = Math.min(0.2, (now - (this._lastNetworkUpdateAt || now)) / 1000)
+    this._lastNetworkUpdateAt = now
+    if (this.mixer) this.mixer.update(dt)
+  }
+
   dispose() {
     for (const mat of this.materials) mat.dispose()
     if (this.eyeMaterials) {
@@ -2278,6 +2315,15 @@ export class Zombie {
   }
 
   onHit(damage, opts = {}) {
+    if (this.isNetworkDriven) {
+      // Not authoritative - this instance is a guest's rendering of a
+      // zombie the host is really simulating, so don't touch health
+      // locally at all. Game.js sets _onNetworkHit right after
+      // constructing one of these (see _renderSharedZombies) to queue
+      // the hit for the next sync call instead.
+      if (typeof this._onNetworkHit === 'function') this._onNetworkHit(damage, opts)
+      return
+    }
     if (this.state !== 'alive' && this.state !== 'popping') return
     // Shielded type: non-melee hits drain the shield pool first and never
     // touch health while it holds; melee (see lastHitWeaponId, set by

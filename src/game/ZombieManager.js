@@ -254,6 +254,14 @@ export class ZombieManager {
     // the exact same reason.
     this._colliderGrid = new CachedColliderGrid(colliders)
     this.zombies = []
+    // Phase 3 multiplayer - a guest's network-driven Zombie instances
+    // (see Zombie.js's isNetworkDriven), pushed/removed by Game.js's
+    // _renderSharedZombies. Kept separate from this.zombies (the real
+    // AI-simulated array) rather than mixed in, since nothing here ever
+    // iterates or updates them - they're purely so WeaponSystem's
+    // existing raycast (which reads hittableMeshes below) can still hit
+    // them with zero changes to WeaponSystem.js itself.
+    this.sharedZombies = []
     this.projectiles = []
     this.explosionFx = []
     this.screamFx = []
@@ -900,6 +908,11 @@ export class ZombieManager {
     return this.zombies
       .filter((z) => z.state === 'alive')
       .flatMap((z) => z.hittableMeshes)
+      .concat(
+        this.sharedZombies
+          .filter((z) => z.state === 'alive' || z.state === 'popping')
+          .flatMap((z) => z.hittableMeshes)
+      )
   }
 
   _spawnProjectile(origin, targetSnapshot, damage, travelSpeed, effect = 'damage') {
