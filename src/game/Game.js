@@ -15815,14 +15815,27 @@ export class Game {
         this._renderRemotePlayers(states)
         if (this._multiplayerIsHost && host && host !== this._multiplayerUid) {
           // Phase 6 multiplayer - this client still thinks it's host, but
-          // the server disagrees (someone else has already been granted
-          // the role - see api/multiplayer/claim-host.js). Every world-
-          // state write this client just sent was silently ignored
-          // server-side (sync.js's own isHost check already handles
-          // that) - this is purely about THIS client noticing and
-          // stepping down, not a security concern.
-          this._onDemotedFromHost(host)
+          // this ONE response says someone else does. Debounced across 2
+          // consecutive responses (same principle as host-absence
+          // detection above) rather than acting on the very first one -
+          // found the hard way testing: a sync call DISPATCHED just
+          // before this client's own claim-host succeeded can still
+          // ARRIVE afterward, carrying the OLD host id since that's what
+          // was true when the server actually processed that particular
+          // request. Treating one such stale response as real evidence
+          // of being replaced immediately undid a takeover that had, in
+          // fact, just succeeded.
+          this._demotionStreak = (this._demotionStreak || 0) + 1
+          if (this._demotionStreak >= 2) {
+            this._demotionStreak = 0
+            // Every world-state write this client just sent was silently
+            // ignored server-side (sync.js's own isHost check already
+            // handles that) - this is purely about THIS client noticing
+            // and stepping down, not a security concern.
+            this._onDemotedFromHost(host)
+          }
         } else if (this._multiplayerIsHost) {
+          this._demotionStreak = 0
           for (const hit of pendingHits) {
             const zombie = this.zombies.zombies.find((z) => z.id === hit.zombieId)
             if (zombie) zombie.onHit(hit.damage, { bypassShield: hit.bypassShield, fromPlayerId: hit.fromPlayerId })
