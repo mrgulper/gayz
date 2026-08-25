@@ -86,10 +86,11 @@ export async function joinSession(sessionId, nickname) {
 export async function syncPlayerState(sessionId, state) {
   const playerId = _playerIdFor.get(sessionId)
   if (!playerId) throw new Error('Not in this session')
-  const { states, zombies, pendingHits, worldEvents, remoteDamage, pickups, chests, vaultOpened, windows, interactions } = await _apiCall('sync', { sessionId, playerId, ...state })
+  const { states, zombies, pendingHits, worldEvents, remoteDamage, pickups, chests, vaultOpened, windows, interactions, killEvents } = await _apiCall('sync', { sessionId, playerId, ...state })
   return {
     states, zombies: zombies || {}, pendingHits: pendingHits || [], worldEvents: worldEvents || [], remoteDamage: remoteDamage || [],
     pickups: pickups || {}, chests: chests || [], vaultOpened: !!vaultOpened, windows: windows || [], interactions: interactions || [],
+    killEvents: killEvents || [],
   }
 }
 

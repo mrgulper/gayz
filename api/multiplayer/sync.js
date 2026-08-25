@@ -36,7 +36,7 @@ const WORLD_EVENT_TTL_MS = 15000
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
-  const { sessionId, playerId, x, y, z, rotY, currentWeapon, isFiring, zombies, hits, worldEvents, remoteDamage, pickups, chests, vaultOpened, windows, interactions } = req.body || {}
+  const { sessionId, playerId, x, y, z, rotY, currentWeapon, isFiring, zombies, hits, worldEvents, remoteDamage, pickups, chests, vaultOpened, windows, interactions, killEvents } = req.body || {}
   if (!sessionId || !playerId) {
     return res.status(400).json({ error: 'sessionId and playerId are required' })
   }
@@ -131,6 +131,19 @@ export default async function handler(req, res) {
     await sessionRef.update(updates)
   }
 
+  if (isHost && Array.isArray(killEvents) && killEvents.length) {
+    // Phase 5 multiplayer - a kill event or a Last Stand revival, both
+    // addressed to a specific credited/downed player. Same per-recipient
+    // shape as remoteDamage above, for the exact same reason (only that
+    // one player should ever receive it).
+    const updates = {}
+    for (const entry of killEvents) {
+      const key = sessionRef.child(`world/killEvents/${entry.playerId}`).push().key
+      updates[`world/killEvents/${entry.playerId}/${key}`] = entry.payload
+    }
+    await sessionRef.update(updates)
+  }
+
   if (!isHost && Array.isArray(interactions) && interactions.length) {
     // Same shared-inbox-the-host-drains shape as pendingHits below - a
     // guest's own interactions never need delivering back to a specific
@@ -189,6 +202,11 @@ export default async function handler(req, res) {
   const remoteDamageOut = Object.values(myRemoteDamage)
   if (remoteDamageOut.length) await sessionRef.child(`world/remoteDamage/${playerId}`).remove()
 
+  const myKillEventsSnapshot = await sessionRef.child(`world/killEvents/${playerId}`).once('value')
+  const myKillEvents = myKillEventsSnapshot.val() || {}
+  const killEventsOut = Object.values(myKillEvents)
+  if (killEventsOut.length) await sessionRef.child(`world/killEvents/${playerId}`).remove()
+
   const [stateSnapshot, playersSnapshot, zombiesSnapshot, eventsSnapshot, pickupsSnapshot, chestsSnapshot, vaultOpenedSnapshot, windowsSnapshot] = await Promise.all([
     sessionRef.child('playerState').once('value'),
     sessionRef.child('players').once('value'),
@@ -229,6 +247,6 @@ export default async function handler(req, res) {
   res.status(200).json({
     states, zombies: zombiesSnapshot.val() || {}, pendingHits, worldEvents: worldEventsOut, remoteDamage: remoteDamageOut,
     pickups: pickupsSnapshot.val() || {}, chests: chestsSnapshot.val() || [], vaultOpened: vaultOpenedSnapshot.val() || false,
-    windows: windowsSnapshot.val() || [], interactions: pendingInteractions,
+    windows: windowsSnapshot.val() || [], interactions: pendingInteractions, killEvents: killEventsOut,
   })
 }

@@ -4976,6 +4976,10 @@ export class Game {
     // credited for - the same drop again on every sync tick until the host
     // catches up.
     this._collectedPickupIds = new Set()
+    // Phase 5 multiplayer - {playerId, payload}[] the host drains into its
+    // next sync payload. payload is either a kill event (kind: 'kill') or
+    // a Last Stand revival (kind: 'revive') - see _queueKillEvent/Task 10.
+    this._pendingKillEvents = []
     this._remotePlayerBodies = new Map() // uid -> PlayerBody
     this._pendingJoinSessionId = new URLSearchParams(window.location.search).get('join') || null
     this.whatsNewLink = document.getElementById('nav-whatsnew-link')
@@ -14909,6 +14913,14 @@ export class Game {
     return rawCreditPlayerId
   }
 
+  // Host-only (a guest never queues one of these - it only ever receives
+  // them). Safe to call unconditionally elsewhere in the file for the same
+  // reason _queueMultiplayerInteraction is.
+  _queueKillEvent(playerId, payload) {
+    if (!this._multiplayerIsHost) return
+    this._pendingKillEvents.push({ playerId, payload })
+  }
+
   // Shared by every damage source that can kill the player (zombie/rival
   // melee+ranged, gas/toxic hazard ticks, rockfall) - Last Stand gets one
   // chance per run regardless of which of those actually landed the blow.
@@ -15681,6 +15693,10 @@ export class Game {
       payload.chests = this.chests.chests.map((c) => ({ locked: c.locked, opened: c.opened }))
       payload.vaultOpened = this.vault.opened
       payload.windows = this.barricadeWindows.windows.map((w) => ({ planks: w.planks }))
+      if (this._pendingKillEvents.length) {
+        payload.killEvents = this._pendingKillEvents
+        this._pendingKillEvents = []
+      }
     } else if (this._pendingZombieHits.length) {
       payload.hits = this._pendingZombieHits
       this._pendingZombieHits = []
@@ -15690,7 +15706,7 @@ export class Game {
       this._pendingInteractions = []
     }
     import('./Multiplayer.js').then((Multiplayer) => {
-      Multiplayer.syncPlayerState(this._multiplayerSessionId, payload).then(({ states, zombies, pendingHits, worldEvents, remoteDamage, pickups, chests, vaultOpened, windows, interactions }) => {
+      Multiplayer.syncPlayerState(this._multiplayerSessionId, payload).then(({ states, zombies, pendingHits, worldEvents, remoteDamage, pickups, chests, vaultOpened, windows, interactions, killEvents }) => {
         this._renderRemotePlayers(states)
         if (this._multiplayerIsHost) {
           for (const hit of pendingHits) {
@@ -15716,6 +15732,8 @@ export class Game {
               }
             } else if (interaction.kind === 'repairWindow') {
               this.barricadeWindows.repair(this.barricadeWindows.windows[interaction.windowIndex])
+            } else if (interaction.kind === 'killstreakAirstrike') {
+              this.zombies.damageInRadius(interaction.x, interaction.z, KILLSTREAK_AIRSTRIKE_RADIUS, KILLSTREAK_AIRSTRIKE_DAMAGE_MIN, KILLSTREAK_AIRSTRIKE_DAMAGE_MAX)
             }
           }
         } else {
@@ -15734,6 +15752,17 @@ export class Game {
             const window = this.barricadeWindows.windows[i]
             const state = windows[i]
             if (window && state) window.planks = state.planks
+          }
+          // Phase 5 multiplayer - a kill this guest actually earned
+          // credit for, or a Last Stand revival relayed to it (see Task
+          // 10). Delivered per-recipient (server already filters this
+          // down to entries addressed to this player), never broadcast.
+          for (const event of killEvents) {
+            if (event.kind === 'kill') {
+              this._onZombieKilledPersonalRewards(event.zombieTypeId, event.weaponId, event.x, event.z, event.isElite, event.isWandering, event.isGolden, event.wasFleeing, event.isCarrier, event.waveCleared)
+            } else if (event.kind === 'revive') {
+              this._reviveFromLastStand()
+            }
           }
         }
         // Phase 3c - world events are broadcast to everyone (not filtered
