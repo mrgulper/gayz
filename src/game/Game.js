@@ -15196,6 +15196,15 @@ export class Game {
       this.downedKillsNeeded -= 1
       if (this.downedKillsNeeded <= 0) this._reviveFromLastStand()
     }
+    for (const [guestId, killsNeeded] of [...this._guestDownedState]) {
+      const remaining = killsNeeded - 1
+      if (remaining <= 0) {
+        this._guestDownedState.delete(guestId)
+        this._queueKillEvent(guestId, { kind: 'revive' })
+      } else {
+        this._guestDownedState.set(guestId, remaining)
+      }
+    }
     // Corpse pile-up (see CORPSE_PILE_RADIUS's own comment) - capped so a
     // long run can't grow this array unbounded.
     this.recentKillSpots.push({ x, z, at: performance.now() })
