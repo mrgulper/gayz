@@ -15716,7 +15716,14 @@ export class Game {
           id: z.id, x: z.group.position.x, z: z.group.position.z, rotY: z.group.rotation.y,
           health: z.health, maxHealth: z.maxHealth, state: z.state, type: z.type,
           screaming: performance.now() < z.screamPulseUntil,
+          // Phase 6 multiplayer - every player receives this (not just an
+          // eventual new host), so whoever gets elected is always already
+          // warm with near-real-time full state - see Task 9.
+          full: z.exportFullState(),
         }))
+      // Phase 6 multiplayer - the spawn/wave director's own state, sent
+      // alongside the zombies themselves for the same "always warm" reason.
+      payload.director = this.zombies.exportDirectorState()
       // Phase 3c - both queues are drained and cleared here regardless of
       // whether the upcoming network call actually succeeds; losing a rare
       // cosmetic event or a damage tick to a dropped request is an
