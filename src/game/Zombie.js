@@ -2387,6 +2387,14 @@ export class Zombie {
       return
     }
     if (this.state !== 'alive' && this.state !== 'popping') return
+    // Phase 5 multiplayer (docs/superpowers/specs/2026-08-25-multiplayer-phase5-reward-integrity-design.md) -
+    // overwritten on every real hit regardless of source, so whichever
+    // player's shot most recently reduced this zombie's health is who
+    // gets credited if this hit is the one that kills it. null means the
+    // host's own local shot (every existing onHit call site already omits
+    // fromPlayerId, so this is the correct default with zero other
+    // changes needed anywhere else in this file).
+    this._lastHitFromPlayerId = opts.fromPlayerId ?? null
     // Shielded type: non-melee hits drain the shield pool first and never
     // touch health while it holds; melee (see lastHitWeaponId, set by
     // WeaponSystem._fire right before every onHit call) skips it entirely -

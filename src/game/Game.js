@@ -15625,7 +15625,7 @@ export class Game {
         if (this._multiplayerIsHost) {
           for (const hit of pendingHits) {
             const zombie = this.zombies.zombies.find((z) => z.id === hit.zombieId)
-            if (zombie) zombie.onHit(hit.damage, { bypassShield: hit.bypassShield })
+            if (zombie) zombie.onHit(hit.damage, { bypassShield: hit.bypassShield, fromPlayerId: hit.fromPlayerId })
           }
           for (const interaction of interactions) {
             if (interaction.kind === 'collectPickup') {
