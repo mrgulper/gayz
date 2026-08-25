@@ -4943,6 +4943,14 @@ export class Game {
     this._multiplayerIsHost = false
     this._pendingZombieHits = [] // {zombieId, damage, bypassShield} queued locally, drained into the next sync call
     this._sharedZombieBodies = new Map() // zombieId -> Zombie (network-driven, guest side only)
+    this._otherPlayerPositions = [] // {playerId, x, z}[] - every OTHER connected player's last-known position, host-side AI targeting input (Phase 3c)
+    // Phase 3c multiplayer - fester's gas-on-death and acid_trail/webber's
+    // hazard-zone drops, queued here (host-only) so a guest can replay the
+    // same puddle/gas cloud on its own screen. Drained by
+    // _syncNetworkPlayerState, same pattern as ZombieManager.worldEvents.
+    this._pendingWorldEvents = []
+    this._nextHazardEventId = 0
+    this._seenWorldEventIds = new Set() // Phase 3c - dedupes replayed world events across sync calls, both host and guest
     this._remotePlayerBodies = new Map() // uid -> PlayerBody
     this._pendingJoinSessionId = new URLSearchParams(window.location.search).get('join') || null
     this.whatsNewLink = document.getElementById('nav-whatsnew-link')
@@ -15547,6 +15555,12 @@ export class Game {
   // there's no self-check needed here any more.
   _renderRemotePlayers(states) {
     const seenIds = new Set()
+    // Phase 3c (docs/superpowers/specs/2026-08-25-multiplayer-phase3c-remaining-zombies-design.md) -
+    // rebuilt fresh every call, same as the rendering loop below - this is
+    // what lets the host's zombie AI (see ZombieManager.update's new
+    // otherPlayers param) know where every OTHER connected player actually
+    // is, not just the host's own position.
+    this._otherPlayerPositions = []
     for (const [id, state] of Object.entries(states)) {
       seenIds.add(id)
       let body = this._remotePlayerBodies.get(id)
@@ -15556,6 +15570,7 @@ export class Game {
       }
       body.update(state.x, state.y, state.z, state.rotY, true)
       body.setNickname(state.nickname || 'Player')
+      this._otherPlayerPositions.push({ playerId: id, x: state.x, z: state.z })
     }
     for (const [id, body] of this._remotePlayerBodies) {
       if (seenIds.has(id)) continue
@@ -20999,7 +21014,8 @@ export class Game {
         this._camDir.z,
         this.barricadeWindows.windows,
         this._collectCompanionTargets(),
-        this.player.isProne
+        this.player.isProne,
+        this._otherPlayerPositions
       )
       // Squad Formation Toggle (see _toggleSquadHold) - the whole squad
       // treats a fixed anchor point as "playerPos" instead of the real one

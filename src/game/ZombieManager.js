@@ -1483,7 +1483,7 @@ export class ZombieManager {
     })
   }
 
-  update(dt, playerPos, onPlayerDamage, onZombieLoot, onAmbushTrigger, onZombieKilled, playerCrouching = false, isNight = false, onTrail = null, onPlayerPull = null, onPlayerDisorient = null, onWebLand = null, playerForwardX = null, playerForwardZ = null, barricadeWindows = null, companionTargets = null, playerProne = false) {
+  update(dt, playerPos, onPlayerDamage, onZombieLoot, onAmbushTrigger, onZombieKilled, playerCrouching = false, isNight = false, onTrail = null, onPlayerPull = null, onPlayerDisorient = null, onWebLand = null, playerForwardX = null, playerForwardZ = null, barricadeWindows = null, companionTargets = null, playerProne = false, otherPlayers = []) {
     resetLosRaycastBudget()
     this.elapsed += dt
     // Every spawn function below reads this instead of assuming the player
