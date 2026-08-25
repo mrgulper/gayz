@@ -20,7 +20,8 @@ export default async function handler(req, res) {
   }
 
   const playerId = randomUUID()
-  await sessionRef.child(`players/${playerId}`).set({ nickname, joinedAt: Date.now() })
+  const joinedAt = Date.now()
+  await sessionRef.child(`players/${playerId}`).set({ nickname, joinedAt })
 
-  res.status(200).json({ playerId })
+  res.status(200).json({ playerId, joinedAt })
 }

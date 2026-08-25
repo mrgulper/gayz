@@ -15632,9 +15632,9 @@ export class Game {
     this.multiplayerCreateBtn.style.display = 'none'
     const Multiplayer = await import('./Multiplayer.js')
     const nickname = this.settings.nickname || 'Player'
-    let sessionId, uid
+    let sessionId, uid, joinedAt
     try {
-      ({ sessionId, uid } = await Multiplayer.createSession(nickname))
+      ({ sessionId, uid, joinedAt } = await Multiplayer.createSession(nickname))
     } catch {
       this.multiplayerCreateDesc.textContent = t('multiplayerCreateFailed')
       this.multiplayerCreateBtn.style.display = 'block'
@@ -15642,7 +15642,15 @@ export class Game {
     }
     this._multiplayerSessionId = sessionId
     this._multiplayerUid = uid
+    // Phase 6 multiplayer (docs/superpowers/specs/2026-08-25-multiplayer-phase6-scaling-migration-design.md) -
+    // this player's own server-recorded join time, needed to compare
+    // against every OTHER player's joinedAt (_otherPlayerJoinedAt) when
+    // deciding who becomes the new host if the current one disconnects.
+    this._myJoinedAt = joinedAt
     this._multiplayerIsHost = true
+    // The creator is always the initial host - known locally without
+    // needing a sync round-trip first.
+    this._hostPlayerId = uid
     const link = `${window.location.origin}${window.location.pathname}?join=${sessionId}`
     this.multiplayerLinkInput.value = link
     this.multiplayerCreateView.style.display = 'none'
@@ -15664,10 +15672,15 @@ export class Game {
     const Multiplayer = await import('./Multiplayer.js')
     const nickname = this.settings.nickname || 'Player'
     try {
-      const { uid } = await Multiplayer.joinSession(sessionId, nickname)
+      const { uid, joinedAt } = await Multiplayer.joinSession(sessionId, nickname)
       this._multiplayerSessionId = sessionId
       this._multiplayerUid = uid
+      this._myJoinedAt = joinedAt
       this._multiplayerIsHost = false
+      // Not known yet - the very next sync call's `host` field fills this
+      // in (see Task 10). Never left null for long in practice: sync
+      // starts immediately once gameStarted flips true.
+      this._hostPlayerId = null
     } catch {
       this._showHomepageToast(t('multiplayerJoinFailed'))
     }

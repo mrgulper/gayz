@@ -50,7 +50,8 @@ export default async function handler(req, res) {
   })
 
   const hostSnapshot = await sessionRef.child('host').once('value')
-  const isHost = hostSnapshot.val() === playerId
+  const currentHostId = hostSnapshot.val()
+  const isHost = currentHostId === playerId
 
   if (isHost && Array.isArray(zombies)) {
     const zombiesById = {}
@@ -259,6 +260,6 @@ export default async function handler(req, res) {
     states, zombies: zombiesSnapshot.val() || {}, pendingHits, worldEvents: worldEventsOut, remoteDamage: remoteDamageOut,
     pickups: pickupsSnapshot.val() || {}, chests: chestsSnapshot.val() || [], vaultOpened: vaultOpenedSnapshot.val() || false,
     windows: windowsSnapshot.val() || [], interactions: pendingInteractions, killEvents: killEventsOut,
-    xpGems: xpGemsSnapshot.val() || {},
+    xpGems: xpGemsSnapshot.val() || {}, host: currentHostId,
   })
 }

@@ -61,15 +61,15 @@ async function _apiCall(path, body) {
 const _playerIdFor = new Map()
 
 export async function createSession(nickname) {
-  const { sessionId, playerId } = await _apiCall('create', { nickname })
+  const { sessionId, playerId, joinedAt } = await _apiCall('create', { nickname })
   _playerIdFor.set(sessionId, playerId)
-  return { sessionId, uid: playerId }
+  return { sessionId, uid: playerId, joinedAt }
 }
 
 export async function joinSession(sessionId, nickname) {
-  const { playerId } = await _apiCall('join', { sessionId, nickname })
+  const { playerId, joinedAt } = await _apiCall('join', { sessionId, nickname })
   _playerIdFor.set(sessionId, playerId)
-  return { uid: playerId }
+  return { uid: playerId, joinedAt }
 }
 
 // Writes this player's own state and returns everyone else's current
@@ -86,11 +86,11 @@ export async function joinSession(sessionId, nickname) {
 export async function syncPlayerState(sessionId, state) {
   const playerId = _playerIdFor.get(sessionId)
   if (!playerId) throw new Error('Not in this session')
-  const { states, zombies, pendingHits, worldEvents, remoteDamage, pickups, chests, vaultOpened, windows, interactions, killEvents, xpGems } = await _apiCall('sync', { sessionId, playerId, ...state })
+  const { states, zombies, pendingHits, worldEvents, remoteDamage, pickups, chests, vaultOpened, windows, interactions, killEvents, xpGems, host } = await _apiCall('sync', { sessionId, playerId, ...state })
   return {
     states, zombies: zombies || {}, pendingHits: pendingHits || [], worldEvents: worldEvents || [], remoteDamage: remoteDamage || [],
     pickups: pickups || {}, chests: chests || [], vaultOpened: !!vaultOpened, windows: windows || [], interactions: interactions || [],
-    killEvents: killEvents || [], xpGems: xpGems || {},
+    killEvents: killEvents || [], xpGems: xpGems || {}, host: host || null,
   }
 }
 

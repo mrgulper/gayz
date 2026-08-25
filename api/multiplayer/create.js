@@ -35,5 +35,5 @@ export default async function handler(req, res) {
     },
   })
 
-  res.status(200).json({ sessionId, playerId })
+  res.status(200).json({ sessionId, playerId, joinedAt: now })
 }
