@@ -399,6 +399,16 @@ const ANIMATION_LOD_SKIP_FRAMES = 3
 
 let zombieIdCounter = 0
 
+// Phase 6 multiplayer (docs/superpowers/specs/2026-08-25-multiplayer-phase6-scaling-migration-design.md) -
+// called once by a newly-migrated host (see Game.js's _performHostTakeover)
+// so the NEXT freshly-spawned zombie's id can never collide with one it
+// just inherited - this client's own zombieIdCounter has never tracked
+// real in-use ids before now (every shared zombie's real id always came
+// from the host, overwritten onto the local instance after construction).
+export function bumpZombieIdCounterPast(maxKnownId) {
+  if (maxKnownId >= zombieIdCounter) zombieIdCounter = maxKnownId + 1
+}
+
 function jitterGeometry(geometry, amount) {
   const pos = geometry.attributes.position
   for (let i = 0; i < pos.count; i++) {
