@@ -1,0 +1,583 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --gold: #d9a34a;
+  --red: #c9564a;
+  --charcoal: #0a0a09;
+  --panel: #131413;
+  --panel-2: #191a19;
+  --gunmetal: #34383c;
+  --bronze: #8a6d47;
+  --text: #ffffff;
+  --text-dim: #a3a099;
+  --border: rgba(138, 109, 71, 0.35);
+  /* Map blueprint colors - defined at :root, not scoped to .map-blueprint,
+     specifically because the map lightbox (app.js) clones the SVG into
+     #map-lightbox-canvas, which lives OUTSIDE .map-blueprint's subtree.
+     Custom properties don't reach a clone placed outside their defining
+     ancestor's scope - they silently resolve to nothing there, which is
+     exactly what made the enlarged map render almost entirely black
+     until this was caught live. Keeping these at :root instead avoids
+     that failure mode regardless of where any future clone/move lands. */
+  --mb-bg-panel: #17140f;
+  --mb-ink: #e9e2d3;
+  --mb-ink-dim: #a89f8d;
+  --mb-ink-faint: #6f6656;
+  --mb-gold-dim: #a97e3a;
+  --mb-rule: #3a3226;
+  --mb-downtown: #4a4238;
+  --mb-downtown-line: #6b5f4a;
+  --mb-zone-fill: #211d16;
+  --mb-zone-line: #4a4030;
+  --mb-safe: #4f8a5c;
+  --mb-safe-glow: rgba(79, 138, 92, 0.35);
+  --mb-dot-ring: rgba(217, 163, 74, 0.25);
+}
+
+* { box-sizing: border-box; }
+
+html {
+  scrollbar-color: var(--gold) var(--charcoal);
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+::-webkit-scrollbar-track {
+  background: var(--charcoal);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--gold);
+  border-radius: 6px;
+  border: 2px solid var(--charcoal);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #f2c675;
+}
+
+body {
+  margin: 0;
+  background: var(--charcoal);
+  color: var(--text);
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  line-height: 1.5;
+}
+
+::selection { background: var(--gold); color: var(--charcoal); }
+
+/* ---- Header ---- */
+header {
+  padding: 48px 24px 32px;
+  text-align: center;
+  background:
+    radial-gradient(ellipse at top, rgba(201, 86, 74, 0.14) 0%, transparent 60%),
+    var(--charcoal);
+  border-bottom: 1px solid var(--border);
+}
+
+h1 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(40px, 8vw, 72px);
+  letter-spacing: 2px;
+  margin: 0;
+  color: #f2ede1;
+  text-shadow: 0 0 30px rgba(201, 86, 74, 0.35);
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: var(--gold);
+  text-decoration: none;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
+header p.tagline {
+  color: var(--text-dim);
+  font-size: 16px;
+  margin: 8px 0 0;
+}
+
+#stat-line {
+  margin: 20px auto 0;
+  display: inline-flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.stat {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 20px;
+}
+
+.stat .num {
+  display: block;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 28px;
+  color: var(--gold);
+  letter-spacing: 1px;
+}
+
+.stat .label {
+  font-size: 12px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+#search-wrap {
+  margin: 24px auto 0;
+  max-width: 480px;
+}
+
+#search {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 15px;
+}
+
+#search:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+#search-count {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 8px;
+  display: none;
+}
+
+/* ---- Layout ---- */
+#layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 40px;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 40px 24px 80px;
+}
+
+nav#toc {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+nav#toc a {
+  color: var(--text);
+  text-decoration: none;
+  font-size: 14px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border-left: 2px solid transparent;
+}
+
+nav#toc a:hover {
+  color: var(--text);
+  background: var(--panel);
+}
+
+nav#toc a.coming-link {
+  color: var(--bronze);
+}
+
+/* ---- Categories & features ---- */
+section.category {
+  margin-bottom: 56px;
+  scroll-margin-top: 24px;
+}
+
+section.category > h2 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 30px;
+  letter-spacing: 1px;
+  color: var(--gold);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+  margin: 0 0 20px;
+}
+
+.feature {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin-bottom: 12px;
+}
+
+/* ---- Expandable multi-item cards (weapons, mutators, zombie types...) ---- */
+.feature.expandable h3 {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+}
+
+.expand-icon {
+  color: var(--gold);
+  font-size: 12px;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.feature.expandable.open .expand-icon {
+  transform: rotate(90deg);
+}
+
+.detail-list {
+  display: none;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border);
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 8px 20px;
+}
+
+.feature.expandable.open .detail-list {
+  display: grid;
+}
+
+.detail-item {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.detail-item b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.feature h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  color: var(--gold);
+}
+
+.feature p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.feature p.list-line {
+  color: var(--text);
+}
+
+.feature.coming-soon {
+  background: transparent;
+  border-style: dashed;
+  opacity: 0.8;
+}
+
+.feature.coming-soon h3::after {
+  content: 'COMING SOON';
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--red);
+  background: rgba(201, 86, 74, 0.12);
+  border: 1px solid rgba(201, 86, 74, 0.4);
+  border-radius: 999px;
+  padding: 2px 8px;
+  margin-left: 10px;
+  vertical-align: middle;
+}
+
+.feature.hidden-search { display: none; }
+section.category.hidden-search { display: none; }
+
+footer {
+  text-align: center;
+  padding: 32px 24px 60px;
+  color: var(--text-dim);
+  font-size: 13px;
+  border-top: 1px solid var(--border);
+}
+
+footer a { color: var(--gold); }
+
+@media (max-width: 820px) {
+  #layout { grid-template-columns: 1fr; }
+  nav#toc {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  nav#toc a {
+    border: 1px solid var(--border);
+    border-radius: 999px;
+  }
+}
+
+/* ---- Zombie Survival Map (embedded blueprint) ----
+   Ported from the standalone "GayZ Map Blueprint" artifact - same SVG,
+   same coordinates (pulled directly from World.js's buildWorld()), just
+   re-namespaced under mb-/map-blueprint- classes (colors moved to :root,
+   see its own comment) instead of :root class names, so nothing here can
+   collide with the rest of this stylesheet. When the real map layout
+   changes (a building moves, a new landmark is added), update the
+   coordinates in both this SVG and the artifact together - they're
+   meant to always match. */
+
+.map-blueprint-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 20px;
+  align-items: start;
+  margin-top: 14px;
+}
+@media (max-width: 700px) {
+  .map-blueprint-layout { grid-template-columns: 1fr; }
+}
+
+.map-blueprint-panel {
+  display: block;
+  width: 100%;
+  background: var(--mb-bg-panel);
+  border: 1px solid var(--mb-rule);
+  border-radius: 6px;
+  padding: 12px;
+  cursor: zoom-in;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  position: relative;
+  transition: border-color 0.15s ease;
+}
+
+.map-blueprint-panel:hover,
+.map-blueprint-panel:focus-visible {
+  border-color: var(--gold);
+}
+
+.map-blueprint-panel:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.map-blueprint-zoom-hint {
+  display: block;
+  margin-top: 8px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  color: var(--mb-ink-faint);
+  text-align: center;
+}
+
+.map-blueprint-panel:hover .map-blueprint-zoom-hint,
+.map-blueprint-panel:focus-visible .map-blueprint-zoom-hint {
+  color: var(--gold);
+}
+
+.map-blueprint svg { display: block; width: 100%; height: auto; overflow: visible; }
+
+.mb-zone-fill { fill: var(--mb-zone-fill); stroke: var(--mb-zone-line); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.mb-zone-label { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; letter-spacing: 2px; fill: var(--mb-ink-faint); text-transform: uppercase; }
+.mb-downtown-fill { fill: var(--mb-downtown); fill-opacity: 0.55; stroke: var(--mb-downtown-line); stroke-width: 1.5; }
+.mb-street { stroke: var(--mb-bg-panel); stroke-width: 2.4; }
+.mb-safe-zone-ring { fill: var(--mb-safe-glow); stroke: var(--mb-safe); stroke-width: 1.5; }
+.mb-safe-zone-label { fill: var(--mb-safe); font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; }
+.mb-park-fill { fill: var(--mb-safe); fill-opacity: 0.16; stroke: var(--mb-safe); stroke-opacity: 0.5; stroke-width: 1; stroke-dasharray: 3 3; }
+.mb-landmark-dot { fill: var(--gold); stroke: var(--mb-bg-panel); stroke-width: 1; }
+.mb-landmark-ring { fill: none; stroke: var(--mb-dot-ring); stroke-width: 6; }
+.mb-landmark-label { font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; fill: var(--mb-ink); }
+.mb-landmark-label-dim { fill: var(--mb-ink-dim); }
+.mb-grid-line { stroke: var(--mb-rule); stroke-width: 0.5; opacity: 0.4; }
+.mb-compass { font-family: 'IBM Plex Mono', monospace; fill: var(--mb-ink-faint); font-size: 10px; letter-spacing: 1px; }
+.mb-compass-line { stroke: var(--mb-ink-faint); stroke-width: 1; opacity: 0.5; }
+
+.map-blueprint-side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.map-blueprint-card {
+  background: var(--mb-bg-panel);
+  border: 1px solid var(--mb-rule);
+  border-radius: 6px;
+  padding: 14px 16px;
+}
+
+.map-blueprint-card h4 {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin: 0 0 10px;
+}
+
+.mb-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--mb-ink-dim);
+  padding: 4px 0;
+}
+
+.mb-legend-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  flex: none;
+}
+
+.map-blueprint-card p {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #ffffff;
+  margin: 0 0 8px;
+}
+.map-blueprint-card p:last-child { margin-bottom: 0; }
+.map-blueprint-card strong { color: var(--gold); }
+
+.mb-underground-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 12.5px;
+  color: #ffffff;
+}
+.mb-underground-list li {
+  padding: 5px 0;
+  border-top: 1px solid var(--mb-rule);
+}
+.mb-underground-list li:first-child { border-top: none; }
+.mb-underground-list strong { color: var(--gold); font-weight: 600; }
+
+.map-blueprint-note {
+  margin-top: 12px;
+  font-size: 11.5px;
+  color: var(--mb-ink-faint);
+  font-family: 'IBM Plex Mono', monospace;
+  line-height: 1.6;
+}
+
+/* ---- Map lightbox - click the blueprint to open a bigger, zoomable
+   version. #map-lightbox-canvas holds a cloned copy of the same #map-
+   blueprint-svg (see app.js), scaled/panned via a single CSS transform
+   driven by JS state (scale/panX/panY). ---- */
+#map-lightbox {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  flex-direction: column;
+  background: rgba(6, 5, 4, 0.92);
+  backdrop-filter: blur(2px);
+}
+
+#map-lightbox.open { display: flex; }
+
+#map-lightbox-toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.map-lightbox-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.map-lightbox-btn:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+#map-lightbox-zoom-level {
+  min-width: 52px;
+  text-align: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+#map-lightbox-reset {
+  font-size: 12px;
+  width: auto;
+  padding: 0 14px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+#map-lightbox-close {
+  margin-left: 8px;
+  font-size: 20px;
+}
+
+#map-lightbox-hint {
+  margin-left: auto;
+  padding-left: 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+  display: none;
+}
+
+@media (min-width: 700px) {
+  #map-lightbox-hint { display: block; }
+}
+
+#map-lightbox-viewport {
+  flex: 1 1 auto;
+  position: relative;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+
+#map-lightbox-viewport.dragging { cursor: grabbing; }
+
+#map-lightbox-canvas {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(1400px, 92vw);
+  transform-origin: center center;
+  will-change: transform;
+}
+
+#map-lightbox-canvas svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}

@@ -1,0 +1,762 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GayZ Features</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <a class="back-link" href="/">&larr; Back to GayZ</a>
+    <h1>GayZ Features</h1>
+    <p class="tagline">Everything the game currently has, in one place.</p>
+    <div id="stat-line">
+      <div class="stat"><span class="num" id="stat-live">0</span><span class="label">Live Features</span></div>
+      <div class="stat"><span class="num" id="stat-soon">0</span><span class="label">Coming Soon</span></div>
+    </div>
+    <div id="search-wrap">
+      <input type="text" id="search" placeholder="Search features..." autocomplete="off" />
+      <div id="search-count"></div>
+    </div>
+  </header>
+
+  <div id="layout">
+    <nav id="toc"></nav>
+
+    <main id="content">
+
+      <section class="category" id="core-gameplay">
+        <h2>Core Gameplay</h2>
+
+        <div class="feature">
+          <h3>Combat &amp; Shooting</h3>
+          <p>First-person shooting with recoil, per-weapon camera shake, headshots and critical hits, damage falloff on shotguns, hit markers, and floating damage numbers.</p>
+        </div>
+        <div class="feature expandable">
+          <h3><span class="expand-icon">▸</span>15 Firearms + Knife</h3>
+          <p class="list-line">AK-47, M1911, Minigun (overheats and jams if held too long), Weatie pump shotgun, AWP sniper rifle with scope, Glock 18, Flamethrower, Rocket Launcher (splash damage), Crossbow (retrievable bolts), Grenade Launcher, Suppressed SMG, Nail Gun (pins zombies in place), Harpoon Gun (yanks enemies toward you), and the rare Void Ripper (a slow vortex orb that pulls zombies in before detonating).</p>
+          <div class="detail-list">
+            <div class="detail-item"><b>AK-47</b> — reliable all-rounder assault rifle.</div>
+            <div class="detail-item"><b>M1911</b> — starter sidearm pistol.</div>
+            <div class="detail-item"><b>Minigun</b> — huge sustained fire, but overheats and jams if you hold the trigger too long.</div>
+            <div class="detail-item"><b>Weatie</b> — pump shotgun, damage falls off at range.</div>
+            <div class="detail-item"><b>AWP</b> — sniper rifle, comes with a built-in scope.</div>
+            <div class="detail-item"><b>Glock 18</b> — fast-firing sidearm.</div>
+            <div class="detail-item"><b>Flamethrower</b> — continuous close-range burn damage.</div>
+            <div class="detail-item"><b>Rocket Launcher</b> — explosive splash damage.</div>
+            <div class="detail-item"><b>Crossbow</b> — bolts can be retrieved off zombies after a hit.</div>
+            <div class="detail-item"><b>Grenade Launcher</b> — lobs explosive rounds.</div>
+            <div class="detail-item"><b>Suppressed SMG</b> — quiet, doesn't draw as much zombie attention.</div>
+            <div class="detail-item"><b>Nail Gun</b> — pins zombies in place on hit.</div>
+            <div class="detail-item"><b>Harpoon Gun</b> — yanks enemies toward you on hit.</div>
+            <div class="detail-item"><b>Void Ripper</b> — rare drop; fires a slow vortex orb that pulls zombies in before detonating.</div>
+            <div class="detail-item"><b>Knife</b> — default melee, always available.</div>
+          </div>
+        </div>
+        <div class="feature expandable">
+          <h3><span class="expand-icon">▸</span>8 Melee Weapon Variants</h3>
+          <p class="list-line">Bat, Machete, UV Baton, Fire Axe (cleaves nearby enemies), Sledgehammer (stuns on hit), Spear, Nunchaku — found as loot and swapped in for the knife.</p>
+          <div class="detail-list">
+            <div class="detail-item"><b>Bat</b> — fast, basic swing.</div>
+            <div class="detail-item"><b>Machete</b> — sharper, more damage per hit.</div>
+            <div class="detail-item"><b>UV Baton</b> — glowing melee weapon.</div>
+            <div class="detail-item"><b>Fire Axe</b> — cleaves multiple nearby enemies in one swing.</div>
+            <div class="detail-item"><b>Sledgehammer</b> — slow, but stuns on hit.</div>
+            <div class="detail-item"><b>Spear</b> — longer reach.</div>
+            <div class="detail-item"><b>Nunchaku</b> — fast multi-hit combo weapon.</div>
+          </div>
+        </div>
+        <div class="feature">
+          <h3>Weapon Mastery</h3>
+          <p>Every kill with a gun counts toward that gun's own permanent tally: Mastery at 75 kills (+damage), Grandmaster at 250 (bigger bonus), Legendary at 600 (faster reload). Grandmastering a weapon unlocks its Heirloom cosmetic skin tier.</p>
+        </div>
+        <div class="feature">
+          <h3>Akimbo</h3>
+          <p>Dual-wielding, unlockable separately for Pistols and for Shotguns.</p>
+        </div>
+        <div class="feature">
+          <h3>Auto-Weapons</h3>
+          <p>Vampire-Survivors-style orbiting/summoned weapons earned via free level-up picks mid-run: Spinning Blades, Homing Drone shots, a Damage Aura, and Chain Lightning — each with its own unlock, upgrade, and evolve path.</p>
+        </div>
+        <div class="feature expandable">
+          <h3><span class="expand-icon">▸</span>30 Zombie Types</h3>
+          <p class="list-line">Feral Pack, Feral Child, Shambler, Runner, Brute, Spitter, Crawler, Burrower (ambushes from below), Bloater (exploder), Riot Corpse (shielded, melee only), Screamer (wakes and enrages nearby zombies), Bomber Spitter, Swarmer, Sewer Dweller, Fester (toxic gas on death), Leaper, Regenerator (self-heals unless burning), Stalker (invisible until close), Seeper (acid trail), Anchor (pulls you with its spit), Brittle (shatters into shrapnel), Siren (disorients your aim), Bloodhound (ignores stealth), Webber (slows with web patches), Vampire (heals off hits landed), plus 4 bosses: Colossus, Broodmother, and the rare roaming Titan.</p>
+          <div class="detail-list">
+            <div class="detail-item"><b>Feral Pack</b> — fast-moving dogs that attack in groups.</div>
+            <div class="detail-item"><b>Feral Child</b> — small, fast, erratic movement.</div>
+            <div class="detail-item"><b>Shambler</b> — the basic slow zombie.</div>
+            <div class="detail-item"><b>Runner</b> — sprints straight at you.</div>
+            <div class="detail-item"><b>Brute</b> — tanky, hits hard.</div>
+            <div class="detail-item"><b>Spitter</b> — ranged acid/projectile attack.</div>
+            <div class="detail-item"><b>Crawler</b> — low profile, harder to hit center-mass.</div>
+            <div class="detail-item"><b>Burrower</b> — tunnels underground and ambushes from below.</div>
+            <div class="detail-item"><b>Bloater</b> — explodes on death or contact.</div>
+            <div class="detail-item"><b>Riot Corpse</b> — carries a shield; only melee gets through the front.</div>
+            <div class="detail-item"><b>Screamer</b> — wakes and enrages every zombie nearby.</div>
+            <div class="detail-item"><b>Bomber Spitter</b> — ranged explosive spit attack.</div>
+            <div class="detail-item"><b>Swarmer</b> — spawns smaller Shamblers when it dies.</div>
+            <div class="detail-item"><b>Sewer Dweller</b> — found in the sewer tunnels.</div>
+            <div class="detail-item"><b>Fester</b> — leaves a toxic gas cloud behind when it dies.</div>
+            <div class="detail-item"><b>Leaper</b> — jumps at you from a distance.</div>
+            <div class="detail-item"><b>Regenerator</b> — heals itself back up unless it's on fire.</div>
+            <div class="detail-item"><b>Stalker</b> — invisible until it's close to you.</div>
+            <div class="detail-item"><b>Seeper</b> — leaves a damaging acid trail as it moves.</div>
+            <div class="detail-item"><b>Anchor</b> — its spit attack pulls you toward it.</div>
+            <div class="detail-item"><b>Brittle</b> — shatters into damaging shrapnel on a melee kill.</div>
+            <div class="detail-item"><b>Siren</b> — its scream disorients your aim.</div>
+            <div class="detail-item"><b>Bloodhound</b> — tracks you even through stealth perks.</div>
+            <div class="detail-item"><b>Webber</b> — slows you down with sticky web patches.</div>
+            <div class="detail-item"><b>Vampire</b> — heals itself off every hit it lands on you.</div>
+            <div class="detail-item"><b>Colossus</b> (boss) — huge, heavy-hitting boss zombie.</div>
+            <div class="detail-item"><b>Broodmother</b> (boss) — spawns Sewer Dwellers during the fight.</div>
+            <div class="detail-item"><b>Titan</b> (boss) — rare roaming reptilian boss, distinct from scheduled night bosses.</div>
+          </div>
+        </div>
+        <div class="feature">
+          <h3>Bestiary</h3>
+          <p>Tracks every zombie type you've personally encountered, unlocks lore blurbs, and feeds the Bestiary Master achievement.</p>
+        </div>
+        <div class="feature">
+          <h3>Day/Night Cycle</h3>
+          <p>A real-time 12-minute day and 12-minute night cycle with real lighting and fog transitions.</p>
+        </div>
+        <div class="feature">
+          <h3>5 Difficulty Tiers</h3>
+          <p>Easy, Normal, Hard, and two unlockable tiers: Nightmare (unlocked by reaching the true ending) and Apex (unlocked by surviving 15 nights on Nightmare).</p>
+        </div>
+        <div class="feature expandable">
+          <h3><span class="expand-icon">▸</span>Random Night Events</h3>
+          <p class="list-line">One fires per night: Horde Surge, Blackout, Supply Drop, Survivor Found, Camp Attack, Supply Convoy, Toxic Gas, Spreading Toxic Gas, Escort Convoy, Radio Distress Call, EMP Field.</p>
+          <div class="detail-list">
+            <div class="detail-item"><b>Horde Surge</b> — a sudden wave of extra zombies.</div>
+            <div class="detail-item"><b>Blackout</b> — the lights go out for the night.</div>
+            <div class="detail-item"><b>Supply Drop</b> — a crate of supplies lands somewhere on the map.</div>
+            <div class="detail-item"><b>Survivor Found</b> — an NPC survivor appears to be rescued.</div>
+            <div class="detail-item"><b>Camp Attack</b> — a small NPC group under active zombie siege you can save.</div>
+            <div class="detail-item"><b>Supply Convoy</b> — a guarded chest escorted by rival humans.</div>
+            <div class="detail-item"><b>Toxic Gas</b> — a damaging gas cloud spreads over an area.</div>
+            <div class="detail-item"><b>Spreading Toxic Gas</b> — a version that keeps expanding over time.</div>
+            <div class="detail-item"><b>Escort Convoy</b> — protect a moving convoy.</div>
+            <div class="detail-item"><b>Radio Distress Call</b> — a call leads you to a location needing help.</div>
+            <div class="detail-item"><b>EMP Field</b> — an area that disables electronics.</div>
+          </div>
+        </div>
+        <div class="feature">
+          <h3>Nightly Zombie Mutations</h3>
+          <p>Random modifiers that can apply to the whole horde on a given night: Armored, Swift, Reckless, or Docile.</p>
+        </div>
+        <div class="feature">
+          <h3>Killstreak Rewards</h3>
+          <p>Consecutive kills grant tiered bonuses: a damage boost at 5, a screen-clearing airstrike at 10, temporary infinite ammo at 15.</p>
+        </div>
+        <div class="feature">
+          <h3>Last Stand</h3>
+          <p>A once-per-run self-revive: instead of dying, you're knocked down at 1 HP with a pistol on a timer — enough kills while downed revives you.</p>
+        </div>
+        <div class="feature">
+          <h3>Mystery Box</h3>
+          <p>Spend points at a physical machine for a random weapon reroll, with a smaller chance at a rare one.</p>
+        </div>
+        <div class="feature">
+          <h3>Barricaded Windows</h3>
+          <p>Fixed chokepoints where zombies tear planks off over time — repairing them earns points, with siege escalation and horde-size multipliers on how fast they get torn down.</p>
+        </div>
+        <div class="feature">
+          <h3>Chests &amp; Loot</h3>
+          <p>Lootable crates with a weighted loot table (health, ammo, melee weapons, rare/legendary parts, grenades, rations), plus a guaranteed-good-reward Vault room.</p>
+        </div>
+        <div class="feature">
+          <h3>Turret Kit &amp; Med Station</h3>
+          <p>A deployable turret that auto-tracks and fires at the nearest zombie (3 upgrade tiers), and a deployable station that heals you and nearby companions over time.</p>
+        </div>
+        <div class="feature">
+          <h3>Vehicles</h3>
+          <p>Drivable Car and Motorcycle with distinct speed/fuel/durability tradeoffs, crash damage, a separate Nitro Boost resource, a toggleable radio, and Trader-purchasable armor/repairs.</p>
+        </div>
+        <div class="feature expandable">
+          <h3><span class="expand-icon">▸</span>Inventory Items</h3>
+          <p class="list-line">Health Pack, Armor Pack, Noisemaker, Grenade, Barricade, Spike Trap, Molotov, C4, Adrenaline Shot, EMP Grenade, Riot Shield, Throwing Knife, Turret Kit, Med Station Kit, Alarm Kit, Ration, Water Bottle — each on its own hotkey.</p>
+          <div class="detail-list">
+            <div class="detail-item"><b>Health Pack</b> — restores health.</div>
+            <div class="detail-item"><b>Armor Pack</b> — restores armor.</div>
+            <div class="detail-item"><b>Noisemaker</b> — thrown, distracts zombies toward it.</div>
+            <div class="detail-item"><b>Grenade</b> — thrown explosive.</div>
+            <div class="detail-item"><b>Barricade</b> — placeable blockade.</div>
+            <div class="detail-item"><b>Spike Trap</b> — placeable, damages zombies that walk over it.</div>
+            <div class="detail-item"><b>Molotov</b> — thrown fire damage over an area.</div>
+            <div class="detail-item"><b>C4</b> — plantable remote-detonated explosive.</div>
+            <div class="detail-item"><b>Adrenaline Shot</b> — temporary combat boost.</div>
+            <div class="detail-item"><b>EMP Grenade</b> — disables electronics in an area.</div>
+            <div class="detail-item"><b>Riot Shield</b> — blocks damage from the front.</div>
+            <div class="detail-item"><b>Throwing Knife</b> — thrown melee weapon.</div>
+            <div class="detail-item"><b>Turret Kit</b> — deploys an auto-firing turret.</div>
+            <div class="detail-item"><b>Med Station Kit</b> — deploys a healing station.</div>
+            <div class="detail-item"><b>Alarm Kit</b> — deployable alarm.</div>
+            <div class="detail-item"><b>Ration</b> — restores hunger.</div>
+            <div class="detail-item"><b>Water Bottle</b> — restores thirst.</div>
+          </div>
+        </div>
+        <div class="feature">
+          <h3>Movement</h3>
+          <p>Sprint, crouch, jump, mantling over obstacles, sliding, and a dodge-dash.</p>
+        </div>
+        <div class="feature">
+          <h3>Status Systems</h3>
+          <p>Health, Armor, Stamina, Hunger, Thirst, Warmth, and flashlight Battery, each with its own HUD bar, plus an Infection indicator.</p>
+        </div>
+        <div class="feature">
+          <h3>Weapon Wheel</h3>
+          <p>A radial hold-to-select weapon switcher, separate from number-key switching.</p>
+        </div>
+        <div class="feature">
+          <h3>Photo Mode &amp; Spectate Mode</h3>
+          <p>A free-fly camera with selectable filters for screenshots, and a separate free-fly Spectate option from the pause menu to watch without playing.</p>
+        </div>
+        <div class="feature">
+          <h3>Screenshot &amp; Recording Tools</h3>
+          <p>In-game screenshot capture with crop selection and captions, plus a Start/Stop clip recorder that auto-saves on stop, death, quit, or a won run.</p>
+        </div>
+        <div class="feature">
+          <h3>Death Screen</h3>
+          <p>Survival stats, a letter death grade, run highlights, cause-of-death breakdown, a small replay, Legacy Points earned, and a Share Run Card / Copy Text Recap option.</p>
+        </div>
+        <div class="feature">
+          <h3>Story Mode</h3>
+          <p>8 collectible Audio Logs telling the VIREO conspiracy plot, a VIREO Terminal to interact with, and a true "Ground Truth" ending.</p>
+        </div>
+      </section>
+
+      <section class="category" id="modes-mutators">
+        <h2>Game Modes &amp; Mutators</h2>
+
+        <div class="feature expandable">
+          <h3><span class="expand-icon">▸</span>Game Modes</h3>
+          <p class="list-line">Classic (base survive-the-nights loop), Zombie Defense (protect a base through 10 waves), Boss Hunt (track down and defeat a random boss), Zombie Rush (endless escalating swarm).</p>
+          <div class="detail-list">
+            <div class="detail-item"><b>Classic</b> — the base survive-the-nights loop.</div>
+            <div class="detail-item"><b>Zombie Defense</b> — protect a base through 10 waves.</div>
+            <div class="detail-item"><b>Boss Hunt</b> — track down and defeat a randomly-picked boss.</div>
+            <div class="detail-item"><b>Zombie Rush</b> — endless escalating swarm, survive as long as you can.</div>
+          </div>
+        </div>
+        <div class="feature expandable">
+          <h3><span class="expand-icon">▸</span>21 Mutators</h3>
+          <p class="list-line">Horde Rush (2x zombies), Loot Rush (2x XP &amp; points), Pure Gunplay (no auto-weapons), Boss Rush (a boss every night), Horde Mode (relentless close-range waves), Health Regen, Iron Mode (no Trader/Shop spending), Scavenger Run (start with just melee), Glass House (2x damage dealt and taken), Featured Enemy (one zombie type spawns far more), Blackout (near-zero light), Boss Gauntlet (bosses spawn back-to-back), King of the Hill, Extraction, Zombie Defense &amp; Zombie Rush toggle variants, Bounty Hunt, Escalation Mode (difficulty never caps), Randomizer Mode (random weapon each run), Cursed Run (that week's 3 rotating cursed mutators forced on together), Daily Challenge, and the Weekly Featured Mutator with a Weekly Remix combo bonus.</p>
+          <div class="detail-list">
+            <div class="detail-item"><b>Horde Rush</b> — 2x zombies.</div>
+            <div class="detail-item"><b>Loot Rush</b> — 2x XP and points.</div>
+            <div class="detail-item"><b>Pure Gunplay</b> — no auto-weapons allowed.</div>
+            <div class="detail-item"><b>Boss Rush</b> — a boss spawns every night.</div>
+            <div class="detail-item"><b>Horde Mode</b> — relentless close-range waves.</div>
+            <div class="detail-item"><b>Health Regen</b> — slowly self-heal after a few seconds out of combat.</div>
+            <div class="detail-item"><b>Iron Mode</b> — no Trader or Coin Shop spending allowed.</div>
+            <div class="detail-item"><b>Scavenger Run</b> — start with just melee, earn the rest.</div>
+            <div class="detail-item"><b>Glass House</b> — 2x damage dealt and taken.</div>
+            <div class="detail-item"><b>Featured Enemy</b> — one random zombie type spawns far more often.</div>
+            <div class="detail-item"><b>Blackout</b> — near-zero ambient light.</div>
+            <div class="detail-item"><b>Boss Gauntlet</b> — the next boss spawns immediately after the last dies.</div>
+            <div class="detail-item"><b>King of the Hill</b> — hold a zone for bonus points.</div>
+            <div class="detail-item"><b>Extraction</b> — reach and hold a landing zone to win the run.</div>
+            <div class="detail-item"><b>Zombie Defense / Zombie Rush toggles</b> — mutator-style versions of those game modes.</div>
+            <div class="detail-item"><b>Bounty Hunt</b> — track down and defeat a boss.</div>
+            <div class="detail-item"><b>Escalation Mode</b> — difficulty keeps climbing with no cap.</div>
+            <div class="detail-item"><b>Randomizer Mode</b> — your weapon pick each run is randomized.</div>
+            <div class="detail-item"><b>Cursed Run</b> — forces on that week's 3 rotating cursed mutators together.</div>
+            <div class="detail-item"><b>Daily Challenge</b> — a fixed daily twist with its own leaderboard.</div>
+            <div class="detail-item"><b>Weekly Featured Mutator</b> — one rotating mutator highlighted each week, with a coin bonus and a Weekly Remix combo bonus.</div>
+          </div>
+        </div>
+        <div class="feature">
+          <h3>Other Run Toggles</h3>
+          <p>Hardcore Mode (no respawn), Guest Mode (don't save the run), Endless Mode, Score Attack Mode.</p>
+        </div>
+        <div class="feature">
+          <h3>Weekly Challenges</h3>
+          <p>3 rotating challenges (Headhunter, Exterminator, Sharpshooter) — the same ones for everyone each real-world week, with a coin reward and their own leaderboard.</p>
+        </div>
+        <div class="feature">
+          <h3>Bounty Board</h3>
+          <p>One active side-objective at a time from the Trader (kill counts, survive a weather night, reach a night, rescue survivors, clear a location) — rewards points and rolls a fresh one on completion.</p>
+        </div>
+        <div class="feature">
+          <h3>Setup/Challenge Codes</h3>
+          <p>Export a shareable code encoding your exact mutator setup so a friend can paste it in and match it instantly.</p>
+        </div>
+      </section>
+
+      <section class="category" id="progression-meta">
+        <h2>Progression &amp; Meta</h2>
+
+        <div class="feature">
+          <h3>Perks</h3>
+          <p>Offered 3-at-a-time from points earned in a run: Fast Reload, More Stamina, Better Armor, Stronger Heals, Sprint Boost, Dead Silence, Insurance, Barricade Medic, Pickup Magnet — rerollable or skippable.</p>
+        </div>
+        <div class="feature">
+          <h3>Perk Synergies</h3>
+          <p>3 bonus effects that unlock once you've ever owned both perks of a specific pair, rewarding committing to a build: Combat Reflexes, Iron Resolve, Fortified.</p>
+        </div>
+        <div class="feature">
+          <h3>XP Level-Up Picks</h3>
+          <p>Free passive buffs on every level-up: Move Speed, Max Health, Damage, Stamina, Armor, plus two once-only tradeoff picks — Glass Cannon and Berserker.</p>
+        </div>
+        <div class="feature">
+          <h3>Permanent Upgrades</h3>
+          <p>~39 one-time purchases from Legacy Points, across Survival/Combat/Utility trees plus base-building unlocks (turret tiers, walls, watchtower, farm plot), companion perks, night vision, and lifetime-coin-gated Veteran's Caches.</p>
+        </div>
+        <div class="feature">
+          <h3>Prestige</h3>
+          <p>Reset your Legacy Points for a permanent Prestige tier, with a full history log of every past prestige and color-tier badges on your homepage and Profile.</p>
+        </div>
+        <div class="feature">
+          <h3>Respec</h3>
+          <p>Refund and re-spend all Permanent Upgrade points.</p>
+        </div>
+        <div class="feature">
+          <h3>21 Achievements</h3>
+          <p>Spanning combat, survival, exploration, story, and collection, each with a hint instead of a bare "???" — plus search, category filter, sort, and a Print list export in the Achievements panel.</p>
+        </div>
+        <div class="feature">
+          <h3>Weapon Evolution</h3>
+          <p>Fully upgrading and evolving an auto-weapon (Blades or Homing) counts toward its own achievement.</p>
+        </div>
+        <div class="feature">
+          <h3>Lifetime Quests</h3>
+          <p>22 permanent one-time milestones across career kills, best-ever killstreak, and lifetime points — each pays out coins once, ever.</p>
+        </div>
+        <div class="feature">
+          <h3>Rolling Quests</h3>
+          <p>Every player sees the same 5 active quests at the same real-world moment, refreshing every 30 minutes, no backend required.</p>
+        </div>
+        <div class="feature">
+          <h3>Rank &amp; Level System</h3>
+          <p>An XP-level HUD badge, a Rank Roadmap on the Profile panel, and a Class Comparison table across your different class picks.</p>
+        </div>
+        <div class="feature">
+          <h3>Career Stats &amp; Profile</h3>
+          <p>Lifetime totals, a stats-over-time chart, a pinnable highlight reel, a Best Run breakdown, an anniversary line, today's session stats, and a "Nearly There" panel toward trackable achievements.</p>
+        </div>
+        <div class="feature">
+          <h3>Goals</h3>
+          <p>Pick up to 3 personal goals to track/checklist on your Profile.</p>
+        </div>
+      </section>
+
+      <section class="category" id="world-exploration">
+        <h2>World &amp; Exploration</h2>
+
+        <div class="feature">
+          <h3>Named Locations</h3>
+          <p>Park, Hospital, Pharmacy, Gun Shop, Police Station, Military Checkpoint, Prison, University, Office Skyscrapers with rooftop shortcuts, Mega Mall, Warehouse, Gas Station, Bank with its own vault, Diner, Radio Station, Fire Station, Motel, and dozens of smaller storefronts.</p>
+        </div>
+        <div class="feature">
+          <h3>46 Walkable Skyscrapers</h3>
+          <p>Every tall building that used to be pure decoration is now a real, enterable skyscraper with floors and stairs, automatically spaced so none of them touch or overlap.</p>
+        </div>
+        <div class="feature">
+          <h3>Full Subway Network</h3>
+          <p>Junction rooms, connector tunnels, two entrances, a maintenance tunnel network, a wrecked train chamber, a full underground station, a toxic sewer level, and a mine level — a genuinely explorable underground biome.</p>
+        </div>
+        <div class="feature">
+          <h3>Sewer System &amp; Vireo Facility</h3>
+          <p>A separate tunnel network home to the Sewer Dweller and Broodmother boss, and a story-specific hidden location tied to the audio-log narrative.</p>
+        </div>
+        <div class="feature">
+          <h3>Safe Zone / Trader Compound</h3>
+          <p>A guarded hub with passive regen, home to the Trader (Salvage, Crafting, Stash, Sellback, rotating Black Market), a Practice Range, Trophy Wall, the Vault, Ammo Station, Weapon Upgrade Machine, and the Mystery Box.</p>
+        </div>
+        <div class="feature">
+          <h3>Explorable Interiors</h3>
+          <p>A Hidden Complex accessible from certain doors, an Elevator Tower, Fire Escapes, and rooftop shortcuts between skyscrapers.</p>
+        </div>
+        <div class="feature">
+          <h3>Airdrops</h3>
+          <p>Supply crates you can race a squad of Rival Scavengers to — whoever gets there first claims it, or the rivals fight if you close the distance first.</p>
+        </div>
+        <div class="feature">
+          <h3>Compass, Full Map &amp; Minimap</h3>
+          <p>HUD markers for Trader, Ammo, Vehicle, Airdrop, Vault, and Subway, plus a full map screen and an adjustable-zoom minimap.</p>
+        </div>
+        <div class="feature">
+          <h3>Build Mode / Map Editor</h3>
+          <p>A standalone creative sandbox: 71+ placeable blocks, free-fly flight, 3 save slots, Export/Import Map, Mirror mode, a Line tool, and Copy/Paste for stamping down builds.</p>
+        </div>
+        <div class="feature">
+          <h3>Environmental Effects</h3>
+          <p>Rain, snow, sandstorms, lightning, a night-vision overlay, and real rain/snow ambience sound that plays and fades correctly on every session.</p>
+        </div>
+        <div class="feature">
+          <h3>Interactive Props</h3>
+          <p>A Jukebox, Bulletin Board, Hall of Fame, Payphone, Jump Pad, Scaffolding, Wrecking Pendulum, Breaker Box, wandering Pet, Generator, Explosive Barrels, and a Manhole Cover.</p>
+        </div>
+      </section>
+
+      <section class="category" id="customization">
+        <h2>Customization</h2>
+
+        <div class="feature">
+          <h3>Classes / Loadouts</h3>
+          <p>Pick a Companion role (Ranged, Melee-Bruiser, Medic) merged with a player build (Balanced, Runner, Tank) in one Choose Class grid.</p>
+        </div>
+        <div class="feature">
+          <h3>Companion NPC</h3>
+          <p>A controllable AI ally with 3 roles, a custom name and colors, gear, a dedicated perk tree, a Speed Boost upgrade, and an Auto-Revive upgrade — plus Follow/Hold Position/Focus Fire squad orders.</p>
+        </div>
+        <div class="feature">
+          <h3>Cosmetic Outfits &amp; Hats</h3>
+          <p>7 outfits and 3 hats purchasable with coins, visible in third person.</p>
+        </div>
+        <div class="feature">
+          <h3>Custom Skin Upload</h3>
+          <p>Upload a real Minecraft-format 64x64 skin PNG, read pixel-for-pixel and mapped onto your character, with a Reset to Default option.</p>
+        </div>
+        <div class="feature">
+          <h3>Nickname Customization</h3>
+          <p>Editable nickname, a color picker, a font picker, a homepage Motto line, and a Bio with preset saving.</p>
+        </div>
+        <div class="feature">
+          <h3>Player Title Color &amp; Avatar Frame Tiers</h3>
+          <p>A custom accent color for your stat-line title, plus automatic border-color escalation on your avatar as your level tier climbs.</p>
+        </div>
+        <div class="feature">
+          <h3>Homepage Personalization</h3>
+          <p>Accent color, Play-button color, UI font, layout density, background mood, homepage greeting text, and a reorderable nav-button order.</p>
+        </div>
+        <div class="feature">
+          <h3>Menu Presets &amp; Sharing</h3>
+          <p>Save Setup preset chips, a Surprise Me randomizer, and a Share panel for your setup, profile, loadout, a friend challenge, or the page link.</p>
+        </div>
+      </section>
+
+      <section class="category" id="social-cloud">
+        <h2>Social &amp; Cloud</h2>
+
+        <div class="feature">
+          <h3>Cloud Save</h3>
+          <p>Google Sign-In syncs your save across devices, with a conflict resolver if local and cloud saves diverge.</p>
+        </div>
+        <div class="feature">
+          <h3>Leaderboards</h3>
+          <p>Global (with a region filter), Weekly Challenge, Most Achievements, Nearby Rank, a Global Rank badge, a Nearest-Rival nudge, global average/percentile comparison, a live-subscribed top board, plus Boss Rush, Hardcore Memorial, Household, and Daily Challenge boards.</p>
+        </div>
+        <div class="feature">
+          <h3>Global Kill Counter</h3>
+          <p>A live, server-wide total-zombies-killed count that ticks up with everyone's runs.</p>
+        </div>
+        <div class="feature">
+          <h3>Friend List</h3>
+          <p>Add by player ID, real-time friend requests, a saved-friends list, live Friend Compare, and an online/idle/DND/offline status dropdown with last-seen time.</p>
+        </div>
+        <div class="feature">
+          <h3>Real-Time Multiplayer</h3>
+          <p>Share an invite link mid-run to bring a friend into your world - no player limit, no lobby to wait in, just drop straight into playing together and see each other move around in real time.</p>
+        </div>
+        <div class="feature">
+          <h3>Login-Streak Calendar</h3>
+          <p>Tracks and displays your last 7 days of login activity alongside a running streak counter.</p>
+        </div>
+        <div class="feature">
+          <h3>Anonymous Leaderboard Mode</h3>
+          <p>Hide your name on public leaderboards while still competing.</p>
+        </div>
+        <div class="feature">
+          <h3>Player ID / Tag System</h3>
+          <p>A stable, copyable ID separate from your editable nickname, used for friend search and leaderboard identity.</p>
+        </div>
+        <div class="feature">
+          <h3>Export/Import Save &amp; Settings Sharing</h3>
+          <p>Export/Import Save to a file with a Compare Save diff tool, Copy Save to Clipboard, and separate Settings/Keybind codes to transfer just preferences.</p>
+        </div>
+        <div class="feature">
+          <h3>Community Poll &amp; Bug Report Tool</h3>
+          <p>One developer-authored poll with one-vote-per-account, plus a Copy Bug Report button for sharing diagnostics.</p>
+        </div>
+      </section>
+
+      <section class="category" id="accessibility-settings">
+        <h2>Accessibility &amp; Settings</h2>
+
+        <div class="feature">
+          <h3>Visual Accessibility</h3>
+          <p>Colorblind Mode with a live preview, Large Text Mode, Dyslexia-Friendly Font, High Contrast Mode, Text Spacing, Button Size, Reduce Transparency, High-Visibility Cursor, caption-style text backgrounds, visible focus rings, underlined links.</p>
+        </div>
+        <div class="feature">
+          <h3>Motion &amp; Flash Sensitivity</h3>
+          <p>Reduce Flashing Effects with a live preview, Streaming-Safe Mode, separate recoil-shake vs. damage-shake sliders, Motion Blur toggle, toast duration control.</p>
+        </div>
+        <div class="feature">
+          <h3>Audio Accessibility</h3>
+          <p>Audio cue on hover/focus, Positional Audio, Mute on Tab Blur, separate Music/SFX/Ambient sliders each with a Test button.</p>
+        </div>
+        <div class="feature">
+          <h3>Input Customization</h3>
+          <p>Full rebindable keybinds with Export/Import codes, toggle-vs-hold for sprint/crouch/aim, Aim Assist, mouse acceleration/sensitivity, invert look, separate hip-fire and ADS FOV, one-handed key layout.</p>
+        </div>
+        <div class="feature">
+          <h3>Keybind Cheat Sheet &amp; How to Play</h3>
+          <p>A persistent in-game bindings overlay, and a replayable How to Play reference covering movement, combat, inventory, chests, survival, companions, the safe zone, and game modes.</p>
+        </div>
+        <div class="feature">
+          <h3>Rules &amp; Info</h3>
+          <p>A separate panel from How to Play with simple conduct rules and basic facts about the game itself.</p>
+        </div>
+        <div class="feature">
+          <h3>Weapon Gear &amp; Special Ammo Guides</h3>
+          <p>Reference lists explaining what each Coin Shop weapon attachment actually does - a Weapon Gear Guide (Scope, Ext. Mag, Suppressor, Laser Sight) in Settings, and a Special Ammo Guide (Incendiary, Ricochet, Armor-Piercing, Precision, Electric, Acid, Cryo Rounds) in Upgrades.</p>
+        </div>
+        <div class="feature">
+          <h3>Language</h3>
+          <p>A full language picker covering 14+ languages, a quick-switch homepage button, and a "request a missing language" Discord link.</p>
+        </div>
+      </section>
+
+      <section class="category" id="quality-of-life">
+        <h2>Quality of Life</h2>
+
+        <div class="feature">
+          <h3>Deep HUD Customization</h3>
+          <p>Kill feed position/verbosity, compass style, weapon name toggle, minimap zoom, FPS counter, ammo position, health display style, low-ammo flash, session timer, HUD scale/opacity, crosshair color/size.</p>
+        </div>
+        <div class="feature">
+          <h3>Notification Toggles</h3>
+          <p>Achievement, rank-up, and leaderboard alerts, weekly/daily challenge reminders, low-coins reminder, friend online/offline alerts.</p>
+        </div>
+        <div class="feature">
+          <h3>Save &amp; Account QoL</h3>
+          <p>Auto-save frequency, save-size readout, Clear Cache, storage-full warning, backup reminder, confirm-before-sign-out, telemetry opt-out.</p>
+        </div>
+        <div class="feature">
+          <h3>Gameplay QoL</h3>
+          <p>Auto-Reload When Empty, Auto-Loot, Instant Interact at stations, Confirm Before Quitting, total playtime shown on pause, a damage flash color picker, alphabetical weapon sorting.</p>
+        </div>
+        <div class="feature">
+          <h3>Weapon Compare &amp; Loadout Suggestions</h3>
+          <p>A side-by-side weapon stat table with a hover quick-compare tooltip, plus a Recommended Difficulty and Suggested Loadout hint based on your history.</p>
+        </div>
+        <div class="feature">
+          <h3>What's New Digest</h3>
+          <p>A structured, dated in-game changelog with an optional "show every launch" toggle and a homepage popup of recent updates.</p>
+        </div>
+        <div class="feature">
+          <h3>Easter Eggs</h3>
+          <p>A classic Konami code, a hidden zombie icon, a secret input sequence for a temporary speed boost, a logo click counter, joke tips, and a once-a-year April Fools flip.</p>
+        </div>
+        <div class="feature">
+          <h3>Spotlight Ticker</h3>
+          <p>Rotates through weekly-challenge countdowns, mutator suggestions you've never tried, and trivia facts, right on the homepage.</p>
+        </div>
+      </section>
+
+      <section class="category" id="zombie-survival-map">
+        <h2>GayZ Zombie Survival Map</h2>
+
+        <div class="feature map-blueprint">
+          <h3>Full Map Blueprint</h3>
+          <p>A top-down layout of the survival map: downtown core, the safe zone, the four outer districts, and every named landmark, plotted at their real in-game coordinates.</p>
+
+          <div class="map-blueprint-layout">
+            <button type="button" class="map-blueprint-panel" id="map-blueprint-trigger" aria-label="Open a larger, zoomable version of the map blueprint">
+              <svg id="map-blueprint-svg" viewBox="0 0 710 540" role="img" aria-label="Top-down blueprint of the GayZ survival map showing downtown, the safe zone, park, four outer districts, and all named landmark buildings">
+                <g>
+                  <line class="mb-grid-line" x1="0" y1="270" x2="620" y2="270"/>
+                  <line class="mb-grid-line" x1="310" y1="0" x2="310" y2="540"/>
+                </g>
+
+                <rect class="mb-zone-fill" x="280" y="365" width="60" height="60" rx="3"/>
+                <text class="mb-zone-label" x="310" y="358" text-anchor="middle">Suburbs</text>
+
+                <rect class="mb-zone-fill" x="280" y="104" width="60" height="52" rx="3"/>
+                <text class="mb-zone-label" x="310" y="98" text-anchor="middle">Industrial</text>
+
+                <rect class="mb-zone-fill" x="365" y="240" width="60" height="60" rx="3"/>
+                <text class="mb-zone-label" x="395" y="234" text-anchor="middle">Commercial</text>
+
+                <rect class="mb-zone-fill" x="195" y="240" width="60" height="60" rx="3"/>
+                <text class="mb-zone-label" x="225" y="234" text-anchor="middle">Residential</text>
+
+                <rect class="mb-downtown-fill" x="270" y="220" width="80" height="100" rx="2"/>
+                <line class="mb-street" x1="310" y1="220" x2="310" y2="320"/>
+                <line class="mb-street" x1="270" y1="270" x2="350" y2="270"/>
+                <text class="mb-zone-label" x="310" y="213" text-anchor="middle" fill="var(--mb-gold-dim)">Downtown</text>
+
+                <rect class="mb-park-fill" x="285" y="322" width="50" height="20" rx="2"/>
+                <text class="mb-landmark-label mb-landmark-label-dim" x="310" y="335" text-anchor="middle">Park</text>
+
+                <circle class="mb-safe-zone-ring" cx="310" cy="312" r="14"/>
+                <text class="mb-safe-zone-label" x="310" y="316" text-anchor="middle">Safe Zone</text>
+
+                <circle class="mb-landmark-ring" cx="560" cy="270" r="10"/>
+                <circle class="mb-landmark-dot" cx="560" cy="270" r="4"/>
+                <text class="mb-landmark-label" x="560" y="256" text-anchor="middle">Office Skyscraper</text>
+
+                <circle class="mb-landmark-ring" cx="650" cy="170" r="10"/>
+                <circle class="mb-landmark-dot" cx="650" cy="170" r="4"/>
+                <text class="mb-landmark-label" x="650" y="156" text-anchor="middle">Mega Mall</text>
+                <line class="mb-grid-line" x1="560" y1="270" x2="650" y2="170" stroke-dasharray="3 3"/>
+
+                <g>
+                  <circle class="mb-landmark-dot" cx="470" cy="370" r="3.5"/>
+                  <text class="mb-landmark-label" x="478" y="373">Hospital</text>
+
+                  <circle class="mb-landmark-dot" cx="455" cy="370" r="3.5"/>
+                  <text class="mb-landmark-label" x="443" y="384" text-anchor="end">Pharmacy</text>
+
+                  <circle class="mb-landmark-dot" cx="470" cy="330" r="3.5"/>
+                  <text class="mb-landmark-label" x="478" y="333">Supermarket</text>
+
+                  <circle class="mb-landmark-dot" cx="410" cy="370" r="3.5"/>
+                  <text class="mb-landmark-label" x="410" y="384" text-anchor="middle">Motel</text>
+
+                  <circle class="mb-landmark-dot" cx="410" cy="420" r="3.5"/>
+                  <text class="mb-landmark-label" x="410" y="433" text-anchor="middle">Diner</text>
+                </g>
+
+                <g>
+                  <circle class="mb-landmark-dot" cx="455" cy="170" r="3.5"/>
+                  <text class="mb-landmark-label" x="443" y="167" text-anchor="end">Gun Shop</text>
+
+                  <circle class="mb-landmark-dot" cx="470" cy="210" r="3.5"/>
+                  <text class="mb-landmark-label" x="478" y="213">Grocery Store</text>
+
+                  <circle class="mb-landmark-dot" cx="470" cy="170" r="3.5"/>
+                  <text class="mb-landmark-label" x="478" y="173">Hardware Store</text>
+
+                  <circle class="mb-landmark-dot" cx="410" cy="120" r="3.5"/>
+                  <text class="mb-landmark-label" x="410" y="107" text-anchor="middle">Fire Station</text>
+                </g>
+
+                <g>
+                  <circle class="mb-landmark-dot" cx="150" cy="340" r="3.5"/>
+                  <text class="mb-landmark-label" x="150" y="326" text-anchor="middle">University</text>
+
+                  <circle class="mb-landmark-dot" cx="60" cy="270" r="3.5"/>
+                  <text class="mb-landmark-label" x="60" y="256" text-anchor="middle">Bank</text>
+
+                  <circle class="mb-landmark-dot" cx="210" cy="420" r="3.5"/>
+                  <text class="mb-landmark-label" x="210" y="433" text-anchor="middle">Radio Station</text>
+
+                  <circle class="mb-landmark-dot" cx="150" cy="155" r="3.5"/>
+                  <text class="mb-landmark-label" x="158" y="152">Police Station</text>
+
+                  <circle class="mb-landmark-dot" cx="170" cy="155" r="3.5"/>
+                  <text class="mb-landmark-label" x="178" y="170">Military Checkpoint</text>
+
+                  <circle class="mb-landmark-dot" cx="150" cy="100" r="3.5"/>
+                  <text class="mb-landmark-label" x="158" y="103">Prison</text>
+                </g>
+
+                <g>
+                  <circle class="mb-landmark-dot" cx="310" cy="55" r="3.5"/>
+                  <text class="mb-landmark-label" x="310" y="41" text-anchor="middle">Warehouse</text>
+
+                  <circle class="mb-landmark-dot" cx="310" cy="470" r="3.5"/>
+                  <text class="mb-landmark-label" x="310" y="484" text-anchor="middle">Gas Station</text>
+                </g>
+
+                <g transform="translate(44, 44)">
+                  <circle class="mb-compass-line" r="18" fill="none"/>
+                  <line class="mb-compass-line" x1="0" y1="-18" x2="0" y2="18"/>
+                  <line class="mb-compass-line" x1="-18" y1="0" x2="18" y2="0"/>
+                  <text class="mb-compass" y="-24" text-anchor="middle">&minus;Z</text>
+                  <text class="mb-compass" y="32" text-anchor="middle">+Z</text>
+                  <text class="mb-compass" x="-28" y="4" text-anchor="middle">&minus;X</text>
+                  <text class="mb-compass" x="28" y="4" text-anchor="middle">+X</text>
+                </g>
+              </svg>
+              <span class="map-blueprint-zoom-hint">Click to enlarge &amp; zoom</span>
+            </button>
+
+            <div class="map-blueprint-side">
+              <div class="map-blueprint-card">
+                <h4>Legend</h4>
+                <div class="mb-legend-row"><span class="mb-legend-swatch" style="background:var(--mb-downtown)"></span> Downtown core</div>
+                <div class="mb-legend-row"><span class="mb-legend-swatch" style="background:var(--mb-safe)"></span> Safe zone / park</div>
+                <div class="mb-legend-row"><span class="mb-legend-swatch" style="background:var(--mb-zone-fill); border:1.5px dashed var(--mb-zone-line)"></span> Outer district</div>
+                <div class="mb-legend-row"><span class="mb-legend-swatch" style="background:var(--gold); border-radius:50%"></span> Named landmark</div>
+              </div>
+
+              <div class="map-blueprint-card">
+                <h4>Downtown Core</h4>
+                <p>4 rows of buildings flanking the central avenue at <strong>x&nbsp;=&nbsp;0</strong>. 3 of the original slots are hand-built skyscrapers with interiors; every other tall building in the grid is now a real walkable skyscraper too, spaced automatically so none of them touch.</p>
+                <p>The <strong>Safe Zone</strong> sits just north of downtown at (0, 42) &mdash; home base, upgrades, trader, vault. The <strong>Park</strong> is the strip just past it.</p>
+              </div>
+
+              <div class="map-blueprint-card">
+                <h4>Underground (not shown above)</h4>
+                <ul class="mb-underground-list">
+                  <li><strong>Subway</strong> &mdash; tunnel network below downtown, reached via the station entrance.</li>
+                  <li><strong>Sewer</strong> &mdash; separate tunnel branch, its own entrance near downtown.</li>
+                  <li><strong>Vireo Facility</strong> &mdash; a continuation of the subway tunnel, not a separate entrance.</li>
+                  <li><strong>Toxic Sewer Level</strong> &mdash; a deeper, hazard variant branch.</li>
+                </ul>
+              </div>
+
+              <div class="map-blueprint-card">
+                <h4>Far East</h4>
+                <p>Past the main map: a standalone <strong>Office Skyscraper</strong> at <strong>x&nbsp;=&nbsp;250</strong> with its own rooftop bunker, and the <strong>Mega Mall</strong> further out at <strong>x&nbsp;=&nbsp;340</strong>, connected by a diagonal walkway.</p>
+              </div>
+            </div>
+          </div>
+
+          <p class="map-blueprint-note">Coordinates pulled directly from World.js's buildWorld() &mdash; positions are exact, distances between clusters are roughly to scale, individual building footprints are not.</p>
+        </div>
+      </section>
+
+      <section class="category" id="coming-soon">
+        <h2>Coming Soon</h2>
+        <p style="color:var(--text-dim); margin-top:-8px; margin-bottom:20px; font-size:14px;">Built, but paused or not switched on yet.</p>
+
+        <div class="feature coming-soon">
+          <h3>Weapon Skins Store</h3>
+          <p>Paused for a rework — already-owned skins from achievements still equip, nothing new is buyable yet. Shows as "Coming soon" in the Inventory panel.</p>
+        </div>
+        <div class="feature coming-soon">
+          <h3>Openable Crates</h3>
+          <p>Shows as "Coming soon" in the Store — not openable yet.</p>
+        </div>
+        <div class="feature coming-soon">
+          <h3>11 Permanent Weapon Attachments</h3>
+          <p>Scope, Extended Mag, Suppressor, Laser Sight, Incendiary/Ricochet/Armor-Piercing/Precision/Electric/Acid/Cryo Rounds — the purchase UI was removed from the Store, so none of these are buyable right now. What each one does is still explained in Settings (Weapon Gear Guide) and Upgrades (Special Ammo Guide).</p>
+        </div>
+        <div class="feature coming-soon">
+          <h3>Server Panel</h3>
+          <p>Exists in the nav, entirely a placeholder right now.</p>
+        </div>
+        <div class="feature coming-soon">
+          <h3>Monthly &amp; Yearly Quests</h3>
+          <p>Tabs exist in the Quests panel, not yet implemented.</p>
+        </div>
+        <div class="feature coming-soon">
+          <h3>Zombie Extraction Mode</h3>
+          <p>Visible in the mode picker but locked.</p>
+        </div>
+        <div class="feature coming-soon">
+          <h3>Deathmatch (PvP)</h3>
+          <p>A whole second Hub tab exists with FFA and Team toggles, both disabled.</p>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <footer>
+    Built for <a href="https://gayz.vercel.app" target="_blank" rel="noopener noreferrer">GayZ</a>. Updated as new features ship.
+  </footer>
+
+  <div id="map-lightbox" role="dialog" aria-modal="true" aria-label="Enlarged, zoomable map blueprint">
+    <div id="map-lightbox-toolbar">
+      <button type="button" class="map-lightbox-btn" id="map-lightbox-zoom-out" aria-label="Zoom out">&minus;</button>
+      <span id="map-lightbox-zoom-level">100%</span>
+      <button type="button" class="map-lightbox-btn" id="map-lightbox-zoom-in" aria-label="Zoom in">+</button>
+      <button type="button" class="map-lightbox-btn" id="map-lightbox-reset">Reset</button>
+      <button type="button" class="map-lightbox-btn" id="map-lightbox-close" aria-label="Close">&times;</button>
+      <span id="map-lightbox-hint">Scroll to zoom &middot; drag to pan &middot; Esc to close</span>
+    </div>
+    <div id="map-lightbox-viewport">
+      <div id="map-lightbox-canvas"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
