@@ -15379,7 +15379,16 @@ export class Game {
       this._showLoreToast(t('killstreakDamageBoost'))
     } else if (this.killStreak === KILLSTREAK_AIRSTRIKE_THRESHOLD) {
       const pos = this.player.controls.object.position
-      this.zombies.damageInRadius(pos.x, pos.z, KILLSTREAK_AIRSTRIKE_RADIUS, KILLSTREAK_AIRSTRIKE_DAMAGE_MIN, KILLSTREAK_AIRSTRIKE_DAMAGE_MAX)
+      // Phase 5 multiplayer - _checkKillstreakReward runs wherever the
+      // credited player's own personal-rewards half runs (host or a
+      // guest), but the airstrike itself has to land on the host's real
+      // zombies (only those are ever visible to anyone else). A guest
+      // reports where to strike instead of striking locally.
+      if (!this._multiplayerSessionId || this._multiplayerIsHost) {
+        this.zombies.damageInRadius(pos.x, pos.z, KILLSTREAK_AIRSTRIKE_RADIUS, KILLSTREAK_AIRSTRIKE_DAMAGE_MIN, KILLSTREAK_AIRSTRIKE_DAMAGE_MAX)
+      } else {
+        this._queueMultiplayerInteraction({ kind: 'killstreakAirstrike', x: pos.x, z: pos.z })
+      }
       this._showLoreToast(t('killstreakAirstrike'))
     } else if (this.killStreak === KILLSTREAK_AMMO_THRESHOLD) {
       this.weapons.infiniteAmmo = true
