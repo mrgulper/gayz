@@ -15527,12 +15527,26 @@ export class Game {
           health: z.health, maxHealth: z.maxHealth, state: z.state, type: z.type,
           screaming: performance.now() < z.screamPulseUntil,
         }))
+      // Phase 3c - both queues are drained and cleared here regardless of
+      // whether the upcoming network call actually succeeds; losing a rare
+      // cosmetic event or a damage tick to a dropped request is an
+      // acceptable, already-precedented tradeoff (same as this codebase's
+      // existing "fire and forget, .catch(() => {})" sync calls generally).
+      if (this.zombies.worldEvents.length || this._pendingWorldEvents.length) {
+        payload.worldEvents = [...this.zombies.worldEvents, ...this._pendingWorldEvents]
+        this.zombies.worldEvents = []
+        this._pendingWorldEvents = []
+      }
+      if (this.zombies.remoteDamageQueue.length) {
+        payload.remoteDamage = this.zombies.remoteDamageQueue
+        this.zombies.remoteDamageQueue = []
+      }
     } else if (this._pendingZombieHits.length) {
       payload.hits = this._pendingZombieHits
       this._pendingZombieHits = []
     }
     import('./Multiplayer.js').then((Multiplayer) => {
-      Multiplayer.syncPlayerState(this._multiplayerSessionId, payload).then(({ states, zombies, pendingHits }) => {
+      Multiplayer.syncPlayerState(this._multiplayerSessionId, payload).then(({ states, zombies, pendingHits, worldEvents, remoteDamage }) => {
         this._renderRemotePlayers(states)
         if (this._multiplayerIsHost) {
           for (const hit of pendingHits) {
@@ -15541,6 +15555,23 @@ export class Game {
           }
         } else {
           this._renderSharedZombies(zombies, feetX, feetZ)
+        }
+        // Phase 3c - world events are broadcast to everyone (not filtered
+        // per-recipient like remoteDamage below), so both the host and
+        // every guest replay any id they haven't seen yet.
+        for (const ev of worldEvents) {
+          if (this._seenWorldEventIds.has(ev.id)) continue
+          this._seenWorldEventIds.add(ev.id)
+          if (ev.type === 'explosion') this.zombies._spawnExplosionFX(ev.x, ev.z)
+          else this._spawnHazardZone(ev.type, ev.x, ev.z)
+        }
+        // remoteDamage only ever contains entries the server has already
+        // filtered down to this specific player (see api/multiplayer/sync.js) -
+        // applied via the exact same local methods solo play already uses.
+        for (const entry of remoteDamage) {
+          if (entry.kind === 'pull') this._onZombiePull(entry.originX, entry.originZ)
+          else if (entry.kind === 'disorient') this._triggerShake(0.18, 600)
+          else this._onZombieAttack(entry.damage)
         }
       }).catch(() => {})
     })
