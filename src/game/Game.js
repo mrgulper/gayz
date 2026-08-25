@@ -27,7 +27,7 @@ import { Quests, QUESTS } from './Quests.js'
 import { RollingQuests, EXPIRE_MS as ROLLING_QUEST_EXPIRE_MS } from './RollingQuests.js'
 import { rollPerks, checkPerkSynergies } from './Perks.js'
 import { rollXpUpgrades } from './XpUpgrades.js'
-import { XpGemManager } from './XpGems.js'
+import { XpGemManager, XpGem } from './XpGems.js'
 import { AutoWeaponManager } from './AutoWeapons.js'
 import { COIN_SHOP_ITEMS, ATTACHMENT_TYPES } from './CoinShop.js'
 import { pickNightEvent, NIGHT_MUTATIONS, NIGHT_MUTATION_CHANCE } from './NightEvents.js'
@@ -4976,6 +4976,11 @@ export class Game {
     // credited for - the same drop again on every sync tick until the host
     // catches up.
     this._collectedPickupIds = new Set()
+    // Phase 5 - same "already collected, ignore until it's gone from the
+    // snapshot" guard Phase 4 needed for ground loot pickups (see that
+    // phase's fix commit), built in here from the start instead of
+    // rediscovering the same bug.
+    this._collectedGemIds = new Set()
     // Phase 5 multiplayer - {playerId, payload}[] the host drains into its
     // next sync payload. payload is either a kill event (kind: 'kill') or
     // a Last Stand revival (kind: 'revive') - see _queueKillEvent/Task 10.
@@ -15909,6 +15914,36 @@ export class Game {
     }
   }
 
+  // Guest-side only - mirrors _renderSharedPickups' exact pattern
+  // (including the "already collected, ignore until gone from the
+  // snapshot" guard - see Task 7/8's own comments for why this is needed)
+  // for XP gems instead of loot drops.
+  _renderSharedGems(gemsSnapshot) {
+    const seenIds = new Set()
+    for (const [idStr, state] of Object.entries(gemsSnapshot)) {
+      if (!state) continue
+      const id = Number(idStr.slice(1))
+      seenIds.add(id)
+      if (this._collectedGemIds.has(id)) continue
+      const alreadyRendered = this.xpGems.sharedGems.some((g) => g.id === id)
+      if (!alreadyRendered) {
+        const gem = new XpGem(state.x, state.z, state.value)
+        gem.id = id
+        this.xpGems.sharedGems.push(gem)
+        this.scene.add(gem.mesh)
+      }
+    }
+    for (const id of this._collectedGemIds) {
+      if (!seenIds.has(id)) this._collectedGemIds.delete(id)
+    }
+    for (const gem of [...this.xpGems.sharedGems]) {
+      if (seenIds.has(gem.id)) continue
+      this.scene.remove(gem.mesh)
+      const idx = this.xpGems.sharedGems.indexOf(gem)
+      if (idx !== -1) this.xpGems.sharedGems.splice(idx, 1)
+    }
+  }
+
   // Shop - was just a Crates placeholder (see this file's git history for
   // that and the even older Weapon Attachments UI before it) - now shows
   // one purchasable character skin instead, spinning the same way as the
@@ -21403,7 +21438,19 @@ export class Game {
           this._queueMultiplayerInteraction({ kind: 'collectPickup', pickupId: id })
         })
       }
-      this.xpGems.update(dt, elapsed, playerPos, (value) => this._onXpGemCollected(value))
+      // Same host-only gating as pickups.update above - a guest's own
+      // XpGemManager.gems is never populated in a shared session (see
+      // _onZombieKilledWorldEffects, host-only), so this would just be a
+      // permanent no-op loop over nothing.
+      if (!this._multiplayerSessionId || this._multiplayerIsHost) {
+        this.xpGems.update(dt, elapsed, playerPos, (value) => this._onXpGemCollected(value))
+      } else {
+        this.xpGems.updateSharedGems(dt, elapsed, playerPos, (id, value) => {
+          this._collectedGemIds.add(id)
+          this._onXpGemCollected(value)
+          this._queueMultiplayerInteraction({ kind: 'collectGem', gemId: id })
+        })
+      }
       this.autoWeapons.update(dt, playerPos, this.zombies.zombies, () => {
         this._triggerShake(0.04, 80)
         this._triggerHitstop(30)
