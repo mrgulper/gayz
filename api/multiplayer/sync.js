@@ -30,13 +30,21 @@ export default async function handler(req, res) {
     x, y, z, rotY, currentWeapon, isFiring, updatedAt: now,
   })
 
-  const snapshot = await sessionRef.child('playerState').once('value')
-  const all = snapshot.val() || {}
+  // One read covers both playerState (position/weapon) and players
+  // (nicknames) - nicknames live in a separate node from the frequently-
+  // updated position data (see create.js/join.js), but the game needs
+  // both together to show a name tag over each remote player.
+  const [stateSnapshot, playersSnapshot] = await Promise.all([
+    sessionRef.child('playerState').once('value'),
+    sessionRef.child('players').once('value'),
+  ])
+  const allStates = stateSnapshot.val() || {}
+  const allPlayers = playersSnapshot.val() || {}
   const states = {}
-  for (const [otherId, state] of Object.entries(all)) {
+  for (const [otherId, state] of Object.entries(allStates)) {
     if (otherId === playerId) continue
     if (now - state.updatedAt > STALE_MS) continue
-    states[otherId] = state
+    states[otherId] = { ...state, nickname: allPlayers[otherId]?.nickname || 'Player' }
   }
 
   res.status(200).json({ states })

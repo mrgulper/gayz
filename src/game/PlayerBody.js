@@ -24,6 +24,35 @@ export async function preloadPlayerBodyModel() {
 // Same rig/raw height as Companion.js's model (same pack, same bounds).
 const GLB_SCALE_CORRECTION = 0.556
 
+// A floating nickname label - built once per PlayerBody (used for remote
+// multiplayer players, see Game.js's _renderRemotePlayers), a
+// THREE.Sprite so it always faces the camera regardless of the body's
+// own facing (Sprite orientation is screen-aligned by design, unlike a
+// regular mesh - only its POSITION is affected by the parent group's
+// transform, not its rotation). depthTest stays on (the default) so a
+// wall between you and a teammate correctly hides their name tag too,
+// same as their body already would.
+function _buildNicknameSprite(nickname) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 256
+  canvas.height = 64
+  const ctx = canvas.getContext('2d')
+  ctx.font = 'bold 40px sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.lineWidth = 6
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)'
+  ctx.strokeText(nickname, canvas.width / 2, canvas.height / 2)
+  ctx.fillStyle = '#ffffff'
+  ctx.fillText(nickname, canvas.width / 2, canvas.height / 2)
+  const texture = new THREE.CanvasTexture(canvas)
+  const material = new THREE.SpriteMaterial({ map: texture, transparent: true })
+  const sprite = new THREE.Sprite(material)
+  sprite.scale.set(1.1, 0.28, 1)
+  sprite.position.set(0, 2.05, 0)
+  return sprite
+}
+
 // Simple visible body for third-person view - the player has no body mesh
 // at all in first person (only WeaponSystem's viewmodel hands+gun), so one
 // is needed purely for the external third-person camera to look at.
@@ -66,6 +95,23 @@ export class PlayerBody {
     }
     this._glbCurrentAction = null
     this._playGlbAction('idle', true)
+  }
+
+  // Adds (or updates) a floating nickname label above this body - only
+  // used for remote multiplayer players (Game.js's _renderRemotePlayers),
+  // never the local player's own third-person body. Skips rebuilding the
+  // sprite/texture if the name hasn't actually changed, since this gets
+  // called on every render pass (a few times a second).
+  setNickname(nickname) {
+    if (this._nicknameText === nickname) return
+    if (this._nicknameSprite) {
+      this.group.remove(this._nicknameSprite)
+      this._nicknameSprite.material.map.dispose()
+      this._nicknameSprite.material.dispose()
+    }
+    this._nicknameText = nickname
+    this._nicknameSprite = _buildNicknameSprite(nickname)
+    this.group.add(this._nicknameSprite)
   }
 
   // Outfit customization - tints the "Shirt" material slot. This model

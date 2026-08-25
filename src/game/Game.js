@@ -15525,6 +15525,7 @@ export class Game {
         this._remotePlayerBodies.set(id, body)
       }
       body.update(state.x, state.y, state.z, state.rotY, true)
+      body.setNickname(state.nickname || 'Player')
     }
     for (const [id, body] of this._remotePlayerBodies) {
       if (seenIds.has(id)) continue
