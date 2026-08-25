@@ -15576,7 +15576,12 @@ export class Game {
   _renderSharedZombies(zombiesSnapshot, localPlayerX, localPlayerZ) {
     const seenIds = new Set()
     for (const [idStr, state] of Object.entries(zombiesSnapshot)) {
-      const id = Number(idStr)
+      // Keys arrive as 'z<id>' (see api/multiplayer/sync.js's own comment on
+      // why - avoids a Firebase RTDB quirk where a sparse, purely-numeric-key
+      // object silently becomes an array with null gaps). Strip the prefix
+      // to recover the real numeric id.
+      const id = Number(idStr.slice(1))
+      if (!state) continue
       seenIds.add(id)
       let zombie = this._sharedZombieBodies.get(id)
       if (!zombie) {

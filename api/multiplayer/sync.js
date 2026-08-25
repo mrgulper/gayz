@@ -47,7 +47,18 @@ export default async function handler(req, res) {
   if (isHost && Array.isArray(zombies)) {
     const zombiesById = {}
     for (const zb of zombies) {
-      zombiesById[zb.id] = {
+      // Firebase RTDB gotcha: an object whose keys are ALL small sequential
+      // numeric strings ("0", "1", "2"...) gets silently stored/returned as
+      // a JSON ARRAY instead of a real object - and any gap in that
+      // sequence (a zombie id that never became a shared type, which is
+      // most of them in real play) comes back as a literal `null` entry,
+      // which then throws the instant client code reads `.type` off it.
+      // Zombie ids are a plain incrementing counter (Zombie.js's
+      // zombieIdCounter), so this gap is the normal case, not an edge
+      // case - prefixing the key with a letter keeps this a real object no
+      // matter how sparse the id range is. See Game.js's
+      // _renderSharedZombies for the matching read-side fix.
+      zombiesById['z' + zb.id] = {
         x: zb.x, z: zb.z, rotY: zb.rotY, health: zb.health,
         maxHealth: zb.maxHealth, state: zb.state, type: zb.type,
         // Phase 3b (docs/superpowers/specs/2026-08-24-multiplayer-phase3b-groupa-zombies-design.md) -
