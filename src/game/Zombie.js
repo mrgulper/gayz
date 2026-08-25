@@ -2364,6 +2364,169 @@ export class Zombie {
     this.group.position.z += this._hitReactOffsetZ
   }
 
+  // Phase 6 multiplayer (docs/superpowers/specs/2026-08-25-multiplayer-phase6-scaling-migration-design.md) -
+  // everything needed for a migrated-in host to keep this zombie behaving
+  // IDENTICALLY, not just visually similar - every player-facing state
+  // machine field, status effect, and cooldown, beyond the thin
+  // position/health/type already broadcast for rendering.
+  //
+  // Every *Until/*At field representing an UPCOMING event is exported as
+  // a REMAINING DURATION IN MS, and every *Since/*StartedAt field
+  // representing something that ALREADY happened is exported as an
+  // ELAPSED DURATION IN MS - never the raw performance.now() value,
+  // which is a per-tab-relative clock that means nothing on a different
+  // browser (see this plan's own Global Constraints). restoreFullState
+  // converts these back to real performance.now()-based timestamps using
+  // the calling (i.e. newly-importing) client's own clock.
+  //
+  // Deliberately excluded: isPackAlpha/_congestion (recomputed fresh
+  // every frame from neighboring zombies, never meaningful to carry
+  // over), the brief hit-react knockback fields (hitReactX/Z/Magnitude/
+  // StartedAt, _hitReactOffsetX/Z - HIT_REACT_DURATION_MS is 200ms, far
+  // shorter than the ~2.5-3s a real host disconnect takes to detect, so
+  // this has always already fully decayed by migration time), and every
+  // LOS-raycasting scratch/cache field (_losCachedResult/_losCacheUntil/
+  // _moveBox/_losRaycaster/_losOrigin/_losDir - safe to just recompute
+  // fresh, carrying over a stale cached LOS result would be actively
+  // wrong).
+  exportFullState() {
+    const now = performance.now()
+    const remaining = (until) => (until ? Math.max(0, until - now) : 0)
+    const elapsed = (since) => (since ? Math.max(0, now - since) : 0)
+    return {
+      // Tier/identity flags - not part of `type`, so a plain shared
+      // zombie can't otherwise be told apart from an elite/golden/
+      // wandering/carrier one.
+      isWandering: !!this.isWandering,
+      isGolden: !!this.isGolden,
+      isCarrier: !!this.isCarrier,
+      isAlpha: !!this.isAlpha,
+      isBoss: !!this.isBoss,
+      flankSide: this.flankSide ?? null,
+      fleeing: !!this.fleeing,
+      // Awareness/wander AI mode.
+      aware: !!this.aware,
+      awareSinceMs: elapsed(this.awareSince),
+      wanderDirX: this.wanderDirX,
+      wanderDirZ: this.wanderDirZ,
+      wanderRetargetInMs: remaining(this.wanderRetargetAt),
+      dormantSinceMs: elapsed(this.dormantSince),
+      // Status effects with expiry.
+      enragedInMs: remaining(this.enragedUntil),
+      enragePhase: this.enragePhase,
+      weakenedInMs: remaining(this.weakenedUntil),
+      hivemindBuffInMs: remaining(this.hivemindBuffUntil),
+      staggerInMs: remaining(this.staggerUntil),
+      igniteInMs: remaining(this.igniteUntil),
+      igniteDps: this.igniteDps ?? 0,
+      corrodedInMs: remaining(this.corrodedUntil),
+      frozenInMs: remaining(this.frozenUntil),
+      isCrippled: !!this.isCrippled,
+      legHitCount: this.legHitCount ?? 0,
+      isBerserk: !!this.isBerserk,
+      // Cooldowns.
+      attackCooldownInMs: remaining(this.attackCooldownUntil),
+      attackAnimInMs: remaining(this.attackAnimUntil),
+      screamCooldownInMs: remaining(this.screamCooldownUntil),
+      screamPulseInMs: remaining(this.screamPulseUntil),
+      trailCooldownInMs: remaining(this.trailCooldownUntil),
+      leapCooldownInMs: remaining(this.leapCooldownUntil),
+      specialCooldownInMs: remaining(this.specialCooldownUntil),
+      specialTelegraphInMs: remaining(this.specialTelegraphUntil),
+      nextAddSummonInMs: remaining(this.nextAddSummonAt),
+      // Shielded-type absorb pool.
+      shieldHealth: this.shieldHealth,
+      // Death/transition state.
+      dieStartedMsAgo: elapsed(this.dieStartedAt),
+      popStartedMsAgo: elapsed(this.popStartedAt),
+      burstInMs: remaining(this.burstUntil),
+      pendingExplosion: !!this.pendingExplosion,
+      explodeStartedMsAgo: elapsed(this.explodeStartedAt),
+      deathHandled: !!this.deathHandled,
+      // Climbing (mid-arc obstacle traversal) - kept despite its short
+      // 500ms duration (ZOMBIE_CLIMB_DURATION_MS), unlike hit-react above,
+      // since this is real simulation state (not pure decoration): a
+      // zombie mid-climb needs to actually finish its arc correctly, not
+      // silently reset to standing on the ground mid-obstacle. In
+      // practice, by the time migration completes the elapsed real time
+      // will usually already exceed 500ms, so the new host's own
+      // progress-based climb-completion check (elapsed/duration, clamped
+      // to 1) naturally finishes the climb immediately - which is the
+      // CORRECT seamless behavior, not a bug.
+      isClimbing: !!this.isClimbing,
+      climbStartX: this._climbStartX,
+      climbStartZ: this._climbStartZ,
+      climbPeakY: this._climbPeakY,
+      climbTargetX: this._climbTargetX,
+      climbTargetZ: this._climbTargetZ,
+      climbStartedMsAgo: elapsed(this._climbStartedAt),
+      // Combat bookkeeping.
+      lastHitWeaponId: this.lastHitWeaponId ?? null,
+      lastHitFromPlayerId: this._lastHitFromPlayerId ?? null,
+    }
+  }
+
+  // The inverse of exportFullState() above - applies a previously-
+  // exported snapshot onto this instance, converting every duration back
+  // into a real performance.now()-based timestamp using THIS client's own
+  // clock (the only correct way to do it - see exportFullState's comment).
+  restoreFullState(data) {
+    if (!data) return
+    const now = performance.now()
+    const inFuture = (ms) => (ms > 0 ? now + ms : 0)
+    const inPast = (ms) => (ms > 0 ? now - ms : 0)
+    this.isWandering = !!data.isWandering
+    this.isGolden = !!data.isGolden
+    this.isCarrier = !!data.isCarrier
+    this.isAlpha = !!data.isAlpha
+    this.isBoss = !!data.isBoss
+    this.flankSide = data.flankSide ?? null
+    this.fleeing = !!data.fleeing
+    this.aware = !!data.aware
+    this.awareSince = inPast(data.awareSinceMs)
+    this.wanderDirX = data.wanderDirX
+    this.wanderDirZ = data.wanderDirZ
+    this.wanderRetargetAt = inFuture(data.wanderRetargetInMs)
+    this.dormantSince = inPast(data.dormantSinceMs)
+    this.enragedUntil = inFuture(data.enragedInMs)
+    this.enragePhase = data.enragePhase ?? 0
+    this.weakenedUntil = inFuture(data.weakenedInMs)
+    this.hivemindBuffUntil = inFuture(data.hivemindBuffInMs)
+    this.staggerUntil = inFuture(data.staggerInMs)
+    this.igniteUntil = inFuture(data.igniteInMs)
+    this.igniteDps = data.igniteDps ?? 0
+    this.corrodedUntil = inFuture(data.corrodedInMs)
+    this.frozenUntil = inFuture(data.frozenInMs)
+    this.isCrippled = !!data.isCrippled
+    this.legHitCount = data.legHitCount ?? 0
+    this.isBerserk = !!data.isBerserk
+    this.attackCooldownUntil = inFuture(data.attackCooldownInMs)
+    this.attackAnimUntil = inFuture(data.attackAnimInMs)
+    this.screamCooldownUntil = inFuture(data.screamCooldownInMs)
+    this.screamPulseUntil = inFuture(data.screamPulseInMs)
+    this.trailCooldownUntil = inFuture(data.trailCooldownInMs)
+    this.leapCooldownUntil = inFuture(data.leapCooldownInMs)
+    this.specialCooldownUntil = inFuture(data.specialCooldownInMs)
+    this.specialTelegraphUntil = inFuture(data.specialTelegraphInMs)
+    this.nextAddSummonAt = inFuture(data.nextAddSummonInMs)
+    this.shieldHealth = data.shieldHealth ?? 0
+    this.dieStartedAt = inPast(data.dieStartedMsAgo)
+    this.popStartedAt = inPast(data.popStartedMsAgo)
+    this.burstUntil = inFuture(data.burstInMs)
+    this.pendingExplosion = !!data.pendingExplosion
+    this.explodeStartedAt = inPast(data.explodeStartedMsAgo)
+    this.deathHandled = !!data.deathHandled
+    this.isClimbing = !!data.isClimbing
+    this._climbStartX = data.climbStartX
+    this._climbStartZ = data.climbStartZ
+    this._climbPeakY = data.climbPeakY
+    this._climbTargetX = data.climbTargetX
+    this._climbTargetZ = data.climbTargetZ
+    this._climbStartedAt = inPast(data.climbStartedMsAgo)
+    this.lastHitWeaponId = data.lastHitWeaponId ?? null
+    this._lastHitFromPlayerId = data.lastHitFromPlayerId ?? null
+  }
+
   onHit(damage, opts = {}) {
     if (this.isNetworkDriven) {
       // Not authoritative - this instance is a guest's rendering of a
