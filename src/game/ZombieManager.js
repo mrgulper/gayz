@@ -928,7 +928,7 @@ export class ZombieManager {
       )
   }
 
-  _spawnProjectile(origin, targetSnapshot, damage, travelSpeed, effect = 'damage') {
+  _spawnProjectile(origin, targetSnapshot, damage, travelSpeed, effect = 'damage', targetPlayerId = null) {
     const mesh = new THREE.Mesh(projectileGeometry, projectileMat)
     mesh.position.copy(origin)
     this.scene.add(mesh)
@@ -936,7 +936,7 @@ export class ZombieManager {
     const distance = origin.distanceTo(targetSnapshot)
     const travelTime = Math.max(0.15, distance / travelSpeed)
 
-    this.projectiles.push({ mesh, origin, target: targetSnapshot, damage, travelTime, t: 0, effect })
+    this.projectiles.push({ mesh, origin, target: targetSnapshot, damage, travelTime, t: 0, effect, targetPlayerId })
   }
 
   // Player-thrown decoy: arcs to the target point, then plays a loud sound
@@ -1472,20 +1472,39 @@ export class ZombieManager {
     this.nextMoanAt = performance.now() + this._randomMoanDelay()
   }
 
-  _updateProjectiles(dt, playerPos, onPlayerDamage, onPlayerPull, onPlayerDisorient, onWebLand) {
+  _updateProjectiles(dt, playerPos, onPlayerDamage, onPlayerPull, onPlayerDisorient, onWebLand, otherPlayers = []) {
     this.projectiles = this.projectiles.filter((p) => {
       p.t += dt / p.travelTime
       if (p.t >= 1) {
         this.scene.remove(p.mesh)
-        const dist = Math.hypot(playerPos.x - p.target.x, playerPos.z - p.target.z)
+        // Phase 3c - a projectile launched at a guest checks against that
+        // player's own last-known position instead of the local one. If
+        // that player has since disconnected (no longer in otherPlayers),
+        // treat it as a miss rather than guessing a stale position.
+        const targetPlayerPos = p.targetPlayerId === null
+          ? playerPos
+          : (otherPlayers || []).find((op) => op.playerId === p.targetPlayerId)
+        const dist = targetPlayerPos
+          ? Math.hypot(targetPlayerPos.x - p.target.x, targetPlayerPos.z - p.target.z)
+          : Infinity
         if (dist <= PROJECTILE_HIT_RADIUS) {
           // Anchor/Siren/Webber - same arrival check as a normal damaging
           // hit, just landing a different effect instead of (or alongside,
           // for Webber which plants a zone the player isn't necessarily
-          // standing in yet) player damage.
-          if (p.effect === 'pull') { if (onPlayerPull) onPlayerPull(p.origin.x, p.origin.z) }
-          else if (p.effect === 'disorient') { if (onPlayerDisorient) onPlayerDisorient() }
-          else if (onPlayerDamage) onPlayerDamage(p.damage)
+          // standing in yet) player damage. A remote (non-null
+          // targetPlayerId) hit queues into remoteDamageQueue instead of
+          // calling the local callbacks - see Game.js's _syncNetworkPlayerState.
+          if (p.effect === 'pull') {
+            if (p.targetPlayerId === null) { if (onPlayerPull) onPlayerPull(p.origin.x, p.origin.z) }
+            else this.remoteDamageQueue.push({ playerId: p.targetPlayerId, damage: 0, kind: 'pull', originX: p.origin.x, originZ: p.origin.z })
+          } else if (p.effect === 'disorient') {
+            if (p.targetPlayerId === null) { if (onPlayerDisorient) onPlayerDisorient() }
+            else this.remoteDamageQueue.push({ playerId: p.targetPlayerId, damage: 0, kind: 'disorient' })
+          } else if (p.targetPlayerId === null) {
+            if (onPlayerDamage) onPlayerDamage(p.damage)
+          } else {
+            this.remoteDamageQueue.push({ playerId: p.targetPlayerId, damage: p.damage, kind: 'damage' })
+          }
         }
         if (p.effect === 'web' && onWebLand) onWebLand(p.target.x, p.target.z)
         return false
@@ -1797,7 +1816,7 @@ export class ZombieManager {
       }
     }
 
-    this._updateProjectiles(dt, playerPos, onPlayerDamage, onPlayerPull, onPlayerDisorient, onWebLand)
+    this._updateProjectiles(dt, playerPos, onPlayerDamage, onPlayerPull, onPlayerDisorient, onWebLand, otherPlayers)
     this._updateExplosionFx()
     this._updateScreamFx()
     this._updateAmbientMoan(playerPos, playerForwardX, playerForwardZ)
