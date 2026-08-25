@@ -10,6 +10,7 @@ import { LOW_QUALITY_MODE, flatMaterial } from './QualitySettings.js'
 import { PlayerController } from './PlayerController.js'
 import { WeaponSystem, MELEE_DURABILITY_MAX } from './WeaponSystem.js'
 import { ZombieManager } from './ZombieManager.js'
+import { Zombie } from './Zombie.js'
 import { PickupManager } from './Pickups.js'
 import { PlayerState } from './PlayerState.js'
 import { Inventory } from './Inventory.js'
@@ -38,7 +39,7 @@ import { MinecraftPlayerBody } from './MinecraftPlayerBody.js'
 import { Vehicle } from './Vehicle.js'
 import { META_UPGRADES, loadMetaProgress, saveMetaProgress, DEATH_POINTS_CONVERSION } from './MetaProgress.js'
 import { pickBounty } from './BountyBoard.js'
-import { ZOMBIE_TYPES } from './ZombieTypes.js'
+import { ZOMBIE_TYPES, SHARED_ZOMBIE_TYPE_IDS } from './ZombieTypes.js'
 import { RescueSurvivor } from './RescueSurvivor.js'
 import { loadEncountered, saveEncountered } from './Bestiary.js'
 import { ACTIONS, getKeyFor, setBinding, resetBindings, keyLabel, getAllBindings, setAllBindings } from './Keybinds.js'
@@ -4939,6 +4940,9 @@ export class Game {
     this.multiplayerStartPlayingBtn = document.getElementById('multiplayer-start-playing-btn')
     this._multiplayerSessionId = null
     this._multiplayerUid = null
+    this._multiplayerIsHost = false
+    this._pendingZombieHits = [] // {zombieId, damage, bypassShield} queued locally, drained into the next sync call
+    this._sharedZombieBodies = new Map() // zombieId -> Zombie (network-driven, guest side only)
     this._remotePlayerBodies = new Map() // uid -> PlayerBody
     this._pendingJoinSessionId = new URLSearchParams(window.location.search).get('join') || null
     this.whatsNewLink = document.getElementById('nav-whatsnew-link')
@@ -15450,6 +15454,7 @@ export class Game {
     }
     this._multiplayerSessionId = sessionId
     this._multiplayerUid = uid
+    this._multiplayerIsHost = true
     const link = `${window.location.origin}${window.location.pathname}?join=${sessionId}`
     this.multiplayerLinkInput.value = link
     this.multiplayerCreateView.style.display = 'none'
@@ -15474,6 +15479,7 @@ export class Game {
       const { uid } = await Multiplayer.joinSession(sessionId, nickname)
       this._multiplayerSessionId = sessionId
       this._multiplayerUid = uid
+      this._multiplayerIsHost = false
     } catch {
       this._showHomepageToast(t('multiplayerJoinFailed'))
     }
@@ -15494,16 +15500,36 @@ export class Game {
     const feetY = this.camera.position.y - this.player.eyeHeight
     const feetZ = this.camera.position.z
     const yaw = new THREE.Euler().setFromQuaternion(this.camera.quaternion, 'YXZ').y
+    const payload = {
+      x: feetX,
+      y: feetY,
+      z: feetZ,
+      rotY: yaw,
+      currentWeapon: this.weapons.current.id,
+      isFiring: !!this.weapons.triggerDown,
+    }
+    if (this._multiplayerIsHost) {
+      payload.zombies = this.zombies.zombies
+        .filter((z) => SHARED_ZOMBIE_TYPE_IDS.has(z.type) && z.state !== 'dead')
+        .map((z) => ({
+          id: z.id, x: z.group.position.x, z: z.group.position.z, rotY: z.group.rotation.y,
+          health: z.health, maxHealth: z.maxHealth, state: z.state, type: z.type,
+        }))
+    } else if (this._pendingZombieHits.length) {
+      payload.hits = this._pendingZombieHits
+      this._pendingZombieHits = []
+    }
     import('./Multiplayer.js').then((Multiplayer) => {
-      Multiplayer.syncPlayerState(this._multiplayerSessionId, {
-        x: feetX,
-        y: feetY,
-        z: feetZ,
-        rotY: yaw,
-        currentWeapon: this.weapons.current.id,
-        isFiring: !!this.weapons.triggerDown,
-      }).then((states) => {
+      Multiplayer.syncPlayerState(this._multiplayerSessionId, payload).then(({ states, zombies, pendingHits }) => {
         this._renderRemotePlayers(states)
+        if (this._multiplayerIsHost) {
+          for (const hit of pendingHits) {
+            const zombie = this.zombies.zombies.find((z) => z.id === hit.zombieId)
+            if (zombie) zombie.onHit(hit.damage, { bypassShield: hit.bypassShield })
+          }
+        } else {
+          this._renderSharedZombies(zombies)
+        }
       }).catch(() => {})
     })
   }
@@ -15534,6 +15560,44 @@ export class Game {
       if (seenIds.has(id)) continue
       body.group.parent?.remove(body.group)
       this._remotePlayerBodies.delete(id)
+    }
+  }
+
+  // Guest-side only - one network-driven Zombie per shared id, created
+  // lazily the first time that id is seen and reused after that (never
+  // recreated every update - would rebuild the whole model for no
+  // reason). Mirrors _renderRemotePlayers' exact lazily-create/reuse/
+  // remove-when-gone pattern. An id that stops appearing (killed, or
+  // fell out of the host's shared-type list) gets removed from the
+  // scene, disposed, and dropped from both this._sharedZombieBodies and
+  // the manager's sharedZombies array (so WeaponSystem's raycast stops
+  // considering it too).
+  _renderSharedZombies(zombiesSnapshot) {
+    const seenIds = new Set()
+    for (const [idStr, state] of Object.entries(zombiesSnapshot)) {
+      const id = Number(idStr)
+      seenIds.add(id)
+      let zombie = this._sharedZombieBodies.get(id)
+      if (!zombie) {
+        const typeConfig = ZOMBIE_TYPES[state.type]
+        if (!typeConfig) continue
+        zombie = new Zombie(state.x, state.z, typeConfig, false, false, 1, 1, 1, true)
+        zombie.id = id
+        zombie._onNetworkHit = (damage, opts) => {
+          this._pendingZombieHits.push({ zombieId: id, damage, bypassShield: !!opts.bypassShield })
+        }
+        this._sharedZombieBodies.set(id, zombie)
+        this.zombies.sharedZombies.push(zombie)
+      }
+      zombie.applyNetworkState(state.x, state.z, state.rotY, state.health, state.maxHealth, state.state)
+    }
+    for (const [id, zombie] of this._sharedZombieBodies) {
+      if (seenIds.has(id)) continue
+      zombie.group.parent?.remove(zombie.group)
+      zombie.dispose()
+      this._sharedZombieBodies.delete(id)
+      const idx = this.zombies.sharedZombies.indexOf(zombie)
+      if (idx !== -1) this.zombies.sharedZombies.splice(idx, 1)
     }
   }
 
@@ -15946,6 +16010,13 @@ export class Game {
       body.group.parent?.remove(body.group)
     }
     this._remotePlayerBodies.clear()
+    for (const zombie of this._sharedZombieBodies.values()) {
+      zombie.group.parent?.remove(zombie.group)
+      zombie.dispose()
+    }
+    this._sharedZombieBodies.clear()
+    this.zombies.sharedZombies = []
+    this._pendingZombieHits = []
     const legacyEarned = Math.floor(this.points * DEATH_POINTS_CONVERSION * QUIT_LEGACY_MULT * (1 + this.metaProgress.prestigeLevel * 0.1))
     this.metaProgress.legacyPoints += legacyEarned
     saveMetaProgress(this.metaProgress)
@@ -20901,7 +20972,11 @@ export class Game {
       this._updateDirectorAI()
       this._updateAdrenaline()
       this.camera.getWorldDirection(this._camDir)
-      this.zombies.update(
+      // A guest in a shared multiplayer session never runs the real
+      // simulation - no spawning, no AI - it only renders whatever the
+      // host broadcasts (see _renderSharedZombies). The host (or a solo
+      // player with no session at all) keeps working exactly as before.
+      if (!this._multiplayerSessionId || this._multiplayerIsHost) this.zombies.update(
         dt,
         playerPos,
         (dmg) => this._onZombieAttack(dmg),
