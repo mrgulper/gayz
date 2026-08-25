@@ -15702,6 +15702,7 @@ export class Game {
         payload.killEvents = this._pendingKillEvents
         this._pendingKillEvents = []
       }
+      payload.xpGems = this.xpGems.gems.map((g) => ({ id: g.id, value: g.value, x: g.mesh.position.x, z: g.mesh.position.z }))
     } else if (this._pendingZombieHits.length) {
       payload.hits = this._pendingZombieHits
       this._pendingZombieHits = []
@@ -15711,7 +15712,7 @@ export class Game {
       this._pendingInteractions = []
     }
     import('./Multiplayer.js').then((Multiplayer) => {
-      Multiplayer.syncPlayerState(this._multiplayerSessionId, payload).then(({ states, zombies, pendingHits, worldEvents, remoteDamage, pickups, chests, vaultOpened, windows, interactions, killEvents }) => {
+      Multiplayer.syncPlayerState(this._multiplayerSessionId, payload).then(({ states, zombies, pendingHits, worldEvents, remoteDamage, pickups, chests, vaultOpened, windows, interactions, killEvents, xpGems }) => {
         this._renderRemotePlayers(states)
         if (this._multiplayerIsHost) {
           for (const hit of pendingHits) {
@@ -15739,11 +15740,19 @@ export class Game {
               this.barricadeWindows.repair(this.barricadeWindows.windows[interaction.windowIndex])
             } else if (interaction.kind === 'killstreakAirstrike') {
               this.zombies.damageInRadius(interaction.x, interaction.z, KILLSTREAK_AIRSTRIKE_RADIUS, KILLSTREAK_AIRSTRIKE_DAMAGE_MIN, KILLSTREAK_AIRSTRIKE_DAMAGE_MAX)
+            } else if (interaction.kind === 'collectGem') {
+              const gem = this.xpGems.gems.find((g) => g.id === interaction.gemId)
+              if (gem) {
+                this.scene.remove(gem.mesh)
+                const idx = this.xpGems.gems.indexOf(gem)
+                if (idx !== -1) this.xpGems.gems.splice(idx, 1)
+              }
             }
           }
         } else {
           this._renderSharedZombies(zombies, feetX, feetZ)
           this._renderSharedPickups(pickups)
+          this._renderSharedGems(xpGems)
           for (let i = 0; i < chests.length; i++) {
             const chest = this.chests.chests[i]
             const state = chests[i]

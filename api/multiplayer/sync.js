@@ -36,7 +36,7 @@ const WORLD_EVENT_TTL_MS = 15000
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
-  const { sessionId, playerId, x, y, z, rotY, currentWeapon, isFiring, zombies, hits, worldEvents, remoteDamage, pickups, chests, vaultOpened, windows, interactions, killEvents } = req.body || {}
+  const { sessionId, playerId, x, y, z, rotY, currentWeapon, isFiring, zombies, hits, worldEvents, remoteDamage, pickups, chests, vaultOpened, windows, interactions, killEvents, xpGems } = req.body || {}
   if (!sessionId || !playerId) {
     return res.status(400).json({ error: 'sessionId and playerId are required' })
   }
@@ -87,6 +87,16 @@ export default async function handler(req, res) {
       pickupsById['p' + p.id] = { type: p.type, x: p.x, z: p.z }
     }
     await sessionRef.child('world/pickups').set(pickupsById)
+  }
+
+  if (isHost && Array.isArray(xpGems)) {
+    const gemsById = {}
+    for (const g of xpGems) {
+      // Same sparse-array precaution as pickups above - gem ids are also
+      // a plain incrementing counter.
+      gemsById['g' + g.id] = { value: g.value, x: g.x, z: g.z }
+    }
+    await sessionRef.child('world/xpGems').set(gemsById)
   }
 
   if (isHost && Array.isArray(chests)) {
@@ -207,7 +217,7 @@ export default async function handler(req, res) {
   const killEventsOut = Object.values(myKillEvents)
   if (killEventsOut.length) await sessionRef.child(`world/killEvents/${playerId}`).remove()
 
-  const [stateSnapshot, playersSnapshot, zombiesSnapshot, eventsSnapshot, pickupsSnapshot, chestsSnapshot, vaultOpenedSnapshot, windowsSnapshot] = await Promise.all([
+  const [stateSnapshot, playersSnapshot, zombiesSnapshot, eventsSnapshot, pickupsSnapshot, chestsSnapshot, vaultOpenedSnapshot, windowsSnapshot, xpGemsSnapshot] = await Promise.all([
     sessionRef.child('playerState').once('value'),
     sessionRef.child('players').once('value'),
     sessionRef.child('world/zombies').once('value'),
@@ -216,6 +226,7 @@ export default async function handler(req, res) {
     sessionRef.child('world/chests').once('value'),
     sessionRef.child('world/vaultOpened').once('value'),
     sessionRef.child('world/windows').once('value'),
+    sessionRef.child('world/xpGems').once('value'),
   ])
   const allStates = stateSnapshot.val() || {}
   const allPlayers = playersSnapshot.val() || {}
@@ -248,5 +259,6 @@ export default async function handler(req, res) {
     states, zombies: zombiesSnapshot.val() || {}, pendingHits, worldEvents: worldEventsOut, remoteDamage: remoteDamageOut,
     pickups: pickupsSnapshot.val() || {}, chests: chestsSnapshot.val() || [], vaultOpened: vaultOpenedSnapshot.val() || false,
     windows: windowsSnapshot.val() || [], interactions: pendingInteractions, killEvents: killEventsOut,
+    xpGems: xpGemsSnapshot.val() || {},
   })
 }
