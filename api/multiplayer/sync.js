@@ -1,11 +1,22 @@
-// POST { sessionId, playerId, x, y, z, rotY, currentWeapon, isFiring }
-//   -> { states: { [otherPlayerId]: {...} } }
+// POST { sessionId, playerId, x, y, z, rotY, currentWeapon, isFiring,
+//        zombies?, hits? }
+//   -> { states, zombies, pendingHits }
 // Merges what used to be two separate calls (updatePlayerState +
 // subscribeToPlayerStates) into one round trip: write your own state,
 // read everyone else's, in the same request. There's no live push
 // connection any more (that's what made this whole feature reachable by
 // ad blockers) - the client just calls this a few times a second and
 // gets a fresh answer every time (polling).
+//
+// Phase 3 (docs/superpowers/specs/2026-08-24-multiplayer-phase3-shared-zombies-design.md)
+// adds zombie state to this same call rather than a new endpoint: the
+// host includes its current zombie snapshot (zombies), and a guest
+// includes any shots it resolved locally since its last sync (hits) - a
+// guest's own game trusts its own hit-detection instead of the host
+// re-validating every shot, a deliberate simplicity choice documented in
+// that spec. The server decides who's the host from the session's own
+// stored `host` field, never from a client claim, so a guest can't just
+// send a zombies snapshot and have it accepted.
 import { getAdminDb } from '../_lib/firebaseAdmin.js'
 
 // A player who hasn't sent an update in this long is treated as gone -
@@ -17,7 +28,7 @@ const STALE_MS = 2500
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
-  const { sessionId, playerId, x, y, z, rotY, currentWeapon, isFiring } = req.body || {}
+  const { sessionId, playerId, x, y, z, rotY, currentWeapon, isFiring, zombies, hits } = req.body || {}
   if (!sessionId || !playerId) {
     return res.status(400).json({ error: 'sessionId and playerId are required' })
   }
@@ -30,13 +41,49 @@ export default async function handler(req, res) {
     x, y, z, rotY, currentWeapon, isFiring, updatedAt: now,
   })
 
-  // One read covers both playerState (position/weapon) and players
-  // (nicknames) - nicknames live in a separate node from the frequently-
-  // updated position data (see create.js/join.js), but the game needs
-  // both together to show a name tag over each remote player.
-  const [stateSnapshot, playersSnapshot] = await Promise.all([
+  const hostSnapshot = await sessionRef.child('host').once('value')
+  const isHost = hostSnapshot.val() === playerId
+
+  if (isHost && Array.isArray(zombies)) {
+    const zombiesById = {}
+    for (const zb of zombies) {
+      zombiesById[zb.id] = {
+        x: zb.x, z: zb.z, rotY: zb.rotY, health: zb.health,
+        maxHealth: zb.maxHealth, state: zb.state, type: zb.type, updatedAt: now,
+      }
+    }
+    await sessionRef.child('world/zombies').set(zombiesById)
+  }
+
+  if (!isHost && Array.isArray(hits) && hits.length) {
+    // Guests append to a shared inbox the host drains on its own next
+    // sync call below - never applied here server-side. The host's own
+    // game is what actually calls the zombie's real damage method, this
+    // endpoint just relays the report.
+    const updates = {}
+    for (const hit of hits) {
+      const key = sessionRef.child('world/pendingHits').push().key
+      updates[`world/pendingHits/${key}`] = {
+        zombieId: hit.zombieId, damage: hit.damage, bypassShield: !!hit.bypassShield, fromPlayerId: playerId,
+      }
+    }
+    await sessionRef.update(updates)
+  }
+
+  let pendingHits = []
+  if (isHost) {
+    // Deliver-and-clear: not clearing would re-deliver the same hits
+    // again on the host's next sync, double-applying the damage.
+    const pendingSnapshot = await sessionRef.child('world/pendingHits').once('value')
+    const pending = pendingSnapshot.val() || {}
+    pendingHits = Object.values(pending)
+    if (pendingHits.length) await sessionRef.child('world/pendingHits').remove()
+  }
+
+  const [stateSnapshot, playersSnapshot, zombiesSnapshot] = await Promise.all([
     sessionRef.child('playerState').once('value'),
     sessionRef.child('players').once('value'),
+    sessionRef.child('world/zombies').once('value'),
   ])
   const allStates = stateSnapshot.val() || {}
   const allPlayers = playersSnapshot.val() || {}
@@ -47,5 +94,5 @@ export default async function handler(req, res) {
     states[otherId] = { ...state, nickname: allPlayers[otherId]?.nickname || 'Player' }
   }
 
-  res.status(200).json({ states })
+  res.status(200).json({ states, zombies: zombiesSnapshot.val() || {}, pendingHits })
 }
