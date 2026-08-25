@@ -101,6 +101,17 @@ export async function leave(sessionId) {
   _playerIdFor.delete(sessionId)
 }
 
+// Phase 6 multiplayer - attempts to become the new host after the
+// current one has been confirmed gone (see Game.js's _tryClaimHost). The
+// server independently re-verifies before granting this - a rejected
+// claim (ok: false) is a normal, expected outcome (lost a race, or the
+// "old" host turned out to still be active), not an error.
+export async function claimHost(sessionId) {
+  const playerId = _playerIdFor.get(sessionId)
+  if (!playerId) throw new Error('Not in this session')
+  return await _apiCall('claim-host', { sessionId, playerId })
+}
+
 // Synchronous, fire-and-forget version of leave() specifically for the
 // "quitting the game" moment - navigator.sendBeacon() is a browser
 // feature guaranteed to actually deliver the request even as the page is
