@@ -7156,6 +7156,32 @@ html.theme-lighter #app { filter: brightness(1.25); }
   margin-bottom: 6px;
 }
 
+/* Clan tag pill + name, styled after a reference image Gaymi shared -
+   a small rounded colored badge sitting above a bold display name. */
+#clan-display-tag {
+  display: inline-block;
+  padding: 3px 12px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #0c130c;
+  background: #d9bc4a;
+  border-radius: 20px;
+}
+
+#clan-display-tag:empty {
+  display: none;
+}
+
+#clan-display-name {
+  margin: 0 0 8px;
+  font-size: 26px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+}
+
 /* Hub panel tab strip (Zombie Survival/Deathmatch) - same reasoning as
    .quest-tabs above: kept as its own class rather than reusing
    .settings-tab/.quest-tab, so it doesn't get swept into either of those

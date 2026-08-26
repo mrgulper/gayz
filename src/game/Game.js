@@ -19481,7 +19481,7 @@ export class Game {
     this._myClanTag = clan.tag
 
     this.clanDisplayName.textContent = clan.name
-    this.clanDisplayTag.textContent = `[${clan.tag}]`
+    this.clanDisplayTag.textContent = clan.tag
 
     const myRole = me.role || 'member'
     const canManage = myRole === 'owner' || myRole === 'elder'
