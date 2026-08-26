@@ -35,6 +35,60 @@ export class TouchControls {
     this._joystickBase = document.getElementById('touch-joystick-base')
     this._joystickKnobEl = document.getElementById('touch-joystick-knob')
     this._bindJoystick()
+
+    this._lookEuler = new THREE.Euler(0, 0, 0, 'YXZ')
+    this._bindLookZone()
+  }
+
+  _bindLookZone() {
+    const isLookTouch = (x, y) => {
+      // Anything on the right side of the screen that isn't already
+      // claimed by the joystick or a button - button touches are always
+      // assigned their own role first in each button's own touchstart
+      // handler, which runs before this document-level check ever sees
+      // that identifier (target-phase listeners fire before the event
+      // bubbles up to document), since those handlers claim the
+      // identifier into _activeTouches synchronously before returning.
+      return x >= window.innerWidth * 0.4
+    }
+
+    document.addEventListener('touchstart', (e) => {
+      for (const touch of e.changedTouches) {
+        if (this._activeTouches.has(touch.identifier)) continue
+        if (!isLookTouch(touch.clientX, touch.clientY)) continue
+        this._lookTouchId = touch.identifier
+        this._activeTouches.set(touch.identifier, 'look')
+        this._lookLast.x = touch.clientX
+        this._lookLast.y = touch.clientY
+      }
+    }, { passive: true })
+
+    document.addEventListener('touchmove', (e) => {
+      for (const touch of e.changedTouches) {
+        if (touch.identifier !== this._lookTouchId) continue
+        const dx = touch.clientX - this._lookLast.x
+        let dy = touch.clientY - this._lookLast.y
+        this._lookLast.x = touch.clientX
+        this._lookLast.y = touch.clientY
+        if (this.game.settings.invertY) dy = -dy
+        const sens = TOUCH_LOOK_BASE_SENSITIVITY * (this.game.settings.sensitivity / 100)
+        this._lookEuler.setFromQuaternion(this.game.camera.quaternion)
+        this._lookEuler.y -= dx * sens
+        this._lookEuler.x -= dy * sens
+        this._lookEuler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, this._lookEuler.x))
+        this.game.camera.quaternion.setFromEuler(this._lookEuler)
+      }
+    }, { passive: true })
+
+    const onEnd = (e) => {
+      for (const touch of e.changedTouches) {
+        if (touch.identifier !== this._lookTouchId) continue
+        this._activeTouches.delete(touch.identifier)
+        this._lookTouchId = null
+      }
+    }
+    document.addEventListener('touchend', onEnd, { passive: true })
+    document.addEventListener('touchcancel', onEnd, { passive: true })
   }
 
   _bindJoystick() {
