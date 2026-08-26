@@ -11942,7 +11942,7 @@ export class Game {
     // resolves.
     if (typeof this.buildMode.enter !== 'function') {
       const { BuildMode } = await import('./BuildMode.js')
-      this.buildMode = new BuildMode(this.renderer)
+      this.buildMode = new BuildMode(this.renderer, this)
     }
     this.buildMode.enter()
   }

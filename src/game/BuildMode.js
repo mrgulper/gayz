@@ -696,7 +696,8 @@ const CUSTOM_BLOCK_GEOMETRY = {
 }
 
 export class BuildMode {
-  constructor(renderer) {
+  constructor(renderer, game) {
+    this.game = game
     this.renderer = renderer
     this.active = false
 
