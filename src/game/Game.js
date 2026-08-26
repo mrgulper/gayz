@@ -14407,6 +14407,22 @@ export class Game {
         this._showHomepageToast(t(ok ? 'buildImportSuccess' : 'buildImportInvalid'))
       })
     }
+    const buildPublishBtn = document.getElementById('build-mode-publish-btn')
+    if (buildPublishBtn) {
+      buildPublishBtn.addEventListener('click', async () => {
+        if (!this._cloudUid) {
+          this._showHomepageToast(t('buildPublishSignInRequired'))
+          return
+        }
+        const name = window.prompt(t('buildPublishNamePrompt'))
+        if (!name || !name.trim()) return
+        const result = await this.buildMode.publishCurrentBuild(name.trim())
+        const toastKey = result.ok ? 'buildPublishSuccess' : result.reason === 'tooLarge' ? 'buildPublishTooLarge' : 'buildPublishFailed'
+        this._showHomepageToast(t(toastKey))
+      })
+    }
+    const buildBrowseBtn = document.getElementById('build-mode-browse-btn')
+    if (buildBrowseBtn) buildBrowseBtn.addEventListener('click', () => this.buildMode.openCommunityBuildsPanel())
     MenuPresets.renderMenuPresets(this)
     MenuEasterEggs.bindAll(this)
     window.addEventListener('online', () => CloudSaveUI.updateOnlineStatus(this))

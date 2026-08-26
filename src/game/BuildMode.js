@@ -4,6 +4,8 @@
 // context - only the scene/camera passed to render() changes.
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+import * as CloudSync from './CloudSync.js'
+import { t } from './i18n.js'
 
 // GROUND_SIZE is a CELL count (not world units) - bumped up from 64, then
 // 76, as BLOCK_SIZE shrank each time, so the buildable footprint's actual
@@ -32,6 +34,17 @@ const LOOK_SENSITIVITY = 0.0022
 // needs more headroom on its own than the old cap allowed, with zero left
 // over to actually build anything above it.
 const MAX_INSTANCES_PER_TYPE = 20000
+
+// Named distinctly from Game.js's own _escapeHtml (a different module, not
+// imported across files for one tiny helper) - untrusted build name/creator
+// nickname text rendered via innerHTML in the Community Builds list must be
+// escaped the same way every other persisted-string render in this codebase
+// already is (see CLAUDE.md's "every persisted stat is untrusted" note).
+function _escapeHtmlBuildMode(str) {
+  const div = document.createElement('div')
+  div.textContent = str
+  return div.innerHTML
+}
 const SAVE_KEY = 'gayz-build-mode'
 // Multiple save slots (see switchSlot/save/load) - was a single fixed key
 // (v1's deliberately-scoped-down "one save slot" design). SAVE_SLOTS_KEY
@@ -963,6 +976,16 @@ export class BuildMode {
     this.menuOpen = false
     this._menuEl = document.getElementById('build-menu')
 
+    // Community Builds browse panel (Publish/Browse buttons themselves are
+    // bound in Game.js, matching Exit/Save/Export/Import's own precedent -
+    // this panel is Build Mode's own transient UI though, same as the
+    // block picker, so its open/close/list-click handling lives here.
+    this._communityBuildsPanel = document.getElementById('community-builds-panel')
+    this._communityBuildsList = document.getElementById('community-builds-list')
+    this._communityBuildsEmpty = document.getElementById('community-builds-empty')
+    this._communityBuildsCloseBtn = document.getElementById('community-builds-close-btn')
+    this._bindCommunityBuilds()
+
     this._onKeyDownHotbar = (e) => {
       // Same reasoning as _onKeyDown's guard - without it, typing a digit
       // while searching the picker (e.g. "TNT" has none, but plenty of
@@ -1688,6 +1711,76 @@ export class BuildMode {
     this._ensureGroundLayer()
     this.save()
     return true
+  }
+
+  // Community Builds (share Build Mode maps with other players - see
+  // docs/superpowers/specs/2026-08-26-community-builds-design.md). Publish
+  // uploads the exact same _snapshot() shape exportMap() already downloads
+  // as a file - this just sends it to Firestore instead of the disk.
+  async publishCurrentBuild(name) {
+    if (!this.game || !this.game._cloudUid) return { ok: false, reason: 'signedOut' }
+    const snapshot = this._snapshot()
+    if (snapshot.blocks.length > 5000) return { ok: false, reason: 'tooLarge' }
+    const nickname = this.game.settings.nickname || 'Player'
+    return CloudSync.publishBuild(this.game._cloudUid, nickname, name, snapshot.blocks, snapshot.hotbar).catch(() => ({ ok: false, reason: 'error' }))
+  }
+
+  _bindCommunityBuilds() {
+    if (this._communityBuildsCloseBtn) {
+      this._communityBuildsCloseBtn.addEventListener('click', () => this.closeCommunityBuildsPanel())
+    }
+    if (this._communityBuildsPanel) {
+      this._communityBuildsPanel.addEventListener('click', (e) => {
+        if (e.target === this._communityBuildsPanel) this.closeCommunityBuildsPanel()
+      })
+    }
+    if (this._communityBuildsList) {
+      this._communityBuildsList.addEventListener('click', async (e) => {
+        const downloadBtn = e.target.closest('.community-build-download-btn')
+        const reportBtn = e.target.closest('.community-build-report-btn')
+        if (downloadBtn) {
+          const build = (this._fetchedCommunityBuilds || []).find((b) => b.buildId === downloadBtn.dataset.buildId)
+          if (!build) return
+          // Same clear-then-apply sequence importMapFile() uses - but unlike
+          // that function, this DOES confirm first: the real existing
+          // precedent for "replace my current build" (Game.js's Import
+          // click handler, which wraps importMapFile in a window.confirm)
+          // always confirms before clearing, so Download matches that full
+          // precedent rather than importMapFile()'s own no-confirm body in
+          // isolation.
+          if (!window.confirm(t('buildDownloadConfirm'))) return
+          this.clearAllBlocks()
+          this._applyParsedData({ blocks: build.blocks, hotbar: build.hotbar })
+          this._ensureGroundLayer()
+          this.save()
+          this.closeCommunityBuildsPanel()
+        } else if (reportBtn) {
+          if (!this.game || !this.game._cloudUid) return
+          await CloudSync.reportBuild(reportBtn.dataset.buildId, this.game._cloudUid).catch(() => {})
+          reportBtn.textContent = 'Reported'
+          reportBtn.disabled = true
+          if (this.game._showHomepageToast) this.game._showHomepageToast(t('buildReportSent'))
+        }
+      })
+    }
+  }
+
+  async openCommunityBuildsPanel() {
+    if (!this._communityBuildsPanel) return
+    this._communityBuildsPanel.style.display = 'flex'
+    this._fetchedCommunityBuilds = await CloudSync.fetchCommunityBuilds().catch(() => [])
+    this._communityBuildsEmpty.style.display = this._fetchedCommunityBuilds.length ? 'none' : 'block'
+    this._communityBuildsList.innerHTML = this._fetchedCommunityBuilds.map((b) => `
+      <div class="community-build-row">
+        <span>${_escapeHtmlBuildMode(b.name)} - ${_escapeHtmlBuildMode(b.creatorNickname)} (${b.blockCount} blocks)</span>
+        <button type="button" class="community-build-download-btn" data-build-id="${b.buildId}">Download</button>
+        <button type="button" class="community-build-report-btn" data-build-id="${b.buildId}">Report</button>
+      </div>
+    `).join('')
+  }
+
+  closeCommunityBuildsPanel() {
+    if (this._communityBuildsPanel) this._communityBuildsPanel.style.display = 'none'
   }
 
   // Backfills any still-empty ground-level (y=GROUND_LAYER_Y) cell across
