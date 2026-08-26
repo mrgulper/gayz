@@ -5166,6 +5166,12 @@ export class Game {
     this.screenshotCropOpen = false
     this.screenshotCropSelectionRect = null
     this.gameStarted = false
+    // Touch Controls (see TouchControls.js) - true once device detection
+    // decides this session should use touch input instead of
+    // mouse/keyboard. Starts false; every isLocked-based gameplay gate
+    // below behaves identically to today until touch mode is actually
+    // wired up.
+    this.touchControlsActive = false
     this.decals = new DecalManager(this.scene)
     this.minimap = new Minimap(this.minimapCanvas)
     this.minimapPing = null
@@ -5946,80 +5952,115 @@ export class Game {
       this._openWeaponPickerPanel(true)
     })
 
-    this.player.controls.addEventListener('lock', () => {
-      // Build Mode acquires pointer lock too (its own free-fly look
-      // controls, see BuildMode.js) - it shares the same canvas/
-      // PlayerController as the real game, so every time its Tab-picker
-      // toggle re-locks the pointer, this handler was firing right along
-      // with it, setting gameStarted = true and showing the entire real-run
-      // HUD (health/hotbar/stats/etc.) on top of the Build Mode scene.
-      if (this.buildMode.active) return
-      this.gameStarted = true
-      audioEngine.resume()
-      this.pauseOverlay.style.display = 'none'
-      this.screenshotCropOverlay.style.display = 'none'
-      this.screenshotCropOpen = false
-      this.menu.style.display = 'none'
-      this.crosshair.style.display = this.driving ? 'none' : 'block'
-      this.hudEl.style.display = this.driving ? 'none' : 'block'
-      this.hotbarEl.style.display = this.driving ? 'none' : 'flex'
-      if (this.hotbarPowerScoreEl) this.hotbarPowerScoreEl.style.display = this.driving ? 'none' : 'block'
-      this.statusHud.style.display = 'flex'
-      this.inventoryHud.style.display = 'flex'
-      this.progressHud.style.display = 'flex'
-      this.statsPanel.style.display = 'flex'
-      if (this.keybindCheatsheet) this.keybindCheatsheet.style.display = this.settings.keybindCheatSheet ? '' : 'none'
-      this.minimapWrap.style.display = 'block'
-      this.compassStrip.style.display = 'block'
-      if (this.driving) {
-        this.interactPrompt.innerHTML = tHtml('interactExitVehicle')
-        this.interactPrompt.style.display = 'block'
-      }
-    })
+    this.player.controls.addEventListener('lock', () => this._onGameplayResumed())
+    this.player.controls.addEventListener('unlock', () => this._onGameplayPaused())
+  }
 
-    this.player.controls.addEventListener('unlock', () => {
-      // Same shared-canvas reasoning as the 'lock' handler above - Build
-      // Mode's picker calls document.exitPointerLock() itself, which fires
-      // this handler too. Without this guard it was popping the real
-      // pause overlay (Resume/Upgrades/Shop/Settings/Quit) right on top of
-      // the block picker.
-      if (this.buildMode.active) return
-      this.interactPrompt.style.display = 'none'
-      this.infectionIndicator.style.display = 'none'
-      if (!this.playerState.alive) return
-      // Any of these panels already put up their own overlay and released
-      // pointer lock themselves (see each _openXPanel), specifically so
-      // their buttons are actually clickable - a locked pointer only
-      // reports relative mouse deltas for the camera, not a usable cursor.
-      // Don't also reset them or pop the pause menu on top when that's why
-      // we just unlocked. Inventory (see _bindItemKeys) now does the same
-      // unlock-on-open/lock-on-close dance as the others, closed via its
-      // own always-on Tab/Escape listener rather than here.
-      if (this.screenshotCropOpen || this.perkPanelOpen || this.xpLevelupPanelOpen || this.traderPanelOpen || this.inventoryOpen) {
-        // handled by whichever panel is open
-      } else if (this.gameStarted) {
-        audioEngine.pause()
-        this.pauseOverlayTitle.textContent = t('pauseOverlayTitle')
-        this.pauseResumeBtn.textContent = t('pauseResumeBtn')
-        this.pauseUpgradesBtn.textContent = t('upgradesBtn')
-        this.pauseSpectateBtn.textContent = t('pauseSpectateBtn')
-        this.pauseWeaponBtn.textContent = t('pauseWeaponBtn')
-        this.pauseSettingsBtn.textContent = t('settingsBtn')
-        this.pauseQuitBtn.textContent = t('pauseQuitBtn')
-        this.pauseOverlay.style.display = 'flex'
-      } else {
-        this.menu.style.display = 'flex'
-      }
-      this.crosshair.style.display = 'none'
-      this.hudEl.style.display = 'none'
-      this.hotbarEl.style.display = 'none'
-      this.statusHud.style.display = 'none'
-      this.inventoryHud.style.display = 'none'
-      this.progressHud.style.display = 'none'
-      this.statsPanel.style.display = 'none'
-      this.minimapWrap.style.display = 'none'
-      this.compassStrip.style.display = 'none'
-    })
+  // Extracted from the real 'lock' event listener above so touch mode
+  // (which never acquires real Pointer Lock) can trigger the exact same
+  // "gameplay is now visibly running" state change directly - see
+  // _requestPointerLock().
+  _onGameplayResumed() {
+    // Build Mode acquires pointer lock too (its own free-fly look
+    // controls, see BuildMode.js) - it shares the same canvas/
+    // PlayerController as the real game, so every time its Tab-picker
+    // toggle re-locks the pointer, this handler was firing right along
+    // with it, setting gameStarted = true and showing the entire real-run
+    // HUD (health/hotbar/stats/etc.) on top of the Build Mode scene.
+    if (this.buildMode.active) return
+    this.gameStarted = true
+    audioEngine.resume()
+    this.pauseOverlay.style.display = 'none'
+    this.screenshotCropOverlay.style.display = 'none'
+    this.screenshotCropOpen = false
+    this.menu.style.display = 'none'
+    this.crosshair.style.display = this.driving ? 'none' : 'block'
+    this.hudEl.style.display = this.driving ? 'none' : 'block'
+    this.hotbarEl.style.display = this.driving ? 'none' : 'flex'
+    if (this.hotbarPowerScoreEl) this.hotbarPowerScoreEl.style.display = this.driving ? 'none' : 'block'
+    this.statusHud.style.display = 'flex'
+    this.inventoryHud.style.display = 'flex'
+    this.progressHud.style.display = 'flex'
+    this.statsPanel.style.display = 'flex'
+    if (this.keybindCheatsheet) this.keybindCheatsheet.style.display = this.settings.keybindCheatSheet ? '' : 'none'
+    this.minimapWrap.style.display = 'block'
+    this.compassStrip.style.display = 'block'
+    if (this.driving) {
+      this.interactPrompt.innerHTML = tHtml('interactExitVehicle')
+      this.interactPrompt.style.display = 'block'
+    }
+    if (this.touchControlsActive) {
+      const layer = document.getElementById('touch-controls-layer')
+      if (layer) layer.style.display = 'block'
+    }
+  }
+
+  // Extracted from the real 'unlock' event listener above - see
+  // _onGameplayResumed's own comment for why touch mode needs this callable
+  // directly instead of only ever firing from a real browser event.
+  _onGameplayPaused() {
+    // Same shared-canvas reasoning as the 'lock' handler above - Build
+    // Mode's picker calls document.exitPointerLock() itself, which fires
+    // this handler too. Without this guard it was popping the real
+    // pause overlay (Resume/Upgrades/Shop/Settings/Quit) right on top of
+    // the block picker.
+    if (this.buildMode.active) return
+    this.interactPrompt.style.display = 'none'
+    this.infectionIndicator.style.display = 'none'
+    if (!this.playerState.alive) return
+    // Any of these panels already put up their own overlay and released
+    // pointer lock themselves (see each _openXPanel), specifically so
+    // their buttons are actually clickable - a locked pointer only
+    // reports relative mouse deltas for the camera, not a usable cursor.
+    // Don't also reset them or pop the pause menu on top when that's why
+    // we just unlocked. Inventory (see _bindItemKeys) now does the same
+    // unlock-on-open/lock-on-close dance as the others, closed via its
+    // own always-on Tab/Escape listener rather than here.
+    if (this.screenshotCropOpen || this.perkPanelOpen || this.xpLevelupPanelOpen || this.traderPanelOpen || this.inventoryOpen) {
+      // handled by whichever panel is open
+    } else if (this.gameStarted) {
+      audioEngine.pause()
+      this.pauseOverlayTitle.textContent = t('pauseOverlayTitle')
+      this.pauseResumeBtn.textContent = t('pauseResumeBtn')
+      this.pauseUpgradesBtn.textContent = t('upgradesBtn')
+      this.pauseSpectateBtn.textContent = t('pauseSpectateBtn')
+      this.pauseWeaponBtn.textContent = t('pauseWeaponBtn')
+      this.pauseSettingsBtn.textContent = t('settingsBtn')
+      this.pauseQuitBtn.textContent = t('pauseQuitBtn')
+      this.pauseOverlay.style.display = 'flex'
+    } else {
+      this.menu.style.display = 'flex'
+    }
+    this.crosshair.style.display = 'none'
+    this.hudEl.style.display = 'none'
+    this.hotbarEl.style.display = 'none'
+    this.statusHud.style.display = 'none'
+    this.inventoryHud.style.display = 'none'
+    this.progressHud.style.display = 'none'
+    this.statsPanel.style.display = 'none'
+    this.minimapWrap.style.display = 'none'
+    this.compassStrip.style.display = 'none'
+    if (this.touchControlsActive) {
+      const layer = document.getElementById('touch-controls-layer')
+      if (layer) layer.style.display = 'none'
+    }
+  }
+
+  // Every call site that wants to "start/resume real gameplay" calls this
+  // instead of this.player.controls.lock() directly - on a real
+  // mouse/keyboard/gamepad session it's the exact same real Pointer Lock
+  // request as before (which still fires the 'lock' listener above
+  // normally); in touch mode (which never acquires real Pointer Lock) it
+  // runs the identical resulting state change directly instead.
+  _requestPointerLock() {
+    if (this.touchControlsActive) this._onGameplayResumed()
+    else this.player.controls.lock()
+  }
+
+  // Same reasoning as _requestPointerLock, for pausing/opening a panel.
+  _requestPointerUnlock() {
+    if (this.touchControlsActive) this._onGameplayPaused()
+    else this.player.controls.unlock()
   }
 
   _bindItemKeys() {
@@ -6030,7 +6071,7 @@ export class Game {
       // Inventory panel (plus every item hotkey below it) right on top of
       // Build Mode's own block picker.
       if (this.buildMode.active) return
-      if (!this.player.controls.isLocked || !this.playerState.alive) return
+      if (!this._isActivelyPlaying() || !this.playerState.alive) return
 
       this._checkSecretSequence(e.code)
 
@@ -6788,7 +6829,7 @@ export class Game {
   _bindTraderClick() {
     window.addEventListener('mousedown', (e) => {
       if (e.button !== 0) return
-      if (!this.player.controls.isLocked || !this.playerState.alive) return
+      if (!this._isActivelyPlaying() || !this.playerState.alive) return
       if (this.driving || this.inventoryOpen || this.weaponWheelOpen) return
       if (!this.nearTrader) return
 
@@ -8465,7 +8506,7 @@ export class Game {
     document.addEventListener('visibilitychange', () => {
       if (!this.settings.muteOnTabBlur) return
       if (document.hidden) audioEngine.pause()
-      else if (this.gameStarted && this.player.controls.isLocked) audioEngine.resume()
+      else if (this.gameStarted && this._isActivelyPlaying()) audioEngine.resume()
     })
 
     this.positionalAudioToggle.checked = this.settings.positionalAudio
@@ -19064,7 +19105,7 @@ export class Game {
       // _openWeaponWheel), so without this a Digit press while the wheel is
       // up would switch weapons immediately underneath it instead of
       // waiting for the wheel's own release-to-confirm.
-      if (!this.player.controls.isLocked || !this.playerState.alive || this.inventoryOpen || this.driving || this.weaponWheelOpen || this.playerDowned) return
+      if (!this._isActivelyPlaying() || !this.playerState.alive || this.inventoryOpen || this.driving || this.weaponWheelOpen || this.playerDowned) return
       const digitIndex = ['Digit1', 'Digit2', 'Digit3'].indexOf(e.code)
       if (digitIndex === -1) return
       const weaponId = this.settings.hotbar[digitIndex]
@@ -19086,7 +19127,7 @@ export class Game {
     // the 3-slot hotbar even if the equipped weapon isn't one of them.
     window.addEventListener('wheel', (e) => {
       if (this.buildMode.active) return
-      if (!this.player.controls.isLocked || !this.playerState.alive || this.inventoryOpen || this.driving || this.weaponWheelOpen || this.playerDowned) return
+      if (!this._isActivelyPlaying() || !this.playerState.alive || this.inventoryOpen || this.driving || this.weaponWheelOpen || this.playerDowned) return
       const hotbar = this.settings.hotbar
       const currentSlot = hotbar.indexOf(this.weapons.current.id)
       const dir = (e.deltaY > 0) !== this.settings.invertScrollWeaponSwitch ? 1 : -1
@@ -21098,6 +21139,15 @@ export class Game {
     this.pingMarkerMesh.position.y = 3 + Math.sin(performance.now() * 0.003) * 0.3
   }
 
+  // Returns whether the player is actively controlling gameplay right now,
+  // regardless of which input device is driving it. Real Pointer Lock
+  // (controls.isLocked) is the desktop/mouse signal; touch mode never
+  // acquires real Pointer Lock at all, so it needs its own equivalent
+  // "yes, actively playing" signal instead of being gated out entirely.
+  _isActivelyPlaying() {
+    return this.player.controls.isLocked || this.touchControlsActive
+  }
+
   // Core FPS loop via gamepad - see GAMEPAD_DEADZONE's own doc comment for
   // scope. Gated on the same "not in a menu" flags the keydown handler
   // already checks, rather than controls.isLocked (real Pointer Lock never
@@ -21439,14 +21489,14 @@ export class Game {
     this._updateMusicIntensity(this.player.controls.object.position)
     this._updateIndoorDetection(this.player.controls.object.position)
 
-    if (this.driving && this.player.controls.isLocked && this.playerState.alive) {
+    if (this.driving && this._isActivelyPlaying() && this.playerState.alive) {
       this.vehicle.update(dt, this.player.input, this.player.colliders)
       this.vehicle.getDriverSeatWorld(this._vehicleSeatPos)
       this.camera.position.copy(this._vehicleSeatPos)
       this._updateVehicleRamming()
     } else if (this.photoModeOpen || this.spectateOpen) {
       this._updatePhotoMode(dt)
-    } else if (this.player.controls.isLocked && this.playerState.alive && !this.inventoryOpen && !this.perkPanelOpen && !this.traderPanelOpen && !this.xpLevelupPanelOpen && !this.mapOpen && !this.journalOpen) {
+    } else if (this._isActivelyPlaying() && this.playerState.alive && !this.inventoryOpen && !this.perkPanelOpen && !this.traderPanelOpen && !this.xpLevelupPanelOpen && !this.mapOpen && !this.journalOpen) {
       this.player.update(dt)
       const playerPos = this.player.controls.object.position
       // The Long Road (see _recordRunEnd) - lifetime ground-distance
