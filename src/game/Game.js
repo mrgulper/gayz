@@ -8844,6 +8844,11 @@ export class Game {
     // Aim Assist (accessibility) - see WeaponSystem's AIM_ASSIST_OFFSETS.
     this.aimAssistToggle.checked = this.settings.aimAssist
     this.weapons.aimAssist = this.settings.aimAssist
+    // Touch aiming is inherently less precise than a mouse - entering
+    // touch mode turns on aim assist for this session only. Deliberately
+    // does NOT write back to this.settings.aimAssist/saveSettings - a
+    // player who later plays on desktop keeps whatever they had before.
+    if (this.touchControlsActive) this.weapons.aimAssist = true
     this.aimAssistToggle.addEventListener('change', () => {
       this.settings.aimAssist = this.aimAssistToggle.checked
       this.weapons.aimAssist = this.settings.aimAssist
