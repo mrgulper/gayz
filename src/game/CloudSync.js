@@ -438,6 +438,86 @@ export async function fetchLeaderboardEntryByPlayerId(playerId) {
   return snap.empty ? null : { ...snap.docs[0].data(), uid: snap.docs[0].id }
 }
 
+// Clans (lightweight "Crew" - see docs/superpowers/specs/2026-08-26-clan-system-design.md).
+// clanId is a Firestore auto-generated doc id, not a player-chosen slug -
+// avoids needing any uniqueness check on the id itself. The leader's own
+// membership doc is created in the SAME call (not left to a separate
+// joinClan call) so a freshly created clan never has zero members even
+// for a moment.
+export async function createClan(leaderUid, leaderNickname, name, tag) {
+  const { db, fsMod } = await ensureApp()
+  const clanRef = fsMod.doc(fsMod.collection(db, 'clans'))
+  await fsMod.setDoc(clanRef, { name, tag, leaderId: leaderUid, leaderNickname, createdAt: Date.now() })
+  await fsMod.setDoc(fsMod.doc(db, 'clans', clanRef.id, 'members', leaderUid), { nickname: leaderNickname, joinedAt: Date.now() })
+  return clanRef.id
+}
+
+export async function fetchClanByName(name) {
+  const { db, fsMod } = await ensureApp()
+  const q = fsMod.query(fsMod.collection(db, 'clans'), fsMod.where('name', '==', name), fsMod.limit(1))
+  const snap = await fsMod.getDocs(q)
+  return snap.empty ? null : { ...snap.docs[0].data(), clanId: snap.docs[0].id }
+}
+
+export async function fetchClanById(clanId) {
+  const { db, fsMod } = await ensureApp()
+  const snap = await fsMod.getDoc(fsMod.doc(db, 'clans', clanId))
+  return snap.exists() ? { ...snap.data(), clanId: snap.id } : null
+}
+
+export async function fetchClanMembers(clanId) {
+  const { db, fsMod } = await ensureApp()
+  const snap = await fsMod.getDocs(fsMod.collection(db, 'clans', clanId, 'members'))
+  return snap.docs.map((d) => ({ uid: d.id, ...d.data() }))
+}
+
+export async function fetchClanMemberCount(clanId) {
+  const { db, fsMod } = await ensureApp()
+  const snap = await fsMod.getCountFromServer(fsMod.collection(db, 'clans', clanId, 'members'))
+  return snap.data().count
+}
+
+// Membership cap (15) is enforced HERE, client-side, not in security
+// rules - a rare race letting a 16th member slip through under
+// simultaneous joins is an accepted non-security edge case (see spec).
+const CLAN_MEMBER_CAP = 15
+
+export async function joinClan(clanId, uid, nickname) {
+  const count = await fetchClanMemberCount(clanId)
+  if (count >= CLAN_MEMBER_CAP) return { ok: false, reason: 'full' }
+  const { db, fsMod } = await ensureApp()
+  await fsMod.setDoc(fsMod.doc(db, 'clans', clanId, 'members', uid), { nickname, joinedAt: Date.now() })
+  return { ok: true }
+}
+
+export async function leaveClan(clanId, uid) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.deleteDoc(fsMod.doc(db, 'clans', clanId, 'members', uid))
+}
+
+export async function kickClanMember(clanId, uid) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.deleteDoc(fsMod.doc(db, 'clans', clanId, 'members', uid))
+}
+
+// Combined clan stats - queries the EXISTING leaderboard collection
+// filtered by clanId and sums client-side, rather than maintaining a
+// separate shared-counter doc (see spec's "Existing prior art" section
+// on why this deliberately avoids that added complexity).
+export async function fetchClanCombinedStats(clanId) {
+  const { db, fsMod } = await ensureApp()
+  const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.where('clanId', '==', clanId))
+  const snap = await fsMod.getDocs(q)
+  let totalKills = 0
+  let totalBestNight = 0
+  for (const d of snap.docs) {
+    const data = d.data()
+    totalKills += Number(data.bestKills) || 0
+    totalBestNight += Number(data.bestNight) || 0
+  }
+  return { memberCount: snap.size, totalKills, totalBestNight }
+}
+
 // Friend Requests - one doc per pending request, ID'd by the SENDER's uid
 // (mirrors polls/{pollId}/votes/{userId}'s "doc ID is the actor's own uid"
 // pattern) so a given sender can only ever have one outstanding request to
