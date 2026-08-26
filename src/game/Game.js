@@ -3909,6 +3909,25 @@ export class Game {
     this.playerShowcaseRenameBtn = document.getElementById('player-showcase-rename-btn')
     this.companionNameInput = document.getElementById('companion-name-input')
     this.challengeCodeInput = document.getElementById('challenge-code-input')
+    this.clanSigninGate = document.getElementById('clan-signin-gate')
+    this.clanSigninGateText = document.getElementById('clan-signin-gate-text')
+    this.clanNoClanState = document.getElementById('clan-no-clan-state')
+    this.clanInClanState = document.getElementById('clan-in-clan-state')
+    this.clanCreateNameInput = document.getElementById('clan-create-name-input')
+    this.clanCreateTagInput = document.getElementById('clan-create-tag-input')
+    this.clanCreateBtn = document.getElementById('clan-create-btn')
+    this.clanCreateTakenWarning = document.getElementById('clan-create-taken-warning')
+    this.clanJoinNameInput = document.getElementById('clan-join-name-input')
+    this.clanJoinBtn = document.getElementById('clan-join-btn')
+    this.clanJoinStatus = document.getElementById('clan-join-status')
+    this.clanDisplayName = document.getElementById('clan-display-name')
+    this.clanDisplayTag = document.getElementById('clan-display-tag')
+    this.clanStatsMembers = document.getElementById('clan-stats-members')
+    this.clanStatsKills = document.getElementById('clan-stats-kills')
+    this.clanStatsNight = document.getElementById('clan-stats-night')
+    this.clanMemberList = document.getElementById('clan-member-list')
+    this.clanLeaveBtn = document.getElementById('clan-leave-btn')
+    this.clanLeaveDisabledHint = document.getElementById('clan-leave-disabled-hint')
     this.scoreAttackToggle = document.getElementById('score-attack-toggle')
     this.hardcoreToggle = document.getElementById('hardcore-toggle')
     this.guestModeToggle = document.getElementById('guest-mode-toggle')
@@ -5509,6 +5528,7 @@ export class Game {
     })
     this._bindItemKeys()
     this._bindHotbar()
+    this._bindClanSection()
     this._bindSettings()
     this._bindGraphicsSettings()
     this._bindGeneralSettings()
@@ -13458,6 +13478,7 @@ export class Game {
     this._closeAllMenuPanels()
     this.hubPanel.style.display = 'flex'
     if (this.hubPanelTitle) this.hubPanelTitle.textContent = t('hubPanelTitle')
+    this._refreshClanUi()
   }
 
   _closeHubPanel() {
@@ -19191,6 +19212,143 @@ export class Game {
       }
     }, { passive: true })
     this._updateHotbarHud()
+  }
+
+  // Clan section (Hub panel) - see docs/superpowers/specs/
+  // 2026-08-26-clan-system-design.md. Create/Join wiring here;
+  // _refreshClanUi() (below) is the single source of truth for which of
+  // the two UI states shows and what's in it.
+  _bindClanSection() {
+    if (this.clanCreateBtn) {
+      this.clanCreateBtn.addEventListener('click', async () => {
+        if (!this._cloudUid) return
+        const name = this.clanCreateNameInput.value.trim()
+        const tag = this.clanCreateTagInput.value.trim().toUpperCase()
+        if (!name || !tag) return
+        const existing = await CloudSync.fetchClanByName(name).catch(() => null)
+        if (existing) {
+          this.clanCreateTakenWarning.textContent = t('clanNameTakenWarning')
+          this.clanCreateTakenWarning.style.display = 'block'
+          return
+        }
+        this.clanCreateTakenWarning.style.display = 'none'
+        const nickname = this.settings.nickname || t('playerShowcaseTitleDefault')
+        const clanId = await CloudSync.createClan(this._cloudUid, nickname, name, tag).catch(() => null)
+        if (!clanId) return
+        this.settings.clanId = clanId
+        this._myClanTag = tag
+        saveSettings(this.settings)
+        this._refreshClanUi()
+      })
+    }
+
+    if (this.clanJoinBtn) {
+      this.clanJoinBtn.addEventListener('click', async () => {
+        if (!this._cloudUid) return
+        const name = this.clanJoinNameInput.value.trim()
+        if (!name) return
+        const clan = await CloudSync.fetchClanByName(name).catch(() => null)
+        if (!clan) {
+          this.clanJoinStatus.textContent = t('clanNotFound')
+          this.clanJoinStatus.style.display = 'block'
+          return
+        }
+        const nickname = this.settings.nickname || t('playerShowcaseTitleDefault')
+        const result = await CloudSync.joinClan(clan.clanId, this._cloudUid, nickname).catch(() => ({ ok: false, reason: 'error' }))
+        if (!result.ok) {
+          this.clanJoinStatus.textContent = result.reason === 'full' ? t('clanFull') : t('clanJoinError')
+          this.clanJoinStatus.style.display = 'block'
+          return
+        }
+        this.clanJoinStatus.style.display = 'none'
+        this.settings.clanId = clan.clanId
+        this._myClanTag = clan.tag
+        saveSettings(this.settings)
+        this._refreshClanUi()
+      })
+    }
+
+    if (this.clanLeaveBtn) {
+      this.clanLeaveBtn.addEventListener('click', async () => {
+        if (!this._cloudUid || !this.settings.clanId) return
+        await CloudSync.leaveClan(this.settings.clanId, this._cloudUid).catch(() => {})
+        this.settings.clanId = null
+        this._myClanTag = null
+        saveSettings(this.settings)
+        this._refreshClanUi()
+      })
+    }
+
+    if (this.clanMemberList) {
+      this.clanMemberList.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.clan-kick-btn')
+        if (!btn || !this.settings.clanId) return
+        await CloudSync.kickClanMember(this.settings.clanId, btn.dataset.uid).catch(() => {})
+        this._refreshClanUi()
+      })
+    }
+  }
+
+  // Reconciliation: settings.clanId is a local cache (see spec) - a live
+  // members-subcollection check is the actual source of truth, since it
+  // can drift (kicked while offline, left on another device). Called on
+  // Hub panel open and after every create/join/leave/kick action.
+  async _refreshClanUi() {
+    if (!this.clanSigninGate) return
+    if (!this._cloudUid || !CloudSync.isConfigured()) {
+      this.clanSigninGate.style.display = 'block'
+      this.clanSigninGateText.textContent = t('clanSigninRequired')
+      this.clanNoClanState.style.display = 'none'
+      this.clanInClanState.style.display = 'none'
+      return
+    }
+    this.clanSigninGate.style.display = 'none'
+
+    if (!this.settings.clanId) {
+      this.clanNoClanState.style.display = 'block'
+      this.clanInClanState.style.display = 'none'
+      return
+    }
+
+    const members = await CloudSync.fetchClanMembers(this.settings.clanId).catch(() => [])
+    const stillAMember = members.some((m) => m.uid === this._cloudUid)
+    if (!stillAMember) {
+      this.settings.clanId = null
+      this._myClanTag = null
+      saveSettings(this.settings)
+      this.clanNoClanState.style.display = 'block'
+      this.clanInClanState.style.display = 'none'
+      return
+    }
+
+    this.clanNoClanState.style.display = 'none'
+    this.clanInClanState.style.display = 'block'
+
+    const clan = await CloudSync.fetchClanById(this.settings.clanId).catch(() => null)
+    if (!clan) return
+    this._myClanTag = clan.tag
+
+    this.clanDisplayName.textContent = clan.name
+    this.clanDisplayTag.textContent = `[${clan.tag}]`
+
+    const stats = await CloudSync.fetchClanCombinedStats(this.settings.clanId).catch(() => ({ memberCount: members.length, totalKills: 0, totalBestNight: 0 }))
+    this.clanStatsMembers.textContent = t('clanStatsMembers', { n: stats.memberCount })
+    this.clanStatsKills.textContent = t('clanStatsKills', { n: stats.totalKills })
+    this.clanStatsNight.textContent = t('clanStatsNight', { n: stats.totalBestNight })
+
+    const isLeader = clan.leaderId === this._cloudUid
+    this.clanMemberList.innerHTML = members.map((m) => `
+      <div class="clan-member-row">
+        <span>${_escapeHtml(m.nickname)}${m.uid === clan.leaderId ? ` ${t('clanLeaderBadge')}` : ''}</span>
+        ${isLeader && m.uid !== clan.leaderId ? `<button type="button" class="clan-kick-btn" data-uid="${m.uid}">${t('clanKickBtn')}</button>` : ''}
+      </div>
+    `).join('')
+
+    const otherMembersPresent = members.length > 1
+    this.clanLeaveBtn.disabled = isLeader && otherMembersPresent
+    this.clanLeaveBtn.textContent = isLeader ? t('clanDisbandBtn') : t('clanLeaveBtn')
+    this.clanLeaveDisabledHint.style.display = isLeader && otherMembersPresent ? 'block' : 'none'
+    if (this.clanLeaveDisabledHint.style.display === 'block') this.clanLeaveDisabledHint.textContent = t('clanLeaderMustKickFirst')
   }
 
   // Assigns a weapon to a hotbar slot from the inventory panel's per-row
