@@ -5168,12 +5168,14 @@ export class Game {
     this.screenshotCropOpen = false
     this.screenshotCropSelectionRect = null
     this.gameStarted = false
-    // Touch Controls (see TouchControls.js) - true once device detection
-    // decides this session should use touch input instead of
-    // mouse/keyboard. Starts false; every isLocked-based gameplay gate
-    // below behaves identically to today until touch mode is actually
-    // wired up.
-    this.touchControlsActive = false
+    // Touch Controls (see TouchControls.js) - decided once per session,
+    // not re-evaluated live (changing the override setting reloads the
+    // page - see its own change handler). 'auto' falls back to a media
+    // query that is true only for a touch-primary device (no mouse/
+    // trackpad) - a touchscreen laptop that also has a real pointer still
+    // reports hover:hover and is correctly treated as desktop.
+    this.touchControlsActive = this.settings.touchControlsOverride === 'touch'
+      || (this.settings.touchControlsOverride === 'auto' && window.matchMedia('(hover: none) and (pointer: coarse)').matches)
     this.decals = new DecalManager(this.scene)
     this.minimap = new Minimap(this.minimapCanvas)
     this.minimapPing = null
