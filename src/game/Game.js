@@ -13720,6 +13720,7 @@ export class Game {
     document.getElementById('compass-style-label').textContent = t('compassStyleLabel')
     document.getElementById('touch-controls-override-label').textContent = t('touchControlsOverrideLabel')
     document.getElementById('touch-controls-override-hint').textContent = t('touchControlsOverrideHint')
+    document.getElementById('touch-more-actions-title').textContent = t('touchMoreActionsTitle')
     document.getElementById('weapon-name-hud-label').textContent = t('weaponNameHudLabel')
     document.getElementById('minimap-zoom-label').textContent = t('minimapZoomLabel')
     document.getElementById('friend-presence-notify-label').textContent = t('friendPresenceNotifyLabel')

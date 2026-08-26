@@ -19,6 +19,16 @@ const JOYSTICK_DEADZONE = 0.2
 // deltas behave differently from either.
 const TOUCH_LOOK_BASE_SENSITIVITY = 0.0028
 
+// Ids already covered by a dedicated button elsewhere in this class, or
+// (weaponWheel specifically) whose target UI has no touch equivalent and
+// is redundant with the dedicated weapon-switch buttons - excluded from
+// the More Actions menu even though it isn't given its own dedicated
+// button.
+const EXCLUDED_FROM_MORE_MENU = new Set([
+  'moveForward', 'moveBack', 'moveLeft', 'moveRight',
+  'sprint', 'crouch', 'reload', 'interact', 'weaponWheel',
+])
+
 export class TouchControls {
   constructor(game) {
     this.game = game
@@ -42,6 +52,34 @@ export class TouchControls {
     this._bindFireAndAim()
     this._bindInstantButtons()
     this._bindSprintAndCrouch()
+    this._bindMoreActionsMenu()
+  }
+
+  _bindMoreActionsMenu() {
+    const grid = document.getElementById('touch-more-actions-grid')
+    const menu = document.getElementById('touch-more-actions-menu')
+
+    for (const action of ACTIONS) {
+      if (EXCLUDED_FROM_MORE_MENU.has(action.id)) continue
+      const btn = document.createElement('button')
+      btn.className = 'touch-more-action-btn'
+      btn.textContent = t(action.labelKey)
+      btn.addEventListener('touchstart', (e) => {
+        e.preventDefault()
+        this._dispatchKey(getKeyFor(action.id))
+        menu.style.display = 'none'
+      }, { passive: false })
+      grid.appendChild(btn)
+    }
+
+    document.getElementById('touch-btn-more').addEventListener('touchstart', (e) => {
+      e.preventDefault()
+      menu.style.display = 'block'
+    }, { passive: false })
+
+    menu.addEventListener('touchstart', (e) => {
+      if (e.target === menu) menu.style.display = 'none'
+    }, { passive: true })
   }
 
   // Matches the exact pattern this codebase's own "One-Handed Layout"
