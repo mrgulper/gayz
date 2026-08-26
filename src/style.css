@@ -7997,3 +7997,129 @@ html.night-vision-active #app {
   font-size: 12px;
 }
 
+/* Phone/tablet portrait homepage (mobile playability, part 2 of 3 - the
+   width-based counterpart to the height-based breakpoints above, which
+   only ever handled a short-but-WIDE desktop window, never a
+   narrow-but-tall phone screen). Unlike every desktop breakpoint above,
+   this one deliberately does NOT chase zero-scroll - a scrollable start
+   menu is completely normal on a phone (unlike the "everything fits on
+   one arcade screen" feel the desktop version was tuned for), so #menu
+   gets its own scroll instead of fighting to cram a single-column stack
+   into one viewport height. The 3-column grid collapses to one column,
+   stacking in existing DOM order (avatar/nickname, then title+Play+
+   controls, then profile badge+nav buttons) - already a sensible top-to-
+   bottom reading order, so no explicit reordering needed. */
+@media (max-width: 700px) {
+  #menu {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #menu-layout {
+    grid-template-columns: 1fr;
+    max-width: 100%;
+    padding: 0 16px;
+    gap: 16px;
+  }
+
+  #menu-col-left,
+  #menu-col-right {
+    align-items: center;
+    text-align: center;
+  }
+
+  #setup-avatar-wrap {
+    width: min(240px, 55vw);
+    height: min(500px, 115vw);
+    margin: 6px auto 0;
+  }
+
+  #menu-hero {
+    text-align: center;
+  }
+
+  #menu-title-img {
+    width: min(90%, 380px);
+  }
+
+  #controls-list,
+  #round-mode-hint {
+    display: none;
+  }
+
+  #menu-nav-buttons {
+    width: 100%;
+  }
+
+  #menu-nav-buttons button {
+    width: 100%;
+  }
+
+  .menu-card-list {
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  /* Touch control buttons were positioned generously for a wide screen -
+     on an actual ~390px-wide phone, several landed on top of the
+     joystick, the minimap, or each other (confirmed via real
+     getBoundingClientRect() overlap checks at 390x844, not just
+     eyeballed). Replaced with a compact 2-column x 4-row grid, shrunk
+     down, so all 8 fit without colliding with each other or the
+     joystick. NOTE: this still shares bottom-right screen space with the
+     pre-existing (desktop-only) weapon/ammo HUD panel, which itself has
+     never been adapted for a narrow screen - that panel's own layout is
+     a separate follow-up, not solved here. */
+  .touch-action-btn {
+    width: 50px;
+    height: 50px;
+    font-size: 9px;
+  }
+
+  #touch-btn-fire { right: 20px; bottom: 20px; width: 60px; height: 60px; }
+  #touch-btn-aim { right: 95px; bottom: 20px; }
+  #touch-btn-jump { right: 20px; bottom: 90px; }
+  #touch-btn-crouch { right: 95px; bottom: 90px; }
+  #touch-btn-sprint { right: 20px; bottom: 155px; }
+  #touch-btn-melee { right: 95px; bottom: 155px; }
+  #touch-btn-interact { right: 20px; bottom: 220px; }
+  #touch-btn-reload { right: 95px; bottom: 220px; }
+
+  .touch-weapon-btn {
+    top: 190px;
+    width: 36px;
+    height: 36px;
+  }
+
+  #touch-btn-more {
+    left: auto;
+    right: 30px;
+  }
+}
+
+/* Landscape phones (short but wide - e.g. a phone rotated sideways to
+   actually play, which is how most real mobile shooters expect to be
+   held) don't hit the max-width breakpoint above at all, but ARE short
+   enough that the base button layout (built assuming a tall screen)
+   collided with itself - confirmed via the same real overlap checks,
+   e.g. Sprint/Interact (positioned assuming plenty of vertical room)
+   landed on top of the weapon-switch row at the top of the screen.
+   Compact 4-col x 2-row grid instead, using the width landscape has
+   plenty of, positioned clear of both the joystick and the weapon row. */
+@media (max-height: 450px) {
+  .touch-action-btn {
+    width: 50px;
+    height: 50px;
+    font-size: 9px;
+  }
+
+  #touch-btn-fire { right: 20px; bottom: 15px; width: 56px; height: 56px; }
+  #touch-btn-aim { right: 90px; bottom: 15px; }
+  #touch-btn-jump { right: 160px; bottom: 15px; }
+  #touch-btn-interact { right: 230px; bottom: 15px; }
+  #touch-btn-sprint { right: 20px; bottom: 80px; }
+  #touch-btn-crouch { right: 90px; bottom: 80px; }
+  #touch-btn-melee { right: 160px; bottom: 80px; }
+  #touch-btn-reload { right: 230px; bottom: 80px; }
+}
+
