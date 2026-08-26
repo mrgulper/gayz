@@ -191,6 +191,29 @@ service cloud.firestore {
       allow update: if false;
     }
 
+    match /communityBuilds/{buildId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.creatorUid == request.auth.uid
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 24
+        && request.resource.data.creatorNickname is string && request.resource.data.creatorNickname.size() > 0 && request.resource.data.creatorNickname.size() <= 16
+        && request.resource.data.blocks is list && request.resource.data.blocks.size() <= 5000
+        && request.resource.data.hotbar is list
+        && request.resource.data.blockCount is int && request.resource.data.blockCount == request.resource.data.blocks.size()
+        && request.resource.data.createdAt is int;
+      allow update: if request.auth != null && request.auth.uid == resource.data.creatorUid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name'])
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 24;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.creatorUid;
+    }
+
+    match /communityBuilds/{buildId}/reports/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.reportedAt is int;
+      allow update, delete: if false;
+    }
+
     match /weeklyLeaderboard/{week}/entries/{userId} {
       allow read: if true;
       allow write: if request.auth != null && request.auth.uid == userId
