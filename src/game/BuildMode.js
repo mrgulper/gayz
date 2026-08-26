@@ -1770,13 +1770,25 @@ export class BuildMode {
     this._communityBuildsPanel.style.display = 'flex'
     this._fetchedCommunityBuilds = await CloudSync.fetchCommunityBuilds().catch(() => [])
     this._communityBuildsEmpty.style.display = this._fetchedCommunityBuilds.length ? 'none' : 'block'
-    this._communityBuildsList.innerHTML = this._fetchedCommunityBuilds.map((b) => `
+    this._communityBuildsList.innerHTML = this._fetchedCommunityBuilds.map((b) => {
+      // buildId is the Firestore DOCUMENT ID, not a data.* field the
+      // security rules validate - the rules only constrain what's inside
+      // request.resource.data, so a crafted doc written straight through
+      // the Firestore SDK (bypassing this app's UI, but with a valid
+      // signed-in account) could carry an ID containing a literal " that
+      // breaks out of the data-build-id="..." attribute below. Every real
+      // ID from publishBuild() is a Firestore auto-ID (already
+      // alphanumeric only), so restricting to that charset here can only
+      // ever affect a maliciously-crafted doc, never a real one.
+      const safeBuildId = String(b.buildId || '').replace(/[^A-Za-z0-9_-]/g, '')
+      return `
       <div class="community-build-row">
-        <span>${_escapeHtmlBuildMode(b.name)} - ${_escapeHtmlBuildMode(b.creatorNickname)} (${b.blockCount} blocks)</span>
-        <button type="button" class="community-build-download-btn" data-build-id="${b.buildId}">Download</button>
-        <button type="button" class="community-build-report-btn" data-build-id="${b.buildId}">Report</button>
+        <span>${_escapeHtmlBuildMode(b.name)} - ${_escapeHtmlBuildMode(b.creatorNickname)} (${Number(b.blockCount) || 0} blocks)</span>
+        <button type="button" class="community-build-download-btn" data-build-id="${safeBuildId}">Download</button>
+        <button type="button" class="community-build-report-btn" data-build-id="${safeBuildId}">Report</button>
       </div>
-    `).join('')
+    `
+    }).join('')
   }
 
   closeCommunityBuildsPanel() {
