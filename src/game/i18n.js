@@ -1510,6 +1510,7 @@ const STRINGS = {
     // Main menu redesign.
     menuPlayerTagDefault: '#PLAYER',
     playerShowcaseTitleDefault: 'Player',
+    playerShowcaseLevelName: 'Lvl {level} {name}',
     // Interactive World batch.
     interactManhole: 'Press **F** to climb down',
     interactCampfire: 'Press **F** to rest at the campfire',

@@ -259,6 +259,8 @@ function loadSettings() {
       aimAssist: parsed.aimAssist ?? false,
       touchControlsOverride: ['auto', 'touch', 'desktop'].includes(parsed.touchControlsOverride) ? parsed.touchControlsOverride : 'auto',
       clanId: typeof parsed.clanId === 'string' ? parsed.clanId : null,
+      clanTag: typeof parsed.clanTag === 'string' ? parsed.clanTag : null,
+      clanName: typeof parsed.clanName === 'string' ? parsed.clanName : null,
       bigInteractPrompt: parsed.bigInteractPrompt ?? false,
       toastDuration: parsed.toastDuration ?? 100,
       crosshairColor: parsed.crosshairColor || '#ffffff',
@@ -556,7 +558,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, instantStationInteract: false, confirmQuitRun: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, touchControlsOverride: 'auto', clanId: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'golden', lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
+  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, instantStationInteract: false, confirmQuitRun: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, touchControlsOverride: 'auto', clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'golden', lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -3598,6 +3600,7 @@ export class Game {
     // one spinning instance now (the Player Setup panel's).
     this.menuPlayerTag = document.getElementById('menu-player-tag')
     this.playerShowcaseTitle = document.getElementById('player-showcase-title')
+    this.playerShowcaseClanName = document.getElementById('player-showcase-clan-name')
     this.menuCareerRank = document.getElementById('menu-career-rank')
     this.menuPrestigeBadge = document.getElementById('menu-prestige-badge')
     this.menuNewsTicker = document.getElementById('menu-news-ticker')
@@ -14056,10 +14059,7 @@ export class Game {
     // Avatar level badge - the same tier index careerRankTitleKey already
     // derives from totalKills, just as a plain 1-5 number instead of a title.
     if (this.menuAvatarLevel) {
-      let level = 1
-      for (let i = 0; i < CAREER_RANK_TITLES.length; i++) {
-        if (this.careerStats.totalKills >= CAREER_RANK_TITLES[i].min) level = i + 1
-      }
+      const level = this._computeAvatarLevel()
       this.menuAvatarLevel.textContent = level
       // Rank-Up Toasts (General tab) - fires only on an actual increase,
       // not the first read this session (_lastAvatarLevel starting
@@ -14121,6 +14121,18 @@ export class Game {
   // removed per request; the global rank itself is still fetched/shown
   // separately in the Cloud Save panel's own online section
   // (#cloudsave-rank-line).
+  // Shared by the avatar-corner level badge (#menu-avatar-level) and the
+  // Player showcase title below - same 1-5 tier index careerRankTitleKey
+  // already derives from totalKills, just as a plain number instead of a
+  // title, computed once here rather than duplicating the lookup loop.
+  _computeAvatarLevel() {
+    let level = 1
+    for (let i = 0; i < CAREER_RANK_TITLES.length; i++) {
+      if (this.careerStats.totalKills >= CAREER_RANK_TITLES[i].min) level = i + 1
+    }
+    return level
+  }
+
   _renderPlayerTag() {
     if (!this.menuPlayerTag) return
     const base = this.settings.playerId ? `#${this.settings.playerId}` : t('menuPlayerTagDefault')
@@ -14128,9 +14140,19 @@ export class Game {
     // The "Player" section heading above the 3D avatar - shows the
     // player's own chosen nickname once they've set one, falls back to
     // the generic "Player" label otherwise (same default the heading
-    // ships with in index.html).
+    // ships with in index.html). Level number goes in front of the name
+    // (reusing the same tier already shown on the avatar-corner badge,
+    // not a separate deeper level system); the clan name (if any, see
+    // settings.clanName) shows on its own line above, simple plain text
+    // rather than the boxed badge/pill look from the reference image.
     if (this.playerShowcaseTitle) {
-      this.playerShowcaseTitle.textContent = this.settings.nickname || t('playerShowcaseTitleDefault')
+      const level = this._computeAvatarLevel()
+      const nickname = this.settings.nickname || t('playerShowcaseTitleDefault')
+      this.playerShowcaseTitle.textContent = t('playerShowcaseLevelName', { level, name: nickname })
+    }
+    if (this.playerShowcaseClanName) {
+      this.playerShowcaseClanName.textContent = this.settings.clanName || ''
+      this.playerShowcaseClanName.style.display = this.settings.clanName ? 'block' : 'none'
     }
   }
 
@@ -19400,8 +19422,11 @@ export class Game {
         const clanId = await CloudSync.createClan(this._cloudUid, nickname, name, tag).catch(() => null)
         if (!clanId) return
         this.settings.clanId = clanId
+        this.settings.clanTag = tag
+        this.settings.clanName = name
         this._myClanTag = tag
         saveSettings(this.settings)
+        this._renderPlayerTag()
         this._refreshClanUi()
       })
     }
@@ -19463,8 +19488,11 @@ export class Game {
           const result = await CloudSync.acceptClanInvite(acceptBtn.dataset.clanId, this._cloudUid, nickname).catch(() => ({ ok: false }))
           if (!result.ok) return
           this.settings.clanId = acceptBtn.dataset.clanId
+          this.settings.clanTag = acceptBtn.dataset.clanTag
+          this.settings.clanName = acceptBtn.dataset.clanName
           this._myClanTag = acceptBtn.dataset.clanTag
           saveSettings(this.settings)
+          this._renderPlayerTag()
           this._refreshClanUi()
         } else if (declineBtn) {
           await CloudSync.declineClanInvite(declineBtn.dataset.clanId, this._cloudUid).catch(() => {})
@@ -19500,8 +19528,11 @@ export class Game {
         if (!this._cloudUid || !this.settings.clanId) return
         await CloudSync.leaveClan(this.settings.clanId, this._cloudUid).catch(() => {})
         this.settings.clanId = null
+        this.settings.clanTag = null
+        this.settings.clanName = null
         this._myClanTag = null
         saveSettings(this.settings)
+        this._renderPlayerTag()
         this._refreshClanUi()
       })
     }
@@ -19576,8 +19607,11 @@ export class Game {
     const me = members.find((m) => m.uid === this._cloudUid)
     if (!me) {
       this.settings.clanId = null
+      this.settings.clanTag = null
+      this.settings.clanName = null
       this._myClanTag = null
       saveSettings(this.settings)
+      this._renderPlayerTag()
       await this._renderClanBrowseList()
       await this._renderClanIncomingInvites()
       this.clanBrowseState.style.display = 'block'
@@ -19591,6 +19625,16 @@ export class Game {
     const clan = await CloudSync.fetchClanById(this.settings.clanId).catch(() => null)
     if (!clan) return
     this._myClanTag = clan.tag
+    // Backfill for an account whose settings.clanTag/clanName weren't
+    // cached yet (e.g. joined before this caching existed) - keeps the
+    // homepage's clan-name-above-nickname display (_renderPlayerTag) in
+    // sync without it needing its own live fetch on every page load.
+    if (this.settings.clanTag !== clan.tag || this.settings.clanName !== clan.name) {
+      this.settings.clanTag = clan.tag
+      this.settings.clanName = clan.name
+      saveSettings(this.settings)
+      this._renderPlayerTag()
+    }
 
     this.clanDisplayName.textContent = clan.name
     this.clanDisplayTag.textContent = clan.tag
@@ -19663,7 +19707,7 @@ export class Game {
       <div class="clan-list-row">
         <span>${t('clanInviteRowLabel', { name: _escapeHtml(inv.clanName), tag: _escapeHtml(inv.clanTag) })}</span>
         <span>
-          <button type="button" class="clan-invite-accept-btn" data-clan-id="${inv.clanId}" data-clan-tag="${_escapeHtml(inv.clanTag)}">${t('clanAcceptBtn')}</button>
+          <button type="button" class="clan-invite-accept-btn" data-clan-id="${inv.clanId}" data-clan-tag="${_escapeHtml(inv.clanTag)}" data-clan-name="${_escapeHtml(inv.clanName)}">${t('clanAcceptBtn')}</button>
           <button type="button" class="clan-invite-decline-btn" data-clan-id="${inv.clanId}">${t('clanDeclineBtn')}</button>
         </span>
       </div>

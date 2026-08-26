@@ -6279,6 +6279,28 @@ html.theme-lighter #app { filter: brightness(1.25); }
   gap: 8px;
 }
 
+/* Wraps title + clan name so the clan line stacks above the nickname
+   while the rename pencil button stays a row-sibling of the whole
+   stack, not squeezed between the two lines. */
+#player-showcase-title-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Plain text, no pill/badge box - simplest version of "clan name above
+   player name" rather than recreating a fancier reference mockup. Only
+   shown at all while settings.clanName is set (see _renderPlayerTag). */
+#player-showcase-clan-name {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--menu-gold, #d9bc4a);
+  opacity: 0.85;
+}
+
 #player-showcase-header .menu-panel-title {
   margin: 0;
   /* Overrides the shared .menu-panel-title uppercase styling - this one
