@@ -3205,6 +3205,25 @@ select option {
   justify-content: flex-start;
 }
 
+/* Every other sidebar-nav panel (General/Clan/Market, Store, Server,
+   Quests, Friend List, Inventory) - these had never gotten the same
+   overflow-y/justify-content fix as Upgrades/Achievements/Hub above, so a
+   panel with little content (e.g. Clan's "Coming soon." General tab)
+   rendered as a small block floating dead-center in an almost-empty
+   full-screen overlay, instead of anchored near the top like every other
+   sidebar panel - same override, same reasoning, just extended to the
+   panels that were missed. */
+#clan-panel,
+#shop-panel,
+#server-panel,
+#quests-panel,
+#friends-panel,
+#menu-inventory-panel {
+  overflow-y: auto;
+  padding: 24px 0;
+  justify-content: flex-start;
+}
+
 #coming-soon-body {
   max-width: 420px;
   text-align: center;
