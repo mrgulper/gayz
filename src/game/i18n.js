@@ -379,7 +379,6 @@ const STRINGS = {
     clanListEmpty: 'No clans yet - be the first to make one!',
     clanLeaveBtn: 'Leave Clan',
     clanDisbandBtn: 'Disband Clan',
-    clanMyRole: 'Your role: {role}',
     clanRole_owner: 'Owner',
     clanRole_elder: 'Elder',
     clanRole_member: 'Member',

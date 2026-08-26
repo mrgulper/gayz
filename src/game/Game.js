@@ -3956,8 +3956,6 @@ export class Game {
     this.clanRequestNameStatus = document.getElementById('clan-request-name-status')
     this.clanIncomingInvitesList = document.getElementById('clan-incoming-invites-list')
     this.clanDisplayName = document.getElementById('clan-display-name')
-    this.clanDisplayTag = document.getElementById('clan-display-tag')
-    this.clanMyRole = document.getElementById('clan-my-role')
     this.clanStatsMembers = document.getElementById('clan-stats-members')
     this.clanStatsKills = document.getElementById('clan-stats-kills')
     this.clanStatsNight = document.getElementById('clan-stats-night')
@@ -5000,7 +4998,6 @@ export class Game {
     this.comingSoonCloseBtn = document.getElementById('coming-soon-close-btn')
     this.clanPanel = document.getElementById('clan-panel')
     this.clanPanelTitle = document.getElementById('clan-panel-title')
-    this.clanPanelCloseBtn = document.getElementById('clan-panel-close-btn')
     this.howtoplayNavLink = document.getElementById('nav-howtoplay-link')
     this.pauseInviteBtn = document.getElementById('pause-invite-btn')
     this.multiplayerPanel = document.getElementById('multiplayer-panel')
@@ -9480,7 +9477,6 @@ export class Game {
     if (this.hubBtn) this.hubBtn.addEventListener('click', () => trackAndOpen(() => this._openClanPanel()))
     if (this.gamemodeBtn) this.gamemodeBtn.addEventListener('click', () => trackAndOpen(() => this._openHubPanel()))
     if (this.comingSoonCloseBtn) this.comingSoonCloseBtn.addEventListener('click', () => this._closeComingSoonPanel())
-    if (this.clanPanelCloseBtn) this.clanPanelCloseBtn.addEventListener('click', () => this._closeClanPanel())
     if (this.howtoplayNavLink) this.howtoplayNavLink.addEventListener('click', () => this._openHowToPlayPanel())
     if (this.multiplayerPanel) {
       this.multiplayerPanel.addEventListener('click', (e) => {
@@ -19637,11 +19633,9 @@ export class Game {
     }
 
     this.clanDisplayName.textContent = clan.name
-    this.clanDisplayTag.textContent = clan.tag
 
     const myRole = me.role || 'member'
     const canManage = myRole === 'owner' || myRole === 'elder'
-    this.clanMyRole.textContent = t('clanMyRole', { role: t(`clanRole_${myRole}`) })
 
     const stats = await CloudSync.fetchClanCombinedStats(this.settings.clanId).catch(() => ({ memberCount: members.length, totalKills: 0, totalBestNight: 0 }))
     this.clanStatsMembers.textContent = t('clanStatsMembers', { n: stats.memberCount })
@@ -19652,15 +19646,22 @@ export class Game {
     this.clanSendInviteSection.style.display = canManage ? 'block' : 'none'
 
     const isOwner = myRole === 'owner'
-    this.clanMemberList.innerHTML = members.map((m) => {
+    // Owner first, then Elder, then Member - no separate "Your role: X"
+    // line any more (removed per request), so the hierarchy needs to read
+    // directly from the list's own order instead.
+    const roleOrder = { owner: 0, elder: 1, member: 2 }
+    const sortedMembers = [...members].sort((a, b) => (roleOrder[a.role || 'member'] ?? 2) - (roleOrder[b.role || 'member'] ?? 2))
+    this.clanMemberList.innerHTML = sortedMembers.map((m) => {
       const role = m.role || 'member'
-      const roleBadge = ` (${t(`clanRole_${role}`)})`
       const canKickThis = canManage && role !== 'owner' && m.uid !== this._cloudUid
       const canPromoteThis = isOwner && role === 'member'
       const canDemoteThis = isOwner && role === 'elder'
       return `
         <div class="clan-member-row">
-          <span>${_escapeHtml(m.nickname)}${roleBadge}</span>
+          <span class="clan-member-name-block">
+            <span class="clan-member-role">${t(`clanRole_${role}`)}</span>
+            <span class="clan-member-name">${_escapeHtml(m.nickname)}</span>
+          </span>
           <span>
             ${canPromoteThis ? `<button type="button" class="clan-promote-btn" data-uid="${m.uid}" data-nickname="${_escapeHtml(m.nickname)}" data-joined-at="${m.joinedAt}">${t('clanPromoteBtn')}</button>` : ''}
             ${canDemoteThis ? `<button type="button" class="clan-demote-btn" data-uid="${m.uid}" data-nickname="${_escapeHtml(m.nickname)}" data-joined-at="${m.joinedAt}">${t('clanDemoteBtn')}</button>` : ''}

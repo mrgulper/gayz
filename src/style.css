@@ -6103,7 +6103,9 @@ html.theme-lighter #app { filter: brightness(1.25); }
   z-index: 2;
   padding: 6px 18px;
   font-family: var(--menu-display-font);
-  font-size: 21px;
+  /* Matches .currency-item's 28px right above it - was 21px, noticeably
+     smaller than the currency numbers it sits directly under. */
+  font-size: 28px;
   color: rgba(255, 255, 255, 0.75);
   background: rgba(10, 10, 10, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -7414,6 +7416,14 @@ html.theme-lighter #app { filter: brightness(1.25); }
   padding: 10px 0;
 }
 
+/* Clan tab specifically needs real room for the two-column in-clan
+   layout below (member list + stats/requests side by side) - the
+   General/Market tabs' placeholder text stays fine at the narrower
+   shared width above. */
+#general-page-clan {
+  width: min(640px, 90vw);
+}
+
 .clan-list-row,
 .clan-member-row,
 .clan-request-row {
@@ -7428,22 +7438,26 @@ html.theme-lighter #app { filter: brightness(1.25); }
   margin-bottom: 6px;
 }
 
-/* Clan tag pill + name, styled after a reference image Gaymi shared -
-   a small rounded colored badge sitting above a bold display name. */
-#clan-display-tag {
-  display: inline-block;
-  padding: 3px 12px;
-  margin-bottom: 6px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  color: #0c130c;
-  background: #d9bc4a;
-  border-radius: 20px;
+/* Role above name, plain text (no pill/badge box - simpler per request),
+   small and muted above the bold nickname. */
+.clan-member-name-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
 }
 
-#clan-display-tag:empty {
-  display: none;
+.clan-member-role {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #d9bc4a;
+  opacity: 0.8;
+}
+
+.clan-member-name {
+  font-weight: 700;
 }
 
 #clan-display-name {
@@ -7452,6 +7466,20 @@ html.theme-lighter #app { filter: brightness(1.25); }
   font-weight: 700;
   color: #fff;
   text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+}
+
+/* Two-column in-clan layout: member list on the left, stats/Send Clan
+   Request/Requests on the right. */
+#clan-in-clan-columns {
+  display: flex;
+  gap: 20px;
+  text-align: left;
+}
+
+#clan-members-column,
+#clan-info-column {
+  flex: 1;
+  min-width: 0;
 }
 
 /* Hub panel tab strip (Zombie Survival/Deathmatch) - same reasoning as

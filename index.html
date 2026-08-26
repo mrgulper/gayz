@@ -1506,25 +1506,29 @@ Escape before dawn.</p>
             <p id="clan-signin-gate-text"></p>
           </div>
           <div id="clan-in-clan-state" style="display: none">
-            <span id="clan-display-tag"></span>
             <h4 id="clan-display-name"></h4>
-            <p id="clan-my-role"></p>
-            <div id="clan-stats-card">
-              <p id="clan-stats-members"></p>
-              <p id="clan-stats-kills"></p>
-              <p id="clan-stats-night"></p>
-            </div>
-            <div id="clan-send-invite-section" style="display: none">
-              <label class="menu-field-label" for="clan-invite-id-input">Send Clan Request (invite by Player ID)</label>
-              <input type="text" id="clan-invite-id-input" class="nickname-input" placeholder="Player ID" maxlength="10" />
-              <button id="clan-invite-send-btn" type="button" class="mini-action-btn">Send</button>
-              <p id="clan-invite-status" style="display: none"></p>
-            </div>
-            <h5 id="clan-members-heading">Clan Members</h5>
-            <div id="clan-member-list"></div>
-            <div id="clan-requests-section" style="display: none">
-              <h5 id="clan-requests-heading">Requests</h5>
-              <div id="clan-requests-list"></div>
+            <div id="clan-in-clan-columns">
+              <div id="clan-members-column">
+                <h5 id="clan-members-heading">Clan Members</h5>
+                <div id="clan-member-list"></div>
+              </div>
+              <div id="clan-info-column">
+                <div id="clan-stats-card">
+                  <p id="clan-stats-members"></p>
+                  <p id="clan-stats-kills"></p>
+                  <p id="clan-stats-night"></p>
+                </div>
+                <div id="clan-send-invite-section" style="display: none">
+                  <label class="menu-field-label" for="clan-invite-id-input">Send Clan Request (invite by Player ID)</label>
+                  <input type="text" id="clan-invite-id-input" class="nickname-input" placeholder="Player ID" maxlength="10" />
+                  <button id="clan-invite-send-btn" type="button" class="mini-action-btn">Send</button>
+                  <p id="clan-invite-status" style="display: none"></p>
+                </div>
+                <div id="clan-requests-section" style="display: none">
+                  <h5 id="clan-requests-heading">Requests</h5>
+                  <div id="clan-requests-list"></div>
+                </div>
+              </div>
             </div>
             <button id="clan-leave-btn" type="button" class="mini-action-btn">Leave Clan</button>
             <p id="clan-leave-disabled-hint" style="display: none"></p>
@@ -1550,7 +1554,7 @@ Escape before dawn.</p>
         <div class="general-tab-page" id="general-page-market" style="display: none">
           <p id="general-page-market-placeholder">Coming soon.</p>
         </div>
-        <button id="clan-panel-close-btn">Close</button>
+        <p class="panel-close-hint">Click anywhere to close</p>
       </div>
 
       <div id="hub-panel">
