@@ -38,6 +38,55 @@ export class TouchControls {
 
     this._lookEuler = new THREE.Euler(0, 0, 0, 'YXZ')
     this._bindLookZone()
+
+    this._bindFireAndAim()
+  }
+
+  // Shared by Fire/Aim here and Sprint/Crouch in the next task - a button
+  // that needs to know both "pressed" and "released" (as opposed to the
+  // instant-tap buttons, which only need one event). Assigns the touch
+  // its own role in the identifier map so a look-drag or the joystick
+  // never steals it, and vice versa.
+  _bindHoldButton(elementId, onDown, onUp) {
+    const el = document.getElementById(elementId)
+    let touchId = null
+    el.addEventListener('touchstart', (e) => {
+      e.preventDefault()
+      if (touchId !== null) return
+      const touch = e.changedTouches[0]
+      touchId = touch.identifier
+      this._activeTouches.set(touchId, elementId)
+      onDown()
+    }, { passive: false })
+    const onEnd = (e) => {
+      for (const touch of e.changedTouches) {
+        if (touch.identifier !== touchId) continue
+        this._activeTouches.delete(touchId)
+        touchId = null
+        onUp()
+      }
+    }
+    el.addEventListener('touchend', onEnd, { passive: true })
+    el.addEventListener('touchcancel', onEnd, { passive: true })
+  }
+
+  _bindFireAndAim() {
+    this._bindHoldButton('touch-btn-fire',
+      () => { this.game.weapons.triggerDown = true },
+      () => { this.game.weapons.triggerDown = false })
+
+    this._bindHoldButton('touch-btn-aim',
+      () => {
+        const w = this.game.weapons
+        const wasAiming = w.aiming
+        if (w.toggleAds) w.aiming = !w.aiming
+        else w.aiming = true
+        if (w.aiming && !wasAiming) w.aimStartedAt = performance.now()
+      },
+      () => {
+        const w = this.game.weapons
+        if (!w.toggleAds) w.aiming = false
+      })
   }
 
   _bindLookZone() {
