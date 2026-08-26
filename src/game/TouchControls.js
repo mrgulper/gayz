@@ -40,6 +40,62 @@ export class TouchControls {
     this._bindLookZone()
 
     this._bindFireAndAim()
+    this._bindInstantButtons()
+    this._bindSprintAndCrouch()
+  }
+
+  // Matches the exact pattern this codebase's own "One-Handed Layout"
+  // feature and gamepad support already use - window.dispatchEvent with a
+  // synthetic KeyboardEvent, since PlayerController's real listener is
+  // registered on window (not document).
+  _dispatchKeyDown(code) {
+    window.dispatchEvent(new KeyboardEvent('keydown', { code }))
+  }
+
+  _dispatchKeyUp(code) {
+    window.dispatchEvent(new KeyboardEvent('keyup', { code }))
+  }
+
+  _dispatchKey(code) {
+    this._dispatchKeyDown(code)
+    this._dispatchKeyUp(code)
+  }
+
+  // Instant-tap button: fires once per touchstart, no separate up-state
+  // needed (matches a quick real keypress).
+  _bindTapButton(elementId, code) {
+    const el = document.getElementById(elementId)
+    el.addEventListener('touchstart', (e) => {
+      e.preventDefault()
+      this._dispatchKey(code)
+    }, { passive: false })
+  }
+
+  _bindInstantButtons() {
+    this._bindTapButton('touch-btn-jump', 'Space')
+    this._bindTapButton('touch-btn-reload', getKeyFor('reload'))
+    this._bindTapButton('touch-btn-interact', getKeyFor('interact'))
+    this._bindTapButton('touch-btn-melee', 'Digit1')
+    this._bindTapButton('touch-btn-weapon-1', 'Digit1')
+    this._bindTapButton('touch-btn-weapon-2', 'Digit2')
+    this._bindTapButton('touch-btn-weapon-3', 'Digit3')
+    this._bindTapButton('touch-btn-weapon-4', 'Digit4')
+  }
+
+  // Sprint/Crouch need real keydown/keyup (not just an instant tap),
+  // since PlayerController._onKey's existing toggle-vs-hold branch reads
+  // isDown on each call - it must see a keydown then later a keyup,
+  // exactly like a real held key, for both hold-mode and toggle-mode
+  // (including double-tap-to-prone on crouch) to behave identically to
+  // keyboard.
+  _bindSprintAndCrouch() {
+    this._bindHoldButton('touch-btn-sprint',
+      () => this._dispatchKeyDown(getKeyFor('sprint')),
+      () => this._dispatchKeyUp(getKeyFor('sprint')))
+
+    this._bindHoldButton('touch-btn-crouch',
+      () => this._dispatchKeyDown(getKeyFor('crouch')),
+      () => this._dispatchKeyUp(getKeyFor('crouch')))
   }
 
   // Shared by Fire/Aim here and Sprint/Crouch in the next task - a button
