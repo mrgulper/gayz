@@ -11247,6 +11247,15 @@ export class Game {
     // picked) rather than defaulted to some region - the security rule's
     // own enum check only applies when the field is present at all.
     if (this.settings.region && this.settings.region !== 'global') entry.region = this.settings.region
+    // Clan tag denormalized onto the player's own leaderboard doc so
+    // _renderLeaderboardRows can show it with no extra per-row query -
+    // this.settings.clanId is the local membership cache (see
+    // _refreshClanUi), this._myClanTag is set whenever that cache is
+    // populated (create/join/refresh).
+    if (this.settings.clanId) {
+      entry.clanId = this.settings.clanId
+      if (this._myClanTag) entry.clanTag = this._myClanTag
+    }
     CloudSync.pushLeaderboardEntry(this._cloudUid, entry).catch(() => {})
     CloudSync.pushWeeklyLeaderboardEntry(_thisWeekStr(), this._cloudUid, {
       name,
