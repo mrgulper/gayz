@@ -57,6 +57,7 @@ import * as CloudSync from './CloudSync.js'
 import * as CloudSaveUI from './CloudSaveUI.js'
 import { setColorblind } from './Accessibility.js'
 import { registerZone } from './Zones.js'
+import { TouchControls } from './TouchControls.js'
 
 // Companion flavor barks - plain English rather than full i18n, since these
 // are throwaway personality lines, not core UI text.
@@ -5176,6 +5177,7 @@ export class Game {
     // reports hover:hover and is correctly treated as desktop.
     this.touchControlsActive = this.settings.touchControlsOverride === 'touch'
       || (this.settings.touchControlsOverride === 'auto' && window.matchMedia('(hover: none) and (pointer: coarse)').matches)
+    this.touchControls = new TouchControls(this)
     this.decals = new DecalManager(this.scene)
     this.minimap = new Minimap(this.minimapCanvas)
     this.minimapPing = null
@@ -21593,6 +21595,7 @@ export class Game {
       this._updateFarmPlot()
       this._updateAmmoPress()
       this._updateGamepad(dt)
+      if (this.touchControlsActive) this.touchControls.update(dt)
       this._updatePingMarker(dt)
       this._updateCorpsePileSlow(playerPos)
       const currentWeapon = this.weapons.current
