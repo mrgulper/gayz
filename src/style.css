@@ -5912,8 +5912,8 @@ html.theme-lighter #app { filter: brightness(1.25); }
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 216px;
-  height: 216px;
+  width: 130px;
+  height: 130px;
   color: var(--menu-gold);
   background: rgba(0, 0, 0, 0.3);
   border-radius: 4px;
@@ -6594,8 +6594,8 @@ html.theme-lighter #app { filter: brightness(1.25); }
   }
 
   #menu-avatar-icon {
-    width: 192px;
-    height: 192px;
+    width: 115px;
+    height: 115px;
   }
 
   /* The profile badge doubling in size at this tier costs #menu-col-right
