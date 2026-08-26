@@ -120,7 +120,34 @@ service cloud.firestore {
         && (!('playerId' in request.resource.data) || (request.resource.data.playerId is string && request.resource.data.playerId.size() >= 6 && request.resource.data.playerId.size() <= 10))
         && (!('lastActiveAt' in request.resource.data) || request.resource.data.lastActiveAt is int)
         && (!('doNotDisturb' in request.resource.data) || request.resource.data.doNotDisturb is bool)
-        && (!('manualIdle' in request.resource.data) || request.resource.data.manualIdle is bool);
+        && (!('manualIdle' in request.resource.data) || request.resource.data.manualIdle is bool)
+        && (!('clanId' in request.resource.data) || (request.resource.data.clanId is string && request.resource.data.clanId.size() > 0))
+        && (!('clanTag' in request.resource.data) || (request.resource.data.clanTag is string && request.resource.data.clanTag.size() <= 4));
+    }
+
+    match /clans/{clanId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.leaderId == request.auth.uid
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 24
+        && request.resource.data.tag is string && request.resource.data.tag.size() > 0 && request.resource.data.tag.size() <= 4
+        && request.resource.data.leaderNickname is string && request.resource.data.leaderNickname.size() > 0 && request.resource.data.leaderNickname.size() <= 16
+        && request.resource.data.createdAt is int;
+      allow update: if request.auth != null && request.auth.uid == resource.data.leaderId
+        && request.resource.data.leaderId == resource.data.leaderId
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 24
+        && request.resource.data.tag is string && request.resource.data.tag.size() > 0 && request.resource.data.tag.size() <= 4;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.leaderId;
+    }
+
+    match /clans/{clanId}/members/{uid} {
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.nickname is string && request.resource.data.nickname.size() > 0 && request.resource.data.nickname.size() <= 16
+        && request.resource.data.joinedAt is int;
+      allow delete: if request.auth != null
+        && (request.auth.uid == uid || request.auth.uid == get(/databases/$(database)/documents/clans/$(clanId)).data.leaderId);
+      allow update: if false;
     }
 
     match /weeklyLeaderboard/{week}/entries/{userId} {
