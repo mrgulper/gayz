@@ -34,6 +34,11 @@ const LOOK_SENSITIVITY = 0.0022
 // needs more headroom on its own than the old cap allowed, with zero left
 // over to actually build anything above it.
 const MAX_INSTANCES_PER_TYPE = 20000
+// Undo/Redo history depth (see _recordUndo) - one entry per individual
+// block change, not per tool-action, so this is generous enough to cover a
+// long editing streak without the stack growing unbounded over a whole
+// session.
+const UNDO_STACK_LIMIT = 200
 
 // Named distinctly from Game.js's own _escapeHtml (a different module, not
 // imported across files for one tiny helper) - untrusted build name/creator
@@ -831,6 +836,20 @@ export class BuildMode {
     this.selectedType = null
     this._blocks = new Map() // "x,y,z" -> type id
     this._blockLights = new Map() // "x,y,z" -> THREE.PointLight, see LIGHT_BLOCK_COLORS
+    // Undo/Redo - every real placeBlock()/removeBlock() call (not a no-op
+    // on an already-occupied/already-empty cell) pushes one entry here,
+    // regardless of which tool triggered it (a single click, Mirror's
+    // second placement, Line Tool's drag, Paste's whole clipboard) - see
+    // both methods' own recording line. One entry = one cell change, not
+    // one "tool action", so undoing a multi-block paste takes multiple
+    // clicks - simpler and still correct, versus tracking action
+    // boundaries across every tool separately.
+    this._undoStack = []
+    this._redoStack = []
+    // Sidesteps undo()/redo() calling back into placeBlock()/removeBlock()
+    // to apply the reversal, which would otherwise record ANOTHER undo
+    // entry for the reversal itself.
+    this._suppressUndoRecording = false
     // Multiple save slots (see switchSlot) - which of SAVE_SLOT_COUNT slots
     // is currently loaded/being edited. Not persisted itself (always opens
     // back on slot 0) - keeping it simple rather than adding a second
@@ -970,6 +989,28 @@ export class BuildMode {
     if (this._copyToolBtnEl) this._copyToolBtnEl.addEventListener('click', () => this.toggleCopyTool())
     this._pasteBtnEl = document.getElementById('build-mode-paste-btn')
     if (this._pasteBtnEl) this._pasteBtnEl.addEventListener('click', () => this.pasteClipboard())
+
+    // Undo/Redo buttons (see undo()/redo() and _updateUndoRedoButtons) -
+    // disabled whenever their stack is empty rather than a silent no-op.
+    this._undoBtnEl = document.getElementById('build-mode-undo-btn')
+    if (this._undoBtnEl) this._undoBtnEl.addEventListener('click', () => this.undo())
+    this._redoBtnEl = document.getElementById('build-mode-redo-btn')
+    if (this._redoBtnEl) this._redoBtnEl.addEventListener('click', () => this.redo())
+    this._updateUndoRedoButtons()
+
+    // Reset Map - confirms first (same window.confirm convention as
+    // Import/Download, both of which also replace the current build with
+    // no way back), then wipes to a bare ground layer, matching
+    // importMapFile's own clear-then-repopulate-ground-then-save sequence.
+    this._resetBtnEl = document.getElementById('build-mode-reset-btn')
+    if (this._resetBtnEl) {
+      this._resetBtnEl.addEventListener('click', () => {
+        if (!window.confirm(t('buildResetConfirm'))) return
+        this.clearAllBlocks()
+        this._ensureGroundLayer()
+        this.save()
+      })
+    }
 
     // Action menu (Exit/Save/Export/Import/Mirror/Line/Copy/Paste) - see
     // toggleMenu, opened with Escape.
@@ -1115,6 +1156,13 @@ export class BuildMode {
     if (this._blocks.has(key)) return
     const mesh = this._instancedMeshes[type]
     if (!mesh || mesh.count >= MAX_INSTANCES_PER_TYPE) return
+    // Bulk fills (_ensureGroundLayer/_applyParsedData) already pass
+    // skipBoundsUpdate=true for every call in the loop - reusing that same
+    // signal here means loading/importing a build never floods the undo
+    // stack with thousands of individual entries, while every real
+    // interactive placement (a plain skipBoundsUpdate=false call) still
+    // gets recorded.
+    if (!skipBoundsUpdate && !this._suppressUndoRecording) this._recordUndo({ action: 'place', x, y, z, type })
     const index = mesh.count
     // x/y/z are integer grid cell indices (unaffected by BLOCK_SIZE - saved
     // builds, _blocks' sparse map keys, and every raycast/collision cell
@@ -1153,6 +1201,7 @@ export class BuildMode {
     const key = this._key(x, y, z)
     const type = this._blocks.get(key)
     if (!type) return
+    if (!this._suppressUndoRecording) this._recordUndo({ action: 'remove', x, y, z, type })
     const mesh = this._instancedMeshes[type]
     const keys = this._instanceKeyByIndex[type]
     const removedIndex = keys.indexOf(key)
@@ -1185,6 +1234,50 @@ export class BuildMode {
       light.dispose()
       this._blockLights.delete(key)
     }
+  }
+
+  // Undo/Redo - see the constructor's own comment on _undoStack/_redoStack
+  // and the recording lines inside placeBlock()/removeBlock() above.
+  _recordUndo(entry) {
+    this._undoStack.push(entry)
+    if (this._undoStack.length > UNDO_STACK_LIMIT) this._undoStack.shift()
+    // A fresh action invalidates whatever was previously undone - same
+    // standard undo/redo semantics as any text editor.
+    this._redoStack.length = 0
+    this._updateUndoRedoButtons()
+  }
+
+  undo() {
+    const entry = this._undoStack.pop()
+    if (!entry) return
+    this._suppressUndoRecording = true
+    if (entry.action === 'place') {
+      this.removeBlock(entry.x, entry.y, entry.z)
+    } else {
+      this.placeBlock(entry.x, entry.y, entry.z, entry.type)
+    }
+    this._suppressUndoRecording = false
+    this._redoStack.push(entry)
+    this._updateUndoRedoButtons()
+  }
+
+  redo() {
+    const entry = this._redoStack.pop()
+    if (!entry) return
+    this._suppressUndoRecording = true
+    if (entry.action === 'place') {
+      this.placeBlock(entry.x, entry.y, entry.z, entry.type)
+    } else {
+      this.removeBlock(entry.x, entry.y, entry.z)
+    }
+    this._suppressUndoRecording = false
+    this._undoStack.push(entry)
+    this._updateUndoRedoButtons()
+  }
+
+  _updateUndoRedoButtons() {
+    if (this._undoBtnEl) this._undoBtnEl.disabled = this._undoStack.length === 0
+    if (this._redoBtnEl) this._redoBtnEl.disabled = this._redoStack.length === 0
   }
 
   _placeFromCamera() {
@@ -1676,6 +1769,11 @@ export class BuildMode {
   // to a truly empty InstancedMesh/sparse-map state - needed before
   // importing a file into a scene that may already have a build in it,
   // since placeBlock only ever adds (see its own occupied-cell no-op).
+  // Every real call site (Reset Map, switchSlot, importMapFile, Community
+  // Builds Download) is swapping in a wholly different build right after -
+  // undo/redo entries from before the swap would reference block positions/
+  // types that no longer correspond to what's on screen, so they're
+  // cleared here too rather than at each of those 4 call sites separately.
   clearAllBlocks() {
     for (const type in this._instancedMeshes) {
       const mesh = this._instancedMeshes[type]
@@ -1690,6 +1788,9 @@ export class BuildMode {
       light.dispose()
     }
     this._blockLights.clear()
+    this._undoStack.length = 0
+    this._redoStack.length = 0
+    this._updateUndoRedoButtons()
   }
 
   // Returns true on a successful import (caller shows its own toast/error

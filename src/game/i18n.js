@@ -1485,6 +1485,7 @@ const STRINGS = {
     buildPublishSuccess: 'Build published!',
     buildPublishFailed: 'Could not publish - try again.',
     buildDownloadConfirm: "Downloading this build replaces your CURRENT build completely. This can't be undone. Continue?",
+    buildResetConfirm: "This clears your ENTIRE current build back to empty ground. This can't be undone. Continue?",
     buildReportSent: 'Report sent - thanks for flagging it.',
     updateAvailableTitle: 'GayZ was updated!',
     updateAvailableRefreshBtn: 'Refresh Now',
