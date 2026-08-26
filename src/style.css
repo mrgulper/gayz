@@ -7889,3 +7889,111 @@ html.night-vision-active #app {
   background: #8fe8a4;
 }
 
+/* Touch Controls (mobile/tablet playability, part 1 of 3 - see
+   docs/superpowers/specs/2026-08-26-touch-controls-design.md). Sits above
+   ordinary gameplay HUD (no explicit z-index, effectively 0 via DOM
+   order) but below the panel tier (15) per this file's existing z-index
+   scale, so the More Actions menu (a real full-screen panel) still uses
+   that same tier. Pixel positions here are a first pass for reachability,
+   not final visual polish - small-screen layout is a later, separate
+   sub-project. */
+#touch-controls-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 8;
+  touch-action: none;
+  user-select: none;
+}
+
+#touch-joystick-base {
+  position: absolute;
+  left: 30px;
+  bottom: 30px;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+}
+
+#touch-joystick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 50px;
+  height: 50px;
+  margin: -25px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+  pointer-events: none;
+}
+
+#touch-look-zone {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 60%;
+  height: 100%;
+}
+
+.touch-action-btn {
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+#touch-btn-fire { right: 40px; bottom: 90px; width: 78px; height: 78px; }
+#touch-btn-aim { right: 130px; bottom: 60px; }
+#touch-btn-jump { right: 40px; bottom: 190px; }
+#touch-btn-reload { right: 200px; bottom: 40px; }
+#touch-btn-melee { right: 280px; bottom: 40px; }
+#touch-btn-interact { right: 40px; bottom: 270px; }
+#touch-btn-sprint { right: 40px; bottom: 350px; }
+#touch-btn-crouch { right: 130px; bottom: 190px; }
+#touch-btn-more { left: 30px; top: 30px; width: 48px; height: 48px; font-size: 9px; }
+
+.touch-weapon-btn {
+  width: 44px;
+  height: 44px;
+  top: 30px;
+}
+#touch-btn-weapon-1 { right: 200px; }
+#touch-btn-weapon-2 { right: 150px; }
+#touch-btn-weapon-3 { right: 100px; }
+#touch-btn-weapon-4 { right: 50px; }
+
+#touch-more-actions-menu {
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+  background: rgba(10, 8, 4, 0.92);
+  padding: 24px;
+  overflow-y: auto;
+}
+
+#touch-more-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 12px;
+}
+
+.touch-more-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 12px;
+}
+
