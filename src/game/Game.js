@@ -481,6 +481,7 @@ function loadSettings() {
       captionBackground: parsed.captionBackground ?? false,
       themePreset: parsed.themePreset || 'none',
       uiTheme: parsed.uiTheme === 'old' ? 'old' : 'golden',
+      lastSeenBuildHash: parsed.lastSeenBuildHash || null,
       mutators: {
         hordeRush: parsed.mutators?.hordeRush ?? false,
         lootRush: parsed.mutators?.lootRush ?? false,
@@ -555,7 +556,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, instantStationInteract: false, confirmQuitRun: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, touchControlsOverride: 'auto', clanId: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'golden', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
+  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, instantStationInteract: false, confirmQuitRun: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, touchControlsOverride: 'auto', clanId: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'golden', lastSeenBuildHash: null, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -3821,6 +3822,11 @@ export class Game {
     this.autosaveFrequencySlider = document.getElementById('autosave-frequency-slider')
     this.autosaveFrequencyValue = document.getElementById('autosave-frequency-value')
     this.homepageClockEl = document.getElementById('homepage-clock')
+    this.updateAvailableBanner = document.getElementById('update-available-banner')
+    this.updateAvailableTitleEl = document.getElementById('update-available-title')
+    this.updateAvailableChangelog = document.getElementById('update-available-changelog')
+    this.updateAvailableRefreshBtn = document.getElementById('update-available-refresh-btn')
+    this.updateAvailableLaterBtn = document.getElementById('update-available-later-btn')
     this.hudFpsToggle = document.getElementById('hud-fps-toggle')
     this.ammoPositionSelect = document.getElementById('ammo-position-select')
     this.healthDisplayStyleSelect = document.getElementById('health-display-style-select')
@@ -6050,6 +6056,40 @@ export class Game {
     }
   }
 
+  // Update-available check - only ever called from _onGameplayPaused's own
+  // "back at the homepage" branch below, never mid-run, so a fresh deploy
+  // while someone's playing never interrupts them; they just find out the
+  // next time they're actually looking at the main menu again. version.json
+  // carries the exact same build hash __BUILD_HASH__ was compiled from (see
+  // vite.config.js) - if they differ, a newer build than the one currently
+  // loaded exists. The "what changed" content isn't duplicated anywhere -
+  // it re-fetches the live index.html and reads its #changelog-list
+  // directly, so there's exactly one place (that list) to keep updated,
+  // same as today.
+  async _checkForUpdate() {
+    if (!this.updateAvailableBanner || this.updateAvailableBanner.style.display === 'flex') return
+    try {
+      const versionRes = await fetch('/version.json', { cache: 'no-store' })
+      const { hash } = await versionRes.json()
+      if (!hash || hash === __BUILD_HASH__ || hash === this.settings.lastSeenBuildHash) return
+      const pageRes = await fetch('/index.html', { cache: 'no-store' })
+      const freshDoc = new DOMParser().parseFromString(await pageRes.text(), 'text/html')
+      const freshChangelogList = freshDoc.getElementById('changelog-list')
+      if (!freshChangelogList) return
+      const entries = [...freshChangelogList.querySelectorAll('.changelog-entry')].slice(0, 5)
+      if (!entries.length) return
+      this.updateAvailableChangelog.innerHTML = entries.map((entry) => entry.outerHTML).join('')
+      this._pendingUpdateHash = hash
+      if (this.updateAvailableTitleEl) this.updateAvailableTitleEl.textContent = t('updateAvailableTitle')
+      if (this.updateAvailableRefreshBtn) this.updateAvailableRefreshBtn.textContent = t('updateAvailableRefreshBtn')
+      if (this.updateAvailableLaterBtn) this.updateAvailableLaterBtn.textContent = t('updateAvailableLaterBtn')
+      this.updateAvailableBanner.style.display = 'flex'
+    } catch {
+      // A failed check (offline, blocked request, etc.) just means no
+      // banner this time - not a player-facing error worth surfacing.
+    }
+  }
+
   // Extracted from the real 'unlock' event listener above - see
   // _onGameplayResumed's own comment for why touch mode needs this callable
   // directly instead of only ever firing from a real browser event.
@@ -6085,6 +6125,7 @@ export class Game {
       this.pauseOverlay.style.display = 'flex'
     } else {
       this.menu.style.display = 'flex'
+      this._checkForUpdate()
     }
     this.crosshair.style.display = 'none'
     this.hudEl.style.display = 'none'
@@ -14391,6 +14432,18 @@ export class Game {
     // Play Again/Share above it (any completed run at all), since a
     // shareable stat card is reasonable to want well before the true
     // ending.
+    if (this.updateAvailableRefreshBtn) this.updateAvailableRefreshBtn.addEventListener('click', () => window.location.reload())
+    if (this.updateAvailableLaterBtn) {
+      this.updateAvailableLaterBtn.addEventListener('click', () => {
+        // Remembers this specific version was seen so returning to the
+        // homepage again later doesn't re-show the same notice - a genuinely
+        // NEWER deploy after this one still gets its own fresh banner, since
+        // its hash won't match what's stored here.
+        this.settings.lastSeenBuildHash = this._pendingUpdateHash
+        saveSettings(this.settings)
+        this.updateAvailableBanner.style.display = 'none'
+      })
+    }
     if (this.shareCardBtn) this.shareCardBtn.addEventListener('click', () => this._generateCareerPortrait())
     if (this.savePresetBtn) this.savePresetBtn.addEventListener('click', () => MenuPresets.saveMenuPreset(this))
     if (this.surpriseMeBtn) this.surpriseMeBtn.addEventListener('click', () => MenuPresets.surpriseMe(this))

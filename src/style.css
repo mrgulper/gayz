@@ -2630,6 +2630,75 @@ select option {
   opacity: 0.85;
 }
 
+/* Update-available banner (homepage only - see Game.js's _checkForUpdate)
+   - a fixed overlay near the top of the homepage rather than part of the
+   normal #menu-layout flow, so it never eats into the zero-scroll-height
+   budget that layout is tuned for. Sits inside #menu's subtree (a sibling
+   of #menu-layout), so the --menu-* custom properties resolve here,
+   unlike panels that live outside #menu (see #goals-picker's own comment
+   on that gotcha). z-index 8: above normal homepage content (1) but below
+   #asset-loader (10) and modal panels (15), per this file's documented
+   stacking scale. */
+#update-available-banner {
+  /* display itself is toggled none/flex via JS (see _checkForUpdate) -
+     flex-direction must be set here since row is flex's default, which
+     without this laid the title/changelog/buttons out as side-by-side
+     columns instead of stacked. */
+  flex-direction: column;
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 8;
+  width: min(420px, 90vw);
+  max-height: 40vh;
+  overflow-y: auto;
+  background: var(--menu-panel-bg, rgba(7, 8, 8, 0.95));
+  border: 1px solid var(--menu-gold, #d9bc4a);
+  border-radius: 8px;
+  padding: 14px 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+#update-available-title {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--menu-gold, #d9bc4a);
+  text-align: center;
+}
+
+#update-available-changelog {
+  margin-bottom: 10px;
+}
+
+#update-available-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+#update-available-refresh-btn,
+#update-available-later-btn {
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#update-available-refresh-btn {
+  color: #1a1a1a;
+  background: var(--menu-gold, #d9bc4a);
+  border: 1px solid var(--menu-gold, #d9bc4a);
+}
+
+#update-available-later-btn {
+  color: rgba(255, 255, 255, 0.75);
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
 #credits-content p,
 #rulesinfo-content p,
 #howtoplay-content p {
