@@ -9187,6 +9187,15 @@ export class Game {
 
     this.performanceToggle.checked = this.settings.performanceMode
     this._applyPerformanceMode(this.settings.performanceMode)
+    // Mobile GPUs are generally much weaker than desktop - entering touch
+    // mode turns on Performance Mode (reduced shadows/bloom/render scale/
+    // draw distance, see _applyPerformanceMode) for this session only,
+    // same "don't overwrite the saved preference" reasoning as the aim
+    // assist default above. The checkbox/quick-toggle still shows and
+    // controls the real settings.performanceMode value underneath -
+    // toggling it off during a touch session turns this back off too,
+    // exactly like any other setting change would.
+    if (this.touchControlsActive) this._applyPerformanceMode(true)
 
     this.performanceToggle.addEventListener('change', () => {
       this.settings.performanceMode = this.performanceToggle.checked
