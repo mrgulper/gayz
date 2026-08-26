@@ -8123,3 +8123,50 @@ html.night-vision-active #app {
   #touch-btn-reload { right: 230px; bottom: 80px; }
 }
 
+/* Existing in-game HUD (weapon/ammo panel, health/status bars, the
+   gadget-icon column, minimap, top-right stats panel) was only ever
+   sized for a desktop screen - all confirmed pointer-events:none
+   (display-only, so touch buttons were never actually BLOCKED by
+   overlapping it), but it visually crowds a small phone screen. Shrunk
+   here for readability, not because anything was non-functional. Shared
+   shrink values apply to both the narrow-portrait and short-landscape
+   phone cases below. */
+@media (max-width: 700px), (max-height: 450px) {
+  #weapon-name {
+    font-size: 11px;
+  }
+
+  #ammo {
+    font-size: 22px;
+  }
+
+  #left-hud-stack {
+    gap: 5px;
+  }
+
+  .status-row {
+    font-size: 12px;
+    gap: 5px;
+  }
+
+  .status-icon {
+    width: 14px;
+  }
+
+  .status-bar {
+    width: 90px;
+    height: 7px;
+  }
+
+  #minimap {
+    width: 90px;
+    height: 90px;
+  }
+
+  #stats-panel {
+    padding: 6px 9px;
+    min-width: 80px;
+    font-size: 11px;
+  }
+}
+
