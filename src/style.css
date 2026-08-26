@@ -72,6 +72,31 @@ html.dyslexia-font body {
    Escape is pressed, instead of every action button sitting on screen the
    whole time you're building. Same fixed-centered-panel pattern as
    #build-picker below. */
+/* Shown for the full duration of _enterBuildMode() (Game.js) - covers the
+   canvas so the real game world (which keeps rendering underneath the
+   whole time, see that function's own comment) never flashes through
+   while Build Mode's class loads/constructs on first entry. z-index 20,
+   same level as #build-menu below - nothing else should be visible or
+   interactive during this exact moment, so there's no real stacking
+   conflict to worry about either way. */
+#build-mode-loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0a0a09;
+}
+
+#build-mode-loading-overlay p {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--menu-gold, #d9bc4a);
+}
+
 #build-menu {
   position: fixed;
   top: 50%;

@@ -1899,6 +1899,12 @@ const KILLCAM_SLOWMO_FACTOR = 0.2
 // plays out in slow motion rather than snapping back to normal speed
 // right before the death screen shows.
 const DEATH_KILLCAM_DURATION_MS = 1100
+// Build Mode entry loading overlay (see _enterBuildMode) - a floor, not a
+// fixed delay: real loading (first visit's dynamic import) can take
+// longer and this never cuts that short, it only stretches an
+// already-fast repeat visit up to feel like a deliberate beat instead of
+// a one-frame flicker.
+const BUILD_MODE_LOADING_MIN_MS = 400
 // Landing camera dip - only a genuinely hard fall dips the camera (a normal
 // jump lands around -10 to -12, a stair/step correction is well under -4,
 // see PlayerController's GRAVITY/JUMP_SPEED). Scale/max keep a long fall off
@@ -3387,6 +3393,7 @@ export class Game {
     this._zombiePopulationCap = LOW_QUALITY_MODE ? 20 : 50
 
     this.playBtn = document.getElementById('play-btn')
+    this.buildModeLoadingOverlay = document.getElementById('build-mode-loading-overlay')
     this.crosshair = document.getElementById('crosshair')
     this.damageNumbersEl = document.getElementById('damage-numbers')
     this.threatIndicator = document.getElementById('threat-indicator')
@@ -11926,6 +11933,12 @@ export class Game {
   // comment), reachable from the homepage. Reuses this.menu's existing
   // hide/show pattern (same as starting a real run) rather than a new panel.
   async _enterBuildMode() {
+    // Covers the canvas for the whole function - without this, the real
+    // game world (which keeps rendering the whole time, see the dynamic-
+    // import comment below) flashes through for however long loading
+    // takes, especially noticeable on the very first visit this session.
+    if (this.buildModeLoadingOverlay) this.buildModeLoadingOverlay.style.display = 'flex'
+    const buildModeLoadStartedAt = performance.now()
     this.menu.style.display = 'none'
     // Build Mode is only ever reachable from the homepage nav (#menu is
     // hidden the instant a real run starts, see the 'lock' handler), but
@@ -11996,6 +12009,15 @@ export class Game {
       this.buildMode = new BuildMode(this.renderer, this)
     }
     this.buildMode.enter()
+    // Always shows for at least BUILD_MODE_LOADING_MIN_MS so this reads as
+    // a deliberate loading beat rather than a one-frame flicker on repeat
+    // visits, where the dynamic import above is already cached and
+    // everything in this function finishes near-instantly.
+    const buildModeLoadElapsed = performance.now() - buildModeLoadStartedAt
+    if (buildModeLoadElapsed < BUILD_MODE_LOADING_MIN_MS) {
+      await new Promise((resolve) => setTimeout(resolve, BUILD_MODE_LOADING_MIN_MS - buildModeLoadElapsed))
+    }
+    if (this.buildModeLoadingOverlay) this.buildModeLoadingOverlay.style.display = 'none'
   }
 
   _exitBuildMode() {
