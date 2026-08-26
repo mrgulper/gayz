@@ -3220,28 +3220,6 @@ select option {
   opacity: 0.85;
 }
 
-/* Inventory panel sections (Skins, then Crates) - each still a "Coming
-   soon" placeholder for now, but structured as real sections so content
-   can drop in later without another layout pass. */
-.inventory-section {
-  width: min(360px, 86vw);
-  padding: 10px 0;
-}
-
-.inventory-section + .inventory-section {
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
-}
-
-.inventory-section-title {
-  margin: 0 0 8px;
-  font-size: 15px;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  color: var(--menu-gold, #e3c23c);
-  opacity: 0.9;
-  text-align: center;
-}
-
 #inventory-skins-sort-row {
   display: flex;
   align-items: center;
@@ -7074,6 +7052,38 @@ html.theme-lighter #app { filter: brightness(1.25); }
   align-items: center;
   gap: 14px;
   width: 100%;
+}
+
+/* Inventory panel tab strip (Character/Crates/Weapons) - same reasoning
+   as .quest-tabs above: kept as its own class so it doesn't get swept
+   into the settings-tab/quest-tab click handlers' global .class queries. */
+.inventory-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.inventory-tab {
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.inventory-tab.active {
+  color: #0c130c;
+  background: #e3c23c;
+  border-color: #e3c23c;
+}
+
+.inventory-tab-page {
+  width: min(360px, 86vw);
+  padding: 10px 0;
 }
 
 /* Hub panel tab strip (Zombie Survival/Deathmatch) - same reasoning as

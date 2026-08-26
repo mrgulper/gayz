@@ -5030,12 +5030,12 @@ export class Game {
     this.menuInventoryBtn = document.getElementById('menu-inventory-btn')
     this.menuInventoryPanel = document.getElementById('menu-inventory-panel')
     this.menuInventoryPanelTitle = document.getElementById('menu-inventory-panel-title')
-    this.inventorySkinsTitle = document.getElementById('inventory-skins-title')
+    this.inventoryTabCharacter = document.getElementById('inventory-tab-character')
+    this.inventoryTabCrates = document.getElementById('inventory-tab-crates')
+    this.inventoryTabWeapons = document.getElementById('inventory-tab-weapons')
     this.inventorySkinsSortLabel = document.getElementById('inventory-skins-sort-label')
     this.inventorySkinsPlaceholder = document.getElementById('inventory-skins-placeholder')
-    this.inventoryCharacterCratesTitle = document.getElementById('inventory-charactercrates-title')
     this.inventoryCharacterCratesPlaceholder = document.getElementById('inventory-charactercrates-placeholder')
-    this.inventoryWeaponsTitle = document.getElementById('inventory-weapons-title')
     this.inventoryWeaponsPlaceholder = document.getElementById('inventory-weapons-placeholder')
     this.serverBtn = document.getElementById('server-btn')
     this.serverPanel = document.getElementById('server-panel')
@@ -8390,6 +8390,17 @@ export class Game {
         for (const tabEl of document.querySelectorAll('.hub-tab')) tabEl.classList.toggle('active', tabEl === tab)
         for (const page of document.querySelectorAll('.hub-tab-page')) {
           page.style.display = page.id === `hub-page-${tab.dataset.hubPage}` ? 'flex' : 'none'
+        }
+      })
+    }
+
+    // Inventory panel tab strip (Character/Crates/Weapons) - same isolated
+    // class/loop pattern as the quest/hub tabs above.
+    for (const tab of document.querySelectorAll('.inventory-tab')) {
+      tab.addEventListener('click', () => {
+        for (const tabEl of document.querySelectorAll('.inventory-tab')) tabEl.classList.toggle('active', tabEl === tab)
+        for (const page of document.querySelectorAll('.inventory-tab-page')) {
+          page.style.display = page.id === `inventory-page-${tab.dataset.inventoryPage}` ? 'block' : 'none'
         }
       })
     }
@@ -13422,13 +13433,17 @@ export class Game {
     this._closeAllMenuPanels()
     this.menuInventoryPanel.style.display = 'flex'
     if (this.menuInventoryPanelTitle) this.menuInventoryPanelTitle.textContent = t('menuInventoryPanelTitle')
-    if (this.inventorySkinsTitle) this.inventorySkinsTitle.textContent = t('inventorySkinsTitle')
+    if (this.inventoryTabCharacter) this.inventoryTabCharacter.textContent = t('inventorySkinsTitle')
+    if (this.inventoryTabCrates) this.inventoryTabCrates.textContent = t('inventoryCratesTitle')
+    if (this.inventoryTabWeapons) this.inventoryTabWeapons.textContent = t('inventoryWeaponsTitle')
     if (this.inventorySkinsSortLabel) this.inventorySkinsSortLabel.textContent = t('inventorySortLabel')
     if (this.inventorySkinsPlaceholder) this.inventorySkinsPlaceholder.textContent = t('menuInventoryPlaceholder')
-    if (this.inventoryCharacterCratesTitle) this.inventoryCharacterCratesTitle.textContent = t('inventoryCharacterCratesTitle')
     if (this.inventoryCharacterCratesPlaceholder) this.inventoryCharacterCratesPlaceholder.textContent = t('menuInventoryPlaceholder')
-    if (this.inventoryWeaponsTitle) this.inventoryWeaponsTitle.textContent = t('inventoryWeaponsTitle')
     if (this.inventoryWeaponsPlaceholder) this.inventoryWeaponsPlaceholder.textContent = t('menuInventoryPlaceholder')
+    // Always reopen on the Character tab - simpler than remembering the
+    // last-used one, and matches this panel's own approved design.
+    for (const tabEl of document.querySelectorAll('.inventory-tab')) tabEl.classList.toggle('active', tabEl === this.inventoryTabCharacter)
+    for (const page of document.querySelectorAll('.inventory-tab-page')) page.style.display = page.id === 'inventory-page-character' ? 'block' : 'none'
   }
 
   _closeMenuInventoryPanel() {

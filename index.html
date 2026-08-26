@@ -2145,8 +2145,12 @@ Escape before dawn.</p>
 
       <div id="menu-inventory-panel">
         <h2 id="menu-inventory-panel-title">Inventory</h2>
-        <section class="inventory-section" id="inventory-skins-section">
-          <h3 class="inventory-section-title" id="inventory-skins-title">Skins</h3>
+        <div class="inventory-tabs">
+          <button class="inventory-tab active" data-inventory-page="character" id="inventory-tab-character">Character</button>
+          <button class="inventory-tab" data-inventory-page="crates" id="inventory-tab-crates">Crates</button>
+          <button class="inventory-tab" data-inventory-page="weapons" id="inventory-tab-weapons">Weapons</button>
+        </div>
+        <div class="inventory-tab-page" id="inventory-page-character">
           <div id="inventory-skins-sort-row">
             <label for="inventory-skins-sort-select" id="inventory-skins-sort-label">Sort:</label>
             <select id="inventory-skins-sort-select">
@@ -2157,15 +2161,13 @@ Escape before dawn.</p>
             </select>
           </div>
           <p class="inventory-section-placeholder" id="inventory-skins-placeholder">Coming soon.</p>
-        </section>
-        <section class="inventory-section" id="inventory-charactercrates-section">
-          <h3 class="inventory-section-title" id="inventory-charactercrates-title">Character Crates</h3>
+        </div>
+        <div class="inventory-tab-page" id="inventory-page-crates" style="display: none">
           <p class="inventory-section-placeholder" id="inventory-charactercrates-placeholder">Coming soon.</p>
-        </section>
-        <section class="inventory-section" id="inventory-weapons-section">
-          <h3 class="inventory-section-title" id="inventory-weapons-title">Weapons</h3>
+        </div>
+        <div class="inventory-tab-page" id="inventory-page-weapons" style="display: none">
           <p class="inventory-section-placeholder" id="inventory-weapons-placeholder">Coming soon.</p>
-        </section>
+        </div>
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>
 
