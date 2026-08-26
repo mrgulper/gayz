@@ -6061,8 +6061,8 @@ html.theme-lighter #app { filter: brightness(1.25); }
    instead of forcing a square render, and recomputes camera distance
    per-resize so the character never clips regardless of aspect ratio. */
 #setup-avatar-wrap {
-  width: 230px;
-  height: 480px;
+  width: 460px;
+  height: 960px;
   margin: 10px auto 0;
   cursor: grab;
 }
@@ -6521,6 +6521,18 @@ html.theme-lighter #app { filter: brightness(1.25); }
 
   #menu-title-img {
     width: min(90%, 620px);
+  }
+
+  /* The avatar's base size doubled (230x480 -> 460x960) to make it more
+     prominent on the homepage - fine on a tall screen, but at 960px and
+     under its own height alone is close to the whole viewport, blowing
+     the zero-scroll budget this page has been tuned to hold. Same
+     "shrink before removing" precedent as every other element in this
+     tier - the further #setup-avatar-wrap reduction at the 750px tier
+     below still applies underneath this one. */
+  #setup-avatar-wrap {
+    width: 322px;
+    height: 672px;
   }
 
   /* The "everything bigger" side-panel/nav-button pass below this block

@@ -211,10 +211,10 @@ const SETTINGS_STORAGE_KEY = 'gayz-settings'
 // editable, still used for companion naming/leaderboards/friend search
 // elsewhere) - this is only what the corner badge itself displays now.
 const PLAYER_ID_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+const PLAYER_ID_LENGTH = 6
 function _generatePlayerId() {
-  const length = 6 + Math.floor(Math.random() * 5) // 6-10 inclusive
   let id = ''
-  for (let i = 0; i < length; i++) id += PLAYER_ID_CHARS[Math.floor(Math.random() * PLAYER_ID_CHARS.length)]
+  for (let i = 0; i < PLAYER_ID_LENGTH; i++) id += PLAYER_ID_CHARS[Math.floor(Math.random() * PLAYER_ID_CHARS.length)]
   return id
 }
 
@@ -313,8 +313,11 @@ function loadSettings() {
       // Corner-badge ID (see _generatePlayerId above) - unlike nickname,
       // this always backfills if missing (not just for a fully-fresh
       // player), since it's a new field every already-existing save is
-      // missing the first time this ships.
-      playerId: parsed.playerId || _generatePlayerId(),
+      // missing the first time this ships. Also regenerates once for any
+      // existing player whose saved id predates the fixed 6-character
+      // length (the old format was randomly 6-10 characters) - a one-time
+      // move onto the new format, not something that keeps re-rolling.
+      playerId: parsed.playerId && parsed.playerId.length === PLAYER_ID_LENGTH ? parsed.playerId : _generatePlayerId(),
       nickname: parsed.nickname || defaultNickname,
       // Nickname color (see nickname display sites - Hardcore Memorial, kill
       // feed) - a plain hex string like crosshairColor above, not tied to
