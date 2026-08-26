@@ -4826,7 +4826,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 #menu-bg-scrim {
   position: absolute;
   inset: 0;
-  background: rgba(3, 6, 5, 0.54);
+  background: rgba(3, 6, 5, 0.42);
 }
 
 #menu-bg-vignette {
