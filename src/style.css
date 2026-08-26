@@ -117,6 +117,83 @@ html.dyslexia-font body {
   color: #ffde5c;
 }
 
+/* Community Builds browse panel - matches #build-menu's own dark-plate
+   visual language (Build Mode's panels don't use the main menu's gold-plate
+   styling), not the unrelated .clan-list-row tokens from a different part
+   of the game. */
+#community-builds-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.75);
+  color: rgba(255, 255, 255, 0.85);
+  padding: 24px;
+}
+
+#community-builds-panel h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+#community-builds-panel #community-builds-close-btn {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#community-builds-list {
+  width: min(500px, 90vw);
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.community-build-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  background: rgba(10, 10, 10, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+
+.community-build-row span {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.community-build-download-btn,
+.community-build-report-btn {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.community-build-report-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 #build-mode-exit-btn {
   margin-top: 4px;
   border-color: rgba(255, 255, 255, 0.35);
