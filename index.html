@@ -1466,6 +1466,38 @@ Escape before dawn.</p>
         <button id="coming-soon-close-btn">Close</button>
       </div>
 
+      <div id="clan-panel" style="display: none">
+        <h2 id="clan-panel-title">Clan</h2>
+        <div id="clan-signin-gate" style="display: none">
+          <p id="clan-signin-gate-text"></p>
+        </div>
+        <div id="clan-no-clan-state" style="display: none">
+          <label class="menu-field-label" for="clan-create-name-input">Clan Name</label>
+          <input type="text" id="clan-create-name-input" class="nickname-input" placeholder="Your clan's name" maxlength="24" />
+          <label class="menu-field-label" for="clan-create-tag-input">Tag (2-4 letters)</label>
+          <input type="text" id="clan-create-tag-input" class="nickname-input" placeholder="TAG" maxlength="4" />
+          <button id="clan-create-btn" type="button" class="mini-action-btn">Create Clan</button>
+          <p id="clan-create-taken-warning" style="display: none"></p>
+          <label class="menu-field-label" for="clan-join-name-input">Join an Existing Clan</label>
+          <input type="text" id="clan-join-name-input" class="nickname-input" placeholder="Clan name to search" maxlength="24" />
+          <button id="clan-join-btn" type="button" class="mini-action-btn">Join</button>
+          <p id="clan-join-status" style="display: none"></p>
+        </div>
+        <div id="clan-in-clan-state" style="display: none">
+          <h4 id="clan-display-name"></h4>
+          <p id="clan-display-tag"></p>
+          <div id="clan-stats-card">
+            <p id="clan-stats-members"></p>
+            <p id="clan-stats-kills"></p>
+            <p id="clan-stats-night"></p>
+          </div>
+          <div id="clan-member-list"></div>
+          <button id="clan-leave-btn" type="button" class="mini-action-btn">Leave Clan</button>
+          <p id="clan-leave-disabled-hint" style="display: none"></p>
+        </div>
+        <button id="clan-panel-close-btn">Close</button>
+      </div>
+
       <div id="hub-panel">
         <h2 id="hub-panel-title">Hub</h2>
         <div id="hub-content">
@@ -1482,39 +1514,6 @@ Escape before dawn.</p>
               <input type="text" id="companion-name-input" class="nickname-input" placeholder="Companion name" maxlength="16" />
               <label class="menu-field-label" for="challenge-code-input">Challenge Code (Optional)</label>
               <input type="text" id="challenge-code-input" class="nickname-input" placeholder="Paste a code" maxlength="24" />
-            </div>
-          </section>
-
-          <section class="hub-section">
-            <h3 class="hub-section-title">Clan</h3>
-            <div class="hub-section-list">
-              <div id="clan-signin-gate" style="display: none">
-                <p id="clan-signin-gate-text"></p>
-              </div>
-              <div id="clan-no-clan-state" style="display: none">
-                <label class="menu-field-label" for="clan-create-name-input">Clan Name</label>
-                <input type="text" id="clan-create-name-input" class="nickname-input" placeholder="Your clan's name" maxlength="24" />
-                <label class="menu-field-label" for="clan-create-tag-input">Tag (2-4 letters)</label>
-                <input type="text" id="clan-create-tag-input" class="nickname-input" placeholder="TAG" maxlength="4" />
-                <button id="clan-create-btn" type="button" class="mini-action-btn">Create Clan</button>
-                <p id="clan-create-taken-warning" style="display: none"></p>
-                <label class="menu-field-label" for="clan-join-name-input">Join an Existing Clan</label>
-                <input type="text" id="clan-join-name-input" class="nickname-input" placeholder="Clan name to search" maxlength="24" />
-                <button id="clan-join-btn" type="button" class="mini-action-btn">Join</button>
-                <p id="clan-join-status" style="display: none"></p>
-              </div>
-              <div id="clan-in-clan-state" style="display: none">
-                <h4 id="clan-display-name"></h4>
-                <p id="clan-display-tag"></p>
-                <div id="clan-stats-card">
-                  <p id="clan-stats-members"></p>
-                  <p id="clan-stats-kills"></p>
-                  <p id="clan-stats-night"></p>
-                </div>
-                <div id="clan-member-list"></div>
-                <button id="clan-leave-btn" type="button" class="mini-action-btn">Leave Clan</button>
-                <p id="clan-leave-disabled-hint" style="display: none"></p>
-              </div>
             </div>
           </section>
 

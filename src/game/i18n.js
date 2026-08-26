@@ -365,6 +365,7 @@ const STRINGS = {
     touchControlsOverrideLabel: 'Touch Controls',
     touchControlsOverrideHint: 'Changing this reloads the page.',
     touchMoreActionsTitle: 'More Actions',
+    clanPanelTitle: 'Clan',
     clanSigninRequired: 'Sign in via Cloud Save to join or create a clan.',
     clanNameTakenWarning: 'A clan with that name already exists - you can still create yours, or search for it above to join instead.',
     clanNotFound: 'No clan found with that name.',

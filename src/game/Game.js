@@ -4956,6 +4956,9 @@ export class Game {
     this.comingSoonTitle = document.getElementById('coming-soon-title')
     this.comingSoonBody = document.getElementById('coming-soon-body')
     this.comingSoonCloseBtn = document.getElementById('coming-soon-close-btn')
+    this.clanPanel = document.getElementById('clan-panel')
+    this.clanPanelTitle = document.getElementById('clan-panel-title')
+    this.clanPanelCloseBtn = document.getElementById('clan-panel-close-btn')
     this.howtoplayNavLink = document.getElementById('nav-howtoplay-link')
     this.rulesInfoLink = document.getElementById('nav-rulesinfo-link')
     this.rulesInfoPanel = document.getElementById('rulesinfo-panel')
@@ -9383,9 +9386,10 @@ export class Game {
       const btn = e.target.closest('button[data-spawned-at]')
       if (btn && !btn.disabled) this._claimRollingQuest(Number(btn.dataset.spawnedAt))
     })
-    if (this.hubBtn) this.hubBtn.addEventListener('click', () => trackAndOpen(() => this._openComingSoonPanel()))
+    if (this.hubBtn) this.hubBtn.addEventListener('click', () => trackAndOpen(() => this._openClanPanel()))
     if (this.gamemodeBtn) this.gamemodeBtn.addEventListener('click', () => trackAndOpen(() => this._openHubPanel()))
     if (this.comingSoonCloseBtn) this.comingSoonCloseBtn.addEventListener('click', () => this._closeComingSoonPanel())
+    if (this.clanPanelCloseBtn) this.clanPanelCloseBtn.addEventListener('click', () => this._closeClanPanel())
     if (this.howtoplayNavLink) this.howtoplayNavLink.addEventListener('click', () => this._openHowToPlayPanel())
     if (this.rulesInfoLink) this.rulesInfoLink.addEventListener('click', () => this._openRulesInfoPanel())
     if (this.rulesInfoPanel) {
@@ -12952,6 +12956,7 @@ export class Game {
     if (this.achievementsPanel) this._closeAchievementsPanel()
     if (this.hubPanel) this._closeHubPanel()
     if (this.comingSoonPanel) this._closeComingSoonPanel()
+    if (this.clanPanel) this._closeClanPanel()
     if (this.friendsPanel) this._closeFriendsPanel()
     if (this.menuInventoryPanel) this._closeMenuInventoryPanel()
     if (this.serverPanel) this._closeServerPanel()
@@ -13478,7 +13483,6 @@ export class Game {
     this._closeAllMenuPanels()
     this.hubPanel.style.display = 'flex'
     if (this.hubPanelTitle) this.hubPanelTitle.textContent = t('hubPanelTitle')
-    this._refreshClanUi()
   }
 
   _closeHubPanel() {
@@ -13499,6 +13503,22 @@ export class Game {
 
   _closeComingSoonPanel() {
     if (this.comingSoonPanel) this.comingSoonPanel.style.display = 'none'
+  }
+
+  // The sidebar's HUB nav button opens this (see hubBtn's listener) -
+  // distinct from _openHubPanel(), an older, differently-scoped panel
+  // (Player/Difficulty/Choose Class/Game Modes/Challenges) only reachable
+  // from the homepage's "Game Mode" button, not the sidebar at all.
+  _openClanPanel() {
+    if (!this.clanPanel) return
+    this._closeAllMenuPanels()
+    this.clanPanel.style.display = 'flex'
+    if (this.clanPanelTitle) this.clanPanelTitle.textContent = t('clanPanelTitle')
+    this._refreshClanUi()
+  }
+
+  _closeClanPanel() {
+    if (this.clanPanel) this.clanPanel.style.display = 'none'
   }
 
   // Friends - the existing Compare-with-a-Friend feature (see CloudSaveUI's
