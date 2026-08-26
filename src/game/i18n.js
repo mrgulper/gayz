@@ -1033,7 +1033,6 @@ const STRINGS = {
     creditsPanelTitle: 'Credits',
     shopPanelTitle: 'Shop',
     whatsNewPanelTitle: 'What\'s New',
-    navLinkRules: 'Rules & Info',
     multiplayerPanelTitle: 'Players in Game',
     multiplayerCreating: 'Creating your invite link...',
     multiplayerLinkCopied: 'Invite link copied!',
@@ -1368,6 +1367,7 @@ const STRINGS = {
     htpCompanion: 'A companion fights beside you from the start. Find 3 more survivors to recruit out in the world, and spend Points at the Trader to train and gear up your squad.',
     htpTrader: 'The walled Safe Zone (north of the avenue) heals you while you\'re inside. The Trader there sells supplies, ammo, and upgrades - and has a few requests for you too.',
     htpModes: 'Click **Game Mode** on the homepage before you start a run to try Zombie Defense, Boss Hunt, and more, or turn on Mutators for extra twists and bonus rewards.',
+    htpRules: 'Play fair - no cheating, exploiting bugs, or messing with leaderboard scores. Keep your nickname clean and respectful. Found a bug or someone breaking the rules? Report it on Discord.',
     showcaseSlotEmpty: 'Empty slot - click to pin an unlocked achievement',
     // Second Homepage batch.
     seasonProgressLabel: '{n} kills to {rank}',

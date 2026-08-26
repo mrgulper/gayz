@@ -2239,6 +2239,7 @@ const HOWTOPLAY_STEPS = [
   { key: 'htpCompanion', heading: 'Companion' },
   { key: 'htpTrader', heading: 'Safe Zone & Trader' },
   { key: 'htpModes', heading: 'Game Modes' },
+  { key: 'htpRules', heading: 'Rules' },
 ]
 
 // Nearly There nudge (Profile panel) - deliberately a small curated list,
@@ -4991,9 +4992,6 @@ export class Game {
     this.clanPanelTitle = document.getElementById('clan-panel-title')
     this.clanPanelCloseBtn = document.getElementById('clan-panel-close-btn')
     this.howtoplayNavLink = document.getElementById('nav-howtoplay-link')
-    this.rulesInfoLink = document.getElementById('nav-rulesinfo-link')
-    this.rulesInfoPanel = document.getElementById('rulesinfo-panel')
-    this.rulesInfoPanelTitle = document.getElementById('rulesinfo-panel-title')
     this.pauseInviteBtn = document.getElementById('pause-invite-btn')
     this.multiplayerPanel = document.getElementById('multiplayer-panel')
     this.multiplayerPanelTitle = document.getElementById('multiplayer-panel-title')
@@ -9474,12 +9472,6 @@ export class Game {
     if (this.comingSoonCloseBtn) this.comingSoonCloseBtn.addEventListener('click', () => this._closeComingSoonPanel())
     if (this.clanPanelCloseBtn) this.clanPanelCloseBtn.addEventListener('click', () => this._closeClanPanel())
     if (this.howtoplayNavLink) this.howtoplayNavLink.addEventListener('click', () => this._openHowToPlayPanel())
-    if (this.rulesInfoLink) this.rulesInfoLink.addEventListener('click', () => this._openRulesInfoPanel())
-    if (this.rulesInfoPanel) {
-      this.rulesInfoPanel.addEventListener('click', (e) => {
-        if (e.target === this.rulesInfoPanel) this._closeRulesInfoPanel()
-      })
-    }
     if (this.multiplayerPanel) {
       this.multiplayerPanel.addEventListener('click', (e) => {
         if (e.target === this.multiplayerPanel) this._closeMultiplayerPanel()
@@ -13045,7 +13037,6 @@ export class Game {
     if (this.serverPanel) this._closeServerPanel()
     if (this.profilePanel) this._closeProfilePanel()
     if (this.creditsPanel) this._closeCreditsPanel()
-    if (this.rulesInfoPanel) this._closeRulesInfoPanel()
     if (this.shopPanel) this._closeShopPanel()
     if (this.whatsNewPanel) this._closeWhatsNewPanel()
     if (this.sharePanel) this._closeSharePanel()
@@ -13734,7 +13725,6 @@ export class Game {
     this.coinshopBtn.querySelector('span').textContent = t('coinshopBtn')
     if (this.hubBtn) this.hubBtn.querySelector('span').textContent = t('hubBtn')
     if (this.howtoplayNavLink) this.howtoplayNavLink.querySelector('span').textContent = t('howtoplayPanelTitle')
-    if (this.rulesInfoLink) this.rulesInfoLink.querySelector('span').textContent = t('navLinkRules')
     if (this.whatsNewLink) this.whatsNewLink.querySelector('span').textContent = t('navLinkWhatsNew')
     if (this.friendsBtn) this.friendsBtn.querySelector('span').textContent = t('friendsBtn')
     if (this.friendsSignedOutDesc) this.friendsSignedOutDesc.textContent = t('friendsSignedOutDesc')
@@ -15858,17 +15848,6 @@ export class Game {
 
   _closeCreditsPanel() {
     this.creditsPanel.style.display = 'none'
-  }
-
-  // Rules & Info panel - static prose, same pattern as Credits above.
-  _openRulesInfoPanel() {
-    this._closeAllMenuPanels()
-    this.rulesInfoPanel.style.display = 'flex'
-    this.rulesInfoPanelTitle.textContent = t('navLinkRules')
-  }
-
-  _closeRulesInfoPanel() {
-    this.rulesInfoPanel.style.display = 'none'
   }
 
   // Multiplayer (Phase 1: invite link + lobby only, see Multiplayer.js and
