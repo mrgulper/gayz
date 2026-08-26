@@ -256,6 +256,7 @@ function loadSettings() {
       toggleCrouch: parsed.toggleCrouch ?? false,
       toggleAds: parsed.toggleAds ?? false,
       aimAssist: parsed.aimAssist ?? false,
+      touchControlsOverride: ['auto', 'touch', 'desktop'].includes(parsed.touchControlsOverride) ? parsed.touchControlsOverride : 'auto',
       bigInteractPrompt: parsed.bigInteractPrompt ?? false,
       toastDuration: parsed.toastDuration ?? 100,
       crosshairColor: parsed.crosshairColor || '#ffffff',
@@ -552,7 +553,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, instantStationInteract: false, confirmQuitRun: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'golden', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
+  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, instantStationInteract: false, confirmQuitRun: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, touchControlsOverride: 'auto', bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'golden', mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -3850,6 +3851,7 @@ export class Game {
     this.toggleCrouchToggle = document.getElementById('toggle-crouch-toggle')
     this.toggleAdsToggle = document.getElementById('toggle-ads-toggle')
     this.aimAssistToggle = document.getElementById('aim-assist-toggle')
+    this.touchControlsOverrideSelect = document.getElementById('touch-controls-override-select')
     this.bigInteractPromptToggle = document.getElementById('big-interact-prompt-toggle')
     this.toastDurationSlider = document.getElementById('toast-duration-slider')
     this.toastDurationValue = document.getElementById('toast-duration-value')
@@ -5904,7 +5906,7 @@ export class Game {
         this.dailyBest = loadDailyBest()
         this.dailyBestEl.textContent = t('dailyBest', { score: this.dailyBest.score })
       }
-      this.player.controls.lock()
+      this._requestPointerLock()
     })
 
     // Extraction success re-uses the exact same soft-reset the respawn
@@ -5918,7 +5920,7 @@ export class Game {
       // so the camera returns to the player's body instead of just
       // re-locking pointer while still floating free.
       if (this.spectateOpen) this._exitSpectate()
-      this.player.controls.lock()
+      this._requestPointerLock()
     })
     if (this.pauseInviteBtn) this.pauseInviteBtn.addEventListener('click', () => this._openMultiplayerPanel())
     this.pauseSettingsBtn.addEventListener('click', () => this._toggleSettings(true))
@@ -6089,7 +6091,7 @@ export class Game {
         // Tab/Escape listener below instead of this handler, since once
         // unlocked this whole handler's own isLocked guard stops it from
         // ever firing again.
-        this.player.controls.unlock()
+        this._requestPointerUnlock()
         return
       }
 
@@ -6556,7 +6558,7 @@ export class Game {
     // reported as sometimes leaving the camera unable to rotate even
     // though movement worked, suggesting the pointer lock request was
     // racing that DOM update rather than cleanly re-acquiring lock.
-    requestAnimationFrame(() => this.player.controls.lock())
+    requestAnimationFrame(() => this._requestPointerLock())
   }
 
   _exitSpectate() {
@@ -6635,14 +6637,14 @@ export class Game {
     this.screenshotCropSelection.style.display = 'none'
     this.screenshotCropSelectionRect = null
     this.screenshotCropOverlay.style.display = 'flex'
-    this.player.controls.unlock()
+    this._requestPointerUnlock()
   }
 
   _closeScreenshotCrop() {
     this._stopClipRecordingIfActive()
     this.screenshotCropOpen = false
     this.screenshotCropOverlay.style.display = 'none'
-    this.player.controls.lock()
+    this._requestPointerLock()
   }
 
   // Crops this._screenshotDataUrl to the given CSS-pixel rect (relative to
@@ -8844,6 +8846,18 @@ export class Game {
       saveSettings(this.settings)
     })
 
+    // Touch Controls override (see TouchControls.js) - decided once per
+    // session in the constructor, not re-evaluated live, so changing it
+    // reloads the page rather than trying to hot-swap input modes.
+    if (this.touchControlsOverrideSelect) {
+      this.touchControlsOverrideSelect.value = this.settings.touchControlsOverride
+      this.touchControlsOverrideSelect.addEventListener('change', () => {
+        this.settings.touchControlsOverride = this.touchControlsOverrideSelect.value
+        saveSettings(this.settings)
+        window.location.reload()
+      })
+    }
+
     // Large Interact Prompt (accessibility) - a body-level class the
     // #interact-prompt CSS reads for a bigger font/box (see style.css).
     this.bigInteractPromptToggle.checked = this.settings.bigInteractPrompt
@@ -9528,7 +9542,7 @@ export class Game {
     if (this.sharePageLinkBtn) this.sharePageLinkBtn.addEventListener('click', () => this._copyPageUrl())
     this.endingContinueBtn.addEventListener('click', () => {
       this.endingPanel.style.display = 'none'
-      this.player.controls.lock()
+      this._requestPointerLock()
     })
 
     // Click anywhere outside the settings content (the backdrop itself, not
@@ -11993,7 +12007,7 @@ export class Game {
     // Releases pointer lock so the mouse is an actual clickable cursor
     // instead of just relative look-deltas - see the 'unlock' handler's
     // perkPanelOpen check for why this doesn't also pop the pause menu.
-    this.player.controls.unlock()
+    this._requestPointerUnlock()
     this._renderPerkOptions(rollPerks(3))
   }
 
@@ -12026,13 +12040,13 @@ export class Game {
   _closePerkPanel() {
     this.perkPanelOpen = false
     this.perkPanel.style.display = 'none'
-    this.player.controls.lock()
+    this._requestPointerLock()
   }
 
   _closeInventoryPanel() {
     this.inventoryOpen = false
     this.inventoryPanel.style.display = 'none'
-    this.player.controls.lock()
+    this._requestPointerLock()
   }
 
   // XP needed to go from `level` to `level + 1`. Grows linearly so early
@@ -12186,7 +12200,7 @@ export class Game {
         this.weapons.switchToIndex(index)
         this._updateHotbarHud()
         this.weaponPickerPanel.style.display = 'none'
-        if (this._weaponPickerFromPause) this.player.controls.lock()
+        if (this._weaponPickerFromPause) this._requestPointerLock()
         else this._openTraitDrawPanel()
       })
       // Quick-compare tooltips (batch 8 feature) - a zero-click, ambient
@@ -12273,7 +12287,7 @@ export class Game {
         trait.apply(this)
         this.xpLevelupPanelOpen = false
         this.xpLevelupPanel.style.display = 'none'
-        this.player.controls.lock()
+        this._requestPointerLock()
       })
       this.xpLevelupOptions.appendChild(btn)
     }
@@ -12283,7 +12297,7 @@ export class Game {
     this.xpLevelupPanelOpen = true
     this.xpLevelupPanel.style.display = 'flex'
     this.xpLevelupPanelTitle.textContent = t('xpLevelupPanelTitle')
-    this.player.controls.unlock()
+    this._requestPointerUnlock()
     this._renderXpLevelupOptions(rollXpUpgrades(this, 3))
   }
 
@@ -12313,7 +12327,7 @@ export class Game {
     // above) may immediately re-open this same panel for a chained level-up
     // from one big XP gem - that re-open calls unlock() again right after
     // this lock(), which is fine, just a redundant pair.
-    this.player.controls.lock()
+    this._requestPointerLock()
   }
 
   // Trader mood line (see NARRATIVE_STATS_KEY) - reacts to this save's
@@ -12341,7 +12355,7 @@ export class Game {
     this._traderVisitPurchaseCount = 0
     this._renderTraderMoodLine()
     this.traderHint.textContent = tHtml('traderHint')
-    this.player.controls.unlock()
+    this._requestPointerUnlock()
     if (!this.activeBounty) this._assignBounty()
     this._renderBounty()
     if (!this.traderQuest) this._assignTraderQuest()
@@ -12866,7 +12880,7 @@ export class Game {
   _closeTraderPanel() {
     this.traderPanelOpen = false
     this.traderPanel.style.display = 'none'
-    this.player.controls.lock()
+    this._requestPointerLock()
   }
 
   // Every top-level menu panel shares the same z-index (see style.css), so
@@ -16758,7 +16772,7 @@ export class Game {
         this._showLoreToast(t('zombieRushNewBestToast', { time: formatTime(elapsedMs) }))
       }
     }
-    this.player.controls.unlock()
+    this._requestPointerUnlock()
     this.crosshair.style.display = 'none'
     this.hudEl.style.display = 'none'
     this.hotbarEl.style.display = 'none'
@@ -20670,7 +20684,7 @@ export class Game {
   _showEndingSequence() {
     this.endingSeen = true
     saveEndingSeen()
-    this.player.controls.unlock()
+    this._requestPointerUnlock()
     // Stat summary appended after the fixed endingText - templated with
     // this save's actual lifetime numbers so the epilogue reads a little
     // differently depending on how the story actually went, on top of the
@@ -20770,7 +20784,7 @@ export class Game {
   // only Extraction is actually wired to that score comparison.
   _showRunWinScreen(titleKey, pointsBonus, coinsBonus, modeWrapEl) {
     this._stopClipRecordingIfActive()
-    this.player.controls.unlock()
+    this._requestPointerUnlock()
     this.crosshair.style.display = 'none'
     this.hudEl.style.display = 'none'
     this.hotbarEl.style.display = 'none'
