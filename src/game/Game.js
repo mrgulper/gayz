@@ -3712,6 +3712,20 @@ export class Game {
     // these just mirror it for convenience (see CloudSync.onAuthChange).
     this._cloudProfile = null
     this._cloudUid = null
+    // Resolves the first time CloudSync.onAuthChange fires (restoreCloudSession
+    // in CloudSaveUI.js) - that's an async check (dynamic import + Firebase's
+    // own IndexedDB lookup), so _cloudUid can still be null for a real window
+    // after the page loads even for an already-signed-in player. Any panel
+    // that shows a "please sign in" gate based on _cloudUid awaits this
+    // first, so a player who opens Profile/Clan/Friends quickly after
+    // loading sees a brief wait instead of a false "you're signed out" gate
+    // that would prompt an unnecessary second real sign-in.
+    this._authReadyPromise = new Promise((resolve) => { this._resolveAuthReady = resolve })
+    // Safety net - if restoreCloudSession's own resolve paths (real
+    // callback, isConfigured() false, or its .catch) somehow never run, a
+    // panel awaiting this would otherwise hang open forever. Calling an
+    // already-resolved promise's resolve function again is a harmless no-op.
+    setTimeout(() => this._resolveAuthReady?.(), 8000)
     this._cloudPendingConflict = null
     this._cloudGlobalRank = null
     // "Today" session stats (round 4 Online Features batch) - deliberately
@@ -13555,11 +13569,14 @@ export class Game {
   // inside the Cloud Save panel so it's a first-class nav destination.
   // Same underlying settings.savedFriends/CloudSync lookups, just relocated
   // markup - no behavior change to the feature itself.
-  _openFriendsPanel() {
+  async _openFriendsPanel() {
     if (!this.friendsPanel) return
     this._closeAllMenuPanels()
     this.friendsPanel.style.display = 'flex'
     if (this.friendsPanelTitle) this.friendsPanelTitle.textContent = t('friendsPanelTitle')
+    // See _authReadyPromise's own comment (Game.js constructor) - same
+    // false-signed-out race the Profile panel had.
+    await this._authReadyPromise
     // Re-sync signed-in/signed-out visibility against the CURRENT
     // _cloudProfile every time the panel opens, rather than trusting
     // whatever was last rendered - previously this only happened when the
@@ -17282,10 +17299,19 @@ export class Game {
   // Local Profile screen - read-only aggregation of stats already
   // persisted elsewhere (careerStats/bestStats/achievements/prestige/
   // nemesis), no new tracking of its own besides the Nemesis record.
-  _openProfilePanel() {
+  async _openProfilePanel() {
     this._closeAllMenuPanels()
     this.profilePanel.style.display = 'flex'
     this.profilePanelTitle.textContent = t('profilePanelTitle')
+    // Waits for the first real auth check (see _authReadyPromise's own
+    // comment) before deciding signed-in vs signed-out - without this, a
+    // player who opens Profile quickly after the page loads could see the
+    // signed-out gate for a moment even though they're already signed in,
+    // and clicking Login there would trigger a real (unnecessary) second
+    // Google sign-in popup. Resolves instantly once the very first check
+    // of the session has already happened, so this only ever adds a real
+    // wait during that initial window.
+    await this._authReadyPromise
     // Signed-out players get a black screen + typewriter Login/Register
     // prompt instead of the profile itself - everything below this branch
     // (stats, bio, highlights, the 3D avatar, etc.) is real profile
@@ -19468,6 +19494,9 @@ export class Game {
   // Hub panel open and after every create/join/leave/kick action.
   async _refreshClanUi() {
     if (!this.clanSigninGate) return
+    // See _authReadyPromise's own comment (Game.js constructor) - same
+    // false-signed-out race the Profile panel had.
+    await this._authReadyPromise
     if (!this._cloudUid || !CloudSync.isConfigured()) {
       this.clanSigninGate.style.display = 'block'
       this.clanSigninGateText.textContent = t('clanSigninRequired')

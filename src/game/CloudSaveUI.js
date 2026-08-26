@@ -51,10 +51,22 @@ export function closeCloudSavePanel(game) {
 // sign-in/sign-out too, so _cloudProfile/_cloudUid never drift from
 // Firebase's own notion of the session.
 export function restoreCloudSession(game) {
-  if (!game.quickCloudBtn || !CloudSync.isConfigured()) return
+  if (!game.quickCloudBtn || !CloudSync.isConfigured()) {
+    // Cloud Save isn't configured (fresh clone/fork with no Firebase
+    // project set up - see CloudSync.isConfigured()'s own comment) - there
+    // will never be a real onAuthChange callback to resolve
+    // game._authReadyPromise, so any panel awaiting it (Profile/Clan/
+    // Friends) would otherwise hang open forever. Resolve it here instead.
+    game._resolveAuthReady?.()
+    return
+  }
   CloudSync.onAuthChange((session) => {
     game._cloudProfile = session ? session.profile : null
     game._cloudUid = session ? session.uid : null
+    // Resolves game._authReadyPromise on the first call only (a promise's
+    // resolve function is a no-op on every call after the first) - see
+    // that field's own comment in Game.js's constructor.
+    game._resolveAuthReady?.()
     updateCloudQuickIcon(game, !!session)
     // Friend Requests - a persistent live subscription (not gated to a
     // panel being open, unlike the leaderboard one below) so the Friends
@@ -86,7 +98,12 @@ export function restoreCloudSession(game) {
     if (game.cloudsavePanel && getComputedStyle(game.cloudsavePanel).display !== 'none') {
       renderCloudSaveState(game)
     }
-  }).catch(() => {})
+  }).catch(() => {
+    // onAuthChange itself failed (e.g. the Firebase chunks failed to load)
+    // before ever calling back once - resolve anyway so an awaiting panel
+    // doesn't hang open forever (see this function's other early-return).
+    game._resolveAuthReady?.()
+  })
 }
 
 export function updateCloudQuickIcon(game, signedIn) {
