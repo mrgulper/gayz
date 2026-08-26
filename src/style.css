@@ -7109,6 +7109,51 @@ html.theme-lighter #app { filter: brightness(1.25); }
   padding: 10px 0;
 }
 
+/* Clan panel tab strip (General/Clan/Market) - own class, same reasoning
+   as .quest-tabs/.inventory-tabs above (isolated so its click handler
+   never cross-contaminates with .hub-tab, the DIFFERENT panel's own
+   Zombie Survival/Deathmatch tabs). */
+.general-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.general-tab {
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.general-tab.active {
+  color: #0c130c;
+  background: #e3c23c;
+  border-color: #e3c23c;
+}
+
+.general-tab-page {
+  width: min(360px, 86vw);
+  padding: 10px 0;
+}
+
+.clan-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+
 /* Hub panel tab strip (Zombie Survival/Deathmatch) - same reasoning as
    .quest-tabs above: kept as its own class rather than reusing
    .settings-tab/.quest-tab, so it doesn't get swept into either of those

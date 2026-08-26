@@ -465,6 +465,17 @@ export async function fetchClanById(clanId) {
   return snap.exists() ? { ...snap.data(), clanId: snap.id } : null
 }
 
+// Public directory of every clan - newest first, capped at 50 (same
+// "bound the read cost" reasoning as every other list-fetching query in
+// this file) so the browse list stays cheap to load regardless of how
+// many clans eventually exist.
+export async function fetchAllClans() {
+  const { db, fsMod } = await ensureApp()
+  const q = fsMod.query(fsMod.collection(db, 'clans'), fsMod.orderBy('createdAt', 'desc'), fsMod.limit(50))
+  const snap = await fsMod.getDocs(q)
+  return snap.docs.map((d) => ({ ...d.data(), clanId: d.id }))
+}
+
 export async function fetchClanMembers(clanId) {
   const { db, fsMod } = await ensureApp()
   const snap = await fsMod.getDocs(fsMod.collection(db, 'clans', clanId, 'members'))

@@ -3911,15 +3911,15 @@ export class Game {
     this.challengeCodeInput = document.getElementById('challenge-code-input')
     this.clanSigninGate = document.getElementById('clan-signin-gate')
     this.clanSigninGateText = document.getElementById('clan-signin-gate-text')
-    this.clanNoClanState = document.getElementById('clan-no-clan-state')
     this.clanInClanState = document.getElementById('clan-in-clan-state')
+    this.clanBrowseState = document.getElementById('clan-browse-state')
+    this.clanMakeBtn = document.getElementById('clan-make-btn')
+    this.clanMakeForm = document.getElementById('clan-make-form')
+    this.clanAllList = document.getElementById('clan-all-list')
     this.clanCreateNameInput = document.getElementById('clan-create-name-input')
     this.clanCreateTagInput = document.getElementById('clan-create-tag-input')
     this.clanCreateBtn = document.getElementById('clan-create-btn')
     this.clanCreateTakenWarning = document.getElementById('clan-create-taken-warning')
-    this.clanJoinNameInput = document.getElementById('clan-join-name-input')
-    this.clanJoinBtn = document.getElementById('clan-join-btn')
-    this.clanJoinStatus = document.getElementById('clan-join-status')
     this.clanDisplayName = document.getElementById('clan-display-name')
     this.clanDisplayTag = document.getElementById('clan-display-tag')
     this.clanStatsMembers = document.getElementById('clan-stats-members')
@@ -8476,6 +8476,18 @@ export class Game {
         for (const page of document.querySelectorAll('.inventory-tab-page')) {
           page.style.display = page.id === `inventory-page-${tab.dataset.inventoryPage}` ? 'block' : 'none'
         }
+      })
+    }
+
+    // Clan panel tab strip (General/Clan/Market) - same isolated
+    // class/loop pattern as the other tab strips above.
+    for (const tab of document.querySelectorAll('.general-tab')) {
+      tab.addEventListener('click', () => {
+        for (const tabEl of document.querySelectorAll('.general-tab')) tabEl.classList.toggle('active', tabEl === tab)
+        for (const page of document.querySelectorAll('.general-tab-page')) {
+          page.style.display = page.id === `general-page-${tab.dataset.generalPage}` ? 'block' : 'none'
+        }
+        if (tab.dataset.generalPage === 'clan') this._refreshClanUi()
       })
     }
 
@@ -13513,7 +13525,11 @@ export class Game {
     if (!this.clanPanel) return
     this._closeAllMenuPanels()
     this.clanPanel.style.display = 'flex'
-    if (this.clanPanelTitle) this.clanPanelTitle.textContent = t('clanPanelTitle')
+    if (this.clanPanelTitle) this.clanPanelTitle.textContent = t('hubBtn')
+    // Defaults to the General tab every time the panel opens, same
+    // "always reopen on the first tab" convention as Inventory's tabs.
+    for (const tabEl of document.querySelectorAll('.general-tab')) tabEl.classList.toggle('active', tabEl.dataset.generalPage === 'general')
+    for (const page of document.querySelectorAll('.general-tab-page')) page.style.display = page.id === 'general-page-general' ? 'block' : 'none'
     this._refreshClanUi()
   }
 
@@ -19262,27 +19278,27 @@ export class Game {
       })
     }
 
-    if (this.clanJoinBtn) {
-      this.clanJoinBtn.addEventListener('click', async () => {
+    // "Make Clan" toggles the create-name/tag form open/closed rather
+    // than navigating anywhere - the form and the all-clans list both
+    // live in the same browse state.
+    if (this.clanMakeBtn) {
+      this.clanMakeBtn.addEventListener('click', () => {
         if (!this._cloudUid) return
-        const name = this.clanJoinNameInput.value.trim()
-        if (!name) return
-        const clan = await CloudSync.fetchClanByName(name).catch(() => null)
-        if (!clan) {
-          this.clanJoinStatus.textContent = t('clanNotFound')
-          this.clanJoinStatus.style.display = 'block'
-          return
-        }
+        this.clanMakeForm.style.display = this.clanMakeForm.style.display === 'none' ? 'block' : 'none'
+      })
+    }
+
+    // Join, from the all-clans list (event delegation - the list is
+    // re-rendered on every refresh, so per-row listeners would leak).
+    if (this.clanAllList) {
+      this.clanAllList.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.clan-list-join-btn')
+        if (!btn || !this._cloudUid) return
         const nickname = this.settings.nickname || t('playerShowcaseTitleDefault')
-        const result = await CloudSync.joinClan(clan.clanId, this._cloudUid, nickname).catch(() => ({ ok: false, reason: 'error' }))
-        if (!result.ok) {
-          this.clanJoinStatus.textContent = result.reason === 'full' ? t('clanFull') : t('clanJoinError')
-          this.clanJoinStatus.style.display = 'block'
-          return
-        }
-        this.clanJoinStatus.style.display = 'none'
-        this.settings.clanId = clan.clanId
-        this._myClanTag = clan.tag
+        const result = await CloudSync.joinClan(btn.dataset.clanId, this._cloudUid, nickname).catch(() => ({ ok: false, reason: 'error' }))
+        if (!result.ok) return
+        this.settings.clanId = btn.dataset.clanId
+        this._myClanTag = btn.dataset.clanTag
         saveSettings(this.settings)
         this._refreshClanUi()
       })
@@ -19318,14 +19334,15 @@ export class Game {
     if (!this._cloudUid || !CloudSync.isConfigured()) {
       this.clanSigninGate.style.display = 'block'
       this.clanSigninGateText.textContent = t('clanSigninRequired')
-      this.clanNoClanState.style.display = 'none'
+      this.clanBrowseState.style.display = 'none'
       this.clanInClanState.style.display = 'none'
       return
     }
     this.clanSigninGate.style.display = 'none'
 
     if (!this.settings.clanId) {
-      this.clanNoClanState.style.display = 'block'
+      await this._renderClanBrowseList()
+      this.clanBrowseState.style.display = 'block'
       this.clanInClanState.style.display = 'none'
       return
     }
@@ -19336,12 +19353,13 @@ export class Game {
       this.settings.clanId = null
       this._myClanTag = null
       saveSettings(this.settings)
-      this.clanNoClanState.style.display = 'block'
+      await this._renderClanBrowseList()
+      this.clanBrowseState.style.display = 'block'
       this.clanInClanState.style.display = 'none'
       return
     }
 
-    this.clanNoClanState.style.display = 'none'
+    this.clanBrowseState.style.display = 'none'
     this.clanInClanState.style.display = 'block'
 
     const clan = await CloudSync.fetchClanById(this.settings.clanId).catch(() => null)
@@ -19369,6 +19387,22 @@ export class Game {
     this.clanLeaveBtn.textContent = isLeader ? t('clanDisbandBtn') : t('clanLeaveBtn')
     this.clanLeaveDisabledHint.style.display = isLeader && otherMembersPresent ? 'block' : 'none'
     if (this.clanLeaveDisabledHint.style.display === 'block') this.clanLeaveDisabledHint.textContent = t('clanLeaderMustKickFirst')
+  }
+
+  // Public directory of every clan that exists (see CloudSync.fetchAllClans) -
+  // any newly created clan shows up here automatically, since it's a live
+  // query over the clans collection rather than a fixed list.
+  async _renderClanBrowseList() {
+    if (!this.clanAllList) return
+    const clans = await CloudSync.fetchAllClans().catch(() => [])
+    this.clanAllList.innerHTML = clans.length
+      ? clans.map((c) => `
+        <div class="clan-list-row">
+          <span>${_escapeHtml(c.name)} [${_escapeHtml(c.tag)}]</span>
+          <button type="button" class="clan-list-join-btn mini-action-btn" data-clan-id="${c.clanId}" data-clan-tag="${_escapeHtml(c.tag)}">${t('clanJoinBtn')}</button>
+        </div>
+      `).join('')
+      : `<p>${t('clanListEmpty')}</p>`
   }
 
   // Assigns a weapon to a hotbar slot from the inventory panel's per-row
