@@ -4340,11 +4340,21 @@ select option {
 #menu-bg-photo {
   position: absolute;
   inset: 0;
-  background-image: url('/images/menu-bg-city.jpg');
   background-size: cover;
   background-position: center 35%;
   transform-origin: 50% 60%;
   animation: menuBgKenBurns 50s ease-in-out infinite alternate;
+}
+
+/* The photo itself belongs to the Golden theme specifically (see the
+   Settings > Theme dropdown, #ui-theme-select) - everything else about
+   #menu-bg-photo above (sizing, the Ken Burns animation) is shared
+   staging any future theme can reuse; only the actual image is
+   Golden's own. When the Old theme gets designed, it gets its own
+   `html.ui-theme-old #menu-bg-photo { background-image: ... }` rule
+   here instead of touching this one. */
+html:not(.ui-theme-old) #menu-bg-photo {
+  background-image: url('/images/menu-bg-city.jpg');
 }
 
 @keyframes menuBgKenBurns {

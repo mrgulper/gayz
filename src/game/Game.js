@@ -9098,12 +9098,13 @@ export class Game {
         saveSettings(this.settings)
       })
     }
-    // Theme (Old/Golden) - Golden is the current live UI, Old is a
-    // placeholder for now (see this.uiThemeSelect's own scope note) - the
-    // 'ui-theme-old' class exists and toggles correctly, but no CSS rule
-    // targets it yet, so picking Old tonight doesn't change how anything
-    // looks. That's intentional: the actual Old look is being designed
-    // tomorrow, not a bug in this wiring.
+    // Theme (Old/Golden) - Golden is the current live UI (every existing
+    // button/panel style is unscoped, i.e. Golden by default, no class
+    // needed); the homepage background photo is the one piece explicitly
+    // tied to the theme via `html:not(.ui-theme-old) #menu-bg-photo` (see
+    // style.css) - picking Old currently just removes that photo with
+    // nothing yet in its place, since Old's own look/background is being
+    // designed later, not a bug in this wiring.
     if (this.uiThemeSelect) {
       this.uiThemeSelect.value = this.settings.uiTheme
       document.documentElement.classList.toggle('ui-theme-old', this.settings.uiTheme === 'old')
