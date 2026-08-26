@@ -3920,12 +3920,23 @@ export class Game {
     this.clanCreateTagInput = document.getElementById('clan-create-tag-input')
     this.clanCreateBtn = document.getElementById('clan-create-btn')
     this.clanCreateTakenWarning = document.getElementById('clan-create-taken-warning')
+    this.clanRequestNameInput = document.getElementById('clan-request-name-input')
+    this.clanRequestNameBtn = document.getElementById('clan-request-name-btn')
+    this.clanRequestNameStatus = document.getElementById('clan-request-name-status')
+    this.clanIncomingInvitesList = document.getElementById('clan-incoming-invites-list')
     this.clanDisplayName = document.getElementById('clan-display-name')
     this.clanDisplayTag = document.getElementById('clan-display-tag')
+    this.clanMyRole = document.getElementById('clan-my-role')
     this.clanStatsMembers = document.getElementById('clan-stats-members')
     this.clanStatsKills = document.getElementById('clan-stats-kills')
     this.clanStatsNight = document.getElementById('clan-stats-night')
+    this.clanSendInviteSection = document.getElementById('clan-send-invite-section')
+    this.clanInviteIdInput = document.getElementById('clan-invite-id-input')
+    this.clanInviteSendBtn = document.getElementById('clan-invite-send-btn')
+    this.clanInviteStatus = document.getElementById('clan-invite-status')
     this.clanMemberList = document.getElementById('clan-member-list')
+    this.clanRequestsSection = document.getElementById('clan-requests-section')
+    this.clanRequestsList = document.getElementById('clan-requests-list')
     this.clanLeaveBtn = document.getElementById('clan-leave-btn')
     this.clanLeaveDisabledHint = document.getElementById('clan-leave-disabled-hint')
     this.scoreAttackToggle = document.getElementById('score-attack-toggle')
@@ -19255,6 +19266,14 @@ export class Game {
   // _refreshClanUi() (below) is the single source of truth for which of
   // the two UI states shows and what's in it.
   _bindClanSection() {
+    // Click-outside-to-close, same pattern as #coming-soon-panel's own
+    // listener - only the backdrop itself (not any inner content) closes it.
+    if (this.clanPanel) {
+      this.clanPanel.addEventListener('click', (e) => {
+        if (e.target === this.clanPanel) this._closeClanPanel()
+      })
+    }
+
     if (this.clanCreateBtn) {
       this.clanCreateBtn.addEventListener('click', async () => {
         if (!this._cloudUid) return
@@ -19288,19 +19307,82 @@ export class Game {
       })
     }
 
-    // Join, from the all-clans list (event delegation - the list is
-    // re-rendered on every refresh, so per-row listeners would leak).
+    // Request to Join by typing a clan's name (beside Make Clan) -
+    // alternative to clicking a row in the all-clans list below, same
+    // end result (a join request).
+    if (this.clanRequestNameBtn) {
+      this.clanRequestNameBtn.addEventListener('click', async () => {
+        if (!this._cloudUid) return
+        const name = this.clanRequestNameInput.value.trim()
+        if (!name) return
+        const clan = await CloudSync.fetchClanByName(name).catch(() => null)
+        if (!clan) {
+          this.clanRequestNameStatus.textContent = t('clanNotFound')
+          this.clanRequestNameStatus.style.display = 'block'
+          return
+        }
+        const nickname = this.settings.nickname || t('playerShowcaseTitleDefault')
+        await CloudSync.sendJoinRequest(clan.clanId, this._cloudUid, nickname).catch(() => {})
+        this.clanRequestNameStatus.textContent = t('clanRequestSent')
+        this.clanRequestNameStatus.style.display = 'block'
+      })
+    }
+
+    // Request to Join, from the all-clans list (event delegation - the
+    // list is re-rendered on every refresh, so per-row listeners would leak).
     if (this.clanAllList) {
       this.clanAllList.addEventListener('click', async (e) => {
         const btn = e.target.closest('.clan-list-join-btn')
         if (!btn || !this._cloudUid) return
         const nickname = this.settings.nickname || t('playerShowcaseTitleDefault')
-        const result = await CloudSync.joinClan(btn.dataset.clanId, this._cloudUid, nickname).catch(() => ({ ok: false, reason: 'error' }))
-        if (!result.ok) return
-        this.settings.clanId = btn.dataset.clanId
-        this._myClanTag = btn.dataset.clanTag
-        saveSettings(this.settings)
-        this._refreshClanUi()
+        await CloudSync.sendJoinRequest(btn.dataset.clanId, this._cloudUid, nickname).catch(() => {})
+        btn.textContent = t('clanRequestSent')
+        btn.disabled = true
+      })
+    }
+
+    // Incoming clan invites (browse state, not yet in a clan) - Accept
+    // creates your own member doc (the security rule only allows this
+    // because the invite doc exists), Decline just clears it.
+    if (this.clanIncomingInvitesList) {
+      this.clanIncomingInvitesList.addEventListener('click', async (e) => {
+        const acceptBtn = e.target.closest('.clan-invite-accept-btn')
+        const declineBtn = e.target.closest('.clan-invite-decline-btn')
+        if (!this._cloudUid) return
+        if (acceptBtn) {
+          const nickname = this.settings.nickname || t('playerShowcaseTitleDefault')
+          const result = await CloudSync.acceptClanInvite(acceptBtn.dataset.clanId, this._cloudUid, nickname).catch(() => ({ ok: false }))
+          if (!result.ok) return
+          this.settings.clanId = acceptBtn.dataset.clanId
+          this._myClanTag = acceptBtn.dataset.clanTag
+          saveSettings(this.settings)
+          this._refreshClanUi()
+        } else if (declineBtn) {
+          await CloudSync.declineClanInvite(declineBtn.dataset.clanId, this._cloudUid).catch(() => {})
+          this._refreshClanUi()
+        }
+      })
+    }
+
+    // Send Clan Request (invite by Player ID) - Owner/Elder only (the
+    // section itself is hidden for a plain Member, see _refreshClanUi).
+    if (this.clanInviteSendBtn) {
+      this.clanInviteSendBtn.addEventListener('click', async () => {
+        if (!this._cloudUid || !this.settings.clanId) return
+        const playerId = this.clanInviteIdInput.value.trim().toUpperCase()
+        if (!playerId) return
+        const target = await CloudSync.fetchLeaderboardEntryByPlayerId(playerId).catch(() => null)
+        if (!target) {
+          this.clanInviteStatus.textContent = t('clanInvitePlayerNotFound')
+          this.clanInviteStatus.style.display = 'block'
+          return
+        }
+        const clan = await CloudSync.fetchClanById(this.settings.clanId).catch(() => null)
+        if (!clan) return
+        await CloudSync.sendClanInvite(this.settings.clanId, clan.name, clan.tag, target.uid).catch(() => {})
+        this.clanInviteStatus.textContent = t('clanInviteSent')
+        this.clanInviteStatus.style.display = 'block'
+        this.clanInviteIdInput.value = ''
       })
     }
 
@@ -19315,12 +19397,42 @@ export class Game {
       })
     }
 
+    // Kick/Promote/Demote, from the member list (event delegation - the
+    // server-side rule is the real gate; buttons are also only rendered
+    // for roles allowed to use them, see _refreshClanUi).
     if (this.clanMemberList) {
       this.clanMemberList.addEventListener('click', async (e) => {
-        const btn = e.target.closest('.clan-kick-btn')
-        if (!btn || !this.settings.clanId) return
-        await CloudSync.kickClanMember(this.settings.clanId, btn.dataset.uid).catch(() => {})
+        if (!this.settings.clanId) return
+        const kickBtn = e.target.closest('.clan-kick-btn')
+        const promoteBtn = e.target.closest('.clan-promote-btn')
+        const demoteBtn = e.target.closest('.clan-demote-btn')
+        if (kickBtn) {
+          await CloudSync.kickClanMember(this.settings.clanId, kickBtn.dataset.uid).catch(() => {})
+        } else if (promoteBtn) {
+          await CloudSync.promoteToElder(this.settings.clanId, promoteBtn.dataset.uid, promoteBtn.dataset.nickname, Number(promoteBtn.dataset.joinedAt)).catch(() => {})
+        } else if (demoteBtn) {
+          await CloudSync.demoteToMember(this.settings.clanId, demoteBtn.dataset.uid, demoteBtn.dataset.nickname, Number(demoteBtn.dataset.joinedAt)).catch(() => {})
+        } else {
+          return
+        }
         this._refreshClanUi()
+      })
+    }
+
+    // Approve/Deny, from the join-requests list (Owner/Elder only - the
+    // section itself is hidden for a plain Member).
+    if (this.clanRequestsList) {
+      this.clanRequestsList.addEventListener('click', async (e) => {
+        if (!this.settings.clanId) return
+        const approveBtn = e.target.closest('.clan-request-approve-btn')
+        const denyBtn = e.target.closest('.clan-request-deny-btn')
+        if (approveBtn) {
+          await CloudSync.approveJoinRequest(this.settings.clanId, approveBtn.dataset.uid, approveBtn.dataset.nickname).catch(() => {})
+          this._refreshClanUi()
+        } else if (denyBtn) {
+          await CloudSync.denyJoinRequest(this.settings.clanId, denyBtn.dataset.uid).catch(() => {})
+          this._refreshClanUi()
+        }
       })
     }
   }
@@ -19342,18 +19454,20 @@ export class Game {
 
     if (!this.settings.clanId) {
       await this._renderClanBrowseList()
+      await this._renderClanIncomingInvites()
       this.clanBrowseState.style.display = 'block'
       this.clanInClanState.style.display = 'none'
       return
     }
 
     const members = await CloudSync.fetchClanMembers(this.settings.clanId).catch(() => [])
-    const stillAMember = members.some((m) => m.uid === this._cloudUid)
-    if (!stillAMember) {
+    const me = members.find((m) => m.uid === this._cloudUid)
+    if (!me) {
       this.settings.clanId = null
       this._myClanTag = null
       saveSettings(this.settings)
       await this._renderClanBrowseList()
+      await this._renderClanIncomingInvites()
       this.clanBrowseState.style.display = 'block'
       this.clanInClanState.style.display = 'none'
       return
@@ -19369,24 +19483,79 @@ export class Game {
     this.clanDisplayName.textContent = clan.name
     this.clanDisplayTag.textContent = `[${clan.tag}]`
 
+    const myRole = me.role || 'member'
+    const canManage = myRole === 'owner' || myRole === 'elder'
+    this.clanMyRole.textContent = t('clanMyRole', { role: t(`clanRole_${myRole}`) })
+
     const stats = await CloudSync.fetchClanCombinedStats(this.settings.clanId).catch(() => ({ memberCount: members.length, totalKills: 0, totalBestNight: 0 }))
     this.clanStatsMembers.textContent = t('clanStatsMembers', { n: stats.memberCount })
     this.clanStatsKills.textContent = t('clanStatsKills', { n: stats.totalKills })
     this.clanStatsNight.textContent = t('clanStatsNight', { n: stats.totalBestNight })
 
-    const isLeader = clan.leaderId === this._cloudUid
-    this.clanMemberList.innerHTML = members.map((m) => `
-      <div class="clan-member-row">
-        <span>${_escapeHtml(m.nickname)}${m.uid === clan.leaderId ? ` ${t('clanLeaderBadge')}` : ''}</span>
-        ${isLeader && m.uid !== clan.leaderId ? `<button type="button" class="clan-kick-btn" data-uid="${m.uid}">${t('clanKickBtn')}</button>` : ''}
-      </div>
-    `).join('')
+    // Send Clan Request (invite by Player ID) is management-only.
+    this.clanSendInviteSection.style.display = canManage ? 'block' : 'none'
+
+    const isOwner = myRole === 'owner'
+    this.clanMemberList.innerHTML = members.map((m) => {
+      const role = m.role || 'member'
+      const roleBadge = ` (${t(`clanRole_${role}`)})`
+      const canKickThis = canManage && role !== 'owner' && m.uid !== this._cloudUid
+      const canPromoteThis = isOwner && role === 'member'
+      const canDemoteThis = isOwner && role === 'elder'
+      return `
+        <div class="clan-member-row">
+          <span>${_escapeHtml(m.nickname)}${roleBadge}</span>
+          <span>
+            ${canPromoteThis ? `<button type="button" class="clan-promote-btn" data-uid="${m.uid}" data-nickname="${_escapeHtml(m.nickname)}" data-joined-at="${m.joinedAt}">${t('clanPromoteBtn')}</button>` : ''}
+            ${canDemoteThis ? `<button type="button" class="clan-demote-btn" data-uid="${m.uid}" data-nickname="${_escapeHtml(m.nickname)}" data-joined-at="${m.joinedAt}">${t('clanDemoteBtn')}</button>` : ''}
+            ${canKickThis ? `<button type="button" class="clan-kick-btn" data-uid="${m.uid}">${t('clanKickBtn')}</button>` : ''}
+          </span>
+        </div>
+      `
+    }).join('')
+
+    // Join Requests - only fetched/shown for Owner/Elder (a plain Member
+    // has no read permission on this subcollection anyway per the
+    // security rule, so this also avoids a doomed-to-fail request).
+    if (canManage) {
+      const requests = await CloudSync.fetchJoinRequests(this.settings.clanId).catch(() => [])
+      this.clanRequestsSection.style.display = 'block'
+      this.clanRequestsList.innerHTML = requests.length
+        ? requests.map((r) => `
+          <div class="clan-request-row">
+            <span>${_escapeHtml(r.nickname)}</span>
+            <span>
+              <button type="button" class="clan-request-approve-btn" data-uid="${r.uid}" data-nickname="${_escapeHtml(r.nickname)}">${t('clanApproveBtn')}</button>
+              <button type="button" class="clan-request-deny-btn" data-uid="${r.uid}">${t('clanDenyBtn')}</button>
+            </span>
+          </div>
+        `).join('')
+        : `<p>${t('clanRequestsEmpty')}</p>`
+    } else {
+      this.clanRequestsSection.style.display = 'none'
+    }
 
     const otherMembersPresent = members.length > 1
-    this.clanLeaveBtn.disabled = isLeader && otherMembersPresent
-    this.clanLeaveBtn.textContent = isLeader ? t('clanDisbandBtn') : t('clanLeaveBtn')
-    this.clanLeaveDisabledHint.style.display = isLeader && otherMembersPresent ? 'block' : 'none'
+    this.clanLeaveBtn.disabled = isOwner && otherMembersPresent
+    this.clanLeaveBtn.textContent = isOwner ? t('clanDisbandBtn') : t('clanLeaveBtn')
+    this.clanLeaveDisabledHint.style.display = isOwner && otherMembersPresent ? 'block' : 'none'
     if (this.clanLeaveDisabledHint.style.display === 'block') this.clanLeaveDisabledHint.textContent = t('clanLeaderMustKickFirst')
+  }
+
+  // Invites addressed to this account, shown while browsing (not yet in
+  // a clan) - see CloudSync.fetchIncomingClanInvites.
+  async _renderClanIncomingInvites() {
+    if (!this.clanIncomingInvitesList) return
+    const invites = await CloudSync.fetchIncomingClanInvites(this._cloudUid).catch(() => [])
+    this.clanIncomingInvitesList.innerHTML = invites.map((inv) => `
+      <div class="clan-list-row">
+        <span>${t('clanInviteRowLabel', { name: _escapeHtml(inv.clanName), tag: _escapeHtml(inv.clanTag) })}</span>
+        <span>
+          <button type="button" class="clan-invite-accept-btn" data-clan-id="${inv.clanId}" data-clan-tag="${_escapeHtml(inv.clanTag)}">${t('clanAcceptBtn')}</button>
+          <button type="button" class="clan-invite-decline-btn" data-clan-id="${inv.clanId}">${t('clanDeclineBtn')}</button>
+        </span>
+      </div>
+    `).join('')
   }
 
   // Public directory of every clan that exists (see CloudSync.fetchAllClans) -

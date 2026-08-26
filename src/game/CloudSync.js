@@ -142,11 +142,52 @@ service cloud.firestore {
 
     match /clans/{clanId}/members/{uid} {
       allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.nickname is string && request.resource.data.nickname.size() > 0 && request.resource.data.nickname.size() <= 16
+        && request.resource.data.joinedAt is int
+        && request.resource.data.role in ['owner', 'elder', 'member']
+        && (
+          (request.auth.uid == uid && request.resource.data.role == 'owner'
+            && request.auth.uid == get(/databases/$(database)/documents/clans/$(clanId)).data.leaderId)
+          || (request.auth.uid == uid && request.resource.data.role == 'member'
+            && exists(/databases/$(database)/documents/clanInvites/$(request.auth.uid)/incoming/$(clanId)))
+          || (request.resource.data.role == 'member'
+            && get(/databases/$(database)/documents/clans/$(clanId)/members/$(request.auth.uid)).data.role in ['owner', 'elder'])
+        );
+      allow update: if request.auth != null
+        && get(/databases/$(database)/documents/clans/$(clanId)/members/$(request.auth.uid)).data.role == 'owner'
+        && request.resource.data.role in ['elder', 'member']
+        && request.resource.data.nickname == resource.data.nickname
+        && request.resource.data.joinedAt == resource.data.joinedAt;
+      allow delete: if request.auth != null
+        && (request.auth.uid == uid
+          || (resource.data.role != 'owner'
+            && get(/databases/$(database)/documents/clans/$(clanId)/members/$(request.auth.uid)).data.role in ['owner', 'elder']));
+    }
+
+    match /clans/{clanId}/joinRequests/{uid} {
+      allow read: if request.auth != null
+        && (request.auth.uid == uid
+          || get(/databases/$(database)/documents/clans/$(clanId)/members/$(request.auth.uid)).data.role in ['owner', 'elder']);
       allow create: if request.auth != null && request.auth.uid == uid
         && request.resource.data.nickname is string && request.resource.data.nickname.size() > 0 && request.resource.data.nickname.size() <= 16
-        && request.resource.data.joinedAt is int;
+        && request.resource.data.requestedAt is int;
       allow delete: if request.auth != null
-        && (request.auth.uid == uid || request.auth.uid == get(/databases/$(database)/documents/clans/$(clanId)).data.leaderId);
+        && (request.auth.uid == uid
+          || get(/databases/$(database)/documents/clans/$(clanId)/members/$(request.auth.uid)).data.role in ['owner', 'elder']);
+      allow update: if false;
+    }
+
+    match /clanInvites/{toUid}/incoming/{clanId} {
+      allow read: if request.auth != null && request.auth.uid == toUid;
+      allow create: if request.auth != null
+        && get(/databases/$(database)/documents/clans/$(clanId)/members/$(request.auth.uid)).data.role in ['owner', 'elder']
+        && request.resource.data.clanName is string && request.resource.data.clanName.size() > 0 && request.resource.data.clanName.size() <= 24
+        && request.resource.data.clanTag is string && request.resource.data.clanTag.size() > 0 && request.resource.data.clanTag.size() <= 4
+        && request.resource.data.invitedAt is int;
+      allow delete: if request.auth != null
+        && (request.auth.uid == toUid
+          || get(/databases/$(database)/documents/clans/$(clanId)/members/$(request.auth.uid)).data.role in ['owner', 'elder']);
       allow update: if false;
     }
 
@@ -448,7 +489,7 @@ export async function createClan(leaderUid, leaderNickname, name, tag) {
   const { db, fsMod } = await ensureApp()
   const clanRef = fsMod.doc(fsMod.collection(db, 'clans'))
   await fsMod.setDoc(clanRef, { name, tag, leaderId: leaderUid, leaderNickname, createdAt: Date.now() })
-  await fsMod.setDoc(fsMod.doc(db, 'clans', clanRef.id, 'members', leaderUid), { nickname: leaderNickname, joinedAt: Date.now() })
+  await fsMod.setDoc(fsMod.doc(db, 'clans', clanRef.id, 'members', leaderUid), { nickname: leaderNickname, joinedAt: Date.now(), role: 'owner' })
   return clanRef.id
 }
 
@@ -493,12 +534,79 @@ export async function fetchClanMemberCount(clanId) {
 // simultaneous joins is an accepted non-security edge case (see spec).
 const CLAN_MEMBER_CAP = 15
 
-export async function joinClan(clanId, uid, nickname) {
+// Join Requests - self-created, one per requester (doc id = requester's
+// own uid, same "can only ever touch your own doc" pattern as
+// friendRequests below). Owner/Elder read the list and either approve
+// (create the real member doc + delete the request) or deny (just
+// delete it) - see approveJoinRequest/denyJoinRequest.
+export async function sendJoinRequest(clanId, uid, nickname) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.setDoc(fsMod.doc(db, 'clans', clanId, 'joinRequests', uid), { nickname, requestedAt: Date.now() })
+}
+
+export async function fetchJoinRequests(clanId) {
+  const { db, fsMod } = await ensureApp()
+  const snap = await fsMod.getDocs(fsMod.collection(db, 'clans', clanId, 'joinRequests'))
+  return snap.docs.map((d) => ({ uid: d.id, ...d.data() }))
+}
+
+export async function approveJoinRequest(clanId, uid, nickname) {
   const count = await fetchClanMemberCount(clanId)
   if (count >= CLAN_MEMBER_CAP) return { ok: false, reason: 'full' }
   const { db, fsMod } = await ensureApp()
-  await fsMod.setDoc(fsMod.doc(db, 'clans', clanId, 'members', uid), { nickname, joinedAt: Date.now() })
+  await fsMod.setDoc(fsMod.doc(db, 'clans', clanId, 'members', uid), { nickname, joinedAt: Date.now(), role: 'member' })
+  await fsMod.deleteDoc(fsMod.doc(db, 'clans', clanId, 'joinRequests', uid))
   return { ok: true }
+}
+
+export async function denyJoinRequest(clanId, uid) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.deleteDoc(fsMod.doc(db, 'clans', clanId, 'joinRequests', uid))
+}
+
+// Clan Invites - Owner/Elder invites a specific player by their stable
+// playerId-looked-up uid, writing into THEIR inbox (mirrors
+// friendRequests/{toUid}/incoming/{fromUid} exactly, just keyed by
+// clanId instead of the inviter's own uid, capping one outstanding
+// invite per clan per target). The invitee accepts (creates their own
+// member doc, which the security rule only allows because this invite
+// doc exists) or declines (just deletes it).
+export async function sendClanInvite(clanId, clanName, clanTag, toUid) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.setDoc(fsMod.doc(db, 'clanInvites', toUid, 'incoming', clanId), { clanName, clanTag, invitedAt: Date.now() })
+}
+
+export async function fetchIncomingClanInvites(uid) {
+  const { db, fsMod } = await ensureApp()
+  const snap = await fsMod.getDocs(fsMod.collection(db, 'clanInvites', uid, 'incoming'))
+  return snap.docs.map((d) => ({ clanId: d.id, ...d.data() }))
+}
+
+export async function acceptClanInvite(clanId, uid, nickname) {
+  const count = await fetchClanMemberCount(clanId)
+  if (count >= CLAN_MEMBER_CAP) return { ok: false, reason: 'full' }
+  const { db, fsMod } = await ensureApp()
+  await fsMod.setDoc(fsMod.doc(db, 'clans', clanId, 'members', uid), { nickname, joinedAt: Date.now(), role: 'member' })
+  await fsMod.deleteDoc(fsMod.doc(db, 'clanInvites', uid, 'incoming', clanId))
+  return { ok: true }
+}
+
+export async function declineClanInvite(clanId, uid) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.deleteDoc(fsMod.doc(db, 'clanInvites', uid, 'incoming', clanId))
+}
+
+// Roles - Owner only (enforced by the security rule, not just this
+// client call). 'owner' itself is never assignable here - ownership
+// transfer isn't supported yet (see the design spec).
+export async function promoteToElder(clanId, uid, nickname, joinedAt) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.setDoc(fsMod.doc(db, 'clans', clanId, 'members', uid), { nickname, joinedAt, role: 'elder' })
+}
+
+export async function demoteToMember(clanId, uid, nickname, joinedAt) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.setDoc(fsMod.doc(db, 'clans', clanId, 'members', uid), { nickname, joinedAt, role: 'member' })
 }
 
 export async function leaveClan(clanId, uid) {

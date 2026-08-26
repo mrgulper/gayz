@@ -1483,16 +1483,29 @@ Escape before dawn.</p>
           <div id="clan-in-clan-state" style="display: none">
             <h4 id="clan-display-name"></h4>
             <p id="clan-display-tag"></p>
+            <p id="clan-my-role"></p>
             <div id="clan-stats-card">
               <p id="clan-stats-members"></p>
               <p id="clan-stats-kills"></p>
               <p id="clan-stats-night"></p>
             </div>
+            <div id="clan-send-invite-section" style="display: none">
+              <label class="menu-field-label" for="clan-invite-id-input">Send Clan Request (invite by Player ID)</label>
+              <input type="text" id="clan-invite-id-input" class="nickname-input" placeholder="Player ID" maxlength="10" />
+              <button id="clan-invite-send-btn" type="button" class="mini-action-btn">Send</button>
+              <p id="clan-invite-status" style="display: none"></p>
+            </div>
+            <h5 id="clan-members-heading">Clan Members</h5>
             <div id="clan-member-list"></div>
+            <div id="clan-requests-section" style="display: none">
+              <h5 id="clan-requests-heading">Requests</h5>
+              <div id="clan-requests-list"></div>
+            </div>
             <button id="clan-leave-btn" type="button" class="mini-action-btn">Leave Clan</button>
             <p id="clan-leave-disabled-hint" style="display: none"></p>
           </div>
           <div id="clan-browse-state" style="display: none">
+            <div id="clan-incoming-invites-list"></div>
             <button id="clan-make-btn" type="button" class="mini-action-btn">Make Clan</button>
             <div id="clan-make-form" style="display: none">
               <label class="menu-field-label" for="clan-create-name-input">Clan Name</label>
@@ -1502,6 +1515,10 @@ Escape before dawn.</p>
               <button id="clan-create-btn" type="button" class="mini-action-btn">Create Clan</button>
               <p id="clan-create-taken-warning" style="display: none"></p>
             </div>
+            <label class="menu-field-label" for="clan-request-name-input">Request to Join a Clan</label>
+            <input type="text" id="clan-request-name-input" class="nickname-input" placeholder="Clan name" maxlength="24" />
+            <button id="clan-request-name-btn" type="button" class="mini-action-btn">Request to Join</button>
+            <p id="clan-request-name-status" style="display: none"></p>
             <div id="clan-all-list"></div>
           </div>
         </div>

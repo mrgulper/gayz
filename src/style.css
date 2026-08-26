@@ -7142,7 +7142,9 @@ html.theme-lighter #app { filter: brightness(1.25); }
   padding: 10px 0;
 }
 
-.clan-list-row {
+.clan-list-row,
+.clan-member-row,
+.clan-request-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
