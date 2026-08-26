@@ -3059,7 +3059,10 @@ select option {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  /* Was 4px - most of what made every section run together. The 5 card
+     heading/list pairs below cancel this gap between themselves (see
+     their own -12px margin-top) so they still sit flush as one card. */
+  gap: 12px;
   width: 100%;
 }
 
@@ -3407,24 +3410,29 @@ select option {
   opacity: 0.85;
 }
 
-/* Profile panel's stat grid (#profile-options) - plain label/value text
-   rows instead of the boxed .perk-option card look every other user of
-   this shared class keeps (Shop/Upgrades/etc still get real cards).
-   Reuses .perk-option/.perk-name/.perk-cost as-is (not a new markup
-   structure) so Copy Stats/Print Stats Sheet, which read this exact
-   markup via querySelectorAll('.perk-option'), keep working unchanged -
-   this is a scoped CSS override, not a DOM change. Every other flat list
-   in this panel (Rank Roadmap, Class Comparison, Highlight Reel, Recent
-   Unlocks, Prestige History) gets the exact same treatment for the same
-   reason - one column of full-width padded cards was most of what made
-   this panel need scrolling at all. */
-/* Grid, not flex-wrap - a group heading (.settings-section-heading) needs
-   to span the full row width while its stat rows flow 3-per-row beneath
-   it. flex-wrap can't express "this one item is full-width, the rest
-   wrap normally" without flex-basis tricks that break badly the moment
-   the container itself is flex-direction:column (flex-basis then means
-   HEIGHT, not width, which is what silently made every earlier version
-   of this list balloon to 1000+px tall and spill columns off-screen). */
+/* Profile panel redesign (2026-08-26, "jammed up" complaint) - every flat
+   list here used to be one dense grid with 1px row-gap and 2-3px padding,
+   specifically squeezed to avoid extra scroll height. #profile-panel
+   already scrolls (overflow-y:auto on the panel itself), so that tradeoff
+   no longer needs to be this extreme - each section now reads as its own
+   card with real breathing room instead. Still reuses .perk-option/
+   .perk-name/.perk-cost as-is (not a new markup structure) so Copy Stats/
+   Print Stats Sheet, which read this exact markup via
+   querySelectorAll('.perk-option'), keep working unchanged.
+
+   Two different techniques get to the same "card" look depending on what
+   generates the markup:
+   - Combat/Survival/Economy/Social & Meta (#profile-options) are built by
+     _openProfilePanel() (Game.js), which now wraps each group in a real
+     <div class="profile-stat-card"> - a true single element, so it just
+     gets a normal all-around border/background/radius.
+   - Rank Roadmap / Class Comparison / Highlight Reel / Recently Unlocked /
+     Prestige History are each a static <h3> immediately followed by its
+     own list container already in index.html - rather than touching that
+     markup to add a wrapper div, the heading is styled as the card's top
+     edge and the list as its bottom edge (matching background/border,
+     complementary rounded corners, no border where they meet), so the
+     two elements read as one continuous card. */
 #rank-roadmap-list,
 #recent-unlocks-list,
 #highlight-reel-list,
@@ -3432,21 +3440,37 @@ select option {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   column-gap: 20px;
-  row-gap: 1px;
+  row-gap: 6px;
   max-width: 820px;
   margin: 0 auto;
 }
 
-/* By far the longest list in the panel (~40 rows across 4 groups) - more
-   columns than everything else here to keep its share of the height
-   budget down. */
 #profile-options {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  column-gap: 16px;
-  row-gap: 1px;
-  max-width: 1300px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  max-width: 900px;
   margin: 0 auto;
+}
+
+/* The pinned stat (if any) renders as a single row directly inside
+   #profile-options, outside any card - same "always first" position it
+   had before cards existed, spanning both columns so it doesn't look like
+   it's fighting a card for space. */
+#profile-options > .perk-option {
+  grid-column: 1 / -1;
+}
+
+.profile-stat-card {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 16px;
+  row-gap: 4px;
+  align-content: start;
+  background: rgba(20, 16, 10, 0.55);
+  border: 1px solid rgba(138, 109, 71, 0.4);
+  border-radius: 8px;
+  padding: 12px 16px 14px;
 }
 
 /* Longer per-row text (full speed/health/stamina deltas) - 2 columns
@@ -3455,13 +3479,49 @@ select option {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   column-gap: 20px;
-  row-gap: 1px;
+  row-gap: 6px;
   max-width: 820px;
   margin: 0 auto;
 }
 
 #profile-options .settings-section-heading {
   grid-column: 1 / -1;
+  margin: 0 0 6px;
+}
+
+/* Card top edge - see the technique comment above. Matches
+   .profile-stat-card's own background/border/radius so the two pieces
+   read as one box. */
+/* #profile-content prefix (a second ID) beats #profile-panel h3's own
+   margin rule on specificity alone, without needing !important. */
+#profile-content #highlight-reel-heading,
+#profile-content #rank-roadmap-heading,
+#profile-content #class-comparison-heading,
+#profile-content #recent-unlocks-heading,
+#profile-content #prestige-history-heading {
+  background: rgba(20, 16, 10, 0.55);
+  border: 1px solid rgba(138, 109, 71, 0.4);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  margin: 0 auto;
+  padding: 10px 16px 4px;
+  max-width: 820px;
+}
+
+/* Card bottom edge - margin-top cancels #profile-content's own 12px flex
+   gap (see that rule) so this sits flush against its heading above with
+   no visible seam, instead of the two pieces floating apart. */
+#highlight-reel-list,
+#rank-roadmap-list,
+#class-comparison-table,
+#recent-unlocks-list,
+#prestige-history-list {
+  background: rgba(20, 16, 10, 0.55);
+  border: 1px solid rgba(138, 109, 71, 0.4);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  padding: 8px 16px 14px;
+  margin-top: -12px;
 }
 
 #profile-options .perk-option,
@@ -3474,7 +3534,7 @@ select option {
   justify-content: space-between;
   align-items: center;
   width: 100%;
-  padding: 3px 0;
+  padding: 5px 0;
   background: none;
   border: none;
   border-radius: 0;
@@ -3498,9 +3558,15 @@ select option {
 #highlight-reel-list .perk-name,
 #prestige-history-list .perk-name,
 #class-comparison-table .perk-name {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 400;
-  color: var(--menu-text-dim);
+  /* --menu-text-dim is declared on #menu, not :root - #profile-panel is a
+     modal sibling of #menu (see #goals-picker's own comment on the same
+     gotcha), so this was silently resolving to nothing and falling back
+     to inherited text color instead of the intended dim tone. Literal
+     fallback fixes it, same pattern #profile-panel h3/.settings-section-
+     heading already use. */
+  color: var(--menu-text-dim, rgba(224, 228, 220, 0.62));
 }
 
 #profile-options .perk-cost,
@@ -3509,20 +3575,9 @@ select option {
 #highlight-reel-list .perk-cost,
 #prestige-history-list .perk-cost,
 #class-comparison-table .perk-cost {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   color: #eee;
-}
-
-/* By far the most rows of any list here (~40) - a touch smaller than the
-   shared 15px/3px-padding above so 5 columns of them still fit. */
-#profile-options .perk-option {
-  padding: 2px 0;
-}
-
-#profile-options .perk-name,
-#profile-options .perk-cost {
-  font-size: 13px;
 }
 
 /* Every section heading in the Profile panel is a bare <h3> with no class
@@ -8174,6 +8229,22 @@ html.night-vision-active #app {
   #menu {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+  }
+
+  /* Profile panel's stat cards (see .profile-stat-card and the
+     #highlight-reel-heading/etc card rules earlier in this file) are 2-3
+     columns wide by default - fine on desktop, but at phone width that
+     squeezes longer labels ("Best single-run kills", "Survive-to-dawn
+     rate") into a sub-100px sliver, wrapping across 2-3 lines. Single
+     column here gives every row its full width instead. */
+  #profile-options,
+  .profile-stat-card,
+  #rank-roadmap-list,
+  #class-comparison-table,
+  #recent-unlocks-list,
+  #highlight-reel-list,
+  #prestige-history-list {
+    grid-template-columns: 1fr;
   }
 
   #menu-layout {

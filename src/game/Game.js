@@ -17437,11 +17437,19 @@ export class Game {
       labelKey,
       rows.filter((r) => (PROFILE_STAT_GROUPS[r[0]] || 'socialMeta') === groupId),
     ]).filter(([, groupRows]) => groupRows.length > 0)
+    // Each category renders as its own card (see .profile-stat-card in
+    // style.css) instead of a bare heading over a flat row list - the
+    // previous version packed ~40 rows into one dense 5-column grid with
+    // near-zero row spacing specifically to avoid extra scroll height, but
+    // read as cramped (this panel already scrolls, so that tradeoff no
+    // longer needs to be so extreme).
     this.profileOptions.innerHTML =
       (pinnedRow ? rowButton(pinnedRow) : '') +
       grouped.map(([labelKey, groupRows]) => `
-        <h3 class="settings-section-heading">${t(labelKey)}</h3>
-        ${groupRows.map(rowButton).join('')}
+        <div class="profile-stat-card">
+          <h3 class="settings-section-heading">${t(labelKey)}</h3>
+          ${groupRows.map(rowButton).join('')}
+        </div>
       `).join('')
     this._animateStatCountUp()
 
