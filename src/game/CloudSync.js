@@ -660,6 +660,40 @@ export async function fetchClanCombinedStats(clanId) {
   return { memberCount: snap.size, totalKills, totalBestNight }
 }
 
+// Community Builds (share Build Mode maps - see
+// docs/superpowers/specs/2026-08-26-community-builds-design.md).
+// blockCount is denormalized from blocks.length so the Browse list can
+// show it without downloading the full block array per row.
+const COMMUNITY_BUILD_BLOCK_CAP = 5000
+
+export async function publishBuild(uid, nickname, name, blocks, hotbar) {
+  if (blocks.length > COMMUNITY_BUILD_BLOCK_CAP) return { ok: false, reason: 'tooLarge' }
+  const { db, fsMod } = await ensureApp()
+  const buildRef = fsMod.doc(fsMod.collection(db, 'communityBuilds'))
+  await fsMod.setDoc(buildRef, {
+    name,
+    creatorUid: uid,
+    creatorNickname: nickname,
+    blocks,
+    hotbar,
+    blockCount: blocks.length,
+    createdAt: Date.now(),
+  })
+  return { ok: true, buildId: buildRef.id }
+}
+
+export async function fetchCommunityBuilds() {
+  const { db, fsMod } = await ensureApp()
+  const q = fsMod.query(fsMod.collection(db, 'communityBuilds'), fsMod.orderBy('createdAt', 'desc'), fsMod.limit(50))
+  const snap = await fsMod.getDocs(q)
+  return snap.docs.map((d) => ({ ...d.data(), buildId: d.id }))
+}
+
+export async function reportBuild(buildId, uid) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.setDoc(fsMod.doc(db, 'communityBuilds', buildId, 'reports', uid), { reportedAt: Date.now() })
+}
+
 // Friend Requests - one doc per pending request, ID'd by the SENDER's uid
 // (mirrors polls/{pollId}/votes/{userId}'s "doc ID is the actor's own uid"
 // pattern) so a given sender can only ever have one outstanding request to
