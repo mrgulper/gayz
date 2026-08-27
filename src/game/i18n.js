@@ -1425,7 +1425,7 @@ const STRINGS = {
     friendRequestDecline: 'Decline',
     friendRequestNone: 'No pending friend requests.',
     friendStatusOnline: 'Online',
-    friendStatusIdle: 'Idle',
+    friendStatusIdle: 'Busy',
     friendStatusDnd: 'Do Not Disturb',
     friendStatusOffline: 'Offline',
     friendStatusOfflineAgo: 'Online {time}',

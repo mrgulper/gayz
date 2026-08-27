@@ -18208,7 +18208,7 @@ export class Game {
     for (const btn of this.statusPickBtns) {
       btn.classList.toggle('active', btn.dataset.status === mode)
     }
-    const labels = { online: 'Online', idle: 'Idle', dnd: 'Do Not Disturb', offline: 'Offline' }
+    const labels = { online: 'Online', idle: 'Busy', dnd: 'Do Not Disturb', offline: 'Offline' }
     if (this.statusPickerDot) this.statusPickerDot.dataset.status = mode
     if (this.statusPickerLabel) this.statusPickerLabel.textContent = labels[mode] || labels.online
   }
