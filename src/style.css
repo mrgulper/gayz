@@ -8811,7 +8811,11 @@ html.night-vision-active #app {
    math. pointer-events: auto overrides the stack's own blanket `none`
    (its other children, the stat bars, never needed clicks - chat does). */
 #chat-panel {
-  display: flex;
+  /* Hidden on the homepage by default, same as #status-hud right above
+     it in the DOM - shown only during an actual run (see
+     _onGameplayResumed/_onGameplayPaused), per feedback that it read as
+     clutter sitting over the homepage art. */
+  display: none;
   flex-direction: column;
   width: 420px;
   height: 320px;

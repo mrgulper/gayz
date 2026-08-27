@@ -6025,6 +6025,23 @@ export class Game {
 
     this.player.controls.addEventListener('lock', () => this._onGameplayResumed())
     this.player.controls.addEventListener('unlock', () => this._onGameplayPaused())
+
+    // Safety net for a real gap: Escape normally works by letting the
+    // BROWSER auto-release Pointer Lock, which the 'unlock' listener
+    // above reacts to by showing the pause overlay. A native browser
+    // dialog (e.g. the beforeunload "Leave site?" prompt) also force-
+    // releases the lock, but clicking Cancel there was observed to
+    // leave the player stuck - mouse free, pause overlay never shown,
+    // Escape doing nothing (its usual trick has nothing left to
+    // release, since lock is already gone). This detects exactly that
+    // stuck state and self-heals by calling the pause handler directly.
+    window.addEventListener('keydown', (e) => {
+      if (e.code !== 'Escape' || !this.gameStarted) return
+      if (this.player.controls.isLocked) return
+      if (this._chatInputFocused) return
+      if (this.pauseOverlay.style.display === 'flex') return
+      this._onGameplayPaused()
+    })
   }
 
   // Extracted from the real 'lock' event listener above so touch mode
@@ -6050,6 +6067,7 @@ export class Game {
     this.hotbarEl.style.display = this.driving ? 'none' : 'flex'
     if (this.hotbarPowerScoreEl) this.hotbarPowerScoreEl.style.display = this.driving ? 'none' : 'block'
     this.statusHud.style.display = 'flex'
+    this.chatPanel.style.display = 'flex'
     this.progressHud.style.display = 'flex'
     this.statsPanel.style.display = 'flex'
     if (this.keybindCheatsheet) this.keybindCheatsheet.style.display = this.settings.keybindCheatSheet ? '' : 'none'
@@ -6152,6 +6170,7 @@ export class Game {
     this.hudEl.style.display = 'none'
     this.hotbarEl.style.display = 'none'
     this.statusHud.style.display = 'none'
+    this.chatPanel.style.display = 'none'
     this.progressHud.style.display = 'none'
     this.statsPanel.style.display = 'none'
     this.minimapWrap.style.display = 'none'
@@ -6518,6 +6537,7 @@ export class Game {
     // distinct from Photo Mode which hides it along with the rest.
     if (!keepHotbar) this.hotbarEl.style.display = display
     this.statusHud.style.display = display
+    this.chatPanel.style.display = display
     this.progressHud.style.display = display
     this.statsPanel.style.display = display
     this.minimapWrap.style.display = display
@@ -11981,6 +12001,7 @@ export class Game {
     this.hotbarEl.style.display = 'none'
     if (this.hotbarPowerScoreEl) this.hotbarPowerScoreEl.style.display = 'none'
     this.statusHud.style.display = 'none'
+    this.chatPanel.style.display = 'none'
     this.progressHud.style.display = 'none'
     this.statsPanel.style.display = 'none'
     this.minimapWrap.style.display = 'none'
@@ -17017,6 +17038,7 @@ export class Game {
     this.hudEl.style.display = 'none'
     this.hotbarEl.style.display = 'none'
     this.statusHud.style.display = 'none'
+    this.chatPanel.style.display = 'none'
     this.progressHud.style.display = 'none'
     this.interactPrompt.style.display = 'none'
     this.statsPanel.style.display = 'none'
@@ -21588,6 +21610,7 @@ export class Game {
     this.hudEl.style.display = 'none'
     this.hotbarEl.style.display = 'none'
     this.statusHud.style.display = 'none'
+    this.chatPanel.style.display = 'none'
     this.progressHud.style.display = 'none'
     this.interactPrompt.style.display = 'none'
     this.statsPanel.style.display = 'none'
