@@ -27,6 +27,18 @@ html, body {
   background: #000;
   font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   color: #eee;
+}
+
+/* Old theme's base text/font - most panel text has no font-family/color
+   of its own and just inherits from here, so this one rule reskins the
+   bulk of it at once. A handful of elements (dropdowns, stat tables,
+   chips) set their own explicit color and stay unchanged by this. */
+html.ui-theme-old {
+  font-family: 'Crimson Text', Georgia, serif;
+  color: #ddd0b8;
+}
+
+html, body {
   /* Text and images throughout the game are unselectable/undraggable by
      default (can't be highlighted or dragged out) - re-enabled below for
      the handful of elements that actually need it (real text inputs, and
@@ -1153,6 +1165,58 @@ html.layout-compact .menu-panel {
      it are siblings of #menu in the DOM, not descendants - a custom
      property scoped to #menu wouldn't reach them. */
   --grain-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+
+  /* Theme palette - moved here from #menu (2026-08-26) for the same reason
+     --grain-texture already lives here: the Clan/Community-Builds/Friends
+     etc. standalone panels are siblings of #menu, not descendants, so a
+     custom property declared on #menu itself never reached them (they were
+     falling back to their own hardcoded var(--menu-gold, #d9bc4a) literal
+     instead). Moving the real declaration to :root means every panel now
+     genuinely reads the same live value - harmless for Golden (the
+     fallback hex already matched these numbers exactly) and required for
+     the Old theme override below to actually reach every panel. */
+  --menu-gold: #d9bc4a;
+  --menu-green: #7fd8a0;
+  --menu-red: #c9564a;
+  --menu-orange: #e0c34f;
+  --menu-blue: #6fa8dc;
+  --menu-purple: #b07cd6;
+  --menu-olive: #92a05e;
+  --menu-charcoal: #0a0a09;
+  --menu-gunmetal: #34383c;
+  --menu-gunmetal-dark: #1c1e20;
+  --menu-bronze: #8a6d47;
+  --menu-orange-glow: #e6c335;
+  --menu-panel-bg: rgba(7, 8, 8, 0.95);
+  --menu-panel-border: rgba(138, 109, 71, 0.5);
+  --menu-text-dim: rgba(224, 228, 220, 0.62);
+  --menu-display-font: 'Bebas Neue', 'Segoe UI', sans-serif;
+}
+
+/* Old theme (settings.uiTheme: 'old') - a vintage rust/bronze/stone palette
+   replacing Golden's gold-on-dark-green, built from the same photo/plate/
+   plaque assets used for the actual image swaps below. Same variable
+   names as Golden's block above, on purpose: nearly every button, panel
+   background, and heading already reads its color through one of these
+   names, so swapping the values here re-skins all of them at once instead
+   of needing a matching override for every individual rule. */
+html.ui-theme-old {
+  --menu-gold: #c2a06e;
+  --menu-green: #8a9a6e;
+  --menu-red: #9c5a42;
+  --menu-orange: #c2884f;
+  --menu-blue: #6c8494;
+  --menu-purple: #8a7090;
+  --menu-olive: #7a7a52;
+  --menu-charcoal: #150f09;
+  --menu-gunmetal: #362a1e;
+  --menu-gunmetal-dark: #1e160f;
+  --menu-bronze: #8f6a3e;
+  --menu-orange-glow: #d4a068;
+  --menu-panel-bg: rgba(21, 15, 9, 0.92);
+  --menu-panel-border: rgba(140, 105, 60, 0.55);
+  --menu-text-dim: rgba(224, 208, 184, 0.62);
+  --menu-display-font: 'Rye', Georgia, serif;
 }
 
 /* Large Text Mode - scoped to #menu + every modal panel's text (zoom,
@@ -3097,6 +3161,39 @@ select option {
     rgba(6, 8, 6, 0.88);
 }
 
+/* Old theme's warm-brown backdrop, same 24-panel list as the rule above -
+   see the palette comment on html.ui-theme-old's :root block. */
+html.ui-theme-old #perk-panel,
+html.ui-theme-old #trader-panel,
+html.ui-theme-old #hub-panel,
+html.ui-theme-old #coming-soon-panel,
+html.ui-theme-old #clan-panel,
+html.ui-theme-old #upgrades-panel,
+html.ui-theme-old #quests-panel,
+html.ui-theme-old #share-panel,
+html.ui-theme-old #achievements-panel,
+html.ui-theme-old #profile-panel,
+html.ui-theme-old #credits-panel,
+html.ui-theme-old #multiplayer-panel,
+html.ui-theme-old #shop-panel,
+html.ui-theme-old #whatsnew-panel,
+html.ui-theme-old #howtoplay-panel,
+html.ui-theme-old #cloudsave-panel,
+html.ui-theme-old #friends-panel,
+html.ui-theme-old #other-profile-panel,
+html.ui-theme-old #menu-inventory-panel,
+html.ui-theme-old #server-panel,
+html.ui-theme-old #xp-levelup-panel,
+html.ui-theme-old #weapon-picker-panel,
+html.ui-theme-old #pause-overlay,
+html.ui-theme-old #journal-panel,
+html.ui-theme-old #screenshot-crop-overlay {
+  background:
+    radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.6) 100%),
+    var(--grain-texture),
+    rgba(21, 15, 9, 0.92);
+}
+
 /* Logged-out Profile gate - replaces the entire profile (stats/bio/
    highlights/etc, all normally visible even to a local guest) with a
    plain black screen + typewriter prompt, since viewing a Profile now
@@ -3418,6 +3515,31 @@ select option {
   text-transform: uppercase;
   color: #e3c23c;
   opacity: 0.85;
+}
+
+/* Old theme's heading treatment, same panel-title list as the rule above. */
+html.ui-theme-old #upgrades-panel-title,
+html.ui-theme-old #quests-panel-title,
+html.ui-theme-old #achievements-panel-title,
+html.ui-theme-old #profile-panel-title,
+html.ui-theme-old #credits-panel-title,
+html.ui-theme-old #shop-panel-title,
+html.ui-theme-old #whatsnew-panel-title,
+html.ui-theme-old #howtoplay-panel-title,
+html.ui-theme-old #cloudsave-panel-title,
+html.ui-theme-old #friends-panel-title,
+html.ui-theme-old #menu-inventory-panel-title,
+html.ui-theme-old #server-panel-title,
+html.ui-theme-old #xp-levelup-panel-title,
+html.ui-theme-old #weapon-picker-panel-title,
+html.ui-theme-old #pause-overlay-title,
+html.ui-theme-old #journal-panel-title,
+html.ui-theme-old #clan-panel-title,
+html.ui-theme-old #multiplayer-panel-title,
+html.ui-theme-old #share-panel-title {
+  font-family: 'Rye', Georgia, serif;
+  color: #c2a06e;
+  opacity: 1;
 }
 
 #inventory-skins-sort-row {
@@ -4538,23 +4660,8 @@ select option {
    Main menu redesign - design tokens
    ========================================================================== */
 #menu {
-  --menu-gold: #d9bc4a;
-  --menu-green: #7fd8a0;
-  --menu-red: #c9564a;
-  --menu-orange: #e0c34f;
-  --menu-blue: #6fa8dc;
-  --menu-purple: #b07cd6;
-  --menu-olive: #92a05e;
-  --menu-charcoal: #0a0a09;
-  --menu-gunmetal: #34383c;
-  --menu-gunmetal-dark: #1c1e20;
-  --menu-bronze: #8a6d47;
-  --menu-orange-glow: #e6c335;
-  --menu-panel-bg: rgba(7, 8, 8, 0.95);
-  --menu-panel-border: rgba(138, 109, 71, 0.5);
-  --menu-text-dim: rgba(224, 228, 220, 0.62);
-  --menu-display-font: 'Bebas Neue', 'Segoe UI', sans-serif;
-
+  /* --menu-* tokens live on :root now (see that block's comment) - this
+     rule just lays the menu out. */
   position: absolute;
   inset: 0;
   display: flex;
@@ -4614,6 +4721,10 @@ select option {
    here instead of touching this one. */
 html:not(.ui-theme-old) #menu-bg-photo {
   background-image: url('/images/menu-bg-city.jpg');
+}
+
+html.ui-theme-old #menu-bg-photo {
+  background-image: url('/images/old-menu-bg.jpg');
 }
 
 @keyframes menuBgKenBurns {
@@ -5692,6 +5803,42 @@ html.theme-lighter #app { filter: brightness(1.25); }
     saturate(1.45) contrast(1.1);
 }
 
+/* Old theme keeps the same logo artwork (no new asset was made for it),
+   but sepia() warms its blood-red crack texture toward brown/amber - a
+   vintage photo tint instead of a horror-red glow - and the ambient glow
+   drops its red layer for a warm-amber-only halo. */
+html.ui-theme-old #menu-title-img {
+  filter:
+    sepia(1)
+    drop-shadow(0 0 40px rgba(226, 189, 140, 0.5))
+    drop-shadow(0 0 60px rgba(140, 90, 40, 0.35))
+    drop-shadow(4px 6px 10px rgba(0, 0, 0, 0.6));
+}
+
+html.ui-theme-old #menu-title-img.logo-tier-3 {
+  filter:
+    sepia(1) saturate(1.15)
+    drop-shadow(0 0 40px rgba(226, 189, 140, 0.55))
+    drop-shadow(0 0 70px rgba(140, 90, 40, 0.4))
+    drop-shadow(4px 6px 10px rgba(0, 0, 0, 0.6));
+}
+
+html.ui-theme-old #menu-title-img.logo-tier-4 {
+  filter:
+    sepia(1) saturate(1.25) contrast(1.05)
+    drop-shadow(0 0 40px rgba(226, 189, 140, 0.6))
+    drop-shadow(0 0 90px rgba(140, 90, 40, 0.45))
+    drop-shadow(4px 6px 10px rgba(0, 0, 0, 0.6));
+}
+
+html.ui-theme-old #menu-title-img.logo-tier-5 {
+  filter:
+    sepia(1) saturate(1.35) contrast(1.1)
+    drop-shadow(0 0 40px rgba(226, 189, 140, 0.65))
+    drop-shadow(0 0 110px rgba(140, 90, 40, 0.55))
+    drop-shadow(4px 6px 10px rgba(0, 0, 0, 0.6));
+}
+
 #menu-tagline {
   margin: 2px 0 4px;
   font-family: var(--menu-display-font);
@@ -5929,6 +6076,16 @@ html.theme-lighter #app { filter: brightness(1.25); }
   transform: translateY(-1px);
 }
 
+/* Old theme's own plate art, swapped in on top of the shared rules above -
+   see the settings-btn/nav-buttons rules further down for the same pattern. */
+html.ui-theme-old #play-btn {
+  background-image: url('/images/old-play-btn.webp');
+}
+
+html.ui-theme-old #gamemode-btn {
+  background-image: url('/images/old-nav-plaque.webp');
+}
+
 #play-btn:active {
   transform: translateY(2px);
   filter: drop-shadow(0 0 12px color-mix(in srgb, var(--play-btn-color, var(--menu-gold)) 60%, transparent));
@@ -6033,6 +6190,10 @@ html.theme-lighter #app { filter: brightness(1.25); }
   height: 84px;
   background: url('/images/settings-gear.webp') center / cover no-repeat;
   border: none;
+}
+
+html.ui-theme-old #settings-btn {
+  background-image: url('/images/old-settings-gear.webp');
 }
 
 #settings-btn svg {
@@ -6595,6 +6756,11 @@ html.theme-lighter #app { filter: brightness(1.25); }
   text-align: left;
   box-shadow: none;
   transition: filter 0.2s ease, transform 0.15s ease;
+}
+
+html.ui-theme-old #menu-nav-buttons button {
+  color: #ddd0b8;
+  background-image: url('/images/old-nav-plaque.webp');
 }
 
 #menu-nav-buttons button svg {
@@ -7305,6 +7471,10 @@ html.theme-lighter #app { filter: brightness(1.25); }
   z-index: 15;
 }
 
+html.ui-theme-old #settings-panel {
+  background: rgba(21, 15, 9, 0.98);
+}
+
 #settings-panel h2 {
   margin: 0 0 4px;
   font-size: 15px;
@@ -7312,6 +7482,12 @@ html.theme-lighter #app { filter: brightness(1.25); }
   text-transform: uppercase;
   color: #e3c23c;
   opacity: 0.85;
+}
+
+html.ui-theme-old #settings-panel h2 {
+  font-family: 'Rye', Georgia, serif;
+  color: #c2a06e;
+  opacity: 1;
 }
 
 .settings-tabs {
