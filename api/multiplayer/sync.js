@@ -33,10 +33,17 @@ const STALE_MS = 2500
 // an actively-polling client will always see an event at least once
 // before it's pruned.
 const WORLD_EVENT_TTL_MS = 15000
+// Party chat - same broadcast-and-prune shape as world events above (any
+// player posts, everyone gets it back, the client dedupes by id), just a
+// much longer TTL since chat is meant to read as a persisting scrollback,
+// not a one-shot VFX trigger. Text/nickname trust level matches this
+// server's existing precedent (nickname is client-reported everywhere
+// here already, e.g. create.js/join.js) - length-capped, nothing more.
+const CHAT_TTL_MS = 10 * 60 * 1000
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
-  const { sessionId, playerId, x, y, z, rotY, currentWeapon, isFiring, zombies, hits, worldEvents, remoteDamage, pickups, chests, vaultOpened, windows, interactions, killEvents, xpGems, director } = req.body || {}
+  const { sessionId, playerId, x, y, z, rotY, currentWeapon, isFiring, zombies, hits, worldEvents, remoteDamage, pickups, chests, vaultOpened, windows, interactions, killEvents, xpGems, director, chatText, chatNickname } = req.body || {}
   if (!sessionId || !playerId) {
     return res.status(400).json({ error: 'sessionId and playerId are required' })
   }
@@ -184,6 +191,13 @@ export default async function handler(req, res) {
     await sessionRef.update(updates)
   }
 
+  if (typeof chatText === 'string' && chatText.trim() && typeof chatNickname === 'string') {
+    const key = sessionRef.child('world/chat').push().key
+    await sessionRef.child(`world/chat/${key}`).set({
+      playerId, nickname: chatNickname.slice(0, 16), text: chatText.trim().slice(0, 300), at: now,
+    })
+  }
+
   if (!isHost && Array.isArray(hits) && hits.length) {
     // Guests append to a shared inbox the host drains on its own next
     // sync call below - never applied here server-side. The host's own
@@ -231,7 +245,7 @@ export default async function handler(req, res) {
   const killEventsOut = Object.values(myKillEvents)
   if (killEventsOut.length) await sessionRef.child(`world/killEvents/${playerId}`).remove()
 
-  const [stateSnapshot, playersSnapshot, zombiesSnapshot, eventsSnapshot, pickupsSnapshot, chestsSnapshot, vaultOpenedSnapshot, windowsSnapshot, xpGemsSnapshot, directorSnapshot] = await Promise.all([
+  const [stateSnapshot, playersSnapshot, zombiesSnapshot, eventsSnapshot, pickupsSnapshot, chestsSnapshot, vaultOpenedSnapshot, windowsSnapshot, xpGemsSnapshot, directorSnapshot, chatSnapshot] = await Promise.all([
     sessionRef.child('playerState').once('value'),
     sessionRef.child('players').once('value'),
     sessionRef.child('world/zombies').once('value'),
@@ -242,6 +256,7 @@ export default async function handler(req, res) {
     sessionRef.child('world/windows').once('value'),
     sessionRef.child('world/xpGems').once('value'),
     sessionRef.child('world/director').once('value'),
+    sessionRef.child('world/chat').once('value'),
   ])
   const allStates = stateSnapshot.val() || {}
   const allPlayers = playersSnapshot.val() || {}
@@ -270,10 +285,24 @@ export default async function handler(req, res) {
   }
   if (Object.keys(staleEventUpdates).length) await sessionRef.update(staleEventUpdates)
 
+  const allChat = chatSnapshot.val() || {}
+  const chatOut = []
+  const staleChatUpdates = {}
+  for (const [key, msg] of Object.entries(allChat)) {
+    if (!msg) continue
+    if (now - msg.at > CHAT_TTL_MS) {
+      staleChatUpdates[`world/chat/${key}`] = null
+      continue
+    }
+    chatOut.push({ id: key, playerId: msg.playerId, nickname: msg.nickname, text: msg.text, at: msg.at })
+  }
+  if (Object.keys(staleChatUpdates).length) await sessionRef.update(staleChatUpdates)
+
   res.status(200).json({
     states, zombies: zombiesSnapshot.val() || {}, pendingHits, worldEvents: worldEventsOut, remoteDamage: remoteDamageOut,
     pickups: pickupsSnapshot.val() || {}, chests: chestsSnapshot.val() || [], vaultOpened: vaultOpenedSnapshot.val() || false,
     windows: windowsSnapshot.val() || [], interactions: pendingInteractions, killEvents: killEventsOut,
     xpGems: xpGemsSnapshot.val() || {}, host: currentHostId, director: directorSnapshot.val() || null,
+    chat: chatOut,
   })
 }

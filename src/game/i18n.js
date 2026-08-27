@@ -397,6 +397,7 @@ const STRINGS = {
     clanMakeLeaderConfirm: 'Make {name} the new leader? You will become an Elder.',
     clanLeaveConfirm: 'Are you sure you want to leave this clan?',
     clanDisbandConfirm: 'You\'re the only member - leaving will delete this clan permanently. Continue?',
+    chatMutedNotice: 'Muted for spamming - try again in {seconds}s',
     weaponNameHudLabel: 'Show Weapon Name on HUD',
     minimapZoomLabel: 'Default Minimap Zoom',
     friendPresenceNotifyLabel: 'Friend Online/Offline Alerts',

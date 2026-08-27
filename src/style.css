@@ -8798,3 +8798,143 @@ html.night-vision-active #app {
   }
 }
 
+/* Chat widget - Global/Clan/Party channels, bottom-left, collapsed to a
+   small icon by default (same corner used elsewhere for compact HUD
+   widgets). z-index 3: above the homepage layout (1) so it's usable
+   there too, but below every modal panel (15) so opening Settings/Shop/
+   etc. correctly covers it rather than fighting for clicks. Uses the
+   --menu-* tokens (not literal hex) so it reskins automatically under
+   the Old theme, same as every other cross-panel surface. */
+#chat-widget {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+#chat-toggle-btn {
+  position: relative;
+  order: 2;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--menu-gold, #d9bc4a);
+  background: var(--menu-panel-bg, rgba(7, 8, 8, 0.95));
+  border: 1px solid var(--menu-panel-border, rgba(138, 109, 71, 0.5));
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+#chat-toggle-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+#chat-panel {
+  order: 1;
+  display: flex;
+  flex-direction: column;
+  width: 300px;
+  height: 320px;
+  margin-bottom: 8px;
+  background: var(--menu-panel-bg, rgba(7, 8, 8, 0.95));
+  border: 1px solid var(--menu-panel-border, rgba(138, 109, 71, 0.5));
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+#chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chat-message-row {
+  font-size: 12px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.chat-message-nickname {
+  font-weight: 700;
+  color: var(--menu-gold, #d9bc4a);
+  margin-right: 4px;
+}
+
+.chat-message-text {
+  color: #eee;
+}
+
+#chat-muted-notice {
+  margin: 0;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: var(--menu-red, #c9564a);
+  text-align: center;
+}
+
+#chat-input-row {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid var(--menu-panel-border, rgba(138, 109, 71, 0.5));
+}
+
+#chat-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  font-size: 12px;
+  color: #eee;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+#chat-send-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--menu-gold, #d9bc4a);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--menu-panel-border, rgba(138, 109, 71, 0.5));
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#chat-channel-tabs {
+  display: flex;
+  border-top: 1px solid var(--menu-panel-border, rgba(138, 109, 71, 0.5));
+}
+
+.chat-tab-btn {
+  flex: 1;
+  padding: 7px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: rgba(224, 228, 220, 0.55);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.chat-tab-btn.active {
+  color: var(--menu-gold, #d9bc4a);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.chat-tab-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+

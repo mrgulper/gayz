@@ -94,6 +94,25 @@
 
       <div id="crosshair"></div>
 
+      <div id="chat-widget">
+        <button id="chat-toggle-btn" type="button" aria-label="Chat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </button>
+        <div id="chat-panel" style="display: none">
+          <div id="chat-messages"></div>
+          <p id="chat-muted-notice" style="display: none"></p>
+          <form id="chat-input-row">
+            <input type="text" id="chat-input" maxlength="300" placeholder="Type a message..." autocomplete="off" />
+            <button type="submit" id="chat-send-btn">Send</button>
+          </form>
+          <div id="chat-channel-tabs">
+            <button type="button" class="chat-tab-btn active" data-channel="global">Global</button>
+            <button type="button" class="chat-tab-btn" data-channel="clan">Clan</button>
+            <button type="button" class="chat-tab-btn" data-channel="party">Party</button>
+          </div>
+        </div>
+      </div>
+
       <div id="touch-controls-layer" style="display: none">
         <div id="touch-joystick-base">
           <div id="touch-joystick-knob"></div>
@@ -2056,6 +2075,7 @@ Escape before dawn.</p>
         <div id="whatsnew-content">
           <p id="build-version-line"></p>
           <div id="changelog-list">
+            <div class="changelog-entry"><span class="changelog-date">Aug 27, 2026</span><span class="changelog-text">New Chat! A chat box (bottom-left) with Global, Clan, and Party channels - switch between them at the bottom of the box. No word filtering, but spamming gets you muted for 5 minutes.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 27, 2026</span><span class="changelog-text">Any clan member (including the leader) can now leave with a confirmation warning first. A leader hands leadership to someone else first (new "Make Leader" button next to their name) if others are still in the clan - leaving as the only member deletes the clan for good instead of the old "Disband Clan" button.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 26, 2026</span><span class="changelog-text">The "Old" theme (Settings > Theme) now has a real look - a vintage rust/bronze/parchment style with a new background photo, Play/Settings/nav/profile-frame art, and its own font, instead of doing nothing when selected.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 26, 2026</span><span class="changelog-text">The homepage background now has a bit more life to it - a slightly faster drift/zoom.</span></div>

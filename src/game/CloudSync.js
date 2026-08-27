@@ -202,6 +202,35 @@ service cloud.firestore {
       allow update: if false;
     }
 
+    // Clan chat - members only (read AND write), messages are create-only
+    // once sent (no client-side edit/delete). No rate-limit enforced here
+    // server-side - see CloudSync.js's own comment on this same trust
+    // trade-off.
+    match /clans/{clanId}/messages/{messageId} {
+      allow read: if request.auth != null
+        && exists(/databases/$(database)/documents/clans/$(clanId)/members/$(request.auth.uid));
+      allow create: if request.auth != null
+        && exists(/databases/$(database)/documents/clans/$(clanId)/members/$(request.auth.uid))
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.nickname is string && request.resource.data.nickname.size() > 0 && request.resource.data.nickname.size() <= 16
+        && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 300
+        && request.resource.data.createdAt is int;
+      allow update, delete: if false;
+    }
+
+    // Global chat - anyone signed in can read (public, like the
+    // leaderboard) or post. No word filtering by design (see the design
+    // conversation) - just shape/length checks here.
+    match /globalChat/{messageId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.nickname is string && request.resource.data.nickname.size() > 0 && request.resource.data.nickname.size() <= 16
+        && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 300
+        && request.resource.data.createdAt is int;
+      allow update, delete: if false;
+    }
+
     match /clanInvites/{toUid}/incoming/{clanId} {
       allow read: if request.auth != null && request.auth.uid == toUid;
       allow create: if request.auth != null
@@ -713,6 +742,58 @@ export async function fetchClanCombinedStats(clanId) {
     totalBestNight += Number(data.bestNight) || 0
   }
   return { memberCount: snap.size, totalKills, totalBestNight }
+}
+
+// Chat - Global and Clan channels both live in Firestore (Party channel
+// is entirely separate - see api/multiplayer/sync.js, since a
+// multiplayer session isn't Firebase-Auth-signed-in at all). Messages
+// are create-only (no edit/delete from the client - see the security
+// rules) and the client caps how much history it asks for; there's no
+// server-side spam throttle beyond the length/shape checks the rules
+// enforce - the mute-after-spamming behavior is client-side only, same
+// trust model this game already accepts everywhere else (no custom
+// backend to enforce it server-side - see CLAUDE.md's anti-cheat note).
+const CHAT_HISTORY_LIMIT = 50
+
+export async function sendGlobalChatMessage(uid, nickname, text) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.addDoc(fsMod.collection(db, 'globalChat'), { uid, nickname, text, createdAt: Date.now() })
+}
+
+// callback fires with messages oldest-first (reversed from the
+// newest-first query used to actually cap the read), and again on every
+// future change - matches subscribeTopLeaderboard's shape.
+export function subscribeGlobalChat(callback) {
+  let unsub = () => {}
+  let cancelled = false
+  ensureApp().then(({ db, fsMod }) => {
+    if (cancelled) return
+    const q = fsMod.query(fsMod.collection(db, 'globalChat'), fsMod.orderBy('createdAt', 'desc'), fsMod.limit(CHAT_HISTORY_LIMIT))
+    unsub = fsMod.onSnapshot(q, (snap) => callback(snap.docs.map((d) => d.data()).reverse()), () => {})
+  })
+  return () => {
+    cancelled = true
+    unsub()
+  }
+}
+
+export async function sendClanChatMessage(clanId, uid, nickname, text) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.addDoc(fsMod.collection(db, 'clans', clanId, 'messages'), { uid, nickname, text, createdAt: Date.now() })
+}
+
+export function subscribeClanChat(clanId, callback) {
+  let unsub = () => {}
+  let cancelled = false
+  ensureApp().then(({ db, fsMod }) => {
+    if (cancelled) return
+    const q = fsMod.query(fsMod.collection(db, 'clans', clanId, 'messages'), fsMod.orderBy('createdAt', 'desc'), fsMod.limit(CHAT_HISTORY_LIMIT))
+    unsub = fsMod.onSnapshot(q, (snap) => callback(snap.docs.map((d) => d.data()).reverse()), () => {})
+  })
+  return () => {
+    cancelled = true
+    unsub()
+  }
 }
 
 // Community Builds (share Build Mode maps - see

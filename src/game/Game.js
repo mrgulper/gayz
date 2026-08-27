@@ -3968,6 +3968,14 @@ export class Game {
     this.clanRequestsList = document.getElementById('clan-requests-list')
     this.clanLeaveBtn = document.getElementById('clan-leave-btn')
     this.clanLeaveDisabledHint = document.getElementById('clan-leave-disabled-hint')
+    this.chatWidget = document.getElementById('chat-widget')
+    this.chatToggleBtn = document.getElementById('chat-toggle-btn')
+    this.chatPanel = document.getElementById('chat-panel')
+    this.chatMessages = document.getElementById('chat-messages')
+    this.chatMutedNotice = document.getElementById('chat-muted-notice')
+    this.chatInputRow = document.getElementById('chat-input-row')
+    this.chatInput = document.getElementById('chat-input')
+    this.chatTabBtns = document.querySelectorAll('.chat-tab-btn')
     this.scoreAttackToggle = document.getElementById('score-attack-toggle')
     this.hardcoreToggle = document.getElementById('hardcore-toggle')
     this.guestModeToggle = document.getElementById('guest-mode-toggle')
@@ -5568,6 +5576,7 @@ export class Game {
     this._bindItemKeys()
     this._bindHotbar()
     this._bindClanSection()
+    this._bindChatWidget()
     this._bindSettings()
     this._bindGraphicsSettings()
     this._bindGeneralSettings()
@@ -15938,6 +15947,7 @@ export class Game {
     }
     this._multiplayerSessionId = sessionId
     this._multiplayerUid = uid
+    this._updateChatTabAvailability()
     // Phase 6 multiplayer (docs/superpowers/specs/2026-08-25-multiplayer-phase6-scaling-migration-design.md) -
     // this player's own server-recorded join time, needed to compare
     // against every OTHER player's joinedAt (_otherPlayerJoinedAt) when
@@ -15971,6 +15981,7 @@ export class Game {
       const { uid, joinedAt } = await Multiplayer.joinSession(sessionId, nickname)
       this._multiplayerSessionId = sessionId
       this._multiplayerUid = uid
+      this._updateChatTabAvailability()
       this._myJoinedAt = joinedAt
       this._multiplayerIsHost = false
       // Not known yet - the very next sync call's `host` field fills this
@@ -16051,6 +16062,12 @@ export class Game {
       payload.interactions = this._pendingInteractions
       this._pendingInteractions = []
     }
+    if (this._pendingChatText) {
+      payload.chatText = this._pendingChatText
+      payload.chatNickname = this._pendingChatNickname
+      this._pendingChatText = null
+      this._pendingChatNickname = null
+    }
     // Phase 6 multiplayer - captured now (synchronously, before either
     // async hop below), so the response handler can tell whether a NEWER
     // call's response already landed and was processed while this one
@@ -16058,9 +16075,20 @@ export class Game {
     this._nextSyncSequence += 1
     const mySyncSequence = this._nextSyncSequence
     import('./Multiplayer.js').then((Multiplayer) => {
-      Multiplayer.syncPlayerState(this._multiplayerSessionId, payload).then(({ states, zombies, pendingHits, worldEvents, remoteDamage, pickups, chests, vaultOpened, windows, interactions, killEvents, xpGems, host, director }) => {
+      Multiplayer.syncPlayerState(this._multiplayerSessionId, payload).then(({ states, zombies, pendingHits, worldEvents, remoteDamage, pickups, chests, vaultOpened, windows, interactions, killEvents, xpGems, host, director, chat }) => {
         if (mySyncSequence <= this._lastProcessedSyncSequence) return
         this._lastProcessedSyncSequence = mySyncSequence
+        if (chat && chat.length) {
+          let hasNew = false
+          for (const msg of chat) {
+            if (this._chatPartySeenIds.has(msg.id)) continue
+            this._chatPartySeenIds.add(msg.id)
+            this._chatPartyMessages.push(msg)
+            hasNew = true
+          }
+          if (this._chatPartyMessages.length > 100) this._chatPartyMessages = this._chatPartyMessages.slice(-100)
+          if (hasNew && this._chatChannel === 'party') this._renderChatMessages(this._chatPartyMessages)
+        }
         // Phase 6 multiplayer - kept warm the same way per-zombie full
         // state is (Step 1 above), for the same reason - see Task 14.
         this._lastDirectorSnapshot = director
@@ -16932,6 +16960,9 @@ export class Game {
         Multiplayer.leaveBeacon(this._multiplayerSessionId)
       })
       this._multiplayerSessionId = null
+      this._chatPartyMessages = []
+      this._chatPartySeenIds = new Set()
+      this._updateChatTabAvailability()
     }
     for (const body of this._remotePlayerBodies.values()) {
       body.group.parent?.remove(body.group)
@@ -19388,6 +19419,165 @@ export class Game {
     this._updateHotbarHud()
   }
 
+  // Chat widget - Global/Clan/Party channels, bottom-left. Global and Clan
+  // are live Firestore subscriptions (see CloudSync.js); Party comes
+  // through the multiplayer sync poll instead (see _syncNetworkPlayerState
+  // and its response handler) since a multiplayer session isn't
+  // Firebase-Auth-signed-in at all. Only one channel is ever subscribed at
+  // a time, and only while the panel is actually open, matching this
+  // project's existing "don't leave a live listener running for a closed
+  // panel" cost-consciousness (see subscribeTopLeaderboard's own comment).
+  _bindChatWidget() {
+    if (!this.chatWidget) return
+    this._chatChannel = 'global'
+    this._chatUnsub = null
+    this._chatSendTimestamps = []
+    this._chatMutedUntil = 0
+    this._chatMuteTimer = null
+    this._chatPartySeenIds = new Set()
+    this._chatPartyMessages = []
+    this._pendingChatText = null
+    this._pendingChatNickname = null
+
+    this.chatToggleBtn.addEventListener('click', () => {
+      const isOpen = this.chatPanel.style.display !== 'none'
+      if (isOpen) {
+        this.chatPanel.style.display = 'none'
+        this._unsubscribeChatChannel()
+      } else {
+        this.chatPanel.style.display = 'flex'
+        this._subscribeChatChannel()
+      }
+    })
+
+    for (const btn of this.chatTabBtns) {
+      btn.addEventListener('click', () => {
+        if (btn.disabled || btn.classList.contains('active')) return
+        for (const b of this.chatTabBtns) b.classList.toggle('active', b === btn)
+        this._chatChannel = btn.dataset.channel
+        this._unsubscribeChatChannel()
+        this._subscribeChatChannel()
+      })
+    }
+
+    if (this.chatInputRow) {
+      this.chatInputRow.addEventListener('submit', (e) => {
+        e.preventDefault()
+        this._sendChatMessage()
+      })
+    }
+
+    // Suppress every gameplay hotkey listener while the chat input is
+    // focused - capture phase on window fires before every other keydown
+    // listener in this file (all bubble-phase, default), same technique
+    // PlayerController's own mousemove-filter guard relies on (see that
+    // file's comment): stopImmediatePropagation blocks the OTHER
+    // listeners without touching the input's own native typing, since
+    // that's the browser's default action, not one of our own listeners.
+    window.addEventListener('keydown', (e) => {
+      if (document.activeElement !== this.chatInput) return
+      if (e.code === 'Escape') this.chatInput.blur()
+      e.stopImmediatePropagation()
+    }, true)
+
+    this._updateChatTabAvailability()
+  }
+
+  _updateChatTabAvailability() {
+    if (!this.chatTabBtns) return
+    let fellBack = false
+    for (const btn of this.chatTabBtns) {
+      const channel = btn.dataset.channel
+      const nowDisabled = (channel === 'clan' && !this.settings.clanId) || (channel === 'party' && !this._multiplayerSessionId)
+      btn.disabled = nowDisabled
+      if (nowDisabled && btn.classList.contains('active')) fellBack = true
+    }
+    if (fellBack) {
+      for (const btn of this.chatTabBtns) btn.classList.toggle('active', btn.dataset.channel === 'global')
+      this._chatChannel = 'global'
+      this._unsubscribeChatChannel()
+      if (this.chatPanel && this.chatPanel.style.display !== 'none') this._subscribeChatChannel()
+    }
+  }
+
+  _subscribeChatChannel() {
+    this._renderChatMessages([])
+    if (this._chatChannel === 'global') {
+      this._chatUnsub = CloudSync.subscribeGlobalChat((msgs) => this._renderChatMessages(msgs))
+    } else if (this._chatChannel === 'clan') {
+      if (!this.settings.clanId) return
+      this._chatUnsub = CloudSync.subscribeClanChat(this.settings.clanId, (msgs) => this._renderChatMessages(msgs))
+    } else if (this._chatChannel === 'party') {
+      this._renderChatMessages(this._chatPartyMessages)
+    }
+  }
+
+  _unsubscribeChatChannel() {
+    if (this._chatUnsub) {
+      this._chatUnsub()
+      this._chatUnsub = null
+    }
+  }
+
+  _renderChatMessages(msgs) {
+    if (!this.chatMessages) return
+    this.chatMessages.innerHTML = msgs.map((m) => `<div class="chat-message-row"><span class="chat-message-nickname">${_escapeHtml(m.nickname)}:</span><span class="chat-message-text">${_escapeHtml(m.text)}</span></div>`).join('')
+    this.chatMessages.scrollTop = this.chatMessages.scrollHeight
+  }
+
+  async _sendChatMessage() {
+    const text = this.chatInput.value.trim()
+    if (!text) return
+    const now = Date.now()
+    if (this._chatMutedUntil > now) return
+    // 5+ sends inside a 10s rolling window -> muted for 5 minutes. Client-
+    // side only - no custom backend here to enforce it server-side too
+    // (same trust model this game already accepts everywhere else, see
+    // CLAUDE.md's anti-cheat note), per the design conversation.
+    this._chatSendTimestamps = this._chatSendTimestamps.filter((t) => now - t < 10000)
+    this._chatSendTimestamps.push(now)
+    if (this._chatSendTimestamps.length > 5) {
+      this._chatMutedUntil = now + 5 * 60 * 1000
+      this._chatSendTimestamps = []
+      this._startChatMuteCountdown()
+      return
+    }
+    this.chatInput.value = ''
+    const nickname = this.settings.nickname || 'Player'
+    if (this._chatChannel === 'global') {
+      if (!this._cloudUid) return
+      await CloudSync.sendGlobalChatMessage(this._cloudUid, nickname, text).catch(() => {})
+    } else if (this._chatChannel === 'clan') {
+      if (!this._cloudUid || !this.settings.clanId) return
+      await CloudSync.sendClanChatMessage(this.settings.clanId, this._cloudUid, nickname, text).catch(() => {})
+    } else if (this._chatChannel === 'party') {
+      if (!this._multiplayerSessionId) return
+      // Picked up by _syncNetworkPlayerState's next tick (runs every
+      // 100ms during a run) rather than a dedicated one-off call - see
+      // its own payload-building comment for the same pattern already
+      // used for pendingZombieHits/pendingInteractions.
+      this._pendingChatText = text
+      this._pendingChatNickname = nickname
+    }
+  }
+
+  _startChatMuteCountdown() {
+    if (!this.chatMutedNotice) return
+    clearInterval(this._chatMuteTimer)
+    const tick = () => {
+      const remaining = Math.max(0, this._chatMutedUntil - Date.now())
+      if (remaining <= 0) {
+        this.chatMutedNotice.style.display = 'none'
+        clearInterval(this._chatMuteTimer)
+        return
+      }
+      this.chatMutedNotice.style.display = 'block'
+      this.chatMutedNotice.textContent = t('chatMutedNotice', { seconds: Math.ceil(remaining / 1000) })
+    }
+    this._chatMuteTimer = setInterval(tick, 1000)
+    tick()
+  }
+
   // Clan section (Hub panel) - see docs/superpowers/specs/
   // 2026-08-26-clan-system-design.md. Create/Join wiring here;
   // _refreshClanUi() (below) is the single source of truth for which of
@@ -19618,6 +19808,7 @@ export class Game {
     this.clanSigninGate.style.display = 'none'
 
     if (!this.settings.clanId) {
+      this._updateChatTabAvailability()
       await this._renderClanBrowseList()
       await this._renderClanIncomingInvites()
       this.clanBrowseState.style.display = 'block'
@@ -19634,6 +19825,7 @@ export class Game {
       this._myClanTag = null
       saveSettings(this.settings)
       this._renderPlayerTag()
+      this._updateChatTabAvailability()
       await this._renderClanBrowseList()
       await this._renderClanIncomingInvites()
       this.clanBrowseState.style.display = 'block'
@@ -19729,6 +19921,7 @@ export class Game {
     this.clanLeaveBtn.textContent = t('clanLeaveBtn')
     this.clanLeaveDisabledHint.style.display = isOwner && otherMembersPresent ? 'block' : 'none'
     if (this.clanLeaveDisabledHint.style.display === 'block') this.clanLeaveDisabledHint.textContent = t('clanLeaderMustTransferFirst')
+    this._updateChatTabAvailability()
   }
 
   // Invites addressed to this account, shown while browsing (not yet in
