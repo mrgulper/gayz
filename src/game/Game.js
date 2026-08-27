@@ -5543,6 +5543,21 @@ export class Game {
     // close/reload happening between the last stats-panel update and now.
     window.addEventListener('beforeunload', () => saveShopProgress(this))
     window.addEventListener('beforeunload', () => this._updateLongestSession())
+    // Browser's own native "Leave site?" confirmation, only while an
+    // actual run is in progress (not the homepage - closing that needs
+    // no warning). Every real browser ignores a custom message here by
+    // design (shows its own generic wording instead, same as every other
+    // site's version of this prompt) - preventDefault() + a non-empty
+    // returnValue is what actually triggers it, per spec, across
+    // Chrome/Firefox/Edge/desktop Safari. iOS Safari (and everything on
+    // iPhone/iPad, which all run WebKit under Apple's rules) doesn't
+    // support this prompt at all - it silently does nothing there,
+    // that's an Apple platform limitation, not something fixable here.
+    window.addEventListener('beforeunload', (e) => {
+      if (!this.gameStarted) return
+      e.preventDefault()
+      e.returnValue = ''
+    })
     // Copy Error Log (Credits) / Session ID - both purely diagnostic, for
     // pasting into a bug report. Session ID is a fresh random string per
     // page load, not persisted - it only needs to be stable within one
