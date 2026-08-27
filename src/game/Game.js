@@ -5142,7 +5142,6 @@ export class Game {
     this.buildModeBtn = document.getElementById('build-mode-btn')
     this.menuAriaSummary = document.getElementById('menu-aria-summary')
     this.menuTitle = document.getElementById('menu-title')
-    this.menuBg = document.getElementById('menu-bg')
     this.menuBgRain = document.getElementById('menu-bg-rain')
     this.menuBgAsh = document.getElementById('menu-bg-ash')
     this.rankRoadmapHeading = document.getElementById('rank-roadmap-heading')
@@ -14318,42 +14317,6 @@ export class Game {
     if (mood !== 'none') document.documentElement.classList.add(`bg-mood-${mood}`)
   }
 
-  // Homepage background mouse-parallax - a subtle "Apple product page"
-  // depth touch, separate from #menu-bg-photo's own always-on Ken Burns
-  // zoom (a CSS animation, unaffected by this). Shifts #menu-bg itself
-  // (photo + embers/rain/ash/fog/scrim/vignette all together, since
-  // they're its direct children) by up to ~6px toward the cursor - #menu-bg's
-  // own CSS transition does the actual easing, so this just sets a new
-  // target transform on mousemove rather than running its own animation
-  // loop. Skips registering the listener at all under prefers-reduced-motion
-  // (the CSS transition:none guard in style.css is a second, belt-and-
-  // suspenders layer, not the only thing stopping this).
-  //
-  // Registered in the CAPTURE phase deliberately - PlayerController has its
-  // own document-level mousemove listener (bubble phase) that calls
-  // e.stopImmediatePropagation() whenever movementX/Y exceeds
-  // MAX_MOUSE_DELTA (filtering pointer-lock glitches), which would
-  // otherwise silently block this listener too on any fast mouse movement,
-  // since both are attached to the same document target. A capture-phase
-  // listener on the same element always runs before that element's own
-  // bubble-phase listeners, so this reads every real mousemove regardless
-  // of how PlayerController's filter treats it.
-  _bindBackgroundParallax() {
-    if (!this.menuBg) return
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    const maxOffsetPx = 6
-    document.addEventListener('mousemove', (e) => {
-      // Only while actually looking at the homepage - during a real run
-      // #menu is hidden anyway (so this has no visible effect), but
-      // skipping the transform write avoids paying for it every mouse
-      // move while playing.
-      if (this.gameStarted) return
-      const nx = (e.clientX / window.innerWidth) * 2 - 1
-      const ny = (e.clientY / window.innerHeight) * 2 - 1
-      this.menuBg.style.transform = `translate(${(-nx * maxOffsetPx).toFixed(1)}px, ${(-ny * maxOffsetPx).toFixed(1)}px)`
-    }, true)
-  }
-
   // What's New badge dot - a small red dot on the Credits nav button until
   // the player has actually opened Credits at least once since
   // WHATS_NEW_VERSION last changed (bump that constant on future updates).
@@ -14566,7 +14529,6 @@ export class Game {
     if (buildBrowseBtn) buildBrowseBtn.addEventListener('click', () => this.buildMode.openCommunityBuildsPanel())
     MenuPresets.renderMenuPresets(this)
     MenuEasterEggs.bindAll(this)
-    this._bindBackgroundParallax()
     window.addEventListener('online', () => CloudSaveUI.updateOnlineStatus(this))
     window.addEventListener('offline', () => CloudSaveUI.updateOnlineStatus(this))
     if (this.shortcutCheatsheetCloseBtn) {

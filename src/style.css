@@ -4684,18 +4684,10 @@ html.ui-theme-old #share-panel-title {
    clicks. */
 #menu-bg {
   position: fixed;
-  /* Extends 8px past the viewport on every side (not inset:0) - gives
-     the mouse-parallax translate (see _bindBackgroundParallax, max ~±6px)
-     room to shift without ever exposing a blank edge gap; background-size:
-     cover on #menu-bg-photo still fills this slightly larger box exactly
-     the same way, no letterboxing. The transition is what makes that JS-set
-     transform ease smoothly toward the cursor instead of snapping frame to
-     frame - no rAF/lerp loop needed, the browser interpolates it. */
-  inset: -8px;
+  inset: 0;
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
-  transition: transform 0.6s ease-out;
 }
 
 #menu-bg-photo {
@@ -4853,14 +4845,6 @@ body.reduce-bg-effects #menu-bg-rain {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  /* Mouse-parallax (_bindBackgroundParallax, Game.js) checks this same
-     media query in JS before ever registering its mousemove listener, so
-     this transition:none is really just a second, CSS-only guarantee -
-     belt and suspenders, not the only thing stopping the motion. */
-  #menu-bg {
-    transition: none;
-  }
-
   #menu-bg-photo,
   #menu-bg-embers,
   #menu-bg-rain,
