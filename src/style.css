@@ -6793,7 +6793,7 @@ html.ui-theme-old #menu-nav-buttons button {
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 3px 6px;
+  gap: 3px 12px;
   padding: 6px 4px;
   /* Full-width footer, last child of #menu's flex column - margin-top:auto
      is the standard flex trick to dock a child to the far end of its
@@ -6812,14 +6812,14 @@ html.ui-theme-old #menu-nav-buttons button {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 6px 2px;
+  padding: 6px 10px;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.3px;
   text-decoration: underline;
-  text-decoration-color: rgba(224, 168, 110, 0.55);
+  text-decoration-color: rgba(216, 220, 210, 0.35);
   text-underline-offset: 3px;
-  color: #e0a86e;
+  color: #d8dcd2;
   background: none;
   border: none;
   border-radius: 999px;
@@ -6827,57 +6827,17 @@ html.ui-theme-old #menu-nav-buttons button {
   white-space: nowrap;
 }
 
-/* Dot separators between links - a ::after on each link itself rather
-   than a standalone sibling <span>. A dedicated span (with or without a
-   middot character, with or without an explicit size) measured with
-   fully correct computed style/geometry/paint order in every check yet
-   never actually rendered a visible pixel in testing, for reasons that
-   didn't trace to any CSS property found in this stylesheet - tying the
-   dot to an element already confirmed to render correctly (the link
-   itself) sidesteps that entirely. Fixed dim grey regardless of theme,
-   same as the reference row's own divider color. Skips the last child
-   (Discord) - nothing trails after it. */
-#menu-links-row > button:not(:last-child)::after,
-#menu-links-row > a:not(:last-child)::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  right: -5px;
-  transform: translateY(-50%);
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.55);
+#menu-links-row svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--menu-gold);
 }
 
 #menu-links-row button:hover,
 #menu-links-row a:hover {
-  color: #f2c090;
-  text-decoration-color: #f2c090;
-}
-
-/* Discord gets its own brand-blue treatment (no underline, filled bubble
-   icon) instead of the peach link style everything else shares - matches
-   a reference screenshot's row exactly, same in both themes.
-   #menu-links-row a (ID + type) outranks a bare #nav-discord-link (ID
-   only), so this repeats the parent ID to actually win the cascade. */
-#menu-links-row #nav-discord-link {
-  color: #7289da;
-  text-decoration: none;
-}
-
-#menu-links-row #nav-discord-link:hover {
-  color: #8ea1e1;
-  text-decoration: none;
-}
-
-#nav-discord-link svg {
-  width: 15px;
-  height: 15px;
-  flex-shrink: 0;
-  fill: currentColor;
-  stroke: none;
-  color: #eef0fb;
+  color: #fff;
+  text-decoration-color: var(--menu-gold);
 }
 
 /* What's New badge dot - purely an absolute-positioned overlay, zero
