@@ -6031,12 +6031,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 #settings-btn {
   width: 84px;
   height: 84px;
-  /* settings-gear.webp has a ~20-35px black margin baked into the source
-     image around its own gold frame (no alpha channel, so `cover` shows
-     that margin as a visible black border around the icon) - sized past
-     100% to zoom in and crop the margin out past the button's edges
-     instead. */
-  background: url('/images/settings-gear.webp') center / 118% no-repeat;
+  background: url('/images/settings-gear.webp') center / cover no-repeat;
   border: none;
 }
 
