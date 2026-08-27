@@ -8815,24 +8815,35 @@ html.night-vision-active #app {
   align-items: flex-start;
 }
 
+/* A plain circular icon here measured as "invisible" to real users in
+   testing (Gaymi couldn't find it even looking straight at it, sitting
+   right next to the gameplay HUD's own icon-heavy hotbar/stat-bar
+   column) - a text label makes it unambiguous instead of relying on the
+   icon alone to read as "chat". */
 #chat-toggle-btn {
   position: relative;
   order: 2;
-  width: 44px;
-  height: 44px;
+  height: 36px;
+  padding: 0 14px 0 10px;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 6px;
   color: var(--menu-gold, #d9bc4a);
   background: var(--menu-panel-bg, rgba(7, 8, 8, 0.95));
   border: 1px solid var(--menu-panel-border, rgba(138, 109, 71, 0.5));
-  border-radius: 50%;
+  border-radius: 999px;
   cursor: pointer;
 }
 
+#chat-toggle-label {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
 #chat-toggle-btn svg {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
 }
 
 #chat-panel {
