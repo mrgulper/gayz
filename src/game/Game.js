@@ -6098,6 +6098,14 @@ export class Game {
     // pause overlay (Resume/Upgrades/Shop/Settings/Quit) right on top of
     // the block picker.
     if (this.buildMode.active) return
+    // Same shared-canvas reasoning again - focusing the chat input
+    // releases pointer lock too (a locked pointer can't type), which
+    // would otherwise pop the pause overlay right over your own message
+    // mid-sentence. Unlike the panels below, chat doesn't want the HUD
+    // hidden either - health/hotbar/etc should stay visible while typing
+    // - so this returns before any of that runs, not just before the
+    // pause-overlay branch.
+    if (this._chatInputFocused) return
     this.interactPrompt.style.display = 'none'
     this.infectionIndicator.style.display = 'none'
     if (!this.playerState.alive) return
@@ -19405,6 +19413,20 @@ export class Game {
     this._chatPartyMessages = []
     this._pendingChatText = null
     this._pendingChatNickname = null
+    this._chatInputFocused = false
+
+    this.chatInput.addEventListener('focus', () => {
+      this._chatInputFocused = true
+    })
+    this.chatInput.addEventListener('blur', () => {
+      this._chatInputFocused = false
+      // Focusing chat released pointer lock (see _onGameplayPaused's own
+      // comment on this) - re-acquire it on blur so aim/look resumes,
+      // same re-lock-on-close convention every other panel that unlocks
+      // itself already follows (e.g. _closeTraderPanel). Only mid-run -
+      // there's no pointer lock to reacquire on the homepage.
+      if (this.gameStarted && this.playerState.alive) this._requestPointerLock()
+    })
 
     for (const btn of this.chatTabBtns) {
       btn.addEventListener('click', () => {
@@ -19430,10 +19452,21 @@ export class Game {
     // file's comment): stopImmediatePropagation blocks the OTHER
     // listeners without touching the input's own native typing, since
     // that's the browser's default action, not one of our own listeners.
+    // Same listener also handles Enter opening chat when it's NOT
+    // focused yet - clicking it directly wouldn't work mid-run anyway
+    // (the mouse is pointer-locked for aiming, not a free cursor), same
+    // "press a key to open chat" convention every multiplayer FPS uses.
     window.addEventListener('keydown', (e) => {
-      if (document.activeElement !== this.chatInput) return
-      if (e.code === 'Escape') this.chatInput.blur()
-      e.stopImmediatePropagation()
+      if (document.activeElement === this.chatInput) {
+        if (e.code === 'Escape') this.chatInput.blur()
+        e.stopImmediatePropagation()
+        return
+      }
+      if (e.code === 'Enter' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
+        e.preventDefault()
+        e.stopImmediatePropagation()
+        this.chatInput.focus()
+      }
     }, true)
 
     this._updateChatTabAvailability()

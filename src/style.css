@@ -8813,8 +8813,8 @@ html.night-vision-active #app {
 #chat-panel {
   display: flex;
   flex-direction: column;
-  width: 320px;
-  height: 220px;
+  width: 420px;
+  height: 320px;
   pointer-events: auto;
   background: var(--menu-panel-bg, rgba(7, 8, 8, 0.95));
   border: 1px solid var(--menu-panel-border, rgba(138, 109, 71, 0.5));
