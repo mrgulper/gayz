@@ -19866,12 +19866,30 @@ export class Game {
     this.clanSigninGate.style.display = 'none'
 
     if (!this.settings.clanId) {
-      this._updateChatTabAvailability()
-      await this._renderClanBrowseList()
-      await this._renderClanIncomingInvites()
-      this.clanBrowseState.style.display = 'block'
-      this.clanInClanState.style.display = 'none'
-      return
+      // Before treating this as "never joined a clan", check whether I'm
+      // actually the leader of an existing clan doc that my own browser
+      // just has no local record of any more (settings.clanId wiped by a
+      // past bug, before the members-doc self-heal below existed to catch
+      // it) - the member-doc self-heal further down only ever runs once a
+      // clanId is already known, so it can't reach this case on its own.
+      // Restore it here and fall through into the normal in-clan render
+      // path below instead of duplicating it.
+      const ledClan = await CloudSync.fetchClanILead(this._cloudUid).catch(() => null)
+      if (ledClan) {
+        this.settings.clanId = ledClan.clanId
+        this.settings.clanTag = ledClan.tag
+        this.settings.clanName = ledClan.name
+        this._myClanTag = ledClan.tag
+        saveSettings(this.settings)
+        this._renderPlayerTag()
+      } else {
+        this._updateChatTabAvailability()
+        await this._renderClanBrowseList()
+        await this._renderClanIncomingInvites()
+        this.clanBrowseState.style.display = 'block'
+        this.clanInClanState.style.display = 'none'
+        return
+      }
     }
 
     let members = await CloudSync.fetchClanMembers(this.settings.clanId).catch(() => [])

@@ -606,6 +606,18 @@ export async function fetchClanById(clanId) {
   return snap.exists() ? { ...snap.data(), clanId: snap.id } : null
 }
 
+// Finds a clan by its leaderId - used by _refreshClanUi's self-heal for
+// the case where a player's OWN browser has no settings.clanId at all any
+// more (so the members-doc-missing self-heal above never even gets a
+// chance to run, since that one only fires once a clanId is already
+// known) but they're still the real owner of an existing clan doc.
+export async function fetchClanILead(uid) {
+  const { db, fsMod } = await ensureApp()
+  const q = fsMod.query(fsMod.collection(db, 'clans'), fsMod.where('leaderId', '==', uid), fsMod.limit(1))
+  const snap = await fsMod.getDocs(q)
+  return snap.empty ? null : { ...snap.docs[0].data(), clanId: snap.docs[0].id }
+}
+
 // Public directory of every clan - newest first, capped at 50 (same
 // "bound the read cost" reasoning as every other list-fetching query in
 // this file) so the browse list stays cheap to load regardless of how
