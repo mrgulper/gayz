@@ -3081,10 +3081,20 @@ select option {
   align-items: center;
   justify-content: center;
   gap: 14px;
+  /* Was rgba(6, 8, 6, 0.98) - nearly fully opaque, fully hiding the
+     homepage behind every panel. Lowered so the homepage's own background
+     photo stays dimly visible behind the panel (per a reference example
+     showing a translucent backdrop with the page still visible through
+     it). 0.75 (a first pass) let the homepage's own text (tagline, Play
+     button label) stay legible enough to visually compete with sparser
+     panels' own text (Shop's "Not Available Yet" sits right over
+     "Escape before dawn.") - 0.88 keeps the same "something's back there"
+     depth without the homepage's own words reading clearly enough to
+     clash with panel content. */
   background:
     radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.55) 100%),
     var(--grain-texture),
-    rgba(6, 8, 6, 0.98);
+    rgba(6, 8, 6, 0.88);
 }
 
 /* Logged-out Profile gate - replaces the entire profile (stats/bio/
@@ -6005,7 +6015,12 @@ html.theme-lighter #app { filter: brightness(1.25); }
 #settings-btn {
   width: 84px;
   height: 84px;
-  background: url('/images/settings-gear.webp') center / cover no-repeat;
+  /* settings-gear.webp has a ~20-35px black margin baked into the source
+     image around its own gold frame (no alpha channel, so `cover` shows
+     that margin as a visible black border around the icon) - sized past
+     100% to zoom in and crop the margin out past the button's edges
+     instead. */
+  background: url('/images/settings-gear.webp') center / 118% no-repeat;
   border: none;
 }
 
