@@ -5,6 +5,21 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GayZ</title>
+    <!-- Anti-flash: applies the Old theme's class immediately, before the
+         stylesheet ever paints - reading settings.uiTheme only inside
+         Game.js's normal startup (see its own uiThemeSelect binding) was
+         far too late, so an Old-theme player saw a flash of the Golden
+         look on every load before it switched over. Same
+         synchronous-inline-script-reading-localStorage-directly pattern
+         as the player ID/nickname/avatar anti-flash script further down
+         this file, just needs to run before any CSS applies instead of
+         before a specific element exists, hence right at the top here. -->
+    <script>
+      try {
+        var __s = JSON.parse(localStorage.getItem('gayz-settings') || 'null')
+        if (__s && __s.uiTheme === 'old') document.documentElement.classList.add('ui-theme-old')
+      } catch (e) {}
+    </script>
     <!-- Main menu redesign - condensed display face for section headers/
          labels, a heavier stencil face just for the GAYZ title itself
          (see #menu-title), body text stays on the existing system-font
@@ -1987,6 +2002,7 @@ Escape before dawn.</p>
         <div id="whatsnew-content">
           <p id="build-version-line"></p>
           <div id="changelog-list">
+            <div class="changelog-entry"><span class="changelog-date">Aug 27, 2026</span><span class="changelog-text">Fixed the "Old" theme briefly flashing the Golden look on every load before switching over. Also fixed chat silently doing nothing when a message couldn't send (not signed in, no clan, no party) - you'll now see exactly why, and your typed message stays put instead of vanishing.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 27, 2026</span><span class="changelog-text">Fixed getting stuck with a free mouse and an unresponsive Escape key after clicking Cancel on the "leave site?" warning mid-run. Chat is also back to only showing during an actual run, not the homepage.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 27, 2026</span><span class="changelog-text">Your browser now warns you before letting you close the tab or navigate away mid-run, so you can't lose a run to an accidental click. Chat also now grew bigger, and pressing Enter opens it to type instead of needing to click it (useful since your mouse is normally locked for aiming mid-run).</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 27, 2026</span><span class="changelog-text">New Chat! An always-visible chat box (bottom-left, above your health/stamina bars) with Global, Clan, and Party tabs. No word filtering, but spamming gets you muted for 5 minutes. Also removed the old per-item letter-key list from the HUD to make room.</span></div>

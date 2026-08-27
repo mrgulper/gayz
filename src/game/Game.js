@@ -19569,16 +19569,47 @@ export class Game {
       this._startChatMuteCountdown()
       return
     }
-    this.chatInput.value = ''
     const nickname = this.settings.nickname || 'Player'
+    // Guard checks run BEFORE clearing the input and give a visible reason
+    // via the same ungated toast used for Community Builds' sign-in check
+    // (_showHomepageToast/_renderLoreToast has no gameStarted gate of its
+    // own - see that function's comment - so it renders fine mid-run too).
+    // Previously the input was cleared unconditionally up front and every
+    // failure/guard case was a silent `return`, so a blocked or failed send
+    // looked identical to a successful one: the typed text vanished and
+    // nothing ever appeared in the log, with zero clue why.
     if (this._chatChannel === 'global') {
-      if (!this._cloudUid) return
-      await CloudSync.sendGlobalChatMessage(this._cloudUid, nickname, text).catch(() => {})
+      if (!this._cloudUid) {
+        this._showHomepageToast(t('chatSignInRequired'))
+        return
+      }
+      this.chatInput.value = ''
+      const ok = await CloudSync.sendGlobalChatMessage(this._cloudUid, nickname, text).then(
+        () => true,
+        () => false
+      )
+      if (!ok) this._showHomepageToast(t('chatSendFailed'))
     } else if (this._chatChannel === 'clan') {
-      if (!this._cloudUid || !this.settings.clanId) return
-      await CloudSync.sendClanChatMessage(this.settings.clanId, this._cloudUid, nickname, text).catch(() => {})
+      if (!this._cloudUid) {
+        this._showHomepageToast(t('chatSignInRequired'))
+        return
+      }
+      if (!this.settings.clanId) {
+        this._showHomepageToast(t('chatNoClanRequired'))
+        return
+      }
+      this.chatInput.value = ''
+      const ok = await CloudSync.sendClanChatMessage(this.settings.clanId, this._cloudUid, nickname, text).then(
+        () => true,
+        () => false
+      )
+      if (!ok) this._showHomepageToast(t('chatSendFailed'))
     } else if (this._chatChannel === 'party') {
-      if (!this._multiplayerSessionId) return
+      if (!this._multiplayerSessionId) {
+        this._showHomepageToast(t('chatNoPartyYet'))
+        return
+      }
+      this.chatInput.value = ''
       // Picked up by _syncNetworkPlayerState's next tick (runs every
       // 100ms during a run) rather than a dedicated one-off call - see
       // its own payload-building comment for the same pattern already
