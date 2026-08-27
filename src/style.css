@@ -7645,6 +7645,13 @@ html.ui-theme-old #settings-panel h2 {
   margin-bottom: 6px;
 }
 
+/* Member count next to a clan's name in the browse list - muted so the
+   name itself stays the visual lead. */
+.clan-list-count {
+  color: var(--menu-text-dim, rgba(255, 255, 255, 0.55));
+  font-size: 0.85em;
+}
+
 /* Role above name, plain text (no pill/badge box - simpler per request),
    small and muted above the bold nickname. */
 .clan-member-name-block {

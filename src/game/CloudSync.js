@@ -629,10 +629,12 @@ export async function fetchClanMemberCount(clanId) {
   return snap.data().count
 }
 
-// Membership cap (15) is enforced HERE, client-side, not in security
-// rules - a rare race letting a 16th member slip through under
+// Membership cap (100) is enforced HERE, client-side, not in security
+// rules - a rare race letting a 101st member slip through under
 // simultaneous joins is an accepted non-security edge case (see spec).
-const CLAN_MEMBER_CAP = 15
+// Exported so the UI (the "{n}/100 members" stats line) can't drift out
+// of sync with the real enforced number.
+export const CLAN_MEMBER_CAP = 100
 
 // Join Requests - self-created, one per requester (doc id = requester's
 // own uid, same "can only ever touch your own doc" pattern as

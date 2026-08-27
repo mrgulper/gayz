@@ -19932,7 +19932,7 @@ export class Game {
     const canManage = myRole === 'owner' || myRole === 'elder'
 
     const stats = await CloudSync.fetchClanCombinedStats(this.settings.clanId).catch(() => ({ memberCount: members.length, totalKills: 0, totalBestNight: 0 }))
-    this.clanStatsMembers.textContent = t('clanStatsMembers', { n: stats.memberCount })
+    this.clanStatsMembers.textContent = t('clanStatsMembers', { n: stats.memberCount, max: CloudSync.CLAN_MEMBER_CAP })
     this.clanStatsKills.textContent = t('clanStatsKills', { n: stats.totalKills })
     this.clanStatsNight.textContent = t('clanStatsNight', { n: stats.totalBestNight })
 
@@ -20022,10 +20022,11 @@ export class Game {
   async _renderClanBrowseList() {
     if (!this.clanAllList) return
     const clans = await CloudSync.fetchAllClans().catch(() => [])
+    const counts = await Promise.all(clans.map((c) => CloudSync.fetchClanMemberCount(c.clanId).catch(() => null)))
     this.clanAllList.innerHTML = clans.length
-      ? clans.map((c) => `
+      ? clans.map((c, i) => `
         <div class="clan-list-row">
-          <span>${_escapeHtml(c.name)}</span>
+          <span>${_escapeHtml(c.name)}${counts[i] == null ? '' : ` <span class="clan-list-count">(${counts[i]}/${CloudSync.CLAN_MEMBER_CAP})</span>`}</span>
           <button type="button" class="clan-list-join-btn mini-action-btn" data-clan-id="${c.clanId}" data-clan-tag="${_escapeHtml(c.tag)}">${t('clanJoinBtn')}</button>
         </div>
       `).join('')
