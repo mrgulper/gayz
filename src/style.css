@@ -6274,9 +6274,8 @@ html.ui-theme-old #settings-btn {
   z-index: 2;
   padding: 6px 18px;
   font-family: var(--menu-display-font);
-  /* 0.75x of the 28px it matched .currency-item at (was briefly matched
-     to it 1:1 - too big, per feedback). */
-  font-size: 21px;
+  /* 0.75x again on top of the previous 21px, per feedback. */
+  font-size: 15.75px;
   color: rgba(255, 255, 255, 0.75);
   background: rgba(10, 10, 10, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -6290,14 +6289,14 @@ html.ui-theme-old #settings-btn {
   align-items: center;
   gap: 8px;
   font-family: var(--menu-display-font);
-  font-size: 21px;
+  font-size: 15.75px;
   color: #eee;
   font-variant-numeric: tabular-nums;
 }
 
 .currency-icon {
-  width: 28.5px;
-  height: 28.5px;
+  width: 21.375px;
+  height: 21.375px;
   flex-shrink: 0;
 }
 
