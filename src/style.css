@@ -4581,11 +4581,14 @@ select option {
      the mouse-parallax translate (see _bindBackgroundParallax, max ~±6px)
      room to shift without ever exposing a blank edge gap; background-size:
      cover on #menu-bg-photo still fills this slightly larger box exactly
-     the same way, no letterboxing. */
+     the same way, no letterboxing. The transition is what makes that JS-set
+     transform ease smoothly toward the cursor instead of snapping frame to
+     frame - no rAF/lerp loop needed, the browser interpolates it. */
   inset: -8px;
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
+  transition: transform 0.6s ease-out;
 }
 
 #menu-bg-photo {
@@ -4594,7 +4597,12 @@ select option {
   background-size: cover;
   background-position: center 35%;
   transform-origin: 50% 60%;
-  animation: menuBgKenBurns 50s ease-in-out infinite alternate;
+  /* Was scale-only, 50s - a slow enough cycle (25s each direction) that it
+     barely read as "moving" on a normal glance at the homepage. Added a
+     gentle pan alongside the zoom and sped it up somewhat so the photo
+     reads as continuously, ambiently alive (Apple-product-page style)
+     without being fast enough to distract. */
+  animation: menuBgKenBurns 28s ease-in-out infinite alternate;
 }
 
 /* The photo itself belongs to the Golden theme specifically (see the
@@ -4609,8 +4617,8 @@ html:not(.ui-theme-old) #menu-bg-photo {
 }
 
 @keyframes menuBgKenBurns {
-  from { transform: scale(1); }
-  to { transform: scale(1.08); }
+  from { transform: scale(1) translate(0, 0); }
+  to { transform: scale(1.1) translate(-1.5%, -1%); }
 }
 
 /* Homepage background mood picker (Settings panel > Homepage Background
@@ -4734,6 +4742,14 @@ body.reduce-bg-effects #menu-bg-rain {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* Mouse-parallax (_bindBackgroundParallax, Game.js) checks this same
+     media query in JS before ever registering its mousemove listener, so
+     this transition:none is really just a second, CSS-only guarantee -
+     belt and suspenders, not the only thing stopping the motion. */
+  #menu-bg {
+    transition: none;
+  }
+
   #menu-bg-photo,
   #menu-bg-embers,
   #menu-bg-rain,
