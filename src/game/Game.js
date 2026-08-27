@@ -19531,7 +19531,16 @@ export class Game {
     if (this.clanLeaveBtn) {
       this.clanLeaveBtn.addEventListener('click', async () => {
         if (!this._cloudUid || !this.settings.clanId) return
-        await CloudSync.leaveClan(this.settings.clanId, this._cloudUid).catch(() => {})
+        // Button is disabled (unclickable) for an owner with other members
+        // still present - see _refreshClanUi - so reaching here means
+        // either a non-owner leaving, or the owner leaving as the last
+        // member (which also deletes the clan itself, not just their own
+        // membership - see deleteClan's own comment).
+        const isSoleOwner = this._clanIsOwner && !this._clanOtherMembersPresent
+        if (!window.confirm(t(isSoleOwner ? 'clanDisbandConfirm' : 'clanLeaveConfirm'))) return
+        const clanId = this.settings.clanId
+        await CloudSync.leaveClan(clanId, this._cloudUid).catch(() => {})
+        if (isSoleOwner) await CloudSync.deleteClan(clanId).catch(() => {})
         this.settings.clanId = null
         this.settings.clanTag = null
         this.settings.clanName = null
@@ -19551,12 +19560,20 @@ export class Game {
         const kickBtn = e.target.closest('.clan-kick-btn')
         const promoteBtn = e.target.closest('.clan-promote-btn')
         const demoteBtn = e.target.closest('.clan-demote-btn')
+        const makeLeaderBtn = e.target.closest('.clan-make-leader-btn')
         if (kickBtn) {
           await CloudSync.kickClanMember(this.settings.clanId, kickBtn.dataset.uid).catch(() => {})
         } else if (promoteBtn) {
           await CloudSync.promoteToElder(this.settings.clanId, promoteBtn.dataset.uid, promoteBtn.dataset.nickname, Number(promoteBtn.dataset.joinedAt)).catch(() => {})
         } else if (demoteBtn) {
           await CloudSync.demoteToMember(this.settings.clanId, demoteBtn.dataset.uid, demoteBtn.dataset.nickname, Number(demoteBtn.dataset.joinedAt)).catch(() => {})
+        } else if (makeLeaderBtn) {
+          if (!window.confirm(t('clanMakeLeaderConfirm', { name: makeLeaderBtn.dataset.nickname }))) return
+          await CloudSync.transferClanLeadership(
+            this.settings.clanId,
+            makeLeaderBtn.dataset.uid, makeLeaderBtn.dataset.nickname, Number(makeLeaderBtn.dataset.joinedAt),
+            this._cloudUid, this._clanMyNickname, this._clanMyJoinedAt
+          ).catch(() => {})
         } else {
           return
         }
@@ -19665,6 +19682,7 @@ export class Game {
       const canKickThis = canManage && role !== 'owner' && m.uid !== this._cloudUid
       const canPromoteThis = isOwner && role === 'member'
       const canDemoteThis = isOwner && role === 'elder'
+      const canMakeLeaderThis = isOwner && m.uid !== this._cloudUid
       return `
         <div class="clan-member-row">
           <span class="clan-member-name-block">
@@ -19672,6 +19690,7 @@ export class Game {
             <span class="clan-member-name">${_escapeHtml(m.nickname)}</span>
           </span>
           <span>
+            ${canMakeLeaderThis ? `<button type="button" class="clan-make-leader-btn" data-uid="${m.uid}" data-nickname="${_escapeHtml(m.nickname)}" data-joined-at="${m.joinedAt}">${t('clanMakeLeaderBtn')}</button>` : ''}
             ${canPromoteThis ? `<button type="button" class="clan-promote-btn" data-uid="${m.uid}" data-nickname="${_escapeHtml(m.nickname)}" data-joined-at="${m.joinedAt}">${t('clanPromoteBtn')}</button>` : ''}
             ${canDemoteThis ? `<button type="button" class="clan-demote-btn" data-uid="${m.uid}" data-nickname="${_escapeHtml(m.nickname)}" data-joined-at="${m.joinedAt}">${t('clanDemoteBtn')}</button>` : ''}
             ${canKickThis ? `<button type="button" class="clan-kick-btn" data-uid="${m.uid}">${t('clanKickBtn')}</button>` : ''}
@@ -19702,10 +19721,14 @@ export class Game {
     }
 
     const otherMembersPresent = members.length > 1
+    this._clanOtherMembersPresent = otherMembersPresent
+    this._clanIsOwner = isOwner
+    this._clanMyNickname = me.nickname
+    this._clanMyJoinedAt = me.joinedAt
     this.clanLeaveBtn.disabled = isOwner && otherMembersPresent
-    this.clanLeaveBtn.textContent = isOwner ? t('clanDisbandBtn') : t('clanLeaveBtn')
+    this.clanLeaveBtn.textContent = t('clanLeaveBtn')
     this.clanLeaveDisabledHint.style.display = isOwner && otherMembersPresent ? 'block' : 'none'
-    if (this.clanLeaveDisabledHint.style.display === 'block') this.clanLeaveDisabledHint.textContent = t('clanLeaderMustKickFirst')
+    if (this.clanLeaveDisabledHint.style.display === 'block') this.clanLeaveDisabledHint.textContent = t('clanLeaderMustTransferFirst')
   }
 
   // Invites addressed to this account, shown while browsing (not yet in

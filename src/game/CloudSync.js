@@ -143,8 +143,15 @@ service cloud.firestore {
         && request.resource.data.tag is string && request.resource.data.tag.size() > 0 && request.resource.data.tag.size() <= 4
         && request.resource.data.leaderNickname is string && request.resource.data.leaderNickname.size() > 0 && request.resource.data.leaderNickname.size() <= 16
         && request.resource.data.createdAt is int;
+      // leaderId is normally pinned to its existing value, but a hand-off
+      // may change it - only onto a uid that ALREADY holds role 'owner' in
+      // members/ (see transferClanLeadership: that write always lands
+      // first, so this is really just confirming the hand-off already
+      // happened rather than letting the client hand leadership to
+      // someone arbitrary).
       allow update: if request.auth != null && request.auth.uid == resource.data.leaderId
-        && request.resource.data.leaderId == resource.data.leaderId
+        && (request.resource.data.leaderId == resource.data.leaderId
+          || get(/databases/$(database)/documents/clans/$(clanId)/members/$(request.resource.data.leaderId)).data.role == 'owner')
         && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 24
         && request.resource.data.name.matches('[ -~]+')
         && request.resource.data.nameLower is string && request.resource.data.nameLower == request.resource.data.name.lower()
@@ -166,9 +173,14 @@ service cloud.firestore {
           || (request.resource.data.role == 'member'
             && get(/databases/$(database)/documents/clans/$(clanId)/members/$(request.auth.uid)).data.role in ['owner', 'elder'])
         );
+      // Owner can promote/demote to elder/member as before, plus hand off
+      // 'owner' itself to someone else (never to themselves - that would
+      // be a no-op that could otherwise dodge the "leave" flow's own
+      // delete-your-own-doc path).
       allow update: if request.auth != null
         && get(/databases/$(database)/documents/clans/$(clanId)/members/$(request.auth.uid)).data.role == 'owner'
-        && request.resource.data.role in ['elder', 'member']
+        && (request.resource.data.role in ['elder', 'member']
+          || (request.resource.data.role == 'owner' && uid != request.auth.uid))
         && request.resource.data.nickname == resource.data.nickname
         && request.resource.data.joinedAt == resource.data.joinedAt;
       allow delete: if request.auth != null
@@ -636,8 +648,7 @@ export async function declineClanInvite(clanId, uid) {
 }
 
 // Roles - Owner only (enforced by the security rule, not just this
-// client call). 'owner' itself is never assignable here - ownership
-// transfer isn't supported yet (see the design spec).
+// client call).
 export async function promoteToElder(clanId, uid, nickname, joinedAt) {
   const { db, fsMod } = await ensureApp()
   await fsMod.setDoc(fsMod.doc(db, 'clans', clanId, 'members', uid), { nickname, joinedAt, role: 'elder' })
@@ -648,9 +659,37 @@ export async function demoteToMember(clanId, uid, nickname, joinedAt) {
   await fsMod.setDoc(fsMod.doc(db, 'clans', clanId, 'members', uid), { nickname, joinedAt, role: 'member' })
 }
 
+// Leadership transfer - Owner only, and only onto someone else already in
+// the clan (enforced by the security rule). Three writes, in this order
+// specifically because each one's rule re-checks the CALLER's own
+// current role live: promoting the new leader has to happen first, while
+// the caller's own member doc still says 'owner'; demoting the caller's
+// own doc to elder comes next (still allowed - that same live check is
+// still true); the clans-doc leaderId flip comes last since its rule
+// requires the new leaderId to already hold role 'owner' in members/,
+// which is only true once step one has landed. Skipping the demote step
+// would leave two members both reading 'owner' until the old leader
+// separately calls leaveClan().
+export async function transferClanLeadership(clanId, newLeaderUid, newLeaderNickname, newLeaderJoinedAt, oldLeaderUid, oldLeaderNickname, oldLeaderJoinedAt) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.setDoc(fsMod.doc(db, 'clans', clanId, 'members', newLeaderUid), { nickname: newLeaderNickname, joinedAt: newLeaderJoinedAt, role: 'owner' })
+  await fsMod.setDoc(fsMod.doc(db, 'clans', clanId, 'members', oldLeaderUid), { nickname: oldLeaderNickname, joinedAt: oldLeaderJoinedAt, role: 'elder' })
+  await fsMod.updateDoc(fsMod.doc(db, 'clans', clanId), { leaderId: newLeaderUid, leaderNickname: newLeaderNickname })
+}
+
 export async function leaveClan(clanId, uid) {
   const { db, fsMod } = await ensureApp()
   await fsMod.deleteDoc(fsMod.doc(db, 'clans', clanId, 'members', uid))
+}
+
+// Deletes the clan itself (the clans/{clanId} doc) - only ever called
+// right after the owner's own leaveClan(), and only when they were the
+// last member. Without this, the doc would sit around forever with zero
+// members (see the Firebase Console clan-cleanup notes) - "leave clan"
+// for a solo owner now really deletes the clan instead of orphaning it.
+export async function deleteClan(clanId) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.deleteDoc(fsMod.doc(db, 'clans', clanId))
 }
 
 export async function kickClanMember(clanId, uid) {
