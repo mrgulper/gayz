@@ -19407,6 +19407,15 @@ export class Game {
         const name = this.clanCreateNameInput.value.trim()
         const tag = this.clanCreateTagInput.value.trim().toUpperCase()
         if (!name || !tag) return
+        // Keyboard-only check mirrors the security rule's own name.matches()
+        // pattern (see FIRESTORE_SECURITY_RULES) - catches it here with an
+        // immediate message instead of a generic failure after a rejected
+        // write.
+        if (!/^[ -~]+$/.test(name)) {
+          this.clanCreateTakenWarning.textContent = t('clanNameInvalidChars')
+          this.clanCreateTakenWarning.style.display = 'block'
+          return
+        }
         const existing = await CloudSync.fetchClanByName(name).catch(() => null)
         if (existing) {
           this.clanCreateTakenWarning.textContent = t('clanNameTakenWarning')

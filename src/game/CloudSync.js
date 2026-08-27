@@ -127,15 +127,27 @@ service cloud.firestore {
 
     match /clans/{clanId} {
       allow read: if true;
+      // name.matches() requires a FULL match (like Java's Pattern.matches,
+      // not find) - [ -~] is the entire printable-ASCII range (space
+      // through tilde: every letter, digit, and standard keyboard symbol),
+      // so this blocks accented/Unicode lookalikes, emoji, and zalgo-style
+      // combining marks without needing an explicit denylist. nameLower
+      // must genuinely be the lowercase of name (not just any string) so
+      // a client can't desync the two and dodge the case-insensitive
+      // uniqueness check fetchClanByName relies on.
       allow create: if request.auth != null
         && request.resource.data.leaderId == request.auth.uid
         && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 24
+        && request.resource.data.name.matches('[ -~]+')
+        && request.resource.data.nameLower is string && request.resource.data.nameLower == request.resource.data.name.lower()
         && request.resource.data.tag is string && request.resource.data.tag.size() > 0 && request.resource.data.tag.size() <= 4
         && request.resource.data.leaderNickname is string && request.resource.data.leaderNickname.size() > 0 && request.resource.data.leaderNickname.size() <= 16
         && request.resource.data.createdAt is int;
       allow update: if request.auth != null && request.auth.uid == resource.data.leaderId
         && request.resource.data.leaderId == resource.data.leaderId
         && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 24
+        && request.resource.data.name.matches('[ -~]+')
+        && request.resource.data.nameLower is string && request.resource.data.nameLower == request.resource.data.name.lower()
         && request.resource.data.tag is string && request.resource.data.tag.size() > 0 && request.resource.data.tag.size() <= 4;
       allow delete: if request.auth != null && request.auth.uid == resource.data.leaderId;
     }
@@ -511,14 +523,18 @@ export async function fetchLeaderboardEntryByPlayerId(playerId) {
 export async function createClan(leaderUid, leaderNickname, name, tag) {
   const { db, fsMod } = await ensureApp()
   const clanRef = fsMod.doc(fsMod.collection(db, 'clans'))
-  await fsMod.setDoc(clanRef, { name, tag, leaderId: leaderUid, leaderNickname, createdAt: Date.now() })
+  // nameLower makes the uniqueness check (fetchClanByName) case-insensitive -
+  // "Fire", "FIRE", and "fire" are all the same taken name. Firestore has no
+  // case-insensitive query operator, so this is the standard workaround:
+  // store a normalized copy, query against that instead of the display name.
+  await fsMod.setDoc(clanRef, { name, nameLower: name.toLowerCase(), tag, leaderId: leaderUid, leaderNickname, createdAt: Date.now() })
   await fsMod.setDoc(fsMod.doc(db, 'clans', clanRef.id, 'members', leaderUid), { nickname: leaderNickname, joinedAt: Date.now(), role: 'owner' })
   return clanRef.id
 }
 
 export async function fetchClanByName(name) {
   const { db, fsMod } = await ensureApp()
-  const q = fsMod.query(fsMod.collection(db, 'clans'), fsMod.where('name', '==', name), fsMod.limit(1))
+  const q = fsMod.query(fsMod.collection(db, 'clans'), fsMod.where('nameLower', '==', name.toLowerCase()), fsMod.limit(1))
   const snap = await fsMod.getDocs(q)
   return snap.empty ? null : { ...snap.docs[0].data(), clanId: snap.docs[0].id }
 }
