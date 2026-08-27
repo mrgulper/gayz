@@ -569,8 +569,28 @@ export async function createClan(leaderUid, leaderNickname, name, tag) {
   // case-insensitive query operator, so this is the standard workaround:
   // store a normalized copy, query against that instead of the display name.
   await fsMod.setDoc(clanRef, { name, nameLower: name.toLowerCase(), tag, leaderId: leaderUid, leaderNickname, createdAt: Date.now() })
-  await fsMod.setDoc(fsMod.doc(db, 'clans', clanRef.id, 'members', leaderUid), { nickname: leaderNickname, joinedAt: Date.now(), role: 'owner' })
+  try {
+    await fsMod.setDoc(fsMod.doc(db, 'clans', clanRef.id, 'members', leaderUid), { nickname: leaderNickname, joinedAt: Date.now(), role: 'owner' })
+  } catch (err) {
+    // Two separate writes, not one atomic transaction - if the second one
+    // fails (network hiccup, tab closed mid-creation), roll back the first
+    // rather than leaving an orphaned clan doc whose leaderId points at a
+    // member record that was never created. See restoreOwnerMembership /
+    // _refreshClanUi's self-heal for what happens if this is ever missed.
+    await fsMod.deleteDoc(clanRef).catch(() => {})
+    throw err
+  }
   return clanRef.id
+}
+
+// Recreates the leader's own member doc when the clan doc still says they're
+// the leader but their member record is missing (an interrupted createClan,
+// or any other past inconsistency) - see _refreshClanUi's self-heal. Reuses
+// the exact same write/security-rule path createClan's second step already
+// uses, just callable on its own.
+export async function restoreOwnerMembership(clanId, uid, nickname) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.setDoc(fsMod.doc(db, 'clans', clanId, 'members', uid), { nickname, joinedAt: Date.now(), role: 'owner' })
 }
 
 export async function fetchClanByName(name) {

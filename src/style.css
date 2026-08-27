@@ -7689,6 +7689,26 @@ html.ui-theme-old #settings-panel h2 {
   min-width: 0;
 }
 
+/* Two-column browse layout (not in a clan yet): every existing clan on
+   the left, invites/Request-to-Join on the right - same split pattern as
+   #clan-in-clan-columns above. */
+#clan-browse-columns {
+  display: flex;
+  gap: 20px;
+  text-align: left;
+  margin-top: 12px;
+}
+
+#clan-browse-list-column,
+#clan-browse-join-column {
+  flex: 1;
+  min-width: 0;
+}
+
+#clan-browse-list-heading {
+  margin: 0 0 8px;
+}
+
 /* Hub panel tab strip (Zombie Survival/Deathmatch) - same reasoning as
    .quest-tabs above: kept as its own class rather than reusing
    .settings-tab/.quest-tab, so it doesn't get swept into either of those

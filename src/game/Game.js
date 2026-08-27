@@ -19874,8 +19874,26 @@ export class Game {
       return
     }
 
-    const members = await CloudSync.fetchClanMembers(this.settings.clanId).catch(() => [])
-    const me = members.find((m) => m.uid === this._cloudUid)
+    let members = await CloudSync.fetchClanMembers(this.settings.clanId).catch(() => [])
+    let me = members.find((m) => m.uid === this._cloudUid)
+    if (!me) {
+      // Before concluding I've actually left/been removed, check the clan
+      // doc's own leaderId - a genuine "kicked while offline" always shows
+      // leaderId belonging to someone else, but createClan writes the clan
+      // doc and the owner's own member doc as two separate, non-atomic
+      // calls (see its own comment) - if the second one was ever
+      // interrupted, or any other past bug dropped just the member doc,
+      // the clan doc survives with leaderId still mine while my own
+      // member record is missing. Self-heal that instead of silently
+      // kicking the real owner out to the Browse screen.
+      const clan = await CloudSync.fetchClanById(this.settings.clanId).catch(() => null)
+      if (clan && clan.leaderId === this._cloudUid) {
+        const nickname = this.settings.nickname || t('playerShowcaseTitleDefault')
+        await CloudSync.restoreOwnerMembership(this.settings.clanId, this._cloudUid, nickname).catch(() => {})
+        members = await CloudSync.fetchClanMembers(this.settings.clanId).catch(() => [])
+        me = members.find((m) => m.uid === this._cloudUid)
+      }
+    }
     if (!me) {
       this.settings.clanId = null
       this.settings.clanTag = null

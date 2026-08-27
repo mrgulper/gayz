@@ -1482,7 +1482,6 @@ Escape before dawn.</p>
             <p id="clan-leave-disabled-hint" style="display: none"></p>
           </div>
           <div id="clan-browse-state" style="display: none">
-            <div id="clan-incoming-invites-list"></div>
             <button id="clan-make-btn" type="button" class="mini-action-btn">Make Clan</button>
             <div id="clan-make-form" style="display: none">
               <label class="menu-field-label" for="clan-create-name-input">Clan Name</label>
@@ -1492,11 +1491,19 @@ Escape before dawn.</p>
               <button id="clan-create-btn" type="button" class="mini-action-btn">Create Clan</button>
               <p id="clan-create-taken-warning" style="display: none"></p>
             </div>
-            <label class="menu-field-label" for="clan-request-name-input">Request to Join a Clan</label>
-            <input type="text" id="clan-request-name-input" class="nickname-input" placeholder="Clan name" maxlength="24" />
-            <button id="clan-request-name-btn" type="button" class="mini-action-btn">Request to Join</button>
-            <p id="clan-request-name-status" style="display: none"></p>
-            <div id="clan-all-list"></div>
+            <div id="clan-browse-columns">
+              <div id="clan-browse-list-column">
+                <h5 id="clan-browse-list-heading">All Clans</h5>
+                <div id="clan-all-list"></div>
+              </div>
+              <div id="clan-browse-join-column">
+                <div id="clan-incoming-invites-list"></div>
+                <label class="menu-field-label" for="clan-request-name-input">Request to Join a Clan</label>
+                <input type="text" id="clan-request-name-input" class="nickname-input" placeholder="Clan name" maxlength="24" />
+                <button id="clan-request-name-btn" type="button" class="mini-action-btn">Request to Join</button>
+                <p id="clan-request-name-status" style="display: none"></p>
+              </div>
+            </div>
           </div>
         </div>
         <div class="general-tab-page" id="general-page-market" style="display: none">
@@ -2002,6 +2009,7 @@ Escape before dawn.</p>
         <div id="whatsnew-content">
           <p id="build-version-line"></p>
           <div id="changelog-list">
+            <div class="changelog-entry"><span class="changelog-date">Aug 27, 2026</span><span class="changelog-text">Clan page (when you're not in one yet) is now split in half - every existing clan on the left, Requests/Request-to-Join on the right. Also added a safety net so an owner whose own membership record went missing gets automatically restored instead of getting bumped out to the browse screen.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 27, 2026</span><span class="changelog-text">Fixed the "Old" theme briefly flashing the Golden look on every load before switching over. Also fixed chat silently doing nothing when a message couldn't send (not signed in, no clan, no party) - you'll now see exactly why, and your typed message stays put instead of vanishing.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 27, 2026</span><span class="changelog-text">Fixed getting stuck with a free mouse and an unresponsive Escape key after clicking Cancel on the "leave site?" warning mid-run. Chat is also back to only showing during an actual run, not the homepage.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 27, 2026</span><span class="changelog-text">Your browser now warns you before letting you close the tab or navigate away mid-run, so you can't lose a run to an accidental click. Chat also now grew bigger, and pressing Enter opens it to type instead of needing to click it (useful since your mouse is normally locked for aiming mid-run).</span></div>
