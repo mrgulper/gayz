@@ -390,7 +390,7 @@ const STRINGS = {
     clanRequestsEmpty: 'No pending requests.',
     clanAcceptBtn: 'Accept',
     clanDeclineBtn: 'Decline',
-    clanInviteRowLabel: 'Invited to join {name} [{tag}]',
+    clanInviteRowLabel: 'Invited to join {name}',
     clanInvitePlayerNotFound: 'No player found with that ID.',
     clanInviteSent: 'Invite sent!',
     clanLeaderMustTransferFirst: 'As leader, hand off leadership to another member first (see "Make Leader" next to their name) - or just leave if you\'re the only member.',

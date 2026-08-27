@@ -6262,20 +6262,20 @@ html.ui-theme-old #settings-btn {
 }
 
 /* Real-time clock (General tab, settings.timeFormat) - sits just below
-   the currency bar, same corner, same pill styling. top: 78px is
-   hand-computed against the currency bar's own height (padding + the
-   38px icons, its tallest content) so it still sits flush below it now
-   that both got bigger - re-check this offset if the bar's size changes
-   again. */
+   the currency bar, same corner, same pill styling. top: 70px is
+   hand-computed against the currency bar's own height (padding + its
+   icons, the tallest content) - re-check this offset if the bar's size
+   changes again (it's shrunk twice since the 78px value was set, which
+   is why the gap had grown noticeably too wide). */
 #homepage-clock {
   position: fixed;
-  top: 78px;
+  top: 70px;
   left: 16px;
   z-index: 2;
   padding: 6px 18px;
   font-family: var(--menu-display-font);
-  /* 0.75x again on top of the previous 21px, per feedback. */
-  font-size: 15.75px;
+  /* Kept matched to .currency-item's own size, per standing request. */
+  font-size: 18.9px;
   color: rgba(255, 255, 255, 0.75);
   background: rgba(10, 10, 10, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -6289,14 +6289,15 @@ html.ui-theme-old #settings-btn {
   align-items: center;
   gap: 8px;
   font-family: var(--menu-display-font);
-  font-size: 15.75px;
+  /* 1.2x of the previous 15.75px, per feedback. */
+  font-size: 18.9px;
   color: #eee;
   font-variant-numeric: tabular-nums;
 }
 
 .currency-icon {
-  width: 21.375px;
-  height: 21.375px;
+  width: 25.65px;
+  height: 25.65px;
   flex-shrink: 0;
 }
 

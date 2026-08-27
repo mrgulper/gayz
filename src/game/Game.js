@@ -11239,7 +11239,7 @@ export class Game {
     // Podium styling (ranks 1-3) - PODIUM_MEDALS below, same treatment
     // _renderWeeklyLeaderboardList uses.
     this.cloudsaveLeaderboardList.innerHTML = rows.length
-      ? rows.map((r, i) => `<div class="cloud-leaderboard-row${r.name === this.settings.nickname ? ' me' : ''}${i < 3 ? ` podium-${i + 1}` : ''}"><span>${PODIUM_MEDALS[i] || `${i + 1}.`} ${r.clanTag ? `[${_escapeHtml(r.clanTag)}] ` : ''}${_escapeHtml(r.name || '???')}</span><span>${t('cloudsaveLeaderboardRow', { night: _safeStatNumber(r.bestNight), kills: _safeStatNumber(r.bestKills) })}</span></div>`).join('')
+      ? rows.map((r, i) => `<div class="cloud-leaderboard-row${r.name === this.settings.nickname ? ' me' : ''}${i < 3 ? ` podium-${i + 1}` : ''}"><span>${PODIUM_MEDALS[i] || `${i + 1}.`} ${_escapeHtml(r.name || '???')}</span><span>${t('cloudsaveLeaderboardRow', { night: _safeStatNumber(r.bestNight), kills: _safeStatNumber(r.bestKills) })}</span></div>`).join('')
       : `<p class="cloud-leaderboard-empty">${t('cloudsaveLeaderboardEmpty')}</p>`
   }
 
@@ -19958,7 +19958,7 @@ export class Game {
     const invites = await CloudSync.fetchIncomingClanInvites(this._cloudUid).catch(() => [])
     this.clanIncomingInvitesList.innerHTML = invites.map((inv) => `
       <div class="clan-list-row">
-        <span>${t('clanInviteRowLabel', { name: _escapeHtml(inv.clanName), tag: _escapeHtml(inv.clanTag) })}</span>
+        <span>${t('clanInviteRowLabel', { name: _escapeHtml(inv.clanName) })}</span>
         <span>
           <button type="button" class="clan-invite-accept-btn" data-clan-id="${inv.clanId}" data-clan-tag="${_escapeHtml(inv.clanTag)}" data-clan-name="${_escapeHtml(inv.clanName)}">${t('clanAcceptBtn')}</button>
           <button type="button" class="clan-invite-decline-btn" data-clan-id="${inv.clanId}">${t('clanDeclineBtn')}</button>
@@ -19976,7 +19976,7 @@ export class Game {
     this.clanAllList.innerHTML = clans.length
       ? clans.map((c) => `
         <div class="clan-list-row">
-          <span>${_escapeHtml(c.name)} [${_escapeHtml(c.tag)}]</span>
+          <span>${_escapeHtml(c.name)}</span>
           <button type="button" class="clan-list-join-btn mini-action-btn" data-clan-id="${c.clanId}" data-clan-tag="${_escapeHtml(c.tag)}">${t('clanJoinBtn')}</button>
         </div>
       `).join('')
