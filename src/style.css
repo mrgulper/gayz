@@ -1257,8 +1257,7 @@ html.high-contrast-mode #app {
 #weapon-quick-list,
 #status-hud,
 #progress-hud,
-#minimap-wrap,
-#inventory-hud {
+#minimap-wrap {
   transform: scale(var(--hud-scale));
   opacity: var(--hud-opacity);
 }
@@ -1402,16 +1401,24 @@ html.high-contrast-mode #app {
   50% { opacity: 1; }
 }
 
-/* Shared bottom-left stack for the item-count list and the health/stamina
-   bars below it - previously two independently `position: absolute`
-   elements with hand-picked `bottom` offsets, which overlapped as soon as
+/* Shared bottom-left stack for the health/stamina bars and (now) the
+   always-visible chat box below them - previously two independently
+   `position: absolute` elements (this stack plus the old item-count
+   list) with hand-picked `bottom` offsets, which overlapped as soon as
    either one's row count grew past the gap between those two fixed pixel
    values (see the barricade-window inventory row that tipped it over).
-   A flex column sized by its own content can't overlap itself. */
+   A flex column sized by its own content can't overlap itself.
+   z-index: 2 - this whole stack only ever needed to sit above the
+   in-game 3D scene before (which has no CSS stacking context to fight),
+   but the chat box now needs to show on the homepage too, where
+   #menu (z-index: auto, same as this) comes later in the DOM and would
+   otherwise paint over it - 2 clears #menu-layout's 1 without reaching
+   into modal-panel/asset-loader territory (15/10). */
 #left-hud-stack {
   position: absolute;
   left: 24px;
   bottom: 20px;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -2130,13 +2137,6 @@ select option {
 .difficulty-btn[data-difficulty="hard"].active,
 .difficulty-btn[data-difficulty="nightmare"].active,
 .difficulty-btn[data-difficulty="apex"].active { color: #0c130c; background: var(--menu-red); border-color: var(--menu-red); }
-
-#inventory-hud {
-  display: none;
-  flex-direction: column;
-  gap: 6px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-}
 
 .inv-row {
   display: flex;
@@ -8798,65 +8798,56 @@ html.night-vision-active #app {
   }
 }
 
-/* Chat widget - Global/Clan/Party channels, bottom-left, collapsed to a
-   small icon by default (same corner used elsewhere for compact HUD
-   widgets). z-index 3: above the homepage layout (1) so it's usable
-   there too, but below every modal panel (15) so opening Settings/Shop/
-   etc. correctly covers it rather than fighting for clicks. Uses the
-   --menu-* tokens (not literal hex) so it reskins automatically under
-   the Old theme, same as every other cross-panel surface. */
-#chat-widget {
-  position: fixed;
-  bottom: 16px;
-  left: 16px;
-  z-index: 3;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-/* A plain circular icon here measured as "invisible" to real users in
-   testing (Gaymi couldn't find it even looking straight at it, sitting
-   right next to the gameplay HUD's own icon-heavy hotbar/stat-bar
-   column) - a text label makes it unambiguous instead of relying on the
-   icon alone to read as "chat". */
-#chat-toggle-btn {
-  position: relative;
-  order: 2;
-  height: 36px;
-  padding: 0 14px 0 10px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--menu-gold, #d9bc4a);
-  background: var(--menu-panel-bg, rgba(7, 8, 8, 0.95));
-  border: 1px solid var(--menu-panel-border, rgba(138, 109, 71, 0.5));
-  border-radius: 999px;
-  cursor: pointer;
-}
-
-#chat-toggle-label {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
-}
-
-#chat-toggle-btn svg {
-  width: 18px;
-  height: 18px;
-}
-
+/* Chat - Global/Clan/Party channels. Always visible (no more open/close
+   toggle - measured as effectively invisible to a real user even with a
+   text label, sitting in the same busy bottom-left corner as the rest
+   of the gameplay HUD) - a real always-on chat log/input, same idea as
+   a typical FPS's chat box. Lives as a normal flex child inside
+   #left-hud-stack, right after #status-hud, instead of its own
+   position:fixed element - the stack is already a flex column sized by
+   its own content specifically to avoid two independent hand-picked
+   `bottom` offsets overlapping (see that rule's own comment), so
+   chat just extends the same fix instead of needing its own position
+   math. pointer-events: auto overrides the stack's own blanket `none`
+   (its other children, the stat bars, never needed clicks - chat does). */
 #chat-panel {
-  order: 1;
   display: flex;
   flex-direction: column;
-  width: 300px;
-  height: 320px;
-  margin-bottom: 8px;
+  width: 320px;
+  height: 220px;
+  pointer-events: auto;
   background: var(--menu-panel-bg, rgba(7, 8, 8, 0.95));
   border: 1px solid var(--menu-panel-border, rgba(138, 109, 71, 0.5));
   border-radius: 8px;
   overflow: hidden;
+}
+
+#chat-channel-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--menu-panel-border, rgba(138, 109, 71, 0.5));
+}
+
+.chat-tab-btn {
+  flex: 1;
+  padding: 6px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: rgba(224, 228, 220, 0.55);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.chat-tab-btn.active {
+  color: var(--menu-gold, #d9bc4a);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.chat-tab-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 #chat-messages {
@@ -8872,6 +8863,7 @@ html.night-vision-active #app {
   font-size: 12px;
   line-height: 1.4;
   word-break: break-word;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
 .chat-message-nickname {
@@ -8919,33 +8911,5 @@ html.night-vision-active #app {
   border: 1px solid var(--menu-panel-border, rgba(138, 109, 71, 0.5));
   border-radius: 4px;
   cursor: pointer;
-}
-
-#chat-channel-tabs {
-  display: flex;
-  border-top: 1px solid var(--menu-panel-border, rgba(138, 109, 71, 0.5));
-}
-
-.chat-tab-btn {
-  flex: 1;
-  padding: 7px 4px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
-  color: rgba(224, 228, 220, 0.55);
-  background: none;
-  border: none;
-  cursor: pointer;
-}
-
-.chat-tab-btn.active {
-  color: var(--menu-gold, #d9bc4a);
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.chat-tab-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
 }
 

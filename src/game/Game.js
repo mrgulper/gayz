@@ -3431,23 +3431,6 @@ export class Game {
     this.pickupToast = document.getElementById('pickup-toast')
     this.deathScreen = document.getElementById('death-screen')
     this.respawnBtn = document.getElementById('respawn-btn')
-    this.inventoryHud = document.getElementById('inventory-hud')
-    this.healthPackCount = document.getElementById('health-pack-count')
-    this.armorPackCount = document.getElementById('armor-pack-count')
-    this.noisemakerCount = document.getElementById('noisemaker-count')
-    this.grenadeCount = document.getElementById('grenade-count')
-    this.barricadeCount = document.getElementById('barricade-count')
-    this.trapCount = document.getElementById('trap-count')
-    this.molotovCount = document.getElementById('molotov-count')
-    this.c4Count = document.getElementById('c4-count')
-    this.adrenalineCount = document.getElementById('adrenaline-count')
-    this.empCount = document.getElementById('emp-count')
-    this.shieldCount = document.getElementById('shield-count')
-    this.knifeCount = document.getElementById('knife-count')
-    this.turretkitCount = document.getElementById('turretkit-count')
-    this.medstationCount = document.getElementById('medstation-count')
-    this.alarmkitCount = document.getElementById('alarmkit-count')
-    this.rationCount = document.getElementById('ration-count')
     this.inventoryPanel = document.getElementById('inventory-panel')
     this.hideEmptyInventoryToggle = document.getElementById('hide-empty-inventory-toggle')
     this.hideEmptyInventoryToggle.addEventListener('change', () => {
@@ -3968,8 +3951,6 @@ export class Game {
     this.clanRequestsList = document.getElementById('clan-requests-list')
     this.clanLeaveBtn = document.getElementById('clan-leave-btn')
     this.clanLeaveDisabledHint = document.getElementById('clan-leave-disabled-hint')
-    this.chatWidget = document.getElementById('chat-widget')
-    this.chatToggleBtn = document.getElementById('chat-toggle-btn')
     this.chatPanel = document.getElementById('chat-panel')
     this.chatMessages = document.getElementById('chat-messages')
     this.chatMutedNotice = document.getElementById('chat-muted-notice')
@@ -6054,7 +6035,6 @@ export class Game {
     this.hotbarEl.style.display = this.driving ? 'none' : 'flex'
     if (this.hotbarPowerScoreEl) this.hotbarPowerScoreEl.style.display = this.driving ? 'none' : 'block'
     this.statusHud.style.display = 'flex'
-    this.inventoryHud.style.display = 'flex'
     this.progressHud.style.display = 'flex'
     this.statsPanel.style.display = 'flex'
     if (this.keybindCheatsheet) this.keybindCheatsheet.style.display = this.settings.keybindCheatSheet ? '' : 'none'
@@ -6149,7 +6129,6 @@ export class Game {
     this.hudEl.style.display = 'none'
     this.hotbarEl.style.display = 'none'
     this.statusHud.style.display = 'none'
-    this.inventoryHud.style.display = 'none'
     this.progressHud.style.display = 'none'
     this.statsPanel.style.display = 'none'
     this.minimapWrap.style.display = 'none'
@@ -6516,7 +6495,6 @@ export class Game {
     // distinct from Photo Mode which hides it along with the rest.
     if (!keepHotbar) this.hotbarEl.style.display = display
     this.statusHud.style.display = display
-    this.inventoryHud.style.display = display
     this.progressHud.style.display = display
     this.statsPanel.style.display = display
     this.minimapWrap.style.display = display
@@ -11980,7 +11958,6 @@ export class Game {
     this.hotbarEl.style.display = 'none'
     if (this.hotbarPowerScoreEl) this.hotbarPowerScoreEl.style.display = 'none'
     this.statusHud.style.display = 'none'
-    this.inventoryHud.style.display = 'none'
     this.progressHud.style.display = 'none'
     this.statsPanel.style.display = 'none'
     this.minimapWrap.style.display = 'none'
@@ -17017,7 +16994,6 @@ export class Game {
     this.hudEl.style.display = 'none'
     this.hotbarEl.style.display = 'none'
     this.statusHud.style.display = 'none'
-    this.inventoryHud.style.display = 'none'
     this.progressHud.style.display = 'none'
     this.interactPrompt.style.display = 'none'
     this.statsPanel.style.display = 'none'
@@ -19081,24 +19057,13 @@ export class Game {
     this.pickupToast.classList.add('show')
   }
 
-  _updateInventoryHud() {
-    this.healthPackCount.textContent = this.inventory.healthPacks
-    this.armorPackCount.textContent = this.inventory.armorPacks
-    this.noisemakerCount.textContent = this.inventory.noisemakers
-    this.grenadeCount.textContent = this.inventory.grenades
-    this.shieldCount.textContent = this.inventory.shields
-    this.knifeCount.textContent = this.inventory.throwingKnives
-    this.turretkitCount.textContent = this.inventory.turretKits
-    this.medstationCount.textContent = this.inventory.medStationKits
-    this.alarmkitCount.textContent = this.inventory.alarmKits
-    this.rationCount.textContent = this.inventory.rations
-    this.barricadeCount.textContent = this.inventory.barricades
-    this.trapCount.textContent = this.inventory.traps
-    this.molotovCount.textContent = this.inventory.molotovs
-    this.c4Count.textContent = this.inventory.c4
-    this.adrenalineCount.textContent = this.inventory.adrenaline
-    this.empCount.textContent = this.inventory.emp
-  }
+  // No-op now - the item-count-per-letter HUD list this updated was
+  // removed (per request, cleared room for the always-visible chat box
+  // in the same bottom-left corner). Left as an empty function rather
+  // than removing its ~35 call sites scattered across every pickup/use/
+  // craft path in this file - those call sites are still exactly where
+  // an inventory HUD update belongs if this ever comes back.
+  _updateInventoryHud() {}
 
   _updateHealthHud() {
     const s = this.playerState
@@ -19419,16 +19384,18 @@ export class Game {
     this._updateHotbarHud()
   }
 
-  // Chat widget - Global/Clan/Party channels, bottom-left. Global and Clan
-  // are live Firestore subscriptions (see CloudSync.js); Party comes
-  // through the multiplayer sync poll instead (see _syncNetworkPlayerState
-  // and its response handler) since a multiplayer session isn't
-  // Firebase-Auth-signed-in at all. Only one channel is ever subscribed at
-  // a time, and only while the panel is actually open, matching this
-  // project's existing "don't leave a live listener running for a closed
-  // panel" cost-consciousness (see subscribeTopLeaderboard's own comment).
+  // Chat - Global/Clan/Party channels, always visible (see #chat-panel's
+  // own CSS comment for why this isn't a click-to-open widget any more).
+  // Global and Clan are live Firestore subscriptions (see CloudSync.js);
+  // Party comes through the multiplayer sync poll instead (see
+  // _syncNetworkPlayerState and its response handler) since a multiplayer
+  // session isn't Firebase-Auth-signed-in at all. Only one channel is
+  // ever subscribed at a time (switching tabs unsubscribes the old one
+  // first) to keep the read cost bounded, but - unlike the old toggle
+  // version - always subscribed to SOME channel from the moment the game
+  // loads, since there's no more "closed" state to gate it behind.
   _bindChatWidget() {
-    if (!this.chatWidget) return
+    if (!this.chatPanel) return
     this._chatChannel = 'global'
     this._chatUnsub = null
     this._chatSendTimestamps = []
@@ -19438,17 +19405,6 @@ export class Game {
     this._chatPartyMessages = []
     this._pendingChatText = null
     this._pendingChatNickname = null
-
-    this.chatToggleBtn.addEventListener('click', () => {
-      const isOpen = this.chatPanel.style.display !== 'none'
-      if (isOpen) {
-        this.chatPanel.style.display = 'none'
-        this._unsubscribeChatChannel()
-      } else {
-        this.chatPanel.style.display = 'flex'
-        this._subscribeChatChannel()
-      }
-    })
 
     for (const btn of this.chatTabBtns) {
       btn.addEventListener('click', () => {
@@ -19481,6 +19437,7 @@ export class Game {
     }, true)
 
     this._updateChatTabAvailability()
+    this._subscribeChatChannel()
   }
 
   _updateChatTabAvailability() {
@@ -19496,7 +19453,7 @@ export class Game {
       for (const btn of this.chatTabBtns) btn.classList.toggle('active', btn.dataset.channel === 'global')
       this._chatChannel = 'global'
       this._unsubscribeChatChannel()
-      if (this.chatPanel && this.chatPanel.style.display !== 'none') this._subscribeChatChannel()
+      this._subscribeChatChannel()
     }
   }
 
@@ -21583,7 +21540,6 @@ export class Game {
     this.hudEl.style.display = 'none'
     this.hotbarEl.style.display = 'none'
     this.statusHud.style.display = 'none'
-    this.inventoryHud.style.display = 'none'
     this.progressHud.style.display = 'none'
     this.interactPrompt.style.display = 'none'
     this.statsPanel.style.display = 'none'

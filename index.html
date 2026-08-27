@@ -94,26 +94,6 @@
 
       <div id="crosshair"></div>
 
-      <div id="chat-widget">
-        <button id="chat-toggle-btn" type="button" aria-label="Chat">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          <span id="chat-toggle-label">Chat</span>
-        </button>
-        <div id="chat-panel" style="display: none">
-          <div id="chat-messages"></div>
-          <p id="chat-muted-notice" style="display: none"></p>
-          <form id="chat-input-row">
-            <input type="text" id="chat-input" maxlength="300" placeholder="Type a message..." autocomplete="off" />
-            <button type="submit" id="chat-send-btn">Send</button>
-          </form>
-          <div id="chat-channel-tabs">
-            <button type="button" class="chat-tab-btn active" data-channel="global">Global</button>
-            <button type="button" class="chat-tab-btn" data-channel="clan">Clan</button>
-            <button type="button" class="chat-tab-btn" data-channel="party">Party</button>
-          </div>
-        </div>
-      </div>
-
       <div id="touch-controls-layer" style="display: none">
         <div id="touch-joystick-base">
           <div id="touch-joystick-knob"></div>
@@ -144,89 +124,6 @@
       <div id="lightning-flash"></div>
 
       <div id="left-hud-stack">
-        <div id="inventory-hud">
-          <div class="inv-row">
-            <span class="inv-icon">&#129525;</span>
-            <span id="health-pack-count">0</span>
-            <span class="inv-key">H</span>
-          </div>
-          <div class="inv-row">
-            <span class="inv-icon">&#128737;</span>
-            <span id="armor-pack-count">0</span>
-            <span class="inv-key">G</span>
-          </div>
-          <div class="inv-row">
-            <span class="inv-icon">&#129512;</span>
-            <span id="noisemaker-count">0</span>
-            <span class="inv-key">V</span>
-          </div>
-          <div class="inv-row">
-            <span class="inv-icon">&#128163;</span>
-            <span id="grenade-count">0</span>
-            <span class="inv-key">B</span>
-          </div>
-          <div class="inv-row">
-            <span class="inv-icon">&#128736;</span>
-            <span id="barricade-count">0</span>
-            <span class="inv-key">N</span>
-          </div>
-          <div class="inv-row">
-            <span class="inv-icon">&#9888;</span>
-            <span id="trap-count">0</span>
-            <span class="inv-key">M</span>
-          </div>
-          <div class="inv-row">
-            <span class="inv-icon">&#128293;</span>
-            <span id="molotov-count">0</span>
-            <span class="inv-key">Z</span>
-          </div>
-          <div class="inv-row">
-            <span class="inv-icon">&#129000;</span>
-            <span id="c4-count">0</span>
-            <span class="inv-key">J</span>
-          </div>
-          <div class="inv-row">
-            <span class="inv-icon">&#128137;</span>
-            <span id="adrenaline-count">0</span>
-            <span class="inv-key">Y</span>
-          </div>
-          <div class="inv-row">
-            <span class="inv-icon">&#9889;</span>
-            <span id="emp-count">0</span>
-            <span class="inv-key">U</span>
-          </div>
-          <div class="inv-row">
-            <span class="inv-icon">&#128481;</span>
-            <span id="shield-count">0</span>
-            <span class="inv-key">6</span>
-          </div>
-          <div class="inv-row">
-            <span class="inv-icon">&#128298;</span>
-            <span id="knife-count">0</span>
-            <span class="inv-key">7</span>
-          </div>
-          <div class="inv-row">
-            <span class="inv-icon">&#128737;</span>
-            <span id="turretkit-count">0</span>
-            <span class="inv-key">8</span>
-          </div>
-          <div class="inv-row">
-            <span class="inv-icon">&#10133;</span>
-            <span id="medstation-count">0</span>
-            <span class="inv-key">Insert</span>
-          </div>
-          <div class="inv-row">
-            <span class="inv-icon">&#128680;</span>
-            <span id="alarmkit-count">0</span>
-            <span class="inv-key">9</span>
-          </div>
-          <div class="inv-row">
-            <span class="inv-icon">&#127831;</span>
-            <span id="ration-count">0</span>
-            <span class="inv-key">0</span>
-          </div>
-        </div>
-
         <div id="status-hud">
           <div class="status-row">
             <span class="status-icon">&hearts;</span>
@@ -266,6 +163,20 @@
             <span class="status-icon" id="xp-level-badge">1</span>
             <div class="status-bar"><div id="xp-fill" class="status-fill xp"></div></div>
           </div>
+        </div>
+
+        <div id="chat-panel">
+          <div id="chat-channel-tabs">
+            <button type="button" class="chat-tab-btn active" data-channel="global">Global</button>
+            <button type="button" class="chat-tab-btn" data-channel="clan">Clan</button>
+            <button type="button" class="chat-tab-btn" data-channel="party">Party</button>
+          </div>
+          <div id="chat-messages"></div>
+          <p id="chat-muted-notice" style="display: none"></p>
+          <form id="chat-input-row">
+            <input type="text" id="chat-input" maxlength="300" placeholder="Message..." autocomplete="off" />
+            <button type="submit" id="chat-send-btn">Enter</button>
+          </form>
         </div>
       </div>
 
@@ -2076,7 +1987,7 @@ Escape before dawn.</p>
         <div id="whatsnew-content">
           <p id="build-version-line"></p>
           <div id="changelog-list">
-            <div class="changelog-entry"><span class="changelog-date">Aug 27, 2026</span><span class="changelog-text">New Chat! A chat box (bottom-left) with Global, Clan, and Party channels - switch between them at the bottom of the box. No word filtering, but spamming gets you muted for 5 minutes.</span></div>
+            <div class="changelog-entry"><span class="changelog-date">Aug 27, 2026</span><span class="changelog-text">New Chat! An always-visible chat box (bottom-left, above your health/stamina bars) with Global, Clan, and Party tabs. No word filtering, but spamming gets you muted for 5 minutes. Also removed the old per-item letter-key list from the HUD to make room.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 27, 2026</span><span class="changelog-text">Any clan member (including the leader) can now leave with a confirmation warning first. A leader hands leadership to someone else first (new "Make Leader" button next to their name) if others are still in the clan - leaving as the only member deletes the clan for good instead of the old "Disband Clan" button.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 26, 2026</span><span class="changelog-text">The "Old" theme (Settings > Theme) now has a real look - a vintage rust/bronze/parchment style with a new background photo, Play/Settings/nav/profile-frame art, and its own font, instead of doing nothing when selected.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 26, 2026</span><span class="changelog-text">The homepage background now has a bit more life to it - a slightly faster drift/zoom.</span></div>
