@@ -6832,13 +6832,14 @@ html.ui-theme-old #menu-nav-buttons button {
   outline: none;
 }
 
-/* Small pill-style utility link row (Rules & Info / What's New / Credits /
-   Discord) - a compact rounded pill of plain underlined text links with a
-   dot divider between them, distinct from the big icon-card nav above.
-   Matches a reference screenshot's homepage nav style, scoped to just
-   these secondary/informational links rather than the whole main nav. */
+/* Plain utility link row (How to Play / What's New / GayZ Features /
+   Credits / Terms of Use / Discord) - just underlined text links,
+   distinct from the big icon-card nav above. An oval background + dot
+   dividers were tried here (twice, including a real rendering-bug
+   detour where the element wouldn't paint its own background/border at
+   all - see this file's git history) and reverted both times at the
+   user's request - don't re-add either without being asked again. */
 #menu-links-row {
-  position: relative;
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
@@ -6852,65 +6853,6 @@ html.ui-theme-old #menu-nav-buttons button {
      of just sitting wherever the content above it happens to end. */
   margin: auto auto 4px;
   width: fit-content;
-}
-
-/* The pill's own background/border - deliberately NOT set directly on
-   #menu-links-row. Confirmed via direct testing that this exact element
-   never paints its own background/border at all, no matter the color
-   or opacity: even a forced solid red fill + bright green border,
-   verified correct via getComputedStyle, rendered as literally nothing
-   in every screenshot. This is the same "computed style is right but
-   the pixel never paints" class of bug this codebase has hit before
-   (see CLAUDE.md's note on a standalone dot-divider span) - a
-   ::before pseudo-element on the element itself (not a real background
-   on the element, not a separate sibling node) is the proven working
-   fix both times, confirmed by testing this exact replacement before
-   committing to it. z-index: -1 keeps it behind the row's own text/
-   links (which stay on the element's default painting layer, unaffected
-   by whatever this rendering quirk actually is). */
-#menu-links-row::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: rgba(255, 255, 255, 0.12);
-  border: 2px solid rgba(196, 155, 92, 0.9);
-  border-radius: 999px;
-  /* No z-index here (was -1) - that pushed this behind an ancestor's own
-     opaque background elsewhere in the page (confirmed by testing: with
-     z-index:-1 the pill was invisible again, exactly like the plain
-     background/border it replaced; removing it fixed that). Not needed
-     anyway - a ::before pseudo-element already paints before the
-     element's own real children in DOM order, so the row's actual
-     links/text correctly render on top of it with no z-index required. */
-}
-
-html.ui-theme-old #menu-links-row::before {
-  border-color: rgba(180, 130, 70, 0.9);
-}
-
-/* Dot divider between links - re-added per request (see this file's own
-   git history: an earlier version had this, then got reverted). A
-   standalone sibling span for the dot silently never painted a single
-   pixel in this exact codebase before, despite every diagnostic saying
-   it should - see CLAUDE.md's "Playwright verification quirks" note.
-   A ::after pseudo-element on the link itself (not a separate node)
-   sidesteps that entirely and rendered correctly on the first try last
-   time, so this reuses that same proven approach rather than the
-   sibling-span version that didn't work. Every link except the last one
-   in the row gets a dot after it via :not(:last-child).
-   #whats-new-dot (a small red/gold circle marking unread What's New
-   content) is a totally different, absolutely-positioned element, not
-   related to this divider despite the similar-sounding name. */
-#menu-links-row > *:not(:last-child)::after {
-  content: '\00b7';
-  margin-left: 12px;
-  color: rgba(216, 220, 210, 0.4);
-  font-weight: 700;
-  /* The link itself has text-decoration: underline (see below) - that
-     paints under the pseudo-element's generated content too unless
-     explicitly turned off here, so the dot was getting its own stray
-     underline segment despite not being part of the actual link text. */
-  text-decoration: none;
 }
 
 #menu-links-row button,
