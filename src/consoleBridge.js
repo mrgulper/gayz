@@ -14,8 +14,12 @@
 // Only GayzConsole's real deployed origin may talk to this bridge -
 // checked on every inbound message, and used as the explicit target for
 // every outbound one (instead of '*') so selected-element data is never
-// handed to some other page that happened to iframe this one.
-const TRUSTED_CONSOLE_ORIGIN = 'https://gayz-console.onrender.com'
+// handed to some other page that happened to iframe this one. Moved from
+// Render (gayz-console.onrender.com) to Vercel (gayzconsole.vercel.app) -
+// the console's own backend (password check) is now a Vercel serverless
+// function instead of a persistent Express server, see gayz-console's own
+// api/verify.js.
+const TRUSTED_CONSOLE_ORIGIN = 'https://gayzconsole.vercel.app'
 
 let pickerEnabled = false
 let selectedEl = null
