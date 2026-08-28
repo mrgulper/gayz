@@ -3931,7 +3931,6 @@ export class Game {
     this.clanMakeForm = document.getElementById('clan-make-form')
     this.clanAllList = document.getElementById('clan-all-list')
     this.clanCreateNameInput = document.getElementById('clan-create-name-input')
-    this.clanCreateTagInput = document.getElementById('clan-create-tag-input')
     this.clanCreateBtn = document.getElementById('clan-create-btn')
     this.clanCreateTakenWarning = document.getElementById('clan-create-taken-warning')
     this.clanRequestNameInput = document.getElementById('clan-request-name-input')
@@ -11382,15 +11381,11 @@ export class Game {
     // picked) rather than defaulted to some region - the security rule's
     // own enum check only applies when the field is present at all.
     if (this.settings.region && this.settings.region !== 'global') entry.region = this.settings.region
-    // Clan tag denormalized onto the player's own leaderboard doc so
-    // _renderLeaderboardRows can show it with no extra per-row query -
     // this.settings.clanId is the local membership cache (see
-    // _refreshClanUi), this._myClanTag is set whenever that cache is
-    // populated (create/join/refresh).
-    if (this.settings.clanId) {
-      entry.clanId = this.settings.clanId
-      if (this._myClanTag) entry.clanTag = this._myClanTag
-    }
+    // _refreshClanUi) - denormalized onto the player's own leaderboard doc
+    // so fetchClanCombinedStats can sum a clan's kills/night with one
+    // where('clanId', ...) query instead of a per-member fetch.
+    if (this.settings.clanId) entry.clanId = this.settings.clanId
     CloudSync.pushLeaderboardEntry(this._cloudUid, entry).catch(() => {})
     CloudSync.pushWeeklyLeaderboardEntry(_thisWeekStr(), this._cloudUid, {
       name,
@@ -19653,8 +19648,7 @@ export class Game {
       this.clanCreateBtn.addEventListener('click', async () => {
         if (!this._cloudUid) return
         const name = this.clanCreateNameInput.value.trim()
-        const tag = this.clanCreateTagInput.value.trim().toUpperCase()
-        if (!name || !tag) return
+        if (!name) return
         // Keyboard-only check mirrors the security rule's own name.matches()
         // pattern (see FIRESTORE_SECURITY_RULES) - catches it here with an
         // immediate message instead of a generic failure after a rejected
@@ -19672,12 +19666,10 @@ export class Game {
         }
         this.clanCreateTakenWarning.style.display = 'none'
         const nickname = this.settings.nickname || t('playerShowcaseTitleDefault')
-        const clanId = await CloudSync.createClan(this._cloudUid, nickname, name, tag).catch(() => null)
+        const clanId = await CloudSync.createClan(this._cloudUid, nickname, name).catch(() => null)
         if (!clanId) return
         this.settings.clanId = clanId
-        this.settings.clanTag = tag
         this.settings.clanName = name
-        this._myClanTag = tag
         saveSettings(this.settings)
         this._renderPlayerTag()
         this._refreshClanUi()
@@ -19741,9 +19733,7 @@ export class Game {
           const result = await CloudSync.acceptClanInvite(acceptBtn.dataset.clanId, this._cloudUid, nickname).catch(() => ({ ok: false }))
           if (!result.ok) return
           this.settings.clanId = acceptBtn.dataset.clanId
-          this.settings.clanTag = acceptBtn.dataset.clanTag
           this.settings.clanName = acceptBtn.dataset.clanName
-          this._myClanTag = acceptBtn.dataset.clanTag
           saveSettings(this.settings)
           this._renderPlayerTag()
           this._refreshClanUi()
@@ -19769,7 +19759,7 @@ export class Game {
         }
         const clan = await CloudSync.fetchClanById(this.settings.clanId).catch(() => null)
         if (!clan) return
-        await CloudSync.sendClanInvite(this.settings.clanId, clan.name, clan.tag, target.uid).catch(() => {})
+        await CloudSync.sendClanInvite(this.settings.clanId, clan.name, target.uid).catch(() => {})
         this.clanInviteStatus.textContent = t('clanInviteSent')
         this.clanInviteStatus.style.display = 'block'
         this.clanInviteIdInput.value = ''
@@ -19790,9 +19780,7 @@ export class Game {
         await CloudSync.leaveClan(clanId, this._cloudUid).catch(() => {})
         if (isSoleOwner) await CloudSync.deleteClan(clanId).catch(() => {})
         this.settings.clanId = null
-        this.settings.clanTag = null
         this.settings.clanName = null
-        this._myClanTag = null
         saveSettings(this.settings)
         this._renderPlayerTag()
         this._refreshClanUi()
@@ -19877,9 +19865,7 @@ export class Game {
       const ledClan = await CloudSync.fetchClanILead(this._cloudUid).catch(() => null)
       if (ledClan) {
         this.settings.clanId = ledClan.clanId
-        this.settings.clanTag = ledClan.tag
         this.settings.clanName = ledClan.name
-        this._myClanTag = ledClan.tag
         saveSettings(this.settings)
         this._renderPlayerTag()
       } else {
@@ -19914,9 +19900,7 @@ export class Game {
     }
     if (!me) {
       this.settings.clanId = null
-      this.settings.clanTag = null
       this.settings.clanName = null
-      this._myClanTag = null
       saveSettings(this.settings)
       this._renderPlayerTag()
       this._updateChatTabAvailability()
@@ -19932,13 +19916,11 @@ export class Game {
 
     const clan = await CloudSync.fetchClanById(this.settings.clanId).catch(() => null)
     if (!clan) return
-    this._myClanTag = clan.tag
-    // Backfill for an account whose settings.clanTag/clanName weren't
-    // cached yet (e.g. joined before this caching existed) - keeps the
-    // homepage's clan-name-above-nickname display (_renderPlayerTag) in
-    // sync without it needing its own live fetch on every page load.
-    if (this.settings.clanTag !== clan.tag || this.settings.clanName !== clan.name) {
-      this.settings.clanTag = clan.tag
+    // Backfill for an account whose settings.clanName wasn't cached yet
+    // (e.g. joined before this caching existed) - keeps the homepage's
+    // clan-name-above-nickname display (_renderPlayerTag) in sync without
+    // it needing its own live fetch on every page load.
+    if (this.settings.clanName !== clan.name) {
       this.settings.clanName = clan.name
       saveSettings(this.settings)
       this._renderPlayerTag()
@@ -20027,7 +20009,7 @@ export class Game {
       <div class="clan-list-row">
         <span>${t('clanInviteRowLabel', { name: _escapeHtml(inv.clanName) })}</span>
         <span>
-          <button type="button" class="clan-invite-accept-btn" data-clan-id="${inv.clanId}" data-clan-tag="${_escapeHtml(inv.clanTag)}" data-clan-name="${_escapeHtml(inv.clanName)}">${t('clanAcceptBtn')}</button>
+          <button type="button" class="clan-invite-accept-btn" data-clan-id="${inv.clanId}" data-clan-name="${_escapeHtml(inv.clanName)}">${t('clanAcceptBtn')}</button>
           <button type="button" class="clan-invite-decline-btn" data-clan-id="${inv.clanId}">${t('clanDeclineBtn')}</button>
         </span>
       </div>
@@ -20045,7 +20027,7 @@ export class Game {
       ? clans.map((c, i) => `
         <div class="clan-list-row">
           <span>${_escapeHtml(c.name)}${counts[i] == null ? '' : ` <span class="clan-list-count">(${counts[i]}/${CloudSync.CLAN_MEMBER_CAP})</span>`}</span>
-          <button type="button" class="clan-list-join-btn mini-action-btn" data-clan-id="${c.clanId}" data-clan-tag="${_escapeHtml(c.tag)}">${t('clanJoinBtn')}</button>
+          <button type="button" class="clan-list-join-btn mini-action-btn" data-clan-id="${c.clanId}">${t('clanJoinBtn')}</button>
         </div>
       `).join('')
       : `<p>${t('clanListEmpty')}</p>`

@@ -140,7 +140,11 @@ service cloud.firestore {
         && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 24
         && request.resource.data.name.matches('[ -~]+')
         && request.resource.data.nameLower is string && request.resource.data.nameLower == request.resource.data.name.lower()
-        && request.resource.data.tag is string && request.resource.data.tag.size() > 0 && request.resource.data.tag.size() <= 4
+        // tag is no longer collected at creation (dropped per request - it
+        // was never actually shown anywhere) - kept optional rather than
+        // removed outright so an old clan's already-stored tag field isn't
+        // treated as invalid on some future update.
+        && (!('tag' in request.resource.data) || (request.resource.data.tag is string && request.resource.data.tag.size() <= 4))
         && request.resource.data.leaderNickname is string && request.resource.data.leaderNickname.size() > 0 && request.resource.data.leaderNickname.size() <= 16
         && request.resource.data.createdAt is int;
       // leaderId is normally pinned to its existing value, but a hand-off
@@ -155,7 +159,7 @@ service cloud.firestore {
         && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 24
         && request.resource.data.name.matches('[ -~]+')
         && request.resource.data.nameLower is string && request.resource.data.nameLower == request.resource.data.name.lower()
-        && request.resource.data.tag is string && request.resource.data.tag.size() > 0 && request.resource.data.tag.size() <= 4;
+        && (!('tag' in request.resource.data) || (request.resource.data.tag is string && request.resource.data.tag.size() <= 4));
       allow delete: if request.auth != null && request.auth.uid == resource.data.leaderId;
     }
 
@@ -236,7 +240,6 @@ service cloud.firestore {
       allow create: if request.auth != null
         && get(/databases/$(database)/documents/clans/$(clanId)/members/$(request.auth.uid)).data.role in ['owner', 'elder']
         && request.resource.data.clanName is string && request.resource.data.clanName.size() > 0 && request.resource.data.clanName.size() <= 24
-        && request.resource.data.clanTag is string && request.resource.data.clanTag.size() > 0 && request.resource.data.clanTag.size() <= 4
         && request.resource.data.invitedAt is int;
       allow delete: if request.auth != null
         && (request.auth.uid == toUid
@@ -561,14 +564,14 @@ export async function fetchLeaderboardEntryByPlayerId(playerId) {
 // membership doc is created in the SAME call (not left to a separate
 // joinClan call) so a freshly created clan never has zero members even
 // for a moment.
-export async function createClan(leaderUid, leaderNickname, name, tag) {
+export async function createClan(leaderUid, leaderNickname, name) {
   const { db, fsMod } = await ensureApp()
   const clanRef = fsMod.doc(fsMod.collection(db, 'clans'))
   // nameLower makes the uniqueness check (fetchClanByName) case-insensitive -
   // "Fire", "FIRE", and "fire" are all the same taken name. Firestore has no
   // case-insensitive query operator, so this is the standard workaround:
   // store a normalized copy, query against that instead of the display name.
-  await fsMod.setDoc(clanRef, { name, nameLower: name.toLowerCase(), tag, leaderId: leaderUid, leaderNickname, createdAt: Date.now() })
+  await fsMod.setDoc(clanRef, { name, nameLower: name.toLowerCase(), leaderId: leaderUid, leaderNickname, createdAt: Date.now() })
   try {
     await fsMod.setDoc(fsMod.doc(db, 'clans', clanRef.id, 'members', leaderUid), { nickname: leaderNickname, joinedAt: Date.now(), role: 'owner' })
   } catch (err) {
@@ -685,9 +688,9 @@ export async function denyJoinRequest(clanId, uid) {
 // invite per clan per target). The invitee accepts (creates their own
 // member doc, which the security rule only allows because this invite
 // doc exists) or declines (just deletes it).
-export async function sendClanInvite(clanId, clanName, clanTag, toUid) {
+export async function sendClanInvite(clanId, clanName, toUid) {
   const { db, fsMod } = await ensureApp()
-  await fsMod.setDoc(fsMod.doc(db, 'clanInvites', toUid, 'incoming', clanId), { clanName, clanTag, invitedAt: Date.now() })
+  await fsMod.setDoc(fsMod.doc(db, 'clanInvites', toUid, 'incoming', clanId), { clanName, invitedAt: Date.now() })
 }
 
 export async function fetchIncomingClanInvites(uid) {
