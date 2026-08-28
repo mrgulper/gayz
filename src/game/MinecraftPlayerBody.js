@@ -16,6 +16,20 @@ export async function preloadMinecraftPlayerSkin() {
   _skinCache = await _skinPromise
 }
 
+// Keyed by the raw data URL string - a session with several remote players
+// who never customized their skin would otherwise decode the exact same
+// default PNG bytes over and over, once per body. Module-level (not
+// per-body) since the same skin can recur across bodies within one session
+// and, for the shared default case, across sessions too.
+const _remoteSkinPromises = new Map()
+
+function _loadRemoteSkin(dataUrl) {
+  if (!_remoteSkinPromises.has(dataUrl)) {
+    _remoteSkinPromises.set(dataUrl, loadSkinTexture(dataUrl).catch(() => _skinCache))
+  }
+  return _remoteSkinPromises.get(dataUrl)
+}
+
 // buildTexturedCharacter()'s boxes are built in raw skin-pixel units with
 // the character's FEET sitting at local y=-2, not y=0 (legs are 12 tall,
 // centered at y=4, so their bottom edge is 4 - 6 = -2) - this game's own
@@ -52,6 +66,13 @@ function _buildNicknameSprite(nickname) {
   return sprite
 }
 
+function _disposeCharacterMesh(mesh) {
+  mesh.traverse((obj) => {
+    if (obj.geometry) obj.geometry.dispose()
+    if (obj.material) obj.material.dispose()
+  })
+}
+
 export class MinecraftPlayerBody {
   constructor(scene) {
     this.group = new THREE.Group()
@@ -62,9 +83,39 @@ export class MinecraftPlayerBody {
     this._inner = new THREE.Group()
     this._inner.scale.setScalar(SCALE)
     this._inner.position.y = -RAW_FEET_Y * SCALE
-    if (_skinCache) this._inner.add(buildTexturedCharacter(_skinCache))
+    // Built with the shared default skin immediately (never left empty
+    // while a real skin loads) - setSkin() below swaps this out once this
+    // player's own real skin (if any) comes back from the server.
+    this._characterMesh = _skinCache ? buildTexturedCharacter(_skinCache) : null
+    if (this._characterMesh) this._inner.add(this._characterMesh)
+    this._appliedSkinUrl = null
     this.group.add(this._inner)
     scene.add(this.group)
+  }
+
+  // Swaps this one player's body onto their own real skin instead of the
+  // shared default - see _renderRemotePlayers' first-seen branch in
+  // Game.js, which fetches it once per player per session (not on every
+  // sync tick) and calls this exactly once as a result. A null/undefined
+  // dataUrl (never customized) is a no-op - the default already applied
+  // at construction is correct as-is.
+  async setSkin(dataUrl) {
+    if (!dataUrl || dataUrl === this._appliedSkinUrl) return
+    this._pendingSkinUrl = dataUrl
+    const skin = await _loadRemoteSkin(dataUrl)
+    // The body may have been removed (player left) while this was loading,
+    // or setSkin called again with a newer value - either way, don't apply
+    // a stale result to a group that's no longer in the scene, or clobber
+    // a more recent call's result.
+    if (!this.group.parent || dataUrl !== this._pendingSkinUrl) return
+    const mesh = buildTexturedCharacter(skin)
+    if (this._characterMesh) {
+      this._inner.remove(this._characterMesh)
+      _disposeCharacterMesh(this._characterMesh)
+    }
+    this._characterMesh = mesh
+    this._inner.add(mesh)
+    this._appliedSkinUrl = dataUrl
   }
 
   update(feetX, feetY, feetZ, yaw, visible) {

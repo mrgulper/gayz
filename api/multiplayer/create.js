@@ -15,23 +15,39 @@ function generateSessionId() {
   return id
 }
 
+// Data-URL PNGs only (see loadSkinTexture's own two accepted source
+// shapes) - a plain string field on the same players/{playerId} node
+// nickname already lives on, read back once per remote player by
+// player-skin.js rather than attached to every sync response (a 64x64
+// skin is a few KB - resending it every ~100ms poll for every player in
+// the session would add up fast for something that essentially never
+// changes mid-match, unlike position). Capped well above any real skin's
+// encoded size purely as a sanity bound against a malformed/huge value.
+const MAX_SKIN_DATA_URL_LENGTH = 50000
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
-  const { nickname } = req.body || {}
+  const { nickname, skinDataUrl } = req.body || {}
   if (!nickname || typeof nickname !== 'string') {
     return res.status(400).json({ error: 'nickname is required' })
   }
+  const validSkin = typeof skinDataUrl === 'string' && skinDataUrl.startsWith('data:image/') && skinDataUrl.length <= MAX_SKIN_DATA_URL_LENGTH
+    ? skinDataUrl
+    : null
 
   const db = getAdminDb()
   const sessionId = generateSessionId()
   const playerId = randomUUID()
   const now = Date.now()
 
+  const playerEntry = { nickname, joinedAt: now }
+  if (validSkin) playerEntry.skinDataUrl = validSkin
+
   await db.ref(`multiplayerSessions/${sessionId}`).set({
     host: playerId,
     createdAt: now,
     players: {
-      [playerId]: { nickname, joinedAt: now },
+      [playerId]: playerEntry,
     },
   })
 

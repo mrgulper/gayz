@@ -60,16 +60,27 @@ async function _apiCall(path, body) {
 // per browser tab.
 const _playerIdFor = new Map()
 
-export async function createSession(nickname) {
-  const { sessionId, playerId, joinedAt } = await _apiCall('create', { nickname })
+// skinDataUrl is optional (null for a player who never customized one) -
+// see create.js's own comment for why this is written once here rather
+// than sent on every sync call.
+export async function createSession(nickname, skinDataUrl) {
+  const { sessionId, playerId, joinedAt } = await _apiCall('create', { nickname, skinDataUrl })
   _playerIdFor.set(sessionId, playerId)
   return { sessionId, uid: playerId, joinedAt }
 }
 
-export async function joinSession(sessionId, nickname) {
-  const { playerId, joinedAt } = await _apiCall('join', { sessionId, nickname })
+export async function joinSession(sessionId, nickname, skinDataUrl) {
+  const { playerId, joinedAt } = await _apiCall('join', { sessionId, nickname, skinDataUrl })
   _playerIdFor.set(sessionId, playerId)
   return { uid: playerId, joinedAt }
+}
+
+// One-off lookup for a single remote player's skin - see
+// api/multiplayer/player-skin.js's own comment for why this isn't just
+// folded into the regular sync response.
+export async function fetchPlayerSkin(sessionId, playerId) {
+  const { skinDataUrl } = await _apiCall('player-skin', { sessionId, playerId })
+  return skinDataUrl
 }
 
 // Writes this player's own state and returns everyone else's current

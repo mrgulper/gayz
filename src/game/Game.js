@@ -15982,7 +15982,7 @@ export class Game {
     const nickname = this.settings.nickname || 'Player'
     let sessionId, uid, joinedAt
     try {
-      ({ sessionId, uid, joinedAt } = await Multiplayer.createSession(nickname))
+      ({ sessionId, uid, joinedAt } = await Multiplayer.createSession(nickname, this.settings.customSkinDataUrl))
     } catch {
       this.multiplayerCreateDesc.textContent = t('multiplayerCreateFailed')
       this.multiplayerCreateBtn.style.display = 'block'
@@ -16021,7 +16021,7 @@ export class Game {
     const Multiplayer = await import('./Multiplayer.js')
     const nickname = this.settings.nickname || 'Player'
     try {
-      const { uid, joinedAt } = await Multiplayer.joinSession(sessionId, nickname)
+      const { uid, joinedAt } = await Multiplayer.joinSession(sessionId, nickname, this.settings.customSkinDataUrl)
       this._multiplayerSessionId = sessionId
       this._multiplayerUid = uid
       this._updateChatTabAvailability()
@@ -16456,6 +16456,16 @@ export class Game {
       if (!body) {
         body = new MinecraftPlayerBody(this.scene)
         this._remotePlayerBodies.set(id, body)
+        // Fire-and-forget, once per player per session (not on every sync
+        // tick) - see Multiplayer.fetchPlayerSkin's own comment for why
+        // this is its own lookup instead of riding along on `state`.
+        // body.setSkin is a no-op if this player never set a custom skin
+        // (server returns null) or if the body's already gone by the time
+        // this resolves.
+        import('./Multiplayer.js')
+          .then((Multiplayer) => Multiplayer.fetchPlayerSkin(this._multiplayerSessionId, id))
+          .then((skinDataUrl) => body.setSkin(skinDataUrl))
+          .catch(() => {})
       }
       body.update(state.x, state.y, state.z, state.rotY, true)
       body.setNickname(state.nickname || 'Player')
