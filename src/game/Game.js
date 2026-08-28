@@ -13135,21 +13135,52 @@ export class Game {
   // lands on the plain homepage rather than actually re-entering Build
   // Mode - a real limitation, not attempted here given how much more
   // involved Build Mode's own startup sequence is than any of these.
+  // Builds a panel's subTabs list from its tab buttons' shared "active"
+  // class convention (every one of these 6 tab systems - Settings,
+  // General/Clan/Market, Game Mode's Survival/Deathmatch, Quests,
+  // Achievements' Survival/Deathmatch, Inventory - toggles class="...-tab
+  // active" on whichever button was clicked, even though each uses its
+  // own element-id prefix and its own way of switching the tab CONTENT
+  // underneath). Reusing that one shared signal (not each tab system's
+  // own content-visibility mechanism, which varies) keeps this generic
+  // instead of needing bespoke logic per panel.
+  _subTabsFor(idPrefix, slugs) {
+    return slugs.map((slug) => ({ slug, btn: document.getElementById(idPrefix + slug) })).filter((s) => s.btn)
+  }
+
   _bindPanelRouting() {
     this._routes = [
       { slug: 'store', panel: this.shopPanel, open: () => this._openShopPanel() },
       { slug: 'upgrades', panel: this.upgradesPanel, open: () => this._openUpgradesPanel() },
-      { slug: 'quests', panel: this.questsPanel, open: () => this._openQuestsPanel() },
+      {
+        slug: 'quests', panel: this.questsPanel, open: () => this._openQuestsPanel(),
+        subTabs: this._subTabsFor('quest-tab-', ['rolling', 'monthly', 'yearly', 'lifetime']),
+      },
       { slug: 'friends', panel: this.friendsPanel, open: () => this._openFriendsPanel() },
-      { slug: 'achievements', panel: this.achievementsPanel, open: () => this._openAchievementsPanel() },
-      { slug: 'inventory', panel: this.menuInventoryPanel, open: () => this._openMenuInventoryPanel() },
+      {
+        slug: 'achievements', panel: this.achievementsPanel, open: () => this._openAchievementsPanel(),
+        subTabs: this._subTabsFor('achievements-tab-', ['survival', 'deathmatch']),
+      },
+      {
+        slug: 'inventory', panel: this.menuInventoryPanel, open: () => this._openMenuInventoryPanel(),
+        subTabs: this._subTabsFor('inventory-tab-', ['character', 'crates', 'weapons']),
+      },
       { slug: 'global', panel: this.serverPanel, open: () => this._openServerPanel() },
-      { slug: 'general', panel: this.clanPanel, open: () => this._openClanPanel() },
-      { slug: 'settings', panel: this.settingsPanel, open: () => this._toggleSettings(true) },
+      {
+        slug: 'general', panel: this.clanPanel, open: () => this._openClanPanel(),
+        subTabs: this._subTabsFor('general-tab-', ['general', 'clan', 'market']),
+      },
+      {
+        slug: 'settings', panel: this.settingsPanel, open: () => this._toggleSettings(true),
+        subTabs: this._subTabsFor('tab-', ['general', 'language', 'audio', 'controls', 'theme', 'graphics']),
+      },
       { slug: 'credits', panel: this.creditsPanel, open: () => this._openCreditsPanel() },
       { slug: 'how-to-play', panel: this.howtoplayPanel, open: () => this._openHowToPlayPanel() },
       { slug: 'whats-new', panel: this.whatsNewPanel, open: () => this._openWhatsNewPanel() },
-      { slug: 'gamemode', panel: this.hubPanel, open: () => this._openHubPanel() },
+      {
+        slug: 'gamemode', panel: this.hubPanel, open: () => this._openHubPanel(),
+        subTabs: this._subTabsFor('hub-tab-', ['survival', 'deathmatch']),
+      },
     ].filter((route) => route.panel)
 
     // getComputedStyle, not panel.style.display directly - #settings-panel
@@ -13160,9 +13191,21 @@ export class Game {
     // 'none', so a raw .style.display check treated Settings as already
     // open from the very first page load, before anything was clicked.
     const isOpen = (panel) => getComputedStyle(panel).display !== 'none'
+    const isActiveTab = (btn) => btn.classList.contains('active')
 
-    // Reacts to the NET open panel across a whole batch of mutations, not
-    // each individual transition - opening a new panel calls
+    const computeTargetPath = () => {
+      const openRoute = this._routes.find((r) => isOpen(r.panel))
+      if (!openRoute) return '/'
+      let path = '/' + openRoute.slug
+      if (openRoute.subTabs) {
+        const activeSub = openRoute.subTabs.find((s) => isActiveTab(s.btn))
+        if (activeSub) path += '/' + activeSub.slug
+      }
+      return path
+    }
+
+    // Reacts to the NET open panel/tab across a whole batch of mutations,
+    // not each individual transition - opening a new panel calls
     // _closeAllMenuPanels() first, hiding whichever was already open in
     // the SAME synchronous tick (MutationObserver batches same-tick
     // mutations into one callback), so reacting per-mutation would push an
@@ -13170,31 +13213,43 @@ export class Game {
     // harmless-looking, but it means pressing Back once lands on that
     // empty "/" instead of the panel you were actually on before.
     const observer = new MutationObserver(() => {
-      const openRoute = this._routes.find((r) => isOpen(r.panel))
-      const targetPath = openRoute ? '/' + openRoute.slug : '/'
-      if (location.pathname !== targetPath) {
-        history.pushState(openRoute ? { slug: openRoute.slug } : {}, '', targetPath)
-      }
+      const targetPath = computeTargetPath()
+      if (location.pathname !== targetPath) history.pushState({}, '', targetPath)
     })
     for (const route of this._routes) {
       observer.observe(route.panel, { attributes: true, attributeFilter: ['style'] })
+      if (route.subTabs) {
+        for (const sub of route.subTabs) observer.observe(sub.btn, { attributes: true, attributeFilter: ['class'] })
+      }
     }
 
     window.addEventListener('popstate', () => this._applyRouteFromUrl())
     // Initial load - restores whichever panel (if any) the URL names, e.g.
-    // a shared/bookmarked gayz.vercel.app/store link.
+    // a shared/bookmarked gayz.vercel.app/settings/language link.
     this._applyRouteFromUrl()
   }
 
   _applyRouteFromUrl() {
     if (!this._routes || this.gameStarted) return
-    const slug = location.pathname.replace(/^\/+|\/+$/g, '')
+    const [slug, subSlug] = location.pathname.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean)
     if (!slug) {
       this._closeAllMenuPanels()
       return
     }
     const route = this._routes.find((r) => r.slug === slug)
-    if (route) route.open()
+    if (!route) return
+    route.open()
+    // Runs AFTER open() on purpose - some panels reset to their own
+    // default tab as part of opening (e.g. Inventory's "always reopen on
+    // the first tab" convention), so the URL's requested sub-tab has to
+    // be applied afterward to actually win. A real .click() (not just
+    // toggling the class this file's own observer reads) so every other
+    // real click handler's own side effects still run exactly as if a
+    // person had clicked it themselves.
+    if (subSlug && route.subTabs) {
+      const sub = route.subTabs.find((s) => s.slug === subSlug)
+      if (sub) sub.btn.click()
+    }
   }
 
   // Every top-level menu panel shares the same z-index (see style.css), so

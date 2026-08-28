@@ -5,16 +5,22 @@
     { "source": "/store", "destination": "/index.html" },
     { "source": "/upgrades", "destination": "/index.html" },
     { "source": "/quests", "destination": "/index.html" },
+    { "source": "/quests/:tab", "destination": "/index.html" },
     { "source": "/friends", "destination": "/index.html" },
     { "source": "/achievements", "destination": "/index.html" },
+    { "source": "/achievements/:tab", "destination": "/index.html" },
     { "source": "/inventory", "destination": "/index.html" },
+    { "source": "/inventory/:tab", "destination": "/index.html" },
     { "source": "/global", "destination": "/index.html" },
     { "source": "/general", "destination": "/index.html" },
+    { "source": "/general/:tab", "destination": "/index.html" },
     { "source": "/settings", "destination": "/index.html" },
+    { "source": "/settings/:tab", "destination": "/index.html" },
     { "source": "/credits", "destination": "/index.html" },
     { "source": "/how-to-play", "destination": "/index.html" },
     { "source": "/whats-new", "destination": "/index.html" },
     { "source": "/gamemode", "destination": "/index.html" },
+    { "source": "/gamemode/:tab", "destination": "/index.html" },
     { "source": "/map-editor", "destination": "/index.html" }
   ]
 }
