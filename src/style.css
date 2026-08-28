@@ -6804,6 +6804,20 @@ html.ui-theme-old #menu-nav-buttons button {
   box-shadow: 0 0 14px 1px rgba(227, 166, 60, 0.35);
 }
 
+/* These buttons never got the same outline:none-on-click treatment
+   .nickname-input/select/#play-btn already have elsewhere in this file -
+   the browser's own plain rectangular focus outline doesn't follow the
+   plate art's actual (non-rectangular) shape, reading as a stray box
+   around the button, most noticeable against the Old theme's more
+   ornate plaque art. :not(:focus-visible) only suppresses it for a mouse
+   click - real keyboard Tab navigation still shows a focus indicator
+   (and the opt-in Focus Ring Mode setting's own gold outline, see
+   html.focus-ring-mode above, is untouched either way since it only ever
+   targets :focus-visible, never plain :focus). */
+#menu-nav-buttons button:focus:not(:focus-visible) {
+  outline: none;
+}
+
 /* Small pill-style utility link row (Rules & Info / What's New / Credits /
    Discord) - a compact rounded pill of plain underlined text links with a
    dot divider between them, distinct from the big icon-card nav above.
