@@ -5589,6 +5589,7 @@ export class Game {
     })
     this._bindItemKeys()
     this._bindHotbar()
+    this._bindNavButtonFocusFix()
     this._bindClanSection()
     this._bindChatWidget()
     this._bindSettings()
@@ -19704,6 +19705,33 @@ export class Game {
     }
     this._chatMuteTimer = setInterval(tick, 1000)
     tick()
+  }
+
+  // Prevents the sidebar nav buttons (General/Store/Upgrades/etc.) from
+  // ever receiving keyboard-style focus from a mouse click at all -
+  // reported as a stray rectangle appearing around the button after
+  // clicking it (most visible against the Old theme's more ornate plaque
+  // art, whose non-rectangular shape a plain focus rectangle never
+  // followed anyway). An earlier CSS-only attempt
+  // (#menu-nav-buttons button:focus:not(:focus-visible)) relies on the
+  // browser's own mouse-vs-keyboard heuristic for :focus-visible, which
+  // didn't reliably suppress it in the real browser this was reported
+  // from even after a hard refresh confirmed the new CSS was loaded -
+  // this is the more forceful, browser-heuristic-independent fix:
+  // preventing default on mousedown stops the browser from ever moving
+  // focus to the button in the first place for a mouse interaction, so
+  // no focus-dependent style (this rule's own outline included) has
+  // anything to key off. The click event itself still fires normally -
+  // preventing mousedown's default only cancels the incidental focus
+  // that comes with it, not the click. Real keyboard Tab navigation is
+  // untouched (Tab never dispatches mousedown), so keyboard focus/
+  // activation and the opt-in Focus Ring Mode setting both still work.
+  _bindNavButtonFocusFix() {
+    const nav = document.getElementById('menu-nav-buttons')
+    if (!nav) return
+    nav.addEventListener('mousedown', (e) => {
+      if (e.target.closest('button')) e.preventDefault()
+    })
   }
 
   // Clan section (Hub panel) - see docs/superpowers/specs/
