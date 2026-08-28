@@ -20232,8 +20232,15 @@ export class Game {
   }
 
   _rollWeather() {
-    this._ensureWeatherParticles(this.rainOverlayEl, 80, 'rain-particle', [0.7, 1.3])
-    this._ensureWeatherParticles(this.snowOverlayEl, 50, 'snow-particle', [5, 10], 15)
+    // Doubled count and fall duration for both (per request, "harder"
+    // rain/snow) - a longer per-particle fall duration means each one
+    // moves slower/lingers longer on screen (see @keyframes particle-fall
+    // in style.css - it loops infinitely, so this is purely a speed knob,
+    // not how long the whole night's rain/snow lasts), which combined
+    // with twice as many at once reads as a much heavier downpour/
+    // blizzard rather than just "more of the same speed."
+    this._ensureWeatherParticles(this.rainOverlayEl, 160, 'rain-particle', [1.4, 2.6])
+    this._ensureWeatherParticles(this.snowOverlayEl, 100, 'snow-particle', [9, 18], 15)
     // Perfect Weather (see PERFECT_WEATHER_CHANCE's own comment) - checked
     // first and, if it hits, short-circuits every other weather state off
     // for the night rather than being just another slice of the same roll.
