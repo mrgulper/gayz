@@ -8859,10 +8859,22 @@ html.night-vision-active #app {
   width: 420px;
   height: 320px;
   pointer-events: auto;
-  background: var(--menu-panel-bg, rgba(7, 8, 8, 0.95));
+  /* Deliberately its own low-alpha background, NOT --menu-panel-bg (that
+     variable's ~0.92-0.95 alpha is right for a full-screen modal but
+     blocks the actual gameplay behind this always-visible HUD box - per
+     feedback that it hid zombies/whatever else was underneath it).
+     backdrop-filter (same value already used on .menu-panel) keeps the
+     text legible against a busy moving scene without needing much
+     opacity to do it. */
+  background: rgba(7, 8, 8, 0.35);
+  backdrop-filter: blur(2px);
   border: 1px solid var(--menu-panel-border, rgba(138, 109, 71, 0.5));
   border-radius: 8px;
   overflow: hidden;
+}
+
+html.ui-theme-old #chat-panel {
+  background: rgba(21, 15, 9, 0.35);
 }
 
 #chat-channel-tabs {
@@ -8940,7 +8952,10 @@ html.night-vision-active #app {
   padding: 6px 8px;
   font-size: 12px;
   color: #eee;
-  background: rgba(255, 255, 255, 0.06);
+  /* A bit stronger than before (was 0.06) - #chat-panel's own background
+     is much lower-alpha now (see its comment), so the input needs more
+     of its own fill to still read as a distinct typing box. */
+  background: rgba(255, 255, 255, 0.14);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 4px;
 }
