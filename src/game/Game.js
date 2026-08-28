@@ -6148,8 +6148,23 @@ export class Game {
     // Don't also reset them or pop the pause menu on top when that's why
     // we just unlocked. Inventory (see _bindItemKeys) now does the same
     // unlock-on-open/lock-on-close dance as the others, closed via its
-    // own always-on Tab/Escape listener rather than here.
-    if (this.screenshotCropOpen || this.perkPanelOpen || this.xpLevelupPanelOpen || this.traderPanelOpen || this.inventoryOpen) {
+    // own always-on Tab/Escape listener rather than here. Upgrades/
+    // Settings/Weapon Picker/Multiplayer-invite (all reachable from the
+    // pause overlay too, same "hide pause overlay explicitly" pattern in
+    // their own _openXPanel) were missing from this list - the safety-net
+    // Escape listener above (added for the beforeunload-dialog stuck-
+    // mouse bug) would otherwise re-trigger this function while one of
+    // them was open, popping the pause overlay underneath it and hiding
+    // the whole HUD, leaving the still-open panel stuck on screen with
+    // nothing closing it - reported as "the Upgrades thing is on my
+    // screen" after Escape, Upgrades, Escape.
+    if (
+      this.screenshotCropOpen || this.perkPanelOpen || this.xpLevelupPanelOpen || this.traderPanelOpen || this.inventoryOpen ||
+      this.settingsOpen ||
+      (this.upgradesPanel && this.upgradesPanel.style.display !== 'none') ||
+      (this.weaponPickerPanel && this.weaponPickerPanel.style.display !== 'none') ||
+      (this.multiplayerPanel && this.multiplayerPanel.style.display !== 'none')
+    ) {
       // handled by whichever panel is open
     } else if (this.gameStarted) {
       audioEngine.pause()
@@ -6948,6 +6963,18 @@ export class Game {
       } else if (this.inventoryOpen && (e.code === 'Tab' || e.code === 'Escape')) {
         e.preventDefault()
         this._closeInventoryPanel()
+      } else if (e.code === 'Escape' && this.upgradesPanel && this.upgradesPanel.style.display !== 'none') {
+        // Upgrades (reachable from the pause overlay too, see
+        // pauseUpgradesBtn) had no Escape-to-close at all before this -
+        // only its own backdrop click did anything, so Escape here used
+        // to be a silent no-op and the panel just sat there however long
+        // you kept pressing it (reported as "the Upgrades thing is on my
+        // screen" after Escape, Upgrades, Escape).
+        this._closeUpgradesPanel()
+      } else if (e.code === 'Escape' && this.settingsOpen) {
+        this._toggleSettings(false)
+      } else if (e.code === 'Escape' && this.multiplayerPanel && this.multiplayerPanel.style.display !== 'none') {
+        this._closeMultiplayerPanel()
       }
     })
   }
