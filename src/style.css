@@ -6798,10 +6798,24 @@ html.ui-theme-old #menu-nav-buttons button {
 }
 
 #menu-nav-buttons button:hover {
-  filter: brightness(1.18);
+  /* box-shadow (what this replaces) always follows the element's plain
+     rectangular box, regardless of what's actually drawn inside it - on
+     a non-rounded button (border-radius: 0) whose background is a
+     faceted/beveled plaque image with transparent corners, that meant a
+     visible rectangular glow poking out past the artwork's real (non-
+     rectangular) silhouette. drop-shadow is a filter, not a box-model
+     effect - it follows the element's actual rendered alpha shape, so
+     the glow now hugs the plaque art itself. Combined into one filter
+     value (brightness first) since only one `filter` declaration can
+     ever apply - a second one would silently replace, not add to, the
+     first. Reported as "a rectangle around it" on click - clicking
+     doesn't move the mouse away, so the hover state (and its glow) was
+     simply still showing, this was never actually about focus/outline.
+     See also #menu-nav-buttons button:focus/mousedown, an earlier
+     (harmless, still-worth-keeping) fix for a real but separate issue. */
+  filter: brightness(1.18) drop-shadow(0 0 10px rgba(227, 166, 60, 0.45));
   color: #fff;
   transform: translateX(2px);
-  box-shadow: 0 0 14px 1px rgba(227, 166, 60, 0.35);
 }
 
 /* These buttons never got the same outline:none-on-click treatment
