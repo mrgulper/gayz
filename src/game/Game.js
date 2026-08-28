@@ -2100,6 +2100,11 @@ const FREE_BONUS_ITEM_CHANCE = 0.1
 // shape), the rest are periodic checks in the main tick.
 const SANDSTORM_CHANCE = 0.1
 const SANDSTORM_SPEED_MULT = 0.85
+// Chance rain/snow rolls as the heavier "hard" look instead of the
+// original light one, once it's already decided to rain/snow at all -
+// see _rollWeather's own comment on why hard also locks in for a few
+// extra nights, unlike light.
+const HARD_WEATHER_CHANCE = 0.4
 // Rain slowdown (batch 5 feature) - much milder than sandstorm/flood above
 // since plain rain is common weather, not a rare punishing event. Shares
 // the same environmentMult slot (see that field's own comment) - only
@@ -3530,7 +3535,9 @@ export class Game {
     this.breakerBoxProgressWrap = document.getElementById('breaker-box-progress-wrap')
     this.breakerBoxFill = document.getElementById('breaker-box-fill')
     this.rainOverlayEl = document.getElementById('rain-overlay')
+    this.rainOverlayHardEl = document.getElementById('rain-overlay-hard')
     this.snowOverlayEl = document.getElementById('snow-overlay')
+    this.snowOverlayHardEl = document.getElementById('snow-overlay-hard')
     this.sandstormOverlayEl = document.getElementById('sandstorm-overlay')
     this.nightVisionOverlayEl = document.getElementById('night-vision-overlay')
     this.lightningFlashEl = document.getElementById('lightning-flash')
@@ -5930,6 +5937,12 @@ export class Game {
       this.companion.teleportTo(1.6, 7)
       this.companion.resetVitals()
       this.night = 1
+      // A fresh run's own night count starts back at 1 - without this, a
+      // hard-weather lock left over from however far the PREVIOUS run got
+      // (e.g. locked until night 8) would still be "in the future" of the
+      // new run's night 1, incorrectly skipping this run's very first
+      // weather roll and inheriting stale state instead.
+      this._weatherLockUntilNight = 0
       this.kills = 0
       this.killCountsThisRun = {}
       this.biggestHitThisRun = 0
@@ -12050,7 +12063,9 @@ export class Game {
     // already be sitting at rainOverlayEl display:block before the player
     // has ever started (or finished) a real run.
     if (this.rainOverlayEl) this.rainOverlayEl.style.display = 'none'
+    if (this.rainOverlayHardEl) this.rainOverlayHardEl.style.display = 'none'
     if (this.snowOverlayEl) this.snowOverlayEl.style.display = 'none'
+    if (this.snowOverlayHardEl) this.snowOverlayHardEl.style.display = 'none'
     // Exit/Save/Export/Import etc. now live inside #build-menu, which
     // BuildMode.js's own enter()/exit() shows/hides (see toggleMenu) -
     // same pattern already used for its hotbar/slot-picker/tool buttons,
@@ -20232,15 +20247,34 @@ export class Game {
   }
 
   _rollWeather() {
-    // Doubled count and fall duration for both (per request, "harder"
-    // rain/snow) - a longer per-particle fall duration means each one
-    // moves slower/lingers longer on screen (see @keyframes particle-fall
-    // in style.css - it loops infinitely, so this is purely a speed knob,
-    // not how long the whole night's rain/snow lasts), which combined
-    // with twice as many at once reads as a much heavier downpour/
-    // blizzard rather than just "more of the same speed."
-    this._ensureWeatherParticles(this.rainOverlayEl, 160, 'rain-particle', [1.4, 2.6])
-    this._ensureWeatherParticles(this.snowOverlayEl, 100, 'snow-particle', [9, 18], 15)
+    // Light = the original look (fewer, faster particles). Hard = per
+    // request, doubled count and fall duration - a longer per-particle
+    // fall duration means each one moves slower/lingers longer on screen
+    // (see @keyframes particle-fall in style.css - it loops infinitely, so
+    // this is purely a speed knob, not how long the whole night's rain/
+    // snow lasts), which combined with twice as many at once reads as a
+    // much heavier downpour/blizzard. Separate overlay elements (not one
+    // overlay whose particles get rebuilt) so both intensities' particles
+    // can be built once, lazily, same as before, and switching between
+    // them on a later night is just a display toggle.
+    this._ensureWeatherParticles(this.rainOverlayEl, 80, 'rain-particle', [0.7, 1.3])
+    this._ensureWeatherParticles(this.rainOverlayHardEl, 160, 'rain-particle', [1.4, 2.6])
+    this._ensureWeatherParticles(this.snowOverlayEl, 50, 'snow-particle', [5, 10], 15)
+    this._ensureWeatherParticles(this.snowOverlayHardEl, 100, 'snow-particle', [9, 18], 15)
+
+    // Hard rain/snow (per request) locks in for a few nights running
+    // instead of being subject to the normal per-night re-roll right
+    // away - reads as a real multi-night storm rather than a single
+    // passing shower. Light rain/snow (and Perfect Weather/sandstorm/
+    // heatwave/clear) keep the original single-night-at-a-time behavior.
+    // Checked before anything else so a locked-in storm can't be
+    // interrupted early by a Perfect Weather roll either. This.night has
+    // already been incremented for the new night by the time this runs
+    // (see the caller) - _weatherLockUntilNight is the first night the
+    // lock no longer applies, not the last locked one.
+    if (this._weatherLockUntilNight && this.night < this._weatherLockUntilNight) return
+    this._weatherLockUntilNight = 0
+
     // Perfect Weather (see PERFECT_WEATHER_CHANCE's own comment) - checked
     // first and, if it hits, short-circuits every other weather state off
     // for the night rather than being just another slice of the same roll.
@@ -20248,10 +20282,14 @@ export class Game {
     if (this.perfectWeather) {
       this.raining = false
       this.snowing = false
+      this.rainHard = false
+      this.snowHard = false
       this.sandstorming = false
       this.heatwave = false
       this.rainOverlayEl.style.display = 'none'
+      this.rainOverlayHardEl.style.display = 'none'
       this.snowOverlayEl.style.display = 'none'
+      this.snowOverlayHardEl.style.display = 'none'
       if (this.sandstormOverlayEl) this.sandstormOverlayEl.style.display = 'none'
       // Guarded the same way as flood below - don't clobber an in-progress
       // flood's slowdown (_checkFlooding clears this on its own timer) just
@@ -20267,13 +20305,25 @@ export class Game {
     const roll = Math.random()
     this.raining = roll < 0.3
     this.snowing = !this.raining && roll < 0.45
+    // Intensity - only meaningful while actually raining/snowing this
+    // night. Hard is the less common of the two so it still reads as a
+    // notable event rather than the default look for rain/snow.
+    this.rainHard = this.raining && Math.random() < HARD_WEATHER_CHANCE
+    this.snowHard = this.snowing && Math.random() < HARD_WEATHER_CHANCE
+    if (this.rainHard || this.snowHard) {
+      // 2-3 nights total (this one plus 1-2 more) before it's up for a
+      // fresh roll again.
+      this._weatherLockUntilNight = this.night + 2 + Math.floor(Math.random() * 2)
+    }
     // Sandstorm/heatwave roll independently of rain/snow (mutually
     // exclusive with EACH OTHER, but rain/snow already excluded themselves
     // above) - small enough chances that most nights still have neither.
     this.sandstorming = !this.raining && !this.snowing && Math.random() < SANDSTORM_CHANCE
     this.heatwave = !this.sandstorming && Math.random() < HEATWAVE_CHANCE
-    this.rainOverlayEl.style.display = this.raining ? 'block' : 'none'
-    this.snowOverlayEl.style.display = this.snowing ? 'block' : 'none'
+    this.rainOverlayEl.style.display = (this.raining && !this.rainHard) ? 'block' : 'none'
+    this.rainOverlayHardEl.style.display = this.rainHard ? 'block' : 'none'
+    this.snowOverlayEl.style.display = (this.snowing && !this.snowHard) ? 'block' : 'none'
+    this.snowOverlayHardEl.style.display = this.snowHard ? 'block' : 'none'
     if (this.sandstormOverlayEl) this.sandstormOverlayEl.style.display = this.sandstorming ? 'block' : 'none'
     // Sandstorm's actual movement slowdown (see SANDSTORM_SPEED_MULT's own
     // comment) - was previously only ever a visual overlay + toast with no
@@ -20293,7 +20343,8 @@ export class Game {
     audioEngine.setWeatherAudio(this.raining, this.snowing)
     // Flashlight range in heavy rain (see FLASHLIGHT_RAIN_RANGE_MULT's own
     // comment) - restored the instant rain stops, same as every other
-    // per-night weather toggle here.
+    // per-night weather toggle here. Deliberately not scaled further by
+    // rainHard - only requested for the look/duration, not gameplay effects.
     if (this.flashlight) this.flashlight.distance = FLASHLIGHT_BASE_RANGE * (this.raining ? FLASHLIGHT_RAIN_RANGE_MULT : 1)
   }
 

@@ -8263,7 +8263,9 @@ html.ui-theme-old #settings-panel h2 {
    give) that travels the full height of the screen top-to-bottom on a
    loop, not a short back-and-forth shift. */
 #rain-overlay,
-#snow-overlay {
+#rain-overlay-hard,
+#snow-overlay,
+#snow-overlay-hard {
   position: absolute;
   inset: 0;
   overflow: hidden;
