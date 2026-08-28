@@ -5608,6 +5608,7 @@ export class Game {
     // these buttons, so only this one actually needed moving.
     this._checkSetupCode()
     this._checkImportSkinCode()
+    this._bindPanelRouting()
     this._bindControlsTab()
     this.perkSkipBtn.addEventListener('click', () => this._closePerkPanel())
     this.perkRerollBtn.addEventListener('click', () => {
@@ -12017,6 +12018,7 @@ export class Game {
     if (this.buildModeLoadingOverlay) this.buildModeLoadingOverlay.style.display = 'flex'
     const buildModeLoadStartedAt = performance.now()
     this.menu.style.display = 'none'
+    if (location.pathname !== '/map-editor') history.pushState({}, '', '/map-editor')
     // Build Mode is only ever reachable from the homepage nav (#menu is
     // hidden the instant a real run starts, see the 'lock' handler), but
     // force this false regardless rather than trust that precondition -
@@ -12109,6 +12111,7 @@ export class Game {
     // homepage's own spawn point.
     this.player.velocity.y = 0
     this.menu.style.display = ''
+    if (location.pathname === '/map-editor') history.pushState({}, '', '/')
   }
 
   // Diffs the live settings object against the snapshot taken when the
@@ -13109,6 +13112,89 @@ export class Game {
     this.traderPanelOpen = false
     this.traderPanel.style.display = 'none'
     this._requestPointerLock()
+  }
+
+  // URL routing (per request - kirka.io shows e.g. kirka.io/store when you
+  // open its store; this does the same, gayz.vercel.app/store etc.) A
+  // single MutationObserver watches every routable panel's own display
+  // toggle rather than hand-wiring history.pushState into each of the ~13
+  // individual _openXPanel functions below - _closeAllMenuPanels() (right
+  // after this) already guarantees at most one of these is ever visible
+  // at a time, since every _openXPanel calls it first, so "which one just
+  // became visible" is enough on its own to know which route to show.
+  // This also means any future panel added to that same close-all
+  // convention gets routing for free just by being added to _routes below,
+  // no bespoke per-panel history code needed. vercel.json has the matching
+  // rewrite for each slug, needed so a direct visit/refresh at one of
+  // these URLs doesn't 404 - Vercel's static hosting has no server of its
+  // own to fall back to index.html on an unrecognized path otherwise.
+  // Build Mode/Map Editor doesn't fit this pattern (it's not a simple
+  // display-toggle panel - see _enterBuildMode's own comment) and gets a
+  // simpler one-way pushState in _enterBuildMode/_exitBuildMode directly:
+  // its URL updates on entry/exit, but a direct visit to /map-editor just
+  // lands on the plain homepage rather than actually re-entering Build
+  // Mode - a real limitation, not attempted here given how much more
+  // involved Build Mode's own startup sequence is than any of these.
+  _bindPanelRouting() {
+    this._routes = [
+      { slug: 'store', panel: this.shopPanel, open: () => this._openShopPanel() },
+      { slug: 'upgrades', panel: this.upgradesPanel, open: () => this._openUpgradesPanel() },
+      { slug: 'quests', panel: this.questsPanel, open: () => this._openQuestsPanel() },
+      { slug: 'friends', panel: this.friendsPanel, open: () => this._openFriendsPanel() },
+      { slug: 'achievements', panel: this.achievementsPanel, open: () => this._openAchievementsPanel() },
+      { slug: 'inventory', panel: this.menuInventoryPanel, open: () => this._openMenuInventoryPanel() },
+      { slug: 'global', panel: this.serverPanel, open: () => this._openServerPanel() },
+      { slug: 'general', panel: this.clanPanel, open: () => this._openClanPanel() },
+      { slug: 'settings', panel: this.settingsPanel, open: () => this._toggleSettings(true) },
+      { slug: 'credits', panel: this.creditsPanel, open: () => this._openCreditsPanel() },
+      { slug: 'how-to-play', panel: this.howtoplayPanel, open: () => this._openHowToPlayPanel() },
+      { slug: 'whats-new', panel: this.whatsNewPanel, open: () => this._openWhatsNewPanel() },
+      { slug: 'gamemode', panel: this.hubPanel, open: () => this._openHubPanel() },
+    ].filter((route) => route.panel)
+
+    // getComputedStyle, not panel.style.display directly - #settings-panel
+    // (unlike every other routed panel) has no inline display:none in its
+    // HTML at all, only a stylesheet rule, so its own .style.display
+    // starts as an empty string rather than the literal 'none' every
+    // other panel's inline style starts as. That empty string isn't
+    // 'none', so a raw .style.display check treated Settings as already
+    // open from the very first page load, before anything was clicked.
+    const isOpen = (panel) => getComputedStyle(panel).display !== 'none'
+
+    // Reacts to the NET open panel across a whole batch of mutations, not
+    // each individual transition - opening a new panel calls
+    // _closeAllMenuPanels() first, hiding whichever was already open in
+    // the SAME synchronous tick (MutationObserver batches same-tick
+    // mutations into one callback), so reacting per-mutation would push an
+    // intermediate "/" between the old panel's URL and the new one -
+    // harmless-looking, but it means pressing Back once lands on that
+    // empty "/" instead of the panel you were actually on before.
+    const observer = new MutationObserver(() => {
+      const openRoute = this._routes.find((r) => isOpen(r.panel))
+      const targetPath = openRoute ? '/' + openRoute.slug : '/'
+      if (location.pathname !== targetPath) {
+        history.pushState(openRoute ? { slug: openRoute.slug } : {}, '', targetPath)
+      }
+    })
+    for (const route of this._routes) {
+      observer.observe(route.panel, { attributes: true, attributeFilter: ['style'] })
+    }
+
+    window.addEventListener('popstate', () => this._applyRouteFromUrl())
+    // Initial load - restores whichever panel (if any) the URL names, e.g.
+    // a shared/bookmarked gayz.vercel.app/store link.
+    this._applyRouteFromUrl()
+  }
+
+  _applyRouteFromUrl() {
+    if (!this._routes || this.gameStarted) return
+    const slug = location.pathname.replace(/^\/+|\/+$/g, '')
+    if (!slug) {
+      this._closeAllMenuPanels()
+      return
+    }
+    const route = this._routes.find((r) => r.slug === slug)
+    if (route) route.open()
   }
 
   // Every top-level menu panel shares the same z-index (see style.css), so
