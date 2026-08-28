@@ -2657,6 +2657,16 @@ select option {
   width: min(840px, 92vw);
   height: 60vh;
   overflow-y: auto;
+}
+
+/* Centered rather than left-aligned like How to Play - Credits is short
+   prose, not a structured guide, and reads better centered at that
+   length instead of hugging the left edge of an 840px-wide box. */
+#credits-content {
+  text-align: center;
+}
+
+#howtoplay-content {
   text-align: left;
 }
 
@@ -2805,6 +2815,7 @@ select option {
 
 .credits-links-row {
   display: flex;
+  justify-content: center;
   gap: 18px;
 }
 

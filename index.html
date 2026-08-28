@@ -566,8 +566,8 @@ Escape before dawn.</p>
                 <span class="nav-badge-dot" id="upgrades-dot" style="display: none"></span>
               </button>
               <button id="server-btn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="7" rx="1.5"/><rect x="2" y="14" width="20" height="7" rx="1.5"/><line x1="6" y1="6.5" x2="6.01" y2="6.5"/><line x1="6" y1="17.5" x2="6.01" y2="17.5"/></svg>
-                <span>Server</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15 15 0 0 1 0 20a15 15 0 0 1 0-20"/></svg>
+                <span>Global</span>
               </button>
               <button id="quests-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
@@ -1982,12 +1982,6 @@ Escape before dawn.</p>
           <p>A free browser-based zombie survival shooter, built solo as a hobby project. First released July 13, 2026 - no install needed, it runs entirely in your browser. New features and fixes ship regularly - check What's New for the latest. Thanks for playing.</p>
           <p>Questions, feedback, or data requests</p>
           <p class="credits-links-row"><a href="https://discord.gg/kukR72Euj6" target="_blank" rel="noopener noreferrer">Discord</a><a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy Policy</a><a href="/terms.html" target="_blank" rel="noopener noreferrer">Terms of Use</a></p>
-          <h3>Owner</h3>
-          <p>Gaymi</p>
-          <h3>Co-Owner</h3>
-          <p>Gaybot</p>
-          <h3>Testers &amp; Contributors</h3>
-          <p>&mdash;</p>
         </div>
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>
@@ -2009,6 +2003,7 @@ Escape before dawn.</p>
         <div id="whatsnew-content">
           <p id="build-version-line"></p>
           <div id="changelog-list">
+            <div class="changelog-entry"><span class="changelog-date">Aug 27, 2026</span><span class="changelog-text">Credits simplified - centered, and dropped the Owner/Co-Owner/Testers &amp; Contributors lines. Also renamed the "Server" sidebar tab to "Global" (with a matching globe icon).</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 27, 2026</span><span class="changelog-text">Fixed clan owners with no local record of their clan (an older bug that wiped it) showing up in Browse instead of their own clan page - you're now automatically recognized as owner again.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 27, 2026</span><span class="changelog-text">Clan max size raised from 15 to 100 - every clan now shows its member count as X/100, both in the browse list and on your own clan's stats.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Aug 27, 2026</span><span class="changelog-text">Clan page (when you're not in one yet) is now split in half - every existing clan on the left, Requests/Request-to-Join on the right. Also added a safety net so an owner whose own membership record went missing gets automatically restored instead of getting bumped out to the browse screen.</span></div>
@@ -2266,7 +2261,7 @@ Escape before dawn.</p>
       </div>
 
       <div id="server-panel">
-        <h2 id="server-panel-title">Server</h2>
+        <h2 id="server-panel-title">Global</h2>
         <p id="server-panel-placeholder">Coming soon.</p>
         <p class="panel-close-hint">Click anywhere to close</p>
       </div>
