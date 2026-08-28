@@ -8859,27 +8859,17 @@ html.night-vision-active #app {
   width: 420px;
   height: 320px;
   pointer-events: auto;
-  /* Deliberately its own low-alpha background, NOT --menu-panel-bg (that
-     variable's ~0.92-0.95 alpha is right for a full-screen modal but
-     blocks the actual gameplay behind this always-visible HUD box - per
-     feedback that it hid zombies/whatever else was underneath it).
-     backdrop-filter (same value already used on .menu-panel) keeps the
-     text legible against a busy moving scene without needing much
-     opacity to do it. */
-  background: rgba(7, 8, 8, 0.35);
-  backdrop-filter: blur(2px);
-  border: 1px solid var(--menu-panel-border, rgba(138, 109, 71, 0.5));
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-html.ui-theme-old #chat-panel {
-  background: rgba(21, 15, 9, 0.35);
+  /* Fully invisible - no box at all (was a low-alpha panel with a blur,
+     per a reference screenshot showing chat as plain floating text with
+     zero background/border). Every element below relies on its own
+     text-shadow for legibility against gameplay now, since there's no
+     dark backdrop behind any of it any more. */
+  background: none;
+  border: none;
 }
 
 #chat-channel-tabs {
   display: flex;
-  border-bottom: 1px solid var(--menu-panel-border, rgba(138, 109, 71, 0.5));
 }
 
 .chat-tab-btn {
@@ -8889,15 +8879,15 @@ html.ui-theme-old #chat-panel {
   font-weight: 600;
   letter-spacing: 0.3px;
   text-transform: uppercase;
-  color: rgba(224, 228, 220, 0.55);
+  color: rgba(224, 228, 220, 0.75);
   background: none;
   border: none;
   cursor: pointer;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
 .chat-tab-btn.active {
   color: var(--menu-gold, #d9bc4a);
-  background: rgba(255, 255, 255, 0.05);
 }
 
 .chat-tab-btn:disabled {
@@ -8918,7 +8908,7 @@ html.ui-theme-old #chat-panel {
   font-size: 12px;
   line-height: 1.4;
   word-break: break-word;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.6);
 }
 
 .chat-message-nickname {
@@ -8937,13 +8927,13 @@ html.ui-theme-old #chat-panel {
   font-size: 11px;
   color: var(--menu-red, #c9564a);
   text-align: center;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
 #chat-input-row {
   display: flex;
   gap: 6px;
   padding: 8px;
-  border-top: 1px solid var(--menu-panel-border, rgba(138, 109, 71, 0.5));
 }
 
 #chat-input {
@@ -8952,12 +8942,13 @@ html.ui-theme-old #chat-panel {
   padding: 6px 8px;
   font-size: 12px;
   color: #eee;
-  /* A bit stronger than before (was 0.06) - #chat-panel's own background
-     is much lower-alpha now (see its comment), so the input needs more
-     of its own fill to still read as a distinct typing box. */
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 4px;
+  background: none;
+  border: none;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+#chat-input::placeholder {
+  color: rgba(224, 228, 220, 0.55);
 }
 
 #chat-send-btn {
@@ -8965,9 +8956,9 @@ html.ui-theme-old #chat-panel {
   font-size: 12px;
   font-weight: 600;
   color: var(--menu-gold, #d9bc4a);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--menu-panel-border, rgba(138, 109, 71, 0.5));
-  border-radius: 4px;
+  background: none;
+  border: none;
   cursor: pointer;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
