@@ -222,6 +222,24 @@ export const SHOP_SKIN_PREVIEW_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAA
 // see the UV support comment above), no hand-crafted hair/face/collar
 // extras layered on top since a real skin's texture already carries all
 // of that itself.
+// Wraps a limb's textured box in its own pivot group, positioned at the
+// limb's real-world attachment point (shoulder for arms, hip for legs)
+// instead of the box's own geometric center - the box itself is offset
+// upward inside the pivot by half its own height so the WORLD position
+// of a limb at zero rotation is identical to the flat (non-pivoting)
+// version this replaced. A caller that never rotates the returned pivot
+// (the homepage preview) renders the exact same static pose as before;
+// one that does (MinecraftPlayerBody's walk cycle) swings the limb from
+// the correct joint instead of its own center.
+function _buildLimbPivot(w, h, d, u, v, texture, texW, texH, mirror, pivotX, pivotY) {
+  const mesh = _texturedBoxMesh(w, h, d, u, v, texture, texW, texH, mirror)
+  mesh.position.y = -h / 2
+  const pivot = new THREE.Group()
+  pivot.position.set(pivotX, pivotY, 0)
+  pivot.add(mesh)
+  return pivot
+}
+
 export function buildTexturedCharacter(skin) {
   const { texture, width, height } = skin
   const legacy = height <= 32
@@ -244,25 +262,29 @@ export function buildTexturedCharacter(skin) {
   // the two meshes occupy the same space. x=6/z=0 is the only offset
   // with neither problem - the tradeoff is the arm can eclipse the
   // leg's texture at some profile angles, same as real Minecraft's
-  // own non-jointed limb boxes.
-  const armR = _texturedBoxMesh(4, 12, 4, 40, 16, texture, width, height, false)
-  armR.position.set(6, 16, 0)
+  // own non-jointed limb boxes. Shoulder pivot y=22 is the arm's own
+  // top edge (was position.y=16, height 12 -> spans 10 to 22); hip
+  // pivot y=10 is the leg's own top edge (was position.y=4, height 12
+  // -> spans -2 to 10) - see _buildLimbPivot's own comment.
+  const armR = _buildLimbPivot(4, 12, 4, 40, 16, texture, width, height, false, 6, 22)
   group.add(armR)
   const armL = legacy
-    ? _texturedBoxMesh(4, 12, 4, 40, 16, texture, width, height, true)
-    : _texturedBoxMesh(4, 12, 4, 32, 48, texture, width, height, false)
-  armL.position.set(-6, 16, 0)
+    ? _buildLimbPivot(4, 12, 4, 40, 16, texture, width, height, true, -6, 22)
+    : _buildLimbPivot(4, 12, 4, 32, 48, texture, width, height, false, -6, 22)
   group.add(armL)
 
-  const legR = _texturedBoxMesh(4, 12, 4, 0, 16, texture, width, height, false)
-  legR.position.set(2, 4, 0)
+  const legR = _buildLimbPivot(4, 12, 4, 0, 16, texture, width, height, false, 2, 10)
   group.add(legR)
   const legL = legacy
-    ? _texturedBoxMesh(4, 12, 4, 0, 16, texture, width, height, true)
-    : _texturedBoxMesh(4, 12, 4, 16, 48, texture, width, height, false)
-  legL.position.set(-2, 4, 0)
+    ? _buildLimbPivot(4, 12, 4, 0, 16, texture, width, height, true, -2, 10)
+    : _buildLimbPivot(4, 12, 4, 16, 48, texture, width, height, false, -2, 10)
   group.add(legL)
 
+  // Exposed for a caller that wants to animate a walk cycle (see
+  // MinecraftPlayerBody.js) - each is that limb's OWN pivot, so rotating
+  // it directly swings the limb from its real joint. Ignored entirely by
+  // a caller that doesn't touch it (the homepage preview).
+  group.limbPivots = { armR, armL, legR, legL }
   return group
 }
 

@@ -4809,6 +4809,18 @@ export class Game {
     this.companion = new Companion(this.scene, 1.6, 7, this.settings.companionRole, { jacketColor: this._companionColorHex() })
     this.reviveTarget = null
     this.playerBody = new PlayerBody(this.scene)
+    // Own third-person view (per request) shows the same Minecraft-style
+    // character other players see for you in multiplayer, instead of
+    // PlayerBody's realistic GLB model - see _updateThirdPerson, which
+    // picks this over this.playerBody now. PlayerBody itself is left
+    // fully in place (still owns outfit/hat cosmetics elsewhere), just no
+    // longer the one actually shown. Starts on the shared default skin
+    // (same as any freshly-constructed MinecraftPlayerBody) - the real
+    // custom skin (if any) is applied below once it's ready, same
+    // "restore async, show default meanwhile" precedent _applyStoredSkin
+    // already follows for the homepage preview.
+    this.localMinecraftBody = new MinecraftPlayerBody(this.scene)
+    if (this.settings.customSkinDataUrl) this.localMinecraftBody.setSkin(this.settings.customSkinDataUrl)
     // Was (-6, -18) - right against the safe zone's east wall (x:-13 z:-10,
     // half:7 -> wall at x=-6, z -17..-3), so the car's own collider spawned
     // already overlapping it and could never find a non-colliding direction
@@ -13756,7 +13768,7 @@ export class Game {
     // person so the render camera doesn't freeze wherever it last was.
     this.thirdPerson = false
     this.renderPass.camera = this.camera
-    this.playerBody.update(0, 0, 0, 0, false)
+    this.localMinecraftBody.update(0, 0, 0, 0, false)
     this.weapons.viewmodelRoot.visible = false
     this.crosshair.style.display = 'none'
     this.hudEl.style.display = 'none'
@@ -14924,13 +14936,13 @@ export class Game {
     const feetZ = this.camera.position.z
 
     if (!this.thirdPerson) {
-      this.playerBody.update(feetX, feetY, feetZ, 0, false)
+      this.localMinecraftBody.update(feetX, feetY, feetZ, 0, false)
       this.renderPass.camera = this.camera
       return
     }
 
     const yaw = new THREE.Euler().setFromQuaternion(this.camera.quaternion, 'YXZ').y
-    this.playerBody.update(feetX, feetY, feetZ, yaw, true)
+    this.localMinecraftBody.update(feetX, feetY, feetZ, yaw, true)
 
     this._tpYawQuat.setFromEuler(new THREE.Euler(0, yaw, 0))
     this._tpDesiredPos.copy(this._tpOffsetLocal).applyQuaternion(this._tpYawQuat).add(this.camera.position)
@@ -17372,6 +17384,7 @@ export class Game {
       saveSettings(this.settings)
       if (this._menuAvatar3D) this._menuAvatar3D.setSkin(skin)
       this._updateMenuAvatarPhoto(skin)
+      this.localMinecraftBody.setSkin(dataUrl)
       resetBtn.style.display = ''
       this._showHomepageToast(t('skinUploadSuccessToast'))
     })
@@ -17380,6 +17393,7 @@ export class Game {
       this.settings.customSkinDataUrl = null
       saveSettings(this.settings)
       if (this._menuAvatar3D) this._menuAvatar3D.setSkin(null)
+      this.localMinecraftBody.resetToDefaultSkin()
       resetBtn.style.display = 'none'
       this._showHomepageToast(t('skinResetToast'))
       // Corner photo badge has no flat-color fallback of its own (unlike
@@ -18157,6 +18171,7 @@ export class Game {
       saveSettings(this.settings)
       if (this._menuAvatar3D) this._menuAvatar3D.setSkin(skin)
       this._updateMenuAvatarPhoto(skin)
+      this.localMinecraftBody.setSkin(dataUrl)
       this._showHomepageToast(t('importSkinApplied'))
     }).catch(() => {
       this._showHomepageToast(t('importSkinFailed'))

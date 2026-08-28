@@ -1,9 +1,10 @@
-// Renders OTHER players in multiplayer as the same blocky Minecraft-style
-// character shown spinning on the homepage's Player Setup panel, instead
-// of the realistic GLB humanoid PlayerBody.js uses for the local player's
-// own third-person view. Deliberately a separate class, not a change to
-// PlayerBody itself - PlayerBody is also used for the local player's own
-// body, and this should only ever change how OTHER players look.
+// Renders the same blocky Minecraft-style character shown spinning on the
+// homepage's Player Setup panel - used for every OTHER player in
+// multiplayer, and (per request) for the local player's own third-person
+// view too, replacing the realistic GLB humanoid PlayerBody.js used to
+// show there. PlayerBody.js itself is untouched (still used for its own
+// outfit/hat cosmetics elsewhere) - this is a separate class, not a
+// change to it.
 import * as THREE from 'three'
 import { loadSkinTexture, DEFAULT_SKIN_DATA_URL, buildTexturedCharacter } from './MenuAvatar3D.js'
 
@@ -41,6 +42,18 @@ const RAW_HEIGHT = 32 // head top (30) to feet (-2)
 const RAW_FEET_Y = -2
 const TARGET_HEIGHT = 1.85 // roughly matches EYE_HEIGHT (1.7) as ~92% of total height
 const SCALE = TARGET_HEIGHT / RAW_HEIGHT
+
+// Walk cycle - the character had no animation at all before this (a
+// static pose that just slid around), unlike PlayerBody.js's GLB model
+// which has a real walk cycle. Deliberately simple (a sine-wave swing on
+// each limb's own shoulder/hip pivot, arms and legs counter-swinging like
+// a real gait) rather than a full authored animation clip - there's no
+// rig/skeleton here, just 4 independent pivot groups (see
+// buildTexturedCharacter's own limbPivots).
+const WALK_CYCLE_SPEED = 9 // phase radians/sec while moving - tuned by eye to read as a natural stride at this character's scale
+const MAX_SWING_ANGLE = 0.7 // radians each direction
+const MIN_WALK_SPEED = 0.4 // world units/sec - below this, treated as standing still (filters out sub-pixel network/float jitter, not a real walk)
+const ANIM_EASE_PER_SEC = 10 // how quickly each limb's actual angle eases toward its target - avoids a hard snap when starting/stopping
 
 // A floating nickname label, same technique PlayerBody.js uses (a
 // THREE.Sprite so it always faces the camera regardless of the body's
@@ -87,10 +100,20 @@ export class MinecraftPlayerBody {
     // while a real skin loads) - setSkin() below swaps this out once this
     // player's own real skin (if any) comes back from the server.
     this._characterMesh = _skinCache ? buildTexturedCharacter(_skinCache) : null
+    this._limbPivots = this._characterMesh ? this._characterMesh.limbPivots : null
     if (this._characterMesh) this._inner.add(this._characterMesh)
     this._appliedSkinUrl = null
     this.group.add(this._inner)
     scene.add(this.group)
+
+    // Walk-cycle state - see the constants above for what each of these
+    // drives. _lastX/_lastZ start null so the very first update() call
+    // never computes a bogus "moved 1000 units in one frame" speed spike.
+    this._lastX = null
+    this._lastZ = null
+    this._lastTime = performance.now()
+    this._walkPhase = 0
+    this._limbAngle = { armR: 0, armL: 0, legR: 0, legL: 0 }
   }
 
   // Swaps this one player's body onto their own real skin instead of the
@@ -108,14 +131,28 @@ export class MinecraftPlayerBody {
     // a stale result to a group that's no longer in the scene, or clobber
     // a more recent call's result.
     if (!this.group.parent || dataUrl !== this._pendingSkinUrl) return
-    const mesh = buildTexturedCharacter(skin)
+    this._applySkinMesh(buildTexturedCharacter(skin), dataUrl)
+  }
+
+  // For the local player's own body only (see Game.js's skin-reset
+  // button) - explicitly reverts BACK to the shared default, unlike
+  // setSkin(null/undefined) which means "no real skin to apply, leave
+  // whatever's already showing" (the correct behavior for a remote player
+  // who simply never customized one). A no-op if already on default.
+  resetToDefaultSkin() {
+    if (!this._appliedSkinUrl || !_skinCache) return
+    this._applySkinMesh(buildTexturedCharacter(_skinCache), null)
+  }
+
+  _applySkinMesh(mesh, appliedUrl) {
     if (this._characterMesh) {
       this._inner.remove(this._characterMesh)
       _disposeCharacterMesh(this._characterMesh)
     }
     this._characterMesh = mesh
+    this._limbPivots = mesh.limbPivots
     this._inner.add(mesh)
-    this._appliedSkinUrl = dataUrl
+    this._appliedSkinUrl = appliedUrl
   }
 
   update(feetX, feetY, feetZ, yaw, visible) {
@@ -123,6 +160,43 @@ export class MinecraftPlayerBody {
     if (!visible) return
     this.group.position.set(feetX, feetY, feetZ)
     this.group.rotation.y = yaw
+    this._updateWalkCycle(feetX, feetZ)
+  }
+
+  // Speed is derived from how far feetX/feetZ actually moved since the
+  // last call, not a value the caller passes in - both the local player
+  // (driven every render frame from the real camera/controller position)
+  // and a remote player (driven from position-sync ticks that land every
+  // ~100ms, not every frame) already call update() with their real
+  // current position each time, so this works the same way for either
+  // without needing a separate velocity input.
+  _updateWalkCycle(feetX, feetZ) {
+    const now = performance.now()
+    const dt = Math.min((now - this._lastTime) / 1000, 0.1)
+    this._lastTime = now
+
+    let moving = false
+    if (this._lastX !== null && dt > 0) {
+      const dx = feetX - this._lastX
+      const dz = feetZ - this._lastZ
+      const speed = Math.sqrt(dx * dx + dz * dz) / dt
+      moving = speed > MIN_WALK_SPEED
+    }
+    this._lastX = feetX
+    this._lastZ = feetZ
+
+    if (!this._limbPivots) return
+
+    if (moving) this._walkPhase += dt * WALK_CYCLE_SPEED
+    const swing = moving ? Math.sin(this._walkPhase) * MAX_SWING_ANGLE : 0
+    // Counter-swing gait: right arm forward pairs with left leg forward
+    // (and vice versa), same as a real walking stride.
+    const target = { armR: swing, armL: -swing, legR: -swing, legL: swing }
+    const ease = Math.min(dt * ANIM_EASE_PER_SEC, 1)
+    for (const key of ['armR', 'armL', 'legR', 'legL']) {
+      this._limbAngle[key] += (target[key] - this._limbAngle[key]) * ease
+      this._limbPivots[key].rotation.x = this._limbAngle[key]
+    }
   }
 
   setNickname(nickname) {
