@@ -13453,8 +13453,8 @@ export class Game {
 
   // Rolling Quests - separate from the lifetime tiers above (see
   // RollingQuests.js): a GLOBAL rotation of 5 quests every 30 minutes
-  // (up to 10 active at once, each expiring 3 hours after its spawn
-  // window), computed deterministically from wall-clock time rather than
+  // (all still-alive ones shown at once, each expiring 3 hours after its
+  // spawn window), computed deterministically from wall-clock time rather than
   // per-player spawn history - every player sees the same quests at the
   // same real-world moment, reset on schedule whether or not anyone was
   // online to trigger it. refresh() just prunes expired local

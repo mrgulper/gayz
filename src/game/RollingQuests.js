@@ -14,11 +14,6 @@ const STORAGE_KEY = 'gayz-rolling-quests-v2'
 export const SPAWN_INTERVAL_MS = 30 * 60 * 1000
 export const QUESTS_PER_SPAWN = 5
 export const EXPIRE_MS = 3 * 60 * 60 * 1000
-// How many of the most recent non-expired quest instances to actually
-// surface at once - 2 spawn-cycles' worth, same "generous completion
-// window without an unbounded list" balance the original 3-min/6-cap
-// design struck, just retuned for the slower 30-min cadence.
-const MAX_ACTIVE = QUESTS_PER_SPAWN * 2
 const BUCKET_LOOKBACK = Math.ceil(EXPIRE_MS / SPAWN_INTERVAL_MS) + 1
 
 // Deliberately non-round targets (11/23/58, not 10/25/50) so a quest
@@ -119,9 +114,10 @@ export class RollingQuests {
   }
 
   // Union of every non-expired, non-claimed quest instance across recent
-  // buckets, most recent first, capped at MAX_ACTIVE - same overall shape
-  // (spawnedAt/progress/template) the old per-player version returned, so
-  // nothing downstream in Game.js needed to change.
+  // buckets, most recent first - same overall shape (spawnedAt/progress/
+  // template) the old per-player version returned, so nothing downstream
+  // in Game.js needed to change. No cap - every instance still alive
+  // (hasn't hit EXPIRE_MS since its spawn) shows.
   activeQuests() {
     const now = Date.now()
     const currentBucket = Math.floor(now / SPAWN_INTERVAL_MS)
@@ -138,9 +134,8 @@ export class RollingQuests {
           template: QUEST_TEMPLATES[templateIndex],
         })
       }
-      if (results.length >= MAX_ACTIVE) break
     }
-    return results.slice(0, MAX_ACTIVE)
+    return results
   }
 
   // additive=true accumulates (kills, runs - each event adds to a running
