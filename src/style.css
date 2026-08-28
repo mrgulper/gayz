@@ -6838,6 +6838,7 @@ html.ui-theme-old #menu-nav-buttons button {
    Matches a reference screenshot's homepage nav style, scoped to just
    these secondary/informational links rather than the whole main nav. */
 #menu-links-row {
+  position: relative;
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
@@ -6851,15 +6852,40 @@ html.ui-theme-old #menu-nav-buttons button {
      of just sitting wherever the content above it happens to end. */
   margin: auto auto 4px;
   width: fit-content;
-  /* var(--menu-gunmetal-dark) (#1c1e20) was nearly the same dark tone as
-     the page behind it - the pill shape was technically there but read
-     as plain floating text, not a visible oval, until pointed out. A
-     translucent white overlay adds real lightness/contrast regardless
-     of what's actually behind it (the homepage photo, gameplay, etc.),
-     the same technique .menu-panel's own background already layers in. */
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid var(--menu-panel-border);
+}
+
+/* The pill's own background/border - deliberately NOT set directly on
+   #menu-links-row. Confirmed via direct testing that this exact element
+   never paints its own background/border at all, no matter the color
+   or opacity: even a forced solid red fill + bright green border,
+   verified correct via getComputedStyle, rendered as literally nothing
+   in every screenshot. This is the same "computed style is right but
+   the pixel never paints" class of bug this codebase has hit before
+   (see CLAUDE.md's note on a standalone dot-divider span) - a
+   ::before pseudo-element on the element itself (not a real background
+   on the element, not a separate sibling node) is the proven working
+   fix both times, confirmed by testing this exact replacement before
+   committing to it. z-index: -1 keeps it behind the row's own text/
+   links (which stay on the element's default painting layer, unaffected
+   by whatever this rendering quirk actually is). */
+#menu-links-row::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.12);
+  border: 2px solid rgba(196, 155, 92, 0.9);
   border-radius: 999px;
+  /* No z-index here (was -1) - that pushed this behind an ancestor's own
+     opaque background elsewhere in the page (confirmed by testing: with
+     z-index:-1 the pill was invisible again, exactly like the plain
+     background/border it replaced; removing it fixed that). Not needed
+     anyway - a ::before pseudo-element already paints before the
+     element's own real children in DOM order, so the row's actual
+     links/text correctly render on top of it with no z-index required. */
+}
+
+html.ui-theme-old #menu-links-row::before {
+  border-color: rgba(180, 130, 70, 0.9);
 }
 
 /* Dot divider between links - re-added per request (see this file's own
@@ -6880,6 +6906,11 @@ html.ui-theme-old #menu-nav-buttons button {
   margin-left: 12px;
   color: rgba(216, 220, 210, 0.4);
   font-weight: 700;
+  /* The link itself has text-decoration: underline (see below) - that
+     paints under the pseudo-element's generated content too unless
+     explicitly turned off here, so the dot was getting its own stray
+     underline segment despite not being part of the actual link text. */
+  text-decoration: none;
 }
 
 #menu-links-row button,
