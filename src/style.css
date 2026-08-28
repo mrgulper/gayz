@@ -2464,6 +2464,17 @@ select option {
   pointer-events: none;
 }
 
+/* This fixed screen position never accounted for a 3D character actually
+   standing where it renders - harmless in first person (nothing solid
+   there), but the new Minecraft-style third-person body (see
+   Game.js's localMinecraftBody) can put its own head close enough to the
+   camera to sit right under this text, especially indoors where
+   _updateThirdPerson pulls the camera in to avoid clipping through a
+   wall. Reported as "something on my head." */
+html.third-person-active #companion-bark {
+  bottom: 340px;
+}
+
 #companion-bark.show {
   animation: companionBark 3.2s ease-out;
 }

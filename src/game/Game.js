@@ -14930,6 +14930,14 @@ export class Game {
   // camera doesn't dip into the ground/fly up when aiming up/down - only
   // the final look direction (copied separately) uses full pitch.
   _updateThirdPerson() {
+    // Driven from here (not each individual place thirdPerson gets set -
+    // the K toggle, _enterVehicle's forced-false, etc.) so this can never
+    // drift out of sync with the real value regardless of how many call
+    // sites end up changing it. See its one current use in style.css
+    // (nudges #companion-bark up - the fixed-position bark toast started
+    // overlapping the new Minecraft-style body's head in third person,
+    // which the old realistic model's different proportions never did).
+    document.documentElement.classList.toggle('third-person-active', this.thirdPerson)
     const eyeHeight = this.player.eyeHeight
     const feetX = this.camera.position.x
     const feetY = this.camera.position.y - eyeHeight
