@@ -3661,6 +3661,11 @@ export class Game {
     // Cloud Save (Google Sign-In + Drive appDataFolder, see CloudSync.js).
     this.quickCloudBtn = document.getElementById('quick-cloud-btn')
     this.cloudSignedInDot = document.getElementById('cloud-signed-in-dot')
+    // Login to Save Progress button (above the profile card, per request) -
+    // a more visible/explicit entry point into the same Cloud Save panel
+    // the small quick-cloud-btn icon already opens. See
+    // CloudSaveUI.updateCloudQuickIcon for the show/hide logic.
+    this.loginSaveBtn = document.getElementById('login-save-btn')
     this.cloudsavePanel = document.getElementById('cloudsave-panel')
     this.cloudsavePanelTitle = document.getElementById('cloudsave-panel-title')
     this.cloudsaveSignedOut = document.getElementById('cloudsave-signed-out')
@@ -16287,6 +16292,19 @@ export class Game {
     if (this._pendingJoinSessionId) {
       this.multiplayerCreateView.style.display = 'none'
       this.multiplayerJoinView.style.display = 'flex'
+    } else if (this._multiplayerSessionId && this._multiplayerIsHost) {
+      // Already hosting - re-show the SAME link instead of falling through
+      // to _createMultiplayerSession() below, which would silently create a
+      // brand new session (new sessionId) every time this panel is
+      // reopened. That used to happen unconditionally - e.g. host shares
+      // the link, closes the panel, reopens it later (even just to
+      // re-copy the link) - and a friend still on the OLD link ends up in
+      // an orphaned session neither player can see the other from. This is
+      // the actual root cause of "I don't see my friend"/chat not showing
+      // up: host and guest were silently in two different sessions.
+      this.multiplayerCreateView.style.display = 'none'
+      this.multiplayerLinkView.style.display = 'flex'
+      this.multiplayerLinkInput.value = `${window.location.origin}${window.location.pathname}?join=${this._multiplayerSessionId}`
     } else {
       this.multiplayerCreateView.style.display = 'flex'
       this.multiplayerJoinView.style.display = 'none'

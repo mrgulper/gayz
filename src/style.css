@@ -6330,6 +6330,41 @@ html.ui-theme-old #settings-btn {
    this tall card shape, so this uses border-image instead: a 9-slice
    technique that keeps the plate's corners/rivets undistorted at any
    box size and only stretches the flat edge strips between them. */
+/* Login to Save Progress - sits above the profile card (per request), same
+   gold-plate look as the nav sidebar buttons below it, but centered/full-
+   width and its own accent color since it's a call to action, not
+   navigation. Hidden by default in the HTML (anti-flash, same reasoning as
+   #cloud-signed-in-dot) - Game.js shows it once auth state is known AND
+   Cloud Save is actually configured (see CloudSaveUI.updateCloudQuickIcon),
+   and hides it again once signed in. */
+#login-save-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--menu-gold);
+  background: url('/images/plate-blank.webp') center / 100% 100% no-repeat;
+  border: none;
+  cursor: pointer;
+  transition: filter 0.2s ease, transform 0.15s ease;
+}
+
+#login-save-btn svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+#login-save-btn:hover {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+}
+
 #menu-player-badge {
   display: flex;
   flex-direction: column;

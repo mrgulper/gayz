@@ -109,6 +109,11 @@ export function restoreCloudSession(game) {
 export function updateCloudQuickIcon(game, signedIn) {
   if (game.quickCloudBtn) game.quickCloudBtn.classList.toggle('signed-in', signedIn)
   if (game.cloudSignedInDot) game.cloudSignedInDot.style.display = signedIn ? '' : 'none'
+  // Login to Save Progress - only worth showing if there's really
+  // something to sign into (see CloudSync.isConfigured()'s own comment on
+  // a fresh clone/fork with no Firebase project set up yet) and the player
+  // isn't already signed in.
+  if (game.loginSaveBtn) game.loginSaveBtn.style.display = signedIn || !CloudSync.isConfigured() ? 'none' : 'flex'
   // The corner badge shows the player's Minecraft skin face (see
   // Game.js's _updateMenuAvatarPhoto, called whenever a skin loads/
   // changes) - deliberately untouched here regardless of sign-in state.
@@ -246,6 +251,7 @@ export async function handleCloudSignOut(game) {
 
 export function bindCloudSave(game) {
   if (game.quickCloudBtn) game.quickCloudBtn.addEventListener('click', () => openCloudSavePanel(game))
+  if (game.loginSaveBtn) game.loginSaveBtn.addEventListener('click', () => openCloudSavePanel(game))
   if (game.cloudsavePanel) {
     game.cloudsavePanel.addEventListener('click', (e) => {
       if (e.target === game.cloudsavePanel) closeCloudSavePanel(game)
