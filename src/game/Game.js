@@ -3661,11 +3661,6 @@ export class Game {
     // Cloud Save (Google Sign-In + Drive appDataFolder, see CloudSync.js).
     this.quickCloudBtn = document.getElementById('quick-cloud-btn')
     this.cloudSignedInDot = document.getElementById('cloud-signed-in-dot')
-    // Login to Save Progress button (above the profile card, per request) -
-    // a more visible/explicit entry point into the same Cloud Save panel
-    // the small quick-cloud-btn icon already opens. See
-    // CloudSaveUI.updateCloudQuickIcon for the show/hide logic.
-    this.loginSaveBtn = document.getElementById('login-save-btn')
     this.cloudsavePanel = document.getElementById('cloudsave-panel')
     this.cloudsavePanelTitle = document.getElementById('cloudsave-panel-title')
     this.cloudsaveSignedOut = document.getElementById('cloudsave-signed-out')
