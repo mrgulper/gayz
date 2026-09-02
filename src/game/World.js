@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { registerZone, clearZones } from './Zones.js'
 import { LOOT_WEIGHTS } from './Chests.js'
-import { LOW_QUALITY_MODE, flatMaterial, cachedFlatMaterial, flattenedClone } from './QualitySettings.js'
+import { LOW_QUALITY_MODE, LOW_QUALITY_MATERIALS, flatMaterial, cachedFlatMaterial, flattenedClone } from './QualitySettings.js'
 
 // Cheap procedural grime: speckle noise + a handful of jagged crack/stain
 // strokes baked onto a canvas once, then tiled via RepeatWrapping. Replaces
@@ -3144,8 +3144,8 @@ function buildPark(scene, colliders, solidMeshes) {
 
   // Already flat colors, already shared across every tree instance - only
   // the lighting-model cost changes under LOW_QUALITY_MODE.
-  const trunkMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: 0x2a1f16 }) : cachedFlatMaterial({ color: 0x2a1f16, roughness: 1 })
-  const leafMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: 0x3a4d2a }) : cachedFlatMaterial({ color: 0x3a4d2a, roughness: 0.9 })
+  const trunkMat = LOW_QUALITY_MATERIALS ? new THREE.MeshLambertMaterial({ color: 0x2a1f16 }) : cachedFlatMaterial({ color: 0x2a1f16, roughness: 1 })
+  const leafMat = LOW_QUALITY_MATERIALS ? new THREE.MeshLambertMaterial({ color: 0x3a4d2a }) : cachedFlatMaterial({ color: 0x3a4d2a, roughness: 0.9 })
   // Excludes any tree that used to crowd right up against either stairwell
   // (see the reference-photo feedback that trees/grass right next to the
   // kiosks still read as "the park", not a real stairwell plaza).
@@ -3728,7 +3728,7 @@ function buildSafeZone(scene, colliders, solidMeshes) {
   // MeshStandardMaterial box read as noticeably cleaner/newer than every
   // other worn surface on the map.
   const wallColor = 0x3a3a34
-  const wallMat = LOW_QUALITY_MODE
+  const wallMat = LOW_QUALITY_MATERIALS
     ? new THREE.MeshLambertMaterial({ color: wallColor })
     : (() => {
         const facadeTex = getFacadeTexture(wallColor).clone()
@@ -3942,7 +3942,7 @@ function buildRoom(scene, register, spec) {
     // LOW_QUALITY_MODE: cheaper Lambert instead of Standard - already flat-
     // colored either way (no texture map here), so this is purely about
     // the lighting-model cost, not appearance.
-    wallMat = LOW_QUALITY_MODE
+    wallMat = LOW_QUALITY_MATERIALS
       ? new THREE.MeshLambertMaterial({ color: 0x3a3a34 })
       : cachedFlatMaterial({ color: 0x3a3a34, roughness: 0.95 }),
   } = spec
@@ -4172,7 +4172,7 @@ function placePropSimple(scene, register, fileName, x, z, rotY = 0, scale = 1, c
   // returned clone afterward (e.g. a tinted bookcase) still work normally -
   // they're just setting this one shared material's color instead of many.
   let lowQualityMat = null
-  if (LOW_QUALITY_MODE) {
+  if (LOW_QUALITY_MATERIALS) {
     let firstColor = null
     clone.traverse((child) => {
       if (firstColor === null && child.isMesh && child.material && child.material.color) {
@@ -8327,7 +8327,7 @@ const OUTER_SKYSCRAPER_PICKS = { commercial: 3, industrial: 0 }
 function buildOuterZones(scene, register, cullables, towerChestSpots, colliders, solidMeshes, skyscraperShortcuts) {
   let seed = 1000 // offset clear of buildingLayout()'s own 0-20 range
   const lightModel = _propModelCache.get('streetlight.glb')
-  const poleMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: 0x1c1c1c }) : cachedFlatMaterial({ color: 0x1c1c1c, roughness: 0.8 })
+  const poleMat = LOW_QUALITY_MATERIALS ? new THREE.MeshLambertMaterial({ color: 0x1c1c1c }) : cachedFlatMaterial({ color: 0x1c1c1c, roughness: 0.8 })
 
   // LOW_QUALITY_MODE: same "one shared flat material per instance" trick
   // as placePropSimple, tinted from the model's own first-mesh color.
@@ -8347,7 +8347,7 @@ function buildOuterZones(scene, register, cullables, towerChestSpots, colliders,
     const clone = model.clone(true)
     clone.position.set(x, 0, z)
     clone.rotation.y = rotY
-    const lowQualityMat = LOW_QUALITY_MODE ? _lowQualityMatFor(clone) : null
+    const lowQualityMat = LOW_QUALITY_MATERIALS ? _lowQualityMatFor(clone) : null
     clone.traverse((child) => {
       if (!child.isMesh) return
       child.castShadow = true
@@ -8362,7 +8362,7 @@ function buildOuterZones(scene, register, cullables, towerChestSpots, colliders,
     if (lightModel) {
       const clone = lightModel.clone(true)
       clone.position.set(x, 0, z)
-      const lowQualityMat = LOW_QUALITY_MODE ? _lowQualityMatFor(clone) : null
+      const lowQualityMat = LOW_QUALITY_MATERIALS ? _lowQualityMatFor(clone) : null
       clone.traverse((child) => {
         if (!child.isMesh) return
         child.castShadow = true
@@ -8466,7 +8466,7 @@ function scatterCityProps(scene, colliders, solidMeshes) {
     clone.position.set(x, 0, z)
     clone.rotation.y = rotY
     let lowQualityMat = null
-    if (LOW_QUALITY_MODE) {
+    if (LOW_QUALITY_MATERIALS) {
       let firstColor = null
       clone.traverse((child) => {
         if (firstColor === null && child.isMesh && child.material && child.material.color) {
@@ -8583,7 +8583,7 @@ function scatterDebris(scene) {
 }
 
 function addStreetlights(scene, register, flickerLights) {
-  const poleMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: 0x1c1c1c }) : cachedFlatMaterial({ color: 0x1c1c1c, roughness: 0.8 })
+  const poleMat = LOW_QUALITY_MATERIALS ? new THREE.MeshLambertMaterial({ color: 0x1c1c1c }) : cachedFlatMaterial({ color: 0x1c1c1c, roughness: 0.8 })
   const positions = [
     { x: -3.5, z: -14, flicker: true },
     { x: 3.5, z: 6, flicker: false },
@@ -8597,7 +8597,7 @@ function addStreetlights(scene, register, flickerLights) {
     if (model) {
       const clone = model.clone(true)
       clone.position.set(p.x, 0, p.z)
-      const lowQualityMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: poleMat.color }) : null
+      const lowQualityMat = LOW_QUALITY_MATERIALS ? new THREE.MeshLambertMaterial({ color: poleMat.color }) : null
       clone.traverse((child) => {
         if (!child.isMesh) return
         child.castShadow = true
