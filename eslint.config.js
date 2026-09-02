@@ -54,6 +54,7 @@ export default [
         // globals at runtime, not undeclared variables.
         __BUILD_HASH__: 'readonly',
         __BUILD_DATE__: 'readonly',
+        __BUILD_ID__: 'readonly',
       },
     },
     rules: {
@@ -67,6 +68,33 @@ export default [
       ecmaVersion: 2022,
       sourceType: 'module',
       globals: { ...globals.browser, ...globals.node },
+    },
+    rules: {
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+    },
+  },
+  {
+    // Vercel serverless functions (Node, ESM - package.json has
+    // "type": "module") - server-side only, never bundled for the browser.
+    files: ['api/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: globals.node,
+    },
+    rules: {
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+    },
+  },
+  {
+    // The standalone GayZ Features microsite - plain <script src="app.js">
+    // (no bundler, no `type="module"`), so it's classic-script scope, not
+    // a module.
+    files: ['public/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'script',
+      globals: globals.browser,
     },
     rules: {
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],

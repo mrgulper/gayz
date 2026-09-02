@@ -3400,6 +3400,7 @@ export class Game {
     this._zombiePopulationCap = LOW_QUALITY_MODE ? 20 : 50
 
     this.playBtn = document.getElementById('play-btn')
+    this.resumeRunBtn = document.getElementById('resume-run-btn')
     this.buildModeLoadingOverlay = document.getElementById('build-mode-loading-overlay')
     this.crosshair = document.getElementById('crosshair')
     this.damageNumbersEl = document.getElementById('damage-numbers')
@@ -5555,6 +5556,7 @@ export class Game {
     audioEngine.setSfxVolume(this.settings.sfxVolume / 100)
 
     this._bindMenu()
+    this._initRunSaveSystem()
     this._bindScreenshotCrop()
     this._bindTraderClick()
     // Safety net alongside the _updateStatsPanel save hook - catches a
@@ -5904,7 +5906,12 @@ export class Game {
         }
       }
       this._showLoreToast(t(DIFFICULTY_FLAVOR_KEYS[this.settings.difficulty] || DIFFICULTY_FLAVOR_KEYS.normal))
-      this._openWeaponPickerPanel()
+      if (this._pendingResumeSnapshot) {
+        this._applyRunSnapshot(this._pendingResumeSnapshot)
+        this._pendingResumeSnapshot = null
+      } else {
+        this._openWeaponPickerPanel()
+      }
     })
 
     this.respawnBtn.addEventListener('click', () => {
@@ -10914,6 +10921,148 @@ export class Game {
       data[key] = localStorage.getItem(key)
     }
     return data
+  }
+
+  // Mid-Run Save/Resume - a deliberately scoped-down "checkpoint" save,
+  // not a full freeze-frame: it captures the stats/gear a player would
+  // be upset to lose (night, kills, health/armor, inventory, weapons,
+  // position) but does NOT snapshot the moment-to-moment battlefield
+  // (exact zombie positions/health, turrets, chests, weather, rivals,
+  // survivor camp, etc.) - resuming drops you into the saved night with
+  // those systems freshly initialized, the same as if you'd just reached
+  // that night normally. A full exact-resume would mean serializing
+  // every one of those subsystems (see the huge per-run reset block in
+  // respawnBtn's handler for the full list) - real scope, deliberately
+  // not taken on here. coins/points/difficulty/mutators aren't included
+  // because they're already persistent (loaded from shopProgress/
+  // settings, never reset per-run - see their own single assignment at
+  // construction) - saving them here would just be redundant.
+  static RUN_SAVE_KEY = 'gayz-run-save'
+  static RUN_SAVE_VERSION = 1
+
+  _exportRunSnapshot() {
+    return {
+      v: Game.RUN_SAVE_VERSION,
+      savedAt: Date.now(),
+      night: this.night,
+      kills: this.kills,
+      killStreak: this.killStreak,
+      elapsedMs: performance.now() - this.runStartedAt,
+      health: this.playerState.health,
+      armor: this.playerState.armor,
+      infected: this.playerState.infected,
+      inventory: { ...this.inventory },
+      weapons: this.weapons.getSummary(),
+      currentWeaponIndex: this.weapons.currentIndex,
+      position: [this.camera.position.x, this.camera.position.y, this.camera.position.z],
+    }
+  }
+
+  // Called on a steady autosave tick and on tab-hide/unload - see
+  // _initRunSaveSystem. Silently a no-op with nothing saved to overwrite
+  // if the player isn't actually in a run (menu, dead, etc.) so a stray
+  // call from a background timer can never create a bogus save.
+  _saveRunSnapshot() {
+    if (!this.gameStarted || !this.playerState.alive) return
+    try {
+      localStorage.setItem(Game.RUN_SAVE_KEY, JSON.stringify(this._exportRunSnapshot()))
+    } catch {
+      // Storage full/unavailable - same "non-critical, don't block
+      // gameplay over it" reasoning as the avatar-face cache write above.
+    }
+  }
+
+  _clearRunSnapshot() {
+    try {
+      localStorage.removeItem(Game.RUN_SAVE_KEY)
+    } catch {
+      // See _saveRunSnapshot - storage errors here are non-critical too.
+    }
+  }
+
+  // Applies a previously-saved snapshot on top of whatever a fresh
+  // playBtn click just set up (see the resumeRunBtn handler / the
+  // _pendingResumeSnapshot hook at the end of playBtn's own handler) -
+  // deliberately does NOT touch anything not listed in
+  // _exportRunSnapshot (zombies/turrets/chests/weather/etc. all stay at
+  // whatever playBtn's normal fresh-run setup just gave them).
+  _applyRunSnapshot(data) {
+    this.night = data.night
+    this.kills = data.kills
+    this.killStreak = data.killStreak
+    this.runStartedAt = performance.now() - (data.elapsedMs || 0)
+    this.playerState.health = data.health
+    this.playerState.armor = data.armor
+    this.playerState.infected = !!data.infected
+    this.playerState.alive = true
+    Object.assign(this.inventory, data.inventory)
+    for (const saved of data.weapons || []) {
+      const w = this.weapons.weapons.find((x) => x.id === saved.id)
+      if (!w) continue
+      w.unlocked = saved.unlocked
+      w.ammoInMag = saved.ammoInMag
+      w.ammoReserve = saved.ammoReserve
+      w.hasScope = saved.hasScope
+      w.scopeOwned = saved.scopeOwned
+      w.hasExtMag = saved.hasExtMag
+      w.suppressed = saved.suppressed
+      w.masteryMult = saved.masteryMult
+    }
+    if (typeof data.currentWeaponIndex === 'number') {
+      this.weapons.currentIndex = Math.min(data.currentWeaponIndex, this.weapons.weapons.length - 1)
+    }
+    if (Array.isArray(data.position)) this.camera.position.set(...data.position)
+    this._showLoreToast(t('runResumedToast'))
+  }
+
+  // Autosave tick + tab-hide/unload saves, plus the main-menu Resume Run
+  // button's visibility/label and click handler. Called once from the
+  // constructor, right after _bindMenu().
+  _initRunSaveSystem() {
+    setInterval(() => this._saveRunSnapshot(), 20000)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') this._saveRunSnapshot()
+    })
+    window.addEventListener('beforeunload', () => this._saveRunSnapshot())
+
+    this._refreshResumeRunButton()
+    if (this.resumeRunBtn) {
+      this.resumeRunBtn.addEventListener('click', () => {
+        let data
+        try {
+          data = JSON.parse(localStorage.getItem(Game.RUN_SAVE_KEY))
+        } catch {
+          data = null
+        }
+        if (!data || data.v !== Game.RUN_SAVE_VERSION) {
+          this._clearRunSnapshot()
+          this._refreshResumeRunButton()
+          return
+        }
+        this._pendingResumeSnapshot = data
+        this.playBtn.click()
+      })
+    }
+  }
+
+  // Shows/hides + labels the Resume Run button based on whatever's
+  // currently in localStorage - called on startup and again any time a
+  // save is cleared (death, quit, an already-consumed/invalid save) so
+  // the button never sits there offering a resume that won't work.
+  _refreshResumeRunButton() {
+    if (!this.resumeRunBtn) return
+    let data
+    try {
+      data = JSON.parse(localStorage.getItem(Game.RUN_SAVE_KEY))
+    } catch {
+      data = null
+    }
+    if (data && data.v === Game.RUN_SAVE_VERSION) {
+      this.resumeRunBtn.style.display = ''
+      this.resumeRunBtn.textContent = `Resume Run (Night ${data.night})`
+    } else {
+      this.resumeRunBtn.style.display = 'none'
+    }
   }
 
   // Cloud Save panel open/close - a normal modal, same shared z-index/
@@ -17209,10 +17358,13 @@ export class Game {
     this.metaProgress.legacyPoints += legacyEarned
     saveMetaProgress(this.metaProgress)
     this._recordRunEnd(false)
+    this._clearRunSnapshot()
     window.location.reload()
   }
 
   _onPlayerDeath() {
+    this._clearRunSnapshot()
+    this._refreshResumeRunButton()
     this._stopClipRecordingIfActive()
     // Shareable run-summary card (see _generateRunSummaryCard) - captures
     // the actual moment-of-death frame before any HUD teardown/UI change,
@@ -17589,7 +17741,13 @@ export class Game {
     // skin file) - this is just the small pre-cropped face, read by
     // index.html's own inline anti-flash script on the very next load so
     // the corner badge never has to show the anonymous placeholder again.
-    try { localStorage.setItem('gayz-avatar-face-cache', dataUrl) } catch (e) {}
+    try {
+      localStorage.setItem('gayz-avatar-face-cache', dataUrl)
+    } catch (e) {
+      // Deliberately swallowed: this is just a nice-to-have pre-crop cache
+      // (see comment above) - private browsing / storage-full / quota
+      // errors here shouldn't block setting the avatar photo itself.
+    }
     this.menuAvatarPhoto.style.display = ''
   }
 

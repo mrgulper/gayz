@@ -1482,6 +1482,8 @@ const STRINGS = {
     clearLeaderboardsBtn: 'Clear Leaderboards Only',
     guestModeLabel: "Guest Mode (don't save this run's stats)",
     saveExported: 'Save exported - check your downloads.',
+    runResumedToast: 'Run resumed.',
+    runSavedToast: 'Run saved.',
     saveFileInvalid: "That file doesn't look like a GayZ save.",
     saveImportConfirm: "Importing overwrites your CURRENT save completely. This can't be undone. Continue?",
     buildImportConfirm: "Importing replaces your CURRENT build completely. This can't be undone. Continue?",
