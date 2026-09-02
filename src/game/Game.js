@@ -17351,7 +17351,19 @@ export class Game {
   // (killcam, nemesis, hardcore memorial, totalDeaths/first_death - none of
   // those honestly apply to a run the player chose to end, not one where
   // they were actually killed).
-  _quitRunWithLegacyPayout() {
+  // Shared by every way a run can actually end (Quit, death, and every
+  // "win the run" screen via _showRunWinScreen) - leaves the multiplayer
+  // session (if any) and clears every bit of its client-side state.
+  // Missing from death/win used to be the actual bug behind "I still see
+  // old chat messages from players who are offline, even after starting a
+  // new game": _multiplayerSessionId/_chatPartyMessages/_chatPartySeenIds
+  // were only ever reset here (in the Quit button's own handler, right
+  // before a full page reload wiped everything anyway) - dying or winning
+  // a run left them all sitting in memory completely untouched, so the
+  // very next run (even a solo one) inherited the previous session's
+  // stale party chat history and kept "seeing" players who'd long since
+  // left, because nothing had ever told the client that session was over.
+  _leaveMultiplayerSession() {
     if (this._multiplayerSessionId) {
       import('./Multiplayer.js').then((Multiplayer) => {
         Multiplayer.leaveBeacon(this._multiplayerSessionId)
@@ -17372,6 +17384,10 @@ export class Game {
     this._sharedZombieBodies.clear()
     this.zombies.sharedZombies = []
     this._pendingZombieHits = []
+  }
+
+  _quitRunWithLegacyPayout() {
+    this._leaveMultiplayerSession()
     const legacyEarned = Math.floor(this.points * DEATH_POINTS_CONVERSION * QUIT_LEGACY_MULT * (1 + this.metaProgress.prestigeLevel * 0.1))
     this.metaProgress.legacyPoints += legacyEarned
     saveMetaProgress(this.metaProgress)
@@ -17381,6 +17397,7 @@ export class Game {
   }
 
   _onPlayerDeath() {
+    this._leaveMultiplayerSession()
     this._clearRunSnapshot()
     this._refreshResumeRunButton()
     this._stopClipRecordingIfActive()
@@ -22117,6 +22134,7 @@ export class Game {
   // line stays out of this helper and gets set by the caller beforehand -
   // only Extraction is actually wired to that score comparison.
   _showRunWinScreen(titleKey, pointsBonus, coinsBonus, modeWrapEl) {
+    this._leaveMultiplayerSession()
     this._stopClipRecordingIfActive()
     this._requestPointerUnlock()
     this.crosshair.style.display = 'none'
