@@ -23130,24 +23130,49 @@ export class Game {
       this._checkRooftopWind(playerPos)
       this._updateLockedCells(playerPos)
       this._updateTrophyWallProximity(playerPos)
-      // Interactive World batch.
-      this._updateManholeCovers(playerPos)
-      this._updateCampfire(playerPos)
-      this._updateWaterTowerValve(playerPos)
-      this._updateIndustrialSiren(playerPos)
-      this._updateWreckingPendulum(playerPos)
-      this._updateElevatorTower(playerPos)
-      this._updateDrainpipes(playerPos)
-      this._updateMinecart(playerPos)
-      this._updateJumpPad(playerPos)
-      this._updatePayphone(playerPos)
-      this._updateJukebox(playerPos)
-      this._updateWorkbench(playerPos)
-      this._updateBulletinBoard(playerPos)
-      this._updateHallOfFame(playerPos)
-      this._updateNearSafeZoneCenter(playerPos)
-      this._updateSkyscraperShortcut(playerPos)
-      this._updateAdjustableDummy(playerPos)
+      // Interactive World batch (docs/PERFORMANCE.md §6) - round-robin
+      // across 5 frames instead of checking all 17 every single frame.
+      // Safe here specifically because every one of these just sets a
+      // `nearX` boolean off a plain distance check (see e.g.
+      // _updateManholeCovers/_updateCampfire) - no dt, no per-frame
+      // accumulation - and the interact-prompt block below (which reads
+      // these flags) still runs every frame regardless, so the only
+      // real-world effect is a prompt appearing/disappearing up to ~4
+      // frames (well under 100ms) later than instant. Same category of
+      // imperceptible delay as _updateMinimap/_updateCompass's existing
+      // 20fps throttle a bit further down. Deliberately does NOT include
+      // any check that takes `dt` (heal/fuel/hazard simulations) or
+      // _updateCulling (visibility-critical) - those still run every frame.
+      this._proximityCheckFrame = ((this._proximityCheckFrame || 0) + 1) % 5
+      switch (this._proximityCheckFrame) {
+        case 0:
+          this._updateManholeCovers(playerPos)
+          this._updateCampfire(playerPos)
+          this._updateWaterTowerValve(playerPos)
+          this._updateIndustrialSiren(playerPos)
+          break
+        case 1:
+          this._updateWreckingPendulum(playerPos)
+          this._updateElevatorTower(playerPos)
+          this._updateDrainpipes(playerPos)
+          this._updateMinecart(playerPos)
+          break
+        case 2:
+          this._updateJumpPad(playerPos)
+          this._updatePayphone(playerPos)
+          this._updateJukebox(playerPos)
+          this._updateWorkbench(playerPos)
+          break
+        case 3:
+          this._updateBulletinBoard(playerPos)
+          this._updateHallOfFame(playerPos)
+          this._updateNearSafeZoneCenter(playerPos)
+          break
+        default:
+          this._updateSkyscraperShortcut(playerPos)
+          this._updateAdjustableDummy(playerPos)
+          break
+      }
       this._updatePet(playerPos, dt)
       this._updateEscalation(dt)
       this._updateChallengeTracker()
@@ -23195,123 +23220,94 @@ export class Game {
       this.nearBarricadeWindow = this.barricadeWindows.nearestRepairable(playerPos)
 
       const canRefuelGenerator = this.nearGenerator && this.inventory.fuelCans > 0 && this.generatorFuel < this.maxGeneratorFuel
+      let promptHtml = null
       if (this.chests.nearbyChest) {
-        this.interactPrompt.innerHTML = tHtml('interactPrompt')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactPrompt')
       } else if (this.nearTrader) {
-        this.interactPrompt.innerHTML = tHtml('interactTrader')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactTrader')
       } else if (this.nearUpgradeMachine) {
-        this.interactPrompt.innerHTML = tHtml('interactUpgradeMachine')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactUpgradeMachine')
       } else if (this.nearMysteryBox) {
-        this.interactPrompt.innerHTML = tHtml('interactMysteryBox')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactMysteryBox')
       } else if (this.nearVehicle && this.vehicle.fuel < this.vehicle.stats.maxFuel && this.inventory.fuelCans > 0) {
-        this.interactPrompt.innerHTML = tHtml('interactRefuelVehicle')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactRefuelVehicle')
       } else if (this.nearVehicle) {
-        this.interactPrompt.innerHTML = tHtml('interactEnterVehicle')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactEnterVehicle')
       } else if (this.reviveTarget) {
-        this.interactPrompt.innerHTML = tHtml('interactRevive')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactRevive')
       } else if (this.nearVireoTerminal) {
-        this.interactPrompt.innerHTML = tHtml('interactTerminal')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactTerminal')
       } else if (this.nearStationTerminal) {
-        this.interactPrompt.innerHTML = tHtml('interactTerminal')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactTerminal')
       } else if (this.nearRescueSurvivor) {
-        this.interactPrompt.innerHTML = tHtml(this.rescueSurvivor.diseased ? 'interactRescueDiseased' : 'interactRescue')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml(this.rescueSurvivor.diseased ? 'interactRescueDiseased' : 'interactRescue')
       } else if (this.nearRecruitSpot) {
-        this.interactPrompt.innerHTML = tHtml('interactRecruit')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactRecruit')
       } else if (canRefuelGenerator) {
-        this.interactPrompt.innerHTML = tHtml('interactRefuel')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactRefuel')
       } else if (this.nearAmmoStation) {
-        this.interactPrompt.innerHTML = tHtml('interactAmmoStation')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactAmmoStation')
       } else if (this.nearBreakerBox) {
-        this.interactPrompt.innerHTML = tHtml('interactBreakerBox')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactBreakerBox')
       } else if (this.nearBuriedCache) {
-        this.interactPrompt.innerHTML = tHtml('interactBuriedCache')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactBuriedCache')
       } else if (this.nearVault) {
-        this.interactPrompt.innerHTML = tHtml(this.inventory.vaultKey ? 'interactVaultUnlock' : 'interactVaultLocked')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml(this.inventory.vaultKey ? 'interactVaultUnlock' : 'interactVaultLocked')
       } else if (this.nearLockedCell) {
-        this.interactPrompt.innerHTML = tHtml('interactLockedCell')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactLockedCell')
       } else if (this.nearTrophyWall) {
-        this.interactPrompt.innerHTML = tHtml('interactTrophyWall')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactTrophyWall')
       } else if (this.nearBarricadeWindow) {
-        this.interactPrompt.innerHTML = `<b>F</b> repair barricade (+${REPAIR_REWARD_POINTS} points)`
-        this.interactPrompt.style.display = 'block'
+        promptHtml = `<b>F</b> repair barricade (+${REPAIR_REWARD_POINTS} points)`
       } else if (this.nearZiplineEnd) {
-        this.interactPrompt.innerHTML = tHtml('interactZipline')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactZipline')
       } else if (this.nearInformant) {
-        this.interactPrompt.innerHTML = tHtml('interactInformant', { cost: INFORMANT_COST })
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactInformant', { cost: INFORMANT_COST })
       } else if (this.nearLoreMarker) {
-        this.interactPrompt.innerHTML = tHtml('interactLoreMarker')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactLoreMarker')
       } else if (this.nearManholeCover) {
-        this.interactPrompt.innerHTML = tHtml('interactManhole')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactManhole')
       } else if (this.nearCampfire) {
-        this.interactPrompt.innerHTML = tHtml('interactCampfire')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactCampfire')
       } else if (this.nearWaterTowerValve) {
-        this.interactPrompt.innerHTML = tHtml('interactValve')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactValve')
       } else if (this.nearIndustrialSiren) {
-        this.interactPrompt.innerHTML = tHtml('interactSiren')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactSiren')
       } else if (this.nearWreckingPendulum) {
-        this.interactPrompt.innerHTML = tHtml('interactPendulum')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactPendulum')
       } else if (this.nearElevatorCar) {
-        this.interactPrompt.innerHTML = tHtml('interactElevator')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactElevator')
       } else if (this.nearPayphone && !this.payphoneUsedThisRun) {
-        this.interactPrompt.innerHTML = tHtml('interactPayphone')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactPayphone')
       } else if (this.nearJukebox) {
-        this.interactPrompt.innerHTML = tHtml('interactJukebox')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactJukebox')
       } else if (this.nearWorkbench) {
-        this.interactPrompt.innerHTML = tHtml('interactWorkbench')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactWorkbench')
       } else if (this.nearBulletinBoard) {
-        this.interactPrompt.innerHTML = tHtml('interactBulletinBoard')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactBulletinBoard')
       } else if (this.nearHallOfFame) {
-        this.interactPrompt.innerHTML = tHtml('interactHallOfFame')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactHallOfFame')
       } else if (this.nearSkyscraperShortcut) {
-        this.interactPrompt.innerHTML = tHtml('interactSkyscraperShortcut')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactSkyscraperShortcut')
       } else if (this.nearAdjustableDummy) {
-        this.interactPrompt.innerHTML = tHtml('interactDummy')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactDummy')
       } else if (this.nearMinecart) {
-        this.interactPrompt.innerHTML = tHtml('interactMinecart')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactMinecart')
       } else if (this.nearPet && !this.settings.petAdopted) {
-        this.interactPrompt.innerHTML = tHtml('interactPet')
-        this.interactPrompt.style.display = 'block'
+        promptHtml = tHtml('interactPet')
       } else if (this.nearSafeZoneCenter && this.dayNight && this.dayNight.getPhaseInfo().phase === 'Night') {
-        this.interactPrompt.innerHTML = tHtml('interactSleep')
-        this.interactPrompt.style.display = 'block'
-      } else {
-        this.interactPrompt.style.display = 'none'
+        promptHtml = tHtml('interactSleep')
       }
+      // Skip the innerHTML write when the prompt text hasn't changed
+      // (docs/PERFORMANCE.md §6) - this used to re-parse the same HTML
+      // 60x/sec the entire time the player stood near any interactable.
+      // display is still set every frame regardless (cheap, and covers
+      // both the appear and disappear transition either way).
+      if (promptHtml !== this._lastInteractPromptHtml) {
+        this.interactPrompt.innerHTML = promptHtml || ''
+        this._lastInteractPromptHtml = promptHtml
+      }
+      this.interactPrompt.style.display = promptHtml ? 'block' : 'none'
       this._updateZipline(playerPos)
       // Throttled to ~20fps (imperceptible for a corner minimap/compass,
       // unlike the main 3D view) - a canvas redraw + several DOM position
