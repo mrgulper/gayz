@@ -55,7 +55,7 @@ import * as MenuPresets from './MenuPresets.js'
 // instead (see _enterBuildMode) to keep it out of the initial page load.
 import * as CloudSync from './CloudSync.js'
 import * as CloudSaveUI from './CloudSaveUI.js'
-import { setColorblind } from './Accessibility.js'
+import { setColorblindMode } from './Accessibility.js'
 import { registerZone } from './Zones.js'
 import { TouchControls } from './TouchControls.js'
 
@@ -230,6 +230,7 @@ function loadSettings() {
     const defaultNickname = raw ? '' : `Warrior${Math.floor(1000 + Math.random() * 9000)}`
     const settings = {
       language: parsed.language || 'en',
+      masterVolume: parsed.masterVolume ?? 100,
       musicVolume: parsed.musicVolume ?? 100,
       sfxVolume: parsed.sfxVolume ?? 100,
       ambientVolume: parsed.ambientVolume ?? 100,
@@ -241,7 +242,16 @@ function loadSettings() {
       fov: parsed.fov ?? 75,
       hudScale: parsed.hudScale ?? 100,
       hudOpacity: parsed.hudOpacity ?? 100,
-      colorblind: parsed.colorblind ?? false,
+      // Replaced the old boolean 'colorblind' toggle with a 3-way mode
+      // (off/redgreen/blueyellow) - redgreen covers protanopia/deuteranopia
+      // (the old single mode, unchanged) and blueyellow is a new,
+      // genuinely different palette for tritanopia, which the old amber/
+      // blue scheme actually sat right on top of (amber-vs-blue is exactly
+      // the hue pair tritanopes confuse - see Accessibility.js). Migrates
+      // an old save's boolean straight across so nobody's existing
+      // preference silently resets to Off.
+      colorblindMode: parsed.colorblindMode ?? (parsed.colorblind ? 'redgreen' : 'off'),
+      autoLootRadius: parsed.autoLootRadius ?? 'medium',
       performanceMode: parsed.performanceMode ?? false,
       // Accessibility (see the settings-page-controls HTML section) -
       // shakeIntensity/toastDuration are percentages of the normal/default
@@ -558,7 +568,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblind: false, recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, instantStationInteract: false, confirmQuitRun: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, touchControlsOverride: 'auto', clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'golden', lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
+  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, autoLootRadius: 'medium', instantStationInteract: false, confirmQuitRun: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, touchControlsOverride: 'auto', clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'golden', lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -737,7 +747,10 @@ const WEEKLY_FEATURED_MUTATORS = ['hordeRush', 'pureGunplay', 'bossRush', 'horde
 const WEEKLY_FEATURED_MUTATOR_BONUS_COINS = 50
 const WEEKLY_REMIX_BONUS_COINS = 75
 const GLOBAL_KILLS_MILESTONE_STEP = 100000
-const AUTO_LOOT_RADIUS_MULT = 2.5
+// Auto-Loot Radius setting (Close/Medium/Far) - medium (2.5) is the
+// original fixed value from before this was configurable, kept as the
+// default so existing players' pickup range doesn't change under them.
+const AUTO_LOOT_RADIUS_MULT = { close: 1.6, medium: 2.5, far: 4 }
 // Pickup Magnet perk (batch 10 feature)
 const PICKUP_MAGNET_MULT = 1.6
 // Quit to Menu's Legacy Points payout (was Surrender Run's, folded into
@@ -780,8 +793,8 @@ const MUTATOR_LABEL_KEYS = {
 // player's identity) since this is meant to be pasted/shared with someone
 // else, unlike Export Save's full-fidelity file backup.
 const SETTINGS_CODE_KEYS = [
-  'musicVolume', 'sfxVolume', 'ambientVolume', 'sensitivity', 'invertY', 'fov', 'adsFov', 'hudScale', 'hudOpacity',
-  'colorblind', 'recoilShakeIntensity', 'damageShakeIntensity', 'reduceFlashing', 'toggleSprint', 'toggleCrouch', 'toggleAds',
+  'masterVolume', 'musicVolume', 'sfxVolume', 'ambientVolume', 'sensitivity', 'invertY', 'fov', 'adsFov', 'hudScale', 'hudOpacity',
+  'colorblindMode', 'recoilShakeIntensity', 'damageShakeIntensity', 'reduceFlashing', 'toggleSprint', 'toggleCrouch', 'toggleAds',
   'aimAssist', 'bigInteractPrompt', 'toastDuration', 'crosshairSize', 'largeTextMode',
   'highContrastMode', 'dyslexiaFont', 'focusRingMode', 'keybindCheatSheet', 'showHitFeedback',
   'performanceMode', 'bgMood', 'renderResolution', 'brightness', 'contrast', 'aoIntensity',
@@ -3745,6 +3758,8 @@ export class Game {
     this.settingsBtn = document.getElementById('settings-btn')
     this.settingsPanel = document.getElementById('settings-panel')
     this.languageGrid = document.getElementById('language-grid')
+    this.masterVolumeSlider = document.getElementById('master-volume')
+    this.masterVolumeValue = document.getElementById('master-volume-value')
     this.musicVolumeSlider = document.getElementById('music-volume')
     this.musicVolumeValue = document.getElementById('music-volume-value')
     this.musicTestBtn = document.getElementById('music-test-btn')
@@ -3770,7 +3785,7 @@ export class Game {
     this.hudScaleValue = document.getElementById('hud-scale-value')
     this.hudOpacitySlider = document.getElementById('hud-opacity-slider')
     this.hudOpacityValue = document.getElementById('hud-opacity-value')
-    this.colorblindToggle = document.getElementById('colorblind-toggle')
+    this.colorblindModeSelect = document.getElementById('colorblind-mode-select')
     this.largeTextToggle = document.getElementById('large-text-toggle')
     this.highContrastToggle = document.getElementById('high-contrast-toggle')
     this.focusRingToggle = document.getElementById('focus-ring-toggle')
@@ -3855,10 +3870,12 @@ export class Game {
     this.homepageGreetingInput = document.getElementById('homepage-greeting-input')
     this.autoReloadToggle = document.getElementById('auto-reload-toggle')
     this.autoLootToggle = document.getElementById('auto-loot-toggle')
+    this.autoLootRadiusSelect = document.getElementById('auto-loot-radius-select')
     this.instantInteractToggle = document.getElementById('instant-interact-toggle')
     this.confirmQuitToggle = document.getElementById('confirm-quit-toggle')
     this.damageFlashColorInput = document.getElementById('damage-flash-color-input')
     this.oneHandedToggle = document.getElementById('one-handed-toggle')
+    this.fullscreenBtn = document.getElementById('fullscreen-btn')
     this.sortWeaponsToggle = document.getElementById('sort-weapons-toggle')
     this.whatsNewEveryLaunchToggle = document.getElementById('whatsnew-every-launch-toggle')
     this.hudSessionTimerEl = document.getElementById('hud-session-timer')
@@ -5551,8 +5568,7 @@ export class Game {
     }
     this._applyVeteranPerks()
 
-    audioEngine.setMusicVolume(this.settings.musicVolume / 100)
-    audioEngine.setSfxVolume(this.settings.sfxVolume / 100)
+    this._applyAllVolumes()
 
     this._bindMenu()
     this._bindScreenshotCrop()
@@ -8566,6 +8582,19 @@ export class Game {
     })
   }
 
+  // Master Volume - a multiplier on top of the three independent channel
+  // sliders (Music/SFX/Ambient), not a fourth channel of its own. Keeps
+  // whatever balance the player already set between channels while still
+  // giving a single "turn everything up/down" control. Called after any of
+  // the four volume settings changes, rather than each slider computing
+  // its own effective value inline in four separate places.
+  _applyAllVolumes() {
+    const master = this.settings.masterVolume / 100
+    audioEngine.setMusicVolume(master * (this.settings.musicVolume / 100))
+    audioEngine.setSfxVolume(master * (this.settings.sfxVolume / 100))
+    audioEngine.setAmbientVolume(master * (this.settings.ambientVolume / 100))
+  }
+
   _bindSettings() {
     this.languageGrid.innerHTML = LANGUAGES.map((lang) => `
       <button class="language-btn${lang.code === this.settings.language ? ' active' : ''}" data-lang="${lang.code}">
@@ -8662,16 +8691,29 @@ export class Game {
       })
     }
 
+    this.masterVolumeSlider.value = this.settings.masterVolume
+    this.masterVolumeValue.textContent = `${this.settings.masterVolume}%`
     this.musicVolumeSlider.value = this.settings.musicVolume
     this.musicVolumeValue.textContent = `${this.settings.musicVolume}%`
     this.sfxVolumeSlider.value = this.settings.sfxVolume
     this.sfxVolumeValue.textContent = `${this.settings.sfxVolume}%`
+    this.ambientVolumeSlider.value = this.settings.ambientVolume
+    this.ambientVolumeValue.textContent = `${this.settings.ambientVolume}%`
+    this._applyAllVolumes()
+
+    this.masterVolumeSlider.addEventListener('input', () => {
+      const value = Number(this.masterVolumeSlider.value)
+      this.masterVolumeValue.textContent = `${value}%`
+      this.settings.masterVolume = value
+      this._applyAllVolumes()
+      saveSettings(this.settings)
+    })
 
     this.musicVolumeSlider.addEventListener('input', () => {
       const value = Number(this.musicVolumeSlider.value)
       this.musicVolumeValue.textContent = `${value}%`
       this.settings.musicVolume = value
-      audioEngine.setMusicVolume(value / 100)
+      this._applyAllVolumes()
       saveSettings(this.settings)
     })
 
@@ -8679,18 +8721,15 @@ export class Game {
       const value = Number(this.sfxVolumeSlider.value)
       this.sfxVolumeValue.textContent = `${value}%`
       this.settings.sfxVolume = value
-      audioEngine.setSfxVolume(value / 100)
+      this._applyAllVolumes()
       saveSettings(this.settings)
     })
 
-    this.ambientVolumeSlider.value = this.settings.ambientVolume
-    this.ambientVolumeValue.textContent = `${this.settings.ambientVolume}%`
-    audioEngine.setAmbientVolume(this.settings.ambientVolume / 100)
     this.ambientVolumeSlider.addEventListener('input', () => {
       const value = Number(this.ambientVolumeSlider.value)
       this.ambientVolumeValue.textContent = `${value}%`
       this.settings.ambientVolume = value
-      audioEngine.setAmbientVolume(value / 100)
+      this._applyAllVolumes()
       saveSettings(this.settings)
     })
 
@@ -9076,6 +9115,7 @@ export class Game {
     // primary control, this just re-dispatches its own 'input' event so
     // every existing listener (audio engine, saveSettings, HUD text) fires
     // exactly the same way it would from a drag.
+    this._bindEditableSliderValue(this.masterVolumeValue, this.masterVolumeSlider)
     this._bindEditableSliderValue(this.musicVolumeValue, this.musicVolumeSlider)
     this._bindEditableSliderValue(this.sfxVolumeValue, this.sfxVolumeSlider)
     this._bindEditableSliderValue(this.sensitivityValue, this.sensitivitySlider)
@@ -9087,12 +9127,13 @@ export class Game {
     this._bindEditableSliderValue(this.toastDurationValue, this.toastDurationSlider)
     this._bindEditableSliderValue(this.crosshairSizeValue, this.crosshairSizeSlider)
 
-    this.colorblindToggle.checked = this.settings.colorblind
-    setColorblind(this.settings.colorblind)
+    this.colorblindModeSelect.value = this.settings.colorblindMode
+    setColorblindMode(this.settings.colorblindMode)
 
-    this.colorblindToggle.addEventListener('change', () => {
-      this.settings.colorblind = this.colorblindToggle.checked
-      setColorblind(this.settings.colorblind)
+    this.colorblindModeSelect.addEventListener('change', () => {
+      this.settings.colorblindMode = this.colorblindModeSelect.value
+      setColorblindMode(this.settings.colorblindMode)
+      if (this.quickColorblindBtn) this.quickColorblindBtn.classList.toggle('active', this.settings.colorblindMode !== 'off')
       saveSettings(this.settings)
     })
 
@@ -10401,6 +10442,14 @@ export class Game {
       })
     }
 
+    if (this.autoLootRadiusSelect) {
+      this.autoLootRadiusSelect.value = this.settings.autoLootRadius
+      this.autoLootRadiusSelect.addEventListener('change', () => {
+        this.settings.autoLootRadius = this.autoLootRadiusSelect.value
+        saveSettings(this.settings)
+      })
+    }
+
     if (this.instantInteractToggle) {
       this.instantInteractToggle.checked = this.settings.instantStationInteract
       this.instantInteractToggle.addEventListener('change', () => {
@@ -10455,6 +10504,31 @@ export class Game {
       if (!action) return
       window.dispatchEvent(new KeyboardEvent('keyup', { code: getKeyFor(action) }))
     })
+
+    // Fullscreen button - a real button instead of expecting players to
+    // know the F11 shortcut. Label/state driven off the actual
+    // document.fullscreenElement, not a settings flag - fullscreen can also
+    // be exited via Esc or F11 outside this button, and there's no reliable
+    // way to auto-re-enter it on page load anyway (Fullscreen API requires
+    // a real user gesture), so this deliberately isn't a persisted setting.
+    if (this.fullscreenBtn) {
+      const updateFullscreenBtnLabel = () => {
+        this.fullscreenBtn.textContent = document.fullscreenElement ? 'Exit Fullscreen' : 'Enter Fullscreen'
+      }
+      updateFullscreenBtnLabel()
+      document.addEventListener('fullscreenchange', updateFullscreenBtnLabel)
+      this.fullscreenBtn.addEventListener('click', () => {
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {})
+        } else {
+          // Rejects (rather than throwing) if fullscreen isn't allowed here
+          // - e.g. embedded in an iframe without the allowfullscreen
+          // attribute - nothing useful to do about that from inside the
+          // page, so just swallow it rather than showing a broken toast.
+          document.documentElement.requestFullscreen().catch(() => {})
+        }
+      })
+    }
 
     if (this.sortWeaponsToggle) {
       this.sortWeaponsToggle.checked = this.settings.sortWeaponsAlpha
@@ -10707,7 +10781,7 @@ export class Game {
     if (this.resetAudioDefaultsBtn) {
       this.resetAudioDefaultsBtn.addEventListener('click', () => {
         const defaults = defaultSettings()
-        for (const key of ['musicVolume', 'sfxVolume']) this.settings[key] = defaults[key]
+        for (const key of ['masterVolume', 'musicVolume', 'sfxVolume', 'ambientVolume']) this.settings[key] = defaults[key]
         saveSettings(this.settings)
         window.location.reload()
       })
@@ -10715,7 +10789,7 @@ export class Game {
     if (this.resetControlsDefaultsBtn) {
       this.resetControlsDefaultsBtn.addEventListener('click', () => {
         const defaults = defaultSettings()
-        const keys = ['sensitivity', 'invertY', 'fov', 'adsFov', 'hudScale', 'hudOpacity', 'colorblind', 'recoilShakeIntensity', 'damageShakeIntensity', 'reduceFlashing',
+        const keys = ['sensitivity', 'invertY', 'fov', 'adsFov', 'hudScale', 'hudOpacity', 'colorblindMode', 'recoilShakeIntensity', 'damageShakeIntensity', 'reduceFlashing',
           'toggleSprint', 'toggleCrouch', 'toggleAds', 'aimAssist', 'bigInteractPrompt', 'toastDuration', 'crosshairColor', 'crosshairSize',
           'largeTextMode', 'highContrastMode', 'dyslexiaFont', 'bgMood', 'keybindCheatSheet', 'showHitFeedback', 'performanceMode',
           'streamSafeMode', 'focusRingMode', 'homepageFpsCounter', 'underlineLinks', 'nicknameFont', 'layoutDensity',
@@ -14788,8 +14862,7 @@ export class Game {
           this.settings.musicVolume = 0
           this.settings.sfxVolume = 0
         }
-        audioEngine.setMusicVolume(this.settings.musicVolume / 100)
-        audioEngine.setSfxVolume(this.settings.sfxVolume / 100)
+        this._applyAllVolumes()
         if (this.musicVolumeSlider) { this.musicVolumeSlider.value = this.settings.musicVolume; this.musicVolumeValue.textContent = `${this.settings.musicVolume}%` }
         if (this.sfxVolumeSlider) { this.sfxVolumeSlider.value = this.settings.sfxVolume; this.sfxVolumeValue.textContent = `${this.settings.sfxVolume}%` }
         saveSettings(this.settings)
@@ -14798,13 +14871,23 @@ export class Game {
     }
 
     if (this.quickColorblindBtn) {
-      this.quickColorblindBtn.classList.toggle('active', this.settings.colorblind)
+      this.quickColorblindBtn.classList.toggle('active', this.settings.colorblindMode !== 'off')
+      // Quick on/off, not a 3-way cycle - picking WHICH mode (redgreen vs
+      // blueyellow) is a one-time setup choice that belongs in the real
+      // Settings dropdown, not something to hunt for via repeated clicks on
+      // a homepage icon. Remembers whichever mode was last selected there
+      // (defaulting to redgreen, the more common form) and just flips it on/off.
       this.quickColorblindBtn.addEventListener('click', () => {
-        this.settings.colorblind = !this.settings.colorblind
-        setColorblind(this.settings.colorblind)
-        if (this.colorblindToggle) this.colorblindToggle.checked = this.settings.colorblind
+        if (this.settings.colorblindMode !== 'off') {
+          this._lastColorblindMode = this.settings.colorblindMode
+          this.settings.colorblindMode = 'off'
+        } else {
+          this.settings.colorblindMode = this._lastColorblindMode || 'redgreen'
+        }
+        setColorblindMode(this.settings.colorblindMode)
+        if (this.colorblindModeSelect) this.colorblindModeSelect.value = this.settings.colorblindMode
         saveSettings(this.settings)
-        this.quickColorblindBtn.classList.toggle('active', this.settings.colorblind)
+        this.quickColorblindBtn.classList.toggle('active', this.settings.colorblindMode !== 'off')
       })
     }
 
@@ -22981,7 +23064,7 @@ export class Game {
       // Pickup Magnet perk (batch 10 feature) - stacks on top of the
       // Auto-Loot setting's own radius bonus rather than replacing it, so
       // owning the perk with Auto-Loot on is a real combo, not a wasted pick.
-      const pickupRadiusMult = (this.settings.autoLoot ? AUTO_LOOT_RADIUS_MULT : 1) * (this.hasPickupMagnet ? PICKUP_MAGNET_MULT : 1)
+      const pickupRadiusMult = (this.settings.autoLoot ? AUTO_LOOT_RADIUS_MULT[this.settings.autoLootRadius] || AUTO_LOOT_RADIUS_MULT.medium : 1) * (this.hasPickupMagnet ? PICKUP_MAGNET_MULT : 1)
       // A guest in a shared session never runs its own real pickup
       // simulation - it would only ever be empty anyway, since a guest
       // never processes zombie kills (see ZombieManager gating from Phase

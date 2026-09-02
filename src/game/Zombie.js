@@ -1316,11 +1316,16 @@ export class Zombie {
     ctx.fillStyle = '#1a1a1a'
     ctx.fillRect(0, 0, HEALTH_BAR_W, HEALTH_BAR_H)
 
-    // Colorblind mode swaps the classic green/red pair (hardest to tell apart
-    // for red-green colorblindness) for blue/orange, which stays readable
-    // across deuteranopia, protanopia, and tritanopia.
-    ctx.fillStyle = accessibility.colorblind
+    // Colorblind mode: redgreen swaps the classic green/red pair (hardest to
+    // tell apart for protanopia/deuteranopia) for blue/amber/orange.
+    // blueyellow keeps green and red (tritanopes see both fine) but swaps
+    // the middle amber stop for magenta, since amber sits right on the
+    // blue-yellow confusion axis that redgreen's own blue/amber pair
+    // depends on - amber wouldn't actually help a tritanopic player.
+    ctx.fillStyle = accessibility.colorblindMode === 'redgreen'
       ? (fraction > 0.5 ? '#4a9ecf' : fraction > 0.25 ? '#e0b23f' : '#e0813f')
+      : accessibility.colorblindMode === 'blueyellow'
+      ? (fraction > 0.5 ? '#5fcf4a' : fraction > 0.25 ? '#e0459e' : '#d64545')
       : (fraction > 0.5 ? '#5fcf4a' : fraction > 0.25 ? '#e0b23f' : '#d64545')
     ctx.fillRect(1, 1, (HEALTH_BAR_W - 2) * fraction, HEALTH_BAR_H - 2)
 

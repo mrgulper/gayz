@@ -1568,22 +1568,40 @@ html.high-contrast-mode #app {
 }
 
 /* Colorblind Mode (previously only touched zombie health bars, see
-   Accessibility.js) - health shifts from red toward amber/orange, which
-   stays distinguishable from armor's blue across protanopia/deuteranopia/
-   tritanopia, unlike red-vs-blue which can wash toward similar under some
-   of those. Damage numbers get the same amber treatment instead of relying
-   on the red/gold/orange hue distinctions the default palette uses. */
-html.colorblind-mode .status-fill.health {
+   Accessibility.js) - now a 3-way mode instead of one on/off toggle.
+
+   redgreen (protanopia/deuteranopia): health shifts from red toward amber/
+   orange, which stays distinguishable from armor's blue, unlike red-vs-blue
+   which can wash toward similar under some red-green deficiencies. Damage
+   numbers get the same amber-vs-blue treatment instead of relying on the
+   red/gold/orange hue distinctions the default palette uses. Unchanged from
+   this project's original single colorblind toggle.
+
+   blueyellow (tritanopia): deliberately does NOT reuse the amber/blue pair
+   above - amber and blue sit right on the blue-yellow axis tritanopes
+   actually struggle with, so that pair would help red-green colorblind
+   players while doing little to nothing for this group. Tritanopes
+   distinguish red/green normally, so the default red-based palette is
+   already close to fine here; the one real fix is the two elements that
+   default to yellow-gold (`.damage-number.big`/`.headshot`), swapped to a
+   clear green instead. Health/armor/low-ammo/blood-overlay are left at
+   their default (red/blue) values on purpose - they don't need it. */
+html[data-colorblind="redgreen"] .status-fill.health {
   background: #e8c32e;
 }
 
-html.colorblind-mode .damage-number {
+html[data-colorblind="redgreen"] .damage-number {
   color: #f2e6c9;
 }
 
-html.colorblind-mode .damage-number.big,
-html.colorblind-mode .damage-number.headshot {
+html[data-colorblind="redgreen"] .damage-number.big,
+html[data-colorblind="redgreen"] .damage-number.headshot {
   color: #4fb3ff;
+}
+
+html[data-colorblind="blueyellow"] .damage-number.big,
+html[data-colorblind="blueyellow"] .damage-number.headshot {
+  color: #5fcf4a;
 }
 
 /* Colorblind-safe damage/health palette, extended (batch 8 feature) -
@@ -1591,12 +1609,14 @@ html.colorblind-mode .damage-number.headshot {
    HUD elements it hadn't reached yet: the low-ammo text pulse (previously
    plain red, same amber family as the health bar now) and the critical-
    health screen vignette (previously plain red, shifted to the same amber
-   as everything else rather than being the one holdout still red). */
-html.colorblind-mode #ammo.low-ammo {
+   as everything else rather than being the one holdout still red). Only
+   applies to redgreen - see the big comment above for why blueyellow
+   deliberately leaves these two at their default red. */
+html[data-colorblind="redgreen"] #ammo.low-ammo {
   color: #e8c32e;
 }
 
-html.colorblind-mode #critical-blood-overlay {
+html[data-colorblind="redgreen"] #critical-blood-overlay {
   background:
     radial-gradient(ellipse 40% 55% at 0% 0%, rgba(184, 122, 6, 0.75) 0%, rgba(184, 122, 6, 0) 70%),
     radial-gradient(ellipse 40% 55% at 100% 0%, rgba(184, 122, 6, 0.75) 0%, rgba(184, 122, 6, 0) 70%),

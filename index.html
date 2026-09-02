@@ -824,6 +824,14 @@ Escape before dawn.</p>
             <input type="checkbox" id="auto-loot-toggle" class="audio-checkbox" />
           </div>
           <div class="audio-row">
+            <label for="auto-loot-radius-select" id="auto-loot-radius-label">Auto-Loot Radius</label>
+            <select id="auto-loot-radius-select">
+              <option value="close">Close</option>
+              <option value="medium">Medium</option>
+              <option value="far">Far</option>
+            </select>
+          </div>
+          <div class="audio-row">
             <label for="instant-interact-toggle" id="instant-interact-label">Instant Interact at Stations (Skip the Hold)</label>
             <input type="checkbox" id="instant-interact-toggle" class="audio-checkbox" />
           </div>
@@ -843,6 +851,10 @@ Escape before dawn.</p>
           </div>
 
           <h3 class="settings-section-heading">Misc</h3>
+          <div class="audio-row">
+            <label for="fullscreen-btn" id="fullscreen-label">Fullscreen</label>
+            <button type="button" id="fullscreen-btn" class="mini-action-btn">Enter Fullscreen</button>
+          </div>
           <div class="audio-row">
             <label for="sort-weapons-toggle" id="sort-weapons-label">Sort Weapons List Alphabetically</label>
             <input type="checkbox" id="sort-weapons-toggle" class="audio-checkbox" />
@@ -880,6 +892,11 @@ Escape before dawn.</p>
         </div>
 
         <div class="settings-page" id="settings-page-audio" style="display: none">
+          <div class="audio-row">
+            <label for="master-volume" id="master-volume-label">Master</label>
+            <input type="range" id="master-volume" min="0" max="100" value="100" />
+            <span id="master-volume-value" class="audio-value">100%</span>
+          </div>
           <div class="audio-row">
             <label for="music-volume" id="music-label">Music</label>
             <input type="range" id="music-volume" min="0" max="100" value="100" />
@@ -1096,15 +1113,19 @@ Escape before dawn.</p>
 
           <h3 class="settings-section-heading">Accessibility</h3>
           <div class="audio-row">
-            <label for="colorblind-toggle" id="colorblind-label">Colorblind Mode</label>
-            <input type="checkbox" id="colorblind-toggle" class="audio-checkbox" />
+            <label for="colorblind-mode-select" id="colorblind-label">Colorblind Mode</label>
+            <select id="colorblind-mode-select">
+              <option value="off">Off</option>
+              <option value="redgreen">Red-Green (Protanopia/Deuteranopia)</option>
+              <option value="blueyellow">Blue-Yellow (Tritanopia)</option>
+            </select>
           </div>
           <div id="colorblind-preview-row">
             <span id="colorblind-preview-normal-label">Normal:</span>
             <span class="colorblind-swatch" style="background: #5fcf4a"></span>
             <span class="colorblind-swatch" style="background: #e0b23f"></span>
             <span class="colorblind-swatch" style="background: #d64545"></span>
-            <span id="colorblind-preview-safe-label">Colorblind-safe:</span>
+            <span id="colorblind-preview-safe-label">Red-Green safe:</span>
             <span class="colorblind-swatch" style="background: #4a9ecf"></span>
             <span class="colorblind-swatch" style="background: #e0b23f"></span>
             <span class="colorblind-swatch" style="background: #e0813f"></span>
