@@ -8,7 +8,7 @@ import * as THREE from 'three'
 // call sites) to restore the full-detail look built during the 3D asset
 // overhaul - nothing about that work was removed, just temporarily not
 // used for rendering.
-export const LOW_QUALITY_MODE = false
+export const LOW_QUALITY_MODE = true
 
 // Drop-in replacement for `new THREE.MeshStandardMaterial(opts)` used
 // across World.js's ~160 material call sites. Under LOW_QUALITY_MODE,
