@@ -15,7 +15,7 @@ import { PickupManager, Pickup } from './Pickups.js'
 import { PlayerState } from './PlayerState.js'
 import { Inventory } from './Inventory.js'
 import { DayNightCycle } from './DayNightCycle.js'
-import { ChestManager, Vault, LOOT_WEIGHTS } from './Chests.js'
+import { ChestManager, Vault, LOOT_WEIGHTS, CHEST_CULL_DISTANCE } from './Chests.js'
 import { RivalManager, RIVAL_BANTER } from './RivalScavenger.js'
 import { loadMastery, saveMastery, MASTERY_THRESHOLD, MASTERY_DAMAGE_MULT, GRANDMASTER_THRESHOLD, GRANDMASTER_DAMAGE_MULT, LEGENDARY_THRESHOLD, LEGENDARY_RELOAD_MULT } from './WeaponMastery.js'
 import { BarricadeWindows, REPAIR_REWARD_POINTS } from './BarricadeWindows.js'
@@ -21302,6 +21302,11 @@ export class Game {
     // shadow casters, and fewer active lights all at once, not just the
     // resolution/shadow-map/bloom toggles alone.
     const cullSq = (WORLD_CULL_DISTANCE * this._perfDistanceMult) ** 2
+    // Chests get their own, much shorter cull distance - see
+    // CHEST_CULL_DISTANCE's own comment in Chests.js for why a small
+    // background prop shouldn't earn the same full-detail range as a
+    // building. Still scales with Performance Mode like everything else here.
+    const chestCullSq = (CHEST_CULL_DISTANCE * this._perfDistanceMult) ** 2
     const shadowSq = (WORLD_SHADOW_CULL_DISTANCE * this._perfDistanceMult * this._adaptiveShadowMult) ** 2
     // Classic forward rendering (no light clustering) means every visible
     // fragment's shader evaluates every VISIBLE scene light, regardless of
@@ -21342,7 +21347,7 @@ export class Game {
       const dx = obj.position.x - playerPos.x
       const dz = obj.position.z - playerPos.z
       const distSq = dx * dx + dz * dz
-      const wantsVisible = distSq < cullSq
+      const wantsVisible = distSq < (obj.__isChest ? chestCullSq : cullSq)
       obj.visible = wantsVisible
       // A hidden (visible=false) object still gets walked and matrix-
       // updated by scene.updateMatrixWorld() every frame - hiding isn't

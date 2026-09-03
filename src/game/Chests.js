@@ -28,6 +28,20 @@ const INTERACT_RADIUS = 2.2
 const INTERACT_HEIGHT_TOLERANCE = 2.2
 const EYE_HEIGHT = 1.7
 
+// The GLB chest model is ~7,966 triangles each (measured live - roughly a
+// quarter of what the ENTIRE original city map cost, see docs/PERFORMANCE.md,
+// before this model replaced the old procedural crate). Distance-culling
+// them at all (see ChestManager's own comment) already stopped far-away
+// chests from being tracked, but the ones still nearby were shown at full
+// detail out to the same WORLD_CULL_DISTANCE (90) as big things like
+// buildings - massive overkill for a small background prop nobody's looking
+// closely at from 90 units away. A much shorter, chest-specific distance
+// (_updateCulling in Game.js checks `obj.__isChest` for this) keeps every
+// chest fully detailed well before the player could possibly be reading it
+// as more than a blob, while cutting simultaneous full-detail chests way
+// down in dense loot areas.
+export const CHEST_CULL_DISTANCE = 30
+
 // Exported so a zone-tagged location can build an override table by
 // spreading/adjusting this base table (e.g. `{ ...LOOT_WEIGHTS, rare_weapon: 1 }`
 // for a "high loot complexity" spot) instead of hand-duplicating every entry.
@@ -427,6 +441,7 @@ export class ChestManager {
   _registerCullable(chest) {
     if (!this.cullables) return
     chest.group.__parkedParent = this.scene
+    chest.group.__isChest = true
     this.cullables.push(chest.group)
   }
 
