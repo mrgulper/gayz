@@ -8972,13 +8972,34 @@ html.night-vision-active #app {
 }
 
 .chat-message-nickname {
+  /* Now a <button> (click to mute - see Game.js's _bindChatMuteClicks),
+     not a <span> - reset to plain inline text so it reads exactly as it
+     did before, with just a hover cue that it's clickable. */
+  font: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
   font-weight: 700;
   color: var(--menu-gold, #d9bc4a);
   margin-right: 4px;
 }
 
+.chat-message-nickname:hover {
+  text-decoration: underline;
+}
+
 .chat-message-text {
   color: #eee;
+}
+
+.muted-chat-player-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 #chat-muted-notice {

@@ -281,6 +281,9 @@ function loadSettings() {
       mouseAcceleration: parsed.mouseAcceleration ?? false,
       invertScrollWeaponSwitch: parsed.invertScrollWeaponSwitch ?? false,
       doubleClickSpeed: parsed.doubleClickSpeed ?? 300,
+      gamepadDeadzone: parsed.gamepadDeadzone ?? 20,
+      gamepadVibration: parsed.gamepadVibration ?? true,
+      mutedChatPlayers: Array.isArray(parsed.mutedChatPlayers) ? parsed.mutedChatPlayers : [],
       killFeedPosition: parsed.killFeedPosition === 'left' ? 'left' : 'right',
       killFeedIcons: parsed.killFeedIcons ?? true,
       killFeedVerbosity: parsed.killFeedVerbosity === 'important' ? 'important' : 'all',
@@ -568,7 +571,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, autoLootRadius: 'medium', instantStationInteract: false, confirmQuitRun: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, touchControlsOverride: 'auto', clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'golden', lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
+  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, gamepadDeadzone: 20, gamepadVibration: true, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, autoLootRadius: 'medium', instantStationInteract: false, confirmQuitRun: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, touchControlsOverride: 'auto', clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'golden', lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -2690,7 +2693,10 @@ const PING_MARKER_DURATION_MS = 60000
 // keyboard. Left stick -> movement (digital, same on/off flags WASD
 // already sets), right stick -> camera look (mirrors PointerLockControls'
 // own onMouseMove exactly, since this.camera IS controls.object).
-const GAMEPAD_DEADZONE = 0.2
+// Default only - actual deadzone is Settings > Controls' Stick Deadzone
+// slider (this.settings.gamepadDeadzone, a 0-50 percent), read fresh each
+// call in _updateGamepad rather than baked into a module-level constant.
+const GAMEPAD_DEADZONE_DEFAULT = 20
 const GAMEPAD_LOOK_SENSITIVITY = 2.5
 const GAMEPAD_TRIGGER_THRESHOLD = 0.3
 const HAZARD_EMP_BATTERY_DRAIN_PER_SEC = 30
@@ -3781,6 +3787,9 @@ export class Game {
     this.invertScrollToggle = document.getElementById('invert-scroll-toggle')
     this.doubleClickSpeedSlider = document.getElementById('double-click-speed-slider')
     this.doubleClickSpeedValue = document.getElementById('double-click-speed-value')
+    this.gamepadDeadzoneSlider = document.getElementById('gamepad-deadzone-slider')
+    this.gamepadDeadzoneValue = document.getElementById('gamepad-deadzone-value')
+    this.gamepadVibrationToggle = document.getElementById('gamepad-vibration-toggle')
     this.hudScaleSlider = document.getElementById('hud-scale-slider')
     this.hudScaleValue = document.getElementById('hud-scale-value')
     this.hudOpacitySlider = document.getElementById('hud-opacity-slider')
@@ -3864,6 +3873,7 @@ export class Game {
     this.shareTelemetryToggle = document.getElementById('share-telemetry-toggle')
     this.autoDeclineToggle = document.getElementById('auto-decline-toggle')
     this.exactLastseenToggle = document.getElementById('exact-lastseen-toggle')
+    this.mutedChatPlayersList = document.getElementById('muted-chat-players-list')
     this.rememberSettingsTabToggle = document.getElementById('remember-settings-tab-toggle')
     this.confirmRemoveFriendToggle = document.getElementById('confirm-remove-friend-toggle')
     this.reduceBgEffectsToggle = document.getElementById('reduce-bg-effects-toggle')
@@ -8839,6 +8849,21 @@ export class Game {
       saveSettings(this.settings)
     })
 
+    this.gamepadDeadzoneSlider.value = this.settings.gamepadDeadzone
+    this.gamepadDeadzoneValue.textContent = `${this.settings.gamepadDeadzone}%`
+    this.gamepadDeadzoneSlider.addEventListener('input', () => {
+      const value = Number(this.gamepadDeadzoneSlider.value)
+      this.gamepadDeadzoneValue.textContent = `${value}%`
+      this.settings.gamepadDeadzone = value
+      saveSettings(this.settings)
+    })
+
+    this.gamepadVibrationToggle.checked = this.settings.gamepadVibration
+    this.gamepadVibrationToggle.addEventListener('change', () => {
+      this.settings.gamepadVibration = this.gamepadVibrationToggle.checked
+      saveSettings(this.settings)
+    })
+
     this.hudScaleSlider.addEventListener('input', () => {
       const value = Number(this.hudScaleSlider.value)
       this.hudScaleValue.textContent = `${value}%`
@@ -10797,7 +10822,7 @@ export class Game {
           'toggleSprint', 'toggleCrouch', 'toggleAds', 'aimAssist', 'bigInteractPrompt', 'toastDuration', 'crosshairColor', 'crosshairSize',
           'largeTextMode', 'highContrastMode', 'dyslexiaFont', 'bgMood', 'keybindCheatSheet', 'showHitFeedback', 'performanceMode',
           'streamSafeMode', 'focusRingMode', 'homepageFpsCounter', 'underlineLinks', 'nicknameFont', 'layoutDensity',
-          'mouseAcceleration', 'invertScrollWeaponSwitch', 'doubleClickSpeed', 'killFeedPosition', 'killFeedIcons', 'killFeedVerbosity', 'compassStyle', 'showWeaponNameHud', 'minimapDefaultZoom']
+          'mouseAcceleration', 'invertScrollWeaponSwitch', 'doubleClickSpeed', 'gamepadDeadzone', 'gamepadVibration', 'killFeedPosition', 'killFeedIcons', 'killFeedVerbosity', 'compassStyle', 'showWeaponNameHud', 'minimapDefaultZoom']
         for (const key of keys) this.settings[key] = defaults[key]
         saveSettings(this.settings)
         window.location.reload()
@@ -15643,6 +15668,29 @@ export class Game {
     this._shakeBiasX = dirX
     this._shakeBiasZ = dirZ
     this._shakeType = type
+    // Gamepad vibration (Settings > Controls) - only on real damage, not
+    // every recoil shake (a full-auto weapon would otherwise buzz the
+    // controller constantly, which reads as noise rather than feedback).
+    // Scaled off the same magnitude/duration the screen shake already
+    // uses, so a harder hit vibrates stronger and longer, same feel as
+    // the visual shake it's paired with.
+    if (type === 'damage') this._vibrateGamepad(Math.min(1, magnitude * 3), durationMs)
+  }
+
+  // Gamepad Haptics API - silently a no-op if vibration is off, no pad is
+  // connected, or this particular pad/browser doesn't support it (Safari
+  // has no vibrationActuator at all as of this writing). playEffect()
+  // itself returns a promise that can reject (e.g. another effect already
+  // playing) - never worth surfacing to the player, so caught and dropped.
+  _vibrateGamepad(intensity, durationMs) {
+    if (!this.settings.gamepadVibration) return
+    const pad = this._gamepadPad
+    if (!pad || !pad.vibrationActuator) return
+    pad.vibrationActuator.playEffect('dual-rumble', {
+      duration: durationMs,
+      strongMagnitude: intensity,
+      weakMagnitude: intensity,
+    }).catch(() => {})
   }
 
   // Fired by WeaponSystem when a melee hit lands on a zombie facing away
@@ -19843,6 +19891,8 @@ export class Game {
 
     this._updateChatTabAvailability()
     this._subscribeChatChannel()
+    this._bindChatMuteClicks()
+    this._renderMutedChatPlayers()
   }
 
   _updateChatTabAvailability() {
@@ -19883,8 +19933,68 @@ export class Game {
 
   _renderChatMessages(msgs) {
     if (!this.chatMessages) return
-    this.chatMessages.innerHTML = msgs.map((m) => `<div class="chat-message-row"><span class="chat-message-nickname">${_escapeHtml(m.nickname)}:</span><span class="chat-message-text">${_escapeHtml(m.text)}</span></div>`).join('')
+    // Mute/block (Settings > Social > Muted Players) - filtered client-side
+    // by nickname (the one thing every channel's messages actually share -
+    // Global/Clan carry a Firebase uid, Party carries an ephemeral
+    // multiplayer playerId, no single id scheme spans all three). This is
+    // a personal chat filter, not real moderation - someone could evade it
+    // by changing their nickname, which is an accepted tradeoff for how
+    // lightweight this needs to be.
+    const muted = new Set(this.settings.mutedChatPlayers)
+    const visible = msgs.filter((m) => !muted.has(m.nickname))
+    this.chatMessages.innerHTML = visible.map((m) => `<div class="chat-message-row"><button type="button" class="chat-message-nickname" data-nickname="${_escapeHtml(m.nickname)}">${_escapeHtml(m.nickname)}:</button><span class="chat-message-text">${_escapeHtml(m.text)}</span></div>`).join('')
     this.chatMessages.scrollTop = this.chatMessages.scrollHeight
+  }
+
+  // Click-to-mute (see _renderChatMessages) - one delegated listener on the
+  // container instead of one per message row, since rows get fully
+  // replaced on every render (per-row listeners would need constant
+  // rebinding and would silently leak the old ones). Confirms before
+  // muting since it's a real behavior change (that player's messages stop
+  // showing at all, in every channel) - see Settings > Social for the
+  // matching unmute list.
+  _bindChatMuteClicks() {
+    if (!this.chatMessages) return
+    this.chatMessages.addEventListener('click', (e) => {
+      const btn = e.target.closest('.chat-message-nickname')
+      if (!btn) return
+      const nickname = btn.dataset.nickname
+      if (!nickname || this.settings.mutedChatPlayers.includes(nickname)) return
+      if (!window.confirm(t('muteChatPlayerConfirm', { name: nickname }))) return
+      this.settings.mutedChatPlayers.push(nickname)
+      saveSettings(this.settings)
+      this._renderMutedChatPlayers()
+      if (this._chatChannel === 'party') this._renderChatMessages(this._chatPartyMessages)
+      // Global/Clan re-filter on their own next live update - no cached
+      // array to re-render from here the way Party's is, but that's a
+      // matter of seconds given both are live onSnapshot subscriptions.
+    })
+  }
+
+  // Settings > Social > Muted Players - the only way to SEE the current
+  // mute list and undo one, since a muted player's messages never show up
+  // in chat again to click on. Mirrors the empty-state pattern this
+  // project's other list panels (Friend List, etc.) already use.
+  _renderMutedChatPlayers() {
+    if (!this.mutedChatPlayersList) return
+    const muted = this.settings.mutedChatPlayers
+    if (!muted.length) {
+      this.mutedChatPlayersList.innerHTML = `<p class="menu-hint-line">${t('mutedChatPlayersEmpty')}</p>`
+      return
+    }
+    this.mutedChatPlayersList.innerHTML = muted.map((name) => `
+      <div class="muted-chat-player-row">
+        <span>${_escapeHtml(name)}</span>
+        <button type="button" class="mini-action-btn" data-unmute="${_escapeHtml(name)}">${t('unmuteBtn')}</button>
+      </div>
+    `).join('')
+    for (const btn of this.mutedChatPlayersList.querySelectorAll('[data-unmute]')) {
+      btn.addEventListener('click', () => {
+        this.settings.mutedChatPlayers = this.settings.mutedChatPlayers.filter((n) => n !== btn.dataset.unmute)
+        saveSettings(this.settings)
+        this._renderMutedChatPlayers()
+      })
+    }
   }
 
   async _sendChatMessage() {
@@ -22454,17 +22564,19 @@ export class Game {
     const pads = navigator.getGamepads ? navigator.getGamepads() : []
     const pad = pads[0]
     if (!pad) return
+    this._gamepadPad = pad
+    const deadzone = (this.settings.gamepadDeadzone ?? GAMEPAD_DEADZONE_DEFAULT) / 100
 
     const lx = pad.axes[0] || 0
     const ly = pad.axes[1] || 0
-    this.player.input.left = lx < -GAMEPAD_DEADZONE
-    this.player.input.right = lx > GAMEPAD_DEADZONE
-    this.player.input.forward = ly < -GAMEPAD_DEADZONE
-    this.player.input.back = ly > GAMEPAD_DEADZONE
+    this.player.input.left = lx < -deadzone
+    this.player.input.right = lx > deadzone
+    this.player.input.forward = ly < -deadzone
+    this.player.input.back = ly > deadzone
 
     const rx = pad.axes[2] || 0
     const ry = pad.axes[3] || 0
-    if (Math.abs(rx) > GAMEPAD_DEADZONE || Math.abs(ry) > GAMEPAD_DEADZONE) {
+    if (Math.abs(rx) > deadzone || Math.abs(ry) > deadzone) {
       this._gamepadEuler.setFromQuaternion(this.camera.quaternion)
       this._gamepadEuler.y -= rx * GAMEPAD_LOOK_SENSITIVITY * dt
       this._gamepadEuler.x -= ry * GAMEPAD_LOOK_SENSITIVITY * dt

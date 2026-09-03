@@ -795,6 +795,8 @@ Escape before dawn.</p>
             <label for="exact-lastseen-toggle" id="exact-lastseen-label">Show Exact Last-Seen Time</label>
             <input type="checkbox" id="exact-lastseen-toggle" class="audio-checkbox" />
           </div>
+          <p class="menu-hint-line">Click a name in chat to mute them - their messages stop showing in every channel until you unmute them here.</p>
+          <div id="muted-chat-players-list"></div>
 
           <h3 class="settings-section-heading">Homepage</h3>
           <div class="audio-row">
@@ -1044,6 +1046,18 @@ Escape before dawn.</p>
             <input type="range" id="double-click-speed-slider" min="150" max="600" step="10" value="300" />
             <span id="double-click-speed-value" class="audio-value">300ms</span>
           </div>
+
+          <h3 class="settings-section-heading">Gamepad</h3>
+          <div class="audio-row">
+            <label for="gamepad-deadzone-slider" id="gamepad-deadzone-label">Stick Deadzone</label>
+            <input type="range" id="gamepad-deadzone-slider" min="0" max="50" value="20" />
+            <span id="gamepad-deadzone-value" class="audio-value">20%</span>
+          </div>
+          <div class="audio-row">
+            <label for="gamepad-vibration-toggle" id="gamepad-vibration-label">Vibration</label>
+            <input type="checkbox" id="gamepad-vibration-toggle" class="audio-checkbox" checked />
+          </div>
+
           <div class="audio-row">
             <label for="toggle-sprint-toggle" id="toggle-sprint-label">Toggle to Sprint (instead of hold)</label>
             <input type="checkbox" id="toggle-sprint-toggle" class="audio-checkbox" />
