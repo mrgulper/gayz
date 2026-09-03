@@ -6601,11 +6601,10 @@ html.ui-theme-old #menu-player-tag {
 }
 
 #shop-skin-name {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 26px;
-  letter-spacing: 0.04em;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   color: var(--menu-gold, #d9bc4a);
-  text-transform: uppercase;
 }
 
 #shop-skin-avatar-wrap {
@@ -6625,9 +6624,9 @@ html.ui-theme-old #menu-player-tag {
 }
 
 #shop-skin-price {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 22px;
-  letter-spacing: 0.04em;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   color: #ffcf5c;
 }
 
@@ -6640,9 +6639,9 @@ html.ui-theme-old #menu-player-tag {
 
 #shop-skin-buy-btn {
   padding: 8px 28px;
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 16px;
-  letter-spacing: 0.05em;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   color: #1a1408;
   background: linear-gradient(180deg, #ffe08a, #d9a63c);
   border: 1px solid #8a6a1e;
