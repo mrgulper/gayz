@@ -4921,7 +4921,7 @@ export class Game {
     ]
     this._spawnVaultKey()
     this.audioLogsFound = new Set()
-    this.chests = new ChestManager(this.scene, towerChestSpots)
+    this.chests = new ChestManager(this.scene, towerChestSpots, this.cullables)
     this.playerState = new PlayerState()
     this.inventory = new Inventory()
     // Shared Stash - auto-withdraw whatever was banked last run into this

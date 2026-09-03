@@ -398,13 +398,36 @@ export class Vault {
 }
 
 export class ChestManager {
-  constructor(scene, extraSpots = []) {
+  // `cullables` is Game.js's own distance-cull array (see docs/PERFORMANCE.md
+  // Option A1/C) - the real-GLB chest upgrade (see USE_GLB_CHEST's own
+  // comment) made every chest a ~20-node rigged model, and with 450+ chest
+  // spots across the map that's the single biggest chunk of the scene graph
+  // (measured live: 9,080 of ~13,000 total objects) sitting fully active
+  // and matrix-updated forever, no matter how far the player is. Registering
+  // each chest.group here plugs it into the exact same "detach while far,
+  // reattach when close" system every other world prop already uses -
+  // _updateCulling() only ever reads obj.position.x/z (chest.group.position
+  // is set directly, no parent-group offset to account for) and chest
+  // interaction is pure distance math against the stored x/z in
+  // ChestManager.update(), never a raycast against the mesh - so a detached
+  // chest is still fully interactable the moment the player is back in range.
+  constructor(scene, extraSpots = [], cullables = null) {
     this.scene = scene
+    this.cullables = cullables
     const spots = [...CHEST_SPOTS, ...extraSpots]
     this.chests = spots.map((p) => new Chest(p.x, p.y || 0, p.z, p.lootWeights || null))
-    for (const c of this.chests) scene.add(c.group)
+    for (const c of this.chests) {
+      scene.add(c.group)
+      this._registerCullable(c)
+    }
     this.nearbyChest = null
     this.refillNight()
+  }
+
+  _registerCullable(chest) {
+    if (!this.cullables) return
+    chest.group.__parkedParent = this.scene
+    this.cullables.push(chest.group)
   }
 
   // Adds one extra chest at runtime, for the "Supply Drop" random night event.
@@ -415,6 +438,7 @@ export class ChestManager {
     chest.unlock()
     this.chests.push(chest)
     this.scene.add(chest.group)
+    this._registerCullable(chest)
     return chest
   }
 
