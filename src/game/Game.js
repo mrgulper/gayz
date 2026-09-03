@@ -1685,6 +1685,7 @@ function loadShopProgress() {
       coins: parsed.coins || 0,
       cash: parsed.cash || 0,
       gems: parsed.gems || 0,
+      ownsShopSkin: parsed.ownsShopSkin || false,
       ownedSkins: new Set(parsed.ownedSkins || []),
       equippedSkin: parsed.equippedSkin || null,
       ownedOutfits: new Set(parsed.ownedOutfits || []),
@@ -1707,7 +1708,7 @@ function loadShopProgress() {
       attachments: parsed.attachments || [],
     }
   } catch {
-    return { points: 0, coins: 0, cash: 0, gems: 0, ownedSkins: new Set(), equippedSkin: null, ownedOutfits: new Set(), equippedOutfit: null, ownedHats: new Set(), equippedHat: null, challengeKillCounts: {}, weaponChallengesUnlocked: new Set(), shopPurchased: new Set(), unlockedGuns: [], attachments: [] }
+    return { points: 0, coins: 0, cash: 0, gems: 0, ownsShopSkin: false, ownedSkins: new Set(), equippedSkin: null, ownedOutfits: new Set(), equippedOutfit: null, ownedHats: new Set(), equippedHat: null, challengeKillCounts: {}, weaponChallengesUnlocked: new Set(), shopPurchased: new Set(), unlockedGuns: [], attachments: [] }
   }
 }
 
@@ -1718,6 +1719,7 @@ function saveShopProgress(game) {
       coins: game.coins,
       cash: game.cash,
       gems: game.gems,
+      ownsShopSkin: game.ownsShopSkin,
       ownedSkins: [...game.ownedSkins],
       equippedSkin: game.equippedSkin,
       ownedOutfits: [...game.ownedOutfits],
@@ -4189,6 +4191,7 @@ export class Game {
     // wired up yet either - just the tracked value + display for now.
     this.cash = this.shopProgress.cash
     this.gems = this.shopProgress.gems
+    this.ownsShopSkin = this.shopProgress.ownsShopSkin
     this.coinShopPurchased = this.shopProgress.shopPurchased
     this._shakeOffset = new THREE.Vector3()
     this._shakeMagnitude = 0
@@ -5194,6 +5197,8 @@ export class Game {
     this.shopPanel = document.getElementById('shop-panel')
     this.shopPanelTitle = document.getElementById('shop-panel-title')
     this.shopSkinCanvas = document.getElementById('shop-skin-canvas')
+    this.shopSkinBuyBtn = document.getElementById('shop-skin-buy-btn')
+    this.shopSkinBadge = document.getElementById('shop-skin-badge')
     this.whatsNewPanel = document.getElementById('whatsnew-panel')
     this.whatsNewPanelTitle = document.getElementById('whatsnew-panel-title')
     this.buildVersionLine = document.getElementById('build-version-line')
@@ -9870,6 +9875,7 @@ export class Game {
     this.shopPanel.addEventListener('click', (e) => {
       if (e.target === this.shopPanel) this._closeShopPanel()
     })
+    if (this.shopSkinBuyBtn) this.shopSkinBuyBtn.addEventListener('click', () => this._buyShopSkin())
     if (this.otherProfilePanel) {
       this.otherProfilePanel.addEventListener('click', (e) => {
         if (e.target === this.otherProfilePanel) this._closeOtherPlayerProfile()
@@ -16924,16 +16930,19 @@ export class Game {
   }
 
   // Shop - was just a Crates placeholder (see this file's git history for
-  // that and the even older Weapon Attachments UI before it) - now shows
-  // one purchasable character skin instead, spinning the same way as the
-  // Player Setup panel's own avatar (MenuAvatar3D). Not actually
-  // purchasable yet - no click handler, no currency deduction, no
-  // ownedSkins-equivalent storage for it - this is a preview only, priced
-  // display-only at 10000 Gems, until that's built for real. Weapon
-  // attachment purchasing still has no UI anywhere right now either - see
-  // the Settings/Upgrades attachment guide lists for what those items do,
-  // and WeaponSystem.applyAttachment / saveShopProgress for the still-live
+  // that and the even older Weapon Attachments UI before it), then a
+  // preview-only skin with no purchase logic at all. Now real: 10,000
+  // Gems, tracked via this.ownsShopSkin (shopProgress, see
+  // loadShopProgress/saveShopProgress), buying immediately equips it via
+  // the same settings.customSkinDataUrl path skin upload already uses -
+  // there's no multi-skin wardrobe here, just this one purchasable skin,
+  // so "buy" and "equip" are the same action. Weapon attachment purchasing
+  // still has no UI anywhere right now either - see the Settings/Upgrades
+  // attachment guide lists for what those items do, and
+  // WeaponSystem.applyAttachment / saveShopProgress for the still-live
   // persistence of any already-owned attachments from before that change.
+  static SHOP_SKIN_PRICE = 10000
+
   _openShopPanel() {
     this._closeAllMenuPanels()
     this.shopPanel.style.display = 'flex'
@@ -16949,6 +16958,41 @@ export class Game {
       }
       this._shopSkinAvatar3D.start()
     }
+    this._renderShopSkinState()
+  }
+
+  _renderShopSkinState() {
+    if (this.shopSkinBadge) this.shopSkinBadge.style.display = this.ownsShopSkin ? '' : 'none'
+    if (!this.shopSkinBuyBtn) return
+    if (this.ownsShopSkin) {
+      this.shopSkinBuyBtn.style.display = 'none'
+      return
+    }
+    this.shopSkinBuyBtn.style.display = ''
+    const short = this.gems < Game.SHOP_SKIN_PRICE
+    this.shopSkinBuyBtn.disabled = short
+    this.shopSkinBuyBtn.textContent = short ? t('shopSkinNeedMoreGems', { need: Game.SHOP_SKIN_PRICE - this.gems }) : t('shopSkinBuyBtn')
+  }
+
+  async _buyShopSkin() {
+    if (this.ownsShopSkin || this.gems < Game.SHOP_SKIN_PRICE) return
+    if (!window.confirm(t('shopSkinBuyConfirm'))) return
+    this.gems -= Game.SHOP_SKIN_PRICE
+    this.ownsShopSkin = true
+    saveShopProgress(this)
+    this._renderCurrencyBar()
+    // Equip immediately - same sequence _bindSkinUpload's own upload
+    // handler uses (settings.customSkinDataUrl + menu avatar + corner
+    // photo + third-person body), just sourced from the fixed shop skin
+    // data URL instead of an uploaded file.
+    this.settings.customSkinDataUrl = SHOP_SKIN_PREVIEW_DATA_URL
+    saveSettings(this.settings)
+    const skin = await loadSkinTexture(SHOP_SKIN_PREVIEW_DATA_URL)
+    if (this._menuAvatar3D) this._menuAvatar3D.setSkin(skin)
+    this._updateMenuAvatarPhoto(skin)
+    this.localMinecraftBody.setSkin(SHOP_SKIN_PREVIEW_DATA_URL)
+    this._renderShopSkinState()
+    this._showHomepageToast(t('shopSkinBuySuccess'))
   }
 
   _closeShopPanel() {

@@ -6630,6 +6630,27 @@ html.ui-theme-old #menu-player-tag {
   letter-spacing: 0.06em;
 }
 
+#shop-skin-buy-btn {
+  padding: 8px 28px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 16px;
+  letter-spacing: 0.05em;
+  color: #1a1408;
+  background: linear-gradient(180deg, #ffe08a, #d9a63c);
+  border: 1px solid #8a6a1e;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#shop-skin-buy-btn:hover {
+  filter: brightness(1.08);
+}
+
+#shop-skin-buy-btn:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.6) brightness(0.8);
+}
+
 #profile-skin-upload-row {
   display: flex;
   justify-content: center;
