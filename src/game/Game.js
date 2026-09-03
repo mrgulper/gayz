@@ -10725,8 +10725,10 @@ export class Game {
     this.navOrderList.innerHTML = this.settings.navOrder.map((id, i) => `
       <div class="nav-order-row" data-id="${id}">
         <span>${labels[id] || id}</span>
-        <button class="mini-action-btn nav-order-up" type="button" ${i === 0 ? 'disabled' : ''}>↑</button>
-        <button class="mini-action-btn nav-order-down" type="button" ${i === this.settings.navOrder.length - 1 ? 'disabled' : ''}>↓</button>
+        <div class="nav-order-btns">
+          <button class="mini-action-btn nav-order-up" type="button" ${i === 0 ? 'disabled' : ''}>↑</button>
+          <button class="mini-action-btn nav-order-down" type="button" ${i === this.settings.navOrder.length - 1 ? 'disabled' : ''}>↓</button>
+        </div>
       </div>
     `).join('')
     for (const row of this.navOrderList.querySelectorAll('.nav-order-row')) {
