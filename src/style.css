@@ -6600,6 +6600,14 @@ html.ui-theme-old #menu-player-tag {
   margin-top: 20px;
 }
 
+#shop-skin-name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 26px;
+  letter-spacing: 0.04em;
+  color: var(--menu-gold, #d9bc4a);
+  text-transform: uppercase;
+}
+
 #shop-skin-avatar-wrap {
   width: 170px;
   height: 320px;
