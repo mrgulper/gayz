@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { CachedColliderGrid } from './ColliderGrid.js'
-import { LOW_QUALITY_MATERIALS, flatMaterial } from './QualitySettings.js'
+import { LOW_QUALITY_MODE, flatMaterial } from './QualitySettings.js'
 
 const CAR_HALF_W = 0.9
 const CAR_HALF_D = 2.0
@@ -69,12 +69,12 @@ export class Vehicle {
   }
 
   _buildBody() {
-    // LOW_QUALITY_MATERIALS: only one Vehicle instance ever exists, so this is a
+    // LOW_QUALITY_MODE: only one Vehicle instance ever exists, so this is a
     // small win, but cheap/consistent to include - Lambert instead of
     // Standard, still flat colors either way.
-    const bodyMat = LOW_QUALITY_MATERIALS ? new THREE.MeshLambertMaterial({ color: this.stats.color }) : flatMaterial({ color: this.stats.color, roughness: 0.5, metalness: 0.35 })
-    const glassMat = LOW_QUALITY_MATERIALS ? new THREE.MeshLambertMaterial({ color: 0x1a2226 }) : flatMaterial({ color: 0x1a2226, roughness: 0.2, metalness: 0.6 })
-    const wheelMat = LOW_QUALITY_MATERIALS ? new THREE.MeshLambertMaterial({ color: 0x111111 }) : flatMaterial({ color: 0x111111, roughness: 0.9 })
+    const bodyMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: this.stats.color }) : flatMaterial({ color: this.stats.color, roughness: 0.5, metalness: 0.35 })
+    const glassMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: 0x1a2226 }) : flatMaterial({ color: 0x1a2226, roughness: 0.2, metalness: 0.6 })
+    const wheelMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: 0x111111 }) : flatMaterial({ color: 0x111111, roughness: 0.9 })
     const lightMat = flatMaterial({ color: 0xfff6d0, emissive: 0xfff6d0, emissiveIntensity: 1.2 })
 
     const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.7, 4), bodyMat)

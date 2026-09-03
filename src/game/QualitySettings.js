@@ -10,20 +10,6 @@ import * as THREE from 'three'
 // used for rendering.
 export const LOW_QUALITY_MODE = true
 
-// Split out from LOW_QUALITY_MODE (2026-09-02) after turning that single
-// switch off live cost a real player ~1fps - it turned out to bundle ten
-// different things at once (materials, resolution, shadows, bloom, AA,
-// light count/distance, world render distance, zombie population), not
-// just "prettier surfaces". This flag controls ONLY the material quality
-// question (flatMaterial/flattenedClone below, plus every direct
-// `LOW_QUALITY_MODE ? new MeshLambertMaterial(...) : ...` call site in
-// Vehicle.js/Zombie.js/World.js) - everything else stays governed by
-// LOW_QUALITY_MODE exactly as before, deliberately unchanged, since those
-// are the more likely real cost drivers (see docs/PERFORMANCE.md and this
-// project's own CLAUDE.md for the reasoning). Test this in isolation
-// before ever considering touching the others.
-export const LOW_QUALITY_MATERIALS = false
-
 // Drop-in replacement for `new THREE.MeshStandardMaterial(opts)` used
 // across World.js's ~160 material call sites. Under LOW_QUALITY_MODE,
 // builds a MeshLambertMaterial instead (cheaper Lambertian lighting model
@@ -75,7 +61,7 @@ export function cachedFlatMaterial(opts) {
 }
 
 export function flatMaterial(opts) {
-  if (!LOW_QUALITY_MATERIALS) return new THREE.MeshStandardMaterial(opts)
+  if (!LOW_QUALITY_MODE) return new THREE.MeshStandardMaterial(opts)
   const simple = {}
   // Some call sites only set map/emissive with no base `color` at all
   // (relying on MeshStandardMaterial's own default white) - only include
@@ -101,7 +87,7 @@ export function flatMaterial(opts) {
 // instead of a fresh options literal. When the flag is false, behaves
 // exactly like `original.clone()` always did.
 export function flattenedClone(original) {
-  if (!LOW_QUALITY_MATERIALS) return original.clone()
+  if (!LOW_QUALITY_MODE) return original.clone()
   const simple = {}
   // Dropped previously - callers that key off material.name post-clone
   // (e.g. Companion.js's _buildBodyFromGLB matching the "Main" slot to
