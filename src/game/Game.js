@@ -22785,6 +22785,28 @@ export class Game {
     this._updateMusicIntensity(this.player.controls.object.position)
     this._updateIndoorDetection(this.player.controls.object.position)
 
+    // Multiplayer position sync - deliberately its own top-level check, NOT
+    // nested inside the driving/photo-mode/normal-gameplay branches below.
+    // It used to live inside the normal-gameplay branch only, which meant
+    // opening ANY of inventory/perks/trader/xp-levelup/map/journal (or
+    // driving, or Photo Mode) silently stopped sending this player's
+    // position - completely ordinary things to do mid-run. The server
+    // treats a player who hasn't synced in 2.5s (STALE_MS, api/multiplayer/
+    // sync.js) as gone and drops them from every other player's view, so
+    // something as normal as checking your inventory for a few seconds
+    // made you vanish and get "rediscovered" (fresh body, re-fetched skin,
+    // nickname popping back in) the moment you closed it - looked like
+    // flickering/glitching to whoever was playing with you. Sync only
+    // needs _isActivelyPlaying()/alive, same gate _isActivelyPlaying()
+    // itself already encodes (pointer-locked or touch) - it doesn't care
+    // which panel, if any, is open.
+    if (this._multiplayerSessionId && this._isActivelyPlaying() && this.playerState.alive) {
+      const nowNet = performance.now()
+      if (nowNet >= (this._nextNetworkSyncAt || 0)) {
+        this._nextNetworkSyncAt = nowNet + 100
+        this._syncNetworkPlayerState()
+      }
+    }
     if (this.driving && this._isActivelyPlaying() && this.playerState.alive) {
       this.vehicle.update(dt, this.player.input, this.player.colliders)
       this.vehicle.getDriverSeatWorld(this._vehicleSeatPos)
@@ -22858,11 +22880,6 @@ export class Game {
       if (nowHotbar >= (this._nextHotbarHudAt || 0)) {
         this._nextHotbarHudAt = nowHotbar + 200
         this._updateHotbarHud()
-      }
-      const nowNet = performance.now()
-      if (this._multiplayerSessionId && nowNet >= (this._nextNetworkSyncAt || 0)) {
-        this._nextNetworkSyncAt = nowNet + 100
-        this._syncNetworkPlayerState()
       }
       this._updateStaminaHud()
       this._updateHunger(dt)
