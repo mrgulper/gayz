@@ -178,6 +178,21 @@ export const WORLD_CULL_DISTANCE = LOW_QUALITY_MODE ? 90 : 150
 // it's turned off well before the object disappears entirely.
 export const WORLD_SHADOW_CULL_DISTANCE = LOW_QUALITY_MODE ? 45 : 70
 
+// Map-chunking groundwork (docs/PERFORMANCE.md Option C, step 1-2 only for
+// now - see this project's own notes on why this landed in two small,
+// behavior-inert steps rather than one big jump). 100x100 units, per the
+// doc's own suggested starting point, giving ~56 tiles across the 750x750
+// map. Nothing reads TILE_ID/tileIndex yet - this only tags objects and
+// builds a lookup, it does not change what renders, when, or how. That
+// groundwork is deliberately separated from the actual attach/detach and
+// lazy-build/dispose behavior (later steps), which are real, testable
+// changes and need to ship on their own, verified individually.
+export const WORLD_TILE_SIZE = 100
+
+export function tileKeyFor(x, z) {
+  return `${Math.floor(x / WORLD_TILE_SIZE)},${Math.floor(z / WORLD_TILE_SIZE)}`
+}
+
 export function buildWorld(scene, trophyCount = 15) {
   // buildWorld only runs once per real Game instance today, but clearing
   // defensively costs nothing and avoids ever silently accumulating
@@ -2981,11 +2996,32 @@ export function buildWorld(scene, trophyCount = 15) {
   // depend on that group's transform).
   for (const obj of allCullables) obj.__parkedParent = obj.parent
 
+  // Map-chunking groundwork, step 1-2 (see WORLD_TILE_SIZE's own comment
+  // above) - tags every cullable with which tile it's in and builds a
+  // tile -> objects lookup. Same position convention _updateCulling
+  // already uses for distance-culling (obj.position.x/z, not a true world-
+  // space read) for consistency - whatever imprecision that already has
+  // for objects nested under a rotated/offset group, this groundwork
+  // inherits rather than "fixes", since fixing it isn't this step's job
+  // and would touch already-working culling behavior for no reason here.
+  const tileIndex = new Map()
+  for (const obj of allCullables) {
+    const key = tileKeyFor(obj.position.x, obj.position.z)
+    obj.__tileId = key
+    let bucket = tileIndex.get(key)
+    if (!bucket) {
+      bucket = []
+      tileIndex.set(key, bucket)
+    }
+    bucket.push(obj)
+  }
+
   return {
     colliders,
     solidMeshes,
     flickerLights,
     spawnPoints,
+    tileIndex,
     ambientWildlife,
     jukebox,
     workbench,

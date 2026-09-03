@@ -4376,7 +4376,7 @@ export class Game {
     this.composer.addPass(this.afterimagePass)
     this.composer.addPass(new OutputPass())
 
-    const { colliders, solidMeshes, flickerLights, spawnPoints, ambientWildlife, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, upgradeMachine, mysteryBox, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel, toxicSewerLevel, mineLevel, manholeCovers, waterTowerValve, containerStaircase, industrialSiren, wreckingPendulum, scaffolding, elevatorTower, payphone, jukebox, workbench, bulletinBoard, hallOfFame, skyscraperShortcuts, adjustableDummy, pet, drainpipeSpots, jumpPadSpot, tacticalStreetlights, grassBounds, waterBounds } = buildWorld(this.scene, ACHIEVEMENTS.length)
+    const { colliders, solidMeshes, flickerLights, spawnPoints, ambientWildlife, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, upgradeMachine, mysteryBox, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, tileIndex, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel, toxicSewerLevel, mineLevel, manholeCovers, waterTowerValve, containerStaircase, industrialSiren, wreckingPendulum, scaffolding, elevatorTower, payphone, jukebox, workbench, bulletinBoard, hallOfFame, skyscraperShortcuts, adjustableDummy, pet, drainpipeSpots, jumpPadSpot, tacticalStreetlights, grassBounds, waterBounds } = buildWorld(this.scene, ACHIEVEMENTS.length)
     this.drainpipeSpots = drainpipeSpots
     this.jumpPadSpot = jumpPadSpot
     this._jumpPadCooldownUntil = 0
@@ -4423,6 +4423,10 @@ export class Game {
     this._baseFogNear = this.scene.fog.near
     this._baseFogFar = this.scene.fog.far
     this.cullables = cullables
+    // Map-chunking groundwork only (docs/PERFORMANCE.md Option C, steps
+    // 1-2) - stored for a later step to actually use. Nothing reads this
+    // yet, so its presence changes no behavior.
+    this.worldTileIndex = tileIndex
     // See _updateCulling: any cullable that's a Group (not a bare Mesh)
     // used to get a fresh recursive .traverse() every single frame just to
     // propagate its castShadow flag to its mesh children. These hierarchies
