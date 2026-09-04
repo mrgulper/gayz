@@ -2688,6 +2688,10 @@ html.third-person-active #companion-bark {
   width: min(840px, 92vw);
   height: 60vh;
   overflow-y: auto;
+  background: rgba(10, 10, 9, 0.7);
+  border: 1px solid rgba(227, 166, 60, 0.3);
+  border-radius: 10px;
+  padding: 20px 24px;
 }
 
 /* Centered rather than left-aligned like How to Play - Credits is short
@@ -2709,6 +2713,10 @@ html.third-person-active #companion-bark {
   height: 60vh;
   overflow-y: auto;
   text-align: left;
+  background: rgba(10, 10, 9, 0.7);
+  border: 1px solid rgba(227, 166, 60, 0.3);
+  border-radius: 10px;
+  padding: 20px 24px;
 }
 
 #credits-content h3,
