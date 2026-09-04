@@ -2683,13 +2683,11 @@ html.third-person-active #companion-bark {
    same size regardless of how much text it holds. .settings-page (further
    down this file) matches this same width/height too, per the "make
    Settings as wide as Credits/How to Play" request. */
-/* .panel-box wraps the panel's own title (h2) together with its content,
-   so the whole thing - title included - reads as one bordered box
+/* .panel-box wraps the panel's own title (h2) together with its content
+   div, so the whole thing - title included - reads as one bordered box
    (a Kirka.io-style reference) instead of a title floating above a
    separate box. Width lives here (not on the -content div anymore) since
-   the box now needs to size around both children together. Default width
-   below covers Hub/Shop/Upgrades/Server; Credits/How to Play/What's New
-   keep their own already-tuned widths via the more specific overrides. */
+   the box now needs to size around both children together. */
 #credits-panel .panel-box,
 #howtoplay-panel .panel-box {
   width: min(960px, 94vw);
@@ -2700,7 +2698,6 @@ html.third-person-active #companion-bark {
 }
 
 .panel-box {
-  width: min(960px, 94vw);
   background: rgba(8, 8, 7, 0.96);
   border: 1px solid rgba(227, 166, 60, 0.3);
   border-radius: 10px;
@@ -2709,18 +2706,14 @@ html.third-person-active #companion-bark {
 }
 
 /* The area OUTSIDE the box (the rest of the full-screen panel wrapper)
-   goes fully transparent for these - the homepage/game shows through
-   clearly there instead of being dimmed, same as Kirka.io's reference.
-   The box itself (.panel-box above) stays solid so the content is still
-   easy to read. !important since this needs to beat an ID selector of
-   equal specificity that comes later in the file. */
+   goes fully transparent for these 3 - the homepage shows through clearly
+   there instead of being dimmed, same as Kirka.io's reference. The box
+   itself (.panel-box above) stays solid so the content is still easy to
+   read. !important since this needs to beat an ID selector of equal
+   specificity that comes later in the file. */
 #credits-panel,
 #howtoplay-panel,
-#whatsnew-panel,
-#hub-panel,
-#shop-panel,
-#upgrades-panel,
-#server-panel {
+#whatsnew-panel {
   background: transparent !important;
 }
 
