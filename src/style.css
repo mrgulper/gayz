@@ -1166,6 +1166,28 @@ html.layout-compact .menu-panel {
      property scoped to #menu wouldn't reach them. */
   --grain-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 
+  /* Map Blueprint (Features panel) colors - ported from the standalone
+     gayz-features site. Defined at :root, not scoped to .features-map-
+     blueprint, specifically because the map lightbox clones the SVG into
+     #map-lightbox-canvas, which lives OUTSIDE that subtree - a custom
+     property doesn't reach a clone placed outside its defining ancestor's
+     scope (confirmed live on the original site: the enlarged map rendered
+     almost entirely black until this was caught). Keeping these at :root
+     avoids that failure mode regardless of where any future clone lands. */
+  --mb-bg-panel: #17140f;
+  --mb-ink: #e9e2d3;
+  --mb-ink-dim: #a89f8d;
+  --mb-ink-faint: #6f6656;
+  --mb-gold-dim: #a97e3a;
+  --mb-rule: #3a3226;
+  --mb-downtown: #4a4238;
+  --mb-downtown-line: #6b5f4a;
+  --mb-zone-fill: #211d16;
+  --mb-zone-line: #4a4030;
+  --mb-safe: #4f8a5c;
+  --mb-safe-glow: rgba(79, 138, 92, 0.35);
+  --mb-dot-ring: rgba(217, 163, 74, 0.25);
+
   /* Theme palette - moved here from #menu (2026-08-26) for the same reason
      --grain-texture already lives here: the Clan/Community-Builds/Friends
      etc. standalone panels are siblings of #menu, not descendants, so a
@@ -1234,6 +1256,8 @@ html.large-text-mode #share-panel,
 html.large-text-mode #achievements-panel,
 html.large-text-mode #profile-panel,
 html.large-text-mode #credits-panel,
+html.large-text-mode #features-panel,
+html.large-text-mode #terms-panel,
 html.large-text-mode #shop-panel,
 html.large-text-mode #whatsnew-panel,
 html.large-text-mode #howtoplay-panel,
@@ -2850,6 +2874,508 @@ html.third-person-active #companion-bark {
   gap: 18px;
 }
 
+/* GayZ Features panel - was a separate site (gayz.vercel.app/features/,
+   its own Vercel deployment) that opened in a new tab; now a real in-game
+   panel, same 101-feature/10-category content, restyled to match this
+   panel family instead of that site's own visual system. */
+#features-content {
+  width: min(1100px, 94vw);
+  height: 78vh;
+  overflow-y: auto;
+  text-align: left;
+}
+
+#features-tagline {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+}
+
+#features-stat-line {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin-bottom: 14px;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+#features-stat-line b {
+  display: block;
+  font-size: 20px;
+  color: #e3c23c;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+#features-search-input {
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+#features-search-count {
+  min-height: 16px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+#features-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#features-toc a {
+  padding: 4px 10px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(227, 166, 60, 0.3);
+  border-radius: 999px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+#features-toc a:hover {
+  color: #e3c23c;
+  border-color: #e3c23c;
+}
+
+.features-category {
+  margin-bottom: 26px;
+}
+
+.features-category h2 {
+  margin: 0 0 14px;
+  font-size: 20px;
+  letter-spacing: 1px;
+  color: #e3c23c;
+  border-bottom: 1px solid rgba(227, 166, 60, 0.25);
+  padding-bottom: 8px;
+}
+
+.features-category.features-hidden-search { display: none; }
+
+.features-feature {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+}
+
+.features-feature.features-hidden-search { display: none; }
+
+.features-feature h3 {
+  margin: 0 0 4px;
+  font-size: 14.5px;
+  color: #e3c23c;
+}
+
+.features-feature p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.features-feature.features-expandable h3 {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+}
+
+.features-expand-icon {
+  color: #e3c23c;
+  font-size: 11px;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.features-feature.features-expandable.open .features-expand-icon {
+  transform: rotate(90deg);
+}
+
+.features-detail-list {
+  display: none;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.12);
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 6px 18px;
+}
+
+.features-feature.features-expandable.open .features-detail-list {
+  display: grid;
+}
+
+.features-detail-item {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.features-detail-item b {
+  color: #fff;
+  font-weight: 600;
+}
+
+.features-feature.features-coming-soon {
+  background: transparent;
+  border-style: dashed;
+  opacity: 0.75;
+}
+
+.features-feature.features-coming-soon h3::after {
+  content: 'COMING SOON';
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #d64545;
+  background: rgba(214, 69, 69, 0.12);
+  border: 1px solid rgba(214, 69, 69, 0.4);
+  border-radius: 999px;
+  padding: 2px 8px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.features-coming-soon-note {
+  margin: -6px 0 14px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Zombie Survival Map (embedded blueprint) - ported from the standalone
+   site verbatim (same SVG, same coordinates pulled from World.js's
+   buildWorld()), just re-namespaced under mb-/map-blueprint- classes so
+   nothing here collides with the rest of this stylesheet. When the real
+   map layout changes, update the coordinates here to match. */
+.map-blueprint-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 20px;
+  align-items: start;
+  margin-top: 14px;
+}
+@media (max-width: 700px) {
+  .map-blueprint-layout { grid-template-columns: 1fr; }
+}
+
+.map-blueprint-panel {
+  display: block;
+  width: 100%;
+  background: var(--mb-bg-panel);
+  border: 1px solid var(--mb-rule);
+  border-radius: 6px;
+  padding: 12px;
+  cursor: zoom-in;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  position: relative;
+  transition: border-color 0.15s ease;
+}
+
+.map-blueprint-panel:hover,
+.map-blueprint-panel:focus-visible {
+  border-color: #e3c23c;
+}
+
+.map-blueprint-panel:focus-visible {
+  outline: 2px solid #e3c23c;
+  outline-offset: 2px;
+}
+
+.map-blueprint-zoom-hint {
+  display: block;
+  margin-top: 8px;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  color: var(--mb-ink-faint);
+  text-align: center;
+}
+
+.map-blueprint-panel:hover .map-blueprint-zoom-hint,
+.map-blueprint-panel:focus-visible .map-blueprint-zoom-hint {
+  color: #e3c23c;
+}
+
+.features-map-blueprint svg { display: block; width: 100%; height: auto; overflow: visible; }
+
+.mb-zone-fill { fill: var(--mb-zone-fill); stroke: var(--mb-zone-line); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.mb-zone-label { font-size: 12px; font-weight: 600; letter-spacing: 2px; fill: var(--mb-ink-faint); text-transform: uppercase; }
+.mb-downtown-fill { fill: var(--mb-downtown); fill-opacity: 0.55; stroke: var(--mb-downtown-line); stroke-width: 1.5; }
+.mb-street { stroke: var(--mb-bg-panel); stroke-width: 2.4; }
+.mb-safe-zone-ring { fill: var(--mb-safe-glow); stroke: var(--mb-safe); stroke-width: 1.5; }
+.mb-safe-zone-label { fill: var(--mb-safe); font-size: 10px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; }
+.mb-park-fill { fill: var(--mb-safe); fill-opacity: 0.16; stroke: var(--mb-safe); stroke-opacity: 0.5; stroke-width: 1; stroke-dasharray: 3 3; }
+.mb-landmark-dot { fill: #e3c23c; stroke: var(--mb-bg-panel); stroke-width: 1; }
+.mb-landmark-ring { fill: none; stroke: var(--mb-dot-ring); stroke-width: 6; }
+.mb-landmark-label { font-size: 9.5px; fill: var(--mb-ink); }
+.mb-landmark-label-dim { fill: var(--mb-ink-dim); }
+.mb-grid-line { stroke: var(--mb-rule); stroke-width: 0.5; opacity: 0.4; }
+.mb-compass { fill: var(--mb-ink-faint); font-size: 10px; letter-spacing: 1px; }
+.mb-compass-line { stroke: var(--mb-ink-faint); stroke-width: 1; opacity: 0.5; }
+
+.map-blueprint-side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.map-blueprint-card {
+  background: var(--mb-bg-panel);
+  border: 1px solid var(--mb-rule);
+  border-radius: 6px;
+  padding: 14px 16px;
+}
+
+.map-blueprint-card h4 {
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #e3c23c;
+  margin: 0 0 10px;
+}
+
+.mb-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--mb-ink-dim);
+  padding: 4px 0;
+}
+
+.mb-legend-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  flex: none;
+}
+
+.map-blueprint-card p {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #ffffff;
+  margin: 0 0 8px;
+}
+.map-blueprint-card p:last-child { margin-bottom: 0; }
+.map-blueprint-card strong { color: #e3c23c; }
+
+.mb-underground-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 12.5px;
+  color: #ffffff;
+}
+.mb-underground-list li {
+  padding: 5px 0;
+  border-top: 1px solid var(--mb-rule);
+}
+.mb-underground-list li:first-child { border-top: none; }
+.mb-underground-list strong { color: #e3c23c; font-weight: 600; }
+
+.map-blueprint-note {
+  margin-top: 12px;
+  font-size: 11.5px;
+  color: var(--mb-ink-faint);
+  line-height: 1.6;
+}
+
+/* Map lightbox - click the blueprint to open a bigger, zoomable version.
+   #map-lightbox-canvas holds a cloned copy of #map-blueprint-svg (see
+   Game.js), scaled/panned via a single CSS transform driven by JS state. */
+#map-lightbox {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  flex-direction: column;
+  background: rgba(6, 5, 4, 0.92);
+  backdrop-filter: blur(2px);
+}
+
+#map-lightbox.open { display: flex; }
+
+#map-lightbox-toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(227, 166, 60, 0.25);
+}
+
+.map-lightbox-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+  color: #fff;
+  background: rgba(20, 20, 18, 0.9);
+  border: 1px solid rgba(227, 166, 60, 0.3);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.map-lightbox-btn:hover {
+  border-color: #e3c23c;
+  color: #e3c23c;
+}
+
+#map-lightbox-zoom-level {
+  min-width: 52px;
+  text-align: center;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  font-variant-numeric: tabular-nums;
+}
+
+#map-lightbox-reset {
+  font-size: 12px;
+  width: auto;
+  padding: 0 14px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+#map-lightbox-close {
+  margin-left: 8px;
+  font-size: 20px;
+}
+
+#map-lightbox-hint {
+  margin-left: auto;
+  padding-left: 12px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  display: none;
+}
+
+@media (min-width: 700px) {
+  #map-lightbox-hint { display: block; }
+}
+
+#map-lightbox-viewport {
+  flex: 1 1 auto;
+  position: relative;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+
+#map-lightbox-viewport.dragging { cursor: grabbing; }
+
+#map-lightbox-canvas {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(1400px, 92vw);
+  transform-origin: center center;
+  will-change: transform;
+}
+
+#map-lightbox-canvas svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* Terms of Use panel - was a separate /terms.html page opened in a new
+   tab, now a real in-game panel with the same content. */
+#terms-content {
+  width: min(760px, 92vw);
+  height: 70vh;
+  overflow-y: auto;
+  text-align: left;
+}
+
+.terms-updated {
+  margin: 0 0 16px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+#terms-content h3 {
+  margin: 16px 0 6px;
+  font-size: 14px;
+  letter-spacing: 0.3px;
+  color: #e3c23c;
+}
+
+#terms-content h3:first-of-type {
+  margin-top: 0;
+}
+
+#terms-content p {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+#terms-content a {
+  color: #e3c23c;
+  text-decoration: none;
+}
+
+#terms-content a:hover {
+  text-decoration: underline;
+}
+
+.terms-list {
+  margin: 0 0 8px;
+}
+
+.terms-list-item {
+  position: relative;
+  padding: 3px 0 3px 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.terms-list-item::before {
+  content: '\2013';
+  position: absolute;
+  left: 0;
+  color: #e3c23c;
+}
+
+.terms-placeholder {
+  background: rgba(227, 166, 60, 0.18);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-style: italic;
+}
+
+.terms-note {
+  margin-top: 20px;
+  padding: 12px 14px;
+  background: rgba(227, 166, 60, 0.08);
+  border: 1px solid rgba(227, 166, 60, 0.25);
+  border-radius: 6px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.65);
+}
 
 @keyframes toast {
   0% { opacity: 0; transform: translate(-50%, 8px); }
@@ -3165,6 +3691,8 @@ html.third-person-active #companion-bark {
 #achievements-panel,
 #profile-panel,
 #credits-panel,
+#features-panel,
+#terms-panel,
 #multiplayer-panel,
 #shop-panel,
 #whatsnew-panel,
@@ -3216,6 +3744,8 @@ html.ui-theme-old #share-panel,
 html.ui-theme-old #achievements-panel,
 html.ui-theme-old #profile-panel,
 html.ui-theme-old #credits-panel,
+html.ui-theme-old #features-panel,
+html.ui-theme-old #terms-panel,
 html.ui-theme-old #multiplayer-panel,
 html.ui-theme-old #shop-panel,
 html.ui-theme-old #whatsnew-panel,
@@ -3534,6 +4064,8 @@ html.ui-theme-old #screenshot-crop-overlay {
 #achievements-panel-title,
 #profile-panel-title,
 #credits-panel-title,
+#features-panel-title,
+#terms-panel-title,
 #shop-panel-title,
 #whatsnew-panel-title,
 #howtoplay-panel-title,
@@ -3565,6 +4097,8 @@ html.ui-theme-old #quests-panel-title,
 html.ui-theme-old #achievements-panel-title,
 html.ui-theme-old #profile-panel-title,
 html.ui-theme-old #credits-panel-title,
+html.ui-theme-old #features-panel-title,
+html.ui-theme-old #terms-panel-title,
 html.ui-theme-old #shop-panel-title,
 html.ui-theme-old #whatsnew-panel-title,
 html.ui-theme-old #howtoplay-panel-title,
@@ -5130,7 +5664,7 @@ html {
    the standard 4-height overflow measurement this project always
    re-checks after a size-affecting change). */
 html.text-spacing-active #menu, html.text-spacing-active .menu-panel, html.text-spacing-active #upgrades-panel,
-html.text-spacing-active #credits-panel, html.text-spacing-active #shop-panel, html.text-spacing-active #whatsnew-panel, html.text-spacing-active #achievements-panel,
+html.text-spacing-active #credits-panel, html.text-spacing-active #features-panel, html.text-spacing-active #terms-panel, html.text-spacing-active #shop-panel, html.text-spacing-active #whatsnew-panel, html.text-spacing-active #achievements-panel,
 html.text-spacing-active #profile-panel, html.text-spacing-active #settings-panel,
 html.text-spacing-active #quests-panel, html.text-spacing-active #share-panel, html.text-spacing-active #cloudsave-panel, html.text-spacing-active #howtoplay-panel {
   letter-spacing: calc((var(--text-spacing, 100) - 100) * 0.005px);
@@ -5149,6 +5683,8 @@ html.button-size-scaled button {
 html.reduce-transparency .menu-panel,
 html.reduce-transparency #upgrades-panel,
 html.reduce-transparency #credits-panel,
+html.reduce-transparency #features-panel,
+html.reduce-transparency #terms-panel,
 html.reduce-transparency #shop-panel,
 html.reduce-transparency #whatsnew-panel,
 html.reduce-transparency #achievements-panel,

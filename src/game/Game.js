@@ -5194,6 +5194,18 @@ export class Game {
     this.goalsChecklist = document.getElementById('goals-checklist')
     this.creditsPanel = document.getElementById('credits-panel')
     this.creditsPanelTitle = document.getElementById('credits-panel-title')
+    this.creditsTermsLink = document.getElementById('credits-terms-link')
+    this.featuresPanel = document.getElementById('features-panel')
+    this.featuresPanelTitle = document.getElementById('features-panel-title')
+    this.featuresNavLink = document.getElementById('nav-gayzfeatures-link')
+    this.featuresSearchInput = document.getElementById('features-search-input')
+    this.featuresSearchCount = document.getElementById('features-search-count')
+    this.featuresToc = document.getElementById('features-toc')
+    this.featuresStatLive = document.getElementById('features-stat-live')
+    this.featuresStatSoon = document.getElementById('features-stat-soon')
+    this.termsPanel = document.getElementById('terms-panel')
+    this.termsPanelTitle = document.getElementById('terms-panel-title')
+    this.termsBtn = document.getElementById('terms-btn')
     this.shopPanel = document.getElementById('shop-panel')
     this.shopPanelTitle = document.getElementById('shop-panel-title')
     this.shopSkinCanvas = document.getElementById('shop-skin-canvas')
@@ -9800,6 +9812,58 @@ export class Game {
     if (this.copyTextRecapBtn) this.copyTextRecapBtn.addEventListener('click', () => this._copyTextRecap())
     if (this.reportBugBtn) this.reportBugBtn.addEventListener('click', () => this._reportBug())
     this.creditsBtn.addEventListener('click', () => trackAndOpen(() => this._openCreditsPanel()))
+    if (this.featuresNavLink) this.featuresNavLink.addEventListener('click', () => trackAndOpen(() => this._openFeaturesPanel()))
+    if (this.termsBtn) this.termsBtn.addEventListener('click', () => trackAndOpen(() => this._openTermsPanel()))
+    if (this.creditsTermsLink) {
+      this.creditsTermsLink.addEventListener('click', (e) => {
+        e.preventDefault()
+        this._openTermsPanel()
+      })
+    }
+    if (this.featuresPanel) {
+      this.featuresPanel.addEventListener('click', (e) => {
+        if (e.target === this.featuresPanel) this._closeFeaturesPanel()
+      })
+    }
+    if (this.termsPanel) {
+      this.termsPanel.addEventListener('click', (e) => {
+        if (e.target === this.termsPanel) this._closeTermsPanel()
+      })
+    }
+    if (this.featuresSearchInput) {
+      this.featuresSearchInput.addEventListener('click', (e) => e.stopPropagation())
+      this.featuresSearchInput.addEventListener('input', () => this._filterFeaturesPanel())
+    }
+    if (this.featuresPanel) {
+      // Expand/collapse (weapons, mutators, zombie types, etc.) - delegated
+      // to the panel itself rather than one listener per card, same reason
+      // Achievements' filter-input listener stops propagation instead of
+      // relying on _closeAllMenuPanels' backdrop check alone: a click on a
+      // real child element never equals featuresPanel itself, so this is
+      // safe without an extra stopPropagation here.
+      this.featuresPanel.addEventListener('click', (e) => {
+        const h3 = e.target.closest('.features-feature.features-expandable > h3')
+        if (h3) h3.closest('.features-feature').classList.toggle('open')
+      })
+    }
+    // TOC is built once from the static category sections already in the
+    // DOM (no separate data file to keep in sync with the 101 hardcoded
+    // .features-feature entries above) - same approach the original
+    // standalone site's app.js used.
+    if (this.featuresToc) {
+      this.featuresPanel.querySelectorAll('.features-category').forEach((section) => {
+        const heading = section.querySelector('h2')
+        const link = document.createElement('a')
+        link.href = `#${section.id}`
+        link.textContent = heading.textContent
+        link.addEventListener('click', (e) => {
+          e.preventDefault()
+          section.scrollIntoView({ block: 'start' })
+        })
+        this.featuresToc.appendChild(link)
+      })
+    }
+    this._initMapLightbox()
     this.coinshopBtn.addEventListener('click', () => trackAndOpen(() => this._openShopPanel()))
     this._bindHomepageBatch()
     CloudSaveUI.bindCloudSave(this)
@@ -13286,6 +13350,8 @@ export class Game {
         subTabs: this._subTabsFor('tab-', ['general', 'language', 'audio', 'controls', 'theme', 'graphics']),
       },
       { slug: 'credits', panel: this.creditsPanel, open: () => this._openCreditsPanel() },
+      { slug: 'features', panel: this.featuresPanel, open: () => this._openFeaturesPanel() },
+      { slug: 'terms', panel: this.termsPanel, open: () => this._openTermsPanel() },
       { slug: 'how-to-play', panel: this.howtoplayPanel, open: () => this._openHowToPlayPanel() },
       { slug: 'whats-new', panel: this.whatsNewPanel, open: () => this._openWhatsNewPanel() },
       {
@@ -13390,6 +13456,8 @@ export class Game {
     if (this.serverPanel) this._closeServerPanel()
     if (this.profilePanel) this._closeProfilePanel()
     if (this.creditsPanel) this._closeCreditsPanel()
+    if (this.featuresPanel) this._closeFeaturesPanel()
+    if (this.termsPanel) this._closeTermsPanel()
     if (this.shopPanel) this._closeShopPanel()
     if (this.whatsNewPanel) this._closeWhatsNewPanel()
     if (this.sharePanel) this._closeSharePanel()
@@ -16260,6 +16328,201 @@ export class Game {
 
   _closeCreditsPanel() {
     this.creditsPanel.style.display = 'none'
+  }
+
+  // GayZ Features and Terms of Use were both plain <a target="_blank">
+  // links to separate pages (a whole standalone site for Features, a
+  // static /terms.html for Terms) - now real in-game panels, same content,
+  // so clicking either pops up in place instead of leaving the game.
+  _openFeaturesPanel() {
+    if (!this.featuresPanel) return
+    this._closeAllMenuPanels()
+    this.featuresPanel.style.display = 'flex'
+    if (this.featuresStatLive) {
+      const liveCount = this.featuresPanel.querySelectorAll('.features-category:not(#features-cat-coming-soon) .features-feature').length
+      const soonCount = this.featuresPanel.querySelectorAll('#features-cat-coming-soon .features-feature').length
+      this.featuresStatLive.textContent = liveCount
+      this.featuresStatSoon.textContent = soonCount
+    }
+  }
+
+  _closeFeaturesPanel() {
+    this.featuresPanel.style.display = 'none'
+  }
+
+  _openTermsPanel() {
+    if (!this.termsPanel) return
+    this._closeAllMenuPanels()
+    this.termsPanel.style.display = 'flex'
+  }
+
+  _closeTermsPanel() {
+    this.termsPanel.style.display = 'none'
+  }
+
+  _filterFeaturesPanel() {
+    const q = (this.featuresSearchInput.value || '').trim().toLowerCase()
+    const categories = this.featuresPanel.querySelectorAll('.features-category')
+    const allFeatures = this.featuresPanel.querySelectorAll('.features-feature')
+
+    if (!q) {
+      allFeatures.forEach((f) => f.classList.remove('features-hidden-search'))
+      categories.forEach((c) => c.classList.remove('features-hidden-search'))
+      this.featuresSearchCount.style.display = 'none'
+      return
+    }
+
+    let matches = 0
+    categories.forEach((section) => {
+      let sectionHasMatch = false
+      section.querySelectorAll('.features-feature').forEach((f) => {
+        const hit = f.textContent.toLowerCase().includes(q)
+        f.classList.toggle('features-hidden-search', !hit)
+        if (hit) { sectionHasMatch = true; matches++ }
+      })
+      section.classList.toggle('features-hidden-search', !sectionHasMatch)
+    })
+
+    this.featuresSearchCount.style.display = 'block'
+    this.featuresSearchCount.textContent = `${matches} feature${matches === 1 ? '' : 's'} found`
+  }
+
+  // Map blueprint lightbox (Features panel > Zombie Survival Map) - click
+  // the map to open a bigger, zoomable copy. Clones #map-blueprint-svg
+  // into the lightbox rather than moving the real one, so the inline map
+  // in the panel is never disturbed. Zoom/pan is one CSS transform on
+  // #map-lightbox-canvas driven by scale/panX/panY state - wheel and the
+  // +/- buttons zoom toward the cursor, dragging pans, both clamped so the
+  // map can't be zoomed out past its natural size or dragged offscreen.
+  // Ported from the standalone site's app.js (same logic, same feel).
+  _initMapLightbox() {
+    const mapTrigger = document.getElementById('map-blueprint-trigger')
+    const mapSvg = document.getElementById('map-blueprint-svg')
+    if (!mapTrigger || !mapSvg) return
+
+    const lightbox = document.getElementById('map-lightbox')
+    const viewport = document.getElementById('map-lightbox-viewport')
+    const canvas = document.getElementById('map-lightbox-canvas')
+    const zoomLevelEl = document.getElementById('map-lightbox-zoom-level')
+    const zoomInBtn = document.getElementById('map-lightbox-zoom-in')
+    const zoomOutBtn = document.getElementById('map-lightbox-zoom-out')
+    const resetBtn = document.getElementById('map-lightbox-reset')
+    const closeBtn = document.getElementById('map-lightbox-close')
+
+    const MIN_SCALE = 1
+    const MAX_SCALE = 6
+    let scale = 1
+    let panX = 0
+    let panY = 0
+    let dragging = false
+    let dragStartX = 0
+    let dragStartY = 0
+    let panStartX = 0
+    let panStartY = 0
+    let lastActiveEl = null
+
+    const applyTransform = () => {
+      canvas.style.transform = `translate(-50%, -50%) translate(${panX}px, ${panY}px) scale(${scale})`
+      zoomLevelEl.textContent = `${Math.round(scale * 100)}%`
+    }
+
+    const clampPan = () => {
+      const maxPan = (scale - 1) * 300
+      panX = Math.max(-maxPan, Math.min(maxPan, panX))
+      panY = Math.max(-maxPan, Math.min(maxPan, panY))
+    }
+
+    const setScale = (next, focusX, focusY) => {
+      const clamped = Math.max(MIN_SCALE, Math.min(MAX_SCALE, next))
+      if (focusX !== undefined && clamped !== scale) {
+        const rect = viewport.getBoundingClientRect()
+        const cx = focusX - rect.left - rect.width / 2
+        const cy = focusY - rect.top - rect.height / 2
+        const ratio = clamped / scale
+        panX = cx - (cx - panX) * ratio
+        panY = cy - (cy - panY) * ratio
+      }
+      scale = clamped
+      clampPan()
+      applyTransform()
+    }
+
+    const openLightbox = () => {
+      canvas.innerHTML = ''
+      canvas.appendChild(mapSvg.cloneNode(true))
+      scale = 1
+      panX = 0
+      panY = 0
+      applyTransform()
+      lastActiveEl = document.activeElement
+      lightbox.classList.add('open')
+      document.body.style.overflow = 'hidden'
+      closeBtn.focus()
+    }
+
+    const closeLightbox = () => {
+      lightbox.classList.remove('open')
+      document.body.style.overflow = ''
+      canvas.innerHTML = ''
+      if (lastActiveEl) lastActiveEl.focus()
+    }
+
+    mapTrigger.addEventListener('click', openLightbox)
+    closeBtn.addEventListener('click', closeLightbox)
+    resetBtn.addEventListener('click', () => { scale = 1; panX = 0; panY = 0; applyTransform() })
+    zoomInBtn.addEventListener('click', () => setScale(scale + 0.5))
+    zoomOutBtn.addEventListener('click', () => setScale(scale - 0.5))
+
+    let viewportClickWasDrag = false
+    viewport.addEventListener('click', (e) => {
+      if (viewportClickWasDrag) { viewportClickWasDrag = false; return }
+      if (e.target === viewport) closeLightbox()
+    })
+    lightbox.addEventListener('click', (e) => {
+      if (e.target === lightbox) closeLightbox()
+    })
+
+    document.addEventListener('keydown', (e) => {
+      if (!lightbox.classList.contains('open')) return
+      if (e.key === 'Escape') closeLightbox()
+      else if (e.key === '+' || e.key === '=') setScale(scale + 0.5)
+      else if (e.key === '-') setScale(scale - 0.5)
+    })
+
+    viewport.addEventListener('wheel', (e) => {
+      e.preventDefault()
+      const delta = e.deltaY < 0 ? 0.35 : -0.35
+      setScale(scale + delta, e.clientX, e.clientY)
+    }, { passive: false })
+
+    viewport.addEventListener('pointerdown', (e) => {
+      if (scale <= MIN_SCALE) return
+      dragging = true
+      viewport.classList.add('dragging')
+      dragStartX = e.clientX
+      dragStartY = e.clientY
+      panStartX = panX
+      panStartY = panY
+      viewport.setPointerCapture(e.pointerId)
+    })
+
+    viewport.addEventListener('pointermove', (e) => {
+      if (!dragging) return
+      const dx = e.clientX - dragStartX
+      const dy = e.clientY - dragStartY
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) viewportClickWasDrag = true
+      panX = panStartX + dx
+      panY = panStartY + dy
+      clampPan()
+      applyTransform()
+    })
+
+    const endDrag = () => {
+      dragging = false
+      viewport.classList.remove('dragging')
+    }
+    viewport.addEventListener('pointerup', endDrag)
+    viewport.addEventListener('pointercancel', endDrag)
   }
 
   // Multiplayer (Phase 1: invite link + lobby only, see Multiplayer.js and
