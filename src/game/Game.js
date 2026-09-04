@@ -14744,7 +14744,7 @@ export class Game {
     this._closeAllMenuPanels()
     this.howtoplayPanel.style.display = 'flex'
     this.howtoplayPanelTitle.textContent = t('howtoplayPanelTitle')
-    this.howtoplayContent.innerHTML = HOWTOPLAY_STEPS.map((step) => `<div class="panel-card"><h3>${step.heading}</h3><p>${tHtml(step.key)}</p></div>`).join('')
+    this.howtoplayContent.innerHTML = HOWTOPLAY_STEPS.map((step) => `<h3>${step.heading}</h3><p>${tHtml(step.key)}</p>`).join('')
   }
 
   _closeHowToPlayPanel() {

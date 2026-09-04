@@ -2850,45 +2850,6 @@ html.third-person-active #companion-bark {
   gap: 18px;
 }
 
-/* Card look (Credits/How to Play) - matches the standalone GayZ Features
-   site's dark-card style the user asked to bring in here. Just a wrapper
-   div around content that was already h3+p pairs - the existing
-   #credits-content/#howtoplay-content h3/p typography rules above still
-   apply unchanged since those are descendant selectors, this only adds
-   the boxed background/border/padding around them. */
-.panel-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  padding: 12px 16px;
-  margin-bottom: 10px;
-  text-align: left;
-}
-
-.panel-card h3:first-child {
-  margin-top: 0;
-}
-
-.panel-card p:last-child {
-  margin-bottom: 0;
-}
-
-/* What's New changelog - each entry becomes its own card instead of a
-   thin bottom-bordered row, same style as the cards above. */
-.changelog-entry {
-  display: block;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  padding: 8px 14px;
-  margin-bottom: 6px;
-}
-
-.changelog-date {
-  display: block;
-  margin-bottom: 2px;
-}
-
 
 @keyframes toast {
   0% { opacity: 0; transform: translate(-50%, 8px); }
