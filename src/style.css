@@ -2704,6 +2704,18 @@ html.third-person-active #companion-bark {
   padding: 18px 24px 24px;
 }
 
+/* The shared panel backdrop rule (grain-texture + radial-gradient vignette
+   over the dimmed homepage) reads as a hazy/blurry background behind these
+   3 - drop that layering back to a plain flat dark overlay here, without
+   touching the same background on any of the other panels sharing that
+   rule. !important since this needs to beat an ID selector of equal
+   specificity that comes later in the file. */
+#credits-panel,
+#howtoplay-panel,
+#whatsnew-panel {
+  background: rgba(6, 8, 6, 0.88) !important;
+}
+
 .panel-box > h2 {
   margin: 0 0 8px !important;
   text-align: center;
