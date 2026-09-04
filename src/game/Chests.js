@@ -457,17 +457,22 @@ export class ChestManager {
     return chest
   }
 
-  // Locks every chest, then picks 3 at random to stock for the night -
-  // called once per night (see Game.js's night-advance block) so there's
-  // always fresh loot to find instead of the map staying picked-clean for
-  // the rest of the run.
-  refillNight(count = 3) {
-    for (const c of this.chests) c.lock()
-    const pool = [...this.chests]
-    for (let i = 0; i < count && pool.length > 0; i++) {
-      const idx = Math.floor(Math.random() * pool.length)
-      pool.splice(idx, 1)[0].unlock()
-    }
+  // Unlocks every chest for the night - called once per night (see
+  // Game.js's night-advance block) so there's always fresh loot to find
+  // instead of the map staying picked-clean for the rest of the run.
+  // Previously only 3 random chests were unlocked at a time to create that
+  // same freshness without the map going stale by night 5+, but with 454
+  // chest spots spread across a 750x750 map, a player was far more likely
+  // to walk up to one of the 451 locked ones than one of the 3 real ones -
+  // and since Chest.lock() hides the chest entirely (group.visible=false),
+  // that combined badly with the newer distance-based render culling
+  // (_updateCulling in Game.js), which forces any CLOSE chest visible again
+  // regardless of lock state - so locked chests started reappearing as soon
+  // as the player got near, looking exactly like dead decoration instead of
+  // being properly hidden. Unlocking everyone removes the scarcity (and the
+  // visibility conflict) while keeping the same "fresh every night" reset.
+  refillNight() {
+    for (const c of this.chests) c.unlock()
   }
 
   update(dt, elapsed, playerPos) {
