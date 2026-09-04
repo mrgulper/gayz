@@ -2683,15 +2683,42 @@ html.third-person-active #companion-bark {
    same size regardless of how much text it holds. .settings-page (further
    down this file) matches this same width/height too, per the "make
    Settings as wide as Credits/How to Play" request. */
-#credits-content,
-#howtoplay-content {
+/* .panel-box wraps the panel's own title (h2) together with its content
+   div, so the whole thing - title included - reads as one bordered box
+   (a Kirka.io-style reference) instead of a title floating above a
+   separate box. Width lives here (not on the -content div anymore) since
+   the box now needs to size around both children together. */
+#credits-panel .panel-box,
+#howtoplay-panel .panel-box {
   width: min(840px, 92vw);
-  height: 60vh;
-  overflow-y: auto;
+}
+
+#whatsnew-panel .panel-box {
+  width: min(960px, 94vw);
+}
+
+.panel-box {
   background: rgba(10, 10, 9, 0.7);
   border: 1px solid rgba(227, 166, 60, 0.3);
   border-radius: 10px;
-  padding: 20px 24px;
+  padding: 18px 24px 24px;
+}
+
+.panel-box > h2 {
+  margin: 0 0 8px !important;
+}
+
+/* height (not max-height): Credits/How to Play all render much shorter
+   content than What's New's changelog, but should still occupy the same
+   fixed panel height as it rather than shrink-wrapping down to their own
+   short content - a fixed height keeps every panel in this family the
+   same size regardless of how much text it holds. .settings-page (further
+   down this file) matches this same width/height too, per the "make
+   Settings as wide as Credits/How to Play" request. */
+#credits-content,
+#howtoplay-content {
+  height: 52vh;
+  overflow-y: auto;
 }
 
 /* Centered rather than left-aligned like How to Play - Credits is short
@@ -2709,14 +2736,9 @@ html.third-person-active #companion-bark {
    changelog) - capped below 100vw so it never touches the edges of the
    screen on a narrow window. */
 #whatsnew-content {
-  width: min(960px, 94vw);
-  height: 60vh;
+  height: 52vh;
   overflow-y: auto;
   text-align: left;
-  background: rgba(10, 10, 9, 0.7);
-  border: 1px solid rgba(227, 166, 60, 0.3);
-  border-radius: 10px;
-  padding: 20px 24px;
 }
 
 #credits-content h3,
