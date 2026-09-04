@@ -2690,11 +2690,11 @@ html.third-person-active #companion-bark {
    the box now needs to size around both children together. */
 #credits-panel .panel-box,
 #howtoplay-panel .panel-box {
-  width: min(840px, 92vw);
+  width: min(960px, 94vw);
 }
 
 #whatsnew-panel .panel-box {
-  width: min(960px, 94vw);
+  width: min(1080px, 96vw);
 }
 
 .panel-box {
@@ -2706,6 +2706,7 @@ html.third-person-active #companion-bark {
 
 .panel-box > h2 {
   margin: 0 0 8px !important;
+  text-align: center;
 }
 
 /* height (not max-height): Credits/How to Play all render much shorter
