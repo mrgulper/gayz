@@ -6958,6 +6958,72 @@ function buildNewUndergroundEntrance(scene, colliders, solidMeshes, flickerLight
 // subway's own width/height/floor-Y for a seamless join at both ends, and
 // dresses the long run with the same rib-light spacing the old standalone
 // tunnel used, so 65+ units of corridor doesn't read as one dark box.
+// Shared by buildSubwayConnector/buildDarkSubwayConnector (their ceiling/wall
+// loops were near-identical) - merges every 2-unit segment's ceiling into
+// ONE mesh and every segment's pair of walls into ONE mesh for the whole
+// corridor run, instead of a separate draw call per segment (see
+// docs/PERFORMANCE.md Option B3 - same technique buildRoom already uses for
+// its wall segments). Each segment's own Box3 collider is still computed
+// exactly as before, via a throwaway mesh that's positioned/rotated but
+// never added to the scene - so the short-segment technique that avoids
+// rotated-mesh AABB inflation (see the comment where SEGMENT_LEN was
+// originally introduced, now below) is completely unaffected. Only the
+// VISUAL mesh count drops, from up to 3-per-segment to 2 total.
+function buildCorridorWalls(scene, colliders, solidMeshes, x0, z0, ux, uz, length, angle, wallMat, opts = {}) {
+  const SEGMENT_LEN = 2
+  const segmentCount = Math.ceil(length / SEGMENT_LEN)
+  const ceilingGeoms = []
+  const wallGeoms = []
+  const scratch = new THREE.Mesh()
+  scratch.rotation.y = angle
+  const pushCollider = (w, h, d, cx, cy, cz) => {
+    scratch.geometry = new THREE.BoxGeometry(w, h, d)
+    scratch.position.set(cx, cy, cz)
+    scratch.updateWorldMatrix(true, false)
+    colliders.push(new THREE.Box3().setFromObject(scratch))
+  }
+
+  for (let i = 0; i < segmentCount; i++) {
+    const segStart = i * SEGMENT_LEN
+    const segEnd = Math.min(length, segStart + SEGMENT_LEN)
+    const segLen = segEnd - segStart
+    const segMidT = (segStart + segEnd) / 2
+    const segX = x0 + ux * segMidT
+    const segZ = z0 + uz * segMidT
+
+    const ceilY = SUBWAY_FLOOR_Y + SUBWAY_HEIGHT
+    const ceilGeo = new THREE.BoxGeometry(SUBWAY_WIDTH + 0.4, 0.2, segLen)
+    ceilGeo.rotateY(angle)
+    ceilGeo.translate(segX, ceilY, segZ)
+    ceilingGeoms.push(ceilGeo)
+    pushCollider(SUBWAY_WIDTH + 0.4, 0.2, segLen, segX, ceilY, segZ)
+
+    for (const side of [-1, 1]) {
+      const perpX = Math.cos(angle) * side * (SUBWAY_WIDTH / 2 + 0.1)
+      const perpZ = -Math.sin(angle) * side * (SUBWAY_WIDTH / 2 + 0.1)
+      const wx = segX + perpX
+      const wy = SUBWAY_FLOOR_Y + SUBWAY_HEIGHT / 2
+      const wz = segZ + perpZ
+      const wGeo = new THREE.BoxGeometry(0.2, SUBWAY_HEIGHT, segLen)
+      wGeo.rotateY(angle)
+      wGeo.translate(wx, wy, wz)
+      wallGeoms.push(wGeo)
+      pushCollider(0.2, SUBWAY_HEIGHT, segLen, wx, wy, wz)
+    }
+  }
+
+  const ceiling = new THREE.Mesh(mergeGeometries(ceilingGeoms), wallMat)
+  ceiling.castShadow = !!opts.ceilingCastShadow
+  scene.add(ceiling)
+  solidMeshes.push(ceiling)
+
+  const walls = new THREE.Mesh(mergeGeometries(wallGeoms), wallMat)
+  walls.castShadow = !!opts.wallCastShadow
+  walls.receiveShadow = !!opts.wallReceiveShadow
+  scene.add(walls)
+  solidMeshes.push(walls)
+}
+
 function buildSubwayConnector(scene, colliders, solidMeshes, flickerLights, x0, z0, x1, z1) {
   const dx = x1 - x0
   const dz = z1 - z0
@@ -6988,39 +7054,7 @@ function buildSubwayConnector(scene, colliders, solidMeshes, flickerLights, x0, 
   // whole walk from the park down to the platform). Building short segments
   // keeps each one's own rotation-inflation small instead of spanning the
   // whole run.
-  const SEGMENT_LEN = 2
-  const segmentCount = Math.ceil(length / SEGMENT_LEN)
-  for (let i = 0; i < segmentCount; i++) {
-    const segStart = i * SEGMENT_LEN
-    const segEnd = Math.min(length, segStart + SEGMENT_LEN)
-    const segLen = segEnd - segStart
-    const segMidT = (segStart + segEnd) / 2
-    const segX = x0 + ux * segMidT
-    const segZ = z0 + uz * segMidT
-
-    const ceiling = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH + 0.4, 0.2, segLen), wallMat)
-    ceiling.position.set(segX, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT, segZ)
-    ceiling.rotation.y = angle
-    ceiling.castShadow = true
-    scene.add(ceiling)
-    solidMeshes.push(ceiling)
-    ceiling.updateWorldMatrix(true, false)
-    colliders.push(new THREE.Box3().setFromObject(ceiling))
-
-    for (const side of [-1, 1]) {
-      const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, SUBWAY_HEIGHT, segLen), wallMat)
-      const perpX = Math.cos(angle) * side * (SUBWAY_WIDTH / 2 + 0.1)
-      const perpZ = -Math.sin(angle) * side * (SUBWAY_WIDTH / 2 + 0.1)
-      wall.position.set(segX + perpX, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT / 2, segZ + perpZ)
-      wall.rotation.y = angle
-      wall.castShadow = true
-      wall.receiveShadow = true
-      scene.add(wall)
-      solidMeshes.push(wall)
-      wall.updateWorldMatrix(true, false)
-      colliders.push(new THREE.Box3().setFromObject(wall))
-    }
-  }
+  buildCorridorWalls(scene, colliders, solidMeshes, x0, z0, ux, uz, length, angle, wallMat, { ceilingCastShadow: true, wallCastShadow: true, wallReceiveShadow: true })
 
   const ribSpacing = 9 // see buildSewer's own comment on this same change
   const ribCount = Math.floor(length / ribSpacing)
@@ -7074,37 +7108,7 @@ function buildDarkSubwayConnector(scene, colliders, solidMeshes, x0, z0, x1, z1)
 
   // Same short-segment approach as buildSubwayConnector, for the same
   // rotated-mesh-AABB reason (see that function's own comment).
-  const SEGMENT_LEN = 2
-  const segmentCount = Math.ceil(length / SEGMENT_LEN)
-  for (let i = 0; i < segmentCount; i++) {
-    const segStart = i * SEGMENT_LEN
-    const segEnd = Math.min(length, segStart + SEGMENT_LEN)
-    const segLen = segEnd - segStart
-    const segMidT = (segStart + segEnd) / 2
-    const segX = x0 + ux * segMidT
-    const segZ = z0 + uz * segMidT
-
-    const ceiling = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH + 0.4, 0.2, segLen), wallMat)
-    ceiling.position.set(segX, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT, segZ)
-    ceiling.rotation.y = angle
-    scene.add(ceiling)
-    solidMeshes.push(ceiling)
-    ceiling.updateWorldMatrix(true, false)
-    colliders.push(new THREE.Box3().setFromObject(ceiling))
-
-    for (const side of [-1, 1]) {
-      const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, SUBWAY_HEIGHT, segLen), wallMat)
-      const perpX = Math.cos(angle) * side * (SUBWAY_WIDTH / 2 + 0.1)
-      const perpZ = -Math.sin(angle) * side * (SUBWAY_WIDTH / 2 + 0.1)
-      wall.position.set(segX + perpX, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT / 2, segZ + perpZ)
-      wall.rotation.y = angle
-      wall.receiveShadow = true
-      scene.add(wall)
-      solidMeshes.push(wall)
-      wall.updateWorldMatrix(true, false)
-      colliders.push(new THREE.Box3().setFromObject(wall))
-    }
-  }
+  buildCorridorWalls(scene, colliders, solidMeshes, x0, z0, ux, uz, length, angle, wallMat, { ceilingCastShadow: false, wallCastShadow: false, wallReceiveShadow: true })
   // Deliberately no rib-light loop here (unlike buildSubwayConnector) - this
   // stretch starts genuinely unlit. buildMaintenanceTunnelNetwork adds its
   // own lights at intensity 0, turned on by Game.js's _restoreTunnelPower.
