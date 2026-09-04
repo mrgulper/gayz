@@ -2718,7 +2718,7 @@ html.third-person-active #companion-bark {
    Settings as wide as Credits/How to Play" request. */
 #credits-content,
 #howtoplay-content {
-  height: 52vh;
+  height: 68vh;
   overflow-y: auto;
 }
 
@@ -2737,7 +2737,7 @@ html.third-person-active #companion-bark {
    changelog) - capped below 100vw so it never touches the edges of the
    screen on a narrow window. */
 #whatsnew-content {
-  height: 52vh;
+  height: 68vh;
   overflow-y: auto;
   text-align: left;
 }
