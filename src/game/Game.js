@@ -14067,9 +14067,18 @@ export class Game {
   // Re-renders every static UI string in the current language. Called once
   // at startup and again whenever the player picks a different language.
   _applyLanguage() {
+    const menuTaglineEl = document.getElementById('menu-tagline')
+    if (menuTaglineEl) menuTaglineEl.textContent = t('menuTagline')
     document.getElementById('menu-subtitle').textContent = t('menuSubtitle')
     document.getElementById('menu-subhint').textContent = t('menuSubhint')
     this.playBtn.textContent = t('playBtn')
+    if (this.gamemodeBtn) this.gamemodeBtn.textContent = t('gamemodeBtn')
+    const languageMissingHintEl = document.getElementById('language-missing-hint')
+    if (languageMissingHintEl) {
+      languageMissingHintEl.innerHTML = t('languageMissingHint', {
+        discord: '<a id="language-missing-discord-link" href="https://discord.gg/kukR72Euj6" target="_blank" rel="noopener noreferrer">Discord</a>'
+      })
+    }
     // Menu redesign - these 5 buttons now hold an <svg> icon + <span> label
     // (settings is icon-only). Setting .textContent on the BUTTON itself
     // would wipe out the icon entirely (it replaces every child with one

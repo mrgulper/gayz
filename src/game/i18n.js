@@ -30,8 +30,10 @@ export const LANGUAGES = [
 
 const STRINGS = {
   en: {
+    menuTagline: 'Survive. Scavenge. Discover the truth.',
     menuSubtitle: 'Broken city block.\nScavenge supplies. Survive the infected.\nEscape before dawn.',
     menuSubhint: 'Look for lookout platforms up staircases along the avenue — chests inside',
+    languageMissingHint: "Don't see your language? Join the {discord} and tell us your language.",
     // Main-menu news ticker (see _updateMenuNewsTicker) - tied to
     // bestStats.bestNight (already persisted, no new tracking needed), so
     // the framing implies the world is worsening the further you've ever
@@ -1707,6 +1709,9 @@ const STRINGS = {
     fullmapTitle: '地图',
     journalPanelTitle: '日志',
     termsBtn: '使用条款',
+    menuTagline: '生存。搜寻。发现真相。',
+    languageMissingHint: '没有找到你的语言？加入 {discord} 告诉我们你需要哪种语言。',
+    gamemodeBtn: '游戏模式',
   },
   hi: {
     menuSubtitle: 'टूटा हुआ शहरी इलाका — बचें, सामान खोजें, गोली चलाएँ',
@@ -1824,6 +1829,9 @@ const STRINGS = {
     fullmapTitle: 'मानचित्र',
     journalPanelTitle: 'जर्नल',
     termsBtn: 'उपयोग की शर्तें',
+    menuTagline: 'जीवित रहो। खोजो। सच्चाई का पता लगाओ।',
+    languageMissingHint: 'अपनी भाषा नहीं दिख रही? {discord} से जुड़ें और हमें अपनी भाषा बताएं।',
+    gamemodeBtn: 'गेम मोड',
   },
   es: {
     menuSubtitle: 'Manzana urbana destruida — sobrevive, saquea, dispara',
@@ -3296,6 +3304,8 @@ const STRINGS = {
     fullmapTitle: 'Mapa',
     journalPanelTitle: 'Diario',
     termsBtn: 'Términos de Uso',
+    menuTagline: 'Sobrevive. Saquea. Descubre la verdad.',
+    languageMissingHint: '¿No ves tu idioma? Únete al {discord} y cuéntanos tu idioma.',
   },
   fr: {
     menuSubtitle: 'Quartier urbain dévasté — survivez, pillez, tirez',
@@ -3413,6 +3423,9 @@ const STRINGS = {
     fullmapTitle: 'Carte',
     journalPanelTitle: 'Journal',
     termsBtn: 'Conditions d\'Utilisation',
+    menuTagline: 'Survivez. Fouillez. Découvrez la vérité.',
+    languageMissingHint: 'Vous ne voyez pas votre langue ? Rejoignez le {discord} et dites-nous quelle langue vous voulez.',
+    gamemodeBtn: 'Mode de Jeu',
   },
   ar: {
     menuSubtitle: 'حي مدمر — انجُ، اجمع الموارد، أطلق النار',
@@ -3530,6 +3543,9 @@ const STRINGS = {
     fullmapTitle: 'الخريطة',
     journalPanelTitle: 'السجل',
     termsBtn: 'شروط الاستخدام',
+    menuTagline: 'انجُ. ابحث عن الغنائم. اكتشف الحقيقة.',
+    languageMissingHint: 'لا ترى لغتك؟ انضم إلى {discord} وأخبرنا بلغتك.',
+    gamemodeBtn: 'وضع اللعبة',
   },
   bn: {
     menuSubtitle: 'ভাঙাচোরা শহুরে এলাকা — বেঁচে থাকো, সংগ্রহ করো, গুলি চালাও',
@@ -3647,6 +3663,9 @@ const STRINGS = {
     fullmapTitle: 'মানচিত্র',
     journalPanelTitle: 'জার্নাল',
     termsBtn: 'ব্যবহারের শর্তাবলী',
+    menuTagline: 'বেঁচে থাকো। খুঁজে বের করো। সত্য আবিষ্কার করো।',
+    languageMissingHint: 'আপনার ভাষা দেখতে পাচ্ছেন না? {discord}-এ যোগ দিন এবং আমাদের আপনার ভাষা জানান।',
+    gamemodeBtn: 'গেম মোড',
   },
   ru: {
     menuSubtitle: 'Разрушенный городской квартал — выживай, добывай, стреляй',
@@ -3764,6 +3783,9 @@ const STRINGS = {
     fullmapTitle: 'Карта',
     journalPanelTitle: 'Журнал',
     termsBtn: 'Условия Использования',
+    menuTagline: 'Выживай. Добывай. Узнай правду.',
+    languageMissingHint: 'Не нашли свой язык? Присоединяйтесь к {discord} и сообщите нам свой язык.',
+    gamemodeBtn: 'Режим Игры',
   },
   pt: {
     menuSubtitle: 'Quarteirão urbano destruído — sobreviva, saqueie, atire',
@@ -3881,6 +3903,9 @@ const STRINGS = {
     fullmapTitle: 'Mapa',
     journalPanelTitle: 'Diário',
     termsBtn: 'Termos de Uso',
+    menuTagline: 'Sobreviva. Saqueie. Descubra a verdade.',
+    languageMissingHint: 'Não encontrou o seu idioma? Entre no {discord} e nos diga o seu idioma.',
+    gamemodeBtn: 'Modo de Jogo',
   },
   ur: {
     menuSubtitle: 'تباہ شدہ شہری علاقہ — زندہ رہو، سامان اکٹھا کرو، فائر کرو',
@@ -3998,6 +4023,9 @@ const STRINGS = {
     fullmapTitle: 'نقشہ',
     journalPanelTitle: 'جرنل',
     termsBtn: 'استعمال کی شرائط',
+    menuTagline: 'زندہ رہو۔ سامان تلاش کرو۔ سچائی دریافت کرو۔',
+    languageMissingHint: 'اپنی زبان نظر نہیں آ رہی؟ {discord} میں شامل ہوں اور ہمیں اپنی زبان بتائیں۔',
+    gamemodeBtn: 'گیم موڈ',
   },
   id: {
     menuSubtitle: 'Blok kota yang hancur — bertahan hidup, cari perbekalan, tembak',
@@ -4115,6 +4143,9 @@ const STRINGS = {
     fullmapTitle: 'Peta',
     journalPanelTitle: 'Jurnal',
     termsBtn: 'Ketentuan Penggunaan',
+    menuTagline: 'Bertahan hidup. Jelajahi. Temukan kebenarannya.',
+    languageMissingHint: 'Tidak menemukan bahasa Anda? Gabung ke {discord} dan beri tahu kami bahasa Anda.',
+    gamemodeBtn: 'Mode Permainan',
   },
   de: {
     menuSubtitle: 'Zerstörter Stadtblock — überleben, plündern, schießen',
@@ -4232,6 +4263,9 @@ const STRINGS = {
     fullmapTitle: 'Karte',
     journalPanelTitle: 'Journal',
     termsBtn: 'Nutzungsbedingungen',
+    menuTagline: 'Überlebe. Plündere. Entdecke die Wahrheit.',
+    languageMissingHint: 'Deine Sprache ist nicht dabei? Tritt dem {discord} bei und sag uns deine Sprache.',
+    gamemodeBtn: 'Spielmodus',
   },
   ja: {
     menuSubtitle: '崩壊した市街地——生き延び、物資を漁り、撃て',
@@ -4349,6 +4383,9 @@ const STRINGS = {
     fullmapTitle: 'マップ',
     journalPanelTitle: 'ジャーナル',
     termsBtn: '利用規約',
+    menuTagline: '生き延びろ。漁れ。真実を暴け。',
+    languageMissingHint: 'あなたの言語が見つかりませんか？{discord} に参加して教えてください。',
+    gamemodeBtn: 'ゲームモード',
   },
   pcm: {
     menuSubtitle: 'Broken city area — survive, find loot, dey shoot',
@@ -4466,6 +4503,9 @@ const STRINGS = {
     fullmapTitle: 'Map',
     journalPanelTitle: 'Journal',
     termsBtn: 'Terms of Use',
+    menuTagline: 'Survive. Scavenge. Find out di truth.',
+    languageMissingHint: 'You no see your language? Join di {discord} make you tell us your language.',
+    gamemodeBtn: 'Game Mode',
   },
   mr: {
     menuSubtitle: 'उद्ध्वस्त शहरी भाग — जिवंत राहा, वस्तू शोधा, गोळी झाडा',
@@ -4583,6 +4623,9 @@ const STRINGS = {
     fullmapTitle: 'नकाशा',
     journalPanelTitle: 'जर्नल',
     termsBtn: 'वापर अटी',
+    menuTagline: 'जगून राहा. शोधा. सत्य शोधून काढा.',
+    languageMissingHint: 'तुमची भाषा दिसत नाही? {discord} मध्ये सामील व्हा आणि आम्हाला तुमची भाषा सांगा.',
+    gamemodeBtn: 'गेम मोड',
   },
   te: {
     menuSubtitle: 'ధ్వంసమైన నగర ప్రాంతం — బతకండి, వస్తువులు వెతకండి, కాల్చండి',
@@ -4700,6 +4743,9 @@ const STRINGS = {
     fullmapTitle: 'మ్యాప్',
     journalPanelTitle: 'జర్నల్',
     termsBtn: 'ఉపయోగ నిబంధనలు',
+    menuTagline: 'జీవించండి. వెతకండి. నిజాన్ని కనుగొనండి.',
+    languageMissingHint: 'మీ భాష కనిపించడం లేదా? {discord}లో చేరి మీ భాషను మాకు తెలియజేయండి.',
+    gamemodeBtn: 'గేమ్ మోడ్',
   },
   tr: {
     menuSubtitle: 'Yıkık şehir bloğu — hayatta kal, yağmala, ateş et',
@@ -4817,6 +4863,9 @@ const STRINGS = {
     fullmapTitle: 'Harita',
     journalPanelTitle: 'Günlük',
     termsBtn: 'Kullanım Şartları',
+    menuTagline: 'Hayatta kal. Yağmala. Gerçeği keşfet.',
+    languageMissingHint: 'Dilinizi görmüyor musunuz? {discord}\'a katılın ve bize dilinizi söyleyin.',
+    gamemodeBtn: 'Oyun Modu',
   },
   yue: {
     menuSubtitle: '破敗嘅市區——生存、搵嘢、開槍',
@@ -4934,6 +4983,9 @@ const STRINGS = {
     fullmapTitle: '地圖',
     journalPanelTitle: '日誌',
     termsBtn: '使用條款',
+    menuTagline: '生存。搵嘢。發現真相。',
+    languageMissingHint: '搵唔到你嘅語言？加入 {discord} 話俾我哋知你想要邊種語言。',
+    gamemodeBtn: '遊戲模式',
   },
   ta: {
     menuSubtitle: 'சிதைந்த நகர்ப்புற பகுதி — உயிர் பிழை, பொருள் தேடு, சுடு',
@@ -5051,6 +5103,9 @@ const STRINGS = {
     fullmapTitle: 'வரைபடம்',
     journalPanelTitle: 'குறிப்பேடு',
     termsBtn: 'பயன்பாட்டு விதிமுறைகள்',
+    menuTagline: 'உயிர் பிழை. தேடு. உண்மையை கண்டறி.',
+    languageMissingHint: 'உங்கள் மொழி இல்லையா? {discord} இணைந்து உங்கள் மொழியை எங்களிடம் கூறுங்கள்.',
+    gamemodeBtn: 'விளையாட்டு முறை',
   },
   pa: {
     menuSubtitle: 'ਤਬਾਹ ਹੋਇਆ ਸ਼ਹਿਰੀ ਇਲਾਕਾ — ਬਚੋ, ਸਮਾਨ ਲੱਭੋ, ਗੋਲੀ ਚਲਾਓ',
@@ -5168,6 +5223,9 @@ const STRINGS = {
     fullmapTitle: 'ਨਕਸ਼ਾ',
     journalPanelTitle: 'ਜਰਨਲ',
     termsBtn: 'ਵਰਤੋਂ ਦੀਆਂ ਸ਼ਰਤਾਂ',
+    menuTagline: 'ਜ਼ਿੰਦਾ ਰਹੋ। ਲੱਭੋ। ਸੱਚ ਦਾ ਪਤਾ ਲਗਾਓ।',
+    languageMissingHint: 'ਤੁਹਾਡੀ ਭਾਸ਼ਾ ਨਹੀਂ ਦਿਸ ਰਹੀ? {discord} ਵਿੱਚ ਸ਼ਾਮਲ ਹੋਵੋ ਅਤੇ ਸਾਨੂੰ ਆਪਣੀ ਭਾਸ਼ਾ ਦੱਸੋ।',
+    gamemodeBtn: 'ਗੇਮ ਮੋਡ',
   },
 }
 
