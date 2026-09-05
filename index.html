@@ -94,7 +94,7 @@
         <button id="build-mode-exit-btn">Exit Map Editor</button>
       </div>
       <div id="community-builds-panel" style="display: none">
-        <h2>Community Builds</h2>
+        <h2 id="community-builds-title">Community Builds</h2>
         <div id="community-builds-list"></div>
         <p id="community-builds-empty" style="display: none">No builds published yet - be the first!</p>
         <button id="community-builds-close-btn">Close</button>
@@ -131,7 +131,7 @@
       <div id="touch-more-actions-menu" style="display: none">
         <h2 id="touch-more-actions-title">More Actions</h2>
         <div id="touch-more-actions-grid"></div>
-        <p class="panel-close-hint">Tap an action, or tap outside to close</p>
+        <p class="panel-close-hint" id="touch-more-actions-hint">Tap an action, or tap outside to close</p>
       </div>
 
       <div id="damage-flash"></div>
@@ -182,9 +182,9 @@
 
         <div id="chat-panel">
           <div id="chat-channel-tabs">
-            <button type="button" class="chat-tab-btn active" data-channel="global">Global</button>
-            <button type="button" class="chat-tab-btn" data-channel="clan">Clan</button>
-            <button type="button" class="chat-tab-btn" data-channel="party">Party</button>
+            <button type="button" class="chat-tab-btn active" data-channel="global" id="chat-tab-global">Global</button>
+            <button type="button" class="chat-tab-btn" data-channel="clan" id="chat-tab-clan">Clan</button>
+            <button type="button" class="chat-tab-btn" data-channel="party" id="chat-tab-party">Party</button>
           </div>
           <div id="chat-messages"></div>
           <p id="chat-muted-notice" style="display: none"></p>
@@ -635,7 +635,7 @@ Escape before dawn.</p>
         </div>
 
         <div class="settings-page" id="settings-page-general">
-          <h3 class="settings-section-heading">HUD</h3>
+          <h3 class="settings-section-heading" id="settings-section-hud">HUD</h3>
           <div class="audio-row">
             <label for="kill-feed-position-select" id="kill-feed-position-label">Kill Feed Position</label>
             <select id="kill-feed-position-select">
@@ -710,7 +710,7 @@ Escape before dawn.</p>
             <input type="checkbox" id="objective-distance-toggle" class="audio-checkbox" checked />
           </div>
 
-          <h3 class="settings-section-heading">Notifications</h3>
+          <h3 class="settings-section-heading" id="settings-section-notifications">Notifications</h3>
           <div class="audio-row">
             <label for="friend-presence-notify-toggle" id="friend-presence-notify-label">Friend Online/Offline Alerts</label>
             <input type="checkbox" id="friend-presence-notify-toggle" class="audio-checkbox" checked />
@@ -740,7 +740,7 @@ Escape before dawn.</p>
             <input type="checkbox" id="low-currency-toggle" class="audio-checkbox" checked />
           </div>
 
-          <h3 class="settings-section-heading">Account &amp; Data</h3>
+          <h3 class="settings-section-heading" id="settings-section-account-data">Account &amp; Data</h3>
           <div class="audio-row">
             <label id="report-bug-label">Found a bug?</label>
             <button id="report-bug-btn" class="mini-action-btn" type="button">Copy Bug Report</button>
@@ -786,7 +786,7 @@ Escape before dawn.</p>
             <input type="checkbox" id="share-telemetry-toggle" class="audio-checkbox" checked />
           </div>
 
-          <h3 class="settings-section-heading">Social</h3>
+          <h3 class="settings-section-heading" id="settings-section-social">Social</h3>
           <div class="audio-row">
             <label for="auto-decline-toggle" id="auto-decline-label">Auto-Decline Friend Requests</label>
             <input type="checkbox" id="auto-decline-toggle" class="audio-checkbox" />
@@ -798,7 +798,7 @@ Escape before dawn.</p>
           <p class="menu-hint-line">Click a name in chat to mute them - their messages stop showing in every channel until you unmute them here.</p>
           <div id="muted-chat-players-list"></div>
 
-          <h3 class="settings-section-heading">Homepage</h3>
+          <h3 class="settings-section-heading" id="settings-section-homepage">Homepage</h3>
           <div class="audio-row">
             <label for="remember-settings-tab-toggle" id="remember-settings-tab-label">Reopen Settings to Last-Used Tab</label>
             <input type="checkbox" id="remember-settings-tab-toggle" class="audio-checkbox" />
@@ -816,7 +816,7 @@ Escape before dawn.</p>
             <input type="text" id="homepage-greeting-input" maxlength="40" placeholder="Welcome back!" />
           </div>
 
-          <h3 class="settings-section-heading">Gameplay</h3>
+          <h3 class="settings-section-heading" id="settings-section-gameplay">Gameplay</h3>
           <div class="audio-row">
             <label for="auto-reload-toggle" id="auto-reload-label">Auto-Reload When Empty</label>
             <input type="checkbox" id="auto-reload-toggle" class="audio-checkbox" checked />
@@ -842,7 +842,7 @@ Escape before dawn.</p>
             <input type="checkbox" id="confirm-quit-toggle" class="audio-checkbox" />
           </div>
 
-          <h3 class="settings-section-heading">Accessibility</h3>
+          <h3 class="settings-section-heading" id="settings-section-accessibility">Accessibility</h3>
           <div class="audio-row">
             <label for="damage-flash-color-input" id="damage-flash-color-label">Damage Flash Color</label>
             <input type="color" id="damage-flash-color-input" value="#c80000" />
@@ -852,7 +852,7 @@ Escape before dawn.</p>
             <input type="checkbox" id="one-handed-toggle" class="audio-checkbox" />
           </div>
 
-          <h3 class="settings-section-heading">Misc</h3>
+          <h3 class="settings-section-heading" id="settings-section-misc">Misc</h3>
           <div class="audio-row">
             <label for="fullscreen-btn" id="fullscreen-label">Fullscreen</label>
             <button type="button" id="fullscreen-btn" class="mini-action-btn">Enter Fullscreen</button>
@@ -866,7 +866,7 @@ Escape before dawn.</p>
             <input type="checkbox" id="whatsnew-every-launch-toggle" class="audio-checkbox" />
           </div>
 
-          <h3 class="settings-section-heading">Weapon Gear Guide</h3>
+          <h3 class="settings-section-heading" id="settings-section-weapon-gear-guide">Weapon Gear Guide</h3>
           <p class="menu-hint-line">Coming Soon - these attachments (and the Special Ammo Guide in Upgrades) aren't purchasable yet, this just explains what each one will do.</p>
           <div class="attachment-guide-list">
             <div class="attachment-guide-row">
@@ -927,7 +927,7 @@ Escape before dawn.</p>
         </div>
 
         <div class="settings-page" id="settings-page-graphics" style="display: none">
-          <h3 class="settings-section-heading">Rendering</h3>
+          <h3 class="settings-section-heading" id="settings-section-rendering">Rendering</h3>
           <div class="audio-row">
             <label for="gfx-resolution-slider" id="gfx-resolution-label">Resolution</label>
             <input type="range" id="gfx-resolution-slider" min="50" max="100" value="100" />
@@ -983,7 +983,7 @@ Escape before dawn.</p>
             <input type="checkbox" id="gfx-panel-flicker-toggle" class="audio-checkbox" checked />
           </div>
 
-          <h3 class="settings-section-heading">Effects</h3>
+          <h3 class="settings-section-heading" id="settings-section-effects">Effects</h3>
           <div class="audio-row">
             <label for="gfx-bullet-holes-toggle" id="gfx-bullet-holes-label">Bullet Holes</label>
             <input type="checkbox" id="gfx-bullet-holes-toggle" class="audio-checkbox" checked />
@@ -993,13 +993,13 @@ Escape before dawn.</p>
             <input type="checkbox" id="gfx-blood-toggle" class="audio-checkbox" checked />
           </div>
 
-          <h3 class="settings-section-heading">Damage Indicator</h3>
+          <h3 class="settings-section-heading" id="settings-section-damage-indicator">Damage Indicator</h3>
           <div class="audio-row">
             <label for="gfx-damage-indicator-toggle" id="gfx-damage-indicator-label">Enabled</label>
             <input type="checkbox" id="gfx-damage-indicator-toggle" class="audio-checkbox" checked />
           </div>
 
-          <h3 class="settings-section-heading">Damage Numbers</h3>
+          <h3 class="settings-section-heading" id="settings-section-damage-numbers">Damage Numbers</h3>
           <div class="audio-row">
             <label for="gfx-damage-numbers-toggle" id="gfx-damage-numbers-label">Enabled</label>
             <input type="checkbox" id="gfx-damage-numbers-toggle" class="audio-checkbox" checked />
@@ -1013,7 +1013,7 @@ Escape before dawn.</p>
         </div>
 
         <div class="settings-page" id="settings-page-controls" style="display: none">
-          <h3 class="settings-section-heading">Movement &amp; Aim</h3>
+          <h3 class="settings-section-heading" id="settings-section-movement-aim">Movement &amp; Aim</h3>
           <div class="audio-row">
             <label for="sensitivity-slider" id="sensitivity-label">Sensitivity</label>
             <input type="range" id="sensitivity-slider" min="20" max="300" value="100" />
@@ -1047,7 +1047,7 @@ Escape before dawn.</p>
             <span id="double-click-speed-value" class="audio-value">300ms</span>
           </div>
 
-          <h3 class="settings-section-heading">Gamepad</h3>
+          <h3 class="settings-section-heading" id="settings-section-gamepad">Gamepad</h3>
           <div class="audio-row">
             <label for="gamepad-deadzone-slider" id="gamepad-deadzone-label">Stick Deadzone</label>
             <input type="range" id="gamepad-deadzone-slider" min="0" max="50" value="20" />
@@ -1084,7 +1084,7 @@ Escape before dawn.</p>
           </div>
           <p id="touch-controls-override-hint" class="menu-hint-line">Changing this reloads the page.</p>
 
-          <h3 class="settings-section-heading">HUD</h3>
+          <h3 class="settings-section-heading" id="settings-section-hud-2">HUD</h3>
           <div class="audio-row">
             <label for="hud-scale-slider" id="hud-scale-label">HUD Scale</label>
             <input type="range" id="hud-scale-slider" min="70" max="150" value="100" />
@@ -1125,7 +1125,7 @@ Escape before dawn.</p>
             <input type="checkbox" id="frame-time-graph-toggle" class="audio-checkbox" />
           </div>
 
-          <h3 class="settings-section-heading">Accessibility</h3>
+          <h3 class="settings-section-heading" id="settings-section-accessibility-2">Accessibility</h3>
           <div class="audio-row">
             <label for="colorblind-mode-select" id="colorblind-label">Colorblind Mode</label>
             <select id="colorblind-mode-select">
@@ -1219,7 +1219,7 @@ Escape before dawn.</p>
             <span id="toast-duration-value" class="audio-value">100%</span>
           </div>
 
-          <h3 class="settings-section-heading">Personalization</h3>
+          <h3 class="settings-section-heading" id="settings-section-personalization">Personalization</h3>
           <div class="audio-row">
             <label for="ui-font-select" id="ui-font-label">UI Font</label>
             <select id="ui-font-select">
@@ -1288,7 +1288,7 @@ Escape before dawn.</p>
             </select>
           </div>
 
-          <h3 class="settings-section-heading">Homepage</h3>
+          <h3 class="settings-section-heading" id="settings-section-homepage-2">Homepage</h3>
           <div id="nav-order-list"></div>
           <div class="audio-row">
             <label for="bg-mood-select" id="bg-mood-label">Homepage Background Mood</label>
@@ -1339,7 +1339,7 @@ Escape before dawn.</p>
         </div>
 
         <div class="settings-page" id="settings-page-theme" style="display: none">
-          <h3 class="settings-section-heading">Theme</h3>
+          <h3 class="settings-section-heading" id="settings-section-theme">Theme</h3>
           <div class="audio-row">
             <label for="ui-theme-select" id="ui-theme-label">Theme</label>
             <select id="ui-theme-select">
@@ -1504,7 +1504,7 @@ Escape before dawn.</p>
                   <p id="clan-wars-soon">Clan Wars <span class="mode-select-soon">Coming Soon</span></p>
                 </div>
                 <div id="clan-send-invite-section" style="display: none">
-                  <label class="menu-field-label" for="clan-invite-id-input">Send Clan Request (invite by Player ID)</label>
+                  <label class="menu-field-label" for="clan-invite-id-input" id="clan-invite-id-label">Send Clan Request (invite by Player ID)</label>
                   <input type="text" id="clan-invite-id-input" class="nickname-input" placeholder="Player ID" maxlength="10" />
                   <button id="clan-invite-send-btn" type="button" class="mini-action-btn">Send</button>
                   <p id="clan-invite-status" style="display: none"></p>
@@ -1521,7 +1521,7 @@ Escape before dawn.</p>
           <div id="clan-browse-state" style="display: none">
             <button id="clan-make-btn" type="button" class="mini-action-btn">Make Clan</button>
             <div id="clan-make-form" style="display: none">
-              <label class="menu-field-label" for="clan-create-name-input">Clan Name</label>
+              <label class="menu-field-label" for="clan-create-name-input" id="clan-create-name-label">Clan Name</label>
               <input type="text" id="clan-create-name-input" class="nickname-input" placeholder="Your clan's name" maxlength="24" />
               <button id="clan-create-btn" type="button" class="mini-action-btn">Create Clan</button>
               <p id="clan-create-taken-warning" style="display: none"></p>
@@ -1533,7 +1533,7 @@ Escape before dawn.</p>
               </div>
               <div id="clan-browse-join-column">
                 <div id="clan-incoming-invites-list"></div>
-                <label class="menu-field-label" for="clan-request-name-input">Request to Join a Clan</label>
+                <label class="menu-field-label" for="clan-request-name-input" id="clan-request-name-label">Request to Join a Clan</label>
                 <input type="text" id="clan-request-name-input" class="nickname-input" placeholder="Clan name" maxlength="24" />
                 <button id="clan-request-name-btn" type="button" class="mini-action-btn">Request to Join</button>
                 <p id="clan-request-name-status" style="display: none"></p>
@@ -1557,17 +1557,17 @@ Escape before dawn.</p>
 
           <div class="hub-tab-page" id="hub-page-survival">
           <section class="hub-section">
-            <h3 class="hub-section-title">Player</h3>
+            <h3 class="hub-section-title" id="hub-section-player">Player</h3>
             <div class="hub-section-list">
-              <label class="menu-field-label" for="companion-name-input">Companion (Optional) <span id="companion-color-preview" aria-hidden="true"></span></label>
+              <label class="menu-field-label" for="companion-name-input"><span id="companion-name-field-label">Companion (Optional)</span> <span id="companion-color-preview" aria-hidden="true"></span></label>
               <input type="text" id="companion-name-input" class="nickname-input" placeholder="Companion name" maxlength="16" />
-              <label class="menu-field-label" for="challenge-code-input">Challenge Code (Optional)</label>
+              <label class="menu-field-label" for="challenge-code-input" id="challenge-code-label">Challenge Code (Optional)</label>
               <input type="text" id="challenge-code-input" class="nickname-input" placeholder="Paste a code" maxlength="24" />
             </div>
           </section>
 
           <section class="hub-section">
-            <h3 class="hub-section-title">Difficulty</h3>
+            <h3 class="hub-section-title" id="hub-section-difficulty">Difficulty</h3>
             <div class="hub-section-list">
               <p class="menu-hint-line" id="recommended-difficulty-hint" style="display: none"></p>
               <div class="difficulty-row" id="difficulty-row">
@@ -1581,7 +1581,7 @@ Escape before dawn.</p>
           </section>
 
           <section class="hub-section">
-            <h3 class="hub-section-title">Choose Class</h3>
+            <h3 class="hub-section-title" id="hub-section-choose-class">Choose Class</h3>
             <div class="hub-section-list">
               <div class="class-grid class-grid-merged">
                 <button class="role-btn class-btn active" data-role="ranged" id="role-ranged">
@@ -1621,7 +1621,7 @@ Escape before dawn.</p>
           </section>
 
           <section class="hub-section">
-            <h3 class="hub-section-title">Game Modes</h3>
+            <h3 class="hub-section-title" id="hub-section-game-modes">Game Modes</h3>
             <div class="hub-section-list">
               <div class="class-grid" id="game-mode-select-grid">
                 <button class="mode-select-btn class-btn active" data-game-mode="classic" id="game-mode-classic" type="button">
@@ -1650,7 +1650,7 @@ Escape before dawn.</p>
           </section>
 
           <section class="hub-section">
-            <h3 class="hub-section-title">Challenges &amp; Mutators</h3>
+            <h3 class="hub-section-title" id="hub-section-challenges-mutators">Challenges &amp; Mutators</h3>
             <div class="hub-section-list">
               <label class="mode-toggle" for="hardcore-toggle">
                 <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="7"/><circle cx="9" cy="9" r="1.2" fill="currentColor"/><circle cx="15" cy="9" r="1.2" fill="currentColor"/><path d="M9 17v3M15 17v3M10 14h4"/></svg>
@@ -1791,36 +1791,36 @@ Escape before dawn.</p>
         <div id="upgrades-points-line"></div>
         <div class="perk-options" id="upgrades-options"></div>
 
-        <h3 class="settings-section-heading">Special Ammo Guide</h3>
-        <p class="menu-hint-line">Coming Soon - not purchasable yet, this just explains what each one will do.</p>
+        <h3 class="settings-section-heading" id="ammo-guide-heading">Special Ammo Guide</h3>
+        <p class="menu-hint-line" id="ammo-guide-hint">Coming Soon - not purchasable yet, this just explains what each one will do.</p>
         <div class="attachment-guide-list">
           <div class="attachment-guide-row">
-            <span class="attachment-guide-name">Incendiary Rounds</span>
-            <span class="attachment-guide-desc">Sets zombies on fire, dealing burn damage over time.</span>
+            <span class="attachment-guide-name" id="ammo-guide-incendiary-name">Incendiary Rounds</span>
+            <span class="attachment-guide-desc" id="ammo-guide-incendiary-desc">Sets zombies on fire, dealing burn damage over time.</span>
           </div>
           <div class="attachment-guide-row">
-            <span class="attachment-guide-name">Ricochet Rounds</span>
-            <span class="attachment-guide-desc">Bullets bounce to a nearby zombie after the hit, spreading some damage to a second target.</span>
+            <span class="attachment-guide-name" id="ammo-guide-ricochet-name">Ricochet Rounds</span>
+            <span class="attachment-guide-desc" id="ammo-guide-ricochet-desc">Bullets bounce to a nearby zombie after the hit, spreading some damage to a second target.</span>
           </div>
           <div class="attachment-guide-row">
-            <span class="attachment-guide-name">Armor-Piercing Rounds</span>
-            <span class="attachment-guide-desc">Ignores a zombie's shield/armor instead of getting blocked by it.</span>
+            <span class="attachment-guide-name" id="ammo-guide-armorpiercing-name">Armor-Piercing Rounds</span>
+            <span class="attachment-guide-desc" id="ammo-guide-armorpiercing-desc">Ignores a zombie's shield/armor instead of getting blocked by it.</span>
           </div>
           <div class="attachment-guide-row">
-            <span class="attachment-guide-name">Precision Rounds</span>
-            <span class="attachment-guide-desc">25% chance per hit to land a critical hit for extra damage.</span>
+            <span class="attachment-guide-name" id="ammo-guide-precision-name">Precision Rounds</span>
+            <span class="attachment-guide-desc" id="ammo-guide-precision-desc">25% chance per hit to land a critical hit for extra damage.</span>
           </div>
           <div class="attachment-guide-row">
-            <span class="attachment-guide-name">Electric Rounds</span>
-            <span class="attachment-guide-desc">Chain-stuns the nearest other zombie near your target (not the one you hit).</span>
+            <span class="attachment-guide-name" id="ammo-guide-electric-name">Electric Rounds</span>
+            <span class="attachment-guide-desc" id="ammo-guide-electric-desc">Chain-stuns the nearest other zombie near your target (not the one you hit).</span>
           </div>
           <div class="attachment-guide-row">
-            <span class="attachment-guide-name">Acid Rounds</span>
-            <span class="attachment-guide-desc">Corrodes the zombie, making it take more damage for a while after being hit.</span>
+            <span class="attachment-guide-name" id="ammo-guide-acid-name">Acid Rounds</span>
+            <span class="attachment-guide-desc" id="ammo-guide-acid-desc">Corrodes the zombie, making it take more damage for a while after being hit.</span>
           </div>
           <div class="attachment-guide-row">
-            <span class="attachment-guide-name">Cryo Rounds</span>
-            <span class="attachment-guide-desc">Fully freezes the zombie in place for a few seconds.</span>
+            <span class="attachment-guide-name" id="ammo-guide-cryo-name">Cryo Rounds</span>
+            <span class="attachment-guide-desc" id="ammo-guide-cryo-desc">Fully freezes the zombie in place for a few seconds.</span>
           </div>
         </div>
 
@@ -1876,7 +1876,7 @@ Escape before dawn.</p>
         </div>
         <input type="text" id="achievements-filter-input" class="nickname-input" placeholder="Search achievements..." />
         <div id="achievements-controls-row">
-          <label for="achievements-category-select">Category:</label>
+          <label for="achievements-category-select" id="achievements-category-label">Category:</label>
           <select id="achievements-category-select">
             <option value="all">All</option>
             <option value="combat">Combat</option>
@@ -1885,7 +1885,7 @@ Escape before dawn.</p>
             <option value="story">Story</option>
             <option value="collection">Collection</option>
           </select>
-          <label for="achievements-sort-select">Sort:</label>
+          <label for="achievements-sort-select" id="achievements-sort-label">Sort:</label>
           <select id="achievements-sort-select">
             <option value="default">Default</option>
             <option value="achieved">Achieved Achievements</option>
@@ -1959,7 +1959,7 @@ Escape before dawn.</p>
             <input type="text" id="motto-input" class="nickname-input" maxlength="60" placeholder="A short line under your name" />
           </div>
           <section class="menu-panel" id="profile-your-stats-column">
-            <h2 class="menu-panel-title">Your Stats</h2>
+            <h2 class="menu-panel-title" id="your-stats-title">Your Stats</h2>
             <div class="stat-row"><span>Longest Survival</span><span data-stat="longest-survival">--</span></div>
             <div class="stat-row"><span>Total Zombies Killed</span><span data-stat="total-kills">--</span></div>
             <div class="stat-row"><span>Runs Played</span><span data-stat="runs-played">--</span></div>
@@ -2015,9 +2015,9 @@ Escape before dawn.</p>
           <h2 id="credits-panel-title">Credits</h2>
           <div id="credits-content">
             <h3>GayZ</h3>
-            <p>A free browser-based zombie survival shooter, built solo as a hobby project. First released July 13, 2026 - no install needed, it runs entirely in your browser. New features and fixes ship regularly - check What's New for the latest. Thanks for playing.</p>
-            <p>Questions, feedback, or data requests</p>
-            <p class="credits-links-row"><a href="https://discord.gg/kukR72Euj6" target="_blank" rel="noopener noreferrer">Discord</a><a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy Policy</a><a href="/terms.html" target="_blank" rel="noopener noreferrer">Terms of Use</a></p>
+            <p id="credits-body-text">A free browser-based zombie survival shooter, built solo as a hobby project. First released July 13, 2026 - no install needed, it runs entirely in your browser. New features and fixes ship regularly - check What's New for the latest. Thanks for playing.</p>
+            <p id="credits-contact-text">Questions, feedback, or data requests</p>
+            <p class="credits-links-row"><a href="https://discord.gg/kukR72Euj6" target="_blank" rel="noopener noreferrer">Discord</a><a href="/privacy.html" target="_blank" rel="noopener noreferrer" id="credits-privacy-link">Privacy Policy</a><a href="/terms.html" target="_blank" rel="noopener noreferrer" id="credits-terms-link">Terms of Use</a></p>
           </div>
         </div>
       </div>
@@ -2264,7 +2264,7 @@ Escape before dawn.</p>
         <div id="friends-signed-in" style="display: none">
           <div id="friends-col-add">
             <h3 id="add-friend-heading">Add a Friend</h3>
-            <p id="friends-own-id-line">Your ID: <span id="friends-own-id"></span></p>
+            <p id="friends-own-id-line"><span id="friends-own-id-label">Your ID:</span> <span id="friends-own-id"></span></p>
             <div id="cloudsave-friend-row">
               <input type="text" id="cloudsave-friend-input" class="nickname-input" placeholder="Friend's ID" maxlength="10" />
               <button id="send-friend-request-btn" class="mini-action-btn" type="button">Add Friend</button>
@@ -2281,10 +2281,10 @@ Escape before dawn.</p>
                 <svg id="status-picker-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
               </button>
               <div id="status-picker-options">
-                <button type="button" class="status-pick-btn" data-status="online"><span class="friend-status-dot" data-status="online"></span>Online</button>
-                <button type="button" class="status-pick-btn" data-status="idle"><span class="friend-status-dot" data-status="idle"></span>Busy</button>
-                <button type="button" class="status-pick-btn" data-status="dnd"><span class="friend-status-dot" data-status="dnd"></span>Do Not Disturb</button>
-                <button type="button" class="status-pick-btn" data-status="offline"><span class="friend-status-dot" data-status="offline"></span>Offline</button>
+                <button type="button" class="status-pick-btn" data-status="online"><span class="friend-status-dot" data-status="online"></span><span id="status-pick-label-online">Online</span></button>
+                <button type="button" class="status-pick-btn" data-status="idle"><span class="friend-status-dot" data-status="idle"></span><span id="status-pick-label-idle">Busy</span></button>
+                <button type="button" class="status-pick-btn" data-status="dnd"><span class="friend-status-dot" data-status="dnd"></span><span id="status-pick-label-dnd">Do Not Disturb</span></button>
+                <button type="button" class="status-pick-btn" data-status="offline"><span class="friend-status-dot" data-status="offline"></span><span id="status-pick-label-offline">Offline</span></button>
               </div>
             </div>
           </div>
