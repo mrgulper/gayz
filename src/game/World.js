@@ -3192,29 +3192,36 @@ function buildPark(scene, colliders, solidMeshes) {
     const nearNewEntrance = Math.hypot(x - NEW_UNDERGROUND_ENTRANCE_X, z - 55.85) < 10
     return !nearSubway && !nearNewEntrance
   })
+  // Every tree's trunk/leaves share one of two materials and none of them
+  // are rotated - merged into one mesh each instead of one draw call (plus
+  // one now-unneeded Group wrapper) per tree. See docs/PERFORMANCE.md
+  // Option B3. Trunk colliders are still computed individually (direct
+  // corner math, using the cylinder's own known radius/height - equivalent
+  // to the removed per-trunk Box3.setFromObject since neither the trunk
+  // nor its old group parent was ever rotated).
+  const trunkGeoms = []
+  const leafGeoms = []
   for (const [x, z] of treeSpots) {
-    const tree = new THREE.Group()
-    tree.position.set(x, 0, z)
+    const trunkGeo = new THREE.CylinderGeometry(0.22, 0.3, 2.4, 12)
+    trunkGeo.translate(x, 1.2, z)
+    trunkGeoms.push(trunkGeo)
+    colliders.push(new THREE.Box3(
+      new THREE.Vector3(x - 0.3, 0, z - 0.3),
+      new THREE.Vector3(x + 0.3, 2.4, z + 0.3)
+    ))
 
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, 2.4, 12), trunkMat)
-    trunk.position.y = 1.2
-    trunk.castShadow = true
-    tree.add(trunk)
-
-    const leaves = new THREE.Mesh(new THREE.ConeGeometry(1.6, 3, 12), leafMat)
-    leaves.position.y = 3.4
-    leaves.castShadow = true
-    tree.add(leaves)
-
-    scene.add(tree)
-    solidMeshes.push(trunk)
-    // See buildWorld's register() for why this updateWorldMatrix call is
-    // required: trunk is a child of the just-positioned tree group, and
-    // Box3.setFromObject alone won't pick up the parent's transform yet.
-    trunk.updateWorldMatrix(true, false)
-    const box = new THREE.Box3().setFromObject(trunk)
-    colliders.push(box)
+    const leafGeo = new THREE.ConeGeometry(1.6, 3, 12)
+    leafGeo.translate(x, 3.4, z)
+    leafGeoms.push(leafGeo)
   }
+  const trunkMesh = new THREE.Mesh(mergeGeometries(trunkGeoms), trunkMat)
+  trunkMesh.castShadow = true
+  scene.add(trunkMesh)
+  solidMeshes.push(trunkMesh)
+
+  const leafMesh = new THREE.Mesh(mergeGeometries(leafGeoms), leafMat)
+  leafMesh.castShadow = true
+  scene.add(leafMesh)
 
   const benchMat = cachedFlatMaterial({ color: 0x3a3226, roughness: 0.85 })
   const benchModel = _propModelCache.get('bench.glb')
@@ -6528,35 +6535,44 @@ function buildSewer(scene, colliders, solidMeshes, flickerLights) {
   scene.add(floor)
   solidMeshes.push(floor)
 
-  const ceiling = new THREE.Mesh(new THREE.BoxGeometry(SEWER_WIDTH + 0.4, 0.2, length), wallMat)
-  ceiling.position.set(SEWER_X, SEWER_HEIGHT, centerZ)
-  ceiling.castShadow = true
-  scene.add(ceiling)
-  solidMeshes.push(ceiling)
-  colliders.push(new THREE.Box3().setFromObject(ceiling))
+  // Ceiling, both walls, and the end wall share wallMat and never move -
+  // merged into one mesh instead of 4 draw calls. See
+  // docs/PERFORMANCE.md Option B3. Colliders computed the same way as
+  // before (direct corner math, since none of these pieces are rotated).
+  const wallGeoms = []
+  const addWallPiece = (cx, cy, cz, w, h, d) => {
+    const geo = new THREE.BoxGeometry(w, h, d)
+    geo.translate(cx - SEWER_X, cy, cz - centerZ)
+    wallGeoms.push(geo)
+    colliders.push(new THREE.Box3(
+      new THREE.Vector3(cx - w / 2, cy - h / 2, cz - d / 2),
+      new THREE.Vector3(cx + w / 2, cy + h / 2, cz + d / 2)
+    ))
+  }
+  addWallPiece(SEWER_X, SEWER_HEIGHT, centerZ, SEWER_WIDTH + 0.4, 0.2, length)
 
+  const pipeGeoms = []
   for (const side of [-1, 1]) {
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, SEWER_HEIGHT, length), wallMat)
-    wall.position.set(SEWER_X + side * (SEWER_WIDTH / 2 + 0.1), SEWER_HEIGHT / 2, centerZ)
-    wall.castShadow = true
-    wall.receiveShadow = true
-    scene.add(wall)
-    solidMeshes.push(wall)
-    colliders.push(new THREE.Box3().setFromObject(wall))
+    addWallPiece(SEWER_X + side * (SEWER_WIDTH / 2 + 0.1), SEWER_HEIGHT / 2, centerZ, 0.2, SEWER_HEIGHT, length)
 
     // Pipe running along each wall, just decorative.
-    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, length, 12), pipeMat)
-    pipe.rotation.x = Math.PI / 2
-    pipe.position.set(SEWER_X + side * (SEWER_WIDTH / 2 - 0.15), SEWER_HEIGHT - 0.4, centerZ)
-    scene.add(pipe)
+    const pipeGeo = new THREE.CylinderGeometry(0.08, 0.08, length, 12)
+    pipeGeo.rotateX(Math.PI / 2)
+    pipeGeo.translate(side * (SEWER_WIDTH / 2 - 0.15) - 0, SEWER_HEIGHT - 0.4, centerZ - centerZ)
+    pipeGeoms.push(pipeGeo)
   }
+  const pipeMesh = new THREE.Mesh(mergeGeometries(pipeGeoms), pipeMat)
+  pipeMesh.position.set(SEWER_X, 0, centerZ)
+  scene.add(pipeMesh)
 
-  const endWall = new THREE.Mesh(new THREE.BoxGeometry(SEWER_WIDTH + 0.4, SEWER_HEIGHT, 0.2), wallMat)
-  endWall.position.set(SEWER_X, SEWER_HEIGHT / 2, SEWER_Z_END)
-  endWall.castShadow = true
-  scene.add(endWall)
-  solidMeshes.push(endWall)
-  colliders.push(new THREE.Box3().setFromObject(endWall))
+  addWallPiece(SEWER_X, SEWER_HEIGHT / 2, SEWER_Z_END, SEWER_WIDTH + 0.4, SEWER_HEIGHT, 0.2)
+
+  const wallMesh = new THREE.Mesh(mergeGeometries(wallGeoms), wallMat)
+  wallMesh.position.set(SEWER_X, 0, centerZ)
+  wallMesh.castShadow = true
+  wallMesh.receiveShadow = true
+  scene.add(wallMesh)
+  solidMeshes.push(wallMesh)
 
   // Widened from 5 to 8 - fewer simultaneous lights (every scene light gets
   // evaluated in every visible fragment's shader in this game's classic
@@ -6611,27 +6627,41 @@ function buildSubway(scene, colliders, solidMeshes, flickerLights) {
   scene.add(floor)
   solidMeshes.push(floor)
 
-  const ceiling = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH + 0.4, 0.2, length), wallMat)
-  ceiling.position.set(SUBWAY_X, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT, centerZ)
-  ceiling.castShadow = true
-  scene.add(ceiling)
-  solidMeshes.push(ceiling)
-  colliders.push(new THREE.Box3().setFromObject(ceiling))
+  // Ceiling and both walls share wallMat and never move - merged into one
+  // mesh instead of 3 draw calls. See docs/PERFORMANCE.md Option B3.
+  // Colliders computed the same way as before (direct corner math, since
+  // none of these pieces are rotated).
+  const wallGeoms = []
+  const addWallPiece = (cx, cy, cz, w, h, d) => {
+    const geo = new THREE.BoxGeometry(w, h, d)
+    geo.translate(cx - SUBWAY_X, cy, cz - centerZ)
+    wallGeoms.push(geo)
+    colliders.push(new THREE.Box3(
+      new THREE.Vector3(cx - w / 2, cy - h / 2, cz - d / 2),
+      new THREE.Vector3(cx + w / 2, cy + h / 2, cz + d / 2)
+    ))
+  }
+  addWallPiece(SUBWAY_X, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT, centerZ, SUBWAY_WIDTH + 0.4, 0.2, length)
 
+  const tileGeoms = []
   for (const side of [-1, 1]) {
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, SUBWAY_HEIGHT, length), wallMat)
-    wall.position.set(SUBWAY_X + side * (SUBWAY_WIDTH / 2 + 0.1), SUBWAY_FLOOR_Y + SUBWAY_HEIGHT / 2, centerZ)
-    wall.castShadow = true
-    wall.receiveShadow = true
-    scene.add(wall)
-    solidMeshes.push(wall)
-    colliders.push(new THREE.Box3().setFromObject(wall))
+    addWallPiece(SUBWAY_X + side * (SUBWAY_WIDTH / 2 + 0.1), SUBWAY_FLOOR_Y + SUBWAY_HEIGHT / 2, centerZ, 0.2, SUBWAY_HEIGHT, length)
 
     // Tile band along the wall, purely decorative.
-    const tileBand = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.8, length), tileMat)
-    tileBand.position.set(SUBWAY_X + side * (SUBWAY_WIDTH / 2), SUBWAY_FLOOR_Y + 1.4, centerZ)
-    scene.add(tileBand)
+    const tileGeo = new THREE.BoxGeometry(0.02, 0.8, length)
+    tileGeo.translate(side * (SUBWAY_WIDTH / 2) - 0, SUBWAY_FLOOR_Y + 1.4, centerZ - centerZ)
+    tileGeoms.push(tileGeo)
   }
+  const wallMesh = new THREE.Mesh(mergeGeometries(wallGeoms), wallMat)
+  wallMesh.position.set(SUBWAY_X, 0, centerZ)
+  wallMesh.castShadow = true
+  wallMesh.receiveShadow = true
+  scene.add(wallMesh)
+  solidMeshes.push(wallMesh)
+
+  const tileMesh = new THREE.Mesh(mergeGeometries(tileGeoms), tileMat)
+  tileMesh.position.set(SUBWAY_X, 0, centerZ)
+  scene.add(tileMesh)
 
   // No wall at either end anymore - SUBWAY_Z_START now opens into the park
   // connector (see buildSubwayConnector) and SUBWAY_Z_END continues
@@ -6653,16 +6683,26 @@ function buildSubway(scene, colliders, solidMeshes, flickerLights) {
   solidMeshes.push(platform)
 
   const trackCenterX = SUBWAY_X + 0.6
+  const railGeoms = []
   for (const railOffset of [-0.5, 0.5]) {
-    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, length - 1), railMat)
-    rail.position.set(trackCenterX + railOffset, SUBWAY_FLOOR_Y + 0.03, centerZ)
-    scene.add(rail)
+    const geo = new THREE.BoxGeometry(0.08, 0.06, length - 1)
+    geo.translate(trackCenterX + railOffset - SUBWAY_X, SUBWAY_FLOOR_Y + 0.03, centerZ - centerZ)
+    railGeoms.push(geo)
   }
+  const railMesh = new THREE.Mesh(mergeGeometries(railGeoms), railMat)
+  railMesh.position.set(SUBWAY_X, 0, centerZ)
+  scene.add(railMesh)
+
+  const tieMat = cachedFlatMaterial({ color: 0x2a2018, roughness: 1 })
+  const tieGeoms = []
   for (let z = SUBWAY_Z_START + 1; z < SUBWAY_Z_END - 1; z += 1) {
-    const tie = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.04, 0.15), cachedFlatMaterial({ color: 0x2a2018, roughness: 1 }))
-    tie.position.set(trackCenterX, SUBWAY_FLOOR_Y + 0.02, z)
-    scene.add(tie)
+    const geo = new THREE.BoxGeometry(1.3, 0.04, 0.15)
+    geo.translate(trackCenterX - SUBWAY_X, SUBWAY_FLOOR_Y + 0.02, z - centerZ)
+    tieGeoms.push(geo)
   }
+  const tieMesh = new THREE.Mesh(mergeGeometries(tieGeoms), tieMat)
+  tieMesh.position.set(SUBWAY_X, 0, centerZ)
+  scene.add(tieMesh)
 
   const trainMat = cachedFlatMaterial({ color: 0x5a4a1c, roughness: 0.6, metalness: 0.3 })
   const trainCar = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.2, 6.5), trainMat)
@@ -6741,21 +6781,35 @@ function buildRealStaircase(scene, solidMeshes, flickerLights, x, z0, y0, z1, y1
     scene.add(rail)
   }
 
+  // Steps and their front-edge lines are neither rotated nor individually
+  // collided with (walkable-only, via solidMeshes) - merged into one mesh
+  // each instead of one draw call per step. See docs/PERFORMANCE.md
+  // Option B3.
+  const stepGeoms = []
+  const edgeGeoms = []
   for (let i = 0; i <= steps; i++) {
     const t = i / steps
     const py = THREE.MathUtils.lerp(y0, y1, t)
     const pz = THREE.MathUtils.lerp(z0, z1, t)
-    const step = new THREE.Mesh(new THREE.BoxGeometry(stairWidth - 0.35, 0.22, 1.05), stepMat)
-    step.position.set(x, py, pz)
-    step.castShadow = true
-    step.receiveShadow = true
-    scene.add(step)
-    solidMeshes.push(step) // walkable, intentionally not a horizontal collider
 
-    const edge = new THREE.Mesh(new THREE.BoxGeometry(stairWidth - 0.35, 0.04, 0.06), stepEdgeMat)
-    edge.position.set(x, py + 0.11, pz - Math.sign(dz) * 0.5)
-    scene.add(edge)
+    const stepGeo = new THREE.BoxGeometry(stairWidth - 0.35, 0.22, 1.05)
+    stepGeo.translate(0, py, pz)
+    stepGeoms.push(stepGeo)
+
+    const edgeGeo = new THREE.BoxGeometry(stairWidth - 0.35, 0.04, 0.06)
+    edgeGeo.translate(0, py + 0.11, pz - Math.sign(dz) * 0.5)
+    edgeGeoms.push(edgeGeo)
   }
+  const stepsMesh = new THREE.Mesh(mergeGeometries(stepGeoms), stepMat)
+  stepsMesh.position.set(x, 0, 0)
+  stepsMesh.castShadow = true
+  stepsMesh.receiveShadow = true
+  scene.add(stepsMesh)
+  solidMeshes.push(stepsMesh) // walkable, intentionally not a horizontal collider
+
+  const edgesMesh = new THREE.Mesh(mergeGeometries(edgeGeoms), stepEdgeMat)
+  edgesMesh.position.set(x, 0, 0)
+  scene.add(edgesMesh)
 
   // Brighter light right at the top of the run (matches daylight spilling
   // in from the surface) fading toward the bottom, instead of the whole
@@ -6790,12 +6844,18 @@ function buildSubwayParkEntrance(scene, colliders, solidMeshes, flickerLights) {
   scene.add(kioskRoof)
   solidMeshes.push(kioskRoof)
   colliders.push(new THREE.Box3().setFromObject(kioskRoof))
+  // 4 support posts are purely cosmetic - merged into one mesh instead of
+  // 4 draw calls.
+  const postGeoms = []
   for (const [ox, oz] of [[-kioskHalfW, -1.5], [-kioskHalfW, 1.5], [kioskHalfW, -1.5], [kioskHalfW, 1.5]]) {
-    const post = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.6, 0.2), kioskMat)
-    post.position.set(SUBWAY_PARK_ENTRANCE_X + ox, 1.3, SUBWAY_PARK_ENTRANCE_Z + oz)
-    post.castShadow = true
-    scene.add(post)
+    const geo = new THREE.BoxGeometry(0.2, 2.6, 0.2)
+    geo.translate(ox, 1.3, oz)
+    postGeoms.push(geo)
   }
+  const postsMesh = new THREE.Mesh(mergeGeometries(postGeoms), kioskMat)
+  postsMesh.position.set(SUBWAY_PARK_ENTRANCE_X, 0, SUBWAY_PARK_ENTRANCE_Z)
+  postsMesh.castShadow = true
+  scene.add(postsMesh)
   // Paved plaza + the actual hole in the ground are built once, centrally,
   // in buildPark (see UNDERGROUND_PLAZA/UNDERGROUND_HOLE_SUBWAY) - a patch
   // dropped on top here would just re-cover the opening like the last two
@@ -6931,12 +6991,18 @@ function buildNewUndergroundEntrance(scene, colliders, solidMeshes, flickerLight
   scene.add(roof)
   solidMeshes.push(roof)
   colliders.push(new THREE.Box3().setFromObject(roof))
+  // 4 support posts are purely cosmetic - merged into one mesh instead of
+  // 4 draw calls.
+  const postGeoms = []
   for (const [ox, oz] of [[-shaftHalfW, -1.4], [-shaftHalfW, 1.4], [shaftHalfW, -1.4], [shaftHalfW, 1.4]]) {
-    const post = new THREE.Mesh(new THREE.BoxGeometry(0.16, 2.4, 0.16), hazardMat)
-    post.position.set(x + ox, 1.2, z + oz)
-    post.castShadow = true
-    scene.add(post)
+    const geo = new THREE.BoxGeometry(0.16, 2.4, 0.16)
+    geo.translate(ox, 1.2, oz)
+    postGeoms.push(geo)
   }
+  const postsMesh = new THREE.Mesh(mergeGeometries(postGeoms), hazardMat)
+  postsMesh.position.set(x, 0, z)
+  postsMesh.castShadow = true
+  scene.add(postsMesh)
 
   // Paved plaza + the actual hole in the ground are built once, centrally,
   // in buildPark (see UNDERGROUND_PLAZA/UNDERGROUND_HOLE_NEW_ENTRANCE).
