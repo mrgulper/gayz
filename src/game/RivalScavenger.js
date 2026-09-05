@@ -130,10 +130,28 @@ class RivalScavenger {
     const cloned = cloneSkeleton(_rivalModelCache.scene)
     this.group.scale.setScalar(GLB_SCALE_CORRECTION)
 
+    // Flatten every mesh's material to a cheap MeshLambertMaterial
+    // unconditionally (2026-09-05) - independent of LOW_QUALITY_MATERIALS,
+    // same reasoning as Zombie.js's own sharedLowQualityMat: rivals spawn
+    // in packs (see RivalManager, multiple simultaneous instances) and are
+    // animated, unlike static world geometry where the real-material
+    // upgrade tested clean. Per-mesh (not one shared material like
+    // zombies) since this model has multiple distinctly-colored parts
+    // (only "Main" gets the dark tint below) - flattenedClone's own cheap
+    // branch would do exactly this, but only when LOW_QUALITY_MATERIALS is
+    // true; inlined here so rivals stay cheap regardless of that flag.
     cloned.traverse((child) => {
       if (!child.isMesh) return
       child.castShadow = true
-      child.material = flattenedClone(child.material)
+      const orig = child.material
+      const simple = {}
+      if (orig.name) simple.name = orig.name
+      if (orig.color) simple.color = orig.color.clone()
+      if (orig.map) simple.map = orig.map
+      if (orig.emissive) simple.emissive = orig.emissive.clone()
+      if (orig.emissiveMap) simple.emissiveMap = orig.emissiveMap
+      if (orig.emissiveIntensity !== undefined) simple.emissiveIntensity = orig.emissiveIntensity
+      child.material = new THREE.MeshLambertMaterial(simple)
       if (child.material.name === 'Main') child.material.color.setHex(0x2a2420)
       child.userData.rival = this
     })
