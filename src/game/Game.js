@@ -14376,6 +14376,7 @@ export class Game {
       if (el.id === 'touch-more-actions-hint') return
       el.textContent = t('panelGenericCloseHint')
     })
+    if (this.resetProgressBtn) this.resetProgressBtn.textContent = t(this._resetProgressArmed ? 'resetProgressConfirm' : 'resetProgressLabel')
     const menuTaglineEl = document.getElementById('menu-tagline')
     if (menuTaglineEl) menuTaglineEl.textContent = t('menuTagline')
     document.getElementById('menu-subtitle').textContent = t('menuSubtitle')
