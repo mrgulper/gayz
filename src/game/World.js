@@ -7753,35 +7753,42 @@ function buildToxicSewerLevel(scene, colliders, solidMeshes, flickerLights, ches
   const floorMat = cachedFlatMaterial({ color: 0x1c2418, roughness: 1 })
   const pipeMat = cachedFlatMaterial({ color: 0x3a4a30, roughness: 0.7, metalness: 0.4 })
 
+  // Every ceiling/wall, floor, and pipe piece in this whole level (both
+  // straight segments plus the pool room) shares one of these three
+  // materials, so each group is collected here and merged into one mesh at
+  // the bottom of this function instead of one draw call per piece - see
+  // docs/PERFORMANCE.md Option B3. Colliders are computed the same way as
+  // before (direct corner math, since none of these pieces are rotated).
+  const wallGeoms = []
+  const floorGeoms = []
+  const pipeGeoms = []
+  const addWallPiece = (cx, cy, cz, w, h, d) => {
+    const geo = new THREE.BoxGeometry(w, h, d)
+    geo.translate(cx - x, cy, cz)
+    wallGeoms.push(geo)
+    colliders.push(new THREE.Box3(
+      new THREE.Vector3(cx - w / 2, cy - h / 2, cz - d / 2),
+      new THREE.Vector3(cx + w / 2, cy + h / 2, cz + d / 2)
+    ))
+  }
+
   const buildStraightSegment = (z0, z1) => {
     const length = z0 - z1
     const centerZ = (z0 + z1) / 2
-    const floor = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH, 0.08, length), floorMat)
-    floor.position.set(x, floorY, centerZ)
-    floor.receiveShadow = true
-    scene.add(floor)
-    solidMeshes.push(floor)
 
-    const ceiling = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH + 0.4, 0.2, length), wallMat)
-    ceiling.position.set(x, floorY + SUBWAY_HEIGHT, centerZ)
-    ceiling.castShadow = true
-    scene.add(ceiling)
-    solidMeshes.push(ceiling)
-    colliders.push(new THREE.Box3().setFromObject(ceiling))
+    const floorGeo = new THREE.BoxGeometry(SUBWAY_WIDTH, 0.08, length)
+    floorGeo.translate(0, floorY, centerZ)
+    floorGeoms.push(floorGeo)
+
+    addWallPiece(x, floorY + SUBWAY_HEIGHT, centerZ, SUBWAY_WIDTH + 0.4, 0.2, length)
 
     for (const side of [-1, 1]) {
-      const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, SUBWAY_HEIGHT, length), wallMat)
-      wall.position.set(x + side * (SUBWAY_WIDTH / 2 + 0.1), floorY + SUBWAY_HEIGHT / 2, centerZ)
-      wall.castShadow = true
-      wall.receiveShadow = true
-      scene.add(wall)
-      solidMeshes.push(wall)
-      colliders.push(new THREE.Box3().setFromObject(wall))
+      addWallPiece(x + side * (SUBWAY_WIDTH / 2 + 0.1), floorY + SUBWAY_HEIGHT / 2, centerZ, 0.2, SUBWAY_HEIGHT, length)
 
-      const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, length, 12), pipeMat)
-      pipe.rotation.x = Math.PI / 2
-      pipe.position.set(x + side * (SUBWAY_WIDTH / 2 - 0.15), floorY + SUBWAY_HEIGHT - 0.4, centerZ)
-      scene.add(pipe)
+      const pipeGeo = new THREE.CylinderGeometry(0.08, 0.08, length, 12)
+      pipeGeo.rotateX(Math.PI / 2)
+      pipeGeo.translate(side * (SUBWAY_WIDTH / 2 - 0.15), floorY + SUBWAY_HEIGHT - 0.4, centerZ)
+      pipeGeoms.push(pipeGeo)
     }
 
     const lightSpacing = 8 // see buildSewer's own comment on this same change
@@ -7812,21 +7819,9 @@ function buildToxicSewerLevel(scene, colliders, solidMeshes, flickerLights, ches
   scene.add(pool)
   solidMeshes.push(pool) // walkable (with tick damage - see Game.js) not a void
 
-  const poolCeiling = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH + 0.4, 0.2, poolLength), wallMat)
-  poolCeiling.position.set(x, floorY + SUBWAY_HEIGHT, poolCenterZ)
-  poolCeiling.castShadow = true
-  scene.add(poolCeiling)
-  solidMeshes.push(poolCeiling)
-  colliders.push(new THREE.Box3().setFromObject(poolCeiling))
-
+  addWallPiece(x, floorY + SUBWAY_HEIGHT, poolCenterZ, SUBWAY_WIDTH + 0.4, 0.2, poolLength)
   for (const side of [-1, 1]) {
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, SUBWAY_HEIGHT, poolLength), wallMat)
-    wall.position.set(x + side * (SUBWAY_WIDTH / 2 + 0.1), floorY + SUBWAY_HEIGHT / 2, poolCenterZ)
-    wall.castShadow = true
-    wall.receiveShadow = true
-    scene.add(wall)
-    solidMeshes.push(wall)
-    colliders.push(new THREE.Box3().setFromObject(wall))
+    addWallPiece(x + side * (SUBWAY_WIDTH / 2 + 0.1), floorY + SUBWAY_HEIGHT / 2, poolCenterZ, 0.2, SUBWAY_HEIGHT, poolLength)
   }
 
   const walkwayMat = cachedFlatMaterial({ color: 0x4a4438, roughness: 0.9 })
@@ -7859,6 +7854,25 @@ function buildToxicSewerLevel(scene, colliders, solidMeshes, flickerLights, ches
   buildStraightSegment(SEWER2_POOL_Z_END, SEWER2_Z_END)
 
   chestSpots.push({ x, y: floorY, z: SEWER2_Z_END + 3 })
+
+  // Merge each material group collected above into one mesh - see the
+  // comment near the top of this function.
+  const wallMesh = new THREE.Mesh(mergeGeometries(wallGeoms), wallMat)
+  wallMesh.position.set(x, 0, 0)
+  wallMesh.castShadow = true
+  wallMesh.receiveShadow = true
+  scene.add(wallMesh)
+  solidMeshes.push(wallMesh)
+
+  const floorMesh = new THREE.Mesh(mergeGeometries(floorGeoms), floorMat)
+  floorMesh.position.set(x, 0, 0)
+  floorMesh.receiveShadow = true
+  scene.add(floorMesh)
+  solidMeshes.push(floorMesh)
+
+  const pipeMesh = new THREE.Mesh(mergeGeometries(pipeGeoms), pipeMat)
+  pipeMesh.position.set(x, 0, 0)
+  scene.add(pipeMesh)
 
   return {
     poolBounds: { xMin: x - SUBWAY_WIDTH / 2, xMax: x + SUBWAY_WIDTH / 2, zMin: SEWER2_POOL_Z_END, zMax: SEWER2_POOL_Z_START },
@@ -7931,9 +7945,29 @@ function buildMineLevel(scene, colliders, solidMeshes, flickerLights, chestSpots
   const dirtFloorMat = cachedFlatMaterial({ color: 0x261f16, roughness: 1 })
   const beamDressMat = cachedFlatMaterial({ color: 0x3a2a1a, roughness: 0.95 })
 
+  // Every rock-wall/ceiling piece in this level shares rockWallMat, so
+  // they're collected here and merged into one mesh at the bottom of this
+  // function instead of one draw call each - see docs/PERFORMANCE.md
+  // Option B3. Colliders are computed the same way as before (direct
+  // corner math, since none of these pieces are rotated). The decorative
+  // dressing beams and ore veins get their own small merged meshes too -
+  // buildUnstableBeam's own hazard beams are NOT touched here, since
+  // Game.js's _triggerRockfall recolors/rotates one beam individually when
+  // it collapses and needs it to stay its own mesh.
+  const wallGeoms = []
+  const addWallPiece = (cx, cy, cz, w, h, d) => {
+    const geo = new THREE.BoxGeometry(w, h, d)
+    geo.translate(cx - x, cy, cz)
+    wallGeoms.push(geo)
+    colliders.push(new THREE.Box3(
+      new THREE.Vector3(cx - w / 2, cy - h / 2, cz - d / 2),
+      new THREE.Vector3(cx + w / 2, cy + h / 2, cz + d / 2)
+    ))
+  }
+
   // Vertical shaft around the stair run - a straight (not tilted) enclosure
-  // is simplest and safest here (axis-aligned Box3().setFromObject is fine,
-  // no rotated-mesh AABB gotcha to work around), tall enough to cover both
+  // is simplest and safest here (axis-aligned box math is fine, no
+  // rotated-mesh AABB gotcha to work around), tall enough to cover both
   // the sewer's own ceiling height above and the mine's ceiling below.
   const shaftHalfWidth = 2
   const shaftTop = LEVEL2_FLOOR_Y + SUBWAY_HEIGHT
@@ -7942,13 +7976,7 @@ function buildMineLevel(scene, colliders, solidMeshes, flickerLights, chestSpots
   const shaftCenterY = (shaftTop + shaftBottom) / 2
   const shaftCenterZ = (MINE_STAIR_Z_TOP + MINE_STAIR_Z_BOTTOM) / 2
   for (const side of [-1, 1]) {
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, shaftHeight, MINE_STAIR_RUN + 0.4), rockWallMat)
-    wall.position.set(x + side * shaftHalfWidth, shaftCenterY, shaftCenterZ)
-    wall.castShadow = true
-    wall.receiveShadow = true
-    scene.add(wall)
-    solidMeshes.push(wall)
-    colliders.push(new THREE.Box3().setFromObject(wall))
+    addWallPiece(x + side * shaftHalfWidth, shaftCenterY, shaftCenterZ, 0.2, shaftHeight, MINE_STAIR_RUN + 0.4)
   }
   buildStairFlight(scene, solidMeshes, x, MINE_STAIR_Z_TOP, LEVEL2_FLOOR_Y, x, MINE_STAIR_Z_BOTTOM, MINE_FLOOR_Y, 14)
   const stairLight = new THREE.PointLight(0xd9a86c, 0.8, 8, 2)
@@ -7965,21 +7993,9 @@ function buildMineLevel(scene, colliders, solidMeshes, flickerLights, chestSpots
     scene.add(floor)
     solidMeshes.push(floor)
 
-    const ceiling = new THREE.Mesh(new THREE.BoxGeometry(MINE_WIDTH + 0.4, 0.2, length), rockWallMat)
-    ceiling.position.set(x, MINE_FLOOR_Y + MINE_HEIGHT, centerZ)
-    ceiling.castShadow = true
-    scene.add(ceiling)
-    solidMeshes.push(ceiling)
-    colliders.push(new THREE.Box3().setFromObject(ceiling))
-
+    addWallPiece(x, MINE_FLOOR_Y + MINE_HEIGHT, centerZ, MINE_WIDTH + 0.4, 0.2, length)
     for (const side of [-1, 1]) {
-      const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, MINE_HEIGHT, length), rockWallMat)
-      wall.position.set(x + side * (MINE_WIDTH / 2 + 0.1), MINE_FLOOR_Y + MINE_HEIGHT / 2, centerZ)
-      wall.castShadow = true
-      wall.receiveShadow = true
-      scene.add(wall)
-      solidMeshes.push(wall)
-      colliders.push(new THREE.Box3().setFromObject(wall))
+      addWallPiece(x + side * (MINE_WIDTH / 2 + 0.1), MINE_FLOOR_Y + MINE_HEIGHT / 2, centerZ, 0.2, MINE_HEIGHT, length)
     }
 
     const lightSpacing = 9 // see buildSewer's own comment on this same change
@@ -7998,33 +8014,45 @@ function buildMineLevel(scene, colliders, solidMeshes, flickerLights, chestSpots
   // Decorative (non-triggering) support beams, just dressing, at points
   // between the two real hazard beams so the corridor doesn't read as
   // empty rock between them.
+  const decoGeoms = []
   for (const z of [MINE_STAIR_Z_BOTTOM - 6, MINE_STAIR_Z_BOTTOM - 22, MINE_STAIR_Z_BOTTOM - 38]) {
-    const deco = new THREE.Mesh(new THREE.BoxGeometry(MINE_WIDTH + 0.2, 0.2, 0.2), beamDressMat)
-    deco.position.set(x, MINE_FLOOR_Y + MINE_HEIGHT - 0.15, z)
-    deco.castShadow = true
-    scene.add(deco)
+    const geo = new THREE.BoxGeometry(MINE_WIDTH + 0.2, 0.2, 0.2)
+    geo.translate(0, MINE_FLOOR_Y + MINE_HEIGHT - 0.15, z)
+    decoGeoms.push(geo)
   }
+  const decoMesh = new THREE.Mesh(mergeGeometries(decoGeoms), beamDressMat)
+  decoMesh.position.set(x, 0, 0)
+  decoMesh.castShadow = true
+  scene.add(decoMesh)
 
   const beam1 = buildUnstableBeam(scene, x, MINE_BEAM_1_Z, MINE_FLOOR_Y)
   const beam2 = buildUnstableBeam(scene, x, MINE_BEAM_2_Z, MINE_FLOOR_Y)
 
-  const endWall = new THREE.Mesh(new THREE.BoxGeometry(MINE_WIDTH + 0.4, MINE_HEIGHT, 0.2), rockWallMat)
-  endWall.position.set(x, MINE_FLOOR_Y + MINE_HEIGHT / 2, MINE_Z_END)
-  endWall.castShadow = true
-  scene.add(endWall)
-  solidMeshes.push(endWall)
-  colliders.push(new THREE.Box3().setFromObject(endWall))
+  addWallPiece(x, MINE_FLOOR_Y + MINE_HEIGHT / 2, MINE_Z_END, MINE_WIDTH + 0.4, MINE_HEIGHT, 0.2)
 
   // A small ore vein in the end wall - amber glow, purely visual payoff for
   // reaching the deepest point of the network so far.
   const oreMat = cachedFlatMaterial({ color: 0x8a6a1a, emissive: 0xffb347, emissiveIntensity: 0.6, roughness: 0.5, metalness: 0.3 })
+  const oreGeoms = []
   for (const [ox, oy] of [[-0.6, 0.3], [0.5, -0.2], [0, 0.6]]) {
-    const ore = new THREE.Mesh(new THREE.DodecahedronGeometry(0.22), oreMat)
-    ore.position.set(x + ox, MINE_FLOOR_Y + MINE_HEIGHT / 2 + oy, MINE_Z_END + 0.15)
-    scene.add(ore)
+    const geo = new THREE.DodecahedronGeometry(0.22)
+    geo.translate(ox, MINE_FLOOR_Y + MINE_HEIGHT / 2 + oy, MINE_Z_END + 0.15)
+    oreGeoms.push(geo)
   }
+  const oreMesh = new THREE.Mesh(mergeGeometries(oreGeoms), oreMat)
+  oreMesh.position.set(x, 0, 0)
+  scene.add(oreMesh)
 
   chestSpots.push({ x, y: MINE_FLOOR_Y, z: MINE_Z_END + 3 })
+
+  // Merge every rock-wall/ceiling piece collected above into one mesh -
+  // see the comment near the top of this function.
+  const wallMesh = new THREE.Mesh(mergeGeometries(wallGeoms), rockWallMat)
+  wallMesh.position.set(x, 0, 0)
+  wallMesh.castShadow = true
+  wallMesh.receiveShadow = true
+  scene.add(wallMesh)
+  solidMeshes.push(wallMesh)
 
   return { beams: [beam1, beam2], floorY: MINE_FLOOR_Y, mineWidth: MINE_WIDTH, deadEndSpot: { x, z: MINE_Z_END + 3 } }
 }
@@ -8791,34 +8819,44 @@ function buildSkyscraper(scene, colliders, solidMeshes, spec, chestSpots) {
   const stripCenterX = (faceX + stripInnerX) / 2
 
   // Exterior shell: full-height far wall + two side walls. The avenue-facing
-  // side is left completely open as the entrance/atrium facade.
+  // side is left completely open as the entrance/atrium facade. Merged into
+  // one mesh instead of 3 draw calls - see docs/PERFORMANCE.md Option B3.
+  // Colliders are still computed individually (direct corner math, since
+  // none of these walls are rotated). This function is called once per
+  // skyscraper (there are many across the map), so this merge - and the
+  // per-floor one below - pays off once per building.
   const shellSpecs = [
     { bw: 0.3, bd: d, x: farX, z: cz },
     { bw: w, bd: 0.3, x: cx, z: cz - d / 2 },
     { bw: w, bd: 0.3, x: cx, z: cz + d / 2 },
   ]
+  const shellGeoms = []
   for (const s of shellSpecs) {
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(s.bw, h, s.bd), shellMat)
-    wall.position.set(s.x, h / 2, s.z)
-    wall.castShadow = true
-    wall.receiveShadow = true
-    scene.add(wall)
-    colliders.push(new THREE.Box3().setFromObject(wall))
-    solidMeshes.push(wall)
+    const geo = new THREE.BoxGeometry(s.bw, h, s.bd)
+    geo.translate(s.x - cx, h / 2, s.z - cz)
+    shellGeoms.push(geo)
+    colliders.push(new THREE.Box3(
+      new THREE.Vector3(s.x - s.bw / 2, 0, s.z - s.bd / 2),
+      new THREE.Vector3(s.x + s.bw / 2, h, s.z + s.bd / 2)
+    ))
   }
+  const shellMesh = new THREE.Mesh(mergeGeometries(shellGeoms), shellMat)
+  shellMesh.position.set(cx, 0, cz)
+  shellMesh.castShadow = true
+  shellMesh.receiveShadow = true
+  scene.add(shellMesh)
+  solidMeshes.push(shellMesh)
 
+  // Every floor's slab + 2 landing bridges share floorMat and are never
+  // individually collided with (walkable-only) - merged into one mesh
+  // across all floors instead of 3 draw calls per floor.
+  const floorGeoms = []
   for (let floor = 1; floor < floors; floor++) {
     const y = floor * SKYSCRAPER_FLOOR_H
 
-    const slab = new THREE.Mesh(
-      new THREE.BoxGeometry(mainRoomWidth, SKYSCRAPER_SLAB_THICKNESS, d),
-      floorMat
-    )
-    slab.position.set(mainRoomCenterX, y - SKYSCRAPER_SLAB_THICKNESS / 2, cz)
-    slab.castShadow = true
-    slab.receiveShadow = true
-    scene.add(slab)
-    solidMeshes.push(slab) // walkable floor, intentionally not a horizontal collider
+    const slabGeo = new THREE.BoxGeometry(mainRoomWidth, SKYSCRAPER_SLAB_THICKNESS, d)
+    slabGeo.translate(mainRoomCenterX - cx, y - SKYSCRAPER_SLAB_THICKNESS / 2, cz - cz)
+    floorGeoms.push(slabGeo)
 
     buildStairFlight(
       scene, solidMeshes,
@@ -8840,18 +8878,19 @@ function buildSkyscraper(scene, colliders, solidMeshes, spec, chestSpots) {
     const landingCenterX = (stripCenterX + stripInnerX) / 2
     const landingWidth = Math.abs(stripCenterX - stripInnerX) + 2.0
     for (const landingZ of [cz - d / 2 + 0.6, cz + d / 2 - 0.6]) {
-      const landing = new THREE.Mesh(
-        new THREE.BoxGeometry(landingWidth, SKYSCRAPER_SLAB_THICKNESS, 1.6),
-        floorMat
-      )
-      landing.position.set(landingCenterX, y - SKYSCRAPER_SLAB_THICKNESS / 2, landingZ)
-      landing.receiveShadow = true
-      scene.add(landing)
-      solidMeshes.push(landing)
+      const landingGeo = new THREE.BoxGeometry(landingWidth, SKYSCRAPER_SLAB_THICKNESS, 1.6)
+      landingGeo.translate(landingCenterX - cx, y - SKYSCRAPER_SLAB_THICKNESS / 2, landingZ - cz)
+      floorGeoms.push(landingGeo)
     }
 
     chestSpots.push({ x: mainRoomCenterX, y, z: cz })
   }
+  const floorMesh = new THREE.Mesh(mergeGeometries(floorGeoms), floorMat)
+  floorMesh.position.set(cx, 0, cz)
+  floorMesh.castShadow = true
+  floorMesh.receiveShadow = true
+  scene.add(floorMesh)
+  solidMeshes.push(floorMesh)
 
   return floors
 }
@@ -8888,17 +8927,13 @@ function buildFireEscape(scene, colliders, solidMeshes, spec, chestSpots) {
   const flightCount = 3
   const flightHeight = h / flightCount
 
+  // Landings share stepMat and are never individually collided with
+  // (walkable-only) - merged into one mesh instead of one draw call each.
+  const landingGeoms = []
   const addLanding = (z, y) => {
-    const landing = new THREE.Mesh(
-      new THREE.BoxGeometry(FIRE_ESCAPE_LANDING_SIZE, FIRE_ESCAPE_LANDING_THICKNESS, FIRE_ESCAPE_LANDING_SIZE),
-      stepMat
-    )
-    landing.position.set(escapeX, y - FIRE_ESCAPE_LANDING_THICKNESS / 2, z)
-    landing.castShadow = true
-    landing.receiveShadow = true
-    landing.userData.fireEscapePart = 'landing'
-    scene.add(landing)
-    solidMeshes.push(landing) // walkable, intentionally not a horizontal collider
+    const geo = new THREE.BoxGeometry(FIRE_ESCAPE_LANDING_SIZE, FIRE_ESCAPE_LANDING_THICKNESS, FIRE_ESCAPE_LANDING_SIZE)
+    geo.translate(escapeX - cx, y - FIRE_ESCAPE_LANDING_THICKNESS / 2, z - cz)
+    landingGeoms.push(geo)
   }
 
   let fromZ = nearZ
@@ -8911,6 +8946,13 @@ function buildFireEscape(scene, colliders, solidMeshes, spec, chestSpots) {
     fromZ = toZ
     fromY = toY
   }
+  const landingMesh = new THREE.Mesh(mergeGeometries(landingGeoms), stepMat)
+  landingMesh.position.set(cx, 0, cz)
+  landingMesh.castShadow = true
+  landingMesh.receiveShadow = true
+  landingMesh.userData.fireEscapePart = 'landing'
+  scene.add(landingMesh)
+  solidMeshes.push(landingMesh) // walkable, intentionally not a horizontal collider
 
   // Roof extends past the building's actual blind wall out to escapeX, so
   // it meets the top landing with no gap to cross.
@@ -8934,14 +8976,22 @@ function buildFireEscape(scene, colliders, solidMeshes, spec, chestSpots) {
     { w: roofWidth, d: ROOF_RAIL_THICKNESS, x: roofCenterX, z: cz + d / 2 },
     { w: ROOF_RAIL_THICKNESS, d, x: roofX0, z: cz },
   ]
+  const railGeoms = []
   for (const s of railSpecs) {
-    const rail = new THREE.Mesh(new THREE.BoxGeometry(s.w, ROOF_RAIL_HEIGHT, s.d), railMat)
-    rail.position.set(s.x, h + ROOF_RAIL_HEIGHT / 2, s.z)
-    rail.castShadow = true
-    scene.add(rail)
-    colliders.push(new THREE.Box3().setFromObject(rail))
-    solidMeshes.push(rail)
+    const geo = new THREE.BoxGeometry(s.w, ROOF_RAIL_HEIGHT, s.d)
+    const cy = h + ROOF_RAIL_HEIGHT / 2
+    geo.translate(s.x - cx, cy, s.z - cz)
+    railGeoms.push(geo)
+    colliders.push(new THREE.Box3(
+      new THREE.Vector3(s.x - s.w / 2, cy - ROOF_RAIL_HEIGHT / 2, s.z - s.d / 2),
+      new THREE.Vector3(s.x + s.w / 2, cy + ROOF_RAIL_HEIGHT / 2, s.z + s.d / 2)
+    ))
   }
+  const railMesh = new THREE.Mesh(mergeGeometries(railGeoms), railMat)
+  railMesh.position.set(cx, 0, cz)
+  railMesh.castShadow = true
+  scene.add(railMesh)
+  solidMeshes.push(railMesh)
 
   chestSpots.push({ x: roofCenterX, y: h, z: cz })
 }
@@ -8999,14 +9049,19 @@ function buildElevatedRoom(scene, colliders, solidMeshes, cx, cz, floorMat, wall
   solidMeshes.push(slab) // walkable floor, intentionally not a horizontal collider
 
   // Purely decorative support struts so the platform doesn't look like it's
-  // floating — not registered as colliders or raycast targets.
+  // floating — not registered as colliders or raycast targets. Merged into
+  // one mesh instead of 4 draw calls.
   const beamMat = cachedFlatMaterial({ color: 0x1c1a15, roughness: 0.9 })
+  const beamGeoms = []
   for (const [ox, oz] of [[-half + 0.3, -half + 0.3], [half - 0.3, -half + 0.3], [-half + 0.3, half - 0.3], [half - 0.3, half - 0.3]]) {
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(0.25, FLOOR_Y, 0.25), beamMat)
-    beam.position.set(cx + ox, FLOOR_Y / 2, cz + oz)
-    beam.castShadow = true
-    scene.add(beam)
+    const geo = new THREE.BoxGeometry(0.25, FLOOR_Y, 0.25)
+    geo.translate(ox, FLOOR_Y / 2, oz)
+    beamGeoms.push(geo)
   }
+  const beamMesh = new THREE.Mesh(mergeGeometries(beamGeoms), beamMat)
+  beamMesh.position.set(cx, 0, cz)
+  beamMesh.castShadow = true
+  scene.add(beamMesh)
 
   const openZ = cz - stairDir * half
   const wallSpecs = [
@@ -9016,16 +9071,28 @@ function buildElevatedRoom(scene, colliders, solidMeshes, cx, cz, floorMat, wall
     { w: 0.3, d: ROOM_SIZE, x: cx - half, z: cz },
   ]
 
+  // 3 of the 4 walls (one is skipped as the entrance) share wallMat and
+  // never move - merged into one mesh instead of 3 draw calls. Colliders
+  // are still computed individually (direct corner math, since none of
+  // these walls are rotated).
+  const wallGeoms = []
   for (const s of wallSpecs) {
     if (Math.abs(s.z - openZ) < 0.01 && s.w === ROOM_SIZE) continue // skip the open (entrance) wall
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(s.w, WALL_HEIGHT, s.d), wallMat)
-    wall.position.set(s.x, FLOOR_Y + WALL_HEIGHT / 2, s.z)
-    wall.castShadow = true
-    wall.receiveShadow = true
-    scene.add(wall)
-    colliders.push(new THREE.Box3().setFromObject(wall))
-    solidMeshes.push(wall)
+    const geo = new THREE.BoxGeometry(s.w, WALL_HEIGHT, s.d)
+    const cy = FLOOR_Y + WALL_HEIGHT / 2
+    geo.translate(s.x - cx, cy, s.z - cz)
+    wallGeoms.push(geo)
+    colliders.push(new THREE.Box3(
+      new THREE.Vector3(s.x - s.w / 2, cy - WALL_HEIGHT / 2, s.z - s.d / 2),
+      new THREE.Vector3(s.x + s.w / 2, cy + WALL_HEIGHT / 2, s.z + s.d / 2)
+    ))
   }
+  const wallMesh = new THREE.Mesh(mergeGeometries(wallGeoms), wallMat)
+  wallMesh.position.set(cx, 0, cz)
+  wallMesh.castShadow = true
+  wallMesh.receiveShadow = true
+  scene.add(wallMesh)
+  solidMeshes.push(wallMesh)
 }
 
 // Was `steps + 1` separate Mesh objects (474 of them summed across the
