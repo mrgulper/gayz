@@ -25,6 +25,7 @@ A third round (round 4) added, after auditing for and deliberately skipping the 
 - Every completed update gets committed, pushed to GitHub (`mrgulper/gayz`, private), and deployed to Vercel production (`npx vercel --prod --yes` → `gayz.vercel.app`) without asking each time.
 - For batched/greenlit feature work, build straight through without stopping for confirmation checkpoints between items.
 - Don't ship inert UI. If a feature's markup/CSS is scaffolded before its logic is wired up, leave it uncommitted rather than deploying a checkbox or HUD element that does nothing.
+- **Every new i18n key must ship translated into all 19 non-English language blocks, in the same change that adds it to `en`.** (Standing rule added 2026-09-05, after a one-time catch-up batch translated all 1355 keys that had accumulated English-only — see the i18n note under Gotchas.) Never add a key to `en` alone and leave the other 19 blocks to fall back to English "for now" — do the translations as part of the same batch, not as follow-up work.
 
 ## Recurring bug classes
 
