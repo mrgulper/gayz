@@ -140,6 +140,27 @@ directly:
 The only existing use of `InstancedMesh` in the whole codebase is
 `Decals.js:97`. There is no geometry merging anywhere.
 
+**Update (2026-09-04): this is no longer true.** `buildStairFlight` now uses
+`InstancedMesh` (B2, done for every staircase in the game). B3 (geometry
+merging) is now done for `buildRoom` (the most-reused wall primitive,
+covering nearly every regular building), the subway/maintenance tunnel
+connectors (`buildCorridorWalls`), the Safe Zone, Underground Station,
+Vireo Facility, Toxic Sewer Level, Mine Level, every skyscraper
+(`buildSkyscraper`/`buildFireEscape`), the lookout-tower platforms
+(`buildElevatedRoom`), the Sewer, the main Subway platform, both
+underground entrance kiosks, the two "real" staircases
+(`buildRealStaircase`), and the park's trees. See each function's own
+comments for the exact technique (merge visual geometry into one mesh per
+material group; keep colliders computed individually via direct corner
+math, or a throwaway never-added scratch mesh for rotated pieces).
+Deliberately left unmerged (too few pieces, called once or twice, not
+worth the risk): `buildSubwayJunctionRoom`, `buildWreckedTrainChamber`,
+`buildUnstableBeam` (its hazard beams must stay individually
+recolorable/rotatable for `Game.js`'s `_triggerRockfall`). §7's
+measurement script still works for re-baselining B3's actual real-hardware
+payoff, which was never re-measured after landing (see §5's own caveat
+that B/C gains are projected, not measured).
+
 ---
 
 ## 5. Implementation plan
