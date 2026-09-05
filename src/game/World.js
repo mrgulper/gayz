@@ -3779,34 +3779,40 @@ function buildSafeZone(scene, colliders, solidMeshes) {
   const sandbagMat = cachedFlatMaterial({ color: 0x5a5138, roughness: 1 })
   const lightMat = cachedFlatMaterial({ color: 0x1a1408, emissive: 0x6fe08a, emissiveIntensity: 1.3 })
 
+  // Wall segments and sandbag piles each get merged into one mesh instead
+  // of one draw call apiece - see docs/PERFORMANCE.md Option B3. Wall
+  // colliders are still computed individually (direct corner math, since
+  // none of these segments are rotated) so movement blocking is unchanged.
+  const wallGeoms = []
   const addWall = (wx, wz, w, d) => {
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(w, wallHeight, d), wallMat)
-    wall.position.set(x + wx, wallHeight / 2, z + wz)
-    wall.castShadow = true
-    wall.receiveShadow = true
-    scene.add(wall)
-    solidMeshes.push(wall)
-    colliders.push(new THREE.Box3().setFromObject(wall))
+    const geo = new THREE.BoxGeometry(w, wallHeight, d)
+    geo.translate(wx, wallHeight / 2, wz)
+    wallGeoms.push(geo)
+    const cx = x + wx, cy = wallHeight / 2, cz = z + wz
+    colliders.push(new THREE.Box3(
+      new THREE.Vector3(cx - w / 2, cy - wallHeight / 2, cz - d / 2),
+      new THREE.Vector3(cx + w / 2, cy + wallHeight / 2, cz + d / 2)
+    ))
   }
 
   // Sandbag piles stacked along the base of a wall segment, purely cosmetic
-  // (the wall itself is the collider) - breaks up the long flat run and
-  // reads as a fortified perimeter rather than a bare box. axisIsX picks
-  // which direction the segment's own length runs in.
+  // (the wall itself is the collider, these are never in colliders or
+  // solidMeshes) - breaks up the long flat run and reads as a fortified
+  // perimeter rather than a bare box. axisIsX picks which direction the
+  // segment's own length runs in.
+  const sandbagGeoms = []
   const addSandbagRow = (wx, wz, w, d, axisIsX) => {
     const len = axisIsX ? w : d
     const count = Math.max(2, Math.round(len / 1.4))
     for (let i = 0; i < count; i++) {
       const t = count === 1 ? 0.5 : i / (count - 1)
       const offset = (t - 0.5) * (len - 0.8)
-      const bagX = x + wx + (axisIsX ? offset : 0)
-      const bagZ = z + wz + (axisIsX ? 0 : offset)
-      const bag = new THREE.Mesh(new THREE.BoxGeometry(axisIsX ? 0.75 : 0.55, 0.5, axisIsX ? 0.55 : 0.75), sandbagMat)
-      bag.position.set(bagX, 0.25, bagZ)
-      bag.rotation.y = ((i * 37) % 9) * 0.03 - 0.12
-      bag.castShadow = true
-      bag.receiveShadow = true
-      scene.add(bag)
+      const bagX = wx + (axisIsX ? offset : 0)
+      const bagZ = wz + (axisIsX ? 0 : offset)
+      const geo = new THREE.BoxGeometry(axisIsX ? 0.75 : 0.55, 0.5, axisIsX ? 0.55 : 0.75)
+      geo.rotateY(((i * 37) % 9) * 0.03 - 0.12)
+      geo.translate(bagX, 0.25, bagZ)
+      sandbagGeoms.push(geo)
     }
   }
 
@@ -3824,6 +3830,19 @@ function buildSafeZone(scene, colliders, solidMeshes) {
   const sideWallLen = halfX - gapHalfWidth
   addWall(-(gapHalfWidth + sideWallLen / 2), -halfZ, sideWallLen, 0.6)
   addWall(gapHalfWidth + sideWallLen / 2, -halfZ, sideWallLen, 0.6)
+
+  const wallMesh = new THREE.Mesh(mergeGeometries(wallGeoms), wallMat)
+  wallMesh.position.set(x, 0, z)
+  wallMesh.castShadow = true
+  wallMesh.receiveShadow = true
+  scene.add(wallMesh)
+  solidMeshes.push(wallMesh)
+
+  const sandbagMesh = new THREE.Mesh(mergeGeometries(sandbagGeoms), sandbagMat)
+  sandbagMesh.position.set(x, 0, z)
+  sandbagMesh.castShadow = true
+  sandbagMesh.receiveShadow = true
+  scene.add(sandbagMesh)
 
   // Sandbag-topped watchtower posts flanking the entrance, doubling as the
   // first two guardSpots so the gap is covered from the moment it's built.
@@ -3877,21 +3896,31 @@ function buildSafeZone(scene, colliders, solidMeshes) {
   // ground-level) toward the wall, growing taller with each step so the
   // last one is flush with the platform's own height right where it meets
   // it - i=0 is furthest from the wall/shortest, i=STEP_COUNT-1 is closest
-  // to the wall/tallest.
+  // to the wall/tallest. Merged into one mesh instead of 8 draw calls -
+  // colliders still computed per-step (direct corner math) so each stair
+  // still blocks movement individually.
   const stepsStartX = platformCenterX + 1.4 + (STEP_COUNT - 1) * stepDepth
+  const stepGeoms = []
   for (let i = 0; i < STEP_COUNT; i++) {
     const stepHeight = stepRise * (i + 1)
+    const stepX = stepsStartX - i * stepDepth
     // stepDepth (spacing direction, X) first, 1.6 (the stair's own width,
     // Z) last - each step's own X footprint has to match its X spacing or
     // consecutive steps overlap/clip through each other.
-    const step = new THREE.Mesh(new THREE.BoxGeometry(stepDepth, stepHeight, 1.6), stepMat)
-    step.position.set(stepsStartX - i * stepDepth, stepHeight / 2, platformCenterZ)
-    step.castShadow = true
-    step.receiveShadow = true
-    scene.add(step)
-    solidMeshes.push(step)
-    colliders.push(new THREE.Box3().setFromObject(step))
+    const geo = new THREE.BoxGeometry(stepDepth, stepHeight, 1.6)
+    geo.translate(stepX - x, stepHeight / 2, platformCenterZ - z)
+    stepGeoms.push(geo)
+    colliders.push(new THREE.Box3(
+      new THREE.Vector3(stepX - stepDepth / 2, 0, platformCenterZ - 0.8),
+      new THREE.Vector3(stepX + stepDepth / 2, stepHeight, platformCenterZ + 0.8)
+    ))
   }
+  const stepsMesh = new THREE.Mesh(mergeGeometries(stepGeoms), stepMat)
+  stepsMesh.position.set(x, 0, z)
+  stepsMesh.castShadow = true
+  stepsMesh.receiveShadow = true
+  scene.add(stepsMesh)
+  solidMeshes.push(stepsMesh)
 
   // Platform's X extent (2.4) is what straddles the wall (the wall's own
   // length runs along Z, at fixed x=-halfX) - centered on the wall, so
@@ -3930,18 +3959,34 @@ function buildSafeZone(scene, colliders, solidMeshes) {
     { x: x - 8.5, z: z - 2 },
     { x: x + 8.5, z: z - 5 },
   ]
+  // Merged into one mesh instead of 6 draw calls. Each crate is rotated,
+  // so its collider is computed from a throwaway mesh positioned/rotated
+  // exactly like the removed per-crate mesh (never added to the scene) -
+  // same technique buildCorridorWalls already uses - so the collider box
+  // is pixel-identical to before, not just the same shape unrotated.
+  const crateGeoms = []
   for (const spot of crateSpots) {
     for (const [ox, oz, s] of [[0, 0, 0.7], [0.55, 0.1, 0.55]]) {
-      const crate = new THREE.Mesh(new THREE.BoxGeometry(s, s, s), crateMat)
-      crate.position.set(spot.x + ox, s / 2, spot.z + oz)
-      crate.rotation.y = (spot.x * 13.7 + spot.z * 7.3) % 1
-      crate.castShadow = true
-      crate.receiveShadow = true
-      scene.add(crate)
-      solidMeshes.push(crate)
-      colliders.push(new THREE.Box3().setFromObject(crate))
+      const cx = spot.x + ox, cz = spot.z + oz
+      const rotY = (spot.x * 13.7 + spot.z * 7.3) % 1
+      const geo = new THREE.BoxGeometry(s, s, s)
+      geo.rotateY(rotY)
+      geo.translate(cx - x, s / 2, cz - z)
+      crateGeoms.push(geo)
+
+      const scratch = new THREE.Mesh(new THREE.BoxGeometry(s, s, s))
+      scratch.position.set(cx, s / 2, cz)
+      scratch.rotation.y = rotY
+      scratch.updateMatrixWorld(true)
+      colliders.push(new THREE.Box3().setFromObject(scratch))
     }
   }
+  const cratesMesh = new THREE.Mesh(mergeGeometries(crateGeoms), crateMat)
+  cratesMesh.position.set(x, 0, z)
+  cratesMesh.castShadow = true
+  cratesMesh.receiveShadow = true
+  scene.add(cratesMesh)
+  solidMeshes.push(cratesMesh)
   for (const lx of [x - 8.5, x + 8.5]) {
     const lampPost = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 2.2, 8), postMat)
     lampPost.position.set(lx, 1.1, z + 6)
@@ -7380,31 +7425,43 @@ function buildUndergroundStation(scene, colliders, solidMeshes, flickerLights, c
   const floorMat = cachedFlatMaterial({ color: 0x1c1b18, roughness: 1 })
   const platformMat = cachedFlatMaterial({ color: 0x4a4238, roughness: 0.9 })
   const railMat = cachedFlatMaterial({ color: 0x1a1a18, roughness: 0.4, metalness: 0.7 })
+  const tieMat = cachedFlatMaterial({ color: 0x2a2018, roughness: 1 })
 
-  const floor = new THREE.Mesh(new THREE.BoxGeometry(STATION_WIDTH, 0.08, length), floorMat)
-  floor.position.set(STATION_X, SUBWAY_FLOOR_Y, centerZ)
-  floor.receiveShadow = true
-  scene.add(floor)
-  solidMeshes.push(floor)
+  // Every wall/ceiling/floor/platform/rail/tie piece across both levels of
+  // this station shares one of these five materials, so instead of one
+  // draw call per piece (dozens of them, all static), each material group
+  // is collected here and merged into a single mesh near the bottom of
+  // this function - see docs/PERFORMANCE.md Option B3. Colliders are still
+  // computed exactly as before (direct corner math, since none of these
+  // pieces are rotated), just no longer tied 1:1 to a rendered mesh.
+  const wallGeoms = []
+  const floorGeoms = []
+  const platformGeoms = []
+  const railGeoms = []
+  const tieGeoms = []
+  const addWallPiece = (cx, cy, cz, w, h, d) => {
+    const geo = new THREE.BoxGeometry(w, h, d)
+    geo.translate(cx - STATION_X, cy, cz - centerZ)
+    wallGeoms.push(geo)
+    colliders.push(new THREE.Box3(
+      new THREE.Vector3(cx - w / 2, cy - h / 2, cz - d / 2),
+      new THREE.Vector3(cx + w / 2, cy + h / 2, cz + d / 2)
+    ))
+  }
+  const addFloorPiece = (cx, cy, cz, w, h, d) => {
+    const geo = new THREE.BoxGeometry(w, h, d)
+    geo.translate(cx - STATION_X, cy, cz - centerZ)
+    floorGeoms.push(geo)
+  }
+
+  addFloorPiece(STATION_X, SUBWAY_FLOOR_Y, centerZ, STATION_WIDTH, 0.08, length)
 
   // No north/south end walls - the north end (STATION_Z_END) is where the
   // connector from the existing junction room opens in, and the south end
   // (STATION_Z_START) is where the maintenance stub opens off, same "open
   // ends, no cap" pattern buildSubway itself uses.
-  const ceiling = new THREE.Mesh(new THREE.BoxGeometry(STATION_WIDTH + 0.4, 0.2, length), wallMat)
-  ceiling.position.set(STATION_X, SUBWAY_FLOOR_Y + STATION_HEIGHT, centerZ)
-  ceiling.castShadow = true
-  scene.add(ceiling)
-  solidMeshes.push(ceiling)
-  colliders.push(new THREE.Box3().setFromObject(ceiling))
-
-  const eastWall = new THREE.Mesh(new THREE.BoxGeometry(0.2, STATION_HEIGHT, length), wallMat)
-  eastWall.position.set(STATION_X + STATION_WIDTH / 2 + 0.1, SUBWAY_FLOOR_Y + STATION_HEIGHT / 2, centerZ)
-  eastWall.castShadow = true
-  eastWall.receiveShadow = true
-  scene.add(eastWall)
-  solidMeshes.push(eastWall)
-  colliders.push(new THREE.Box3().setFromObject(eastWall))
+  addWallPiece(STATION_X, SUBWAY_FLOOR_Y + STATION_HEIGHT, centerZ, STATION_WIDTH + 0.4, 0.2, length)
+  addWallPiece(STATION_X + STATION_WIDTH / 2 + 0.1, SUBWAY_FLOOR_Y + STATION_HEIGHT / 2, centerZ, 0.2, STATION_HEIGHT, length)
 
   // West wall: three solid segments, leaving the two office z-ranges open -
   // same "build the solid pieces, skip the doorway" approach buildSkyscraper
@@ -7418,35 +7475,27 @@ function buildUndergroundStation(scene, colliders, solidMeshes, flickerLights, c
   for (const [segStart, segEnd] of westSegments) {
     const segLen = segEnd - segStart
     const segZ = (segStart + segEnd) / 2
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, STATION_HEIGHT, segLen), wallMat)
-    wall.position.set(westX, SUBWAY_FLOOR_Y + STATION_HEIGHT / 2, segZ)
-    wall.castShadow = true
-    wall.receiveShadow = true
-    scene.add(wall)
-    solidMeshes.push(wall)
-    colliders.push(new THREE.Box3().setFromObject(wall))
+    addWallPiece(westX, SUBWAY_FLOOR_Y + STATION_HEIGHT / 2, segZ, 0.2, STATION_HEIGHT, segLen)
   }
 
   // Platform + tracks down the middle, same visual language as the existing
   // subway (see buildSubway) - wider hall, so a wider platform too.
   const platformWidth = 2.4
-  const platform = new THREE.Mesh(new THREE.BoxGeometry(platformWidth, 0.35, length - 1), platformMat)
-  platform.position.set(STATION_X - STATION_WIDTH / 2 + platformWidth / 2 + 0.15, SUBWAY_FLOOR_Y + 0.175, centerZ)
-  platform.castShadow = true
-  platform.receiveShadow = true
-  scene.add(platform)
-  solidMeshes.push(platform)
+  const platformCX = STATION_X - STATION_WIDTH / 2 + platformWidth / 2 + 0.15
+  const platformGeo = new THREE.BoxGeometry(platformWidth, 0.35, length - 1)
+  platformGeo.translate(platformCX - STATION_X, SUBWAY_FLOOR_Y + 0.175, 0)
+  platformGeoms.push(platformGeo)
 
   const trackCenterX = STATION_X + 1.5
   for (const railOffset of [-0.5, 0.5]) {
-    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, length - 1), railMat)
-    rail.position.set(trackCenterX + railOffset, SUBWAY_FLOOR_Y + 0.03, centerZ)
-    scene.add(rail)
+    const geo = new THREE.BoxGeometry(0.08, 0.06, length - 1)
+    geo.translate(trackCenterX + railOffset - STATION_X, SUBWAY_FLOOR_Y + 0.03, 0)
+    railGeoms.push(geo)
   }
   for (let z = STATION_Z_START + 1; z < STATION_Z_END - 1; z += 1) {
-    const tie = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.04, 0.15), cachedFlatMaterial({ color: 0x2a2018, roughness: 1 }))
-    tie.position.set(trackCenterX, SUBWAY_FLOOR_Y + 0.02, z)
-    scene.add(tie)
+    const geo = new THREE.BoxGeometry(1.3, 0.04, 0.15)
+    geo.translate(trackCenterX - STATION_X, SUBWAY_FLOOR_Y + 0.02, z - centerZ)
+    tieGeoms.push(geo)
   }
 
   const lightSpacing = 8 // see buildSewer's own comment on this same change
@@ -7467,18 +7516,8 @@ function buildUndergroundStation(scene, colliders, solidMeshes, flickerLights, c
     const officeCenterX = westX - STATION_OFFICE_SIZE / 2
     const officeFarX = westX - STATION_OFFICE_SIZE
 
-    const officeFloor = new THREE.Mesh(new THREE.BoxGeometry(STATION_OFFICE_SIZE, 0.08, z1 - z0), floorMat)
-    officeFloor.position.set(officeCenterX, SUBWAY_FLOOR_Y, cz)
-    officeFloor.receiveShadow = true
-    scene.add(officeFloor)
-    solidMeshes.push(officeFloor)
-
-    const officeCeiling = new THREE.Mesh(new THREE.BoxGeometry(STATION_OFFICE_SIZE, 0.2, z1 - z0), wallMat)
-    officeCeiling.position.set(officeCenterX, SUBWAY_FLOOR_Y + STATION_HEIGHT, cz)
-    officeCeiling.castShadow = true
-    scene.add(officeCeiling)
-    solidMeshes.push(officeCeiling)
-    colliders.push(new THREE.Box3().setFromObject(officeCeiling))
+    addFloorPiece(officeCenterX, SUBWAY_FLOOR_Y, cz, STATION_OFFICE_SIZE, 0.08, z1 - z0)
+    addWallPiece(officeCenterX, SUBWAY_FLOOR_Y + STATION_HEIGHT, cz, STATION_OFFICE_SIZE, 0.2, z1 - z0)
 
     const officeWallSpecs = [
       { bw: 0.2, bd: z1 - z0, x: officeFarX, z: cz },
@@ -7486,13 +7525,7 @@ function buildUndergroundStation(scene, colliders, solidMeshes, flickerLights, c
       { bw: STATION_OFFICE_SIZE, bd: 0.2, x: officeCenterX, z: z1 },
     ]
     for (const s of officeWallSpecs) {
-      const wall = new THREE.Mesh(new THREE.BoxGeometry(s.bw, STATION_HEIGHT, s.bd), wallMat)
-      wall.position.set(s.x, SUBWAY_FLOOR_Y + STATION_HEIGHT / 2, s.z)
-      wall.castShadow = true
-      wall.receiveShadow = true
-      scene.add(wall)
-      solidMeshes.push(wall)
-      colliders.push(new THREE.Box3().setFromObject(wall))
+      addWallPiece(s.x, SUBWAY_FLOOR_Y + STATION_HEIGHT / 2, s.z, s.bw, STATION_HEIGHT, s.bd)
     }
     return { x: officeCenterX, z: cz }
   }
@@ -7603,27 +7636,11 @@ function buildUndergroundStation(scene, colliders, solidMeshes, flickerLights, c
   const level2Length = LEVEL2_Z_NEAR - LEVEL2_Z_FAR
   const level2CenterZ = (LEVEL2_Z_NEAR + LEVEL2_Z_FAR) / 2
 
-  const level2Floor = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH, 0.08, level2Length), floorMat)
-  level2Floor.position.set(STATION_X, LEVEL2_FLOOR_Y, level2CenterZ)
-  level2Floor.receiveShadow = true
-  scene.add(level2Floor)
-  solidMeshes.push(level2Floor)
-
-  const level2Ceiling = new THREE.Mesh(new THREE.BoxGeometry(SUBWAY_WIDTH + 0.4, 0.2, level2Length), wallMat)
-  level2Ceiling.position.set(STATION_X, LEVEL2_FLOOR_Y + SUBWAY_HEIGHT, level2CenterZ)
-  level2Ceiling.castShadow = true
-  scene.add(level2Ceiling)
-  solidMeshes.push(level2Ceiling)
-  colliders.push(new THREE.Box3().setFromObject(level2Ceiling))
+  addFloorPiece(STATION_X, LEVEL2_FLOOR_Y, level2CenterZ, SUBWAY_WIDTH, 0.08, level2Length)
+  addWallPiece(STATION_X, LEVEL2_FLOOR_Y + SUBWAY_HEIGHT, level2CenterZ, SUBWAY_WIDTH + 0.4, 0.2, level2Length)
 
   for (const side of [-1, 1]) {
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, SUBWAY_HEIGHT, level2Length), wallMat)
-    wall.position.set(STATION_X + side * (SUBWAY_WIDTH / 2 + 0.1), LEVEL2_FLOOR_Y + SUBWAY_HEIGHT / 2, level2CenterZ)
-    wall.castShadow = true
-    wall.receiveShadow = true
-    scene.add(wall)
-    solidMeshes.push(wall)
-    colliders.push(new THREE.Box3().setFromObject(wall))
+    addWallPiece(STATION_X + side * (SUBWAY_WIDTH / 2 + 0.1), LEVEL2_FLOOR_Y + SUBWAY_HEIGHT / 2, level2CenterZ, 0.2, SUBWAY_HEIGHT, level2Length)
   }
 
   // No end wall here anymore - Stage 11 (buildToxicSewerLevel, called from
@@ -7632,18 +7649,16 @@ function buildUndergroundStation(scene, colliders, solidMeshes, flickerLights, c
   // this being a true dead end like it originally was.
 
   const level2PlatformWidth = 1.6
-  const level2Platform = new THREE.Mesh(new THREE.BoxGeometry(level2PlatformWidth, 0.35, level2Length - 1), platformMat)
-  level2Platform.position.set(STATION_X - SUBWAY_WIDTH / 2 + level2PlatformWidth / 2 + 0.15, LEVEL2_FLOOR_Y + 0.175, level2CenterZ)
-  level2Platform.castShadow = true
-  level2Platform.receiveShadow = true
-  scene.add(level2Platform)
-  solidMeshes.push(level2Platform)
+  const level2PlatformCX = STATION_X - SUBWAY_WIDTH / 2 + level2PlatformWidth / 2 + 0.15
+  const level2PlatformGeo = new THREE.BoxGeometry(level2PlatformWidth, 0.35, level2Length - 1)
+  level2PlatformGeo.translate(level2PlatformCX - STATION_X, LEVEL2_FLOOR_Y + 0.175, level2CenterZ - centerZ)
+  platformGeoms.push(level2PlatformGeo)
 
   const level2TrackX = STATION_X + 0.6
   for (const railOffset of [-0.5, 0.5]) {
-    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, level2Length - 1), railMat)
-    rail.position.set(level2TrackX + railOffset, LEVEL2_FLOOR_Y + 0.03, level2CenterZ)
-    scene.add(rail)
+    const geo = new THREE.BoxGeometry(0.08, 0.06, level2Length - 1)
+    geo.translate(level2TrackX + railOffset - STATION_X, LEVEL2_FLOOR_Y + 0.03, level2CenterZ - centerZ)
+    railGeoms.push(geo)
   }
 
   const level2LightSpacing = 5
@@ -7657,6 +7672,36 @@ function buildUndergroundStation(scene, colliders, solidMeshes, flickerLights, c
   }
 
   chestSpots.push({ x: STATION_X, y: LEVEL2_FLOOR_Y, z: LEVEL2_Z_FAR + 3 })
+
+  // Merge each material group collected above into one mesh - see the
+  // comment near the top of this function.
+  const wallMesh = new THREE.Mesh(mergeGeometries(wallGeoms), wallMat)
+  wallMesh.position.set(STATION_X, 0, centerZ)
+  wallMesh.castShadow = true
+  wallMesh.receiveShadow = true
+  scene.add(wallMesh)
+  solidMeshes.push(wallMesh)
+
+  const floorMesh = new THREE.Mesh(mergeGeometries(floorGeoms), floorMat)
+  floorMesh.position.set(STATION_X, 0, centerZ)
+  floorMesh.receiveShadow = true
+  scene.add(floorMesh)
+  solidMeshes.push(floorMesh)
+
+  const platformMesh = new THREE.Mesh(mergeGeometries(platformGeoms), platformMat)
+  platformMesh.position.set(STATION_X, 0, centerZ)
+  platformMesh.castShadow = true
+  platformMesh.receiveShadow = true
+  scene.add(platformMesh)
+  solidMeshes.push(platformMesh)
+
+  const railMesh = new THREE.Mesh(mergeGeometries(railGeoms), railMat)
+  railMesh.position.set(STATION_X, 0, centerZ)
+  scene.add(railMesh)
+
+  const tieMesh = new THREE.Mesh(mergeGeometries(tieGeoms), tieMat)
+  tieMesh.position.set(STATION_X, 0, centerZ)
+  scene.add(tieMesh)
 
   return {
     terminalSpot: { x: terminalX, z: terminalZ },
@@ -8032,22 +8077,30 @@ function buildVireoFacility(scene, colliders, solidMeshes, flickerLights) {
   scene.add(floor)
   solidMeshes.push(floor)
 
-  const ceiling = new THREE.Mesh(new THREE.BoxGeometry(FACILITY_WIDTH + 0.4, 0.2, length), wallMat)
-  ceiling.position.set(FACILITY_X, SUBWAY_FLOOR_Y + FACILITY_HEIGHT, centerZ)
-  ceiling.castShadow = true
-  scene.add(ceiling)
-  solidMeshes.push(ceiling)
-  colliders.push(new THREE.Box3().setFromObject(ceiling))
-
-  for (const side of [-1, 1]) {
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, FACILITY_HEIGHT, length), wallMat)
-    wall.position.set(FACILITY_X + side * (FACILITY_WIDTH / 2 + 0.1), SUBWAY_FLOOR_Y + FACILITY_HEIGHT / 2, centerZ)
-    wall.castShadow = true
-    wall.receiveShadow = true
-    scene.add(wall)
-    solidMeshes.push(wall)
-    colliders.push(new THREE.Box3().setFromObject(wall))
+  // Ceiling + both side walls share wallMat and never move - merged into
+  // one mesh instead of 3 draw calls. See docs/PERFORMANCE.md Option B3.
+  // Colliders are computed the same way as before (direct corner math,
+  // since none of these pieces are rotated).
+  const wallGeoms = []
+  const addWallPiece = (cx, cy, cz, w, h, d) => {
+    const geo = new THREE.BoxGeometry(w, h, d)
+    geo.translate(cx - FACILITY_X, cy, cz - centerZ)
+    wallGeoms.push(geo)
+    colliders.push(new THREE.Box3(
+      new THREE.Vector3(cx - w / 2, cy - h / 2, cz - d / 2),
+      new THREE.Vector3(cx + w / 2, cy + h / 2, cz + d / 2)
+    ))
   }
+  addWallPiece(FACILITY_X, SUBWAY_FLOOR_Y + FACILITY_HEIGHT, centerZ, FACILITY_WIDTH + 0.4, 0.2, length)
+  for (const side of [-1, 1]) {
+    addWallPiece(FACILITY_X + side * (FACILITY_WIDTH / 2 + 0.1), SUBWAY_FLOOR_Y + FACILITY_HEIGHT / 2, centerZ, 0.2, FACILITY_HEIGHT, length)
+  }
+  const wallMesh = new THREE.Mesh(mergeGeometries(wallGeoms), wallMat)
+  wallMesh.position.set(FACILITY_X, 0, centerZ)
+  wallMesh.castShadow = true
+  wallMesh.receiveShadow = true
+  scene.add(wallMesh)
+  solidMeshes.push(wallMesh)
 
   const lightSpacing = 8 // see buildSewer's own comment on this same change
   const lightCount = Math.floor(length / lightSpacing)
@@ -8064,14 +8117,22 @@ function buildVireoFacility(scene, colliders, solidMeshes, flickerLights) {
     { x: FACILITY_X - 0.7, z: FACILITY_Z_START + 4, w: 0.5, h: 0.9, d: 0.5 },
     { x: FACILITY_X + 0.7, z: FACILITY_Z_START + 8, w: 0.6, h: 0.6, d: 0.6 },
   ]
+  const propGeoms = []
   for (const p of propSpots) {
-    const box = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, p.d), propMat)
-    box.position.set(p.x, SUBWAY_FLOOR_Y + p.h / 2, p.z)
-    box.castShadow = true
-    scene.add(box)
-    solidMeshes.push(box)
-    colliders.push(new THREE.Box3().setFromObject(box))
+    const cy = SUBWAY_FLOOR_Y + p.h / 2
+    const geo = new THREE.BoxGeometry(p.w, p.h, p.d)
+    geo.translate(p.x - FACILITY_X, cy, p.z - centerZ)
+    propGeoms.push(geo)
+    colliders.push(new THREE.Box3(
+      new THREE.Vector3(p.x - p.w / 2, cy - p.h / 2, p.z - p.d / 2),
+      new THREE.Vector3(p.x + p.w / 2, cy + p.h / 2, p.z + p.d / 2)
+    ))
   }
+  const propsMesh = new THREE.Mesh(mergeGeometries(propGeoms), propMat)
+  propsMesh.position.set(FACILITY_X, 0, centerZ)
+  propsMesh.castShadow = true
+  scene.add(propsMesh)
+  solidMeshes.push(propsMesh)
 
   const terminalZ = FACILITY_STAIR_BOTTOM_Z - 3
   const terminalMat = cachedFlatMaterial({ color: 0x1a1a1a, roughness: 0.6 })
@@ -8122,12 +8183,18 @@ function buildVireoFacility(scene, colliders, solidMeshes, flickerLights) {
   scene.add(exitKioskRoof)
   solidMeshes.push(exitKioskRoof)
   colliders.push(new THREE.Box3().setFromObject(exitKioskRoof))
+  // Four support posts are purely cosmetic (never collidable in the
+  // original either) - merged into one mesh instead of 4 draw calls.
+  const postGeoms = []
   for (const [ox, oz] of [[-exitKioskHalfW, -1.5], [-exitKioskHalfW, 1.5], [exitKioskHalfW, -1.5], [exitKioskHalfW, 1.5]]) {
-    const post = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.6, 0.2), exitKioskMat)
-    post.position.set(FACILITY_X + ox, 1.3, FACILITY_EXIT_Z + oz)
-    post.castShadow = true
-    scene.add(post)
+    const geo = new THREE.BoxGeometry(0.2, 2.6, 0.2)
+    geo.translate(ox, 1.3, oz)
+    postGeoms.push(geo)
   }
+  const postsMesh = new THREE.Mesh(mergeGeometries(postGeoms), exitKioskMat)
+  postsMesh.position.set(FACILITY_X, 0, FACILITY_EXIT_Z)
+  postsMesh.castShadow = true
+  scene.add(postsMesh)
   const exitSign = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.4, 0.06), cachedFlatMaterial({ color: 0x0a1408, emissive: 0x4ee06f, emissiveIntensity: 1 }))
   exitSign.position.set(FACILITY_X, 2.3, FACILITY_EXIT_Z + 1.51)
   scene.add(exitSign)
