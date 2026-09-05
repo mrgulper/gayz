@@ -10,6 +10,25 @@ import * as THREE from 'three'
 // used for rendering.
 export const LOW_QUALITY_MODE = true
 
+// Split off from LOW_QUALITY_MODE (2026-09-05) - measured live that
+// flipping the single combined flag costs far more than materials alone:
+// it also relaxes WORLD_CULL_DISTANCE/WORLD_SHADOW_CULL_DISTANCE/
+// LIGHT_CULL_DISTANCE/MAX_ACTIVE_LIGHTS/the zombie population cap (more
+// live objects updating every frame, unrelated to shading), turns shadows/
+// bloom/antialiasing/full pixel ratio back on (real GPU cost), AND spawns
+// extra pure-decoration content (scatterDebris/scatterCityProps/
+// spawnAmbientWildlife in World.js's buildWorld - gated on LOW_QUALITY_MODE
+// directly, deliberately NOT this flag, since more objects existing at all
+// costs more regardless of how they're shaded). Real materials (PBR
+// roughness/metalness response, actual grime/bump textures) turned out to
+// be comparatively cheap by themselves - swapping MeshLambertMaterial back
+// to MeshStandardMaterial doesn't change triangle count, object count, or
+// how many things update their transform each frame, only the per-pixel
+// shading math. Everything else above stays governed by LOW_QUALITY_MODE,
+// unchanged and still conservative - only this flag controls the material
+// upgrade now.
+export const LOW_QUALITY_MATERIALS = false
+
 // Drop-in replacement for `new THREE.MeshStandardMaterial(opts)` used
 // across World.js's ~160 material call sites. Under LOW_QUALITY_MODE,
 // builds a MeshLambertMaterial instead (cheaper Lambertian lighting model
@@ -61,7 +80,7 @@ export function cachedFlatMaterial(opts) {
 }
 
 export function flatMaterial(opts) {
-  if (!LOW_QUALITY_MODE) return new THREE.MeshStandardMaterial(opts)
+  if (!LOW_QUALITY_MATERIALS) return new THREE.MeshStandardMaterial(opts)
   const simple = {}
   // Some call sites only set map/emissive with no base `color` at all
   // (relying on MeshStandardMaterial's own default white) - only include
@@ -87,7 +106,7 @@ export function flatMaterial(opts) {
 // instead of a fresh options literal. When the flag is false, behaves
 // exactly like `original.clone()` always did.
 export function flattenedClone(original) {
-  if (!LOW_QUALITY_MODE) return original.clone()
+  if (!LOW_QUALITY_MATERIALS) return original.clone()
   const simple = {}
   // Dropped previously - callers that key off material.name post-clone
   // (e.g. Companion.js's _buildBodyFromGLB matching the "Main" slot to

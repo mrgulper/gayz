@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { accessibility } from './Accessibility.js'
-import { LOW_QUALITY_MODE, flatMaterial, flattenedClone } from './QualitySettings.js'
+import { LOW_QUALITY_MATERIALS, flatMaterial, flattenedClone } from './QualitySettings.js'
 
 // Phase 1 of the 3D asset overhaul (see 3D_ASSET_OVERHAUL.md) - real rigged
 // GLB zombie behind a flag, alongside the original procedural builder, so
@@ -687,12 +687,12 @@ export class Zombie {
     // to avoid. Without it, LOW_QUALITY_MODE being the game's current
     // actual default (see QualitySettings.js) meant this whole skin-detail
     // feature would never actually be visible in the live game at all.
-    const sharedLowQualityMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: bodyTint, map: getZombieSkinTexture() }) : null
+    const sharedLowQualityMat = LOW_QUALITY_MATERIALS ? new THREE.MeshLambertMaterial({ color: bodyTint, map: getZombieSkinTexture() }) : null
 
     cloned.traverse((child) => {
       if (!child.isMesh) return
       child.castShadow = true
-      if (LOW_QUALITY_MODE) {
+      if (LOW_QUALITY_MATERIALS) {
         child.material = sharedLowQualityMat
       } else {
         // GLTFLoader shares materials across every clone by default (the #1
@@ -928,7 +928,7 @@ export class Zombie {
     // dinosaur/Titan type or if the GLB zombie model failed to load - the
     // common case is _buildBodyFromGLB above. QualitySettings.js flag
     // controls this, real per-part materials untouched below it.
-    const lowQualityMat = LOW_QUALITY_MODE ? new THREE.MeshLambertMaterial({ color: skin }) : null
+    const lowQualityMat = LOW_QUALITY_MATERIALS ? new THREE.MeshLambertMaterial({ color: skin }) : null
     const skinMat = lowQualityMat || flatMaterial({ color: skin, roughness: 0.98 })
     const skinMatAlt = lowQualityMat || flatMaterial({ color: shadeColor(skin, -0.12), roughness: 0.98 })
     const clothesMat = lowQualityMat || flatMaterial({ color: clothes, roughness: 1 })
