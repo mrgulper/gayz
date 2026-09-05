@@ -12,7 +12,7 @@ const SHOT_PRESETS = {
 // opengameart.org/content/oldschool-horror-theme) - public domain, no
 // attribution required, credited here anyway.
 const MUSIC_URL = '/audio/oldschool-horror-theme.mp3'
-const MUSIC_VOLUME = 0.32
+const MUSIC_VOLUME = 0.36
 const MUSIC_FADE_MS = 2500
 
 // "Zombies Sound Pack" by artisticdude (CC0, opengameart.org/content/zombies-sound-pack).
@@ -1137,10 +1137,16 @@ class AudioEngine {
 
   _applyMusicVolume() {
     if (!this.music) return
-    // Louder (not just faster) at high threat, on top of whatever the base
-    // fade-in/settings-slider volume already is - capped well under 1 so it
-    // never clips or drowns out SFX even at max intensity.
-    this.music.volume = this.radioMuted ? 0 : MUSIC_VOLUME * this.musicVolume * (0.85 + this.musicIntensity * 0.3)
+    // Mostly quiet during calm exploration, swelling to real presence only
+    // when Game.js's threat score climbs (nearby zombies, a boss, low
+    // health, night just starting) - most survival-horror games lean on
+    // ambience/SFX for calm moments and save actual music for danger,
+    // rather than one unchanging loop the whole time. The curve (not a
+    // straight line) keeps intensity's low end very quiet for longer before
+    // ramping up, and a small floor (not true zero) avoids an audible pop
+    // as intensity crosses in and out of near-silence.
+    const curve = 0.05 + Math.pow(this.musicIntensity, 1.6) * 0.95
+    this.music.volume = this.radioMuted ? 0 : MUSIC_VOLUME * this.musicVolume * curve
   }
 
   // Car Radio toggle - mutes/unmutes the same music track rather than
@@ -1334,3 +1340,7 @@ class AudioEngine {
 }
 
 export const audioEngine = new AudioEngine()
+// Same debug-hook convention as Game.js's own `window.__game = this` (see
+// that file's comment) - lets tests/tools drive or inspect real audio state
+// (e.g. this.music.volume) without reaching into module scope.
+if (typeof window !== 'undefined') window.__audioEngine = audioEngine

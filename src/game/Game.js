@@ -2606,6 +2606,9 @@ const GRAPPLE_COOLDOWN_MS = 1500
 // sharp one-shot sting reads as a distinct, rarer "this is bad" beat on top
 // of (not on every same frame as) the smoother intensity floor.
 const NEAR_DEATH_STINGER_THRESHOLD = 0.15
+// How long the "night just started" music swell lasts before fading back
+// to whatever the real threat score says - see _updateMusicIntensity.
+const NIGHT_START_MUSIC_SWELL_MS = 6000
 // Minecart shortcut (batch 3 feature) - rides the subway's own tunnel
 // length end-to-end. Coordinates mirror World.js's SUBWAY_X/Z_START/
 // Z_END/FLOOR_Y constants directly (not exported/threaded through
@@ -21002,6 +21005,13 @@ export class Game {
     if (this.zombies.zombies.some((z) => z.isBoss && z.state === 'alive')) threat = Math.max(threat, 0.8)
     const healthFrac = this.playerState.maxHealth > 0 ? this.playerState.health / this.playerState.maxHealth : 1
     if (healthFrac < 0.3) threat = Math.max(threat, 0.7)
+    // A deliberate "here we go" swell for the first few seconds of a fresh
+    // night, even before any zombie has actually closed in - otherwise a
+    // night start with nothing nearby yet would stay silent under the new
+    // mostly-quiet baseline (see Audio.js's _applyMusicVolume) and lose the
+    // moment entirely. Fades back to whatever the real threat score says
+    // once the window passes, via the usual lerp below.
+    if (performance.now() - this.nightStartedAt < NIGHT_START_MUSIC_SWELL_MS) threat = Math.max(threat, 0.6)
 
     // Near-death music stinger (batch feature) - the line above already
     // smoothly RAISES the floor once under 30% health; this is a separate,
