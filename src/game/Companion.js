@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { audioEngine } from './Audio.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js'
-import { flatMaterial, flattenedClone } from './QualitySettings.js'
+import { flatMaterial } from './QualitySettings.js'
 
 // Phase 3 of the 3D asset overhaul (see 3D_ASSET_OVERHAUL.md) - real rigged
 // GLB companion (Quaternius "Soldier_Male", asset-source/build-humans.py)
@@ -315,10 +315,32 @@ export class Companion {
     const cloned = cloneSkeleton(_companionModelCache.scene)
     this.group.scale.setScalar(GLB_SCALE_CORRECTION)
 
+    // Flatten every mesh's material to a cheap MeshLambertMaterial
+    // unconditionally (2026-09-05) - independent of LOW_QUALITY_MATERIALS,
+    // same fix as RivalScavenger.js/Zombie.js and for the same underlying
+    // reason (flattenedClone's real-material branch - original.clone() -
+    // is what LOW_QUALITY_MATERIALS=false now takes), but this one is a
+    // correctness fix, not just a performance one: the source GLB's
+    // materials carry opacity:0 + alphaTest:0.5 baked in (an export
+    // artifact, never an issue before today since the cheap branch below
+    // never copies opacity/transparent/alphaTest) - a real clone of the
+    // original material discards every fragment (alpha 0 < the 0.5
+    // threshold) and renders the whole companion invisible. Per-mesh (not
+    // one shared material) since this model has multiple distinctly-
+    // colored parts (Skin/Main/Black/DarkGreen/Face/Helmet) - only "Main"
+    // gets the per-role jacket tint below, matching the original behavior.
     cloned.traverse((child) => {
       if (!child.isMesh) return
       child.castShadow = true
-      child.material = flattenedClone(child.material)
+      const orig = child.material
+      const simple = {}
+      if (orig.name) simple.name = orig.name
+      if (orig.color) simple.color = orig.color.clone()
+      if (orig.map) simple.map = orig.map
+      if (orig.emissive) simple.emissive = orig.emissive.clone()
+      if (orig.emissiveMap) simple.emissiveMap = orig.emissiveMap
+      if (orig.emissiveIntensity !== undefined) simple.emissiveIntensity = orig.emissiveIntensity
+      child.material = new THREE.MeshLambertMaterial(simple)
       if (child.material.name === 'Main') child.material.color.setHex(this.stats.jacket)
     })
 
