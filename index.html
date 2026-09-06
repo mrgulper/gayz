@@ -625,18 +625,6 @@ Escape before dawn.</p>
         <h2 id="settings-title">Settings</h2>
         <span id="settings-saved-indicator">Saved</span>
         <input type="text" id="settings-search-input" placeholder="Search settings..." class="nickname-input" />
-
-        <div id="settings-quick-language-row">
-          <label for="settings-quick-language-select" id="settings-quick-language-label">Language</label>
-          <select id="settings-quick-language-select"></select>
-        </div>
-
-        <div class="settings-tier-switcher" id="settings-tier-switcher">
-          <button class="settings-tier-btn active" data-tier="basic" id="settings-tier-basic">Basic</button>
-          <button class="settings-tier-btn" data-tier="gameplay" id="settings-tier-gameplay">Gameplay</button>
-          <button class="settings-tier-btn" data-tier="advanced" id="settings-tier-advanced">Advanced</button>
-        </div>
-
         <div class="settings-tabs">
           <button class="settings-tab active" data-page="general" id="tab-general">General</button>
           <button class="settings-tab" data-page="language" id="tab-language">Language</button>
@@ -648,14 +636,14 @@ Escape before dawn.</p>
 
         <div class="settings-page" id="settings-page-general">
           <h3 class="settings-section-heading" id="settings-section-hud">HUD</h3>
-          <div class="audio-row" data-tier="gameplay">
+          <div class="audio-row">
             <label for="kill-feed-position-select" id="kill-feed-position-label">Kill Feed Position</label>
             <select id="kill-feed-position-select">
               <option value="right">Top-Right</option>
               <option value="left">Top-Left</option>
             </select>
           </div>
-          <div class="audio-row" data-tier="gameplay">
+          <div class="audio-row">
             <label for="kill-feed-verbosity-select" id="kill-feed-verbosity-label">Kill Feed Verbosity</label>
             <select id="kill-feed-verbosity-select">
               <option value="all">All Kills</option>
@@ -666,7 +654,7 @@ Escape before dawn.</p>
             <label for="kill-feed-icons-toggle" id="kill-feed-icons-label">Kill Feed Icons</label>
             <input type="checkbox" id="kill-feed-icons-toggle" checked />
           </div>
-          <div class="audio-row" data-tier="gameplay">
+          <div class="audio-row">
             <label for="compass-style-select" id="compass-style-label">Compass Style</label>
             <select id="compass-style-select">
               <option value="letters">Letters (N/S/E/W)</option>
@@ -677,7 +665,7 @@ Escape before dawn.</p>
             <label for="weapon-name-hud-toggle" id="weapon-name-hud-label">Show Weapon Name on HUD</label>
             <input type="checkbox" id="weapon-name-hud-toggle" class="audio-checkbox" checked />
           </div>
-          <div class="audio-row" data-tier="gameplay">
+          <div class="audio-row">
             <label for="minimap-zoom-select" id="minimap-zoom-label">Default Minimap Zoom</label>
             <select id="minimap-zoom-select">
               <option value="0">Close</option>
@@ -689,7 +677,7 @@ Escape before dawn.</p>
             <label for="hud-fps-toggle" id="hud-fps-label">Show FPS Counter During Gameplay</label>
             <input type="checkbox" id="hud-fps-toggle" class="audio-checkbox" checked />
           </div>
-          <div class="audio-row" data-tier="gameplay">
+          <div class="audio-row">
             <label for="ammo-position-select" id="ammo-position-label">Ammo Counter Position</label>
             <select id="ammo-position-select">
               <option value="right" selected>Right</option>
@@ -697,7 +685,7 @@ Escape before dawn.</p>
               <option value="center">Center</option>
             </select>
           </div>
-          <div class="audio-row" data-tier="gameplay">
+          <div class="audio-row">
             <label for="health-display-style-select" id="health-display-style-label">Health Display Style</label>
             <select id="health-display-style-select">
               <option value="both" selected>Bar + Number</option>
@@ -829,15 +817,15 @@ Escape before dawn.</p>
           </div>
 
           <h3 class="settings-section-heading" id="settings-section-gameplay">Gameplay</h3>
-          <div class="audio-row" data-tier="gameplay">
+          <div class="audio-row">
             <label for="auto-reload-toggle" id="auto-reload-label">Auto-Reload When Empty</label>
             <input type="checkbox" id="auto-reload-toggle" class="audio-checkbox" checked />
           </div>
-          <div class="audio-row" data-tier="gameplay">
+          <div class="audio-row">
             <label for="auto-loot-toggle" id="auto-loot-label">Auto-Loot (vacuum in nearby pickups)</label>
             <input type="checkbox" id="auto-loot-toggle" class="audio-checkbox" />
           </div>
-          <div class="audio-row" data-tier="gameplay">
+          <div class="audio-row">
             <label for="auto-loot-radius-select" id="auto-loot-radius-label">Auto-Loot Radius</label>
             <select id="auto-loot-radius-select">
               <option value="close">Close</option>
@@ -845,31 +833,31 @@ Escape before dawn.</p>
               <option value="far">Far</option>
             </select>
           </div>
-          <div class="audio-row" data-tier="gameplay">
+          <div class="audio-row">
             <label for="instant-interact-toggle" id="instant-interact-label">Instant Interact at Stations (Skip the Hold)</label>
             <input type="checkbox" id="instant-interact-toggle" class="audio-checkbox" />
           </div>
-          <div class="audio-row" data-tier="gameplay">
+          <div class="audio-row">
             <label for="confirm-quit-toggle" id="confirm-quit-label">Confirm Before Quitting Mid-Run</label>
             <input type="checkbox" id="confirm-quit-toggle" class="audio-checkbox" />
           </div>
 
           <h3 class="settings-section-heading" id="settings-section-accessibility">Accessibility</h3>
-          <div class="audio-row" data-tier="gameplay">
+          <div class="audio-row">
             <label for="damage-flash-color-input" id="damage-flash-color-label">Damage Flash Color</label>
             <input type="color" id="damage-flash-color-input" value="#c80000" />
           </div>
-          <div class="audio-row" data-tier="gameplay">
+          <div class="audio-row">
             <label for="one-handed-toggle" id="one-handed-label">One-Handed Key Layout</label>
             <input type="checkbox" id="one-handed-toggle" class="audio-checkbox" />
           </div>
 
           <h3 class="settings-section-heading" id="settings-section-misc">Misc</h3>
-          <div class="audio-row" data-tier="basic">
+          <div class="audio-row">
             <label for="fullscreen-btn" id="fullscreen-label">Fullscreen</label>
             <button type="button" id="fullscreen-btn" class="mini-action-btn">Enter Fullscreen</button>
           </div>
-          <div class="audio-row" data-tier="gameplay">
+          <div class="audio-row">
             <label for="sort-weapons-toggle" id="sort-weapons-label">Sort Weapons List Alphabetically</label>
             <input type="checkbox" id="sort-weapons-toggle" class="audio-checkbox" />
           </div>
@@ -906,24 +894,24 @@ Escape before dawn.</p>
         </div>
 
         <div class="settings-page" id="settings-page-audio" style="display: none">
-          <div class="audio-row" data-tier="basic">
+          <div class="audio-row">
             <label for="master-volume" id="master-volume-label">Master</label>
             <input type="range" id="master-volume" min="0" max="100" value="100" />
             <span id="master-volume-value" class="audio-value">100%</span>
           </div>
-          <div class="audio-row" data-tier="gameplay">
+          <div class="audio-row">
             <label for="music-volume" id="music-label">Music</label>
             <input type="range" id="music-volume" min="0" max="100" value="100" />
             <span id="music-volume-value" class="audio-value">100%</span>
             <button id="music-test-btn" class="mini-action-btn">Test</button>
           </div>
-          <div class="audio-row" data-tier="gameplay">
+          <div class="audio-row">
             <label for="sfx-volume" id="sfx-label">Sound Effects</label>
             <input type="range" id="sfx-volume" min="0" max="100" value="100" />
             <span id="sfx-volume-value" class="audio-value">100%</span>
             <button id="sfx-test-btn" class="mini-action-btn">Test</button>
           </div>
-          <div class="audio-row" data-tier="gameplay">
+          <div class="audio-row">
             <label for="ambient-volume" id="ambient-volume-label">Ambient/Environment</label>
             <input type="range" id="ambient-volume" min="0" max="100" value="100" />
             <span id="ambient-volume-value" class="audio-value">100%</span>
@@ -1026,12 +1014,12 @@ Escape before dawn.</p>
 
         <div class="settings-page" id="settings-page-controls" style="display: none">
           <h3 class="settings-section-heading" id="settings-section-movement-aim">Movement &amp; Aim</h3>
-          <div class="audio-row" data-tier="basic">
+          <div class="audio-row">
             <label for="sensitivity-slider" id="sensitivity-label">Sensitivity</label>
             <input type="range" id="sensitivity-slider" min="20" max="300" value="100" />
             <span id="sensitivity-value" class="audio-value">100%</span>
           </div>
-          <div class="audio-row" data-tier="basic">
+          <div class="audio-row">
             <label for="invert-y-toggle" id="invert-y-label">Invert Look (Y-axis)</label>
             <input type="checkbox" id="invert-y-toggle" class="audio-checkbox" />
           </div>
@@ -1070,19 +1058,19 @@ Escape before dawn.</p>
             <input type="checkbox" id="gamepad-vibration-toggle" class="audio-checkbox" checked />
           </div>
 
-          <div class="audio-row" data-tier="gameplay">
+          <div class="audio-row">
             <label for="toggle-sprint-toggle" id="toggle-sprint-label">Toggle to Sprint (instead of hold)</label>
             <input type="checkbox" id="toggle-sprint-toggle" class="audio-checkbox" />
           </div>
-          <div class="audio-row" data-tier="gameplay">
+          <div class="audio-row">
             <label for="toggle-crouch-toggle" id="toggle-crouch-label">Toggle to Crouch (instead of hold)</label>
             <input type="checkbox" id="toggle-crouch-toggle" class="audio-checkbox" />
           </div>
-          <div class="audio-row" data-tier="gameplay">
+          <div class="audio-row">
             <label for="toggle-ads-toggle" id="toggle-ads-label">Toggle to Aim (instead of hold)</label>
             <input type="checkbox" id="toggle-ads-toggle" class="audio-checkbox" />
           </div>
-          <div class="audio-row" data-tier="gameplay">
+          <div class="audio-row">
             <label for="aim-assist-toggle" id="aim-assist-label">Aim Assist (more forgiving hit detection)</label>
             <input type="checkbox" id="aim-assist-toggle" class="audio-checkbox" />
           </div>
@@ -1107,16 +1095,16 @@ Escape before dawn.</p>
             <input type="range" id="hud-opacity-slider" min="30" max="100" value="100" />
             <span id="hud-opacity-value" class="audio-value">100%</span>
           </div>
-          <div class="audio-row" data-tier="gameplay">
+          <div class="audio-row">
             <label for="crosshair-color-picker" id="crosshair-color-label">Crosshair Color</label>
             <input type="color" id="crosshair-color-picker" value="#ffffff" />
           </div>
-          <div class="audio-row" data-tier="gameplay">
+          <div class="audio-row">
             <label for="crosshair-size-slider" id="crosshair-size-label">Crosshair Size</label>
             <input type="range" id="crosshair-size-slider" min="50" max="250" value="100" />
             <span id="crosshair-size-value" class="audio-value">100%</span>
           </div>
-          <div class="audio-row" data-tier="gameplay">
+          <div class="audio-row">
             <label for="hit-feedback-toggle" id="hit-feedback-label">Show Hit Feedback (hitmarker &amp; damage numbers)</label>
             <input type="checkbox" id="hit-feedback-toggle" class="audio-checkbox" />
           </div>
@@ -1128,7 +1116,7 @@ Escape before dawn.</p>
             <label for="keybind-cheatsheet-toggle" id="keybind-cheatsheet-label">Show Keybind Cheat Sheet (in-game)</label>
             <input type="checkbox" id="keybind-cheatsheet-toggle" class="audio-checkbox" />
           </div>
-          <div class="audio-row" data-tier="basic">
+          <div class="audio-row">
             <label for="performance-toggle" id="performance-label">FPS Optimized (lower graphics quality)</label>
             <input type="checkbox" id="performance-toggle" class="audio-checkbox" />
           </div>

@@ -317,7 +317,6 @@ function loadSettings() {
       exactLastSeen: parsed.exactLastSeen ?? false,
       rememberSettingsTab: parsed.rememberSettingsTab ?? false,
       lastSettingsTab: parsed.lastSettingsTab || 'general',
-      settingsTier: parsed.settingsTier || 'basic',
       confirmRemoveFriend: parsed.confirmRemoveFriend ?? false,
       reduceBgEffects: parsed.reduceBgEffects ?? false,
       autoReloadOnEmpty: parsed.autoReloadOnEmpty ?? true,
@@ -572,7 +571,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, gamepadDeadzone: 20, gamepadVibration: true, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', settingsTier: 'basic', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, autoLootRadius: 'medium', instantStationInteract: false, confirmQuitRun: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, touchControlsOverride: 'auto', clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'golden', lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
+  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, gamepadDeadzone: 20, gamepadVibration: true, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, autoLootRadius: 'medium', instantStationInteract: false, confirmQuitRun: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, touchControlsOverride: 'auto', clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'golden', lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -2508,10 +2507,6 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'settings-section-gamepad': 'settingsSectionGamepad',
   'settings-section-personalization': 'settingsSectionPersonalization',
   'settings-section-theme': 'settingsSectionTheme',
-  'settings-quick-language-label': 'tabLanguage',
-  'settings-tier-basic': 'settingsTierBasic',
-  'settings-tier-gameplay': 'settingsTierGameplay',
-  'settings-tier-advanced': 'settingsTierAdvanced',
   'community-builds-title': 'communityBuildsTitle',
   'chat-tab-global': 'chatTabGlobal',
   'chat-tab-clan': 'chatTabClan',
@@ -8911,59 +8906,6 @@ export class Game {
     audioEngine.setAmbientVolume(master * (this.settings.ambientVolume / 100))
   }
 
-  // Shared by the full Language-tab grid and the quick picker pinned above
-  // the tier switcher (see _applySettingsTier) - single source of truth so
-  // the two pickers can't drift out of sync with each other.
-  _switchLanguage(code) {
-    this.settings.language = code
-    if (code !== 'en') this.settings.quickLanguageAlt = code
-    saveSettings(this.settings)
-    setLanguage(code)
-    this._applyLanguage()
-    if (this.languageGrid) {
-      for (const el of this.languageGrid.querySelectorAll('.language-btn')) {
-        el.classList.toggle('active', el.dataset.lang === code)
-      }
-    }
-    if (this.quickLanguageSelect) this.quickLanguageSelect.value = code
-  }
-
-  // Basic/Gameplay/Advanced tier switcher. Rows and whole tabs are hidden
-  // via CSS classes on .settings-tabs (see style.css) rather than moved or
-  // removed - nothing about their wiring changes, so Advanced always shows
-  // the exact same panel that existed before this feature.
-  _applySettingsTier(tier) {
-    const panel = document.getElementById('settings-panel')
-    if (!panel) return
-    panel.classList.remove('tier-basic', 'tier-gameplay', 'tier-advanced')
-    panel.classList.add(`tier-${tier}`)
-    if (this.settingsTierSwitcher) {
-      for (const btn of this.settingsTierSwitcher.querySelectorAll('.settings-tier-btn')) {
-        btn.classList.toggle('active', btn.dataset.tier === tier)
-      }
-    }
-    const activeTab = document.querySelector('.settings-tab.active')
-    if (activeTab && getComputedStyle(activeTab).display === 'none') {
-      document.getElementById('tab-general')?.click()
-    }
-    // A section heading (e.g. "HUD", "Notifications") whose rows are ALL
-    // hidden at this tier would otherwise sit on screen with nothing under
-    // it - hide those too, by checking each heading's following siblings
-    // up to the next heading.
-    for (const heading of document.querySelectorAll('.settings-section-heading')) {
-      let hasVisibleContent = false
-      let el = heading.nextElementSibling
-      while (el && !el.classList.contains('settings-section-heading')) {
-        if (getComputedStyle(el).display !== 'none') {
-          hasVisibleContent = true
-          break
-        }
-        el = el.nextElementSibling
-      }
-      heading.style.display = hasVisibleContent ? '' : 'none'
-    }
-  }
-
   _bindSettings() {
     this.languageGrid.innerHTML = LANGUAGES.map((lang) => `
       <button class="language-btn${lang.code === this.settings.language ? ' active' : ''}" data-lang="${lang.code}">
@@ -8975,28 +8917,16 @@ export class Game {
     this.languageGrid.addEventListener('click', (e) => {
       const btn = e.target.closest('.language-btn')
       if (!btn) return
-      this._switchLanguage(btn.dataset.lang)
-    })
-
-    this.quickLanguageSelect = document.getElementById('settings-quick-language-select')
-    if (this.quickLanguageSelect) {
-      this.quickLanguageSelect.innerHTML = LANGUAGES.map((lang) =>
-        `<option value="${lang.code}"${lang.code === this.settings.language ? ' selected' : ''}>${lang.native}</option>`
-      ).join('')
-      this.quickLanguageSelect.addEventListener('change', (e) => this._switchLanguage(e.target.value))
-    }
-
-    this.settingsTierSwitcher = document.getElementById('settings-tier-switcher')
-    if (this.settingsTierSwitcher) {
-      for (const btn of this.settingsTierSwitcher.querySelectorAll('.settings-tier-btn')) {
-        btn.addEventListener('click', () => {
-          this.settings.settingsTier = btn.dataset.tier
-          saveSettings(this.settings)
-          this._applySettingsTier(btn.dataset.tier)
-        })
+      this.settings.language = btn.dataset.lang
+      // Remembered for #quick-language-btn's English<->alt toggle.
+      if (btn.dataset.lang !== 'en') this.settings.quickLanguageAlt = btn.dataset.lang
+      saveSettings(this.settings)
+      setLanguage(this.settings.language)
+      this._applyLanguage()
+      for (const el of this.languageGrid.querySelectorAll('.language-btn')) {
+        el.classList.toggle('active', el === btn)
       }
-    }
-    this._applySettingsTier(this.settings.settingsTier || 'basic')
+    })
 
     for (const tab of document.querySelectorAll('.settings-tab')) {
       tab.addEventListener('click', () => {
