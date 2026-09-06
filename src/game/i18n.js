@@ -1918,6 +1918,9 @@ const STRINGS = {
     hubSectionGameModes: 'Game Modes',
     hubSectionChallengesMutators: 'Challenges & Mutators',
     yourStatsTitle: 'Your Stats',
+    settingsTierBasic: 'Basic',
+    settingsTierGameplay: 'Gameplay',
+    settingsTierAdvanced: 'Advanced',
   },
   zh: {
     menuSubtitle: '破败的街区——生存、搜寻、射击',
@@ -3718,6 +3721,9 @@ const STRINGS = {
     hubSectionGameModes: '游戏模式',
     hubSectionChallengesMutators: '挑战与突变',
     yourStatsTitle: '你的数据',
+    settingsTierBasic: '基础',
+    settingsTierGameplay: '玩法',
+    settingsTierAdvanced: '高级',
   },
   hi: {
     menuSubtitle: 'टूटा हुआ शहरी इलाका — बचें, सामान खोजें, गोली चलाएँ',
@@ -5518,6 +5524,9 @@ const STRINGS = {
     hubSectionGameModes: 'गेम मोड्स',
     hubSectionChallengesMutators: 'चैलेंजेस और म्यूटेटर',
     yourStatsTitle: 'आपके आँकड़े',
+    settingsTierBasic: 'बेसिक',
+    settingsTierGameplay: 'गेमप्ले',
+    settingsTierAdvanced: 'एडवांस्ड',
   },
   es: {
     menuSubtitle: 'Manzana urbana destruida — sobrevive, saquea, dispara',
@@ -7318,6 +7327,9 @@ const STRINGS = {
     hubSectionGameModes: 'Modos de Juego',
     hubSectionChallengesMutators: 'Desafíos y Mutadores',
     yourStatsTitle: 'Tus Estadísticas',
+    settingsTierBasic: 'Básico',
+    settingsTierGameplay: 'Jugabilidad',
+    settingsTierAdvanced: 'Avanzado',
   },
   fr: {
     menuSubtitle: 'Quartier urbain dévasté — survivez, pillez, tirez',
@@ -7438,6 +7450,9 @@ const STRINGS = {
     menuTagline: 'Survivez. Fouillez. Découvrez la vérité.',
     languageMissingHint: 'Vous ne voyez pas votre langue ? Rejoignez le {discord} et dites-nous quelle langue vous voulez.',
     gamemodeBtn: 'Mode de Jeu',
+    settingsTierBasic: 'Basique',
+    settingsTierGameplay: 'Gameplay',
+    settingsTierAdvanced: 'Avancé',
   },
   ar: {
     menuSubtitle: 'حي مدمر — انجُ، اجمع الموارد، أطلق النار',
@@ -7558,6 +7573,9 @@ const STRINGS = {
     menuTagline: 'انجُ. ابحث عن الغنائم. اكتشف الحقيقة.',
     languageMissingHint: 'لا ترى لغتك؟ انضم إلى {discord} وأخبرنا بلغتك.',
     gamemodeBtn: 'وضع اللعبة',
+    settingsTierBasic: 'أساسي',
+    settingsTierGameplay: 'طريقة اللعب',
+    settingsTierAdvanced: 'متقدم',
   },
   bn: {
     menuSubtitle: 'ভাঙাচোরা শহুরে এলাকা — বেঁচে থাকো, সংগ্রহ করো, গুলি চালাও',
@@ -7678,6 +7696,9 @@ const STRINGS = {
     menuTagline: 'বেঁচে থাকো। খুঁজে বের করো। সত্য আবিষ্কার করো।',
     languageMissingHint: 'আপনার ভাষা দেখতে পাচ্ছেন না? {discord}-এ যোগ দিন এবং আমাদের আপনার ভাষা জানান।',
     gamemodeBtn: 'গেম মোড',
+    settingsTierBasic: 'বেসিক',
+    settingsTierGameplay: 'গেমপ্লে',
+    settingsTierAdvanced: 'অ্যাডভান্সড',
   },
   ru: {
     menuSubtitle: 'Разрушенный городской квартал — выживай, добывай, стреляй',
@@ -7798,6 +7819,9 @@ const STRINGS = {
     menuTagline: 'Выживай. Добывай. Узнай правду.',
     languageMissingHint: 'Не нашли свой язык? Присоединяйтесь к {discord} и сообщите нам свой язык.',
     gamemodeBtn: 'Режим Игры',
+    settingsTierBasic: 'Базовые',
+    settingsTierGameplay: 'Геймплей',
+    settingsTierAdvanced: 'Расширенные',
   },
   pt: {
     menuSubtitle: 'Quarteirão urbano destruído — sobreviva, saqueie, atire',
@@ -7918,6 +7942,9 @@ const STRINGS = {
     menuTagline: 'Sobreviva. Saqueie. Descubra a verdade.',
     languageMissingHint: 'Não encontrou o seu idioma? Entre no {discord} e nos diga o seu idioma.',
     gamemodeBtn: 'Modo de Jogo',
+    settingsTierBasic: 'Básico',
+    settingsTierGameplay: 'Jogabilidade',
+    settingsTierAdvanced: 'Avançado',
   },
   ur: {
     menuSubtitle: 'تباہ شدہ شہری علاقہ — زندہ رہو، سامان اکٹھا کرو، فائر کرو',
@@ -8038,6 +8065,9 @@ const STRINGS = {
     menuTagline: 'زندہ رہو۔ سامان تلاش کرو۔ سچائی دریافت کرو۔',
     languageMissingHint: 'اپنی زبان نظر نہیں آ رہی؟ {discord} میں شامل ہوں اور ہمیں اپنی زبان بتائیں۔',
     gamemodeBtn: 'گیم موڈ',
+    settingsTierBasic: 'بنیادی',
+    settingsTierGameplay: 'گیم پلے',
+    settingsTierAdvanced: 'ایڈوانسڈ',
   },
   id: {
     menuSubtitle: 'Blok kota yang hancur — bertahan hidup, cari perbekalan, tembak',
@@ -8158,6 +8188,9 @@ const STRINGS = {
     menuTagline: 'Bertahan hidup. Jelajahi. Temukan kebenarannya.',
     languageMissingHint: 'Tidak menemukan bahasa Anda? Gabung ke {discord} dan beri tahu kami bahasa Anda.',
     gamemodeBtn: 'Mode Permainan',
+    settingsTierBasic: 'Dasar',
+    settingsTierGameplay: 'Gameplay',
+    settingsTierAdvanced: 'Lanjutan',
   },
   de: {
     menuSubtitle: 'Zerstörter Stadtblock — überleben, plündern, schießen',
@@ -8278,6 +8311,9 @@ const STRINGS = {
     menuTagline: 'Überlebe. Plündere. Entdecke die Wahrheit.',
     languageMissingHint: 'Deine Sprache ist nicht dabei? Tritt dem {discord} bei und sag uns deine Sprache.',
     gamemodeBtn: 'Spielmodus',
+    settingsTierBasic: 'Basis',
+    settingsTierGameplay: 'Gameplay',
+    settingsTierAdvanced: 'Erweitert',
   },
   ja: {
     menuSubtitle: '崩壊した市街地——生き延び、物資を漁り、撃て',
@@ -8398,6 +8434,9 @@ const STRINGS = {
     menuTagline: '生き延びろ。漁れ。真実を暴け。',
     languageMissingHint: 'あなたの言語が見つかりませんか？{discord} に参加して教えてください。',
     gamemodeBtn: 'ゲームモード',
+    settingsTierBasic: '基本',
+    settingsTierGameplay: 'ゲームプレイ',
+    settingsTierAdvanced: '詳細設定',
   },
   pcm: {
     menuSubtitle: 'Broken city area — survive, find loot, dey shoot',
@@ -8518,6 +8557,9 @@ const STRINGS = {
     menuTagline: 'Survive. Scavenge. Find out di truth.',
     languageMissingHint: 'You no see your language? Join di {discord} make you tell us your language.',
     gamemodeBtn: 'Game Mode',
+    settingsTierBasic: 'Simple',
+    settingsTierGameplay: 'How di Game Dey Play',
+    settingsTierAdvanced: 'Advanced',
   },
   mr: {
     menuSubtitle: 'उद्ध्वस्त शहरी भाग — जिवंत राहा, वस्तू शोधा, गोळी झाडा',
@@ -8638,6 +8680,9 @@ const STRINGS = {
     menuTagline: 'जगून राहा. शोधा. सत्य शोधून काढा.',
     languageMissingHint: 'तुमची भाषा दिसत नाही? {discord} मध्ये सामील व्हा आणि आम्हाला तुमची भाषा सांगा.',
     gamemodeBtn: 'गेम मोड',
+    settingsTierBasic: 'बेसिक',
+    settingsTierGameplay: 'गेमप्ले',
+    settingsTierAdvanced: 'अ‍ॅडव्हान्स्ड',
   },
   te: {
     menuSubtitle: 'ధ్వంసమైన నగర ప్రాంతం — బతకండి, వస్తువులు వెతకండి, కాల్చండి',
@@ -8758,6 +8803,9 @@ const STRINGS = {
     menuTagline: 'జీవించండి. వెతకండి. నిజాన్ని కనుగొనండి.',
     languageMissingHint: 'మీ భాష కనిపించడం లేదా? {discord}లో చేరి మీ భాషను మాకు తెలియజేయండి.',
     gamemodeBtn: 'గేమ్ మోడ్',
+    settingsTierBasic: 'బేసిక్',
+    settingsTierGameplay: 'గేమ్‌ప్లే',
+    settingsTierAdvanced: 'అడ్వాన్స్‌డ్',
   },
   tr: {
     menuSubtitle: 'Yıkık şehir bloğu — hayatta kal, yağmala, ateş et',
@@ -8878,6 +8926,9 @@ const STRINGS = {
     menuTagline: 'Hayatta kal. Yağmala. Gerçeği keşfet.',
     languageMissingHint: 'Dilinizi görmüyor musunuz? {discord}\'a katılın ve bize dilinizi söyleyin.',
     gamemodeBtn: 'Oyun Modu',
+    settingsTierBasic: 'Temel',
+    settingsTierGameplay: 'Oynanış',
+    settingsTierAdvanced: 'Gelişmiş',
   },
   yue: {
     menuSubtitle: '破敗嘅市區——生存、搵嘢、開槍',
@@ -8998,6 +9049,9 @@ const STRINGS = {
     menuTagline: '生存。搵嘢。發現真相。',
     languageMissingHint: '搵唔到你嘅語言？加入 {discord} 話俾我哋知你想要邊種語言。',
     gamemodeBtn: '遊戲模式',
+    settingsTierBasic: '基本',
+    settingsTierGameplay: '玩法',
+    settingsTierAdvanced: '進階',
   },
   vi: {
     menuSubtitle: 'Khu phố đổ nát.\nThu thập vật tư. Sống sót qua đám nhiễm bệnh.\nThoát trước bình minh.',
@@ -9118,6 +9172,9 @@ const STRINGS = {
     menuTagline: 'Sống Sót. Thu Thập. Khám Phá Sự Thật.',
     languageMissingHint: 'Không thấy ngôn ngữ của bạn? Tham gia {discord} và cho chúng tôi biết ngôn ngữ bạn cần.',
     gamemodeBtn: 'Chế Độ Chơi',
+    settingsTierBasic: 'Cơ Bản',
+    settingsTierGameplay: 'Lối Chơi',
+    settingsTierAdvanced: 'Nâng Cao',
   },
   pa: {
     menuSubtitle: 'ਤਬਾਹ ਹੋਇਆ ਸ਼ਹਿਰੀ ਇਲਾਕਾ — ਬਚੋ, ਸਮਾਨ ਲੱਭੋ, ਗੋਲੀ ਚਲਾਓ',
@@ -9238,6 +9295,9 @@ const STRINGS = {
     menuTagline: 'ਜ਼ਿੰਦਾ ਰਹੋ। ਲੱਭੋ। ਸੱਚ ਦਾ ਪਤਾ ਲਗਾਓ।',
     languageMissingHint: 'ਤੁਹਾਡੀ ਭਾਸ਼ਾ ਨਹੀਂ ਦਿਸ ਰਹੀ? {discord} ਵਿੱਚ ਸ਼ਾਮਲ ਹੋਵੋ ਅਤੇ ਸਾਨੂੰ ਆਪਣੀ ਭਾਸ਼ਾ ਦੱਸੋ।',
     gamemodeBtn: 'ਗੇਮ ਮੋਡ',
+    settingsTierBasic: 'ਬੇਸਿਕ',
+    settingsTierGameplay: 'ਗੇਮਪਲੇ',
+    settingsTierAdvanced: 'ਐਡਵਾਂਸਡ',
   },
 }
 
