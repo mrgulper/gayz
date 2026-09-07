@@ -2691,7 +2691,7 @@ html.third-person-active #companion-bark {
 #credits-panel .panel-box,
 #howtoplay-panel .panel-box,
 #whatsnew-panel .panel-box {
-  width: min(960px, 94vw);
+  width: min(1080px, 96vw);
 }
 
 .panel-box {
