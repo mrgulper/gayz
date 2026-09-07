@@ -2690,7 +2690,8 @@ html.third-person-active #companion-bark {
    the box now needs to size around both children together. */
 #credits-panel .panel-box,
 #howtoplay-panel .panel-box,
-#whatsnew-panel .panel-box {
+#whatsnew-panel .panel-box,
+#shop-panel .panel-box {
   width: min(1080px, 96vw);
 }
 
