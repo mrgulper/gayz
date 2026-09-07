@@ -2689,12 +2689,9 @@ html.third-person-active #companion-bark {
    separate box. Width lives here (not on the -content div anymore) since
    the box now needs to size around both children together. */
 #credits-panel .panel-box,
-#howtoplay-panel .panel-box {
-  width: min(960px, 94vw);
-}
-
+#howtoplay-panel .panel-box,
 #whatsnew-panel .panel-box {
-  width: min(1080px, 96vw);
+  width: min(960px, 94vw);
 }
 
 .panel-box {
