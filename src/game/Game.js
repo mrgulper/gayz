@@ -8955,6 +8955,17 @@ export class Game {
       })
     }
 
+    // Upgrades panel tab strip (Upgrades/Special Ammo Guide) - same isolated
+    // class/loop pattern as the quest tabs above.
+    for (const tab of document.querySelectorAll('.upgrades-tab')) {
+      tab.addEventListener('click', () => {
+        for (const tabEl of document.querySelectorAll('.upgrades-tab')) tabEl.classList.toggle('active', tabEl === tab)
+        for (const page of document.querySelectorAll('.upgrades-tab-page')) {
+          page.style.display = page.id === `upgrades-page-${tab.dataset.upgradesPage}` ? 'flex' : 'none'
+        }
+      })
+    }
+
     // Hub panel tab strip (Zombie Survival/Deathmatch) - same isolated
     // class/loop pattern as the quest tabs above.
     for (const tab of document.querySelectorAll('.hub-tab')) {

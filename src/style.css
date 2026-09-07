@@ -7713,6 +7713,40 @@ html.ui-theme-old #settings-panel h2 {
   width: 100%;
 }
 
+.upgrades-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.upgrades-tab {
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.upgrades-tab.active {
+  color: #0c130c;
+  background: #e3c23c;
+  border-color: #e3c23c;
+}
+
+.upgrades-tab-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+}
+
 /* Inventory panel tab strip (Character/Crates/Weapons) - same reasoning
    as .quest-tabs above: kept as its own class so it doesn't get swept
    into the settings-tab/quest-tab click handlers' global .class queries. */

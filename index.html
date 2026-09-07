@@ -1790,8 +1790,12 @@ Escape before dawn.</p>
         <div class="panel-box">
           <h2 id="upgrades-panel-title">Permanent Upgrades</h2>
 
-          <div id="upgrades-section">
-            <h3 id="upgrades-section-heading">Upgrades</h3>
+          <div class="upgrades-tabs">
+            <button class="upgrades-tab active" data-upgrades-page="upgrades" id="upgrades-tab-upgrades">Upgrades</button>
+            <button class="upgrades-tab" data-upgrades-page="ammo" id="upgrades-tab-ammo">Special Ammo Guide</button>
+          </div>
+
+          <div class="upgrades-tab-page" id="upgrades-page-upgrades">
             <div id="upgrades-points-line"></div>
             <div class="perk-options" id="upgrades-options"></div>
 
@@ -1804,8 +1808,7 @@ Escape before dawn.</p>
             </div>
           </div>
 
-          <div id="special-ammo-section">
-            <h3 class="settings-section-heading" id="ammo-guide-heading">Special Ammo Guide</h3>
+          <div class="upgrades-tab-page" id="upgrades-page-ammo" style="display: none">
             <p class="menu-hint-line" id="ammo-guide-hint">Coming Soon - not purchasable yet, this just explains what each one will do.</p>
             <div class="attachment-guide-list">
               <div class="attachment-guide-row">
