@@ -1787,75 +1787,77 @@ Escape before dawn.</p>
       </div>
 
       <div id="upgrades-panel">
-        <h2 id="upgrades-panel-title">Permanent Upgrades</h2>
-        <div id="upgrades-points-line"></div>
-        <div class="perk-options" id="upgrades-options"></div>
+        <div class="panel-box">
+          <h2 id="upgrades-panel-title">Permanent Upgrades</h2>
+          <div id="upgrades-points-line"></div>
+          <div class="perk-options" id="upgrades-options"></div>
 
-        <h3 class="settings-section-heading" id="ammo-guide-heading">Special Ammo Guide</h3>
-        <p class="menu-hint-line" id="ammo-guide-hint">Coming Soon - not purchasable yet, this just explains what each one will do.</p>
-        <div class="attachment-guide-list">
-          <div class="attachment-guide-row">
-            <span class="attachment-guide-name" id="ammo-guide-incendiary-name">Incendiary Rounds</span>
-            <span class="attachment-guide-desc" id="ammo-guide-incendiary-desc">Sets zombies on fire, dealing burn damage over time.</span>
+          <h3 class="settings-section-heading" id="ammo-guide-heading">Special Ammo Guide</h3>
+          <p class="menu-hint-line" id="ammo-guide-hint">Coming Soon - not purchasable yet, this just explains what each one will do.</p>
+          <div class="attachment-guide-list">
+            <div class="attachment-guide-row">
+              <span class="attachment-guide-name" id="ammo-guide-incendiary-name">Incendiary Rounds</span>
+              <span class="attachment-guide-desc" id="ammo-guide-incendiary-desc">Sets zombies on fire, dealing burn damage over time.</span>
+            </div>
+            <div class="attachment-guide-row">
+              <span class="attachment-guide-name" id="ammo-guide-ricochet-name">Ricochet Rounds</span>
+              <span class="attachment-guide-desc" id="ammo-guide-ricochet-desc">Bullets bounce to a nearby zombie after the hit, spreading some damage to a second target.</span>
+            </div>
+            <div class="attachment-guide-row">
+              <span class="attachment-guide-name" id="ammo-guide-armorpiercing-name">Armor-Piercing Rounds</span>
+              <span class="attachment-guide-desc" id="ammo-guide-armorpiercing-desc">Ignores a zombie's shield/armor instead of getting blocked by it.</span>
+            </div>
+            <div class="attachment-guide-row">
+              <span class="attachment-guide-name" id="ammo-guide-precision-name">Precision Rounds</span>
+              <span class="attachment-guide-desc" id="ammo-guide-precision-desc">25% chance per hit to land a critical hit for extra damage.</span>
+            </div>
+            <div class="attachment-guide-row">
+              <span class="attachment-guide-name" id="ammo-guide-electric-name">Electric Rounds</span>
+              <span class="attachment-guide-desc" id="ammo-guide-electric-desc">Chain-stuns the nearest other zombie near your target (not the one you hit).</span>
+            </div>
+            <div class="attachment-guide-row">
+              <span class="attachment-guide-name" id="ammo-guide-acid-name">Acid Rounds</span>
+              <span class="attachment-guide-desc" id="ammo-guide-acid-desc">Corrodes the zombie, making it take more damage for a while after being hit.</span>
+            </div>
+            <div class="attachment-guide-row">
+              <span class="attachment-guide-name" id="ammo-guide-cryo-name">Cryo Rounds</span>
+              <span class="attachment-guide-desc" id="ammo-guide-cryo-desc">Fully freezes the zombie in place for a few seconds.</span>
+            </div>
           </div>
-          <div class="attachment-guide-row">
-            <span class="attachment-guide-name" id="ammo-guide-ricochet-name">Ricochet Rounds</span>
-            <span class="attachment-guide-desc" id="ammo-guide-ricochet-desc">Bullets bounce to a nearby zombie after the hit, spreading some damage to a second target.</span>
-          </div>
-          <div class="attachment-guide-row">
-            <span class="attachment-guide-name" id="ammo-guide-armorpiercing-name">Armor-Piercing Rounds</span>
-            <span class="attachment-guide-desc" id="ammo-guide-armorpiercing-desc">Ignores a zombie's shield/armor instead of getting blocked by it.</span>
-          </div>
-          <div class="attachment-guide-row">
-            <span class="attachment-guide-name" id="ammo-guide-precision-name">Precision Rounds</span>
-            <span class="attachment-guide-desc" id="ammo-guide-precision-desc">25% chance per hit to land a critical hit for extra damage.</span>
-          </div>
-          <div class="attachment-guide-row">
-            <span class="attachment-guide-name" id="ammo-guide-electric-name">Electric Rounds</span>
-            <span class="attachment-guide-desc" id="ammo-guide-electric-desc">Chain-stuns the nearest other zombie near your target (not the one you hit).</span>
-          </div>
-          <div class="attachment-guide-row">
-            <span class="attachment-guide-name" id="ammo-guide-acid-name">Acid Rounds</span>
-            <span class="attachment-guide-desc" id="ammo-guide-acid-desc">Corrodes the zombie, making it take more damage for a while after being hit.</span>
-          </div>
-          <div class="attachment-guide-row">
-            <span class="attachment-guide-name" id="ammo-guide-cryo-name">Cryo Rounds</span>
-            <span class="attachment-guide-desc" id="ammo-guide-cryo-desc">Fully freezes the zombie in place for a few seconds.</span>
-          </div>
-        </div>
 
-        <div id="prestige-section" style="display: none">
-          <p id="prestige-level-line"></p>
-          <button id="prestige-btn">Prestige</button>
+          <div id="prestige-section" style="display: none">
+            <p id="prestige-level-line"></p>
+            <button id="prestige-btn">Prestige</button>
+          </div>
+          <div id="respec-section" style="display: none">
+            <button id="respec-btn">Respec Upgrades</button>
+          </div>
         </div>
-        <div id="respec-section" style="display: none">
-          <button id="respec-btn">Respec Upgrades</button>
-        </div>
-        <p class="panel-close-hint">Click anywhere to close</p>
       </div>
 
       <div id="quests-panel">
-        <h2 id="quests-panel-title">Quests</h2>
-        <div class="quest-tabs">
-          <button class="quest-tab active" data-quest-page="rolling" id="quest-tab-rolling">Quests</button>
-          <button class="quest-tab" data-quest-page="monthly" id="quest-tab-monthly">Monthly Quests</button>
-          <button class="quest-tab" data-quest-page="yearly" id="quest-tab-yearly">Yearly Quest</button>
-          <button class="quest-tab" data-quest-page="lifetime" id="quest-tab-lifetime">Lifetime Quest</button>
+        <div class="panel-box">
+          <h2 id="quests-panel-title">Quests</h2>
+          <div class="quest-tabs">
+            <button class="quest-tab active" data-quest-page="rolling" id="quest-tab-rolling">Quests</button>
+            <button class="quest-tab" data-quest-page="monthly" id="quest-tab-monthly">Monthly Quests</button>
+            <button class="quest-tab" data-quest-page="yearly" id="quest-tab-yearly">Yearly Quest</button>
+            <button class="quest-tab" data-quest-page="lifetime" id="quest-tab-lifetime">Lifetime Quest</button>
+          </div>
+          <div class="quest-tab-page" id="quests-page-rolling">
+            <p id="rolling-quests-subtitle" class="menu-best-stats"></p>
+            <div class="perk-options" id="rolling-quests-options"></div>
+          </div>
+          <div class="quest-tab-page" id="quests-page-monthly" style="display: none">
+            <p id="monthly-quests-placeholder">Coming soon.</p>
+          </div>
+          <div class="quest-tab-page" id="quests-page-yearly" style="display: none">
+            <p id="yearly-quests-placeholder">Coming soon.</p>
+          </div>
+          <div class="quest-tab-page" id="quests-page-lifetime" style="display: none">
+            <div class="perk-options" id="quests-options"></div>
+          </div>
         </div>
-        <div class="quest-tab-page" id="quests-page-rolling">
-          <p id="rolling-quests-subtitle" class="menu-best-stats"></p>
-          <div class="perk-options" id="rolling-quests-options"></div>
-        </div>
-        <div class="quest-tab-page" id="quests-page-monthly" style="display: none">
-          <p id="monthly-quests-placeholder">Coming soon.</p>
-        </div>
-        <div class="quest-tab-page" id="quests-page-yearly" style="display: none">
-          <p id="yearly-quests-placeholder">Coming soon.</p>
-        </div>
-        <div class="quest-tab-page" id="quests-page-lifetime" style="display: none">
-          <div class="perk-options" id="quests-options"></div>
-        </div>
-        <p class="panel-close-hint">Click anywhere to close</p>
       </div>
 
       <div id="share-panel">
@@ -1869,33 +1871,34 @@ Escape before dawn.</p>
       </div>
 
       <div id="achievements-panel">
-        <h2 id="achievements-panel-title">Achievements</h2>
-        <div class="achievements-mode-tabs" id="achievements-mode-tabs">
-          <button class="achievements-mode-tab active" data-achievements-mode="survival" id="achievements-tab-survival">Zombie Survival</button>
-          <button class="achievements-mode-tab" data-achievements-mode="deathmatch" id="achievements-tab-deathmatch">Deathmatch</button>
+        <div class="panel-box">
+          <h2 id="achievements-panel-title">Achievements</h2>
+          <div class="achievements-mode-tabs" id="achievements-mode-tabs">
+            <button class="achievements-mode-tab active" data-achievements-mode="survival" id="achievements-tab-survival">Zombie Survival</button>
+            <button class="achievements-mode-tab" data-achievements-mode="deathmatch" id="achievements-tab-deathmatch">Deathmatch</button>
+          </div>
+          <input type="text" id="achievements-filter-input" class="nickname-input" placeholder="Search achievements..." />
+          <div id="achievements-controls-row">
+            <label for="achievements-category-select" id="achievements-category-label">Category:</label>
+            <select id="achievements-category-select">
+              <option value="all">All</option>
+              <option value="combat">Combat</option>
+              <option value="survival">Survival</option>
+              <option value="exploration">Exploration</option>
+              <option value="story">Story</option>
+              <option value="collection">Collection</option>
+            </select>
+            <label for="achievements-sort-select" id="achievements-sort-label">Sort:</label>
+            <select id="achievements-sort-select">
+              <option value="default">Default</option>
+              <option value="achieved">Achieved Achievements</option>
+              <option value="incomplete">Incomplete Achievements</option>
+            </select>
+          </div>
+          <div class="perk-options" id="achievements-options"></div>
+          <p id="achievements-deathmatch-placeholder" style="display: none">Coming soon.</p>
+          <button id="print-achievements-btn" class="mini-action-btn" type="button">Print Achievements List</button>
         </div>
-        <input type="text" id="achievements-filter-input" class="nickname-input" placeholder="Search achievements..." />
-        <div id="achievements-controls-row">
-          <label for="achievements-category-select" id="achievements-category-label">Category:</label>
-          <select id="achievements-category-select">
-            <option value="all">All</option>
-            <option value="combat">Combat</option>
-            <option value="survival">Survival</option>
-            <option value="exploration">Exploration</option>
-            <option value="story">Story</option>
-            <option value="collection">Collection</option>
-          </select>
-          <label for="achievements-sort-select" id="achievements-sort-label">Sort:</label>
-          <select id="achievements-sort-select">
-            <option value="default">Default</option>
-            <option value="achieved">Achieved Achievements</option>
-            <option value="incomplete">Incomplete Achievements</option>
-          </select>
-        </div>
-        <div class="perk-options" id="achievements-options"></div>
-        <p id="achievements-deathmatch-placeholder" style="display: none">Coming soon.</p>
-        <button id="print-achievements-btn" class="mini-action-btn" type="button">Print Achievements List</button>
-        <p class="panel-close-hint">Click anywhere to close</p>
       </div>
 
       <div id="profile-panel">
@@ -2258,55 +2261,56 @@ Escape before dawn.</p>
       </div>
 
       <div id="friends-panel">
-        <h2 id="friends-panel-title">Friend List</h2>
-        <div id="friends-signed-out">
-          <p id="friends-signed-out-desc">Sign in with Google (via Cloud Save) to compare stats with friends.</p>
-          <button id="friends-signin-btn">Sign in with Google</button>
-        </div>
-        <div id="friends-signed-in" style="display: none">
-          <div id="friends-col-add">
-            <h3 id="add-friend-heading">Add a Friend</h3>
-            <p id="friends-own-id-line"><span id="friends-own-id-label">Your ID:</span> <span id="friends-own-id"></span></p>
-            <div id="cloudsave-friend-row">
-              <input type="text" id="cloudsave-friend-input" class="nickname-input" placeholder="Friend's ID" maxlength="10" />
-              <button id="send-friend-request-btn" class="mini-action-btn" type="button">Add Friend</button>
-            </div>
-            <p id="cloudsave-friend-result"></p>
+        <div class="panel-box">
+          <h2 id="friends-panel-title">Friend List</h2>
+          <div id="friends-signed-out">
+            <p id="friends-signed-out-desc">Sign in with Google (via Cloud Save) to compare stats with friends.</p>
+            <button id="friends-signin-btn">Sign in with Google</button>
           </div>
+          <div id="friends-signed-in" style="display: none">
+            <div id="friends-col-add">
+              <h3 id="add-friend-heading">Add a Friend</h3>
+              <p id="friends-own-id-line"><span id="friends-own-id-label">Your ID:</span> <span id="friends-own-id"></span></p>
+              <div id="cloudsave-friend-row">
+                <input type="text" id="cloudsave-friend-input" class="nickname-input" placeholder="Friend's ID" maxlength="10" />
+                <button id="send-friend-request-btn" class="mini-action-btn" type="button">Add Friend</button>
+              </div>
+              <p id="cloudsave-friend-result"></p>
+            </div>
 
-          <div id="status-row">
-            <h3 id="status-row-heading">Status</h3>
-            <div id="status-picker">
-              <button type="button" id="status-picker-toggle">
-                <span class="friend-status-dot" data-status="online" id="status-picker-dot"></span>
-                <span id="status-picker-label">Online</span>
-                <svg id="status-picker-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-              </button>
-              <div id="status-picker-options">
-                <button type="button" class="status-pick-btn" data-status="online"><span class="friend-status-dot" data-status="online"></span><span id="status-pick-label-online">Online</span></button>
-                <button type="button" class="status-pick-btn" data-status="idle"><span class="friend-status-dot" data-status="idle"></span><span id="status-pick-label-idle">Busy</span></button>
-                <button type="button" class="status-pick-btn" data-status="dnd"><span class="friend-status-dot" data-status="dnd"></span><span id="status-pick-label-dnd">Do Not Disturb</span></button>
-                <button type="button" class="status-pick-btn" data-status="offline"><span class="friend-status-dot" data-status="offline"></span><span id="status-pick-label-offline">Offline</span></button>
+            <div id="status-row">
+              <h3 id="status-row-heading">Status</h3>
+              <div id="status-picker">
+                <button type="button" id="status-picker-toggle">
+                  <span class="friend-status-dot" data-status="online" id="status-picker-dot"></span>
+                  <span id="status-picker-label">Online</span>
+                  <svg id="status-picker-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div id="status-picker-options">
+                  <button type="button" class="status-pick-btn" data-status="online"><span class="friend-status-dot" data-status="online"></span><span id="status-pick-label-online">Online</span></button>
+                  <button type="button" class="status-pick-btn" data-status="idle"><span class="friend-status-dot" data-status="idle"></span><span id="status-pick-label-idle">Busy</span></button>
+                  <button type="button" class="status-pick-btn" data-status="dnd"><span class="friend-status-dot" data-status="dnd"></span><span id="status-pick-label-dnd">Do Not Disturb</span></button>
+                  <button type="button" class="status-pick-btn" data-status="offline"><span class="friend-status-dot" data-status="offline"></span><span id="status-pick-label-offline">Offline</span></button>
+                </div>
+              </div>
+            </div>
+
+            <div id="friends-two-col">
+              <div id="friends-col-requests">
+                <div id="friend-requests-header">
+                  <h3 id="friend-requests-heading">Friend Requests</h3>
+                  <span id="friend-requests-count"></span>
+                  <button id="delete-all-requests-btn" class="mini-action-btn" type="button" style="display: none">Delete All</button>
+                </div>
+                <div id="friend-requests-list"></div>
+              </div>
+              <div id="friends-col-list">
+                <h3 id="cloudsave-friend-title">Your Friends</h3>
+                <div id="cloudsave-saved-friends"></div>
               </div>
             </div>
           </div>
-
-          <div id="friends-two-col">
-            <div id="friends-col-requests">
-              <div id="friend-requests-header">
-                <h3 id="friend-requests-heading">Friend Requests</h3>
-                <span id="friend-requests-count"></span>
-                <button id="delete-all-requests-btn" class="mini-action-btn" type="button" style="display: none">Delete All</button>
-              </div>
-              <div id="friend-requests-list"></div>
-            </div>
-            <div id="friends-col-list">
-              <h3 id="cloudsave-friend-title">Your Friends</h3>
-              <div id="cloudsave-saved-friends"></div>
-            </div>
-          </div>
         </div>
-        <p class="panel-close-hint">Click anywhere to close</p>
       </div>
 
       <div id="other-profile-panel">
@@ -2323,31 +2327,32 @@ Escape before dawn.</p>
       </div>
 
       <div id="menu-inventory-panel">
-        <h2 id="menu-inventory-panel-title">Inventory</h2>
-        <div class="inventory-tabs">
-          <button class="inventory-tab active" data-inventory-page="character" id="inventory-tab-character">Character</button>
-          <button class="inventory-tab" data-inventory-page="crates" id="inventory-tab-crates">Crates</button>
-          <button class="inventory-tab" data-inventory-page="weapons" id="inventory-tab-weapons">Weapons</button>
-        </div>
-        <div class="inventory-tab-page" id="inventory-page-character">
-          <div id="inventory-skins-sort-row">
-            <label for="inventory-skins-sort-select" id="inventory-skins-sort-label">Sort:</label>
-            <select id="inventory-skins-sort-select">
-              <option value="default">Default</option>
-              <option value="costAsc">Cost: Low to High</option>
-              <option value="costDesc">Cost: High to Low</option>
-              <option value="alpha">Alphabetical</option>
-            </select>
+        <div class="panel-box">
+          <h2 id="menu-inventory-panel-title">Inventory</h2>
+          <div class="inventory-tabs">
+            <button class="inventory-tab active" data-inventory-page="character" id="inventory-tab-character">Character</button>
+            <button class="inventory-tab" data-inventory-page="crates" id="inventory-tab-crates">Crates</button>
+            <button class="inventory-tab" data-inventory-page="weapons" id="inventory-tab-weapons">Weapons</button>
           </div>
-          <p class="inventory-section-placeholder" id="inventory-skins-placeholder">Coming soon.</p>
+          <div class="inventory-tab-page" id="inventory-page-character">
+            <div id="inventory-skins-sort-row">
+              <label for="inventory-skins-sort-select" id="inventory-skins-sort-label">Sort:</label>
+              <select id="inventory-skins-sort-select">
+                <option value="default">Default</option>
+                <option value="costAsc">Cost: Low to High</option>
+                <option value="costDesc">Cost: High to Low</option>
+                <option value="alpha">Alphabetical</option>
+              </select>
+            </div>
+            <p class="inventory-section-placeholder" id="inventory-skins-placeholder">Coming soon.</p>
+          </div>
+          <div class="inventory-tab-page" id="inventory-page-crates" style="display: none">
+            <p class="inventory-section-placeholder" id="inventory-charactercrates-placeholder">Coming soon.</p>
+          </div>
+          <div class="inventory-tab-page" id="inventory-page-weapons" style="display: none">
+            <p class="inventory-section-placeholder" id="inventory-weapons-placeholder">Coming soon.</p>
+          </div>
         </div>
-        <div class="inventory-tab-page" id="inventory-page-crates" style="display: none">
-          <p class="inventory-section-placeholder" id="inventory-charactercrates-placeholder">Coming soon.</p>
-        </div>
-        <div class="inventory-tab-page" id="inventory-page-weapons" style="display: none">
-          <p class="inventory-section-placeholder" id="inventory-weapons-placeholder">Coming soon.</p>
-        </div>
-        <p class="panel-close-hint">Click anywhere to close</p>
       </div>
 
       <div id="server-panel">
