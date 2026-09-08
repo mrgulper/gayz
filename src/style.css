@@ -2728,11 +2728,11 @@ html.third-person-active #companion-bark {
   letter-spacing: 0.5px;
 }
 
-.panel-box > h2::before {
+.panel-box > h2::after {
   content: attr(data-icon);
   display: block;
-  font-size: 32px;
-  margin-bottom: 8px;
+  font-size: 28px;
+  margin-top: 8px;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
 }
 
