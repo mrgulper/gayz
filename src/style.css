@@ -2702,10 +2702,10 @@ html.third-person-active #companion-bark {
 
 .panel-box {
   background: rgba(8, 8, 7, 0.96);
-  border: 1px solid rgba(227, 166, 60, 0.3);
+  border: 2px solid rgba(227, 166, 60, 0.4);
   border-radius: 10px;
-  padding: 18px 24px 24px;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+  padding: 26px 32px 32px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(227, 166, 60, 0.2), 0 0 20px rgba(0, 0, 0, 0.6);
 }
 
 /* The area OUTSIDE the box (the rest of the full-screen panel wrapper)
@@ -2721,8 +2721,19 @@ html.third-person-active #companion-bark {
 }
 
 .panel-box > h2 {
-  margin: 0 0 8px !important;
+  margin: 0 0 16px !important;
   text-align: center;
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.5px;
+}
+
+.panel-box > h2::before {
+  content: attr(data-icon);
+  display: block;
+  font-size: 32px;
+  margin-bottom: 8px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
 }
 
 /* height (not max-height): Credits/How to Play all render much shorter
