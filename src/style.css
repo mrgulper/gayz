@@ -2696,7 +2696,10 @@ html.third-person-active #companion-bark {
 #achievements-panel .panel-box,
 #quests-panel .panel-box,
 #friends-panel .panel-box,
-#menu-inventory-panel .panel-box {
+#menu-inventory-panel .panel-box,
+#settings-panel .panel-box,
+#clan-panel .panel-box,
+#server-panel .panel-box {
   width: min(1080px, 96vw);
 }
 
