@@ -3383,10 +3383,13 @@ html.ui-theme-old #screenshot-crop-overlay {
   display: flex;
   flex-direction: column;
   align-items: center;
-  /* Was 4px - most of what made every section run together. The 5 card
-     heading/list pairs below cancel this gap between themselves (see
-     their own -12px margin-top) so they still sit flush as one card. */
-  gap: 12px;
+  /* Was 4px, then 12px - now 8px since Profile lives inside a fixed-size
+     scrolling box now (.panel-fixed-content) instead of the whole page,
+     so there's real value in fitting more of its 15+ sections into view
+     at once. The 5 card heading/list pairs below cancel this gap between
+     themselves (see their own -8px margin-top, kept matching this value)
+     so they still sit flush as one card. */
+  gap: 8px;
   width: 100%;
 }
 
@@ -3814,7 +3817,7 @@ html.ui-theme-old #share-panel-title {
   background: rgba(20, 16, 10, 0.55);
   border: 1px solid rgba(138, 109, 71, 0.4);
   border-radius: 8px;
-  padding: 12px 16px 14px;
+  padding: 10px 14px 12px;
 }
 
 /* Longer per-row text (full speed/health/stamina deltas) - 2 columns
@@ -3848,11 +3851,11 @@ html.ui-theme-old #share-panel-title {
   border-bottom: none;
   border-radius: 8px 8px 0 0;
   margin: 0 auto;
-  padding: 10px 16px 4px;
+  padding: 8px 14px 4px;
   max-width: 820px;
 }
 
-/* Card bottom edge - margin-top cancels #profile-content's own 12px flex
+/* Card bottom edge - margin-top cancels #profile-content's own 8px flex
    gap (see that rule) so this sits flush against its heading above with
    no visible seam, instead of the two pieces floating apart. */
 #highlight-reel-list,
@@ -3864,8 +3867,8 @@ html.ui-theme-old #share-panel-title {
   border: 1px solid rgba(138, 109, 71, 0.4);
   border-top: none;
   border-radius: 0 0 8px 8px;
-  padding: 8px 16px 14px;
-  margin-top: -12px;
+  padding: 6px 14px 12px;
+  margin-top: -8px;
 }
 
 #profile-options .perk-option,
@@ -3932,7 +3935,7 @@ html.ui-theme-old #share-panel-title {
    as .settings-section-heading, just scoped by tag instead of requiring a
    class on every heading. */
 #profile-panel h3 {
-  margin: 8px 0 4px;
+  margin: 6px 0 3px;
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 1px;
