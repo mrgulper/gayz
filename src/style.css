@@ -2710,7 +2710,8 @@ html.third-person-active #companion-bark {
 #menu-inventory-panel .panel-box,
 #settings-panel .panel-box,
 #clan-panel .panel-box,
-#server-panel .panel-box {
+#server-panel .panel-box,
+#profile-panel .panel-box {
   width: min(1080px, 96vw);
 }
 
@@ -2736,7 +2737,8 @@ html.third-person-active #companion-bark {
 #credits-panel,
 #howtoplay-panel,
 #whatsnew-panel,
-#clan-panel {
+#clan-panel,
+#profile-panel {
   background: transparent !important;
 }
 
@@ -3318,15 +3320,22 @@ html.ui-theme-old #screenshot-crop-overlay {
    highlights/etc, all normally visible even to a local guest) with a
    plain black screen + typewriter prompt, since viewing a Profile now
    requires being signed in. See _openProfilePanel's early-return branch. */
+/* height:100% (was min-height:320px + its own solid #000 background) -
+   now sits inside .panel-fixed-content, which is already a fixed 68vh
+   tall and already sits on .panel-box's own solid background, so a
+   short min-height here left it pinned to the top of that much taller
+   area with an empty void below, same issue General's placeholder had
+   before .general-section-empty (see that class's comment) - height:100%
+   lets this rule's own flex centering place the typewriter text/buttons
+   in the middle of the full available height instead. */
 #profile-login-gate {
   width: 100%;
-  min-height: 320px;
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 18px;
-  background: #000;
   border-radius: 4px;
 }
 
@@ -3381,34 +3390,19 @@ html.ui-theme-old #screenshot-crop-overlay {
   width: 100%;
 }
 
-/* Profile panel - old broken-wood backdrop instead of the flat dark
-   background every other panel shares, fitting a survivor's personal
-   page. Dark gradient layered under the wood photo (not just over it, so
-   it composites the same way as the wood's own darkest grain) keeps the
-   existing light/gold text readable. */
-#profile-panel {
-  background:
-    linear-gradient(rgba(4, 3, 2, 0.72), rgba(4, 3, 2, 0.8)),
-    url('/images/profile-wood-bg.jpg') center/cover;
-  overflow-y: auto;
-  padding: 4px 0;
-  /* The shared modal-panel rule's 14px gap, multiplied across this panel's
-     20+ direct children, was real height on its own - most sections here
-     already carry their own heading margin for separation. */
-  gap: 4px;
-  /* Overrides the shared panel rule's justify-content:center - fine when
-     content is short enough to fit the viewport, but this panel now has
-     enough content (account row + bio/stats columns added on top of
-     everything already here) to need scrolling on most screens, and a
-     centered flex column with overflowing content centers the WHOLE
-     block - pushing early elements (the new Login/Register/Sign Out row)
-     up above the visible top edge instead of anchoring them where you'd
-     actually look first. Caught via a live screenshot + getBoundingClientRect
-     showing the account row's top at a NEGATIVE y coordinate - reported as
-     "where's the login button" from a real user, not something the
-     original DOM-state-only Playwright check had caught. */
-  justify-content: flex-start;
-}
+/* Profile panel USED to have its own broken-wood-photo backdrop and be
+   top-anchored/outer-scrolling here (own custom rule, removed) - request:
+   match How to Play's box/position/background like every other panel in
+   this file now does. The old comment's negative-y login-row bug (a
+   too-tall block getting centered as a whole, pushing its early content
+   above the visible top edge) doesn't apply to the new approach: the box
+   itself is a fixed size now (never taller than How to Play's own box),
+   and the actual overflow scrolls inside .panel-fixed-content instead -
+   same structure already proven safe for Achievements/Upgrades' even
+   longer content earlier today. #profile-login-gate/#profile-content
+   are wrapped in .panel-fixed-content the same way General's tab pages
+   and Friend List's signed-out/signed-in states are - see that class's
+   own comment. */
 
 /* #achievements-panel USED to be top-anchored/outer-scrolling here (same
    reasoning as the old #hub-panel/#upgrades-panel rules below - its list
