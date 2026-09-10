@@ -1907,8 +1907,10 @@ Escape before dawn.</p>
               <option value="incomplete">Incomplete Achievements</option>
             </select>
           </div>
-          <div class="perk-options" id="achievements-options"></div>
-          <p id="achievements-deathmatch-placeholder" style="display: none">Coming soon.</p>
+          <div class="achievements-scroll-area">
+            <div class="perk-options" id="achievements-options"></div>
+            <p id="achievements-deathmatch-placeholder" style="display: none">Coming soon.</p>
+          </div>
           <button id="print-achievements-btn" class="mini-action-btn" type="button">Print Achievements List</button>
         </div>
       </div>
@@ -2038,14 +2040,18 @@ Escape before dawn.</p>
       <div id="shop-panel">
         <div class="panel-box">
           <h2 id="shop-panel-title">Shop</h2>
-          <div id="shop-skin-item">
-            <div id="shop-skin-name">GaygarX</div>
-            <div id="shop-skin-avatar-wrap">
-              <canvas id="shop-skin-canvas"></canvas>
+          <div class="panel-fixed-content">
+            <div class="general-section-empty">
+              <div id="shop-skin-item">
+                <div id="shop-skin-name">GaygarX</div>
+                <div id="shop-skin-avatar-wrap">
+                  <canvas id="shop-skin-canvas"></canvas>
+                </div>
+                <div id="shop-skin-price">10000 Gems</div>
+                <button type="button" id="shop-skin-buy-btn">Buy</button>
+                <div id="shop-skin-badge" style="display: none">Owned</div>
+              </div>
             </div>
-            <div id="shop-skin-price">10000 Gems</div>
-            <button type="button" id="shop-skin-buy-btn">Buy</button>
-            <div id="shop-skin-badge" style="display: none">Owned</div>
           </div>
         </div>
       </div>
@@ -2056,6 +2062,7 @@ Escape before dawn.</p>
           <div id="whatsnew-content">
             <p id="build-version-line"></p>
           <div id="changelog-list">
+            <div class="changelog-entry"><span class="changelog-date">Sep 10, 2026</span><span class="changelog-text">Store, Global, Inventory, Quests, Friend List, Upgrades, and Achievements now all use the same centered box size as How to Play, same as the General panel earlier - long lists (Upgrades, Achievements) now scroll inside a fixed-size box instead of growing the whole page.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 10, 2026</span><span class="changelog-text">The General panel sat pinned near the top of the screen and was noticeably shorter than How to Play/Credits/What's New - it's now positioned and sized the same as those.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 10, 2026</span><span class="changelog-text">The General and Market tabs' "Coming soon" pages looked plain and empty compared to the rest of the menu - the text is now properly styled and centered, matching the look used elsewhere in the game for not-yet-built sections.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 5, 2026</span><span class="changelog-text">Fixed the companion turning fully invisible - a leftover quirk in the 3D model's original materials meant the real-material upgrade earlier today made it render 0% opacity. Back to the cheap shading path (same as the zombie/rival fix), companion is visible again with all its gear/colors intact.</span></div>
@@ -2367,7 +2374,11 @@ Escape before dawn.</p>
       <div id="server-panel">
         <div class="panel-box">
           <h2 id="server-panel-title">Global</h2>
-          <p id="server-panel-placeholder">Coming soon.</p>
+          <div class="panel-fixed-content">
+            <div class="general-section-empty">
+              <p class="general-section-placeholder" id="server-panel-placeholder">Coming soon.</p>
+            </div>
+          </div>
         </div>
       </div>
 

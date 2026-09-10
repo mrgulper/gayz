@@ -536,12 +536,21 @@ html.layout-compact .menu-panel {
    only gets a tiny trigger icon" pattern from every prior batch. */
 #cloudsave-signed-out,
 #cloudsave-signed-in,
+/* height/overflow-y on both: same "match How to Play's box exactly"
+   treatment as .general-tab-page (see that rule's comment) - no header
+   row of its own to subtract here (h2 is the only element before these
+   two), so it's a plain 68vh like .panel-fixed-content. Only one of
+   these two is ever visible at a time (CloudSaveUI.renderCloudSaveState
+   toggles `style.display` between 'flex'/'none' depending on sign-in
+   state), same as General's tab pages. */
 #friends-signed-out {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
   width: min(360px, 84vw);
+  height: 68vh;
+  overflow-y: auto;
   text-align: center;
 }
 
@@ -554,6 +563,8 @@ html.layout-compact .menu-panel {
   align-items: center;
   gap: 10px;
   width: min(640px, 90vw);
+  height: 68vh;
+  overflow-y: auto;
   text-align: center;
 }
 
@@ -3394,15 +3405,12 @@ html.ui-theme-old #screenshot-crop-overlay {
   justify-content: flex-start;
 }
 
-/* Achievements panel now also renders every Bestiary creature into the
-   same list (see index.html/_renderAchievementsPanel) - the combined list
-   no longer reliably fits one screen, same reasoning as the Profile panel
-   override above. */
-#achievements-panel {
-  overflow-y: auto;
-  padding: 24px 0;
-  justify-content: flex-start;
-}
+/* #achievements-panel USED to be top-anchored/outer-scrolling here (same
+   reasoning as the old #hub-panel/#upgrades-panel rules below - its list
+   regularly runs taller than one screen). Pulled out for the same reason
+   #clan-panel was (match How to Play's position/size) - see
+   .achievements-scroll-area further down for where its own internal
+   scrolling now lives instead. */
 
 /* Filter search box - was inheriting .nickname-input's width:100%, which
    at this panel's full viewport width was a huge, mostly-empty bar. */
@@ -3427,37 +3435,24 @@ html.ui-theme-old #screenshot-crop-overlay {
   justify-content: flex-start;
 }
 
-/* Upgrades panel - 30+ perk cards never fit one screen either, same
-   overflow-y override as the Profile/Achievements/Hub panels above. */
-#upgrades-panel {
-  overflow-y: auto;
-  padding: 24px 0;
-  justify-content: flex-start;
-}
+/* #upgrades-panel USED to be top-anchored/outer-scrolling here too (30+
+   perk cards never fit one screen). Same move as Achievements above -
+   see .upgrades-tab-page further down for its own internal scrolling. */
 
-/* Every other sidebar-nav panel (Store, Server, Quests, Friend List,
-   Inventory) - these had never gotten the same overflow-y/justify-content
-   fix as Upgrades/Achievements/Hub above, so a panel with little content
-   rendered as a small block floating dead-center in an almost-empty
-   full-screen overlay, instead of anchored near the top like every other
-   sidebar panel - same override, same reasoning, just extended to the
-   panels that were missed. #clan-panel (General/Clan/Market) USED to be
-   in this list too, but was deliberately pulled back out (request: make
-   General match How to Play's position/size) - its tab pages now handle
-   their own height/scrolling individually (see .general-tab-page below),
-   so it no longer needs this, and dropping back to the shared base rule's
-   plain centered position is what makes it land at the same spot on
-   screen as How to Play/Credits/What's New (none of which are in this
-   list either, for the same reason). */
-#shop-panel,
-#server-panel,
-#quests-panel,
-#friends-panel,
-#menu-inventory-panel {
-  overflow-y: auto;
-  padding: 24px 0;
-  justify-content: flex-start;
-}
+/* Store, Server(Global), Quests, Friend List, and Inventory ALL used to
+   be top-anchored/outer-scrolling here too (own rule now removed, same
+   move as General/Achievements/Upgrades above - request: match How to
+   Play's position/size everywhere in the sidebar nav). Every one of
+   them now gets its own internal-scroll content area sized to exactly
+   fill the remaining 68vh instead (.panel-fixed-content for the two
+   with no tab strip of their own - Store/Global; .inventory-tab-page/
+   .quest-tab-page for the two that do; #friends-signed-out/-in
+   directly, since Friend List has no tab strip either but does have two
+   mutually-exclusive states in that same role). Dropping all of them
+   back to the shared base rule's plain centered position is what makes
+   them land at the same spot on screen as How to Play/Credits/What's
+   New/General (none of which are in this list either, for the same
+   reason). */
 
 #coming-soon-body {
   max-width: 420px;
@@ -7734,12 +7729,16 @@ html.ui-theme-old #settings-panel h2 {
   border-color: #e3c23c;
 }
 
+/* height/overflow-y: same treatment as .general-tab-page/.upgrades-tab-page
+   above - .quest-tabs' own footprint subtracted the same way. */
 .quest-tab-page {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 14px;
   width: 100%;
+  height: calc(68vh - 45.5px);
+  overflow-y: auto;
 }
 
 .upgrades-tabs {
@@ -7768,12 +7767,20 @@ html.ui-theme-old #settings-panel h2 {
   border-color: #e3c23c;
 }
 
+/* height/overflow-y: same "match How to Play's box exactly" treatment as
+   .general-tab-page (see that rule's own comment for the full reasoning)
+   - .upgrades-tabs' own footprint gets subtracted the same way
+   .general-tabs' does. This is what lets 30+ perk cards live in this
+   panel without the box itself growing past How to Play's height - they
+   scroll inside this fixed area instead. */
 .upgrades-tab-page {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 14px;
   width: 100%;
+  height: calc(68vh - 45.5px);
+  overflow-y: auto;
 }
 
 /* Inventory panel tab strip (Character/Crates/Weapons) - same reasoning
@@ -7803,9 +7810,13 @@ html.ui-theme-old #settings-panel h2 {
   border-color: #e3c23c;
 }
 
+/* height/overflow-y: same treatment as .general-tab-page/.upgrades-tab-page
+   above - .inventory-tabs' own footprint subtracted the same way. */
 .inventory-tab-page {
   width: min(360px, 86vw);
   padding: 10px 0;
+  height: calc(68vh - 45.5px);
+  overflow-y: auto;
 }
 
 /* Clan panel tab strip (General/Clan/Market) - own class, same reasoning
@@ -7854,6 +7865,16 @@ html.ui-theme-old #settings-panel h2 {
   width: min(360px, 86vw);
   padding: 10px 0;
   height: calc(68vh - 45.5px);
+  overflow-y: auto;
+}
+
+/* Same 68vh-content-height idea as .general-tab-page above, for panels
+   with no tab strip of their own (Store, Global) - no header row to
+   subtract, so this is just a plain 68vh, same as
+   #howtoplay-content/#credits-content/#whatsnew-content. */
+.panel-fixed-content {
+  width: 100%;
+  height: 68vh;
   overflow-y: auto;
 }
 
@@ -8047,6 +8068,23 @@ html.ui-theme-old #settings-panel h2 {
   color: #0c130c;
   background: #e3c23c;
   border-color: #e3c23c;
+}
+
+/* Wraps #achievements-options (the actual card list) + its Deathmatch
+   placeholder - everything else in this panel (.achievements-mode-tabs,
+   #achievements-filter-input, #achievements-controls-row above;
+   #print-achievements-btn below) stays fixed in place, only this middle
+   region scrolls. Same "match How to Play's box exactly" idea as
+   .general-tab-page (see that rule's comment) - height is 68vh minus
+   everything else in the box's own measured footprint, tuned via
+   getBoundingClientRect against #howtoplay-panel .panel-box rather than
+   hand-summed from each element's padding/margin (font line-height
+   isn't reliably hand-computable - see .general-tab-page's own note on
+   this same point). */
+.achievements-scroll-area {
+  width: 100%;
+  overflow-y: auto;
+  height: calc(68vh - 136.5px);
 }
 
 .settings-page {
