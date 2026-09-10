@@ -7842,11 +7842,18 @@ html.ui-theme-old #settings-panel h2 {
    How to Play's, both being driven by the same 68vh content area rather
    than the shared .panel-box min-height floor (which General's own
    content, especially the "Coming soon." tabs, would otherwise never
-   reach on its own). */
+   reach on its own). The `- 45.5px` subtracts .general-tabs' own
+   measured footprint (31.5px tall + 14px margin-bottom, via
+   getBoundingClientRect at 1920x1080) - without it this box would be
+   exactly that much TALLER than How to Play's, since General has the
+   tab-switcher row sitting above this content area and How to Play
+   doesn't have anything in that space. This is a fixed content-block
+   height, not a viewport-relative one, so it stays correct as `68vh`
+   itself scales with screen size. */
 .general-tab-page {
   width: min(360px, 86vw);
   padding: 10px 0;
-  height: 68vh;
+  height: calc(68vh - 45.5px);
   overflow-y: auto;
 }
 
