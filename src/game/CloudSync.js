@@ -235,6 +235,19 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Server chat (homepage "Global" panel) - a separate chat room from
+    // globalChat above, same rules/shape (see sendServerChatMessage's
+    // own comment for why this is a second collection, not the same one).
+    match /serverChat/{messageId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.nickname is string && request.resource.data.nickname.size() > 0 && request.resource.data.nickname.size() <= 16
+        && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 300
+        && request.resource.data.createdAt is int;
+      allow update, delete: if false;
+    }
+
     match /clanInvites/{toUid}/incoming/{clanId} {
       allow read: if request.auth != null && request.auth.uid == toUid;
       allow create: if request.auth != null
@@ -806,6 +819,31 @@ export function subscribeGlobalChat(callback) {
   ensureApp().then(({ db, fsMod }) => {
     if (cancelled) return
     const q = fsMod.query(fsMod.collection(db, 'globalChat'), fsMod.orderBy('createdAt', 'desc'), fsMod.limit(CHAT_HISTORY_LIMIT))
+    unsub = fsMod.onSnapshot(q, (snap) => callback(snap.docs.map((d) => d.data()).reverse()), () => {})
+  })
+  return () => {
+    cancelled = true
+    unsub()
+  }
+}
+
+// Server (homepage "Global" panel) chat - a second, separate chat room
+// from globalChat above, not the same conversation. globalChat only ever
+// shows up in the in-game HUD (hidden on the homepage on purpose - see
+// #chat-panel's own comment on why); this one is reachable from the
+// Global button in the homepage sidebar instead, with its own message
+// history. Same shape/limits as globalChat, just its own collection.
+export async function sendServerChatMessage(uid, nickname, text) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.addDoc(fsMod.collection(db, 'serverChat'), { uid, nickname, text, createdAt: Date.now() })
+}
+
+export function subscribeServerChat(callback) {
+  let unsub = () => {}
+  let cancelled = false
+  ensureApp().then(({ db, fsMod }) => {
+    if (cancelled) return
+    const q = fsMod.query(fsMod.collection(db, 'serverChat'), fsMod.orderBy('createdAt', 'desc'), fsMod.limit(CHAT_HISTORY_LIMIT))
     unsub = fsMod.onSnapshot(q, (snap) => callback(snap.docs.map((d) => d.data()).reverse()), () => {})
   })
   return () => {

@@ -7945,6 +7945,87 @@ html.ui-theme-old #settings-panel h2 {
   opacity: 0.6;
 }
 
+/* Global panel chat (#server-panel) - a separate chat room from the
+   in-game HUD's #chat-panel (see CloudSync.js's sendServerChatMessage
+   comment for why). Reading is public (Firestore rule: allow read: if
+   true) - only sending needs sign-in - so unlike Friend List/Profile's
+   all-or-nothing sign-in gate, #server-chat-messages always shows, and
+   only the bottom row swaps between the sign-in prompt and the actual
+   input form depending on sign-in state. */
+#server-chat-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 10px;
+}
+
+#server-chat-signed-out {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0 4px;
+  text-align: center;
+}
+
+#server-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 8px;
+}
+
+/* Reuses the in-game chat's .chat-message-row/-nickname/-text class
+   names (same render logic, easy to share the click-to-mute pattern),
+   scoped under this panel's own id since that CSS was tuned for text
+   floating over gameplay with no background (text-shadow instead of a
+   solid box - see #chat-panel's own comment) - wrong look for a normal
+   boxed menu panel, so it's fully overridden here instead of inherited. */
+#server-chat-messages .chat-message-row {
+  font-size: 13px;
+  line-height: 1.5;
+  text-shadow: none;
+  word-break: break-word;
+}
+
+#server-chat-messages .chat-message-nickname {
+  font: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--menu-gold, #d9bc4a);
+  margin-right: 6px;
+}
+
+#server-chat-messages .chat-message-nickname:hover {
+  text-decoration: underline;
+}
+
+#server-chat-messages .chat-message-text {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+#server-chat-muted-notice {
+  margin: 0;
+  padding: 4px 0;
+  font-size: 12px;
+  color: var(--menu-red, #c9564a);
+  text-align: center;
+}
+
+#server-chat-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+#server-chat-input {
+  flex: 1;
+}
+
 .clan-list-row,
 .clan-member-row,
 .clan-request-row {

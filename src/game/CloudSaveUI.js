@@ -136,6 +136,11 @@ export function renderCloudSaveState(game) {
   if (game.friendsSignedOut) game.friendsSignedOut.style.display = signedIn ? 'none' : 'flex'
   if (game.friendsSignedIn) game.friendsSignedIn.style.display = signedIn ? 'flex' : 'none'
   if (game.friendsSigninBtn) game.friendsSigninBtn.disabled = !CloudSync.isConfigured()
+  // Global panel chat (#server-panel) - same reasoning as Friends above,
+  // updates live if the panel happens to be open while sign-in state
+  // changes (see Game.js's _renderServerChatSignInState).
+  game._renderServerChatSignInState()
+  if (game.serverChatSigninBtn) game.serverChatSigninBtn.disabled = !CloudSync.isConfigured()
   if (!signedIn) return
   if (game.cloudsaveAvatar) game.cloudsaveAvatar.src = game._cloudProfile.picture || ''
   if (game.cloudsaveAccountName) game.cloudsaveAccountName.textContent = game._cloudProfile.name || game._cloudProfile.email || ''

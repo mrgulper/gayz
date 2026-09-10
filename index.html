@@ -2071,6 +2071,7 @@ Escape before dawn.</p>
           <div id="whatsnew-content">
             <p id="build-version-line"></p>
           <div id="changelog-list">
+            <div class="changelog-entry"><span class="changelog-date">Sep 10, 2026</span><span class="changelog-text">The Global button on the homepage now opens a real chat anyone can read, and anyone signed in can post to - a separate conversation from the in-game chat, not the same one.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 10, 2026</span><span class="changelog-text">Settings' search bar is now bigger and centered instead of a small bar off to the left - the "Saved" confirmation moved to its own centered line above the tabs.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 10, 2026</span><span class="changelog-text">Game Mode and Settings now fill the width of their box like What's New does - their dropdowns, buttons, and sliders are noticeably bigger instead of a narrow column with empty space on both sides.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 10, 2026</span><span class="changelog-text">Fixed several panels (Game Mode, Settings, General/Clan/Market, Inventory, Friend List) showing their content squeezed to the left with a big empty gap on the right - everything's properly centered in the box now.</span></div>
@@ -2391,8 +2392,17 @@ Escape before dawn.</p>
         <div class="panel-box">
           <h2 id="server-panel-title">Global</h2>
           <div class="panel-fixed-content">
-            <div class="general-section-empty">
-              <p class="general-section-placeholder" id="server-panel-placeholder">Coming soon.</p>
+            <div id="server-chat-wrap">
+              <div id="server-chat-messages"></div>
+              <p id="server-chat-muted-notice" style="display: none"></p>
+              <div id="server-chat-signed-out">
+                <p id="server-chat-signed-out-desc"></p>
+                <button id="server-chat-signin-btn" type="button" class="mini-action-btn">Sign in with Google</button>
+              </div>
+              <form id="server-chat-input-row" style="display: none">
+                <input type="text" id="server-chat-input" class="nickname-input" maxlength="300" placeholder="Message..." autocomplete="off" />
+                <button type="submit" id="server-chat-send-btn" class="mini-action-btn">Send</button>
+              </form>
             </div>
           </div>
         </div>

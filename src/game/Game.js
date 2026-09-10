@@ -5438,7 +5438,14 @@ export class Game {
     this.serverBtn = document.getElementById('server-btn')
     this.serverPanel = document.getElementById('server-panel')
     this.serverPanelTitle = document.getElementById('server-panel-title')
-    this.serverPlaceholder = document.getElementById('server-panel-placeholder')
+    this.serverChatSignedOut = document.getElementById('server-chat-signed-out')
+    this.serverChatSignedOutDesc = document.getElementById('server-chat-signed-out-desc')
+    this.serverChatSigninBtn = document.getElementById('server-chat-signin-btn')
+    this.serverChatSignedIn = document.getElementById('server-chat-signed-in')
+    this.serverChatMessages = document.getElementById('server-chat-messages')
+    this.serverChatMutedNotice = document.getElementById('server-chat-muted-notice')
+    this.serverChatInputRow = document.getElementById('server-chat-input-row')
+    this.serverChatInput = document.getElementById('server-chat-input')
     this.achievementsBtn = document.getElementById('achievements-btn')
     this.achievementsPanel = document.getElementById('achievements-panel')
     this.achievementsPanelTitle = document.getElementById('achievements-panel-title')
@@ -5919,6 +5926,7 @@ export class Game {
     this._bindNavButtonFocusFix()
     this._bindClanSection()
     this._bindChatWidget()
+    this._bindServerChat()
     this._bindSettings()
     this._bindGraphicsSettings()
     this._bindGeneralSettings()
@@ -14319,11 +14327,134 @@ export class Game {
     this._closeAllMenuPanels()
     this.serverPanel.style.display = 'flex'
     if (this.serverPanelTitle) this.serverPanelTitle.textContent = t('serverPanelTitle')
-    if (this.serverPlaceholder) this.serverPlaceholder.textContent = t('serverPlaceholder')
+    this._renderServerChatSignInState()
+    this._subscribeServerChat()
   }
 
   _closeServerPanel() {
     if (this.serverPanel) this.serverPanel.style.display = 'none'
+    this._unsubscribeServerChat()
+  }
+
+  // Global panel chat (#server-panel) - see CloudSync.js's
+  // sendServerChatMessage for why this is a separate chat room from the
+  // in-game HUD's #chat-panel, not the same conversation. Structurally a
+  // much simpler cousin of _bindChatWidget's global channel: no tab
+  // switching (this panel IS the global channel, always), no pointer-lock/
+  // gameplay-hotkey handling (this only ever opens from the homepage
+  // menu, never mid-run), own rate-limit state so it doesn't share
+  // counters with the in-game chat.
+  _bindServerChat() {
+    if (!this.serverPanel) return
+    this._serverChatUnsub = null
+    this._serverChatSendTimestamps = []
+    this._serverChatMutedUntil = 0
+    this._serverChatMuteTimer = null
+
+    if (this.serverChatSigninBtn) this.serverChatSigninBtn.addEventListener('click', () => this._handleCloudSignIn())
+
+    if (this.serverChatInputRow) {
+      this.serverChatInputRow.addEventListener('submit', (e) => {
+        e.preventDefault()
+        this._sendServerChatMessage()
+      })
+    }
+
+    if (this.serverChatMessages) {
+      this.serverChatMessages.addEventListener('click', (e) => {
+        const btn = e.target.closest('.chat-message-nickname')
+        if (!btn) return
+        const nickname = btn.dataset.nickname
+        if (!nickname || this.settings.mutedChatPlayers.includes(nickname)) return
+        if (!window.confirm(t('muteChatPlayerConfirm', { name: nickname }))) return
+        this.settings.mutedChatPlayers.push(nickname)
+        saveSettings(this.settings)
+        this._renderMutedChatPlayers()
+        // Live onSnapshot subscription re-filters on its own next update,
+        // same reasoning as _bindChatMuteClicks's own comment on this.
+      })
+    }
+  }
+
+  _subscribeServerChat() {
+    if (this._serverChatUnsub) return
+    this._serverChatUnsub = CloudSync.subscribeServerChat((msgs) => this._renderServerChatMessages(msgs))
+  }
+
+  _unsubscribeServerChat() {
+    if (this._serverChatUnsub) {
+      this._serverChatUnsub()
+      this._serverChatUnsub = null
+    }
+  }
+
+  _renderServerChatMessages(msgs) {
+    if (!this.serverChatMessages) return
+    const muted = new Set(this.settings.mutedChatPlayers)
+    const visible = msgs.filter((m) => !muted.has(m.nickname))
+    this.serverChatMessages.innerHTML = visible.map((m) => `<div class="chat-message-row"><button type="button" class="chat-message-nickname" data-nickname="${_escapeHtml(m.nickname)}">${_escapeHtml(m.nickname)}:</button><span class="chat-message-text">${_escapeHtml(m.text)}</span></div>`).join('')
+    this.serverChatMessages.scrollTop = this.serverChatMessages.scrollHeight
+  }
+
+  // Toggles the sign-in prompt vs. the actual input form (see
+  // #server-chat-wrap's own CSS comment - the message list itself always
+  // shows, reading is public). Called on panel open and again whenever
+  // sign-in state changes (CloudSaveUI.renderCloudSaveState) so the panel
+  // updates live if it's open while the player signs in/out.
+  _renderServerChatSignInState() {
+    if (!this.serverChatSignedOut) return
+    const signedIn = !!this._cloudUid
+    this.serverChatSignedOut.style.display = signedIn ? 'none' : 'flex'
+    if (this.serverChatInputRow) this.serverChatInputRow.style.display = signedIn ? 'flex' : 'none'
+    if (this.serverChatSignedOutDesc) this.serverChatSignedOutDesc.textContent = t('chatSignInRequired')
+    if (this.serverChatSigninBtn) this.serverChatSigninBtn.textContent = t('cloudsaveSigninBtn')
+  }
+
+  async _sendServerChatMessage() {
+    if (!this.serverChatInput) return
+    const text = this.serverChatInput.value.trim()
+    if (!text) return
+    const now = Date.now()
+    if (this._serverChatMutedUntil > now) return
+    // Same 5-in-10s -> 5-minute mute as the in-game chat's own send
+    // handler, own counters though (see _bindServerChat's comment).
+    this._serverChatSendTimestamps = this._serverChatSendTimestamps.filter((ts) => now - ts < 10000)
+    this._serverChatSendTimestamps.push(now)
+    if (this._serverChatSendTimestamps.length > 5) {
+      this._serverChatMutedUntil = now + 5 * 60 * 1000
+      this._serverChatSendTimestamps = []
+      this._startServerChatMuteCountdown()
+      return
+    }
+    if (!this._cloudUid) {
+      this._showHomepageToast(t('chatSignInRequired'))
+      return
+    }
+    const nickname = this.settings.nickname || 'Player'
+    this.serverChatInput.value = ''
+    const ok = await CloudSync.sendServerChatMessage(this._cloudUid, nickname, text).then(
+      () => true,
+      () => false
+    )
+    if (!ok) this._showHomepageToast(t('chatSendFailed'))
+  }
+
+  _startServerChatMuteCountdown() {
+    if (!this.serverChatMutedNotice) return
+    if (this._serverChatMuteTimer) clearInterval(this._serverChatMuteTimer)
+    const tick = () => {
+      const secondsLeft = Math.ceil((this._serverChatMutedUntil - Date.now()) / 1000)
+      if (secondsLeft <= 0) {
+        this.serverChatMutedNotice.style.display = 'none'
+        clearInterval(this._serverChatMuteTimer)
+        this._serverChatMuteTimer = null
+        return
+      }
+      this.serverChatMutedNotice.textContent = t('chatMutedNotice', { seconds: secondsLeft })
+      this.serverChatMutedNotice.style.display = 'block'
+    }
+    tick()
+    this._serverChatMuteTimer = setInterval(tick, 1000)
   }
 
   // Entering/exiting the drivable car (see Vehicle.js). While driving, the
