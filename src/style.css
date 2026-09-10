@@ -7650,6 +7650,14 @@ html.ui-theme-old #settings-panel {
   background: rgba(21, 15, 9, 0.98);
 }
 
+#settings-title {
+  margin: 0 0 16px !important;
+  text-align: center;
+  font-size: 32px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.5px;
+}
+
 #settings-panel h2 {
   margin: 0 0 4px;
   font-size: 15px;
