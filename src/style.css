@@ -2709,6 +2709,7 @@ html.third-person-active #companion-bark {
   border-radius: 10px;
   padding: 26px 32px 32px;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(227, 166, 60, 0.2), 0 0 20px rgba(0, 0, 0, 0.6);
+  min-height: 450px;
 }
 
 /* The area OUTSIDE the box (the rest of the full-screen panel wrapper)
