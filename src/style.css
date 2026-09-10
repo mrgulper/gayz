@@ -3435,15 +3435,20 @@ html.ui-theme-old #screenshot-crop-overlay {
   justify-content: flex-start;
 }
 
-/* Every other sidebar-nav panel (General/Clan/Market, Store, Server,
-   Quests, Friend List, Inventory) - these had never gotten the same
-   overflow-y/justify-content fix as Upgrades/Achievements/Hub above, so a
-   panel with little content (e.g. Clan's "Coming soon." General tab)
+/* Every other sidebar-nav panel (Store, Server, Quests, Friend List,
+   Inventory) - these had never gotten the same overflow-y/justify-content
+   fix as Upgrades/Achievements/Hub above, so a panel with little content
    rendered as a small block floating dead-center in an almost-empty
    full-screen overlay, instead of anchored near the top like every other
    sidebar panel - same override, same reasoning, just extended to the
-   panels that were missed. */
-#clan-panel,
+   panels that were missed. #clan-panel (General/Clan/Market) USED to be
+   in this list too, but was deliberately pulled back out (request: make
+   General match How to Play's position/size) - its tab pages now handle
+   their own height/scrolling individually (see .general-tab-page below),
+   so it no longer needs this, and dropping back to the shared base rule's
+   plain centered position is what makes it land at the same spot on
+   screen as How to Play/Credits/What's New (none of which are in this
+   list either, for the same reason). */
 #shop-panel,
 #server-panel,
 #quests-panel,
@@ -7831,9 +7836,18 @@ html.ui-theme-old #settings-panel h2 {
   border-color: #e3c23c;
 }
 
+/* height/overflow-y matches #howtoplay-content/#credits-content/
+   #whatsnew-content's own treatment (see that rule's comment) - this is
+   what makes the General/Clan/Market box's actual rendered height match
+   How to Play's, both being driven by the same 68vh content area rather
+   than the shared .panel-box min-height floor (which General's own
+   content, especially the "Coming soon." tabs, would otherwise never
+   reach on its own). */
 .general-tab-page {
   width: min(360px, 86vw);
   padding: 10px 0;
+  height: 68vh;
+  overflow-y: auto;
 }
 
 /* Clan tab specifically needs real room for the two-column in-clan
@@ -7845,24 +7859,26 @@ html.ui-theme-old #settings-panel h2 {
 }
 
 /* General/Market are just an unstyled "Coming soon." line by default,
-   which reads as broken/unfinished floating over the .panel-box's tall
-   min-height (see that rule's own comment) rather than an intentional
-   empty state - Clan is excluded since it has real content. Text
-   treatment matches .inventory-section-placeholder (same "coming soon"
-   convention elsewhere in the game). The centering lives on this inner
-   wrapper rather than directly on #general-page-general/-market
-   themselves, because the tab-switch click handler (Game.js) sets
-   `.general-tab-page`'s own `style.display` to 'block'/'none' inline on
-   every click - a `display: flex` rule on that same element would get
-   silently overwritten back to 'block' (losing the centering) the first
-   time the tab is clicked, or would need `!important` and then fight the
-   'none' JS also needs to hide the inactive page. A separate untouched
-   child avoids the conflict entirely. */
+   which reads as broken/unfinished floating over .general-tab-page's 68vh
+   height (see that rule's own comment) rather than an intentional empty
+   state - Clan is excluded since it has real content. Text treatment
+   matches .inventory-section-placeholder (same "coming soon" convention
+   elsewhere in the game). min-height:100% centers within the parent's
+   own 68vh, whatever that resolves to on the current screen. The
+   centering lives on this inner wrapper rather than directly on
+   #general-page-general/-market themselves, because the tab-switch click
+   handler (Game.js) sets `.general-tab-page`'s own `style.display` to
+   'block'/'none' inline on every click - a `display: flex` rule on that
+   same element would get silently overwritten back to 'block' (losing
+   the centering) the first time the tab is clicked, or would need
+   `!important` and then fight the 'none' JS also needs to hide the
+   inactive page. A separate untouched child avoids the conflict
+   entirely. */
 .general-section-empty {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 420px;
+  min-height: 100%;
 }
 
 .general-section-placeholder {
