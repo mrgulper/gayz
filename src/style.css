@@ -5360,7 +5360,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
   grid-template-columns: 240px minmax(360px, 1000px) 240px;
   justify-content: center;
   gap: 24px;
-  align-items: start;
+  align-items: center;
   width: 100%;
   max-width: 1900px;
   margin: 0 auto;
