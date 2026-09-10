@@ -7320,6 +7320,9 @@ const STRINGS = {
     yourStatsTitle: 'Tus Estadísticas',
   },
   fr: {
+    skinDefault: 'Par défaut',
+    skinEquip: 'Équiper',
+    skinEquipped: 'Équipée',
     menuSubtitle: 'Quartier urbain dévasté — survivez, pillez, tirez',
     menuSubhint: "Cherchez les postes de guet en haut des escaliers le long de l'avenue — des coffres s'y trouvent",
     playBtn: 'Cliquez pour jouer',
@@ -7440,6 +7443,9 @@ const STRINGS = {
     gamemodeBtn: 'Mode de Jeu',
   },
   ar: {
+    skinDefault: 'افتراضي',
+    skinEquip: 'تجهيز',
+    skinEquipped: 'مجهّز',
     menuSubtitle: 'حي مدمر — انجُ، اجمع الموارد، أطلق النار',
     menuSubhint: 'ابحث عن منصات المراقبة أعلى السلالم على طول الشارع — الصناديق بداخلها',
     playBtn: 'انقر للعب',
@@ -7560,6 +7566,9 @@ const STRINGS = {
     gamemodeBtn: 'وضع اللعبة',
   },
   bn: {
+    skinDefault: 'ডিফল্ট',
+    skinEquip: 'পরিধান করুন',
+    skinEquipped: 'পরিহিত',
     menuSubtitle: 'ভাঙাচোরা শহুরে এলাকা — বেঁচে থাকো, সংগ্রহ করো, গুলি চালাও',
     menuSubhint: 'রাস্তা ধরে সিঁড়ি বেয়ে ওঠা ওয়াচটাওয়ারগুলো খুঁজুন — ভেতরে বাক্স আছে',
     playBtn: 'খেলতে ক্লিক করুন',
@@ -7680,6 +7689,9 @@ const STRINGS = {
     gamemodeBtn: 'গেম মোড',
   },
   ru: {
+    skinDefault: 'По умолчанию',
+    skinEquip: 'Надеть',
+    skinEquipped: 'Надето',
     menuSubtitle: 'Разрушенный городской квартал — выживай, добывай, стреляй',
     menuSubhint: 'Ищи сторожевые вышки в конце лестниц вдоль проспекта — внутри сундуки',
     playBtn: 'Нажмите, чтобы играть',
@@ -7800,6 +7812,9 @@ const STRINGS = {
     gamemodeBtn: 'Режим Игры',
   },
   pt: {
+    skinDefault: 'Padrão',
+    skinEquip: 'Equipar',
+    skinEquipped: 'Equipada',
     menuSubtitle: 'Quarteirão urbano destruído — sobreviva, saqueie, atire',
     menuSubhint: 'Procure os postos de vigia no topo das escadas ao longo da avenida — há baús lá dentro',
     playBtn: 'Clique para jogar',
@@ -7920,6 +7935,9 @@ const STRINGS = {
     gamemodeBtn: 'Modo de Jogo',
   },
   ur: {
+    skinDefault: 'طے شدہ',
+    skinEquip: 'پہنیں',
+    skinEquipped: 'پہنا ہوا',
     menuSubtitle: 'تباہ شدہ شہری علاقہ — زندہ رہو، سامان اکٹھا کرو، فائر کرو',
     menuSubhint: 'سڑک کے ساتھ سیڑھیوں کے اوپر واچ ٹاورز تلاش کریں — اندر صندوق ہیں',
     playBtn: 'کھیلنے کے لیے کلک کریں',
@@ -8040,6 +8058,9 @@ const STRINGS = {
     gamemodeBtn: 'گیم موڈ',
   },
   id: {
+    skinDefault: 'Bawaan',
+    skinEquip: 'Pakai',
+    skinEquipped: 'Terpakai',
     menuSubtitle: 'Blok kota yang hancur — bertahan hidup, cari perbekalan, tembak',
     menuSubhint: 'Cari menara pengawas di ujung tangga sepanjang jalan raya — ada peti di dalamnya',
     playBtn: 'Klik untuk Bermain',
@@ -8160,6 +8181,9 @@ const STRINGS = {
     gamemodeBtn: 'Mode Permainan',
   },
   de: {
+    skinDefault: 'Standard',
+    skinEquip: 'Ausrüsten',
+    skinEquipped: 'Ausgerüstet',
     menuSubtitle: 'Zerstörter Stadtblock — überleben, plündern, schießen',
     menuSubhint: 'Suche die Ausguckplattformen oben an den Treppen entlang der Straße — dort sind Kisten',
     playBtn: 'Zum Spielen klicken',
@@ -8280,6 +8304,9 @@ const STRINGS = {
     gamemodeBtn: 'Spielmodus',
   },
   ja: {
+    skinDefault: 'デフォルト',
+    skinEquip: '装備する',
+    skinEquipped: '装備中',
     menuSubtitle: '崩壊した市街地——生き延び、物資を漁り、撃て',
     menuSubhint: '大通り沿いの階段の先にある見張り台を探せ——中に宝箱がある',
     playBtn: 'クリックしてプレイ',
@@ -8400,6 +8427,9 @@ const STRINGS = {
     gamemodeBtn: 'ゲームモード',
   },
   pcm: {
+    skinDefault: 'Default',
+    skinEquip: 'Wear am',
+    skinEquipped: 'E don wear',
     menuSubtitle: 'Broken city area — survive, find loot, dey shoot',
     menuSubhint: 'Find di lookout platform wey dey up di stairs for di street — chest dey inside',
     playBtn: 'Click to Play',
@@ -8520,6 +8550,9 @@ const STRINGS = {
     gamemodeBtn: 'Game Mode',
   },
   mr: {
+    skinDefault: 'डीफॉल्ट',
+    skinEquip: 'परिधान करा',
+    skinEquipped: 'परिधान केले',
     menuSubtitle: 'उद्ध्वस्त शहरी भाग — जिवंत राहा, वस्तू शोधा, गोळी झाडा',
     menuSubhint: 'रस्त्यालगतच्या जिन्यांवरील निरीक्षण मनोरे शोधा — आत पेट्या आहेत',
     playBtn: 'खेळण्यासाठी क्लिक करा',
@@ -8640,6 +8673,9 @@ const STRINGS = {
     gamemodeBtn: 'गेम मोड',
   },
   te: {
+    skinDefault: 'డిఫాల్ట్',
+    skinEquip: 'ధరించండి',
+    skinEquipped: 'ధరించారు',
     menuSubtitle: 'ధ్వంసమైన నగర ప్రాంతం — బతకండి, వస్తువులు వెతకండి, కాల్చండి',
     menuSubhint: 'వీధి వెంబడి మెట్ల పైన ఉన్న వాచ్‌టవర్లను వెతకండి — లోపల పెట్టెలు ఉన్నాయి',
     playBtn: 'ఆడటానికి క్లిక్ చేయండి',
@@ -8760,6 +8796,9 @@ const STRINGS = {
     gamemodeBtn: 'గేమ్ మోడ్',
   },
   tr: {
+    skinDefault: 'Varsayılan',
+    skinEquip: 'Kuşan',
+    skinEquipped: 'Kuşanıldı',
     menuSubtitle: 'Yıkık şehir bloğu — hayatta kal, yağmala, ateş et',
     menuSubhint: 'Caddedeki merdivenlerin ucundaki gözetleme platformlarını ara — içlerinde sandıklar var',
     playBtn: 'Oynamak için tıkla',
@@ -8880,6 +8919,9 @@ const STRINGS = {
     gamemodeBtn: 'Oyun Modu',
   },
   yue: {
+    skinDefault: '預設',
+    skinEquip: '裝備',
+    skinEquipped: '已裝備',
     menuSubtitle: '破敗嘅市區——生存、搵嘢、開槍',
     menuSubhint: '沿住大馬路嘅樓梯搵瞭望台——入面有箱',
     playBtn: '撳一下開始遊戲',
@@ -9000,6 +9042,9 @@ const STRINGS = {
     gamemodeBtn: '遊戲模式',
   },
   vi: {
+    skinDefault: 'Mặc định',
+    skinEquip: 'Trang bị',
+    skinEquipped: 'Đã trang bị',
     menuSubtitle: 'Khu phố đổ nát.\nThu thập vật tư. Sống sót qua đám nhiễm bệnh.\nThoát trước bình minh.',
     menuSubhint: 'Tìm các đài quan sát trên cầu thang dọc đại lộ — có rương bên trong',
     playBtn: 'Chơi',
@@ -9120,6 +9165,9 @@ const STRINGS = {
     gamemodeBtn: 'Chế Độ Chơi',
   },
   pa: {
+    skinDefault: 'ਮੂਲ',
+    skinEquip: 'ਪਹਿਨੋ',
+    skinEquipped: 'ਪਹਿਨਿਆ ਹੋਇਆ',
     menuSubtitle: 'ਤਬਾਹ ਹੋਇਆ ਸ਼ਹਿਰੀ ਇਲਾਕਾ — ਬਚੋ, ਸਮਾਨ ਲੱਭੋ, ਗੋਲੀ ਚਲਾਓ',
     menuSubhint: 'ਸੜਕ ਦੇ ਨਾਲ ਪੌੜੀਆਂ ਉੱਤੇ ਦੇਖਣ ਵਾਲੇ ਟਾਵਰ ਲੱਭੋ — ਅੰਦਰ ਸੰਦੂਕ ਹਨ',
     playBtn: 'ਖੇਡਣ ਲਈ ਕਲਿੱਕ ਕਰੋ',

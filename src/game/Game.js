@@ -2480,7 +2480,6 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'touch-more-actions-hint': 'touchMoreActionsHint',
   'achievements-category-label': 'achievementsCategoryLabel',
   'achievements-sort-label': 'achievementsSortLabel',
-  'inventory-skins-sort-label': 'inventorySkinsSortLabelText',
   'clan-invite-id-label': 'clanInviteIdLabel',
   'clan-create-name-label': 'clanCreateNameLabel',
   'clan-request-name-label': 'clanRequestNameLabel',
@@ -2559,7 +2558,6 @@ const SELECT_OPTION_I18N_KEYS = {
   'achievements-sort-select': { 'default': 'optAchSortDefault', 'achieved': 'optAchSortAchieved', 'incomplete': 'optAchSortIncomplete' },
   'pinned-stat-select': { '': 'optPinnedStatNone' },
   'cloudsave-region-select': { 'global': 'optRegionGlobal', 'na': 'optRegionNa', 'eu': 'optRegionEu', 'asia': 'optRegionAsia', 'sa': 'optRegionSa', 'oceania': 'optRegionOceania', 'africa': 'optRegionAfrica' },
-  'inventory-skins-sort-select': { 'default': 'optSkinSortDefault', 'costAsc': 'optSkinSortCostAsc', 'costDesc': 'optSkinSortCostDesc', 'alpha': 'optSkinSortAlpha' },
 }
 
 // Nearly There nudge (Profile panel) - deliberately a small curated list,
@@ -5431,8 +5429,7 @@ export class Game {
     this.inventoryTabCharacter = document.getElementById('inventory-tab-character')
     this.inventoryTabCrates = document.getElementById('inventory-tab-crates')
     this.inventoryTabWeapons = document.getElementById('inventory-tab-weapons')
-    this.inventorySkinsSortLabel = document.getElementById('inventory-skins-sort-label')
-    this.inventorySkinsPlaceholder = document.getElementById('inventory-skins-placeholder')
+    this.inventorySkinsList = document.getElementById('inventory-skins-list')
     this.inventoryCharacterCratesPlaceholder = document.getElementById('inventory-charactercrates-placeholder')
     this.inventoryWeaponsPlaceholder = document.getElementById('inventory-weapons-placeholder')
     this.serverBtn = document.getElementById('server-btn')
@@ -8993,6 +8990,17 @@ export class Game {
         for (const page of document.querySelectorAll('.inventory-tab-page')) {
           page.style.display = page.id === `inventory-page-${tab.dataset.inventoryPage}` ? 'block' : 'none'
         }
+      })
+    }
+
+    // Character tab's skin list (see _renderInventorySkins) - one
+    // delegated listener since the rows get fully replaced on every
+    // render, same reasoning as chat's own click-to-mute delegation.
+    if (this.inventorySkinsList) {
+      this.inventorySkinsList.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-inventory-skin]')
+        if (!btn || btn.disabled) return
+        this._equipInventorySkin(btn.dataset.inventorySkin)
       })
     }
 
@@ -14308,14 +14316,63 @@ export class Game {
     if (this.inventoryTabCharacter) this.inventoryTabCharacter.textContent = t('inventorySkinsTitle')
     if (this.inventoryTabCrates) this.inventoryTabCrates.textContent = t('inventoryCratesTitle')
     if (this.inventoryTabWeapons) this.inventoryTabWeapons.textContent = t('inventoryWeaponsTitle')
-    if (this.inventorySkinsSortLabel) this.inventorySkinsSortLabel.textContent = t('inventorySortLabel')
-    if (this.inventorySkinsPlaceholder) this.inventorySkinsPlaceholder.textContent = t('menuInventoryPlaceholder')
     if (this.inventoryCharacterCratesPlaceholder) this.inventoryCharacterCratesPlaceholder.textContent = t('menuInventoryPlaceholder')
     if (this.inventoryWeaponsPlaceholder) this.inventoryWeaponsPlaceholder.textContent = t('menuInventoryPlaceholder')
+    this._renderInventorySkins()
     // Always reopen on the Character tab - simpler than remembering the
     // last-used one, and matches this panel's own approved design.
     for (const tabEl of document.querySelectorAll('.inventory-tab')) tabEl.classList.toggle('active', tabEl === this.inventoryTabCharacter)
     for (const page of document.querySelectorAll('.inventory-tab-page')) page.style.display = page.id === 'inventory-page-character' ? 'block' : 'none'
+  }
+
+  // Character tab of the Inventory panel (see this panel's own comment
+  // above _openMenuInventoryPanel) - was just a "Coming soon." placeholder
+  // (and an inert, never-wired-up Sort dropdown, removed along with it).
+  // Only ever shows two entries right now (Default, and GaygarX once
+  // bought in the Shop - see Game.SHOP_SKIN_PRICE/_buyShopSkin) since
+  // that's the only ownable skin that exists, but reads its list from
+  // this.ownsShopSkin so a future second purchasable skin would just mean
+  // adding one more entry here, not a new mechanism.
+  _renderInventorySkins() {
+    if (!this.inventorySkinsList) return
+    const equippedId = this.settings.customSkinDataUrl === SHOP_SKIN_PREVIEW_DATA_URL ? 'gaygarx' : 'default'
+    const items = [{ id: 'default', name: t('skinDefault') }]
+    if (this.ownsShopSkin) items.push({ id: 'gaygarx', name: 'GaygarX' })
+    this.inventorySkinsList.innerHTML = items.map((item) => {
+      const equipped = item.id === equippedId
+      return `<div class="perk-option"><span class="perk-name">${_escapeHtml(item.name)}</span><button type="button" class="mini-action-btn" data-inventory-skin="${item.id}"${equipped ? ' disabled' : ''}>${equipped ? t('skinEquipped') : t('skinEquip')}</button></div>`
+    }).join('')
+  }
+
+  // Same skin-apply sequence _buyShopSkin/_bindSkinUpload's Reset button
+  // already each use on their own equip/reset paths - kept as its own
+  // separate function rather than refactoring those two (both already
+  // shipped/working, each with its own extra step around this - currency
+  // deduction + confirm dialog for buying, the default-bundled-skin
+  // re-fetch for resetting) to avoid touching either for this.
+  async _equipInventorySkin(id) {
+    if (id === 'gaygarx') {
+      if (!this.ownsShopSkin) return
+      this.settings.customSkinDataUrl = SHOP_SKIN_PREVIEW_DATA_URL
+      saveSettings(this.settings)
+      const skin = await loadSkinTexture(SHOP_SKIN_PREVIEW_DATA_URL)
+      if (this._menuAvatar3D) this._menuAvatar3D.setSkin(skin)
+      this._updateMenuAvatarPhoto(skin)
+      this.localMinecraftBody.setSkin(SHOP_SKIN_PREVIEW_DATA_URL)
+    } else {
+      this.settings.customSkinDataUrl = null
+      saveSettings(this.settings)
+      if (this._menuAvatar3D) this._menuAvatar3D.setSkin(null)
+      this.localMinecraftBody.resetToDefaultSkin()
+      await this._applyDefaultBundledSkin()
+    }
+    // Profile's own Reset to Default button (see _bindSkinUpload) shows/
+    // hides based on this same customSkinDataUrl - keep it in sync too,
+    // even though it's on a different panel, since both reflect one
+    // shared piece of state.
+    const resetBtn = document.getElementById('reset-skin-btn')
+    if (resetBtn) resetBtn.style.display = this.settings.customSkinDataUrl ? '' : 'none'
+    this._renderInventorySkins()
   }
 
   _closeMenuInventoryPanel() {

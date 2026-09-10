@@ -3658,16 +3658,6 @@ html.ui-theme-old #share-panel-title {
   opacity: 1;
 }
 
-#inventory-skins-sort-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #ccc;
-  margin: 0 0 8px;
-}
-
 .inventory-section-placeholder {
   margin: 0;
   text-align: center;
