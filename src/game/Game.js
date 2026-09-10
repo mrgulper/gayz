@@ -14322,13 +14322,25 @@ export class Game {
     if (this.menuInventoryPanel) this.menuInventoryPanel.style.display = 'none'
   }
 
-  _openServerPanel() {
+  async _openServerPanel() {
     if (!this.serverPanel) return
     this._closeAllMenuPanels()
     this.serverPanel.style.display = 'flex'
     if (this.serverPanelTitle) this.serverPanelTitle.textContent = t('serverPanelTitle')
-    this._renderServerChatSignInState()
+    // Reading chat is public (no sign-in needed - see #server-chat-wrap's
+    // own CSS comment), so this starts immediately, unlike the sign-in
+    // gate below.
     this._subscribeServerChat()
+    // See _authReadyPromise's own comment (Game.js constructor) - same
+    // false-"you're signed out" race Friends/Profile/Clan already guard
+    // against with this same await. Without it, opening this panel
+    // shortly after a page load/reload reads _cloudUid before Firebase's
+    // own async session check has finished, so an already-signed-in
+    // player briefly (or, since nothing re-checks afterward, sometimes
+    // permanently until they open a different panel) sees the sign-in
+    // prompt instead of the chat input.
+    await this._authReadyPromise
+    this._renderServerChatSignInState()
   }
 
   _closeServerPanel() {
