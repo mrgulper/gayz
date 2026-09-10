@@ -7069,13 +7069,18 @@ html.ui-theme-old #menu-nav-buttons button {
    full-screen modal panel has real room, so the panel itself scrolls
    (see #achievements-panel's own precedent) instead of each list clamping
    itself into a tiny internal scrollbar. */
+/* Was capped at max-width:620px - request: widen to fill the box like
+   #whatsnew-content does (no width cap). Not just empty margin either -
+   .difficulty-row is flex-wrap (buttons keep their natural size, just
+   more of them fit per row) and .class-grid is a 3-column 1fr grid (see
+   those rules), so the actual buttons get wider along with the
+   container. No margin:auto needed at 100% width, same reasoning as
+   .settings-page's own comment on this. */
 #hub-content {
   display: flex;
   flex-direction: column;
   gap: 20px;
   width: 100%;
-  max-width: 620px;
-  margin: 0 auto;
 }
 
 .hub-section-title {
@@ -8111,23 +8116,16 @@ html.ui-theme-old #settings-panel h2 {
 }
 
 .settings-page {
-  /* Widened to match Credits/How to Play's shared 840px/92vw family
-     (see #credits-content, #howtoplay-content) - was previously its own
-     smaller 520px, standing out as narrower than every other panel. */
-  width: min(840px, 92vw);
-  /* margin:auto - .panel-box is a plain block box (only its own > h2
-     child gets text-align:center), not a flex container, so a
-     width-capped child like this one sits at the box's LEFT edge by
-     default rather than centered - real bug, caught from a live
-     screenshot showing this panel's content clustered left with a
-     large empty gap (and an oddly-placed scrollbar) on the right. Same
-     fix applied to every other panel with this exact shape today (see
-     .general-tab-page, .inventory-tab-page, #hub-content, #friends-
-     signed-out/-in - grep `margin: 0 auto` added today for the full
-     list). Panels using width:100% instead of a capped width (Upgrades/
-     Quests/Achievements/Profile's own content) were never affected,
-     since they already fill the box's full content width. */
-  margin: 0 auto;
+  /* Was capped at min(840px, 92vw) - request: widen to fill the box like
+     #whatsnew-content does (that one has no width cap at all). Not just
+     empty margin either - .audio-row's middle column is 1fr (see that
+     rule), so the actual dropdowns/sliders/checkboxes genuinely get
+     wider along with the container, not just more blank space on the
+     sides. No margin:auto needed at 100% width (was added for the
+     previous narrower version - see .general-tab-page's own comment on
+     why a width-capped child needs it; doesn't apply once there's no
+     cap to center). */
+  width: 100%;
   /* A fixed height (not max-height) so every tab reserves the same
      vertical space, whether or not its content fills it - #settings-panel
      now sits inside .panel-box like every other panel and centers via
