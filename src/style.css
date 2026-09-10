@@ -3430,12 +3430,15 @@ html.ui-theme-old #screenshot-crop-overlay {
   min-width: 180px;
 }
 
-/* Settings search bar - same width fix and same reasoning as
-   #achievements-filter-input above (also inherited .nickname-input's
-   100% by default). */
+/* Settings search bar - was a small 25%-width bar sitting inline next to
+   the Saved indicator, off to the left. Request: bigger and centered -
+   now its own full block line, width capped well below the box's own
+   ~1016px content width so it doesn't look like a whole extra section,
+   just a wider/more prominent search field than before. */
 #settings-search-input {
-  width: 25%;
-  min-width: 180px;
+  display: block;
+  width: min(480px, 70%);
+  margin: 0 auto 14px;
 }
 
 /* #hub-panel (Game Mode button's panel) USED to be top-anchored/outer-
@@ -4333,9 +4336,14 @@ html.ui-theme-old #share-panel-title {
 }
 
 /* Subtle autosave confirmation (see saveSettings) */
+/* Was inline-block sitting right next to the search bar - now the
+   search bar is its own centered block line (see that rule's comment),
+   so this moved to its own centered line too, between the search bar
+   and the tab row. */
 #settings-saved-indicator {
-  display: inline-block;
-  margin-left: 8px;
+  display: block;
+  text-align: center;
+  margin: 0 0 10px;
   font-size: 11px;
   color: #7fd88f;
   opacity: 0;
@@ -8135,13 +8143,16 @@ html.ui-theme-old #settings-panel h2 {
      pinned at the same spot regardless of which tab is active. 68vh (was
      a stale 60vh) matches How to Play's own #howtoplay-content height -
      see that rule's comment; this is the same mechanism, just built here
-     first before it got reused everywhere else today. The `- 82px`
-     subtracts the extra header rows Settings has that How to Play
-     doesn't (#settings-saved-indicator, #settings-search-input,
+     first before it got reused everywhere else today. The subtracted
+     value covers the extra header rows Settings has that How to Play
+     doesn't (#settings-search-input, #settings-saved-indicator,
      .settings-tabs, plus their gaps) - measured via getBoundingClientRect
      against #howtoplay-panel .panel-box, same approach as every other
-     panel's own subtracted value today. */
-  height: calc(68vh - 82px);
+     panel's own subtracted value today. Bumped from 82px to 118.5px when
+     the search bar/Saved indicator moved from sharing one inline row to
+     each being its own full block line (bigger, centered search bar +
+     centered Saved line, per request) - that's a taller header now. */
+  height: calc(68vh - 118.5px);
   overflow-y: auto;
   /* Firefox */
   scrollbar-width: thin;
