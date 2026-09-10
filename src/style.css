@@ -2740,14 +2740,27 @@ html.third-person-active #companion-bark {
    per request - it still had the dark/grainy backdrop (rgba(6,8,6,0.88)
    + grain texture) every other sidebar-nav panel gets by default, which
    read as noticeably darker/harder to see through than How to Play's
-   clear backdrop right next to it. */
+   clear backdrop right next to it. The rest of the sidebar-nav panels
+   (Store/Upgrades/Global/Quests/Friend List/Inventory/Achievements)
+   added per a follow-up request to match - same reasoning, just
+   extended to the ones still on the dark/grainy default. Map Editor
+   deliberately excluded - it's a standalone full-screen 3D editor
+   (BuildMode.js), not a .panel-box overlay like the rest of these, so
+   there's no homepage backdrop behind it to begin with. */
 #credits-panel,
 #howtoplay-panel,
 #whatsnew-panel,
 #clan-panel,
 #profile-panel,
 #hub-panel,
-#settings-panel {
+#settings-panel,
+#shop-panel,
+#upgrades-panel,
+#server-panel,
+#quests-panel,
+#friends-panel,
+#menu-inventory-panel,
+#achievements-panel {
   background: transparent !important;
 }
 
