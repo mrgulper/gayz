@@ -7844,6 +7844,34 @@ html.ui-theme-old #settings-panel h2 {
   width: min(640px, 90vw);
 }
 
+/* General/Market are just an unstyled "Coming soon." line by default,
+   which reads as broken/unfinished floating over the .panel-box's tall
+   min-height (see that rule's own comment) rather than an intentional
+   empty state - Clan is excluded since it has real content. Text
+   treatment matches .inventory-section-placeholder (same "coming soon"
+   convention elsewhere in the game). The centering lives on this inner
+   wrapper rather than directly on #general-page-general/-market
+   themselves, because the tab-switch click handler (Game.js) sets
+   `.general-tab-page`'s own `style.display` to 'block'/'none' inline on
+   every click - a `display: flex` rule on that same element would get
+   silently overwritten back to 'block' (losing the centering) the first
+   time the tab is clicked, or would need `!important` and then fight the
+   'none' JS also needs to hide the inactive page. A separate untouched
+   child avoids the conflict entirely. */
+.general-section-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 420px;
+}
+
+.general-section-placeholder {
+  margin: 0;
+  text-align: center;
+  font-size: 15px;
+  opacity: 0.6;
+}
+
 .clan-list-row,
 .clan-member-row,
 .clan-request-row {
