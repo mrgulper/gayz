@@ -14664,7 +14664,6 @@ export class Game {
     this.compassVehicle.textContent = t('compassVehicle')
     this.compassAirdrop.textContent = t('compassAirdrop')
     document.getElementById('infection-label').textContent = t('infectionLabel')
-    document.getElementById('settings-hint').innerHTML = tHtml('settingsHint')
 
     document.getElementById('death-title').textContent = t('deathTitle')
     this.respawnBtn.textContent = t('respawnBtn')
