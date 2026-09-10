@@ -543,12 +543,17 @@ html.layout-compact .menu-panel {
    these two is ever visible at a time (CloudSaveUI.renderCloudSaveState
    toggles `style.display` between 'flex'/'none' depending on sign-in
    state), same as General's tab pages. */
+/* margin:auto on both - same box-centering bug/fix as .settings-page
+   above (see that rule's comment) - align-items:center here only
+   centers each one's OWN children, not the element itself within
+   .panel-box. */
 #friends-signed-out {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
   width: min(360px, 84vw);
+  margin: 0 auto;
   height: 68vh;
   overflow-y: auto;
   text-align: center;
@@ -563,6 +568,7 @@ html.layout-compact .menu-panel {
   align-items: center;
   gap: 10px;
   width: min(640px, 90vw);
+  margin: 0 auto;
   height: 68vh;
   overflow-y: auto;
   text-align: center;
@@ -7069,6 +7075,7 @@ html.ui-theme-old #menu-nav-buttons button {
   gap: 20px;
   width: 100%;
   max-width: 620px;
+  margin: 0 auto;
 }
 
 .hub-section-title {
@@ -7679,6 +7686,8 @@ html.ui-theme-old #settings-panel h2 {
 
 .settings-tabs {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 8px;
   margin-bottom: 14px;
 }
@@ -7791,6 +7800,7 @@ html.ui-theme-old #settings-panel h2 {
    into the settings-tab/quest-tab click handlers' global .class queries. */
 .inventory-tabs {
   display: flex;
+  justify-content: center;
   gap: 8px;
   margin-bottom: 14px;
 }
@@ -7817,6 +7827,7 @@ html.ui-theme-old #settings-panel h2 {
    above - .inventory-tabs' own footprint subtracted the same way. */
 .inventory-tab-page {
   width: min(360px, 86vw);
+  margin: 0 auto;
   padding: 10px 0;
   height: calc(68vh - 45.5px);
   overflow-y: auto;
@@ -7828,6 +7839,7 @@ html.ui-theme-old #settings-panel h2 {
    Zombie Survival/Deathmatch tabs). */
 .general-tabs {
   display: flex;
+  justify-content: center;
   gap: 8px;
   margin-bottom: 14px;
 }
@@ -7866,6 +7878,7 @@ html.ui-theme-old #settings-panel h2 {
    itself scales with screen size. */
 .general-tab-page {
   width: min(360px, 86vw);
+  margin: 0 auto;
   padding: 10px 0;
   height: calc(68vh - 45.5px);
   overflow-y: auto;
@@ -8102,6 +8115,19 @@ html.ui-theme-old #settings-panel h2 {
      (see #credits-content, #howtoplay-content) - was previously its own
      smaller 520px, standing out as narrower than every other panel. */
   width: min(840px, 92vw);
+  /* margin:auto - .panel-box is a plain block box (only its own > h2
+     child gets text-align:center), not a flex container, so a
+     width-capped child like this one sits at the box's LEFT edge by
+     default rather than centered - real bug, caught from a live
+     screenshot showing this panel's content clustered left with a
+     large empty gap (and an oddly-placed scrollbar) on the right. Same
+     fix applied to every other panel with this exact shape today (see
+     .general-tab-page, .inventory-tab-page, #hub-content, #friends-
+     signed-out/-in - grep `margin: 0 auto` added today for the full
+     list). Panels using width:100% instead of a capped width (Upgrades/
+     Quests/Achievements/Profile's own content) were never affected,
+     since they already fill the box's full content width. */
+  margin: 0 auto;
   /* A fixed height (not max-height) so every tab reserves the same
      vertical space, whether or not its content fills it - #settings-panel
      now sits inside .panel-box like every other panel and centers via
