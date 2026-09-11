@@ -25,7 +25,7 @@ A third round (round 4) added, after auditing for and deliberately skipping the 
 - Every completed update gets committed, pushed to GitHub (`mrgulper/gayz`, private), and deployed to Vercel production (`npx vercel --prod --yes` → `gayz.vercel.app`) without asking each time.
 - For batched/greenlit feature work, build straight through without stopping for confirmation checkpoints between items.
 - Don't ship inert UI. If a feature's markup/CSS is scaffolded before its logic is wired up, leave it uncommitted rather than deploying a checkbox or HUD element that does nothing.
-- **Every new i18n key must ship translated into all 19 non-English language blocks, in the same change that adds it to `en`.** (Standing rule added 2026-09-05, after a one-time catch-up batch translated all 1355 keys that had accumulated English-only — see the i18n note under Gotchas.) Never add a key to `en` alone and leave the other 19 blocks to fall back to English "for now" — do the translations as part of the same batch, not as follow-up work.
+- **Every new i18n key must ship translated into `zh`, `hi`, and `es`, in the same change that adds it to `en`.** (Narrowed 2026-09-11 - only English/Mandarin Chinese/Hindi/Spanish are called properly supported now; every other language shows a "Coming soon" tag in Settings > Language and is intentionally left on whatever it last had, English-fallback included, until it gets promoted to supported. Originally added 2026-09-05 covering all 19 non-English blocks, after a one-time catch-up batch translated all 1355 keys that had accumulated English-only — see the i18n note under Gotchas.) Never add a key to `en` alone and leave `zh`/`hi`/`es` to fall back to English "for now" — do those 3 translations as part of the same batch, not as follow-up work.
 
 ## Recurring bug classes
 
@@ -40,7 +40,7 @@ A third round (round 4) added, after auditing for and deliberately skipping the 
 ## Gotchas
 
 - `WeaponSystem.current` is a getter off `currentIndex` (`get current() { return this.weapons[this.currentIndex] }`). Assigning `weapons.current = X` is a silent no-op — set `currentIndex` instead.
-- i18n keys (`src/game/i18n.js`) are only added to the English block in this codebase's current state — other language blocks are intentionally not kept in sync yet.
+- i18n keys (`src/game/i18n.js`) - `en`/`zh`/`hi`/`es` are kept fully in sync (verified 2026-09-11: all 1798 keys present in each, matching `en` exactly). The other 16 blocks are intentionally NOT kept in sync - they're the "Coming soon" languages in Settings > Language, still sitting at whatever key count they had before the 4-language scope narrowed (121 keys each as of 2026-09-11), and stay that way until a language gets promoted to supported.
 - Persistent (localStorage) vs per-run state: `MetaProgress.js`, `WeaponMastery.js`, `Achievements.js` persist across runs. `companionTrainingLevel`, `companionGear`, shop purchases reset on a fresh `new Game()` but survive a same-session "restart run" click — match this precedent for any new per-run state.
 
 ## Playwright verification quirks (no test suite exists — this is the actual verification method)
