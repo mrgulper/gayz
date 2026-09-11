@@ -4543,6 +4543,17 @@ export class Game {
     // (bare-bones mode), regardless of the separate Performance Mode
     // setting - a real, free GPU cost cut (no multi-sample resolve pass).
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: !LOW_QUALITY_MODE && !this.settings.performanceMode })
+    // Temporary (2026-09-11) - surfaces real GPU info in the existing FPS
+    // HUD line (see its own comment) so a player reporting lag can just
+    // screenshot the corner they already know, instead of navigating
+    // chrome://gpu or opening DevTools themselves. "SwiftShader"/"Software
+    // Rasterizer" here would mean hardware acceleration is off and every
+    // frame is drawn by the CPU, not the graphics card - the single
+    // biggest possible cause of exactly this kind of lag. Remove once no
+    // longer needed for live diagnosis.
+    const _dbgGl = this.renderer.getContext()
+    const _dbgExt = _dbgGl.getExtension('WEBGL_debug_renderer_info')
+    this._gpuRendererString = _dbgExt ? _dbgGl.getParameter(_dbgExt.UNMASKED_RENDERER_WEBGL) : 'unknown'
     // Lightweight placeholder until the player actually clicks Build (see
     // _enterBuildMode) - satisfies every `this.buildMode.active` check
     // scattered through the per-frame tick/keydown handlers without needing
@@ -23410,7 +23421,7 @@ export class Game {
       // reading renderer.info.render.calls live here would always show 1,
       // see docs/PERFORMANCE.md §3.
       const drawCalls = this._lastFrameDrawCalls
-      this.fpsEl.textContent = `${fps} fps / ${msPerFrame} ms / ${this.zombies.zombies.length} zmb / ${drawCalls} draws`
+      this.fpsEl.textContent = `${fps} fps / ${msPerFrame} ms / ${this.zombies.zombies.length} zmb / ${drawCalls} draws / ${this._gpuRendererString}`
       // Session Timer / Difficulty Label / Distance to Extraction Point
       // (General tab) - same ~500ms cadence as the FPS readout above,
       // no reason for per-frame accuracy on any of these three.
