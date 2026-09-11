@@ -8923,10 +8923,23 @@ export class Game {
   }
 
   _bindSettings() {
+    // Only these 4 are being called properly supported right now (product
+    // call, 2026-09-11) - every language DOES have translated strings in
+    // i18n.js (see that file's own standing rule - a one-time catch-up
+    // already covered every key), but that hasn't been enough for a
+    // "supported" bar yet, so every other language is flagged as coming
+    // soon here rather than silently implying it's equally ready. Fixed
+    // English text, not run through t() - this list's other text
+    // (lang.name/lang.native) is likewise always shown the same way
+    // regardless of the currently active UI language, so a player mid-way
+    // through picking a language isn't shown this label itself in a
+    // language they don't read yet.
+    const LANG_CODES_DONE = new Set(['en', 'zh', 'hi', 'es'])
     this.languageGrid.innerHTML = LANGUAGES.map((lang) => `
       <button class="language-btn${lang.code === this.settings.language ? ' active' : ''}" data-lang="${lang.code}">
         <span class="lang-name">${lang.name}</span>
         <span class="lang-native">${lang.native}</span>
+        ${LANG_CODES_DONE.has(lang.code) ? '' : '<span class="lang-coming-soon">Coming soon</span>'}
       </button>
     `).join('')
 

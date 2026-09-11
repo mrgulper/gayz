@@ -8427,6 +8427,13 @@ html.ui-theme-old #settings-panel h2 {
   opacity: 0.6;
 }
 
+.language-btn .lang-coming-soon {
+  font-size: 11px;
+  font-style: italic;
+  color: #e3c23c;
+  opacity: 0.75;
+}
+
 #language-missing-hint {
   margin: 14px 4px 0;
   font-size: 12px;
