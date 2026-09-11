@@ -3436,11 +3436,13 @@ html.ui-theme-old #screenshot-crop-overlay {
    .achievements-scroll-area further down for where its own internal
    scrolling now lives instead. */
 
-/* Filter search box - was inheriting .nickname-input's width:100%, which
-   at this panel's full viewport width was a huge, mostly-empty bar. */
+/* Filter search box - same too-narrow-and-left-aligned bug Settings'
+   search bar had (see #settings-search-input's comment) - now its own
+   centered block line with the same width cap. */
 #achievements-filter-input {
-  width: 25%;
-  min-width: 180px;
+  display: block;
+  width: min(480px, 70%);
+  margin: 0 auto 10px;
 }
 
 /* Settings search bar - was a small 25%-width bar sitting inline next to
