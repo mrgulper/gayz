@@ -7334,15 +7334,34 @@ function buildWreckedTrainChamber(scene, colliders, solidMeshes, x, z, chestSpot
   // straight) eventually walks the player right off its edge into open
   // space, with the same "nothing underfoot, snap to street level" result
   // as the missing floor itself used to cause.
+  //
+  // Both side walls merged into one piece (same wallMat, same
+  // cast+receiveShadow, static) - see docs/PERFORMANCE.md Option B3.
+  // endWall above is deliberately left separate: it never had
+  // castShadow/receiveShadow set (both default false), unlike these two,
+  // so folding it into the same merged mesh would silently change its
+  // shadow behavior for the sake of one more merged object. Colliders
+  // stay individual boxes either way, exactly as before - merging only
+  // ever touches the VISUAL mesh.
+  const wallGeoms = []
+  const wallScratch = new THREE.Mesh()
   for (const side of [-1, 1]) {
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.2, SUBWAY_HEIGHT, 4.4), wallMat)
-    wall.position.set(x + side * (SUBWAY_WIDTH / 2 + 0.1), SUBWAY_FLOOR_Y + SUBWAY_HEIGHT / 2, z - 2)
-    wall.castShadow = true
-    wall.receiveShadow = true
-    scene.add(wall)
-    solidMeshes.push(wall)
-    colliders.push(new THREE.Box3().setFromObject(wall))
+    const wx = x + side * (SUBWAY_WIDTH / 2 + 0.1)
+    const wy = SUBWAY_FLOOR_Y + SUBWAY_HEIGHT / 2
+    const wz = z - 2
+    const wGeo = new THREE.BoxGeometry(0.2, SUBWAY_HEIGHT, 4.4)
+    wGeo.translate(wx, wy, wz)
+    wallGeoms.push(wGeo)
+    wallScratch.geometry = new THREE.BoxGeometry(0.2, SUBWAY_HEIGHT, 4.4)
+    wallScratch.position.set(wx, wy, wz)
+    wallScratch.updateWorldMatrix(true, false)
+    colliders.push(new THREE.Box3().setFromObject(wallScratch))
   }
+  const walls = new THREE.Mesh(mergeGeometries(wallGeoms), wallMat)
+  walls.castShadow = true
+  walls.receiveShadow = true
+  scene.add(walls)
+  solidMeshes.push(walls)
 
   const bodyMat = cachedFlatMaterial({ color: 0x4a2e1e, roughness: 0.9, metalness: 0.1 })
   const wreck = new THREE.Mesh(new THREE.BoxGeometry(2.6, 3, 6), bodyMat)
@@ -7351,13 +7370,18 @@ function buildWreckedTrainChamber(scene, colliders, solidMeshes, x, z, chestSpot
   wreck.castShadow = true
   scene.add(wreck)
 
+  // 3 rubble rocks merged into one piece (same rubbleMat, same castShadow,
+  // static, and never in colliders originally either - purely decorative).
   const rubbleMat = cachedFlatMaterial({ color: 0x3a352e, roughness: 1 })
+  const rockGeoms = []
   for (const [rx, rz, s] of [[1.4, -2.5, 0.5], [1.8, -1, 0.35], [1.2, 0.5, 0.45]]) {
-    const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(s), rubbleMat)
-    rock.position.set(x + rx, SUBWAY_FLOOR_Y + s * 0.6, z + rz)
-    rock.castShadow = true
-    scene.add(rock)
+    const g = new THREE.DodecahedronGeometry(s)
+    g.translate(x + rx, SUBWAY_FLOOR_Y + s * 0.6, z + rz)
+    rockGeoms.push(g)
   }
+  const rocks = new THREE.Mesh(mergeGeometries(rockGeoms), rubbleMat)
+  rocks.castShadow = true
+  scene.add(rocks)
 
   const emergencyLight = new THREE.PointLight(0xff3a1a, 1.3, 10, 2)
   emergencyLight.position.set(x, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT - 0.4, z - 2)
@@ -7436,21 +7460,37 @@ function buildSubwayJunctionRoom(scene, colliders, solidMeshes, cx, cz, halfSize
   // _sampleGroundHeight finds nothing underfoot out there). Wall off every
   // side except whichever ones openSides names as a real connector's own
   // attachment point.
+  // Every built wall (0-4 depending on openSides) merged into one piece
+  // (same wallMat, same cast+receiveShadow, static) instead of one Mesh
+  // each - see docs/PERFORMANCE.md Option B3. Colliders stay individual
+  // boxes exactly as before, and ceiling above is left as its own separate
+  // mesh since it never had receiveShadow set (only castShadow), unlike
+  // these walls - merging only ever touches the VISUAL mesh count.
   const sides = {
     north: { x: cx, z: cz + halfSize, w: halfSize * 2 + 0.4, d: 0.2 },
     south: { x: cx, z: cz - halfSize, w: halfSize * 2 + 0.4, d: 0.2 },
     east: { x: cx + halfSize, z: cz, w: 0.2, d: halfSize * 2 + 0.4 },
     west: { x: cx - halfSize, z: cz, w: 0.2, d: halfSize * 2 + 0.4 },
   }
+  const wallY = SUBWAY_FLOOR_Y + SUBWAY_HEIGHT / 2
+  const wallGeoms = []
+  const wallScratch = new THREE.Mesh()
   for (const [side, spec] of Object.entries(sides)) {
     if (openSides.includes(side)) continue
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(spec.w, SUBWAY_HEIGHT, spec.d), wallMat)
-    wall.position.set(spec.x, SUBWAY_FLOOR_Y + SUBWAY_HEIGHT / 2, spec.z)
-    wall.castShadow = true
-    wall.receiveShadow = true
-    scene.add(wall)
-    solidMeshes.push(wall)
-    colliders.push(new THREE.Box3().setFromObject(wall))
+    const wGeo = new THREE.BoxGeometry(spec.w, SUBWAY_HEIGHT, spec.d)
+    wGeo.translate(spec.x, wallY, spec.z)
+    wallGeoms.push(wGeo)
+    wallScratch.geometry = new THREE.BoxGeometry(spec.w, SUBWAY_HEIGHT, spec.d)
+    wallScratch.position.set(spec.x, wallY, spec.z)
+    wallScratch.updateWorldMatrix(true, false)
+    colliders.push(new THREE.Box3().setFromObject(wallScratch))
+  }
+  if (wallGeoms.length > 0) {
+    const walls = new THREE.Mesh(mergeGeometries(wallGeoms), wallMat)
+    walls.castShadow = true
+    walls.receiveShadow = true
+    scene.add(walls)
+    solidMeshes.push(walls)
   }
 }
 

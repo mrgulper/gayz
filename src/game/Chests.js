@@ -42,6 +42,18 @@ const EYE_HEIGHT = 1.7
 // down in dense loot areas.
 export const CHEST_CULL_DISTANCE = 30
 
+// Every GLB chest's 2 status-light boxes (908 total across 454 chests) used
+// to be its own separate Mesh + Material (see docs/PERFORMANCE.md Option
+// B2 - a 3.5cm detail "invisible at gameplay distance" per that doc's own
+// measurement, but still 908 full scene-graph objects paid for every
+// frame). Replaced with one shared InstancedMesh covering every chest's
+// lights at once - see ChestManager's _assignLights/_lightMesh. Sized with
+// real headroom (not just the ~454 base chests) since addChest() (Supply
+// Drop crates, broken-open glass cases/locked cells) can add more at
+// runtime and an InstancedMesh's instance count is fixed at construction.
+const INDICATOR_GEO = new THREE.BoxGeometry(0.035, 0.035, 0.02)
+const INDICATOR_HEADROOM = 200
+
 // Exported so a zone-tagged location can build an override table by
 // spreading/adjusting this base table (e.g. `{ ...LOOT_WEIGHTS, rare_weapon: 1 }`
 // for a "high loot complexity" spot) instead of hand-duplicating every entry.
@@ -151,15 +163,11 @@ class Chest {
       this._openAction.clampWhenFinished = true
     }
 
-    // Status LEDs (red locked / green unlocked) - not part of the source
-    // model, added as small emissive boxes near the front so there's still
-    // an at-a-glance "has this been opened" cue like the old crate had.
-    this.indicatorMat = flatMaterial({ color: 0x1a0505, emissive: 0xff2a1e, emissiveIntensity: 0.9 })
-    for (const side of [-0.16, 0.16]) {
-      const light = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.035, 0.02), this.indicatorMat)
-      light.position.set(side, 0.42, 0.36)
-      this.group.add(light)
-    }
+    // Status light (red locked / green unlocked) - not part of the source
+    // model. Used to be its own small emissive box added here per-chest;
+    // now lives entirely in ChestManager's shared indicator InstancedMesh
+    // (see INDICATOR_GEO's comment) - ChestManager._assignLights() wires
+    // up this._lightsMesh/_lightStart right after construction.
   }
 
   _buildProcedural() {
@@ -227,6 +235,10 @@ class Chest {
 
   update(dt, elapsed) {
     if (this.mixer && this._openAction && this._openAction.isRunning()) this.mixer.update(dt)
+    // The GLB path's light no longer pulses (see unlock()'s own comment) -
+    // nothing left to animate here for it. The rare procedural fallback
+    // keeps its original per-frame pulse.
+    if (this.usingGLB) return
     if (this.opened || this.locked) return
     this.indicatorMat.emissiveIntensity = 0.6 + Math.sin(elapsed * 2.2) * 0.3
   }
@@ -241,6 +253,18 @@ class Chest {
     }
   }
 
+  // Sets the shared instanced light's color for this chest (GLB path only -
+  // see ChestManager._assignLights). A no-op until ChestManager has wired
+  // up _lightsMesh/_lightStart, which happens right after construction, so
+  // this is always safe to call from open()/unlock()/lock() unconditionally.
+  _setInstancedColor(hex) {
+    if (!this._lightsMesh || this._lightStart == null) return
+    const c = new THREE.Color(hex)
+    this._lightsMesh.setColorAt(this._lightStart, c)
+    this._lightsMesh.setColorAt(this._lightStart + 1, c)
+    this._lightsMesh.instanceColor.needsUpdate = true
+  }
+
   open() {
     this.opened = true
     if (this._openAction) {
@@ -249,20 +273,35 @@ class Chest {
     } else if (this.lid) {
       this.lid.rotation.x = -2.0
     }
-    this.indicatorMat.color.setHex(0x0a2a0a)
-    this.indicatorMat.emissive.setHex(0x2aff3e)
-    this.indicatorMat.emissiveIntensity = 0.6
+    if (this.usingGLB) {
+      this._setInstancedColor(0x1a5a1a) // dim green - looted
+    } else {
+      this.indicatorMat.color.setHex(0x0a2a0a)
+      this.indicatorMat.emissive.setHex(0x2aff3e)
+      this.indicatorMat.emissiveIntensity = 0.6
+    }
   }
 
-  // Refilled and interactable - the red pulsing "unopened" look.
+  // Refilled and interactable - bright red. Used to pulse every frame; the
+  // instanced light (see docs/PERFORMANCE.md Option B2) is a plain
+  // MeshBasicMaterial with per-instance color, which has no per-instance
+  // emissive/intensity to animate, so this is a steady color now instead of
+  // a sine-wave pulse. A 3.5cm detail on a chest reads the same either way
+  // at normal play distance (the original perf notes called this exact
+  // detail "invisible at gameplay distance"). The rare procedural fallback
+  // still pulses via update() above, unchanged.
   unlock() {
     this.locked = false
     this.opened = false
     this.group.visible = true
     this._resetLid()
-    this.indicatorMat.color.setHex(0x1a0505)
-    this.indicatorMat.emissive.setHex(0xff2a1e)
-    this.indicatorMat.emissiveIntensity = 0.9
+    if (this.usingGLB) {
+      this._setInstancedColor(0xff2a1e) // bright red - has loot
+    } else {
+      this.indicatorMat.color.setHex(0x1a0505)
+      this.indicatorMat.emissive.setHex(0xff2a1e)
+      this.indicatorMat.emissiveIntensity = 0.9
+    }
   }
 
   // Not part of this rotation's 3 stocked chests. Previously just a dim,
@@ -275,9 +314,13 @@ class Chest {
     this.opened = false
     this.group.visible = false
     this._resetLid()
-    this.indicatorMat.color.setHex(0x14140f)
-    this.indicatorMat.emissive.setHex(0x2a2a22)
-    this.indicatorMat.emissiveIntensity = 0.15
+    if (this.usingGLB) {
+      this._setInstancedColor(0x2a2a22) // dim gray - hidden anyway, doesn't matter
+    } else {
+      this.indicatorMat.color.setHex(0x14140f)
+      this.indicatorMat.emissive.setHex(0x2a2a22)
+      this.indicatorMat.emissiveIntensity = 0.15
+    }
   }
 }
 
@@ -430,9 +473,23 @@ export class ChestManager {
     this.cullables = cullables
     const spots = [...CHEST_SPOTS, ...extraSpots]
     this.chests = spots.map((p) => new Chest(p.x, p.y || 0, p.z, p.lootWeights || null))
+
+    // Shared indicator-light InstancedMesh for every GLB chest - see
+    // INDICATOR_GEO's own comment for why. Capacity is fixed at
+    // construction (an InstancedMesh can't grow), so this pre-allocates
+    // real headroom beyond the known base chest count for addChest()'s
+    // runtime additions (Supply Drop crates, broken-open glass
+    // cases/locked cells - see Game.js's own call sites).
+    this._lightCapacity = (spots.length + INDICATOR_HEADROOM) * 2
+    this._lightMesh = new THREE.InstancedMesh(INDICATOR_GEO, new THREE.MeshBasicMaterial(), this._lightCapacity)
+    this._lightMesh.count = 0
+    this._lightNextIndex = 0
+    scene.add(this._lightMesh)
+
     for (const c of this.chests) {
       scene.add(c.group)
       this._registerCullable(c)
+      this._assignLights(c)
     }
     this.nearbyChest = null
     this.refillNight()
@@ -445,11 +502,35 @@ export class ChestManager {
     this.cullables.push(chest.group)
   }
 
+  // Wires a GLB chest up to 2 fresh slots in the shared indicator-light
+  // InstancedMesh (a no-op for the rare procedural-fallback chest, which
+  // keeps its own real Mesh/Material instead - see Chest._buildFromGLB's
+  // comment). Chest never rotates or scales its own group, so each light's
+  // world position is just the chest's position plus its old local offset.
+  _assignLights(chest) {
+    if (!chest.usingGLB) return
+    if (this._lightNextIndex + 2 > this._lightCapacity) {
+      console.warn('Chest indicator-light capacity exceeded - this chest will show no status light')
+      return
+    }
+    const idx = this._lightNextIndex
+    this._lightNextIndex += 2
+    this._lightMesh.count = this._lightNextIndex
+    const m1 = new THREE.Matrix4().makeTranslation(chest.x - 0.16, chest.y + 0.42, chest.z + 0.36)
+    const m2 = new THREE.Matrix4().makeTranslation(chest.x + 0.16, chest.y + 0.42, chest.z + 0.36)
+    this._lightMesh.setMatrixAt(idx, m1)
+    this._lightMesh.setMatrixAt(idx + 1, m2)
+    this._lightMesh.instanceMatrix.needsUpdate = true
+    chest._lightsMesh = this._lightMesh
+    chest._lightStart = idx
+  }
+
   // Adds one extra chest at runtime, for the "Supply Drop" random night event.
   // Unlocked immediately - it's a bonus reward for that event, not part of
   // the regular nightly rotation.
   addChest(x, y, z, lootWeights = null) {
     const chest = new Chest(x, y, z, lootWeights)
+    this._assignLights(chest)
     chest.unlock()
     this.chests.push(chest)
     this.scene.add(chest.group)
