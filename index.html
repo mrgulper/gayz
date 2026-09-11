@@ -470,8 +470,14 @@ Escape before dawn.</p>
             <p class="menu-news-ticker" id="menu-news-ticker"></p>
             <p class="menu-news-ticker" id="weekly-featured-mutator-line"></p>
 
-            <button id="play-btn">Play</button>
-            <button id="gamemode-btn">Game Mode</button>
+            <div id="hero-ad-row">
+              <div class="ad-square-placeholder" id="ad-square-left"><span>Ad space</span></div>
+              <div id="hero-play-buttons">
+                <button id="play-btn">Play</button>
+                <button id="gamemode-btn">Game Mode</button>
+              </div>
+              <div class="ad-square-placeholder" id="ad-square-right"><span>Ad space</span></div>
+            </div>
 
             <div id="hero-quick-actions">
               <button id="quick-mute-btn" aria-label="Mute audio">
@@ -2087,6 +2093,7 @@ Escape before dawn.</p>
           <div id="whatsnew-content">
             <p id="build-version-line"></p>
           <div id="changelog-list">
+            <div class="changelog-entry"><span class="changelog-date">Sep 11, 2026</span><span class="changelog-text">Reserved two empty ad spaces flanking the Play button on wide screens - no real ads yet, just holding the spot for later. Only shows up when there's enough room, so it never causes scrolling.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 11, 2026</span><span class="changelog-text">Testing turning "bare-bones" visual mode back off now that the recent performance fixes are in - shadows, glow, and antialiasing may be back on for everyone. Watching for lag reports; easy to turn back off if it causes trouble.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 11, 2026</span><span class="changelog-text">Default theme changed from Golden to Old.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 11, 2026</span><span class="changelog-text">Fixed the corner-badge Player ID changing to a new random one every time some players refreshed the page, instead of staying the same. New players now get a "Survivor####" starter name instead of "Warrior####".</span></div>
