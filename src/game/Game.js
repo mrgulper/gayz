@@ -14497,6 +14497,40 @@ export class Game {
         // Live onSnapshot subscription re-filters on its own next update,
         // same reasoning as _bindChatMuteClicks's own comment on this.
       })
+      // Right-click a name to copy that player's #ID (homepage Global chat
+      // only, per explicit instruction - the in-game HUD chat's own
+      // .chat-message-nickname is untouched). Resolves nickname ->
+      // playerId via the same public leaderboard lookup Friend Compare
+      // already uses (CloudSync.fetchLeaderboardEntryByName) rather than
+      // sending playerId with every chat message - this isn't a new
+      // privacy exposure, the leaderboard doc (and this exact lookup) was
+      // already public/queryable before this, just not reachable from
+      // chat with one click yet.
+      this.serverChatMessages.addEventListener('contextmenu', async (e) => {
+        const btn = e.target.closest('.chat-message-nickname')
+        if (!btn) return
+        e.preventDefault()
+        const nickname = btn.dataset.nickname
+        if (!nickname) return
+        if (!navigator.clipboard || !navigator.clipboard.writeText) {
+          this._showHomepageToast(t('clipboardCopyUnsupported'))
+          return
+        }
+        let entry = null
+        try {
+          entry = await CloudSync.fetchLeaderboardEntryByName(nickname)
+        } catch {
+          // Falls through to the "not found" toast below, same as every
+          // other best-effort leaderboard lookup in this file.
+        }
+        if (!entry || !entry.playerId) {
+          this._showHomepageToast(t('chatCopyPlayerIdNotFound', { name: nickname }))
+          return
+        }
+        navigator.clipboard.writeText(`#${entry.playerId}`)
+          .then(() => this._showHomepageToast(t('chatCopyPlayerIdCopied', { name: nickname })))
+          .catch(() => this._showHomepageToast(t('clipboardCopyUnsupported')))
+      })
     }
   }
 
