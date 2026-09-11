@@ -224,10 +224,13 @@ function loadSettings() {
     const raw = localStorage.getItem(SETTINGS_STORAGE_KEY)
     const parsed = raw ? JSON.parse(raw) : {}
     // A genuinely new player (no settings saved at all yet) gets a
-    // "Warrior####" starter nickname instead of a blank field - an
-    // existing player who has settings saved but left their nickname
-    // blank on purpose keeps it blank, never overwritten on a later load.
-    const defaultNickname = raw ? '' : `Warrior${Math.floor(1000 + Math.random() * 9000)}`
+    // "Survivor####" starter nickname instead of a blank field (changed
+    // 2026-09-11 from "Warrior####", to match the "Survivor" wording
+    // _defaultNickname() already uses elsewhere for the blank-nickname
+    // fallback) - an existing player who has settings saved but left
+    // their nickname blank on purpose keeps it blank, never overwritten
+    // on a later load.
+    const defaultNickname = raw ? '' : `Survivor${Math.floor(1000 + Math.random() * 9000)}`
     const settings = {
       language: parsed.language || 'en',
       masterVolume: parsed.masterVolume ?? 100,
@@ -335,6 +338,15 @@ function loadSettings() {
       // existing player whose saved id predates the fixed 6-character
       // length (the old format was randomly 6-10 characters) - a one-time
       // move onto the new format, not something that keeps re-rolling.
+      // playerIdRegenerated (below) is read by the immediate-persist guard
+      // a few lines down - without it, this "one-time" regeneration wasn't
+      // actually one-time: the old-length check kept failing on every
+      // load (nothing here ever writes the fresh id back for that specific
+      // case, only the "missing entirely" case), so a player with a
+      // legacy long id got a brand new RANDOM id every single reload,
+      // never persisted, until some unrelated settings change happened to
+      // save it - found live 2026-09-11 from a player reporting their
+      // corner-badge id kept changing on every plain refresh.
       playerId: parsed.playerId && parsed.playerId.length === PLAYER_ID_LENGTH ? parsed.playerId : _generatePlayerId(),
       nickname: parsed.nickname || defaultNickname,
       // Nickname color (see nickname display sites - Hardcore Memorial, kill
@@ -553,13 +565,19 @@ function loadSettings() {
     // A genuinely new player's generated defaults (starter nickname, etc.)
     // only exist in memory otherwise - persist them right away so a page
     // refresh before any real settings change doesn't silently generate a
-    // second, different "Warrior####" and lose the first one. Also fires
+    // second, different "Survivor####" and lose the first one. Also fires
     // for an EXISTING player whose saved settings predate the playerId
-    // field (just backfilled above) - otherwise that freshly-generated ID
-    // only lives in memory until their next unrelated settings change,
-    // and would get silently regenerated (losing the first one) if they
-    // leave before that happens.
-    if (!raw || !parsed.playerId) localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
+    // field (just backfilled above), OR whose playerId is in the old
+    // pre-fixed-length format (also just regenerated above) - either way
+    // that freshly-generated ID only lives in memory until their next
+    // unrelated settings change, and would get silently REPLACED WITH A
+    // DIFFERENT RANDOM ID (not just "lost once", but every single reload
+    // in a loop) if they leave before that happens - this second OR
+    // clause was missing until 2026-09-11 (see playerId's own comment
+    // above), so every reload for an old-format account rolled a brand
+    // new id that never saved, forever, until some unrelated setting
+    // change happened to catch it.
+    if (!raw || !parsed.playerId || parsed.playerId.length !== PLAYER_ID_LENGTH) localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
     return settings
   } catch {
     return defaultSettings()
