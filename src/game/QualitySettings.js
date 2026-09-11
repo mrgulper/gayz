@@ -8,7 +8,7 @@ import * as THREE from 'three'
 // call sites) to restore the full-detail look built during the 3D asset
 // overhaul - nothing about that work was removed, just temporarily not
 // used for rendering.
-export const LOW_QUALITY_MODE = true
+export const LOW_QUALITY_MODE = false
 
 // Split off from LOW_QUALITY_MODE (2026-09-05) - measured live that
 // flipping the single combined flag costs far more than materials alone:
