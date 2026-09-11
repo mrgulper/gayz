@@ -379,9 +379,13 @@ export class ZombieManager {
     this.roundMode = false
     this.roundHealthMult = 1
 
-    for (let i = 0; i < this.targetCount; i++) {
-      this._spawnRandom()
-    }
+    // Queued (see update()'s own comment on _pendingSpawns/_pendingLocationSpawns
+    // for the full reasoning), not spawned in this synchronous loop directly -
+    // a real zombie construction measured at ~150ms+ each (see spawnAt's own
+    // comment), so building this run's whole starting population in one go
+    // was a real multi-hundred-ms freeze right at the "Click to Play"
+    // moment. The per-frame budget in update() drains this at 1/frame.
+    this._pendingSpawns += this.targetCount
   }
 
   // Kills the normal continuous respawn-on-death trickle (targetCount = 0
@@ -591,9 +595,12 @@ export class ZombieManager {
     this.currentNight = night
     this._recomputeDifficulty()
 
-    while (this.zombies.length < this.targetCount) {
-      this._spawnRandom()
-    }
+    // Queued (see the constructor's own comment on this same fix), not an
+    // unpaced while-loop directly calling the expensive _spawnRandom() -
+    // the "- this._pendingSpawns" guards against double-queueing if this
+    // runs again before a previous shortfall has fully drained yet.
+    const shortfall = this.targetCount - this.zombies.length - this._pendingSpawns
+    if (shortfall > 0) this._pendingSpawns += shortfall
 
     // Boss Rush mutator: every night forces a boss instead of only every
     // 5th - see Game.js's settings.mutators.bossRush.
@@ -606,10 +613,15 @@ export class ZombieManager {
 
   // Director AI hook (see Game.js's _updateDirectorAI) - re-derives the
   // three difficulty numbers with the new multiplier layered on top of the
-  // current night's baseline. Raising targetCount immediately spawns the
-  // difference (the "throw a horde" moment); lowering it just throttles
-  // future respawns - existing zombies are never despawned, so easing off
-  // can never feel like enemies vanished out from under the player.
+  // current night's baseline. Raising targetCount queues the difference
+  // (the "throw a horde" moment - arrives over the next second or so via
+  // the per-frame spawn budget, not instantly - see this file's own note
+  // on why an unpaced spawn loop here was a real measured freeze,
+  // especially since this is evaluated periodically DURING active combat,
+  // exactly when the player would notice a multi-hundred-ms stall);
+  // lowering it just throttles future respawns - existing zombies are
+  // never despawned, so easing off can never feel like enemies vanished
+  // out from under the player.
   // Featured Enemy mutator - typeId null clears the boost back to a normal
   // roll. See FEATURED_ENEMY_WEIGHT_MULT/_spawnRandom's pickZombieType call.
   setFeaturedEnemy(typeId) {
@@ -621,9 +633,9 @@ export class ZombieManager {
     if (Math.abs(clamped - this.directorMult) < 0.03) return
     this.directorMult = clamped
     this._recomputeDifficulty()
-    while (this.zombies.length < this.targetCount) {
-      this._spawnRandom()
-    }
+    // Queued - see applyDifficulty's identical fix, same reasoning.
+    const shortfall = this.targetCount - this.zombies.length - this._pendingSpawns
+    if (shortfall > 0) this._pendingSpawns += shortfall
   }
 
   // Bosses walk in from max spawn range rather than ambushing, and never
@@ -1940,9 +1952,19 @@ export class ZombieManager {
     this._updateEmpThrows(dt)
     this._updateEmpBursts()
 
+    // Queued (see applyDifficulty/setDirectorMult's identical fix and the
+    // constructor's own comment for the full reasoning) rather than
+    // calling the expensive _spawnRandom() directly in this filter -
+    // several zombies dying close together schedule respawns that expire
+    // in the same frame here, which used to mean several ~150ms+
+    // constructions stacking into one frame's freeze, and this fires
+    // constantly during any real fight (every kill schedules one of
+    // these), unlike the other two fixed call sites which are periodic.
+    // zombies.length + _pendingSpawns (not zombies.length alone) avoids
+    // over-queueing when more than one entry expires in the same pass.
     this.pendingRespawns = this.pendingRespawns.filter((r) => {
       if (performance.now() < r.at) return true
-      if (this.zombies.length < this.targetCount && this.zombies.length < this.performanceCap) this._spawnRandom()
+      if (this.zombies.length + this._pendingSpawns < this.targetCount) this._pendingSpawns++
       return false
     })
   }
