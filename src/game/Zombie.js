@@ -179,6 +179,23 @@ const HEALTH_BAR_H = 10
 // future posture gets the same treatment automatically.
 const HEAD_HEIGHT_LOCAL = 2.05
 const HEAD_HEIGHT_LOCAL_CRAWLER = 0.85
+// Weapon-fire hit detection (docs/PERFORMANCE.md follow-up, 2026-09-10) -
+// raycasting straight against the GLB zombie's real SkinnedMesh body parts
+// measured at ~2.5ms EACH (CPU-side bone skinning has to run before the
+// triangle test can even happen), vs ~0.01ms for a plain unskinned box -
+// with several zombies in a real fight this was the actual dominant cost
+// during combat specifically (confirmed live: 9 hittable meshes across 6
+// zombies cost 23ms per shot, while the entire rest of the map's ~2,000
+// static objects cost 0.8ms). Fixed by giving each zombie ONE small
+// invisible, unskinned hitbox instead of raycasting its real animated
+// mesh - see _buildBodyFromGLB's hittableMeshes population. Headshot/leg-
+// shot detection (WeaponSystem._fire()) only ever reads the hit POINT's
+// height against getHeadWorldHeight(), never which specific mesh/bone was
+// hit, so a single box spanning the zombie's full height preserves that
+// math exactly - confirmed by reading that exact code path before making
+// this change. Shared, never mutated, never rendered (visible=false) -
+// one instance is enough for every zombie.
+const HITBOX_PROXY_MATERIAL = new THREE.MeshBasicMaterial({ visible: false })
 // Acid/Corrosive Rounds - see corrode()'s own comment.
 const CORRODE_DAMAGE_MULT = 1.2
 
@@ -695,13 +712,13 @@ export class Zombie {
       child.castShadow = true
       child.material = sharedLowQualityMat
       child.userData.zombie = this
-      this.hittableMeshes.push(child)
       this.materials.add(child.material)
       this.materialDefaults.set(child.material, {
         hex: child.material.emissive ? child.material.emissive.getHex() : 0,
         intensity: child.material.emissiveIntensity || 0,
       })
     })
+    this._buildHitboxProxy()
 
     // Gland/belly/throat FX spheres - same visual language as the
     // procedural body's (see _buildBodyProcedural's ranged/screams/
@@ -725,6 +742,31 @@ export class Zombie {
     // _buildHealthBar (called right after _buildBody by the constructor)
     // just needs group.position-relative placement - no dependency on the
     // procedural rig's named parts, so it works unchanged for GLB too.
+  }
+
+  // See HITBOX_PROXY_MATERIAL's own comment for the full why. One plain
+  // (unskinned) box, sized off the same HEAD_HEIGHT_LOCAL/_CRAWLER
+  // reference getHeadWorldHeight() itself reads, so a headshot lands
+  // exactly where it always did. Local-space dimensions - being a plain
+  // child of this.group, it inherits the group's live scale (including
+  // the ambush pop-down squash and any pulse/scale animation) exactly
+  // like the visual mesh already does, with no extra work here. Only
+  // called from _buildBodyFromGLB - the rare procedural fallback and the
+  // titan boss (see its own body-builder) keep their original per-mesh
+  // hittableMeshes, since neither is the horde-fight hot path this exists
+  // to fix (fallback only runs if the GLB fails to load; a titan is a
+  // rare, single boss, not something a dozen of are ever alive at once).
+  _buildHitboxProxy() {
+    const isCrawler = !!this.config.crawler
+    const localHeight = (isCrawler ? HEAD_HEIGHT_LOCAL_CRAWLER : HEAD_HEIGHT_LOCAL) * 1.1
+    const localHalfWidth = 0.4
+    const geo = new THREE.BoxGeometry(localHalfWidth * 2, localHeight, localHalfWidth * 2)
+    const proxy = new THREE.Mesh(geo, HITBOX_PROXY_MATERIAL)
+    proxy.visible = false
+    proxy.position.y = localHeight / 2
+    proxy.userData.zombie = this
+    this.group.add(proxy)
+    this.hittableMeshes.push(proxy)
   }
 
   // Titan GLB path - a real Quaternius T-Rex (asset-source/build-titan.py),
