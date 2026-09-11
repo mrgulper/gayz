@@ -2423,6 +2423,21 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'print-achievements-btn': 'printAchievementsBtnLabel',
   'upload-skin-btn': 'uploadSkinBtn',
   'reset-skin-btn': 'resetSkinBtn',
+  'profile-public-heading': 'profilePublicHeading',
+  'profile-public-hint': 'profilePublicHint',
+  'profile-public-name-label': 'profilePublicNameLabel',
+  'profile-public-id-label': 'profilePublicIdLabel',
+  // Reusing #other-profile-panel's existing labels (already translated
+  // into zh/hi/es) - same "Best Night"/"Best Kills"/"Achievements" text,
+  // no reason to duplicate the key.
+  'profile-public-bestnight-label': 'otherProfileBestnightLabel',
+  'profile-public-bestkills-label': 'otherProfileBestkillsLabel',
+  'profile-public-achievements-label': 'otherProfileAchievementsLabel',
+  'profile-public-beststreak-label': 'profilePublicBeststreakLabel',
+  'profile-public-region-label': 'profilePublicRegionLabel',
+  'profile-public-clan-label': 'profilePublicClanLabel',
+  'profile-private-heading': 'profilePrivateHeading',
+  'profile-private-hint': 'profilePrivateHint',
   'stats-dashboard-heading': 'statsDashboardHeadingLabel',
   'pinned-stat-label': 'pinnedStatLabel',
   'bio-preset-save-btn': 'bioPresetSaveBtn',
@@ -3964,6 +3979,22 @@ export class Game {
     this.profileLoginGate = document.getElementById('profile-login-gate')
     this.profileLoginGateText = document.getElementById('profile-login-gate-text')
     this.profileContent = document.getElementById('profile-content')
+    // Public Profile section (see _openProfilePanel) - the exact same
+    // fields _openOtherPlayerProfile shows when a friend looks YOU up by
+    // #ID (leaderboard doc is public-read - see CloudSync.js's
+    // pushLeaderboardEntry/fetchLeaderboardEntryByPlayerId), surfaced here
+    // too so a player can see for themselves what that actually is,
+    // instead of just being told "some stuff is public" in the abstract.
+    this.profilePublicNameValue = document.getElementById('profile-public-name-value')
+    this.profilePublicIdValue = document.getElementById('profile-public-id-value')
+    this.profilePublicBestnightValue = document.getElementById('profile-public-bestnight-value')
+    this.profilePublicBestkillsValue = document.getElementById('profile-public-bestkills-value')
+    this.profilePublicBeststreakValue = document.getElementById('profile-public-beststreak-value')
+    this.profilePublicAchievementsValue = document.getElementById('profile-public-achievements-value')
+    this.profilePublicRegionRow = document.getElementById('profile-public-region-row')
+    this.profilePublicRegionValue = document.getElementById('profile-public-region-value')
+    this.profilePublicClanRow = document.getElementById('profile-public-clan-row')
+    this.profilePublicClanValue = document.getElementById('profile-public-clan-value')
     this.profileGateLoginBtn = document.getElementById('profile-gate-login-btn')
     this.profileGateRegisterBtn = document.getElementById('profile-gate-register-btn')
     this.quickPerformanceBtn = document.getElementById('quick-performance-btn')
@@ -18459,6 +18490,7 @@ export class Game {
     }
     if (this.profileContent) this.profileContent.style.display = ''
     if (this.profileLoginGate) this.profileLoginGate.style.display = 'none'
+    this._renderPublicProfileSection()
     this._drawStatsDashboard()
     // Cosmetics counter - outfits+hats only.
     const cosmeticsOwned = this.ownedOutfits.size + this.ownedHats.size
@@ -18776,6 +18808,34 @@ export class Game {
         })}</span>
       </button>
     `).join('')
+  }
+
+  // Public Profile section (see _openProfilePanel) - mirrors exactly what
+  // CloudSync.pushLeaderboardEntry actually writes to the public-read
+  // leaderboard/{uid} doc (name, bestNight, bestKills, bestKillStreak,
+  // achievementCount, playerId, optional region/clanId), the same fields
+  // _openOtherPlayerProfile shows a friend who looks this account up by
+  // #ID. Deliberately reads this.bestStats/this.settings directly rather
+  // than re-deriving anything, so it can never drift from what actually
+  // gets pushed - if _pushOnlineStats' own entry object ever changes,
+  // update this alongside it.
+  _renderPublicProfileSection() {
+    if (!this.profilePublicNameValue) return
+    const name = this.settings.anonymousLeaderboard ? t('anonymousLeaderboardName') : (this.settings.nickname || t('menuPlayerTagDefault'))
+    this.profilePublicNameValue.textContent = name
+    this.profilePublicIdValue.textContent = this.settings.playerId ? `#${this.settings.playerId}` : '--'
+    this.profilePublicBestnightValue.textContent = _safeStatNumber(this.bestStats.bestNight)
+    this.profilePublicBestkillsValue.textContent = _safeStatNumber(this.bestStats.bestKills)
+    this.profilePublicBeststreakValue.textContent = _safeStatNumber(this.bestStats.bestKillStreak)
+    this.profilePublicAchievementsValue.textContent = this.achievements.unlocked.size
+    // Same enum keys the region <select> already uses (see its own
+    // auto-mapping table entry) - no new i18n keys needed.
+    const REGION_LABEL_KEYS = { na: 'optRegionNa', eu: 'optRegionEu', asia: 'optRegionAsia', sa: 'optRegionSa', oceania: 'optRegionOceania', africa: 'optRegionAfrica' }
+    const regionKey = REGION_LABEL_KEYS[this.settings.region]
+    if (this.profilePublicRegionRow) this.profilePublicRegionRow.style.display = regionKey ? 'flex' : 'none'
+    if (regionKey && this.profilePublicRegionValue) this.profilePublicRegionValue.textContent = t(regionKey)
+    if (this.profilePublicClanRow) this.profilePublicClanRow.style.display = this.settings.clanTag ? 'flex' : 'none'
+    if (this.settings.clanTag && this.profilePublicClanValue) this.profilePublicClanValue.textContent = this.settings.clanTag
   }
 
   // Profile bio - free text, capped at 250 chars (enforced both by the

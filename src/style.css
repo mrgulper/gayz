@@ -3870,6 +3870,50 @@ html.ui-theme-old #share-panel-title {
   max-width: 820px;
 }
 
+/* Public Profile section (see Game.js's _renderPublicProfileSection) -
+   the exact fields a friend sees if they look this account up by #ID.
+   One self-contained bordered card (unlike the 5 heading/list pairs
+   above, which split into two boxes) since it has no separate "-list"
+   sibling - hint text and stat rows all live directly under its own
+   heading. */
+#profile-public-section {
+  background: rgba(20, 16, 10, 0.55);
+  border: 1px solid rgba(227, 166, 60, 0.4);
+  border-radius: 8px;
+  padding: 10px 14px 6px;
+  max-width: 820px;
+  width: 100%;
+}
+
+#profile-public-heading {
+  margin: 0 0 2px;
+  color: #e3c23c;
+  text-align: center;
+}
+
+#profile-public-hint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  margin: 0 0 8px;
+  text-align: center;
+}
+
+/* Private section divider - everything from here down to the end of
+   #profile-content is the existing, never-shared stat grid/bio/etc.,
+   just now clearly labeled as such rather than left ambiguous next to
+   the public section above it. */
+#profile-private-heading {
+  margin: 2px 0 0;
+  text-align: center;
+}
+
+#profile-private-hint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 0 4px;
+  text-align: center;
+}
+
 /* Card bottom edge - margin-top cancels #profile-content's own 8px flex
    gap (see that rule) so this sits flush against its heading above with
    no visible seam, instead of the two pieces floating apart. */
