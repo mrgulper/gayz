@@ -9319,6 +9319,22 @@ html.night-vision-active #app {
   #touch-btn-melee { right: 160px; bottom: 80px; }
   #touch-btn-reload { right: 230px; bottom: 80px; }
 
+  /* This query's own comment above used to claim the weapon-switch row
+     sits at "top:30px, never repositioned by this query" - true only when
+     the narrow-portrait breakpoint (max-width:700px) ISN'T also active. On
+     a phone that's both narrow AND this short in landscape (confirmed via
+     real getBoundingClientRect() checks at 568x320/568x350 - e.g. iPhone
+     SE/5-era landscape), that other breakpoint's own `.touch-weapon-btn
+     { top: 190px }` rule wins instead (equal specificity, later source
+     order loses to earlier here since that rule sits in the block above
+     this one) - and 190px lands the weapon row squarely on top of
+     Reload/Melee/Sprint/Crouch, which this query already moved down to
+     make room at the top of the screen. Pinning it back to 30px here -
+     the same position it already correctly has whenever only THIS query
+     is active - keeps it clear of every button this query controls,
+     regardless of whether the width breakpoint also happens to be active. */
+  .touch-weapon-btn { top: 30px; }
+
   /* #touch-btn-more's default position (left:30px; top:30px) sits directly
      on top of #minimap-wrap (fixed at top:18px; left:20px, never
      repositioned by any breakpoint) - confirmed via a real
