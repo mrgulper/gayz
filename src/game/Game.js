@@ -2588,13 +2588,15 @@ const SELECT_OPTION_I18N_KEYS = {
 // Nearly There nudge (Profile panel) - deliberately a small curated list,
 // not every achievement: most ACHIEVEMENTS conditions are per-run counters
 // (this.totalKills, this.stealthTakedowns, etc.) that reset every session,
-// so showing "progress" toward them would be misleading. These two are the
-// ones with genuinely persistent, numeric backing (see the audit comments
-// at their own unlock() call sites in _onZombieKilled/the outfit-buy
-// handler).
-const NEARLY_THERE_CANDIDATES = [
-  { achievementId: 'fashion_icon', current: (g) => g.ownedOutfits.size, total: (g) => COIN_SHOP_ITEMS.filter((i) => i.outfit).length },
-]
+// so showing "progress" toward them would be misleading. Its one persistent-
+// numeric candidate (fashion_icon) was retired 2026-09-12 (see Achievements.js -
+// the Coin Shop's outfit-buying screen was removed with no replacement,
+// making it permanently unearnable), leaving no candidate that honestly
+// qualifies right now - _renderNearlyThereNudge already handles an empty
+// list gracefully (0 lines shown, same as it already did for 0-2). Add a
+// new entry here if a future achievement gets genuinely persistent numeric
+// backing again.
+const NEARLY_THERE_CANDIDATES = []
 
 // Achievement chain previews (Achievements panel) - the handful of
 // achievements that genuinely form a tiered sequence, hand-picked rather

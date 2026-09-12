@@ -37,7 +37,14 @@ export const ACHIEVEMENTS = [
   { id: 'bestiary_master', titleKey: 'achBestiaryMaster', tag: 'BM', color: '#b07cd6', hintKey: 'achHintBestiaryMaster', category: 'exploration' },
   { id: 'nightmare_survivor_5', titleKey: 'achNightmareSurvivor5', tag: 'N5', color: '#c9564a', hintKey: 'achHintNightmareSurvivor5', category: 'survival' },
   { id: 'nightmare_conqueror', titleKey: 'achNightmareConqueror', tag: 'NC', color: '#c9564a', hintKey: 'achHintNightmareConqueror', category: 'survival' },
-  { id: 'fashion_icon', titleKey: 'achFashionIcon', tag: 'FI', color: '#6fa8dc', hintKey: 'achHintFashionIcon', category: 'collection' },
+  // fashion_icon ("own every outfit in the Coin Shop") retired 2026-09-12 -
+  // the Coin Shop's outfit-buying screen was removed months ago with no
+  // replacement, making this permanently unearnable (and, via
+  // completionist's "every OTHER achievement" check below, silently made
+  // completionist unearnable too). A player who already unlocked it before
+  // the shop was removed keeps it in their saved localStorage Set
+  // (harmless orphaned id, just never looked up here again) - not worth a
+  // migration to strip it back out.
   { id: 'inseparable', titleKey: 'achInseparable', tag: 'IS', color: '#7fd8a0', hintKey: 'achHintInseparable', category: 'survival' },
   { id: 'trader_confidant', titleKey: 'achTraderConfidant', tag: 'TC', color: '#d9bc4a', hintKey: 'achHintTraderConfidant', category: 'story' },
   // Deliberately last in the array - see unlock()'s own completionist
