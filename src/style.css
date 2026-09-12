@@ -9117,14 +9117,6 @@ html.night-vision-active #app {
   pointer-events: none;
 }
 
-#touch-look-zone {
-  position: absolute;
-  right: 0;
-  top: 0;
-  width: 60%;
-  height: 100%;
-}
-
 .touch-action-btn {
   position: absolute;
   width: 64px;
@@ -9326,6 +9318,26 @@ html.night-vision-active #app {
   #touch-btn-crouch { right: 90px; bottom: 80px; }
   #touch-btn-melee { right: 160px; bottom: 80px; }
   #touch-btn-reload { right: 230px; bottom: 80px; }
+
+  /* #touch-btn-more's default position (left:30px; top:30px) sits directly
+     on top of #minimap-wrap (fixed at top:18px; left:20px, never
+     repositioned by any breakpoint) - confirmed via a real
+     getBoundingClientRect() overlap check at 844x390, same method as every
+     other overlap fix in this file. Moving it to the right (the narrow-
+     portrait breakpoint's own fix for this exact collision) doesn't work
+     here instead - the weapon-switch row (#touch-btn-weapon-1..4, top:30px,
+     never repositioned by this query) sits close enough to the right edge
+     at realistic landscape widths that a right-aligned More button lands
+     on top of weapon-4 instead of the minimap. Nudged straight down past
+     the minimap's bottom edge instead (18px top + 90px tall = 108px,
+     constant here since this query also fixes #minimap at 90x90) while
+     staying well clear of the joystick base's top edge (bottom:30px +
+     110px tall, never above roughly y=160 on any real landscape phone
+     height) - the one gap on screen that's clear of every other element
+     at every width/height this query applies to. */
+  #touch-btn-more {
+    top: 118px;
+  }
 }
 
 /* Existing in-game HUD (weapon/ammo panel, health/status bars, the
