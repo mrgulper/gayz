@@ -12547,6 +12547,18 @@ export class Game {
   // comment), reachable from the homepage. Reuses this.menu's existing
   // hide/show pattern (same as starting a real run) rather than a new panel.
   async _enterBuildMode() {
+    // Every other nav button routes through trackAndOpen/_open*Panel(),
+    // which calls _closeAllMenuPanels() first (see that function's own
+    // comment on the z-index/stacking bug this prevents). Build Mode
+    // isn't one of those panels (it hides this.menu itself instead), but
+    // the panels themselves are siblings of #menu, not children of it -
+    // hiding #menu does NOT hide an already-open panel. Currently
+    // unreachable through a normal click (every panel sits at a higher
+    // z-index than #menu and blocks the nav button underneath), but
+    // calling it here too is a one-line no-op the rest of the time and
+    // closes the gap for any future path that reaches _enterBuildMode()
+    // without going through a blocked nav click first.
+    this._closeAllMenuPanels()
     // Covers the canvas for the whole function - without this, the real
     // game world (which keeps rendering the whole time, see the dynamic-
     // import comment below) flashes through for however long loading
