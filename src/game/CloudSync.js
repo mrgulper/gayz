@@ -499,6 +499,17 @@ export async function fetchTopLeaderboard(n, region) {
 // indefinitely, to keep the read cost bounded. Returns an unsubscribe
 // function; callback fires once immediately with current data and again
 // on every future change.
+// callback is invoked with `null` (never an empty array, which means "no
+// entries yet" - a real, valid state) on a subscription error so the
+// caller can show an actual error instead of leaving its "Connecting..."
+// placeholder up forever - found via a QA pass: a region + bestNight
+// compound query needs a Firestore composite index that was never
+// created for this project (same class of gotcha as this file's own
+// getAggregateFromServer note, just for a plain query instead of an
+// aggregate one - the console error names the exact missing index and
+// links straight to a pre-filled "create it" page), and the old bare
+// `() => {}` error handler swallowed that (or any other subscription
+// error - a network blip, quota, anything) completely silently.
 export function subscribeTopLeaderboard(n, region, callback) {
   let unsub = () => {}
   let cancelled = false
@@ -507,7 +518,7 @@ export function subscribeTopLeaderboard(n, region, callback) {
     const constraints = [fsMod.orderBy('bestNight', 'desc'), fsMod.limit(n)]
     if (region && region !== 'global') constraints.unshift(fsMod.where('region', '==', region))
     const q = fsMod.query(fsMod.collection(db, 'leaderboard'), ...constraints)
-    unsub = fsMod.onSnapshot(q, (snap) => callback(snap.docs.map((d) => d.data())), () => {})
+    unsub = fsMod.onSnapshot(q, (snap) => callback(snap.docs.map((d) => d.data())), () => callback(null))
   })
   return () => {
     cancelled = true

@@ -11831,6 +11831,16 @@ export class Game {
 
   _renderLeaderboardRows(rows) {
     if (!this.cloudsaveLeaderboardList) return
+    // rows is `null` on a subscription error (see CloudSync.subscribeTopLeaderboard's
+    // own comment) - distinct from a real empty array, which just means no
+    // entries yet. Without this check an error left the "Connecting..."
+    // placeholder _subscribeLeaderboard sets up on open showing forever,
+    // most commonly hit by the region filter (a region + bestNight compound
+    // query needs a Firestore index this project never had created).
+    if (rows === null) {
+      this.cloudsaveLeaderboardList.innerHTML = `<p class="cloud-leaderboard-empty">${t('cloudsaveError')}</p>`
+      return
+    }
     // Podium styling (ranks 1-3) - PODIUM_MEDALS below, same treatment
     // _renderWeeklyLeaderboardList uses.
     this.cloudsaveLeaderboardList.innerHTML = rows.length
