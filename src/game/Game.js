@@ -9028,6 +9028,20 @@ export class Game {
     this.languageGrid.addEventListener('click', (e) => {
       const btn = e.target.closest('.language-btn')
       if (!btn) return
+      // The button already shows its own "Coming soon" tag, but until now
+      // this handler applied the switch anyway - every language DOES have
+      // a real i18n block (see this function's own comment above), just
+      // not synced to the 1798-key bar the 4 supported languages are held
+      // to, so actually switching to one showed a jarring mix of real
+      // translations and English fallback throughout the app while still
+      // *looking* fully selected (active state, persisted to settings).
+      // A toast instead of _openComingSoonPanel() - which would close the
+      // whole Settings panel via _closeAllMenuPanels() - keeps the
+      // language list open so the player can keep browsing it.
+      if (!LANG_CODES_DONE.has(btn.dataset.lang)) {
+        this._showHomepageToast(t('comingSoonBody'))
+        return
+      }
       this.settings.language = btn.dataset.lang
       // Remembered for #quick-language-btn's English<->alt toggle.
       if (btn.dataset.lang !== 'en') this.settings.quickLanguageAlt = btn.dataset.lang
