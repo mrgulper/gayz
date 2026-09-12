@@ -1689,15 +1689,6 @@ const ATTACHMENT_OWNED_CHECK = {
   acid: (w) => w.corrodes,
   cryo: (w) => w.freezes,
 }
-// Weapons that already have a given attachment's effect baked in at
-// baseline (see each weapon's own "baked in, not attachment-granted"
-// comment in WEAPONS) - excluded from the shop's buy list for that specific
-// attachment entirely, rather than letting the player spend coins on
-// something that does nothing new.
-const ATTACHMENT_BAKED_IN = {
-  scope: new Set(['awp']),
-  suppressor: new Set(['crossbow', 'suppressedsmg']),
-}
 
 function loadShopProgress() {
   try {
@@ -2235,14 +2226,16 @@ const EVENT_BANNERS = [
 const WHATS_NEW_VERSION = '2026-07-29-homepage'
 const WHATS_NEW_SEEN_KEY = 'gayz-whatsnew-seen'
 const CHANGELOG_LAST_VIEWED_KEY = 'gayz-changelog-last-viewed'
-// Nav badge dots (Store/Upgrades/Achievements) - "seen ids" persistence
-// shared by all three "new item added" checks. First-ever check seeds the
+// Nav badge dots (Upgrades/Achievements/Quests) - "seen ids" persistence
+// shared by each "new item added" check. First-ever check seeds the
 // seen set with whatever already exists/is already unlocked, so shipping
 // this feature doesn't retroactively flag today's content as new - only
 // something added/unlocked AFTER a player's first check ever lights the
 // dot. null return (vs an empty Set) is how callers tell "never checked
 // before, needs seeding" apart from "checked before, genuinely empty."
-const SHOP_SEEN_IDS_KEY = 'gayz-shop-seen-ids'
+// (The Store/Shop panel used to have one of these too - removed along with
+// its own new-item dot notification when the Store panel was cut down to
+// just the GaygarX skin purchase.)
 const UPGRADES_SEEN_IDS_KEY = 'gayz-upgrades-seen-ids'
 const ACHIEVEMENTS_SEEN_IDS_KEY = 'gayz-achievements-seen-ids'
 const QUESTS_SEEN_IDS_KEY = 'gayz-quests-seen-ids'
