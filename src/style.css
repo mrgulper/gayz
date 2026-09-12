@@ -3244,6 +3244,17 @@ html.third-person-active #companion-bark {
 .crate-tier-ice { --crate-tier-color: #6fd0e8; }
 .crate-tier-golden { --crate-tier-color: #f0c23e; }
 
+.crate-tier-cost {
+  font-size: 12px;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
+.crate-open-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .hotbar-assign-btn {
   width: 20px;
   height: 20px;

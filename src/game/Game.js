@@ -30,6 +30,21 @@ import { rollXpUpgrades } from './XpUpgrades.js'
 import { XpGemManager, XpGem } from './XpGems.js'
 import { AutoWeaponManager } from './AutoWeapons.js'
 import { COIN_SHOP_ITEMS, ATTACHMENT_TYPES } from './CoinShop.js'
+
+// Crate economy (Inventory panel's Crates tab) - buys a chance at a random
+// currently-unowned outfit/hat from COIN_SHOP_ITEMS, which have had no
+// purchase path since the old Store buy-list was removed (see that file's
+// own header comment) - reuses that exact existing reward pool rather than
+// inventing new cosmetics. rareChance is the odds of rolling from the
+// pricier half of COIN_SHOP_ITEMS (>= CRATE_RARE_COST_THRESHOLD) instead of
+// the cheaper half - reuses the cost value already baked into that data as
+// the rarity signal, rather than hand-tagging a separate rarity field.
+const CRATE_TIERS = {
+  wood: { cost: 500, rareChance: 0.15 },
+  ice: { cost: 1500, rareChance: 0.45 },
+  golden: { cost: 4000, rareChance: 0.8 },
+}
+const CRATE_RARE_COST_THRESHOLD = 900
 import { pickNightEvent, NIGHT_MUTATIONS, NIGHT_MUTATION_CHANCE } from './NightEvents.js'
 import { Companion } from './Companion.js'
 import { Turret } from './Turret.js'
@@ -5504,10 +5519,13 @@ export class Game {
     this.inventoryTabCrates = document.getElementById('inventory-tab-crates')
     this.inventoryTabWeapons = document.getElementById('inventory-tab-weapons')
     this.inventorySkinsList = document.getElementById('inventory-skins-list')
-    this.inventoryCharacterCratesPlaceholder = document.getElementById('inventory-charactercrates-placeholder')
     this.crateTierWoodName = document.getElementById('crate-tier-wood-name')
     this.crateTierIceName = document.getElementById('crate-tier-ice-name')
     this.crateTierGoldenName = document.getElementById('crate-tier-golden-name')
+    this.crateTierWoodCost = document.getElementById('crate-tier-wood-cost')
+    this.crateTierIceCost = document.getElementById('crate-tier-ice-cost')
+    this.crateTierGoldenCost = document.getElementById('crate-tier-golden-cost')
+    this.crateOpenButtons = { wood: document.getElementById('crate-open-wood'), ice: document.getElementById('crate-open-ice'), golden: document.getElementById('crate-open-golden') }
     this.inventoryWeaponsList = document.getElementById('inventory-weapons-list')
     this.serverBtn = document.getElementById('server-btn')
     this.serverPanel = document.getElementById('server-panel')
@@ -9109,6 +9127,13 @@ export class Game {
           page.style.display = page.id === `inventory-page-${tab.dataset.inventoryPage}` ? 'block' : 'none'
         }
       })
+    }
+
+    // Crate tier Open buttons - bound once here (not re-bound on every panel
+    // open, unlike the render-only parts of this tab) same "bind once at
+    // startup" precedent as shopSkinBuyBtn.
+    for (const btn of document.querySelectorAll('.crate-open-btn')) {
+      btn.addEventListener('click', () => this._openCrate(btn.dataset.crateTier))
     }
 
     // Character tab's skin list (see _renderInventorySkins) - one
@@ -14466,10 +14491,10 @@ export class Game {
     if (this.inventoryTabCharacter) this.inventoryTabCharacter.textContent = t('inventorySkinsTitle')
     if (this.inventoryTabCrates) this.inventoryTabCrates.textContent = t('inventoryCratesTitle')
     if (this.inventoryTabWeapons) this.inventoryTabWeapons.textContent = t('inventoryWeaponsTitle')
-    if (this.inventoryCharacterCratesPlaceholder) this.inventoryCharacterCratesPlaceholder.textContent = t('menuInventoryPlaceholder')
     if (this.crateTierWoodName) this.crateTierWoodName.textContent = t('crateTierWood')
     if (this.crateTierIceName) this.crateTierIceName.textContent = t('crateTierIce')
     if (this.crateTierGoldenName) this.crateTierGoldenName.textContent = t('crateTierGolden')
+    this._renderInventoryCrates()
     this._renderInventorySkins()
     this._renderInventoryWeapons()
     // Always reopen on the Character tab - simpler than remembering the
@@ -15837,6 +15862,69 @@ export class Game {
       .map((e) => `<div class="leaderboard-row"><span class="nickname-tag">${_escapeHtml(e.name)}</span><span>${t('hudNight', { n: _safeStatNumber(e.night) })}</span><span>${t('hudKills', { n: _safeStatNumber(e.kills) })}</span></div>`)
       .join('')
     this.menuHardcoreMemorial.innerHTML = `<p class="menu-best-stats">${t('hardcoreMemorialTitle')}</p>${rows}`
+  }
+
+  // Inventory panel's Crates tab - updates each tier's cost label and Open
+  // button text, and disables a tier's button when coins can't cover it
+  // (still clickable-looking otherwise; the actual guard lives in
+  // _openCrate, this is just an affordability hint).
+  _renderInventoryCrates() {
+    if (this.crateTierWoodCost) this.crateTierWoodCost.textContent = t('crateCostLabel', { n: CRATE_TIERS.wood.cost })
+    if (this.crateTierIceCost) this.crateTierIceCost.textContent = t('crateCostLabel', { n: CRATE_TIERS.ice.cost })
+    if (this.crateTierGoldenCost) this.crateTierGoldenCost.textContent = t('crateCostLabel', { n: CRATE_TIERS.golden.cost })
+    if (!this.crateOpenButtons) return
+    for (const [tier, btn] of Object.entries(this.crateOpenButtons)) {
+      if (!btn) continue
+      btn.textContent = t('crateOpenBtn')
+      btn.disabled = this.coins < CRATE_TIERS[tier].cost
+    }
+  }
+
+  // Rolls one random reward from COIN_SHOP_ITEMS for the given crate tier -
+  // see CRATE_TIERS' own comment on why the existing .cost field (not a new
+  // rarity field) decides which half of the pool a tier favors.
+  _rollCrateReward(tier) {
+    const wantsRare = Math.random() < CRATE_TIERS[tier].rareChance
+    const pool = COIN_SHOP_ITEMS.filter((i) => (i.cost >= CRATE_RARE_COST_THRESHOLD) === wantsRare)
+    const finalPool = pool.length > 0 ? pool : COIN_SHOP_ITEMS
+    return finalPool[Math.floor(Math.random() * finalPool.length)]
+  }
+
+  // Buying and opening a crate - mirrors _buyShopSkin's own sequence
+  // (afford check, deduct, grant, equip immediately, persist, toast) for
+  // the same currency/cosmetic shape. A duplicate roll refunds the full
+  // price paid instead of granting nothing - same "don't waste a roll on
+  // something already owned" reasoning as most crate systems, and simpler
+  // than a "can't roll what you already own" pool exclusion that would
+  // make the highest-tier crates less exciting once most items are owned.
+  _openCrate(tier) {
+    const tierConfig = CRATE_TIERS[tier]
+    if (!tierConfig) return
+    if (this.coins < tierConfig.cost) {
+      this._showHomepageToast(t('crateNotEnoughCoins'))
+      return
+    }
+    this.coins -= tierConfig.cost
+    const item = this._rollCrateReward(tier)
+    const alreadyOwned = item.outfit ? this.ownedOutfits.has(item.outfit) : this.ownedHats.has(item.hat)
+    if (alreadyOwned) {
+      this.coins += tierConfig.cost
+      this._showHomepageToast(t('crateDuplicateRefund', { name: t(item.titleKey), coins: tierConfig.cost }))
+    } else {
+      if (item.outfit) {
+        this.ownedOutfits.add(item.outfit)
+        this.equippedOutfit = item.outfit
+        this.playerBody.setOutfit(item.outfitColor)
+      } else {
+        this.ownedHats.add(item.hat)
+        this.equippedHat = item.hat
+        this.playerBody.setHat(item.hat, item.hatColor)
+      }
+      this._showHomepageToast(t('crateRewardWon', { name: t(item.titleKey) }))
+    }
+    saveShopProgress(this)
+    this._renderCurrencyBar()
+    this._renderInventoryCrates()
   }
 
   // Shared mastery-tier badge builder - extracted from _refreshInventoryPanel's
