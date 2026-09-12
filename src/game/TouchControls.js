@@ -295,7 +295,12 @@ export class TouchControls {
         this._joystickKnob.x = dx
         this._joystickKnob.y = dy
         this._joystickKnobEl.style.transform = `translate(${dx}px, ${dy}px)`
-        setInput(dx, dy, Math.hypot(dx, dy))
+        // Post-clamp magnitude is always exactly min(mag, maxRadius) - dx/dy
+        // above were already scaled to land precisely on maxRadius when mag
+        // exceeded it, unchanged otherwise - so re-deriving it with a second
+        // Math.hypot() call here was a redundant sqrt on every touchmove
+        // (this fires at high frequency during a drag), not a different value.
+        setInput(dx, dy, Math.min(mag, maxRadius))
       }
     }, { passive: true })
 
