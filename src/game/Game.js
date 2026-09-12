@@ -13893,6 +13893,16 @@ export class Game {
         if (owned || locked || lifetimeLocked || this.metaProgress.legacyPoints < upgrade.cost) return
         this.metaProgress.legacyPoints -= upgrade.cost
         this.metaProgress.purchased.add(upgrade.id)
+        // Apply immediately - this used to only take effect on the NEXT full
+        // page reload (see _applyMetaUpgrades' constructor-only call site),
+        // so a purchase silently deducted Legacy Points and showed "Owned"
+        // without actually granting the stat/effect until the player
+        // refreshed the browser. _applyMetaUpgrades() re-derives every
+        // purchased upgrade's effect from scratch on the next real page
+        // load anyway (fresh playerState/weapons at that point), so calling
+        // apply() here too doesn't double-stack anything - it only makes
+        // *this* session reflect the purchase right away.
+        upgrade.apply(this)
         saveMetaProgress(this.metaProgress)
         this._renderUpgradesOptions()
         this._updateUpgradesDot()
