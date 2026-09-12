@@ -665,10 +665,10 @@ export class WeaponSystem {
     return this.weapons[this.currentIndex]
   }
 
-  // Marks a gun owned without switching to it - used to restore Coin Shop
-  // purchases on page load (see Game.js's shopProgress.unlockedGuns), where
-  // auto-equipping whichever gun happens to be last in the saved list would
-  // silently override the player's actual last-equipped weapon.
+  // Marks a gun owned without switching to it - e.g. restoring a reward gun
+  // (see Game.js's minigun trade-in/informant reveal call sites) without
+  // auto-equipping it and yanking the player's actual last-equipped weapon
+  // out of their hands.
   markUnlocked(id) {
     const w = this.weapons.find((w) => w.id === id)
     if (!w) return

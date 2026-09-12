@@ -1669,7 +1669,6 @@ function saveHaggleStreak(streak) {
 // currency balance and anything already owned survive a reload, without
 // touching the rest of the run-state reset behavior on death/respawn.
 const SHOP_PROGRESS_KEY = 'gayz-shop-progress'
-const COIN_SHOP_GUN_IDS = new Set(COIN_SHOP_ITEMS.filter((i) => i.gun).map((i) => i.gun))
 // Weapon Attachments shop section (batch 11 feature) - one runtime-flag
 // check per ATTACHMENT_TYPES id, the single source of truth both
 // saveShopProgress (persistence) and the shop UI (ownership display) read
@@ -1719,12 +1718,6 @@ function loadShopProgress() {
       challengeKillCounts: parsed.challengeKillCounts || {},
       weaponChallengesUnlocked: new Set(parsed.weaponChallengesUnlocked || []),
       shopPurchased: new Set(parsed.shopPurchased || []),
-      // Coin Shop gun purchases (minigun/awp/glock18/weatie) - previously
-      // never saved, so a bought gun's `unlocked` flag (pure in-memory
-      // WeaponSystem state) vanished on the next page load even though the
-      // coins were already spent. Restored via WeaponSystem.markUnlocked
-      // right after the weapons instance is built (see the constructor).
-      unlockedGuns: parsed.unlockedGuns || [],
       // Per-gun Coin Shop attachments (see CoinShop.js's ATTACHMENT_TYPES) -
       // "weaponId:attachmentId" strings, restored via
       // WeaponSystem.applyAttachment right after unlockedGuns in the
@@ -1732,7 +1725,7 @@ function loadShopProgress() {
       attachments: parsed.attachments || [],
     }
   } catch {
-    return { points: 0, coins: 0, cash: 0, gems: 0, ownsShopSkin: false, ownedSkins: new Set(), equippedSkin: null, ownedOutfits: new Set(), equippedOutfit: null, ownedHats: new Set(), equippedHat: null, challengeKillCounts: {}, weaponChallengesUnlocked: new Set(), shopPurchased: new Set(), unlockedGuns: [], attachments: [] }
+    return { points: 0, coins: 0, cash: 0, gems: 0, ownsShopSkin: false, ownedSkins: new Set(), equippedSkin: null, ownedOutfits: new Set(), equippedOutfit: null, ownedHats: new Set(), equippedHat: null, challengeKillCounts: {}, weaponChallengesUnlocked: new Set(), shopPurchased: new Set(), attachments: [] }
   }
 }
 
@@ -1753,7 +1746,6 @@ function saveShopProgress(game) {
       challengeKillCounts: game.challengeKillCounts,
       weaponChallengesUnlocked: [...game.weaponChallengesUnlocked],
       shopPurchased: [...game.coinShopPurchased],
-      unlockedGuns: game.weapons.weapons.filter((w) => w.unlocked && COIN_SHOP_GUN_IDS.has(w.id)).map((w) => w.id),
       // Weapon Attachments shop section (batch 11 feature) - was only ever
       // deriving 3 of the 11 real ATTACHMENT_TYPES (scope/extmag/suppressor)
       // from their runtime flags; the other 8 (laser/incendiary/ricochet/
@@ -5923,11 +5915,6 @@ export class Game {
     // should still win, same "earned reward is the default until you
     // actively choose something else" precedent as Centurion's gold skin.
     for (const weaponId of this.weaponChallengesUnlocked) this.weapons.setWeaponSkin(weaponId, 'veteran')
-    // Restore previously-purchased Coin Shop guns (see saveShopProgress) -
-    // markUnlocked rather than unlockWeapon so restoring e.g. a past
-    // minigun purchase doesn't yank the equipped weapon away from melee on
-    // every fresh load.
-    for (const gunId of this.shopProgress.unlockedGuns) this.weapons.markUnlocked(gunId)
     for (const entry of this.shopProgress.attachments) {
       const [weaponId, attachmentId] = entry.split(':')
       this.weapons.applyAttachment(weaponId, attachmentId)
