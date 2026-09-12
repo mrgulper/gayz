@@ -2842,6 +2842,14 @@ const SEASONAL_THEMES = [
 // kill-reactive rubble (a combat byproduct, not a deliberate night-start
 // placement).
 const ROAD_PILEUP_COUNT = 3
+// The player's own fixed spawn point - kept in sync by hand with
+// PlayerController's resetPosition()/constructor (0, EYE_HEIGHT, 8), which
+// don't expose these as a shared constant. _rollRoadPileups() needs to know
+// this specifically to keep a wreck from ever landing on top of it - see
+// that method's own comment.
+const PLAYER_SPAWN_X = 0
+const PLAYER_SPAWN_Z = 8
+const PLAYER_SPAWN_EXCLUSION_RADIUS = 5
 // Destructible shortcut wall - a single, hand-placed obstacle (see
 // _buildDestructibleWall) at a known-clear spawnPoint-derived location,
 // deliberately not touching World.js's deterministic buildingLayout() at
@@ -7814,9 +7822,28 @@ export class Game {
 
     const wreckMat = flatMaterial({ color: 0x3a3632, roughness: 0.8, metalness: 0.3 })
     for (let i = 0; i < ROAD_PILEUP_COUNT; i++) {
-      const spot = this.spawnPoints[Math.floor(Math.random() * this.spawnPoints.length)]
-      const x = spot.x + (Math.random() - 0.5) * 6
-      const z = spot.z + (Math.random() - 0.5) * 6
+      // World.js's generic street spawnPoints list includes a point at the
+      // same z=8 row the player's own fixed spawn sits on (see
+      // PLAYER_SPAWN_X/Z above) - rolling that one plus this +/-3 offset
+      // could land a wreck within a player's own collision radius of where
+      // they spawn, before they've even moved once. Retried (bounded, not
+      // infinite) rather than clamped/pushed - a few retries costs nothing
+      // once per night and keeps the same uniform random distribution
+      // everywhere else, instead of visibly bunching wrecks at the
+      // exclusion radius's edge.
+      let x, z
+      let placed = false
+      for (let attempt = 0; attempt < 10; attempt++) {
+        const spot = this.spawnPoints[Math.floor(Math.random() * this.spawnPoints.length)]
+        x = spot.x + (Math.random() - 0.5) * 6
+        z = spot.z + (Math.random() - 0.5) * 6
+        if (Math.hypot(x - PLAYER_SPAWN_X, z - PLAYER_SPAWN_Z) >= PLAYER_SPAWN_EXCLUSION_RADIUS) { placed = true; break }
+      }
+      // Every attempt rolled inside the exclusion zone (unlucky, but
+      // possible) - skip this wreck entirely rather than place it anyway;
+      // one fewer road wreck for the night is a far smaller loss than a
+      // freshly-spawned player getting boxed in by one.
+      if (!placed) continue
       const group = new THREE.Group()
       group.position.set(x, 0, z)
       const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.7, 3.6), wreckMat)
