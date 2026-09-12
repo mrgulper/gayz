@@ -3567,10 +3567,22 @@ export function _formatRelativeTime(ms) {
 // Sharing batch - any name/text field that could round-trip through an
 // uploaded save file) before it goes into any template string, rather than
 // interpolating it raw.
+// The textContent->innerHTML round-trip alone only encodes &, <, > - safe
+// for text-node placement (`<span>${_escapeHtml(x)}</span>`) but NOT for
+// placement inside a double-quoted HTML attribute
+// (`data-name="${_escapeHtml(x)}"`), since a raw " in the source string
+// passes straight through untouched and closes the attribute early -
+// found via a real online-features security pass: a friend/chat
+// nickname of `" onclick="..."` breaks out of `data-nickname="..."`/
+// `data-name="..."` and plants a live event-handler attribute on that
+// element (confirmed executing on a real click, not just parsing oddly).
+// Manually escaping quotes after the round-trip (both " and ' - some call
+// sites use single-quoted attributes) closes this for every call site at
+// once rather than patching each one.
 export function _escapeHtml(str) {
   const div = document.createElement('div')
   div.textContent = str
-  return div.innerHTML
+  return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;')
 }
 
 // Coerces an untrusted value to a plain finite number before it's allowed
