@@ -5920,18 +5920,26 @@ html.theme-lighter #app { filter: brightness(1.25); }
 }
 
 /* Reserved space for future ad slots, flanking Play/Game Mode - no ad
-   network wired in yet, just holding the layout. 190x190 fits inside the
-   real empty margin either side of the Play button at wide widths (hero
-   column is up to 1000px, Play button only ~400px) without overlapping
-   the avatar/nav-button columns; hidden below 1500px viewport width where
-   that margin gets too tight, and on short windows via the existing
-   zero-scroll height tiers below, same "nice-to-haves lose first"
-   precedent as #menu-spotlight/.menu-preset-row. */
+   network wired in yet, just holding the layout. Sized with clamp() (not a
+   fixed px) so it shrinks together with the real empty margin either side
+   of the Play button as the window narrows (that margin shrinks fast -
+   measured ~300px each side at 1900px wide, down to ~126px at 1200px, only
+   ~34px by 1024px) instead of a single fixed size that only fits some
+   widths. Height is clamped too but never exceeds the Play+Game Mode
+   button stack's own natural height (~188px), so this never grows
+   #hero-ad-row taller than it already was without ad squares - no risk to
+   the page's zero-scroll rule from width alone. Below 1150px width the
+   margin is too tight for even the smallest clamped size, so it hides;
+   also hides on genuinely short windows (max-height:750px) as a
+   conservative safety margin, same "nice-to-haves lose first" precedent
+   as #menu-spotlight/.menu-preset-row. Made deliberately bold/opaque
+   (not a faint dashed outline) after the first version was too subtle to
+   notice against the busy background photo. */
 #hero-ad-row {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 28px;
+  gap: 16px;
   width: 100%;
 }
 
@@ -5944,21 +5952,24 @@ html.theme-lighter #app { filter: brightness(1.25); }
 
 .ad-square-placeholder {
   flex: 0 0 auto;
-  width: 190px;
-  height: 190px;
-  border: 2px dashed rgba(212, 175, 55, 0.35);
+  width: clamp(80px, 8vw, 170px);
+  height: clamp(80px, 8vw, 170px);
+  border: 2px solid rgba(212, 175, 55, 0.9);
   border-radius: 6px;
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(0, 0, 0, 0.85);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(212, 175, 55, 0.5);
-  font-size: 13px;
-  letter-spacing: 0.05em;
+  color: #f2d675;
+  font-family: var(--menu-display-font);
+  font-size: clamp(12px, 1.4vw, 16px);
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+  text-align: center;
 }
 
-@media (max-width: 1500px) {
+@media (max-width: 1150px), (max-height: 750px) {
   .ad-square-placeholder {
     display: none;
   }
@@ -7275,10 +7286,6 @@ html.ui-theme-old #menu-nav-buttons button {
    900px-tall screens - source order matters here, the tighter (short)
    rule must come after the looser (mid) one to win at heights under both. */
 @media (max-height: 960px) {
-  .ad-square-placeholder {
-    display: none;
-  }
-
   .menu-card-list {
     max-height: 11vh;
   }
