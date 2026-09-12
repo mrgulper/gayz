@@ -23109,6 +23109,7 @@ export class Game {
       }
       this.extractionDaily.textContent = t('dailyResult', { twist: t(this.dailyTwist.nameKey), score, best: this.dailyBest.score })
       this.extractionDaily.style.display = 'block'
+      this._recordDailyLeaderboardEntry(score)
     } else {
       this.extractionDaily.style.display = 'none'
     }
