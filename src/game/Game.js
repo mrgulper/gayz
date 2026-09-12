@@ -23780,7 +23780,7 @@ export class Game {
       if (this._isRoundMode()) {
         shouldAdvance = false
         if (!this.roundIntermissionUntil) {
-          if (this.zombies.aliveCount() === 0) {
+          if (this.zombies.aliveCount() === 0 && !this.zombies.hasPendingRoundSpawns()) {
             if (this.zombieDefenseActive && this.night >= ZOMBIE_DEFENSE_WAVES_TO_WIN) {
               this._onZombieDefenseWin()
             } else {

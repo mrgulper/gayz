@@ -435,6 +435,22 @@ export class ZombieManager {
     return this.zombies.filter((z) => z.state !== 'dead').length
   }
 
+  // Round-clear check for Game.js, part 2 - startRound() queues its whole
+  // wave into _pendingSpawns rather than constructing it synchronously (see
+  // that method's own comment), and update() only drains 1/frame. That
+  // leaves a real window - often the whole time a player spends on the
+  // weapon-pick/trait-draw panels right after Play, since none of those
+  // frames run update() at all - where a fresh round has 0 real zombies
+  // built yet. Without this, aliveCount() === 0 during that window reads
+  // as "round already cleared" and Round Mode silently skips the entire
+  // wave (never gives the player a single zombie to fight) before jumping
+  // to the next round/night. Game.js's round-clear check must treat a
+  // round with spawns still queued as not-yet-cleared, same as it already
+  // treats one with zombies still alive.
+  hasPendingRoundSpawns() {
+    return this._pendingSpawns > 0
+  }
+
   _randomMoanDelay() {
     return MOAN_MIN_DELAY_MS + Math.random() * (MOAN_MAX_DELAY_MS - MOAN_MIN_DELAY_MS)
   }
@@ -629,6 +645,21 @@ export class ZombieManager {
   }
 
   setDirectorMult(mult) {
+    // Round Mode's spawn count is entirely owned by startRound() - a fixed
+    // per-wave burst, not the continuously-recomputed ambient target
+    // _recomputeDifficulty() derives for timed mode. The Director AI's
+    // whole premise (see Game.js's _updateDirectorAI, which calls this
+    // every few seconds regardless of mode) is "adjust the continuous
+    // trickle's pressure based on how the run is going" - letting it
+    // through here used to call _recomputeDifficulty() anyway, silently
+    // overwriting baseTargetCount/targetCount with the timed-mode formula
+    // (ignoring startRound()'s own targetCount = 0) and queuing the
+    // shortfall as more zombies. That reintroduced a continuous trickle
+    // on top of the round's own wave - the round's zombie count never
+    // actually ran out, defeating "kill every zombie to clear the round"
+    // (and, via _pendingSpawns rarely if ever reaching 0 again, could
+    // permanently block the round-clear check in Game.js from firing).
+    if (this.roundMode) return
     const clamped = Math.max(0.5, Math.min(1.5, mult))
     if (Math.abs(clamped - this.directorMult) < 0.03) return
     this.directorMult = clamped
