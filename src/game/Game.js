@@ -386,10 +386,11 @@ function loadSettings() {
       endlessMode: parsed.endlessMode ?? false,
       loadout: LOADOUT_PRESETS[parsed.loadout] ? parsed.loadout : 'balanced',
       // Game Modes grid (Choose Your Challenge) - 'classic' is plain
-      // Zombie Survival, no special mutator. Only zombieDefense has a real
-      // mode behind it so far (bossHunt/zombieRush/zombieExtraction stay
-      // locked in the grid until each is actually built) - see
-      // _bindGameModeSelect for how this drives settings.mutators.zombieDefense.
+      // Zombie Survival, no special mutator. zombieDefense/bossHunt/
+      // zombieRush are all real, built modes; only zombieExtraction stays
+      // locked (Coming Soon) in the grid - see _bindGameModeSelect for how
+      // picking one of the 3 built modes drives its matching
+      // settings.mutators.* flag.
       selectedGameMode: ['classic', 'zombieDefense', 'bossHunt', 'zombieRush'].includes(parsed.selectedGameMode) ? parsed.selectedGameMode : 'classic',
       // 3-slot hotbar (see Game.js's _bindHotbar) - slot 0 is whatever gun
       // was picked in the Play/Pause weapon picker, slots 1-2 are the fixed
