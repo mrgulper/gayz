@@ -19445,13 +19445,21 @@ export class Game {
   }
 
   // Friend-beats-you notification - checks each saved friend's real public
-  // leaderboard entry (same fetchLeaderboardEntryByName the manual Friend
-  // Compare box already uses) once per page load, bounded to the capped-
-  // at-5 savedFriends list. friendBeatNotified tracks {name, night} pairs
+  // leaderboard entry once per page load, bounded to the capped-at-5
+  // savedFriends list. friendBeatNotified tracks {name, night} pairs
   // already shown so this doesn't re-toast the same fact on every visit -
   // only fires again if that friend's bestNight climbs even higher, and
   // clears once you catch back up (so a real future overtake notifies
   // again instead of staying silently suppressed forever).
+  // Looks up by the friend's stable uid (fetchLeaderboardEntryByUid) when
+  // one is on hand - every savedFriends entry added via the current
+  // Accept Friend Request flow has one (see _respondToFriendRequest) - and
+  // only falls back to the name-based query for a pre-uid legacy entry
+  // (loadSettings' savedFriends normalizer sets uid: null for those). A
+  // name lookup can silently match the WRONG account (nicknames aren't
+  // unique - see fetchLeaderboardEntryByName's own comment) or stop
+  // matching your actual friend the moment they rename, exactly the
+  // ambiguity the uid field was added to avoid elsewhere.
   async _checkFriendBeatNotifications() {
     if (!CloudSync.isConfigured() || !this.settings.savedFriends.length) return
     const myNight = _safeStatNumber(this.bestStats.bestNight)
@@ -19460,7 +19468,7 @@ export class Game {
       const name = f.name
       let entry
       try {
-        entry = await CloudSync.fetchLeaderboardEntryByName(name)
+        entry = f.uid ? await CloudSync.fetchLeaderboardEntryByUid(f.uid) : await CloudSync.fetchLeaderboardEntryByName(name)
       } catch {
         continue
       }
