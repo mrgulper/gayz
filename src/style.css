@@ -3204,6 +3204,46 @@ html.third-person-active #companion-bark {
   border-bottom: none;
 }
 
+/* Inventory panel's Crates tab - visual-only for now (see the "Coming soon"
+   line still under this grid in index.html) - no cost/button yet, and
+   deliberately no cursor:pointer/hover-highlight like .perk-option gets,
+   since these aren't clickable at all yet and shouldn't look like they are. */
+.crate-tier-grid {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.crate-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 130px;
+  padding: 18px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--crate-tier-color, rgba(255, 255, 255, 0.14));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--crate-tier-color, #888) 16%, transparent), transparent 70%);
+}
+
+.crate-icon {
+  width: 40px;
+  height: 40px;
+  color: var(--crate-tier-color, #ccc);
+}
+
+.crate-tier-name {
+  font-size: 13px;
+  text-align: center;
+  color: #eee;
+}
+
+.crate-tier-wood { --crate-tier-color: #b5824a; }
+.crate-tier-ice { --crate-tier-color: #6fd0e8; }
+.crate-tier-golden { --crate-tier-color: #f0c23e; }
+
 .hotbar-assign-btn {
   width: 20px;
   height: 20px;
