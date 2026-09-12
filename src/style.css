@@ -3187,6 +3187,23 @@ html.third-person-active #companion-bark {
   text-shadow: 0 0 6px rgba(255, 138, 61, 0.7);
 }
 
+/* Inventory panel's Weapons tab (see _renderInventoryWeapons) - a plain,
+   read-only list, not a clickable-card grid like .perk-option (this tab has
+   no button per row, just a name + mastery badge, so .perk-option's pointer
+   cursor/hover-highlight would misleadingly suggest something clickable). */
+.weapon-mastery-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  font-size: 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.weapon-mastery-row:last-child {
+  border-bottom: none;
+}
+
 .hotbar-assign-btn {
   width: 20px;
   height: 20px;

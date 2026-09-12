@@ -5505,7 +5505,7 @@ export class Game {
     this.inventoryTabWeapons = document.getElementById('inventory-tab-weapons')
     this.inventorySkinsList = document.getElementById('inventory-skins-list')
     this.inventoryCharacterCratesPlaceholder = document.getElementById('inventory-charactercrates-placeholder')
-    this.inventoryWeaponsPlaceholder = document.getElementById('inventory-weapons-placeholder')
+    this.inventoryWeaponsList = document.getElementById('inventory-weapons-list')
     this.serverBtn = document.getElementById('server-btn')
     this.serverPanel = document.getElementById('server-panel')
     this.serverPanelTitle = document.getElementById('server-panel-title')
@@ -14464,8 +14464,8 @@ export class Game {
     if (this.inventoryTabCrates) this.inventoryTabCrates.textContent = t('inventoryCratesTitle')
     if (this.inventoryTabWeapons) this.inventoryTabWeapons.textContent = t('inventoryWeaponsTitle')
     if (this.inventoryCharacterCratesPlaceholder) this.inventoryCharacterCratesPlaceholder.textContent = t('menuInventoryPlaceholder')
-    if (this.inventoryWeaponsPlaceholder) this.inventoryWeaponsPlaceholder.textContent = t('menuInventoryPlaceholder')
     this._renderInventorySkins()
+    this._renderInventoryWeapons()
     // Always reopen on the Character tab - simpler than remembering the
     // last-used one, and matches this panel's own approved design.
     for (const tabEl of document.querySelectorAll('.inventory-tab')) tabEl.classList.toggle('active', tabEl === this.inventoryTabCharacter)
@@ -15833,6 +15833,39 @@ export class Game {
     this.menuHardcoreMemorial.innerHTML = `<p class="menu-best-stats">${t('hardcoreMemorialTitle')}</p>${rows}`
   }
 
+  // Shared mastery-tier badge builder - extracted from _refreshInventoryPanel's
+  // hotbar weapons list (still its only caller until the new Weapons tab
+  // below) so both places render the exact same star-tier look instead of
+  // maintaining two copies of this tier-priority chain.
+  _masteryTagHtml(w) {
+    const legendary = this.weaponMastery.legendary.has(w.id)
+    const grandmastered = this.weaponMastery.grandmastered.has(w.id)
+    const mastered = w.masteryMult > 1
+    const kills = this.weaponMastery.kills[w.id] || 0
+    if (legendary) return `<span class="mastery-tag legendary" title="${t('masteryLegendaryTitle', { pct: Math.round((1 - LEGENDARY_RELOAD_MULT) * 100) })}">★★★</span>`
+    if (grandmastered) return `<span class="mastery-tag grandmastered" title="${t('masteryGrandmasteredTitle', { pct: Math.round((GRANDMASTER_DAMAGE_MULT - 1) * 100) })}">★★</span>`
+    if (mastered) return `<span class="mastery-tag mastered" title="${t('masteryMasteredTitle', { pct: Math.round((MASTERY_DAMAGE_MULT - 1) * 100) })}">★</span>`
+    if (w.unlocked) return `<span class="mastery-tag" title="${t('masteryProgressTitle')}">${Math.min(kills, MASTERY_THRESHOLD)}/${MASTERY_THRESHOLD}</span>`
+    return ''
+  }
+
+  // Inventory panel's Weapons tab - every weapon's mastery progress in one
+  // place. _refreshInventoryPanel's hotbar list (below) deliberately only
+  // shows the 3 currently-equipped weapons (see its own comment - the full
+  // roster there read as confusing next to the HUD's 3-weapon list), so
+  // there was previously no way to check mastery progress on a weapon
+  // that isn't in your hotbar right now. Read-only by design - this tab's
+  // job is showing progress, not reassigning loadouts (the Loadout panel
+  // and this same Inventory panel's hotbar-assign buttons already do that).
+  _renderInventoryWeapons() {
+    if (!this.inventoryWeaponsList) return
+    this.inventoryWeaponsList.innerHTML = this.weapons
+      .getSummary()
+      .sort((a, b) => t(a.nameKey).localeCompare(t(b.nameKey)))
+      .map((w) => `<div class="weapon-mastery-row"><span>${t(w.nameKey)}</span>${this._masteryTagHtml(w)}</div>`)
+      .join('')
+  }
+
   _refreshInventoryPanel() {
     this.panelHealthCount.textContent = this.inventory.healthPacks
     this.panelArmorCount.textContent = this.inventory.armorPacks
@@ -15872,20 +15905,7 @@ export class Game {
         ? t(a.nameKey).localeCompare(t(b.nameKey))
         : this.settings.hotbar.indexOf(a.id) - this.settings.hotbar.indexOf(b.id))
       .map((w) => {
-        const legendary = this.weaponMastery.legendary.has(w.id)
-        const grandmastered = this.weaponMastery.grandmastered.has(w.id)
-        const mastered = w.masteryMult > 1
-        const kills = this.weaponMastery.kills[w.id] || 0
-        const masteryTag = legendary
-          ? `<span class="mastery-tag legendary" title="${t('masteryLegendaryTitle', { pct: Math.round((1 - LEGENDARY_RELOAD_MULT) * 100) })}">★★★</span>`
-          : grandmastered
-            ? `<span class="mastery-tag grandmastered" title="${t('masteryGrandmasteredTitle', { pct: Math.round((GRANDMASTER_DAMAGE_MULT - 1) * 100) })}">★★</span>`
-            : mastered
-              ? `<span class="mastery-tag mastered" title="${t('masteryMasteredTitle', { pct: Math.round((MASTERY_DAMAGE_MULT - 1) * 100) })}">★</span>`
-              : w.unlocked
-                ? `<span class="mastery-tag" title="${t('masteryProgressTitle')}">${Math.min(kills, MASTERY_THRESHOLD)}/${MASTERY_THRESHOLD}</span>`
-                : ''
-        const name = `${t(w.nameKey)} ${masteryTag}`
+        const name = `${t(w.nameKey)} ${this._masteryTagHtml(w)}`
         const slotButtons = this.settings.hotbar
           .map((slotWeaponId, i) => {
             const assigned = slotWeaponId === w.id
