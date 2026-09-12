@@ -18626,12 +18626,21 @@ export class Game {
     // here at display time, same "purely derived, no new tracking" pattern
     // the prestigeUnlocked toggle in _renderUpgradesOptions already uses.
     const totalGuns = this.weapons.weapons.filter((w) => !w.melee).length
+    // Each ratio clamped to 1 - every Set behind these (achievements.unlocked,
+    // bestiaryEncountered, ownedOutfits/ownedHats, weaponMastery.grandmastered)
+    // is restored from localStorage with no validation against the real id
+    // list (see CLAUDE.md's "every persisted stat is untrusted" note), so a
+    // crafted Import Save file can inflate any one of them arbitrarily -
+    // without this clamp, a single inflated ratio (e.g. 50x its real max)
+    // would drag the averaged completionPct over 100 by itself and falsely
+    // trigger the Hall of Records coin reward below even with the other 3
+    // ratios still at 0.
     const completionRatios = [
       this.achievements.unlocked.size / ACHIEVEMENTS.length,
       this.bestiaryEncountered.size / Object.values(ZOMBIE_TYPES).length,
       cosmeticsTotal > 0 ? cosmeticsOwned / cosmeticsTotal : 0,
       totalGuns > 0 ? this.weaponMastery.grandmastered.size / totalGuns : 0,
-    ]
+    ].map((r) => Math.min(1, r))
     const completionPct = Math.round((completionRatios.reduce((a, b) => a + b, 0) / completionRatios.length) * 100)
     if (completionPct >= 100 && !this.careerStats.hallOfRecordsClaimed) {
       this.careerStats.hallOfRecordsClaimed = true
