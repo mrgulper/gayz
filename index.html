@@ -2081,6 +2081,26 @@ Escape before dawn.</p>
                 <button type="button" id="shop-skin-buy-btn">Buy</button>
                 <div id="shop-skin-badge" style="display: none">Owned</div>
               </div>
+              <div class="crate-tier-grid" id="shop-crate-tier-grid">
+                <div class="crate-card crate-tier-wood">
+                  <svg class="crate-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="8" width="18" height="12" rx="1"/><path d="M3 12.5h18"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>
+                  <span class="crate-tier-name" data-crate-tier="wood">Wood Crate</span>
+                  <span class="crate-tier-cost" data-crate-tier="wood">1000 Coins</span>
+                  <button type="button" class="mini-action-btn crate-open-btn" data-crate-tier="wood">Open</button>
+                </div>
+                <div class="crate-card crate-tier-ice">
+                  <svg class="crate-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="8" width="18" height="12" rx="1"/><path d="M3 12.5h18"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>
+                  <span class="crate-tier-name" data-crate-tier="ice">Ice Crate</span>
+                  <span class="crate-tier-cost" data-crate-tier="ice">2000 Coins</span>
+                  <button type="button" class="mini-action-btn crate-open-btn" data-crate-tier="ice">Open</button>
+                </div>
+                <div class="crate-card crate-tier-golden">
+                  <svg class="crate-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="8" width="18" height="12" rx="1"/><path d="M3 12.5h18"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>
+                  <span class="crate-tier-name" data-crate-tier="golden">Golden Crate</span>
+                  <span class="crate-tier-cost" data-crate-tier="golden">5000 Coins</span>
+                  <button type="button" class="mini-action-btn crate-open-btn" data-crate-tier="golden">Open</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -2425,21 +2445,18 @@ Escape before dawn.</p>
             <div class="crate-tier-grid">
               <div class="crate-card crate-tier-wood">
                 <svg class="crate-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="8" width="18" height="12" rx="1"/><path d="M3 12.5h18"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>
-                <span class="crate-tier-name" id="crate-tier-wood-name">Wood Crate</span>
-                <span class="crate-tier-cost" id="crate-tier-wood-cost">500 Coins</span>
-                <button type="button" class="mini-action-btn crate-open-btn" id="crate-open-wood" data-crate-tier="wood">Open</button>
+                <span class="crate-tier-name" data-crate-tier="wood">Wood Crate</span>
+                <button type="button" class="mini-action-btn crate-open-btn" data-crate-tier="wood">Open</button>
               </div>
               <div class="crate-card crate-tier-ice">
                 <svg class="crate-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="8" width="18" height="12" rx="1"/><path d="M3 12.5h18"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>
-                <span class="crate-tier-name" id="crate-tier-ice-name">Ice Crate</span>
-                <span class="crate-tier-cost" id="crate-tier-ice-cost">1500 Coins</span>
-                <button type="button" class="mini-action-btn crate-open-btn" id="crate-open-ice" data-crate-tier="ice">Open</button>
+                <span class="crate-tier-name" data-crate-tier="ice">Ice Crate</span>
+                <button type="button" class="mini-action-btn crate-open-btn" data-crate-tier="ice">Open</button>
               </div>
               <div class="crate-card crate-tier-golden">
                 <svg class="crate-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="8" width="18" height="12" rx="1"/><path d="M3 12.5h18"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>
-                <span class="crate-tier-name" id="crate-tier-golden-name">Golden Crate</span>
-                <span class="crate-tier-cost" id="crate-tier-golden-cost">4000 Coins</span>
-                <button type="button" class="mini-action-btn crate-open-btn" id="crate-open-golden" data-crate-tier="golden">Open</button>
+                <span class="crate-tier-name" data-crate-tier="golden">Golden Crate</span>
+                <button type="button" class="mini-action-btn crate-open-btn" data-crate-tier="golden">Open</button>
               </div>
             </div>
           </div>

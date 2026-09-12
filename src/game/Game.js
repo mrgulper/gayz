@@ -40,9 +40,9 @@ import { COIN_SHOP_ITEMS, ATTACHMENT_TYPES } from './CoinShop.js'
 // the cheaper half - reuses the cost value already baked into that data as
 // the rarity signal, rather than hand-tagging a separate rarity field.
 const CRATE_TIERS = {
-  wood: { cost: 500, rareChance: 0.15 },
-  ice: { cost: 1500, rareChance: 0.45 },
-  golden: { cost: 4000, rareChance: 0.8 },
+  wood: { cost: 1000, rareChance: 0.15 },
+  ice: { cost: 2000, rareChance: 0.45 },
+  golden: { cost: 5000, rareChance: 0.8 },
 }
 const CRATE_RARE_COST_THRESHOLD = 900
 import { pickNightEvent, NIGHT_MUTATIONS, NIGHT_MUTATION_CHANCE } from './NightEvents.js'
@@ -5519,13 +5519,6 @@ export class Game {
     this.inventoryTabCrates = document.getElementById('inventory-tab-crates')
     this.inventoryTabWeapons = document.getElementById('inventory-tab-weapons')
     this.inventorySkinsList = document.getElementById('inventory-skins-list')
-    this.crateTierWoodName = document.getElementById('crate-tier-wood-name')
-    this.crateTierIceName = document.getElementById('crate-tier-ice-name')
-    this.crateTierGoldenName = document.getElementById('crate-tier-golden-name')
-    this.crateTierWoodCost = document.getElementById('crate-tier-wood-cost')
-    this.crateTierIceCost = document.getElementById('crate-tier-ice-cost')
-    this.crateTierGoldenCost = document.getElementById('crate-tier-golden-cost')
-    this.crateOpenButtons = { wood: document.getElementById('crate-open-wood'), ice: document.getElementById('crate-open-ice'), golden: document.getElementById('crate-open-golden') }
     this.inventoryWeaponsList = document.getElementById('inventory-weapons-list')
     this.serverBtn = document.getElementById('server-btn')
     this.serverPanel = document.getElementById('server-panel')
@@ -14491,10 +14484,7 @@ export class Game {
     if (this.inventoryTabCharacter) this.inventoryTabCharacter.textContent = t('inventorySkinsTitle')
     if (this.inventoryTabCrates) this.inventoryTabCrates.textContent = t('inventoryCratesTitle')
     if (this.inventoryTabWeapons) this.inventoryTabWeapons.textContent = t('inventoryWeaponsTitle')
-    if (this.crateTierWoodName) this.crateTierWoodName.textContent = t('crateTierWood')
-    if (this.crateTierIceName) this.crateTierIceName.textContent = t('crateTierIce')
-    if (this.crateTierGoldenName) this.crateTierGoldenName.textContent = t('crateTierGolden')
-    this._renderInventoryCrates()
+    this._renderCrateTiers()
     this._renderInventorySkins()
     this._renderInventoryWeapons()
     // Always reopen on the Character tab - simpler than remembering the
@@ -15864,19 +15854,26 @@ export class Game {
     this.menuHardcoreMemorial.innerHTML = `<p class="menu-best-stats">${t('hardcoreMemorialTitle')}</p>${rows}`
   }
 
-  // Inventory panel's Crates tab - updates each tier's cost label and Open
-  // button text, and disables a tier's button when coins can't cover it
-  // (still clickable-looking otherwise; the actual guard lives in
-  // _openCrate, this is just an affordability hint).
-  _renderInventoryCrates() {
-    if (this.crateTierWoodCost) this.crateTierWoodCost.textContent = t('crateCostLabel', { n: CRATE_TIERS.wood.cost })
-    if (this.crateTierIceCost) this.crateTierIceCost.textContent = t('crateCostLabel', { n: CRATE_TIERS.ice.cost })
-    if (this.crateTierGoldenCost) this.crateTierGoldenCost.textContent = t('crateCostLabel', { n: CRATE_TIERS.golden.cost })
-    if (!this.crateOpenButtons) return
-    for (const [tier, btn] of Object.entries(this.crateOpenButtons)) {
-      if (!btn) continue
+  // Crate tier cards - there are two copies in the DOM now (Inventory's
+  // Crates tab, cost-free per the project owner's request, and the Shop
+  // panel, which shows cost since that's the actual place to buy them),
+  // both sharing the same class/data-crate-tier markup rather than each
+  // getting their own cached element set - a plain querySelectorAll here
+  // updates every copy that exists in one pass, so a future 3rd copy needs
+  // no changes here at all, just the same data-crate-tier markup.
+  _renderCrateTiers() {
+    for (const el of document.querySelectorAll('.crate-tier-name[data-crate-tier]')) {
+      el.textContent = t(`crateTier${el.dataset.crateTier.charAt(0).toUpperCase()}${el.dataset.crateTier.slice(1)}`)
+    }
+    for (const el of document.querySelectorAll('.crate-tier-cost[data-crate-tier]')) {
+      const tier = CRATE_TIERS[el.dataset.crateTier]
+      if (tier) el.textContent = t('crateCostLabel', { n: tier.cost })
+    }
+    for (const btn of document.querySelectorAll('.crate-open-btn[data-crate-tier]')) {
+      const tier = CRATE_TIERS[btn.dataset.crateTier]
+      if (!tier) continue
       btn.textContent = t('crateOpenBtn')
-      btn.disabled = this.coins < CRATE_TIERS[tier].cost
+      btn.disabled = this.coins < tier.cost
     }
   }
 
@@ -15924,7 +15921,7 @@ export class Game {
     }
     saveShopProgress(this)
     this._renderCurrencyBar()
-    this._renderInventoryCrates()
+    this._renderCrateTiers()
   }
 
   // Shared mastery-tier badge builder - extracted from _refreshInventoryPanel's
@@ -17797,6 +17794,7 @@ export class Game {
       this._shopSkinAvatar3D.start()
     }
     this._renderShopSkinState()
+    this._renderCrateTiers()
   }
 
   _renderShopSkinState() {

@@ -8135,6 +8135,12 @@ html.ui-theme-old #settings-panel h2 {
   align-items: center;
   justify-content: center;
   min-height: 100%;
+  /* No effect with a single child (the common case elsewhere this class is
+     used) - only matters now that the Shop panel has 2 children side by
+     side (the skin card + the new crate grid), which previously sat with
+     zero space between them. */
+  gap: 30px;
+  flex-wrap: wrap;
 }
 
 .general-section-placeholder {
