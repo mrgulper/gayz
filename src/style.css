@@ -5273,7 +5273,18 @@ html.button-size-scaled button {
 
 /* Reduce Transparency - flattens every translucent panel background to a
    solid color, for players who find blurred/translucent backgrounds hard
-   to read text over. */
+   to read text over. This selector list used to only cover the panels
+   reachable from the main-menu nav row - it missed every panel that only
+   ever opens mid-run (Perk Panel, Trader, the pause overlay, the XP
+   level-up trait draw, the weapon pickup choice, the Journal), which all
+   share the exact same translucent background as the ones already listed
+   (see the 24-panel list a few hundred lines up this file, and its
+   html.ui-theme-old twin right after it) - confirmed via a real
+   getComputedStyle() check that Reduce Transparency did nothing to
+   #perk-panel/#trader-panel while correctly flattening #upgrades-panel.
+   Extended to the same 24-panel list so this setting actually does what
+   its own comment already claimed ("every translucent panel"), not just
+   the subset that happens to be visible from the homepage. */
 html.reduce-transparency .menu-panel,
 html.reduce-transparency #upgrades-panel,
 html.reduce-transparency #credits-panel,
@@ -5285,7 +5296,22 @@ html.reduce-transparency #settings-panel,
 html.reduce-transparency #quests-panel,
 html.reduce-transparency #share-panel,
 html.reduce-transparency #cloudsave-panel,
-html.reduce-transparency #howtoplay-panel {
+html.reduce-transparency #howtoplay-panel,
+html.reduce-transparency #perk-panel,
+html.reduce-transparency #trader-panel,
+html.reduce-transparency #hub-panel,
+html.reduce-transparency #coming-soon-panel,
+html.reduce-transparency #clan-panel,
+html.reduce-transparency #multiplayer-panel,
+html.reduce-transparency #friends-panel,
+html.reduce-transparency #other-profile-panel,
+html.reduce-transparency #menu-inventory-panel,
+html.reduce-transparency #server-panel,
+html.reduce-transparency #xp-levelup-panel,
+html.reduce-transparency #weapon-picker-panel,
+html.reduce-transparency #pause-overlay,
+html.reduce-transparency #journal-panel,
+html.reduce-transparency #screenshot-crop-overlay {
   background: #0a0a0a !important;
   backdrop-filter: none !important;
 }
