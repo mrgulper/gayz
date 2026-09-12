@@ -23692,6 +23692,24 @@ export class Game {
       }
     }
 
+    // Homepage/menu idle guard - before this, the ENTIRE per-frame simulation
+    // below (player/zombie/world/weather updates) and a full composer.render()
+    // ran every frame forever, even while #menu sits fully opaque on top and
+    // gameStarted is still false (before Play/pointer-lock ever engages) -
+    // none of it was ever visible, pure wasted CPU/GPU the whole time a
+    // player sits on the homepage. gameStarted only ever goes false again
+    // for Build Mode (see _enterBuildMode), which already returns via its own
+    // branch above and never reaches here, and stays true through pause/
+    // inventory/every mid-run panel (see _onGameplayPaused - never touches
+    // it), so this only ever skips the pre-Play homepage state, nothing
+    // mid-run. Still calls timer.update() every frame so getDelta() stays
+    // small and accurate the instant a real run starts, instead of reporting
+    // one huge dt built up over however long the menu sat idle.
+    if (!this.gameStarted) {
+      this.timer.update()
+      return
+    }
+
     this.timer.update()
     let dt = Math.min(this.timer.getDelta(), 0.1)
     const elapsed = this.timer.getElapsed()
