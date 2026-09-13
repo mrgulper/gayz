@@ -4331,6 +4331,7 @@ export class Game {
     this.challengeCodeInput = document.getElementById('challenge-code-input')
     this.clanSigninGate = document.getElementById('clan-signin-gate')
     this.clanSigninGateText = document.getElementById('clan-signin-gate-text')
+    this.clanSubtabMyClanBtn = document.getElementById('clan-subtab-myclan')
     this.clanInClanState = document.getElementById('clan-in-clan-state')
     this.clanBrowseState = document.getElementById('clan-browse-state')
     this.clanMakeBtn = document.getElementById('clan-make-btn')
@@ -14810,6 +14811,7 @@ export class Game {
       el.textContent = t('panelGenericCloseHint')
     })
     if (this.resetProgressBtn) this.resetProgressBtn.textContent = t(this._resetProgressArmed ? 'resetProgressConfirm' : 'resetProgressLabel')
+    this._updateClanMyClanTabLabel()
     const menuTaglineEl = document.getElementById('menu-tagline')
     if (menuTaglineEl) menuTaglineEl.textContent = t('menuTagline')
     document.getElementById('menu-subtitle').textContent = t('menuSubtitle')
@@ -21260,6 +21262,12 @@ export class Game {
     }
   }
 
+  // "My Clan" subtab reads "Make Clan" until settings.clanId is actually
+  // set - reuses the existing clanMakeBtn i18n string rather than a new key.
+  _updateClanMyClanTabLabel() {
+    if (this.clanSubtabMyClanBtn) this.clanSubtabMyClanBtn.textContent = this.settings.clanId ? t('clanSubtabMyClan') : t('clanMakeBtn')
+  }
+
   // Reconciliation: settings.clanId is a local cache (see spec) - a live
   // members-subcollection check is the actual source of truth, since it
   // can drift (kicked while offline, left on another device). Called on
@@ -21270,10 +21278,11 @@ export class Game {
     // false-signed-out race the Profile panel had.
     await this._authReadyPromise
     if (!this._cloudUid || !CloudSync.isConfigured()) {
-      this.clanSigninGate.style.display = 'block'
-      this.clanSigninGateText.textContent = t('clanSigninRequired')
+      // Signed out: no "sign in to join/create" nag - just show nothing,
+      // same as a signed-in player who hasn't joined a clan yet.
       this.clanBrowseState.style.display = 'none'
       this.clanInClanState.style.display = 'none'
+      this._updateClanMyClanTabLabel()
       return
     }
     this.clanSigninGate.style.display = 'none'
@@ -21298,6 +21307,7 @@ export class Game {
         await this._renderClanIncomingInvites()
         this.clanBrowseState.style.display = 'block'
         this.clanInClanState.style.display = 'none'
+        this._updateClanMyClanTabLabel()
         return
       }
     }
@@ -21331,11 +21341,13 @@ export class Game {
       await this._renderClanIncomingInvites()
       this.clanBrowseState.style.display = 'block'
       this.clanInClanState.style.display = 'none'
+      this._updateClanMyClanTabLabel()
       return
     }
 
     this.clanBrowseState.style.display = 'none'
     this.clanInClanState.style.display = 'block'
+    this._updateClanMyClanTabLabel()
 
     const clan = await CloudSync.fetchClanById(this.settings.clanId).catch(() => null)
     if (!clan) return
