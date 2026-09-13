@@ -2427,8 +2427,6 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'clan-request-name-btn': 'clanRequestNameBtn',
   'clan-subtab-myclan': 'clanSubtabMyClan',
   'clan-subtab-ranking': 'clanSubtabRanking',
-  'clan-subtab-war': 'clanSubtabWar',
-  'clan-war-placeholder': 'clanWarPlaceholder',
   'general-page-market-placeholder': 'generalPageMarketPlaceholder',
   'hub-tab-survival': 'hubTabSurvival',
   'hub-tab-deathmatch': 'hubTabDeathmatch',
