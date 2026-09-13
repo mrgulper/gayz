@@ -636,7 +636,6 @@ Escape before dawn.</p>
           <button class="settings-tab" data-page="language" id="tab-language">Language</button>
           <button class="settings-tab" data-page="audio" id="tab-audio">Audio</button>
           <button class="settings-tab" data-page="controls" id="tab-controls">Controls</button>
-          <button class="settings-tab" data-page="theme" id="tab-theme">Theme</button>
           <button class="settings-tab" data-page="graphics" id="tab-graphics">Graphics</button>
         </div>
 
@@ -1342,17 +1341,6 @@ Escape before dawn.</p>
             <button id="clear-leaderboards-btn">Clear Leaderboards Only</button>
           </div>
           <button id="reset-progress-btn" class="danger-btn">Reset All Progress</button>
-        </div>
-
-        <div class="settings-page" id="settings-page-theme" style="display: none">
-          <h3 class="settings-section-heading" id="settings-section-theme">Theme</h3>
-          <div class="audio-row">
-            <label for="ui-theme-select" id="ui-theme-label">Theme</label>
-            <select id="ui-theme-select">
-              <option value="golden" selected>Golden</option>
-              <option value="old">Old</option>
-            </select>
-          </div>
         </div>
 
         <div id="recently-changed-list" style="display: none"></div>
@@ -2136,6 +2124,7 @@ Escape before dawn.</p>
           <div id="whatsnew-content">
             <p id="build-version-line"></p>
           <div id="changelog-list">
+            <div class="changelog-entry"><span class="changelog-date">Sep 13, 2026</span><span class="changelog-text">Moved the Theme setting (Golden/Old) out of Settings and into Inventory, right after the Weapons tab. Settings no longer has a Theme tab at all.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 13, 2026</span><span class="changelog-text">Settings and Achievements' search bars are now a smooth oval/pill shape, matching the GayZ Features site's search bar - sized down a bit after the first pass came out too big next to the heading.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 13, 2026</span><span class="changelog-text">The "My Clan" tab now reads "Make Clan" until you've actually created or joined one. Also removed the "Sign in via Cloud Save..." message from the Clan section - signed-out players just see nothing there now instead of a prompt.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 13, 2026</span><span class="changelog-text">Fixed the Clans tab briefly flashing "No clans yet - be the first to make one!" before the real clan list loaded in.</span></div>
@@ -2469,6 +2458,7 @@ Escape before dawn.</p>
             <button class="inventory-tab active" data-inventory-page="character" id="inventory-tab-character">Character</button>
             <button class="inventory-tab" data-inventory-page="crates" id="inventory-tab-crates">Crates</button>
             <button class="inventory-tab" data-inventory-page="weapons" id="inventory-tab-weapons">Weapons</button>
+            <button class="inventory-tab" data-inventory-page="theme" id="inventory-tab-theme">Theme</button>
           </div>
           <div class="inventory-tab-page" id="inventory-page-character">
             <div class="perk-options" id="inventory-skins-list"></div>
@@ -2513,6 +2503,16 @@ Escape before dawn.</p>
           </div>
           <div class="inventory-tab-page" id="inventory-page-weapons" style="display: none">
             <div id="inventory-weapons-list"></div>
+          </div>
+          <div class="inventory-tab-page" id="inventory-page-theme" style="display: none">
+            <h3 class="settings-section-heading" id="settings-section-theme">Theme</h3>
+            <div class="audio-row">
+              <label for="ui-theme-select" id="ui-theme-label">Theme</label>
+              <select id="ui-theme-select">
+                <option value="golden" selected>Golden</option>
+                <option value="old">Old</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>

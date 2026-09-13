@@ -5521,6 +5521,7 @@ export class Game {
     this.inventoryTabCharacter = document.getElementById('inventory-tab-character')
     this.inventoryTabCrates = document.getElementById('inventory-tab-crates')
     this.inventoryTabWeapons = document.getElementById('inventory-tab-weapons')
+    this.inventoryTabTheme = document.getElementById('inventory-tab-theme')
     this.inventorySkinsList = document.getElementById('inventory-skins-list')
     this.inventoryWeaponsList = document.getElementById('inventory-weapons-list')
     this.serverBtn = document.getElementById('server-btn')
@@ -9114,8 +9115,8 @@ export class Game {
       })
     }
 
-    // Inventory panel tab strip (Character/Crates/Weapons) - same isolated
-    // class/loop pattern as the quest/hub tabs above.
+    // Inventory panel tab strip (Character/Crates/Weapons/Theme) - same
+    // isolated class/loop pattern as the quest/hub tabs above.
     for (const tab of document.querySelectorAll('.inventory-tab')) {
       tab.addEventListener('click', () => {
         for (const tabEl of document.querySelectorAll('.inventory-tab')) tabEl.classList.toggle('active', tabEl === tab)
@@ -13772,7 +13773,7 @@ export class Game {
       },
       {
         slug: 'inventory', panel: this.menuInventoryPanel, open: () => this._openMenuInventoryPanel(),
-        subTabs: this._subTabsFor('inventory-tab-', ['character', 'crates', 'weapons']),
+        subTabs: this._subTabsFor('inventory-tab-', ['character', 'crates', 'weapons', 'theme']),
       },
       { slug: 'global', panel: this.serverPanel, open: () => this._openServerPanel() },
       {
@@ -13781,7 +13782,7 @@ export class Game {
       },
       {
         slug: 'settings', panel: this.settingsPanel, open: () => this._toggleSettings(true),
-        subTabs: this._subTabsFor('tab-', ['general', 'language', 'audio', 'controls', 'theme', 'graphics']),
+        subTabs: this._subTabsFor('tab-', ['general', 'language', 'audio', 'controls', 'graphics']),
       },
       { slug: 'credits', panel: this.creditsPanel, open: () => this._openCreditsPanel() },
       { slug: 'how-to-play', panel: this.howtoplayPanel, open: () => this._openHowToPlayPanel() },
@@ -14505,6 +14506,7 @@ export class Game {
     if (this.inventoryTabCharacter) this.inventoryTabCharacter.textContent = t('inventorySkinsTitle')
     if (this.inventoryTabCrates) this.inventoryTabCrates.textContent = t('inventoryCratesTitle')
     if (this.inventoryTabWeapons) this.inventoryTabWeapons.textContent = t('inventoryWeaponsTitle')
+    if (this.inventoryTabTheme) this.inventoryTabTheme.textContent = t('tabTheme')
     this._renderCrateTiers()
     this._renderInventorySkins()
     this._renderInventoryWeapons()
@@ -14859,7 +14861,6 @@ export class Game {
     document.getElementById('tab-language').textContent = t('tabLanguage')
     document.getElementById('tab-audio').textContent = t('tabAudio')
     document.getElementById('tab-controls').textContent = t('tabControls')
-    document.getElementById('tab-theme').textContent = t('tabTheme')
     document.getElementById('tab-graphics').textContent = t('tabGraphics')
     if (this.buildModeBtn) this.buildModeBtn.querySelector('span').textContent = t('mapEditorBtn')
     const fullmapTitleEl = document.getElementById('fullmap-title')
