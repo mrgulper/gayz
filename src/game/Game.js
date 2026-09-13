@@ -21451,9 +21451,12 @@ export class Game {
   // clicked (see the click binding), never on every Clan-tab open.
   async _renderClanRanking() {
     if (!this.clanAllList) return
-    this.clanAllList.innerHTML = `<p>${t('clanListEmpty')}</p>`
+    this.clanAllList.innerHTML = ''
     const clans = await CloudSync.fetchAllClans().catch(() => [])
-    if (!clans.length) return
+    if (!clans.length) {
+      this.clanAllList.innerHTML = `<p>${t('clanListEmpty')}</p>`
+      return
+    }
     const [counts, stats] = await Promise.all([
       Promise.all(clans.map((c) => CloudSync.fetchClanMemberCount(c.clanId).catch(() => null))),
       Promise.all(clans.map((c) => CloudSync.fetchClanCombinedStats(c.clanId).catch(() => null))),
