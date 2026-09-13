@@ -38,3 +38,8 @@ playwright-report
 # they're deterministic/repeatable.
 asset-source/*
 !asset-source/*.py
+
+# The Discord bot - a completely separate project (own repo, own Render
+# deployment, github.com/mrgulper/gayz-discord-bot) that just lives inside
+# this folder now for tidiness. It has its own .git - never track it here.
+gayz-discord-bot/
