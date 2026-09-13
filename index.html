@@ -1499,56 +1499,65 @@ Escape before dawn.</p>
           <div id="clan-signin-gate" style="display: none">
             <p id="clan-signin-gate-text"></p>
           </div>
-          <div id="clan-in-clan-state" style="display: none">
-            <h4 id="clan-display-name"></h4>
-            <div id="clan-in-clan-columns">
-              <div id="clan-members-column">
-                <h5 id="clan-members-heading">Clan Members</h5>
-                <div id="clan-member-list"></div>
-              </div>
-              <div id="clan-info-column">
-                <div id="clan-stats-card">
-                  <p id="clan-stats-members"></p>
-                  <p id="clan-stats-kills"></p>
-                  <p id="clan-stats-night"></p>
-                  <p id="clan-wars-soon">Clan Wars <span class="mode-select-soon">Coming Soon</span></p>
-                </div>
-                <div id="clan-send-invite-section" style="display: none">
-                  <label class="menu-field-label" for="clan-invite-id-input" id="clan-invite-id-label">Send Clan Request (invite by Player ID)</label>
-                  <input type="text" id="clan-invite-id-input" class="nickname-input" placeholder="Player ID" maxlength="10" />
-                  <button id="clan-invite-send-btn" type="button" class="mini-action-btn">Send</button>
-                  <p id="clan-invite-status" style="display: none"></p>
-                </div>
-                <div id="clan-requests-section" style="display: none">
-                  <h5 id="clan-requests-heading">Requests</h5>
-                  <div id="clan-requests-list"></div>
-                </div>
-              </div>
-            </div>
-            <button id="clan-leave-btn" type="button" class="mini-action-btn">Leave Clan</button>
-            <p id="clan-leave-disabled-hint" style="display: none"></p>
+          <div class="clan-subtabs" id="clan-subtabs">
+            <button class="clan-subtab active" data-clan-subpage="myclan" id="clan-subtab-myclan">My Clan</button>
+            <button class="clan-subtab" data-clan-subpage="ranking" id="clan-subtab-ranking">Clan Ranking</button>
+            <button class="clan-subtab" data-clan-subpage="war" id="clan-subtab-war">Clan War</button>
           </div>
-          <div id="clan-browse-state" style="display: none">
-            <button id="clan-make-btn" type="button" class="mini-action-btn">Make Clan</button>
-            <div id="clan-make-form" style="display: none">
-              <label class="menu-field-label" for="clan-create-name-input" id="clan-create-name-label">Clan Name</label>
-              <input type="text" id="clan-create-name-input" class="nickname-input" placeholder="Your clan's name" maxlength="24" />
-              <button id="clan-create-btn" type="button" class="mini-action-btn">Create Clan</button>
-              <p id="clan-create-taken-warning" style="display: none"></p>
-            </div>
-            <div id="clan-browse-columns">
-              <div id="clan-browse-list-column">
-                <h5 id="clan-browse-list-heading">All Clans</h5>
-                <div id="clan-all-list"></div>
+          <div class="clan-subtab-page" id="clan-subpage-myclan">
+            <div id="clan-in-clan-state" style="display: none">
+              <h4 id="clan-display-name"></h4>
+              <div id="clan-in-clan-columns">
+                <div id="clan-members-column">
+                  <h5 id="clan-members-heading">Clan Members</h5>
+                  <div id="clan-member-list"></div>
+                </div>
+                <div id="clan-info-column">
+                  <div id="clan-stats-card">
+                    <p id="clan-stats-members"></p>
+                    <p id="clan-stats-kills"></p>
+                    <p id="clan-stats-night"></p>
+                  </div>
+                  <div id="clan-send-invite-section" style="display: none">
+                    <label class="menu-field-label" for="clan-invite-id-input" id="clan-invite-id-label">Send Clan Request (invite by Player ID)</label>
+                    <input type="text" id="clan-invite-id-input" class="nickname-input" placeholder="Player ID" maxlength="10" />
+                    <button id="clan-invite-send-btn" type="button" class="mini-action-btn">Send</button>
+                    <p id="clan-invite-status" style="display: none"></p>
+                  </div>
+                  <div id="clan-requests-section" style="display: none">
+                    <h5 id="clan-requests-heading">Requests</h5>
+                    <div id="clan-requests-list"></div>
+                  </div>
+                </div>
               </div>
-              <div id="clan-browse-join-column">
-                <div id="clan-incoming-invites-list"></div>
-                <label class="menu-field-label" for="clan-request-name-input" id="clan-request-name-label">Request to Join a Clan</label>
-                <input type="text" id="clan-request-name-input" class="nickname-input" placeholder="Clan name" maxlength="24" />
-                <button id="clan-request-name-btn" type="button" class="mini-action-btn">Request to Join</button>
-                <p id="clan-request-name-status" style="display: none"></p>
+              <button id="clan-leave-btn" type="button" class="mini-action-btn">Leave Clan</button>
+              <p id="clan-leave-disabled-hint" style="display: none"></p>
+            </div>
+            <div id="clan-browse-state" style="display: none">
+              <button id="clan-make-btn" type="button" class="mini-action-btn">Make Clan</button>
+              <div id="clan-make-form" style="display: none">
+                <label class="menu-field-label" for="clan-create-name-input" id="clan-create-name-label">Clan Name</label>
+                <input type="text" id="clan-create-name-input" class="nickname-input" placeholder="Your clan's name" maxlength="24" />
+                <button id="clan-create-btn" type="button" class="mini-action-btn">Create Clan</button>
+                <p id="clan-create-taken-warning" style="display: none"></p>
+              </div>
+              <div id="clan-browse-columns">
+                <div id="clan-browse-join-column">
+                  <div id="clan-incoming-invites-list"></div>
+                  <label class="menu-field-label" for="clan-request-name-input" id="clan-request-name-label">Request to Join a Clan</label>
+                  <input type="text" id="clan-request-name-input" class="nickname-input" placeholder="Clan name" maxlength="24" />
+                  <button id="clan-request-name-btn" type="button" class="mini-action-btn">Request to Join</button>
+                  <p id="clan-request-name-status" style="display: none"></p>
+                </div>
               </div>
             </div>
+          </div>
+          <div class="clan-subtab-page" id="clan-subpage-ranking" style="display: none">
+            <h5 id="clan-ranking-heading">Clan Ranking</h5>
+            <div id="clan-all-list"></div>
+          </div>
+          <div class="clan-subtab-page" id="clan-subpage-war" style="display: none">
+            <p class="general-section-placeholder" id="clan-war-placeholder">Coming soon.</p>
           </div>
         </div>
         <div class="general-tab-page" id="general-page-market" style="display: none">

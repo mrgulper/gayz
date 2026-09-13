@@ -2423,8 +2423,12 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'clan-requests-heading': 'clanRequestsHeading',
   'clan-make-btn': 'clanMakeBtn',
   'clan-create-btn': 'clanCreateBtn',
-  'clan-browse-list-heading': 'clanBrowseListHeading',
+  'clan-ranking-heading': 'clanRankingHeading',
   'clan-request-name-btn': 'clanRequestNameBtn',
+  'clan-subtab-myclan': 'clanSubtabMyClan',
+  'clan-subtab-ranking': 'clanSubtabRanking',
+  'clan-subtab-war': 'clanSubtabWar',
+  'clan-war-placeholder': 'clanWarPlaceholder',
   'general-page-market-placeholder': 'generalPageMarketPlaceholder',
   'hub-tab-survival': 'hubTabSurvival',
   'hub-tab-deathmatch': 'hubTabDeathmatch',
@@ -9149,6 +9153,24 @@ export class Game {
           page.style.display = page.id === `general-page-${tab.dataset.generalPage}` ? 'block' : 'none'
         }
         if (tab.dataset.generalPage === 'clan') this._refreshClanUi()
+      })
+    }
+
+    // Clan tab's own sub-tabs (My Clan/Clan Ranking/Clan War) - fixes a
+    // real gap where the "All Clans" list used to live only inside the
+    // not-in-a-clan browse state, so once you'd joined a clan there was no
+    // way to see any other clan at all, ranking included. Ranking now
+    // renders fresh every time its sub-tab is clicked (not cached, and not
+    // fetched on every Clan-tab open either - it does a real network read
+    // per clan to total their kills, see _renderClanRanking's own comment,
+    // so only paying that cost when someone actually looks at it).
+    for (const tab of document.querySelectorAll('.clan-subtab')) {
+      tab.addEventListener('click', () => {
+        for (const tabEl of document.querySelectorAll('.clan-subtab')) tabEl.classList.toggle('active', tabEl === tab)
+        for (const page of document.querySelectorAll('.clan-subtab-page')) {
+          page.style.display = page.id === `clan-subpage-${tab.dataset.clanSubpage}` ? 'block' : 'none'
+        }
+        if (tab.dataset.clanSubpage === 'ranking') this._renderClanRanking()
       })
     }
 
@@ -21275,7 +21297,6 @@ export class Game {
         this._renderPlayerTag()
       } else {
         this._updateChatTabAvailability()
-        await this._renderClanBrowseList()
         await this._renderClanIncomingInvites()
         this.clanBrowseState.style.display = 'block'
         this.clanInClanState.style.display = 'none'
@@ -21309,7 +21330,6 @@ export class Game {
       saveSettings(this.settings)
       this._renderPlayerTag()
       this._updateChatTabAvailability()
-      await this._renderClanBrowseList()
       await this._renderClanIncomingInvites()
       this.clanBrowseState.style.display = 'block'
       this.clanInClanState.style.display = 'none'
@@ -21421,21 +21441,51 @@ export class Game {
     `).join('')
   }
 
-  // Public directory of every clan that exists (see CloudSync.fetchAllClans) -
-  // any newly created clan shows up here automatically, since it's a live
-  // query over the clans collection rather than a fixed list.
-  async _renderClanBrowseList() {
+  // Public directory of every clan that exists (see CloudSync.fetchAllClans),
+  // ranked by total member kills (fetchClanCombinedStats - already existed,
+  // previously only ever used for your OWN clan's stats card) - this used to
+  // be an unordered join list, and one only reachable before you'd joined a
+  // clan at all (clanBrowseState, whole thing hidden the moment you had one -
+  // see _refreshClanUi). Now its own always-reachable sub-tab regardless of
+  // membership, and genuinely ranked instead of just listed. Real cost
+  // warning: this does 2 extra Firestore reads per clan (member count +
+  // combined stats), so it's only called when this sub-tab is actually
+  // clicked (see the click binding), never on every Clan-tab open.
+  async _renderClanRanking() {
     if (!this.clanAllList) return
+    this.clanAllList.innerHTML = `<p>${t('clanListEmpty')}</p>`
     const clans = await CloudSync.fetchAllClans().catch(() => [])
-    const counts = await Promise.all(clans.map((c) => CloudSync.fetchClanMemberCount(c.clanId).catch(() => null)))
-    this.clanAllList.innerHTML = clans.length
-      ? clans.map((c, i) => `
-        <div class="clan-list-row">
-          <span>${_escapeHtml(c.name)}${counts[i] == null ? '' : ` <span class="clan-list-count">(${counts[i]}/${CloudSync.CLAN_MEMBER_CAP})</span>`}</span>
-          <button type="button" class="clan-list-join-btn mini-action-btn" data-clan-id="${c.clanId}">${t('clanJoinBtn')}</button>
+    if (!clans.length) return
+    const [counts, stats] = await Promise.all([
+      Promise.all(clans.map((c) => CloudSync.fetchClanMemberCount(c.clanId).catch(() => null))),
+      Promise.all(clans.map((c) => CloudSync.fetchClanCombinedStats(c.clanId).catch(() => null))),
+    ])
+    const ranked = clans
+      .map((c, i) => ({ ...c, memberCount: counts[i], totalKills: stats[i]?.totalKills ?? 0 }))
+      .sort((a, b) => b.totalKills - a.totalKills)
+    // Already in a clan - no server-side rule stops sending a join request to
+    // a DIFFERENT clan while still a member of your own (sendJoinRequest just
+    // writes a pending request doc), which would be a confusing way to end up
+    // half-migrated. Only show Join when there's genuinely nowhere you
+    // already belong; your own clan's row gets a plain label instead.
+    const inClan = !!this.settings.clanId
+    this.clanAllList.innerHTML = ranked.map((c, i) => {
+      const isMine = inClan && c.clanId === this.settings.clanId
+      const countLabel = c.memberCount == null ? '' : ` <span class="clan-list-count">(${c.memberCount}/${CloudSync.CLAN_MEMBER_CAP})</span>`
+      const action = isMine
+        ? `<span class="clan-list-your-clan">${t('clanRankingYourClan')}</span>`
+        : inClan
+          ? ''
+          : `<button type="button" class="clan-list-join-btn mini-action-btn" data-clan-id="${c.clanId}">${t('clanJoinBtn')}</button>`
+      return `
+        <div class="clan-list-row clan-ranking-row${isMine ? ' clan-list-row-mine' : ''}">
+          <span class="clan-list-rank">#${i + 1}</span>
+          <span class="clan-list-name">${_escapeHtml(c.name)}${countLabel}</span>
+          <span class="clan-list-kills">${t('clanRankingKillsLabel', { n: c.totalKills })}</span>
+          ${action}
         </div>
-      `).join('')
-      : `<p>${t('clanListEmpty')}</p>`
+      `
+    }).join('')
   }
 
   // Assigns a weapon to a hotbar slot from the inventory panel's per-row

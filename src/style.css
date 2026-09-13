@@ -8251,6 +8251,78 @@ html.ui-theme-old #settings-panel h2 {
   font-size: 0.85em;
 }
 
+/* Clan Ranking rows specifically (4 children: rank/name/kills/action) -
+   .clan-list-row's own justify-content:space-between (shared with the
+   2-child Incoming Invites row, left untouched) doesn't keep 4 columns
+   aligned row to row, so this overrides just the alignment for this one
+   list without touching the base class's other rows. */
+.clan-ranking-row {
+  justify-content: flex-start;
+  gap: 12px;
+}
+
+.clan-list-rank {
+  flex: 0 0 28px;
+  color: var(--menu-text-dim, rgba(255, 255, 255, 0.55));
+  font-variant-numeric: tabular-nums;
+}
+
+.clan-list-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clan-list-kills {
+  flex: 0 0 auto;
+  color: var(--menu-text-dim, rgba(255, 255, 255, 0.55));
+  font-size: 0.85em;
+  font-variant-numeric: tabular-nums;
+}
+
+.clan-list-your-clan {
+  flex: 0 0 auto;
+  color: #e3c23c;
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+.clan-list-row-mine {
+  border-color: rgba(227, 194, 60, 0.5);
+  background: rgba(227, 194, 60, 0.08);
+}
+
+/* Sub-tabs inside the Clan tab (My Clan/Clan Ranking/Clan War) - same pill
+   look as .general-tab above it, just visually one level nested (smaller,
+   less margin) since this is a tab strip inside a tab page, not the
+   top-level one. */
+.clan-subtabs {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.clan-subtab {
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  cursor: pointer;
+}
+
+.clan-subtab.active {
+  color: #0c130c;
+  background: #e3c23c;
+  border-color: #e3c23c;
+}
+
 /* Role above name, plain text (no pill/badge box - simpler per request),
    small and muted above the bold nickname. */
 .clan-member-name-block {
@@ -8298,20 +8370,20 @@ html.ui-theme-old #settings-panel h2 {
 /* Two-column browse layout (not in a clan yet): every existing clan on
    the left, invites/Request-to-Join on the right - same split pattern as
    #clan-in-clan-columns above. */
+/* Only wraps #clan-browse-join-column now - the "All Clans" list that used
+   to sit alongside it moved to its own Clan Ranking sub-tab (see
+   _renderClanRanking), so this is no longer a real 2-column layout, just
+   the leftover text-align/margin-top this single column still wants. */
 #clan-browse-columns {
-  display: flex;
-  gap: 20px;
   text-align: left;
   margin-top: 12px;
 }
 
-#clan-browse-list-column,
 #clan-browse-join-column {
-  flex: 1;
   min-width: 0;
 }
 
-#clan-browse-list-heading {
+#clan-ranking-heading {
   margin: 0 0 8px;
 }
 
