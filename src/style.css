@@ -3505,22 +3505,29 @@ html.ui-theme-old #screenshot-crop-overlay {
 
 /* Filter search box - same too-narrow-and-left-aligned bug Settings'
    search bar had (see #settings-search-input's comment) - now its own
-   centered block line with the same width cap. */
+   centered block line with the same width cap. Pill shape (border-radius/
+   padding override the shared .nickname-input rect) matches the GayZ
+   Features site's own search bar. */
 #achievements-filter-input {
   display: block;
   width: min(480px, 70%);
   margin: 0 auto 10px;
+  padding: 12px 16px;
+  border-radius: 999px;
 }
 
 /* Settings search bar - was a small 25%-width bar sitting inline next to
    the Saved indicator, off to the left. Request: bigger and centered -
    now its own full block line, width capped well below the box's own
    ~1016px content width so it doesn't look like a whole extra section,
-   just a wider/more prominent search field than before. */
+   just a wider/more prominent search field than before. Same pill shape
+   as #achievements-filter-input above. */
 #settings-search-input {
   display: block;
   width: min(480px, 70%);
   margin: 0 auto 14px;
+  padding: 12px 16px;
+  border-radius: 999px;
 }
 
 /* #hub-panel (Game Mode button's panel) USED to be top-anchored/outer-
