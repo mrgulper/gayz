@@ -3229,9 +3229,8 @@ html.third-person-active #companion-bark {
 }
 
 .crate-icon {
-  width: 40px;
-  height: 40px;
-  color: var(--crate-tier-color, #ccc);
+  width: 44px;
+  height: 44px;
 }
 
 .crate-tier-name {
