@@ -3510,9 +3510,9 @@ html.ui-theme-old #screenshot-crop-overlay {
    Features site's own search bar. */
 #achievements-filter-input {
   display: block;
-  width: min(480px, 70%);
+  width: min(360px, 60%);
   margin: 0 auto 10px;
-  padding: 12px 16px;
+  padding: 9px 14px;
   border-radius: 999px;
 }
 
@@ -3524,9 +3524,9 @@ html.ui-theme-old #screenshot-crop-overlay {
    as #achievements-filter-input above. */
 #settings-search-input {
   display: block;
-  width: min(480px, 70%);
+  width: min(360px, 60%);
   margin: 0 auto 14px;
-  padding: 12px 16px;
+  padding: 9px 14px;
   border-radius: 999px;
 }
 
