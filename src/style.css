@@ -1251,6 +1251,8 @@ html.large-text-mode #share-panel,
 html.large-text-mode #achievements-panel,
 html.large-text-mode #profile-panel,
 html.large-text-mode #credits-panel,
+html.large-text-mode #terms-panel,
+html.large-text-mode #privacy-panel,
 html.large-text-mode #shop-panel,
 html.large-text-mode #whatsnew-panel,
 html.large-text-mode #howtoplay-panel,
@@ -2706,6 +2708,8 @@ html.third-person-active #companion-bark {
    separate box. Width lives here (not on the -content div anymore) since
    the box now needs to size around both children together. */
 #credits-panel .panel-box,
+#terms-panel .panel-box,
+#privacy-panel .panel-box,
 #howtoplay-panel .panel-box,
 #whatsnew-panel .panel-box,
 #shop-panel .panel-box,
@@ -2748,6 +2752,8 @@ html.third-person-active #companion-bark {
    (BuildMode.js), not a .panel-box overlay like the rest of these, so
    there's no homepage backdrop behind it to begin with. */
 #credits-panel,
+#terms-panel,
+#privacy-panel,
 #howtoplay-panel,
 #whatsnew-panel,
 #clan-panel,
@@ -2788,6 +2794,8 @@ html.third-person-active #companion-bark {
    down this file) matches this same width/height too, per the "make
    Settings as wide as Credits/How to Play" request. */
 #credits-content,
+#terms-content,
+#privacy-content,
 #howtoplay-content {
   height: 68vh;
   overflow-y: auto;
@@ -2795,11 +2803,15 @@ html.third-person-active #companion-bark {
 
 /* Centered rather than left-aligned like How to Play - Credits is short
    prose, not a structured guide, and reads better centered at that
-   length instead of hugging the left edge of an 840px-wide box. */
+   length instead of hugging the left edge of an 840px-wide box. Terms/
+   Privacy are structured, numbered documents (like How to Play), so they
+   stay left-aligned rather than joining Credits here. */
 #credits-content {
   text-align: center;
 }
 
+#terms-content,
+#privacy-content,
 #howtoplay-content {
   text-align: left;
 }
@@ -2814,6 +2826,8 @@ html.third-person-active #companion-bark {
 }
 
 #credits-content h3,
+#terms-content h3,
+#privacy-content h3,
 #howtoplay-content h3 {
   margin: 14px 0 4px;
   font-size: 13px;
@@ -2823,6 +2837,8 @@ html.third-person-active #companion-bark {
 }
 
 #credits-content h3:first-child,
+#terms-content h3:first-child,
+#privacy-content h3:first-child,
 #howtoplay-content h3:first-child {
   margin-top: 0;
 }
@@ -2930,6 +2946,8 @@ html.third-person-active #companion-bark {
 }
 
 #credits-content p,
+#terms-content p,
+#privacy-content p,
 #howtoplay-content p {
   margin: 0 0 8px;
   font-size: 13px;
@@ -2937,13 +2955,81 @@ html.third-person-active #companion-bark {
   color: rgba(255, 255, 255, 0.75);
 }
 
-#credits-content a {
+#credits-content a,
+#terms-content a,
+#privacy-content a,
+#credits-privacy-link,
+#credits-terms-link,
+.open-privacy-panel-link,
+.open-terms-panel-link {
   color: #e3c23c;
   text-decoration: none;
 }
 
-#credits-content a:hover {
+#credits-content a:hover,
+#terms-content a:hover,
+#privacy-content a:hover,
+#credits-privacy-link:hover,
+#credits-terms-link:hover,
+.open-privacy-panel-link:hover,
+.open-terms-panel-link:hover {
   text-decoration: underline;
+}
+
+/* #credits-privacy-link/#credits-terms-link and the Terms<->Privacy
+   cross-reference links inside their own body text are <button> elements
+   now (they open an in-game panel, not a real URL - see _openTermsPanel/
+   _openPrivacyPanel), not <a> tags, so they need a full browser-chrome
+   reset to read as plain inline text links rather than boxy buttons. */
+#credits-privacy-link,
+#credits-terms-link,
+.open-privacy-panel-link,
+.open-terms-panel-link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+#terms-content ul,
+#privacy-content ul {
+  margin: 4px 0 8px;
+  padding-left: 20px;
+}
+
+#terms-content li,
+#privacy-content li {
+  margin-bottom: 4px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+#terms-content .legal-updated,
+#privacy-content .legal-updated {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  margin-bottom: 14px;
+}
+
+#terms-content .legal-placeholder {
+  background: rgba(227, 166, 60, 0.18);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-style: italic;
+}
+
+#terms-content .legal-note,
+#privacy-content .legal-note {
+  margin-top: 18px;
+  padding: 12px 14px;
+  background: rgba(227, 166, 60, 0.08);
+  border: 1px solid rgba(227, 166, 60, 0.25);
+  border-radius: 6px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .credits-links-row {
@@ -3334,6 +3420,8 @@ html.third-person-active #companion-bark {
 #achievements-panel,
 #profile-panel,
 #credits-panel,
+#terms-panel,
+#privacy-panel,
 #multiplayer-panel,
 #shop-panel,
 #whatsnew-panel,
@@ -3385,6 +3473,8 @@ html.ui-theme-old #share-panel,
 html.ui-theme-old #achievements-panel,
 html.ui-theme-old #profile-panel,
 html.ui-theme-old #credits-panel,
+html.ui-theme-old #terms-panel,
+html.ui-theme-old #privacy-panel,
 html.ui-theme-old #multiplayer-panel,
 html.ui-theme-old #shop-panel,
 html.ui-theme-old #whatsnew-panel,
@@ -3697,6 +3787,8 @@ html.ui-theme-old #screenshot-crop-overlay {
 #achievements-panel-title,
 #profile-panel-title,
 #credits-panel-title,
+#terms-panel-title,
+#privacy-panel-title,
 #shop-panel-title,
 #whatsnew-panel-title,
 #howtoplay-panel-title,
@@ -3728,6 +3820,8 @@ html.ui-theme-old #quests-panel-title,
 html.ui-theme-old #achievements-panel-title,
 html.ui-theme-old #profile-panel-title,
 html.ui-theme-old #credits-panel-title,
+html.ui-theme-old #terms-panel-title,
+html.ui-theme-old #privacy-panel-title,
 html.ui-theme-old #shop-panel-title,
 html.ui-theme-old #whatsnew-panel-title,
 html.ui-theme-old #howtoplay-panel-title,
@@ -5332,7 +5426,7 @@ html {
    the standard 4-height overflow measurement this project always
    re-checks after a size-affecting change). */
 html.text-spacing-active #menu, html.text-spacing-active .menu-panel, html.text-spacing-active #upgrades-panel,
-html.text-spacing-active #credits-panel, html.text-spacing-active #shop-panel, html.text-spacing-active #whatsnew-panel, html.text-spacing-active #achievements-panel,
+html.text-spacing-active #credits-panel, html.text-spacing-active #terms-panel, html.text-spacing-active #privacy-panel, html.text-spacing-active #shop-panel, html.text-spacing-active #whatsnew-panel, html.text-spacing-active #achievements-panel,
 html.text-spacing-active #profile-panel, html.text-spacing-active #settings-panel,
 html.text-spacing-active #quests-panel, html.text-spacing-active #share-panel, html.text-spacing-active #cloudsave-panel, html.text-spacing-active #howtoplay-panel {
   letter-spacing: calc((var(--text-spacing, 100) - 100) * 0.005px);
@@ -5362,6 +5456,8 @@ html.button-size-scaled button {
 html.reduce-transparency .menu-panel,
 html.reduce-transparency #upgrades-panel,
 html.reduce-transparency #credits-panel,
+html.reduce-transparency #terms-panel,
+html.reduce-transparency #privacy-panel,
 html.reduce-transparency #shop-panel,
 html.reduce-transparency #whatsnew-panel,
 html.reduce-transparency #achievements-panel,
@@ -8595,6 +8691,8 @@ html.ui-theme-old #settings-panel h2 {
 #hub-panel,
 #weapon-picker-panel,
 #credits-content,
+#terms-content,
+#privacy-content,
 #howtoplay-content,
 #whatsnew-content,
 #whats-new-digest-list,
@@ -8613,6 +8711,8 @@ html.ui-theme-old #settings-panel h2 {
 #hub-panel::-webkit-scrollbar,
 #weapon-picker-panel::-webkit-scrollbar,
 #credits-content::-webkit-scrollbar,
+#terms-content::-webkit-scrollbar,
+#privacy-content::-webkit-scrollbar,
 #howtoplay-content::-webkit-scrollbar,
 #whatsnew-content::-webkit-scrollbar,
 #whats-new-digest-list::-webkit-scrollbar,
@@ -8630,6 +8730,8 @@ html.ui-theme-old #settings-panel h2 {
 #hub-panel::-webkit-scrollbar-track,
 #weapon-picker-panel::-webkit-scrollbar-track,
 #credits-content::-webkit-scrollbar-track,
+#terms-content::-webkit-scrollbar-track,
+#privacy-content::-webkit-scrollbar-track,
 #howtoplay-content::-webkit-scrollbar-track,
 #whatsnew-content::-webkit-scrollbar-track,
 #whats-new-digest-list::-webkit-scrollbar-track,
@@ -8647,6 +8749,8 @@ html.ui-theme-old #settings-panel h2 {
 #hub-panel::-webkit-scrollbar-thumb,
 #weapon-picker-panel::-webkit-scrollbar-thumb,
 #credits-content::-webkit-scrollbar-thumb,
+#terms-content::-webkit-scrollbar-thumb,
+#privacy-content::-webkit-scrollbar-thumb,
 #howtoplay-content::-webkit-scrollbar-thumb,
 #whatsnew-content::-webkit-scrollbar-thumb,
 #whats-new-digest-list::-webkit-scrollbar-thumb,
@@ -8665,6 +8769,8 @@ html.ui-theme-old #settings-panel h2 {
 #hub-panel::-webkit-scrollbar-thumb:hover,
 #weapon-picker-panel::-webkit-scrollbar-thumb:hover,
 #credits-content::-webkit-scrollbar-thumb:hover,
+#terms-content::-webkit-scrollbar-thumb:hover,
+#privacy-content::-webkit-scrollbar-thumb:hover,
 #howtoplay-content::-webkit-scrollbar-thumb:hover,
 #whatsnew-content::-webkit-scrollbar-thumb:hover,
 #whats-new-digest-list::-webkit-scrollbar-thumb:hover,

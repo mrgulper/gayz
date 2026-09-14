@@ -5582,6 +5582,15 @@ export class Game {
     this.goalsChecklist = document.getElementById('goals-checklist')
     this.creditsPanel = document.getElementById('credits-panel')
     this.creditsPanelTitle = document.getElementById('credits-panel-title')
+    this.creditsPrivacyLink = document.getElementById('credits-privacy-link')
+    this.creditsTermsLink = document.getElementById('credits-terms-link')
+    this.termsBtn = document.getElementById('terms-btn')
+    this.termsPanel = document.getElementById('terms-panel')
+    this.termsPanelTitle = document.getElementById('terms-panel-title')
+    this.termsContent = document.getElementById('terms-content')
+    this.privacyPanel = document.getElementById('privacy-panel')
+    this.privacyPanelTitle = document.getElementById('privacy-panel-title')
+    this.privacyContent = document.getElementById('privacy-content')
     this.shopPanel = document.getElementById('shop-panel')
     this.shopPanelTitle = document.getElementById('shop-panel-title')
     this.shopSkinCanvas = document.getElementById('shop-skin-canvas')
@@ -10277,6 +10286,22 @@ export class Game {
     if (this.copyTextRecapBtn) this.copyTextRecapBtn.addEventListener('click', () => this._copyTextRecap())
     if (this.reportBugBtn) this.reportBugBtn.addEventListener('click', () => this._reportBug())
     this.creditsBtn.addEventListener('click', () => trackAndOpen(() => this._openCreditsPanel()))
+    if (this.termsBtn) this.termsBtn.addEventListener('click', () => trackAndOpen(() => this._openTermsPanel()))
+    if (this.creditsTermsLink) this.creditsTermsLink.addEventListener('click', () => trackAndOpen(() => this._openTermsPanel()))
+    if (this.creditsPrivacyLink) this.creditsPrivacyLink.addEventListener('click', () => trackAndOpen(() => this._openPrivacyPanel()))
+    // Cross-reference links inside the Terms/Privacy body text themselves
+    // (event delegation - each doc only has 1-3 of these, but delegating
+    // keeps this binding in one place rather than querying per-instance).
+    if (this.privacyContent) {
+      this.privacyContent.addEventListener('click', (e) => {
+        if (e.target.closest('.open-terms-panel-link')) this._openTermsPanel()
+      })
+    }
+    if (this.termsContent) {
+      this.termsContent.addEventListener('click', (e) => {
+        if (e.target.closest('.open-privacy-panel-link')) this._openPrivacyPanel()
+      })
+    }
     this.coinshopBtn.addEventListener('click', () => trackAndOpen(() => this._openShopPanel()))
     this._bindHomepageBatch()
     CloudSaveUI.bindCloudSave(this)
@@ -10349,6 +10374,16 @@ export class Game {
     this.creditsPanel.addEventListener('click', (e) => {
       if (e.target === this.creditsPanel) this._closeCreditsPanel()
     })
+    if (this.termsPanel) {
+      this.termsPanel.addEventListener('click', (e) => {
+        if (e.target === this.termsPanel) this._closeTermsPanel()
+      })
+    }
+    if (this.privacyPanel) {
+      this.privacyPanel.addEventListener('click', (e) => {
+        if (e.target === this.privacyPanel) this._closePrivacyPanel()
+      })
+    }
     this.shopPanel.addEventListener('click', (e) => {
       if (e.target === this.shopPanel) this._closeShopPanel()
     })
@@ -13794,6 +13829,8 @@ export class Game {
         subTabs: this._subTabsFor('tab-', ['general', 'language', 'audio', 'controls', 'graphics']),
       },
       { slug: 'credits', panel: this.creditsPanel, open: () => this._openCreditsPanel() },
+      { slug: 'terms', panel: this.termsPanel, open: () => this._openTermsPanel() },
+      { slug: 'privacy', panel: this.privacyPanel, open: () => this._openPrivacyPanel() },
       { slug: 'how-to-play', panel: this.howtoplayPanel, open: () => this._openHowToPlayPanel() },
       { slug: 'whats-new', panel: this.whatsNewPanel, open: () => this._openWhatsNewPanel() },
       {
@@ -13898,6 +13935,8 @@ export class Game {
     if (this.serverPanel) this._closeServerPanel()
     if (this.profilePanel) this._closeProfilePanel()
     if (this.creditsPanel) this._closeCreditsPanel()
+    if (this.termsPanel) this._closeTermsPanel()
+    if (this.privacyPanel) this._closePrivacyPanel()
     if (this.shopPanel) this._closeShopPanel()
     if (this.whatsNewPanel) this._closeWhatsNewPanel()
     if (this.sharePanel) this._closeSharePanel()
@@ -17127,6 +17166,31 @@ export class Game {
 
   _closeCreditsPanel() {
     this.creditsPanel.style.display = 'none'
+  }
+
+  // Terms of Use / Privacy Policy - used to be a plain link out to
+  // /terms.html and /privacy.html (target="_blank"); moved in-panel
+  // (same static-prose pattern as Credits above) at Gaymi's request. The
+  // standalone terms.html/privacy.html pages themselves are left as-is
+  // (still real, linkable URLs - just no longer linked to from here).
+  _openTermsPanel() {
+    this._closeAllMenuPanels()
+    this.termsPanel.style.display = 'flex'
+    this.termsPanelTitle.textContent = t('termsBtn')
+  }
+
+  _closeTermsPanel() {
+    this.termsPanel.style.display = 'none'
+  }
+
+  _openPrivacyPanel() {
+    this._closeAllMenuPanels()
+    this.privacyPanel.style.display = 'flex'
+    this.privacyPanelTitle.textContent = t('creditsPrivacyLink')
+  }
+
+  _closePrivacyPanel() {
+    this.privacyPanel.style.display = 'none'
   }
 
   // Multiplayer (Phase 1: invite link + lobby only, see Multiplayer.js and
