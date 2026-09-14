@@ -24369,7 +24369,16 @@ export class Game {
       // legitimately needs it back.
 
       if (!this.settings.performanceMode && !this._autoPerfModeTriggered) {
-        this._lowFpsStreak = fps < 25 ? this._lowFpsStreak + 1 : 0
+        // Raised from 25 to 35 and switched from a hard reset to a decay -
+        // a real player struggling in the 19-30fps range (a genuine report,
+        // not a guess) rarely stays BELOW 25 for 6 straight 500ms samples
+        // in a row; it fluctuates, and the old `: 0` reset meant a single
+        // sample ticking up to 26fps erased the entire streak, so this
+        // could go the whole session without ever firing even while
+        // consistently feeling bad. Decaying by 1 instead of resetting to
+        // 0 still requires a real sustained trend (can't trigger off one
+        // unlucky sample), just doesn't get erased by normal noise.
+        this._lowFpsStreak = fps < 35 ? this._lowFpsStreak + 1 : Math.max(0, this._lowFpsStreak - 1)
         if (this._lowFpsStreak >= 6) {
           this._autoPerfModeTriggered = true
           this.settings.performanceMode = true
