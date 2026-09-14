@@ -24369,7 +24369,10 @@ export class Game {
     this.composer.render()
 
     for (const id in this.weapons.viewmodels) this.weapons.viewmodels[id].visible = savedVmVisibility[id]
-    for (const z of warmZombies) z.dispose()
+    for (const z of warmZombies) {
+      this.scene.remove(z.group)
+      z.dispose()
+    }
     if (warmChest && savedChestState) {
       warmChest.x = savedChestState.x
       warmChest.z = savedChestState.z
