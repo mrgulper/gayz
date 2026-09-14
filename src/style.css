@@ -8659,20 +8659,19 @@ html.ui-theme-old #settings-panel h2 {
      the shared base rule, so a tab with less content (e.g. Audio) would
      otherwise shrink the block's total height and drag the search bar/
      tabs above it down with it. A constant height keeps the header
-     pinned at the same spot regardless of which tab is active. 68vh (was
-     a stale 60vh) matches How to Play's own #howtoplay-content height -
-     see that rule's comment; this is the same mechanism, just built here
-     first before it got reused everywhere else today. The subtracted
-     value covers the extra rows Settings has that How to Play doesn't
-     (#settings-search-input/.settings-tabs above this, #settings-status-
-     row below it, plus their gaps) - measured via getBoundingClientRect
-     against #howtoplay-panel .panel-box, same approach as every other
-     panel's own subtracted value today. Bumped to 138.5px when
-     #settings-saved-indicator moved out of the header (between search bar
-     and tabs) and into #settings-status-row alongside
-     #recently-changed-list below the tab content instead - that row's own
-     fixed min-height (see its rule) is now part of what this subtracts. */
-  height: calc(68vh - 138.5px);
+     pinned at the same spot regardless of which tab is active. 68vh
+     matches #whatsnew-content's own height (see that rule) - measured
+     via getBoundingClientRect against #whatsnew-panel .panel-box (request:
+     Settings' box should be the exact same size as What's New's, not
+     How to Play's - those two aren't actually the same height as each
+     other at every viewport size, a pre-existing gap between them this
+     didn't create). The subtracted value covers the extra rows Settings
+     has that What's New doesn't (#settings-search-input/.settings-tabs
+     above this, #settings-status-row below it, plus their gaps). Bumped
+     to 169.3px (from 138.5px, which matched How to Play instead) when
+     re-measured against #whatsnew-panel specifically - confirmed 0px
+     diff at 1150px viewport height. */
+  height: calc(68vh - 169.3px);
   overflow-y: auto;
   /* Firefox */
   scrollbar-width: thin;
