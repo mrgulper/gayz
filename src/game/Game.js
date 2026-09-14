@@ -624,13 +624,6 @@ const LIGHT_CULL_DISTANCE = LOW_QUALITY_MODE ? 60 : 100
 // distance cull above, for dense light clusters (mall, safe zone) where
 // more than this many lights can all be within range simultaneously.
 const MAX_ACTIVE_LIGHTS = LOW_QUALITY_MODE ? 12 : 20
-// Performance Mode's own lighting cap (see _updateCulling) - tighter than
-// the LOW_QUALITY_MODE floor above. Every other Performance Mode lever
-// (shadows/bloom/SSAO/motion blur) is already off by default regardless
-// of this setting, so enabling it used to barely change anything for a
-// player whose slowdown wasn't coming from those - this gives it a real,
-// distinct additional effect instead of mostly a no-op.
-const MAX_ACTIVE_LIGHTS_PERF_MODE = 7
 // Adaptive Shadow Quality (see _updateAdaptiveShadowQuality) - the
 // recover threshold sits well above the low threshold (hysteresis) so a
 // borderline framerate right at the boundary can't flicker the
@@ -12981,13 +12974,6 @@ export class Game {
     this._perfDistanceMult = enabled ? 0.6 : 1
     const far = (WORLD_CULL_DISTANCE * this._perfDistanceMult) + 5
     this.camera.far = far
-    // Crowd culling's own tighter thresholds (see ZombieManager's
-    // CROWD_CULL_THRESHOLD_PERF_MODE) - keyed off settingEnabled alone,
-    // same reasoning as shadows above: LOW_QUALITY_MODE is already the
-    // permanent baseline for everyone, so this needs to stay a real,
-    // distinct step specifically for a player who opts into Performance
-    // Mode, not something that's already "on" for the whole player base.
-    this.zombies.perfMode = settingEnabled
     this.camera.updateProjectionMatrix()
     this.tpCamera.far = far
     this.tpCamera.updateProjectionMatrix()
@@ -22731,10 +22717,9 @@ export class Game {
         f.light.visible = false
       }
     }
-    const maxActiveLights = this.settings.performanceMode ? MAX_ACTIVE_LIGHTS_PERF_MODE : MAX_ACTIVE_LIGHTS
-    if (candidates.length > maxActiveLights) {
+    if (candidates.length > MAX_ACTIVE_LIGHTS) {
       candidates.sort((a, b) => a._cullDistSq - b._cullDistSq)
-      for (let i = maxActiveLights; i < candidates.length; i++) candidates[i].light.visible = false
+      for (let i = MAX_ACTIVE_LIGHTS; i < candidates.length; i++) candidates[i].light.visible = false
     }
     for (const obj of this.cullables) {
       const dx = obj.position.x - playerPos.x

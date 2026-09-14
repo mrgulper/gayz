@@ -188,11 +188,6 @@ const PACK_HOLD_MAX_MS = 1800
 const CROWD_CULL_BASE_DISTANCE = 45
 const CROWD_CULL_THRESHOLD = 9
 const CROWD_CULL_TIGHT_DISTANCE = 18
-// Performance Mode's own tighter crowd-culling (see this.perfMode, set by
-// Game.js's _applyPerformanceMode) - triggers off a smaller crowd and
-// hides zombies sooner, on top of the tightened base values above.
-const CROWD_CULL_THRESHOLD_PERF_MODE = 6
-const CROWD_CULL_TIGHT_DISTANCE_PERF_MODE = 14
 
 // Round Mode (Obsidian Ops-style kill-to-advance loop, see Game.js's
 // settings.mutators.roundMode): count scales roughly linearly with round
@@ -380,10 +375,6 @@ export class ZombieManager {
     // setDirectorMult) - 1 is neutral, applied on top of the normal
     // night-based curve in _recomputeDifficulty rather than replacing it.
     this.directorMult = 1
-    // Performance Mode (see Game.js's _applyPerformanceMode, which sets
-    // this directly) - tightens _updateCrowdCulling's own thresholds
-    // further when the player has it on.
-    this.perfMode = false
     // Featured Enemy mutator (see setFeaturedEnemy/_spawnRandom's
     // pickZombieType call) - null means "no boost, roll exactly as normal",
     // explicitly (re)set by Game.js's playBtn handler at the start of every
@@ -966,13 +957,11 @@ export class ZombieManager {
       }
       nearby.push({ zombie, dist })
     }
-    const threshold = this.perfMode ? CROWD_CULL_THRESHOLD_PERF_MODE : CROWD_CULL_THRESHOLD
-    const tightDistance = this.perfMode ? CROWD_CULL_TIGHT_DISTANCE_PERF_MODE : CROWD_CULL_TIGHT_DISTANCE
-    if (nearby.length <= threshold) {
+    if (nearby.length <= CROWD_CULL_THRESHOLD) {
       for (const n of nearby) n.zombie.group.visible = true
       return
     }
-    for (const n of nearby) n.zombie.group.visible = n.dist <= tightDistance
+    for (const n of nearby) n.zombie.group.visible = n.dist <= CROWD_CULL_TIGHT_DISTANCE
   }
 
   _spawnRandom() {
