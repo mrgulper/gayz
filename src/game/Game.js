@@ -12729,10 +12729,19 @@ export class Game {
   // enough since nearly every settings field is a primitive; the handful
   // of object/array fields (mutators, navOrder, etc.) just compare by
   // JSON string equality, which still correctly detects "did this change."
+  // lastSettingsTab is excluded on purpose - it's written on every single
+  // tab click (see the .settings-tab handler), so without this exclusion
+  // just browsing tabs (with zero real settings touched) would flag it as
+  // a "change," popping this banner in and out as you click around and,
+  // since it sits outside .settings-page's fixed height, making the whole
+  // panel-box visibly resize tab to tab - not an actual change a player
+  // would want "Undo All Changes" to revert anyway.
   _renderRecentlyChangedList() {
     if (!this.recentlyChangedList || !this._settingsOpenSnapshot) return
     const before = JSON.parse(this._settingsOpenSnapshot)
-    const changed = Object.keys(this.settings).filter((k) => JSON.stringify(this.settings[k]) !== JSON.stringify(before[k]))
+    const changed = Object.keys(this.settings)
+      .filter((k) => k !== 'lastSettingsTab')
+      .filter((k) => JSON.stringify(this.settings[k]) !== JSON.stringify(before[k]))
     if (!changed.length) {
       this.recentlyChangedList.style.display = 'none'
       return

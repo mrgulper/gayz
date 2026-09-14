@@ -16,10 +16,12 @@ export const LANGUAGES = [
   { code: 'de', name: 'German', native: 'Deutsch' },
   { code: 'ja', name: 'Japanese', native: '日本語' },
   { code: 'vi', name: 'Vietnamese', native: 'Tiếng Việt' },
-  // Name added 2026-09-13 at Gaymi's request - no STRINGS['pt-BR'] block
-  // yet (falls back to English everywhere, same as any other language
-  // would with zero keys), added when someone actually translates it.
+  // Names added 2026-09-13 at Gaymi's request - neither has a STRINGS
+  // block yet (falls back to English everywhere, same as any other
+  // language would with zero keys), added when someone actually
+  // translates them.
   { code: 'pt-BR', name: 'Brazilian Portuguese', native: 'Português (Brasil)' },
+  { code: 'it', name: 'Italian', native: 'Italiano' },
 ]
 
 const STRINGS = {
