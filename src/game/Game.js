@@ -5592,6 +5592,16 @@ export class Game {
     this.privacyPanel = document.getElementById('privacy-panel')
     this.privacyPanelTitle = document.getElementById('privacy-panel-title')
     this.privacyContent = document.getElementById('privacy-content')
+    this.gayzFeaturesBtn = document.getElementById('nav-gayzfeatures-link')
+    this.featuresPanel = document.getElementById('features-panel')
+    this.featuresPanelTitle = document.getElementById('features-panel-title')
+    this.featuresContent = document.getElementById('features-content')
+    this.featuresSearch = document.getElementById('features-search')
+    this.featuresSearchCount = document.getElementById('features-search-count')
+    this.featuresToc = document.getElementById('features-toc')
+    this.featuresStatLive = document.getElementById('features-stat-live')
+    this.featuresStatSoon = document.getElementById('features-stat-soon')
+    this.mapLightbox = document.getElementById('map-lightbox')
     this.shopPanel = document.getElementById('shop-panel')
     this.shopPanelTitle = document.getElementById('shop-panel-title')
     this.shopSkinCanvas = document.getElementById('shop-skin-canvas')
@@ -10305,6 +10315,8 @@ export class Game {
     if (this.termsBtn) this.termsBtn.addEventListener('click', () => trackAndOpen(() => this._openTermsPanel()))
     if (this.creditsTermsLink) this.creditsTermsLink.addEventListener('click', () => trackAndOpen(() => this._openTermsPanel()))
     if (this.creditsPrivacyLink) this.creditsPrivacyLink.addEventListener('click', () => trackAndOpen(() => this._openPrivacyPanel()))
+    if (this.gayzFeaturesBtn) this.gayzFeaturesBtn.addEventListener('click', () => trackAndOpen(() => this._openFeaturesPanel()))
+    this._bindFeaturesPanel()
     // Cross-reference links inside the Terms/Privacy body text themselves
     // (event delegation - each doc only has 1-3 of these, but delegating
     // keeps this binding in one place rather than querying per-instance).
@@ -10398,6 +10410,11 @@ export class Game {
     if (this.privacyPanel) {
       this.privacyPanel.addEventListener('click', (e) => {
         if (e.target === this.privacyPanel) this._closePrivacyPanel()
+      })
+    }
+    if (this.featuresPanel) {
+      this.featuresPanel.addEventListener('click', (e) => {
+        if (e.target === this.featuresPanel) this._closeFeaturesPanel()
       })
     }
     this.shopPanel.addEventListener('click', (e) => {
@@ -13900,6 +13917,7 @@ export class Game {
       { slug: 'credits', panel: this.creditsPanel, open: () => this._openCreditsPanel() },
       { slug: 'terms', panel: this.termsPanel, open: () => this._openTermsPanel() },
       { slug: 'privacy', panel: this.privacyPanel, open: () => this._openPrivacyPanel() },
+      { slug: 'features', panel: this.featuresPanel, open: () => this._openFeaturesPanel() },
       { slug: 'how-to-play', panel: this.howtoplayPanel, open: () => this._openHowToPlayPanel() },
       { slug: 'whats-new', panel: this.whatsNewPanel, open: () => this._openWhatsNewPanel() },
       {
@@ -14006,6 +14024,7 @@ export class Game {
     if (this.creditsPanel) this._closeCreditsPanel()
     if (this.termsPanel) this._closeTermsPanel()
     if (this.privacyPanel) this._closePrivacyPanel()
+    if (this.featuresPanel) this._closeFeaturesPanel()
     if (this.shopPanel) this._closeShopPanel()
     if (this.whatsNewPanel) this._closeWhatsNewPanel()
     if (this.sharePanel) this._closeSharePanel()
@@ -17260,6 +17279,227 @@ export class Game {
 
   _closePrivacyPanel() {
     this.privacyPanel.style.display = 'none'
+  }
+
+  // GayZ Features - ported in from the standalone gayz-features.vercel.app
+  // site's own index.html/style.css/app.js (that project's own repo,
+  // updated separately after every shipped game change - see its own
+  // habit note) rather than iframed, per explicit request. "GayZ
+  // Features" (like "GayZ" itself) is treated as a proper-noun brand
+  // name, not translated - same as the standalone site itself, which has
+  // no i18n of its own either. #features-content/#map-lightbox live as
+  // static HTML (index.html) with the styling in style.css; this only
+  // wires up the same interactive behavior app.js had: TOC nav built
+  // from the category sections, expandable multi-item cards, live/
+  // coming-soon counts, search-as-you-type filtering, and the map
+  // blueprint's zoom/pan lightbox.
+  _openFeaturesPanel() {
+    this._closeAllMenuPanels()
+    this.featuresPanel.style.display = 'flex'
+  }
+
+  _closeFeaturesPanel() {
+    this.featuresPanel.style.display = 'none'
+  }
+
+  _bindFeaturesPanel() {
+    if (!this.featuresContent) return
+    const categories = this.featuresContent.querySelectorAll('section.category')
+
+    // TOC - one pill button per category, scrolling the internal
+    // #features-content scroll area (not the page - this panel is a
+    // fixed-size overlay, a plain <a href="#id"> anchor jump doesn't
+    // reliably target content inside one).
+    if (this.featuresToc) {
+      categories.forEach((section) => {
+        const heading = section.querySelector('h2')
+        const link = document.createElement('button')
+        link.type = 'button'
+        link.className = 'features-toc-link'
+        link.textContent = heading.textContent
+        if (section.id === 'coming-soon') link.classList.add('coming-link')
+        // 'auto' (instant), not 'smooth' - every other tab/section switch
+        // in this game jumps instantly (Settings tabs, Clan tabs, etc.),
+        // and smooth scroll's animation depends on the compositor thread
+        // actually running each frame, which isn't guaranteed the moment
+        // right after a panel opens.
+        link.addEventListener('click', () => section.scrollIntoView({ block: 'start', behavior: 'auto' }))
+        this.featuresToc.appendChild(link)
+      })
+    }
+
+    // Expandable cards (weapons, mutators, zombie types, etc.) - click the
+    // heading to reveal a per-item breakdown.
+    this.featuresContent.querySelectorAll('.feature.expandable > h3').forEach((h3) => {
+      h3.addEventListener('click', () => h3.closest('.feature').classList.toggle('open'))
+    })
+
+    if (this.featuresStatLive && this.featuresStatSoon) {
+      this.featuresStatLive.textContent = this.featuresContent.querySelectorAll('section.category:not(#coming-soon) .feature').length
+      this.featuresStatSoon.textContent = this.featuresContent.querySelectorAll('#coming-soon .feature').length
+    }
+
+    if (this.featuresSearch && this.featuresSearchCount) {
+      const allFeatures = this.featuresContent.querySelectorAll('.feature')
+      this.featuresSearch.addEventListener('input', () => {
+        const q = this.featuresSearch.value.trim().toLowerCase()
+        if (!q) {
+          allFeatures.forEach((f) => f.classList.remove('hidden-search'))
+          categories.forEach((c) => c.classList.remove('hidden-search'))
+          this.featuresSearchCount.style.display = 'none'
+          return
+        }
+        let matches = 0
+        categories.forEach((section) => {
+          let sectionHasMatch = false
+          section.querySelectorAll('.feature').forEach((f) => {
+            const hit = f.textContent.toLowerCase().includes(q)
+            f.classList.toggle('hidden-search', !hit)
+            if (hit) { sectionHasMatch = true; matches++ }
+          })
+          section.classList.toggle('hidden-search', !sectionHasMatch)
+        })
+        this.featuresSearchCount.style.display = 'block'
+        this.featuresSearchCount.textContent = `${matches} feature${matches === 1 ? '' : 's'} found`
+      })
+    }
+
+    this._bindFeaturesMapLightbox()
+  }
+
+  // Map blueprint lightbox - click the inline map to open a bigger,
+  // zoomable copy. Clones #map-blueprint-svg into the lightbox rather
+  // than moving the real one, so the inline map is never disturbed.
+  // Zoom/pan is one CSS transform on #map-lightbox-canvas driven by
+  // scale/panX/panY state - wheel and the +/- buttons adjust scale
+  // (zooming toward the cursor when the wheel is used), dragging adjusts
+  // pan, both clamped so the map can't zoom out past natural size or
+  // drag fully offscreen. Ported as-is from gayz-features' own app.js.
+  _bindFeaturesMapLightbox() {
+    const mapTrigger = document.getElementById('map-blueprint-trigger')
+    const mapSvg = document.getElementById('map-blueprint-svg')
+    if (!mapTrigger || !mapSvg || !this.mapLightbox) return
+
+    const viewport = document.getElementById('map-lightbox-viewport')
+    const canvas = document.getElementById('map-lightbox-canvas')
+    const zoomLevelEl = document.getElementById('map-lightbox-zoom-level')
+    const zoomInBtn = document.getElementById('map-lightbox-zoom-in')
+    const zoomOutBtn = document.getElementById('map-lightbox-zoom-out')
+    const resetBtn = document.getElementById('map-lightbox-reset')
+    const closeBtn = document.getElementById('map-lightbox-close')
+
+    const MIN_SCALE = 1
+    const MAX_SCALE = 6
+    let scale = 1
+    let panX = 0
+    let panY = 0
+    let dragging = false
+    let dragStartX = 0
+    let dragStartY = 0
+    let panStartX = 0
+    let panStartY = 0
+    let lastActiveEl = null
+
+    const applyTransform = () => {
+      canvas.style.transform = `translate(-50%, -50%) translate(${panX}px, ${panY}px) scale(${scale})`
+      zoomLevelEl.textContent = `${Math.round(scale * 100)}%`
+    }
+
+    const clampPan = () => {
+      const maxPan = (scale - 1) * 300
+      panX = Math.max(-maxPan, Math.min(maxPan, panX))
+      panY = Math.max(-maxPan, Math.min(maxPan, panY))
+    }
+
+    const setScale = (next, focusX, focusY) => {
+      const clamped = Math.max(MIN_SCALE, Math.min(MAX_SCALE, next))
+      if (focusX !== undefined && clamped !== scale) {
+        const rect = viewport.getBoundingClientRect()
+        const cx = focusX - rect.left - rect.width / 2
+        const cy = focusY - rect.top - rect.height / 2
+        const ratio = clamped / scale
+        panX = cx - (cx - panX) * ratio
+        panY = cy - (cy - panY) * ratio
+      }
+      scale = clamped
+      clampPan()
+      applyTransform()
+    }
+
+    const openLightbox = () => {
+      canvas.innerHTML = ''
+      canvas.appendChild(mapSvg.cloneNode(true))
+      scale = 1
+      panX = 0
+      panY = 0
+      applyTransform()
+      lastActiveEl = document.activeElement
+      this.mapLightbox.classList.add('open')
+      closeBtn.focus()
+    }
+
+    const closeLightbox = () => {
+      this.mapLightbox.classList.remove('open')
+      canvas.innerHTML = ''
+      if (lastActiveEl) lastActiveEl.focus()
+    }
+
+    mapTrigger.addEventListener('click', openLightbox)
+    closeBtn.addEventListener('click', closeLightbox)
+    resetBtn.addEventListener('click', () => { scale = 1; panX = 0; panY = 0; applyTransform() })
+    zoomInBtn.addEventListener('click', () => setScale(scale + 0.5))
+    zoomOutBtn.addEventListener('click', () => setScale(scale - 0.5))
+
+    let viewportClickWasDrag = false
+    viewport.addEventListener('click', (e) => {
+      if (viewportClickWasDrag) { viewportClickWasDrag = false; return }
+      if (e.target === viewport) closeLightbox()
+    })
+    this.mapLightbox.addEventListener('click', (e) => {
+      if (e.target === this.mapLightbox) closeLightbox()
+    })
+
+    document.addEventListener('keydown', (e) => {
+      if (!this.mapLightbox.classList.contains('open')) return
+      if (e.key === 'Escape') closeLightbox()
+      else if (e.key === '+' || e.key === '=') setScale(scale + 0.5)
+      else if (e.key === '-') setScale(scale - 0.5)
+    })
+
+    viewport.addEventListener('wheel', (e) => {
+      e.preventDefault()
+      const delta = e.deltaY < 0 ? 0.35 : -0.35
+      setScale(scale + delta, e.clientX, e.clientY)
+    }, { passive: false })
+
+    viewport.addEventListener('pointerdown', (e) => {
+      if (scale <= MIN_SCALE) return
+      dragging = true
+      viewport.classList.add('dragging')
+      dragStartX = e.clientX
+      dragStartY = e.clientY
+      panStartX = panX
+      panStartY = panY
+      viewport.setPointerCapture(e.pointerId)
+    })
+
+    viewport.addEventListener('pointermove', (e) => {
+      if (!dragging) return
+      const dx = e.clientX - dragStartX
+      const dy = e.clientY - dragStartY
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) viewportClickWasDrag = true
+      panX = panStartX + dx
+      panY = panStartY + dy
+      clampPan()
+      applyTransform()
+    })
+
+    const endDrag = () => {
+      dragging = false
+      viewport.classList.remove('dragging')
+    }
+    viewport.addEventListener('pointerup', endDrag)
+    viewport.addEventListener('pointercancel', endDrag)
   }
 
   // Multiplayer (Phase 1: invite link + lobby only, see Multiplayer.js and
