@@ -39,8 +39,14 @@ const EYE_HEIGHT = 1.7
 // (_updateCulling in Game.js checks `obj.__isChest` for this) keeps every
 // chest fully detailed well before the player could possibly be reading it
 // as more than a blob, while cutting simultaneous full-detail chests way
-// down in dense loot areas.
-export const CHEST_CULL_DISTANCE = 30
+// down in dense loot areas. Tightened from 30 - the chest model itself
+// turned out to be surprisingly heavy (~7,500 triangles split across 7-8
+// separate parts, more than a full zombie character) for a small
+// lootable crate, so a shorter distance matters more here than for most
+// other props. Already inherits Performance Mode's own further tightening
+// automatically (see Game.js's chestCullSq, which multiplies this by
+// _perfDistanceMult same as every other cull distance).
+export const CHEST_CULL_DISTANCE = 24
 
 // Every GLB chest's 2 status-light boxes (908 total across 454 chests) used
 // to be its own separate Mesh + Material (see docs/PERFORMANCE.md Option
