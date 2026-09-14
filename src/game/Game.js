@@ -11084,6 +11084,57 @@ export class Game {
       })
     }
 
+    // Fullscreen visibly enlarges the homepage - no browser chrome left to
+    // subtract from the viewport, and it's often a genuinely wider screen
+    // than whatever window the player was just looking at. #menu-layout's
+    // width/max-width (see that rule's own comment) is meant to just avoid
+    // forcing horizontal overflow on a narrow screen, not to actively grow
+    // things on a wide one, so this wasn't intentional. Rather than
+    // guessing one fixed "not too big" cap, zoom #menu back down on
+    // entering fullscreen so it renders at the exact same size it was
+    // just before - same viewport-independent-size intent as
+    // html.large-text-mode's fixed zoom elsewhere, just computed live here
+    // instead of a constant. Triggers on fullscreenchange (not the
+    // button's own click handler above) so it applies the same way
+    // whether fullscreen was entered via that button, F11, or the
+    // browser's own menu/shortcut.
+    //
+    // Measures #menu-layout's own rendered WIDTH, not window.innerWidth -
+    // a straight viewport-width ratio undershoots badly, because
+    // #menu-layout/#menu-title-img/#play-btn each have their own
+    // min()/percentage caps that kick in at different breakpoints (e.g.
+    // the logo is already pinned to its 850px ceiling well before 1600px
+    // wide, but nowhere near it at 900px) - the relationship between
+    // viewport width and any given element's rendered width isn't linear,
+    // so only measuring the actual element before/after gives the right
+    // factor.
+    let _lastMenuLayoutWidth = null
+    const _trackMenuLayoutWidth = () => {
+      if (!document.fullscreenElement && this.menuLayout) {
+        _lastMenuLayoutWidth = this.menuLayout.getBoundingClientRect().width
+      }
+    }
+    this.menuLayout = document.getElementById('menu-layout')
+    _trackMenuLayoutWidth()
+    window.addEventListener('resize', _trackMenuLayoutWidth)
+    document.addEventListener('fullscreenchange', () => {
+      if (!this.menu || !this.menuLayout) return
+      if (document.fullscreenElement) {
+        // Clear any stale zoom first so the next frame's measurement is
+        // the natural (unzoomed) fullscreen size, then compute the ratio
+        // against it.
+        this.menu.style.zoom = ''
+        requestAnimationFrame(() => {
+          const naturalWidth = this.menuLayout.getBoundingClientRect().width
+          if (_lastMenuLayoutWidth && naturalWidth) {
+            this.menu.style.zoom = Math.min(1, _lastMenuLayoutWidth / naturalWidth)
+          }
+        })
+      } else {
+        this.menu.style.zoom = ''
+      }
+    })
+
     if (this.sortWeaponsToggle) {
       this.sortWeaponsToggle.checked = this.settings.sortWeaponsAlpha
       this.sortWeaponsToggle.addEventListener('change', () => {
