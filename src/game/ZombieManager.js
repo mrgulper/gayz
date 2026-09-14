@@ -142,6 +142,31 @@ const FLANK_CHANCE = 0.35
 const FLANK_MAX_OFFSET = 5
 const FLANK_FADE_DISTANCE = 14
 
+// Pack Coordination (see _updatePackCoordination) - the actual "work
+// together" layer on top of everything above. Flanking above is still
+// each zombie deciding independently (a coin flip per zombie, no
+// awareness of what anyone else nearby is doing), so two flankers can
+// both roll the same side and a pack can still clump entirely on one
+// flank purely by chance. This instead classifies every eligible aware
+// zombie within PACK_ENGAGE_RADIUS of the player as one pack once there
+// are PACK_MIN_SIZE+ of them, hands each an evenly-spaced approach angle
+// around the player (so the group spreads to actually surround instead
+// of leaving a whole side open), and staggers the assault: the
+// PACK_VANGUARD_COUNT nearest rush in immediately like normal, everyone
+// further back in the queue holds at PACK_HOLD_RADIUS - visibly forming
+// up around the player - for a delay that grows with how far back they
+// are (capped at PACK_HOLD_MAX_MS), before releasing and closing in the
+// exact same fading-offset way flanking already converges. Same
+// eligibility as flanking (non-boss, non-ranged, non-burrower) - ranged
+// types already have their own kiting/strafing AI and bosses have their
+// own telegraph/vulnerability system, neither needs this layered on top.
+const PACK_MIN_SIZE = 3
+const PACK_ENGAGE_RADIUS = 22
+const PACK_VANGUARD_COUNT = 2
+const PACK_HOLD_RADIUS = 8
+const PACK_HOLD_MS_PER_RANK = 350
+const PACK_HOLD_MAX_MS = 1800
+
 // Round Mode (Obsidian Ops-style kill-to-advance loop, see Game.js's
 // settings.mutators.roundMode): count scales roughly linearly with round
 // number rather than the small fixed band timed-night difficulty uses, so
@@ -840,6 +865,53 @@ export class ZombieManager {
   _rollFlankSide(type) {
     if (type.ranged || type.burrower || Math.random() >= FLANK_CHANCE) return 0
     return Math.random() < 0.5 ? 1 : -1
+  }
+
+  // See PACK_MIN_SIZE's own comment. Called once per frame (not per
+  // zombie) - the targetPos override in the main update() loop below just
+  // reads whatever this leaves on each zombie (packAngleOffset/
+  // packHoldUntil) rather than recomputing anything itself. O(n log n) for
+  // the sort, and only zombies actually near the player ever enter the
+  // candidate list, so this stays cheap even during a full horde fight.
+  _updatePackCoordination(playerPos) {
+    const candidates = []
+    for (const zombie of this.zombies) {
+      if (zombie.state !== 'alive' || zombie.isBoss || !zombie.aware || zombie.config.ranged || zombie.config.burrower) {
+        zombie.packAngleOffset = null
+        continue
+      }
+      const dist = Math.hypot(zombie.group.position.x - playerPos.x, zombie.group.position.z - playerPos.z)
+      if (dist > PACK_ENGAGE_RADIUS) {
+        zombie.packAngleOffset = null
+        continue
+      }
+      candidates.push({ zombie, dist })
+    }
+    if (candidates.length < PACK_MIN_SIZE) {
+      for (const c of candidates) c.zombie.packAngleOffset = null
+      return
+    }
+    candidates.sort((a, b) => a.dist - b.dist)
+    const now = performance.now()
+    const n = candidates.length
+    for (let i = 0; i < n; i++) {
+      const zombie = candidates[i].zombie
+      // Only assign a fresh angle/hold the FIRST time this zombie enters
+      // the pack, rather than re-deriving it from live rank every frame -
+      // two zombies jockeying at a similar distance can trade ranks
+      // constantly as they move, and re-rolling the angle each time would
+      // make them swap goals mid-approach instead of committing to one,
+      // reading as jittery indecision rather than a settled formation.
+      // Evenly spaced around the full circle by rank at the moment of
+      // entry - the vanguard (nearest, index 0) gets a slot in the spread
+      // too, just guaranteed to commit immediately, so the pack reads as
+      // one coordinated ring closing in, not a vanguard plus a separate
+      // flanking group.
+      if (zombie.packAngleOffset == null) {
+        zombie.packAngleOffset = (i / n) * Math.PI * 2
+        zombie.packHoldUntil = i < PACK_VANGUARD_COUNT ? 0 : now + Math.min(PACK_HOLD_MAX_MS, (i - PACK_VANGUARD_COUNT + 1) * PACK_HOLD_MS_PER_RANK)
+      }
+    }
   }
 
   _spawnRandom() {
@@ -1730,6 +1802,8 @@ export class ZombieManager {
     // rare (0-1 at a time), so this stays a no-op the rest of the time.
     const aliveBosses = this.zombies.filter((z) => z.isBoss && z.state === 'alive')
 
+    this._updatePackCoordination(playerPos)
+
     for (const zombie of this.zombies) {
       if (zombieBloodActive && zombie.state === 'alive') continue
 
@@ -1850,6 +1924,35 @@ export class ZombieManager {
             spitCb = null
             break
           }
+        }
+      }
+
+      // Pack Coordination (see PACK_MIN_SIZE's own comment) - takes
+      // priority over individual flanking below (same "only if nothing
+      // above already redirected this zombie" chain), since a zombie
+      // that's part of an active pack should follow the pack's
+      // coordinated angle instead of its own independent coin-flip side.
+      // attackCb stays pointed at the real player, same as flanking - a
+      // holding zombie is still after the player, just not committing yet.
+      if (!zombie.isBoss && zombie.state === 'alive' && targetPos === playerPos && zombie.packAngleOffset != null) {
+        const holding = performance.now() < zombie.packHoldUntil
+        const dx = zombie.group.position.x - playerPos.x
+        const dz = zombie.group.position.z - playerPos.z
+        const dist = Math.hypot(dx, dz)
+        const meleeRange = zombie.config.meleeRange || 2
+        // Ring radius around the player: fixed at PACK_HOLD_RADIUS while
+        // holding (orbits into formation instead of rushing straight in),
+        // then fades toward 0 over the last FLANK_FADE_DISTANCE units once
+        // released, so a released zombie still converges exactly onto the
+        // player at melee range - the same fade shape flanking uses below.
+        const ringRadius = holding
+          ? PACK_HOLD_RADIUS
+          : PACK_HOLD_RADIUS * Math.min(1, Math.max(0, (dist - meleeRange) / FLANK_FADE_DISTANCE))
+        const angle = zombie.packAngleOffset
+        targetPos = {
+          x: playerPos.x + Math.sin(angle) * ringRadius,
+          y: playerPos.y,
+          z: playerPos.z + Math.cos(angle) * ringRadius,
         }
       }
 
