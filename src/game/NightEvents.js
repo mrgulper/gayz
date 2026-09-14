@@ -103,6 +103,16 @@ export const NIGHT_EVENTS = [
       game._spawnHazardZone('emp', spot.x, spot.z)
     },
   },
+  {
+    id: 'dilemma',
+    labelKey: 'eventDilemma',
+    // Distinct from every event above: those are each a single standalone
+    // objective (succeed, fail, or just walk past). This spawns TWO at
+    // once, far enough apart under a shared clock (see Game.js's
+    // DILEMMA_MIN_SEPARATION/DILEMMA_TIMER_MS) that going for both for
+    // real isn't realistic - a genuine trade-off, not just a timed task.
+    apply: (game) => game._spawnDilemma(),
+  },
 ]
 
 export function pickNightEvent() {

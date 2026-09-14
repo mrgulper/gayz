@@ -3182,6 +3182,18 @@ const CAMP_LOOT_REWARD_POINTS = 500
 const ESCORT_SURVIVOR_COUNT = 2
 const ESCORT_ARRIVAL_RADIUS = 12
 const ESCORT_REWARD_POINTS = 600
+// Impossible Choice (see _spawnDilemma/_updateDilemmaEvent) - a survivor
+// camp (same vulnerable-Companion shape as CAMP_SURVIVOR_COUNT above, just
+// a smaller group) and a loot chest spawn at two spawnPoints far enough
+// apart (DILEMMA_MIN_SEPARATION) that reaching both under active zombie
+// pressure at each within one shared timer isn't realistic - the actual
+// point of the event, unlike every other NIGHT_EVENTS entry which is a
+// single standalone objective with no competing cost.
+const DILEMMA_TIMER_MS = 50000
+const DILEMMA_SURVIVOR_COUNT = 2
+const DILEMMA_ZOMBIE_COUNT_EACH = 5
+const DILEMMA_MIN_SEPARATION = 60
+const DILEMMA_RESCUE_REWARD_POINTS = 400
 // How close a kill needs to land to a named location to count toward the
 // 'clear_location' bounty - generous enough to cover a whole building's
 // footprint, not just its exact center point.
@@ -5153,6 +5165,13 @@ export class Game {
     // Escort Convoy - null when no mission is active, otherwise
     // { survivors: Companion[] } (see _spawnEscortConvoy/_updateEscortConvoy)
     this.escortConvoy = null
+    // Impossible Choice (see _spawnDilemma/_updateDilemmaEvent) - null when
+    // no dilemma is active, otherwise { survivors, chest, startedAt,
+    // resolvedSurvivors, resolvedChest }. Unlike the camp/convoy events
+    // above, this one deliberately spawns TWO competing objectives at once
+    // under a shared clock, so going all-in on one is a real cost against
+    // the other rather than just a pass/fail on a single thing.
+    this.dilemmaEvent = null
     // Permanent squad additions (unlike tempCompanion, which leaves at dawn)
     // - one fixed recruit per world spot (see recruitSpots below), reusing
     // RescueSurvivor's stationary-NPC visual for the marker since it needs
@@ -6422,6 +6441,10 @@ export class Game {
       if (this.escortConvoy) {
         for (const s of this.escortConvoy.survivors) s.dispose()
         this.escortConvoy = null
+      }
+      if (this.dilemmaEvent) {
+        for (const s of this.dilemmaEvent.survivors) s.dispose()
+        this.dilemmaEvent = null
       }
       this.runStartedAt = performance.now()
       this.nightStartedAt = performance.now()
@@ -23912,6 +23935,94 @@ export class Game {
     this.escortConvoy = null
   }
 
+  // Impossible Choice night event (see 'dilemma' in NightEvents.js) - two
+  // competing objectives at once, DILEMMA_MIN_SEPARATION apart so they're
+  // not both reachable in time: a small survivor camp (same vulnerable-
+  // Companion shape _spawnSurvivorCamp uses) and a loot chest, each under
+  // its own zombie pressure, resolved together by _updateDilemmaEvent once
+  // DILEMMA_TIMER_MS runs out.
+  _spawnDilemma() {
+    if (this.dilemmaEvent) {
+      for (const s of this.dilemmaEvent.survivors) s.dispose()
+      if (this.dilemmaEvent.chest && !this.dilemmaEvent.resolvedChest) this.dilemmaEvent.chest.lock()
+    }
+    const points = this.spawnPoints
+    const a = points[Math.floor(Math.random() * points.length)]
+    let b = points[Math.floor(Math.random() * points.length)]
+    let guard = 0
+    while (Math.hypot(b.x - a.x, b.z - a.z) < DILEMMA_MIN_SEPARATION && guard < 20) {
+      b = points[Math.floor(Math.random() * points.length)]
+      guard += 1
+    }
+
+    const survivors = []
+    for (let i = 0; i < DILEMMA_SURVIVOR_COUNT; i++) {
+      const angle = (i / DILEMMA_SURVIVOR_COUNT) * Math.PI * 2
+      survivors.push(new Companion(this.scene, a.x + Math.cos(angle) * 2, a.z + Math.sin(angle) * 2, 'ranged'))
+    }
+    this.zombies.spawnAt(a.x, a.z, DILEMMA_ZOMBIE_COUNT_EACH)
+
+    const chest = this.chests.addChest(b.x, 0, b.z)
+    this.zombies.spawnAt(b.x, b.z, DILEMMA_ZOMBIE_COUNT_EACH)
+
+    this.dilemmaEvent = {
+      survivors,
+      chest,
+      startedAt: performance.now(),
+      resolvedSurvivors: false,
+      resolvedChest: false,
+    }
+  }
+
+  // Ticked every frame alongside the camp/convoy events above. Survivors
+  // and the chest each resolve independently and as soon as they can (the
+  // chest the instant it's opened, survivors the instant every one of them
+  // is dead) - only whichever side is STILL undecided waits for the shared
+  // timer, so getting to one in time doesn't get held hostage by the other.
+  _updateDilemmaEvent(dt, playerPos) {
+    const d = this.dilemmaEvent
+    if (!d) return
+
+    if (!d.resolvedSurvivors) {
+      for (const s of d.survivors) s.update(dt, playerPos, this.zombies.zombies, null)
+      d.survivors = d.survivors.filter((s) => !s.dead)
+      if (d.survivors.length === 0) {
+        d.resolvedSurvivors = true
+        this._showLoreToast(t('toastDilemmaSurvivorsLost'))
+      }
+    }
+    if (!d.resolvedChest && d.chest.opened) {
+      d.resolvedChest = true
+      this._showLoreToast(t('toastDilemmaLootClaimed'))
+    }
+
+    if (d.resolvedSurvivors && d.resolvedChest) {
+      this.dilemmaEvent = null
+      return
+    }
+    if (performance.now() - d.startedAt >= DILEMMA_TIMER_MS) this._resolveDilemma(d)
+  }
+
+  _resolveDilemma(d) {
+    if (!d.resolvedSurvivors) {
+      // Reached this branch with survivors still alive means the timer ran
+      // out before either the survivors died or the player noticed them -
+      // same "still alive when time's up" success condition the standalone
+      // Camp Liberation event already uses.
+      this._gainPoints(DILEMMA_RESCUE_REWARD_POINTS)
+      this._updateStatsPanel()
+      this.inventory.addHealthPack(1)
+      this._updateInventoryHud()
+      this._showLoreToast(t('toastDilemmaSurvivorsSaved', { reward: DILEMMA_RESCUE_REWARD_POINTS }))
+      for (const s of d.survivors) s.dispose()
+    }
+    if (!d.resolvedChest) {
+      d.chest.lock()
+      this._showLoreToast(t('toastDilemmaLootLost'))
+    }
+    this.dilemmaEvent = null
+  }
+
   // Rendered on demand (map open, or right after placing/clearing a custom
   // pin) rather than every frame - see the toggleMap handler's own note on
   // why (gameplay freezes while the map's open, so nothing on it can change
@@ -24760,6 +24871,7 @@ export class Game {
       if (this.rescueSurvivor) this.rescueSurvivor.update(elapsed)
       this._updateSurvivorCamp(dt, playerPos)
       this._updateEscortConvoy(dt, playerPos)
+      this._updateDilemmaEvent(dt, playerPos)
       this._updateRecruitSpots(elapsed, playerPos)
       this._updateInformant(playerPos)
       this._updateLoreMarkers(dt, playerPos)
