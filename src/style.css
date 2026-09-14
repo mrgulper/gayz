@@ -3294,6 +3294,63 @@ html.third-person-active #companion-bark {
    line still under this grid in index.html) - no cost/button yet, and
    deliberately no cursor:pointer/hover-highlight like .perk-option gets,
    since these aren't clickable at all yet and shouldn't look like they are. */
+/* Theme picker (Inventory > Theme) - was a plain <select>, replaced with
+   two clickable preview-photo cards per request. Same "photo card + gold
+   border/glow when active" language as .crate-card below, just image-fill
+   instead of an SVG icon. */
+#theme-picker-grid {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.theme-picker-card {
+  position: relative;
+  width: 220px;
+  aspect-ratio: 16 / 10;
+  padding: 0;
+  border: 2px solid rgba(227, 166, 60, 0.35);
+  border-radius: 8px;
+  background: #000;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.theme-picker-card img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.theme-picker-card span {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 8px 0 6px;
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.85) 0%, transparent 100%);
+  color: #fff;
+  font-family: var(--menu-display-font), inherit;
+  font-size: 16px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.theme-picker-card:hover {
+  border-color: rgba(227, 166, 60, 0.7);
+}
+
+.theme-picker-card.active {
+  border-color: #e3c23c;
+  box-shadow: 0 0 0 2px rgba(227, 166, 60, 0.35), 0 0 16px rgba(227, 166, 60, 0.4);
+}
+
+.theme-picker-card.active span {
+  color: #e3c23c;
+}
+
 .crate-tier-grid {
   display: flex;
   justify-content: center;

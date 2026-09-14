@@ -2235,6 +2235,7 @@ Escape before dawn.</p>
           <div id="whatsnew-content">
             <p id="build-version-line"></p>
           <div id="changelog-list">
+            <div class="changelog-entry"><span class="changelog-date">Sep 14, 2026</span><span class="changelog-text">Inventory > Theme is now two clickable preview photos (Golden/Old) instead of a plain dropdown - click either one to switch, the currently active one gets a gold glow.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 14, 2026</span><span class="changelog-text">Settings checkboxes no longer show a plain white square when unchecked - now a black box with a gold border, matching the rest of the panel. Checked still looks the same gold box as before.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 14, 2026</span><span class="changelog-text">The Settings panel was a bit taller than every other panel (What's New, Credits, etc.) on a tall screen - it now matches their size exactly.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 14, 2026</span><span class="changelog-text">The homepage no longer renders noticeably bigger in browser fullscreen than in a normal window - it now scales itself back down on entering fullscreen to roughly match the size it was just before.</span></div>
@@ -2628,12 +2629,15 @@ Escape before dawn.</p>
           </div>
           <div class="inventory-tab-page" id="inventory-page-theme" style="display: none">
             <h3 class="settings-section-heading" id="settings-section-theme">Theme</h3>
-            <div class="audio-row">
-              <label for="ui-theme-select" id="ui-theme-label">Theme</label>
-              <select id="ui-theme-select">
-                <option value="golden" selected>Golden</option>
-                <option value="old">Old</option>
-              </select>
+            <div id="theme-picker-grid">
+              <button type="button" class="theme-picker-card active" id="theme-picker-golden" data-theme="golden">
+                <img src="/images/theme-preview-golden.jpg" alt="" draggable="false" />
+                <span id="theme-picker-golden-label">Golden</span>
+              </button>
+              <button type="button" class="theme-picker-card" id="theme-picker-old" data-theme="old">
+                <img src="/images/theme-preview-old.jpg" alt="" draggable="false" />
+                <span id="theme-picker-old-label">Old</span>
+              </button>
             </div>
           </div>
         </div>

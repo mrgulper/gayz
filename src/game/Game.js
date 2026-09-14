@@ -2402,7 +2402,8 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'export-settings-code-btn': 'exportSettingsCodeBtn',
   'import-settings-code-btn': 'importSettingsCodeBtn',
   'import-settings-code-apply-btn': 'importSettingsCodeApplyBtn',
-  'ui-theme-label': 'uiThemeLabel',
+  'theme-picker-golden-label': 'optUiThemeGolden',
+  'theme-picker-old-label': 'optUiThemeOld',
   'share-run-card-btn': 'shareRunCardBtnLabel',
   'copy-text-recap-btn': 'copyTextRecapBtn',
   'ending-title': 'endingTitle',
@@ -2595,7 +2596,6 @@ const SELECT_OPTION_I18N_KEYS = {
   'nickname-font-select': { 'default': 'optNicknameFontDefault', 'mono': 'optNicknameFontMono', 'serif': 'optNicknameFontSerif', 'display': 'optNicknameFontDisplay' },
   'layout-density-select': { 'cozy': 'optLayoutCozy', 'compact': 'optLayoutCompact' },
   'bg-mood-select': { 'auto': 'optBgMoodAutoSeasonal', 'timeofday': 'optBgMoodAutoLocal', 'none': 'optBgMoodNight', 'bloodmoon': 'optBgMoodBloodMoon', 'foggy': 'optBgMoodFoggy', 'amber': 'optBgMoodAmber' },
-  'ui-theme-select': { 'golden': 'optUiThemeGolden', 'old': 'optUiThemeOld' },
   'achievements-category-select': { 'all': 'optAchCatAll', 'combat': 'optAchCatCombat', 'survival': 'optAchCatSurvival', 'exploration': 'optAchCatExploration', 'story': 'optAchCatStory', 'collection': 'optAchCatCollection' },
   'achievements-sort-select': { 'default': 'optAchSortDefault', 'achieved': 'optAchSortAchieved', 'incomplete': 'optAchSortIncomplete' },
   'pinned-stat-select': { '': 'optPinnedStatNone' },
@@ -4320,7 +4320,8 @@ export class Game {
     this.highVisCursorToggle = document.getElementById('high-vis-cursor-toggle')
     this.captionBackgroundToggle = document.getElementById('caption-background-toggle')
     this.themePresetSelect = document.getElementById('theme-preset-select')
-    this.uiThemeSelect = document.getElementById('ui-theme-select')
+    this.themePickerGolden = document.getElementById('theme-picker-golden')
+    this.themePickerOld = document.getElementById('theme-picker-old')
     this.cursorTrailToggle = document.getElementById('cursor-trail-toggle')
     this.crtScanlinesToggle = document.getElementById('crt-scanlines-toggle')
     this.weatherParticlesToggle = document.getElementById('weather-particles-toggle')
@@ -9813,19 +9814,27 @@ export class Game {
         saveSettings(this.settings)
       })
     }
-    // Theme (Old/Golden) - Golden is the current live UI (every existing
-    // button/panel style is unscoped, i.e. Golden by default, no class
-    // needed); the homepage background photo is the one piece explicitly
-    // tied to the theme via `html:not(.ui-theme-old) #menu-bg-photo` (see
-    // style.css) - picking Old currently just removes that photo with
-    // nothing yet in its place, since Old's own look/background is being
-    // designed later, not a bug in this wiring.
-    if (this.uiThemeSelect) {
-      this.uiThemeSelect.value = this.settings.uiTheme
-      document.documentElement.classList.toggle('ui-theme-old', this.settings.uiTheme === 'old')
-      this.uiThemeSelect.addEventListener('change', () => {
-        this.settings.uiTheme = this.uiThemeSelect.value
+    // Theme (Old/Golden) - was a plain <select>, replaced with two
+    // clickable preview-image cards per request (Inventory > Theme).
+    // Golden is the current live UI (every existing button/panel style is
+    // unscoped, i.e. Golden by default, no class needed); Old's look is
+    // driven entirely off html.ui-theme-old (see style.css's many
+    // html.ui-theme-old overrides, e.g. #menu-bg-photo, #menu-player-badge).
+    if (this.themePickerGolden && this.themePickerOld) {
+      const applyUiTheme = () => {
         document.documentElement.classList.toggle('ui-theme-old', this.settings.uiTheme === 'old')
+        this.themePickerGolden.classList.toggle('active', this.settings.uiTheme !== 'old')
+        this.themePickerOld.classList.toggle('active', this.settings.uiTheme === 'old')
+      }
+      applyUiTheme()
+      this.themePickerGolden.addEventListener('click', () => {
+        this.settings.uiTheme = 'golden'
+        applyUiTheme()
+        saveSettings(this.settings)
+      })
+      this.themePickerOld.addEventListener('click', () => {
+        this.settings.uiTheme = 'old'
+        applyUiTheme()
         saveSettings(this.settings)
       })
     }
