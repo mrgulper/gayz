@@ -6659,6 +6659,13 @@ html.ui-theme-old #settings-btn {
   border-image-width: 24px;
   border-image-repeat: stretch;
   background: rgba(10, 8, 4, 0.5);
+  /* Without this, the background paints the full border-box by default -
+     wherever the border-image's own texture has thin/transparent pixels
+     (corners, gaps in the ornate engraving), this tint bleeds through and
+     shows as a flat grey/dark rectangle sticking out past the frame's
+     actual decorative edges. Clipping to padding-box confines it to the
+     window behind the avatar photo, which is what it's actually for. */
+  background-clip: padding-box;
   cursor: pointer;
 }
 
