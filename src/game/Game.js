@@ -9067,9 +9067,16 @@ export class Game {
       this.settings.language = btn.dataset.lang
       // Remembered for #quick-language-btn's English<->alt toggle.
       if (btn.dataset.lang !== 'en') this.settings.quickLanguageAlt = btn.dataset.lang
-      saveSettings(this.settings)
+      // setLanguage/_applyLanguage BEFORE saveSettings, not after - saveSettings
+      // triggers the "Saved" pulse + a live _renderRecentlyChangedList() re-render
+      // (see that function's own comment), which used to fire on the OLD
+      // language (currentLang hadn't been updated yet) and never got a second
+      // chance to re-render in the new one - "Changed this session: ..." stayed
+      // in whatever language you switched FROM, every other language string on
+      // screen already correctly in the new one.
       setLanguage(this.settings.language)
       this._applyLanguage()
+      saveSettings(this.settings)
       for (const el of this.languageGrid.querySelectorAll('.language-btn')) {
         el.classList.toggle('active', el === btn)
       }
