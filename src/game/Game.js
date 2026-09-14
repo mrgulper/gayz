@@ -6120,6 +6120,12 @@ export class Game {
     this.timer.connect(document)
     this.renderer.setAnimationLoop(() => this._tick())
 
+    // See _warmUpShaders' own comment - must run after everything above is
+    // built (weapons/zombie types/chests all need to exist) but before the
+    // player can possibly see anything (gameStarted is still false, #menu
+    // sits fully opaque over the 3D canvas the whole time this runs).
+    this._warmUpShaders()
+
     // Debug/QA hook - lets Playwright (or the browser console) drive real
     // game methods directly, since this project has no test suite.
     window.__game = this
@@ -24290,6 +24296,85 @@ export class Game {
       this._showLoreToast(t('hordeIncoming'))
     } else if (!this.zombies.wanderingHorde) {
       this._hordeAnnounced = false
+    }
+  }
+
+  // Shader/GPU pipeline warm-up - real player report + live on-device
+  // profiling (2026-09-14) traced "the game feels laggy" to something the
+  // whole rest of that investigation had missed: WebGL only compiles a
+  // material's actual shader program the first time something using it is
+  // drawn, not when its geometry/texture data loads - every preload in
+  // main.js only fetches/parses, none of them ever render anything. On a
+  // real M4 (not weak hardware), a genuinely new zombie type's first-ever
+  // render call cost 260ms; once warmed, the same device rendered in
+  // 1.7-5.4ms. Not a sustained cost - a one-time stall every time
+  // something visually new is first encountered, landing unpredictably
+  // mid-exploration or mid-fight instead of during the loading players
+  // already expect. Fixing it by forcing those compiles to happen HERE
+  // instead, while #menu still sits fully opaque over the 3D canvas
+  // (gameStarted is false, nothing below this point is visible yet) - so
+  // the cost lands during the otherwise-idle moment before Play is ever
+  // clicked.
+  //
+  // One representative zombie covers the whole "regular zombie" shape -
+  // verified live that a SECOND new type after the first only cost 22ms,
+  // not 260ms, meaning the compile is keyed to the shared material
+  // configuration (see Zombie.js's "cheap shared-material path"), not the
+  // individual model. Titan needs its own pass (separate rig/materials,
+  // see _buildBodyFromTitanGLB). Every weapon viewmodel already exists in
+  // the scene the whole time (WeaponSystem's constructor builds all of
+  // them upfront, toggling .visible on switch) - an invisible object is
+  // skipped by the renderer entirely and never touches its shader, so
+  // they just need one frame with visible=true each. Chests reuse a real
+  // chest already in the world instead of constructing a throwaway one -
+  // temporarily relocated in front of the camera and force-unlocked, then
+  // put back exactly as found.
+  _warmUpShaders() {
+    const savedVmVisibility = {}
+    for (const id in this.weapons.viewmodels) {
+      savedVmVisibility[id] = this.weapons.viewmodels[id].visible
+      this.weapons.viewmodels[id].visible = true
+    }
+
+    const dir = this.camera.getWorldDirection(new THREE.Vector3())
+    const origin = this.camera.position.clone().addScaledVector(dir, 4)
+    // shambler covers the plain shared-body shape, titan the separate
+    // dinosaur rig, spitter the gland/FX-sphere emissive material most
+    // ranged types add on top of that shared body. siren gets its own
+    // slot despite also being ranged - confirmed live it's still slow
+    // (120ms) even after shambler+titan+spitter are all warmed, for a
+    // reason not fully root-caused - rather than keep chasing it, covering
+    // it directly is the pragmatic fix. Re-check this list if another
+    // type is ever reported slow on a first render that these four don't
+    // already cover.
+    const warmZombies = [
+      new Zombie(origin.x - 1.5, origin.z, ZOMBIE_TYPES.shambler, false, false, 1, 1, 1),
+      new Zombie(origin.x + 1.5, origin.z, ZOMBIE_TYPES.titan, false, false, 1, 1, 1),
+      new Zombie(origin.x, origin.z + 1, ZOMBIE_TYPES.spitter, false, false, 1, 1, 1),
+      new Zombie(origin.x, origin.z - 1, ZOMBIE_TYPES.siren, false, false, 1, 1, 1),
+    ]
+    for (const z of warmZombies) this.scene.add(z.group)
+
+    const warmChest = this.chests.chests[0]
+    let savedChestState = null
+    if (warmChest) {
+      savedChestState = { x: warmChest.x, y: warmChest.group.position.y, z: warmChest.z, locked: warmChest.locked }
+      warmChest.x = origin.x
+      warmChest.z = origin.z + 1
+      warmChest.group.position.set(origin.x, warmChest.group.position.y, origin.z + 1)
+      if (warmChest.locked) warmChest.unlock()
+      warmChest.group.visible = true
+    }
+
+    this.composer.render()
+
+    for (const id in this.weapons.viewmodels) this.weapons.viewmodels[id].visible = savedVmVisibility[id]
+    for (const z of warmZombies) z.dispose()
+    if (warmChest && savedChestState) {
+      warmChest.x = savedChestState.x
+      warmChest.z = savedChestState.z
+      warmChest.group.position.set(savedChestState.x, savedChestState.y, savedChestState.z)
+      if (savedChestState.locked) warmChest.lock()
     }
   }
 
