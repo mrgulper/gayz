@@ -166,6 +166,9 @@ const WEAPONS = [
     magSize: 0,
     reserve: 0,
     unlocked: true,
+    // Recoil personality baseline (see MELEE_VARIANTS/setMeleeVariant) -
+    // matches the Knife variant's own recoilKick below.
+    recoilKick: 0.5,
   },
   {
     id: 'rifle',
@@ -181,6 +184,11 @@ const WEAPONS = [
     // fast and full-intensity auto-fire shake would just read as nausea.
     shakeIntensity: 0.035,
     shakeDuration: 70,
+    // Recoil personality (see w.recoilKick/recoilRecover, read in _fire) -
+    // small kick that snaps back fast, same "don't stack into nausea at
+    // this fire rate" reasoning as the shake tuning right above.
+    recoilKick: 0.5,
+    recoilRecover: 9,
   },
   {
     id: 'pistol',
@@ -197,6 +205,10 @@ const WEAPONS = [
     // Weapon weight (see PlayerController's weaponWeightMult) - one-handed
     // sidearms let you move a touch faster than your default speed.
     light: true,
+    // A proper distinct snap per trigger pull - single-fire, so it never
+    // has to worry about stacking the way an auto weapon's kick does.
+    recoilKick: 1.1,
+    recoilRecover: 7,
   },
   {
     id: 'minigun',
@@ -214,6 +226,9 @@ const WEAPONS = [
     // continuous low rumble rather than distinct shake events.
     shakeIntensity: 0.02,
     shakeDuration: 50,
+    // Same "barely-there, reads as rumble" reasoning as the shake above.
+    recoilKick: 0.3,
+    recoilRecover: 10,
     // Unlocked by default like every other weapon now - the in-world
     // minigun spot pickup (Game.js's _onPickup) still grants the
     // 'minigun_unlocked' achievement on first interact, independent of
@@ -246,6 +261,10 @@ const WEAPONS = [
     unlocked: true,
     shakeIntensity: 0.09,
     shakeDuration: 150,
+    // Heavy punch that lingers a beat - slow fire rate means it's never on
+    // screen for the next shot.
+    recoilKick: 1.8,
+    recoilRecover: 4,
   },
   {
     id: 'awp',
@@ -262,6 +281,10 @@ const WEAPONS = [
     // stacks into the nausea territory minigun/rifle have to avoid.
     shakeIntensity: 0.14,
     shakeDuration: 200,
+    // Biggest, slowest kick of any hitscan gun, matching the shake above -
+    // a full second-plus between shots gives it plenty of time to settle.
+    recoilKick: 2.2,
+    recoilRecover: 3,
   },
   {
     id: 'glock18',
@@ -276,6 +299,8 @@ const WEAPONS = [
     shakeIntensity: 0.03,
     shakeDuration: 60,
     light: true,
+    recoilKick: 0.4,
+    recoilRecover: 10,
   },
   {
     id: 'flamethrower',
@@ -301,6 +326,9 @@ const WEAPONS = [
     unlocked: true,
     shakeIntensity: 0.015,
     shakeDuration: 50,
+    // Barely-there, same "reads as a steady stream" reasoning as the shake.
+    recoilKick: 0.15,
+    recoilRecover: 12,
   },
   {
     id: 'rocket',
@@ -321,6 +349,8 @@ const WEAPONS = [
     shakeDuration: 180,
     // Weapon weight (see PlayerController's weaponWeightMult).
     heavy: true,
+    recoilKick: 2.0,
+    recoilRecover: 3.5,
   },
   {
     id: 'crossbow',
@@ -341,6 +371,8 @@ const WEAPONS = [
     unlocked: true,
     shakeIntensity: 0.04,
     shakeDuration: 80,
+    recoilKick: 0.9,
+    recoilRecover: 6,
   },
   {
     id: 'launcher',
@@ -361,6 +393,8 @@ const WEAPONS = [
     shakeDuration: 160,
     // Weapon weight (see PlayerController's weaponWeightMult).
     heavy: true,
+    recoilKick: 1.7,
+    recoilRecover: 4,
   },
   {
     id: 'suppressedsmg',
@@ -382,6 +416,8 @@ const WEAPONS = [
     // Weapon weight (see PlayerController's weaponWeightMult) - a cheap
     // stealth spray weapon should also feel nimble to carry.
     light: true,
+    recoilKick: 0.35,
+    recoilRecover: 10,
   },
   {
     id: 'nailgun',
@@ -399,6 +435,8 @@ const WEAPONS = [
     unlocked: true,
     shakeIntensity: 0.05,
     shakeDuration: 90,
+    recoilKick: 0.6,
+    recoilRecover: 8,
   },
   {
     id: 'harpoon',
@@ -416,6 +454,8 @@ const WEAPONS = [
     unlocked: true,
     shakeIntensity: 0.08,
     shakeDuration: 140,
+    recoilKick: 1.3,
+    recoilRecover: 5,
   },
   {
     id: 'voidripper',
@@ -442,30 +482,36 @@ const WEAPONS = [
     shakeIntensity: 0.16,
     shakeDuration: 220,
     heavy: true,
+    // Heaviest kick in the game, matching its top shakeIntensity above.
+    recoilKick: 2.4,
+    recoilRecover: 3,
   },
 ]
 
 // Alternate stat blocks for the melee slot - see setMeleeVariant(). Found as
 // loot, they replace the knife's stats/viewmodel in place rather than
 // occupying a new weapon slot/key.
+// recoilKick: per-variant viewmodel kick strength (see setMeleeVariant/
+// _fire's melee branch) - heavier weapons kick more, matching their weight/
+// damage rather than every melee swing feeling identical.
 const MELEE_VARIANTS = {
-  knife: { name: 'Knife', damage: KNIFE_DAMAGE, fireInterval: 0.45, range: 2.4 },
-  bat: { name: 'Bat', damage: 75, fireInterval: 0.7, range: 2.2 },
-  machete: { name: 'Machete', damage: 58, fireInterval: 0.3, range: 2.6 },
-  uvbaton: { name: 'UV Baton', damage: 0, fireInterval: 0.5, range: 2.3 },
+  knife: { name: 'Knife', damage: KNIFE_DAMAGE, fireInterval: 0.45, range: 2.4, recoilKick: 0.5 },
+  bat: { name: 'Bat', damage: 75, fireInterval: 0.7, range: 2.2, recoilKick: 1.1 },
+  machete: { name: 'Machete', damage: 58, fireInterval: 0.3, range: 2.6, recoilKick: 0.7 },
+  uvbaton: { name: 'UV Baton', damage: 0, fireInterval: 0.5, range: 2.3, recoilKick: 0.6 },
   // cleaveRadius: on top of the direct hit, deals reduced damage to any
   // other alive zombie within that radius of the swing's impact point -
   // see _fire()'s cleave pass below.
-  fireaxe: { name: 'Fire Axe', damage: 95, fireInterval: 0.6, range: 2.3, cleaveRadius: 1.6 },
+  fireaxe: { name: 'Fire Axe', damage: 95, fireInterval: 0.6, range: 2.3, cleaveRadius: 1.6, recoilKick: 1.3 },
   // stunMs: extends the normal brief hit-reaction stagger into a real stun
   // (see Zombie.stun) on top of its already-high damage.
-  sledgehammer: { name: 'Sledgehammer', damage: 130, fireInterval: 0.95, range: 2.2, stunMs: 1200 },
+  sledgehammer: { name: 'Sledgehammer', damage: 130, fireInterval: 0.95, range: 2.2, stunMs: 1200, recoilKick: 1.8 },
   // Longest reach of any melee weapon - trades damage for keeping zombies
   // at arm's length.
-  spear: { name: 'Spear', damage: 48, fireInterval: 0.55, range: 3.2 },
+  spear: { name: 'Spear', damage: 48, fireInterval: 0.55, range: 3.2, recoilKick: 0.8 },
   // Fastest swing of any melee weapon, shortest range - a flurry weapon
   // rather than a hard-hitting one.
-  nunchaku: { name: 'Nunchaku', damage: 30, fireInterval: 0.22, range: 1.9 },
+  nunchaku: { name: 'Nunchaku', damage: 30, fireInterval: 0.22, range: 1.9, recoilKick: 0.4 },
 }
 
 
@@ -578,6 +624,11 @@ export class WeaponSystem {
 
     this._time = 0
     this.recoil = 0
+    // Per-weapon recoil recovery speed (see w.recoilRecover), set on every
+    // shot/swing alongside `recoil` itself - update() reads this instead of
+    // a flat decay rate so a heavy gun's kick lingers longer than a light
+    // one's before snapping back.
+    this._recoilRecoverSpeed = 6
     // Melee swing (see _fire's melee branch / _updateViewmodelTransform) -
     // 1 at the instant a swing starts, decays to 0 over MELEE_SWING_SPEED
     // seconds. Separate from `recoil` (still set for melee too, in case
@@ -788,6 +839,7 @@ export class WeaponSystem {
     w.range = stats.range
     w.cleaveRadius = stats.cleaveRadius || null
     w.stunMs = stats.stunMs || null
+    w.recoilKick = stats.recoilKick || 0.6
     this.meleeVariant = variantId
     // Melee durability (batch 4 feature) - a freshly found/equipped melee
     // weapon starts in full condition, same as any other loot pickup.
@@ -1049,7 +1101,7 @@ export class WeaponSystem {
   update(dt, isMoving = false, isSprinting = false) {
     this.timeSinceLastShot += dt
     this._time += dt
-    this.recoil = Math.max(0, this.recoil - dt * 6)
+    this.recoil = Math.max(0, this.recoil - dt * this._recoilRecoverSpeed)
     this._meleeSwing = Math.max(0, this._meleeSwing - dt * MELEE_SWING_SPEED)
     this.isSprinting = isSprinting
     this._updateTracers()
@@ -1420,7 +1472,8 @@ export class WeaponSystem {
     const chargeBash = w.melee && this.isSprinting
     if (chargeBash) meleeComboBonus *= 1.5
     if (w.melee) {
-      this.recoil = 0.6
+      this.recoil = w.recoilKick ?? 0.6
+      this._recoilRecoverSpeed = 6
       this._meleeSwing = 1
       audioEngine.playMelee()
       // Melee durability (batch 4 feature) - one loss per swing regardless
@@ -1464,7 +1517,11 @@ export class WeaponSystem {
       this.muzzleFlashSprite.material.color.setHex(w.muzzleColor ?? DEFAULT_MUZZLE_COLOR)
       this.muzzleFlashSprite.material.opacity = 0.85 * flashMult
       this.muzzleFlashSprite.rotation.z = Math.random() * Math.PI * 2
-      this.recoil = 1
+      // Per-weapon recoil personality (see w.recoilKick/recoilRecover) -
+      // falls back to the old flat 1/6 values for anything that doesn't
+      // define them, so nothing silently loses its kick.
+      this.recoil = w.recoilKick ?? 1
+      this._recoilRecoverSpeed = w.recoilRecover ?? 6
       this._updateHud()
       audioEngine.playShot(w.id, w.suppressed)
       if (this.onWeaponFired && w.shakeIntensity) this.onWeaponFired(w.shakeIntensity, w.shakeDuration)
