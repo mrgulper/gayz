@@ -8974,11 +8974,46 @@ html.ui-theme-old #settings-panel h2 {
   accent-color: #e3c23c;
 }
 
+/* Custom box instead of accent-color's native unchecked rendering (a
+   plain white square with a thin grey border, clashing hard against
+   this dark gold/black panel) - appearance:none + a hand-drawn checkmark
+   so the UNCHECKED state can be black/gold too, while the CHECKED state
+   (gold fill) still looks the same as the native accent-color version
+   did. */
 .audio-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
   width: 18px;
   height: 18px;
-  accent-color: #e3c23c;
+  margin: 0;
+  flex-shrink: 0;
+  background: #0c0c0c;
+  border: 2px solid #e3c23c;
+  border-radius: 3px;
+  cursor: pointer;
+  position: relative;
   justify-self: start;
+}
+
+.audio-checkbox:checked {
+  background: #e3c23c;
+}
+
+.audio-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 0px;
+  width: 5px;
+  height: 9px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.audio-checkbox:focus-visible {
+  outline: 2px solid #e3c23c;
+  outline-offset: 2px;
 }
 
 .audio-value {
