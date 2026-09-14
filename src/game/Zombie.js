@@ -284,6 +284,14 @@ const BOSS_SPECIAL_COOLDOWN_MS = 8000
 const BOSS_SPECIAL_TELEGRAPH_MS = 1100
 const BOSS_SPECIAL_RANGE = 5.5
 const BOSS_SPECIAL_DAMAGE_MULT = 2.2
+// Post-slam vulnerability window - real counterplay payoff for baiting the
+// slam out and immediately punishing it, instead of dodging just meaning
+// "no damage taken, nothing gained." The boss is frozen (same busy-gate
+// _updateBossSpecial already uses for the telegraph itself) and takes
+// bonus damage for this long right after the slam resolves, whether it
+// actually hit the player or not.
+const BOSS_SPECIAL_VULNERABLE_MS = 2200
+const BOSS_SPECIAL_VULNERABLE_DAMAGE_MULT = 1.75
 
 // Loose pack "formation": a light separation nudge away from nearby alive
 // zombies, blended into the movement direction so a cluster spreads out
@@ -546,6 +554,13 @@ export class Zombie {
     this.specialCooldownUntil = 0
     this.specialTelegraphUntil = 0
     this._specialArmed = false
+    this.specialVulnerableUntil = 0
+    // Boss combat tell (see _animateBossTell) - tracks whether the
+    // telegraph/vulnerable flash was active last frame, so the material
+    // revert-to-baseline only happens once on the frame it ends rather
+    // than fighting onHit's own timeout-based hit-flash revert every
+    // idle frame in between.
+    this._bossTellWasActive = false
 
     this.group = new THREE.Group()
     this.group.position.set(x, 0, z)
@@ -854,6 +869,7 @@ export class Zombie {
     const attacking = performance.now() < this.attackAnimUntil
     this._playGlbAction(attacking ? 'attack' : 'walk', !attacking)
     this.mixer.update(dt)
+    if (this.isBoss) this._animateBossTell(elapsed)
   }
 
   // Attaches one emissive sphere to a named bone on the cloned GLB rig.
@@ -1905,7 +1921,7 @@ export class Zombie {
   _updateBossSpecial(dist, playerPos, onAttack) {
     const now = performance.now()
 
-    if (this.specialTelegraphUntil > now) return 'busy'
+    if (this.specialTelegraphUntil > now || this.specialVulnerableUntil > now) return 'busy'
 
     if (this._specialArmed) {
       this._specialArmed = false
@@ -1916,6 +1932,11 @@ export class Zombie {
         if (onAttack) onAttack(damage)
       }
       this.specialCooldownUntil = now + BOSS_SPECIAL_COOLDOWN_MS
+      // Real counterplay payoff (see BOSS_SPECIAL_VULNERABLE_MS's own
+      // comment) - fires whether the slam actually connected or the
+      // player dodged it, so baiting the slam out and punishing the
+      // recovery is always the reward, not just "avoided damage."
+      this.specialVulnerableUntil = now + BOSS_SPECIAL_VULNERABLE_MS
       this.attackCooldownUntil = now + this.config.attackCooldown * 1000 * this.bossPhaseCooldownMult
       return 'busy'
     }
@@ -2203,31 +2224,67 @@ export class Zombie {
     this.group.rotation.y = Math.atan2(this.wanderDirX, this.wanderDirZ)
   }
 
-  // Dodge-able tell for _updateBossSpecial's wind-up: a fast growing
-  // shake plus a red eye flash, so the player can see the slam coming and
-  // back out of BOSS_SPECIAL_RANGE before it lands.
-  _animateBossTelegraph(elapsed) {
-    const remaining = this.specialTelegraphUntil - performance.now()
-    if (remaining <= 0) {
+  // Boss combat tells: the telegraph wind-up (a fast growing shake + red
+  // flash, so the player can see the slam coming and back out of
+  // BOSS_SPECIAL_RANGE before it lands) and the post-slam vulnerability
+  // window (a gold pulse marking the free-damage punish window - see
+  // BOSS_SPECIAL_VULNERABLE_MS's own comment). Drives this.materials
+  // (every body material this zombie owns) rather than the old
+  // eyeMaterials-only approach - eyeMaterials is only ever populated by
+  // the procedural body builder, so a GLB-rendered boss (the default
+  // render path for every zombie since the 3D asset overhaul, see
+  // USE_GLB_ZOMBIES) silently showed NEITHER tell at all despite the
+  // underlying mechanics still firing on schedule. Still also flashes
+  // eyeMaterials for the rare procedural-fallback case, where it's
+  // additive (a strict subset of this.materials there) not a behavior
+  // change. Returns true while telegraphing, so the procedural _animate()
+  // caller can still freeze its own limb-swing animation during the
+  // wind-up exactly like before.
+  _animateBossTell(elapsed) {
+    const now = performance.now()
+    const telegraphing = this.specialTelegraphUntil > now
+    const vulnerable = !telegraphing && this.specialVulnerableUntil > now
+    if (telegraphing) {
+      const remaining = this.specialTelegraphUntil - now
+      const progress = 1 - Math.max(0, remaining) / BOSS_SPECIAL_TELEGRAPH_MS
+      const pulse = 1 + Math.sin(elapsed * 24) * 0.07 * progress
+      this.group.scale.setScalar(this.baseScale * pulse)
+      for (const mat of this.materials) {
+        mat.emissive.setHex(0xff2020)
+        mat.emissiveIntensity = 1.5 + progress * 1.5
+      }
+      for (const mat of this.eyeMaterials) {
+        mat.emissive.setHex(0xff2020)
+        mat.emissiveIntensity = 1.5 + progress * 1.5
+      }
+    } else if (vulnerable) {
       this.group.scale.setScalar(this.baseScale)
-      return false
+      const glow = 1.2 + (Math.sin(elapsed * 10) * 0.5 + 0.5) * 0.9
+      for (const mat of this.materials) {
+        mat.emissive.setHex(0xffdd55)
+        mat.emissiveIntensity = glow
+      }
+      for (const mat of this.eyeMaterials) {
+        mat.emissive.setHex(0xffdd55)
+        mat.emissiveIntensity = glow
+      }
+    } else if (this._bossTellWasActive) {
+      // Just ended - revert to baseline once, rather than re-asserting it
+      // every idle frame and fighting onHit's own timeout-based hit-flash
+      // revert whenever a hit lands between now and the next boss tell.
+      this.group.scale.setScalar(this.baseScale)
+      for (const mat of this.materials) {
+        const original = this.materialDefaults.get(mat)
+        if (original) { mat.emissive.setHex(original.hex); mat.emissiveIntensity = original.intensity }
+      }
     }
-    const progress = 1 - Math.max(0, remaining) / BOSS_SPECIAL_TELEGRAPH_MS
-    const pulse = 1 + Math.sin(elapsed * 24) * 0.07 * progress
-    this.group.scale.setScalar(this.baseScale * pulse)
-    for (const mat of this.eyeMaterials) {
-      mat.emissive.setHex(0xff2020)
-      mat.emissiveIntensity = 1.5 + progress * 1.5
-    }
-    return true
+    this._bossTellWasActive = telegraphing || vulnerable
+    return telegraphing
   }
 
   // GLB path for the normal 'alive' state - crawler gets its own clip,
   // everyone else walks except during the attack-lunge window (boss types
-  // kick, regular types punch - see the design note this came from). Boss
-  // telegraph twitch/breathing (the procedural path's finer polish) is
-  // intentionally not replicated here yet - this is Phase 2's baseline
-  // parity pass, not full parity.
+  // kick, regular types punch - see the design note this came from).
   _animateGLB(dt, elapsed) {
     const attacking = performance.now() < this.attackAnimUntil
     if (this.config.crawler || this.isCrippled) {
@@ -2240,6 +2297,7 @@ export class Zombie {
     this.mixer.update(dt)
     this.group.rotation.z = Math.sin(elapsed * this.effectiveSpeed * 1.1 + this.phase) * 0.04 + this.postureOffset * 0.2
     this._updateGlandFX(elapsed)
+    if (this.isBoss) this._animateBossTell(elapsed)
   }
 
   // Zombie Visual LOD - decides whether this frame's animation blend is
@@ -2285,7 +2343,7 @@ export class Zombie {
       return
     }
 
-    if (this.isBoss && this._animateBossTelegraph(elapsed)) return
+    if (this.isBoss && this._animateBossTell(elapsed)) return
 
     const t = elapsed * this.effectiveSpeed * 2.2 + this.phase
 
@@ -2476,6 +2534,7 @@ export class Zombie {
       leapCooldownInMs: remaining(this.leapCooldownUntil),
       specialCooldownInMs: remaining(this.specialCooldownUntil),
       specialTelegraphInMs: remaining(this.specialTelegraphUntil),
+      specialVulnerableInMs: remaining(this.specialVulnerableUntil),
       nextAddSummonInMs: remaining(this.nextAddSummonAt),
       // Shielded-type absorb pool.
       shieldHealth: this.shieldHealth,
@@ -2551,6 +2610,7 @@ export class Zombie {
     this.leapCooldownUntil = inFuture(data.leapCooldownInMs)
     this.specialCooldownUntil = inFuture(data.specialCooldownInMs)
     this.specialTelegraphUntil = inFuture(data.specialTelegraphInMs)
+    this.specialVulnerableUntil = inFuture(data.specialVulnerableInMs)
     this.nextAddSummonAt = inFuture(data.nextAddSummonInMs)
     this.shieldHealth = data.shieldHealth ?? 0
     this.dieStartedAt = inPast(data.dieStartedMsAgo)
@@ -2611,6 +2671,10 @@ export class Zombie {
     // than at each individual damage-source call site.
     if (this.config.fragile) damage *= this.config.fragileDamageMult
     if (this.corrodedUntil && performance.now() < this.corrodedUntil) damage *= CORRODE_DAMAGE_MULT
+    // Post-slam vulnerability window (see BOSS_SPECIAL_VULNERABLE_MS's own
+    // comment) - the real counterplay payoff for baiting the slam and
+    // punishing the recovery.
+    if (this.isBoss && performance.now() < this.specialVulnerableUntil) damage *= BOSS_SPECIAL_VULNERABLE_DAMAGE_MULT
     const blockedByShield = this.shieldHealth > 0 && this.lastHitWeaponId !== 'melee' && !opts.bypassShield
     if (blockedByShield) {
       this.shieldHealth = Math.max(0, this.shieldHealth - damage)
