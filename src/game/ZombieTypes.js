@@ -634,19 +634,86 @@ export const SHARED_ZOMBIE_TYPE_IDS = new Set([
 const ZOMBIE_TYPE_ENTRIES = Object.values(ZOMBIE_TYPES)
 const ZOMBIE_TYPE_BASE_WEIGHT_TOTAL = ZOMBIE_TYPE_ENTRIES.reduce((sum, t) => sum + t.weight, 0)
 
+// Director-aware type weighting (see pickZombieType's directorMult param,
+// fed by Game.js's _updateDirectorAI via ZombieManager.directorMult) - a
+// rough "how dangerous is this type" score per entry, stored as a z-score
+// against the regular-type population so pickZombieType can bias the roll
+// toward scarier types as pressure rises and toward tamer ones as it eases
+// off, on top of the always-on base weight distribution above. Combines
+// average damage (falling back to explosion damage for a type that deals
+// 0 direct melee damage, like Exploder - a flat damageMin/Max read alone
+// would badly undersell it) with health (tankier reads scarier), plus
+// small bumps for mechanics a damage number alone doesn't capture (ranged,
+// lifesteal, a shield pool, gas-on-death, summon-on-death). Not a precise
+// simulation - just enough of a signal to separate "genuinely dangerous"
+// from "mostly harmless" for biasing purposes. Bosses (weight 0, never
+// reachable by the normal roll anyway) are excluded so they can't skew the
+// population's mean/stdev.
+const THREAT_SCORES = new Map()
+for (const t of ZOMBIE_TYPE_ENTRIES) {
+  if (t.weight <= 0) continue
+  const avgMeleeDamage = ((t.damageMin || 0) + (t.damageMax || 0)) / 2
+  const avgExplodeDamage = ((t.explodeDamageMin || 0) + (t.explodeDamageMax || 0)) / 2
+  let score = Math.max(avgMeleeDamage, avgExplodeDamage) * (1 + (t.health || 0) / 150)
+  if (t.ranged) score *= 1.25
+  if (t.lifesteal) score *= 1.15
+  if (t.shieldHealth) score *= 1.2
+  if (t.gasOnDeath) score *= 1.15
+  if (t.summonOnDeath) score *= 1.15
+  THREAT_SCORES.set(t.id, score)
+}
+{
+  const values = [...THREAT_SCORES.values()]
+  const mean = values.reduce((sum, v) => sum + v, 0) / values.length
+  const variance = values.reduce((sum, v) => sum + (v - mean) ** 2, 0) / values.length
+  const stdev = Math.sqrt(variance) || 1
+  for (const [id, score] of THREAT_SCORES) THREAT_SCORES.set(id, (score - mean) / stdev)
+}
+// How hard the Director's pressure actually pushes the type roll - tuned
+// so a type at the extreme end of the threat range (Brute, z~+2.8) roughly
+// doubles its odds at max pressure and drops to the 0.15 floor at minimum
+// pressure, while a middling type barely moves either way.
+const DIRECTOR_TYPE_BIAS_STRENGTH = 1
+
 // featuredId/featuredMult (see the Featured Enemy mutator, ZombieManager's
 // featuredEnemyId) - both default to a no-op so every existing call site
 // (just calling pickZombieType() with no args) rolls exactly as before.
-export function pickZombieType(featuredId = null, featuredMult = 1) {
-  let total = ZOMBIE_TYPE_BASE_WEIGHT_TOTAL
-  if (featuredId !== null && featuredMult !== 1) {
-    const featured = ZOMBIE_TYPES[featuredId]
-    if (featured) total += featured.weight * (featuredMult - 1)
+// directorMult (Game.js's _updateDirectorAI, via ZombieManager.directorMult)
+// also defaults to a no-op (1 = neutral) - only _spawnRandom's ambient
+// pick actually passes a live value; every other call site (wandering
+// horde members, scripted bursts, boss adds) stays exactly as it was.
+export function pickZombieType(featuredId = null, featuredMult = 1, directorMult = 1) {
+  const pressureBias = directorMult - 1
+  if (pressureBias === 0) {
+    // Original fast path - zero allocation, identical to pre-Director
+    // behavior for every caller that doesn't pass a live directorMult.
+    let total = ZOMBIE_TYPE_BASE_WEIGHT_TOTAL
+    if (featuredId !== null && featuredMult !== 1) {
+      const featured = ZOMBIE_TYPES[featuredId]
+      if (featured) total += featured.weight * (featuredMult - 1)
+    }
+    let roll = Math.random() * total
+    for (const t of ZOMBIE_TYPE_ENTRIES) {
+      roll -= t.id === featuredId ? t.weight * featuredMult : t.weight
+      if (roll <= 0) return t
+    }
+    return ZOMBIE_TYPE_ENTRIES[0]
+  }
+
+  let total = 0
+  const weights = new Array(ZOMBIE_TYPE_ENTRIES.length)
+  for (let i = 0; i < ZOMBIE_TYPE_ENTRIES.length; i++) {
+    const t = ZOMBIE_TYPE_ENTRIES[i]
+    let w = t.id === featuredId ? t.weight * featuredMult : t.weight
+    const z = THREAT_SCORES.get(t.id) || 0
+    w *= Math.max(0.15, Math.min(3, 1 + pressureBias * z * DIRECTOR_TYPE_BIAS_STRENGTH))
+    weights[i] = w
+    total += w
   }
   let roll = Math.random() * total
-  for (const t of ZOMBIE_TYPE_ENTRIES) {
-    roll -= t.id === featuredId ? t.weight * featuredMult : t.weight
-    if (roll <= 0) return t
+  for (let i = 0; i < ZOMBIE_TYPE_ENTRIES.length; i++) {
+    roll -= weights[i]
+    if (roll <= 0) return ZOMBIE_TYPE_ENTRIES[i]
   }
   return ZOMBIE_TYPE_ENTRIES[0]
 }

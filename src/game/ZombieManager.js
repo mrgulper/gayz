@@ -843,7 +843,7 @@ export class ZombieManager {
   }
 
   _spawnRandom() {
-    const type = pickZombieType(this.featuredEnemyId, FEATURED_ENEMY_WEIGHT_MULT)
+    const type = pickZombieType(this.featuredEnemyId, FEATURED_ENEMY_WEIGHT_MULT, this.directorMult)
     const isAmbush = type.burrower || (!type.ranged && Math.random() < this.ambushChance)
 
     const radiusMin = type.burrower ? BURROWER_RADIUS_MIN : this.hordeMode ? HORDE_SPAWN_RADIUS_MIN : (isAmbush ? AMBUSH_RADIUS_MIN : SPAWN_RADIUS_MIN)

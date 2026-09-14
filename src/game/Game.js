@@ -1925,6 +1925,12 @@ const DIRECTOR_EVAL_INTERVAL_MS = 5000
 const DIRECTOR_MIN_MULT = 0.6
 const DIRECTOR_MAX_MULT = 1.35
 const DIRECTOR_KILL_WINDOW_MS = 30000
+// Ammo as a mercy signal (see _updateDirectorAI) - a fraction of TOTAL
+// ammo capacity across every unlocked gun (mag + reserve, melee excluded)
+// rather than a flat round count, so it scales with whatever loadout is
+// actually equipped instead of being tuned around one specific gun's
+// numbers (a Minigun's "low" is a Pistol's "way more than full").
+const DIRECTOR_LOW_AMMO_FRACTION = 0.1
 const ADRENALINE_DURATION_MS = 8000
 const ADRENALINE_SPEED_MULT = 1.5
 const ADRENALINE_FIRE_RATE_MULT = 1.4
@@ -16264,6 +16270,19 @@ export class Game {
     const lowResources = this.inventory.healthPacks === 0 && this.inventory.armorPacks === 0
     const recentKills = this.recentKillTimestamps.length
 
+    // Ammo as a mercy signal (see DIRECTOR_LOW_AMMO_FRACTION's own comment) -
+    // a player scraping the bottom of every gun's reserve is in real
+    // trouble even at full health, and wasn't reflected by lowResources
+    // above (that only tracks health/armor pack inventory, not ammo).
+    let totalAmmo = 0
+    let totalAmmoCapacity = 0
+    for (const w of this.weapons.weapons) {
+      if (w.melee || !w.unlocked) continue
+      totalAmmo += (w.ammoInMag || 0) + (w.ammoReserve || 0)
+      totalAmmoCapacity += (w.magSize || 0) + (w.reserve || 0)
+    }
+    const criticallyLowAmmo = totalAmmoCapacity > 0 && totalAmmo / totalAmmoCapacity <= DIRECTOR_LOW_AMMO_FRACTION
+
     let score = 0
     if (healthPct < 0.3) score -= 0.45
     else if (healthPct > 0.75) score += 0.1
@@ -16275,6 +16294,7 @@ export class Game {
     else if (secsSinceHit > 25) score += 0.25
 
     if (lowResources) score -= 0.15
+    if (criticallyLowAmmo) score -= 0.2
 
     score += Math.min(0.25, recentKills * 0.03)
 
