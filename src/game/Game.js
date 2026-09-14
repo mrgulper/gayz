@@ -12767,10 +12767,12 @@ export class Game {
   // lastSettingsTab is excluded on purpose - it's written on every single
   // tab click (see the .settings-tab handler), so without this exclusion
   // just browsing tabs (with zero real settings touched) would flag it as
-  // a "change," popping this banner in and out as you click around and,
-  // since it sits outside .settings-page's fixed height, making the whole
-  // panel-box visibly resize tab to tab - not an actual change a player
-  // would want "Undo All Changes" to revert anyway.
+  // a "change." A REAL change (language, a slider, etc.) still legitimately
+  // shows this banner - #settings-status-row/#recently-changed-list.show
+  // (style.css) reserve fixed space for it via visibility rather than
+  // display:none, so the panel-box itself never resizes either way (it
+  // used to - a language switch, which touches settings.language/
+  // quickLanguageAlt, made the whole panel visibly grow).
   _renderRecentlyChangedList() {
     if (!this.recentlyChangedList || !this._settingsOpenSnapshot) return
     const before = JSON.parse(this._settingsOpenSnapshot)
@@ -12778,10 +12780,10 @@ export class Game {
       .filter((k) => k !== 'lastSettingsTab')
       .filter((k) => JSON.stringify(this.settings[k]) !== JSON.stringify(before[k]))
     if (!changed.length) {
-      this.recentlyChangedList.style.display = 'none'
+      this.recentlyChangedList.classList.remove('show')
       return
     }
-    this.recentlyChangedList.style.display = ''
+    this.recentlyChangedList.classList.add('show')
     this.recentlyChangedList.innerHTML = `<p>${t('recentlyChangedLabel', { list: changed.join(', ') })}</p><button id="undo-settings-session-btn" class="mini-action-btn" type="button">${t('undoSettingsBtn')}</button>`
     document.getElementById('undo-settings-session-btn')?.addEventListener('click', () => this._undoSettingsSession())
   }
