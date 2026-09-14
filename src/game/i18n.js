@@ -20,8 +20,8 @@ export const LANGUAGES = [
   // block yet (falls back to English everywhere, same as any other
   // language would with zero keys), added when someone actually
   // translates them.
-  { code: 'pt-BR', name: 'Brazilian Portuguese', native: 'Português (Brasil)' },
   { code: 'it', name: 'Italian', native: 'Italiano' },
+  { code: 'pt-BR', name: 'Brazilian Portuguese', native: 'Português (Brasil)' },
 ]
 
 const STRINGS = {
