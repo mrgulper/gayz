@@ -6658,7 +6658,11 @@ html.ui-theme-old #settings-btn {
   border-image-slice: 90;
   border-image-width: 24px;
   border-image-repeat: stretch;
-  background: rgba(10, 8, 4, 0.5);
+  /* background-color, not the `background` shorthand - the .ui-theme-old
+     override below only wants to swap the color, and `background: ...`
+     there would silently reset every other background sub-property
+     (including background-clip just below) back to its initial value. */
+  background-color: rgba(10, 8, 4, 0.5);
   /* Without this, the background paints the full border-box by default -
      wherever the border-image's own texture has thin/transparent pixels
      (corners, gaps in the ornate engraving), this tint bleeds through and
@@ -6671,7 +6675,7 @@ html.ui-theme-old #settings-btn {
 
 html.ui-theme-old #menu-player-badge {
   border-image-source: url('/images/old-profile-frame.webp');
-  background: rgba(21, 15, 9, 0.5);
+  background-color: rgba(21, 15, 9, 0.5);
 }
 
 #menu-player-badge:hover,
