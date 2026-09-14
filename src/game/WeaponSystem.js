@@ -41,6 +41,22 @@ const TRACER_UP = new THREE.Vector3(0, 1, 0)
 const TRACER_LIFETIME_MS = 80
 const TRACER_MAX_RANGE = 60
 const MAX_TRACERS = 20
+// Bullet Penetration - a hit-scan shot no longer just stops dead at the
+// first thing it touches. It punches through anything "thin" (a wooden
+// fence, a utility mast) with a damage penalty and keeps going, up to
+// PENETRATION_MAX_OBJECTS deep, instead of treating a flimsy fence exactly
+// like a concrete wall. "Thin" is decided per-object from its own geometry
+// (see _isPenetrable) rather than hand-tagging every wall/fence across
+// World.js's ~80 filler locations - a fence wall is built 0.15 units thick,
+// a real room wall 0.3 (see ROOM_WALL_THICKNESS in World.js), so the
+// threshold sits cleanly between them.
+const PENETRATION_MAX_THICKNESS = 0.22
+// Excludes the ground plane and any other flat horizontal slab (whose own
+// thin dimension is its height, not a wall-like thickness) from ever
+// counting as penetrable, without needing to tag it specially.
+const PENETRATION_MIN_HEIGHT = 0.5
+const PENETRATION_DAMAGE_MULT = 0.55
+const PENETRATION_MAX_OBJECTS = 2
 // Shell ejection - a tiny brass-colored box, not a real casing model (this
 // project has no such asset), tossed sideways-and-up from the muzzle then
 // pulled down by a flat fake gravity constant and rotated for tumble. Reuses
@@ -649,6 +665,9 @@ export class WeaponSystem {
     this.aimFov = camera.fov * 0.6
     this._lerpedViewmodelPos = new THREE.Vector3()
     this._hitNormal = new THREE.Vector3()
+    // Bullet Penetration (see PENETRATION_MAX_THICKNESS's own comment) -
+    // reused scratch vector for _isPenetrable's geometry size check.
+    this._penetrationSize = new THREE.Vector3()
     // Bullet tracers - capped, oldest-evicted array of short-lived streak
     // meshes (see _spawnTracer/_updateTracers), same shape as Decals.js's
     // puddle/decal arrays. Each tracer gets its own material instance (never
@@ -1457,6 +1476,21 @@ export class WeaponSystem {
     this.viewmodelRoot.rotation.z = (inspectAmt > 0 ? Math.sin(this._time * 0.35 + 1) * 0.04 * inspectAmt : 0) + swingSweep * 0.25
   }
 
+  // Bullet Penetration (see PENETRATION_MAX_THICKNESS's own comment) - only
+  // ever called on a non-target collider hit (a wall/fence/prop), never on
+  // zombie/rival meshes. Measures the object's own geometry rather than
+  // requiring every wall/fence in World.js to be hand-tagged as thin.
+  _isPenetrable(object) {
+    const geo = object.geometry
+    if (!geo) return false
+    if (!geo.boundingBox) geo.computeBoundingBox()
+    const size = geo.boundingBox.getSize(this._penetrationSize)
+    const sx = size.x * object.scale.x
+    const sy = size.y * object.scale.y
+    const sz = size.z * object.scale.z
+    return sy >= PENETRATION_MIN_HEIGHT && Math.min(sx, sz) <= PENETRATION_MAX_THICKNESS
+  }
+
   _fire() {
     const w = this.current
     this.timeSinceLastShot = 0
@@ -1560,21 +1594,68 @@ export class WeaponSystem {
           }
         }
       }
+      // Bullet Penetration (see PENETRATION_MAX_THICKNESS's own comment) -
+      // walk the sorted hit list instead of only ever looking at hits[0],
+      // skipping past thin colliders (fences, thin masts) up to
+      // PENETRATION_MAX_OBJECTS deep. Melee never penetrates - a knife
+      // swing stops at the first thing in range same as always. Running
+      // out of hits while still under the cap (the shot punched through
+      // everything in its way and found nothing beyond) leaves resolvedHit
+      // null, same as a clean miss.
+      let resolvedHit = null
+      let penetrationMult = 1
+      if (w.melee) {
+        resolvedHit = hits.length > 0 ? hits[0] : null
+      } else {
+        let penetrations = 0
+        // A single box registers as TWO hits (entry face + exit face) -
+        // track already-punched-through objects so the exit face of a
+        // fence we just penetrated doesn't get counted as a second,
+        // separate penetration against the same physical object.
+        const penetratedObjects = this._penetratedObjects || (this._penetratedObjects = new Set())
+        penetratedObjects.clear()
+        for (const h of hits) {
+          if (penetratedObjects.has(h.object)) continue
+          // Anything with its own hit-reaction (a zombie/rival, or one of
+          // the interactive props below) always stops the shot here, even
+          // if it happens to be geometrically thin (the practice dummy's
+          // board is built exactly fence-thickness) - penetration only
+          // ever skips past genuinely inert scenery.
+          const ud = h.object.userData
+          const isTarget = ud.zombie || ud.rival || ud.explosive || ud.practiceTarget ||
+            ud.adjustableDummy || ud.destructibleWall || ud.breakableGlass || ud.scaffolding || ud.tacticalLight
+          if (!isTarget && penetrations < PENETRATION_MAX_OBJECTS && this._isPenetrable(h.object)) {
+            // Punched through - still leaves a mark, just doesn't stop here.
+            if (this.onHitSurface) {
+              if (h.face) this._hitNormal.copy(h.face.normal).transformDirection(h.object.matrixWorld).normalize()
+              else this._hitNormal.set(0, 1, 0)
+              this.onHitSurface(h.point, this._hitNormal, false)
+            }
+            penetratedObjects.add(h.object)
+            penetrations += 1
+            penetrationMult *= PENETRATION_DAMAGE_MULT
+            continue
+          }
+          resolvedHit = h
+          break
+        }
+      }
+
       // Tracer - only the first pellet gets one (a shotgun's other 7 would
       // just read as clutter), and it's spawned whether or not this pellet
       // actually connects, so a miss still visibly flies off into the distance.
       if (i === 0 && !w.melee) {
         const origin = this.muzzleLight.getWorldPosition(new THREE.Vector3())
-        const end = hits.length > 0
-          ? hits[0].point.clone()
+        const end = resolvedHit
+          ? resolvedHit.point.clone()
           : this.raycaster.ray.origin.clone().addScaledVector(this.raycaster.ray.direction, TRACER_MAX_RANGE)
         this._spawnTracer(origin, end, RARITY_TRACER_COLORS[w.rarityTier] ?? w.muzzleColor ?? DEFAULT_MUZZLE_COLOR)
       }
-      if (hits.length === 0) continue
-      if (w.melee && hits[0].distance > w.range) continue
+      if (!resolvedHit) continue
+      if (w.melee && resolvedHit.distance > w.range) continue
 
       anyHit = true
-      const hit = hits[0]
+      const hit = resolvedHit
       if (w.melee) meleeHitPoint = hit.point
 
       // Rocket Launcher (see w.explosive) - the impact point (whatever it
@@ -1602,7 +1683,7 @@ export class WeaponSystem {
       // a squad member racing for an airdrop).
       const rivalHit = hit.object.userData.rival
       if (rivalHit) {
-        rivalHit.onHit(w.damage * this.damageMult * w.rarityMult * w.masteryMult * w.upgradeMult)
+        rivalHit.onHit(w.damage * this.damageMult * w.rarityMult * w.masteryMult * w.upgradeMult * penetrationMult)
         if (this.onZombieHit) this.onZombieHit()
       }
 
@@ -1617,8 +1698,11 @@ export class WeaponSystem {
           existing.distance = Math.min(existing.distance, hit.distance)
           existing.headshot = existing.headshot || isHeadshot
           existing.legShot = existing.legShot || isLegShot
+          // Worst-case (most-penetrated) mult wins if different pellets from
+          // the same shot reached this zombie through different paths.
+          existing.penetrationMult = Math.min(existing.penetrationMult, penetrationMult)
         } else {
-          hitZombies.set(zombieHit, { count: 1, distance: hit.distance, headshot: isHeadshot, legShot: isLegShot })
+          hitZombies.set(zombieHit, { count: 1, distance: hit.distance, headshot: isHeadshot, legShot: isLegShot, penetrationMult })
         }
         // Leg shot - weakens (slows) rather than dealing bonus damage, a
         // tradeoff pick against aiming for the headshot bonus instead.
@@ -1753,7 +1837,7 @@ export class WeaponSystem {
           const t = THREE.MathUtils.clamp((info.distance - nearDist) / (farDist - nearDist), 0, 1)
           perHitDamage = THREE.MathUtils.lerp(near, far, t)
         }
-        let damage = perHitDamage * info.count * this.damageMult * w.rarityMult * w.masteryMult * w.upgradeMult
+        let damage = perHitDamage * info.count * this.damageMult * w.rarityMult * w.masteryMult * w.upgradeMult * (info.penetrationMult ?? 1)
         // Headshot bonus (see HEADSHOT_HEIGHT_RATIO's own note) and melee
         // combo bonus (see _fire's melee branch) - both flat multipliers,
         // stack with each other and with everything else above.
