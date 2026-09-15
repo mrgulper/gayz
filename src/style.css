@@ -9402,7 +9402,7 @@ html.ui-theme-old #settings-panel h2 {
   overflow-y: auto;
   /* Firefox */
   scrollbar-width: thin;
-  scrollbar-color: rgba(227, 166, 60, 0.4) transparent;
+  scrollbar-color: rgba(227, 166, 60, 0.6) transparent;
 }
 
 /* Chrome/Safari default to a stark white scrollbar track+thumb that clashes
@@ -9479,7 +9479,7 @@ html.ui-theme-old #settings-panel h2 {
 #menu-boards,
 .build-picker-grid {
   scrollbar-width: thin;
-  scrollbar-color: rgba(227, 166, 60, 0.4) transparent;
+  scrollbar-color: rgba(227, 166, 60, 0.6) transparent;
 }
 
 #profile-panel::-webkit-scrollbar,
@@ -9539,7 +9539,7 @@ html.ui-theme-old #settings-panel h2 {
 #profile-activity-list::-webkit-scrollbar-thumb,
 #menu-boards::-webkit-scrollbar-thumb,
 .build-picker-grid::-webkit-scrollbar-thumb {
-  background: rgba(227, 166, 60, 0.35);
+  background: rgba(227, 166, 60, 0.6);
   border-radius: 4px;
 }
 
@@ -9560,7 +9560,7 @@ html.ui-theme-old #settings-panel h2 {
 #profile-activity-list::-webkit-scrollbar-thumb:hover,
 #menu-boards::-webkit-scrollbar-thumb:hover,
 .build-picker-grid::-webkit-scrollbar-thumb:hover {
-  background: rgba(227, 166, 60, 0.55);
+  background: rgba(227, 166, 60, 0.8);
 }
 
 .language-grid {
