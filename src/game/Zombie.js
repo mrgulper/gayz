@@ -179,6 +179,16 @@ const HEALTH_BAR_H = 10
 // future posture gets the same treatment automatically.
 const HEAD_HEIGHT_LOCAL = 2.05
 const HEAD_HEIGHT_LOCAL_CRAWLER = 0.85
+// Frustum-culling fix (see this.group.traverse's own comment near the
+// _buildBody() call in the constructor) - local-space padding added to
+// each mesh's bounding sphere radius, deliberately generous (a standing
+// character's own reference height, HEAD_HEIGHT_LOCAL above, is ~2.05) so
+// it comfortably covers a raised arm or a wide attack swing rather than
+// being tuned to the smallest value that happens to pass a manual test.
+// Being oversized costs nothing but very slightly later culling of a
+// zombie that's already miles outside the frustum; being undersized
+// brings back the exact popping bug this exists to fix.
+const ZOMBIE_BOUNDING_SPHERE_PADDING = 1.2
 // Weapon-fire hit detection (docs/PERFORMANCE.md follow-up, 2026-09-10) -
 // raycasting straight against the GLB zombie's real SkinnedMesh body parts
 // measured at ~2.5ms EACH (CPU-side bone skinning has to run before the
@@ -597,21 +607,36 @@ export class Zombie {
 
     this._buildBody()
 
-    // Three.js frustum-culls a mesh using its geometry's bounding sphere
-    // computed once from the REST/bind pose, then just translated by the
-    // mesh's world transform - it does NOT grow to cover where an animated
-    // SkinnedMesh's limbs actually swing to each frame. A zombie standing
-    // near the edge of the camera's view (constantly happening in tight
-    // building interiors and doorways, per the report this fix responds
-    // to) can have that fixed-size sphere's center flip in/out of the
-    // frustum from ordinary camera turning, popping the whole zombie in
-    // and out of existence even though it's genuinely on screen. Disabling
-    // frustum culling per-mesh is the same fix already used for bullet-hole/
-    // footprint decals (Decals.js) for an analogous reason - zombie count
-    // is always small and bounded, so the always-render cost is negligible
-    // next to eliminating a real visibility bug.
+    // Root cause of zombies popping in/out near doorways/corners: Three.js
+    // frustum-culls a mesh using its geometry's bounding sphere computed
+    // once from the REST/bind pose, then just translated by the mesh's
+    // world transform - it never grows to cover where an animated
+    // SkinnedMesh's limbs actually swing to mid-animation (a raised arm,
+    // a wide attack swing, a running stride). That fixed, too-small sphere
+    // can genuinely fall outside the frustum for a limb that's really on
+    // screen, and its center flips in/out from ordinary camera turning in
+    // a tight interior, popping the WHOLE zombie even though part of it is
+    // visible. An earlier pass fixed this by disabling frustum culling per
+    // mesh (frustumCulled = false, matching Decals.js's own bullet-hole/
+    // footprint fix) - that works, but throws away the real optimization:
+    // every zombie gets a full frustum-vs-camera test skipped every frame,
+    // genuinely-offscreen zombies included, not just the ones actually near
+    // an edge case. Fixed at the real root instead: inflate the geometry's
+    // own bounding sphere radius by a fixed safety margin at construction
+    // time, generous enough to cover any pose this rig's animations
+    // actually reach, so the frustum test stays correct (and still culls
+    // zombies that are genuinely far outside view) instead of being turned
+    // off. Applied once per distinct geometry (guarded via userData - GLB
+    // zombies share one cached geometry across every clone of that type,
+    // see _buildBodyFromGLB's own comment, so this must not compound every
+    // time a new instance of an already-padded type spawns).
     this.group.traverse((obj) => {
-      if (obj.isMesh) obj.frustumCulled = false
+      if (!obj.isMesh || !obj.geometry) return
+      const geo = obj.geometry
+      if (geo.userData.__frustumPadded) return
+      if (!geo.boundingSphere) geo.computeBoundingSphere()
+      if (geo.boundingSphere) geo.boundingSphere.radius += ZOMBIE_BOUNDING_SPHERE_PADDING
+      geo.userData.__frustumPadded = true
     })
 
     // GLB scale correction applied at this.group, not inside the GLB clone
