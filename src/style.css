@@ -8232,6 +8232,19 @@ html.ui-theme-old #menu-nav-buttons button {
     padding: 12px 16px;
   }
 
+  /* Old theme's base override (padding:15px 26px, see its own comment)
+     has higher specificity than every plain #menu-nav-buttons button
+     rule in this file, so none of the responsive shrink tiers below
+     ever reached it on their own - the column stayed at full size while
+     Golden's shrank, breaking the zero-scroll budget under Old theme
+     specifically. Matching Golden's value at each tier (rather than a
+     scaled-down version of Old's own extra clearance) fixes that; the
+     plaque-art clearance the base padding exists for matters far less
+     once everything's already shrunk this far. */
+  html.ui-theme-old #menu-nav-buttons button {
+    padding: 12px 16px;
+  }
+
   #menu-player-tag {
     font-size: 15px;
   }
@@ -8308,6 +8321,14 @@ html.ui-theme-old #menu-nav-buttons button {
   }
 
   #menu-nav-buttons button {
+    padding: 9px 20px;
+    font-size: 14px;
+  }
+
+  /* Same fix as the 960px tier above - Old theme's base padding override
+     otherwise never shrinks, and this is the exact tier tuned for
+     1366x768 (see this block's own comment above). */
+  html.ui-theme-old #menu-nav-buttons button {
     padding: 9px 20px;
     font-size: 14px;
   }
@@ -8518,6 +8539,12 @@ html.ui-theme-old #menu-nav-buttons button {
   }
 
   #menu-nav-buttons button {
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+
+  /* Same fix as the two taller tiers above. */
+  html.ui-theme-old #menu-nav-buttons button {
     padding: 8px 16px;
     font-size: 13px;
   }
