@@ -7555,27 +7555,27 @@ html.ui-theme-old #menu-player-tag {
   justify-content: center;
   gap: 8px;
   /* Was plain static text, popping in fully-formed the instant the page's
-     anti-flash script (index.html) paints it - visually jarring next to
-     #setup-avatar-canvas below, which fades in from opacity:0 once the
-     real avatar is ready (see MenuAvatar3D.js's reveal()). The anti-flash
-     script still runs first and gets the *content* right immediately (no
-     placeholder-name flash) - this only delays how it visually appears,
-     purely cosmetic, so the two elements settle in with a similar feel
-     instead of one popping and one fading. */
+     anti-flash script (index.html) paints it - visible well before
+     #setup-avatar-canvas below, which stays at opacity:0 until the real
+     avatar is actually ready (MenuAvatar3D.js's reveal() - can take up to
+     its own 600ms safety cap, longer if Game.js's constructor is still
+     mid-preload). A first attempt gave this its own fixed-timer CSS fade
+     instead, but that still finished before the avatar most of the time,
+     so the name kept showing alone anyway - just fading in instead of
+     popping. Fixed for real by having Game.js pass a reveal callback into
+     this player's own MenuAvatar3D instance (see its constructor) that
+     flips this to opacity:1 at the exact same moment the avatar does,
+     with the same transition duration, so name and avatar always appear
+     together as one unit - never one before the other. The anti-flash
+     script still sets the correct *text* synchronously first; this only
+     ever delays how it visually appears. */
   opacity: 0;
-  animation: nicknameFadeIn 0.35s ease 0.15s forwards;
-}
-
-@keyframes nicknameFadeIn {
-  to {
-    opacity: 1;
-  }
+  transition: opacity 0.15s ease;
 }
 
 @media (prefers-reduced-motion: reduce) {
   #player-showcase-header {
-    animation: none;
-    opacity: 1;
+    transition: none;
   }
 }
 

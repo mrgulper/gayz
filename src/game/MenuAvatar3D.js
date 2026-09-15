@@ -311,7 +311,7 @@ const CHAR_HALF_WIDTH = 8.5
 const CHAR_FIT_MARGIN = 0.85 // leaves ~15% breathing room on whichever axis is tightest
 
 export class MenuAvatar3D {
-  constructor(canvas, skin) {
+  constructor(canvas, skin, onReveal) {
     this.canvas = canvas
     // Hidden until the first real setSkin() call (see reveal()/setSkin()
     // below) - the very first character built a few lines down is always
@@ -323,6 +323,14 @@ export class MenuAvatar3D {
     canvas.style.opacity = '0'
     canvas.style.transition = 'opacity 0.15s ease'
     this._revealed = false
+    // Optional - the Player Setup instance uses this to fade the nickname
+    // header in at the exact same moment as the character, instead of the
+    // header showing on its own fixed timer while the character (which can
+    // legitimately take up to the 600ms cap below, or longer than that if
+    // Game.js's own constructor is still mid-preload) is still blank. The
+    // shop-skin-preview instance passes nothing, and reveal() just no-ops
+    // the callback as normal.
+    this._onReveal = onReveal
     setTimeout(() => this.reveal(), 600)
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -386,6 +394,7 @@ export class MenuAvatar3D {
     if (this._revealed) return
     this._revealed = true
     this.canvas.style.opacity = '1'
+    if (this._onReveal) this._onReveal()
   }
 
   // Click-and-drag to spin on the vertical axis only (horizontal drag

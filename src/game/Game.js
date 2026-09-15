@@ -3974,7 +3974,10 @@ export class Game {
     this.menuAvatarPhoto = document.getElementById('menu-avatar-photo')
     this.setupAvatarCanvas = document.getElementById('setup-avatar-canvas')
     if (this.setupAvatarCanvas) {
-      this._menuAvatar3D = new MenuAvatar3D(this.setupAvatarCanvas)
+      const showcaseHeader = document.getElementById('player-showcase-header')
+      this._menuAvatar3D = new MenuAvatar3D(this.setupAvatarCanvas, null, () => {
+        if (showcaseHeader) showcaseHeader.style.opacity = '1'
+      })
       this._menuAvatar3D.start()
     }
     // The Profile panel used to show this same live 3D character again in
