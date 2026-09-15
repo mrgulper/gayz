@@ -969,15 +969,23 @@ export function saveSettings(settings) {
   // a flicker.
   const panel = document.getElementById('settings-panel')
   const indicator = document.getElementById('settings-saved-indicator')
-  if (panel && indicator && getComputedStyle(panel).display !== 'none') {
-    indicator.classList.add('show')
-    clearTimeout(_settingsSavedPulseTimer)
-    _settingsSavedPulseTimer = setTimeout(() => indicator.classList.remove('show'), 1200)
+  if (panel && indicator && getComputedStyle(panel).display !== 'none' && window.__game) {
     // Recently Changed / Undo - reuses window.__game (see the constructor's
     // own comment on why it's set) since this is a standalone function
     // with no `this` of its own, to live-update the diff on every change
-    // while the panel is actually open.
-    if (window.__game) window.__game._renderRecentlyChangedList()
+    // while the panel is actually open. Its own diff already excludes
+    // lastSettingsTab (written on every tab click, not a real change) -
+    // reusing that same result here means clicking between tabs with
+    // nothing actually changed no longer pulses "Saved" either, which it
+    // used to (this indicator had no way to know a save was "just the tab
+    // bookkeeping" until now, even after that exclusion was added to the
+    // list below it).
+    const hasRealChange = window.__game._renderRecentlyChangedList()
+    if (hasRealChange) {
+      indicator.classList.add('show')
+      clearTimeout(_settingsSavedPulseTimer)
+      _settingsSavedPulseTimer = setTimeout(() => indicator.classList.remove('show'), 1200)
+    }
   }
 }
 
@@ -12966,19 +12974,31 @@ export class Game {
   // display:none, so the panel-box itself never resizes either way (it
   // used to - a language switch, which touches settings.language/
   // quickLanguageAlt, made the whole panel visibly grow).
+  // Returns whether anything real actually changed - saveSettings() (Game.js
+  // module scope, above the class) reuses this to decide whether its own
+  // "Saved" pulse indicator is warranted, so the two never disagree about
+  // what counts as a real change.
   _renderRecentlyChangedList() {
-    if (!this.recentlyChangedList || !this._settingsOpenSnapshot) return
+    if (!this.recentlyChangedList || !this._settingsOpenSnapshot) return false
     const before = JSON.parse(this._settingsOpenSnapshot)
     const changed = Object.keys(this.settings)
       .filter((k) => k !== 'lastSettingsTab')
       .filter((k) => JSON.stringify(this.settings[k]) !== JSON.stringify(before[k]))
     if (!changed.length) {
       this.recentlyChangedList.classList.remove('show')
-      return
+      return false
     }
     this.recentlyChangedList.classList.add('show')
-    this.recentlyChangedList.innerHTML = `<p>${t('recentlyChangedLabel', { list: changed.join(', ') })}</p><button id="undo-settings-session-btn" class="mini-action-btn" type="button">${t('undoSettingsBtn')}</button>`
+    // Raw camelCase setting keys (exactLastSeen, hudScale, ...) read as a
+    // developer's own field name, not a sentence - capitalizing just the
+    // first letter (ExactLastSeen) is a one-line, no-translation-needed
+    // way to make the list read a little more like a real label without
+    // needing a display-name lookup table kept in sync with 150+ settings
+    // keys.
+    const displayList = changed.map((k) => k.charAt(0).toUpperCase() + k.slice(1)).join(', ')
+    this.recentlyChangedList.innerHTML = `<p>${t('recentlyChangedLabel', { list: displayList })}</p><button id="undo-settings-session-btn" class="mini-action-btn" type="button">${t('undoSettingsBtn')}</button>`
     document.getElementById('undo-settings-session-btn')?.addEventListener('click', () => this._undoSettingsSession())
+    return true
   }
 
   // Reverts every field back to the snapshot from when Settings was
