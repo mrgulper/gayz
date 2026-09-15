@@ -12221,7 +12221,26 @@ export class Game {
       CloudSaveUI.renderCloudSaveState(this)
       this._renderProfileAccountRow()
 
-      const cloud = await CloudSync.fetchCloudSave(uid)
+      // Reported directly: signing in on a second device sometimes showed
+      // fresh/reset stats instead of the real cloud save, with no conflict
+      // prompt - meaning fetchCloudSave came back empty for an account that
+      // demonstrably HAD one (confirmed synced on the first device already).
+      // Couldn't reproduce a bad read against the real backend in isolation
+      // (a direct write-then-read round trip, including tearing down and
+      // rebuilding the Firestore connection mid-test, always came back
+      // correctly) - most likely a transient hiccup right after a fresh
+      // sign-in (network blip, or the first Firestore request racing the
+      // brand new auth token) rather than a deterministic bug in this
+      // logic. Since a false "empty" here is destructive - falling through
+      // to pushToCloud would silently overwrite the real cloud save with
+      // this device's blank one - retrying a couple of times before
+      // believing "no save exists" is cheap insurance against exactly that,
+      // regardless of whether this was ever fully root-caused.
+      let cloud = await CloudSync.fetchCloudSave(uid)
+      for (let attempt = 0; !cloud && attempt < 2; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 800))
+        cloud = await CloudSync.fetchCloudSave(uid)
+      }
       if (!cloud) {
         // First time signing in on any device - nothing to compare against,
         // just push this device's save up.
