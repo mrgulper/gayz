@@ -597,6 +597,23 @@ export class Zombie {
 
     this._buildBody()
 
+    // Three.js frustum-culls a mesh using its geometry's bounding sphere
+    // computed once from the REST/bind pose, then just translated by the
+    // mesh's world transform - it does NOT grow to cover where an animated
+    // SkinnedMesh's limbs actually swing to each frame. A zombie standing
+    // near the edge of the camera's view (constantly happening in tight
+    // building interiors and doorways, per the report this fix responds
+    // to) can have that fixed-size sphere's center flip in/out of the
+    // frustum from ordinary camera turning, popping the whole zombie in
+    // and out of existence even though it's genuinely on screen. Disabling
+    // frustum culling per-mesh is the same fix already used for bullet-hole/
+    // footprint decals (Decals.js) for an analogous reason - zombie count
+    // is always small and bounded, so the always-render cost is negligible
+    // next to eliminating a real visibility bug.
+    this.group.traverse((obj) => {
+      if (obj.isMesh) obj.frustumCulled = false
+    })
+
     // GLB scale correction applied at this.group, not inside the GLB clone
     // itself - scaling a shared ancestor of both a SkinnedMesh and its own
     // skeleton bones double-applies in Three.js's skinning math (confirmed
