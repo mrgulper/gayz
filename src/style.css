@@ -6659,6 +6659,17 @@ html.theme-lighter #app { filter: brightness(1.25); }
   opacity: 0.85;
 }
 
+/* Weapon Gear Guide / Special Ammo Guide's own "Coming Soon" lines,
+   specifically - requested directly to read gold like the rest of these
+   two guide panels, rather than the plain .menu-hint-line olive shared
+   by unrelated hints elsewhere (mute-in-chat, touch-controls-reload,
+   recommended-difficulty) that weren't asked to change. */
+#weapon-gear-guide-hint,
+#ammo-guide-hint {
+  color: var(--menu-gold, #d9bc4a);
+  opacity: 0.85;
+}
+
 /* Shared small button style for compact homepage actions (Continue
    card's Play Again/Share, Loadout Presets' Save Setup/chips) - a
    smaller, lower-emphasis sibling of .difficulty-btn rather than a new
@@ -9405,12 +9416,12 @@ html.ui-theme-old #settings-panel h2 {
 }
 
 .settings-page::-webkit-scrollbar-thumb {
-  background: rgba(227, 166, 60, 0.35);
+  background: rgba(227, 166, 60, 0.6);
   border-radius: 4px;
 }
 
 .settings-page::-webkit-scrollbar-thumb:hover {
-  background: rgba(227, 166, 60, 0.55);
+  background: rgba(227, 166, 60, 0.8);
 }
 
 /* Universal gold scrollbar (standing rule, 2026-08-26 - Gaymi asked for
@@ -9424,7 +9435,7 @@ html.ui-theme-old #settings-panel h2 {
    still wins where one already exists - this only fills gaps. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(227, 166, 60, 0.4) transparent;
+  scrollbar-color: rgba(227, 166, 60, 0.6) transparent;
 }
 
 *::-webkit-scrollbar {
@@ -9436,12 +9447,12 @@ html.ui-theme-old #settings-panel h2 {
 }
 
 *::-webkit-scrollbar-thumb {
-  background: rgba(227, 166, 60, 0.35);
+  background: rgba(227, 166, 60, 0.6);
   border-radius: 4px;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: rgba(227, 166, 60, 0.55);
+  background: rgba(227, 166, 60, 0.8);
 }
 
 /* Same gold scrollbar as .settings-page above, applied to every other
