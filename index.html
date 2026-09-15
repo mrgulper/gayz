@@ -560,7 +560,7 @@ Escape before dawn.</p>
             <nav id="menu-nav-buttons">
               <button id="hub-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="19" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="5" cy="19" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none"/><circle cx="19" cy="19" r="1.5" fill="currentColor" stroke="none"/></svg>
-                <span>Hub</span>
+                <span>General</span>
               </button>
               <button id="coinshop-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/><path d="M2 3h2l2.4 12.4a2 2 0 0 0 2 1.6h8.6a2 2 0 0 0 2-1.6L21 7H6"/></svg>
@@ -584,7 +584,7 @@ Escape before dawn.</p>
               </button>
               <button id="friends-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                <span>Friend List</span>
+                <span>Friends</span>
                 <span class="nav-badge-dot gold" id="friends-accepted-dot" style="display: none"></span>
                 <span class="nav-badge-dot" id="friends-request-dot" style="display: none"></span>
               </button>
@@ -602,6 +602,27 @@ Escape before dawn.</p>
                 <span>Map Editor</span>
               </button>
             </nav>
+            <script>
+              // Anti-flash: applies the saved Nav Order immediately, before
+              // Game.js's real constructor (and everything it does first -
+              // preload, world build, etc.) ever gets to _applyNavOrder().
+              // Without this, a player who customized their nav order saw
+              // the 8 buttons render in their raw default HTML order for a
+              // moment, then visibly jump to their real saved order once
+              // Game.js caught up - same flash class, same fix pattern, as
+              // the theme/nickname/avatar anti-flash scripts elsewhere in
+              // this file. Only sets the CSS `order` style directly (exactly
+              // what _applyNavOrder() itself does), so Game.js's own later
+              // call is a harmless no-op re-application once it runs.
+              try {
+                var __n = JSON.parse(localStorage.getItem('gayz-settings') || 'null')
+                var __order = Array.isArray(__n && __n.navOrder) && __n.navOrder.length === 8 ? __n.navOrder : ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn']
+                __order.forEach(function (id, i) {
+                  var btn = document.getElementById(id)
+                  if (btn) btn.style.order = i
+                })
+              } catch (e) {}
+            </script>
 
             <div id="menu-boards">
               <div id="menu-bossrush-leaderboard" style="display: none"></div>
@@ -1556,7 +1577,7 @@ Escape before dawn.</p>
 
       <div id="hub-panel">
         <div class="panel-box">
-        <h2 id="hub-panel-title">Hub</h2>
+        <h2 id="hub-panel-title">General</h2>
         <div id="hub-content">
           <div class="hub-tabs">
             <button class="hub-tab active" data-hub-page="survival" id="hub-tab-survival">Zombie Survival</button>
@@ -2607,7 +2628,7 @@ Escape before dawn.</p>
           <p>A live, server-wide total-zombies-killed count that ticks up with everyone's runs.</p>
         </div>
         <div class="feature">
-          <h3>Friend List</h3>
+          <h3>Friends</h3>
           <p>Add by player ID, real-time friend requests, a saved-friends list, live Friend Compare, and an online/idle/DND/offline status dropdown with last-seen time.</p>
         </div>
         <div class="feature">
@@ -2991,6 +3012,7 @@ Escape before dawn.</p>
           <div id="whatsnew-content">
             <p id="build-version-line"></p>
           <div id="changelog-list">
+            <div class="changelog-entry"><span class="changelog-date">Sep 14, 2026</span><span class="changelog-text">Cleaned up a few things that flashed or jumped on page load: the "General" nav button briefly said "Hub" before correcting itself, and if you'd custom-reordered your nav buttons they'd briefly show in the default order before jumping to yours. Both now show correctly from the first frame. Also renamed "Friend List" to just "Friends", and your name now gently fades in alongside your character on load instead of popping in as plain text.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 14, 2026</span><span class="changelog-text">Found and fixed the real cause of "the game feels laggy": the first time you ever saw a given zombie type, weapon, or chest in a session, your graphics driver had to freeze for a moment (up to a full second on some machines) to prepare it - not a steady slowdown, random stutters scattered through play. Now that prep happens invisibly during the loading screen, before you ever click Play, instead of mid-fight.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 14, 2026</span><span class="changelog-text">Tightened the baseline zombie-crowd culling and how far away chests stay fully detailed (chests turned out to be surprisingly heavy models for how small they are) - both apply for everyone, not just in Performance Mode.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 14, 2026</span><span class="changelog-text">The game already had a fallback that automatically switches you to Performance Mode if your FPS is genuinely struggling - it just needed frame rates to stay under 25fps for 3 straight seconds with zero good frames in between, which real-world stuttery performance rarely does (it fluctuates). Loosened it to trigger off a sustained trend under 35fps instead of demanding a perfectly unbroken streak, so it actually catches real struggling performance instead of almost never firing.</span></div>
@@ -3279,7 +3301,7 @@ Escape before dawn.</p>
 
       <div id="friends-panel">
         <div class="panel-box">
-          <h2 id="friends-panel-title">Friend List</h2>
+          <h2 id="friends-panel-title">Friends</h2>
           <div id="friends-signed-out">
             <p id="friends-signed-out-desc">Sign in with Google (via Cloud Save) to compare stats with friends.</p>
             <button id="friends-signin-btn">Sign in with Google</button>

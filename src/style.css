@@ -7554,6 +7554,29 @@ html.ui-theme-old #menu-player-tag {
   align-items: center;
   justify-content: center;
   gap: 8px;
+  /* Was plain static text, popping in fully-formed the instant the page's
+     anti-flash script (index.html) paints it - visually jarring next to
+     #setup-avatar-canvas below, which fades in from opacity:0 once the
+     real avatar is ready (see MenuAvatar3D.js's reveal()). The anti-flash
+     script still runs first and gets the *content* right immediately (no
+     placeholder-name flash) - this only delays how it visually appears,
+     purely cosmetic, so the two elements settle in with a similar feel
+     instead of one popping and one fading. */
+  opacity: 0;
+  animation: nicknameFadeIn 0.35s ease 0.15s forwards;
+}
+
+@keyframes nicknameFadeIn {
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #player-showcase-header {
+    animation: none;
+    opacity: 1;
+  }
 }
 
 /* Wraps title + clan name so the clan line stacks above the nickname
