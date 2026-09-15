@@ -320,18 +320,31 @@ export class MenuAvatar3D {
     // swaps in read as "the old character flashes on reload." A capped
     // safety timeout guarantees it becomes visible either way, even if
     // whatever call site was supposed to setSkin() never does.
+    //
+    // Measured directly (console timestamps, both localhost and prod): this
+    // timeout is never actually what's limiting how long reveal() takes to
+    // fire - Game.js's own constructor is one long synchronous call with no
+    // real awaits of its own, so nothing scheduled during it (a setTimeout
+    // here, the real setSkin() promise resolving) can run until that whole
+    // constructor returns control to the browser, whichever finishes "last"
+    // among them. Measured gap between "constructor returns" and "reveal()
+    // fires" was under 10ms in both environments - this number was already
+    // irrelevant on slower loads and only mattered on a fast one, where it
+    // used to force an unnecessary wait up to its own value even after
+    // everything was already ready. Lowered from 600 so a fast/warm-cache
+    // load doesn't pay for it.
     canvas.style.opacity = '0'
     canvas.style.transition = 'opacity 0.15s ease'
     this._revealed = false
     // Optional - the Player Setup instance uses this to fade the nickname
     // header in at the exact same moment as the character, instead of the
-    // header showing on its own fixed timer while the character (which can
-    // legitimately take up to the 600ms cap below, or longer than that if
-    // Game.js's own constructor is still mid-preload) is still blank. The
+    // header showing on its own fixed timer while the character is still
+    // blank. In practice both are really gated on Game.js's own constructor
+    // finishing (see the timeout comment above), not on anything here. The
     // shop-skin-preview instance passes nothing, and reveal() just no-ops
     // the callback as normal.
     this._onReveal = onReveal
-    setTimeout(() => this.reveal(), 600)
+    setTimeout(() => this.reveal(), 200)
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
