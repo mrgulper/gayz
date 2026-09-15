@@ -2090,6 +2090,53 @@ body.reduce-flashing #critical-blood-overlay.show {
   color: rgba(238, 238, 238, 0.4);
 }
 
+/* Every <input type="color"> in Settings (damage flash, crosshair,
+   nickname, companion, companion name, accent, Play button colors) had
+   no styling at all - just the browser's bare native color well sitting
+   in an otherwise fully-themed dark panel. Outer box matches
+   .nickname-input's dark-with-gold-border look; the ::-webkit- pseudo-
+   elements below target the swatch itself (Chrome/Edge/Safari - the
+   overwhelming majority of players here), removing its own default
+   inset border so it reads as one clean swatch instead of a box-in-a-box.
+   Firefox has no equivalent pseudo-elements to target, so it falls back
+   to the plain themed outer box only - acceptable, not broken. */
+#damage-flash-color-input,
+#crosshair-color-picker,
+#nickname-color-picker,
+#companion-color-picker,
+#companion-name-color-picker,
+#accent-color-picker,
+#play-btn-color-picker {
+  width: 36px;
+  height: 28px;
+  padding: 2px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(227, 166, 60, 0.4);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+#damage-flash-color-input::-webkit-color-swatch-wrapper,
+#crosshair-color-picker::-webkit-color-swatch-wrapper,
+#nickname-color-picker::-webkit-color-swatch-wrapper,
+#companion-color-picker::-webkit-color-swatch-wrapper,
+#companion-name-color-picker::-webkit-color-swatch-wrapper,
+#accent-color-picker::-webkit-color-swatch-wrapper,
+#play-btn-color-picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+#damage-flash-color-input::-webkit-color-swatch,
+#crosshair-color-picker::-webkit-color-swatch,
+#nickname-color-picker::-webkit-color-swatch,
+#companion-color-picker::-webkit-color-swatch,
+#companion-name-color-picker::-webkit-color-swatch,
+#accent-color-picker::-webkit-color-swatch,
+#play-btn-color-picker::-webkit-color-swatch {
+  border: none;
+  border-radius: 3px;
+}
+
 /* Base dark styling for every <select> in the app - without this, a
    select with no id-specific rule falls back to the browser's plain
    white dropdown chrome, which stands out badly against this game's
@@ -5370,6 +5417,15 @@ html.ui-theme-old #share-panel-title {
   }
 }
 
+#clear-cache-btn,
+#export-keybinds-btn,
+#import-keybinds-btn,
+#reset-audio-defaults-btn,
+#reset-controls-defaults-btn,
+#copy-save-btn,
+#export-settings-code-btn,
+#import-settings-code-btn,
+#reset-graphics-defaults-btn,
 #perk-skip-btn,
 #perk-reroll-btn,
 #prestige-btn,
