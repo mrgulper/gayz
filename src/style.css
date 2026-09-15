@@ -6748,6 +6748,17 @@ html.theme-lighter #app { filter: brightness(1.25); }
   align-items: center;
   gap: 2px;
   padding-top: 2px;
+  /* Pins the hero column (title/Play/etc.) to the top of #menu-layout's
+     row instead of #menu-layout's own align-items:center vertically
+     centering it against whichever sidebar column happens to be
+     tallest. The Old theme's 'Rye' display font renders noticeably
+     taller than Golden's for the same nav/checklist text, so without
+     this the whole hero block (logo + Play button, moving together)
+     visibly dropped ~50px lower under Old theme - not a hero-specific
+     size/position rule, just centered against a taller row. Top-aligning
+     removes the dependency on sibling height entirely instead of trying
+     to match the two fonts' metrics. */
+  align-self: start;
 }
 
 /* Reserved space for future ad slots, flanking Play/Game Mode - no ad
