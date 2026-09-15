@@ -7522,6 +7522,32 @@ html.ui-theme-old #menu-player-badge {
   image-rendering: pixelated;
 }
 
+/* Reported directly: a brand-new account can sit on the anonymous
+   silhouette for several real seconds (measured ~5s on one test) before
+   _updateMenuAvatarPhoto's face crop is ready, since that depends on the
+   same heavy synchronous constructor as everything else on this page -
+   see the shader-warmup/reveal-timing investigation elsewhere this
+   session for why nothing async here can resolve faster than the whole
+   page does. Making it resolve faster needs that same bigger fix; this
+   is the smaller, honest one - a slow pulse so the placeholder reads as
+   "loading," not "broken," while it waits. Removed via .loading being
+   stripped the moment either the anti-flash script (index.html, cached
+   face) or _updateMenuAvatarPhoto (Game.js, freshly rendered face) sets
+   the real photo - whichever gets there first. */
+#menu-avatar-photo.loading {
+  animation: avatarPhotoLoadingPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes avatarPhotoLoadingPulse {
+  50% { opacity: 0.45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #menu-avatar-photo.loading {
+    animation: none;
+  }
+}
+
 #menu-avatar-level {
   position: absolute;
   bottom: -6px;

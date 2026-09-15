@@ -516,7 +516,7 @@ Escape before dawn.</p>
           <div id="menu-col-right">
             <div id="menu-player-badge" role="button" tabindex="0" aria-label="Open profile">
               <div id="menu-avatar-icon">
-                <img id="menu-avatar-photo" src="/images/avatar-anonymous.png" alt="" draggable="false" />
+                <img id="menu-avatar-photo" class="loading" src="/images/avatar-anonymous.png" alt="" draggable="false" />
                 <span id="menu-avatar-level">1</span>
               </div>
               <span id="menu-player-name-row">
@@ -552,7 +552,10 @@ Escape before dawn.</p>
                 var face = localStorage.getItem('gayz-avatar-face-cache')
                 if (face) {
                   var photo = document.getElementById('menu-avatar-photo')
-                  if (photo) photo.src = face
+                  if (photo) {
+                    photo.src = face
+                    photo.classList.remove('loading')
+                  }
                 }
               } catch (e) {}
             </script>
@@ -616,7 +619,7 @@ Escape before dawn.</p>
               // call is a harmless no-op re-application once it runs.
               try {
                 var __n = JSON.parse(localStorage.getItem('gayz-settings') || 'null')
-                var __order = Array.isArray(__n && __n.navOrder) && __n.navOrder.length === 8 ? __n.navOrder : ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'quests-btn', 'friends-btn', 'menu-inventory-btn', 'achievements-btn']
+                var __order = Array.isArray(__n && __n.navOrder) && __n.navOrder.length === 8 ? __n.navOrder : ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'menu-inventory-btn', 'quests-btn', 'friends-btn', 'achievements-btn']
                 __order.forEach(function (id, i) {
                   var btn = document.getElementById(id)
                   if (btn) btn.style.order = i
