@@ -12281,8 +12281,30 @@ export class Game {
       await CloudSaveUI.pushToCloud(this, false)
       return
     }
-    this._cloudPendingConflict = cloud.data
-    CloudSaveUI.renderCloudConflict(this, cloud.data)
+    // Same account should read the same everywhere, automatically -
+    // requiring a manual "cloud or local" pick on every single sign-in
+    // was exactly the confusing step this whole investigation kept
+    // running into. Auto-apply the cloud save directly UNLESS this
+    // device already has real progress of its own that a silent
+    // overwrite would actually lose - in that one case, still show the
+    // same compare-and-choose prompt as before rather than discarding a
+    // device someone's genuinely been playing on without asking.
+    if (this._hasMeaningfulLocalProgress()) {
+      this._cloudPendingConflict = cloud.data
+      CloudSaveUI.renderCloudConflict(this, cloud.data)
+    } else {
+      CloudSaveUI.applyCloudSaveData(this, cloud.data)
+    }
+  }
+
+  // See _afterCloudSignIn's own comment - the one condition under which a
+  // fresh sign-in still asks before overwriting local with cloud. Cheap
+  // real-progress signals only (not exhaustive) - a device that's never
+  // actually been played on genuinely has nothing worth protecting.
+  _hasMeaningfulLocalProgress() {
+    return _safeStatNumber(this.careerStats.totalKills) > 0
+      || _safeStatNumber(this.bestStats.bestNight) > 0
+      || (Array.isArray(this.runHistory) && this.runHistory.length > 0)
   }
 
   // Shows a short side-by-side comparison (same safe-parse-untrusted-JSON

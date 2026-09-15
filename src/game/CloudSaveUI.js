@@ -187,18 +187,26 @@ export function renderCloudConflict(game, data) {
   if (game.cloudsaveUseLocalBtn) game.cloudsaveUseLocalBtn.textContent = t('cloudsaveUseLocalBtn')
 }
 
+// Firebase Auth's own session lives in IndexedDB, not localStorage, so it
+// survives _applyImportedSaveData's localStorage.clear() on its own - no
+// need to manually re-inject an account marker the way the earlier
+// Drive-based design had to. Just carry the sync timestamp forward so the
+// status line doesn't flash back to "Not synced yet" for one frame after
+// reload. Shared by resolveCloudConflict's "use cloud" choice and
+// Game.js's _afterCloudSignIn auto-apply path (same account should read
+// the same on every device without needing this picked manually every
+// time - see that function's own comment for when it still asks first).
+export function applyCloudSaveData(game, data) {
+  const stamped = { ...data, [CLOUD_LAST_SYNC_KEY]: String(Date.now()) }
+  game._applyImportedSaveData(stamped)
+}
+
 export function resolveCloudConflict(game, choice) {
   if (!game._cloudPendingConflict) return
   if (choice === 'cloud') {
-    // Firebase Auth's own session lives in IndexedDB, not localStorage, so
-    // it survives _applyImportedSaveData's localStorage.clear() on its own
-    // - no need to manually re-inject an account marker the way the
-    // earlier Drive-based design had to. Just carry the sync timestamp
-    // forward so the status line doesn't flash back to "Not synced yet"
-    // for one frame after reload.
-    const data = { ...game._cloudPendingConflict, [CLOUD_LAST_SYNC_KEY]: String(Date.now()) }
+    const data = game._cloudPendingConflict
     game._cloudPendingConflict = null
-    game._applyImportedSaveData(data)
+    applyCloudSaveData(game, data)
   } else {
     game._cloudPendingConflict = null
     if (game.cloudsaveConflict) game.cloudsaveConflict.style.display = 'none'
