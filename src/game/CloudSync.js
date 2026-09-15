@@ -377,10 +377,32 @@ async function ensureApp() {
   return appPromise
 }
 
-export async function signIn() {
+// Redirect-based, not signInWithPopup - a real report of sign-in silently
+// failing (auth/popup-closed-by-user, auth/network-request-failed) traced
+// back to the popup itself: a popup window is exactly what ad blockers,
+// privacy extensions, and third-party-cookie restrictions most commonly
+// interfere with, since it depends on the popup and the opener window
+// talking to each other across origins. A redirect never opens a second
+// window at all - the whole tab navigates to Google and back - so that
+// entire failure class doesn't apply to it. The tradeoff is real: this
+// function no longer returns a result directly (the page navigates away
+// before Google ever responds), so the caller has to pick the result back
+// up after the page reloads - see checkRedirectResult() below, called once
+// on every load.
+export async function beginSignIn() {
   const { auth, authMod } = await ensureApp()
   const provider = new authMod.GoogleAuthProvider()
-  const result = await authMod.signInWithPopup(auth, provider)
+  await authMod.signInWithRedirect(auth, provider)
+}
+
+// Call once per page load (before anything else touches auth) to pick up
+// the result of a beginSignIn() redirect that just came back. Resolves to
+// null on a completely ordinary load with no pending redirect - not an
+// error, getRedirectResult() itself defines "nothing to report" that way.
+export async function checkRedirectResult() {
+  const { auth, authMod } = await ensureApp()
+  const result = await authMod.getRedirectResult(auth)
+  if (!result) return null
   const user = result.user
   return { uid: user.uid, profile: { name: user.displayName, email: user.email, picture: user.photoURL } }
 }

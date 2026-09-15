@@ -10371,6 +10371,7 @@ export class Game {
     this.coinshopBtn.addEventListener('click', () => trackAndOpen(() => this._openShopPanel()))
     this._bindHomepageBatch()
     CloudSaveUI.bindCloudSave(this)
+    this._checkCloudRedirectResult()
     this._startPresenceHeartbeat()
     this._checkBeatThisChallenge()
     this._checkViewProfileLink()
@@ -12203,6 +12204,26 @@ export class Game {
     CloudSync.incrementGlobalKills(_safeStatNumber(this.kills)).catch(() => {})
   }
 
+  // Reported directly: signing in on a second device sometimes showed
+  // fresh/reset stats instead of the real cloud save, with no conflict
+  // prompt. Root-caused via real error codes captured from the actual
+  // failure (auth/popup-closed-by-user, auth/network-request-failed,
+  // both repeatable on a real device): signInWithPopup's popup window is
+  // exactly what ad blockers, privacy extensions, and third-party-cookie
+  // restrictions most commonly break, since it depends on the popup and
+  // the opener window successfully talking to each other across origins.
+  // When that silently fails, the player is just left looking at their
+  // own device's never-synced local state (fresh stats) - nothing was
+  // actually overwritten, sign-in just never completed. Switched to
+  // signInWithRedirect (CloudSync.beginSignIn/checkRedirectResult) - the
+  // whole tab navigates to Google and back instead of opening a second
+  // window, so that entire failure class doesn't apply. This is now two
+  // separate entry points instead of one: _handleCloudSignIn starts the
+  // redirect (the page navigates away, nothing after beginSignIn() in
+  // this function ever runs in the success case) and
+  // _checkCloudRedirectResult picks the result back up on the next load.
+  // Both funnel into _afterCloudSignIn, which is the original fetch/retry/
+  // conflict logic unchanged.
   async _handleCloudSignIn() {
     if (!CloudSync.isConfigured()) {
       this._showLoreToast(t('cloudsaveNotConfigured'))
@@ -12210,49 +12231,58 @@ export class Game {
     }
     if (this.cloudsaveSigninBtn) this.cloudsaveSigninBtn.textContent = t('cloudsaveConnecting')
     try {
-      const { uid, profile } = await CloudSync.signIn()
-      // _restoreCloudSession's onAuthChange listener will also fire from
-      // this same sign-in and set _cloudProfile/_cloudUid again - setting
-      // them here too just means the very next lines (fetchCloudSave)
-      // don't have to wait a tick for that callback to run first.
-      this._cloudProfile = profile
-      this._cloudUid = uid
-      CloudSaveUI.updateCloudQuickIcon(this, true)
-      CloudSaveUI.renderCloudSaveState(this)
-      this._renderProfileAccountRow()
-
-      // Reported directly: signing in on a second device sometimes showed
-      // fresh/reset stats instead of the real cloud save, with no conflict
-      // prompt - meaning fetchCloudSave came back empty for an account that
-      // demonstrably HAD one (confirmed synced on the first device already).
-      // Couldn't reproduce a bad read against the real backend in isolation
-      // (a direct write-then-read round trip, including tearing down and
-      // rebuilding the Firestore connection mid-test, always came back
-      // correctly) - most likely a transient hiccup right after a fresh
-      // sign-in (network blip, or the first Firestore request racing the
-      // brand new auth token) rather than a deterministic bug in this
-      // logic. Since a false "empty" here is destructive - falling through
-      // to pushToCloud would silently overwrite the real cloud save with
-      // this device's blank one - retrying a couple of times before
-      // believing "no save exists" is cheap insurance against exactly that,
-      // regardless of whether this was ever fully root-caused.
-      let cloud = await CloudSync.fetchCloudSave(uid)
-      for (let attempt = 0; !cloud && attempt < 2; attempt++) {
-        await new Promise((resolve) => setTimeout(resolve, 800))
-        cloud = await CloudSync.fetchCloudSave(uid)
-      }
-      if (!cloud) {
-        // First time signing in on any device - nothing to compare against,
-        // just push this device's save up.
-        await CloudSaveUI.pushToCloud(this, false)
-        return
-      }
-      this._cloudPendingConflict = cloud.data
-      CloudSaveUI.renderCloudConflict(this, cloud.data)
+      await CloudSync.beginSignIn()
     } catch (err) {
-      this._showLoreToast(t('cloudsaveError'))
+      this._showLoreToast(err && err.code === 'auth/network-request-failed' ? t('cloudsaveNetworkError') : t('cloudsaveError'))
       CloudSaveUI.renderCloudSaveState(this)
     }
+  }
+
+  // Called once per page load (see its call site near CloudSaveUI.bindCloudSave)
+  // to pick up a beginSignIn() redirect that just came back. A no-op on
+  // every ordinary load - checkRedirectResult() resolves null when there's
+  // no pending redirect to report, which is the overwhelmingly common case.
+  async _checkCloudRedirectResult() {
+    if (!CloudSync.isConfigured()) return
+    try {
+      const result = await CloudSync.checkRedirectResult()
+      if (!result) return
+      await this._afterCloudSignIn(result.uid, result.profile)
+    } catch (err) {
+      this._showLoreToast(err && err.code === 'auth/network-request-failed' ? t('cloudsaveNetworkError') : t('cloudsaveError'))
+      CloudSaveUI.renderCloudSaveState(this)
+    }
+  }
+
+  async _afterCloudSignIn(uid, profile) {
+    // _restoreCloudSession's onAuthChange listener will also fire from
+    // this same sign-in and set _cloudProfile/_cloudUid again - setting
+    // them here too just means the very next lines (fetchCloudSave)
+    // don't have to wait a tick for that callback to run first.
+    this._cloudProfile = profile
+    this._cloudUid = uid
+    CloudSaveUI.updateCloudQuickIcon(this, true)
+    CloudSaveUI.renderCloudSaveState(this)
+    this._renderProfileAccountRow()
+
+    // Retry safeguard (kept from the earlier investigation, still cheap
+    // insurance regardless of the popup/redirect root cause above): a
+    // false "empty" here is destructive - falling through to pushToCloud
+    // would silently overwrite a real cloud save with this device's blank
+    // one - so don't believe "no save exists" off a single fetch.
+    let cloud = await CloudSync.fetchCloudSave(uid)
+    for (let attempt = 0; !cloud && attempt < 2; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 800))
+      cloud = await CloudSync.fetchCloudSave(uid)
+    }
+    if (!cloud) {
+      // First time signing in on any device - nothing to compare against,
+      // just push this device's save up.
+      await CloudSaveUI.pushToCloud(this, false)
+      return
+    }
+    this._cloudPendingConflict = cloud.data
+    CloudSaveUI.renderCloudConflict(this, cloud.data)
   }
 
   // Shows a short side-by-side comparison (same safe-parse-untrusted-JSON
