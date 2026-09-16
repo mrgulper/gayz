@@ -5462,6 +5462,7 @@ html.ui-theme-old #share-panel-title {
 #pause-spectate-btn,
 #pause-weapon-btn,
 #pause-invite-btn,
+#pause-save-exit-btn,
 #multiplayer-create-btn,
 #multiplayer-join-btn,
 #multiplayer-start-playing-btn,
@@ -5542,6 +5543,7 @@ html.ui-theme-old #share-panel-title {
 #pause-spectate-btn:hover,
 #pause-weapon-btn:hover,
 #pause-invite-btn:hover,
+#pause-save-exit-btn:hover,
 #multiplayer-create-btn:hover,
 #multiplayer-join-btn:hover,
 #multiplayer-start-playing-btn:hover {
