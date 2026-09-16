@@ -377,32 +377,22 @@ async function ensureApp() {
   return appPromise
 }
 
-// Redirect-based, not signInWithPopup - a real report of sign-in silently
-// failing (auth/popup-closed-by-user, auth/network-request-failed) traced
-// back to the popup itself: a popup window is exactly what ad blockers,
-// privacy extensions, and third-party-cookie restrictions most commonly
-// interfere with, since it depends on the popup and the opener window
-// talking to each other across origins. A redirect never opens a second
-// window at all - the whole tab navigates to Google and back - so that
-// entire failure class doesn't apply to it. The tradeoff is real: this
-// function no longer returns a result directly (the page navigates away
-// before Google ever responds), so the caller has to pick the result back
-// up after the page reloads - see checkRedirectResult() below, called once
-// on every load.
-export async function beginSignIn() {
+// Popup-based, not signInWithRedirect - the redirect version (tried
+// 2026-09-15) bounces the tab through 3 origins (this app -> Google ->
+// gayz-aa69c.firebaseapp.com's auth handler -> back to this app), and
+// Chrome's bounce-tracking mitigation can wipe the middle origin's storage
+// mid-chain, silently breaking the handoff with no error at all - reported
+// as "I can sign in but Friends/Global never notice." A popup keeps
+// everything in one cross-origin window instead of a chained top-level
+// redirect, so that failure class doesn't apply. Popup has its own known
+// (smaller, visible-not-silent) risk - ad blockers/privacy extensions
+// breaking the popup<->opener channel, surfaced as a real caught error
+// code (auth/popup-closed-by-user, auth/network-request-failed) rather
+// than a silent no-op - see _handleCloudSignIn's error toast in Game.js.
+export async function signIn() {
   const { auth, authMod } = await ensureApp()
   const provider = new authMod.GoogleAuthProvider()
-  await authMod.signInWithRedirect(auth, provider)
-}
-
-// Call once per page load (before anything else touches auth) to pick up
-// the result of a beginSignIn() redirect that just came back. Resolves to
-// null on a completely ordinary load with no pending redirect - not an
-// error, getRedirectResult() itself defines "nothing to report" that way.
-export async function checkRedirectResult() {
-  const { auth, authMod } = await ensureApp()
-  const result = await authMod.getRedirectResult(auth)
-  if (!result) return null
+  const result = await authMod.signInWithPopup(auth, provider)
   const user = result.user
   return { uid: user.uid, profile: { name: user.displayName, email: user.email, picture: user.photoURL } }
 }

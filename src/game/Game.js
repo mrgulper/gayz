@@ -10461,7 +10461,6 @@ export class Game {
     this.coinshopBtn.addEventListener('click', () => trackAndOpen(() => this._openShopPanel()))
     this._bindHomepageBatch()
     CloudSaveUI.bindCloudSave(this)
-    this._checkCloudRedirectResult()
     this._startPresenceHeartbeat()
     this._checkBeatThisChallenge()
     this._checkViewProfileLink()
@@ -12294,26 +12293,15 @@ export class Game {
     CloudSync.incrementGlobalKills(_safeStatNumber(this.kills)).catch(() => {})
   }
 
-  // Reported directly: signing in on a second device sometimes showed
-  // fresh/reset stats instead of the real cloud save, with no conflict
-  // prompt. Root-caused via real error codes captured from the actual
-  // failure (auth/popup-closed-by-user, auth/network-request-failed,
-  // both repeatable on a real device): signInWithPopup's popup window is
-  // exactly what ad blockers, privacy extensions, and third-party-cookie
-  // restrictions most commonly break, since it depends on the popup and
-  // the opener window successfully talking to each other across origins.
-  // When that silently fails, the player is just left looking at their
-  // own device's never-synced local state (fresh stats) - nothing was
-  // actually overwritten, sign-in just never completed. Switched to
-  // signInWithRedirect (CloudSync.beginSignIn/checkRedirectResult) - the
-  // whole tab navigates to Google and back instead of opening a second
-  // window, so that entire failure class doesn't apply. This is now two
-  // separate entry points instead of one: _handleCloudSignIn starts the
-  // redirect (the page navigates away, nothing after beginSignIn() in
-  // this function ever runs in the success case) and
-  // _checkCloudRedirectResult picks the result back up on the next load.
-  // Both funnel into _afterCloudSignIn, which is the original fetch/retry/
-  // conflict logic unchanged.
+  // Popup-based (see CloudSync.signIn's own comment for why the
+  // redirect version tried 2026-09-15 got reverted the same day: Chrome's
+  // bounce-tracking mitigation can silently wipe the Firebase auth
+  // handler's storage mid-redirect, with no error at all - confirmed live
+  // via a "Chrome may soon delete state for intermediate websites in a
+  // recent navigation chain" DevTools warning during the actual failure).
+  // Popup's own known risk (ad blockers/privacy extensions breaking the
+  // popup<->opener channel) at least surfaces as a real caught error code
+  // below instead of a silent no-op.
   async _handleCloudSignIn() {
     if (!CloudSync.isConfigured()) {
       this._showLoreToast(t('cloudsaveNotConfigured'))
@@ -12321,23 +12309,8 @@ export class Game {
     }
     if (this.cloudsaveSigninBtn) this.cloudsaveSigninBtn.textContent = t('cloudsaveConnecting')
     try {
-      await CloudSync.beginSignIn()
-    } catch (err) {
-      this._showLoreToast(err && err.code === 'auth/network-request-failed' ? t('cloudsaveNetworkError') : t('cloudsaveError'))
-      CloudSaveUI.renderCloudSaveState(this)
-    }
-  }
-
-  // Called once per page load (see its call site near CloudSaveUI.bindCloudSave)
-  // to pick up a beginSignIn() redirect that just came back. A no-op on
-  // every ordinary load - checkRedirectResult() resolves null when there's
-  // no pending redirect to report, which is the overwhelmingly common case.
-  async _checkCloudRedirectResult() {
-    if (!CloudSync.isConfigured()) return
-    try {
-      const result = await CloudSync.checkRedirectResult()
-      if (!result) return
-      await this._afterCloudSignIn(result.uid, result.profile)
+      const { uid, profile } = await CloudSync.signIn()
+      await this._afterCloudSignIn(uid, profile)
     } catch (err) {
       this._showLoreToast(err && err.code === 'auth/network-request-failed' ? t('cloudsaveNetworkError') : t('cloudsaveError'))
       CloudSaveUI.renderCloudSaveState(this)
