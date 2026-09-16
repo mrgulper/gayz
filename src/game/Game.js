@@ -6751,9 +6751,16 @@ export class Game {
     if (
       this.screenshotCropOpen || this.perkPanelOpen || this.xpLevelupPanelOpen || this.traderPanelOpen || this.inventoryOpen ||
       this.settingsOpen ||
-      (this.upgradesPanel && this.upgradesPanel.style.display !== 'none') ||
-      (this.weaponPickerPanel && this.weaponPickerPanel.style.display !== 'none') ||
-      (this.multiplayerPanel && this.multiplayerPanel.style.display !== 'none')
+      // Checking for the actual open value ('flex') rather than "isn't
+      // literally 'none'" - a panel that's never been opened even once in
+      // this session has an empty inline style (''), which the inverse
+      // check misread as "open," permanently swallowing Escape/pause for
+      // any player whose session never happens to touch one of these 3
+      // panels (e.g. Continue Run skips the weapon picker entirely on
+      // purpose - resuming a saved run doesn't need re-picking a loadout).
+      (this.upgradesPanel && this.upgradesPanel.style.display === 'flex') ||
+      (this.weaponPickerPanel && this.weaponPickerPanel.style.display === 'flex') ||
+      (this.multiplayerPanel && this.multiplayerPanel.style.display === 'flex')
     ) {
       // handled by whichever panel is open
     } else if (this.gameStarted) {
