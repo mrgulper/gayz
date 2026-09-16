@@ -4078,7 +4078,8 @@ section.category.hidden-search {
 #pause-overlay,
 #journal-panel,
 #screenshot-crop-overlay,
-#quit-confirm-overlay {
+#quit-confirm-overlay,
+#settings-info-overlay {
   position: absolute;
   inset: 0;
   z-index: 15;
@@ -4130,10 +4131,19 @@ html.ui-theme-old #menu-inventory-panel,
 html.ui-theme-old #server-panel,
 html.ui-theme-old #xp-levelup-panel,
 html.ui-theme-old #weapon-picker-panel,
+/* Settings Info always opens FROM the already-open Settings panel
+   (also z-index 15) - needs to win over it regardless of DOM order,
+   same "opened from something else, must always come out on top"
+   reasoning as #settings-panel's own z-index comment. */
+#settings-info-overlay {
+  z-index: 16;
+}
+
 html.ui-theme-old #pause-overlay,
 html.ui-theme-old #journal-panel,
 html.ui-theme-old #screenshot-crop-overlay,
-html.ui-theme-old #quit-confirm-overlay {
+html.ui-theme-old #quit-confirm-overlay,
+html.ui-theme-old #settings-info-overlay {
   background:
     radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.6) 100%),
     var(--grain-texture),
@@ -4449,7 +4459,8 @@ html.ui-theme-old #quit-confirm-overlay {
 #clan-panel-title,
 #multiplayer-panel-title,
 #share-panel-title,
-#quit-confirm-title {
+#quit-confirm-title,
+#settings-info-title {
   margin: 0;
   /* Doubled from 15px per request - this is the title shown right after
      opening any of these panels (Hub, Store, Achievements, etc.), not
@@ -4484,7 +4495,8 @@ html.ui-theme-old #journal-panel-title,
 html.ui-theme-old #clan-panel-title,
 html.ui-theme-old #multiplayer-panel-title,
 html.ui-theme-old #share-panel-title,
-html.ui-theme-old #quit-confirm-title {
+html.ui-theme-old #quit-confirm-title,
+html.ui-theme-old #settings-info-title {
   font-family: 'Rye', Georgia, serif;
   color: #c2a06e;
   opacity: 1;
@@ -5474,7 +5486,8 @@ html.ui-theme-old #quit-confirm-title {
 #screenshot-crop-full,
 #screenshot-crop-cancel,
 #share-run-card-btn,
-#quit-confirm-cancel-btn {
+#quit-confirm-cancel-btn,
+#settings-info-close-btn {
   margin-top: 6px;
   padding: 8px 20px;
   font-size: 13px;
@@ -5512,6 +5525,45 @@ html.ui-theme-old #quit-confirm-title {
   text-align: center;
   font-size: 14px;
   color: rgba(255, 255, 255, 0.75);
+}
+
+/* Settings Info popup body - wider than quit-confirm-text since these
+   are meant to be genuinely detailed explanations, not a one-line
+   warning. */
+#settings-info-text {
+  margin: 0;
+  max-width: 480px;
+  padding: 0 20px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* The small "?" icon that sits at the end of a settings row (see
+   .audio-row's 3-column grid - this lands in the existing 3rd column
+   most rows already leave empty). Deliberately plain/small so a row of
+   these doesn't compete visually with the actual controls next to
+   them - discoverable, not decorative. */
+.settings-info-btn {
+  justify-self: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid rgba(227, 194, 60, 0.5);
+  background: transparent;
+  color: var(--menu-gold, #e3c23c);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.7;
+  transition: opacity 0.15s ease, border-color 0.15s ease;
+}
+.settings-info-btn:hover {
+  opacity: 1;
+  border-color: var(--menu-gold, #e3c23c);
 }
 
 #screenshot-crop-hint {
@@ -5579,7 +5631,8 @@ html.ui-theme-old #quit-confirm-title {
 #multiplayer-create-btn:hover,
 #multiplayer-join-btn:hover,
 #multiplayer-start-playing-btn:hover,
-#quit-confirm-cancel-btn:hover {
+#quit-confirm-cancel-btn:hover,
+#settings-info-close-btn:hover {
   border-color: rgba(255, 255, 255, 0.5);
 }
 
