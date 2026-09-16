@@ -473,7 +473,7 @@ Escape before dawn.</p>
               <div class="ad-square-placeholder" id="ad-square-left"><span>Ad space</span></div>
               <div id="hero-play-buttons">
                 <button id="play-btn">Play</button>
-                <button id="continue-run-btn" style="visibility: hidden" disabled>Continue Run</button>
+                <button id="continue-run-btn" style="display: none" disabled>Continue Run</button>
                 <button id="gamemode-btn">Game Mode</button>
               </div>
               <div class="ad-square-placeholder" id="ad-square-right"><span>Ad space</span></div>
@@ -3016,6 +3016,7 @@ Escape before dawn.</p>
           <div id="whatsnew-content">
             <p id="build-version-line"></p>
           <div id="changelog-list">
+            <div class="changelog-entry"><span class="changelog-date">Sep 15, 2026</span><span class="changelog-text">Play and Game Mode sit flush together again on the homepage - Continue Run being single-use means it's hidden almost all the time, so it no longer holds open a permanent gap for the rare moment it's there.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 15, 2026</span><span class="changelog-text">Fixed Escape/pause not working at all after using Continue Run - it skips the weapon-picker screen on purpose (resuming keeps your saved loadout), but that screen never having opened this session was confusing the pause menu into thinking it was still up, silently blocking Escape for the rest of the session.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 15, 2026</span><span class="changelog-text">Fixed the Profile panel's "Created" line looking like it reset after signing out - it now uses your real Google account creation date while signed in (the same on every device, forever), and only falls back to this device's own timer while signed out.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 15, 2026</span><span class="changelog-text">Fixed Google Sign-In silently failing to complete for most players (you'd sign in but Friends/Global Chat kept asking again) - caused by Chrome's newer anti-tracking protections breaking the sign-in method added earlier today. Switched back to the more reliable method.</span></div>

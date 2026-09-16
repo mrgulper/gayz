@@ -19064,13 +19064,14 @@ export class Game {
   // fresh on every render.
   _refreshContinueRunButton() {
     if (!this.continueRunBtn) return
-    // visibility, not display - keeps this button's row permanently
-    // reserved in #hero-play-buttons' flex column so Game Mode/the
-    // settings gear below it never shift position depending on whether
-    // a saved run exists. disabled alongside it so a hidden button can't
-    // be tabbed to or triggered.
+    // display, not visibility - a saved run is single-use and gets
+    // consumed the moment Continue Run is clicked, so this is hidden the
+    // overwhelming majority of the time. Play/Game Mode sit flush
+    // together with no reserved gap in that common case, at the cost of
+    // Game Mode shifting down briefly on the rare occasion a saved run
+    // actually exists - an accepted tradeoff given how rarely that's true.
     const exists = !!loadSavedRun()
-    this.continueRunBtn.style.visibility = exists ? 'visible' : 'hidden'
+    this.continueRunBtn.style.display = exists ? '' : 'none'
     this.continueRunBtn.disabled = !exists
   }
 
