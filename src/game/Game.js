@@ -19084,7 +19084,14 @@ export class Game {
   // fresh on every render.
   _refreshContinueRunButton() {
     if (!this.continueRunBtn) return
-    this.continueRunBtn.style.display = loadSavedRun() ? '' : 'none'
+    // visibility, not display - keeps this button's row permanently
+    // reserved in #hero-play-buttons' flex column so Game Mode/the
+    // settings gear below it never shift position depending on whether
+    // a saved run exists. disabled alongside it so a hidden button can't
+    // be tabbed to or triggered.
+    const exists = !!loadSavedRun()
+    this.continueRunBtn.style.visibility = exists ? 'visible' : 'hidden'
+    this.continueRunBtn.disabled = !exists
   }
 
   _quitRunWithLegacyPayout() {
