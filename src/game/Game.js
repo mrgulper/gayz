@@ -340,7 +340,6 @@ function loadSettings() {
       autoReloadOnEmpty: parsed.autoReloadOnEmpty ?? true,
       autoLoot: parsed.autoLoot ?? false,
       instantStationInteract: parsed.instantStationInteract ?? false,
-      confirmQuitRun: parsed.confirmQuitRun ?? false,
       damageFlashColor: typeof parsed.damageFlashColor === 'string' ? parsed.damageFlashColor : '#c80000',
       oneHandedLayout: parsed.oneHandedLayout ?? false,
       sortWeaponsAlpha: parsed.sortWeaponsAlpha ?? false,
@@ -611,7 +610,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, gamepadDeadzone: 20, gamepadVibration: true, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, autoLootRadius: 'medium', instantStationInteract: false, confirmQuitRun: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, touchControlsOverride: 'auto', clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'menu-inventory-btn', 'quests-btn', 'friends-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
+  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, gamepadDeadzone: 20, gamepadVibration: true, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, autoLootRadius: 'medium', instantStationInteract: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, touchControlsOverride: 'auto', clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'menu-inventory-btn', 'quests-btn', 'friends-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -4316,7 +4315,6 @@ export class Game {
     this.autoLootToggle = document.getElementById('auto-loot-toggle')
     this.autoLootRadiusSelect = document.getElementById('auto-loot-radius-select')
     this.instantInteractToggle = document.getElementById('instant-interact-toggle')
-    this.confirmQuitToggle = document.getElementById('confirm-quit-toggle')
     this.damageFlashColorInput = document.getElementById('damage-flash-color-input')
     this.oneHandedToggle = document.getElementById('one-handed-toggle')
     this.fullscreenBtn = document.getElementById('fullscreen-btn')
@@ -5734,6 +5732,11 @@ export class Game {
     this.pauseSettingsBtn = document.getElementById('pause-settings-btn')
     this.pauseQuitBtn = document.getElementById('pause-quit-btn')
     this.pauseSaveExitBtn = document.getElementById('pause-save-exit-btn')
+    this.quitConfirmOverlay = document.getElementById('quit-confirm-overlay')
+    this.quitConfirmTitle = document.getElementById('quit-confirm-title')
+    this.quitConfirmText = document.getElementById('quit-confirm-text')
+    this.quitConfirmCancelBtn = document.getElementById('quit-confirm-cancel-btn')
+    this.quitConfirmExitBtn = document.getElementById('quit-confirm-exit-btn')
     this.pauseUpgradesBtn = document.getElementById('pause-upgrades-btn')
     this.pauseSpectateBtn = document.getElementById('pause-spectate-btn')
     this.pauseWeaponBtn = document.getElementById('pause-weapon-btn')
@@ -6567,19 +6570,31 @@ export class Game {
     // Quit to Menu (2026-08-20: now always banks a reduced Legacy Points
     // payout - see QUIT_LEGACY_MULT's own comment - folding in what the
     // separate Surrender Run button used to do, since that button's whole
-    // purpose was exactly this and having both was redundant. No extra
-    // points-preview confirm here (unlike Surrender's old one) - this is
-    // now just how quitting works, not a special separate action; the
-    // existing confirmQuitRun setting still covers "are you sure" for
-    // players who want that.
-    this.pauseQuitBtn.addEventListener('click', async () => {
-      if (this.settings.confirmQuitRun && !window.confirm(t('confirmQuitRunMessage'))) return
-      // Awaited - MediaRecorder.stop() is async, and reloading before its
-      // 'stop' event fires would tear down the page mid-save and lose the
-      // clip entirely instead of downloading it.
-      await this._stopClipRecordingIfActive()
-      this._quitRunWithLegacyPayout()
+    // purpose was exactly this and having both was redundant. Always shows
+    // the styled quit-confirm-overlay now (replacing the old
+    // confirmQuitRun setting, which only asked sometimes, and the plain
+    // browser confirm() box it used) - a request to always warn before an
+    // irreversible action, styled to match the game instead of the OS.
+    this.pauseQuitBtn.addEventListener('click', () => {
+      this.pauseOverlay.style.display = 'none'
+      this.quitConfirmOverlay.style.display = 'flex'
     })
+    if (this.quitConfirmCancelBtn) {
+      this.quitConfirmCancelBtn.addEventListener('click', () => {
+        this.quitConfirmOverlay.style.display = 'none'
+        this.pauseOverlay.style.display = 'flex'
+      })
+    }
+    if (this.quitConfirmExitBtn) {
+      this.quitConfirmExitBtn.addEventListener('click', async () => {
+        this.quitConfirmOverlay.style.display = 'none'
+        // Awaited - MediaRecorder.stop() is async, and tearing down
+        // gameplay before its 'stop' event fires would lose the
+        // in-progress clip entirely instead of downloading it.
+        await this._stopClipRecordingIfActive()
+        this._quitRunWithLegacyPayout()
+      })
+    }
     // Save & Exit - the non-destructive alternative to Quit to Menu above:
     // writes a full snapshot (see _captureRunSnapshot) instead of banking
     // a legacy-points payout, so Continue Run on the homepage can put the
@@ -6776,6 +6791,10 @@ export class Game {
         this.pauseSaveExitBtn.textContent = t('pauseSaveExitBtn')
         this.pauseSaveExitBtn.style.display = this._isForceHardcore() ? 'none' : ''
       }
+      if (this.quitConfirmTitle) this.quitConfirmTitle.textContent = t('quitConfirmTitle')
+      if (this.quitConfirmText) this.quitConfirmText.textContent = t('quitConfirmText')
+      if (this.quitConfirmCancelBtn) this.quitConfirmCancelBtn.textContent = t('quitConfirmCancelBtn')
+      if (this.quitConfirmExitBtn) this.quitConfirmExitBtn.textContent = t('quitConfirmExitBtn')
       this.pauseOverlay.style.display = 'flex'
     } else {
       this.menu.style.display = 'flex'
@@ -11173,14 +11192,6 @@ export class Game {
       })
     }
 
-    if (this.confirmQuitToggle) {
-      this.confirmQuitToggle.checked = this.settings.confirmQuitRun
-      this.confirmQuitToggle.addEventListener('change', () => {
-        this.settings.confirmQuitRun = this.confirmQuitToggle.checked
-        saveSettings(this.settings)
-      })
-    }
-
     if (this.damageFlashColorInput) {
       this.damageFlashColorInput.value = this.settings.damageFlashColor
       this._applyDamageFlashColor()
@@ -15351,7 +15362,6 @@ export class Game {
     document.getElementById('homepage-greeting-label').textContent = t('homepageGreetingLabel')
     document.getElementById('auto-reload-label').textContent = t('autoReloadLabel')
     document.getElementById('instant-interact-label').textContent = t('instantInteractLabel')
-    document.getElementById('confirm-quit-label').textContent = t('confirmQuitLabel')
     document.getElementById('damage-flash-color-label').textContent = t('damageFlashColorLabel')
     document.getElementById('one-handed-label').textContent = t('oneHandedLabel')
     document.getElementById('sort-weapons-label').textContent = t('sortWeaponsLabel')
@@ -19075,13 +19085,36 @@ export class Game {
     this.continueRunBtn.disabled = !exists
   }
 
+  // No longer reloads the page (see the pause-quit-btn handler's own
+  // comment for the new always-shown confirm step) - a real reload
+  // meant every single system re-reading its own state fresh from
+  // localStorage, which was always just a heavy-handed way to reach
+  // "menu, ready for a clean Play" - the same teardown _onPlayerDeath
+  // already does (minus the death-specific bookkeeping) reaches the
+  // same place instantly, no white-flash reload needed. Any zombies/
+  // pickups left over from this run stay in the scene, invisible behind
+  // the now-opaque menu, until the next Play/Continue Run's own
+  // zombies.reset() (etc.) clears them - cheaper than tearing them down
+  // twice for no visible difference.
   _quitRunWithLegacyPayout() {
     this._leaveMultiplayerSession()
     const legacyEarned = Math.floor(this.points * DEATH_POINTS_CONVERSION * QUIT_LEGACY_MULT * (1 + this.metaProgress.prestigeLevel * 0.1))
     this.metaProgress.legacyPoints += legacyEarned
     saveMetaProgress(this.metaProgress)
     this._recordRunEnd(false)
-    window.location.reload()
+    this._requestPointerUnlock()
+    this.gameStarted = false
+    this.crosshair.style.display = 'none'
+    this.hudEl.style.display = 'none'
+    this.hotbarEl.style.display = 'none'
+    this.statusHud.style.display = 'none'
+    this.chatPanel.style.display = 'none'
+    this.progressHud.style.display = 'none'
+    this.interactPrompt.style.display = 'none'
+    this.statsPanel.style.display = 'none'
+    this.minimapWrap.style.display = 'none'
+    this.pauseOverlay.style.display = 'none'
+    this.menu.style.display = 'flex'
   }
 
   _onPlayerDeath() {

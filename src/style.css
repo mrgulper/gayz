@@ -4077,7 +4077,8 @@ section.category.hidden-search {
 #weapon-picker-panel,
 #pause-overlay,
 #journal-panel,
-#screenshot-crop-overlay {
+#screenshot-crop-overlay,
+#quit-confirm-overlay {
   position: absolute;
   inset: 0;
   z-index: 15;
@@ -4131,7 +4132,8 @@ html.ui-theme-old #xp-levelup-panel,
 html.ui-theme-old #weapon-picker-panel,
 html.ui-theme-old #pause-overlay,
 html.ui-theme-old #journal-panel,
-html.ui-theme-old #screenshot-crop-overlay {
+html.ui-theme-old #screenshot-crop-overlay,
+html.ui-theme-old #quit-confirm-overlay {
   background:
     radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.6) 100%),
     var(--grain-texture),
@@ -4446,7 +4448,8 @@ html.ui-theme-old #screenshot-crop-overlay {
 #journal-panel-title,
 #clan-panel-title,
 #multiplayer-panel-title,
-#share-panel-title {
+#share-panel-title,
+#quit-confirm-title {
   margin: 0;
   /* Doubled from 15px per request - this is the title shown right after
      opening any of these panels (Hub, Store, Achievements, etc.), not
@@ -4480,7 +4483,8 @@ html.ui-theme-old #pause-overlay-title,
 html.ui-theme-old #journal-panel-title,
 html.ui-theme-old #clan-panel-title,
 html.ui-theme-old #multiplayer-panel-title,
-html.ui-theme-old #share-panel-title {
+html.ui-theme-old #share-panel-title,
+html.ui-theme-old #quit-confirm-title {
   font-family: 'Rye', Georgia, serif;
   color: #c2a06e;
   opacity: 1;
@@ -5469,7 +5473,8 @@ html.ui-theme-old #share-panel-title {
 #screenshot-crop-save,
 #screenshot-crop-full,
 #screenshot-crop-cancel,
-#share-run-card-btn {
+#share-run-card-btn,
+#quit-confirm-cancel-btn {
   margin-top: 6px;
   padding: 8px 20px;
   font-size: 13px;
@@ -5480,6 +5485,33 @@ html.ui-theme-old #share-panel-title {
   border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 6px;
   cursor: pointer;
+}
+
+/* Quit (the actual destructive action, unlike Cancel above) - a red
+   outline to read as the risky choice, same --menu-red token the
+   Apex difficulty/damage-flash already use, not a one-off color. */
+#quit-confirm-exit-btn {
+  margin-top: 6px;
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--menu-red, #c9564a);
+  background: rgba(201, 86, 74, 0.12);
+  border: 1px solid var(--menu-red, #c9564a);
+  border-radius: 6px;
+  cursor: pointer;
+}
+#quit-confirm-exit-btn:hover {
+  background: rgba(201, 86, 74, 0.25);
+}
+
+#quit-confirm-text {
+  margin: 0;
+  max-width: 360px;
+  text-align: center;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.75);
 }
 
 #screenshot-crop-hint {
@@ -5546,7 +5578,8 @@ html.ui-theme-old #share-panel-title {
 #pause-save-exit-btn:hover,
 #multiplayer-create-btn:hover,
 #multiplayer-join-btn:hover,
-#multiplayer-start-playing-btn:hover {
+#multiplayer-start-playing-btn:hover,
+#quit-confirm-cancel-btn:hover {
   border-color: rgba(255, 255, 255, 0.5);
 }
 
