@@ -4078,8 +4078,7 @@ section.category.hidden-search {
 #pause-overlay,
 #journal-panel,
 #screenshot-crop-overlay,
-#quit-confirm-overlay,
-#settings-info-overlay {
+#quit-confirm-overlay {
   position: absolute;
   inset: 0;
   z-index: 15;
@@ -4131,19 +4130,10 @@ html.ui-theme-old #menu-inventory-panel,
 html.ui-theme-old #server-panel,
 html.ui-theme-old #xp-levelup-panel,
 html.ui-theme-old #weapon-picker-panel,
-/* Settings Info always opens FROM the already-open Settings panel
-   (also z-index 15) - needs to win over it regardless of DOM order,
-   same "opened from something else, must always come out on top"
-   reasoning as #settings-panel's own z-index comment. */
-#settings-info-overlay {
-  z-index: 16;
-}
-
 html.ui-theme-old #pause-overlay,
 html.ui-theme-old #journal-panel,
 html.ui-theme-old #screenshot-crop-overlay,
-html.ui-theme-old #quit-confirm-overlay,
-html.ui-theme-old #settings-info-overlay {
+html.ui-theme-old #quit-confirm-overlay {
   background:
     radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.6) 100%),
     var(--grain-texture),
@@ -4459,8 +4449,7 @@ html.ui-theme-old #settings-info-overlay {
 #clan-panel-title,
 #multiplayer-panel-title,
 #share-panel-title,
-#quit-confirm-title,
-#settings-info-title {
+#quit-confirm-title {
   margin: 0;
   /* Doubled from 15px per request - this is the title shown right after
      opening any of these panels (Hub, Store, Achievements, etc.), not
@@ -4495,8 +4484,7 @@ html.ui-theme-old #journal-panel-title,
 html.ui-theme-old #clan-panel-title,
 html.ui-theme-old #multiplayer-panel-title,
 html.ui-theme-old #share-panel-title,
-html.ui-theme-old #quit-confirm-title,
-html.ui-theme-old #settings-info-title {
+html.ui-theme-old #quit-confirm-title {
   font-family: 'Rye', Georgia, serif;
   color: #c2a06e;
   opacity: 1;
@@ -5486,8 +5474,7 @@ html.ui-theme-old #settings-info-title {
 #screenshot-crop-full,
 #screenshot-crop-cancel,
 #share-run-card-btn,
-#quit-confirm-cancel-btn,
-#settings-info-close-btn {
+#quit-confirm-cancel-btn {
   margin-top: 6px;
   padding: 8px 20px;
   font-size: 13px;
@@ -5530,30 +5517,53 @@ html.ui-theme-old #settings-info-title {
 /* Settings Info popup body - wider than quit-confirm-text since these
    are meant to be genuinely detailed explanations, not a one-line
    warning. */
-#settings-info-text {
-  margin: 0;
-  max-width: 480px;
-  padding: 0 20px;
-  text-align: center;
-  font-size: 14px;
-  line-height: 1.5;
-  color: rgba(255, 255, 255, 0.8);
+/* Settings Info - a small floating tooltip (NOT a full-screen modal
+   like quit-confirm/pause), positioned next to whichever "?" was
+   clicked via _showSettingsInfo's own left/top math. Sits above
+   Settings (z-index 15) since it's opened from inside that panel. */
+#settings-info-overlay {
+  position: fixed;
+  z-index: 20;
+  display: none;
+  max-width: 280px;
+  padding: 10px 14px;
+  background: rgba(10, 8, 4, 0.97);
+  border: 1px solid var(--menu-gold, #e3c23c);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
 }
 
-/* The small "?" icon that sits at the end of a settings row (see
-   .audio-row's 3-column grid - this lands in the existing 3rd column
-   most rows already leave empty). Deliberately plain/small so a row of
-   these doesn't compete visually with the actual controls next to
-   them - discoverable, not decorative. */
+#settings-info-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* The small "(?)" that sits right before a setting's own label.
+   position:absolute (not grid placement) on purpose - an explicit
+   grid-column on just this one child would throw off CSS Grid's
+   auto-placement for its label/select siblings (which have no explicit
+   column of their own), shifting them into the wrong columns entirely.
+   Absolute removes it from grid flow, so the label/select auto-place
+   exactly as they already did on every row that doesn't have one yet -
+   see .audio-row:has() below for the matching position:relative +
+   label padding that makes room for it. Deliberately plain/small -
+   discoverable, not decorative. */
 .settings-info-btn {
-  justify-self: center;
-  width: 20px;
-  height: 20px;
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   border: 1px solid rgba(227, 194, 60, 0.5);
   background: transparent;
   color: var(--menu-gold, #e3c23c);
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
@@ -5564,6 +5574,18 @@ html.ui-theme-old #settings-info-title {
 .settings-info-btn:hover {
   opacity: 1;
   border-color: var(--menu-gold, #e3c23c);
+}
+
+/* position:relative anchors the absolutely-positioned "?" to this row
+   (not the whole page) - and padding-left on the label makes room for
+   it. Only rows that actually have a "?" get either of these, via
+   :has(), so rows without one yet (most of them, during the rollout)
+   stay exactly as they were. */
+.audio-row:has(.settings-info-btn) {
+  position: relative;
+}
+.audio-row:has(.settings-info-btn) label {
+  padding-left: 20px;
 }
 
 #screenshot-crop-hint {
@@ -5631,8 +5653,7 @@ html.ui-theme-old #settings-info-title {
 #multiplayer-create-btn:hover,
 #multiplayer-join-btn:hover,
 #multiplayer-start-playing-btn:hover,
-#quit-confirm-cancel-btn:hover,
-#settings-info-close-btn:hover {
+#quit-confirm-cancel-btn:hover {
   border-color: rgba(255, 255, 255, 0.5);
 }
 

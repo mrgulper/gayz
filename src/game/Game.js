@@ -2349,7 +2349,6 @@ const HOWTOPLAY_STEPS = [
 // connected when built). Rather than hundreds of individual .textContent = t(...)
 // lines, these three maps drive one bulk-apply pass in _applyLanguage().
 const SIMPLE_TEXT_I18N_KEYS = {
-  'settings-info-close-btn': 'settingsInfoCloseBtn',
   'skip-to-play-link': 'skipToPlayLink',
   'build-menu-hint': 'buildMenuHint',
   'build-mode-mirror-btn': 'buildModeMirrorBtn',
@@ -4317,9 +4316,7 @@ export class Game {
     this.autoLootRadiusSelect = document.getElementById('auto-loot-radius-select')
     this.instantInteractToggle = document.getElementById('instant-interact-toggle')
     this.settingsInfoOverlay = document.getElementById('settings-info-overlay')
-    this.settingsInfoTitle = document.getElementById('settings-info-title')
     this.settingsInfoText = document.getElementById('settings-info-text')
-    this.settingsInfoCloseBtn = document.getElementById('settings-info-close-btn')
     this.damageFlashColorInput = document.getElementById('damage-flash-color-input')
     this.oneHandedToggle = document.getElementById('one-handed-toggle')
     this.fullscreenBtn = document.getElementById('fullscreen-btn')
@@ -6600,7 +6597,9 @@ export class Game {
         this._quitRunWithLegacyPayout()
       })
     }
-    // Settings Info ("?" buttons) - event delegation on the whole
+    // Settings Info ("?" buttons) - a small floating tooltip next to
+    // whichever "?" was clicked, not a modal - closes by clicking the
+    // same "?" again or anywhere else. Event delegation on the whole
     // document rather than binding each button individually, so adding
     // a new one later (see .settings-info-btn's own comment - this is
     // a prototype batch, more get added tab-by-tab) needs no JS change,
@@ -6608,14 +6607,22 @@ export class Game {
     if (this.settingsInfoOverlay) {
       document.addEventListener('click', (e) => {
         const btn = e.target.closest('.settings-info-btn')
-        if (!btn) return
+        if (!btn) {
+          this.settingsInfoOverlay.style.display = 'none'
+          return
+        }
         const key = btn.dataset.info
-        this.settingsInfoTitle.textContent = t(`${key}InfoTitle`)
+        if (this.settingsInfoOverlay.style.display === 'flex' && this._settingsInfoOpenKey === key) {
+          this.settingsInfoOverlay.style.display = 'none'
+          this._settingsInfoOpenKey = null
+          return
+        }
+        this._settingsInfoOpenKey = key
         this.settingsInfoText.textContent = t(`${key}InfoText`)
         this.settingsInfoOverlay.style.display = 'flex'
-      })
-      this.settingsInfoCloseBtn.addEventListener('click', () => {
-        this.settingsInfoOverlay.style.display = 'none'
+        const rect = btn.getBoundingClientRect()
+        this.settingsInfoOverlay.style.left = `${Math.min(rect.left, window.innerWidth - 296)}px`
+        this.settingsInfoOverlay.style.top = `${rect.bottom + 6}px`
       })
     }
     // Save & Exit - the non-destructive alternative to Quit to Menu above:

@@ -666,12 +666,12 @@ Escape before dawn.</p>
         <div class="settings-page" id="settings-page-general">
           <h3 class="settings-section-heading" id="settings-section-hud">HUD</h3>
           <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="killFeedPosition" aria-label="What does this do?">?</button>
             <label for="kill-feed-position-select" id="kill-feed-position-label">Kill Feed Position</label>
             <select id="kill-feed-position-select">
               <option value="right">Top-Right</option>
               <option value="left">Top-Left</option>
             </select>
-            <button type="button" class="settings-info-btn" data-info="killFeedPosition" aria-label="What does this do?">?</button>
           </div>
           <div class="audio-row">
             <label for="kill-feed-verbosity-select" id="kill-feed-verbosity-label">Kill Feed Verbosity</label>
@@ -681,9 +681,9 @@ Escape before dawn.</p>
             </select>
           </div>
           <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="killFeedIcons" aria-label="What does this do?">?</button>
             <label for="kill-feed-icons-toggle" id="kill-feed-icons-label">Kill Feed Icons</label>
             <input type="checkbox" id="kill-feed-icons-toggle" class="audio-checkbox" checked />
-            <button type="button" class="settings-info-btn" data-info="killFeedIcons" aria-label="What does this do?">?</button>
           </div>
           <div class="audio-row">
             <label for="compass-style-select" id="compass-style-label">Compass Style</label>
@@ -853,18 +853,18 @@ Escape before dawn.</p>
             <input type="checkbox" id="auto-reload-toggle" class="audio-checkbox" checked />
           </div>
           <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="autoLoot" aria-label="What does this do?">?</button>
             <label for="auto-loot-toggle" id="auto-loot-label">Auto-Loot (vacuum in nearby pickups)</label>
             <input type="checkbox" id="auto-loot-toggle" class="audio-checkbox" />
-            <button type="button" class="settings-info-btn" data-info="autoLoot" aria-label="What does this do?">?</button>
           </div>
           <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="autoLootRadius" aria-label="What does this do?">?</button>
             <label for="auto-loot-radius-select" id="auto-loot-radius-label">Auto-Loot Radius</label>
             <select id="auto-loot-radius-select">
               <option value="close">Close</option>
               <option value="medium">Medium</option>
               <option value="far">Far</option>
             </select>
-            <button type="button" class="settings-info-btn" data-info="autoLootRadius" aria-label="What does this do?">?</button>
           </div>
           <div class="audio-row">
             <label for="instant-interact-toggle" id="instant-interact-label">Instant Interact at Stations (Skip the Hold)</label>
@@ -3509,9 +3509,7 @@ Escape before dawn.</p>
       </div>
 
       <div id="settings-info-overlay">
-        <h2 id="settings-info-title"></h2>
         <p id="settings-info-text"></p>
-        <button id="settings-info-close-btn">Close</button>
       </div>
 
       <div id="screenshot-crop-overlay">
