@@ -472,6 +472,7 @@ Escape before dawn.</p>
             <div id="hero-ad-row">
               <div class="ad-square-placeholder" id="ad-square-left"><span>Ad space</span></div>
               <div id="hero-play-buttons">
+                <button id="continue-run-btn" style="display: none">Continue Run</button>
                 <button id="play-btn">Play</button>
                 <button id="gamemode-btn">Game Mode</button>
               </div>
@@ -3015,6 +3016,7 @@ Escape before dawn.</p>
           <div id="whatsnew-content">
             <p id="build-version-line"></p>
           <div id="changelog-list">
+            <div class="changelog-entry"><span class="changelog-date">Sep 15, 2026</span><span class="changelog-text">Added Save & Exit: quitting mid-run from the pause menu now saves your exact spot (health, guns/ammo, inventory, wave, and every zombie still alive) instead of losing it. A "Continue Run" button appears on the homepage to pick up right where you left off. Not available for Hardcore runs, which stay one-life-only on purpose.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 15, 2026</span><span class="changelog-text">New accounts now start with the sidebar in Inventory/Quests/Friends order (was Quests/Friends/Inventory). Also gave the profile photo a gentle pulse while it's still loading in for a brand-new account, instead of sitting on the plain silhouette icon looking stuck.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 15, 2026</span><span class="changelog-text">Found and fixed the rest of the mismatched scrollbars - the earlier scrollbar fix only caught 2 of 3 places this color was defined, so Achievements/Profile/Hub/Credits and a few others were still on the old washed-out version. Every scrollbar in the game now matches.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 15, 2026</span><span class="changelog-text">Made scrollbars everywhere a bit bolder gold (they were fairly washed out before), and the "Coming Soon" notes on the Weapon Gear Guide and Special Ammo Guide panels now read gold instead of muted olive, to match the rest of those two panels.</span></div>
@@ -3487,6 +3489,7 @@ Escape before dawn.</p>
           <button id="pause-upgrades-btn">Upgrades</button>
           <button id="pause-spectate-btn">Spectate</button>
           <button id="pause-settings-btn">Settings</button>
+          <button id="pause-save-exit-btn">Save &amp; Exit</button>
           <button id="pause-quit-btn">Quit to Menu</button>
         </div>
       </div>

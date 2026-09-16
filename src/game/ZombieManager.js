@@ -1323,6 +1323,28 @@ export class ZombieManager {
     }
   }
 
+  // Mid-run Save & Exit (see Game.js's _captureRunSnapshot/_restoreRunSnapshot) -
+  // rebuilds live Zombie instances from the plain data a snapshot captured
+  // per zombie (type/position/health/flags + Zombie.js's own exportFullState).
+  // Same reconstruction shape as a normal spawn (push + scene.add), just
+  // driven by saved data instead of the random spawn director. Call this
+  // BEFORE restoreDirectorState above, which needs this.zombies already
+  // populated to resolve a wanderingHorde's member references.
+  restoreZombiesFromSnapshot(list) {
+    for (const z of list || []) {
+      const typeConfig = ZOMBIE_TYPES[z.type]
+      if (!typeConfig) continue
+      const zombie = new Zombie(z.x, z.z, typeConfig, z.isAmbush, z.isElite, this.currentNight, 1, 1)
+      zombie.health = z.health
+      zombie.maxHealth = z.maxHealth
+      zombie.group.rotation.y = z.rotY
+      zombie.state = z.state || 'alive'
+      if (z.fullState) zombie.restoreFullState(z.fullState)
+      this.zombies.push(zombie)
+      this.scene.add(zombie.group)
+    }
+  }
+
   // Generic falloff-damage burst, same shape as the grenade explosion loop
   // below just without a thrown projectile leading into it - used by
   // Game.js's killstreak "airstrike" reward (a call-it-in strike centered

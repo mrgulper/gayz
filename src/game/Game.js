@@ -782,6 +782,38 @@ function saveWeeklyChallenge(w) {
   }
 }
 
+// Mid-run Save & Exit (see Game.js's _captureRunSnapshot/_restoreRunSnapshot) -
+// one slot only, single-player runs only. A saved run is consumed (cleared)
+// the moment Continue Run restores it, same "use it once" precedent as
+// nothing else in this codebase persisting quite this way.
+const SAVED_RUN_KEY = 'gayz-saved-run'
+
+function loadSavedRun() {
+  try {
+    const raw = localStorage.getItem(SAVED_RUN_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+function saveSavedRun(data) {
+  try {
+    localStorage.setItem(SAVED_RUN_KEY, JSON.stringify(data))
+  } catch {
+    // Storage unavailable (or the snapshot is too big for the quota) -
+    // the player just won't get a Continue Run option next time.
+  }
+}
+
+function clearSavedRun() {
+  try {
+    localStorage.removeItem(SAVED_RUN_KEY)
+  } catch {
+    // Nothing to do if storage itself is unavailable.
+  }
+}
+
 // Weekly Featured Mutator - a single mutator auto-picked via the same
 // week-seed technique WEEKLY_CHALLENGES above already uses, nudging
 // players toward trying a different mutator each week via a coin bonus -
@@ -3801,6 +3833,7 @@ export class Game {
     this._zombiePopulationCap = LOW_QUALITY_MODE ? 20 : 50
 
     this.playBtn = document.getElementById('play-btn')
+    this.continueRunBtn = document.getElementById('continue-run-btn')
     this.buildModeLoadingOverlay = document.getElementById('build-mode-loading-overlay')
     this.crosshair = document.getElementById('crosshair')
     this.damageNumbersEl = document.getElementById('damage-numbers')
@@ -5700,6 +5733,7 @@ export class Game {
     this.pauseResumeBtn = document.getElementById('pause-resume-btn')
     this.pauseSettingsBtn = document.getElementById('pause-settings-btn')
     this.pauseQuitBtn = document.getElementById('pause-quit-btn')
+    this.pauseSaveExitBtn = document.getElementById('pause-save-exit-btn')
     this.pauseUpgradesBtn = document.getElementById('pause-upgrades-btn')
     this.pauseSpectateBtn = document.getElementById('pause-spectate-btn')
     this.pauseWeaponBtn = document.getElementById('pause-weapon-btn')
@@ -6093,6 +6127,7 @@ export class Game {
       this._renderPerkOptions(rollPerks(3))
     })
     this._applyLanguage()
+    this._refreshContinueRunButton()
     this._updateHealthHud()
     this._updateInventoryHud()
     this._updateProgressHud()
@@ -6397,6 +6432,13 @@ export class Game {
         window.location.reload()
         return
       }
+      // Any real run start/restart from here on (fresh Play, respawn
+      // after death, extraction-continue, or Continue Run itself, which
+      // already read its own saved data into a local variable before
+      // calling this handler) invalidates whatever's in the Save & Exit
+      // slot - it's either just been consumed or is now stale.
+      clearSavedRun()
+      this._refreshContinueRunButton()
       this.playerState.respawn()
       this.lowHealthBarked = false
       this.companionBondTier = 0
@@ -6494,6 +6536,24 @@ export class Game {
     // extraction just starts a fresh run, same as respawning after death.
     this.extractionContinueBtn.addEventListener('click', () => this.respawnBtn.click())
 
+    // Continue Run - same "reuse the existing full reset, then layer on
+    // top of it" trick as extractionContinueBtn just above, except what
+    // gets layered on is a saved snapshot instead of a clean slate. Goes
+    // straight to respawnBtn's reset+lock flow rather than through Play's
+    // own weapon-picker step - resuming means keeping the exact loadout
+    // that was saved, not re-picking one. Reads the saved data into a
+    // local variable BEFORE calling respawnBtn.click() - that click clears
+    // the saved-run slot itself (see its own comment), which would erase
+    // this if read after instead of before.
+    if (this.continueRunBtn) {
+      this.continueRunBtn.addEventListener('click', () => {
+        const data = loadSavedRun()
+        if (!data) return
+        this.respawnBtn.click()
+        this._restoreRunSnapshot(data)
+      })
+    }
+
     this.pauseResumeBtn.addEventListener('click', () => {
       // Resume always means "go back to actually playing" - if the pause
       // menu was opened via Escape while spectating, exit spectate first
@@ -6520,6 +6580,24 @@ export class Game {
       await this._stopClipRecordingIfActive()
       this._quitRunWithLegacyPayout()
     })
+    // Save & Exit - the non-destructive alternative to Quit to Menu above:
+    // writes a full snapshot (see _captureRunSnapshot) instead of banking
+    // a legacy-points payout, so Continue Run on the homepage can put the
+    // player right back where they left off. Hardcore is excluded on
+    // purpose - its whole design is "no do-overs" (see _isForceHardcore's
+    // own callers), and letting it be saved/resumed would undermine that.
+    if (this.pauseSaveExitBtn) {
+      this.pauseSaveExitBtn.addEventListener('click', async () => {
+        if (this._isForceHardcore()) {
+          this._showLoreToast(t('hardcoreNoSaveToast'))
+          return
+        }
+        await this._stopClipRecordingIfActive()
+        this._leaveMultiplayerSession()
+        saveSavedRun(this._captureRunSnapshot())
+        window.location.reload()
+      })
+    }
     this.pauseUpgradesBtn.addEventListener('click', () => this._openUpgradesPanel())
     this.pauseSpectateBtn.addEventListener('click', () => {
       this.pauseOverlay.style.display = 'none'
@@ -6687,6 +6765,10 @@ export class Game {
       this.pauseWeaponBtn.textContent = t('pauseWeaponBtn')
       this.pauseSettingsBtn.textContent = t('settingsBtn')
       this.pauseQuitBtn.textContent = t('pauseQuitBtn')
+      if (this.pauseSaveExitBtn) {
+        this.pauseSaveExitBtn.textContent = t('pauseSaveExitBtn')
+        this.pauseSaveExitBtn.style.display = this._isForceHardcore() ? 'none' : ''
+      }
       this.pauseOverlay.style.display = 'flex'
     } else {
       this.menu.style.display = 'flex'
@@ -15084,6 +15166,7 @@ export class Game {
     document.getElementById('menu-subtitle').textContent = t('menuSubtitle')
     document.getElementById('menu-subhint').textContent = t('menuSubhint')
     this.playBtn.textContent = t('playBtn')
+    if (this.continueRunBtn) this.continueRunBtn.textContent = t('continueRunBtn')
     if (this.gamemodeBtn) this.gamemodeBtn.textContent = t('gamemodeBtn')
     const languageMissingHintEl = document.getElementById('language-missing-hint')
     if (languageMissingHintEl) {
@@ -18795,6 +18878,213 @@ export class Game {
     this._sharedZombieBodies.clear()
     this.zombies.sharedZombies = []
     this._pendingZombieHits = []
+  }
+
+  // Mid-run Save & Exit - captures everything about the live run that
+  // actually matters for a faithful resume: player/weapon/inventory state,
+  // every alive zombie's full AI/status state (reusing Zombie.js's own
+  // exportFullState, already battle-tested for the multiplayer host-
+  // migration feature - see ZombieManager.js's export/restoreDirectorState
+  // for the wave/spawn-director half), pickups/gems on the ground, and the
+  // companion's position. Deliberately does NOT try to preserve a couple
+  // of things: sub-5-second combat micro-timers (weapon jam, perfect-
+  // reload window - already expired in practice by the time a real resume
+  // happens) and any in-progress one-off world event (rescue mission,
+  // escort convoy, moral-dilemma choice) - those simply won't be there on
+  // resume, same as if they'd expired naturally.
+  _captureRunSnapshot() {
+    const now = performance.now()
+    const remaining = (until) => (until ? Math.max(0, until - now) : 0)
+    return {
+      version: 1,
+      savedAt: Date.now(),
+      elapsedMs: now - this.runStartedAt,
+      nightElapsedMs: now - this.nightStartedAt,
+      night: this.night,
+      kills: this.kills,
+      killCountsThisRun: { ...this.killCountsThisRun },
+      biggestHitThisRun: this.biggestHitThisRun,
+      lowestHealthThisRun: this.lowestHealthThisRun,
+      killStreak: this.killStreak,
+      killstreakDamageBoostInMs: remaining(this.killstreakDamageBoostUntil),
+      killstreakAmmoInMs: remaining(this.killstreakAmmoUntil),
+      lastStandUsed: !!this.lastStandUsed,
+      headshotStreak: this.headshotStreak,
+      headshotStreakBonusInMs: remaining(this._headshotStreakBonusUntil),
+      bleedInMs: remaining(this.bleedUntil),
+      bleedAccum: this._bleedAccum,
+      playerDowned: !!this.playerDowned,
+      downedInMs: remaining(this.downedUntil),
+      points: this.points,
+      coins: this.coins,
+      cash: this.cash,
+      raining: !!this.raining,
+      snowing: !!this.snowing,
+      mutators: { ...this.settings.mutators },
+      cursedRunOriginalValues: this._cursedRunOriginalValues,
+      dailyChallengeActive: !!this.dailyChallengeActive,
+      dailyDamageMult: this.dailyDamageMult,
+      weaponsDamageMult: this.weapons.damageMult,
+      weaponsMeleeCounterMult: this.weapons.meleeCounterMult,
+      player: {
+        x: this.player.camera.position.x,
+        y: this.player.camera.position.y,
+        z: this.player.camera.position.z,
+        rotX: this.player.camera.rotation.x,
+        rotY: this.player.camera.rotation.y,
+        rotZ: this.player.camera.rotation.z,
+        stamina: this.player.stamina,
+        health: this.playerState.health,
+        armor: this.playerState.armor,
+        infected: !!this.playerState.infected,
+        totalDamageTaken: this.playerState.totalDamageTaken,
+        maxHealth: this.playerState.maxHealth,
+        maxArmor: this.playerState.maxArmor,
+      },
+      weapons: {
+        // jammedUntil is a sub-5-second combat timer stored as an absolute
+        // clock reading (see WeaponSystem.js) - stripped here rather than
+        // carried across a page reload's fresh performance.now() clock,
+        // same reasoning as this method's own comment above.
+        list: this.weapons.weapons.map((w) => ({ ...w, jammedUntil: 0 })),
+        currentIndex: this.weapons.currentIndex,
+      },
+      inventory: { ...this.inventory },
+      zombies: this.zombies.zombies
+        .filter((z) => z.state !== 'dead')
+        .map((z) => ({
+          type: z.type,
+          x: z.group.position.x,
+          z: z.group.position.z,
+          rotY: z.group.rotation.y,
+          health: z.health,
+          maxHealth: z.maxHealth,
+          isAmbush: z.isAmbush,
+          isElite: z.isElite,
+          state: z.state,
+          fullState: z.exportFullState(),
+        })),
+      director: this.zombies.exportDirectorState(),
+      pickups: this.pickups.pickups
+        .filter((p) => p.active)
+        .map((p) => ({ type: p.type, x: p.group.position.x, z: p.group.position.z, isLoot: p.isLoot })),
+      gems: this.xpGems.gems.map((g) => ({ value: g.value, x: g.mesh.position.x, z: g.mesh.position.z })),
+      companion: this.companion
+        ? { x: this.companion.group.position.x, z: this.companion.group.position.z, rotY: this.companion.group.rotation.y }
+        : null,
+    }
+  }
+
+  // The inverse of _captureRunSnapshot() above. Called right after
+  // this.respawnBtn.click() (the same full reset the game already uses
+  // for a fresh run/respawn/extraction-continue, see that button's own
+  // comment) so every system starts from a known-clean state before this
+  // overwrites it with the saved values - cheaper and less error-prone
+  // than re-deriving "a clean run" by hand a second time here.
+  _restoreRunSnapshot(data) {
+    const now = performance.now()
+    const inFuture = (ms) => (ms > 0 ? now + ms : 0)
+
+    this.runStartedAt = now - data.elapsedMs
+    this.nightStartedAt = now - data.nightElapsedMs
+    this.night = data.night
+    this.kills = data.kills
+    this.killCountsThisRun = { ...data.killCountsThisRun }
+    this.biggestHitThisRun = data.biggestHitThisRun
+    this.lowestHealthThisRun = data.lowestHealthThisRun
+    this.killStreak = data.killStreak
+    this.killstreakDamageBoostUntil = inFuture(data.killstreakDamageBoostInMs)
+    this.killstreakAmmoUntil = inFuture(data.killstreakAmmoInMs)
+    this.lastStandUsed = !!data.lastStandUsed
+    this.headshotStreak = data.headshotStreak
+    this._headshotStreakBonusUntil = inFuture(data.headshotStreakBonusInMs)
+    this.bleedUntil = inFuture(data.bleedInMs)
+    this._bleedAccum = data.bleedAccum
+    this.playerDowned = !!data.playerDowned
+    this.downedUntil = inFuture(data.downedInMs)
+    this.points = data.points
+    this.coins = data.coins
+    this.cash = data.cash
+    this.raining = !!data.raining
+    this.snowing = !!data.snowing
+    audioEngine.setWeatherAudio(this.raining, this.snowing)
+    this.settings.mutators = { ...data.mutators }
+    this._cursedRunOriginalValues = data.cursedRunOriginalValues
+    this.dailyChallengeActive = !!data.dailyChallengeActive
+    this.dailyDamageMult = data.dailyDamageMult
+
+    // Player
+    this.player.camera.position.set(data.player.x, data.player.y, data.player.z)
+    this.player.camera.rotation.set(data.player.rotX, data.player.rotY, data.player.rotZ)
+    this.player.stamina = data.player.stamina
+    this.playerState.health = data.player.health
+    this.playerState.armor = data.player.armor
+    this.playerState.infected = !!data.player.infected
+    this.playerState.totalDamageTaken = data.player.totalDamageTaken
+    this.playerState.maxHealth = data.player.maxHealth
+    this.playerState.maxArmor = data.player.maxArmor
+    this.playerState.alive = true
+
+    // Weapons - replicates _switchTo's viewmodel-visibility swap directly
+    // rather than calling it, since that method no-ops when the target
+    // index already equals the current one (irrelevant here - this is a
+    // restore, not a user-initiated switch).
+    this.weapons.weapons = data.weapons.list.map((w) => ({ ...w }))
+    this.weapons.currentIndex = data.weapons.currentIndex
+    this.weapons.heat = 0
+    this.weapons.reloading = false
+    this.weapons.damageMult = data.weaponsDamageMult
+    this.weapons.meleeCounterMult = data.weaponsMeleeCounterMult
+    for (const id in this.weapons.viewmodels) this.weapons.viewmodels[id].visible = false
+    const currentWeapon = this.weapons.weapons[this.weapons.currentIndex]
+    if (currentWeapon && this.weapons.viewmodels[currentWeapon.id]) this.weapons.viewmodels[currentWeapon.id].visible = true
+    this.weapons._updateHud()
+
+    // Inventory
+    Object.assign(this.inventory, data.inventory)
+
+    // Clear whatever the fresh-run reset just populated (same
+    // scene.remove+dispose pattern _onDemotedFromHost uses) before
+    // rebuilding everything from the snapshot.
+    for (const zombie of this.zombies.zombies) {
+      this.scene.remove(zombie.group)
+      zombie.dispose()
+    }
+    this.zombies.zombies = []
+    for (const pickup of this.pickups.pickups) this.scene.remove(pickup.group)
+    this.pickups.pickups = []
+    for (const gem of this.xpGems.gems) this.scene.remove(gem.mesh)
+    this.xpGems.gems = []
+
+    this.zombies.restoreZombiesFromSnapshot(data.zombies)
+    this.zombies.restoreDirectorState(data.director)
+
+    for (const p of data.pickups) {
+      const pickup = new Pickup(p.type, p.x, p.z, p.isLoot)
+      this.pickups.pickups.push(pickup)
+      this.scene.add(pickup.group)
+    }
+    for (const g of data.gems) {
+      const gem = new XpGem(g.x, g.z, g.value)
+      this.xpGems.gems.push(gem)
+      this.scene.add(gem.mesh)
+    }
+    if (this.companion && data.companion) {
+      this.companion.group.position.set(data.companion.x, 0, data.companion.z)
+      this.companion.group.rotation.y = data.companion.rotY
+    }
+
+    this._updateHealthHud()
+    this._updateProgressHud()
+  }
+
+  // Shows/hides the homepage's Continue Run button based on whether a
+  // saved run actually exists - called once at startup and again anytime
+  // a saved run is consumed or cleared, rather than checking localStorage
+  // fresh on every render.
+  _refreshContinueRunButton() {
+    if (!this.continueRunBtn) return
+    this.continueRunBtn.style.display = loadSavedRun() ? '' : 'none'
   }
 
   _quitRunWithLegacyPayout() {

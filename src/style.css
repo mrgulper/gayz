@@ -7188,7 +7188,8 @@ html.ui-theme-old #menu-title-img.logo-tier-5 {
    same gold-plate image as Hub/Store/Upgrades (2026-08-20) - see that
    rule's own comment for the background-size/border reasoning, same
    deal here. */
-#gamemode-btn {
+#gamemode-btn,
+#continue-run-btn {
   margin-top: 2px;
   padding: 14px 38px;
   font-size: 22px;
@@ -7202,8 +7203,23 @@ html.ui-theme-old #menu-title-img.logo-tier-5 {
   cursor: pointer;
   transition: filter 0.2s ease, transform 0.15s ease;
 }
-#gamemode-btn:hover {
+#gamemode-btn:hover,
+#continue-run-btn:hover {
   filter: brightness(1.18);
+  transform: translateY(-1px);
+}
+
+/* Continue Run (mid-run save/resume) - only ever shown when a saved
+   run actually exists (see Game.js's _refreshContinueRunButton), so it
+   never costs any of the homepage's zero-scroll-budget height in the
+   common case where there's nothing to resume. Green tint to read as
+   distinct from Game Mode's neutral gold, same idea as a "resume"
+   affordance standing out from a plain secondary action. */
+#continue-run-btn {
+  filter: hue-rotate(70deg) saturate(1.3);
+}
+#continue-run-btn:hover {
+  filter: hue-rotate(70deg) saturate(1.3) brightness(1.18);
   transform: translateY(-1px);
 }
 
@@ -7211,6 +7227,10 @@ html.ui-theme-old #menu-title-img.logo-tier-5 {
    see the settings-btn/nav-buttons rules further down for the same pattern. */
 html.ui-theme-old #play-btn {
   background-image: url('/images/old-play-btn.webp');
+}
+
+html.ui-theme-old #continue-run-btn {
+  background-image: url('/images/old-nav-plaque.webp');
 }
 
 html.ui-theme-old #gamemode-btn {
