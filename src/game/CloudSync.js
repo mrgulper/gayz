@@ -394,7 +394,20 @@ export async function signIn() {
   const provider = new authMod.GoogleAuthProvider()
   const result = await authMod.signInWithPopup(auth, provider)
   const user = result.user
-  return { uid: user.uid, profile: { name: user.displayName, email: user.email, picture: user.photoURL } }
+  return { uid: user.uid, profile: { name: user.displayName, email: user.email, picture: user.photoURL, accountCreatedAt: _parseCreationTime(user) } }
+}
+
+// Google's own account-creation timestamp (Firebase exposes it as
+// user.metadata.creationTime, an ISO-ish date string) - used for the
+// Profile panel's "Created" line while signed in instead of the local,
+// per-device careerStats.accountCreatedAt (see that field's own comment
+// in Game.js), which only tracks "when this browser first opened the
+// game" and can look like it "resets" across devices/cleared storage.
+// This one comes straight from Google on every sign-in, so it can't.
+function _parseCreationTime(user) {
+  const raw = user.metadata && user.metadata.creationTime
+  const ms = raw ? Date.parse(raw) : NaN
+  return Number.isFinite(ms) ? ms : null
 }
 
 export async function signOut() {
@@ -420,7 +433,7 @@ export async function setAuthPersistence(staySignedIn) {
 export async function onAuthChange(callback) {
   const { auth, authMod } = await ensureApp()
   return authMod.onAuthStateChanged(auth, (user) => {
-    callback(user ? { uid: user.uid, profile: { name: user.displayName, email: user.email, picture: user.photoURL } } : null)
+    callback(user ? { uid: user.uid, profile: { name: user.displayName, email: user.email, picture: user.photoURL, accountCreatedAt: _parseCreationTime(user) } } : null)
   })
 }
 

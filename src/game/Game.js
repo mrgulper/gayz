@@ -20075,17 +20075,24 @@ export class Game {
 
   // "Created" - replaces the old Login Streak calendar. Ticks live every
   // second while the panel is open (see _closeProfilePanel's matching
-  // clearInterval) off careerStats.accountCreatedAt - a real millisecond
-  // timestamp set once, the very first time the game ever constructed on
-  // this device (see the constructor, right after loadCareerStats()) -
-  // not firstPlayedDate above, which only covers players who've finished
-  // at least one run and has no time-of-day precision.
+  // clearInterval). While signed in, uses Google's own account-creation
+  // timestamp (CloudSync's accountCreatedAt on _cloudProfile) - a real
+  // value from Google that's the same on every device and can't drift.
+  // Signed out (or never signed in), falls back to
+  // careerStats.accountCreatedAt - a real millisecond timestamp set once,
+  // the very first time the game ever constructed on THIS device (see the
+  // constructor, right after loadCareerStats()) - not firstPlayedDate
+  // above, which only covers players who've finished at least one run and
+  // has no time-of-day precision. Using the local one while signed in
+  // used to be the only option, and looked like it "reset" whenever
+  // cloud sync round-tripped through a different device/cleared storage.
   _renderProfileCreated() {
     if (!this.profileCreatedLine) return
     if (this.profileCreatedTitle) this.profileCreatedTitle.textContent = t('profileCreatedTitle')
     if (this._profileCreatedTickInterval) clearInterval(this._profileCreatedTickInterval)
     const tick = () => {
-      const elapsedMs = Math.max(0, Date.now() - _safeStatNumber(this.careerStats.accountCreatedAt))
+      const source = (this._cloudProfile && this._cloudProfile.accountCreatedAt) || this.careerStats.accountCreatedAt
+      const elapsedMs = Math.max(0, Date.now() - _safeStatNumber(source))
       const totalSeconds = Math.floor(elapsedMs / 1000)
       const days = Math.floor(totalSeconds / 86400)
       const hours = Math.floor((totalSeconds % 86400) / 3600)
