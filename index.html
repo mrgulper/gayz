@@ -1000,11 +1000,13 @@ Escape before dawn.</p>
         <div class="settings-page" id="settings-page-graphics" style="display: none">
           <h3 class="settings-section-heading" id="settings-section-rendering">Rendering</h3>
           <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="gfxResolution" aria-label="What does this do?">?</button>
             <label for="gfx-resolution-slider" id="gfx-resolution-label">Resolution</label>
             <input type="range" id="gfx-resolution-slider" min="50" max="100" value="100" />
             <span id="gfx-resolution-value" class="audio-value">100%</span>
           </div>
           <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="fpsCap" aria-label="What does this do?">?</button>
             <label for="fps-cap-select" id="fps-cap-label">FPS Cap</label>
             <select id="fps-cap-select">
               <option value="0">Uncapped</option>
@@ -1014,29 +1016,35 @@ Escape before dawn.</p>
             </select>
           </div>
           <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="motionBlur" aria-label="What does this do?">?</button>
             <label for="motion-blur-toggle" id="motion-blur-label">Motion Blur</label>
             <input type="checkbox" id="motion-blur-toggle" class="audio-checkbox" />
           </div>
           <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="gfxBrightness" aria-label="What does this do?">?</button>
             <label for="gfx-brightness-slider" id="gfx-brightness-label">Brightness</label>
             <input type="range" id="gfx-brightness-slider" min="50" max="150" value="100" />
             <span id="gfx-brightness-value" class="audio-value">100%</span>
           </div>
           <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="gfxContrast" aria-label="What does this do?">?</button>
             <label for="gfx-contrast-slider" id="gfx-contrast-label">Contrast</label>
             <input type="range" id="gfx-contrast-slider" min="50" max="150" value="100" />
             <span id="gfx-contrast-value" class="audio-value">100%</span>
           </div>
           <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="gfxAo" aria-label="What does this do?">?</button>
             <label for="gfx-ao-slider" id="gfx-ao-label">Ambient Occlusion</label>
             <input type="range" id="gfx-ao-slider" min="0" max="100" value="0" />
             <span id="gfx-ao-value" class="audio-value">Off</span>
           </div>
           <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="gfxShadows" aria-label="What does this do?">?</button>
             <label for="gfx-shadows-toggle" id="gfx-shadows-label">Shadows</label>
             <input type="checkbox" id="gfx-shadows-toggle" class="audio-checkbox" />
           </div>
           <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="gfxShadowQuality" aria-label="What does this do?">?</button>
             <label for="gfx-shadow-quality-select" id="gfx-shadow-quality-label">Shadow Quality</label>
             <select id="gfx-shadow-quality-select">
               <option value="low">Low</option>
@@ -1045,37 +1053,44 @@ Escape before dawn.</p>
             </select>
           </div>
           <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="gfxGrain" aria-label="What does this do?">?</button>
             <label for="gfx-grain-slider" id="gfx-grain-label">Film Grain</label>
             <input type="range" id="gfx-grain-slider" min="0" max="100" value="100" />
             <span id="gfx-grain-value" class="audio-value">100%</span>
           </div>
           <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="gfxPanelFlicker" aria-label="What does this do?">?</button>
             <label for="gfx-panel-flicker-toggle" id="gfx-panel-flicker-label">Menu Panel Flicker</label>
             <input type="checkbox" id="gfx-panel-flicker-toggle" class="audio-checkbox" checked />
           </div>
 
           <h3 class="settings-section-heading" id="settings-section-effects">Effects</h3>
           <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="gfxBulletHoles" aria-label="What does this do?">?</button>
             <label for="gfx-bullet-holes-toggle" id="gfx-bullet-holes-label">Bullet Holes</label>
             <input type="checkbox" id="gfx-bullet-holes-toggle" class="audio-checkbox" checked />
           </div>
           <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="gfxBlood" aria-label="What does this do?">?</button>
             <label for="gfx-blood-toggle" id="gfx-blood-label">Blood Animation</label>
             <input type="checkbox" id="gfx-blood-toggle" class="audio-checkbox" checked />
           </div>
 
           <h3 class="settings-section-heading" id="settings-section-damage-indicator">Damage Indicator</h3>
           <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="gfxDamageIndicator" aria-label="What does this do?">?</button>
             <label for="gfx-damage-indicator-toggle" id="gfx-damage-indicator-label">Enabled</label>
             <input type="checkbox" id="gfx-damage-indicator-toggle" class="audio-checkbox" checked />
           </div>
 
           <h3 class="settings-section-heading" id="settings-section-damage-numbers">Damage Numbers</h3>
           <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="gfxDamageNumbers" aria-label="What does this do?">?</button>
             <label for="gfx-damage-numbers-toggle" id="gfx-damage-numbers-label">Enabled</label>
             <input type="checkbox" id="gfx-damage-numbers-toggle" class="audio-checkbox" checked />
           </div>
           <div class="audio-row">
+            <button type="button" class="settings-info-btn" data-info="gfxDamageNumbersScale" aria-label="What does this do?">?</button>
             <label for="gfx-damage-numbers-scale-slider" id="gfx-damage-numbers-scale-label">Scale</label>
             <input type="range" id="gfx-damage-numbers-scale-slider" min="50" max="150" value="100" />
             <span id="gfx-damage-numbers-scale-value" class="audio-value">100%</span>
