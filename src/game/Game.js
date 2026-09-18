@@ -3825,15 +3825,11 @@ export class Game {
     // loosening slowly once there's real headroom - same shape as the
     // dynamic resolution scaler, just aimed at the thing that actually
     // costs something instead of the thing that turned out not to.
-    // Starts at ZombieManager's own ROUND_MAX_SPAWN_COUNT ceiling (50) -
-    // effectively uncapped for any normal scenario, so difficulty/round
-    // scaling alone decides zombie count until fps actually says otherwise.
-    // Used to start lower under LOW_QUALITY_MODE (20) - measured live
-    // (docs/PERFORMANCE.md follow-up, 2026-09-18) that a higher live zombie
-    // count costs almost nothing next to shadows, so this no longer needs
-    // its own separate ceiling; the fps governor right above still tightens
-    // this down for real if it's ever actually warranted.
-    this._zombiePopulationCap = 50
+    // Starts at ZombieManager's own ROUND_MAX_SPAWN_COUNT ceiling (20
+    // under LOW_QUALITY_MODE, 50 otherwise) - effectively uncapped for
+    // any normal scenario, so difficulty/round scaling alone decides
+    // zombie count until fps actually says otherwise.
+    this._zombiePopulationCap = LOW_QUALITY_MODE ? 20 : 50
 
     this.playBtn = document.getElementById('play-btn')
     this.continueRunBtn = document.getElementById('continue-run-btn')
@@ -4687,12 +4683,10 @@ export class Game {
     // this respects whatever Performance Mode was saved from last session -
     // toggling the checkbox mid-game still updates everything else in
     // _applyPerformanceMode below, just not this specific setting until the
-    // next reload. Used to also be forced off unconditionally under
-    // LOW_QUALITY_MODE (bare-bones mode) - measured live (docs/PERFORMANCE.md
-    // follow-up, 2026-09-18) that antialiasing alone costs essentially
-    // nothing next to shadows, so it no longer needs its own bare-bones cut;
-    // Performance Mode alone still turns it off for anyone who needs that.
-    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: !this.settings.performanceMode })
+    // next reload. Forced off unconditionally under LOW_QUALITY_MODE
+    // (bare-bones mode), regardless of the separate Performance Mode
+    // setting - a real, free GPU cost cut (no multi-sample resolve pass).
+    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: !LOW_QUALITY_MODE && !this.settings.performanceMode })
     // Temporary (2026-09-11) - surfaces real GPU info in the existing FPS
     // HUD line (see its own comment) so a player reporting lag can just
     // screenshot the corner they already know, instead of navigating
@@ -4824,12 +4818,8 @@ export class Game {
     // main render resolution would.
     this.bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth * BLOOM_RESOLUTION_SCALE, window.innerHeight * BLOOM_RESOLUTION_SCALE), 0.55, 0.4, 0.82)
     // Glow/bloom is a whole extra set of blur passes every frame for a
-    // purely cosmetic effect - used to be off by default under
-    // LOW_QUALITY_MODE, but measured live (docs/PERFORMANCE.md follow-up,
-    // 2026-09-18) that it costs essentially nothing next to shadows, so it's
-    // on unconditionally now; Performance Mode (_applyPerformanceMode) still
-    // turns it off for anyone who needs that.
-    this.bloomPass.enabled = !this.settings.performanceMode
+    // purely cosmetic effect - off by default under LOW_QUALITY_MODE.
+    this.bloomPass.enabled = !LOW_QUALITY_MODE
     this.composer.addPass(this.bloomPass)
     // Motion Blur (Graphics tab, settings.motionBlur) - AfterimagePass
     // blends each frame with a damped copy of the previous one, a cheap
@@ -13134,14 +13124,19 @@ export class Game {
   // pure downside (blur) for zero benefit. Always renders at the display's
   // true native pixel ratio now, in and out of Performance Mode alike.
   _basePixelRatio() {
-    // Used to take a fixed, modest cut under LOW_QUALITY_MODE (0.75x) -
-    // measured live (docs/PERFORMANCE.md follow-up, 2026-09-18) that full
-    // resolution costs almost nothing next to shadows, so that cut is gone;
-    // this always renders at the display's real pixel ratio now.
-    // Capped at 2x regardless - a 2.5x+ high-DPI display would otherwise
-    // render 6x+ the pixels for a resolution difference invisible at
-    // gameplay viewing distance.
-    return Math.min(window.devicePixelRatio, 2)
+    // Fixed, modest cut under LOW_QUALITY_MODE (bare-bones/minimum-
+    // resource mode) - real GPU fill-rate win (fewer total shaded
+    // pixels), unlike the disabled dynamic per-frame scaler above, which
+    // was specifically proven not to rescue an already-catastrophic case.
+    // This is a flat baseline cost reduction, not trying to "save" a bad
+    // frame - a different goal, still worth doing.
+    // Capped at 2x even outside LOW_QUALITY_MODE - a 2.5x+ high-DPI
+    // display would otherwise render 6x+ the pixels for a resolution
+    // difference invisible at gameplay viewing distance. Dormant today
+    // (LOW_QUALITY_MODE is hardcoded true, so the branch above always
+    // wins) but see docs/PERFORMANCE.md Option A3/B: this is the landmine
+    // it warns about for whoever turns that flag back off.
+    return LOW_QUALITY_MODE ? 0.75 : Math.min(window.devicePixelRatio, 2)
   }
 
   _applyRenderScale() {
@@ -13156,22 +13151,21 @@ export class Game {
     // LOW_QUALITY_MODE (bare-bones mode) must never get UNDONE by this -
     // without this OR, loading with the "FPS Optimized" checkbox off
     // (its default) would call _applyPerformanceMode(false) during
-    // startup and undo the bare-bones render-distance shrink set up above.
-    // The checkbox can still make things even MORE reduced on top when the
-    // player explicitly turns it on; it just can't turn bare-bones mode
-    // itself back off. Only render distance (_perfDistanceMult below) still
-    // reads this combined value now - bloom/antialiasing/resolution/zombie
-    // cap all got measured (docs/PERFORMANCE.md follow-up, 2026-09-18) and
-    // moved off LOW_QUALITY_MODE entirely, since none of them showed a real
-    // cost next to shadows; only render distance is still untested, so it
-    // stays on the conservative side for now.
+    // startup and re-enable shadows/bloom, overriding the bare-bones
+    // renderer setup above. The checkbox can still make things even MORE
+    // reduced on top when the player explicitly turns it on; it just
+    // can't turn bare-bones mode itself back off.
     const enabled = settingEnabled || LOW_QUALITY_MODE
-    // Shadows keyed off settingEnabled alone, same as bloom now - both
-    // are explicit Graphics-tab opt-ins that a bare Performance Mode
-    // toggle can override, but LOW_QUALITY_MODE itself no longer forces
-    // either off on its own.
+    // Shadows deliberately keyed off settingEnabled alone, NOT the
+    // LOW_QUALITY_MODE-inclusive `enabled` above (unlike bloom right
+    // below, which stays governed by LOW_QUALITY_MODE same as always) -
+    // see _resolveShadowsEnabled's own comment on why an explicit
+    // Graphics-tab opt-in has to be able to win even though this build
+    // has LOW_QUALITY_MODE hardcoded true, or the checkbox is inert UI.
+    // Performance Mode itself (settingEnabled) still forces shadows off
+    // regardless, same as before.
     this.renderer.shadowMap.enabled = !settingEnabled && this.settings.shadowsEnabled
-    this.bloomPass.enabled = !settingEnabled
+    this.bloomPass.enabled = !enabled
     // 0.75 (fewer total shaded pixels than native resolution) instead of
     // just capping at 1 - a real, substantial GPU fill-rate win on weak
     // hardware, worth the softer image for the framerate it buys back.
@@ -24890,10 +24884,8 @@ export class Game {
       // sample, loosens slowly once there's real headroom, same shape as
       // the disabled resolution scaler below but aimed at a cost that
       // actually matters. Floor of 6 keeps Round Mode from ever going
-      // fully empty even in the worst case. Ceiling used to be lower
-      // (20) under LOW_QUALITY_MODE - no longer, see the constructor's
-      // own note on _zombiePopulationCap.
-      const zombieCapCeiling = 50
+      // fully empty even in the worst case.
+      const zombieCapCeiling = LOW_QUALITY_MODE ? 20 : 50
       if (fps < 40) this._zombiePopulationCap = Math.max(6, this._zombiePopulationCap - 5)
       else if (fps > 55) this._zombiePopulationCap = Math.min(zombieCapCeiling, this._zombiePopulationCap + 1)
       this.zombies.performanceCap = this._zombiePopulationCap

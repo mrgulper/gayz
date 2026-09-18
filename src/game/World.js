@@ -435,16 +435,16 @@ export function buildWorld(scene, trophyCount = 15) {
     }
   }
 
-  // Pure decoration, zero gameplay purpose, no collider either - used to
-  // be skipped entirely under LOW_QUALITY_MODE (bare-bones mode) rather
-  // than just simplifying their materials, since not creating the objects
-  // at all cut their draw calls too, not just their shading cost. Measured
-  // live (docs/PERFORMANCE.md follow-up, 2026-09-18) that these add well
-  // under 1% to the total object count next to everything else already in
-  // the scene, so they're always built now.
-  scatterDebris(scene)
-  scatterCityProps(scene, colliders, solidMeshes)
-  const ambientWildlife = spawnAmbientWildlife(scene)
+  // Pure decoration, zero gameplay purpose, no collider either - skipped
+  // entirely under LOW_QUALITY_MODE (bare-bones mode) rather than just
+  // simplifying their materials, since not creating the objects at all
+  // cuts their draw calls too, not just their shading cost.
+  let ambientWildlife = []
+  if (!LOW_QUALITY_MODE) {
+    scatterDebris(scene)
+    scatterCityProps(scene, colliders, solidMeshes)
+    ambientWildlife = spawnAmbientWildlife(scene)
+  }
   addStreetlights(scene, register, flickerLights)
   for (const spot of buildTowers(scene, colliders, solidMeshes)) towerChestSpots.push(spot)
 
