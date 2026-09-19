@@ -44,10 +44,37 @@ export const LOW_QUALITY_MODE = true
 // shared material swapped out from under an object that mutates its own
 // material at runtime (hit flashes, tints) would recolor everything else
 // sharing it (see this project's CLAUDE.md "Shared-material mutation").
+// Also true for a touch device on its very first-ever visit (2026-09-19,
+// real report of ~10fps/200ms on old tablets/phones even with Performance
+// Mode already auto-forced on) - Game.js's own constructor already forces
+// _applyPerformanceMode(true) for touch devices ("mobile GPUs are
+// generally much weaker than desktop", see its own comment), but that
+// runs AFTER this module has already been evaluated and already decided
+// materials from whatever was in localStorage - nothing yet, on a first
+// visit. Without this, a brand-new mobile player got full PBR materials
+// on their very first (worst) session, only becoming cheap on their
+// second visit once that first session's saveSettings() call had
+// persisted performanceMode:true. Mirrors Game.js's own touchControlsActive
+// auto-detection exactly (coarse pointer/no hover), not just "any touch
+// setting saved", since a mouse/keyboard player who happens to have an
+// explicit touchControlsOverride saved shouldn't get downgraded materials
+// for an unrelated reason.
+function _isLikelyTouchDevice() {
+  try {
+    return window.matchMedia('(hover: none) and (pointer: coarse)').matches
+  } catch {
+    return false
+  }
+}
 function _readSavedPerformanceMode() {
   try {
     const raw = localStorage.getItem('gayz-settings')
-    return raw ? !!JSON.parse(raw).performanceMode : false
+    const parsed = raw ? JSON.parse(raw) : {}
+    if (parsed.performanceMode) return true
+    const touchOverride = parsed.touchControlsOverride ?? 'auto'
+    if (touchOverride === 'touch') return true
+    if (touchOverride === 'auto' && _isLikelyTouchDevice()) return true
+    return false
   } catch {
     return false
   }
