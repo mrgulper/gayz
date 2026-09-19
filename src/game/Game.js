@@ -19171,6 +19171,16 @@ export class Game {
     this.minimapWrap.style.display = 'none'
     this.pauseOverlay.style.display = 'none'
     this.menu.style.display = 'flex'
+    // FPS/coords debug readout - the Play click handler turns both of
+    // these on (see its own comment), but nothing here ever turned them
+    // back off, so they kept showing on the homepage after Quit to Menu
+    // even with Homepage FPS Counter off - real report, 2026-09-19.
+    // fpsEl re-evaluates the same way the Homepage FPS Counter toggle's
+    // own handler already does; coordsEl has no homepage setting of its
+    // own at all (see its creation, opacity:0 by default) - it should
+    // never be visible outside an actual run.
+    this.fpsEl.style.opacity = this.settings.homepageFpsCounter ? '1' : '0'
+    this.coordsEl.style.opacity = '0'
   }
 
   _onPlayerDeath() {
