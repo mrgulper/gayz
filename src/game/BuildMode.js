@@ -836,6 +836,27 @@ export class BuildMode {
     this.selectedType = null
     this._blocks = new Map() // "x,y,z" -> type id
     this._blockLights = new Map() // "x,y,z" -> THREE.PointLight, see LIGHT_BLOCK_COLORS
+    // Fixed pool of exactly MAX_ACTIVE_LIGHTS lights, created once and
+    // added to the scene once, never removed (2026-09-19 - same fix as
+    // Game.js/ZombieManager.js's own light pool, see either one's comment
+    // for the full explanation: toggling/adding/removing a THREE.Light
+    // forces a full shader recompile on every material it affects, and a
+    // level builder placing/deleting glow blocks while designing a level
+    // is exactly the kind of repeated trigger that caused a multi-second
+    // freeze elsewhere in this game). placeBlock/removeBlock hand these
+    // out and reclaim them instead of ever calling `new THREE.PointLight`
+    // or `scene.remove()` on a light - intensity 0 means "off" now, not
+    // absence from the scene. The existing `_blockLights.size <
+    // MAX_ACTIVE_LIGHTS` check already caps real concurrent usage at
+    // exactly this pool's size, so there's no separate "pool exhausted"
+    // case to handle here the way the survival-mode pool needs to.
+    this._lightPool = []
+    for (let i = 0; i < MAX_ACTIVE_LIGHTS; i++) {
+      const light = new THREE.PointLight(0xffffff, 0, LIGHT_DISTANCE)
+      light.inUse = false
+      this.scene.add(light)
+      this._lightPool.push(light)
+    }
     // Undo/Redo - every real placeBlock()/removeBlock() call (not a no-op
     // on an already-occupied/already-empty cell) pushes one entry here,
     // regardless of which tool triggered it (a single click, Mirror's
@@ -1151,6 +1172,27 @@ export class BuildMode {
   // Build Mode taking ~10 real seconds to open. A plain single placeBlock()
   // call (the player clicking to place one block) still updates its bounds
   // immediately, same as before - only bulk fills opt out.
+  // See _lightPool's own comment (constructor). Returns null if every
+  // slot is somehow already claimed - shouldn't happen given placeBlock's
+  // own `_blockLights.size < MAX_ACTIVE_LIGHTS` guard, but a placed block
+  // just renders without lighting its neighbors in that case rather than
+  // erroring, same graceful fallback as the survival-mode pool.
+  _acquireLight() {
+    for (const light of this._lightPool) {
+      if (!light.inUse) {
+        light.inUse = true
+        return light
+      }
+    }
+    return null
+  }
+
+  _releaseLight(light) {
+    if (!light) return
+    light.inUse = false
+    light.intensity = 0
+  }
+
   placeBlock(x, y, z, type, skipBoundsUpdate = false) {
     const key = this._key(x, y, z)
     if (this._blocks.has(key)) return
@@ -1190,10 +1232,14 @@ export class BuildMode {
 
     const lightColor = LIGHT_BLOCK_COLORS.get(type)
     if (lightColor !== undefined && this._blockLights.size < MAX_ACTIVE_LIGHTS) {
-      const light = new THREE.PointLight(lightColor, LIGHT_INTENSITY, LIGHT_DISTANCE)
-      light.position.set((x + 0.5) * BLOCK_SIZE, (y + 0.5) * BLOCK_SIZE, (z + 0.5) * BLOCK_SIZE)
-      this.scene.add(light)
-      this._blockLights.set(key, light)
+      const light = this._acquireLight()
+      if (light) {
+        light.color.setHex(lightColor)
+        light.distance = LIGHT_DISTANCE
+        light.position.set((x + 0.5) * BLOCK_SIZE, (y + 0.5) * BLOCK_SIZE, (z + 0.5) * BLOCK_SIZE)
+        light.intensity = LIGHT_INTENSITY
+        this._blockLights.set(key, light)
+      }
     }
   }
 
@@ -1230,8 +1276,7 @@ export class BuildMode {
 
     const light = this._blockLights.get(key)
     if (light) {
-      this.scene.remove(light)
-      light.dispose()
+      this._releaseLight(light)
       this._blockLights.delete(key)
     }
   }
@@ -1783,10 +1828,7 @@ export class BuildMode {
       this._instanceKeyByIndex[type] = []
     }
     this._blocks.clear()
-    for (const light of this._blockLights.values()) {
-      this.scene.remove(light)
-      light.dispose()
-    }
+    for (const light of this._blockLights.values()) this._releaseLight(light)
     this._blockLights.clear()
     this._undoStack.length = 0
     this._redoStack.length = 0
