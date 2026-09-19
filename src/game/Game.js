@@ -4686,7 +4686,15 @@ export class Game {
     // next reload. Forced off unconditionally under LOW_QUALITY_MODE
     // (bare-bones mode), regardless of the separate Performance Mode
     // setting - a real, free GPU cost cut (no multi-sample resolve pass).
-    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: !LOW_QUALITY_MODE && !this.settings.performanceMode })
+    // powerPreference (2026-09-18) - a hint, not a guarantee: on a laptop
+    // with both an integrated and a discrete GPU, this asks the browser to
+    // use the stronger one instead of whichever one it'd otherwise pick to
+    // save battery. Does nothing on a single-GPU machine (e.g. Apple
+    // Silicon's one unified chip) and can't help with the actual thing a
+    // real player report traced this session's lag to - multiple other
+    // GPU-heavy tabs open at once, all sharing the one chip a page has no
+    // way to see or control. Free and safe either way, so left on.
+    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: !LOW_QUALITY_MODE && !this.settings.performanceMode, powerPreference: 'high-performance' })
     // Temporary (2026-09-11) - surfaces real GPU info in the existing FPS
     // HUD line (see its own comment) so a player reporting lag can just
     // screenshot the corner they already know, instead of navigating
@@ -24902,15 +24910,21 @@ export class Game {
       if (!this.settings.performanceMode && !this._autoPerfModeTriggered) {
         // Raised from 25 to 35 and switched from a hard reset to a decay -
         // a real player struggling in the 19-30fps range (a genuine report,
-        // not a guess) rarely stays BELOW 25 for 6 straight 500ms samples
-        // in a row; it fluctuates, and the old `: 0` reset meant a single
-        // sample ticking up to 26fps erased the entire streak, so this
-        // could go the whole session without ever firing even while
+        // not a guess) rarely stays BELOW 25 for several straight 500ms
+        // samples in a row; it fluctuates, and the old `: 0` reset meant a
+        // single sample ticking up to 26fps erased the entire streak, so
+        // this could go the whole session without ever firing even while
         // consistently feeling bad. Decaying by 1 instead of resetting to
         // 0 still requires a real sustained trend (can't trigger off one
         // unlucky sample), just doesn't get erased by normal noise.
+        // Streak threshold lowered from 6 to 3 (2026-09-18, real player
+        // report of a genuinely bad case - multiple other GPU-heavy tabs
+        // open at once, tanking fps well below this) - 3 seconds of visibly
+        // bad gameplay before the safety net kicks in was too slow; 1.5s
+        // still needs a real sustained trend (not one stutter), just gets
+        // there faster.
         this._lowFpsStreak = fps < 35 ? this._lowFpsStreak + 1 : Math.max(0, this._lowFpsStreak - 1)
-        if (this._lowFpsStreak >= 6) {
+        if (this._lowFpsStreak >= 3) {
           this._autoPerfModeTriggered = true
           this.settings.performanceMode = true
           this.performanceToggle.checked = true
