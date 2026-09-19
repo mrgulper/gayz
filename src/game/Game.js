@@ -2586,6 +2586,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'settings-section-accessibility-2': 'settingsSectionAccessibility',
   'settings-section-misc': 'settingsSectionMisc',
   'settings-section-weapon-gear-guide': 'settingsSectionWeaponGearGuide',
+  'settings-section-performance': 'settingsSectionPerformance',
   'settings-section-rendering': 'settingsSectionRendering',
   'settings-section-effects': 'settingsSectionEffects',
   'settings-section-damage-indicator': 'settingsSectionDamageIndicator',
