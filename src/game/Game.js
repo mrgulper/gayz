@@ -6247,6 +6247,11 @@ export class Game {
       // saveCareerStats call, e.g. _recordRunEnd).
       this.careerStats.playButtonClicks = (this.careerStats.playButtonClicks || 0) + 1
       saveCareerStats(this.careerStats)
+      // What's New digest (see _fadeOutWhatsNewDigest) - fades it out right
+      // away rather than letting it sit open behind the loading/gameplay
+      // screens if the player clicks Play before its own 10s idle timer
+      // or the X gets to it first.
+      this._fadeOutWhatsNewDigest()
       // Screen fade transition - masks the otherwise-instant menu-to-game
       // switch with a brief flash-to-black-then-fade, same show/hide
       // re-trigger pattern as every toast in this codebase.
@@ -10478,6 +10483,7 @@ export class Game {
     }
     if (this.whatsNewDigestCloseBtn) {
       this.whatsNewDigestCloseBtn.addEventListener('click', () => {
+        clearTimeout(this._whatsNewDigestFadeTimer)
         this.whatsNewDigest.style.display = 'none'
         try { localStorage.setItem(CHANGELOG_LAST_VIEWED_KEY, String(Date.now())) } catch { /* storage unavailable */ }
         this._updateWhatsNewDot()
@@ -20429,6 +20435,29 @@ export class Game {
     this.whatsNewDigestTitle.textContent = t('whatsNewDigestTitle', { n: newEntries.length })
     this.whatsNewDigestList.innerHTML = newEntries.map((el) => `<p>${el.querySelector('.changelog-text')?.textContent || ''}</p>`).join('')
     this.whatsNewDigest.style.display = 'block'
+    this.whatsNewDigest.classList.remove('fading')
+    // Auto-fade after 10s if left untouched (2026-09-18) - it used to just
+    // sit open indefinitely until the player noticed the X, which meant it
+    // was still covering the corner of the screen in every homepage
+    // screenshot from an entire play session. Cleared if the player closes
+    // it manually first, and the Play button click handler below also
+    // triggers this same fade immediately, so it never carries into an
+    // actual run.
+    this._whatsNewDigestFadeTimer = setTimeout(() => this._fadeOutWhatsNewDigest(), 10000)
+  }
+
+  // Shared by the 10s idle timer above and the Play button click handler -
+  // fades instead of vanishing instantly (see .fading in style.css), then
+  // actually hides it once the transition finishes so it's not sitting
+  // there invisible-but-still-in-the-DOM. Deliberately does NOT mark the
+  // digest as seen or touch the What's New dot, unlike the explicit X
+  // close button - the player never actually read it, so it should still
+  // show again next launch, same as if they'd never seen it at all.
+  _fadeOutWhatsNewDigest() {
+    if (!this.whatsNewDigest || this.whatsNewDigest.style.display === 'none') return
+    clearTimeout(this._whatsNewDigestFadeTimer)
+    this.whatsNewDigest.classList.add('fading')
+    setTimeout(() => { this.whatsNewDigest.style.display = 'none' }, 600)
   }
 
   // Friend presence heartbeat - runs for the whole page lifetime (not just
