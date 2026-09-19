@@ -1532,53 +1532,82 @@ export class Zombie {
       this.isPackAlpha = false
     } else {
       if (allZombies) {
-        let sepX = 0
-        let sepZ = 0
-        let packCount = 0
-        let lowestNearbyId = this.id
-        for (const other of allZombies) {
-          if (other === this) continue
-          if (other.state === 'dead') {
-            // Corpse avoidance - a much lighter push than live-zombie
-            // separation below, just enough to route around a fresh body
-            // instead of walking straight through it.
-            const cdx = this.group.position.x - other.group.position.x
-            const cdz = this.group.position.z - other.group.position.z
-            const cdist = Math.hypot(cdx, cdz)
-            if (cdist > 0.0001 && cdist < CORPSE_AVOID_RADIUS) {
-              const push = (CORPSE_AVOID_RADIUS - cdist) / CORPSE_AVOID_RADIUS
-              sepX += (cdx / cdist) * push * CORPSE_AVOID_WEIGHT
-              sepZ += (cdz / cdist) * push * CORPSE_AVOID_WEIGHT
+        // Crowd separation/flanking scans every OTHER zombie to find nearby
+        // packmates - O(n) per zombie, O(n^2) for the whole horde, and the
+        // single biggest per-frame cost that scales with fight size (see
+        // docs/PERFORMANCE.md's live big-fight profiling, 2026-09-19). The
+        // scan result (sepX/sepZ/packCount/lowestNearbyId) only feeds a
+        // smooth push-apart force and pack-alpha handoff, neither of which
+        // needs 60Hz precision, so it's re-scanned once every 3 frames per
+        // zombie (staggered by id so the whole horde doesn't scan on the
+        // same frame) and the last result is reused otherwise. nx/nz's
+        // fresh-every-frame base direction (toward/away from the player,
+        // computed above) is untouched - only the crowd-avoidance nudge on
+        // top of it goes stale for up to 2 frames, same as the pack-alpha
+        // handoff mentioned below.
+        const shouldScanNeighbors = ((this._sepScanTick = (this._sepScanTick || 0) + 1) + this.id) % 3 === 0
+        let sepX, sepZ, packCount, lowestNearbyId
+        if (shouldScanNeighbors || this._cachedSepX === undefined) {
+          sepX = 0
+          sepZ = 0
+          packCount = 0
+          lowestNearbyId = this.id
+          for (const other of allZombies) {
+            if (other === this) continue
+            if (other.state === 'dead') {
+              // Corpse avoidance - a much lighter push than live-zombie
+              // separation below, just enough to route around a fresh body
+              // instead of walking straight through it.
+              const cdx = this.group.position.x - other.group.position.x
+              const cdz = this.group.position.z - other.group.position.z
+              const cdist = Math.hypot(cdx, cdz)
+              if (cdist > 0.0001 && cdist < CORPSE_AVOID_RADIUS) {
+                const push = (CORPSE_AVOID_RADIUS - cdist) / CORPSE_AVOID_RADIUS
+                sepX += (cdx / cdist) * push * CORPSE_AVOID_WEIGHT
+                sepZ += (cdz / cdist) * push * CORPSE_AVOID_WEIGHT
+              }
+              continue
             }
-            continue
+            if (other.state !== 'alive') continue
+            const odx = this.group.position.x - other.group.position.x
+            const odz = this.group.position.z - other.group.position.z
+            const odist = Math.hypot(odx, odz)
+            if (odist < FLANK_RADIUS) {
+              packCount++
+              // Pack alpha (see ALPHA_SPEED_MULT) - the lowest-id zombie
+              // within range of this pack. Was "recomputed fresh every
+              // frame so it naturally hands off if the current alpha
+              // dies" - now up to 2 frames (~33ms) behind under the
+              // throttle above, which is the same imperceptible lag as
+              // the separation force itself, not a new behavior.
+              if (other.id < lowestNearbyId) lowestNearbyId = other.id
+            }
+            if (odist <= 0.0001) {
+              // Exactly coincident (e.g. two zombies summoned on the same
+              // spot) - there's no defined "away" direction, so nudge apart
+              // using this zombie's own id as a stable pseudo-angle. Spread by
+              // the golden angle (~137.5°) rather than id directly, since
+              // summon bursts hand out consecutive ids and consecutive ids
+              // would otherwise land within a degree of each other and drift
+              // off together as a clump instead of separating.
+              const angle = (this.id * 137.5 * (Math.PI / 180)) % (Math.PI * 2)
+              sepX += Math.cos(angle)
+              sepZ += Math.sin(angle)
+            } else if (odist < SEPARATION_RADIUS) {
+              const push = (SEPARATION_RADIUS - odist) / SEPARATION_RADIUS
+              sepX += (odx / odist) * push
+              sepZ += (odz / odist) * push
+            }
           }
-          if (other.state !== 'alive') continue
-          const odx = this.group.position.x - other.group.position.x
-          const odz = this.group.position.z - other.group.position.z
-          const odist = Math.hypot(odx, odz)
-          if (odist < FLANK_RADIUS) {
-            packCount++
-            // Pack alpha (see ALPHA_SPEED_MULT) - the lowest-id zombie
-            // within range of this pack, recomputed fresh every frame so
-            // it naturally hands off if the current alpha dies.
-            if (other.id < lowestNearbyId) lowestNearbyId = other.id
-          }
-          if (odist <= 0.0001) {
-            // Exactly coincident (e.g. two zombies summoned on the same
-            // spot) - there's no defined "away" direction, so nudge apart
-            // using this zombie's own id as a stable pseudo-angle. Spread by
-            // the golden angle (~137.5°) rather than id directly, since
-            // summon bursts hand out consecutive ids and consecutive ids
-            // would otherwise land within a degree of each other and drift
-            // off together as a clump instead of separating.
-            const angle = (this.id * 137.5 * (Math.PI / 180)) % (Math.PI * 2)
-            sepX += Math.cos(angle)
-            sepZ += Math.sin(angle)
-          } else if (odist < SEPARATION_RADIUS) {
-            const push = (SEPARATION_RADIUS - odist) / SEPARATION_RADIUS
-            sepX += (odx / odist) * push
-            sepZ += (odz / odist) * push
-          }
+          this._cachedSepX = sepX
+          this._cachedSepZ = sepZ
+          this._cachedPackCount = packCount
+          this._cachedLowestNearbyId = lowestNearbyId
+        } else {
+          sepX = this._cachedSepX
+          sepZ = this._cachedSepZ
+          packCount = this._cachedPackCount
+          lowestNearbyId = this._cachedLowestNearbyId
         }
         this.isPackAlpha = packCount >= FLANK_MIN_PACK_SIZE && lowestNearbyId === this.id
         const preSepNx = nx
