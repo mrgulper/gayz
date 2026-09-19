@@ -12398,6 +12398,17 @@ export class Game {
       // instead of their (changeable, non-unique) nickname - see
       // CloudSync.fetchLeaderboardEntryByPlayerId.
       playerId: this.settings.playerId,
+      // Career-rank source of truth (see CAREER_RANK_TITLES, Game.js ~1208)
+      // wasn't previously exposed to the public leaderboard doc at all -
+      // added so external readers (the Discord bot's rank-role feature)
+      // can compute the same Rookie/Survivor/Veteran/Elite/Legend tier the
+      // game itself shows, instead of reinventing a second rank scale.
+      // Not covered by FIRESTORE_SECURITY_RULES' explicit per-field checks
+      // yet (that rule has no `hasOnly()`, so an unlisted field isn't
+      // rejected) - fine for a read-only display number with no gameplay
+      // effect if spoofed, but add real bounds validation there too if
+      // this field ever gates something that matters.
+      totalKills: _safeStatNumber(this.careerStats.totalKills),
     }
     // region is omitted entirely when unset ('global' = no preference
     // picked) rather than defaulted to some region - the security rule's
