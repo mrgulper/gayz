@@ -23191,16 +23191,33 @@ export class Game {
     // has a real illumination range of 30 units or less (checked every
     // `new THREE.PointLight(...)` call site building this array), so a
     // light more than LIGHT_CULL_DISTANCE from the player cannot possibly
-    // be lighting anything the player could currently see - turning it
-    // fully off (not just intensity=0, which still costs a shader
-    // evaluation) is a real, not approximate, render-cost cut.
+    // be lighting anything the player could currently see.
+    //
+    // Deliberately does NOT toggle light.visible anymore (2026-09-18, real
+    // report of a genuinely broken case - 0.3fps / ~2.9s per frame on a
+    // weak GPU, confirmed live even on capable hardware: measured
+    // renderer.info.programs growing by one and single frames spiking
+    // 150-600ms every time the VISIBLE light count changed to a value not
+    // seen before). Toggling .visible changes how many point lights
+    // three.js's shader compiler sees, which forces a full shader
+    // recompile for every material affected - and since the player walking
+    // around constantly changes how many of these lights are in range at
+    // once, this was recompiling shaders almost continuously during normal
+    // movement, on top of it. The comment this replaced explicitly chose
+    // .visible=false over intensity=0 to avoid the small extra per-pixel
+    // cost of evaluating an off light - a real cost, just utterly dwarfed
+    // by a shader recompile. Setting intensity to 0 instead keeps the
+    // compiled light count permanently fixed (all flickerLights stay
+    // visible=true forever) at the cost of that small constant per-pixel
+    // evaluation, which is what actually delivers the intended cull
+    // without the catastrophic side effect.
     const lightCullSq = (LIGHT_CULL_DISTANCE * this._perfDistanceMult) ** 2
     // Nearest-K cap on top of the distance cull above - a dense cluster
     // (several streetlamps/beacons all within LIGHT_CULL_DISTANCE at once,
     // e.g. standing in the mall or the safe zone) can still leave far more
     // lights on at once than the distance check alone would catch, so only
     // the MAX_ACTIVE_LIGHTS nearest of the in-range candidates actually
-    // stay on; the rest are within range but capped off anyway.
+    // stay lit; the rest are within range but zeroed out anyway.
     const candidates = this._lightCullScratch
     candidates.length = 0
     for (const f of this.flickerLights) {
@@ -23208,16 +23225,15 @@ export class Game {
       const dz = f.light.position.z - playerPos.z
       const distSq = dx * dx + dz * dz
       if (distSq < lightCullSq) {
-        f.light.visible = true
         f._cullDistSq = distSq
         candidates.push(f)
       } else {
-        f.light.visible = false
+        f.light.intensity = 0
       }
     }
     if (candidates.length > MAX_ACTIVE_LIGHTS) {
       candidates.sort((a, b) => a._cullDistSq - b._cullDistSq)
-      for (let i = MAX_ACTIVE_LIGHTS; i < candidates.length; i++) candidates[i].light.visible = false
+      for (let i = MAX_ACTIVE_LIGHTS; i < candidates.length; i++) candidates[i].light.intensity = 0
     }
     for (const obj of this.cullables) {
       const dx = obj.position.x - playerPos.x
