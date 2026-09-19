@@ -283,6 +283,25 @@ const empMat = flatMaterial({
 const EXPLOSION_FX_MS = 350
 const SCREAM_FX_MS = 450
 
+// Shared pool for every short-lived combat light (fire zones, explosions,
+// EMP bursts - see _acquireFxLight/_releaseFxLight) - 2026-09-19, real
+// report of a weak-GPU machine "randomly" dropping to ~0fps for a few
+// seconds mid-fight. Root cause: _spawnFireZone/_spawnExplosionFX/
+// _spawnEmpBurstFX each used to do `new THREE.PointLight(...)` +
+// `scene.add(light)` on every throw/detonation and `scene.remove(light)`
+// once it faded - exactly the same class of bug already fixed for the
+// ambient streetlights in Game.js's _updateCulling (see that comment for
+// the full mechanism): changing how many lights the renderer currently
+// sees forces three.js to recompile shaders for every affected material,
+// and a fight with grenades/molotovs/C4/EMP flying changes that count
+// constantly, unlike streetlights which only did so while walking. A
+// fixed-size pool of lights that stay in the scene permanently (intensity
+// 0 when idle) never changes that count. 12 is generous for anything
+// this game's own combat can realistically throw at once; if every slot
+// is taken, the affected effect just renders without a light (mesh/decal
+// still shows) rather than growing the pool and reintroducing the bug.
+const FX_LIGHT_POOL_SIZE = 12
+
 export class ZombieManager {
   constructor(scene, spawnRateMult = 1, colliders = [], solidMeshes = []) {
     this.scene = scene
@@ -322,6 +341,17 @@ export class ZombieManager {
     // player-caused and stay purely local - out of this phase's scope).
     this.worldEvents = []
     this._nextExplosionEventId = 0
+    // See FX_LIGHT_POOL_SIZE's own comment - created once, added once,
+    // never removed. `inUse` is tracked separately from `intensity` since
+    // a light mid-fade-out is still "in use" by its owning effect even
+    // while its intensity is briefly near 0.
+    this._fxLightPool = []
+    for (let i = 0; i < FX_LIGHT_POOL_SIZE; i++) {
+      const light = new THREE.PointLight(0xffffff, 0, 1, 2)
+      light.inUse = false
+      this.scene.add(light)
+      this._fxLightPool.push(light)
+    }
     this.projectiles = []
     this.explosionFx = []
     this.screamFx = []
@@ -433,6 +463,26 @@ export class ZombieManager {
     // was a real multi-hundred-ms freeze right at the "Click to Play"
     // moment. The per-frame budget in update() drains this at 1/frame.
     this._pendingSpawns += this.targetCount
+  }
+
+  // See FX_LIGHT_POOL_SIZE's own comment. Caller is responsible for
+  // setting color/distance/position/intensity on what comes back, and for
+  // calling _releaseFxLight once the effect is done with it - returns null
+  // (never grows the pool) if every slot is already claimed.
+  _acquireFxLight() {
+    for (const light of this._fxLightPool) {
+      if (!light.inUse) {
+        light.inUse = true
+        return light
+      }
+    }
+    return null
+  }
+
+  _releaseFxLight(light) {
+    if (!light) return
+    light.inUse = false
+    light.intensity = 0
   }
 
   // Kills the normal continuous respawn-on-death trickle (targetCount = 0
@@ -1478,9 +1528,17 @@ export class ZombieManager {
     // here and setting its position to the world x/z (as this used to)
     // put it well off from the actual fire, warped through the parent's
     // rotation instead of floating above the fire like intended.
-    const light = new THREE.PointLight(0xff6a1a, 1.6, MOLOTOV_FIRE_RADIUS * 2.5, 2)
-    light.position.set(x, 1.2, z)
-    this.scene.add(light)
+    // From the shared pool (see _acquireFxLight) rather than a fresh
+    // PointLight - null if every slot is taken, which just means this
+    // particular fire doesn't cast light, same as any other pool consumer.
+    const light = this._acquireFxLight()
+    if (light) {
+      light.color.setHex(0xff6a1a)
+      light.distance = MOLOTOV_FIRE_RADIUS * 2.5
+      light.decay = 2
+      light.position.set(x, 1.2, z)
+      light.intensity = 1.6
+    }
     this.fireZones.push({ mesh, x, z, light, expiresAt: performance.now() + MOLOTOV_FIRE_DURATION_MS, nextTickAt: performance.now() })
   }
 
@@ -1489,13 +1547,13 @@ export class ZombieManager {
     this.fireZones = this.fireZones.filter((f) => {
       if (now >= f.expiresAt) {
         this.scene.remove(f.mesh)
-        this.scene.remove(f.light)
+        this._releaseFxLight(f.light)
         return false
       }
       // Flicker the fire light/opacity for a "burning" read instead of a
       // flat static disc.
       const flicker = 0.8 + Math.sin(now * 0.02 + f.x) * 0.2
-      f.light.intensity = 1.6 * flicker
+      if (f.light) f.light.intensity = 1.6 * flicker
       f.mesh.material.opacity = 0.45 * flicker + 0.1
 
       if (now >= f.nextTickAt) {
@@ -1587,13 +1645,18 @@ export class ZombieManager {
     // Dynamic explosion lighting - same idea as the muzzle flash light
     // already used for gunfire (a real THREE.PointLight, not just an
     // emissive mesh), so a blast actually lights nearby walls/zombies
-    // instead of only the fireball mesh itself glowing. Short-lived and
-    // self-removing (same EXPLOSION_FX_MS timeline as the mesh below), so
-    // this never accumulates as an ongoing cost - a bounded `distance`
-    // keeps any one flash cheap regardless.
-    const light = new THREE.PointLight(0xffaa33, 6, 12, 2)
-    light.position.set(x, 1.5, z)
-    this.scene.add(light)
+    // instead of only the fireball mesh itself glowing. From the shared
+    // pool (see _acquireFxLight/FX_LIGHT_POOL_SIZE's own comment) - null
+    // if every slot is taken, in which case this blast just doesn't cast
+    // light, same as any other pool consumer.
+    const light = this._acquireFxLight()
+    if (light) {
+      light.color.setHex(0xffaa33)
+      light.distance = 12
+      light.decay = 2
+      light.position.set(x, 1.5, z)
+      light.intensity = 6
+    }
     this.explosionFx.push({ mesh, light, startedAt: performance.now() })
     audioEngine.playExplosion()
   }
@@ -1607,10 +1670,10 @@ export class ZombieManager {
       // Sharp flash that fades faster than the fireball mesh (real
       // explosions light up instantly then dim quickly, well before the
       // fireball itself has fully expanded/faded).
-      fx.light.intensity = 6 * Math.max(0, 1 - progress * 1.8)
+      if (fx.light) fx.light.intensity = 6 * Math.max(0, 1 - progress * 1.8)
       if (progress >= 1) {
         this.scene.remove(fx.mesh)
-        this.scene.remove(fx.light)
+        this._releaseFxLight(fx.light)
         return false
       }
       return true
@@ -1673,9 +1736,17 @@ export class ZombieManager {
     this.scene.add(mesh)
     this.empBursts.push({ mesh, startedAt: performance.now() })
 
-    const light = new THREE.PointLight(0x4ecfff, 3, EMP_STUN_RADIUS * 2, 2)
-    light.position.set(x, 1.5, z)
-    this.scene.add(light)
+    // From the shared pool (see _acquireFxLight/FX_LIGHT_POOL_SIZE's own
+    // comment) - null if every slot is taken, in which case this burst
+    // just doesn't cast light, same as any other pool consumer.
+    const light = this._acquireFxLight()
+    if (light) {
+      light.color.setHex(0x4ecfff)
+      light.distance = EMP_STUN_RADIUS * 2
+      light.decay = 2
+      light.position.set(x, 1.5, z)
+      light.intensity = 3
+    }
     this.empBursts[this.empBursts.length - 1].light = light
   }
 
@@ -1688,7 +1759,7 @@ export class ZombieManager {
       if (fx.light) fx.light.intensity = 3 * (1 - progress)
       if (progress >= 1) {
         this.scene.remove(fx.mesh)
-        if (fx.light) this.scene.remove(fx.light)
+        this._releaseFxLight(fx.light)
         return false
       }
       return true
