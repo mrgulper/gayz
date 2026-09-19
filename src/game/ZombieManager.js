@@ -283,24 +283,30 @@ const empMat = flatMaterial({
 const EXPLOSION_FX_MS = 350
 const SCREAM_FX_MS = 450
 
-// Shared pool for every short-lived combat light (fire zones, explosions,
-// EMP bursts - see _acquireFxLight/_releaseFxLight) - 2026-09-19, real
-// report of a weak-GPU machine "randomly" dropping to ~0fps for a few
-// seconds mid-fight. Root cause: _spawnFireZone/_spawnExplosionFX/
-// _spawnEmpBurstFX each used to do `new THREE.PointLight(...)` +
-// `scene.add(light)` on every throw/detonation and `scene.remove(light)`
-// once it faded - exactly the same class of bug already fixed for the
-// ambient streetlights in Game.js's _updateCulling (see that comment for
-// the full mechanism): changing how many lights the renderer currently
-// sees forces three.js to recompile shaders for every affected material,
-// and a fight with grenades/molotovs/C4/EMP flying changes that count
-// constantly, unlike streetlights which only did so while walking. A
-// fixed-size pool of lights that stay in the scene permanently (intensity
-// 0 when idle) never changes that count. 12 is generous for anything
-// this game's own combat can realistically throw at once; if every slot
-// is taken, the affected effect just renders without a light (mesh/decal
-// still shows) rather than growing the pool and reintroducing the bug.
-const FX_LIGHT_POOL_SIZE = 12
+// Shared pool for every short-lived (or moving) dynamic light in the whole
+// game - fire zones, explosions, EMP bursts, hazard zones, crate-open
+// bursts, melee kill flashes, mine rockfall flashes, the golden zombie's
+// halo, the airdrop beacon, the Void Ripper orb, and power-up pickups'
+// glow (see _acquireFxLight/_releaseFxLight, and each call site's own
+// comment) - 2026-09-19, real report of a weak-GPU machine "randomly"
+// dropping to ~0fps for a few seconds mid-fight. Root cause: every one of
+// those effects used to do `new THREE.PointLight(...)` + `scene.add(...)`
+// (or `parent.add(...)`) when it started and remove it when it ended -
+// exactly the same class of bug already fixed for the ambient streetlights
+// in Game.js's _updateCulling (see that comment for the full mechanism):
+// changing how many lights the renderer currently sees forces three.js to
+// recompile shaders for every affected material, and any one of these
+// effects starting or ending changes that count. A fixed-size pool of
+// lights that stay in the scene permanently (intensity 0 when idle, or
+// reparented into whatever they're lighting - see _releaseFxLight's own
+// note on restoring them to the scene root either way) never changes that
+// count no matter which of these effects triggers it or how many overlap.
+// 20 (raised from 12 once every consumer above was found and moved onto
+// this same pool) is generous for anything this game can realistically
+// throw at once simultaneously; if every slot is taken, the affected
+// effect just renders without a light (mesh/decal still shows) rather
+// than growing the pool and reintroducing the bug.
+const FX_LIGHT_POOL_SIZE = 20
 
 export class ZombieManager {
   constructor(scene, spawnRateMult = 1, colliders = [], solidMeshes = []) {
@@ -483,6 +489,15 @@ export class ZombieManager {
     if (!light) return
     light.inUse = false
     light.intensity = 0
+    // Most callers add these directly to the scene and just reposition
+    // them, but a couple (e.g. Game.js's _addGoldenHalo) reparent one into
+    // a moving object instead, to get free position tracking the same way
+    // the object it's attached to already moves. Restoring it to the
+    // scene root here means every caller can just call this one method
+    // without needing to know or care which kind of consumer it was -
+    // and means a light isn't left dangling inside something that's about
+    // to be disposed.
+    if (light.parent && light.parent !== this.scene) this.scene.add(light)
   }
 
   // Kills the normal continuous respawn-on-death trickle (targetCount = 0
@@ -857,6 +872,7 @@ export class ZombieManager {
     // their material/shader GPU resources.
     for (const zombie of this.zombies) {
       this.scene.remove(zombie.group)
+      if (zombie._goldenHaloLight) this._releaseFxLight(zombie._goldenHaloLight)
       zombie.dispose()
     }
     for (const p of this.projectiles) this.scene.remove(p.mesh)
@@ -2203,6 +2219,7 @@ export class ZombieManager {
 
         setTimeout(() => {
           this.scene.remove(zombie.group)
+          if (zombie._goldenHaloLight) this._releaseFxLight(zombie._goldenHaloLight)
           // See Zombie.js's own dispose() note - scene.remove() alone
           // doesn't free a single byte of GPU memory, only stops
           // rendering. Without this, every kill for the entire life of a

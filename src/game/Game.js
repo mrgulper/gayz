@@ -5338,7 +5338,7 @@ export class Game {
     this.driving = false
     this.nearVehicle = false
     this._vehicleSeatPos = new THREE.Vector3()
-    this.pickups = new PickupManager(this.scene, spawnPoints)
+    this.pickups = new PickupManager(this.scene, spawnPoints, this.zombies)
     this.xpGems = new XpGemManager(this.scene)
     this.autoWeapons = new AutoWeaponManager(this.scene)
     // Minigun used to be a one-off floating pickup at minigunSpot (still
@@ -6235,7 +6235,13 @@ export class Game {
       this.flashlightBattery = Math.max(0, this.flashlightBattery - FLASHLIGHT_DRAIN_PER_SEC * dt)
       if (this.flashlightBattery === 0) this.flashlightOn = false
     }
-    this.flashlight.visible = this.flashlightOn
+    // Intensity, not .visible (2026-09-19) - same shader-recompile
+    // mechanism as every other fix in this batch (see _updateCulling's own
+    // comment for the full explanation). A player clicking the flashlight
+    // on/off repeatedly - which this game explicitly supports as a normal
+    // input, unlike the other fixed sites which were all automatic effects -
+    // used to force a recompile on every single toggle.
+    this.flashlight.intensity = this.flashlightOn ? 3.2 : 0
     this.flashlightBeam.visible = this.flashlightOn
     this.batteryFill.style.width = `${(this.flashlightBattery / this.maxFlashlightBattery) * 100}%`
   }
@@ -9030,9 +9036,17 @@ export class Game {
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(def.radius, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat)
     mesh.position.set(x, 0.05, z)
     this.scene.add(mesh)
-    const light = new THREE.PointLight(def.color, 1.4, def.radius * 2.5, 2)
-    light.position.set(x, 1.5, z)
-    this.scene.add(light)
+    // From the shared pool (see ZombieManager's _acquireFxLight/
+    // FX_LIGHT_POOL_SIZE comment) rather than a fresh PointLight - null if
+    // every slot is taken, in which case this zone just doesn't cast light.
+    const light = this.zombies?._acquireFxLight()
+    if (light) {
+      light.color.setHex(def.color)
+      light.distance = def.radius * 2.5
+      light.decay = 2
+      light.position.set(x, 1.5, z)
+      light.intensity = 1.4
+    }
 
     this.hazardZones.push({
       type,
@@ -9049,7 +9063,7 @@ export class Game {
 
   _removeHazardZone(zone) {
     this.scene.remove(zone.mesh)
-    this.scene.remove(zone.light)
+    this.zombies?._releaseFxLight(zone.light)
     // _spawnHazardZone builds a fresh geometry/material per zone (radius
     // and color both vary by type) - scene.remove() alone doesn't free
     // either's GPU buffer, the same leak class Zombie.js's own dispose()
@@ -9103,7 +9117,7 @@ export class Game {
     if (playerInEmp) {
       this.flashlightOn = false
       this.flashlightBattery = Math.max(0, this.flashlightBattery - HAZARD_EMP_BATTERY_DRAIN_PER_SEC * dt)
-      this.flashlight.visible = false
+      this.flashlight.intensity = 0 // see _updateFlashlightBattery's own comment on why not .visible
     }
     // Webber's web patch (see PlayerController's webSlowMult) - recomputed
     // live every frame from current zone overlap, same precedent as
@@ -21032,10 +21046,18 @@ export class Game {
   // small motes that float up and fade, ticked in _updateCrateBurstMotes.
   _spawnCrateOpenBurst(x, y, z, lootType) {
     const color = lootType === 'legendary_weapon' ? 0xffd24a : lootType === 'rare_weapon' ? 0x4a9eff : 0xe8e6df
-    const light = new THREE.PointLight(color, 2.5, 5, 2)
-    light.position.set(x, y + 0.6, z)
-    this.scene.add(light)
-    setTimeout(() => this.scene.remove(light), 300)
+    // From the shared pool (see ZombieManager's _acquireFxLight/
+    // FX_LIGHT_POOL_SIZE comment) - null if every slot is taken, in which
+    // case this burst just doesn't cast light.
+    const light = this.zombies?._acquireFxLight()
+    if (light) {
+      light.color.setHex(color)
+      light.distance = 5
+      light.decay = 2
+      light.position.set(x, y + 0.6, z)
+      light.intensity = 2.5
+      setTimeout(() => this.zombies?._releaseFxLight(light), 300)
+    }
 
     for (let i = 0; i < CRATE_BURST_MOTE_COUNT; i++) {
       const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 })
@@ -21072,10 +21094,18 @@ export class Game {
 
   _spawnMeleeKillFlash(x, z) {
     const color = MELEE_KILL_FLASH_COLORS[this.weapons.meleeVariant] || 0xffffff
-    const light = new THREE.PointLight(color, 2.2, 4, 2)
-    light.position.set(x, 1.2, z)
-    this.scene.add(light)
-    setTimeout(() => this.scene.remove(light), MELEE_KILL_FLASH_DURATION_MS)
+    // From the shared pool - see _spawnCrateOpenBurst's own comment just
+    // above for why, and ZombieManager's _acquireFxLight/
+    // FX_LIGHT_POOL_SIZE for the full explanation.
+    const light = this.zombies?._acquireFxLight()
+    if (light) {
+      light.color.setHex(color)
+      light.distance = 4
+      light.decay = 2
+      light.position.set(x, 1.2, z)
+      light.intensity = 2.2
+      setTimeout(() => this.zombies?._releaseFxLight(light), MELEE_KILL_FLASH_DURATION_MS)
+    }
   }
 
   // Golden Zombie (see GOLDEN_ZOMBIE_CHANCE's own comment) - tags an
@@ -21107,9 +21137,24 @@ export class Game {
     halo.rotation.x = Math.PI / 2
     halo.position.y = 1.7
     zombie.group.add(halo)
-    const light = new THREE.PointLight(0xffcf5c, 1.2, 5, 2)
-    light.position.y = 1.5
-    zombie.group.add(light)
+    // From the shared pool (see ZombieManager's _acquireFxLight/
+    // FX_LIGHT_POOL_SIZE comment), reparented into the zombie's own group
+    // rather than added to the scene directly - free position tracking as
+    // the zombie moves, same as this used to get from a plain `new
+    // THREE.PointLight`. Stashed on the zombie itself so ZombieManager's
+    // own death cleanup (search _goldenHaloLight) can release it back to
+    // the pool - _releaseFxLight restores it to the scene root regardless
+    // of which object it was last parented to.
+    const light = this.zombies?._acquireFxLight()
+    if (light) {
+      light.color.setHex(0xffcf5c)
+      light.distance = 5
+      light.decay = 2
+      light.position.set(0, 1.5, 0)
+      light.intensity = 1.2
+      zombie.group.add(light)
+      zombie._goldenHaloLight = light
+    }
   }
 
   // Noise-reactive stampede (see STAMPEDE_TRIGGER_CHANCE's own comment).
@@ -22750,6 +22795,7 @@ export class Game {
     const now = performance.now()
     if (this.airdrop && now >= this.airdrop.expiresAt) {
       this.scene.remove(this.airdrop.mesh)
+      this.zombies?._releaseFxLight(this.airdrop.beam)
       this._showLoreToast(t('airdropExpired'))
       this.airdrop = null
     }
@@ -22758,6 +22804,7 @@ export class Game {
 
     if (this.airdrop && this._rivalsClaimedAirdrop) {
       this.scene.remove(this.airdrop.mesh)
+      this.zombies?._releaseFxLight(this.airdrop.beam)
       this._showLoreToast(this._rivalsClaimedByName ? RIVAL_BANTER.claimed(this._rivalsClaimedByName) : t('airdropStolenByRivals'))
       this.airdrop = null
       this._rivalsClaimedAirdrop = false
@@ -22772,12 +22819,15 @@ export class Game {
         this.airdrop.mesh.rotation.y += 0.06
       } else if (this.airdrop.mesh.position.y !== AIRDROP_REST_Y) {
         this.airdrop.mesh.position.y = AIRDROP_REST_Y
-        this.airdrop.beam.intensity = 0.8
+        if (this.airdrop.beam) this.airdrop.beam.intensity = 0.8
       } else {
         const pos = this.player.controls.object.position
         const dist = Math.hypot(pos.x - this.airdrop.x, pos.z - this.airdrop.z)
         if (dist <= AIRDROP_CLAIM_RADIUS) this._claimAirdrop()
       }
+      // beam is no longer parented to mesh (see _spawnAirdrop's own
+      // comment) - keep its world position following the crate by hand.
+      if (this.airdrop.beam) this.airdrop.beam.position.set(this.airdrop.x, this.airdrop.mesh.position.y + 3, this.airdrop.z)
     }
   }
 
@@ -22802,9 +22852,20 @@ export class Game {
     mesh.add(new THREE.Mesh(new THREE.BoxGeometry(0.98, 0.98, 0.1), trimMat))
     mesh.position.set(x, AIRDROP_REST_Y + AIRDROP_FALL_HEIGHT, z)
     this.scene.add(mesh)
-    const beam = new THREE.PointLight(0xffe680, 0.5, 8, 2)
-    beam.position.set(0, 3, 0)
-    mesh.add(beam)
+    // From the shared pool (see ZombieManager's _acquireFxLight/
+    // FX_LIGHT_POOL_SIZE comment) rather than a fresh PointLight parented
+    // to mesh - added to the scene directly instead, with its world
+    // position synced to the crate every frame in _updateAirdrop, since
+    // pool lights need to stay reachable/reset-able on their own rather
+    // than living and dying with whatever they're temporarily lighting.
+    const beam = this.zombies?._acquireFxLight()
+    if (beam) {
+      beam.color.setHex(0xffe680)
+      beam.distance = 8
+      beam.decay = 2
+      beam.position.set(x, mesh.position.y + 3, z)
+      beam.intensity = 0.5
+    }
 
     this.airdrop = { x, z, mesh, beam, spawnedAt: performance.now(), expiresAt: performance.now() + AIRDROP_FALL_DURATION_MS + AIRDROP_WINDOW_MS }
     this.nextAirdropAt = performance.now() + AIRDROP_MIN_DELAY_MS + Math.random() * (AIRDROP_MAX_DELAY_MS - AIRDROP_MIN_DELAY_MS)
@@ -22820,6 +22881,7 @@ export class Game {
 
   _claimAirdrop() {
     this.scene.remove(this.airdrop.mesh)
+    this.zombies?._releaseFxLight(this.airdrop.beam)
     this._gainPoints(40)
     this.pickups.spawnLootDrop('ammo', this.airdrop.x, this.airdrop.z)
     this._showLoreToast(t('airdropClaimed'))
@@ -23572,10 +23634,18 @@ export class Game {
     )
     this.colliders.push(rubbleCollider)
 
-    const flashLight = new THREE.PointLight(0xffb347, 2.5, 8, 2)
-    flashLight.position.set(beam.x, beam.floorY + 1.5, beam.z)
-    this.scene.add(flashLight)
-    setTimeout(() => this.scene.remove(flashLight), 250)
+    // From the shared pool - see _spawnCrateOpenBurst's own comment for
+    // why, and ZombieManager's _acquireFxLight/FX_LIGHT_POOL_SIZE for the
+    // full explanation.
+    const flashLight = this.zombies?._acquireFxLight()
+    if (flashLight) {
+      flashLight.color.setHex(0xffb347)
+      flashLight.distance = 8
+      flashLight.decay = 2
+      flashLight.position.set(beam.x, beam.floorY + 1.5, beam.z)
+      flashLight.intensity = 2.5
+      setTimeout(() => this.zombies?._releaseFxLight(flashLight), 250)
+    }
 
     if (!this.player.isDodging) {
       this.playerState.takeDamage(ROCKFALL_BURST_DAMAGE)

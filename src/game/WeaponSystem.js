@@ -1356,11 +1356,26 @@ export class WeaponSystem {
     const mat = new THREE.MeshBasicMaterial({ color: VOID_RIPPER_ORB_COLOR, transparent: true, opacity: 0.9 })
     const mesh = new THREE.Mesh(geo, mat)
     mesh.position.copy(origin)
-    const light = new THREE.PointLight(VOID_RIPPER_ORB_COLOR, 3, 6)
-    mesh.add(light)
+    // From the ZombieManager's shared pool (see its _acquireFxLight/
+    // FX_LIGHT_POOL_SIZE comment) rather than a fresh PointLight -
+    // reparented into mesh for free position tracking as the orb travels/
+    // vortexes, same as Game.js's _addGoldenHalo does for the same reason.
+    // Null if every slot is taken (this weapon is rare enough that real
+    // contention is unlikely, but the orb still works with no light either
+    // way, same graceful fallback every other pool consumer has).
+    const light = this.zombieManager ? this.zombieManager._acquireFxLight() : null
+    if (light) {
+      light.color.setHex(VOID_RIPPER_ORB_COLOR)
+      light.distance = 6
+      light.decay = 2
+      light.position.set(0, 0, 0)
+      light.intensity = 3
+      mesh.add(light)
+    }
     this.scene.add(mesh)
     this.voidRipperOrbs.push({
       mesh,
+      light,
       origin,
       target,
       bornAt: performance.now(),
@@ -1421,7 +1436,10 @@ export class WeaponSystem {
         orb.mesh.rotation.y += dt * 10
         orb.mesh.scale.setScalar(1 + Math.sin(now * 0.02) * 0.15)
         if (elapsed >= VOID_RIPPER_VORTEX_MS) {
-          if (this.zombieManager) this.zombieManager.damageInRadius(orb.target.x, orb.target.z, orb.explosiveRadius, orb.explosiveDamageMin, orb.explosiveDamageMax)
+          if (this.zombieManager) {
+            this.zombieManager.damageInRadius(orb.target.x, orb.target.z, orb.explosiveRadius, orb.explosiveDamageMin, orb.explosiveDamageMax)
+            this.zombieManager._releaseFxLight(orb.light)
+          }
           this.scene.remove(orb.mesh)
           orb.mesh.geometry.dispose()
           orb.mesh.material.dispose()

@@ -72,7 +72,7 @@ const TYPES = {
   vaultkey: { weight: 0, label: 'Vault Key' },
 }
 
-function buildVisual(type) {
+function buildVisual(type, acquireLight) {
   const group = new THREE.Group()
 
   if (type === 'health') {
@@ -306,9 +306,23 @@ function buildVisual(type) {
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.02, 8, 24), ringMat)
     ring.rotation.x = Math.PI / 3
     group.add(ring)
-    const light = new THREE.PointLight(color, 1.6, 6, 2)
-    light.position.y = 0.1
-    group.add(light)
+    // From the shared pool (see ZombieManager's _acquireFxLight/
+    // FX_LIGHT_POOL_SIZE comment) when a caller provides one - stashed on
+    // userData rather than changing this function's return shape, so
+    // Pickup's constructor (the only caller) can pull it back out and
+    // hang onto it for release later. Callers that don't pass
+    // acquireLight (or find every pool slot taken) just get no light,
+    // same graceful fallback every other pool consumer has.
+    const light = acquireLight ? acquireLight() : null
+    if (light) {
+      light.color.setHex(color)
+      light.distance = 6
+      light.decay = 2
+      light.position.set(0, 0.1, 0)
+      light.intensity = 1.6
+      group.add(light)
+      group.userData.light = light
+    }
   }
 
   group.traverse((o) => { if (o.isMesh) o.castShadow = true })
@@ -317,7 +331,7 @@ function buildVisual(type) {
 
 export class Pickup {
   constructor(type, x, z, isLoot = false, options = {}) {
-    const { floatY } = options
+    const { floatY, acquireLight } = options
     this.id = pickupIdCounter++
     this.type = type
     this.active = true
@@ -328,7 +342,12 @@ export class Pickup {
 
     this.group = new THREE.Group()
     this.group.position.set(x, this.baseY, z)
-    this.visual = buildVisual(type)
+    this.visual = buildVisual(type, acquireLight)
+    // See buildVisual's own comment - only set for the power-up types, and
+    // only when a caller passed acquireLight. Callers that own a pool
+    // (PickupManager's own spawn methods) are responsible for releasing
+    // this via ZombieManager's _releaseFxLight once the pickup is gone.
+    this.light = this.visual.userData.light || null
     if (isLoot) this.visual.scale.setScalar(0.7)
     this.group.add(this.visual)
   }
@@ -357,9 +376,15 @@ export class PickupManager {
   // called every 10th kill from Game.js). spawnPoints is kept only for
   // spawnUnique()'s callers (the minigun, audio logs) which still place
   // fixed one-off pickups directly.
-  constructor(scene, spawnPoints) {
+  // zombieManager (2026-09-19) - only ever used for its shared FX light
+  // pool (_acquireFxLight/_releaseFxLight), so power-up pickups' glow
+  // draws from the same fixed-size pool as every other short-lived
+  // combat light instead of creating its own PointLight per pickup (see
+  // that pool's own comment for the full shader-recompile explanation).
+  constructor(scene, spawnPoints, zombieManager) {
     this.scene = scene
     this.spawnPoints = spawnPoints
+    this.zombieManager = zombieManager
     this.pickups = []
     // Phase 4 multiplayer - a guest's network-driven Pickup instances (see
     // Game.js's _renderSharedPickups), kept separate from this.pickups (the
@@ -371,7 +396,7 @@ export class PickupManager {
   // One-off drop (e.g. zombie loot) that doesn't occupy a fixed street slot
   // and doesn't respawn once collected or expired.
   spawnLootDrop(type, x, z) {
-    const pickup = new Pickup(type, x, z, true)
+    const pickup = new Pickup(type, x, z, true, { acquireLight: () => this.zombieManager?._acquireFxLight() })
     this.pickups.push(pickup)
     this.scene.add(pickup.group)
   }
@@ -386,7 +411,7 @@ export class PickupManager {
   // A single fixed-location pickup (e.g. the minigun) that persists until
   // collected and never respawns or expires afterward.
   spawnUnique(type, x, z, y) {
-    const pickup = new Pickup(type, x, z, false, { floatY: y })
+    const pickup = new Pickup(type, x, z, false, { floatY: y, acquireLight: () => this.zombieManager?._acquireFxLight() })
     this.pickups.push(pickup)
     this.scene.add(pickup.group)
   }
@@ -415,6 +440,7 @@ export class PickupManager {
       if (!p.isLoot) return true
       if (performance.now() - p.spawnedAt > LOOT_EXPIRE_MS) {
         this.scene.remove(p.group)
+        if (p.light) this.zombieManager?._releaseFxLight(p.light)
         return false
       }
       return true
@@ -439,6 +465,7 @@ export class PickupManager {
     }
     for (const pickup of toRemove) {
       this.scene.remove(pickup.group)
+      if (pickup.light) this.zombieManager?._releaseFxLight(pickup.light)
       const idx = this.sharedPickups.indexOf(pickup)
       if (idx !== -1) this.sharedPickups.splice(idx, 1)
       // Pass the type along too - by this point the pickup is already
@@ -451,6 +478,7 @@ export class PickupManager {
   _collect(pickup, handlers) {
     pickup.active = false
     this.scene.remove(pickup.group)
+    if (pickup.light) this.zombieManager?._releaseFxLight(pickup.light)
     this.pickups = this.pickups.filter((p) => p !== pickup)
 
     handlers.onPickup(pickup.type, TYPES[pickup.type].label, pickup.isLoot)
