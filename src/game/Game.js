@@ -13189,7 +13189,18 @@ export class Game {
     // (_updateCulling), not just the shadow-map/bloom toggles above - those
     // two alone barely help if the GPU's actual bottleneck is fill rate or
     // sheer draw count from geometry far from the player.
-    this._perfDistanceMult = enabled ? 0.6 : 1
+    //
+    // Tightened from 0.6 to 0.5 (2026-09-18, real report of a machine still
+    // at 25-30ms/frame with every optional cost already off) - measured
+    // live that the entire per-frame cost is the raw scene render itself
+    // (RenderPass), not any shading effect, not the ~150 assorted per-frame
+    // update calls (all individually and combined negligible) - so the only
+    // remaining lever that targets the actual measured cost is how much
+    // there is to draw at all, not how it's shaded. 0.6->0.5 cuts the
+    // rendered/shadow-cast/lit AREA by roughly another 30% on top of the
+    // existing cut (radius is squared for area) - a real, untested-until-now
+    // change, not a rerun of anything already tried and shown not to help.
+    this._perfDistanceMult = enabled ? 0.5 : 1
     const far = (WORLD_CULL_DISTANCE * this._perfDistanceMult) + 5
     this.camera.far = far
     this.camera.updateProjectionMatrix()
