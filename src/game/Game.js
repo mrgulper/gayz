@@ -4696,22 +4696,50 @@ export class Game {
     // GPU-heavy tabs open at once, all sharing the one chip a page has no
     // way to see or control. Free and safe either way, so left on.
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: !LOW_QUALITY_MODE && !this.settings.performanceMode, powerPreference: 'high-performance' })
-    // Graphics-connection-lost handling (2026-09-19) - the multi-tab GPU-
-    // contention scenario documented above (several GPU-heavy tabs open at
-    // once) can make the browser actually drop this page's WebGL context,
-    // not just run it slowly. Undetected, that reads to a player as the 3D
-    // view silently going black forever with the HUD still working (HUD is
-    // plain DOM, doesn't need this context) - no error, no explanation.
-    // `event.preventDefault()` is required by the WebGL spec for the
-    // browser to even consider restoring the context later; this game
-    // doesn't attempt an in-place restore (re-uploading every texture/
-    // geometry live is a much bigger, riskier change than "tell the player
-    // what happened and let them reload"), so `graphics-lost-panel` just
-    // stays up - a full reload is the actual fix either way.
+    // Graphics-connection-lost handling (2026-09-19, extended same day) -
+    // the multi-tab GPU-contention scenario documented above (several
+    // GPU-heavy tabs open at once) can make the browser actually drop this
+    // page's WebGL context, not just run it slowly. Undetected, that reads
+    // to a player as the 3D view silently going black forever with the HUD
+    // still working (HUD is plain DOM, doesn't need this context) - no
+    // error, no explanation. `event.preventDefault()` on the loss event is
+    // required by the WebGL spec for the browser to even consider
+    // restoring the context later.
+    //
+    // On restore, this does NOT manually re-upload anything - three.js's
+    // WebGLRenderer already listens for the same event internally and
+    // resets its own state/resource caches, so the very next normal
+    // `composer.render()` call (the existing render loop never stops
+    // running, loss or not - draw calls are harmless no-ops per spec while
+    // lost) lazily rebuilds whatever GPU resources it touches that frame.
+    // This is standard, documented three.js behavior, not bespoke recovery
+    // code here. What IS bespoke: this game layers a lot on top of plain
+    // three.js (the pooled combat lights, merged/instanced world geometry,
+    // EffectComposer bloom) that has never been tested against a real
+    // mid-game context loss/restore cycle, so automatic recovery is a
+    // reasonable bet, not a guarantee - `graphics-lost-reload-btn` stays
+    // up as a manual fallback even after "Keep Playing" is offered, for
+    // exactly the case where something comes back looking wrong.
     this.canvas.addEventListener('webglcontextlost', (event) => {
       event.preventDefault()
       const panel = document.getElementById('graphics-lost-panel')
       if (panel) panel.style.display = 'flex'
+      const title = document.getElementById('graphics-lost-title')
+      const text = document.getElementById('graphics-lost-text')
+      if (title) title.textContent = 'Graphics Connection Lost'
+      if (text) text.textContent = "Your browser's connection to your graphics card dropped, usually because too many 3D-heavy tabs/apps were open at once and it ran out of room. Closing other game or video tabs helps this not happen again."
+      document.getElementById('graphics-lost-keep-playing-btn')?.style.setProperty('display', 'none')
+    })
+    this.canvas.addEventListener('webglcontextrestored', () => {
+      const title = document.getElementById('graphics-lost-title')
+      const text = document.getElementById('graphics-lost-text')
+      if (title) title.textContent = 'Graphics Reconnected'
+      if (text) text.textContent = 'Your connection came back on its own. You can keep playing - or reload instead if anything looks broken or missing.'
+      document.getElementById('graphics-lost-keep-playing-btn')?.style.setProperty('display', '')
+    })
+    document.getElementById('graphics-lost-keep-playing-btn')?.addEventListener('click', () => {
+      const panel = document.getElementById('graphics-lost-panel')
+      if (panel) panel.style.display = 'none'
     })
     document.getElementById('graphics-lost-reload-btn')?.addEventListener('click', () => window.location.reload())
     // Temporary (2026-09-11) - surfaces real GPU info in the existing FPS

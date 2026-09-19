@@ -10390,21 +10390,45 @@ html.night-vision-active #app {
   color: #e0d0cf;
 }
 
-#graphics-lost-reload-btn {
+#graphics-lost-buttons {
+  display: flex;
+  gap: 14px;
   margin-top: 10px;
+}
+
+#graphics-lost-keep-playing-btn,
+#graphics-lost-reload-btn {
   padding: 14px 32px;
   font-size: 18px;
   font-weight: 600;
   letter-spacing: 1px;
-  color: #170a06;
-  background: #e3c23c;
-  border: none;
   border-radius: 6px;
   cursor: pointer;
 }
 
-#graphics-lost-reload-btn:hover {
+/* Primary once graphics reconnect - the recommended default is to keep
+   playing, not reload (see Game.js's webglcontextrestored handler). */
+#graphics-lost-keep-playing-btn {
+  color: #170a06;
+  background: #e3c23c;
+  border: none;
+}
+
+#graphics-lost-keep-playing-btn:hover {
   background: #e8d264;
+}
+
+/* Secondary/backup action - stays available the whole time (including
+   before reconnection, where it's the only button shown) in case the
+   automatic recovery leaves something looking wrong. */
+#graphics-lost-reload-btn {
+  color: #e0d0cf;
+  background: transparent;
+  border: 1px solid rgba(224, 208, 207, 0.5);
+}
+
+#graphics-lost-reload-btn:hover {
+  background: rgba(224, 208, 207, 0.1);
 }
 
 /* Touch Controls (mobile/tablet playability, part 1 of 3 - see
