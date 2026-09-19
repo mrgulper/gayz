@@ -10355,6 +10355,58 @@ html.night-vision-active #app {
   background: #8fe8a4;
 }
 
+/* Graphics-connection-lost panel - can appear over literally any other
+   screen/panel at any moment (a browser-level WebGL context loss, usually
+   from too many GPU-heavy tabs open at once - see Game.js's own comment
+   next to the renderer for the real player report this traces to), so it
+   sits above every other z-index in this file (30 was previously the max,
+   #screen-fade) rather than joining the regular panel/overlay scale. */
+#graphics-lost-panel {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 40px;
+  text-align: center;
+  background: radial-gradient(ellipse at center, rgba(45, 10, 10, 0.94), rgba(6, 2, 2, 0.99));
+  z-index: 9999;
+}
+
+#graphics-lost-title {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: 2px;
+  color: #e35c3c;
+  text-shadow: 0 0 20px rgba(227, 92, 60, 0.5);
+}
+
+#graphics-lost-text {
+  max-width: 480px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #e0d0cf;
+}
+
+#graphics-lost-reload-btn {
+  margin-top: 10px;
+  padding: 14px 32px;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: #170a06;
+  background: #e3c23c;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+#graphics-lost-reload-btn:hover {
+  background: #e8d264;
+}
+
 /* Touch Controls (mobile/tablet playability, part 1 of 3 - see
    docs/superpowers/specs/2026-08-26-touch-controls-design.md). Sits above
    ordinary gameplay HUD (no explicit z-index, effectively 0 via DOM

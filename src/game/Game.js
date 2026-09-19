@@ -4696,6 +4696,24 @@ export class Game {
     // GPU-heavy tabs open at once, all sharing the one chip a page has no
     // way to see or control. Free and safe either way, so left on.
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: !LOW_QUALITY_MODE && !this.settings.performanceMode, powerPreference: 'high-performance' })
+    // Graphics-connection-lost handling (2026-09-19) - the multi-tab GPU-
+    // contention scenario documented above (several GPU-heavy tabs open at
+    // once) can make the browser actually drop this page's WebGL context,
+    // not just run it slowly. Undetected, that reads to a player as the 3D
+    // view silently going black forever with the HUD still working (HUD is
+    // plain DOM, doesn't need this context) - no error, no explanation.
+    // `event.preventDefault()` is required by the WebGL spec for the
+    // browser to even consider restoring the context later; this game
+    // doesn't attempt an in-place restore (re-uploading every texture/
+    // geometry live is a much bigger, riskier change than "tell the player
+    // what happened and let them reload"), so `graphics-lost-panel` just
+    // stays up - a full reload is the actual fix either way.
+    this.canvas.addEventListener('webglcontextlost', (event) => {
+      event.preventDefault()
+      const panel = document.getElementById('graphics-lost-panel')
+      if (panel) panel.style.display = 'flex'
+    })
+    document.getElementById('graphics-lost-reload-btn')?.addEventListener('click', () => window.location.reload())
     // Temporary (2026-09-11) - surfaces real GPU info in the existing FPS
     // HUD line (see its own comment) so a player reporting lag can just
     // screenshot the corner they already know, instead of navigating
