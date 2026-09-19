@@ -24817,7 +24817,38 @@ export class Game {
       warmChest.group.visible = true
     }
 
+    // Timing this specific render call (2026-09-18) doubles it as a real,
+    // on-device capability check for free - it's already dominated by
+    // one-time shader compilation for zombies/weapons/chest, which a weak
+    // or old GPU/driver genuinely takes much longer to do than a capable
+    // one, unlike steady-state frame time which varies with scene
+    // complexity instead. Runs while #menu is still fully opaque (see this
+    // method's own call site), so there's nothing to visually settle - a
+    // slow device can start already in Performance Mode instead of the
+    // player needing to feel it stutter first for the reactive fallback
+    // in _tick to catch up. Threshold (1500ms) is a conservative first
+    // estimate with no real old-hardware data to calibrate against yet -
+    // deliberately set high enough to only catch something dragging
+    // noticeably, since a false positive (needlessly downgrading a normal
+    // player's visuals) is worse than a false negative (a genuinely slow
+    // device just falls through to the reactive fallback in _tick instead,
+    // which still catches it, just ~1.5s slower). Real feedback from
+    // actual old hardware should retune this, not another guess.
+    const warmUpStart = performance.now()
     this.composer.render()
+    const warmUpMs = performance.now() - warmUpStart
+    if (warmUpMs > 1500 && !this.settings.performanceMode) {
+      this._autoPerfModeTriggered = true
+      this.settings.performanceMode = true
+      this.performanceToggle.checked = true
+      this._applyPerformanceMode(true)
+      saveSettings(this.settings)
+      // No _showLoreToast here - toasts are gated on gameStarted (see
+      // their own comment) and silently no-op before it, unlike the
+      // reactive trigger in _tick which fires mid-play and needs the
+      // explanation. Nothing to explain here: the player never saw the
+      // higher-quality version to notice a drop from.
+    }
 
     for (const id in this.weapons.viewmodels) this.weapons.viewmodels[id].visible = savedVmVisibility[id]
     for (const z of warmZombies) {
