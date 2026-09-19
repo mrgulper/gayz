@@ -21,13 +21,38 @@ export const LOW_QUALITY_MODE = true
 // directly, deliberately NOT this flag, since more objects existing at all
 // costs more regardless of how they're shaded). Real materials (PBR
 // roughness/metalness response, actual grime/bump textures) turned out to
-// be comparatively cheap by themselves - swapping MeshLambertMaterial back
-// to MeshStandardMaterial doesn't change triangle count, object count, or
-// how many things update their transform each frame, only the per-pixel
-// shading math. Everything else above stays governed by LOW_QUALITY_MODE,
-// unchanged and still conservative - only this flag controls the material
-// upgrade now.
-export const LOW_QUALITY_MATERIALS = false
+// be comparatively cheap by themselves on a capable GPU - swapping
+// MeshLambertMaterial back to MeshStandardMaterial doesn't change triangle
+// count, object count, or how many things update their transform each
+// frame, only the per-pixel shading math.
+//
+// Now tied to the player's own saved Performance Mode setting (2026-09-18,
+// real report of a genuinely old/weak machine still at 30-50fps with FPS
+// Optimized already on and nothing else running) rather than a single
+// hardcoded value for everyone - "comparatively cheap" was only ever
+// measured on a capable modern GPU; a player who has explicitly opted into
+// Performance Mode is exactly the case that measurement never covered.
+// Read directly from localStorage rather than importing Game.js's
+// loadSettings (would be circular - Game.js imports this module first) -
+// same reasoning and same "decided once at load, not live-toggled" shape
+// as the antialiasing flag in Game.js's renderer setup, which has this
+// identical constraint for an unrelated reason (antialias can only be set
+// at WebGL context creation). Toggling Performance Mode mid-session still
+// updates everything else immediately (see _applyPerformanceMode) - just
+// not this, until the next reload, same tradeoff antialiasing already
+// accepts, and for the same real risk this project has hit before: a
+// shared material swapped out from under an object that mutates its own
+// material at runtime (hit flashes, tints) would recolor everything else
+// sharing it (see this project's CLAUDE.md "Shared-material mutation").
+function _readSavedPerformanceMode() {
+  try {
+    const raw = localStorage.getItem('gayz-settings')
+    return raw ? !!JSON.parse(raw).performanceMode : false
+  } catch {
+    return false
+  }
+}
+export const LOW_QUALITY_MATERIALS = _readSavedPerformanceMode()
 
 // Drop-in replacement for `new THREE.MeshStandardMaterial(opts)` used
 // across World.js's ~160 material call sites. Under LOW_QUALITY_MODE,
