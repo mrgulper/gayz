@@ -4424,6 +4424,7 @@ export class Game {
     this.chatIdPopup = document.getElementById('chat-id-popup')
     this.chatIdPopupName = document.getElementById('chat-id-popup-name')
     this.chatIdPopupIdBtn = document.getElementById('chat-id-popup-id-btn')
+    this.chatIdPopupMuteBtn = document.getElementById('chat-id-popup-mute-btn')
     this.chatPanel = document.getElementById('chat-panel')
     this.chatMessages = document.getElementById('chat-messages')
     this.chatMutedNotice = document.getElementById('chat-muted-notice')
@@ -15107,16 +15108,10 @@ export class Game {
     }
 
     if (this.serverChatMessages) {
-      // Right-click a name to show the shared "Name #ID" popup (see
-      // _showPlayerIdPopup) - same technique as the in-game HUD chat's
-      // identical feature. Left-click-to-mute removed entirely (per the
-      // design conversation) - Settings > Social > Muted Players is still
-      // how an existing mute gets undone, there's just no way to add a
-      // new one from chat anymore, in either chat.
-      this.serverChatMessages.addEventListener('contextmenu', async (e) => {
-        const btn = e.target.closest('.chat-message-nickname')
-        if (!btn) return
-        e.preventDefault()
+      // Left- or right-click a name to show the shared "Name #ID" + Mute
+      // popup (see _showPlayerIdPopup) - same technique as the in-game HUD
+      // chat's identical feature.
+      const openPopup = async (e, btn) => {
         const nickname = btn.dataset.nickname
         if (!nickname) return
         let entry = null
@@ -15131,10 +15126,21 @@ export class Game {
           return
         }
         this._showPlayerIdPopup(e.clientX, e.clientY, nickname, entry.playerId)
+      }
+      this.serverChatMessages.addEventListener('contextmenu', (e) => {
+        const btn = e.target.closest('.chat-message-nickname')
+        if (!btn) return
+        e.preventDefault()
+        openPopup(e, btn)
       })
       // Click an ID pasted into a message (see _renderChatMessageText) to
       // look up that player's stats - same feature as the in-game HUD chat.
       this.serverChatMessages.addEventListener('click', async (e) => {
+        const nameBtn = e.target.closest('.chat-message-nickname')
+        if (nameBtn) {
+          openPopup(e, nameBtn)
+          return
+        }
         const link = e.target.closest('.chat-message-id-link')
         if (!link) return
         const id = link.dataset.lookupId
@@ -15168,6 +15174,7 @@ export class Game {
 
   _renderServerChatMessages(msgs) {
     if (!this.serverChatMessages) return
+    this._lastServerChatMsgs = msgs
     const muted = new Set(this.settings.mutedChatPlayers)
     const visible = msgs.filter((m) => !muted.has(m.nickname))
     // Always linkify here (unlike the in-game HUD chat's channel-gated
@@ -21942,6 +21949,7 @@ export class Game {
 
   _renderChatMessages(msgs) {
     if (!this.chatMessages) return
+    this._lastChatMsgs = msgs
     // Mute/block (Settings > Social > Muted Players) - filtered client-side
     // by nickname (the one thing every channel's messages actually share -
     // Global/Clan carry a Firebase uid, Party carries an ephemeral
@@ -21988,10 +21996,14 @@ export class Game {
     return out
   }
 
-  // Shows "Name #ID" right at the click point, ID itself is a button that
-  // copies it (per reference screenshots, 2026-09-20) - shared by both the
-  // in-game HUD chat and the homepage "Global" panel chat's right-click
-  // handlers below, so there's one popup implementation instead of two.
+  // Shows "Name #ID" plus a Mute button right at the click point, ID itself
+  // is a button that copies it (per reference screenshots, 2026-09-20) -
+  // shared by both the in-game HUD chat and the homepage "Global" panel
+  // chat's left/right-click handlers below, so there's one popup
+  // implementation instead of two. Always uses _showHomepageToast (not
+  // _showLoreToast) for its own feedback toasts - this popup is reachable
+  // from the homepage chat where gameStarted is false, and _showLoreToast's
+  // gameStarted guard would silently swallow the toast there.
   // position:fixed + clamped after an initial render (its size isn't known
   // until it's actually in the DOM) keeps it fully on-screen even from a
   // click near an edge.
@@ -21999,6 +22011,10 @@ export class Game {
     if (!this.chatIdPopup) return
     this.chatIdPopupName.textContent = name
     this.chatIdPopupIdBtn.textContent = `#${playerId}`
+    // Can't mute yourself - would just hide your own messages from you.
+    const isSelf = name === this.settings.nickname
+    this.chatIdPopupMuteBtn.textContent = t('muteBtn')
+    this.chatIdPopupMuteBtn.style.display = isSelf ? 'none' : ''
     this.chatIdPopup.style.left = `${x}px`
     this.chatIdPopup.style.top = `${y}px`
     this.chatIdPopup.style.display = 'flex'
@@ -22010,31 +22026,43 @@ export class Game {
     this.chatIdPopupIdBtn.onclick = () => {
       hide()
       navigator.clipboard?.writeText(`#${playerId}`).then(() => {
-        this._showLoreToast(t('chatCopyPlayerIdCopied', { name }))
+        this._showHomepageToast(t('chatCopyPlayerIdCopied', { name }))
       }).catch(() => {
-        this._showLoreToast(t('clipboardCopyUnsupported'))
+        this._showHomepageToast(t('clipboardCopyUnsupported'))
       })
     }
-    // Deferred (setTimeout 0) so the very contextmenu click that opened
-    // this popup doesn't immediately bubble up and count as the "click
-    // outside" that closes it again.
+    this.chatIdPopupMuteBtn.onclick = () => {
+      hide()
+      if (!this.settings.mutedChatPlayers.includes(name)) {
+        this.settings.mutedChatPlayers.push(name)
+        saveSettings(this.settings)
+      }
+      this._renderMutedChatPlayers()
+      this._refreshChatAfterMuteChange()
+      this._showHomepageToast(t('chatPlayerMuted', { name }))
+    }
+    // Deferred (setTimeout 0) so the very click that opened this popup
+    // doesn't immediately bubble up and count as the "click outside" that
+    // closes it again.
     setTimeout(() => document.addEventListener('click', hide, { once: true }), 0)
   }
 
-  // Right-click a name to show the popup above; click an ID pasted into a
-  // message (see _renderChatMessageText) to look up that player's stats -
-  // this second part is new, no homepage equivalent yet.
-  //
-  // Replaces the old left-click-to-mute interaction entirely, per the
-  // design conversation - Settings > Social > Muted Players is still how
-  // an existing mute gets undone, there's just no way to add a new one
-  // from chat anymore.
+  // Re-renders whichever chat surfaces have messages cached, so muting (or
+  // unmuting, see _renderMutedChatPlayers) hides/shows their messages right
+  // away instead of waiting for the next Firestore snapshot to happen to
+  // fire. Harmless no-op for a surface that's never rendered anything yet.
+  _refreshChatAfterMuteChange() {
+    if (this._lastChatMsgs) this._renderChatMessages(this._lastChatMsgs)
+    if (this._lastServerChatMsgs) this._renderServerChatMessages(this._lastServerChatMsgs)
+  }
+
+  // Left- or right-click a name to show the "Name #ID" + Mute popup above;
+  // click an ID pasted into a message (see _renderChatMessageText) to look
+  // up that player's stats - this second part is new, no homepage
+  // equivalent yet.
   _bindChatContextActions() {
     if (!this.chatMessages) return
-    this.chatMessages.addEventListener('contextmenu', async (e) => {
-      const btn = e.target.closest('.chat-message-nickname')
-      if (!btn) return
-      e.preventDefault()
+    const openPopup = async (e, btn) => {
       const nickname = btn.dataset.nickname
       if (!nickname) return
       let entry = null
@@ -22049,8 +22077,19 @@ export class Game {
         return
       }
       this._showPlayerIdPopup(e.clientX, e.clientY, nickname, entry.playerId)
+    }
+    this.chatMessages.addEventListener('contextmenu', (e) => {
+      const btn = e.target.closest('.chat-message-nickname')
+      if (!btn) return
+      e.preventDefault()
+      openPopup(e, btn)
     })
     this.chatMessages.addEventListener('click', async (e) => {
+      const nameBtn = e.target.closest('.chat-message-nickname')
+      if (nameBtn) {
+        openPopup(e, nameBtn)
+        return
+      }
       const link = e.target.closest('.chat-message-id-link')
       if (!link) return
       const id = link.dataset.lookupId
@@ -22091,6 +22130,7 @@ export class Game {
         this.settings.mutedChatPlayers = this.settings.mutedChatPlayers.filter((n) => n !== btn.dataset.unmute)
         saveSettings(this.settings)
         this._renderMutedChatPlayers()
+        this._refreshChatAfterMuteChange()
       })
     }
   }

@@ -2530,8 +2530,9 @@ select option {
   position: fixed;
   z-index: 9999;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
   padding: 8px 12px;
   background: rgba(20, 16, 8, 0.95);
   border: 1px solid rgba(227, 194, 60, 0.5);
@@ -2541,8 +2542,19 @@ select option {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
+#chat-id-popup-top-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 #chat-id-popup-name {
   font-weight: 700;
+}
+
+#chat-id-popup-mute-btn {
+  width: 100%;
+  text-align: center;
 }
 
 #chat-id-popup-id-btn {
@@ -10995,8 +11007,8 @@ html.night-vision-active #app {
 .chat-message-nickname {
   /* A <button>, not a <span> - reset to plain inline text so it reads
      exactly like plain text, with just a hover cue that it's clickable.
-     Right-click copies their Player ID (see Game.js's
-     _bindChatContextActions) - no left-click action of its own anymore. */
+     Left- or right-click opens the Name/ID/Mute popup (see Game.js's
+     _bindChatContextActions). */
   font: inherit;
   background: none;
   border: none;
@@ -11021,17 +11033,18 @@ html.night-vision-active #app {
    stats (_bindChatContextActions). */
 .chat-message-id-link {
   font: inherit;
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
+  font-size: 0.9em;
   font-weight: 700;
-  color: var(--menu-gold, #d9bc4a);
-  text-decoration: underline;
+  color: #170a06;
+  background: #e3c23c;
+  border: none;
+  border-radius: 4px;
+  padding: 1px 6px;
+  cursor: pointer;
 }
 
 .chat-message-id-link:hover {
-  color: #fff;
+  background: #e8d264;
 }
 
 .muted-chat-player-row {
