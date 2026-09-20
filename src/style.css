@@ -2485,7 +2485,10 @@ select option {
   align-items: center;
   gap: 8px;
   padding: 8px 18px;
-  background: #161c33;
+  /* Black, not navy - matches the rest of GayZ's gold-on-black theme
+     (same tone as #chat-id-popup) and avoids reading like Kirka.io's
+     similarly-shaped navy/gold badge. */
+  background: #14100a;
   color: #fff;
   font-weight: 800;
   font-size: 13px;
