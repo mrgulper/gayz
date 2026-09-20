@@ -4421,6 +4421,9 @@ export class Game {
     this.clanRequestsList = document.getElementById('clan-requests-list')
     this.clanLeaveBtn = document.getElementById('clan-leave-btn')
     this.clanLeaveDisabledHint = document.getElementById('clan-leave-disabled-hint')
+    this.chatIdPopup = document.getElementById('chat-id-popup')
+    this.chatIdPopupName = document.getElementById('chat-id-popup-name')
+    this.chatIdPopupIdBtn = document.getElementById('chat-id-popup-id-btn')
     this.chatPanel = document.getElementById('chat-panel')
     this.chatMessages = document.getElementById('chat-messages')
     this.chatMutedNotice = document.getElementById('chat-muted-notice')
@@ -15104,37 +15107,18 @@ export class Game {
     }
 
     if (this.serverChatMessages) {
-      this.serverChatMessages.addEventListener('click', (e) => {
-        const btn = e.target.closest('.chat-message-nickname')
-        if (!btn) return
-        const nickname = btn.dataset.nickname
-        if (!nickname || this.settings.mutedChatPlayers.includes(nickname)) return
-        if (!window.confirm(t('muteChatPlayerConfirm', { name: nickname }))) return
-        this.settings.mutedChatPlayers.push(nickname)
-        saveSettings(this.settings)
-        this._renderMutedChatPlayers()
-        // Live onSnapshot subscription re-filters on its own next update,
-        // same reasoning as _bindChatMuteClicks's own comment on this.
-      })
-      // Right-click a name to copy that player's #ID (homepage Global chat
-      // only, per explicit instruction - the in-game HUD chat's own
-      // .chat-message-nickname is untouched). Resolves nickname ->
-      // playerId via the same public leaderboard lookup Friend Compare
-      // already uses (CloudSync.fetchLeaderboardEntryByName) rather than
-      // sending playerId with every chat message - this isn't a new
-      // privacy exposure, the leaderboard doc (and this exact lookup) was
-      // already public/queryable before this, just not reachable from
-      // chat with one click yet.
+      // Right-click a name to show the shared "Name #ID" popup (see
+      // _showPlayerIdPopup) - same technique as the in-game HUD chat's
+      // identical feature. Left-click-to-mute removed entirely (per the
+      // design conversation) - Settings > Social > Muted Players is still
+      // how an existing mute gets undone, there's just no way to add a
+      // new one from chat anymore, in either chat.
       this.serverChatMessages.addEventListener('contextmenu', async (e) => {
         const btn = e.target.closest('.chat-message-nickname')
         if (!btn) return
         e.preventDefault()
         const nickname = btn.dataset.nickname
         if (!nickname) return
-        if (!navigator.clipboard || !navigator.clipboard.writeText) {
-          this._showHomepageToast(t('clipboardCopyUnsupported'))
-          return
-        }
         let entry = null
         try {
           entry = await CloudSync.fetchLeaderboardEntryByName(nickname)
@@ -15146,9 +15130,26 @@ export class Game {
           this._showHomepageToast(t('chatCopyPlayerIdNotFound', { name: nickname }))
           return
         }
-        navigator.clipboard.writeText(`#${entry.playerId}`)
-          .then(() => this._showHomepageToast(t('chatCopyPlayerIdCopied', { name: nickname })))
-          .catch(() => this._showHomepageToast(t('clipboardCopyUnsupported')))
+        this._showPlayerIdPopup(e.clientX, e.clientY, nickname, entry.playerId)
+      })
+      // Click an ID pasted into a message (see _renderChatMessageText) to
+      // look up that player's stats - same feature as the in-game HUD chat.
+      this.serverChatMessages.addEventListener('click', async (e) => {
+        const link = e.target.closest('.chat-message-id-link')
+        if (!link) return
+        const id = link.dataset.lookupId
+        if (!id) return
+        const entry = await CloudSync.fetchLeaderboardEntryByPlayerId(id).catch(() => null)
+        if (!entry) {
+          this._showHomepageToast(t('chatIdLookupNotFound'))
+          return
+        }
+        this._showHomepageToast(t('chatIdLookupStats', {
+          name: entry.name || id,
+          night: entry.bestNight ?? 0,
+          kills: entry.bestKills ?? 0,
+          achievements: entry.achievementCount ?? 0,
+        }))
       })
     }
   }
@@ -15169,7 +15170,10 @@ export class Game {
     if (!this.serverChatMessages) return
     const muted = new Set(this.settings.mutedChatPlayers)
     const visible = msgs.filter((m) => !muted.has(m.nickname))
-    this.serverChatMessages.innerHTML = visible.map((m) => `<div class="chat-message-row"><button type="button" class="chat-message-nickname" data-nickname="${_escapeHtml(m.nickname)}">${_escapeHtml(m.nickname)}:</button><span class="chat-message-text">${_escapeHtml(m.text)}</span></div>`).join('')
+    // Always linkify here (unlike the in-game HUD chat's channel-gated
+    // version) - this panel IS the global channel, always, no tabs to
+    // gate on (see _bindServerChat's own comment).
+    this.serverChatMessages.innerHTML = visible.map((m) => `<div class="chat-message-row"><button type="button" class="chat-message-nickname" data-nickname="${_escapeHtml(m.nickname)}">${_escapeHtml(m.nickname)}:</button><span class="chat-message-text">${this._renderChatMessageText(m.text, true)}</span></div>`).join('')
     this.serverChatMessages.scrollTop = this.serverChatMessages.scrollHeight
   }
 
@@ -21984,15 +21988,42 @@ export class Game {
     return out
   }
 
-  // Right-click a name to copy their Player ID, mirroring the homepage
-  // "Global" panel chat's own identical feature (see _bindServerChatUi's
-  // contextmenu listener) - same technique (resolve nickname -> playerId
-  // via the public leaderboard-by-name lookup Friend Compare already uses,
-  // rather than sending playerId with every message) and the same i18n
-  // strings, so this reads as one consistent feature rather than two
-  // similar-but-different ones. Click an ID pasted into a message (see
-  // _renderChatMessageText) to look up that player's stats - this part is
-  // new, no homepage equivalent yet.
+  // Shows "Name #ID" right at the click point, ID itself is a button that
+  // copies it (per reference screenshots, 2026-09-20) - shared by both the
+  // in-game HUD chat and the homepage "Global" panel chat's right-click
+  // handlers below, so there's one popup implementation instead of two.
+  // position:fixed + clamped after an initial render (its size isn't known
+  // until it's actually in the DOM) keeps it fully on-screen even from a
+  // click near an edge.
+  _showPlayerIdPopup(x, y, name, playerId) {
+    if (!this.chatIdPopup) return
+    this.chatIdPopupName.textContent = name
+    this.chatIdPopupIdBtn.textContent = `#${playerId}`
+    this.chatIdPopup.style.left = `${x}px`
+    this.chatIdPopup.style.top = `${y}px`
+    this.chatIdPopup.style.display = 'flex'
+    const rect = this.chatIdPopup.getBoundingClientRect()
+    if (rect.right > window.innerWidth) this.chatIdPopup.style.left = `${Math.max(8, window.innerWidth - rect.width - 8)}px`
+    if (rect.bottom > window.innerHeight) this.chatIdPopup.style.top = `${Math.max(8, window.innerHeight - rect.height - 8)}px`
+
+    const hide = () => { this.chatIdPopup.style.display = 'none' }
+    this.chatIdPopupIdBtn.onclick = () => {
+      hide()
+      navigator.clipboard?.writeText(`#${playerId}`).then(() => {
+        this._showLoreToast(t('chatCopyPlayerIdCopied', { name }))
+      }).catch(() => {
+        this._showLoreToast(t('clipboardCopyUnsupported'))
+      })
+    }
+    // Deferred (setTimeout 0) so the very contextmenu click that opened
+    // this popup doesn't immediately bubble up and count as the "click
+    // outside" that closes it again.
+    setTimeout(() => document.addEventListener('click', hide, { once: true }), 0)
+  }
+
+  // Right-click a name to show the popup above; click an ID pasted into a
+  // message (see _renderChatMessageText) to look up that player's stats -
+  // this second part is new, no homepage equivalent yet.
   //
   // Replaces the old left-click-to-mute interaction entirely, per the
   // design conversation - Settings > Social > Muted Players is still how
@@ -22006,10 +22037,6 @@ export class Game {
       e.preventDefault()
       const nickname = btn.dataset.nickname
       if (!nickname) return
-      if (!navigator.clipboard || !navigator.clipboard.writeText) {
-        this._showLoreToast(t('clipboardCopyUnsupported'))
-        return
-      }
       let entry = null
       try {
         entry = await CloudSync.fetchLeaderboardEntryByName(nickname)
@@ -22021,9 +22048,7 @@ export class Game {
         this._showLoreToast(t('chatCopyPlayerIdNotFound', { name: nickname }))
         return
       }
-      navigator.clipboard.writeText(`#${entry.playerId}`)
-        .then(() => this._showLoreToast(t('chatCopyPlayerIdCopied', { name: nickname })))
-        .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
+      this._showPlayerIdPopup(e.clientX, e.clientY, nickname, entry.playerId)
     })
     this.chatMessages.addEventListener('click', async (e) => {
       const link = e.target.closest('.chat-message-id-link')

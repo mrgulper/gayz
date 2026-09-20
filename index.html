@@ -320,6 +320,11 @@
 
       <div id="lore-toast"></div>
 
+      <div id="chat-id-popup" style="display: none">
+        <span id="chat-id-popup-name"></span>
+        <button type="button" id="chat-id-popup-id-btn"></button>
+      </div>
+
       <div id="shared-profile-banner" style="display: none">
         <button id="shared-profile-close-btn" aria-label="Close">&times;</button>
         <h3 id="shared-profile-title"></h3>
@@ -3148,7 +3153,7 @@ Escape before dawn.</p>
           <div id="whatsnew-content">
             <p id="build-version-line"></p>
           <div id="changelog-list">
-            <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Global chat: right-click a player's name to copy their Player ID, and if someone pastes a Player ID into a message, it now shows up as a clickable link - click it to see that player's best night, best kills, and achievement count. Left-clicking a name in chat no longer mutes them (Settings > Social > Muted Players still works for anyone already muted, just no new one-click mute from chat anymore).</span></div>
+            <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Global chat (both the in-game chat and the homepage Global panel): right-click a player's name to see a small popup with their name and Player ID - click the ID to copy it. If someone pastes a Player ID into a message, it now shows up as a clickable link too - click it to see that player's best night, best kills, and achievement count. Left-clicking a name in chat no longer mutes them anywhere (Settings > Social > Muted Players still works for anyone already muted, just no new one-click mute from chat anymore).</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Added a tip in Settings > Graphics: if the game ever looks broken or almost entirely black on your device (some phone graphics chips can render this way), try toggling Performance Mode - it's the single most likely thing to fix a display glitch like that.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 19, 2026</span><span class="changelog-text">On phones/tablets, playing with your device upright (portrait) used to overlap the on-screen controls with the chat feed, since those buttons were only ever laid out for sideways (landscape) play. Rather than a half-finished fix, holding your device upright now shows a "Rotate your device for the best experience" message instead - turning sideways gives you the full, correctly-spaced control layout.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 19, 2026</span><span class="changelog-text">Fixed a real "the whole game froze" bug: gas/acid/web/toxic hazard zones could, in rare cases during a busy fight, end up without their own light effect (a deliberate fallback for when too many effects are active at once) - but the game then crashed every single frame trying to update that missing light, which silently blocked all movement and gameplay from that point on while the screen kept showing whatever was last on screen. Fixed to work correctly with or without that light.</span></div>

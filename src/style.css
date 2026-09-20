@@ -2519,6 +2519,47 @@ select option {
   100% { opacity: 0; transform: translate(-50%, -125%); }
 }
 
+/* Right-click-a-name popup (2026-09-20, per reference screenshots) -
+   shows "Name #ID" right where you clicked, ID itself is the thing you
+   click to copy - replaces the earlier instant-copy-on-right-click
+   version. position:fixed + JS-set left/top (see
+   Game.js's _showPlayerIdPopup) rather than following the chat panel's
+   own layout, so it can appear correctly from either chat (in-game HUD or
+   the homepage Global panel) without two different positioning schemes. */
+#chat-id-popup {
+  position: fixed;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(20, 16, 8, 0.95);
+  border: 1px solid rgba(227, 194, 60, 0.5);
+  border-radius: 6px;
+  font-size: 13px;
+  color: #e0d8cf;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+#chat-id-popup-name {
+  font-weight: 700;
+}
+
+#chat-id-popup-id-btn {
+  font: inherit;
+  font-weight: 700;
+  color: #170a06;
+  background: #e3c23c;
+  border: none;
+  border-radius: 4px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+#chat-id-popup-id-btn:hover {
+  background: #e8d264;
+}
+
 #lore-toast {
   position: absolute;
   bottom: 130px;
