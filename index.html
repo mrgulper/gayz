@@ -2098,21 +2098,9 @@ Escape before dawn.</p>
         </div>
 
         <div id="profile-content">
-        <div id="profile-skin-upload-row">
-          <button id="upload-skin-btn" class="mini-action-btn" type="button">Upload Skin (PNG)</button>
-          <input type="file" id="upload-skin-input" accept="image/png" style="display: none" />
-          <button id="reset-skin-btn" class="mini-action-btn" type="button" style="display: none">Reset to Default</button>
-        </div>
 
-        <div id="profile-account-row">
-          <div id="profile-account-signed-out">
-            <button id="profile-login-btn" type="button">Login</button>
-            <button id="profile-register-btn" type="button">Register</button>
-          </div>
-        </div>
-
-        <div id="profile-public-section">
-          <h3 id="profile-public-heading">What others can see</h3>
+        <div id="profile-public-section" class="profile-split-section">
+          <h3 id="profile-public-heading">Shown to Public</h3>
           <p id="profile-public-hint">Anyone who has your Player ID can look you up and see this.</p>
           <div class="stat-row"><span id="profile-public-name-label">Name</span><span id="profile-public-name-value">--</span></div>
           <div class="stat-row"><span id="profile-public-id-label">Player ID</span><span id="profile-public-id-value">--</span></div>
@@ -2124,70 +2112,86 @@ Escape before dawn.</p>
           <div class="stat-row" id="profile-public-clan-row" style="display: none"><span id="profile-public-clan-label">Clan</span><span id="profile-public-clan-value">--</span></div>
         </div>
 
-        <h3 id="profile-private-heading">Private - only you can see this</h3>
-        <p id="profile-private-hint">Everything below stays on your account and is never shared.</p>
+        <div id="profile-hidden-section" class="profile-split-section">
+          <h3 id="profile-private-heading">Hidden</h3>
+          <p id="profile-private-hint">Only you can see this - it's never shared with other players.</p>
 
-        <h3 id="stats-dashboard-heading">Stats Over Time</h3>
-        <canvas id="stats-dashboard-canvas" width="280" height="90"></canvas>
-
-        <h3 id="highlight-reel-heading">Highlight Reel</h3>
-        <div id="highlight-reel-list"></div>
-        <div id="pinned-stat-row">
-          <label for="pinned-stat-select" id="pinned-stat-label">Pin a stat to the top</label>
-          <select id="pinned-stat-select">
-            <option value="">None</option>
-          </select>
-        </div>
-        <div class="perk-options" id="profile-options"></div>
-        <h3 id="rank-roadmap-heading">Rank Roadmap</h3>
-        <div id="rank-roadmap-list"></div>
-        <h3 id="class-comparison-heading">Class Comparison</h3>
-        <div id="class-comparison-table"></div>
-        <h3 id="recent-unlocks-heading">Recently Unlocked</h3>
-        <div id="recent-unlocks-list"></div>
-        <h3 id="prestige-history-heading" style="display: none">Prestige History</h3>
-        <div id="prestige-history-list"></div>
-        <h3 id="goals-heading">Goals (pick up to 3)</h3>
-        <div id="goals-picker"></div>
-        <div id="goals-checklist"></div>
-        <div id="profile-bio-stats-row">
-          <div id="profile-bio-column">
-            <h3 id="profile-bio-heading">Bio</h3>
-            <textarea id="profile-bio-input" maxlength="250" placeholder="Say something about yourself..."></textarea>
-            <p id="profile-bio-counter">0/250</p>
-            <div id="bio-preset-row">
-              <button id="bio-preset-save-btn" class="mini-action-btn" type="button">Save as Preset</button>
-              <div id="bio-preset-chips"></div>
-            </div>
-            <h3 id="motto-heading">Motto (shown on homepage)</h3>
-            <input type="text" id="motto-input" class="nickname-input" maxlength="60" placeholder="A short line under your name" />
+          <div id="profile-skin-upload-row">
+            <button id="upload-skin-btn" class="mini-action-btn" type="button">Upload Skin (PNG)</button>
+            <input type="file" id="upload-skin-input" accept="image/png" style="display: none" />
+            <button id="reset-skin-btn" class="mini-action-btn" type="button" style="display: none">Reset to Default</button>
           </div>
-          <section class="menu-panel" id="profile-your-stats-column">
-            <h2 class="menu-panel-title" id="your-stats-title">Your Stats</h2>
-            <div class="stat-row"><span>Longest Survival</span><span data-stat="longest-survival">--</span></div>
-            <div class="stat-row"><span>Total Zombies Killed</span><span data-stat="total-kills">--</span></div>
-            <div class="stat-row"><span>Runs Played</span><span data-stat="runs-played">--</span></div>
-            <div class="stat-row"><span>Favorite Class</span><span data-stat="favorite-class">--</span></div>
-            <div class="stat-row"><span>Last Run</span><span data-stat="last-run">--</span></div>
-          </section>
+
+          <div id="profile-account-row">
+            <div id="profile-account-signed-out">
+              <button id="profile-login-btn" type="button">Login</button>
+              <button id="profile-register-btn" type="button">Register</button>
+            </div>
+          </div>
+
+          <h3 id="stats-dashboard-heading">Stats Over Time</h3>
+          <canvas id="stats-dashboard-canvas" width="280" height="90"></canvas>
+
+          <h3 id="highlight-reel-heading">Highlight Reel</h3>
+          <div id="highlight-reel-list"></div>
+          <div id="pinned-stat-row">
+            <label for="pinned-stat-select" id="pinned-stat-label">Pin a stat to the top</label>
+            <select id="pinned-stat-select">
+              <option value="">None</option>
+            </select>
+          </div>
+          <div class="perk-options" id="profile-options"></div>
+          <h3 id="rank-roadmap-heading">Rank Roadmap</h3>
+          <div id="rank-roadmap-list"></div>
+          <h3 id="class-comparison-heading">Class Comparison</h3>
+          <div id="class-comparison-table"></div>
+          <h3 id="recent-unlocks-heading">Recently Unlocked</h3>
+          <div id="recent-unlocks-list"></div>
+          <h3 id="prestige-history-heading" style="display: none">Prestige History</h3>
+          <div id="prestige-history-list"></div>
+          <h3 id="goals-heading">Goals (pick up to 3)</h3>
+          <div id="goals-picker"></div>
+          <div id="goals-checklist"></div>
+          <div id="profile-bio-stats-row">
+            <div id="profile-bio-column">
+              <h3 id="profile-bio-heading">Bio</h3>
+              <textarea id="profile-bio-input" maxlength="250" placeholder="Say something about yourself..."></textarea>
+              <p id="profile-bio-counter">0/250</p>
+              <div id="bio-preset-row">
+                <button id="bio-preset-save-btn" class="mini-action-btn" type="button">Save as Preset</button>
+                <div id="bio-preset-chips"></div>
+              </div>
+              <h3 id="motto-heading">Motto (shown on homepage)</h3>
+              <input type="text" id="motto-input" class="nickname-input" maxlength="60" placeholder="A short line under your name" />
+            </div>
+            <section class="menu-panel" id="profile-your-stats-column">
+              <h2 class="menu-panel-title" id="your-stats-title">Your Stats</h2>
+              <div class="stat-row"><span>Longest Survival</span><span data-stat="longest-survival">--</span></div>
+              <div class="stat-row"><span>Total Zombies Killed</span><span data-stat="total-kills">--</span></div>
+              <div class="stat-row"><span>Runs Played</span><span data-stat="runs-played">--</span></div>
+              <div class="stat-row"><span>Favorite Class</span><span data-stat="favorite-class">--</span></div>
+              <div class="stat-row"><span>Last Run</span><span data-stat="last-run">--</span></div>
+            </section>
+          </div>
+
+          <div id="profile-nearly-there-list"></div>
+          <p id="profile-anniversary-line" style="display: none"></p>
+          <p id="profile-today-line" style="display: none"></p>
+          <p id="profile-favorite-difficulty-line" style="display: none"></p>
+          <div id="profile-best-run-card" style="display: none">
+            <h3 id="profile-best-run-title">Best Run</h3>
+            <p id="profile-best-run-line"></p>
+          </div>
+          <h3 id="profile-created-title">Created</h3>
+          <p id="profile-created-line"></p>
+          <div class="perk-panel-buttons">
+            <button id="profile-career-portrait-btn" style="display: none">Save Career Portrait</button>
+          </div>
+          <div id="profile-account-signed-in" style="display: none">
+            <button id="profile-signout-btn" type="button">Sign Out</button>
+          </div>
         </div>
 
-        <div id="profile-nearly-there-list"></div>
-        <p id="profile-anniversary-line" style="display: none"></p>
-        <p id="profile-today-line" style="display: none"></p>
-        <p id="profile-favorite-difficulty-line" style="display: none"></p>
-        <div id="profile-best-run-card" style="display: none">
-          <h3 id="profile-best-run-title">Best Run</h3>
-          <p id="profile-best-run-line"></p>
-        </div>
-        <h3 id="profile-created-title">Created</h3>
-        <p id="profile-created-line"></p>
-        <div class="perk-panel-buttons">
-          <button id="profile-career-portrait-btn" style="display: none">Save Career Portrait</button>
-        </div>
-        <div id="profile-account-signed-in" style="display: none">
-          <button id="profile-signout-btn" type="button">Sign Out</button>
-        </div>
         </div>
 
         </div>
@@ -3156,6 +3160,7 @@ Escape before dawn.</p>
           <div id="whatsnew-content">
             <p id="build-version-line"></p>
           <div id="changelog-list">
+            <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Profile now has 2 clear sections right at the top: "Shown to Public" (your name, Player ID, Best Night, Best Kills, Best Kill Streak, and Achievements - anyone who has your Player ID can see these) and "Hidden" (everything else - your stats dashboard, highlight reel, bio, goals, and more - never shared with anyone).</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Global chat (both the in-game chat and the homepage Global panel): left- or right-click a player's name to see a popup with their name, Player ID (click it to copy), and a Mute button. A Player ID pasted into a message now shows up as a gold clickable tag too - click it to see that player's best night, best kills, and achievement count.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Added a tip in Settings > Graphics: if the game ever looks broken or almost entirely black on your device (some phone graphics chips can render this way), try toggling Performance Mode - it's the single most likely thing to fix a display glitch like that.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 19, 2026</span><span class="changelog-text">On phones/tablets, playing with your device upright (portrait) used to overlap the on-screen controls with the chat feed, since those buttons were only ever laid out for sideways (landscape) play. Rather than a half-finished fix, holding your device upright now shows a "Rotate your device for the best experience" message instead - turning sideways gives you the full, correctly-spaced control layout.</span></div>

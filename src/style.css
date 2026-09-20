@@ -4752,13 +4752,15 @@ html.ui-theme-old #quit-confirm-title {
   max-width: 820px;
 }
 
-/* Public Profile section (see Game.js's _renderPublicProfileSection) -
-   the exact fields a friend sees if they look this account up by #ID.
-   One self-contained bordered card (unlike the 5 heading/list pairs
-   above, which split into two boxes) since it has no separate "-list"
-   sibling - hint text and stat rows all live directly under its own
-   heading. */
-#profile-public-section {
+/* The Profile panel's 2 real top-level sections (2026-09-20) - Public
+   (see Game.js's _renderPublicProfileSection, the exact fields a friend
+   sees if they look this account up by #ID) and Hidden (literally
+   everything else the panel already had - stat dashboard, highlight
+   reel, roadmap, bio, etc., untouched, just now wrapped in its own
+   matching card instead of floating unboxed below a small heading).
+   Both share this box treatment so they read as equal, real sections at
+   a glance rather than one card followed by a long plain list. */
+.profile-split-section {
   background: rgba(20, 16, 10, 0.55);
   border: 1px solid rgba(227, 166, 60, 0.4);
   border-radius: 8px;
@@ -4767,32 +4769,30 @@ html.ui-theme-old #quit-confirm-title {
   width: 100%;
 }
 
-#profile-public-heading {
+/* #profile-hidden-section replaces #profile-content as the flex parent
+   for everything it now wraps - same display/gap so the existing
+   negative -8px margins further down (which cancel a parent's 8px flex
+   gap to make heading+list pairs sit flush as one card) keep working
+   unchanged at their new nesting depth. */
+#profile-hidden-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+#profile-public-heading,
+#profile-private-heading {
   margin: 0 0 2px;
   color: #e3c23c;
   text-align: center;
 }
 
-#profile-public-hint {
+#profile-public-hint,
+#profile-private-hint {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.55);
   margin: 0 0 8px;
-  text-align: center;
-}
-
-/* Private section divider - everything from here down to the end of
-   #profile-content is the existing, never-shared stat grid/bio/etc.,
-   just now clearly labeled as such rather than left ambiguous next to
-   the public section above it. */
-#profile-private-heading {
-  margin: 2px 0 0;
-  text-align: center;
-}
-
-#profile-private-hint {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
-  margin: 0 0 4px;
   text-align: center;
 }
 
