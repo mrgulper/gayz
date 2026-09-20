@@ -9146,11 +9146,17 @@ export class Game {
         zone.radius = Math.min(TOXIC_SPREAD_MAX_RADIUS, zone.radius + TOXIC_SPREAD_GROWTH_PER_SEC * dt)
         const growthScale = zone.radius / zone.baseRadius
         zone.mesh.scale.set(growthScale, 1, growthScale)
-        zone.light.distance = zone.radius * 2.5
+        if (zone.light) zone.light.distance = zone.radius * 2.5
       }
 
+      // zone.light can be null (see _spawnHazardZone - the shared FX light
+      // pool returns null once every slot is taken, and the zone still
+      // works fine without one, just no cast light). This crashed every
+      // frame forever once triggered (real report, 2026-09-19) because
+      // this specific line assumed a light always exists, unlike every
+      // other zone.light access in this file which already checks first.
       const flicker = 0.8 + Math.sin(now * 0.015 + zone.x) * 0.2
-      zone.light.intensity = 1.4 * flicker
+      if (zone.light) zone.light.intensity = 1.4 * flicker
       zone.mesh.material.opacity = 0.32 * flicker + 0.08
 
       const dist = Math.hypot(playerPos.x - zone.x, playerPos.z - zone.z)
