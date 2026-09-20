@@ -21896,7 +21896,7 @@ export class Game {
 
     this._updateChatTabAvailability()
     this._subscribeChatChannel()
-    this._bindChatMuteClicks()
+    this._bindChatContextActions()
     this._renderMutedChatPlayers()
   }
 
@@ -21944,35 +21944,103 @@ export class Game {
     // multiplayer playerId, no single id scheme spans all three). This is
     // a personal chat filter, not real moderation - someone could evade it
     // by changing their nickname, which is an accepted tradeoff for how
-    // lightweight this needs to be.
+    // lightweight this needs to be. The mute LIST/filter here is unchanged;
+    // only the old "left-click a name to add a mute" interaction is gone
+    // (see _bindChatContextActions) - Settings > Social is still how an
+    // existing mute gets undone.
     const muted = new Set(this.settings.mutedChatPlayers)
     const visible = msgs.filter((m) => !muted.has(m.nickname))
-    this.chatMessages.innerHTML = visible.map((m) => `<div class="chat-message-row"><button type="button" class="chat-message-nickname" data-nickname="${_escapeHtml(m.nickname)}">${_escapeHtml(m.nickname)}:</button><span class="chat-message-text">${_escapeHtml(m.text)}</span></div>`).join('')
+    // Global-only for now (see the design conversation) - Party chat's
+    // ephemeral multiplayer players have no Player ID at all, and Clan
+    // chat wasn't asked for yet. _renderChatMessageText no-ops back to
+    // plain escaped text outside 'global', same as it always rendered.
+    const linkifyIds = this._chatChannel === 'global'
+    this.chatMessages.innerHTML = visible.map((m) => `<div class="chat-message-row"><button type="button" class="chat-message-nickname" data-nickname="${_escapeHtml(m.nickname)}">${_escapeHtml(m.nickname)}:</button><span class="chat-message-text">${this._renderChatMessageText(m.text, linkifyIds)}</span></div>`).join('')
     this.chatMessages.scrollTop = this.chatMessages.scrollHeight
   }
 
-  // Click-to-mute (see _renderChatMessages) - one delegated listener on the
-  // container instead of one per message row, since rows get fully
-  // replaced on every render (per-row listeners would need constant
-  // rebinding and would silently leak the old ones). Confirms before
-  // muting since it's a real behavior change (that player's messages stop
-  // showing at all, in every channel) - see Settings > Social for the
-  // matching unmute list.
-  _bindChatMuteClicks() {
+  // Splits on a pasted Player ID (see _generatePlayerId - always exactly
+  // '#' + 6 uppercase letters/digits) and wraps just that piece as a
+  // clickable lookup link, escaping every other piece of the message
+  // exactly as before. Matching against the RAW text (before any escaping)
+  // and only ever inserting either escaped plain text or an element built
+  // entirely from our own fixed strings + the already-charset-constrained
+  // matched id keeps this exactly as safe against injection as the single
+  // _escapeHtml(m.text) call this replaced - the regex's character class
+  // can't match '<', '>', or quotes, so the id itself never needs its own
+  // escaping to be safe in an attribute or as text.
+  _renderChatMessageText(text, linkifyIds) {
+    if (!linkifyIds) return _escapeHtml(text)
+    const idPattern = /#[A-Z0-9]{6}/g
+    let out = ''
+    let lastIndex = 0
+    let match
+    while ((match = idPattern.exec(text))) {
+      out += _escapeHtml(text.slice(lastIndex, match.index))
+      out += `<button type="button" class="chat-message-id-link" data-lookup-id="${match[0].slice(1)}">${match[0]}</button>`
+      lastIndex = match.index + match[0].length
+    }
+    out += _escapeHtml(text.slice(lastIndex))
+    return out
+  }
+
+  // Right-click a name to copy their Player ID, mirroring the homepage
+  // "Global" panel chat's own identical feature (see _bindServerChatUi's
+  // contextmenu listener) - same technique (resolve nickname -> playerId
+  // via the public leaderboard-by-name lookup Friend Compare already uses,
+  // rather than sending playerId with every message) and the same i18n
+  // strings, so this reads as one consistent feature rather than two
+  // similar-but-different ones. Click an ID pasted into a message (see
+  // _renderChatMessageText) to look up that player's stats - this part is
+  // new, no homepage equivalent yet.
+  //
+  // Replaces the old left-click-to-mute interaction entirely, per the
+  // design conversation - Settings > Social > Muted Players is still how
+  // an existing mute gets undone, there's just no way to add a new one
+  // from chat anymore.
+  _bindChatContextActions() {
     if (!this.chatMessages) return
-    this.chatMessages.addEventListener('click', (e) => {
+    this.chatMessages.addEventListener('contextmenu', async (e) => {
       const btn = e.target.closest('.chat-message-nickname')
       if (!btn) return
+      e.preventDefault()
       const nickname = btn.dataset.nickname
-      if (!nickname || this.settings.mutedChatPlayers.includes(nickname)) return
-      if (!window.confirm(t('muteChatPlayerConfirm', { name: nickname }))) return
-      this.settings.mutedChatPlayers.push(nickname)
-      saveSettings(this.settings)
-      this._renderMutedChatPlayers()
-      if (this._chatChannel === 'party') this._renderChatMessages(this._chatPartyMessages)
-      // Global/Clan re-filter on their own next live update - no cached
-      // array to re-render from here the way Party's is, but that's a
-      // matter of seconds given both are live onSnapshot subscriptions.
+      if (!nickname) return
+      if (!navigator.clipboard || !navigator.clipboard.writeText) {
+        this._showLoreToast(t('clipboardCopyUnsupported'))
+        return
+      }
+      let entry = null
+      try {
+        entry = await CloudSync.fetchLeaderboardEntryByName(nickname)
+      } catch {
+        // Falls through to the "not found" toast below, same as every
+        // other best-effort leaderboard lookup in this file.
+      }
+      if (!entry || !entry.playerId) {
+        this._showLoreToast(t('chatCopyPlayerIdNotFound', { name: nickname }))
+        return
+      }
+      navigator.clipboard.writeText(`#${entry.playerId}`)
+        .then(() => this._showLoreToast(t('chatCopyPlayerIdCopied', { name: nickname })))
+        .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
+    })
+    this.chatMessages.addEventListener('click', async (e) => {
+      const link = e.target.closest('.chat-message-id-link')
+      if (!link) return
+      const id = link.dataset.lookupId
+      if (!id) return
+      const entry = await CloudSync.fetchLeaderboardEntryByPlayerId(id).catch(() => null)
+      if (!entry) {
+        this._showLoreToast(t('chatIdLookupNotFound'))
+        return
+      }
+      this._showLoreToast(t('chatIdLookupStats', {
+        name: entry.name || id,
+        night: entry.bestNight ?? 0,
+        kills: entry.bestKills ?? 0,
+        achievements: entry.achievementCount ?? 0,
+      }))
     })
   }
 

@@ -10952,9 +10952,10 @@ html.night-vision-active #app {
 }
 
 .chat-message-nickname {
-  /* Now a <button> (click to mute - see Game.js's _bindChatMuteClicks),
-     not a <span> - reset to plain inline text so it reads exactly as it
-     did before, with just a hover cue that it's clickable. */
+  /* A <button>, not a <span> - reset to plain inline text so it reads
+     exactly like plain text, with just a hover cue that it's clickable.
+     Right-click copies their Player ID (see Game.js's
+     _bindChatContextActions) - no left-click action of its own anymore. */
   font: inherit;
   background: none;
   border: none;
@@ -10971,6 +10972,25 @@ html.night-vision-active #app {
 
 .chat-message-text {
   color: #eee;
+}
+
+/* A Player ID pasted into a Global chat message (see
+   Game.js's _renderChatMessageText) - visually distinct from plain
+   message text so it reads as clickable, click shows that player's
+   stats (_bindChatContextActions). */
+.chat-message-id-link {
+  font: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--menu-gold, #d9bc4a);
+  text-decoration: underline;
+}
+
+.chat-message-id-link:hover {
+  color: #fff;
 }
 
 .muted-chat-player-row {
