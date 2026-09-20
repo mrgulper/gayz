@@ -15168,10 +15168,7 @@ export class Game {
           return null
         }
       }
-      this.serverChatMessages.addEventListener('contextmenu', async (e) => {
-        const btn = e.target.closest('.chat-message-nickname')
-        if (!btn) return
-        e.preventDefault()
+      const openPopupForNickname = async (e, btn) => {
         const nickname = btn.dataset.nickname
         if (!nickname) return
         const entry = await lookupEntry(nickname)
@@ -15180,7 +15177,14 @@ export class Game {
           return
         }
         this._showPlayerIdPopup(e.clientX, e.clientY, nickname, entry.playerId)
+      }
+      this.serverChatMessages.addEventListener('contextmenu', (e) => {
+        const btn = e.target.closest('.chat-message-nickname')
+        if (!btn) return
+        e.preventDefault()
+        openPopupForNickname(e, btn)
       })
+      this._bindChatNicknameLongPress(this.serverChatMessages, openPopupForNickname)
       // Click an ID pasted into a message (see _renderChatMessageText) to
       // look up that player's stats - same feature as the in-game HUD chat.
       this.serverChatMessages.addEventListener('click', async (e) => {
@@ -22115,6 +22119,63 @@ export class Game {
     setTimeout(() => document.addEventListener('click', hide, { once: true }), 0)
   }
 
+  // Touch/pen equivalent of right-click (desktop's contextmenu) on a chat
+  // name - a long-press opens the same Name/ID/Mute popup. Pointer Events
+  // (not touchstart) so this only reacts to pointerType 'touch'/'pen',
+  // leaving mouse clicks/contextmenu completely alone. Most mobile
+  // browsers still fire a synthetic click after a long-press's pointerup
+  // (there was no real "drag"), which would otherwise ALSO trigger the
+  // direct-copy click handler right after the popup opens - the
+  // _longPress* state plus a capture-phase click listener swallows just
+  // that one click. Shared by both chat surfaces (see _bindChatContextActions
+  // /_bindServerChat) so the long-press timer/cancel logic exists once.
+  _bindChatNicknameLongPress(container, openPopupForNickname) {
+    const LONG_PRESS_MS = 500
+    const MOVE_CANCEL_PX = 10
+    let pressTimer = null
+    let startX = 0
+    let startY = 0
+    let longPressFired = false
+    let pressBtn = null
+
+    const cancelPress = () => {
+      if (pressTimer) {
+        clearTimeout(pressTimer)
+        pressTimer = null
+      }
+    }
+
+    container.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return
+      const btn = e.target.closest('.chat-message-nickname')
+      if (!btn) return
+      startX = e.clientX
+      startY = e.clientY
+      pressBtn = btn
+      longPressFired = false
+      cancelPress()
+      pressTimer = setTimeout(() => {
+        longPressFired = true
+        openPopupForNickname(e, btn)
+      }, LONG_PRESS_MS)
+    })
+    container.addEventListener('pointermove', (e) => {
+      if (!pressTimer) return
+      if (Math.hypot(e.clientX - startX, e.clientY - startY) > MOVE_CANCEL_PX) cancelPress()
+    })
+    container.addEventListener('pointerup', cancelPress)
+    container.addEventListener('pointercancel', cancelPress)
+    // Capture phase so this runs before the bubble-phase click listener
+    // that does the direct-copy action.
+    container.addEventListener('click', (e) => {
+      if (longPressFired && e.target.closest('.chat-message-nickname') === pressBtn) {
+        e.stopImmediatePropagation()
+        e.preventDefault()
+        longPressFired = false
+      }
+    }, true)
+  }
+
   // Re-renders whichever chat surfaces have messages cached, so muting (or
   // unmuting, see _renderMutedChatPlayers) hides/shows their messages right
   // away instead of waiting for the next Firestore snapshot to happen to
@@ -22140,10 +22201,7 @@ export class Game {
         return null
       }
     }
-    this.chatMessages.addEventListener('contextmenu', async (e) => {
-      const btn = e.target.closest('.chat-message-nickname')
-      if (!btn) return
-      e.preventDefault()
+    const openPopupForNickname = async (e, btn) => {
       const nickname = btn.dataset.nickname
       if (!nickname) return
       const entry = await lookupEntry(nickname)
@@ -22152,7 +22210,14 @@ export class Game {
         return
       }
       this._showPlayerIdPopup(e.clientX, e.clientY, nickname, entry.playerId)
+    }
+    this.chatMessages.addEventListener('contextmenu', (e) => {
+      const btn = e.target.closest('.chat-message-nickname')
+      if (!btn) return
+      e.preventDefault()
+      openPopupForNickname(e, btn)
     })
+    this._bindChatNicknameLongPress(this.chatMessages, openPopupForNickname)
     this.chatMessages.addEventListener('click', async (e) => {
       const nameBtn = e.target.closest('.chat-message-nickname')
       if (nameBtn) {
