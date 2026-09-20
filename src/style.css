@@ -10584,6 +10584,60 @@ html.night-vision-active #app {
   font-size: 12px;
 }
 
+/* Portrait rotate prompt (mobile playability, part 3 of 3 - real report:
+   the touch button positions above (#touch-btn-melee etc.) were tuned for
+   a wide landscape canvas and genuinely overlap gameplay HUD elements like
+   the chat feed in portrait - confirmed live, not a guess. Full portrait-
+   specific repositioning of every button is real, separate future work
+   (per the file comment on #touch-controls-layer above); this instead
+   swaps the whole control set for a simple "please rotate" message
+   whenever a touch device is actually in portrait, since rotating to
+   landscape already works correctly today. Pure CSS (no JS) so it reacts
+   instantly to a real device rotation - `hover: none` + `pointer: coarse`
+   is the same touch-detection heuristic Game.js's own touchControlsActive
+   already uses, so this only ever shows on an actual touch device, never
+   a narrow desktop window. */
+#touch-rotate-prompt {
+  display: none;
+}
+
+@media (orientation: portrait) and (hover: none) and (pointer: coarse) {
+  #touch-joystick-base,
+  .touch-action-btn {
+    display: none;
+  }
+  #touch-rotate-prompt {
+    display: flex;
+    position: absolute;
+    inset: 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    padding: 32px;
+    text-align: center;
+    background: rgba(10, 8, 6, 0.85);
+    color: #e0d8cf;
+    font-size: 15px;
+    pointer-events: auto;
+  }
+}
+
+#touch-rotate-icon {
+  width: 34px;
+  height: 54px;
+  border: 3px solid #e0d8cf;
+  border-radius: 5px;
+  transform: rotate(90deg);
+  animation: touch-rotate-icon-spin 1.8s ease-in-out infinite;
+}
+
+@keyframes touch-rotate-icon-spin {
+  0%, 20% { transform: rotate(90deg); }
+  50%, 70% { transform: rotate(0deg); }
+  100% { transform: rotate(0deg); }
+}
+
 /* Phone/tablet portrait homepage (mobile playability, part 2 of 3 - the
    width-based counterpart to the height-based breakpoints above, which
    only ever handled a short-but-WIDE desktop window, never a
