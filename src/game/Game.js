@@ -2536,7 +2536,9 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'other-profile-none': 'otherProfileNone',
   'other-profile-bestnight-label': 'otherProfileBestnightLabel',
   'other-profile-bestkills-label': 'otherProfileBestkillsLabel',
+  'other-profile-beststreak-label': 'profilePublicBeststreakLabel',
   'other-profile-achievements-label': 'otherProfileAchievementsLabel',
+  'other-profile-region-label': 'profilePublicRegionLabel',
   'pause-invite-btn': 'pauseInviteBtn',
   'screenshot-crop-hint': 'screenshotCropHint',
   'screenshot-section-title': 'screenshotSectionTitle',
@@ -4151,7 +4153,10 @@ export class Game {
     this.otherProfileStats = document.getElementById('other-profile-stats')
     this.otherProfileBestNightValue = document.getElementById('other-profile-bestnight-value')
     this.otherProfileBestKillsValue = document.getElementById('other-profile-bestkills-value')
+    this.otherProfileBestStreakValue = document.getElementById('other-profile-beststreak-value')
     this.otherProfileAchievementsValue = document.getElementById('other-profile-achievements-value')
+    this.otherProfileRegionRow = document.getElementById('other-profile-region-row')
+    this.otherProfileRegionValue = document.getElementById('other-profile-region-value')
     this.cloudsaveLeaderboardTitle = document.getElementById('cloudsave-leaderboard-title')
     this.cloudsaveLeaderboardList = document.getElementById('cloudsave-leaderboard-list')
     this.cloudsaveWeeklyLeaderboardList = document.getElementById('cloudsave-weekly-leaderboard-list')
@@ -12035,13 +12040,7 @@ export class Game {
   // CURRENT live stats since it fetches fresh on every open.
   async _openOtherPlayerProfile(uid, fallbackName) {
     if (!this.otherProfilePanel) return
-    this.otherProfilePanel.style.display = 'flex'
-    this.otherProfileName.textContent = fallbackName || '???'
-    this._otherProfileIdText = null
-    this.otherProfileId.textContent = ''
-    this.otherProfileStats.style.display = 'none'
-    this.otherProfileNone.style.display = 'none'
-    this.otherProfileLoading.style.display = 'block'
+    this._showOtherProfileLoading(fallbackName)
     let entry = null
     try {
       entry = await CloudSync.fetchLeaderboardEntryByUid(uid)
@@ -12049,9 +12048,40 @@ export class Game {
       // Best-effort - falls through to the "hasn't completed a run yet"
       // state below, same as a genuine null result.
     }
-    // The panel may have been closed (or reopened for a different friend)
-    // while this fetch was in flight - don't clobber whatever's showing now.
+    // The panel may have been closed (or reopened for someone else) while
+    // this fetch was in flight - don't clobber whatever's showing now.
     if (this.otherProfilePanel.style.display === 'none') return
+    this._renderOtherProfileEntry(entry, fallbackName)
+  }
+
+  // Same panel, reached by pasting a Player ID into chat instead of
+  // clicking a Friends row (see _bindChatContextActions/_bindServerChat's
+  // .chat-message-id-link handler) - looked up by playerId
+  // (fetchLeaderboardEntryByPlayerId) rather than uid, everything else
+  // about opening/rendering the panel is identical.
+  async _openOtherPlayerProfileById(playerId, fallbackName) {
+    if (!this.otherProfilePanel) return
+    this._showOtherProfileLoading(fallbackName)
+    const entry = await CloudSync.fetchLeaderboardEntryByPlayerId(playerId).catch(() => null)
+    if (this.otherProfilePanel.style.display === 'none') return
+    this._renderOtherProfileEntry(entry, fallbackName)
+  }
+
+  _showOtherProfileLoading(fallbackName) {
+    this.otherProfilePanel.style.display = 'flex'
+    this.otherProfileName.textContent = fallbackName || '???'
+    this._otherProfileIdText = null
+    this.otherProfileId.textContent = ''
+    this.otherProfileStats.style.display = 'none'
+    this.otherProfileNone.style.display = 'none'
+    this.otherProfileLoading.style.display = 'block'
+  }
+
+  // Same field set as the Profile panel's own "Shown to Public" tab (see
+  // _renderPublicProfileSection) minus Clan - a leaderboard entry only
+  // carries the other player's clanId, not a resolvable tag/name, and
+  // showing a raw id wouldn't mean anything to whoever's looking.
+  _renderOtherProfileEntry(entry, fallbackName) {
     this.otherProfileLoading.style.display = 'none'
     if (!entry) {
       this.otherProfileNone.style.display = 'block'
@@ -12064,7 +12094,14 @@ export class Game {
     }
     this.otherProfileBestNightValue.textContent = _safeStatNumber(entry.bestNight)
     this.otherProfileBestKillsValue.textContent = _safeStatNumber(entry.bestKills)
+    this.otherProfileBestStreakValue.textContent = _safeStatNumber(entry.bestKillStreak)
     this.otherProfileAchievementsValue.textContent = _safeStatNumber(entry.achievementCount)
+    // Same enum keys the region <select> and _renderPublicProfileSection
+    // already use - no new i18n keys needed.
+    const REGION_LABEL_KEYS = { na: 'optRegionNa', eu: 'optRegionEu', asia: 'optRegionAsia', sa: 'optRegionSa', oceania: 'optRegionOceania', africa: 'optRegionAfrica' }
+    const regionKey = REGION_LABEL_KEYS[entry.region]
+    if (this.otherProfileRegionRow) this.otherProfileRegionRow.style.display = regionKey ? 'flex' : 'none'
+    if (regionKey && this.otherProfileRegionValue) this.otherProfileRegionValue.textContent = t(regionKey)
     this.otherProfileStats.style.display = 'block'
   }
 
@@ -15163,17 +15200,7 @@ export class Game {
         if (!link) return
         const id = link.dataset.lookupId
         if (!id) return
-        const entry = await CloudSync.fetchLeaderboardEntryByPlayerId(id).catch(() => null)
-        if (!entry) {
-          this._showHomepageToast(t('chatIdLookupNotFound'))
-          return
-        }
-        this._showHomepageToast(t('chatIdLookupStats', {
-          name: entry.name || id,
-          night: entry.bestNight ?? 0,
-          kills: entry.bestKills ?? 0,
-          achievements: entry.achievementCount ?? 0,
-        }))
+        this._openOtherPlayerProfileById(id)
       })
     }
   }
@@ -22143,17 +22170,7 @@ export class Game {
       if (!link) return
       const id = link.dataset.lookupId
       if (!id) return
-      const entry = await CloudSync.fetchLeaderboardEntryByPlayerId(id).catch(() => null)
-      if (!entry) {
-        this._showLoreToast(t('chatIdLookupNotFound'))
-        return
-      }
-      this._showLoreToast(t('chatIdLookupStats', {
-        name: entry.name || id,
-        night: entry.bestNight ?? 0,
-        kills: entry.bestKills ?? 0,
-        achievements: entry.achievementCount ?? 0,
-      }))
+      this._openOtherPlayerProfileById(id)
     })
   }
 

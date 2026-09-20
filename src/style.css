@@ -4171,6 +4171,18 @@ section.category.hidden-search {
     rgba(6, 8, 6, 0.88);
 }
 
+/* #other-profile-panel is reachable from INSIDE other already-open panels
+   now (Friends rows, and since 2026-09-20 also pasted chat IDs on the
+   homepage Global panel) - same z-index:15 as every other panel above
+   means whichever one is LATER in the DOM wins ties, which happened to
+   put #server-panel on top, silently hiding this panel behind the still-
+   open Global chat the moment it was opened from there. One explicit
+   step above the shared z-index fixes it regardless of DOM order or
+   which parent panel it was opened from. */
+#other-profile-panel {
+  z-index: 16;
+}
+
 /* Old theme's warm-brown backdrop, same 24-panel list as the rule above -
    see the palette comment on html.ui-theme-old's :root block. */
 html.ui-theme-old #perk-panel,
