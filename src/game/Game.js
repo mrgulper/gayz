@@ -4740,8 +4740,20 @@ export class Game {
     document.getElementById('graphics-lost-keep-playing-btn')?.addEventListener('click', () => {
       const panel = document.getElementById('graphics-lost-panel')
       if (panel) panel.style.display = 'none'
+      // Safety net (2026-09-19, real report) - automatic recovery can
+      // report success while the actual picture never comes back. Rather
+      // than trust it and vanish completely, leave a small corner button
+      // reachable so there's always a way out that isn't "know to manually
+      // refresh the browser yourself."
+      const notice = document.getElementById('graphics-recovery-notice')
+      if (notice) notice.style.display = 'flex'
     })
     document.getElementById('graphics-lost-reload-btn')?.addEventListener('click', () => window.location.reload())
+    document.getElementById('graphics-recovery-reload-btn')?.addEventListener('click', () => window.location.reload())
+    document.getElementById('graphics-recovery-dismiss-btn')?.addEventListener('click', () => {
+      const notice = document.getElementById('graphics-recovery-notice')
+      if (notice) notice.style.display = 'none'
+    })
     // Temporary (2026-09-11) - surfaces real GPU info in the existing FPS
     // HUD line (see its own comment) so a player reporting lag can just
     // screenshot the corner they already know, instead of navigating

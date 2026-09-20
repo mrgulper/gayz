@@ -10431,6 +10431,59 @@ html.night-vision-active #app {
   background: rgba(224, 208, 207, 0.1);
 }
 
+/* Safety net for "Keep Playing" (2026-09-19) - a real report: the
+   automatic recovery can report success (isContextLost() false) while the
+   actual picture never comes back, and the old behavior hid the ENTIRE
+   graphics-lost-panel on Keep Playing, reload button included, leaving no
+   way back except knowing to manually refresh. This stays reachable in a
+   corner instead of disappearing - same z-index tier as graphics-lost-
+   panel since it has to be reachable no matter what else is on screen. */
+#graphics-recovery-notice {
+  display: none;
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(20, 10, 10, 0.9);
+  border: 1px solid rgba(227, 92, 60, 0.5);
+  border-radius: 8px;
+  color: #e0d0cf;
+  font-size: 13px;
+  z-index: 9999;
+}
+
+#graphics-recovery-reload-btn {
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #170a06;
+  background: #e3c23c;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+#graphics-recovery-reload-btn:hover {
+  background: #e8d264;
+}
+
+#graphics-recovery-dismiss-btn {
+  padding: 2px 6px;
+  font-size: 15px;
+  line-height: 1;
+  color: #e0d0cf;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+#graphics-recovery-dismiss-btn:hover {
+  opacity: 1;
+}
+
 /* Touch Controls (mobile/tablet playability, part 1 of 3 - see
    docs/superpowers/specs/2026-08-26-touch-controls-design.md). Sits above
    ordinary gameplay HUD (no explicit z-index, effectively 0 via DOM
