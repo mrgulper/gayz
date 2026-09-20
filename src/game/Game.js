@@ -24978,7 +24978,6 @@ export class Game {
     const savedVmVisibility = {}
     for (const id in this.weapons.viewmodels) {
       savedVmVisibility[id] = this.weapons.viewmodels[id].visible
-      this.weapons.viewmodels[id].visible = true
     }
 
     const dir = this.camera.getWorldDirection(new THREE.Vector3())
@@ -24998,7 +24997,14 @@ export class Game {
       new Zombie(origin.x, origin.z + 1, ZOMBIE_TYPES.spitter, false, false, 1, 1, 1),
       new Zombie(origin.x, origin.z - 1, ZOMBIE_TYPES.siren, false, false, 1, 1, 1),
     ]
-    for (const z of warmZombies) this.scene.add(z.group)
+    // Invisible until each one's own warm-up step below - an invisible
+    // object is skipped by the renderer entirely (see this method's other
+    // comment), so adding them now but revealing one per frame is what
+    // actually spreads the compile cost out (see the steps/runStep below).
+    for (const z of warmZombies) {
+      z.group.visible = false
+      this.scene.add(z.group)
+    }
 
     const warmChest = this.chests.chests[0]
     let savedChestState = null
@@ -25008,53 +25014,75 @@ export class Game {
       warmChest.z = origin.z + 1
       warmChest.group.position.set(origin.x, warmChest.group.position.y, origin.z + 1)
       if (warmChest.locked) warmChest.unlock()
-      warmChest.group.visible = true
+      warmChest.group.visible = false
     }
 
-    // Timing this specific render call (2026-09-18) doubles it as a real,
-    // on-device capability check for free - it's already dominated by
-    // one-time shader compilation for zombies/weapons/chest, which a weak
-    // or old GPU/driver genuinely takes much longer to do than a capable
-    // one, unlike steady-state frame time which varies with scene
-    // complexity instead. Runs while #menu is still fully opaque (see this
-    // method's own call site), so there's nothing to visually settle - a
-    // slow device can start already in Performance Mode instead of the
-    // player needing to feel it stutter first for the reactive fallback
-    // in _tick to catch up. Threshold (1500ms) is a conservative first
-    // estimate with no real old-hardware data to calibrate against yet -
-    // deliberately set high enough to only catch something dragging
-    // noticeably, since a false positive (needlessly downgrading a normal
-    // player's visuals) is worse than a false negative (a genuinely slow
-    // device just falls through to the reactive fallback in _tick instead,
-    // which still catches it, just ~1.5s slower). Real feedback from
-    // actual old hardware should retune this, not another guess.
-    const warmUpStart = performance.now()
-    this.composer.render()
-    const warmUpMs = performance.now() - warmUpStart
-    if (warmUpMs > 1500 && !this.settings.performanceMode) {
-      this._autoPerfModeTriggered = true
-      this.settings.performanceMode = true
-      this.performanceToggle.checked = true
-      this._applyPerformanceMode(true)
-      saveSettings(this.settings)
-      // No _showLoreToast here - toasts are gated on gameStarted (see
-      // their own comment) and silently no-op before it, unlike the
-      // reactive trigger in _tick which fires mid-play and needs the
-      // explanation. Nothing to explain here: the player never saw the
-      // higher-quality version to notice a drop from.
-    }
+    // Spread across one composer.render() per frame instead of a single
+    // combined one (2026-09-19 - real report: a friend's whole PC froze the
+    // instant they opened the game, most likely several other GPU-heavy
+    // tabs/programs already had the graphics chip near its limit, and this
+    // warm-up's own one-time shader-compile burst was the last straw). The
+    // total GPU work is unchanged - still every weapon + all 4 zombie types
+    // + the chest, compiled once each - only how it's timed changes: one
+    // thing revealed and rendered per frame, so no single instant asks the
+    // GPU for all of it at once. Lower peak demand can't fix another tab
+    // already exhausting shared graphics memory (a browser has no way to
+    // see or control that - see CLAUDE.md), but it does make this game less
+    // likely to be the specific straw that breaks it.
+    //
+    // Total time across all steps still doubles as the on-device capability
+    // check the original single-render version used (see git history for
+    // that version) - summed here rather than measured per-step, so the
+    // 1500ms threshold keeps meaning the same thing (total one-time compile
+    // cost for everything) regardless of how many frames it's spread across.
+    const warmUpSteps = [
+      () => { for (const id in this.weapons.viewmodels) this.weapons.viewmodels[id].visible = true },
+      () => { warmZombies[0].group.visible = true },
+      () => { warmZombies[1].group.visible = true },
+      () => { warmZombies[2].group.visible = true },
+      () => { warmZombies[3].group.visible = true },
+      () => { if (warmChest) warmChest.group.visible = true },
+    ]
+    let warmUpStepIndex = 0
+    let warmUpTotalMs = 0
+    const runWarmUpStep = () => {
+      warmUpSteps[warmUpStepIndex]()
+      warmUpStepIndex++
+      const stepStart = performance.now()
+      this.composer.render()
+      warmUpTotalMs += performance.now() - stepStart
+      if (warmUpStepIndex < warmUpSteps.length) {
+        requestAnimationFrame(runWarmUpStep)
+        return
+      }
+      // Threshold/reasoning unchanged from the original single-render
+      // version - see this method's own top comment.
+      if (warmUpTotalMs > 1500 && !this.settings.performanceMode) {
+        this._autoPerfModeTriggered = true
+        this.settings.performanceMode = true
+        this.performanceToggle.checked = true
+        this._applyPerformanceMode(true)
+        saveSettings(this.settings)
+        // No _showLoreToast here - toasts are gated on gameStarted (see
+        // their own comment) and silently no-op before it, unlike the
+        // reactive trigger in _tick which fires mid-play and needs the
+        // explanation. Nothing to explain here: the player never saw the
+        // higher-quality version to notice a drop from.
+      }
 
-    for (const id in this.weapons.viewmodels) this.weapons.viewmodels[id].visible = savedVmVisibility[id]
-    for (const z of warmZombies) {
-      this.scene.remove(z.group)
-      z.dispose()
+      for (const id in this.weapons.viewmodels) this.weapons.viewmodels[id].visible = savedVmVisibility[id]
+      for (const z of warmZombies) {
+        this.scene.remove(z.group)
+        z.dispose()
+      }
+      if (warmChest && savedChestState) {
+        warmChest.x = savedChestState.x
+        warmChest.z = savedChestState.z
+        warmChest.group.position.set(savedChestState.x, savedChestState.y, savedChestState.z)
+        if (savedChestState.locked) warmChest.lock()
+      }
     }
-    if (warmChest && savedChestState) {
-      warmChest.x = savedChestState.x
-      warmChest.z = savedChestState.z
-      warmChest.group.position.set(savedChestState.x, savedChestState.y, savedChestState.z)
-      if (savedChestState.locked) warmChest.lock()
-    }
+    requestAnimationFrame(runWarmUpStep)
   }
 
   _tick() {
