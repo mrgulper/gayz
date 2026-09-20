@@ -15119,37 +15119,44 @@ export class Game {
     }
 
     if (this.serverChatMessages) {
-      // Left- or right-click a name to show the shared "Name #ID" + Mute
-      // popup (see _showPlayerIdPopup) - same technique as the in-game HUD
-      // chat's identical feature.
-      const openPopup = async (e, btn) => {
-        const nickname = btn.dataset.nickname
-        if (!nickname) return
-        let entry = null
+      // Left-click a name to copy their Player ID directly; right-click
+      // shows the shared "Name #ID" + Mute popup (see _showPlayerIdPopup) -
+      // same technique as the in-game HUD chat's identical feature.
+      const lookupEntry = async (nickname) => {
         try {
-          entry = await CloudSync.fetchLeaderboardEntryByName(nickname)
+          return await CloudSync.fetchLeaderboardEntryByName(nickname)
         } catch {
           // Falls through to the "not found" toast below, same as every
           // other best-effort leaderboard lookup in this file.
+          return null
         }
+      }
+      this.serverChatMessages.addEventListener('contextmenu', async (e) => {
+        const btn = e.target.closest('.chat-message-nickname')
+        if (!btn) return
+        e.preventDefault()
+        const nickname = btn.dataset.nickname
+        if (!nickname) return
+        const entry = await lookupEntry(nickname)
         if (!entry || !entry.playerId) {
           this._showHomepageToast(t('chatCopyPlayerIdNotFound', { name: nickname }))
           return
         }
         this._showPlayerIdPopup(e.clientX, e.clientY, nickname, entry.playerId)
-      }
-      this.serverChatMessages.addEventListener('contextmenu', (e) => {
-        const btn = e.target.closest('.chat-message-nickname')
-        if (!btn) return
-        e.preventDefault()
-        openPopup(e, btn)
       })
       // Click an ID pasted into a message (see _renderChatMessageText) to
       // look up that player's stats - same feature as the in-game HUD chat.
       this.serverChatMessages.addEventListener('click', async (e) => {
         const nameBtn = e.target.closest('.chat-message-nickname')
         if (nameBtn) {
-          openPopup(e, nameBtn)
+          const nickname = nameBtn.dataset.nickname
+          if (!nickname) return
+          const entry = await lookupEntry(nickname)
+          if (!entry || !entry.playerId) {
+            this._showHomepageToast(t('chatCopyPlayerIdNotFound', { name: nickname }))
+            return
+          }
+          this._copyPlayerId(entry.playerId, nickname, (msg) => this._showHomepageToast(msg))
           return
         }
         const link = e.target.closest('.chat-message-id-link')
@@ -22007,14 +22014,27 @@ export class Game {
     return out
   }
 
+  // Shared by the popup's own ID button AND the direct left-click-to-copy
+  // handlers below, so the clipboard-write + toast logic exists exactly
+  // once. Caller passes the right toast function for whichever surface
+  // triggered it (_showLoreToast for the in-game chat, _showHomepageToast
+  // for the homepage panel).
+  _copyPlayerId(playerId, name, toastFn) {
+    navigator.clipboard?.writeText(`#${playerId}`).then(() => {
+      toastFn(t('chatCopyPlayerIdCopied', { name }))
+    }).catch(() => {
+      toastFn(t('clipboardCopyUnsupported'))
+    })
+  }
+
   // Shows "Name #ID" plus a Mute button right at the click point, ID itself
   // is a button that copies it (per reference screenshots, 2026-09-20) -
   // shared by both the in-game HUD chat and the homepage "Global" panel
-  // chat's left/right-click handlers below, so there's one popup
-  // implementation instead of two. Always uses _showHomepageToast (not
-  // _showLoreToast) for its own feedback toasts - this popup is reachable
-  // from the homepage chat where gameStarted is false, and _showLoreToast's
-  // gameStarted guard would silently swallow the toast there.
+  // chat's right-click handlers below, so there's one popup implementation
+  // instead of two. Always uses _showHomepageToast (not _showLoreToast) for
+  // its own feedback toasts - this popup is reachable from the homepage
+  // chat where gameStarted is false, and _showLoreToast's gameStarted guard
+  // would silently swallow the toast there.
   // position:fixed + clamped after an initial render (its size isn't known
   // until it's actually in the DOM) keeps it fully on-screen even from a
   // click near an edge.
@@ -22036,11 +22056,7 @@ export class Game {
     const hide = () => { this.chatIdPopup.style.display = 'none' }
     this.chatIdPopupIdBtn.onclick = () => {
       hide()
-      navigator.clipboard?.writeText(`#${playerId}`).then(() => {
-        this._showHomepageToast(t('chatCopyPlayerIdCopied', { name }))
-      }).catch(() => {
-        this._showHomepageToast(t('clipboardCopyUnsupported'))
-      })
+      this._copyPlayerId(playerId, name, (msg) => this._showHomepageToast(msg))
     }
     this.chatIdPopupMuteBtn.onclick = () => {
       hide()
@@ -22067,38 +22083,46 @@ export class Game {
     if (this._lastServerChatMsgs) this._renderServerChatMessages(this._lastServerChatMsgs)
   }
 
-  // Left- or right-click a name to show the "Name #ID" + Mute popup above;
-  // click an ID pasted into a message (see _renderChatMessageText) to look
-  // up that player's stats - this second part is new, no homepage
-  // equivalent yet.
+  // Left-click a name to copy their Player ID directly; right-click shows
+  // the "Name #ID" + Mute popup instead (per reference screenshots,
+  // 2026-09-20 - left-click used to also open the popup, now it's a
+  // one-step copy). Click an ID pasted into a message (see
+  // _renderChatMessageText) to look up that player's stats.
   _bindChatContextActions() {
     if (!this.chatMessages) return
-    const openPopup = async (e, btn) => {
-      const nickname = btn.dataset.nickname
-      if (!nickname) return
-      let entry = null
+    const lookupEntry = async (nickname) => {
       try {
-        entry = await CloudSync.fetchLeaderboardEntryByName(nickname)
+        return await CloudSync.fetchLeaderboardEntryByName(nickname)
       } catch {
         // Falls through to the "not found" toast below, same as every
         // other best-effort leaderboard lookup in this file.
+        return null
       }
+    }
+    this.chatMessages.addEventListener('contextmenu', async (e) => {
+      const btn = e.target.closest('.chat-message-nickname')
+      if (!btn) return
+      e.preventDefault()
+      const nickname = btn.dataset.nickname
+      if (!nickname) return
+      const entry = await lookupEntry(nickname)
       if (!entry || !entry.playerId) {
         this._showLoreToast(t('chatCopyPlayerIdNotFound', { name: nickname }))
         return
       }
       this._showPlayerIdPopup(e.clientX, e.clientY, nickname, entry.playerId)
-    }
-    this.chatMessages.addEventListener('contextmenu', (e) => {
-      const btn = e.target.closest('.chat-message-nickname')
-      if (!btn) return
-      e.preventDefault()
-      openPopup(e, btn)
     })
     this.chatMessages.addEventListener('click', async (e) => {
       const nameBtn = e.target.closest('.chat-message-nickname')
       if (nameBtn) {
-        openPopup(e, nameBtn)
+        const nickname = nameBtn.dataset.nickname
+        if (!nickname) return
+        const entry = await lookupEntry(nickname)
+        if (!entry || !entry.playerId) {
+          this._showLoreToast(t('chatCopyPlayerIdNotFound', { name: nickname }))
+          return
+        }
+        this._copyPlayerId(entry.playerId, nickname, (msg) => this._showLoreToast(msg))
         return
       }
       const link = e.target.closest('.chat-message-id-link')

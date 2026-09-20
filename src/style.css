@@ -11021,8 +11021,8 @@ html.night-vision-active #app {
 .chat-message-nickname {
   /* A <button>, not a <span> - reset to plain inline text so it reads
      exactly like plain text, with just a hover cue that it's clickable.
-     Left- or right-click opens the Name/ID/Mute popup (see Game.js's
-     _bindChatContextActions). */
+     Left-click copies the Player ID directly; right-click opens the
+     Name/ID/Mute popup (see Game.js's _bindChatContextActions). */
   font: inherit;
   background: none;
   border: none;
