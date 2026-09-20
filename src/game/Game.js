@@ -15368,6 +15368,7 @@ export class Game {
     document.getElementById('fov-label').textContent = t('fovLabel')
     document.getElementById('colorblind-label').textContent = t('colorblindLabel')
     document.getElementById('performance-label').textContent = t('performanceLabel')
+    document.getElementById('performance-troubleshoot-hint').textContent = t('performanceModeTroubleshootHint')
     this.compassTrader.textContent = t('compassTrader')
     this.compassAmmo.textContent = t('compassAmmo')
     this.compassVehicle.textContent = t('compassVehicle')

@@ -9967,6 +9967,20 @@ html.ui-theme-old #settings-panel h2 {
   opacity: 0.55;
 }
 
+/* Real report (2026-09-19): a phone's specific graphics chip rendered the
+   whole 3D world as solid black while every DOM-based HUD element (chat,
+   controls, minimap) still worked fine - device GPU quirks like this are
+   hard to fix one-by-one without the exact hardware, so this is a visible,
+   always-shown (not hidden behind the "?" tooltip) escape hatch: the one
+   thing most likely to help someone who's already confused and stuck. */
+.settings-troubleshoot-hint {
+  margin: 4px 0 12px;
+  padding-left: 20px;
+  font-size: 12px;
+  line-height: 1.4;
+  opacity: 0.65;
+}
+
 .controls-grid {
   display: grid;
   grid-template-columns: 1fr auto;
