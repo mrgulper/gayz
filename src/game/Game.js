@@ -2496,7 +2496,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'print-achievements-btn': 'printAchievementsBtnLabel',
   'upload-skin-btn': 'uploadSkinBtn',
   'reset-skin-btn': 'resetSkinBtn',
-  'profile-public-heading': 'profilePublicHeading',
+  'profile-tab-public': 'profilePublicHeading',
   'profile-public-hint': 'profilePublicHint',
   'profile-public-name-label': 'profilePublicNameLabel',
   'profile-public-id-label': 'profilePublicIdLabel',
@@ -2509,7 +2509,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'profile-public-beststreak-label': 'profilePublicBeststreakLabel',
   'profile-public-region-label': 'profilePublicRegionLabel',
   'profile-public-clan-label': 'profilePublicClanLabel',
-  'profile-private-heading': 'profilePrivateHeading',
+  'profile-tab-hidden': 'profilePrivateHeading',
   'profile-private-hint': 'profilePrivateHint',
   'stats-dashboard-heading': 'statsDashboardHeadingLabel',
   'pinned-stat-label': 'pinnedStatLabel',
@@ -9407,6 +9407,17 @@ export class Game {
         for (const tabEl of document.querySelectorAll('.upgrades-tab')) tabEl.classList.toggle('active', tabEl === tab)
         for (const page of document.querySelectorAll('.upgrades-tab-page')) {
           page.style.display = page.id === `upgrades-page-${tab.dataset.upgradesPage}` ? 'flex' : 'none'
+        }
+      })
+    }
+
+    // Profile panel tab strip (Shown to Public/Hidden) - same isolated
+    // class/loop pattern as the Upgrades tabs above.
+    for (const tab of document.querySelectorAll('.profile-tab')) {
+      tab.addEventListener('click', () => {
+        for (const tabEl of document.querySelectorAll('.profile-tab')) tabEl.classList.toggle('active', tabEl === tab)
+        for (const page of document.querySelectorAll('.profile-tab-page')) {
+          page.style.display = page.id === `profile-page-${tab.dataset.profilePage}` ? 'flex' : 'none'
         }
       })
     }
