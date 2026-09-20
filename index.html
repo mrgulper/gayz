@@ -3166,7 +3166,7 @@ Escape before dawn.</p>
             <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Profile now has 2 clear tabs at the top: "Shown to Public" (your name, Player ID, Best Night, Best Kills, Best Kill Streak, and Achievements - anyone who has your Player ID can see these) and "Hidden" (everything else - your stats dashboard, highlight reel, bio, goals, and more - never shared with anyone).</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Global chat (both the in-game chat and the homepage Global panel): left-click a player's name to instantly copy their Player ID, or right-click to see a popup with their name, Player ID, and a Mute button. A Player ID pasted into a message shows up as a gold clickable tag too - click it to see that player's best night, best kills, and achievement count.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Copying a Player ID from chat now shows the same "Copied" gold badge used elsewhere in the game (like copying your own ID from the menu), instead of a plain text message.</span></div>
-            <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Clicking a Player ID pasted into chat now opens that player's full public profile (name, Player ID, Best Night, Best Kills, Best Kill Streak, Achievements, Region - the same "Shown to Public" info from your own Profile) instead of a small text summary.</span></div>
+            <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Clicking a Player ID pasted into chat now opens that player's full public profile (name, Player ID, Best Night, Best Kills, Best Kill Streak, Achievements, Region - the same "Shown to Public" info from your own Profile) instead of a small text summary. That popup now also has the same gold-bordered box styling as every other panel in the game, instead of floating text with no box.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Added a tip in Settings > Graphics: if the game ever looks broken or almost entirely black on your device (some phone graphics chips can render this way), try toggling Performance Mode - it's the single most likely thing to fix a display glitch like that.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 19, 2026</span><span class="changelog-text">On phones/tablets, playing with your device upright (portrait) used to overlap the on-screen controls with the chat feed, since those buttons were only ever laid out for sideways (landscape) play. Rather than a half-finished fix, holding your device upright now shows a "Rotate your device for the best experience" message instead - turning sideways gives you the full, correctly-spaced control layout.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 19, 2026</span><span class="changelog-text">Fixed a real "the whole game froze" bug: gas/acid/web/toxic hazard zones could, in rare cases during a busy fight, end up without their own light effect (a deliberate fallback for when too many effects are active at once) - but the game then crashed every single frame trying to update that missing light, which silently blocked all movement and gameplay from that point on while the screen kept showing whatever was last on screen. Fixed to work correctly with or without that light.</span></div>
@@ -3548,16 +3548,18 @@ Escape before dawn.</p>
       </div>
 
       <div id="other-profile-panel">
-        <h2 id="other-profile-name">Player</h2>
-        <p id="other-profile-id-line">ID: <span id="other-profile-id" title="Click to copy"></span></p>
-        <p id="other-profile-loading" style="display: none">Loading...</p>
-        <p id="other-profile-none" style="display: none">This player hasn't completed a run yet.</p>
-        <div id="other-profile-stats" style="display: none">
-          <div class="stat-row"><span id="other-profile-bestnight-label">Best Night</span><span id="other-profile-bestnight-value">--</span></div>
-          <div class="stat-row"><span id="other-profile-bestkills-label">Best Kills</span><span id="other-profile-bestkills-value">--</span></div>
-          <div class="stat-row"><span id="other-profile-beststreak-label">Best Kill Streak</span><span id="other-profile-beststreak-value">--</span></div>
-          <div class="stat-row"><span id="other-profile-achievements-label">Achievements</span><span id="other-profile-achievements-value">--</span></div>
-          <div class="stat-row" id="other-profile-region-row" style="display: none"><span id="other-profile-region-label">Region</span><span id="other-profile-region-value">--</span></div>
+        <div class="panel-box">
+          <h2 id="other-profile-name">Player</h2>
+          <p id="other-profile-id-line">ID: <span id="other-profile-id" title="Click to copy"></span></p>
+          <p id="other-profile-loading" style="display: none">Loading...</p>
+          <p id="other-profile-none" style="display: none">This player hasn't completed a run yet.</p>
+          <div id="other-profile-stats" style="display: none">
+            <div class="stat-row"><span id="other-profile-bestnight-label">Best Night</span><span id="other-profile-bestnight-value">--</span></div>
+            <div class="stat-row"><span id="other-profile-bestkills-label">Best Kills</span><span id="other-profile-bestkills-value">--</span></div>
+            <div class="stat-row"><span id="other-profile-beststreak-label">Best Kill Streak</span><span id="other-profile-beststreak-value">--</span></div>
+            <div class="stat-row"><span id="other-profile-achievements-label">Achievements</span><span id="other-profile-achievements-value">--</span></div>
+            <div class="stat-row" id="other-profile-region-row" style="display: none"><span id="other-profile-region-label">Region</span><span id="other-profile-region-value">--</span></div>
+          </div>
         </div>
       </div>
 

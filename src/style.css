@@ -2839,6 +2839,7 @@ html.third-person-active #companion-bark {
 #clan-panel .panel-box,
 #server-panel .panel-box,
 #profile-panel .panel-box,
+#other-profile-panel .panel-box,
 #hub-panel .panel-box {
   width: min(1080px, 96vw);
 }
@@ -2884,6 +2885,7 @@ html.third-person-active #companion-bark {
 #quests-panel,
 #friends-panel,
 #menu-inventory-panel,
+#other-profile-panel,
 #achievements-panel {
   background: transparent !important;
 }
