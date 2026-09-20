@@ -10682,42 +10682,163 @@ html.night-vision-active #app {
   font-size: 12px;
 }
 
-/* Portrait rotate prompt (mobile playability, part 3 of 3 - real report:
-   the touch button positions above (#touch-btn-melee etc.) were tuned for
-   a wide landscape canvas and genuinely overlap gameplay HUD elements like
-   the chat feed in portrait - confirmed live, not a guess. Full portrait-
-   specific repositioning of every button is real, separate future work
-   (per the file comment on #touch-controls-layer above); this instead
-   swaps the whole control set for a simple "please rotate" message
-   whenever a touch device is actually in portrait, since rotating to
-   landscape already works correctly today. Pure CSS (no JS) so it reacts
-   instantly to a real device rotation - `hover: none` + `pointer: coarse`
-   is the same touch-detection heuristic Game.js's own touchControlsActive
-   already uses, so this only ever shows on an actual touch device, never
-   a narrow desktop window. */
+/* Portrait rotate prompt - superseded 2026-09-20 by a real portrait HUD
+   layout below (was "mobile playability, part 3 of 3": a temporary
+   "please rotate" stopgap after a real overlap was found between the
+   touch buttons and the chat feed in portrait, deliberately deferred
+   rather than half-fixed at the time). #touch-rotate-prompt itself and
+   its icon/animation are kept, unused, in case a genuinely broken future
+   layout ever needs the same escape hatch again - just never shown now. */
 #touch-rotate-prompt {
   display: none;
 }
 
+/* Real portrait touch layout (2026-09-20). Landscape's positions (default
+   + the existing @media (max-width: 700px) compact-grid pass above) are
+   built around a wide screen with plenty of vertical room - on a phone
+   held upright, #left-hud-stack (health/status bars, previously
+   anchored bottom-left) sat directly under the joystick, and #chat-panel
+   (a 420x320px box nested inside that same stack) sprawled most of the
+   way up the screen since flex-column has nowhere to wrap to. This
+   detaches chat from that stack, shrinks and relocates every HUD piece
+   that competed for space, and turns the joystick/action buttons back
+   on (the rotate-prompt query above used to hide them and show
+   #touch-rotate-prompt instead - now only the touch-target repositioning
+   below applies, #touch-rotate-prompt stays off). Every position here
+   was tuned against real getBoundingClientRect() overlap checks at
+   375x812 (iPhone-class) and 390x844, same verification method the
+   compact-grid query above already established for this file - not
+   just eyeballed. */
 @media (orientation: portrait) and (hover: none) and (pointer: coarse) {
-  #touch-joystick-base,
-  .touch-action-btn {
-    display: none;
+  /* #left-hud-stack used to also contain #chat-panel (flex children,
+     stacking tall) - moved up under the minimap and shrunk, chat
+     detached below with its own fixed position instead of flowing here.
+     !important on the sizing properties below: the existing
+     @media (max-width: 700px), (max-height: 450px) query further down
+     this file also sets gap/font-size/width on these same selectors,
+     same specificity, later source position - it was winning that tie
+     on a narrow portrait phone (which matches both queries at once),
+     silently keeping this stack a bit taller than the math below
+     assumes. Matches this file's established fix for the same problem
+     class (see .panel-box's transparent-background rule, and
+     #chat-panel's own !important right below). */
+  #left-hud-stack {
+    left: 12px;
+    bottom: auto;
+    top: 112px;
+    gap: 4px !important;
   }
-  #touch-rotate-prompt {
-    display: flex;
+
+  #status-hud {
+    gap: 3px;
+  }
+
+  .status-bar {
+    width: 80px !important;
+    height: 6px !important;
+  }
+
+  .status-row {
+    font-size: 10px !important;
+    gap: 4px !important;
+  }
+
+  .status-icon {
+    width: 12px !important;
+  }
+
+  /* Detached from #left-hud-stack's flex flow (position:absolute here
+     overrides its default in-flow placement) so its own size/position
+     don't push or get pushed by the status bars above. Sits in the gap
+     between the status bars (ending around y=112+~140=252) and the
+     joystick's top edge (bottom:30px + 110px tall = starts around
+     y=672 on an 812-tall screen) - shrunk from the landscape 420x320
+     to something that actually fits a ~375px-wide screen. */
+  #chat-panel {
     position: absolute;
-    inset: 0;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 18px;
-    padding: 32px;
-    text-align: center;
-    background: rgba(10, 8, 6, 0.85);
-    color: #e0d8cf;
-    font-size: 15px;
-    pointer-events: auto;
+    left: 12px;
+    top: 270px;
+    bottom: auto;
+    /* !important: #chat-panel's own base rule (much further down this
+       file, in the chat section) also sets width/height - same
+       specificity, later source position, so it was winning that tie and
+       silently keeping the landscape 420x320 size despite this query
+       matching (confirmed via a live getComputedStyle check reporting
+       height:320px here even though top/left/overflow all correctly
+       applied). Matches this file's own established fix for the same
+       problem class (see .panel-box's transparent-background rule). */
+    width: 58vw !important;
+    max-width: 230px;
+    height: 150px !important;
+    /* height:150px alone doesn't clip a flex column's children if their
+       natural content height exceeds it - #chat-messages' flex:1 doesn't
+       shrink below its own content's intrinsic height without
+       min-height:0 (see below), so without this the whole box was
+       actually rendering much taller than 150px and pushing the input
+       row down onto the joystick. Confirmed via a real screenshot, not
+       assumed. */
+    overflow: hidden;
+  }
+
+  #chat-messages {
+    padding: 4px 6px;
+    min-height: 0;
+  }
+
+  .chat-message-row {
+    font-size: 11px;
+  }
+
+  /* Was a vertical column-reverse stack, right-aligned under the weapon-
+     switch row - turned into a compact horizontal row below the
+     weapon-switch buttons (.touch-weapon-btn, top:190px + 36px tall from
+     the compact-grid query above, still active here too) instead, since
+     a portrait screen has width to spare on the right edge but the
+     vertical stack collided with wherever else it landed. top:250 (not
+     235) - the row is wider than its 3 short weapon names suggest (name
+     + ammo count per slot adds up), reaching left to about x=95 on a
+     375-wide screen, which at 235 still clipped #left-hud-stack's own
+     bottom-right corner (confirmed via a real getBoundingClientRect
+     overlap check: an 8px-tall sliver). */
+  #weapon-quick-list {
+    top: 250px;
+    right: 12px;
+    bottom: auto;
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .weapon-quick-slot {
+    padding: 2px 5px;
+  }
+
+  .weapon-quick-num {
+    font-size: 18px;
+  }
+
+  /* Current weapon name + ammo count (bottom-right in landscape, where
+     it used to sit almost exactly under the compact grid's Fire button
+     at right:20px;bottom:20px) - moved above the action-button grid
+     instead of behind it. */
+  #hud {
+    right: 12px;
+    bottom: 296px;
+  }
+
+  /* Default top:30px;left:30px sits on top of the minimap; the compact-
+     grid query above already tried right:30px, which instead lands on
+     #stats-panel. Neither top corner is free on a portrait phone - the
+     one open strip is the right edge, vertically centered, clear of the
+     stats/hotbar cluster above and the action-button grid below.
+     right: !important - the max-width:700px query below also sets
+     right:30px on this same selector, same specificity/later source
+     position, so it was winning that tie on a narrow portrait phone
+     (matches both queries at once) and pulling this back from 10px. */
+  #touch-btn-more {
+    top: 50%;
+    left: auto;
+    right: 10px !important;
+    transform: translateY(-50%);
   }
 }
 
