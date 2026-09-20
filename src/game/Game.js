@@ -15156,7 +15156,7 @@ export class Game {
             this._showHomepageToast(t('chatCopyPlayerIdNotFound', { name: nickname }))
             return
           }
-          this._copyPlayerId(entry.playerId, nickname, (msg) => this._showHomepageToast(msg))
+          this._copyChatPlayerId(entry.playerId, nameBtn, (msg) => this._showHomepageToast(msg))
           return
         }
         const link = e.target.closest('.chat-message-id-link')
@@ -15777,8 +15777,12 @@ export class Game {
   // clicked to copy an ID, then fades on its own (CSS animation, same
   // self-contained pattern as #lore-toast). One reused element rather than
   // creating a new one per click.
-  _showCopiedBadge(anchorEl) {
-    if (!anchorEl) return
+  // anchorElOrRect: a live element (reads its rect at call time) OR a
+  // plain {left, top, width} already captured earlier - needed for the
+  // chat ID popup's own copy button, which hides itself (display:none)
+  // before this runs, so its live rect would read all-zero by then.
+  _showCopiedBadge(anchorElOrRect) {
+    if (!anchorElOrRect) return
     if (!this._copiedBadgeEl) {
       this._copiedBadgeEl = document.createElement('div')
       this._copiedBadgeEl.className = 'copied-oval-badge'
@@ -15790,7 +15794,7 @@ export class Game {
       document.body.appendChild(this._copiedBadgeEl)
     }
     this._copiedBadgeTextEl.textContent = t('copiedBadgeLabel')
-    const rect = anchorEl.getBoundingClientRect()
+    const rect = anchorElOrRect.getBoundingClientRect ? anchorElOrRect.getBoundingClientRect() : anchorElOrRect
     this._copiedBadgeEl.style.left = `${rect.left + rect.width / 2}px`
     this._copiedBadgeEl.style.top = `${rect.top}px`
     this._copiedBadgeEl.classList.remove('show')
@@ -22015,13 +22019,19 @@ export class Game {
   }
 
   // Shared by the popup's own ID button AND the direct left-click-to-copy
-  // handlers below, so the clipboard-write + toast logic exists exactly
-  // once. Caller passes the right toast function for whichever surface
-  // triggered it (_showLoreToast for the in-game chat, _showHomepageToast
-  // for the homepage panel).
-  _copyPlayerId(playerId, name, toastFn) {
+  // handlers below, so the clipboard-write logic exists exactly once. Named
+  // distinctly from the unrelated, already-existing _copyPlayerId() (copies
+  // YOUR OWN id from the menu tag, no args) a few hundred lines up - same
+  // name would have silently clobbered it via duplicate method definition.
+  // Reuses the existing "Copied" oval badge (_showCopiedBadge, already used
+  // for the menu Player ID tag and Other Profile's ID) instead of a text
+  // toast, per reference screenshot (2026-09-20) - anchorEl is whatever
+  // element was actually clicked, so the badge pops up right above it.
+  // toastFn is only needed for the (rare) clipboard-unsupported fallback,
+  // which isn't a "success" so doesn't fit the badge.
+  _copyChatPlayerId(playerId, anchorEl, toastFn) {
     navigator.clipboard?.writeText(`#${playerId}`).then(() => {
-      toastFn(t('chatCopyPlayerIdCopied', { name }))
+      this._showCopiedBadge(anchorEl)
     }).catch(() => {
       toastFn(t('clipboardCopyUnsupported'))
     })
@@ -22055,8 +22065,12 @@ export class Game {
 
     const hide = () => { this.chatIdPopup.style.display = 'none' }
     this.chatIdPopupIdBtn.onclick = () => {
+      // Captured before hide() - the popup (and this button inside it)
+      // goes display:none immediately, which would zero out a live
+      // getBoundingClientRect() read later inside _showCopiedBadge.
+      const idBtnRect = this.chatIdPopupIdBtn.getBoundingClientRect()
       hide()
-      this._copyPlayerId(playerId, name, (msg) => this._showHomepageToast(msg))
+      this._copyChatPlayerId(playerId, idBtnRect, (msg) => this._showHomepageToast(msg))
     }
     this.chatIdPopupMuteBtn.onclick = () => {
       hide()
@@ -22122,7 +22136,7 @@ export class Game {
           this._showLoreToast(t('chatCopyPlayerIdNotFound', { name: nickname }))
           return
         }
-        this._copyPlayerId(entry.playerId, nickname, (msg) => this._showLoreToast(msg))
+        this._copyChatPlayerId(entry.playerId, nameBtn, (msg) => this._showLoreToast(msg))
         return
       }
       const link = e.target.closest('.chat-message-id-link')
