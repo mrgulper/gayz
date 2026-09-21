@@ -10354,9 +10354,18 @@ html.ui-theme-old #settings-panel h2 {
   display: inline-flex;
   align-items: center;
   justify-self: end;
+  /* Matches .audio-value-editable's own rendered height exactly (19px)
+     so swapping the label for this on click can't grow .audio-row and
+     shift every row below it down a couple px - box-sizing: border-box
+     below keeps the input's padding/border inside that same height
+     budget instead of adding to it (2026-09-21, caught from a real
+     "everything moved down slightly" report). */
+  height: 19px;
 }
 
 .audio-value-input {
+  box-sizing: border-box;
+  height: 100%;
   width: 44px;
   padding-right: 14px;
   font-size: 13px;
@@ -10366,8 +10375,8 @@ html.ui-theme-old #settings-panel h2 {
   background: rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(227, 166, 60, 0.6);
   border-radius: 4px;
-  padding-top: 2px;
-  padding-bottom: 2px;
+  padding-top: 0;
+  padding-bottom: 0;
   padding-left: 4px;
   outline: none;
   -moz-appearance: textfield;
