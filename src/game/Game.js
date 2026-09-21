@@ -5791,7 +5791,6 @@ export class Game {
     this.weaponPickerPanel = document.getElementById('weapon-picker-panel')
     this.weaponPickerPanelTitle = document.getElementById('weapon-picker-panel-title')
     this.weaponPickerOptions = document.getElementById('weapon-picker-options')
-    this.zombieCounterHud = document.getElementById('zombie-counter-hud')
     this.weaponCompareToggleBtn = document.getElementById('weapon-compare-toggle-btn')
     this.weaponQuickCompareTooltip = document.getElementById('weapon-quick-compare-tooltip')
     this.weaponCompareTable = document.getElementById('weapon-compare-table')
@@ -8634,20 +8633,6 @@ export class Game {
   // Bulletin Board (batch 3 feature) - reads the Achievements.unlocked Set's
   // own insertion order for "most recent" rather than tracking a separate
   // timestamp.
-  // Zombies-remaining HUD counter (batch 4 feature) - counts live zombies
-  // every frame, same `.state === 'alive'` filter every other alive-count
-  // check in this file already uses. Own gameStarted guard since this runs
-  // even before Play is clicked (see _showLoreToast's own comment on why).
-  _updateZombieCounterHud() {
-    if (!this.gameStarted) {
-      this.zombieCounterHud.style.display = 'none'
-      return
-    }
-    this.zombieCounterHud.style.display = 'block'
-    const alive = this.zombies.zombies.filter((z) => z.state === 'alive').length
-    this.zombieCounterHud.textContent = t('zombieCounterHud', { n: alive })
-  }
-
   // Field Notes (batch 5 feature) - auto-collects on walk-over (no interact
   // key needed, same "just walk into it" UX as XP gems/pickups), unlike the
   // press-F pattern every other new-prop feature this session has used -
@@ -25865,7 +25850,6 @@ export class Game {
         this._triggerHitstop(30)
       })
 
-      this._updateZombieCounterHud()
       this._updateDecoyDummies()
       this._updateFieldNotes(playerPos)
       this._updateHeadshotStreakBonus()

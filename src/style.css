@@ -1310,21 +1310,6 @@ html.high-contrast-mode #app {
   width: fit-content;
 }
 
-/* Zombies-remaining HUD counter (batch 4 feature) - top-center, small and
-   unobtrusive since it's ambient info, not something to stare at. */
-#zombie-counter-hud {
-  position: absolute;
-  top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 13px;
-  letter-spacing: 0.4px;
-  color: #e8e8e8;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-  pointer-events: none;
-  display: none;
-}
-
 #damage-flash {
   position: absolute;
   inset: 0;

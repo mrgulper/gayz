@@ -286,8 +286,6 @@
         <div id="ammo">12 / 36</div>
       </div>
 
-      <div id="zombie-counter-hud"></div>
-
       <ul id="keybind-cheatsheet" style="display: none">
         <li><b>WASD</b> move · <b>Mouse</b> look · <b>Space</b> jump · <b>E</b> sprint</li>
         <li><b>Left Click</b> shoot · <b>1</b> melee · <b>2/3/4</b> weapon · <b>R</b> reload</li>
@@ -2258,9 +2256,9 @@ Escape before dawn.</p>
             </ul>
 
             <h3>5. Acceptable use</h3>
-            <p>Nicknames, bios, and any other text field are visible to other players wherever leaderboards, friend lists, or profile comparisons show them. When using GayZ, you agree not to:</p>
+            <p>Nicknames and any other text field shown on leaderboards, friend lists, or profile lookups (like your Player ID) are visible to other players. Your bio is not currently shown to anyone but you, but the same rules below still apply to it, in case that ever changes. When using GayZ, you agree not to:</p>
             <ul>
-              <li>Use nicknames, bios, or any other field to harass anyone, impersonate someone else, or post personal information (yours or anyone else's);</li>
+              <li>Use your nickname, bio, or any other field to harass anyone, impersonate someone else, or post personal information (yours or anyone else's);</li>
               <li>Use exploits, bots, cheats, or hacked/modified clients to alter the game, gain an unfair advantage, or manipulate leaderboards;</li>
               <li>Attempt to disrupt, overload, or gain unauthorized access to the game, its accounts, or the systems behind it;</li>
               <li>Use GayZ for anything unlawful, or in a way that infringes someone else's rights.</li>
@@ -2320,7 +2318,7 @@ Escape before dawn.</p>
             </ul>
 
             <h3>Nicknames, profiles, and leaderboards</h3>
-            <p>Anything you type into a nickname, bio, or profile field is visible to other players if you use public features like leaderboards or friend comparisons. Please don't put personal information (real name, contact details, etc.) in fields other players can see.</p>
+            <p>Your nickname and Player ID are visible to other players wherever public features (leaderboards, chat, friend lookups) show them. Your bio is not currently shown to anyone but you. Please don't put personal information (real name, contact details, etc.) in any field, since a field that's private today could become visible in a future update.</p>
 
             <h3>Anonymous usage counters</h3>
             <p>A few features track simple aggregate counts (like how often a setting gets opened) to understand what's actually used. These are just totals - they aren't tied to your account or identity in any readable way.</p>
@@ -3169,6 +3167,8 @@ Escape before dawn.</p>
             <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Clicking a Player ID pasted into chat now opens that player's full public profile (name, Player ID, Best Night, Best Kills, Best Kill Streak, Achievements, Region - the same "Shown to Public" info from your own Profile) instead of a small text summary. That popup now also has the same gold-bordered box styling as every other panel in the game, instead of floating text with no box.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">On phones/tablets, the chat Name/ID popup (previously right-click only) now also opens with a long-press (press and hold) on a player's name, since touch screens don't have right-click. Scrolling the chat while pressing cancels it, so it won't pop up by accident.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Portrait mode is actually playable now - holding your phone upright no longer just shows a "rotate your device" message. Every touch control (joystick, fire/aim/reload/etc, weapon switching) and HUD element (health, minimap, stats, hotbar, chat) has been resized and repositioned specifically for a vertical screen, so nothing overlaps.</span></div>
+            <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Removed a small "Zombies: N" counter that was quietly duplicating the "Zombies Left" row already shown in the stats panel, and could overlap it on narrow screens.</span></div>
+            <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Fixed the Terms of Use and Privacy Policy to correctly say your bio isn't currently shown to other players (they previously, incorrectly, said it was).</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Added a tip in Settings > Graphics: if the game ever looks broken or almost entirely black on your device (some phone graphics chips can render this way), try toggling Performance Mode - it's the single most likely thing to fix a display glitch like that.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 19, 2026</span><span class="changelog-text">On phones/tablets, playing with your device upright (portrait) used to overlap the on-screen controls with the chat feed, since those buttons were only ever laid out for sideways (landscape) play. Rather than a half-finished fix, holding your device upright now shows a "Rotate your device for the best experience" message instead - turning sideways gives you the full, correctly-spaced control layout.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 19, 2026</span><span class="changelog-text">Fixed a real "the whole game froze" bug: gas/acid/web/toxic hazard zones could, in rare cases during a busy fight, end up without their own light effect (a deliberate fallback for when too many effects are active at once) - but the game then crashed every single frame trying to update that missing light, which silently blocked all movement and gameplay from that point on while the screen kept showing whatever was last on screen. Fixed to work correctly with or without that light.</span></div>
