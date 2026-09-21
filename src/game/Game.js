@@ -16410,29 +16410,32 @@ export class Game {
     this.menuHardcoreMemorial.innerHTML = `<p class="menu-best-stats">${t('hardcoreMemorialTitle')}</p>${rows}`
   }
 
-  // Crate tier cards - there are two copies in the DOM now (Inventory's
-  // Crates tab, cost-free per the project owner's request, and the Shop
-  // panel, which shows cost since that's the actual place to buy them),
-  // both sharing the same class/data-crate-tier markup rather than each
-  // getting their own cached element set - a plain querySelectorAll here
-  // updates every copy that exists in one pass, so a future 3rd copy needs
-  // no changes here at all, just the same data-crate-tier markup.
+  // Crate tier cards - there are two copies in the DOM (Inventory's Crates
+  // tab, cost-free per the project owner's request, and the Shop panel,
+  // which shows cost - amount + coin icon, right on the button itself -
+  // since that's the actual place to buy them), both sharing the same
+  // class/data-crate-tier markup rather than each getting their own cached
+  // element set - a plain querySelectorAll here updates every copy in one
+  // pass. The two copies' buttons only differ by whether they still have
+  // the .crate-open-btn-amount child (Shop's markup) or not (Inventory's,
+  // reverted back to plain "Open" text) - that presence check is what
+  // decides which label a given button gets, so a future 3rd copy needs no
+  // changes here, just whichever markup shape it should follow.
   _renderCrateTiers() {
     for (const el of document.querySelectorAll('.crate-tier-name[data-crate-tier]')) {
       el.textContent = t(`crateTier${el.dataset.crateTier.charAt(0).toUpperCase()}${el.dataset.crateTier.slice(1)}`)
     }
-    // Price now lives on the button itself (amount + coin icon, replacing
-    // the old plain "Open" text) rather than a separate line above it -
-    // .querySelector('span') here, not btn.textContent, since the button
-    // also has an <svg> icon child that a plain textContent set would
-    // silently wipe out (see the Menu redesign notes' own recurring gotcha
-    // on this exact pattern).
     for (const btn of document.querySelectorAll('.crate-open-btn[data-crate-tier]')) {
       const tier = CRATE_TIERS[btn.dataset.crateTier]
       if (!tier) continue
+      btn.disabled = this.coins < tier.cost
+      // .querySelector('span'), not btn.textContent, for the Shop's
+      // version specifically - it also has an <svg> icon child that a
+      // plain textContent set would silently wipe out (see the Menu
+      // redesign notes' own recurring gotcha on this exact pattern).
       const amountEl = btn.querySelector('.crate-open-btn-amount')
       if (amountEl) amountEl.textContent = tier.cost
-      btn.disabled = this.coins < tier.cost
+      else btn.textContent = t('crateOpenBtn')
     }
   }
 
