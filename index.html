@@ -3114,15 +3114,32 @@ Escape before dawn.</p>
               <div class="crate-tier-grid" id="shop-crate-tier-grid">
                 <div class="crate-card crate-tier-wood">
                   <svg class="crate-icon" viewBox="0 0 24 24">
-                    <polygon points="12,4 20,8.5 12,13 4,8.5" fill="#c9915a" stroke="#4a2f16" stroke-width="0.5"/>
-                    <polygon points="4,8.5 12,13 12,21 4,16.5" fill="#8a5a2b" stroke="#4a2f16" stroke-width="0.5"/>
-                    <polygon points="20,8.5 12,13 12,21 20,16.5" fill="#6b431f" stroke="#4a2f16" stroke-width="0.5"/>
+                    <defs>
+                      <linearGradient id="wood-top" x1="4" y1="4" x2="20" y2="13" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#e3b57e"/>
+                        <stop offset="100%" stop-color="#b5824a"/>
+                      </linearGradient>
+                      <linearGradient id="wood-left" x1="4" y1="8.5" x2="12" y2="21" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#a3703f"/>
+                        <stop offset="100%" stop-color="#6b431f"/>
+                      </linearGradient>
+                      <linearGradient id="wood-right" x1="12" y1="13" x2="20" y2="16.5" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#7a5228"/>
+                        <stop offset="100%" stop-color="#4a2f16"/>
+                      </linearGradient>
+                    </defs>
+                    <polygon points="12,4 20,8.5 12,13 4,8.5" fill="url(#wood-top)" stroke="#4a2f16" stroke-width="0.5"/>
+                    <polygon points="4,8.5 12,13 12,21 4,16.5" fill="url(#wood-left)" stroke="#4a2f16" stroke-width="0.5"/>
+                    <polygon points="20,8.5 12,13 12,21 20,16.5" fill="url(#wood-right)" stroke="#4a2f16" stroke-width="0.5"/>
                     <path d="M6.5,9.9v8M9.2,11.4v8" stroke="#5c3a1a" stroke-width="0.4" opacity="0.7"/>
                     <path d="M17.5,9.9v8M14.8,11.4v8" stroke="#3d2610" stroke-width="0.4" opacity="0.7"/>
                     <path d="M12,4v9" stroke="#a3703f" stroke-width="0.4" opacity="0.6"/>
-                    <circle cx="12" cy="4.6" r="0.7" fill="#e0c397"/>
-                    <circle cx="4.6" cy="8.9" r="0.7" fill="#e0c397"/>
-                    <circle cx="19.4" cy="8.9" r="0.7" fill="#e0c397"/>
+                    <circle cx="12" cy="4.6" r="0.9" fill="#f0dcb8"/>
+                    <circle cx="4.6" cy="8.9" r="0.9" fill="#f0dcb8"/>
+                    <circle cx="19.4" cy="8.9" r="0.9" fill="#f0dcb8"/>
+                    <circle cx="12" cy="4.4" r="0.3" fill="#fff" opacity="0.8"/>
+                    <circle cx="4.4" cy="8.7" r="0.3" fill="#fff" opacity="0.8"/>
+                    <circle cx="19.2" cy="8.7" r="0.3" fill="#fff" opacity="0.8"/>
                   </svg>
                   <span class="crate-tier-name" data-crate-tier="wood">Wood</span>
                   <button type="button" class="mini-action-btn crate-open-btn" data-crate-tier="wood">
@@ -3137,9 +3154,23 @@ Escape before dawn.</p>
                 </div>
                 <div class="crate-card crate-tier-ice">
                   <svg class="crate-icon" viewBox="0 0 24 24">
-                    <polygon points="12,4 20,8.5 12,13 4,8.5" fill="#c8f0fa" stroke="#e8fbff" stroke-width="0.5"/>
-                    <polygon points="4,8.5 12,13 12,21 4,16.5" fill="#8fd9f0" stroke="#e8fbff" stroke-width="0.5"/>
-                    <polygon points="20,8.5 12,13 12,21 20,16.5" fill="#5fb8d8" stroke="#e8fbff" stroke-width="0.5"/>
+                    <defs>
+                      <linearGradient id="ice-top" x1="4" y1="4" x2="20" y2="13" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#eaf9ff"/>
+                        <stop offset="100%" stop-color="#a8e6f5"/>
+                      </linearGradient>
+                      <linearGradient id="ice-left" x1="4" y1="8.5" x2="12" y2="21" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#b3e6f5"/>
+                        <stop offset="100%" stop-color="#6fc5e0"/>
+                      </linearGradient>
+                      <linearGradient id="ice-right" x1="12" y1="13" x2="20" y2="16.5" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#7fc9e0"/>
+                        <stop offset="100%" stop-color="#4a9cbc"/>
+                      </linearGradient>
+                    </defs>
+                    <polygon points="12,4 20,8.5 12,13 4,8.5" fill="url(#ice-top)" stroke="#e8fbff" stroke-width="0.5"/>
+                    <polygon points="4,8.5 12,13 12,21 4,16.5" fill="url(#ice-left)" stroke="#e8fbff" stroke-width="0.5"/>
+                    <polygon points="20,8.5 12,13 12,21 20,16.5" fill="url(#ice-right)" stroke="#e8fbff" stroke-width="0.5"/>
                     <path d="M12,4v9M4,8.5l8,4.5 8,-4.5" stroke="#ffffff" stroke-width="0.4" opacity="0.6" fill="none"/>
                     <polygon points="9,3 10.5,1 12,3" fill="#e8fbff"/>
                     <polygon points="14,3 15.5,1 17,3" fill="#e8fbff"/>
@@ -3157,13 +3188,29 @@ Escape before dawn.</p>
                 </div>
                 <div class="crate-card crate-tier-golden">
                   <svg class="crate-icon" viewBox="0 0 24 24">
-                    <polygon points="12,4 20,8.5 12,13 4,8.5" fill="#f5d668" stroke="#7a5a0a" stroke-width="0.5"/>
-                    <polygon points="4,8.5 12,13 12,21 4,16.5" fill="#d4a017" stroke="#7a5a0a" stroke-width="0.5"/>
-                    <polygon points="20,8.5 12,13 12,21 20,16.5" fill="#a67c0a" stroke="#7a5a0a" stroke-width="0.5"/>
+                    <defs>
+                      <linearGradient id="gold-top" x1="4" y1="4" x2="20" y2="13" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#fde79a"/>
+                        <stop offset="100%" stop-color="#e8bc3e"/>
+                      </linearGradient>
+                      <linearGradient id="gold-left" x1="4" y1="8.5" x2="12" y2="21" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#e0ab1e"/>
+                        <stop offset="100%" stop-color="#a67c0a"/>
+                      </linearGradient>
+                      <linearGradient id="gold-right" x1="12" y1="13" x2="20" y2="16.5" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#b3860e"/>
+                        <stop offset="100%" stop-color="#7a5a0a"/>
+                      </linearGradient>
+                    </defs>
+                    <polygon points="12,4 20,8.5 12,13 4,8.5" fill="url(#gold-top)" stroke="#7a5a0a" stroke-width="0.5"/>
+                    <polygon points="4,8.5 12,13 12,21 4,16.5" fill="url(#gold-left)" stroke="#7a5a0a" stroke-width="0.5"/>
+                    <polygon points="20,8.5 12,13 12,21 20,16.5" fill="url(#gold-right)" stroke="#7a5a0a" stroke-width="0.5"/>
                     <path d="M4,11.8 12,16.3 20,11.8" stroke="#7a5a0a" stroke-width="0.5" fill="none"/>
-                    <polygon points="16,13.3 17,14.8 16,16.3 15,14.8" fill="#4fc3e0" stroke="#2a7a95" stroke-width="0.3"/>
-                    <circle cx="4.6" cy="8.9" r="0.7" fill="#7a5a0a"/>
-                    <circle cx="19.4" cy="8.9" r="0.7" fill="#7a5a0a"/>
+                    <polygon points="16,13.3 17,14.8 16,16.3 15,14.8" fill="#7fe8ff" stroke="#2a7a95" stroke-width="0.3"/>
+                    <circle cx="4.6" cy="8.9" r="0.9" fill="#fde79a"/>
+                    <circle cx="19.4" cy="8.9" r="0.9" fill="#fde79a"/>
+                    <circle cx="4.4" cy="8.7" r="0.3" fill="#fff" opacity="0.8"/>
+                    <circle cx="19.2" cy="8.7" r="0.3" fill="#fff" opacity="0.8"/>
                   </svg>
                   <span class="crate-tier-name" data-crate-tier="golden">Golden</span>
                   <button type="button" class="mini-action-btn crate-open-btn" data-crate-tier="golden">
@@ -3190,6 +3237,7 @@ Escape before dawn.</p>
           <div id="changelog-list">
             <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Crate cards in the Shop now show the price directly on the Open button (with the coin icon instead of the word "Coins"), instead of a separate price line above a plain "Open" button. Inventory > Crates keeps a plain "Open" button, unchanged.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Redesigned the Wood/Ice/Golden crate icons (Shop and Inventory > Crates) as proper 3D-looking isometric boxes with shaded top/left/right faces, instead of flat 2D icons.</span></div>
+            <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Polished the crate cards further: gradient-lit 3D box icons with a soft shine, a beveled metal card frame with corner rivets, a tier-colored glow, and embossed tier-name text - closer to a real game-card look.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Profile now has 2 clear tabs at the top: "Shown to Public" (your name, Player ID, Best Night, Best Kills, Best Kill Streak, and Achievements - anyone who has your Player ID can see these) and "Hidden" (everything else - your stats dashboard, highlight reel, bio, goals, and more - never shared with anyone).</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Global chat (both the in-game chat and the homepage Global panel): left-click a player's name to instantly copy their Player ID, or right-click to see a popup with their name, Player ID, and a Mute button. A Player ID pasted into a message shows up as a gold clickable tag too - click it to see that player's best night, best kills, and achievement count.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Copying a Player ID from chat now shows the same "Copied" gold badge used elsewhere in the game (like copying your own ID from the menu), instead of a plain text message.</span></div>
@@ -3611,24 +3659,55 @@ Escape before dawn.</p>
             <div class="crate-tier-grid">
               <div class="crate-card crate-tier-wood">
                 <svg class="crate-icon" viewBox="0 0 24 24">
-                  <polygon points="12,4 20,8.5 12,13 4,8.5" fill="#c9915a" stroke="#4a2f16" stroke-width="0.5"/>
-                  <polygon points="4,8.5 12,13 12,21 4,16.5" fill="#8a5a2b" stroke="#4a2f16" stroke-width="0.5"/>
-                  <polygon points="20,8.5 12,13 12,21 20,16.5" fill="#6b431f" stroke="#4a2f16" stroke-width="0.5"/>
+                  <defs>
+                    <linearGradient id="wood-top-inv" x1="4" y1="4" x2="20" y2="13" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stop-color="#e3b57e"/>
+                      <stop offset="100%" stop-color="#b5824a"/>
+                    </linearGradient>
+                    <linearGradient id="wood-left-inv" x1="4" y1="8.5" x2="12" y2="21" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stop-color="#a3703f"/>
+                      <stop offset="100%" stop-color="#6b431f"/>
+                    </linearGradient>
+                    <linearGradient id="wood-right-inv" x1="12" y1="13" x2="20" y2="16.5" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stop-color="#7a5228"/>
+                      <stop offset="100%" stop-color="#4a2f16"/>
+                    </linearGradient>
+                  </defs>
+                  <polygon points="12,4 20,8.5 12,13 4,8.5" fill="url(#wood-top-inv)" stroke="#4a2f16" stroke-width="0.5"/>
+                  <polygon points="4,8.5 12,13 12,21 4,16.5" fill="url(#wood-left-inv)" stroke="#4a2f16" stroke-width="0.5"/>
+                  <polygon points="20,8.5 12,13 12,21 20,16.5" fill="url(#wood-right-inv)" stroke="#4a2f16" stroke-width="0.5"/>
                   <path d="M6.5,9.9v8M9.2,11.4v8" stroke="#5c3a1a" stroke-width="0.4" opacity="0.7"/>
                   <path d="M17.5,9.9v8M14.8,11.4v8" stroke="#3d2610" stroke-width="0.4" opacity="0.7"/>
                   <path d="M12,4v9" stroke="#a3703f" stroke-width="0.4" opacity="0.6"/>
-                  <circle cx="12" cy="4.6" r="0.7" fill="#e0c397"/>
-                  <circle cx="4.6" cy="8.9" r="0.7" fill="#e0c397"/>
-                  <circle cx="19.4" cy="8.9" r="0.7" fill="#e0c397"/>
+                  <circle cx="12" cy="4.6" r="0.9" fill="#f0dcb8"/>
+                  <circle cx="4.6" cy="8.9" r="0.9" fill="#f0dcb8"/>
+                  <circle cx="19.4" cy="8.9" r="0.9" fill="#f0dcb8"/>
+                  <circle cx="12" cy="4.4" r="0.3" fill="#fff" opacity="0.8"/>
+                  <circle cx="4.4" cy="8.7" r="0.3" fill="#fff" opacity="0.8"/>
+                  <circle cx="19.2" cy="8.7" r="0.3" fill="#fff" opacity="0.8"/>
                 </svg>
                 <span class="crate-tier-name" data-crate-tier="wood">Wood</span>
                 <button type="button" class="mini-action-btn crate-open-btn" data-crate-tier="wood">Open</button>
               </div>
               <div class="crate-card crate-tier-ice">
                 <svg class="crate-icon" viewBox="0 0 24 24">
-                  <polygon points="12,4 20,8.5 12,13 4,8.5" fill="#c8f0fa" stroke="#e8fbff" stroke-width="0.5"/>
-                  <polygon points="4,8.5 12,13 12,21 4,16.5" fill="#8fd9f0" stroke="#e8fbff" stroke-width="0.5"/>
-                  <polygon points="20,8.5 12,13 12,21 20,16.5" fill="#5fb8d8" stroke="#e8fbff" stroke-width="0.5"/>
+                  <defs>
+                    <linearGradient id="ice-top-inv" x1="4" y1="4" x2="20" y2="13" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stop-color="#eaf9ff"/>
+                      <stop offset="100%" stop-color="#a8e6f5"/>
+                    </linearGradient>
+                    <linearGradient id="ice-left-inv" x1="4" y1="8.5" x2="12" y2="21" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stop-color="#b3e6f5"/>
+                      <stop offset="100%" stop-color="#6fc5e0"/>
+                    </linearGradient>
+                    <linearGradient id="ice-right-inv" x1="12" y1="13" x2="20" y2="16.5" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stop-color="#7fc9e0"/>
+                      <stop offset="100%" stop-color="#4a9cbc"/>
+                    </linearGradient>
+                  </defs>
+                  <polygon points="12,4 20,8.5 12,13 4,8.5" fill="url(#ice-top-inv)" stroke="#e8fbff" stroke-width="0.5"/>
+                  <polygon points="4,8.5 12,13 12,21 4,16.5" fill="url(#ice-left-inv)" stroke="#e8fbff" stroke-width="0.5"/>
+                  <polygon points="20,8.5 12,13 12,21 20,16.5" fill="url(#ice-right-inv)" stroke="#e8fbff" stroke-width="0.5"/>
                   <path d="M12,4v9M4,8.5l8,4.5 8,-4.5" stroke="#ffffff" stroke-width="0.4" opacity="0.6" fill="none"/>
                   <polygon points="9,3 10.5,1 12,3" fill="#e8fbff"/>
                   <polygon points="14,3 15.5,1 17,3" fill="#e8fbff"/>
@@ -3638,13 +3717,29 @@ Escape before dawn.</p>
               </div>
               <div class="crate-card crate-tier-golden">
                 <svg class="crate-icon" viewBox="0 0 24 24">
-                  <polygon points="12,4 20,8.5 12,13 4,8.5" fill="#f5d668" stroke="#7a5a0a" stroke-width="0.5"/>
-                  <polygon points="4,8.5 12,13 12,21 4,16.5" fill="#d4a017" stroke="#7a5a0a" stroke-width="0.5"/>
-                  <polygon points="20,8.5 12,13 12,21 20,16.5" fill="#a67c0a" stroke="#7a5a0a" stroke-width="0.5"/>
+                  <defs>
+                    <linearGradient id="gold-top-inv" x1="4" y1="4" x2="20" y2="13" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stop-color="#fde79a"/>
+                      <stop offset="100%" stop-color="#e8bc3e"/>
+                    </linearGradient>
+                    <linearGradient id="gold-left-inv" x1="4" y1="8.5" x2="12" y2="21" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stop-color="#e0ab1e"/>
+                      <stop offset="100%" stop-color="#a67c0a"/>
+                    </linearGradient>
+                    <linearGradient id="gold-right-inv" x1="12" y1="13" x2="20" y2="16.5" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stop-color="#b3860e"/>
+                      <stop offset="100%" stop-color="#7a5a0a"/>
+                    </linearGradient>
+                  </defs>
+                  <polygon points="12,4 20,8.5 12,13 4,8.5" fill="url(#gold-top-inv)" stroke="#7a5a0a" stroke-width="0.5"/>
+                  <polygon points="4,8.5 12,13 12,21 4,16.5" fill="url(#gold-left-inv)" stroke="#7a5a0a" stroke-width="0.5"/>
+                  <polygon points="20,8.5 12,13 12,21 20,16.5" fill="url(#gold-right-inv)" stroke="#7a5a0a" stroke-width="0.5"/>
                   <path d="M4,11.8 12,16.3 20,11.8" stroke="#7a5a0a" stroke-width="0.5" fill="none"/>
-                  <polygon points="16,13.3 17,14.8 16,16.3 15,14.8" fill="#4fc3e0" stroke="#2a7a95" stroke-width="0.3"/>
-                  <circle cx="4.6" cy="8.9" r="0.7" fill="#7a5a0a"/>
-                  <circle cx="19.4" cy="8.9" r="0.7" fill="#7a5a0a"/>
+                  <polygon points="16,13.3 17,14.8 16,16.3 15,14.8" fill="#7fe8ff" stroke="#2a7a95" stroke-width="0.3"/>
+                  <circle cx="4.6" cy="8.9" r="0.9" fill="#fde79a"/>
+                  <circle cx="19.4" cy="8.9" r="0.9" fill="#fde79a"/>
+                  <circle cx="4.4" cy="8.7" r="0.3" fill="#fff" opacity="0.8"/>
+                  <circle cx="19.2" cy="8.7" r="0.3" fill="#fff" opacity="0.8"/>
                 </svg>
                 <span class="crate-tier-name" data-crate-tier="golden">Golden</span>
                 <button type="button" class="mini-action-btn crate-open-btn" data-crate-tier="golden">Open</button>

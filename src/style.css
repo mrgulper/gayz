@@ -4010,46 +4010,85 @@ section.category.hidden-search {
   margin-bottom: 14px;
 }
 
+/* Pushed toward a reference mockup (2026-09-20, painted/glowing game-card
+   art) as far as flat CSS/SVG can reasonably go - real texture/lighting
+   like that reference needs actual rendered image assets (see
+   3D_ASSET_OVERHAUL.md for how this project already treats that class of
+   work as its own separate project), not achievable in inline SVG/CSS.
+   This is the vector-only approximation: a beveled metal frame (layered
+   inset+outset box-shadow, corner rivets via 4 stacked radial-gradients
+   so no extra DOM nodes are needed per corner), a tier-colored outer
+   glow, and a darker/richer card background. */
 .crate-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  width: 130px;
-  padding: 18px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--crate-tier-color, rgba(255, 255, 255, 0.14));
-  background: linear-gradient(180deg, color-mix(in srgb, var(--crate-tier-color, #888) 16%, transparent), transparent 70%);
+  gap: 10px;
+  width: 136px;
+  padding: 20px 12px 16px;
+  border-radius: 10px;
+  border: 2px solid var(--crate-tier-color, rgba(255, 255, 255, 0.14));
+  background:
+    radial-gradient(circle at 14px 14px, color-mix(in srgb, var(--crate-tier-color, #888) 55%, #000 45%) 0 3px, transparent 3.5px),
+    radial-gradient(circle at calc(100% - 14px) 14px, color-mix(in srgb, var(--crate-tier-color, #888) 55%, #000 45%) 0 3px, transparent 3.5px),
+    radial-gradient(circle at 14px calc(100% - 14px), color-mix(in srgb, var(--crate-tier-color, #888) 55%, #000 45%) 0 3px, transparent 3.5px),
+    radial-gradient(circle at calc(100% - 14px) calc(100% - 14px), color-mix(in srgb, var(--crate-tier-color, #888) 55%, #000 45%) 0 3px, transparent 3.5px),
+    radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--crate-tier-color, #888) 22%, transparent), transparent 65%),
+    linear-gradient(180deg, #1c1712, #0a0806 75%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--crate-tier-color, #888) 50%, transparent),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.6),
+    0 0 14px color-mix(in srgb, var(--crate-tier-color, #888) 35%, transparent),
+    0 4px 10px rgba(0, 0, 0, 0.5);
 }
 
 .crate-icon {
-  width: 44px;
-  height: 44px;
+  width: 54px;
+  height: 54px;
+  filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.55));
 }
 
 .crate-tier-name {
-  font-size: 13px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
   text-align: center;
-  color: #eee;
+  color: color-mix(in srgb, var(--crate-tier-color, #eee) 55%, #fff 45%);
+  text-shadow: 0 2px 2px rgba(0, 0, 0, 0.85), 0 -1px 0 rgba(0, 0, 0, 0.4);
 }
 
-.crate-tier-wood { --crate-tier-color: #b5824a; }
-.crate-tier-ice { --crate-tier-color: #6fd0e8; }
+.crate-tier-wood { --crate-tier-color: #c9915a; }
+.crate-tier-ice { --crate-tier-color: #8fd9f0; }
 .crate-tier-golden { --crate-tier-color: #f0c23e; }
 
 /* Price moved onto the button itself (amount + coin icon, see
    _renderCrateTiers) - flex row so the number and icon sit inline
-   instead of stacking, small gap between them. */
+   instead of stacking, small gap between them. Same beveled-inset
+   treatment as the card frame above, tier-colored border/glow, so the
+   price pill reads as part of the same "metal plate" language. */
 .crate-open-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 5px;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1.5px solid color-mix(in srgb, var(--crate-tier-color, #e3c23c) 70%, transparent);
+  background: linear-gradient(180deg, #2a221a, #14100c);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.7),
+    0 0 8px color-mix(in srgb, var(--crate-tier-color, #e3c23c) 30%, transparent);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
 .crate-open-btn .currency-icon {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
 }
 
 .crate-open-btn:disabled {
