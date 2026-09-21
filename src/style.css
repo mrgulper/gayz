@@ -2840,14 +2840,13 @@ html.third-person-active #companion-bark {
 
 /* #other-profile-panel's content (name, ID, up to 5 short stat rows)
    doesn't need the shared 1080px/680px panel-box sizing (built for much
-   longer content like Credits/Settings). Two corrections already landed
-   here off real screenshots each time - 420px width read as a tiny,
-   disconnected popup (too small), then the shared 1080px width left a
-   huge dead zone to the right of the short stat rows on a wide monitor
-   (too big) - 640px is the middle landing spot between those two actual
-   measured misses, not a fresh guess. */
+   longer content like Credits/Settings). Landed here after a few
+   screenshot-confirmed rounds - 420px read as a tiny, disconnected
+   popup (too small), the shared 1080px left a huge dead zone right of
+   the stat rows (too big), 640px was closer but asked to go a bit
+   wider still. */
 #other-profile-panel .panel-box {
-  width: min(640px, 92vw);
+  width: min(720px, 92vw);
   min-height: 580px;
 }
 
