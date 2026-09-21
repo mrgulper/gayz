@@ -11642,3 +11642,141 @@ html.night-vision-active #app {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
+/* Emoji picker trigger - one per chat input (in-game #chat-input-row and
+   the homepage Global panel's #server-chat-input-row), both opening the
+   same shared #emoji-picker overlay (see _openEmojiPicker in Game.js).
+   Plain emoji glyph as the icon, no SVG needed. */
+.chat-emoji-btn {
+  flex-shrink: 0;
+  padding: 2px 4px;
+  font-size: 16px;
+  line-height: 1;
+  background: none;
+  border: none;
+  cursor: pointer;
+  opacity: 0.75;
+  transition: opacity 0.15s;
+}
+
+.chat-emoji-btn:hover,
+.chat-emoji-btn.active {
+  opacity: 1;
+}
+
+/* Single shared picker (not one per chat input) - position:fixed and
+   repositioned via getBoundingClientRect() of whichever emoji button
+   opened it each time (see _openEmojiPicker), since #chat-input-row
+   (in-game HUD) and #server-chat-input-row (Global panel, z-index 15)
+   are two unrelated stacking contexts a plain CSS anchor couldn't
+   straddle. z-index 18: above every .panel-box (15) and the crate
+   purchase modal (17), below the ending/extraction screens (20) - see
+   the z-index scale in this project's CLAUDE.md. */
+#emoji-picker {
+  position: fixed;
+  z-index: 18;
+  width: min(300px, 92vw);
+  max-height: 360px;
+  display: flex;
+  flex-direction: column;
+  background: #0e0e0c;
+  border: 2px solid #e3c23c;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+/* Pill shape (border-radius: 999px), matching every other search/filter
+   input in the game (#settings-search-input, #achievements-filter-input)
+   rather than the shared .nickname-input rect default - a standing
+   preference for search bars specifically, see that class's own
+   comment. Padding scaled down for this picker's own compact size. */
+#emoji-picker-search {
+  margin: 8px 8px 6px;
+  padding: 7px 14px;
+  font-size: 12px;
+  color: #eee;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(227, 166, 60, 0.3);
+  border-radius: 999px;
+  outline: none;
+}
+
+#emoji-picker-search:focus {
+  border-color: #e3c23c;
+}
+
+#emoji-picker-categories {
+  flex-shrink: 0;
+  display: flex;
+  gap: 2px;
+  padding: 0 6px 6px;
+  border-bottom: 1px solid rgba(227, 166, 60, 0.25);
+  overflow-x: auto;
+}
+
+.emoji-picker-category-btn {
+  flex: 1;
+  padding: 4px 0;
+  font-size: 15px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.emoji-picker-category-btn:hover,
+.emoji-picker-category-btn.active {
+  opacity: 1;
+  background: rgba(227, 166, 60, 0.15);
+}
+
+#emoji-picker-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 8px 8px;
+}
+
+.emoji-picker-section-label {
+  margin: 8px 2px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--menu-gold, #d9bc4a);
+  opacity: 0.75;
+}
+
+.emoji-picker-section-label:first-child {
+  margin-top: 2px;
+}
+
+.emoji-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.emoji-picker-item {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  background: none;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.emoji-picker-item:hover {
+  background: rgba(227, 166, 60, 0.18);
+}
+
+#emoji-picker-empty {
+  padding: 20px 8px;
+  text-align: center;
+  font-size: 12px;
+  color: rgba(224, 228, 220, 0.55);
+}
+

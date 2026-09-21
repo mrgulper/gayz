@@ -153,6 +153,7 @@ import { loadEncountered, saveEncountered } from './Bestiary.js'
 import { ACTIONS, getKeyFor, setBinding, resetBindings, keyLabel, getAllBindings, setAllBindings } from './Keybinds.js'
 import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
+import { EMOJI_CATEGORIES } from './EmojiData.js'
 import * as MenuEasterEggs from './MenuEasterEggs.js'
 import { JOKE_TIPS, FUNNY_TRIVIA } from './MenuEasterEggs.js'
 import { MenuAvatar3D, loadSkinTexture, DEFAULT_SKIN_DATA_URL, SHOP_SKIN_PREVIEW_DATA_URL } from './MenuAvatar3D.js'
@@ -2717,6 +2718,7 @@ const PLACEHOLDER_I18N_KEYS = {
   'motto-input': 'mottoInputPlaceholder',
   'cloudsave-friend-input': 'cloudsaveFriendInputPlaceholder',
   'screenshot-caption-input': 'screenshotCaptionInputPlaceholder',
+  'emoji-picker-search': 'emojiPickerSearchPlaceholder',
 }
 
 const SELECT_OPTION_I18N_KEYS = {
@@ -4528,6 +4530,7 @@ export class Game {
     this.chatMutedNotice = document.getElementById('chat-muted-notice')
     this.chatInputRow = document.getElementById('chat-input-row')
     this.chatInput = document.getElementById('chat-input')
+    this.chatEmojiBtn = document.getElementById('chat-emoji-btn')
     this.chatTabBtns = document.querySelectorAll('.chat-tab-btn')
     this.scoreAttackToggle = document.getElementById('score-attack-toggle')
     this.hardcoreToggle = document.getElementById('hardcore-toggle')
@@ -5774,6 +5777,11 @@ export class Game {
     this.serverChatMutedNotice = document.getElementById('server-chat-muted-notice')
     this.serverChatInputRow = document.getElementById('server-chat-input-row')
     this.serverChatInput = document.getElementById('server-chat-input')
+    this.serverChatEmojiBtn = document.getElementById('server-chat-emoji-btn')
+    this.emojiPicker = document.getElementById('emoji-picker')
+    this.emojiPickerSearch = document.getElementById('emoji-picker-search')
+    this.emojiPickerCategories = document.getElementById('emoji-picker-categories')
+    this.emojiPickerList = document.getElementById('emoji-picker-list')
     this.achievementsBtn = document.getElementById('achievements-btn')
     this.achievementsPanel = document.getElementById('achievements-panel')
     this.achievementsPanelTitle = document.getElementById('achievements-panel-title')
@@ -6284,6 +6292,7 @@ export class Game {
     this._bindClanSection()
     this._bindChatWidget()
     this._bindServerChat()
+    this._bindEmojiPicker()
     this._bindSettings()
     this._bindGraphicsSettings()
     this._bindGeneralSettings()
@@ -15445,6 +15454,139 @@ export class Game {
         this._openOtherPlayerProfileById(id)
       })
     }
+  }
+
+  // One shared #emoji-picker overlay (position:fixed, see its own CSS
+  // comment for why) rather than a separate copy per chat input - reused
+  // by both #chat-emoji-btn (in-game HUD chat, covers Global/Clan/Party
+  // since they all share #chat-input) and #server-chat-emoji-btn (the
+  // homepage Global panel's own input). Repositioned and re-targeted
+  // every time it opens rather than kept permanently bound to one input.
+  _bindEmojiPicker() {
+    if (!this.emojiPicker) return
+    this.emojiPickerCategories.innerHTML = EMOJI_CATEGORIES.map(
+      (cat) => `<button type="button" class="emoji-picker-category-btn" data-emoji-category="${cat.id}" title="${_escapeHtml(t(cat.labelKey))}">${cat.icon}</button>`
+    ).join('')
+    this._emojiPickerTarget = null
+
+    const openFor = (triggerBtn, targetInput) => {
+      if (!targetInput) return
+      if (this.emojiPicker.style.display !== 'none' && this._emojiPickerTarget === targetInput) {
+        this._closeEmojiPicker()
+        return
+      }
+      this._emojiPickerTarget = targetInput
+      this.emojiPickerSearch.value = ''
+      this._renderEmojiPickerList('')
+      this.emojiPicker.style.display = 'flex'
+      // Anchored above the trigger button (chat inputs sit at the bottom
+      // of their panel) and clamped inside the viewport - offsetWidth/
+      // Height read AFTER display:flex so they're the real rendered
+      // size, not 0 from a still-display:none element.
+      const rect = triggerBtn.getBoundingClientRect()
+      const pickerWidth = this.emojiPicker.offsetWidth
+      const pickerHeight = this.emojiPicker.offsetHeight
+      let left = rect.right - pickerWidth
+      left = Math.max(8, Math.min(left, window.innerWidth - pickerWidth - 8))
+      let top = rect.top - pickerHeight - 8
+      if (top < 8) top = Math.min(rect.bottom + 8, window.innerHeight - pickerHeight - 8)
+      this.emojiPicker.style.left = `${left}px`
+      this.emojiPicker.style.top = `${top}px`
+      for (const btn of document.querySelectorAll('.chat-emoji-btn')) btn.classList.toggle('active', btn === triggerBtn)
+    }
+
+    if (this.chatEmojiBtn) {
+      this.chatEmojiBtn.addEventListener('click', (e) => {
+        e.preventDefault()
+        openFor(this.chatEmojiBtn, this.chatInput)
+      })
+    }
+    if (this.serverChatEmojiBtn) {
+      this.serverChatEmojiBtn.addEventListener('click', (e) => {
+        e.preventDefault()
+        openFor(this.serverChatEmojiBtn, this.serverChatInput)
+      })
+    }
+
+    this.emojiPickerSearch.addEventListener('input', () => this._renderEmojiPickerList(this.emojiPickerSearch.value))
+    this.emojiPickerSearch.addEventListener('click', (e) => e.stopPropagation())
+
+    this.emojiPickerCategories.addEventListener('click', (e) => {
+      const btn = e.target.closest('.emoji-picker-category-btn')
+      if (!btn) return
+      this.emojiPickerList.querySelector(`.emoji-picker-section-label[data-emoji-section="${btn.dataset.emojiCategory}"]`)?.scrollIntoView({ block: 'start' })
+    })
+
+    this.emojiPickerList.addEventListener('click', (e) => {
+      const item = e.target.closest('.emoji-picker-item')
+      if (!item || !this._emojiPickerTarget) return
+      this._insertEmojiIntoInput(this._emojiPickerTarget, item.textContent)
+    })
+
+    // Click-outside-closes - the two trigger buttons already toggle it
+    // themselves in openFor() above, so excluded here to avoid a
+    // close-then-immediately-reopen double-fire on the same click.
+    document.addEventListener('click', (e) => {
+      if (this.emojiPicker.style.display === 'none') return
+      if (this.emojiPicker.contains(e.target)) return
+      if (e.target === this.chatEmojiBtn || e.target === this.serverChatEmojiBtn) return
+      this._closeEmojiPicker()
+    })
+  }
+
+  _closeEmojiPicker() {
+    if (!this.emojiPicker) return
+    this.emojiPicker.style.display = 'none'
+    this._emojiPickerTarget = null
+    for (const btn of document.querySelectorAll('.chat-emoji-btn')) btn.classList.remove('active')
+  }
+
+  _renderEmojiPickerList(filterText) {
+    const filter = filterText.trim().toLowerCase()
+    this.emojiPickerList.innerHTML = ''
+    let anyMatch = false
+    for (const cat of EMOJI_CATEGORIES) {
+      const matches = filter ? cat.emojis.filter((e) => e.k.includes(filter)) : cat.emojis
+      if (matches.length === 0) continue
+      anyMatch = true
+      const label = document.createElement('div')
+      label.className = 'emoji-picker-section-label'
+      label.textContent = t(cat.labelKey)
+      label.dataset.emojiSection = cat.id
+      this.emojiPickerList.appendChild(label)
+      const grid = document.createElement('div')
+      grid.className = 'emoji-picker-grid'
+      for (const e of matches) {
+        const btn = document.createElement('button')
+        btn.type = 'button'
+        btn.className = 'emoji-picker-item'
+        btn.textContent = e.c
+        grid.appendChild(btn)
+      }
+      this.emojiPickerList.appendChild(grid)
+    }
+    if (!anyMatch) {
+      const empty = document.createElement('p')
+      empty.id = 'emoji-picker-empty'
+      empty.textContent = t('emojiPickerNoResults')
+      this.emojiPickerList.appendChild(empty)
+    }
+  }
+
+  // Inserts at the current cursor position (or replaces a selection)
+  // rather than always appending to the end, and stops at the input's
+  // own maxlength (300, same cap chat messages already have) instead of
+  // silently typing past it.
+  _insertEmojiIntoInput(input, emoji) {
+    const start = input.selectionStart ?? input.value.length
+    const end = input.selectionEnd ?? input.value.length
+    const maxLen = Number(input.maxLength) > 0 ? input.maxLength : Infinity
+    const next = input.value.slice(0, start) + emoji + input.value.slice(end)
+    if (next.length > maxLen) return
+    input.value = next
+    input.focus()
+    const caret = start + emoji.length
+    input.setSelectionRange(caret, caret)
   }
 
   _subscribeServerChat() {

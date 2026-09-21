@@ -193,6 +193,7 @@
           <p id="chat-muted-notice" style="display: none"></p>
           <form id="chat-input-row">
             <input type="text" id="chat-input" maxlength="300" placeholder="Message..." autocomplete="off" />
+            <button type="button" id="chat-emoji-btn" class="chat-emoji-btn" aria-label="Emoji">😀</button>
             <button type="submit" id="chat-send-btn">Enter</button>
           </form>
         </div>
@@ -3248,6 +3249,7 @@ Escape before dawn.</p>
           <div id="whatsnew-content">
             <p id="build-version-line"></p>
           <div id="changelog-list">
+            <div class="changelog-entry"><span class="changelog-date">Sep 21, 2026</span><span class="changelog-text">Added an emoji picker to chat (both the in-game chat and the homepage Global panel) - click the 😀 button next to the message box for a searchable, categorized emoji panel (Smileys, Animals, Food, Symbols, and more). Click an emoji to insert it, keep clicking to add more.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 21, 2026</span><span class="changelog-text">Restyled the little "type an exact number" box that pops up when you click a Settings slider's value (Volume, Sensitivity, FOV, HUD Scale, and 12 others) - it was rendering as a plain white browser-native box with a blue focus ring, out of place next to everything else in Settings. Now matches the game's dark/gold look, with small gold up/down arrows next to it (the browser's own up/down arrows briefly disappeared as a side effect of that restyle - brought them back as custom buttons instead).</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 21, 2026</span><span class="changelog-text">Redesigned the Print Achievements List page - it used to reuse the in-game cards' own styling and printed as an unreadable stack of underlined lines (and, in a follow-up fix, longer entries could overlap the next column over). Now prints as a clean 2-column list split into Achievements and Zombie Types Encountered sections, each with its own unlocked count, unlocked ones lightly shaded.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 21, 2026</span><span class="changelog-text">Fixed "Legacy Points" being cut off at the top of the Upgrades panel (a spacing tweak meant for other panels was pulling it up above the visible area). Also centered the "Print Achievements List" button, which was sitting off to the left.</span></div>
@@ -3804,6 +3806,7 @@ Escape before dawn.</p>
               </div>
               <form id="server-chat-input-row" style="display: none">
                 <input type="text" id="server-chat-input" class="nickname-input" maxlength="300" placeholder="Message..." autocomplete="off" />
+                <button type="button" id="server-chat-emoji-btn" class="chat-emoji-btn" aria-label="Emoji">😀</button>
                 <button type="submit" id="server-chat-send-btn" class="mini-action-btn">Send</button>
               </form>
             </div>
@@ -3868,6 +3871,12 @@ Escape before dawn.</p>
             </svg>
           </button>
         </div>
+      </div>
+
+      <div id="emoji-picker" style="display: none">
+        <input type="text" id="emoji-picker-search" placeholder="Search..." autocomplete="off" />
+        <div id="emoji-picker-categories"></div>
+        <div id="emoji-picker-list"></div>
       </div>
 
       <div id="settings-info-overlay">
