@@ -10339,22 +10339,37 @@ html.ui-theme-old #settings-panel h2 {
   background: rgba(255, 255, 255, 0.08);
 }
 
+/* appearance was left at its browser default (never reset), which on
+   some platforms paints this control's own native white background/blue
+   focus ring UNDER the custom background/border below rather than
+   respecting them - looked completely undone next to every other themed
+   input in Settings (2026-09-21). Spin buttons fully hidden and outline
+   removed, same technique already proven on #crate-purchase-qty-value
+   (see that rule's own comment) - a dedicated gold :focus state replaces
+   the browser's default blue ring. */
 .audio-value-input {
   width: 52px;
   font-size: 13px;
   font-variant-numeric: tabular-nums;
   text-align: right;
   color: #fff;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(227, 166, 60, 0.6);
   border-radius: 4px;
   padding: 2px 4px;
   justify-self: end;
+  outline: none;
+  -moz-appearance: textfield;
+}
+
+.audio-value-input:focus {
+  border-color: #e3c23c;
 }
 
 .audio-value-input::-webkit-inner-spin-button,
 .audio-value-input::-webkit-outer-spin-button {
-  opacity: 1;
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 #settings-hint {
