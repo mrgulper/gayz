@@ -5765,12 +5765,20 @@ html.ui-theme-old #quit-confirm-title {
     grid-template-columns: repeat(2, 1fr);
     gap: 6px 20px;
   }
+  /* Stacked (name, then status below), not side-by-side - a
+     side-by-side flex row left long status sentences ("Survive to
+     Night 10 in a single run") with nowhere to shrink to (flex items
+     default to min-width:auto, which blocks shrinking below their own
+     text's unwrapped width) and they overflowed the row's own border
+     straight into the neighboring grid column's row, overlapping its
+     text (2026-09-21 - caught from a real printed page). Stacking
+     avoids the two texts ever competing for the same horizontal space
+     at all, so this can't recur regardless of how long a hint gets. */
   #print-stats-sheet .print-ach-row {
     display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 10px;
-    padding: 5px 8px;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 8px;
     border: 1px solid #ccc;
     border-radius: 4px;
     font-size: 12px;
@@ -5788,9 +5796,7 @@ html.ui-theme-old #quit-confirm-title {
     color: #888;
   }
   #print-stats-sheet .print-ach-status {
-    flex-shrink: 0;
     color: #555;
-    text-align: right;
   }
 }
 
