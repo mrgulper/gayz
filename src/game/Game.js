@@ -23686,7 +23686,15 @@ export class Game {
       }
       // beam is no longer parented to mesh (see _spawnAirdrop's own
       // comment) - keep its world position following the crate by hand.
-      if (this.airdrop.beam) this.airdrop.beam.position.set(this.airdrop.x, this.airdrop.mesh.position.y + 3, this.airdrop.z)
+      // Re-checks this.airdrop (not just this.airdrop.beam) - _claimAirdrop()
+      // above sets this.airdrop to null on pickup, and this line used to run
+      // unconditionally right after it in the same block, crashing with
+      // "Cannot read properties of null (reading 'beam')" every time a
+      // player actually walked up and claimed an airdrop (2026-09-21,
+      // root-caused from a real in-game freeze report - the outer
+      // if (this.airdrop) guard above only ran once, before _claimAirdrop
+      // had a chance to null it out mid-block).
+      if (this.airdrop && this.airdrop.beam) this.airdrop.beam.position.set(this.airdrop.x, this.airdrop.mesh.position.y + 3, this.airdrop.z)
     }
   }
 
