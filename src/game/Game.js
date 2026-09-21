@@ -9572,6 +9572,22 @@ export class Game {
         this._updateCratePurchaseModal()
       })
     }
+    if (this.cratePurchaseQtyValue) {
+      // Live total-price feedback while typing, without re-clamping or
+      // overwriting the input's own value mid-keystroke (that would
+      // fight the user's typing - e.g. snapping "1" back while they're
+      // still in the middle of typing "10").
+      this.cratePurchaseQtyValue.addEventListener('input', () => {
+        const raw = parseInt(this.cratePurchaseQtyValue.value, 10)
+        if (!Number.isFinite(raw) || raw < 1) return
+        this._cratePurchaseQty = raw
+        const tierConfig = CRATE_TIERS[this._cratePurchaseTier]
+        if (tierConfig) this.cratePurchaseTotalAmount.textContent = tierConfig.cost * raw
+      })
+      // Final clamp once they're actually done (blur/Enter/spinner) -
+      // this is where an out-of-range typed value gets corrected back.
+      this.cratePurchaseQtyValue.addEventListener('change', () => this._updateCratePurchaseModal())
+    }
     if (this.cratePurchaseConfirmBtn) {
       this.cratePurchaseConfirmBtn.addEventListener('click', () => this._confirmCratePurchase())
     }
@@ -16666,7 +16682,8 @@ export class Game {
     const maxAffordable = Math.floor(this.coins / tierConfig.cost)
     const maxQty = Math.max(1, Math.min(CRATE_PURCHASE_MAX_QTY, maxAffordable))
     this._cratePurchaseQty = Math.min(this._cratePurchaseQty, maxQty)
-    this.cratePurchaseQtyValue.textContent = this._cratePurchaseQty
+    this.cratePurchaseQtyValue.value = this._cratePurchaseQty
+    this.cratePurchaseQtyValue.max = maxQty
     this.cratePurchaseQtyMinus.disabled = this._cratePurchaseQty <= 1
     this.cratePurchaseQtyPlus.disabled = this._cratePurchaseQty >= maxQty
     const total = tierConfig.cost * this._cratePurchaseQty
@@ -16683,6 +16700,12 @@ export class Game {
     const tier = this._cratePurchaseTier
     const tierConfig = CRATE_TIERS[tier]
     if (!tierConfig) return
+    // Clamps this._cratePurchaseQty for real - the qty input's own
+    // 'input' listener updates it live while typing WITHOUT clamping
+    // (see its own comment), so clicking Confirm before ever blurring a
+    // just-typed out-of-range value would otherwise reach here
+    // unclamped.
+    this._updateCratePurchaseModal()
     const qty = this._cratePurchaseQty
     const totalCost = tierConfig.cost * qty
     if (this.coins < totalCost) {

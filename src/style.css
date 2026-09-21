@@ -4078,6 +4078,10 @@ section.category.hidden-search {
   border-radius: 6px;
   border: 1.5px solid color-mix(in srgb, var(--crate-tier-color, #e3c23c) 70%, transparent);
   background: linear-gradient(180deg, #2a221a, #14100c);
+  /* No explicit color before - this button has its own dark background,
+     so it silently fell back to a default dark/black text color and read
+     as almost invisible (confirmed via a real screenshot, not assumed). */
+  color: #fff;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.12),
     inset 0 -2px 3px rgba(0, 0, 0, 0.7),
@@ -4304,12 +4308,41 @@ section.category.hidden-search {
   cursor: not-allowed;
 }
 
+/* A real <input type="number"> now (was a plain <span>) - typing an
+   exact quantity directly, not just +/- one at a time. Stripped back
+   to look the same as the old span (no visible box/border) with just
+   a subtle bottom line + hover/focus highlight as the only hint it's
+   actually editable, and the browser's default spinner arrows removed
+   since the +/- buttons already do that job. */
 #crate-purchase-qty-value {
-  min-width: 28px;
+  width: 44px;
+  padding: 2px 0;
   text-align: center;
+  font: inherit;
   font-size: 18px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  color: #fff;
+  background: none;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+  cursor: text;
+}
+
+#crate-purchase-qty-value:hover,
+#crate-purchase-qty-value:focus {
+  border-bottom-color: var(--crate-tier-color, #e3c23c);
+  outline: none;
+}
+
+#crate-purchase-qty-value::-webkit-outer-spin-button,
+#crate-purchase-qty-value::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+#crate-purchase-qty-value[type="number"] {
+  -moz-appearance: textfield;
 }
 
 #crate-purchase-confirm-btn {
