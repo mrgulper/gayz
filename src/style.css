@@ -2838,6 +2838,17 @@ html.third-person-active #companion-bark {
   min-height: 680px;
 }
 
+/* #other-profile-panel's content is just a name, an ID, and up to 5 short
+   stat rows - the shared 1080px/680px sizing above (built for Credits/
+   Settings/Achievements-length content) left it mostly empty space
+   (confirmed via a real screenshot, per reference). Sized to actually fit
+   its content instead, with a little breathing room, not the shared
+   panel-family floor. */
+#other-profile-panel .panel-box {
+  width: min(420px, 90vw);
+  min-height: 0;
+}
+
 /* The area OUTSIDE the box (the rest of the full-screen panel wrapper)
    goes fully transparent for these - the homepage shows through clearly
    there instead of being dimmed, same as Kirka.io's reference. The box
