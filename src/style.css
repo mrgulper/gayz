@@ -2839,14 +2839,15 @@ html.third-person-active #companion-bark {
 }
 
 /* #other-profile-panel's content (name, ID, up to 5 short stat rows)
-   doesn't fill the shared 680px min-height - trimmed that down, per a
-   reference screenshot showing about how much shorter it should be
-   (roughly 85% of the original height). Width deliberately NOT
-   shrunk - an earlier pass over-corrected this down to 420px, which
-   read as a tiny, oddly out-of-place popup next to the full-size chat
-   panel behind it (see the follow-up reference screenshots); the width
-   was never the actual complaint, only the wasted vertical space was. */
+   doesn't need the shared 1080px/680px panel-box sizing (built for much
+   longer content like Credits/Settings). Two corrections already landed
+   here off real screenshots each time - 420px width read as a tiny,
+   disconnected popup (too small), then the shared 1080px width left a
+   huge dead zone to the right of the short stat rows on a wide monitor
+   (too big) - 640px is the middle landing spot between those two actual
+   measured misses, not a fresh guess. */
 #other-profile-panel .panel-box {
+  width: min(640px, 92vw);
   min-height: 580px;
 }
 
