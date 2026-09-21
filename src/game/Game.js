@@ -15944,11 +15944,37 @@ export class Game {
       const level = this._computeAvatarLevel()
       const nickname = this.settings.nickname || t('playerShowcaseTitleDefault')
       this.playerShowcaseTitle.textContent = t('playerShowcaseLevelName', { level, name: nickname })
+      this._fitPlayerShowcaseTitle()
     }
     if (this.playerShowcaseClanName) {
       this.playerShowcaseClanName.textContent = this.settings.clanName || ''
       this.playerShowcaseClanName.style.display = this.settings.clanName ? 'block' : 'none'
     }
+  }
+
+  // "Lvl 1 [name]" must stay pinned to the exact same spot no matter how
+  // long the name is (#menu-col-left is bottom-anchored - see its own CSS
+  // comment - so letting this text wrap onto a 2nd line pushes everything
+  // above it, including this same title, further up the screen). Instead
+  // of wrapping or truncating, shrink the font just enough to keep it on
+  // one line - reset to the CSS default first (so it grows back once the
+  // name/level shrinks again), then scale down only if it still overflows
+  // the space actually available next to the pencil button.
+  _fitPlayerShowcaseTitle() {
+    const title = this.playerShowcaseTitle
+    const header = title?.closest('#player-showcase-header')
+    const pencil = this.playerShowcaseRenameBtn
+    if (!title || !header || !pencil) return
+    title.style.fontSize = ''
+    const headerGap = parseFloat(getComputedStyle(header).columnGap || getComputedStyle(header).gap) || 0
+    const available = header.clientWidth - pencil.offsetWidth - headerGap
+    if (available <= 0) return
+    const naturalWidth = title.scrollWidth
+    if (naturalWidth <= available) return
+    const baseFontSize = parseFloat(getComputedStyle(title).fontSize)
+    const minFontSize = 11
+    const scaledSize = Math.floor(baseFontSize * (available / naturalWidth))
+    title.style.fontSize = `${Math.max(minFontSize, scaledSize)}px`
   }
 
   _copyPlayerId() {
@@ -16865,6 +16891,7 @@ export class Game {
     this.composer.setSize(window.innerWidth, window.innerHeight)
     this.bloomPass.resolution.set(window.innerWidth * BLOOM_RESOLUTION_SCALE, window.innerHeight * BLOOM_RESOLUTION_SCALE)
     this._updatePlayBtnCentering()
+    this._fitPlayerShowcaseTitle()
   }
 
   // Positions the third-person camera behind+above the player rig (this.

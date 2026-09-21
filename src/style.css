@@ -6465,7 +6465,22 @@ html.crt-scanlines #app::after {
   height: 100%;
 }
 
+/* Absolutely positioned (relative to #player-showcase-header, see its own
+   position:relative below) rather than a normal in-flow sibling - that
+   header sits inside #menu-col-left, which is bottom-anchored (see its own
+   CSS comment) so the character's feet stay near the bottom of the page.
+   An in-flow row here used to grow the column's total content height the
+   instant the pencil was clicked, which shoved the name/level line above
+   it further up the screen to keep everything bottom-anchored. Floating
+   this out of flow means opening the editor never moves anything else -
+   it just appears in its own spot right under the name. */
 #nickname-row {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 6px;
+  z-index: 2;
   display: flex;
   gap: 6px;
   align-items: center;
@@ -8093,6 +8108,7 @@ html.ui-theme-old #menu-player-tag {
    name-left/pencil-right split, so "PLAYER" reads as a nameplate centered
    above the character instead of pinned to the column's left edge. */
 #player-showcase-header {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -8129,6 +8145,11 @@ html.ui-theme-old #menu-player-tag {
   display: flex;
   flex-direction: column;
   align-items: center;
+  /* Lets this shrink below its content's natural width inside the
+     #player-showcase-header flex row - needed for the name to actually
+     be scaled down by _fitPlayerShowcaseTitle() (Game.js) instead of
+     forcing the row wider than the column and overflowing it. */
+  min-width: 0;
 }
 
 /* Plain text, no pill/badge box - simplest version of "clan name above
@@ -8146,6 +8167,13 @@ html.ui-theme-old #menu-player-tag {
 
 #player-showcase-header .menu-panel-title {
   margin: 0;
+  /* Never wraps to a 2nd line - _fitPlayerShowcaseTitle() (Game.js)
+     shrinks the font instead so a long name can't grow this element's
+     height and push it around (see #nickname-row's own comment above for
+     why that matters here). */
+  white-space: nowrap;
+  overflow: hidden;
+  max-width: 100%;
   /* Overrides the shared .menu-panel-title uppercase styling - this one
      shows the player's actual nickname, which should keep whatever real
      upper/lowercase mix they typed (see settings.nickname), not get

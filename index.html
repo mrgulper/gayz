@@ -456,10 +456,10 @@
                 <button id="player-showcase-rename-btn" class="pencil-edit-btn" type="button" aria-label="Edit nickname" title="Edit nickname">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>
                 </button>
-              </div>
-              <div id="nickname-row" style="display: none">
-                <input type="text" id="nickname-input" class="nickname-input" placeholder="Your nickname" maxlength="16" />
-                <button id="random-nickname-btn" class="mini-action-btn" type="button" title="Random nickname">Random</button>
+                <div id="nickname-row" style="display: none">
+                  <input type="text" id="nickname-input" class="nickname-input" placeholder="Your nickname" maxlength="16" />
+                  <button id="random-nickname-btn" class="mini-action-btn" type="button" title="Random nickname">Random</button>
+                </div>
               </div>
               <div id="setup-avatar-wrap" title="Drag to spin">
                 <canvas id="setup-avatar-canvas"></canvas>
@@ -3248,6 +3248,7 @@ Escape before dawn.</p>
           <div id="whatsnew-content">
             <p id="build-version-line"></p>
           <div id="changelog-list">
+            <div class="changelog-entry"><span class="changelog-date">Sep 21, 2026</span><span class="changelog-text">Fixed your name/level ("Lvl 1 [name]" above your character) shifting position on screen - a long name used to push it around, and so did opening the "change name" box. Both now stay put: a long name just shrinks slightly to fit on one line instead of wrapping, and the "change name" box now opens in its own spot below the name instead of nudging it.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 21, 2026</span><span class="changelog-text">Every panel that opens over the menu (Settings, Shop, Upgrades, Quests, Achievements, Profile, Credits, Terms of Use, Privacy Policy, Features, What's New, How to Play, Friends, Inventory, Global chat, General, Game Mode, and the other-player profile popup) now has a small red X in the top-right corner to close it, matching the crate purchase popup's close button.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Crate cards in the Shop now show the price directly on the Open button (with the coin icon instead of the word "Coins"), instead of a separate price line above a plain "Open" button. Inventory > Crates keeps a plain "Open" button, unchanged.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Redesigned the Wood/Ice/Golden crate icons (Shop and Inventory > Crates) as proper 3D-looking isometric boxes with shaded top/left/right faces, instead of flat 2D icons.</span></div>
