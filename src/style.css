@@ -5745,11 +5745,52 @@ html.ui-theme-old #quit-confirm-title {
     font-weight: 700;
     margin-right: 6px;
   }
-  #print-stats-sheet .perk-option {
+  /* Print Achievements List (see the print button's click handler in
+     Game.js) - redesigned 2026-09-21. Previously reused the live
+     .perk-option cards' own markup (built for the dark in-game panel),
+     which under print styling stacked name/status/hint on 3 separate
+     underlined lines per entry with no sections or summary - unreadable
+     on paper. This builds clean name/status rows itself instead. */
+  #print-stats-sheet .print-ach-section {
+    font-size: 15px;
+    margin: 20px 0 8px;
+    padding-bottom: 4px;
+    border-bottom: 2px solid #000;
+  }
+  #print-stats-sheet .print-ach-section:first-of-type {
+    margin-top: 0;
+  }
+  #print-stats-sheet .print-ach-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px 20px;
+  }
+  #print-stats-sheet .print-ach-row {
     display: flex;
     justify-content: space-between;
-    padding: 4px 0;
-    border-bottom: 1px solid #ccc;
+    align-items: baseline;
+    gap: 10px;
+    padding: 5px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 12px;
+    break-inside: avoid;
+  }
+  #print-stats-sheet .print-ach-row.unlocked {
+    background: #f2f2f2;
+    border-color: #999;
+  }
+  #print-stats-sheet .print-ach-name {
+    font-weight: 700;
+  }
+  #print-stats-sheet .print-ach-row.locked .print-ach-name {
+    font-weight: 400;
+    color: #888;
+  }
+  #print-stats-sheet .print-ach-status {
+    flex-shrink: 0;
+    color: #555;
+    text-align: right;
   }
 }
 

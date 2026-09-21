@@ -10672,7 +10672,57 @@ export class Game {
     if (this.printAchievementsBtn) {
       this.printAchievementsBtn.addEventListener('click', () => {
         if (!this.printStatsSheet) return
-        this.printStatsSheet.innerHTML = `<h1>${t('printAchievementsTitle')}</h1>${this.achievementsOptions.innerHTML}`
+        // Rebuilds clean print-only markup (name/status pairs in a
+        // 2-column grid) instead of cloning achievementsOptions.innerHTML
+        // verbatim (2026-09-21) - the live cards are `.perk-option`
+        // buttons built for the dark in-game panel, and reusing that
+        // markup for print left every field stacked on its own
+        // underlined line with no sections/summary, unreadable on paper.
+        // Respects whatever filter/category/sort is currently applied,
+        // same as before - this prints what you're looking at.
+        const filter = (this.achievementsFilterInput?.value || '').trim().toLowerCase()
+        const category = this.achievementsCategorySelect?.value || 'all'
+        const sortMode = this.achievementsSortSelect?.value || 'default'
+        const buildRow = (name, unlocked, status) =>
+          `<div class="print-ach-row ${unlocked ? 'unlocked' : 'locked'}"><span class="print-ach-name">${_escapeHtml(name)}</span><span class="print-ach-status">${_escapeHtml(status)}</span></div>`
+
+        let achList = ACHIEVEMENTS.filter((ach) => category === 'all' || ach.category === category)
+        if (sortMode === 'achieved') achList = achList.filter((ach) => this.achievements.unlocked.has(ach.id))
+        else if (sortMode === 'incomplete') achList = achList.filter((ach) => !this.achievements.unlocked.has(ach.id))
+        const achRows = achList
+          .map((ach) => {
+            const unlocked = this.achievements.unlocked.has(ach.id)
+            const name = unlocked ? t(ach.titleKey) : '???'
+            if (filter && !name.toLowerCase().includes(filter)) return null
+            const status = unlocked ? t('achievementUnlockedShort') : (ach.hintKey ? t(ach.hintKey) : t('achievementLocked'))
+            return buildRow(name, unlocked, status)
+          })
+          .filter(Boolean)
+          .join('')
+
+        const bestiaryRows = Object.values(ZOMBIE_TYPES)
+          .map((type) => {
+            const known = this.bestiaryEncountered.has(type.id)
+            if (sortMode === 'achieved' && !known) return null
+            if (sortMode === 'incomplete' && known) return null
+            const name = known ? type.label : '???'
+            if (filter && !name.toLowerCase().includes(filter)) return null
+            return buildRow(name, known, known ? t('achievementUnlockedShort') : t('achievementLocked'))
+          })
+          .filter(Boolean)
+          .join('')
+
+        // Counts are the true overall totals, not the filtered row
+        // count - so "0/12 unlocked" doesn't show up when you've simply
+        // filtered the list down to "Incomplete" (every row unlocked=0
+        // there by definition, which would be a meaningless count).
+        const achSummary = t('printAchievementsSummary', { unlocked: this.achievements.unlocked.size, total: ACHIEVEMENTS.length })
+        const bestiarySummary = t('printAchievementsSummary', { unlocked: this.bestiaryEncountered.size, total: Object.keys(ZOMBIE_TYPES).length })
+        this.printStatsSheet.innerHTML = `
+          <h1>${t('printAchievementsTitle')}</h1>
+          ${achRows ? `<h2 class="print-ach-section">${_escapeHtml(t('printAchievementsSectionAchievements'))} — ${_escapeHtml(achSummary)}</h2><div class="print-ach-grid">${achRows}</div>` : ''}
+          ${bestiaryRows ? `<h2 class="print-ach-section">${_escapeHtml(t('printAchievementsSectionBestiary'))} — ${_escapeHtml(bestiarySummary)}</h2><div class="print-ach-grid">${bestiaryRows}</div>` : ''}
+        `
         window.print()
       })
     }
