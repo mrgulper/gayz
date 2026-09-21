@@ -2589,6 +2589,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'achievements-tab-deathmatch': 'achievementsTabDeathmatch',
   'print-achievements-btn': 'printAchievementsBtnLabel',
   'crate-monthly-coming-soon-tag': 'crateComingSoonTag',
+  'shop-crate-section-heading': 'crateSectionHeading',
   'upload-skin-btn': 'uploadSkinBtn',
   'reset-skin-btn': 'resetSkinBtn',
   'profile-tab-public': 'profilePublicHeading',

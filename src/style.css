@@ -4039,6 +4039,17 @@ section.category.hidden-search {
   color: #e3c23c;
 }
 
+.crate-section-heading {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--menu-gold, #d9bc4a);
+  opacity: 0.85;
+  text-align: center;
+}
+
 .crate-tier-grid {
   display: flex;
   justify-content: center;
