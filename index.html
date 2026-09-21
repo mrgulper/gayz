@@ -3115,15 +3115,6 @@ Escape before dawn.</p>
           <h2 id="shop-panel-title">Shop</h2>
           <div class="panel-fixed-content">
             <div class="general-section-empty">
-              <div id="shop-skin-item">
-                <div id="shop-skin-name">GaygarX</div>
-                <div id="shop-skin-avatar-wrap">
-                  <canvas id="shop-skin-canvas"></canvas>
-                </div>
-                <div id="shop-skin-price">10000 Gems</div>
-                <button type="button" id="shop-skin-buy-btn">Buy</button>
-                <div id="shop-skin-badge" style="display: none">Owned</div>
-              </div>
               <div class="crate-tier-grid" id="shop-crate-tier-grid">
                 <div class="crate-card crate-tier-wood">
                   <svg class="crate-icon" viewBox="0 0 24 24">
@@ -3236,6 +3227,53 @@ Escape before dawn.</p>
                   </svg>
                 </button>
                 </div>
+                <div class="crate-card crate-tier-monthly">
+                  <span class="crate-coming-soon-tag" id="crate-monthly-coming-soon-tag">Coming Soon</span>
+                  <svg class="crate-icon" viewBox="0 0 24 24">
+                    <defs>
+                      <linearGradient id="monthly-top" x1="4" y1="4" x2="20" y2="13" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#e6c9fb"/>
+                        <stop offset="100%" stop-color="#b57ce8"/>
+                      </linearGradient>
+                      <linearGradient id="monthly-left" x1="4" y1="8.5" x2="12" y2="21" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#a568d9"/>
+                        <stop offset="100%" stop-color="#6f3ea3"/>
+                      </linearGradient>
+                      <linearGradient id="monthly-right" x1="12" y1="13" x2="20" y2="16.5" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stop-color="#8a5cad"/>
+                        <stop offset="100%" stop-color="#5c3380"/>
+                      </linearGradient>
+                    </defs>
+                    <polygon points="12,4 20,8.5 12,13 4,8.5" fill="url(#monthly-top)" stroke="#5c3380" stroke-width="0.5"/>
+                    <polygon points="4,8.5 12,13 12,21 4,16.5" fill="url(#monthly-left)" stroke="#5c3380" stroke-width="0.5"/>
+                    <polygon points="20,8.5 12,13 12,21 20,16.5" fill="url(#monthly-right)" stroke="#5c3380" stroke-width="0.5"/>
+                    <path d="M4,11.8 12,16.3 20,11.8" stroke="#5c3380" stroke-width="0.5" fill="none"/>
+                    <polygon points="16,13.3 17,14.8 16,16.3 15,14.8" fill="#ffe680" stroke="#8a6a15" stroke-width="0.3"/>
+                    <circle cx="4.6" cy="8.9" r="0.9" fill="#e6c9fb"/>
+                    <circle cx="19.4" cy="8.9" r="0.9" fill="#e6c9fb"/>
+                    <circle cx="4.4" cy="8.7" r="0.3" fill="#fff" opacity="0.8"/>
+                    <circle cx="19.2" cy="8.7" r="0.3" fill="#fff" opacity="0.8"/>
+                  </svg>
+                  <span class="crate-tier-name" data-crate-tier="monthly">Monthly Chest</span>
+                  <button type="button" class="mini-action-btn crate-open-btn" data-crate-tier="monthly" disabled>
+                  <span class="crate-open-btn-amount">5000</span>
+                  <svg class="currency-icon" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" fill="#e8c14a" stroke="#8a6a15" stroke-width="1.3"/>
+                    <circle cx="12" cy="12" r="7.6" fill="none" stroke="#8a6a15" stroke-width="1"/>
+                    <path d="M12 7.5l1.1 2.6 2.8.3-2.1 2 .6 2.8L12 13.8l-2.4 1.4.6-2.8-2.1-2 2.8-.3z" fill="#8a6a15"/>
+                    <path d="M6 8a8 8 0 0 1 5-4" fill="none" stroke="#fff3c8" stroke-width="1.2" stroke-linecap="round" opacity="0.55"/>
+                  </svg>
+                </button>
+                </div>
+              </div>
+              <div id="shop-skin-item">
+                <div id="shop-skin-name">GaygarX</div>
+                <div id="shop-skin-avatar-wrap">
+                  <canvas id="shop-skin-canvas"></canvas>
+                </div>
+                <div id="shop-skin-price">10000 Gems</div>
+                <button type="button" id="shop-skin-buy-btn">Buy</button>
+                <div id="shop-skin-badge" style="display: none">Owned</div>
               </div>
             </div>
           </div>
@@ -3249,6 +3287,7 @@ Escape before dawn.</p>
           <div id="whatsnew-content">
             <p id="build-version-line"></p>
           <div id="changelog-list">
+            <div class="changelog-entry"><span class="changelog-date">Sep 21, 2026</span><span class="changelog-text">Shop layout update: the GaygarX skin now sits below the crate cards instead of above them. Also added a 4th crate, "Monthly Chest" (5000 coins), marked "Coming Soon" - not purchasable yet, just a preview of what's coming.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 21, 2026</span><span class="changelog-text">Fixed a real freeze: walking up and picking up an airdrop crate crashed the game every time, completely freezing it. Root-caused and fixed.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 21, 2026</span><span class="changelog-text">Added an emoji picker to chat (both the in-game chat and the homepage Global panel) - click the 😀 button next to the message box for a searchable, categorized emoji panel (Smileys, Animals, Food, Symbols, and more). Click an emoji to insert it, keep clicking to add more.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 21, 2026</span><span class="changelog-text">Restyled the little "type an exact number" box that pops up when you click a Settings slider's value (Volume, Sensitivity, FOV, HUD Scale, and 12 others) - it was rendering as a plain white browser-native box with a blue focus ring, out of place next to everything else in Settings. Now matches the game's dark/gold look, with small gold up/down arrows next to it (the browser's own up/down arrows briefly disappeared as a side effect of that restyle - brought them back as custom buttons instead).</span></div>

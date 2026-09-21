@@ -4098,6 +4098,28 @@ section.category.hidden-search {
 .crate-tier-wood { --crate-tier-color: #c9915a; }
 .crate-tier-ice { --crate-tier-color: #8fd9f0; }
 .crate-tier-golden { --crate-tier-color: #f0c23e; }
+.crate-tier-monthly { --crate-tier-color: #b57ce8; }
+
+/* "Coming Soon" ribbon for the Monthly Chest preview card - not yet
+   purchasable (see #shop-crate-tier-grid's data-crate-tier="monthly"
+   button, disabled and deliberately absent from CRATE_TIERS so every
+   existing click handler already no-ops on it safely). Absolutely
+   positioned in the top-right corner rather than inline with the tier
+   name, so it reads as a badge on the card, not stacked page text. */
+.crate-coming-soon-tag {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 2px 6px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: #0c0a10;
+  background: var(--crate-tier-color, #e3c23c);
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
 
 /* Price moved onto the button itself (amount + coin icon, see
    _renderCrateTiers) - flex row so the number and icon sit inline
