@@ -9600,6 +9600,17 @@ export class Game {
       })
     }
 
+    // Shared red-X close button on every .panel-box panel (Settings, Shop,
+    // What's New, How to Play, etc). #crate-purchase-close-btn shares this
+    // class for the look but keeps its own handler above, so skip it here.
+    for (const btn of document.querySelectorAll('.panel-close-btn')) {
+      if (btn.id === 'crate-purchase-close-btn') continue
+      btn.addEventListener('click', () => {
+        if (btn.closest('#other-profile-panel')) this._closeOtherPlayerProfile()
+        else this._closeAllMenuPanels()
+      })
+    }
+
     // Character tab's skin list (see _renderInventorySkins) - one
     // delegated listener since the rows get fully replaced on every
     // render, same reasoning as chat's own click-to-mute delegation.

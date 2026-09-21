@@ -2830,12 +2830,35 @@ html.third-person-active #companion-bark {
 }
 
 .panel-box {
+  position: relative;
   background: rgba(8, 8, 7, 0.96);
   border: 2px solid #e3c23c;
   border-radius: 10px;
   padding: 26px 32px 32px;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(227, 194, 60, 0.35), 0 0 20px rgba(0, 0, 0, 0.6);
   min-height: 680px;
+}
+
+/* Shared close-X for every navigable panel (2026-09-21) - same plain
+   red-X-no-circle look as the crate purchase modal's own close button
+   (#crate-purchase-close-btn keeps its own id for its dedicated click
+   handler, but shares this class for the look). position:relative on
+   .panel-box above is what lets this anchor to each panel's own box
+   instead of the viewport. */
+.panel-close-btn {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: none;
+  color: #e05252;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 1;
 }
 
 /* #other-profile-panel's content (name, ID, up to 5 short stat rows)
@@ -2893,6 +2916,20 @@ html.third-person-active #companion-bark {
   font-size: 32px !important;
   font-weight: 700 !important;
   letter-spacing: 0.5px;
+}
+
+/* Most panel titles clear the new .panel-close-btn (top-right, see below)
+   with room to spare at the shared 32px size. These few don't - nudged
+   individually rather than reserving space on every title, which would
+   wrap several shorter titles onto an unwanted second line for no reason. */
+#terms-panel-title {
+  font-size: 28px !important;
+}
+#howtoplay-panel-title {
+  padding-right: 12px;
+}
+#achievements-panel-title {
+  font-size: 26px !important;
 }
 
 .panel-box > h2::after {
