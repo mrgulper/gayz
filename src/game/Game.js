@@ -16421,14 +16421,17 @@ export class Game {
     for (const el of document.querySelectorAll('.crate-tier-name[data-crate-tier]')) {
       el.textContent = t(`crateTier${el.dataset.crateTier.charAt(0).toUpperCase()}${el.dataset.crateTier.slice(1)}`)
     }
-    for (const el of document.querySelectorAll('.crate-tier-cost[data-crate-tier]')) {
-      const tier = CRATE_TIERS[el.dataset.crateTier]
-      if (tier) el.textContent = t('crateCostLabel', { n: tier.cost })
-    }
+    // Price now lives on the button itself (amount + coin icon, replacing
+    // the old plain "Open" text) rather than a separate line above it -
+    // .querySelector('span') here, not btn.textContent, since the button
+    // also has an <svg> icon child that a plain textContent set would
+    // silently wipe out (see the Menu redesign notes' own recurring gotcha
+    // on this exact pattern).
     for (const btn of document.querySelectorAll('.crate-open-btn[data-crate-tier]')) {
       const tier = CRATE_TIERS[btn.dataset.crateTier]
       if (!tier) continue
-      btn.textContent = t('crateOpenBtn')
+      const amountEl = btn.querySelector('.crate-open-btn-amount')
+      if (amountEl) amountEl.textContent = tier.cost
       btn.disabled = this.coins < tier.cost
     }
   }

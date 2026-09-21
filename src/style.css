@@ -4037,10 +4037,19 @@ section.category.hidden-search {
 .crate-tier-ice { --crate-tier-color: #6fd0e8; }
 .crate-tier-golden { --crate-tier-color: #f0c23e; }
 
-.crate-tier-cost {
-  font-size: 12px;
-  opacity: 0.75;
-  font-variant-numeric: tabular-nums;
+/* Price moved onto the button itself (amount + coin icon, see
+   _renderCrateTiers) - flex row so the number and icon sit inline
+   instead of stacking, small gap between them. */
+.crate-open-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.crate-open-btn .currency-icon {
+  width: 14px;
+  height: 14px;
 }
 
 .crate-open-btn:disabled {
