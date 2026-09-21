@@ -45,6 +45,99 @@ const CRATE_TIERS = {
   golden: { cost: 5000, rareChance: 0.8 },
 }
 const CRATE_RARE_COST_THRESHOLD = 900
+// Max quantity the bulk-purchase modal's + button will go to, on top of
+// whatever affording it further limits - see _updateCratePurchaseModal.
+const CRATE_PURCHASE_MAX_QTY = 10
+// Same values as each .crate-tier-wood/-ice/-golden CSS class's own
+// --crate-tier-color (src/style.css) - duplicated here since the
+// purchase modal sets this as an inline style (there's no per-tier class
+// on its single shared box to hang a CSS rule off instead).
+const CRATE_TIER_COLORS = { wood: '#c9915a', ice: '#8fd9f0', golden: '#f0c23e' }
+// Same isometric 3-face icon markup as each .crate-card's own <svg> (see
+// index.html), duplicated here as plain strings so the purchase modal
+// (Game.js's _openCratePurchaseModal) can inject whichever tier was
+// clicked at a bigger size. Gradient ids get a "-modal" suffix - reusing
+// the plain tier names here would collide with the Shop/Inventory
+// copies' own ids (that exact bug, and why it matters, is documented on
+// the crate-icon SVG's own commit - duplicate SVG gradient ids are
+// invalid HTML and rendered visibly wrong in one of the three places).
+const CRATE_ICON_SVG = {
+  wood: `<svg viewBox="0 0 24 24">
+    <defs>
+      <linearGradient id="wood-top-modal" x1="4" y1="4" x2="20" y2="13" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#e3b57e"/>
+        <stop offset="100%" stop-color="#b5824a"/>
+      </linearGradient>
+      <linearGradient id="wood-left-modal" x1="4" y1="8.5" x2="12" y2="21" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#a3703f"/>
+        <stop offset="100%" stop-color="#6b431f"/>
+      </linearGradient>
+      <linearGradient id="wood-right-modal" x1="12" y1="13" x2="20" y2="16.5" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#7a5228"/>
+        <stop offset="100%" stop-color="#4a2f16"/>
+      </linearGradient>
+    </defs>
+    <polygon points="12,4 20,8.5 12,13 4,8.5" fill="url(#wood-top-modal)" stroke="#4a2f16" stroke-width="0.5"/>
+    <polygon points="4,8.5 12,13 12,21 4,16.5" fill="url(#wood-left-modal)" stroke="#4a2f16" stroke-width="0.5"/>
+    <polygon points="20,8.5 12,13 12,21 20,16.5" fill="url(#wood-right-modal)" stroke="#4a2f16" stroke-width="0.5"/>
+    <path d="M6.5,9.9v8M9.2,11.4v8" stroke="#5c3a1a" stroke-width="0.4" opacity="0.7"/>
+    <path d="M17.5,9.9v8M14.8,11.4v8" stroke="#3d2610" stroke-width="0.4" opacity="0.7"/>
+    <path d="M12,4v9" stroke="#a3703f" stroke-width="0.4" opacity="0.6"/>
+    <circle cx="12" cy="4.6" r="0.9" fill="#f0dcb8"/>
+    <circle cx="4.6" cy="8.9" r="0.9" fill="#f0dcb8"/>
+    <circle cx="19.4" cy="8.9" r="0.9" fill="#f0dcb8"/>
+    <circle cx="12" cy="4.4" r="0.3" fill="#fff" opacity="0.8"/>
+    <circle cx="4.4" cy="8.7" r="0.3" fill="#fff" opacity="0.8"/>
+    <circle cx="19.2" cy="8.7" r="0.3" fill="#fff" opacity="0.8"/>
+  </svg>`,
+  ice: `<svg viewBox="0 0 24 24">
+    <defs>
+      <linearGradient id="ice-top-modal" x1="4" y1="4" x2="20" y2="13" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#eaf9ff"/>
+        <stop offset="100%" stop-color="#a8e6f5"/>
+      </linearGradient>
+      <linearGradient id="ice-left-modal" x1="4" y1="8.5" x2="12" y2="21" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#b3e6f5"/>
+        <stop offset="100%" stop-color="#6fc5e0"/>
+      </linearGradient>
+      <linearGradient id="ice-right-modal" x1="12" y1="13" x2="20" y2="16.5" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#7fc9e0"/>
+        <stop offset="100%" stop-color="#4a9cbc"/>
+      </linearGradient>
+    </defs>
+    <polygon points="12,4 20,8.5 12,13 4,8.5" fill="url(#ice-top-modal)" stroke="#e8fbff" stroke-width="0.5"/>
+    <polygon points="4,8.5 12,13 12,21 4,16.5" fill="url(#ice-left-modal)" stroke="#e8fbff" stroke-width="0.5"/>
+    <polygon points="20,8.5 12,13 12,21 20,16.5" fill="url(#ice-right-modal)" stroke="#e8fbff" stroke-width="0.5"/>
+    <path d="M12,4v9M4,8.5l8,4.5 8,-4.5" stroke="#ffffff" stroke-width="0.4" opacity="0.6" fill="none"/>
+    <polygon points="9,3 10.5,1 12,3" fill="#e8fbff"/>
+    <polygon points="14,3 15.5,1 17,3" fill="#e8fbff"/>
+  </svg>`,
+  golden: `<svg viewBox="0 0 24 24">
+    <defs>
+      <linearGradient id="gold-top-modal" x1="4" y1="4" x2="20" y2="13" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#fde79a"/>
+        <stop offset="100%" stop-color="#e8bc3e"/>
+      </linearGradient>
+      <linearGradient id="gold-left-modal" x1="4" y1="8.5" x2="12" y2="21" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#e0ab1e"/>
+        <stop offset="100%" stop-color="#a67c0a"/>
+      </linearGradient>
+      <linearGradient id="gold-right-modal" x1="12" y1="13" x2="20" y2="16.5" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#b3860e"/>
+        <stop offset="100%" stop-color="#7a5a0a"/>
+      </linearGradient>
+    </defs>
+    <polygon points="12,4 20,8.5 12,13 4,8.5" fill="url(#gold-top-modal)" stroke="#7a5a0a" stroke-width="0.5"/>
+    <polygon points="4,8.5 12,13 12,21 4,16.5" fill="url(#gold-left-modal)" stroke="#7a5a0a" stroke-width="0.5"/>
+    <polygon points="20,8.5 12,13 12,21 20,16.5" fill="url(#gold-right-modal)" stroke="#7a5a0a" stroke-width="0.5"/>
+    <path d="M4,11.8 12,16.3 20,11.8" stroke="#7a5a0a" stroke-width="0.5" fill="none"/>
+    <polygon points="16,13.3 17,14.8 16,16.3 15,14.8" fill="#7fe8ff" stroke="#2a7a95" stroke-width="0.3"/>
+    <circle cx="4.6" cy="8.9" r="0.9" fill="#fde79a"/>
+    <circle cx="19.4" cy="8.9" r="0.9" fill="#fde79a"/>
+    <circle cx="4.4" cy="8.7" r="0.3" fill="#fff" opacity="0.8"/>
+    <circle cx="19.2" cy="8.7" r="0.3" fill="#fff" opacity="0.8"/>
+  </svg>`,
+}
 import { pickNightEvent, NIGHT_MUTATIONS, NIGHT_MUTATION_CHANCE } from './NightEvents.js'
 import { Companion } from './Companion.js'
 import { Turret } from './Turret.js'
@@ -5752,6 +5845,16 @@ export class Game {
     this.shopSkinCanvas = document.getElementById('shop-skin-canvas')
     this.shopSkinBuyBtn = document.getElementById('shop-skin-buy-btn')
     this.shopSkinBadge = document.getElementById('shop-skin-badge')
+    this.cratePurchaseModal = document.getElementById('crate-purchase-modal')
+    this.cratePurchaseBox = document.getElementById('crate-purchase-box')
+    this.cratePurchaseCloseBtn = document.getElementById('crate-purchase-close-btn')
+    this.cratePurchaseIconWrap = document.getElementById('crate-purchase-icon-wrap')
+    this.cratePurchaseTierName = document.getElementById('crate-purchase-tier-name')
+    this.cratePurchaseQtyMinus = document.getElementById('crate-purchase-qty-minus')
+    this.cratePurchaseQtyPlus = document.getElementById('crate-purchase-qty-plus')
+    this.cratePurchaseQtyValue = document.getElementById('crate-purchase-qty-value')
+    this.cratePurchaseConfirmBtn = document.getElementById('crate-purchase-confirm-btn')
+    this.cratePurchaseTotalAmount = document.getElementById('crate-purchase-total-amount')
     this.whatsNewPanel = document.getElementById('whatsnew-panel')
     this.whatsNewPanelTitle = document.getElementById('whatsnew-panel-title')
     this.buildVersionLine = document.getElementById('build-version-line')
@@ -9436,9 +9539,49 @@ export class Game {
 
     // Crate tier Open buttons - bound once here (not re-bound on every panel
     // open, unlike the render-only parts of this tab) same "bind once at
-    // startup" precedent as shopSkinBuyBtn.
+    // startup" precedent as shopSkinBuyBtn. Buys exactly 1, instantly -
+    // unchanged by the bulk-purchase modal below, per the explicit request
+    // that kept this button's own behavior separate.
     for (const btn of document.querySelectorAll('.crate-open-btn')) {
       btn.addEventListener('click', () => this._openCrate(btn.dataset.crateTier))
+    }
+
+    // Clicking a crate card anywhere OTHER than its own Open button opens
+    // the bulk-purchase modal instead (pick a quantity, buy several at
+    // once) - e.target.closest('.crate-open-btn') is what keeps this from
+    // ALSO firing when the click actually landed on that button (its own
+    // click bubbles up to this same card).
+    for (const card of document.querySelectorAll('.crate-card')) {
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('.crate-open-btn')) return
+        const tierClass = [...card.classList].find((c) => c.startsWith('crate-tier-'))
+        if (!tierClass) return
+        this._openCratePurchaseModal(tierClass.slice('crate-tier-'.length))
+      })
+    }
+
+    if (this.cratePurchaseQtyMinus) {
+      this.cratePurchaseQtyMinus.addEventListener('click', () => {
+        this._cratePurchaseQty = Math.max(1, this._cratePurchaseQty - 1)
+        this._updateCratePurchaseModal()
+      })
+    }
+    if (this.cratePurchaseQtyPlus) {
+      this.cratePurchaseQtyPlus.addEventListener('click', () => {
+        this._cratePurchaseQty += 1
+        this._updateCratePurchaseModal()
+      })
+    }
+    if (this.cratePurchaseConfirmBtn) {
+      this.cratePurchaseConfirmBtn.addEventListener('click', () => this._confirmCratePurchase())
+    }
+    if (this.cratePurchaseCloseBtn) {
+      this.cratePurchaseCloseBtn.addEventListener('click', () => this._closeCratePurchaseModal())
+    }
+    if (this.cratePurchaseModal) {
+      this.cratePurchaseModal.addEventListener('click', (e) => {
+        if (e.target === this.cratePurchaseModal) this._closeCratePurchaseModal()
+      })
     }
 
     // Character tab's skin list (see _renderInventorySkins) - one
@@ -16484,6 +16627,99 @@ export class Game {
     saveShopProgress(this)
     this._renderCurrencyBar()
     this._renderCrateTiers()
+  }
+
+  // Bulk-purchase modal (2026-09-21) - opened by clicking a crate card
+  // anywhere other than its own Open button (see the click binding in
+  // _bindMenu). Lets a player pick a quantity and buy several crates in
+  // one confirm instead of one _openCrate() click at a time.
+  _openCratePurchaseModal(tier) {
+    const tierConfig = CRATE_TIERS[tier]
+    if (!tierConfig || !this.cratePurchaseModal) return
+    if (this.coins < tierConfig.cost) {
+      this._showHomepageToast(t('crateNotEnoughCoins'))
+      return
+    }
+    this._cratePurchaseTier = tier
+    this._cratePurchaseQty = 1
+    this.cratePurchaseIconWrap.innerHTML = CRATE_ICON_SVG[tier] || ''
+    this.cratePurchaseTierName.textContent = t(`crateTier${tier.charAt(0).toUpperCase()}${tier.slice(1)}`)
+    this.cratePurchaseBox.style.setProperty('--crate-tier-color', CRATE_TIER_COLORS[tier] || '#e3c23c')
+    this.cratePurchaseModal.style.display = 'flex'
+    this._updateCratePurchaseModal()
+  }
+
+  _closeCratePurchaseModal() {
+    if (this.cratePurchaseModal) this.cratePurchaseModal.style.display = 'none'
+  }
+
+  // Recomputes the quantity clamp (1..min(CRATE_PURCHASE_MAX_QTY, what
+  // this.coins can actually afford) - re-run after every +/- click and
+  // right after opening, since "what's affordable" can only ever shrink
+  // relative to when the modal opened, never grow, but re-deriving it
+  // fresh here rather than caching it once is what makes that safe
+  // regardless of when coins last changed.
+  _updateCratePurchaseModal() {
+    const tier = this._cratePurchaseTier
+    const tierConfig = CRATE_TIERS[tier]
+    if (!tierConfig) return
+    const maxAffordable = Math.floor(this.coins / tierConfig.cost)
+    const maxQty = Math.max(1, Math.min(CRATE_PURCHASE_MAX_QTY, maxAffordable))
+    this._cratePurchaseQty = Math.min(this._cratePurchaseQty, maxQty)
+    this.cratePurchaseQtyValue.textContent = this._cratePurchaseQty
+    this.cratePurchaseQtyMinus.disabled = this._cratePurchaseQty <= 1
+    this.cratePurchaseQtyPlus.disabled = this._cratePurchaseQty >= maxQty
+    const total = tierConfig.cost * this._cratePurchaseQty
+    this.cratePurchaseTotalAmount.textContent = total
+    this.cratePurchaseConfirmBtn.disabled = this.coins < total
+  }
+
+  // Rolls the chosen quantity all at once and shows ONE combined summary
+  // toast (per the design conversation) rather than one toast per item -
+  // same per-roll duplicate-refund logic as the single-crate _openCrate()
+  // above, just tallied into wonCounts/duplicateRefund instead of acted
+  // on immediately each time.
+  _confirmCratePurchase() {
+    const tier = this._cratePurchaseTier
+    const tierConfig = CRATE_TIERS[tier]
+    if (!tierConfig) return
+    const qty = this._cratePurchaseQty
+    const totalCost = tierConfig.cost * qty
+    if (this.coins < totalCost) {
+      this._showHomepageToast(t('crateNotEnoughCoins'))
+      return
+    }
+    this.coins -= totalCost
+    const wonCounts = new Map()
+    let duplicateRefund = 0
+    for (let i = 0; i < qty; i++) {
+      const item = this._rollCrateReward(tier)
+      const alreadyOwned = item.outfit ? this.ownedOutfits.has(item.outfit) : this.ownedHats.has(item.hat)
+      if (alreadyOwned) {
+        duplicateRefund += tierConfig.cost
+        continue
+      }
+      if (item.outfit) {
+        this.ownedOutfits.add(item.outfit)
+        this.equippedOutfit = item.outfit
+        this.playerBody.setOutfit(item.outfitColor)
+      } else {
+        this.ownedHats.add(item.hat)
+        this.equippedHat = item.hat
+        this.playerBody.setHat(item.hat, item.hatColor)
+      }
+      const name = t(item.titleKey)
+      wonCounts.set(name, (wonCounts.get(name) || 0) + 1)
+    }
+    this.coins += duplicateRefund
+    const items = [...wonCounts.entries()].map(([name, count]) => (count > 1 ? `${name} x${count}` : name)).join(', ')
+    let message = items ? t('crateBulkResult', { n: qty, items }) : t('crateBulkAllDuplicates', { n: qty, coins: duplicateRefund })
+    if (duplicateRefund > 0 && items) message += t('crateBulkRefund', { coins: duplicateRefund })
+    this._showHomepageToast(message)
+    saveShopProgress(this)
+    this._renderCurrencyBar()
+    this._renderCrateTiers()
+    this._closeCratePurchaseModal()
   }
 
   // Shared mastery-tier badge builder - extracted from _refreshInventoryPanel's

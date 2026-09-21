@@ -3238,6 +3238,7 @@ Escape before dawn.</p>
             <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Crate cards in the Shop now show the price directly on the Open button (with the coin icon instead of the word "Coins"), instead of a separate price line above a plain "Open" button. Inventory > Crates keeps a plain "Open" button, unchanged.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Redesigned the Wood/Ice/Golden crate icons (Shop and Inventory > Crates) as proper 3D-looking isometric boxes with shaded top/left/right faces, instead of flat 2D icons.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Polished the crate cards further: gradient-lit 3D box icons with a soft shine, a beveled metal card frame with corner rivets, a tier-colored glow, and embossed tier-name text - closer to a real game-card look.</span></div>
+            <div class="changelog-entry"><span class="changelog-date">Sep 21, 2026</span><span class="changelog-text">Click anywhere on a crate card (other than the Open button, which still buys 1 instantly) to open a new popup where you can pick a quantity and buy several crates at once - one combined summary of everything you got, instead of buying one at a time.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Profile now has 2 clear tabs at the top: "Shown to Public" (your name, Player ID, Best Night, Best Kills, Best Kill Streak, and Achievements - anyone who has your Player ID can see these) and "Hidden" (everything else - your stats dashboard, highlight reel, bio, goals, and more - never shared with anyone).</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Global chat (both the in-game chat and the homepage Global panel): left-click a player's name to instantly copy their Player ID, or right-click to see a popup with their name, Player ID, and a Mute button. A Player ID pasted into a message shows up as a gold clickable tag too - click it to see that player's best night, best kills, and achievement count.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 20, 2026</span><span class="changelog-text">Copying a Player ID from chat now shows the same "Copied" gold badge used elsewhere in the game (like copying your own ID from the menu), instead of a plain text message.</span></div>
@@ -3819,6 +3820,28 @@ Escape before dawn.</p>
         <div class="perk-panel-buttons">
           <button id="quit-confirm-cancel-btn">Cancel</button>
           <button id="quit-confirm-exit-btn">Quit</button>
+        </div>
+      </div>
+
+      <div id="crate-purchase-modal">
+        <div class="panel-box" id="crate-purchase-box">
+          <button type="button" id="crate-purchase-close-btn" aria-label="Close">&times;</button>
+          <div id="crate-purchase-icon-wrap"></div>
+          <h3 id="crate-purchase-tier-name"></h3>
+          <div id="crate-purchase-qty-row">
+            <button type="button" id="crate-purchase-qty-minus" class="mini-action-btn">&minus;</button>
+            <span id="crate-purchase-qty-value">1</span>
+            <button type="button" id="crate-purchase-qty-plus" class="mini-action-btn">+</button>
+          </div>
+          <button type="button" id="crate-purchase-confirm-btn" class="crate-open-btn">
+            <span id="crate-purchase-total-amount"></span>
+            <svg class="currency-icon" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" fill="#e8c14a" stroke="#8a6a15" stroke-width="1.3"/>
+              <circle cx="12" cy="12" r="7.6" fill="none" stroke="#8a6a15" stroke-width="1"/>
+              <path d="M12 7.5l1.1 2.6 2.8.3-2.1 2 .6 2.8L12 13.8l-2.4 1.4.6-2.8-2.1-2 2.8-.3z" fill="#8a6a15"/>
+              <path d="M6 8a8 8 0 0 1 5-4" fill="none" stroke="#fff3c8" stroke-width="1.2" stroke-linecap="round" opacity="0.55"/>
+            </svg>
+          </button>
         </div>
       </div>
 
