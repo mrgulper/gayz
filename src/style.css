@@ -10343,12 +10343,22 @@ html.ui-theme-old #settings-panel h2 {
    some platforms paints this control's own native white background/blue
    focus ring UNDER the custom background/border below rather than
    respecting them - looked completely undone next to every other themed
-   input in Settings (2026-09-21). Spin buttons fully hidden and outline
-   removed, same technique already proven on #crate-purchase-qty-value
-   (see that rule's own comment) - a dedicated gold :focus state replaces
-   the browser's default blue ring. */
+   input in Settings (2026-09-21). The native spin buttons are hidden
+   (same as the input's own appearance reset) and replaced with the two
+   custom .audio-value-step buttons below - the native ones didn't
+   reliably pick up this dark theme either, but simply removing them
+   silently lost the up/down-clicking feature itself, caught immediately
+   and rebuilt as custom buttons instead of left gone. */
+.audio-value-input-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-self: end;
+}
+
 .audio-value-input {
-  width: 52px;
+  width: 44px;
+  padding-right: 14px;
   font-size: 13px;
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -10356,8 +10366,9 @@ html.ui-theme-old #settings-panel h2 {
   background: rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(227, 166, 60, 0.6);
   border-radius: 4px;
-  padding: 2px 4px;
-  justify-self: end;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  padding-left: 4px;
   outline: none;
   -moz-appearance: textfield;
 }
@@ -10370,6 +10381,43 @@ html.ui-theme-old #settings-panel h2 {
 .audio-value-input::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
+}
+
+.audio-value-step {
+  position: absolute;
+  right: 3px;
+  width: 11px;
+  height: 9px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: rgba(227, 166, 60, 0.75);
+  font-size: 7px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.audio-value-step:hover {
+  color: #e3c23c;
+}
+
+.audio-value-step-up {
+  top: 1px;
+}
+
+.audio-value-step-down {
+  bottom: 1px;
+}
+
+.audio-value-step-up::before {
+  content: '\25B2';
+}
+
+.audio-value-step-down::before {
+  content: '\25BC';
 }
 
 #settings-hint {

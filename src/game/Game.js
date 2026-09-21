@@ -9364,14 +9364,39 @@ export class Game {
       valueEl.dataset.editing = '1'
       const min = Number(sliderEl.min)
       const max = Number(sliderEl.max)
+      const step = Number(sliderEl.step) || 1
       const current = Number(sliderEl.value)
+
+      // Custom up/down buttons instead of the native <input type="number">
+      // spinner (removed via -webkit-appearance: none on the spin-button
+      // pseudo-elements below) - that native spinner's own chrome doesn't
+      // reliably respect this input's custom dark background/border
+      // across browsers, but the up/down clicking itself was a real,
+      // wanted feature (flagged the moment it silently disappeared with
+      // the spinner during a styling pass, 2026-09-21) - rebuilt as two
+      // plain buttons so both the dark theme and the clickable steppers
+      // hold regardless of platform.
+      const wrap = document.createElement('span')
+      wrap.className = 'audio-value-input-wrap'
       const input = document.createElement('input')
       input.type = 'number'
       input.min = min
       input.max = max
+      input.step = step
       input.value = current
       input.className = 'audio-value-input'
-      valueEl.replaceWith(input)
+      const stepUp = document.createElement('button')
+      stepUp.type = 'button'
+      stepUp.className = 'audio-value-step audio-value-step-up'
+      stepUp.tabIndex = -1
+      stepUp.setAttribute('aria-label', 'Increase')
+      const stepDown = document.createElement('button')
+      stepDown.type = 'button'
+      stepDown.className = 'audio-value-step audio-value-step-down'
+      stepDown.tabIndex = -1
+      stepDown.setAttribute('aria-label', 'Decrease')
+      wrap.append(input, stepUp, stepDown)
+      valueEl.replaceWith(wrap)
       input.focus()
       input.select()
 
@@ -9382,13 +9407,26 @@ export class Game {
         if (commit) {
           let v = Number(input.value)
           if (Number.isNaN(v)) v = current
-          v = Math.max(min, Math.min(max, Math.round(v)))
+          v = Math.max(min, Math.min(max, Math.round(v / step) * step))
           sliderEl.value = v
           sliderEl.dispatchEvent(new Event('input'))
         }
         delete valueEl.dataset.editing
-        input.replaceWith(valueEl)
+        wrap.replaceWith(valueEl)
       }
+      // mousedown preventDefault keeps focus on the <input> (a plain
+      // click would otherwise blur it first, firing finish(true) before
+      // the step buttons' own click handler ever runs).
+      const nudge = (dir) => {
+        let v = Number(input.value)
+        if (Number.isNaN(v)) v = current
+        input.value = Math.max(min, Math.min(max, v + dir * step))
+      }
+      stepUp.addEventListener('mousedown', (e) => e.preventDefault())
+      stepDown.addEventListener('mousedown', (e) => e.preventDefault())
+      stepUp.addEventListener('click', () => nudge(1))
+      stepDown.addEventListener('click', () => nudge(-1))
+
       input.addEventListener('keydown', (e) => {
         if (e.code === 'Enter') { e.preventDefault(); finish(true) }
         else if (e.code === 'Escape') { e.preventDefault(); finish(false) }
