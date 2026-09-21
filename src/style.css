@@ -4353,12 +4353,27 @@ section.category.hidden-search {
   gap: 14px;
 }
 
+/* Brighter than the shared .mini-action-btn default (dim gold-on-faint
+   background, easy to lose against the modal's own dark background -
+   real screenshot report) and tinted per-tier via the same
+   --crate-tier-color custom property #crate-purchase-box already sets
+   inline per tier, so wood/ice/golden/monthly each get their own
+   accent automatically. */
 #crate-purchase-qty-minus,
 #crate-purchase-qty-plus {
   width: 32px;
   height: 32px;
   font-size: 16px;
   font-weight: 700;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: color-mix(in srgb, var(--crate-tier-color, #e3c23c) 70%, transparent);
+}
+
+#crate-purchase-qty-minus:hover,
+#crate-purchase-qty-plus:hover {
+  background: color-mix(in srgb, var(--crate-tier-color, #e3c23c) 25%, transparent);
+  border-color: var(--crate-tier-color, #e3c23c);
 }
 
 #crate-purchase-qty-minus:disabled,
@@ -4368,29 +4383,28 @@ section.category.hidden-search {
 }
 
 /* A real <input type="number"> now (was a plain <span>) - typing an
-   exact quantity directly, not just +/- one at a time. Stripped back
-   to look the same as the old span (no visible box/border) with just
-   a subtle bottom line + hover/focus highlight as the only hint it's
-   actually editable, and the browser's default spinner arrows removed
-   since the +/- buttons already do that job. */
+   exact quantity directly, not just +/- one at a time. Was just a bare
+   bottom line with no real box; now a proper tier-themed box (same
+   --crate-tier-color as the +/- buttons and the rest of this modal)
+   instead of plain white-on-nothing. */
 #crate-purchase-qty-value {
   width: 44px;
-  padding: 2px 0;
+  padding: 4px 0;
   text-align: center;
   font: inherit;
   font-size: 18px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: #fff;
-  background: none;
-  border: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1.5px solid color-mix(in srgb, var(--crate-tier-color, #e3c23c) 55%, transparent);
+  border-radius: 6px;
   cursor: text;
 }
 
 #crate-purchase-qty-value:hover,
 #crate-purchase-qty-value:focus {
-  border-bottom-color: var(--crate-tier-color, #e3c23c);
+  border-color: var(--crate-tier-color, #e3c23c);
   outline: none;
 }
 

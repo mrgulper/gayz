@@ -5927,6 +5927,7 @@ export class Game {
     this.quitConfirmCancelBtn = document.getElementById('quit-confirm-cancel-btn')
     this.quitConfirmExitBtn = document.getElementById('quit-confirm-exit-btn')
     this.pauseUpgradesBtn = document.getElementById('pause-upgrades-btn')
+    this.pauseStoreBtn = document.getElementById('pause-store-btn')
     this.pauseSpectateBtn = document.getElementById('pause-spectate-btn')
     this.pauseWeaponBtn = document.getElementById('pause-weapon-btn')
     this.screenshotCropOverlay = document.getElementById('screenshot-crop-overlay')
@@ -6843,6 +6844,7 @@ export class Game {
       })
     }
     this.pauseUpgradesBtn.addEventListener('click', () => this._openUpgradesPanel())
+    if (this.pauseStoreBtn) this.pauseStoreBtn.addEventListener('click', () => this._openShopPanel())
     this.pauseSpectateBtn.addEventListener('click', () => {
       this.pauseOverlay.style.display = 'none'
       this._enterSpectate()
@@ -7012,6 +7014,7 @@ export class Game {
       this.pauseOverlayTitle.textContent = t('pauseOverlayTitle')
       this.pauseResumeBtn.textContent = t('pauseResumeBtn')
       this.pauseUpgradesBtn.textContent = t('upgradesBtn')
+      if (this.pauseStoreBtn) this.pauseStoreBtn.textContent = t('coinshopBtn')
       this.pauseSpectateBtn.textContent = t('pauseSpectateBtn')
       this.pauseWeaponBtn.textContent = t('pauseWeaponBtn')
       this.pauseSettingsBtn.textContent = t('settingsBtn')
@@ -7820,6 +7823,12 @@ export class Game {
         // you kept pressing it (reported as "the Upgrades thing is on my
         // screen" after Escape, Upgrades, Escape).
         this._closeUpgradesPanel()
+      } else if (e.code === 'Escape' && this.shopPanel && this.shopPanel.style.display !== 'none') {
+        // Same "reachable from the pause overlay now, needs its own
+        // Escape-to-close" fix as Upgrades right above - Store wasn't
+        // reachable mid-run at all until pauseStoreBtn was added, so this
+        // gap was never hit before.
+        this._closeShopPanel()
       } else if (e.code === 'Escape' && this.settingsOpen) {
         this._toggleSettings(false)
       } else if (e.code === 'Escape' && this.multiplayerPanel && this.multiplayerPanel.style.display !== 'none') {
@@ -19131,6 +19140,13 @@ export class Game {
 
   _openShopPanel() {
     this._closeAllMenuPanels()
+    // Opened from the pause overlay (still on screen, unlocked) as well as
+    // the main menu now that crates are buyable mid-run - hide it
+    // explicitly rather than relying on DOM/paint order, same reasoning
+    // (and fix) as _openUpgradesPanel's own comment: #pause-overlay comes
+    // after #shop-panel in index.html and would otherwise render on top
+    // and eat every click meant for a crate underneath it.
+    this.pauseOverlay.style.display = 'none'
     this.shopPanel.style.display = 'flex'
     this.shopPanelTitle.textContent = t('shopPanelTitle')
     if (this.shopSkinCanvas) {
@@ -19185,6 +19201,7 @@ export class Game {
   _closeShopPanel() {
     this.shopPanel.style.display = 'none'
     if (this._shopSkinAvatar3D) this._shopSkinAvatar3D.stop()
+    if (this.gameStarted) this.pauseOverlay.style.display = 'flex'
   }
 
   // What's New panel - split out from Credits (used to be one combined
