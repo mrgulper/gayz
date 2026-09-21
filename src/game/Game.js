@@ -9416,20 +9416,18 @@ export class Game {
     // i18n.js (see that file's own standing rule - a one-time catch-up
     // already covered every key), but that hasn't been enough for a
     // "supported" bar yet, so every other language is flagged as coming
-    // soon here rather than silently implying it's equally ready. Fixed
-    // English text, not run through t() - this list's other text
-    // (lang.name/lang.native) is likewise always shown the same way
-    // regardless of the currently active UI language, so a player mid-way
-    // through picking a language isn't shown this label itself in a
-    // language they don't read yet.
+    // soon here rather than silently implying it's equally ready.
     const LANG_CODES_DONE = new Set(['en', 'zh', 'hi', 'es'])
-    this.languageGrid.innerHTML = LANGUAGES.map((lang) => `
-      <button class="language-btn${lang.code === this.settings.language ? ' active' : ''}" data-lang="${lang.code}">
-        <span class="lang-name">${lang.name}</span>
-        <span class="lang-native">${lang.native}</span>
-        ${LANG_CODES_DONE.has(lang.code) ? '' : '<span class="lang-coming-soon">Coming soon</span>'}
-      </button>
-    `).join('')
+    this._renderLanguageGrid = () => {
+      this.languageGrid.innerHTML = LANGUAGES.map((lang) => `
+        <button class="language-btn${lang.code === this.settings.language ? ' active' : ''}" data-lang="${lang.code}">
+          <span class="lang-name">${t(lang.nameKey)}</span>
+          <span class="lang-native">${lang.native}</span>
+          ${LANG_CODES_DONE.has(lang.code) ? '' : `<span class="lang-coming-soon">${t('languageComingSoonTag')}</span>`}
+        </button>
+      `).join('')
+    }
+    this._renderLanguageGrid()
 
     this.languageGrid.addEventListener('click', (e) => {
       const btn = e.target.closest('.language-btn')
@@ -9461,9 +9459,6 @@ export class Game {
       setLanguage(this.settings.language)
       this._applyLanguage()
       saveSettings(this.settings)
-      for (const el of this.languageGrid.querySelectorAll('.language-btn')) {
-        el.classList.toggle('active', el === btn)
-      }
     })
 
     for (const tab of document.querySelectorAll('.settings-tab')) {
@@ -15506,6 +15501,12 @@ export class Game {
         if (key) opt.textContent = t(key)
       }
     }
+    // Settings > Language grid's own labels (LANGUAGES[].nameKey/the
+    // "Coming soon" tag) - rebuilds the whole grid rather than patching
+    // individual .lang-name spans, which also keeps the active-state
+    // highlight correct without a separate classList loop at the call
+    // site (see _bindSettings, where this is first defined).
+    this._renderLanguageGrid?.()
     document.querySelectorAll('.panel-close-hint').forEach((el) => {
       if (el.id === 'touch-more-actions-hint') return
       el.textContent = t('panelGenericCloseHint')

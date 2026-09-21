@@ -5,23 +5,31 @@
 // stay in Latin script across every language, matching how most localized
 // games present keybinds.
 
+// nameKey points at a languageName* string (see each language's own
+// STRINGS block below) - the Settings > Language grid's bold label reads
+// through t(nameKey) instead of the plain `name` field below, so the
+// whole list re-labels into whichever language is currently active
+// (native already did this on its own, being the language's own
+// self-name in its own script either way - see Game.js's _bindSettings).
+// `name` itself stays as a plain English fallback/reference label, not
+// rendered directly anywhere anymore.
 export const LANGUAGES = [
-  { code: 'en', name: 'English', native: 'English' },
-  { code: 'zh', name: 'Mandarin Chinese', native: '中文' },
-  { code: 'hi', name: 'Hindi', native: 'हिन्दी' },
-  { code: 'es', name: 'Spanish', native: 'Español' },
-  { code: 'fr', name: 'French', native: 'Français' },
-  { code: 'ru', name: 'Russian', native: 'Русский' },
-  { code: 'id', name: 'Indonesian', native: 'Bahasa Indonesia' },
-  { code: 'de', name: 'German', native: 'Deutsch' },
-  { code: 'ja', name: 'Japanese', native: '日本語' },
-  { code: 'vi', name: 'Vietnamese', native: 'Tiếng Việt' },
+  { code: 'en', name: 'English', native: 'English', nameKey: 'languageNameEn' },
+  { code: 'zh', name: 'Mandarin Chinese', native: '中文', nameKey: 'languageNameZh' },
+  { code: 'hi', name: 'Hindi', native: 'हिन्दी', nameKey: 'languageNameHi' },
+  { code: 'es', name: 'Spanish', native: 'Español', nameKey: 'languageNameEs' },
+  { code: 'fr', name: 'French', native: 'Français', nameKey: 'languageNameFr' },
+  { code: 'ru', name: 'Russian', native: 'Русский', nameKey: 'languageNameRu' },
+  { code: 'id', name: 'Indonesian', native: 'Bahasa Indonesia', nameKey: 'languageNameId' },
+  { code: 'de', name: 'German', native: 'Deutsch', nameKey: 'languageNameDe' },
+  { code: 'ja', name: 'Japanese', native: '日本語', nameKey: 'languageNameJa' },
+  { code: 'vi', name: 'Vietnamese', native: 'Tiếng Việt', nameKey: 'languageNameVi' },
   // Names added 2026-09-13 at Gaymi's request - neither has a STRINGS
   // block yet (falls back to English everywhere, same as any other
   // language would with zero keys), added when someone actually
   // translates them.
-  { code: 'it', name: 'Italian', native: 'Italiano' },
-  { code: 'pt-BR', name: 'Brazilian Portuguese', native: 'Português (Brasil)' },
+  { code: 'it', name: 'Italian', native: 'Italiano', nameKey: 'languageNameIt' },
+  { code: 'pt-BR', name: 'Brazilian Portuguese', native: 'Português (Brasil)', nameKey: 'languageNamePtBr' },
 ]
 
 const STRINGS = {
@@ -30,6 +38,25 @@ const STRINGS = {
     menuSubtitle: 'Broken city block.\nScavenge supplies. Survive the infected.\nEscape before dawn.',
     menuSubhint: 'Look for lookout platforms up staircases along the avenue — chests inside',
     languageMissingHint: "Don't see your language? Join the {discord} and tell us your language.",
+    // Settings > Language grid's bold label per row (LANGUAGES[].name in
+    // Game.js) - translated so the whole list re-labels into whichever
+    // language is currently active, not just the native-script subtitle
+    // (LANGUAGES[].native, e.g. "中文") which already did this. Covers
+    // every language in LANGUAGES, including the "Coming soon" ones, so
+    // the list stays fully readable in your own language either way.
+    languageNameEn: 'English',
+    languageNameZh: 'Mandarin Chinese',
+    languageNameHi: 'Hindi',
+    languageNameEs: 'Spanish',
+    languageNameFr: 'French',
+    languageNameRu: 'Russian',
+    languageNameId: 'Indonesian',
+    languageNameDe: 'German',
+    languageNameJa: 'Japanese',
+    languageNameVi: 'Vietnamese',
+    languageNameIt: 'Italian',
+    languageNamePtBr: 'Brazilian Portuguese',
+    languageComingSoonTag: 'Coming soon',
     // Main-menu news ticker (see _updateMenuNewsTicker) - tied to
     // bestStats.bestNight (already persisted, no new tracking needed), so
     // the framing implies the world is worsening the further you've ever
@@ -2069,7 +2096,12 @@ const STRINGS = {
     yourStatsTitle: 'Your Stats',
   },
   zh: {
-    menuSubtitle: '破败的街区——生存、搜寻、射击',
+    // Was a condensed 1-line translation - its height didn't match
+    // English's real 3-line version, so switching language changed how
+    // tall this element was and shifted the whole homepage layout below
+    // it (2026-09-21). Rewritten as a faithful 3-line translation
+    // matching English's actual sentence structure/line breaks instead.
+    menuSubtitle: '破碎的城市街区。\n搜寻补给。在感染者中生存。\n于黎明前逃脱。',
     menuSubhint: '沿着大道的楼梯寻找瞭望台——箱子就在里面',
     playBtn: '点击开始游戏',
     settingsBtn: '设置',
@@ -2186,6 +2218,19 @@ const STRINGS = {
     termsBtn: '使用条款',
     menuTagline: '生存。搜寻。发现真相。',
     languageMissingHint: '没有找到你的语言？加入 {discord} 告诉我们你需要哪种语言。',
+    languageNameEn: '英语',
+    languageNameZh: '中文',
+    languageNameHi: '印地语',
+    languageNameEs: '西班牙语',
+    languageNameFr: '法语',
+    languageNameRu: '俄语',
+    languageNameId: '印度尼西亚语',
+    languageNameDe: '德语',
+    languageNameJa: '日语',
+    languageNameVi: '越南语',
+    languageNameIt: '意大利语',
+    languageNamePtBr: '巴西葡萄牙语',
+    languageComingSoonTag: '即将推出',
     gamemodeBtn: '游戏模式',
     newsTickerEarly: '快讯:市政当局呼吁民众保持冷静,隔离警戒线在最初几夜仍未失守。',
     newsTickerMid: '报告:隔离警戒线已在多个城区被突破,紧急广播时断时续。',
@@ -4022,7 +4067,9 @@ const STRINGS = {
     yourStatsTitle: '你的数据',
   },
   hi: {
-    menuSubtitle: 'टूटा हुआ शहरी इलाका — बचें, सामान खोजें, गोली चलाएँ',
+    // Was a condensed 1-line translation - see zh's own comment on this
+    // same key for why it was rewritten to match English's 3 lines.
+    menuSubtitle: 'टूटा-फूटा शहरी इलाका।\nसामान खोजें। संक्रमितों से बचें।\nसुबह होने से पहले भाग निकलें।',
     menuSubhint: 'सड़क के किनारे सीढ़ियों वाले वॉचटावर देखें — अंदर संदूक हैं',
     playBtn: 'खेलने के लिए क्लिक करें',
     settingsBtn: 'सेटिंग्स',
@@ -4139,6 +4186,19 @@ const STRINGS = {
     termsBtn: 'उपयोग की शर्तें',
     menuTagline: 'जीवित रहो। खोजो। सच्चाई का पता लगाओ।',
     languageMissingHint: 'अपनी भाषा नहीं दिख रही? {discord} से जुड़ें और हमें अपनी भाषा बताएं।',
+    languageNameEn: 'अंग्रेज़ी',
+    languageNameZh: 'मैंडरिन चीनी',
+    languageNameHi: 'हिन्दी',
+    languageNameEs: 'स्पेनिश',
+    languageNameFr: 'फ़्रेंच',
+    languageNameRu: 'रूसी',
+    languageNameId: 'इंडोनेशियाई',
+    languageNameDe: 'जर्मन',
+    languageNameJa: 'जापानी',
+    languageNameVi: 'वियतनामी',
+    languageNameIt: 'इतालवी',
+    languageNamePtBr: 'ब्राज़ीलियाई पुर्तगाली',
+    languageComingSoonTag: 'जल्द आ रहा है',
     gamemodeBtn: 'गेम मोड',
     newsTickerEarly: 'ब्रेकिंग: शहर प्रशासन ने शांति बनाए रखने की अपील की, क्वारंटीन सीमा पहली कुछ रातों तक टिकी रही।',
     newsTickerMid: 'रिपोर्ट: क्वारंटीन सीमा कई इलाकों में टूट चुकी है। आपातकालीन प्रसारण रुक-रुक कर आ रहे हैं।',
@@ -5975,7 +6035,9 @@ const STRINGS = {
     yourStatsTitle: 'आपके आँकड़े',
   },
   es: {
-    menuSubtitle: 'Manzana urbana destruida — sobrevive, saquea, dispara',
+    // Was a condensed 1-line translation - see zh's own comment on this
+    // same key for why it was rewritten to match English's 3 lines.
+    menuSubtitle: 'Manzana urbana en ruinas.\nBusca suministros. Sobrevive a los infectados.\nEscapa antes del amanecer.',
     menuSubhint: 'Busca las plataformas de vigía subiendo las escaleras de la avenida: hay cofres dentro',
     playBtn: 'Haz clic para jugar',
     settingsBtn: 'Ajustes',
@@ -7588,6 +7650,19 @@ const STRINGS = {
     termsBtn: 'Términos de Uso',
     menuTagline: 'Sobrevive. Saquea. Descubre la verdad.',
     languageMissingHint: '¿No ves tu idioma? Únete al {discord} y cuéntanos tu idioma.',
+    languageNameEn: 'Inglés',
+    languageNameZh: 'Chino mandarín',
+    languageNameHi: 'Hindi',
+    languageNameEs: 'Español',
+    languageNameFr: 'Francés',
+    languageNameRu: 'Ruso',
+    languageNameId: 'Indonesio',
+    languageNameDe: 'Alemán',
+    languageNameJa: 'Japonés',
+    languageNameVi: 'Vietnamita',
+    languageNameIt: 'Italiano',
+    languageNamePtBr: 'Portugués brasileño',
+    languageComingSoonTag: 'Próximamente',
     skipToPlayLink: 'Saltar al botón de Jugar',
     buildMenuHint: 'Pulsa Escape para cerrar',
     buildModeMirrorBtn: 'Espejo',
