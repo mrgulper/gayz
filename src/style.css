@@ -4849,6 +4849,17 @@ html.ui-theme-old #quit-confirm-title {
   margin-top: -8px;
 }
 
+/* #upgrades-points-line is the first child of .upgrades-tab-page, which
+   scrolls (overflow-y: auto) and already spaces its children with its own
+   gap:14px - unlike #perk-points-line/#trader-points-line (simple
+   non-scrolling panels, where -8px just tightens against the heading
+   above), the negative margin here pulled "Legacy Points: N" up above
+   the scroll area's own top edge, clipping it - not scrollable back into
+   view since that's already scroll position 0 (2026-09-21). */
+#upgrades-points-line {
+  margin-top: 0;
+}
+
 #trader-mood-line {
   font-size: 12px;
   font-style: italic;
@@ -9867,6 +9878,16 @@ html.ui-theme-old #settings-panel h2 {
    hand-summed from each element's padding/margin (font line-height
    isn't reliably hand-computable - see .general-tab-page's own note on
    this same point). */
+/* Was left-aligned (a <button>'s native display:inline-block sits at the
+   flow's natural left edge, and nothing here overrides that) - centered
+   under the scroll area to match the rest of the panel's centered layout
+   (2026-09-21). */
+#print-achievements-btn {
+  display: block;
+  width: fit-content;
+  margin: 12px auto 0;
+}
+
 .achievements-scroll-area {
   width: 100%;
   overflow-y: auto;
