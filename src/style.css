@@ -2869,7 +2869,12 @@ html.third-person-active #companion-bark {
    the stat rows (too big), 640px was closer but asked to go a bit
    wider still. */
 #other-profile-panel .panel-box {
-  width: min(720px, 92vw);
+  /* Widened from 720px (2026-09-22) - the panel picked up a lot more
+     content that same day (Bio/Motto/Longest Survival/Total Kills/Runs
+     Played/Favorite Class/Last Run/Today/Favorite Difficulty/Best Run/
+     Created, see _renderOtherProfilePublicFields), so the old width
+     read as cramped/tall for what's now shown. */
+  width: min(860px, 92vw);
   min-height: 580px;
 }
 

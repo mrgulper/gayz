@@ -15692,6 +15692,9 @@ export class Game {
         if (!link) return
         const id = link.dataset.lookupId
         if (!id) return
+        // Same fix as the in-game HUD chat's own identical handler -
+        // copy + show the "Copied" badge on top of opening the profile.
+        this._copyChatPlayerId(id, link, (msg) => this._showHomepageToast(msg))
         this._openOtherPlayerProfileById(id)
       })
     }
@@ -23039,6 +23042,12 @@ export class Game {
       if (!link) return
       const id = link.dataset.lookupId
       if (!id) return
+      // Copies + shows the same "Copied" badge the nickname click above
+      // does, on top of (not instead of) opening the profile popup - this
+      // used to only open the profile, silently dropping the copy/badge
+      // feedback a pasted-ID tag click used to give (real regression,
+      // caught 2026-09-22).
+      this._copyChatPlayerId(id, link, (msg) => this._showLoreToast(msg))
       this._openOtherPlayerProfileById(id)
     })
   }
