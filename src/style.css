@@ -2999,7 +2999,11 @@ html.third-person-active #companion-bark {
 
 #build-version-line {
   margin: 0 0 4px;
-  font-size: 13px;
+  /* Matches .changelog-date's size at the time this was set (21.6px) -
+     not linked/computed from it, so if that value changes again this
+     needs a matching manual update to stay in sync (explicit request:
+     "make the changelog [heading] to how big the date is right now"). */
+  font-size: 21.6px;
   font-weight: 600;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -3029,7 +3033,7 @@ html.third-person-active #companion-bark {
   opacity: 0.8;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  font-size: 21.6px;
+  font-size: 17.28px;
 }
 
 .changelog-text {

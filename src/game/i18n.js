@@ -1237,7 +1237,7 @@ const STRINGS = {
     multiplayerBecameHost: "The host disconnected - you're now hosting the world.",
     multiplayerDemoted: 'Reconnected - another player took over hosting while you were away.',
     navLinkWhatsNew: 'What\'s New',
-    buildVersionLine: 'Change Logs',
+    buildVersionLine: 'Changelogs',
     menuAriaSummary: 'Best night reached: {night}. Total kills: {kills}. Coins: {coins}.',
     rankRoadmapHeading: 'Rank Roadmap',
     rankRoadmapThreshold: '{n} lifetime kills',
