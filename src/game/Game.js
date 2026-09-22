@@ -15647,8 +15647,23 @@ export class Game {
       // Left-click a name to copy their Player ID directly; right-click
       // shows the shared "Name #ID" + Mute popup (see _showPlayerIdPopup) -
       // same technique as the in-game HUD chat's identical feature.
-      const lookupEntry = async (nickname) => {
+      //
+      // Looks up by uid (the message's own stored sender uid, see
+      // sendGlobalChatMessage - a direct leaderboard/{uid} doc GET) when
+      // available, falling back to the old by-name query only if it isn't
+      // (very old cached messages sent before this field existed). Real
+      // bug fixed here (2026-09-22): nickname isn't a stable key - it's
+      // just whatever the sender's CURRENT nickname happens to be, so a
+      // message sent under an older nickname (or with a name that doesn't
+      // exactly match, case/whitespace included) silently failed this
+      // lookup and showed the "not found" toast instead of ever copying/
+      // showing the Copied badge. uid never changes, so this can't drift.
+      const lookupEntry = async (nickname, uid) => {
         try {
+          if (uid) {
+            const byUid = await CloudSync.fetchLeaderboardEntryByUid(uid)
+            if (byUid) return byUid
+          }
           return await CloudSync.fetchLeaderboardEntryByName(nickname)
         } catch {
           // Falls through to the "not found" toast below, same as every
@@ -15659,7 +15674,7 @@ export class Game {
       const openPopupForNickname = async (e, btn) => {
         const nickname = btn.dataset.nickname
         if (!nickname) return
-        const entry = await lookupEntry(nickname)
+        const entry = await lookupEntry(nickname, btn.dataset.uid)
         if (!entry || !entry.playerId) {
           this._showHomepageToast(t('chatCopyPlayerIdNotFound', { name: nickname }))
           return
@@ -15680,7 +15695,7 @@ export class Game {
         if (nameBtn) {
           const nickname = nameBtn.dataset.nickname
           if (!nickname) return
-          const entry = await lookupEntry(nickname)
+          const entry = await lookupEntry(nickname, nameBtn.dataset.uid)
           if (!entry || !entry.playerId) {
             this._showHomepageToast(t('chatCopyPlayerIdNotFound', { name: nickname }))
             return
@@ -15850,7 +15865,7 @@ export class Game {
     // Always linkify here (unlike the in-game HUD chat's channel-gated
     // version) - this panel IS the global channel, always, no tabs to
     // gate on (see _bindServerChat's own comment).
-    this.serverChatMessages.innerHTML = visible.map((m) => `<div class="chat-message-row"><button type="button" class="chat-message-nickname" data-nickname="${_escapeHtml(m.nickname)}">${_escapeHtml(m.nickname)}:</button><span class="chat-message-text">${this._renderChatMessageText(m.text, true)}</span></div>`).join('')
+    this.serverChatMessages.innerHTML = visible.map((m) => `<div class="chat-message-row"><button type="button" class="chat-message-nickname" data-nickname="${_escapeHtml(m.nickname)}" data-uid="${m.uid || ''}">${_escapeHtml(m.nickname)}:</button><span class="chat-message-text">${this._renderChatMessageText(m.text, true)}</span></div>`).join('')
     this.serverChatMessages.scrollTop = this.serverChatMessages.scrollHeight
   }
 
@@ -22824,7 +22839,7 @@ export class Game {
     // chat wasn't asked for yet. _renderChatMessageText no-ops back to
     // plain escaped text outside 'global', same as it always rendered.
     const linkifyIds = this._chatChannel === 'global'
-    this.chatMessages.innerHTML = visible.map((m) => `<div class="chat-message-row"><button type="button" class="chat-message-nickname" data-nickname="${_escapeHtml(m.nickname)}">${_escapeHtml(m.nickname)}:</button><span class="chat-message-text">${this._renderChatMessageText(m.text, linkifyIds)}</span></div>`).join('')
+    this.chatMessages.innerHTML = visible.map((m) => `<div class="chat-message-row"><button type="button" class="chat-message-nickname" data-nickname="${_escapeHtml(m.nickname)}" data-uid="${m.uid || ''}">${_escapeHtml(m.nickname)}:</button><span class="chat-message-text">${this._renderChatMessageText(m.text, linkifyIds)}</span></div>`).join('')
     this.chatMessages.scrollTop = this.chatMessages.scrollHeight
   }
 
@@ -22996,8 +23011,15 @@ export class Game {
   // _renderChatMessageText) to look up that player's stats.
   _bindChatContextActions() {
     if (!this.chatMessages) return
-    const lookupEntry = async (nickname) => {
+    // Same uid-first lookup fix as the Global chat panel's identical
+    // handler (see its own comment) - a name-only lookup silently failed
+    // whenever the sender's nickname had since changed.
+    const lookupEntry = async (nickname, uid) => {
       try {
+        if (uid) {
+          const byUid = await CloudSync.fetchLeaderboardEntryByUid(uid)
+          if (byUid) return byUid
+        }
         return await CloudSync.fetchLeaderboardEntryByName(nickname)
       } catch {
         // Falls through to the "not found" toast below, same as every
@@ -23008,7 +23030,7 @@ export class Game {
     const openPopupForNickname = async (e, btn) => {
       const nickname = btn.dataset.nickname
       if (!nickname) return
-      const entry = await lookupEntry(nickname)
+      const entry = await lookupEntry(nickname, btn.dataset.uid)
       if (!entry || !entry.playerId) {
         this._showLoreToast(t('chatCopyPlayerIdNotFound', { name: nickname }))
         return
@@ -23027,7 +23049,7 @@ export class Game {
       if (nameBtn) {
         const nickname = nameBtn.dataset.nickname
         if (!nickname) return
-        const entry = await lookupEntry(nickname)
+        const entry = await lookupEntry(nickname, nameBtn.dataset.uid)
         if (!entry || !entry.playerId) {
           this._showLoreToast(t('chatCopyPlayerIdNotFound', { name: nickname }))
           return
