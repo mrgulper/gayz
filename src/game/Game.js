@@ -12962,7 +12962,14 @@ export class Game {
       }
     }
     if (this.careerStats.firstPlayedDate) entry.firstPlayedDate = this.careerStats.firstPlayedDate
-    entry.accountCreatedAt = _safeStatNumber(this.careerStats.accountCreatedAt)
+    // Same source/priority _renderProfileCreated uses for the OWN profile's
+    // "Created" line - was wrongly hardcoded to careerStats.accountCreatedAt
+    // (this device's own first-launch timestamp) here, while the owner's own
+    // view prefers the signed-in Google account's real creation date. Real
+    // bug (2026-09-22): another player's looked-up profile showed a wildly
+    // different "Created X ago" than the owner's own Profile panel did for
+    // the exact same account.
+    entry.accountCreatedAt = _safeStatNumber((this._cloudProfile && this._cloudProfile.accountCreatedAt) || this.careerStats.accountCreatedAt)
     // "Today" is deliberately session-local/never-persisted everywhere
     // else in this codebase (see _renderTodayLine's own comment) - synced
     // here anyway per explicit request despite that, so it WILL read
