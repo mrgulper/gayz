@@ -3006,11 +3006,17 @@ html.third-person-active #companion-bark {
   color: #e3c23c;
 }
 
+/* Stacked layout (version+date on its own line, description below) -
+   changed from a side-by-side row per explicit request (2026-09-22),
+   same day versioning shipped. Base size bumped 20% (12px -> 14.4px,
+   inherited by both children); .changelog-date is set 50% bigger than
+   that base text on top of that, not 50% bigger than the OLD 12px. */
 .changelog-entry {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 2px;
   padding: 4px 0;
-  font-size: 12px;
+  font-size: 14.4px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
@@ -3019,11 +3025,11 @@ html.third-person-active #companion-bark {
 }
 
 .changelog-date {
-  flex: 0 0 auto;
   color: #e3c23c;
   opacity: 0.8;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  font-size: 21.6px;
 }
 
 .changelog-text {
