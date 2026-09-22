@@ -10673,7 +10673,20 @@ export class Game {
       // strips emoji/other unicode a player might paste in.
       const filtered = this.nicknameInput.value.replace(/[^\x20-\x7E]/g, '')
       if (filtered !== this.nicknameInput.value) this.nicknameInput.value = filtered
-      this.settings.nickname = this.nicknameInput.value
+      // .trim() only on the SAVED value, not the input box itself - a
+      // trailing space while still mid-typing is harmless and shouldn't
+      // be yanked out from under the cursor, but a leading/trailing
+      // space that makes it into settings.nickname (what actually gets
+      // synced/displayed/used for chat lookups elsewhere) is a real,
+      // silent footgun - caught 2026-09-22 live-debugging a "can't
+      // copy/block a friend in chat" report: their chat nickname
+      // rendered as "Tazbot " (trailing space, from not having this
+      // trim), which would break the by-NAME lookup fallback specifically
+      // if it's ever reached. Not confirmed as the actual cause of that
+      // report (their by-UID lookup failing first is equally explained by
+      // them not having completed a run yet - no leaderboard doc to find
+      // by either key) but worth fixing regardless, on its own merits.
+      this.settings.nickname = this.nicknameInput.value.trim()
       saveSettings(this.settings)
       this._updateCompanionName()
       this._renderPlayerTag()
@@ -15434,7 +15447,9 @@ export class Game {
   // preview) as the real saved nickname, then closes the editor row.
   _confirmNicknameEdit() {
     if (!this.nicknameRow || !this.nicknameInput) return
-    this.settings.nickname = this.nicknameInput.value
+    // .trim() - see the live 'input' listener's own comment on this same
+    // fix, right below #nickname-input's other binding.
+    this.settings.nickname = this.nicknameInput.value.trim()
     saveSettings(this.settings)
     this._renderPlayerTag()
     this.nicknameRow.style.display = 'none'
