@@ -4132,12 +4132,16 @@ section.category.hidden-search {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
-/* Inventory > Crates' "how many do I own, unopened" badge - top-left
-   corner (Monthly Chest's Shop-only .crate-coming-soon-tag already owns
-   top-right, and the two never appear on the same card since Monthly
-   has no stock concept). Hidden entirely at x0 (see _renderCrateTiers)
-   rather than shown grayed-out, so an empty Inventory reads as clean
-   Wood/Ice/Golden cards, same as before this feature existed. */
+/* Inventory > Crates' "how many do I own, unopened" badge - top-right
+   corner now (moved from top-left at Gaymi's request, see this rule's
+   own history), overlapping the card's edge (negative top/right) and
+   tilted like a stamp for a more "game reward badge" look, rather than
+   sitting flush inside the border. Never coexists with the Shop-only
+   .crate-coming-soon-tag (Monthly Chest, also top-right) - different
+   cards, see that tag's own comment. Hidden entirely at x0 (see
+   _renderCrateTiers) rather than shown grayed-out, so an empty
+   Inventory reads as clean Wood/Ice/Golden cards, same as before this
+   feature existed. */
 /* Star drawn as a ::before background behind the number rather than
    clip-path on the badge itself - a 5-point star's concave points would
    slice through digit text if the whole badge were clipped, especially
@@ -4145,8 +4149,8 @@ section.category.hidden-search {
    the number always paints fully on top, unclipped, at any width. */
 .crate-stock-count {
   position: absolute;
-  top: 4px;
-  left: 4px;
+  top: -8px;
+  right: -8px;
   z-index: 1;
   display: flex;
   align-items: center;
@@ -4159,6 +4163,7 @@ section.category.hidden-search {
   letter-spacing: 0.2px;
   color: #241804;
   text-shadow: none;
+  transform: rotate(18deg);
 }
 
 .crate-stock-count::before {
