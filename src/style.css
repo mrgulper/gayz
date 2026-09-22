@@ -4167,7 +4167,7 @@ section.category.hidden-search {
   letter-spacing: 0.2px;
   color: #241804;
   text-shadow: none;
-  transform: rotate(18deg);
+  transform: rotate(30deg);
 }
 
 .crate-stock-count::before {
