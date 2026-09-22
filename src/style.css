@@ -4149,16 +4149,21 @@ section.category.hidden-search {
    the number always paints fully on top, unclipped, at any width. */
 .crate-stock-count {
   position: absolute;
-  top: -16px;
-  right: -16px;
+  /* top/right = -half the box's own size, so the star's center (the
+     rotation's pivot point, unaffected by the transform below) lands
+     exactly on the card's top-right corner point, not just "somewhere
+     near" it. Keep these at -half of min-width/height if that size
+     ever changes again. */
+  top: -23px;
+  right: -23px;
   z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 60px;
-  height: 60px;
-  padding: 0 6px;
-  font-size: 22px;
+  min-width: 46px;
+  height: 46px;
+  padding: 0 5px;
+  font-size: 17px;
   font-weight: 800;
   letter-spacing: 0.2px;
   color: #241804;
