@@ -22,5 +22,11 @@
     { "source": "/gamemode", "destination": "/index.html" },
     { "source": "/gamemode/:tab", "destination": "/index.html" },
     { "source": "/map-editor", "destination": "/index.html" }
+  ],
+  "headers": [
+    { "source": "/models/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=86400" }] },
+    { "source": "/images/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=86400" }] },
+    { "source": "/textures/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=86400" }] },
+    { "source": "/audio/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=86400" }] }
   ]
 }
