@@ -4149,16 +4149,16 @@ section.category.hidden-search {
    the number always paints fully on top, unclipped, at any width. */
 .crate-stock-count {
   position: absolute;
-  top: -8px;
-  right: -8px;
+  top: -16px;
+  right: -16px;
   z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 30px;
-  height: 30px;
-  padding: 0 3px;
-  font-size: 11px;
+  min-width: 60px;
+  height: 60px;
+  padding: 0 6px;
+  font-size: 22px;
   font-weight: 800;
   letter-spacing: 0.2px;
   color: #241804;
