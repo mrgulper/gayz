@@ -4149,16 +4149,12 @@ section.category.hidden-search {
    the number always paints fully on top, unclipped, at any width. */
 .crate-stock-count {
   position: absolute;
-  /* right = -half the box's own size, so the star's center (the
-     rotation's pivot point, unaffected by the transform below) lands
-     horizontally right on the card's corner. top is pulled in further
-     than that same -half-size math would give (nudged down from -23px)
-     specifically so the star's body sits over the card's own top-right
-     corner rivet dot (.crate-card's own radial-gradient, centered
-     ~14px in from each edge) and hides it, rather than leaving it
-     visible just below/left of the star. */
-  top: -8px;
-  right: -23px;
+  /* Nudged up + left from a prior pass (was top: -8px; right: -23px)
+     per a follow-up "move it a bit top left" request - still close
+     enough to the corner rivet dot below it to keep covering that dot,
+     just shifted toward the card's top-left a little. */
+  top: -14px;
+  right: -15px;
   z-index: 1;
   display: flex;
   align-items: center;

@@ -16928,13 +16928,13 @@ export class Game {
       btn.textContent = t('crateOpenBtn')
       btn.disabled = (this.crateStock[btn.dataset.crateTier] || 0) <= 0
     }
-    // Star-shaped stock badge on each Inventory crate card, plain number
-    // inside (no "x" prefix - tighter fit inside the star than "x3" at
-    // small sizes). Hidden entirely at 0 rather than shown as "0" (see
+    // Star-shaped stock badge on each Inventory crate card, "x3"-style
+    // text (reverted back from a plain-number-only pass per explicit
+    // request). Hidden entirely at 0 rather than shown as "x0" (see
     // .crate-stock-count's own CSS comment).
     for (const el of document.querySelectorAll('#inventory-page-crates .crate-stock-count[data-crate-tier]')) {
       const count = this.crateStock[el.dataset.crateTier] || 0
-      el.textContent = count
+      el.textContent = `x${count}`
       // '' (not 'block') when shown - the CSS class's own display:flex
       // centers the number inside the star shape; an inline 'block'
       // here would override it right back to left-aligned/uncentered.
