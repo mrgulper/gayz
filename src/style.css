@@ -4138,19 +4138,37 @@ section.category.hidden-search {
    has no stock concept). Hidden entirely at x0 (see _renderCrateTiers)
    rather than shown grayed-out, so an empty Inventory reads as clean
    Wood/Ice/Golden cards, same as before this feature existed. */
+/* Star drawn as a ::before background behind the number rather than
+   clip-path on the badge itself - a 5-point star's concave points would
+   slice through digit text if the whole badge were clipped, especially
+   once counts hit 2-3 digits. This way the star is purely decorative and
+   the number always paints fully on top, unclipped, at any width. */
 .crate-stock-count {
   position: absolute;
-  top: 6px;
-  left: 6px;
-  padding: 2px 6px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
-  color: color-mix(in srgb, var(--crate-tier-color, #eee) 65%, #fff 35%);
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid color-mix(in srgb, var(--crate-tier-color, #e3c23c) 55%, transparent);
-  border-radius: 4px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  top: 4px;
+  left: 4px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 3px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  color: #241804;
+  text-shadow: none;
+}
+
+.crate-stock-count::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--crate-tier-color, #e3c23c) 80%, #fff 20%), var(--crate-tier-color, #e3c23c));
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
 }
 
 /* Price moved onto the button itself (amount + coin icon, see
