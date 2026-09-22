@@ -2878,6 +2878,32 @@ html.third-person-active #companion-bark {
   min-height: 580px;
 }
 
+/* Two-column split (same day, follow-up) - the stat rows/lines/Best Run
+   card on the left, Bio/Motto on the right, instead of everything
+   stacked in one narrow column down the left side of the now-wider box
+   with empty space wasted on the right. */
+#other-profile-columns {
+  display: flex;
+  gap: 28px;
+  align-items: flex-start;
+}
+
+#other-profile-stats-column {
+  flex: 1;
+  min-width: 0;
+}
+
+#other-profile-bio-motto {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 560px) {
+  #other-profile-columns {
+    flex-direction: column;
+  }
+}
+
 /* The area OUTSIDE the box (the rest of the full-screen panel wrapper)
    goes fully transparent for these - the homepage shows through clearly
    there instead of being dimmed, same as Kirka.io's reference. The box
