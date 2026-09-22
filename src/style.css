@@ -11854,6 +11854,34 @@ html.night-vision-active #app {
   background: #e8d264;
 }
 
+/* Muted sender's message (see _renderChatMessageRow) - dimmed/italic
+   placeholder instead of the message just silently not being there,
+   with a small pill "Show" button matching .chat-message-id-link's own
+   clickable-tag language. The real text (.chat-blocked-real-text) is
+   already rendered right next to this, just display:none until Show is
+   clicked - see _revealBlockedMessage. */
+.chat-blocked-label {
+  font-style: italic;
+  opacity: 0.55;
+}
+
+.chat-blocked-show-btn {
+  font: inherit;
+  font-size: 0.85em;
+  font-weight: 700;
+  color: #170a06;
+  background: #e3c23c;
+  border: none;
+  border-radius: 4px;
+  padding: 1px 8px;
+  margin-left: 4px;
+  cursor: pointer;
+}
+
+.chat-blocked-show-btn:hover {
+  background: #e8d264;
+}
+
 .muted-chat-player-row {
   display: flex;
   align-items: center;

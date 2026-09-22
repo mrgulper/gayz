@@ -15714,10 +15714,14 @@ export class Game {
           return
         }
         const link = e.target.closest('.chat-message-id-link')
-        if (!link) return
-        const id = link.dataset.lookupId
-        if (!id) return
-        this._openOtherPlayerProfileById(id)
+        if (link) {
+          const id = link.dataset.lookupId
+          if (!id) return
+          this._openOtherPlayerProfileById(id)
+          return
+        }
+        const showBtn = e.target.closest('.chat-blocked-show-btn')
+        if (showBtn) this._revealBlockedMessage(showBtn)
       })
     }
   }
@@ -15872,14 +15876,16 @@ export class Game {
     this._lastServerChatMsgs = msgs
     const muted = new Set(this.settings.mutedChatPlayers)
     // Hides pre-existing history on a fresh page load (see
-    // _chatSessionStartMs's own comment) - only filters messages that
-    // actually carry a createdAt, so this can't accidentally hide
-    // something from a shape that doesn't have one.
-    const visible = msgs.filter((m) => !muted.has(m.nickname) && !(m.createdAt && m.createdAt <= this._chatSessionStartMs))
+    // _chatSessionStartMs's own comment) - this is the only case that
+    // actually drops a message; a muted sender's message stays in
+    // `visible` and renders as a "Blocked message - Show" placeholder
+    // instead (see _renderChatMessageRow) rather than disappearing
+    // outright.
+    const visible = msgs.filter((m) => !(m.createdAt && m.createdAt <= this._chatSessionStartMs))
     // Always linkify here (unlike the in-game HUD chat's channel-gated
     // version) - this panel IS the global channel, always, no tabs to
     // gate on (see _bindServerChat's own comment).
-    this.serverChatMessages.innerHTML = visible.map((m) => `<div class="chat-message-row"><button type="button" class="chat-message-nickname" data-nickname="${_escapeHtml(m.nickname)}" data-uid="${_escapeHtml(m.uid || '')}">${_escapeHtml(m.nickname)}:</button><span class="chat-message-text">${this._renderChatMessageText(m.text, true)}</span></div>`).join('')
+    this.serverChatMessages.innerHTML = visible.map((m) => this._renderChatMessageRow(m, true, muted.has(m.nickname))).join('')
     this.serverChatMessages.scrollTop = this.serverChatMessages.scrollHeight
   }
 
@@ -22836,29 +22842,29 @@ export class Game {
   _renderChatMessages(msgs) {
     if (!this.chatMessages) return
     this._lastChatMsgs = msgs
-    // Mute/block (Settings > Social > Muted Players) - filtered client-side
-    // by nickname (the one thing every channel's messages actually share -
-    // Global/Clan carry a Firebase uid, Party carries an ephemeral
-    // multiplayer playerId, no single id scheme spans all three). This is
-    // a personal chat filter, not real moderation - someone could evade it
-    // by changing their nickname, which is an accepted tradeoff for how
-    // lightweight this needs to be. The mute LIST/filter here is unchanged;
-    // only the old "left-click a name to add a mute" interaction is gone
-    // (see _bindChatContextActions) - Settings > Social is still how an
-    // existing mute gets undone.
+    // Mute/block (Settings > Social > Muted Players) - a muted sender's
+    // message stays in `visible` and renders as a "Blocked message -
+    // Show" placeholder instead of being filtered out entirely (see
+    // _renderChatMessageRow) - by nickname (the one thing every channel's
+    // messages actually share - Global/Clan carry a Firebase uid, Party
+    // carries an ephemeral multiplayer playerId, no single id scheme
+    // spans all three). This is a personal chat filter, not real
+    // moderation - someone could evade it by changing their nickname,
+    // which is an accepted tradeoff for how lightweight this needs to
+    // be. Settings > Social is how an existing mute gets undone.
     const muted = new Set(this.settings.mutedChatPlayers)
     // Hides pre-existing history on a fresh page load, same as the
     // homepage Global panel's identical filter (see _chatSessionStartMs's
     // own comment) - only filters messages that actually carry a
     // createdAt, so Party chat (no createdAt field, see its own comment
     // below) passes through unaffected.
-    const visible = msgs.filter((m) => !muted.has(m.nickname) && !(m.createdAt && m.createdAt <= this._chatSessionStartMs))
+    const visible = msgs.filter((m) => !(m.createdAt && m.createdAt <= this._chatSessionStartMs))
     // Global-only for now (see the design conversation) - Party chat's
     // ephemeral multiplayer players have no Player ID at all, and Clan
     // chat wasn't asked for yet. _renderChatMessageText no-ops back to
     // plain escaped text outside 'global', same as it always rendered.
     const linkifyIds = this._chatChannel === 'global'
-    this.chatMessages.innerHTML = visible.map((m) => `<div class="chat-message-row"><button type="button" class="chat-message-nickname" data-nickname="${_escapeHtml(m.nickname)}" data-uid="${_escapeHtml(m.uid || '')}">${_escapeHtml(m.nickname)}:</button><span class="chat-message-text">${this._renderChatMessageText(m.text, linkifyIds)}</span></div>`).join('')
+    this.chatMessages.innerHTML = visible.map((m) => this._renderChatMessageRow(m, linkifyIds, muted.has(m.nickname))).join('')
     this.chatMessages.scrollTop = this.chatMessages.scrollHeight
   }
 
@@ -22885,6 +22891,23 @@ export class Game {
     }
     out += _escapeHtml(text.slice(lastIndex))
     return out
+  }
+
+  // Shared by both chat surfaces (homepage Global panel + in-game HUD
+  // chat) - a muted sender's message used to be filtered out of `visible`
+  // entirely (silently absent, no trace it was ever sent). Now it still
+  // renders, as a "Blocked message - Show" placeholder - the real text
+  // sits in a pre-rendered (already escaped/linkified, same as a normal
+  // message) sibling span that starts hidden and toggles visible on
+  // click (see the .chat-blocked-show-btn handler in each chat's click
+  // listener), rather than looking the text up again at click time - one
+  // render pass, no index/id bookkeeping needed to find it later.
+  _renderChatMessageRow(m, linkifyIds, isMuted) {
+    const nameBtn = `<button type="button" class="chat-message-nickname" data-nickname="${_escapeHtml(m.nickname)}" data-uid="${_escapeHtml(m.uid || '')}">${_escapeHtml(m.nickname)}:</button>`
+    if (isMuted) {
+      return `<div class="chat-message-row chat-message-row-blocked">${nameBtn}<span class="chat-message-text chat-blocked-text"><span class="chat-blocked-label">${t('chatBlockedMessage')}</span> - <button type="button" class="chat-blocked-show-btn">${t('chatBlockedShowBtn')}</button><span class="chat-blocked-real-text" style="display: none">${this._renderChatMessageText(m.text, linkifyIds)}</span></span></div>`
+    }
+    return `<div class="chat-message-row">${nameBtn}<span class="chat-message-text">${this._renderChatMessageText(m.text, linkifyIds)}</span></div>`
   }
 
   // Shared by the popup's own ID button AND the direct left-click-to-copy
@@ -23077,17 +23100,39 @@ export class Game {
         return
       }
       const link = e.target.closest('.chat-message-id-link')
-      if (!link) return
-      const id = link.dataset.lookupId
-      if (!id) return
-      this._openOtherPlayerProfileById(id)
+      if (link) {
+        const id = link.dataset.lookupId
+        if (!id) return
+        this._openOtherPlayerProfileById(id)
+        return
+      }
+      const showBtn = e.target.closest('.chat-blocked-show-btn')
+      if (showBtn) this._revealBlockedMessage(showBtn)
     })
   }
 
+  // "Show" on a muted sender's "Blocked message" placeholder (see
+  // _renderChatMessageRow) - swaps the label+button for the real,
+  // already-rendered text sitting right next to them in the DOM. One
+  // reveal per message row; there's no "hide again" since re-blocking a
+  // message you already read isn't meaningfully private.
+  _revealBlockedMessage(showBtn) {
+    const row = showBtn.closest('.chat-blocked-text')
+    if (!row) return
+    const label = row.querySelector('.chat-blocked-label')
+    const realText = row.querySelector('.chat-blocked-real-text')
+    if (label) label.style.display = 'none'
+    showBtn.style.display = 'none'
+    if (realText) realText.style.display = ''
+  }
+
   // Settings > Social > Muted Players - the only way to SEE the current
-  // mute list and undo one, since a muted player's messages never show up
-  // in chat again to click on. Mirrors the empty-state pattern this
-  // project's other list panels (Friend List, etc.) already use.
+  // mute list and undo one. A muted player's messages still show up in
+  // chat (as a "Blocked message - Show" placeholder, see
+  // _renderChatMessageRow) - undoing the mute here is what makes them
+  // render normally again going forward, same as any other message.
+  // Mirrors the empty-state pattern this project's other list panels
+  // (Friend List, etc.) already use.
   _renderMutedChatPlayers() {
     if (!this.mutedChatPlayersList) return
     const muted = this.settings.mutedChatPlayers
