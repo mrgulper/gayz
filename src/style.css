@@ -861,9 +861,102 @@ html.layout-compact .menu-panel {
   user-select: all;
 }
 
+/* Same color-coding as the own-profile Your Stats panel's
+   [data-stat="..."] rule - deliberately done by ID here instead of
+   reusing that same data-stat attribute value: that selector is an
+   UNSCOPED document.querySelectorAll (see _updateBestStatsDisplay),
+   so reusing it here would let the local player's own stats silently
+   overwrite whatever this popup just rendered for a DIFFERENT player,
+   every time that own-profile update runs. */
+#other-profile-longestsurvival-value { color: var(--menu-green); font-weight: 600; }
+#other-profile-favoriteclass-value { color: var(--menu-purple); font-weight: 600; }
+#other-profile-lastrun-value { color: var(--menu-red); font-weight: 600; }
+
+/* Header (name/ID) - centered with a divider before the two columns,
+   redesigned 2026-09-22 alongside the rest of this panel's polish pass
+   (was plain unstyled h2/p defaults, left-aligned flush against the
+   stats below with no separation). */
+#other-profile-name {
+  text-align: center;
+  margin: 0 0 6px;
+}
+
+#other-profile-id-line {
+  text-align: center;
+  margin: 0 0 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* No more fixed 320px cap - #other-profile-stats-column (the new flex
+   column wrapper) now owns the width budget instead. */
 #other-profile-stats {
   width: 100%;
-  max-width: 320px;
+}
+
+#other-profile-stats-column > p,
+#other-profile-stats-column > #other-profile-best-run-card,
+#other-profile-stats-column > #other-profile-created-line {
+  margin-top: 10px;
+}
+
+#other-profile-anniversary-line,
+#other-profile-today-line,
+#other-profile-favorite-difficulty-line {
+  margin: 4px 0;
+  font-size: 12px;
+  opacity: 0.7;
+  font-style: italic;
+}
+
+/* Same "quiet metal card" look as the own-profile Best Run card
+   (#profile-best-run-card) - was plain unstyled h3/p text here before. */
+#other-profile-best-run-card {
+  margin: 10px 0;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  text-align: center;
+}
+
+#other-profile-best-run-title {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+
+#other-profile-best-run-line {
+  margin: 0;
+  font-size: 12px;
+}
+
+#other-profile-created-line {
+  font-size: 12px;
+  opacity: 0.6;
+  text-align: center;
+}
+
+#other-profile-bio-heading,
+#other-profile-motto-heading {
+  margin: 0 0 4px;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--menu-gold, #d9bc4a);
+  opacity: 0.85;
+}
+
+#other-profile-motto-heading {
+  margin-top: 14px;
+}
+
+#other-profile-bio-text,
+#other-profile-motto-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  opacity: 0.9;
+  word-break: break-word;
 }
 
 .friend-name {
@@ -2881,26 +2974,43 @@ html.third-person-active #companion-bark {
 /* Two-column split (same day, follow-up) - the stat rows/lines/Best Run
    card on the left, Bio/Motto on the right, instead of everything
    stacked in one narrow column down the left side of the now-wider box
-   with empty space wasted on the right. */
+   with empty space wasted on the right. justify-content:center plus a
+   capped width on both columns (rather than a plain flex:1 that always
+   fills the full row) is what keeps this from stretching into one
+   awkwardly wide, thin column when Bio/Motto is empty and JS hides
+   #other-profile-bio-motto entirely - the stats column just centers
+   itself at its own natural width instead of spanning the whole box. */
 #other-profile-columns {
   display: flex;
   gap: 28px;
   align-items: flex-start;
+  justify-content: center;
 }
 
 #other-profile-stats-column {
-  flex: 1;
+  flex: 1 1 380px;
+  max-width: 380px;
   min-width: 0;
 }
 
 #other-profile-bio-motto {
-  flex: 1;
+  flex: 1 1 380px;
+  max-width: 380px;
   min-width: 0;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 16px 20px;
 }
 
 @media (max-width: 560px) {
   #other-profile-columns {
     flex-direction: column;
+  }
+  #other-profile-stats-column,
+  #other-profile-bio-motto {
+    max-width: 100%;
+    width: 100%;
   }
 }
 
