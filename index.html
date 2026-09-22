@@ -2120,6 +2120,38 @@ Escape before dawn.</p>
           <div class="stat-row"><span id="profile-public-achievements-label">Achievements</span><span id="profile-public-achievements-value">--</span></div>
           <div class="stat-row" id="profile-public-region-row" style="display: none"><span id="profile-public-region-label">Region</span><span id="profile-public-region-value">--</span></div>
           <div class="stat-row" id="profile-public-clan-row" style="display: none"><span id="profile-public-clan-label">Clan</span><span id="profile-public-clan-value">--</span></div>
+
+          <div id="profile-bio-stats-row">
+            <div id="profile-bio-column">
+              <h3 id="profile-bio-heading">Bio</h3>
+              <textarea id="profile-bio-input" maxlength="250" placeholder="Say something about yourself..."></textarea>
+              <p id="profile-bio-counter">0/250</p>
+              <div id="bio-preset-row">
+                <button id="bio-preset-save-btn" class="mini-action-btn" type="button">Save as Preset</button>
+                <div id="bio-preset-chips"></div>
+              </div>
+              <h3 id="motto-heading">Motto (shown on homepage)</h3>
+              <input type="text" id="motto-input" class="nickname-input" maxlength="60" placeholder="A short line under your name" />
+            </div>
+            <section class="menu-panel" id="profile-your-stats-column">
+              <h2 class="menu-panel-title" id="your-stats-title">Your Stats</h2>
+              <div class="stat-row"><span>Longest Survival</span><span data-stat="longest-survival">--</span></div>
+              <div class="stat-row"><span>Total Zombies Killed</span><span data-stat="total-kills">--</span></div>
+              <div class="stat-row"><span>Runs Played</span><span data-stat="runs-played">--</span></div>
+              <div class="stat-row"><span>Favorite Class</span><span data-stat="favorite-class">--</span></div>
+              <div class="stat-row"><span>Last Run</span><span data-stat="last-run">--</span></div>
+            </section>
+          </div>
+
+          <p id="profile-anniversary-line" style="display: none"></p>
+          <p id="profile-today-line" style="display: none"></p>
+          <p id="profile-favorite-difficulty-line" style="display: none"></p>
+          <div id="profile-best-run-card" style="display: none">
+            <h3 id="profile-best-run-title">Best Run</h3>
+            <p id="profile-best-run-line"></p>
+          </div>
+          <h3 id="profile-created-title">Created</h3>
+          <p id="profile-created-line"></p>
         </div>
 
         <div class="profile-tab-page" id="profile-page-hidden" style="display: none">
@@ -2161,38 +2193,8 @@ Escape before dawn.</p>
           <h3 id="goals-heading">Goals (pick up to 3)</h3>
           <div id="goals-picker"></div>
           <div id="goals-checklist"></div>
-          <div id="profile-bio-stats-row">
-            <div id="profile-bio-column">
-              <h3 id="profile-bio-heading">Bio</h3>
-              <textarea id="profile-bio-input" maxlength="250" placeholder="Say something about yourself..."></textarea>
-              <p id="profile-bio-counter">0/250</p>
-              <div id="bio-preset-row">
-                <button id="bio-preset-save-btn" class="mini-action-btn" type="button">Save as Preset</button>
-                <div id="bio-preset-chips"></div>
-              </div>
-              <h3 id="motto-heading">Motto (shown on homepage)</h3>
-              <input type="text" id="motto-input" class="nickname-input" maxlength="60" placeholder="A short line under your name" />
-            </div>
-            <section class="menu-panel" id="profile-your-stats-column">
-              <h2 class="menu-panel-title" id="your-stats-title">Your Stats</h2>
-              <div class="stat-row"><span>Longest Survival</span><span data-stat="longest-survival">--</span></div>
-              <div class="stat-row"><span>Total Zombies Killed</span><span data-stat="total-kills">--</span></div>
-              <div class="stat-row"><span>Runs Played</span><span data-stat="runs-played">--</span></div>
-              <div class="stat-row"><span>Favorite Class</span><span data-stat="favorite-class">--</span></div>
-              <div class="stat-row"><span>Last Run</span><span data-stat="last-run">--</span></div>
-            </section>
-          </div>
 
           <div id="profile-nearly-there-list"></div>
-          <p id="profile-anniversary-line" style="display: none"></p>
-          <p id="profile-today-line" style="display: none"></p>
-          <p id="profile-favorite-difficulty-line" style="display: none"></p>
-          <div id="profile-best-run-card" style="display: none">
-            <h3 id="profile-best-run-title">Best Run</h3>
-            <p id="profile-best-run-line"></p>
-          </div>
-          <h3 id="profile-created-title">Created</h3>
-          <p id="profile-created-line"></p>
           <div class="perk-panel-buttons">
             <button id="profile-career-portrait-btn" style="display: none">Save Career Portrait</button>
           </div>
@@ -2266,7 +2268,7 @@ Escape before dawn.</p>
             </ul>
 
             <h3>5. Acceptable use</h3>
-            <p>Nicknames and any other text field shown on leaderboards, friend lists, or profile lookups (like your Player ID) are visible to other players. Your bio is not currently shown to anyone but you, but the same rules below still apply to it, in case that ever changes. When using GayZ, you agree not to:</p>
+            <p>Nicknames, your bio, your motto, and any other text field shown on leaderboards, friend lists, or profile lookups (like your Player ID) are visible to other players. When using GayZ, you agree not to:</p>
             <ul>
               <li>Use your nickname, bio, or any other field to harass anyone, impersonate someone else, or post personal information (yours or anyone else's);</li>
               <li>Use exploits, bots, cheats, or hacked/modified clients to alter the game, gain an unfair advantage, or manipulate leaderboards;</li>
@@ -2329,7 +2331,7 @@ Escape before dawn.</p>
             </ul>
 
             <h3>Nicknames, profiles, and leaderboards</h3>
-            <p>Your nickname and Player ID are visible to other players wherever public features (leaderboards, chat, friend lookups) show them. Your bio is not currently shown to anyone but you. Please don't put personal information (real name, contact details, etc.) in any field, since a field that's private today could become visible in a future update.</p>
+            <p>Your nickname, Player ID, bio, motto, and stats shown on your public profile (Profile panel &gt; Shown to Public) are visible to other players wherever public features (leaderboards, chat, friend lookups) show them. Please don't put personal information (real name, contact details, etc.) in any field, since a field that's private today could become visible in a future update.</p>
 
             <h3>Anonymous usage counters</h3>
             <p>A few features track simple aggregate counts (like how often a setting gets opened) to understand what's actually used. These are just totals - they aren't tied to your account or identity in any readable way.</p>
@@ -3288,7 +3290,7 @@ Escape before dawn.</p>
           <div id="whatsnew-content">
             <p id="build-version-line"></p>
           <div id="changelog-list">
-            <div class="changelog-entry"><span class="changelog-date">v0.01 · Sep 22, 2026</span><span class="changelog-text">Polish pass on yesterday's new crate stock counter - it's now a bigger, tilted gold star badge overlapping the card's top-right corner (was a small plain pill in the top-left), with the count shown as "x3" inside.</span></div>
+            <div class="changelog-entry"><span class="changelog-date">v0.01 · Sep 22, 2026</span><span class="changelog-text">Polish pass on yesterday's new crate stock counter - it's now a bigger, tilted gold star badge overlapping the card's top-right corner, with the count shown as "x3" inside. Shop crate cards are bigger overall too. Fixed the "General" sidebar button's text overlapping its plaque art. Profile's "Shown to Public" tab now includes your Bio, Motto, and full stats (Longest Survival, Total Kills, Runs Played, Favorite Class, Last Run, Best Run, Most Played Difficulty, Today, and Created) - other players can see these when they look up your Player ID, same as your name and best stats already could. Also added version numbers to this What's New list.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 21, 2026</span><span class="changelog-text">Reworked how crates work: buying a crate (Shop or the pause-menu Store) now just adds it to your Inventory unopened, instead of instantly rolling a reward. Head to Inventory > Crates to actually open one and see what you got. Inventory now shows how many of each crate you have ("x1", "x40", etc.) and the Open button is only clickable when you actually own at least one. Also removed the 10-crate limit on bulk purchases - buy as many as you can afford in one go.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 21, 2026</span><span class="changelog-text">Fixed a real money bug: opening a crate from Inventory (meant to be free) was silently charging real coins, because it accidentally shared code with the Shop's paid crates. Inventory crates are free again and can no longer charge you.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 21, 2026</span><span class="changelog-text">Performance: the loot chest model (repeated 454 times across the map) was unusually heavy - simplified it to use 64% fewer triangles, verified to look and animate identically. Should help frame rate, especially in areas with several chests nearby.</span></div>
@@ -3712,6 +3714,25 @@ Escape before dawn.</p>
             <div class="stat-row"><span id="other-profile-beststreak-label">Best Kill Streak</span><span id="other-profile-beststreak-value">--</span></div>
             <div class="stat-row"><span id="other-profile-achievements-label">Achievements</span><span id="other-profile-achievements-value">--</span></div>
             <div class="stat-row" id="other-profile-region-row" style="display: none"><span id="other-profile-region-label">Region</span><span id="other-profile-region-value">--</span></div>
+            <div class="stat-row"><span>Total Zombies Killed</span><span id="other-profile-totalkills-value">--</span></div>
+            <div class="stat-row"><span>Runs Played</span><span id="other-profile-runsplayed-value">--</span></div>
+            <div class="stat-row"><span>Favorite Class</span><span id="other-profile-favoriteclass-value">--</span></div>
+            <div class="stat-row"><span>Longest Survival</span><span id="other-profile-longestsurvival-value">--</span></div>
+            <div class="stat-row"><span>Last Run</span><span id="other-profile-lastrun-value">--</span></div>
+          </div>
+          <p id="other-profile-anniversary-line" style="display: none"></p>
+          <p id="other-profile-today-line" style="display: none"></p>
+          <p id="other-profile-favorite-difficulty-line" style="display: none"></p>
+          <div id="other-profile-best-run-card" style="display: none">
+            <h3 id="other-profile-best-run-title">Best Run</h3>
+            <p id="other-profile-best-run-line"></p>
+          </div>
+          <p id="other-profile-created-line" style="display: none"></p>
+          <div id="other-profile-bio-motto" style="display: none">
+            <h3 id="other-profile-bio-heading">Bio</h3>
+            <p id="other-profile-bio-text"></p>
+            <h3 id="other-profile-motto-heading">Motto</h3>
+            <p id="other-profile-motto-text"></p>
           </div>
         </div>
       </div>

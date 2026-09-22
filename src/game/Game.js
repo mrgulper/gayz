@@ -4258,6 +4258,23 @@ export class Game {
     this.otherProfileAchievementsValue = document.getElementById('other-profile-achievements-value')
     this.otherProfileRegionRow = document.getElementById('other-profile-region-row')
     this.otherProfileRegionValue = document.getElementById('other-profile-region-value')
+    this.otherProfileTotalKillsValue = document.getElementById('other-profile-totalkills-value')
+    this.otherProfileRunsPlayedValue = document.getElementById('other-profile-runsplayed-value')
+    this.otherProfileFavoriteClassValue = document.getElementById('other-profile-favoriteclass-value')
+    this.otherProfileLongestSurvivalValue = document.getElementById('other-profile-longestsurvival-value')
+    this.otherProfileLastRunValue = document.getElementById('other-profile-lastrun-value')
+    this.otherProfileAnniversaryLine = document.getElementById('other-profile-anniversary-line')
+    this.otherProfileTodayLine = document.getElementById('other-profile-today-line')
+    this.otherProfileFavoriteDifficultyLine = document.getElementById('other-profile-favorite-difficulty-line')
+    this.otherProfileBestRunCard = document.getElementById('other-profile-best-run-card')
+    this.otherProfileBestRunTitle = document.getElementById('other-profile-best-run-title')
+    this.otherProfileBestRunLine = document.getElementById('other-profile-best-run-line')
+    this.otherProfileCreatedLine = document.getElementById('other-profile-created-line')
+    this.otherProfileBioMotto = document.getElementById('other-profile-bio-motto')
+    this.otherProfileBioHeading = document.getElementById('other-profile-bio-heading')
+    this.otherProfileBioText = document.getElementById('other-profile-bio-text')
+    this.otherProfileMottoHeading = document.getElementById('other-profile-motto-heading')
+    this.otherProfileMottoText = document.getElementById('other-profile-motto-text')
     this.cloudsaveLeaderboardTitle = document.getElementById('cloudsave-leaderboard-title')
     this.cloudsaveLeaderboardList = document.getElementById('cloudsave-leaderboard-list')
     this.cloudsaveWeeklyLeaderboardList = document.getElementById('cloudsave-weekly-leaderboard-list')
@@ -12393,7 +12410,119 @@ export class Game {
     const regionKey = REGION_LABEL_KEYS[entry.region]
     if (this.otherProfileRegionRow) this.otherProfileRegionRow.style.display = regionKey ? 'flex' : 'none'
     if (regionKey && this.otherProfileRegionValue) this.otherProfileRegionValue.textContent = t(regionKey)
+    this._renderOtherProfilePublicFields(entry)
     this.otherProfileStats.style.display = 'block'
+  }
+
+  // The read side of moving Bio/Motto/Your Stats to Shown to Public (see
+  // _pushOnlineStats' own comment on the write side) - every field here
+  // is raw/structured (never pre-rendered text) coming off the fetched
+  // leaderboard entry, formatted/translated through the VIEWER's own t(),
+  // same as _updateBestStatsDisplay does for the profile owner's own
+  // view. Every field is optional (an old doc synced before this shipped
+  // won't have any of them) - each row/line hides itself rather than
+  // showing a misleading "0"/"--" when its source field is just absent.
+  _renderOtherProfilePublicFields(entry) {
+    if (this.otherProfileTotalKillsValue) {
+      const kd = (_safeStatNumber(entry.totalKills) / Math.max(1, _safeStatNumber(entry.totalDeaths))).toFixed(1)
+      this.otherProfileTotalKillsValue.textContent = `${_safeStatNumber(entry.totalKills)} (K/D ${kd})`
+    }
+    if (this.otherProfileRunsPlayedValue) {
+      const hours = (_safeStatNumber(entry.lifetimePlaytimeSeconds) / 3600).toFixed(1)
+      this.otherProfileRunsPlayedValue.textContent = `${_safeStatNumber(entry.totalRuns)} · ${hours}h played`
+    }
+    if (this.otherProfileFavoriteClassValue) {
+      this.otherProfileFavoriteClassValue.textContent = entry.favoriteClass ? t(LOADOUT_LABEL_KEYS[entry.favoriteClass] || entry.favoriteClass) : '--'
+    }
+    if (this.otherProfileLongestSurvivalValue) {
+      this.otherProfileLongestSurvivalValue.textContent = entry.longestSurvivalMs ? formatTime(_safeStatNumber(entry.longestSurvivalMs)) : '--'
+    }
+    if (this.otherProfileLastRunValue) {
+      this.otherProfileLastRunValue.textContent = ('lastRunNight' in entry)
+        ? t(entry.lastRunSurvived ? 'runHistorySurvived' : 'runHistoryDied', { night: _safeStatNumber(entry.lastRunNight), kills: _safeStatNumber(entry.lastRunKills), coins: _safeStatNumber(entry.lastRunCoins) })
+        : '--'
+    }
+    if (this.otherProfileAnniversaryLine) {
+      if (entry.firstPlayedDate) {
+        const days = Math.max(0, Math.round((new Date(todayDateString()) - new Date(entry.firstPlayedDate)) / 86400000))
+        this.otherProfileAnniversaryLine.textContent = t('otherProfileAnniversaryLine', { n: days })
+        this.otherProfileAnniversaryLine.style.display = ''
+      } else {
+        this.otherProfileAnniversaryLine.style.display = 'none'
+      }
+    }
+    if (this.otherProfileTodayLine) {
+      if ('todayKills' in entry) {
+        this.otherProfileTodayLine.textContent = t('todayLine', { kills: _safeStatNumber(entry.todayKills), minutes: _safeStatNumber(entry.todayMinutes) })
+        this.otherProfileTodayLine.style.display = ''
+      } else {
+        this.otherProfileTodayLine.style.display = 'none'
+      }
+    }
+    if (this.otherProfileFavoriteDifficultyLine) {
+      if (entry.favoriteDifficulty) {
+        const btn = Array.from(this.difficultyBtns).find((b) => b.dataset.difficulty === entry.favoriteDifficulty)
+        this.otherProfileFavoriteDifficultyLine.textContent = t('favoriteDifficultyLine', { difficulty: btn ? btn.textContent : entry.favoriteDifficulty })
+        this.otherProfileFavoriteDifficultyLine.style.display = ''
+      } else {
+        this.otherProfileFavoriteDifficultyLine.style.display = 'none'
+      }
+    }
+    if (this.otherProfileBestRunCard) {
+      if ('bestRunNight' in entry) {
+        if (this.otherProfileBestRunTitle) this.otherProfileBestRunTitle.textContent = t('profileBestRunTitle')
+        const diffBtn = Array.from(this.difficultyBtns).find((b) => b.dataset.difficulty === entry.bestRunDifficulty)
+        this.otherProfileBestRunLine.textContent = t('profileBestRunLine', {
+          night: _safeStatNumber(entry.bestRunNight),
+          kills: _safeStatNumber(entry.bestRunKills),
+          coins: _safeStatNumber(entry.bestRunCoins),
+          difficulty: diffBtn ? diffBtn.textContent : (entry.bestRunDifficulty || '?'),
+          loadout: entry.bestRunLoadout ? t(LOADOUT_LABEL_KEYS[entry.bestRunLoadout] || entry.bestRunLoadout) : '?',
+        })
+        this.otherProfileBestRunCard.style.display = ''
+      } else {
+        this.otherProfileBestRunCard.style.display = 'none'
+      }
+    }
+    if (this.otherProfileCreatedLine) {
+      if (entry.accountCreatedAt) {
+        const elapsedMs = Math.max(0, Date.now() - _safeStatNumber(entry.accountCreatedAt))
+        const totalSeconds = Math.floor(elapsedMs / 1000)
+        const days = Math.floor(totalSeconds / 86400)
+        const hours = Math.floor((totalSeconds % 86400) / 3600)
+        const minutes = Math.floor((totalSeconds % 3600) / 60)
+        const seconds = totalSeconds % 60
+        this.otherProfileCreatedLine.textContent = t('profileCreatedLine', { days, hours, minutes, seconds })
+        this.otherProfileCreatedLine.style.display = ''
+      } else {
+        this.otherProfileCreatedLine.style.display = 'none'
+      }
+    }
+    if (this.otherProfileBioMotto) {
+      const hasBio = typeof entry.bio === 'string' && entry.bio.length > 0
+      const hasMotto = typeof entry.motto === 'string' && entry.motto.length > 0
+      if (hasBio || hasMotto) {
+        if (this.otherProfileBioHeading) this.otherProfileBioHeading.textContent = t('profileBioHeading')
+        if (this.otherProfileMottoHeading) this.otherProfileMottoHeading.textContent = t('mottoHeading')
+        // .textContent, not innerHTML - bio/motto are untrusted freeform
+        // text from another player's own doc, same "every persisted stat
+        // is untrusted" rule as everywhere else in this file (see
+        // CLAUDE.md's own recurring-bug-class note on this).
+        if (this.otherProfileBioText) {
+          this.otherProfileBioText.textContent = hasBio ? entry.bio : ''
+          this.otherProfileBioText.style.display = hasBio ? '' : 'none'
+        }
+        if (this.otherProfileMottoText) {
+          this.otherProfileMottoText.textContent = hasMotto ? entry.motto : ''
+          this.otherProfileMottoText.style.display = hasMotto ? '' : 'none'
+        }
+        if (this.otherProfileBioHeading) this.otherProfileBioHeading.style.display = hasBio ? '' : 'none'
+        if (this.otherProfileMottoHeading) this.otherProfileMottoHeading.style.display = hasMotto ? '' : 'none'
+        this.otherProfileBioMotto.style.display = ''
+      } else {
+        this.otherProfileBioMotto.style.display = 'none'
+      }
+    }
   }
 
   _closeOtherPlayerProfile() {
@@ -12780,6 +12909,67 @@ export class Game {
     // so fetchClanCombinedStats can sum a clan's kills/night with one
     // where('clanId', ...) query instead of a per-member fetch.
     if (this.settings.clanId) entry.clanId = this.settings.clanId
+    // Bio/Motto/Your Stats moved from Hidden to Shown to Public
+    // (2026-09-22, explicit request) - these fields make that real rather
+    // than just relabeling a tab: raw/structured values only (never
+    // pre-rendered/translated text), same reasoning as everywhere else in
+    // this file - the VIEWING client's own t() formats it in their own
+    // language, not the profile owner's. _renderOtherProfileEntry is the
+    // read side of this same change.
+    entry.bio = (this.settings.bio || '').slice(0, 250)
+    entry.motto = (this.settings.motto || '').slice(0, 60)
+    entry.totalDeaths = _safeStatNumber(this.careerStats.totalDeaths)
+    entry.totalRuns = _safeStatNumber(this.careerStats.totalRuns)
+    entry.lifetimePlaytimeSeconds = _safeStatNumber(this.careerStats.lifetimePlaytimeSeconds)
+    entry.longestSurvivalMs = this.bestRunPace ? _safeStatNumber(this.bestRunPace.elapsedMs) : 0
+    {
+      // Same tally _updateBestStatsDisplay's own Favorite Class does, not
+      // a new computation - kept in sync with that one by hand since the
+      // source data (runHistory) isn't itself synced (see its own comment
+      // in _updateBestStatsDisplay on why a lifetime array of every run
+      // isn't something to expose wholesale to the public leaderboard).
+      const loadoutTally = {}
+      for (const run of this.runHistory) {
+        if (run.loadout) loadoutTally[run.loadout] = (loadoutTally[run.loadout] || 0) + 1
+      }
+      const topLoadout = Object.keys(loadoutTally).sort((a, b) => loadoutTally[b] - loadoutTally[a])[0]
+      if (topLoadout) entry.favoriteClass = topLoadout
+    }
+    {
+      const diffEntries = Object.entries(this.careerStats.difficultyStats)
+      if (diffEntries.length > 0) {
+        const [favoriteId] = diffEntries.reduce((best, cur) => (cur[1].runs > best[1].runs ? cur : best))
+        entry.favoriteDifficulty = favoriteId
+      }
+    }
+    {
+      const last = this.runHistory[0]
+      if (last) {
+        entry.lastRunSurvived = !!last.survived
+        entry.lastRunNight = _safeStatNumber(last.night)
+        entry.lastRunKills = _safeStatNumber(last.kills)
+        entry.lastRunCoins = _safeStatNumber(last.coins)
+      }
+    }
+    {
+      const best = this.runHistory.find((r) => _safeStatNumber(r.night) === _safeStatNumber(this.bestStats.bestNight))
+      if (best) {
+        entry.bestRunNight = _safeStatNumber(best.night)
+        entry.bestRunKills = _safeStatNumber(best.kills)
+        entry.bestRunCoins = _safeStatNumber(best.coins)
+        if (best.difficulty) entry.bestRunDifficulty = best.difficulty
+        if (best.loadout) entry.bestRunLoadout = best.loadout
+      }
+    }
+    if (this.careerStats.firstPlayedDate) entry.firstPlayedDate = this.careerStats.firstPlayedDate
+    entry.accountCreatedAt = _safeStatNumber(this.careerStats.accountCreatedAt)
+    // "Today" is deliberately session-local/never-persisted everywhere
+    // else in this codebase (see _renderTodayLine's own comment) - synced
+    // here anyway per explicit request despite that, so it WILL read
+    // stale (frozen at whatever it was on the last sync) until this
+    // player's next _pushOnlineStats call, unlike every other field above.
+    entry.todayKills = _safeStatNumber(this._sessionKills)
+    entry.todayMinutes = Math.round((performance.now() - this._sessionStartTime) / 60000)
     CloudSync.pushLeaderboardEntry(this._cloudUid, entry).catch(() => {})
     CloudSync.pushWeeklyLeaderboardEntry(_thisWeekStr(), this._cloudUid, {
       name,
@@ -20970,6 +21160,14 @@ export class Game {
       clearInterval(this._profileCreatedTickInterval)
       this._profileCreatedTickInterval = null
     }
+    // Bio/Motto (now part of Shown to Public, see _pushOnlineStats) can be
+    // edited without ever finishing a run - _pushOnlineStats otherwise only
+    // fires on run-end (_recordRunEnd), which would leave a same-session
+    // bio/motto edit stuck showing the old value to other players until
+    // the player's next completed run. Firing it here too (closing the
+    // panel is the natural "done editing" moment) covers that gap without
+    // pushing on every keystroke.
+    this._pushOnlineStats()
   }
 
   // Career Portrait (Long-Term Goals batch, gated behind true_ending - see

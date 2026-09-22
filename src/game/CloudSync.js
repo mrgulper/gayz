@@ -122,7 +122,35 @@ service cloud.firestore {
         && (!('doNotDisturb' in request.resource.data) || request.resource.data.doNotDisturb is bool)
         && (!('manualIdle' in request.resource.data) || request.resource.data.manualIdle is bool)
         && (!('clanId' in request.resource.data) || (request.resource.data.clanId is string && request.resource.data.clanId.size() > 0))
-        && (!('clanTag' in request.resource.data) || (request.resource.data.clanTag is string && request.resource.data.clanTag.size() <= 4));
+        && (!('clanTag' in request.resource.data) || (request.resource.data.clanTag is string && request.resource.data.clanTag.size() <= 4))
+        // Bio/Motto/Your Stats (2026-09-22) - moved from a Hidden-only tab
+        // to Shown to Public, so these are now real public fields, not
+        // just a display-only tab label. bio/motto are the only genuinely
+        // freeform fields on this whole doc - bounded to their input's own
+        // maxlength (250/60), same numbers Game.js already slices to
+        // client-side, enforced here too since the client-side cap alone
+        // is not trustworthy.
+        && (!('bio' in request.resource.data) || (request.resource.data.bio is string && request.resource.data.bio.size() <= 250))
+        && (!('motto' in request.resource.data) || (request.resource.data.motto is string && request.resource.data.motto.size() <= 60))
+        && (!('totalDeaths' in request.resource.data) || (request.resource.data.totalDeaths is int && request.resource.data.totalDeaths >= 0 && request.resource.data.totalDeaths < 1000000))
+        && (!('totalRuns' in request.resource.data) || (request.resource.data.totalRuns is int && request.resource.data.totalRuns >= 0 && request.resource.data.totalRuns < 1000000))
+        && (!('lifetimePlaytimeSeconds' in request.resource.data) || (request.resource.data.lifetimePlaytimeSeconds is int && request.resource.data.lifetimePlaytimeSeconds >= 0 && request.resource.data.lifetimePlaytimeSeconds < 315360000))
+        && (!('longestSurvivalMs' in request.resource.data) || (request.resource.data.longestSurvivalMs is int && request.resource.data.longestSurvivalMs >= 0 && request.resource.data.longestSurvivalMs < 999999999))
+        && (!('favoriteClass' in request.resource.data) || request.resource.data.favoriteClass in ['balanced', 'runner', 'tank'])
+        && (!('favoriteDifficulty' in request.resource.data) || request.resource.data.favoriteDifficulty in ['easy', 'normal', 'hard', 'nightmare', 'apex'])
+        && (!('lastRunSurvived' in request.resource.data) || request.resource.data.lastRunSurvived is bool)
+        && (!('lastRunNight' in request.resource.data) || (request.resource.data.lastRunNight is int && request.resource.data.lastRunNight >= 0 && request.resource.data.lastRunNight < 1000))
+        && (!('lastRunKills' in request.resource.data) || (request.resource.data.lastRunKills is int && request.resource.data.lastRunKills >= 0 && request.resource.data.lastRunKills < 1000000))
+        && (!('lastRunCoins' in request.resource.data) || (request.resource.data.lastRunCoins is int && request.resource.data.lastRunCoins >= 0 && request.resource.data.lastRunCoins < 100000000))
+        && (!('bestRunNight' in request.resource.data) || (request.resource.data.bestRunNight is int && request.resource.data.bestRunNight >= 0 && request.resource.data.bestRunNight < 1000))
+        && (!('bestRunKills' in request.resource.data) || (request.resource.data.bestRunKills is int && request.resource.data.bestRunKills >= 0 && request.resource.data.bestRunKills < 1000000))
+        && (!('bestRunCoins' in request.resource.data) || (request.resource.data.bestRunCoins is int && request.resource.data.bestRunCoins >= 0 && request.resource.data.bestRunCoins < 100000000))
+        && (!('bestRunDifficulty' in request.resource.data) || request.resource.data.bestRunDifficulty in ['easy', 'normal', 'hard', 'nightmare', 'apex'])
+        && (!('bestRunLoadout' in request.resource.data) || request.resource.data.bestRunLoadout in ['balanced', 'runner', 'tank'])
+        && (!('firstPlayedDate' in request.resource.data) || (request.resource.data.firstPlayedDate is string && request.resource.data.firstPlayedDate.size() <= 10))
+        && (!('accountCreatedAt' in request.resource.data) || request.resource.data.accountCreatedAt is int)
+        && (!('todayKills' in request.resource.data) || (request.resource.data.todayKills is int && request.resource.data.todayKills >= 0 && request.resource.data.todayKills < 1000000))
+        && (!('todayMinutes' in request.resource.data) || (request.resource.data.todayMinutes is int && request.resource.data.todayMinutes >= 0 && request.resource.data.todayMinutes < 100000));
     }
 
     match /clans/{clanId} {
