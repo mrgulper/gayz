@@ -45,9 +45,6 @@ const CRATE_TIERS = {
   golden: { cost: 5000, rareChance: 0.8 },
 }
 const CRATE_RARE_COST_THRESHOLD = 900
-// Max quantity the bulk-purchase modal's + button will go to, on top of
-// whatever affording it further limits - see _updateCratePurchaseModal.
-const CRATE_PURCHASE_MAX_QTY = 10
 // Same values as each .crate-tier-wood/-ice/-golden CSS class's own
 // --crate-tier-color (src/style.css) - duplicated here since the
 // purchase modal sets this as an inline style (there's no per-tier class
@@ -1863,9 +1860,15 @@ function loadShopProgress() {
       // WeaponSystem.applyAttachment right after unlockedGuns in the
       // constructor.
       attachments: parsed.attachments || [],
+      // Unopened crate stock, per CRATE_TIERS key (2026-09-21) - buying a
+      // crate used to instantly roll its reward in one action; now buying
+      // adds to this count and Inventory > Crates' own Open button is what
+      // actually consumes one and rolls the reward, so a crate can sit
+      // unopened across a reload same as anything else owned.
+      crateStock: parsed.crateStock || {},
     }
   } catch {
-    return { points: 0, coins: 0, cash: 0, gems: 0, ownsShopSkin: false, ownedSkins: new Set(), equippedSkin: null, ownedOutfits: new Set(), equippedOutfit: null, ownedHats: new Set(), equippedHat: null, challengeKillCounts: {}, weaponChallengesUnlocked: new Set(), shopPurchased: new Set(), attachments: [] }
+    return { points: 0, coins: 0, cash: 0, gems: 0, ownsShopSkin: false, ownedSkins: new Set(), equippedSkin: null, ownedOutfits: new Set(), equippedOutfit: null, ownedHats: new Set(), equippedHat: null, challengeKillCounts: {}, weaponChallengesUnlocked: new Set(), shopPurchased: new Set(), attachments: [], crateStock: {} }
   }
 }
 
@@ -1900,6 +1903,7 @@ function saveShopProgress(game) {
         }
         return ids
       }),
+      crateStock: game.crateStock,
     }))
   } catch {
     // Storage unavailable - shop progress just won't persist across sessions.
@@ -6252,6 +6256,10 @@ export class Game {
       const item = COIN_SHOP_ITEMS.find((i) => i.hat === this.equippedHat)
       if (item) this.playerBody.setHat(item.hat, item.hatColor)
     }
+    // Unopened crate stock (see loadShopProgress's own comment) - a plain
+    // object, not a Set/Map, since it's just an integer count per tier,
+    // not a collection of distinct owned ids like ownedHats/ownedOutfits.
+    this.crateStock = { wood: 0, ice: 0, golden: 0, ...this.shopProgress.crateStock }
     this._applyVeteranPerks()
 
     this._applyAllVolumes()
@@ -9618,6 +9626,23 @@ export class Game {
         } else {
           this._openCratePurchaseModal(tier)
         }
+      })
+    }
+
+    // Inventory > Crates' own cards - separate listener, separate scope
+    // (#inventory-page-crates, never #shop-crate-tier-grid) than the Shop
+    // one above, same "one listener per card, no cross-scope selectors"
+    // reasoning as that one's own comment. Only the Open button does
+    // anything here - clicking elsewhere on the card has no purchase
+    // modal to open (Inventory doesn't buy, only opens what's already
+    // owned), so it's a no-op rather than reusing _openCratePurchaseModal.
+    for (const card of document.querySelectorAll('#inventory-page-crates .crate-card')) {
+      card.addEventListener('click', (e) => {
+        const tierClass = [...card.classList].find((c) => c.startsWith('crate-tier-'))
+        if (!tierClass) return
+        const tier = tierClass.slice('crate-tier-'.length)
+        const btn = e.target.closest('.crate-open-btn')
+        if (btn && !btn.disabled) this._openOwnedCrate(tier)
       })
     }
 
@@ -16897,8 +16922,19 @@ export class Game {
     // Inventory > Crates' own plain "Open" buttons - excluded from the
     // Shop-scoped loop above (no price to check/show), but still need
     // their label translated on language switch, same as everywhere else.
+    // Disabled when crateStock is 0 for that tier - nothing owned yet to
+    // open (2026-09-21, part of the buy/open split).
     for (const btn of document.querySelectorAll('#inventory-page-crates .crate-open-btn[data-crate-tier]')) {
       btn.textContent = t('crateOpenBtn')
+      btn.disabled = (this.crateStock[btn.dataset.crateTier] || 0) <= 0
+    }
+    // "x3"/"x0" stock badge on each Inventory crate card - hidden
+    // entirely at 0 rather than shown as "x0" (see .crate-stock-count's
+    // own CSS comment).
+    for (const el of document.querySelectorAll('#inventory-page-crates .crate-stock-count[data-crate-tier]')) {
+      const count = this.crateStock[el.dataset.crateTier] || 0
+      el.textContent = `x${count}`
+      el.style.display = count > 0 ? 'block' : 'none'
     }
   }
 
@@ -16912,13 +16948,12 @@ export class Game {
     return finalPool[Math.floor(Math.random() * finalPool.length)]
   }
 
-  // Buying and opening a crate - mirrors _buyShopSkin's own sequence
-  // (afford check, deduct, grant, equip immediately, persist, toast) for
-  // the same currency/cosmetic shape. A duplicate roll refunds the full
-  // price paid instead of granting nothing - same "don't waste a roll on
-  // something already owned" reasoning as most crate systems, and simpler
-  // than a "can't roll what you already own" pool exclusion that would
-  // make the highest-tier crates less exciting once most items are owned.
+  // Buys 1 crate - adds it to crateStock, unopened, rather than instantly
+  // rolling a reward (that used to happen right here; moved to
+  // _openOwnedCrate, called from Inventory > Crates' own Open button -
+  // 2026-09-21, per explicit request to separate buying from opening so
+  // Inventory can show a real "how many do I have" count). Mirrors
+  // _buyShopSkin's own afford-check/deduct/persist/toast shape.
   _openCrate(tier) {
     const tierConfig = CRATE_TIERS[tier]
     if (!tierConfig) return
@@ -16927,6 +16962,26 @@ export class Game {
       return
     }
     this.coins -= tierConfig.cost
+    this.crateStock[tier] = (this.crateStock[tier] || 0) + 1
+    this._showHomepageToast(t('crateBought', { n: 1, name: t(`crateTier${tier.charAt(0).toUpperCase()}${tier.slice(1)}`) }))
+    saveShopProgress(this)
+    this._renderCurrencyBar()
+    this._renderCrateTiers()
+  }
+
+  // Opens ONE owned, already-paid-for crate from crateStock - the actual
+  // reward roll + duplicate-refund logic this used to be part of buying
+  // itself (see _openCrate's own comment). Refunding the crate's cost on
+  // a duplicate still applies here (same "never waste a roll on something
+  // already owned" reasoning as before), even though the coins were
+  // already spent earlier at buy time - the crate itself is consumed
+  // either way, so this is the only point left where a duplicate can be
+  // made whole again.
+  _openOwnedCrate(tier) {
+    const tierConfig = CRATE_TIERS[tier]
+    if (!tierConfig) return
+    if ((this.crateStock[tier] || 0) <= 0) return
+    this.crateStock[tier] -= 1
     const item = this._rollCrateReward(tier)
     const alreadyOwned = item.outfit ? this.ownedOutfits.has(item.outfit) : this.ownedHats.has(item.hat)
     if (alreadyOwned) {
@@ -16973,18 +17028,19 @@ export class Game {
     if (this.cratePurchaseModal) this.cratePurchaseModal.style.display = 'none'
   }
 
-  // Recomputes the quantity clamp (1..min(CRATE_PURCHASE_MAX_QTY, what
-  // this.coins can actually afford) - re-run after every +/- click and
-  // right after opening, since "what's affordable" can only ever shrink
-  // relative to when the modal opened, never grow, but re-deriving it
-  // fresh here rather than caching it once is what makes that safe
-  // regardless of when coins last changed.
+  // Recomputes the quantity clamp (1..whatever this.coins can actually
+  // afford - no fixed upper cap anymore, per explicit request to allow
+  // buying as many as you can afford in one purchase) - re-run after
+  // every +/- click and right after opening, since "what's affordable"
+  // can only ever shrink relative to when the modal opened, never grow,
+  // but re-deriving it fresh here rather than caching it once is what
+  // makes that safe regardless of when coins last changed.
   _updateCratePurchaseModal() {
     const tier = this._cratePurchaseTier
     const tierConfig = CRATE_TIERS[tier]
     if (!tierConfig) return
     const maxAffordable = Math.floor(this.coins / tierConfig.cost)
-    const maxQty = Math.max(1, Math.min(CRATE_PURCHASE_MAX_QTY, maxAffordable))
+    const maxQty = Math.max(1, maxAffordable)
     this._cratePurchaseQty = Math.min(this._cratePurchaseQty, maxQty)
     this.cratePurchaseQtyValue.value = this._cratePurchaseQty
     this.cratePurchaseQtyValue.max = maxQty
@@ -16995,11 +17051,11 @@ export class Game {
     this.cratePurchaseConfirmBtn.disabled = this.coins < total
   }
 
-  // Rolls the chosen quantity all at once and shows ONE combined summary
-  // toast (per the design conversation) rather than one toast per item -
-  // same per-roll duplicate-refund logic as the single-crate _openCrate()
-  // above, just tallied into wonCounts/duplicateRefund instead of acted
-  // on immediately each time.
+  // Buys the chosen quantity, adding all of it to crateStock unopened -
+  // no more per-crate reward rolling here (moved to _openOwnedCrate, see
+  // its own comment). One combined "Bought Nx Tier Crate" toast instead
+  // of the old per-reward summary, since there's no longer a reward to
+  // summarize at buy time.
   _confirmCratePurchase() {
     const tier = this._cratePurchaseTier
     const tierConfig = CRATE_TIERS[tier]
@@ -17017,32 +17073,8 @@ export class Game {
       return
     }
     this.coins -= totalCost
-    const wonCounts = new Map()
-    let duplicateRefund = 0
-    for (let i = 0; i < qty; i++) {
-      const item = this._rollCrateReward(tier)
-      const alreadyOwned = item.outfit ? this.ownedOutfits.has(item.outfit) : this.ownedHats.has(item.hat)
-      if (alreadyOwned) {
-        duplicateRefund += tierConfig.cost
-        continue
-      }
-      if (item.outfit) {
-        this.ownedOutfits.add(item.outfit)
-        this.equippedOutfit = item.outfit
-        this.playerBody.setOutfit(item.outfitColor)
-      } else {
-        this.ownedHats.add(item.hat)
-        this.equippedHat = item.hat
-        this.playerBody.setHat(item.hat, item.hatColor)
-      }
-      const name = t(item.titleKey)
-      wonCounts.set(name, (wonCounts.get(name) || 0) + 1)
-    }
-    this.coins += duplicateRefund
-    const items = [...wonCounts.entries()].map(([name, count]) => (count > 1 ? `${name} x${count}` : name)).join(', ')
-    let message = items ? t('crateBulkResult', { n: qty, items }) : t('crateBulkAllDuplicates', { n: qty, coins: duplicateRefund })
-    if (duplicateRefund > 0 && items) message += t('crateBulkRefund', { coins: duplicateRefund })
-    this._showHomepageToast(message)
+    this.crateStock[tier] = (this.crateStock[tier] || 0) + qty
+    this._showHomepageToast(t('crateBought', { n: qty, name: t(`crateTier${tier.charAt(0).toUpperCase()}${tier.slice(1)}`) }))
     saveShopProgress(this)
     this._renderCurrencyBar()
     this._renderCrateTiers()

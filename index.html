@@ -3288,6 +3288,7 @@ Escape before dawn.</p>
           <div id="whatsnew-content">
             <p id="build-version-line"></p>
           <div id="changelog-list">
+            <div class="changelog-entry"><span class="changelog-date">Sep 21, 2026</span><span class="changelog-text">Reworked how crates work: buying a crate (Shop or the pause-menu Store) now just adds it to your Inventory unopened, instead of instantly rolling a reward. Head to Inventory > Crates to actually open one and see what you got. Inventory now shows how many of each crate you have ("x1", "x40", etc.) and the Open button is only clickable when you actually own at least one. Also removed the 10-crate limit on bulk purchases - buy as many as you can afford in one go.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 21, 2026</span><span class="changelog-text">Fixed a real money bug: opening a crate from Inventory (meant to be free) was silently charging real coins, because it accidentally shared code with the Shop's paid crates. Inventory crates are free again and can no longer charge you.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 21, 2026</span><span class="changelog-text">Performance: the loot chest model (repeated 454 times across the map) was unusually heavy - simplified it to use 64% fewer triangles, verified to look and animate identically. Should help frame rate, especially in areas with several chests nearby.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 21, 2026</span><span class="changelog-text">Added a "Crates" heading above the crate cards in the Store.</span></div>
@@ -3759,6 +3760,7 @@ Escape before dawn.</p>
                   <circle cx="19.2" cy="8.7" r="0.3" fill="#fff" opacity="0.8"/>
                 </svg>
                 <span class="crate-tier-name" data-crate-tier="wood">Wood</span>
+                <span class="crate-stock-count" data-crate-tier="wood">x0</span>
                 <button type="button" class="mini-action-btn crate-open-btn" data-crate-tier="wood">Open</button>
               </div>
               <div class="crate-card crate-tier-ice">
@@ -3785,6 +3787,7 @@ Escape before dawn.</p>
                   <polygon points="14,3 15.5,1 17,3" fill="#e8fbff"/>
                 </svg>
                 <span class="crate-tier-name" data-crate-tier="ice">Ice</span>
+                <span class="crate-stock-count" data-crate-tier="ice">x0</span>
                 <button type="button" class="mini-action-btn crate-open-btn" data-crate-tier="ice">Open</button>
               </div>
               <div class="crate-card crate-tier-golden">
@@ -3814,6 +3817,7 @@ Escape before dawn.</p>
                   <circle cx="19.2" cy="8.7" r="0.3" fill="#fff" opacity="0.8"/>
                 </svg>
                 <span class="crate-tier-name" data-crate-tier="golden">Golden</span>
+                <span class="crate-stock-count" data-crate-tier="golden">x0</span>
                 <button type="button" class="mini-action-btn crate-open-btn" data-crate-tier="golden">Open</button>
               </div>
             </div>
