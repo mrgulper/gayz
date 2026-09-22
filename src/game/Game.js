@@ -9590,26 +9590,34 @@ export class Game {
       })
     }
 
-    // Crate tier Open buttons - bound once here (not re-bound on every panel
-    // open, unlike the render-only parts of this tab) same "bind once at
-    // startup" precedent as shopSkinBuyBtn. Buys exactly 1, instantly -
-    // unchanged by the bulk-purchase modal below, per the explicit request
-    // that kept this button's own behavior separate.
-    for (const btn of document.querySelectorAll('.crate-open-btn')) {
-      btn.addEventListener('click', () => this._openCrate(btn.dataset.crateTier))
-    }
-
-    // Clicking a crate card anywhere OTHER than its own Open button opens
-    // the bulk-purchase modal instead (pick a quantity, buy several at
-    // once) - e.target.closest('.crate-open-btn') is what keeps this from
-    // ALSO firing when the click actually landed on that button (its own
-    // click bubbles up to this same card).
-    for (const card of document.querySelectorAll('.crate-card')) {
+    // Shop crate cards - ONE listener per card (not a separate button-level
+    // listener plus a card-level one) and explicitly scoped to
+    // #shop-crate-tier-grid, not `.crate-card`/`.crate-open-btn` globally.
+    // Inventory > Crates reuses those exact same class names purely for
+    // matching visual styling (see _renderInventorySkins/that tab's own
+    // markup) - its crates are deliberately free/cost-nothing (explicit
+    // request), but the OLD unscoped `document.querySelectorAll('.crate-
+    // open-btn')` matched Inventory's copies too, silently charging real
+    // coins to open them (real regression, caught 2026-09-21). The old
+    // split into two separate global listeners (one per button, one per
+    // card, relying on event-bubbling + e.target.closest() to route
+    // between them) also intermittently failed to fire the button's own
+    // handler on a fresh page load for reasons never fully root-caused
+    // despite extensive live testing - consolidating into one listener
+    // per card removes that whole class of failure, since there's only
+    // ever one handler deciding what a click meant, not two racing/
+    // depending on each other.
+    for (const card of document.querySelectorAll('#shop-crate-tier-grid .crate-card')) {
       card.addEventListener('click', (e) => {
-        if (e.target.closest('.crate-open-btn')) return
         const tierClass = [...card.classList].find((c) => c.startsWith('crate-tier-'))
         if (!tierClass) return
-        this._openCratePurchaseModal(tierClass.slice('crate-tier-'.length))
+        const tier = tierClass.slice('crate-tier-'.length)
+        const btn = e.target.closest('.crate-open-btn')
+        if (btn) {
+          if (!btn.disabled) this._openCrate(tier)
+        } else {
+          this._openCratePurchaseModal(tier)
+        }
       })
     }
 
@@ -16860,10 +16868,21 @@ export class Game {
   // decides which label a given button gets, so a future 3rd copy needs no
   // changes here, just whichever markup shape it should follow.
   _renderCrateTiers() {
+    // Tier-name labels (just "Wood"/"Ice"/...) stay unscoped - both the
+    // Shop's real crates and Inventory > Crates' cost-free display copies
+    // (see the click-binding's own comment, above where this is called
+    // from) need this same translation, and there's no price/affordability
+    // concept involved here to leak between them.
     for (const el of document.querySelectorAll('.crate-tier-name[data-crate-tier]')) {
       el.textContent = t(`crateTier${el.dataset.crateTier.charAt(0).toUpperCase()}${el.dataset.crateTier.slice(1)}`)
     }
-    for (const btn of document.querySelectorAll('.crate-open-btn[data-crate-tier]')) {
+    // Price/affordability, unlike the tier names above, is Shop-only -
+    // scoped to #shop-crate-tier-grid so Inventory's plain "Open" buttons
+    // (same classes/data-crate-tier, reused purely for visual styling)
+    // never get disabled by an affordability check they have no price to
+    // justify (real regression, caught 2026-09-21 - see the click
+    // handler's own comment for the matching fix on that side).
+    for (const btn of document.querySelectorAll('#shop-crate-tier-grid .crate-open-btn[data-crate-tier]')) {
       const tier = CRATE_TIERS[btn.dataset.crateTier]
       if (!tier) continue
       btn.disabled = this.coins < tier.cost
@@ -16874,6 +16893,12 @@ export class Game {
       const amountEl = btn.querySelector('.crate-open-btn-amount')
       if (amountEl) amountEl.textContent = tier.cost
       else btn.textContent = t('crateOpenBtn')
+    }
+    // Inventory > Crates' own plain "Open" buttons - excluded from the
+    // Shop-scoped loop above (no price to check/show), but still need
+    // their label translated on language switch, same as everywhere else.
+    for (const btn of document.querySelectorAll('#inventory-page-crates .crate-open-btn[data-crate-tier]')) {
+      btn.textContent = t('crateOpenBtn')
     }
   }
 

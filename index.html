@@ -3288,6 +3288,7 @@ Escape before dawn.</p>
           <div id="whatsnew-content">
             <p id="build-version-line"></p>
           <div id="changelog-list">
+            <div class="changelog-entry"><span class="changelog-date">Sep 21, 2026</span><span class="changelog-text">Fixed a real money bug: opening a crate from Inventory (meant to be free) was silently charging real coins, because it accidentally shared code with the Shop's paid crates. Inventory crates are free again and can no longer charge you.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 21, 2026</span><span class="changelog-text">Performance: the loot chest model (repeated 454 times across the map) was unusually heavy - simplified it to use 64% fewer triangles, verified to look and animate identically. Should help frame rate, especially in areas with several chests nearby.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 21, 2026</span><span class="changelog-text">Added a "Crates" heading above the crate cards in the Store.</span></div>
             <div class="changelog-entry"><span class="changelog-date">Sep 21, 2026</span><span class="changelog-text">Added a "Store" button to the pause menu - crates are now buyable mid-run with your live coin balance, not just from the homepage. Also brightened the quantity picker's -/+ buttons and gave the number box its own colored border matching each crate's tier (wood/ice/golden/monthly).</span></div>
