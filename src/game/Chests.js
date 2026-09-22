@@ -28,24 +28,25 @@ const INTERACT_RADIUS = 2.2
 const INTERACT_HEIGHT_TOLERANCE = 2.2
 const EYE_HEIGHT = 1.7
 
-// The GLB chest model is ~7,966 triangles each (measured live - roughly a
-// quarter of what the ENTIRE original city map cost, see docs/PERFORMANCE.md,
-// before this model replaced the old procedural crate). Distance-culling
-// them at all (see ChestManager's own comment) already stopped far-away
-// chests from being tracked, but the ones still nearby were shown at full
-// detail out to the same WORLD_CULL_DISTANCE (90) as big things like
-// buildings - massive overkill for a small background prop nobody's looking
-// closely at from 90 units away. A much shorter, chest-specific distance
-// (_updateCulling in Game.js checks `obj.__isChest` for this) keeps every
-// chest fully detailed well before the player could possibly be reading it
-// as more than a blob, while cutting simultaneous full-detail chests way
-// down in dense loot areas. Tightened from 30 - the chest model itself
-// turned out to be surprisingly heavy (~7,500 triangles split across 7-8
-// separate parts, more than a full zombie character) for a small
-// lootable crate, so a shorter distance matters more here than for most
-// other props. Already inherits Performance Mode's own further tightening
-// automatically (see Game.js's chestCullSq, which multiplies this by
-// _perfDistanceMult same as every other cull distance).
+// The GLB chest model was originally ~7,942 triangles each (measured live -
+// roughly a quarter of what the ENTIRE original city map cost, see
+// docs/PERFORMANCE.md, before this model replaced the old procedural
+// crate) - heavier than a full zombie character, for a small lootable
+// crate repeated 454 times across the map. Reduced to ~2,868 tris/chest
+// (2026-09-21) via `gltf-transform simplify` (meshoptimizer, ratio 0.25,
+// error 0.01) on the source GLB itself - verified before shipping: bone
+// structure/count, the Chest_Open animation's bone rotations, and every
+// vertex's skin-weight sum (must total ~1.0) all matched the original
+// exactly, and the model's own bounding box was unchanged, so distant/
+// silhouette appearance shouldn't visibly differ. The chest-specific cull
+// distance below stays in place regardless - even at the reduced count,
+// showing every nearby chest at full detail out to the same
+// WORLD_CULL_DISTANCE (90) as buildings would still be overkill for a
+// small background prop. Tightened from 30 originally.
+// (_updateCulling in Game.js checks `obj.__isChest` for this.) Already
+// inherits Performance Mode's own further tightening automatically (see
+// Game.js's chestCullSq, which multiplies this by _perfDistanceMult same
+// as every other cull distance).
 export const CHEST_CULL_DISTANCE = 24
 
 // Every GLB chest's 2 status-light boxes (908 total across 454 chests) used
