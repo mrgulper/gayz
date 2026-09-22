@@ -8651,7 +8651,7 @@ html.ui-theme-old #menu-nav-buttons button {
      "General" specifically flagged but this is the shared button rule
      so it applies to all 8 nav buttons equally). Extra ~14px clearance
      on top of the shorthand's 26px. */
-  padding-left: 40px;
+  padding-left: 56px;
 }
 
 #menu-nav-buttons button svg {
@@ -9012,7 +9012,7 @@ html.ui-theme-old #menu-nav-buttons button {
     padding: 12px 16px;
     /* Still needs some left clearance from the plaque art even at this
        shrunk tier - see the base rule's own comment on this same fix. */
-    padding-left: 28px;
+    padding-left: 40px;
   }
 
   #menu-player-tag {
@@ -9101,7 +9101,7 @@ html.ui-theme-old #menu-nav-buttons button {
   html.ui-theme-old #menu-nav-buttons button {
     padding: 9px 20px;
     font-size: 14px;
-    padding-left: 32px;
+    padding-left: 44px;
   }
 
   #menu-nav-buttons button svg {
@@ -9318,7 +9318,7 @@ html.ui-theme-old #menu-nav-buttons button {
   html.ui-theme-old #menu-nav-buttons button {
     padding: 8px 16px;
     font-size: 13px;
-    padding-left: 26px;
+    padding-left: 36px;
   }
 
   #menu-nav-buttons button svg {
