@@ -15865,7 +15865,7 @@ export class Game {
     // Always linkify here (unlike the in-game HUD chat's channel-gated
     // version) - this panel IS the global channel, always, no tabs to
     // gate on (see _bindServerChat's own comment).
-    this.serverChatMessages.innerHTML = visible.map((m) => `<div class="chat-message-row"><button type="button" class="chat-message-nickname" data-nickname="${_escapeHtml(m.nickname)}" data-uid="${m.uid || ''}">${_escapeHtml(m.nickname)}:</button><span class="chat-message-text">${this._renderChatMessageText(m.text, true)}</span></div>`).join('')
+    this.serverChatMessages.innerHTML = visible.map((m) => `<div class="chat-message-row"><button type="button" class="chat-message-nickname" data-nickname="${_escapeHtml(m.nickname)}" data-uid="${_escapeHtml(m.uid || '')}">${_escapeHtml(m.nickname)}:</button><span class="chat-message-text">${this._renderChatMessageText(m.text, true)}</span></div>`).join('')
     this.serverChatMessages.scrollTop = this.serverChatMessages.scrollHeight
   }
 
@@ -22839,7 +22839,7 @@ export class Game {
     // chat wasn't asked for yet. _renderChatMessageText no-ops back to
     // plain escaped text outside 'global', same as it always rendered.
     const linkifyIds = this._chatChannel === 'global'
-    this.chatMessages.innerHTML = visible.map((m) => `<div class="chat-message-row"><button type="button" class="chat-message-nickname" data-nickname="${_escapeHtml(m.nickname)}" data-uid="${m.uid || ''}">${_escapeHtml(m.nickname)}:</button><span class="chat-message-text">${this._renderChatMessageText(m.text, linkifyIds)}</span></div>`).join('')
+    this.chatMessages.innerHTML = visible.map((m) => `<div class="chat-message-row"><button type="button" class="chat-message-nickname" data-nickname="${_escapeHtml(m.nickname)}" data-uid="${_escapeHtml(m.uid || '')}">${_escapeHtml(m.nickname)}:</button><span class="chat-message-text">${this._renderChatMessageText(m.text, linkifyIds)}</span></div>`).join('')
     this.chatMessages.scrollTop = this.chatMessages.scrollHeight
   }
 
