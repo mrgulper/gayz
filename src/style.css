@@ -9919,7 +9919,7 @@ html.ui-theme-old #settings-panel h2 {
 }
 
 #server-chat-messages .chat-message-nickname:hover {
-  text-decoration: underline;
+  text-decoration: none;
 }
 
 #server-chat-messages .chat-message-text {

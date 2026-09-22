@@ -4311,6 +4311,16 @@ export class Game {
     // distinct from the lifetime careerStats totals shown elsewhere.
     this._sessionKills = 0
     this._sessionStartTime = performance.now()
+    // Chat "looks empty on a fresh page load" (both the homepage Global
+    // panel and the in-game HUD chat, explicit request 2026-09-22) - a
+    // real wall-clock timestamp (Date.now(), unlike _sessionStartTime
+    // above which is a performance.now() elapsed-ms counter unrelated to
+    // real dates) captured once here, at construction, not re-captured on
+    // every panel open/close or game restart within the same page load.
+    // _renderServerChatMessages/_renderChatMessages filter out anything
+    // with an earlier createdAt - nothing is deleted from Firestore, this
+    // only affects what THIS client's own view renders.
+    this._chatSessionStartMs = Date.now()
     this._leaderboardUnsubscribe = null
     this.menuBossRushLeaderboard = document.getElementById('menu-bossrush-leaderboard')
     this.menuHardcoreMemorial = document.getElementById('menu-hardcore-memorial')
@@ -15861,7 +15871,11 @@ export class Game {
     if (!this.serverChatMessages) return
     this._lastServerChatMsgs = msgs
     const muted = new Set(this.settings.mutedChatPlayers)
-    const visible = msgs.filter((m) => !muted.has(m.nickname))
+    // Hides pre-existing history on a fresh page load (see
+    // _chatSessionStartMs's own comment) - only filters messages that
+    // actually carry a createdAt, so this can't accidentally hide
+    // something from a shape that doesn't have one.
+    const visible = msgs.filter((m) => !muted.has(m.nickname) && !(m.createdAt && m.createdAt <= this._chatSessionStartMs))
     // Always linkify here (unlike the in-game HUD chat's channel-gated
     // version) - this panel IS the global channel, always, no tabs to
     // gate on (see _bindServerChat's own comment).
@@ -22833,7 +22847,12 @@ export class Game {
     // (see _bindChatContextActions) - Settings > Social is still how an
     // existing mute gets undone.
     const muted = new Set(this.settings.mutedChatPlayers)
-    const visible = msgs.filter((m) => !muted.has(m.nickname))
+    // Hides pre-existing history on a fresh page load, same as the
+    // homepage Global panel's identical filter (see _chatSessionStartMs's
+    // own comment) - only filters messages that actually carry a
+    // createdAt, so Party chat (no createdAt field, see its own comment
+    // below) passes through unaffected.
+    const visible = msgs.filter((m) => !muted.has(m.nickname) && !(m.createdAt && m.createdAt <= this._chatSessionStartMs))
     // Global-only for now (see the design conversation) - Party chat's
     // ephemeral multiplayer players have no Player ID at all, and Clan
     // chat wasn't asked for yet. _renderChatMessageText no-ops back to
