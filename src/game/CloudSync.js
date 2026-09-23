@@ -127,11 +127,14 @@ service cloud.firestore {
         // to Shown to Public, so these are now real public fields, not
         // just a display-only tab label. bio/motto are the only genuinely
         // freeform fields on this whole doc - bounded to their input's own
-        // maxlength (250/60), same numbers Game.js already slices to
-        // client-side, enforced here too since the client-side cap alone
-        // is not trustworthy.
-        && (!('bio' in request.resource.data) || (request.resource.data.bio is string && request.resource.data.bio.size() <= 250))
-        && (!('motto' in request.resource.data) || (request.resource.data.motto is string && request.resource.data.motto.size() <= 60))
+        // 5000 (raised from 250, 2026-09-23 "no limit" request) - same
+        // number Game.js already slices to client-side, enforced here too
+        // since the client-side cap alone is not trustworthy. Motto's own
+        // rule removed the same day - the feature itself is gone, so the
+        // field is never sent anymore (an old already-synced doc keeping
+        // a stale motto value doesn't need a rule to reject it, nothing
+        // reads that field client-side anymore either).
+        && (!('bio' in request.resource.data) || (request.resource.data.bio is string && request.resource.data.bio.size() <= 5000))
         && (!('totalDeaths' in request.resource.data) || (request.resource.data.totalDeaths is int && request.resource.data.totalDeaths >= 0 && request.resource.data.totalDeaths < 1000000))
         && (!('totalRuns' in request.resource.data) || (request.resource.data.totalRuns is int && request.resource.data.totalRuns >= 0 && request.resource.data.totalRuns < 1000000))
         && (!('lifetimePlaytimeSeconds' in request.resource.data) || (request.resource.data.lifetimePlaytimeSeconds is int && request.resource.data.lifetimePlaytimeSeconds >= 0 && request.resource.data.lifetimePlaytimeSeconds < 315360000))

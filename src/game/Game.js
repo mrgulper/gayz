@@ -479,7 +479,10 @@ function loadSettings() {
       // means "no custom skin, use the default flat-color character."
       customSkinDataUrl: typeof parsed.customSkinDataUrl === 'string' ? parsed.customSkinDataUrl : null,
       // Profile bio - free text, capped at 250 chars (see _renderProfileBio).
-      bio: typeof parsed.bio === 'string' ? parsed.bio.slice(0, 250) : '',
+      // 5000, not a hard product decision so much as "no real limit, but
+      // still some sane ceiling" (2026-09-23, explicit "write as much as
+      // you want" request) - was 250.
+      bio: typeof parsed.bio === 'string' ? parsed.bio.slice(0, 5000) : '',
       // Streaming-safe mode (see _updateStreamSafeVisibility) - hides the
       // fps/ms/draw-calls debug overlay specifically, leaving the rest of
       // the HUD untouched.
@@ -598,7 +601,6 @@ function loadSettings() {
       accentColor: parsed.accentColor || null,
       playBtnColor: parsed.playBtnColor || null,
       nicknameFont: parsed.nicknameFont || 'default',
-      motto: typeof parsed.motto === 'string' ? parsed.motto.slice(0, 60) : '',
       layoutDensity: parsed.layoutDensity || 'cozy',
       pinnedStat: parsed.pinnedStat || null,
       companionNameColor: parsed.companionNameColor || null,
@@ -706,7 +708,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, gamepadDeadzone: 20, gamepadVibration: true, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, autoLootRadius: 'medium', instantStationInteract: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, touchControlsOverride: 'auto', clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'menu-inventory-btn', 'quests-btn', 'friends-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
+  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, gamepadDeadzone: 20, gamepadVibration: true, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, autoLootRadius: 'medium', instantStationInteract: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, touchControlsOverride: 'auto', clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'menu-inventory-btn', 'quests-btn', 'friends-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -2603,7 +2605,6 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'reset-skin-btn': 'resetSkinBtn',
   'profile-tab-public': 'profilePublicHeading',
   'profile-public-hint': 'profilePublicHint',
-  'profile-public-name-label': 'profilePublicNameLabel',
   'profile-public-id-label': 'profilePublicIdLabel',
   // Reusing #other-profile-panel's existing labels (already translated
   // into zh/hi/es) - same "Best Night"/"Best Kills"/"Achievements" text,
@@ -2619,7 +2620,6 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'stats-dashboard-heading': 'statsDashboardHeadingLabel',
   'pinned-stat-label': 'pinnedStatLabel',
   'bio-preset-save-btn': 'bioPresetSaveBtn',
-  'motto-heading': 'mottoHeading',
   'multiplayer-create-btn': 'multiplayerCreateBtn',
   'multiplayer-join-desc': 'multiplayerJoinDesc',
   'multiplayer-join-btn': 'multiplayerJoinBtn',
@@ -2711,7 +2711,6 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'hub-section-choose-class': 'hubSectionChooseClass',
   'hub-section-game-modes': 'hubSectionGameModes',
   'hub-section-challenges-mutators': 'hubSectionChallengesMutators',
-  'your-stats-title': 'yourStatsTitle',
 }
 
 const PLACEHOLDER_I18N_KEYS = {
@@ -2726,7 +2725,6 @@ const PLACEHOLDER_I18N_KEYS = {
   'clan-request-name-input': 'clanRequestNameInputPlaceholder',
   'companion-name-input': 'companionNameInputPlaceholder',
   'challenge-code-input': 'challengeCodeInputPlaceholder',
-  'motto-input': 'mottoInputPlaceholder',
   'cloudsave-friend-input': 'cloudsaveFriendInputPlaceholder',
   'screenshot-caption-input': 'screenshotCaptionInputPlaceholder',
   'emoji-picker-search': 'emojiPickerSearchPlaceholder',
@@ -4278,8 +4276,6 @@ export class Game {
     this.otherProfileBioMotto = document.getElementById('other-profile-bio-motto')
     this.otherProfileBioHeading = document.getElementById('other-profile-bio-heading')
     this.otherProfileBioText = document.getElementById('other-profile-bio-text')
-    this.otherProfileMottoHeading = document.getElementById('other-profile-motto-heading')
-    this.otherProfileMottoText = document.getElementById('other-profile-motto-text')
     this.otherProfileNotesHeading = document.getElementById('other-profile-notes-heading')
     this.otherProfileNotesHint = document.getElementById('other-profile-notes-hint')
     this.otherProfileNotesInput = document.getElementById('other-profile-notes-input')
@@ -4494,7 +4490,6 @@ export class Game {
     this.playBtnColorResetBtn = document.getElementById('play-btn-color-reset-btn')
     this.nicknameFontSelect = document.getElementById('nickname-font-select')
     this.layoutDensitySelect = document.getElementById('layout-density-select')
-    this.mottoInput = document.getElementById('motto-input')
     this.randomNicknameBtn = document.getElementById('random-nickname-btn')
     this.bioPresetSaveBtn = document.getElementById('bio-preset-save-btn')
     this.bioPresetChips = document.getElementById('bio-preset-chips')
@@ -10120,15 +10115,6 @@ export class Game {
         this.nicknameInput.focus()
       })
     }
-    if (this.mottoInput) {
-      this.mottoInput.value = this.settings.motto
-      this.mottoInput.addEventListener('input', () => {
-        this.settings.motto = this.mottoInput.value.slice(0, 60)
-        saveSettings(this.settings)
-        this._renderPlayerTag()
-      })
-    }
-
     this.crosshairSizeSlider.value = this.settings.crosshairSize
     this.crosshairSizeValue.textContent = `${this.settings.crosshairSize}%`
     document.documentElement.style.setProperty('--crosshair-size', this.settings.crosshairSize / 100)
@@ -12560,7 +12546,6 @@ export class Game {
       // the untrimmed-nickname fix from the same day).
       const bioTrimmed = typeof entry.bio === 'string' ? entry.bio.trim() : ''
       const hasBio = bioTrimmed.length > 0
-      const hasMotto = typeof entry.motto === 'string' && entry.motto.trim().length > 0
       // Bio always shows now (real text, or a "this user has no bio"
       // fallback) instead of hiding the whole Bio/Motto/Notes column
       // whenever neither was set - Notes below needs to be reachable
@@ -12577,11 +12562,6 @@ export class Game {
       if (this.otherProfileBioText) {
         this.otherProfileBioText.textContent = hasBio ? bioTrimmed : t('otherProfileNoBio')
         this.otherProfileBioText.style.display = ''
-      }
-      if (this.otherProfileMottoHeading) this.otherProfileMottoHeading.style.display = hasMotto ? '' : 'none'
-      if (this.otherProfileMottoText) {
-        this.otherProfileMottoText.textContent = hasMotto ? entry.motto.trim() : ''
-        this.otherProfileMottoText.style.display = hasMotto ? '' : 'none'
       }
       // Notes - private, local-only, keyed by this player's playerId (see
       // _otherProfileCurrentPlayerId, set right before this function runs).
@@ -12995,8 +12975,7 @@ export class Game {
     // this file - the VIEWING client's own t() formats it in their own
     // language, not the profile owner's. _renderOtherProfileEntry is the
     // read side of this same change.
-    entry.bio = (this.settings.bio || '').slice(0, 250)
-    entry.motto = (this.settings.motto || '').slice(0, 60)
+    entry.bio = (this.settings.bio || '').slice(0, 5000)
     entry.totalDeaths = _safeStatNumber(this.careerStats.totalDeaths)
     entry.totalRuns = _safeStatNumber(this.careerStats.totalRuns)
     entry.lifetimePlaytimeSeconds = _safeStatNumber(this.careerStats.lifetimePlaytimeSeconds)
@@ -16508,8 +16487,9 @@ export class Game {
 
   _renderPlayerTag() {
     if (!this.menuPlayerTag) return
-    const base = this.settings.playerId ? `#${this.settings.playerId}` : t('menuPlayerTagDefault')
-    this.menuPlayerTag.textContent = base + (this.settings.motto ? ` "${this.settings.motto}"` : '')
+    // Motto removed (2026-09-23, explicit request) - used to append
+    // `"{motto}"` after the ID here; just the ID now.
+    this.menuPlayerTag.textContent = this.settings.playerId ? `#${this.settings.playerId}` : t('menuPlayerTagDefault')
     // The "Player" section heading above the 3D avatar - shows the
     // player's own chosen nickname once they've set one, falls back to
     // the generic "Player" label otherwise (same default the heading
@@ -16944,8 +16924,8 @@ export class Game {
 
     if (this.profileBioInput) {
       this.profileBioInput.addEventListener('input', () => {
-        this.settings.bio = this.profileBioInput.value.slice(0, 250)
-        if (this.profileBioInput.value.length > 250) this.profileBioInput.value = this.settings.bio
+        this.settings.bio = this.profileBioInput.value.slice(0, 5000)
+        if (this.profileBioInput.value.length > 5000) this.profileBioInput.value = this.settings.bio
         saveSettings(this.settings)
         this._renderProfileBioCounter()
       })
@@ -21104,7 +21084,9 @@ export class Game {
 
   _renderProfileBioCounter() {
     if (!this.profileBioCounter) return
-    this.profileBioCounter.textContent = `${(this.settings.bio || '').length}/250`
+    // No "/250" cap shown anymore (2026-09-23, "no limit, write as much
+    // as you want") - just the running character count.
+    this.profileBioCounter.textContent = `${(this.settings.bio || '').length}`
   }
 
   // "Today" session stats - _sessionKills/_sessionStartTime are

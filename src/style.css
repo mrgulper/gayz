@@ -456,41 +456,65 @@ html.layout-compact .menu-panel {
   gap: 10px;
 }
 
-/* Bio (left) beside Your Stats (moved in from the homepage - see
-   Game.js's _updateBestStatsDisplay, unchanged, just a relocated target)
-   on the right (see Game.js's _openProfilePanel). */
-#profile-bio-stats-row {
+/* Own-profile "Shown to Public" tab (2026-09-23) - restructured to match
+   #other-profile-panel's layout exactly (same centered header + divider,
+   same two-column split, same merged single stat list instead of a
+   separate "Your Stats" sub-panel) so a player sees their own public
+   profile laid out the same way a friend sees it. */
+#profile-public-name-value {
+  text-align: center;
+  margin: 10px 0 6px;
+}
+
+#profile-public-id-line {
+  text-align: center;
+  margin: 0 0 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+#profile-public-columns {
   width: 100%;
-  max-width: 640px;
   display: flex;
-  gap: 16px;
+  gap: 28px;
   align-items: flex-start;
+  justify-content: center;
+}
+
+#profile-public-stats-column {
+  flex: 1 1 380px;
+  max-width: 380px;
+  min-width: 0;
+}
+
+#profile-public-stats {
+  width: 100%;
+}
+
+#profile-public-stats-column > p,
+#profile-public-stats-column > #profile-best-run-card,
+#profile-public-stats-column > #profile-created-title {
+  margin-top: 10px;
 }
 
 #profile-bio-column {
-  flex: 1;
+  flex: 1 1 380px;
+  max-width: 380px;
   min-width: 0;
-}
-
-#profile-your-stats-column {
-  flex: 1;
-  min-width: 0;
-  padding: 6px 12px;
-}
-
-#profile-your-stats-column .menu-panel-title {
-  margin: 0 0 2px;
-  font-size: 15px;
-}
-
-#profile-your-stats-column .stat-row {
-  padding: 1px 0;
-  font-size: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 16px 20px;
 }
 
 @media (max-width: 560px) {
-  #profile-bio-stats-row {
+  #profile-public-columns {
     flex-direction: column;
+  }
+  #profile-public-stats-column,
+  #profile-bio-column {
+    max-width: 100%;
+    width: 100%;
   }
 }
 
@@ -936,8 +960,7 @@ html.layout-compact .menu-panel {
   text-align: center;
 }
 
-#other-profile-bio-heading,
-#other-profile-motto-heading {
+#other-profile-bio-heading {
   margin: 0 0 4px;
   font-size: 13px;
   letter-spacing: 0.5px;
@@ -946,12 +969,7 @@ html.layout-compact .menu-panel {
   opacity: 0.85;
 }
 
-#other-profile-motto-heading {
-  margin-top: 14px;
-}
-
-#other-profile-bio-text,
-#other-profile-motto-text {
+#other-profile-bio-text {
   margin: 0;
   font-size: 13px;
   line-height: 1.5;
@@ -960,7 +978,7 @@ html.layout-compact .menu-panel {
 }
 
 /* Private per-player Notes (2026-09-23) - same heading language as
-   Bio/Motto above, textarea styled like the owner's own #profile-bio-input
+   Bio above, textarea styled like the owner's own #profile-bio-input
    so it doesn't read as a mismatched native control. */
 #other-profile-notes-heading {
   margin: 14px 0 2px;
