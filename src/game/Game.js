@@ -22971,13 +22971,13 @@ export class Game {
     if (rect.bottom > window.innerHeight) this.chatIdPopup.style.top = `${Math.max(8, window.innerHeight - rect.height - 8)}px`
 
     const hide = () => { this.chatIdPopup.style.display = 'none' }
+    // Opens the full stats profile instead of copying (2026-09-22, explicit
+    // request) - copying the ID is still one click away via the nickname
+    // itself (left-click, see _bindChatContextActions/_bindServerChat),
+    // this button's own job in THIS popup is now "show me who this is."
     this.chatIdPopupIdBtn.onclick = () => {
-      // Captured before hide() - the popup (and this button inside it)
-      // goes display:none immediately, which would zero out a live
-      // getBoundingClientRect() read later inside _showCopiedBadge.
-      const idBtnRect = this.chatIdPopupIdBtn.getBoundingClientRect()
       hide()
-      this._copyChatPlayerId(playerId, idBtnRect, (msg) => this._showHomepageToast(msg))
+      this._openOtherPlayerProfileById(playerId, name)
     }
     this.chatIdPopupMuteBtn.onclick = () => {
       hide()
