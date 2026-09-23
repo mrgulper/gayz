@@ -3794,6 +3794,82 @@ export function _safeStatNumber(v) {
   return Number.isFinite(n) ? n : 0
 }
 
+// Chat profanity filter (2026-09-23) - English only for now (see the
+// gayz-chat-filter-other-languages memory - zh/hi/es word lists are
+// planned, not an oversight). Base words plus their common everyday
+// inflections only, no generic suffix wildcard - a wildcard like
+// /\bass\w*\b/ would also catch "assassin", which \b-anchored exact
+// entries never do ("class"/"grass"/"passed"/"assassin" all stay
+// untouched since none of them equal one of these exact words). The
+// slur entries exist ONLY to be swapped for a harmless word below, same
+// as everything else here - this list censors, it doesn't platform
+// anything.
+const PROFANITY_WORDS = [
+  'damn', 'damned', 'damnit', 'goddamn', 'hell', 'crap', 'crappy',
+  'ass', 'asses', 'asshole', 'assholes', 'bastard', 'bitch', 'bitches', 'bitchy',
+  'piss', 'pissed', 'pissy', 'douche', 'douchebag', 'dumbass', 'jackass', 'bollocks',
+  'fuck', 'fucks', 'fucking', 'fucked', 'fucker', 'fuckers', 'fuckup', 'motherfucker',
+  'shit', 'shits', 'shitty', 'shitting', 'shitted', 'bullshit',
+  'cunt', 'cunts', 'dick', 'dicks', 'dickhead',
+  'cock', 'cocks', 'pussy', 'pussies', 'whore', 'whores', 'slut', 'sluts',
+  'twat', 'twats', 'prick', 'pricks', 'wanker', 'wankers',
+  'nigga', 'niggas', 'nigger', 'niggers',
+]
+
+// Word -> a silly substitute instead of asterisks, for specific words
+// where Gaymi wanted a swap rather than a blank-out (2026-09-23 request:
+// "fuck goes to fudge and nigga goes to ninja"). Anything in
+// PROFANITY_WORDS with no entry here still falls back to plain asterisks
+// in _censorText below.
+const PROFANITY_REPLACEMENTS = {
+  fuck: 'fudge', fucks: 'fudges', fucking: 'fudging', fucked: 'fudged',
+  fucker: 'fudger', fuckers: 'fudgers', fuckup: 'fudge-up', motherfucker: 'motherfudger',
+  nigga: 'ninja', niggas: 'ninjas', nigger: 'ninja', niggers: 'ninjas',
+}
+
+// Letter -> the character class matching every common stand-in for it,
+// so "sh1t"/"$hit"/"sh*t" all still hit the same pattern as "shit". '*'
+// is included on vowels specifically since that's the common
+// self-censoring style ("f*ck", "sh*t"), not just a leetspeak swap.
+const PROFANITY_LEET_MAP = {
+  a: 'a4@*', e: 'e3*', i: 'i1!*', o: 'o0*', u: 'u*',
+  s: 's5$', t: 't7', b: 'b8', g: 'g9', l: 'l1',
+}
+
+// Precompiled once at module load, not per keystroke/send - PROFANITY_WORDS
+// is plain a-z only, so no regex-special characters need escaping here.
+// Boundaries use lookaround (not \b) on purpose - \b only fires at a
+// \w/\W transition, but a leetspeak match can legitimately START or END
+// on a symbol (the 'a' class includes '@', so "@ss" is a real match) and
+// \b silently fails right before/after a non-word character with another
+// non-word character (like a space) on its other side. Checking "not a
+// letter" directly on both sides catches that while still blocking
+// "assassin" the same way \b did (the character right after a would-be
+// "ass" match there is "a", so the lookahead fails).
+const PROFANITY_ENTRIES = PROFANITY_WORDS.map((word) => {
+  const pattern = word.split('').map((ch) => {
+    const cls = PROFANITY_LEET_MAP[ch]
+    return cls ? `[${cls}]` : ch
+  }).join('')
+  return { regex: new RegExp(`(?<![a-zA-Z])${pattern}(?![a-zA-Z])`, 'gi'), replacement: PROFANITY_REPLACEMENTS[word] || null }
+})
+
+// Runs right before a chat message is sent (see _sendChatMessage/
+// _sendServerChatMessage) so the censored text is what actually reaches
+// Firestore - every viewer sees it censored, not just the sender's own
+// client (there's no backend here to filter on the way in, same trust
+// model as everything else in this file - see CLAUDE.md's anti-cheat
+// note). A word with an entry in PROFANITY_REPLACEMENTS gets swapped for
+// that word instead; everything else gets asterisked to the same length
+// as what matched, so the rest of the sentence still reads naturally.
+export function _censorText(text) {
+  let result = text
+  for (const { regex, replacement } of PROFANITY_ENTRIES) {
+    result = result.replace(regex, (m) => replacement || '*'.repeat(m.length))
+  }
+  return result
+}
+
 // Profile panel grouping (see _openProfilePanel) - every stat row's stable
 // id (the first element of its row tuple) mapped to one of 4 categories,
 // rendered in PROFILE_GROUP_ORDER's fixed order. A row with no entry here
@@ -15955,7 +16031,7 @@ export class Game {
 
   async _sendServerChatMessage() {
     if (!this.serverChatInput) return
-    const text = this.serverChatInput.value.trim()
+    const text = _censorText(this.serverChatInput.value.trim())
     if (!text) return
     const now = Date.now()
     if (this._serverChatMutedUntil > now) return
@@ -23210,7 +23286,7 @@ export class Game {
   }
 
   async _sendChatMessage() {
-    const text = this.chatInput.value.trim()
+    const text = _censorText(this.chatInput.value.trim())
     if (!text) return
     const now = Date.now()
     if (this._chatMutedUntil > now) return
