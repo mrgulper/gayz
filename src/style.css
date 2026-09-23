@@ -959,6 +959,40 @@ html.layout-compact .menu-panel {
   word-break: break-word;
 }
 
+/* Private per-player Notes (2026-09-23) - same heading language as
+   Bio/Motto above, textarea styled like the owner's own #profile-bio-input
+   so it doesn't read as a mismatched native control. */
+#other-profile-notes-heading {
+  margin: 14px 0 2px;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--menu-gold, #d9bc4a);
+  opacity: 0.85;
+}
+
+#other-profile-notes-hint {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-style: italic;
+  opacity: 0.55;
+}
+
+#other-profile-notes-input {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #f4f1e6;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--menu-panel-border);
+  border-radius: 6px;
+  resize: vertical;
+}
+
 .friend-name {
   flex: 1;
 }

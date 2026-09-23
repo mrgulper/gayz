@@ -393,6 +393,11 @@ function loadSettings() {
       gamepadDeadzone: parsed.gamepadDeadzone ?? 20,
       gamepadVibration: parsed.gamepadVibration ?? true,
       mutedChatPlayers: Array.isArray(parsed.mutedChatPlayers) ? parsed.mutedChatPlayers : [],
+      // Private per-player notes (Other Profile popup) - keyed by the
+      // OTHER player's stable playerId, never synced anywhere, only ever
+      // read/written by this local client. A plain object (not an array)
+      // since lookup is always "the note for THIS specific playerId."
+      playerNotes: (parsed.playerNotes && typeof parsed.playerNotes === 'object') ? parsed.playerNotes : {},
       killFeedPosition: parsed.killFeedPosition === 'left' ? 'left' : 'right',
       killFeedIcons: parsed.killFeedIcons ?? true,
       killFeedVerbosity: parsed.killFeedVerbosity === 'important' ? 'important' : 'all',
@@ -701,7 +706,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, gamepadDeadzone: 20, gamepadVibration: true, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, autoLootRadius: 'medium', instantStationInteract: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, touchControlsOverride: 'auto', clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'menu-inventory-btn', 'quests-btn', 'friends-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
+  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, gamepadDeadzone: 20, gamepadVibration: true, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, autoLootRadius: 'medium', instantStationInteract: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, touchControlsOverride: 'auto', clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', motto: '', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'menu-inventory-btn', 'quests-btn', 'friends-btn', 'achievements-btn'], bioPresets: [], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -4275,6 +4280,9 @@ export class Game {
     this.otherProfileBioText = document.getElementById('other-profile-bio-text')
     this.otherProfileMottoHeading = document.getElementById('other-profile-motto-heading')
     this.otherProfileMottoText = document.getElementById('other-profile-motto-text')
+    this.otherProfileNotesHeading = document.getElementById('other-profile-notes-heading')
+    this.otherProfileNotesHint = document.getElementById('other-profile-notes-hint')
+    this.otherProfileNotesInput = document.getElementById('other-profile-notes-input')
     this.cloudsaveLeaderboardTitle = document.getElementById('cloudsave-leaderboard-title')
     this.cloudsaveLeaderboardList = document.getElementById('cloudsave-leaderboard-list')
     this.cloudsaveWeeklyLeaderboardList = document.getElementById('cloudsave-weekly-leaderboard-list')
@@ -11060,6 +11068,21 @@ export class Game {
         navigator.clipboard.writeText(this._otherProfileIdText).then(() => this._showCopiedBadge(this.otherProfileId)).catch(() => {})
       })
     }
+    // Private note about whichever player the popup is CURRENTLY showing
+    // (_otherProfileCurrentPlayerId, set fresh by _renderOtherProfileEntry
+    // every time it renders someone) - bound once here rather than
+    // re-bound per render, so it always saves against whoever is live in
+    // the popup right now, not whoever was showing when this listener was
+    // first attached. Local-only (settings.playerNotes), never synced -
+    // "only you can see this" per the popup's own hint text.
+    if (this.otherProfileNotesInput) {
+      this.otherProfileNotesInput.addEventListener('input', () => {
+        if (!this._otherProfileCurrentPlayerId) return
+        const text = this.otherProfileNotesInput.value.slice(0, 250)
+        this.settings.playerNotes[this._otherProfileCurrentPlayerId] = text
+        saveSettings(this.settings)
+      })
+    }
     // Delegated (one listener survives every _renderSavedFriends re-render,
     // rather than needing to rebind per row) - clicking a friend's row
     // opens their public profile, clicking the × still just removes them.
@@ -12402,10 +12425,15 @@ export class Game {
     this.otherProfilePanel.style.display = 'flex'
     this.otherProfileName.textContent = fallbackName || '???'
     this._otherProfileIdText = null
+    this._otherProfileCurrentPlayerId = null
     this.otherProfileId.textContent = ''
     this.otherProfileStats.style.display = 'none'
     this.otherProfileNone.style.display = 'none'
     this.otherProfileLoading.style.display = 'block'
+    // Bio/Motto/Notes column - hidden during loading/no-data states (see
+    // _renderOtherProfileEntry's own !entry branch), only shown once
+    // there's an actual entry+playerId to attach a Notes key to.
+    if (this.otherProfileBioMotto) this.otherProfileBioMotto.style.display = 'none'
   }
 
   // Same field set as the Profile panel's own "Shown to Public" tab (see
@@ -12419,6 +12447,10 @@ export class Game {
       return
     }
     this.otherProfileName.textContent = entry.name || fallbackName || '???'
+    // Notes needs a stable key to save under - no playerId, no Notes
+    // section (matches _showOtherProfileLoading's own default-hidden
+    // state, just never un-hidden in this rare case).
+    this._otherProfileCurrentPlayerId = entry.playerId || null
     if (entry.playerId) {
       this._otherProfileIdText = `#${entry.playerId}`
       this.otherProfileId.textContent = this._otherProfileIdText
@@ -12522,29 +12554,53 @@ export class Game {
       }
     }
     if (this.otherProfileBioMotto) {
-      const hasBio = typeof entry.bio === 'string' && entry.bio.length > 0
-      const hasMotto = typeof entry.motto === 'string' && entry.motto.length > 0
-      if (hasBio || hasMotto) {
-        if (this.otherProfileBioHeading) this.otherProfileBioHeading.textContent = t('profileBioHeading')
-        if (this.otherProfileMottoHeading) this.otherProfileMottoHeading.textContent = t('mottoHeading')
-        // .textContent, not innerHTML - bio/motto are untrusted freeform
-        // text from another player's own doc, same "every persisted stat
-        // is untrusted" rule as everywhere else in this file (see
-        // CLAUDE.md's own recurring-bug-class note on this).
-        if (this.otherProfileBioText) {
-          this.otherProfileBioText.textContent = hasBio ? entry.bio : ''
-          this.otherProfileBioText.style.display = hasBio ? '' : 'none'
-        }
-        if (this.otherProfileMottoText) {
-          this.otherProfileMottoText.textContent = hasMotto ? entry.motto : ''
-          this.otherProfileMottoText.style.display = hasMotto ? '' : 'none'
-        }
-        if (this.otherProfileBioHeading) this.otherProfileBioHeading.style.display = hasBio ? '' : 'none'
-        if (this.otherProfileMottoHeading) this.otherProfileMottoHeading.style.display = hasMotto ? '' : 'none'
-        this.otherProfileBioMotto.style.display = ''
-      } else {
-        this.otherProfileBioMotto.style.display = 'none'
+      // .trim() before checking .length - a whitespace-only bio (e.g. a
+      // single stray space) used to count as "has a bio" and render as an
+      // empty-looking box (real report, 2026-09-22 - same class of bug as
+      // the untrimmed-nickname fix from the same day).
+      const bioTrimmed = typeof entry.bio === 'string' ? entry.bio.trim() : ''
+      const hasBio = bioTrimmed.length > 0
+      const hasMotto = typeof entry.motto === 'string' && entry.motto.trim().length > 0
+      // Bio always shows now (real text, or a "this user has no bio"
+      // fallback) instead of hiding the whole Bio/Motto/Notes column
+      // whenever neither was set - Notes below needs to be reachable
+      // even for a player with nothing else here, and an always-present
+      // Bio row reads better than the column silently vanishing.
+      if (this.otherProfileBioHeading) {
+        this.otherProfileBioHeading.textContent = t('profileBioHeading')
+        this.otherProfileBioHeading.style.display = ''
       }
+      // .textContent, not innerHTML - bio/motto are untrusted freeform
+      // text from another player's own doc, same "every persisted stat
+      // is untrusted" rule as everywhere else in this file (see
+      // CLAUDE.md's own recurring-bug-class note on this).
+      if (this.otherProfileBioText) {
+        this.otherProfileBioText.textContent = hasBio ? bioTrimmed : t('otherProfileNoBio')
+        this.otherProfileBioText.style.display = ''
+      }
+      if (this.otherProfileMottoHeading) this.otherProfileMottoHeading.style.display = hasMotto ? '' : 'none'
+      if (this.otherProfileMottoText) {
+        this.otherProfileMottoText.textContent = hasMotto ? entry.motto.trim() : ''
+        this.otherProfileMottoText.style.display = hasMotto ? '' : 'none'
+      }
+      // Notes - private, local-only, keyed by this player's playerId (see
+      // _otherProfileCurrentPlayerId, set right before this function runs).
+      // Only shown at all when there's actually a playerId to key by.
+      const notesAvailable = !!this._otherProfileCurrentPlayerId
+      if (this.otherProfileNotesHeading) {
+        this.otherProfileNotesHeading.textContent = t('otherProfileNotesHeading')
+        this.otherProfileNotesHeading.style.display = notesAvailable ? '' : 'none'
+      }
+      if (this.otherProfileNotesHint) {
+        this.otherProfileNotesHint.textContent = t('otherProfileNotesHint')
+        this.otherProfileNotesHint.style.display = notesAvailable ? '' : 'none'
+      }
+      if (this.otherProfileNotesInput) {
+        this.otherProfileNotesInput.placeholder = t('otherProfileNotesPlaceholder')
+        this.otherProfileNotesInput.style.display = notesAvailable ? '' : 'none'
+        this.otherProfileNotesInput.value = notesAvailable ? (this.settings.playerNotes[this._otherProfileCurrentPlayerId] || '') : ''
+      }
+      this.otherProfileBioMotto.style.display = ''
     }
   }
 
