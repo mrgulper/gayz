@@ -609,7 +609,7 @@ html.layout-compact .menu-panel {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  border: 2px solid #e3c23c;
+  border: 2px solid var(--ui-gold-bright);
 }
 
 #cloudsave-account-name {
@@ -662,7 +662,7 @@ html.layout-compact .menu-panel {
   font-size: 12px;
   letter-spacing: 0.8px;
   text-transform: uppercase;
-  color: #e3c23c;
+  color: var(--ui-gold-bright);
   opacity: 0.85;
 }
 
@@ -701,6 +701,13 @@ html.layout-compact .menu-panel {
   border-radius: 3px;
 }
 
+/* The dropdown-arrow color above is baked into an inline SVG data URI,
+   which can't read a CSS var - re-encoded with the Old theme's accent
+   hex instead so the arrow isn't stuck gold when Golden's isn't used. */
+html.ui-theme-old #cloudsave-region-select {
+  background: rgba(255, 255, 255, 0.06) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0L5 6L10 0Z' fill='%23c2884f'/%3E%3C/svg%3E") no-repeat right 6px center;
+}
+
 /* Two-column split: left = add-friend form (+ your own ID, DND/hide
    toggles), right = your friends list with live status. Stacks to one
    column on genuinely narrow windows rather than squeezing both. */
@@ -736,7 +743,7 @@ html.layout-compact .menu-panel {
 
 #friends-own-id {
   font-weight: 700;
-  color: #e3c23c;
+  color: var(--ui-gold-bright);
   user-select: all;
 }
 
@@ -821,7 +828,7 @@ html.layout-compact .menu-panel {
   gap: 2px;
   padding: 4px;
   background: #1c1e20;
-  border: 1px solid rgba(227, 166, 60, 0.4);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.4);
   border-radius: 8px;
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
   z-index: 5;
@@ -851,7 +858,7 @@ html.layout-compact .menu-panel {
 
 .status-pick-btn.active {
   color: #e8e8e2;
-  background: rgba(227, 166, 60, 0.16);
+  background: rgba(var(--ui-gold-accent-rgb), 0.16);
 }
 
 #cloudsave-saved-friends {
@@ -875,12 +882,12 @@ html.layout-compact .menu-panel {
 
 .saved-friend-row:hover {
   background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(227, 166, 60, 0.4);
+  border-color: rgba(var(--ui-gold-accent-rgb), 0.4);
 }
 
 #other-profile-id {
   font-weight: 700;
-  color: #e3c23c;
+  color: var(--ui-gold-bright);
   cursor: pointer;
   user-select: all;
 }
@@ -1149,7 +1156,7 @@ html.layout-compact .menu-panel {
   position: absolute;
   inset: 0;
   width: var(--poll-pct, 0%);
-  background: rgba(227, 166, 60, 0.18);
+  background: rgba(var(--ui-gold-accent-rgb), 0.18);
   z-index: 0;
 }
 
@@ -1160,7 +1167,7 @@ html.layout-compact .menu-panel {
 }
 
 .poll-option-btn.voted {
-  border-color: #e3c23c;
+  border-color: var(--ui-gold-bright);
   cursor: default;
 }
 
@@ -1349,6 +1356,16 @@ html.layout-compact .menu-panel {
   --menu-gunmetal-dark: #1c1e20;
   --menu-bronze: #8a6d47;
   --menu-orange-glow: #e6c335;
+  /* Bright accent pair (2026-09-26) - a lot of shared chrome (panel-box
+     border/glow, tabs, checkboxes, inputs, dropdowns) was hardcoding
+     these two literal golds directly instead of reading them from a
+     var, so picking Old theme left all of it still gold. Values here
+     match the literals exactly so Golden's look doesn't change at all;
+     only the html.ui-theme-old override below differs. */
+  --ui-gold-bright: #e3c23c;
+  --ui-gold-bright-rgb: 227, 194, 60;
+  --ui-gold-accent: #e3a63c;
+  --ui-gold-accent-rgb: 227, 166, 60;
   --menu-panel-bg: rgba(7, 8, 8, 0.95);
   --menu-panel-border: rgba(138, 109, 71, 0.5);
   --menu-text-dim: rgba(224, 228, 220, 0.62);
@@ -1375,6 +1392,14 @@ html.ui-theme-old {
   --menu-gunmetal-dark: #1e160f;
   --menu-bronze: #8f6a3e;
   --menu-orange-glow: #d4a068;
+  /* Old-theme values for the bright accent pair above - reuses this
+     palette's own orange/orange-glow tones rather than inventing new
+     hex codes, so the newly-themed chrome reads as part of the same
+     Old theme instead of a mismatched third color. */
+  --ui-gold-bright: #d4a068;
+  --ui-gold-bright-rgb: 212, 160, 104;
+  --ui-gold-accent: #c2884f;
+  --ui-gold-accent-rgb: 194, 136, 79;
   --menu-panel-bg: rgba(21, 15, 9, 0.92);
   --menu-panel-border: rgba(140, 105, 60, 0.55);
   --menu-text-dim: rgba(224, 208, 184, 0.62);
@@ -1839,7 +1864,7 @@ html[data-colorblind="redgreen"] #critical-blood-overlay {
   letter-spacing: 0.5px;
   text-transform: uppercase;
   white-space: nowrap;
-  color: #e3c23c;
+  color: var(--ui-gold-bright);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
@@ -1924,8 +1949,8 @@ html[data-colorblind="redgreen"] #critical-blood-overlay {
 
 .wheel-segment.highlight {
   color: #0c130c;
-  background: #e3c23c;
-  border-color: #e3c23c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
 }
 
 #weapon-wheel-cursor {
@@ -2108,7 +2133,7 @@ body.reduce-flashing #critical-blood-overlay.show {
 .ammo-station-fill {
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, #e3c23c, #ffde5c);
+  background: linear-gradient(90deg, var(--ui-gold-bright), #ffde5c);
   transition: width 100ms linear;
 }
 
@@ -2207,13 +2232,13 @@ body.reduce-flashing #critical-blood-overlay.show {
   text-align: left;
   color: #eee;
   background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(227, 166, 60, 0.4);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.4);
   border-radius: 6px;
 }
 
 .nickname-input:focus {
   outline: none;
-  border-color: #e3c23c;
+  border-color: var(--ui-gold-bright);
 }
 
 .nickname-input::placeholder {
@@ -2241,7 +2266,7 @@ body.reduce-flashing #critical-blood-overlay.show {
   height: 28px;
   padding: 2px;
   background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(227, 166, 60, 0.4);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.4);
   border-radius: 6px;
   cursor: pointer;
 }
@@ -2287,19 +2312,26 @@ select {
   color: #eee;
   background: rgba(0, 0, 0, 0.4) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0L5 6L10 0Z' fill='%23e3a63c'/%3E%3C/svg%3E") no-repeat right 10px center;
   background-size: 10px 6px;
-  border: 1px solid rgba(227, 166, 60, 0.4);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.4);
   border-radius: 6px;
   cursor: pointer;
 }
 
 select:focus {
   outline: none;
-  border-color: #e3c23c;
+  border-color: var(--ui-gold-bright);
 }
 
 select option {
   background: #1a1a1a;
   color: #eee;
+}
+
+/* Same reasoning as #cloudsave-region-select above - this arrow is a
+   baked SVG data URI, re-encoded per-theme since a var() can't reach
+   inside it. Covers every dropdown in the app (Settings included). */
+html.ui-theme-old select {
+  background: rgba(0, 0, 0, 0.4) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0L5 6L10 0Z' fill='%23c2884f'/%3E%3C/svg%3E") no-repeat right 10px center;
 }
 
 #round-mode-hint {
@@ -2333,13 +2365,13 @@ select option {
 }
 
 .difficulty-btn:hover {
-  border-color: rgba(227, 166, 60, 0.5);
+  border-color: rgba(var(--ui-gold-accent-rgb), 0.5);
 }
 
 .difficulty-btn.active {
   color: #0c130c;
-  background: #e3c23c;
-  border-color: #e3c23c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
 }
 
 /* Per-difficulty accent (green/gold/red, matching the class-grid's own
@@ -2409,7 +2441,7 @@ select option {
   gap: 2px;
   padding: 10px 16px;
   background: rgba(10, 14, 10, 0.75);
-  border: 1px solid rgba(227, 166, 60, 0.5);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.5);
   border-radius: 6px;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
   opacity: 0;
@@ -2421,7 +2453,7 @@ select option {
   font-weight: 700;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: #e3c23c;
+  color: var(--ui-gold-bright);
 }
 
 .achievement-title {
@@ -2624,7 +2656,7 @@ select option {
   font-size: 13px;
   letter-spacing: 0.8px;
   text-transform: uppercase;
-  border: 2px solid #e3c23c;
+  border: 2px solid var(--ui-gold-bright);
   border-radius: 999px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
   pointer-events: none;
@@ -2635,7 +2667,7 @@ select option {
 .copied-oval-badge-icon {
   width: 16px;
   height: 16px;
-  color: #e3c23c;
+  color: var(--ui-gold-bright);
   flex-shrink: 0;
 }
 
@@ -2668,7 +2700,7 @@ select option {
   gap: 6px;
   padding: 8px 12px;
   background: rgba(20, 16, 8, 0.95);
-  border: 1px solid rgba(227, 194, 60, 0.5);
+  border: 1px solid rgba(var(--ui-gold-bright-rgb), 0.5);
   border-radius: 6px;
   font-size: 13px;
   color: #e0d8cf;
@@ -2694,7 +2726,7 @@ select option {
   font: inherit;
   font-weight: 700;
   color: #170a06;
-  background: #e3c23c;
+  background: var(--ui-gold-bright);
   border: none;
   border-radius: 4px;
   padding: 3px 8px;
@@ -2743,7 +2775,7 @@ select option {
   max-width: min(420px, 80vw);
   text-align: center;
   font-size: 13px;
-  color: #e3c23c;
+  color: var(--ui-gold-bright);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
   opacity: 0;
   pointer-events: none;
@@ -2833,7 +2865,7 @@ html.third-person-active #companion-bark {
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.3px;
-  color: #e3c23c;
+  color: var(--ui-gold-bright);
   background: rgba(6, 8, 6, 0.55);
   padding: 4px 10px;
   border-radius: 4px;
@@ -2857,7 +2889,7 @@ html.third-person-active #companion-bark {
   border-radius: 3px;
   vertical-align: middle;
 }
-.kill-feed-tag-boss { background: #e3c23c; color: #1a1408; }
+.kill-feed-tag-boss { background: var(--ui-gold-bright); color: #1a1408; }
 .kill-feed-tag-elite { background: #b45cff; color: #1a0f26; }
 .kill-feed-tag-combo { background: #4ee06f; color: #0a1c0e; }
 
@@ -2977,10 +3009,10 @@ html.third-person-active #companion-bark {
 .panel-box {
   position: relative;
   background: rgba(8, 8, 7, 0.96);
-  border: 2px solid #e3c23c;
+  border: 2px solid var(--ui-gold-bright);
   border-radius: 10px;
   padding: 26px 32px 32px;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(227, 194, 60, 0.35), 0 0 20px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(var(--ui-gold-bright-rgb), 0.35), 0 0 20px rgba(0, 0, 0, 0.6);
   min-height: 680px;
 }
 
@@ -3180,7 +3212,7 @@ html.third-person-active #companion-bark {
   font-size: 13px;
   letter-spacing: 0.5px;
   text-transform: uppercase;
-  color: #e3c23c;
+  color: var(--ui-gold-bright);
 }
 
 #credits-content h3:first-child,
@@ -3200,7 +3232,7 @@ html.third-person-active #companion-bark {
   font-weight: 600;
   letter-spacing: 0.5px;
   text-transform: uppercase;
-  color: #e3c23c;
+  color: var(--ui-gold-bright);
 }
 
 /* Stacked layout (version+date on its own line, description below) -
@@ -3222,7 +3254,7 @@ html.third-person-active #companion-bark {
 }
 
 .changelog-date {
-  color: #e3c23c;
+  color: var(--ui-gold-bright);
   opacity: 0.8;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -3319,7 +3351,7 @@ html.third-person-active #companion-bark {
 #credits-terms-link,
 .open-privacy-panel-link,
 .open-terms-panel-link {
-  color: #e3c23c;
+  color: var(--ui-gold-bright);
   text-decoration: none;
 }
 
@@ -3372,7 +3404,7 @@ html.third-person-active #companion-bark {
 }
 
 #terms-content .legal-placeholder {
-  background: rgba(227, 166, 60, 0.18);
+  background: rgba(var(--ui-gold-accent-rgb), 0.18);
   padding: 1px 5px;
   border-radius: 3px;
   font-style: italic;
@@ -3382,8 +3414,8 @@ html.third-person-active #companion-bark {
 #privacy-content .legal-note {
   margin-top: 18px;
   padding: 12px 14px;
-  background: rgba(227, 166, 60, 0.08);
-  border: 1px solid rgba(227, 166, 60, 0.25);
+  background: rgba(var(--ui-gold-accent-rgb), 0.08);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.25);
   border-radius: 6px;
   font-size: 12px;
   color: rgba(255, 255, 255, 0.6);
@@ -3396,7 +3428,7 @@ html.third-person-active #companion-bark {
    map-blueprint- prefixed ones, mb- prefixed ones, #map-lightbox and
    friends - verified against this whole stylesheet for collisions first,
    with colors swapped to this game's own gold/dark tokens instead of
-   gayz-features' own (#d9a34a/#0a0a09 -> this file's #e3c23c/
+   gayz-features' own (#d9a34a/#0a0a09 -> this file's var(--ui-gold-bright)/
    rgba(8,8,7,.96) family) so it reads as part of the same UI, not a
    pasted-in foreign page. */
 #features-content {
@@ -3421,7 +3453,7 @@ html.third-person-active #companion-bark {
 
 .features-stat {
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(227, 166, 60, 0.3);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.3);
   border-radius: 8px;
   padding: 8px 18px;
   text-align: center;
@@ -3431,7 +3463,7 @@ html.third-person-active #companion-bark {
   display: block;
   font-family: var(--menu-display-font), inherit;
   font-size: 24px;
-  color: #e3c23c;
+  color: var(--ui-gold-bright);
   letter-spacing: 1px;
 }
 
@@ -3448,7 +3480,7 @@ html.third-person-active #companion-bark {
   margin: 0 auto 8px;
   padding: 9px 16px;
   border-radius: 999px;
-  border: 1px solid rgba(227, 166, 60, 0.4);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.4);
   background: rgba(0, 0, 0, 0.4);
   color: #eee;
   font-size: 14px;
@@ -3456,7 +3488,7 @@ html.third-person-active #companion-bark {
 
 #features-search:focus {
   outline: none;
-  border-color: #e3c23c;
+  border-color: var(--ui-gold-bright);
 }
 
 #features-search::placeholder {
@@ -3511,7 +3543,7 @@ html.third-person-active #companion-bark {
 .features-toc-link:hover {
   color: #fff;
   background: rgba(255, 255, 255, 0.04);
-  border-left-color: rgba(227, 166, 60, 0.6);
+  border-left-color: rgba(var(--ui-gold-accent-rgb), 0.6);
 }
 
 .features-toc-link.coming-link {
@@ -3555,15 +3587,15 @@ section.category > h2 {
   font-family: var(--menu-display-font), inherit;
   font-size: 24px;
   letter-spacing: 1px;
-  color: #e3c23c;
-  border-bottom: 1px solid rgba(227, 166, 60, 0.3);
+  color: var(--ui-gold-bright);
+  border-bottom: 1px solid rgba(var(--ui-gold-accent-rgb), 0.3);
   padding-bottom: 8px;
   margin: 0 0 16px;
 }
 
 .feature {
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(227, 166, 60, 0.2);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.2);
   border-radius: 8px;
   padding: 14px 18px;
   margin-bottom: 10px;
@@ -3578,7 +3610,7 @@ section.category > h2 {
 }
 
 .expand-icon {
-  color: #e3c23c;
+  color: var(--ui-gold-bright);
   font-size: 11px;
   transition: transform 0.15s ease;
   flex-shrink: 0;
@@ -3592,7 +3624,7 @@ section.category > h2 {
   display: none;
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px dashed rgba(227, 166, 60, 0.25);
+  border-top: 1px dashed rgba(var(--ui-gold-accent-rgb), 0.25);
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 8px 18px;
 }
@@ -3614,7 +3646,7 @@ section.category > h2 {
 .feature h3 {
   margin: 0 0 4px;
   font-size: 15px;
-  color: #e3c23c;
+  color: var(--ui-gold-bright);
 }
 
 .feature p {
@@ -3707,11 +3739,11 @@ section.category.hidden-search {
 
 .map-blueprint-panel:hover,
 .map-blueprint-panel:focus-visible {
-  border-color: #e3c23c;
+  border-color: var(--ui-gold-bright);
 }
 
 .map-blueprint-panel:focus-visible {
-  outline: 2px solid #e3c23c;
+  outline: 2px solid var(--ui-gold-bright);
   outline-offset: 2px;
 }
 
@@ -3726,7 +3758,7 @@ section.category.hidden-search {
 
 .map-blueprint-panel:hover .map-blueprint-zoom-hint,
 .map-blueprint-panel:focus-visible .map-blueprint-zoom-hint {
-  color: #e3c23c;
+  color: var(--ui-gold-bright);
 }
 
 .map-blueprint svg,
@@ -3764,7 +3796,7 @@ section.category.hidden-search {
   font-size: 10px;
   letter-spacing: 2px;
   text-transform: uppercase;
-  color: #e3c23c;
+  color: var(--ui-gold-bright);
   margin: 0 0 8px;
 }
 
@@ -3792,7 +3824,7 @@ section.category.hidden-search {
 }
 
 .map-blueprint-card p:last-child { margin-bottom: 0; }
-.map-blueprint-card strong { color: #e3c23c; }
+.map-blueprint-card strong { color: var(--ui-gold-bright); }
 
 .mb-underground-list {
   list-style: none;
@@ -3840,7 +3872,7 @@ section.category.hidden-search {
   justify-content: center;
   gap: 10px;
   padding: 14px 16px;
-  border-bottom: 1px solid rgba(227, 166, 60, 0.3);
+  border-bottom: 1px solid rgba(var(--ui-gold-accent-rgb), 0.3);
 }
 
 .map-lightbox-btn {
@@ -3854,14 +3886,14 @@ section.category.hidden-search {
   line-height: 1;
   color: #eee;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(227, 166, 60, 0.35);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.35);
   border-radius: 8px;
   cursor: pointer;
 }
 
 .map-lightbox-btn:hover {
-  border-color: #e3c23c;
-  color: #e3c23c;
+  border-color: var(--ui-gold-bright);
+  color: var(--ui-gold-bright);
 }
 
 #map-lightbox-zoom-level {
@@ -3990,8 +4022,8 @@ section.category.hidden-search {
   font-weight: 600;
   letter-spacing: 0.5px;
   color: #0c130c;
-  background: #e3c23c;
-  border: 1px solid #e3c23c;
+  background: var(--ui-gold-bright);
+  border: 1px solid var(--ui-gold-bright);
   border-radius: 6px;
   cursor: pointer;
 }
@@ -4028,7 +4060,7 @@ section.category.hidden-search {
   max-width: 280px;
   height: 90px;
   background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(227, 166, 60, 0.3);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.3);
   border-radius: 6px;
   margin-bottom: 10px;
 }
@@ -4065,7 +4097,7 @@ section.category.hidden-search {
   font-size: 15px;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  color: #e3c23c;
+  color: var(--ui-gold-bright);
   opacity: 0.85;
 }
 
@@ -4201,7 +4233,7 @@ section.category.hidden-search {
   width: 220px;
   aspect-ratio: 16 / 10;
   padding: 0;
-  border: 2px solid rgba(227, 166, 60, 0.35);
+  border: 2px solid rgba(var(--ui-gold-accent-rgb), 0.35);
   border-radius: 8px;
   background: #000;
   overflow: hidden;
@@ -4230,16 +4262,16 @@ section.category.hidden-search {
 }
 
 .theme-picker-card:hover {
-  border-color: rgba(227, 166, 60, 0.7);
+  border-color: rgba(var(--ui-gold-accent-rgb), 0.7);
 }
 
 .theme-picker-card.active {
-  border-color: #e3c23c;
-  box-shadow: 0 0 0 2px rgba(227, 166, 60, 0.35), 0 0 16px rgba(227, 166, 60, 0.4);
+  border-color: var(--ui-gold-bright);
+  box-shadow: 0 0 0 2px rgba(var(--ui-gold-accent-rgb), 0.35), 0 0 16px rgba(var(--ui-gold-accent-rgb), 0.4);
 }
 
 .theme-picker-card.active span {
-  color: #e3c23c;
+  color: var(--ui-gold-bright);
 }
 
 .crate-section-heading {
@@ -4448,8 +4480,8 @@ section.category.hidden-search {
 }
 
 .hotbar-assign-btn.assigned {
-  background: #e3c23c;
-  border-color: #e3c23c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
   color: #1a1408;
 }
 
@@ -4475,7 +4507,7 @@ section.category.hidden-search {
   font-size: 15px;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  color: #e3c23c;
+  color: var(--ui-gold-bright);
   opacity: 0.85;
 }
 
@@ -4714,6 +4746,7 @@ section.category.hidden-search {
 /* Old theme's warm-brown backdrop, same 24-panel list as the rule above -
    see the palette comment on html.ui-theme-old's :root block. */
 html.ui-theme-old #perk-panel,
+html.ui-theme-old #settings-panel,
 html.ui-theme-old #trader-panel,
 html.ui-theme-old #hub-panel,
 html.ui-theme-old #coming-soon-panel,
@@ -4938,7 +4971,7 @@ html.ui-theme-old #quit-confirm-overlay {
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.3px;
-  color: var(--menu-gold, #e3c23c);
+  color: var(--menu-gold, var(--ui-gold-bright));
   opacity: 0.85;
   margin-top: 2px;
 }
@@ -4960,9 +4993,9 @@ html.ui-theme-old #quit-confirm-overlay {
   margin: 0 auto 10px;
   padding: 6px 16px;
   background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(227, 166, 60, 0.4);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.4);
   border-radius: 6px;
-  color: var(--menu-gold, #e3c23c);
+  color: var(--menu-gold, var(--ui-gold-bright));
   font-size: 12px;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -4970,13 +5003,13 @@ html.ui-theme-old #quit-confirm-overlay {
 }
 
 .weapon-compare-toggle-btn.active {
-  background: rgba(227, 166, 60, 0.25);
-  border-color: var(--menu-gold, #e3c23c);
+  background: rgba(var(--ui-gold-accent-rgb), 0.25);
+  border-color: var(--menu-gold, var(--ui-gold-bright));
 }
 
 .weapon-picker-card.compare-selected {
-  border-color: var(--menu-gold, #e3c23c);
-  box-shadow: 0 0 0 2px rgba(227, 166, 60, 0.5) inset;
+  border-color: var(--menu-gold, var(--ui-gold-bright));
+  box-shadow: 0 0 0 2px rgba(var(--ui-gold-accent-rgb), 0.5) inset;
 }
 
 .weapon-compare-table {
@@ -4996,7 +5029,7 @@ html.ui-theme-old #quit-confirm-overlay {
 }
 
 .weapon-compare-table .compare-row.compare-header {
-  color: var(--menu-gold, #e3c23c);
+  color: var(--menu-gold, var(--ui-gold-bright));
   text-transform: uppercase;
   font-size: 11px;
   letter-spacing: 0.5px;
@@ -5065,7 +5098,7 @@ html.ui-theme-old #quit-confirm-overlay {
   font-size: 30px;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  color: #e3c23c;
+  color: var(--ui-gold-bright);
   opacity: 0.85;
 }
 
@@ -5336,8 +5369,8 @@ html.ui-theme-old #quit-confirm-title {
 
 .profile-tab.active {
   color: #0c130c;
-  background: #e3c23c;
-  border-color: #e3c23c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
 }
 
 /* Only one page shows at a time now, so no separate box per page - the
@@ -5471,7 +5504,7 @@ html.ui-theme-old #quit-confirm-title {
   font-weight: 700;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  color: #e3c23c;
+  color: var(--ui-gold-bright);
   opacity: 0.8;
 }
 
@@ -5507,8 +5540,8 @@ html.ui-theme-old #quit-confirm-title {
 }
 
 .attach-btn:hover:not(:disabled) {
-  border-color: #e3c23c;
-  background: rgba(227, 166, 60, 0.1);
+  border-color: var(--ui-gold-bright);
+  background: rgba(var(--ui-gold-accent-rgb), 0.1);
 }
 
 .attach-btn:disabled {
@@ -5537,8 +5570,8 @@ html.ui-theme-old #quit-confirm-title {
 }
 
 .perk-option:hover:not(:disabled) {
-  border-color: #e3c23c;
-  background: rgba(227, 166, 60, 0.1);
+  border-color: var(--ui-gold-bright);
+  background: rgba(var(--ui-gold-accent-rgb), 0.1);
 }
 
 .perk-option.featured {
@@ -5958,8 +5991,8 @@ html.ui-theme-old #quit-confirm-title {
 
 .streak-day.played {
   color: #0c130c;
-  background: var(--menu-gold, #e3c23c);
-  border-color: var(--menu-gold, #e3c23c);
+  background: var(--menu-gold, var(--ui-gold-bright));
+  border-color: var(--menu-gold, var(--ui-gold-bright));
   font-weight: 700;
 }
 
@@ -6208,7 +6241,7 @@ html.ui-theme-old #quit-confirm-title {
   max-width: 280px;
   padding: 10px 14px;
   background: rgba(10, 8, 4, 0.97);
-  border: 1px solid var(--menu-gold, #e3c23c);
+  border: 1px solid var(--menu-gold, var(--ui-gold-bright));
   border-radius: 8px;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
   pointer-events: none;
@@ -6240,9 +6273,9 @@ html.ui-theme-old #quit-confirm-title {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  border: 1px solid rgba(227, 194, 60, 0.5);
+  border: 1px solid rgba(var(--ui-gold-bright-rgb), 0.5);
   background: transparent;
-  color: var(--menu-gold, #e3c23c);
+  color: var(--menu-gold, var(--ui-gold-bright));
   font-size: 10px;
   font-weight: 700;
   line-height: 1;
@@ -6253,7 +6286,7 @@ html.ui-theme-old #quit-confirm-title {
 }
 .settings-info-btn:hover {
   opacity: 1;
-  border-color: var(--menu-gold, #e3c23c);
+  border-color: var(--menu-gold, var(--ui-gold-bright));
 }
 
 /* position:relative anchors the absolutely-positioned "?" to this row
@@ -6305,8 +6338,8 @@ html.ui-theme-old #quit-confirm-title {
 
 #screenshot-crop-selection {
   position: absolute;
-  border: 2px dashed #e3c23c;
-  background: rgba(227, 166, 60, 0.15);
+  border: 2px dashed var(--ui-gold-bright);
+  background: rgba(var(--ui-gold-accent-rgb), 0.15);
   pointer-events: none;
 }
 
@@ -6470,8 +6503,8 @@ html.ui-theme-old #quit-confirm-title {
 }
 
 .weapon-quick-slot.active {
-  border-color: #e3c23c;
-  background: rgba(227, 166, 60, 0.18);
+  border-color: var(--ui-gold-bright);
+  background: rgba(var(--ui-gold-accent-rgb), 0.18);
 }
 
 .weapon-quick-slot.active .weapon-quick-name,
@@ -7287,13 +7320,13 @@ html.theme-lighter #app { filter: brightness(1.25); }
 }
 
 .class-btn:hover {
-  border-color: rgba(227, 166, 60, 0.5);
+  border-color: rgba(var(--ui-gold-accent-rgb), 0.5);
   color: #eee;
 }
 
 .class-btn.active {
   color: var(--menu-gold);
-  background: rgba(227, 166, 60, 0.38);
+  background: rgba(var(--ui-gold-accent-rgb), 0.38);
   border-color: var(--menu-gold);
 }
 
@@ -7377,7 +7410,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 .attachment-guide-name {
   font-size: 13px;
   font-weight: 600;
-  color: var(--menu-gold, #e3c23c);
+  color: var(--menu-gold, var(--ui-gold-bright));
 }
 
 .attachment-guide-desc {
@@ -7418,7 +7451,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 .class-btn[data-role="ranged"].active { color: var(--menu-green); background: rgba(127, 216, 160, 0.32); border-color: var(--menu-green); }
 .class-btn[data-role="melee"].active { color: var(--menu-orange); background: rgba(224, 138, 79, 0.32); border-color: var(--menu-orange); }
 .class-btn[data-role="medic"].active { color: var(--menu-blue); background: rgba(111, 168, 220, 0.32); border-color: var(--menu-blue); }
-.class-btn[data-loadout="balanced"].active { color: var(--menu-gold); background: rgba(227, 166, 60, 0.32); border-color: var(--menu-gold); }
+.class-btn[data-loadout="balanced"].active { color: var(--menu-gold); background: rgba(var(--ui-gold-accent-rgb), 0.32); border-color: var(--menu-gold); }
 .class-btn[data-loadout="runner"].active { color: var(--menu-purple); background: rgba(176, 124, 214, 0.32); border-color: var(--menu-purple); }
 .class-btn[data-loadout="tank"].active { color: var(--menu-red); background: rgba(201, 86, 74, 0.32); border-color: var(--menu-red); }
 
@@ -7484,7 +7517,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
   font-weight: 600;
   letter-spacing: 0.3px;
   color: var(--menu-gold);
-  background: rgba(227, 166, 60, 0.1);
+  background: rgba(var(--ui-gold-accent-rgb), 0.1);
   border: 1px solid var(--menu-panel-border);
   border-radius: 3px;
   cursor: pointer;
@@ -7492,7 +7525,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 }
 
 .mini-action-btn:hover {
-  background: rgba(227, 166, 60, 0.2);
+  background: rgba(var(--ui-gold-accent-rgb), 0.2);
   border-color: var(--menu-gold);
 }
 
@@ -7524,7 +7557,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 /* Auto-suggested best loadout (batch 8 feature) */
 #suggested-loadout-hint {
   font-size: 11px;
-  color: var(--menu-gold, #e3c23c);
+  color: var(--menu-gold, var(--ui-gold-bright));
   opacity: 0.85;
   margin-top: 4px;
 }
@@ -7536,7 +7569,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
   position: fixed;
   transform: translate(-50%, -100%);
   background: rgba(10, 10, 9, 0.95);
-  border: 1px solid rgba(227, 166, 60, 0.4);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.4);
   border-radius: 6px;
   padding: 6px 10px;
   font-size: 12px;
@@ -7547,7 +7580,7 @@ html.theme-lighter #app { filter: brightness(1.25); }
 }
 
 #weapon-quick-compare-tooltip .quick-compare-vs {
-  color: var(--menu-gold, #e3c23c);
+  color: var(--menu-gold, var(--ui-gold-bright));
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -8101,7 +8134,7 @@ html.ui-theme-old #gamemode-btn {
   padding: 0;
   color: var(--menu-gold);
   background: rgba(0, 0, 0, 0.3);
-  border: 2px solid rgba(227, 166, 60, 0.5);
+  border: 2px solid rgba(var(--ui-gold-accent-rgb), 0.5);
   border-radius: 6px;
   cursor: pointer;
 }
@@ -8161,7 +8194,7 @@ html.ui-theme-old #settings-btn {
 #quick-language-btn:hover,
 #howtoplay-btn:hover,
 #quick-cloud-btn:hover {
-  background: rgba(227, 166, 60, 0.12);
+  background: rgba(var(--ui-gold-accent-rgb), 0.12);
 }
 
 #quick-cloud-btn.signed-in {
@@ -8743,7 +8776,7 @@ html.ui-theme-old #menu-player-tag {
   flex-direction: row;
   opacity: 1;
   border-color: var(--menu-gold);
-  background: rgba(227, 166, 60, 0.12);
+  background: rgba(var(--ui-gold-accent-rgb), 0.12);
 }
 
 .showcase-name {
@@ -8870,7 +8903,7 @@ html.ui-theme-old #menu-nav-buttons button {
      simply still showing, this was never actually about focus/outline.
      See also #menu-nav-buttons button:focus/mousedown, an earlier
      (harmless, still-worth-keeping) fix for a real but separate issue. */
-  filter: brightness(1.18) drop-shadow(0 0 10px rgba(227, 166, 60, 0.45));
+  filter: brightness(1.18) drop-shadow(0 0 10px rgba(var(--ui-gold-accent-rgb), 0.45));
   color: #fff;
   transform: translateX(2px);
 }
@@ -9552,7 +9585,7 @@ html.ui-theme-old #menu-nav-buttons button {
 }
 
 .mode-toggle:hover {
-  background: rgba(227, 166, 60, 0.08);
+  background: rgba(var(--ui-gold-accent-rgb), 0.08);
   color: #fff;
 }
 
@@ -9643,7 +9676,7 @@ html.ui-theme-old #menu-nav-buttons button {
   font-size: 15px;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  color: #e3c23c;
+  color: var(--ui-gold-bright);
   opacity: 0.85;
 }
 
@@ -9681,8 +9714,8 @@ html.ui-theme-old #settings-panel h2 {
 
 .settings-tab.active {
   color: #0c130c;
-  background: #e3c23c;
-  border-color: #e3c23c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
 }
 
 /* Quests panel tab strip (Quests/Monthly/Yearly/Lifetime) - visually
@@ -9712,8 +9745,8 @@ html.ui-theme-old #settings-panel h2 {
 
 .quest-tab.active {
   color: #0c130c;
-  background: #e3c23c;
-  border-color: #e3c23c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
 }
 
 /* height/overflow-y: same treatment as .general-tab-page/.upgrades-tab-page
@@ -9750,8 +9783,8 @@ html.ui-theme-old #settings-panel h2 {
 
 .upgrades-tab.active {
   color: #0c130c;
-  background: #e3c23c;
-  border-color: #e3c23c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
 }
 
 /* height/overflow-y: same "match How to Play's box exactly" treatment as
@@ -9794,8 +9827,8 @@ html.ui-theme-old #settings-panel h2 {
 
 .inventory-tab.active {
   color: #0c130c;
-  background: #e3c23c;
-  border-color: #e3c23c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
 }
 
 /* height/overflow-y: same treatment as .general-tab-page/.upgrades-tab-page
@@ -9833,8 +9866,8 @@ html.ui-theme-old #settings-panel h2 {
 
 .general-tab.active {
   color: #0c130c;
-  background: #e3c23c;
-  border-color: #e3c23c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
 }
 
 /* height/overflow-y matches #howtoplay-content/#credits-content/
@@ -10049,14 +10082,14 @@ html.ui-theme-old #settings-panel h2 {
 
 .clan-list-your-clan {
   flex: 0 0 auto;
-  color: #e3c23c;
+  color: var(--ui-gold-bright);
   font-size: 0.85em;
   font-weight: 600;
 }
 
 .clan-list-row-mine {
-  border-color: rgba(227, 194, 60, 0.5);
-  background: rgba(227, 194, 60, 0.08);
+  border-color: rgba(var(--ui-gold-bright-rgb), 0.5);
+  background: rgba(var(--ui-gold-bright-rgb), 0.08);
 }
 
 /* Sub-tabs inside the Clan tab (My Clan/Clan Ranking/Clan War) - same pill
@@ -10084,8 +10117,8 @@ html.ui-theme-old #settings-panel h2 {
 
 .clan-subtab.active {
   color: #0c130c;
-  background: #e3c23c;
-  border-color: #e3c23c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
 }
 
 /* Role above name, plain text (no pill/badge box - simpler per request),
@@ -10177,8 +10210,8 @@ html.ui-theme-old #settings-panel h2 {
 
 .hub-tab.active {
   color: #0c130c;
-  background: #e3c23c;
-  border-color: #e3c23c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
 }
 
 /* Stretch (not center) - unlike .quest-tab-page's card grid, this holds
@@ -10224,8 +10257,8 @@ html.ui-theme-old #settings-panel h2 {
 
 .achievements-mode-tab.active {
   color: #0c130c;
-  background: #e3c23c;
-  border-color: #e3c23c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
 }
 
 /* Wraps #achievements-options (the actual card list) + its Deathmatch
@@ -10288,7 +10321,7 @@ html.ui-theme-old #settings-panel h2 {
   overflow-y: auto;
   /* Firefox */
   scrollbar-width: thin;
-  scrollbar-color: rgba(227, 166, 60, 0.6) transparent;
+  scrollbar-color: rgba(var(--ui-gold-accent-rgb), 0.6) transparent;
 }
 
 /* Chrome/Safari default to a stark white scrollbar track+thumb that clashes
@@ -10302,12 +10335,12 @@ html.ui-theme-old #settings-panel h2 {
 }
 
 .settings-page::-webkit-scrollbar-thumb {
-  background: rgba(227, 166, 60, 0.6);
+  background: rgba(var(--ui-gold-accent-rgb), 0.6);
   border-radius: 4px;
 }
 
 .settings-page::-webkit-scrollbar-thumb:hover {
-  background: rgba(227, 166, 60, 0.8);
+  background: rgba(var(--ui-gold-accent-rgb), 0.8);
 }
 
 /* Universal gold scrollbar (standing rule, 2026-08-26 - Gaymi asked for
@@ -10321,7 +10354,7 @@ html.ui-theme-old #settings-panel h2 {
    still wins where one already exists - this only fills gaps. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(227, 166, 60, 0.6) transparent;
+  scrollbar-color: rgba(var(--ui-gold-accent-rgb), 0.6) transparent;
 }
 
 *::-webkit-scrollbar {
@@ -10333,12 +10366,12 @@ html.ui-theme-old #settings-panel h2 {
 }
 
 *::-webkit-scrollbar-thumb {
-  background: rgba(227, 166, 60, 0.6);
+  background: rgba(var(--ui-gold-accent-rgb), 0.6);
   border-radius: 4px;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: rgba(227, 166, 60, 0.8);
+  background: rgba(var(--ui-gold-accent-rgb), 0.8);
 }
 
 /* Same gold scrollbar as .settings-page above, applied to every other
@@ -10365,7 +10398,7 @@ html.ui-theme-old #settings-panel h2 {
 #menu-boards,
 .build-picker-grid {
   scrollbar-width: thin;
-  scrollbar-color: rgba(227, 166, 60, 0.6) transparent;
+  scrollbar-color: rgba(var(--ui-gold-accent-rgb), 0.6) transparent;
 }
 
 #profile-panel::-webkit-scrollbar,
@@ -10425,7 +10458,7 @@ html.ui-theme-old #settings-panel h2 {
 #profile-activity-list::-webkit-scrollbar-thumb,
 #menu-boards::-webkit-scrollbar-thumb,
 .build-picker-grid::-webkit-scrollbar-thumb {
-  background: rgba(227, 166, 60, 0.6);
+  background: rgba(var(--ui-gold-accent-rgb), 0.6);
   border-radius: 4px;
 }
 
@@ -10446,7 +10479,7 @@ html.ui-theme-old #settings-panel h2 {
 #profile-activity-list::-webkit-scrollbar-thumb:hover,
 #menu-boards::-webkit-scrollbar-thumb:hover,
 .build-picker-grid::-webkit-scrollbar-thumb:hover {
-  background: rgba(227, 166, 60, 0.8);
+  background: rgba(var(--ui-gold-accent-rgb), 0.8);
 }
 
 .language-grid {
@@ -10470,12 +10503,12 @@ html.ui-theme-old #settings-panel h2 {
 }
 
 .language-btn:hover {
-  border-color: rgba(227, 166, 60, 0.5);
+  border-color: rgba(var(--ui-gold-accent-rgb), 0.5);
 }
 
 .language-btn.active {
-  background: rgba(227, 166, 60, 0.14);
-  border-color: #e3c23c;
+  background: rgba(var(--ui-gold-accent-rgb), 0.14);
+  border-color: var(--ui-gold-bright);
 }
 
 .language-btn .lang-name {
@@ -10491,7 +10524,7 @@ html.ui-theme-old #settings-panel h2 {
 .language-btn .lang-coming-soon {
   font-size: 11px;
   font-style: italic;
-  color: #e3c23c;
+  color: var(--ui-gold-bright);
   opacity: 0.75;
 }
 
@@ -10503,7 +10536,7 @@ html.ui-theme-old #settings-panel h2 {
 }
 
 #language-missing-discord-link {
-  color: #e3c23c;
+  color: var(--ui-gold-bright);
   text-decoration: underline;
 }
 
@@ -10589,7 +10622,7 @@ html.ui-theme-old #settings-panel h2 {
 
 .audio-row input[type='range'] {
   width: 100%;
-  accent-color: #e3c23c;
+  accent-color: var(--ui-gold-bright);
 }
 
 /* Custom box instead of accent-color's native unchecked rendering (a
@@ -10606,7 +10639,7 @@ html.ui-theme-old #settings-panel h2 {
   margin: 0;
   flex-shrink: 0;
   background: #0c0c0c;
-  border: 2px solid #e3c23c;
+  border: 2px solid var(--ui-gold-bright);
   border-radius: 3px;
   cursor: pointer;
   position: relative;
@@ -10614,7 +10647,7 @@ html.ui-theme-old #settings-panel h2 {
 }
 
 .audio-checkbox:checked {
-  background: #e3c23c;
+  background: var(--ui-gold-bright);
 }
 
 .audio-checkbox:checked::after {
@@ -10630,7 +10663,7 @@ html.ui-theme-old #settings-panel h2 {
 }
 
 .audio-checkbox:focus-visible {
-  outline: 2px solid #e3c23c;
+  outline: 2px solid var(--ui-gold-bright);
   outline-offset: 2px;
 }
 
@@ -10687,7 +10720,7 @@ html.ui-theme-old #settings-panel h2 {
   text-align: right;
   color: #fff;
   background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(227, 166, 60, 0.6);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.6);
   border-radius: 4px;
   padding-top: 0;
   padding-bottom: 0;
@@ -10697,7 +10730,7 @@ html.ui-theme-old #settings-panel h2 {
 }
 
 .audio-value-input:focus {
-  border-color: #e3c23c;
+  border-color: var(--ui-gold-bright);
 }
 
 .audio-value-input::-webkit-inner-spin-button,
@@ -10714,7 +10747,7 @@ html.ui-theme-old #settings-panel h2 {
   padding: 0;
   border: none;
   background: none;
-  color: rgba(227, 166, 60, 0.75);
+  color: rgba(var(--ui-gold-accent-rgb), 0.75);
   font-size: 7px;
   line-height: 1;
   display: flex;
@@ -10724,7 +10757,7 @@ html.ui-theme-old #settings-panel h2 {
 }
 
 .audio-value-step:hover {
-  color: #e3c23c;
+  color: var(--ui-gold-bright);
 }
 
 .audio-value-step-up {
@@ -10798,13 +10831,13 @@ html.ui-theme-old #settings-panel h2 {
 }
 
 .control-key-btn:hover {
-  border-color: rgba(227, 166, 60, 0.5);
+  border-color: rgba(var(--ui-gold-accent-rgb), 0.5);
 }
 
 .control-key-btn.listening {
   color: #0c130c;
-  background: #e3c23c;
-  border-color: #e3c23c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
 }
 
 #reset-binds-btn,
@@ -11009,7 +11042,7 @@ html.night-vision-active #app {
 .koth-fill {
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, #ffde5c, #e3c23c);
+  background: linear-gradient(90deg, #ffde5c, var(--ui-gold-bright));
   transition: width 150ms ease-out;
 }
 
@@ -11215,7 +11248,7 @@ html.night-vision-active #app {
    playing, not reload (see Game.js's webglcontextrestored handler). */
 #graphics-lost-keep-playing-btn {
   color: #170a06;
-  background: #e3c23c;
+  background: var(--ui-gold-bright);
   border: none;
 }
 
@@ -11264,7 +11297,7 @@ html.night-vision-active #app {
   font-size: 13px;
   font-weight: 600;
   color: #170a06;
-  background: #e3c23c;
+  background: var(--ui-gold-bright);
   border: none;
   border-radius: 5px;
   cursor: pointer;
@@ -11895,7 +11928,7 @@ html.night-vision-active #app {
   font-size: 0.9em;
   font-weight: 700;
   color: #170a06;
-  background: #e3c23c;
+  background: var(--ui-gold-bright);
   border: none;
   border-radius: 4px;
   padding: 1px 6px;
@@ -11922,7 +11955,7 @@ html.night-vision-active #app {
   font-size: 0.85em;
   font-weight: 700;
   color: #170a06;
-  background: #e3c23c;
+  background: var(--ui-gold-bright);
   border: none;
   border-radius: 4px;
   padding: 1px 8px;
@@ -12021,7 +12054,7 @@ html.night-vision-active #app {
   display: flex;
   flex-direction: column;
   background: #0e0e0c;
-  border: 2px solid #e3c23c;
+  border: 2px solid var(--ui-gold-bright);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
   overflow: hidden;
@@ -12038,13 +12071,13 @@ html.night-vision-active #app {
   font-size: 12px;
   color: #eee;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(227, 166, 60, 0.3);
+  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.3);
   border-radius: 999px;
   outline: none;
 }
 
 #emoji-picker-search:focus {
-  border-color: #e3c23c;
+  border-color: var(--ui-gold-bright);
 }
 
 #emoji-picker-categories {
@@ -12052,7 +12085,7 @@ html.night-vision-active #app {
   display: flex;
   gap: 2px;
   padding: 0 6px 6px;
-  border-bottom: 1px solid rgba(227, 166, 60, 0.25);
+  border-bottom: 1px solid rgba(var(--ui-gold-accent-rgb), 0.25);
   overflow-x: auto;
 }
 
@@ -12070,7 +12103,7 @@ html.night-vision-active #app {
 .emoji-picker-category-btn:hover,
 .emoji-picker-category-btn.active {
   opacity: 1;
-  background: rgba(227, 166, 60, 0.15);
+  background: rgba(var(--ui-gold-accent-rgb), 0.15);
 }
 
 #emoji-picker-list {
@@ -12112,7 +12145,7 @@ html.night-vision-active #app {
 }
 
 .emoji-picker-item:hover {
-  background: rgba(227, 166, 60, 0.18);
+  background: rgba(var(--ui-gold-accent-rgb), 0.18);
 }
 
 #emoji-picker-empty {
