@@ -3794,36 +3794,49 @@ export function _safeStatNumber(v) {
   return Number.isFinite(n) ? n : 0
 }
 
-// Chat profanity filter (2026-09-23) - English only for now (see the
-// gayz-chat-filter-other-languages memory - zh/hi/es word lists are
-// planned, not an oversight). Base words plus their common everyday
-// inflections only, no generic suffix wildcard - a wildcard like
-// /\bass\w*\b/ would also catch "assassin", which \b-anchored exact
-// entries never do ("class"/"grass"/"passed"/"assassin" all stay
+// Chat profanity filter (2026-09-23, trimmed to strong-profanity-only
+// 2026-09-26 - the milder/goofier tier, plus damn/goddamn, got dropped
+// entirely at Gaymi's request rather than censored). English only for
+// now (see the gayz-chat-filter-other-languages memory - zh/hi/es word
+// lists are planned, not an oversight). Base words plus their common
+// everyday inflections only, no generic suffix wildcard - a wildcard
+// like /\bass\w*\b/ would also catch "assassin", which \b-anchored
+// exact entries never do ("class"/"grass"/"passed"/"assassin" all stay
 // untouched since none of them equal one of these exact words). The
 // slur entries exist ONLY to be swapped for a harmless word below, same
 // as everything else here - this list censors, it doesn't platform
 // anything.
 const PROFANITY_WORDS = [
-  'damn', 'damned', 'damnit', 'goddamn', 'hell', 'crap', 'crappy',
-  'ass', 'asses', 'asshole', 'assholes', 'bastard', 'bitch', 'bitches', 'bitchy',
-  'piss', 'pissed', 'pissy', 'douche', 'douchebag', 'dumbass', 'jackass', 'bollocks',
+  'bitch', 'bitches',
   'fuck', 'fucks', 'fucking', 'fucked', 'fucker', 'fuckers', 'fuckup', 'motherfucker',
-  'shit', 'shits', 'shitty', 'shitting', 'shitted', 'bullshit',
+  'shit', 'shits', 'shitty', 'bullshit',
   'cunt', 'cunts', 'dick', 'dicks', 'dickhead',
   'cock', 'cocks', 'pussy', 'pussies', 'whore', 'whores', 'slut', 'sluts',
   'twat', 'twats', 'prick', 'pricks', 'wanker', 'wankers',
   'nigga', 'niggas', 'nigger', 'niggers',
 ]
 
-// Word -> a silly substitute instead of asterisks, for specific words
-// where Gaymi wanted a swap rather than a blank-out (2026-09-23 request:
-// "fuck goes to fudge and nigga goes to ninja"). Anything in
-// PROFANITY_WORDS with no entry here still falls back to plain asterisks
-// in _censorText below.
+// Word -> the clean word it auto-corrects to when a chat message is sent
+// (2026-09-26: Gaymi wanted every word swapped for something readable,
+// not blanked to asterisks - "shoot"/"shot" were deliberately avoided
+// for the shit-family since this is an FPS and those read as combat
+// chatter). Anything in PROFANITY_WORDS with no entry here would fall
+// back to plain asterisks in _censorText below, but every current entry
+// has one.
 const PROFANITY_REPLACEMENTS = {
+  bitch: 'witch', bitches: 'witches',
   fuck: 'fudge', fucks: 'fudges', fucking: 'fudging', fucked: 'fudged',
   fucker: 'fudger', fuckers: 'fudgers', fuckup: 'fudge-up', motherfucker: 'motherfudger',
+  shit: 'crud', shits: 'cruds', shitty: 'crummy', bullshit: 'malarkey',
+  cunt: 'grump', cunts: 'grumps',
+  dick: 'jerk', dicks: 'jerks', dickhead: 'jerkface',
+  cock: 'rooster', cocks: 'roosters',
+  pussy: 'kitty', pussies: 'kitties',
+  whore: 'floozy', whores: 'floozies',
+  slut: 'tramp', sluts: 'tramps',
+  twat: 'twit', twats: 'twits',
+  prick: 'grump', pricks: 'grumps',
+  wanker: 'dweeb', wankers: 'dweebs',
   nigga: 'ninja', niggas: 'ninjas', nigger: 'ninja', niggers: 'ninjas',
 }
 
