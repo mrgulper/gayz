@@ -1,6 +1,7 @@
 import { execSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import legacy from '@vitejs/plugin-legacy'
 
 // Build version/hash for Credits (see _buildVersionLine) - short commit
 // hash + build date, both computed once at build time. Falls back to
@@ -42,7 +43,15 @@ function writeVersionFilePlugin() {
 }
 
 export default {
-  plugins: [writeVersionFilePlugin()],
+  // Real report (2026-09-26): on an old Chromebook/phone, the main bundle
+  // (<script type="module">, plus real optional-chaining/nullish-coalescing
+  // syntax throughout Game.js) never ran at all - a browser too old for ES
+  // modules just silently skips that script tag per spec, so the menu
+  // painted (plain HTML/CSS) but nothing worked. This plugin builds a
+  // SECOND, more-compatible bundle (transpiled + polyfilled) alongside the
+  // normal one, loaded via a <script nomodule> fallback the modern browser
+  // ignores - doesn't touch any game logic, purely a build-output change.
+  plugins: [writeVersionFilePlugin(), legacy()],
   define: {
     __BUILD_HASH__: JSON.stringify(buildHash),
     __BUILD_DATE__: JSON.stringify(new Date().toISOString().slice(0, 10)),

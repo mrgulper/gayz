@@ -3982,6 +3982,51 @@ Escape before dawn.</p>
       </div>
 
     </div>
+    <script>
+      // Load-failure safety net (2026-09-26) - deliberately written in the
+      // most conservative JS possible (var/function, no arrow functions,
+      // no template literals, no optional chaining) since its whole job is
+      // to still run on a browser too old for the real game code below.
+      // Real report: on an old Chromebook/phone, the menu painted (plain
+      // HTML/CSS) but every button was dead, with zero visible error -
+      // main.js is loaded as <script type="module">, and a browser that
+      // doesn't support ES modules just silently skips it per spec. This
+      // turns that silence into an actual on-screen message, and also
+      // catches a DIFFERENT failure (a real thrown error, or the WebGL
+      // check below) the same way.
+      (function () {
+        var shown = false
+        function showFallback(text) {
+          if (shown) return
+          shown = true
+          clearTimeout(timeoutId)
+          var el = document.createElement('div')
+          el.id = 'load-fallback-message'
+          el.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(10,10,10,0.95);color:#f4f1e6;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;font-family:sans-serif;font-size:16px;line-height:1.5;'
+          el.textContent = text + ' Try updating your browser, or a different device.'
+          document.body.appendChild(el)
+        }
+        window.addEventListener('error', function () {
+          showFallback('GayZ ran into a problem loading.')
+        })
+        window.addEventListener('unhandledrejection', function () {
+          showFallback('GayZ ran into a problem loading.')
+        })
+        try {
+          var testCanvas = document.createElement('canvas')
+          var gl = testCanvas.getContext('webgl2') || testCanvas.getContext('webgl')
+          if (!gl) showFallback('GayZ needs 3D graphics support this browser/device doesn\'t have.')
+        } catch (e) {
+          showFallback('GayZ needs 3D graphics support this browser/device doesn\'t have.')
+        }
+        var timeoutId = setTimeout(function () {
+          if (!window.__game) showFallback('GayZ is taking too long to load.')
+        }, 20000)
+        var readyCheck = setInterval(function () {
+          if (window.__game) { clearTimeout(timeoutId); clearInterval(readyCheck) }
+        }, 500)
+      })()
+    </script>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
