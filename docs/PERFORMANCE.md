@@ -356,13 +356,44 @@ attach/detach per tile driven from `_updateCulling`; (4) only then
 attempt lazy *construction* and `dispose()`, which is where the real
 complexity and the leak risk live.
 
-**Pitfalls:** disposing geometries/materials that are shared after B1 will
-break other tiles — reference-count them or exempt shared materials from
-disposal. Zombie spawn points, chest spots and quest markers reference
-world objects across tile boundaries; they need to survive their tile
-being unloaded. Expect this to surface latent bugs in `Game.js`'s many
-`_updateX(playerPos)` proximity checks, which currently assume every world
-object exists at all times.
+**Update (2026-09-26): steps 1-3 are done.** Landed in two separate,
+individually-verified commits rather than one sweep, per this section's
+own "should not be started casually" warning. Steps 1-2 (tile tagging +
+the tile→objects index, `World.js`'s `WORLD_TILE_SIZE`/`tileKeyFor`/
+`tileIndex`) shipped first as pure groundwork - nothing read the index
+yet, so it changed no behavior and carried zero risk. Step 3
+(`Game.js`'s `_updateCulling`) then switched from checking every single
+cullable on the whole map every frame to only checking ones in a tile
+near the player now, or a tile that was near last frame but isn't
+anymore (so anything leaving range still gets one final hide/detach
+pass, rather than getting silently skipped and stuck visible forever).
+Verified correct via a direct snapshot-diff against the old brute-force
+behavior across 8 positions spanning the full map (center to all four
+corners) - not just "looks right by eye." A real bug was caught and
+fixed during that verification, worth remembering for any *other*
+"only touch things near an evolving position" system: the very first
+call, before any tile has ever had a chance to become "previously
+active," has to fall back to a one-time full pass over every cullable -
+otherwise anything in a tile the player's current position hasn't
+personally passed through yet just keeps its default (visible, attached)
+state forever, since nothing would ever tell it otherwise. Measured
+effect: `_updateCulling`'s own per-call cost dropped from 2.65ms to
+0.64ms (a fresh, non-tile-tagged object - currently only
+`ChestManager`'s dynamically-spawned chests, see `_cullablesTaggedCount`'s
+own comment - still gets checked individually every frame, same as
+before this step, so this isn't a 100%-of-cullables win, just close to
+it). **Step 4 (lazy construction/dispose - the part that actually
+removes memory/startup cost, not just per-frame cost) is still not
+started** - steps 1-3 only changed *when* an already-built object's
+visibility gets toggled, nothing about the map is built lazily yet.
+
+**Pitfalls (still apply to step 4):** disposing geometries/materials that
+are shared after B1 will break other tiles — reference-count them or
+exempt shared materials from disposal. Zombie spawn points, chest spots
+and quest markers reference world objects across tile boundaries; they
+need to survive their tile being unloaded. Expect this to surface latent
+bugs in `Game.js`'s many `_updateX(playerPos)` proximity checks, which
+currently assume every world object exists at all times.
 
 ---
 

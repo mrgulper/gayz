@@ -5,7 +5,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass.js'
 import { AfterimagePass } from 'three/examples/jsm/postprocessing/AfterimagePass.js'
-import { buildWorld, WORLD_CULL_DISTANCE, WORLD_SHADOW_CULL_DISTANCE, CAMPFIRE_X, CAMPFIRE_Z, SAFE_ZONE_X, SAFE_ZONE_Z } from './World.js'
+import { buildWorld, WORLD_CULL_DISTANCE, WORLD_SHADOW_CULL_DISTANCE, WORLD_TILE_SIZE, CAMPFIRE_X, CAMPFIRE_Z, SAFE_ZONE_X, SAFE_ZONE_Z } from './World.js'
 import { LOW_QUALITY_MODE, flatMaterial } from './QualitySettings.js'
 import { PlayerController } from './PlayerController.js'
 import { WeaponSystem, MELEE_DURABILITY_MAX } from './WeaponSystem.js'
@@ -5181,10 +5181,23 @@ export class Game {
     this._baseFogNear = this.scene.fog.near
     this._baseFogFar = this.scene.fog.far
     this.cullables = cullables
-    // Map-chunking groundwork only (docs/PERFORMANCE.md Option C, steps
-    // 1-2) - stored for a later step to actually use. Nothing reads this
-    // yet, so its presence changes no behavior.
+    // Map-chunking, step 3 (docs/PERFORMANCE.md Option C) - _updateCulling
+    // now uses this tile index instead of checking every cullable in the
+    // whole map every frame (see that function's own comment).
     this.worldTileIndex = tileIndex
+    // Everything in `cullables` up to this index came from buildWorld()
+    // itself and is tile-tagged (see World.js's own tileIndex-building
+    // step, right before buildWorld returns). Anything pushed in AFTER
+    // this point - currently only ChestManager, which adds a chest's
+    // group to this same shared array the moment it spawns mid-run (see
+    // Chests.js) - has no __tileId and can't be looked up by tile, so
+    // _updateCulling always checks it individually instead, exactly like
+    // every cullable did before this batch. Static world geometry is never
+    // removed/spliced out of this array after construction, so this
+    // boundary stays valid regardless of how many chests get added later
+    // (removing a chest can only shift indices at or after this point,
+    // never before it).
+    this._cullablesTaggedCount = cullables.length
     // See _updateCulling: any cullable that's a Group (not a bare Mesh)
     // used to get a fresh recursive .traverse() every single frame just to
     // propagate its castShadow flag to its mesh children. These hierarchies
@@ -5192,6 +5205,12 @@ export class Game {
     // once (lazily, on first cull pass) and reused from then on.
     this._cullShadowMeshCache = new WeakMap()
     this._lightCullScratch = []
+    // Reused across frames (see _updateCulling) rather than allocated
+    // fresh each time - _activeTileKeys starts null so the first frame
+    // has nothing to carry over from a "previous frame" that never
+    // happened.
+    this._cullObjectsScratch = []
+    this._activeTileKeys = null
     this._adaptiveShadowMult = 1
     this.supermarket = supermarket
     this.groceryStore = groceryStore
@@ -24726,7 +24745,59 @@ export class Game {
       candidates.sort((a, b) => a._cullDistSq - b._cullDistSq)
       for (let i = MAX_ACTIVE_LIGHTS; i < candidates.length; i++) candidates[i].light.intensity = 0
     }
-    for (const obj of this.cullables) {
+
+    // Map-chunking, step 3 (docs/PERFORMANCE.md Option C) - only the loop
+    // below actually changed; every check inside it (visible/shadow/chest/
+    // attach-detach) is byte-for-byte the same as before this batch. What
+    // changed is which objects reach that loop at all: instead of every
+    // cullable on the whole map, only ones in a tile near the player now,
+    // OR in a tile that was near LAST frame but isn't anymore (so it still
+    // gets one final pass to actually hide/detach - skipping a tile the
+    // instant it goes out of range would leave whatever was in it stuck
+    // visible/attached forever, since nothing would ever re-check it).
+    // cullSq (not chestCullSq/shadowSq, both always smaller - see their
+    // own comments above) sets the tile radius since it's the largest
+    // distance anything in a "relevant" tile could still need checking at.
+    const tileRadius = Math.ceil(Math.sqrt(cullSq) / WORLD_TILE_SIZE) + 1
+    const playerTileX = Math.floor(playerPos.x / WORLD_TILE_SIZE)
+    const playerTileZ = Math.floor(playerPos.z / WORLD_TILE_SIZE)
+    const newActiveTileKeys = new Set()
+    for (let tx = playerTileX - tileRadius; tx <= playerTileX + tileRadius; tx++) {
+      for (let tz = playerTileZ - tileRadius; tz <= playerTileZ + tileRadius; tz++) {
+        newActiveTileKeys.add(`${tx},${tz}`)
+      }
+    }
+    const objectsToProcess = this._cullObjectsScratch
+    objectsToProcess.length = 0
+    if (!this._activeTileKeys) {
+      // First call ever (right after spawn, before any tile has had a
+      // chance to become "previously active") - the incremental logic
+      // below only re-checks a tile once it's EITHER near now OR was near
+      // last frame, so with no "last frame" yet, every tile the player
+      // hasn't personally visited would simply keep its default (visible,
+      // attached) state forever, since nothing would ever tell it
+      // otherwise. Confirmed as a real bug via a direct before/after
+      // comparison against the old brute-force behavior, not assumed.
+      // One full pass over every cullable establishes a correct baseline
+      // exactly once; every later call is the cheap incremental version.
+      for (const obj of this.cullables) objectsToProcess.push(obj)
+    } else {
+      const tilesToProcess = new Set(newActiveTileKeys)
+      for (const key of this._activeTileKeys) tilesToProcess.add(key)
+      for (const key of tilesToProcess) {
+        const bucket = this.worldTileIndex.get(key)
+        if (bucket) for (const obj of bucket) objectsToProcess.push(obj)
+      }
+      // Not tile-tagged (spawned after buildWorld - see
+      // _cullablesTaggedCount's own comment) - always checked
+      // individually, same as every cullable did before this batch.
+      for (let i = this._cullablesTaggedCount; i < this.cullables.length; i++) {
+        objectsToProcess.push(this.cullables[i])
+      }
+    }
+    this._activeTileKeys = newActiveTileKeys
+
+    for (const obj of objectsToProcess) {
       const dx = obj.position.x - playerPos.x
       const dz = obj.position.z - playerPos.z
       const distSq = dx * dx + dz * dz
