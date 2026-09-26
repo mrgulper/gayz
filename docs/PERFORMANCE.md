@@ -382,16 +382,59 @@ effect: `_updateCulling`'s own per-call cost dropped from 2.65ms to
 `ChestManager`'s dynamically-spawned chests, see `_cullablesTaggedCount`'s
 own comment - still gets checked individually every frame, same as
 before this step, so this isn't a 100%-of-cullables win, just close to
-it). **Step 4 (lazy construction/dispose - the part that actually
-removes memory/startup cost, not just per-frame cost) is still not
-started** - steps 1-3 only changed *when* an already-built object's
-visibility gets toggled, nothing about the map is built lazily yet.
+it). Step 4 (lazy construction/dispose - the part that actually removes
+memory/startup cost, not just per-frame cost) had a first, deliberately
+narrow **pilot land 2026-09-26**: only the 3 buildings sharing the
+`buildRetailStore()` pattern (supermarket/groceryStore/hardwareStore)
+now build lazily, the moment `_updateCulling` finds their tile newly in
+range, instead of eagerly during `buildWorld()`. Everything else -
+every other named zone, and anything flagged risky in this section
+(feeds `lockedCells`, or has an unconditional per-frame proximity
+check) - is deliberately untouched, still eager, same as always.
 
-**Pitfalls (still apply to step 4):** disposing geometries/materials that
-are shared after B1 will break other tiles — reference-count them or
-exempt shared materials from disposal. Zombie spawn points, chest spots
-and quest markers reference world objects across tile boundaries; they
-need to survive their tile being unloaded. Expect this to surface latent
+**Why only 3, and how this actually works:** investigating the real
+mechanics found buildWorld()'s ~82 build functions are NOT data waiting
+to be built - they're imperative code that runs immediately, calling
+straight into `buildRoom()` (the single most-reused wall-building
+primitive in the file) as it goes. Rewriting `buildRoom()` itself to be
+deferrable was judged too risky for a pilot (nearly every building
+depends on it). Instead: a small, pure, scene-independent
+`computeRoomShape()`/`computeRetailStoreShape()` twin was added that
+replicates just `buildRoom`'s/`buildRetailStore`'s own return-shape math
+(bounds, door positions) - used to hand back a correct placeholder the
+instant `buildWorld()` runs, so any code reading a building's
+coordinates (landmark labels, etc.) never notices anything is
+deferred - while the real `buildRetailStore(...)` call (and every mesh/
+collider/shelf-prop it creates) is wrapped in a closure and only
+actually invoked later, from a new `buildPendingTileContent(tileKey)`
+function returned by `buildWorld()`, which `_updateCulling` calls the
+moment a tile is newly in range. That function also does by hand the 3
+things the ORIGINAL eager pass already did for every other object
+(tile-tag it, capture `__parkedParent`, freeze `matrixAutoUpdate`) -
+newly-built content is then indistinguishable from anything that was
+always there. Verified correct with real before/after checks in the
+browser (confirmed a target building has zero meshes and no collider
+before approach, a correct placeholder shape immediately, full
+geometry + a real solid collider after approach, correct hide/re-show
+on leaving and returning, and a full-map draw-call sanity walk showing
+no regressions) - not just visual inspection.
+
+**What's still not done:** disposal (freeing memory for a tile once you
+leave and never come back) - this pilot only defers *when* something
+gets built, it never un-builds anything once built. The other ~8 named
+zones each use their own bespoke, unaudited builder function and are
+NOT part of this pilot; extending this pattern to them means auditing
+each one's builder + return shape individually, the same care taken
+here. `lockedCells`-linked zones and anything with an unconditional
+per-frame proximity check (see this section's own risk breakdown) still
+need null-guards added before they could ever be made lazy at all.
+
+**Pitfalls (still apply to further step 4 work):** disposing geometries/
+materials that are shared after B1 will break other tiles — reference-
+count them or exempt shared materials from disposal. Zombie spawn
+points, chest spots and quest markers reference world objects across
+tile boundaries; they need to survive their tile being unloaded. Expect
+this to surface latent
 bugs in `Game.js`'s many `_updateX(playerPos)` proximity checks, which
 currently assume every world object exists at all times.
 

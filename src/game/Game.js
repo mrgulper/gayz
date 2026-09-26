@@ -5134,7 +5134,7 @@ export class Game {
     this.composer.addPass(this.afterimagePass)
     this.composer.addPass(new OutputPass())
 
-    const { colliders, solidMeshes, flickerLights, spawnPoints, ambientWildlife, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, upgradeMachine, mysteryBox, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, tileIndex, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel, toxicSewerLevel, mineLevel, manholeCovers, waterTowerValve, containerStaircase, industrialSiren, wreckingPendulum, scaffolding, elevatorTower, payphone, jukebox, workbench, bulletinBoard, hallOfFame, skyscraperShortcuts, adjustableDummy, pet, drainpipeSpots, jumpPadSpot, tacticalStreetlights, grassBounds, waterBounds } = buildWorld(this.scene, ACHIEVEMENTS.length)
+    const { buildPendingTileContent, colliders, solidMeshes, flickerLights, spawnPoints, ambientWildlife, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, upgradeMachine, mysteryBox, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, tileIndex, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel, toxicSewerLevel, mineLevel, manholeCovers, waterTowerValve, containerStaircase, industrialSiren, wreckingPendulum, scaffolding, elevatorTower, payphone, jukebox, workbench, bulletinBoard, hallOfFame, skyscraperShortcuts, adjustableDummy, pet, drainpipeSpots, jumpPadSpot, tacticalStreetlights, grassBounds, waterBounds } = buildWorld(this.scene, ACHIEVEMENTS.length)
     this.drainpipeSpots = drainpipeSpots
     this.jumpPadSpot = jumpPadSpot
     this._jumpPadCooldownUntil = 0
@@ -5185,6 +5185,12 @@ export class Game {
     // now uses this tile index instead of checking every cullable in the
     // whole map every frame (see that function's own comment).
     this.worldTileIndex = tileIndex
+    // Map-chunking, step 4 pilot - a narrow first slice (see World.js's own
+    // deferBuild/buildPendingTileContent comments for exactly which 3
+    // buildings this covers and why only those 3). Called from
+    // _updateCulling the moment a tile newly enters range, before that
+    // tile's cullables get processed for the first time this "near" spell.
+    this._buildPendingTileContent = buildPendingTileContent
     // Everything in `cullables` up to this index came from buildWorld()
     // itself and is tile-tagged (see World.js's own tileIndex-building
     // step, right before buildWorld returns). Anything pushed in AFTER
@@ -24767,6 +24773,18 @@ export class Game {
         newActiveTileKeys.add(`${tx},${tz}`)
       }
     }
+    // Map-chunking, step 4 pilot - build any tile's deferred content
+    // (see World.js's deferBuild/buildPendingTileContent) the moment
+    // it's newly near (wasn't active last frame, or this is the very
+    // first call and nothing was "last frame" yet), so it exists in time
+    // to be picked up by objectsToProcess below in this same frame - no
+    // extra 1-frame delay before a newly-approached building appears.
+    for (const key of newActiveTileKeys) {
+      if (!this._activeTileKeys || !this._activeTileKeys.has(key)) {
+        this._buildPendingTileContent(key)
+      }
+    }
+
     const objectsToProcess = this._cullObjectsScratch
     objectsToProcess.length = 0
     if (!this._activeTileKeys) {

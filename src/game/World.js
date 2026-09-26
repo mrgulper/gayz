@@ -258,6 +258,30 @@ export function buildWorld(scene, trophyCount = 15) {
     cullables.push(object)
   }
 
+  // Map-chunking, step 4 pilot (docs/PERFORMANCE.md Option C) - a SMALL,
+  // deliberately narrow first slice: only the 3 buildings that share the
+  // buildRetailStore() pattern (supermarket/groceryStore/hardwareStore)
+  // get built lazily, on first approach, instead of immediately here.
+  // Every other building (the ~8 other named zones using their own
+  // bespoke buildX() functions, plus everything feeding lockedCells or
+  // checked unconditionally every frame - see this project's own
+  // docs/PERFORMANCE.md for the full risk breakdown) is deliberately left
+  // exactly as it was, eager, for a later pass. deferBuild records a
+  // placeholder-shape building's real construction to run later, keyed by
+  // which tile it's in; buildPendingTileContent (defined near tileIndex
+  // below, once allCullables/tileIndex actually exist) is what Game.js
+  // calls to actually run it once the player gets close.
+  const pendingTileBuilds = new Map()
+  const deferBuild = (x, z, buildFn) => {
+    const key = tileKeyFor(x, z)
+    let bucket = pendingTileBuilds.get(key)
+    if (!bucket) {
+      bucket = []
+      pendingTileBuilds.set(key, bucket)
+    }
+    bucket.push(buildFn)
+  }
+
   scene.background = new THREE.Color(0x12161b)
   // Far distance pushed from 85 to 140 for the bigger (750x750) map - not
   // scaled 1:1 with the map (that would mean seeing hundreds of units in
@@ -589,15 +613,15 @@ export function buildWorld(scene, trophyCount = 15) {
   // boosted rather than a flat re-roll of every entry.
   const RETAIL_LOOT_WEIGHTS = { ...LOOT_WEIGHTS, health: 2, ammo: 1.5, fuelcan: 1 }
 
-  const supermarket = buildRetailStore(scene, register, {
-    x: 160, z: 60, w: 20, d: 14, aisleRows: 3, shelfLen: 4, rearDoor: true,
-  })
+  const supermarketSpec = { x: 160, z: 60, w: 20, d: 14, aisleRows: 3, shelfLen: 4, rearDoor: true }
+  const supermarket = computeRetailStoreShape(supermarketSpec)
+  deferBuild(supermarketSpec.x, supermarketSpec.z, () => buildRetailStore(scene, register, supermarketSpec))
   registerZone({ id: 'supermarket', x: 160, z: 60, radius: 14, densityMult: 1.4 })
   towerChestSpots.push({ x: 160, y: 0, z: 60 + 3, lootWeights: RETAIL_LOOT_WEIGHTS })
 
-  const groceryStore = buildRetailStore(scene, register, {
-    x: 160, z: -60, w: 13, d: 10, aisleRows: 2, shelfLen: 2.8,
-  })
+  const groceryStoreSpec = { x: 160, z: -60, w: 13, d: 10, aisleRows: 2, shelfLen: 2.8 }
+  const groceryStore = computeRetailStoreShape(groceryStoreSpec)
+  deferBuild(groceryStoreSpec.x, groceryStoreSpec.z, () => buildRetailStore(scene, register, groceryStoreSpec))
   registerZone({ id: 'grocery', x: 160, z: -60, radius: 10, densityMult: 1.3 })
   towerChestSpots.push({ x: 160, y: 0, z: -60 - 2, lootWeights: RETAIL_LOOT_WEIGHTS })
 
@@ -626,10 +650,9 @@ export function buildWorld(scene, trophyCount = 15) {
   const TOOL_DRESSING_FILES = ['tool-hammer.glb', 'tool-crowbar.glb', 'tool-tireiron.glb']
   const WEAPON_ONLY_LOOT_WEIGHTS = { rare_weapon: 10, legendary_weapon: 3, extended_mag: 4, scope: 3 }
 
-  const hardwareStore = buildRetailStore(scene, register, {
-    x: 160, z: -100, w: 16, d: 11, aisleRows: 3, shelfLen: 3.4,
-    rearDoor: true, dressingFiles: TOOL_DRESSING_FILES,
-  })
+  const hardwareStoreSpec = { x: 160, z: -100, w: 16, d: 11, aisleRows: 3, shelfLen: 3.4, rearDoor: true, dressingFiles: TOOL_DRESSING_FILES }
+  const hardwareStore = computeRetailStoreShape(hardwareStoreSpec)
+  deferBuild(hardwareStoreSpec.x, hardwareStoreSpec.z, () => buildRetailStore(scene, register, hardwareStoreSpec))
   registerZone({ id: 'hardware', x: 160, z: -100, radius: 12, densityMult: 1.3 })
   towerChestSpots.push({ x: 160, y: 0, z: -100 + 4, lootWeights: WEAPON_ONLY_LOOT_WEIGHTS })
 
@@ -3016,7 +3039,48 @@ export function buildWorld(scene, trophyCount = 15) {
     bucket.push(obj)
   }
 
+  // Map-chunking, step 4 pilot - actually runs a tile's deferred building(s)
+  // (see deferBuild's own comment above) the first time Game.js calls this
+  // for that tile (see _updateCulling's own comment on when that is).
+  // Mirrors, by hand, the same three things the eager path above already
+  // does for every OTHER object in the map, so a lazily-built object is
+  // indistinguishable from one that was always there: (1) gets tagged and
+  // bucketed into this same tileIndex, since allCullables/tileIndex above
+  // were both already finished by the time anything calls this; (2) gets
+  // __parkedParent captured, exactly like Option A1's blanket pass; (3)
+  // gets matrixAutoUpdate frozen, exactly like Option A2's blanket pass -
+  // that pass already ran (see scene.traverse above) before this building
+  // existed, so nothing else will ever freeze it otherwise. `cullables`
+  // (this closure's own array, what register()/register.meshOnly() push
+  // to) and `allCullables` are two DIFFERENT arrays by this point (the
+  // latter is a deduped copy - see its own comment above) - new objects
+  // land in the first automatically via register(), but have to be added
+  // to the second by hand here, since that's the one Game.js/_updateCulling
+  // actually hold onto as `this.cullables`.
+  function buildPendingTileContent(tileKey) {
+    const pending = pendingTileBuilds.get(tileKey)
+    if (!pending) return
+    pendingTileBuilds.delete(tileKey)
+    const before = cullables.length
+    for (const buildFn of pending) buildFn()
+    let bucket = tileIndex.get(tileKey)
+    if (!bucket) {
+      bucket = []
+      tileIndex.set(tileKey, bucket)
+    }
+    for (let i = before; i < cullables.length; i++) {
+      const obj = cullables[i]
+      obj.__tileId = tileKey
+      obj.__parkedParent = obj.parent
+      obj.updateMatrix()
+      obj.matrixAutoUpdate = false
+      allCullables.push(obj)
+      bucket.push(obj)
+    }
+  }
+
   return {
+    buildPendingTileContent,
     colliders,
     solidMeshes,
     flickerLights,
@@ -4020,6 +4084,38 @@ function buildSafeZone(scene, colliders, solidMeshes) {
 // rooms that open directly onto a corridor rather than through a door.
 const ROOM_WALL_THICKNESS = 0.3
 
+// Pure geometry-only twin of buildRoom()'s own return value (x/z/w/d/
+// bounds/doorSpots) - no scene/mesh/register interaction at all, just the
+// same math buildRoom does at the very end of its own body. Exists so a
+// lazily-built building (see WORLD_TILE_SIZE's "map-chunking, step 4
+// pilot" comment) can hand back a placeholder with the exact same shape
+// real code already reads (landmark coordinates, door positions) before
+// its actual walls/props are ever constructed - without touching
+// buildRoom itself, which is the single most-reused primitive in this
+// file and not something to risk destabilizing for this pilot's sake.
+// Keep this in sync with buildRoom's own doorSpots/bounds block by hand
+// if that ever changes - there is no way to share the code without
+// splitting buildRoom itself, which is deliberately out of scope here.
+function computeRoomShape(spec) {
+  const { x, z, w, d, wallHeight = 2.6, floorY = 0, doorSides = [] } = spec
+  const halfW = w / 2
+  const halfD = d / 2
+  const doorSpots = doorSides.map((ds) => {
+    if (ds.side === 'north') return { x, z: z + halfD }
+    if (ds.side === 'south') return { x, z: z - halfD }
+    if (ds.side === 'east') return { x: x + halfW, z }
+    return { x: x - halfW, z }
+  })
+  return {
+    x, z, w, d,
+    bounds: new THREE.Box3(
+      new THREE.Vector3(x - halfW, floorY, z - halfD),
+      new THREE.Vector3(x + halfW, floorY + wallHeight, z + halfD)
+    ),
+    doorSpots,
+  }
+}
+
 function buildRoom(scene, register, spec) {
   const {
     x, z, w, d,
@@ -4147,6 +4243,19 @@ const FOOD_PROP_SCALE = 0.3
 const SHELF_UNIT_W = 0.4
 
 const DEFAULT_DRESSING_FILES = ['food-can.glb', 'food-carton.glb', 'food-bottle.glb', 'food-bread.glb', 'food-bag.glb']
+
+// Placeholder twin of buildRetailStore's own return value, for the same
+// lazy-build pilot computeRoomShape's own comment explains - mirrors this
+// function's door-side translation (doorSide/doorWidth/rearDoor -> the
+// doorSides array buildRoom actually wants) so the placeholder's bounds/
+// doorSpots exactly match what the real, later-built room will have.
+function computeRetailStoreShape(spec) {
+  const { x, z, w, d, wallHeight = 4, doorSide = 'south', doorWidth = 2.4, rearDoor = false } = spec
+  const doorSides = [{ side: doorSide, width: doorWidth }]
+  const rearSide = doorSide === 'south' ? 'north' : 'south'
+  if (rearDoor) doorSides.push({ side: rearSide, width: doorWidth })
+  return computeRoomShape({ x, z, w, d, wallHeight, doorSides })
+}
 
 function buildRetailStore(scene, register, spec) {
   const {
