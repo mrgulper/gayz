@@ -3540,7 +3540,8 @@ html.third-person-active #companion-bark {
   cursor: pointer;
 }
 
-.features-toc-link:hover {
+.features-toc-link:hover,
+.features-toc-link.active {
   color: #fff;
   background: rgba(255, 255, 255, 0.04);
   border-left-color: rgba(var(--ui-gold-accent-rgb), 0.6);

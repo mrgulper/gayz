@@ -18764,6 +18764,7 @@ export class Game {
     // fixed-size overlay, a plain <a href="#id"> anchor jump doesn't
     // reliably target content inside one).
     if (this.featuresToc) {
+      const tocLinks = []
       categories.forEach((section) => {
         const heading = section.querySelector('h2')
         const link = document.createElement('button')
@@ -18776,9 +18777,45 @@ export class Game {
         // and smooth scroll's animation depends on the compositor thread
         // actually running each frame, which isn't guaranteed the moment
         // right after a panel opens.
-        link.addEventListener('click', () => section.scrollIntoView({ block: 'start', behavior: 'auto' }))
+        link.addEventListener('click', () => {
+          section.scrollIntoView({ block: 'start', behavior: 'auto' })
+          // Immediate feedback rather than waiting on the observer below,
+          // which only re-fires after the (instant, but still async)
+          // scroll actually settles a frame later.
+          tocLinks.forEach((l) => l.classList.toggle('active', l === link))
+        })
         this.featuresToc.appendChild(link)
+        tocLinks.push(link)
       })
+
+      // Highlight whichever section is currently in view as you scroll,
+      // same "you're here" behavior as a normal page table-of-contents -
+      // previously only :hover lit a link up, so the active section had
+      // no visual indicator once you scrolled past the first one.
+      if (tocLinks.length && 'IntersectionObserver' in window) {
+        if (this._featuresTocObserver) this._featuresTocObserver.disconnect()
+        const visibleRatios = new Map()
+        this._featuresTocObserver = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              visibleRatios.set(entry.target, entry.isIntersecting ? entry.intersectionRatio : 0)
+            })
+            let bestSection = null
+            let bestRatio = 0
+            categories.forEach((section) => {
+              const ratio = visibleRatios.get(section) || 0
+              if (ratio > bestRatio) { bestRatio = ratio; bestSection = section }
+            })
+            if (bestSection) {
+              const idx = [...categories].indexOf(bestSection)
+              tocLinks.forEach((l, i) => l.classList.toggle('active', i === idx))
+            }
+          },
+          { root: this.featuresContent, threshold: [0, 0.1, 0.25, 0.5, 0.75, 1] }
+        )
+        categories.forEach((section) => this._featuresTocObserver.observe(section))
+        tocLinks[0].classList.add('active')
+      }
     }
 
     // Expandable cards (weapons, mutators, zombie types, etc.) - click the
