@@ -13175,14 +13175,50 @@ export class Game {
     // false "empty" here is destructive - falling through to pushToCloud
     // would silently overwrite a real cloud save with this device's blank
     // one - so don't believe "no save exists" off a single fetch.
-    let cloud = await CloudSync.fetchCloudSave(uid)
-    for (let attempt = 0; !cloud && attempt < 2; attempt++) {
-      await new Promise((resolve) => setTimeout(resolve, 800))
-      cloud = await CloudSync.fetchCloudSave(uid)
+    //
+    // Real bug fixed 2026-09-26: fetchCloudSave itself had no try/catch
+    // anywhere in this chain, and neither did this loop - a genuine fetch
+    // failure (thrown exception - a real network hiccup, not a clean
+    // "no document") propagated straight out of this whole function,
+    // skipping BOTH the push-if-first-time branch below AND the pull/
+    // conflict branch after it. Net effect on a real device: sign-in
+    // itself succeeded (so it looked "signed in"), but the save never
+    // got pulled OR pushed - the device just silently kept its own
+    // freshly-generated playerId/nickname/zero stats, with no error
+    // shown anywhere. Now every attempt is individually caught, and a
+    // clean "no document" (worth trusting) is tracked separately from a
+    // thrown error (worth retrying, then telling the player about if it
+    // never recovers) - `!cloud` alone can no longer mean either one.
+    let cloud = null
+    let fetchFailed = false
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        cloud = await CloudSync.fetchCloudSave(uid)
+        fetchFailed = false
+        if (cloud) break
+      } catch {
+        fetchFailed = true
+      }
+      if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 800))
+    }
+    if (fetchFailed) {
+      // Every attempt genuinely failed - never guess here. Falling
+      // through to pushToCloud would risk overwriting a real cloud save
+      // with this device's own (possibly blank) local state; silently
+      // doing nothing would repeat the exact silent-wrong-identity bug
+      // this replaced. Tell the player plainly instead - they're still
+      // signed in and can retry (re-open Cloud Save, or reload) once
+      // their connection is better.
+      // _showHomepageToast, not _showLoreToast - sign-in almost always
+      // happens from the homepage, before gameStarted is true, and
+      // _showLoreToast silently no-ops in that case (see its own
+      // gameStarted guard) - this message would never have shown at all.
+      this._showHomepageToast(t('cloudsaveRestoreFailed'))
+      return
     }
     if (!cloud) {
-      // First time signing in on any device - nothing to compare against,
-      // just push this device's save up.
+      // Confirmed (not just assumed) no cloud save exists yet - first
+      // time signing in on any device.
       await CloudSaveUI.pushToCloud(this, false)
       return
     }
