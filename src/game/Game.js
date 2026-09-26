@@ -3820,14 +3820,17 @@ const PROFANITY_WORDS = [
 // (2026-09-26: Gaymi wanted every word swapped for something readable,
 // not blanked to asterisks - "shoot"/"shot" were deliberately avoided
 // for the shit-family since this is an FPS and those read as combat
-// chatter). Anything in PROFANITY_WORDS with no entry here would fall
-// back to plain asterisks in _censorText below, but every current entry
-// has one.
+// chatter. crap/crappy were picked instead since they read as an actual
+// closer-sounding minced oath for shit/shitty AND are themselves already
+// treated as fine, uncensored casual language in this game - same
+// "bullcrap" logic real people already use in place of "bullshit").
+// Anything in PROFANITY_WORDS with no entry here would fall back to
+// plain asterisks in _censorText below, but every current entry has one.
 const PROFANITY_REPLACEMENTS = {
   bitch: 'witch', bitches: 'witches',
   fuck: 'fudge', fucks: 'fudges', fucking: 'fudging', fucked: 'fudged',
   fucker: 'fudger', fuckers: 'fudgers', fuckup: 'fudge-up', motherfucker: 'motherfudger',
-  shit: 'crud', shits: 'cruds', shitty: 'crummy', bullshit: 'malarkey',
+  shit: 'crap', shits: 'craps', shitty: 'crappy', bullshit: 'bullcrap',
   cunt: 'grump', cunts: 'grumps',
   dick: 'jerk', dicks: 'jerks', dickhead: 'jerkface',
   cock: 'rooster', cocks: 'roosters',
