@@ -7155,6 +7155,14 @@ html.theme-lighter #app { filter: brightness(1.25); }
   width: 100%;
   max-width: 1900px;
   margin: 0 auto;
+  /* #menu-col-right no longer actually renders in this grid's own right
+     track (see its own rule below, 2026-09-26) - this padding now only
+     shrinks the box that justify-content:center measures leftover space
+     against, which is exactly why it has to stay: removing it widens
+     that box by 80px, which re-centers ALL THREE tracks (not just the
+     now-empty, invisible one) and visibly shifts the still-real left
+     column and hero content too. Keeping it holds their position exactly
+     where it always was. */
   padding-right: 80px;
 }
 
@@ -7164,6 +7172,33 @@ html.theme-lighter #app { filter: brightness(1.25); }
   flex-direction: column;
   gap: 9px;
   text-align: left;
+}
+
+/* Push the nav sidebar flush against #menu's own right margin (2026-09-26,
+   at Gaymi's request) - it used to sit well short of the edge, since it
+   was still a normal grid column and inherited both #menu-layout's
+   centering slack (max-width:1900px + margin:auto leaves empty space on
+   wide screens) and its own padding-right:80px on top of that. Taking it
+   out of the grid via position:absolute (grid still reserves its 240px
+   track, just empty now, so the hero column's own centering math - which
+   depends on col-left/col-right stayed equal-width - is untouched) and
+   re-anchoring it to #menu's own right edge directly. The calc() cancels
+   out exactly the auto-centering slack #menu-layout's max-width:1900px
+   leaves on screens wider than that (48px = #menu's own left+right
+   padding, both already fixed values in the rule above); on screens
+   narrower than 1900px there's no slack to cancel and this resolves to
+   plain 0. Only above 700px - below that #menu-layout drops to a single
+   stacked column (see that breakpoint) and this needs to stay in normal
+   flow instead. */
+@media (min-width: 701px) {
+  #menu-col-right {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: calc((min(100vw - 48px, 1900px) - (100vw - 48px)) / 2);
+    width: 240px;
+    justify-content: center;
+  }
 }
 
 /* The FPS/position debug readout (#fps, top-left, always-on outside
