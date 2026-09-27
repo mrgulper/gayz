@@ -60,6 +60,15 @@ export function restoreCloudSession(game) {
     game._resolveAuthReady?.()
     return
   }
+  // Tracks whether this is the very first time this callback has fired
+  // this page load - distinguishes Firebase silently resuming an already-
+  // signed-in session (this device never explicitly signed in just now)
+  // from a session that just changed because the player clicked Sign In
+  // in this same page life. The latter already triggers a full
+  // _afterCloudSignIn directly from _handleCloudSignIn - only the former
+  // needs the new silent catch-up check below, or a fresh sign-in would
+  // fire it twice.
+  let isFirstCall = true
   CloudSync.onAuthChange((session) => {
     game._cloudProfile = session ? session.profile : null
     game._cloudUid = session ? session.uid : null
@@ -91,10 +100,15 @@ export function restoreCloudSession(game) {
           game._renderFriendRequests()
         }
       })
+      // See _checkForNewerCloudSave's own comment (Game.js) for why this
+      // exists - without it, a device that's already signed in never
+      // notices anything pushed from elsewhere after its own first sign-in.
+      if (isFirstCall) game._checkForNewerCloudSave(session.uid).catch(() => {})
     } else {
       game._incomingFriendRequests = []
       game._updateFriendsDot()
     }
+    isFirstCall = false
     if (game.cloudsavePanel && getComputedStyle(game.cloudsavePanel).display !== 'none') {
       renderCloudSaveState(game)
     }

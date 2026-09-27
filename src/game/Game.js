@@ -1085,11 +1085,31 @@ function saveEndingSeen() {
 const ENDING_MILESTONE_NIGHT = 10
 
 let _settingsSavedPulseTimer = null
+let _settingsCloudPushTimer = null
 export function saveSettings(settings) {
   try {
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
   } catch {
     // Storage unavailable (e.g. private browsing) - setting just won't persist.
+  }
+  // Debounced background cloud push - Settings-only edits (bio, nickname,
+  // etc.) used to only ever reach the cloud at run-end or a manual Sync
+  // Now, so an edit with no run played afterward never left this device
+  // at all (see _checkForNewerCloudSave's own comment, Game.js, for the
+  // matching pull-side half of this fix). window.__game, not `this` -
+  // same reason the autosave-pulse code above uses it, this is a plain
+  // standalone function. Silent/best-effort like the run-end push already
+  // is, and debounced rather than pushing on every single keystroke -
+  // waits a few seconds for changes to actually settle first.
+  if (window.__game && window.__game._cloudUid) {
+    clearTimeout(_settingsCloudPushTimer)
+    _settingsCloudPushTimer = setTimeout(() => {
+      // Same _importingSave guard _applyImportedSaveData sets during its
+      // own clear+restore+reload - a restore just wrote newer data than
+      // this debounced push captured, so pushing now would overwrite it
+      // right back, the exact race that function's own comment covers.
+      if (window.__game && !window.__game._importingSave) CloudSaveUI.pushToCloud(window.__game, false)
+    }, 3000)
   }
   // Subtle autosave confirmation - only pulses while the Settings panel is
   // actually open (a plain computed-style check, since this is a
@@ -13282,6 +13302,45 @@ export class Game {
       this._cloudPendingConflict = cloud.data
       CloudSaveUI.renderCloudConflict(this, cloud.data)
     } else {
+      CloudSaveUI.applyCloudSaveData(this, cloud.data)
+    }
+  }
+
+  // Silent background counterpart to _afterCloudSignIn, called once per
+  // page load when Firebase resumes an ALREADY-signed-in session (see
+  // CloudSaveUI.restoreCloudSession) rather than a fresh Sign In click.
+  //
+  // Root problem this fixes: before this existed, a device that was
+  // already signed in never checked the cloud again after its very first
+  // sign-in - editing something that isn't tied to finishing a run (bio,
+  // nickname, anything Settings-only) never reached a second device that
+  // was never explicitly signed out and back in again. Two devices could
+  // drift apart forever, each only ever showing its own edits, with
+  // nothing ever telling either one to catch up.
+  //
+  // Deliberately much narrower than _afterCloudSignIn: no conflict
+  // prompt, no push-if-missing branch, and any failure is silent - this
+  // runs unprompted on every single load, so it must never interrupt
+  // with a popup or error toast the way an explicit Sign In click can.
+  // Only acts when the cloud is clearly newer than what this device
+  // itself last saw (push OR pull) - otherwise this device's own local
+  // state already reflects the newest thing anyone's seen, so leave it
+  // alone rather than reloading for no reason on every ordinary visit.
+  async _checkForNewerCloudSave(uid) {
+    let cloud
+    try {
+      cloud = await CloudSync.fetchCloudSave(uid)
+    } catch {
+      return
+    }
+    if (!cloud) return
+    const localSyncTime = Number(localStorage.getItem(CLOUD_LAST_SYNC_KEY)) || 0
+    // A few seconds' slack: this device's own last push sets its local
+    // CLOUD_LAST_SYNC_KEY and the cloud doc's updatedAt from two separate
+    // Date.now() calls a moment apart, not one shared timestamp - without
+    // this, a device could occasionally mistake its own just-pushed save
+    // for "something newer elsewhere" and reload right after pushing.
+    if (cloud.modifiedTime > localSyncTime + 5000) {
       CloudSaveUI.applyCloudSaveData(this, cloud.data)
     }
   }
