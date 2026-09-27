@@ -171,9 +171,60 @@ const DRAG_THRESHOLD = 4
 let dragState = null
 let dragJustHappened = false
 
+// Dragging a button that lives in the nav list (a real nav button, or a
+// "+ New Feature" placeholder) reorders it in the list instead of applying
+// a pixel offset - the surrounding buttons actually move out of the way to
+// make room, same as a real drag-to-reorder list, rather than the dragged
+// button just floating on top of them at whatever offset it was pushed to.
+// Every other draggable element on the page keeps the plain offset drag
+// below, since there's no list for them to reorder within.
+function isNavListItem(el) {
+  return !!el && el.parentElement && el.parentElement.id === 'menu-nav-buttons' && el.id !== ADD_BTN_ID
+}
+
+// A mousedown's real e.target is usually the icon <svg> or label <span>
+// inside a nav button, not the <button> itself (same reason onPickerClick
+// elsewhere in this file has to special-case things) - resolves up to the
+// actual direct child of the nav list so isNavListItem/reorderNavListItem
+// above see the button, not one of its children.
+function closestNavListItem(el) {
+  const btn = el && el.closest && el.closest('#menu-nav-buttons > *')
+  return btn && btn.id !== ADD_BTN_ID ? btn : null
+}
+
+// Visual nav-button position is driven entirely by each button's CSS
+// `order` (see _applyNavOrder() in Game.js, behind the user-facing Nav
+// Order setting) - NOT by where it actually sits in the DOM, so moving
+// el's DOM node on its own has zero visual effect (found this live: a
+// first version that used insertBefore/appendChild silently did nothing,
+// since every real nav button already carries its own explicit `order`
+// that wins regardless of DOM position). Reassigns a fresh 0..N `order`
+// to every button in the list instead, in whatever new sequence the drag
+// produced, so the ones being passed over genuinely shift to make room.
+// The "+ New Feature" trigger is excluded from the reorderable set and
+// always gets the highest order of the group, so it can never end up
+// anywhere but last.
+function reorderNavListItem(el, clientY) {
+  const list = el.parentElement
+  const addBtn = document.getElementById(ADD_BTN_ID)
+  const others = [...list.children]
+    .filter((c) => c !== el && c !== addBtn)
+    .sort((a, b) => Number(getComputedStyle(a).order) - Number(getComputedStyle(b).order))
+
+  let insertAt = others.length
+  for (let i = 0; i < others.length; i++) {
+    const rect = others[i].getBoundingClientRect()
+    if (clientY < rect.top + rect.height / 2) { insertAt = i; break }
+  }
+  others.splice(insertAt, 0, el)
+  others.forEach((btn, i) => { btn.style.order = i })
+  if (addBtn) addBtn.style.order = others.length
+}
+
 function onPickerMouseDown(e) {
   if (!pickerEnabled || replaying) return
-  dragState = { el: e.target, startX: e.clientX, startY: e.clientY, dragging: false }
+  const navItem = closestNavListItem(e.target)
+  dragState = { el: navItem || e.target, startX: e.clientX, startY: e.clientY, dragging: false }
 }
 
 function onPickerMouseMove(e) {
@@ -186,13 +237,22 @@ function onPickerMouseMove(e) {
     dragState.dragging = true
     dragJustHappened = true
     if (pendingClickTimer) { clearTimeout(pendingClickTimer); pendingClickTimer = null }
-    const origin = getOffset(dragState.el)
-    dragState.origX = origin.x
-    dragState.origY = origin.y
+    dragState.isNavItem = isNavListItem(dragState.el)
+    if (!dragState.isNavItem) {
+      const origin = getOffset(dragState.el)
+      dragState.origX = origin.x
+      dragState.origY = origin.y
+    }
     selectElement(dragState.el)
   }
 
   e.preventDefault()
+
+  if (dragState.isNavItem) {
+    reorderNavListItem(dragState.el, e.clientY)
+    return
+  }
+
   const newX = dragState.origX + dx
   const newY = dragState.origY + dy
   setOffset(dragState.el, newX, newY)
