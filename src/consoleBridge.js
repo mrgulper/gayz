@@ -106,6 +106,20 @@ function activateElement(el) {
 const ADD_BTN_ID = 'gzc-add-btn'
 let newButtonCount = 0
 
+// Every real nav button carries its own explicit CSS `order` (see the
+// reorderNavListItem comment below), so a freshly created button with no
+// order set at all defaults to the CSS-initial 0 - tying it with General
+// (also 0) and popping it up second in the visual list, nowhere near
+// where it actually sits in the DOM. Gives el the next order after
+// everything else already in the list, landing it at the true end by
+// default instead of relying on a drag to fix that up first.
+function placeAtEnd(el, list) {
+  const maxOrder = [...list.children]
+    .filter((c) => c !== el)
+    .reduce((max, c) => Math.max(max, Number(getComputedStyle(c).order) || 0), 0)
+  el.style.order = maxOrder + 1
+}
+
 function ensureAddButton() {
   const navList = document.getElementById('menu-nav-buttons')
   const lastBtn = document.getElementById('build-mode-btn')
@@ -117,6 +131,7 @@ function ensureAddButton() {
   span.textContent = '+ New Feature'
   addBtn.appendChild(span)
   navList.appendChild(addBtn)
+  placeAtEnd(addBtn, navList)
 }
 
 function removeAddButton() {
@@ -135,7 +150,14 @@ function insertNewButton() {
   const span = document.createElement('span')
   span.textContent = 'New Feature'
   btn.appendChild(span)
-  addBtn.parentElement.insertBefore(btn, addBtn)
+  const list = addBtn.parentElement
+  list.insertBefore(btn, addBtn)
+  // Order matters: place the new button first (it inherits addBtn's old,
+  // already-highest order), then bump addBtn again so it re-claims the
+  // very top spot - keeps the trigger last no matter how many placeholder
+  // buttons have piled up before it.
+  placeAtEnd(btn, list)
+  placeAtEnd(addBtn, list)
 }
 
 function onPickerClick(e) {
