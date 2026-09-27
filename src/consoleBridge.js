@@ -337,6 +337,8 @@ function closestNavListItem(el) {
 // The "+ New Feature" trigger is excluded from the reorderable set and
 // always gets the highest order of the group, so it can never end up
 // anywhere but last.
+const REORDER_SLIDE_MS = 150
+
 function reorderNavListItem(el, clientY) {
   const list = el.parentElement
   const addBtn = document.getElementById(ADD_BTN_ID)
@@ -350,8 +352,30 @@ function reorderNavListItem(el, clientY) {
     if (clientY < rect.top + rect.height / 2) { insertAt = i; break }
   }
   others.splice(insertAt, 0, el)
+
+  // FLIP animation (First/Last/Invert/Play) for the buttons being passed
+  // over - el itself (actively being dragged) is excluded and keeps
+  // snapping straight to the mouse-driven slot, only the OTHERS get a
+  // smooth slide, otherwise every mousemove tick would recompute rects for
+  // a still-in-flight transition and stutter. Naturally a no-op on ticks
+  // where nothing actually moved (prevRect === nextRect), since dragging
+  // fires this on every mousemove, not just on a real reorder.
+  const prevRects = new Map()
+  for (const btn of others) { if (btn !== el) prevRects.set(btn, btn.getBoundingClientRect()) }
+
   others.forEach((btn, i) => { btn.style.order = i })
   if (addBtn) addBtn.style.order = others.length
+
+  for (const [btn, prevRect] of prevRects) {
+    const dy = prevRect.top - btn.getBoundingClientRect().top
+    if (!dy) continue
+    btn.style.transition = 'none'
+    btn.style.transform = `translateY(${dy}px)`
+    requestAnimationFrame(() => {
+      btn.style.transition = `transform ${REORDER_SLIDE_MS}ms ease`
+      btn.style.transform = ''
+    })
+  }
 }
 
 function onPickerMouseDown(e) {
