@@ -1423,6 +1423,7 @@ html.large-text-mode #profile-panel,
 html.large-text-mode #credits-panel,
 html.large-text-mode #terms-panel,
 html.large-text-mode #features-panel,
+html.large-text-mode #skindesigner-panel,
 html.large-text-mode #privacy-panel,
 html.large-text-mode #shop-panel,
 html.large-text-mode #whatsnew-panel,
@@ -2988,6 +2989,7 @@ html.third-person-active #companion-bark {
 #credits-panel .panel-box,
 #terms-panel .panel-box,
 #features-panel .panel-box,
+#skindesigner-panel .panel-box,
 #privacy-panel .panel-box,
 #howtoplay-panel .panel-box,
 #whatsnew-panel .panel-box,
@@ -3118,6 +3120,7 @@ html.third-person-active #companion-bark {
 #terms-panel,
 #privacy-panel,
 #features-panel,
+#skindesigner-panel,
 #howtoplay-panel,
 #whatsnew-panel,
 #clan-panel,
@@ -3178,6 +3181,22 @@ html.third-person-active #companion-bark {
 #howtoplay-content {
   height: 68vh;
   overflow-y: auto;
+}
+
+/* Skin Designer panel embeds the standalone Skin Designer site in an
+   iframe rather than duplicating its ~2000 lines of painter/3D-preview
+   code into this codebase - the iframe fills the box, and handles its
+   own internal scrolling, so no overflow-y here (unlike the plain-text
+   content divs above). */
+#skindesigner-content {
+  height: 68vh;
+}
+#skindesigner-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 8px;
 }
 
 /* Centered rather than left-aligned like How to Play - Credits is short
@@ -4540,6 +4559,7 @@ section.category.hidden-search {
 #terms-panel,
 #privacy-panel,
 #features-panel,
+#skindesigner-panel,
 #multiplayer-panel,
 #shop-panel,
 #whatsnew-panel,
@@ -4760,6 +4780,7 @@ html.ui-theme-old #profile-panel,
 html.ui-theme-old #credits-panel,
 html.ui-theme-old #terms-panel,
 html.ui-theme-old #features-panel,
+html.ui-theme-old #skindesigner-panel,
 html.ui-theme-old #privacy-panel,
 html.ui-theme-old #multiplayer-panel,
 html.ui-theme-old #shop-panel,
@@ -5076,6 +5097,7 @@ html.ui-theme-old #quit-confirm-overlay {
 #credits-panel-title,
 #terms-panel-title,
 #features-panel-title,
+#skindesigner-panel-title,
 #privacy-panel-title,
 #shop-panel-title,
 #whatsnew-panel-title,
@@ -5111,6 +5133,7 @@ html.ui-theme-old #profile-panel-title,
 html.ui-theme-old #credits-panel-title,
 html.ui-theme-old #terms-panel-title,
 html.ui-theme-old #features-panel-title,
+html.ui-theme-old #skindesigner-panel-title,
 html.ui-theme-old #privacy-panel-title,
 html.ui-theme-old #shop-panel-title,
 html.ui-theme-old #whatsnew-panel-title,
@@ -6986,6 +7009,7 @@ html.reduce-transparency #upgrades-panel,
 html.reduce-transparency #credits-panel,
 html.reduce-transparency #terms-panel,
 html.reduce-transparency #features-panel,
+html.reduce-transparency #skindesigner-panel,
 html.reduce-transparency #privacy-panel,
 html.reduce-transparency #shop-panel,
 html.reduce-transparency #whatsnew-panel,

@@ -6027,6 +6027,9 @@ export class Game {
     this.featuresContent = document.getElementById('features-content')
     this.featuresSearch = document.getElementById('features-search')
     this.featuresSearchCount = document.getElementById('features-search-count')
+    this.skindesignerBtn = document.getElementById('nav-designskin-link')
+    this.skindesignerPanel = document.getElementById('skindesigner-panel')
+    this.skindesignerFrame = document.getElementById('skindesigner-frame')
     this.featuresToc = document.getElementById('features-toc')
     this.featuresStatLive = document.getElementById('features-stat-live')
     this.featuresStatSoon = document.getElementById('features-stat-soon')
@@ -11091,6 +11094,7 @@ export class Game {
     if (this.creditsTermsLink) this.creditsTermsLink.addEventListener('click', () => trackAndOpen(() => this._openTermsPanel()))
     if (this.creditsPrivacyLink) this.creditsPrivacyLink.addEventListener('click', () => trackAndOpen(() => this._openPrivacyPanel()))
     if (this.gayzFeaturesBtn) this.gayzFeaturesBtn.addEventListener('click', () => trackAndOpen(() => this._openFeaturesPanel()))
+    if (this.skindesignerBtn) this.skindesignerBtn.addEventListener('click', () => trackAndOpen(() => this._openSkinDesignerPanel()))
     this._bindFeaturesPanel()
     // Cross-reference links inside the Terms/Privacy body text themselves
     // (event delegation - each doc only has 1-3 of these, but delegating
@@ -15139,6 +15143,7 @@ export class Game {
       { slug: 'terms', panel: this.termsPanel, open: () => this._openTermsPanel() },
       { slug: 'privacy', panel: this.privacyPanel, open: () => this._openPrivacyPanel() },
       { slug: 'features', panel: this.featuresPanel, open: () => this._openFeaturesPanel() },
+      { slug: 'design-a-skin', panel: this.skindesignerPanel, open: () => this._openSkinDesignerPanel() },
       { slug: 'how-to-play', panel: this.howtoplayPanel, open: () => this._openHowToPlayPanel() },
       { slug: 'whats-new', panel: this.whatsNewPanel, open: () => this._openWhatsNewPanel() },
       {
@@ -15246,6 +15251,7 @@ export class Game {
     if (this.termsPanel) this._closeTermsPanel()
     if (this.privacyPanel) this._closePrivacyPanel()
     if (this.featuresPanel) this._closeFeaturesPanel()
+    if (this.skindesignerPanel) this._closeSkinDesignerPanel()
     if (this.shopPanel) this._closeShopPanel()
     if (this.whatsNewPanel) this._closeWhatsNewPanel()
     if (this.sharePanel) this._closeSharePanel()
@@ -18867,6 +18873,24 @@ export class Game {
 
   _closeFeaturesPanel() {
     this.featuresPanel.style.display = 'none'
+  }
+
+  // Embeds the standalone Skin Designer site in an iframe rather than
+  // porting its own ~2000 lines of painter/3D-preview code into this
+  // codebase - one tool, one place it actually lives. The iframe's src
+  // is left as "about:blank" in index.html and only pointed at the real
+  // site the first time this panel opens, so a homepage visit that never
+  // opens it never pays for loading a second whole app.
+  _openSkinDesignerPanel() {
+    this._closeAllMenuPanels()
+    this.skindesignerPanel.style.display = 'flex'
+    if (this.skindesignerFrame && this.skindesignerFrame.src === 'about:blank') {
+      this.skindesignerFrame.src = 'https://gayzcharacterskindesigner.vercel.app'
+    }
+  }
+
+  _closeSkinDesignerPanel() {
+    this.skindesignerPanel.style.display = 'none'
   }
 
   _bindFeaturesPanel() {
