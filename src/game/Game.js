@@ -16370,6 +16370,8 @@ export class Game {
     if (this.hubBtn) this.hubBtn.querySelector('span').textContent = t('hubBtn')
     if (this.howtoplayNavLink) this.howtoplayNavLink.querySelector('span').textContent = t('howtoplayPanelTitle')
     if (this.whatsNewLink) this.whatsNewLink.querySelector('span').textContent = t('navLinkWhatsNew')
+    const designSkinLinkEl = document.getElementById('nav-designskin-link')
+    if (designSkinLinkEl) designSkinLinkEl.querySelector('span').textContent = t('navLinkDesignSkin')
     if (this.creditsBtn) this.creditsBtn.querySelector('span').textContent = t('creditsBtn')
     const termsBtnEl = document.getElementById('terms-btn')
     if (termsBtnEl) termsBtnEl.querySelector('span').textContent = t('termsBtn')
