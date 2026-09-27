@@ -158,6 +158,33 @@ function setPropValue(el, prop, value) {
 // enough for how few edits a real console session makes.
 const undoStack = []
 
+// Named Session Snapshots (console's own Console Menu) - the LATEST
+// value per element+prop touched this page life, keyed so re-editing the
+// same field just overwrites its entry rather than growing forever.
+// Deliberately separate from undoStack above (which tracks PREVIOUS
+// values for reverting one action at a time) - this tracks CURRENT
+// values for the console to save/restore a whole session later via
+// gzc-get-session-edits/gzc-apply-by-id below. Not affected by Undo -
+// undoing a change here doesn't retroactively "unrecord" it, since a
+// snapshot is a best-effort convenience, not a true source of truth.
+const sessionEdits = new Map()
+
+function recordSessionEdit(id, prop, value) {
+  sessionEdits.set(`${id}::${prop}`, { id, prop, value })
+}
+
+// elementId() above produces either a real #id or a synthetic
+// "tag:nth-child(n) > ..." path - both are already valid CSS selectors,
+// so a plain querySelector handles both without needing to know which
+// kind it's looking at.
+function findElementById(id) {
+  try {
+    return document.querySelector(id)
+  } catch {
+    return null
+  }
+}
+
 // Double-clicking the 3D character avatar opens the real skin-upload file
 // picker directly (see Game.js's upload-skin-input) instead of replaying a
 // plain click on the canvas, which has no click handler of its own to
@@ -409,7 +436,25 @@ window.addEventListener('message', (event) => {
     // One undo entry per action, covering every element it touched (see
     // undoStack's own comment) - captured before applying, not after.
     undoStack.push(selectedEls.map((el) => ({ el, prop: msg.prop, prevValue: getPropValue(el, msg.prop) })))
-    for (const el of selectedEls) setPropValue(el, msg.prop, msg.value)
+    for (const el of selectedEls) {
+      setPropValue(el, msg.prop, msg.value)
+      recordSessionEdit(elementId(el), msg.prop, msg.value)
+    }
+  } else if (msg.type === 'gzc-get-session-edits') {
+    window.parent.postMessage({ type: 'gzc-session-edits', edits: [...sessionEdits.values()] }, TRUSTED_CONSOLE_ORIGIN)
+  } else if (msg.type === 'gzc-apply-by-id' && Array.isArray(msg.edits)) {
+    // Named Session Snapshots' load path - re-applies a previously saved
+    // {id, prop, value} list directly by looking each element back up,
+    // without needing it selected first (that's the whole point - restore
+    // a whole session's edits in one message instead of reselecting and
+    // re-typing every field by hand).
+    for (const { id, prop, value } of msg.edits) {
+      const el = findElementById(id)
+      if (el) {
+        setPropValue(el, prop, value)
+        recordSessionEdit(id, prop, value)
+      }
+    }
   } else if (msg.type === 'gzc-undo') {
     const batch = undoStack.pop()
     if (batch) {
