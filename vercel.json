@@ -20,6 +20,7 @@
     { "source": "/terms", "destination": "/index.html" },
     { "source": "/privacy", "destination": "/index.html" },
     { "source": "/features", "destination": "/index.html" },
+    { "source": "/design-a-skin", "destination": "/index.html" },
     { "source": "/how-to-play", "destination": "/index.html" },
     { "source": "/whats-new", "destination": "/index.html" },
     { "source": "/gamemode", "destination": "/index.html" },
