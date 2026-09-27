@@ -10549,6 +10549,14 @@ export class Game {
         document.documentElement.classList.toggle('ui-theme-old', this.settings.uiTheme === 'old')
         this.themePickerGolden.classList.toggle('active', this.settings.uiTheme !== 'old')
         this.themePickerOld.classList.toggle('active', this.settings.uiTheme === 'old')
+        // Keep the Skin Designer panel in sync too, for the case where it's
+        // already open (its iframe src is only ever set once - see
+        // _openSkinDesignerPanel - so it can't just pick up a fresh
+        // ?theme= param on its own after that).
+        if (this.skindesignerFrame && this.skindesignerFrame.src !== 'about:blank') {
+          const theme = this.settings.uiTheme === 'old' ? 'old' : 'golden'
+          this.skindesignerFrame.contentWindow.postMessage({ type: 'gayz-set-theme', theme }, 'https://gayzcharacterskindesigner.vercel.app')
+        }
       }
       applyUiTheme()
       this.themePickerGolden.addEventListener('click', () => {
@@ -18885,7 +18893,8 @@ export class Game {
     this._closeAllMenuPanels()
     this.skindesignerPanel.style.display = 'flex'
     if (this.skindesignerFrame && this.skindesignerFrame.src === 'about:blank') {
-      this.skindesignerFrame.src = 'https://gayzcharacterskindesigner.vercel.app'
+      const theme = this.settings.uiTheme === 'old' ? 'old' : 'golden'
+      this.skindesignerFrame.src = `https://gayzcharacterskindesigner.vercel.app?theme=${theme}`
     }
   }
 
@@ -21703,13 +21712,36 @@ export class Game {
   _checkImportSkinCode() {
     const raw = new URLSearchParams(location.search).get('importskin')
     if (!raw) return
-    const dataUrl = `data:image/png;base64,${decodeURIComponent(raw)}`
+    // decodeURIComponent here is redundant - URLSearchParams.get() already
+    // decodes the param - but harmless on its own (a clean base64 string
+    // has no % in it for this to act on). Kept rather than pulled, since a
+    // real, separately-confirmed bug (see the dataUrl note below) was
+    // initially mistaken for this on first read - worth a name to warn the
+    // next person off going down that same dead end again.
+    const raw2 = decodeURIComponent(raw)
+    const dataUrl = `data:image/png;base64,${raw2}`
     loadSkinTexture(dataUrl).then((skin) => {
-      this.settings.customSkinDataUrl = dataUrl
+      // Real report, 2026-09-27: the ?importskin= string this decodes to
+      // was observed CORRUPTED (right length prefix/suffix, wrong overall
+      // length) roughly every other real attempt - looked exactly like a
+      // race, but never pinned to one exact line despite real effort (this
+      // account has Cloud Save on, and its own async settings
+      // pull/merge/push around this same page-load window was the leading
+      // suspect, never fully confirmed). Rather than keep chasing an
+      // intermittent race with no repro I fully control, storing
+      // skin.texture.image (the plain <canvas> loadSkinTexture() already
+      // built from the image THAT ACTUALLY, SUCCESSFULLY DECODED) instead
+      // of the original transported dataUrl sidesteps the whole class of
+      // "the string got mangled somewhere in transit" bug - whatever the
+      // real cause turns out to be, this can't inherit its corruption,
+      // since it's derived fresh from pixels the browser already proved
+      // it could read correctly.
+      const cleanDataUrl = skin.texture.image.toDataURL('image/png')
+      this.settings.customSkinDataUrl = cleanDataUrl
       saveSettings(this.settings)
       if (this._menuAvatar3D) this._menuAvatar3D.setSkin(skin)
       this._updateMenuAvatarPhoto(skin)
-      this.localMinecraftBody.setSkin(dataUrl)
+      this.localMinecraftBody.setSkin(cleanDataUrl)
       this._showHomepageToast(t('importSkinApplied'))
     }).catch(() => {
       this._showHomepageToast(t('importSkinFailed'))
