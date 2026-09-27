@@ -6416,8 +6416,14 @@ export class Game {
     this._bindTraderClick()
     // Safety net alongside the _updateStatsPanel save hook - catches a
     // close/reload happening between the last stats-panel update and now.
-    window.addEventListener('beforeunload', () => saveShopProgress(this))
-    window.addEventListener('beforeunload', () => this._updateLongestSession())
+    // The _importingSave guard (see _applyImportedSaveData's own comment)
+    // skips this specific save during a cloud/import restore's own
+    // reload - this page's in-memory shopProgress/careerStats are stale
+    // by definition at that point (a newer save was just written to
+    // localStorage moments ago), and saving them here would silently
+    // overwrite it right back before the reload takes effect.
+    window.addEventListener('beforeunload', () => { if (!this._importingSave) saveShopProgress(this) })
+    window.addEventListener('beforeunload', () => { if (!this._importingSave) this._updateLongestSession() })
     // Browser's own native "Leave site?" confirmation, only while an
     // actual run is in progress (not the homepage - closing that needs
     // no warning). Every real browser ignores a custom message here by
@@ -12338,7 +12344,24 @@ export class Game {
   // one path for "replace all local data with this parsed blob and
   // reload", regardless of whether the blob came from an uploaded file or
   // Google Drive.
+  // Real bug found 2026-09-27 while investigating a report of stats being
+  // wrong right after a cloud restore: this function's own reload triggers
+  // the beforeunload event below, and that handler unconditionally saves
+  // shopProgress/careerStats from THIS PAGE'S in-memory (pre-restore)
+  // values - silently overwriting the data/coins just written a moment
+  // earlier, before the reload actually takes effect. The periodic
+  // settings autosave timer is the same hazard on a longer fuse. Both are
+  // real writes to localStorage that race the reload, not just something
+  // that looks wrong and self-corrects - reproduced directly (not just
+  // theorized) by calling this with mock cloud data and checking what
+  // localStorage actually held after the reload: the restored coins value
+  // was gone, replaced by the old pre-restore one. _importingSave is
+  // checked by both beforeunload handlers below to skip their save while
+  // this is in flight, and the timer is stopped outright since there's no
+  // reason for it to fire again before the reload completes anyway.
   _applyImportedSaveData(data) {
+    this._importingSave = true
+    if (this._autoSaveTimer) clearInterval(this._autoSaveTimer)
     localStorage.clear()
     for (const [key, value] of Object.entries(data)) localStorage.setItem(key, value)
     window.location.reload()
