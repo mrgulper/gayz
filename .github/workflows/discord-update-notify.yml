@@ -12,6 +12,7 @@ jobs:
         env:
           WEBHOOK_URL: ${{ secrets.DISCORD_UPDATES_WEBHOOK }}
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          CHANGED_FILES: ${{ join(github.event.head_commit.added, ' ') }} ${{ join(github.event.head_commit.modified, ' ') }} ${{ join(github.event.head_commit.removed, ' ') }}
         run: |
           export TITLE="$(echo "$COMMIT_MESSAGE" | head -n1)"
 
@@ -20,6 +21,17 @@ jobs:
           # meant to stay unlisted, not show up in the public #updates feed.
           if echo "$TITLE" | grep -qi '^\[console\]'; then
             echo "Skipping Discord post - [console]-tagged commit"
+            exit 0
+          fi
+
+          # Structural backup for the check above (added 2026-09-27, after
+          # 3 real commits touching this exact file leaked to the public
+          # Discord because their titles said "Console:" instead of the
+          # exact required "[console]" tag) - skips ANY commit that
+          # touches consoleBridge.js at all, regardless of what its title
+          # says, so a forgotten tag can't leak it the same way again.
+          if echo "$CHANGED_FILES" | grep -q 'src/consoleBridge\.js'; then
+            echo "Skipping Discord post - commit touches src/consoleBridge.js"
             exit 0
           fi
           echo "Debug - TITLE='$TITLE'"
