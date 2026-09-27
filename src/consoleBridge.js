@@ -22,7 +22,12 @@
 const TRUSTED_CONSOLE_ORIGIN = 'https://gayzconsole.vercel.app'
 
 let pickerEnabled = false
-let selectedEl = null
+// Ordered array, not a single element - shift-click adds/removes instead
+// of replacing, so one edit (color, hidden, etc.) can apply to several
+// elements at once. selectedEls[0] is "primary" - its own current values
+// are what the sidebar's fields show/start from.
+let selectedEls = []
+const SELECTION_OUTLINE = '2px dashed #4ee06f'
 
 function getOffset(el) {
   return el.dataset.gzcOffset ? JSON.parse(el.dataset.gzcOffset) : { x: 0, y: 0 }
@@ -62,20 +67,96 @@ const DBLCLICK_WINDOW_MS = 300
 let pendingClickTimer = null
 let replaying = false
 
-function selectElement(el) {
-  selectedEl = el
-  const cs = getComputedStyle(el)
+// additive (shift-click) toggles el in/out of the current selection
+// instead of replacing it - clicking an already-selected element with
+// shift held deselects just that one, matching standard multi-select
+// conventions (Figma, design tools, file managers).
+function selectElement(el, additive) {
+  if (additive) {
+    const idx = selectedEls.indexOf(el)
+    if (idx === -1) {
+      selectedEls.push(el)
+      el.style.outline = SELECTION_OUTLINE
+    } else {
+      selectedEls[idx].style.outline = ''
+      selectedEls.splice(idx, 1)
+    }
+  } else {
+    clearSelectionOutline()
+    selectedEls = [el]
+    el.style.outline = SELECTION_OUTLINE
+  }
+  broadcastSelection()
+}
+
+function clearSelectionOutline() {
+  for (const el of selectedEls) el.style.outline = ''
+}
+
+function clearSelection() {
+  clearSelectionOutline()
+  selectedEls = []
+  broadcastSelection()
+}
+
+// Sidebar always reflects the PRIMARY (first-selected) element's own
+// current values - editing still applies to every selected element (see
+// the gzc-edit handler below), this just decides what the fields start
+// showing when the selection changes.
+function broadcastSelection() {
+  if (!selectedEls.length) {
+    window.parent.postMessage({ type: 'gzc-selected', count: 0 }, TRUSTED_CONSOLE_ORIGIN)
+    return
+  }
+  const primary = selectedEls[0]
+  const cs = getComputedStyle(primary)
   window.parent.postMessage(
     {
       type: 'gzc-selected',
-      id: elementId(el),
-      tag: el.tagName.toLowerCase(),
-      text: el.children.length === 0 ? el.textContent : null,
+      count: selectedEls.length,
+      id: elementId(primary),
+      tag: primary.tagName.toLowerCase(),
+      text: primary.children.length === 0 ? primary.textContent : null,
       color: cs.color,
+      hidden: primary.style.display === 'none',
+      fontSize: primary.style.fontSize || cs.fontSize,
+      backgroundImage: primary.style.backgroundImage || '',
     },
     TRUSTED_CONSOLE_ORIGIN
   )
 }
+
+// Shared by the gzc-edit/gzc-undo handlers below - one place that knows
+// how to read/write each editable prop, so undo can capture a real
+// "previous value" per element before applying a batch edit.
+function getPropValue(el, prop) {
+  if (prop === 'text') return el.textContent
+  if (prop === 'color') return el.style.color
+  if (prop === 'x') return getOffset(el).x
+  if (prop === 'y') return getOffset(el).y
+  if (prop === 'hidden') return el.style.display === 'none'
+  if (prop === 'fontSize') return el.style.fontSize
+  if (prop === 'backgroundImage') return el.style.backgroundImage
+  return undefined
+}
+
+function setPropValue(el, prop, value) {
+  if (prop === 'text') el.textContent = value
+  else if (prop === 'color') el.style.color = value
+  else if (prop === 'x' || prop === 'y') {
+    const cur = getOffset(el)
+    cur[prop] = Number(value) || 0
+    setOffset(el, cur.x, cur.y)
+  } else if (prop === 'hidden') el.style.display = value ? 'none' : ''
+  else if (prop === 'fontSize') el.style.fontSize = value
+  else if (prop === 'backgroundImage') el.style.backgroundImage = value ? `url("${value}")` : ''
+}
+
+// One entry per edit ACTION (which may touch several elements at once
+// under multi-select), not per element - one Undo click reverts the
+// whole action in one step. No cap/redo; a whole-session stack is cheap
+// enough for how few edits a real console session makes.
+const undoStack = []
 
 // Double-clicking the 3D character avatar opens the real skin-upload file
 // picker directly (see Game.js's upload-skin-input) instead of replaying a
@@ -166,6 +247,9 @@ function onPickerClick(e) {
   e.preventDefault()
   e.stopPropagation()
   const el = e.target
+  // Captured now, not read from the event again inside the deferred
+  // timeout below - by the time that fires the original event is gone.
+  const additive = e.shiftKey
 
   if (el.closest(`#${ADD_BTN_ID}`)) {
     insertNewButton()
@@ -180,7 +264,7 @@ function onPickerClick(e) {
   }
   pendingClickTimer = setTimeout(() => {
     pendingClickTimer = null
-    selectElement(el)
+    selectElement(el, additive)
   }, DBLCLICK_WINDOW_MS)
 }
 
@@ -265,7 +349,10 @@ function onPickerMouseMove(e) {
       dragState.origX = origin.x
       dragState.origY = origin.y
     }
-    selectElement(dragState.el)
+    // Dragging always collapses to a single selection (dragging a whole
+    // multi-selection as a group isn't supported) - additive:false even
+    // if dragState.el happened to already be part of one.
+    selectElement(dragState.el, false)
   }
 
   e.preventDefault()
@@ -285,6 +372,14 @@ function onPickerMouseUp() {
   dragState = null
 }
 
+// Escape clears the whole selection (and its outlines) - the only way to
+// deselect previously was clicking something else, which single-select
+// never needed since selecting the new thing always replaced the old.
+function onPickerKeyDown(e) {
+  if (!pickerEnabled) return
+  if (e.key === 'Escape') clearSelection()
+}
+
 window.addEventListener('message', (event) => {
   if (event.origin !== TRUSTED_CONSOLE_ORIGIN) return
   if (event.source !== window.parent) return
@@ -297,6 +392,7 @@ window.addEventListener('message', (event) => {
     document.addEventListener('mousedown', onPickerMouseDown, true)
     document.addEventListener('mousemove', onPickerMouseMove, true)
     document.addEventListener('mouseup', onPickerMouseUp, true)
+    document.addEventListener('keydown', onPickerKeyDown, true)
     ensureAddButton()
   } else if (msg.type === 'gzc-disable-picker') {
     pickerEnabled = false
@@ -304,16 +400,25 @@ window.addEventListener('message', (event) => {
     document.removeEventListener('mousedown', onPickerMouseDown, true)
     document.removeEventListener('mousemove', onPickerMouseMove, true)
     document.removeEventListener('mouseup', onPickerMouseUp, true)
+    document.removeEventListener('keydown', onPickerKeyDown, true)
     if (pendingClickTimer) { clearTimeout(pendingClickTimer); pendingClickTimer = null }
     dragState = null
+    clearSelection()
     removeAddButton()
-  } else if (msg.type === 'gzc-edit' && selectedEl) {
-    if (msg.prop === 'text') selectedEl.textContent = msg.value
-    else if (msg.prop === 'color') selectedEl.style.color = msg.value
-    else if (msg.prop === 'x' || msg.prop === 'y') {
-      const cur = getOffset(selectedEl)
-      cur[msg.prop] = Number(msg.value) || 0
-      setOffset(selectedEl, cur.x, cur.y)
+  } else if (msg.type === 'gzc-edit' && selectedEls.length) {
+    // One undo entry per action, covering every element it touched (see
+    // undoStack's own comment) - captured before applying, not after.
+    undoStack.push(selectedEls.map((el) => ({ el, prop: msg.prop, prevValue: getPropValue(el, msg.prop) })))
+    for (const el of selectedEls) setPropValue(el, msg.prop, msg.value)
+  } else if (msg.type === 'gzc-undo') {
+    const batch = undoStack.pop()
+    if (batch) {
+      for (const { el, prop, prevValue } of batch) setPropValue(el, prop, prevValue)
+      // Refresh the sidebar's own fields so they reflect the reverted
+      // value instead of continuing to show the just-undone one.
+      if (selectedEls.length) broadcastSelection()
     }
+  } else if (msg.type === 'gzc-set-theme') {
+    document.documentElement.classList.toggle('ui-theme-old', msg.theme === 'old')
   }
 })
