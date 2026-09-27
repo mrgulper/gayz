@@ -1088,6 +1088,9 @@ let _settingsCloudPushTimer = null
 export function saveSettings(settings) {
   try {
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
+    // See LAST_LOCAL_CHANGE_KEY's own comment - marks "this device has an
+    // edit that isn't confirmed pushed yet" for _checkForNewerCloudSave.
+    localStorage.setItem(LAST_LOCAL_CHANGE_KEY, String(Date.now()))
   } catch {
     // Storage unavailable (e.g. private browsing) - setting just won't persist.
   }
@@ -2817,6 +2820,17 @@ const GOAL_CANDIDATES = [
 // Firebase Auth persists its own session (IndexedDB) and CloudSync's
 // onAuthChange restores _cloudProfile/_cloudUid from that directly.
 export const CLOUD_LAST_SYNC_KEY = 'gayz-cloud-last-sync'
+
+// Stamped by saveSettings on every call - lets _checkForNewerCloudSave
+// (see its own comment) tell "this device has an edit that hasn't been
+// pushed yet" apart from "this device is fully caught up", instead of
+// only ever comparing the cloud's timestamp against when this device
+// last synced. Without this, a silent background catch-up had no way to
+// know a genuinely unpushed local change existed and could overwrite it
+// outright if another device happened to push in the same narrow window
+// (reload right after an edit, before the debounced push got a chance
+// to fire).
+export const LAST_LOCAL_CHANGE_KEY = 'gayz-last-local-change'
 
 // Online Features batch - one hardcoded, developer-authored poll (not
 // user-generated content, so no moderation surface beyond picking a new
@@ -13318,10 +13332,16 @@ export class Game {
   // prompt, no push-if-missing branch, and any failure is silent - this
   // runs unprompted on every single load, so it must never interrupt
   // with a popup or error toast the way an explicit Sign In click can.
-  // Only acts when the cloud is clearly newer than what this device
-  // itself last saw (push OR pull) - otherwise this device's own local
-  // state already reflects the newest thing anyone's seen, so leave it
-  // alone rather than reloading for no reason on every ordinary visit.
+  //
+  // Real bug found 2026-09-27, same day this function shipped: comparing
+  // only the cloud's timestamp against this device's own last SYNC time
+  // (ignoring whether this device had made any edit since then) meant an
+  // edit made just before a reload - too recent for its own debounced
+  // push to have fired yet - could get silently overwritten if another
+  // device happened to push in that same narrow window. Now also tracks
+  // whether THIS device has an edit newer than its last sync
+  // (LAST_LOCAL_CHANGE_KEY, stamped by saveSettings on every call) before
+  // deciding what to do, instead of only ever considering the cloud side.
   async _checkForNewerCloudSave(uid) {
     let cloud
     try {
@@ -13331,13 +13351,38 @@ export class Game {
     }
     if (!cloud) return
     const localSyncTime = Number(localStorage.getItem(CLOUD_LAST_SYNC_KEY)) || 0
-    // A few seconds' slack: this device's own last push sets its local
-    // CLOUD_LAST_SYNC_KEY and the cloud doc's updatedAt from two separate
-    // Date.now() calls a moment apart, not one shared timestamp - without
-    // this, a device could occasionally mistake its own just-pushed save
-    // for "something newer elsewhere" and reload right after pushing.
-    if (cloud.modifiedTime > localSyncTime + 5000) {
+    const localChangeTime = Number(localStorage.getItem(LAST_LOCAL_CHANGE_KEY)) || 0
+    // A few seconds' slack on the cloud-vs-sync comparison only: this
+    // device's own last push sets its local CLOUD_LAST_SYNC_KEY and the
+    // cloud doc's updatedAt from two separate Date.now() calls a moment
+    // apart, not one shared timestamp - without this, a device could
+    // occasionally mistake its own just-pushed save for "something newer
+    // elsewhere." No slack needed against localChangeTime - saveSettings
+    // always stamps that well before any push that could follow it.
+    const cloudIsNewer = cloud.modifiedTime > localSyncTime + 5000
+    const hasUnpushedLocalChange = localChangeTime > localSyncTime
+    if (!hasUnpushedLocalChange) {
+      // Common case: this device hasn't touched anything since it last
+      // synced, so it's always safe to just catch up on whatever's newer.
+      if (cloudIsNewer) CloudSaveUI.applyCloudSaveData(this, cloud.data)
+      return
+    }
+    if (!cloudIsNewer) {
+      // This device has its own edit the cloud doesn't have yet, but the
+      // cloud hasn't moved since this device's last sync either - nothing
+      // to lose by sending it up now instead of waiting on run-end.
+      await CloudSaveUI.pushToCloud(this, false)
+      return
+    }
+    // Genuine conflict - both sides changed since this device's last
+    // sync. Last-write-wins by absolute timestamp rather than always
+    // favoring one side outright; whichever wins still gets pushed
+    // through applyCloudSaveData/pushToCloud, so the cloud ends up
+    // matching whatever's actually showing here either way.
+    if (cloud.modifiedTime > localChangeTime) {
       CloudSaveUI.applyCloudSaveData(this, cloud.data)
+    } else {
+      await CloudSaveUI.pushToCloud(this, false)
     }
   }
 
