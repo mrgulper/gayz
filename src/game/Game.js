@@ -12344,7 +12344,7 @@ export class Game {
   // one path for "replace all local data with this parsed blob and
   // reload", regardless of whether the blob came from an uploaded file or
   // Google Drive.
-  // Real bug found 2026-09-27 while investigating a report of stats being
+  // Real bug found 2026-09-26 while investigating a report of stats being
   // wrong right after a cloud restore: this function's own reload triggers
   // the beforeunload event below, and that handler unconditionally saves
   // shopProgress/careerStats from THIS PAGE'S in-memory (pre-restore)
