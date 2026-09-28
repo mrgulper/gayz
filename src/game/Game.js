@@ -31,6 +31,9 @@ import { XpGemManager, XpGem } from './XpGems.js'
 import { AutoWeaponManager } from './AutoWeapons.js'
 import { COIN_SHOP_ITEMS, ATTACHMENT_TYPES } from './CoinShop.js'
 
+// The standalone Skin Designer site, embedded in #skindesigner-frame.
+const SKIN_DESIGNER_ORIGIN = 'https://gayzcharacterskindesigner.vercel.app'
+
 // Crate economy (Inventory panel's Crates tab) - buys a chance at a random
 // currently-unowned outfit/hat from COIN_SHOP_ITEMS, which have had no
 // purchase path since the old Store buy-list was removed (see that file's
@@ -10591,7 +10594,7 @@ export class Game {
         // ?theme= param on its own after that).
         if (this.skindesignerFrame && this.skindesignerFrame.src !== 'about:blank') {
           const theme = this.settings.uiTheme === 'old' ? 'old' : 'golden'
-          this.skindesignerFrame.contentWindow.postMessage({ type: 'gayz-set-theme', theme }, 'https://gayzcharacterskindesigner.vercel.app')
+          this.skindesignerFrame.contentWindow.postMessage({ type: 'gayz-set-theme', theme }, SKIN_DESIGNER_ORIGIN)
         }
       }
       applyUiTheme()
@@ -11139,6 +11142,7 @@ export class Game {
     if (this.creditsPrivacyLink) this.creditsPrivacyLink.addEventListener('click', () => trackAndOpen(() => this._openPrivacyPanel()))
     if (this.gayzFeaturesBtn) this.gayzFeaturesBtn.addEventListener('click', () => trackAndOpen(() => this._openFeaturesPanel()))
     if (this.skindesignerBtn) this.skindesignerBtn.addEventListener('click', () => trackAndOpen(() => this._openSkinDesignerPanel()))
+    this._bindSkinDesignerMessages()
     this._bindFeaturesPanel()
     // Cross-reference links inside the Terms/Privacy body text themselves
     // (event delegation - each doc only has 1-3 of these, but delegating
@@ -18648,7 +18652,7 @@ export class Game {
     this.skindesignerPanel.style.display = 'flex'
     if (this.skindesignerFrame && this.skindesignerFrame.src === 'about:blank') {
       const theme = this.settings.uiTheme === 'old' ? 'old' : 'golden'
-      this.skindesignerFrame.src = `https://gayzcharacterskindesigner.vercel.app?theme=${theme}`
+      this.skindesignerFrame.src = `${SKIN_DESIGNER_ORIGIN}?theme=${theme}`
     }
   }
 
@@ -21482,7 +21486,19 @@ export class Game {
     // next person off going down that same dead end again.
     const raw2 = decodeURIComponent(raw)
     const dataUrl = `data:image/png;base64,${raw2}`
-    loadSkinTexture(dataUrl).then((skin) => {
+    this._applyImportedSkin(dataUrl).finally(() => {
+      // One-shot - strip the (very long) param so a refresh doesn't try to
+      // re-apply it and so the URL bar doesn't stay full of base64 forever.
+      const clean = new URL(location.href)
+      clean.searchParams.delete('importskin')
+      history.replaceState(null, '', clean)
+    })
+  }
+
+  // Shared by ?importskin= above and the embedded Skin Designer's
+  // postMessage (see _bindSkinDesignerMessages).
+  _applyImportedSkin(dataUrl) {
+    return loadSkinTexture(dataUrl).then((skin) => {
       // Real report, 2026-09-27: the ?importskin= string this decodes to
       // was observed CORRUPTED (right length prefix/suffix, wrong overall
       // length) roughly every other real attempt - looked exactly like a
@@ -21507,12 +21523,23 @@ export class Game {
       this._showHomepageToast(t('importSkinApplied'))
     }).catch(() => {
       this._showHomepageToast(t('importSkinFailed'))
-    }).finally(() => {
-      // One-shot - strip the (very long) param so a refresh doesn't try to
-      // re-apply it and so the URL bar doesn't stay full of base64 forever.
-      const clean = new URL(location.href)
-      clean.searchParams.delete('importskin')
-      history.replaceState(null, '', clean)
+    })
+  }
+
+  // "Send to GayZ" inside the embedded Skin Designer posts the skin here
+  // instead of opening a second game tab - that second tab was how skins
+  // got lost on phones (the original tab, still holding the old settings,
+  // saved over the new skin when you went back to it). Only accepted from
+  // our own designer iframe; loadSkinTexture() still validates the image.
+  _bindSkinDesignerMessages() {
+    window.addEventListener('message', (event) => {
+      if (event.origin !== SKIN_DESIGNER_ORIGIN) return
+      if (!this.skindesignerFrame || event.source !== this.skindesignerFrame.contentWindow) return
+      const data = event.data
+      if (!data || data.type !== 'gayz-import-skin' || typeof data.dataUrl !== 'string') return
+      if (!data.dataUrl.startsWith('data:image/png;base64,') || data.dataUrl.length > 200000) return
+      this._closeSkinDesignerPanel()
+      this._applyImportedSkin(data.dataUrl)
     })
   }
 
