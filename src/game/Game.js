@@ -13406,8 +13406,11 @@ export class Game {
   // device had done - and its "unpushed change" signal only covered
   // settings, not stats/coins/purchases. uid is unused now (the sync reads
   // this._cloudUid) but kept so the caller didn't need to change.
+  //
+  // Upload-only since the reload-loop fix (see CloudPreBoot.js): the pull
+  // half already happened before the game was built.
   async _checkForNewerCloudSave(_uid) {
-    await CloudSaveUI.syncWithCloud(this, { allowApply: !this.gameStarted })
+    await CloudSaveUI.syncWithCloud(this, { allowApply: false })
   }
 
   // In-memory state that's normally only written on page close

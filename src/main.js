@@ -1,6 +1,8 @@
 import './style.css'
 import './consoleBridge.js'
 import { Game } from './game/Game.js'
+import { preBootCloudSync } from './game/CloudPreBoot.js'
+import { reloadBindings } from './game/Keybinds.js'
 import { preloadPropModels, preloadGunShopDisplayModels } from './game/World.js'
 import { preloadZombieModel, preloadTitanModel } from './game/Zombie.js'
 import { preloadCompanionModel } from './game/Companion.js'
@@ -48,6 +50,10 @@ Promise.all([
   preloadBatViewmodel(),
   preloadMacheteViewmodel(),
   preloadUvBatonViewmodel(),
+  // Pulls this account's cloud save into localStorage before anything
+  // reads it, so another device's progress never needs a reload to show
+  // up (see CloudPreBoot.js). Never rejects; capped at a few seconds.
+  preBootCloudSync(),
 ]).finally(() => {
   // No blocking full-page loading screen anymore (there used to be one
   // here, masking both the asset preload above and a ~10-frame GPU-
@@ -60,5 +66,6 @@ Promise.all([
   // tradeoff: the GPU-warmup stall this used to mask is no longer
   // hidden - a real, brief freeze may be visible right after the page
   // becomes interactive, on slower hardware especially.
+  reloadBindings()
   new Game()
 })

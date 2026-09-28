@@ -277,9 +277,11 @@ function loadBase() {
 // write them into this device's storage and reload so every system
 // re-reads them. Returns 'ok' | 'deferred' | 'failed'.
 //
-// allowApply=false (mid-run): the merge would change this device's data
-// underneath a live run, so nothing is written either way; the run-end
-// sync tries again once it's over. Never throws.
+// allowApply=false - every automatic sync (see CloudPreBoot.js): changes
+// from other devices are never written into this page (that would need a
+// reload); this device's own changes are still uploaded, merged on top of
+// the cloud's. Only explicit clicks (Sign In, Sync Now, the conflict
+// prompt) pass allowApply=true. Never throws.
 export async function syncWithCloud(game, { manual = false, allowApply = true } = {}) {
   // __cloudBackendForTests: Playwright swaps in an in-memory fake with the
   // same two functions, so the merge flow can be exercised across two
@@ -301,7 +303,28 @@ export async function syncWithCloud(game, { manual = false, allowApply = true } 
         const merged = cloud ? mergeSaves(base, local, remote, localChangeTime >= (cloud.modifiedTime || 0)) : local
         const localChanged = !sameData(merged, local)
         const remoteChanged = !cloud || !sameData(merged, remote)
-        if (localChanged && !allowApply) return 'deferred'
+        if (localChanged && !allowApply) {
+          // Upload-only: the cloud gets everything (this device's changes
+          // included) without touching this page's storage, and the base
+          // becomes this device's current content - "the cloud has all of
+          // this, plus more" - so the next load's pre-boot pull brings the
+          // rest in, and any change made here meanwhile still merges on top
+          // (totals included: M - L equals the other devices' deltas).
+          if (remoteChanged) {
+            const result = await backend.pushCloudSaveIfUnchanged(game._cloudUid, merged, cloud ? cloud.modifiedTime ?? null : null)
+            if (result === false) continue
+            game._cloudSyncing = true
+            try {
+              localStorage.setItem(CLOUD_BASE_KEY, JSON.stringify(local))
+              localStorage.setItem(CLOUD_LAST_SYNC_KEY, String(Date.now()))
+            } finally {
+              game._cloudSyncing = false
+            }
+            game._cloudLastUpdatedAt = result
+            renderCloudSyncStatus(game)
+          }
+          return 'deferred'
+        }
         let newUpdatedAt = cloud ? cloud.modifiedTime : null
         if (remoteChanged) {
           const result = await backend.pushCloudSaveIfUnchanged(game._cloudUid, merged, cloud ? cloud.modifiedTime ?? null : null)
@@ -404,16 +427,15 @@ export function installChangeTracking(game) {
   // Best effort: the browser may not finish the request, in which case the
   // next load's sync still has them.
   //
-  // Coming back to the tab (having maybe just played on another device) is
-  // the one background moment allowed to apply incoming changes - still
-  // not mid-run, and still subject to the reload cooldown.
+  // Coming back to the tab uploads too, but never applies/reloads - the
+  // next page load's pre-boot pull brings in other devices' changes.
   document.addEventListener('visibilitychange', () => {
     if (!game._cloudUid || game._importingSave) return
     if (document.visibilityState === 'hidden') {
       game._flushLocalSave?.()
       syncWithCloud(game, { allowApply: false })
     } else if (document.visibilityState === 'visible') {
-      syncWithCloud(game, { allowApply: !game.gameStarted })
+      syncWithCloud(game, { allowApply: false })
     }
   })
 }
@@ -447,14 +469,10 @@ export function resolveCloudConflict(game, choice) {
 // death/results flow.
 // Kept as the name every existing caller uses (run end, settings changes,
 // Sync Now) - now a full merge-sync rather than a blind overwrite (see
-// syncWithCloud). Mid-run callers don't apply incoming changes; the
-// run-end call does.
+// syncWithCloud). Only a manual click on the homepage applies incoming
+// changes (with a reload); automatic calls upload only.
 export async function pushToCloud(game, manual) {
-  const result = await syncWithCloud(game, { manual, allowApply: !game.gameStarted })
-  // Another device changed things during this run - finish the merge once
-  // the player is back on the homepage (see scheduleSyncWhenIdle).
-  if (result === 'deferred') scheduleSyncWhenIdle(game)
-  return result
+  return syncWithCloud(game, { manual, allowApply: !!manual && !game.gameStarted })
 }
 
 export async function handleCloudSignOut(game) {
