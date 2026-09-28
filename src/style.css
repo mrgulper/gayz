@@ -1424,6 +1424,7 @@ html.large-text-mode #credits-panel,
 html.large-text-mode #terms-panel,
 html.large-text-mode #features-panel,
 html.large-text-mode #skindesigner-panel,
+html.large-text-mode #levels-panel,
 html.large-text-mode #privacy-panel,
 html.large-text-mode #shop-panel,
 html.large-text-mode #whatsnew-panel,
@@ -2990,6 +2991,7 @@ html.third-person-active #companion-bark {
 #terms-panel .panel-box,
 #features-panel .panel-box,
 #skindesigner-panel .panel-box,
+#levels-panel .panel-box,
 #privacy-panel .panel-box,
 #howtoplay-panel .panel-box,
 #whatsnew-panel .panel-box,
@@ -3121,6 +3123,7 @@ html.third-person-active #companion-bark {
 #privacy-panel,
 #features-panel,
 #skindesigner-panel,
+#levels-panel,
 #howtoplay-panel,
 #whatsnew-panel,
 #clan-panel,
@@ -4560,6 +4563,7 @@ section.category.hidden-search {
 #privacy-panel,
 #features-panel,
 #skindesigner-panel,
+#levels-panel,
 #multiplayer-panel,
 #shop-panel,
 #whatsnew-panel,
@@ -4781,6 +4785,7 @@ html.ui-theme-old #credits-panel,
 html.ui-theme-old #terms-panel,
 html.ui-theme-old #features-panel,
 html.ui-theme-old #skindesigner-panel,
+html.ui-theme-old #levels-panel,
 html.ui-theme-old #privacy-panel,
 html.ui-theme-old #multiplayer-panel,
 html.ui-theme-old #shop-panel,
@@ -5098,6 +5103,7 @@ html.ui-theme-old #quit-confirm-overlay {
 #terms-panel-title,
 #features-panel-title,
 #skindesigner-panel-title,
+#levels-panel-title,
 #privacy-panel-title,
 #shop-panel-title,
 #whatsnew-panel-title,
@@ -5134,6 +5140,7 @@ html.ui-theme-old #credits-panel-title,
 html.ui-theme-old #terms-panel-title,
 html.ui-theme-old #features-panel-title,
 html.ui-theme-old #skindesigner-panel-title,
+html.ui-theme-old #levels-panel-title,
 html.ui-theme-old #privacy-panel-title,
 html.ui-theme-old #shop-panel-title,
 html.ui-theme-old #whatsnew-panel-title,
@@ -5289,6 +5296,7 @@ html.ui-theme-old #quit-confirm-title {
      complementary rounded corners, no border where they meet), so the
      two elements read as one continuous card. */
 #rank-roadmap-list,
+#levels-roadmap-list,
 #recent-unlocks-list,
 #highlight-reel-list,
 #prestige-history-list {
@@ -5437,7 +5445,24 @@ html.ui-theme-old #quit-confirm-title {
   margin-top: -8px;
 }
 
+/* #levels-roadmap-list is the same card as #rank-roadmap-list above, but
+   standalone (not immediately under a matching styled heading the way
+   Profile's own copy is - see that rule's own comment), so it gets a
+   complete border/radius on all sides instead of fusing to a heading. */
+#levels-roadmap-list {
+  background: rgba(20, 16, 10, 0.55);
+  border: 1px solid rgba(138, 109, 71, 0.4);
+  border-radius: 8px;
+  padding: 10px 14px 12px;
+  margin-top: 14px;
+}
+
+#levels-content {
+  text-align: center;
+}
+
 #profile-options .perk-option,
+#levels-roadmap-list .perk-option,
 #rank-roadmap-list .perk-option,
 #recent-unlocks-list .perk-option,
 #highlight-reel-list .perk-option,
@@ -5457,6 +5482,7 @@ html.ui-theme-old #quit-confirm-title {
 }
 
 #profile-options .perk-option:last-child,
+#levels-roadmap-list .perk-option:last-child,
 #rank-roadmap-list .perk-option:last-child,
 #recent-unlocks-list .perk-option:last-child,
 #highlight-reel-list .perk-option:last-child,
@@ -5466,6 +5492,7 @@ html.ui-theme-old #quit-confirm-title {
 }
 
 #profile-options .perk-name,
+#levels-roadmap-list .perk-name,
 #rank-roadmap-list .perk-name,
 #recent-unlocks-list .perk-name,
 #highlight-reel-list .perk-name,
@@ -5483,6 +5510,7 @@ html.ui-theme-old #quit-confirm-title {
 }
 
 #profile-options .perk-cost,
+#levels-roadmap-list .perk-cost,
 #rank-roadmap-list .perk-cost,
 #recent-unlocks-list .perk-cost,
 #highlight-reel-list .perk-cost,
@@ -7010,6 +7038,7 @@ html.reduce-transparency #credits-panel,
 html.reduce-transparency #terms-panel,
 html.reduce-transparency #features-panel,
 html.reduce-transparency #skindesigner-panel,
+html.reduce-transparency #levels-panel,
 html.reduce-transparency #privacy-panel,
 html.reduce-transparency #shop-panel,
 html.reduce-transparency #whatsnew-panel,

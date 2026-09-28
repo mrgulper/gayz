@@ -6027,6 +6027,10 @@ export class Game {
     this.creditsPanelTitle = document.getElementById('credits-panel-title')
     this.creditsPrivacyLink = document.getElementById('credits-privacy-link')
     this.creditsTermsLink = document.getElementById('credits-terms-link')
+    this.levelsPanel = document.getElementById('levels-panel')
+    this.levelsPanelTitle = document.getElementById('levels-panel-title')
+    this.levelsIntroText = document.getElementById('levels-intro-text')
+    this.levelsRoadmapList = document.getElementById('levels-roadmap-list')
     this.termsBtn = document.getElementById('terms-btn')
     this.termsPanel = document.getElementById('terms-panel')
     this.termsPanelTitle = document.getElementById('terms-panel-title')
@@ -11057,7 +11061,7 @@ export class Game {
     if (this.menuAvatarLevel) {
       this.menuAvatarLevel.addEventListener('click', (e) => {
         e.stopPropagation()
-        this._openComingSoonPanel()
+        this._openLevelsPanel()
       })
     }
     // Pencil icon in the Player showcase panel reveals the same
@@ -11222,6 +11226,11 @@ export class Game {
     this.creditsPanel.addEventListener('click', (e) => {
       if (e.target === this.creditsPanel) this._closeCreditsPanel()
     })
+    if (this.levelsPanel) {
+      this.levelsPanel.addEventListener('click', (e) => {
+        if (e.target === this.levelsPanel) this._closeLevelsPanel()
+      })
+    }
     if (this.termsPanel) {
       this.termsPanel.addEventListener('click', (e) => {
         if (e.target === this.termsPanel) this._closeTermsPanel()
@@ -15192,6 +15201,7 @@ export class Game {
         subTabs: this._subTabsFor('tab-', ['general', 'language', 'audio', 'controls', 'graphics']),
       },
       { slug: 'credits', panel: this.creditsPanel, open: () => this._openCreditsPanel() },
+      { slug: 'levels', panel: this.levelsPanel, open: () => this._openLevelsPanel() },
       { slug: 'terms', panel: this.termsPanel, open: () => this._openTermsPanel() },
       { slug: 'privacy', panel: this.privacyPanel, open: () => this._openPrivacyPanel() },
       { slug: 'features', panel: this.featuresPanel, open: () => this._openFeaturesPanel() },
@@ -15300,6 +15310,7 @@ export class Game {
     if (this.serverPanel) this._closeServerPanel()
     if (this.profilePanel) this._closeProfilePanel()
     if (this.creditsPanel) this._closeCreditsPanel()
+    if (this.levelsPanel) this._closeLevelsPanel()
     if (this.termsPanel) this._closeTermsPanel()
     if (this.privacyPanel) this._closePrivacyPanel()
     if (this.featuresPanel) this._closeFeaturesPanel()
@@ -18561,6 +18572,22 @@ export class Game {
     this.creditsPanel.style.display = 'none'
   }
 
+  // Levels panel - the avatar-corner star badge used to open a "Coming
+  // Soon" placeholder; this replaces that. Content is the same Rank
+  // Roadmap list Profile already renders (_renderRankRoadmap writes to
+  // both list elements at once), just shown as its own dedicated screen.
+  _openLevelsPanel() {
+    this._closeAllMenuPanels()
+    this.levelsPanel.style.display = 'flex'
+    if (this.levelsPanelTitle) this.levelsPanelTitle.textContent = t('levelsPanelTitle')
+    if (this.levelsIntroText) this.levelsIntroText.textContent = t('levelsIntroText')
+    this._renderRankRoadmap()
+  }
+
+  _closeLevelsPanel() {
+    this.levelsPanel.style.display = 'none'
+  }
+
   // Terms of Use / Privacy Policy - used to be a plain link out to
   // /terms.html and /privacy.html (target="_blank"); moved in-panel
   // (same static-prose pattern as Credits above) at Gaymi's request. The
@@ -21047,12 +21074,14 @@ export class Game {
   // spotlight ticker only ever shows the CURRENT tier one at a time), with
   // the reached ones checked off and the current one highlighted, so a
   // player can see the whole ladder rather than just where they stand
-  // right now.
+  // right now. Written to two places - Profile's own copy and the
+  // standalone Levels panel's copy - same markup, same data, so they can
+  // never drift apart from each other.
   _renderRankRoadmap() {
-    if (!this.rankRoadmapList) return
+    if (!this.rankRoadmapList && !this.levelsRoadmapList) return
     if (this.rankRoadmapHeading) this.rankRoadmapHeading.textContent = t('rankRoadmapHeading')
     const kills = _safeStatNumber(this.careerStats.totalKills)
-    this.rankRoadmapList.innerHTML = CAREER_RANK_TITLES.map((tier, i) => {
+    const html = CAREER_RANK_TITLES.map((tier, i) => {
       const reached = kills >= tier.min
       const isCurrent = reached && (i === CAREER_RANK_TITLES.length - 1 || kills < CAREER_RANK_TITLES[i + 1].min)
       return `
@@ -21062,6 +21091,8 @@ export class Game {
         </button>
       `
     }).join('')
+    if (this.rankRoadmapList) this.rankRoadmapList.innerHTML = html
+    if (this.levelsRoadmapList) this.levelsRoadmapList.innerHTML = html
   }
 
   // Class Comparison - the real, honest per-loadout stat deltas from
