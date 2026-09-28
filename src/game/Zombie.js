@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { accessibility } from './Accessibility.js'
 import { LOW_QUALITY_MATERIALS, flatMaterial, flattenedClone } from './QualitySettings.js'
+import { meshGridFor } from './ColliderGrid.js'
 
 // Phase 1 of the 3D asset overhaul (see 3D_ASSET_OVERHAUL.md) - real rigged
 // GLB zombie behind a flag, alongside the original procedural builder, so
@@ -2235,7 +2236,10 @@ export class Zombie {
     this._losDir.normalize()
     this._losRaycaster.set(this._losOrigin, this._losDir)
     this._losRaycaster.far = dist - 0.15 // stop just short of the player so their own body isn't a false hit
-    const hits = this._losRaycaster.intersectObjects(solidMeshes, true)
+    // Only the meshes in grid cells this segment crosses (see ColliderGrid.js's
+    // querySegment) - same hits as the whole list, a fraction of the work.
+    const candidates = meshGridFor(solidMeshes).querySegment(this._losOrigin.x, this._losOrigin.z, playerPos.x, playerPos.z)
+    const hits = this._losRaycaster.intersectObjects(candidates, true)
     this._losCachedResult = hits.length === 0
     return this._losCachedResult
   }

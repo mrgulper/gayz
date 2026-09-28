@@ -3,6 +3,10 @@ import { audioEngine } from './Audio.js'
 import { buildViewmodel } from './Viewmodels.js'
 import { t, onLanguageChange } from './i18n.js'
 import { getKeyFor } from './Keybinds.js'
+import { meshGridFor } from './ColliderGrid.js'
+
+// See WeaponSystem._rayTargets.
+const WORLD_RAY_QUERY_RANGE = 400
 
 const VIEWMODEL_BASE = new THREE.Vector3(0.26, -0.22, -0.5)
 // Was intensity 4 / distance 8 - blew out everything nearby on every shot.
@@ -1509,6 +1513,29 @@ export class WeaponSystem {
     return sy >= PENETRATION_MIN_HEIGHT && Math.min(sx, sz) <= PENETRATION_MAX_THICKNESS
   }
 
+
+  // Everything a fire ray (this.raycaster, already aimed) should test:
+  // every zombie/rival hitbox, plus only the world meshes in grid cells the
+  // ray actually crosses within WORLD_RAY_QUERY_RANGE (see ColliderGrid.js's
+  // querySegment) instead of all ~2000 colliderMeshes - measured 2026-09-28
+  // at ~1.9ms per ray against the whole list, and a shotgun blast is 8+
+  // rays (plus aim assist's extra ones) in a single frame. The range sits
+  // well past the farthest anything is ever rendered (camera.far tops out
+  // around 155), so nothing a player could see a bullet hit is excluded.
+  // Reuses one scratch array - intersectObjects copies its hits out, so
+  // nothing holds onto this list past the call.
+  _rayTargets(zombieMeshes, rivalMeshes) {
+    const out = this._rayTargetsScratch || (this._rayTargetsScratch = [])
+    out.length = 0
+    for (const m of zombieMeshes) out.push(m)
+    if (rivalMeshes) for (const m of rivalMeshes) out.push(m)
+    const ray = this.raycaster.ray
+    const o = ray.origin
+    const d = ray.direction
+    const world = meshGridFor(this.colliderMeshes).querySegment(o.x, o.z, o.x + d.x * WORLD_RAY_QUERY_RANGE, o.z + d.z * WORLD_RAY_QUERY_RANGE)
+    for (const m of world) out.push(m)
+    return out
+  }
   _fire() {
     const w = this.current
     this.timeSinceLastShot = 0
@@ -1598,14 +1625,14 @@ export class WeaponSystem {
         (Math.random() - 0.5) * spread
       )
       this.raycaster.setFromCamera(offset, this.camera)
-      let hits = this.raycaster.intersectObjects([...zombieMeshes, ...rivalMeshes, ...this.colliderMeshes], true)
+      let hits = this.raycaster.intersectObjects(this._rayTargets(zombieMeshes, rivalMeshes), true)
       // Aim Assist - only kicks in once the precise shot has already missed
       // every zombie (or hit a wall/prop first), so it never overrides a
       // shot that was genuinely lined up on something else.
       if (this.aimAssist && !w.melee && zombieMeshes.length > 0 && (hits.length === 0 || !hits[0].object.userData.zombie)) {
         for (const [dx, dy] of AIM_ASSIST_OFFSETS) {
           this.raycaster.setFromCamera(new THREE.Vector2(offset.x + dx, offset.y + dy), this.camera)
-          const assistHits = this.raycaster.intersectObjects([...zombieMeshes, ...this.colliderMeshes], true)
+          const assistHits = this.raycaster.intersectObjects(this._rayTargets(zombieMeshes, null), true)
           if (assistHits.length > 0 && assistHits[0].object.userData.zombie) {
             hits = assistHits
             break

@@ -161,6 +161,8 @@ import * as MenuPresets from './MenuPresets.js'
 import * as CloudSync from './CloudSync.js'
 import * as CloudSaveUI from './CloudSaveUI.js'
 import * as ChatUI from './ChatUI.js'
+import { ensureBoundsTrees } from './RaycastAccel.js'
+import { LightProxyPool } from './LightProxies.js'
 import { setColorblindMode } from './Accessibility.js'
 import { registerZone } from './Zones.js'
 import { TouchControls } from './TouchControls.js'
@@ -720,6 +722,16 @@ const LIGHT_CULL_DISTANCE = LOW_QUALITY_MODE ? 60 : 100
 // distance cull above, for dense light clusters (mall, safe zone) where
 // more than this many lights can all be within range simultaneously.
 const MAX_ACTIVE_LIGHTS = LOW_QUALITY_MODE ? 12 : 20
+// See _updateCulling's object-pass gate.
+const CULL_REPASS_MOVE_DIST = 2
+const CULL_REPASS_EVERY_FRAMES = 15
+// How many real PointLights the renderer ever sees (see LightProxies.js) -
+// every other PointLight in the scene is a "source" whose nearest lit
+// members get copied onto these each frame. Fixed at load (changing it
+// would recompile every shader), so Performance Mode's smaller pool only
+// takes effect after a reload, same as its antialiasing flag.
+const LIGHT_PROXY_COUNT = 10
+const LIGHT_PROXY_COUNT_PERF = 6
 // Adaptive Shadow Quality (see _updateAdaptiveShadowQuality) - the
 // recover threshold sits well above the low threshold (hysteresis) so a
 // borderline framerate right at the boundary can't flicker the
@@ -1903,7 +1915,7 @@ function loadShopProgress() {
 
 function saveShopProgress(game) {
   try {
-    localStorage.setItem(SHOP_PROGRESS_KEY, JSON.stringify({
+    const json = JSON.stringify({
       points: game.points,
       coins: game.coins,
       cash: game.cash,
@@ -1933,7 +1945,15 @@ function saveShopProgress(game) {
         return ids
       }),
       crateStock: game.crateStock,
-    }))
+    })
+    // Skip identical writes - this runs from _updateStatsPanel after nearly
+    // every points/coins change, and a localStorage write is synchronous on
+    // the main thread. Compared against what's actually stored (not a
+    // cached "last thing I wrote") so a write from elsewhere - a cloud
+    // restore, an imported save - still gets overwritten exactly as it
+    // always did; only a true no-op write is skipped.
+    if (localStorage.getItem(SHOP_PROGRESS_KEY) === json) return
+    localStorage.setItem(SHOP_PROGRESS_KEY, json)
   } catch {
     // Storage unavailable - shop progress just won't persist across sessions.
   }
@@ -5611,6 +5631,10 @@ export class Game {
 
     this.player = new PlayerController(this.camera, this.canvas, colliders, solidMeshes)
     this.scene.add(this.player.controls.object)
+    // Build the static world's raycast BVHs now, during construction,
+    // rather than letting the player controller's first grid rebuild do it
+    // on the first frame of gameplay - see RaycastAccel.js.
+    ensureBoundsTrees(solidMeshes)
 
     this._addFlashlight()
 
@@ -6550,6 +6574,13 @@ export class Game {
     this._buildLoreMarkers()
     this._buildWetStreetSheen()
     this._buildNightSky()
+
+    // Must come after everything above has created its lights (world lamps,
+    // the FX light pool, muzzle flash, companions...) and before
+    // _warmUpShaders below, so shaders are compiled once against the final,
+    // fixed light count. See LightProxies.js.
+    this.lightProxies = new LightProxyPool(this.scene, this.settings.performanceMode ? LIGHT_PROXY_COUNT_PERF : LIGHT_PROXY_COUNT)
+    this._lightProxyViewPos = new THREE.Vector3()
 
     this.timer = new THREE.Timer()
     this.timer.connect(document)
@@ -7824,7 +7855,7 @@ export class Game {
   // full screenshot - lets a player select just the part of the frame they
   // want without needing their OS's own screenshot tool.
   _takeScreenshot() {
-    this.composer.render()
+    this._renderMainScene()
     this._screenshotDataUrl = this.canvas.toDataURL('image/png')
     this.screenshotCropOpen = true
     this.screenshotCropImage.src = this._screenshotDataUrl
@@ -20241,7 +20272,7 @@ export class Game {
     // Shareable run-summary card (see _generateRunSummaryCard) - captures
     // the actual moment-of-death frame before any HUD teardown/UI change,
     // same composer.render()+toDataURL technique _takeScreenshot uses.
-    this.composer.render()
+    this._renderMainScene()
     this._runCardBaseImage = this.canvas.toDataURL('image/png')
     // Death Killcam (see DEATH_KILLCAM_DURATION_MS's own comment) - reuses
     // the boss/wave-clear slow-mo mechanism, timed to cover the death cam's
@@ -21265,7 +21296,7 @@ export class Game {
   // with no onload race. Still finishes through the shared
   // _finalizeScreenshotCanvas so it gets the same watermark+download step.
   _generateCareerPortrait() {
-    this.composer.render()
+    this._renderMainScene()
     const canvas = document.createElement('canvas')
     canvas.width = this.canvas.width
     canvas.height = this.canvas.height
@@ -23751,6 +23782,19 @@ export class Game {
     this._wasBelowStingerThreshold = belowStingerThreshold
 
     this.musicIntensityCurrent = THREE.MathUtils.lerp(this.musicIntensityCurrent, threat, 0.04)
+
+    // Everything below writes to the audio engine - <audio>.volume/
+    // .playbackRate and four Web Audio setTargetAtTime() calls - and used to
+    // run every single frame, where it measured as the second-most expensive
+    // per-frame function in _tick (max ~6ms spikes, 2026-09-28): each
+    // playbackRate write can make the browser reconfigure the media
+    // element's resampler, and every setTargetAtTime() queues one more event
+    // on its AudioParam's automation timeline. All four targets already
+    // glide over 0.4-0.6s time constants, so ~10 updates a second is
+    // inaudibly different from 60.
+    const nowAudio = performance.now()
+    if (nowAudio < (this._nextMusicAudioUpdateAt || 0)) return
+    this._nextMusicAudioUpdateAt = nowAudio + 100
     audioEngine.setMusicIntensity(this.musicIntensityCurrent)
 
     // Directional Zombie Ambience Bed (see Audio.js's updateZombiePresence) -
@@ -23866,7 +23910,12 @@ export class Game {
     if (now < this.nextIndoorCheckAt) return
     this.nextIndoorCheckAt = now + INDOOR_CHECK_INTERVAL_MS
     this._indoorRaycaster.ray.origin.set(playerPos.x, playerPos.y + 0.2, playerPos.z)
-    const hits = this._indoorRaycaster.intersectObjects(this.solidMeshes, true)
+    // A straight-up ray can only hit something whose XZ footprint covers the
+    // player, so the player controller's nearby-cells grid over this same
+    // solidMeshes array (see ColliderGrid.js's CachedMeshGrid) returns the
+    // same hits as the whole-map list, without bounding-testing ~2000
+    // meshes every INDOOR_CHECK_INTERVAL_MS.
+    const hits = this._indoorRaycaster.intersectObjects(this.player.queryGroundMeshesNear(playerPos.x, playerPos.z), true)
     this.isIndoors = hits.length > 0
   }
 
@@ -24105,6 +24154,27 @@ export class Game {
     // cullSq (not chestCullSq/shadowSq, both always smaller - see their
     // own comments above) sets the tile radius since it's the largest
     // distance anything in a "relevant" tile could still need checking at.
+    //
+    // The object pass below only re-runs once the player has moved
+    // CULL_REPASS_MOVE_DIST since the last one (or every
+    // CULL_REPASS_EVERY_FRAMES frames regardless, which also picks up
+    // anything that changes without the player moving - a newly spawned
+    // chest, Performance Mode, the adaptive shadow range). Every threshold
+    // it tests against is tens of units, so a 2-unit-stale result is
+    // invisible, and standing still or strafing in a fight no longer
+    // re-checks ~1500 objects every single frame (measured 2026-09-28 at
+    // ~1.25ms/frame). The light cull above still runs every frame - it's
+    // cheap, and _updateFlicker rewrites light intensities every frame.
+    this._cullFrameCounter = (this._cullFrameCounter || 0) + 1
+    if (this._activeTileKeys && this._lastCullPassPos && this._cullFrameCounter % CULL_REPASS_EVERY_FRAMES !== 0) {
+      const mdx = playerPos.x - this._lastCullPassPos.x
+      const mdz = playerPos.z - this._lastCullPassPos.z
+      if (mdx * mdx + mdz * mdz < CULL_REPASS_MOVE_DIST * CULL_REPASS_MOVE_DIST) return
+    }
+    if (!this._lastCullPassPos) this._lastCullPassPos = { x: 0, z: 0 }
+    this._lastCullPassPos.x = playerPos.x
+    this._lastCullPassPos.z = playerPos.z
+
     const tileRadius = Math.ceil(Math.sqrt(cullSq) / WORLD_TILE_SIZE) + 1
     const playerTileX = Math.floor(playerPos.x / WORLD_TILE_SIZE)
     const playerTileZ = Math.floor(playerPos.z / WORLD_TILE_SIZE)
@@ -25841,7 +25911,7 @@ export class Game {
       warmUpSteps[warmUpStepIndex]()
       warmUpStepIndex++
       const stepStart = performance.now()
-      this.composer.render()
+      this._renderMainScene()
       warmUpTotalMs += performance.now() - stepStart
       if (warmUpStepIndex < warmUpSteps.length) {
         requestAnimationFrame(runWarmUpStep)
@@ -25875,6 +25945,28 @@ export class Game {
       }
     }
     requestAnimationFrame(runWarmUpStep)
+  }
+
+  // Every render of the main scene goes through here - the per-frame one in
+  // _tick, _warmUpShaders, and the screenshot/portrait captures - so they
+  // all use the same path and therefore the same compiled shader variants
+  // (three.js compiles a separate variant of every material for rendering
+  // straight to the canvas vs. into a render target, since tone mapping/
+  // color space conversion happen in-shader only for the former; warming up
+  // one path and then playing on the other would compile every material
+  // again on the first frames of a run).
+  //
+  // The composer only earns its keep when a post effect is actually on.
+  // With bloom/AO/motion blur all off (the default - LOW_QUALITY_MODE keeps
+  // bloom off, AO and motion blur are opt-in), it still rendered the whole
+  // scene into an offscreen target and then copied that to the screen in a
+  // second fullscreen OutputPass - an extra full-resolution read+write every
+  // frame for an identical image, since rendering straight to the canvas
+  // applies the same toneMapping/outputColorSpace OutputPass exists to apply
+  // to an offscreen target.
+  _renderMainScene() {
+    if (this.bloomPass.enabled || this.ssaoPass.enabled || this.afterimagePass.enabled) this.composer.render()
+    else this.renderer.render(this.scene, this.renderPass.camera)
   }
 
   _tick() {
@@ -26257,7 +26349,17 @@ export class Game {
         if (!this.settings.scoreAttackMode && !endingTriggered) this._openPerkPanel()
       }
       this._updateProgressHud()
-      this._updateStatsPanel()
+      // Every real change (kills, purchases, repairs...) already calls
+      // _updateStatsPanel() itself at the moment it happens (30+ call
+      // sites) - this per-tick call only exists to keep the phase countdown
+      // ticking, which shows whole seconds. It used to run every frame,
+      // including saveShopProgress()'s synchronous localStorage write -
+      // measured 2026-09-28 at up to 6.5ms per frame. 4x a second is plenty.
+      const nowStats = performance.now()
+      if (nowStats >= (this._nextTickStatsPanelAt || 0)) {
+        this._nextTickStatsPanelAt = nowStats + 250
+        this._updateStatsPanel()
+      }
 
       this._updateDirectorAI()
       this._updateAdrenaline()
@@ -26620,8 +26722,10 @@ export class Game {
     this.camera.position.add(this._shakeOffset)
     this.camera.position.y += this._landingDipY
 
+    this.renderPass.camera.getWorldPosition(this._lightProxyViewPos)
+    this.lightProxies.update(this._lightProxyViewPos, LIGHT_CULL_DISTANCE * this._perfDistanceMult)
     this.renderer.info.reset()
-    this.composer.render()
+    this._renderMainScene()
     this._lastFrameDrawCalls = this.renderer.info.render.calls
     this._lastFrameTriangles = this.renderer.info.render.triangles
   }

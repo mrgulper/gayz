@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js'
 import { getKeyFor } from './Keybinds.js'
-import { CachedColliderGrid, CachedMeshGrid } from './ColliderGrid.js'
+import { CachedColliderGrid, meshGridFor } from './ColliderGrid.js'
 
 const EYE_HEIGHT = 1.7
 const CROUCH_EYE_HEIGHT = 1.05
@@ -193,7 +193,7 @@ export class PlayerController {
     // array (900+ real meshes, actual triangle-level intersection, not just
     // a box test) unconditionally every single frame regardless of whether
     // the player was even moving. See ColliderGrid.js's CachedMeshGrid.
-    this._groundMeshGrid = new CachedMeshGrid(this.groundMeshes)
+    this._groundMeshGrid = meshGridFor(this.groundMeshes)
     this.camera = camera
 
     this.velocity = new THREE.Vector3()
