@@ -1098,34 +1098,17 @@ function saveEndingSeen() {
 const ENDING_MILESTONE_NIGHT = 10
 
 let _settingsSavedPulseTimer = null
-let _settingsCloudPushTimer = null
 export function saveSettings(settings) {
   try {
+    // Cloud Save picks this up through its change tracking (see
+    // CloudSaveUI.installChangeTracking) - only when the stored value
+    // actually changed, which matters because the settings autosave timer
+    // calls this every ~30s. The old version stamped "unsynced change" and
+    // queued a full upload on every call, so an idle device kept
+    // re-uploading its stale save over newer progress from other devices.
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
-    // See LAST_LOCAL_CHANGE_KEY's own comment - marks "this device has an
-    // edit that isn't confirmed pushed yet" for _checkForNewerCloudSave.
-    localStorage.setItem(LAST_LOCAL_CHANGE_KEY, String(Date.now()))
   } catch {
     // Storage unavailable (e.g. private browsing) - setting just won't persist.
-  }
-  // Debounced background cloud push - Settings-only edits (bio, nickname,
-  // etc.) used to only ever reach the cloud at run-end or a manual Sync
-  // Now, so an edit with no run played afterward never left this device
-  // at all (see _checkForNewerCloudSave's own comment, Game.js, for the
-  // matching pull-side half of this fix). window.__game, not `this` -
-  // same reason the autosave-pulse code above uses it, this is a plain
-  // standalone function. Silent/best-effort like the run-end push already
-  // is, and debounced rather than pushing on every single keystroke -
-  // waits a few seconds for changes to actually settle first.
-  if (window.__game && window.__game._cloudUid) {
-    clearTimeout(_settingsCloudPushTimer)
-    _settingsCloudPushTimer = setTimeout(() => {
-      // Same _importingSave guard _applyImportedSaveData sets during its
-      // own clear+restore+reload - a restore just wrote newer data than
-      // this debounced push captured, so pushing now would overwrite it
-      // right back, the exact race that function's own comment covers.
-      if (window.__game && !window.__game._importingSave) CloudSaveUI.pushToCloud(window.__game, false)
-    }, 3000)
   }
   // Subtle autosave confirmation - only pulses while the Settings panel is
   // actually open (a plain computed-style check, since this is a
@@ -2843,7 +2826,10 @@ const GOAL_CANDIDATES = [
 // onAuthChange restores _cloudProfile/_cloudUid from that directly.
 export const CLOUD_LAST_SYNC_KEY = 'gayz-cloud-last-sync'
 
-// Stamped by saveSettings on every call - lets _checkForNewerCloudSave
+// Stamped by Cloud Save's change tracking (CloudSaveUI.installChangeTracking)
+// whenever any synced value actually changes - originally stamped by
+// saveSettings alone. Now only decides settings-style merge conflicts
+// (whichever device changed more recently wins); history below. Lets _checkForNewerCloudSave
 // (see its own comment) tell "this device has an edit that hasn't been
 // pushed yet" apart from "this device is fully caught up", instead of
 // only ever comparing the cloud's timestamp against when this device
@@ -11166,6 +11152,7 @@ export class Game {
     this.coinshopBtn.addEventListener('click', () => trackAndOpen(() => this._openShopPanel()))
     this._bindHomepageBatch()
     CloudSaveUI.bindCloudSave(this)
+    CloudSaveUI.installChangeTracking(this)
     this._startPresenceHeartbeat()
     this._checkBeatThisChallenge()
     this._checkViewProfileLink()
@@ -13412,48 +13399,23 @@ export class Game {
   // whether THIS device has an edit newer than its last sync
   // (LAST_LOCAL_CHANGE_KEY, stamped by saveSettings on every call) before
   // deciding what to do, instead of only ever considering the cloud side.
-  async _checkForNewerCloudSave(uid) {
-    let cloud
-    try {
-      cloud = await CloudSync.fetchCloudSave(uid)
-    } catch {
-      return
-    }
-    if (!cloud) return
-    const localSyncTime = Number(localStorage.getItem(CLOUD_LAST_SYNC_KEY)) || 0
-    const localChangeTime = Number(localStorage.getItem(LAST_LOCAL_CHANGE_KEY)) || 0
-    // A few seconds' slack on the cloud-vs-sync comparison only: this
-    // device's own last push sets its local CLOUD_LAST_SYNC_KEY and the
-    // cloud doc's updatedAt from two separate Date.now() calls a moment
-    // apart, not one shared timestamp - without this, a device could
-    // occasionally mistake its own just-pushed save for "something newer
-    // elsewhere." No slack needed against localChangeTime - saveSettings
-    // always stamps that well before any push that could follow it.
-    const cloudIsNewer = cloud.modifiedTime > localSyncTime + 5000
-    const hasUnpushedLocalChange = localChangeTime > localSyncTime
-    if (!hasUnpushedLocalChange) {
-      // Common case: this device hasn't touched anything since it last
-      // synced, so it's always safe to just catch up on whatever's newer.
-      if (cloudIsNewer) CloudSaveUI.applyCloudSaveData(this, cloud.data)
-      return
-    }
-    if (!cloudIsNewer) {
-      // This device has its own edit the cloud doesn't have yet, but the
-      // cloud hasn't moved since this device's last sync either - nothing
-      // to lose by sending it up now instead of waiting on run-end.
-      await CloudSaveUI.pushToCloud(this, false)
-      return
-    }
-    // Genuine conflict - both sides changed since this device's last
-    // sync. Last-write-wins by absolute timestamp rather than always
-    // favoring one side outright; whichever wins still gets pushed
-    // through applyCloudSaveData/pushToCloud, so the cloud ends up
-    // matching whatever's actually showing here either way.
-    if (cloud.modifiedTime > localChangeTime) {
-      CloudSaveUI.applyCloudSaveData(this, cloud.data)
-    } else {
-      await CloudSaveUI.pushToCloud(this, false)
-    }
+  //
+  // Replaced 2026-09-28 by the three-way merge sync (see CloudMerge.js):
+  // the timestamp comparison here could only ever pick ONE whole side -
+  // whichever device's save "won" silently discarded everything the other
+  // device had done - and its "unpushed change" signal only covered
+  // settings, not stats/coins/purchases. uid is unused now (the sync reads
+  // this._cloudUid) but kept so the caller didn't need to change.
+  async _checkForNewerCloudSave(_uid) {
+    await CloudSaveUI.syncWithCloud(this, { allowApply: !this.gameStarted })
+  }
+
+  // In-memory state that's normally only written on page close
+  // (beforeunload) - flushed early when the tab is hidden, so Cloud Save's
+  // on-hide sync uploads it too (see CloudSaveUI.installChangeTracking).
+  _flushLocalSave() {
+    if (this._importingSave) return
+    saveShopProgress(this)
   }
 
   // See _afterCloudSignIn's own comment - the one condition under which a
