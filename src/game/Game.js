@@ -10,7 +10,7 @@ import { LOW_QUALITY_MODE, flatMaterial } from './QualitySettings.js'
 import { PlayerController } from './PlayerController.js'
 import { WeaponSystem, MELEE_DURABILITY_MAX } from './WeaponSystem.js'
 import { ZombieManager } from './ZombieManager.js'
-import { Zombie, bumpZombieIdCounterPast } from './Zombie.js'
+import { Zombie, bumpZombieIdCounterPast, zombieAnimLod } from './Zombie.js'
 import { PickupManager, Pickup } from './Pickups.js'
 import { PlayerState } from './PlayerState.js'
 import { Inventory } from './Inventory.js'
@@ -163,6 +163,7 @@ import * as CloudSaveUI from './CloudSaveUI.js'
 import * as ChatUI from './ChatUI.js'
 import { ensureBoundsTrees } from './RaycastAccel.js'
 import { LightProxyPool } from './LightProxies.js'
+import { AUTO_QUALITY_LEVELS, AutoQualityController, guessInitialLevel, loadSavedLevel } from './AutoQuality.js'
 import { setColorblindMode } from './Accessibility.js'
 import { registerZone } from './Zones.js'
 import { TouchControls } from './TouchControls.js'
@@ -388,6 +389,7 @@ function loadSettings() {
       crosshairSize: parsed.crosshairSize ?? 100,
       adsFov: parsed.adsFov ?? 45,
       motionBlur: parsed.motionBlur ?? false,
+      autoQuality: parsed.autoQuality ?? true,
       fpsCap: parsed.fpsCap ?? 0,
       mouseAcceleration: parsed.mouseAcceleration ?? false,
       invertScrollWeaponSwitch: parsed.invertScrollWeaponSwitch ?? false,
@@ -709,7 +711,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, gamepadDeadzone: 20, gamepadVibration: true, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, autoLootRadius: 'medium', instantStationInteract: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, touchControlsOverride: 'auto', clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'menu-inventory-btn', 'quests-btn', 'friends-btn', 'achievements-btn'], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
+  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, autoQuality: true, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, gamepadDeadzone: 20, gamepadVibration: true, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, autoLootRadius: 'medium', instantStationInteract: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, touchControlsOverride: 'auto', clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'menu-inventory-btn', 'quests-btn', 'friends-btn', 'achievements-btn'], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -4531,6 +4533,7 @@ export class Game {
     this.gfxResolutionValue = document.getElementById('gfx-resolution-value')
     this.fpsCapSelect = document.getElementById('fps-cap-select')
     this.motionBlurToggle = document.getElementById('motion-blur-toggle')
+    this.autoQualityToggle = document.getElementById('auto-quality-toggle')
     this.gfxBrightnessSlider = document.getElementById('gfx-brightness-slider')
     this.gfxBrightnessValue = document.getElementById('gfx-brightness-value')
     this.gfxContrastSlider = document.getElementById('gfx-contrast-slider')
@@ -6579,8 +6582,20 @@ export class Game {
     // the FX light pool, muzzle flash, companions...) and before
     // _warmUpShaders below, so shaders are compiled once against the final,
     // fixed light count. See LightProxies.js.
-    this.lightProxies = new LightProxyPool(this.scene, this.settings.performanceMode ? LIGHT_PROXY_COUNT_PERF : LIGHT_PROXY_COUNT)
+    //
+    // Auto Quality (see AutoQuality.js) starts from the level this device
+    // ended its last session on (or a first-visit guess from the device
+    // type), and that level also caps the proxy light count - the one lever
+    // that can't change mid-session without recompiling every shader.
+    const autoQualityStartLevel = this.settings.autoQuality ? (loadSavedLevel() ?? guessInitialLevel()) : 0
+    const baseLightCount = this.settings.performanceMode ? LIGHT_PROXY_COUNT_PERF : LIGHT_PROXY_COUNT
+    const lightCount = this.settings.autoQuality ? Math.min(baseLightCount, AUTO_QUALITY_LEVELS[autoQualityStartLevel].lights) : baseLightCount
+    this.lightProxies = new LightProxyPool(this.scene, lightCount)
     this._lightProxyViewPos = new THREE.Vector3()
+    this.autoQuality = new AutoQualityController(autoQualityStartLevel, (config) => this._applyAutoQualityLevel(config))
+    this._aqGameplayFrames = 0
+    this._fpsSampleFrames = 0
+    this._applyAutoQualityLevel(this.settings.autoQuality ? this.autoQuality.config : AUTO_QUALITY_LEVELS[0])
 
     this.timer = new THREE.Timer()
     this.timer.connect(document)
@@ -11318,6 +11333,18 @@ export class Game {
         saveSettings(this.settings)
       })
     }
+    // Auto Quality (see AutoQuality.js) - turning it off snaps straight back
+    // to full quality (level 0's levers) rather than freezing wherever it
+    // had got to; turning it back on resumes from its current level. The
+    // light count is fixed at load, so that part follows on the next reload.
+    if (this.autoQualityToggle) {
+      this.autoQualityToggle.checked = this.settings.autoQuality
+      this.autoQualityToggle.addEventListener('change', () => {
+        this.settings.autoQuality = this.autoQualityToggle.checked
+        this._applyAutoQualityLevel(this.settings.autoQuality ? this.autoQuality.config : AUTO_QUALITY_LEVELS[0])
+        saveSettings(this.settings)
+      })
+    }
     if (this.motionBlurToggle) {
       this.motionBlurToggle.checked = this.settings.motionBlur
       if (this.afterimagePass) this.afterimagePass.enabled = this.settings.motionBlur
@@ -14206,7 +14233,31 @@ export class Game {
     // rendered/shadow-cast/lit AREA by roughly another 30% on top of the
     // existing cut (radius is squared for area) - a real, untested-until-now
     // change, not a rerun of anything already tried and shown not to help.
-    this._perfDistanceMult = enabled ? 0.5 : 1
+    this._perfDistanceBaseMult = enabled ? 0.5 : 1
+    this._applyViewDistance()
+  }
+
+  // Applies one Auto Quality level's levers (see AutoQuality.js). Level 0's
+  // values are exactly the pre-Auto-Quality defaults, so turning the
+  // setting off just applies level 0.
+  _applyAutoQualityLevel(config) {
+    this._dynResScale = config.res
+    this._applyRenderScale()
+    this._autoViewMult = config.view
+    this._applyViewDistance()
+    zombieAnimLod.farDistance = config.animFar
+    zombieAnimLod.skipFrames = config.animSkip
+    // Zombie cap ceiling is read live by the population governor in _tick.
+  }
+
+  // Performance Mode's distance cut (_perfDistanceBaseMult) times Auto
+  // Quality's view multiplier (_autoViewMult, see AutoQuality.js) -
+  // everything that reads _perfDistanceMult (culling, light range, chests,
+  // camera far plane) shrinks together. Fog shrinks by the same auto
+  // multiplier in _applyFogState, so a shorter view fades out instead of
+  // ending at a hard edge.
+  _applyViewDistance() {
+    this._perfDistanceMult = (this._perfDistanceBaseMult ?? 1) * (this._autoViewMult ?? 1)
     const far = (WORLD_CULL_DISTANCE * this._perfDistanceMult) + 5
     this.camera.far = far
     this.camera.updateProjectionMatrix()
@@ -16239,6 +16290,7 @@ export class Game {
     document.getElementById('double-click-speed-label').textContent = t('doubleClickSpeedLabel')
     document.getElementById('fps-cap-label').textContent = t('fpsCapLabel')
     document.getElementById('motion-blur-label').textContent = t('motionBlurLabel')
+    document.getElementById('auto-quality-label').textContent = t('autoQualityLabel')
     document.getElementById('kill-feed-position-label').textContent = t('killFeedPositionLabel')
     document.getElementById('kill-feed-verbosity-label').textContent = t('killFeedVerbosityLabel')
     document.getElementById('kill-feed-icons-label').textContent = t('killFeedIconsLabel')
@@ -23582,7 +23634,9 @@ export class Game {
   // patch can stack (both active at once = extra foggy), matching what
   // the old code seemed to intend, just without the runaway compounding.
   _applyFogState() {
-    let mult = 1
+    // Auto Quality's view-distance multiplier (see _applyViewDistance) -
+    // 1 at full quality, so this changes nothing unless it has kicked in.
+    let mult = this._autoViewMult ?? 1
     if (this.raining) mult *= 0.6
     if (this.snowing) mult *= 0.75
     if (this.fogPatch) {
@@ -26003,7 +26057,10 @@ export class Game {
       // reading renderer.info.render.calls live here would always show 1,
       // see docs/PERFORMANCE.md §3.
       const drawCalls = this._lastFrameDrawCalls
-      this.fpsEl.textContent = `${fps} fps / ${msPerFrame} ms / ${this.zombies.zombies.length} zmb / ${drawCalls} draws / ${this._gpuRendererString}`
+      // "AQ n" = the current Auto Quality level (0 = full quality) - so a
+      // player reporting lag can say which level their device settled on.
+      const aqTag = this.autoQuality && this.settings.autoQuality ? ` / AQ ${this.autoQuality.level}` : ''
+      this.fpsEl.textContent = `${fps} fps / ${msPerFrame} ms / ${this.zombies.zombies.length} zmb / ${drawCalls} draws${aqTag} / ${this._gpuRendererString}`
       // Session Timer / Difficulty Label / Distance to Extraction Point
       // (General tab) - same ~500ms cadence as the FPS readout above,
       // no reason for per-frame accuracy on any of these three.
@@ -26017,6 +26074,7 @@ export class Game {
         if (this._frameTimeHistory.length > 60) this._frameTimeHistory.shift()
         this._drawFrameTimeGraph()
       }
+      this._fpsSampleFrames = this._fpsFrameCount
       this._fpsFrameCount = 0
       this._fpsLastUpdate = nowFps
       this._updateAdaptiveShadowQuality(fps)
@@ -26030,21 +26088,36 @@ export class Game {
       // the disabled resolution scaler below but aimed at a cost that
       // actually matters. Floor of 6 keeps Round Mode from ever going
       // fully empty even in the worst case.
-      const zombieCapCeiling = LOW_QUALITY_MODE ? 20 : 50
+      let zombieCapCeiling = LOW_QUALITY_MODE ? 20 : 50
+      const autoZombieCap = this.autoQuality && this.settings.autoQuality ? this.autoQuality.config.zombieCap : null
+      if (autoZombieCap !== null) zombieCapCeiling = Math.min(zombieCapCeiling, autoZombieCap)
+      if (this._zombiePopulationCap > zombieCapCeiling) this._zombiePopulationCap = zombieCapCeiling
       if (fps < 40) this._zombiePopulationCap = Math.max(6, this._zombiePopulationCap - 5)
       else if (fps > 55) this._zombiePopulationCap = Math.min(zombieCapCeiling, this._zombiePopulationCap + 1)
       this.zombies.performanceCap = this._zombiePopulationCap
 
-      // Dynamic resolution scaling DISABLED (2026-07-21) - confirmed
-      // dropping render resolution all the way down didn't recover any fps
-      // in a genuinely severe real case, meaning pixel count isn't the
-      // bottleneck here, so automatically blurring the image bought
-      // nothing. _dynResScale stays permanently at 1 (full resolution);
-      // left the field/multiplication in _applyRenderScale/_basePixelRatio
-      // in place rather than ripping it out, in case a future case
-      // legitimately needs it back.
+      // Dynamic resolution scaling was DISABLED 2026-07-21 (dropping render
+      // resolution recovered no fps while the game was CPU-bound on scene
+      // traversal). Since the 2026-09-28 CPU fixes it's back, as one of
+      // Auto Quality's levers - _dynResScale is now set per level by
+      // _applyAutoQualityLevel rather than by a per-frame scaler here.
 
-      if (!this.settings.performanceMode && !this._autoPerfModeTriggered) {
+      // Auto Quality - only fed samples that were (almost) entirely real
+      // gameplay frames in a visible tab; menus, pause, open panels and
+      // background tabs say nothing about how the game itself runs. See
+      // AutoQuality.js for the thresholds.
+      if (this.autoQuality && this.settings.autoQuality) {
+        const active = this.gameStarted && !document.hidden && this._aqGameplayFrames >= this._fpsSampleFrames * 0.9
+        this.autoQuality.sample(fps, active, nowFps)
+      }
+      this._aqGameplayFrames = 0
+
+      // The older one-way safety net below (permanently switches Performance
+      // Mode on after sustained low fps) stands down while Auto Quality is
+      // on - Auto Quality covers the same case more gradually and can undo
+      // itself, and two systems both reacting to the same low-fps samples
+      // would fight each other.
+      if (!this.settings.autoQuality && !this.settings.performanceMode && !this._autoPerfModeTriggered) {
         // Raised from 25 to 35 and switched from a hard reset to a decay -
         // a real player struggling in the 19-30fps range (a genuine report,
         // not a guess) rarely stays BELOW 25 for several straight 500ms
@@ -26155,6 +26228,7 @@ export class Game {
       this._updatePhotoMode(dt)
     } else if (this._isActivelyPlaying() && this.playerState.alive && !this.inventoryOpen && !this.perkPanelOpen && !this.traderPanelOpen && !this.xpLevelupPanelOpen && !this.mapOpen && !this.journalOpen) {
       this.player.update(dt)
+      this._aqGameplayFrames = (this._aqGameplayFrames || 0) + 1
       const playerPos = this.player.controls.object.position
       // The Long Road (see _recordRunEnd) - lifetime ground-distance
       // milestone. Horizontal only (x/z), so jumping in place doesn't

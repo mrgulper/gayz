@@ -31,6 +31,16 @@ found the next layer of costs, all fixed the same day:
 | `_updateMusicIntensity` wrote `<audio>.playbackRate` + 4 Web Audio automation events every frame. | Throttled to 10×/s; playbackRate only written when it changes. | Up to ~6 ms spikes gone. |
 | `EffectComposer` rendered to an offscreen target + a fullscreen copy even with every post effect off. | `_renderMainScene()` renders straight to the canvas unless bloom/AO/motion blur is on; warm-up and screenshots use the same path, so warm-up compiles the variants gameplay actually uses (run start went from 14 new shader programs to 1). | One fewer fullscreen pass per frame. |
 
+**Auto Quality (added later the same day):** with the CPU side cut to a
+few ms, weak devices are left mostly GPU-bound, which is exactly the case
+dynamic resolution never helped before. `AutoQuality.js` steps through 5
+levels (resolution, view distance + fog, zombie cap, far-zombie
+animation, and at load the proxy light count) based on live fps: 1s
+under 50fps steps down, 10s at 58+ steps back up. Measured in the
+software renderer: frame time 197 ms at level 0 → 80 ms at level 4 at
+the same spot; left to run on its own, it went from level 1 to level 4
+within ~10s of play.
+
 All of the above are CPU/JS or per-pixel-work reductions measured in a
 headless software renderer. Absolute numbers on real GPUs will be far
 lower, but the ratios are what matter. Still open: zombie `update()` at
