@@ -72,6 +72,12 @@ html.dyslexia-font body {
   position: relative;
   width: 100vw;
   height: 100vh;
+  /* Phone browsers size 100vh as if their toolbars were hidden, but
+     html/body never scroll so the toolbars never hide - the bottom strip
+     (homepage footer links, touch buttons) sat under the browser's
+     bottom bar. dvh tracks the actually-visible height; older browsers
+     ignore it and keep 100vh above. */
+  height: 100dvh;
 }
 
 #scene {
