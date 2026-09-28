@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { ensureBoundsTrees } from './RaycastAccel.js'
 
 // Uniform-grid spatial index over the world's Box3 colliders. With 14
 // stages' worth of world geometry, the flat `colliders` array can hold
@@ -155,7 +156,81 @@ export class CachedMeshGrid {
     if (this.meshes.length !== this.lastLength) {
       this.grid = buildMeshGrid(this.meshes, this.cellSize)
       this.lastLength = this.meshes.length
+      // Same "the list changed" signal is exactly when any new static world
+      // mesh (deferred tile content, a spawned barricade) needs its raycast
+      // BVH - see RaycastAccel.js. Already-built trees are skipped.
+      ensureBoundsTrees(this.meshes)
     }
     return queryColliderGrid(this.grid, x, z, this._queryResult, this._querySeen)
   }
+
+  // Every mesh registered in any grid cell the segment's XZ projection
+  // passes through - a superset of every mesh a ray along that segment
+  // could possibly hit: if the ray passes through a mesh's AABB, the point
+  // where it does lies in some cell that AABB overlaps, and buildMeshGrid
+  // registers each mesh in every cell its AABB overlaps. Cells are walked
+  // along the segment (2D DDA), so a long ray visits ~length/cellSize
+  // cells rather than the whole bounding rectangle.
+  //
+  // Used for zombie line-of-sight and weapon-fire rays, which used to
+  // bounding-test every one of the ~2000 solidMeshes per ray (measured
+  // 2026-09-28: zombie LOS was the single biggest per-frame CPU cost with a
+  // horde up, ~3.7ms/frame at 20 zombies with 10ms spikes).
+  querySegment(x0, z0, x1, z1) {
+    this.query(x0, z0) // rebuilds (and BVHs) first if the list changed
+    const grid = this.grid
+    const size = grid.cellSize
+    const result = this._queryResult
+    const seen = this._querySeen
+    result.length = 0
+    seen.clear()
+    let cx = Math.floor(x0 / size)
+    let cz = Math.floor(z0 / size)
+    const endCx = Math.floor(x1 / size)
+    const endCz = Math.floor(z1 / size)
+    const dx = x1 - x0
+    const dz = z1 - z0
+    const stepX = dx > 0 ? 1 : -1
+    const stepZ = dz > 0 ? 1 : -1
+    const tDeltaX = dx !== 0 ? Math.abs(size / dx) : Infinity
+    const tDeltaZ = dz !== 0 ? Math.abs(size / dz) : Infinity
+    let tMaxX = dx !== 0 ? ((stepX > 0 ? (cx + 1) * size - x0 : x0 - cx * size) / Math.abs(dx)) : Infinity
+    let tMaxZ = dz !== 0 ? ((stepZ > 0 ? (cz + 1) * size - z0 : z0 - cz * size) / Math.abs(dz)) : Infinity
+    // Hard cap as a safety net against a NaN/huge input looping forever -
+    // the whole 750-unit map is under 40 cells across.
+    for (let guard = 0; guard < 512; guard++) {
+      const bucket = grid.cells.get(cellKey(cx, cz))
+      if (bucket) {
+        for (const mesh of bucket) {
+          if (seen.has(mesh)) continue
+          seen.add(mesh)
+          result.push(mesh)
+        }
+      }
+      if (cx === endCx && cz === endCz) break
+      if (tMaxX < tMaxZ) {
+        if (tMaxX > 1) break
+        cx += stepX
+        tMaxX += tDeltaX
+      } else {
+        if (tMaxZ > 1) break
+        cz += stepZ
+        tMaxZ += tDeltaZ
+      }
+    }
+    return result
+  }
+}
+
+// One shared grid per mesh list - PlayerController's ground sampling and
+// every zombie's line-of-sight check all read the same solidMeshes array,
+// so they share one grid (and one rebuild) instead of each building its own.
+const _sharedMeshGrids = new WeakMap()
+export function meshGridFor(meshes) {
+  let grid = _sharedMeshGrids.get(meshes)
+  if (!grid) {
+    grid = new CachedMeshGrid(meshes)
+    _sharedMeshGrids.set(meshes, grid)
+  }
+  return grid
 }

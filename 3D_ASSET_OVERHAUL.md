@@ -203,7 +203,7 @@ LANE 3 · HERO ONE-OFFS (titan boss, vault, set-pieces — sparingly)
 
 ## 4. Implementation plan (phased, each with acceptance check)
 
-Standing project rules apply: every completed phase → commit → push → `npx vercel --prod --yes`. Verification = Playwright driving real game methods via `page.evaluate()` (no test suite exists; see CLAUDE.md quirks).
+Standing project rules apply: every completed phase → commit → push → `npx vercel --prod --yes`. Verification = Playwright driving real game methods via `page.evaluate()` (plus the committed `npm test` smoke suite; see CLAUDE.md's "Tests + CI" note and Playwright quirks).
 
 ### Phase 0 — Archive & tooling (half a day; do the downloads NOW even if the rest waits)
 1. Download and commit-to-a-private-archive (not the repo — large binaries): Quaternius Animated Zombie, UAL2 free zip, Ultimate Animated Character Pack, KayKit Skeletons, LOWPO Undead free tier. **Inspect UAL2 zip: settles the free-tier animation count + whether a zombie death clip exists.**

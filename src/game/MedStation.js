@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { flatMaterial } from './QualitySettings.js'
+import { markLightSource } from './LightProxies.js'
 
 // A deployable support fixture (see Inventory.js's medStationKits /
 // Game.js's _deployMedStation) - the existing Turret Kit is purely
@@ -41,7 +42,9 @@ export class MedStation {
     indicator.position.set(0, 0.72, 0)
     this.group.add(indicator)
 
-    this.light = new THREE.PointLight(0x6fe08a, 0.8, RANGE + 2)
+    // Placed mid-run - on the proxy source layer from birth so it never
+    // changes the rendered light count (see LightProxies.js).
+    this.light = markLightSource(new THREE.PointLight(0x6fe08a, 0.8, RANGE + 2))
     this.light.position.y = 0.6
     this.group.add(this.light)
 

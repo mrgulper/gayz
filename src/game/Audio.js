@@ -1011,7 +1011,7 @@ class AudioEngine {
     wind.connect(windFilter).connect(windGain).connect(this.ambientGain)
     wind.start(now)
 
-    // Ambient variety by zone (see updateAmbientZone, called every frame
+    // Ambient variety by zone (see updateAmbientZone, called ~10x a second
     // from Game.js's _updateMusicIntensity with the isIndoors flag that
     // function already has on hand - no new detection needed). Kept as
     // instance refs so that call can smoothly ramp them instead of
@@ -1101,7 +1101,10 @@ class AudioEngine {
   updateAmbientZone(indoors) {
     if (!this._windFilter) return
     const target = indoors ? 1 : 0
-    this._ambientIndoorAmount += (target - this._ambientIndoorAmount) * 0.02
+    // 0.114 per call at ~10 calls/sec (Game.js's _updateMusicIntensity
+    // throttle) is the same glide speed the old 0.02 per call had at 60fps:
+    // 1 - (1 - 0.02)^6 ~= 0.114.
+    this._ambientIndoorAmount += (target - this._ambientIndoorAmount) * 0.114
     const freq = 450 - this._ambientIndoorAmount * 280 // 450 outdoor -> 170 indoor
     const gain = 0.034 - this._ambientIndoorAmount * 0.012 // slightly quieter indoors
     const now = this.ctx.currentTime
@@ -1161,7 +1164,10 @@ class AudioEngine {
   setMusicIntensity(intensity) {
     this.musicIntensity = Math.max(0, Math.min(1, intensity))
     this._applyMusicVolume()
-    if (this.music) this.music.playbackRate = 1 + this.musicIntensity * 0.12
+    // Only when it's actually moved - see Game.js's _updateMusicIntensity on
+    // why a playbackRate write isn't free. A 0.2% rate step is inaudible.
+    const rate = 1 + this.musicIntensity * 0.12
+    if (this.music && Math.abs(this.music.playbackRate - rate) > 0.002) this.music.playbackRate = rate
   }
 
   setSfxVolume(volume) {

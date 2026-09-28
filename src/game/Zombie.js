@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { accessibility } from './Accessibility.js'
 import { LOW_QUALITY_MATERIALS, flatMaterial, flattenedClone } from './QualitySettings.js'
+import { meshGridFor } from './ColliderGrid.js'
 
 // Phase 1 of the 3D asset overhaul (see 3D_ASSET_OVERHAUL.md) - real rigged
 // GLB zombie behind a flag, alongside the original procedural builder, so
@@ -427,10 +428,12 @@ export function resetLosRaycastBudget() {
 // Zombie Visual LOD (see _shouldFullyAnimate) - distance/occlusion
 // thresholds and how often a throttled zombie still gets a real animation
 // frame.
-const ANIMATION_LOD_FAR_DISTANCE = 40
+// farDistance/skipFrames are live-adjustable by Auto Quality (see
+// AutoQuality.js's animFar/animSkip - Game.js writes them on each level
+// change); these defaults are level 0.
+export const zombieAnimLod = { farDistance: 40, skipFrames: 3 }
 const ANIMATION_LOD_BEHIND_DISTANCE = 15
 const ANIMATION_LOD_OCCLUSION_MIN_DISTANCE = 10
-const ANIMATION_LOD_SKIP_FRAMES = 3
 
 let zombieIdCounter = 0
 
@@ -1743,8 +1746,14 @@ export class Zombie {
       }
     }
 
+    // Time from frames skipped by the animation LOD carries over to the next
+    // real animation frame - otherwise a throttled zombie's animation plays
+    // at 1/skipFrames speed (slow-motion walk cycles on distant zombies),
+    // which gets more visible the more frames Auto Quality skips.
+    this._animDtAccum = (this._animDtAccum || 0) + dt
     if (this._shouldFullyAnimate(dist, dx, dz, playerPos, solidMeshes, playerForwardX, playerForwardZ)) {
-      this._animate(dt, elapsed)
+      this._animate(Math.min(this._animDtAccum, 0.25), elapsed)
+      this._animDtAccum = 0
     }
   }
 
@@ -2235,7 +2244,10 @@ export class Zombie {
     this._losDir.normalize()
     this._losRaycaster.set(this._losOrigin, this._losDir)
     this._losRaycaster.far = dist - 0.15 // stop just short of the player so their own body isn't a false hit
-    const hits = this._losRaycaster.intersectObjects(solidMeshes, true)
+    // Only the meshes in grid cells this segment crosses (see ColliderGrid.js's
+    // querySegment) - same hits as the whole list, a fraction of the work.
+    const candidates = meshGridFor(solidMeshes).querySegment(this._losOrigin.x, this._losOrigin.z, playerPos.x, playerPos.z)
+    const hits = this._losRaycaster.intersectObjects(candidates, true)
     this._losCachedResult = hits.length === 0
     return this._losCachedResult
   }
@@ -2383,13 +2395,13 @@ export class Zombie {
   //     threaded through for blind-spot flanking - no new camera plumbing).
   //  3. Occluded (reuses _hasLineOfSight, itself already budget-limited -
   //     see LOS_RAYCAST_BUDGET_PER_FRAME - so this never adds unbounded cost).
-  // Throttled zombies still animate every ANIMATION_LOD_SKIP_FRAMES'th
+  // Throttled zombies still animate every zombieAnimLod.skipFrames'th
   // frame rather than freezing outright, so one briefly coming back into
   // clear view mid-throttle never reads as a broken mannequin.
   _shouldFullyAnimate(dist, dx, dz, playerPos, solidMeshes, playerForwardX, playerForwardZ) {
     this._animFrameCounter = (this._animFrameCounter || 0) + 1
     let throttle = false
-    if (dist > ANIMATION_LOD_FAR_DISTANCE) {
+    if (dist > zombieAnimLod.farDistance) {
       throttle = true
     } else if (dist > ANIMATION_LOD_BEHIND_DISTANCE && playerForwardX !== null) {
       const invDist = dist > 0.0001 ? 1 / dist : 0
@@ -2401,7 +2413,7 @@ export class Zombie {
     if (!throttle && dist > ANIMATION_LOD_OCCLUSION_MIN_DISTANCE && solidMeshes && !this._hasLineOfSight(playerPos, solidMeshes)) {
       throttle = true
     }
-    return !throttle || this._animFrameCounter % ANIMATION_LOD_SKIP_FRAMES === 0
+    return !throttle || this._animFrameCounter % zombieAnimLod.skipFrames === 0
   }
 
   _animate(dt, elapsed) {

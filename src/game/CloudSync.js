@@ -486,6 +486,25 @@ export async function pushCloudSave(uid, dataObj) {
   await fsMod.setDoc(fsMod.doc(db, 'saves', uid), { data: dataObj, updatedAt: Date.now() })
 }
 
+// Compare-and-set upload (see CloudMerge.js for why): writes only if the
+// cloud save is still exactly the version this device just read
+// (expectedUpdatedAt, or no save at all when null) - if another device
+// uploaded in between, nothing is written and this returns false so the
+// caller can re-read, re-merge and try again, instead of overwriting that
+// other device's upload. Returns the new updatedAt on success.
+export async function pushCloudSaveIfUnchanged(uid, dataObj, expectedUpdatedAt) {
+  const { db, fsMod } = await ensureApp()
+  const ref = fsMod.doc(db, 'saves', uid)
+  return fsMod.runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    const current = snap.exists() ? snap.data().updatedAt : null
+    if (current !== expectedUpdatedAt) return false
+    const updatedAt = Date.now()
+    tx.set(ref, { data: dataObj, updatedAt })
+    return updatedAt
+  })
+}
+
 // Global Leaderboard - one doc per player, overwritten wholesale each push
 // (not appended), so a player only ever has one entry regardless of how
 // many times they've synced. entry: { name, bestNight, bestKills,

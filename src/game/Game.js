@@ -10,7 +10,7 @@ import { LOW_QUALITY_MODE, flatMaterial } from './QualitySettings.js'
 import { PlayerController } from './PlayerController.js'
 import { WeaponSystem, MELEE_DURABILITY_MAX } from './WeaponSystem.js'
 import { ZombieManager } from './ZombieManager.js'
-import { Zombie, bumpZombieIdCounterPast } from './Zombie.js'
+import { Zombie, bumpZombieIdCounterPast, zombieAnimLod } from './Zombie.js'
 import { PickupManager, Pickup } from './Pickups.js'
 import { PlayerState } from './PlayerState.js'
 import { Inventory } from './Inventory.js'
@@ -150,7 +150,6 @@ import { loadEncountered, saveEncountered } from './Bestiary.js'
 import { ACTIONS, getKeyFor, setBinding, resetBindings, keyLabel, getAllBindings, setAllBindings } from './Keybinds.js'
 import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
-import { EMOJI_CATEGORIES } from './EmojiData.js'
 import * as MenuEasterEggs from './MenuEasterEggs.js'
 import { JOKE_TIPS, FUNNY_TRIVIA } from './MenuEasterEggs.js'
 import { MenuAvatar3D, loadSkinTexture, DEFAULT_SKIN_DATA_URL, SHOP_SKIN_PREVIEW_DATA_URL } from './MenuAvatar3D.js'
@@ -161,6 +160,10 @@ import * as MenuPresets from './MenuPresets.js'
 // instead (see _enterBuildMode) to keep it out of the initial page load.
 import * as CloudSync from './CloudSync.js'
 import * as CloudSaveUI from './CloudSaveUI.js'
+import * as ChatUI from './ChatUI.js'
+import { ensureBoundsTrees } from './RaycastAccel.js'
+import { LightProxyPool } from './LightProxies.js'
+import { AUTO_QUALITY_LEVELS, AutoQualityController, guessInitialLevel, loadSavedLevel } from './AutoQuality.js'
 import { setColorblindMode } from './Accessibility.js'
 import { registerZone } from './Zones.js'
 import { TouchControls } from './TouchControls.js'
@@ -386,6 +389,7 @@ function loadSettings() {
       crosshairSize: parsed.crosshairSize ?? 100,
       adsFov: parsed.adsFov ?? 45,
       motionBlur: parsed.motionBlur ?? false,
+      autoQuality: parsed.autoQuality ?? true,
       fpsCap: parsed.fpsCap ?? 0,
       mouseAcceleration: parsed.mouseAcceleration ?? false,
       invertScrollWeaponSwitch: parsed.invertScrollWeaponSwitch ?? false,
@@ -707,7 +711,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, gamepadDeadzone: 20, gamepadVibration: true, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, autoLootRadius: 'medium', instantStationInteract: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, touchControlsOverride: 'auto', clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'menu-inventory-btn', 'quests-btn', 'friends-btn', 'achievements-btn'], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
+  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, autoQuality: true, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, gamepadDeadzone: 20, gamepadVibration: true, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, autoLootRadius: 'medium', instantStationInteract: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, touchControlsOverride: 'auto', clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'menu-inventory-btn', 'quests-btn', 'friends-btn', 'achievements-btn'], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -720,6 +724,16 @@ const LIGHT_CULL_DISTANCE = LOW_QUALITY_MODE ? 60 : 100
 // distance cull above, for dense light clusters (mall, safe zone) where
 // more than this many lights can all be within range simultaneously.
 const MAX_ACTIVE_LIGHTS = LOW_QUALITY_MODE ? 12 : 20
+// See _updateCulling's object-pass gate.
+const CULL_REPASS_MOVE_DIST = 2
+const CULL_REPASS_EVERY_FRAMES = 15
+// How many real PointLights the renderer ever sees (see LightProxies.js) -
+// every other PointLight in the scene is a "source" whose nearest lit
+// members get copied onto these each frame. Fixed at load (changing it
+// would recompile every shader), so Performance Mode's smaller pool only
+// takes effect after a reload, same as its antialiasing flag.
+const LIGHT_PROXY_COUNT = 10
+const LIGHT_PROXY_COUNT_PERF = 6
 // Adaptive Shadow Quality (see _updateAdaptiveShadowQuality) - the
 // recover threshold sits well above the low threshold (hysteresis) so a
 // borderline framerate right at the boundary can't flicker the
@@ -1084,34 +1098,17 @@ function saveEndingSeen() {
 const ENDING_MILESTONE_NIGHT = 10
 
 let _settingsSavedPulseTimer = null
-let _settingsCloudPushTimer = null
 export function saveSettings(settings) {
   try {
+    // Cloud Save picks this up through its change tracking (see
+    // CloudSaveUI.installChangeTracking) - only when the stored value
+    // actually changed, which matters because the settings autosave timer
+    // calls this every ~30s. The old version stamped "unsynced change" and
+    // queued a full upload on every call, so an idle device kept
+    // re-uploading its stale save over newer progress from other devices.
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
-    // See LAST_LOCAL_CHANGE_KEY's own comment - marks "this device has an
-    // edit that isn't confirmed pushed yet" for _checkForNewerCloudSave.
-    localStorage.setItem(LAST_LOCAL_CHANGE_KEY, String(Date.now()))
   } catch {
     // Storage unavailable (e.g. private browsing) - setting just won't persist.
-  }
-  // Debounced background cloud push - Settings-only edits (bio, nickname,
-  // etc.) used to only ever reach the cloud at run-end or a manual Sync
-  // Now, so an edit with no run played afterward never left this device
-  // at all (see _checkForNewerCloudSave's own comment, Game.js, for the
-  // matching pull-side half of this fix). window.__game, not `this` -
-  // same reason the autosave-pulse code above uses it, this is a plain
-  // standalone function. Silent/best-effort like the run-end push already
-  // is, and debounced rather than pushing on every single keystroke -
-  // waits a few seconds for changes to actually settle first.
-  if (window.__game && window.__game._cloudUid) {
-    clearTimeout(_settingsCloudPushTimer)
-    _settingsCloudPushTimer = setTimeout(() => {
-      // Same _importingSave guard _applyImportedSaveData sets during its
-      // own clear+restore+reload - a restore just wrote newer data than
-      // this debounced push captured, so pushing now would overwrite it
-      // right back, the exact race that function's own comment covers.
-      if (window.__game && !window.__game._importingSave) CloudSaveUI.pushToCloud(window.__game, false)
-    }, 3000)
   }
   // Subtle autosave confirmation - only pulses while the Settings panel is
   // actually open (a plain computed-style check, since this is a
@@ -1903,7 +1900,7 @@ function loadShopProgress() {
 
 function saveShopProgress(game) {
   try {
-    localStorage.setItem(SHOP_PROGRESS_KEY, JSON.stringify({
+    const json = JSON.stringify({
       points: game.points,
       coins: game.coins,
       cash: game.cash,
@@ -1933,7 +1930,15 @@ function saveShopProgress(game) {
         return ids
       }),
       crateStock: game.crateStock,
-    }))
+    })
+    // Skip identical writes - this runs from _updateStatsPanel after nearly
+    // every points/coins change, and a localStorage write is synchronous on
+    // the main thread. Compared against what's actually stored (not a
+    // cached "last thing I wrote") so a write from elsewhere - a cloud
+    // restore, an imported save - still gets overwritten exactly as it
+    // always did; only a true no-op write is skipped.
+    if (localStorage.getItem(SHOP_PROGRESS_KEY) === json) return
+    localStorage.setItem(SHOP_PROGRESS_KEY, json)
   } catch {
     // Storage unavailable - shop progress just won't persist across sessions.
   }
@@ -2821,7 +2826,10 @@ const GOAL_CANDIDATES = [
 // onAuthChange restores _cloudProfile/_cloudUid from that directly.
 export const CLOUD_LAST_SYNC_KEY = 'gayz-cloud-last-sync'
 
-// Stamped by saveSettings on every call - lets _checkForNewerCloudSave
+// Stamped by Cloud Save's change tracking (CloudSaveUI.installChangeTracking)
+// whenever any synced value actually changes - originally stamped by
+// saveSettings alone. Now only decides settings-style merge conflicts
+// (whichever device changed more recently wins); history below. Lets _checkForNewerCloudSave
 // (see its own comment) tell "this device has an edit that hasn't been
 // pushed yet" apart from "this device is fully caught up", instead of
 // only ever comparing the cloud's timestamp against when this device
@@ -3902,8 +3910,8 @@ const PROFANITY_ENTRIES = PROFANITY_WORDS.map((word) => {
   return { regex: new RegExp(`(?<![a-zA-Z])${pattern}(?![a-zA-Z])`, 'gi'), replacement: PROFANITY_REPLACEMENTS[word] || null }
 })
 
-// Runs right before a chat message is sent (see _sendChatMessage/
-// _sendServerChatMessage) so the censored text is what actually reaches
+// Runs right before a chat message is sent (see ChatUI.sendChatMessage/
+// ChatUI.sendServerChatMessage) so the censored text is what actually reaches
 // Firestore - every viewer sees it censored, not just the sender's own
 // client (there's no backend here to filter on the way in, same trust
 // model as everything else in this file - see CLAUDE.md's anti-cheat
@@ -4445,7 +4453,7 @@ export class Game {
     // above which is a performance.now() elapsed-ms counter unrelated to
     // real dates) captured once here, at construction, not re-captured on
     // every panel open/close or game restart within the same page load.
-    // _renderServerChatMessages/_renderChatMessages filter out anything
+    // ChatUI.renderServerChatMessages/ChatUI.renderChatMessages filter out anything
     // with an earlier createdAt - nothing is deleted from Firestore, this
     // only affects what THIS client's own view renders.
     this._chatSessionStartMs = Date.now()
@@ -4511,6 +4519,7 @@ export class Game {
     this.gfxResolutionValue = document.getElementById('gfx-resolution-value')
     this.fpsCapSelect = document.getElementById('fps-cap-select')
     this.motionBlurToggle = document.getElementById('motion-blur-toggle')
+    this.autoQualityToggle = document.getElementById('auto-quality-toggle')
     this.gfxBrightnessSlider = document.getElementById('gfx-brightness-slider')
     this.gfxBrightnessValue = document.getElementById('gfx-brightness-value')
     this.gfxContrastSlider = document.getElementById('gfx-contrast-slider')
@@ -5611,6 +5620,10 @@ export class Game {
 
     this.player = new PlayerController(this.camera, this.canvas, colliders, solidMeshes)
     this.scene.add(this.player.controls.object)
+    // Build the static world's raycast BVHs now, during construction,
+    // rather than letting the player controller's first grid rebuild do it
+    // on the first frame of gameplay - see RaycastAccel.js.
+    ensureBoundsTrees(solidMeshes)
 
     this._addFlashlight()
 
@@ -6487,9 +6500,9 @@ export class Game {
     this._bindHotbar()
     this._bindNavButtonFocusFix()
     this._bindClanSection()
-    this._bindChatWidget()
-    this._bindServerChat()
-    this._bindEmojiPicker()
+    ChatUI.bindChatWidget(this)
+    ChatUI.bindServerChat(this)
+    ChatUI.bindEmojiPicker(this)
     this._bindSettings()
     this._bindGraphicsSettings()
     this._bindGeneralSettings()
@@ -6550,6 +6563,25 @@ export class Game {
     this._buildLoreMarkers()
     this._buildWetStreetSheen()
     this._buildNightSky()
+
+    // Must come after everything above has created its lights (world lamps,
+    // the FX light pool, muzzle flash, companions...) and before
+    // _warmUpShaders below, so shaders are compiled once against the final,
+    // fixed light count. See LightProxies.js.
+    //
+    // Auto Quality (see AutoQuality.js) starts from the level this device
+    // ended its last session on (or a first-visit guess from the device
+    // type), and that level also caps the proxy light count - the one lever
+    // that can't change mid-session without recompiling every shader.
+    const autoQualityStartLevel = this.settings.autoQuality ? (loadSavedLevel() ?? guessInitialLevel()) : 0
+    const baseLightCount = this.settings.performanceMode ? LIGHT_PROXY_COUNT_PERF : LIGHT_PROXY_COUNT
+    const lightCount = this.settings.autoQuality ? Math.min(baseLightCount, AUTO_QUALITY_LEVELS[autoQualityStartLevel].lights) : baseLightCount
+    this.lightProxies = new LightProxyPool(this.scene, lightCount)
+    this._lightProxyViewPos = new THREE.Vector3()
+    this.autoQuality = new AutoQualityController(autoQualityStartLevel, (config) => this._applyAutoQualityLevel(config))
+    this._aqGameplayFrames = 0
+    this._fpsSampleFrames = 0
+    this._applyAutoQualityLevel(this.settings.autoQuality ? this.autoQuality.config : AUTO_QUALITY_LEVELS[0])
 
     this.timer = new THREE.Timer()
     this.timer.connect(document)
@@ -7824,7 +7856,7 @@ export class Game {
   // full screenshot - lets a player select just the part of the frame they
   // want without needing their OS's own screenshot tool.
   _takeScreenshot() {
-    this.composer.render()
+    this._renderMainScene()
     this._screenshotDataUrl = this.canvas.toDataURL('image/png')
     this.screenshotCropOpen = true
     this.screenshotCropImage.src = this._screenshotDataUrl
@@ -11120,6 +11152,7 @@ export class Game {
     this.coinshopBtn.addEventListener('click', () => trackAndOpen(() => this._openShopPanel()))
     this._bindHomepageBatch()
     CloudSaveUI.bindCloudSave(this)
+    CloudSaveUI.installChangeTracking(this)
     this._startPresenceHeartbeat()
     this._checkBeatThisChallenge()
     this._checkViewProfileLink()
@@ -11284,6 +11317,18 @@ export class Game {
         const value = Number(this.fpsCapSelect.value)
         this.settings.fpsCap = value
         this._fpsCapMinFrameMs = value > 0 ? 1000 / value : 0
+        saveSettings(this.settings)
+      })
+    }
+    // Auto Quality (see AutoQuality.js) - turning it off snaps straight back
+    // to full quality (level 0's levers) rather than freezing wherever it
+    // had got to; turning it back on resumes from its current level. The
+    // light count is fixed at load, so that part follows on the next reload.
+    if (this.autoQualityToggle) {
+      this.autoQualityToggle.checked = this.settings.autoQuality
+      this.autoQualityToggle.addEventListener('change', () => {
+        this.settings.autoQuality = this.autoQualityToggle.checked
+        this._applyAutoQualityLevel(this.settings.autoQuality ? this.autoQuality.config : AUTO_QUALITY_LEVELS[0])
         saveSettings(this.settings)
       })
     }
@@ -12577,7 +12622,7 @@ export class Game {
   }
 
   // Same panel, reached by pasting a Player ID into chat instead of
-  // clicking a Friends row (see _bindChatContextActions/_bindServerChat's
+  // clicking a Friends row (see ChatUI.bindChatContextActions/ChatUI.bindServerChat's
   // .chat-message-id-link handler) - looked up by playerId
   // (fetchLeaderboardEntryByPlayerId) rather than uid, everything else
   // about opening/rendering the panel is identical.
@@ -13354,48 +13399,23 @@ export class Game {
   // whether THIS device has an edit newer than its last sync
   // (LAST_LOCAL_CHANGE_KEY, stamped by saveSettings on every call) before
   // deciding what to do, instead of only ever considering the cloud side.
-  async _checkForNewerCloudSave(uid) {
-    let cloud
-    try {
-      cloud = await CloudSync.fetchCloudSave(uid)
-    } catch {
-      return
-    }
-    if (!cloud) return
-    const localSyncTime = Number(localStorage.getItem(CLOUD_LAST_SYNC_KEY)) || 0
-    const localChangeTime = Number(localStorage.getItem(LAST_LOCAL_CHANGE_KEY)) || 0
-    // A few seconds' slack on the cloud-vs-sync comparison only: this
-    // device's own last push sets its local CLOUD_LAST_SYNC_KEY and the
-    // cloud doc's updatedAt from two separate Date.now() calls a moment
-    // apart, not one shared timestamp - without this, a device could
-    // occasionally mistake its own just-pushed save for "something newer
-    // elsewhere." No slack needed against localChangeTime - saveSettings
-    // always stamps that well before any push that could follow it.
-    const cloudIsNewer = cloud.modifiedTime > localSyncTime + 5000
-    const hasUnpushedLocalChange = localChangeTime > localSyncTime
-    if (!hasUnpushedLocalChange) {
-      // Common case: this device hasn't touched anything since it last
-      // synced, so it's always safe to just catch up on whatever's newer.
-      if (cloudIsNewer) CloudSaveUI.applyCloudSaveData(this, cloud.data)
-      return
-    }
-    if (!cloudIsNewer) {
-      // This device has its own edit the cloud doesn't have yet, but the
-      // cloud hasn't moved since this device's last sync either - nothing
-      // to lose by sending it up now instead of waiting on run-end.
-      await CloudSaveUI.pushToCloud(this, false)
-      return
-    }
-    // Genuine conflict - both sides changed since this device's last
-    // sync. Last-write-wins by absolute timestamp rather than always
-    // favoring one side outright; whichever wins still gets pushed
-    // through applyCloudSaveData/pushToCloud, so the cloud ends up
-    // matching whatever's actually showing here either way.
-    if (cloud.modifiedTime > localChangeTime) {
-      CloudSaveUI.applyCloudSaveData(this, cloud.data)
-    } else {
-      await CloudSaveUI.pushToCloud(this, false)
-    }
+  //
+  // Replaced 2026-09-28 by the three-way merge sync (see CloudMerge.js):
+  // the timestamp comparison here could only ever pick ONE whole side -
+  // whichever device's save "won" silently discarded everything the other
+  // device had done - and its "unpushed change" signal only covered
+  // settings, not stats/coins/purchases. uid is unused now (the sync reads
+  // this._cloudUid) but kept so the caller didn't need to change.
+  async _checkForNewerCloudSave(_uid) {
+    await CloudSaveUI.syncWithCloud(this, { allowApply: !this.gameStarted })
+  }
+
+  // In-memory state that's normally only written on page close
+  // (beforeunload) - flushed early when the tab is hidden, so Cloud Save's
+  // on-hide sync uploads it too (see CloudSaveUI.installChangeTracking).
+  _flushLocalSave() {
+    if (this._importingSave) return
+    saveShopProgress(this)
   }
 
   // See _afterCloudSignIn's own comment - the one condition under which a
@@ -14175,7 +14195,31 @@ export class Game {
     // rendered/shadow-cast/lit AREA by roughly another 30% on top of the
     // existing cut (radius is squared for area) - a real, untested-until-now
     // change, not a rerun of anything already tried and shown not to help.
-    this._perfDistanceMult = enabled ? 0.5 : 1
+    this._perfDistanceBaseMult = enabled ? 0.5 : 1
+    this._applyViewDistance()
+  }
+
+  // Applies one Auto Quality level's levers (see AutoQuality.js). Level 0's
+  // values are exactly the pre-Auto-Quality defaults, so turning the
+  // setting off just applies level 0.
+  _applyAutoQualityLevel(config) {
+    this._dynResScale = config.res
+    this._applyRenderScale()
+    this._autoViewMult = config.view
+    this._applyViewDistance()
+    zombieAnimLod.farDistance = config.animFar
+    zombieAnimLod.skipFrames = config.animSkip
+    // Zombie cap ceiling is read live by the population governor in _tick.
+  }
+
+  // Performance Mode's distance cut (_perfDistanceBaseMult) times Auto
+  // Quality's view multiplier (_autoViewMult, see AutoQuality.js) -
+  // everything that reads _perfDistanceMult (culling, light range, chests,
+  // camera far plane) shrinks together. Fog shrinks by the same auto
+  // multiplier in _applyFogState, so a shorter view fades out instead of
+  // ending at a hard edge.
+  _applyViewDistance() {
+    this._perfDistanceMult = (this._perfDistanceBaseMult ?? 1) * (this._autoViewMult ?? 1)
     const far = (WORLD_CULL_DISTANCE * this._perfDistanceMult) + 5
     this.camera.far = far
     this.camera.updateProjectionMatrix()
@@ -15951,7 +15995,7 @@ export class Game {
     // Reading chat is public (no sign-in needed - see #server-chat-wrap's
     // own CSS comment), so this starts immediately, unlike the sign-in
     // gate below.
-    this._subscribeServerChat()
+    ChatUI.subscribeServerChat(this)
     // See _authReadyPromise's own comment (Game.js constructor) - same
     // false-"you're signed out" race Friends/Profile/Clan already guard
     // against with this same await. Without it, opening this panel
@@ -15961,333 +16005,12 @@ export class Game {
     // permanently until they open a different panel) sees the sign-in
     // prompt instead of the chat input.
     await this._authReadyPromise
-    this._renderServerChatSignInState()
+    ChatUI.renderServerChatSignInState(this)
   }
 
   _closeServerPanel() {
     if (this.serverPanel) this.serverPanel.style.display = 'none'
-    this._unsubscribeServerChat()
-  }
-
-  // Global panel chat (#server-panel) - see CloudSync.js's
-  // sendServerChatMessage for why this is a separate chat room from the
-  // in-game HUD's #chat-panel, not the same conversation. Structurally a
-  // much simpler cousin of _bindChatWidget's global channel: no tab
-  // switching (this panel IS the global channel, always), no pointer-lock/
-  // gameplay-hotkey handling (this only ever opens from the homepage
-  // menu, never mid-run), own rate-limit state so it doesn't share
-  // counters with the in-game chat.
-  _bindServerChat() {
-    if (!this.serverPanel) return
-    this._serverChatUnsub = null
-    this._serverChatSendTimestamps = []
-    this._serverChatMutedUntil = 0
-    this._serverChatMuteTimer = null
-
-    if (this.serverChatSigninBtn) this.serverChatSigninBtn.addEventListener('click', () => this._handleCloudSignIn())
-
-    if (this.serverChatInputRow) {
-      this.serverChatInputRow.addEventListener('submit', (e) => {
-        e.preventDefault()
-        this._sendServerChatMessage()
-      })
-    }
-
-    if (this.serverChatMessages) {
-      // Left-click a name to copy their Player ID directly; right-click
-      // shows the shared "Name #ID" + Mute popup (see _showPlayerIdPopup) -
-      // same technique as the in-game HUD chat's identical feature.
-      //
-      // Looks up by uid (the message's own stored sender uid, see
-      // sendGlobalChatMessage - a direct leaderboard/{uid} doc GET) when
-      // available, falling back to the old by-name query only if it isn't
-      // (very old cached messages sent before this field existed). Real
-      // bug fixed here (2026-09-22): nickname isn't a stable key - it's
-      // just whatever the sender's CURRENT nickname happens to be, so a
-      // message sent under an older nickname (or with a name that doesn't
-      // exactly match, case/whitespace included) silently failed this
-      // lookup and showed the "not found" toast instead of ever copying/
-      // showing the Copied badge. uid never changes, so this can't drift.
-      const lookupEntry = async (nickname, uid) => {
-        try {
-          if (uid) {
-            const byUid = await CloudSync.fetchLeaderboardEntryByUid(uid)
-            if (byUid) return byUid
-          }
-          return await CloudSync.fetchLeaderboardEntryByName(nickname)
-        } catch {
-          // Falls through to the "not found" toast below, same as every
-          // other best-effort leaderboard lookup in this file.
-          return null
-        }
-      }
-      const openPopupForNickname = async (e, btn) => {
-        const nickname = btn.dataset.nickname
-        if (!nickname) return
-        const entry = await lookupEntry(nickname, btn.dataset.uid)
-        if (!entry || !entry.playerId) {
-          this._showHomepageToast(t('chatCopyPlayerIdNotFound', { name: nickname }))
-          return
-        }
-        this._showPlayerIdPopup(e.clientX, e.clientY, nickname, entry.playerId)
-      }
-      this.serverChatMessages.addEventListener('contextmenu', (e) => {
-        const btn = e.target.closest('.chat-message-nickname')
-        if (!btn) return
-        e.preventDefault()
-        openPopupForNickname(e, btn)
-      })
-      this._bindChatNicknameLongPress(this.serverChatMessages, openPopupForNickname)
-      // Click an ID pasted into a message (see _renderChatMessageText) to
-      // look up that player's stats - same feature as the in-game HUD chat.
-      this.serverChatMessages.addEventListener('click', async (e) => {
-        const nameBtn = e.target.closest('.chat-message-nickname')
-        if (nameBtn) {
-          const nickname = nameBtn.dataset.nickname
-          if (!nickname) return
-          const entry = await lookupEntry(nickname, nameBtn.dataset.uid)
-          if (!entry || !entry.playerId) {
-            this._showHomepageToast(t('chatCopyPlayerIdNotFound', { name: nickname }))
-            return
-          }
-          this._copyChatPlayerId(entry.playerId, nameBtn, (msg) => this._showHomepageToast(msg))
-          return
-        }
-        const link = e.target.closest('.chat-message-id-link')
-        if (link) {
-          const id = link.dataset.lookupId
-          if (!id) return
-          this._openOtherPlayerProfileById(id)
-          return
-        }
-        const showBtn = e.target.closest('.chat-blocked-show-btn')
-        if (showBtn) this._revealBlockedMessage(showBtn)
-      })
-    }
-  }
-
-  // One shared #emoji-picker overlay (position:fixed, see its own CSS
-  // comment for why) rather than a separate copy per chat input - reused
-  // by both #chat-emoji-btn (in-game HUD chat, covers Global/Clan/Party
-  // since they all share #chat-input) and #server-chat-emoji-btn (the
-  // homepage Global panel's own input). Repositioned and re-targeted
-  // every time it opens rather than kept permanently bound to one input.
-  _bindEmojiPicker() {
-    if (!this.emojiPicker) return
-    this.emojiPickerCategories.innerHTML = EMOJI_CATEGORIES.map(
-      (cat) => `<button type="button" class="emoji-picker-category-btn" data-emoji-category="${cat.id}" title="${_escapeHtml(t(cat.labelKey))}">${cat.icon}</button>`
-    ).join('')
-    this._emojiPickerTarget = null
-
-    const openFor = (triggerBtn, targetInput) => {
-      if (!targetInput) return
-      if (this.emojiPicker.style.display !== 'none' && this._emojiPickerTarget === targetInput) {
-        this._closeEmojiPicker()
-        return
-      }
-      this._emojiPickerTarget = targetInput
-      this.emojiPickerSearch.value = ''
-      this._renderEmojiPickerList('')
-      this.emojiPicker.style.display = 'flex'
-      // Anchored above the trigger button (chat inputs sit at the bottom
-      // of their panel) and clamped inside the viewport - offsetWidth/
-      // Height read AFTER display:flex so they're the real rendered
-      // size, not 0 from a still-display:none element.
-      const rect = triggerBtn.getBoundingClientRect()
-      const pickerWidth = this.emojiPicker.offsetWidth
-      const pickerHeight = this.emojiPicker.offsetHeight
-      let left = rect.right - pickerWidth
-      left = Math.max(8, Math.min(left, window.innerWidth - pickerWidth - 8))
-      let top = rect.top - pickerHeight - 8
-      if (top < 8) top = Math.min(rect.bottom + 8, window.innerHeight - pickerHeight - 8)
-      this.emojiPicker.style.left = `${left}px`
-      this.emojiPicker.style.top = `${top}px`
-      for (const btn of document.querySelectorAll('.chat-emoji-btn')) btn.classList.toggle('active', btn === triggerBtn)
-    }
-
-    if (this.chatEmojiBtn) {
-      this.chatEmojiBtn.addEventListener('click', (e) => {
-        e.preventDefault()
-        openFor(this.chatEmojiBtn, this.chatInput)
-      })
-    }
-    if (this.serverChatEmojiBtn) {
-      this.serverChatEmojiBtn.addEventListener('click', (e) => {
-        e.preventDefault()
-        openFor(this.serverChatEmojiBtn, this.serverChatInput)
-      })
-    }
-
-    this.emojiPickerSearch.addEventListener('input', () => this._renderEmojiPickerList(this.emojiPickerSearch.value))
-    this.emojiPickerSearch.addEventListener('click', (e) => e.stopPropagation())
-
-    this.emojiPickerCategories.addEventListener('click', (e) => {
-      const btn = e.target.closest('.emoji-picker-category-btn')
-      if (!btn) return
-      this.emojiPickerList.querySelector(`.emoji-picker-section-label[data-emoji-section="${btn.dataset.emojiCategory}"]`)?.scrollIntoView({ block: 'start' })
-    })
-
-    this.emojiPickerList.addEventListener('click', (e) => {
-      const item = e.target.closest('.emoji-picker-item')
-      if (!item || !this._emojiPickerTarget) return
-      this._insertEmojiIntoInput(this._emojiPickerTarget, item.textContent)
-    })
-
-    // Click-outside-closes - the two trigger buttons already toggle it
-    // themselves in openFor() above, so excluded here to avoid a
-    // close-then-immediately-reopen double-fire on the same click.
-    document.addEventListener('click', (e) => {
-      if (this.emojiPicker.style.display === 'none') return
-      if (this.emojiPicker.contains(e.target)) return
-      if (e.target === this.chatEmojiBtn || e.target === this.serverChatEmojiBtn) return
-      this._closeEmojiPicker()
-    })
-  }
-
-  _closeEmojiPicker() {
-    if (!this.emojiPicker) return
-    this.emojiPicker.style.display = 'none'
-    this._emojiPickerTarget = null
-    for (const btn of document.querySelectorAll('.chat-emoji-btn')) btn.classList.remove('active')
-  }
-
-  _renderEmojiPickerList(filterText) {
-    const filter = filterText.trim().toLowerCase()
-    this.emojiPickerList.innerHTML = ''
-    let anyMatch = false
-    for (const cat of EMOJI_CATEGORIES) {
-      const matches = filter ? cat.emojis.filter((e) => e.k.includes(filter)) : cat.emojis
-      if (matches.length === 0) continue
-      anyMatch = true
-      const label = document.createElement('div')
-      label.className = 'emoji-picker-section-label'
-      label.textContent = t(cat.labelKey)
-      label.dataset.emojiSection = cat.id
-      this.emojiPickerList.appendChild(label)
-      const grid = document.createElement('div')
-      grid.className = 'emoji-picker-grid'
-      for (const e of matches) {
-        const btn = document.createElement('button')
-        btn.type = 'button'
-        btn.className = 'emoji-picker-item'
-        btn.textContent = e.c
-        grid.appendChild(btn)
-      }
-      this.emojiPickerList.appendChild(grid)
-    }
-    if (!anyMatch) {
-      const empty = document.createElement('p')
-      empty.id = 'emoji-picker-empty'
-      empty.textContent = t('emojiPickerNoResults')
-      this.emojiPickerList.appendChild(empty)
-    }
-  }
-
-  // Inserts at the current cursor position (or replaces a selection)
-  // rather than always appending to the end, and stops at the input's
-  // own maxlength (300, same cap chat messages already have) instead of
-  // silently typing past it.
-  _insertEmojiIntoInput(input, emoji) {
-    const start = input.selectionStart ?? input.value.length
-    const end = input.selectionEnd ?? input.value.length
-    const maxLen = Number(input.maxLength) > 0 ? input.maxLength : Infinity
-    const next = input.value.slice(0, start) + emoji + input.value.slice(end)
-    if (next.length > maxLen) return
-    input.value = next
-    input.focus()
-    const caret = start + emoji.length
-    input.setSelectionRange(caret, caret)
-  }
-
-  _subscribeServerChat() {
-    if (this._serverChatUnsub) return
-    this._serverChatUnsub = CloudSync.subscribeServerChat((msgs) => this._renderServerChatMessages(msgs))
-  }
-
-  _unsubscribeServerChat() {
-    if (this._serverChatUnsub) {
-      this._serverChatUnsub()
-      this._serverChatUnsub = null
-    }
-  }
-
-  _renderServerChatMessages(msgs) {
-    if (!this.serverChatMessages) return
-    this._lastServerChatMsgs = msgs
-    const muted = new Set(this.settings.mutedChatPlayers)
-    // Hides pre-existing history on a fresh page load (see
-    // _chatSessionStartMs's own comment) - this is the only case that
-    // actually drops a message; a muted sender's message stays in
-    // `visible` and renders as a "Blocked message - Show" placeholder
-    // instead (see _renderChatMessageRow) rather than disappearing
-    // outright.
-    const visible = msgs.filter((m) => !(m.createdAt && m.createdAt <= this._chatSessionStartMs))
-    // Always linkify here (unlike the in-game HUD chat's channel-gated
-    // version) - this panel IS the global channel, always, no tabs to
-    // gate on (see _bindServerChat's own comment).
-    this.serverChatMessages.innerHTML = visible.map((m) => this._renderChatMessageRow(m, true, muted.has(m.nickname))).join('')
-    this.serverChatMessages.scrollTop = this.serverChatMessages.scrollHeight
-  }
-
-  // Toggles the sign-in prompt vs. the actual input form (see
-  // #server-chat-wrap's own CSS comment - the message list itself always
-  // shows, reading is public). Called on panel open and again whenever
-  // sign-in state changes (CloudSaveUI.renderCloudSaveState) so the panel
-  // updates live if it's open while the player signs in/out.
-  _renderServerChatSignInState() {
-    if (!this.serverChatSignedOut) return
-    const signedIn = !!this._cloudUid
-    this.serverChatSignedOut.style.display = signedIn ? 'none' : 'flex'
-    if (this.serverChatInputRow) this.serverChatInputRow.style.display = signedIn ? 'flex' : 'none'
-    if (this.serverChatSignedOutDesc) this.serverChatSignedOutDesc.textContent = t('chatSignInRequired')
-    if (this.serverChatSigninBtn) this.serverChatSigninBtn.textContent = t('cloudsaveSigninBtn')
-  }
-
-  async _sendServerChatMessage() {
-    if (!this.serverChatInput) return
-    const text = _censorText(this.serverChatInput.value.trim())
-    if (!text) return
-    const now = Date.now()
-    if (this._serverChatMutedUntil > now) return
-    // Same 5-in-10s -> 5-minute mute as the in-game chat's own send
-    // handler, own counters though (see _bindServerChat's comment).
-    this._serverChatSendTimestamps = this._serverChatSendTimestamps.filter((ts) => now - ts < 10000)
-    this._serverChatSendTimestamps.push(now)
-    if (this._serverChatSendTimestamps.length > 5) {
-      this._serverChatMutedUntil = now + 5 * 60 * 1000
-      this._serverChatSendTimestamps = []
-      this._startServerChatMuteCountdown()
-      return
-    }
-    if (!this._cloudUid) {
-      this._showHomepageToast(t('chatSignInRequired'))
-      return
-    }
-    const nickname = this.settings.nickname || 'Player'
-    this.serverChatInput.value = ''
-    const ok = await CloudSync.sendServerChatMessage(this._cloudUid, nickname, text).then(
-      () => true,
-      () => false
-    )
-    if (!ok) this._showHomepageToast(t('chatSendFailed'))
-  }
-
-  _startServerChatMuteCountdown() {
-    if (!this.serverChatMutedNotice) return
-    if (this._serverChatMuteTimer) clearInterval(this._serverChatMuteTimer)
-    const tick = () => {
-      const secondsLeft = Math.ceil((this._serverChatMutedUntil - Date.now()) / 1000)
-      if (secondsLeft <= 0) {
-        this.serverChatMutedNotice.style.display = 'none'
-        clearInterval(this._serverChatMuteTimer)
-        this._serverChatMuteTimer = null
-        return
-      }
-      this.serverChatMutedNotice.textContent = t('chatMutedNotice', { seconds: secondsLeft })
-      this.serverChatMutedNotice.style.display = 'block'
-    }
-    tick()
-    this._serverChatMuteTimer = setInterval(tick, 1000)
+    ChatUI.unsubscribeServerChat(this)
   }
 
   // Entering/exiting the drivable car (see Vehicle.js). While driving, the
@@ -16529,6 +16252,7 @@ export class Game {
     document.getElementById('double-click-speed-label').textContent = t('doubleClickSpeedLabel')
     document.getElementById('fps-cap-label').textContent = t('fpsCapLabel')
     document.getElementById('motion-blur-label').textContent = t('motionBlurLabel')
+    document.getElementById('auto-quality-label').textContent = t('autoQualityLabel')
     document.getElementById('kill-feed-position-label').textContent = t('killFeedPositionLabel')
     document.getElementById('kill-feed-verbosity-label').textContent = t('killFeedVerbosityLabel')
     document.getElementById('kill-feed-icons-label').textContent = t('killFeedIconsLabel')
@@ -19200,7 +18924,7 @@ export class Game {
     }
     this._multiplayerSessionId = sessionId
     this._multiplayerUid = uid
-    this._updateChatTabAvailability()
+    ChatUI.updateChatTabAvailability(this)
     // Phase 6 multiplayer (docs/superpowers/specs/2026-08-25-multiplayer-phase6-scaling-migration-design.md) -
     // this player's own server-recorded join time, needed to compare
     // against every OTHER player's joinedAt (_otherPlayerJoinedAt) when
@@ -19234,7 +18958,7 @@ export class Game {
       const { uid, joinedAt } = await Multiplayer.joinSession(sessionId, nickname, this.settings.customSkinDataUrl)
       this._multiplayerSessionId = sessionId
       this._multiplayerUid = uid
-      this._updateChatTabAvailability()
+      ChatUI.updateChatTabAvailability(this)
       this._myJoinedAt = joinedAt
       this._multiplayerIsHost = false
       // Not known yet - the very next sync call's `host` field fills this
@@ -19340,7 +19064,7 @@ export class Game {
             hasNew = true
           }
           if (this._chatPartyMessages.length > 100) this._chatPartyMessages = this._chatPartyMessages.slice(-100)
-          if (hasNew && this._chatChannel === 'party') this._renderChatMessages(this._chatPartyMessages)
+          if (hasNew && this._chatChannel === 'party') ChatUI.renderChatMessages(this, this._chatPartyMessages)
         }
         // Phase 6 multiplayer - kept warm the same way per-zombie full
         // state is (Step 1 above), for the same reason - see Task 14.
@@ -20284,7 +20008,7 @@ export class Game {
       this._multiplayerSessionId = null
       this._chatPartyMessages = []
       this._chatPartySeenIds = new Set()
-      this._updateChatTabAvailability()
+      ChatUI.updateChatTabAvailability(this)
     }
     for (const body of this._remotePlayerBodies.values()) {
       body.group.parent?.remove(body.group)
@@ -20562,7 +20286,7 @@ export class Game {
     // Shareable run-summary card (see _generateRunSummaryCard) - captures
     // the actual moment-of-death frame before any HUD teardown/UI change,
     // same composer.render()+toDataURL technique _takeScreenshot uses.
-    this.composer.render()
+    this._renderMainScene()
     this._runCardBaseImage = this.canvas.toDataURL('image/png')
     // Death Killcam (see DEATH_KILLCAM_DURATION_MS's own comment) - reuses
     // the boss/wave-clear slow-mo mechanism, timed to cover the death cam's
@@ -20928,6 +20652,10 @@ export class Game {
     const fctx = face.getContext('2d')
     fctx.imageSmoothingEnabled = false
     fctx.drawImage(skin.texture.image, 8, 8, 8, 8, 0, 0, 64, 64)
+    // Hat layer on top of the face - loadSkinTexture no longer flattens the
+    // overlay onto the base, so the badge composites it itself (only when
+    // the 3D character actually shows a hat, see overlayParts).
+    if (skin.overlayParts && skin.overlayParts.has('head')) fctx.drawImage(skin.texture.image, 40, 8, 8, 8, 0, 0, 64, 64)
     const dataUrl = face.toDataURL('image/png')
     this.menuAvatarPhoto.src = dataUrl
     this.menuAvatarPhoto.classList.remove('loading')
@@ -21586,7 +21314,7 @@ export class Game {
   // with no onload race. Still finishes through the shared
   // _finalizeScreenshotCanvas so it gets the same watermark+download step.
   _generateCareerPortrait() {
-    this.composer.render()
+    this._renderMainScene()
     const canvas = document.createElement('canvas')
     canvas.width = this.canvas.width
     canvas.height = this.canvas.height
@@ -23108,526 +22836,6 @@ export class Game {
     this._updateHotbarHud()
   }
 
-  // Chat - Global/Clan/Party channels, always visible (see #chat-panel's
-  // own CSS comment for why this isn't a click-to-open widget any more).
-  // Global and Clan are live Firestore subscriptions (see CloudSync.js);
-  // Party comes through the multiplayer sync poll instead (see
-  // _syncNetworkPlayerState and its response handler) since a multiplayer
-  // session isn't Firebase-Auth-signed-in at all. Only one channel is
-  // ever subscribed at a time (switching tabs unsubscribes the old one
-  // first) to keep the read cost bounded, but - unlike the old toggle
-  // version - always subscribed to SOME channel from the moment the game
-  // loads, since there's no more "closed" state to gate it behind.
-  _bindChatWidget() {
-    if (!this.chatPanel) return
-    this._chatChannel = 'global'
-    this._chatUnsub = null
-    this._chatSendTimestamps = []
-    this._chatMutedUntil = 0
-    this._chatMuteTimer = null
-    this._chatPartySeenIds = new Set()
-    this._chatPartyMessages = []
-    this._pendingChatText = null
-    this._pendingChatNickname = null
-    this._chatInputFocused = false
-
-    this.chatInput.addEventListener('focus', () => {
-      this._chatInputFocused = true
-    })
-    this.chatInput.addEventListener('blur', () => {
-      this._chatInputFocused = false
-      // Focusing chat released pointer lock (see _onGameplayPaused's own
-      // comment on this) - re-acquire it on blur so aim/look resumes,
-      // same re-lock-on-close convention every other panel that unlocks
-      // itself already follows (e.g. _closeTraderPanel). Only mid-run -
-      // there's no pointer lock to reacquire on the homepage.
-      if (this.gameStarted && this.playerState.alive) this._requestPointerLock()
-    })
-
-    for (const btn of this.chatTabBtns) {
-      btn.addEventListener('click', () => {
-        if (btn.disabled || btn.classList.contains('active')) return
-        for (const b of this.chatTabBtns) b.classList.toggle('active', b === btn)
-        this._chatChannel = btn.dataset.channel
-        this._unsubscribeChatChannel()
-        this._subscribeChatChannel()
-      })
-    }
-
-    if (this.chatInputRow) {
-      this.chatInputRow.addEventListener('submit', (e) => {
-        e.preventDefault()
-        this._sendChatMessage()
-      })
-    }
-
-    // Suppress every gameplay hotkey listener while the chat input is
-    // focused - capture phase on window fires before every other keydown
-    // listener in this file (all bubble-phase, default), same technique
-    // PlayerController's own mousemove-filter guard relies on (see that
-    // file's comment): stopImmediatePropagation blocks the OTHER
-    // listeners without touching the input's own native typing, since
-    // that's the browser's default action, not one of our own listeners.
-    // Same listener also handles Enter opening chat when it's NOT
-    // focused yet - clicking it directly wouldn't work mid-run anyway
-    // (the mouse is pointer-locked for aiming, not a free cursor), same
-    // "press a key to open chat" convention every multiplayer FPS uses.
-    window.addEventListener('keydown', (e) => {
-      if (document.activeElement === this.chatInput) {
-        if (e.code === 'Escape') this.chatInput.blur()
-        e.stopImmediatePropagation()
-        return
-      }
-      if (e.code === 'Enter' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
-        e.preventDefault()
-        e.stopImmediatePropagation()
-        this.chatInput.focus()
-      }
-    }, true)
-
-    this._updateChatTabAvailability()
-    this._subscribeChatChannel()
-    this._bindChatContextActions()
-    this._renderMutedChatPlayers()
-  }
-
-  _updateChatTabAvailability() {
-    if (!this.chatTabBtns) return
-    let fellBack = false
-    for (const btn of this.chatTabBtns) {
-      const channel = btn.dataset.channel
-      const nowDisabled = (channel === 'clan' && !this.settings.clanId) || (channel === 'party' && !this._multiplayerSessionId)
-      btn.disabled = nowDisabled
-      if (nowDisabled && btn.classList.contains('active')) fellBack = true
-    }
-    if (fellBack) {
-      for (const btn of this.chatTabBtns) btn.classList.toggle('active', btn.dataset.channel === 'global')
-      this._chatChannel = 'global'
-      this._unsubscribeChatChannel()
-      this._subscribeChatChannel()
-    }
-  }
-
-  _subscribeChatChannel() {
-    this._renderChatMessages([])
-    if (this._chatChannel === 'global') {
-      this._chatUnsub = CloudSync.subscribeGlobalChat((msgs) => this._renderChatMessages(msgs))
-    } else if (this._chatChannel === 'clan') {
-      if (!this.settings.clanId) return
-      this._chatUnsub = CloudSync.subscribeClanChat(this.settings.clanId, (msgs) => this._renderChatMessages(msgs))
-    } else if (this._chatChannel === 'party') {
-      this._renderChatMessages(this._chatPartyMessages)
-    }
-  }
-
-  _unsubscribeChatChannel() {
-    if (this._chatUnsub) {
-      this._chatUnsub()
-      this._chatUnsub = null
-    }
-  }
-
-  _renderChatMessages(msgs) {
-    if (!this.chatMessages) return
-    this._lastChatMsgs = msgs
-    // Mute/block (Settings > Social > Muted Players) - a muted sender's
-    // message stays in `visible` and renders as a "Blocked message -
-    // Show" placeholder instead of being filtered out entirely (see
-    // _renderChatMessageRow) - by nickname (the one thing every channel's
-    // messages actually share - Global/Clan carry a Firebase uid, Party
-    // carries an ephemeral multiplayer playerId, no single id scheme
-    // spans all three). This is a personal chat filter, not real
-    // moderation - someone could evade it by changing their nickname,
-    // which is an accepted tradeoff for how lightweight this needs to
-    // be. Settings > Social is how an existing mute gets undone.
-    const muted = new Set(this.settings.mutedChatPlayers)
-    // Hides pre-existing history on a fresh page load, same as the
-    // homepage Global panel's identical filter (see _chatSessionStartMs's
-    // own comment) - only filters messages that actually carry a
-    // createdAt, so Party chat (no createdAt field, see its own comment
-    // below) passes through unaffected.
-    const visible = msgs.filter((m) => !(m.createdAt && m.createdAt <= this._chatSessionStartMs))
-    // Global-only for now (see the design conversation) - Party chat's
-    // ephemeral multiplayer players have no Player ID at all, and Clan
-    // chat wasn't asked for yet. _renderChatMessageText no-ops back to
-    // plain escaped text outside 'global', same as it always rendered.
-    const linkifyIds = this._chatChannel === 'global'
-    this.chatMessages.innerHTML = visible.map((m) => this._renderChatMessageRow(m, linkifyIds, muted.has(m.nickname))).join('')
-    this.chatMessages.scrollTop = this.chatMessages.scrollHeight
-  }
-
-  // Splits on a pasted Player ID (see _generatePlayerId - always exactly
-  // '#' + 6 uppercase letters/digits) and wraps just that piece as a
-  // clickable lookup link, escaping every other piece of the message
-  // exactly as before. Matching against the RAW text (before any escaping)
-  // and only ever inserting either escaped plain text or an element built
-  // entirely from our own fixed strings + the already-charset-constrained
-  // matched id keeps this exactly as safe against injection as the single
-  // _escapeHtml(m.text) call this replaced - the regex's character class
-  // can't match '<', '>', or quotes, so the id itself never needs its own
-  // escaping to be safe in an attribute or as text.
-  _renderChatMessageText(text, linkifyIds) {
-    if (!linkifyIds) return _escapeHtml(text)
-    const idPattern = /#[A-Z0-9]{6}/g
-    let out = ''
-    let lastIndex = 0
-    let match
-    while ((match = idPattern.exec(text))) {
-      out += _escapeHtml(text.slice(lastIndex, match.index))
-      out += `<button type="button" class="chat-message-id-link" data-lookup-id="${match[0].slice(1)}">${match[0]}</button>`
-      lastIndex = match.index + match[0].length
-    }
-    out += _escapeHtml(text.slice(lastIndex))
-    return out
-  }
-
-  // Shared by both chat surfaces (homepage Global panel + in-game HUD
-  // chat) - a muted sender's message used to be filtered out of `visible`
-  // entirely (silently absent, no trace it was ever sent). Now it still
-  // renders, as a "Blocked message - Show" placeholder - the real text
-  // sits in a pre-rendered (already escaped/linkified, same as a normal
-  // message) sibling span that starts hidden and toggles visible on
-  // click (see the .chat-blocked-show-btn handler in each chat's click
-  // listener), rather than looking the text up again at click time - one
-  // render pass, no index/id bookkeeping needed to find it later.
-  _renderChatMessageRow(m, linkifyIds, isMuted) {
-    const nameBtn = `<button type="button" class="chat-message-nickname" data-nickname="${_escapeHtml(m.nickname)}" data-uid="${_escapeHtml(m.uid || '')}">${_escapeHtml(m.nickname)}:</button>`
-    if (isMuted) {
-      return `<div class="chat-message-row chat-message-row-blocked">${nameBtn}<span class="chat-message-text chat-blocked-text"><span class="chat-blocked-label">${t('chatBlockedMessage')}</span> - <button type="button" class="chat-blocked-show-btn">${t('chatBlockedShowBtn')}</button><span class="chat-blocked-real-text" style="display: none">${this._renderChatMessageText(m.text, linkifyIds)}</span></span></div>`
-    }
-    return `<div class="chat-message-row">${nameBtn}<span class="chat-message-text">${this._renderChatMessageText(m.text, linkifyIds)}</span></div>`
-  }
-
-  // Shared by the popup's own ID button AND the direct left-click-to-copy
-  // handlers below, so the clipboard-write logic exists exactly once. Named
-  // distinctly from the unrelated, already-existing _copyPlayerId() (copies
-  // YOUR OWN id from the menu tag, no args) a few hundred lines up - same
-  // name would have silently clobbered it via duplicate method definition.
-  // Reuses the existing "Copied" oval badge (_showCopiedBadge, already used
-  // for the menu Player ID tag and Other Profile's ID) instead of a text
-  // toast, per reference screenshot (2026-09-20) - anchorEl is whatever
-  // element was actually clicked, so the badge pops up right above it.
-  // toastFn is only needed for the (rare) clipboard-unsupported fallback,
-  // which isn't a "success" so doesn't fit the badge.
-  _copyChatPlayerId(playerId, anchorEl, toastFn) {
-    navigator.clipboard?.writeText(`#${playerId}`).then(() => {
-      this._showCopiedBadge(anchorEl)
-    }).catch(() => {
-      toastFn(t('clipboardCopyUnsupported'))
-    })
-  }
-
-  // Shows "Name #ID" plus a Mute button right at the click point, ID itself
-  // is a button that copies it (per reference screenshots, 2026-09-20) -
-  // shared by both the in-game HUD chat and the homepage "Global" panel
-  // chat's right-click handlers below, so there's one popup implementation
-  // instead of two. Always uses _showHomepageToast (not _showLoreToast) for
-  // its own feedback toasts - this popup is reachable from the homepage
-  // chat where gameStarted is false, and _showLoreToast's gameStarted guard
-  // would silently swallow the toast there.
-  // position:fixed + clamped after an initial render (its size isn't known
-  // until it's actually in the DOM) keeps it fully on-screen even from a
-  // click near an edge.
-  _showPlayerIdPopup(x, y, name, playerId) {
-    if (!this.chatIdPopup) return
-    this.chatIdPopupName.textContent = name
-    this.chatIdPopupIdBtn.textContent = `#${playerId}`
-    // Can't mute yourself - would just hide your own messages from you.
-    const isSelf = name === this.settings.nickname
-    this.chatIdPopupMuteBtn.textContent = t('muteBtn')
-    this.chatIdPopupMuteBtn.style.display = isSelf ? 'none' : ''
-    this.chatIdPopup.style.left = `${x}px`
-    this.chatIdPopup.style.top = `${y}px`
-    this.chatIdPopup.style.display = 'flex'
-    const rect = this.chatIdPopup.getBoundingClientRect()
-    if (rect.right > window.innerWidth) this.chatIdPopup.style.left = `${Math.max(8, window.innerWidth - rect.width - 8)}px`
-    if (rect.bottom > window.innerHeight) this.chatIdPopup.style.top = `${Math.max(8, window.innerHeight - rect.height - 8)}px`
-
-    const hide = () => { this.chatIdPopup.style.display = 'none' }
-    // Opens the full stats profile instead of copying (2026-09-22, explicit
-    // request) - copying the ID is still one click away via the nickname
-    // itself (left-click, see _bindChatContextActions/_bindServerChat),
-    // this button's own job in THIS popup is now "show me who this is."
-    this.chatIdPopupIdBtn.onclick = () => {
-      hide()
-      this._openOtherPlayerProfileById(playerId, name)
-    }
-    this.chatIdPopupMuteBtn.onclick = () => {
-      hide()
-      if (!this.settings.mutedChatPlayers.includes(name)) {
-        this.settings.mutedChatPlayers.push(name)
-        saveSettings(this.settings)
-      }
-      this._renderMutedChatPlayers()
-      this._refreshChatAfterMuteChange()
-      this._showHomepageToast(t('chatPlayerMuted', { name }))
-    }
-    // Deferred (setTimeout 0) so the very click that opened this popup
-    // doesn't immediately bubble up and count as the "click outside" that
-    // closes it again.
-    setTimeout(() => document.addEventListener('click', hide, { once: true }), 0)
-  }
-
-  // Touch/pen equivalent of right-click (desktop's contextmenu) on a chat
-  // name - a long-press opens the same Name/ID/Mute popup. Pointer Events
-  // (not touchstart) so this only reacts to pointerType 'touch'/'pen',
-  // leaving mouse clicks/contextmenu completely alone. Most mobile
-  // browsers still fire a synthetic click after a long-press's pointerup
-  // (there was no real "drag"), which would otherwise ALSO trigger the
-  // direct-copy click handler right after the popup opens - the
-  // _longPress* state plus a capture-phase click listener swallows just
-  // that one click. Shared by both chat surfaces (see _bindChatContextActions
-  // /_bindServerChat) so the long-press timer/cancel logic exists once.
-  _bindChatNicknameLongPress(container, openPopupForNickname) {
-    const LONG_PRESS_MS = 500
-    const MOVE_CANCEL_PX = 10
-    let pressTimer = null
-    let startX = 0
-    let startY = 0
-    let longPressFired = false
-    let pressBtn = null
-
-    const cancelPress = () => {
-      if (pressTimer) {
-        clearTimeout(pressTimer)
-        pressTimer = null
-      }
-    }
-
-    container.addEventListener('pointerdown', (e) => {
-      if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return
-      const btn = e.target.closest('.chat-message-nickname')
-      if (!btn) return
-      startX = e.clientX
-      startY = e.clientY
-      pressBtn = btn
-      longPressFired = false
-      cancelPress()
-      pressTimer = setTimeout(() => {
-        longPressFired = true
-        openPopupForNickname(e, btn)
-      }, LONG_PRESS_MS)
-    })
-    container.addEventListener('pointermove', (e) => {
-      if (!pressTimer) return
-      if (Math.hypot(e.clientX - startX, e.clientY - startY) > MOVE_CANCEL_PX) cancelPress()
-    })
-    container.addEventListener('pointerup', cancelPress)
-    container.addEventListener('pointercancel', cancelPress)
-    // Capture phase so this runs before the bubble-phase click listener
-    // that does the direct-copy action.
-    container.addEventListener('click', (e) => {
-      if (longPressFired && e.target.closest('.chat-message-nickname') === pressBtn) {
-        e.stopImmediatePropagation()
-        e.preventDefault()
-        longPressFired = false
-      }
-    }, true)
-  }
-
-  // Re-renders whichever chat surfaces have messages cached, so muting (or
-  // unmuting, see _renderMutedChatPlayers) hides/shows their messages right
-  // away instead of waiting for the next Firestore snapshot to happen to
-  // fire. Harmless no-op for a surface that's never rendered anything yet.
-  _refreshChatAfterMuteChange() {
-    if (this._lastChatMsgs) this._renderChatMessages(this._lastChatMsgs)
-    if (this._lastServerChatMsgs) this._renderServerChatMessages(this._lastServerChatMsgs)
-  }
-
-  // Left-click a name to copy their Player ID directly; right-click shows
-  // the "Name #ID" + Mute popup instead (per reference screenshots,
-  // 2026-09-20 - left-click used to also open the popup, now it's a
-  // one-step copy). Click an ID pasted into a message (see
-  // _renderChatMessageText) to look up that player's stats.
-  _bindChatContextActions() {
-    if (!this.chatMessages) return
-    // Same uid-first lookup fix as the Global chat panel's identical
-    // handler (see its own comment) - a name-only lookup silently failed
-    // whenever the sender's nickname had since changed.
-    const lookupEntry = async (nickname, uid) => {
-      try {
-        if (uid) {
-          const byUid = await CloudSync.fetchLeaderboardEntryByUid(uid)
-          if (byUid) return byUid
-        }
-        return await CloudSync.fetchLeaderboardEntryByName(nickname)
-      } catch {
-        // Falls through to the "not found" toast below, same as every
-        // other best-effort leaderboard lookup in this file.
-        return null
-      }
-    }
-    const openPopupForNickname = async (e, btn) => {
-      const nickname = btn.dataset.nickname
-      if (!nickname) return
-      const entry = await lookupEntry(nickname, btn.dataset.uid)
-      if (!entry || !entry.playerId) {
-        this._showLoreToast(t('chatCopyPlayerIdNotFound', { name: nickname }))
-        return
-      }
-      this._showPlayerIdPopup(e.clientX, e.clientY, nickname, entry.playerId)
-    }
-    this.chatMessages.addEventListener('contextmenu', (e) => {
-      const btn = e.target.closest('.chat-message-nickname')
-      if (!btn) return
-      e.preventDefault()
-      openPopupForNickname(e, btn)
-    })
-    this._bindChatNicknameLongPress(this.chatMessages, openPopupForNickname)
-    this.chatMessages.addEventListener('click', async (e) => {
-      const nameBtn = e.target.closest('.chat-message-nickname')
-      if (nameBtn) {
-        const nickname = nameBtn.dataset.nickname
-        if (!nickname) return
-        const entry = await lookupEntry(nickname, nameBtn.dataset.uid)
-        if (!entry || !entry.playerId) {
-          this._showLoreToast(t('chatCopyPlayerIdNotFound', { name: nickname }))
-          return
-        }
-        this._copyChatPlayerId(entry.playerId, nameBtn, (msg) => this._showLoreToast(msg))
-        return
-      }
-      const link = e.target.closest('.chat-message-id-link')
-      if (link) {
-        const id = link.dataset.lookupId
-        if (!id) return
-        this._openOtherPlayerProfileById(id)
-        return
-      }
-      const showBtn = e.target.closest('.chat-blocked-show-btn')
-      if (showBtn) this._revealBlockedMessage(showBtn)
-    })
-  }
-
-  // "Show" on a muted sender's "Blocked message" placeholder (see
-  // _renderChatMessageRow) - swaps the label+button for the real,
-  // already-rendered text sitting right next to them in the DOM. One
-  // reveal per message row; there's no "hide again" since re-blocking a
-  // message you already read isn't meaningfully private.
-  _revealBlockedMessage(showBtn) {
-    const row = showBtn.closest('.chat-blocked-text')
-    if (!row) return
-    const label = row.querySelector('.chat-blocked-label')
-    const realText = row.querySelector('.chat-blocked-real-text')
-    if (label) label.style.display = 'none'
-    showBtn.style.display = 'none'
-    if (realText) realText.style.display = ''
-  }
-
-  // Settings > Social > Muted Players - the only way to SEE the current
-  // mute list and undo one. A muted player's messages still show up in
-  // chat (as a "Blocked message - Show" placeholder, see
-  // _renderChatMessageRow) - undoing the mute here is what makes them
-  // render normally again going forward, same as any other message.
-  // Mirrors the empty-state pattern this project's other list panels
-  // (Friend List, etc.) already use.
-  _renderMutedChatPlayers() {
-    if (!this.mutedChatPlayersList) return
-    const muted = this.settings.mutedChatPlayers
-    if (!muted.length) {
-      this.mutedChatPlayersList.innerHTML = `<p class="menu-hint-line">${t('mutedChatPlayersEmpty')}</p>`
-      return
-    }
-    this.mutedChatPlayersList.innerHTML = muted.map((name) => `
-      <div class="muted-chat-player-row">
-        <span>${_escapeHtml(name)}</span>
-        <button type="button" class="mini-action-btn" data-unmute="${_escapeHtml(name)}">${t('unmuteBtn')}</button>
-      </div>
-    `).join('')
-    for (const btn of this.mutedChatPlayersList.querySelectorAll('[data-unmute]')) {
-      btn.addEventListener('click', () => {
-        this.settings.mutedChatPlayers = this.settings.mutedChatPlayers.filter((n) => n !== btn.dataset.unmute)
-        saveSettings(this.settings)
-        this._renderMutedChatPlayers()
-        this._refreshChatAfterMuteChange()
-      })
-    }
-  }
-
-  async _sendChatMessage() {
-    const text = _censorText(this.chatInput.value.trim())
-    if (!text) return
-    const now = Date.now()
-    if (this._chatMutedUntil > now) return
-    // 5+ sends inside a 10s rolling window -> muted for 5 minutes. Client-
-    // side only - no custom backend here to enforce it server-side too
-    // (same trust model this game already accepts everywhere else, see
-    // CLAUDE.md's anti-cheat note), per the design conversation.
-    this._chatSendTimestamps = this._chatSendTimestamps.filter((t) => now - t < 10000)
-    this._chatSendTimestamps.push(now)
-    if (this._chatSendTimestamps.length > 5) {
-      this._chatMutedUntil = now + 5 * 60 * 1000
-      this._chatSendTimestamps = []
-      this._startChatMuteCountdown()
-      return
-    }
-    const nickname = this.settings.nickname || 'Player'
-    // Guard checks run BEFORE clearing the input and give a visible reason
-    // via the same ungated toast used for Community Builds' sign-in check
-    // (_showHomepageToast/_renderLoreToast has no gameStarted gate of its
-    // own - see that function's comment - so it renders fine mid-run too).
-    // Previously the input was cleared unconditionally up front and every
-    // failure/guard case was a silent `return`, so a blocked or failed send
-    // looked identical to a successful one: the typed text vanished and
-    // nothing ever appeared in the log, with zero clue why.
-    if (this._chatChannel === 'global') {
-      if (!this._cloudUid) {
-        this._showHomepageToast(t('chatSignInRequired'))
-        return
-      }
-      this.chatInput.value = ''
-      const ok = await CloudSync.sendGlobalChatMessage(this._cloudUid, nickname, text).then(
-        () => true,
-        () => false
-      )
-      if (!ok) this._showHomepageToast(t('chatSendFailed'))
-    } else if (this._chatChannel === 'clan') {
-      if (!this._cloudUid) {
-        this._showHomepageToast(t('chatSignInRequired'))
-        return
-      }
-      if (!this.settings.clanId) {
-        this._showHomepageToast(t('chatNoClanRequired'))
-        return
-      }
-      this.chatInput.value = ''
-      const ok = await CloudSync.sendClanChatMessage(this.settings.clanId, this._cloudUid, nickname, text).then(
-        () => true,
-        () => false
-      )
-      if (!ok) this._showHomepageToast(t('chatSendFailed'))
-    } else if (this._chatChannel === 'party') {
-      if (!this._multiplayerSessionId) {
-        this._showHomepageToast(t('chatNoPartyYet'))
-        return
-      }
-      this.chatInput.value = ''
-      // Picked up by _syncNetworkPlayerState's next tick (runs every
-      // 100ms during a run) rather than a dedicated one-off call - see
-      // its own payload-building comment for the same pattern already
-      // used for pendingZombieHits/pendingInteractions.
-      this._pendingChatText = text
-      this._pendingChatNickname = nickname
-    }
-  }
-
-  _startChatMuteCountdown() {
-    if (!this.chatMutedNotice) return
-    clearInterval(this._chatMuteTimer)
-    const tick = () => {
-      const remaining = Math.max(0, this._chatMutedUntil - Date.now())
-      if (remaining <= 0) {
-        this.chatMutedNotice.style.display = 'none'
-        clearInterval(this._chatMuteTimer)
-        return
-      }
-      this.chatMutedNotice.style.display = 'block'
-      this.chatMutedNotice.textContent = t('chatMutedNotice', { seconds: Math.ceil(remaining / 1000) })
-    }
-    this._chatMuteTimer = setInterval(tick, 1000)
-    tick()
-  }
-
   // Prevents the sidebar nav buttons (General/Store/Upgrades/etc.) from
   // ever receiving keyboard-style focus from a mouse click at all -
   // reported as a stray rectangle appearing around the button after
@@ -23900,7 +23108,7 @@ export class Game {
         saveSettings(this.settings)
         this._renderPlayerTag()
       } else {
-        this._updateChatTabAvailability()
+        ChatUI.updateChatTabAvailability(this)
         await this._renderClanIncomingInvites()
         this.clanBrowseState.style.display = 'block'
         this.clanInClanState.style.display = 'none'
@@ -23934,7 +23142,7 @@ export class Game {
       this.settings.clanName = null
       saveSettings(this.settings)
       this._renderPlayerTag()
-      this._updateChatTabAvailability()
+      ChatUI.updateChatTabAvailability(this)
       await this._renderClanIncomingInvites()
       this.clanBrowseState.style.display = 'block'
       this.clanInClanState.style.display = 'none'
@@ -24029,7 +23237,7 @@ export class Game {
     this.clanLeaveBtn.textContent = t('clanLeaveBtn')
     this.clanLeaveDisabledHint.style.display = isOwner && otherMembersPresent ? 'block' : 'none'
     if (this.clanLeaveDisabledHint.style.display === 'block') this.clanLeaveDisabledHint.textContent = t('clanLeaderMustTransferFirst')
-    this._updateChatTabAvailability()
+    ChatUI.updateChatTabAvailability(this)
   }
 
   // Invites addressed to this account, shown while browsing (not yet in
@@ -24392,7 +23600,9 @@ export class Game {
   // patch can stack (both active at once = extra foggy), matching what
   // the old code seemed to intend, just without the runaway compounding.
   _applyFogState() {
-    let mult = 1
+    // Auto Quality's view-distance multiplier (see _applyViewDistance) -
+    // 1 at full quality, so this changes nothing unless it has kicked in.
+    let mult = this._autoViewMult ?? 1
     if (this.raining) mult *= 0.6
     if (this.snowing) mult *= 0.75
     if (this.fogPatch) {
@@ -24592,6 +23802,19 @@ export class Game {
     this._wasBelowStingerThreshold = belowStingerThreshold
 
     this.musicIntensityCurrent = THREE.MathUtils.lerp(this.musicIntensityCurrent, threat, 0.04)
+
+    // Everything below writes to the audio engine - <audio>.volume/
+    // .playbackRate and four Web Audio setTargetAtTime() calls - and used to
+    // run every single frame, where it measured as the second-most expensive
+    // per-frame function in _tick (max ~6ms spikes, 2026-09-28): each
+    // playbackRate write can make the browser reconfigure the media
+    // element's resampler, and every setTargetAtTime() queues one more event
+    // on its AudioParam's automation timeline. All four targets already
+    // glide over 0.4-0.6s time constants, so ~10 updates a second is
+    // inaudibly different from 60.
+    const nowAudio = performance.now()
+    if (nowAudio < (this._nextMusicAudioUpdateAt || 0)) return
+    this._nextMusicAudioUpdateAt = nowAudio + 100
     audioEngine.setMusicIntensity(this.musicIntensityCurrent)
 
     // Directional Zombie Ambience Bed (see Audio.js's updateZombiePresence) -
@@ -24707,7 +23930,12 @@ export class Game {
     if (now < this.nextIndoorCheckAt) return
     this.nextIndoorCheckAt = now + INDOOR_CHECK_INTERVAL_MS
     this._indoorRaycaster.ray.origin.set(playerPos.x, playerPos.y + 0.2, playerPos.z)
-    const hits = this._indoorRaycaster.intersectObjects(this.solidMeshes, true)
+    // A straight-up ray can only hit something whose XZ footprint covers the
+    // player, so the player controller's nearby-cells grid over this same
+    // solidMeshes array (see ColliderGrid.js's CachedMeshGrid) returns the
+    // same hits as the whole-map list, without bounding-testing ~2000
+    // meshes every INDOOR_CHECK_INTERVAL_MS.
+    const hits = this._indoorRaycaster.intersectObjects(this.player.queryGroundMeshesNear(playerPos.x, playerPos.z), true)
     this.isIndoors = hits.length > 0
   }
 
@@ -24946,6 +24174,27 @@ export class Game {
     // cullSq (not chestCullSq/shadowSq, both always smaller - see their
     // own comments above) sets the tile radius since it's the largest
     // distance anything in a "relevant" tile could still need checking at.
+    //
+    // The object pass below only re-runs once the player has moved
+    // CULL_REPASS_MOVE_DIST since the last one (or every
+    // CULL_REPASS_EVERY_FRAMES frames regardless, which also picks up
+    // anything that changes without the player moving - a newly spawned
+    // chest, Performance Mode, the adaptive shadow range). Every threshold
+    // it tests against is tens of units, so a 2-unit-stale result is
+    // invisible, and standing still or strafing in a fight no longer
+    // re-checks ~1500 objects every single frame (measured 2026-09-28 at
+    // ~1.25ms/frame). The light cull above still runs every frame - it's
+    // cheap, and _updateFlicker rewrites light intensities every frame.
+    this._cullFrameCounter = (this._cullFrameCounter || 0) + 1
+    if (this._activeTileKeys && this._lastCullPassPos && this._cullFrameCounter % CULL_REPASS_EVERY_FRAMES !== 0) {
+      const mdx = playerPos.x - this._lastCullPassPos.x
+      const mdz = playerPos.z - this._lastCullPassPos.z
+      if (mdx * mdx + mdz * mdz < CULL_REPASS_MOVE_DIST * CULL_REPASS_MOVE_DIST) return
+    }
+    if (!this._lastCullPassPos) this._lastCullPassPos = { x: 0, z: 0 }
+    this._lastCullPassPos.x = playerPos.x
+    this._lastCullPassPos.z = playerPos.z
+
     const tileRadius = Math.ceil(Math.sqrt(cullSq) / WORLD_TILE_SIZE) + 1
     const playerTileX = Math.floor(playerPos.x / WORLD_TILE_SIZE)
     const playerTileZ = Math.floor(playerPos.z / WORLD_TILE_SIZE)
@@ -26682,7 +25931,7 @@ export class Game {
       warmUpSteps[warmUpStepIndex]()
       warmUpStepIndex++
       const stepStart = performance.now()
-      this.composer.render()
+      this._renderMainScene()
       warmUpTotalMs += performance.now() - stepStart
       if (warmUpStepIndex < warmUpSteps.length) {
         requestAnimationFrame(runWarmUpStep)
@@ -26716,6 +25965,28 @@ export class Game {
       }
     }
     requestAnimationFrame(runWarmUpStep)
+  }
+
+  // Every render of the main scene goes through here - the per-frame one in
+  // _tick, _warmUpShaders, and the screenshot/portrait captures - so they
+  // all use the same path and therefore the same compiled shader variants
+  // (three.js compiles a separate variant of every material for rendering
+  // straight to the canvas vs. into a render target, since tone mapping/
+  // color space conversion happen in-shader only for the former; warming up
+  // one path and then playing on the other would compile every material
+  // again on the first frames of a run).
+  //
+  // The composer only earns its keep when a post effect is actually on.
+  // With bloom/AO/motion blur all off (the default - LOW_QUALITY_MODE keeps
+  // bloom off, AO and motion blur are opt-in), it still rendered the whole
+  // scene into an offscreen target and then copied that to the screen in a
+  // second fullscreen OutputPass - an extra full-resolution read+write every
+  // frame for an identical image, since rendering straight to the canvas
+  // applies the same toneMapping/outputColorSpace OutputPass exists to apply
+  // to an offscreen target.
+  _renderMainScene() {
+    if (this.bloomPass.enabled || this.ssaoPass.enabled || this.afterimagePass.enabled) this.composer.render()
+    else this.renderer.render(this.scene, this.renderPass.camera)
   }
 
   _tick() {
@@ -26752,7 +26023,10 @@ export class Game {
       // reading renderer.info.render.calls live here would always show 1,
       // see docs/PERFORMANCE.md §3.
       const drawCalls = this._lastFrameDrawCalls
-      this.fpsEl.textContent = `${fps} fps / ${msPerFrame} ms / ${this.zombies.zombies.length} zmb / ${drawCalls} draws / ${this._gpuRendererString}`
+      // "AQ n" = the current Auto Quality level (0 = full quality) - so a
+      // player reporting lag can say which level their device settled on.
+      const aqTag = this.autoQuality && this.settings.autoQuality ? ` / AQ ${this.autoQuality.level}` : ''
+      this.fpsEl.textContent = `${fps} fps / ${msPerFrame} ms / ${this.zombies.zombies.length} zmb / ${drawCalls} draws${aqTag} / ${this._gpuRendererString}`
       // Session Timer / Difficulty Label / Distance to Extraction Point
       // (General tab) - same ~500ms cadence as the FPS readout above,
       // no reason for per-frame accuracy on any of these three.
@@ -26766,6 +26040,7 @@ export class Game {
         if (this._frameTimeHistory.length > 60) this._frameTimeHistory.shift()
         this._drawFrameTimeGraph()
       }
+      this._fpsSampleFrames = this._fpsFrameCount
       this._fpsFrameCount = 0
       this._fpsLastUpdate = nowFps
       this._updateAdaptiveShadowQuality(fps)
@@ -26779,21 +26054,36 @@ export class Game {
       // the disabled resolution scaler below but aimed at a cost that
       // actually matters. Floor of 6 keeps Round Mode from ever going
       // fully empty even in the worst case.
-      const zombieCapCeiling = LOW_QUALITY_MODE ? 20 : 50
+      let zombieCapCeiling = LOW_QUALITY_MODE ? 20 : 50
+      const autoZombieCap = this.autoQuality && this.settings.autoQuality ? this.autoQuality.config.zombieCap : null
+      if (autoZombieCap !== null) zombieCapCeiling = Math.min(zombieCapCeiling, autoZombieCap)
+      if (this._zombiePopulationCap > zombieCapCeiling) this._zombiePopulationCap = zombieCapCeiling
       if (fps < 40) this._zombiePopulationCap = Math.max(6, this._zombiePopulationCap - 5)
       else if (fps > 55) this._zombiePopulationCap = Math.min(zombieCapCeiling, this._zombiePopulationCap + 1)
       this.zombies.performanceCap = this._zombiePopulationCap
 
-      // Dynamic resolution scaling DISABLED (2026-07-21) - confirmed
-      // dropping render resolution all the way down didn't recover any fps
-      // in a genuinely severe real case, meaning pixel count isn't the
-      // bottleneck here, so automatically blurring the image bought
-      // nothing. _dynResScale stays permanently at 1 (full resolution);
-      // left the field/multiplication in _applyRenderScale/_basePixelRatio
-      // in place rather than ripping it out, in case a future case
-      // legitimately needs it back.
+      // Dynamic resolution scaling was DISABLED 2026-07-21 (dropping render
+      // resolution recovered no fps while the game was CPU-bound on scene
+      // traversal). Since the 2026-09-28 CPU fixes it's back, as one of
+      // Auto Quality's levers - _dynResScale is now set per level by
+      // _applyAutoQualityLevel rather than by a per-frame scaler here.
 
-      if (!this.settings.performanceMode && !this._autoPerfModeTriggered) {
+      // Auto Quality - only fed samples that were (almost) entirely real
+      // gameplay frames in a visible tab; menus, pause, open panels and
+      // background tabs say nothing about how the game itself runs. See
+      // AutoQuality.js for the thresholds.
+      if (this.autoQuality && this.settings.autoQuality) {
+        const active = this.gameStarted && !document.hidden && this._aqGameplayFrames >= this._fpsSampleFrames * 0.9
+        this.autoQuality.sample(fps, active, nowFps)
+      }
+      this._aqGameplayFrames = 0
+
+      // The older one-way safety net below (permanently switches Performance
+      // Mode on after sustained low fps) stands down while Auto Quality is
+      // on - Auto Quality covers the same case more gradually and can undo
+      // itself, and two systems both reacting to the same low-fps samples
+      // would fight each other.
+      if (!this.settings.autoQuality && !this.settings.performanceMode && !this._autoPerfModeTriggered) {
         // Raised from 25 to 35 and switched from a hard reset to a decay -
         // a real player struggling in the 19-30fps range (a genuine report,
         // not a guess) rarely stays BELOW 25 for several straight 500ms
@@ -26904,6 +26194,7 @@ export class Game {
       this._updatePhotoMode(dt)
     } else if (this._isActivelyPlaying() && this.playerState.alive && !this.inventoryOpen && !this.perkPanelOpen && !this.traderPanelOpen && !this.xpLevelupPanelOpen && !this.mapOpen && !this.journalOpen) {
       this.player.update(dt)
+      this._aqGameplayFrames = (this._aqGameplayFrames || 0) + 1
       const playerPos = this.player.controls.object.position
       // The Long Road (see _recordRunEnd) - lifetime ground-distance
       // milestone. Horizontal only (x/z), so jumping in place doesn't
@@ -27098,7 +26389,17 @@ export class Game {
         if (!this.settings.scoreAttackMode && !endingTriggered) this._openPerkPanel()
       }
       this._updateProgressHud()
-      this._updateStatsPanel()
+      // Every real change (kills, purchases, repairs...) already calls
+      // _updateStatsPanel() itself at the moment it happens (30+ call
+      // sites) - this per-tick call only exists to keep the phase countdown
+      // ticking, which shows whole seconds. It used to run every frame,
+      // including saveShopProgress()'s synchronous localStorage write -
+      // measured 2026-09-28 at up to 6.5ms per frame. 4x a second is plenty.
+      const nowStats = performance.now()
+      if (nowStats >= (this._nextTickStatsPanelAt || 0)) {
+        this._nextTickStatsPanelAt = nowStats + 250
+        this._updateStatsPanel()
+      }
 
       this._updateDirectorAI()
       this._updateAdrenaline()
@@ -27461,8 +26762,10 @@ export class Game {
     this.camera.position.add(this._shakeOffset)
     this.camera.position.y += this._landingDipY
 
+    this.renderPass.camera.getWorldPosition(this._lightProxyViewPos)
+    this.lightProxies.update(this._lightProxyViewPos, LIGHT_CULL_DISTANCE * this._perfDistanceMult)
     this.renderer.info.reset()
-    this.composer.render()
+    this._renderMainScene()
     this._lastFrameDrawCalls = this.renderer.info.render.calls
     this._lastFrameTriangles = this.renderer.info.render.triangles
   }

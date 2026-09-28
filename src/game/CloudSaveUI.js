@@ -1,5 +1,5 @@
 // Cloud Save panel UI - open/close, sign-in state rendering, sync status,
-// conflict resolution, sign-out. Extracted from Game.js (see its own
+// conflict resolution, sign-out. Extracted from Game.js (see CLAUDE.md's
 // "Game.js split" notes) - plain exported functions taking `game` as an
 // explicit first parameter, matching Keybinds.js/CloudSync.js/
 // MenuEasterEggs.js's convention for UI-adjacent modules with no per-frame
@@ -13,7 +13,9 @@
 // game._renderCloudOnlineSection() same as before.
 import { t } from './i18n.js'
 import * as CloudSync from './CloudSync.js'
-import { CLOUD_LAST_SYNC_KEY, _formatRelativeTime, _safeStatNumber, saveSettings } from './Game.js'
+import * as ChatUI from './ChatUI.js'
+import { CLOUD_LAST_SYNC_KEY, LAST_LOCAL_CHANGE_KEY, _formatRelativeTime, _safeStatNumber, saveSettings } from './Game.js'
+import { CLOUD_BASE_KEY, DEVICE_ONLY_KEYS, mergeSaves, sameData, stripDeviceOnly, syncableSnapshot } from './CloudMerge.js'
 
 export function openCloudSavePanel(game) {
   game.cloudsavePanel.style.display = 'flex'
@@ -152,8 +154,8 @@ export function renderCloudSaveState(game) {
   if (game.friendsSigninBtn) game.friendsSigninBtn.disabled = !CloudSync.isConfigured()
   // Global panel chat (#server-panel) - same reasoning as Friends above,
   // updates live if the panel happens to be open while sign-in state
-  // changes (see Game.js's _renderServerChatSignInState).
-  game._renderServerChatSignInState()
+  // changes (see ChatUI.js's renderServerChatSignInState).
+  ChatUI.renderServerChatSignInState(game)
   if (game.serverChatSigninBtn) game.serverChatSigninBtn.disabled = !CloudSync.isConfigured()
   if (!signedIn) return
   if (game.cloudsaveAvatar) game.cloudsaveAvatar.src = game._cloudProfile.picture || ''
@@ -211,8 +213,162 @@ export function renderCloudConflict(game, data) {
 // the same on every device without needing this picked manually every
 // time - see that function's own comment for when it still asks first).
 export function applyCloudSaveData(game, data) {
-  const stamped = { ...data, [CLOUD_LAST_SYNC_KEY]: String(Date.now()) }
+  // The applied cloud content becomes this device's merge base (see
+  // CloudMerge.js) - it now exactly matches the cloud.
+  const synced = stripDeviceOnly(data)
+  const stamped = { ...synced, [CLOUD_LAST_SYNC_KEY]: String(Date.now()), [CLOUD_BASE_KEY]: JSON.stringify(synced) }
+  // Keep this device's own device-only state (Auto Quality level etc.)
+  // across the clear+restore - it describes this device, not the account.
+  for (const key of DEVICE_ONLY_KEYS) {
+    if (key in stamped) continue
+    const v = localStorage.getItem(key)
+    if (v !== null) stamped[key] = v
+  }
   game._applyImportedSaveData(stamped)
+}
+
+function loadBase() {
+  try {
+    const raw = localStorage.getItem(CLOUD_BASE_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+// The one sync path (see CloudMerge.js for the bug this replaced): read the
+// cloud, three-way merge it with this device's data against the last
+// content they agreed on, upload the result only if the cloud still is
+// what was just read (retrying the whole read+merge if another device got
+// there first), and - when the merge picked up changes from elsewhere -
+// write them into this device's storage and reload so every system
+// re-reads them. Returns 'ok' | 'deferred' | 'failed'.
+//
+// allowApply=false (mid-run): the merge would change this device's data
+// underneath a live run, so nothing is written either way; the run-end
+// sync tries again once it's over. Never throws.
+export async function syncWithCloud(game, { manual = false, allowApply = true } = {}) {
+  // __cloudBackendForTests: Playwright swaps in an in-memory fake with the
+  // same two functions, so the merge flow can be exercised across two
+  // simulated devices without touching a real Firestore save.
+  const backend = game.__cloudBackendForTests || CloudSync
+  // Already applying a merge (the page is about to reload with it).
+  if (game._importingSave) return 'reloading'
+  if (!game._cloudUid || (!game.__cloudBackendForTests && !CloudSync.isConfigured())) return 'failed'
+  if (game._cloudSyncInFlight) return game._cloudSyncInFlight
+  game._cloudSyncInFlight = (async () => {
+    try {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const cloud = await backend.fetchCloudSave(game._cloudUid)
+        const local = syncableSnapshot(localStorage)
+        const base = loadBase()
+        const remote = cloud ? stripDeviceOnly(cloud.data) : {}
+        const localChangeTime = Number(localStorage.getItem(LAST_LOCAL_CHANGE_KEY)) || 0
+        const merged = cloud ? mergeSaves(base, local, remote, localChangeTime >= (cloud.modifiedTime || 0)) : local
+        const localChanged = !sameData(merged, local)
+        const remoteChanged = !cloud || !sameData(merged, remote)
+        if (localChanged && !allowApply) return 'deferred'
+        let newUpdatedAt = cloud ? cloud.modifiedTime : null
+        if (remoteChanged) {
+          const result = await backend.pushCloudSaveIfUnchanged(game._cloudUid, merged, cloud ? cloud.modifiedTime ?? null : null)
+          if (result === false) continue // another device uploaded first - re-read and re-merge
+          newUpdatedAt = result
+        }
+        if (localChanged) {
+          applyCloudSaveData(game, merged)
+          return 'ok'
+        }
+        game._cloudSyncing = true
+        try {
+          localStorage.setItem(CLOUD_BASE_KEY, JSON.stringify(merged))
+          localStorage.setItem(CLOUD_LAST_SYNC_KEY, String(Date.now()))
+        } finally {
+          game._cloudSyncing = false
+        }
+        game._cloudLastUpdatedAt = newUpdatedAt
+        renderCloudSyncStatus(game)
+        if (manual) game._showHomepageToast(t('cloudsaveSynced'))
+        return 'ok'
+      }
+      if (manual) game._showHomepageToast(t('cloudsaveError'))
+      return 'failed'
+    } catch (err) {
+      // Kept for diagnostics (Copy Error Log / Playwright) - a failed sync
+      // is otherwise silent unless it was a manual Sync Now.
+      game._lastCloudSyncError = String(err && (err.stack || err.message || err))
+      if (manual) game._showHomepageToast(t('cloudsaveError'))
+      return 'failed'
+    } finally {
+      game._cloudSyncInFlight = null
+    }
+  })()
+  return game._cloudSyncInFlight
+}
+
+// Change tracking - every localStorage write of synced data (not just
+// settings, which was all the old LAST_LOCAL_CHANGE_KEY stamp covered)
+// marks this device as having unsynced changes and schedules a sync a few
+// seconds later, so progress made between runs (shop, quests, coins)
+// reaches the cloud without waiting for the next finished run. Patched
+// once on Storage.prototype because this game has ~50 separate save
+// functions across a dozen files, and missing even one is exactly how
+// progress silently stays on one device. Writes that don't change the
+// stored value are ignored (the settings autosave timer rewrites unchanged
+// settings every ~30s). Mid-run, nothing is synced until the run ends
+// (the run-end sync picks it all up), so an in-progress run is never
+// reloaded underneath the player.
+const CHANGE_SYNC_DELAY_MS = 5000
+
+// Syncs a few seconds from now - or, mid-run, as soon as the player is
+// back out of the run (checked every few seconds), since applying another
+// device's changes means reloading the page.
+export function scheduleSyncWhenIdle(game) {
+  clearTimeout(game._changeSyncTimer)
+  const tick = () => {
+    if (!game._cloudUid) return
+    if (game.gameStarted) {
+      game._changeSyncTimer = setTimeout(tick, CHANGE_SYNC_DELAY_MS)
+      return
+    }
+    syncWithCloud(game)
+  }
+  game._changeSyncTimer = setTimeout(tick, CHANGE_SYNC_DELAY_MS)
+}
+
+export function installChangeTracking(game) {
+  if (Storage.prototype.__gayzTracked) return
+  Storage.prototype.__gayzTracked = true
+  const origSet = Storage.prototype.setItem
+  const origRemove = Storage.prototype.removeItem
+  const onChange = (storage, key) => {
+    if (storage !== window.localStorage || DEVICE_ONLY_KEYS.has(key) || game._cloudSyncing || game._importingSave) return
+    try {
+      origSet.call(storage, LAST_LOCAL_CHANGE_KEY, String(Date.now()))
+    } catch {
+      // Storage full/unavailable - nothing to track.
+    }
+    if (!game._cloudUid) return
+    scheduleSyncWhenIdle(game)
+  }
+  Storage.prototype.setItem = function (key, value) {
+    const changed = this.getItem(key) !== String(value)
+    origSet.call(this, key, value)
+    if (changed) onChange(this, String(key))
+  }
+  Storage.prototype.removeItem = function (key) {
+    const existed = this.getItem(key) !== null
+    origRemove.call(this, key)
+    if (existed) onChange(this, String(key))
+  }
+  // Leaving the page / switching apps (the moment someone picks up another
+  // device) - flush in-memory stats to storage and push them right away.
+  // Best effort: the browser may not finish the request, in which case the
+  // next load's sync still has them.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'hidden' || !game._cloudUid || game._importingSave) return
+    game._flushLocalSave?.()
+    syncWithCloud(game, { allowApply: false })
+  })
 }
 
 export function resolveCloudConflict(game, choice) {
@@ -222,8 +378,19 @@ export function resolveCloudConflict(game, choice) {
     game._cloudPendingConflict = null
     applyCloudSaveData(game, data)
   } else {
+    // "Keep this device's save": making the cloud's current content this
+    // device's merge base means every key where the two differ counts as a
+    // change made HERE, so the sync below uploads this device's data as-is
+    // (see CloudMerge.js) rather than combining the two.
+    const cloudData = game._cloudPendingConflict
     game._cloudPendingConflict = null
     if (game.cloudsaveConflict) game.cloudsaveConflict.style.display = 'none'
+    game._cloudSyncing = true
+    try {
+      localStorage.setItem(CLOUD_BASE_KEY, JSON.stringify(stripDeviceOnly(cloudData)))
+    } finally {
+      game._cloudSyncing = false
+    }
     pushToCloud(game, true)
   }
 }
@@ -231,16 +398,16 @@ export function resolveCloudConflict(game, choice) {
 // manual=true shows a toast; manual=false is the best-effort post-run
 // auto-sync - swallows errors quietly rather than interrupting the
 // death/results flow.
+// Kept as the name every existing caller uses (run end, settings changes,
+// Sync Now) - now a full merge-sync rather than a blind overwrite (see
+// syncWithCloud). Mid-run callers don't apply incoming changes; the
+// run-end call does.
 export async function pushToCloud(game, manual) {
-  if (!game._cloudUid || !CloudSync.isConfigured()) return
-  try {
-    await CloudSync.pushCloudSave(game._cloudUid, game._snapshotLocalSave())
-    localStorage.setItem(CLOUD_LAST_SYNC_KEY, String(Date.now()))
-    renderCloudSyncStatus(game)
-    if (manual) game._showLoreToast(t('cloudsaveSynced'))
-  } catch {
-    if (manual) game._showLoreToast(t('cloudsaveError'))
-  }
+  const result = await syncWithCloud(game, { manual, allowApply: !game.gameStarted })
+  // Another device changed things during this run - finish the merge once
+  // the player is back on the homepage (see scheduleSyncWhenIdle).
+  if (result === 'deferred') scheduleSyncWhenIdle(game)
+  return result
 }
 
 export async function handleCloudSignOut(game) {

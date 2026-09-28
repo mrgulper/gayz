@@ -63,6 +63,17 @@ export default [
     },
   },
   {
+    // The chat emoji picker's dataset IS the list of emoji players can type
+    // into chat - user-generated content, not UI chrome, which is what the
+    // no-emoji convention is about. Without this, its ~300 entries failed
+    // `npm run lint` outright, and since CI runs lint first, the Playwright
+    // suite never got to run in CI at all.
+    files: ['src/game/EmojiData.js'],
+    rules: {
+      'local/no-emoji': 'off',
+    },
+  },
+  {
     files: ['tests/**/*.js'],
     languageOptions: {
       ecmaVersion: 2022,
