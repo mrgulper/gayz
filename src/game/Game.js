@@ -20690,6 +20690,10 @@ export class Game {
     const fctx = face.getContext('2d')
     fctx.imageSmoothingEnabled = false
     fctx.drawImage(skin.texture.image, 8, 8, 8, 8, 0, 0, 64, 64)
+    // Hat layer on top of the face - loadSkinTexture no longer flattens the
+    // overlay onto the base, so the badge composites it itself (only when
+    // the 3D character actually shows a hat, see overlayParts).
+    if (skin.overlayParts && skin.overlayParts.has('head')) fctx.drawImage(skin.texture.image, 40, 8, 8, 8, 0, 0, 64, 64)
     const dataUrl = face.toDataURL('image/png')
     this.menuAvatarPhoto.src = dataUrl
     this.menuAvatarPhoto.classList.remove('loading')

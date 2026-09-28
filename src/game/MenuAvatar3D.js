@@ -106,12 +106,23 @@ function _applyFaceRectsToBox(geometry, faceRects, texW, texH) {
 
 // Builds a textured box for one body part, reading its pixels from the
 // given origin in the skin image (mirrored for legacy left limbs).
-function _texturedBoxMesh(w, h, d, u, v, texture, texW, texH, mirror) {
+//
+// overlay=true builds the second-layer (hat/jacket/sleeves/pants) shell:
+// the box grows by `inflate` but its UVs still come from the part's real
+// w/h/d - growing the UV rects too would read an extra row/column of
+// neighboring atlas pixels (the exact stray-blocks bug fixed in the skin
+// designer, 2026-09-28). alphaTest (cutout, not blended transparency) so
+// only the overlay's painted pixels show and the base stays visible
+// through the rest, with no depth-sorting issues between the two layers.
+function _texturedBoxMesh(w, h, d, u, v, texture, texW, texH, mirror, inflate = 0, overlay = false) {
   let rects = _partFaceRects(u, v, w, h, d)
   if (mirror) rects = _mirrorFaceRectsH(rects, u, w, h, d)
-  const geo = new THREE.BoxGeometry(w, h, d)
+  const geo = new THREE.BoxGeometry(w + inflate, h + inflate, d + inflate)
   _applyFaceRectsToBox(geo, rects, texW, texH)
-  return new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: texture, roughness: 0.9 }))
+  const material = overlay
+    ? new THREE.MeshStandardMaterial({ map: texture, roughness: 0.9, alphaTest: 0.5 })
+    : new THREE.MeshStandardMaterial({ map: texture, roughness: 0.9 })
+  return new THREE.Mesh(geo, material)
 }
 
 // Loads a skin PNG into a ready-to-use THREE.Texture - source is either
@@ -129,11 +140,12 @@ function _texturedBoxMesh(w, h, d, u, v, texture, texW, texH, mirror) {
 // use the base vs. the overlay - a genuine real-world file was found
 // during testing that puts its ENTIRE visible design on the overlay
 // layer, leaving the base layer fully transparent - so the overlay
-// can't be treated as optional detail, it has to be composited onto
-// the base before UV mapping, the same way Minecraft itself layers
-// them (overlay drawn on top, alpha blended, wins wherever it has
-// non-transparent pixels). Legacy 64x32 only has room for a head
-// overlay (everything else would fall outside the image's 32 rows).
+// can't be treated as optional detail. It used to be flattened onto the
+// base before UV mapping; since 2026-09-28 it's rendered the way
+// Minecraft and minecraftskins.com do instead, as its own slightly bigger
+// shell around each part (see buildTexturedCharacter). Legacy 64x32 only
+// has room for a head overlay (everything else would fall outside the
+// image's 32 rows).
 const OVERLAY_ORIGINS = {
   head: [32, 0],
   torso: [16, 32],
@@ -173,18 +185,34 @@ export function loadSkinTexture(source) {
       const canvas = document.createElement('canvas')
       canvas.width = w
       canvas.height = h
-      const ctx = canvas.getContext('2d')
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })
       ctx.imageSmoothingEnabled = false
       ctx.drawImage(img, 0, 0)
+      // The overlay is no longer flattened onto the base here (see the
+      // comment above OVERLAY_ORIGINS) - this just records which parts'
+      // overlay blocks actually have visible pixels, so an empty one
+      // doesn't get a shell at all.
+      const overlayParts = new Set()
       for (const part of Object.keys(BASE_ORIGINS)) {
         if (legacy && part !== 'head') continue // no room for other overlays at 32px tall
         const [bw, bh, bd] = PART_DIMS[part]
         const blockW = 2 * bw + 2 * bd
         const blockH = bd + bh
         const [ou, ov] = OVERLAY_ORIGINS[part]
-        if (ov + blockH > h) continue // overlay block falls outside the image entirely
-        const [bu, bv] = BASE_ORIGINS[part]
-        ctx.drawImage(canvas, ou, ov, blockW, blockH, bu, bv, blockW, blockH)
+        if (ou + blockW > w || ov + blockH > h) continue // overlay block falls outside the image entirely
+        const data = ctx.getImageData(ou, ov, blockW, blockH).data
+        let visible = 0
+        let opaque = 0
+        for (let i = 3; i < data.length; i += 4) {
+          if (data[i] >= 128) visible++
+          if (data[i] === 255) opaque++
+        }
+        if (visible === 0) continue
+        // Old 64x32 skins often fill the whole hat area with a solid color
+        // never meant as a hat - Minecraft ignores a legacy hat layer with
+        // no transparent pixels at all, and so does this.
+        if (legacy && opaque === data.length / 4) continue
+        overlayParts.add(part)
       }
 
       const texture = new THREE.CanvasTexture(canvas)
@@ -193,7 +221,7 @@ export function loadSkinTexture(source) {
       texture.flipY = false
       texture.colorSpace = THREE.SRGBColorSpace
       texture.needsUpdate = true
-      resolve({ texture, width: w, height: h })
+      resolve({ texture, width: w, height: h, overlayParts })
     }
     img.onerror = () => {
       if (isBlob) URL.revokeObjectURL(url)
@@ -231,27 +259,51 @@ export const SHOP_SKIN_PREVIEW_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAA
 // (the homepage preview) renders the exact same static pose as before;
 // one that does (MinecraftPlayerBody's walk cycle) swings the limb from
 // the correct joint instead of its own center.
-function _buildLimbPivot(w, h, d, u, v, texture, texW, texH, mirror, pivotX, pivotY) {
+function _buildLimbPivot(w, h, d, u, v, texture, texW, texH, mirror, pivotX, pivotY, overlayOrigin = null) {
   const mesh = _texturedBoxMesh(w, h, d, u, v, texture, texW, texH, mirror)
   mesh.position.y = -h / 2
   const pivot = new THREE.Group()
   pivot.position.set(pivotX, pivotY, 0)
   pivot.add(mesh)
+  if (overlayOrigin) {
+    const shell = _texturedBoxMesh(w, h, d, overlayOrigin[0], overlayOrigin[1], texture, texW, texH, false, OVERLAY_INFLATE, true)
+    shell.position.y = -h / 2
+    pivot.add(shell)
+  }
   return pivot
 }
+
+// How much bigger each overlay shell is than its base part (0.5 per side) -
+// the same puff the skin designer's 3D preview uses, so a skin looks the
+// same in-game as it did while you were making it.
+const OVERLAY_INFLATE = 1
 
 export function buildTexturedCharacter(skin) {
   const { texture, width, height } = skin
   const legacy = height <= 32
+  // A skin object without overlayParts (built by hand rather than by
+  // loadSkinTexture) gets no shells rather than guessing.
+  const overlayParts = skin.overlayParts || new Set()
+  const overlayFor = (part) => (overlayParts.has(part) ? OVERLAY_ORIGINS[part] : null)
   const group = new THREE.Group()
 
   const head = _texturedBoxMesh(8, 8, 8, 0, 0, texture, width, height, false)
   head.position.y = 26
   group.add(head)
+  if (overlayFor('head')) {
+    const hat = _texturedBoxMesh(8, 8, 8, OVERLAY_ORIGINS.head[0], OVERLAY_ORIGINS.head[1], texture, width, height, false, OVERLAY_INFLATE, true)
+    hat.position.y = 26
+    group.add(hat)
+  }
 
   const torso = _texturedBoxMesh(8, 12, 4, 16, 16, texture, width, height, false)
   torso.position.y = 16
   group.add(torso)
+  if (overlayFor('torso')) {
+    const jacket = _texturedBoxMesh(8, 12, 4, OVERLAY_ORIGINS.torso[0], OVERLAY_ORIGINS.torso[1], texture, width, height, false, OVERLAY_INFLATE, true)
+    jacket.position.y = 16
+    group.add(jacket)
+  }
 
   // x=6, z=0 - flush against the torso (half-width 4) with zero gap and
   // zero overlap. Both alternatives tried here caused a worse visual
@@ -266,18 +318,18 @@ export function buildTexturedCharacter(skin) {
   // top edge (was position.y=16, height 12 -> spans 10 to 22); hip
   // pivot y=10 is the leg's own top edge (was position.y=4, height 12
   // -> spans -2 to 10) - see _buildLimbPivot's own comment.
-  const armR = _buildLimbPivot(4, 12, 4, 40, 16, texture, width, height, false, 6, 22)
+  const armR = _buildLimbPivot(4, 12, 4, 40, 16, texture, width, height, false, 6, 22, overlayFor('rightArm'))
   group.add(armR)
   const armL = legacy
     ? _buildLimbPivot(4, 12, 4, 40, 16, texture, width, height, true, -6, 22)
-    : _buildLimbPivot(4, 12, 4, 32, 48, texture, width, height, false, -6, 22)
+    : _buildLimbPivot(4, 12, 4, 32, 48, texture, width, height, false, -6, 22, overlayFor('leftArm'))
   group.add(armL)
 
-  const legR = _buildLimbPivot(4, 12, 4, 0, 16, texture, width, height, false, 2, 10)
+  const legR = _buildLimbPivot(4, 12, 4, 0, 16, texture, width, height, false, 2, 10, overlayFor('rightLeg'))
   group.add(legR)
   const legL = legacy
     ? _buildLimbPivot(4, 12, 4, 0, 16, texture, width, height, true, -2, 10)
-    : _buildLimbPivot(4, 12, 4, 16, 48, texture, width, height, false, -2, 10)
+    : _buildLimbPivot(4, 12, 4, 16, 48, texture, width, height, false, -2, 10, overlayFor('leftLeg'))
   group.add(legL)
 
   // Exposed for a caller that wants to animate a walk cycle (see
