@@ -150,7 +150,6 @@ import { loadEncountered, saveEncountered } from './Bestiary.js'
 import { ACTIONS, getKeyFor, setBinding, resetBindings, keyLabel, getAllBindings, setAllBindings } from './Keybinds.js'
 import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
-import { EMOJI_CATEGORIES } from './EmojiData.js'
 import * as MenuEasterEggs from './MenuEasterEggs.js'
 import { JOKE_TIPS, FUNNY_TRIVIA } from './MenuEasterEggs.js'
 import { MenuAvatar3D, loadSkinTexture, DEFAULT_SKIN_DATA_URL, SHOP_SKIN_PREVIEW_DATA_URL } from './MenuAvatar3D.js'
@@ -161,6 +160,7 @@ import * as MenuPresets from './MenuPresets.js'
 // instead (see _enterBuildMode) to keep it out of the initial page load.
 import * as CloudSync from './CloudSync.js'
 import * as CloudSaveUI from './CloudSaveUI.js'
+import * as ChatUI from './ChatUI.js'
 import { setColorblindMode } from './Accessibility.js'
 import { registerZone } from './Zones.js'
 import { TouchControls } from './TouchControls.js'
@@ -3902,8 +3902,8 @@ const PROFANITY_ENTRIES = PROFANITY_WORDS.map((word) => {
   return { regex: new RegExp(`(?<![a-zA-Z])${pattern}(?![a-zA-Z])`, 'gi'), replacement: PROFANITY_REPLACEMENTS[word] || null }
 })
 
-// Runs right before a chat message is sent (see _sendChatMessage/
-// _sendServerChatMessage) so the censored text is what actually reaches
+// Runs right before a chat message is sent (see ChatUI.sendChatMessage/
+// ChatUI.sendServerChatMessage) so the censored text is what actually reaches
 // Firestore - every viewer sees it censored, not just the sender's own
 // client (there's no backend here to filter on the way in, same trust
 // model as everything else in this file - see CLAUDE.md's anti-cheat
@@ -4445,7 +4445,7 @@ export class Game {
     // above which is a performance.now() elapsed-ms counter unrelated to
     // real dates) captured once here, at construction, not re-captured on
     // every panel open/close or game restart within the same page load.
-    // _renderServerChatMessages/_renderChatMessages filter out anything
+    // ChatUI.renderServerChatMessages/ChatUI.renderChatMessages filter out anything
     // with an earlier createdAt - nothing is deleted from Firestore, this
     // only affects what THIS client's own view renders.
     this._chatSessionStartMs = Date.now()
@@ -6487,9 +6487,9 @@ export class Game {
     this._bindHotbar()
     this._bindNavButtonFocusFix()
     this._bindClanSection()
-    this._bindChatWidget()
-    this._bindServerChat()
-    this._bindEmojiPicker()
+    ChatUI.bindChatWidget(this)
+    ChatUI.bindServerChat(this)
+    ChatUI.bindEmojiPicker(this)
     this._bindSettings()
     this._bindGraphicsSettings()
     this._bindGeneralSettings()
@@ -12577,7 +12577,7 @@ export class Game {
   }
 
   // Same panel, reached by pasting a Player ID into chat instead of
-  // clicking a Friends row (see _bindChatContextActions/_bindServerChat's
+  // clicking a Friends row (see ChatUI.bindChatContextActions/ChatUI.bindServerChat's
   // .chat-message-id-link handler) - looked up by playerId
   // (fetchLeaderboardEntryByPlayerId) rather than uid, everything else
   // about opening/rendering the panel is identical.
@@ -15951,7 +15951,7 @@ export class Game {
     // Reading chat is public (no sign-in needed - see #server-chat-wrap's
     // own CSS comment), so this starts immediately, unlike the sign-in
     // gate below.
-    this._subscribeServerChat()
+    ChatUI.subscribeServerChat(this)
     // See _authReadyPromise's own comment (Game.js constructor) - same
     // false-"you're signed out" race Friends/Profile/Clan already guard
     // against with this same await. Without it, opening this panel
@@ -15961,333 +15961,12 @@ export class Game {
     // permanently until they open a different panel) sees the sign-in
     // prompt instead of the chat input.
     await this._authReadyPromise
-    this._renderServerChatSignInState()
+    ChatUI.renderServerChatSignInState(this)
   }
 
   _closeServerPanel() {
     if (this.serverPanel) this.serverPanel.style.display = 'none'
-    this._unsubscribeServerChat()
-  }
-
-  // Global panel chat (#server-panel) - see CloudSync.js's
-  // sendServerChatMessage for why this is a separate chat room from the
-  // in-game HUD's #chat-panel, not the same conversation. Structurally a
-  // much simpler cousin of _bindChatWidget's global channel: no tab
-  // switching (this panel IS the global channel, always), no pointer-lock/
-  // gameplay-hotkey handling (this only ever opens from the homepage
-  // menu, never mid-run), own rate-limit state so it doesn't share
-  // counters with the in-game chat.
-  _bindServerChat() {
-    if (!this.serverPanel) return
-    this._serverChatUnsub = null
-    this._serverChatSendTimestamps = []
-    this._serverChatMutedUntil = 0
-    this._serverChatMuteTimer = null
-
-    if (this.serverChatSigninBtn) this.serverChatSigninBtn.addEventListener('click', () => this._handleCloudSignIn())
-
-    if (this.serverChatInputRow) {
-      this.serverChatInputRow.addEventListener('submit', (e) => {
-        e.preventDefault()
-        this._sendServerChatMessage()
-      })
-    }
-
-    if (this.serverChatMessages) {
-      // Left-click a name to copy their Player ID directly; right-click
-      // shows the shared "Name #ID" + Mute popup (see _showPlayerIdPopup) -
-      // same technique as the in-game HUD chat's identical feature.
-      //
-      // Looks up by uid (the message's own stored sender uid, see
-      // sendGlobalChatMessage - a direct leaderboard/{uid} doc GET) when
-      // available, falling back to the old by-name query only if it isn't
-      // (very old cached messages sent before this field existed). Real
-      // bug fixed here (2026-09-22): nickname isn't a stable key - it's
-      // just whatever the sender's CURRENT nickname happens to be, so a
-      // message sent under an older nickname (or with a name that doesn't
-      // exactly match, case/whitespace included) silently failed this
-      // lookup and showed the "not found" toast instead of ever copying/
-      // showing the Copied badge. uid never changes, so this can't drift.
-      const lookupEntry = async (nickname, uid) => {
-        try {
-          if (uid) {
-            const byUid = await CloudSync.fetchLeaderboardEntryByUid(uid)
-            if (byUid) return byUid
-          }
-          return await CloudSync.fetchLeaderboardEntryByName(nickname)
-        } catch {
-          // Falls through to the "not found" toast below, same as every
-          // other best-effort leaderboard lookup in this file.
-          return null
-        }
-      }
-      const openPopupForNickname = async (e, btn) => {
-        const nickname = btn.dataset.nickname
-        if (!nickname) return
-        const entry = await lookupEntry(nickname, btn.dataset.uid)
-        if (!entry || !entry.playerId) {
-          this._showHomepageToast(t('chatCopyPlayerIdNotFound', { name: nickname }))
-          return
-        }
-        this._showPlayerIdPopup(e.clientX, e.clientY, nickname, entry.playerId)
-      }
-      this.serverChatMessages.addEventListener('contextmenu', (e) => {
-        const btn = e.target.closest('.chat-message-nickname')
-        if (!btn) return
-        e.preventDefault()
-        openPopupForNickname(e, btn)
-      })
-      this._bindChatNicknameLongPress(this.serverChatMessages, openPopupForNickname)
-      // Click an ID pasted into a message (see _renderChatMessageText) to
-      // look up that player's stats - same feature as the in-game HUD chat.
-      this.serverChatMessages.addEventListener('click', async (e) => {
-        const nameBtn = e.target.closest('.chat-message-nickname')
-        if (nameBtn) {
-          const nickname = nameBtn.dataset.nickname
-          if (!nickname) return
-          const entry = await lookupEntry(nickname, nameBtn.dataset.uid)
-          if (!entry || !entry.playerId) {
-            this._showHomepageToast(t('chatCopyPlayerIdNotFound', { name: nickname }))
-            return
-          }
-          this._copyChatPlayerId(entry.playerId, nameBtn, (msg) => this._showHomepageToast(msg))
-          return
-        }
-        const link = e.target.closest('.chat-message-id-link')
-        if (link) {
-          const id = link.dataset.lookupId
-          if (!id) return
-          this._openOtherPlayerProfileById(id)
-          return
-        }
-        const showBtn = e.target.closest('.chat-blocked-show-btn')
-        if (showBtn) this._revealBlockedMessage(showBtn)
-      })
-    }
-  }
-
-  // One shared #emoji-picker overlay (position:fixed, see its own CSS
-  // comment for why) rather than a separate copy per chat input - reused
-  // by both #chat-emoji-btn (in-game HUD chat, covers Global/Clan/Party
-  // since they all share #chat-input) and #server-chat-emoji-btn (the
-  // homepage Global panel's own input). Repositioned and re-targeted
-  // every time it opens rather than kept permanently bound to one input.
-  _bindEmojiPicker() {
-    if (!this.emojiPicker) return
-    this.emojiPickerCategories.innerHTML = EMOJI_CATEGORIES.map(
-      (cat) => `<button type="button" class="emoji-picker-category-btn" data-emoji-category="${cat.id}" title="${_escapeHtml(t(cat.labelKey))}">${cat.icon}</button>`
-    ).join('')
-    this._emojiPickerTarget = null
-
-    const openFor = (triggerBtn, targetInput) => {
-      if (!targetInput) return
-      if (this.emojiPicker.style.display !== 'none' && this._emojiPickerTarget === targetInput) {
-        this._closeEmojiPicker()
-        return
-      }
-      this._emojiPickerTarget = targetInput
-      this.emojiPickerSearch.value = ''
-      this._renderEmojiPickerList('')
-      this.emojiPicker.style.display = 'flex'
-      // Anchored above the trigger button (chat inputs sit at the bottom
-      // of their panel) and clamped inside the viewport - offsetWidth/
-      // Height read AFTER display:flex so they're the real rendered
-      // size, not 0 from a still-display:none element.
-      const rect = triggerBtn.getBoundingClientRect()
-      const pickerWidth = this.emojiPicker.offsetWidth
-      const pickerHeight = this.emojiPicker.offsetHeight
-      let left = rect.right - pickerWidth
-      left = Math.max(8, Math.min(left, window.innerWidth - pickerWidth - 8))
-      let top = rect.top - pickerHeight - 8
-      if (top < 8) top = Math.min(rect.bottom + 8, window.innerHeight - pickerHeight - 8)
-      this.emojiPicker.style.left = `${left}px`
-      this.emojiPicker.style.top = `${top}px`
-      for (const btn of document.querySelectorAll('.chat-emoji-btn')) btn.classList.toggle('active', btn === triggerBtn)
-    }
-
-    if (this.chatEmojiBtn) {
-      this.chatEmojiBtn.addEventListener('click', (e) => {
-        e.preventDefault()
-        openFor(this.chatEmojiBtn, this.chatInput)
-      })
-    }
-    if (this.serverChatEmojiBtn) {
-      this.serverChatEmojiBtn.addEventListener('click', (e) => {
-        e.preventDefault()
-        openFor(this.serverChatEmojiBtn, this.serverChatInput)
-      })
-    }
-
-    this.emojiPickerSearch.addEventListener('input', () => this._renderEmojiPickerList(this.emojiPickerSearch.value))
-    this.emojiPickerSearch.addEventListener('click', (e) => e.stopPropagation())
-
-    this.emojiPickerCategories.addEventListener('click', (e) => {
-      const btn = e.target.closest('.emoji-picker-category-btn')
-      if (!btn) return
-      this.emojiPickerList.querySelector(`.emoji-picker-section-label[data-emoji-section="${btn.dataset.emojiCategory}"]`)?.scrollIntoView({ block: 'start' })
-    })
-
-    this.emojiPickerList.addEventListener('click', (e) => {
-      const item = e.target.closest('.emoji-picker-item')
-      if (!item || !this._emojiPickerTarget) return
-      this._insertEmojiIntoInput(this._emojiPickerTarget, item.textContent)
-    })
-
-    // Click-outside-closes - the two trigger buttons already toggle it
-    // themselves in openFor() above, so excluded here to avoid a
-    // close-then-immediately-reopen double-fire on the same click.
-    document.addEventListener('click', (e) => {
-      if (this.emojiPicker.style.display === 'none') return
-      if (this.emojiPicker.contains(e.target)) return
-      if (e.target === this.chatEmojiBtn || e.target === this.serverChatEmojiBtn) return
-      this._closeEmojiPicker()
-    })
-  }
-
-  _closeEmojiPicker() {
-    if (!this.emojiPicker) return
-    this.emojiPicker.style.display = 'none'
-    this._emojiPickerTarget = null
-    for (const btn of document.querySelectorAll('.chat-emoji-btn')) btn.classList.remove('active')
-  }
-
-  _renderEmojiPickerList(filterText) {
-    const filter = filterText.trim().toLowerCase()
-    this.emojiPickerList.innerHTML = ''
-    let anyMatch = false
-    for (const cat of EMOJI_CATEGORIES) {
-      const matches = filter ? cat.emojis.filter((e) => e.k.includes(filter)) : cat.emojis
-      if (matches.length === 0) continue
-      anyMatch = true
-      const label = document.createElement('div')
-      label.className = 'emoji-picker-section-label'
-      label.textContent = t(cat.labelKey)
-      label.dataset.emojiSection = cat.id
-      this.emojiPickerList.appendChild(label)
-      const grid = document.createElement('div')
-      grid.className = 'emoji-picker-grid'
-      for (const e of matches) {
-        const btn = document.createElement('button')
-        btn.type = 'button'
-        btn.className = 'emoji-picker-item'
-        btn.textContent = e.c
-        grid.appendChild(btn)
-      }
-      this.emojiPickerList.appendChild(grid)
-    }
-    if (!anyMatch) {
-      const empty = document.createElement('p')
-      empty.id = 'emoji-picker-empty'
-      empty.textContent = t('emojiPickerNoResults')
-      this.emojiPickerList.appendChild(empty)
-    }
-  }
-
-  // Inserts at the current cursor position (or replaces a selection)
-  // rather than always appending to the end, and stops at the input's
-  // own maxlength (300, same cap chat messages already have) instead of
-  // silently typing past it.
-  _insertEmojiIntoInput(input, emoji) {
-    const start = input.selectionStart ?? input.value.length
-    const end = input.selectionEnd ?? input.value.length
-    const maxLen = Number(input.maxLength) > 0 ? input.maxLength : Infinity
-    const next = input.value.slice(0, start) + emoji + input.value.slice(end)
-    if (next.length > maxLen) return
-    input.value = next
-    input.focus()
-    const caret = start + emoji.length
-    input.setSelectionRange(caret, caret)
-  }
-
-  _subscribeServerChat() {
-    if (this._serverChatUnsub) return
-    this._serverChatUnsub = CloudSync.subscribeServerChat((msgs) => this._renderServerChatMessages(msgs))
-  }
-
-  _unsubscribeServerChat() {
-    if (this._serverChatUnsub) {
-      this._serverChatUnsub()
-      this._serverChatUnsub = null
-    }
-  }
-
-  _renderServerChatMessages(msgs) {
-    if (!this.serverChatMessages) return
-    this._lastServerChatMsgs = msgs
-    const muted = new Set(this.settings.mutedChatPlayers)
-    // Hides pre-existing history on a fresh page load (see
-    // _chatSessionStartMs's own comment) - this is the only case that
-    // actually drops a message; a muted sender's message stays in
-    // `visible` and renders as a "Blocked message - Show" placeholder
-    // instead (see _renderChatMessageRow) rather than disappearing
-    // outright.
-    const visible = msgs.filter((m) => !(m.createdAt && m.createdAt <= this._chatSessionStartMs))
-    // Always linkify here (unlike the in-game HUD chat's channel-gated
-    // version) - this panel IS the global channel, always, no tabs to
-    // gate on (see _bindServerChat's own comment).
-    this.serverChatMessages.innerHTML = visible.map((m) => this._renderChatMessageRow(m, true, muted.has(m.nickname))).join('')
-    this.serverChatMessages.scrollTop = this.serverChatMessages.scrollHeight
-  }
-
-  // Toggles the sign-in prompt vs. the actual input form (see
-  // #server-chat-wrap's own CSS comment - the message list itself always
-  // shows, reading is public). Called on panel open and again whenever
-  // sign-in state changes (CloudSaveUI.renderCloudSaveState) so the panel
-  // updates live if it's open while the player signs in/out.
-  _renderServerChatSignInState() {
-    if (!this.serverChatSignedOut) return
-    const signedIn = !!this._cloudUid
-    this.serverChatSignedOut.style.display = signedIn ? 'none' : 'flex'
-    if (this.serverChatInputRow) this.serverChatInputRow.style.display = signedIn ? 'flex' : 'none'
-    if (this.serverChatSignedOutDesc) this.serverChatSignedOutDesc.textContent = t('chatSignInRequired')
-    if (this.serverChatSigninBtn) this.serverChatSigninBtn.textContent = t('cloudsaveSigninBtn')
-  }
-
-  async _sendServerChatMessage() {
-    if (!this.serverChatInput) return
-    const text = _censorText(this.serverChatInput.value.trim())
-    if (!text) return
-    const now = Date.now()
-    if (this._serverChatMutedUntil > now) return
-    // Same 5-in-10s -> 5-minute mute as the in-game chat's own send
-    // handler, own counters though (see _bindServerChat's comment).
-    this._serverChatSendTimestamps = this._serverChatSendTimestamps.filter((ts) => now - ts < 10000)
-    this._serverChatSendTimestamps.push(now)
-    if (this._serverChatSendTimestamps.length > 5) {
-      this._serverChatMutedUntil = now + 5 * 60 * 1000
-      this._serverChatSendTimestamps = []
-      this._startServerChatMuteCountdown()
-      return
-    }
-    if (!this._cloudUid) {
-      this._showHomepageToast(t('chatSignInRequired'))
-      return
-    }
-    const nickname = this.settings.nickname || 'Player'
-    this.serverChatInput.value = ''
-    const ok = await CloudSync.sendServerChatMessage(this._cloudUid, nickname, text).then(
-      () => true,
-      () => false
-    )
-    if (!ok) this._showHomepageToast(t('chatSendFailed'))
-  }
-
-  _startServerChatMuteCountdown() {
-    if (!this.serverChatMutedNotice) return
-    if (this._serverChatMuteTimer) clearInterval(this._serverChatMuteTimer)
-    const tick = () => {
-      const secondsLeft = Math.ceil((this._serverChatMutedUntil - Date.now()) / 1000)
-      if (secondsLeft <= 0) {
-        this.serverChatMutedNotice.style.display = 'none'
-        clearInterval(this._serverChatMuteTimer)
-        this._serverChatMuteTimer = null
-        return
-      }
-      this.serverChatMutedNotice.textContent = t('chatMutedNotice', { seconds: secondsLeft })
-      this.serverChatMutedNotice.style.display = 'block'
-    }
-    tick()
-    this._serverChatMuteTimer = setInterval(tick, 1000)
+    ChatUI.unsubscribeServerChat(this)
   }
 
   // Entering/exiting the drivable car (see Vehicle.js). While driving, the
@@ -19200,7 +18879,7 @@ export class Game {
     }
     this._multiplayerSessionId = sessionId
     this._multiplayerUid = uid
-    this._updateChatTabAvailability()
+    ChatUI.updateChatTabAvailability(this)
     // Phase 6 multiplayer (docs/superpowers/specs/2026-08-25-multiplayer-phase6-scaling-migration-design.md) -
     // this player's own server-recorded join time, needed to compare
     // against every OTHER player's joinedAt (_otherPlayerJoinedAt) when
@@ -19234,7 +18913,7 @@ export class Game {
       const { uid, joinedAt } = await Multiplayer.joinSession(sessionId, nickname, this.settings.customSkinDataUrl)
       this._multiplayerSessionId = sessionId
       this._multiplayerUid = uid
-      this._updateChatTabAvailability()
+      ChatUI.updateChatTabAvailability(this)
       this._myJoinedAt = joinedAt
       this._multiplayerIsHost = false
       // Not known yet - the very next sync call's `host` field fills this
@@ -19340,7 +19019,7 @@ export class Game {
             hasNew = true
           }
           if (this._chatPartyMessages.length > 100) this._chatPartyMessages = this._chatPartyMessages.slice(-100)
-          if (hasNew && this._chatChannel === 'party') this._renderChatMessages(this._chatPartyMessages)
+          if (hasNew && this._chatChannel === 'party') ChatUI.renderChatMessages(this, this._chatPartyMessages)
         }
         // Phase 6 multiplayer - kept warm the same way per-zombie full
         // state is (Step 1 above), for the same reason - see Task 14.
@@ -20284,7 +19963,7 @@ export class Game {
       this._multiplayerSessionId = null
       this._chatPartyMessages = []
       this._chatPartySeenIds = new Set()
-      this._updateChatTabAvailability()
+      ChatUI.updateChatTabAvailability(this)
     }
     for (const body of this._remotePlayerBodies.values()) {
       body.group.parent?.remove(body.group)
@@ -23108,526 +22787,6 @@ export class Game {
     this._updateHotbarHud()
   }
 
-  // Chat - Global/Clan/Party channels, always visible (see #chat-panel's
-  // own CSS comment for why this isn't a click-to-open widget any more).
-  // Global and Clan are live Firestore subscriptions (see CloudSync.js);
-  // Party comes through the multiplayer sync poll instead (see
-  // _syncNetworkPlayerState and its response handler) since a multiplayer
-  // session isn't Firebase-Auth-signed-in at all. Only one channel is
-  // ever subscribed at a time (switching tabs unsubscribes the old one
-  // first) to keep the read cost bounded, but - unlike the old toggle
-  // version - always subscribed to SOME channel from the moment the game
-  // loads, since there's no more "closed" state to gate it behind.
-  _bindChatWidget() {
-    if (!this.chatPanel) return
-    this._chatChannel = 'global'
-    this._chatUnsub = null
-    this._chatSendTimestamps = []
-    this._chatMutedUntil = 0
-    this._chatMuteTimer = null
-    this._chatPartySeenIds = new Set()
-    this._chatPartyMessages = []
-    this._pendingChatText = null
-    this._pendingChatNickname = null
-    this._chatInputFocused = false
-
-    this.chatInput.addEventListener('focus', () => {
-      this._chatInputFocused = true
-    })
-    this.chatInput.addEventListener('blur', () => {
-      this._chatInputFocused = false
-      // Focusing chat released pointer lock (see _onGameplayPaused's own
-      // comment on this) - re-acquire it on blur so aim/look resumes,
-      // same re-lock-on-close convention every other panel that unlocks
-      // itself already follows (e.g. _closeTraderPanel). Only mid-run -
-      // there's no pointer lock to reacquire on the homepage.
-      if (this.gameStarted && this.playerState.alive) this._requestPointerLock()
-    })
-
-    for (const btn of this.chatTabBtns) {
-      btn.addEventListener('click', () => {
-        if (btn.disabled || btn.classList.contains('active')) return
-        for (const b of this.chatTabBtns) b.classList.toggle('active', b === btn)
-        this._chatChannel = btn.dataset.channel
-        this._unsubscribeChatChannel()
-        this._subscribeChatChannel()
-      })
-    }
-
-    if (this.chatInputRow) {
-      this.chatInputRow.addEventListener('submit', (e) => {
-        e.preventDefault()
-        this._sendChatMessage()
-      })
-    }
-
-    // Suppress every gameplay hotkey listener while the chat input is
-    // focused - capture phase on window fires before every other keydown
-    // listener in this file (all bubble-phase, default), same technique
-    // PlayerController's own mousemove-filter guard relies on (see that
-    // file's comment): stopImmediatePropagation blocks the OTHER
-    // listeners without touching the input's own native typing, since
-    // that's the browser's default action, not one of our own listeners.
-    // Same listener also handles Enter opening chat when it's NOT
-    // focused yet - clicking it directly wouldn't work mid-run anyway
-    // (the mouse is pointer-locked for aiming, not a free cursor), same
-    // "press a key to open chat" convention every multiplayer FPS uses.
-    window.addEventListener('keydown', (e) => {
-      if (document.activeElement === this.chatInput) {
-        if (e.code === 'Escape') this.chatInput.blur()
-        e.stopImmediatePropagation()
-        return
-      }
-      if (e.code === 'Enter' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
-        e.preventDefault()
-        e.stopImmediatePropagation()
-        this.chatInput.focus()
-      }
-    }, true)
-
-    this._updateChatTabAvailability()
-    this._subscribeChatChannel()
-    this._bindChatContextActions()
-    this._renderMutedChatPlayers()
-  }
-
-  _updateChatTabAvailability() {
-    if (!this.chatTabBtns) return
-    let fellBack = false
-    for (const btn of this.chatTabBtns) {
-      const channel = btn.dataset.channel
-      const nowDisabled = (channel === 'clan' && !this.settings.clanId) || (channel === 'party' && !this._multiplayerSessionId)
-      btn.disabled = nowDisabled
-      if (nowDisabled && btn.classList.contains('active')) fellBack = true
-    }
-    if (fellBack) {
-      for (const btn of this.chatTabBtns) btn.classList.toggle('active', btn.dataset.channel === 'global')
-      this._chatChannel = 'global'
-      this._unsubscribeChatChannel()
-      this._subscribeChatChannel()
-    }
-  }
-
-  _subscribeChatChannel() {
-    this._renderChatMessages([])
-    if (this._chatChannel === 'global') {
-      this._chatUnsub = CloudSync.subscribeGlobalChat((msgs) => this._renderChatMessages(msgs))
-    } else if (this._chatChannel === 'clan') {
-      if (!this.settings.clanId) return
-      this._chatUnsub = CloudSync.subscribeClanChat(this.settings.clanId, (msgs) => this._renderChatMessages(msgs))
-    } else if (this._chatChannel === 'party') {
-      this._renderChatMessages(this._chatPartyMessages)
-    }
-  }
-
-  _unsubscribeChatChannel() {
-    if (this._chatUnsub) {
-      this._chatUnsub()
-      this._chatUnsub = null
-    }
-  }
-
-  _renderChatMessages(msgs) {
-    if (!this.chatMessages) return
-    this._lastChatMsgs = msgs
-    // Mute/block (Settings > Social > Muted Players) - a muted sender's
-    // message stays in `visible` and renders as a "Blocked message -
-    // Show" placeholder instead of being filtered out entirely (see
-    // _renderChatMessageRow) - by nickname (the one thing every channel's
-    // messages actually share - Global/Clan carry a Firebase uid, Party
-    // carries an ephemeral multiplayer playerId, no single id scheme
-    // spans all three). This is a personal chat filter, not real
-    // moderation - someone could evade it by changing their nickname,
-    // which is an accepted tradeoff for how lightweight this needs to
-    // be. Settings > Social is how an existing mute gets undone.
-    const muted = new Set(this.settings.mutedChatPlayers)
-    // Hides pre-existing history on a fresh page load, same as the
-    // homepage Global panel's identical filter (see _chatSessionStartMs's
-    // own comment) - only filters messages that actually carry a
-    // createdAt, so Party chat (no createdAt field, see its own comment
-    // below) passes through unaffected.
-    const visible = msgs.filter((m) => !(m.createdAt && m.createdAt <= this._chatSessionStartMs))
-    // Global-only for now (see the design conversation) - Party chat's
-    // ephemeral multiplayer players have no Player ID at all, and Clan
-    // chat wasn't asked for yet. _renderChatMessageText no-ops back to
-    // plain escaped text outside 'global', same as it always rendered.
-    const linkifyIds = this._chatChannel === 'global'
-    this.chatMessages.innerHTML = visible.map((m) => this._renderChatMessageRow(m, linkifyIds, muted.has(m.nickname))).join('')
-    this.chatMessages.scrollTop = this.chatMessages.scrollHeight
-  }
-
-  // Splits on a pasted Player ID (see _generatePlayerId - always exactly
-  // '#' + 6 uppercase letters/digits) and wraps just that piece as a
-  // clickable lookup link, escaping every other piece of the message
-  // exactly as before. Matching against the RAW text (before any escaping)
-  // and only ever inserting either escaped plain text or an element built
-  // entirely from our own fixed strings + the already-charset-constrained
-  // matched id keeps this exactly as safe against injection as the single
-  // _escapeHtml(m.text) call this replaced - the regex's character class
-  // can't match '<', '>', or quotes, so the id itself never needs its own
-  // escaping to be safe in an attribute or as text.
-  _renderChatMessageText(text, linkifyIds) {
-    if (!linkifyIds) return _escapeHtml(text)
-    const idPattern = /#[A-Z0-9]{6}/g
-    let out = ''
-    let lastIndex = 0
-    let match
-    while ((match = idPattern.exec(text))) {
-      out += _escapeHtml(text.slice(lastIndex, match.index))
-      out += `<button type="button" class="chat-message-id-link" data-lookup-id="${match[0].slice(1)}">${match[0]}</button>`
-      lastIndex = match.index + match[0].length
-    }
-    out += _escapeHtml(text.slice(lastIndex))
-    return out
-  }
-
-  // Shared by both chat surfaces (homepage Global panel + in-game HUD
-  // chat) - a muted sender's message used to be filtered out of `visible`
-  // entirely (silently absent, no trace it was ever sent). Now it still
-  // renders, as a "Blocked message - Show" placeholder - the real text
-  // sits in a pre-rendered (already escaped/linkified, same as a normal
-  // message) sibling span that starts hidden and toggles visible on
-  // click (see the .chat-blocked-show-btn handler in each chat's click
-  // listener), rather than looking the text up again at click time - one
-  // render pass, no index/id bookkeeping needed to find it later.
-  _renderChatMessageRow(m, linkifyIds, isMuted) {
-    const nameBtn = `<button type="button" class="chat-message-nickname" data-nickname="${_escapeHtml(m.nickname)}" data-uid="${_escapeHtml(m.uid || '')}">${_escapeHtml(m.nickname)}:</button>`
-    if (isMuted) {
-      return `<div class="chat-message-row chat-message-row-blocked">${nameBtn}<span class="chat-message-text chat-blocked-text"><span class="chat-blocked-label">${t('chatBlockedMessage')}</span> - <button type="button" class="chat-blocked-show-btn">${t('chatBlockedShowBtn')}</button><span class="chat-blocked-real-text" style="display: none">${this._renderChatMessageText(m.text, linkifyIds)}</span></span></div>`
-    }
-    return `<div class="chat-message-row">${nameBtn}<span class="chat-message-text">${this._renderChatMessageText(m.text, linkifyIds)}</span></div>`
-  }
-
-  // Shared by the popup's own ID button AND the direct left-click-to-copy
-  // handlers below, so the clipboard-write logic exists exactly once. Named
-  // distinctly from the unrelated, already-existing _copyPlayerId() (copies
-  // YOUR OWN id from the menu tag, no args) a few hundred lines up - same
-  // name would have silently clobbered it via duplicate method definition.
-  // Reuses the existing "Copied" oval badge (_showCopiedBadge, already used
-  // for the menu Player ID tag and Other Profile's ID) instead of a text
-  // toast, per reference screenshot (2026-09-20) - anchorEl is whatever
-  // element was actually clicked, so the badge pops up right above it.
-  // toastFn is only needed for the (rare) clipboard-unsupported fallback,
-  // which isn't a "success" so doesn't fit the badge.
-  _copyChatPlayerId(playerId, anchorEl, toastFn) {
-    navigator.clipboard?.writeText(`#${playerId}`).then(() => {
-      this._showCopiedBadge(anchorEl)
-    }).catch(() => {
-      toastFn(t('clipboardCopyUnsupported'))
-    })
-  }
-
-  // Shows "Name #ID" plus a Mute button right at the click point, ID itself
-  // is a button that copies it (per reference screenshots, 2026-09-20) -
-  // shared by both the in-game HUD chat and the homepage "Global" panel
-  // chat's right-click handlers below, so there's one popup implementation
-  // instead of two. Always uses _showHomepageToast (not _showLoreToast) for
-  // its own feedback toasts - this popup is reachable from the homepage
-  // chat where gameStarted is false, and _showLoreToast's gameStarted guard
-  // would silently swallow the toast there.
-  // position:fixed + clamped after an initial render (its size isn't known
-  // until it's actually in the DOM) keeps it fully on-screen even from a
-  // click near an edge.
-  _showPlayerIdPopup(x, y, name, playerId) {
-    if (!this.chatIdPopup) return
-    this.chatIdPopupName.textContent = name
-    this.chatIdPopupIdBtn.textContent = `#${playerId}`
-    // Can't mute yourself - would just hide your own messages from you.
-    const isSelf = name === this.settings.nickname
-    this.chatIdPopupMuteBtn.textContent = t('muteBtn')
-    this.chatIdPopupMuteBtn.style.display = isSelf ? 'none' : ''
-    this.chatIdPopup.style.left = `${x}px`
-    this.chatIdPopup.style.top = `${y}px`
-    this.chatIdPopup.style.display = 'flex'
-    const rect = this.chatIdPopup.getBoundingClientRect()
-    if (rect.right > window.innerWidth) this.chatIdPopup.style.left = `${Math.max(8, window.innerWidth - rect.width - 8)}px`
-    if (rect.bottom > window.innerHeight) this.chatIdPopup.style.top = `${Math.max(8, window.innerHeight - rect.height - 8)}px`
-
-    const hide = () => { this.chatIdPopup.style.display = 'none' }
-    // Opens the full stats profile instead of copying (2026-09-22, explicit
-    // request) - copying the ID is still one click away via the nickname
-    // itself (left-click, see _bindChatContextActions/_bindServerChat),
-    // this button's own job in THIS popup is now "show me who this is."
-    this.chatIdPopupIdBtn.onclick = () => {
-      hide()
-      this._openOtherPlayerProfileById(playerId, name)
-    }
-    this.chatIdPopupMuteBtn.onclick = () => {
-      hide()
-      if (!this.settings.mutedChatPlayers.includes(name)) {
-        this.settings.mutedChatPlayers.push(name)
-        saveSettings(this.settings)
-      }
-      this._renderMutedChatPlayers()
-      this._refreshChatAfterMuteChange()
-      this._showHomepageToast(t('chatPlayerMuted', { name }))
-    }
-    // Deferred (setTimeout 0) so the very click that opened this popup
-    // doesn't immediately bubble up and count as the "click outside" that
-    // closes it again.
-    setTimeout(() => document.addEventListener('click', hide, { once: true }), 0)
-  }
-
-  // Touch/pen equivalent of right-click (desktop's contextmenu) on a chat
-  // name - a long-press opens the same Name/ID/Mute popup. Pointer Events
-  // (not touchstart) so this only reacts to pointerType 'touch'/'pen',
-  // leaving mouse clicks/contextmenu completely alone. Most mobile
-  // browsers still fire a synthetic click after a long-press's pointerup
-  // (there was no real "drag"), which would otherwise ALSO trigger the
-  // direct-copy click handler right after the popup opens - the
-  // _longPress* state plus a capture-phase click listener swallows just
-  // that one click. Shared by both chat surfaces (see _bindChatContextActions
-  // /_bindServerChat) so the long-press timer/cancel logic exists once.
-  _bindChatNicknameLongPress(container, openPopupForNickname) {
-    const LONG_PRESS_MS = 500
-    const MOVE_CANCEL_PX = 10
-    let pressTimer = null
-    let startX = 0
-    let startY = 0
-    let longPressFired = false
-    let pressBtn = null
-
-    const cancelPress = () => {
-      if (pressTimer) {
-        clearTimeout(pressTimer)
-        pressTimer = null
-      }
-    }
-
-    container.addEventListener('pointerdown', (e) => {
-      if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return
-      const btn = e.target.closest('.chat-message-nickname')
-      if (!btn) return
-      startX = e.clientX
-      startY = e.clientY
-      pressBtn = btn
-      longPressFired = false
-      cancelPress()
-      pressTimer = setTimeout(() => {
-        longPressFired = true
-        openPopupForNickname(e, btn)
-      }, LONG_PRESS_MS)
-    })
-    container.addEventListener('pointermove', (e) => {
-      if (!pressTimer) return
-      if (Math.hypot(e.clientX - startX, e.clientY - startY) > MOVE_CANCEL_PX) cancelPress()
-    })
-    container.addEventListener('pointerup', cancelPress)
-    container.addEventListener('pointercancel', cancelPress)
-    // Capture phase so this runs before the bubble-phase click listener
-    // that does the direct-copy action.
-    container.addEventListener('click', (e) => {
-      if (longPressFired && e.target.closest('.chat-message-nickname') === pressBtn) {
-        e.stopImmediatePropagation()
-        e.preventDefault()
-        longPressFired = false
-      }
-    }, true)
-  }
-
-  // Re-renders whichever chat surfaces have messages cached, so muting (or
-  // unmuting, see _renderMutedChatPlayers) hides/shows their messages right
-  // away instead of waiting for the next Firestore snapshot to happen to
-  // fire. Harmless no-op for a surface that's never rendered anything yet.
-  _refreshChatAfterMuteChange() {
-    if (this._lastChatMsgs) this._renderChatMessages(this._lastChatMsgs)
-    if (this._lastServerChatMsgs) this._renderServerChatMessages(this._lastServerChatMsgs)
-  }
-
-  // Left-click a name to copy their Player ID directly; right-click shows
-  // the "Name #ID" + Mute popup instead (per reference screenshots,
-  // 2026-09-20 - left-click used to also open the popup, now it's a
-  // one-step copy). Click an ID pasted into a message (see
-  // _renderChatMessageText) to look up that player's stats.
-  _bindChatContextActions() {
-    if (!this.chatMessages) return
-    // Same uid-first lookup fix as the Global chat panel's identical
-    // handler (see its own comment) - a name-only lookup silently failed
-    // whenever the sender's nickname had since changed.
-    const lookupEntry = async (nickname, uid) => {
-      try {
-        if (uid) {
-          const byUid = await CloudSync.fetchLeaderboardEntryByUid(uid)
-          if (byUid) return byUid
-        }
-        return await CloudSync.fetchLeaderboardEntryByName(nickname)
-      } catch {
-        // Falls through to the "not found" toast below, same as every
-        // other best-effort leaderboard lookup in this file.
-        return null
-      }
-    }
-    const openPopupForNickname = async (e, btn) => {
-      const nickname = btn.dataset.nickname
-      if (!nickname) return
-      const entry = await lookupEntry(nickname, btn.dataset.uid)
-      if (!entry || !entry.playerId) {
-        this._showLoreToast(t('chatCopyPlayerIdNotFound', { name: nickname }))
-        return
-      }
-      this._showPlayerIdPopup(e.clientX, e.clientY, nickname, entry.playerId)
-    }
-    this.chatMessages.addEventListener('contextmenu', (e) => {
-      const btn = e.target.closest('.chat-message-nickname')
-      if (!btn) return
-      e.preventDefault()
-      openPopupForNickname(e, btn)
-    })
-    this._bindChatNicknameLongPress(this.chatMessages, openPopupForNickname)
-    this.chatMessages.addEventListener('click', async (e) => {
-      const nameBtn = e.target.closest('.chat-message-nickname')
-      if (nameBtn) {
-        const nickname = nameBtn.dataset.nickname
-        if (!nickname) return
-        const entry = await lookupEntry(nickname, nameBtn.dataset.uid)
-        if (!entry || !entry.playerId) {
-          this._showLoreToast(t('chatCopyPlayerIdNotFound', { name: nickname }))
-          return
-        }
-        this._copyChatPlayerId(entry.playerId, nameBtn, (msg) => this._showLoreToast(msg))
-        return
-      }
-      const link = e.target.closest('.chat-message-id-link')
-      if (link) {
-        const id = link.dataset.lookupId
-        if (!id) return
-        this._openOtherPlayerProfileById(id)
-        return
-      }
-      const showBtn = e.target.closest('.chat-blocked-show-btn')
-      if (showBtn) this._revealBlockedMessage(showBtn)
-    })
-  }
-
-  // "Show" on a muted sender's "Blocked message" placeholder (see
-  // _renderChatMessageRow) - swaps the label+button for the real,
-  // already-rendered text sitting right next to them in the DOM. One
-  // reveal per message row; there's no "hide again" since re-blocking a
-  // message you already read isn't meaningfully private.
-  _revealBlockedMessage(showBtn) {
-    const row = showBtn.closest('.chat-blocked-text')
-    if (!row) return
-    const label = row.querySelector('.chat-blocked-label')
-    const realText = row.querySelector('.chat-blocked-real-text')
-    if (label) label.style.display = 'none'
-    showBtn.style.display = 'none'
-    if (realText) realText.style.display = ''
-  }
-
-  // Settings > Social > Muted Players - the only way to SEE the current
-  // mute list and undo one. A muted player's messages still show up in
-  // chat (as a "Blocked message - Show" placeholder, see
-  // _renderChatMessageRow) - undoing the mute here is what makes them
-  // render normally again going forward, same as any other message.
-  // Mirrors the empty-state pattern this project's other list panels
-  // (Friend List, etc.) already use.
-  _renderMutedChatPlayers() {
-    if (!this.mutedChatPlayersList) return
-    const muted = this.settings.mutedChatPlayers
-    if (!muted.length) {
-      this.mutedChatPlayersList.innerHTML = `<p class="menu-hint-line">${t('mutedChatPlayersEmpty')}</p>`
-      return
-    }
-    this.mutedChatPlayersList.innerHTML = muted.map((name) => `
-      <div class="muted-chat-player-row">
-        <span>${_escapeHtml(name)}</span>
-        <button type="button" class="mini-action-btn" data-unmute="${_escapeHtml(name)}">${t('unmuteBtn')}</button>
-      </div>
-    `).join('')
-    for (const btn of this.mutedChatPlayersList.querySelectorAll('[data-unmute]')) {
-      btn.addEventListener('click', () => {
-        this.settings.mutedChatPlayers = this.settings.mutedChatPlayers.filter((n) => n !== btn.dataset.unmute)
-        saveSettings(this.settings)
-        this._renderMutedChatPlayers()
-        this._refreshChatAfterMuteChange()
-      })
-    }
-  }
-
-  async _sendChatMessage() {
-    const text = _censorText(this.chatInput.value.trim())
-    if (!text) return
-    const now = Date.now()
-    if (this._chatMutedUntil > now) return
-    // 5+ sends inside a 10s rolling window -> muted for 5 minutes. Client-
-    // side only - no custom backend here to enforce it server-side too
-    // (same trust model this game already accepts everywhere else, see
-    // CLAUDE.md's anti-cheat note), per the design conversation.
-    this._chatSendTimestamps = this._chatSendTimestamps.filter((t) => now - t < 10000)
-    this._chatSendTimestamps.push(now)
-    if (this._chatSendTimestamps.length > 5) {
-      this._chatMutedUntil = now + 5 * 60 * 1000
-      this._chatSendTimestamps = []
-      this._startChatMuteCountdown()
-      return
-    }
-    const nickname = this.settings.nickname || 'Player'
-    // Guard checks run BEFORE clearing the input and give a visible reason
-    // via the same ungated toast used for Community Builds' sign-in check
-    // (_showHomepageToast/_renderLoreToast has no gameStarted gate of its
-    // own - see that function's comment - so it renders fine mid-run too).
-    // Previously the input was cleared unconditionally up front and every
-    // failure/guard case was a silent `return`, so a blocked or failed send
-    // looked identical to a successful one: the typed text vanished and
-    // nothing ever appeared in the log, with zero clue why.
-    if (this._chatChannel === 'global') {
-      if (!this._cloudUid) {
-        this._showHomepageToast(t('chatSignInRequired'))
-        return
-      }
-      this.chatInput.value = ''
-      const ok = await CloudSync.sendGlobalChatMessage(this._cloudUid, nickname, text).then(
-        () => true,
-        () => false
-      )
-      if (!ok) this._showHomepageToast(t('chatSendFailed'))
-    } else if (this._chatChannel === 'clan') {
-      if (!this._cloudUid) {
-        this._showHomepageToast(t('chatSignInRequired'))
-        return
-      }
-      if (!this.settings.clanId) {
-        this._showHomepageToast(t('chatNoClanRequired'))
-        return
-      }
-      this.chatInput.value = ''
-      const ok = await CloudSync.sendClanChatMessage(this.settings.clanId, this._cloudUid, nickname, text).then(
-        () => true,
-        () => false
-      )
-      if (!ok) this._showHomepageToast(t('chatSendFailed'))
-    } else if (this._chatChannel === 'party') {
-      if (!this._multiplayerSessionId) {
-        this._showHomepageToast(t('chatNoPartyYet'))
-        return
-      }
-      this.chatInput.value = ''
-      // Picked up by _syncNetworkPlayerState's next tick (runs every
-      // 100ms during a run) rather than a dedicated one-off call - see
-      // its own payload-building comment for the same pattern already
-      // used for pendingZombieHits/pendingInteractions.
-      this._pendingChatText = text
-      this._pendingChatNickname = nickname
-    }
-  }
-
-  _startChatMuteCountdown() {
-    if (!this.chatMutedNotice) return
-    clearInterval(this._chatMuteTimer)
-    const tick = () => {
-      const remaining = Math.max(0, this._chatMutedUntil - Date.now())
-      if (remaining <= 0) {
-        this.chatMutedNotice.style.display = 'none'
-        clearInterval(this._chatMuteTimer)
-        return
-      }
-      this.chatMutedNotice.style.display = 'block'
-      this.chatMutedNotice.textContent = t('chatMutedNotice', { seconds: Math.ceil(remaining / 1000) })
-    }
-    this._chatMuteTimer = setInterval(tick, 1000)
-    tick()
-  }
-
   // Prevents the sidebar nav buttons (General/Store/Upgrades/etc.) from
   // ever receiving keyboard-style focus from a mouse click at all -
   // reported as a stray rectangle appearing around the button after
@@ -23900,7 +23059,7 @@ export class Game {
         saveSettings(this.settings)
         this._renderPlayerTag()
       } else {
-        this._updateChatTabAvailability()
+        ChatUI.updateChatTabAvailability(this)
         await this._renderClanIncomingInvites()
         this.clanBrowseState.style.display = 'block'
         this.clanInClanState.style.display = 'none'
@@ -23934,7 +23093,7 @@ export class Game {
       this.settings.clanName = null
       saveSettings(this.settings)
       this._renderPlayerTag()
-      this._updateChatTabAvailability()
+      ChatUI.updateChatTabAvailability(this)
       await this._renderClanIncomingInvites()
       this.clanBrowseState.style.display = 'block'
       this.clanInClanState.style.display = 'none'
@@ -24029,7 +23188,7 @@ export class Game {
     this.clanLeaveBtn.textContent = t('clanLeaveBtn')
     this.clanLeaveDisabledHint.style.display = isOwner && otherMembersPresent ? 'block' : 'none'
     if (this.clanLeaveDisabledHint.style.display === 'block') this.clanLeaveDisabledHint.textContent = t('clanLeaderMustTransferFirst')
-    this._updateChatTabAvailability()
+    ChatUI.updateChatTabAvailability(this)
   }
 
   // Invites addressed to this account, shown while browsing (not yet in

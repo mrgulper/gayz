@@ -2689,7 +2689,7 @@ html.ui-theme-old select {
    shows "Name #ID" right where you clicked, ID itself is the thing you
    click to copy - replaces the earlier instant-copy-on-right-click
    version. position:fixed + JS-set left/top (see
-   Game.js's _showPlayerIdPopup) rather than following the chat panel's
+   ChatUI.js's showPlayerIdPopup) rather than following the chat panel's
    own layout, so it can appear correctly from either chat (in-game HUD or
    the homepage Global panel) without two different positioning schemes. */
 #chat-id-popup {
@@ -11960,7 +11960,7 @@ html.night-vision-active #app {
   /* A <button>, not a <span> - reset to plain inline text so it reads
      exactly like plain text, with just a hover cue that it's clickable.
      Left-click copies the Player ID directly; right-click opens the
-     Name/ID/Mute popup (see Game.js's _bindChatContextActions). */
+     Name/ID/Mute popup (see ChatUI.js's bindChatContextActions). */
   font: inherit;
   background: none;
   border: none;
@@ -11980,9 +11980,9 @@ html.night-vision-active #app {
 }
 
 /* A Player ID pasted into a Global chat message (see
-   Game.js's _renderChatMessageText) - visually distinct from plain
+   ChatUI.js's renderChatMessageText) - visually distinct from plain
    message text so it reads as clickable, click shows that player's
-   stats (_bindChatContextActions). */
+   stats (ChatUI.js's bindChatContextActions). */
 .chat-message-id-link {
   font: inherit;
   font-size: 0.9em;
@@ -11999,12 +11999,12 @@ html.night-vision-active #app {
   background: #e8d264;
 }
 
-/* Muted sender's message (see _renderChatMessageRow) - dimmed/italic
+/* Muted sender's message (see ChatUI.js's renderChatMessageRow) - dimmed/italic
    placeholder instead of the message just silently not being there,
    with a small pill "Show" button matching .chat-message-id-link's own
    clickable-tag language. The real text (.chat-blocked-real-text) is
    already rendered right next to this, just display:none until Show is
-   clicked - see _revealBlockedMessage. */
+   clicked - see ChatUI.js's revealBlockedMessage. */
 .chat-blocked-label {
   font-style: italic;
   opacity: 0.55;
