@@ -8467,15 +8467,16 @@ html.ui-theme-old #menu-player-badge {
 
 /* Star shape (not clip-path on this element itself - a 5-point star's
    concave points would slice through 2-3 digit level numbers) - same
-   safe technique as .crate-stock-count's own star badge: the star shapes
-   live on ::before (bright gold outer star, the "border" + glow) and
-   ::after (near-black inner star, matching .panel-box's own background
-   color - the "black panel" look), both sitting behind the plain,
-   never-clipped level number text. */
+   safe technique as .crate-stock-count's own star badge: the star lives
+   on ::before, solid yellow, sitting behind the plain, never-clipped
+   level number text (black, readable against the yellow fill).
+   -15px/-15px (half the badge's own 30px width/height) puts the star's
+   bounding-box center exactly on #menu-avatar-icon's bottom-right
+   corner, not just overlapping it. */
 #menu-avatar-level {
   position: absolute;
-  bottom: -11px;
-  right: -11px;
+  bottom: -15px;
+  right: -15px;
   z-index: 1;
   display: flex;
   align-items: center;
@@ -8485,27 +8486,18 @@ html.ui-theme-old #menu-player-badge {
   padding: 0 3px;
   font-size: 12px;
   font-weight: 800;
-  color: var(--menu-gold);
+  color: #0c130c;
   line-height: 1;
 }
 
 #menu-avatar-level::before {
   content: '';
   position: absolute;
-  inset: -2px;
-  z-index: -2;
-  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
-  background: var(--menu-gold);
-  filter: drop-shadow(0 0 5px var(--menu-gold)) drop-shadow(0 0 2px rgba(255, 255, 255, 0.65));
-}
-
-#menu-avatar-level::after {
-  content: '';
-  position: absolute;
   inset: 0;
   z-index: -1;
   clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
-  background: rgba(8, 8, 7, 0.96);
+  background: #ffd400;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
 }
 
 #menu-player-name-row {
