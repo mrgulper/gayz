@@ -12,6 +12,34 @@ to finish A through C is in this file. Nothing here has been implemented —
 
 ---
 
+## 0. Status update (2026-09-28) — read this first
+
+Most of the plan below has since shipped (A1–A4, most of B, C steps 1–3
+and a step-4 pilot). Re-measured 2026-09-28 at spawn: **3,042 objects /
+1,741 meshes / 143 draw calls** (down from 14,792 / 8,869 / 470), and
+`scene.updateMatrixWorld()` is under 1 ms. Scene-graph traversal is no
+longer the bottleneck. A fresh per-function profile (every `Game` method
+plus every subsystem `update()` wrapped and timed, with 20 zombies up)
+found the next layer of costs, all fixed the same day:
+
+| Cause | Fix | Measured effect |
+|---|---|---|
+| **96 PointLights evaluated per pixel.** Classic forward rendering loops over every visible light in every lit fragment, intensity-0 ones included, and lights were kept visible permanently to avoid shader recompiles. | `LightProxies.js`: every PointLight moves to a layer no camera renders; each frame the nearest 10 lit sources (6 in Performance Mode) are copied onto 10 fixed proxy lights that are the only ones the renderer sees. The compiled light count never changes, so there are still no recompiles. | Software-rendered frame time 270 ms → 67 ms at spawn; up to 11× at the densest light clusters. Visuals compared by screenshot at night at the 3 densest clusters, the safe zone and spawn: no visible difference. |
+| **Raycasts against all ~2,000 `solidMeshes`, triangle by triangle through merged buildings.** Weapon fire (every pellet + aim assist), zombie line-of-sight, indoor check. | `three-mesh-bvh` BVHs on the static world (`RaycastAccel.js`), plus `ColliderGrid.js`'s `meshGridFor(list).querySegment()`, which walks only the grid cells a ray crosses. | Average ray 0.95 ms → 0.067 ms; a shotgun blast 22 ms → 5–9 ms; zombie LOS 3.7 ms/frame → 0.3 ms/frame at 20 zombies. Verified identical nearest hits on 400 random rays. |
+| `saveShopProgress()` (a synchronous `localStorage` write) ran **every frame** via `_updateStatsPanel()`. | Tick call throttled to 4×/s (event-driven calls unchanged), identical writes skipped. | Up to 6.5 ms spikes gone. |
+| `_updateCulling` re-checked ~1,500 objects every frame even standing still. | Object pass re-runs only after 2 units of movement or every 15 frames. | 1.25 → 0.12 ms/frame. |
+| `_updateMusicIntensity` wrote `<audio>.playbackRate` + 4 Web Audio automation events every frame. | Throttled to 10×/s; playbackRate only written when it changes. | Up to ~6 ms spikes gone. |
+| `EffectComposer` rendered to an offscreen target + a fullscreen copy even with every post effect off. | `_renderMainScene()` renders straight to the canvas unless bloom/AO/motion blur is on; warm-up and screenshots use the same path, so warm-up compiles the variants gameplay actually uses (run start went from 14 new shader programs to 1). | One fewer fullscreen pass per frame. |
+
+All of the above are CPU/JS or per-pixel-work reductions measured in a
+headless software renderer. Absolute numbers on real GPUs will be far
+lower, but the ratios are what matter. Still open: zombie `update()` at
+~2 ms/frame for 20 zombies (animation mixers, wander/move), and the
+~100-call `_updateX` chain in `_tick` (§6), both now small next to what
+was removed.
+
+---
+
 ## 1. The answer in one paragraph
 
 The game is CPU-bound on scene-graph traversal, not GPU-bound on pixels.

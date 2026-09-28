@@ -7,6 +7,16 @@ Resume-kit for picking this session back up. Written 2026-07-18.
 > written, and lays out the full plan to fix it. The rest of this document is a
 > point-in-time resume kit from July and its "uncommitted work" section is
 > stale — treat it as history, not as a to-do list.
+>
+> **Status check (2026-09-28):** everything below this line is July-era history.
+> King of the Hill shipped (`kingOfTheHill` in `Game.js`), and so did almost
+> all of the "round-1 backlog" in *Next steps* (Extraction mode, Daily
+> Challenge, rooftops, building interiors, rescuable/recruitable survivors,
+> prestige) — grep for a feature before assuming it's unbuilt. The "No test
+> suite exists" line under *Resume commands* is also out of date: there's a
+> committed Playwright suite (`npm test`) and a CI workflow now — see
+> `CLAUDE.md`'s "Tests + CI" note. For current project state, `CLAUDE.md` is
+> the source of truth, not this file.
 
 ## Git state
 

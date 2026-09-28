@@ -3,6 +3,7 @@ import { audioEngine } from './Audio.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { flatMaterial } from './QualitySettings.js'
+import { markLightSource } from './LightProxies.js'
 
 // Phase 3 of the 3D asset overhaul (see 3D_ASSET_OVERHAUL.md) - real rigged
 // GLB companion (Quaternius "Soldier_Male", asset-source/build-humans.py)
@@ -104,7 +105,10 @@ export class Companion {
     // Downed-state beacon (see update's pulse + _goDown/revive) - off
     // (intensity 0) whenever standing, so it costs nothing visually or
     // performance-wise until actually needed.
-    this._downedBeacon = new THREE.PointLight(0xff2a2a, 0, 6)
+    // Recruits/temp companions are created mid-run - on the proxy source
+    // layer from birth so spawning one never changes the rendered light
+    // count (see LightProxies.js).
+    this._downedBeacon = markLightSource(new THREE.PointLight(0xff2a2a, 0, 6))
     this._downedBeacon.position.set(0, 1.6 / this.group.scale.x, 0)
     this.group.add(this._downedBeacon)
     scene.add(this.group)

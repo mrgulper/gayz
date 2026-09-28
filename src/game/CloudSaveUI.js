@@ -1,5 +1,5 @@
 // Cloud Save panel UI - open/close, sign-in state rendering, sync status,
-// conflict resolution, sign-out. Extracted from Game.js (see its own
+// conflict resolution, sign-out. Extracted from Game.js (see CLAUDE.md's
 // "Game.js split" notes) - plain exported functions taking `game` as an
 // explicit first parameter, matching Keybinds.js/CloudSync.js/
 // MenuEasterEggs.js's convention for UI-adjacent modules with no per-frame
@@ -13,6 +13,7 @@
 // game._renderCloudOnlineSection() same as before.
 import { t } from './i18n.js'
 import * as CloudSync from './CloudSync.js'
+import * as ChatUI from './ChatUI.js'
 import { CLOUD_LAST_SYNC_KEY, _formatRelativeTime, _safeStatNumber, saveSettings } from './Game.js'
 
 export function openCloudSavePanel(game) {
@@ -152,8 +153,8 @@ export function renderCloudSaveState(game) {
   if (game.friendsSigninBtn) game.friendsSigninBtn.disabled = !CloudSync.isConfigured()
   // Global panel chat (#server-panel) - same reasoning as Friends above,
   // updates live if the panel happens to be open while sign-in state
-  // changes (see Game.js's _renderServerChatSignInState).
-  game._renderServerChatSignInState()
+  // changes (see ChatUI.js's renderServerChatSignInState).
+  ChatUI.renderServerChatSignInState(game)
   if (game.serverChatSigninBtn) game.serverChatSigninBtn.disabled = !CloudSync.isConfigured()
   if (!signedIn) return
   if (game.cloudsaveAvatar) game.cloudsaveAvatar.src = game._cloudProfile.picture || ''
