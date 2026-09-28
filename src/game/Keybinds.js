@@ -82,6 +82,13 @@ function saveBindings() {
 
 let bindings = loadBindings()
 
+// Re-reads storage - main.js calls this after Cloud Save's pre-boot pull
+// (CloudPreBoot.js), which can change the saved keybinds after this module
+// already loaded them at import time.
+export function reloadBindings() {
+  bindings = loadBindings()
+}
+
 export function getKeyFor(action) {
   return bindings[action]
 }
