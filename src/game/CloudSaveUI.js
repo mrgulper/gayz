@@ -15,7 +15,7 @@ import { t } from './i18n.js'
 import * as CloudSync from './CloudSync.js'
 import * as ChatUI from './ChatUI.js'
 import { CLOUD_LAST_SYNC_KEY, LAST_LOCAL_CHANGE_KEY, _formatRelativeTime, _safeStatNumber, saveSettings } from './Game.js'
-import { CLOUD_BASE_KEY, DEVICE_ONLY_KEYS, mergeSaves, sameData, stripDeviceOnly, syncableSnapshot } from './CloudMerge.js'
+import { CLOUD_BASE_KEY, isSyncedKey, mergeSaves, sameData, stripDeviceOnly, syncableSnapshot } from './CloudMerge.js'
 
 export function openCloudSavePanel(game) {
   game.cloudsavePanel.style.display = 'flex'
@@ -213,18 +213,51 @@ export function renderCloudConflict(game, data) {
 // the same on every device without needing this picked manually every
 // time - see that function's own comment for when it still asks first).
 export function applyCloudSaveData(game, data) {
-  // The applied cloud content becomes this device's merge base (see
-  // CloudMerge.js) - it now exactly matches the cloud.
+  // Same guards _applyImportedSaveData uses (see its comment): nothing on
+  // this page may write its stale in-memory state back over the data below
+  // before the reload lands. Unlike that function, this only replaces the
+  // game's own synced keys - device-only keys (Auto Quality level, sync
+  // bookkeeping) and anything that isn't the game's (Firebase's own
+  // storage) are left exactly as they are rather than cleared.
+  game._importingSave = true
+  if (game._autoSaveTimer) clearInterval(game._autoSaveTimer)
   const synced = stripDeviceOnly(data)
-  const stamped = { ...synced, [CLOUD_LAST_SYNC_KEY]: String(Date.now()), [CLOUD_BASE_KEY]: JSON.stringify(synced) }
-  // Keep this device's own device-only state (Auto Quality level etc.)
-  // across the clear+restore - it describes this device, not the account.
-  for (const key of DEVICE_ONLY_KEYS) {
-    if (key in stamped) continue
-    const v = localStorage.getItem(key)
-    if (v !== null) stamped[key] = v
+  for (const key of Object.keys(syncableSnapshot(localStorage))) {
+    if (!(key in synced)) localStorage.removeItem(key)
   }
-  game._applyImportedSaveData(stamped)
+  for (const [key, value] of Object.entries(synced)) localStorage.setItem(key, value)
+  // The applied content now exactly matches the cloud, so it's this
+  // device's merge base (see CloudMerge.js).
+  localStorage.setItem(CLOUD_BASE_KEY, JSON.stringify(synced))
+  localStorage.setItem(CLOUD_LAST_SYNC_KEY, String(Date.now()))
+  markSyncReload()
+  window.location.reload()
+}
+
+// Reload-loop guard (2026-09-28 report: "when I refresh it refreshes
+// itself 2-3 times or more"): applying synced data means reloading, and a
+// reload-triggered sync that finds yet more changes (another device - or
+// an old tab still running the previous version - uploading in between)
+// would reload again, and again. At most one sync-triggered reload per
+// SYNC_RELOAD_COOLDOWN_MS: within that window a sync still uploads this
+// device's changes when it safely can, but defers applying anything
+// incoming until the next load or the next time the tab comes back into
+// view. sessionStorage: per tab, survives the reload, gone when the tab is.
+const SYNC_RELOAD_KEY = 'gayz-sync-reloaded-at'
+const SYNC_RELOAD_COOLDOWN_MS = 20000
+function markSyncReload() {
+  try {
+    sessionStorage.setItem(SYNC_RELOAD_KEY, String(Date.now()))
+  } catch {
+    // sessionStorage unavailable - no guard, same as before.
+  }
+}
+function reloadedBySyncRecently() {
+  try {
+    return Date.now() - (Number(sessionStorage.getItem(SYNC_RELOAD_KEY)) || 0) < SYNC_RELOAD_COOLDOWN_MS
+  } catch {
+    return false
+  }
 }
 
 function loadBase() {
@@ -256,6 +289,7 @@ export async function syncWithCloud(game, { manual = false, allowApply = true } 
   if (game._importingSave) return 'reloading'
   if (!game._cloudUid || (!game.__cloudBackendForTests && !CloudSync.isConfigured())) return 'failed'
   if (game._cloudSyncInFlight) return game._cloudSyncInFlight
+  if (allowApply && reloadedBySyncRecently()) allowApply = false
   game._cloudSyncInFlight = (async () => {
     try {
       for (let attempt = 0; attempt < 3; attempt++) {
@@ -319,9 +353,14 @@ export async function syncWithCloud(game, { manual = false, allowApply = true } 
 // reloaded underneath the player.
 const CHANGE_SYNC_DELAY_MS = 5000
 
-// Syncs a few seconds from now - or, mid-run, as soon as the player is
-// back out of the run (checked every few seconds), since applying another
-// device's changes means reloading the page.
+// Background upload a few seconds from now - or, mid-run, as soon as the
+// player is back out of the run (checked every few seconds). Background
+// syncs never reload the page (allowApply: false): they upload this
+// device's changes whenever the cloud hasn't moved on, and anything another
+// device changed is picked up at the next load or when this tab comes back
+// into view (see installChangeTracking's visibilitychange handler) - the
+// natural moments someone switches devices. Letting every background sync
+// reload is what turned two open devices into a reload ping-pong.
 export function scheduleSyncWhenIdle(game) {
   clearTimeout(game._changeSyncTimer)
   const tick = () => {
@@ -330,7 +369,7 @@ export function scheduleSyncWhenIdle(game) {
       game._changeSyncTimer = setTimeout(tick, CHANGE_SYNC_DELAY_MS)
       return
     }
-    syncWithCloud(game)
+    syncWithCloud(game, { allowApply: false })
   }
   game._changeSyncTimer = setTimeout(tick, CHANGE_SYNC_DELAY_MS)
 }
@@ -341,7 +380,7 @@ export function installChangeTracking(game) {
   const origSet = Storage.prototype.setItem
   const origRemove = Storage.prototype.removeItem
   const onChange = (storage, key) => {
-    if (storage !== window.localStorage || DEVICE_ONLY_KEYS.has(key) || game._cloudSyncing || game._importingSave) return
+    if (storage !== window.localStorage || !isSyncedKey(key) || game._cloudSyncing || game._importingSave) return
     try {
       origSet.call(storage, LAST_LOCAL_CHANGE_KEY, String(Date.now()))
     } catch {
@@ -364,10 +403,18 @@ export function installChangeTracking(game) {
   // device) - flush in-memory stats to storage and push them right away.
   // Best effort: the browser may not finish the request, in which case the
   // next load's sync still has them.
+  //
+  // Coming back to the tab (having maybe just played on another device) is
+  // the one background moment allowed to apply incoming changes - still
+  // not mid-run, and still subject to the reload cooldown.
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState !== 'hidden' || !game._cloudUid || game._importingSave) return
-    game._flushLocalSave?.()
-    syncWithCloud(game, { allowApply: false })
+    if (!game._cloudUid || game._importingSave) return
+    if (document.visibilityState === 'hidden') {
+      game._flushLocalSave?.()
+      syncWithCloud(game, { allowApply: false })
+    } else if (document.visibilityState === 'visible') {
+      syncWithCloud(game, { allowApply: !game.gameStarted })
+    }
   })
 }
 
