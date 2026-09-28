@@ -1,5 +1,5 @@
-// Curated emoji picker dataset (chat's emoji button - see _openEmojiPicker
-// in Game.js). Not the full Unicode emoji spec (3000+ entries) - a
+// Curated emoji picker dataset (chat's emoji button - see bindEmojiPicker
+// in ChatUI.js). Not the full Unicode emoji spec (3000+ entries) - a
 // hand-picked, commonly-used subset per category, each with a short
 // space-separated keyword string ("k") the search box matches against.
 // Plain Unicode characters, no image assets - renders via the OS/browser's
