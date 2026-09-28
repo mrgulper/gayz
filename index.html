@@ -4004,11 +4004,15 @@ Escape before dawn.</p>
       // check below) the same way.
       (function () {
         var shown = false
-        function showFallback(text) {
+        var fallbackEl = null
+        var shownForSlowLoad = false
+        function showFallback(text, isSlowLoad) {
           if (shown) return
           shown = true
+          shownForSlowLoad = !!isSlowLoad
           clearTimeout(timeoutId)
           var el = document.createElement('div')
+          fallbackEl = el
           el.id = 'load-fallback-message'
           el.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(10,10,10,0.95);color:#f4f1e6;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;font-family:sans-serif;font-size:16px;line-height:1.5;'
           el.textContent = text + ' Try updating your browser, or a different device.'
@@ -4024,14 +4028,33 @@ Escape before dawn.</p>
           var testCanvas = document.createElement('canvas')
           var gl = testCanvas.getContext('webgl2') || testCanvas.getContext('webgl')
           if (!gl) showFallback('GayZ needs 3D graphics support this browser/device doesn\'t have.')
+          // Release the test context right away - otherwise it stays alive
+          // (holding its own GPU resources) for the whole session next to
+          // the game's real one, which matters on phones/Chromebooks with
+          // tight graphics memory limits.
+          var loseExt = gl && gl.getExtension('WEBGL_lose_context')
+          if (loseExt) loseExt.loseContext()
         } catch (e) {
           showFallback('GayZ needs 3D graphics support this browser/device doesn\'t have.')
         }
         var timeoutId = setTimeout(function () {
-          if (!window.__game) showFallback('GayZ is taking too long to load.')
+          if (!window.__game) showFallback('GayZ is taking too long to load.', true)
         }, 20000)
+        // A slow device (school Chromebook, older phone) can legitimately
+        // take longer than 20s - the "taking too long" message used to stay
+        // up forever even after the game finished loading underneath it,
+        // which looked exactly like a crash. Remove it once the game is
+        // actually ready; real errors (not just slowness) still stay up.
         var readyCheck = setInterval(function () {
-          if (window.__game) { clearTimeout(timeoutId); clearInterval(readyCheck) }
+          if (window.__game) {
+            clearTimeout(timeoutId)
+            clearInterval(readyCheck)
+            if (shownForSlowLoad && fallbackEl) {
+              fallbackEl.remove()
+              fallbackEl = null
+              shown = false
+            }
+          }
         }, 500)
       })()
     </script>
