@@ -11250,6 +11250,11 @@ export class Game {
         if (e.target === this.featuresPanel) this._closeFeaturesPanel()
       })
     }
+    if (this.skindesignerPanel) {
+      this.skindesignerPanel.addEventListener('click', (e) => {
+        if (e.target === this.skindesignerPanel) this._closeSkinDesignerPanel()
+      })
+    }
     this.shopPanel.addEventListener('click', (e) => {
       if (e.target === this.shopPanel) this._closeShopPanel()
     })
