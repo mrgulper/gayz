@@ -51,11 +51,21 @@ const NEWEST_WINS_KEYS = new Set(['gayz-settings', 'gayz-keybinds'])
 
 const MAX_FIELD = /best|max|highest|longest|peak|record|streak|level|date|time|last|first|At$/i
 
+// Only this game's own keys are account data. Anything else in
+// localStorage belongs to a library (Firebase Auth writes/removes a
+// "__sak" availability probe on every load and may keep its own session
+// keys) - syncing those would upload one device's auth state to the cloud
+// and write it onto other devices, and tracking them made every page load
+// look like "progress changed" (part of the 2026-09-28 reload-loop report).
+export function isSyncedKey(key) {
+  return typeof key === 'string' && key.startsWith('gayz-') && !DEVICE_ONLY_KEYS.has(key)
+}
+
 export function syncableSnapshot(storage) {
   const data = {}
   for (let i = 0; i < storage.length; i++) {
     const key = storage.key(i)
-    if (key === null || DEVICE_ONLY_KEYS.has(key)) continue
+    if (!isSyncedKey(key)) continue
     data[key] = storage.getItem(key)
   }
   return data
@@ -63,7 +73,7 @@ export function syncableSnapshot(storage) {
 
 export function stripDeviceOnly(data) {
   const out = {}
-  for (const key of Object.keys(data || {})) if (!DEVICE_ONLY_KEYS.has(key)) out[key] = data[key]
+  for (const key of Object.keys(data || {})) if (isSyncedKey(key)) out[key] = data[key]
   return out
 }
 
@@ -149,7 +159,7 @@ export function mergeSaves(base, local, remote, preferLocal) {
   const hasBase = !!base
   const out = {}
   for (const key of new Set([...Object.keys(local), ...Object.keys(remote)])) {
-    if (DEVICE_ONLY_KEYS.has(key)) continue
+    if (!isSyncedKey(key)) continue
     const lRaw = local[key]
     const rRaw = remote[key]
     const bRaw = hasBase ? base[key] : undefined
