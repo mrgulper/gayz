@@ -326,9 +326,22 @@ export function buildWorld(scene, trophyCount = 15) {
     groundTex.wrapT = THREE.RepeatWrapping
     groundTex.colorSpace = THREE.SRGBColorSpace
     groundTex.repeat.set(groundSize / 12, groundSize / 12)
+    // Anisotropic filtering - this is the single most-viewed, most-tiled
+    // surface in the game (repeated ~62x across the map, always underfoot,
+    // always viewed at a shallow angle while walking/running), and the
+    // default anisotropy (1, i.e. off) is exactly why it read as soft/
+    // blurry at any distance - regular mipmapping alone (which this texture
+    // already had, unlike BuildMode's - see that file's own comment on the
+    // same underlying issue) still isn't enough for a grazing-angle ground
+    // plane, since mipmap selection is isotropic even though the surface is
+    // compressed far more in one direction than the other. 16 is safe on
+    // any GPU - three.js clamps to the actual supported max on upload, no
+    // renderer reference needed here to query it.
+    groundTex.anisotropy = 16
     const groundBumpTex = getSharedBumpTexture().clone()
     groundBumpTex.needsUpdate = true
     groundBumpTex.repeat.set(groundSize / 3, groundSize / 3)
+    groundBumpTex.anisotropy = 16
     return cachedFlatMaterial({ map: groundTex, bumpMap: groundBumpTex, bumpScale: 0.06, roughness: 1 })
   })()
   // This is the surface PlayerController._sampleGroundHeight raycasts

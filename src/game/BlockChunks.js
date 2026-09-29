@@ -56,7 +56,7 @@ function tintAt(x, y, z) {
 export class BlockChunks {
   // types: BLOCK_TYPES. makeCanvas(colorHex, pattern) -> a square canvas
   // with that block's texture. getType(x, y, z) -> type id or null.
-  constructor(scene, { blockSize, types, makeCanvas, getType }) {
+  constructor(scene, { blockSize, types, makeCanvas, getType, maxAnisotropy = 4 }) {
     this.scene = scene
     this.blockSize = blockSize
     this.getType = getType
@@ -108,9 +108,13 @@ export class BlockChunks {
     })
     const tex = new THREE.CanvasTexture(canvas)
     tex.magFilter = THREE.NearestFilter
-    tex.minFilter = THREE.NearestMipmapLinearFilter
+    // Crisp pixels up close (Nearest magnification), trilinear mipmaps +
+    // full anisotropy far away so the floor doesn't shimmer toward the
+    // horizon. Safe with an atlas: the padded power-of-two slots above keep
+    // every mip level inside a block's own texture.
+    tex.minFilter = THREE.LinearMipmapLinearFilter
     tex.colorSpace = THREE.SRGBColorSpace
-    tex.anisotropy = 4
+    tex.anisotropy = maxAnisotropy
     this.atlas = tex
 
     this.materials = {

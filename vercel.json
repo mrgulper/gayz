@@ -17,6 +17,7 @@
     { "source": "/settings", "destination": "/index.html" },
     { "source": "/settings/:tab", "destination": "/index.html" },
     { "source": "/credits", "destination": "/index.html" },
+    { "source": "/levels", "destination": "/index.html" },
     { "source": "/terms", "destination": "/index.html" },
     { "source": "/privacy", "destination": "/index.html" },
     { "source": "/features", "destination": "/index.html" },

@@ -31,6 +31,9 @@ import { XpGemManager, XpGem } from './XpGems.js'
 import { AutoWeaponManager } from './AutoWeapons.js'
 import { COIN_SHOP_ITEMS, ATTACHMENT_TYPES } from './CoinShop.js'
 
+// The standalone Skin Designer site, embedded in #skindesigner-frame.
+const SKIN_DESIGNER_ORIGIN = 'https://gayzcharacterskindesigner.vercel.app'
+
 // Crate economy (Inventory panel's Crates tab) - buys a chance at a random
 // currently-unowned outfit/hat from COIN_SHOP_ITEMS, which have had no
 // purchase path since the old Store buy-list was removed (see that file's
@@ -6027,6 +6030,10 @@ export class Game {
     this.creditsPanelTitle = document.getElementById('credits-panel-title')
     this.creditsPrivacyLink = document.getElementById('credits-privacy-link')
     this.creditsTermsLink = document.getElementById('credits-terms-link')
+    this.levelsPanel = document.getElementById('levels-panel')
+    this.levelsPanelTitle = document.getElementById('levels-panel-title')
+    this.levelsIntroText = document.getElementById('levels-intro-text')
+    this.levelsRoadmapList = document.getElementById('levels-roadmap-list')
     this.termsBtn = document.getElementById('terms-btn')
     this.termsPanel = document.getElementById('terms-panel')
     this.termsPanelTitle = document.getElementById('terms-panel-title')
@@ -10587,7 +10594,7 @@ export class Game {
         // ?theme= param on its own after that).
         if (this.skindesignerFrame && this.skindesignerFrame.src !== 'about:blank') {
           const theme = this.settings.uiTheme === 'old' ? 'old' : 'golden'
-          this.skindesignerFrame.contentWindow.postMessage({ type: 'gayz-set-theme', theme }, 'https://gayzcharacterskindesigner.vercel.app')
+          this.skindesignerFrame.contentWindow.postMessage({ type: 'gayz-set-theme', theme }, SKIN_DESIGNER_ORIGIN)
         }
       }
       applyUiTheme()
@@ -11057,7 +11064,7 @@ export class Game {
     if (this.menuAvatarLevel) {
       this.menuAvatarLevel.addEventListener('click', (e) => {
         e.stopPropagation()
-        this._openComingSoonPanel()
+        this._openLevelsPanel()
       })
     }
     // Pencil icon in the Player showcase panel reveals the same
@@ -11135,6 +11142,7 @@ export class Game {
     if (this.creditsPrivacyLink) this.creditsPrivacyLink.addEventListener('click', () => trackAndOpen(() => this._openPrivacyPanel()))
     if (this.gayzFeaturesBtn) this.gayzFeaturesBtn.addEventListener('click', () => trackAndOpen(() => this._openFeaturesPanel()))
     if (this.skindesignerBtn) this.skindesignerBtn.addEventListener('click', () => trackAndOpen(() => this._openSkinDesignerPanel()))
+    this._bindSkinDesignerMessages()
     this._bindFeaturesPanel()
     // Cross-reference links inside the Terms/Privacy body text themselves
     // (event delegation - each doc only has 1-3 of these, but delegating
@@ -11222,6 +11230,11 @@ export class Game {
     this.creditsPanel.addEventListener('click', (e) => {
       if (e.target === this.creditsPanel) this._closeCreditsPanel()
     })
+    if (this.levelsPanel) {
+      this.levelsPanel.addEventListener('click', (e) => {
+        if (e.target === this.levelsPanel) this._closeLevelsPanel()
+      })
+    }
     if (this.termsPanel) {
       this.termsPanel.addEventListener('click', (e) => {
         if (e.target === this.termsPanel) this._closeTermsPanel()
@@ -11235,6 +11248,11 @@ export class Game {
     if (this.featuresPanel) {
       this.featuresPanel.addEventListener('click', (e) => {
         if (e.target === this.featuresPanel) this._closeFeaturesPanel()
+      })
+    }
+    if (this.skindesignerPanel) {
+      this.skindesignerPanel.addEventListener('click', (e) => {
+        if (e.target === this.skindesignerPanel) this._closeSkinDesignerPanel()
       })
     }
     this.shopPanel.addEventListener('click', (e) => {
@@ -13980,7 +13998,24 @@ export class Game {
     if (this.buildModeLoadingOverlay) this.buildModeLoadingOverlay.style.display = 'flex'
     const buildModeLoadStartedAt = performance.now()
     this.menu.style.display = 'none'
-    if (location.pathname !== '/map-editor') history.pushState({}, '', '/map-editor')
+    // Deferred a tick (queueMicrotask, not called inline here) - the
+    // _closeAllMenuPanels() call above, when it actually closes something
+    // (e.g. entering from the Map 2 tile in the Game Mode panel), flips a
+    // routable panel's display:none, which _bindPanelRouting's own
+    // MutationObserver reacts to on its OWN microtask by pushing '/' (no
+    // routable panel reads as "open" anymore - Build Mode isn't one of
+    // _routes). That observer microtask was queued first (the mutation
+    // happened above, before this line), so an inline pushState here would
+    // still lose the race and get silently overwritten back to '/' the
+    // instant the observer's callback ran. Queueing this one as its own
+    // microtask puts it strictly after the observer's in the same FIFO
+    // queue, so '/map-editor' is the last write and actually sticks -
+    // verified live (was reproducibly overwritten back to '/' without
+    // this). Harmless no-op when entered from the bare homepage nav
+    // button instead (nothing closes, no mutation, no race to lose).
+    queueMicrotask(() => {
+      if (location.pathname !== '/map-editor') history.pushState({}, '', '/map-editor')
+    })
     // Build Mode is only ever reachable from the homepage nav (#menu is
     // hidden the instant a real run starts, see the 'lock' handler), but
     // force this false regardless rather than trust that precondition -
@@ -15198,6 +15233,7 @@ export class Game {
         subTabs: this._subTabsFor('tab-', ['general', 'language', 'audio', 'controls', 'graphics']),
       },
       { slug: 'credits', panel: this.creditsPanel, open: () => this._openCreditsPanel() },
+      { slug: 'levels', panel: this.levelsPanel, open: () => this._openLevelsPanel() },
       { slug: 'terms', panel: this.termsPanel, open: () => this._openTermsPanel() },
       { slug: 'privacy', panel: this.privacyPanel, open: () => this._openPrivacyPanel() },
       { slug: 'features', panel: this.featuresPanel, open: () => this._openFeaturesPanel() },
@@ -15306,6 +15342,7 @@ export class Game {
     if (this.serverPanel) this._closeServerPanel()
     if (this.profilePanel) this._closeProfilePanel()
     if (this.creditsPanel) this._closeCreditsPanel()
+    if (this.levelsPanel) this._closeLevelsPanel()
     if (this.termsPanel) this._closeTermsPanel()
     if (this.privacyPanel) this._closePrivacyPanel()
     if (this.featuresPanel) this._closeFeaturesPanel()
@@ -16897,6 +16934,17 @@ export class Game {
       })
     }
     if (this.buildModeBtn) this.buildModeBtn.addEventListener('click', () => this._enterBuildMode())
+    // Map 2 (Game Mode panel) - there's no second playable map yet, so this
+    // opens the same Build Mode / block editor as the dedicated Map Editor
+    // nav button instead of pretending to switch to a real map. Reuses
+    // _enterBuildMode() as-is rather than a second copy - it already calls
+    // _closeAllMenuPanels() as its first step (see that function's own
+    // comment - added specifically for "any future path that reaches
+    // _enterBuildMode() without going through a blocked nav click first"),
+    // which correctly closes this very panel (#hub-panel) before Build
+    // Mode's own UI takes over.
+    const mapSelect2Btn = document.getElementById('map-select-2')
+    if (mapSelect2Btn) mapSelect2Btn.addEventListener('click', () => this._enterBuildMode())
     const buildExitBtn = document.getElementById('build-mode-exit-btn')
     if (buildExitBtn) buildExitBtn.addEventListener('click', () => this._exitBuildMode())
     const buildSaveBtn = document.getElementById('build-mode-save-btn')
@@ -18567,6 +18615,22 @@ export class Game {
     this.creditsPanel.style.display = 'none'
   }
 
+  // Levels panel - the avatar-corner star badge used to open a "Coming
+  // Soon" placeholder; this replaces that. Content is the same Rank
+  // Roadmap list Profile already renders (_renderRankRoadmap writes to
+  // both list elements at once), just shown as its own dedicated screen.
+  _openLevelsPanel() {
+    this._closeAllMenuPanels()
+    this.levelsPanel.style.display = 'flex'
+    if (this.levelsPanelTitle) this.levelsPanelTitle.textContent = t('levelsPanelTitle')
+    if (this.levelsIntroText) this.levelsIntroText.textContent = t('levelsIntroText')
+    this._renderRankRoadmap()
+  }
+
+  _closeLevelsPanel() {
+    this.levelsPanel.style.display = 'none'
+  }
+
   // Terms of Use / Privacy Policy - used to be a plain link out to
   // /terms.html and /privacy.html (target="_blank"); moved in-panel
   // (same static-prose pattern as Credits above) at Gaymi's request. The
@@ -18624,7 +18688,7 @@ export class Game {
     this.skindesignerPanel.style.display = 'flex'
     if (this.skindesignerFrame && this.skindesignerFrame.src === 'about:blank') {
       const theme = this.settings.uiTheme === 'old' ? 'old' : 'golden'
-      this.skindesignerFrame.src = `https://gayzcharacterskindesigner.vercel.app?theme=${theme}`
+      this.skindesignerFrame.src = `${SKIN_DESIGNER_ORIGIN}?theme=${theme}`
     }
   }
 
@@ -19611,9 +19675,18 @@ export class Game {
   }
 
   _closeShopPanel() {
+    // _closeAllMenuPanels() calls this unconditionally as blanket cleanup
+    // every time ANY panel opens mid-run (Settings, Upgrades, etc.), not
+    // just when Shop was actually the one open. Without this guard, opening
+    // Settings from the pause menu re-flexed #pause-overlay right after
+    // _toggleSettings had just hidden it - both ended up visible at the
+    // same z-index (15), and #pause-overlay (later in the DOM) silently ate
+    // every click meant for a Settings control underneath it. Only restore
+    // the pause overlay when Shop was genuinely the panel being closed.
+    const wasOpen = this.shopPanel.style.display !== 'none'
     this.shopPanel.style.display = 'none'
     if (this._shopSkinAvatar3D) this._shopSkinAvatar3D.stop()
-    if (this.gameStarted) this.pauseOverlay.style.display = 'flex'
+    if (wasOpen && this.gameStarted) this.pauseOverlay.style.display = 'flex'
   }
 
   // What's New panel - split out from Credits (used to be one combined
@@ -21054,12 +21127,14 @@ export class Game {
   // spotlight ticker only ever shows the CURRENT tier one at a time), with
   // the reached ones checked off and the current one highlighted, so a
   // player can see the whole ladder rather than just where they stand
-  // right now.
+  // right now. Written to two places - Profile's own copy and the
+  // standalone Levels panel's copy - same markup, same data, so they can
+  // never drift apart from each other.
   _renderRankRoadmap() {
-    if (!this.rankRoadmapList) return
+    if (!this.rankRoadmapList && !this.levelsRoadmapList) return
     if (this.rankRoadmapHeading) this.rankRoadmapHeading.textContent = t('rankRoadmapHeading')
     const kills = _safeStatNumber(this.careerStats.totalKills)
-    this.rankRoadmapList.innerHTML = CAREER_RANK_TITLES.map((tier, i) => {
+    const html = CAREER_RANK_TITLES.map((tier, i) => {
       const reached = kills >= tier.min
       const isCurrent = reached && (i === CAREER_RANK_TITLES.length - 1 || kills < CAREER_RANK_TITLES[i + 1].min)
       return `
@@ -21069,6 +21144,8 @@ export class Game {
         </button>
       `
     }).join('')
+    if (this.rankRoadmapList) this.rankRoadmapList.innerHTML = html
+    if (this.levelsRoadmapList) this.levelsRoadmapList.innerHTML = html
   }
 
   // Class Comparison - the real, honest per-loadout stat deltas from
@@ -21455,7 +21532,19 @@ export class Game {
     // next person off going down that same dead end again.
     const raw2 = decodeURIComponent(raw)
     const dataUrl = `data:image/png;base64,${raw2}`
-    loadSkinTexture(dataUrl).then((skin) => {
+    this._applyImportedSkin(dataUrl).finally(() => {
+      // One-shot - strip the (very long) param so a refresh doesn't try to
+      // re-apply it and so the URL bar doesn't stay full of base64 forever.
+      const clean = new URL(location.href)
+      clean.searchParams.delete('importskin')
+      history.replaceState(null, '', clean)
+    })
+  }
+
+  // Shared by ?importskin= above and the embedded Skin Designer's
+  // postMessage (see _bindSkinDesignerMessages).
+  _applyImportedSkin(dataUrl) {
+    return loadSkinTexture(dataUrl).then((skin) => {
       // Real report, 2026-09-27: the ?importskin= string this decodes to
       // was observed CORRUPTED (right length prefix/suffix, wrong overall
       // length) roughly every other real attempt - looked exactly like a
@@ -21480,12 +21569,23 @@ export class Game {
       this._showHomepageToast(t('importSkinApplied'))
     }).catch(() => {
       this._showHomepageToast(t('importSkinFailed'))
-    }).finally(() => {
-      // One-shot - strip the (very long) param so a refresh doesn't try to
-      // re-apply it and so the URL bar doesn't stay full of base64 forever.
-      const clean = new URL(location.href)
-      clean.searchParams.delete('importskin')
-      history.replaceState(null, '', clean)
+    })
+  }
+
+  // "Send to GayZ" inside the embedded Skin Designer posts the skin here
+  // instead of opening a second game tab - that second tab was how skins
+  // got lost on phones (the original tab, still holding the old settings,
+  // saved over the new skin when you went back to it). Only accepted from
+  // our own designer iframe; loadSkinTexture() still validates the image.
+  _bindSkinDesignerMessages() {
+    window.addEventListener('message', (event) => {
+      if (event.origin !== SKIN_DESIGNER_ORIGIN) return
+      if (!this.skindesignerFrame || event.source !== this.skindesignerFrame.contentWindow) return
+      const data = event.data
+      if (!data || data.type !== 'gayz-import-skin' || typeof data.dataUrl !== 'string') return
+      if (!data.dataUrl.startsWith('data:image/png;base64,') || data.dataUrl.length > 200000) return
+      this._closeSkinDesignerPanel()
+      this._applyImportedSkin(data.dataUrl)
     })
   }
 

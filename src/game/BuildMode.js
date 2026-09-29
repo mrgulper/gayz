@@ -623,7 +623,9 @@ function _addGrain(ctx, size, pattern) {
 function _makeBlockTexture(colorHex, pattern) {
   const tex = new THREE.CanvasTexture(_makeBlockCanvas(colorHex, pattern))
   tex.magFilter = THREE.NearestFilter
-  tex.minFilter = THREE.NearestFilter
+  // Mipmapped minification - crisp pixels up close, no shimmer far away
+  // (see the same choice for the chunk atlas in BlockChunks.js).
+  tex.minFilter = THREE.LinearMipmapLinearFilter
   tex.colorSpace = THREE.SRGBColorSpace
   return tex
 }
@@ -939,6 +941,7 @@ export class BuildMode {
     this._chunks = new BlockChunks(this.scene, {
       blockSize: BLOCK_SIZE,
       types: BLOCK_TYPES,
+      maxAnisotropy: renderer.capabilities.getMaxAnisotropy(),
       makeCanvas: _makeBlockCanvas,
       getType: (x, y, z) => this._blocks.get(`${x},${y},${z}`),
     })
@@ -946,10 +949,22 @@ export class BuildMode {
     this._instancedMeshes = {}
     this._instanceKeyByIndex = {} // type id -> array mapping instance index -> "x,y,z" key, for swap-remove
     const blockGeo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)
+    // Computed once, not per texture - same value for every block type,
+    // and querying the renderer's actual capability (rather than a
+    // hardcoded guess) means this is correct on any GPU, including one
+    // that only supports less than a typical desktop's 16x.
+    const maxAnisotropy = renderer.capabilities.getMaxAnisotropy()
     for (const bt of BLOCK_TYPES) {
       if (this._chunks.isChunkType(bt.id)) continue
+      const blockTexture = _makeBlockTexture(bt.color, bt.pattern)
+      // Sharpens exactly the case mipmapping alone (see _makeBlockTexture's
+      // own comment) still leaves soft: a surface viewed at a shallow
+      // angle, compressed far more in one direction than the other - the
+      // ground stretching toward the horizon is the textbook example this
+      // was reported against.
+      blockTexture.anisotropy = maxAnisotropy
       const material = new THREE.MeshStandardMaterial({
-        map: _makeBlockTexture(bt.color, bt.pattern),
+        map: blockTexture,
         roughness: bt.roughness,
         metalness: bt.metalness,
         transparent: !!bt.transparent,
