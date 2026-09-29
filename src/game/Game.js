@@ -14056,6 +14056,9 @@ export class Game {
     this.interactPrompt.style.display = 'none'
     if (this.keybindCheatsheet) this.keybindCheatsheet.style.display = 'none'
     this.infectionIndicator.style.display = 'none'
+    // Zombie Rush's survival timer (real report 2026-09-29: "Survival
+    // Time" showing over the map editor after a Zombie Rush run).
+    this.zombieRushWrap.style.display = 'none'
     this.damageFlash.classList.remove('low-health')
     this.criticalBloodOverlay.classList.remove('show')
     // Weather overlay isn't gated to a real run at all - _rollWeather()
@@ -20380,6 +20383,7 @@ export class Game {
     this._drawDeathReplayTrail()
     if (this.zombieRushActive) {
       this.zombieRushActive = false
+      this.zombieRushWrap.style.display = 'none'
       const elapsedMs = performance.now() - this.runStartedAt
       if (elapsedMs > this.zombieRushBest.ms) {
         this.zombieRushBest = { ms: elapsedMs }
