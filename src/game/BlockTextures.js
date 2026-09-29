@@ -365,7 +365,7 @@ function leaves(px, base, r) {
 function water(px, base, r) {
   for (let y = 0; y < S; y++) {
     for (let x = 0; x < S; x++) {
-      const wave = (y + Math.round(Math.sin(x * 0.8) * 1.4) + 16) % 5
+      const wave = (y + Math.round(Math.sin((x * Math.PI) / 4) * 1.4) + 16) % 5
       px.set(x, y, mul(base, wave === 0 ? 1.25 : wave === 1 ? 1.1 : 0.95 + r() * 0.06))
     }
   }
@@ -600,6 +600,220 @@ function boneTop(px, base, r) {
   for (let y = 5; y < 11; y++) for (let x = 5; x < 11; x++) px.set(x, y, mul(base, 1.05))
 }
 
+// ---- block batch 2 ----------------------------------------------------------
+
+function frame(px, color, width = 1) {
+  for (let w = 0; w < width; w++) {
+    for (let i = 0; i < S; i++) {
+      px.set(i, w, color)
+      px.set(i, S - 1 - w, color)
+      px.set(w, i, color)
+      px.set(S - 1 - w, i, color)
+    }
+  }
+}
+
+function craftingTop(px, wood, r) {
+  planks(px, wood, r)
+  frame(px, mul(wood, 0.55))
+  for (let i = 1; i < 15; i++) {
+    for (const g of [5, 10]) {
+      px.set(g, i, mul(wood, 0.6))
+      px.set(i, g, mul(wood, 0.6))
+    }
+  }
+}
+
+function craftingSide(px, wood, r) {
+  planks(px, wood, r)
+  for (let x = 0; x < S; x++) for (let y = 0; y < 3; y++) px.set(x, y, mul(wood, 0.62 + r() * 0.08))
+  const dark = [60, 45, 30]
+  const metal = [150, 150, 150]
+  // a saw and a hammer hanging on the side
+  for (let y = 5; y < 12; y++) px.set(4, y, dark)
+  for (let y = 5; y < 10; y++) px.set(5, y, metal)
+  for (let y = 5; y < 13; y++) px.set(11, y, dark)
+  for (const x of [9, 10, 11, 12, 13]) px.set(x, 5, metal)
+  px.set(9, 6, metal)
+  px.set(13, 6, metal)
+}
+
+function furnaceSide(px, stoneBase, r) {
+  noise(px, stoneBase, r, 0.1)
+  bevel(px, 1.15, 0.7)
+  for (let y = 4; y < 7; y++) for (let x = 5; x < 11; x++) px.set(x, y, [40, 40, 40])
+  for (let y = 9; y < 14; y++) for (let x = 3; x < 13; x++) px.set(x, y, y === 13 ? [70, 40, 20] : [22, 22, 22])
+}
+
+function jukeboxSide(px, wood, r) {
+  planks(px, wood, r)
+  frame(px, mul(wood, 0.5), 2)
+}
+
+function jukeboxTop(px, wood, r) {
+  jukeboxSide(px, wood, r)
+  for (let x = 3; x < 13; x++) {
+    px.set(x, 7, [20, 20, 20])
+    px.set(x, 8, [35, 35, 35])
+  }
+}
+
+function noteBlock(px, wood, r) {
+  planks(px, wood, r)
+  frame(px, mul(wood, 0.55))
+  for (let y = 4; y < 12; y++) for (let x = 4; x < 12; x++) px.set(x, y, (x + y) % 2 ? [30, 22, 16] : [48, 34, 24])
+}
+
+function melonSide(px, base, r) {
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const stripe = x % 3 === 0
+      px.set(x, y, mul(stripe ? [60, 110, 40] : base, 0.92 + r() * 0.14))
+    }
+  }
+}
+
+function melonTop(px, base, r) {
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const d = Math.hypot(x - 7.5, y - 7.5)
+      px.set(x, y, mul(d < 3 ? [150, 180, 70] : base, (Math.floor(d) % 3 === 0 ? 0.8 : 1) * (0.94 + r() * 0.1)))
+    }
+  }
+}
+
+// Grass-shaped blocks: a colored top, and a dirt (or netherrack) side
+// with a fringe of the top color.
+function toppedFaces(topColor, soil, r, soilPainter = dirt) {
+  const bottom = paint((px) => soilPainter(px, soil, r))
+  return {
+    top: paint((px) => grassTop(px, topColor, r)),
+    side: paint((px) => {
+      soilPainter(px, soil, r)
+      for (let x = 0; x < S; x++) {
+        const depth = 2 + Math.floor(r() * 3)
+        for (let y = 0; y < depth; y++) px.set(x, y, mul(topColor, [0.8, 0.9, 1, 1.08][Math.floor(r() * 4)]))
+      }
+    }),
+    bottom,
+  }
+}
+
+function netherrack(px, b, r) {
+  noise(px, b, r, 0.22)
+  speckle(px, mul(b, 0.6), r, 14)
+}
+
+function cracked(px, b, r) {
+  bricks(px, b, mul(b, 0.68), r, 8, 16, true)
+  for (let i = 0; i < 2; i++) {
+    let x = Math.floor(r() * S)
+    let y = Math.floor(r() * S)
+    for (let k = 0; k < 8; k++) {
+      px.set(x, y, mul(b, 0.45))
+      x += r() < 0.5 ? 1 : -1
+      y += r() < 0.7 ? 1 : 0
+    }
+  }
+}
+
+function chiseled(px, b, r) {
+  polished(px, b, r)
+  for (let i = 3; i <= 12; i++) {
+    px.scale(i, 3, 0.7)
+    px.scale(i, 12, 1.15)
+    px.scale(3, i, 0.7)
+    px.scale(12, i, 1.15)
+  }
+  for (let y = 6; y < 10; y++) for (let x = 6; x < 10; x++) px.scale(x, y, 0.8)
+}
+
+function mushroomBlock(px, b, r, spots) {
+  noise(px, b, r, 0.08)
+  if (!spots) return
+  for (const [cx, cy] of [[3, 3], [11, 4], [6, 10], [13, 12], [1, 12]]) {
+    for (let y = -1; y <= 1; y++) for (let x = -1; x <= 1; x++) if (x * x + y * y < 2) px.set(cx + x, cy + y, [240, 236, 228])
+  }
+}
+
+function kelpSide(px, b, r) {
+  for (let y = 0; y < S; y++) {
+    const band = y % 4 === 3
+    for (let x = 0; x < S; x++) px.set(x, y, mul(b, (band ? 0.7 : 1) * (0.92 + r() * 0.14)))
+  }
+}
+
+function soulSand(px, b, r) {
+  noise(px, b, r, 0.14)
+  for (const [cx, cy] of [[3, 3], [10, 5], [5, 11], [12, 12]]) {
+    px.set(cx, cy, mul(b, 0.5))
+    px.set(cx + 2, cy, mul(b, 0.5))
+    px.set(cx + 1, cy + 2, mul(b, 0.45))
+  }
+}
+
+function pillarSide(px, b, r) {
+  noise(px, b, r, 0.04)
+  for (let y = 0; y < S; y++) {
+    px.scale(0, y, 0.78)
+    px.scale(15, y, 0.78)
+    px.scale(5, y, 0.88)
+    px.scale(10, y, 0.88)
+  }
+}
+
+function pillarTop(px, b, r) {
+  polished(px, b, r)
+  for (let i = 3; i <= 12; i++) {
+    px.scale(i, 3, 0.85)
+    px.scale(i, 12, 0.85)
+    px.scale(3, i, 0.85)
+    px.scale(12, i, 0.85)
+  }
+}
+
+// Mirrored four-way swirl, like Minecraft's glazed terracotta.
+function glazed(px, b, r) {
+  const light = mix(b, [255, 255, 255], 0.6)
+  const dark = mul(b, 0.55)
+  for (let y = 0; y < 8; y++) {
+    for (let x = 0; x < 8; x++) {
+      const d = x + y
+      const c = d < 3 ? light : d === 5 || d === 6 ? dark : (x === 6 && y < 5) || (y === 6 && x < 5) ? light : b
+      const col = mul(c, 0.95 + r() * 0.08)
+      px.set(x, y, col)
+      px.set(15 - y, x, col)
+      px.set(15 - x, 15 - y, col)
+      px.set(y, 15 - x, col)
+    }
+  }
+}
+
+function honeycomb(px, b, r) {
+  const c = cells(r, 12)
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) px.set(x, y, c.edge(x, y) ? mul(b, 0.62) : mul(b, 0.95 + c.pts[c.at(x, y)][2] * 0.2))
+}
+
+function target(px, b, r) {
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const d = Math.floor(Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5)))
+      px.set(x, y, mul(d % 4 === 0 || d % 4 === 1 ? [200, 40, 40] : b, 0.94 + r() * 0.1))
+    }
+  }
+}
+
+function sculk(px, b, r) {
+  noise(px, b, r, 0.25)
+  speckle(px, [40, 200, 220], r, 7)
+  speckle(px, [20, 110, 130], r, 10)
+}
+
+function lamp(px, b, r) {
+  glowstone(px, b, r)
+  frame(px, [90, 50, 30])
+}
+
 // ---- which texture each block uses ------------------------------------------
 
 const GLASS_IDS = /stainedglass$/
@@ -640,6 +854,52 @@ const OVERRIDE = {
   sandstone: (base, r) => {
     const top = paint((px) => noise(px, mul(base, 1.04), r, 0.05))
     return { top, side: paint((px) => sandstoneSide(px, base, r)), bottom: top }
+  },
+  craftingtable: (base, r) => ({
+    top: paint((px) => craftingTop(px, base, r)),
+    side: paint((px) => craftingSide(px, base, r)),
+    bottom: paint((px) => planks(px, hex(0xb4864a), r)),
+  }),
+  furnace: (base, r) => {
+    const top = paint((px) => { noise(px, base, r, 0.1); bevel(px, 1.1, 0.75) })
+    return { top, side: paint((px) => furnaceSide(px, base, r)), bottom: top }
+  },
+  jukebox: (base, r) => {
+    const side = paint((px) => jukeboxSide(px, base, r))
+    return { top: paint((px) => jukeboxTop(px, base, r)), side, bottom: side }
+  },
+  melon: (base, r) => {
+    const top = paint((px) => melonTop(px, base, r))
+    return { top, side: paint((px) => melonSide(px, base, r)), bottom: top }
+  },
+  mycelium: (base, r) => toppedFaces(base, hex(0x6b4a30), r),
+  podzol: (base, r) => toppedFaces(hex(0x7a5a2a), hex(0x6b4a30), r),
+  crimsonnylium: (base, r) => toppedFaces(base, hex(0x723232), r, netherrack),
+  warpednylium: (base, r) => toppedFaces(base, hex(0x723232), r, netherrack),
+  redsandstone: (base, r) => {
+    const top = paint((px) => noise(px, mul(base, 1.04), r, 0.05))
+    return { top, side: paint((px) => sandstoneSide(px, base, r)), bottom: top }
+  },
+  darkoaklog: (base, r) => logFaces(base, hex(0x4a3524), r),
+  junglelog: (base, r) => logFaces(base, hex(0xb5895a), r),
+  acacialog: (base, r) => logFaces(base, hex(0xb85a3a), r),
+  cherrylog: (base, r) => logFaces(base, hex(0xe4b4ac), r),
+  strippedoaklog: (base, r) => logFaces(base, hex(0xc49a5c), r),
+  driedkelpblock: (base, r) => {
+    const top = paint((px) => hayTop(px, base, r))
+    return { top, side: paint((px) => kelpSide(px, base, r)), bottom: top }
+  },
+  purpurpillar: (base, r) => {
+    const top = paint((px) => pillarTop(px, base, r))
+    return { top, side: paint((px) => pillarSide(px, base, r)), bottom: top }
+  },
+  quartzpillar: (base, r) => {
+    const top = paint((px) => pillarTop(px, base, r))
+    return { top, side: paint((px) => pillarSide(px, base, r)), bottom: top }
+  },
+  target: (base, r) => {
+    const side = paint((px) => target(px, base, r))
+    return { top: side, side, bottom: side }
   },
   boneblock: (base, r) => {
     const top = paint((px) => boneTop(px, base, r))
@@ -687,6 +947,25 @@ const BY_ID = {
   coalblock: (px, b, r) => { noise(px, b, r, 0.3); speckle(px, [70, 70, 70], r, 8) },
   spongeblock: sponge, lava: lava, water: water, ice: ice, leaves: leaves, glass: (px, b, r) => glass(px, b, r, false),
   metal: metalPlate, polishedgranite: polished, polishedandesite: polished, netherite: mineral,
+  noteblock: noteBlock, coarsedirt: (px, b, r) => { dirt(px, b, r); speckle(px, [120, 110, 100], r, 14) },
+  redsand: (px, b, r) => speckled(px, b, r, [mul(b, 0.85), mul(b, 1.1)], 30),
+  smoothsandstone: smooth, cutsandstone: (px, b, r) => bricks(px, b, mul(b, 0.8), r, 8, 16, true),
+  chiseledstonebricks: chiseled, crackedstonebricks: cracked,
+  polisheddiorite: polished, polishedblackstone: polished,
+  polishedblackstonebricks: (px, b, r) => bricks(px, b, mul(b, 0.6), r, 4, 8, true),
+  netherquartzore: (px, b, r) => { netherrack(px, b, r); ore(px, b, [240, 236, 228], r) },
+  redstoneore: (px, b, r) => ore(px, b, [220, 30, 30], r), lapisore: (px, b, r) => ore(px, b, [40, 80, 200], r),
+  emeraldore: (px, b, r) => ore(px, b, [40, 200, 100], r), copperore: (px, b, r) => ore(px, b, [220, 120, 70], r),
+  deepslatediamondore: (px, b, r) => ore(px, b, [90, 230, 220], r),
+  packedice: ice, blueice: ice,
+  redmushroomblock: (px, b, r) => mushroomBlock(px, b, r, true), brownmushroomblock: (px, b, r) => mushroomBlock(px, b, r, false),
+  soulsand: soulSand, soulsoil: (px, b, r) => noise(px, b, r, 0.14),
+  endstonebricks: (px, b, r) => bricks(px, b, mul(b, 0.75), r, 8, 16, true),
+  prismarinebricks: (px, b, r) => bricks(px, b, mul(b, 0.7), r, 8, 8, true),
+  darkprismarine: (px, b, r) => bricks(px, b, mul(b, 0.65), r, 8, 8, true),
+  chiseledquartz: chiseled, exposedcopper: mineral, weatheredcopper: mineral, oxidizedcopper: mineral,
+  glazedterracotta: glazed, honeycombblock: honeycomb, dripstone: (px, b, r) => streaks(px, b, r, true),
+  sculk: sculk, shroomlight: glowstone, redstonelamp: lamp,
 }
 const BY_PATTERN = {
   speckle: stone, brick: (px, b, r) => bricks(px, b, [168, 164, 156], r), wood: planks, metal: mineral,
@@ -716,6 +995,7 @@ export function blockFaceCanvases(type) {
   } else {
     const draw = BY_ID[type.id] ? BY_ID[type.id]
       : /concrete$/.test(type.id) ? concrete
+        : /terracotta$/.test(type.id) ? (px, b, rr) => noise(px, b, rr, 0.05)
       : GLASS_IDS.test(type.id) ? (px, b, rr) => glass(px, b, rr, true)
         : /wool$/.test(type.id) ? wool
           : /planks$/.test(type.id) ? planks
@@ -738,8 +1018,9 @@ export function textureHasAlpha(type) {
 // Minecraft-inventory-style isometric block icon (top + two shaded sides)
 // as a data URL, for the block picker and hotbar.
 const iconCache = new Map()
-export function blockIconURL(type, size = 64) {
-  const key = `${type.id}:${size}`
+// heightFrac < 1 draws a shorter block (0.5 = a slab).
+export function blockIconURL(type, size = 64, heightFrac = 1) {
+  const key = `${type.id}:${size}:${heightFrac}`
   if (iconCache.has(key)) return iconCache.get(key)
   const faces = blockFaceCanvases(type)
   const canvas = document.createElement('canvas')
@@ -753,11 +1034,12 @@ export function blockIconURL(type, size = 64) {
   const half = w / 2
   const q = w / 4
   const cx = size / 2
-  const T = [cx, pad]
-  const R = [cx + half, pad + q]
-  const B = [cx, pad + 2 * q]
-  const L = [cx - half, pad + q]
-  const h = half
+  const drop = half * (1 - heightFrac)
+  const T = [cx, pad + drop]
+  const R = [cx + half, pad + q + drop]
+  const B = [cx, pad + 2 * q + drop]
+  const L = [cx - half, pad + q + drop]
+  const h = half * heightFrac
   const shaded = (src, dark) => {
     const c = document.createElement('canvas')
     c.width = c.height = S
@@ -768,12 +1050,14 @@ export function blockIconURL(type, size = 64) {
     cc.fillRect(0, 0, S, S)
     return c
   }
-  const face = (src, origin, xAxis, yAxis, dark) => {
+  // crop: how much of the texture's height to show (the bottom part, for
+  // a slab's sides).
+  const face = (src, origin, xAxis, yAxis, dark, crop = 1) => {
     ctx.setTransform(xAxis[0] / S, xAxis[1] / S, yAxis[0] / S, yAxis[1] / S, origin[0], origin[1])
-    ctx.drawImage(dark ? shaded(src, dark) : src, 0, 0)
+    ctx.drawImage(dark ? shaded(src, dark) : src, 0, S * (1 - crop), S, S * crop, 0, 0, S, S)
   }
-  face(faces.side, L, [B[0] - L[0], B[1] - L[1]], [0, h], 0.22)
-  face(faces.side, B, [R[0] - B[0], R[1] - B[1]], [0, h], 0.4)
+  face(faces.side, L, [B[0] - L[0], B[1] - L[1]], [0, h], 0.22, heightFrac)
+  face(faces.side, B, [R[0] - B[0], R[1] - B[1]], [0, h], 0.4, heightFrac)
   face(faces.top, T, [R[0] - T[0], R[1] - T[1]], [L[0] - T[0], L[1] - T[1]], 0)
   const url = canvas.toDataURL()
   iconCache.set(key, url)
