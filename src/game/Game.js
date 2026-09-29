@@ -13998,7 +13998,24 @@ export class Game {
     if (this.buildModeLoadingOverlay) this.buildModeLoadingOverlay.style.display = 'flex'
     const buildModeLoadStartedAt = performance.now()
     this.menu.style.display = 'none'
-    if (location.pathname !== '/map-editor') history.pushState({}, '', '/map-editor')
+    // Deferred a tick (queueMicrotask, not called inline here) - the
+    // _closeAllMenuPanels() call above, when it actually closes something
+    // (e.g. entering from the Map 2 tile in the Game Mode panel), flips a
+    // routable panel's display:none, which _bindPanelRouting's own
+    // MutationObserver reacts to on its OWN microtask by pushing '/' (no
+    // routable panel reads as "open" anymore - Build Mode isn't one of
+    // _routes). That observer microtask was queued first (the mutation
+    // happened above, before this line), so an inline pushState here would
+    // still lose the race and get silently overwritten back to '/' the
+    // instant the observer's callback ran. Queueing this one as its own
+    // microtask puts it strictly after the observer's in the same FIFO
+    // queue, so '/map-editor' is the last write and actually sticks -
+    // verified live (was reproducibly overwritten back to '/' without
+    // this). Harmless no-op when entered from the bare homepage nav
+    // button instead (nothing closes, no mutation, no race to lose).
+    queueMicrotask(() => {
+      if (location.pathname !== '/map-editor') history.pushState({}, '', '/map-editor')
+    })
     // Build Mode is only ever reachable from the homepage nav (#menu is
     // hidden the instant a real run starts, see the 'lock' handler), but
     // force this false regardless rather than trust that precondition -
@@ -16914,6 +16931,17 @@ export class Game {
       })
     }
     if (this.buildModeBtn) this.buildModeBtn.addEventListener('click', () => this._enterBuildMode())
+    // Map 2 (Game Mode panel) - there's no second playable map yet, so this
+    // opens the same Build Mode / block editor as the dedicated Map Editor
+    // nav button instead of pretending to switch to a real map. Reuses
+    // _enterBuildMode() as-is rather than a second copy - it already calls
+    // _closeAllMenuPanels() as its first step (see that function's own
+    // comment - added specifically for "any future path that reaches
+    // _enterBuildMode() without going through a blocked nav click first"),
+    // which correctly closes this very panel (#hub-panel) before Build
+    // Mode's own UI takes over.
+    const mapSelect2Btn = document.getElementById('map-select-2')
+    if (mapSelect2Btn) mapSelect2Btn.addEventListener('click', () => this._enterBuildMode())
     const buildExitBtn = document.getElementById('build-mode-exit-btn')
     if (buildExitBtn) buildExitBtn.addEventListener('click', () => this._exitBuildMode())
     const buildSaveBtn = document.getElementById('build-mode-save-btn')
