@@ -9764,8 +9764,12 @@ html.ui-theme-old #menu-nav-buttons button {
   justify-content: center;
   /* Settings can be opened from the pause overlay, which comes later in
      the HTML and would otherwise stack on top and block clicks - settings
-     needs to always win regardless of what it was opened from. */
-  z-index: 15;
+     needs to always win regardless of what it was opened from. Must be
+     STRICTLY HIGHER than #pause-overlay's z-index (15), not equal - equal
+     z-index falls back to DOM order, and #pause-overlay comes later, so an
+     equal value here (the bug this comment used to describe fixing, but
+     didn't) let it silently win and eat every click meant for Settings. */
+  z-index: 16;
 }
 
 #settings-title {

@@ -19644,9 +19644,18 @@ export class Game {
   }
 
   _closeShopPanel() {
+    // _closeAllMenuPanels() calls this unconditionally as blanket cleanup
+    // every time ANY panel opens mid-run (Settings, Upgrades, etc.), not
+    // just when Shop was actually the one open. Without this guard, opening
+    // Settings from the pause menu re-flexed #pause-overlay right after
+    // _toggleSettings had just hidden it - both ended up visible at the
+    // same z-index (15), and #pause-overlay (later in the DOM) silently ate
+    // every click meant for a Settings control underneath it. Only restore
+    // the pause overlay when Shop was genuinely the panel being closed.
+    const wasOpen = this.shopPanel.style.display !== 'none'
     this.shopPanel.style.display = 'none'
     if (this._shopSkinAvatar3D) this._shopSkinAvatar3D.stop()
-    if (this.gameStarted) this.pauseOverlay.style.display = 'flex'
+    if (wasOpen && this.gameStarted) this.pauseOverlay.style.display = 'flex'
   }
 
   // What's New panel - split out from Credits (used to be one combined
