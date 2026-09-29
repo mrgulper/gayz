@@ -6,6 +6,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import * as CloudSync from './CloudSync.js'
 import { BlockChunks, CHUNK } from './BlockChunks.js'
+import { blockFaceCanvases, blockIconURL, textureHasAlpha } from './BlockTextures.js'
 import { LightProxyPool, markLightSource } from './LightProxies.js'
 import { t } from './i18n.js'
 
@@ -688,6 +689,23 @@ function _makeBlockCanvas(colorHex, pattern, size = 256) {
   return canvas
 }
 
+// Stairs/fences wear the same pixel-art texture as the full block they're
+// made of (BlockTextures.js); the ladder keeps its own drawn pattern.
+const SHAPED_TEXTURE_FROM = {
+  oakstairs: 'oakplanks', stonestairs: 'stone', brickstairs: 'brick', cobblestonestairs: 'cobblestone',
+  oakfence: 'oakplanks', stonefence: 'stone', netherbrickfence: 'netherbrick',
+}
+function _shapedBlockTexture(bt) {
+  const sourceId = SHAPED_TEXTURE_FROM[bt.id]
+  const source = sourceId && BLOCK_TYPES.find((b) => b.id === sourceId)
+  if (!source) return _makeBlockTexture(bt.color, bt.pattern)
+  const tex = new THREE.CanvasTexture(blockFaceCanvases(source).side)
+  tex.magFilter = THREE.NearestFilter
+  tex.minFilter = THREE.LinearMipmapLinearFilter
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
+}
+
 // Non-cube block shapes (see BLOCK_TYPES' `shape` field) - every other
 // block reuses one shared full-cube BoxGeometry across its whole
 // InstancedMesh; these three build their own once, referenced by `shape`
@@ -942,7 +960,8 @@ export class BuildMode {
       blockSize: BLOCK_SIZE,
       types: BLOCK_TYPES,
       maxAnisotropy: renderer.capabilities.getMaxAnisotropy(),
-      makeCanvas: _makeBlockCanvas,
+      faces: blockFaceCanvases,
+      hasAlpha: textureHasAlpha,
       getType: (x, y, z) => this._blocks.get(`${x},${y},${z}`),
     })
     this._chunkCells = new Map() // "cx,cy,cz" -> Set of "x,y,z" cube cells in that chunk
@@ -956,7 +975,7 @@ export class BuildMode {
     const maxAnisotropy = renderer.capabilities.getMaxAnisotropy()
     for (const bt of BLOCK_TYPES) {
       if (this._chunks.isChunkType(bt.id)) continue
-      const blockTexture = _makeBlockTexture(bt.color, bt.pattern)
+      const blockTexture = _shapedBlockTexture(bt)
       // Sharpens exactly the case mipmapping alone (see _makeBlockTexture's
       // own comment) still leaves soft: a surface viewed at a shallow
       // angle, compressed far more in one direction than the other - the
@@ -1512,13 +1531,16 @@ export class BuildMode {
     this._pickerGridEl.innerHTML = ''
     const query = (this._pickerSearchInput?.value || '').trim().toLowerCase()
     const matches = query ? BLOCK_TYPES.filter((bt) => bt.name.toLowerCase().includes(query)) : BLOCK_TYPES
-    for (const { id, name, color } of matches) {
+    for (const { id, name } of matches) {
       const item = document.createElement('div')
       item.className = 'build-picker-item'
       item.title = name
       const swatch = document.createElement('div')
       swatch.className = 'build-picker-swatch' + (id === this.selectedType ? ' selected' : '')
-      swatch.style.background = `#${color.toString(16).padStart(6, '0')}`
+      // Minecraft-inventory-style 3D block icon (BlockTextures.js), with
+      // the flat color underneath while it loads.
+      swatch.style.backgroundColor = 'transparent'
+      swatch.style.backgroundImage = `url(${blockIconURL(BLOCK_TYPES.find((b) => b.id === id))})`
       const label = document.createElement('span')
       label.className = 'build-picker-label'
       label.textContent = name
@@ -1548,7 +1570,7 @@ export class BuildMode {
       const slot = document.createElement('div')
       slot.className = 'build-hotbar-slot' + (i === this.activeHotbarIndex ? ' selected' : '')
       slot.title = bt ? bt.name : ''
-      if (bt) slot.style.background = `#${bt.color.toString(16).padStart(6, '0')}`
+      if (bt) slot.style.backgroundImage = `url(${blockIconURL(bt)})`
       const num = document.createElement('span')
       num.className = 'build-hotbar-slot-num'
       num.textContent = i === 9 ? '0' : String(i + 1)

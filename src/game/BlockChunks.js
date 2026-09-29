@@ -24,7 +24,10 @@ export const CHUNK = 16
 // A power-of-two SLOT with the tile repeated into half-tile padding: every
 // mipmap level (down to one texel per slot) then only ever averages a
 // block's own texture - no distant speckles bled in from the next tile.
-const TILE = 64
+// 32px slots holding each 16x16 pixel-art texture (BlockTextures.js)
+// scaled up 2x with no smoothing - the same crisp pixels, just with room
+// for the padding trick below.
+const TILE = 32
 const PAD = TILE / 2
 const SLOT = TILE + PAD * 2
 
@@ -54,9 +57,10 @@ function tintAt(x, y, z) {
 }
 
 export class BlockChunks {
-  // types: BLOCK_TYPES. makeCanvas(colorHex, pattern) -> a square canvas
-  // with that block's texture. getType(x, y, z) -> type id or null.
-  constructor(scene, { blockSize, types, makeCanvas, getType, maxAnisotropy = 4 }) {
+  // types: BLOCK_TYPES. faces(type) -> { top, side, bottom } canvases.
+  // hasAlpha(type) -> the texture carries its own transparency. getType(x,
+  // y, z) -> type id or null.
+  constructor(scene, { blockSize, types, faces, hasAlpha, getType, maxAnisotropy = 4 }) {
     this.scene = scene
     this.blockSize = blockSize
     this.getType = getType
@@ -65,24 +69,22 @@ export class BlockChunks {
     this.dirty = new Set()
 
     const cube = types.filter((t) => !t.shape)
-    // 2048 wide x as many rows as needed (1024 for today's 113 cubes):
-    // about 11 MB of GPU memory with mipmaps, versus ~45 MB for the 113
-    // separate 256px textures this replaced.
+    const faceSets = cube.map((t) => faces(t))
+    const unique = [...new Set(faceSets.flatMap((f) => [f.top, f.side, f.bottom]))]
+    // 2048 wide x as many rows as needed (512 for today's ~130 textures):
+    // about 5 MB of GPU memory with mipmaps.
     const atlasW = 2048
     const perRow = atlasW / SLOT
-    const atlasH = THREE.MathUtils.ceilPowerOfTwo(Math.ceil(cube.length / perRow) * SLOT)
+    const atlasH = THREE.MathUtils.ceilPowerOfTwo(Math.ceil(unique.length / perRow) * SLOT)
     const canvas = document.createElement('canvas')
     canvas.width = atlasW
     canvas.height = atlasH
     const ctx = canvas.getContext('2d')
     ctx.imageSmoothingEnabled = false
-    cube.forEach((t, i) => {
+    const uvOf = new Map()
+    unique.forEach((src, i) => {
       const ox = (i % perRow) * SLOT + PAD
       const oy = Math.floor(i / perRow) * SLOT + PAD
-      // Drawn natively at TILE size, not a big texture shrunk down -
-      // shrinking blurred every speck and mortar line away; at its real
-      // size each texel is a crisp pixel-art dot.
-      const src = makeCanvas(t.color, t.pattern, TILE)
       // Padding around each tile repeats the tile's own opposite edge, so
       // the smaller mipmap levels blend into matching colors instead of
       // bleeding a neighboring block's texture across the seam.
@@ -99,10 +101,16 @@ export class BlockChunks {
       const u1 = (ox + TILE) / atlasW
       const v1 = 1 - oy / atlasH
       const v0 = 1 - (oy + TILE) / atlasH
+      uvOf.set(src, [u0, v0, u1, v1])
+    })
+    cube.forEach((t, i) => {
+      const f = faceSets[i]
       this.info.set(t.id, {
-        uv: [u0, v0, u1, v1],
+        // Indexed like FACES: +x, -x, top, bottom, +z, -z.
+        uvs: [uvOf.get(f.side), uvOf.get(f.side), uvOf.get(f.top), uvOf.get(f.bottom), uvOf.get(f.side), uvOf.get(f.side)],
         opaque: !t.transparent,
-        alpha: t.opacity ?? 1,
+        // Glass/leaves carry their own per-pixel alpha in the texture.
+        alpha: hasAlpha(t) ? 1 : (t.opacity ?? 1),
         glow: !!t.emissive,
       })
     })
@@ -120,7 +128,7 @@ export class BlockChunks {
     this.materials = {
       solid: new THREE.MeshLambertMaterial({ map: tex, vertexColors: true }),
       glow: new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.55 }),
-      clear: new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, transparent: true, depthWrite: false }),
+      clear: new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, transparent: true, depthWrite: false, alphaTest: 0.02 }),
     }
   }
 
@@ -192,7 +200,8 @@ export class BlockChunks {
       if (!info) continue
       const buf = info.opaque ? (info.glow ? out.glow : out.solid) : out.clear
       const tint = tintAt(x, y, z)
-      for (const face of FACES) {
+      for (let fi = 0; fi < 6; fi++) {
+        const face = FACES[fi]
         const [nx, ny, nz] = face.n
         const nType = this.getType(x + nx, y + ny, z + nz)
         if (nType) {
@@ -200,7 +209,7 @@ export class BlockChunks {
           // Hidden behind a solid cube, or glass against the same glass.
           if (nInfo && (nInfo.opaque || nType === type)) continue
         }
-        const [u0, v0, u1, v1] = info.uv
+        const [u0, v0, u1, v1] = info.uvs[fi]
         const ao = [0, 0, 0, 0]
         for (let i = 0; i < 4; i++) {
           const c = face.c[i]
