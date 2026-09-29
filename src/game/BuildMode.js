@@ -660,7 +660,23 @@ function _makeBlockTexture(colorHex, pattern) {
   ctx.strokeRect(1, 1, size - 2, size - 2)
   const tex = new THREE.CanvasTexture(canvas)
   tex.magFilter = THREE.NearestFilter
-  tex.minFilter = THREE.NearestFilter
+  // LinearMipmapLinearFilter (mipmapped/trilinear), not NearestFilter, for
+  // MINIFICATION specifically - the NearestFilter reasoning above is only
+  // about MAGNIFICATION (each texel reads as a crisp hard square up
+  // close). Distant or grazing-angle blocks - the ground stretching to
+  // the horizon is the extreme case - compress many texels into one
+  // screen pixel; without mipmaps to average them down first, that reads
+  // as noisy shimmer/aliasing, not a deliberate blur (real report: "the
+  // map is way too blurry even with resolution at 100%" - Settings'
+  // render-resolution slider doesn't touch this at all, it's a texture-
+  // filtering problem, not a screen-resolution one). anisotropy is set
+  // per-material at the call site (needs the renderer's actual max, not
+  // available in this standalone function) - mipmapping alone still
+  // leaves a ground plane viewed edge-on soft, since mipmap selection is
+  // isotropic even though the surface is compressed far more in one
+  // direction than the other at a shallow angle. Magnification (anything
+  // close to the camera) is completely unaffected either way.
+  tex.minFilter = THREE.LinearMipmapLinearFilter
   tex.colorSpace = THREE.SRGBColorSpace
   return tex
 }
@@ -901,9 +917,21 @@ export class BuildMode {
     this._instancedMeshes = {}
     this._instanceKeyByIndex = {} // type id -> array mapping instance index -> "x,y,z" key, for swap-remove
     const blockGeo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)
+    // Computed once, not per texture - same value for every block type,
+    // and querying the renderer's actual capability (rather than a
+    // hardcoded guess) means this is correct on any GPU, including one
+    // that only supports less than a typical desktop's 16x.
+    const maxAnisotropy = renderer.capabilities.getMaxAnisotropy()
     for (const bt of BLOCK_TYPES) {
+      const blockTexture = _makeBlockTexture(bt.color, bt.pattern)
+      // Sharpens exactly the case mipmapping alone (see _makeBlockTexture's
+      // own comment) still leaves soft: a surface viewed at a shallow
+      // angle, compressed far more in one direction than the other - the
+      // ground stretching toward the horizon is the textbook example this
+      // was reported against.
+      blockTexture.anisotropy = maxAnisotropy
       const material = new THREE.MeshStandardMaterial({
-        map: _makeBlockTexture(bt.color, bt.pattern),
+        map: blockTexture,
         roughness: bt.roughness,
         metalness: bt.metalness,
         transparent: !!bt.transparent,
