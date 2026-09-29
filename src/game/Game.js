@@ -14090,6 +14090,7 @@ export class Game {
       this.buildMode = new BuildMode(this.renderer, this)
     }
     this.buildMode.enter()
+    this._applyRenderScale()
     // Always shows for at least BUILD_MODE_LOADING_MIN_MS so this reads as
     // a deliberate loading beat rather than a one-frame flicker on repeat
     // visits, where the dynamic import above is already cached and
@@ -14103,6 +14104,7 @@ export class Game {
 
   _exitBuildMode() {
     this.buildMode.exit()
+    this._applyRenderScale()
     document.exitPointerLock()
     this.player.suspended = false
     // Defensive reset, not just un-suspending - a stray real jump/fall
@@ -14195,6 +14197,16 @@ export class Game {
     // separate multiplier from _dynResScale (the disabled *automatic*
     // per-frame scaler above - see its own comment) - this is a manual,
     // user-chosen setting, not a revival of that dormant auto-scaling.
+    // The map editor gets the screen's full sharpness (2026-09-29 report:
+    // "the texture is way too blurry") - LOW_QUALITY_MODE's 0.75 base and
+    // Auto Quality's resolution cut are for the survival world's cost; the
+    // chunk-meshed editor (see BlockChunks.js) is cheap enough without
+    // them, and on a 2x Retina screen they left it at ~1/3 of the real
+    // pixels, stretched up. The Resolution slider still applies.
+    if (this.buildMode.active) {
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * this._userResScale)
+      return
+    }
     this.renderer.setPixelRatio(this._basePixelRatio() * this._dynResScale * this._userResScale)
   }
 
