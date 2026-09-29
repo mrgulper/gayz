@@ -102,7 +102,7 @@ export const BLOCK_TYPES = [
   { id: 'planks', name: 'Planks', color: 0xb98a52, pattern: 'wood', roughness: 0.6, metalness: 0 },
   { id: 'gold', name: 'Gold', color: 0xf4c430, pattern: 'metal', roughness: 0.2, metalness: 1 },
   { id: 'obsidian', name: 'Obsidian', color: 0x1c1024, pattern: 'speckle', roughness: 0.3, metalness: 0.1 },
-  { id: 'water', name: 'Water', color: 0x3a7bd5, pattern: 'liquid', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.6 },
+  { id: 'water', name: 'Water', color: 0x3a7bd5, pattern: 'liquid', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.72 },
   { id: 'ice', name: 'Ice', color: 0xaee4f0, pattern: 'crack', roughness: 0.05, metalness: 0, transparent: true, opacity: 0.7 },
   { id: 'leaves', name: 'Leaves', color: 0x3f7d3a, pattern: 'leaves', roughness: 1, metalness: 0, transparent: true, opacity: 0.88 },
   { id: 'lava', name: 'Lava', color: 0xff5a1f, pattern: 'liquid', roughness: 0.8, metalness: 0, emissive: 0xff3300, emissiveIntensity: 0.9 },
@@ -227,6 +227,69 @@ export const BLOCK_TYPES = [
   { id: 'boneblock', name: 'Bone Block', color: 0xe8e0c8, pattern: 'stripe', roughness: 0.7, metalness: 0 },
   { id: 'spongeblock', name: 'Sponge', color: 0xc9c024, pattern: 'porous', roughness: 0.9, metalness: 0 },
   { id: 'jackolantern', name: "Jack o'Lantern", color: 0xd9761a, pattern: 'ridged', roughness: 0.8, metalness: 0, emissive: 0xff8800, emissiveIntensity: 0.6 },
+  // Minecraft block batch 2 (2026-09-29) - textures in BlockTextures.js.
+  { id: 'craftingtable', name: 'Crafting Table', color: 0xa0703c, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'furnace', name: 'Furnace', color: 0x7a7a7a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'jukebox', name: 'Jukebox', color: 0x7a4a2e, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'noteblock', name: 'Note Block', color: 0x7a4a2e, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'melon', name: 'Melon', color: 0x6aa33a, pattern: 'ridged', roughness: 0.9, metalness: 0 },
+  { id: 'mycelium', name: 'Mycelium', color: 0x7a6a78, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'podzol', name: 'Podzol', color: 0x6a4a28, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'coarsedirt', name: 'Coarse Dirt', color: 0x6b4a30, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'redsand', name: 'Red Sand', color: 0xb4642a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'redsandstone', name: 'Red Sandstone', color: 0xa8582a, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'smoothsandstone', name: 'Smooth Sandstone', color: 0xd8c89a, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'cutsandstone', name: 'Cut Sandstone', color: 0xd0bc8a, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'chiseledstonebricks', name: 'Chiseled Stone Bricks', color: 0x7a7a74, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'crackedstonebricks', name: 'Cracked Stone Bricks', color: 0x78786f, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'polisheddiorite', name: 'Polished Diorite', color: 0xd8d8d8, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'polishedblackstone', name: 'Polished Blackstone', color: 0x322c36, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'polishedblackstonebricks', name: 'Polished Blackstone Bricks', color: 0x2f2a33, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'netherquartzore', name: 'Nether Quartz Ore', color: 0x722f2f, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'redstoneore', name: 'Redstone Ore', color: 0x808078, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'lapisore', name: 'Lapis Ore', color: 0x808078, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'emeraldore', name: 'Emerald Ore', color: 0x808078, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'copperore', name: 'Copper Ore', color: 0x808078, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'deepslatediamondore', name: 'Deepslate Diamond Ore', color: 0x3a3a40, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'packedice', name: 'Packed Ice', color: 0x8cb4f0, pattern: 'crack', roughness: 0.9, metalness: 0 },
+  { id: 'blueice', name: 'Blue Ice', color: 0x74a8f5, pattern: 'crack', roughness: 0.9, metalness: 0 },
+  { id: 'redmushroomblock', name: 'Red Mushroom Block', color: 0xc02a26, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'brownmushroomblock', name: 'Brown Mushroom Block', color: 0x946a4a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'driedkelpblock', name: 'Dried Kelp Block', color: 0x3a4a2a, pattern: 'stripe', roughness: 0.9, metalness: 0 },
+  { id: 'soulsand', name: 'Soul Sand', color: 0x5a4636, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'soulsoil', name: 'Soul Soil', color: 0x4c3a2e, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'crimsonnylium', name: 'Crimson Nylium', color: 0x8a1f1f, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'warpednylium', name: 'Warped Nylium', color: 0x2b7a6a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'crimsonplanks', name: 'Crimson Planks', color: 0x6a3448, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'warpedplanks', name: 'Warped Planks', color: 0x2b6a64, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'mangroveplanks', name: 'Mangrove Planks', color: 0x7a3a34, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'cherryplanks', name: 'Cherry Planks', color: 0xe4b4ac, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'bambooplanks', name: 'Bamboo Planks', color: 0xc8b04a, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'darkoaklog', name: 'Dark Oak Log', color: 0x3a2a1a, pattern: 'log', roughness: 0.9, metalness: 0 },
+  { id: 'junglelog', name: 'Jungle Log', color: 0x5a4420, pattern: 'log', roughness: 0.9, metalness: 0 },
+  { id: 'acacialog', name: 'Acacia Log', color: 0x6a625a, pattern: 'log', roughness: 0.9, metalness: 0 },
+  { id: 'cherrylog', name: 'Cherry Log', color: 0x3a2430, pattern: 'log', roughness: 0.9, metalness: 0 },
+  { id: 'strippedoaklog', name: 'Stripped Oak Log', color: 0xb08448, pattern: 'log', roughness: 0.9, metalness: 0 },
+  { id: 'endstonebricks', name: 'End Stone Bricks', color: 0xdcd7a0, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'prismarinebricks', name: 'Prismarine Bricks', color: 0x63ab9e, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'darkprismarine', name: 'Dark Prismarine', color: 0x335b4c, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'purpurpillar', name: 'Purpur Pillar', color: 0xa87aac, pattern: 'stripe', roughness: 0.9, metalness: 0 },
+  { id: 'quartzpillar', name: 'Quartz Pillar', color: 0xebe5dc, pattern: 'stripe', roughness: 0.9, metalness: 0 },
+  { id: 'chiseledquartz', name: 'Chiseled Quartz', color: 0xe8e2d8, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'exposedcopper', name: 'Exposed Copper', color: 0xa87a64, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'weatheredcopper', name: 'Weathered Copper', color: 0x6a9a7a, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'oxidizedcopper', name: 'Oxidized Copper', color: 0x4fa88a, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'glazedterracotta', name: 'Blue Glazed Terracotta', color: 0x3a6aa8, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'whiteterracotta', name: 'White Terracotta', color: 0xd2b2a1, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'orangeterracotta', name: 'Orange Terracotta', color: 0xa05426, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'blueterracotta', name: 'Blue Terracotta', color: 0x4a3c5a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'blackterracotta', name: 'Black Terracotta', color: 0x251710, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'honeycombblock', name: 'Honeycomb Block', color: 0xe8a02a, pattern: 'crystal', roughness: 0.9, metalness: 0 },
+  { id: 'target', name: 'Target', color: 0xe8dcc8, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'dripstone', name: 'Dripstone Block', color: 0x866a5a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'sculk', name: 'Sculk', color: 0x0f2a33, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'shroomlight', name: 'Shroomlight', color: 0xf09a48, pattern: 'metal', roughness: 0.6, metalness: 0, emissive: 0xff9a40, emissiveIntensity: 0.6 },
+  { id: 'redstonelamp', name: 'Redstone Lamp', color: 0xc8783a, pattern: 'metal', roughness: 0.6, metalness: 0, emissive: 0xffb060, emissiveIntensity: 0.6 },
   // Shaped blocks (see CUSTOM_BLOCK_GEOMETRY) - every block above is a full
   // 1x1x1 cube; these use their own geometry instead (a stair-stepped
   // silhouette, a post-and-rail fence, a thin ladder panel). `shape` picks
@@ -241,6 +304,19 @@ export const BLOCK_TYPES = [
   { id: 'oakfence', name: 'Oak Fence', color: 0xb4864a, pattern: 'wood', roughness: 0.85, metalness: 0, shape: 'fence' },
   { id: 'stonefence', name: 'Stone Fence', color: 0x808078, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'fence' },
   { id: 'netherbrickfence', name: 'Nether Brick Fence', color: 0x35181c, pattern: 'brick', roughness: 0.8, metalness: 0, shape: 'fence' },
+  // Slabs - half-height blocks (CUSTOM_BLOCK_GEOMETRY.slab), textured like the full block they're cut from (SHAPED_TEXTURE_FROM).
+  { id: 'oakslab', name: 'Oak Slab', color: 0xb4864a, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'spruceslab', name: 'Spruce Slab', color: 0x6b4a2c, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'birchslab', name: 'Birch Slab', color: 0xd8c898, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'darkoakslab', name: 'Dark Oak Slab', color: 0x4a3524, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'stoneslab', name: 'Smooth Stone Slab', color: 0xa8a8a0, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'cobblestoneslab', name: 'Cobblestone Slab', color: 0x7d7d7d, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'brickslab', name: 'Brick Slab', color: 0xa8503a, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'stonebrickslab', name: 'Stone Brick Slab', color: 0x808078, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'sandstoneslab', name: 'Sandstone Slab', color: 0xc9b183, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'quartzslab', name: 'Quartz Slab', color: 0xe8e4dc, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'blackstoneslab', name: 'Blackstone Slab', color: 0x2b2530, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'prismarineslab', name: 'Prismarine Slab', color: 0x4f9e94, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
 ]
 const VALID_TYPE_IDS = new Set(BLOCK_TYPES.map((b) => b.id))
 // Real point lights on glowing blocks (see placeBlock/removeBlock) - every
@@ -694,6 +770,18 @@ function _makeBlockCanvas(colorHex, pattern, size = 256) {
 const SHAPED_TEXTURE_FROM = {
   oakstairs: 'oakplanks', stonestairs: 'stone', brickstairs: 'brick', cobblestonestairs: 'cobblestone',
   oakfence: 'oakplanks', stonefence: 'stone', netherbrickfence: 'netherbrick',
+  oakslab: 'oakplanks',
+  spruceslab: 'spruceplanks',
+  birchslab: 'birchplanks',
+  darkoakslab: 'darkoakplanks',
+  stoneslab: 'smoothstone',
+  cobblestoneslab: 'cobblestone',
+  brickslab: 'brick',
+  stonebrickslab: 'stone',
+  sandstoneslab: 'sandstone',
+  quartzslab: 'quartz',
+  blackstoneslab: 'blackstone',
+  prismarineslab: 'prismarine',
 }
 function _shapedBlockTexture(bt) {
   const sourceId = SHAPED_TEXTURE_FROM[bt.id]
@@ -704,6 +792,13 @@ function _shapedBlockTexture(bt) {
   tex.minFilter = THREE.LinearMipmapLinearFilter
   tex.colorSpace = THREE.SRGBColorSpace
   return tex
+}
+
+// Picker/hotbar icon: shaped blocks show the block they're made from, a
+// slab at half height.
+function _blockIcon(bt) {
+  const source = SHAPED_TEXTURE_FROM[bt.id] && BLOCK_TYPES.find((b) => b.id === SHAPED_TEXTURE_FROM[bt.id])
+  return blockIconURL(source || bt, 64, bt.shape === 'slab' ? 0.5 : 1)
 }
 
 // Non-cube block shapes (see BLOCK_TYPES' `shape` field) - every other
@@ -740,6 +835,19 @@ function _buildFenceGeometry() {
   return mergeGeometries([post, railX1, railX2, railZ1, railZ2])
 }
 
+// Bottom half of the cell. Side faces show the bottom half of the texture
+// (not the whole texture squashed), like a Minecraft slab.
+function _buildSlabGeometry() {
+  const geo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE / 2, BLOCK_SIZE)
+  geo.translate(0, -BLOCK_SIZE / 4, 0)
+  const uv = geo.attributes.uv
+  // BoxGeometry faces, 4 vertices each: +x, -x, +y, -y, +z, -z.
+  for (const face of [0, 1, 4, 5]) {
+    for (let v = face * 4; v < face * 4 + 4; v++) uv.setY(v, uv.getY(v) * 0.5)
+  }
+  return geo
+}
+
 function _buildLadderGeometry() {
   const geo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE * 0.12)
   return geo
@@ -749,6 +857,7 @@ function _buildLadderGeometry() {
 // Cobblestone) shares this one geometry, same as how every cube block
 // already shares blockGeo; only the material/texture differs per type.
 const CUSTOM_BLOCK_GEOMETRY = {
+  slab: _buildSlabGeometry(),
   stairs: _buildStairGeometry(),
   fence: _buildFenceGeometry(),
   ladder: _buildLadderGeometry(),
@@ -1540,7 +1649,7 @@ export class BuildMode {
       // Minecraft-inventory-style 3D block icon (BlockTextures.js), with
       // the flat color underneath while it loads.
       swatch.style.backgroundColor = 'transparent'
-      swatch.style.backgroundImage = `url(${blockIconURL(BLOCK_TYPES.find((b) => b.id === id))})`
+      swatch.style.backgroundImage = `url(${_blockIcon(BLOCK_TYPES.find((b) => b.id === id))})`
       const label = document.createElement('span')
       label.className = 'build-picker-label'
       label.textContent = name
@@ -1570,7 +1679,7 @@ export class BuildMode {
       const slot = document.createElement('div')
       slot.className = 'build-hotbar-slot' + (i === this.activeHotbarIndex ? ' selected' : '')
       slot.title = bt ? bt.name : ''
-      if (bt) slot.style.backgroundImage = `url(${blockIconURL(bt)})`
+      if (bt) slot.style.backgroundImage = `url(${_blockIcon(bt)})`
       const num = document.createElement('span')
       num.className = 'build-hotbar-slot-num'
       num.textContent = i === 9 ? '0' : String(i + 1)
@@ -2147,7 +2256,10 @@ export class BuildMode {
       for (const oy of [-r, r]) {
         for (const oz of [-r, r]) {
           // World position -> cell index (see placeBlock's own comment).
-          if (this.getBlockAt(Math.floor((x + ox) / BLOCK_SIZE), Math.floor((y + oy) / BLOCK_SIZE), Math.floor((z + oz) / BLOCK_SIZE))) return true
+          // Water and lava don't block movement - you can fly/swim through
+          // them, like Minecraft.
+          const t = this.getBlockAt(Math.floor((x + ox) / BLOCK_SIZE), Math.floor((y + oy) / BLOCK_SIZE), Math.floor((z + oz) / BLOCK_SIZE))
+          if (t && !this._chunks.isLiquid(t)) return true
         }
       }
     }
@@ -2158,6 +2270,7 @@ export class BuildMode {
     // Chunk meshes are rebuilt here, once per frame, however many blocks
     // changed since the last one (a paste or a load touches thousands).
     this._chunks.flush(this._chunkCells)
+    this._chunks.animate(performance.now() / 1000)
     this._lightProxies.update(this.camera.position, 30)
     // The survival game's filmic tone mapping darkens and over-saturates
     // flat block colors (grey stone rendered near-black) - blocks keep

@@ -42,6 +42,13 @@ const FACES = [
   { n: [0, 0, -1], c: [[1, 0, 0], [0, 0, 0], [0, 1, 0], [1, 1, 0]], shade: 0.93 },
 ]
 const CORNER_UV = [[0, 0], [1, 0], [1, 1], [0, 1]]
+// Water and lava get their own scrolling (animated) texture and a surface
+// 2 pixels below the top of the cell, like Minecraft - unless the same
+// liquid sits on top, so a column of water stays one continuous body.
+const LIQUIDS = {
+  water: { speed: 5, surface: 14 / 16 },
+  lava: { speed: 1.5, surface: 14 / 16 },
+}
 // Vertex brightness by how many of the 3 neighbor cells around a corner
 // are solid (0 = fully open ... 3 = tucked into a corner).
 const AO_LEVELS = [1, 0.78, 0.6, 0.45]
@@ -105,10 +112,14 @@ export class BlockChunks {
     })
     cube.forEach((t, i) => {
       const f = faceSets[i]
+      const liquid = LIQUIDS[t.id] ? t.id : null
       this.info.set(t.id, {
+        liquid,
         // Indexed like FACES: +x, -x, top, bottom, +z, -z.
         uvs: [uvOf.get(f.side), uvOf.get(f.side), uvOf.get(f.top), uvOf.get(f.bottom), uvOf.get(f.side), uvOf.get(f.side)],
-        opaque: !t.transparent,
+        // Liquids never hide a neighbor's face (the lowered surface would
+        // leave a gap) and never darken its corners.
+        opaque: !t.transparent && !liquid,
         // Glass/leaves carry their own per-pixel alpha in the texture.
         alpha: hasAlpha(t) ? 1 : (t.opacity ?? 1),
         glow: !!t.emissive,
@@ -125,11 +136,39 @@ export class BlockChunks {
     tex.anisotropy = maxAnisotropy
     this.atlas = tex
 
+    const liquidTex = (id) => {
+      const t = types.find((b) => b.id === id)
+      if (!t) return null
+      const map = new THREE.CanvasTexture(faces(t).side)
+      map.wrapS = map.wrapT = THREE.RepeatWrapping
+      map.magFilter = THREE.NearestFilter
+      map.minFilter = THREE.LinearMipmapLinearFilter
+      map.colorSpace = THREE.SRGBColorSpace
+      map.anisotropy = maxAnisotropy
+      return map
+    }
+    const waterMap = liquidTex('water')
+    const lavaMap = liquidTex('lava')
     this.materials = {
+      water: new THREE.MeshLambertMaterial({ map: waterMap, vertexColors: true, transparent: true, depthWrite: false }),
+      lava: new THREE.MeshLambertMaterial({ map: lavaMap, vertexColors: true, emissive: 0xffffff, emissiveMap: lavaMap, emissiveIntensity: 0.85 }),
       solid: new THREE.MeshLambertMaterial({ map: tex, vertexColors: true }),
       glow: new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.55 }),
       clear: new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, transparent: true, depthWrite: false, alphaTest: 0.02 }),
     }
+  }
+
+  // Liquid animation - steps one texture pixel at a time (Minecraft's own
+  // animated textures move in whole-pixel frames, not a smooth slide).
+  animate(timeSec) {
+    for (const [id, { speed }] of Object.entries(LIQUIDS)) {
+      const map = this.materials[id]?.map
+      if (map) map.offset.y = Math.floor(timeSec * speed) / 16
+    }
+  }
+
+  isLiquid(type) {
+    return !!this.info.get(type)?.liquid
   }
 
   isChunkType(type) {
@@ -192,14 +231,15 @@ export class BlockChunks {
     const bx = cx * CHUNK
     const by = cy * CHUNK
     const bz = cz * CHUNK
-    const out = { solid: newBuffers(3), glow: newBuffers(3), clear: newBuffers(4) }
+    const out = { solid: newBuffers(3), glow: newBuffers(3), clear: newBuffers(4), water: newBuffers(4), lava: newBuffers(3) }
     for (const cell of cells) {
       const [x, y, z] = cell.split(',').map(Number)
       const type = this.getType(x, y, z)
       const info = type && this.info.get(type)
       if (!info) continue
-      const buf = info.opaque ? (info.glow ? out.glow : out.solid) : out.clear
-      const tint = tintAt(x, y, z)
+      const buf = info.liquid ? out[info.liquid] : info.opaque ? (info.glow ? out.glow : out.solid) : out.clear
+      const tint = info.liquid ? 1 : tintAt(x, y, z)
+      const topY = info.liquid && this.getType(x, y + 1, z) !== type ? LIQUIDS[info.liquid].surface : 1
       for (let fi = 0; fi < 6; fi++) {
         const face = FACES[fi]
         const [nx, ny, nz] = face.n
@@ -209,7 +249,7 @@ export class BlockChunks {
           // Hidden behind a solid cube, or glass against the same glass.
           if (nInfo && (nInfo.opaque || nType === type)) continue
         }
-        const [u0, v0, u1, v1] = info.uvs[fi]
+        const [u0, v0, u1, v1] = info.liquid ? [0, 0, 1, 1] : info.uvs[fi]
         const ao = [0, 0, 0, 0]
         for (let i = 0; i < 4; i++) {
           const c = face.c[i]
@@ -238,7 +278,7 @@ export class BlockChunks {
         const base = buf.pos.length / 3
         for (let i = 0; i < 4; i++) {
           const c = face.c[i]
-          buf.pos.push((x - bx + c[0]) * this.blockSize, (y - by + c[1]) * this.blockSize, (z - bz + c[2]) * this.blockSize)
+          buf.pos.push((x - bx + c[0]) * this.blockSize, (y - by + (c[1] ? topY : 0)) * this.blockSize, (z - bz + c[2]) * this.blockSize)
           buf.nrm.push(nx, ny, nz)
           buf.uv.push(CORNER_UV[i][0] ? u1 : u0, CORNER_UV[i][1] ? v1 : v0)
           const b = AO_LEVELS[ao[i]] * face.shade * tint
@@ -255,7 +295,7 @@ export class BlockChunks {
       }
     }
     const meshes = []
-    for (const kind of ['solid', 'glow', 'clear']) {
+    for (const kind of ['solid', 'glow', 'clear', 'water', 'lava']) {
       const buf = out[kind]
       if (buf.idx.length === 0) continue
       const geo = new THREE.BufferGeometry()
@@ -267,7 +307,7 @@ export class BlockChunks {
       geo.computeBoundingSphere()
       const mesh = new THREE.Mesh(geo, this.materials[kind])
       mesh.position.set(bx * this.blockSize, by * this.blockSize, bz * this.blockSize)
-      mesh.castShadow = kind !== 'clear'
+      mesh.castShadow = kind === 'solid' || kind === 'glow'
       mesh.receiveShadow = true
       mesh.matrixAutoUpdate = false
       mesh.updateMatrix()
