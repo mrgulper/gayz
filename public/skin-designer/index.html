@@ -300,7 +300,7 @@
 
   <div class="editor">
     <div class="toolbar">
-      <input type="text" id="promptInput" class="prompt-input" maxlength="40" placeholder="Describe a skin: pirate, ninja, zombie, robot...">
+      <input type="text" id="promptInput" class="prompt-input" maxlength="120" placeholder="Describe a skin: pink ninja with a crown, zombie pirate girl...">
       <button class="tbtn primary" id="generateBtn" style="flex: 0 0 auto;">Generate</button>
       <button class="tbtn" id="randomizeBtn" style="flex: 0 0 auto;" title="Skip the description - generate a fully random skin">Randomize</button>
     </div>
@@ -685,6 +685,9 @@ const THEMES = {
   // slimmer "Alex"-style arms) - every theme here, including this one,
   // only changes colors/pattern, never body shape.
   rose: { skin: '#c98a55', hair: '#e0a0c0', shirt: '#c9538a', pants: '#7a4a8a', shoe: '#5a3a4a', accent: '#f7b6d2', eye: '#5a2a3a' },
+  // Everyday clothes - the base when a prompt only describes colours/gear
+  // ("red hair boy with headphones") without naming a theme.
+  casual: { skin: '#c98a55', hair: '#3a2818', shirt: '#4a6a9a', pants: '#2a3a5a', shoe: '#2a2a2a', accent: '#e8e8e2', eye: '#2a4a6a' },
 };
 const THEME_KEYS = Object.keys(THEMES);
 const RANDOMIZABLE_THEME_KEYS = THEME_KEYS;
@@ -766,132 +769,165 @@ function mulberry32(seed) {
 const FACE_LIGHT = { front: 10, top: 20, left: -8, right: -8, back: -22, bottom: -28 };
 function lit(color, faceKey) { return shade(color, FACE_LIGHT[faceKey] || 0); }
 
-function paintHeadDetailed(box, p, rng) {
+// Detailed painters (2026-09-30 "generate in very deep detail" pass). Each
+// takes the palette `p` and options `o` (hair style, skirt, beard... from
+// the prompt, see parsePrompt) and paints one body part's base layer.
+function pick(rng, n) { return Math.floor(rng() * n); }
+function paintHeadDetailed(box, p, rng, o = {}) {
   const r = partFaceRects(box.u, box.v, box.w, box.h, box.d);
-  const hairShadow = shade(p.hair, -30);
-  const skinShadow = shade(p.skin, -25);
-  const skinHi = shade(p.skin, 14);
-  const style = Math.floor(rng() * 4); // 0 short, 1 mohawk, 2 long, 3 bald
+  const hair = p.hair, hairDark = shade(hair, -32), hairHi = shade(hair, 26);
+  const skinShadow = shade(p.skin, -24), skinHi = shade(p.skin, 14), skinDeep = shade(p.skin, -45);
+  // 0 short, 1 mohawk, 2 long, 3 bald, 4 side fringe
+  const style = o.hairStyle ?? (o.feminine ? (rng() < 0.75 ? 2 : 4) : pick(rng, 5));
   const f = r.front;
-  noisyFill(f, lit(p.skin, 'front'), rng, 0.08, 0.06);
-  if (style === 0) px(f, 0, 0, 8, 2, p.hair);
-  else if (style === 1) px(f, 3, 0, 2, 2, p.hair);
-  else if (style === 2) px(f, 0, 0, 8, 3, p.hair);
+  noisyFill(f, lit(p.skin, 'front'), rng, 0.07, 0.06);
+  // Hair fringe - ragged strands instead of a flat bar.
   if (style !== 3) {
-    px(f, 0, 2, 1, 1, p.hair); px(f, 7, 2, 1, 1, p.hair);
-    px(f, 1, 2, 2, 1, hairShadow); px(f, 5, 2, 2, 1, hairShadow);
+    const fringeRows = style === 1 ? 1 : style === 2 ? 2 : 2;
+    if (style === 1) px(f, 3, 0, 2, 1, hair);
+    else px(f, 0, 0, 8, fringeRows, lit(hair, 'front'));
+    if (style !== 1) {
+      for (let x = 0; x < 8; x++) if (rng() < (style === 4 ? (x < 5 ? 0.85 : 0.2) : 0.45)) px(f, x, 2, 1, 1, hairDark);
+      for (let i = 0; i < 3; i++) px(f, pick(rng, 8), 0, 1, 1, hairHi);
+    }
+    if (style === 2) { px(f, 0, 2, 1, 6, lit(hair, 'front')); px(f, 7, 2, 1, 6, lit(hair, 'front')); px(f, 0, 7, 1, 1, hairDark); px(f, 7, 7, 1, 1, hairDark); }
   }
-  const eyeShape = Math.floor(rng() * 4); // 0 square, 1 round, 2 narrow slit, 3 sharp/angled
-  if (eyeShape === 0) {
-    px(f, 1, 3, 1, 1, '#f5f5f0'); px(f, 2, 3, 1, 1, p.eye);
-    px(f, 5, 3, 1, 1, '#f5f5f0'); px(f, 6, 3, 1, 1, p.eye);
-  } else if (eyeShape === 1) {
-    px(f, 1, 3, 2, 2, p.eye); px(f, 1, 3, 1, 1, '#f5f5f0');
-    px(f, 5, 3, 2, 2, p.eye); px(f, 6, 3, 1, 1, '#f5f5f0');
-  } else if (eyeShape === 2) {
-    px(f, 1, 3, 2, 1, p.eye);
-    px(f, 5, 3, 2, 1, p.eye);
-  } else {
-    px(f, 1, 4, 2, 1, p.eye); px(f, 1, 3, 1, 1, shade(p.eye, -20));
-    px(f, 5, 4, 2, 1, p.eye); px(f, 6, 3, 1, 1, shade(p.eye, -20));
-  }
-  px(f, 3, 4, 1, 1, skinHi);
-  px(f, 4, 4, 1, 1, skinShadow);
+  // Eyebrows.
+  const brow = style === 3 ? skinDeep : hairDark;
+  if (rng() < 0.8) { px(f, 1, 2, 2, 1, brow); px(f, 5, 2, 2, 1, brow); }
+  // Eyes: whites + iris + pupil highlight, a few shapes.
+  const eyeShape = pick(rng, 4);
+  const white = '#f2f2ec';
+  if (eyeShape === 0) { px(f, 1, 3, 1, 1, white); px(f, 2, 3, 1, 1, p.eye); px(f, 5, 3, 1, 1, p.eye); px(f, 6, 3, 1, 1, white); }
+  else if (eyeShape === 1) { px(f, 1, 3, 2, 2, p.eye); px(f, 1, 3, 1, 1, white); px(f, 5, 3, 2, 2, p.eye); px(f, 6, 3, 1, 1, white); }
+  else if (eyeShape === 2) { px(f, 1, 4, 2, 1, p.eye); px(f, 5, 4, 2, 1, p.eye); px(f, 1, 3, 2, 1, skinShadow); px(f, 5, 3, 2, 1, skinShadow); }
+  else { px(f, 1, 3, 2, 1, white); px(f, 2, 3, 1, 2, p.eye); px(f, 5, 3, 2, 1, white); px(f, 5, 3, 1, 2, p.eye); }
+  if (o.feminine) { px(f, 0, 3, 1, 1, '#1a1010'); px(f, 7, 3, 1, 1, '#1a1010'); }
+  // Nose, cheeks, mouth.
+  px(f, 3, 4, 1, 1, skinHi); px(f, 4, 4, 1, 1, skinShadow);
   px(f, 3, 5, 2, 1, skinShadow);
-  px(f, 1, 6, 1, 1, skinHi); px(f, 6, 6, 1, 1, skinHi);
-  px(f, 3, 7, 2, 1, skinHi);
-  px(f, 0, 7, 1, 1, skinShadow); px(f, 7, 7, 1, 1, skinShadow);
+  if (o.feminine || rng() < 0.25) { px(f, 1, 5, 1, 1, shade('#e07a8a', 0)); px(f, 6, 5, 1, 1, shade('#e07a8a', 0)); }
+  const mouth = pick(rng, 3);
+  if (mouth === 0) px(f, 3, 6, 2, 1, skinDeep);
+  else if (mouth === 1) { px(f, 2, 6, 1, 1, skinDeep); px(f, 3, 7, 2, 1, skinDeep); px(f, 5, 6, 1, 1, skinDeep); }
+  else { px(f, 3, 6, 2, 1, o.feminine ? '#b04a5a' : skinDeep); px(f, 2, 6, 1, 1, skinShadow); px(f, 5, 6, 1, 1, skinShadow); }
+  px(f, 1, 7, 6, 1, shade(p.skin, -10));
+  if (o.beard) { px(f, 0, 5, 1, 3, hair); px(f, 7, 5, 1, 3, hair); px(f, 1, 6, 1, 2, hair); px(f, 6, 6, 1, 2, hair); px(f, 2, 7, 4, 1, hair); px(f, 3, 6, 2, 1, skinDeep); }
+  // Top, back, sides.
   if (style === 3) {
-    fillFace(r.top, lit(p.skin, 'top'));
-    fillFace(r.back, lit(p.skin, 'back'));
+    noisyFill(r.top, lit(p.skin, 'top'), rng, 0.06, 0.08);
+    noisyFill(r.back, lit(p.skin, 'back'), rng, 0.06, 0.05);
   } else {
-    noisyFill(r.top, lit(p.hair, 'top'), rng, 0.1, 0.08);
-    px(r.top, 0, 6, 8, 2, hairShadow);
-    noisyFill(r.back, lit(p.hair, 'back'), rng, 0.1, 0.08);
-    px(r.back, 3, 0, 2, 8, hairShadow);
+    noisyFill(r.top, lit(hair, 'top'), rng, 0.12, 0.1);
+    if (style === 1) { noisyFill(r.top, lit(p.skin, 'top'), rng, 0.06, 0.06); px(r.top, 3, 0, 2, 8, lit(hair, 'top')); }
+    else { px(r.top, pick(rng, 2) + 2, 0, 1, 8, hairDark); }
+    const backRows = style === 2 ? 8 : style === 1 ? 0 : 6;
+    noisyFill(r.back, lit(p.skin, 'back'), rng, 0.06, 0.05);
+    if (backRows) px(r.back, 0, 0, 8, backRows, lit(hair, 'back'));
+    if (style === 1) px(r.back, 3, 0, 2, 7, lit(hair, 'back'));
+    for (let x = 0; x < 8; x++) if (rng() < 0.4) px(r.back, x, 1 + pick(rng, Math.max(1, backRows - 1)), 1, 1, hairDark);
   }
   fillFace(r.bottom, lit(p.skin, 'bottom'));
-  const sideHairRows = style === 3 ? 0 : style === 2 ? 6 : style === 1 ? 1 : 3;
+  const sideHair = style === 3 ? 0 : style === 2 ? 8 : style === 1 ? 1 : 3;
   for (const key of ['left', 'right']) {
     const side = r[key];
-    noisyFill(side, lit(p.skin, key), rng, 0.08, 0.06);
-    if (sideHairRows > 0) px(side, 0, 0, 8, sideHairRows, lit(p.hair, key));
-    px(side, 3, 4, 2, 2, skinShadow);
+    noisyFill(side, lit(p.skin, key), rng, 0.07, 0.05);
+    // Ear.
+    px(side, 3, 3, 2, 3, shade(p.skin, -14)); px(side, 3, 4, 1, 1, skinDeep);
+    if (sideHair) px(side, 0, 0, 8, sideHair, lit(hair, key));
+    if (sideHair && sideHair < 8) { px(side, key === 'left' ? 0 : 6, sideHair, 2, 2, lit(hair, key)); }
+    if (sideHair) for (let i = 0; i < 3; i++) px(side, pick(rng, 8), pick(rng, sideHair), 1, 1, hairDark);
   }
 }
-function paintTorsoDetailed(box, p, rng) {
+
+function paintTorsoDetailed(box, p, rng, o = {}) {
   const r = partFaceRects(box.u, box.v, box.w, box.h, box.d);
-  const shirtShadow = shade(p.shirt, -25);
-  const shirtHi = shade(p.shirt, 18);
-  const pattern = Math.floor(rng() * 4); // 0 plain, 1 h-bands, 2 v-stripes, 3 placket
+  const shirt = p.shirt, shirtDark = shade(shirt, -26), shirtHi = shade(shirt, 18);
   const f = r.front;
-  noisyFill(f, lit(p.shirt, 'front'), rng, 0.08, 0.06);
-  px(f, 0, 0, 8, 1, p.accent);
-  px(f, 3, 1, 2, 1, p.skin);
-  if (pattern === 1) { for (let row = 2; row < 10; row += 2) px(f, 0, row, 8, 1, shirtShadow); }
-  else if (pattern === 2) { for (let col = 1; col < 8; col += 2) px(f, col, 2, 1, 8, p.accent); }
-  else if (pattern === 3) { px(f, 3, 3, 2, 6, p.accent); }
-  px(f, 0, 10, 8, 2, shirtShadow);
-  px(f, 0, 1, 1, 9, shirtHi);
-  px(f, 1, 1, 2, 1, shirtHi); px(f, 5, 1, 2, 1, shirtHi);
-  noisyFill(r.back, lit(p.shirt, 'back'), rng, 0.08, 0.06);
-  px(r.back, 0, 10, 8, 2, shirtShadow);
-  px(r.back, 3, 0, 2, 12, shirtShadow);
+  noisyFill(f, lit(shirt, 'front'), rng, 0.07, 0.06);
+  // Neckline: crew, V-neck or collar.
+  const neck = pick(rng, 3);
+  if (neck === 0) px(f, 2, 0, 4, 1, lit(p.skin, 'front'));
+  else if (neck === 1) { px(f, 2, 0, 4, 1, lit(p.skin, 'front')); px(f, 3, 1, 2, 1, lit(p.skin, 'front')); px(f, 2, 1, 1, 1, shirtDark); px(f, 5, 1, 1, 1, shirtDark); }
+  else { px(f, 3, 0, 2, 1, lit(p.skin, 'front')); px(f, 1, 0, 2, 2, p.accent); px(f, 5, 0, 2, 2, p.accent); }
+  // Pattern.
+  const pattern = o.pattern ?? pick(rng, 6); // plain, h-stripes, v-stripes, buttons, emblem, zip hoodie
+  if (pattern === 1) for (let y = 2; y < 10; y += 2) px(f, 0, y, 8, 1, shade(shirt, -18));
+  else if (pattern === 2) for (let x = 0; x < 8; x += 2) px(f, x, 2, 1, 8, shade(p.accent, -6));
+  else if (pattern === 3) { px(f, 3, 1, 1, 9, shirtDark); for (let y = 2; y < 10; y += 2) px(f, 4, y, 1, 1, shade(p.accent, 20)); }
+  else if (pattern === 4) { px(f, 2, 3, 4, 3, p.accent); px(f, 3, 4, 2, 1, shade(p.accent, 35)); px(f, 2, 3, 1, 1, shirt); px(f, 5, 5, 1, 1, shirt); }
+  else if (pattern === 5) { px(f, 3, 1, 2, 9, shade(shirt, -14)); px(f, 4, 1, 1, 9, shade(shirt, 30)); px(f, 1, 7, 6, 2, shirtDark); px(f, 1, 7, 6, 1, shade(shirt, -36)); }
+  // Folds and edge shading.
+  for (let i = 0; i < 3; i++) { const x = 1 + pick(rng, 6); px(f, x, 3 + pick(rng, 4), 1, 2, shade(shirt, -12)); }
+  px(f, 0, 1, 1, 9, shirtHi); px(f, 7, 1, 1, 9, shade(shirt, -10));
+  // Waistband: belt with buckle over the pants top.
+  const belt = o.belt ?? (rng() < 0.6);
+  px(f, 0, 10, 8, 2, lit(p.pants, 'front'));
+  if (belt) { px(f, 0, 10, 8, 1, shade(p.shoe, -6)); px(f, 3, 10, 2, 1, '#d8b04a'); }
+  else px(f, 0, 9, 8, 1, shirtDark);
+  // Back.
+  noisyFill(r.back, lit(shirt, 'back'), rng, 0.07, 0.06);
+  px(r.back, 3, 0, 2, 10, shade(shirt, -14));
+  px(r.back, 0, 10, 8, 2, lit(p.pants, 'back'));
+  if (belt) px(r.back, 0, 10, 8, 1, shade(p.shoe, -10));
   for (const key of ['left', 'right']) {
-    const side = r[key];
-    noisyFill(side, lit(p.shirt, key), rng, 0.08, 0.06);
-    px(side, 0, 10, 4, 2, shirtShadow);
+    noisyFill(r[key], lit(shirt, key), rng, 0.07, 0.06);
+    px(r[key], 0, 10, 4, 2, lit(p.pants, key));
+    if (belt) px(r[key], 0, 10, 4, 1, shade(p.shoe, -8));
   }
-  fillFace(r.top, lit(p.accent, 'top'));
-  fillFace(r.bottom, shirtShadow);
+  noisyFill(r.top, lit(shirt, 'top'), rng, 0.06, 0.08);
+  px(r.top, 2, 1, 4, 2, lit(p.skin, 'top'));
+  fillFace(r.bottom, lit(p.pants, 'bottom'));
 }
-function paintLimbDetailed(box, p, isLeg, rng) {
+
+function paintLimbDetailed(box, p, isLeg, rng, o = {}) {
   const r = partFaceRects(box.u, box.v, box.w, box.h, box.d);
-  const upper = isLeg ? p.pants : p.shirt;
-  const upperShadow = shade(upper, -22);
-  const lower = isLeg ? p.shoe : p.skin;
-  const shape = Math.floor(rng() * 4);
+  if (!isLeg) {
+    // Arms: sleeve length, cuff, elbow crease, hand with finger line.
+    const sleeve = o.sleeve ?? [4, 8, 9, 10][pick(rng, 4)];
+    for (const key of ['front', 'back', 'left', 'right']) {
+      const fc = r[key];
+      noisyFill(fc, lit(p.skin, key), rng, 0.07, 0.05);
+      if (sleeve > 0) {
+        noisyFill([fc[0], fc[1], fc[2], fc[1] + Math.min(sleeve, 12)], lit(p.shirt, key), rng, 0.07, 0.06);
+        if (sleeve < 12) px(fc, 0, sleeve - 1, 4, 1, sleeve >= 9 ? p.accent : shade(p.shirt, -22));
+        if (sleeve > 6) px(fc, 0, 6, 4, 1, shade(p.shirt, -14));
+      }
+      px(fc, 0, 11, 4, 1, shade(p.skin, -18));
+      if (key === 'front') px(fc, 0, 10, 1, 1, shade(p.skin, 12));
+      if (key === 'back' || key === 'left') px(fc, 3, 0, 1, Math.min(sleeve, 11), shade(p.shirt, -16));
+    }
+    noisyFill(r.top, lit(sleeve > 0 ? p.shirt : p.skin, 'top'), rng, 0.06, 0.06);
+    fillFace(r.bottom, lit(p.skin, 'bottom'));
+    return;
+  }
+  // Legs: trousers (or a skirt), knee highlight, pocket seam, shoes with soles and laces.
+  const skirt = o.skirt;
+  const shoeStyle = o.shoeStyle ?? pick(rng, 3); // 0 sneakers, 1 boots, 2 shoes + socks
+  const shoeTop = shoeStyle === 1 ? 7 : shoeStyle === 2 ? 10 : 9;
   for (const key of ['front', 'back', 'left', 'right']) {
     const fc = r[key];
-    noisyFill(fc, lit(upper, key), rng, 0.08, 0.06);
-    px(fc, 3, 1, 1, 10, upperShadow);
-    if (isLeg) {
-      px(fc, 0, 0, 4, 1, p.accent);
-      if (shape === 1) {
-        px(fc, 0, 5, 4, 3, p.accent);
-        px(fc, 0, 8, 4, 4, lit(lower, key));
-        if (key === 'front') px(fc, 0, 9, 4, 1, upperShadow);
-        px(fc, 0, 11, 4, 1, shade(lower, 30));
-      } else if (shape === 2) {
-        px(fc, 0, 7, 4, 1, upperShadow);
-        px(fc, 0, 8, 4, 1, p.accent);
-        px(fc, 0, 9, 4, 1, lit(lower, key));
-        px(fc, 0, 10, 4, 1, lit(p.skin, key));
-        px(fc, 0, 11, 4, 1, shade(lower, 20));
-      } else if (shape === 3) {
-        px(fc, 0, 7, 4, 2, upperShadow);
-        px(fc, 0, 9, 4, 3, lit(lower, key));
-        px(fc, 1, 11, 2, 1, shade(lower, 25));
-      } else {
-        px(fc, 0, 7, 4, 1, upperShadow);
-        px(fc, 0, 8, 4, 1, p.accent);
-        px(fc, 0, 9, 4, 3, lit(lower, key));
-        px(fc, 0, 11, 4, 1, shade(lower, 35));
-        if (key === 'front') { px(fc, 1, 9, 1, 1, p.accent); px(fc, 2, 9, 1, 1, p.accent); }
-      }
+    if (skirt) {
+      noisyFill(fc, lit(p.skin, key), rng, 0.06, 0.05);
+      noisyFill([fc[0], fc[1], fc[2], fc[1] + 5], lit(skirt, key), rng, 0.08, 0.07);
+      px(fc, 0, 4, 4, 1, shade(skirt, -24));
+      for (let x = 0; x < 4; x += 2) px(fc, x, 1, 1, 3, shade(skirt, -12));
     } else {
-      px(fc, 0, 7, 4, 1, upperShadow);
-      px(fc, 0, 8, 4, 1, p.accent);
-      px(fc, 0, 9, 4, 3, lit(lower, key));
-      if (shape === 1) px(fc, 1, 10, 2, 1, shade(lower, 18));
-      else if (shape === 2) { px(fc, 1, 9, 1, 3, shade(lower, -22)); px(fc, 3, 9, 1, 3, shade(lower, -22)); }
-      else if (shape === 3) { px(fc, 0, 9, 4, 1, p.accent); px(fc, 1, 11, 2, 1, shade(lower, 20)); }
-      else px(fc, 1, 11, 2, 1, shade(lower, -20));
+      noisyFill(fc, lit(p.pants, key), rng, 0.08, 0.06);
+      px(fc, 0, 5, 4, 1, shade(p.pants, 14)); // knee
+      if (key === 'front') px(fc, 1, 0, 1, 3, shade(p.pants, -18)); // pocket seam
+      if (key === 'right' || key === 'back') px(fc, 3, 0, 1, shoeTop, shade(p.pants, -18));
     }
+    if (shoeStyle === 2) px(fc, 0, 9, 4, 1, '#eeeeea');
+    noisyFill([fc[0], fc[1] + shoeTop, fc[2], fc[3]], lit(p.shoe, key), rng, 0.06, 0.08);
+    px(fc, 0, 11, 4, 1, shoeStyle === 0 ? '#e8e8e2' : shade(p.shoe, -28)); // sole
+    if (key === 'front' && shoeStyle !== 1) { px(fc, 1, shoeTop, 1, 1, '#f0f0ea'); px(fc, 2, shoeTop + (shoeTop < 11 ? 1 : 0), 1, 1, '#f0f0ea'); }
+    if (shoeStyle === 1) px(fc, 0, 7, 4, 1, shade(p.shoe, 25));
   }
-  fillFace(r.top, isLeg && shape === 1 ? p.accent : upper);
-  fillFace(r.bottom, lower);
+  noisyFill(r.top, lit(skirt || p.pants, 'top'), rng, 0.06, 0.06);
+  fillFace(r.bottom, shade(p.shoe, -30));
 }
+
 // ---- Outer layer (hat/jacket/sleeves/pants) for generated skins -------
 // (2026-09-30 request: generated skins should use the outer layer like the
 // skins on namemc.com - but only where it fits the theme.) Each theme picks
@@ -1154,51 +1190,212 @@ function varyPalette(themeKey, base, rng) {
   return p;
 }
 
-// variant: anything that makes this generation different from the last
-// one for the same prompt (a random string per Generate click).
-function generateThemedSkin(themeKey, promptText, variant = '') {
-  const seed = hashString((promptText || themeKey || 'default').trim().toLowerCase() + '|' + variant);
-  const rng = mulberry32(seed);
-  const theme = varyPalette(themeKey, THEMES[themeKey] || THEMES[THEME_KEYS[0]], rng);
-  atlasCtx.clearRect(0, 0, 64, 64);
-  paintHeadDetailed(BOXES.find((b) => b.key === 'head'), theme, rng);
-  paintTorsoDetailed(BOXES.find((b) => b.key === 'torso'), theme, rng);
-  paintLimbDetailed(BOXES.find((b) => b.key === 'armR'), theme, false, rng);
-  paintLimbDetailed(BOXES.find((b) => b.key === 'armL'), theme, false, rng);
-  paintLimbDetailed(BOXES.find((b) => b.key === 'legR'), theme, true, rng);
-  paintLimbDetailed(BOXES.find((b) => b.key === 'legL'), theme, true, rng);
-  paintOuterLayer(themeKey, theme, rng);
+// ---- Prompt reading (2026-09-30: "you can use more than 1 word") --------
+// Understands a whole description, e.g. "pink ninja with a crown and blue
+// pants" or "zombie pirate girl with long hair and sunglasses": every theme
+// word counts (the first sets the look, the rest add their gear), colour
+// words colour the part named right after them (or the outfit if none),
+// and gear/hair/skin words add those details. Still fully offline - no AI
+// service involved.
+const COLOR_WORDS = {
+  red: '#c93a3a', blue: '#3a6ac9', green: '#3f8f3a', yellow: '#e0c040', orange: '#e07a28', purple: '#7a3fa8',
+  pink: '#e08fb8', black: '#1c1c1e', white: '#ececE6', gray: '#7a7a7a', grey: '#7a7a7a', brown: '#6b4a2c',
+  gold: '#d9a334', golden: '#d9a334', silver: '#c0c0c8', cyan: '#2ab0c8', teal: '#1a8a80', lime: '#8ae04a',
+  navy: '#1a2a5a', maroon: '#6a1a1a', beige: '#d8c8a0', magenta: '#c040b0', violet: '#8a4ac9', crimson: '#a01a2a',
+  turquoise: '#30c0b0', lavender: '#b8a0e0', mint: '#90e0b8', blonde: '#e8d070', blond: '#e8d070', ginger: '#c8602a',
 }
+const PART_WORDS = {
+  hair: 'hair', shirt: 'shirt', top: 'shirt', hoodie: 'shirt', sweater: 'shirt', tshirt: 'shirt', dress: 'shirt',
+  pants: 'pants', jeans: 'pants', trousers: 'pants', shorts: 'pants', skirt: 'skirt', legs: 'pants',
+  shoes: 'shoe', shoe: 'shoe', boots: 'shoe', sneakers: 'shoe', eyes: 'eye', eye: 'eye', skin: 'skin',
+  belt: 'accent', stripes: 'accent', trim: 'accent',
+}
+const SKIN_WORDS = { pale: 0, light: 1, fair: 0, tan: 2, tanned: 2, olive: 3, brown: 4, dark: 5 }
+const HAIR_STYLE_WORDS = { bald: 3, mohawk: 1, long: 2, ponytail: 2, short: 0, fringe: 4, bangs: 4 }
+const GEAR_WORDS = {
+  crown: 'crown', tiara: 'crown', hood: 'hood', hooded: 'hood', helmet: 'helmet', armor: 'armor', armour: 'armor',
+  cape: 'cape', cloak: 'cape', scarf: 'scarf', mask: 'mask', horns: 'horns', hat: 'hat', cap: 'cap',
+  beanie: 'beanie', bandana: 'bandana', backpack: 'backpack', coat: 'coat', jacket: 'coat', hoodie: 'hoodie',
+  gloves: 'gloves', boots: 'boots', glasses: 'glasses', sunglasses: 'sunglasses', shades: 'sunglasses',
+  headphones: 'headphones', headset: 'headphones', beard: 'beard', skirt: 'skirt',
+}
+const FEMININE_WORDS = ['girl', 'woman', 'lady', 'female', 'queen', 'princess', 'witch']
+const MASCULINE_WORDS = ['boy', 'man', 'guy', 'male', 'king', 'prince']
+
+function parsePrompt(text) {
+  const words = (text || '').toLowerCase().replace(/[^a-z\s-]/g, ' ').split(/[\s-]+/).filter(Boolean)
+  const themes = []
+  for (const w of words) {
+    const i = words.indexOf(w)
+    if (w in SKIN_WORDS && (words[i + 1] === 'skin' || words[i + 1] === 'skinned')) continue
+    const key = THEMES[w] ? w : ALIASES[w] && !COLOR_WORDS[w] ? ALIASES[w] : null
+    if (key && !themes.includes(key)) themes.push(key)
+  }
+  const colors = {}
+  const loose = []
+  words.forEach((w, i) => {
+    const c = COLOR_WORDS[w]
+    if (!c) return
+    const part = [words[i + 1], words[i + 2]].map((n) => PART_WORDS[n]).find(Boolean)
+    if (part === 'skin') return // handled by SKIN_WORDS below
+    if (part) colors[part] = { hex: c, name: w }
+    else loose.push({ hex: c, name: w })
+  })
+  // "girl"/"lady" etc. are an alias of the Rose theme - next to a real
+  // theme ("zombie pirate girl") they only make the character feminine.
+  const femAlias = words.some((w) => FEMININE_WORDS.includes(w) && ALIASES[w] === 'rose')
+  if (themes.length > 1 && femAlias && !words.includes('rose')) themes.splice(themes.indexOf('rose'), 1)
+  // A lone colour word ("pink") still picks its old theme; described
+  // colours ("red hair") don't.
+  if (!themes.length) for (const l of loose) if (ALIASES[l.name]) { themes.push(ALIASES[l.name]); break }
+  const describedSomething = Object.keys(colors).length || loose.length || words.some((w) => GEAR_WORDS[w] || w in HAIR_STYLE_WORDS || FEMININE_WORDS.includes(w) || MASCULINE_WORDS.includes(w))
+  let skinTone = null
+  words.forEach((w, i) => { if (w in SKIN_WORDS && (words[i + 1] === 'skin' || words[i + 1] === 'skinned')) skinTone = SKIN_WORDS[w] })
+  let hairStyle = null
+  words.forEach((w, i) => { if (w in HAIR_STYLE_WORDS && (w === 'bald' || w === 'mohawk' || w === 'ponytail' || words[i + 1] === 'hair')) hairStyle = HAIR_STYLE_WORDS[w] })
+  const gear = [...new Set(words.map((w) => GEAR_WORDS[w]).filter(Boolean))]
+  if (!themes.length && describedSomething) themes.push('casual')
+  return {
+    themes, colors, loose, skinTone, hairStyle, gear,
+    feminine: words.some((w) => FEMININE_WORDS.includes(w)) || themes.includes('rose'),
+    masculine: words.some((w) => MASCULINE_WORDS.includes(w)),
+  }
+}
+
+// Extra gear pieces for words like "sunglasses" or "headphones".
+function gearGlasses(frame, lens) {
+  const f = ovRects('head').front
+  px(f, 1, 3, 2, 1, lens); px(f, 5, 3, 2, 1, lens)
+  px(f, 0, 3, 1, 1, frame); px(f, 3, 3, 2, 1, frame); px(f, 7, 3, 1, 1, frame)
+  const r = ovRects('head')
+  px(r.left, 5, 3, 3, 1, frame); px(r.right, 0, 3, 3, 1, frame)
+}
+function gearHeadphones(color, pad) {
+  const r = ovRects('head')
+  px(r.top, 0, 3, 8, 2, color)
+  for (const k of ['left', 'right']) { px(r[k], 0, 0, faceW(r[k]), 1, color); px(r[k], 2, 3, 4, 3, pad); px(r[k], 3, 4, 2, 1, shade(pad, 30)) }
+}
+function gearHairVolume(hair, rng) {
+  const r = ovRects('head')
+  band(r.back, 0, 8, hair, rng, 'back')
+  for (const k of ['left', 'right']) band(r[k], 0, 6, hair, rng, k)
+  band(r.top, 0, 8, hair, rng, 'top')
+  for (let x = 0; x < 8; x++) if (rng() < 0.5) px(r.front, x, 0, 1, 1, lit(hair, 'front'))
+}
+function applyGearWord(word, p, rng) {
+  switch (word) {
+    case 'crown': gearCrown('#e0b040', '#c9202f'); break
+    case 'hood': gearHood(p.shirt, rng); break
+    case 'helmet': gearHelmet(shade(p.shirt, 10), rng); break
+    case 'armor': gearPlate('#9aa0aa', rng); gearGreaves('#8a9098', rng); break
+    case 'cape': gearCape(p.accent, rng); break
+    case 'scarf': gearScarf(p.accent, rng); break
+    case 'mask': gearMask(shade(p.shirt, -20), rng); break
+    case 'horns': gearHorns('#e0d8c8'); break
+    case 'hat': gearWizardHat(shade(p.shirt, -15), p.accent, rng); break
+    case 'cap': gearCap(p.accent, '#1a1a1a', rng); break
+    case 'beanie': gearBeanie(p.accent, shade(p.accent, 30), rng); break
+    case 'bandana': gearBandana(p.accent, shade(p.accent, -30), rng); break
+    case 'backpack': gearBackpack(shade(p.pants, -10), p.accent, rng); break
+    case 'coat': gearCoat(shade(p.shirt, -18), rng); gearSleeves(shade(p.shirt, -18), 9, rng); break
+    case 'hoodie': gearHood(p.shirt, rng); gearCoat(p.shirt, rng, false); gearSleeves(p.shirt, 9, rng); break
+    case 'gloves': gearGloves(shade(p.shoe, 10), rng); break
+    case 'boots': gearBoots(p.shoe, 7, rng); break
+    case 'glasses': gearGlasses('#2a2a2a', '#a8d8f0'); break
+    case 'sunglasses': gearGlasses('#101010', '#202028'); break
+    case 'headphones': gearHeadphones('#2a2a30', p.accent); break
+  }
+}
+
+// Builds the palette + options for one generation from the prompt.
+function planSkin(parsed, rng, randomTheme) {
+  const themeKey = parsed.themes[0] || randomTheme
+  const p = varyPalette(themeKey, THEMES[themeKey] || THEMES[THEME_KEYS[0]], rng)
+  const o = {}
+  for (const [part, c] of Object.entries(parsed.colors)) {
+    if (part === 'skirt') o.skirt = drift(c.hex, rng, 0.02, 0.05)
+    else p[part] = drift(c.hex, rng, 0.02, 0.05)
+  }
+  const looseTargets = ['shirt', 'accent', 'pants']
+  parsed.loose.forEach((c, i) => { if (looseTargets[i] && !parsed.colors[looseTargets[i]]) p[looseTargets[i]] = drift(c.hex, rng, 0.02, 0.06) })
+  if (parsed.skinTone !== null) p.skin = SKIN_TONES[parsed.skinTone]
+  if (parsed.hairStyle !== null) o.hairStyle = parsed.hairStyle
+  o.feminine = parsed.feminine && !parsed.masculine
+  if (parsed.gear.includes('beard') || (parsed.masculine && rng() < 0.2)) o.beard = true
+  if (parsed.gear.includes('skirt') || (o.feminine && !parsed.colors.pants && rng() < 0.4)) o.skirt = o.skirt || shade(p.accent, -10)
+  if (o.skirt) p.pants = o.skirt
+  return { themeKey, p, o }
+}
+
+// Paints in stages so the skin visibly builds up (about a second in all),
+// then calls done(). Returns false if a generation is already running.
+let generating = false
+function sleep(ms) { return new Promise((res) => setTimeout(res, ms)) }
+async function generateThemedSkin(parsed, variant, randomTheme, onStage) {
+  const seed = hashString(JSON.stringify(parsed) + '|' + variant)
+  const rng = mulberry32(seed)
+  const { themeKey, p, o } = planSkin(parsed, rng, randomTheme)
+  const part = (key) => BOXES.find((b) => b.key === key)
+  const stages = [
+    ['head', () => { atlasCtx.clearRect(0, 0, 64, 64); paintHeadDetailed(part('head'), p, rng, o) }],
+    ['body', () => paintTorsoDetailed(part('torso'), p, rng, o)],
+    ['arms', () => { const sleeve = [4, 8, 9, 10][pick(rng, 4)]; paintLimbDetailed(part('armR'), p, false, rng, { ...o, sleeve }); paintLimbDetailed(part('armL'), p, false, rng, { ...o, sleeve }) }],
+    ['legs', () => { const shoeStyle = pick(rng, 3); paintLimbDetailed(part('legR'), p, true, rng, { ...o, shoeStyle }); paintLimbDetailed(part('legL'), p, true, rng, { ...o, shoeStyle }) }],
+    ['outer layer', () => {
+      paintOuterLayer(themeKey, p, rng)
+      for (const extra of parsed.themes.slice(1)) THEME_GEAR[extra]?.(p, rng, (c) => rng() < c)
+      if (o.hairStyle === 2 || (o.hairStyle == null && o.feminine && rng() < 0.6)) gearHairVolume(p.hair, rng)
+      for (const g of parsed.gear) applyGearWord(g, p, rng)
+    }],
+  ]
+  for (const [label, paint] of stages) {
+    paint()
+    onStage?.(label)
+    await sleep(220)
+  }
+  return themeKey
+}
+
 const THEME_LABELS = Object.fromEntries(THEME_KEYS.map((k) => [k, k.charAt(0).toUpperCase() + k.slice(1)]));
-document.getElementById('generateBtn').addEventListener('click', runGenerate);
-document.getElementById('promptInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') runGenerate(); });
-document.getElementById('randomizeBtn').addEventListener('click', () => {
-  const theme = RANDOMIZABLE_THEME_KEYS[Math.floor(Math.random() * RANDOMIZABLE_THEME_KEYS.length)];
-  const seed = Math.random().toString(36).slice(2);
-  pushUndo();
-  generateThemedSkin(theme, seed);
-  syncAfterEdit();
-  revealOuterLayerIfPainted();
-  scheduleSave();
-  const note = document.getElementById('themeNote');
-  note.innerHTML = 'Randomized a <b>' + THEME_LABELS[theme] + '</b> skin. Use the tools below to fine-tune it, or hit Randomize again for something else.';
-  note.style.display = 'block';
-});
-function runGenerate() {
-  const promptText = document.getElementById('promptInput').value;
-  const matched = findMatchedTheme(promptText);
-  const theme = matched || RANDOMIZABLE_THEME_KEYS[Math.floor(Math.random() * RANDOMIZABLE_THEME_KEYS.length)];
-  pushUndo();
-  generateThemedSkin(theme, promptText, Math.random().toString(36).slice(2));
-  syncAfterEdit();
-  revealOuterLayerIfPainted();
-  scheduleSave();
-  const note = document.getElementById('themeNote');
-  note.innerHTML = matched
-    ? 'Generated a <b>' + THEME_LABELS[theme] + '</b> skin. Use the tools below to fine-tune it.'
-    : 'Didn\'t recognize "' + promptText.trim() + '" - generated a random <b>' + THEME_LABELS[theme] + '</b> skin instead. Use the tools below to fine-tune it, or try a word like pirate, zombie, robot, pink, or blue.';
-  note.style.display = 'block';
+async function runGeneration(promptText, isRandom) {
+  if (generating) return
+  generating = true
+  const genBtn = document.getElementById('generateBtn')
+  const randBtn = document.getElementById('randomizeBtn')
+  genBtn.disabled = randBtn.disabled = true
+  const note = document.getElementById('themeNote')
+  note.style.display = 'block'
+  const parsed = isRandom ? { themes: [], colors: {}, loose: [], skinTone: null, hairStyle: null, gear: [], feminine: false, masculine: false } : parsePrompt(promptText)
+  const randomTheme = RANDOMIZABLE_THEME_KEYS[Math.floor(Math.random() * RANDOMIZABLE_THEME_KEYS.length)]
+  pushUndo()
+  try {
+    const theme = await generateThemedSkin(parsed, Math.random().toString(36).slice(2), randomTheme, (stage) => {
+      note.innerHTML = 'Generating... painting the <b>' + stage + '</b>'
+      syncAfterEdit()
+    })
+    syncAfterEdit()
+    scheduleSave()
+    revealOuterLayerIfPainted()
+    const PART_LABEL = { shirt: 'shirt', pants: 'pants', skirt: 'skirt', shoe: 'shoes', eye: 'eyes', hair: 'hair', accent: 'trim' }
+    const extras = [
+      ...parsed.themes.slice(1).map((k) => THEME_LABELS[k] + ' gear'),
+      ...parsed.loose.slice(0, 3).map((c, i) => c.name + ' ' + ['outfit', 'trim', 'pants'][i]),
+      ...Object.entries(parsed.colors).map(([k, c]) => c.name + ' ' + PART_LABEL[k]),
+      ...(parsed.skinTone !== null ? ['custom skin tone'] : []),
+      ...parsed.gear.filter((g) => g !== 'skirt' || !parsed.colors.skirt),
+    ]
+    const extraText = extras.length ? ' with ' + extras.join(', ') : ''
+    if (isRandom) note.innerHTML = 'Randomized a <b>' + THEME_LABELS[theme] + '</b> skin. Hit Randomize again for something else.'
+    else if (parsed.themes.length || extras.length) note.innerHTML = 'Generated a <b>' + THEME_LABELS[theme] + '</b> skin' + extraText + '. Click Generate again for a new one.'
+    else note.innerHTML = 'Didn\'t recognize "' + promptText.trim().replace(/[<>&"]/g, '') + '" - generated a random <b>' + THEME_LABELS[theme] + '</b> skin instead. Try words like pirate, zombie, girl, crown, red hair, blue pants.'
+  } finally {
+    generating = false
+    genBtn.disabled = randBtn.disabled = false
+  }
 }
+document.getElementById('generateBtn').addEventListener('click', () => runGeneration(document.getElementById('promptInput').value, false));
+document.getElementById('promptInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') runGeneration(document.getElementById('promptInput').value, false); });
+document.getElementById('randomizeBtn').addEventListener('click', () => runGeneration('', true));
 // ==== end prompt-driven skin generator ==============================
 
 // ---- Canonical, always-64x64 pixel atlas - the single source of truth
