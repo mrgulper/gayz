@@ -1,0 +1,2133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- GayZ Character Skin Designer - moved into the game repo (2026-09-30) from its
+     own gayzcharacterskindesigner.vercel.app site. Storage keys use a
+     "skindesigner-" prefix, not "gayz-": everything starting with "gayz-" on
+     this origin is part of the Cloud Save (see src/game/CloudMerge.js), and
+     saved skin slots are image data far too big to sync. -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Paint, import, or send a Minecraft-style skin to your GayZ character - free.">
+<title>GayZ Character Skin Designer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+<script>
+  // Sets the GayZ theme (dark 'old'/'golden', or the light default for a
+  // standalone visit) before the very first paint. This used to live inside
+  // the type="module" script below, AFTER its `import * as THREE ...` /
+  // `import { OrbitControls } ...` lines - top-level imports in a module
+  // script block every line after them until that import fully resolves,
+  // so on a slow connection or cold cache the theme (and everything else in
+  // that script, including drawing the grid on the 3D model) didn't apply
+  // for however long the three.js CDN fetch took. Until then the page sat
+  // in its default, un-themed state, which under a light OS color scheme is
+  // solid white (--panel:#ffffff) - looking both "very slow" and "broken"
+  // for what was really just "still downloading three.js". This tiny
+  // classic script has no dependency on THREE at all, so it runs
+  // immediately - the correct theme (and background color) is correct from
+  // frame one regardless of how long the module script takes.
+  (function () {
+    var theme = new URLSearchParams(location.search).get('theme');
+    if (theme) document.documentElement.dataset.theme = theme === 'old' ? 'old' : 'golden';
+  })();
+</script>
+<script>
+  // Safety net for a genuinely stuck load (a slow/flaky connection to the
+  // three.js CDN, or a rare CDN hiccup) - without this, "still loading" and
+  // "actually broken, will never finish" look identical: the same silent
+  // "Loading 3D preview..." text forever, no way to tell them apart. This
+  // has no dependency on THREE (or on whether the module script below ever
+  // finishes at all), so it fires regardless. Only touches the page if
+  // #stageLoading is still showing after a genuinely long wait - the normal
+  // case (loads in a couple seconds) never sees this.
+  (function () {
+    setTimeout(function () {
+      var el = document.getElementById('stageLoading');
+      if (!el || el.hidden) return;
+      el.textContent = 'Still loading - this can take a while on a slow connection.';
+      var retry = document.createElement('button');
+      retry.type = 'button';
+      retry.textContent = 'Refresh';
+      // var(--panel)/var(--text) - #stageLoading now sits on var(--accent)
+      // (a light/mid tone in every theme), so the themed dark panel color
+      // reads as a clear, themed button against it instead of blending in.
+      retry.style.cssText = 'margin-left:10px;pointer-events:auto;padding:4px 10px;border-radius:6px;border:1px solid var(--panel);background:var(--panel);color:var(--text);cursor:pointer;font-size:0.8rem;';
+      retry.addEventListener('click', function () { location.reload(); });
+      el.appendChild(retry);
+    }, 8000);
+  })();
+</script>
+<style>
+  /* Same black + gold palette as the live GayZ menu, so this tool reads as
+     part of the same game instead of a generic dark-mode app. */
+  :root {
+    --bg: #0a0a09;
+    --panel: #1c1e20;
+    --line: #8a6d47;
+    --text: #e0e4dc;
+    --text-dim: #8d918c;
+    --accent: #e3c23c;
+    --accent-rgb: 227, 194, 60;
+  }
+  /* Old theme (matches settings.uiTheme:'old' in the main game). Set on
+     <html> by GayZ itself (see the gayz-set-theme postMessage handler and
+     the ?theme= URL param below) whenever this tool is opened from inside
+     the game; a direct/standalone visit has no theme param and stays on
+     the default (Golden-equivalent) look. */
+  :root[data-theme="old"] {
+    --bg: #150f09; --panel: #1e160f; --line: #8f6a3e;
+    --text: #ddd0b8; --text-dim: #c2a06e; --accent: #d4a068;
+    --accent-rgb: 212, 160, 104;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) {
+      --bg: #f2efe6; --panel: #ffffff; --line: #d9cdb0;
+      --text: #201d16; --text-dim: #6b6255; --accent: #a6740f;
+      --accent-rgb: 166, 116, 15;
+    }
+  }
+
+  html, body, .atlas-scroll { scrollbar-width: thin; scrollbar-color: rgba(var(--accent-rgb), 0.6) transparent; }
+  html::-webkit-scrollbar, body::-webkit-scrollbar, .atlas-scroll::-webkit-scrollbar { width: 8px; }
+  html::-webkit-scrollbar-track, body::-webkit-scrollbar-track, .atlas-scroll::-webkit-scrollbar-track { background: transparent; }
+  html::-webkit-scrollbar-thumb, body::-webkit-scrollbar-thumb, .atlas-scroll::-webkit-scrollbar-thumb { background: rgba(var(--accent-rgb), 0.6); border-radius: 4px; }
+  html::-webkit-scrollbar-thumb:hover, body::-webkit-scrollbar-thumb:hover, .atlas-scroll::-webkit-scrollbar-thumb:hover { background: rgba(var(--accent-rgb), 0.85); }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; min-height: 100%;
+    background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  body { display: flex; flex-direction: column; min-height: 100vh; }
+
+  header { padding: 16px 22px 12px; border-bottom: 1px solid var(--line); }
+  header h1 {
+    margin: 0 0 4px; font-size: 1.7rem; font-weight: 400; color: var(--accent);
+    font-family: 'Bebas Neue', system-ui, sans-serif; letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  header p { margin: 0; color: var(--text-dim); font-size: 0.86rem; }
+
+  main {
+    flex: 1; display: flex; gap: 18px;
+    padding: 18px 22px 22px; max-width: 1200px; width: 100%; margin: 0 auto;
+  }
+  @media (max-width: 860px) { main { flex-direction: column; } }
+
+  .toolbar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 9px;
+  }
+  .toolbar .sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 2px; }
+  .toolbar label.small { font-size: 0.74rem; color: var(--text-dim); }
+  button.tbtn {
+    background: var(--bg); border: 1px solid var(--line); color: var(--text);
+    border-radius: 6px; padding: 7px 12px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  }
+  button.tbtn:hover { border-color: var(--accent); }
+  button.tbtn.active { background: var(--accent); border-color: var(--accent); color: #16130f; }
+  button.tbtn.primary { background: var(--accent); border-color: var(--accent); color: #16130f; }
+  button.tbtn:disabled { opacity: 0.4; cursor: default; }
+  button.tbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  /* Themed accent ring (2px var(--accent)), not the plain 1px var(--line)
+     every other input uses - a flat white swatch (its default color) read
+     as too stark/bright against the panel otherwise; framing it in each
+     theme's own accent (old -> old's tan, golden -> golden's gold) makes
+     it feel like part of the theme instead of a floating white square. */
+  .color-well { width: 30px; height: 30px; border-radius: 6px; border: 2px solid var(--accent); padding: 0; cursor: pointer; }
+  .hex-input {
+    width: 74px; background: var(--bg); border: 1px solid var(--line); color: var(--text);
+    border-radius: 5px; padding: 5px 6px; font: 0.78rem ui-monospace, "SF Mono", Menlo, monospace; text-transform: uppercase;
+  }
+  /* Slots 1-10 bar - the very first thing on the page. */
+  .slot-bar {
+    display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px;
+    padding: 10px 12px; border-bottom: 1px solid var(--line);
+  }
+  .slot-bar-label { font-size: 0.78rem; font-weight: 600; color: var(--text-dim); margin-right: 2px; }
+  .slot-bar button.tbtn { min-width: 34px; padding: 5px 0; font-size: 0.8rem; }
+  .save-indicator { font-size: 0.74rem; color: var(--accent); font-weight: 600; opacity: 0; transition: opacity 0.3s ease; }
+  .save-indicator.show { opacity: 1; }
+
+  .stage {
+    flex: 1.15; min-width: 0; height: min(74vh, 680px); background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; display: flex; flex-direction: column; overflow: hidden;
+  }
+  .stage-top {
+    display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px;
+    padding: 9px 13px; border-bottom: 1px solid var(--line); font-size: 0.8rem; color: var(--text-dim);
+  }
+  .view-presets { display: flex; gap: 4px; }
+  .view-presets button.tbtn { padding: 4px 8px; font-size: 0.72rem; }
+  /* var(--accent), not var(--panel) or plain white - the 3D preview's own
+     canvas is transparent (WebGLRenderer alpha:true), so whatever this
+     wrapper's background is shows straight through behind the character.
+     Plain white was tried first and came back "too bright"; each theme's
+     own accent (old's tan, golden's gold, the light default's amber) reads
+     as part of that theme instead of a flat white or a flat dark panel. */
+  .stage-canvas-wrap { position: relative; flex: 1; min-height: 0; background: var(--accent); }
+  canvas#stage3d { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+  canvas#stage3d:active { cursor: grabbing; }
+  /* Visible from the very first frame (three.js itself is a large CDN
+     module and can take a couple of seconds to download, especially on a
+     slow connection or cold cache) so the blank stage reads as "loading",
+     not "broken" - removed by JS the moment the renderer actually has
+     something to show (see resizeRenderer's call site). */
+  .stage-loading {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    /* Matches .stage-canvas-wrap's var(--accent) background. Text color
+       #16130f (near-black) reuses button.tbtn.active's own convention for
+       text sitting on var(--accent) elsewhere in this file - that accent
+       is a light/mid warm tone in every theme, so dark text reads reliably
+       against it without needing a separate color per theme. */
+    background: var(--accent); color: #16130f; font-size: 0.82rem; letter-spacing: 0.02em;
+    pointer-events: none; animation: stage-loading-pulse 1.4s ease-in-out infinite;
+  }
+  .stage-loading[hidden] { display: none; }
+  @keyframes stage-loading-pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .stage-loading { animation: none; } }
+  .stage-caption { padding: 8px 13px 11px; text-align: center; color: var(--text-dim); font-size: 0.76rem; }
+
+  .editor { flex: 1; min-width: 320px; max-width: 460px; display: flex; flex-direction: column; gap: 10px; }
+  .atlas-panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px; display: flex; flex-direction: column; gap: 8px;
+  }
+  .atlas-panel h2 { margin: 0; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); font-weight: 600; }
+  .palette { display: flex; gap: 5px; flex-wrap: wrap; }
+  .palette button { width: 20px; height: 20px; border-radius: 4px; border: 1px solid var(--line); padding: 0; cursor: pointer; }
+  .palette button.selected { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .slot-card {
+    display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 4px;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 7px;
+  }
+  .slot-card img { width: 28px; height: 28px; image-rendering: pixelated; border-radius: 3px; background: repeating-conic-gradient(#332c1f 0% 25%, #211c14 0% 50%) 0 0 / 8px 8px; }
+  .slot-card button.tbtn { border: none; background: none; padding: 2px 4px; }
+  .slot-card button.tbtn:hover { color: var(--accent); }
+  .atlas-scroll { max-height: 380px; overflow: auto; border: 1px solid var(--line); border-radius: 6px; background: repeating-conic-gradient(#332c1f 0% 25%, #211c14 0% 50%) 0 0 / 16px 16px; }
+  .atlas-stack { position: relative; display: inline-block; }
+  /* Sits BEHIND atlas2d (DOM order, no z-index needed) - shows through any
+     pixel you haven't painted yet (still transparent), gets naturally
+     covered by anything you have. Never part of the real atlas canvas. */
+  #referenceImg { position: absolute; top: 0; left: 0; image-rendering: pixelated; pointer-events: none; }
+  canvas#atlas2d { display: block; cursor: crosshair; image-rendering: pixelated; touch-action: none; }
+  .prompt-input {
+    flex: 1; min-width: 140px; background: var(--bg); border: 1px solid var(--line); color: var(--text);
+    border-radius: 5px; padding: 7px 9px; font-size: 0.8rem;
+  }
+  .prompt-input::placeholder { color: var(--text-dim); }
+  .theme-note { font-size: 0.74rem; color: var(--text-dim); margin: 0; }
+  .theme-note b { color: var(--accent); }
+  .zoom-row { display: flex; align-items: center; gap: 8px; font-size: 0.76rem; color: var(--text-dim); }
+  .zoom-row input[type="range"] { flex: 1; }
+
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn { flex: 1; min-width: 120px; padding: 10px 10px; border-radius: 7px; font-size: 0.84rem; font-weight: 600; cursor: pointer; border: 1px solid var(--line); background: var(--panel); color: var(--text); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #16130f; }
+  .btn:hover { border-color: var(--accent); }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .hint-note { font-size: 0.74rem; color: var(--text-dim); line-height: 1.5; margin: 0; }
+
+  /* High Contrast toggle - thicker borders + stronger focus rings on every
+     interactive control, for low-vision use. Doesn't touch the accent hue
+     itself since every tool here is text-labeled, not color-coded. */
+  body.high-contrast button.tbtn, body.high-contrast .btn, body.high-contrast .color-well, body.high-contrast .hex-input {
+    border-width: 2px;
+  }
+  body.high-contrast button.tbtn.active, body.high-contrast .btn.primary {
+    outline: 2px solid var(--text);
+  }
+  body.high-contrast * { --line: currentColor; }
+  body.high-contrast, body.high-contrast .toolbar, body.high-contrast .atlas-panel { --text-dim: var(--text); }
+
+  .export-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 50; }
+  .export-overlay[hidden] { display: none; }
+  .export-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px; max-width: 420px; width: 100%; display: flex; flex-direction: column; gap: 12px; }
+  .export-card h2 { margin: 0; font-size: 1.05rem; }
+  .export-card p { margin: 0; font-size: 0.84rem; color: var(--text-dim); line-height: 1.5; }
+  .export-card code { font: 0.82em ui-monospace, "SF Mono", Menlo, monospace; }
+  .export-imgwrap { align-self: center; background: repeating-conic-gradient(#332c1f 0% 25%, #211c14 0% 50%) 0 0 / 16px 16px; border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+  .export-imgwrap img { display: block; width: 256px; height: 256px; image-rendering: pixelated; }
+  .export-actions { display: flex; gap: 8px; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* Phone-sized, e.g. GayZ's Design a Skin popup (~290px wide) - the
+     editor column's 320px floor and the buttons' 120px floor pushed the
+     page wider than the screen, cutting off its right side. Kept last in
+     this stylesheet so it overrides those base rules. */
+  @media (max-width: 420px) {
+    main { padding: 12px 10px 16px; }
+    .editor { min-width: 0; max-width: none; }
+    .btn { min-width: 0; }
+    .prompt-input { min-width: 0; flex-basis: 100%; }
+    .view-presets { flex-wrap: wrap; justify-content: center; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="slot-bar" id="slotBar" aria-label="Skin slots">
+  <span class="slot-bar-label">Slot</span>
+</nav>
+
+<header>
+  <h1>GayZ Character Skin Designer</h1>
+  <p>Pick a slot (1-10) - each saves its own skin automatically. Starts blank (just the grid). Turn on Outer Layer to paint hats and jackets. Paint on the model or the grid, import a skin.png, then send it to your character.</p>
+</header>
+
+<main>
+  <div class="stage">
+    <div class="stage-top">
+      <input type="color" id="stageBgWell" class="color-well" value="#d4a068" title="Change the backdrop color behind your character" aria-label="Change stage backdrop color">
+      <span class="view-presets">
+        <button class="tbtn" id="viewFrontBtn" title="Snap to a straight-on front view">Front</button>
+        <button class="tbtn" id="viewBackBtn" title="Snap to a straight-on back view">Back</button>
+        <button class="tbtn" id="viewLeftBtn" title="Snap to the character's left side">Left</button>
+        <button class="tbtn" id="viewRightBtn" title="Snap to the character's right side">Right</button>
+        <button class="tbtn" id="viewTopBtn" title="Snap to a top-down view">Top</button>
+        <button class="tbtn" id="viewBottomBtn" title="Snap to a bottom-up view">Bottom</button>
+      </span>
+    </div>
+    <div class="stage-canvas-wrap">
+      <canvas id="stage3d" aria-label="3D preview of the character - drag to rotate, scroll or pinch to zoom, click to paint with the current tool"></canvas>
+      <div class="stage-loading" id="stageLoading">Loading 3D preview&hellip;</div>
+    </div>
+    <div class="stage-caption">Drag to rotate &bull; scroll or pinch to zoom &bull; click to paint with the current tool</div>
+  </div>
+
+  <div class="editor">
+    <div class="toolbar">
+      <input type="text" id="promptInput" class="prompt-input" maxlength="40" placeholder="Describe a skin: pirate, ninja, zombie, robot...">
+      <button class="tbtn primary" id="generateBtn" style="flex: 0 0 auto;">Generate</button>
+      <button class="tbtn" id="randomizeBtn" style="flex: 0 0 auto;" title="Skip the description - generate a fully random skin">Randomize</button>
+    </div>
+    <p class="theme-note" id="themeNote" style="display: none;"></p>
+
+    <div class="toolbar">
+      <button class="tbtn" id="importBtn" title="Load your own Minecraft-style skin.png">Import Skin&hellip;</button>
+      <input type="file" id="importFile" accept="image/png" hidden>
+      <input type="text" id="importUrlInput" class="prompt-input" style="flex: 1 1 140px;" placeholder="Or paste an image URL&hellip;">
+      <button class="tbtn" id="importUrlBtn" title="Load an image directly from a web address">Load URL</button>
+      <button class="tbtn primary" id="sendToGayzBtn" title="Open GayZ with this skin already applied to your character">Send to GayZ</button>
+    </div>
+
+    <div class="toolbar">
+      <input type="color" id="colorWell" class="color-well" value="#FFFFFF" aria-label="Current paint color">
+      <input type="text" id="colorHex" class="hex-input" value="#FFFFFF" maxlength="7" aria-label="Current color hex code">
+      <button class="tbtn" id="pinColorBtn" title="Pin the current color to your favorites, saved across visits">+ Favorite</button>
+      <div class="sep"></div>
+      <button class="tbtn active" id="toolPencil" title="Pencil (P)">Pencil</button>
+      <button class="tbtn" id="toolEraser" title="Erase to transparent (E)">Eraser</button>
+      <button class="tbtn" id="toolFill" title="Fill a connected area with the current color (F)">Fill</button>
+      <button class="tbtn" id="toolEyedrop" title="Pick a color from the texture (I)">Eyedrop</button>
+      <button class="tbtn" id="toolLine" title="Drag to draw a straight line (L)">Line</button>
+      <button class="tbtn" id="toolRect" title="Drag to draw a filled rectangle (R)">Rect</button>
+      <button class="tbtn" id="toolSelect" title="Drag to select a rectangle - drag inside it again to move, or use the buttons below to copy/flip it (S)">Select</button>
+      <div class="sep"></div>
+      <label class="small">Brush</label>
+      <button class="tbtn active" id="brush1" data-size="1">1px</button>
+      <button class="tbtn" id="brush3" data-size="3">3px</button>
+    </div>
+
+    <div class="toolbar">
+      <button class="tbtn" id="mirrorBtn" title="Mirror edits onto the opposite arm/leg, or across the middle for head/torso (M)">Mirror Left/Right</button>
+      <button class="tbtn" id="mirrorFBBtn" title="Mirror edits between the front and back of whatever part you're painting">Mirror Front/Back</button>
+    </div>
+
+    <div class="toolbar">
+      <button class="tbtn" id="undoBtn" disabled title="Undo (Ctrl/Cmd+Z)">Undo</button>
+      <button class="tbtn" id="redoBtn" disabled title="Redo (Shift+Ctrl/Cmd+Z)">Redo</button>
+      <button class="tbtn active" id="gridBtn" title="Show/hide the pixel grid lines (G)">Grid</button>
+      <div class="sep"></div>
+      <button class="tbtn" id="templateClassicBtn" title="GayZ's default starter skin for this tool">GayZ Default</button>
+      <button class="tbtn" id="idleAnimBtn" title="Play a gentle idle bob/sway in the 3D preview">Idle animation</button>
+      <span class="save-indicator" id="saveIndicator">Saved</span>
+    </div>
+
+    <div class="toolbar">
+      <button class="tbtn active" id="layerBodyBtn" title="Hide/show the base body layer in the 3D preview">Body</button>
+      <button class="tbtn" id="layerOuterBtn" title="Show the Layer 2 hat/jacket shell in the 3D preview and paint on it">Outer Layer</button>
+      <button class="tbtn" id="highContrastBtn" title="Thicker borders and stronger outlines, for low-vision use">High Contrast</button>
+    </div>
+    <div class="toolbar">
+      <label class="small">Recolor whole skin</label>
+      <button class="tbtn" id="hueMinusBtn" title="Shift every painted color around the color wheel">Color &minus;</button>
+      <button class="tbtn" id="huePlusBtn" title="Shift every painted color around the color wheel">Color +</button>
+      <button class="tbtn" id="lighterBtn" title="Brighten every painted pixel">Lighter</button>
+      <button class="tbtn" id="darkerBtn" title="Darken every painted pixel">Darker</button>
+    </div>
+    <div class="toolbar" id="partToggleRow">
+      <label class="small">Show in 3D</label>
+      <button class="tbtn active" id="part-head" data-part="head">Head</button>
+      <button class="tbtn active" id="part-torso" data-part="torso">Body</button>
+      <button class="tbtn active" id="part-armR" data-part="armR">Right Arm</button>
+      <button class="tbtn active" id="part-armL" data-part="armL">Left Arm</button>
+      <button class="tbtn active" id="part-legR" data-part="legR">Right Leg</button>
+      <button class="tbtn active" id="part-legL" data-part="legL">Left Leg</button>
+    </div>
+
+    <div class="atlas-panel">
+      <h2>Favorite colors &mdash; pinned by you, saved across visits</h2>
+      <div class="palette" id="favoritePalette"></div>
+      <h2>Full texture (64&times;64) &mdash; dimmed areas aren&rsquo;t shown in-game yet</h2>
+      <div class="palette" id="palette"></div>
+      <div class="atlas-scroll">
+        <div class="atlas-stack">
+          <img id="referenceImg" hidden alt="Reference image to trace over">
+          <canvas id="atlas2d"></canvas>
+        </div>
+      </div>
+      <div class="toolbar" id="referenceRow">
+        <button class="tbtn" id="referenceBtn" title="Load a picture to trace over - shows through any pixel you haven't painted yet, never gets saved into your skin">Reference Image&hellip;</button>
+        <input type="file" id="referenceFile" accept="image/*" hidden>
+        <label class="small">Opacity</label>
+        <input type="range" id="referenceOpacity" min="10" max="100" step="5" value="45" style="width: 80px;">
+        <button class="tbtn" id="referenceClearBtn" title="Remove the reference image" style="display: none;">Clear Reference</button>
+      </div>
+      <div class="toolbar" id="selectionActions" style="display: none;">
+        <label class="small">Selection</label>
+        <button class="tbtn" id="selCopyBtn" title="Duplicate the selected pixels just next to themselves - drag the copy wherever you want it">Copy</button>
+        <button class="tbtn" id="selFlipHBtn" title="Mirror the selected pixels left-to-right, in place">Flip H</button>
+        <button class="tbtn" id="selFlipVBtn" title="Mirror the selected pixels top-to-bottom, in place">Flip V</button>
+        <button class="tbtn" id="selClearBtn" title="Deselect without changing any pixels">Clear Selection</button>
+      </div>
+      <div class="zoom-row">
+        <span>Zoom</span>
+        <input type="range" id="zoomRange" min="4" max="16" step="1" value="9">
+        <span id="zoomLabel">9x</span>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <input type="text" id="slotName" class="prompt-input" maxlength="24" placeholder="Name this skin&hellip;" style="flex: 1 1 120px;">
+      <button class="tbtn" id="saveSlotBtn" title="Save the current skin as a named slot you can come back to">Save As&hellip;</button>
+      <button class="tbtn" id="shareLinkBtn" title="Copy a link that opens with this exact skin loaded">Copy Share Link</button>
+    </div>
+    <div class="toolbar" id="slotsRow" style="display: none;"></div>
+
+    <div class="actions">
+      <button class="btn" id="resetBtn">Reset to downloaded skin</button>
+      <button class="btn" id="clearBtn">Clear all</button>
+      <button class="btn" id="downloadBigBtn" title="Upscaled 512x512 version for printing or wallpaper - not usable as an actual skin.png">Download 512&times;512</button>
+      <button class="btn primary" id="downloadBtn">Download skin.png</button>
+    </div>
+    <p class="hint-note">Your edits auto-save in this browser, so refreshing the page won't lose your work. <b>Generate</b> isn't a real AI image model &mdash; it's a local theme-matcher that paints colors/patterns onto the one fixed body shape this character has (it can't change body shape, only color) &mdash; free, instant, no account. Whatever it makes lands right on the canvas above, so the Pencil/Fill/Eyedrop tools work on it immediately, no extra step.</p>
+  </div>
+</main>
+
+<div id="exportOverlay" class="export-overlay" hidden>
+  <div class="export-card">
+    <h2>Your edited skin</h2>
+    <p id="exportNote">Right-click (or press and hold on mobile) the image below and choose <b>Save Image As&hellip;</b> to download it as <code>skin.png</code>.</p>
+    <div class="export-imgwrap"><img id="exportImg" alt="Your edited skin, ready to save"></div>
+    <div class="export-actions">
+      <a id="exportDirectLink" class="btn" download="skin.png" href="#">Try direct download</a>
+      <button class="btn primary" id="exportCloseBtn">Done</button>
+    </div>
+  </div>
+</div>
+
+<div id="shareOverlay" class="export-overlay" hidden>
+  <div class="export-card">
+    <h2>Share this skin</h2>
+    <p>Copied to your clipboard if your browser allowed it - if not, select the text below and copy it yourself. Anyone who opens this link gets this exact skin loaded.</p>
+    <input type="text" id="shareLinkInput" class="hex-input" style="width: 100%; box-sizing: border-box;" readonly>
+    <div class="export-actions">
+      <button class="btn" id="shareCopyAgainBtn">Copy again</button>
+      <button class="btn primary" id="shareCloseBtn">Done</button>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ---- GayZ Old/Golden theme sync ----
+// The initial ?theme= application now happens instantly in a tiny inline
+// script in <head> (see its own comment) rather than here, so it isn't
+// blocked behind the two import statements above. This listener is only
+// for a LIVE theme change while the tool is already open and running.
+// Served from the game's own site now (public/skin-designer/, 2026-09-30),
+// so GayZ is this page's own origin - on production, previews and localhost.
+const GAYZ_ORIGIN = location.origin;
+function applyGayzTheme(theme) {
+  document.documentElement.dataset.theme = theme === 'old' ? 'old' : 'golden';
+}
+window.addEventListener('message', (event) => {
+  if (event.origin !== GAYZ_ORIGIN) return;
+  if (!event.data || event.data.type !== 'gayz-set-theme') return;
+  applyGayzTheme(event.data.theme);
+});
+
+// ---- Standard Minecraft skin box-UV-unwrap - the same fixed pixel
+// layout every real skin file (and every third-party editor export)
+// follows. u,v,w,h,d/x,y,z below match this game's own real proportions,
+// which happen to equal Minecraft's actual skin-pixel dimensions 1:1. ----
+function partFaceRects(u, v, w, h, d) {
+  return {
+    top: [u + d, v, u + d + w, v + d],
+    bottom: [u + d + w, v, u + d + w + w, v + d],
+    right: [u, v + d, u + d, v + d + h],
+    front: [u + d, v + d, u + d + w, v + d + h],
+    left: [u + d + w, v + d, u + d + w + d, v + d + h],
+    back: [u + d + w + d, v + d, u + d + w + d + w, v + d + h],
+  };
+}
+const BOXES = [
+  { key: 'head',  w: 8, h: 8,  d: 8, x: 0,  y: 26, z: 0, u: 0,  v: 0 },
+  { key: 'torso', w: 8, h: 12, d: 4, x: 0,  y: 16, z: 0, u: 16, v: 16 },
+  { key: 'armR',  w: 4, h: 12, d: 4, x: 6,  y: 16, z: 0, u: 40, v: 16 },
+  { key: 'armL',  w: 4, h: 12, d: 4, x: -6, y: 16, z: 0, u: 32, v: 48 },
+  { key: 'legR',  w: 4, h: 12, d: 4, x: 2,  y: 4,  z: 0, u: 0,  v: 16 },
+  { key: 'legL',  w: 4, h: 12, d: 4, x: -2, y: 4,  z: 0, u: 16, v: 48 },
+];
+// Layer 2 (hat/jacket/sleeves/pants overlay) atlas origins, one per body
+// part, on the same 64x64 template - and the same boxes inflated by 1 unit
+// (the standard hat-layer puff), reading from those origins instead, so it
+// renders as a real floating second layer rather than color baked flat
+// onto the base surface.
+const OVERLAY_ORIGINS = { head: [32,0], torso: [16,32], armR: [40,32], armL: [48,48], legR: [0,32], legL: [0,48] };
+
+// Writes 6 face rects (source-image pixel space) onto a fresh
+// THREE.BoxGeometry's UV attribute, matching its own fixed face
+// construction order (+x,-x,+y,-y,+z,-z) and 4-vertices-per-face order.
+// faceRects keys map to 3D faces as right->-x, left->+x, top->+y,
+// bottom->-y, front->+z, back->-z. Copied 1:1 from the real game's own
+// src/game/MenuAvatar3D.js so this tool paints the exact pixels the same
+// way the game itself does.
+function applyFaceRectsToBox(geometry, faceRects) {
+  const uvAttr = geometry.attributes.uv;
+  const order = [faceRects.left, faceRects.right, faceRects.top, faceRects.bottom, faceRects.front, faceRects.back];
+  for (let face = 0; face < 6; face++) {
+    const [u0, v0, u1, v1] = order[face];
+    const nu0 = u0/64, nu1 = u1/64, nv0 = v0/64, nv1 = v1/64;
+    const base = face * 4;
+    uvAttr.setXY(base + 0, nu0, nv0);
+    uvAttr.setXY(base + 1, nu1, nv0);
+    uvAttr.setXY(base + 2, nu0, nv1);
+    uvAttr.setXY(base + 3, nu1, nv1);
+  }
+  uvAttr.needsUpdate = true;
+}
+// inflate only grows the 3D box (the overlay layer's puff) - the UV rects
+// must still be computed from the part's real pixel size (w/h/d). Feeding
+// the inflated size into partFaceRects too (the previous version) made
+// every overlay face read one extra row and column of the atlas, pulling
+// in pixels from neighboring parts - the stray blocks reported on the 3D
+// preview (2026-09-28), on imported and generated skins alike.
+function boxMesh(w, h, d, u, v, x, y, z, texture, boxKey, isOverlay, inflate = 0) {
+  const geo = new THREE.BoxGeometry(w + inflate, h + inflate, d + inflate);
+  applyFaceRectsToBox(geo, partFaceRects(u, v, w, h, d));
+  // transparent+alphaTest (not flattened-onto-base compositing) - a real
+  // skin file can legitimately put its entire visible design on the
+  // overlay layer, leaving the base layer fully transparent, so both
+  // layers need to independently show/hide per-pixel based on their own
+  // alpha, and let the GPU's own depth buffer sort the two boxes
+  // correctly at every viewing angle - the whole reason this tool was
+  // rebuilt on real Three.js instead of the old hand-projected renderer.
+  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: texture, roughness: 0.9, transparent: true, alphaTest: 0.1 }));
+  mesh.position.set(x, y, z);
+  mesh.userData.boxKey = boxKey;
+  mesh.userData.isOverlay = isOverlay;
+  return mesh;
+}
+function buildCharacter(texture) {
+  const group = new THREE.Group();
+  for (const box of BOXES) {
+    group.add(boxMesh(box.w, box.h, box.d, box.u, box.v, box.x, box.y, box.z, gridTexture, box.key, false));
+    const [ou, ov] = OVERLAY_ORIGINS[box.key];
+    // Inflated by 1 unit (0.5 per side) - the standard Minecraft hat-layer
+    // puff, matching minecraftskins.com and every other real skin viewer,
+    // at Gaymi's explicit request (2026-09-28) after checking that site
+    // directly - a real, if small, gap from the base, not touching it.
+    group.add(boxMesh(box.w, box.h, box.d, ou, ov, box.x, box.y, box.z, gridTexture, box.key, true, 1));
+  }
+  return group;
+}
+
+// Which atlas regions the game currently actually renders (base-layer
+// cross footprint of the 6 boxes above, plus the matching overlay
+// regions) - everything else gets dimmed in the 2D grid so edits there
+// aren't mistaken for "will show in-game".
+function usedRegions() {
+  const blocks = (b) => { const w = 2*b.d + 2*b.w, h = b.d + b.h; return [b.u, b.v, w, h]; };
+  const overlayBlocks = (b) => { const [ou, ov] = OVERLAY_ORIGINS[b.key]; const w = 2*b.d + 2*b.w, h = b.d + b.h; return [ou, ov, w, h]; };
+  return [...BOXES.map(blocks), ...BOXES.map(overlayBlocks)];
+}
+function isUsedPixel(px, py) {
+  for (const [x0, y0, w, h] of usedRegions()) {
+    if (px >= x0 && px < x0 + w && py >= y0 && py < y0 + h) return true;
+  }
+  return false;
+}
+
+// Mirror support: map an atlas pixel to its left/right counterpart - arms
+// and legs swap onto their opposite limb, head/torso reflect onto
+// themselves - so painting one side (or one half of a face/logo) can
+// paint the other side too. Reuses the same partFaceRects() every face is
+// built from, so it can never disagree with what's actually drawn.
+const MIRROR_PART = { armR: 'armL', armL: 'armR', legR: 'legL', legL: 'legR', head: 'head', torso: 'torso' };
+const MIRROR_FACE = { right: 'left', left: 'right', front: 'front', back: 'back', top: 'top', bottom: 'bottom' };
+function findFaceAt(px, py) {
+  for (const box of BOXES) {
+    const rects = partFaceRects(box.u, box.v, box.w, box.h, box.d);
+    for (const faceName in rects) {
+      const [x0, y0, x1, y1] = rects[faceName];
+      if (px >= x0 && px < x1 && py >= y0 && py < y1) {
+        return { partKey: box.key, faceName, localX: px - x0, localY: py - y0, faceW: x1 - x0 };
+      }
+    }
+  }
+  return null;
+}
+function mirrorPixel(px, py) {
+  const f = findFaceAt(px, py);
+  if (!f) return null;
+  const targetBox = BOXES.find((b) => b.key === MIRROR_PART[f.partKey]);
+  const targetFace = MIRROR_FACE[f.faceName];
+  const rects = partFaceRects(targetBox.u, targetBox.v, targetBox.w, targetBox.h, targetBox.d);
+  const [tx0, ty0] = rects[targetFace];
+  const mirroredLocalX = (f.faceW - 1) - f.localX;
+  const mx = tx0 + mirroredLocalX, my = ty0 + f.localY;
+  if (mx === px && my === py) return null;
+  return { x: mx, y: my };
+}
+// Front<->back mirror, within the SAME box (no L/R part swap) - front and
+// back trade places (with X flipped), left/right keep their own face but
+// flip their local X (the box's depth axis on those two faces), top/bottom
+// keep their face but flip local Y instead (depth is the vertical local
+// axis there).
+const MIRROR_FACE_FB = { front: 'back', back: 'front', left: 'left', right: 'right', top: 'top', bottom: 'bottom' };
+function mirrorPixelFrontBack(px, py) {
+  const f = findFaceAt(px, py);
+  if (!f) return null;
+  const box = BOXES.find((b) => b.key === f.partKey);
+  const rects = partFaceRects(box.u, box.v, box.w, box.h, box.d);
+  const targetFace = MIRROR_FACE_FB[f.faceName];
+  const [tx0, ty0, tx1, ty1] = rects[targetFace];
+  const faceH = ty1 - ty0;
+  let mx, my;
+  if (f.faceName === 'top' || f.faceName === 'bottom') {
+    mx = tx0 + f.localX; my = ty0 + (faceH - 1 - f.localY);
+  } else {
+    mx = tx0 + (f.faceW - 1 - f.localX); my = ty0 + f.localY;
+  }
+  if (mx === px && my === py) return null;
+  return { x: mx, y: my };
+}
+
+// "GayZ Default" starter template - a real fixed skin, not an invented
+// palette. Deliberately NOT the actual default-skin.png the real game's
+// homepage shows (kept scoped to this tool only per Gaymi's request
+// 2026-09-27) - don't reintroduce that equivalence without checking
+// that's still true.
+const CLASSIC_SKIN_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAADDklEQVR4AeyawW7bMAyG5ey++zoMu+xJ1ufunmSXYWh7771w+QmlociuZEeirTQq/IMSKVHkb1pulJxc5u9p/D2WIOP+cHOWgMMjNA6gE2BMcPPuewU0f4uMA+wVYExw8+5PuXd8aQbW/kvj649AjsFv7sEpdKz2kaq7VrmqAoZhmOU3DHPdbNAVKFYRMI6jT+Xl1z8H6KiOdk2wZ9T0l/OVJeDZ3TuFOtM+UnW15N3wZ9fSyhJAYhKUA1///nSANsB27VhFgJSlz5OkAR3V0b4mxLGeJKEhgr/bovNSJ5AwkD4lGs+Z+mJPXupXpQxmgwkhqo8viSF5PvHxzGXLYgX8vxsdWJ5SrsU3UE+0gfb3lIsE7BnA0WstEvDjaXDAKjh8A/VPG2h/TwkBo5SfhyzMs+jLX3TSdX4feP3+4ADPrSj9WLEzdvY8it3PQYZ4n+vkGZ6BcYHe+xSdl6I/k6JPXlvHQ0DS4aVGEg5xqR/redUJIGmClgqZKok2OrXRjoEtRGy36hcTEAZNm0A1YdoK1TEmBmOwh0DHOKQligkgOA2ctuLL470LoXpkPJ4++hBLutBeq+0JYAcG6pQ2WNvXcbFk41TEtlb6ngDLYLQKLNco8W1OABVQEqD1XM4EZ+9leZeu1qUCbP3uE7tZBXDnQ7BYi6hCABsm0ARpLyG2x/14jtotZRUCLAMs9Z2bv3QeMH22l39Esm1ZwJ8PWMk1MaTGSFzJq1dAkp4bMPYKuIGbnEyxV0CSnhsw9gq4gZucTLGpCpBDEA5akwHXNjZFAMntTUIzBJC4fBji32p42A3NEEDyR5DQDAHcckhA7ommCNgzcV3r0xGgia2VFgTwKpsg54tF3+1tnb82cR1nQcD0lZgu0rI0IaDlhOPYTAiQ3dz09wVxEiX9GgSc/V6AYOR97h8D2nJe539bwBE5bdGdjd/6jG8dL+slrxoEJBdo3dgJaP0OWcfXK6AGw/Guv7VfI4ZLffQKuJS5zzKvuALkvbz6twRLY48mspiAoxMoXb8TUMrg0fNL138DAAD//z1dAzYAAAAGSURBVAMALXhjXwvcUWQAAAAASUVORK5CYII=';
+// "Reset to downloaded skin" - a different, second built-in default (the
+// original bundled sample skin, distinct from the GayZ Default template
+// above), matching the tool's history from before the GayZ Default image
+// was ever added.
+const SKIN_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAC6klEQVR4AexZW47qMAxNkZBYAP9lM3c3ILEQPkaC3dzNwD8LQEKo1ycaM6nJ1EDaGwdl1IPjRxv7xKWdMHPG//b7fZcCrTzzBGgFpPqLJ2Cz2TRD0AgqngCtQM1fCdAY+nR/8R2gPSG0BSyeAK1AzZ+dgNQV1ArUrp+dAK2Aqf3mCViv147BZLAOybZ3pXkCUFjTNBA9NM2jrRfwpFIEAV3X+XL+fH05AArbME6BeQIOh4NjcKGsQ7LtXWmeABRG7/oO+LvdOgBjAL5UFEEAPcp8nSgagMI2jF+BjM1OABU0+N8c+ylxfOvdwfZUmZ0AKizrUQnISr+ByWsHGFiErCnUDshKv4HJawcYWISsKdQOyEq/gclrBxhYhKwp1A7ISv9/mFybQu0A2njo/T6vXVDGS107X/PL60ldO1/6VQLkCZ+mVwI+bUVfrQcdgE33XyH33GiCrm1bD4xj9yCdQ67+wTYZD50ie98zv9m+7RT+c9B1e3uKiAnxExkfgQDXtq0Hh0id7c/ILW1dPxNnJcYTMGYyt9vNX45Wxu/ls4QRY8gY4AsRi5nClkxAmDTGnCR3EUu2I0YCPo5jCRviIKdEMgFILkyadcgQiGEdYyDUecwy9LNtCukJOJ1ODuAJMAZYlxI+QNpD/Xg8umOA0Gdp7AmYKqHVauVW35hqjtTrjkrAcrl8yIe7YLFYPPgsGGb0zHRDkEnKWOmXOjoAtsvlAmEOo3YAV3e9Xv2QV98rRj9GJeB8Pvsy5/P5/d5HBwDeYfBjFALwRAC4PoxjkH6py3PY/4p8NXZGLxu9d2mp0z3fe0+Xfprw/pv9FGM5n9RpzsFD5i+DR+kAedGS9EpASas1Ra6xDujtDdA953a7nQfGlITfC6B3dY4jUzmH/E6IEeD3BqjAcqpKyDRKQML1iju1ElDcko2ccLQD+I2M59J0jitRRgkosZB3c64ESOboOTm4PyD98vzS9NoBpa3Y2PkW3wGphPwDAAD//xp1Y80AAAAGSURBVAMALjBT31UelyEAAAAASUVORK5CYII=';
+
+// ==== Prompt-driven skin generator ==================================
+// NOT a call to a hosted AI image model - no API, no account, no cost,
+// works fully offline. Matches words in the prompt against a curated
+// theme/palette table, then paints detailed pixel art (per-pixel noise,
+// varied hairstyle/pattern/hand/shoe shapes chosen by a seed hashed from
+// the prompt text) reusing BOXES/partFaceRects, the exact same layout the
+// game itself reads.
+const THEMES = {
+  pirate: { skin: '#c98a55', hair: '#3a281a', shirt: '#5b3a29', pants: '#2b2b2b', shoe: '#2b1c10', accent: '#8a1f1f', eye: '#1a1a1a' },
+  ninja: { skin: '#c98a55', hair: '#0a0a0a', shirt: '#1a1a1a', pants: '#1a1a1a', shoe: '#141414', accent: '#8a1f1f', eye: '#e8e8e2' },
+  zombie: { skin: '#6b8f4e', hair: '#2a3018', shirt: '#3a4a2a', pants: '#26301c', shoe: '#3a2f1f', accent: '#2f3d1f', eye: '#c8d84a' },
+  knight: { skin: '#c98a55', hair: '#6a4a28', shirt: '#8a8f99', pants: '#5a5f66', shoe: '#454a50', accent: '#d9a34a', eye: '#1a1a1a' },
+  robot: { skin: '#9fa6ad', hair: '#7a828a', shirt: '#5a636b', pants: '#3a4147', shoe: '#2a3035', accent: '#4ac8e0', eye: '#4ac8e0' },
+  rainbow: { skin: '#c98a55', hair: '#8a3ac9', shirt: '#e04a4a', pants: '#4a7be0', shoe: '#e8e8e2', accent: '#e0d24a', eye: '#1a1a1a' },
+  fire: { skin: '#c98a55', hair: '#2a0f08', shirt: '#c93a1f', pants: '#7a1f0f', shoe: '#1a1008', accent: '#e0a034', eye: '#e0a034' },
+  ice: { skin: '#dce8f0', hair: '#dce8f5', shirt: '#4a90c9', pants: '#2a5a80', shoe: '#c8e0ea', accent: '#eafaff', eye: '#2a5a80' },
+  forest: { skin: '#c98a55', hair: '#4a3320', shirt: '#3a6b2f', pants: '#2b4522', shoe: '#2b1f14', accent: '#6b8f4e', eye: '#1a1a1a' },
+  gold: { skin: '#c98a55', hair: '#e0c060', shirt: '#d9a334', pants: '#8a6a1f', shoe: '#5a4020', accent: '#fff0b0', eye: '#1a1a1a' },
+  shadow: { skin: '#3a3a40', hair: '#0a0a0c', shirt: '#141416', pants: '#0a0a0b', shoe: '#050505', accent: '#6a3ac9', eye: '#6a3ac9' },
+  angel: { skin: '#f0d8c0', hair: '#f0e8c0', shirt: '#f5f5f0', pants: '#e0e0da', shoe: '#e8e4d8', accent: '#f0d060', eye: '#4a90c9' },
+  demon: { skin: '#8a2a2a', hair: '#0a0505', shirt: '#1a0a0a', pants: '#3a0f0f', shoe: '#1a0a0a', accent: '#e04a1f', eye: '#e0a034' },
+  police: { skin: '#c98a55', hair: '#1a1a1a', shirt: '#1a2a4a', pants: '#141a2b', shoe: '#0f1420', accent: '#e0e0da', eye: '#1a1a1a' },
+  doctor: { skin: '#c98a55', hair: '#3a2818', shirt: '#e8e8e2', pants: '#4a90c9', shoe: '#e8e8e2', accent: '#c93a3a', eye: '#1a1a1a' },
+  astronaut: { skin: '#c98a55', hair: '#3a2818', shirt: '#e8e8e2', pants: '#c0c0ba', shoe: '#a8a8a2', accent: '#4ac8e0', eye: '#1a1a1a' },
+  wizard: { skin: '#c98a55', hair: '#d8d8d0', shirt: '#4a2a80', pants: '#2a1650', shoe: '#1e0f3a', accent: '#d9a334', eye: '#4ac8e0' },
+  vampire: { skin: '#d8c8d0', hair: '#0a0508', shirt: '#1a0a14', pants: '#0a0508', shoe: '#0a0508', accent: '#8a1f1f', eye: '#c9202f' },
+  punk: { skin: '#c98a55', hair: '#8ae04a', shirt: '#0a0a0a', pants: '#0a0a0a', shoe: '#0a0a0a', accent: '#e0e04a', eye: '#1a1a1a' },
+  camo: { skin: '#c98a55', hair: '#3a3020', shirt: '#4a5a3a', pants: '#3a4530', shoe: '#242e1a', accent: '#5f6b45', eye: '#1a1a1a' },
+  // This game's character model has one fixed body shape (no separate
+  // slimmer "Alex"-style arms) - every theme here, including this one,
+  // only changes colors/pattern, never body shape.
+  rose: { skin: '#c98a55', hair: '#e0a0c0', shirt: '#c9538a', pants: '#7a4a8a', shoe: '#5a3a4a', accent: '#f7b6d2', eye: '#5a2a3a' },
+};
+const THEME_KEYS = Object.keys(THEMES);
+const RANDOMIZABLE_THEME_KEYS = THEME_KEYS;
+const ALIASES = {
+  cop: 'police', officer: 'police', space: 'astronaut', nurse: 'doctor',
+  medic: 'doctor', mage: 'wizard', witch: 'wizard', dracula: 'vampire',
+  military: 'camo', soldier: 'camo', army: 'camo', devil: 'demon',
+  samurai: 'ninja', assassin: 'ninja', darkness: 'shadow', dark: 'shadow',
+  lava: 'fire', flame: 'fire', frost: 'ice', snow: 'ice', winter: 'ice',
+  jungle: 'forest', nature: 'forest', tree: 'forest', treasure: 'gold',
+  king: 'gold', heaven: 'angel', holy: 'angel',
+  female: 'rose', woman: 'rose', girl: 'rose', girly: 'rose', lady: 'rose',
+  pink: 'rose', magenta: 'rose',
+  red: 'fire', orange: 'fire', crimson: 'fire',
+  blue: 'ice', cyan: 'ice',
+  green: 'forest', olive: 'forest',
+  purple: 'wizard', violet: 'wizard', lavender: 'wizard',
+  black: 'shadow',
+  white: 'angel', silver: 'angel',
+  brown: 'pirate', tan: 'pirate',
+  yellow: 'gold',
+};
+function findMatchedTheme(prompt) {
+  const text = (prompt || '').toLowerCase();
+  for (const key of THEME_KEYS) if (text.includes(key)) return key;
+  for (const alias of Object.keys(ALIASES)) if (text.includes(alias)) return ALIASES[alias];
+  return null;
+}
+function shade(hex, amt) {
+  const { r, g, b } = hexToRgb(hex);
+  const c = (v) => Math.max(0, Math.min(255, v + amt));
+  return rgbToHex(c(r), c(g), c(b));
+}
+function px(rect, x, y, w, h, color) {
+  const { r, g, b } = hexToRgb(color);
+  atlasCtx.fillStyle = `rgb(${r},${g},${b})`;
+  atlasCtx.fillRect(rect[0] + x, rect[1] + y, w, h);
+}
+function fillFace(rect, color) {
+  px(rect, 0, 0, rect[2] - rect[0], rect[3] - rect[1], color);
+}
+// Per-pixel dithered fill - each pixel independently rolls into the base
+// color, a darker fleck, or a lighter fleck, instead of one flat rect.
+function noisyFill(rect, baseColor, rng, darkChance, lightChance) {
+  const dark = shade(baseColor, -20);
+  const light = shade(baseColor, 16);
+  const w = rect[2] - rect[0], h = rect[3] - rect[1];
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const roll = rng();
+      const c = roll < darkChance ? dark : roll < darkChance + lightChance ? light : baseColor;
+      px(rect, x, y, 1, 1, c);
+    }
+  }
+}
+// FNV-1a string hash -> mulberry32 PRNG. Deterministic per exact prompt
+// text (same words in = same skin out), effectively unique per different
+// wording.
+function hashString(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+function mulberry32(seed) {
+  let a = seed;
+  return function () {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+// Directional lighting - one flat brightness shift per face direction
+// (front brightest, top brighter still, sides slightly dim, back/bottom
+// darkest), applied before the per-pixel noise so both effects stack.
+const FACE_LIGHT = { front: 10, top: 20, left: -8, right: -8, back: -22, bottom: -28 };
+function lit(color, faceKey) { return shade(color, FACE_LIGHT[faceKey] || 0); }
+
+function paintHeadDetailed(box, p, rng) {
+  const r = partFaceRects(box.u, box.v, box.w, box.h, box.d);
+  const hairShadow = shade(p.hair, -30);
+  const skinShadow = shade(p.skin, -25);
+  const skinHi = shade(p.skin, 14);
+  const style = Math.floor(rng() * 4); // 0 short, 1 mohawk, 2 long, 3 bald
+  const f = r.front;
+  noisyFill(f, lit(p.skin, 'front'), rng, 0.08, 0.06);
+  if (style === 0) px(f, 0, 0, 8, 2, p.hair);
+  else if (style === 1) px(f, 3, 0, 2, 2, p.hair);
+  else if (style === 2) px(f, 0, 0, 8, 3, p.hair);
+  if (style !== 3) {
+    px(f, 0, 2, 1, 1, p.hair); px(f, 7, 2, 1, 1, p.hair);
+    px(f, 1, 2, 2, 1, hairShadow); px(f, 5, 2, 2, 1, hairShadow);
+  }
+  const eyeShape = Math.floor(rng() * 4); // 0 square, 1 round, 2 narrow slit, 3 sharp/angled
+  if (eyeShape === 0) {
+    px(f, 1, 3, 1, 1, '#f5f5f0'); px(f, 2, 3, 1, 1, p.eye);
+    px(f, 5, 3, 1, 1, '#f5f5f0'); px(f, 6, 3, 1, 1, p.eye);
+  } else if (eyeShape === 1) {
+    px(f, 1, 3, 2, 2, p.eye); px(f, 1, 3, 1, 1, '#f5f5f0');
+    px(f, 5, 3, 2, 2, p.eye); px(f, 6, 3, 1, 1, '#f5f5f0');
+  } else if (eyeShape === 2) {
+    px(f, 1, 3, 2, 1, p.eye);
+    px(f, 5, 3, 2, 1, p.eye);
+  } else {
+    px(f, 1, 4, 2, 1, p.eye); px(f, 1, 3, 1, 1, shade(p.eye, -20));
+    px(f, 5, 4, 2, 1, p.eye); px(f, 6, 3, 1, 1, shade(p.eye, -20));
+  }
+  px(f, 3, 4, 1, 1, skinHi);
+  px(f, 4, 4, 1, 1, skinShadow);
+  px(f, 3, 5, 2, 1, skinShadow);
+  px(f, 1, 6, 1, 1, skinHi); px(f, 6, 6, 1, 1, skinHi);
+  px(f, 3, 7, 2, 1, skinHi);
+  px(f, 0, 7, 1, 1, skinShadow); px(f, 7, 7, 1, 1, skinShadow);
+  if (style === 3) {
+    fillFace(r.top, lit(p.skin, 'top'));
+    fillFace(r.back, lit(p.skin, 'back'));
+  } else {
+    noisyFill(r.top, lit(p.hair, 'top'), rng, 0.1, 0.08);
+    px(r.top, 0, 6, 8, 2, hairShadow);
+    noisyFill(r.back, lit(p.hair, 'back'), rng, 0.1, 0.08);
+    px(r.back, 3, 0, 2, 8, hairShadow);
+  }
+  fillFace(r.bottom, lit(p.skin, 'bottom'));
+  const sideHairRows = style === 3 ? 0 : style === 2 ? 6 : style === 1 ? 1 : 3;
+  for (const key of ['left', 'right']) {
+    const side = r[key];
+    noisyFill(side, lit(p.skin, key), rng, 0.08, 0.06);
+    if (sideHairRows > 0) px(side, 0, 0, 8, sideHairRows, lit(p.hair, key));
+    px(side, 3, 4, 2, 2, skinShadow);
+  }
+}
+function paintTorsoDetailed(box, p, rng) {
+  const r = partFaceRects(box.u, box.v, box.w, box.h, box.d);
+  const shirtShadow = shade(p.shirt, -25);
+  const shirtHi = shade(p.shirt, 18);
+  const pattern = Math.floor(rng() * 4); // 0 plain, 1 h-bands, 2 v-stripes, 3 placket
+  const f = r.front;
+  noisyFill(f, lit(p.shirt, 'front'), rng, 0.08, 0.06);
+  px(f, 0, 0, 8, 1, p.accent);
+  px(f, 3, 1, 2, 1, p.skin);
+  if (pattern === 1) { for (let row = 2; row < 10; row += 2) px(f, 0, row, 8, 1, shirtShadow); }
+  else if (pattern === 2) { for (let col = 1; col < 8; col += 2) px(f, col, 2, 1, 8, p.accent); }
+  else if (pattern === 3) { px(f, 3, 3, 2, 6, p.accent); }
+  px(f, 0, 10, 8, 2, shirtShadow);
+  px(f, 0, 1, 1, 9, shirtHi);
+  px(f, 1, 1, 2, 1, shirtHi); px(f, 5, 1, 2, 1, shirtHi);
+  noisyFill(r.back, lit(p.shirt, 'back'), rng, 0.08, 0.06);
+  px(r.back, 0, 10, 8, 2, shirtShadow);
+  px(r.back, 3, 0, 2, 12, shirtShadow);
+  for (const key of ['left', 'right']) {
+    const side = r[key];
+    noisyFill(side, lit(p.shirt, key), rng, 0.08, 0.06);
+    px(side, 0, 10, 4, 2, shirtShadow);
+  }
+  fillFace(r.top, lit(p.accent, 'top'));
+  fillFace(r.bottom, shirtShadow);
+}
+function paintLimbDetailed(box, p, isLeg, rng) {
+  const r = partFaceRects(box.u, box.v, box.w, box.h, box.d);
+  const upper = isLeg ? p.pants : p.shirt;
+  const upperShadow = shade(upper, -22);
+  const lower = isLeg ? p.shoe : p.skin;
+  const shape = Math.floor(rng() * 4);
+  for (const key of ['front', 'back', 'left', 'right']) {
+    const fc = r[key];
+    noisyFill(fc, lit(upper, key), rng, 0.08, 0.06);
+    px(fc, 3, 1, 1, 10, upperShadow);
+    if (isLeg) {
+      px(fc, 0, 0, 4, 1, p.accent);
+      if (shape === 1) {
+        px(fc, 0, 5, 4, 3, p.accent);
+        px(fc, 0, 8, 4, 4, lit(lower, key));
+        if (key === 'front') px(fc, 0, 9, 4, 1, upperShadow);
+        px(fc, 0, 11, 4, 1, shade(lower, 30));
+      } else if (shape === 2) {
+        px(fc, 0, 7, 4, 1, upperShadow);
+        px(fc, 0, 8, 4, 1, p.accent);
+        px(fc, 0, 9, 4, 1, lit(lower, key));
+        px(fc, 0, 10, 4, 1, lit(p.skin, key));
+        px(fc, 0, 11, 4, 1, shade(lower, 20));
+      } else if (shape === 3) {
+        px(fc, 0, 7, 4, 2, upperShadow);
+        px(fc, 0, 9, 4, 3, lit(lower, key));
+        px(fc, 1, 11, 2, 1, shade(lower, 25));
+      } else {
+        px(fc, 0, 7, 4, 1, upperShadow);
+        px(fc, 0, 8, 4, 1, p.accent);
+        px(fc, 0, 9, 4, 3, lit(lower, key));
+        px(fc, 0, 11, 4, 1, shade(lower, 35));
+        if (key === 'front') { px(fc, 1, 9, 1, 1, p.accent); px(fc, 2, 9, 1, 1, p.accent); }
+      }
+    } else {
+      px(fc, 0, 7, 4, 1, upperShadow);
+      px(fc, 0, 8, 4, 1, p.accent);
+      px(fc, 0, 9, 4, 3, lit(lower, key));
+      if (shape === 1) px(fc, 1, 10, 2, 1, shade(lower, 18));
+      else if (shape === 2) { px(fc, 1, 9, 1, 3, shade(lower, -22)); px(fc, 3, 9, 1, 3, shade(lower, -22)); }
+      else if (shape === 3) { px(fc, 0, 9, 4, 1, p.accent); px(fc, 1, 11, 2, 1, shade(lower, 20)); }
+      else px(fc, 1, 11, 2, 1, shade(lower, -20));
+    }
+  }
+  fillFace(r.top, isLeg && shape === 1 ? p.accent : upper);
+  fillFace(r.bottom, lower);
+}
+function generateThemedSkin(themeKey, promptText) {
+  const theme = THEMES[themeKey] || THEMES[THEME_KEYS[0]];
+  const seed = hashString((promptText || themeKey || 'default').trim().toLowerCase());
+  const rng = mulberry32(seed);
+  atlasCtx.clearRect(0, 0, 64, 64);
+  paintHeadDetailed(BOXES.find((b) => b.key === 'head'), theme, rng);
+  paintTorsoDetailed(BOXES.find((b) => b.key === 'torso'), theme, rng);
+  paintLimbDetailed(BOXES.find((b) => b.key === 'armR'), theme, false, rng);
+  paintLimbDetailed(BOXES.find((b) => b.key === 'armL'), theme, false, rng);
+  paintLimbDetailed(BOXES.find((b) => b.key === 'legR'), theme, true, rng);
+  paintLimbDetailed(BOXES.find((b) => b.key === 'legL'), theme, true, rng);
+}
+const THEME_LABELS = Object.fromEntries(THEME_KEYS.map((k) => [k, k.charAt(0).toUpperCase() + k.slice(1)]));
+document.getElementById('generateBtn').addEventListener('click', runGenerate);
+document.getElementById('promptInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') runGenerate(); });
+document.getElementById('randomizeBtn').addEventListener('click', () => {
+  const theme = RANDOMIZABLE_THEME_KEYS[Math.floor(Math.random() * RANDOMIZABLE_THEME_KEYS.length)];
+  const seed = Math.random().toString(36).slice(2);
+  pushUndo();
+  generateThemedSkin(theme, seed);
+  syncAfterEdit();
+  scheduleSave();
+  const note = document.getElementById('themeNote');
+  note.innerHTML = 'Randomized a <b>' + THEME_LABELS[theme] + '</b> skin. Use the tools below to fine-tune it, or hit Randomize again for something else.';
+  note.style.display = 'block';
+});
+function runGenerate() {
+  const promptText = document.getElementById('promptInput').value;
+  const matched = findMatchedTheme(promptText);
+  const theme = matched || RANDOMIZABLE_THEME_KEYS[Math.floor(Math.random() * RANDOMIZABLE_THEME_KEYS.length)];
+  pushUndo();
+  generateThemedSkin(theme, promptText);
+  syncAfterEdit();
+  scheduleSave();
+  const note = document.getElementById('themeNote');
+  note.innerHTML = matched
+    ? 'Generated a <b>' + THEME_LABELS[theme] + '</b> skin. Use the tools below to fine-tune it.'
+    : 'Didn\'t recognize "' + promptText.trim() + '" - generated a random <b>' + THEME_LABELS[theme] + '</b> skin instead. Use the tools below to fine-tune it, or try a word like pirate, zombie, robot, pink, or blue.';
+  note.style.display = 'block';
+}
+// ==== end prompt-driven skin generator ==============================
+
+// ---- Canonical, always-64x64 pixel atlas - the single source of truth
+// for everything (3D preview, 2D grid, undo/redo, autosave, downloads,
+// Send to GayZ). Both mesh layers above read from ONE shared
+// THREE.CanvasTexture wrapping this canvas, so any edit shows up
+// everywhere the instant texture.needsUpdate is set, no re-flattening or
+// mesh-rebuilding step needed. ----
+const atlasSrc = document.createElement('canvas');
+atlasSrc.width = 64; atlasSrc.height = 64;
+const atlasCtx = atlasSrc.getContext('2d', { willReadFrequently: true });
+const texture = new THREE.CanvasTexture(atlasSrc);
+texture.magFilter = THREE.NearestFilter;
+texture.minFilter = THREE.NearestFilter;
+texture.flipY = false;
+texture.colorSpace = THREE.SRGBColorSpace;
+
+// Preview-only copy of the atlas for the 3D boxes, upscaled 8x with faint
+// pixel-grid lines drawn over the body - and in gold over the Outer
+// Layer shell (when Grid is on) - so a blank, fully transparent skin or
+// outer layer still shows as a see-through grid you can see and paint
+// on, instead of nothing. Never saved,
+// downloaded or sent to GayZ - those all read atlasSrc directly. Redrawn
+// from animate() whenever gridTextureDirty is set (by syncAfterEdit and
+// the Grid button), not here, since gridOn is declared further down.
+const GRID_SCALE = 8;
+const gridCanvas = document.createElement('canvas');
+gridCanvas.width = 64 * GRID_SCALE; gridCanvas.height = 64 * GRID_SCALE;
+const gridCtx = gridCanvas.getContext('2d');
+const gridTexture = new THREE.CanvasTexture(gridCanvas);
+gridTexture.magFilter = THREE.NearestFilter;
+gridTexture.minFilter = THREE.NearestFilter;
+gridTexture.flipY = false;
+gridTexture.colorSpace = THREE.SRGBColorSpace;
+let gridTextureDirty = true;
+function redrawGridTexture() {
+  gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
+  gridCtx.imageSmoothingEnabled = false;
+  gridCtx.drawImage(atlasSrc, 0, 0, gridCanvas.width, gridCanvas.height);
+  if (gridOn) {
+    const drawGrid = (u, v, b) => {
+      const x0 = u * GRID_SCALE, y0 = v * GRID_SCALE;
+      const w = (2*b.d + 2*b.w) * GRID_SCALE, h = (b.d + b.h) * GRID_SCALE;
+      for (let x = 0; x <= w; x += GRID_SCALE) gridCtx.fillRect(x0 + Math.min(x, w - 1), y0, 1, h);
+      for (let y = 0; y <= h; y += GRID_SCALE) gridCtx.fillRect(x0, y0 + Math.min(y, h - 1), w, 1);
+    };
+    gridCtx.fillStyle = 'rgba(200,200,200,0.45)';
+    for (const b of BOXES) drawGrid(b.u, b.v, b);
+    gridCtx.fillStyle = 'rgba(227,194,60,0.55)';
+    for (const b of BOXES) drawGrid(OVERLAY_ORIGINS[b.key][0], OVERLAY_ORIGINS[b.key][1], b);
+  }
+  gridTexture.needsUpdate = true;
+  gridTextureDirty = false;
+}
+
+function hexToRgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return { r: (n>>16)&255, g: (n>>8)&255, b: n&255 };
+}
+function rgbToHex(r, g, b) { return '#' + [r,g,b].map((v) => v.toString(16).padStart(2,'0')).join(''); }
+function paintPixel(px, py, hex) {
+  if (px < 0 || py < 0 || px >= 64 || py >= 64) return;
+  const { r, g, b } = hexToRgb(hex);
+  atlasCtx.fillStyle = `rgb(${r},${g},${b})`;
+  atlasCtx.fillRect(px, py, 1, 1);
+}
+function erasePixel(px, py) {
+  if (px < 0 || py < 0 || px >= 64 || py >= 64) return;
+  atlasCtx.clearRect(px, py, 1, 1);
+}
+function floodFill(startX, startY, hex) {
+  const img = atlasCtx.getImageData(0, 0, 64, 64);
+  const data = img.data;
+  const idx = (x, y) => (y*64 + x) * 4;
+  const s = idx(startX, startY);
+  const target = [data[s], data[s+1], data[s+2], data[s+3]];
+  const { r, g, b } = hexToRgb(hex);
+  const fill = [r, g, b, 255];
+  if (target[0]===fill[0] && target[1]===fill[1] && target[2]===fill[2] && target[3]===fill[3]) return;
+  const matches = (x, y) => {
+    const i = idx(x, y);
+    return data[i]===target[0] && data[i+1]===target[1] && data[i+2]===target[2] && data[i+3]===target[3];
+  };
+  const visited = new Uint8Array(64*64);
+  const stack = [[startX, startY]];
+  while (stack.length) {
+    const [x, y] = stack.pop();
+    if (x < 0 || y < 0 || x >= 64 || y >= 64) continue;
+    const vi = y*64 + x;
+    if (visited[vi] || !matches(x, y)) continue;
+    visited[vi] = 1;
+    const i = idx(x, y);
+    data[i] = fill[0]; data[i+1] = fill[1]; data[i+2] = fill[2]; data[i+3] = fill[3];
+    stack.push([x+1,y], [x-1,y], [x,y+1], [x,y-1]);
+  }
+  atlasCtx.putImageData(img, 0, 0);
+}
+
+// ---- Undo/redo ----
+let undoStack = [];
+let redoStack = [];
+function pushUndo() {
+  undoStack.push(atlasCtx.getImageData(0, 0, 64, 64));
+  if (undoStack.length > 25) undoStack.shift();
+  redoStack = [];
+  document.getElementById('undoBtn').disabled = false;
+  document.getElementById('redoBtn').disabled = true;
+}
+function syncAfterEdit() {
+  render2d();
+  texture.needsUpdate = true;
+  gridTextureDirty = true;
+  rebuildPalette();
+}
+
+// ---- Palette (unique colors found in the current texture) ----
+function rebuildPalette() {
+  const data = atlasCtx.getImageData(0, 0, 64, 64).data;
+  const counts = new Map();
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i+3] === 0) continue;
+    const hex = rgbToHex(data[i], data[i+1], data[i+2]);
+    counts.set(hex, (counts.get(hex) || 0) + 1);
+  }
+  const top = [...counts.entries()].sort((a,b) => b[1]-a[1]).slice(0, 16);
+  const el = document.getElementById('palette');
+  el.innerHTML = '';
+  for (const [hex] of top) {
+    const b = document.createElement('button');
+    b.style.background = hex;
+    b.title = hex;
+    b.addEventListener('click', () => setColor(hex));
+    el.appendChild(b);
+  }
+}
+
+// ---- Persistent favorite colors (separate from the auto-detected
+// palette above, which only shows colors already used in THIS skin) -
+// pin any color once, it survives refreshes and new skins. ----
+const FAVORITES_KEY = 'skindesigner-avatar-pixel-editor-favorites-v1';
+function loadFavorites() {
+  try { return JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]'); } catch (e) { return []; }
+}
+function saveFavoritesList(list) {
+  try { localStorage.setItem(FAVORITES_KEY, JSON.stringify(list)); } catch (e) {}
+}
+function renderFavorites() {
+  const favorites = loadFavorites();
+  const el = document.getElementById('favoritePalette');
+  el.innerHTML = '';
+  for (const hex of favorites) {
+    const wrap = document.createElement('span');
+    wrap.style.position = 'relative';
+    const b = document.createElement('button');
+    b.style.background = hex;
+    b.title = hex + ' (click to use, shift-click to remove)';
+    b.addEventListener('click', (e) => {
+      if (e.shiftKey) {
+        saveFavoritesList(loadFavorites().filter((h) => h !== hex));
+        renderFavorites();
+      } else {
+        setColor(hex);
+      }
+    });
+    wrap.appendChild(b);
+    el.appendChild(wrap);
+  }
+}
+document.getElementById('pinColorBtn').addEventListener('click', () => {
+  const favorites = loadFavorites();
+  if (!favorites.includes(currentColor)) {
+    favorites.push(currentColor);
+    saveFavoritesList(favorites);
+    renderFavorites();
+  }
+});
+
+// ---- Named saved skin slots (separate from the single auto-save) ----
+const SLOTS_KEY = 'skindesigner-avatar-pixel-editor-slots-v1';
+function loadSlots() {
+  try { return JSON.parse(localStorage.getItem(SLOTS_KEY) || '[]'); } catch (e) { return []; }
+}
+function saveSlotsList(slots) {
+  try { localStorage.setItem(SLOTS_KEY, JSON.stringify(slots)); } catch (e) {}
+}
+function renderSlots() {
+  const slots = loadSlots();
+  const row = document.getElementById('slotsRow');
+  row.innerHTML = '';
+  row.style.display = slots.length ? 'flex' : 'none';
+  if (!slots.length) return;
+  const label = document.createElement('label');
+  label.className = 'small'; label.textContent = 'Saved:';
+  row.appendChild(label);
+  slots.forEach((slot, i) => {
+    const card = document.createElement('div');
+    card.className = 'slot-card';
+
+    const thumb = document.createElement('img');
+    thumb.src = slot.dataUrl;
+    thumb.alt = slot.name;
+    thumb.title = 'Load this saved skin';
+    thumb.style.cursor = 'pointer';
+
+    const loadBtn = document.createElement('button');
+    loadBtn.className = 'tbtn'; loadBtn.textContent = slot.name; loadBtn.title = 'Load this saved skin';
+    loadBtn.style.fontWeight = '600';
+
+    const loadSlot = () => {
+      pushUndo();
+      const img = new Image();
+      img.onload = () => {
+        atlasCtx.clearRect(0, 0, 64, 64);
+        atlasCtx.imageSmoothingEnabled = false;
+        atlasCtx.drawImage(img, 0, 0);
+        syncAfterEdit();
+        scheduleSave();
+      };
+      img.src = slot.dataUrl;
+    };
+    thumb.addEventListener('click', loadSlot);
+    loadBtn.addEventListener('click', loadSlot);
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'tbtn'; delBtn.textContent = '×'; delBtn.title = 'Delete this saved slot';
+    delBtn.addEventListener('click', () => {
+      const cur = loadSlots();
+      cur.splice(i, 1);
+      saveSlotsList(cur);
+      renderSlots();
+    });
+
+    card.appendChild(thumb);
+    card.appendChild(loadBtn);
+    card.appendChild(delBtn);
+    row.appendChild(card);
+  });
+}
+document.getElementById('saveSlotBtn').addEventListener('click', () => {
+  const nameInput = document.getElementById('slotName');
+  const slots = loadSlots();
+  const name = nameInput.value.trim() || ('Skin ' + (slots.length + 1));
+  slots.push({ name, dataUrl: atlasSrc.toDataURL('image/png'), savedAt: Date.now() });
+  saveSlotsList(slots);
+  nameInput.value = '';
+  renderSlots();
+});
+
+// ---- Shareable link - the whole skin encoded straight into the URL ----
+function buildShareUrl() {
+  const dataUrl = atlasSrc.toDataURL('image/png');
+  const b64 = dataUrl.split(',')[1];
+  return location.origin + location.pathname + '#skin=' + b64;
+}
+function showShareLink() {
+  const url = buildShareUrl();
+  const input = document.getElementById('shareLinkInput');
+  input.value = url;
+  document.getElementById('shareOverlay').hidden = false;
+  navigator.clipboard?.writeText(url).catch(() => {});
+  input.focus(); input.select();
+}
+document.getElementById('shareLinkBtn').addEventListener('click', showShareLink);
+document.getElementById('shareCopyAgainBtn').addEventListener('click', () => {
+  const input = document.getElementById('shareLinkInput');
+  input.focus(); input.select();
+  navigator.clipboard?.writeText(input.value).catch(() => {});
+});
+document.getElementById('shareCloseBtn').addEventListener('click', () => {
+  document.getElementById('shareOverlay').hidden = true;
+});
+
+// ---- Shared paint state ----
+let currentColor = '#FFFFFF';
+let brushSize = 1;
+let currentTool = 'pencil'; // 'pencil' | 'eraser' | 'fill' | 'eyedrop' | 'line' | 'rect' | 'select'
+let gridOn = true;
+let mirrorOn = false;
+let mirrorFBOn = false;
+let showBodyLayer = true;
+// Off by default so a fresh start paints the body - turning Outer Layer
+// on shows the hat/jacket shell (as its own grid) and makes it paintable.
+let showOverlayLayer = false;
+const hiddenParts = new Set(); // boxKeys currently hidden from the 3D preview
+
+// Every mirror point that's currently active for a given source pixel -
+// L/R alone, F/B alone, or both together (up to 3 extra points).
+function mirrorPoints(px, py) {
+  const pts = [];
+  let lr = null;
+  if (mirrorOn) { lr = mirrorPixel(px, py); if (lr) pts.push(lr); }
+  if (mirrorFBOn) { const fb = mirrorPixelFrontBack(px, py); if (fb) pts.push(fb); }
+  if (mirrorOn && mirrorFBOn && lr) {
+    const both = mirrorPixelFrontBack(lr.x, lr.y);
+    if (both && !(both.x === px && both.y === py)) pts.push(both);
+  }
+  return pts;
+}
+document.getElementById('mirrorBtn').addEventListener('click', () => {
+  mirrorOn = !mirrorOn;
+  document.getElementById('mirrorBtn').classList.toggle('active', mirrorOn);
+});
+document.getElementById('mirrorFBBtn').addEventListener('click', () => {
+  mirrorFBOn = !mirrorFBOn;
+  document.getElementById('mirrorFBBtn').classList.toggle('active', mirrorFBOn);
+});
+
+function setColor(hex) {
+  currentColor = hex;
+  document.getElementById('colorWell').value = hex;
+  document.getElementById('colorHex').value = hex;
+}
+document.getElementById('colorWell').addEventListener('input', (e) => setColor(e.target.value));
+document.getElementById('colorHex').addEventListener('change', (e) => {
+  const v = e.target.value.trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(v)) setColor(v); else e.target.value = currentColor;
+});
+
+const TOOL_BUTTON_IDS = { pencil: 'toolPencil', eraser: 'toolEraser', fill: 'toolFill', eyedrop: 'toolEyedrop', line: 'toolLine', rect: 'toolRect', select: 'toolSelect' };
+function setTool(tool) {
+  currentTool = tool;
+  for (const t in TOOL_BUTTON_IDS) document.getElementById(TOOL_BUTTON_IDS[t]).classList.toggle('active', t === tool);
+}
+document.getElementById('toolPencil').addEventListener('click', () => setTool('pencil'));
+document.getElementById('toolEraser').addEventListener('click', () => setTool('eraser'));
+document.getElementById('toolFill').addEventListener('click', () => setTool('fill'));
+document.getElementById('toolEyedrop').addEventListener('click', () => setTool('eyedrop'));
+document.getElementById('toolLine').addEventListener('click', () => setTool('line'));
+document.getElementById('toolRect').addEventListener('click', () => setTool('rect'));
+document.getElementById('toolSelect').addEventListener('click', () => setTool('select'));
+
+function setBrush(n) {
+  brushSize = n;
+  document.getElementById('brush1').classList.toggle('active', n === 1);
+  document.getElementById('brush3').classList.toggle('active', n === 3);
+}
+document.getElementById('brush1').addEventListener('click', () => setBrush(1));
+document.getElementById('brush3').addEventListener('click', () => setBrush(3));
+
+function applyToolAt(px, py) {
+  if (currentTool === 'eraser') erasePixel(px, py); else paintPixel(px, py, currentColor);
+  for (const mp of mirrorPoints(px, py)) {
+    if (currentTool === 'eraser') erasePixel(mp.x, mp.y); else paintPixel(mp.x, mp.y, currentColor);
+  }
+}
+function applyBrush(px, py) {
+  const half = Math.floor(brushSize / 2);
+  for (let oy = -half; oy <= half; oy++) {
+    for (let ox = -half; ox <= half; ox++) applyToolAt(px + ox, py + oy);
+  }
+}
+function applyFillAt(px, py) {
+  floodFill(px, py, currentColor);
+  for (const mp of mirrorPoints(px, py)) floodFill(mp.x, mp.y, currentColor);
+}
+
+// Whole-skin recolor - hue rotate and brightness step, applied to every
+// painted (non-transparent) pixel at once. Undo-able like any other edit.
+function rgbToHsl(r, g, b) {
+  r/=255; g/=255; b/=255;
+  const max = Math.max(r,g,b), min = Math.min(r,g,b);
+  let h = 0, s = 0; const l = (max+min)/2;
+  if (max !== min) {
+    const d = max-min;
+    s = l > 0.5 ? d/(2-max-min) : d/(max+min);
+    if (max === r) h = (g-b)/d + (g < b ? 6 : 0);
+    else if (max === g) h = (b-r)/d + 2;
+    else h = (r-g)/d + 4;
+    h *= 60;
+  }
+  return [h, s, l];
+}
+function hslToRgb(h, s, l) {
+  h = ((h % 360) + 360) % 360;
+  if (s === 0) { const v = Math.round(l*255); return [v,v,v]; }
+  const hue2rgb = (p, q, t) => {
+    if (t < 0) t += 1; if (t > 1) t -= 1;
+    if (t < 1/6) return p + (q-p)*6*t;
+    if (t < 1/2) return q;
+    if (t < 2/3) return p + (q-p)*(2/3-t)*6;
+    return p;
+  };
+  const q = l < 0.5 ? l*(1+s) : l+s-l*s;
+  const p = 2*l-q;
+  const hn = h/360;
+  return [
+    Math.round(hue2rgb(p,q,hn+1/3)*255),
+    Math.round(hue2rgb(p,q,hn)*255),
+    Math.round(hue2rgb(p,q,hn-1/3)*255),
+  ];
+}
+function recolorWholeSkin(hueDeg, lightAmt) {
+  const img = atlasCtx.getImageData(0, 0, 64, 64);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i+3] === 0) continue;
+    const [h, s, l] = rgbToHsl(d[i], d[i+1], d[i+2]);
+    const [r2, g2, b2] = hslToRgb(h + hueDeg, s, Math.max(0, Math.min(1, l + lightAmt/255)));
+    d[i] = r2; d[i+1] = g2; d[i+2] = b2;
+  }
+  atlasCtx.putImageData(img, 0, 0);
+}
+function recolorStep(hueDeg, lightAmt) {
+  pushUndo();
+  recolorWholeSkin(hueDeg, lightAmt);
+  syncAfterEdit();
+  scheduleSave();
+}
+document.getElementById('hueMinusBtn').addEventListener('click', () => recolorStep(-30, 0));
+document.getElementById('huePlusBtn').addEventListener('click', () => recolorStep(30, 0));
+document.getElementById('lighterBtn').addEventListener('click', () => recolorStep(0, 24));
+document.getElementById('darkerBtn').addEventListener('click', () => recolorStep(0, -24));
+
+// Line/Rect tool - live drag preview + final pixel list, shared by both
+// the render2d preview overlay and the actual paint-on-release.
+let shapePreview = null;
+function shapePixels(shape) {
+  const { tool, x0, y0, x1, y1 } = shape;
+  const pts = [];
+  if (tool === 'rect') {
+    const xa = Math.min(x0,x1), xb = Math.max(x0,x1), ya = Math.min(y0,y1), yb = Math.max(y0,y1);
+    for (let y = ya; y <= yb; y++) for (let x = xa; x <= xb; x++) pts.push({ x, y });
+  } else { // line - Bresenham
+    let x = x0, y = y0;
+    const dx = Math.abs(x1-x0), sx = x0 < x1 ? 1 : -1;
+    const dy = -Math.abs(y1-y0), sy = y0 < y1 ? 1 : -1;
+    let err = dx + dy;
+    while (true) {
+      pts.push({ x, y });
+      if (x === x1 && y === y1) break;
+      const e2 = 2*err;
+      if (e2 >= dy) { err += dy; x += sx; }
+      if (e2 <= dx) { err += dx; y += sy; }
+    }
+  }
+  return pts;
+}
+
+// Rectangular marquee selection - {x0,y0,x1,y1} inclusive pixel bounds, or
+// null. Dragging fresh (outside the current selection, or with none yet)
+// starts a new one; dragging inside an existing one moves it. Copy/Flip H/
+// Flip V operate on whatever's selected.
+let selection = null;
+let selDragMode = null; // 'new' | 'move' | null, only meaningful mid-drag
+let selNewStart = null;
+let selMoveAnchor = null;
+let selMoveOrigin = null;
+let selMoveBuffer = null;
+let selMoveDrawAt = null;
+let selNewCurrent = null;
+function selPreviewBounds() {
+  if (!selNewStart) return null;
+  return {
+    x0: Math.min(selNewStart.x, selNewCurrent.x), y0: Math.min(selNewStart.y, selNewCurrent.y),
+    x1: Math.max(selNewStart.x, selNewCurrent.x), y1: Math.max(selNewStart.y, selNewCurrent.y),
+  };
+}
+function updateSelectionActionsVisibility() {
+  document.getElementById('selectionActions').style.display = selection ? 'flex' : 'none';
+}
+
+function handlePixelClick(x, y) {
+  if (currentTool === 'eyedrop') { handleEyedrop(x, y); return; }
+  if (currentTool === 'fill') { pushUndo(); applyFillAt(x, y); syncAfterEdit(); scheduleSave(); return; }
+  pushUndo();
+  applyBrush(x, y);
+  syncAfterEdit();
+  scheduleSave();
+}
+function handleEyedrop(x, y) {
+  const d = atlasCtx.getImageData(x, y, 1, 1).data;
+  if (d[3] === 0) return; // transparent, nothing to sample
+  setColor(rgbToHex(d[0], d[1], d[2]));
+  setTool('pencil');
+}
+
+document.getElementById('gridBtn').addEventListener('click', () => {
+  gridOn = !gridOn;
+  gridTextureDirty = true;
+  document.getElementById('gridBtn').classList.toggle('active', gridOn);
+  render2d();
+});
+document.getElementById('undoBtn').addEventListener('click', () => {
+  const prev = undoStack.pop();
+  if (prev) {
+    redoStack.push(atlasCtx.getImageData(0, 0, 64, 64));
+    atlasCtx.putImageData(prev, 0, 0);
+    syncAfterEdit();
+    scheduleSave();
+  }
+  document.getElementById('undoBtn').disabled = undoStack.length === 0;
+  document.getElementById('redoBtn').disabled = redoStack.length === 0;
+});
+document.getElementById('redoBtn').addEventListener('click', () => {
+  const next = redoStack.pop();
+  if (next) {
+    undoStack.push(atlasCtx.getImageData(0, 0, 64, 64));
+    atlasCtx.putImageData(next, 0, 0);
+    syncAfterEdit();
+    scheduleSave();
+  }
+  document.getElementById('redoBtn').disabled = redoStack.length === 0;
+  document.getElementById('undoBtn').disabled = undoStack.length === 0;
+});
+
+// Keyboard shortcuts - skipped entirely while focus is in a text field so
+// typing a hex code never gets hijacked.
+const KEY_TOOL_MAP = { p: 'pencil', e: 'eraser', f: 'fill', i: 'eyedrop', l: 'line', r: 'rect', s: 'select' };
+document.addEventListener('keydown', (e) => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea') return;
+  if (e.metaKey || e.ctrlKey) {
+    if (e.key.toLowerCase() === 'z') { e.preventDefault(); document.getElementById(e.shiftKey ? 'redoBtn' : 'undoBtn').click(); }
+    return;
+  }
+  const k = e.key.toLowerCase();
+  if (KEY_TOOL_MAP[k]) { setTool(KEY_TOOL_MAP[k]); return; }
+  if (k === 'm') document.getElementById('mirrorBtn').click();
+  else if (k === 'g') document.getElementById('gridBtn').click();
+});
+
+// ---- 2D flat texture view (zoomable grid, click/drag to paint) ----
+const canvas2d = document.getElementById('atlas2d');
+const ctx2d = canvas2d.getContext('2d');
+let zoomPx = 9;
+function resize2d() {
+  canvas2d.width = 64 * zoomPx;
+  canvas2d.height = 64 * zoomPx;
+  const ref = document.getElementById('referenceImg');
+  ref.style.width = canvas2d.width + 'px';
+  ref.style.height = canvas2d.height + 'px';
+}
+function render2d() {
+  ctx2d.imageSmoothingEnabled = false;
+  ctx2d.clearRect(0, 0, canvas2d.width, canvas2d.height);
+  ctx2d.drawImage(atlasSrc, 0, 0, 64, 64, 0, 0, canvas2d.width, canvas2d.height);
+  ctx2d.fillStyle = 'rgba(0,0,0,0.55)';
+  for (let py = 0; py < 64; py++) {
+    for (let px = 0; px < 64; px++) {
+      if (!isUsedPixel(px, py)) ctx2d.fillRect(px*zoomPx, py*zoomPx, zoomPx, zoomPx);
+    }
+  }
+  if (gridOn && zoomPx >= 6) {
+    ctx2d.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx2d.lineWidth = 1;
+    for (let i = 0; i <= 64; i++) {
+      ctx2d.beginPath(); ctx2d.moveTo(i*zoomPx+0.5, 0); ctx2d.lineTo(i*zoomPx+0.5, canvas2d.height); ctx2d.stroke();
+      ctx2d.beginPath(); ctx2d.moveTo(0, i*zoomPx+0.5); ctx2d.lineTo(canvas2d.width, i*zoomPx+0.5); ctx2d.stroke();
+    }
+  }
+  if (shapePreview) {
+    ctx2d.fillStyle = 'rgba(255,255,255,0.55)';
+    for (const { x, y } of shapePixels(shapePreview)) ctx2d.fillRect(x*zoomPx, y*zoomPx, zoomPx, zoomPx);
+  }
+  // Selection marquee - a dashed outline, never painted into the atlas
+  // itself. While a move-drag is in flight, the lifted pixels are drawn as
+  // a live floating preview at their current drag position instead of
+  // their committed one.
+  const selBounds = selDragMode === 'new' && selNewStart ? selPreviewBounds() : selection;
+  if (selBounds) {
+    const { x0, y0, x1, y1 } = selBounds;
+    ctx2d.save();
+    ctx2d.strokeStyle = '#ffffff';
+    ctx2d.lineWidth = 1.5;
+    ctx2d.setLineDash([4, 3]);
+    ctx2d.strokeRect(x0*zoomPx+0.75, y0*zoomPx+0.75, (x1-x0+1)*zoomPx-1.5, (y1-y0+1)*zoomPx-1.5);
+    ctx2d.restore();
+  }
+  if (selDragMode === 'move' && selMoveBuffer && selMoveDrawAt) {
+    ctx2d.imageSmoothingEnabled = false;
+    ctx2d.save();
+    ctx2d.globalAlpha = 0.85;
+    const tmp = document.createElement('canvas');
+    tmp.width = selMoveBuffer.width; tmp.height = selMoveBuffer.height;
+    tmp.getContext('2d').putImageData(selMoveBuffer, 0, 0);
+    ctx2d.drawImage(tmp, selMoveDrawAt.x*zoomPx, selMoveDrawAt.y*zoomPx, selMoveBuffer.width*zoomPx, selMoveBuffer.height*zoomPx);
+    ctx2d.restore();
+  }
+}
+function pixelAt2D(clientX, clientY) {
+  const rect = canvas2d.getBoundingClientRect();
+  const scaleX = canvas2d.width / rect.width, scaleY = canvas2d.height / rect.height;
+  const x = Math.floor(((clientX-rect.left)*scaleX) / zoomPx);
+  const y = Math.floor(((clientY-rect.top)*scaleY) / zoomPx);
+  if (x < 0 || y < 0 || x >= 64 || y >= 64) return null;
+  return { x, y };
+}
+document.getElementById('zoomRange').addEventListener('input', (e) => {
+  zoomPx = parseInt(e.target.value, 10);
+  document.getElementById('zoomLabel').textContent = zoomPx + 'x';
+  resize2d(); render2d();
+});
+
+let painting2d = false;
+let shaping2d = false;
+canvas2d.addEventListener('pointerdown', (e) => {
+  const px = pixelAt2D(e.clientX, e.clientY);
+  if (!px) return;
+  if (currentTool === 'eyedrop') { handleEyedrop(px.x, px.y); return; }
+  if (currentTool === 'fill') { pushUndo(); applyFillAt(px.x, px.y); syncAfterEdit(); scheduleSave(); return; }
+  if (currentTool === 'select') {
+    const inside = selection && px.x >= selection.x0 && px.x <= selection.x1 && px.y >= selection.y0 && px.y <= selection.y1;
+    if (inside) {
+      pushUndo(); // covers the whole move as one undo step
+      const w = selection.x1 - selection.x0 + 1, h = selection.y1 - selection.y0 + 1;
+      selMoveBuffer = atlasCtx.getImageData(selection.x0, selection.y0, w, h);
+      atlasCtx.clearRect(selection.x0, selection.y0, w, h);
+      selDragMode = 'move';
+      selMoveAnchor = px;
+      selMoveOrigin = { x0: selection.x0, y0: selection.y0 };
+      selMoveDrawAt = { x: selection.x0, y: selection.y0 };
+    } else {
+      selDragMode = 'new';
+      selNewStart = px;
+      selNewCurrent = px;
+    }
+    render2d();
+    canvas2d.setPointerCapture(e.pointerId);
+    return;
+  }
+  if (currentTool === 'line' || currentTool === 'rect') {
+    shaping2d = true;
+    shapePreview = { tool: currentTool, x0: px.x, y0: px.y, x1: px.x, y1: px.y };
+    render2d();
+    canvas2d.setPointerCapture(e.pointerId);
+    return;
+  }
+  painting2d = true;
+  pushUndo();
+  applyBrush(px.x, px.y);
+  syncAfterEdit();
+  canvas2d.setPointerCapture(e.pointerId);
+});
+canvas2d.addEventListener('pointermove', (e) => {
+  const px = pixelAt2D(e.clientX, e.clientY);
+  if (!px) return;
+  if (selDragMode === 'new') { selNewCurrent = px; render2d(); return; }
+  if (selDragMode === 'move' && selMoveBuffer) {
+    const dx = px.x - selMoveAnchor.x, dy = px.y - selMoveAnchor.y;
+    const w = selMoveBuffer.width, h = selMoveBuffer.height;
+    selMoveDrawAt = {
+      x: Math.max(0, Math.min(64 - w, selMoveOrigin.x0 + dx)),
+      y: Math.max(0, Math.min(64 - h, selMoveOrigin.y0 + dy)),
+    };
+    render2d();
+    return;
+  }
+  if (shaping2d && shapePreview) { shapePreview.x1 = px.x; shapePreview.y1 = px.y; render2d(); return; }
+  if (!painting2d) return;
+  applyBrush(px.x, px.y);
+  syncAfterEdit();
+});
+canvas2d.addEventListener('pointerup', () => {
+  if (selDragMode === 'new') {
+    selection = selPreviewBounds();
+    selDragMode = null; selNewStart = null; selNewCurrent = null;
+    updateSelectionActionsVisibility();
+    render2d();
+    return;
+  }
+  if (selDragMode === 'move' && selMoveBuffer) {
+    atlasCtx.putImageData(selMoveBuffer, selMoveDrawAt.x, selMoveDrawAt.y);
+    selection = { x0: selMoveDrawAt.x, y0: selMoveDrawAt.y, x1: selMoveDrawAt.x + selMoveBuffer.width - 1, y1: selMoveDrawAt.y + selMoveBuffer.height - 1 };
+    selDragMode = null; selMoveBuffer = null; selMoveDrawAt = null;
+    updateSelectionActionsVisibility();
+    syncAfterEdit();
+    scheduleSave();
+    return;
+  }
+  if (shaping2d && shapePreview) {
+    pushUndo();
+    for (const { x, y } of shapePixels(shapePreview)) {
+      paintPixel(x, y, currentColor);
+      if (mirrorOn) { const mp = mirrorPixel(x, y); if (mp) paintPixel(mp.x, mp.y, currentColor); }
+    }
+    shapePreview = null;
+    shaping2d = false;
+    syncAfterEdit();
+    scheduleSave();
+    return;
+  }
+  if (painting2d) scheduleSave();
+  painting2d = false;
+});
+
+document.getElementById('selCopyBtn').addEventListener('click', () => {
+  if (!selection) return;
+  const w = selection.x1 - selection.x0 + 1, h = selection.y1 - selection.y0 + 1;
+  const buf = atlasCtx.getImageData(selection.x0, selection.y0, w, h);
+  const nx = Math.min(64 - w, selection.x0 + 2), ny = Math.min(64 - h, selection.y0 + 2);
+  pushUndo();
+  atlasCtx.putImageData(buf, nx, ny);
+  selection = { x0: nx, y0: ny, x1: nx + w - 1, y1: ny + h - 1 };
+  syncAfterEdit();
+  scheduleSave();
+});
+function flipSelection(horizontal) {
+  if (!selection) return;
+  const w = selection.x1 - selection.x0 + 1, h = selection.y1 - selection.y0 + 1;
+  const buf = atlasCtx.getImageData(selection.x0, selection.y0, w, h);
+  const out = atlasCtx.createImageData(w, h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const sx = horizontal ? (w - 1 - x) : x;
+      const sy = horizontal ? y : (h - 1 - y);
+      const si = (sy * w + sx) * 4, di = (y * w + x) * 4;
+      out.data[di] = buf.data[si]; out.data[di+1] = buf.data[si+1];
+      out.data[di+2] = buf.data[si+2]; out.data[di+3] = buf.data[si+3];
+    }
+  }
+  pushUndo();
+  atlasCtx.putImageData(out, selection.x0, selection.y0);
+  syncAfterEdit();
+  scheduleSave();
+}
+document.getElementById('selFlipHBtn').addEventListener('click', () => flipSelection(true));
+document.getElementById('selFlipVBtn').addEventListener('click', () => flipSelection(false));
+document.getElementById('selClearBtn').addEventListener('click', () => {
+  selection = null;
+  updateSelectionActionsVisibility();
+  render2d();
+});
+
+// ---- 3D scene ----
+const canvas = document.getElementById('stage3d');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 300);
+camera.position.set(0, 22, 58);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+const keyLight = new THREE.DirectionalLight(0xffffff, 1.1);
+keyLight.position.set(20, 40, 30);
+scene.add(keyLight);
+const rimLight = new THREE.DirectionalLight(0x9fc9ff, 0.4);
+rimLight.position.set(-20, 10, -30);
+scene.add(rimLight);
+
+const controls = new OrbitControls(camera, canvas);
+controls.target.set(0, 14, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.enablePan = false;
+controls.minDistance = 22;
+controls.maxDistance = 130;
+controls.minPolarAngle = 0.05;
+controls.maxPolarAngle = Math.PI - 0.05;
+controls.update();
+
+const characterGroup = buildCharacter(texture);
+scene.add(characterGroup);
+
+// Camera view-preset snaps - unlike the old hand-projected renderer,
+// real Three.js has no degenerate angle at exactly 90 degrees (that was
+// a workaround for the old software rasterizer's own sorting bug, not a
+// real geometric constraint), so these snap to the exact angle instead
+// of nudging off it. Keeps whatever zoom distance the player already has.
+const VIEW_PRESETS = {
+  front: { azimuth: 0, polar: Math.PI/2 },
+  back: { azimuth: Math.PI, polar: Math.PI/2 },
+  left: { azimuth: -Math.PI/2, polar: Math.PI/2 },
+  right: { azimuth: Math.PI/2, polar: Math.PI/2 },
+  top: { azimuth: 0, polar: 0.06 },
+  bottom: { azimuth: 0, polar: Math.PI - 0.06 },
+};
+function snapToView(name) {
+  const v = VIEW_PRESETS[name];
+  const dist = camera.position.distanceTo(controls.target);
+  const x = controls.target.x + dist * Math.sin(v.polar) * Math.sin(v.azimuth);
+  const y = controls.target.y + dist * Math.cos(v.polar);
+  const z = controls.target.z + dist * Math.sin(v.polar) * Math.cos(v.azimuth);
+  camera.position.set(x, y, z);
+  camera.lookAt(controls.target);
+  controls.update();
+}
+document.getElementById('viewFrontBtn').addEventListener('click', () => snapToView('front'));
+document.getElementById('viewBackBtn').addEventListener('click', () => snapToView('back'));
+document.getElementById('viewLeftBtn').addEventListener('click', () => snapToView('left'));
+document.getElementById('viewRightBtn').addEventListener('click', () => snapToView('right'));
+document.getElementById('viewTopBtn').addEventListener('click', () => snapToView('top'));
+document.getElementById('viewBottomBtn').addEventListener('click', () => snapToView('bottom'));
+
+// Stage backdrop color picker - .stage-canvas-wrap's CSS background is
+// var(--accent) by default (see its own comment in <style>), which this
+// overrides with an inline style once the player actually picks a color.
+// Saved per-browser (not per-slot, unlike the skin atlas itself) since
+// it's a viewing preference, not part of the character - same
+// localStorage-preference pattern as setHighContrast below.
+const STAGE_BG_KEY = 'skindesigner-avatar-pixel-editor-stage-bg';
+const stageBgWell = document.getElementById('stageBgWell');
+const stageCanvasWrap = document.querySelector('.stage-canvas-wrap');
+function applyStageBg(hex) {
+  stageCanvasWrap.style.background = hex;
+  stageBgWell.value = hex;
+}
+let savedStageBg = null;
+try { savedStageBg = localStorage.getItem(STAGE_BG_KEY); } catch (e) {}
+if (savedStageBg) {
+  applyStageBg(savedStageBg);
+} else {
+  // No saved preference yet - start the swatch showing the theme's own
+  // current accent color (read as the literal authored string, e.g.
+  // "#d4a068" - CSS custom properties return as-authored, unlike a real
+  // background property which read-back converts to rgb(...)) so opening
+  // this for the first time shows no visible change until touched.
+  const themeAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  if (themeAccent) stageBgWell.value = themeAccent;
+}
+stageBgWell.addEventListener('input', () => {
+  applyStageBg(stageBgWell.value);
+  try { localStorage.setItem(STAGE_BG_KEY, stageBgWell.value); } catch (e) {}
+});
+
+// Body/Outer Layer + per-part show/hide - only changes what's VISIBLE
+// (and therefore clickable-to-paint, see the raycast filter below) in the
+// 3D preview; the flat 2D grid already shows both regions side by side
+// all the time, so it doesn't need a matching switch.
+function updateMeshVisibility() {
+  for (const mesh of characterGroup.children) {
+    const layerOn = mesh.userData.isOverlay ? showOverlayLayer : showBodyLayer;
+    mesh.visible = layerOn && !hiddenParts.has(mesh.userData.boxKey);
+  }
+}
+updateMeshVisibility();
+document.getElementById('layerBodyBtn').addEventListener('click', () => {
+  showBodyLayer = !showBodyLayer;
+  document.getElementById('layerBodyBtn').classList.toggle('active', showBodyLayer);
+  updateMeshVisibility();
+});
+document.getElementById('layerOuterBtn').addEventListener('click', () => {
+  showOverlayLayer = !showOverlayLayer;
+  document.getElementById('layerOuterBtn').classList.toggle('active', showOverlayLayer);
+  updateMeshVisibility();
+});
+for (const btn of document.querySelectorAll('#partToggleRow button[data-part]')) {
+  btn.addEventListener('click', () => {
+    const part = btn.dataset.part;
+    if (hiddenParts.has(part)) hiddenParts.delete(part); else hiddenParts.add(part);
+    btn.classList.toggle('active', !hiddenParts.has(part));
+    updateMeshVisibility();
+  });
+}
+
+function setHighContrast(on) {
+  document.body.classList.toggle('high-contrast', on);
+  document.getElementById('highContrastBtn').classList.toggle('active', on);
+  try { localStorage.setItem('skindesigner-avatar-pixel-editor-high-contrast', on ? '1' : '0'); } catch (e) {}
+}
+document.getElementById('highContrastBtn').addEventListener('click', () => {
+  setHighContrast(!document.body.classList.contains('high-contrast'));
+});
+try { if (localStorage.getItem('skindesigner-avatar-pixel-editor-high-contrast') === '1') setHighContrast(true); } catch (e) {}
+
+function resizeRenderer() {
+  const width = canvas.clientWidth, height = canvas.clientHeight;
+  if (width === 0 || height === 0) return;
+  renderer.setSize(width, height, false);
+  camera.aspect = width / height;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resizeRenderer);
+new ResizeObserver(resizeRenderer).observe(canvas);
+resizeRenderer();
+// Everything above this point (renderer/scene/camera/character/resize) is
+// set up and about to start rendering real frames - safe to swap the
+// "Loading 3D preview..." placeholder (see its own comment) for the
+// actual canvas now.
+const stageLoadingEl = document.getElementById('stageLoading');
+if (stageLoadingEl) stageLoadingEl.hidden = true;
+
+// Idle animation - a gentle full-body sway + bob, applied to the
+// character group itself (not the camera), so it layers on top of
+// whatever OrbitControls angle the player last left the camera at
+// instead of fighting their drag.
+let idleAnimOn = false;
+let idleTime = 0;
+document.getElementById('idleAnimBtn').addEventListener('click', () => {
+  idleAnimOn = !idleAnimOn;
+  document.getElementById('idleAnimBtn').classList.toggle('active', idleAnimOn);
+  if (!idleAnimOn) { characterGroup.rotation.y = 0; characterGroup.position.y = 0; }
+});
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  if (gridTextureDirty) redrawGridTexture();
+  if (idleAnimOn) {
+    idleTime += 1/60;
+    characterGroup.rotation.y = Math.sin(idleTime * 0.8) * 0.09;
+    characterGroup.position.y = Math.sin(idleTime * 1.6) * 0.6;
+  }
+  renderer.render(scene, camera);
+}
+animate();
+
+// Click (not drag) on the 3D model paints with the current tool - a real
+// raycast against the actual mesh geometry, using THREE's own built-in
+// interpolated UV at the hit point, converted straight back to an atlas
+// pixel (uv * 64). Runs alongside OrbitControls' own pointer handlers on
+// the same canvas without conflicting - each just tracks its own thing.
+const raycaster = new THREE.Raycaster();
+let pointerDownAt = null;
+let pointerMoved = false;
+canvas.addEventListener('pointerdown', (e) => {
+  pointerDownAt = { x: e.clientX, y: e.clientY };
+  pointerMoved = false;
+});
+canvas.addEventListener('pointermove', (e) => {
+  if (!pointerDownAt) return;
+  if (Math.abs(e.clientX - pointerDownAt.x) > 3 || Math.abs(e.clientY - pointerDownAt.y) > 3) pointerMoved = true;
+});
+canvas.addEventListener('pointerup', (e) => {
+  const wasClick = pointerDownAt && !pointerMoved;
+  pointerDownAt = null;
+  if (!wasClick) return;
+  const rect = canvas.getBoundingClientRect();
+  const ndc = new THREE.Vector2(
+    ((e.clientX - rect.left) / rect.width) * 2 - 1,
+    -((e.clientY - rect.top) / rect.height) * 2 + 1
+  );
+  raycaster.setFromCamera(ndc, camera);
+  // Three's raycaster doesn't itself skip invisible objects, so filter to
+  // only what Body/Outer Layer/per-part toggles currently show - matches
+  // the old tool's rule that hidden geometry isn't clickable either.
+  const hits = raycaster.intersectObjects(characterGroup.children.filter((m) => m.visible), false);
+  if (!hits.length) return;
+  // Outer Layer on = you're editing the shell: paint the outer layer even
+  // where it's still blank (its grid is what you're tapping). Off = the
+  // shell is hidden, so the nearest hit is always the body.
+  const chosen = (showOverlayLayer && hits.find((h) => h.object.userData.isOverlay)) || hits[0];
+  if (!chosen.uv) return;
+  const px = Math.floor(chosen.uv.x * 64), py = Math.floor(chosen.uv.y * 64);
+  handlePixelClick(px, py);
+});
+
+// ---- Import ----
+document.getElementById('importBtn').addEventListener('click', () => {
+  document.getElementById('importFile').click();
+});
+document.getElementById('importFile').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    pushUndo();
+    atlasCtx.clearRect(0, 0, 64, 64);
+    atlasCtx.imageSmoothingEnabled = false;
+    atlasCtx.drawImage(img, 0, 0, 64, 64);
+    syncAfterEdit();
+    scheduleSave();
+    URL.revokeObjectURL(url);
+  };
+  img.onerror = () => {
+    URL.revokeObjectURL(url);
+    alert("Couldn't load that image. Make sure it's a real image file.");
+  };
+  img.src = url;
+});
+
+document.getElementById('importUrlBtn').addEventListener('click', () => {
+  const url = document.getElementById('importUrlInput').value.trim();
+  if (!url) return;
+  const img = new Image();
+  // Only works if the remote server allows cross-origin reads (many
+  // don't) - crossOrigin='anonymous' asks nicely, but the real proof is
+  // whether a getImageData() read afterward throws (a "tainted canvas"),
+  // checked immediately so the failure is a clear message here instead of
+  // a confusing error the next time the skin is edited/saved.
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    pushUndo();
+    atlasCtx.clearRect(0, 0, 64, 64);
+    atlasCtx.imageSmoothingEnabled = false;
+    atlasCtx.drawImage(img, 0, 0, 64, 64);
+    try {
+      atlasCtx.getImageData(0, 0, 1, 1);
+    } catch (e) {
+      undoStack.pop();
+      atlasCtx.clearRect(0, 0, 64, 64);
+      if (undoStack.length) atlasCtx.putImageData(undoStack[undoStack.length - 1], 0, 0);
+      alert("That site doesn't allow loading its images into other pages, so this can't be edited. Try saving the image to your computer first and using Import Skin instead.");
+      return;
+    }
+    syncAfterEdit();
+    scheduleSave();
+  };
+  img.onerror = () => {
+    alert("Couldn't load an image from that address. Double-check the URL, or save it and use Import Skin instead.");
+  };
+  img.src = url;
+});
+
+// ---- Reference image overlay - a trace-over guide, never part of the
+// real skin. Sits behind atlas2d in the DOM so it shows through unpainted
+// pixels and gets covered by painted ones, same as tracing paper. ----
+document.getElementById('referenceBtn').addEventListener('click', () => {
+  document.getElementById('referenceFile').click();
+});
+document.getElementById('referenceFile').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  const refUrl = URL.createObjectURL(file);
+  const refImg = document.getElementById('referenceImg');
+  refImg.onload = () => URL.revokeObjectURL(refUrl);
+  refImg.src = refUrl;
+  refImg.hidden = false;
+  refImg.style.opacity = document.getElementById('referenceOpacity').value / 100;
+  document.getElementById('referenceClearBtn').style.display = '';
+});
+document.getElementById('referenceOpacity').addEventListener('input', (e) => {
+  document.getElementById('referenceImg').style.opacity = e.target.value / 100;
+});
+document.getElementById('referenceClearBtn').addEventListener('click', () => {
+  const refImg = document.getElementById('referenceImg');
+  refImg.hidden = true;
+  refImg.src = '';
+  document.getElementById('referenceClearBtn').style.display = 'none';
+});
+
+// ---- Send to GayZ ----
+// Embedded inside GayZ (its Design a Skin panel): hand the PNG straight to
+// the game already open around us (see Game.js's
+// _bindSkinDesignerMessages) - opening a second game tab here is how
+// skins got lost on phones. The skin isn't private, so '*' is fine as the
+// target; the game checks the message really came from this site.
+// Standalone visit: open gayz.vercel.app with the PNG in a ?importskin=
+// query param instead (see Game.js's _checkImportSkinCode).
+document.getElementById('sendToGayzBtn').addEventListener('click', () => {
+  const dataUrl = atlasSrc.toDataURL('image/png');
+  if (window.parent !== window) {
+    window.parent.postMessage({ type: 'gayz-import-skin', dataUrl }, '*');
+    return;
+  }
+  const b64 = dataUrl.split(',')[1];
+  window.open(location.origin + '/?importskin=' + encodeURIComponent(b64), '_blank');
+});
+
+// ---- Start-from templates ----
+function loadImageInto(dataUrl, alsoForgetAutosave) {
+  pushUndo();
+  if (alsoForgetAutosave) { try { localStorage.removeItem(slotStorageKey(currentSlot)); } catch (e) {} }
+  const img = new Image();
+  img.onload = () => {
+    atlasCtx.clearRect(0, 0, 64, 64);
+    atlasCtx.imageSmoothingEnabled = false;
+    atlasCtx.drawImage(img, 0, 0);
+    syncAfterEdit();
+    scheduleSave();
+  };
+  img.src = dataUrl;
+}
+document.getElementById('templateClassicBtn').addEventListener('click', () => loadImageInto(CLASSIC_SKIN_DATA_URL));
+document.getElementById('resetBtn').addEventListener('click', () => loadImageInto(SKIN_DATA_URL, true));
+document.getElementById('clearBtn').addEventListener('click', () => {
+  pushUndo();
+  atlasCtx.clearRect(0, 0, 64, 64);
+  syncAfterEdit();
+  scheduleSave();
+});
+
+// ---- Download ----
+function showExportOverlay(dataUrl, filename, note) {
+  document.getElementById('exportImg').src = dataUrl;
+  document.getElementById('exportDirectLink').href = dataUrl;
+  document.getElementById('exportDirectLink').download = filename;
+  document.getElementById('exportNote').innerHTML = note;
+  document.getElementById('exportOverlay').hidden = false;
+}
+document.getElementById('downloadBtn').addEventListener('click', () => {
+  showExportOverlay(
+    atlasSrc.toDataURL('image/png'),
+    'skin.png',
+    'Right-click (or press and hold on mobile) the image below and choose <b>Save Image As&hellip;</b> to download it as <code>skin.png</code>.'
+  );
+});
+document.getElementById('downloadBigBtn').addEventListener('click', () => {
+  const big = document.createElement('canvas');
+  big.width = 512; big.height = 512;
+  const bctx = big.getContext('2d');
+  bctx.imageSmoothingEnabled = false;
+  bctx.drawImage(atlasSrc, 0, 0, 512, 512);
+  showExportOverlay(
+    big.toDataURL('image/png'),
+    'skin-512x512.png',
+    'A 512&times;512 upscaled copy for printing or wallpaper - right-click (or press and hold on mobile) below and choose <b>Save Image As&hellip;</b>. Not usable as an actual game skin.png (wrong size for that).'
+  );
+});
+document.getElementById('exportCloseBtn').addEventListener('click', () => {
+  document.getElementById('exportOverlay').hidden = true;
+});
+document.getElementById('exportDirectLink').addEventListener('click', (e) => { e.target.download = 'skin.png'; });
+
+// ---- Auto-save to this browser, so a refresh doesn't lose work ----
+// One auto-save per slot (1-10, the bar at the top of the page). Slot 1
+// keeps the original single auto-save key, so whatever someone was
+// working on before slots existed simply becomes Slot 1.
+const STORAGE_KEY = 'skindesigner-avatar-pixel-editor-save-v1';
+const SLOT_COUNT = 10;
+const CURRENT_SLOT_KEY = 'skindesigner-avatar-pixel-editor-current-slot-v1';
+function slotStorageKey(n) {
+  return n === 1 ? STORAGE_KEY : 'skindesigner-avatar-pixel-editor-slot-' + n + '-v1';
+}
+let currentSlot = 1;
+try {
+  const n = parseInt(localStorage.getItem(CURRENT_SLOT_KEY), 10);
+  if (n >= 1 && n <= SLOT_COUNT) currentSlot = n;
+} catch (e) {}
+let saveTimer = null;
+function saveNow() {
+  clearTimeout(saveTimer);
+  try { localStorage.setItem(slotStorageKey(currentSlot), atlasSrc.toDataURL('image/png')); } catch (e) {}
+}
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(slotStorageKey(currentSlot), atlasSrc.toDataURL('image/png'));
+      const el = document.getElementById('saveIndicator');
+      el.classList.add('show');
+      clearTimeout(scheduleSave._hideTimer);
+      scheduleSave._hideTimer = setTimeout(() => el.classList.remove('show'), 1200);
+    } catch (e) {}
+  }, 300);
+}
+function loadInitialSkin() {
+  // An incoming share link wins over everything else - that's the whole
+  // point of opening it. #skin=<base64 png>, no data: prefix (saves
+  // characters in an already-long URL).
+  const hashMatch = location.hash.match(/#skin=(.+)/);
+  if (hashMatch) {
+    const img = new Image();
+    img.onload = () => {
+      atlasCtx.clearRect(0, 0, 64, 64);
+      atlasCtx.imageSmoothingEnabled = false;
+      atlasCtx.drawImage(img, 0, 0);
+      syncAfterEdit();
+      scheduleSave();
+    };
+    img.onerror = () => syncAfterEdit();
+    img.src = 'data:image/png;base64,' + hashMatch[1];
+    return;
+  }
+  let saved = null;
+  try { saved = localStorage.getItem(slotStorageKey(currentSlot)); } catch (e) {}
+  if (!saved) { syncAfterEdit(); return; }
+  const img = new Image();
+  img.onload = () => {
+    atlasCtx.clearRect(0, 0, 64, 64);
+    atlasCtx.imageSmoothingEnabled = false;
+    atlasCtx.drawImage(img, 0, 0);
+    syncAfterEdit();
+  };
+  img.onerror = () => syncAfterEdit();
+  img.src = saved;
+}
+
+// ---- Slot bar ----
+// Switching saves the slot being left right away (not on the usual 300ms
+// delay, which could otherwise land in the NEW slot), then loads the new
+// one - an empty slot starts blank. Undo/redo is per-session, not per-
+// slot, so it's cleared on switch rather than undoing into another skin.
+function renderSlotBar() {
+  const bar = document.getElementById('slotBar');
+  bar.querySelectorAll('button').forEach((b) => b.remove());
+  for (let n = 1; n <= SLOT_COUNT; n++) {
+    const btn = document.createElement('button');
+    btn.className = 'tbtn' + (n === currentSlot ? ' active' : '');
+    btn.textContent = String(n);
+    btn.title = 'Slot ' + n;
+    btn.setAttribute('aria-pressed', n === currentSlot ? 'true' : 'false');
+    btn.addEventListener('click', () => switchSlot(n));
+    bar.appendChild(btn);
+  }
+}
+function switchSlot(n) {
+  if (n === currentSlot) return;
+  saveNow();
+  currentSlot = n;
+  try { localStorage.setItem(CURRENT_SLOT_KEY, String(n)); } catch (e) {}
+  undoStack = [];
+  redoStack = [];
+  document.getElementById('undoBtn').disabled = true;
+  document.getElementById('redoBtn').disabled = true;
+  renderSlotBar();
+  let saved = null;
+  try { saved = localStorage.getItem(slotStorageKey(n)); } catch (e) {}
+  atlasCtx.clearRect(0, 0, 64, 64);
+  if (!saved) { syncAfterEdit(); return; }
+  const img = new Image();
+  img.onload = () => {
+    if (currentSlot !== n) return; // switched again before this finished loading
+    atlasCtx.imageSmoothingEnabled = false;
+    atlasCtx.drawImage(img, 0, 0);
+    syncAfterEdit();
+  };
+  img.onerror = () => syncAfterEdit();
+  img.src = saved;
+}
+
+resize2d();
+renderSlotBar();
+loadInitialSkin();
+renderSlots();
+renderFavorites();
+</script>
+</body>
+</html>
