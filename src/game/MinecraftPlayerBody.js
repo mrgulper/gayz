@@ -41,7 +41,6 @@ function _loadRemoteSkin(dataUrl) {
 const RAW_HEIGHT = 32 // head top (30) to feet (-2)
 const RAW_FEET_Y = -2
 const TARGET_HEIGHT = 1.85 // roughly matches EYE_HEIGHT (1.7) as ~92% of total height
-const SCALE = TARGET_HEIGHT / RAW_HEIGHT
 
 // Walk cycle - the character had no animation at all before this (a
 // static pose that just slid around), unlike PlayerBody.js's GLB model
@@ -87,15 +86,19 @@ function _disposeCharacterMesh(mesh) {
 }
 
 export class MinecraftPlayerBody {
-  constructor(scene) {
+  // height: total character height in world units - defaults to this
+  // game's own human scale; the map editor passes 2 blocks (Minecraft's
+  // size relative to its blocks).
+  constructor(scene, height = TARGET_HEIGHT) {
+    const scale = height / RAW_HEIGHT
     this.group = new THREE.Group()
     this.group.visible = false
     // Inner group carries the scale + feet-offset correction, so this.group's
     // own origin (what update() positions) always means "feet position",
     // same contract PlayerBody.update() already has.
     this._inner = new THREE.Group()
-    this._inner.scale.setScalar(SCALE)
-    this._inner.position.y = -RAW_FEET_Y * SCALE
+    this._inner.scale.setScalar(scale)
+    this._inner.position.y = -RAW_FEET_Y * scale
     // Built with the shared default skin immediately (never left empty
     // while a real skin loads) - setSkin() below swaps this out once this
     // player's own real skin (if any) comes back from the server.

@@ -8,6 +8,7 @@ import * as CloudSync from './CloudSync.js'
 import { BlockChunks, CHUNK } from './BlockChunks.js'
 import { blockFaceCanvases, blockIconURL, textureHasAlpha } from './BlockTextures.js'
 import { LightProxyPool, markLightSource } from './LightProxies.js'
+import { MinecraftPlayerBody } from './MinecraftPlayerBody.js'
 import { t } from './i18n.js'
 
 // GROUND_SIZE is a CELL count (not world units) - bumped up from 64, then
@@ -24,7 +25,27 @@ const GROUND_SIZE = 128
 // which multiplies GPU memory reserved per block type across all 71 types;
 // a smaller total buildable footprint is the safer tradeoff than that.
 const BLOCK_SIZE = 0.35
-const FLY_SPEED = 8
+// Minecraft / Kirka player proportions and speeds, in blocks (x BLOCK_SIZE
+// for world units) - 2026-09-29 report: "the blocks feel way bigger than
+// Kirka's". The editor used to be a free camera with no body: flown down
+// to the ground its eye sat about 1 block up (the old 1-block collision
+// sphere), so every block loomed. A Minecraft/Kirka player is 1.8 blocks
+// tall, 0.6 wide, eyes at 1.62 - these are those exact numbers.
+const PLAYER_WIDTH = 0.6 * BLOCK_SIZE
+const PLAYER_HEIGHT = 1.8 * BLOCK_SIZE
+const EYE_HEIGHT = 1.62 * BLOCK_SIZE
+const SNEAK_EYE_HEIGHT = 1.27 * BLOCK_SIZE
+const WALK_SPEED = 4.317 * BLOCK_SIZE
+const SPRINT_SPEED = 5.612 * BLOCK_SIZE
+const SNEAK_SPEED = 1.31 * BLOCK_SIZE
+const FLY_SPEED = 10.9 * BLOCK_SIZE
+const FLY_SPRINT_SPEED = 21.8 * BLOCK_SIZE
+const GRAVITY = 32 * BLOCK_SIZE
+const JUMP_SPEED = 9.3 * BLOCK_SIZE // ~1.25 blocks high, like Minecraft
+const MAX_FALL_SPEED = 78 * BLOCK_SIZE
+const WALK_ACCEL_LERP_SPEED = 14
+// Third-person camera distance (T key).
+const THIRD_PERSON_DISTANCE = 4 * BLOCK_SIZE
 // Movement used to snap straight to full speed the instant a key went down
 // and stop dead the instant it came up - velocity damps toward the target
 // speed instead (same THREE.MathUtils.damp technique WeaponSystem.js uses
@@ -67,12 +88,11 @@ const SAVE_SLOT_COUNT = 3
 // it eases toward whichever target is active, same THREE.MathUtils.damp
 // technique/units as FLY_ACCEL_LERP_SPEED below.
 const ZOOM_FOV = 20
-const NORMAL_FOV = 75
+const NORMAL_FOV = 70 // Minecraft's default
 const FOV_LERP_SPEED = 10
 // Free-fly still has no gravity (see spec's "why this shape" section) -
 // this radius only stops the camera from passing through a placed block,
 // treating the camera as a small sphere rather than a zero-size point.
-const COLLISION_RADIUS = 0.35
 // The ground layer sits one cell below the walkable surface (y=0) - a
 // block "at y" occupies the space from y to y+1, so a block at y=-1 has
 // its top face flush with y=0, matching where the old static ground mesh's
@@ -906,7 +926,18 @@ export class BuildMode {
     // 1-unit blocks read as small/distant the instant Build Mode opened,
     // since everything was seen from a bird's-eye vantage before the
     // player had a chance to fly down to a natural scale reference.
-    this.camera.position.set(0, 1.7, 10)
+    // Standing on the grass (top at y=0), a few blocks from the middle.
+    this.camera.position.set(BLOCK_SIZE / 2, EYE_HEIGHT, 8 * BLOCK_SIZE)
+    this.flying = false
+    this.thirdPerson = false
+    this._vy = 0
+    this._onGround = false
+    this._sprinting = false
+    this._lastWTapAt = 0
+    this._eyeHeight = EYE_HEIGHT
+    // Your own Minecraft character (GayZ default skin), Minecraft-sized:
+    // 2 blocks tall. Only visible in third person.
+    this._body = new MinecraftPlayerBody(this.scene, 2 * BLOCK_SIZE)
 
     // Free-fly input state - WASD + Space/Shift for up/down, mouse look
     // while pointer-locked. No gravity, no collision (see spec's "why this
@@ -958,10 +989,24 @@ export class BuildMode {
         this.pasteClipboard()
         return
       }
-      if (e.code === 'Space' && !e.repeat) {
+      if (e.code === 'KeyF' && !e.repeat) {
+        this.toggleFly()
+        return
+      }
+      if (e.code === 'KeyT' && !e.repeat) {
+        this.toggleThirdPerson()
+        return
+      }
+      if (e.code === 'Space' && !e.repeat && this.flying) {
         const now = performance.now()
         if (now - this._lastSpaceTapAt < DOUBLE_TAP_WINDOW_MS) this._hopUp()
         this._lastSpaceTapAt = now
+      }
+      // Double-tap W to sprint (until W is let go), like Minecraft.
+      if (e.code === 'KeyW' && !e.repeat) {
+        const now = performance.now()
+        if (now - this._lastWTapAt < DOUBLE_TAP_WINDOW_MS) this._sprinting = true
+        this._lastWTapAt = now
       }
       // "V" for a zoomed-in "look further" view (narrows FOV, doesn't
       // change render distance) - hold to zoom in, release to smoothly
@@ -973,7 +1018,10 @@ export class BuildMode {
       this._keys.add(e.code)
       if (MOVEMENT_KEY_CODES.has(e.code)) e.preventDefault()
     }
-    this._onKeyUp = (e) => this._keys.delete(e.code)
+    this._onKeyUp = (e) => {
+      this._keys.delete(e.code)
+      if (e.code === 'KeyW') this._sprinting = false
+    }
     this._onMouseMove = (e) => {
       if (document.pointerLockElement !== this.renderer.domElement) return
       this._yaw -= e.movementX * LOOK_SENSITIVITY
@@ -1185,6 +1233,12 @@ export class BuildMode {
 
     // Mirror toggle button (see toggleMirror) - the M key does the same
     // thing, this is just the discoverable/clickable equivalent.
+    // Fly / third person toggles (F / T keys do the same).
+    this._flyBtnEl = document.getElementById('build-mode-fly-btn')
+    if (this._flyBtnEl) this._flyBtnEl.addEventListener('click', () => this.toggleFly())
+    this._thirdPersonBtnEl = document.getElementById('build-mode-thirdperson-btn')
+    if (this._thirdPersonBtnEl) this._thirdPersonBtnEl.addEventListener('click', () => this.toggleThirdPerson())
+
     this._mirrorBtnEl = document.getElementById('build-mode-mirror-btn')
     if (this._mirrorBtnEl) this._mirrorBtnEl.addEventListener('click', () => this.toggleMirror())
 
@@ -1290,6 +1344,8 @@ export class BuildMode {
     if (this._menuEl) this._menuEl.style.display = 'none'
     this.load()
     this._renderSlots()
+    const pos = this.camera.position
+    this._moveToFreeSpot(pos.x, pos.y - this._eyeHeight, pos.z)
   }
 
   exit() {
@@ -1557,30 +1613,15 @@ export class BuildMode {
     if (this.mirrorMode) this.placeBlock(this._mirrorX(px), py, pz, this.selectedType)
   }
 
-  // Same 8-corner COLLISION_RADIUS-sphere technique _blockedAt uses for
-  // movement collision below, just checking the camera's OWN current
-  // position against the cell about to be placed into instead of an
-  // existing block - without this, placing a block right where you're
-  // standing (e.g. aiming down/behind yourself in a tight space) left you
-  // visibly clipped/stuck inside it afterward.
-  // Also checks the exact center position, not just the 8 corners - if
-  // COLLISION_RADIUS happens to equal (or exceed) BLOCK_SIZE, a camera
-  // sitting exactly on a cell boundary (e.g. the default spawn at x=0) has
-  // its corner offsets land a full cell over on either side, jumping clean
-  // over its own actual cell and missing it entirely. Caught via the
-  // default spawn position itself in testing, not a contrived case.
+  // True when cell (x, y, z) overlaps the player's body - placing a block
+  // there would trap you inside it.
   _wouldOverlapCamera(x, y, z) {
     const pos = this.camera.position
-    if (Math.floor(pos.x / BLOCK_SIZE) === x && Math.floor(pos.y / BLOCK_SIZE) === y && Math.floor(pos.z / BLOCK_SIZE) === z) return true
-    const r = COLLISION_RADIUS
-    for (const ox of [-r, r]) {
-      for (const oy of [-r, r]) {
-        for (const oz of [-r, r]) {
-          if (Math.floor((pos.x + ox) / BLOCK_SIZE) === x && Math.floor((pos.y + oy) / BLOCK_SIZE) === y && Math.floor((pos.z + oz) / BLOCK_SIZE) === z) return true
-        }
-      }
-    }
-    return false
+    const feetY = pos.y - this._eyeHeight
+    const hw = PLAYER_WIDTH / 2
+    return (x + 1) * BLOCK_SIZE > pos.x - hw && x * BLOCK_SIZE < pos.x + hw &&
+      (y + 1) * BLOCK_SIZE > feetY && y * BLOCK_SIZE < feetY + PLAYER_HEIGHT &&
+      (z + 1) * BLOCK_SIZE > pos.z - hw && z * BLOCK_SIZE < pos.z + hw
   }
 
   _removeFromCamera() {
@@ -2200,41 +2241,108 @@ export class BuildMode {
     this.camera.rotateY(this._yaw)
     this.camera.rotateX(this._pitch)
 
-    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion)
-    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion)
-    const inputDir = new THREE.Vector3()
-    if (this._keys.has('KeyW')) inputDir.add(forward)
-    if (this._keys.has('KeyS')) inputDir.sub(forward)
-    if (this._keys.has('KeyD')) inputDir.add(right)
-    if (this._keys.has('KeyA')) inputDir.sub(right)
-    if (this._keys.has('Space')) inputDir.y += 1
-    if (this._keys.has('ShiftLeft')) inputDir.y -= 1
-    if (inputDir.lengthSq() > 0) inputDir.normalize()
-    const targetVelocity = inputDir.multiplyScalar(FLY_SPEED)
-    this._velocity.x = THREE.MathUtils.damp(this._velocity.x, targetVelocity.x, FLY_ACCEL_LERP_SPEED, dt)
-    this._velocity.y = THREE.MathUtils.damp(this._velocity.y, targetVelocity.y, FLY_ACCEL_LERP_SPEED, dt)
-    this._velocity.z = THREE.MathUtils.damp(this._velocity.z, targetVelocity.z, FLY_ACCEL_LERP_SPEED, dt)
-    if (this._velocity.lengthSq() > 0.0001) {
-      const move = this._velocity.clone().multiplyScalar(dt)
-      // Axis-separated: resolve x, then y, then z independently rather than
-      // rejecting the whole move when any part of it hits a block - this is
-      // what lets the camera slide along a wall instead of stopping dead
-      // the moment it grazes one. Zeroing the blocked axis's velocity (not
-      // just skipping that frame's position update) keeps it from silently
-      // building up speed while pressed against a wall.
-      const pos = this.camera.position
-      if (!this._blockedAt(pos.x + move.x, pos.y, pos.z)) pos.x += move.x
-      else this._velocity.x = 0
-      if (!this._blockedAt(pos.x, pos.y + move.y, pos.z)) pos.y += move.y
-      else this._velocity.y = 0
-      if (!this._blockedAt(pos.x, pos.y, pos.z + move.z)) pos.z += move.z
-      else this._velocity.z = 0
+    // Walking moves on the ground plane only (looking up/down doesn't
+    // change your speed), like Minecraft; flying too, with Space/Shift
+    // for up/down.
+    const sinY = Math.sin(this._yaw)
+    const cosY = Math.cos(this._yaw)
+    let ix = 0
+    let iz = 0
+    if (this._keys.has('KeyW')) { ix -= sinY; iz -= cosY }
+    if (this._keys.has('KeyS')) { ix += sinY; iz += cosY }
+    if (this._keys.has('KeyD')) { ix += cosY; iz -= sinY }
+    if (this._keys.has('KeyA')) { ix -= cosY; iz += sinY }
+    const len = Math.hypot(ix, iz)
+    if (len > 0) { ix /= len; iz /= len }
+    if (!this._keys.has('KeyW')) this._sprinting = false
+    const sneaking = !this.flying && this._keys.has('ShiftLeft')
+    const speed = this.flying
+      ? (this._sprinting ? FLY_SPRINT_SPEED : FLY_SPEED)
+      : sneaking ? SNEAK_SPEED : this._sprinting ? SPRINT_SPEED : WALK_SPEED
+    const lerp = this.flying ? FLY_ACCEL_LERP_SPEED : WALK_ACCEL_LERP_SPEED
+    this._velocity.x = THREE.MathUtils.damp(this._velocity.x, ix * speed, lerp, dt)
+    this._velocity.z = THREE.MathUtils.damp(this._velocity.z, iz * speed, lerp, dt)
+
+    // Eye height eases down while sneaking.
+    const pos = this.camera.position
+    const targetEye = sneaking ? SNEAK_EYE_HEIGHT : EYE_HEIGHT
+    const feetY0 = pos.y - this._eyeHeight
+    this._eyeHeight = THREE.MathUtils.damp(this._eyeHeight, targetEye, 18, dt)
+
+    const inLiquid = this._bodyInLiquid(pos.x, feetY0, pos.z)
+    if (this.flying) {
+      const up = (this._keys.has('Space') ? 1 : 0) - (this._keys.has('ShiftLeft') ? 1 : 0)
+      this._vy = THREE.MathUtils.damp(this._vy, up * FLY_SPEED * 0.75, FLY_ACCEL_LERP_SPEED, dt)
+    } else if (inLiquid) {
+      // Swimming: slow sinking, hold Space to swim up.
+      this._vy = THREE.MathUtils.damp(this._vy, this._keys.has('Space') ? 3 * BLOCK_SIZE : -1.5 * BLOCK_SIZE, 6, dt)
+    } else {
+      if (this._keys.has('Space') && this._onGround) this._vy = JUMP_SPEED
+      this._vy = Math.max(this._vy - GRAVITY * dt, -MAX_FALL_SPEED)
     }
-    // No separate floor clamp needed anymore - the ground is now a real,
-    // breakable block layer (see _ensureGroundLayer), so _blockedAt above
-    // already stops the camera at solid ground the same way it stops it at
-    // any other placed block, and correctly lets it fly on through wherever
-    // that layer has been dug out.
+
+    // Move in small steps, one axis at a time, so you slide along walls
+    // and can never tunnel through a block at high speed.
+    let fx = pos.x
+    let fy = feetY0
+    let fz = pos.z
+    const mx = this._velocity.x * dt
+    const my = this._vy * dt
+    const mz = this._velocity.z * dt
+    const steps = Math.max(1, Math.ceil(Math.max(Math.abs(mx), Math.abs(my), Math.abs(mz)) / (0.2 * BLOCK_SIZE)))
+    this._onGround = false
+    let yBlocked = false
+    for (let i = 0; i < steps; i++) {
+      if (!this._bodyBlocked(fx + mx / steps, fy, fz)) fx += mx / steps
+      else this._velocity.x = 0
+      if (!this._bodyBlocked(fx, fy, fz + mz / steps)) fz += mz / steps
+      else this._velocity.z = 0
+      if (yBlocked) continue
+      const ny = fy + my / steps
+      if (!this._bodyBlocked(fx, ny, fz)) {
+        fy = ny
+      } else {
+        if (my < 0) {
+          // Landed: snap the feet exactly onto the block top below.
+          const snapped = Math.floor(ny / BLOCK_SIZE + 1) * BLOCK_SIZE
+          if (!this._bodyBlocked(fx, snapped, fz)) fy = snapped
+          this._onGround = true
+        }
+        this._vy = 0
+        yBlocked = true
+      }
+    }
+    // Still resting on something (not moving down this frame)?
+    if (!this._onGround && this._vy <= 0 && this._bodyBlocked(fx, fy - 0.01 * BLOCK_SIZE, fz)) this._onGround = true
+    // Fell out of the world: back to the spawn point.
+    if (fy < -64 * BLOCK_SIZE) {
+      fx = BLOCK_SIZE / 2
+      fy = 0
+      fz = 8 * BLOCK_SIZE
+      this._vy = 0
+      this._moveToFreeSpot(fx, fy, fz)
+      return
+    }
+    pos.set(fx, fy + this._eyeHeight, fz)
+  }
+
+  toggleFly() {
+    this.flying = !this.flying
+    this._vy = 0
+    if (this._flyBtnEl) this._flyBtnEl.classList.toggle('active', this.flying)
+  }
+
+  toggleThirdPerson() {
+    this.thirdPerson = !this.thirdPerson
+    if (this._thirdPersonBtnEl) this._thirdPersonBtnEl.classList.toggle('active', this.thirdPerson)
+  }
+
+  // Puts the player at (x, feetY, z), moved up until the body isn't inside
+  // a block (a loaded build may have something at the spawn point).
+  _moveToFreeSpot(x, feetY, z) {
+    let y = feetY
+    for (let i = 0; i < 256 && this._bodyBlocked(x, y, z); i++) y += BLOCK_SIZE
+    this.camera.position.set(x, y + this._eyeHeight, z)
   }
 
   // Instant one-block vertical hop (double-tap Space) - a no-op if a solid
@@ -2246,24 +2354,41 @@ export class BuildMode {
     if (!this._blockedAt(pos.x, pos.y + BLOCK_SIZE, pos.z)) pos.y += BLOCK_SIZE
   }
 
-  // Treats the camera as a small sphere (COLLISION_RADIUS), not a point, so
-  // it can't tuck its center right up against a block's face - checks the
-  // grid cell at each of the 8 corners of that sphere's bounding box, since
-  // near a cell boundary the sphere can overlap the neighboring cell too.
-  _blockedAt(x, y, z) {
-    const r = COLLISION_RADIUS
-    for (const ox of [-r, r]) {
-      for (const oy of [-r, r]) {
-        for (const oz of [-r, r]) {
-          // World position -> cell index (see placeBlock's own comment).
-          // Water and lava don't block movement - you can fly/swim through
-          // them, like Minecraft.
-          const t = this.getBlockAt(Math.floor((x + ox) / BLOCK_SIZE), Math.floor((y + oy) / BLOCK_SIZE), Math.floor((z + oz) / BLOCK_SIZE))
-          if (t && !this._chunks.isLiquid(t)) return true
+
+  // The player's body is a PLAYER_WIDTH x PLAYER_HEIGHT box with its feet
+  // at (x, feetY, z). Blocked if any solid cell overlaps it. Water and lava
+  // don't block - you can swim through them, like Minecraft.
+  _bodyCells(x, feetY, z, fn) {
+    const hw = PLAYER_WIDTH / 2
+    const e = 1e-4
+    const x0 = Math.floor((x - hw + e) / BLOCK_SIZE)
+    const x1 = Math.floor((x + hw - e) / BLOCK_SIZE)
+    const y0 = Math.floor((feetY + e) / BLOCK_SIZE)
+    const y1 = Math.floor((feetY + PLAYER_HEIGHT - e) / BLOCK_SIZE)
+    const z0 = Math.floor((z - hw + e) / BLOCK_SIZE)
+    const z1 = Math.floor((z + hw - e) / BLOCK_SIZE)
+    for (let cx = x0; cx <= x1; cx++) {
+      for (let cy = y0; cy <= y1; cy++) {
+        for (let cz = z0; cz <= z1; cz++) {
+          const t = this.getBlockAt(cx, cy, cz)
+          if (t && fn(t)) return true
         }
       }
     }
     return false
+  }
+
+  _bodyBlocked(x, feetY, z) {
+    return this._bodyCells(x, feetY, z, (t) => !this._chunks.isLiquid(t))
+  }
+
+  _bodyInLiquid(x, feetY, z) {
+    return this._bodyCells(x, feetY, z, (t) => this._chunks.isLiquid(t))
+  }
+
+  // Kept for callers that think in camera (eye) positions.
+  _blockedAt(x, y, z) {
+    return this._bodyBlocked(x, y - this._eyeHeight, z)
   }
 
   render() {
@@ -2275,9 +2400,32 @@ export class BuildMode {
     // The survival game's filmic tone mapping darkens and over-saturates
     // flat block colors (grey stone rendered near-black) - blocks keep
     // their real texture colors here, like Minecraft/Kirka.
+    const pos = this.camera.position
+    // Minecraft character faces +z; the camera looks down -z at yaw 0.
+    this._body.update(pos.x, pos.y - this._eyeHeight, pos.z, this._yaw + Math.PI, this.thirdPerson)
+    let eye = null
+    if (this.thirdPerson) {
+      // Pull the camera back behind the head, stopping short of walls.
+      eye = pos.clone()
+      const back = new THREE.Vector3(0, 0, 1).applyQuaternion(this.camera.quaternion)
+      let dist = 0
+      while (dist < THIRD_PERSON_DISTANCE) {
+        const next = dist + 0.1 * BLOCK_SIZE
+        const p = eye.clone().addScaledVector(back, next)
+        const t = this.getBlockAt(Math.floor(p.x / BLOCK_SIZE), Math.floor(p.y / BLOCK_SIZE), Math.floor(p.z / BLOCK_SIZE))
+        if (t && !this._chunks.isLiquid(t)) break
+        dist = next
+      }
+      pos.addScaledVector(back, Math.max(0, dist - 0.2 * BLOCK_SIZE))
+      this.camera.updateMatrixWorld()
+    }
     const toneMapping = this.renderer.toneMapping
     this.renderer.toneMapping = THREE.NoToneMapping
     this.renderer.render(this.scene, this.camera)
     this.renderer.toneMapping = toneMapping
+    if (eye) {
+      pos.copy(eye)
+      this.camera.updateMatrixWorld()
+    }
   }
 }
