@@ -154,9 +154,17 @@ function mergeValue(b, l, r, ctx, field, hasBase) {
 
 // base: the {key: string} content this device last synced (null if it
 // never has). preferLocal: this device's latest change is newer than the
-// cloud's latest upload - decides settings-style conflicts.
+// cloud's latest upload - decides settings-style conflicts (ignored
+// without a base, see below).
 export function mergeSaves(base, local, remote, preferLocal) {
   const hasBase = !!base
+  // A device with no base has never synced (new device, or its browser
+  // storage was wiped): everything it holds was just generated - a random
+  // Player ID, a "Survivor####" name - so it never wins a conflict, however
+  // recent its writes are. Letting it win (it always looks newest) replaced
+  // a real account's ID and name with a fresh one, while coins survived
+  // (they merge by max) - 2026-09-30 report.
+  preferLocal = hasBase && preferLocal
   const out = {}
   for (const key of new Set([...Object.keys(local), ...Object.keys(remote)])) {
     if (!isSyncedKey(key)) continue
