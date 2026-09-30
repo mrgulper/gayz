@@ -2485,8 +2485,6 @@ const HOWTOPLAY_STEPS = [
 const SIMPLE_TEXT_I18N_KEYS = {
   'skip-to-play-link': 'skipToPlayLink',
   'build-menu-hint': 'buildMenuHint',
-  'build-mode-fly-btn': 'buildModeFlyBtn',
-  'build-mode-thirdperson-btn': 'buildModeThirdPersonBtn',
   'build-mode-mirror-btn': 'buildModeMirrorBtn',
   'build-mode-line-btn': 'buildModeLineBtn',
   'build-mode-copy-btn': 'buildModeCopyBtn',
@@ -13977,6 +13975,9 @@ export class Game {
     // mid-animation at the exact moment Build Mode is entered. Hide it
     // directly here too, for that already-in-flight case.
     if (this.tutorialHintEl) this.tutorialHintEl.classList.remove('show')
+    // Same for a homepage toast still fading out (e.g. the backup
+    // reminder) - it would otherwise sit over the editor.
+    if (this.loreToast) this.loreToast.classList.remove('show')
     // Build Mode is a standalone sandbox with its own scene/camera, but it
     // reuses the same shared renderer/DOM as the zombie survival game (see
     // BuildMode.js's own comment) - so any real-run HUD element that was
@@ -14035,6 +14036,13 @@ export class Game {
     }
     this.buildMode.enter()
     this._applyRenderScale()
+    // FPS readout at the top middle (top-left is the save slot buttons),
+    // shown whenever the gameplay one would be.
+    this.fpsEl.style.left = '50%'
+    this.fpsEl.style.transform = 'translateX(-50%)'
+    this.fpsEl.style.opacity = this.settings.hudFpsCounter ? '1' : '0'
+    this._fpsFrameCount = 0
+    this._fpsLastUpdate = performance.now()
     // Always shows for at least BUILD_MODE_LOADING_MIN_MS so this reads as
     // a deliberate loading beat rather than a one-frame flicker on repeat
     // visits, where the dynamic import above is already cached and
@@ -14049,6 +14057,9 @@ export class Game {
   _exitBuildMode() {
     this.buildMode.exit()
     this._applyRenderScale()
+    this.fpsEl.style.left = '6px'
+    this.fpsEl.style.transform = ''
+    this.fpsEl.style.opacity = this.settings.homepageFpsCounter ? '1' : '0'
     document.exitPointerLock()
     this.player.suspended = false
     // Defensive reset, not just un-suspending - a stray real jump/fall
@@ -26039,6 +26050,18 @@ export class Game {
       const dt = Math.min(this.timer.getDelta(), 0.1)
       this.buildMode.update(dt)
       this.buildMode.render()
+      // Same fps / ms readout the survival game shows (2026-09-30 request),
+      // with the editor's own numbers.
+      this._fpsFrameCount++
+      const nowFpsBm = performance.now()
+      const elapsedBm = nowFpsBm - this._fpsLastUpdate
+      if (elapsedBm >= 500) {
+        const fps = Math.round((this._fpsFrameCount * 1000) / elapsedBm)
+        const msPerFrame = (elapsedBm / this._fpsFrameCount).toFixed(1)
+        this.fpsEl.textContent = `${fps} fps / ${msPerFrame} ms / ${this.buildMode.lastDrawCalls} draws / ${this.buildMode.blockCount} blocks / ${this._gpuRendererString}`
+        this._fpsFrameCount = 0
+        this._fpsLastUpdate = nowFpsBm
+      }
       return
     }
     this._fpsFrameCount++

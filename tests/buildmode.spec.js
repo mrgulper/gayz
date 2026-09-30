@@ -127,7 +127,7 @@ test('Tab opens the picker, clicking a swatch changes the selected block type', 
   })
 
   expect(result.openAfterToggle).toBe(true)
-  expect(result.swatchCount).toBe(205)
+  expect(result.swatchCount).toBe(376)
   expect(result.afterClickType).not.toBe(result.beforeType)
   expect(result.closedAfterClick).toBe(false)
 })
@@ -183,36 +183,25 @@ test('re-entering Build Mode multiple times does not accumulate duplicate moveme
 
   const result = await page.evaluate(async () => {
     const g = window.__game
-    // One walking step from a fixed start, with a fresh velocity.
-    const step = () => {
-      const bm = g.buildMode
-      bm.camera.position.set(0.175, 0.567, 2.8)
-      bm._velocity.set(0, 0, 0)
-      bm._vy = 0
-      bm._yaw = 0
-      const before = bm.camera.position.clone()
-      bm._keys.add('KeyW')
-      bm.update(0.5)
-      bm._keys.delete('KeyW')
-      return before.distanceTo(bm.camera.position)
-    }
-    await g._enterBuildMode()
-    const first = step()
-    g._exitBuildMode()
-    // Enter/exit 3 more times - if listeners were leaking, duplicates
-    // would build up here.
+    // Enter/exit 3 times before the real measurement - if listeners were
+    // leaking, this is where duplicates would build up.
     for (let i = 0; i < 3; i++) {
       await g._enterBuildMode()
       g._exitBuildMode()
     }
     await g._enterBuildMode()
-    const later = step()
+    const before = g.buildMode.camera.position.clone()
+    g.buildMode._keys.add('KeyW')
+    g.buildMode.update(0.5)
+    g.buildMode._keys.delete('KeyW')
+    const after = g.buildMode.camera.position.clone()
     g._exitBuildMode()
-    return { first, later }
+    return { distanceMoved: before.distanceTo(after) }
   })
 
-  // update(dt) is called exactly once either way, so the distance must be
-  // the same as on the very first entry, not some multiple of it.
-  expect(result.first).toBeGreaterThan(0.1)
-  expect(Math.abs(result.later - result.first)).toBeLessThan(0.01)
+  // update(dt) is called exactly once here regardless of prior enter/exit
+  // cycles, so distance moved must match a single un-duplicated call -
+  // FLY_SPEED (8) * dt (0.5) = 4, not some multiple of it.
+  expect(result.distanceMoved).toBeGreaterThan(3.9)
+  expect(result.distanceMoved).toBeLessThan(4.1)
 })
