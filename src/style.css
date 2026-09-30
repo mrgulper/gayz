@@ -309,6 +309,9 @@ html.dyslexia-font body {
   height: 50px;
   border-radius: 4px;
   border: 2px solid transparent;
+  /* 3D block icons (BlockTextures.js blockIconURL) - kept pixel-sharp. */
+  background: center / contain no-repeat;
+  image-rendering: pixelated;
 }
 
 .build-picker-swatch.selected {
@@ -347,6 +350,8 @@ html.dyslexia-font body {
   border-radius: 4px;
   border: 2px solid transparent;
   cursor: pointer;
+  background: center / 38px no-repeat;
+  image-rendering: pixelated;
 }
 
 .build-hotbar-slot.selected {

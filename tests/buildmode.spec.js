@@ -44,47 +44,59 @@ test('free-fly movement moves the camera in Build Mode', async ({ page }) => {
   expect(result.moved).toBe(true)
 })
 
-test('placing and removing a block updates both the InstancedMesh and the internal map', async ({ page }) => {
+// Plain cubes are drawn by chunk meshes (BlockChunks.js) - one mesh per
+// 16x16x16 chunk holding only visible faces. faceCount sums the quads in
+// the chunk that holds cell (0..15, 0..15, 0..15).
+test('placing and removing a block updates both the chunk mesh and the internal map', async ({ page }) => {
   await gotoAndWaitForGame(page)
 
   const result = await page.evaluate(async () => {
     const g = window.__game
     await g._enterBuildMode()
-    g.buildMode.placeBlock(2, 0, 3, 'brick')
-    const afterPlace = {
-      atBlock: g.buildMode.getBlockAt(2, 0, 3),
-      meshCount: g.buildMode._instancedMeshes.brick.count,
+    const bm = g.buildMode
+    const faceCount = () => {
+      bm.render()
+      const chunk = bm._chunks.chunks.get('0,0,0')
+      return chunk ? chunk.meshes.reduce((n, m) => n + m.geometry.index.count / 6, 0) : 0
     }
-    g.buildMode.removeBlock(2, 0, 3)
-    const afterRemove = {
-      atBlock: g.buildMode.getBlockAt(2, 0, 3),
-      meshCount: g.buildMode._instancedMeshes.brick.count,
-    }
+    const before = faceCount()
+    bm.placeBlock(2, 0, 3, 'brick')
+    const afterPlace = { atBlock: bm.getBlockAt(2, 0, 3), faces: faceCount() }
+    bm.removeBlock(2, 0, 3)
+    const afterRemove = { atBlock: bm.getBlockAt(2, 0, 3), faces: faceCount() }
     g._exitBuildMode()
-    return { afterPlace, afterRemove }
+    return { before, afterPlace, afterRemove }
   })
 
   expect(result.afterPlace.atBlock).toBe('brick')
-  expect(result.afterPlace.meshCount).toBe(1)
+  // A lone block on the ground shows 5 faces (its bottom touches grass).
+  expect(result.afterPlace.faces).toBe(result.before + 5)
   expect(result.afterRemove.atBlock).toBe(null)
-  expect(result.afterRemove.meshCount).toBe(0)
+  expect(result.afterRemove.faces).toBe(result.before)
 })
 
-test('removing one block does not remove a different still-placed block of the same type (swap-remove correctness)', async ({ page }) => {
+test('removing one block does not remove a different still-placed block of the same type', async ({ page }) => {
   await gotoAndWaitForGame(page)
 
   const result = await page.evaluate(async () => {
     const g = window.__game
     await g._enterBuildMode()
-    g.buildMode.placeBlock(0, 0, 0, 'stone')
-    g.buildMode.placeBlock(1, 0, 0, 'stone')
-    g.buildMode.placeBlock(2, 0, 0, 'stone')
-    g.buildMode.removeBlock(1, 0, 0) // remove the middle one
+    const bm = g.buildMode
+    const faceCount = () => {
+      bm.render()
+      const chunk = bm._chunks.chunks.get('0,0,0')
+      return chunk ? chunk.meshes.reduce((n, m) => n + m.geometry.index.count / 6, 0) : 0
+    }
+    const before = faceCount()
+    bm.placeBlock(0, 0, 0, 'stone')
+    bm.placeBlock(1, 0, 0, 'stone')
+    bm.placeBlock(2, 0, 0, 'stone')
+    bm.removeBlock(1, 0, 0) // remove the middle one
     const remaining = {
-      first: g.buildMode.getBlockAt(0, 0, 0),
-      removed: g.buildMode.getBlockAt(1, 0, 0),
-      third: g.buildMode.getBlockAt(2, 0, 0),
-      meshCount: g.buildMode._instancedMeshes.stone.count,
+      first: bm.getBlockAt(0, 0, 0),
+      removed: bm.getBlockAt(1, 0, 0),
+      third: bm.getBlockAt(2, 0, 0),
+      addedFaces: faceCount() - before,
     }
     g._exitBuildMode()
     return remaining
@@ -93,7 +105,8 @@ test('removing one block does not remove a different still-placed block of the s
   expect(result.first).toBe('stone')
   expect(result.removed).toBe(null)
   expect(result.third).toBe('stone')
-  expect(result.meshCount).toBe(2)
+  // Two separate lone blocks: 5 visible faces each.
+  expect(result.addedFaces).toBe(10)
 })
 
 test('Tab opens the picker, clicking a swatch changes the selected block type', async ({ page }) => {
@@ -114,7 +127,7 @@ test('Tab opens the picker, clicking a swatch changes the selected block type', 
   })
 
   expect(result.openAfterToggle).toBe(true)
-  expect(result.swatchCount).toBe(131)
+  expect(result.swatchCount).toBe(205)
   expect(result.afterClickType).not.toBe(result.beforeType)
   expect(result.closedAfterClick).toBe(false)
 })

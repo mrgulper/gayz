@@ -5,6 +5,9 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import * as CloudSync from './CloudSync.js'
+import { BlockChunks, CHUNK } from './BlockChunks.js'
+import { blockFaceCanvases, blockIconURL, textureHasAlpha } from './BlockTextures.js'
+import { LightProxyPool, markLightSource } from './LightProxies.js'
 import { t } from './i18n.js'
 
 // GROUND_SIZE is a CELL count (not world units) - bumped up from 64, then
@@ -99,7 +102,7 @@ export const BLOCK_TYPES = [
   { id: 'planks', name: 'Planks', color: 0xb98a52, pattern: 'wood', roughness: 0.6, metalness: 0 },
   { id: 'gold', name: 'Gold', color: 0xf4c430, pattern: 'metal', roughness: 0.2, metalness: 1 },
   { id: 'obsidian', name: 'Obsidian', color: 0x1c1024, pattern: 'speckle', roughness: 0.3, metalness: 0.1 },
-  { id: 'water', name: 'Water', color: 0x3a7bd5, pattern: 'liquid', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.6 },
+  { id: 'water', name: 'Water', color: 0x3a7bd5, pattern: 'liquid', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.72 },
   { id: 'ice', name: 'Ice', color: 0xaee4f0, pattern: 'crack', roughness: 0.05, metalness: 0, transparent: true, opacity: 0.7 },
   { id: 'leaves', name: 'Leaves', color: 0x3f7d3a, pattern: 'leaves', roughness: 1, metalness: 0, transparent: true, opacity: 0.88 },
   { id: 'lava', name: 'Lava', color: 0xff5a1f, pattern: 'liquid', roughness: 0.8, metalness: 0, emissive: 0xff3300, emissiveIntensity: 0.9 },
@@ -224,6 +227,69 @@ export const BLOCK_TYPES = [
   { id: 'boneblock', name: 'Bone Block', color: 0xe8e0c8, pattern: 'stripe', roughness: 0.7, metalness: 0 },
   { id: 'spongeblock', name: 'Sponge', color: 0xc9c024, pattern: 'porous', roughness: 0.9, metalness: 0 },
   { id: 'jackolantern', name: "Jack o'Lantern", color: 0xd9761a, pattern: 'ridged', roughness: 0.8, metalness: 0, emissive: 0xff8800, emissiveIntensity: 0.6 },
+  // Minecraft block batch 2 (2026-09-29) - textures in BlockTextures.js.
+  { id: 'craftingtable', name: 'Crafting Table', color: 0xa0703c, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'furnace', name: 'Furnace', color: 0x7a7a7a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'jukebox', name: 'Jukebox', color: 0x7a4a2e, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'noteblock', name: 'Note Block', color: 0x7a4a2e, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'melon', name: 'Melon', color: 0x6aa33a, pattern: 'ridged', roughness: 0.9, metalness: 0 },
+  { id: 'mycelium', name: 'Mycelium', color: 0x7a6a78, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'podzol', name: 'Podzol', color: 0x6a4a28, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'coarsedirt', name: 'Coarse Dirt', color: 0x6b4a30, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'redsand', name: 'Red Sand', color: 0xb4642a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'redsandstone', name: 'Red Sandstone', color: 0xa8582a, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'smoothsandstone', name: 'Smooth Sandstone', color: 0xd8c89a, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'cutsandstone', name: 'Cut Sandstone', color: 0xd0bc8a, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'chiseledstonebricks', name: 'Chiseled Stone Bricks', color: 0x7a7a74, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'crackedstonebricks', name: 'Cracked Stone Bricks', color: 0x78786f, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'polisheddiorite', name: 'Polished Diorite', color: 0xd8d8d8, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'polishedblackstone', name: 'Polished Blackstone', color: 0x322c36, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'polishedblackstonebricks', name: 'Polished Blackstone Bricks', color: 0x2f2a33, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'netherquartzore', name: 'Nether Quartz Ore', color: 0x722f2f, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'redstoneore', name: 'Redstone Ore', color: 0x808078, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'lapisore', name: 'Lapis Ore', color: 0x808078, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'emeraldore', name: 'Emerald Ore', color: 0x808078, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'copperore', name: 'Copper Ore', color: 0x808078, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'deepslatediamondore', name: 'Deepslate Diamond Ore', color: 0x3a3a40, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'packedice', name: 'Packed Ice', color: 0x8cb4f0, pattern: 'crack', roughness: 0.9, metalness: 0 },
+  { id: 'blueice', name: 'Blue Ice', color: 0x74a8f5, pattern: 'crack', roughness: 0.9, metalness: 0 },
+  { id: 'redmushroomblock', name: 'Red Mushroom Block', color: 0xc02a26, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'brownmushroomblock', name: 'Brown Mushroom Block', color: 0x946a4a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'driedkelpblock', name: 'Dried Kelp Block', color: 0x3a4a2a, pattern: 'stripe', roughness: 0.9, metalness: 0 },
+  { id: 'soulsand', name: 'Soul Sand', color: 0x5a4636, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'soulsoil', name: 'Soul Soil', color: 0x4c3a2e, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'crimsonnylium', name: 'Crimson Nylium', color: 0x8a1f1f, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'warpednylium', name: 'Warped Nylium', color: 0x2b7a6a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'crimsonplanks', name: 'Crimson Planks', color: 0x6a3448, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'warpedplanks', name: 'Warped Planks', color: 0x2b6a64, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'mangroveplanks', name: 'Mangrove Planks', color: 0x7a3a34, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'cherryplanks', name: 'Cherry Planks', color: 0xe4b4ac, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'bambooplanks', name: 'Bamboo Planks', color: 0xc8b04a, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'darkoaklog', name: 'Dark Oak Log', color: 0x3a2a1a, pattern: 'log', roughness: 0.9, metalness: 0 },
+  { id: 'junglelog', name: 'Jungle Log', color: 0x5a4420, pattern: 'log', roughness: 0.9, metalness: 0 },
+  { id: 'acacialog', name: 'Acacia Log', color: 0x6a625a, pattern: 'log', roughness: 0.9, metalness: 0 },
+  { id: 'cherrylog', name: 'Cherry Log', color: 0x3a2430, pattern: 'log', roughness: 0.9, metalness: 0 },
+  { id: 'strippedoaklog', name: 'Stripped Oak Log', color: 0xb08448, pattern: 'log', roughness: 0.9, metalness: 0 },
+  { id: 'endstonebricks', name: 'End Stone Bricks', color: 0xdcd7a0, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'prismarinebricks', name: 'Prismarine Bricks', color: 0x63ab9e, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'darkprismarine', name: 'Dark Prismarine', color: 0x335b4c, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'purpurpillar', name: 'Purpur Pillar', color: 0xa87aac, pattern: 'stripe', roughness: 0.9, metalness: 0 },
+  { id: 'quartzpillar', name: 'Quartz Pillar', color: 0xebe5dc, pattern: 'stripe', roughness: 0.9, metalness: 0 },
+  { id: 'chiseledquartz', name: 'Chiseled Quartz', color: 0xe8e2d8, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'exposedcopper', name: 'Exposed Copper', color: 0xa87a64, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'weatheredcopper', name: 'Weathered Copper', color: 0x6a9a7a, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'oxidizedcopper', name: 'Oxidized Copper', color: 0x4fa88a, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'glazedterracotta', name: 'Blue Glazed Terracotta', color: 0x3a6aa8, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'whiteterracotta', name: 'White Terracotta', color: 0xd2b2a1, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'orangeterracotta', name: 'Orange Terracotta', color: 0xa05426, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'blueterracotta', name: 'Blue Terracotta', color: 0x4a3c5a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'blackterracotta', name: 'Black Terracotta', color: 0x251710, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'honeycombblock', name: 'Honeycomb Block', color: 0xe8a02a, pattern: 'crystal', roughness: 0.9, metalness: 0 },
+  { id: 'target', name: 'Target', color: 0xe8dcc8, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'dripstone', name: 'Dripstone Block', color: 0x866a5a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'sculk', name: 'Sculk', color: 0x0f2a33, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'shroomlight', name: 'Shroomlight', color: 0xf09a48, pattern: 'metal', roughness: 0.6, metalness: 0, emissive: 0xff9a40, emissiveIntensity: 0.6 },
+  { id: 'redstonelamp', name: 'Redstone Lamp', color: 0xc8783a, pattern: 'metal', roughness: 0.6, metalness: 0, emissive: 0xffb060, emissiveIntensity: 0.6 },
   // Shaped blocks (see CUSTOM_BLOCK_GEOMETRY) - every block above is a full
   // 1x1x1 cube; these use their own geometry instead (a stair-stepped
   // silhouette, a post-and-rail fence, a thin ladder panel). `shape` picks
@@ -238,6 +304,19 @@ export const BLOCK_TYPES = [
   { id: 'oakfence', name: 'Oak Fence', color: 0xb4864a, pattern: 'wood', roughness: 0.85, metalness: 0, shape: 'fence' },
   { id: 'stonefence', name: 'Stone Fence', color: 0x808078, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'fence' },
   { id: 'netherbrickfence', name: 'Nether Brick Fence', color: 0x35181c, pattern: 'brick', roughness: 0.8, metalness: 0, shape: 'fence' },
+  // Slabs - half-height blocks (CUSTOM_BLOCK_GEOMETRY.slab), textured like the full block they're cut from (SHAPED_TEXTURE_FROM).
+  { id: 'oakslab', name: 'Oak Slab', color: 0xb4864a, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'spruceslab', name: 'Spruce Slab', color: 0x6b4a2c, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'birchslab', name: 'Birch Slab', color: 0xd8c898, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'darkoakslab', name: 'Dark Oak Slab', color: 0x4a3524, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'stoneslab', name: 'Smooth Stone Slab', color: 0xa8a8a0, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'cobblestoneslab', name: 'Cobblestone Slab', color: 0x7d7d7d, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'brickslab', name: 'Brick Slab', color: 0xa8503a, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'stonebrickslab', name: 'Stone Brick Slab', color: 0x808078, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'sandstoneslab', name: 'Sandstone Slab', color: 0xc9b183, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'quartzslab', name: 'Quartz Slab', color: 0xe8e4dc, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'blackstoneslab', name: 'Blackstone Slab', color: 0x2b2530, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
+  { id: 'prismarineslab', name: 'Prismarine Slab', color: 0x4f9e94, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
 ]
 const VALID_TYPE_IDS = new Set(BLOCK_TYPES.map((b) => b.id))
 // Real point lights on glowing blocks (see placeBlock/removeBlock) - every
@@ -264,8 +343,14 @@ const LIGHT_DISTANCE = 6
 function _shade(base, delta) {
   return base.clone().offsetHSL(0, 0, delta)
 }
+// getHex() converts back to sRGB, which is what a canvas fillStyle wants.
+// THREE.Color stores linear values (three's color management converts
+// every hex on the way in), so writing c.r/c.g/c.b straight into a canvas
+// - what this used to do - drew every block texture about 3x too dark in
+// the midtones (grass 0x5fa84a came out as 0x1e6512).
 function _rgb(c) {
-  return `${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)}`
+  const h = c.getHex()
+  return `${(h >> 16) & 255},${(h >> 8) & 255},${h & 255}`
 }
 // Two size classes - fine dust (most of the count) plus a handful of
 // larger chunks - reads as real aggregate/rock texture rather than a
@@ -613,6 +698,19 @@ function _addGrain(ctx, size, pattern) {
 }
 
 function _makeBlockTexture(colorHex, pattern) {
+  const tex = new THREE.CanvasTexture(_makeBlockCanvas(colorHex, pattern))
+  tex.magFilter = THREE.NearestFilter
+  // Mipmapped minification - crisp pixels up close, no shimmer far away
+  // (see the same choice for the chunk atlas in BlockChunks.js).
+  tex.minFilter = THREE.LinearMipmapLinearFilter
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
+}
+
+// The texture itself, as a canvas - cube blocks copy it into the shared
+// chunk atlas (see BlockChunks.js), shaped blocks wrap it in their own
+// texture (_makeBlockTexture above).
+function _makeBlockCanvas(colorHex, pattern, size = 256) {
   // 256, up from 192 (128 before that, 96 before that, 64 before that, 32
   // originally) - NearestFilter magnification means every texel is a
   // visibly hard-edged square up close, so each bump buys back some
@@ -622,11 +720,13 @@ function _makeBlockTexture(colorHex, pattern) {
   // (_drawSpeckle etc.) work in proportional "size" units, not fixed pixel
   // counts, so they scale up automatically with this - no per-pattern
   // changes needed.
-  const size = 256
   const canvas = document.createElement('canvas')
   canvas.width = size
   canvas.height = size
-  const ctx = canvas.getContext('2d')
+  // willReadFrequently keeps the canvas in CPU memory - _addGrain's
+  // getImageData on a GPU-backed canvas forced a GPU readback per block
+  // type, ~5.8s of the editor's opening time in a 2026-09-29 profile.
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
   const base = new THREE.Color(colorHex)
   ctx.fillStyle = `rgb(${_rgb(base)})`
   ctx.fillRect(0, 0, size, size)
@@ -654,31 +754,51 @@ function _makeBlockTexture(colorHex, pattern) {
   ctx.fillStyle = highlight
   ctx.fillRect(0, 0, size, size)
 
+  // Thin block outline - scaled with the texture so a small chunk-atlas
+  // tile (64px) doesn't get a 2px border that reads as a black grid line
+  // across the whole floor.
   const edge = _shade(base, -0.32)
-  ctx.strokeStyle = `rgba(${_rgb(edge)},0.6)`
-  ctx.lineWidth = 2
-  ctx.strokeRect(1, 1, size - 2, size - 2)
-  const tex = new THREE.CanvasTexture(canvas)
+  const edgeW = Math.max(1, size / 128)
+  ctx.strokeStyle = `rgba(${_rgb(edge)},${size >= 128 ? 0.6 : 0.35})`
+  ctx.lineWidth = edgeW
+  ctx.strokeRect(edgeW / 2, edgeW / 2, size - edgeW, size - edgeW)
+  return canvas
+}
+
+// Stairs/fences wear the same pixel-art texture as the full block they're
+// made of (BlockTextures.js); the ladder keeps its own drawn pattern.
+const SHAPED_TEXTURE_FROM = {
+  oakstairs: 'oakplanks', stonestairs: 'stone', brickstairs: 'brick', cobblestonestairs: 'cobblestone',
+  oakfence: 'oakplanks', stonefence: 'stone', netherbrickfence: 'netherbrick',
+  oakslab: 'oakplanks',
+  spruceslab: 'spruceplanks',
+  birchslab: 'birchplanks',
+  darkoakslab: 'darkoakplanks',
+  stoneslab: 'smoothstone',
+  cobblestoneslab: 'cobblestone',
+  brickslab: 'brick',
+  stonebrickslab: 'stone',
+  sandstoneslab: 'sandstone',
+  quartzslab: 'quartz',
+  blackstoneslab: 'blackstone',
+  prismarineslab: 'prismarine',
+}
+function _shapedBlockTexture(bt) {
+  const sourceId = SHAPED_TEXTURE_FROM[bt.id]
+  const source = sourceId && BLOCK_TYPES.find((b) => b.id === sourceId)
+  if (!source) return _makeBlockTexture(bt.color, bt.pattern)
+  const tex = new THREE.CanvasTexture(blockFaceCanvases(source).side)
   tex.magFilter = THREE.NearestFilter
-  // LinearMipmapLinearFilter (mipmapped/trilinear), not NearestFilter, for
-  // MINIFICATION specifically - the NearestFilter reasoning above is only
-  // about MAGNIFICATION (each texel reads as a crisp hard square up
-  // close). Distant or grazing-angle blocks - the ground stretching to
-  // the horizon is the extreme case - compress many texels into one
-  // screen pixel; without mipmaps to average them down first, that reads
-  // as noisy shimmer/aliasing, not a deliberate blur (real report: "the
-  // map is way too blurry even with resolution at 100%" - Settings'
-  // render-resolution slider doesn't touch this at all, it's a texture-
-  // filtering problem, not a screen-resolution one). anisotropy is set
-  // per-material at the call site (needs the renderer's actual max, not
-  // available in this standalone function) - mipmapping alone still
-  // leaves a ground plane viewed edge-on soft, since mipmap selection is
-  // isotropic even though the surface is compressed far more in one
-  // direction than the other at a shallow angle. Magnification (anything
-  // close to the camera) is completely unaffected either way.
   tex.minFilter = THREE.LinearMipmapLinearFilter
   tex.colorSpace = THREE.SRGBColorSpace
   return tex
+}
+
+// Picker/hotbar icon: shaped blocks show the block they're made from, a
+// slab at half height.
+function _blockIcon(bt) {
+  const source = SHAPED_TEXTURE_FROM[bt.id] && BLOCK_TYPES.find((b) => b.id === SHAPED_TEXTURE_FROM[bt.id])
+  return blockIconURL(source || bt, 64, bt.shape === 'slab' ? 0.5 : 1)
 }
 
 // Non-cube block shapes (see BLOCK_TYPES' `shape` field) - every other
@@ -715,6 +835,19 @@ function _buildFenceGeometry() {
   return mergeGeometries([post, railX1, railX2, railZ1, railZ2])
 }
 
+// Bottom half of the cell. Side faces show the bottom half of the texture
+// (not the whole texture squashed), like a Minecraft slab.
+function _buildSlabGeometry() {
+  const geo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE / 2, BLOCK_SIZE)
+  geo.translate(0, -BLOCK_SIZE / 4, 0)
+  const uv = geo.attributes.uv
+  // BoxGeometry faces, 4 vertices each: +x, -x, +y, -y, +z, -z.
+  for (const face of [0, 1, 4, 5]) {
+    for (let v = face * 4; v < face * 4 + 4; v++) uv.setY(v, uv.getY(v) * 0.5)
+  }
+  return geo
+}
+
 function _buildLadderGeometry() {
   const geo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE * 0.12)
   return geo
@@ -724,6 +857,7 @@ function _buildLadderGeometry() {
 // Cobblestone) shares this one geometry, same as how every cube block
 // already shares blockGeo; only the material/texture differs per type.
 const CUSTOM_BLOCK_GEOMETRY = {
+  slab: _buildSlabGeometry(),
   stairs: _buildStairGeometry(),
   fence: _buildFenceGeometry(),
   ladder: _buildLadderGeometry(),
@@ -738,9 +872,13 @@ export class BuildMode {
     this.scene = new THREE.Scene()
     this.scene.background = new THREE.Color(0x87ceeb)
 
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2)
+    // Bright, even daylight (2026-09-29, Kirka-style pass) - at 1.2/1.0
+    // a flat-lit top face came out at about 60% of its texture color, so
+    // every block read dark and muddy. Sides/bottoms get their darker
+    // Minecraft-style shading from BlockChunks' per-face shade instead.
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0xb8b0a0, 2.0)
     this.scene.add(hemiLight)
-    const sunLight = new THREE.DirectionalLight(0xffffff, 1.0)
+    const sunLight = new THREE.DirectionalLight(0xfff4e0, 1.5)
     sunLight.position.set(20, 30, 10)
     // Real cast shadows (not just per-face lighting) are what actually
     // reads as "3D" from a distance - a flat-shaded cube and a shadowed
@@ -756,6 +894,10 @@ export class BuildMode {
     sunLight.shadow.camera.bottom = -shadowSpan
     sunLight.shadow.camera.near = 1
     sunLight.shadow.camera.far = 100
+    // Without a bias, faces at a low angle to the sun shadowed themselves
+    // (shadow acne) and read as near-black.
+    sunLight.shadow.bias = -0.0005
+    sunLight.shadow.normalBias = 0.03
     this.scene.add(sunLight)
 
     this.camera = new THREE.PerspectiveCamera(NORMAL_FOV, window.innerWidth / window.innerHeight, 0.1, 500)
@@ -868,11 +1010,17 @@ export class BuildMode {
     // case to handle here the way the survival-mode pool needs to.
     this._lightPool = []
     for (let i = 0; i < MAX_ACTIVE_LIGHTS; i++) {
-      const light = new THREE.PointLight(0xffffff, 0, LIGHT_DISTANCE)
+      const light = markLightSource(new THREE.PointLight(0xffffff, 0, LIGHT_DISTANCE))
       light.inUse = false
       this.scene.add(light)
       this._lightPool.push(light)
     }
+    // The pool above is only light *sources* (a hidden layer no camera
+    // renders) - only the few nearest lit ones are copied onto these real
+    // lights each frame (see LightProxies.js). With all 40 pool lights
+    // rendered directly, every pixel paid for 40 lights even with no glow
+    // block placed anywhere: measured ~4x slower frames (2026-09-29).
+    this._lightProxies = new LightProxyPool(this.scene, 6)
     // Undo/Redo - every real placeBlock()/removeBlock() call (not a no-op
     // on an already-occupied/already-empty cell) pushes one entry here,
     // regardless of which tool triggered it (a single click, Mirror's
@@ -914,6 +1062,18 @@ export class BuildMode {
     this.copyToolMode = false
     this._copyStart = null
     this._clipboard = null
+    // Plain cubes are drawn by chunk meshes (see BlockChunks.js) - only
+    // their visible faces, one draw call per chunk. The per-type
+    // InstancedMesh path below is kept just for shaped blocks.
+    this._chunks = new BlockChunks(this.scene, {
+      blockSize: BLOCK_SIZE,
+      types: BLOCK_TYPES,
+      maxAnisotropy: renderer.capabilities.getMaxAnisotropy(),
+      faces: blockFaceCanvases,
+      hasAlpha: textureHasAlpha,
+      getType: (x, y, z) => this._blocks.get(`${x},${y},${z}`),
+    })
+    this._chunkCells = new Map() // "cx,cy,cz" -> Set of "x,y,z" cube cells in that chunk
     this._instancedMeshes = {}
     this._instanceKeyByIndex = {} // type id -> array mapping instance index -> "x,y,z" key, for swap-remove
     const blockGeo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)
@@ -923,7 +1083,8 @@ export class BuildMode {
     // that only supports less than a typical desktop's 16x.
     const maxAnisotropy = renderer.capabilities.getMaxAnisotropy()
     for (const bt of BLOCK_TYPES) {
-      const blockTexture = _makeBlockTexture(bt.color, bt.pattern)
+      if (this._chunks.isChunkType(bt.id)) continue
+      const blockTexture = _shapedBlockTexture(bt)
       // Sharpens exactly the case mipmapping alone (see _makeBlockTexture's
       // own comment) still leaves soft: a surface viewed at a shallow
       // angle, compressed far more in one direction than the other - the
@@ -1221,9 +1382,24 @@ export class BuildMode {
     light.intensity = 0
   }
 
+  _chunkKeyOf(x, y, z) {
+    return `${Math.floor(x / CHUNK)},${Math.floor(y / CHUNK)},${Math.floor(z / CHUNK)}`
+  }
+
   placeBlock(x, y, z, type, skipBoundsUpdate = false) {
     const key = this._key(x, y, z)
     if (this._blocks.has(key)) return
+    if (this._chunks.isChunkType(type)) {
+      if (!skipBoundsUpdate && !this._suppressUndoRecording) this._recordUndo({ action: 'place', x, y, z, type })
+      this._blocks.set(key, type)
+      const ck = this._chunkKeyOf(x, y, z)
+      let cells = this._chunkCells.get(ck)
+      if (!cells) this._chunkCells.set(ck, (cells = new Set()))
+      cells.add(key)
+      this._chunks.markDirty(x, y, z)
+      this._attachBlockLight(key, x, y, z, type)
+      return
+    }
     const mesh = this._instancedMeshes[type]
     if (!mesh || mesh.count >= MAX_INSTANCES_PER_TYPE) return
     // Bulk fills (_ensureGroundLayer/_applyParsedData) already pass
@@ -1257,7 +1433,13 @@ export class BuildMode {
     if (!skipBoundsUpdate) mesh.computeBoundingSphere()
     this._blocks.set(key, type)
     this._instanceKeyByIndex[type][index] = key
+    // A shaped block doesn't hide its neighbors' faces, but it does change
+    // their corner shading lookups - cheap to refresh.
+    this._chunks.markDirty(x, y, z)
+    this._attachBlockLight(key, x, y, z, type)
+  }
 
+  _attachBlockLight(key, x, y, z, type) {
     const lightColor = LIGHT_BLOCK_COLORS.get(type)
     if (lightColor !== undefined && this._blockLights.size < MAX_ACTIVE_LIGHTS) {
       const light = this._acquireLight()
@@ -1266,6 +1448,7 @@ export class BuildMode {
         light.distance = LIGHT_DISTANCE
         light.position.set((x + 0.5) * BLOCK_SIZE, (y + 0.5) * BLOCK_SIZE, (z + 0.5) * BLOCK_SIZE)
         light.intensity = LIGHT_INTENSITY
+        light.updateMatrixWorld()
         this._blockLights.set(key, light)
       }
     }
@@ -1276,6 +1459,13 @@ export class BuildMode {
     const type = this._blocks.get(key)
     if (!type) return
     if (!this._suppressUndoRecording) this._recordUndo({ action: 'remove', x, y, z, type })
+    if (this._chunks.isChunkType(type)) {
+      this._blocks.delete(key)
+      this._chunkCells.get(this._chunkKeyOf(x, y, z))?.delete(key)
+      this._chunks.markDirty(x, y, z)
+      this._releaseBlockLight(key)
+      return
+    }
     const mesh = this._instancedMeshes[type]
     const keys = this._instanceKeyByIndex[type]
     const removedIndex = keys.indexOf(key)
@@ -1301,7 +1491,11 @@ export class BuildMode {
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
     mesh.computeBoundingSphere()
     this._blocks.delete(key)
+    this._chunks.markDirty(x, y, z)
+    this._releaseBlockLight(key)
+  }
 
+  _releaseBlockLight(key) {
     const light = this._blockLights.get(key)
     if (light) {
       this._releaseLight(light)
@@ -1446,13 +1640,16 @@ export class BuildMode {
     this._pickerGridEl.innerHTML = ''
     const query = (this._pickerSearchInput?.value || '').trim().toLowerCase()
     const matches = query ? BLOCK_TYPES.filter((bt) => bt.name.toLowerCase().includes(query)) : BLOCK_TYPES
-    for (const { id, name, color } of matches) {
+    for (const { id, name } of matches) {
       const item = document.createElement('div')
       item.className = 'build-picker-item'
       item.title = name
       const swatch = document.createElement('div')
       swatch.className = 'build-picker-swatch' + (id === this.selectedType ? ' selected' : '')
-      swatch.style.background = `#${color.toString(16).padStart(6, '0')}`
+      // Minecraft-inventory-style 3D block icon (BlockTextures.js), with
+      // the flat color underneath while it loads.
+      swatch.style.backgroundColor = 'transparent'
+      swatch.style.backgroundImage = `url(${_blockIcon(BLOCK_TYPES.find((b) => b.id === id))})`
       const label = document.createElement('span')
       label.className = 'build-picker-label'
       label.textContent = name
@@ -1482,7 +1679,7 @@ export class BuildMode {
       const slot = document.createElement('div')
       slot.className = 'build-hotbar-slot' + (i === this.activeHotbarIndex ? ' selected' : '')
       slot.title = bt ? bt.name : ''
-      if (bt) slot.style.background = `#${bt.color.toString(16).padStart(6, '0')}`
+      if (bt) slot.style.backgroundImage = `url(${_blockIcon(bt)})`
       const num = document.createElement('span')
       num.className = 'build-hotbar-slot-num'
       num.textContent = i === 9 ? '0' : String(i + 1)
@@ -1856,6 +2053,8 @@ export class BuildMode {
       this._instanceKeyByIndex[type] = []
     }
     this._blocks.clear()
+    this._chunkCells.clear()
+    this._chunks.clear()
     for (const light of this._blockLights.values()) this._releaseLight(light)
     this._blockLights.clear()
     this._undoStack.length = 0
@@ -2057,7 +2256,10 @@ export class BuildMode {
       for (const oy of [-r, r]) {
         for (const oz of [-r, r]) {
           // World position -> cell index (see placeBlock's own comment).
-          if (this.getBlockAt(Math.floor((x + ox) / BLOCK_SIZE), Math.floor((y + oy) / BLOCK_SIZE), Math.floor((z + oz) / BLOCK_SIZE))) return true
+          // Water and lava don't block movement - you can fly/swim through
+          // them, like Minecraft.
+          const t = this.getBlockAt(Math.floor((x + ox) / BLOCK_SIZE), Math.floor((y + oy) / BLOCK_SIZE), Math.floor((z + oz) / BLOCK_SIZE))
+          if (t && !this._chunks.isLiquid(t)) return true
         }
       }
     }
@@ -2065,6 +2267,17 @@ export class BuildMode {
   }
 
   render() {
+    // Chunk meshes are rebuilt here, once per frame, however many blocks
+    // changed since the last one (a paste or a load touches thousands).
+    this._chunks.flush(this._chunkCells)
+    this._chunks.animate(performance.now() / 1000)
+    this._lightProxies.update(this.camera.position, 30)
+    // The survival game's filmic tone mapping darkens and over-saturates
+    // flat block colors (grey stone rendered near-black) - blocks keep
+    // their real texture colors here, like Minecraft/Kirka.
+    const toneMapping = this.renderer.toneMapping
+    this.renderer.toneMapping = THREE.NoToneMapping
     this.renderer.render(this.scene, this.camera)
+    this.renderer.toneMapping = toneMapping
   }
 }
