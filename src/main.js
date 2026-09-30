@@ -67,5 +67,11 @@ Promise.all([
   // hidden - a real, brief freeze may be visible right after the page
   // becomes interactive, on slower hardware especially.
   reloadBindings()
+  // The pre-boot pull may have just brought this account's theme in from
+  // another device - switch before the game paints anything else.
+  try {
+    const settings = JSON.parse(localStorage.getItem('gayz-settings') || 'null')
+    document.documentElement.classList.toggle('ui-theme-old', !(settings && settings.uiTheme === 'golden'))
+  } catch { /* unreadable settings - keep the early script's choice */ }
   new Game()
 })

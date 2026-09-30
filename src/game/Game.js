@@ -6607,6 +6607,9 @@ export class Game {
     // Debug/QA hook - lets Playwright (or the browser console) drive real
     // game methods directly, since this project has no test suite.
     window.__game = this
+    // Reveals the save-driven homepage values (see index.html's
+    // html:not(.game-ready) rule).
+    document.documentElement.classList.add('game-ready')
 
     // Arrived via a friend's invite link (?join=<sessionId>) - show the
     // Join prompt right away rather than making them find the pause menu.
