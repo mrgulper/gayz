@@ -4954,7 +4954,20 @@ export class Game {
     // real player report traced this session's lag to - multiple other
     // GPU-heavy tabs open at once, all sharing the one chip a page has no
     // way to see or control. Free and safe either way, so left on.
-    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: !LOW_QUALITY_MODE && !this.settings.performanceMode, powerPreference: 'high-performance' })
+    // alpha: false - an opaque canvas (2026-09-30). Nothing ever showed
+    // through it (the clear color is already fully opaque), but a
+    // transparent WebGL canvas makes the browser blend it with the page
+    // every frame, and on macOS keeps it from being handed straight to the
+    // screen - a real per-frame cost at Retina size.
+    // three.js always asks for an alpha (transparent) context itself, so
+    // the opaque one is created here and handed over. Falls back to letting
+    // three.js create its own if this browser refuses these attributes.
+    const antialias = !LOW_QUALITY_MODE && !this.settings.performanceMode
+    const glAttrs = { alpha: false, depth: true, stencil: false, antialias, premultipliedAlpha: true, preserveDrawingBuffer: false, powerPreference: 'high-performance' }
+    const opaqueContext = this.canvas.getContext('webgl2', glAttrs)
+    this.renderer = opaqueContext
+      ? new THREE.WebGLRenderer({ canvas: this.canvas, context: opaqueContext, alpha: false, antialias, powerPreference: 'high-performance' })
+      : new THREE.WebGLRenderer({ canvas: this.canvas, alpha: false, antialias, powerPreference: 'high-performance' })
     // Graphics-connection-lost handling (2026-09-19, extended same day) -
     // the multi-tab GPU-contention scenario documented above (several
     // GPU-heavy tabs open at once) can make the browser actually drop this
@@ -12078,7 +12091,11 @@ export class Game {
 
   _applyGraphicsFilters() {
     if (!this.canvas) return
-    this.canvas.style.filter = `brightness(${this.settings.brightness}%) contrast(${this.settings.contrast}%)`
+    // No filter at all at the defaults - even an identity CSS filter
+    // (brightness(100%) contrast(100%)) makes the browser run the whole
+    // canvas through an extra filter pass every frame (2026-09-30).
+    const neutral = Number(this.settings.brightness) === 100 && Number(this.settings.contrast) === 100
+    this.canvas.style.filter = neutral ? 'none' : `brightness(${this.settings.brightness}%) contrast(${this.settings.contrast}%)`
   }
 
   // Shadows are forced off by Performance Mode/LOW_QUALITY_MODE regardless
@@ -26080,9 +26097,11 @@ export class Game {
     // comment) - while active, none of the normal survival tick logic
     // below runs at all, not even the FPS counter.
     if (this.buildMode.active) {
+      const jsStart = performance.now()
       const dt = Math.min(this.timer.getDelta(), 0.1)
       this.buildMode.update(dt)
       this.buildMode.render()
+      this._editorJsMs = (this._editorJsMs || 0) + (performance.now() - jsStart)
       // Same fps / ms readout the survival game shows (2026-09-30 request),
       // with the editor's own numbers.
       this._fpsFrameCount++
@@ -26094,7 +26113,12 @@ export class Game {
         const fullRatio = Math.min(window.devicePixelRatio, 2) * this._userResScale
         const resPct = Math.round((this.renderer.getPixelRatio() / fullRatio) * 100)
         const resTag = resPct < 100 ? ` / res ${resPct}%` : ''
-        this.fpsEl.textContent = `${fps} fps / ${msPerFrame} ms / ${this.buildMode.lastDrawCalls} draws / ${this.buildMode.blockCount} blocks${resTag} / ${this._gpuRendererString}`
+        // "js": this page's own work per frame (building + sending the
+        // frame). When fps is low but js is small, the time is going to
+        // the GPU / browser compositor, not the game's code.
+        const jsMs = (this._editorJsMs / this._fpsFrameCount).toFixed(1)
+        this._editorJsMs = 0
+        this.fpsEl.textContent = `${fps} fps / ${msPerFrame} ms / js ${jsMs} ms / ${this.buildMode.lastDrawCalls} draws / ${this.buildMode.blockCount} blocks${resTag} / ${this._gpuRendererString}`
         this._updateEditorResScale(Number(msPerFrame), nowFpsBm)
         this._fpsFrameCount = 0
         this._fpsLastUpdate = nowFpsBm
