@@ -3974,6 +3974,65 @@ const PROFILE_GROUP_ORDER = [
 // pixels per CSS pixel - only reached on devices too slow at 1.
 const EDITOR_MIN_PIXEL_RATIO = 0.6
 
+// Inventory > Character skins, in grid order (Kirka-style cards). Adding a
+// skin to the game = one entry here: its 64x64 Minecraft-format texture,
+// a rarity (colors the card's side bar) and how many the player owns
+// (0 = not shown). An uploaded custom skin gets its own card on top of
+// these while it's the one equipped (see _inventorySkinEntries).
+const INVENTORY_SKINS = [
+  { id: 'default', nameKey: 'skinDefault', rarity: 'common', dataUrl: DEFAULT_SKIN_DATA_URL, count: () => 1 },
+  { id: 'gaygarx', name: 'GaygarX', rarity: 'legendary', dataUrl: SHOP_SKIN_PREVIEW_DATA_URL, count: (g) => (g.ownsShopSkin ? 1 : 0) },
+]
+const SKIN_RARITIES = {
+  common: { color: '#9aa0a6', key: 'skinRarityCommon' },
+  uncommon: { color: '#4caf50', key: 'skinRarityUncommon' },
+  rare: { color: '#2f80ed', key: 'skinRarityRare' },
+  epic: { color: '#9b51e0', key: 'skinRarityEpic' },
+  legendary: { color: '#f2a516', key: 'skinRarityLegendary' },
+  mythic: { color: '#e5322d', key: 'skinRarityMythic' },
+}
+
+// Flat front view of a Minecraft skin (head+hat, body, arms, legs) as a
+// data URL - the card picture, like Kirka's inventory. Cached per texture.
+const _skinFrontIconCache = new Map()
+function skinFrontIconURL(dataUrl) {
+  if (_skinFrontIconCache.has(dataUrl)) return _skinFrontIconCache.get(dataUrl)
+  const promise = new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const legacy = img.height < 64 // old 64x32 skins: left limbs mirror the right ones
+      const canvas = document.createElement('canvas')
+      canvas.width = 16
+      canvas.height = 32
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })
+      ctx.imageSmoothingEnabled = false
+      const part = (sx, sy, w, h, dx, dy, mirror = false) => {
+        if (mirror) {
+          ctx.save()
+          ctx.translate(dx + w, dy)
+          ctx.scale(-1, 1)
+          ctx.drawImage(img, sx, sy, w, h, 0, 0, w, h)
+          ctx.restore()
+        } else ctx.drawImage(img, sx, sy, w, h, dx, dy, w, h)
+      }
+      part(8, 8, 8, 8, 4, 0) // head
+      part(40, 8, 8, 8, 4, 0) // hat layer
+      part(20, 20, 8, 12, 4, 8) // body
+      part(44, 20, 4, 12, 0, 8) // right arm (viewer's left)
+      if (legacy) part(44, 20, 4, 12, 12, 8, true)
+      else part(36, 52, 4, 12, 12, 8) // left arm
+      part(4, 20, 4, 12, 4, 20) // right leg
+      if (legacy) part(4, 20, 4, 12, 8, 20, true)
+      else part(20, 52, 4, 12, 8, 20) // left leg
+      resolve(canvas.toDataURL())
+    }
+    img.onerror = () => resolve('')
+    img.src = dataUrl
+  })
+  _skinFrontIconCache.set(dataUrl, promise)
+  return promise
+}
+
 export class Game {
   constructor() {
     this.canvas = document.getElementById('scene')
@@ -5968,6 +6027,11 @@ export class Game {
     this.inventoryTabWeapons = document.getElementById('inventory-tab-weapons')
     this.inventoryTabTheme = document.getElementById('inventory-tab-theme')
     this.inventorySkinsList = document.getElementById('inventory-skins-list')
+    this.invSkinSearch = document.getElementById('inv-skin-search')
+    this.invSkinMenu = document.getElementById('inv-skin-menu')
+    this.invSkinMenuEquip = document.getElementById('inv-skin-menu-equip')
+    this.invSkinMenuInspect = document.getElementById('inv-skin-menu-inspect')
+    this.invSkinPreviewCanvas = document.getElementById('inv-skin-preview-canvas')
     this.inventoryWeaponsList = document.getElementById('inventory-weapons-list')
     this.serverBtn = document.getElementById('server-btn')
     this.serverPanel = document.getElementById('server-panel')
@@ -9910,13 +9974,31 @@ export class Game {
     // Character tab's skin list (see _renderInventorySkins) - one
     // delegated listener since the rows get fully replaced on every
     // render, same reasoning as chat's own click-to-mute delegation.
+    // Clicking a card opens its Equip/Inspect menu next to it (Kirka's
+    // inventory does the same); clicking anywhere else closes it.
     if (this.inventorySkinsList) {
       this.inventorySkinsList.addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-inventory-skin]')
-        if (!btn || btn.disabled) return
-        this._equipInventorySkin(btn.dataset.inventorySkin)
+        const card = e.target.closest('[data-inventory-skin]')
+        if (!card) return
+        e.stopPropagation()
+        this._openInventorySkinMenu(card)
       })
     }
+    if (this.invSkinMenu) {
+      this.invSkinMenu.addEventListener('click', (e) => e.stopPropagation())
+      this.invSkinMenuEquip.addEventListener('click', () => {
+        const id = this._invSkinMenuFor
+        this._closeInventorySkinMenu()
+        if (id) this._equipInventorySkin(id)
+      })
+      this.invSkinMenuInspect.addEventListener('click', () => {
+        const id = this._invSkinMenuFor
+        this._closeInventorySkinMenu()
+        if (id) this._inspectInventorySkin(id)
+      })
+      document.addEventListener('click', () => this._closeInventorySkinMenu())
+    }
+    if (this.invSkinSearch) this.invSkinSearch.addEventListener('input', () => this._renderInventorySkins())
 
     // Clan panel tab strip (General/Clan/Market) - same isolated
     // class/loop pattern as the other tab strips above.
@@ -15980,7 +16062,13 @@ export class Game {
     if (this.inventoryTabWeapons) this.inventoryTabWeapons.textContent = t('inventoryWeaponsTitle')
     if (this.inventoryTabTheme) this.inventoryTabTheme.textContent = t('tabTheme')
     this._renderCrateTiers()
+    this._invSkinInspected = null
+    if (this.invSkinSearch) {
+      this.invSkinSearch.value = ''
+      this.invSkinSearch.placeholder = t('inventorySkinSearch')
+    }
     this._renderInventorySkins()
+    this._renderInventorySkinPreview()
     this._renderInventoryWeapons()
     // Always reopen on the Character tab - simpler than remembering the
     // last-used one, and matches this panel's own approved design.
@@ -15988,23 +16076,112 @@ export class Game {
     for (const page of document.querySelectorAll('.inventory-tab-page')) page.style.display = page.id === 'inventory-page-character' ? 'block' : 'none'
   }
 
-  // Character tab of the Inventory panel (see this panel's own comment
-  // above _openMenuInventoryPanel) - was just a "Coming soon." placeholder
-  // (and an inert, never-wired-up Sort dropdown, removed along with it).
-  // Only ever shows two entries right now (Default, and GaygarX once
-  // bought in the Shop - see Game.SHOP_SKIN_PRICE/_buyShopSkin) since
-  // that's the only ownable skin that exists, but reads its list from
-  // this.ownsShopSkin so a future second purchasable skin would just mean
-  // adding one more entry here, not a new mechanism.
+  // Character tab of the Inventory panel - Kirka-style card grid (see
+  // INVENTORY_SKINS): every owned skin is a card with its front-view
+  // picture, rarity bar and count; clicking one opens Equip/Inspect.
+  _inventorySkinEntries() {
+    const custom = this.settings.customSkinDataUrl
+    const entries = INVENTORY_SKINS
+      .map((skin) => ({ ...skin, name: skin.nameKey ? t(skin.nameKey) : skin.name, owned: skin.count(this) }))
+      .filter((skin) => skin.owned > 0)
+    if (custom && !INVENTORY_SKINS.some((skin) => skin.dataUrl === custom)) {
+      entries.unshift({ id: 'custom', name: t('skinCustom'), rarity: 'common', dataUrl: custom, owned: 1 })
+    }
+    return entries
+  }
+
+  _equippedInventorySkinId() {
+    const custom = this.settings.customSkinDataUrl
+    if (!custom) return 'default'
+    return INVENTORY_SKINS.find((skin) => skin.dataUrl === custom)?.id || 'custom'
+  }
+
   _renderInventorySkins() {
     if (!this.inventorySkinsList) return
-    const equippedId = this.settings.customSkinDataUrl === SHOP_SKIN_PREVIEW_DATA_URL ? 'gaygarx' : 'default'
-    const items = [{ id: 'default', name: t('skinDefault') }]
-    if (this.ownsShopSkin) items.push({ id: 'gaygarx', name: 'GaygarX' })
-    this.inventorySkinsList.innerHTML = items.map((item) => {
-      const equipped = item.id === equippedId
-      return `<div class="perk-option"><span class="perk-name">${_escapeHtml(item.name)}</span><button type="button" class="mini-action-btn" data-inventory-skin="${item.id}"${equipped ? ' disabled' : ''}>${equipped ? t('skinEquipped') : t('skinEquip')}</button></div>`
+    this._closeInventorySkinMenu()
+    const equippedId = this._equippedInventorySkinId()
+    const query = (this.invSkinSearch?.value || '').trim().toLowerCase()
+    const entries = this._inventorySkinEntries().filter((skin) => !query || skin.name.toLowerCase().includes(query))
+    if (!entries.length) {
+      this.inventorySkinsList.innerHTML = `<p class="inv-skin-empty">${_escapeHtml(t('skinNoMatch'))}</p>`
+      return
+    }
+    this.inventorySkinsList.innerHTML = entries.map((skin) => {
+      const rarity = SKIN_RARITIES[skin.rarity] || SKIN_RARITIES.common
+      const classes = ['inv-skin-card']
+      if (skin.id === equippedId) classes.push('equipped')
+      if (skin.id === this._invSkinInspected) classes.push('inspected')
+      return `<button type="button" class="${classes.join(' ')}" data-inventory-skin="${skin.id}" style="--rarity: ${rarity.color}" title="${_escapeHtml(`${skin.name} - ${t(rarity.key)}`)}">`
+        + `<span class="inv-skin-card-name">${_escapeHtml(skin.name)}</span>`
+        + '<img class="inv-skin-card-img" alt="" draggable="false" />'
+        + `<span class="inv-skin-card-count">${_safeStatNumber(skin.owned)}</span>`
+        + '</button>'
     }).join('')
+    // Pictures fill in as they're drawn (cached after the first time).
+    for (const skin of entries) {
+      skinFrontIconURL(skin.dataUrl).then((url) => {
+        const img = this.inventorySkinsList.querySelector(`[data-inventory-skin="${skin.id}"] .inv-skin-card-img`)
+        if (img && url) img.src = url
+      })
+    }
+  }
+
+  // Big 3D preview on the left: the inspected skin, else the equipped one.
+  async _renderInventorySkinPreview() {
+    const entries = this._inventorySkinEntries()
+    const shownId = this._invSkinInspected || this._equippedInventorySkinId()
+    const skin = entries.find((entry) => entry.id === shownId) || entries[0]
+    const nameEl = document.getElementById('inv-skin-preview-name')
+    const levelEl = document.getElementById('inv-skin-preview-level')
+    const skinEl = document.getElementById('inv-skin-preview-skin')
+    if (levelEl) levelEl.textContent = String(this._computeAvatarLevel())
+    if (nameEl) nameEl.textContent = this.settings.nickname.trim() || this._defaultNickname()
+    if (skinEl && skin) {
+      const rarity = SKIN_RARITIES[skin.rarity] || SKIN_RARITIES.common
+      skinEl.innerHTML = `${_escapeHtml(skin.name)} <span style="color: ${rarity.color}">${_escapeHtml(t(rarity.key))}</span>`
+    }
+    if (!this.invSkinPreviewCanvas || !skin) return
+    if (!this._invSkinAvatar3D) {
+      this._invSkinAvatar3D = new MenuAvatar3D(this.invSkinPreviewCanvas)
+      this._invSkinAvatar3D.start()
+    }
+    const token = (this._invSkinPreviewToken = (this._invSkinPreviewToken || 0) + 1)
+    try {
+      const texture = await loadSkinTexture(skin.dataUrl)
+      if (token === this._invSkinPreviewToken && this._invSkinAvatar3D) this._invSkinAvatar3D.setSkin(texture)
+    } catch {
+      // Unreadable texture - keep whatever the preview showed before.
+    }
+  }
+
+  _openInventorySkinMenu(card) {
+    if (!this.invSkinMenu) return
+    const id = card.dataset.inventorySkin
+    if (this._invSkinMenuFor === id && this.invSkinMenu.style.display !== 'none') {
+      this._closeInventorySkinMenu()
+      return
+    }
+    this._invSkinMenuFor = id
+    const equipped = id === this._equippedInventorySkinId()
+    this.invSkinMenuEquip.textContent = equipped ? t('skinEquipped') : t('skinEquip')
+    this.invSkinMenuEquip.disabled = equipped
+    this.invSkinMenuInspect.textContent = t('skinInspect')
+    const side = this.invSkinMenu.parentElement.getBoundingClientRect()
+    const rect = card.getBoundingClientRect()
+    this.invSkinMenu.style.display = 'flex'
+    this.invSkinMenu.style.left = `${rect.left - side.left + rect.width / 2}px`
+    this.invSkinMenu.style.top = `${rect.top - side.top + 26}px`
+  }
+
+  _closeInventorySkinMenu() {
+    if (this.invSkinMenu) this.invSkinMenu.style.display = 'none'
+    this._invSkinMenuFor = null
+  }
+
+  _inspectInventorySkin(id) {
+    this._invSkinInspected = id
+    this._renderInventorySkins()
+    this._renderInventorySkinPreview()
   }
 
   // Same skin-apply sequence _buyShopSkin/_bindSkinUpload's Reset button
@@ -16014,14 +16191,19 @@ export class Game {
   // deduction + confirm dialog for buying, the default-bundled-skin
   // re-fetch for resetting) to avoid touching either for this.
   async _equipInventorySkin(id) {
-    if (id === 'gaygarx') {
-      if (!this.ownsShopSkin) return
-      this.settings.customSkinDataUrl = SHOP_SKIN_PREVIEW_DATA_URL
+    if (id === 'custom') return
+    this._invSkinInspected = null
+    // Any INVENTORY_SKINS entry the player owns (other than Default) -
+    // no per-skin code needed for a new one.
+    const entry = INVENTORY_SKINS.find((skin) => skin.id === id)
+    if (entry && id !== 'default') {
+      if (!(entry.count(this) > 0)) return
+      this.settings.customSkinDataUrl = entry.dataUrl
       saveSettings(this.settings)
-      const skin = await loadSkinTexture(SHOP_SKIN_PREVIEW_DATA_URL)
+      const skin = await loadSkinTexture(entry.dataUrl)
       if (this._menuAvatar3D) this._menuAvatar3D.setSkin(skin)
       this._updateMenuAvatarPhoto(skin)
-      this.localMinecraftBody.setSkin(SHOP_SKIN_PREVIEW_DATA_URL)
+      this.localMinecraftBody.setSkin(entry.dataUrl)
     } else {
       this.settings.customSkinDataUrl = null
       saveSettings(this.settings)
@@ -16036,6 +16218,7 @@ export class Game {
     const resetBtn = document.getElementById('reset-skin-btn')
     if (resetBtn) resetBtn.style.display = this.settings.customSkinDataUrl ? '' : 'none'
     this._renderInventorySkins()
+    this._renderInventorySkinPreview()
   }
 
   _closeMenuInventoryPanel() {

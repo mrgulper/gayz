@@ -3802,8 +3802,26 @@ Escape before dawn.</p>
             <button class="inventory-tab" data-inventory-page="weapons" id="inventory-tab-weapons">Weapons</button>
             <button class="inventory-tab" data-inventory-page="theme" id="inventory-tab-theme">Theme</button>
           </div>
+          <!-- Character tab, Kirka-style (2026-09-30): big 3D preview of the
+               equipped (or inspected) skin on the left, a searchable grid
+               of skin cards on the right - rarity bar, count, click for
+               Equip/Inspect. Cards come from INVENTORY_SKINS in Game.js. -->
           <div class="inventory-tab-page" id="inventory-page-character">
-            <div class="perk-options" id="inventory-skins-list"></div>
+            <div id="inv-skins-layout">
+              <div id="inv-skin-preview">
+                <p id="inv-skin-preview-title"><span id="inv-skin-preview-level">1</span><span id="inv-skin-preview-name"></span></p>
+                <canvas id="inv-skin-preview-canvas"></canvas>
+                <p id="inv-skin-preview-skin"></p>
+              </div>
+              <div id="inv-skins-side">
+                <input type="text" id="inv-skin-search" autocomplete="off" />
+                <div id="inventory-skins-list"></div>
+                <div id="inv-skin-menu" style="display: none">
+                  <button type="button" id="inv-skin-menu-equip"></button>
+                  <button type="button" id="inv-skin-menu-inspect"></button>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="inventory-tab-page" id="inventory-page-crates" style="display: none">
             <div class="crate-tier-grid">
