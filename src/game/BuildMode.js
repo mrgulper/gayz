@@ -6,7 +6,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import * as CloudSync from './CloudSync.js'
 import { BlockChunks, CHUNK } from './BlockChunks.js'
-import { blockFaceCanvases, blockIconURL, textureHasAlpha } from './BlockTextures.js'
+import { blockFaceCanvases, blockIconURL, doorCanvas, doorIconURL, textureHasAlpha } from './BlockTextures.js'
 import { t } from './i18n.js'
 
 // GROUND_SIZE is a CELL count (not world units) - bumped up from 64, then
@@ -114,7 +114,7 @@ export const BLOCK_TYPES = [
   // Most-common-blocks pass (matched against Minecraft's own most-placed
   // types) - fills real gaps the original 24 left, like there being no log/
   // wool pattern at all, and several blocks players expect (cobblestone,
-  // TNT, ore blocks) missing entirely.
+  // ore blocks) missing entirely.
   { id: 'cobblestone', name: 'Cobblestone', color: 0x7d7d7d, pattern: 'speckle', roughness: 0.95, metalness: 0 },
   { id: 'oaklog', name: 'Oak Log', color: 0x6b4423, pattern: 'log', roughness: 0.8, metalness: 0 },
   { id: 'bookshelf', name: 'Bookshelf', color: 0x8a6239, pattern: 'spine', roughness: 0.75, metalness: 0 },
@@ -124,7 +124,8 @@ export const BLOCK_TYPES = [
   { id: 'redstoneblock', name: 'Redstone Block', color: 0xa61b1b, pattern: 'metal', roughness: 0.3, metalness: 0.6, emissive: 0x8a0000, emissiveIntensity: 0.4 },
   { id: 'coalblock', name: 'Coal Block', color: 0x1c1c1c, pattern: 'speckle', roughness: 0.9, metalness: 0 },
   { id: 'pumpkin', name: 'Pumpkin', color: 0xd9761a, pattern: 'ridged', roughness: 0.8, metalness: 0 },
-  { id: 'tnt', name: 'TNT', color: 0xc23b22, pattern: 'stripe', roughness: 0.85, metalness: 0 },
+  // C4 replaced TNT (2026-09-30) - old saves' 'tnt' loads as C4, see LEGACY_TYPE_IDS.
+  { id: 'c4', name: 'C4', color: 0xc8bc94, pattern: 'stripe', roughness: 0.85, metalness: 0 },
   { id: 'quartz', name: 'Quartz Block', color: 0xe8e4dc, pattern: 'brick', roughness: 0.4, metalness: 0 },
   { id: 'andesite', name: 'Andesite', color: 0x888888, pattern: 'speckle', roughness: 0.85, metalness: 0 },
   // Second common-blocks pass.
@@ -289,6 +290,47 @@ export const BLOCK_TYPES = [
   { id: 'sculk', name: 'Sculk', color: 0x0f2a33, pattern: 'speckle', roughness: 0.9, metalness: 0 },
   { id: 'shroomlight', name: 'Shroomlight', color: 0xf09a48, pattern: 'metal', roughness: 0.6, metalness: 0, emissive: 0xff9a40, emissiveIntensity: 0.6 },
   { id: 'redstonelamp', name: 'Redstone Lamp', color: 0xc8783a, pattern: 'metal', roughness: 0.6, metalness: 0, emissive: 0xffb060, emissiveIntensity: 0.6 },
+  // Block batch 3 (2026-09-30) - textures in BlockTextures.js.
+  { id: 'cobbleddeepslate', name: 'Cobbled Deepslate', color: 0x4a4a50, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'deepslatebricks', name: 'Deepslate Bricks', color: 0x505056, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'deepslatetiles', name: 'Deepslate Tiles', color: 0x3a3a3e, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'polisheddeepslate', name: 'Polished Deepslate', color: 0x505058, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'mudbricks', name: 'Mud Bricks', color: 0x8a6a4e, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'packedmud', name: 'Packed Mud', color: 0x8e6a4a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'quartzbricks', name: 'Quartz Bricks', color: 0xebe5dc, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'smoothquartz', name: 'Smooth Quartz', color: 0xece6dd, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'chiseledsandstone', name: 'Chiseled Sandstone', color: 0xd0bc8a, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'rednetherbricks', name: 'Red Nether Bricks', color: 0x4a0f0f, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'netherwartblock', name: 'Nether Wart Block', color: 0x7a0e0e, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'warpedwartblock', name: 'Warped Wart Block', color: 0x167a78, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'crimsonstem', name: 'Crimson Stem', color: 0x5a1e2e, pattern: 'log', roughness: 0.9, metalness: 0 },
+  { id: 'warpedstem', name: 'Warped Stem', color: 0x3b5a6a, pattern: 'log', roughness: 0.9, metalness: 0 },
+  { id: 'mangrovelog', name: 'Mangrove Log', color: 0x5a4636, pattern: 'log', roughness: 0.9, metalness: 0 },
+  { id: 'strippedsprucelog', name: 'Stripped Spruce Log', color: 0x7a5a38, pattern: 'log', roughness: 0.9, metalness: 0 },
+  { id: 'strippedbirchlog', name: 'Stripped Birch Log', color: 0xc8b47a, pattern: 'log', roughness: 0.9, metalness: 0 },
+  { id: 'bambooblock', name: 'Block of Bamboo', color: 0x9aa83a, pattern: 'stripe', roughness: 0.9, metalness: 0 },
+  { id: 'rawironblock', name: 'Raw Iron Block', color: 0xa8866a, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'rawgoldblock', name: 'Raw Gold Block', color: 0xd8a82a, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'rawcopperblock', name: 'Raw Copper Block', color: 0x9a5a3a, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'cutcopper', name: 'Cut Copper', color: 0xc06a48, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'ancientdebris', name: 'Ancient Debris', color: 0x5e4238, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'gildedblackstone', name: 'Gilded Blackstone', color: 0x2b2530, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'lodestone', name: 'Lodestone', color: 0x8a8a8e, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'barrel', name: 'Barrel', color: 0x8a6038, pattern: 'wood', roughness: 0.9, metalness: 0 },
+  { id: 'ochrefroglight', name: 'Ochre Froglight', color: 0xf0e0a0, pattern: 'metal', roughness: 0.6, metalness: 0, emissive: 0xffe080, emissiveIntensity: 0.6 },
+  { id: 'verdantfroglight', name: 'Verdant Froglight', color: 0xd8f0c0, pattern: 'metal', roughness: 0.6, metalness: 0, emissive: 0xb0ff90, emissiveIntensity: 0.6 },
+  { id: 'pearlescentfroglight', name: 'Pearlescent Froglight', color: 0xf0d8e8, pattern: 'metal', roughness: 0.6, metalness: 0, emissive: 0xffb0f0, emissiveIntensity: 0.6 },
+  { id: 'tintedglass', name: 'Tinted Glass', color: 0x2a2230, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.8 },
+  { id: 'orangestainedglass', name: 'Orange Stained Glass', color: 0xd87a1a, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'limestainedglass', name: 'Lime Stained Glass', color: 0x7cc82a, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'pinkstainedglass', name: 'Pink Stained Glass', color: 0xe08fab, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'cyanstainedglass', name: 'Cyan Stained Glass', color: 0x1a8f9c, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'lightbluestainedglass', name: 'Light Blue Stained Glass', color: 0x6bb9d9, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'redterracotta', name: 'Red Terracotta', color: 0x8e3c2e, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'yellowterracotta', name: 'Yellow Terracotta', color: 0xba8524, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'greenterracotta', name: 'Green Terracotta', color: 0x4c532a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'purpleterracotta', name: 'Purple Terracotta', color: 0x764656, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'cyanterracotta', name: 'Cyan Terracotta', color: 0x565b5b, pattern: 'speckle', roughness: 0.9, metalness: 0 },
   // Shaped blocks (see CUSTOM_BLOCK_GEOMETRY) - every block above is a full
   // 1x1x1 cube; these use their own geometry instead (a stair-stepped
   // silhouette, a post-and-rail fence, a thin ladder panel). `shape` picks
@@ -303,6 +345,15 @@ export const BLOCK_TYPES = [
   { id: 'oakfence', name: 'Oak Fence', color: 0xb4864a, pattern: 'wood', roughness: 0.85, metalness: 0, shape: 'fence' },
   { id: 'stonefence', name: 'Stone Fence', color: 0x808078, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'fence' },
   { id: 'netherbrickfence', name: 'Nether Brick Fence', color: 0x35181c, pattern: 'brick', roughness: 0.8, metalness: 0, shape: 'fence' },
+  // Doors (2026-09-30) - two blocks tall; right-click opens/closes. The
+  // top half is its own hidden type (`${id}top`, generated below) so each
+  // half shows its own half of the door texture (doorCanvas).
+  { id: 'oakdoor', name: 'Oak Door', color: 0xb4864a, pattern: 'wood', roughness: 0.85, metalness: 0, shape: 'door', door: 'oak' },
+  { id: 'sprucedoor', name: 'Spruce Door', color: 0x6b4a2c, pattern: 'wood', roughness: 0.85, metalness: 0, shape: 'door', door: 'spruce' },
+  { id: 'birchdoor', name: 'Birch Door', color: 0xd8c898, pattern: 'wood', roughness: 0.85, metalness: 0, shape: 'door', door: 'birch' },
+  { id: 'darkoakdoor', name: 'Dark Oak Door', color: 0x4a3524, pattern: 'wood', roughness: 0.85, metalness: 0, shape: 'door', door: 'darkoak' },
+  { id: 'acaciadoor', name: 'Acacia Door', color: 0xb85a3a, pattern: 'wood', roughness: 0.85, metalness: 0, shape: 'door', door: 'acacia' },
+  { id: 'irondoor', name: 'Iron Door', color: 0xd2d2ce, pattern: 'metal', roughness: 0.4, metalness: 0.6, shape: 'door', door: 'iron' },
   // Slabs - half-height blocks (CUSTOM_BLOCK_GEOMETRY.slab), textured like the full block they're cut from (SHAPED_TEXTURE_FROM).
   { id: 'oakslab', name: 'Oak Slab', color: 0xb4864a, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
   { id: 'spruceslab', name: 'Spruce Slab', color: 0x6b4a2c, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'slab' },
@@ -332,7 +383,17 @@ for (const src of BLOCK_TYPES.slice()) {
     slabOf: src.id,
   })
 }
+// Top halves of doors - never in the picker, only ever placed together
+// with their bottom half (see placeBlock).
+for (const src of BLOCK_TYPES.filter((b) => b.shape === 'door')) {
+  BLOCK_TYPES.push({ ...src, id: `${src.id}top`, name: src.name, shape: 'doortop', hidden: true, doorBottom: src.id })
+}
 const VALID_TYPE_IDS = new Set(BLOCK_TYPES.map((b) => b.id))
+const BLOCK_BY_ID = new Map(BLOCK_TYPES.map((b) => [b.id, b]))
+const PICKER_TYPES = BLOCK_TYPES.filter((b) => !b.hidden)
+// Removed/renamed block ids -> what old saves load them as.
+const LEGACY_TYPE_IDS = { tnt: 'c4', tntslab: 'c4slab' }
+const _isDoorType = (type) => { const shape = BLOCK_BY_ID.get(type)?.shape; return shape === 'door' || shape === 'doortop' }
 // Light-giving blocks (lava, glowstone, jack o'lantern...) - every block
 // type with an emissive color. They light their surroundings through
 // baked vertex light in the chunk meshes (BlockChunks.setGlow), not real
@@ -806,6 +867,10 @@ function _canvasTexture(canvas) {
 // -> { top, side, bottom } textures for a shaped block (all three the same
 // texture unless its source block has different faces, e.g. a grass slab).
 function _shapedBlockTextures(bt) {
+  if (bt.door) {
+    const tex = _canvasTexture(doorCanvas(bt.door))
+    return { top: tex, side: tex, bottom: tex }
+  }
   const source = _shapedSource(bt)
   if (!source) {
     const tex = _makeBlockTexture(bt.color, bt.pattern)
@@ -821,6 +886,7 @@ function _shapedBlockTextures(bt) {
 // Picker/hotbar icon: shaped blocks show the block they're made from, a
 // slab at half height.
 function _blockIcon(bt) {
+  if (bt.door) return doorIconURL(bt.door)
   const source = _shapedSource(bt)
   return blockIconURL(source || bt, 64, bt.shape === 'slab' ? 0.5 : 1)
 }
@@ -872,6 +938,18 @@ function _buildSlabGeometry() {
   return geo
 }
 
+// A door half: a thin panel along the cell's -z edge (rotated per door
+// facing, see _doorMatrix). Its big faces show the bottom or top half of
+// the 16x32 door texture.
+const DOOR_THICKNESS = BLOCK_SIZE * 3 / 16
+function _buildDoorGeometry(top) {
+  const geo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, DOOR_THICKNESS)
+  geo.translate(0, 0, -BLOCK_SIZE / 2 + DOOR_THICKNESS / 2)
+  const uv = geo.attributes.uv
+  for (let v = 0; v < uv.count; v++) uv.setY(v, uv.getY(v) * 0.5 + (top ? 0.5 : 0))
+  return geo
+}
+
 function _buildLadderGeometry() {
   const geo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE * 0.12)
   return geo
@@ -885,6 +963,8 @@ const CUSTOM_BLOCK_GEOMETRY = {
   stairs: _buildStairGeometry(),
   fence: _buildFenceGeometry(),
   ladder: _buildLadderGeometry(),
+  door: _buildDoorGeometry(false),
+  doortop: _buildDoorGeometry(true),
 }
 
 export class BuildMode {
@@ -1017,6 +1097,7 @@ export class BuildMode {
     this.activeHotbarIndex = 0
     this.selectedType = null
     this._blocks = new Map() // "x,y,z" -> type id
+    this._doorState = new Map() // "x,y,z" (both halves) -> { facing: 0-3, open }
     // Undo/Redo - every real placeBlock()/removeBlock() call (not a no-op
     // on an already-occupied/already-empty cell) pushes one entry here,
     // regardless of which tool triggered it (a single click, Mirror's
@@ -1363,7 +1444,7 @@ export class BuildMode {
         map,
         transparent: !!bt.transparent,
         opacity: bt.opacity ?? 1,
-        alphaTest: bt.transparent ? 0.02 : 0,
+        alphaTest: bt.transparent ? 0.02 : bt.door ? 0.5 : 0,
         emissive: bt.emissive ?? 0x000000,
         emissiveIntensity: bt.emissiveIntensity ?? 0,
       })
@@ -1405,9 +1486,23 @@ export class BuildMode {
     return `${Math.floor(x / CHUNK)},${Math.floor(y / CHUNK)},${Math.floor(z / CHUNK)}`
   }
 
-  placeBlock(x, y, z, type, skipBoundsUpdate = false) {
+  // state: a door's { facing, open } (from a save/undo entry) - a new door
+  // faces away from the camera.
+  placeBlock(x, y, z, type, skipBoundsUpdate = false, state = null) {
     const key = this._key(x, y, z)
     if (this._blocks.has(key)) return
+    const shape = BLOCK_BY_ID.get(type)?.shape
+    // A door's top half only ever comes with its bottom half (below).
+    if (shape === 'doortop' && !this._placingDoorTop) return
+    if (shape === 'door') {
+      if (this._blocks.has(this._key(x, y + 1, z))) return
+      const doorState = {
+        facing: Number.isInteger(state?.facing) && state.facing >= 0 && state.facing <= 3 ? state.facing : this._doorFacingFromCamera(),
+        open: !!state?.open,
+      }
+      this._doorState.set(key, doorState)
+      this._doorState.set(this._key(x, y + 1, z), doorState)
+    }
     if (this._chunks.isChunkType(type)) {
       if (!skipBoundsUpdate && !this._suppressUndoRecording) this._recordUndo({ action: 'place', x, y, z, type })
       this._blocks.set(key, type)
@@ -1427,13 +1522,16 @@ export class BuildMode {
     // stack with thousands of individual entries, while every real
     // interactive placement (a plain skipBoundsUpdate=false call) still
     // gets recorded.
-    if (!skipBoundsUpdate && !this._suppressUndoRecording) this._recordUndo({ action: 'place', x, y, z, type })
+    if (!skipBoundsUpdate && !this._suppressUndoRecording) {
+      this._recordUndo({ action: 'place', x, y, z, type, ...(shape === 'door' ? { state: { ...this._doorState.get(key) } } : {}) })
+    }
     const index = mesh.count
     // x/y/z are integer grid cell indices (unaffected by BLOCK_SIZE - saved
     // builds, _blocks' sparse map keys, and every raycast/collision cell
     // lookup all stay in this same cell-index space); only the WORLD
     // position of that cell's center needs the *BLOCK_SIZE conversion.
-    const matrix = new THREE.Matrix4().makeTranslation((x + 0.5) * BLOCK_SIZE, (y + 0.5) * BLOCK_SIZE, (z + 0.5) * BLOCK_SIZE)
+    const matrix = this._doorState.has(key) ? this._doorMatrix(x, y, z, this._doorState.get(key))
+      : new THREE.Matrix4().makeTranslation((x + 0.5) * BLOCK_SIZE, (y + 0.5) * BLOCK_SIZE, (z + 0.5) * BLOCK_SIZE)
     mesh.setMatrixAt(index, matrix)
     // Slight per-instance brightness variation (±12%) - every block of a
     // type otherwise shares one exact texture, which reads as an obviously
@@ -1456,6 +1554,56 @@ export class BuildMode {
     // their corner shading lookups - cheap to refresh.
     this._chunks.markDirty(x, y, z)
     this._attachBlockLight(key, x, y, z, type)
+    if (shape === 'door') {
+      this._placingDoorTop = true
+      this.placeBlock(x, y + 1, z, `${type}top`, true)
+      this._placingDoorTop = false
+      if (!skipBoundsUpdate) this._instancedMeshes[`${type}top`]?.computeBoundingSphere()
+    }
+  }
+
+  // Door facing k puts the closed panel on the cell's edge nearest the
+  // camera: 0 = -z, 1 = -x, 2 = +z, 3 = +x (the -z panel turned k*90deg).
+  _doorFacingFromCamera() {
+    const dir = new THREE.Vector3()
+    this.camera.getWorldDirection(dir)
+    // The edge nearest the camera is opposite to where it looks.
+    if (Math.abs(dir.x) > Math.abs(dir.z)) return dir.x > 0 ? 1 : 3
+    return dir.z > 0 ? 0 : 2
+  }
+
+  // An open door swings a quarter turn, onto the neighboring edge.
+  _doorMatrix(x, y, z, state) {
+    const turn = ((state.facing + (state.open ? 1 : 0)) % 4) * (Math.PI / 2)
+    const m = new THREE.Matrix4().makeRotationY(turn)
+    m.setPosition((x + 0.5) * BLOCK_SIZE, (y + 0.5) * BLOCK_SIZE, (z + 0.5) * BLOCK_SIZE)
+    return m
+  }
+
+  // Opens/closes the door at (x, y, z) - either half.
+  toggleDoor(x, y, z) {
+    const type = this.getBlockAt(x, y, z)
+    if (!_isDoorType(type)) return false
+    const bottomY = BLOCK_BY_ID.get(type).shape === 'doortop' ? y - 1 : y
+    const state = this._doorState.get(this._key(x, bottomY, z))
+    if (!state) return false
+    state.open = !state.open
+    for (const cy of [bottomY, bottomY + 1]) {
+      const key = this._key(x, cy, z)
+      const cellType = this._blocks.get(key)
+      const mesh = cellType && this._instancedMeshes[cellType]
+      const index = mesh ? this._instanceKeyByIndex[cellType].indexOf(key) : -1
+      if (index < 0) continue
+      mesh.setMatrixAt(index, this._doorMatrix(x, cy, z, state))
+      mesh.instanceMatrix.needsUpdate = true
+      mesh.computeBoundingSphere()
+    }
+    this._shadowsDirty = true
+    return true
+  }
+
+  isDoorOpenAt(x, y, z) {
+    return !!this._doorState.get(this._key(x, y, z))?.open
   }
 
   _attachBlockLight(key, x, y, z, type) {
@@ -1467,7 +1615,22 @@ export class BuildMode {
     const key = this._key(x, y, z)
     const type = this._blocks.get(key)
     if (!type) return
-    if (!this._suppressUndoRecording) this._recordUndo({ action: 'remove', x, y, z, type })
+    const shape = BLOCK_BY_ID.get(type)?.shape
+    // Breaking either half of a door breaks the whole door (recorded as
+    // the bottom half, which brings its top back on undo).
+    if (shape === 'doortop' && !this._removingDoorTop && this._blocks.get(this._key(x, y - 1, z)) === BLOCK_BY_ID.get(type).doorBottom) {
+      this.removeBlock(x, y - 1, z)
+      return
+    }
+    if (!this._suppressUndoRecording && !this._removingDoorTop) {
+      this._recordUndo({ action: 'remove', x, y, z, type, ...(shape === 'door' && this._doorState.has(key) ? { state: { ...this._doorState.get(key) } } : {}) })
+    }
+    if (shape === 'door' || shape === 'doortop') this._doorState.delete(key)
+    if (shape === 'door' && this._blocks.get(this._key(x, y + 1, z)) === `${type}top`) {
+      this._removingDoorTop = true
+      this.removeBlock(x, y + 1, z)
+      this._removingDoorTop = false
+    }
     if (this._chunks.isChunkType(type)) {
       this._blocks.delete(key)
       this._chunkCells.get(this._chunkKeyOf(x, y, z))?.delete(key)
@@ -1527,7 +1690,7 @@ export class BuildMode {
     if (entry.action === 'place') {
       this.removeBlock(entry.x, entry.y, entry.z)
     } else {
-      this.placeBlock(entry.x, entry.y, entry.z, entry.type)
+      this.placeBlock(entry.x, entry.y, entry.z, entry.type, false, entry.state)
     }
     this._suppressUndoRecording = false
     this._redoStack.push(entry)
@@ -1539,7 +1702,7 @@ export class BuildMode {
     if (!entry) return
     this._suppressUndoRecording = true
     if (entry.action === 'place') {
-      this.placeBlock(entry.x, entry.y, entry.z, entry.type)
+      this.placeBlock(entry.x, entry.y, entry.z, entry.type, false, entry.state)
     } else {
       this.removeBlock(entry.x, entry.y, entry.z)
     }
@@ -1557,8 +1720,11 @@ export class BuildMode {
     this._raycaster.setFromCamera({ x: 0, y: 0 }, this.camera)
     const hit = this._raycastGridAligned()
     if (!hit) return
+    // Right-clicking a door opens/closes it instead of placing against it.
+    if (this.toggleDoor(...hit.existingBlock)) return
     const [px, py, pz] = hit.placeAt
     if (this._wouldOverlapCamera(px, py, pz)) return
+    if (BLOCK_BY_ID.get(this.selectedType)?.shape === 'door' && this._wouldOverlapCamera(px, py + 1, pz)) return
     this.placeBlock(px, py, pz, this.selectedType)
     if (this.mirrorMode) this.placeBlock(this._mirrorX(px), py, pz, this.selectedType)
   }
@@ -1645,7 +1811,7 @@ export class BuildMode {
     if (!this._pickerGridEl) return
     this._pickerGridEl.innerHTML = ''
     const query = (this._pickerSearchInput?.value || '').trim().toLowerCase()
-    const matches = query ? BLOCK_TYPES.filter((bt) => bt.name.toLowerCase().includes(query)) : BLOCK_TYPES
+    const matches = query ? PICKER_TYPES.filter((bt) => bt.name.toLowerCase().includes(query)) : PICKER_TYPES
     for (const { id, name } of matches) {
       const item = document.createElement('div')
       item.className = 'build-picker-item'
@@ -1981,8 +2147,12 @@ export class BuildMode {
   _snapshot() {
     const blocks = []
     for (const [key, type] of this._blocks) {
+      const shape = BLOCK_BY_ID.get(type)?.shape
+      // A door's top half is rebuilt from its bottom half on load.
+      if (shape === 'doortop') continue
       const [x, y, z] = key.split(',').map(Number)
-      blocks.push({ x, y, z, type })
+      const door = shape === 'door' && this._doorState.get(key)
+      blocks.push(door ? { x, y, z, type, facing: door.facing, open: door.open } : { x, y, z, type })
     }
     return { blocks, hotbar: this.hotbar }
   }
@@ -2010,11 +2180,14 @@ export class BuildMode {
       const touchedTypes = new Set()
       for (const entry of blocks) {
         if (!entry || typeof entry !== 'object') continue
-        const { x, y, z, type } = entry
+        const { x, y, z } = entry
+        const type = LEGACY_TYPE_IDS[entry.type] || entry.type
         if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) continue
         if (!VALID_TYPE_IDS.has(type)) continue
-        this.placeBlock(Math.trunc(x), Math.trunc(y), Math.trunc(z), type, true)
+        const state = BLOCK_BY_ID.get(type).shape === 'door' ? { facing: entry.facing, open: entry.open === true } : null
+        this.placeBlock(Math.trunc(x), Math.trunc(y), Math.trunc(z), type, true, state)
         touchedTypes.add(type)
+        if (state) touchedTypes.add(`${type}top`)
       }
       for (const type of touchedTypes) {
         const mesh = this._instancedMeshes[type]
@@ -2023,7 +2196,10 @@ export class BuildMode {
     }
     const hotbar = parsed?.hotbar
     if (Array.isArray(hotbar) && hotbar.length === 10) {
-      this.hotbar = hotbar.map((id) => (id === null || VALID_TYPE_IDS.has(id) ? id : null))
+      this.hotbar = hotbar.map((raw) => {
+        const id = LEGACY_TYPE_IDS[raw] || raw
+        return id === null || (VALID_TYPE_IDS.has(id) && !BLOCK_BY_ID.get(id).hidden) ? id : null
+      })
       this._renderHotbar()
     }
   }
@@ -2059,6 +2235,7 @@ export class BuildMode {
       this._instanceKeyByIndex[type] = []
     }
     this._blocks.clear()
+    this._doorState.clear()
     this._chunkCells.clear()
     this._chunks.clear()
     this._shadowsDirty = true
@@ -2263,8 +2440,12 @@ export class BuildMode {
           // World position -> cell index (see placeBlock's own comment).
           // Water and lava don't block movement - you can fly/swim through
           // them, like Minecraft.
-          const t = this.getBlockAt(Math.floor((x + ox) / BLOCK_SIZE), Math.floor((y + oy) / BLOCK_SIZE), Math.floor((z + oz) / BLOCK_SIZE))
-          if (t && !this._chunks.isLiquid(t)) return true
+          // Open doors don't either.
+          const cx = Math.floor((x + ox) / BLOCK_SIZE)
+          const cy = Math.floor((y + oy) / BLOCK_SIZE)
+          const cz = Math.floor((z + oz) / BLOCK_SIZE)
+          const t = this.getBlockAt(cx, cy, cz)
+          if (t && !this._chunks.isLiquid(t) && !this.isDoorOpenAt(cx, cy, cz)) return true
         }
       }
     }

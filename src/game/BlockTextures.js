@@ -5,7 +5,7 @@
 // Every texture is painted procedurally, pixel by pixel, from a seeded
 // random generator - no image files, and the same block always gets the
 // exact same texture. Blocks that look different on different sides
-// (grass, logs, bookshelf, TNT, pumpkin, hay, cactus, sandstone, bone)
+// (grass, logs, bookshelf, C4, pumpkin, hay, cactus, sandstone, bone)
 // get separate top / side / bottom textures.
 //
 // Colors here are plain sRGB [r, g, b] arrays written straight into the
@@ -501,30 +501,40 @@ function bookshelfSide(px, wood, r) {
   }
 }
 
-const TNT_LETTERS = [
-  '###.#..#.###',
-  '.#..##.#..#.',
-  '.#..#.##..#.',
-  '.#..#..#..#.',
-]
-function tntSide(px, base, r) {
+// C4 (replaced TNT, 2026-09-30): putty-colored explosive bricks wrapped
+// in olive tape, with a detonator on top.
+function c4Side(px, base, r) {
   for (let y = 0; y < S; y++) {
     for (let x = 0; x < S; x++) {
-      const band = y >= 5 && y <= 10
-      px.set(x, y, band ? [232, 228, 220] : mul(base, x % 4 === 0 ? 0.78 : 0.95 + r() * 0.1))
+      const seam = x === 0 || x === 8 || y === 0 || y === 15
+      px.set(x, y, mul(base, (seam ? 0.72 : 1) * (0.94 + r() * 0.1)))
     }
   }
-  TNT_LETTERS.forEach((row, ly) => {
-    for (let lx = 0; lx < row.length; lx++) if (row[lx] === '#') px.set(2 + lx, 6 + ly, [30, 30, 30])
-  })
+  // Olive tape band, with a black wire along it.
+  for (let y = 6; y <= 9; y++) for (let x = 0; x < S; x++) px.set(x, y, mul([88, 92, 52], 0.92 + r() * 0.12))
+  for (let x = 0; x < S; x++) px.set(x, 7 + (x % 6 < 3 ? 0 : 1), [30, 30, 28])
+  // Red and blue leads running up to the detonator.
+  for (let y = 1; y <= 5; y++) {
+    px.set(5, y, [190, 36, 30])
+    px.set(10, y, [40, 80, 190])
+  }
 }
 
-function tntTop(px, base, r) {
-  noise(px, [200, 196, 190], r, 0.06)
-  bevel(px, 1, 0.8)
-  for (let y = 6; y < 10; y++) for (let x = 6; x < 10; x++) px.set(x, y, mul(base, 0.85))
-  px.set(7, 7, [40, 40, 40])
-  px.set(8, 8, [40, 40, 40])
+function c4Top(px, base, r) {
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const seam = x === 0 || x === 8 || y === 0 || y === 8
+      px.set(x, y, mul(base, (seam ? 0.72 : 1) * (0.94 + r() * 0.1)))
+    }
+  }
+  // Detonator box with a red timer readout.
+  for (let y = 4; y <= 11; y++) for (let x = 3; x <= 12; x++) px.set(x, y, mul([42, 44, 40], 0.9 + r() * 0.15))
+  for (let x = 5; x <= 10; x++) px.set(x, 7, [230, 40, 30])
+  px.set(5, 6, [230, 40, 30])
+  px.set(10, 8, [230, 40, 30])
+  px.set(11, 5, [60, 220, 60])
+  px.set(5, 3, [190, 36, 30])
+  px.set(10, 3, [40, 80, 190])
 }
 
 function pumpkinSide(px, base, r, face) {
@@ -830,11 +840,28 @@ const OVERRIDE = {
     const top = paint((px) => planks(px, hex(0xb4864a), r))
     return { top, side: paint((px) => bookshelfSide(px, hex(0xb4864a), r)), bottom: top }
   },
-  tnt: (base, r) => ({
-    top: paint((px) => tntTop(px, base, r)),
-    side: paint((px) => tntSide(px, base, r)),
-    bottom: paint((px) => noise(px, [200, 196, 190], r, 0.06)),
+  c4: (base, r) => ({
+    top: paint((px) => c4Top(px, base, r)),
+    side: paint((px) => c4Side(px, base, r)),
+    bottom: paint((px) => { noise(px, base, r, 0.06); frame(px, mul(base, 0.72)) }),
   }),
+  crimsonstem: (base, r) => logFaces(base, hex(0x6a3448), r),
+  warpedstem: (base, r) => logFaces(base, hex(0x2b6a64), r),
+  mangrovelog: (base, r) => logFaces(base, hex(0x7a3a34), r),
+  strippedsprucelog: (base, r) => logFaces(base, hex(0x8a6440), r),
+  strippedbirchlog: (base, r) => logFaces(base, hex(0xd8c898), r),
+  bambooblock: (base, r) => {
+    const top = paint((px) => logTop(px, base, mix(base, [230, 220, 150], 0.5), r))
+    return { top, side: paint((px) => pillarSide(px, base, r)), bottom: top }
+  },
+  barrel: (base, r) => {
+    const top = paint((px) => { planks(px, base, r); frame(px, mul(base, 0.6)); for (let y = 6; y < 10; y++) for (let x = 6; x < 10; x++) px.set(x, y, mul(base, 0.55)) })
+    return { top, side: paint((px) => kelpSide(px, base, r)), bottom: top }
+  },
+  chiseledsandstone: (base, r) => {
+    const top = paint((px) => noise(px, mul(base, 1.04), r, 0.05))
+    return { top, side: paint((px) => chiseled(px, base, r)), bottom: top }
+  },
   pumpkin: (base, r) => {
     const top = paint((px) => pumpkinTop(px, base, r))
     return { top, side: paint((px) => pumpkinSide(px, base, r, false)), bottom: top }
@@ -966,6 +993,26 @@ const BY_ID = {
   chiseledquartz: chiseled, exposedcopper: mineral, weatheredcopper: mineral, oxidizedcopper: mineral,
   glazedterracotta: glazed, honeycombblock: honeycomb, dripstone: (px, b, r) => streaks(px, b, r, true),
   sculk: sculk, shroomlight: glowstone, redstonelamp: lamp,
+  cobbleddeepslate: (px, b, r) => cobble(px, b, r, 10),
+  deepslatebricks: (px, b, r) => bricks(px, b, mul(b, 0.6), r, 4, 8, true),
+  deepslatetiles: (px, b, r) => bricks(px, b, mul(b, 0.55), r, 4, 4, true),
+  polisheddeepslate: polished,
+  mudbricks: (px, b, r) => bricks(px, b, mul(b, 0.75), r, 4, 8, true),
+  packedmud: (px, b, r) => { noise(px, b, r, 0.1); speckle(px, mul(b, 0.8), r, 16) },
+  quartzbricks: (px, b, r) => bricks(px, b, mul(b, 0.85), r, 4, 8, true),
+  smoothquartz: smooth,
+  rednetherbricks: (px, b, r) => bricks(px, b, mul(b, 0.55), r, 4, 8, true),
+  netherwartblock: (px, b, r) => { noise(px, b, r, 0.2); speckle(px, mul(b, 0.6), r, 16) },
+  warpedwartblock: (px, b, r) => { noise(px, b, r, 0.2); speckle(px, mul(b, 0.6), r, 16) },
+  rawironblock: mineral, rawgoldblock: mineral, rawcopperblock: mineral,
+  cutcopper: (px, b, r) => bricks(px, b, mul(b, 0.8), r, 8, 8, true),
+  ancientdebris: (px, b, r) => { streaks(px, b, r, true); speckle(px, [150, 110, 95], r, 10) },
+  gildedblackstone: (px, b, r) => { cobble(px, b, r, 9); speckle(px, [240, 190, 60], r, 14) },
+  lodestone: chiseled,
+  ochrefroglight: (px, b, r) => { polished(px, b, r); frame(px, mul(b, 0.8)) },
+  verdantfroglight: (px, b, r) => { polished(px, b, r); frame(px, mul(b, 0.8)) },
+  pearlescentfroglight: (px, b, r) => { polished(px, b, r); frame(px, mul(b, 0.8)) },
+  tintedglass: (px, b, r) => glass(px, b, r, true),
 }
 const BY_PATTERN = {
   speckle: stone, brick: (px, b, r) => bricks(px, b, [168, 164, 156], r), wood: planks, metal: mineral,
@@ -1059,6 +1106,82 @@ export function blockIconURL(type, size = 64, heightFrac = 1) {
   face(faces.side, L, [B[0] - L[0], B[1] - L[1]], [0, h], 0.22, heightFrac)
   face(faces.side, B, [R[0] - B[0], R[1] - B[1]], [0, h], 0.4, heightFrac)
   face(faces.top, T, [R[0] - T[0], R[1] - T[1]], [L[0] - T[0], L[1] - T[1]], 0)
+  const url = canvas.toDataURL()
+  iconCache.set(key, url)
+  return url
+}
+
+// ---- doors -------------------------------------------------------------------
+
+// 16x32 pixel-art door (bottom half = rows 16-31, top half = rows 0-15),
+// transparent where the windows are. `kind`: oak, spruce, birch, darkoak,
+// acacia, iron.
+const DOOR_STYLES = {
+  oak: { base: [180, 134, 74], windows: 'two' },
+  spruce: { base: [107, 74, 44], windows: 'none' },
+  birch: { base: [216, 200, 152], windows: 'grid' },
+  darkoak: { base: [74, 53, 36], windows: 'two' },
+  acacia: { base: [184, 90, 58], windows: 'diamond' },
+  iron: { base: [210, 210, 206], windows: 'two', metal: true },
+}
+const doorCache = new Map()
+export function doorCanvas(kind) {
+  if (doorCache.has(kind)) return doorCache.get(kind)
+  const style = DOOR_STYLES[kind] || DOOR_STYLES.oak
+  const r = rng(hashStr(`door:${kind}`))
+  const W = 16
+  const H = 32
+  const d = new Uint8ClampedArray(W * H * 4)
+  const set = (x, y, c, a = 255) => {
+    const i = (y * W + x) * 4
+    d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = a
+  }
+  const b = style.base
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const edge = x === 0 || x === W - 1 || y === 0 || y === H - 1
+      // Wood: vertical planks with grain; iron: flat plate with rivet rows.
+      let f = style.metal ? (y % 8 === 3 && x % 5 === 2 ? 1.18 : 0.96 + r() * 0.06) : (x % 4 === 0 ? 0.8 : 0.92 + r() * 0.14)
+      if (edge) f *= 0.62
+      set(x, y, mul(b, f))
+    }
+  }
+  // Panel frames on the bottom half.
+  for (let x = 2; x <= 13; x++) { set(x, 18, mul(b, 0.7)); set(x, 29, mul(b, 0.7)) }
+  for (let y = 18; y <= 29; y++) { set(2, y, mul(b, 0.7)); set(13, y, mul(b, 0.7)) }
+  for (let x = 2; x <= 13; x++) set(x, 23, mul(b, 0.7))
+  // Windows (holes) in the top half.
+  const hole = (x, y) => set(x, y, [0, 0, 0], 0)
+  if (style.windows === 'two') {
+    for (let y = 3; y <= 11; y++) for (let x = 3; x <= 12; x++) if (x !== 7 && x !== 8) hole(x, y)
+  } else if (style.windows === 'grid') {
+    for (let y = 3; y <= 12; y++) for (let x = 3; x <= 12; x++) if (x % 3 !== 2 && y % 3 !== 2) hole(x, y)
+  } else if (style.windows === 'diamond') {
+    for (let y = 2; y <= 13; y++) for (let x = 2; x <= 13; x++) if (Math.abs(x - 7.5) + Math.abs(y - 7.5) < 5) hole(x, y)
+  } else {
+    for (let x = 2; x <= 13; x++) { set(x, 4, mul(b, 0.7)); set(x, 11, mul(b, 0.7)) }
+  }
+  // Handle.
+  const handle = style.metal ? [90, 90, 90] : [60, 60, 60]
+  set(12, 16, handle); set(12, 17, handle); set(11, 17, handle)
+  const canvas = document.createElement('canvas')
+  canvas.width = W
+  canvas.height = H
+  canvas.getContext('2d', { willReadFrequently: true }).putImageData(new ImageData(d, W, H), 0, 0)
+  doorCache.set(kind, canvas)
+  return canvas
+}
+
+// Flat door picture for the picker/hotbar.
+export function doorIconURL(kind, size = 64) {
+  const key = `door:${kind}:${size}`
+  if (iconCache.has(key)) return iconCache.get(key)
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = size
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  ctx.imageSmoothingEnabled = false
+  const h = size * 0.9
+  ctx.drawImage(doorCanvas(kind), (size - h / 2) / 2, (size - h) / 2, h / 2, h)
   const url = canvas.toDataURL()
   iconCache.set(key, url)
   return url
