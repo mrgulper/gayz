@@ -31,8 +31,11 @@ import { XpGemManager, XpGem } from './XpGems.js'
 import { AutoWeaponManager } from './AutoWeapons.js'
 import { COIN_SHOP_ITEMS, ATTACHMENT_TYPES } from './CoinShop.js'
 
-// The standalone Skin Designer site, embedded in #skindesigner-frame.
-const SKIN_DESIGNER_ORIGIN = 'https://gayzcharacterskindesigner.vercel.app'
+// The Skin Designer page, embedded in #skindesigner-frame. Served from this
+// game's own site (public/skin-designer/) since 2026-09-30 - it used to be a
+// separate gayzcharacterskindesigner.vercel.app project.
+const SKIN_DESIGNER_ORIGIN = window.location.origin
+const SKIN_DESIGNER_URL = '/skin-designer/index.html'
 
 // Crate economy (Inventory panel's Crates tab) - buys a chance at a random
 // currently-unowned outfit/hat from COIN_SHOP_ITEMS, which have had no
@@ -18879,7 +18882,7 @@ export class Game {
     this.skindesignerPanel.style.display = 'flex'
     if (this.skindesignerFrame && this.skindesignerFrame.src === 'about:blank') {
       const theme = this.settings.uiTheme === 'old' ? 'old' : 'golden'
-      this.skindesignerFrame.src = `${SKIN_DESIGNER_ORIGIN}?theme=${theme}`
+      this.skindesignerFrame.src = `${SKIN_DESIGNER_URL}?theme=${theme}`
     }
   }
 
