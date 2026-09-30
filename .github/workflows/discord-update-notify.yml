@@ -34,10 +34,32 @@ jobs:
             echo "Skipping Discord post - commit touches src/consoleBridge.js"
             exit 0
           fi
-          echo "Debug - TITLE='$TITLE'"
+          # Never post the raw first line (2026-09-30 report): for a merged
+          # PR GitHub writes it as "Merge pull request #N from
+          # <github-username>/<branch>", which leaked the owner's username
+          # and the branch name to the public feed. Use the PR's own title
+          # (the merge message's first non-empty line after that), skip
+          # branch-sync merges with nothing to announce, and scrub the
+          # username and AI/tooling words from whatever is left.
+          TITLE=$(python3 -c "
+          import os, re
+          lines = [l.strip() for l in os.environ.get('COMMIT_MESSAGE', '').splitlines()]
+          lines = [l for l in lines if l]
+          title = lines[0] if lines else ''
+          if re.match(r'(?i)^merge (pull request|branch|remote-tracking branch)', title):
+              rest = [l for l in lines[1:] if not re.match(r'(?i)^(co-authored-by|claude-session|signed-off-by)\\b', l)]
+              title = rest[0] if (title.lower().startswith('merge pull request') and rest) else ''
+          title = re.sub(r'(?i)\\S*(mrgulper|gulper|claude|anthropic)\\S*', '', title)
+          title = re.sub(r'\\s{2,}', ' ', title).strip(' -:,')
+          print(title)
+          ")
+          if [ -z "$TITLE" ]; then
+            echo "Skipping Discord post - nothing to announce after cleanup"
+            exit 0
+          fi
           PAYLOAD=$(python3 -c "
           import json, os
-          title = os.environ.get('TITLE') or '(no commit message)'
+          title = os.environ.get('TITLE') or 'New update'
           payload = {
               'embeds': [{
                   'color': 14919228,
@@ -47,5 +69,4 @@ jobs:
           }
           print(json.dumps(payload))
           ")
-          echo "Payload: $PAYLOAD"
           curl -sf -X POST "$WEBHOOK_URL" -H "Content-Type: application/json" -d "$PAYLOAD"
