@@ -17,7 +17,12 @@
     <script>
       try {
         var __s = JSON.parse(localStorage.getItem('gayz-settings') || 'null')
-        if (__s && __s.uiTheme === 'old') document.documentElement.classList.add('ui-theme-old')
+        // Old unless 'golden' was explicitly chosen - the same rule
+        // Game.js's settings loader uses. Checking for an explicit 'old'
+        // here (as this used to) showed a brand-new player, or a device
+        // whose save hadn't arrived yet, the Golden look until the game
+        // loaded and switched to Old (2026-09-30 report).
+        if (!(__s && __s.uiTheme === 'golden')) document.documentElement.classList.add('ui-theme-old')
       } catch (e) {}
     </script>
     <!-- Main menu redesign - condensed display face for section headers/
@@ -57,6 +62,15 @@
       .fonts-loading .menu-card-title,
       .fonts-loading .menu-panel-title,
       .fonts-loading .hub-section-title {
+        visibility: hidden;
+      }
+      /* Values the game fills in once it has loaded this player's save
+         (currencies, player card, clock) - hidden until then, instead of
+         showing 0s and "#PLAYER" that then jump to the real ones. Game.js
+         adds .game-ready at the end of its constructor. */
+      html:not(.game-ready) #menu-currency-bar,
+      html:not(.game-ready) #menu-player-badge,
+      html:not(.game-ready) #homepage-clock {
         visibility: hidden;
       }
     </style>
