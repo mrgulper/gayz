@@ -1107,10 +1107,59 @@ function revealOuterLayerIfPainted() {
   updateMeshVisibility();
 }
 
-function generateThemedSkin(themeKey, promptText) {
-  const theme = THEMES[themeKey] || THEMES[THEME_KEYS[0]];
-  const seed = hashString((promptText || themeKey || 'default').trim().toLowerCase());
+// Per-generation variation on a theme's palette (2026-09-30 request: "the
+// same girl every time" - each Generate click should make a new skin for
+// the same word). Clothing colors drift in hue/brightness around the
+// theme's own, human themes also get a random skin tone and sometimes a
+// different hair color; the theme's identity (its dominant colors) stays.
+const NON_HUMAN_THEMES = new Set(['zombie', 'robot', 'ice', 'shadow', 'demon', 'vampire', 'angel']);
+const SKIN_TONES = ['#f0d0b0', '#e0b890', '#c98a55', '#a86a3e', '#7a4a2a', '#5a3620'];
+const HAIR_COLORS = ['#0a0a0a', '#3a281a', '#6a4a28', '#b07a3a', '#e0c060', '#d8d8d0', '#8a2a1a'];
+function hexToHsl(hex) {
+  const { r, g, b } = hexToRgb(hex);
+  const rr = r / 255, gg = g / 255, bb = b / 255;
+  const max = Math.max(rr, gg, bb), min = Math.min(rr, gg, bb);
+  let h = 0, s2 = 0;
+  const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s2 = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    h = max === rr ? (gg - bb) / d + (gg < bb ? 6 : 0) : max === gg ? (bb - rr) / d + 2 : (rr - gg) / d + 4;
+    h /= 6;
+  }
+  return [h, s2, l];
+}
+function hslToHex(h, s2, l) {
+  const f = (n) => {
+    const k = (n + h * 12) % 12;
+    const a = s2 * Math.min(l, 1 - l);
+    return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))));
+  };
+  return rgbToHex(f(0), f(8), f(4));
+}
+function drift(hex, rng, hueRange, lightRange) {
+  const [h, s2, l] = hexToHsl(hex);
+  const nh = (h + (rng() * 2 - 1) * hueRange + 1) % 1;
+  const nl = Math.max(0.05, Math.min(0.92, l + (rng() * 2 - 1) * lightRange));
+  return hslToHex(nh, s2, nl);
+}
+function varyPalette(themeKey, base, rng) {
+  const p = { ...base };
+  for (const k of ['shirt', 'pants', 'accent', 'shoe']) p[k] = drift(base[k], rng, 0.07, 0.1);
+  if (!NON_HUMAN_THEMES.has(themeKey)) {
+    p.skin = SKIN_TONES[Math.floor(rng() * SKIN_TONES.length)];
+    if (rng() < 0.45) p.hair = HAIR_COLORS[Math.floor(rng() * HAIR_COLORS.length)];
+    else p.hair = drift(base.hair, rng, 0.05, 0.08);
+  }
+  return p;
+}
+
+// variant: anything that makes this generation different from the last
+// one for the same prompt (a random string per Generate click).
+function generateThemedSkin(themeKey, promptText, variant = '') {
+  const seed = hashString((promptText || themeKey || 'default').trim().toLowerCase() + '|' + variant);
   const rng = mulberry32(seed);
+  const theme = varyPalette(themeKey, THEMES[themeKey] || THEMES[THEME_KEYS[0]], rng);
   atlasCtx.clearRect(0, 0, 64, 64);
   paintHeadDetailed(BOXES.find((b) => b.key === 'head'), theme, rng);
   paintTorsoDetailed(BOXES.find((b) => b.key === 'torso'), theme, rng);
@@ -1140,7 +1189,7 @@ function runGenerate() {
   const matched = findMatchedTheme(promptText);
   const theme = matched || RANDOMIZABLE_THEME_KEYS[Math.floor(Math.random() * RANDOMIZABLE_THEME_KEYS.length)];
   pushUndo();
-  generateThemedSkin(theme, promptText);
+  generateThemedSkin(theme, promptText, Math.random().toString(36).slice(2));
   syncAfterEdit();
   revealOuterLayerIfPainted();
   scheduleSave();
