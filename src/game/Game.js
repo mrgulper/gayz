@@ -2485,6 +2485,8 @@ const HOWTOPLAY_STEPS = [
 const SIMPLE_TEXT_I18N_KEYS = {
   'skip-to-play-link': 'skipToPlayLink',
   'build-menu-hint': 'buildMenuHint',
+  'build-mode-fly-btn': 'buildModeFlyBtn',
+  'build-mode-thirdperson-btn': 'buildModeThirdPersonBtn',
   'build-mode-mirror-btn': 'buildModeMirrorBtn',
   'build-mode-line-btn': 'buildModeLineBtn',
   'build-mode-copy-btn': 'buildModeCopyBtn',
@@ -19679,8 +19681,11 @@ export class Game {
         // "if (!this.gameStarted) return" guard this codebase uses for
         // homepage-only toasts wouldn't catch it - a delayed hint firing
         // while the player has since entered Build Mode would otherwise
-        // render on top of that completely different canvas.
-        if (this.buildMode.active) return
+        // render on top of that completely different canvas. The pathname
+        // check also covers the moment Build Mode is still loading (the
+        // URL switches first; .active only turns on once it's built) - a
+        // hint firing then used to stay on screen inside the editor.
+        if (this.buildMode.active || location.pathname === '/map-editor') return
         this.tutorialHintEl.innerHTML = tHtml(key)
         this.tutorialHintEl.classList.remove('show')
         void this.tutorialHintEl.offsetWidth
@@ -25956,6 +25961,10 @@ export class Game {
       const stepStart = performance.now()
       this._renderMainScene()
       warmUpTotalMs += performance.now() - stepStart
+      // Opened straight into the map editor (e.g. a direct /map-editor
+      // visit): the warm-up frame above would otherwise flash the survival
+      // world over the editor for a few frames.
+      if (this.buildMode.active) this.buildMode.render()
       if (warmUpStepIndex < warmUpSteps.length) {
         requestAnimationFrame(runWarmUpStep)
         return
