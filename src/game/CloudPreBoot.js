@@ -48,18 +48,62 @@ function firstAuthState() {
   })
 }
 
+// Whether Firebase Auth has a signed-in user saved on this device - read
+// straight from its IndexedDB store, without loading Firebase. Firebase
+// keeps its session there, not in localStorage, so it survives the browser
+// clearing this site's localStorage.
+export function hasStoredFirebaseSession() {
+  return new Promise((resolve) => {
+    try {
+      const req = indexedDB.open('firebaseLocalStorageDb')
+      // Fired only when the database doesn't exist - abort so opening it
+      // doesn't create an empty one.
+      req.onupgradeneeded = () => req.transaction.abort()
+      req.onerror = () => resolve(false)
+      req.onblocked = () => resolve(false)
+      req.onsuccess = () => {
+        const db = req.result
+        try {
+          if (!db.objectStoreNames.contains('firebaseLocalStorage')) {
+            db.close()
+            resolve(false)
+            return
+          }
+          const keys = db.transaction('firebaseLocalStorage', 'readonly').objectStore('firebaseLocalStorage').getAllKeys()
+          keys.onsuccess = () => {
+            db.close()
+            resolve(keys.result.some((k) => String(k).startsWith('firebase:authUser:')))
+          }
+          keys.onerror = () => {
+            db.close()
+            resolve(false)
+          }
+        } catch {
+          db.close()
+          resolve(false)
+        }
+      }
+    } catch {
+      resolve(false)
+    }
+  })
+}
+
 // Resolves once finished, skipped or timed out - never rejects, never
 // blocks longer than PRE_BOOT_TIMEOUT_MS. `backend` is a test seam
 // (window.__cloudPreBootBackendForTests: { getUid, fetchCloudSave }).
 export function preBootCloudSync() {
   const testBackend = window.__cloudPreBootBackendForTests
-  // Only devices that have synced before - everyone else never signed in,
-  // and shouldn't pay for loading Firebase on every page load.
-  if (!testBackend && (!CloudSync.isConfigured() || !localStorage.getItem(CLOUD_LAST_SYNC_KEY))) {
-    return Promise.resolve('skipped')
-  }
+  if (!testBackend && !CloudSync.isConfigured()) return Promise.resolve('skipped')
   let cancelled = false
   const work = (async () => {
+    // Only devices that have synced before, or that still hold a signed-in
+    // session - everyone else never signed in, and shouldn't pay for
+    // loading Firebase on every page load. The session check matters: a
+    // device whose localStorage was cleared keeps its sign-in, and without
+    // this pull it booted with a freshly generated ID and name (2026-09-30
+    // report).
+    if (!testBackend && !localStorage.getItem(CLOUD_LAST_SYNC_KEY) && !(await hasStoredFirebaseSession())) return 'skipped'
     const uid = testBackend ? await testBackend.getUid() : (await firstAuthState())?.uid
     if (!uid || cancelled) return 'signed-out'
     const cloud = await (testBackend || CloudSync).fetchCloudSave(uid)
