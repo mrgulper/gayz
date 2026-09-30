@@ -346,7 +346,6 @@ function loadSettings() {
     const settings = {
       language: parsed.language || 'en',
       masterVolume: parsed.masterVolume ?? 100,
-      musicVolume: parsed.musicVolume ?? 100,
       sfxVolume: parsed.sfxVolume ?? 100,
       ambientVolume: parsed.ambientVolume ?? 100,
       muteOnTabBlur: parsed.muteOnTabBlur ?? false,
@@ -714,7 +713,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, musicVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, autoQuality: true, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, gamepadDeadzone: 20, gamepadVibration: true, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, autoLootRadius: 'medium', instantStationInteract: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, touchControlsOverride: 'auto', clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'menu-inventory-btn', 'quests-btn', 'friends-btn', 'achievements-btn'], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
+  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, autoQuality: true, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, gamepadDeadzone: 20, gamepadVibration: true, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, autoLootRadius: 'medium', instantStationInteract: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, touchControlsOverride: 'auto', clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'menu-inventory-btn', 'quests-btn', 'friends-btn', 'achievements-btn'], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -981,7 +980,7 @@ const MUTATOR_LABEL_KEYS = {
 // player's identity) since this is meant to be pasted/shared with someone
 // else, unlike Export Save's full-fidelity file backup.
 const SETTINGS_CODE_KEYS = [
-  'masterVolume', 'musicVolume', 'sfxVolume', 'ambientVolume', 'sensitivity', 'invertY', 'fov', 'adsFov', 'hudScale', 'hudOpacity',
+  'masterVolume', 'sfxVolume', 'ambientVolume', 'sensitivity', 'invertY', 'fov', 'adsFov', 'hudScale', 'hudOpacity',
   'colorblindMode', 'recoilShakeIntensity', 'damageShakeIntensity', 'reduceFlashing', 'toggleSprint', 'toggleCrouch', 'toggleAds',
   'aimAssist', 'bigInteractPrompt', 'toastDuration', 'crosshairSize', 'largeTextMode',
   'highContrastMode', 'dyslexiaFont', 'focusRingMode', 'keybindCheatSheet', 'showHitFeedback',
@@ -2520,7 +2519,6 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'fullscreen-label': 'fullscreenLabel',
   'fullscreen-btn': 'fullscreenBtn',
   'master-volume-label': 'masterVolumeLabel',
-  'music-test-btn': 'musicTestBtn',
   'sfx-test-btn': 'sfxTestBtn',
   'gfx-resolution-label': 'gfxResolutionLabel',
   'gfx-brightness-label': 'gfxBrightnessLabel',
@@ -3108,7 +3106,6 @@ const ELEVATOR_RIDE_DURATION_MS = 1800
 const LADDER_RADIUS = 0.6
 const SCAFFOLDING_COLLAPSE_DAMAGE = 70
 const PAYPHONE_INTERACT_RADIUS = 2
-const JUKEBOX_INTERACT_RADIUS = 2
 const WORKBENCH_INTERACT_RADIUS = 2
 const WORKBENCH_JAM_MULT = 0.5
 const BULLETIN_BOARD_INTERACT_RADIUS = 2
@@ -3135,14 +3132,6 @@ const GRAPPLE_MAX_RANGE = 20
 const GRAPPLE_STOP_SHORT = 1.2
 const GRAPPLE_DURATION_MS = 400
 const GRAPPLE_COOLDOWN_MS = 1500
-// Near-death music stinger (batch feature) - deliberately lower than the
-// existing 0.3 continuous-floor threshold in _updateMusicIntensity, so the
-// sharp one-shot sting reads as a distinct, rarer "this is bad" beat on top
-// of (not on every same frame as) the smoother intensity floor.
-const NEAR_DEATH_STINGER_THRESHOLD = 0.15
-// How long the "night just started" music swell lasts before fading back
-// to whatever the real threat score says - see _updateMusicIntensity.
-const NIGHT_START_MUSIC_SWELL_MS = 6000
 // Minecart shortcut (batch 3 feature) - rides the subway's own tunnel
 // length end-to-end. Coordinates mirror World.js's SUBWAY_X/Z_START/
 // Z_END/FLOOR_Y constants directly (not exported/threaded through
@@ -4472,9 +4461,6 @@ export class Game {
     this.languageGrid = document.getElementById('language-grid')
     this.masterVolumeSlider = document.getElementById('master-volume')
     this.masterVolumeValue = document.getElementById('master-volume-value')
-    this.musicVolumeSlider = document.getElementById('music-volume')
-    this.musicVolumeValue = document.getElementById('music-volume-value')
-    this.musicTestBtn = document.getElementById('music-test-btn')
     this.sfxVolumeSlider = document.getElementById('sfx-volume')
     this.sfxVolumeValue = document.getElementById('sfx-volume-value')
     this.sfxTestBtn = document.getElementById('sfx-test-btn')
@@ -4890,7 +4876,6 @@ export class Game {
     this._bleedAccum = 0
     this._grappleRaycaster = new THREE.Raycaster()
     this.grappleCooldownUntil = 0
-    this._wasBelowStingerThreshold = false
     this._cursedRunOriginalValues = null
     this.nearMinecart = null
     this.tempCompanion = null
@@ -4935,7 +4920,6 @@ export class Game {
     this._reclaimedCells = new Map()
     this._lastAliveCountSeen = 0
     this._runCardBaseImage = null
-    this.musicIntensityCurrent = 0
     this.runStartedAt = performance.now()
     this.nightStartedAt = performance.now()
     // Long-Term Goals batch (see _recordRunEnd) - per-run baselines used to
@@ -5176,7 +5160,7 @@ export class Game {
     this.composer.addPass(this.afterimagePass)
     this.composer.addPass(new OutputPass())
 
-    const { buildPendingTileContent, colliders, solidMeshes, flickerLights, spawnPoints, ambientWildlife, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, upgradeMachine, mysteryBox, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, tileIndex, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel, toxicSewerLevel, mineLevel, manholeCovers, waterTowerValve, containerStaircase, industrialSiren, wreckingPendulum, scaffolding, elevatorTower, payphone, jukebox, workbench, bulletinBoard, hallOfFame, skyscraperShortcuts, adjustableDummy, pet, drainpipeSpots, jumpPadSpot, tacticalStreetlights, grassBounds, waterBounds } = buildWorld(this.scene, ACHIEVEMENTS.length)
+    const { buildPendingTileContent, colliders, solidMeshes, flickerLights, spawnPoints, ambientWildlife, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, upgradeMachine, mysteryBox, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, tileIndex, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel, toxicSewerLevel, mineLevel, manholeCovers, waterTowerValve, containerStaircase, industrialSiren, wreckingPendulum, scaffolding, elevatorTower, payphone, workbench, bulletinBoard, hallOfFame, skyscraperShortcuts, adjustableDummy, pet, drainpipeSpots, jumpPadSpot, tacticalStreetlights, grassBounds, waterBounds } = buildWorld(this.scene, ACHIEVEMENTS.length)
     this.drainpipeSpots = drainpipeSpots
     this.jumpPadSpot = jumpPadSpot
     this._jumpPadCooldownUntil = 0
@@ -5193,8 +5177,6 @@ export class Game {
     // so a new run starts with an empty trail instead of the old run's tail.
     this._deathReplayBuffer = []
     this._deathReplaySampleTimer = 0
-    this.jukebox = jukebox
-    this.nearJukebox = false
     this.workbench = workbench
     this.nearWorkbench = false
     this.bulletinBoard = bulletinBoard
@@ -6697,7 +6679,6 @@ export class Game {
       audioEngine.init()
       audioEngine.resume()
       audioEngine.startAmbient()
-      audioEngine.startMusic()
       // Weather was already rolled once by the constructor's own
       // _rollWeather() call, well before this - which sets this.raining/
       // this.snowing (and the visual overlay) fine, but its own
@@ -7373,12 +7354,6 @@ export class Game {
         return
       }
 
-      if (e.code === getKeyFor('radio') && this.driving) {
-        const muted = audioEngine.toggleRadio()
-        this._showLoreToast(t(muted ? 'radioOffToast' : 'radioOnToast'))
-        return
-      }
-
       if (e.code === getKeyFor('photoMode')) {
         if (this.inventoryOpen || this.mapOpen || this.journalOpen) return // don't let photo mode open on top of the inventory/map/journal
         this.photoModeOpen = !this.photoModeOpen
@@ -7560,8 +7535,6 @@ export class Game {
           this._rideElevator()
         } else if (this.nearPayphone && !this.payphoneUsedThisRun) {
           this._usePayphone()
-        } else if (this.nearJukebox) {
-          this._useJukebox()
         } else if (this.nearWorkbench) {
           this._useWorkbench()
         } else if (this.nearBulletinBoard) {
@@ -8958,18 +8931,6 @@ export class Game {
     this._showLoreToast(t('toastPayphoneCalled'))
   }
 
-  // Jukebox (batch feature) - see buildJukebox's own comment for why this
-  // toggles the single existing track rather than cycling several.
-  _updateJukebox(playerPos) {
-    this.nearJukebox = Math.hypot(playerPos.x - this.jukebox.x, playerPos.z - this.jukebox.z) <= JUKEBOX_INTERACT_RADIUS
-  }
-
-  _useJukebox() {
-    if (!this.nearJukebox) return
-    const muted = audioEngine.toggleRadio()
-    this._showLoreToast(t(muted ? 'toastJukeboxOff' : 'toastJukeboxOn'))
-  }
-
   // Workbench (batch 3 feature) - reuses the exact jamChanceMult field the
   // Cleaning Kit pickup already sets, Math.min'd so this never makes the
   // jam chance WORSE than an already-active Cleaning Kit.
@@ -9689,14 +9650,13 @@ export class Game {
   }
 
   // Master Volume - a multiplier on top of the three independent channel
-  // sliders (Music/SFX/Ambient), not a fourth channel of its own. Keeps
-  // whatever balance the player already set between channels while still
-  // giving a single "turn everything up/down" control. Called after any of
-  // the four volume settings changes, rather than each slider computing
-  // its own effective value inline in four separate places.
+  // sliders (SFX/Ambient), not a third channel of its own. Keeps whatever
+  // balance the player already set between channels while still giving a
+  // single "turn everything up/down" control. Called after any of the
+  // three volume settings changes, rather than each slider computing its
+  // own effective value inline in three separate places.
   _applyAllVolumes() {
     const master = this.settings.masterVolume / 100
-    audioEngine.setMusicVolume(master * (this.settings.musicVolume / 100))
     audioEngine.setSfxVolume(master * (this.settings.sfxVolume / 100))
     audioEngine.setAmbientVolume(master * (this.settings.ambientVolume / 100))
   }
@@ -9978,8 +9938,6 @@ export class Game {
 
     this.masterVolumeSlider.value = this.settings.masterVolume
     this.masterVolumeValue.textContent = `${this.settings.masterVolume}%`
-    this.musicVolumeSlider.value = this.settings.musicVolume
-    this.musicVolumeValue.textContent = `${this.settings.musicVolume}%`
     this.sfxVolumeSlider.value = this.settings.sfxVolume
     this.sfxVolumeValue.textContent = `${this.settings.sfxVolume}%`
     this.ambientVolumeSlider.value = this.settings.ambientVolume
@@ -9990,14 +9948,6 @@ export class Game {
       const value = Number(this.masterVolumeSlider.value)
       this.masterVolumeValue.textContent = `${value}%`
       this.settings.masterVolume = value
-      this._applyAllVolumes()
-      saveSettings(this.settings)
-    })
-
-    this.musicVolumeSlider.addEventListener('input', () => {
-      const value = Number(this.musicVolumeSlider.value)
-      this.musicVolumeValue.textContent = `${value}%`
-      this.settings.musicVolume = value
       this._applyAllVolumes()
       saveSettings(this.settings)
     })
@@ -10407,7 +10357,6 @@ export class Game {
     // every existing listener (audio engine, saveSettings, HUD text) fires
     // exactly the same way it would from a drag.
     this._bindEditableSliderValue(this.masterVolumeValue, this.masterVolumeSlider)
-    this._bindEditableSliderValue(this.musicVolumeValue, this.musicVolumeSlider)
     this._bindEditableSliderValue(this.sfxVolumeValue, this.sfxVolumeSlider)
     this._bindEditableSliderValue(this.sensitivityValue, this.sensitivitySlider)
     this._bindEditableSliderValue(this.fovValue, this.fovSlider)
@@ -10711,13 +10660,6 @@ export class Game {
       this.hitFeedbackToggle.addEventListener('change', () => {
         this.settings.showHitFeedback = this.hitFeedbackToggle.checked
         saveSettings(this.settings)
-      })
-    }
-    if (this.musicTestBtn) {
-      this.musicTestBtn.addEventListener('click', () => {
-        audioEngine.init()
-        audioEngine.resume()
-        audioEngine.startMusic()
       })
     }
     if (this.sfxTestBtn) {
@@ -12271,7 +12213,7 @@ export class Game {
     if (this.resetAudioDefaultsBtn) {
       this.resetAudioDefaultsBtn.addEventListener('click', () => {
         const defaults = defaultSettings()
-        for (const key of ['masterVolume', 'musicVolume', 'sfxVolume', 'ambientVolume']) this.settings[key] = defaults[key]
+        for (const key of ['masterVolume', 'sfxVolume', 'ambientVolume']) this.settings[key] = defaults[key]
         saveSettings(this.settings)
         window.location.reload()
       })
@@ -16189,7 +16131,6 @@ export class Game {
     this.clearLeaderboardsBtn.textContent = t('clearLeaderboardsBtn')
     document.getElementById('guest-mode-label').textContent = t('guestModeLabel')
     this._updateStorageUsageLine()
-    document.getElementById('music-label').textContent = t('musicLabel')
     document.getElementById('sfx-label').textContent = t('sfxLabel')
     document.getElementById('sensitivity-label').textContent = t('sensitivityLabel')
     document.getElementById('fov-label').textContent = t('fovLabel')
@@ -17002,16 +16943,13 @@ export class Game {
       this.quickMuteBtn.classList.toggle('active', !!this.settings.mutedBeforeVolumes)
       this.quickMuteBtn.addEventListener('click', () => {
         if (this.settings.mutedBeforeVolumes) {
-          this.settings.musicVolume = this.settings.mutedBeforeVolumes.music
           this.settings.sfxVolume = this.settings.mutedBeforeVolumes.sfx
           this.settings.mutedBeforeVolumes = null
         } else {
-          this.settings.mutedBeforeVolumes = { music: this.settings.musicVolume, sfx: this.settings.sfxVolume }
-          this.settings.musicVolume = 0
+          this.settings.mutedBeforeVolumes = { sfx: this.settings.sfxVolume }
           this.settings.sfxVolume = 0
         }
         this._applyAllVolumes()
-        if (this.musicVolumeSlider) { this.musicVolumeSlider.value = this.settings.musicVolume; this.musicVolumeValue.textContent = `${this.settings.musicVolume}%` }
         if (this.sfxVolumeSlider) { this.sfxVolumeSlider.value = this.settings.sfxVolume; this.sfxVolumeValue.textContent = `${this.settings.sfxVolume}%` }
         saveSettings(this.settings)
         this.quickMuteBtn.classList.toggle('active', !!this.settings.mutedBeforeVolumes)
@@ -23860,12 +23798,10 @@ export class Game {
     this.nextLightningAt = performance.now() + LIGHTNING_MIN_DELAY_MS + Math.random() * LIGHTNING_DELAY_RANGE_MS
   }
 
-  // Threat-based dynamic music (see Audio.js's setMusicIntensity) - nearby
-  // zombie pressure, an active boss, and low player health all push the
-  // score up; smoothed with a lerp (musicIntensityCurrent) so the volume/
-  // playback-rate shift is a fade rather than a jump as zombies wander in
-  // and out of range.
-  _updateMusicIntensity(playerPos) {
+  // Directional ambient audio (see Audio.js's updateZombiePresence/
+  // updateAmbientZone) - a positional zombie-presence bed + pan, based on
+  // nearby zombie pressure.
+  _updateAmbientAudio(playerPos) {
     let nearbyCount = 0
     let nearestDist = Infinity
     let nearestZombie = null
@@ -23878,47 +23814,15 @@ export class Game {
         nearestZombie = z
       }
     }
-    let threat = Math.min(1, nearbyCount / 8)
-    if (this.zombies.zombies.some((z) => z.isBoss && z.state === 'alive')) threat = Math.max(threat, 0.8)
-    const healthFrac = this.playerState.maxHealth > 0 ? this.playerState.health / this.playerState.maxHealth : 1
-    if (healthFrac < 0.3) threat = Math.max(threat, 0.7)
-    // A deliberate "here we go" swell for the first few seconds of a fresh
-    // night, even before any zombie has actually closed in - otherwise a
-    // night start with nothing nearby yet would stay silent under the new
-    // mostly-quiet baseline (see Audio.js's _applyMusicVolume) and lose the
-    // moment entirely. Fades back to whatever the real threat score says
-    // once the window passes, via the usual lerp below.
-    if (performance.now() - this.nightStartedAt < NIGHT_START_MUSIC_SWELL_MS) threat = Math.max(threat, 0.6)
 
-    // Near-death music stinger (batch feature) - the line above already
-    // smoothly RAISES the floor once under 30% health; this is a separate,
-    // sharper one-shot on the exact moment health first crosses under
-    // NEAR_DEATH_STINGER_THRESHOLD, jumping musicIntensityCurrent straight
-    // to 1 instead of letting the usual lerp ease into it - the "sting" IS
-    // that abruptness. Edge-triggered (transitions the flag, not a level
-    // check) so it only fires once per drop below the line, not every frame
-    // spent under it.
-    const belowStingerThreshold = healthFrac > 0 && healthFrac < NEAR_DEATH_STINGER_THRESHOLD
-    if (belowStingerThreshold && !this._wasBelowStingerThreshold) {
-      this.musicIntensityCurrent = 1
-    }
-    this._wasBelowStingerThreshold = belowStingerThreshold
-
-    this.musicIntensityCurrent = THREE.MathUtils.lerp(this.musicIntensityCurrent, threat, 0.04)
-
-    // Everything below writes to the audio engine - <audio>.volume/
-    // .playbackRate and four Web Audio setTargetAtTime() calls - and used to
-    // run every single frame, where it measured as the second-most expensive
-    // per-frame function in _tick (max ~6ms spikes, 2026-09-28): each
-    // playbackRate write can make the browser reconfigure the media
-    // element's resampler, and every setTargetAtTime() queues one more event
-    // on its AudioParam's automation timeline. All four targets already
-    // glide over 0.4-0.6s time constants, so ~10 updates a second is
-    // inaudibly different from 60.
+    // Throttled to ~10x/second, not every frame - writing to the audio
+    // engine (Web Audio setTargetAtTime() calls below) every single frame
+    // measured as a real per-frame cost (max ~6ms spikes, 2026-09-28). Both
+    // targets already glide over 0.4-0.6s time constants, so ~10 updates a
+    // second is inaudibly different from 60.
     const nowAudio = performance.now()
-    if (nowAudio < (this._nextMusicAudioUpdateAt || 0)) return
-    this._nextMusicAudioUpdateAt = nowAudio + 100
-    audioEngine.setMusicIntensity(this.musicIntensityCurrent)
+    if (nowAudio < (this._nextAmbientAudioUpdateAt || 0)) return
+    this._nextAmbientAudioUpdateAt = nowAudio + 100
 
     // Directional Zombie Ambience Bed (see Audio.js's updateZombiePresence) -
     // reuses the nearest-zombie/nearby-count values already computed above
@@ -26263,7 +26167,7 @@ export class Game {
     this._updateFogPatch()
     this._applyFogState()
     this._updateFlicker(elapsed)
-    this._updateMusicIntensity(this.player.controls.object.position)
+    this._updateAmbientAudio(this.player.controls.object.position)
     this._updateIndoorDetection(this.player.controls.object.position)
 
     // Multiplayer position sync - deliberately its own top-level check, NOT
@@ -26672,7 +26576,6 @@ export class Game {
         case 2:
           this._updateJumpPad(playerPos)
           this._updatePayphone(playerPos)
-          this._updateJukebox(playerPos)
           this._updateWorkbench(playerPos)
           break
         case 3:
@@ -26792,8 +26695,6 @@ export class Game {
         promptHtml = tHtml('interactElevator')
       } else if (this.nearPayphone && !this.payphoneUsedThisRun) {
         promptHtml = tHtml('interactPayphone')
-      } else if (this.nearJukebox) {
-        promptHtml = tHtml('interactJukebox')
       } else if (this.nearWorkbench) {
         promptHtml = tHtml('interactWorkbench')
       } else if (this.nearBulletinBoard) {

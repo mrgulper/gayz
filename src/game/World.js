@@ -520,7 +520,6 @@ export function buildWorld(scene, trophyCount = 15) {
   // safe zone (see the Vault/practice range/trophy wall precedent), clear
   // of the upgrade machine/mystery box at x=+-15 above.
   const payphone = buildPayphone(scene, register, SAFE_ZONE_X, SAFE_ZONE_Z + 23)
-  const jukebox = buildJukebox(scene, register, SAFE_ZONE_X - 3, SAFE_ZONE_Z + 6)
   const workbench = buildWorkbench(scene, register, SAFE_ZONE_X + 3, SAFE_ZONE_Z + 6)
   const bulletinBoard = buildBulletinBoard(scene, register, SAFE_ZONE_X - 5, SAFE_ZONE_Z - 5)
   const hallOfFame = buildHallOfFame(scene, register, SAFE_ZONE_X + 5, SAFE_ZONE_Z - 5)
@@ -3100,7 +3099,6 @@ export function buildWorld(scene, trophyCount = 15) {
     spawnPoints,
     tileIndex,
     ambientWildlife,
-    jukebox,
     workbench,
     bulletinBoard,
     hallOfFame,
@@ -6139,38 +6137,6 @@ function buildScaffolding(scene, register, x, z) {
 // independent of the existing random-timer Airdrop system (this.airdrop is
 // a single shared slot; reusing it here risked one silently overwriting
 // the other), once per run.
-// Jukebox (batch feature) - a physical, walk-up-and-press-E interact prop
-// for the existing audioEngine.toggleRadio() mute toggle (previously
-// keybind-only, see Game.js's radio keybind handler), same "give a hidden
-// system a real object in the world" reasoning as the Coin Shop's physical
-// trader stall. Only one music track exists in this codebase (see Audio.js's
-// own comment on MUSIC_URL) so this toggles it on/off rather than cycling
-// between tracks that don't exist yet.
-function buildJukebox(scene, register, x, z) {
-  const caseMat = cachedFlatMaterial({ color: 0x6a2a2a, roughness: 0.5, metalness: 0.3 })
-  const trimMat = cachedFlatMaterial({ color: 0xd8b840, roughness: 0.4, metalness: 0.6 })
-  const glassMat = flatMaterial({ color: 0x2a1408, emissive: 0xffb646, emissiveIntensity: 0.9, roughness: 0.3 })
-  const group = new THREE.Group()
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.3, 0.6), caseMat)
-  body.position.set(0, 0.65, 0)
-  group.add(body)
-  const top = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.1, 12, 1, false, 0, Math.PI), trimMat)
-  top.rotation.x = Math.PI / 2
-  top.position.set(0, 1.3, 0)
-  group.add(top)
-  const panel = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.7, 0.04), glassMat)
-  panel.position.set(0, 0.75, 0.32)
-  group.add(panel)
-  const trimBottom = new THREE.Mesh(new THREE.BoxGeometry(0.94, 0.08, 0.64), trimMat)
-  trimBottom.position.set(0, 0.04, 0)
-  group.add(trimBottom)
-  group.position.set(x, 0, z)
-  group.traverse((o) => { o.castShadow = true })
-  scene.add(group)
-  register(group)
-  return { x, z, panelMat: glassMat }
-}
-
 // Adoptable Pet/Mascot (batch feature) - simple procedural dog shape (no
 // dog/cat GLB in this project's asset pack, see BUILDING_MODEL_FILES/
 // PROP_MODEL_FILES - low-poly boxes read fine at this size, same "build it

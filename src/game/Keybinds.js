@@ -47,7 +47,6 @@ export const ACTIONS = [
   { id: 'clipRecording', defaultKey: 'CapsLock', labelKey: 'actionClipRecording' },
   { id: 'barricadeCrate', defaultKey: 'Backslash', labelKey: 'actionBarricadeCrate' },
   { id: 'weaponInspect', defaultKey: 'Delete', labelKey: 'actionWeaponInspect' },
-  { id: 'radio', defaultKey: 'Home', labelKey: 'actionRadio' },
   { id: 'medStation', defaultKey: 'Insert', labelKey: 'actionMedStation' },
   { id: 'grapple', defaultKey: 'KeyX', labelKey: 'actionGrapple' },
   { id: 'stealthScreen', defaultKey: 'PageUp', labelKey: 'actionStealthScreen' },

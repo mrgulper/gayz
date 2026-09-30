@@ -8,13 +8,6 @@ const SHOT_PRESETS = {
   minigun: { toneFreq: 1300, toneQ: 0.5, duration: 0.06, gain: 0.38, thumpFreq: 130 },
 }
 
-// Background music track. "Oldschool Horror Theme" by josepharaoh99 (CC0,
-// opengameart.org/content/oldschool-horror-theme) - public domain, no
-// attribution required, credited here anyway.
-const MUSIC_URL = '/audio/oldschool-horror-theme.mp3'
-const MUSIC_VOLUME = 0.36
-const MUSIC_FADE_MS = 2500
-
 // "Zombies Sound Pack" by artisticdude (CC0, opengameart.org/content/zombies-sound-pack).
 // Split by clip length into snarl/moan/death pools since the pack ships with
 // no per-file categorization.
@@ -41,22 +34,12 @@ class AudioEngine {
   constructor() {
     this.ctx = null
     this.ambientStarted = false
-    this.music = null
-    this.musicStarted = false
-    this.radioMuted = false
     this.zombieBuffers = { attack: [], moan: [], death: [] }
     this._rainBuffer = null
     this._snowBuffer = null
     this.sfxVolume = 1
-    this.musicVolume = 1
     this.ambientVolume = 1
     this.positionalAudioEnabled = true
-    // Threat-based dynamic intensity (see Game.js's _updateMusicIntensity) -
-    // 0 at rest, up to 1 when zombies are close/a boss is up/health is low.
-    // Modulates the same single music track's volume and playback rate
-    // rather than crossfading between separate intensity-tier tracks, since
-    // this game has no such tracks to crossfade between.
-    this.musicIntensity = 0
   }
 
   init() {
@@ -1012,7 +995,7 @@ class AudioEngine {
     wind.start(now)
 
     // Ambient variety by zone (see updateAmbientZone, called ~10x a second
-    // from Game.js's _updateMusicIntensity with the isIndoors flag that
+    // from Game.js's _updateAmbientAudio with the isIndoors flag that
     // function already has on hand - no new detection needed). Kept as
     // instance refs so that call can smoothly ramp them instead of
     // needing to rebuild the whole ambient graph per transition.
@@ -1101,7 +1084,7 @@ class AudioEngine {
   updateAmbientZone(indoors) {
     if (!this._windFilter) return
     const target = indoors ? 1 : 0
-    // 0.114 per call at ~10 calls/sec (Game.js's _updateMusicIntensity
+    // 0.114 per call at ~10 calls/sec (Game.js's _updateAmbientAudio
     // throttle) is the same glide speed the old 0.02 per call had at 60fps:
     // 1 - (1 - 0.02)^6 ~= 0.114.
     this._ambientIndoorAmount += (target - this._ambientIndoorAmount) * 0.114
@@ -1110,64 +1093,6 @@ class AudioEngine {
     const now = this.ctx.currentTime
     this._windFilter.frequency.setTargetAtTime(freq, now, 0.5)
     this._windGainNode.gain.setTargetAtTime(gain, now, 0.5)
-  }
-
-  // Looping background music, faded in from silence. Independent of the
-  // synthesized ambient bed above - plays via a plain <audio> element rather
-  // than the Web Audio graph.
-  startMusic() {
-    if (this.musicStarted) return
-    this.musicStarted = true
-
-    this.music = new Audio(MUSIC_URL)
-    this.music.loop = true
-    this.music.volume = 0
-
-    const fadeStart = performance.now()
-    const fade = () => {
-      const t = Math.min(1, (performance.now() - fadeStart) / MUSIC_FADE_MS)
-      this.music.volume = t * MUSIC_VOLUME * this.musicVolume
-      if (t < 1) requestAnimationFrame(fade)
-    }
-
-    this.music.play().then(fade).catch(() => {})
-  }
-
-  setMusicVolume(volume) {
-    this.musicVolume = Math.max(0, Math.min(1, volume))
-    this._applyMusicVolume()
-  }
-
-  _applyMusicVolume() {
-    if (!this.music) return
-    // Mostly quiet during calm exploration, swelling to real presence only
-    // when Game.js's threat score climbs (nearby zombies, a boss, low
-    // health, night just starting) - most survival-horror games lean on
-    // ambience/SFX for calm moments and save actual music for danger,
-    // rather than one unchanging loop the whole time. The curve (not a
-    // straight line) keeps intensity's low end very quiet for longer before
-    // ramping up, and a small floor (not true zero) avoids an audible pop
-    // as intensity crosses in and out of near-silence.
-    const curve = 0.05 + Math.pow(this.musicIntensity, 1.6) * 0.95
-    this.music.volume = this.radioMuted ? 0 : MUSIC_VOLUME * this.musicVolume * curve
-  }
-
-  // Car Radio toggle - mutes/unmutes the same music track rather than
-  // adding a second audio source, since this game only has the one music
-  // bed to begin with. Returns the new muted state for the caller's toast.
-  toggleRadio() {
-    this.radioMuted = !this.radioMuted
-    this._applyMusicVolume()
-    return this.radioMuted
-  }
-
-  setMusicIntensity(intensity) {
-    this.musicIntensity = Math.max(0, Math.min(1, intensity))
-    this._applyMusicVolume()
-    // Only when it's actually moved - see Game.js's _updateMusicIntensity on
-    // why a playbackRate write isn't free. A 0.2% rate step is inaudible.
-    const rate = 1 + this.musicIntensity * 0.12
-    if (this.music && Math.abs(this.music.playbackRate - rate) > 0.002) this.music.playbackRate = rate
   }
 
   setSfxVolume(volume) {
@@ -1248,9 +1173,8 @@ class AudioEngine {
     this._dronePanner.pan.setTargetAtTime(Math.max(-1, Math.min(1, pan)), now, 0.4)
   }
 
-  // Boss Encounter Stinger - a one-shot descending low swell, layered on top
-  // of (not replacing) the existing musicIntensity system's volume/rate
-  // ramp, specifically for the moment a boss actually appears.
+  // Boss Encounter Stinger - a one-shot descending low swell for the moment
+  // a boss actually appears.
   playBossStinger() {
     if (!this.ctx) return
     const ctx = this.ctx
@@ -1348,5 +1272,5 @@ class AudioEngine {
 export const audioEngine = new AudioEngine()
 // Same debug-hook convention as Game.js's own `window.__game = this` (see
 // that file's comment) - lets tests/tools drive or inspect real audio state
-// (e.g. this.music.volume) without reaching into module scope.
+// (e.g. this.sfxVolume) without reaching into module scope.
 if (typeof window !== 'undefined') window.__audioEngine = audioEngine
