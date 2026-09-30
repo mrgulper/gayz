@@ -7,7 +7,6 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import * as CloudSync from './CloudSync.js'
 import { BlockChunks, CHUNK } from './BlockChunks.js'
 import { blockFaceCanvases, blockIconURL, textureHasAlpha } from './BlockTextures.js'
-import { LightProxyPool, markLightSource } from './LightProxies.js'
 import { t } from './i18n.js'
 
 // GROUND_SIZE is a CELL count (not world units) - bumped up from 64, then
@@ -334,20 +333,12 @@ for (const src of BLOCK_TYPES.slice()) {
   })
 }
 const VALID_TYPE_IDS = new Set(BLOCK_TYPES.map((b) => b.id))
-// Real point lights on glowing blocks (see placeBlock/removeBlock) - every
-// block whose material already has an emissive color (lava, glowstone,
-// jack o'lantern, etc.) previously only glowed on its own face; it never
-// actually lit up the blocks around it. Derived from BLOCK_TYPES' own
-// emissive field rather than a separate hardcoded id list, so any future
-// glowing block type picks this up automatically. Capped at
-// MAX_ACTIVE_LIGHTS - real THREE.PointLights are real render cost, unlike
-// the InstancedMesh blocks themselves; past the cap, a placed glow block
-// still looks lit (its own emissive material), it just stops casting light
-// onto its neighbors.
+// Light-giving blocks (lava, glowstone, jack o'lantern...) - every block
+// type with an emissive color. They light their surroundings through
+// baked vertex light in the chunk meshes (BlockChunks.setGlow), not real
+// THREE.PointLights: the editor has no point lights at all (2026-09-30 -
+// the old 6 always-on light proxies cost ~35% of every frame).
 const LIGHT_BLOCK_COLORS = new Map(BLOCK_TYPES.filter((bt) => bt.emissive).map((bt) => [bt.id, bt.emissive]))
-const MAX_ACTIVE_LIGHTS = 40
-const LIGHT_INTENSITY = 1.4
-const LIGHT_DISTANCE = 6
 
 // Flat MeshStandardMaterial colors read as plain painted planes rather than
 // distinct blocks once several sit side by side - real Minecraft-style
@@ -1026,34 +1017,6 @@ export class BuildMode {
     this.activeHotbarIndex = 0
     this.selectedType = null
     this._blocks = new Map() // "x,y,z" -> type id
-    this._blockLights = new Map() // "x,y,z" -> THREE.PointLight, see LIGHT_BLOCK_COLORS
-    // Fixed pool of exactly MAX_ACTIVE_LIGHTS lights, created once and
-    // added to the scene once, never removed (2026-09-19 - same fix as
-    // Game.js/ZombieManager.js's own light pool, see either one's comment
-    // for the full explanation: toggling/adding/removing a THREE.Light
-    // forces a full shader recompile on every material it affects, and a
-    // level builder placing/deleting glow blocks while designing a level
-    // is exactly the kind of repeated trigger that caused a multi-second
-    // freeze elsewhere in this game). placeBlock/removeBlock hand these
-    // out and reclaim them instead of ever calling `new THREE.PointLight`
-    // or `scene.remove()` on a light - intensity 0 means "off" now, not
-    // absence from the scene. The existing `_blockLights.size <
-    // MAX_ACTIVE_LIGHTS` check already caps real concurrent usage at
-    // exactly this pool's size, so there's no separate "pool exhausted"
-    // case to handle here the way the survival-mode pool needs to.
-    this._lightPool = []
-    for (let i = 0; i < MAX_ACTIVE_LIGHTS; i++) {
-      const light = markLightSource(new THREE.PointLight(0xffffff, 0, LIGHT_DISTANCE))
-      light.inUse = false
-      this.scene.add(light)
-      this._lightPool.push(light)
-    }
-    // The pool above is only light *sources* (a hidden layer no camera
-    // renders) - only the few nearest lit ones are copied onto these real
-    // lights each frame (see LightProxies.js). With all 40 pool lights
-    // rendered directly, every pixel paid for 40 lights even with no glow
-    // block placed anywhere: measured ~4x slower frames (2026-09-29).
-    this._lightProxies = new LightProxyPool(this.scene, 6)
     // Undo/Redo - every real placeBlock()/removeBlock() call (not a no-op
     // on an already-occupied/already-empty cell) pushes one entry here,
     // regardless of which tool triggered it (a single click, Mirror's
@@ -1101,7 +1064,9 @@ export class BuildMode {
     this._chunks = new BlockChunks(this.scene, {
       blockSize: BLOCK_SIZE,
       types: BLOCK_TYPES,
-      maxAnisotropy: renderer.capabilities.getMaxAnisotropy(),
+      // 4x is nearly as sharp at a grazing angle as 16x and much
+      // cheaper on weak GPUs.
+      maxAnisotropy: Math.min(4, renderer.capabilities.getMaxAnisotropy()),
       faces: blockFaceCanvases,
       hasAlpha: textureHasAlpha,
       getType: (x, y, z) => this._blocks.get(`${x},${y},${z}`),
@@ -1114,7 +1079,7 @@ export class BuildMode {
     // and querying the renderer's actual capability (rather than a
     // hardcoded guess) means this is correct on any GPU, including one
     // that only supports less than a typical desktop's 16x.
-    const maxAnisotropy = renderer.capabilities.getMaxAnisotropy()
+    const maxAnisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy())
     // Shaped blocks' meshes (stairs/fences/ladder/slabs) are created the
     // first time one is placed (see _shapedMesh) - with a slab for every
     // block there are ~190 shaped types, and reserving a full-size
@@ -1378,26 +1343,6 @@ export class BuildMode {
   // Build Mode taking ~10 real seconds to open. A plain single placeBlock()
   // call (the player clicking to place one block) still updates its bounds
   // immediately, same as before - only bulk fills opt out.
-  // See _lightPool's own comment (constructor). Returns null if every
-  // slot is somehow already claimed - shouldn't happen given placeBlock's
-  // own `_blockLights.size < MAX_ACTIVE_LIGHTS` guard, but a placed block
-  // just renders without lighting its neighbors in that case rather than
-  // erroring, same graceful fallback as the survival-mode pool.
-  _acquireLight() {
-    for (const light of this._lightPool) {
-      if (!light.inUse) {
-        light.inUse = true
-        return light
-      }
-    }
-    return null
-  }
-
-  _releaseLight(light) {
-    if (!light) return
-    light.inUse = false
-    light.intensity = 0
-  }
 
   // The InstancedMesh for a shaped block type, created on first use and
   // grown (doubled, up to MAX_INSTANCES_PER_TYPE) when full. null if the
@@ -1412,10 +1357,10 @@ export class BuildMode {
     if (!material) {
       const tex = _shapedBlockTextures(bt)
       for (const t of new Set([tex.top, tex.side, tex.bottom])) t.anisotropy = this._maxAnisotropy
-      const make = (map) => new THREE.MeshStandardMaterial({
+      // Lambert (like the chunk meshes) - cheaper per pixel than the
+      // physically-based Standard material, same look for flat blocks.
+      const make = (map) => new THREE.MeshLambertMaterial({
         map,
-        roughness: bt.roughness,
-        metalness: bt.metalness,
         transparent: !!bt.transparent,
         opacity: bt.opacity ?? 1,
         alphaTest: bt.transparent ? 0.02 : 0,
@@ -1515,17 +1460,7 @@ export class BuildMode {
 
   _attachBlockLight(key, x, y, z, type) {
     const lightColor = LIGHT_BLOCK_COLORS.get(type)
-    if (lightColor !== undefined && this._blockLights.size < MAX_ACTIVE_LIGHTS) {
-      const light = this._acquireLight()
-      if (light) {
-        light.color.setHex(lightColor)
-        light.distance = LIGHT_DISTANCE
-        light.position.set((x + 0.5) * BLOCK_SIZE, (y + 0.5) * BLOCK_SIZE, (z + 0.5) * BLOCK_SIZE)
-        light.intensity = LIGHT_INTENSITY
-        light.updateMatrixWorld()
-        this._blockLights.set(key, light)
-      }
-    }
+    if (lightColor !== undefined) this._chunks.setGlow(x, y, z, lightColor)
   }
 
   removeBlock(x, y, z) {
@@ -1570,11 +1505,8 @@ export class BuildMode {
   }
 
   _releaseBlockLight(key) {
-    const light = this._blockLights.get(key)
-    if (light) {
-      this._releaseLight(light)
-      this._blockLights.delete(key)
-    }
+    const [x, y, z] = key.split(',').map(Number)
+    this._chunks.setGlow(x, y, z, null)
   }
 
   // Undo/Redo - see the constructor's own comment on _undoStack/_redoStack
@@ -2129,8 +2061,6 @@ export class BuildMode {
     this._blocks.clear()
     this._chunkCells.clear()
     this._chunks.clear()
-    for (const light of this._blockLights.values()) this._releaseLight(light)
-    this._blockLights.clear()
     this._undoStack.length = 0
     this._redoStack.length = 0
     this._updateUndoRedoButtons()
@@ -2345,7 +2275,6 @@ export class BuildMode {
     // changed since the last one (a paste or a load touches thousands).
     this._chunks.flush(this._chunkCells)
     this._chunks.animate(performance.now() / 1000)
-    this._lightProxies.update(this.camera.position, 30)
     // The survival game's filmic tone mapping darkens and over-saturates
     // flat block colors (grey stone rendered near-black) - blocks keep
     // their real texture colors here, like Minecraft/Kirka.
