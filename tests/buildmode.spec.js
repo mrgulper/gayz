@@ -127,9 +127,58 @@ test('Tab opens the picker, clicking a swatch changes the selected block type', 
   })
 
   expect(result.openAfterToggle).toBe(true)
-  expect(result.swatchCount).toBe(376)
+  expect(result.swatchCount).toBe(462)
   expect(result.afterClickType).not.toBe(result.beforeType)
   expect(result.closedAfterClick).toBe(false)
+})
+
+// Doors are two blocks tall, open/close on right-click (toggleDoor), let
+// you through only while open, and keep their facing/open state in saves.
+test('doors place both halves, open and close, and save their state', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+
+  const result = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    bm.placeBlock(5, 3, 5, 'oakdoor', false, { facing: 1, open: false })
+    const halves = [bm.getBlockAt(5, 3, 5), bm.getBlockAt(5, 4, 5)]
+    const blockedClosed = bm._blockedAt(2.275, 1.575, 2.275)
+    bm.toggleDoor(5, 4, 5)
+    const openedFromTop = bm.isDoorOpenAt(5, 3, 5)
+    const blockedOpen = bm._blockedAt(2.275, 1.575, 2.275)
+    const saved = bm._snapshot().blocks.filter((b) => b.x === 5 && b.y >= 0 && b.z === 5)
+    bm.removeBlock(5, 4, 5)
+    const afterBreak = [bm.getBlockAt(5, 3, 5), bm.getBlockAt(5, 4, 5)]
+    bm.undo()
+    const afterUndo = [bm.getBlockAt(5, 4, 5), bm.isDoorOpenAt(5, 4, 5)]
+    g._exitBuildMode()
+    return { halves, blockedClosed, openedFromTop, blockedOpen, saved, afterBreak, afterUndo }
+  })
+
+  expect(result.halves).toEqual(['oakdoor', 'oakdoortop'])
+  expect(result.blockedClosed).toBe(true)
+  expect(result.openedFromTop).toBe(true)
+  expect(result.blockedOpen).toBe(false)
+  expect(result.saved).toEqual([{ x: 5, y: 3, z: 5, type: 'oakdoor', facing: 1, open: true }])
+  expect(result.afterBreak).toEqual([null, null])
+  expect(result.afterUndo).toEqual(['oakdoortop', true])
+})
+
+test('old saves load TNT as C4', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+
+  const result = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    bm._applyParsedData({ blocks: [{ x: 7, y: 0, z: 7, type: 'tnt' }, { x: 8, y: 0, z: 7, type: 'tntslab' }], hotbar: ['tnt', null, null, null, null, null, null, null, null, null] })
+    const out = { block: bm.getBlockAt(7, 0, 7), slab: bm.getBlockAt(8, 0, 7), hotbar0: bm.hotbar[0] }
+    g._exitBuildMode()
+    return out
+  })
+
+  expect(result).toEqual({ block: 'c4', slab: 'c4slab', hotbar0: 'c4' })
 })
 
 test('a saved build reloads correctly in a fresh BuildMode instance', async ({ page }) => {
