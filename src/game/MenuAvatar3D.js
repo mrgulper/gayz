@@ -259,24 +259,39 @@ export const SHOP_SKIN_PREVIEW_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAA
 // (the homepage preview) renders the exact same static pose as before;
 // one that does (MinecraftPlayerBody's walk cycle) swings the limb from
 // the correct joint instead of its own center.
-function _buildLimbPivot(w, h, d, u, v, texture, texW, texH, mirror, pivotX, pivotY, overlayOrigin = null) {
+function _buildLimbPivot(w, h, d, u, v, texture, texW, texH, mirror, pivotX, pivotY, overlayOrigin = null, overlayDepthRank = 0) {
   const mesh = _texturedBoxMesh(w, h, d, u, v, texture, texW, texH, mirror)
   mesh.position.y = -h / 2
   const pivot = new THREE.Group()
   pivot.position.set(pivotX, pivotY, 0)
   pivot.add(mesh)
   if (overlayOrigin) {
-    const shell = _texturedBoxMesh(w, h, d, overlayOrigin[0], overlayOrigin[1], texture, texW, texH, false, OVERLAY_INFLATE, true)
+    const shell = _texturedBoxMesh(w, h, d, overlayOrigin[0], overlayOrigin[1], texture, texW, texH, false, BODY_OVERLAY_INFLATE, true)
+    _rankOverlay(shell, overlayDepthRank)
     shell.position.y = -h / 2
     pivot.add(shell)
   }
   return pivot
 }
 
-// How much bigger each overlay shell is than its base part (0.5 per side) -
-// the same puff the skin designer's 3D preview uses, so a skin looks the
-// same in-game as it did while you were making it.
-const OVERLAY_INFLATE = 1
+// How much bigger each overlay shell is than its base part - Minecraft's own
+// sizes: the hat puffs out 0.5 per side, the jacket/sleeves/pants 0.25 per
+// side. The same values the skin designer's 3D preview uses, so a skin looks
+// the same in-game as it did while you were making it.
+const HAT_INFLATE = 1
+const BODY_OVERLAY_INFLATE = 0.5
+// Neighboring shells still overlap a little (sleeve and jacket fronts sit at
+// the same depth where the arm meets the body, and so do the two legs'),
+// which flickered as the two fought over the same pixels (2026-09-30
+// report). A fixed depth nudge per part makes the overlap always draw the
+// same way: arms over the jacket, the right leg over the jacket, the left
+// leg over the right one.
+function _rankOverlay(mesh, rank) {
+  if (!rank) return
+  mesh.material.polygonOffset = true
+  mesh.material.polygonOffsetFactor = -rank
+  mesh.material.polygonOffsetUnits = -rank
+}
 
 export function buildTexturedCharacter(skin) {
   const { texture, width, height } = skin
@@ -291,7 +306,7 @@ export function buildTexturedCharacter(skin) {
   head.position.y = 26
   group.add(head)
   if (overlayFor('head')) {
-    const hat = _texturedBoxMesh(8, 8, 8, OVERLAY_ORIGINS.head[0], OVERLAY_ORIGINS.head[1], texture, width, height, false, OVERLAY_INFLATE, true)
+    const hat = _texturedBoxMesh(8, 8, 8, OVERLAY_ORIGINS.head[0], OVERLAY_ORIGINS.head[1], texture, width, height, false, HAT_INFLATE, true)
     hat.position.y = 26
     group.add(hat)
   }
@@ -300,7 +315,7 @@ export function buildTexturedCharacter(skin) {
   torso.position.y = 16
   group.add(torso)
   if (overlayFor('torso')) {
-    const jacket = _texturedBoxMesh(8, 12, 4, OVERLAY_ORIGINS.torso[0], OVERLAY_ORIGINS.torso[1], texture, width, height, false, OVERLAY_INFLATE, true)
+    const jacket = _texturedBoxMesh(8, 12, 4, OVERLAY_ORIGINS.torso[0], OVERLAY_ORIGINS.torso[1], texture, width, height, false, BODY_OVERLAY_INFLATE, true)
     jacket.position.y = 16
     group.add(jacket)
   }
@@ -318,18 +333,18 @@ export function buildTexturedCharacter(skin) {
   // top edge (was position.y=16, height 12 -> spans 10 to 22); hip
   // pivot y=10 is the leg's own top edge (was position.y=4, height 12
   // -> spans -2 to 10) - see _buildLimbPivot's own comment.
-  const armR = _buildLimbPivot(4, 12, 4, 40, 16, texture, width, height, false, 6, 22, overlayFor('rightArm'))
+  const armR = _buildLimbPivot(4, 12, 4, 40, 16, texture, width, height, false, 6, 22, overlayFor('rightArm'), 1)
   group.add(armR)
   const armL = legacy
     ? _buildLimbPivot(4, 12, 4, 40, 16, texture, width, height, true, -6, 22)
-    : _buildLimbPivot(4, 12, 4, 32, 48, texture, width, height, false, -6, 22, overlayFor('leftArm'))
+    : _buildLimbPivot(4, 12, 4, 32, 48, texture, width, height, false, -6, 22, overlayFor('leftArm'), 1)
   group.add(armL)
 
-  const legR = _buildLimbPivot(4, 12, 4, 0, 16, texture, width, height, false, 2, 10, overlayFor('rightLeg'))
+  const legR = _buildLimbPivot(4, 12, 4, 0, 16, texture, width, height, false, 2, 10, overlayFor('rightLeg'), 2)
   group.add(legR)
   const legL = legacy
     ? _buildLimbPivot(4, 12, 4, 0, 16, texture, width, height, true, -2, 10)
-    : _buildLimbPivot(4, 12, 4, 16, 48, texture, width, height, false, -2, 10, overlayFor('leftLeg'))
+    : _buildLimbPivot(4, 12, 4, 16, 48, texture, width, height, false, -2, 10, overlayFor('leftLeg'), 3)
   group.add(legL)
 
   // Exposed for a caller that wants to animate a walk cycle (see
