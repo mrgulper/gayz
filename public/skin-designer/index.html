@@ -824,6 +824,7 @@ function paintGirlHead(r, p, rng, o) {
 }
 function paintHeadDetailed(box, p, rng, o = {}) {
   const r = partFaceRects(box.u, box.v, box.w, box.h, box.d);
+  if (o.animal && o.fullFur) return paintAnimalHead(r, p, rng, o);
   if (o.feminine && o.hairStyle !== 3 && o.hairStyle !== 1) return paintGirlHead(r, p, rng, o);
   const hair = p.hair, hairDark = shade(hair, -32), hairHi = shade(hair, 26);
   const skinShadow = shade(p.skin, -24), skinHi = shade(p.skin, 14), skinDeep = shade(p.skin, -45);
@@ -1164,8 +1165,149 @@ function gearBow(color) {
   px(f, 4, 0, 1, 1, shade(color, 30)); px(f, 7, 2, 1, 1, shade(color, -20))
   px(ovRects('head').top, 4, 6, 4, 2, color); px(ovRects('head').right, 0, 0, 2, 3, color)
 }
+// ---- Animals: ears/tail on a person ("cat girl", "fox ears") or a full
+// fur character ("furry", "wolf") - 2026-09-30 request. ----
+const ANIMALS = {
+  cat: { fur: ['#f0a050', '#3a3a3e', '#f2f2ec', '#8a8a90', '#c8a070', '#1c1c20'], inner: '#f4a8b8', ears: 'pointy', tail: 'long', muzzle: '#f2f2ec', nose: '#f08aa0', whiskers: true },
+  fox: { fur: ['#e0702a', '#d05a24', '#f2f2ec', '#8a8a90'], inner: '#f2f2ec', ears: 'pointy', tail: 'bushy', tip: '#f6f6f0', muzzle: '#f2f2ec', nose: '#1a1a1a', whiskers: true },
+  wolf: { fur: ['#8a8a90', '#5a5a62', '#d8d8d0', '#3a3a40'], inner: '#d0d0c8', ears: 'pointy', tail: 'bushy', tip: '#2a2a30', muzzle: '#e0e0d8', nose: '#1a1a1a' },
+  dog: { fur: ['#c8a070', '#8a5a3a', '#f2f2ec', '#3a2a20', '#e0c890'], inner: '#6a4a30', ears: 'floppy', tail: 'short', muzzle: '#f0e0c8', nose: '#1a1a1a' },
+  bunny: { fur: ['#f2f2ec', '#c8b0a0', '#8a7a70', '#e8d8e0'], inner: '#f4a8b8', ears: 'tall', tail: 'puff', tip: '#fafaf6', muzzle: '#fafaf6', nose: '#f08aa0' },
+  bear: { fur: ['#7a4a2a', '#5a3620', '#3a2818', '#c8a070'], inner: '#c8a070', ears: 'round', tail: 'puff', muzzle: '#d8b890', nose: '#1a1a1a' },
+  panda: { fur: ['#f2f2ec'], inner: '#1c1c1e', ears: 'round', tail: 'puff', muzzle: '#f6f6f0', nose: '#1a1a1a', patches: '#1c1c1e', earColor: '#1c1c1e' },
+  tiger: { fur: ['#e0802a', '#f2f2ec'], inner: '#f2f2ec', ears: 'round', tail: 'long', muzzle: '#f2f2ec', nose: '#f08aa0', stripes: '#1c1c1e', whiskers: true },
+}
+const ANIMAL_WORDS = {
+  cat: 'cat', cats: 'cat', kitty: 'cat', kitten: 'cat', neko: 'cat', feline: 'cat', catgirl: 'cat', catboy: 'cat',
+  fox: 'fox', kitsune: 'fox', foxy: 'fox', wolf: 'wolf', werewolf: 'wolf', husky: 'wolf',
+  dog: 'dog', puppy: 'dog', pup: 'dog', doggo: 'dog', doggy: 'dog',
+  bunny: 'bunny', rabbit: 'bunny', bun: 'bunny', bear: 'bear', teddy: 'bear', panda: 'panda', tiger: 'tiger',
+}
+const FUR_WORDS = ['furry', 'fursona', 'fluffy', 'anthro']
+const FURRY_PICKS = ['fox', 'wolf', 'cat', 'dog', 'tiger', 'bunny']
+const MULTIHUE_WORDS = ['aurora', 'galaxy', 'holographic', 'holo', 'ombre', 'gradient', 'colorful', 'colourful', 'multicolor', 'multicolour', 'multicolored', 'multicoloured', 'iridescent', 'opal', 'prism', 'prismatic', 'unicorn', 'cotton']
+const PASTEL_WORDS = ['pastel', 'soft', 'candy']
+// Draws a piece on an 8-wide face and its mirror image on the other side.
+function mpx(rect, x, y, w, h, c) { px(rect, x, y, w, h, c); px(rect, 8 - x - w, y, w, h, c) }
+function gearAnimalEars(kind, fur) {
+  const a = ANIMALS[kind], r = ovRects('head'), f = r.front, t = r.top
+  const earFur = a.earColor || fur
+  const fc = lit(earFur, 'front'), tc = lit(earFur, 'top'), dk = shade(earFur, -26), ic = a.inner
+  if (a.ears === 'pointy') {
+    // Outlined triangle so the ears stand out from same-coloured hair.
+    const ol = shade(earFur, hexToHsl(earFur)[2] > 0.5 ? -60 : 45)
+    mpx(f, 1, 0, 1, 1, ol); mpx(f, 0, 1, 1, 1, ol); mpx(f, 1, 1, 1, 1, ic); mpx(f, 2, 1, 1, 1, ol)
+    mpx(f, 0, 2, 1, 1, fc); mpx(f, 1, 2, 1, 1, ic); mpx(f, 2, 2, 1, 1, fc); mpx(f, 3, 2, 1, 1, ol)
+    mpx(t, 0, 7, 3, 1, tc); mpx(t, 1, 7, 1, 1, ic); mpx(t, 0, 6, 2, 1, tc); mpx(t, 0, 5, 1, 1, dk)
+    px(r.right, 7, 0, 1, 2, lit(earFur, 'right')); px(r.left, 0, 0, 1, 2, lit(earFur, 'left'))
+  } else if (a.ears === 'tall') {
+    mpx(f, 1, 0, 2, 3, fc); mpx(f, 2, 0, 1, 2, ic)
+    mpx(t, 1, 1, 2, 7, tc); mpx(t, 2, 2, 1, 5, ic)
+  } else if (a.ears === 'round') {
+    mpx(f, 0, 0, 2, 1, fc); mpx(f, 0, 1, 1, 1, dk)
+    mpx(t, 0, 6, 2, 2, tc); mpx(t, 1, 7, 1, 1, ic)
+  } else if (a.ears === 'floppy') {
+    const e = shade(earFur, -22)
+    px(r.right, 5, 0, 3, 6, lit(e, 'right')); px(r.left, 0, 0, 3, 6, lit(e, 'left'))
+    mpx(f, 0, 1, 1, 4, lit(e, 'front')); mpx(f, 0, 0, 2, 1, lit(e, 'front'))
+    mpx(t, 0, 5, 2, 3, lit(e, 'top'))
+  }
+}
+function gearAnimalTail(kind, fur) {
+  const a = ANIMALS[kind], b = ovRects('torso').back
+  const c = lit(fur, 'back'), dk = shade(fur, -30), tip = a.tip || shade(fur, 25)
+  const stripe = (i) => (a.stripes && i % 2 ? a.stripes : c)
+  if (a.tail === 'long') {
+    // Two pixels wide, curling up the back, outlined on one side.
+    [[3, 11], [3, 10], [2, 9], [2, 8], [3, 7], [4, 6], [4, 5], [3, 4], [2, 3]].forEach(([x, y], i) => { px(b, x, y, 2, 1, stripe(i)); px(b, x + 2, y, 1, 1, dk) })
+    px(b, 2, 2, 2, 1, a.stripes ? a.stripes : tip); px(b, 2, 3, 1, 1, shade(fur, 20))
+  } else if (a.tail === 'bushy') {
+    px(b, 3, 11, 2, 1, c); px(b, 2, 8, 4, 3, c); px(b, 3, 7, 3, 1, c); px(b, 4, 6, 2, 1, tip); px(b, 5, 5, 1, 1, tip)
+    px(b, 2, 10, 1, 1, dk); px(b, 5, 9, 1, 2, shade(fur, 18))
+  } else if (a.tail === 'puff') {
+    px(b, 3, 9, 2, 2, tip); px(b, 3, 9, 1, 1, shade(tip, 20)); px(b, 4, 10, 1, 1, shade(tip, -18))
+  } else if (a.tail === 'short') {
+    px(b, 3, 9, 2, 3, c); px(b, 4, 8, 1, 1, c); px(b, 3, 11, 1, 1, dk)
+  }
+}
+// A whole animal face (full-fur characters).
+function paintAnimalHead(r, p, rng, o) {
+  const a = ANIMALS[o.animal], fur = p.skin, f = r.front
+  const muz = a.muzzle, dk = shade(fur, -34)
+  for (const k of ['front', 'back', 'left', 'right', 'bottom']) noisyFill(r[k], lit(fur, k), rng, 0.12, 0.1)
+  noisyFill(r.top, lit(p.hair, 'top'), rng, 0.14, 0.12)
+  px(f, 3, 0, 2, 1, shade(fur, -14)); px(f, 4, 1, 1, 1, shade(fur, -8))
+  if (a.stripes) {
+    px(f, 3, 0, 1, 2, a.stripes); px(f, 1, 1, 1, 1, a.stripes); px(f, 6, 1, 1, 1, a.stripes)
+    mpx(f, 0, 3, 1, 2, a.stripes)
+    for (const k of ['left', 'right']) { px(r[k], 2, 1, 1, 3, a.stripes); px(r[k], 5, 2, 1, 3, a.stripes); px(r[k], 3, 5, 2, 1, a.stripes) }
+    for (let x = 1; x < 8; x += 3) px(r.top, x, 1, 1, 4, a.stripes)
+  }
+  if (a.patches) mpx(f, 1, 2, 2, 3, a.patches)
+  // Muzzle and cheek fluff.
+  px(f, 2, 5, 4, 3, lit(muz, 'front')); mpx(f, 1, 6, 1, 2, lit(muz, 'front'))
+  if (o.animal === 'fox' || o.animal === 'wolf' || o.animal === 'cat') mpx(f, 0, 6, 1, 2, lit(shade(muz, -8), 'front'))
+  // Eyes (rows 3-4).
+  const iris = p.eye, irisDark = shade(iris, -40), white = '#f6f6f0'
+  mpx(f, 1, 3, 2, 1, irisDark)
+  px(f, 1, 4, 1, 1, white); px(f, 2, 4, 1, 1, iris); px(f, 5, 4, 1, 1, iris); px(f, 6, 4, 1, 1, white)
+  if (o.animal === 'wolf') mpx(f, 1, 2, 2, 1, dk)
+  // Nose, mouth, whiskers, blush.
+  px(f, 3, 5, 2, 1, a.nose); px(f, 3, 6, 2, 1, shade(muz, -55)); px(f, 3, 7, 2, 1, shade(muz, -14))
+  if (a.whiskers) { mpx(f, 1, 6, 1, 1, shade(muz, -40)); mpx(f, 0, 5, 1, 1, shade(muz, -30)) }
+  if (o.cute) mpx(f, 1, 5, 1, 1, '#f0a0a8')
+  fillFace(r.bottom, lit(muz, 'bottom'))
+  for (let x = 0; x < 8; x += 2) px(r.back, x + pick(rng, 2), 1 + pick(rng, 5), 1, 2, dk)
+}
+
+// Final detail pass: every generated skin gets many more colours - a soft
+// top-to-bottom light gradient per face and tiny per-pixel hue/brightness
+// shifts, like hand-shaded skins. multiHue (aurora, galaxy, ombre ...) also
+// sweeps pastel hues across the clothes and hair.
+function richShade(rng, skin, multiHue, strength = 1) {
+  const img = atlasCtx.getImageData(0, 0, 64, 64), d = img.data
+  const phase = rng() * Math.PI * 2, base = rng()
+  const faces = []
+  for (const b of BOXES) {
+    faces.push({ part: b.key, over: false, r: partFaceRects(b.u, b.v, b.w, b.h, b.d) })
+    faces.push({ part: b.key, over: true, r: ovRects(b.key) })
+  }
+  for (const { part, over, r } of faces) for (const [key, rect] of Object.entries(r)) {
+    const w = faceW(rect), h = faceH(rect)
+    const side = key !== 'top' && key !== 'bottom'
+    const isFace = part === 'head' && !over && key === 'front'
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = ((rect[1] + y) * 64 + rect[0] + x) * 4
+      if (d[i + 3] === 0) continue
+      const hex = rgbToHex(d[i], d[i + 1], d[i + 2])
+      let [hh, ss, ll] = hexToHsl(hex)
+      if (ss < 0.07 && (ll > 0.86 || ll < 0.14)) continue // eye whites, pupils, outlines
+      if (isFace && (y === 3 || y === 4)) continue // keep the eyes crisp
+      const [skH] = hexToHsl(skin)
+      const skinLike = colorDistance(hex, skin) < 150 && Math.abs(((hh - skH + 1.5) % 1) - 0.5) < 0.07
+      // Colour sweep goes on clothes and the outer layer; natural hair and
+      // skin on the base head stay as they are (like hand-made aurora skins).
+      if (multiHue && !skinLike && !(part === 'head' && !over) && ll > 0.2) {
+        const gy = side ? y / h : 0.5
+        hh = (base + Math.sin((x * 0.6 + y) * 0.42 + phase) * 0.14 + gy * 0.22 + (over ? 0.05 : 0) + 1) % 1
+        ss = Math.max(0.45, Math.min(ss + 0.2, 0.75)); ll = Math.max(ll, 0.7)
+      }
+      // Light from above; shadows lean cool (blue), highlights warm (yellow),
+      // the way pixel artists shade instead of just darkening.
+      const lightAmt = (side ? (0.5 - (y + 0.5) / h) * 0.12 : 0) + (rng() * 2 - 1) * 0.03
+      ll += lightAmt * strength
+      const toward = lightAmt < 0 ? 0.64 : 0.14, pull = Math.min(0.5, Math.abs(lightAmt) * 1.6) * (ss > 0.12 ? 1 : 0)
+      let dh = toward - hh; if (dh > 0.5) dh -= 1; if (dh < -0.5) dh += 1
+      hh = (hh + dh * pull * 0.35 * strength + (rng() * 2 - 1) * 0.015 * strength + 1) % 1
+      ss = Math.max(0, Math.min(1, ss + (rng() * 2 - 1) * 0.04 * strength))
+      const out = hexToRgb(hslToHex(hh, ss, Math.max(0.03, Math.min(0.97, ll))))
+      d[i] = out.r; d[i + 1] = out.g; d[i + 2] = out.b
+    }
+  }
+  atlasCtx.putImageData(img, 0, 0)
+}
 const THEME_GEAR = {
-  girl: (p, rng, maybe) => { gearHairVolume(p.hair, rng); if (maybe(0.6)) gearBow(bowColor(p)) },
+  girl: (p, rng, maybe, o = {}) => { gearHairVolume(p.hair, rng); if (maybe(0.6) && !o.animal) gearBow(bowColor(p)) },
   pirate: (p, rng, maybe) => { gearBandana(p.accent, p.hair, rng); gearCoat(shade(p.shirt, -12), rng); gearSleeves(shade(p.shirt, -12), 8, rng); gearBoots(p.shoe, 7, rng); },
   ninja: (p, rng, maybe) => { gearMask(p.shirt, rng); gearSash(p.accent, rng); if (maybe(0.5)) gearGloves(p.shirt, rng); },
   zombie: (p, rng, maybe) => { if (maybe(0.6)) gearHairTufts(p.hair, rng); if (maybe(0.5)) gearSleeves(shade(p.shirt, -10), 5, rng); },
@@ -1187,10 +1329,10 @@ const THEME_GEAR = {
   rose: (p, rng, maybe) => { if (maybe(0.6)) gearHairTufts(p.accent, rng); if (maybe(0.5)) gearSleeves(p.accent, 3, rng); },
   punk: (p, rng, maybe) => { if (maybe(0.6)) gearCoat('#1a1a1a', rng); if (maybe(0.5)) gearSleeves('#1a1a1a', 8, rng); },
 };
-function paintOuterLayer(themeKey, theme, rng) {
+function paintOuterLayer(themeKey, theme, rng, o) {
   const gear = THEME_GEAR[themeKey];
   if (!gear) return;
-  gear(theme, rng, (chance) => rng() < chance);
+  gear(theme, rng, (chance) => rng() < chance, o);
 }
 // After Generate/Randomize: switch the 3D preview's Outer Layer on when the
 // new skin has any, so the gear is actually visible (it's off by default
@@ -1274,7 +1416,7 @@ const PART_WORDS = {
   hair: 'hair', shirt: 'shirt', top: 'shirt', hoodie: 'shirt', sweater: 'shirt', tshirt: 'shirt', dress: 'shirt',
   pants: 'pants', jeans: 'pants', trousers: 'pants', shorts: 'pants', skirt: 'skirt', legs: 'pants',
   shoes: 'shoe', shoe: 'shoe', boots: 'shoe', sneakers: 'shoe', eyes: 'eye', eye: 'eye', skin: 'skin',
-  belt: 'accent', stripes: 'accent', trim: 'accent',
+  belt: 'accent', stripes: 'accent', trim: 'accent', fur: 'fur', furred: 'fur',
 }
 const SKIN_WORDS = { pale: 0, light: 1, fair: 0, tan: 2, tanned: 2, olive: 3, brown: 4, dark: 5 }
 const HAIR_STYLE_WORDS = { bald: 3, mohawk: 1, long: 2, ponytail: 2, short: 0, fringe: 4, bangs: 4 }
@@ -1284,6 +1426,7 @@ const GEAR_WORDS = {
   beanie: 'beanie', bandana: 'bandana', backpack: 'backpack', coat: 'coat', jacket: 'coat', hoodie: 'hoodie',
   gloves: 'gloves', boots: 'boots', glasses: 'glasses', sunglasses: 'sunglasses', shades: 'sunglasses',
   headphones: 'headphones', headset: 'headphones', beard: 'beard', skirt: 'skirt',
+  ears: 'ears', ear: 'ears', tail: 'tail', whiskers: 'ears', paws: 'tail',
 }
 const FEMININE_WORDS = ['girl', 'girly', 'woman', 'lady', 'female', 'queen', 'princess', 'witch']
 const CUTE_WORDS = ['cute', 'kawaii', 'adorable', 'sweet', 'pretty', 'lovely', 'soft']
@@ -1308,6 +1451,7 @@ const MASCULINE_WORDS = ['boy', 'man', 'guy', 'male', 'king', 'prince']
 
 function parsePrompt(text) {
   const words = (text || '').toLowerCase().replace(/[^a-z\s-]/g, ' ').split(/[\s-]+/).filter(Boolean)
+    .flatMap((w) => { const m = w.match(/^([a-z]+?)(girl|boy)$/); return m && ANIMAL_WORDS[m[1]] ? [m[1], m[2]] : [w] })
   const themes = []
   for (const w of words) {
     const i = words.indexOf(w)
@@ -1340,8 +1484,23 @@ function parsePrompt(text) {
   let hairStyle = null
   words.forEach((w, i) => { if (w in HAIR_STYLE_WORDS && (w === 'bald' || w === 'mohawk' || w === 'ponytail' || words[i + 1] === 'hair')) hairStyle = HAIR_STYLE_WORDS[w] })
   const gear = [...new Set(words.map((w) => GEAR_WORDS[w]).filter(Boolean))]
-  if (!themes.length && describedSomething) themes.push('casual')
+  // Animals: "cat girl"/"fox ears" give a person ears + a tail; an animal
+  // on its own ("wolf"), or "furry", makes a whole fur character.
+  let animal = words.map((w) => ANIMAL_WORDS[w]).find(Boolean) || null
+  const furWord = words.some((w) => FUR_WORDS.includes(w))
+  if (!animal && furWord) animal = 'furry'
+  if (!animal && (gear.includes('ears') || gear.includes('tail'))) animal = 'cat'
+  const human = words.some((w) => FEMININE_WORDS.includes(w) || MASCULINE_WORDS.includes(w))
+  const fullFur = !!animal && (furWord || (!human && !themes.length && !gear.includes('ears')))
+  const multiHue = words.some((w) => MULTIHUE_WORDS.includes(w))
+  const pastelWord = multiHue || words.some((w) => PASTEL_WORDS.includes(w))
+  if (!themes.length && (describedSomething || animal || multiHue || pastelWord)) themes.push('casual')
+  // Which words were read, for the result message.
+  const FILLER = new Set(['a', 'an', 'the', 'with', 'and', 'in', 'of', 'on', 'wearing', 'wears', 'has', 'have', 'her', 'his', 'their', 'who', 'is', 'are', 'that', 'very', 'really', 'some', 'big', 'small', 'little', 'skin', 'skinned', 'hair', 'style', 'minecraft', 'character', 'make', 'me', 'my', 'like', 'for', 'to', 'it', 'or'])
+  const known = (w) => THEMES[w] || ALIASES[w] || COLOR_WORDS[w] || PART_WORDS[w] || w in SKIN_WORDS || w in HAIR_STYLE_WORDS || GEAR_WORDS[w] || FEMININE_WORDS.includes(w) || MASCULINE_WORDS.includes(w) || CUTE_WORDS.includes(w) || ANIMAL_WORDS[w] || FUR_WORDS.includes(w) || MULTIHUE_WORDS.includes(w) || PASTEL_WORDS.includes(w)
+  const unknown = [...new Set(words.filter((w) => !known(w) && !FILLER.has(w)))]
   return {
+    animal, fullFur, multiHue, pastel: pastelWord, unknown,
     themes, colors, loose, skinTone, hairStyle, gear,
     feminine: words.some((w) => FEMININE_WORDS.includes(w)) || themes.includes('girl'),
     cute: words.some((w) => CUTE_WORDS.includes(w)),
@@ -1413,7 +1572,7 @@ function planSkin(parsed, rng, randomTheme) {
     for (let i = 0; i < 10 && (colorDistance(hair, p.shirt) < 140 || colorDistance(hair, p.skin) < 110); i++) hair = GIRL_HAIR[pick(rng, GIRL_HAIR.length)]
     if (themeKey === 'girl' || rng() < 0.5) p.hair = hair
   }
-  if (parsed.cute) { for (const k of ['shirt', 'pants', 'accent']) p[k] = pastel(p[k]); if (o.skirt) o.skirt = p.pants }
+  if (parsed.cute || parsed.pastel) { for (const k of ['shirt', 'pants', 'accent']) p[k] = pastel(p[k]); if (o.skirt) o.skirt = p.pants }
   o.cute = parsed.cute
   for (const [part, c] of Object.entries(parsed.colors)) {
     if (part === 'skirt') o.skirt = drift(c.hex, rng, 0.02, 0.05)
@@ -1422,6 +1581,21 @@ function planSkin(parsed, rng, randomTheme) {
   const looseTargets = ['shirt', 'accent', 'pants']
   parsed.loose.forEach((c, i) => { if (looseTargets[i] && !parsed.colors[looseTargets[i]]) p[looseTargets[i]] = drift(c.hex, rng, 0.02, 0.06) })
   if (parsed.skinTone !== null) p.skin = SKIN_TONES[parsed.skinTone]
+  if (parsed.animal) {
+    const kind = parsed.animal === 'furry' ? FURRY_PICKS[pick(rng, FURRY_PICKS.length)] : parsed.animal
+    const a = ANIMALS[kind]
+    o.animal = kind; o.fullFur = parsed.fullFur; o.multiHue = parsed.multiHue
+    const fur = p.fur || drift(a.fur[pick(rng, a.fur.length)], rng, 0.015, 0.04)
+    if (o.fullFur) {
+      p.skin = fur
+      if (!parsed.colors.hair) p.hair = shade(fur, -14)
+      if (!parsed.colors.eye) p.eye = ['#3a8ad0', '#3aa060', '#d0a020', '#8a4ac9', '#c0602a'][pick(rng, 5)]
+      // Clothes that stand out from the fur.
+      if (colorDistance(p.shirt, fur) < 110) { const [h, s2] = hexToHsl(p.shirt); p.shirt = hslToHex((h + 0.5) % 1, Math.max(s2, 0.45), 0.45) }
+      o.fur = fur
+    } else o.fur = p.fur || (kind === 'panda' || kind === 'tiger' ? fur : p.hair)
+  }
+  o.multiHue = parsed.multiHue
   if (parsed.hairStyle !== null) o.hairStyle = parsed.hairStyle
   o.feminine = (parsed.feminine || themeKey === 'girl') && !parsed.masculine
   if (parsed.gear.includes('beard') || (parsed.masculine && rng() < 0.2)) o.beard = true
@@ -1446,12 +1620,14 @@ async function generateThemedSkin(parsed, variant, randomTheme, onStage) {
     ['arms', () => { const sleeve = [4, 8, 9, 10][pick(rng, 4)]; paintLimbDetailed(part('armR'), p, false, rng, { ...o, sleeve }); paintLimbDetailed(part('armL'), p, false, rng, { ...o, sleeve }) }],
     ['legs', () => { const shoeStyle = pick(rng, 3); paintLimbDetailed(part('legR'), p, true, rng, { ...o, shoeStyle }); paintLimbDetailed(part('legL'), p, true, rng, { ...o, shoeStyle }) }],
     ['outer layer', () => {
-      paintOuterLayer(themeKey, p, rng)
+      paintOuterLayer(themeKey, p, rng, o)
       for (const extra of parsed.themes.slice(1)) THEME_GEAR[extra]?.(p, rng, (c) => rng() < c)
       if (themeKey !== 'girl' && (o.hairStyle === 2 || (o.hairStyle == null && o.feminine && rng() < 0.6))) gearHairVolume(p.hair, rng)
-      if (o.cute && o.feminine) gearBow(bowColor(p))
+      if (o.cute && o.feminine && !o.animal) gearBow(bowColor(p))
       for (const g of parsed.gear) applyGearWord(g, p, rng)
+      if (o.animal) { gearAnimalEars(o.animal, o.fur); gearAnimalTail(o.animal, o.fur) }
     }],
+    ['details', () => richShade(rng, p.skin, o.multiHue, 1)],
   ]
   for (const [label, paint] of stages) {
     paint()
@@ -1470,7 +1646,7 @@ async function runGeneration(promptText, isRandom) {
   genBtn.disabled = randBtn.disabled = true
   const note = document.getElementById('themeNote')
   note.style.display = 'block'
-  const parsed = isRandom ? { themes: [], colors: {}, loose: [], skinTone: null, hairStyle: null, gear: [], feminine: false, masculine: false } : parsePrompt(promptText)
+  const parsed = isRandom ? { themes: [], colors: {}, loose: [], skinTone: null, hairStyle: null, gear: [], feminine: false, masculine: false, animal: null, unknown: [] } : parsePrompt(promptText)
   const randomTheme = RANDOMIZABLE_THEME_KEYS[Math.floor(Math.random() * RANDOMIZABLE_THEME_KEYS.length)]
   pushUndo()
   try {
@@ -1481,20 +1657,23 @@ async function runGeneration(promptText, isRandom) {
     syncAfterEdit()
     scheduleSave()
     revealOuterLayerIfPainted()
-    const PART_LABEL = { shirt: 'shirt', pants: 'pants', skirt: 'skirt', shoe: 'shoes', eye: 'eyes', hair: 'hair', accent: 'trim' }
+    const PART_LABEL = { shirt: 'shirt', pants: 'pants', skirt: 'skirt', shoe: 'shoes', eye: 'eyes', hair: 'hair', accent: 'trim', fur: 'fur' }
     const extras = [
       ...parsed.themes.slice(1).map((k) => THEME_LABELS[k] + ' gear'),
       ...parsed.loose.slice(0, 3).map((c, i) => c.name + ' ' + ['outfit', 'trim', 'pants'][i]),
       ...Object.entries(parsed.colors).map(([k, c]) => c.name + ' ' + PART_LABEL[k]),
       ...(parsed.skinTone !== null ? ['custom skin tone'] : []),
-      ...parsed.gear.filter((g) => g !== 'skirt' || !parsed.colors.skirt),
+      ...parsed.gear.filter((g) => (g !== 'skirt' || !parsed.colors.skirt) && g !== 'ears' && g !== 'tail'),
+      ...(parsed.animal ? [parsed.fullFur ? 'full fur (' + (parsed.animal === 'furry' ? 'random animal' : parsed.animal) + ')' : parsed.animal + ' ears and tail'] : []),
+      ...(parsed.multiHue ? ['multicolour shading'] : parsed.pastel ? ['pastel colours'] : []),
     ]
     const extraText = extras.length ? ' with ' + extras.join(', ') : ''
     if (isRandom) note.innerHTML = 'Randomized a <b>' + THEME_LABELS[theme] + '</b> skin. Hit Randomize again for something else.'
     else if (parsed.themes.length || extras.length) {
       // Named after what was typed ("cute girl"), not the internal style name.
       const typed = promptText.trim().replace(/[<>&"]/g, '').slice(0, 60)
-      note.innerHTML = 'Generated a <b>"' + typed + '"</b> skin (' + THEME_LABELS[theme] + ' style' + extraText + '). Click Generate again for a new one.'
+      const skipped = (parsed.unknown || []).slice(0, 6).map((w) => w.replace(/[<>&"]/g, ''))
+      note.innerHTML = 'Generated a <b>"' + typed + '"</b> skin (' + THEME_LABELS[theme] + ' style' + extraText + ').' + (skipped.length ? ' Didn\'t know: ' + skipped.join(', ') + '.' : '') + ' Click Generate again for a new one.'
     }
     else note.innerHTML = 'Didn\'t recognize "' + promptText.trim().replace(/[<>&"]/g, '') + '" - generated a random <b>' + THEME_LABELS[theme] + '</b> skin instead. Try words like pirate, zombie, girl, crown, red hair, blue pants.'
   } finally {
