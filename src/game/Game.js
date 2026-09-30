@@ -14177,16 +14177,23 @@ export class Game {
     // chunk-meshed editor (see BlockChunks.js) is cheap enough without
     // them, and on a 2x Retina screen they left it at ~1/3 of the real
     // pixels, stretched up. The Resolution slider still applies.
-    if (this.buildMode.active) {
-      // _editorResScale: the editor's own automatic resolution (see
-      // _updateEditorResScale) - never below 1 pixel per CSS pixel, so
-      // it can only trade away Retina/high-DPI extra sharpness, never make
-      // the editor blurrier than a plain screen.
-      const full = Math.min(window.devicePixelRatio, 2) * this._userResScale
-      this.renderer.setPixelRatio(Math.max(Math.min(1, full), full * (this._editorResScale ?? 1)))
-      return
-    }
-    this.renderer.setPixelRatio(this._basePixelRatio() * this._dynResScale * this._userResScale)
+    const ratio = this.buildMode.active ? this._editorPixelRatio(this._editorResScale ?? 1) : this._basePixelRatio() * this._dynResScale * this._userResScale
+    // Setting the same ratio again still resizes the canvas, and a resize
+    // clears it - that's what flashed the map editor black ~5 times on
+    // entry (2026-09-30 report) while its auto resolution kept "stepping"
+    // on a screen where the ratio couldn't actually go any lower.
+    if (Math.abs(this.renderer.getPixelRatio() - ratio) < 1e-3) return false
+    this.renderer.setPixelRatio(ratio)
+    return true
+  }
+
+  // _editorResScale: the editor's own automatic resolution (see
+  // _updateEditorResScale) - never below 1 pixel per CSS pixel, so it can
+  // only trade away Retina/high-DPI extra sharpness, never make the editor
+  // blurrier than a plain screen.
+  _editorPixelRatio(scale) {
+    const full = Math.min(window.devicePixelRatio, 2) * this._userResScale
+    return Math.max(Math.min(1, full), full * scale)
   }
 
   _applyPerformanceMode(settingEnabled) {
@@ -14236,7 +14243,9 @@ export class Game {
   // setting off just applies level 0.
   _applyAutoQualityLevel(config) {
     this._dynResScale = config.res
-    this._applyRenderScale()
+    // A real resize clears the canvas - redraw at once mid-run instead of
+    // showing one black frame until the next tick.
+    if (this._applyRenderScale() && this.gameStarted && !this.buildMode.active) this._renderMainScene()
     this._autoViewMult = config.view
     this._applyViewDistance()
     zombieAnimLod.farDistance = config.animFar
@@ -26060,17 +26069,22 @@ export class Game {
   _updateEditorResScale(msPerFrame, now) {
     if (!this.settings.autoQuality || now < (this._editorResHoldUntil || 0)) return
     const scale = this._editorResScale ?? 1
-    if (msPerFrame > 18.5 && scale > 0.5) {
-      this._editorResScale = Math.max(0.5, scale - 0.125)
+    // A step that wouldn't change the real pixel ratio (already at 1 pixel
+    // per CSS pixel) is skipped entirely.
+    const down = Math.max(0.5, scale - 0.125)
+    if (msPerFrame > 18.5 && scale > 0.5 && this._editorPixelRatio(down) < this._editorPixelRatio(scale) - 1e-3) {
+      this._editorResScale = down
       this._editorResGood = 0
       this._editorResUpAfter = now + 20000
-      this._applyRenderScale()
+      // Draw straight away - a resize clears the canvas, and waiting for
+      // the next frame would show one black frame.
+      if (this._applyRenderScale()) this.buildMode.render()
     } else if (msPerFrame < 17.5 && scale < 1) {
       this._editorResGood = (this._editorResGood || 0) + 1
       if (this._editorResGood >= 6 && now > (this._editorResUpAfter || 0)) {
         this._editorResScale = Math.min(1, scale + 0.125)
         this._editorResGood = 0
-        this._applyRenderScale()
+        if (this._applyRenderScale()) this.buildMode.render()
       }
     } else {
       this._editorResGood = 0
