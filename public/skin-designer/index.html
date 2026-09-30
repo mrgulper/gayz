@@ -879,6 +879,221 @@ function paintLimbDetailed(box, p, isLeg, rng) {
   fillFace(r.top, isLeg && shape === 1 ? p.accent : upper);
   fillFace(r.bottom, lower);
 }
+// ---- Outer layer (hat/jacket/sleeves/pants) for generated skins -------
+// (2026-09-30 request: generated skins should use the outer layer like the
+// skins on namemc.com - but only where it fits the theme.) Each theme picks
+// pieces from the helpers below; rng decides the optional ones, so the same
+// prompt still always gives the same skin. Transparent everywhere a piece
+// doesn't cover, so the base layer shows through.
+function ovRects(key) {
+  const b = BOXES.find((bx) => bx.key === key);
+  const [ou, ov] = OVERLAY_ORIGINS[key];
+  return partFaceRects(ou, ov, b.w, b.h, b.d);
+}
+const SIDES = ['front', 'back', 'left', 'right'];
+const LIMBS_ARM = ['armR', 'armL'];
+const LIMBS_LEG = ['legR', 'legL'];
+function faceW(rect) { return rect[2] - rect[0]; }
+function faceH(rect) { return rect[3] - rect[1]; }
+// Textured band of rows [y0, y1) across a face.
+function band(rect, y0, y1, color, rng, faceKey) {
+  const r = [rect[0], rect[1] + y0, rect[2], rect[1] + Math.min(y1, faceH(rect))];
+  noisyFill(r, lit(color, faceKey), rng, 0.1, 0.07);
+}
+
+// Head pieces
+function gearHood(color, rng) {
+  const r = ovRects('head');
+  band(r.top, 0, 8, color, rng, 'top');
+  band(r.back, 0, 8, color, rng, 'back');
+  for (const k of ['left', 'right']) band(r[k], 0, 8, color, rng, k);
+  band(r.front, 0, 2, color, rng, 'front');
+  px(r.front, 0, 2, 1, 6, lit(shade(color, -18), 'front'));
+  px(r.front, 7, 2, 1, 6, lit(shade(color, -18), 'front'));
+}
+function gearHelmet(color, rng, slitRow = 3) {
+  const r = ovRects('head');
+  band(r.top, 0, 8, color, rng, 'top');
+  for (const k of SIDES) band(r[k], 0, 8, color, rng, k);
+  // Eye slit - cleared so the eyes underneath show.
+  atlasCtx.clearRect(r.front[0] + 1, r.front[1] + slitRow, 6, 1);
+  px(r.front, 3, slitRow + 1, 2, 3, lit(shade(color, -30), 'front'));
+  px(r.top, 3, 0, 2, 8, lit(shade(color, 25), 'top'));
+}
+function gearHelmetFrame(color, glass) {
+  const r = ovRects('head');
+  fillFace(r.top, lit(color, 'top'));
+  fillFace(r.back, lit(color, 'back'));
+  for (const k of ['left', 'right']) fillFace(r[k], lit(color, k));
+  // Visor: a frame round the face, see-through tint in the middle.
+  const f = r.front;
+  px(f, 0, 0, 8, 1, color); px(f, 0, 7, 8, 1, color); px(f, 0, 0, 1, 8, color); px(f, 7, 0, 1, 8, color);
+  const { r: cr, g, b } = hexToRgb(glass);
+  atlasCtx.fillStyle = `rgba(${cr},${g},${b},0.35)`;
+  atlasCtx.fillRect(f[0] + 1, f[1] + 1, 6, 6);
+}
+function gearCap(color, visor, rng) {
+  const r = ovRects('head');
+  band(r.top, 0, 8, color, rng, 'top');
+  for (const k of SIDES) band(r[k], 0, 2, color, rng, k);
+  px(r.front, 0, 2, 8, 1, visor);
+}
+function gearBeanie(color, stripe, rng) {
+  const r = ovRects('head');
+  band(r.top, 0, 8, color, rng, 'top');
+  for (const k of SIDES) { band(r[k], 0, 3, color, rng, k); px(r[k], 0, 2, faceW(r[k]), 1, stripe); }
+  px(r.top, 3, 3, 2, 2, stripe);
+}
+function gearBandana(color, knot, rng) {
+  const r = ovRects('head');
+  band(r.top, 0, 8, color, rng, 'top');
+  for (const k of SIDES) band(r[k], 0, 2, color, rng, k);
+  px(r.back, 3, 2, 2, 2, knot);
+  if (rng() < 0.5) px(r.front, 2, 1, 1, 1, shade(color, 40));
+}
+function gearMask(color, rng) {
+  const r = ovRects('head');
+  for (const k of SIDES) band(r[k], 4, 8, color, rng, k);
+  band(r.front, 2, 3, color, rng, 'front');
+  for (const k of ['back', 'left', 'right']) band(r[k], 2, 3, color, rng, k);
+}
+function gearCrown(color, gem) {
+  const r = ovRects('head');
+  for (const k of SIDES) {
+    const w = faceW(r[k]);
+    px(r[k], 0, 1, w, 1, color);
+    for (let x = 0; x < w; x += 2) px(r[k], x, 0, 1, 1, color);
+  }
+  px(r.front, 3, 1, 2, 1, gem);
+}
+function gearHorns(color) {
+  const r = ovRects('head');
+  px(r.front, 0, 0, 1, 2, color); px(r.front, 7, 0, 1, 2, color);
+  px(r.top, 0, 5, 2, 2, color); px(r.top, 6, 5, 2, 2, color);
+}
+function gearWizardHat(color, trim, rng) {
+  const r = ovRects('head');
+  band(r.top, 0, 8, color, rng, 'top');
+  for (const k of SIDES) { band(r[k], 0, 2, color, rng, k); px(r[k], 0, 2, faceW(r[k]), 1, trim); }
+  px(r.top, 3, 3, 2, 2, trim);
+}
+function gearHairTufts(color, rng) {
+  const r = ovRects('head');
+  for (let i = 0; i < 9; i++) px(r.top, Math.floor(rng() * 8), Math.floor(rng() * 8), 1, 1, color);
+  for (const k of SIDES) for (let x = 0; x < faceW(r[k]); x++) if (rng() < 0.45) px(r[k], x, 0, 1, 1, color);
+}
+
+// Body pieces
+function gearCoat(color, rng, open = true) {
+  const r = ovRects('torso');
+  band(r.back, 0, 12, color, rng, 'back');
+  for (const k of ['left', 'right']) band(r[k], 0, 12, color, rng, k);
+  if (open) { band([r.front[0], r.front[1], r.front[0] + 2, r.front[3]], 0, 12, color, rng, 'front'); band([r.front[2] - 2, r.front[1], r.front[2], r.front[3]], 0, 12, color, rng, 'front'); }
+  else band(r.front, 0, 12, color, rng, 'front');
+  band(r.top, 0, 4, color, rng, 'top');
+}
+function gearPlate(color, rng) {
+  const r = ovRects('torso');
+  band(r.front, 1, 10, color, rng, 'front');
+  band(r.back, 1, 10, color, rng, 'back');
+  px(r.front, 3, 2, 2, 7, lit(shade(color, 22), 'front'));
+  px(r.front, 0, 9, 8, 1, lit(shade(color, -30), 'front'));
+}
+function gearVest(color, badge, rng) {
+  const r = ovRects('torso');
+  band([r.front[0], r.front[1], r.front[0] + 3, r.front[3]], 0, 9, color, rng, 'front');
+  band([r.front[2] - 3, r.front[1], r.front[2], r.front[3]], 0, 9, color, rng, 'front');
+  band(r.back, 0, 9, color, rng, 'back');
+  for (const k of ['left', 'right']) band(r[k], 0, 9, color, rng, k);
+  if (badge) px(r.front, 1, 3, 1, 1, badge);
+}
+function gearCape(color, rng) {
+  const r = ovRects('torso');
+  band(r.back, 0, 12, color, rng, 'back');
+  px(r.front, 0, 0, 2, 1, color); px(r.front, 6, 0, 2, 1, color);
+  band(r.top, 0, 4, color, rng, 'top');
+}
+function gearScarf(color, rng) {
+  const r = ovRects('torso');
+  for (const k of SIDES) band(r[k], 0, 2, color, rng, k);
+  band([r.front[0] + 5, r.front[1], r.front[0] + 7, r.front[3]], 2, 6, color, rng, 'front');
+}
+function gearBackpack(color, strap, rng) {
+  const r = ovRects('torso');
+  band([r.back[0] + 1, r.back[1], r.back[2] - 1, r.back[3]], 1, 10, color, rng, 'back');
+  px(r.front, 1, 0, 1, 9, strap); px(r.front, 6, 0, 1, 9, strap);
+}
+function gearSash(color, rng) {
+  const r = ovRects('torso');
+  for (const k of SIDES) band(r[k], 7, 9, color, rng, k);
+  for (let i = 0; i < 7; i++) px(r.front, i, i, 1, 1, shade(color, 15));
+}
+
+// Limb pieces
+function gearSleeves(color, rows, rng) {
+  for (const key of LIMBS_ARM) { const r = ovRects(key); for (const k of SIDES) band(r[k], 0, rows, color, rng, k); band(r.top, 0, 4, color, rng, 'top'); }
+}
+function gearGloves(color, rng) {
+  for (const key of LIMBS_ARM) { const r = ovRects(key); for (const k of SIDES) band(r[k], 8, 12, color, rng, k); band(r.bottom, 0, 4, color, rng, 'bottom'); }
+}
+function gearBoots(color, from, rng) {
+  for (const key of LIMBS_LEG) {
+    const r = ovRects(key);
+    for (const k of SIDES) { band(r[k], from, 12, color, rng, k); px(r[k], 0, from, faceW(r[k]), 1, shade(color, 30)); }
+    band(r.bottom, 0, 4, color, rng, 'bottom');
+  }
+}
+function gearGreaves(color, rng) {
+  for (const key of LIMBS_LEG) { const r = ovRects(key); for (const k of SIDES) band(r[k], 0, 7, color, rng, k); }
+}
+
+// What each theme wears on the outer layer. Missing = nothing (the base
+// layer already says it all). `maybe(p)` pieces only appear some of the
+// time, decided by the prompt's own seed.
+const THEME_GEAR = {
+  pirate: (p, rng, maybe) => { gearBandana(p.accent, p.hair, rng); gearCoat(shade(p.shirt, -12), rng); gearSleeves(shade(p.shirt, -12), 8, rng); gearBoots(p.shoe, 7, rng); },
+  ninja: (p, rng, maybe) => { gearMask(p.shirt, rng); gearSash(p.accent, rng); if (maybe(0.5)) gearGloves(p.shirt, rng); },
+  zombie: (p, rng, maybe) => { if (maybe(0.6)) gearHairTufts(p.hair, rng); if (maybe(0.5)) gearSleeves(shade(p.shirt, -10), 5, rng); },
+  knight: (p, rng, maybe) => { gearHelmet(p.shirt, rng); gearPlate(shade(p.shirt, 10), rng); gearGloves(p.shirt, rng); gearGreaves(p.pants, rng); },
+  robot: (p, rng, maybe) => { gearPlate(p.shirt, rng); if (maybe(0.5)) gearGreaves(p.pants, rng); },
+  fire: (p, rng, maybe) => { gearHairTufts(p.accent, rng); if (maybe(0.5)) gearSleeves(p.shirt, 4, rng); },
+  ice: (p, rng, maybe) => { gearBeanie(p.shirt, p.accent, rng); gearScarf(p.accent, rng); if (maybe(0.5)) gearGloves(p.pants, rng); },
+  forest: (p, rng, maybe) => { gearHood(p.shirt, rng); gearCape(shade(p.shirt, -10), rng); if (maybe(0.5)) gearBoots(p.shoe, 8, rng); },
+  gold: (p, rng, maybe) => { gearCrown(p.shirt, '#c9202f'); if (maybe(0.6)) gearCape('#8a1f1f', rng); },
+  shadow: (p, rng, maybe) => { gearHood(p.shirt, rng); gearCoat(p.shirt, rng, false); gearSleeves(p.shirt, 10, rng); },
+  angel: (p, rng, maybe) => { gearCrown(p.accent, p.accent); if (maybe(0.5)) gearCape(p.shirt, rng); },
+  demon: (p, rng, maybe) => { gearHorns('#e0d8c8'); if (maybe(0.5)) gearCape(p.accent, rng); },
+  police: (p, rng, maybe) => { gearCap(p.shirt, '#0a0a0a', rng); gearVest(shade(p.shirt, -10), '#e0c060', rng); },
+  doctor: (p, rng, maybe) => { gearCoat(p.shirt, rng); gearSleeves(p.shirt, 9, rng); if (maybe(0.6)) gearMask('#8ac8e0', rng); },
+  astronaut: (p, rng, maybe) => { gearHelmetFrame(p.shirt, p.accent); gearBackpack(p.pants, p.accent, rng); gearGloves(p.pants, rng); gearBoots(p.shoe, 8, rng); },
+  wizard: (p, rng, maybe) => { gearWizardHat(p.shirt, p.accent, rng); gearCoat(p.shirt, rng, false); gearSleeves(p.shirt, 12, rng); },
+  vampire: (p, rng, maybe) => { gearCape(p.accent, rng); if (maybe(0.5)) gearSleeves(p.shirt, 9, rng); },
+  camo: (p, rng, maybe) => { gearCap(p.shirt, p.accent, rng); gearVest(p.accent, null, rng); gearBoots(p.shoe, 8, rng); },
+  rose: (p, rng, maybe) => { if (maybe(0.6)) gearHairTufts(p.accent, rng); if (maybe(0.5)) gearSleeves(p.accent, 3, rng); },
+  punk: (p, rng, maybe) => { if (maybe(0.6)) gearCoat('#1a1a1a', rng); if (maybe(0.5)) gearSleeves('#1a1a1a', 8, rng); },
+};
+function paintOuterLayer(themeKey, theme, rng) {
+  const gear = THEME_GEAR[themeKey];
+  if (!gear) return;
+  gear(theme, rng, (chance) => rng() < chance);
+}
+// After Generate/Randomize: switch the 3D preview's Outer Layer on when the
+// new skin has any, so the gear is actually visible (it's off by default
+// for painting the body).
+function revealOuterLayerIfPainted() {
+  const data = atlasCtx.getImageData(0, 0, 64, 64).data;
+  const painted = BOXES.some((b) => {
+    const [ou, ov] = OVERLAY_ORIGINS[b.key];
+    const w = 2 * b.d + 2 * b.w, h = b.d + b.h;
+    for (let y = ov; y < ov + h; y++) for (let x = ou; x < ou + w; x++) if (data[(y * 64 + x) * 4 + 3] > 0) return true;
+    return false;
+  });
+  if (!painted || showOverlayLayer) return;
+  showOverlayLayer = true;
+  document.getElementById('layerOuterBtn')?.classList.add('active');
+  updateMeshVisibility();
+}
+
 function generateThemedSkin(themeKey, promptText) {
   const theme = THEMES[themeKey] || THEMES[THEME_KEYS[0]];
   const seed = hashString((promptText || themeKey || 'default').trim().toLowerCase());
@@ -890,6 +1105,7 @@ function generateThemedSkin(themeKey, promptText) {
   paintLimbDetailed(BOXES.find((b) => b.key === 'armL'), theme, false, rng);
   paintLimbDetailed(BOXES.find((b) => b.key === 'legR'), theme, true, rng);
   paintLimbDetailed(BOXES.find((b) => b.key === 'legL'), theme, true, rng);
+  paintOuterLayer(themeKey, theme, rng);
 }
 const THEME_LABELS = Object.fromEntries(THEME_KEYS.map((k) => [k, k.charAt(0).toUpperCase() + k.slice(1)]));
 document.getElementById('generateBtn').addEventListener('click', runGenerate);
@@ -900,6 +1116,7 @@ document.getElementById('randomizeBtn').addEventListener('click', () => {
   pushUndo();
   generateThemedSkin(theme, seed);
   syncAfterEdit();
+  revealOuterLayerIfPainted();
   scheduleSave();
   const note = document.getElementById('themeNote');
   note.innerHTML = 'Randomized a <b>' + THEME_LABELS[theme] + '</b> skin. Use the tools below to fine-tune it, or hit Randomize again for something else.';
@@ -912,6 +1129,7 @@ function runGenerate() {
   pushUndo();
   generateThemedSkin(theme, promptText);
   syncAfterEdit();
+  revealOuterLayerIfPainted();
   scheduleSave();
   const note = document.getElementById('themeNote');
   note.innerHTML = matched
