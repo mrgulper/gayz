@@ -543,16 +543,29 @@ function boxMesh(w, h, d, u, v, x, y, z, texture, boxKey, isOverlay, inflate = 0
   mesh.userData.isOverlay = isOverlay;
   return mesh;
 }
+const OVERLAY_DEPTH_RANK = { armR: 1, armL: 1, legR: 2, legL: 3 };
 function buildCharacter(texture) {
   const group = new THREE.Group();
   for (const box of BOXES) {
     group.add(boxMesh(box.w, box.h, box.d, box.u, box.v, box.x, box.y, box.z, gridTexture, box.key, false));
     const [ou, ov] = OVERLAY_ORIGINS[box.key];
-    // Inflated by 1 unit (0.5 per side) - the standard Minecraft hat-layer
-    // puff, matching minecraftskins.com and every other real skin viewer,
-    // at Gaymi's explicit request (2026-09-28) after checking that site
-    // directly - a real, if small, gap from the base, not touching it.
-    group.add(boxMesh(box.w, box.h, box.d, ou, ov, box.x, box.y, box.z, gridTexture, box.key, true, 1));
+    // Minecraft's own puff sizes, same as minecraftskins.com/namemc: the hat
+    // 0.5 per side, the jacket/sleeves/pants 0.25 per side (2026-09-30 -
+    // it used to be 0.5 for every part). Neighboring shells still overlap
+    // a little - sleeve and jacket fronts sit at the same depth where the
+    // arm meets the body, and so do the two legs' - which flickered as the
+    // two fought over the same pixels; a fixed depth nudge per part makes
+    // the overlap always draw the same way (arms over the jacket, right leg
+    // over the jacket, left leg over the right one). The game's own
+    // character (src/game/MenuAvatar3D.js) uses the same values.
+    const shell = boxMesh(box.w, box.h, box.d, ou, ov, box.x, box.y, box.z, gridTexture, box.key, true, box.key === 'head' ? 1 : 0.5);
+    const rank = OVERLAY_DEPTH_RANK[box.key] || 0;
+    if (rank) {
+      shell.material.polygonOffset = true;
+      shell.material.polygonOffsetFactor = -rank;
+      shell.material.polygonOffsetUnits = -rank;
+    }
+    group.add(shell);
   }
   return group;
 }
