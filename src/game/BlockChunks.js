@@ -275,10 +275,12 @@ export class BlockChunks {
 
   // Rebuilds every dirty chunk. Cheap enough to run every frame: a normal
   // click dirties 1-4 chunks, and a full load is a one-off.
+  // Returns true if any chunk was rebuilt.
   flush(blocksByChunk) {
-    if (this.dirty.size === 0) return
+    if (this.dirty.size === 0) return false
     for (const key of this.dirty) this._build(key, blocksByChunk.get(key))
     this.dirty.clear()
+    return true
   }
 
   clear() {

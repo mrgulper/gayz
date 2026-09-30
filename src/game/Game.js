@@ -3970,6 +3970,10 @@ const PROFILE_GROUP_ORDER = [
   ['socialMeta', 'profileGroupSocialMeta'],
 ]
 
+// Lowest resolution the map editor's auto resolution may drop to, in
+// pixels per CSS pixel - only reached on devices too slow at 1.
+const EDITOR_MIN_PIXEL_RATIO = 0.6
+
 export class Game {
   constructor() {
     this.canvas = document.getElementById('scene')
@@ -4962,7 +4966,12 @@ export class Game {
     // three.js always asks for an alpha (transparent) context itself, so
     // the opaque one is created here and handed over. Falls back to letting
     // three.js create its own if this browser refuses these attributes.
-    const antialias = !LOW_QUALITY_MODE && !this.settings.performanceMode
+    // Also off on high-DPI phones/tablets (2026-09-30, "60fps on mobile
+    // and old devices"): at 2-3x pixel density edges are already fine, and
+    // multisampling that many pixels is one of the biggest costs on a
+    // phone GPU.
+    const highDpiTouch = window.devicePixelRatio >= 2 && window.matchMedia('(hover: none) and (pointer: coarse)').matches
+    const antialias = !LOW_QUALITY_MODE && !this.settings.performanceMode && !highDpiTouch
     const glAttrs = { alpha: false, depth: true, stencil: false, antialias, premultipliedAlpha: true, preserveDrawingBuffer: false, powerPreference: 'high-performance' }
     const opaqueContext = this.canvas.getContext('webgl2', glAttrs)
     this.renderer = opaqueContext
@@ -14188,12 +14197,12 @@ export class Game {
   }
 
   // _editorResScale: the editor's own automatic resolution (see
-  // _updateEditorResScale) - never below 1 pixel per CSS pixel, so it can
-  // only trade away Retina/high-DPI extra sharpness, never make the editor
-  // blurrier than a plain screen.
+  // _updateEditorResScale). It gives up Retina/high-DPI extra sharpness
+  // first; only a device still too slow at 1 pixel per CSS pixel (old
+  // laptops, phones) goes lower, and never below EDITOR_MIN_PIXEL_RATIO.
   _editorPixelRatio(scale) {
     const full = Math.min(window.devicePixelRatio, 2) * this._userResScale
-    return Math.max(Math.min(1, full), full * scale)
+    return Math.max(Math.min(EDITOR_MIN_PIXEL_RATIO, full), full * scale)
   }
 
   _applyPerformanceMode(settingEnabled) {
@@ -26069,17 +26078,20 @@ export class Game {
   _updateEditorResScale(msPerFrame, now) {
     if (!this.settings.autoQuality || now < (this._editorResHoldUntil || 0)) return
     const scale = this._editorResScale ?? 1
-    // A step that wouldn't change the real pixel ratio (already at 1 pixel
-    // per CSS pixel) is skipped entirely.
-    const down = Math.max(0.5, scale - 0.125)
-    if (msPerFrame > 18.5 && scale > 0.5 && this._editorPixelRatio(down) < this._editorPixelRatio(scale) - 1e-3) {
+    // Slow = well over the frame time the player asked for (60 fps, or
+    // their FPS Cap) - a 30 cap must not read as "too slow" forever.
+    const targetMs = this.settings.fpsCap > 0 ? 1000 / this.settings.fpsCap : 1000 / 60
+    // A step that wouldn't change the real pixel ratio (already at the
+    // floor) is skipped entirely.
+    const down = Math.max(0.25, scale - 0.125)
+    if (msPerFrame > targetMs * 1.11 && scale > 0.25 && this._editorPixelRatio(down) < this._editorPixelRatio(scale) - 1e-3) {
       this._editorResScale = down
       this._editorResGood = 0
       this._editorResUpAfter = now + 20000
       // Draw straight away - a resize clears the canvas, and waiting for
       // the next frame would show one black frame.
       if (this._applyRenderScale()) this.buildMode.render()
-    } else if (msPerFrame < 17.5 && scale < 1) {
+    } else if (msPerFrame < targetMs * 1.05 && scale < 1) {
       this._editorResGood = (this._editorResGood || 0) + 1
       if (this._editorResGood >= 6 && now > (this._editorResUpAfter || 0)) {
         this._editorResScale = Math.min(1, scale + 0.125)
