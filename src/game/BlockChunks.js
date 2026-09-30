@@ -53,6 +53,16 @@ const LIQUIDS = {
 // are solid (0 = fully open ... 3 = tucked into a corner).
 const AO_LEVELS = [1, 0.78, 0.6, 0.45]
 
+// Glowing blocks (glowstone, lava, lanterns...) light the blocks around
+// them by brightening vertex colors when a chunk is built - Minecraft's
+// own "block light" idea - instead of real THREE.PointLights. Real lights
+// cost every pixel on screen every frame, lit or not (measured ~35% of the
+// editor's frame time for 6 of them, 2026-09-30); baked light costs
+// nothing per frame. Light goes from the glowing block's center, fades out
+// over GLOW_RADIUS blocks, and only reaches faces turned toward it.
+const GLOW_RADIUS = 8
+const GLOW_STRENGTH = 1.6
+
 // Same stable per-block brightness wobble the instanced path used to roll
 // with Math.random() - hashed from the position instead, so a chunk
 // rebuild never makes blocks flicker to a new shade.
@@ -74,6 +84,8 @@ export class BlockChunks {
     this.info = new Map()
     this.chunks = new Map() // "cx,cy,cz" -> { meshes: [] }
     this.dirty = new Set()
+    this._glow = new Map() // "x,y,z" -> { x, y, z, c: [r, g, b] }
+    this._glowByChunk = new Map() // "cx,cy,cz" -> Set of glow entries
 
     const cube = types.filter((t) => !t.shape)
     const faceSets = cube.map((t) => faces(t))
@@ -167,6 +179,68 @@ export class BlockChunks {
     }
   }
 
+  // Adds (colorHex) or removes (null) the glow of a light-giving block at
+  // cell (x, y, z), and rebuilds every chunk its light reaches.
+  setGlow(x, y, z, colorHex) {
+    const key = `${x},${y},${z}`
+    const old = this._glow.get(key)
+    if (!old && colorHex == null) return
+    const ck = `${Math.floor(x / CHUNK)},${Math.floor(y / CHUNK)},${Math.floor(z / CHUNK)}`
+    if (old) {
+      this._glow.delete(key)
+      this._glowByChunk.get(ck)?.delete(old)
+    }
+    if (colorHex != null) {
+      const entry = { x: x + 0.5, y: y + 0.5, z: z + 0.5, c: [((colorHex >> 16) & 255) / 255, ((colorHex >> 8) & 255) / 255, (colorHex & 255) / 255] }
+      this._glow.set(key, entry)
+      if (!this._glowByChunk.has(ck)) this._glowByChunk.set(ck, new Set())
+      this._glowByChunk.get(ck).add(entry)
+    }
+    const r = GLOW_RADIUS
+    for (let cx = Math.floor((x - r) / CHUNK); cx <= Math.floor((x + r) / CHUNK); cx++) {
+      for (let cy = Math.floor((y - r) / CHUNK); cy <= Math.floor((y + r) / CHUNK); cy++) {
+        for (let cz = Math.floor((z - r) / CHUNK); cz <= Math.floor((z + r) / CHUNK); cz++) this.dirty.add(`${cx},${cy},${cz}`)
+      }
+    }
+  }
+
+  // Glow light [r, g, b] reaching a point (cell units) on a face with
+  // normal n, or null when none does.
+  _glowAt(px, py, pz, n) {
+    if (this._glow.size === 0) return null
+    const cx = Math.floor(px / CHUNK)
+    const cy = Math.floor(py / CHUNK)
+    const cz = Math.floor(pz / CHUNK)
+    let r = 0
+    let g = 0
+    let b = 0
+    const R = GLOW_RADIUS
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dz = -1; dz <= 1; dz++) {
+          const set = this._glowByChunk.get(`${cx + dx},${cy + dy},${cz + dz}`)
+          if (!set) continue
+          for (const s of set) {
+            const lx = s.x - px
+            const ly = s.y - py
+            const lz = s.z - pz
+            const d = Math.sqrt(lx * lx + ly * ly + lz * lz)
+            if (d >= R) continue
+            const facing = d > 0 ? (n[0] * lx + n[1] * ly + n[2] * lz) / d : 1
+            if (facing <= 0) continue
+            const fall = 1 - d / R
+            const k = fall * fall * (0.35 + 0.65 * facing) * GLOW_STRENGTH
+            r += s.c[0] * k
+            g += s.c[1] * k
+            b += s.c[2] * k
+          }
+        }
+      }
+    }
+    if (r + g + b < 0.005) return null
+    return [Math.min(r, 1.5), Math.min(g, 1.5), Math.min(b, 1.5)]
+  }
+
   isLiquid(type) {
     return !!this.info.get(type)?.liquid
   }
@@ -210,6 +284,8 @@ export class BlockChunks {
   clear() {
     for (const key of [...this.chunks.keys()]) this._disposeChunk(key)
     this.dirty.clear()
+    this._glow.clear()
+    this._glowByChunk.clear()
   }
 
   _disposeChunk(key) {
@@ -282,8 +358,12 @@ export class BlockChunks {
           buf.nrm.push(nx, ny, nz)
           buf.uv.push(CORNER_UV[i][0] ? u1 : u0, CORNER_UV[i][1] ? v1 : v0)
           const b = AO_LEVELS[ao[i]] * face.shade * tint
-          if (buf.stride === 4) buf.col.push(b, b, b, info.alpha)
-          else buf.col.push(b, b, b)
+          const L = this._glowAt(x + c[0], y + c[1] * topY, z + c[2], face.n)
+          const cr = L ? b * (1 + L[0]) : b
+          const cg = L ? b * (1 + L[1]) : b
+          const cb = L ? b * (1 + L[2]) : b
+          if (buf.stride === 4) buf.col.push(cr, cg, cb, info.alpha)
+          else buf.col.push(cr, cg, cb)
         }
         // Split the quad along the diagonal whose corners are shaded more
         // alike, or the corner darkening shows a visible crease.

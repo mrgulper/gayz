@@ -14043,6 +14043,8 @@ export class Game {
     this.fpsEl.style.opacity = this.settings.hudFpsCounter ? '1' : '0'
     this._fpsFrameCount = 0
     this._fpsLastUpdate = performance.now()
+    // Opening the editor builds every chunk - don't judge fps on that.
+    this._editorResHoldUntil = performance.now() + 2000
     // Always shows for at least BUILD_MODE_LOADING_MIN_MS so this reads as
     // a deliberate loading beat rather than a one-frame flicker on repeat
     // visits, where the dynamic import above is already cached and
@@ -14159,7 +14161,12 @@ export class Game {
     // them, and on a 2x Retina screen they left it at ~1/3 of the real
     // pixels, stretched up. The Resolution slider still applies.
     if (this.buildMode.active) {
-      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * this._userResScale)
+      // _editorResScale: the editor's own automatic resolution (see
+      // _updateEditorResScale) - never below 1 pixel per CSS pixel, so
+      // it can only trade away Retina/high-DPI extra sharpness, never make
+      // the editor blurrier than a plain screen.
+      const full = Math.min(window.devicePixelRatio, 2) * this._userResScale
+      this.renderer.setPixelRatio(Math.max(Math.min(1, full), full * (this._editorResScale ?? 1)))
       return
     }
     this.renderer.setPixelRatio(this._basePixelRatio() * this._dynResScale * this._userResScale)
@@ -26027,6 +26034,32 @@ export class Game {
   // frame for an identical image, since rendering straight to the canvas
   // applies the same toneMapping/outputColorSpace OutputPass exists to apply
   // to an offscreen target.
+  // Map editor auto resolution (Auto Quality setting) - holds 60 fps by
+  // giving up high-DPI extra pixels when frames run slow, and taking them
+  // back once there's headroom. Called every ~500ms with the average frame
+  // time. Steps down fast (one slow sample), steps up slowly (after 6 good
+  // samples, never within 20s of a step down), so it settles instead of
+  // bouncing.
+  _updateEditorResScale(msPerFrame, now) {
+    if (!this.settings.autoQuality || now < (this._editorResHoldUntil || 0)) return
+    const scale = this._editorResScale ?? 1
+    if (msPerFrame > 18.5 && scale > 0.5) {
+      this._editorResScale = Math.max(0.5, scale - 0.125)
+      this._editorResGood = 0
+      this._editorResUpAfter = now + 20000
+      this._applyRenderScale()
+    } else if (msPerFrame < 17.5 && scale < 1) {
+      this._editorResGood = (this._editorResGood || 0) + 1
+      if (this._editorResGood >= 6 && now > (this._editorResUpAfter || 0)) {
+        this._editorResScale = Math.min(1, scale + 0.125)
+        this._editorResGood = 0
+        this._applyRenderScale()
+      }
+    } else {
+      this._editorResGood = 0
+    }
+  }
+
   _renderMainScene() {
     if (this.bloomPass.enabled || this.ssaoPass.enabled || this.afterimagePass.enabled) this.composer.render()
     else this.renderer.render(this.scene, this.renderPass.camera)
@@ -26058,7 +26091,11 @@ export class Game {
       if (elapsedBm >= 500) {
         const fps = Math.round((this._fpsFrameCount * 1000) / elapsedBm)
         const msPerFrame = (elapsedBm / this._fpsFrameCount).toFixed(1)
-        this.fpsEl.textContent = `${fps} fps / ${msPerFrame} ms / ${this.buildMode.lastDrawCalls} draws / ${this.buildMode.blockCount} blocks / ${this._gpuRendererString}`
+        const fullRatio = Math.min(window.devicePixelRatio, 2) * this._userResScale
+        const resPct = Math.round((this.renderer.getPixelRatio() / fullRatio) * 100)
+        const resTag = resPct < 100 ? ` / res ${resPct}%` : ''
+        this.fpsEl.textContent = `${fps} fps / ${msPerFrame} ms / ${this.buildMode.lastDrawCalls} draws / ${this.buildMode.blockCount} blocks${resTag} / ${this._gpuRendererString}`
+        this._updateEditorResScale(Number(msPerFrame), nowFpsBm)
         this._fpsFrameCount = 0
         this._fpsLastUpdate = nowFpsBm
       }
