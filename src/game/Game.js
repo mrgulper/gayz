@@ -26102,10 +26102,20 @@ export class Game {
     // last one that actually ran. requestAnimationFrame itself still
     // fires at the display's native refresh rate regardless - this just
     // makes most of those calls no-ops once a cap is set.
+    //
+    // Paced against a running schedule with a small tolerance (2026-09-30
+    // bug): the old strict "at least 16.67ms since the last frame" check
+    // rejected any frame that arrived a hair early. On a 120Hz screen
+    // (frames every 8.33ms) a 60 cap then only ran every *third* frame
+    // (~25ms, ~40 fps), and on a 60Hz screen normal timer jitter dropped
+    // frames the same way - a 60 cap gave 30-45 fps, never 60.
     if (this._fpsCapMinFrameMs) {
       const nowCap = performance.now()
-      if (nowCap - (this._lastCappedFrameAt || 0) < this._fpsCapMinFrameMs) return
-      this._lastCappedFrameAt = nowCap
+      const last = this._lastCappedFrameAt || 0
+      if (nowCap - last < this._fpsCapMinFrameMs - 1.5) return
+      // Advance by exactly one frame interval so timing error doesn't
+      // accumulate; resync if far behind (tab was hidden, long stall).
+      this._lastCappedFrameAt = nowCap - last > this._fpsCapMinFrameMs * 2 ? nowCap : last + this._fpsCapMinFrameMs
     }
     // Build Mode is a fully standalone sandbox (see BuildMode.js's own
     // comment) - while active, none of the normal survival tick logic
@@ -26126,7 +26136,7 @@ export class Game {
         const msPerFrame = (elapsedBm / this._fpsFrameCount).toFixed(1)
         const fullRatio = Math.min(window.devicePixelRatio, 2) * this._userResScale
         const resPct = Math.round((this.renderer.getPixelRatio() / fullRatio) * 100)
-        const resTag = resPct < 100 ? ` / res ${resPct}%` : ''
+        const resTag = (resPct < 100 ? ` / res ${resPct}%` : '') + (this.settings.fpsCap > 0 ? ` / cap ${this.settings.fpsCap}` : '')
         // "js": this page's own work per frame (building + sending the
         // frame). When fps is low but js is small, the time is going to
         // the GPU / browser compositor, not the game's code.
