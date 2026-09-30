@@ -685,6 +685,10 @@ const THEMES = {
   // slimmer "Alex"-style arms) - every theme here, including this one,
   // only changes colors/pattern, never body shape.
   rose: { skin: '#c98a55', hair: '#e0a0c0', shirt: '#c9538a', pants: '#7a4a8a', shoe: '#5a3a4a', accent: '#f7b6d2', eye: '#5a2a3a' },
+  // Girl / woman / lady (2026-09-30 - these used to point at "rose", whose
+  // pink hair matched its pink clothes). The real colours are picked per
+  // generation from GIRL_OUTFITS/GIRL_HAIR in planSkin; these are fallbacks.
+  girl: { skin: '#e8c0a0', hair: '#5a3620', shirt: '#b8a0e0', pants: '#f0f0ea', shoe: '#e8e8e2', accent: '#f08aa8', eye: '#3a8ad0' },
   // Everyday clothes - the base when a prompt only describes colours/gear
   // ("red hair boy with headphones") without naming a theme.
   casual: { skin: '#c98a55', hair: '#3a2818', shirt: '#4a6a9a', pants: '#2a3a5a', shoe: '#2a2a2a', accent: '#e8e8e2', eye: '#2a4a6a' },
@@ -699,7 +703,8 @@ const ALIASES = {
   lava: 'fire', flame: 'fire', frost: 'ice', snow: 'ice', winter: 'ice',
   jungle: 'forest', nature: 'forest', tree: 'forest', treasure: 'gold',
   king: 'gold', heaven: 'angel', holy: 'angel',
-  female: 'rose', woman: 'rose', girl: 'rose', girly: 'rose', lady: 'rose',
+  female: 'girl', woman: 'girl', girl: 'girl', girly: 'girl', lady: 'girl', princess: 'girl', queen: 'girl',
+  boy: 'casual', man: 'casual', guy: 'casual', male: 'casual',
   pink: 'rose', magenta: 'rose',
   red: 'fire', orange: 'fire', crimson: 'fire',
   blue: 'ice', cyan: 'ice',
@@ -773,8 +778,53 @@ function lit(color, faceKey) { return shade(color, FACE_LIGHT[faceKey] || 0); }
 // takes the palette `p` and options `o` (hair style, skirt, beard... from
 // the prompt, see parsePrompt) and paints one body part's base layer.
 function pick(rng, n) { return Math.floor(rng() * n); }
+// Girl face + long hair, the way cute skins on skin sites are usually drawn:
+// big two-row eyes with lashes and a shine, blush, a small mouth, and long
+// hair with a fringe that frames the face.
+function paintGirlHead(r, p, rng, o) {
+  const hair = p.hair, hairDark = shade(hair, -30), hairHi = shade(hair, 28);
+  const lash = '#1a1214', white = '#f6f6f0';
+  const f = r.front;
+  noisyFill(f, lit(p.skin, 'front'), rng, 0.05, 0.05);
+  // Fringe: rows 0-1 full; row 2 in one of three cuts.
+  px(f, 0, 0, 8, 2, lit(hair, 'front'));
+  const cut = o.hairStyle === 4 ? 2 : pick(rng, 3); // 0 straight bangs, 1 centre part, 2 side-swept
+  if (cut === 0) { px(f, 0, 2, 8, 1, lit(hair, 'front')); for (let x = 1; x < 7; x++) if (rng() < 0.35) px(f, x, 2, 1, 1, lit(p.skin, 'front')); }
+  else if (cut === 1) { px(f, 0, 2, 3, 1, lit(hair, 'front')); px(f, 5, 2, 3, 1, lit(hair, 'front')); px(f, 3, 1, 2, 1, hairDark); }
+  else { px(f, 0, 2, 5, 1, lit(hair, 'front')); px(f, 4, 1, 1, 1, hairDark); }
+  for (let i = 0; i < 3; i++) px(f, pick(rng, 8), pick(rng, 2), 1, 1, hairHi);
+  // Hair framing the face.
+  px(f, 0, 2, 1, 6, lit(hair, 'front')); px(f, 7, 2, 1, 6, lit(hair, 'front'));
+  px(f, 0, 7, 1, 1, hairDark); px(f, 7, 7, 1, 1, hairDark);
+  // Eyes (rows 3-4): lash + iris on top, white + iris below, mirrored.
+  const iris = p.eye, irisDark = shade(iris, -35);
+  px(f, 1, 3, 1, 1, lash); px(f, 2, 3, 1, 1, irisDark);
+  px(f, 1, 4, 1, 1, white); px(f, 2, 4, 1, 1, iris);
+  px(f, 5, 3, 1, 1, irisDark); px(f, 6, 3, 1, 1, lash);
+  px(f, 5, 4, 1, 1, iris); px(f, 6, 4, 1, 1, white);
+  // Blush, mouth, chin.
+  if (o.cute || rng() < 0.7) { px(f, 1, 5, 1, 1, '#f0a0a8'); px(f, 6, 5, 1, 1, '#f0a0a8'); }
+  const mouth = o.cute ? 1 : pick(rng, 3);
+  if (mouth === 0) px(f, 3, 6, 2, 1, '#c06070');
+  else if (mouth === 1) { px(f, 3, 6, 2, 1, '#d87080'); px(f, 3, 6, 1, 1, '#c05a6a'); }
+  else { px(f, 3, 6, 2, 1, '#c86070'); px(f, 2, 5, 1, 1, shade(p.skin, -12)); px(f, 5, 5, 1, 1, shade(p.skin, -12)); }
+  px(f, 2, 7, 4, 1, shade(p.skin, -8));
+  // Top, back, sides: long hair with strands; a tie on the back sometimes.
+  noisyFill(r.top, lit(hair, 'top'), rng, 0.1, 0.12);
+  px(r.top, cut === 1 ? 3 : 2, 0, 1, 8, hairDark);
+  noisyFill(r.back, lit(hair, 'back'), rng, 0.1, 0.08);
+  for (let x = 0; x < 8; x += 2) px(r.back, x + pick(rng, 2), 1 + pick(rng, 5), 1, 2, hairDark);
+  if (rng() < 0.4) px(r.back, 2, 4, 4, 1, p.accent);
+  for (const key of ['left', 'right']) {
+    noisyFill(r[key], lit(hair, key), rng, 0.1, 0.08);
+    px(r[key], key === 'left' ? 0 : 6, 3, 2, 3, lit(p.skin, key)); // a bit of cheek by the face
+    for (let i = 0; i < 3; i++) px(r[key], pick(rng, 8), 1 + pick(rng, 6), 1, 2, hairDark);
+  }
+  fillFace(r.bottom, lit(p.skin, 'bottom'));
+}
 function paintHeadDetailed(box, p, rng, o = {}) {
   const r = partFaceRects(box.u, box.v, box.w, box.h, box.d);
+  if (o.feminine && o.hairStyle !== 3 && o.hairStyle !== 1) return paintGirlHead(r, p, rng, o);
   const hair = p.hair, hairDark = shade(hair, -32), hairHi = shade(hair, 26);
   const skinShadow = shade(p.skin, -24), skinHi = shade(p.skin, 14), skinDeep = shade(p.skin, -45);
   // 0 short, 1 mohawk, 2 long, 3 bald, 4 side fringe
@@ -851,11 +901,13 @@ function paintTorsoDetailed(box, p, rng, o = {}) {
   else if (neck === 1) { px(f, 2, 0, 4, 1, lit(p.skin, 'front')); px(f, 3, 1, 2, 1, lit(p.skin, 'front')); px(f, 2, 1, 1, 1, shirtDark); px(f, 5, 1, 1, 1, shirtDark); }
   else { px(f, 3, 0, 2, 1, lit(p.skin, 'front')); px(f, 1, 0, 2, 2, p.accent); px(f, 5, 0, 2, 2, p.accent); }
   // Pattern.
-  const pattern = o.pattern ?? pick(rng, 6); // plain, h-stripes, v-stripes, buttons, emblem, zip hoodie
+  const pattern = o.pattern ?? (o.feminine ? [0, 1, 6, 7, 6, 7][pick(rng, 6)] : pick(rng, 6)); // plain, h-stripes, v-stripes, buttons, emblem, zip hoodie, heart, bow collar
   if (pattern === 1) for (let y = 2; y < 10; y += 2) px(f, 0, y, 8, 1, shade(shirt, -18));
   else if (pattern === 2) for (let x = 0; x < 8; x += 2) px(f, x, 2, 1, 8, shade(p.accent, -6));
   else if (pattern === 3) { px(f, 3, 1, 1, 9, shirtDark); for (let y = 2; y < 10; y += 2) px(f, 4, y, 1, 1, shade(p.accent, 20)); }
   else if (pattern === 4) { px(f, 2, 3, 4, 3, p.accent); px(f, 3, 4, 2, 1, shade(p.accent, 35)); px(f, 2, 3, 1, 1, shirt); px(f, 5, 5, 1, 1, shirt); }
+  else if (pattern === 6) { const h = p.accent; px(f, 2, 4, 1, 1, h); px(f, 4, 4, 1, 1, h); px(f, 1, 5, 5, 1, h); px(f, 2, 6, 3, 1, h); px(f, 3, 7, 1, 1, h); px(f, 2, 5, 1, 1, shade(h, 40)); }
+  else if (pattern === 7) { const h = p.accent; px(f, 2, 1, 1, 2, h); px(f, 5, 1, 1, 2, h); px(f, 3, 2, 2, 1, shade(h, -30)); px(f, 3, 3, 1, 2, h); px(f, 4, 3, 1, 2, h); }
   else if (pattern === 5) { px(f, 3, 1, 2, 9, shade(shirt, -14)); px(f, 4, 1, 1, 9, shade(shirt, 30)); px(f, 1, 7, 6, 2, shirtDark); px(f, 1, 7, 6, 1, shade(shirt, -36)); }
   // Folds and edge shading.
   for (let i = 0; i < 3; i++) { const x = 1 + pick(rng, 6); px(f, x, 3 + pick(rng, 4), 1, 2, shade(shirt, -12)); }
@@ -1099,7 +1151,21 @@ function gearGreaves(color, rng) {
 // What each theme wears on the outer layer. Missing = nothing (the base
 // layer already says it all). `maybe(p)` pieces only appear some of the
 // time, decided by the prompt's own seed.
+function bowColor(p) {
+  const c = p.accent
+  if (colorDistance(c, p.hair) < 120 || hexToHsl(c)[2] > 0.88) return colorDistance('#f06a98', p.hair) < 120 ? '#d03050' : '#f06a98'
+  return c
+}
+function gearBow(color) {
+  const f = ovRects('head').front
+  const knot = shade(color, -35)
+  // Two wings with a knot in the middle, on the upper-right of the head.
+  px(f, 4, 0, 2, 3, color); px(f, 6, 0, 2, 3, color); px(f, 5, 1, 2, 1, knot)
+  px(f, 4, 0, 1, 1, shade(color, 30)); px(f, 7, 2, 1, 1, shade(color, -20))
+  px(ovRects('head').top, 4, 6, 4, 2, color); px(ovRects('head').right, 0, 0, 2, 3, color)
+}
 const THEME_GEAR = {
+  girl: (p, rng, maybe) => { gearHairVolume(p.hair, rng); if (maybe(0.6)) gearBow(bowColor(p)) },
   pirate: (p, rng, maybe) => { gearBandana(p.accent, p.hair, rng); gearCoat(shade(p.shirt, -12), rng); gearSleeves(shade(p.shirt, -12), 8, rng); gearBoots(p.shoe, 7, rng); },
   ninja: (p, rng, maybe) => { gearMask(p.shirt, rng); gearSash(p.accent, rng); if (maybe(0.5)) gearGloves(p.shirt, rng); },
   zombie: (p, rng, maybe) => { if (maybe(0.6)) gearHairTufts(p.hair, rng); if (maybe(0.5)) gearSleeves(shade(p.shirt, -10), 5, rng); },
@@ -1219,7 +1285,25 @@ const GEAR_WORDS = {
   gloves: 'gloves', boots: 'boots', glasses: 'glasses', sunglasses: 'sunglasses', shades: 'sunglasses',
   headphones: 'headphones', headset: 'headphones', beard: 'beard', skirt: 'skirt',
 }
-const FEMININE_WORDS = ['girl', 'woman', 'lady', 'female', 'queen', 'princess', 'witch']
+const FEMININE_WORDS = ['girl', 'girly', 'woman', 'lady', 'female', 'queen', 'princess', 'witch']
+const CUTE_WORDS = ['cute', 'kawaii', 'adorable', 'sweet', 'pretty', 'lovely', 'soft']
+// Matching outfit sets for the Girl style: [top, bottom, accent, shoes, skirt?]
+const GIRL_OUTFITS = [
+  ['#b8a0e0', '#f2f2ec', '#f08aa8', '#f2f2ec', true], ['#9cc8f0', '#3a5a8a', '#f2f2ec', '#e8e8e2', false],
+  ['#f4a8c0', '#f2f2ec', '#c0507a', '#f2f2ec', true], ['#a8e0c8', '#f0e8d0', '#e08aa0', '#8a6a4a', true],
+  ['#1e1e24', '#a02a3a', '#f2f2ec', '#1e1e24', true], ['#f2f2ec', '#4a6a9a', '#e05a7a', '#f2f2ec', false],
+  ['#f0d060', '#4a6a9a', '#f2f2ec', '#f2f2ec', false], ['#e89a6a', '#5a3a2a', '#f2e0b0', '#5a3a2a', true],
+  ['#c8a0f0', '#5a4a8a', '#fff0a8', '#2a2a30', false], ['#e0e0f0', '#8a8ab0', '#8ab0e0', '#f2f2ec', true],
+]
+const GIRL_HAIR = ['#3a2416', '#5a3620', '#7a4a28', '#1a1414', '#e0c070', '#c8702a', '#8a5a3a', '#f0b0c8', '#b8a0e0', '#e8e0d0']
+const GIRL_EYES = ['#3a8ad0', '#3aa060', '#7a4a2a', '#8a4ac9', '#2a6a8a', '#c0602a']
+function colorDistance(a, b) { const x = hexToRgb(a), y = hexToRgb(b); return Math.abs(x.r - y.r) + Math.abs(x.g - y.g) + Math.abs(x.b - y.b) }
+// A top this close to any skin tone reads as a bare chest.
+function looksLikeSkin(hex, skin) {
+  const [h, sat, l] = hexToHsl(hex)
+  return colorDistance(hex, skin) < 80 || (h > 0.02 && h < 0.12 && sat > 0.2 && l > 0.25 && l < 0.88)
+}
+function pastel(hex) { const [h, s2, l] = hexToHsl(hex); return hslToHex(h, Math.min(s2, 0.6), Math.max(l, 0.74)) }
 const MASCULINE_WORDS = ['boy', 'man', 'guy', 'male', 'king', 'prince']
 
 function parsePrompt(text) {
@@ -1243,8 +1327,10 @@ function parsePrompt(text) {
   })
   // "girl"/"lady" etc. are an alias of the Rose theme - next to a real
   // theme ("zombie pirate girl") they only make the character feminine.
-  const femAlias = words.some((w) => FEMININE_WORDS.includes(w) && ALIASES[w] === 'rose')
-  if (themes.length > 1 && femAlias && !words.includes('rose')) themes.splice(themes.indexOf('rose'), 1)
+  // Likewise boy/man words (an alias of Casual) next to a real theme.
+  for (const [alias, wordsOf] of [['girl', FEMININE_WORDS], ['casual', MASCULINE_WORDS]]) {
+    if (themes.length > 1 && themes.includes(alias) && words.some((w) => wordsOf.includes(w)) && !words.includes(alias === 'girl' ? 'girl-theme' : 'casual')) themes.splice(themes.indexOf(alias), 1)
+  }
   // A lone colour word ("pink") still picks its old theme; described
   // colours ("red hair") don't.
   if (!themes.length) for (const l of loose) if (ALIASES[l.name]) { themes.push(ALIASES[l.name]); break }
@@ -1257,7 +1343,8 @@ function parsePrompt(text) {
   if (!themes.length && describedSomething) themes.push('casual')
   return {
     themes, colors, loose, skinTone, hairStyle, gear,
-    feminine: words.some((w) => FEMININE_WORDS.includes(w)) || themes.includes('rose'),
+    feminine: words.some((w) => FEMININE_WORDS.includes(w)) || themes.includes('girl'),
+    cute: words.some((w) => CUTE_WORDS.includes(w)),
     masculine: words.some((w) => MASCULINE_WORDS.includes(w)),
   }
 }
@@ -1312,6 +1399,22 @@ function planSkin(parsed, rng, randomTheme) {
   const themeKey = parsed.themes[0] || randomTheme
   const p = varyPalette(themeKey, THEMES[themeKey] || THEMES[THEME_KEYS[0]], rng)
   const o = {}
+  if (themeKey === 'girl') {
+    let outfit = GIRL_OUTFITS[pick(rng, GIRL_OUTFITS.length)]
+    for (let i = 0; i < 8 && looksLikeSkin(parsed.cute ? pastel(outfit[0]) : outfit[0], p.skin); i++) outfit = GIRL_OUTFITS[pick(rng, GIRL_OUTFITS.length)]
+    const [top, bottom, accent, shoes, skirt] = outfit
+    p.shirt = drift(top, rng, 0.02, 0.04); p.pants = drift(bottom, rng, 0.02, 0.04); p.accent = accent; p.shoe = shoes
+    if (skirt) o.skirt = p.pants
+    p.eye = GIRL_EYES[pick(rng, GIRL_EYES.length)]
+  }
+  if (parsed.feminine || themeKey === 'girl') {
+    // Hair that stands out from the top it sits on.
+    let hair = GIRL_HAIR[pick(rng, GIRL_HAIR.length)]
+    for (let i = 0; i < 10 && (colorDistance(hair, p.shirt) < 140 || colorDistance(hair, p.skin) < 110); i++) hair = GIRL_HAIR[pick(rng, GIRL_HAIR.length)]
+    if (themeKey === 'girl' || rng() < 0.5) p.hair = hair
+  }
+  if (parsed.cute) { for (const k of ['shirt', 'pants', 'accent']) p[k] = pastel(p[k]); if (o.skirt) o.skirt = p.pants }
+  o.cute = parsed.cute
   for (const [part, c] of Object.entries(parsed.colors)) {
     if (part === 'skirt') o.skirt = drift(c.hex, rng, 0.02, 0.05)
     else p[part] = drift(c.hex, rng, 0.02, 0.05)
@@ -1320,9 +1423,10 @@ function planSkin(parsed, rng, randomTheme) {
   parsed.loose.forEach((c, i) => { if (looseTargets[i] && !parsed.colors[looseTargets[i]]) p[looseTargets[i]] = drift(c.hex, rng, 0.02, 0.06) })
   if (parsed.skinTone !== null) p.skin = SKIN_TONES[parsed.skinTone]
   if (parsed.hairStyle !== null) o.hairStyle = parsed.hairStyle
-  o.feminine = parsed.feminine && !parsed.masculine
+  o.feminine = (parsed.feminine || themeKey === 'girl') && !parsed.masculine
   if (parsed.gear.includes('beard') || (parsed.masculine && rng() < 0.2)) o.beard = true
-  if (parsed.gear.includes('skirt') || (o.feminine && !parsed.colors.pants && rng() < 0.4)) o.skirt = o.skirt || shade(p.accent, -10)
+  if (parsed.gear.includes('skirt') || (o.feminine && themeKey !== 'girl' && !parsed.colors.pants && rng() < 0.4)) o.skirt = o.skirt || shade(p.accent, -10)
+  if (parsed.colors.pants && themeKey === 'girl') o.skirt = null
   if (o.skirt) p.pants = o.skirt
   return { themeKey, p, o }
 }
@@ -1344,7 +1448,8 @@ async function generateThemedSkin(parsed, variant, randomTheme, onStage) {
     ['outer layer', () => {
       paintOuterLayer(themeKey, p, rng)
       for (const extra of parsed.themes.slice(1)) THEME_GEAR[extra]?.(p, rng, (c) => rng() < c)
-      if (o.hairStyle === 2 || (o.hairStyle == null && o.feminine && rng() < 0.6)) gearHairVolume(p.hair, rng)
+      if (themeKey !== 'girl' && (o.hairStyle === 2 || (o.hairStyle == null && o.feminine && rng() < 0.6))) gearHairVolume(p.hair, rng)
+      if (o.cute && o.feminine) gearBow(bowColor(p))
       for (const g of parsed.gear) applyGearWord(g, p, rng)
     }],
   ]
@@ -1386,7 +1491,11 @@ async function runGeneration(promptText, isRandom) {
     ]
     const extraText = extras.length ? ' with ' + extras.join(', ') : ''
     if (isRandom) note.innerHTML = 'Randomized a <b>' + THEME_LABELS[theme] + '</b> skin. Hit Randomize again for something else.'
-    else if (parsed.themes.length || extras.length) note.innerHTML = 'Generated a <b>' + THEME_LABELS[theme] + '</b> skin' + extraText + '. Click Generate again for a new one.'
+    else if (parsed.themes.length || extras.length) {
+      // Named after what was typed ("cute girl"), not the internal style name.
+      const typed = promptText.trim().replace(/[<>&"]/g, '').slice(0, 60)
+      note.innerHTML = 'Generated a <b>"' + typed + '"</b> skin (' + THEME_LABELS[theme] + ' style' + extraText + '). Click Generate again for a new one.'
+    }
     else note.innerHTML = 'Didn\'t recognize "' + promptText.trim().replace(/[<>&"]/g, '') + '" - generated a random <b>' + THEME_LABELS[theme] + '</b> skin instead. Try words like pirate, zombie, girl, crown, red hair, blue pants.'
   } finally {
     generating = false
@@ -1405,6 +1514,8 @@ document.getElementById('randomizeBtn').addEventListener('click', () => runGener
 // everywhere the instant texture.needsUpdate is set, no re-flattening or
 // mesh-rebuilding step needed. ----
 const atlasSrc = document.createElement('canvas');
+// Read-only handle for automated checks (Playwright) - never written to.
+window.__skinAtlas = atlasSrc;
 atlasSrc.width = 64; atlasSrc.height = 64;
 const atlasCtx = atlasSrc.getContext('2d', { willReadFrequently: true });
 const texture = new THREE.CanvasTexture(atlasSrc);
