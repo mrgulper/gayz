@@ -2061,6 +2061,7 @@ export class BuildMode {
     this._blocks.clear()
     this._chunkCells.clear()
     this._chunks.clear()
+    this._shadowsDirty = true
     this._undoStack.length = 0
     this._redoStack.length = 0
     this._updateUndoRedoButtons()
@@ -2273,7 +2274,7 @@ export class BuildMode {
   render() {
     // Chunk meshes are rebuilt here, once per frame, however many blocks
     // changed since the last one (a paste or a load touches thousands).
-    this._chunks.flush(this._chunkCells)
+    if (this._chunks.flush(this._chunkCells)) this._shadowsDirty = true
     this._chunks.animate(performance.now() / 1000)
     // The survival game's filmic tone mapping darkens and over-saturates
     // flat block colors (grey stone rendered near-black) - blocks keep
@@ -2283,9 +2284,20 @@ export class BuildMode {
     // The game's renderer doesn't auto-reset its stats (see Game.js), so
     // reset around this one render to read this frame's draw calls for
     // the fps readout.
+    // Shadows (when the Shadows setting is on) only change when blocks do -
+    // the sun never moves here - so the shadow map is redrawn only then,
+    // instead of drawing every block a second time every frame.
+    const shadowMap = this.renderer.shadowMap
+    const shadowAutoUpdate = shadowMap.autoUpdate
+    shadowMap.autoUpdate = false
+    if (this._shadowsDirty !== false) {
+      shadowMap.needsUpdate = true
+      this._shadowsDirty = false
+    }
     this.renderer.info.reset()
     this.renderer.render(this.scene, this.camera)
     this.lastDrawCalls = this.renderer.info.render.calls
+    shadowMap.autoUpdate = shadowAutoUpdate
     this.renderer.toneMapping = toneMapping
   }
 }
