@@ -12467,39 +12467,7 @@ html.night-vision-active #app {
 #inv-skin-menu-equip { background: #2f6fd6; }
 #inv-skin-menu-equip:disabled { background: #3b4454; cursor: default; opacity: 0.8; }
 #inv-skin-menu-inspect { background: #2a8fd1; }
-#inv-skin-menu-buy { background: #2e9e4f; }
-#inv-skin-menu-buy:disabled { background: #3b4454; cursor: default; opacity: 0.8; }
 #inv-skin-menu-sell { background: #c0392b; }
-/* My Skins / Market switch, left of the search box. */
-#inv-skin-top-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-}
-#inv-skin-modes {
-  display: flex;
-  gap: 4px;
-  padding: 3px;
-  background: rgba(0, 0, 0, 0.35);
-  border-radius: 7px;
-}
-#inv-skin-modes button {
-  padding: 6px 14px;
-  border: none;
-  border-radius: 5px;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-#inv-skin-modes button.active {
-  background: var(--ui-gold-bright, #f2c14e);
-  color: #1a1408;
-}
 /* Market card: price (or Owned) bottom-right instead of the count. */
 .inv-skin-card-price {
   position: absolute;
@@ -12513,6 +12481,18 @@ html.night-vision-active #app {
   font-weight: 700;
 }
 .inv-skin-card.owned .inv-skin-card-price { color: #6fdc8c; }
+.inv-skin-card.owned { cursor: default; }
+.inv-skin-card.cant-afford .inv-skin-card-price { color: #e07b6f; }
+/* Store > Market grid - same cards as Inventory > Character. */
+#shop-market-heading { margin-top: 26px; }
+#shop-market-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-auto-rows: 150px;
+  gap: 8px;
+  width: min(760px, 100%);
+  margin: 12px auto 0;
+}
 #inv-skin-menu button:not(:disabled):hover { filter: brightness(1.12); }
 @media (max-width: 700px) {
   #inv-skins-layout { grid-template-columns: 1fr; grid-template-rows: 240px 1fr; }
