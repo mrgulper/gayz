@@ -493,13 +493,11 @@ Escape before dawn.</p>
             <p class="menu-news-ticker" id="weekly-featured-mutator-line"></p>
 
             <div id="hero-ad-row">
-              <div class="ad-square-placeholder" id="ad-square-left"><span>Ad space</span></div>
               <div id="hero-play-buttons">
                 <button id="play-btn">Play</button>
                 <button id="continue-run-btn" style="display: none" disabled>Continue Run</button>
                 <button id="gamemode-btn">Game Mode</button>
               </div>
-              <div class="ad-square-placeholder" id="ad-square-right"><span>Ad space</span></div>
             </div>
 
             <div id="hero-quick-actions">
@@ -686,7 +684,7 @@ Escape before dawn.</p>
         <div class="panel-box">
         <button type="button" class="panel-close-btn" aria-label="Close">&times;</button>
         <h2 id="settings-title">Settings</h2>
-        <input type="text" id="settings-search-input" placeholder="Search settings..." class="nickname-input" />
+        <input type="text" id="settings-search-input" placeholder="Search settings..." class="nickname-input search-bar" />
         <div class="settings-tabs">
           <button class="settings-tab active" data-page="general" id="tab-general">General</button>
           <button class="settings-tab" data-page="language" id="tab-language">Language</button>
@@ -2092,7 +2090,7 @@ Escape before dawn.</p>
             <button class="achievements-mode-tab active" data-achievements-mode="survival" id="achievements-tab-survival">Zombie Survival</button>
             <button class="achievements-mode-tab" data-achievements-mode="deathmatch" id="achievements-tab-deathmatch">Deathmatch</button>
           </div>
-          <input type="text" id="achievements-filter-input" class="nickname-input" placeholder="Search achievements..." />
+          <input type="text" id="achievements-filter-input" class="nickname-input search-bar" placeholder="Search achievements..." />
           <div id="achievements-controls-row">
             <label for="achievements-category-select" id="achievements-category-label">Category:</label>
             <select id="achievements-category-select">
@@ -2398,7 +2396,7 @@ Escape before dawn.</p>
               <div class="features-stat"><span class="num" id="features-stat-live">0</span><span class="label" id="features-stat-live-label">Live Features</span></div>
               <div class="features-stat"><span class="num" id="features-stat-soon">0</span><span class="label" id="features-stat-soon-label">Coming Soon</span></div>
             </div>
-            <input type="text" id="features-search" placeholder="Search features..." autocomplete="off" />
+            <input type="text" id="features-search" class="nickname-input search-bar" placeholder="Search features..." autocomplete="off" />
             <div id="features-search-count"></div>
             <div id="features-layout">
             <nav id="features-toc"></nav>
@@ -3163,6 +3161,20 @@ Escape before dawn.</p>
           <button type="button" class="panel-close-btn" aria-label="Close">&times;</button>
           <h2 id="market-panel-title">Market</h2>
           <div class="panel-fixed-content">
+            <!-- Search + Kirka-style filters: an Items dropdown with a
+                 checkbox per item (Character and every weapon) and a
+                 Rarity dropdown. See _renderMarketFilters. -->
+            <div id="market-toolbar">
+              <input type="text" id="market-search" class="nickname-input search-bar" autocomplete="off" />
+              <div class="market-filter">
+                <button type="button" class="market-filter-btn" id="market-item-filter-btn"></button>
+                <div class="market-filter-menu" id="market-item-filter-menu" style="display: none"></div>
+              </div>
+              <div class="market-filter">
+                <button type="button" class="market-filter-btn" id="market-rarity-filter-btn"></button>
+                <div class="market-filter-menu" id="market-rarity-filter-menu" style="display: none"></div>
+              </div>
+            </div>
             <div id="shop-market-grid"></div>
           </div>
         </div>
@@ -3826,7 +3838,7 @@ Escape before dawn.</p>
                 <p id="inv-skin-preview-skin"></p>
               </div>
               <div id="inv-skins-side">
-                <input type="text" id="inv-skin-search" autocomplete="off" />
+                <input type="text" id="inv-skin-search" class="nickname-input search-bar" autocomplete="off" />
                 <div id="inventory-skins-list"></div>
                 <div id="inv-skin-menu" style="display: none">
                   <button type="button" id="inv-skin-menu-equip"></button>
@@ -4031,7 +4043,7 @@ Escape before dawn.</p>
       </div>
 
       <div id="emoji-picker" style="display: none">
-        <input type="text" id="emoji-picker-search" placeholder="Search..." autocomplete="off" />
+        <input type="text" id="emoji-picker-search" class="nickname-input search-bar" placeholder="Search..." autocomplete="off" />
         <div id="emoji-picker-categories"></div>
         <div id="emoji-picker-list"></div>
       </div>

@@ -6022,6 +6022,16 @@ export class Game {
     this.marketPanel = document.getElementById('market-panel')
     this.marketPanelTitle = document.getElementById('market-panel-title')
     this.marketBtn = document.getElementById('market-btn')
+    this.marketSearch = document.getElementById('market-search')
+    this.marketItemFilterBtn = document.getElementById('market-item-filter-btn')
+    this.marketItemFilterMenu = document.getElementById('market-item-filter-menu')
+    this.marketRarityFilterBtn = document.getElementById('market-rarity-filter-btn')
+    this.marketRarityFilterMenu = document.getElementById('market-rarity-filter-menu')
+    // Market filters (search text, ticked items, one rarity) - reset each
+    // time the panel opens. Items: 'character' plus every weapon id.
+    this._marketQuery = ''
+    this._marketItems = null
+    this._marketRarity = 'all'
     this.invSkinPreviewCanvas = document.getElementById('inv-skin-preview-canvas')
     this.inventoryWeaponsList = document.getElementById('inventory-weapons-list')
     this.serverBtn = document.getElementById('server-btn')
@@ -9885,6 +9895,46 @@ export class Game {
       const card = e.target.closest('[data-market-skin]')
       if (card) this._buyMarketSkin(card.dataset.marketSkin)
     })
+    this.marketSearch?.addEventListener('input', () => {
+      this._marketQuery = this.marketSearch.value
+      this._renderShopMarket()
+    })
+    if (this.marketItemFilterBtn && this.marketItemFilterMenu) {
+      this.marketItemFilterBtn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        this._toggleMarketFilterMenu(this.marketItemFilterBtn, this.marketItemFilterMenu)
+      })
+      // Ticking stays open so several items can be changed in one go.
+      this.marketItemFilterMenu.addEventListener('click', (e) => {
+        e.stopPropagation()
+        const opt = e.target.closest('[data-market-item]')
+        if (!opt) return
+        const all = this._marketItemOptions().map((i) => i.id)
+        const ticked = this._marketItems || new Set(all)
+        const id = opt.dataset.marketItem
+        if (ticked.has(id)) ticked.delete(id)
+        else ticked.add(id)
+        this._marketItems = ticked.size === all.length ? null : ticked
+        this._renderMarketFilters()
+        this._renderShopMarket()
+      })
+    }
+    if (this.marketRarityFilterBtn && this.marketRarityFilterMenu) {
+      this.marketRarityFilterBtn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        this._toggleMarketFilterMenu(this.marketRarityFilterBtn, this.marketRarityFilterMenu)
+      })
+      this.marketRarityFilterMenu.addEventListener('click', (e) => {
+        e.stopPropagation()
+        const opt = e.target.closest('[data-market-rarity]')
+        if (!opt) return
+        this._marketRarity = opt.dataset.marketRarity
+        this._closeMarketFilterMenus()
+        this._renderMarketFilters()
+        this._renderShopMarket()
+      })
+    }
+    document.addEventListener('click', () => this._closeMarketFilterMenus())
 
     // Clan panel tab strip (General/Clan/Market) - same isolated
     // class/loop pattern as the other tab strips above.
@@ -16000,7 +16050,66 @@ export class Game {
     if (!this.marketPanel) return
     this.marketPanel.style.display = 'flex'
     if (this.marketPanelTitle) this.marketPanelTitle.textContent = t('skinModeMarket')
+    this._marketQuery = ''
+    this._marketItems = null
+    this._marketRarity = 'all'
+    if (this.marketSearch) {
+      this.marketSearch.value = ''
+      this.marketSearch.placeholder = t('marketSearchPlaceholder')
+    }
+    this._closeMarketFilterMenus()
+    this._renderMarketFilters()
     this._renderShopMarket()
+  }
+
+  // Items you can filter by: Character, then every weapon (Kirka's market
+  // lists every weapon the same way). Market skins without a `kind` are
+  // character skins.
+  _marketItemOptions() {
+    const weapons = this.weapons.getSummary()
+      .map((w) => ({ id: w.id, label: t(w.nameKey) }))
+      .sort((a, b) => a.label.localeCompare(b.label))
+    return [{ id: 'character', label: t('marketItemCharacter') }, ...weapons]
+  }
+
+  _renderMarketFilters() {
+    const items = this._marketItemOptions()
+    const ticked = this._marketItems || new Set(items.map((i) => i.id))
+    if (this.marketItemFilterBtn) {
+      const count = items.filter((i) => ticked.has(i.id)).length
+      this.marketItemFilterBtn.textContent = count === items.length
+        ? t('marketItemsAll')
+        : t('marketItemsCount', { n: count })
+    }
+    if (this.marketItemFilterMenu) {
+      this.marketItemFilterMenu.innerHTML = items.map((i) =>
+        `<button type="button" class="market-filter-option${ticked.has(i.id) ? ' checked' : ''}" data-market-item="${_escapeHtml(i.id)}">`
+        + `<span class="market-check"></span><span>${_escapeHtml(i.label)}</span></button>`).join('')
+    }
+    const rarities = ['all', ...Object.keys(SKIN_RARITIES)]
+    const rarityLabel = (r) => (r === 'all' ? t('marketRarityAll') : t(SKIN_RARITIES[r].key))
+    if (this.marketRarityFilterBtn) this.marketRarityFilterBtn.textContent = rarityLabel(this._marketRarity)
+    if (this.marketRarityFilterMenu) {
+      this.marketRarityFilterMenu.innerHTML = rarities.map((r) =>
+        `<button type="button" class="market-filter-option${r === this._marketRarity ? ' active' : ''}" data-market-rarity="${r}"`
+        + (r === 'all' ? '' : ` style="color: ${SKIN_RARITIES[r].color}"`) + `>${_escapeHtml(rarityLabel(r))}</button>`).join('')
+    }
+  }
+
+  _closeMarketFilterMenus() {
+    for (const [btn, menu] of [[this.marketItemFilterBtn, this.marketItemFilterMenu], [this.marketRarityFilterBtn, this.marketRarityFilterMenu]]) {
+      if (menu) menu.style.display = 'none'
+      if (btn) btn.classList.remove('open')
+    }
+  }
+
+  _toggleMarketFilterMenu(btn, menu) {
+    const opening = menu.style.display === 'none'
+    this._closeMarketFilterMenus()
+    if (opening) {
+      menu.style.display = 'block'
+      btn.classList.add('open')
+    }
   }
 
   _closeMarketPanel() {
@@ -16011,7 +16120,15 @@ export class Game {
   // one buys it. Same card look as Inventory > Character.
   _renderShopMarket() {
     if (!this.shopMarketGrid) return
-    const entries = this._marketSkinEntries()
+    const query = this._marketQuery.trim().toLowerCase()
+    const entries = this._marketSkinEntries().filter((skin) =>
+      (!query || skin.name.toLowerCase().includes(query))
+      && (!this._marketItems || this._marketItems.has(skin.kind || 'character'))
+      && (this._marketRarity === 'all' || skin.rarity === this._marketRarity))
+    if (!entries.length) {
+      this.shopMarketGrid.innerHTML = `<p class="inv-skin-empty">${_escapeHtml(t('skinNoMatch'))}</p>`
+      return
+    }
     this.shopMarketGrid.innerHTML = entries.map((skin) => {
       const rarity = SKIN_RARITIES[skin.rarity] || SKIN_RARITIES.common
       const owned = skin.owned > 0
