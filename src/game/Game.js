@@ -16163,7 +16163,8 @@ export class Game {
         `<button type="button" class="market-filter-option${ticked.has(i.id) ? ' checked' : ''}" data-market-item="${_escapeHtml(i.id)}">`
         + `<span class="market-check"></span><span>${_escapeHtml(i.label)}</span></button>`).join('')
     }
-    const rarities = ['all', ...Object.keys(SKIN_RARITIES)]
+    // Mythic left out - no skin uses it.
+    const rarities = ['all', ...Object.keys(SKIN_RARITIES).filter((r) => r !== 'mythic')]
     const rarityLabel = (r) => (r === 'all' ? t('marketRarityAll') : t(SKIN_RARITIES[r].key))
     if (this.marketRarityFilterBtn) this.marketRarityFilterBtn.textContent = rarityLabel(this._marketRarity)
     if (this.marketRarityFilterMenu) {
