@@ -159,7 +159,8 @@ import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
 import * as MenuEasterEggs from './MenuEasterEggs.js'
 import { JOKE_TIPS, FUNNY_TRIVIA } from './MenuEasterEggs.js'
-import { MenuAvatar3D, loadSkinTexture, DEFAULT_SKIN_DATA_URL, SHOP_SKIN_PREVIEW_DATA_URL } from './MenuAvatar3D.js'
+import { MenuAvatar3D, loadSkinTexture, buildTexturedCharacter, DEFAULT_SKIN_DATA_URL, SHOP_SKIN_PREVIEW_DATA_URL } from './MenuAvatar3D.js'
+import { InspectViewer } from './InspectViewer.js'
 import * as MenuPresets from './MenuPresets.js'
 // BuildMode.js is deliberately NOT statically imported here - it's a big,
 // self-contained system most visitors never touch (a whole separate
@@ -9883,17 +9884,34 @@ export class Game {
         this._openInventorySkinMenu(card)
       })
     }
+    if (this.inventoryWeaponsList) {
+      this.inventoryWeaponsList.addEventListener('click', (e) => {
+        const card = e.target.closest('[data-weapon-card]')
+        if (!card) return
+        e.stopPropagation()
+        this._openInventorySkinMenu(card)
+      })
+    }
+    document.getElementById('inspect-close')?.addEventListener('click', () => this._closeInspectDialog())
+    document.getElementById('inspect-dialog')?.addEventListener('click', (e) => {
+      if (e.target.id === 'inspect-dialog') this._closeInspectDialog()
+    })
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this._inspectViewer) this._closeInspectDialog()
+    })
     if (this.invSkinMenu) {
       this.invSkinMenu.addEventListener('click', (e) => e.stopPropagation())
       this.invSkinMenuEquip.addEventListener('click', () => {
         const id = this._invSkinMenuFor
+        const kind = this._invSkinMenuKind
         this._closeInventorySkinMenu()
-        if (id) this._equipInventorySkin(id)
+        if (id && kind === 'character') this._equipInventorySkin(id)
       })
       this.invSkinMenuInspect.addEventListener('click', () => {
         const id = this._invSkinMenuFor
+        const kind = this._invSkinMenuKind
         this._closeInventorySkinMenu()
-        if (id) this._inspectInventorySkin(id)
+        if (id) this._openInspectDialog(kind, id)
       })
       const tradeClick = (btn, open) => btn?.addEventListener('click', () => {
         const id = this._invSkinMenuFor
@@ -16051,7 +16069,6 @@ export class Game {
     if (this.inventoryTabWeapons) this.inventoryTabWeapons.textContent = t('inventoryWeaponsTitle')
     if (this.inventoryTabTheme) this.inventoryTabTheme.textContent = t('tabTheme')
     this._renderCrateTiers()
-    this._invSkinInspected = null
     if (this.invSkinSearch) {
       this.invSkinSearch.value = ''
       this.invSkinSearch.placeholder = t('inventorySkinSearch')
@@ -16258,7 +16275,6 @@ export class Game {
     saveShopProgress(this)
     this._renderCurrencyBar()
     if (this._renderShopSkinState) this._renderShopSkinState()
-    this._invSkinInspected = null
     if (this.menuInventoryPanel?.style.display !== 'none') {
       this._renderInventorySkins()
       this._renderInventorySkinPreview()
@@ -16473,7 +16489,6 @@ export class Game {
       const rarity = SKIN_RARITIES[skin.rarity] || SKIN_RARITIES.common
       const classes = ['inv-skin-card']
       if (skin.id === equippedId) classes.push('equipped')
-      if (skin.id === this._invSkinInspected) classes.push('inspected')
       return `<button type="button" class="${classes.join(' ')}" data-inventory-skin="${skin.id}" style="--rarity: ${rarity.color}" title="${_escapeHtml(`${skin.name} - ${t(rarity.key)}`)}">`
         + `<span class="inv-skin-card-name">${_escapeHtml(skin.name)}</span>`
         + '<img class="inv-skin-card-img" alt="" draggable="false" />'
@@ -16489,10 +16504,10 @@ export class Game {
     }
   }
 
-  // Big 3D preview on the left: the inspected skin, else the equipped one.
+  // Big 3D preview on the left: the equipped skin.
   async _renderInventorySkinPreview() {
     const entries = this._inventorySkinEntries()
-    const shownId = this._invSkinInspected || this._equippedInventorySkinId()
+    const shownId = this._equippedInventorySkinId()
     const skin = entries.find((entry) => entry.id === shownId) || entries[0]
     const nameEl = document.getElementById('inv-skin-preview-name')
     const levelEl = document.getElementById('inv-skin-preview-level')
@@ -16517,17 +16532,22 @@ export class Game {
     }
   }
 
+  // The same menu serves Character cards and Weapons cards (kind
+  // 'weapon': every weapon only has its Default skin so far - always
+  // equipped, not tradable).
   _openInventorySkinMenu(card) {
     if (!this.invSkinMenu) return
-    const id = card.dataset.inventorySkin
-    if (this._invSkinMenuFor === id && this.invSkinMenu.style.display !== 'none') {
+    const kind = card.dataset.weaponCard ? 'weapon' : 'character'
+    const id = kind === 'weapon' ? card.dataset.weaponCard : card.dataset.inventorySkin
+    if (this._invSkinMenuFor === id && this._invSkinMenuKind === kind && this.invSkinMenu.style.display !== 'none') {
       this._closeInventorySkinMenu()
       return
     }
     this._invSkinMenuFor = id
-    const entry = INVENTORY_SKINS.find((skin) => skin.id === id)
+    this._invSkinMenuKind = kind
+    const entry = kind === 'character' ? INVENTORY_SKINS.find((skin) => skin.id === id) : null
     const owned = entry ? entry.count(this) : 0
-    const equipped = id === this._equippedInventorySkinId()
+    const equipped = kind === 'weapon' || id === this._equippedInventorySkinId()
     // Market (list for other players) and Sell (to the game) only on your
     // own tradable skins - never Default or an uploaded custom skin.
     this.invSkinMenuEquip.textContent = equipped ? t('skinEquipped') : t('skinEquip')
@@ -16542,16 +16562,23 @@ export class Game {
       btn.classList.toggle('locked', !tradable)
       btn.setAttribute('aria-disabled', tradable ? 'false' : 'true')
     }
-    const side = this.invSkinMenu.parentElement.getBoundingClientRect()
+    // Lives next to whichever grid the card is in, and always fits inside
+    // the card itself (below its name, never past its bottom edge).
+    const host = card.closest('#inv-skins-side, #inventory-page-weapons') || this.invSkinMenu.parentElement
+    if (this.invSkinMenu.parentElement !== host) host.appendChild(this.invSkinMenu)
+    const side = host.getBoundingClientRect()
     const rect = card.getBoundingClientRect()
     this.invSkinMenu.style.display = 'flex'
-    this.invSkinMenu.style.left = `${rect.left - side.left + rect.width / 2}px`
-    this.invSkinMenu.style.top = `${rect.top - side.top + 26}px`
+    const menuH = this.invSkinMenu.offsetHeight
+    const top = Math.max(rect.top + 4, Math.min(rect.top + 26, rect.bottom - menuH - 6))
+    this.invSkinMenu.style.left = `${rect.left - side.left + host.scrollLeft + rect.width / 2}px`
+    this.invSkinMenu.style.top = `${top - side.top + host.scrollTop}px`
   }
 
   _closeInventorySkinMenu() {
     if (this.invSkinMenu) this.invSkinMenu.style.display = 'none'
     this._invSkinMenuFor = null
+    this._invSkinMenuKind = null
   }
 
   // Sell to the game for the fixed price (half the old shop price;
@@ -16581,10 +16608,76 @@ export class Game {
     this._showHomepageToast(t('skinSoldToast', { name, price: this._formatSkinPrice(entry.sell.currency, entry.sell.amount) }))
   }
 
-  _inspectInventorySkin(id) {
-    this._invSkinInspected = id
-    this._renderInventorySkins()
-    this._renderInventorySkinPreview()
+  // Kirka-style Inspect window: the item big in 3D (InspectViewer.js) -
+  // drag to turn it, scroll/pinch to zoom. kind 'character' is a skin id,
+  // 'weapon' a weapon id. A fresh canvas every time, since the viewer
+  // releases its WebGL context on close and a canvas can't get one back.
+  async _openInspectDialog(kind, id) {
+    const dialog = document.getElementById('inspect-dialog')
+    const stage = document.getElementById('inspect-stage')
+    if (!dialog || !stage) return
+    this._closeInspectDialog()
+    let name
+    let rarity = SKIN_RARITIES.common
+    let owned = 1
+    if (kind === 'weapon') {
+      const w = this.weapons.getSummary().find((entry) => entry.id === id)
+      if (!w || !this.weapons.viewmodels?.[id]) return
+      name = `${t(w.nameKey)} - ${t('skinDefault')}`
+    } else {
+      const skin = this._inventorySkinEntries().find((entry) => entry.id === id)
+      if (!skin) return
+      name = skin.name
+      rarity = SKIN_RARITIES[skin.rarity] || SKIN_RARITIES.common
+      owned = skin.owned
+    }
+    document.getElementById('inspect-title').textContent = t('inspectTitle', { name })
+    const rarityEl = document.getElementById('inspect-rarity')
+    rarityEl.textContent = t(rarity.key)
+    rarityEl.style.background = rarity.color
+    document.getElementById('inspect-count').textContent = t('inspectOwned', { n: Math.floor(_safeStatNumber(owned)).toLocaleString() })
+    document.getElementById('inspect-hint').textContent = t('inspectHint')
+    const canvas = document.createElement('canvas')
+    canvas.id = 'inspect-canvas'
+    stage.appendChild(canvas)
+    dialog.style.display = 'flex'
+    const viewer = new InspectViewer(canvas)
+    this._inspectViewer = viewer
+    this._inspectCharacter = null
+    if (kind === 'weapon') {
+      // Barrel pointing left, side-on - like Kirka's.
+      viewer.setObject(this._weaponDisplayClone(this.weapons.viewmodels[id]), { yaw: Math.PI / 2, pitch: 0.12 })
+    } else {
+      const skin = this._inventorySkinEntries().find((entry) => entry.id === id)
+      try {
+        const texture = await loadSkinTexture(skin.dataUrl)
+        if (this._inspectViewer !== viewer) return
+        this._inspectCharacter = buildTexturedCharacter(texture)
+        viewer.setObject(this._inspectCharacter, { yaw: 0.5 })
+      } catch {
+        // Unreadable texture - the window just stays empty.
+      }
+    }
+    viewer.start()
+  }
+
+  _closeInspectDialog() {
+    const dialog = document.getElementById('inspect-dialog')
+    if (dialog) dialog.style.display = 'none'
+    if (this._inspectViewer) {
+      this._inspectViewer.dispose()
+      this._inspectViewer = null
+    }
+    // The character is built just for this window; a weapon is a clone
+    // sharing the game's own geometry/materials, so it's left alone.
+    if (this._inspectCharacter) {
+      this._inspectCharacter.traverse((obj) => {
+        if (obj.geometry) obj.geometry.dispose()
+        if (obj.material) obj.material.dispose()
+      })
+      this._inspectCharacter = null
+    }
+    document.getElementById('inspect-canvas')?.remove()
   }
 
   // Same skin-apply sequence _buyShopSkin/_bindSkinUpload's Reset button
@@ -16595,7 +16688,6 @@ export class Game {
   // re-fetch for resetting) to avoid touching either for this.
   async _equipInventorySkin(id) {
     if (id === 'custom') return
-    this._invSkinInspected = null
     // Any INVENTORY_SKINS entry the player owns (other than Default) -
     // no per-skin code needed for a new one.
     const entry = INVENTORY_SKINS.find((skin) => skin.id === id)
@@ -16626,6 +16718,7 @@ export class Game {
 
   _closeMenuInventoryPanel() {
     if (this.menuInventoryPanel) this.menuInventoryPanel.style.display = 'none'
+    this._closeInspectDialog()
   }
 
   async _openServerPanel() {
@@ -18052,6 +18145,7 @@ export class Game {
   // once from each weapon's own viewmodel (_weaponThumbnails).
   _renderInventoryWeapons() {
     if (!this.inventoryWeaponsList) return
+    if (this._invSkinMenuKind === 'weapon') this._closeInventorySkinMenu()
     const weapons = this.weapons
       .getSummary()
       .sort((a, b) => t(a.nameKey).localeCompare(t(b.nameKey)))
@@ -18110,14 +18204,7 @@ export class Game {
       const box = new THREE.Box3()
       const meshBox = new THREE.Box3()
       for (const [id, vm] of Object.entries(this.weapons.viewmodels || {})) {
-        const model = vm.clone(true)
-        model.position.set(0, 0, 0)
-        model.rotation.set(0, 0, 0)
-        model.scale.set(1, 1, 1)
-        model.visible = true
-        const hands = []
-        model.traverse((o) => { if (o.userData?.isHand) hands.push(o) })
-        for (const h of hands) h.parent?.remove(h)
+        const model = this._weaponDisplayClone(vm)
         scene.add(model)
         model.updateMatrixWorld(true)
         // Bounds of what's actually visible (hidden parts like scopes or
@@ -18153,6 +18240,21 @@ export class Game {
       }
     }
     return out
+  }
+
+  // A weapon's viewmodel copied for showing on its own (card pictures,
+  // Inspect): reset to the origin, visible, hands left out. Shares the
+  // game's geometry/materials - never dispose them through this.
+  _weaponDisplayClone(vm) {
+    const model = vm.clone(true)
+    model.position.set(0, 0, 0)
+    model.rotation.set(0, 0, 0)
+    model.scale.set(1, 1, 1)
+    model.visible = true
+    const hands = []
+    model.traverse((o) => { if (o.userData?.isHand) hands.push(o) })
+    for (const h of hands) h.parent?.remove(h)
+    return model
   }
 
   _refreshInventoryPanel() {

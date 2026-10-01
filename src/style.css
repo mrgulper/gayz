@@ -12239,6 +12239,8 @@ html.night-vision-active #app {
   width: 100%;
   padding: 0;
 }
+/* Holds the card menu (positioned against it) when a weapon is clicked. */
+#inventory-page-weapons { position: relative; }
 #inv-skins-layout {
   display: grid;
   grid-template-columns: minmax(220px, 38%) 1fr;
@@ -12318,10 +12320,6 @@ html.night-vision-active #app {
   background: rgba(40, 46, 70, 0.85);
   transform: translateY(-1px);
 }
-.inv-skin-card.inspected {
-  outline: 2px solid rgba(255, 255, 255, 0.55);
-  outline-offset: -2px;
-}
 .inv-skin-card-name {
   position: absolute;
   top: 6px;
@@ -12373,12 +12371,13 @@ html.night-vision-active #app {
   color: rgba(255, 255, 255, 0.6);
   font-size: 14px;
 }
-/* Equip/Inspect menu that opens over the clicked card. */
+/* Equip/Market/Sell/Inspect menu that opens over the clicked card -
+   compact enough to fit inside even a weapon card (140px tall). */
 #inv-skin-menu {
   position: absolute;
   z-index: 2;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   transform: translateX(-50%);
   padding: 4px;
   background: rgba(10, 12, 20, 0.92);
@@ -12387,7 +12386,7 @@ html.night-vision-active #app {
 }
 #inv-skin-menu button {
   min-width: 110px;
-  padding: 6px 12px;
+  padding: 4px 12px;
   border: none;
   border-radius: 4px;
   font-size: 13px;
@@ -12667,4 +12666,101 @@ html.night-vision-active #app {
 #inv-skin-menu button:not(:disabled):hover { filter: brightness(1.12); }
 @media (max-width: 700px) {
   #inv-skins-layout { grid-template-columns: 1fr; grid-template-rows: 240px 1fr; }
+}
+
+/* Inventory's Inspect window - Kirka's layout (title bar, rarity pill,
+   count pill, big 3D stage), in GayZ's dark/gold colors. */
+#inspect-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+}
+#inspect-box {
+  display: flex;
+  flex-direction: column;
+  width: min(900px, 92vw);
+  height: min(640px, 82vh);
+  background: rgba(16, 13, 9, 0.97);
+  border: 2px solid #c9a24a;
+  border-radius: 10px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
+}
+#inspect-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-left: 16px;
+  border-bottom: 1px solid rgba(201, 162, 74, 0.35);
+  background: rgba(201, 162, 74, 0.08);
+}
+#inspect-title {
+  overflow: hidden;
+  color: #f0d9a0;
+  font-size: 20px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+#inspect-close {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: #e0302a;
+  color: #fff;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+#inspect-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: radial-gradient(ellipse at center, rgba(201, 162, 74, 0.12), rgba(0, 0, 0, 0) 70%);
+}
+#inspect-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+#inspect-canvas:active { cursor: grabbing; }
+#inspect-rarity,
+#inspect-count {
+  position: absolute;
+  top: 12px;
+  z-index: 1;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-weight: 700;
+  pointer-events: none;
+}
+#inspect-rarity {
+  left: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #fff;
+  font-size: 15px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+#inspect-count {
+  right: 14px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 17px;
+}
+#inspect-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  color: rgba(240, 217, 160, 0.6);
+  font-size: 13px;
+  white-space: nowrap;
+  pointer-events: none;
 }

@@ -3197,6 +3197,23 @@ Escape before dawn.</p>
         </div>
       </div>
 
+      <!-- Inventory's Inspect window (Kirka-style): the item big in 3D,
+           drag to turn, scroll to zoom. The canvas is added per opening
+           by _openInspectDialog (Game.js), see InspectViewer.js. -->
+      <div id="inspect-dialog" style="display: none">
+        <div id="inspect-box">
+          <div id="inspect-header">
+            <span id="inspect-title"></span>
+            <button type="button" id="inspect-close" aria-label="Close">&times;</button>
+          </div>
+          <div id="inspect-stage">
+            <span id="inspect-rarity"></span>
+            <span id="inspect-count"></span>
+            <span id="inspect-hint"></span>
+          </div>
+        </div>
+      </div>
+
       <div id="shop-panel">
         <div class="panel-box">
           <button type="button" class="panel-close-btn" aria-label="Close">&times;</button>
