@@ -3180,6 +3180,23 @@ Escape before dawn.</p>
         </div>
       </div>
 
+      <!-- Trade dialog (2026-10-01, Kirka-style): one box for listing a skin
+           on the Market (price picker + fee), selling it to the game, buying
+           a listing and taking your own listing back. See _openTradeDialog. -->
+      <div id="trade-dialog" style="display: none">
+        <div id="trade-dialog-box">
+          <button type="button" id="trade-dialog-close" aria-label="Close">&times;</button>
+          <p id="trade-dialog-title"></p>
+          <div id="trade-dialog-price-row">
+            <button type="button" class="trade-dialog-step" id="trade-dialog-minus" aria-label="Lower price">&minus;</button>
+            <input type="number" id="trade-dialog-price" min="1" max="10000000" step="1" />
+            <button type="button" class="trade-dialog-step" id="trade-dialog-plus" aria-label="Raise price">+</button>
+          </div>
+          <p id="trade-dialog-fee"></p>
+          <button type="button" id="trade-dialog-action"></button>
+        </div>
+      </div>
+
       <div id="shop-panel">
         <div class="panel-box">
           <button type="button" class="panel-close-btn" aria-label="Close">&times;</button>
@@ -3842,8 +3859,9 @@ Escape before dawn.</p>
                 <div id="inventory-skins-list"></div>
                 <div id="inv-skin-menu" style="display: none">
                   <button type="button" id="inv-skin-menu-equip"></button>
-                  <button type="button" id="inv-skin-menu-inspect"></button>
+                  <button type="button" id="inv-skin-menu-market"></button>
                   <button type="button" id="inv-skin-menu-sell"></button>
+                  <button type="button" id="inv-skin-menu-inspect"></button>
                 </div>
               </div>
             </div>

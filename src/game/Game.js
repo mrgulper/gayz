@@ -6018,6 +6018,16 @@ export class Game {
     this.invSkinMenuEquip = document.getElementById('inv-skin-menu-equip')
     this.invSkinMenuInspect = document.getElementById('inv-skin-menu-inspect')
     this.invSkinMenuSell = document.getElementById('inv-skin-menu-sell')
+    this.invSkinMenuMarket = document.getElementById('inv-skin-menu-market')
+    this.tradeDialog = document.getElementById('trade-dialog')
+    this.tradeDialogTitle = document.getElementById('trade-dialog-title')
+    this.tradeDialogPriceRow = document.getElementById('trade-dialog-price-row')
+    this.tradeDialogPrice = document.getElementById('trade-dialog-price')
+    this.tradeDialogFee = document.getElementById('trade-dialog-fee')
+    this.tradeDialogAction = document.getElementById('trade-dialog-action')
+    // Player Market listings (CloudSync.fetchActiveMarketListings), loaded
+    // whenever the Market opens. null = not loaded yet, 'error' = failed.
+    this._marketListings = null
     this.shopMarketGrid = document.getElementById('shop-market-grid')
     this.marketPanel = document.getElementById('market-panel')
     this.marketPanelTitle = document.getElementById('market-panel-title')
@@ -8018,6 +8028,8 @@ export class Game {
         // you kept pressing it (reported as "the Upgrades thing is on my
         // screen" after Escape, Upgrades, Escape).
         this._closeUpgradesPanel()
+      } else if (e.code === 'Escape' && this.tradeDialog && this.tradeDialog.style.display !== 'none') {
+        this._closeTradeDialog()
       } else if (e.code === 'Escape' && this.marketPanel && this.marketPanel.style.display !== 'none') {
         this._closeMarketPanel()
       } else if (e.code === 'Escape' && this.shopPanel && this.shopPanel.style.display !== 'none') {
@@ -9886,15 +9898,42 @@ export class Game {
       this.invSkinMenuSell?.addEventListener('click', () => {
         const id = this._invSkinMenuFor
         this._closeInventorySkinMenu()
-        if (id) this._sellInventorySkin(id)
+        if (id) this._openSellDialog(id)
+      })
+      this.invSkinMenuMarket?.addEventListener('click', () => {
+        const id = this._invSkinMenuFor
+        this._closeInventorySkinMenu()
+        if (id) this._openListDialog(id)
       })
       document.addEventListener('click', () => this._closeInventorySkinMenu())
     }
     if (this.invSkinSearch) this.invSkinSearch.addEventListener('input', () => this._renderInventorySkins())
     this.shopMarketGrid?.addEventListener('click', (e) => {
-      const card = e.target.closest('[data-market-skin]')
-      if (card) this._buyMarketSkin(card.dataset.marketSkin)
+      const card = e.target.closest('[data-market-listing]')
+      if (!card || !Array.isArray(this._marketListings)) return
+      const listing = this._marketListings.find((l) => l.id === card.dataset.marketListing)
+      const entry = listing && INVENTORY_SKINS.find((skin) => skin.id === listing.skinId)
+      if (!entry) return
+      const name = entry.nameKey ? t(entry.nameKey) : entry.name
+      if (this._cloudUid && listing.sellerUid === this._cloudUid) {
+        this._openTradeDialog('cancel', { listing, name })
+        return
+      }
+      const price = _safeStatNumber(listing.price)
+      if (this.coins < price) {
+        this._showHomepageToast(t('skinNeedCoins', { need: Math.ceil(price - this.coins).toLocaleString() }))
+        return
+      }
+      this._openTradeDialog('buy', { listing, name, seller: String(listing.sellerName || '').slice(0, 24), priceLabel: this._formatSkinPrice('coins', price) })
     })
+    if (this.tradeDialog) {
+      document.getElementById('trade-dialog-close').addEventListener('click', () => this._closeTradeDialog())
+      this.tradeDialog.addEventListener('click', (e) => { if (e.target === this.tradeDialog) this._closeTradeDialog() })
+      document.getElementById('trade-dialog-minus').addEventListener('click', () => this._stepTradeDialogPrice(-1))
+      document.getElementById('trade-dialog-plus').addEventListener('click', () => this._stepTradeDialogPrice(1))
+      this.tradeDialogPrice.addEventListener('input', () => this._updateTradeDialogFee())
+      this.tradeDialogAction.addEventListener('click', () => this._confirmTradeDialog())
+    }
     this.marketSearch?.addEventListener('input', () => {
       this._marketQuery = this.marketSearch.value
       this._renderShopMarket()
@@ -15388,6 +15427,7 @@ export class Game {
     if (this.skindesignerPanel) this._closeSkinDesignerPanel()
     if (this.shopPanel) this._closeShopPanel()
     if (this.marketPanel) this._closeMarketPanel()
+    this._closeTradeDialog()
     if (this.whatsNewPanel) this._closeWhatsNewPanel()
     if (this.sharePanel) this._closeSharePanel()
   }
@@ -16002,6 +16042,7 @@ export class Game {
     if (!this.menuInventoryPanel) return
     this._closeAllMenuPanels()
     this.menuInventoryPanel.style.display = 'flex'
+    this._claimMarketSales()
     if (this.menuInventoryPanelTitle) this.menuInventoryPanelTitle.textContent = t('menuInventoryPanelTitle')
     if (this.inventoryTabCharacter) this.inventoryTabCharacter.textContent = t('inventorySkinsTitle')
     if (this.inventoryTabCrates) this.inventoryTabCrates.textContent = t('inventoryCratesTitle')
@@ -16036,11 +16077,44 @@ export class Game {
     return entries
   }
 
-  // Market view: every skin with a coin price, owned or not.
+  // Market cards: one per active player listing, joined with the skin it
+  // sells (listings for a skin id this build doesn't know are skipped).
   _marketSkinEntries() {
-    return INVENTORY_SKINS
-      .filter((skin) => skin.price)
-      .map((skin) => ({ ...skin, name: skin.nameKey ? t(skin.nameKey) : skin.name, owned: skin.count(this) }))
+    if (!Array.isArray(this._marketListings)) return []
+    const out = []
+    for (const listing of this._marketListings) {
+      const skin = INVENTORY_SKINS.find((s) => s.id === listing.skinId)
+      if (!skin) continue
+      out.push({
+        ...skin,
+        name: skin.nameKey ? t(skin.nameKey) : skin.name,
+        listing,
+        price: _safeStatNumber(listing.price),
+        mine: !!this._cloudUid && listing.sellerUid === this._cloudUid,
+      })
+    }
+    return out
+  }
+
+  // The shared Market backend - Firestore via CloudSync, or an in-memory
+  // fake a Playwright test puts on game.__marketBackendForTests.
+  _marketApi() {
+    return this.__marketBackendForTests || CloudSync
+  }
+
+  async _loadMarketListings() {
+    if (!this.__marketBackendForTests && !CloudSync.isConfigured()) {
+      this._marketListings = 'error'
+      this._renderShopMarket()
+      return
+    }
+    try {
+      this._marketListings = await this._marketApi().fetchActiveMarketListings()
+    } catch (err) {
+      console.warn('Market listings failed to load', err)
+      this._marketListings = 'error'
+    }
+    if (this.marketPanel?.style.display !== 'none') this._renderShopMarket()
   }
 
   // Market panel (its own nav button, right under Store): opened like every
@@ -16059,7 +16133,10 @@ export class Game {
     }
     this._closeMarketFilterMenus()
     this._renderMarketFilters()
+    this._marketListings = null
     this._renderShopMarket()
+    this._loadMarketListings()
+    this._claimMarketSales()
   }
 
   // Items you can filter by: Character, then every weapon (Kirka's market
@@ -16120,6 +16197,14 @@ export class Game {
   // one buys it. Same card look as Inventory > Character.
   _renderShopMarket() {
     if (!this.shopMarketGrid) return
+    if (this._marketListings === null || this._marketListings === 'error') {
+      this.shopMarketGrid.innerHTML = `<p class="inv-skin-empty">${_escapeHtml(t(this._marketListings === null ? 'marketLoading' : 'marketError'))}</p>`
+      return
+    }
+    if (!this._marketListings.length) {
+      this.shopMarketGrid.innerHTML = `<p class="inv-skin-empty">${_escapeHtml(t('marketEmpty'))}</p>`
+      return
+    }
     const query = this._marketQuery.trim().toLowerCase()
     const entries = this._marketSkinEntries().filter((skin) =>
       (!query || skin.name.toLowerCase().includes(query))
@@ -16129,24 +16214,234 @@ export class Game {
       this.shopMarketGrid.innerHTML = `<p class="inv-skin-empty">${_escapeHtml(t('skinNoMatch'))}</p>`
       return
     }
+    // Seller names come from other players' writes - escaped like any
+    // other untrusted text.
     this.shopMarketGrid.innerHTML = entries.map((skin) => {
       const rarity = SKIN_RARITIES[skin.rarity] || SKIN_RARITIES.common
-      const owned = skin.owned > 0
       const classes = ['inv-skin-card']
-      if (owned) classes.push('owned')
+      if (skin.mine) classes.push('owned')
       else if (this.coins < skin.price) classes.push('cant-afford')
-      const label = owned ? t('skinOwnedLabel') : this._formatSkinPrice('coins', skin.price)
-      return `<button type="button" class="${classes.join(' ')}" data-market-skin="${skin.id}" style="--rarity: ${rarity.color}" title="${_escapeHtml(`${skin.name} - ${t(rarity.key)}`)}">`
+      const label = skin.mine ? t('marketYours') : this._formatSkinPrice('coins', skin.price)
+      const listingId = String(skin.listing.id).replace(/[^A-Za-z0-9_-]/g, '')
+      return `<button type="button" class="${classes.join(' ')}" data-market-listing="${listingId}" style="--rarity: ${rarity.color}" title="${_escapeHtml(`${skin.name} - ${t(rarity.key)}`)}">`
         + `<span class="inv-skin-card-name">${_escapeHtml(skin.name)}</span>`
         + '<img class="inv-skin-card-img" alt="" draggable="false" />'
-        + `<span class="inv-skin-card-price">${_escapeHtml(label)}</span>`
+        + `<span class="market-card-seller">${_escapeHtml(t('marketSellerBy', { name: String(skin.listing.sellerName || '').slice(0, 24) }))}</span>`
+        + `<span class="inv-skin-card-price">${_escapeHtml(skin.mine ? `${label} · ${this._formatSkinPrice('coins', skin.price)}` : label)}</span>`
         + '</button>'
     }).join('')
     for (const skin of entries) {
       skinFrontIconURL(skin.dataUrl).then((url) => {
-        const img = this.shopMarketGrid.querySelector(`[data-market-skin="${skin.id}"] .inv-skin-card-img`)
+        const listingId = String(skin.listing.id).replace(/[^A-Za-z0-9_-]/g, '')
+        const img = this.shopMarketGrid.querySelector(`[data-market-listing="${listingId}"] .inv-skin-card-img`)
         if (img && url) img.src = url
       })
+    }
+  }
+
+  // Takes one copy of a skin out of / puts one into this player's own save.
+  async _removeSkinFromInventory(id) {
+    if (id === this._equippedInventorySkinId()) await this._equipInventorySkin('default')
+    if (id === 'gaygarx') this.ownsShopSkin = false
+    else this.charSkins[id] = Math.max(0, (Number(this.charSkins[id]) || 0) - 1)
+  }
+
+  _addSkinToInventory(id) {
+    if (id === 'gaygarx') this.ownsShopSkin = true
+    else this.charSkins[id] = (Number(this.charSkins[id]) || 0) + 1
+  }
+
+  _afterTradeChange() {
+    saveShopProgress(this)
+    this._renderCurrencyBar()
+    if (this._renderShopSkinState) this._renderShopSkinState()
+    this._invSkinInspected = null
+    if (this.menuInventoryPanel?.style.display !== 'none') {
+      this._renderInventorySkins()
+      this._renderInventorySkinPreview()
+    }
+    if (this.marketPanel?.style.display !== 'none') this._renderShopMarket()
+  }
+
+  // Market fee: 5% of the asking price, taken from what the seller gets.
+  _marketFee(price) {
+    return Math.ceil(price * 0.05)
+  }
+
+  // One Kirka-style dialog for every trade action. mode: 'list' (price
+  // picker), 'sell' (sell to the game), 'buy' or 'cancel' (a listing).
+  _openTradeDialog(mode, opts) {
+    if (!this.tradeDialog) return
+    this._tradeDialogState = { mode, ...opts }
+    const priceMode = mode === 'list'
+    this.tradeDialogPriceRow.style.display = priceMode ? '' : 'none'
+    this.tradeDialogFee.style.display = priceMode ? '' : 'none'
+    this.tradeDialogAction.className = `trade-action-${mode}`
+    if (priceMode) {
+      this.tradeDialogPrice.value = String(opts.startPrice)
+      this.tradeDialogTitle.textContent = t('marketListTitle', { name: opts.name })
+      this.tradeDialogAction.textContent = t('marketAddBtn')
+      this._updateTradeDialogFee()
+    } else if (mode === 'sell') {
+      this.tradeDialogTitle.textContent = t('marketSellTitle', { name: opts.name, price: opts.priceLabel })
+      this.tradeDialogAction.textContent = t('marketSellBtn')
+    } else if (mode === 'buy') {
+      this.tradeDialogTitle.textContent = t('marketBuyTitle', { name: opts.name, seller: opts.seller, price: opts.priceLabel })
+      this.tradeDialogAction.textContent = t('marketBuyBtn')
+    } else {
+      this.tradeDialogTitle.textContent = t('marketCancelTitle', { name: opts.name })
+      this.tradeDialogAction.textContent = t('marketCancelBtn')
+    }
+    this.tradeDialogAction.disabled = false
+    this.tradeDialog.style.display = 'flex'
+  }
+
+  _closeTradeDialog() {
+    if (this.tradeDialog) this.tradeDialog.style.display = 'none'
+    this._tradeDialogState = null
+  }
+
+  _tradeDialogPriceValue() {
+    const n = Math.floor(Number(this.tradeDialogPrice.value))
+    return Number.isFinite(n) ? Math.max(1, Math.min(10000000, n)) : 1
+  }
+
+  _updateTradeDialogFee() {
+    const fee = this._marketFee(this._tradeDialogPriceValue())
+    this.tradeDialogFee.textContent = t('marketFee', { fee: fee.toLocaleString() })
+  }
+
+  _stepTradeDialogPrice(dir) {
+    const p = this._tradeDialogPriceValue()
+    const step = p >= 100000 ? 10000 : p >= 10000 ? 1000 : p >= 1000 ? 100 : 10
+    this.tradeDialogPrice.value = String(Math.max(1, Math.min(10000000, p + dir * step)))
+    this._updateTradeDialogFee()
+  }
+
+  // Signed-in account needed for anything that touches the shared Market.
+  async _marketUid() {
+    await this._authReadyPromise
+    if (!this._cloudUid) {
+      this._showHomepageToast(t('marketSignInNeeded'))
+      return null
+    }
+    return this._cloudUid
+  }
+
+  async _confirmTradeDialog() {
+    const st = this._tradeDialogState
+    if (!st) return
+    this.tradeDialogAction.disabled = true
+    try {
+      if (st.mode === 'sell') await this._sellSkinToGame(st.id)
+      else if (st.mode === 'list') await this._listSkinOnMarket(st.id, this._tradeDialogPriceValue())
+      else if (st.mode === 'buy') await this._buyMarketListing(st.listing)
+      else if (st.mode === 'cancel') await this._cancelMarketListing(st.listing)
+    } finally {
+      this._closeTradeDialog()
+    }
+  }
+
+  async _listSkinOnMarket(id, price) {
+    const entry = INVENTORY_SKINS.find((skin) => skin.id === id)
+    if (!entry?.sell || !(entry.count(this) > 0)) return
+    const uid = await this._marketUid()
+    if (!uid) return
+    const name = entry.nameKey ? t(entry.nameKey) : entry.name
+    // Out of the inventory first, so it can't be equipped/sold twice while
+    // the listing is being written; put back if the write fails.
+    await this._removeSkinFromInventory(id)
+    this._afterTradeChange()
+    try {
+      const seller = (this.settings.nickname || '').trim().slice(0, 24) || this._defaultNickname().slice(0, 24)
+      await this._marketApi().createMarketListing(uid, seller, id, price)
+      this._showHomepageToast(t('marketListedToast', { name }))
+    } catch (err) {
+      console.warn('Listing failed', err)
+      this._addSkinToInventory(id)
+      this._afterTradeChange()
+      this._showHomepageToast(t('marketError'))
+    }
+  }
+
+  async _buyMarketListing(listing) {
+    const entry = INVENTORY_SKINS.find((skin) => skin.id === listing.skinId)
+    const price = _safeStatNumber(listing.price)
+    if (!entry || !(price > 0)) return
+    if (this.coins < price) {
+      this._showHomepageToast(t('skinNeedCoins', { need: Math.ceil(price - this.coins).toLocaleString() }))
+      return
+    }
+    const uid = await this._marketUid()
+    if (!uid) return
+    let bought
+    try {
+      bought = await this._marketApi().buyMarketListing(listing.id, uid)
+    } catch (err) {
+      console.warn('Buying failed', err)
+      this._showHomepageToast(t('marketError'))
+      return
+    }
+    if (!bought) {
+      this._showHomepageToast(t('marketAlreadySold'))
+    } else {
+      this.coins -= price
+      this._addSkinToInventory(entry.id)
+      this._afterTradeChange()
+      this._showHomepageToast(t('skinBoughtToast', { name: entry.nameKey ? t(entry.nameKey) : entry.name }))
+    }
+    this._loadMarketListings()
+  }
+
+  async _cancelMarketListing(listing) {
+    const uid = await this._marketUid()
+    if (!uid) return
+    let cancelled
+    try {
+      cancelled = await this._marketApi().cancelMarketListing(listing.id, uid)
+    } catch (err) {
+      console.warn('Cancel failed', err)
+      this._showHomepageToast(t('marketError'))
+      return
+    }
+    const entry = INVENTORY_SKINS.find((skin) => skin.id === listing.skinId)
+    if (cancelled && entry) {
+      this._addSkinToInventory(entry.id)
+      this._afterTradeChange()
+      this._showHomepageToast(t('marketCancelledToast', { name: entry.nameKey ? t(entry.nameKey) : entry.name }))
+    } else if (!cancelled) {
+      this._showHomepageToast(t('marketAlreadySold'))
+    }
+    this._loadMarketListings()
+  }
+
+  // Pays the seller for listings other players bought while they were away
+  // - each sale is claimed in a transaction, so it pays out exactly once
+  // even with two devices open. Runs when the Market or Inventory opens.
+  async _claimMarketSales() {
+    if (this._claimingMarketSales || (!this.__marketBackendForTests && !CloudSync.isConfigured())) return
+    this._claimingMarketSales = true
+    try {
+      await this._authReadyPromise
+      const uid = this._cloudUid
+      if (!uid) return
+      const sales = await this._marketApi().fetchUnclaimedMarketSales(uid)
+      for (const sale of sales) {
+        const claimed = await this._marketApi().claimMarketSale(sale.id, uid).catch(() => null)
+        if (!claimed) continue
+        const price = _safeStatNumber(claimed.price)
+        const earned = Math.max(0, price - this._marketFee(price))
+        this.coins += earned
+        saveShopProgress(this)
+        this._renderCurrencyBar()
+        const entry = INVENTORY_SKINS.find((skin) => skin.id === claimed.skinId)
+        const name = entry ? (entry.nameKey ? t(entry.nameKey) : entry.name) : String(claimed.skinId)
+        this._showHomepageToast(t('marketSoldToast', { name, price: this._formatSkinPrice('coins', earned) }))
+      }
+    } catch (err) {
+      console.warn('Collecting Market sales failed', err)
+    } finally {
+      this._claimingMarketSales = false
     }
   }
 
@@ -16230,15 +16525,19 @@ export class Game {
     const entry = INVENTORY_SKINS.find((skin) => skin.id === id)
     const owned = entry ? entry.count(this) : 0
     const equipped = id === this._equippedInventorySkinId()
-    // Sell only on your own sellable skins (never Default or an uploaded
-    // custom skin). Buying happens in Store > Market.
+    // Market (list for other players) and Sell (to the game) only on your
+    // own tradable skins - never Default or an uploaded custom skin.
     this.invSkinMenuEquip.textContent = equipped ? t('skinEquipped') : t('skinEquip')
     this.invSkinMenuEquip.disabled = equipped
     this.invSkinMenuInspect.textContent = t('skinInspect')
+    const tradable = !!entry?.sell && owned > 0
     if (this.invSkinMenuSell) {
-      const canSell = entry?.sell && owned > 0
-      this.invSkinMenuSell.style.display = canSell ? '' : 'none'
-      if (canSell) this.invSkinMenuSell.textContent = t('skinSellBtn', { price: this._formatSkinPrice(entry.sell.currency, entry.sell.amount) })
+      this.invSkinMenuSell.style.display = tradable ? '' : 'none'
+      this.invSkinMenuSell.textContent = t('marketSellBtn')
+    }
+    if (this.invSkinMenuMarket) {
+      this.invSkinMenuMarket.style.display = tradable ? '' : 'none'
+      this.invSkinMenuMarket.textContent = t('marketListBtn')
     }
     const side = this.invSkinMenu.parentElement.getBoundingClientRect()
     const rect = card.getBoundingClientRect()
@@ -16252,43 +16551,31 @@ export class Game {
     this._invSkinMenuFor = null
   }
 
-  _buyMarketSkin(id) {
-    const entry = INVENTORY_SKINS.find((skin) => skin.id === id)
-    if (!entry?.price || entry.count(this) > 0) return
-    if (this.coins < entry.price) {
-      this._showHomepageToast(t('skinNeedCoins', { need: Math.ceil(entry.price - this.coins).toLocaleString() }))
-      return
-    }
-    const price = this._formatSkinPrice('coins', entry.price)
-    if (!window.confirm(t('skinBuyConfirm', { name: entry.name, price }))) return
-    this.coins -= entry.price
-    this.charSkins[id] = 1
-    saveShopProgress(this)
-    this._renderCurrencyBar()
-    this._renderShopMarket()
-    this._showHomepageToast(t('skinBoughtToast', { name: entry.name }))
-  }
-
-  async _sellInventorySkin(id) {
+  // Sell to the game for the fixed price (half the old shop price;
+  // GaygarX: gems) - the confirm box is the Kirka-style trade dialog.
+  _openSellDialog(id) {
     const entry = INVENTORY_SKINS.find((skin) => skin.id === id)
     if (!entry?.sell || !(entry.count(this) > 0)) return
     const name = entry.nameKey ? t(entry.nameKey) : entry.name
-    const price = this._formatSkinPrice(entry.sell.currency, entry.sell.amount)
-    if (!window.confirm(t('skinSellConfirm', { name, price }))) return
-    // Selling the skin you're wearing puts you back in the default one.
-    if (id === this._equippedInventorySkinId()) await this._equipInventorySkin('default')
-    if (id === 'gaygarx') this.ownsShopSkin = false
-    else this.charSkins[id] = Math.max(0, (Number(this.charSkins[id]) || 0) - 1)
+    this._openTradeDialog('sell', { id, name, priceLabel: this._formatSkinPrice(entry.sell.currency, entry.sell.amount) })
+  }
+
+  _openListDialog(id) {
+    const entry = INVENTORY_SKINS.find((skin) => skin.id === id)
+    if (!entry?.sell || !(entry.count(this) > 0)) return
+    const name = entry.nameKey ? t(entry.nameKey) : entry.name
+    this._openTradeDialog('list', { id, name, startPrice: MARKET_PRICES[entry.rarity] || 1000 })
+  }
+
+  async _sellSkinToGame(id) {
+    const entry = INVENTORY_SKINS.find((skin) => skin.id === id)
+    if (!entry?.sell || !(entry.count(this) > 0)) return
+    const name = entry.nameKey ? t(entry.nameKey) : entry.name
+    await this._removeSkinFromInventory(id)
     if (entry.sell.currency === 'gems') this.gems += entry.sell.amount
     else this.coins += entry.sell.amount
-    saveShopProgress(this)
-    this._renderCurrencyBar()
-    if (this._renderShopSkinState) this._renderShopSkinState()
-    this._invSkinInspected = null
-    this._renderInventorySkins()
-    this._renderInventorySkinPreview()
-    this._renderShopMarket()
-    this._showHomepageToast(t('skinSoldToast', { name, price }))
+    this._afterTradeChange()
+    this._showHomepageToast(t('skinSoldToast', { name, price: this._formatSkinPrice(entry.sell.currency, entry.sell.amount) }))
   }
 
   _inspectInventorySkin(id) {

@@ -307,6 +307,37 @@ service cloud.firestore {
       allow delete: if request.auth != null && request.auth.uid == resource.data.creatorUid;
     }
 
+    // Player Market (2026-10-01) - players list their own skins; another
+    // player buying flips status to 'sold', and the seller's client later
+    // flips claimed to true when it collects the coins (see Game.js's
+    // _claimMarketSales). Coins/skins themselves live in each player's own
+    // save, same client-trust model as the rest of this game.
+    match /marketListings/{listingId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['sellerUid', 'sellerName', 'skinId', 'price', 'createdAt', 'status', 'claimed'])
+        && request.resource.data.sellerUid == request.auth.uid
+        && request.resource.data.sellerName is string && request.resource.data.sellerName.size() > 0 && request.resource.data.sellerName.size() <= 24
+        && request.resource.data.skinId is string && request.resource.data.skinId.size() > 0 && request.resource.data.skinId.size() <= 40
+        && request.resource.data.price is int && request.resource.data.price >= 1 && request.resource.data.price <= 10000000
+        && request.resource.data.createdAt is int
+        && request.resource.data.status == 'active'
+        && request.resource.data.claimed == false;
+      allow update: if request.auth != null && (
+        (resource.data.status == 'active' && request.auth.uid != resource.data.sellerUid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'buyerUid', 'soldAt'])
+          && request.resource.data.status == 'sold'
+          && request.resource.data.buyerUid == request.auth.uid
+          && request.resource.data.soldAt is int)
+        || (resource.data.status == 'active' && request.auth.uid == resource.data.sellerUid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+          && request.resource.data.status == 'cancelled')
+        || (resource.data.status == 'sold' && resource.data.claimed == false && request.auth.uid == resource.data.sellerUid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimed'])
+          && request.resource.data.claimed == true));
+      allow delete: if request.auth != null && request.auth.uid == resource.data.sellerUid && resource.data.status != 'active';
+    }
+
     match /communityBuilds/{buildId}/reports/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid;
       allow create: if request.auth != null && request.auth.uid == uid
@@ -989,6 +1020,70 @@ export async function fetchCommunityBuilds() {
 export async function reportBuild(buildId, uid) {
   const { db, fsMod } = await ensureApp()
   await fsMod.setDoc(fsMod.doc(db, 'communityBuilds', buildId, 'reports', uid), { reportedAt: Date.now() })
+}
+
+// Player Market (2026-10-01, see the marketListings rules above). Active
+// listings are read without an orderBy (that plus the status filter would
+// need a composite index) and sorted newest-first by the caller.
+export async function createMarketListing(uid, sellerName, skinId, price) {
+  const { db, fsMod } = await ensureApp()
+  const ref = fsMod.doc(fsMod.collection(db, 'marketListings'))
+  await fsMod.setDoc(ref, { sellerUid: uid, sellerName, skinId, price, createdAt: Date.now(), status: 'active', claimed: false })
+  return ref.id
+}
+
+export async function fetchActiveMarketListings() {
+  const { db, fsMod } = await ensureApp()
+  const q = fsMod.query(fsMod.collection(db, 'marketListings'), fsMod.where('status', '==', 'active'), fsMod.limit(300))
+  const snap = await fsMod.getDocs(q)
+  return snap.docs.map((d) => ({ ...d.data(), id: d.id })).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+}
+
+// Transaction so two buyers can't both get the same listing - returns the
+// listing as it was bought, or null if it was already gone.
+export async function buyMarketListing(listingId, uid) {
+  const { db, fsMod } = await ensureApp()
+  const ref = fsMod.doc(db, 'marketListings', listingId)
+  return fsMod.runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists() || snap.data().status !== 'active' || snap.data().sellerUid === uid) return null
+    tx.update(ref, { status: 'sold', buyerUid: uid, soldAt: Date.now() })
+    return { ...snap.data(), id: listingId }
+  })
+}
+
+export async function cancelMarketListing(listingId, uid) {
+  const { db, fsMod } = await ensureApp()
+  const ref = fsMod.doc(db, 'marketListings', listingId)
+  return fsMod.runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists() || snap.data().status !== 'active' || snap.data().sellerUid !== uid) return null
+    tx.update(ref, { status: 'cancelled' })
+    return { ...snap.data(), id: listingId }
+  })
+}
+
+// The seller's sold-but-not-yet-paid listings (two equality filters - no
+// composite index needed).
+export async function fetchUnclaimedMarketSales(uid) {
+  const { db, fsMod } = await ensureApp()
+  const q = fsMod.query(fsMod.collection(db, 'marketListings'), fsMod.where('sellerUid', '==', uid), fsMod.where('status', '==', 'sold'), fsMod.where('claimed', '==', false))
+  const snap = await fsMod.getDocs(q)
+  return snap.docs.map((d) => ({ ...d.data(), id: d.id }))
+}
+
+// Marks one sale as paid out; returns the listing only if this call is the
+// one that flipped it (so a second device can't collect the same coins).
+export async function claimMarketSale(listingId, uid) {
+  const { db, fsMod } = await ensureApp()
+  const ref = fsMod.doc(db, 'marketListings', listingId)
+  return fsMod.runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    const d = snap.exists() ? snap.data() : null
+    if (!d || d.status !== 'sold' || d.claimed !== false || d.sellerUid !== uid) return null
+    tx.update(ref, { claimed: true })
+    return { ...d, id: listingId }
+  })
 }
 
 // Friend Requests - one doc per pending request, ID'd by the SENDER's uid
