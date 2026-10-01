@@ -14034,7 +14034,9 @@ export class Game {
   // Build Mode - a standalone block-placing sandbox (see BuildMode.js's own
   // comment), reachable from the homepage. Reuses this.menu's existing
   // hide/show pattern (same as starting a real run) rather than a new panel.
-  async _enterBuildMode() {
+  // map: 'map3' opens the ready-made Map 3 city (Map3Generator.js); 'map2'
+  // leaves it for the player's own slots. Omitted keeps the last slot.
+  async _enterBuildMode({ map } = {}) {
     // Every other nav button routes through trackAndOpen/_open*Panel(),
     // which calls _closeAllMenuPanels() first (see that function's own
     // comment on the z-index/stacking bug this prevents). Build Mode
@@ -14148,7 +14150,9 @@ export class Game {
       const { BuildMode } = await import('./BuildMode.js')
       this.buildMode = new BuildMode(this.renderer, this)
     }
-    this.buildMode.enter()
+    const current = this.buildMode.activeSlot
+    const slot = map === 'map3' ? 'map3' : map === 'map2' && current === 'map3' ? 0 : undefined
+    this.buildMode.enter({ slot })
     this._applyRenderScale()
     // FPS readout at the top middle (top-left is the save slot buttons),
     // shown whenever the gameplay one would be.
@@ -17635,7 +17639,8 @@ export class Game {
     // which correctly closes this very panel (#hub-panel) before Build
     // Mode's own UI takes over.
     const mapSelect2Btn = document.getElementById('map-select-2')
-    if (mapSelect2Btn) mapSelect2Btn.addEventListener('click', () => this._enterBuildMode())
+    if (mapSelect2Btn) mapSelect2Btn.addEventListener('click', () => this._enterBuildMode({ map: 'map2' }))
+    document.getElementById('map-select-3')?.addEventListener('click', () => this._enterBuildMode({ map: 'map3' }))
     const buildExitBtn = document.getElementById('build-mode-exit-btn')
     if (buildExitBtn) buildExitBtn.addEventListener('click', () => this._exitBuildMode())
     const buildSaveBtn = document.getElementById('build-mode-save-btn')

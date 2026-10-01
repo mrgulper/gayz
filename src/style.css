@@ -398,6 +398,12 @@ html.dyslexia-font body {
   border-color: #d9bc4a;
   color: #d9bc4a;
 }
+/* Map 3's button sits after the numbered slots and needs room for its name. */
+.build-slot-btn.build-slot-map3 {
+  width: auto;
+  padding: 0 10px;
+  white-space: nowrap;
+}
 
 .build-slot-dot {
   position: absolute;
