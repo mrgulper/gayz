@@ -67,8 +67,8 @@ const SAVE_SLOT_COUNT = 3
 // [entries]}. Not a gayz- key on purpose - the whole map is ~42k blocks,
 // and a player who clears it would push a huge list into Cloud Save.
 const MAP3_SLOT = 'map3'
-// Bumped (v2) when the map was redesigned - old edits wouldn't line up.
-const MAP3_EDITS_KEY = 'buildmode-map3-v2-edits'
+// Bumped (v2, v3) whenever the map changes - old edits wouldn't line up.
+const MAP3_EDITS_KEY = 'buildmode-map3-v3-edits'
 // Edits are saved this long after the last change (and on leaving the
 // page), not only on Exit/Save - closing the tab used to lose the build.
 const AUTOSAVE_DELAY_MS = 1500
