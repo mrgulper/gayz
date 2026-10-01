@@ -1026,7 +1026,8 @@ html.ui-theme-old #cloudsave-region-select {
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid var(--menu-panel-border);
   border-radius: 6px;
-  resize: vertical;
+  resize: none;
+  flex: 1 1 auto;
 }
 
 .friend-name {
@@ -3068,6 +3069,10 @@ html.third-person-active #companion-bark {
      read as cramped/tall for what's now shown. */
   width: min(860px, 92vw);
   min-height: 580px;
+  /* Column flex so the two-column area below can grow to the bottom of
+     the panel (2026-10-01: Bio/Notes should fill the whole right side). */
+  display: flex;
+  flex-direction: column;
 }
 
 /* Two-column split (same day, follow-up) - the stat rows/lines/Best Run
@@ -3081,8 +3086,9 @@ html.third-person-active #companion-bark {
    itself at its own natural width instead of spanning the whole box. */
 #other-profile-columns {
   display: flex;
+  flex: 1 1 auto;
   gap: 28px;
-  align-items: flex-start;
+  align-items: stretch;
   justify-content: center;
 }
 
@@ -3094,8 +3100,9 @@ html.third-person-active #companion-bark {
 
 #other-profile-bio-motto {
   flex: 1 1 380px;
-  max-width: 380px;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
@@ -8530,14 +8537,25 @@ html.ui-theme-old #menu-player-badge {
   line-height: 1;
 }
 
-#menu-avatar-level::before {
+/* Black star behind (::before) and a slightly smaller yellow star on top
+   (::after) = a black outline, so the badge doesn't blend into a yellow
+   avatar. (A drop-shadow can't do it - clip-path cuts the filter off.) */
+#menu-avatar-level::before,
+#menu-avatar-level::after {
   content: '';
   position: absolute;
-  inset: 0;
   z-index: -1;
   clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+
+#menu-avatar-level::before {
+  inset: -4px;
+  background: #000;
+}
+
+#menu-avatar-level::after {
+  inset: 0;
   background: #ffd400;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
 }
 
 #menu-player-name-row {
