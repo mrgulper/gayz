@@ -596,6 +596,10 @@ Escape before dawn.</p>
                 <span>Store</span>
                 <span class="nav-badge-dot" id="store-new-dot" style="display: none"></span>
               </button>
+              <button id="market-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5" fill="currentColor" stroke="none"/></svg>
+                <span>Market</span>
+              </button>
               <button id="upgrades-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="6,11 12,5 18,11"/></svg>
                 <span>Upgrades</span>
@@ -648,8 +652,11 @@ Escape before dawn.</p>
                 var __order = Array.isArray(__n && __n.navOrder) && __n.navOrder.length === 8 ? __n.navOrder : ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'menu-inventory-btn', 'quests-btn', 'friends-btn', 'achievements-btn']
                 __order.forEach(function (id, i) {
                   var btn = document.getElementById(id)
-                  if (btn) btn.style.order = i
+                  if (btn) btn.style.order = i * 2
                 })
+                // Market always sits right after Store (same as _applyNavOrder).
+                var __m = document.getElementById('market-btn')
+                if (__m) __m.style.order = __order.indexOf('coinshop-btn') * 2 + 1
               } catch (e) {}
             </script>
 
@@ -3150,6 +3157,19 @@ Escape before dawn.</p>
       <div id="map-lightbox-canvas"></div>
     </div>
   </div>
+      <!-- Market (2026-10-01): its own panel, opened by the Market button
+           right under Store. Cards come from MARKET_SKINS (MarketSkins.js);
+           click one to buy it. -->
+      <div id="market-panel">
+        <div class="panel-box">
+          <button type="button" class="panel-close-btn" aria-label="Close">&times;</button>
+          <h2 id="market-panel-title">Market</h2>
+          <div class="panel-fixed-content">
+            <div id="shop-market-grid"></div>
+          </div>
+        </div>
+      </div>
+
       <div id="shop-panel">
         <div class="panel-box">
           <button type="button" class="panel-close-btn" aria-label="Close">&times;</button>
@@ -3317,10 +3337,6 @@ Escape before dawn.</p>
                 <button type="button" id="shop-skin-buy-btn">Buy</button>
                 <div id="shop-skin-badge" style="display: none">Owned</div>
               </div>
-              <!-- Market (2026-10-01): skins for coins. Cards come from
-                   MARKET_SKINS (MarketSkins.js); click one to buy it. -->
-              <h3 class="crate-section-heading" id="shop-market-heading">Market</h3>
-              <div id="shop-market-grid"></div>
             </div>
           </div>
         </div>

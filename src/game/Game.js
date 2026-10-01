@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
@@ -6049,7 +6050,9 @@ export class Game {
     this.invSkinMenuInspect = document.getElementById('inv-skin-menu-inspect')
     this.invSkinMenuSell = document.getElementById('inv-skin-menu-sell')
     this.shopMarketGrid = document.getElementById('shop-market-grid')
-    this.shopMarketHeading = document.getElementById('shop-market-heading')
+    this.marketPanel = document.getElementById('market-panel')
+    this.marketPanelTitle = document.getElementById('market-panel-title')
+    this.marketBtn = document.getElementById('market-btn')
     this.invSkinPreviewCanvas = document.getElementById('inv-skin-preview-canvas')
     this.inventoryWeaponsList = document.getElementById('inventory-weapons-list')
     this.serverBtn = document.getElementById('server-btn')
@@ -8138,6 +8141,8 @@ export class Game {
         // you kept pressing it (reported as "the Upgrades thing is on my
         // screen" after Escape, Upgrades, Escape).
         this._closeUpgradesPanel()
+      } else if (e.code === 'Escape' && this.marketPanel && this.marketPanel.style.display !== 'none') {
+        this._closeMarketPanel()
       } else if (e.code === 'Escape' && this.shopPanel && this.shopPanel.style.display !== 'none') {
         // Same "reachable from the pause overlay now, needs its own
         // Escape-to-close" fix as Upgrades right above - Store wasn't
@@ -11235,6 +11240,7 @@ export class Game {
       })
     }
     this.coinshopBtn.addEventListener('click', () => trackAndOpen(() => this._openShopPanel()))
+    this.marketBtn?.addEventListener('click', () => trackAndOpen(() => this._openMarketPanel()))
     this._bindHomepageBatch()
     CloudSaveUI.bindCloudSave(this)
     CloudSaveUI.installChangeTracking(this)
@@ -11334,6 +11340,9 @@ export class Game {
     }
     this.shopPanel.addEventListener('click', (e) => {
       if (e.target === this.shopPanel) this._closeShopPanel()
+    })
+    this.marketPanel?.addEventListener('click', (e) => {
+      if (e.target === this.marketPanel) this._closeMarketPanel()
     })
     if (this.shopSkinBuyBtn) this.shopSkinBuyBtn.addEventListener('click', () => this._buyShopSkin())
     if (this.otherProfilePanel) {
@@ -12289,10 +12298,14 @@ export class Game {
   }
 
   _applyNavOrder() {
+    // Even slots for the 8 reorderable buttons, so Market (not reorderable)
+    // can always take the odd slot right after Store.
     this.settings.navOrder.forEach((id, i) => {
       const btn = document.getElementById(id)
-      if (btn) btn.style.order = i
+      if (btn) btn.style.order = i * 2
     })
+    const market = document.getElementById('market-btn')
+    if (market) market.style.order = this.settings.navOrder.indexOf('coinshop-btn') * 2 + 1
   }
 
   // Settings Search - filters .audio-row rows within whichever tab is
@@ -15331,6 +15344,7 @@ export class Game {
   _bindPanelRouting() {
     this._routes = [
       { slug: 'store', panel: this.shopPanel, open: () => this._openShopPanel() },
+      { slug: 'market', panel: this.marketPanel, open: () => this._openMarketPanel() },
       { slug: 'upgrades', panel: this.upgradesPanel, open: () => this._openUpgradesPanel() },
       {
         slug: 'quests', panel: this.questsPanel, open: () => this._openQuestsPanel(),
@@ -15470,6 +15484,7 @@ export class Game {
     if (this.featuresPanel) this._closeFeaturesPanel()
     if (this.skindesignerPanel) this._closeSkinDesignerPanel()
     if (this.shopPanel) this._closeShopPanel()
+    if (this.marketPanel) this._closeMarketPanel()
     if (this.whatsNewPanel) this._closeWhatsNewPanel()
     if (this.sharePanel) this._closeSharePanel()
   }
@@ -16125,11 +16140,24 @@ export class Game {
       .map((skin) => ({ ...skin, name: skin.nameKey ? t(skin.nameKey) : skin.name, owned: skin.count(this) }))
   }
 
-  // Store > Market: a card per skin with its price (or Owned); clicking
+  // Market panel (its own nav button, right under Store): opened like every
+  // other menu panel.
+  _openMarketPanel() {
+    this._closeAllMenuPanels()
+    if (!this.marketPanel) return
+    this.marketPanel.style.display = 'flex'
+    if (this.marketPanelTitle) this.marketPanelTitle.textContent = t('skinModeMarket')
+    this._renderShopMarket()
+  }
+
+  _closeMarketPanel() {
+    if (this.marketPanel) this.marketPanel.style.display = 'none'
+  }
+
+  // Market panel grid: a card per skin with its price (or Owned); clicking
   // one buys it. Same card look as Inventory > Character.
   _renderShopMarket() {
     if (!this.shopMarketGrid) return
-    if (this.shopMarketHeading) this.shopMarketHeading.textContent = t('skinModeMarket')
     const entries = this._marketSkinEntries()
     this.shopMarketGrid.innerHTML = entries.map((skin) => {
       const rarity = SKIN_RARITIES[skin.rarity] || SKIN_RARITIES.common
@@ -16457,6 +16485,7 @@ export class Game {
     this.questsBtn.querySelector('span').textContent = t('questsBtn')
     this.achievementsBtn.querySelector('span').textContent = t('achievementsBtn')
     this.coinshopBtn.querySelector('span').textContent = t('coinshopBtn')
+    if (this.marketBtn) this.marketBtn.querySelector('span').textContent = t('skinModeMarket')
     if (this.hubBtn) this.hubBtn.querySelector('span').textContent = t('hubBtn')
     if (this.howtoplayNavLink) this.howtoplayNavLink.querySelector('span').textContent = t('howtoplayPanelTitle')
     if (this.whatsNewLink) this.whatsNewLink.querySelector('span').textContent = t('navLinkWhatsNew')
@@ -17757,13 +17786,113 @@ export class Game {
   // that isn't in your hotbar right now. Read-only by design - this tab's
   // job is showing progress, not reassigning loadouts (the Loadout panel
   // and this same Inventory panel's hotbar-assign buttons already do that).
+  // Inventory > Weapons (2026-10-01): a card per weapon's Default skin, in
+  // the same Kirka-style grid as Character - the old list of names with
+  // mastery kill counts ("0/75") is gone from here. Pictures are rendered
+  // once from each weapon's own viewmodel (_weaponThumbnails).
   _renderInventoryWeapons() {
     if (!this.inventoryWeaponsList) return
-    this.inventoryWeaponsList.innerHTML = this.weapons
+    const weapons = this.weapons
       .getSummary()
       .sort((a, b) => t(a.nameKey).localeCompare(t(b.nameKey)))
-      .map((w) => `<div class="weapon-mastery-row"><span>${t(w.nameKey)}</span>${this._masteryTagHtml(w)}</div>`)
-      .join('')
+    const rarity = SKIN_RARITIES.common
+    const thumbs = this._weaponThumbCache || {}
+    this.inventoryWeaponsList.innerHTML = weapons.map((w) => {
+      const name = t(w.nameKey)
+      const icon = WEAPON_ICON_PATHS[w.id]
+      const picture = thumbs[w.id]
+        ? `<img class="inv-weapon-card-img" alt="" draggable="false" src="${thumbs[w.id]}" />`
+        : icon ? `<svg class="inv-weapon-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${icon}</svg>` : ''
+      return `<div class="inv-skin-card inv-weapon-card" data-weapon-card="${w.id}" style="--rarity: ${rarity.color}" title="${_escapeHtml(`${name} - ${t('skinDefault')}`)}">`
+        + `<span class="inv-skin-card-name">${_escapeHtml(name)}</span>`
+        + picture
+        + `<span class="inv-weapon-card-skin">${_escapeHtml(t('skinDefault'))}</span>`
+        + '<span class="inv-skin-card-count">1</span>'
+        + '</div>'
+    }).join('')
+    if (!this._weaponThumbCache) {
+      // After the panel has painted, so opening Inventory never waits on it.
+      setTimeout(() => {
+        this._weaponThumbCache = this._weaponThumbnails()
+        if (this.menuInventoryPanel?.style.display !== 'none') this._renderInventoryWeapons()
+      }, 50)
+    }
+  }
+
+  // Side-view picture of every weapon, drawn once with a small throwaway
+  // renderer (its own canvas, so the game's renderer and frame are never
+  // touched) and kept as data URLs. Hands are left out.
+  _weaponThumbnails() {
+    const out = {}
+    let renderer
+    try {
+      const canvas = document.createElement('canvas')
+      renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true })
+      renderer.setPixelRatio(1)
+      renderer.setSize(240, 140, false)
+      renderer.setClearColor(0x000000, 0)
+      const scene = new THREE.Scene()
+      // Most guns are fully metallic (metalness 1), which only shows what it
+      // reflects - without an environment they render pure black.
+      const pmrem = new THREE.PMREMGenerator(renderer)
+      scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+      pmrem.dispose()
+      // Bright, even studio light - most guns are dark metal and would
+      // otherwise read as black silhouettes on the dark cards.
+      scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8a9a, 2.6))
+      const key = new THREE.DirectionalLight(0xffffff, 3)
+      key.position.set(4, 3, 1)
+      scene.add(key)
+      const rim = new THREE.DirectionalLight(0xffffff, 1.2)
+      rim.position.set(-2, 2, -3)
+      scene.add(rim)
+      const camera = new THREE.PerspectiveCamera(30, 240 / 140, 0.01, 50)
+      const box = new THREE.Box3()
+      const meshBox = new THREE.Box3()
+      for (const [id, vm] of Object.entries(this.weapons.viewmodels || {})) {
+        const model = vm.clone(true)
+        model.position.set(0, 0, 0)
+        model.rotation.set(0, 0, 0)
+        model.scale.set(1, 1, 1)
+        model.visible = true
+        const hands = []
+        model.traverse((o) => { if (o.userData?.isHand) hands.push(o) })
+        for (const h of hands) h.parent?.remove(h)
+        scene.add(model)
+        model.updateMatrixWorld(true)
+        // Bounds of what's actually visible (hidden parts like scopes or
+        // alternate melee variants would otherwise stretch the framing).
+        box.makeEmpty()
+        model.traverse((o) => {
+          if (!o.isMesh || !o.geometry) return
+          for (let p = o; p; p = p.parent) if (!p.visible) return
+          if (!o.geometry.boundingBox) o.geometry.computeBoundingBox()
+          meshBox.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld)
+          box.union(meshBox)
+        })
+        if (!box.isEmpty()) {
+          const center = box.getCenter(new THREE.Vector3())
+          const size = box.getSize(new THREE.Vector3())
+          // Guns point along -Z, so look from the side (+X) with the
+          // barrel running left-right; fit the longer of length/height.
+          const fitH = Math.max(size.y, size.z / camera.aspect) * 1.15
+          const dist = fitH / 2 / Math.tan((camera.fov * Math.PI) / 360) + size.x
+          camera.position.set(center.x + dist, center.y + dist * 0.12, center.z)
+          camera.lookAt(center)
+          renderer.render(scene, camera)
+          out[id] = canvas.toDataURL('image/png')
+        }
+        scene.remove(model)
+      }
+    } catch (err) {
+      console.warn('Weapon pictures failed, using icons instead', err)
+    } finally {
+      if (renderer) {
+        renderer.dispose()
+        renderer.forceContextLoss()
+      }
+    }
+    return out
   }
 
   _refreshInventoryPanel() {
@@ -19944,7 +20073,6 @@ export class Game {
     }
     this._renderShopSkinState()
     this._renderCrateTiers()
-    this._renderShopMarket()
   }
 
   _renderShopSkinState() {
