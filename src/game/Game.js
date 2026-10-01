@@ -9895,16 +9895,18 @@ export class Game {
         this._closeInventorySkinMenu()
         if (id) this._inspectInventorySkin(id)
       })
-      this.invSkinMenuSell?.addEventListener('click', () => {
+      const tradeClick = (btn, open) => btn?.addEventListener('click', () => {
         const id = this._invSkinMenuFor
         this._closeInventorySkinMenu()
-        if (id) this._openSellDialog(id)
+        if (!id) return
+        if (btn.classList.contains('locked')) {
+          this._showHomepageToast(t('marketCantTrade'))
+          return
+        }
+        open(id)
       })
-      this.invSkinMenuMarket?.addEventListener('click', () => {
-        const id = this._invSkinMenuFor
-        this._closeInventorySkinMenu()
-        if (id) this._openListDialog(id)
-      })
+      tradeClick(this.invSkinMenuSell, (id) => this._openSellDialog(id))
+      tradeClick(this.invSkinMenuMarket, (id) => this._openListDialog(id))
       document.addEventListener('click', () => this._closeInventorySkinMenu())
     }
     if (this.invSkinSearch) this.invSkinSearch.addEventListener('input', () => this._renderInventorySkins())
@@ -16531,14 +16533,14 @@ export class Game {
     this.invSkinMenuEquip.textContent = equipped ? t('skinEquipped') : t('skinEquip')
     this.invSkinMenuEquip.disabled = equipped
     this.invSkinMenuInspect.textContent = t('skinInspect')
+    // Always all four buttons, like Kirka; on a skin that can't be traded
+    // (Default, an uploaded skin) Market/Sell are faded and say why.
     const tradable = !!entry?.sell && owned > 0
-    if (this.invSkinMenuSell) {
-      this.invSkinMenuSell.style.display = tradable ? '' : 'none'
-      this.invSkinMenuSell.textContent = t('marketSellBtn')
-    }
-    if (this.invSkinMenuMarket) {
-      this.invSkinMenuMarket.style.display = tradable ? '' : 'none'
-      this.invSkinMenuMarket.textContent = t('marketListBtn')
+    for (const [btn, key] of [[this.invSkinMenuMarket, 'marketListBtn'], [this.invSkinMenuSell, 'marketSellBtn']]) {
+      if (!btn) continue
+      btn.textContent = t(key)
+      btn.classList.toggle('locked', !tradable)
+      btn.setAttribute('aria-disabled', tradable ? 'false' : 'true')
     }
     const side = this.invSkinMenu.parentElement.getBoundingClientRect()
     const rect = card.getBoundingClientRect()

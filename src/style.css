@@ -12402,6 +12402,7 @@ html.night-vision-active #app {
 #inv-skin-menu-inspect { background: #2a8fd1; }
 #inv-skin-menu-sell { background: #c0392b; }
 #inv-skin-menu-market { background: #e0a526; color: #1a1408; }
+#inv-skin-menu button.locked { opacity: 0.4; filter: grayscale(0.6); cursor: not-allowed; }
 /* Seller line on Market cards. */
 .market-card-seller {
   position: absolute;
