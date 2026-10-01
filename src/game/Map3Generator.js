@@ -179,7 +179,9 @@ export function generateMap3() {
     const { x0, x1, z0, z1 } = box
     const wall = pick(style.wall)
     const floors = randInt(style.floors[0], style.floors[1])
-    const shape = style.pitched ? pick(['rect', 'L']) : pick(['rect', 'L', 'L', 'U', 'notch'])
+    // Sloped roofs only sit right on plain rectangles - on an L they came
+    // out as a jagged staircase.
+    const shape = style.pitched ? 'rect' : pick(['rect', 'L', 'L', 'U', 'notch'])
     const foot = footprintFor(x0, x1, z0, z1, shape)
     const tiers = [{ foot, from: 0, to: floors }]
     if (style.setback && floors >= 5) {
@@ -195,7 +197,10 @@ export function generateMap3() {
     const standing = (x, z) => {
       if (!ruined) return Infinity
       const n = Math.sin(x * 0.9 + z * 0.4) + Math.sin(z * 1.3 - x * 0.2)
-      return top - Math.max(0, Math.round((n + 1.2) * 2.4))
+      // Low buildings keep their roof (broken windows and holes only); a
+      // tall one loses a ragged chunk off its top.
+      if (floors < 3) return Infinity
+      return top - Math.max(0, Math.round((n + 1.2) * Math.min(2.4, floors * 0.4)))
     }
     for (const tier of tiers) {
       const isWall = (x, z) => tier.foot(x, z) && (!tier.foot(x + 1, z) || !tier.foot(x - 1, z) || !tier.foot(x, z + 1) || !tier.foot(x, z - 1))
@@ -231,35 +236,37 @@ export function generateMap3() {
         }
       }
     }
-    // Pitched roof: steps up from the two long sides to a ridge of slabs.
+    // Sloped roof: rises half a block per cell from both long sides (a
+    // slab, then a full block, then a slab one higher...) to the ridge,
+    // overhanging the walls by one block all round. The two short ends
+    // are filled in with wall up to the roof line.
     if (style.pitched) {
       const alongX = x1 - x0 >= z1 - z0
-      const span = alongX ? z1 - z0 : x1 - x0
-      const roofMat = pick(['darkoakplanks', 'redterracotta', 'brick', 'spruceplanks'])
-      for (let k = 0; ; k++) {
-        const y = top + k
-        const lo = (alongX ? z0 : x0) - 1 + k
-        const hi = (alongX ? z1 : x1) + 1 - k
-        if (hi < lo) break
-        for (let x = x0 - 1; x <= x1 + 1; x++) for (let z = z0 - 1; z <= z1 + 1; z++) {
-          const across = alongX ? z : x
-          if (across !== lo && across !== hi) continue
-          const fx = Math.min(Math.max(x, x0), x1)
-          const fz = Math.min(Math.max(z, z0), z1)
-          if (!foot(fx, fz)) continue
-          set(x, y, z, lo === hi || hi - lo === 1 ? 'darkoakslab' : roofMat)
+      const [roofBlock, roofSlab] = pick([['darkoakplanks', 'darkoakslab'], ['spruceplanks', 'spruceslab'], ['brick', 'brickslab'], ['redterracotta', 'redterracottaslab'], ['deepslatetiles', 'deepslatetilesslab']])
+      const lo0 = (alongX ? z0 : x0) - 1
+      const hi0 = (alongX ? z1 : x1) + 1
+      let ridge = 0
+      for (let a = lo0; a <= hi0; a++) {
+        const d = Math.min(a - lo0, hi0 - a)
+        const y = top + Math.floor(d / 2)
+        ridge = Math.max(ridge, y)
+        const type = d % 2 === 0 ? roofSlab : roofBlock
+        for (let b = (alongX ? x0 : z0) - 1; b <= (alongX ? x1 : z1) + 1; b++) {
+          const [x, z] = alongX ? [b, a] : [a, b]
+          set(x, y, z, type)
         }
-        // Gable ends are walls.
-        for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) {
-          const across = alongX ? z : x
-          const end = alongX ? x === x0 || x === x1 : z === z0 || z === z1
-          if (end && foot(x, z) && across > (alongX ? z0 : x0) + k && across < (alongX ? z1 : x1) - k) set(x, y, z, wall)
+        // Gable ends: wall under the roof line, inside the walls' width.
+        if (a > lo0 && a < hi0) {
+          for (const b of alongX ? [x0, x1] : [z0, z1]) {
+            const [x, z] = alongX ? [b, a] : [a, b]
+            for (let gy = top; gy < y; gy++) set(x, gy, z, wall)
+          }
         }
       }
-      // Chimney.
-      const cx = x0 + 1
-      const cz = z0 + 1
-      if (foot(cx, cz)) fill(cx, top, cz, cx, top + Math.ceil(span / 2) + 1, cz, 'brick')
+      // Chimney through the roof.
+      const cx = alongX ? x0 + 2 : x0 + 1
+      const cz = alongX ? z0 + 1 : z0 + 2
+      fill(cx, top, cz, cx, ridge + 1, cz, 'brick')
     }
     // Front door, on the facade wall nearest the middle.
     const midX = Math.floor((x0 + x1) / 2)
@@ -292,21 +299,32 @@ export function generateMap3() {
         }
       }
     }
-    // Ladder up through every floor, in a corner just inside the walls.
-    // (A cell inside the walls, so a wall is right behind it.)
-    const inside = (x, z) => foot(x, z) && foot(x + 1, z) && foot(x - 1, z) && foot(x, z + 1) && foot(x, z - 1)
+    // Ladder up through every floor, just inside a wall of the TOP tier -
+    // a tower that steps in higher up would otherwise leave the ladder
+    // standing outside in the open above the step.
+    const topFoot = tiers[tiers.length - 1].foot
+    const inTop = (x, z) => topFoot(x, z) && topFoot(x + 1, z) && topFoot(x - 1, z) && topFoot(x, z + 1) && topFoot(x, z - 1)
     let lx = null
     let lz = null
-    for (const [cx, cz] of [[x0 + 1, z0 + 1], [x1 - 1, z1 - 1], [x1 - 1, z0 + 1], [x0 + 1, z1 - 1]]) {
-      if (inside(cx, cz) && (Math.abs(cx - dx) > 1 || Math.abs(cz - dz) > 1)) {
-        lx = cx
-        lz = cz
+    let wallSide = null
+    for (let x = x0; x <= x1 && lx === null; x++) for (let z = z0; z <= z1; z++) {
+      if (!inTop(x, z) || (Math.abs(x - dx) <= 1 && Math.abs(z - dz) <= 1)) continue
+      const side = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([ox, oz]) => !inTop(x + ox, z + oz))
+      if (side) {
+        lx = x
+        lz = z
+        wallSide = [x + side[0], z + side[1]]
         break
       }
     }
     if (lx !== null && floors > 1) {
       for (let f = 1; f < floors; f++) clear(lx, f * 4 - 1, lz)
-      for (let y = 1; y < (floors - 1) * 4 + 3; y++) if (!get(lx, y, lz)) set(lx, y, lz, 'ladder')
+      for (let y = 1; y < (floors - 1) * 4 + 3; y++) {
+        if (!get(lx, y, lz)) set(lx, y, lz, 'ladder')
+        // Below a step-in, the top tier's wall isn't there yet: a support
+        // column behind the ladder instead.
+        if (!get(wallSide[0], y, wallSide[1])) set(wallSide[0], y, wallSide[1], style.trim)
+      }
     }
     // Balconies: a slab ledge with a fence rail under some windows.
     if (style.balconies && !ruined) {
@@ -344,7 +362,8 @@ export function generateMap3() {
       if (foot(ix, iz) && !get(ix, 1, iz)) set(ix, 1, iz, pick(style.props))
     }
     if (ruined) {
-      for (let i = 0; i < 4; i++) {
+      // Blown-out holes only in tall buildings (a low one would lose its roof).
+      for (let i = 0; i < (floors >= 3 ? 4 : 0); i++) {
         const hx = randInt(x0, x1)
         const hz = randInt(z0, z1)
         const hy = randInt(4, Math.max(4, top - 2))
@@ -666,6 +685,18 @@ export function generateMap3() {
     const x = randInt(-HALF + 2, HALF - 3)
     const z = randInt(-HALF + 2, HALF - 3)
     if (get(x, -1, z) === 'grass' && !get(x, 0, z)) set(x, 0, z, pick(['leaves', 'haybale', 'mossycobblestone']))
+  }
+
+  // Ladders need something behind them: drop any ladder block that ended
+  // up with nothing solid beside it (a ruin's hole, a collapsed wall).
+  const solidAt = (x, y, z) => {
+    const t = get(x, y, z)
+    return !!t && t !== 'ladder' && t !== 'water'
+  }
+  for (const [k, type] of [...cells]) {
+    if (type !== 'ladder') continue
+    const [x, y, z] = k.split(',').map(Number)
+    if (!solidAt(x + 1, y, z) && !solidAt(x - 1, y, z) && !solidAt(x, y, z + 1) && !solidAt(x, y, z - 1)) clear(x, y, z)
   }
 
   const blocks = []
