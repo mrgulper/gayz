@@ -141,6 +141,22 @@
     width: 74px; background: var(--bg); border: 1px solid var(--line); color: var(--text);
     border-radius: 5px; padding: 5px 6px; font: 0.78rem ui-monospace, "SF Mono", Menlo, monospace; text-transform: uppercase;
   }
+  /* Character / Weapon tabs above the slot bar. */
+  .kind-tabs {
+    display: flex; justify-content: center; gap: 8px;
+    padding: 10px 12px 0;
+  }
+  .kind-tabs .tbtn { padding: 7px 18px; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 6px; }
+  .soon-tag { font-size: 0.62rem; font-weight: 700; padding: 1px 6px; border-radius: 999px; background: var(--line); color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.3px; }
+  .tbtn.active .soon-tag { background: rgba(0, 0, 0, 0.28); color: inherit; }
+  .weapon-soon { text-align: center; padding: 70px 20px; color: var(--text-dim); }
+  .weapon-soon h2 { margin: 0 0 8px; color: var(--text); font-size: 1.3rem; }
+  .weapon-soon p { margin: 0; }
+  body.weapon-tab .slot-bar, body.weapon-tab header, body.weapon-tab main { display: none !important; }
+  /* Undo/redo arrows, top-left of the 3D preview (like Google Slides). */
+  .undo-redo { display: flex; gap: 4px; margin-right: auto; }
+  .icon-btn { display: inline-flex; align-items: center; justify-content: center; padding: 4px 7px; }
+  .icon-btn svg { width: 18px; height: 18px; fill: currentColor; }
   /* Slots 1-10 bar - the very first thing on the page. */
   .slot-bar {
     display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px;
@@ -269,6 +285,15 @@
 </head>
 <body>
 
+<nav class="kind-tabs" aria-label="What to design">
+  <button class="tbtn active" id="tabCharacter" type="button">Character</button>
+  <button class="tbtn" id="tabWeapon" type="button">Weapon <span class="soon-tag">Coming soon</span></button>
+</nav>
+<section class="weapon-soon" id="weaponSoon" hidden>
+  <h2>Weapon skins</h2>
+  <p>Coming soon - you'll be able to paint your own weapon skins here.</p>
+</section>
+
 <nav class="slot-bar" id="slotBar" aria-label="Skin slots">
   <span class="slot-bar-label">Slot</span>
 </nav>
@@ -281,6 +306,10 @@
 <main>
   <div class="stage">
     <div class="stage-top">
+      <span class="undo-redo">
+        <button class="tbtn icon-btn" id="undoBtn" disabled title="Undo (Ctrl/Cmd+Z)" aria-label="Undo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg></button>
+        <button class="tbtn icon-btn" id="redoBtn" disabled title="Redo (Shift+Ctrl/Cmd+Z)" aria-label="Redo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5 1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z"/></svg></button>
+      </span>
       <input type="color" id="stageBgWell" class="color-well" value="#d4a068" title="Change the backdrop color behind your character" aria-label="Change stage backdrop color">
       <span class="view-presets">
         <button class="tbtn" id="viewFrontBtn" title="Snap to a straight-on front view">Front</button>
@@ -338,8 +367,6 @@
     </div>
 
     <div class="toolbar">
-      <button class="tbtn" id="undoBtn" disabled title="Undo (Ctrl/Cmd+Z)">Undo</button>
-      <button class="tbtn" id="redoBtn" disabled title="Redo (Shift+Ctrl/Cmd+Z)">Redo</button>
       <button class="tbtn active" id="gridBtn" title="Show/hide the pixel grid lines (G)">Grid</button>
       <div class="sep"></div>
       <button class="tbtn" id="templateClassicBtn" title="GayZ's default starter skin for this tool">GayZ Default</button>
@@ -2564,6 +2591,16 @@ function snapToView(name) {
   camera.lookAt(controls.target);
   controls.update();
 }
+// Character / Weapon tabs (Weapon is a coming-soon placeholder for now).
+function showDesignTab(weapon) {
+  document.body.classList.toggle('weapon-tab', weapon);
+  document.getElementById('weaponSoon').hidden = !weapon;
+  document.getElementById('tabCharacter').classList.toggle('active', !weapon);
+  document.getElementById('tabWeapon').classList.toggle('active', weapon);
+  if (!weapon) resizeRenderer();
+}
+document.getElementById('tabCharacter').addEventListener('click', () => showDesignTab(false));
+document.getElementById('tabWeapon').addEventListener('click', () => showDesignTab(true));
 document.getElementById('viewFrontBtn').addEventListener('click', () => snapToView('front'));
 document.getElementById('viewBackBtn').addEventListener('click', () => snapToView('back'));
 document.getElementById('viewLeftBtn').addEventListener('click', () => snapToView('left'));
