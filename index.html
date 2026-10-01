@@ -1657,7 +1657,6 @@ Escape before dawn.</p>
           <div class="general-tabs">
           <button class="general-tab active" data-general-page="general" id="general-tab-general">General</button>
           <button class="general-tab" data-general-page="clan" id="general-tab-clan">Clan</button>
-          <button class="general-tab" data-general-page="market" id="general-tab-market">Market</button>
         </div>
         <div class="general-tab-page" id="general-page-general">
           <div class="general-section-empty">
@@ -1723,11 +1722,6 @@ Escape before dawn.</p>
           <div class="clan-subtab-page" id="clan-subpage-ranking" style="display: none">
             <h5 id="clan-ranking-heading">Clans</h5>
             <div id="clan-all-list"></div>
-          </div>
-        </div>
-        <div class="general-tab-page" id="general-page-market" style="display: none">
-          <div class="general-section-empty">
-            <p class="general-section-placeholder" id="general-page-market-placeholder">Coming soon.</p>
           </div>
         </div>
         </div>
@@ -3323,6 +3317,10 @@ Escape before dawn.</p>
                 <button type="button" id="shop-skin-buy-btn">Buy</button>
                 <div id="shop-skin-badge" style="display: none">Owned</div>
               </div>
+              <!-- Market (2026-10-01): skins for coins. Cards come from
+                   MARKET_SKINS (MarketSkins.js); click one to buy it. -->
+              <h3 class="crate-section-heading" id="shop-market-heading">Market</h3>
+              <div id="shop-market-grid"></div>
             </div>
           </div>
         </div>
@@ -3814,17 +3812,10 @@ Escape before dawn.</p>
                 <p id="inv-skin-preview-skin"></p>
               </div>
               <div id="inv-skins-side">
-                <div id="inv-skin-top-row">
-                  <div id="inv-skin-modes">
-                    <button type="button" id="inv-skin-mode-mine" class="active"></button>
-                    <button type="button" id="inv-skin-mode-market"></button>
-                  </div>
-                  <input type="text" id="inv-skin-search" autocomplete="off" />
-                </div>
+                <input type="text" id="inv-skin-search" autocomplete="off" />
                 <div id="inventory-skins-list"></div>
                 <div id="inv-skin-menu" style="display: none">
                   <button type="button" id="inv-skin-menu-equip"></button>
-                  <button type="button" id="inv-skin-menu-buy"></button>
                   <button type="button" id="inv-skin-menu-inspect"></button>
                   <button type="button" id="inv-skin-menu-sell"></button>
                 </div>
