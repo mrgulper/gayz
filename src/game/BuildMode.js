@@ -67,7 +67,8 @@ const SAVE_SLOT_COUNT = 3
 // [entries]}. Not a gayz- key on purpose - the whole map is ~42k blocks,
 // and a player who clears it would push a huge list into Cloud Save.
 const MAP3_SLOT = 'map3'
-const MAP3_EDITS_KEY = 'buildmode-map3-edits'
+// Bumped (v2) when the map was redesigned - old edits wouldn't line up.
+const MAP3_EDITS_KEY = 'buildmode-map3-v2-edits'
 // Edits are saved this long after the last change (and on leaving the
 // page), not only on Exit/Save - closing the tab used to lose the build.
 const AUTOSAVE_DELAY_MS = 1500
@@ -348,6 +349,11 @@ export const BLOCK_TYPES = [
   // the geometry; `pattern`/`color` still drive the texture exactly like
   // any cube block - a stair or fence just wears its material on a
   // different-shaped mesh.
+  // Invisible Block (2026-10-01): a full solid cube that draws nothing - you
+  // only see it by the shadow it casts (with the Shadows setting on). It
+  // shows as a faint ghost while you hold it, so you can find it to build
+  // on or break it (see _updateInvisibleGhost).
+  { id: 'invisible', name: 'Invisible Block', color: 0xbfe6ff, pattern: 'glass', roughness: 1, metalness: 0, shape: 'invisible' },
   { id: 'ladder', name: 'Ladder', color: 0x8a6239, pattern: 'ladder', roughness: 0.7, metalness: 0, shape: 'ladder' },
   { id: 'oakstairs', name: 'Oak Stairs', color: 0xb4864a, pattern: 'wood', roughness: 0.85, metalness: 0, shape: 'stairs' },
   { id: 'stonestairs', name: 'Stone Stairs', color: 0x808078, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'stairs' },
@@ -898,8 +904,31 @@ function _shapedBlockTextures(bt) {
 // slab at half height.
 function _blockIcon(bt) {
   if (bt.door) return doorIconURL(bt.door)
+  if (bt.shape === 'invisible') return _invisibleIconURL()
   const source = _shapedSource(bt)
   return blockIconURL(source || bt, 64, bt.shape === 'slab' ? 0.5 : 1)
+}
+
+// The Invisible Block's picker/hotbar icon: a dashed outline of a cube.
+let _invisibleIcon = null
+function _invisibleIconURL() {
+  if (_invisibleIcon) return _invisibleIcon
+  const c = document.createElement('canvas')
+  c.width = c.height = 64
+  const ctx = c.getContext('2d')
+  ctx.strokeStyle = 'rgba(220, 240, 255, 0.9)'
+  ctx.lineWidth = 2.5
+  ctx.setLineDash([5, 4])
+  ctx.lineJoin = 'round'
+  const top = [[32, 8], [56, 20], [32, 32], [8, 20]]
+  ctx.beginPath()
+  top.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)))
+  ctx.closePath()
+  ctx.moveTo(8, 20); ctx.lineTo(8, 46); ctx.lineTo(32, 58); ctx.lineTo(56, 46); ctx.lineTo(56, 20)
+  ctx.moveTo(32, 32); ctx.lineTo(32, 58)
+  ctx.stroke()
+  _invisibleIcon = c.toDataURL()
+  return _invisibleIcon
 }
 
 // Non-cube block shapes (see BLOCK_TYPES' `shape` field) - every other
@@ -1108,6 +1137,10 @@ export class BuildMode {
     this.activeHotbarIndex = 0
     this.selectedType = null
     this._blocks = new Map() // "x,y,z" -> type id
+    // Invisible Blocks' own shadows (see _rebuildInvisibleShadows).
+    this._invisibleKeys = new Set()
+    this._invisShadowDirty = false
+    this._invisShadowMesh = null
     this._doorState = new Map() // "x,y,z" (both halves) -> { facing: 0-3, open }
     // Undo/Redo - every real placeBlock()/removeBlock() call (not a no-op
     // on an already-occupied/already-empty cell) pushes one entry here,
@@ -1413,6 +1446,14 @@ export class BuildMode {
     if (this._menuEl) this._menuEl.style.display = 'none'
   }
 
+  // Invisible Blocks draw nothing, except a faint ghost while the player
+  // holds one - otherwise there'd be no way to find them to break them.
+  _updateInvisibleGhost() {
+    const mat = this._invisibleMaterial
+    if (!mat) return
+    mat.colorWrite = this.selectedType === 'invisible'
+  }
+
   // Tab picker swatch click - assigns that block to whichever hotbar slot
   // is currently active (see _selectHotbarSlot) and equips it immediately,
   // same as picking an item up in Minecraft's creative inventory drops it
@@ -1420,6 +1461,7 @@ export class BuildMode {
   _assignToActiveSlot(id) {
     this.hotbar[this.activeHotbarIndex] = id
     this.selectedType = id
+    this._updateInvisibleGhost()
     this._renderHotbar()
   }
 
@@ -1428,6 +1470,7 @@ export class BuildMode {
   _selectHotbarSlot(index) {
     this.activeHotbarIndex = index
     this.selectedType = this.hotbar[index]
+    this._updateInvisibleGhost()
     this._renderHotbar()
   }
 
@@ -1464,6 +1507,17 @@ export class BuildMode {
     const bt = BLOCK_TYPES.find((b) => b.id === type)
     if (!bt || !bt.shape) return null
     let material = mesh?.material
+    if (!material && bt.shape === 'invisible') {
+      // Draws no color (still casts a shadow - shadows use the shape, not
+      // the color) unless you're holding it (_updateInvisibleGhost).
+      material = this._invisibleMaterial = new THREE.MeshBasicMaterial({
+        color: 0xbfe6ff,
+        transparent: true,
+        opacity: 0.28,
+        depthWrite: false,
+        colorWrite: this.selectedType === 'invisible',
+      })
+    }
     if (!material) {
       const tex = _shapedBlockTextures(bt)
       for (const t of new Set([tex.top, tex.side, tex.bottom])) t.anisotropy = this._maxAnisotropy
@@ -1520,6 +1574,9 @@ export class BuildMode {
   placeBlock(x, y, z, type, skipBoundsUpdate = false, state = null) {
     const key = this._key(x, y, z)
     if (this._blocks.has(key)) return
+    // Any change can move where an Invisible Block's shadow lands.
+    if (this._invisibleKeys.size || type === 'invisible') this._invisShadowDirty = true
+    if (type === 'invisible') this._invisibleKeys.add(key)
     const shape = BLOCK_BY_ID.get(type)?.shape
     // A door's top half only ever comes with its bottom half (below).
     if (shape === 'doortop' && !this._placingDoorTop) return
@@ -1645,6 +1702,8 @@ export class BuildMode {
     const key = this._key(x, y, z)
     const type = this._blocks.get(key)
     if (!type) return
+    if (this._invisibleKeys.size) this._invisShadowDirty = true
+    this._invisibleKeys.delete(key)
     const shape = BLOCK_BY_ID.get(type)?.shape
     // Breaking either half of a door breaks the whole door (recorded as
     // the bottom half, which brings its top back on undo).
@@ -2359,6 +2418,8 @@ export class BuildMode {
       this._instanceKeyByIndex[type] = []
     }
     this._blocks.clear()
+    this._invisibleKeys.clear()
+    this._invisShadowDirty = true
     this._doorState.clear()
     this._chunkCells.clear()
     this._chunks.clear()
@@ -2574,10 +2635,63 @@ export class BuildMode {
     return false
   }
 
+  // Invisible Blocks draw nothing, so without the Shadows setting (off by
+  // default) there would be no way to see one at all. Each gets a soft
+  // dark square on the top of the first block below it - a shadow cast
+  // straight down. With real shadows on, the sun's own shadow shows them
+  // instead and these are hidden (see render()).
+  _rebuildInvisibleShadows() {
+    this._invisShadowDirty = false
+    const targets = new Set()
+    for (const key of this._invisibleKeys) {
+      const [x, y, z] = key.split(',').map(Number)
+      for (let by = y - 1; by >= y - 96; by--) {
+        const t = this._blocks.get(this._key(x, by, z))
+        if (t && t !== 'invisible') {
+          targets.add(this._key(x, by, z))
+          break
+        }
+      }
+    }
+    let mesh = this._invisShadowMesh
+    if (!mesh || mesh.instanceMatrix.count < targets.size) {
+      if (mesh) {
+        this.scene.remove(mesh)
+        mesh.dispose()
+      }
+      const geo = new THREE.PlaneGeometry(BLOCK_SIZE, BLOCK_SIZE)
+      geo.rotateX(-Math.PI / 2)
+      const mat = mesh?.material || new THREE.MeshBasicMaterial({
+        color: 0x000000,
+        transparent: true,
+        opacity: 0.35,
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -2,
+      })
+      mesh = new THREE.InstancedMesh(geo, mat, Math.max(64, targets.size * 2))
+      mesh.frustumCulled = false
+      this.scene.add(mesh)
+      this._invisShadowMesh = mesh
+    }
+    const m = new THREE.Matrix4()
+    let i = 0
+    for (const key of targets) {
+      const [x, y, z] = key.split(',').map(Number)
+      m.makeTranslation((x + 0.5) * BLOCK_SIZE, (y + 1) * BLOCK_SIZE + 0.002, (z + 0.5) * BLOCK_SIZE)
+      mesh.setMatrixAt(i++, m)
+    }
+    mesh.count = i
+    mesh.instanceMatrix.needsUpdate = true
+  }
+
   render() {
     // Chunk meshes are rebuilt here, once per frame, however many blocks
     // changed since the last one (a paste or a load touches thousands).
     if (this._chunks.flush(this._chunkCells)) this._shadowsDirty = true
+    if (this._invisShadowDirty) this._rebuildInvisibleShadows()
+    if (this._invisShadowMesh) this._invisShadowMesh.visible = !this.renderer.shadowMap.enabled
     this._chunks.animate(performance.now() / 1000)
     // The survival game's filmic tone mapping darkens and over-saturates
     // flat block colors (grey stone rendered near-black) - blocks keep
