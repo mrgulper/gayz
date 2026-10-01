@@ -1448,7 +1448,9 @@ function revealOuterLayerIfPainted() {
 // theme's own, human themes also get a random skin tone and sometimes a
 // different hair color; the theme's identity (its dominant colors) stays.
 const NON_HUMAN_THEMES = new Set(['zombie', 'robot', 'ice', 'shadow', 'demon', 'vampire', 'angel']);
-const SKIN_TONES = ['#f0d0b0', '#e0b890', '#c98a55', '#a86a3e', '#7a4a2a', '#5a3620'];
+// Spread evenly from pale to dark (it used to be 4 browns out of 6, so most
+// random skins came out brown - 2026-10-01 report).
+const SKIN_TONES = ['#f8e0cc', '#f0d0b0', '#e8c0a0', '#e0b890', '#d0a074', '#b07848', '#7a4a2a', '#5a3620'];
 const HAIR_COLORS = ['#0a0a0a', '#3a281a', '#6a4a28', '#b07a3a', '#e0c060', '#d8d8d0', '#8a2a1a'];
 function hexToHsl(hex) {
   const { r, g, b } = hexToRgb(hex);
@@ -1509,7 +1511,10 @@ const PART_WORDS = {
   shoes: 'shoe', shoe: 'shoe', boots: 'shoe', sneakers: 'shoe', eyes: 'eye', eye: 'eye', skin: 'skin',
   belt: 'accent', stripes: 'accent', trim: 'accent', fur: 'fur', furred: 'fur',
 }
-const SKIN_WORDS = { pale: 0, light: 1, fair: 0, tan: 2, tanned: 2, olive: 3, brown: 4, dark: 5 }
+const SKIN_WORDS = { pale: 0, white: 1, fair: 1, light: 2, peach: 3, tan: 4, tanned: 4, olive: 5, brown: 6, black: 7, dark: 7 }
+// "white girl", "brown boy", "pale cute girl": a skin word before a person word is the skin tone.
+const PERSON_WORDS = ['girl', 'girly', 'woman', 'lady', 'female', 'queen', 'princess', 'boy', 'man', 'guy', 'male', 'king', 'prince', 'person', 'kid', 'child', 'human', 'dude']
+function personFollows(words, i) { let j = i + 1; while (CUTE_WORDS.includes(words[j]) || words[j] === 'very' || words[j] === 'little') j++; return PERSON_WORDS.includes(words[j]) }
 const HAIR_STYLE_WORDS = { bald: 3, mohawk: 1, long: 2, ponytail: 2, short: 0, fringe: 4, bangs: 4 }
 const GEAR_WORDS = {
   crown: 'crown', tiara: 'crown', hood: 'hood', hooded: 'hood', helmet: 'helmet', armor: 'armor', armour: 'armor',
@@ -1546,7 +1551,7 @@ function parsePrompt(text) {
   const themes = []
   for (const w of words) {
     const i = words.indexOf(w)
-    if (w in SKIN_WORDS && (words[i + 1] === 'skin' || words[i + 1] === 'skinned')) continue
+    if (w in SKIN_WORDS && (words[i + 1] === 'skin' || words[i + 1] === 'skinned' || personFollows(words, i))) continue
     const key = THEMES[w] ? w : ALIASES[w] && !COLOR_WORDS[w] ? ALIASES[w] : null
     if (key && !themes.includes(key)) themes.push(key)
   }
@@ -1555,6 +1560,7 @@ function parsePrompt(text) {
   words.forEach((w, i) => {
     const c = COLOR_WORDS[w]
     if (!c) return
+    if (w in SKIN_WORDS && personFollows(words, i)) return // skin tone, below
     const part = [words[i + 1], words[i + 2]].map((n) => PART_WORDS[n]).find(Boolean)
     if (part === 'skin') return // handled by SKIN_WORDS below
     if (part) colors[part] = { hex: c, name: w }
@@ -1571,7 +1577,7 @@ function parsePrompt(text) {
   if (!themes.length) for (const l of loose) if (ALIASES[l.name]) { themes.push(ALIASES[l.name]); break }
   const describedSomething = Object.keys(colors).length || loose.length || words.some((w) => GEAR_WORDS[w] || w in HAIR_STYLE_WORDS || FEMININE_WORDS.includes(w) || MASCULINE_WORDS.includes(w))
   let skinTone = null
-  words.forEach((w, i) => { if (w in SKIN_WORDS && (words[i + 1] === 'skin' || words[i + 1] === 'skinned')) skinTone = SKIN_WORDS[w] })
+  words.forEach((w, i) => { if (w in SKIN_WORDS && (words[i + 1] === 'skin' || words[i + 1] === 'skinned' || personFollows(words, i))) skinTone = SKIN_WORDS[w] })
   let hairStyle = null
   words.forEach((w, i) => { if (w in HAIR_STYLE_WORDS && (w === 'bald' || w === 'mohawk' || w === 'ponytail' || words[i + 1] === 'hair')) hairStyle = HAIR_STYLE_WORDS[w] })
   const gear = [...new Set(words.map((w) => GEAR_WORDS[w]).filter(Boolean))]
@@ -1648,6 +1654,7 @@ function applyGearWord(word, p, rng) {
 function planSkin(parsed, rng, randomTheme) {
   const themeKey = parsed.themes[0] || randomTheme
   const p = varyPalette(themeKey, THEMES[themeKey] || THEMES[THEME_KEYS[0]], rng)
+  if (parsed.skinTone !== null) p.skin = SKIN_TONES[parsed.skinTone] // before hair is picked to contrast with it
   const o = {}
   if (themeKey === 'girl') {
     let outfit = GIRL_OUTFITS[pick(rng, GIRL_OUTFITS.length)]
