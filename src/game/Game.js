@@ -173,6 +173,7 @@ import { AUTO_QUALITY_LEVELS, AutoQualityController, guessInitialLevel, loadSave
 import { setColorblindMode } from './Accessibility.js'
 import { registerZone } from './Zones.js'
 import { TouchControls } from './TouchControls.js'
+import { MARKET_SKINS, MARKET_PRICES } from './MarketSkins.js'
 
 // Companion flavor barks - plain English rather than full i18n, since these
 // are throwaway personality lines, not core UI text.
@@ -1897,9 +1898,13 @@ function loadShopProgress() {
       // actually consumes one and rolls the reward, so a crate can sit
       // unopened across a reload same as anything else owned.
       crateStock: parsed.crateStock || {},
+      // Inventory > Character skins bought in the Market, { skinId: count }
+      // (2026-10-01). Numbers, so Cloud Save adds up buys/sells made on
+      // two devices instead of one overwriting the other.
+      charSkins: (parsed.charSkins && typeof parsed.charSkins === 'object') ? parsed.charSkins : {},
     }
   } catch {
-    return { points: 0, coins: 0, cash: 0, gems: 0, ownsShopSkin: false, ownedSkins: new Set(), equippedSkin: null, ownedOutfits: new Set(), equippedOutfit: null, ownedHats: new Set(), equippedHat: null, challengeKillCounts: {}, weaponChallengesUnlocked: new Set(), shopPurchased: new Set(), attachments: [], crateStock: {} }
+    return { points: 0, coins: 0, cash: 0, gems: 0, ownsShopSkin: false, ownedSkins: new Set(), equippedSkin: null, ownedOutfits: new Set(), equippedOutfit: null, ownedHats: new Set(), equippedHat: null, challengeKillCounts: {}, weaponChallengesUnlocked: new Set(), shopPurchased: new Set(), attachments: [], crateStock: {}, charSkins: {} }
   }
 }
 
@@ -1935,6 +1940,7 @@ function saveShopProgress(game) {
         return ids
       }),
       crateStock: game.crateStock,
+      charSkins: game.charSkins,
     })
     // Skip identical writes - this runs from _updateStatsPanel after nearly
     // every points/coins change, and a localStorage write is synchronous on
@@ -3984,7 +3990,15 @@ const EDITOR_MIN_PIXEL_RATIO = 0.6
 // these while it's the one equipped (see _inventorySkinEntries).
 const INVENTORY_SKINS = [
   { id: 'default', nameKey: 'skinDefault', rarity: 'common', dataUrl: DEFAULT_SKIN_DATA_URL, count: () => 1 },
-  { id: 'gaygarx', name: 'GaygarX', rarity: 'legendary', dataUrl: SHOP_SKIN_PREVIEW_DATA_URL, count: (g) => (g.ownsShopSkin ? 1 : 0) },
+  // Sells back for half its 10,000-gem Shop price, in gems.
+  { id: 'gaygarx', name: 'GaygarX', rarity: 'legendary', dataUrl: SHOP_SKIN_PREVIEW_DATA_URL, count: (g) => (g.ownsShopSkin ? 1 : 0), sell: { currency: 'gems', amount: 5000 } },
+  // Market skins (MarketSkins.js): bought with coins, sold for half.
+  ...MARKET_SKINS.map((skin) => ({
+    ...skin,
+    price: MARKET_PRICES[skin.rarity],
+    count: (g) => Math.max(0, Math.floor(Number(g.charSkins?.[skin.id]) || 0)),
+    sell: { currency: 'coins', amount: Math.floor(MARKET_PRICES[skin.rarity] / 2) },
+  })),
 ]
 const SKIN_RARITIES = {
   common: { color: '#9aa0a6', key: 'skinRarityCommon' },
@@ -4953,6 +4967,7 @@ export class Game {
     this.cash = this.shopProgress.cash
     this.gems = this.shopProgress.gems
     this.ownsShopSkin = this.shopProgress.ownsShopSkin
+    this.charSkins = this.shopProgress.charSkins
     this.coinShopPurchased = this.shopProgress.shopPurchased
     this._shakeOffset = new THREE.Vector3()
     this._shakeMagnitude = 0
@@ -6034,6 +6049,11 @@ export class Game {
     this.invSkinMenu = document.getElementById('inv-skin-menu')
     this.invSkinMenuEquip = document.getElementById('inv-skin-menu-equip')
     this.invSkinMenuInspect = document.getElementById('inv-skin-menu-inspect')
+    this.invSkinMenuBuy = document.getElementById('inv-skin-menu-buy')
+    this.invSkinMenuSell = document.getElementById('inv-skin-menu-sell')
+    this.invSkinModeMine = document.getElementById('inv-skin-mode-mine')
+    this.invSkinModeMarket = document.getElementById('inv-skin-mode-market')
+    this._invSkinMode = 'mine'
     this.invSkinPreviewCanvas = document.getElementById('inv-skin-preview-canvas')
     this.inventoryWeaponsList = document.getElementById('inventory-weapons-list')
     this.serverBtn = document.getElementById('server-btn')
@@ -9999,9 +10019,21 @@ export class Game {
         this._closeInventorySkinMenu()
         if (id) this._inspectInventorySkin(id)
       })
+      this.invSkinMenuBuy?.addEventListener('click', () => {
+        const id = this._invSkinMenuFor
+        this._closeInventorySkinMenu()
+        if (id) this._buyMarketSkin(id)
+      })
+      this.invSkinMenuSell?.addEventListener('click', () => {
+        const id = this._invSkinMenuFor
+        this._closeInventorySkinMenu()
+        if (id) this._sellInventorySkin(id)
+      })
       document.addEventListener('click', () => this._closeInventorySkinMenu())
     }
     if (this.invSkinSearch) this.invSkinSearch.addEventListener('input', () => this._renderInventorySkins())
+    this.invSkinModeMine?.addEventListener('click', () => this._setInventorySkinMode('mine'))
+    this.invSkinModeMarket?.addEventListener('click', () => this._setInventorySkinMode('market'))
 
     // Clan panel tab strip (General/Clan/Market) - same isolated
     // class/loop pattern as the other tab strips above.
@@ -16066,6 +16098,7 @@ export class Game {
     if (this.inventoryTabTheme) this.inventoryTabTheme.textContent = t('tabTheme')
     this._renderCrateTiers()
     this._invSkinInspected = null
+    this._setInventorySkinMode('mine', false)
     if (this.invSkinSearch) {
       this.invSkinSearch.value = ''
       this.invSkinSearch.placeholder = t('inventorySkinSearch')
@@ -16093,6 +16126,41 @@ export class Game {
     return entries
   }
 
+  // Market view: every skin with a coin price, owned or not.
+  _marketSkinEntries() {
+    return INVENTORY_SKINS
+      .filter((skin) => skin.price)
+      .map((skin) => ({ ...skin, name: skin.nameKey ? t(skin.nameKey) : skin.name, owned: skin.count(this) }))
+  }
+
+  _shownInventorySkinEntries() {
+    return this._invSkinMode === 'market' ? this._marketSkinEntries() : this._inventorySkinEntries()
+  }
+
+  // "My Skins" / "Market" switch above the skin grid (Kirka's inventory has
+  // the same pair).
+  _setInventorySkinMode(mode, render = true) {
+    this._invSkinMode = mode === 'market' ? 'market' : 'mine'
+    this._invSkinInspected = null
+    if (this.invSkinModeMine) {
+      this.invSkinModeMine.textContent = t('skinModeMine')
+      this.invSkinModeMine.classList.toggle('active', this._invSkinMode === 'mine')
+    }
+    if (this.invSkinModeMarket) {
+      this.invSkinModeMarket.textContent = t('skinModeMarket')
+      this.invSkinModeMarket.classList.toggle('active', this._invSkinMode === 'market')
+    }
+    if (render) {
+      this._renderInventorySkins()
+      this._renderInventorySkinPreview()
+    }
+  }
+
+  _formatSkinPrice(currency, amount) {
+    const n = Math.floor(amount).toLocaleString()
+    return currency === 'gems' ? t('skinPriceGems', { n }) : t('skinPriceCoins', { n })
+  }
+
   _equippedInventorySkinId() {
     const custom = this.settings.customSkinDataUrl
     if (!custom) return 'default'
@@ -16104,7 +16172,8 @@ export class Game {
     this._closeInventorySkinMenu()
     const equippedId = this._equippedInventorySkinId()
     const query = (this.invSkinSearch?.value || '').trim().toLowerCase()
-    const entries = this._inventorySkinEntries().filter((skin) => !query || skin.name.toLowerCase().includes(query))
+    const market = this._invSkinMode === 'market'
+    const entries = this._shownInventorySkinEntries().filter((skin) => !query || skin.name.toLowerCase().includes(query))
     if (!entries.length) {
       this.inventorySkinsList.innerHTML = `<p class="inv-skin-empty">${_escapeHtml(t('skinNoMatch'))}</p>`
       return
@@ -16112,12 +16181,15 @@ export class Game {
     this.inventorySkinsList.innerHTML = entries.map((skin) => {
       const rarity = SKIN_RARITIES[skin.rarity] || SKIN_RARITIES.common
       const classes = ['inv-skin-card']
-      if (skin.id === equippedId) classes.push('equipped')
+      if (skin.id === equippedId && skin.owned > 0) classes.push('equipped')
       if (skin.id === this._invSkinInspected) classes.push('inspected')
+      if (market && skin.owned > 0) classes.push('owned')
       return `<button type="button" class="${classes.join(' ')}" data-inventory-skin="${skin.id}" style="--rarity: ${rarity.color}" title="${_escapeHtml(`${skin.name} - ${t(rarity.key)}`)}">`
         + `<span class="inv-skin-card-name">${_escapeHtml(skin.name)}</span>`
         + '<img class="inv-skin-card-img" alt="" draggable="false" />'
-        + `<span class="inv-skin-card-count">${_safeStatNumber(skin.owned)}</span>`
+        + (market
+          ? `<span class="inv-skin-card-price">${_escapeHtml(skin.owned > 0 ? t('skinOwnedLabel') : this._formatSkinPrice('coins', skin.price))}</span>`
+          : `<span class="inv-skin-card-count">${_safeStatNumber(skin.owned)}</span>`)
         + '</button>'
     }).join('')
     // Pictures fill in as they're drawn (cached after the first time).
@@ -16133,7 +16205,7 @@ export class Game {
   async _renderInventorySkinPreview() {
     const entries = this._inventorySkinEntries()
     const shownId = this._invSkinInspected || this._equippedInventorySkinId()
-    const skin = entries.find((entry) => entry.id === shownId) || entries[0]
+    const skin = this._shownInventorySkinEntries().find((entry) => entry.id === shownId) || entries.find((entry) => entry.id === shownId) || entries[0]
     const nameEl = document.getElementById('inv-skin-preview-name')
     const levelEl = document.getElementById('inv-skin-preview-level')
     const skinEl = document.getElementById('inv-skin-preview-skin')
@@ -16165,10 +16237,32 @@ export class Game {
       return
     }
     this._invSkinMenuFor = id
+    const entry = INVENTORY_SKINS.find((skin) => skin.id === id)
+    const owned = entry ? entry.count(this) : 0
+    const market = this._invSkinMode === 'market'
     const equipped = id === this._equippedInventorySkinId()
+    // Equip only for skins you have; Buy only in the Market; Sell only on
+    // your own sellable skins (never Default or an uploaded custom skin).
+    this.invSkinMenuEquip.style.display = !market || owned > 0 ? '' : 'none'
     this.invSkinMenuEquip.textContent = equipped ? t('skinEquipped') : t('skinEquip')
     this.invSkinMenuEquip.disabled = equipped
     this.invSkinMenuInspect.textContent = t('skinInspect')
+    if (this.invSkinMenuBuy) {
+      const canBuy = market && entry?.price && owned === 0
+      this.invSkinMenuBuy.style.display = canBuy ? '' : 'none'
+      if (canBuy) {
+        const short = this.coins < entry.price
+        this.invSkinMenuBuy.disabled = short
+        this.invSkinMenuBuy.textContent = short
+          ? t('skinNeedCoins', { need: Math.ceil(entry.price - this.coins).toLocaleString() })
+          : t('skinBuyBtn', { price: this._formatSkinPrice('coins', entry.price) })
+      }
+    }
+    if (this.invSkinMenuSell) {
+      const canSell = !market && entry?.sell && owned > 0
+      this.invSkinMenuSell.style.display = canSell ? '' : 'none'
+      if (canSell) this.invSkinMenuSell.textContent = t('skinSellBtn', { price: this._formatSkinPrice(entry.sell.currency, entry.sell.amount) })
+    }
     const side = this.invSkinMenu.parentElement.getBoundingClientRect()
     const rect = card.getBoundingClientRect()
     this.invSkinMenu.style.display = 'flex'
@@ -16179,6 +16273,42 @@ export class Game {
   _closeInventorySkinMenu() {
     if (this.invSkinMenu) this.invSkinMenu.style.display = 'none'
     this._invSkinMenuFor = null
+  }
+
+  _buyMarketSkin(id) {
+    const entry = INVENTORY_SKINS.find((skin) => skin.id === id)
+    if (!entry?.price || entry.count(this) > 0 || this.coins < entry.price) return
+    const price = this._formatSkinPrice('coins', entry.price)
+    if (!window.confirm(t('skinBuyConfirm', { name: entry.name, price }))) return
+    this.coins -= entry.price
+    this.charSkins[id] = 1
+    saveShopProgress(this)
+    this._renderCurrencyBar()
+    this._invSkinInspected = id
+    this._renderInventorySkins()
+    this._renderInventorySkinPreview()
+    this._showHomepageToast(t('skinBoughtToast', { name: entry.name }))
+  }
+
+  async _sellInventorySkin(id) {
+    const entry = INVENTORY_SKINS.find((skin) => skin.id === id)
+    if (!entry?.sell || !(entry.count(this) > 0)) return
+    const name = entry.nameKey ? t(entry.nameKey) : entry.name
+    const price = this._formatSkinPrice(entry.sell.currency, entry.sell.amount)
+    if (!window.confirm(t('skinSellConfirm', { name, price }))) return
+    // Selling the skin you're wearing puts you back in the default one.
+    if (id === this._equippedInventorySkinId()) await this._equipInventorySkin('default')
+    if (id === 'gaygarx') this.ownsShopSkin = false
+    else this.charSkins[id] = Math.max(0, (Number(this.charSkins[id]) || 0) - 1)
+    if (entry.sell.currency === 'gems') this.gems += entry.sell.amount
+    else this.coins += entry.sell.amount
+    saveShopProgress(this)
+    this._renderCurrencyBar()
+    if (this._renderShopSkinState) this._renderShopSkinState()
+    this._invSkinInspected = null
+    this._renderInventorySkins()
+    this._renderInventorySkinPreview()
+    this._showHomepageToast(t('skinSoldToast', { name, price }))
   }
 
   _inspectInventorySkin(id) {
