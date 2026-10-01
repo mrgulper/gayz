@@ -29,24 +29,16 @@ export const ACTIONS = [
   { id: 'emp', defaultKey: 'KeyU', labelKey: 'actionEmp' },
   { id: 'weaponWheel', defaultKey: 'KeyQ', labelKey: 'actionWeaponWheel' },
   { id: 'toggleMap', defaultKey: 'KeyL', labelKey: 'actionToggleMap' },
-  { id: 'minimapZoom', defaultKey: 'Comma', labelKey: 'actionMinimapZoom' },
   { id: 'squadHold', defaultKey: 'Period', labelKey: 'actionSquadHold' },
-  { id: 'horn', defaultKey: 'Semicolon', labelKey: 'actionHorn' },
   { id: 'drinkWater', defaultKey: 'Quote', labelKey: 'actionDrinkWater' },
   { id: 'journal', defaultKey: 'KeyI', labelKey: 'actionJournal' },
   { id: 'photoMode', defaultKey: 'KeyO', labelKey: 'actionPhotoMode' },
-  { id: 'screenshot', defaultKey: 'KeyP', labelKey: 'actionScreenshot' },
   { id: 'toggleView', defaultKey: 'KeyK', labelKey: 'actionToggleView' },
   { id: 'dodge', defaultKey: 'ShiftLeft', labelKey: 'actionDodge' },
-  { id: 'threatPing', defaultKey: 'Backquote', labelKey: 'actionThreatPing' },
-  { id: 'taunt', defaultKey: 'Slash', labelKey: 'actionTaunt' },
   { id: 'fastTravelNearest', defaultKey: 'BracketLeft', labelKey: 'actionFastTravelNearest' },
   { id: 'smokeBomb', defaultKey: 'BracketRight', labelKey: 'actionSmokeBomb' },
   { id: 'parry', defaultKey: 'Minus', labelKey: 'actionParry' },
-  { id: 'slowMo', defaultKey: 'Equal', labelKey: 'actionSlowMo' },
-  { id: 'clipRecording', defaultKey: 'CapsLock', labelKey: 'actionClipRecording' },
   { id: 'barricadeCrate', defaultKey: 'Backslash', labelKey: 'actionBarricadeCrate' },
-  { id: 'weaponInspect', defaultKey: 'Delete', labelKey: 'actionWeaponInspect' },
   { id: 'medStation', defaultKey: 'Insert', labelKey: 'actionMedStation' },
   { id: 'grapple', defaultKey: 'KeyX', labelKey: 'actionGrapple' },
   { id: 'stealthScreen', defaultKey: 'PageUp', labelKey: 'actionStealthScreen' },
@@ -65,7 +57,12 @@ function loadBindings() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     const parsed = raw ? JSON.parse(raw) : {}
-    return { ...defaultBindings(), ...parsed }
+    // Only actions that still exist - removed ones (Taunt, Slow-Motion,
+    // Screenshot... 2026-10-01) would otherwise linger in old saves and
+    // still count as "taken" when another action is rebound to their key.
+    const out = defaultBindings()
+    for (const id of Object.keys(out)) if (typeof parsed[id] === 'string') out[id] = parsed[id]
+    return out
   } catch {
     return defaultBindings()
   }

@@ -726,7 +726,6 @@ export class WeaponSystem {
     window.addEventListener('contextmenu', (e) => e.preventDefault())
     window.addEventListener('keydown', (e) => this._onKey(e))
     window.addEventListener('keyup', (e) => {
-      if (e.code === getKeyFor('weaponInspect')) this.inspecting = false
       if (e.code === 'KeyV') this.manualZoom = false
     })
 
@@ -1053,7 +1052,6 @@ export class WeaponSystem {
     // Hold-to-inspect - reuses the same idle-sway visual as
     // _idleInspectAmount (see update()) instead of a separate animation,
     // just triggered on demand instead of only after 5s of standing still.
-    else if (e.code === getKeyFor('weaponInspect') && !this.current.melee) this.inspecting = true
     // Hold-V zoom, same key as Build Mode's zoom (see VKEY_ZOOM_FOV above).
     else if (e.code === 'KeyV') this.manualZoom = true
   }
