@@ -8,6 +8,7 @@ import * as CloudSync from './CloudSync.js'
 import { BlockChunks, CHUNK } from './BlockChunks.js'
 import { blockFaceCanvases, blockIconURL, doorCanvas, doorIconURL, textureHasAlpha } from './BlockTextures.js'
 import { t } from './i18n.js'
+import { generateMap3 } from './Map3Generator.js'
 
 // GROUND_SIZE is a CELL count (not world units) - bumped up from 64, then
 // 76, as BLOCK_SIZE shrank each time, so the buildable footprint's actual
@@ -60,6 +61,16 @@ const SAVE_KEY = 'gayz-build-mode'
 // source (see _loadSlots) so a build saved before slots existed isn't lost.
 const SAVE_SLOTS_KEY = 'gayz-build-mode-slots'
 const SAVE_SLOT_COUNT = 3
+// Map 3 (Map3Generator.js) is a ready-made city opened as its own slot.
+// The map itself is regenerated every time (it's deterministic), so only
+// the player's changes to it are stored: {removed: [keys], placed:
+// [entries]}. Not a gayz- key on purpose - the whole map is ~42k blocks,
+// and a player who clears it would push a huge list into Cloud Save.
+const MAP3_SLOT = 'map3'
+const MAP3_EDITS_KEY = 'buildmode-map3-edits'
+// Edits are saved this long after the last change (and on leaving the
+// page), not only on Exit/Save - closing the tab used to lose the build.
+const AUTOSAVE_DELAY_MS = 1500
 // Held with V (see update()'s zoomTarget) - narrows the FOV for a "look
 // further" zoomed view rather than a real render-distance change, same
 // convention as a scope/binoculars. FOV_LERP_SPEED controls how quickly
@@ -1117,6 +1128,10 @@ export class BuildMode {
     // back on slot 0) - keeping it simple rather than adding a second
     // "remember last slot" storage key for a minor convenience.
     this.activeSlot = 0
+    this._autosaveTimer = null
+    this._onPageHide = () => {
+      if (this.active && (document.visibilityState === 'hidden' || !document.visibilityState)) this.save()
+    }
     // Mirror mode (see toggleMirror/_mirrorX) - off by default. Mirrors
     // across world x=0, the same plane the free-fly camera spawns facing
     // down (see the constructor's camera.position), so it lines up with
@@ -1274,9 +1289,11 @@ export class BuildMode {
     this._resetBtnEl = document.getElementById('build-mode-reset-btn')
     if (this._resetBtnEl) {
       this._resetBtnEl.addEventListener('click', () => {
-        if (!window.confirm(t('buildResetConfirm'))) return
+        if (!window.confirm(t(this.activeSlot === MAP3_SLOT ? 'buildResetMap3Confirm' : 'buildResetConfirm'))) return
         this.clearAllBlocks()
-        this._ensureGroundLayer()
+        // Map 3 resets back to the generated city, a slot to bare ground.
+        if (this.activeSlot === MAP3_SLOT) this._applyMap3({ removed: [], placed: [] })
+        else this._ensureGroundLayer()
         this.save()
       })
     }
@@ -1330,8 +1347,18 @@ export class BuildMode {
     }
   }
 
-  enter() {
+  // slot: open on this slot (a number, or 'map3'); omitted keeps the
+  // slot from last time this session.
+  enter({ slot } = {}) {
+    // The scene keeps the last build between visits; a different slot has
+    // to start from an empty scene, or the old build mixes into it.
+    if (slot !== undefined && slot !== this.activeSlot) {
+      this.clearAllBlocks()
+      this.activeSlot = slot
+    }
     this.active = true
+    window.addEventListener('pagehide', this._onPageHide)
+    document.addEventListener('visibilitychange', this._onPageHide)
     window.addEventListener('keydown', this._onKeyDown)
     window.addEventListener('keyup', this._onKeyUp)
     window.addEventListener('mousemove', this._onMouseMove)
@@ -1354,6 +1381,8 @@ export class BuildMode {
   exit() {
     this.save()
     this.active = false
+    window.removeEventListener('pagehide', this._onPageHide)
+    document.removeEventListener('visibilitychange', this._onPageHide)
     this._keys.clear()
     // Mirror resets off on exit - a returning player starting a fresh
     // session shouldn't be surprised by a toggle they don't remember
@@ -1599,6 +1628,7 @@ export class BuildMode {
       mesh.computeBoundingSphere()
     }
     this._shadowsDirty = true
+    this._scheduleAutosave()
     return true
   }
 
@@ -1681,6 +1711,15 @@ export class BuildMode {
     // standard undo/redo semantics as any text editor.
     this._redoStack.length = 0
     this._updateUndoRedoButtons()
+    this._scheduleAutosave()
+  }
+
+  _scheduleAutosave() {
+    clearTimeout(this._autosaveTimer)
+    this._autosaveTimer = setTimeout(() => {
+      this._autosaveTimer = null
+      if (this.active) this.save()
+    }, AUTOSAVE_DELAY_MS)
   }
 
   undo() {
@@ -1695,6 +1734,7 @@ export class BuildMode {
     this._suppressUndoRecording = false
     this._redoStack.push(entry)
     this._updateUndoRedoButtons()
+    this._scheduleAutosave()
   }
 
   redo() {
@@ -1709,6 +1749,7 @@ export class BuildMode {
     this._suppressUndoRecording = false
     this._undoStack.push(entry)
     this._updateUndoRedoButtons()
+    this._scheduleAutosave()
   }
 
   _updateUndoRedoButtons() {
@@ -1884,6 +1925,15 @@ export class BuildMode {
       })
       this._slotsEl.appendChild(btn)
     }
+    const map3Btn = document.createElement('button')
+    map3Btn.className = 'build-slot-btn build-slot-map3' + (this.activeSlot === MAP3_SLOT ? ' active' : '')
+    map3Btn.title = t('buildMap3SlotTitle')
+    map3Btn.textContent = t('buildMap3Slot')
+    map3Btn.addEventListener('click', () => {
+      this.switchSlot(MAP3_SLOT)
+      this._renderSlots()
+    })
+    this._slotsEl.appendChild(map3Btn)
   }
 
   // M key or toolbar button - see mirrorMode's own comment for why x=0.
@@ -2123,6 +2173,12 @@ export class BuildMode {
   }
 
   save() {
+    clearTimeout(this._autosaveTimer)
+    this._autosaveTimer = null
+    if (this.activeSlot === MAP3_SLOT) {
+      this._saveMap3Edits()
+      return
+    }
     const slots = this._loadSlots()
     slots[this.activeSlot] = this._snapshot()
     this._saveSlots(slots)
@@ -2133,13 +2189,12 @@ export class BuildMode {
   // switching away from it), then loads the target slot's data into a
   // freshly-cleared scene. No-op if already on that slot.
   switchSlot(index) {
-    if (index === this.activeSlot || index < 0 || index >= SAVE_SLOT_COUNT) return
+    if (index === this.activeSlot) return
+    if (index !== MAP3_SLOT && !(Number.isInteger(index) && index >= 0 && index < SAVE_SLOT_COUNT)) return
     this.save()
     this.clearAllBlocks()
     this.activeSlot = index
-    const slots = this._loadSlots()
-    this._applyParsedData(slots[index])
-    this._ensureGroundLayer()
+    this._loadActiveSlot()
   }
 
   // Shared by save() (local persistence) and exportMap() (downloadable
@@ -2158,9 +2213,78 @@ export class BuildMode {
   }
 
   load() {
-    const slots = this._loadSlots()
-    this._applyParsedData(slots[this.activeSlot])
-    this._ensureGroundLayer()
+    this._loadActiveSlot()
+  }
+
+  _loadActiveSlot() {
+    if (this.activeSlot === MAP3_SLOT) {
+      this._applyMap3(this._loadMap3Edits())
+      return
+    }
+    this._applyBuild(this._loadSlots()[this.activeSlot])
+  }
+
+  // A saved build is exactly what it says - including ground the player
+  // dug out or built over. The grass ground layer is only filled in for a
+  // slot that has never been saved (or old/shared data with no ground in
+  // it at all). Refilling it on every load was what kept bringing the
+  // grass back over broken or replaced ground.
+  _applyBuild(parsed) {
+    this._applyParsedData(parsed)
+    const blocks = Array.isArray(parsed) ? parsed : parsed?.blocks
+    const hasGround = Array.isArray(blocks) && blocks.some((b) => b && b.y === GROUND_LAYER_Y)
+    if (!hasGround) this._ensureGroundLayer()
+  }
+
+  // --- Map 3 (see MAP3_SLOT) ---
+  _map3Base() {
+    if (!this._map3BaseCache) {
+      const map = generateMap3()
+      const byKey = new Map()
+      for (const b of map.blocks) byKey.set(this._key(b.x, b.y, b.z), b)
+      this._map3BaseCache = { map, byKey }
+    }
+    return this._map3BaseCache
+  }
+
+  _loadMap3Edits() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(MAP3_EDITS_KEY) || 'null')
+      if (parsed && Array.isArray(parsed.removed) && Array.isArray(parsed.placed)) return parsed
+    } catch {
+      // Malformed - start from the untouched map.
+    }
+    return { removed: [], placed: [] }
+  }
+
+  _applyMap3(edits) {
+    const { map } = this._map3Base()
+    const removed = new Set(edits.removed.filter((k) => typeof k === 'string'))
+    const blocks = map.blocks.filter((b) => !removed.has(this._key(b.x, b.y, b.z)))
+    this._applyParsedData({ blocks: blocks.concat(edits.placed), hotbar: edits.hotbar || map.hotbar })
+  }
+
+  // Stores how the current scene differs from the generated map: cells
+  // that are gone or hold something else go in removed, and whatever is
+  // there now instead goes in placed.
+  _saveMap3Edits() {
+    const { byKey } = this._map3Base()
+    const sig = (b) => (b ? `${b.type}|${b.facing ?? ''}|${b.open ? 1 : 0}` : '')
+    const current = new Map()
+    for (const b of this._snapshot().blocks) current.set(this._key(b.x, b.y, b.z), b)
+    const removed = []
+    const placed = []
+    for (const [k, base] of byKey) {
+      if (sig(current.get(k)) !== sig(base)) removed.push(k)
+    }
+    for (const [k, b] of current) {
+      if (sig(b) !== sig(byKey.get(k))) placed.push(b)
+    }
+    try {
+      localStorage.setItem(MAP3_EDITS_KEY, JSON.stringify({ removed, placed, hotbar: this.hotbar }))
+    } catch {
+      // Storage full/unavailable - the edits just won't persist.
+    }
   }
 
   // Shared by load() (local storage, called on entering Build Mode with an
@@ -2259,8 +2383,7 @@ export class BuildMode {
     const blocks = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.blocks) ? parsed.blocks : null
     if (!blocks) return false
     this.clearAllBlocks()
-    this._applyParsedData(parsed)
-    this._ensureGroundLayer()
+    this._applyBuild(parsed)
     this.save()
     return true
   }
@@ -2302,8 +2425,7 @@ export class BuildMode {
           // isolation.
           if (!window.confirm(t('buildDownloadConfirm'))) return
           this.clearAllBlocks()
-          this._applyParsedData({ blocks: build.blocks, hotbar: build.hotbar })
-          this._ensureGroundLayer()
+          this._applyBuild({ blocks: build.blocks, hotbar: build.hotbar })
           this.save()
           this.closeCommunityBuildsPanel()
         } else if (reportBtn) {
