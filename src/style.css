@@ -1439,6 +1439,7 @@ html.large-text-mode #skindesigner-panel,
 html.large-text-mode #levels-panel,
 html.large-text-mode #privacy-panel,
 html.large-text-mode #shop-panel,
+html.large-text-mode #market-panel,
 html.large-text-mode #whatsnew-panel,
 html.large-text-mode #howtoplay-panel,
 html.large-text-mode #cloudsave-panel,
@@ -3008,6 +3009,7 @@ html.third-person-active #companion-bark {
 #howtoplay-panel .panel-box,
 #whatsnew-panel .panel-box,
 #shop-panel .panel-box,
+#market-panel .panel-box,
 #upgrades-panel .panel-box,
 #achievements-panel .panel-box,
 #quests-panel .panel-box,
@@ -3149,6 +3151,7 @@ html.third-person-active #companion-bark {
 #hub-panel,
 #settings-panel,
 #shop-panel,
+#market-panel,
 #upgrades-panel,
 #server-panel,
 #quests-panel,
@@ -4584,6 +4587,7 @@ section.category.hidden-search {
 #levels-panel,
 #multiplayer-panel,
 #shop-panel,
+#market-panel,
 #whatsnew-panel,
 #howtoplay-panel,
 #cloudsave-panel,
@@ -4807,6 +4811,7 @@ html.ui-theme-old #levels-panel,
 html.ui-theme-old #privacy-panel,
 html.ui-theme-old #multiplayer-panel,
 html.ui-theme-old #shop-panel,
+html.ui-theme-old #market-panel,
 html.ui-theme-old #whatsnew-panel,
 html.ui-theme-old #howtoplay-panel,
 html.ui-theme-old #cloudsave-panel,
@@ -5124,6 +5129,7 @@ html.ui-theme-old #quit-confirm-overlay {
 #levels-panel-title,
 #privacy-panel-title,
 #shop-panel-title,
+#market-panel-title,
 #whatsnew-panel-title,
 #howtoplay-panel-title,
 #cloudsave-panel-title,
@@ -5161,6 +5167,7 @@ html.ui-theme-old #skindesigner-panel-title,
 html.ui-theme-old #levels-panel-title,
 html.ui-theme-old #privacy-panel-title,
 html.ui-theme-old #shop-panel-title,
+html.ui-theme-old #market-panel-title,
 html.ui-theme-old #whatsnew-panel-title,
 html.ui-theme-old #howtoplay-panel-title,
 html.ui-theme-old #cloudsave-panel-title,
@@ -7023,7 +7030,7 @@ html {
    the standard 4-height overflow measurement this project always
    re-checks after a size-affecting change). */
 html.text-spacing-active #menu, html.text-spacing-active .menu-panel, html.text-spacing-active #upgrades-panel,
-html.text-spacing-active #credits-panel, html.text-spacing-active #terms-panel, html.text-spacing-active #features-panel, html.text-spacing-active #privacy-panel, html.text-spacing-active #shop-panel, html.text-spacing-active #whatsnew-panel, html.text-spacing-active #achievements-panel,
+html.text-spacing-active #credits-panel, html.text-spacing-active #terms-panel, html.text-spacing-active #features-panel, html.text-spacing-active #privacy-panel, html.text-spacing-active #shop-panel, html.text-spacing-active #market-panel, html.text-spacing-active #whatsnew-panel, html.text-spacing-active #achievements-panel,
 html.text-spacing-active #profile-panel, html.text-spacing-active #settings-panel,
 html.text-spacing-active #quests-panel, html.text-spacing-active #share-panel, html.text-spacing-active #cloudsave-panel, html.text-spacing-active #howtoplay-panel {
   letter-spacing: calc((var(--text-spacing, 100) - 100) * 0.005px);
@@ -7059,6 +7066,7 @@ html.reduce-transparency #skindesigner-panel,
 html.reduce-transparency #levels-panel,
 html.reduce-transparency #privacy-panel,
 html.reduce-transparency #shop-panel,
+html.reduce-transparency #market-panel,
 html.reduce-transparency #whatsnew-panel,
 html.reduce-transparency #achievements-panel,
 html.reduce-transparency #profile-panel,
@@ -8961,7 +8969,7 @@ html.ui-theme-old #menu-player-tag {
    Fixed above the reorderable range so it always renders last regardless
    of how nav order is customized. */
 #build-mode-btn {
-  order: 9;
+  order: 99;
 }
 
 /* Gold-plate reskin (2026-08-20, at the user's request) - applies to
@@ -12297,7 +12305,8 @@ html.night-vision-active #app {
 /* Inventory > Character, Kirka-style (2026-09-30): 3D preview on the left,
    a searchable grid of skin cards on the right. Each card's left bar is
    its rarity color (--rarity, set per card from SKIN_RARITIES). */
-#inventory-page-character {
+#inventory-page-character,
+#inventory-page-weapons {
   width: 100%;
   padding: 0;
 }
@@ -12483,8 +12492,40 @@ html.night-vision-active #app {
 .inv-skin-card.owned .inv-skin-card-price { color: #6fdc8c; }
 .inv-skin-card.owned { cursor: default; }
 .inv-skin-card.cant-afford .inv-skin-card-price { color: #e07b6f; }
-/* Store > Market grid - same cards as Inventory > Character. */
-#shop-market-heading { margin-top: 26px; }
+/* Inventory > Weapons - same grid/cards as Character, one Default skin
+   per weapon (see _renderInventoryWeapons). */
+#inventory-weapons-list {
+  width: 100%;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  grid-auto-rows: 140px;
+  gap: 8px;
+}
+.inv-weapon-card {
+  cursor: default;
+  background: radial-gradient(ellipse at 50% 55%, rgba(120, 130, 160, 0.35), rgba(20, 24, 40, 0.8) 70%);
+}
+.inv-weapon-card:hover { transform: none; }
+.inv-weapon-card-img,
+.inv-weapon-card-icon {
+  position: absolute;
+  left: 50%;
+  top: 30px;
+  width: 140px;
+  height: 82px;
+  transform: translateX(-50%);
+  object-fit: contain;
+}
+.inv-weapon-card-icon { width: 70px; color: rgba(255, 255, 255, 0.8); }
+.inv-weapon-card-skin {
+  position: absolute;
+  left: 8px;
+  bottom: 7px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+/* Market panel grid - same cards as Inventory > Character. */
 #shop-market-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));

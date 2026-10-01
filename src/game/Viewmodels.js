@@ -261,6 +261,8 @@ function buildHand() {
   hand.add(thumb)
 
   hand.traverse((o) => { if (o.isMesh) o.castShadow = false })
+  // Lets the Inventory > Weapons pictures leave the hands out.
+  hand.userData.isHand = true
   return hand
 }
 
