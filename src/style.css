@@ -2818,35 +2818,6 @@ html.third-person-active #companion-bark {
   100% { opacity: 0; transform: translate(-50%, -6px); }
 }
 
-/* Taunt (see Game.js's _triggerTaunt) - same toast-style show/hide as
-   #companion-bark above, own vertical slot so the two never overlap. */
-#taunt-text {
-  position: absolute;
-  bottom: 220px;
-  left: 50%;
-  transform: translate(-50%, 0);
-  max-width: min(420px, 80vw);
-  text-align: center;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  color: #e0563c;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-  opacity: 0;
-  pointer-events: none;
-}
-
-#taunt-text.show {
-  animation: tauntText 2.4s ease-out;
-}
-
-@keyframes tauntText {
-  0% { opacity: 0; transform: translate(-50%, 8px); }
-  15% { opacity: 1; transform: translate(-50%, 0); }
-  75% { opacity: 1; transform: translate(-50%, 0); }
-  100% { opacity: 0; transform: translate(-50%, -6px); }
-}
-
 /* Kill Feed (see Game.js's _pushKillFeed) - a multiplayer-style stacked
    strip, top-right so it never competes with the bottom-center toast/bark/
    taunt lines above. Each entry plays its own fade once on creation and is
@@ -6384,10 +6355,9 @@ html.ui-theme-old #quit-confirm-title {
   opacity: 0.65;
 }
 
-/* Screenshots/Recording section labels - same small gold uppercase
-   sub-heading convention as #profile-panel h3. */
-#screenshot-section-title,
-#recording-section-title {
+/* Screenshots section label - same small gold uppercase sub-heading
+   convention as #profile-panel h3. */
+#screenshot-section-title {
   margin: 8px 0 4px;
   font-size: 14px;
   font-weight: 700;

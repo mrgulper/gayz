@@ -2167,21 +2167,6 @@ const LANDING_DIP_RECOVER_SPEED = 9
 const GUNFIRE_ALERT_RADIUS = 22
 const GUNFIRE_ALERT_RADIUS_SUPPRESSED = 6
 const GUNFIRE_INNER_GUARANTEED_FRAC = 0.5
-// Taunt (see _triggerTaunt) - a free, player-initiated shout that alerts
-// every unaware zombie in a wide radius, no ammo cost. Deliberately a much
-// bigger radius than gunfire's above since it's meant as a deliberate
-// aggro-pulling tool (kite a horde away from a downed companion, or gather
-// stragglers before a grenade throw) rather than gunfire's incidental
-// side-effect of just shooting.
-const TAUNT_ALERT_RADIUS = 32
-const TAUNT_COOLDOWN_MS = 8000
-const TAUNT_LINES = [
-  "OVER HERE, UGLY!",
-  "COME AND GET ME!",
-  "IS THAT ALL YOU'VE GOT?",
-  "HEY! EYES ON ME!",
-  "YOU WANT SOME? COME ON!",
-]
 // Kill Feed (see _pushKillFeed) - a multiplayer-style running strip of the
 // player's own notable kills (boss/elite/combo/melee), purely presentational.
 // Capped so a fast fight can't grow the DOM list unbounded; entries fade on
@@ -2389,16 +2374,6 @@ const PERFECT_WEATHER_LOOT_BONUS_MULT = 1.3
 const FLASHLIGHT_RAIN_RANGE_MULT = 0.7
 const FLASHLIGHT_BASE_RANGE = 35
 // Sharing & Content Tools batch.
-// Manual slow-motion toggle (see _toggleSlowMo) - a deliberate content-
-// creation tool, distinct from the automatic killcam/hitstop slow-mo
-// (those are timed and automatic; this is a manual on/off the player
-// controls themselves, e.g. while clip-recording something dramatic).
-const MANUAL_SLOWMO_FACTOR = 0.4
-// Clip recording (see _toggleClipRecording) - a manual start/stop tool,
-// deliberately not an always-on rolling buffer: continuously running
-// MediaRecorder/canvas.captureStream for the whole session has a real,
-// constant encoding cost, a bad tradeoff for a nice-to-have.
-const CLIP_RECORDING_FPS = 30
 // Auto-highlight moment flagging (see _flagHighlightMoment) - reuses the
 // exact same notable-kill categories Kill Feed already classifies (see
 // _onZombieKilled's own priority chain), just also logged with a
@@ -2684,7 +2659,6 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'screenshot-section-title': 'screenshotSectionTitle',
   'screenshot-crop-save': 'screenshotCropSave',
   'screenshot-crop-full': 'screenshotCropFull',
-  'recording-section-title': 'recordingSectionTitle',
   'screenshot-crop-cancel': 'screenshotCropCancel',
   'credits-body-text': 'creditsBodyText',
   'credits-contact-text': 'creditsContactText',
@@ -3247,7 +3221,6 @@ const VEHICLE_RAM_COOLDOWN_MS = 500
 const VEHICLE_RAM_SELF_DAMAGE = 2
 const VEHICLE_MOTORCYCLE_CHANCE = 0.3
 const VEHICLE_REFUEL_PER_CAN = 35
-const VEHICLE_HORN_DISTRACTION_MS = 6000
 // Trader upgrade (see SHOP_ITEMS's vehicle_armor) - a flat maxHealth
 // increase, applied to both current and max so it also heals the vehicle
 // by that amount rather than only raising its ceiling.
@@ -3460,7 +3433,6 @@ const HEAVY_HIT_DAMAGE_THRESHOLD = 60 // bat/machete/fireaxe/sledgehammer land h
 const QUICKSCOPE_WINDOW_MS = 350 // aim-to-headshot window that counts as a "quickscope"
 const QUICKSCOPE_POINTS_BONUS = 25
 const BIG_HIT_DAMAGE_THRESHOLD = 45 // damage-number "big hit" tier, independent of the headshot tier
-const MINIMAP_PING_DURATION_MS = 3000
 const AMBUSH_WARNING_RADIUS = 9
 const AMBUSH_WARNING_COOLDOWN_MS = 20000
 const EVENT_HUSH_LEAD_MS = 3000
@@ -4979,7 +4951,6 @@ export class Game {
     this._lastSeenLandingSeq = 0
     this._hitstopUntil = 0
     this.killcamUntil = 0
-    this._lastTauntAt = 0
     this._lastParryAt = 0
     this._parryActiveUntil = 0
     this._nextGoldenCheckAt = 0
@@ -4993,8 +4964,6 @@ export class Game {
     this._nextSwarmBiteCheckAt = 0
     this._nextPowerSurgeCheckAt = 0
     this._nextRooftopWindCheckAt = 0
-    this._manualSlowMoActive = false
-    this._clipRecorder = null
     this._highlightLog = []
     this._cinematicBarsActive = false
     this._reclaimedCells = new Map()
@@ -6100,7 +6069,6 @@ export class Game {
     this.shortcutCheatsheetCloseBtn = document.getElementById('shortcut-cheatsheet-close-btn')
     this.profileCareerPortraitBtn = document.getElementById('profile-career-portrait-btn')
     this.killFeedEl = document.getElementById('kill-feed')
-    this.tauntTextEl = document.getElementById('taunt-text')
     this.dailyLeaderboardEl = document.getElementById('death-daily-leaderboard')
     this.shareRunCardBtn = document.getElementById('share-run-card-btn')
     this.creditsBtn = document.getElementById('credits-btn')
@@ -6233,7 +6201,6 @@ export class Game {
     this.screenshotCropFullBtn = document.getElementById('screenshot-crop-full')
     this.screenshotCropCancelBtn = document.getElementById('screenshot-crop-cancel')
     this.screenshotCaptionInput = document.getElementById('screenshot-caption-input')
-    this.screenshotToggleRecordingBtn = document.getElementById('screenshot-toggle-recording')
     this.screenshotCropOpen = false
     this.screenshotCropSelectionRect = null
     this.gameStarted = false
@@ -6248,7 +6215,6 @@ export class Game {
     this.touchControls = new TouchControls(this)
     this.decals = new DecalManager(this.scene)
     this.minimap = new Minimap(this.minimapCanvas)
-    this.minimapPing = null
     // Default Minimap Zoom (General tab, settings.minimapDefaultZoom) -
     // the in-game zoom keybind (see cycleZoom) still works exactly the
     // same afterward, this just picks which of the 3 levels a fresh run
@@ -6364,15 +6330,17 @@ export class Game {
       // Cinematic bars - hardcoded to this listener (already isolated to
       // photoModeOpen, same precedent as Space/Ctrl/Shift above) rather
       // than added to the rebindable Keybinds.js list, since it only ever
-      // does anything while frozen in photo mode. The real filter cycle
-      // lives on the repurposed minimapZoom key (see _cyclePhotoModeFilter) -
-      // there used to be a second, KeyF-bound filter cycle here too, but it
-      // only ever changed canvas.style.filter as a live preview that never
-      // made it into an actual saved/copied screenshot, and silently
-      // fought with the brightness/contrast graphics setting over that
-      // same CSS property. Removed rather than fixed, since the other
-      // system already covers "cycle a filter that actually applies."
+      // does anything while frozen in photo mode.
       else if (e.code === 'KeyC') this._toggleCinematicBars()
+    })
+    // Photo Mode shots (2026-10-01): left-click takes the photo (opens the
+    // crop/save screen), right-click cycles the filter - they used to be
+    // the Screenshot (P) and Cycle Minimap Zoom (,) keys, both removed to
+    // cut down the controls list.
+    document.addEventListener('mousedown', (e) => {
+      if (!this.photoModeOpen || this.screenshotCropOpen || !this.gameStarted || !this.player.controls.isLocked) return
+      if (e.button === 0) this._takeScreenshot()
+      else if (e.button === 2) this._cyclePhotoModeFilter()
     })
     window.addEventListener('keyup', (e) => {
       if (e.code === 'Space') this._photoUp = false
@@ -7116,10 +7084,6 @@ export class Game {
     if (this.quitConfirmExitBtn) {
       this.quitConfirmExitBtn.addEventListener('click', async () => {
         this.quitConfirmOverlay.style.display = 'none'
-        // Awaited - MediaRecorder.stop() is async, and tearing down
-        // gameplay before its 'stop' event fires would lose the
-        // in-progress clip entirely instead of downloading it.
-        await this._stopClipRecordingIfActive()
         this._quitRunWithLegacyPayout()
       })
     }
@@ -7163,7 +7127,6 @@ export class Game {
           this._showLoreToast(t('hardcoreNoSaveToast'))
           return
         }
-        await this._stopClipRecordingIfActive()
         this._leaveMultiplayerSession()
         saveSavedRun(this._captureRunSnapshot())
         window.location.reload()
@@ -7442,26 +7405,8 @@ export class Game {
         return
       }
 
-      if (e.code === getKeyFor('minimapZoom')) {
-        // Repurposed while in Photo Mode - the minimap isn't relevant to a
-        // free-fly camera shot, and reusing this key avoids adding a whole
-        // new remappable action just for cycling a filter.
-        if (this.photoModeOpen) {
-          this._cyclePhotoModeFilter()
-        } else {
-          const newRange = this.minimap.cycleZoom()
-          this._showLoreToast(t('minimapZoomToast', { range: newRange }))
-        }
-        return
-      }
-
       if (e.code === getKeyFor('squadHold')) {
         this._toggleSquadHold()
-        return
-      }
-
-      if (e.code === getKeyFor('horn') && this.driving) {
-        this._useHorn()
         return
       }
 
@@ -7505,10 +7450,6 @@ export class Game {
           this._updateHealthHud()
           this._updateInventoryHud()
         }
-      } else if (e.code === getKeyFor('threatPing')) {
-        this._pingNearestThreat()
-      } else if (e.code === getKeyFor('taunt')) {
-        this._triggerTaunt()
       } else if (e.code === getKeyFor('fastTravelNearest')) {
         this._fastTravelToNearest()
       } else if (e.code === getKeyFor('grapple')) {
@@ -7519,10 +7460,6 @@ export class Game {
         this._throwStealthScreen()
       } else if (e.code === getKeyFor('parry')) {
         this._triggerParry()
-      } else if (e.code === getKeyFor('slowMo')) {
-        this._toggleSlowMo()
-      } else if (e.code === getKeyFor('clipRecording')) {
-        this._toggleClipRecording()
       } else if (e.code === getKeyFor('barricadeCrate')) {
         this._placeBarricadeCrate()
       } else if (e.code === getKeyFor('flashlight')) {
@@ -7682,8 +7619,6 @@ export class Game {
             this._trySleep()
           }
         }
-      } else if (e.code === getKeyFor('screenshot')) {
-        this._takeScreenshot()
       } else if (e.code === getKeyFor('toggleView')) {
         this.thirdPerson = !this.thirdPerson
         this.weapons.viewmodelRoot.visible = !this.thirdPerson
@@ -7736,7 +7671,6 @@ export class Game {
     this.fpsEl.style.display = (this.settings.streamSafeMode || this.photoModeOpen) ? 'none' : 'block'
   }
 
-  // Manual slow-motion toggle (see MANUAL_SLOWMO_FACTOR's own comment).
   // Night Vision Goggles (batch 5 feature) - a screen-space brightness/tint
   // effect only (see #night-vision-overlay/html.night-vision-active in
   // style.css), not a change to the actual scene lighting - same "purely
@@ -7750,67 +7684,6 @@ export class Game {
     this.nightVisionOn = !this.nightVisionOn
     document.documentElement.classList.toggle('night-vision-active', this.nightVisionOn)
     if (this.nightVisionOverlayEl) this.nightVisionOverlayEl.style.display = this.nightVisionOn ? 'block' : 'none'
-  }
-
-  _toggleSlowMo() {
-    this._manualSlowMoActive = !this._manualSlowMoActive
-    this._showLoreToast(this._manualSlowMoActive ? t('slowMoOn') : t('slowMoOff'))
-  }
-
-  // Manual clip recording (see CLIP_RECORDING_FPS's own comment) - a real
-  // MediaRecorder capture of this.canvas's own WebGL output, not a
-  // separate offscreen render.
-  _toggleClipRecording() {
-    if (this._clipRecorder && this._clipRecorder.state === 'recording') {
-      this._clipRecorder.stop()
-      return
-    }
-    if (!this.canvas.captureStream || typeof MediaRecorder === 'undefined') {
-      this._showLoreToast(t('clipRecordingUnsupported'))
-      return
-    }
-    let recorder
-    try {
-      const stream = this.canvas.captureStream(CLIP_RECORDING_FPS)
-      recorder = new MediaRecorder(stream, { mimeType: 'video/webm' })
-    } catch {
-      this._showLoreToast(t('clipRecordingUnsupported'))
-      return
-    }
-    const chunks = []
-    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data) }
-    recorder.onstop = () => {
-      const blob = new Blob(chunks, { type: 'video/webm' })
-      const link = document.createElement('a')
-      link.download = `gayz-clip-${Date.now()}.webm`
-      link.href = URL.createObjectURL(blob)
-      link.click()
-      setTimeout(() => URL.revokeObjectURL(link.href), 1000)
-      this._showLoreToast(t('clipSaved'))
-      if (this.screenshotToggleRecordingBtn) this.screenshotToggleRecordingBtn.textContent = t('startRecordingBtn')
-    }
-    recorder.start()
-    this._clipRecorder = recorder
-    this._showLoreToast(t('clipRecordingStarted'))
-    if (this.screenshotToggleRecordingBtn) this.screenshotToggleRecordingBtn.textContent = t('saveFullRecordingBtn')
-  }
-
-  // Shared by every "the run just ended/is ending" exit point (death, quit
-  // to menu, extraction/leaving win screens, closing the Screenshots &
-  // Recording panel with P) - see each call site. Resolves once the clip
-  // has actually finished saving (or immediately if nothing was
-  // recording) - MediaRecorder.stop() is async, so the quit-to-menu path
-  // specifically needs to await this before reloading the page, or the
-  // page context (and the in-flight download) would be torn down first.
-  _stopClipRecordingIfActive() {
-    return new Promise((resolve) => {
-      if (this._clipRecorder && this._clipRecorder.state === 'recording') {
-        this._clipRecorder.addEventListener('stop', () => resolve(), { once: true })
-        this._clipRecorder.stop()
-      } else {
-        resolve()
-      }
-    })
   }
 
   // Auto-highlight moment flagging (see HIGHLIGHT_LOG_MAX_ENTRIES's own
@@ -7958,7 +7831,6 @@ export class Game {
   }
 
   _closeScreenshotCrop() {
-    this._stopClipRecordingIfActive()
     this.screenshotCropOpen = false
     this.screenshotCropOverlay.style.display = 'none'
     this._requestPointerLock()
@@ -8103,15 +7975,10 @@ export class Game {
       this._closeScreenshotCrop()
     })
     this.screenshotCropCancelBtn.addEventListener('click', () => this._closeScreenshotCrop())
-    if (this.screenshotToggleRecordingBtn) this.screenshotToggleRecordingBtn.addEventListener('click', () => this._toggleClipRecording())
 
     window.addEventListener('keydown', (e) => {
       if (!this.screenshotCropOpen) return
-      // Pressing the screenshot key again (default P) while this panel is
-      // already open closes it, same as Escape - direct request, since
-      // this is also how a recording started from here gets stopped/saved
-      // if you don't explicitly click a button.
-      if (e.code === 'Escape' || e.code === getKeyFor('screenshot')) this._closeScreenshotCrop()
+      if (e.code === 'Escape') this._closeScreenshotCrop()
       else if (e.code === 'Enter') this.screenshotCropSaveBtn.click()
     })
 
@@ -9651,20 +9518,6 @@ export class Game {
         this.vehicle.health = Math.max(0, this.vehicle.health - VEHICLE_RAM_SELF_DAMAGE)
         if (this.vehicle.health <= 0) this.vehicle.disabled = true
       }
-    }
-  }
-
-  // Vehicle Horn - an instant distraction at the car's own position (unlike
-  // the thrown Noisemaker, nothing needs to travel there first) so it reads
-  // as "blast the horn, draw the horde toward the car" - same
-  // zombies.distraction shape ZombieManager's own noisemaker-landing code
-  // already produces, just set directly.
-  _useHorn() {
-    audioEngine.playHorn()
-    this.zombies.distraction = {
-      x: this.vehicle.group.position.x,
-      z: this.vehicle.group.position.z,
-      expiresAt: performance.now() + VEHICLE_HORN_DISTRACTION_MS,
     }
   }
 
@@ -18152,11 +18005,7 @@ export class Game {
     void this.damageFlash.offsetWidth
     this.damageFlash.classList.add('hit')
     this._triggerShake(0.12, 220)
-    // Graphics tab's Damage Indicator toggle - only gates this automatic
-    // on-hit trigger, not the separate on-demand "ping nearest threat"
-    // accessibility key (_pingNearestThreat also calls
-    // _showThreatIndicator directly) - turning this off shouldn't remove
-    // the player's ability to manually check for nearby threats.
+    // Graphics tab's Damage Indicator toggle.
     if (this.settings.damageIndicatorEnabled) this._showThreatIndicator()
 
     if (!this.playerState.alive) this._maybeLastStandOrDie()
@@ -18264,27 +18113,7 @@ export class Game {
   // reasonable stand-in. Supplements audioEngine.playZombieSnarl() above for
   // players who can't rely on the sound alone to tell them where a hit came
   // from, especially one from off-screen/behind.
-  // On-Demand Threat Ping (accessibility) - a player-initiated version of
-  // the same screen-edge pulse _showThreatIndicator already shows
-  // automatically on taking a hit, for proactively checking "where's the
-  // nearest one" instead of only ever finding out reactively after being
-  // hit. A toast fallback when nothing's alive yet, so the key always
-  // gives some feedback rather than silently doing nothing.
-  _pingNearestThreat() {
-    const hasAliveZombie = this.zombies.zombies.some((z) => z.state === 'alive')
-    if (!hasAliveZombie) {
-      this._showLoreToast(t('threatPingNoneNearby'))
-      return
-    }
-    this._showThreatIndicator(true)
-  }
-
-  // manual=true only for the on-demand keypress (_pingNearestThreat) - the
-  // automatic version already fires constantly during a firefight (every
-  // hit taken), and a minimap blip on every single one would be noise, not
-  // signal. The keypress is the deliberate "where's the nearest one" check
-  // this is actually useful for.
-  _showThreatIndicator(manual = false) {
+  _showThreatIndicator() {
     const playerPos = this.player.controls.object.position
     let nearest = null
     let nearestDist = Infinity
@@ -18321,9 +18150,6 @@ export class Game {
     this.threatIndicator.classList.remove('show')
     void this.threatIndicator.offsetWidth
     this.threatIndicator.classList.add('show')
-    if (manual) {
-      this.minimapPing = { x: nearest.group.position.x, z: nearest.group.position.z, until: performance.now() + MINIMAP_PING_DURATION_MS }
-    }
   }
 
   // Anchor zombie (see ZombieTypes.js's pullsPlayer) - its spit lands as a
@@ -20799,7 +20625,6 @@ export class Game {
 
   _onPlayerDeath() {
     this._leaveMultiplayerSession()
-    this._stopClipRecordingIfActive()
     // Shareable run-summary card (see _generateRunSummaryCard) - captures
     // the actual moment-of-death frame before any HUD teardown/UI change,
     // same composer.render()+toDataURL technique _takeScreenshot uses.
@@ -21066,28 +20891,6 @@ export class Game {
     setTimeout(() => {
       if (entry.parentNode === this.killFeedEl) this.killFeedEl.removeChild(entry)
     }, KILL_FEED_ENTRY_MS)
-  }
-
-  // Taunt (see TAUNT_ALERT_RADIUS/_COOLDOWN_MS/_LINES) - a free,
-  // player-initiated shout that alerts every unaware zombie in a wide
-  // radius, reusing the same aware-flip _alertNearbyZombiesToGunfire
-  // already does, just with its own bigger radius and no gunshot required.
-  _triggerTaunt() {
-    const now = performance.now()
-    if (now < this._lastTauntAt + TAUNT_COOLDOWN_MS) return
-    this._lastTauntAt = now
-    audioEngine.playHorn()
-    const playerPos = this.player.controls.object.position
-    for (const z of this.zombies.zombies) {
-      if (z.state !== 'alive' || z.aware) continue
-      const d = Math.hypot(z.group.position.x - playerPos.x, z.group.position.z - playerPos.z)
-      if (d <= TAUNT_ALERT_RADIUS) z.aware = true
-    }
-    const line = TAUNT_LINES[Math.floor(Math.random() * TAUNT_LINES.length)]
-    this.tauntTextEl.textContent = line
-    this.tauntTextEl.classList.remove('show')
-    void this.tauntTextEl.offsetWidth
-    this.tauntTextEl.classList.add('show')
   }
 
   // Real Minecraft skin upload (see MenuAvatar3D.js's UV-mapping support)
@@ -22667,7 +22470,7 @@ export class Game {
 
   // Parry - a short active-press window (see PARRY_WINDOW_MS's own
   // comment), checked from _onZombieAttack. Cooldown-gated the same
-  // pattern _triggerTaunt already uses for its own cooldown.
+  // pattern as the companion whistle's cooldown.
   _triggerParry() {
     const now = performance.now()
     if (now < (this._lastParryAt || 0) + PARRY_COOLDOWN_MS) return
@@ -25648,7 +25451,6 @@ export class Game {
   // only Extraction is actually wired to that score comparison.
   _showRunWinScreen(titleKey, pointsBonus, coinsBonus, modeWrapEl) {
     this._leaveMultiplayerSession()
-    this._stopClipRecordingIfActive()
     this._requestPointerUnlock()
     this.crosshair.style.display = 'none'
     this.hudEl.style.display = 'none'
@@ -26240,10 +26042,6 @@ export class Game {
       else if (z.config?.id === 'exploder') shape = 'triangle'
       zombiePositions.push({ x: z.group.position.x, z: z.group.position.z, shape })
     }
-    // Threat Ping minimap blip (see _showThreatIndicator's manual param) -
-    // just times out on its own rather than needing an explicit clear call
-    // anywhere.
-    if (this.minimapPing && performance.now() >= this.minimapPing.until) this.minimapPing = null
     this.minimap.update(
       playerPos,
       facingRad,
@@ -26258,8 +26056,7 @@ export class Game {
       this.zombies.wanderingHorde,
       this.newLocationLandmarks,
       this.discoveredCells,
-      EXPLORE_CELL_SIZE,
-      this.minimapPing
+      EXPLORE_CELL_SIZE
     )
   }
 
@@ -26716,11 +26513,6 @@ export class Game {
     const elapsed = this.timer.getElapsed()
     if (performance.now() < this._hitstopUntil) dt = 0
     else if (performance.now() < this.killcamUntil) dt *= KILLCAM_SLOWMO_FACTOR
-    // Manual slow-motion toggle (see _toggleSlowMo) - a deliberate content-
-    // creation tool, checked as its own branch so it never fights the
-    // automatic killcam/hitstop effects above (whichever's already active
-    // wins; this one only ever applies when neither of those is).
-    else if (this._manualSlowMoActive) dt *= MANUAL_SLOWMO_FACTOR
 
     this.camera.position.sub(this._shakeOffset)
     this.camera.position.y -= this._landingDipY
