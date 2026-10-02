@@ -837,6 +837,25 @@ export function generateMap3() {
     }
   }
 
+  // --- Rock walls along the very edge ---
+  // Anywhere the edge ring left open (a road's end, the gap between two
+  // edge buildings, a corner), a ragged wall of rock rises at the map's
+  // border - tallest at the outside, lower inward - so the map never just
+  // stops at empty sky, and nobody can walk or see out of it.
+  const ROCKS = ['stone', 'stone', 'andesite', 'cobblestone', 'mossycobblestone', 'stone', 'gravel', 'deepslate']
+  for (let x = -HALF; x < HALF; x++) {
+    for (let z = -HALF; z < HALF; z++) {
+      const d = Math.min(x + HALF, HALF - 1 - x, z + HALF, HALF - 1 - z)
+      if (d > 2) continue
+      if (get(x, 0, z)) continue
+      const noise = Math.round(1.5 + Math.sin(x * 0.7 + z * 0.3) + Math.cos(z * 0.9 - x * 0.4))
+      const h = [10, 7, 3][d] + noise
+      for (let y = 0; y < h; y++) {
+        if (!get(x, y, z)) set(x, y, z, y === h - 1 && d === 2 ? pick(['moss', 'gravel', 'stone']) : pick(ROCKS))
+      }
+    }
+  }
+
   // Water never has an open side or bottom (rule 4): a deep cell whose
   // neighbor got cut off (a pond clipped by a road) becomes the sandy
   // bottom of the shallow water above it instead.

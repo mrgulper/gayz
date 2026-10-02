@@ -9,6 +9,7 @@ import { BlockChunks, CHUNK } from './BlockChunks.js'
 import { blockFaceCanvases, blockIconURL, doorCanvas, doorIconURL, textureHasAlpha } from './BlockTextures.js'
 import { t } from './i18n.js'
 import { generateMap3 } from './Map3Generator.js'
+import { BuildTryMode } from './BuildTryMode.js'
 
 // GROUND_SIZE is a CELL count (not world units) - bumped up from 64, then
 // 76, as BLOCK_SIZE shrank each time, so the buildable footprint's actual
@@ -60,7 +61,15 @@ const SAVE_KEY = 'gayz-build-mode'
 // snapshot object); SAVE_KEY itself is kept only as a one-time migration
 // source (see _loadSlots) so a build saved before slots existed isn't lost.
 const SAVE_SLOTS_KEY = 'gayz-build-mode-slots'
-const SAVE_SLOT_COUNT = 3
+const SAVE_SLOT_COUNT = 10
+// Since 2026-10-02 each slot is its own compact entry (rows of the same
+// block stored once: see _encodeSlot). The old single array under
+// SAVE_SLOTS_KEY held every slot as a plain block list - ~650 KB per map
+// with the 128x128 ground, so a few saved maps already overran the
+// browser's ~5 MB storage and Cloud Save's 1 MB document. Not gayz- keys:
+// builds stay on the device (Export/Import still moves them).
+const SLOT_KEY_PREFIX = 'buildmode-slot-'
+const SLOTS_MIGRATED_KEY = 'buildmode-slots-migrated'
 // Map 3 (Map3Generator.js) is a ready-made city opened as its own slot.
 // The map itself is regenerated every time (it's deterministic), so only
 // the player's changes to it are stored: {removed: [keys], placed:
@@ -68,7 +77,7 @@ const SAVE_SLOT_COUNT = 3
 // and a player who clears it would push a huge list into Cloud Save.
 const MAP3_SLOT = 'map3'
 // Bumped (v2, v3) whenever the map changes - old edits wouldn't line up.
-const MAP3_EDITS_KEY = 'buildmode-map3-v4-edits'
+const MAP3_EDITS_KEY = 'buildmode-map3-v5-edits'
 // Edits are saved this long after the last change (and on leaving the
 // page), not only on Exit/Save - closing the tab used to lose the build.
 const AUTOSAVE_DELAY_MS = 1500
@@ -77,6 +86,8 @@ const AUTOSAVE_DELAY_MS = 1500
 const SAVED_AT_KEY = 'buildmode-saved-at'
 // The pause screen's Shortcuts box - every one of these really works.
 const MENU_SHORTCUTS = [
+  [['T'], 'buildModeTryBtn'],
+  [['Shift'], 'buildMenuRun'],
   [['Ctrl', 'Z'], 'buildModeUndoBtn'],
   [['Ctrl', 'Y'], 'buildModeRedoBtn'],
   [['Ctrl', 'S'], 'buildModeSaveBtn'],
@@ -86,7 +97,7 @@ const MENU_SHORTCUTS = [
   [['P'], 'buildModePasteBtn'],
   [['Tab'], 'buildMenuBlockPicker'],
 ]
-const MENU_TIP_KEYS = ['buildTip1', 'buildTip2', 'buildTip3', 'buildTip4', 'buildTip5', 'buildTip6', 'buildTip7']
+const MENU_TIP_KEYS = ['buildTip8', 'buildTip1', 'buildTip2', 'buildTip3', 'buildTip4', 'buildTip5', 'buildTip6', 'buildTip7']
 // Held with V (see update()'s zoomTarget) - narrows the FOV for a "look
 // further" zoomed view rather than a real render-distance change, same
 // convention as a scope/binoculars. FOV_LERP_SPEED controls how quickly
@@ -1101,6 +1112,17 @@ export class BuildMode {
       // existed (the picker's Tab-toggle key handling never blocked
       // movement input while open), the search box just made it obvious.
       if (this.pickerOpen) return
+      if (e.code === 'KeyT' && !e.repeat && !e.ctrlKey && !e.metaKey) {
+        this.toggleTryMode()
+        return
+      }
+      // While trying the map, keys move the player (see BuildTryMode) -
+      // the building tools stay off.
+      if (this.tryMode.active) {
+        this._keys.add(e.code)
+        if (MOVEMENT_KEY_CODES.has(e.code) || e.code === 'ShiftLeft') e.preventDefault()
+        return
+      }
       // Ctrl/Cmd shortcuts (shown in the Escape menu's Shortcuts box).
       if ((e.ctrlKey || e.metaKey) && !e.repeat) {
         if (e.code === 'KeyZ') {
@@ -1275,6 +1297,12 @@ export class BuildMode {
     this.scene.add(this._lineMarkerMesh)
 
     this._raycaster = new THREE.Raycaster()
+    // Try Map (BuildTryMode.js): walk the map in first person with a gun.
+    this.tryMode = new BuildTryMode(this, BLOCK_SIZE)
+    this._tryHintEl = document.createElement('div')
+    this._tryHintEl.id = 'build-try-hint'
+    this._tryHintEl.style.display = 'none'
+    document.body.appendChild(this._tryHintEl)
     this._onPointerDown = (e) => {
       if (document.pointerLockElement !== this.renderer.domElement) {
         // Cursor is free (Build Mode no longer auto-locks the instant you
@@ -1284,6 +1312,11 @@ export class BuildMode {
         // removing a block, so this first click is never mistaken for a
         // build action.
         try { this.renderer.domElement.requestPointerLock()?.catch(() => {}) } catch { /* not available in this environment */ }
+        return
+      }
+      // Trying the map: clicks shoot, nothing gets built or broken.
+      if (this.tryMode.active) {
+        if (e.button === 0) this.tryMode.fire()
         return
       }
       if (e.button === 2) {
@@ -1372,6 +1405,7 @@ export class BuildMode {
     // toggleMenu, opened with Escape.
     this.menuOpen = false
     this._menuEl = document.getElementById('build-menu')
+    document.getElementById('build-mode-try-btn')?.addEventListener('click', () => this.toggleTryMode())
     document.getElementById('build-menu-close')?.addEventListener('click', () => {
       if (this.menuOpen) this.toggleMenu()
     })
@@ -1470,6 +1504,7 @@ export class BuildMode {
   }
 
   exit() {
+    if (this.tryMode.active) this.toggleTryMode()
     this.save()
     this.active = false
     window.removeEventListener('pagehide', this._onPageHide)
@@ -1505,6 +1540,55 @@ export class BuildMode {
     if (this._menuEl) this._menuEl.style.display = 'none'
     if (this._hotbarEl) this._hotbarEl.style.visibility = ''
     if (this.game?.fpsEl) this.game.fpsEl.style.visibility = ''
+  }
+
+  // --- Try Map support (BuildTryMode's collision asks these) ---
+  // How much of a cell, from its bottom, is solid to walk into: 0 for air,
+  // water/lava, ladders and open doors, half for slabs and stairs, else 1.
+  _cellSolidTop(x, y, z) {
+    const type = this.getBlockAt(x, y, z)
+    if (!type) return 0
+    if (this._chunks.isLiquid(type)) return 0
+    const shape = BLOCK_BY_ID.get(type)?.shape
+    if (shape === 'ladder') return 0
+    if (shape === 'door' || shape === 'doortop') {
+      const bottomY = shape === 'doortop' ? y - 1 : y
+      return this.isDoorOpenAt(x, bottomY, z) ? 0 : 1
+    }
+    if (shape === 'slab' || shape === 'stairs') return 0.5
+    return 1
+  }
+
+  _cellIsLiquid(x, y, z) {
+    const type = this.getBlockAt(x, y, z)
+    return !!type && this._chunks.isLiquid(type)
+  }
+
+  _cellIsLadder(x, y, z) {
+    return BLOCK_BY_ID.get(this.getBlockAt(x, y, z))?.shape === 'ladder'
+  }
+
+  // T, or the pause screen's Try Map button: walk the map as a player
+  // holding your gun, then back to flying and building.
+  toggleTryMode() {
+    if (this.menuOpen) this.toggleMenu()
+    if (this.pickerOpen) this.togglePicker()
+    this._keys.clear()
+    this._velocity.set(0, 0, 0)
+    if (this.tryMode.active) {
+      this.tryMode.exit()
+      this._tryHintEl.style.display = 'none'
+      if (this._hotbarEl) this._hotbarEl.style.display = 'flex'
+    } else {
+      if (this.lineToolMode) this.toggleLineTool()
+      if (this.copyToolMode) this.toggleCopyTool()
+      this.tryMode.enter()
+      this._tryHintEl.textContent = t('buildTryHint')
+      this._tryHintEl.style.display = 'block'
+      if (this._hotbarEl) this._hotbarEl.style.display = 'none'
+    }
+    const btnLabel = document.getElementById('build-mode-try-btn-label')
+    if (btnLabel) btnLabel.textContent = t(this.tryMode.active ? 'buildModeStopTryBtn' : 'buildModeTryBtn')
   }
 
   // Invisible Blocks draw nothing, except a faint ghost while the player
@@ -2028,13 +2112,13 @@ export class BuildMode {
   _renderSlots() {
     if (!this._slotsEl) return
     this._slotsEl.innerHTML = ''
-    const slots = this._loadSlots()
     for (let i = 0; i < SAVE_SLOT_COUNT; i++) {
+      const has = this._slotExists(i)
       const btn = document.createElement('button')
       btn.className = 'build-slot-btn' + (i === this.activeSlot ? ' active' : '')
-      btn.title = slots[i] ? `Slot ${i + 1} (has a build)` : `Slot ${i + 1} (empty)`
+      btn.title = has ? `Slot ${i + 1} (has a build)` : `Slot ${i + 1} (empty)`
       btn.textContent = String(i + 1)
-      if (slots[i]) {
+      if (has) {
         const dot = document.createElement('span')
         dot.className = 'build-slot-dot'
         btn.appendChild(dot)
@@ -2339,39 +2423,126 @@ export class BuildMode {
     }
   }
 
-  // Reads the slots array from storage, migrating a pre-slots single save
-  // (the old SAVE_KEY) into slot 0 the first time this ever runs after
-  // slots were introduced - a build made before this feature existed
-  // should still be there, not silently lost.
-  _loadSlots() {
-    try {
-      const raw = localStorage.getItem(SAVE_SLOTS_KEY)
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        if (Array.isArray(parsed)) {
-          const slots = parsed.slice(0, SAVE_SLOT_COUNT)
-          while (slots.length < SAVE_SLOT_COUNT) slots.push(null)
-          return slots
-        }
+  // A slot as one compact string: a palette of block ids, then every
+  // horizontal run of the same block along x as "y,z,x,length,paletteIndex"
+  // (the whole flat ground is a handful of runs per row), with doors - the
+  // only blocks carrying state - listed on their own.
+  _encodeSlot(snapshot) {
+    const palette = []
+    const pIndex = new Map()
+    const pi = (type) => {
+      if (!pIndex.has(type)) {
+        pIndex.set(type, palette.length)
+        palette.push(type)
       }
-    } catch {
-      // Malformed - fall through to a fresh empty set of slots below.
+      return pIndex.get(type)
     }
-    const slots = new Array(SAVE_SLOT_COUNT).fill(null)
-    try {
-      const legacyRaw = localStorage.getItem(SAVE_KEY)
-      if (legacyRaw) slots[0] = JSON.parse(legacyRaw)
-    } catch {
-      // Malformed legacy save - start slot 0 empty too rather than crash.
+    const doors = []
+    const rows = new Map()
+    for (const b of snapshot.blocks) {
+      if (b.facing !== undefined) {
+        doors.push([b.x, b.y, b.z, pi(b.type), b.facing, b.open ? 1 : 0])
+        continue
+      }
+      const rk = `${b.y},${b.z}`
+      if (!rows.has(rk)) rows.set(rk, [])
+      rows.get(rk).push([b.x, pi(b.type)])
     }
-    return slots
+    const runs = []
+    for (const [rk, cells] of rows) {
+      cells.sort((a, b) => a[0] - b[0])
+      let start = cells[0]
+      let len = 1
+      for (let i = 1; i <= cells.length; i++) {
+        const c = cells[i]
+        if (c && c[0] === start[0] + len && c[1] === start[1]) {
+          len++
+          continue
+        }
+        runs.push(`${rk},${start[0]},${len},${start[1]}`)
+        start = c
+        len = 1
+      }
+    }
+    return JSON.stringify({ v: 2, p: palette, r: runs.join(';'), d: doors, h: snapshot.hotbar })
   }
 
-  _saveSlots(slots) {
+  _decodeSlot(raw) {
+    const data = JSON.parse(raw)
+    if (!data || data.v !== 2 || !Array.isArray(data.p)) return data
+    const blocks = []
+    if (typeof data.r === 'string' && data.r) {
+      for (const run of data.r.split(';')) {
+        const [y, z, x, len, p] = run.split(',').map(Number)
+        const type = data.p[p]
+        if (!type || !(len > 0)) continue
+        for (let i = 0; i < len; i++) blocks.push({ x: x + i, y, z, type })
+      }
+    }
+    for (const d of Array.isArray(data.d) ? data.d : []) {
+      const [x, y, z, p, facing, open] = d
+      if (data.p[p]) blocks.push({ x, y, z, type: data.p[p], facing, open: open === 1 })
+    }
+    return { blocks, hotbar: data.h }
+  }
+
+  // Moves builds from the old storage (one array under SAVE_SLOTS_KEY, or
+  // the even older single SAVE_KEY) into per-slot entries, once.
+  _migrateSlots() {
     try {
-      localStorage.setItem(SAVE_SLOTS_KEY, JSON.stringify(slots))
+      if (localStorage.getItem(SLOTS_MIGRATED_KEY)) return
+      let old = null
+      try {
+        const parsed = JSON.parse(localStorage.getItem(SAVE_SLOTS_KEY) || 'null')
+        if (Array.isArray(parsed)) old = parsed
+      } catch {
+        // Malformed - nothing to move.
+      }
+      if (!old) {
+        old = []
+        try {
+          const legacy = localStorage.getItem(SAVE_KEY)
+          if (legacy) old[0] = JSON.parse(legacy)
+        } catch {
+          // Malformed legacy save - slot 1 starts empty.
+        }
+      }
+      old.slice(0, SAVE_SLOT_COUNT).forEach((snap, i) => {
+        const blocks = Array.isArray(snap) ? snap : snap?.blocks
+        if (Array.isArray(blocks)) localStorage.setItem(SLOT_KEY_PREFIX + i, this._encodeSlot({ blocks: blocks.filter((b) => b && typeof b === 'object'), hotbar: snap?.hotbar }))
+      })
+      localStorage.removeItem(SAVE_SLOTS_KEY)
+      localStorage.setItem(SLOTS_MIGRATED_KEY, '1')
     } catch {
-      // Storage unavailable (e.g. private browsing) - build just won't persist.
+      // Storage unavailable - nothing to migrate.
+    }
+  }
+
+  _slotExists(i) {
+    this._migrateSlots()
+    try {
+      return !!localStorage.getItem(SLOT_KEY_PREFIX + i)
+    } catch {
+      return false
+    }
+  }
+
+  // A slot's saved build ({blocks, hotbar}), or null if it has none.
+  _slotData(i) {
+    this._migrateSlots()
+    try {
+      const raw = localStorage.getItem(SLOT_KEY_PREFIX + i)
+      return raw ? this._decodeSlot(raw) : null
+    } catch {
+      return null
+    }
+  }
+
+  _writeSlot(i, snapshot) {
+    try {
+      localStorage.setItem(SLOT_KEY_PREFIX + i, this._encodeSlot(snapshot))
+    } catch {
+      // Storage full/unavailable - the build just won't persist.
     }
   }
 
@@ -2389,9 +2560,7 @@ export class BuildMode {
       this._saveMap3Edits()
       return
     }
-    const slots = this._loadSlots()
-    slots[this.activeSlot] = this._snapshot()
-    this._saveSlots(slots)
+    this._writeSlot(this.activeSlot, this._snapshot())
   }
 
   // Switches to a different slot: saves the current build into whichever
@@ -2431,7 +2600,7 @@ export class BuildMode {
       this._applyMap3(this._loadMap3Edits())
       return
     }
-    this._applyBuild(this._loadSlots()[this.activeSlot])
+    this._applyBuild(this._slotData(this.activeSlot))
   }
 
   // A saved build is exactly what it says - including ground the player
@@ -2715,6 +2884,10 @@ export class BuildMode {
     this.camera.rotation.set(0, 0, 0)
     this.camera.rotateY(this._yaw)
     this.camera.rotateX(this._pitch)
+    if (this.tryMode.active) {
+      this.tryMode.update(dt, this._keys)
+      return
+    }
 
     const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion)
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion)
@@ -2851,5 +3024,6 @@ export class BuildMode {
     this.lastDrawCalls = this.renderer.info.render.calls
     shadowMap.autoUpdate = shadowAutoUpdate
     this.renderer.toneMapping = toneMapping
+    this.tryMode.drawGun(this.renderer)
   }
 }

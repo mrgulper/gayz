@@ -573,17 +573,19 @@ html.dyslexia-font body {
 /* Save-slot picker (see BuildMode.js's switchSlot/_renderSlots) - top-left,
    opposite corner from the exit/undo/save/export/import toolbar row. */
 /* Lives in the Escape menu (#build-menu), as a row above its buttons. */
+/* 10 save slots + Map 3: two rows of six (Map 3 takes the last two). */
 #build-slots {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 7px;
   margin-bottom: 14px;
 }
+#build-slots .build-slot-map3 { grid-column: span 2; }
 
 #build-menu .build-slot-btn {
   position: relative;
-  width: 44px;
-  height: 40px;
+  width: 100%;
+  height: 38px;
   padding: 0;
   font-size: 16px;
   font-weight: 700;
@@ -12972,3 +12974,23 @@ html.night-vision-active #app {
   white-space: nowrap;
   pointer-events: none;
 }
+
+/* Try Map hint (BuildMode.toggleTryMode) - bottom middle, GayZ gold. */
+#build-try-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  z-index: 19;
+  transform: translateX(-50%);
+  max-width: calc(100vw - 32px);
+  padding: 9px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #f1e6c8;
+  text-align: center;
+  background: rgba(18, 15, 10, 0.85);
+  border: 1px solid rgba(232, 194, 90, 0.55);
+  border-radius: 8px;
+  pointer-events: none;
+}
+#build-mode-try-btn svg { color: #7fd88f !important; }
