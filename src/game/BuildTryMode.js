@@ -7,22 +7,37 @@
 //
 // Sizes are Minecraft's, in blocks: the body is 0.6 wide and 1.8 tall
 // (so it fits through a one-block gap and a two-block-tall doorway), eyes
-// at 1.62, steps up half a block (slabs) on its own, and jumps a little
-// over one block. Ladders are climbed, water and lava slow you down and
-// let you swim up, open doors let you through.
+// at 1.62, steps up half a block (slabs) on its own - and a whole block
+// onto stairs, so staircases just walk up - and jumps a little over one
+// block. Ladders are climbed, water and lava slow you down and let you
+// swim up, open doors let you through.
+//
+// The feel is bloxd.io's (asked for by name): quick, snappy movement that
+// starts and stops almost instantly, strong steering in the air, a short
+// grace window to still jump just after walking off a ledge, a jump
+// pressed a moment before landing still counts, holding Space keeps
+// hopping, sprint (Shift, or double-tap W) widens the view a little, and
+// almost no head bob.
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 
 const HALF_WIDTH = 0.3
 const HEIGHT = 1.8
 const EYE = 1.62
-const WALK = 4.3 // blocks per second
-const SPRINT = 6.6 // with Shift held
-const GRAVITY = 32
-const JUMP = 9
+const WALK = 5.2 // blocks per second
+const SPRINT = 7.6 // Shift held, or W double-tapped
+const GROUND_GRIP = 26 // how fast speed follows the keys on the ground
+const AIR_GRIP = 11 // ...and in the air (bloxd steers well mid-jump)
+const GRAVITY = 30
+const JUMP = 8.8 // ~1.3 blocks high
+const COYOTE = 0.1 // seconds after leaving a ledge you can still jump
+const JUMP_BUFFER = 0.15 // a jump pressed this early before landing counts
 const STEP_UP = 0.55
-const CLIMB = 3
+const STAIR_STEP = 1.05
+const CLIMB = 3.4
 const MAX_FALL = 60
+const SPRINT_FOV = 8 // degrees added while sprinting
+const DOUBLE_TAP_MS = 280
 // Same spot on screen the game holds its gun (WeaponSystem's VIEWMODEL_BASE).
 const GUN_OFFSET = new THREE.Vector3(0.26, -0.22, -0.5)
 
@@ -41,6 +56,13 @@ export class BuildTryMode {
     this._gunCamera = null
     this._gun = null
     this._gunId = null
+    this._coyote = 0
+    this._jumpBuffer = 0
+    this._spaceWasDown = false
+    this._sprintLatched = false
+    this._lastWTap = 0
+    this._wWasDown = false
+    this._baseFov = null
   }
 
   // --- Collision, in block units ---
@@ -110,6 +132,10 @@ export class BuildTryMode {
     this._spawn.copy(this.pos)
     this.vel.set(0, 0, 0)
     this.onGround = false
+    this._coyote = 0
+    this._jumpBuffer = 0
+    this._sprintLatched = false
+    this._baseFov = cam.fov
     this._flyPos = cam.position.clone()
     this.active = true
     this._showGun()
@@ -117,6 +143,11 @@ export class BuildTryMode {
 
   exit() {
     this.active = false
+    if (this._baseFov !== null) {
+      this.bm.camera.fov = this._baseFov
+      this.bm.camera.updateProjectionMatrix()
+      this._baseFov = null
+    }
     if (this._gun) this._gun.visible = false
   }
 
@@ -135,46 +166,76 @@ export class BuildTryMode {
     if (keys.has('KeyD')) { mx -= fz; mz += fx }
     if (keys.has('KeyA')) { mx += fz; mz -= fx }
     const len = Math.hypot(mx, mz)
-    const sprint = keys.has('ShiftLeft') || keys.has('ShiftRight')
+    // Sprint: Shift, or a double-tapped W that stays on until W is let go.
+    const wDown = keys.has('KeyW')
+    if (wDown && !this._wWasDown) {
+      const now = performance.now()
+      if (now - this._lastWTap < DOUBLE_TAP_MS) this._sprintLatched = true
+      this._lastWTap = now
+    }
+    if (!wDown) this._sprintLatched = false
+    this._wWasDown = wDown
+    const sprint = (keys.has('ShiftLeft') || keys.has('ShiftRight') || this._sprintLatched) && len > 0
     const inLiquid = this._touching(p.x, p.y, p.z, (x, y, z) => this.bm._cellIsLiquid(x, y, z))
     const onLadder = this._touching(p.x, p.y, p.z, (x, y, z) => this.bm._cellIsLadder(x, y, z))
     let speed = sprint ? SPRINT : WALK
     if (inLiquid) speed *= 0.55
     const want = len ? speed / len : 0
-    // Quick to start and stop on the ground, floatier in the air.
-    const grip = this.onGround ? 18 : 5
+    const grip = this.onGround ? GROUND_GRIP : AIR_GRIP
     this.vel.x = THREE.MathUtils.damp(this.vel.x, mx * want, grip, dt)
     this.vel.z = THREE.MathUtils.damp(this.vel.z, mz * want, grip, dt)
 
+    // Jump timing: coyote time after leaving the ground, a buffered press
+    // just before landing, and holding Space hops again on every landing.
+    const spaceDown = keys.has('Space')
+    if (spaceDown && !this._spaceWasDown) this._jumpBuffer = JUMP_BUFFER
+    else if (spaceDown && this.onGround) this._jumpBuffer = Math.max(this._jumpBuffer, dt)
+    this._spaceWasDown = spaceDown
+    this._coyote = this.onGround ? COYOTE : Math.max(0, this._coyote - dt)
+    this._jumpBuffer = Math.max(0, this._jumpBuffer - dt)
+
     if (onLadder) {
-      const up = keys.has('KeyW') || keys.has('Space')
+      const up = keys.has('KeyW') || spaceDown
       this.vel.y = up ? CLIMB : keys.has('KeyS') ? -CLIMB : -1
     } else if (inLiquid) {
-      this.vel.y = keys.has('Space') ? 3.5 : Math.max(this.vel.y - GRAVITY * 0.2 * dt, -2.5)
+      this.vel.y = spaceDown ? 3.5 : Math.max(this.vel.y - GRAVITY * 0.2 * dt, -2.5)
     } else {
-      if (keys.has('Space') && this.onGround) this.vel.y = JUMP
+      if (this._jumpBuffer > 0 && this._coyote > 0) {
+        this.vel.y = JUMP
+        this._jumpBuffer = 0
+        this._coyote = 0
+        this.onGround = false
+      }
       this.vel.y = Math.max(this.vel.y - GRAVITY * dt, -MAX_FALL)
     }
 
-    // Horizontal moves, stepping up onto a slab or half-block on the way.
+    // Horizontal moves, stepping up onto a slab (or a stair) on the way.
+    const stairs = (x, y, z) => this.bm._cellIsStairs(x, y, z)
     for (const axis of ['x', 'z']) {
       const amount = this.vel[axis] * dt
       if (!amount) continue
       const before = p[axis]
       const blocked = this._moveAxis(p, axis, amount)
-      if (blocked && this.onGround) {
-        const q = { x: p.x, y: p.y + STEP_UP, z: p.z }
-        q[axis] = before
-        if (!this._hits(q.x, q.y, q.z)) {
+      if (blocked && (this.onGround || onLadder)) {
+        const ahead = { x: p.x, y: p.y, z: p.z }
+        ahead[axis] += Math.sign(amount) * 0.05
+        const heights = this._touching(ahead.x, ahead.y, ahead.z, stairs) ? [STEP_UP, STAIR_STEP] : [STEP_UP]
+        let didStep = false
+        for (const h of heights) {
+          const q = { x: p.x, y: p.y + h, z: p.z }
+          q[axis] = before
+          if (this._hits(q.x, q.y, q.z)) continue
           const stepped = { ...q }
           this._moveAxis(stepped, axis, amount)
           if (Math.abs(stepped[axis] - before) > Math.abs(p[axis] - before) + 1e-3) {
             // Settle back down onto what we stepped up on.
-            this._moveAxis(stepped, 'y', -STEP_UP)
+            this._moveAxis(stepped, 'y', -h)
             Object.assign(p, stepped)
-            continue
+            didStep = true
+            break
           }
         }
+        if (didStep) continue
       }
       if (blocked) this.vel[axis] = 0
     }
@@ -194,11 +255,19 @@ export class BuildTryMode {
     }
     this.pos.set(p.x, p.y, p.z)
 
-    // Camera at eye height, with a little head bob while walking.
+    // Camera at eye height, with only a faint bob while walking, and the
+    // view widening a little while sprinting.
     const moving = this.onGround && Math.hypot(this.vel.x, this.vel.z) > 0.5
     this._bob += moving ? dt * (sprint ? 13 : 9) : 0
-    const bob = moving ? Math.sin(this._bob) * 0.04 : 0
+    const bob = moving ? Math.sin(this._bob) * 0.015 : 0
     cam.position.set(p.x * B, (p.y + EYE + bob) * B, p.z * B)
+    if (this._baseFov !== null) {
+      const fov = THREE.MathUtils.damp(cam.fov, this._baseFov + (sprint ? SPRINT_FOV : 0), 10, dt)
+      if (Math.abs(fov - cam.fov) > 0.01) {
+        cam.fov = fov
+        cam.updateProjectionMatrix()
+      }
+    }
     this._recoil = Math.max(0, this._recoil - dt * 6)
     if (this._gun) {
       this._gun.position.set(GUN_OFFSET.x + Math.cos(this._bob * 0.5) * (moving ? 0.008 : 0), GUN_OFFSET.y + Math.abs(Math.sin(this._bob * 0.5)) * (moving ? -0.012 : 0), GUN_OFFSET.z + this._recoil * 0.05)
@@ -209,6 +278,12 @@ export class BuildTryMode {
   // Left click while trying: the gun kicks (nothing is placed or broken).
   fire() {
     this._recoil = 1
+  }
+
+  // Whether the body overlaps a solid cell right now (BuildMode checks
+  // this so a door never swings shut onto the player).
+  overlapsSolid() {
+    return this._hits(this.pos.x, this.pos.y, this.pos.z)
   }
 
   // --- The gun, drawn on top of the world in its own little scene, so it

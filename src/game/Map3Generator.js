@@ -83,7 +83,7 @@ export function generateMap3() {
     set(x, y, z, type)
     doors.set(key(x, y, z), facing)
   }
-  const rand = rng(0x6a7a3)
+  const rand = rng(0x6a7a6)
   const pick = (list) => list[Math.floor(rand() * list.length)]
   const randInt = (a, b) => a + Math.floor(rand() * (b - a + 1))
 
@@ -227,6 +227,8 @@ export function generateMap3() {
   const tree = (x, z, big = false) => {
     const h = (big ? 6 : 4) + Math.floor(rand() * 2)
     const log = pick(['oaklog', 'oaklog', 'birchlog', 'sprucelog', 'darkoaklog'])
+    // Never grow a tree through something already standing there.
+    for (let y = 0; y <= h; y++) if (get(x, y, z)) return
     const leaf = 'leaves'
     for (let y = h - 2; y <= h + 1; y++) {
       const r = y >= h + 1 ? 1 : big ? 3 : 2
@@ -300,14 +302,21 @@ export function generateMap3() {
     const baseFoot = footprintFor(x0, x1, z0, z1, shape)
     const foot = (x, z) => baseFoot(x, z) && mask(x, z)
     const tiers = [{ foot, from: 0, to: floors }]
-    if (style.setback && floors >= 5) {
+    const inset = randInt(2, 3)
+    // A setback only where the narrower top still leaves real rooms (and
+    // room for a ladder) - a too-thin top tier had no inside at all.
+    if (style.setback && floors >= 5 && x1 - x0 - 2 * inset >= 5 && z1 - z0 - 2 * inset >= 5) {
       const split = randInt(3, floors - 2)
       tiers[0].to = split
-      const inset = randInt(2, 3)
       tiers.push({ foot: (x, z) => foot(x, z) && x >= x0 + inset && x <= x1 - inset && z >= z0 + inset && z <= z1 - inset, from: split, to: floors })
     }
     const windowEvery = pick([2, 3, 3, 4])
     const top = floors * 4
+    // Start from an empty lot: a tree (or anything else) placed here before
+    // would otherwise be left standing inside the rooms, in the ladder's way.
+    for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) {
+      if (foot(x, z)) for (let y = 0; y <= top + 8; y++) clear(x, y, z)
+    }
     for (const tier of tiers) {
       const isWall = (x, z) => tier.foot(x, z) && (!tier.foot(x + 1, z) || !tier.foot(x - 1, z) || !tier.foot(x, z + 1) || !tier.foot(x, z - 1))
       for (let x = x0; x <= x1; x++) {
@@ -370,29 +379,54 @@ export function generateMap3() {
       const cz = alongX ? z0 + 1 : z0 + 2
       fill(cx, top, cz, cx, ridge + 1, cz, 'brick')
     }
-    // Front door, on the facade wall nearest the middle.
+    // Front door: on a stretch of wall facing the street (the facade side
+    // first, then the others), nearest the middle - never on a corner or
+    // where the inside is just another wall (a thin arm of an L or U), and
+    // only where the outside is open, so every building can be walked into.
     const midX = Math.floor((x0 + x1) / 2)
     const midZ = Math.floor((z0 + z1) / 2)
-    let dx
-    let dz
-    let facing
-    if (facade === 'zmin' || facade === 'zmax') {
-      dz = facade === 'zmin' ? z0 : z1
-      dx = midX
-      for (let i = 0; i < 8 && !foot(dx, dz); i++) dx += i % 2 ? i : -i
-      facing = facade === 'zmin' ? 0 : 2
-    } else {
-      dx = facade === 'xmin' ? x0 : x1
-      dz = midZ
-      for (let i = 0; i < 8 && !foot(dx, dz); i++) dz += i % 2 ? i : -i
-      facing = facade === 'xmin' ? 1 : 3
+    const SIDES = { zmin: [0, -1, 0], zmax: [0, 1, 2], xmin: [-1, 0, 1], xmax: [1, 0, 3] }
+    const interior = (x, z) => foot(x, z) && foot(x + 1, z) && foot(x - 1, z) && foot(x, z + 1) && foot(x, z - 1)
+    let dx = null
+    let dz = null
+    let facing = 0
+    let doorSide = facade
+    for (const side of [facade, ...Object.keys(SIDES).filter((k) => k !== facade)]) {
+      const [ox, oz, f] = SIDES[side]
+      let best = Infinity
+      for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) {
+        if (!foot(x, z) || foot(x + ox, z + oz)) continue
+        if (!interior(x - ox, z - oz)) continue
+        if (!foot(x + oz, z + ox) || !foot(x - oz, z - ox)) continue
+        if (get(x + ox, 1, z + oz) || get(x + ox, 2, z + oz)) continue
+        const dist = Math.abs(x - midX) + Math.abs(z - midZ)
+        if (dist < best) {
+          best = dist
+          dx = x
+          dz = z
+        }
+      }
+      if (dx !== null) {
+        facing = f
+        doorSide = side
+        break
+      }
     }
-    if (foot(dx, dz)) {
+    if (dx !== null) {
       clear(dx, 2, dz)
       door(dx, 1, dz, style.door, facing)
+      // The ground floor sits a block above the street: a half-block step
+      // outside the door, so you walk straight in instead of jumping.
+      {
+        const [sx, sz] = SIDES[doorSide]
+        const keep = clipMask
+        clipMask = null
+        if (!get(dx + sx, 0, dz + sz)) set(dx + sx, 0, dz + sz, 'stoneslab')
+        clipMask = keep
+      }
       // Steps out of the door, and an awning over shop doors.
       if (style.awning) {
-        const [ox, oz] = facade === 'zmin' ? [0, -1] : facade === 'zmax' ? [0, 1] : facade === 'xmin' ? [-1, 0] : [1, 0]
+        const [ox, oz] = SIDES[doorSide]
         const color = pick(['redwool', 'greenwool', 'bluewool', 'yellowwool', 'orangewool'])
         for (let i = -2; i <= 2; i++) {
           const ax = dx + ox + (ox === 0 ? i : 0)
@@ -410,7 +444,7 @@ export function generateMap3() {
     let lz = null
     let wallSide = null
     for (let x = x0; x <= x1 && lx === null; x++) for (let z = z0; z <= z1; z++) {
-      if (!inTop(x, z) || (Math.abs(x - dx) <= 1 && Math.abs(z - dz) <= 1)) continue
+      if (!inTop(x, z) || (dx !== null && Math.abs(x - dx) <= 1 && Math.abs(z - dz) <= 1)) continue
       const side = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([ox, oz]) => !inTop(x + ox, z + oz))
       if (side) {
         lx = x
@@ -419,9 +453,29 @@ export function generateMap3() {
         break
       }
     }
-    if (lx !== null && floors > 1) {
+    // Every building can be climbed: the ladder runs through every floor,
+    // and on a flat roof on up through a hole in the roof, so the top of
+    // even a one-floor shop is reachable. (A sloped roof's attic is too
+    // low to stand in, so houses stop at their top floor.)
+    const toRoof = !pitched
+    if (lx === null) {
+      // Nowhere away from the door: any inside spot against a wall will do.
+      for (let x = x0; x <= x1 && lx === null; x++) for (let z = z0; z <= z1; z++) {
+        if (!inTop(x, z) || (x === dx && z === dz)) continue
+        const side = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([ox, oz]) => !inTop(x + ox, z + oz))
+        if (side) {
+          lx = x
+          lz = z
+          wallSide = [x + side[0], z + side[1]]
+          break
+        }
+      }
+    }
+    if (lx !== null && (floors > 1 || toRoof)) {
       for (let f = 1; f < floors; f++) clear(lx, f * 4 - 1, lz)
-      for (let y = 1; y < (floors - 1) * 4 + 3; y++) {
+      if (toRoof) clear(lx, top - 1, lz)
+      const ladderTop = toRoof ? top : (floors - 1) * 4 + 3
+      for (let y = 1; y < ladderTop; y++) {
         if (!get(lx, y, lz)) set(lx, y, lz, 'ladder')
         // Below a step-in, the top tier's wall isn't there yet: a support
         // column behind the ladder instead.
@@ -451,6 +505,8 @@ export function generateMap3() {
         const rx = randInt(x0 + 2, x1 - 2)
         const rz = randInt(z0 + 2, z1 - 2)
         if (!tf(rx, rz)) continue
+        // Keep the roof hatch clear.
+        if (lx !== null && Math.abs(rx - lx) <= 2 && Math.abs(rz - lz) <= 2) continue
         if (i === 0 && floors >= 3) {
           fill(rx, y, rz, rx + 1, y + 1, rz + 1, 'barrel')
           set(rx, y + 2, rz, 'stonefence')
@@ -461,6 +517,9 @@ export function generateMap3() {
     for (let i = 0; i < 4; i++) {
       const ix = randInt(x0 + 1, x1 - 1)
       const iz = randInt(z0 + 1, z1 - 1)
+      // Never in the doorway or in front of the ladder.
+      if (dx !== null && Math.abs(ix - dx) <= 1 && Math.abs(iz - dz) <= 1) continue
+      if (lx !== null && Math.abs(ix - lx) <= 1 && Math.abs(iz - lz) <= 1) continue
       if (foot(ix, iz) && !get(ix, 1, iz)) set(ix, 1, iz, pick(style.props))
     }
   }
@@ -780,7 +839,10 @@ export function generateMap3() {
     { alongX: false, edge: -HALF },
     { alongX: false, edge: HALF - 1 },
   ]
-  const edgeLand = (x, z) => kindAt(x, z) === 'edge'
+  // Cells already taken by an edge building - two sides' buildings used to
+  // overlap at the corners, walling each other's doors in.
+  const edgeTaken = new Set()
+  const edgeLand = (x, z) => kindAt(x, z) === 'edge' && !edgeTaken.has(x * 1000 + z)
   for (const side of edgeSides) {
     let a = -HALF
     while (a < HALF) {
@@ -812,6 +874,7 @@ export function generateMap3() {
         }
         const facade = side.alongX ? (side.edge < 0 ? 'zmax' : 'zmin') : side.edge < 0 ? 'xmax' : 'xmin'
         building(box, style, facade, edgeLand)
+        for (let x = box.x0; x <= box.x1; x++) for (let z = box.z0; z <= box.z1; z++) if (edgeLand(x, z)) edgeTaken.add(x * 1000 + z)
       }
       if (roadCells) {
         // Barricade across the road end: a stone wall with a fence on top,
@@ -854,6 +917,23 @@ export function generateMap3() {
         if (!get(x, y, z)) set(x, y, z, y === h - 1 && d === 2 ? pick(['moss', 'gravel', 'stone']) : pick(ROCKS))
       }
     }
+  }
+
+  // A door that ended up facing a wall (a neighbor built right up against
+  // it later - mostly where two sides of the edge ring meet) gets a second
+  // door through that wall, so the two buildings connect instead.
+  const DOOR_OUT = [[0, -1], [-1, 0], [0, 1], [1, 0]]
+  for (const [k, facing] of [...doors]) {
+    const [x, y, z] = k.split(',').map(Number)
+    const [ox, oz] = DOOR_OUT[facing]
+    const [nx, nz] = [x + ox, z + oz]
+    // A tree's low leaves in front of a door are trimmed back.
+    for (const cy of [y, y + 1]) if (get(nx, cy, nz) === 'leaves') clear(nx, cy, nz)
+    if (!get(nx, y, nz) && !get(nx, y + 1, nz)) continue
+    if (doors.has(key(nx, y, nz))) continue
+    const [fx2, fz2] = [nx + ox, nz + oz]
+    if (get(fx2, y, fz2) || get(fx2, y + 1, fz2) || !get(fx2, y - 1, fz2)) continue
+    door(nx, y, nz, get(x, y, z), facing)
   }
 
   // Water never has an open side or bottom (rule 4): a deep cell whose
