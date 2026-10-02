@@ -72,6 +72,21 @@ const MAP3_EDITS_KEY = 'buildmode-map3-v4-edits'
 // Edits are saved this long after the last change (and on leaving the
 // page), not only on Exit/Save - closing the tab used to lose the build.
 const AUTOSAVE_DELAY_MS = 1500
+// When each slot was last saved, for the pause screen's Quick Info (not a
+// gayz- key: it's per device and not worth syncing).
+const SAVED_AT_KEY = 'buildmode-saved-at'
+// The pause screen's Shortcuts box - every one of these really works.
+const MENU_SHORTCUTS = [
+  [['Ctrl', 'Z'], 'buildModeUndoBtn'],
+  [['Ctrl', 'Y'], 'buildModeRedoBtn'],
+  [['Ctrl', 'S'], 'buildModeSaveBtn'],
+  [['M'], 'buildModeMirrorBtn'],
+  [['L'], 'buildModeLineBtn'],
+  [['C'], 'buildModeCopyBtn'],
+  [['P'], 'buildModePasteBtn'],
+  [['Tab'], 'buildMenuBlockPicker'],
+]
+const MENU_TIP_KEYS = ['buildTip1', 'buildTip2', 'buildTip3', 'buildTip4', 'buildTip5', 'buildTip6', 'buildTip7']
 // Held with V (see update()'s zoomTarget) - narrows the FOV for a "look
 // further" zoomed view rather than a real render-distance change, same
 // convention as a scope/binoculars. FOV_LERP_SPEED controls how quickly
@@ -1086,6 +1101,28 @@ export class BuildMode {
       // existed (the picker's Tab-toggle key handling never blocked
       // movement input while open), the search box just made it obvious.
       if (this.pickerOpen) return
+      // Ctrl/Cmd shortcuts (shown in the Escape menu's Shortcuts box).
+      if ((e.ctrlKey || e.metaKey) && !e.repeat) {
+        if (e.code === 'KeyZ') {
+          e.preventDefault()
+          if (e.shiftKey) this.redo()
+          else this.undo()
+          return
+        }
+        if (e.code === 'KeyY') {
+          e.preventDefault()
+          this.redo()
+          return
+        }
+        if (e.code === 'KeyS') {
+          e.preventDefault()
+          this.save()
+          this.game?._showHomepageToast?.(t('buildMenuSavedToast'))
+          if (this.menuOpen) this._refreshMenuInfo()
+          return
+        }
+        return
+      }
       if (e.code === 'KeyM' && !e.repeat) {
         this.toggleMirror()
         return
@@ -1335,6 +1372,9 @@ export class BuildMode {
     // toggleMenu, opened with Escape.
     this.menuOpen = false
     this._menuEl = document.getElementById('build-menu')
+    document.getElementById('build-menu-close')?.addEventListener('click', () => {
+      if (this.menuOpen) this.toggleMenu()
+    })
 
     // Community Builds browse panel (Publish/Browse buttons themselves are
     // bound in Game.js, matching Exit/Save/Export/Import's own precedent -
@@ -1463,6 +1503,8 @@ export class BuildMode {
     if (this._slotsEl) this._slotsEl.style.display = 'none'
     this.menuOpen = false
     if (this._menuEl) this._menuEl.style.display = 'none'
+    if (this._hotbarEl) this._hotbarEl.style.visibility = ''
+    if (this.game?.fpsEl) this.game.fpsEl.style.visibility = ''
   }
 
   // Invisible Blocks draw nothing, except a faint ghost while the player
@@ -2012,6 +2054,11 @@ export class BuildMode {
       this._renderSlots()
     })
     this._slotsEl.appendChild(map3Btn)
+    if (this.menuOpen) {
+      this._refreshMenuInfo()
+      // A switched-to map's blocks are meshed on the next frame.
+      requestAnimationFrame(() => this._captureMenuPreview())
+    }
   }
 
   // M key or toolbar button - see mirrorMode's own comment for why x=0.
@@ -2201,7 +2248,16 @@ export class BuildMode {
   // togglePicker, since the menu's buttons need a real usable cursor too.
   toggleMenu() {
     this.menuOpen = !this.menuOpen
+    if (this.menuOpen) {
+      this._captureMenuPreview()
+      this._menuTip = (this._menuTip ?? Math.floor(Math.random() * MENU_TIP_KEYS.length) - 1) + 1
+      this._refreshMenuInfo()
+    }
     if (this._menuEl) this._menuEl.style.display = this.menuOpen ? 'flex' : 'none'
+    // The pause screen covers the whole view: the hotbar and fps readout
+    // hide behind it (the readout would sit on the title).
+    if (this._hotbarEl) this._hotbarEl.style.visibility = this.menuOpen ? 'hidden' : ''
+    if (this.game?.fpsEl) this.game.fpsEl.style.visibility = this.menuOpen ? 'hidden' : ''
     if (this.menuOpen && this.pickerOpen) this.togglePicker()
     if (document.pointerLockElement === this.renderer.domElement && this.menuOpen) {
       document.exitPointerLock()
@@ -2210,6 +2266,75 @@ export class BuildMode {
         this.renderer.domElement.requestPointerLock()?.catch(() => {})
       } catch {
         // Not available in this environment.
+      }
+    }
+  }
+
+  // A picture of the map as it is right now, for the preview card - read
+  // straight after a render, while the frame is still in the canvas.
+  _captureMenuPreview() {
+    try {
+      this.render()
+      const img = document.getElementById('build-menu-preview')
+      if (img) img.src = this.renderer.domElement.toDataURL('image/jpeg', 0.7)
+    } catch {
+      // No picture this time - the card just shows its frame.
+    }
+  }
+
+  _slotName(slot = this.activeSlot) {
+    return slot === MAP3_SLOT ? t('buildMap3Slot') : t('buildSlotName', { n: slot + 1 })
+  }
+
+  _savedAgoText(at) {
+    if (!at) return t('buildMenuNeverSaved')
+    const mins = Math.floor((Date.now() - at) / 60000)
+    if (mins < 1) return t('buildMenuSavedJustNow')
+    if (mins < 60) return t('buildMenuSavedMinutes', { n: mins })
+    return t('buildMenuSavedHours', { n: Math.floor(mins / 60) })
+  }
+
+  _savedAtFor(slot) {
+    try {
+      return JSON.parse(localStorage.getItem(SAVED_AT_KEY) || '{}')[slot] || null
+    } catch {
+      return null
+    }
+  }
+
+  // Fills in the pause screen's preview card, Quick Info, Shortcuts and Tip.
+  _refreshMenuInfo() {
+    const set = (id, text) => {
+      const el = document.getElementById(id)
+      if (el) el.textContent = text
+    }
+    const name = this._slotName()
+    const ago = this._savedAgoText(this._savedAtFor(this.activeSlot))
+    set('build-menu-map-name', name)
+    set('build-menu-map-saved', `${t('buildMenuLastSaved')}: ${ago}`)
+    set('build-menu-info-map', name)
+    set('build-menu-info-saved', ago)
+    set('build-menu-info-blocks', this._blocks.size.toLocaleString())
+    set('build-menu-editing', t('buildMenuEditing', { name }))
+    set('build-menu-tip', t(MENU_TIP_KEYS[(this._menuTip || 0) % MENU_TIP_KEYS.length]))
+    const list = document.getElementById('build-menu-shortcuts')
+    if (list) {
+      list.innerHTML = ''
+      for (const [keys, labelKey] of MENU_SHORTCUTS) {
+        const row = document.createElement('div')
+        row.className = 'build-menu-shortcut'
+        const keyWrap = document.createElement('span')
+        keyWrap.className = 'build-menu-keys'
+        keys.forEach((k, i) => {
+          if (i) keyWrap.append('+')
+          const kbd = document.createElement('kbd')
+          kbd.textContent = k
+          keyWrap.append(kbd)
+        })
+        const label = document.createElement('span')
+        label.textContent = t(labelKey)
+        row.append(keyWrap, label)
+        list.append(row)
       }
     }
   }
@@ -2253,6 +2378,13 @@ export class BuildMode {
   save() {
     clearTimeout(this._autosaveTimer)
     this._autosaveTimer = null
+    try {
+      const at = JSON.parse(localStorage.getItem(SAVED_AT_KEY) || '{}')
+      at[this.activeSlot] = Date.now()
+      localStorage.setItem(SAVED_AT_KEY, JSON.stringify(at))
+    } catch {
+      // Storage unavailable - Quick Info just won't know when.
+    }
     if (this.activeSlot === MAP3_SLOT) {
       this._saveMap3Edits()
       return

@@ -115,49 +115,250 @@ html.dyslexia-font body {
   color: var(--menu-gold, #d9bc4a);
 }
 
+/* Map Editor pause screen (Escape) - GayZ dark/gold: title top-left, a
+   preview card on the left, the action menu in the middle, Quick Info /
+   Shortcuts / Tip on the right. See BuildMode._refreshMenuInfo. */
 #build-menu {
+  --bm-gold: #e8c25a;
+  --bm-gold-dim: rgba(232, 194, 90, 0.45);
+  --bm-panel: rgba(18, 15, 10, 0.92);
   position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  inset: 0;
   z-index: 20;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
-  padding: 16px;
-  background: rgba(10, 10, 10, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 90px 24px 60px;
+  box-sizing: border-box;
+  background: radial-gradient(ellipse at center, rgba(10, 8, 5, 0.55), rgba(5, 4, 2, 0.88));
+  color: #f1e6c8;
+}
+.build-menu-card {
+  position: relative;
+  box-sizing: border-box;
+  padding: 16px 18px;
+  background: var(--bm-panel);
+  border: 1px solid var(--bm-gold-dim);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+/* Gold corner brackets, like the homepage panels. */
+.build-menu-card::before,
+.build-menu-card::after {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--bm-gold);
+  pointer-events: none;
+}
+.build-menu-card::before { top: -2px; left: -2px; border-right: none; border-bottom: none; border-top-left-radius: 8px; }
+.build-menu-card::after { bottom: -2px; right: -2px; border-left: none; border-top: none; border-bottom-right-radius: 8px; }
+
+#build-menu-title {
+  position: absolute;
+  top: 22px;
+  left: 28px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--bm-gold);
+}
+#build-menu-title svg { width: 46px; height: 46px; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7)); }
+#build-menu-title div { display: flex; flex-direction: column; line-height: 1; }
+#build-menu-title-main {
+  font-family: 'Black Ops One', 'Bebas Neue', sans-serif;
+  font-size: 42px;
+  text-transform: uppercase;
+  text-shadow: 0 3px 0 #000, 0 0 18px rgba(232, 194, 90, 0.35);
+}
+#build-menu-title-sub {
+  margin-top: 4px;
+  font-family: 'Black Ops One', 'Bebas Neue', sans-serif;
+  font-size: 18px;
+  letter-spacing: 3px;
+  color: #f1e6c8;
+  text-transform: uppercase;
+}
+#build-menu-close {
+  position: absolute;
+  top: 22px;
+  right: 26px;
+  width: 46px;
+  height: 46px;
+  border: 2px solid var(--bm-gold);
   border-radius: 6px;
-  min-width: 220px;
-}
-
-#build-menu-hint {
-  margin: 0 0 4px;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
-  text-align: center;
-}
-
-#build-menu button {
-  padding: 8px 16px;
-  font-size: 13px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--bm-gold);
+  font-size: 30px;
+  line-height: 1;
   cursor: pointer;
 }
+#build-menu-close:hover { background: rgba(232, 194, 90, 0.15); }
 
-#build-mode-mirror-btn.active {
-  border-color: #5be3ff;
-  color: #5be3ff;
+#build-menu-left,
+#build-menu-right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 300px;
+  flex: none;
+}
+#build-menu-preview-card { padding: 10px; }
+#build-menu-preview {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: 5px;
+  background: #0c0a07;
+}
+#build-menu-map-name {
+  margin: 10px 4px 2px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+#build-menu-map-saved {
+  margin: 0 4px 4px;
+  font-size: 13px;
+  color: rgba(241, 230, 200, 0.6);
 }
 
+#build-menu-center {
+  display: flex;
+  flex-direction: column;
+  width: 420px;
+  max-height: 100%;
+  min-height: 0;
+  padding: 14px 18px 18px;
+}
+#build-menu-hint {
+  margin: 0 0 10px;
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(232, 194, 90, 0.7);
+  text-align: center;
+}
+#build-menu-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 2px;
+}
+#build-menu-buttons button {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  color: #f1e6c8;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015));
+  border: 1px solid rgba(232, 194, 90, 0.22);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, color 0.12s, box-shadow 0.12s;
+}
+#build-menu-buttons button svg { width: 22px; height: 22px; flex: none; color: var(--bm-gold); }
+#build-menu-buttons button:hover:not(:disabled) {
+  border-color: var(--bm-gold);
+  background: linear-gradient(180deg, rgba(232, 194, 90, 0.18), rgba(232, 194, 90, 0.05));
+  box-shadow: 0 0 12px rgba(232, 194, 90, 0.25);
+  color: #fff;
+}
+#build-menu-buttons button:disabled { opacity: 0.4; cursor: default; }
+#build-mode-exit-btn { margin-top: 6px; }
+#build-mode-exit-btn svg { color: #e06a5a; }
+
+/* A tool that's switched on (Mirror / Line / Copy) glows gold. */
+#build-mode-mirror-btn.active,
 #build-mode-line-btn.active,
 #build-mode-copy-btn.active {
-  border-color: #ffde5c;
-  color: #ffde5c;
+  border-color: var(--bm-gold);
+  background: linear-gradient(180deg, rgba(232, 194, 90, 0.32), rgba(232, 194, 90, 0.12));
+  box-shadow: 0 0 14px rgba(232, 194, 90, 0.35);
+  color: #fff;
+}
+
+#build-menu-right h3 {
+  margin: 0 0 12px;
+  font-family: 'Black Ops One', 'Bebas Neue', sans-serif;
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--bm-gold);
+}
+.build-menu-info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 0;
+  font-size: 14px;
+  border-top: 1px solid rgba(232, 194, 90, 0.1);
+}
+.build-menu-info-row:first-of-type { border-top: none; }
+.build-menu-info-row span { color: rgba(241, 230, 200, 0.6); }
+.build-menu-info-row b { color: #fff; text-align: right; }
+#build-menu-shortcuts { display: flex; flex-direction: column; gap: 6px; }
+.build-menu-shortcut {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: rgba(241, 230, 200, 0.75);
+}
+.build-menu-keys {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 92px;
+  color: rgba(241, 230, 200, 0.5);
+}
+.build-menu-keys kbd {
+  min-width: 18px;
+  padding: 2px 7px;
+  font: 600 12px/1.4 inherit;
+  text-align: center;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(232, 194, 90, 0.45);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+}
+#build-menu-tip {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: rgba(241, 230, 200, 0.85);
+}
+#build-menu-editing {
+  position: absolute;
+  left: 28px;
+  bottom: 20px;
+  margin: 0;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--bm-gold);
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--bm-gold-dim);
+  border-radius: 6px;
+}
+/* Narrower screens keep just the menu in the middle. */
+@media (max-width: 1180px) {
+  #build-menu-left,
+  #build-menu-right { display: none; }
+}
+@media (max-height: 640px) {
+  #build-menu { padding-top: 76px; }
+  #build-menu-title svg { width: 34px; height: 34px; }
+  #build-menu-title-main { font-size: 30px; }
 }
 
 /* Community Builds browse panel - matches #build-menu's own dark-plate
@@ -375,27 +576,29 @@ html.dyslexia-font body {
 #build-slots {
   display: flex;
   justify-content: center;
-  gap: 6px;
-  margin-bottom: 4px;
+  gap: 8px;
+  margin-bottom: 14px;
 }
 
 #build-menu .build-slot-btn {
   position: relative;
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 40px;
   padding: 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
-  background: rgba(10, 10, 10, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #f1e6c8;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(232, 194, 90, 0.3);
+  border-radius: 6px;
   cursor: pointer;
 }
+#build-menu .build-slot-btn:hover { border-color: var(--bm-gold); }
 
 #build-menu .build-slot-btn.active {
-  border-color: #d9bc4a;
-  color: #d9bc4a;
+  border: 2px solid var(--bm-gold);
+  color: var(--bm-gold);
+  box-shadow: 0 0 12px rgba(232, 194, 90, 0.35);
 }
 /* Map 3's button sits after the numbered slots and needs room for its name. */
 #build-menu .build-slot-btn.build-slot-map3 {
