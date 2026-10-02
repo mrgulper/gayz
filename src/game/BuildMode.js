@@ -68,7 +68,7 @@ const SAVE_SLOT_COUNT = 3
 // and a player who clears it would push a huge list into Cloud Save.
 const MAP3_SLOT = 'map3'
 // Bumped (v2, v3) whenever the map changes - old edits wouldn't line up.
-const MAP3_EDITS_KEY = 'buildmode-map3-v3-edits'
+const MAP3_EDITS_KEY = 'buildmode-map3-v4-edits'
 // Edits are saved this long after the last change (and on leaving the
 // page), not only on Exit/Save - closing the tab used to lose the build.
 const AUTOSAVE_DELAY_MS = 1500
@@ -1356,6 +1356,22 @@ export class BuildMode {
       this._selectHotbarSlot(digitIndex)
     }
 
+    // Mouse wheel / trackpad scroll steps through the hotbar like
+    // Minecraft (down = next slot). Trackpads send many small deltas, so
+    // they're added up and one slot moves per ~one wheel notch.
+    this._wheelAccum = 0
+    this._onWheel = (e) => {
+      if (!this.active || this.pickerOpen || this.menuOpen) return
+      if (e.target?.closest?.('#build-picker, #build-menu, #community-builds-panel')) return
+      this._wheelAccum += e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY
+      const steps = Math.trunc(this._wheelAccum / 60)
+      if (!steps) return
+      this._wheelAccum -= steps * 60
+      const dir = Math.sign(steps) * (this.game?.settings?.invertScrollWeaponSwitch ? -1 : 1)
+      const next = (((this.activeHotbarIndex + dir) % 10) + 10) % 10
+      this._selectHotbarSlot(next)
+    }
+
     this._onKeyDownPicker = (e) => {
       if (e.code === 'Tab') {
         e.preventDefault()
@@ -1397,6 +1413,8 @@ export class BuildMode {
     window.addEventListener('mousemove', this._onMouseMove)
     window.addEventListener('keydown', this._onKeyDownPicker)
     window.addEventListener('keydown', this._onKeyDownHotbar)
+    window.addEventListener('wheel', this._onWheel, { passive: true })
+    this._wheelAccum = 0
     this.renderer.domElement.addEventListener('pointerdown', this._onPointerDown)
     window.addEventListener('contextmenu', this._onContextMenu)
     document.addEventListener('click', this._onPickerBackdropClick)
@@ -1435,6 +1453,7 @@ export class BuildMode {
     window.removeEventListener('mousemove', this._onMouseMove)
     window.removeEventListener('keydown', this._onKeyDownPicker)
     window.removeEventListener('keydown', this._onKeyDownHotbar)
+    window.removeEventListener('wheel', this._onWheel)
     this.renderer.domElement.removeEventListener('pointerdown', this._onPointerDown)
     window.removeEventListener('contextmenu', this._onContextMenu)
     document.removeEventListener('click', this._onPickerBackdropClick)
