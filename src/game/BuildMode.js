@@ -77,7 +77,7 @@ const SLOTS_MIGRATED_KEY = 'buildmode-slots-migrated'
 // and a player who clears it would push a huge list into Cloud Save.
 const MAP3_SLOT = 'map3'
 // Bumped (v2, v3) whenever the map changes - old edits wouldn't line up.
-const MAP3_EDITS_KEY = 'buildmode-map3-v5-edits'
+const MAP3_EDITS_KEY = 'buildmode-map3-v6-edits'
 // Edits are saved this long after the last change (and on leaving the
 // page), not only on Exit/Save - closing the tab used to lose the build.
 const AUTOSAVE_DELAY_MS = 1500
@@ -85,9 +85,12 @@ const AUTOSAVE_DELAY_MS = 1500
 // gayz- key: it's per device and not worth syncing).
 const SAVED_AT_KEY = 'buildmode-saved-at'
 // The pause screen's Shortcuts box - every one of these really works.
+// Trying the map: how far away (in blocks) a door can be opened from.
+const TRY_REACH_BLOCKS = 5
 const MENU_SHORTCUTS = [
   [['T'], 'buildModeTryBtn'],
   [['Shift'], 'buildMenuRun'],
+  [['E'], 'buildMenuUseDoor'],
   [['Ctrl', 'Z'], 'buildModeUndoBtn'],
   [['Ctrl', 'Y'], 'buildModeRedoBtn'],
   [['Ctrl', 'S'], 'buildModeSaveBtn'],
@@ -1119,6 +1122,7 @@ export class BuildMode {
       // While trying the map, keys move the player (see BuildTryMode) -
       // the building tools stay off.
       if (this.tryMode.active) {
+        if (e.code === 'KeyE' && !e.repeat) this._tryUseFromCamera()
         this._keys.add(e.code)
         if (MOVEMENT_KEY_CODES.has(e.code) || e.code === 'ShiftLeft') e.preventDefault()
         return
@@ -1317,6 +1321,7 @@ export class BuildMode {
       // Trying the map: clicks shoot, nothing gets built or broken.
       if (this.tryMode.active) {
         if (e.button === 0) this.tryMode.fire()
+        else if (e.button === 2) this._tryUseFromCamera()
         return
       }
       if (e.button === 2) {
@@ -1557,6 +1562,27 @@ export class BuildMode {
     }
     if (shape === 'slab' || shape === 'stairs') return 0.5
     return 1
+  }
+
+  _cellIsStairs(x, y, z) {
+    const type = this.getBlockAt(x, y, z)
+    return !!type && BLOCK_BY_ID.get(type)?.shape === 'stairs'
+  }
+
+  // Trying the map: right-click or E opens/closes the door you're looking
+  // at, within arm's reach - and never swings one shut onto yourself.
+  _tryUseFromCamera() {
+    this.camera.updateMatrixWorld()
+    this._raycaster.setFromCamera({ x: 0, y: 0 }, this.camera)
+    const hit = this._raycastGridAligned()
+    if (!hit) return false
+    const [x, y, z] = hit.existingBlock
+    const c = this.camera.position
+    const reach = TRY_REACH_BLOCKS * BLOCK_SIZE
+    if (Math.hypot((x + 0.5) * BLOCK_SIZE - c.x, (y + 0.5) * BLOCK_SIZE - c.y, (z + 0.5) * BLOCK_SIZE - c.z) > reach) return false
+    if (!this.toggleDoor(x, y, z)) return false
+    if (this.tryMode.overlapsSolid()) this.toggleDoor(x, y, z)
+    return true
   }
 
   _cellIsLiquid(x, y, z) {
