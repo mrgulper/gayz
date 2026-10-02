@@ -12836,3 +12836,38 @@ html.night-vision-active #app {
   box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.55);
   pointer-events: none;
 }
+
+/* Oval (pill) inputs, dropdowns and their buttons, the same shape as the
+   search bars (2026-10-02): both chat boxes, Add a Friend, the Status
+   picker, the Achievements Category/Sort dropdowns and the clan invite
+   box. Shape only - each keeps its own dark fill and gold border (the
+   Status picker borrows the inputs' look, it was the one grey box). */
+#chat-input,
+#server-chat-input,
+#cloudsave-friend-input,
+#clan-invite-id-input {
+  border-radius: 999px;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+#send-friend-request-btn,
+#clan-invite-send-btn {
+  border-radius: 999px;
+  padding-left: 14px;
+  padding-right: 14px;
+}
+
+#status-picker-toggle {
+  border-radius: 999px;
+  padding-left: 14px;
+  padding-right: 14px;
+  background: rgba(0, 0, 0, 0.4);
+  border-color: rgba(var(--ui-gold-accent-rgb), 0.4);
+}
+
+#achievements-category-select,
+#achievements-sort-select {
+  border-radius: 999px;
+  padding-left: 14px;
+}
