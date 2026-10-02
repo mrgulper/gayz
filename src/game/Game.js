@@ -2479,6 +2479,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'build-menu-info-blocks-label': 'buildMenuBlocks',
   'build-menu-shortcuts-title': 'buildMenuShortcuts',
   'build-menu-tip-title': 'buildMenuTip',
+  'build-mode-try-btn-label': 'buildModeTryBtn',
   'build-mode-mirror-btn-label': 'buildModeMirrorBtn',
   'build-mode-line-btn-label': 'buildModeLineBtn',
   'build-mode-copy-btn-label': 'buildModeCopyBtn',
