@@ -1027,6 +1027,10 @@ function _buildLadderGeometry() {
 // Keyed by `shape`, not block id - every stair variant (Oak/Stone/Brick/
 // Cobblestone) shares this one geometry, same as how every cube block
 // already shares blockGeo; only the material/texture differs per type.
+// Ladders hang on whichever neighbor is solid, checked in this order.
+const LADDER_SIDES = [[0, -1], [0, 1], [-1, 0], [1, 0]]
+// Half the panel's thickness plus a hair, so it sits just off the wall.
+const LADDER_INSET = 0.07
 const CUSTOM_BLOCK_GEOMETRY = {
   slab: _buildSlabGeometry(),
   stairs: _buildStairGeometry(),
@@ -1307,6 +1311,11 @@ export class BuildMode {
     this._tryHintEl.id = 'build-try-hint'
     this._tryHintEl.style.display = 'none'
     document.body.appendChild(this._tryHintEl)
+    // A dot in the middle of the screen to aim with while trying the map.
+    this._tryCrosshairEl = document.createElement('div')
+    this._tryCrosshairEl.id = 'build-try-crosshair'
+    this._tryCrosshairEl.style.display = 'none'
+    document.body.appendChild(this._tryCrosshairEl)
     this._onPointerDown = (e) => {
       if (document.pointerLockElement !== this.renderer.domElement) {
         // Cursor is free (Build Mode no longer auto-locks the instant you
@@ -1604,6 +1613,7 @@ export class BuildMode {
     if (this.tryMode.active) {
       this.tryMode.exit()
       this._tryHintEl.style.display = 'none'
+      this._tryCrosshairEl.style.display = 'none'
       if (this._hotbarEl) this._hotbarEl.style.display = 'flex'
     } else {
       if (this.lineToolMode) this.toggleLineTool()
@@ -1611,6 +1621,7 @@ export class BuildMode {
       this.tryMode.enter()
       this._tryHintEl.textContent = t('buildTryHint')
       this._tryHintEl.style.display = 'block'
+      this._tryCrosshairEl.style.display = 'block'
       if (this._hotbarEl) this._hotbarEl.style.display = 'none'
     }
     const btnLabel = document.getElementById('build-mode-try-btn-label')
@@ -1769,6 +1780,7 @@ export class BuildMode {
       cells.add(key)
       this._chunks.markDirty(x, y, z)
       this._attachBlockLight(key, x, y, z, type)
+      if (!skipBoundsUpdate) this._refreshLaddersAround(x, y, z)
       return
     }
     const mesh = this._shapedMesh(type)
@@ -1788,7 +1800,8 @@ export class BuildMode {
     // lookup all stay in this same cell-index space); only the WORLD
     // position of that cell's center needs the *BLOCK_SIZE conversion.
     const matrix = this._doorState.has(key) ? this._doorMatrix(x, y, z, this._doorState.get(key))
-      : new THREE.Matrix4().makeTranslation((x + 0.5) * BLOCK_SIZE, (y + 0.5) * BLOCK_SIZE, (z + 0.5) * BLOCK_SIZE)
+      : shape === 'ladder' ? this._ladderMatrix(x, y, z)
+        : new THREE.Matrix4().makeTranslation((x + 0.5) * BLOCK_SIZE, (y + 0.5) * BLOCK_SIZE, (z + 0.5) * BLOCK_SIZE)
     mesh.setMatrixAt(index, matrix)
     // Slight per-instance brightness variation (±12%) - every block of a
     // type otherwise shares one exact texture, which reads as an obviously
@@ -1835,6 +1848,50 @@ export class BuildMode {
     const m = new THREE.Matrix4().makeRotationY(turn)
     m.setPosition((x + 0.5) * BLOCK_SIZE, (y + 0.5) * BLOCK_SIZE, (z + 0.5) * BLOCK_SIZE)
     return m
+  }
+
+  // A ladder hangs flat against the solid block beside it (Minecraft-
+  // style), not in the middle of its cell - which read as a pole standing
+  // in the room (2026-10-02 report). No wall at all: it stays centered.
+  _ladderMatrix(x, y, z) {
+    const m = new THREE.Matrix4()
+    const side = LADDER_SIDES.find(([ox, oz]) => {
+      const type = this.getBlockAt(x + ox, y, z + oz)
+      return type && BLOCK_BY_ID.get(type)?.shape !== 'ladder' && this._cellSolidTop(x + ox, y, z + oz) === 1
+    })
+    if (side && side[0]) m.makeRotationY(Math.PI / 2)
+    const shift = (0.5 - LADDER_INSET) * BLOCK_SIZE
+    m.setPosition((x + 0.5 + (side ? side[0] : 0) * (shift / BLOCK_SIZE)) * BLOCK_SIZE, (y + 0.5) * BLOCK_SIZE, (z + 0.5 + (side ? side[1] : 0) * (shift / BLOCK_SIZE)) * BLOCK_SIZE)
+    return m
+  }
+
+  _refreshLadderAt(x, y, z) {
+    const key = this._key(x, y, z)
+    const mesh = this._instancedMeshes.ladder
+    if (!mesh || this._blocks.get(key) !== 'ladder') return
+    const index = this._instanceKeyByIndex.ladder.indexOf(key)
+    if (index < 0) return
+    mesh.setMatrixAt(index, this._ladderMatrix(x, y, z))
+    mesh.instanceMatrix.needsUpdate = true
+  }
+
+  _refreshAllLadders() {
+    const mesh = this._instancedMeshes.ladder
+    const keys = this._instanceKeyByIndex.ladder
+    if (!mesh || !keys) return
+    keys.forEach((key, index) => {
+      const [x, y, z] = key.split(',').map(Number)
+      mesh.setMatrixAt(index, this._ladderMatrix(x, y, z))
+    })
+    mesh.instanceMatrix.needsUpdate = true
+    mesh.computeBoundingSphere()
+  }
+
+  // A block placed or broken next to a ladder can change which wall it
+  // hangs on.
+  _refreshLaddersAround(x, y, z) {
+    if (!this._instancedMeshes.ladder) return
+    for (const [ox, oz] of LADDER_SIDES) this._refreshLadderAt(x + ox, y, z + oz)
   }
 
   // Opens/closes the door at (x, y, z) - either half.
@@ -1896,6 +1953,7 @@ export class BuildMode {
       this._chunkCells.get(this._chunkKeyOf(x, y, z))?.delete(key)
       this._chunks.markDirty(x, y, z)
       this._releaseBlockLight(key)
+      this._refreshLaddersAround(x, y, z)
       return
     }
     const mesh = this._instancedMeshes[type]
@@ -2718,6 +2776,8 @@ export class BuildMode {
         touchedTypes.add(type)
         if (state) touchedTypes.add(`${type}top`)
       }
+      // Ladders loaded before the wall behind them couldn't see it yet.
+      if (touchedTypes.has('ladder')) this._refreshAllLadders()
       for (const type of touchedTypes) {
         const mesh = this._instancedMeshes[type]
         if (mesh) mesh.computeBoundingSphere()

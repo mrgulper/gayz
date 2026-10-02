@@ -20,6 +20,7 @@
 // almost no head bob.
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
 
 const HALF_WIDTH = 0.3
 const HEIGHT = 1.8
@@ -38,6 +39,15 @@ const CLIMB = 3.4
 const MAX_FALL = 60
 const SPRINT_FOV = 8 // degrees added while sprinting
 const DOUBLE_TAP_MS = 280
+// Kirka-style blocky arms holding the gun, made from the player's own
+// skin: each runs from a shoulder off the bottom of the screen to a hand
+// on the gun (positions relative to GUN_OFFSET). ARM_PX is the size of one
+// skin pixel across the arm.
+const ARMS = [
+  { limb: 'armR', shoulder: [0.36, -0.46, 0.3], hand: [0.02, -0.1, 0.04] },
+  { limb: 'armL', shoulder: [-0.5, -0.5, 0.2], hand: [-0.05, -0.04, -0.2] },
+]
+const ARM_PX = 0.026
 // Same spot on screen the game holds its gun (WeaponSystem's VIEWMODEL_BASE).
 const GUN_OFFSET = new THREE.Vector3(0.26, -0.22, -0.5)
 
@@ -63,6 +73,8 @@ export class BuildTryMode {
     this._lastWTap = 0
     this._wWasDown = false
     this._baseFov = null
+    this._arms = null
+    this._armsUrl = null
   }
 
   // --- Collision, in block units ---
@@ -317,8 +329,63 @@ export class BuildTryMode {
       this._gun.add(gun)
       this._gunScene.add(this._gun)
       this._gunId = id
+      if (this._arms) this._gun.add(this._arms)
     }
     this._gun.visible = true
+    this._loadArms()
+  }
+
+  // Builds the arms from the equipped skin (once per skin), and keeps
+  // them on whichever gun is shown.
+  _loadArms() {
+    const url = this.bm.game?.settings?.customSkinDataUrl || DEFAULT_SKIN_DATA_URL
+    if (this._armsUrl === url) return
+    this._armsUrl = url
+    loadSkinTexture(url).then((skin) => {
+      if (this._armsUrl !== url) return
+      const character = buildTexturedCharacter(skin)
+      const arms = new THREE.Group()
+      const up = new THREE.Vector3(0, -1, 0)
+      for (const { limb, shoulder, hand } of ARMS) {
+        const pivot = character.limbPivots[limb]
+        pivot.position.set(0, 0, 0)
+        const from = new THREE.Vector3(...shoulder)
+        const dir = new THREE.Vector3(...hand).sub(from)
+        const arm = new THREE.Group()
+        arm.position.copy(from)
+        arm.quaternion.setFromUnitVectors(up, dir.clone().normalize())
+        // The limb hangs 12 skin pixels down from its pivot: stretch it to
+        // reach the hand, keep its width.
+        arm.scale.set(ARM_PX, dir.length() / 12, ARM_PX)
+        arm.add(pivot)
+        arms.add(arm)
+      }
+      // Matte, and toned down for the gun scene's bright lights (made for
+      // shiny metal) - otherwise the skin washes out to near white.
+      arms.traverse((o) => {
+        if (!o.isMesh) return
+        o.frustumCulled = false
+        const old = o.material
+        o.material = new THREE.MeshLambertMaterial({ map: old.map, color: 0x8a8a8a, alphaTest: old.alphaTest, transparent: old.transparent, side: old.side })
+        old.dispose()
+      })
+      this._disposeArms()
+      this._arms = arms
+      if (this._gun) this._gun.add(arms)
+    }).catch(() => {
+      // Unreadable skin - the gun is shown without arms.
+    })
+  }
+
+  _disposeArms() {
+    if (!this._arms) return
+    this._arms.parent?.remove(this._arms)
+    this._arms.traverse((o) => {
+      if (!o.isMesh) return
+      o.geometry.dispose()
+      o.material.dispose()
+    })
+    this._arms = null
   }
 
   drawGun(renderer) {
