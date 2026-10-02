@@ -14154,10 +14154,11 @@ export class Game {
     const slot = map === 'map3' ? 'map3' : map === 'map2' && current === 'map3' ? 0 : undefined
     this.buildMode.enter({ slot })
     this._applyRenderScale()
-    // FPS readout at the top middle (top-left is the save slot buttons),
-    // shown whenever the gameplay one would be.
-    this.fpsEl.style.left = '50%'
-    this.fpsEl.style.transform = 'translateX(-50%)'
+    // FPS readout in the top-left corner (the save slot buttons moved into
+    // the Escape menu), shown whenever the gameplay one would be.
+    this.fpsEl.style.left = '16px'
+    this.fpsEl.style.top = '16px'
+    this.fpsEl.style.transform = ''
     this.fpsEl.style.opacity = this.settings.hudFpsCounter ? '1' : '0'
     this._fpsFrameCount = 0
     this._fpsLastUpdate = performance.now()
@@ -14178,6 +14179,7 @@ export class Game {
     this.buildMode.exit()
     this._applyRenderScale()
     this.fpsEl.style.left = '6px'
+    this.fpsEl.style.top = '6px'
     this.fpsEl.style.transform = ''
     this.fpsEl.style.opacity = this.settings.homepageFpsCounter ? '1' : '0'
     document.exitPointerLock()

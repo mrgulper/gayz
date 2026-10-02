@@ -371,16 +371,15 @@ html.dyslexia-font body {
 
 /* Save-slot picker (see BuildMode.js's switchSlot/_renderSlots) - top-left,
    opposite corner from the exit/undo/save/export/import toolbar row. */
+/* Lives in the Escape menu (#build-menu), as a row above its buttons. */
 #build-slots {
-  position: fixed;
-  top: 16px;
-  left: 16px;
-  z-index: 20;
   display: flex;
+  justify-content: center;
   gap: 6px;
+  margin-bottom: 4px;
 }
 
-.build-slot-btn {
+#build-menu .build-slot-btn {
   position: relative;
   width: 34px;
   height: 34px;
@@ -394,12 +393,12 @@ html.dyslexia-font body {
   cursor: pointer;
 }
 
-.build-slot-btn.active {
+#build-menu .build-slot-btn.active {
   border-color: #d9bc4a;
   color: #d9bc4a;
 }
 /* Map 3's button sits after the numbered slots and needs room for its name. */
-.build-slot-btn.build-slot-map3 {
+#build-menu .build-slot-btn.build-slot-map3 {
   width: auto;
   padding: 0 10px;
   white-space: nowrap;
