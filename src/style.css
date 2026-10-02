@@ -3823,19 +3823,15 @@ html.third-person-active #companion-bark {
 }
 
 .features-toc-link.coming-link {
-  color: #c9564a;
+  color: var(--soon-gold);
 }
 
-/* Coming Soon keeps its own red, just brighter on hover/when open. */
+/* Coming Soon: the same gold highlight as the other sections, a little
+   brighter on hover/when open. */
 .features-toc-link.coming-link:hover,
 .features-toc-link.coming-link.active {
-  color: #ef7a6c;
-  background: rgba(239, 122, 108, 0.1);
-  border-left-color: rgba(239, 122, 108, 0.8);
-}
-
-.features-toc-link.coming-link:focus-visible {
-  outline-color: rgba(239, 122, 108, 0.6);
+  color: var(--soon-gold);
+  filter: brightness(1.12);
 }
 
 /* Collapse to a horizontal pill row on narrow screens, same breakpoint
@@ -3862,7 +3858,7 @@ html.third-person-active #companion-bark {
   }
 
   .features-toc-link.coming-link {
-    border-color: rgba(201, 86, 74, 0.35);
+    border-color: var(--soon-gold-rgb-line);
   }
 }
 
@@ -3947,31 +3943,36 @@ section.category > h2 {
 .feature.coming-soon {
   background: transparent;
   border-style: dashed;
-  border-color: rgba(201, 86, 74, 0.35);
-  opacity: 0.85;
+  border-color: rgba(var(--ui-gold-accent-rgb), 0.3);
+  opacity: 0.9;
   transition: opacity 0.15s, border-color 0.15s, background 0.15s;
 }
 
-/* The Coming Soon section reads in one red throughout: its heading and
-   every card title match the COMING SOON tags (2026-10-02). */
-section.category#coming-soon > h2 {
-  color: #d9685b;
-  border-bottom-color: rgba(201, 86, 74, 0.35);
+/* Coming Soon reads in the panel's own GayZ gold, a step brighter than
+   the other sections so it still stands out (2026-10-02 - red didn't
+   fit the style). --soon-gold follows the UI theme. */
+#features-panel {
+  --soon-gold: color-mix(in srgb, var(--ui-gold-bright) 82%, #fff);
+  --soon-gold-rgb-line: color-mix(in srgb, var(--ui-gold-bright) 45%, transparent);
 }
 
-/* Coming Soon cards' titles in the same red as their COMING SOON tag. */
+section.category#coming-soon > h2 {
+  color: var(--soon-gold);
+  border-bottom-color: var(--soon-gold-rgb-line);
+}
+
 .feature.coming-soon h3 {
-  color: #d9685b;
+  color: var(--soon-gold);
 }
 
 .feature.coming-soon:hover {
   opacity: 1;
-  border-color: rgba(239, 122, 108, 0.6);
-  background: rgba(239, 122, 108, 0.05);
+  border-color: var(--soon-gold-rgb-line);
+  background: rgba(var(--ui-gold-accent-rgb), 0.06);
 }
 
 .feature.coming-soon:hover h3 {
-  color: #ef7a6c;
+  filter: brightness(1.12);
 }
 
 .feature.coming-soon h3::after {
@@ -3979,9 +3980,9 @@ section.category#coming-soon > h2 {
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.5px;
-  color: #c9564a;
-  background: rgba(201, 86, 74, 0.12);
-  border: 1px solid rgba(201, 86, 74, 0.4);
+  color: var(--soon-gold);
+  background: rgba(var(--ui-gold-accent-rgb), 0.12);
+  border: 1px solid var(--soon-gold-rgb-line);
   border-radius: 999px;
   padding: 2px 7px;
   margin-left: 10px;
@@ -7267,7 +7268,13 @@ html.theme-lighter #app { filter: brightness(1.25); }
     bottom: 0;
     right: calc((min(100vw - 48px, 1900px) - (100vw - 48px)) / 2);
     width: 240px;
-    justify-content: center;
+    /* "safe": in a window too short for the profile card + 10 nav
+       buttons, plain centering pushed the top of the profile card off
+       the top of the screen (2026-10-02 report) - safe center keeps it
+       on screen and only centers when there's room. */
+    justify-content: safe center;
+    padding-top: 14px;
+    box-sizing: border-box;
   }
 }
 
