@@ -6,18 +6,18 @@
 // everyone: bump MAP3_EDITS_KEY in BuildMode.js along with it.
 //
 // Layout: the editor's 128x128 ground (x and z from -64 to 63, ground at
-// y=-1, buildings from y=0 up). A ring of tall, uneven, partly collapsed
-// buildings closes the city in along the map edge (the roads end in
-// rubble against it). Inside, three roads each way cut it into lots; the
-// lots hold a safe zone, parks, a gas station, a parking lot, and blocks
-// split into several buildings of different shapes and heights - L-shapes,
-// setbacks, pitched roofs, courtyards - so it doesn't read as a grid of
-// identical boxes.
+// y=-1, buildings from y=0 up). A ring of tall buildings of uneven height
+// closes the city in along the map edge (the roads end in barricades
+// against it). Inside, the streets are NOT a grid: a winding main avenue,
+// a bending street, a diagonal, side streets of different lengths and a
+// roundabout with a fountain cut the city into blocks of different sizes
+// and shapes. Each block holds a safe zone, a park, a gas station, a
+// parking lot, or several buildings of different shapes and heights that
+// follow the block's outline.
 
 const HALF = 64
 const BORDER = 8 // depth of the ring of edge buildings
-const ROAD_CENTERS = [-30, 1, 30]
-const ROAD_HALF = 3 // road cells: center-3 .. center+2 (6 wide)
+const ROAD_W = 3 // a cell is road when its center is within 3 of a road line
 const SIDEWALK = 2
 const INNER = HALF - BORDER // inner city: -INNER .. INNER-1
 
@@ -32,27 +32,38 @@ function rng(seed) {
   }
 }
 
-function roadAt(v) {
-  for (const c of ROAD_CENTERS) if (v >= c - ROAD_HALF && v < c + ROAD_HALF) return c
-  return null
+// Road center lines, as polylines of [x, z] points.
+const avenueZ = (x) => 4 + Math.round(7 * Math.sin((x + 20) / 26))
+function roadLines() {
+  const avenue = []
+  for (let x = -HALF; x <= HALF; x += 4) avenue.push([x, avenueZ(x)])
+  const west = []
+  for (let z = -HALF; z <= avenueZ(-28); z += 4) west.push([-28 + 4 * Math.sin(z / 14), z])
+  west.push([-28, avenueZ(-28)])
+  return [
+    avenue, // winds east-west across the whole city
+    west, // bends north from the avenue to the edge
+    [[24, -HALF], [24, HALF]], // straight north-south
+    [[-28, -34], [24, -30], [HALF, -27]], // north street, slightly angled
+    [[-HALF, 50], [-6, avenueZ(-6)]], // diagonal from the south-west
+    [[24, 40], [HALF, 45]], // short street off the east side
+    [[-6, 36], [24, 32]], // a side street between the diagonal and the east street
+  ]
 }
-
-// The 4 lot ranges along one axis (inclusive), between the roads and
-// inside the edge ring.
-function lotRanges() {
-  const edges = [-INNER, ...ROAD_CENTERS.flatMap((c) => [c - ROAD_HALF - 1, c + ROAD_HALF]), INNER - 1]
-  const out = []
-  for (let i = 0; i < edges.length; i += 2) out.push([edges[i], edges[i + 1]])
-  return out
-}
+// The roundabout sits where the straight east street crosses the avenue.
+const ROUNDABOUT = [24.5, avenueZ(24) + 0.5]
 
 export function generateMap3() {
   const cells = new Map()
   const doors = new Map()
   const key = (x, y, z) => `${x},${y},${z}`
   const inMap = (x, z) => x >= -HALF && x < HALF && z >= -HALF && z < HALF
+  // While a block of land is being filled in, nothing may spill outside
+  // it (onto a road or a neighbor's sidewalk).
+  let clipMask = null
   const set = (x, y, z, type) => {
     if (!inMap(x, z) || y < -3) return
+    if (clipMask && !clipMask(x, z)) return
     cells.set(key(x, y, z), type)
     doors.delete(key(x, y, z))
   }
@@ -76,36 +87,139 @@ export function generateMap3() {
   const pick = (list) => list[Math.floor(rand() * list.length)]
   const randInt = (a, b) => a + Math.floor(rand() * (b - a + 1))
 
-  // --- Ground: roads, center lines, crosswalks, grass ---
+  // --- Street plan ---
+  // Every cell gets a kind: road, plaza (the roundabout's middle), side
+  // (sidewalk), edge (the outer ring) or lot (buildable land).
+  const segs = []
+  for (const line of roadLines()) {
+    let acc = 0
+    for (let i = 0; i < line.length - 1; i++) {
+      const [ax, az] = line[i]
+      const [bx, bz] = line[i + 1]
+      const len = Math.hypot(bx - ax, bz - az)
+      if (len > 0) segs.push({ ax, az, bx, bz, len, acc })
+      acc += len
+    }
+  }
+  const idx = (x, z) => (x + HALF) * (HALF * 2) + (z + HALF)
+  const kind = new Array(HALF * 2 * HALF * 2)
+  const lineDist = new Float32Array(kind.length)
+  const lineAlong = new Float32Array(kind.length)
   for (let x = -HALF; x < HALF; x++) {
     for (let z = -HALF; z < HALF; z++) {
-      const rx = roadAt(x)
-      const rz = roadAt(z)
-      let type
-      if (rx !== null || rz !== null) {
-        type = rand() < 0.08 ? 'gravel' : rand() < 0.04 ? 'cobblestone' : 'asphalt'
-        if (rx !== null && rz === null && (x === rx - 1 || x === rx) && ((z + 64) & 7) < 4) type = 'yellowconcrete'
-        if (rz !== null && rx === null && (z === rz - 1 || z === rz) && ((x + 64) & 7) < 4) type = 'yellowconcrete'
-        for (const c of ROAD_CENTERS) {
-          if (rz !== null && rx === null && [-5, -4, 3, 4].includes(x - c) && (z & 1) === 0) type = 'whiteconcrete'
-          if (rx !== null && rz === null && [-5, -4, 3, 4].includes(z - c) && (x & 1) === 0) type = 'whiteconcrete'
+      const px = x + 0.5
+      const pz = z + 0.5
+      let best = Infinity
+      let along = 0
+      for (const sg of segs) {
+        const dx = sg.bx - sg.ax
+        const dz = sg.bz - sg.az
+        const t = Math.max(0, Math.min(1, ((px - sg.ax) * dx + (pz - sg.az) * dz) / (sg.len * sg.len)))
+        const d = Math.hypot(px - (sg.ax + dx * t), pz - (sg.az + dz * t))
+        if (d < best) {
+          best = d
+          along = sg.acc + t * sg.len
         }
-      } else {
+      }
+      const rd = Math.hypot(px - ROUNDABOUT[0], pz - ROUNDABOUT[1])
+      let k = best < ROAD_W ? 'road' : 'lot'
+      if (rd < 9.5 && rd >= 5) k = 'road'
+      if (rd < 5) k = 'plaza'
+      if (k === 'lot' && (Math.abs(px) > INNER || Math.abs(pz) > INNER)) k = 'edge'
+      kind[idx(x, z)] = k
+      lineDist[idx(x, z)] = rd < 10.5 ? 99 : best
+      lineAlong[idx(x, z)] = along
+    }
+  }
+  const kindAt = (x, z) => (inMap(x, z) ? kind[idx(x, z)] : 'out')
+  const isRoad = (x, z) => kindAt(x, z) === 'road'
+  // Sidewalks: land within 2 cells of a road or the plaza.
+  for (let x = -HALF; x < HALF; x++) {
+    for (let z = -HALF; z < HALF; z++) {
+      if (kind[idx(x, z)] !== 'lot') continue
+      let near = false
+      for (let dx = -SIDEWALK; dx <= SIDEWALK && !near; dx++) {
+        for (let dz = -SIDEWALK; dz <= SIDEWALK; dz++) {
+          const k = kindAt(x + dx, z + dz)
+          if (k === 'road' || k === 'plaza') { near = true; break }
+        }
+      }
+      if (near) kind[idx(x, z)] = 'side'
+    }
+  }
+
+  // --- Ground ---
+  for (let x = -HALF; x < HALF; x++) {
+    for (let z = -HALF; z < HALF; z++) {
+      const k = kind[idx(x, z)]
+      let type
+      if (k === 'road') {
+        type = rand() < 0.07 ? 'gravel' : rand() < 0.03 ? 'cobblestone' : 'asphalt'
+        // Dashed yellow center line along every road (not in the roundabout).
+        if (lineDist[idx(x, z)] < 0.75 && (lineAlong[idx(x, z)] % 8) < 4) type = 'yellowconcrete'
+      } else if (k === 'side') type = rand() < 0.1 ? 'crackedstonebricks' : 'smoothstone'
+      else if (k === 'plaza') type = 'polishedandesite'
+      else {
         const r = rand()
         type = r < 0.06 ? 'coarsedirt' : r < 0.09 ? 'podzol' : 'grass'
       }
       set(x, -1, z, type)
     }
   }
+  // The roundabout's fountain: a quartz basin (one block deep, with a
+  // solid bottom) around a lit pillar.
+  for (let x = -6; x <= 6; x++) {
+    for (let z = -6; z <= 6; z++) {
+      const cx = Math.floor(ROUNDABOUT[0]) + x
+      const cz = Math.floor(ROUNDABOUT[1]) + z
+      const rd = Math.hypot(cx + 0.5 - ROUNDABOUT[0], cz + 0.5 - ROUNDABOUT[1])
+      if (rd < 2.6) {
+        set(cx, -1, cz, 'water')
+        set(cx, -2, cz, 'smoothquartz')
+      } else if (rd < 3.6) set(cx, 0, cz, 'quartz')
+      else if (rd < 4.6 && (cx + cz) % 3 === 0) set(cx, 0, cz, 'leaves')
+    }
+  }
+  const fx = Math.floor(ROUNDABOUT[0])
+  const fz = Math.floor(ROUNDABOUT[1])
+  set(fx, -1, fz, 'quartzpillar')
+  fill(fx, 0, fz, fx, 2, fz, 'quartzpillar')
+  set(fx, 3, fz, 'sealantern')
 
-  const lots = []
-  for (const [x0, x1] of lotRanges()) for (const [z0, z1] of lotRanges()) lots.push({ x0, x1, z0, z1 })
-  for (const lot of lots) {
-    for (let x = lot.x0; x <= lot.x1; x++) {
-      for (let z = lot.z0; z <= lot.z1; z++) {
-        const edge = Math.min(x - lot.x0, lot.x1 - x, z - lot.z0, lot.z1 - z)
-        if (edge < SIDEWALK) set(x, -1, z, rand() < 0.1 ? 'crackedstonebricks' : 'smoothstone')
+  // --- Blocks of land ---
+  // Each connected patch of lot cells (4-neighbors) is one city block.
+  const regions = []
+  const regionOf = new Int32Array(kind.length).fill(-1)
+  for (let x = -HALF; x < HALF; x++) {
+    for (let z = -HALF; z < HALF; z++) {
+      if (kind[idx(x, z)] !== 'lot' || regionOf[idx(x, z)] !== -1) continue
+      const id = regions.length
+      const cellsIn = []
+      const stack = [[x, z]]
+      regionOf[idx(x, z)] = id
+      while (stack.length) {
+        const [cx, cz] = stack.pop()
+        cellsIn.push([cx, cz])
+        for (const [ox, oz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = cx + ox
+          const nz = cz + oz
+          if (kindAt(nx, nz) !== 'lot' || regionOf[idx(nx, nz)] !== -1) continue
+          regionOf[idx(nx, nz)] = id
+          stack.push([nx, nz])
+        }
       }
+      let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity, sx = 0, sz = 0
+      for (const [cx, cz] of cellsIn) {
+        x0 = Math.min(x0, cx); x1 = Math.max(x1, cx); z0 = Math.min(z0, cz); z1 = Math.max(z1, cz)
+        sx += cx; sz += cz
+      }
+      const size = cellsIn.length
+      regions.push({
+        id, x0, x1, z0, z1, size,
+        cx: sx / size, cz: sz / size,
+        fill: size / ((x1 - x0 + 1) * (z1 - z0 + 1)),
+        has: (qx, qz) => inMap(qx, qz) && regionOf[idx(qx, qz)] === id,
+      })
     }
   }
 
@@ -131,12 +245,6 @@ export function generateMap3() {
     for (const [wx, wz] of [[x, z], [x + lx, z], [x, z + lz], [x + lx, z + lz]]) set(wx, 0, wz, 'blackconcrete')
   }
   const CAR_COLORS = ['redconcrete', 'blueconcrete', 'whiteconcrete', 'grayconcrete', 'orangeconcrete', 'greenconcrete', 'blackconcrete', 'yellowconcrete']
-  const rubble = (x, z, r) => {
-    for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
-      const h = Math.round(r - Math.hypot(dx, dz) + rand() * 1.2 - 0.4)
-      for (let y = 0; y < h; y++) set(x + dx, y, z + dz, pick(['cobblestone', 'gravel', 'mossycobblestone', 'cobblestone', 'andesite']))
-    }
-  }
 
   // --- Buildings ---
   // A building is one or more stacked tiers; each tier is a footprint
@@ -175,14 +283,22 @@ export function generateMap3() {
   }
 
   // facade: the side facing the street ('xmin' / 'xmax' / 'zmin' / 'zmax').
-  const building = (box, style, facade, ruined) => {
+  // mask: the cells this building may use (its block of land, which may
+  // be curved along a road) - the footprint is cut to it before any wall
+  // goes up, so walls always close. Buildings are never ruined: broken
+  // tops and blown-out holes read as glitches, not as a ruined city.
+  const building = (box, style, facade, mask = () => true) => {
     const { x0, x1, z0, z1 } = box
+    let full = true
+    for (let x = x0; x <= x1 && full; x++) for (let z = z0; z <= z1; z++) if (!mask(x, z)) { full = false; break }
+    // Sloped roofs only sit on plain, whole rectangles - on an L (or a
+    // rectangle clipped by a curving road) they come out as a staircase.
+    const pitched = !!style.pitched && full
     const wall = pick(style.wall)
-    const floors = randInt(style.floors[0], style.floors[1])
-    // Sloped roofs only sit right on plain rectangles - on an L they came
-    // out as a jagged staircase.
-    const shape = style.pitched ? 'rect' : pick(['rect', 'L', 'L', 'U', 'notch'])
-    const foot = footprintFor(x0, x1, z0, z1, shape)
+    const floors = pitched ? randInt(1, 2) : randInt(style.floors[0], style.floors[1])
+    const shape = pitched ? 'rect' : pick(['rect', 'L', 'L', 'U', 'notch'])
+    const baseFoot = footprintFor(x0, x1, z0, z1, shape)
+    const foot = (x, z) => baseFoot(x, z) && mask(x, z)
     const tiers = [{ foot, from: 0, to: floors }]
     if (style.setback && floors >= 5) {
       const split = randInt(3, floors - 2)
@@ -192,47 +308,33 @@ export function generateMap3() {
     }
     const windowEvery = pick([2, 3, 3, 4])
     const top = floors * 4
-    // Jagged collapse line for ruined buildings: how tall each column
-    // still stands.
-    const standing = (x, z) => {
-      if (!ruined) return Infinity
-      const n = Math.sin(x * 0.9 + z * 0.4) + Math.sin(z * 1.3 - x * 0.2)
-      // Low buildings keep their roof (broken windows and holes only); a
-      // tall one loses a ragged chunk off its top.
-      if (floors < 3) return Infinity
-      return top - Math.max(0, Math.round((n + 1.2) * Math.min(2.4, floors * 0.4)))
-    }
     for (const tier of tiers) {
       const isWall = (x, z) => tier.foot(x, z) && (!tier.foot(x + 1, z) || !tier.foot(x - 1, z) || !tier.foot(x, z + 1) || !tier.foot(x, z - 1))
       for (let x = x0; x <= x1; x++) {
         for (let z = z0; z <= z1; z++) {
           if (!tier.foot(x, z)) continue
-          const maxY = standing(x, z)
           // Floors / ceilings.
           for (let f = tier.from; f <= tier.to; f++) {
             const y = f === 0 ? 0 : f * 4 - 1
-            if (y > maxY) break
-            set(x, y, z, f === floors ? style.roof : f === 0 ? style.floor : style.floor)
+            set(x, y, z, f === floors ? style.roof : style.floor)
           }
           if (!isWall(x, z)) continue
           const corner = [[1, 1], [1, -1], [-1, 1], [-1, -1]].some(([a, b]) => !tier.foot(x + a, z) && !tier.foot(x, z + b))
           const along = (tier.foot(x + 1, z) && tier.foot(x - 1, z)) ? x : z
           for (let y = Math.max(1, tier.from * 4); y < tier.to * 4; y++) {
-            if (y > maxY) break
             const level = y % 4
             let type = wall
             if (corner || level === 3) type = style.trim
             else if ((level === 1 || level === 2) && along % windowEvery !== 0) type = style.glass
-            if (ruined && type === style.glass && rand() < 0.3) continue // smashed window
             set(x, y, z, type)
           }
         }
       }
       // Roof rim on flat roofs.
-      if (!style.pitched) {
+      if (!pitched) {
         const y = tier.to * 4
         for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) {
-          if (isWall(x, z) && y <= standing(x, z)) set(x, y, z, style.trim)
+          if (isWall(x, z)) set(x, y, z, style.trim)
         }
       }
     }
@@ -240,7 +342,7 @@ export function generateMap3() {
     // slab, then a full block, then a slab one higher...) to the ridge,
     // overhanging the walls by one block all round. The two short ends
     // are filled in with wall up to the roof line.
-    if (style.pitched) {
+    if (pitched) {
       const alongX = x1 - x0 >= z1 - z0
       const [roofBlock, roofSlab] = pick([['darkoakplanks', 'darkoakslab'], ['spruceplanks', 'spruceslab'], ['brick', 'brickslab'], ['redterracotta', 'redterracottaslab'], ['deepslatetiles', 'deepslatetilesslab']])
       const lo0 = (alongX ? z0 : x0) - 1
@@ -327,7 +429,7 @@ export function generateMap3() {
       }
     }
     // Balconies: a slab ledge with a fence rail under some windows.
-    if (style.balconies && !ruined) {
+    if (style.balconies) {
       const [ox, oz] = facade === 'zmin' ? [0, -1] : facade === 'zmax' ? [0, 1] : facade === 'xmin' ? [-1, 0] : [1, 0]
       for (let f = 1; f < floors; f++) {
         if (rand() < 0.4) continue
@@ -342,7 +444,7 @@ export function generateMap3() {
       }
     }
     // Rooftop clutter on flat roofs: AC boxes and a water tank.
-    if (!style.pitched && !ruined) {
+    if (!pitched) {
       const y = tiers[tiers.length - 1].to * 4
       const tf = tiers[tiers.length - 1].foot
       for (let i = 0; i < 3; i++) {
@@ -361,66 +463,67 @@ export function generateMap3() {
       const iz = randInt(z0 + 1, z1 - 1)
       if (foot(ix, iz) && !get(ix, 1, iz)) set(ix, 1, iz, pick(style.props))
     }
-    if (ruined) {
-      // Blown-out holes only in tall buildings (a low one would lose its roof).
-      for (let i = 0; i < (floors >= 3 ? 4 : 0); i++) {
-        const hx = randInt(x0, x1)
-        const hz = randInt(z0, z1)
-        const hy = randInt(4, Math.max(4, top - 2))
-        const r = randInt(1, 2)
-        for (let ax = -r; ax <= r; ax++) for (let ay = -r; ay <= r; ay++) for (let az = -r; az <= r; az++) {
-          if (ax * ax + ay * ay + az * az <= r * r + 1) clear(hx + ax, hy + ay, hz + az)
+  }
+
+  // Which side of a block faces a street: the side with the most road
+  // or sidewalk right outside it.
+  const facadeOf = (region) => {
+    const count = { zmin: 0, zmax: 0, xmin: 0, xmax: 0 }
+    for (let x = region.x0; x <= region.x1; x++) {
+      for (let z = region.z0; z <= region.z1; z++) {
+        if (!region.has(x, z)) continue
+        for (const [ox, oz, dir] of [[0, -1, 'zmin'], [0, 1, 'zmax'], [-1, 0, 'xmin'], [1, 0, 'xmax']]) {
+          const k = kindAt(x + ox, z + oz)
+          if (k === 'side' || k === 'road') count[dir]++
         }
       }
-      for (let i = 0; i < 3; i++) {
-        const rx = randInt(x0 - 1, x1 + 1)
-        const rz = randInt(z0 - 1, z1 + 1)
-        if (!get(rx, 0, rz)) rubble(rx, rz, randInt(1, 2))
-      }
     }
+    return Object.keys(count).reduce((a, b) => (count[b] > count[a] ? b : a))
   }
 
-  // Which side of a lot faces the city center's nearest road.
-  const facadeOf = (lot) => {
-    const cx = (lot.x0 + lot.x1) / 2
-    const cz = (lot.z0 + lot.z1) / 2
-    const near = (v) => Math.min(...ROAD_CENTERS.map((r) => Math.abs(r - v)))
-    return near(cx) < near(cz) ? (cx < 0 ? 'xmax' : 'xmin') : cz < 0 ? 'zmax' : 'zmin'
-  }
-
-  // A city block: split into 1-3 parcels along its street side, each with
-  // its own building (gaps between them become alleys and yards).
+  // A city block: split into parcels of different widths along its street
+  // side, each with its own building cut to the block's outline (gaps
+  // between them become alleys and yards).
   let styleTurn = 0
-  const cityBlock = (lot) => {
-    const facade = facadeOf(lot)
+  const opposite = { zmin: 'zmax', zmax: 'zmin', xmin: 'xmax', xmax: 'xmin' }
+  const cityBlock = (region, facadeOverride = null, area = region) => {
+    const facade = facadeOverride || facadeOf(region)
     const alongX = facade === 'zmin' || facade === 'zmax'
-    const a0 = (alongX ? lot.x0 : lot.z0) + SIDEWALK + 1
-    const a1 = (alongX ? lot.x1 : lot.z1) - SIDEWALK - 1
-    const b0 = (alongX ? lot.z0 : lot.x0) + SIDEWALK + 1
-    const b1 = (alongX ? lot.z1 : lot.x1) - SIDEWALK - 1
-    const parts = []
-    let a = a0
-    while (a1 - a >= 6) {
-      const left = a1 - a + 1
-      const width = left <= 13 ? left : randInt(7, Math.min(14, left - 7))
-      parts.push([a, a + width - 1])
-      a += width + randInt(1, 3)
+    const a0 = (alongX ? area.x0 : area.z0) + 1
+    const a1 = (alongX ? area.x1 : area.z1) - 1
+    const b0 = (alongX ? area.z0 : area.x0) + 1
+    const b1 = (alongX ? area.z1 : area.x1) - 1
+    const towardFront = facade === 'zmin' || facade === 'xmin'
+    // A deep block gets a row of buildings on its back side too, facing
+    // the other way, instead of an empty field behind the front row.
+    if (!facadeOverride && b1 - b0 > 30) {
+      const mid = Math.floor((b0 + b1) / 2)
+      const frontHalf = alongX
+        ? { x0: area.x0, x1: area.x1, z0: towardFront ? area.z0 : mid + 1, z1: towardFront ? mid : area.z1 }
+        : { x0: towardFront ? area.x0 : mid + 1, x1: towardFront ? mid : area.x1, z0: area.z0, z1: area.z1 }
+      const backHalf = alongX
+        ? { x0: area.x0, x1: area.x1, z0: towardFront ? mid + 1 : area.z0, z1: towardFront ? area.z1 : mid }
+        : { x0: towardFront ? mid + 1 : area.x0, x1: towardFront ? area.x1 : mid, z0: area.z0, z1: area.z1 }
+      cityBlock(region, facade, frontHalf)
+      cityBlock(region, opposite[facade], backHalf)
+      return
     }
-    for (const [p0, p1] of parts) {
-      // Takes turns through the styles (with a little shuffle) so every
-      // kind of building shows up somewhere.
+    let a = a0
+    while (a1 - a >= 5) {
+      const left = a1 - a + 1
+      const width = left <= 13 ? left : randInt(7, Math.min(15, left - 6))
+      const p0 = a
+      const p1 = a + width - 1
+      a += width + randInt(1, 3)
       const style = STYLES[(styleTurn++ + randInt(0, 1)) % STYLES.length]
-      // Different depths and setbacks from the sidewalk.
       const front = randInt(0, 2)
-      const depth = Math.max(6, (b1 - b0 + 1) - randInt(0, 7))
-      const towardFront = facade === 'zmin' || facade === 'xmin'
+      const depth = Math.max(6, Math.min(18, (b1 - b0 + 1) - randInt(0, 6)))
       const d0 = towardFront ? b0 + front : b1 - front - depth + 1
       const d1 = d0 + depth - 1
       const box = alongX
         ? { x0: p0, x1: p1, z0: Math.max(b0, d0), z1: Math.min(b1, d1) }
         : { x0: Math.max(b0, d0), x1: Math.min(b1, d1), z0: p0, z1: p1 }
       if (style.name === 'house') {
-        // Houses sit back in a yard, with a tree out front.
         if (alongX) {
           box.x0 += 1; box.x1 -= 1
           if (towardFront) box.z0 += 2; else box.z1 -= 2
@@ -430,11 +533,20 @@ export function generateMap3() {
         }
       }
       if (box.x1 - box.x0 < 5 || box.z1 - box.z0 < 5) continue
-      building(box, style, facade, rand() < 0.4)
-      // A tree or rubble in the gap after this building.
+      // Only build where enough of the box is real land (a curve can eat it).
+      let usable = 0
+      for (let x = box.x0; x <= box.x1; x++) for (let z = box.z0; z <= box.z1; z++) if (region.has(x, z)) usable++
+      if (usable < 36) {
+        const tx = Math.round((box.x0 + box.x1) / 2)
+        const tz = Math.round((box.z0 + box.z1) / 2)
+        if (region.has(tx, tz)) tree(tx, tz)
+        continue
+      }
+      building(box, style, facade, region.has)
+      // A tree in the gap after this building.
       const gx = alongX ? p1 + 2 : towardFront ? b0 + 1 : b1 - 1
       const gz = alongX ? (towardFront ? b0 + 1 : b1 - 1) : p1 + 2
-      if (!get(gx, 0, gz) && !get(gx, 1, gz) && rand() < 0.7) tree(gx, gz)
+      if (region.has(gx, gz) && !get(gx, 0, gz) && !get(gx, 1, gz) && rand() < 0.7) tree(gx, gz)
     }
   }
 
@@ -572,51 +684,95 @@ export function generateMap3() {
     tree(x1 - 1, z1 - 1)
   }
 
-  const lotIndex = (x, z) => lots.findIndex((l) => x >= l.x0 && x <= l.x1 && z >= l.z0 && z <= l.z1)
+  // --- What goes on each block ---
+  // The safe zone, gas station and parking lot need near-rectangular
+  // blocks; the most irregular big blocks become parks; the rest are city.
   const roles = new Map()
-  roles.set(lotIndex(-12, -12), 'safe')
-  roles.set(lotIndex(14, 14), 'park')
-  roles.set(lotIndex(14, -12), 'gas')
-  roles.set(lotIndex(-12, 14), 'parking')
-  roles.set(lotIndex(-45, 45), 'park')
-  lots.forEach((lot, i) => {
-    const role = roles.get(i)
-    if (role === 'safe') safeZone(lot)
-    else if (role === 'park') park(lot)
-    else if (role === 'gas') gasStation(lot)
-    else if (role === 'parking') parking(lot)
-    else cityBlock(lot)
-  })
+  const taken = new Set()
+  const pickRegion = (ok, score) => {
+    let best = null
+    for (const r of regions) {
+      if (taken.has(r.id) || !ok(r)) continue
+      if (!best || score(r) < score(best)) best = r
+    }
+    if (best) taken.add(best.id)
+    return best
+  }
+  const rect = (min, max) => (r) => r.fill >= 0.88 && r.size >= min && r.size <= max && r.x1 - r.x0 >= 14 && r.z1 - r.z0 >= 14
+  const safe = pickRegion(rect(300, 1200), (r) => Math.hypot(r.cx, r.cz))
+  if (safe) roles.set(safe.id, 'safe')
+  const gas = pickRegion(rect(250, 900), (r) => Math.hypot(r.cx - 30, r.cz + 10))
+  if (gas) roles.set(gas.id, 'gas')
+  const lotP = pickRegion(rect(250, 900), (r) => Math.hypot(r.cx + 20, r.cz - 25))
+  if (lotP) roles.set(lotP.id, 'parking')
+  for (let n = 0; n < 2; n++) {
+    const pk = pickRegion((r) => r.size >= 200 && r.size <= 1100, (r) => r.fill)
+    if (pk) roles.set(pk.id, 'park')
+  }
+  for (const region of regions) {
+    clipMask = region.has
+    const role = roles.get(region.id)
+    if (role === 'safe') safeZone(region)
+    else if (role === 'park') park(region)
+    else if (role === 'gas') gasStation(region)
+    else if (role === 'parking') parking(region)
+    else if (region.size >= 80) cityBlock(region)
+    else {
+      // A scrap of land too small to build on: grass and a tree.
+      const tx = Math.round(region.cx)
+      const tz = Math.round(region.cz)
+      if (region.has(tx, tz)) tree(tx, tz)
+    }
+    clipMask = null
+  }
 
-  // Street trees and lamps along the sidewalks, not on a strict grid.
-  for (const lot of lots) {
-    if (roles.get(lots.indexOf(lot)) === 'safe') continue
-    for (let i = 0; i < 4; i++) {
-      const side = randInt(0, 3)
-      const x = side === 0 ? lot.x0 : side === 1 ? lot.x1 : randInt(lot.x0 + 3, lot.x1 - 3)
-      const z = side === 2 ? lot.z0 : side === 3 ? lot.z1 : randInt(lot.z0 + 3, lot.z1 - 3)
-      if (get(x, 0, z) || get(x, 1, z)) continue
-      if (i % 2) {
-        fill(x, 0, z, x, 3, z, 'stonefence')
-        set(x, 4, z, 'redstonelamp')
-      } else tree(x, z)
+  // --- Street lamps and trees along the sidewalks, spaced out unevenly ---
+  const sideCells = []
+  for (let x = -INNER; x < INNER; x++) {
+    for (let z = -INNER; z < INNER; z++) {
+      if (kindAt(x, z) !== 'side') continue
+      // Right at the curb (touching the road), away from the plaza.
+      if (![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([ox, oz]) => isRoad(x + ox, z + oz))) continue
+      if (Math.hypot(x - ROUNDABOUT[0], z - ROUNDABOUT[1]) < 12) continue
+      sideCells.push([x, z])
     }
   }
-
-  // Wrecked cars on the roads.
-  for (let i = 0; i < 16; i++) {
-    const c = pick(ROAD_CENTERS)
-    const v = randInt(-INNER + 2, INNER - 6)
-    if (roadAt(v) !== null || roadAt(v + 4) !== null) continue
-    if (rand() < 0.5) car(c - 2 + randInt(0, 1), v, false, pick(CAR_COLORS))
-    else car(v, c - 2 + randInt(0, 1), true, pick(CAR_COLORS))
+  const placed = []
+  for (let n = 0; n < sideCells.length * 3 && placed.length < 70; n++) {
+    const [x, z] = sideCells[Math.floor(rand() * sideCells.length)]
+    if (placed.some(([px, pz]) => Math.abs(px - x) + Math.abs(pz - z) < 9)) continue
+    if (get(x, 0, z) || get(x, 1, z)) continue
+    placed.push([x, z])
+    if (placed.length % 2) {
+      fill(x, 0, z, x, 3, z, 'stonefence')
+      set(x, 4, z, 'redstonelamp')
+    } else tree(x, z)
   }
 
-  // --- The edge: a ring of tall, uneven buildings closing the city in ---
-  // Walks the map edge in pieces of different widths; each piece is its
-  // own building (different height, material and ruin), so the skyline
-  // around the city is ragged, not one flat wall. Where a road meets the
-  // edge, the gap is jammed with wrecked cars and rubble.
+  // --- Wrecked cars, parked along the roads ---
+  for (let n = 0; n < 60 && n < 400; n++) {
+    const x = randInt(-INNER + 2, INNER - 6)
+    const z = randInt(-INNER + 2, INNER - 6)
+    const d = lineDist[idx(x, z)]
+    if (!isRoad(x, z) || d < 1 || d > 2.4) continue
+    // Which way the road runs here.
+    const alongX = isRoad(x + 3, z) && isRoad(x - 3, z) && !(isRoad(x, z + 3) && isRoad(x, z - 3))
+    const alongZ = isRoad(x, z + 3) && isRoad(x, z - 3) && !(isRoad(x + 3, z) && isRoad(x - 3, z))
+    if (!alongX && !alongZ) continue
+    let fits = true
+    for (let i = 0; i <= 4 && fits; i++) for (let j = 0; j <= 1; j++) {
+      const cx = alongX ? x + i : x + j
+      const cz = alongX ? z + j : z + i
+      if (!isRoad(cx, cz) || get(cx, 0, cz)) fits = false
+    }
+    if (fits) car(x, z, alongX, pick(CAR_COLORS))
+  }
+
+  // --- The edge: a ring of tall buildings closing the city in ---
+  // Walks the map edge in pieces of different widths and depths; each
+  // piece is its own building (different height and material), so the
+  // skyline around the city is uneven, not one flat wall. Where a road
+  // runs into the edge, a barricade of stone and a wrecked car closes it.
   const EDGE_WALLS = ['brick', 'terracotta', 'lightgrayconcrete', 'sandstone', 'blackstone', 'grayconcrete', 'deepslatebricks', 'whiteterracotta', 'mudbricks']
   const edgeSides = [
     { alongX: true, edge: -HALF },
@@ -624,10 +780,11 @@ export function generateMap3() {
     { alongX: false, edge: -HALF },
     { alongX: false, edge: HALF - 1 },
   ]
+  const edgeLand = (x, z) => kindAt(x, z) === 'edge'
   for (const side of edgeSides) {
     let a = -HALF
     while (a < HALF) {
-      const width = randInt(5, 11)
+      const width = randInt(5, 12)
       const a1 = Math.min(HALF - 1, a + width - 1)
       const depth = randInt(BORDER - 3, BORDER)
       const inward = side.edge < 0 ? 1 : -1
@@ -636,32 +793,13 @@ export function generateMap3() {
       const box = side.alongX
         ? { x0: a, x1: a1, z0: Math.min(d0, d1), z1: Math.max(d0, d1) }
         : { x0: Math.min(d0, d1), x1: Math.max(d0, d1), z0: a, z1: a1 }
-      // Is a road running into this piece of the edge?
-      let roadHere = false
-      for (let v = a; v <= a1; v++) if (roadAt(v) !== null) roadHere = true
-      if (roadHere) {
-        // Barricade: collapsed rubble and cars across the road end.
-        for (let v = a; v <= a1; v++) {
-          for (let d = 0; d < depth; d++) {
-            const x = side.alongX ? v : side.edge + inward * d
-            const z = side.alongX ? side.edge + inward * d : v
-            const h = Math.max(0, Math.round(depth - d - 1 + rand() * 2 - 1))
-            for (let y = 0; y < h; y++) set(x, y, z, pick(['cobblestone', 'gravel', 'mossycobblestone', 'andesite', 'brick']))
-          }
-        }
-        const v = a + 1
-        const front = side.edge + inward * (depth + 1)
-        if (side.alongX) car(v, Math.min(front, front + inward * 1), true, pick(CAR_COLORS))
-        else car(Math.min(front, front + inward * 1), v, false, pick(CAR_COLORS))
-      } else if (rand() < 0.15) {
-        // A gap where a building has fully collapsed.
-        for (let v = a; v <= a1; v++) for (let d = 0; d < depth; d++) {
-          const x = side.alongX ? v : side.edge + inward * d
-          const z = side.alongX ? side.edge + inward * d : v
-          const h = Math.round((depth - d) * 0.9 + rand() * 2)
-          for (let y = 0; y < h; y++) set(x, y, z, pick(['cobblestone', 'gravel', 'brick', 'mossycobblestone']))
-        }
-      } else {
+      let roadCells = 0
+      let landCells = 0
+      for (let x = box.x0; x <= box.x1; x++) for (let z = box.z0; z <= box.z1; z++) {
+        if (isRoad(x, z)) roadCells++
+        else if (edgeLand(x, z)) landCells++
+      }
+      if (landCells >= 30) {
         const style = {
           wall: [pick(EDGE_WALLS)],
           trim: pick(['polishedandesite', 'smoothstone', 'grayconcrete', 'cutsandstone', 'polishedblackstone']),
@@ -670,21 +808,50 @@ export function generateMap3() {
           roof: 'grayconcrete',
           door: 'irondoor',
           props: ['barrel'],
-          floors: [3, 6],
+          floors: [3, 7],
         }
-        // Faces into the city.
         const facade = side.alongX ? (side.edge < 0 ? 'zmax' : 'zmin') : side.edge < 0 ? 'xmax' : 'xmin'
-        building(box, style, facade, rand() < 0.5)
+        building(box, style, facade, edgeLand)
+      }
+      if (roadCells) {
+        // Barricade across the road end: a stone wall with a fence on top,
+        // and a wrecked car pushed against it on the city side.
+        let carSpot = null
+        for (let x = box.x0; x <= box.x1; x++) for (let z = box.z0; z <= box.z1; z++) {
+          if (!isRoad(x, z)) continue
+          const d = side.alongX ? Math.abs(z - side.edge) : Math.abs(x - side.edge)
+          if (d === depth - 1) {
+            set(x, 0, z, 'cobblestone')
+            set(x, 1, z, 'cobblestone')
+            set(x, 2, z, 'oakfence')
+            if (!carSpot) carSpot = [x, z]
+          }
+        }
+        if (carSpot) {
+          const [cx, cz] = carSpot
+          if (side.alongX) car(cx, cz + inward * (inward > 0 ? 1 : 2), true, pick(CAR_COLORS))
+          else car(cx + inward * (inward > 0 ? 1 : 2), cz, false, pick(CAR_COLORS))
+        }
       }
       a = a1 + 1
     }
   }
 
-  // Grass gaps between the edge ring and the first lots get some weeds.
-  for (let i = 0; i < 40; i++) {
-    const x = randInt(-HALF + 2, HALF - 3)
-    const z = randInt(-HALF + 2, HALF - 3)
-    if (get(x, -1, z) === 'grass' && !get(x, 0, z)) set(x, 0, z, pick(['leaves', 'haybale', 'mossycobblestone']))
+  // Water never has an open side or bottom (rule 4): a deep cell whose
+  // neighbor got cut off (a pond clipped by a road) becomes the sandy
+  // bottom of the shallow water above it instead.
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const [k, type] of [...cells]) {
+      if (type !== 'water') continue
+      const [x, y, z] = k.split(',').map(Number)
+      const open = !get(x, y - 1, z) || [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([ox, oz]) => !get(x + ox, y, z + oz))
+      if (open) {
+        set(x, y, z, 'sand')
+        changed = true
+      }
+    }
   }
 
   // Ladders need something behind them: drop any ladder block that ended
