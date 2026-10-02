@@ -14154,6 +14154,8 @@ export class Game {
     const slot = map === 'map3' ? 'map3' : map === 'map2' && current === 'map3' ? 0 : undefined
     this.buildMode.enter({ slot })
     this._applyRenderScale()
+    // A boss bar left over from a run would otherwise sit over the editor.
+    if (this.bossHealthWrap) this.bossHealthWrap.style.display = 'none'
     // FPS readout in the top-left corner (the save slot buttons moved into
     // the Escape menu), shown whenever the gameplay one would be.
     this.fpsEl.style.left = '16px'

@@ -2599,26 +2599,11 @@ export class BuildMode {
     this._velocity.y = THREE.MathUtils.damp(this._velocity.y, targetVelocity.y, FLY_ACCEL_LERP_SPEED, dt)
     this._velocity.z = THREE.MathUtils.damp(this._velocity.z, targetVelocity.z, FLY_ACCEL_LERP_SPEED, dt)
     if (this._velocity.lengthSq() > 0.0001) {
-      const move = this._velocity.clone().multiplyScalar(dt)
-      // Axis-separated: resolve x, then y, then z independently rather than
-      // rejecting the whole move when any part of it hits a block - this is
-      // what lets the camera slide along a wall instead of stopping dead
-      // the moment it grazes one. Zeroing the blocked axis's velocity (not
-      // just skipping that frame's position update) keeps it from silently
-      // building up speed while pressed against a wall.
-      const pos = this.camera.position
-      if (!this._blockedAt(pos.x + move.x, pos.y, pos.z)) pos.x += move.x
-      else this._velocity.x = 0
-      if (!this._blockedAt(pos.x, pos.y + move.y, pos.z)) pos.y += move.y
-      else this._velocity.y = 0
-      if (!this._blockedAt(pos.x, pos.y, pos.z + move.z)) pos.z += move.z
-      else this._velocity.z = 0
+      // Spectator-style (2026-10-02): the camera flies straight through
+      // blocks. With collision, re-entering a map with the camera inside a
+      // building (Map 3 is full of them) left it stuck there for good.
+      this.camera.position.addScaledVector(this._velocity, dt)
     }
-    // No separate floor clamp needed anymore - the ground is now a real,
-    // breakable block layer (see _ensureGroundLayer), so _blockedAt above
-    // already stops the camera at solid ground the same way it stops it at
-    // any other placed block, and correctly lets it fly on through wherever
-    // that layer has been dug out.
   }
 
   // Instant one-block vertical hop (double-tap Space) - a no-op if a solid
@@ -2626,8 +2611,7 @@ export class BuildMode {
   // frame movement uses, just applied as a single teleport-sized step
   // instead of accumulated over several frames of held input.
   _hopUp() {
-    const pos = this.camera.position
-    if (!this._blockedAt(pos.x, pos.y + BLOCK_SIZE, pos.z)) pos.y += BLOCK_SIZE
+    this.camera.position.y += BLOCK_SIZE
   }
 
   // Treats the camera as a small sphere (COLLISION_RADIUS), not a point, so
