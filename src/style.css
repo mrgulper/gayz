@@ -770,8 +770,11 @@ html.layout-compact .menu-panel {
    Rendered as one static scrollable list, same shape as Credits/Rules &
    Info (#howtoplay-content joins their shared rules below) rather than a
    Next/Back stepper. */
+/* Highlighted keys/words follow the UI theme's own gold (Old: warm
+   tan, Golden: bright gold) instead of a fixed yellow (2026-10-02). */
 #howtoplay-content b {
-  color: #ffde5c;
+  color: var(--ui-gold-bright);
+  filter: brightness(1.15);
 }
 
 /* Cloud Save panel (see CloudSync.js + Game.js's _openCloudSavePanel) -
@@ -3503,6 +3506,40 @@ html.third-person-active #companion-bark {
 
 .changelog-text {
   opacity: 0.85;
+}
+
+/* Patch notes: each version's changes as short bullet points, grouped
+   under Added / Changed / Fixed instead of one long paragraph
+   (2026-10-02 - "everything jammed up"). */
+.changelog-group {
+  margin: 4px 0 2px;
+}
+
+.changelog-group-label {
+  display: inline-block;
+  margin: 2px 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--ui-gold-bright);
+}
+
+.changelog-added .changelog-group-label { color: #7fc77a; }
+.changelog-fixed .changelog-group-label { color: #6fb2e0; }
+
+.changelog-group ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.changelog-group li {
+  margin: 3px 0;
+  line-height: 1.45;
+}
+
+.changelog-group li::marker {
+  color: var(--ui-gold-bright);
 }
 
 /* Update-available banner (homepage only - see Game.js's _checkForUpdate)

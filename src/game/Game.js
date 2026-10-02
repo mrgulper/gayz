@@ -22301,7 +22301,9 @@ export class Game {
     }
     if (!newEntries.length) return
     this.whatsNewDigestTitle.textContent = t('whatsNewDigestTitle', { n: newEntries.length })
-    this.whatsNewDigestList.innerHTML = newEntries.map((el) => `<p>${el.querySelector('.changelog-text')?.textContent || ''}</p>`).join('')
+    // Our own static patch notes (index.html), never player data - the
+    // bullet lists are copied as they are.
+    this.whatsNewDigestList.innerHTML = newEntries.map((el) => `<div class="changelog-text">${el.querySelector('.changelog-text')?.innerHTML || ''}</div>`).join('')
     this.whatsNewDigest.style.display = 'block'
     this.whatsNewDigest.classList.remove('fading')
     // Auto-fade after 10s if left untouched (2026-09-18) - it used to just
