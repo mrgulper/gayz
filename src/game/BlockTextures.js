@@ -1150,6 +1150,55 @@ export function blockIconURL(type, size = 64, heightFrac = 1) {
   return url
 }
 
+// Stairs: a slab with a half-depth block standing on its back half, drawn
+// in the same isometric view as blockIconURL. Unit-cube coordinates: x
+// runs toward the right corner, z toward the left, y up; only the top,
+// the z = max and the x = max faces of each box show.
+export function stairsIconURL(type, size = 64) {
+  const key = `${type.id}:${size}:stairs`
+  if (iconCache.has(key)) return iconCache.get(key)
+  const faces = blockFaceCanvases(type)
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = size
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  ctx.imageSmoothingEnabled = false
+  const pad = size * 0.06
+  const half = (size - pad * 2) / 2
+  const q = half / 2
+  const T = [size / 2, pad]
+  const ex = [half, q] // T -> right corner
+  const ez = [-half, q] // T -> left corner
+  const at = (x, y, z) => [T[0] + x * ex[0] + z * ez[0], T[1] + x * ex[1] + z * ez[1] + (1 - y) * half]
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1]]
+  const shade = (src, dark) => {
+    if (!dark) return src
+    const c = document.createElement('canvas')
+    c.width = c.height = S
+    const cc = c.getContext('2d', { willReadFrequently: true })
+    cc.drawImage(src, 0, 0)
+    cc.globalCompositeOperation = 'source-atop'
+    cc.fillStyle = `rgba(0,0,0,${dark})`
+    cc.fillRect(0, 0, S, S)
+    return c
+  }
+  // A parallelogram from origin along xAxis/yAxis, showing the texture's
+  // rows from v0 to v1 (0 = top of the texture).
+  const face = (src, origin, xAxis, yAxis, dark, v0 = 0, v1 = 1) => {
+    ctx.setTransform(xAxis[0] / S, xAxis[1] / S, yAxis[0] / S, yAxis[1] / S, origin[0], origin[1])
+    ctx.drawImage(shade(src, dark), 0, S * v0, S, S * (v1 - v0), 0, 0, S, S)
+  }
+  const box = (x0, x1, y0, y1, z0, z1) => {
+    face(faces.side, at(x0, y1, z1), sub(at(x1, y1, z1), at(x0, y1, z1)), sub(at(x0, y0, z1), at(x0, y1, z1)), 0.22, 1 - y1, 1 - y0)
+    face(faces.side, at(x1, y1, z1), sub(at(x1, y1, z0), at(x1, y1, z1)), sub(at(x1, y0, z1), at(x1, y1, z1)), 0.4, 1 - y1, 1 - y0)
+    face(faces.top, at(x0, y1, z0), sub(at(x1, y1, z0), at(x0, y1, z0)), sub(at(x0, y1, z1), at(x0, y1, z0)), 0)
+  }
+  box(0, 1, 0, 0.5, 0, 1)
+  box(0, 1, 0.5, 1, 0, 0.5)
+  const url = canvas.toDataURL()
+  iconCache.set(key, url)
+  return url
+}
+
 // ---- doors -------------------------------------------------------------------
 
 // 16x32 pixel-art door (bottom half = rows 16-31, top half = rows 0-15),
