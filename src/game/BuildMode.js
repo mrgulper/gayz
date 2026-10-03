@@ -1408,6 +1408,8 @@ export class BuildMode {
     this._raycaster = new THREE.Raycaster()
     // Try Map (BuildTryMode.js): walk the map in first person with a gun.
     this.tryMode = new BuildTryMode(this, BLOCK_SIZE)
+    // Bumped on every block change, so the minimap knows to redraw.
+    this._mapVersion = 0
     this.liquids = new LiquidFlow(this)
     // A dot in the middle of the screen to aim with while trying the map.
     this._tryCrosshairEl = document.createElement('div')
@@ -1637,6 +1639,7 @@ export class BuildMode {
     if (this.tryMode.active) this.toggleTryMode()
     this.save()
     this.active = false
+    this.tryMode.drawBuildMap(0, false)
     window.removeEventListener('pagehide', this._onPageHide)
     document.removeEventListener('visibilitychange', this._onPageHide)
     this._keys.clear()
@@ -1953,6 +1956,7 @@ export class BuildMode {
   // placed into flowing water replaces it.
   placeBlock(x, y, z, type, skipBoundsUpdate = false, state = null) {
     const key = this._key(x, y, z)
+    this._mapVersion++
     if (this.liquids?.isFlow(key) && this._blocks.has(key)) {
       this.liquids.levels.delete(key)
       const was = this._suppressUndoRecording
@@ -1971,6 +1975,7 @@ export class BuildMode {
   removeBlock(x, y, z) {
     const key = this._key(x, y, z)
     if (!this._blocks.has(key)) return
+    this._mapVersion++
     this.liquids?.levels.delete(key)
     this._removeBlockInner(x, y, z)
     this.liquids?.changed(x, y, z)
@@ -3084,6 +3089,7 @@ export class BuildMode {
       this._instanceKeyByIndex[type] = []
     }
     this._blocks.clear()
+    this._mapVersion++
     this._invisibleKeys.clear()
     this._invisShadowDirty = true
     this._doorState.clear()
@@ -3374,5 +3380,7 @@ export class BuildMode {
     this.renderer.toneMapping = toneMapping
     if (this.tryMode.active) this.tryMode.drawGun(this.renderer)
     else if (!this.menuOpen && !this.pickerOpen) this.tryMode.drawHand(this.renderer, this.selectedType)
+    // The minimap shows while building too (Try Map draws its own).
+    if (!this.tryMode.active) this.tryMode.drawBuildMap(performance.now(), this.active && !this.menuOpen && !this.pickerOpen)
   }
 }
