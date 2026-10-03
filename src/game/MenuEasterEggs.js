@@ -118,7 +118,9 @@ export function bindHomepageShortcutKeys(game) {
     [game.profilePanel, () => game._closeProfilePanel()],
   ]
   window.addEventListener('keydown', (e) => {
-    if (game.gameStarted) return
+    // Homepage-only shortcuts - not inside the Map Editor either, where R
+    // kept reopening the last homepage panel (Game Mode) on top of it.
+    if (game.gameStarted || game.buildMode?.active) return
     if (e.key === '?') {
       e.preventDefault()
       toggleShortcutCheatsheet(game)

@@ -91,6 +91,7 @@ const MENU_SHORTCUTS = [
   [['T'], 'buildModeTryBtn'],
   [['Shift'], 'buildMenuRun'],
   [['E'], 'buildMenuUseDoor'],
+  [['M'], 'buildMenuMapSize'],
   [['Ctrl', 'Z'], 'buildModeUndoBtn'],
   [['Ctrl', 'Y'], 'buildModeRedoBtn'],
   [['Ctrl', 'S'], 'buildModeSaveBtn'],
@@ -1127,6 +1128,7 @@ export class BuildMode {
       // the building tools stay off.
       if (this.tryMode.active) {
         if (e.code === 'KeyE' && !e.repeat) this._tryUseFromCamera()
+        if (e.code === 'KeyM' && !e.repeat) this.tryMode.cycleMap()
         this._keys.add(e.code)
         if (MOVEMENT_KEY_CODES.has(e.code) || e.code === 'ShiftLeft') e.preventDefault()
         return
@@ -1571,6 +1573,45 @@ export class BuildMode {
     }
     if (shape === 'slab' || shape === 'stairs') return 0.5
     return 1
+  }
+
+  // A top-down picture of the map, one pixel per column, for Try Map's
+  // minimap: the color of the highest block in each column, darker the
+  // lower it sits, so streets, roofs and walls read like a real map.
+  _buildTopDownMap() {
+    const half = GROUND_SIZE / 2
+    const top = new Map()
+    for (const [key, type] of this._blocks) {
+      const def = BLOCK_BY_ID.get(type)
+      if (!def || def.shape === 'invisible' || def.hidden) continue
+      const [x, y, z] = key.split(',').map(Number)
+      if (x < -half || x >= half || z < -half || z >= half) continue
+      const ck = (x + half) * GROUND_SIZE + (z + half)
+      const cur = top.get(ck)
+      if (!cur || y > cur.y) top.set(ck, { y, color: def.color })
+    }
+    const canvas = document.createElement('canvas')
+    canvas.width = GROUND_SIZE
+    canvas.height = GROUND_SIZE
+    const ctx = canvas.getContext('2d')
+    const img = ctx.createImageData(GROUND_SIZE, GROUND_SIZE)
+    for (let i = 0; i < GROUND_SIZE * GROUND_SIZE; i++) {
+      const cell = top.get(i)
+      const px = Math.floor(i / GROUND_SIZE)
+      const pz = i % GROUND_SIZE
+      const o = (pz * GROUND_SIZE + px) * 4
+      if (!cell) {
+        img.data[o + 3] = 255
+        continue
+      }
+      const shade = 0.62 + 0.38 * Math.min(1, Math.max(0, (cell.y + 1) / 16))
+      img.data[o] = ((cell.color >> 16) & 255) * shade
+      img.data[o + 1] = ((cell.color >> 8) & 255) * shade
+      img.data[o + 2] = (cell.color & 255) * shade
+      img.data[o + 3] = 255
+    }
+    ctx.putImageData(img, 0, 0)
+    return canvas
   }
 
   _cellIsStairs(x, y, z) {

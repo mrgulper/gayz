@@ -48,6 +48,9 @@ const ARMS = [
   { limb: 'armL', shoulder: [-0.5, -0.5, 0.2], hand: [-0.05, -0.04, -0.2] },
 ]
 const ARM_PX = 0.026
+// Map sizes M cycles through (Try Map's own minimap, top-right square):
+// normal, big, big in the middle of the screen.
+const MAP_SIZES = ['normal', 'big', 'center']
 // Same spot on screen the game holds its gun (WeaponSystem's VIEWMODEL_BASE).
 const GUN_OFFSET = new THREE.Vector3(0.26, -0.22, -0.5)
 
@@ -75,6 +78,71 @@ export class BuildTryMode {
     this._baseFov = null
     this._arms = null
     this._armsUrl = null
+    this._mapMode = 0
+    this._mapEl = null
+    this._mapCanvas = null
+    this._mapImage = null
+    this._mapDrawAt = 0
+  }
+
+  // --- Minimap (top-right square; M makes it big, then big in the middle) ---
+  _ensureMapEl() {
+    if (this._mapEl) return
+    this._mapEl = document.createElement('div')
+    this._mapEl.id = 'build-try-map'
+    this._mapEl.style.display = 'none'
+    this._mapCanvas = document.createElement('canvas')
+    this._mapEl.appendChild(this._mapCanvas)
+    document.body.appendChild(this._mapEl)
+    window.addEventListener('resize', () => { if (this.active) this._applyMapMode() })
+  }
+
+  cycleMap() {
+    this._mapMode = (this._mapMode + 1) % MAP_SIZES.length
+    this._applyMapMode()
+  }
+
+  _applyMapMode() {
+    if (!this._mapEl) return
+    this._mapEl.dataset.size = MAP_SIZES[this._mapMode]
+    // Drawn at the size it's shown, so the blocks stay crisp.
+    const px = Math.max(1, Math.round(this._mapEl.clientWidth * Math.min(window.devicePixelRatio || 1, 2)))
+    this._mapCanvas.width = px
+    this._mapCanvas.height = px
+    this._mapDrawAt = 0
+  }
+
+  _drawMap(now) {
+    if (!this._mapImage || now - this._mapDrawAt < 60) return
+    this._mapDrawAt = now
+    const c = this._mapCanvas
+    const ctx = c.getContext('2d')
+    const s = c.width
+    const cells = this._mapImage.width
+    ctx.imageSmoothingEnabled = false
+    ctx.drawImage(this._mapImage, 0, 0, s, s)
+    // Where you are, and which way you're looking.
+    const k = s / cells
+    const px = (this.pos.x + cells / 2) * k
+    const pz = (this.pos.z + cells / 2) * k
+    const yaw = this.bm._yaw
+    const ang = Math.atan2(-Math.cos(yaw), -Math.sin(yaw))
+    const r = Math.max(5, s / 34)
+    ctx.save()
+    ctx.translate(px, pz)
+    ctx.rotate(ang)
+    ctx.beginPath()
+    ctx.moveTo(r * 1.4, 0)
+    ctx.lineTo(-r, r * 0.85)
+    ctx.lineTo(-r * 0.45, 0)
+    ctx.lineTo(-r, -r * 0.85)
+    ctx.closePath()
+    ctx.fillStyle = '#ffde5c'
+    ctx.strokeStyle = '#1a1408'
+    ctx.lineWidth = Math.max(1.5, r / 4)
+    ctx.fill()
+    ctx.stroke()
+    ctx.restore()
   }
 
   // --- Collision, in block units ---
@@ -151,10 +219,15 @@ export class BuildTryMode {
     this._flyPos = cam.position.clone()
     this.active = true
     this._showGun()
+    this._ensureMapEl()
+    this._mapImage = this.bm._buildTopDownMap()
+    this._mapEl.style.display = 'block'
+    this._applyMapMode()
   }
 
   exit() {
     this.active = false
+    if (this._mapEl) this._mapEl.style.display = 'none'
     if (this._baseFov !== null) {
       this.bm.camera.fov = this._baseFov
       this.bm.camera.updateProjectionMatrix()
@@ -285,6 +358,7 @@ export class BuildTryMode {
       this._gun.position.set(GUN_OFFSET.x + Math.cos(this._bob * 0.5) * (moving ? 0.008 : 0), GUN_OFFSET.y + Math.abs(Math.sin(this._bob * 0.5)) * (moving ? -0.012 : 0), GUN_OFFSET.z + this._recoil * 0.05)
       this._gun.rotation.x = this._recoil * 0.18
     }
+    this._drawMap(performance.now())
   }
 
   // Left click while trying: the gun kicks (nothing is placed or broken).
