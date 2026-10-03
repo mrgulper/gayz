@@ -16,6 +16,18 @@ export class Minimap {
     this.ctx = canvas.getContext('2d')
     this.size = canvas.width
     this.zoomIndex = MINIMAP_DEFAULT_ZOOM_INDEX
+    // How much more of the map a bigger minimap shows (Game.js's
+    // _applyMinimapSize - M makes it big, then big in the middle).
+    this.rangeMult = 1
+  }
+
+  // Resizes the drawing surface (the canvas resolution, not just its CSS
+  // size, so a big map stays sharp).
+  resize(px) {
+    if (this.canvas.width === px) return
+    this.canvas.width = px
+    this.canvas.height = px
+    this.size = px
   }
 
   cycleZoom() {
@@ -28,7 +40,7 @@ export class Minimap {
     const s = this.size
     const cx = s / 2
     const cy = s / 2
-    const range = MINIMAP_ZOOM_RANGES[this.zoomIndex]
+    const range = MINIMAP_ZOOM_RANGES[this.zoomIndex] * this.rangeMult
     const scale = (s / 2) / range
 
     ctx.clearRect(0, 0, s, s)

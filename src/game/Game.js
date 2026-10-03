@@ -57,6 +57,25 @@ const CRATE_RARE_COST_THRESHOLD = 900
 // purchase modal sets this as an inline style (there's no per-tier class
 // on its single shared box to hang a CSS rule off instead).
 const CRATE_TIER_COLORS = { wood: '#c9915a', ice: '#8fd9f0', golden: '#f0c23e' }
+
+// Gameplay hotbar (2026-10-03): number keys 1-3 are the 3 weapon slots
+// (settings.hotbar, same as before) and 4-0 use these items - like the Map
+// Editor's 1-10 hotbar, instead of a separate letter key per item. Line
+// icons in the nav buttons' style (no emoji, see the no-emoji convention).
+const HOTBAR_ICON = (body) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`
+const HOTBAR_ITEMS = [
+  { id: 'healthPack', labelKey: 'hotbarHealthPack', count: (g) => g.inventory.healthPacks, icon: HOTBAR_ICON('<rect x="3" y="6" width="18" height="14" rx="2"/><path d="M9 6V4h6v2M12 10v6M9 13h6"/>') },
+  { id: 'armor', labelKey: 'hotbarArmor', count: (g) => g.inventory.armorPacks, icon: HOTBAR_ICON('<path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/>') },
+  { id: 'grenade', labelKey: 'hotbarGrenade', count: (g) => g.inventory.grenades, icon: HOTBAR_ICON('<circle cx="11" cy="14" r="6"/><path d="M11 8V6h3l3-2M14 6v2"/>') },
+  { id: 'molotov', labelKey: 'hotbarMolotov', count: (g) => g.inventory.molotovs, icon: HOTBAR_ICON('<path d="M10 9V5h4v4l2 3v8a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-8z"/><path d="M12 5c0-1.5 1-2 1.5-3 .5 1 1 1.6.5 3"/>') },
+  { id: 'c4', labelKey: 'hotbarC4', count: (g) => g.inventory.c4, icon: HOTBAR_ICON('<rect x="3" y="8" width="18" height="10" rx="1.5"/><path d="M7 8v10M17 8v10M10 12h4M12 8V5h4"/>') },
+  { id: 'trap', labelKey: 'hotbarTrap', count: (g) => g.inventory.traps, icon: HOTBAR_ICON('<path d="M3 19h18M4 19l2.5-7L9 19l2.5-9L14 19l2.5-7L19 19"/>') },
+  { id: 'adrenaline', labelKey: 'hotbarAdrenaline', count: (g) => g.inventory.adrenaline, icon: HOTBAR_ICON('<path d="M18 3l3 3M16.5 4.5l3 3M19 6l-9 9-3-3 9-9M7 15l-3 3M10 12l2 2"/>') },
+]
+// Same order as Keybinds.js's HOTBAR_ITEM_SLOTS (which holds the keys).
+const HOTBAR_ITEM_KEYS = HOTBAR_ITEM_SLOTS.map((slot) => slot.code)
+// Minimap sizes M cycles through: normal, big, big in the middle.
+const MINIMAP_SIZE_RANGE_MULT = [1, 1.7, 3.2]
 // Same isometric 3-face icon markup as each .crate-card's own <svg> (see
 // index.html), duplicated here as plain strings so the purchase modal
 // (Game.js's _openCratePurchaseModal) can inject whichever tier was
@@ -154,7 +173,7 @@ import { pickBounty } from './BountyBoard.js'
 import { ZOMBIE_TYPES, SHARED_ZOMBIE_TYPE_IDS } from './ZombieTypes.js'
 import { RescueSurvivor } from './RescueSurvivor.js'
 import { loadEncountered, saveEncountered } from './Bestiary.js'
-import { ACTIONS, getKeyFor, setBinding, resetBindings, keyLabel, getAllBindings, setAllBindings } from './Keybinds.js'
+import { ACTIONS, HOTBAR_ITEM_SLOTS, getKeyFor, setBinding, resetBindings, keyLabel, getAllBindings, setAllBindings } from './Keybinds.js'
 import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
 import * as MenuEasterEggs from './MenuEasterEggs.js'
@@ -4150,6 +4169,17 @@ export class Game {
     // frame (the DOM structure itself never changes after this point).
     this.hotbarNameEls = this.hotbarSlotEls.map((el) => el.querySelector('.weapon-quick-name'))
     this.hotbarAmmoEls = this.hotbarSlotEls.map((el) => el.querySelector('.weapon-quick-ammo'))
+    // Item slots 4-0 (HOTBAR_ITEMS), built here so the list lives in one
+    // place. Tapping one uses it too (touch screens have no number keys).
+    this._hotbarItemEls = HOTBAR_ITEMS.map((item, i) => {
+      const el = document.createElement('div')
+      el.className = 'weapon-quick-slot hotbar-item-slot'
+      el.dataset.item = item.id
+      el.innerHTML = `<span class="weapon-quick-num">${(i + 4) % 10}</span><span class="hotbar-item-icon">${item.icon}</span><span class="hotbar-item-count">0</span><span class="weapon-quick-name"></span>`
+      el.addEventListener('click', () => this._useHotbarItem(item.id))
+      this.hotbarEl.appendChild(el)
+      return { el, countEl: el.querySelector('.hotbar-item-count'), nameEl: el.querySelector('.weapon-quick-name'), last: null }
+    })
     this.hotbarPowerScoreEl = document.getElementById('hotbar-power-score')
     this.statusHud = document.getElementById('status-hud')
     this.healthFill = document.getElementById('health-fill')
@@ -7466,19 +7496,15 @@ export class Game {
 
       if (this.inventoryOpen || this.mapOpen || this.photoModeOpen || this.journalOpen) return
 
-      if (e.code === getKeyFor('heal')) {
-        if (this.inventory.useHealthPack()) {
-          this.playerState.heal(this.healthPackHealAmount)
-          this.playerState.cureInfection()
-          this._updateHealthHud()
-          this._updateInventoryHud()
-        }
-      } else if (e.code === getKeyFor('armor')) {
-        if (this.inventory.useArmorPack()) {
-          this.playerState.addArmor(50)
-          this._updateHealthHud()
-          this._updateInventoryHud()
-        }
+      // Number keys 4-0: the gameplay hotbar's item slots (HOTBAR_ITEMS).
+      const itemSlot = HOTBAR_ITEM_KEYS.indexOf(e.code)
+      if (itemSlot !== -1) {
+        this._useHotbarItem(HOTBAR_ITEMS[itemSlot].id)
+        return
+      }
+
+      if (e.code === getKeyFor('cycleMap')) {
+        this._cycleMinimapSize()
       } else if (e.code === getKeyFor('fastTravelNearest')) {
         this._fastTravelToNearest()
       } else if (e.code === getKeyFor('grapple')) {
@@ -7506,34 +7532,21 @@ export class Game {
         this._whistleCompanion()
       } else if (e.code === getKeyFor('noisemaker')) {
         this._throwNoisemaker()
-      } else if (e.code === getKeyFor('grenade')) {
-        this._throwGrenade()
       } else if (e.code === getKeyFor('barricade')) {
         this._deployBarricade()
-      } else if (e.code === getKeyFor('trap')) {
-        this._deployTrap()
-      } else if (e.code === getKeyFor('molotov')) {
-        this._throwMolotov()
-      } else if (e.code === getKeyFor('c4')) {
-        // One key does both now - throws a fresh charge if nothing's
-        // armed yet, detonates the armed one if there already is one.
-        if (this.zombies.placedC4) this._detonateC4()
-        else this._throwC4()
-      } else if (e.code === getKeyFor('adrenaline')) {
-        this._useAdrenaline()
       } else if (e.code === getKeyFor('emp')) {
         this._throwEmp()
-      } else if (e.code === 'Digit6') {
+      } else if (e.code === getKeyFor('shield')) {
         this._toggleShield()
-      } else if (e.code === 'Digit7') {
+      } else if (e.code === getKeyFor('throwKnife')) {
         this._throwKnife()
-      } else if (e.code === 'Digit8') {
+      } else if (e.code === getKeyFor('turret')) {
         this._deployTurret()
       } else if (e.code === getKeyFor('medStation')) {
         this._deployMedStation()
-      } else if (e.code === 'Digit9') {
+      } else if (e.code === getKeyFor('alarm')) {
         this._deployAlarm()
-      } else if (e.code === 'Digit0') {
+      } else if (e.code === getKeyFor('ration')) {
         this._eatRation()
       } else if (e.code === getKeyFor('drinkWater')) {
         this._drinkWater()
@@ -18332,6 +18345,8 @@ export class Game {
   }
 
   _onResize() {
+    // The big middle minimap is sized off the window.
+    if (this.minimapSizeMode === 2) this._applyMinimapSize()
     this.camera.aspect = window.innerWidth / window.innerHeight
     this.camera.updateProjectionMatrix()
     this.tpCamera.aspect = window.innerWidth / window.innerHeight
@@ -23500,6 +23515,79 @@ export class Game {
       el.classList.toggle('mastered', !this.weaponMastery.legendary.has(weaponId) && !this.weaponMastery.grandmastered.has(weaponId) && this.weaponMastery.mastered.has(weaponId))
     })
     if (this.hotbarPowerScoreEl) this.hotbarPowerScoreEl.textContent = t('hotbarPowerScore', { n: this._computeLoadoutPowerScore() })
+    // Item slots: count, name, dimmed when empty, glowing while a C4 is
+    // armed (pressing its key again then detonates it). Only touches the
+    // DOM when something changed - this runs every frame.
+    HOTBAR_ITEMS.forEach((item, i) => {
+      const slot = this._hotbarItemEls[i]
+      const n = Math.max(0, item.count(this) || 0)
+      const armed = item.id === 'c4' && !!this.zombies?.placedC4
+      const name = t(item.labelKey)
+      const sig = `${n}|${armed}|${name}`
+      if (slot.last === sig) return
+      slot.last = sig
+      slot.countEl.textContent = String(n)
+      slot.nameEl.textContent = name
+      slot.el.classList.toggle('empty', n <= 0 && !armed)
+      slot.el.classList.toggle('armed', armed)
+    })
+  }
+
+  // Number keys 4-0 / tapping an item slot.
+  _useHotbarItem(id) {
+    if (!this.playerState.alive || this.inventoryOpen || this.mapOpen || this.photoModeOpen || this.journalOpen || this.driving || this.playerDowned) return
+    switch (id) {
+      case 'healthPack':
+        if (this.inventory.useHealthPack()) {
+          this.playerState.heal(this.healthPackHealAmount)
+          this.playerState.cureInfection()
+          this._updateHealthHud()
+        }
+        break
+      case 'armor':
+        if (this.inventory.useArmorPack()) {
+          this.playerState.addArmor(50)
+          this._updateHealthHud()
+        }
+        break
+      case 'grenade': this._throwGrenade(); break
+      case 'molotov': this._throwMolotov(); break
+      // One slot does both: throws a charge, or detonates the armed one.
+      case 'c4':
+        if (this.zombies.placedC4) this._detonateC4()
+        else this._throwC4()
+        break
+      case 'trap': this._deployTrap(); break
+      case 'adrenaline': this._useAdrenaline(); break
+    }
+    const slot = this._hotbarItemEls[HOTBAR_ITEMS.findIndex((item) => item.id === id)]
+    if (slot) {
+      slot.el.classList.remove('used')
+      void slot.el.offsetWidth
+      slot.el.classList.add('used')
+    }
+    this._updateInventoryHud()
+    this._updateHotbarHud()
+  }
+
+  // M: the minimap goes normal -> big -> big in the middle of the screen
+  // -> normal, and shows more of the map the bigger it is.
+  _cycleMinimapSize() {
+    this.minimapSizeMode = ((this.minimapSizeMode || 0) + 1) % MINIMAP_SIZE_RANGE_MULT.length
+    this._applyMinimapSize()
+  }
+
+  _applyMinimapSize() {
+    const mode = this.minimapSizeMode || 0
+    const px = mode === 2 ? Math.round(Math.min(window.innerWidth, window.innerHeight) * 0.72) : mode === 1 ? 270 : 150
+    this.minimap.resize(px)
+    this.minimap.rangeMult = MINIMAP_SIZE_RANGE_MULT[mode]
+    this.minimapWrap.classList.toggle('minimap-big', mode === 1)
+    this.minimapWrap.classList.toggle('minimap-center', mode === 2)
+    // Inline size only when enlarged - the phone layouts size the normal
+    // minimap in CSS.
+    this.minimapCanvas.style.width = mode ? `${px}px` : ''
+    this.minimapCanvas.style.height = mode ? `${px}px` : ''
   }
 
   // Loadout Power Score - a single at-a-glance number for the whole

@@ -5,7 +5,7 @@
 // feature already dispatches - see docs/superpowers/specs/
 // 2026-08-26-touch-controls-design.md for the full design.
 import * as THREE from 'three'
-import { getKeyFor, ACTIONS } from './Keybinds.js'
+import { getKeyFor, ACTIONS, HOTBAR_ITEM_SLOTS } from './Keybinds.js'
 import { t } from './i18n.js'
 
 // Movement joystick deadzone, as a fraction of the joystick's max travel
@@ -58,6 +58,20 @@ export class TouchControls {
   _bindMoreActionsMenu() {
     const grid = document.getElementById('touch-more-actions-grid')
     const menu = document.getElementById('touch-more-actions-menu')
+
+    // Hotbar items first (med kit, armor, grenade...) - on a keyboard
+    // they're number keys 4-0, on touch they're buttons here.
+    for (const slot of HOTBAR_ITEM_SLOTS) {
+      const btn = document.createElement('button')
+      btn.className = 'touch-more-action-btn'
+      btn.textContent = t(slot.labelKey)
+      btn.addEventListener('touchstart', (e) => {
+        e.preventDefault()
+        this._dispatchKey(slot.code)
+        menu.style.display = 'none'
+      }, { passive: false })
+      grid.appendChild(btn)
+    }
 
     for (const action of ACTIONS) {
       if (EXCLUDED_FROM_MORE_MENU.has(action.id)) continue
