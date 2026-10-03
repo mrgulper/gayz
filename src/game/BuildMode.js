@@ -3046,6 +3046,11 @@ export class BuildMode {
         const id = LEGACY_TYPE_IDS[raw] || raw
         return id === null || (VALID_TYPE_IDS.has(id) && !BLOCK_BY_ID.get(id).hidden) ? id : null
       })
+      // Hold whatever's in the highlighted slot of the loaded hotbar - it
+      // used to stay empty-handed (nothing in hand, clicks placed nothing)
+      // until you switched slots.
+      this.selectedType = this.hotbar[this.activeHotbarIndex]
+      this._updateInvisibleGhost()
       this._renderHotbar()
     }
   }

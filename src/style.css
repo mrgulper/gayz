@@ -120,8 +120,11 @@ html.dyslexia-font body {
    Shortcuts / Tip on the right. See BuildMode._refreshMenuInfo. */
 #build-menu {
   --bm-gold: #e8c25a;
-  --bm-gold-dim: rgba(232, 194, 90, 0.45);
+  --bm-gold-rgb: 232, 194, 90;
+  --bm-gold-dim: rgba(var(--bm-gold-rgb), 0.45);
   --bm-panel: rgba(18, 15, 10, 0.92);
+  --bm-text: #f1e6c8;
+  --bm-title-font: 'Black Ops One', 'Bebas Neue', sans-serif;
   position: fixed;
   inset: 0;
   z-index: 20;
@@ -131,7 +134,7 @@ html.dyslexia-font body {
   padding: 90px 24px 60px;
   box-sizing: border-box;
   background: radial-gradient(ellipse at center, rgba(10, 8, 5, 0.55), rgba(5, 4, 2, 0.88));
-  color: #f1e6c8;
+  color: var(--bm-text);
 }
 .build-menu-card {
   position: relative;
@@ -155,6 +158,16 @@ html.dyslexia-font body {
 .build-menu-card::before { top: -2px; left: -2px; border-right: none; border-bottom: none; border-top-left-radius: 8px; }
 .build-menu-card::after { bottom: -2px; right: -2px; border-left: none; border-top: none; border-bottom-right-radius: 8px; }
 
+/* Old theme: the same pause screen in its bronze/tan palette and Rye
+   lettering, like the rest of the Old-theme menus. */
+html.ui-theme-old #build-menu {
+  --bm-gold: #d4a068;
+  --bm-gold-rgb: 212, 160, 104;
+  --bm-panel: rgba(21, 15, 9, 0.92);
+  --bm-text: #ecdcc0;
+  --bm-title-font: 'Rye', Georgia, serif;
+}
+
 #build-menu-title {
   position: absolute;
   top: 22px;
@@ -167,17 +180,17 @@ html.dyslexia-font body {
 #build-menu-title svg { width: 46px; height: 46px; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7)); }
 #build-menu-title div { display: flex; flex-direction: column; line-height: 1; }
 #build-menu-title-main {
-  font-family: 'Black Ops One', 'Bebas Neue', sans-serif;
+  font-family: var(--bm-title-font);
   font-size: 42px;
   text-transform: uppercase;
-  text-shadow: 0 3px 0 #000, 0 0 18px rgba(232, 194, 90, 0.35);
+  text-shadow: 0 3px 0 #000, 0 0 18px rgba(var(--bm-gold-rgb), 0.35);
 }
 #build-menu-title-sub {
   margin-top: 4px;
-  font-family: 'Black Ops One', 'Bebas Neue', sans-serif;
+  font-family: var(--bm-title-font);
   font-size: 18px;
   letter-spacing: 3px;
-  color: #f1e6c8;
+  color: var(--bm-text);
   text-transform: uppercase;
 }
 #build-menu-close {
@@ -194,7 +207,7 @@ html.dyslexia-font body {
   line-height: 1;
   cursor: pointer;
 }
-#build-menu-close:hover { background: rgba(232, 194, 90, 0.15); }
+#build-menu-close:hover { background: rgba(var(--bm-gold-rgb), 0.15); }
 
 #build-menu-left,
 #build-menu-right {
@@ -238,7 +251,7 @@ html.dyslexia-font body {
   font-size: 12px;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  color: rgba(232, 194, 90, 0.7);
+  color: rgba(var(--bm-gold-rgb), 0.7);
   text-align: center;
 }
 #build-menu-buttons {
@@ -257,9 +270,9 @@ html.dyslexia-font body {
   font-size: 15px;
   font-weight: 600;
   text-align: left;
-  color: #f1e6c8;
+  color: var(--bm-text);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015));
-  border: 1px solid rgba(232, 194, 90, 0.22);
+  border: 1px solid rgba(var(--bm-gold-rgb), 0.22);
   border-radius: 6px;
   cursor: pointer;
   transition: border-color 0.12s, background 0.12s, color 0.12s, box-shadow 0.12s;
@@ -267,8 +280,8 @@ html.dyslexia-font body {
 #build-menu-buttons button svg { width: 22px; height: 22px; flex: none; color: var(--bm-gold); }
 #build-menu-buttons button:hover:not(:disabled) {
   border-color: var(--bm-gold);
-  background: linear-gradient(180deg, rgba(232, 194, 90, 0.18), rgba(232, 194, 90, 0.05));
-  box-shadow: 0 0 12px rgba(232, 194, 90, 0.25);
+  background: linear-gradient(180deg, rgba(var(--bm-gold-rgb), 0.18), rgba(var(--bm-gold-rgb), 0.05));
+  box-shadow: 0 0 12px rgba(var(--bm-gold-rgb), 0.25);
   color: #fff;
 }
 #build-menu-buttons button:disabled { opacity: 0.4; cursor: default; }
@@ -280,14 +293,14 @@ html.dyslexia-font body {
 #build-mode-line-btn.active,
 #build-mode-copy-btn.active {
   border-color: var(--bm-gold);
-  background: linear-gradient(180deg, rgba(232, 194, 90, 0.32), rgba(232, 194, 90, 0.12));
-  box-shadow: 0 0 14px rgba(232, 194, 90, 0.35);
+  background: linear-gradient(180deg, rgba(var(--bm-gold-rgb), 0.32), rgba(var(--bm-gold-rgb), 0.12));
+  box-shadow: 0 0 14px rgba(var(--bm-gold-rgb), 0.35);
   color: #fff;
 }
 
 #build-menu-right h3 {
   margin: 0 0 12px;
-  font-family: 'Black Ops One', 'Bebas Neue', sans-serif;
+  font-family: var(--bm-title-font);
   font-size: 17px;
   font-weight: 400;
   letter-spacing: 1.5px;
@@ -300,7 +313,7 @@ html.dyslexia-font body {
   gap: 10px;
   padding: 5px 0;
   font-size: 14px;
-  border-top: 1px solid rgba(232, 194, 90, 0.1);
+  border-top: 1px solid rgba(var(--bm-gold-rgb), 0.1);
 }
 .build-menu-info-row:first-of-type { border-top: none; }
 .build-menu-info-row span { color: rgba(241, 230, 200, 0.6); }
@@ -327,7 +340,7 @@ html.dyslexia-font body {
   text-align: center;
   color: #fff;
   background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(232, 194, 90, 0.45);
+  border: 1px solid rgba(var(--bm-gold-rgb), 0.45);
   border-bottom-width: 2px;
   border-radius: 4px;
 }
@@ -601,9 +614,9 @@ html.dyslexia-font body {
   padding: 0;
   font-size: 16px;
   font-weight: 700;
-  color: #f1e6c8;
+  color: var(--bm-text);
   background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(232, 194, 90, 0.3);
+  border: 1px solid rgba(var(--bm-gold-rgb), 0.3);
   border-radius: 6px;
   cursor: pointer;
 }
@@ -612,7 +625,7 @@ html.dyslexia-font body {
 #build-menu .build-slot-btn.active {
   border: 2px solid var(--bm-gold);
   color: var(--bm-gold);
-  box-shadow: 0 0 12px rgba(232, 194, 90, 0.35);
+  box-shadow: 0 0 12px rgba(var(--bm-gold-rgb), 0.35);
 }
 /* Map 3's button sits after the numbered slots and needs room for its name. */
 #build-menu .build-slot-btn.build-slot-map3 {
