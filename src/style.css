@@ -1630,6 +1630,7 @@ html.ui-theme-old #cloudsave-region-select {
    names, so swapping the values here re-skins all of them at once instead
    of needing a matching override for every individual rule. */
 html.ui-theme-old {
+  --old-ink: #2e1d0e;
   --menu-gold: #c2a06e;
   --menu-green: #8a9a6e;
   --menu-red: #9c5a42;
@@ -3257,6 +3258,36 @@ html.third-person-active #companion-bark {
   padding: 26px 32px 32px;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(var(--ui-gold-bright-rgb), 0.35), 0 0 20px rgba(0, 0, 0, 0.6);
   min-height: 680px;
+}
+
+/* Old theme: every panel box is a torn sheet of old paper
+   (public/images/old-panel-paper.webp, 2026-10-03 - Gaymi's own image)
+   instead of the black box, with dark ink text on it. The paper's torn
+   edges are see-through, so there's no border or box shadow, just a drop
+   shadow that follows the edge; the padding keeps content off the torn
+   rim. Dark text: see the html.ui-theme-old .panel-box block further down. */
+html.ui-theme-old .panel-box {
+  background: url('/images/old-panel-paper.webp') center / 100% 100% no-repeat;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.65));
+  padding: 68px 104px 80px;
+  color: var(--old-ink);
+}
+@media (max-width: 700px) {
+  html.ui-theme-old .panel-box {
+    padding: 40px 30px 46px;
+  }
+}
+
+/* Dark ink for all text on the paper. !important because most panel
+   text has its own ID-level color rule; anything sitting on its own dark
+   background (cards, inputs, dropdowns, dark buttons) is left out by the
+   :not() list so it keeps its light text. */
+html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-close-btn, .market-filter-btn, #inv-skin-preview, .inv-skin-card, .crate-card, #shop-skin-buy-btn) *, :is(.panel-close-btn, .market-filter-btn, #inv-skin-preview, .inv-skin-card, .crate-card, #shop-skin-buy-btn)) {
+  color: var(--old-ink) !important;
+  text-shadow: none !important;
 }
 
 /* Shared close-X for every navigable panel (2026-09-21) - same plain
