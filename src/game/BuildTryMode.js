@@ -64,6 +64,12 @@ const ARMS = [
   { limb: 'armL', shoulder: [-0.5, -0.5, 0.2], hand: [-0.05, -0.04, -0.2] },
 ]
 const ARM_PX = 0.026
+// Building: the right arm alone, reaching up from the bottom-right corner
+// to the block it holds (camera space, like Minecraft's held block).
+const HAND_BLOCK_POS = [0.28, -0.19, -0.64]
+const HAND_BLOCK_SIZE = 0.15
+const HAND_ARM = [{ limb: 'armR', shoulder: [0.62, -0.72, -0.4], hand: [0.36, -0.29, -0.64] }]
+const SWING_TIME = 0.25 // seconds
 // Map sizes M cycles through (Try Map's own minimap, top-right square):
 // normal, big, big in the middle of the screen.
 const MAP_SIZES = ['normal', 'big', 'center']
@@ -654,6 +660,19 @@ export class BuildTryMode {
 
   // --- The gun, drawn on top of the world in its own little scene, so it
   // never pokes into a wall you're standing against. ---
+  _ensureGunScene() {
+    if (this._gunScene) return
+    this._gunScene = new THREE.Scene()
+    const pmrem = new THREE.PMREMGenerator(this.bm.renderer)
+    this._gunScene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+    pmrem.dispose()
+    this._gunScene.add(new THREE.HemisphereLight(0xffffff, 0x666655, 1.6))
+    const key = new THREE.DirectionalLight(0xffffff, 1.8)
+    key.position.set(1, 2, 1)
+    this._gunScene.add(key)
+    this._gunCamera = new THREE.PerspectiveCamera(70, 1, 0.01, 10)
+  }
+
   _showGun() {
     const weapons = this.bm.game?.weapons
     if (!weapons?.viewmodels) return
@@ -663,17 +682,7 @@ export class BuildTryMode {
     const id = gunIds[0] || (weapons.viewmodels.rifle ? 'rifle' : weapons.current?.id)
     const source = id && weapons.viewmodels[id]
     if (!source) return
-    if (!this._gunScene) {
-      this._gunScene = new THREE.Scene()
-      const pmrem = new THREE.PMREMGenerator(this.bm.renderer)
-      this._gunScene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
-      pmrem.dispose()
-      this._gunScene.add(new THREE.HemisphereLight(0xffffff, 0x666655, 1.6))
-      const key = new THREE.DirectionalLight(0xffffff, 1.8)
-      key.position.set(1, 2, 1)
-      this._gunScene.add(key)
-      this._gunCamera = new THREE.PerspectiveCamera(70, 1, 0.01, 10)
-    }
+    this._ensureGunScene()
     if (this._gunId !== id) {
       if (this._gun) this._gunScene.remove(this._gun)
       // A copy of the game's own gun model (geometry/materials shared).
@@ -697,32 +706,7 @@ export class BuildTryMode {
     this._armsUrl = url
     loadSkinTexture(url).then((skin) => {
       if (this._armsUrl !== url) return
-      const character = buildTexturedCharacter(skin)
-      const arms = new THREE.Group()
-      const up = new THREE.Vector3(0, -1, 0)
-      for (const { limb, shoulder, hand } of ARMS) {
-        const pivot = character.limbPivots[limb]
-        pivot.position.set(0, 0, 0)
-        const from = new THREE.Vector3(...shoulder)
-        const dir = new THREE.Vector3(...hand).sub(from)
-        const arm = new THREE.Group()
-        arm.position.copy(from)
-        arm.quaternion.setFromUnitVectors(up, dir.clone().normalize())
-        // The limb hangs 12 skin pixels down from its pivot: stretch it to
-        // reach the hand, keep its width.
-        arm.scale.set(ARM_PX, dir.length() / 12, ARM_PX)
-        arm.add(pivot)
-        arms.add(arm)
-      }
-      // Matte, and toned down for the gun scene's bright lights (made for
-      // shiny metal) - otherwise the skin washes out to near white.
-      arms.traverse((o) => {
-        if (!o.isMesh) return
-        o.frustumCulled = false
-        const old = o.material
-        o.material = new THREE.MeshLambertMaterial({ map: old.map, color: 0x8a8a8a, alphaTest: old.alphaTest, transparent: old.transparent, side: old.side })
-        old.dispose()
-      })
+      const arms = buildArms(skin, ARMS)
       this._disposeArms()
       this._arms = arms
       if (this._gun) this._gun.add(arms)
@@ -733,17 +717,87 @@ export class BuildTryMode {
 
   _disposeArms() {
     if (!this._arms) return
-    this._arms.parent?.remove(this._arms)
-    this._arms.traverse((o) => {
-      if (!o.isMesh) return
-      o.geometry.dispose()
-      o.material.dispose()
-    })
+    disposeArms(this._arms)
     this._arms = null
   }
 
-  drawGun(renderer) {
-    if (!this.active || !this._gun?.visible) return
+  // --- Building (not trying): Minecraft's first-person right arm, holding
+  // the selected block, swinging on every place/break. Drawn in the same
+  // on-top scene as Try Map's gun. ---
+  swingHand() {
+    this._swingT = 0
+  }
+
+  drawHand(renderer, type) {
+    if (this.active) return
+    this._ensureGunScene()
+    if (this._gun) this._gun.visible = false
+    if (!this._hand) {
+      this._hand = new THREE.Group()
+      this._handHeld = new THREE.Group()
+      this._handHeld.position.set(...HAND_BLOCK_POS)
+      this._handHeld.rotation.set(0.12, 0.72, 0)
+      this._hand.add(this._handHeld)
+      this._gunScene.add(this._hand)
+    }
+    this._loadHandArm()
+    if (type !== this._handType) {
+      this._handType = type
+      this._setHeldBlock(type)
+    }
+    // Swing: down and in toward the middle of the screen, then back.
+    const now = performance.now()
+    const dt = Math.min(0.05, (now - (this._handAt || now)) / 1000)
+    this._handAt = now
+    let swing = 0
+    if (this._swingT !== null && this._swingT !== undefined) {
+      this._swingT += dt / SWING_TIME
+      if (this._swingT >= 1) this._swingT = null
+      else swing = Math.sin(this._swingT * Math.PI)
+    }
+    this._hand.rotation.set(-swing * 0.55, swing * 0.35, 0)
+    this._hand.position.set(-swing * 0.06, -swing * 0.03, 0)
+    this._hand.visible = true
+    this._renderOnTop(renderer)
+    this._hand.visible = false
+  }
+
+  _setHeldBlock(type) {
+    for (const child of [...this._handHeld.children]) {
+      this._handHeld.remove(child)
+      for (const m of [].concat(child.material)) m.dispose()
+    }
+    const parts = type && this.bm._heldBlockParts(type)
+    if (!parts) return
+    // Own copies of the block's materials, toned for the bright scene
+    // (the textures themselves are shared, never disposed here).
+    const toned = [].concat(parts.material).map((m) => {
+      const c = m.clone()
+      c.color?.multiplyScalar(0.62)
+      if (c.emissive && c.emissiveIntensity) c.emissiveIntensity *= 0.7
+      return c
+    })
+    const mesh = new THREE.Mesh(parts.geometry, Array.isArray(parts.material) ? toned : toned[0])
+    mesh.scale.setScalar(HAND_BLOCK_SIZE / this.B)
+    mesh.frustumCulled = false
+    this._handHeld.add(mesh)
+  }
+
+  _loadHandArm() {
+    const url = this.bm.game?.settings?.customSkinDataUrl || DEFAULT_SKIN_DATA_URL
+    if (this._handArmUrl === url) return
+    this._handArmUrl = url
+    loadSkinTexture(url).then((skin) => {
+      if (this._handArmUrl !== url || !this._hand) return
+      if (this._handArm) disposeArms(this._handArm)
+      this._handArm = buildArms(skin, HAND_ARM)
+      this._hand.add(this._handArm)
+    }).catch(() => {
+      // Unreadable skin - the block is shown without the arm.
+    })
+  }
+
+  _renderOnTop(renderer) {
     const cam = this.bm.camera
     this._gunCamera.aspect = cam.aspect
     this._gunCamera.fov = 70
@@ -754,4 +808,51 @@ export class BuildTryMode {
     renderer.render(this._gunScene, this._gunCamera)
     renderer.autoClear = autoClear
   }
+
+  drawGun(renderer) {
+    if (!this.active || !this._gun?.visible) return
+    if (this._hand) this._hand.visible = false
+    this._renderOnTop(renderer)
+  }
+}
+
+// Blocky arms from a skin: each limb stretched from its shoulder (off the
+// bottom of the screen) to its hand, matte and toned down for the on-top
+// scene's bright lights (made for shiny metal) - otherwise the skin washes
+// out to near white.
+function buildArms(skin, list) {
+  const character = buildTexturedCharacter(skin)
+  const arms = new THREE.Group()
+  const up = new THREE.Vector3(0, -1, 0)
+  for (const { limb, shoulder, hand } of list) {
+    const pivot = character.limbPivots[limb]
+    pivot.position.set(0, 0, 0)
+    const from = new THREE.Vector3(...shoulder)
+    const dir = new THREE.Vector3(...hand).sub(from)
+    const arm = new THREE.Group()
+    arm.position.copy(from)
+    arm.quaternion.setFromUnitVectors(up, dir.clone().normalize())
+    // The limb hangs 12 skin pixels down from its pivot: stretch it to
+    // reach the hand, keep its width.
+    arm.scale.set(ARM_PX, dir.length() / 12, ARM_PX)
+    arm.add(pivot)
+    arms.add(arm)
+  }
+  arms.traverse((o) => {
+    if (!o.isMesh) return
+    o.frustumCulled = false
+    const old = o.material
+    o.material = new THREE.MeshLambertMaterial({ map: old.map, color: 0x8a8a8a, alphaTest: old.alphaTest, transparent: old.transparent, side: old.side })
+    old.dispose()
+  })
+  return arms
+}
+
+function disposeArms(arms) {
+  arms.parent?.remove(arms)
+  arms.traverse((o) => {
+    if (!o.isMesh) return
+    o.geometry.dispose()
+    o.material.dispose()
+  })
 }

@@ -965,6 +965,30 @@ export function generateMap3() {
     if (!solidAt(x + 1, y, z) && !solidAt(x - 1, y, z) && !solidAt(x, y, z + 1) && !solidAt(x, y, z - 1)) clear(x, y, z)
   }
 
+  // Supply crates (empty for now), dropped around the city at street level
+  // and on ground floors. Their own seed, placed last, so adding them moved
+  // nothing else and players' saved Map 3 edits still line up. Never in a
+  // doorway, in front of a ladder, or in a narrow gap (rule 9): only on
+  // solid ground with headroom, at least 3 open sides, and spaced out.
+  const crateRand = rng(0xc7a7e)
+  const doorCells = [...doors.keys()].map((k) => k.split(',').map(Number))
+  const ladderCells = [...cells].filter(([, t]) => t === 'ladder').map(([k]) => k.split(',').map(Number))
+  const crates = []
+  const solidFloor = (t) => t && t !== 'water' && t !== 'lava' && t !== 'leaves' && t !== 'ladder' && !/slab$|stairs$|fence$|door$/.test(t)
+  for (let n = 0; n < 6000 && crates.length < 60; n++) {
+    const x = Math.floor(-INNER + 2 + crateRand() * (INNER * 2 - 4))
+    const z = Math.floor(-INNER + 2 + crateRand() * (INNER * 2 - 4))
+    const y = crateRand() < 0.7 ? 0 : 1
+    if (get(x, y, z) || get(x, y + 1, z) || get(x, y + 2, z) || !solidFloor(get(x, y - 1, z))) continue
+    const open = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([ox, oz]) => !get(x + ox, y, z + oz)).length
+    if (open < 3) continue
+    if (doorCells.some(([dx, dy, dz]) => Math.abs(dx - x) + Math.abs(dz - z) <= 2 && Math.abs(dy - y) <= 1)) continue
+    if (ladderCells.some(([lx, ly, lz]) => Math.abs(lx - x) + Math.abs(lz - z) <= 1 && Math.abs(ly - y) <= 2)) continue
+    if (crates.some(([cx, , cz]) => Math.abs(cx - x) + Math.abs(cz - z) < 6)) continue
+    crates.push([x, y, z])
+    set(x, y, z, 'crate')
+  }
+
   const blocks = []
   for (const [k, type] of cells) {
     const [x, y, z] = k.split(',').map(Number)

@@ -377,6 +377,8 @@ export const BLOCK_TYPES = [
   { id: 'greenterracotta', name: 'Green Terracotta', color: 0x4c532a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
   { id: 'purpleterracotta', name: 'Purple Terracotta', color: 0x764656, pattern: 'speckle', roughness: 0.9, metalness: 0 },
   { id: 'cyanterracotta', name: 'Cyan Terracotta', color: 0x565b5b, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  // Supply crates (2026-10-03) - scattered around Map 3; empty for now.
+  { id: 'crate', name: 'Crate', color: 0x9c7442, pattern: 'wood', roughness: 0.85, metalness: 0 },
   // More Minecraft blocks (2026-10-03) - each also gets its own slab and
   // stairs from the generators below, like every full block.
   { id: 'limeterracotta', name: 'Lime Terracotta', color: 0x677534, pattern: 'speckle', roughness: 0.9, metalness: 0 },
@@ -1706,6 +1708,37 @@ export class BuildMode {
     return !!def && !def.shape && def.pattern === 'glass' && def.id.includes('glass')
   }
 
+  // Geometry + material(s) for the block shown in the player's hand while
+  // building (BuildTryMode.drawHand): a cube textured like the block, or a
+  // shaped block's own mesh parts. Cached per type; shared, never disposed.
+  _heldBlockParts(type) {
+    if (!this._heldParts) this._heldParts = new Map()
+    if (this._heldParts.has(type)) return this._heldParts.get(type)
+    const bt = BLOCK_BY_ID.get(type)
+    let parts = null
+    if (bt?.shape) {
+      const mesh = this._instancedMeshes[type] || this._shapedMesh(type)
+      if (mesh) parts = { geometry: mesh.geometry, material: mesh.material }
+    } else if (bt) {
+      const faces = blockFaceCanvases(bt)
+      const make = (canvas) => new THREE.MeshLambertMaterial({
+        map: _canvasTexture(canvas),
+        transparent: !!bt.transparent,
+        opacity: bt.opacity ?? 1,
+        alphaTest: bt.transparent ? 0.02 : 0,
+        emissive: bt.emissive ?? 0x000000,
+        emissiveIntensity: bt.emissiveIntensity ?? 0,
+      })
+      const side = make(faces.side)
+      const top = faces.top === faces.side ? side : make(faces.top)
+      const bottom = faces.bottom === faces.side ? side : faces.bottom === faces.top ? top : make(faces.bottom)
+      // BoxGeometry face order: +x, -x, +y, -y, +z, -z.
+      parts = { geometry: new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE), material: [side, side, top, bottom, side, side] }
+    }
+    this._heldParts.set(type, parts)
+    return parts
+  }
+
   _blockColor(type) {
     return BLOCK_BY_ID.get(type)?.color ?? 0xffffff
   }
@@ -2210,6 +2243,7 @@ export class BuildMode {
     if (this._wouldOverlapCamera(px, py, pz)) return
     if (BLOCK_BY_ID.get(this.selectedType)?.shape === 'door' && this._wouldOverlapCamera(px, py + 1, pz)) return
     this.placeBlock(px, py, pz, this.selectedType)
+    this.tryMode.swingHand()
     if (this.mirrorMode) this.placeBlock(this._mirrorX(px), py, pz, this.selectedType)
   }
 
@@ -2245,6 +2279,7 @@ export class BuildMode {
     if (!hit || !hit.existingBlock) return
     const [rx, ry, rz] = hit.existingBlock
     this.removeBlock(rx, ry, rz)
+    this.tryMode.swingHand()
     if (this.mirrorMode) this.removeBlock(this._mirrorX(rx), ry, rz)
   }
 
@@ -3278,6 +3313,7 @@ export class BuildMode {
     this.lastDrawCalls = this.renderer.info.render.calls
     shadowMap.autoUpdate = shadowAutoUpdate
     this.renderer.toneMapping = toneMapping
-    this.tryMode.drawGun(this.renderer)
+    if (this.tryMode.active) this.tryMode.drawGun(this.renderer)
+    else if (!this.menuOpen && !this.pickerOpen) this.tryMode.drawHand(this.renderer, this.selectedType)
   }
 }

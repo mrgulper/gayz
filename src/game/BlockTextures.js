@@ -625,6 +625,19 @@ function frame(px, color, width = 1) {
   }
 }
 
+// A wooden supply crate: planks inside a thick darker frame, with a
+// diagonal brace and corner nails (the same on every face).
+function crate(px, base, r) {
+  planks(px, base, r)
+  const dark = mul(base, 0.62)
+  frame(px, dark, 2)
+  for (let i = 2; i < S - 2; i++) {
+    px.set(i, i, mul(base, 0.7))
+    px.set(i + 1 < S - 2 ? i + 1 : i, i, mul(base, 0.8))
+  }
+  for (const [nx, ny] of [[1, 1], [S - 2, 1], [1, S - 2], [S - 2, S - 2]]) px.set(nx, ny, [150, 150, 140])
+}
+
 function craftingTop(px, wood, r) {
   planks(px, wood, r)
   frame(px, mul(wood, 0.55))
@@ -1015,6 +1028,7 @@ const BY_ID = {
   verdantfroglight: (px, b, r) => { polished(px, b, r); frame(px, mul(b, 0.8)) },
   pearlescentfroglight: (px, b, r) => { polished(px, b, r); frame(px, mul(b, 0.8)) },
   tintedglass: (px, b, r) => glass(px, b, r, true),
+  crate: crate,
   deepslateironore: (px, b, r) => ore(px, b, [216, 175, 147], r),
   deepslategoldore: (px, b, r) => ore(px, b, [252, 220, 80], r),
   deepslatecoalore: (px, b, r) => ore(px, b, [20, 20, 20], r),
