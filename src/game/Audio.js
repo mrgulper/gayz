@@ -650,6 +650,53 @@ class AudioEngine {
     overtone.stop(now + duration * 0.6)
   }
 
+  // Map Editor's Try Map windows: a short, sharp tick when a shot cracks
+  // the glass, and a bright shatter with tinkling bits when it breaks.
+  _glassNoise(duration, freq, gain, now) {
+    const ctx = this.ctx
+    const buffer = ctx.createBuffer(1, Math.max(1, Math.floor(ctx.sampleRate * duration)), ctx.sampleRate)
+    const data = buffer.getChannelData(0)
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+    const noise = ctx.createBufferSource()
+    noise.buffer = buffer
+    const highpass = ctx.createBiquadFilter()
+    highpass.type = 'highpass'
+    highpass.frequency.value = freq
+    const g = ctx.createGain()
+    g.gain.setValueAtTime(gain, now)
+    g.gain.exponentialRampToValueAtTime(0.001, now + duration)
+    noise.connect(highpass).connect(g).connect(this.sfxGain)
+    noise.start(now)
+    noise.stop(now + duration)
+  }
+
+  _glassTink(freq, at, gain) {
+    const ctx = this.ctx
+    const osc = ctx.createOscillator()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(freq, at)
+    const g = ctx.createGain()
+    g.gain.setValueAtTime(gain, at)
+    g.gain.exponentialRampToValueAtTime(0.001, at + 0.12)
+    osc.connect(g).connect(this.sfxGain)
+    osc.start(at)
+    osc.stop(at + 0.12)
+  }
+
+  playGlassCrack() {
+    if (!this.ctx) return
+    const now = this.ctx.currentTime
+    this._glassNoise(0.08, 3200, 0.5, now)
+    this._glassTink(2600 + Math.random() * 600, now, 0.12)
+  }
+
+  playGlassBreak() {
+    if (!this.ctx) return
+    const now = this.ctx.currentTime
+    this._glassNoise(0.45, 2200, 0.7, now)
+    for (let i = 0; i < 7; i++) this._glassTink(2400 + Math.random() * 3000, now + 0.03 + Math.random() * 0.35, 0.06 + Math.random() * 0.06)
+  }
+
   // Vocal variety by type (see ZombieTypes.js's scale field, already used
   // for visual size - reused here rather than authoring a second per-type
   // number) - bigger zombies get a deeper voice, smaller ones a higher

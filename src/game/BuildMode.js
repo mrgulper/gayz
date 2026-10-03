@@ -87,9 +87,11 @@ const SAVED_AT_KEY = 'buildmode-saved-at'
 // The pause screen's Shortcuts box - every one of these really works.
 // Trying the map: how far away (in blocks) a door can be opened from.
 const TRY_REACH_BLOCKS = 5
+const TRY_CROUCH_KEYS = new Set(['KeyC', 'ControlLeft', 'ControlRight', 'KeyZ', 'CapsLock'])
 const MENU_SHORTCUTS = [
   [['T'], 'buildModeTryBtn'],
-  [['Shift'], 'buildMenuRun'],
+  [['Shift', 'W'], 'buildMenuRun'],
+  [['C'], 'buildMenuCrouch'],
   [['E'], 'buildMenuUseDoor'],
   [['M'], 'buildMenuMapSize'],
   [['Ctrl', 'Z'], 'buildModeUndoBtn'],
@@ -1130,7 +1132,7 @@ export class BuildMode {
         if (e.code === 'KeyE' && !e.repeat) this._tryUseFromCamera()
         if (e.code === 'KeyM' && !e.repeat) this.tryMode.cycleMap()
         this._keys.add(e.code)
-        if (MOVEMENT_KEY_CODES.has(e.code) || e.code === 'ShiftLeft') e.preventDefault()
+        if (MOVEMENT_KEY_CODES.has(e.code) || e.code === 'ShiftLeft' || TRY_CROUCH_KEYS.has(e.code)) e.preventDefault()
         return
       }
       // Ctrl/Cmd shortcuts (shown in the Escape menu's Shortcuts box).
@@ -1638,6 +1640,17 @@ export class BuildMode {
   _cellIsLiquid(x, y, z) {
     const type = this.getBlockAt(x, y, z)
     return !!type && this._chunks.isLiquid(type)
+  }
+
+  // Glass blocks (clear, stained, tinted) - the windows Try Map's shots
+  // crack and break. Honey/slime look like glass but aren't windows.
+  _isWindowType(type) {
+    const def = type && BLOCK_BY_ID.get(type)
+    return !!def && !def.shape && def.pattern === 'glass' && def.id.includes('glass')
+  }
+
+  _blockColor(type) {
+    return BLOCK_BY_ID.get(type)?.color ?? 0xffffff
   }
 
   _cellIsLadder(x, y, z) {
@@ -2713,6 +2726,11 @@ export class BuildMode {
       const door = shape === 'door' && this._doorState.get(key)
       blocks.push(door ? { x, y, z, type, facing: door.facing, open: door.open } : { x, y, z, type })
     }
+    // Windows shot out while trying the map are only gone for that try -
+    // saves and exports still have them.
+    for (const b of this.tryMode?.brokenWindows() || []) {
+      if (!this._blocks.has(this._key(b.x, b.y, b.z))) blocks.push({ x: b.x, y: b.y, z: b.z, type: b.type })
+    }
     return { blocks, hotbar: this.hotbar }
   }
 
@@ -2857,6 +2875,7 @@ export class BuildMode {
   // types that no longer correspond to what's on screen, so they're
   // cleared here too rather than at each of those 4 call sites separately.
   clearAllBlocks() {
+    this.tryMode?.forgetWindows()
     for (const type in this._instancedMeshes) {
       const mesh = this._instancedMeshes[type]
       mesh.count = 0
