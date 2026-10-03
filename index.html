@@ -4009,10 +4009,16 @@ Escape before dawn.</p>
           el.textContent = text + ' Try updating your browser, or a different device.'
           document.body.appendChild(el)
         }
+        // Only while loading: once the game is built (window.__game), a
+        // stray error mid-game (a sound that couldn't play, a dropped
+        // network request) used to throw this full-screen "problem loading"
+        // message over a game that was still running fine underneath.
         window.addEventListener('error', function () {
+          if (window.__game) return
           showFallback('GayZ ran into a problem loading.')
         })
         window.addEventListener('unhandledrejection', function () {
+          if (window.__game) return
           showFallback('GayZ ran into a problem loading.')
         })
         try {
