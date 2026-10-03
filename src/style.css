@@ -11985,7 +11985,9 @@ html.night-vision-active #app {
      clutter sitting over the homepage art. */
   display: none;
   flex-direction: column;
-  width: 420px;
+  /* Stops short of the bottom-middle hotbar (half of it is ~320px wide
+     in a run), so the input row's Enter button never sits on slot 1. */
+  width: max(220px, min(420px, calc(50vw - 355px)));
   height: 320px;
   pointer-events: auto;
   /* Fully invisible - no box at all (was a low-alpha panel with a blur,
@@ -11995,6 +11997,11 @@ html.night-vision-active #app {
      dark backdrop behind any of it any more. */
   background: none;
   border: none;
+}
+
+/* Map Editor / Try Map: the editor's hotbar is narrower (~264px half). */
+body.build-mode-on #chat-panel {
+  width: max(220px, min(420px, calc(50vw - 300px)));
 }
 
 #chat-channel-tabs {

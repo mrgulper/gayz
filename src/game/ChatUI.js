@@ -360,6 +360,13 @@ export function bindChatWidget(game) {
 
   game.chatInput.addEventListener('focus', () => {
     game._chatInputFocused = true
+    // Map Editor: free the mouse so the chat can be clicked, and drop any
+    // held movement keys (their key-ups may never reach the editor).
+    // Clicking back into the view locks it again.
+    if (game.buildMode?.active) {
+      game.buildMode._keys?.clear()
+      if (document.pointerLockElement) document.exitPointerLock()
+    }
   })
   game.chatInput.addEventListener('blur', () => {
     game._chatInputFocused = false

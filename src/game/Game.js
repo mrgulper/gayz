@@ -14130,7 +14130,9 @@ export class Game {
     this.hotbarEl.style.display = 'none'
     if (this.hotbarPowerScoreEl) this.hotbarPowerScoreEl.style.display = 'none'
     this.statusHud.style.display = 'none'
-    this.chatPanel.style.display = 'none'
+    // Chat stays with you in the Map Editor and Try Map (Enter to type).
+    this.chatPanel.style.display = 'flex'
+    document.body.classList.add('build-mode-on')
     this.progressHud.style.display = 'none'
     this.statsPanel.style.display = 'none'
     this.minimapWrap.style.display = 'none'
@@ -14200,6 +14202,8 @@ export class Game {
 
   _exitBuildMode() {
     this.buildMode.exit()
+    this.chatPanel.style.display = 'none'
+    document.body.classList.remove('build-mode-on')
     this._applyRenderScale()
     this.fpsEl.style.left = '6px'
     this.fpsEl.style.top = '6px'

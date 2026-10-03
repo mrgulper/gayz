@@ -140,7 +140,7 @@ export class BuildTryMode {
     this._mapCanvas = document.createElement('canvas')
     this._mapEl.appendChild(this._mapCanvas)
     document.body.appendChild(this._mapEl)
-    window.addEventListener('resize', () => { if (this.active) this._applyMapMode() })
+    window.addEventListener('resize', () => { if (this._mapEl.style.display !== 'none') this._applyMapMode() })
   }
 
   cycleMap() {
@@ -148,17 +148,44 @@ export class BuildTryMode {
     this._applyMapMode()
   }
 
+  // While building the map is always the small corner one (M is Mirror
+  // there); Try Map brings back the size picked with M.
   _applyMapMode() {
     if (!this._mapEl) return
-    this._mapEl.dataset.size = MAP_SIZES[this._mapMode]
+    this._mapEl.dataset.size = this.active ? MAP_SIZES[this._mapMode] : 'normal'
     // Drawn at the size it's shown, so the blocks stay crisp.
     const px = Math.max(1, Math.round(this._mapEl.clientWidth * Math.min(window.devicePixelRatio || 1, 2)))
     this._mapCanvas.width = px
     this._mapCanvas.height = px
     this._mapDrawAt = 0
+    this._mapVersion = -1
+    this._mapBuiltAt = 0
   }
 
-  _drawMap(now) {
+  // Building (not trying): the same minimap, following the flying camera.
+  // The picture is redrawn from the blocks at most every 1.5s after an
+  // edit (it reads every block, so not every frame).
+  drawBuildMap(now, visible) {
+    this._ensureMapEl()
+    if (!visible) {
+      this._mapEl.style.display = 'none'
+      return
+    }
+    if (this._mapEl.style.display === 'none') {
+      this._mapEl.style.display = 'block'
+      this._applyMapMode()
+    }
+    if (!this._mapImage || (this._mapVersion !== this.bm._mapVersion && now - this._mapBuiltAt > 1500)) {
+      this._mapImage = this.bm._buildTopDownMap()
+      this._mapVersion = this.bm._mapVersion
+      this._mapBuiltAt = now
+      this._mapDrawAt = 0
+    }
+    const cam = this.bm.camera.position
+    this._drawMap(now, cam.x / this.B, cam.z / this.B)
+  }
+
+  _drawMap(now, x = this.pos.x, z = this.pos.z) {
     if (!this._mapImage || now - this._mapDrawAt < 60) return
     this._mapDrawAt = now
     const c = this._mapCanvas
@@ -169,8 +196,8 @@ export class BuildTryMode {
     ctx.drawImage(this._mapImage, 0, 0, s, s)
     // Where you are, and which way you're looking.
     const k = s / cells
-    const px = (this.pos.x + cells / 2) * k
-    const pz = (this.pos.z + cells / 2) * k
+    const px = (x + cells / 2) * k
+    const pz = (z + cells / 2) * k
     const yaw = this.bm._yaw
     const ang = Math.atan2(-Math.cos(yaw), -Math.sin(yaw))
     const r = Math.max(5, s / 34)
@@ -278,6 +305,8 @@ export class BuildTryMode {
     this._showGun()
     this._ensureMapEl()
     this._mapImage = this.bm._buildTopDownMap()
+    this._mapVersion = this.bm._mapVersion
+    this._mapBuiltAt = performance.now()
     this._mapEl.style.display = 'block'
     this._applyMapMode()
   }
