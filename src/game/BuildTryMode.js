@@ -67,12 +67,13 @@ const ARM_SHOULDERS = {
 const ARM_PX = 0.036
 // Building: both arms (from the skin, as wide as Try Map's) reaching up
 // from the bottom of the screen to hold the selected block between them,
-// a little right of the middle (camera space).
+// a little right of the middle (camera space). The hands sit right on the
+// block's sides (2026-10-03: "looks like not even touching").
 const HAND_BLOCK_POS = [0.12, -0.16, -0.64]
 const HAND_BLOCK_SIZE = 0.18
 const HAND_ARM = [
-  { limb: 'armR', shoulder: [0.5, -0.72, -0.3], hand: [0.26, -0.22, -0.58] },
-  { limb: 'armL', shoulder: [-0.26, -0.72, -0.3], hand: [-0.02, -0.22, -0.58] },
+  { limb: 'armR', shoulder: [0.42, -0.72, -0.34], hand: [0.21, -0.2, -0.64] },
+  { limb: 'armL', shoulder: [-0.18, -0.72, -0.34], hand: [0.03, -0.2, -0.64] },
 ]
 const SWING_TIME = 0.25 // seconds
 // Map sizes M cycles through (Try Map's own minimap, top-right square):
