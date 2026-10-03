@@ -1626,6 +1626,8 @@ export class BuildMode {
     document.addEventListener('click', this._onPickerBackdropClick)
     if (this._hotbarEl) this._hotbarEl.style.display = 'flex'
     if (this._slotsEl) this._slotsEl.style.display = 'flex'
+    // The aiming dot shows while building too, not just in Try Map.
+    this._tryCrosshairEl.style.display = 'block'
     // #build-menu (Exit/Save/Export/Import/Mirror/Line/Copy/Paste) starts
     // closed - see toggleMenu, opened with Escape rather than sitting on
     // screen the whole time.
@@ -1668,6 +1670,7 @@ export class BuildMode {
     if (this._pickerEl) this._pickerEl.style.display = 'none'
     if (this._hotbarEl) this._hotbarEl.style.display = 'none'
     if (this._slotsEl) this._slotsEl.style.display = 'none'
+    this._tryCrosshairEl.style.display = 'none'
     this.menuOpen = false
     if (this._menuEl) this._menuEl.style.display = 'none'
     if (this._hotbarEl) this._hotbarEl.style.visibility = ''
@@ -1812,7 +1815,6 @@ export class BuildMode {
     if (this.tryMode.active) {
       this.tryMode.exit()
       this._tryHintEl.style.display = 'none'
-      this._tryCrosshairEl.style.display = 'none'
       if (this._hotbarEl) this._hotbarEl.style.display = 'flex'
     } else {
       if (this.lineToolMode) this.toggleLineTool()
