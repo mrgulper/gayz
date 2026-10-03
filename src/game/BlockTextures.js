@@ -362,11 +362,13 @@ function leaves(px, base, r) {
   }
 }
 
+// Clear, light blue water with soft ripples (bloxd.io's look) rather than
+// Minecraft's darker streaks.
 function water(px, base, r) {
   for (let y = 0; y < S; y++) {
     for (let x = 0; x < S; x++) {
-      const wave = (y + Math.round(Math.sin((x * Math.PI) / 4) * 1.4) + 16) % 5
-      px.set(x, y, mul(base, wave === 0 ? 1.25 : wave === 1 ? 1.1 : 0.95 + r() * 0.06))
+      const wave = (y + Math.round(Math.sin((x * Math.PI) / 4) * 1.2) + 16) % 8
+      px.set(x, y, mul(base, wave === 0 ? 1.18 : wave === 1 ? 1.08 : 1 + r() * 0.03))
     }
   }
 }

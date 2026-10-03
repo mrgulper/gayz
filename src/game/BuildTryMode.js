@@ -67,6 +67,7 @@ const ARM_PX = 0.026
 // Map sizes M cycles through (Try Map's own minimap, top-right square):
 // normal, big, big in the middle of the screen.
 const MAP_SIZES = ['normal', 'big', 'center']
+const NEAR = 0.012 // camera near plane while trying (world units; a block is 0.35)
 // Glass shards flying out of a broken window.
 const SHARDS_PER_WINDOW = 14
 const SHARD_LIFE = 1.4
@@ -114,6 +115,9 @@ export class BuildTryMode {
     this._shards = []
     this._shardGeometry = null
     this._shardMaterials = new Map()
+    this._underwater = null
+    this._underwaterEl = null
+    this._baseNear = null
   }
 
   // --- Minimap (top-right square; M makes it big, then big in the middle) ---
@@ -251,6 +255,13 @@ export class BuildTryMode {
     this._hopChain = 0
     this._groundTime = 0
     this._baseFov = cam.fov
+    // The flying camera's near plane (0.1) is a third of a block: walking
+    // right up to a wall let the view cut into it and see through. The
+    // body keeps the eyes 0.3 blocks from any wall, so a much nearer plane
+    // never clips.
+    this._baseNear = cam.near
+    cam.near = NEAR
+    cam.updateProjectionMatrix()
     this._flyPos = cam.position.clone()
     this.active = true
     this._showGun()
@@ -266,9 +277,14 @@ export class BuildTryMode {
     if (this._mapEl) this._mapEl.style.display = 'none'
     if (this._baseFov !== null) {
       this.bm.camera.fov = this._baseFov
-      this.bm.camera.updateProjectionMatrix()
       this._baseFov = null
     }
+    if (this._baseNear != null) {
+      this.bm.camera.near = this._baseNear
+      this._baseNear = null
+    }
+    this.bm.camera.updateProjectionMatrix()
+    this._setUnderwater(null)
     if (this._gun) this._gun.visible = false
   }
 
@@ -427,6 +443,34 @@ export class BuildTryMode {
     }
     this._updateShards(dt)
     this._drawMap(performance.now())
+    this._setUnderwater(this._liquidAtEye(p))
+  }
+
+  // Which liquid (if any) the eyes are in - below a flowing cell's surface,
+  // not just inside its cell.
+  _liquidAtEye(p) {
+    const ey = p.y + this._eye
+    const cx = Math.floor(p.x)
+    const cy = Math.floor(ey)
+    const cz = Math.floor(p.z)
+    const type = this.bm.getBlockAt(cx, cy, cz)
+    if (type !== 'water' && type !== 'lava') return null
+    const full = this.bm.getBlockAt(cx, cy + 1, cz) === type
+    return full || ey - cy < this.bm.liquids.heightAt(cx, cy, cz) ? type : null
+  }
+
+  // Head under water tints the screen blue (bloxd.io's look), lava orange.
+  _setUnderwater(kind) {
+    if (kind === this._underwater) return
+    this._underwater = kind
+    if (!this._underwaterEl) {
+      if (!kind) return
+      this._underwaterEl = document.createElement('div')
+      this._underwaterEl.id = 'build-try-underwater'
+      document.body.appendChild(this._underwaterEl)
+    }
+    this._underwaterEl.className = kind || ''
+    this._underwaterEl.style.display = kind ? 'block' : 'none'
   }
 
   // Left click while trying: the gun kicks and fires. Nothing gets built
@@ -540,10 +584,10 @@ export class BuildTryMode {
     }
     if (!this._cracked.size) return
     if (!this._crackMaterial) {
-      this._crackMaterial = new THREE.MeshBasicMaterial({ map: this._crackTexture(), transparent: true, alphaTest: 0.1, depthWrite: false })
+      this._crackMaterial = new THREE.MeshBasicMaterial({ map: this._crackTexture(), transparent: true, alphaTest: 0.1, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })
     }
     const B = this.B
-    const size = B * 1.004
+    const size = B * 1.01
     const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(size, size, size), this._crackMaterial, this._cracked.size)
     const m = new THREE.Matrix4()
     let i = 0

@@ -13057,3 +13057,17 @@ html.night-vision-active #app {
   height: 70vmin;
   opacity: 0.85;
 }
+
+/* Try Map: head under water (bloxd.io-style blue) or lava. */
+#build-try-underwater {
+  position: fixed;
+  inset: 0;
+  z-index: 18;
+  pointer-events: none;
+}
+#build-try-underwater.water {
+  background: radial-gradient(ellipse at center, rgba(40, 120, 230, 0.28), rgba(10, 50, 140, 0.55));
+}
+#build-try-underwater.lava {
+  background: radial-gradient(ellipse at center, rgba(255, 120, 20, 0.6), rgba(170, 30, 0, 0.85));
+}
