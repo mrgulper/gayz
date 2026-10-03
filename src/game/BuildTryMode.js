@@ -64,11 +64,10 @@ const ARMS = [
   { limb: 'armL', shoulder: [-0.5, -0.5, 0.2], hand: [-0.05, -0.04, -0.2] },
 ]
 const ARM_PX = 0.026
-// Building: the right arm alone, reaching up from the bottom-right corner
-// to the block it holds (camera space, like Minecraft's held block).
-const HAND_BLOCK_POS = [0.28, -0.19, -0.64]
-const HAND_BLOCK_SIZE = 0.15
-const HAND_ARM = [{ limb: 'armR', shoulder: [0.62, -0.72, -0.4], hand: [0.36, -0.29, -0.64] }]
+// Building, like Minecraft: just the held block in the bottom-right corner,
+// no arm (camera space).
+const HAND_BLOCK_POS = [0.33, -0.29, -0.6]
+const HAND_BLOCK_SIZE = 0.2
 const SWING_TIME = 0.25 // seconds
 // Map sizes M cycles through (Try Map's own minimap, top-right square):
 // normal, big, big in the middle of the screen.
@@ -721,9 +720,9 @@ export class BuildTryMode {
     this._arms = null
   }
 
-  // --- Building (not trying): Minecraft's first-person right arm, holding
-  // the selected block, swinging on every place/break. Drawn in the same
-  // on-top scene as Try Map's gun. ---
+  // --- Building (not trying): the selected block held in the corner like
+  // Minecraft (just the block, no arm), swinging on every place/break.
+  // Drawn in the same on-top scene as Try Map's gun. ---
   swingHand() {
     this._swingT = 0
   }
@@ -740,7 +739,6 @@ export class BuildTryMode {
       this._hand.add(this._handHeld)
       this._gunScene.add(this._hand)
     }
-    this._loadHandArm()
     if (type !== this._handType) {
       this._handType = type
       this._setHeldBlock(type)
@@ -783,19 +781,6 @@ export class BuildTryMode {
     this._handHeld.add(mesh)
   }
 
-  _loadHandArm() {
-    const url = this.bm.game?.settings?.customSkinDataUrl || DEFAULT_SKIN_DATA_URL
-    if (this._handArmUrl === url) return
-    this._handArmUrl = url
-    loadSkinTexture(url).then((skin) => {
-      if (this._handArmUrl !== url || !this._hand) return
-      if (this._handArm) disposeArms(this._handArm)
-      this._handArm = buildArms(skin, HAND_ARM)
-      this._hand.add(this._handArm)
-    }).catch(() => {
-      // Unreadable skin - the block is shown without the arm.
-    })
-  }
 
   _renderOnTop(renderer) {
     const cam = this.bm.camera
