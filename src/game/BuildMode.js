@@ -377,6 +377,49 @@ export const BLOCK_TYPES = [
   { id: 'greenterracotta', name: 'Green Terracotta', color: 0x4c532a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
   { id: 'purpleterracotta', name: 'Purple Terracotta', color: 0x764656, pattern: 'speckle', roughness: 0.9, metalness: 0 },
   { id: 'cyanterracotta', name: 'Cyan Terracotta', color: 0x565b5b, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  // More Minecraft blocks (2026-10-03) - each also gets its own slab and
+  // stairs from the generators below, like every full block.
+  { id: 'limeterracotta', name: 'Lime Terracotta', color: 0x677534, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'pinkterracotta', name: 'Pink Terracotta', color: 0xa14e4e, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'magentaterracotta', name: 'Magenta Terracotta', color: 0x95576c, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'lightblueterracotta', name: 'Light Blue Terracotta', color: 0x716c89, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'grayterracotta', name: 'Gray Terracotta', color: 0x392a23, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'lightgrayterracotta', name: 'Light Gray Terracotta', color: 0x876a61, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'brownterracotta', name: 'Brown Terracotta', color: 0x4d3323, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'deepslateironore', name: 'Deepslate Iron Ore', color: 0x3a3a40, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'deepslategoldore', name: 'Deepslate Gold Ore', color: 0x3a3a40, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'deepslatecoalore', name: 'Deepslate Coal Ore', color: 0x3a3a40, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'deepslateemeraldore', name: 'Deepslate Emerald Ore', color: 0x3a3a40, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'deepslateredstoneore', name: 'Deepslate Redstone Ore', color: 0x3a3a40, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'deepslatelapisore', name: 'Deepslate Lapis Ore', color: 0x3a3a40, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'deepslatecopperore', name: 'Deepslate Copper Ore', color: 0x3a3a40, pattern: 'ore', roughness: 0.9, metalness: 0 },
+  { id: 'polishedtuff', name: 'Polished Tuff', color: 0x626a63, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'tuffbricks', name: 'Tuff Bricks', color: 0x5e665f, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'chiseledtuff', name: 'Chiseled Tuff', color: 0x5e665f, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'polishedbasalt', name: 'Polished Basalt', color: 0x5a5a5e, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'smoothbasalt', name: 'Smooth Basalt', color: 0x48484e, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'chiseleddeepslate', name: 'Chiseled Deepslate', color: 0x36363a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'crackeddeepslatebricks', name: 'Cracked Deepslate Bricks', color: 0x46464a, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'crackeddeepslatetiles', name: 'Cracked Deepslate Tiles', color: 0x36363a, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'cutredsandstone', name: 'Cut Red Sandstone', color: 0xb05c2c, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'smoothredsandstone', name: 'Smooth Red Sandstone', color: 0xb5622e, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'chiseledredsandstone', name: 'Chiseled Red Sandstone', color: 0xa8582a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'crackednetherbricks', name: 'Cracked Nether Bricks', color: 0x2e161a, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'chiselednetherbricks', name: 'Chiseled Nether Bricks', color: 0x30171b, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'chiseledpolishedblackstone', name: 'Chiseled Polished Blackstone', color: 0x35303a, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'crackedpolishedblackstonebricks', name: 'Cracked Polished Blackstone Bricks', color: 0x2f2a33, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'tubecoralblock', name: 'Tube Coral Block', color: 0x3157cf, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'braincoralblock', name: 'Brain Coral Block', color: 0xcf5b9f, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'bubblecoralblock', name: 'Bubble Coral Block', color: 0xa318a0, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'firecoralblock', name: 'Fire Coral Block', color: 0xa3232e, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'horncoralblock', name: 'Horn Coral Block', color: 0xd8c742, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'rooteddirt', name: 'Rooted Dirt', color: 0x90684c, pattern: 'speckle', roughness: 0.9, metalness: 0 },
+  { id: 'chiseledcopper', name: 'Chiseled Copper', color: 0xb8643f, pattern: 'metal', roughness: 0.9, metalness: 0 },
+  { id: 'reinforceddeepslate', name: 'Reinforced Deepslate', color: 0x50555a, pattern: 'brick', roughness: 0.9, metalness: 0 },
+  { id: 'magentastainedglass', name: 'Magenta Stained Glass', color: 0xb24cd8, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'graystainedglass', name: 'Gray Stained Glass', color: 0x4c4c4c, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'lightgraystainedglass', name: 'Light Gray Stained Glass', color: 0x999999, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
+  { id: 'brownstainedglass', name: 'Brown Stained Glass', color: 0x664c33, pattern: 'glass', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.55 },
   // Shaped blocks (see CUSTOM_BLOCK_GEOMETRY) - every block above is a full
   // 1x1x1 cube; these use their own geometry instead (a stair-stepped
   // silhouette, a post-and-rail fence, a thin ladder panel). `shape` picks
@@ -433,6 +476,15 @@ for (const src of BLOCK_TYPES.slice()) {
     shape: 'slab',
     slabOf: src.id,
   })
+}
+// And stairs for every full block, Minecraft-style (2026-10-03 request) -
+// the 4 hand-made stairs above keep their ids, so their sources are
+// skipped. Standing rule: every new full block gets a slab AND stairs,
+// which these two loops do automatically.
+const HAND_STAIRS_SOURCES = new Set(['oakplanks', 'stone', 'brick', 'cobblestone'])
+for (const src of BLOCK_TYPES.filter((b) => !b.shape)) {
+  if (src.id === 'water' || src.id === 'lava' || HAND_STAIRS_SOURCES.has(src.id)) continue
+  BLOCK_TYPES.push({ ...src, id: `${src.id}stairs`, name: `${src.name} Stairs`, shape: 'stairs', stairsOf: src.id })
 }
 // Top halves of doors - never in the picker, only ever placed together
 // with their bottom half (see placeBlock).
@@ -903,7 +955,7 @@ const SHAPED_TEXTURE_FROM = {
 }
 // The full block a shaped block (stairs/fence/slab) is made from, if any.
 function _shapedSource(bt) {
-  const sourceId = SHAPED_TEXTURE_FROM[bt.id] || bt.slabOf
+  const sourceId = SHAPED_TEXTURE_FROM[bt.id] || bt.slabOf || bt.stairsOf
   return (sourceId && BLOCK_TYPES.find((b) => b.id === sourceId)) || null
 }
 
@@ -1215,6 +1267,7 @@ export class BuildMode {
     this._invisShadowDirty = false
     this._invisShadowMesh = null
     this._doorState = new Map() // "x,y,z" (both halves) -> { facing: 0-3, open }
+    this._stairFacing = new Map() // "x,y,z" -> 0-3, the side the high step faces (0 +z, 1 +x, 2 -z, 3 -x)
     // Undo/Redo - every real placeBlock()/removeBlock() call (not a no-op
     // on an already-occupied/already-empty cell) pushes one entry here,
     // regardless of which tool triggered it (a single click, Mirror's
@@ -1878,15 +1931,21 @@ export class BuildMode {
     // interactive placement (a plain skipBoundsUpdate=false call) still
     // gets recorded.
     if (!skipBoundsUpdate && !this._suppressUndoRecording) {
-      this._recordUndo({ action: 'place', x, y, z, type, ...(shape === 'door' ? { state: { ...this._doorState.get(key) } } : {}) })
+      this._recordUndo({ action: 'place', x, y, z, type, ...(shape === 'door' ? { state: { ...this._doorState.get(key) } } : shape === 'stairs' ? { state: { facing: this._stairFacing.get(key) } } : {}) })
     }
     const index = mesh.count
     // x/y/z are integer grid cell indices (unaffected by BLOCK_SIZE - saved
     // builds, _blocks' sparse map keys, and every raycast/collision cell
     // lookup all stay in this same cell-index space); only the WORLD
     // position of that cell's center needs the *BLOCK_SIZE conversion.
+    if (shape === 'stairs') {
+      const f = state?.facing
+      // Loaded stairs with no facing saved are the old fixed ones (0).
+      this._stairFacing.set(key, Number.isInteger(f) && f >= 0 && f <= 3 ? f : skipBoundsUpdate ? 0 : this._stairFacingFromCamera())
+    }
     const matrix = this._doorState.has(key) ? this._doorMatrix(x, y, z, this._doorState.get(key))
       : shape === 'ladder' ? this._ladderMatrix(x, y, z)
+        : shape === 'stairs' ? new THREE.Matrix4().makeRotationY(this._stairFacing.get(key) * (Math.PI / 2)).setPosition((x + 0.5) * BLOCK_SIZE, (y + 0.5) * BLOCK_SIZE, (z + 0.5) * BLOCK_SIZE)
         : new THREE.Matrix4().makeTranslation((x + 0.5) * BLOCK_SIZE, (y + 0.5) * BLOCK_SIZE, (z + 0.5) * BLOCK_SIZE)
     mesh.setMatrixAt(index, matrix)
     // Slight per-instance brightness variation (±12%) - every block of a
@@ -1920,6 +1979,15 @@ export class BuildMode {
 
   // Door facing k puts the closed panel on the cell's edge nearest the
   // camera: 0 = -z, 1 = -x, 2 = +z, 3 = +x (the -z panel turned k*90deg).
+  // Stairs climb the way you're looking, like Minecraft: the high step
+  // goes on the far side (facing 0 = +z, 1 = +x, 2 = -z, 3 = -x).
+  _stairFacingFromCamera() {
+    const dir = new THREE.Vector3()
+    this.camera.getWorldDirection(dir)
+    if (Math.abs(dir.x) > Math.abs(dir.z)) return dir.x > 0 ? 1 : 3
+    return dir.z > 0 ? 0 : 2
+  }
+
   _doorFacingFromCamera() {
     const dir = new THREE.Vector3()
     this.camera.getWorldDirection(dir)
@@ -2026,9 +2094,10 @@ export class BuildMode {
       return
     }
     if (!this._suppressUndoRecording && !this._removingDoorTop) {
-      this._recordUndo({ action: 'remove', x, y, z, type, ...(shape === 'door' && this._doorState.has(key) ? { state: { ...this._doorState.get(key) } } : {}) })
+      this._recordUndo({ action: 'remove', x, y, z, type, ...(shape === 'door' && this._doorState.has(key) ? { state: { ...this._doorState.get(key) } } : shape === 'stairs' && this._stairFacing.has(key) ? { state: { facing: this._stairFacing.get(key) } } : {}) })
     }
     if (shape === 'door' || shape === 'doortop') this._doorState.delete(key)
+    this._stairFacing.delete(key)
     if (shape === 'door' && this._blocks.get(this._key(x, y + 1, z)) === `${type}top`) {
       this._removingDoorTop = true
       this.removeBlock(x, y + 1, z)
@@ -2758,7 +2827,8 @@ export class BuildMode {
       if (shape === 'doortop' || this.liquids.isFlow(key)) continue
       const [x, y, z] = key.split(',').map(Number)
       const door = shape === 'door' && this._doorState.get(key)
-      blocks.push(door ? { x, y, z, type, facing: door.facing, open: door.open } : { x, y, z, type })
+      const stairs = shape === 'stairs' && this._stairFacing.get(key)
+      blocks.push(door ? { x, y, z, type, facing: door.facing, open: door.open } : stairs ? { x, y, z, type, facing: stairs } : { x, y, z, type })
     }
     // Windows shot out while trying the map are only gone for that try -
     // saves and exports still have them.
@@ -2864,7 +2934,8 @@ export class BuildMode {
         const type = LEGACY_TYPE_IDS[entry.type] || entry.type
         if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) continue
         if (!VALID_TYPE_IDS.has(type)) continue
-        const state = BLOCK_BY_ID.get(type).shape === 'door' ? { facing: entry.facing, open: entry.open === true } : null
+        const shape = BLOCK_BY_ID.get(type).shape
+        const state = shape === 'door' ? { facing: entry.facing, open: entry.open === true } : shape === 'stairs' && entry.facing !== undefined ? { facing: entry.facing } : null
         this.placeBlock(Math.trunc(x), Math.trunc(y), Math.trunc(z), type, true, state)
         touchedTypes.add(type)
         if (state) touchedTypes.add(`${type}top`)
@@ -2922,6 +2993,7 @@ export class BuildMode {
     this._invisibleKeys.clear()
     this._invisShadowDirty = true
     this._doorState.clear()
+    this._stairFacing.clear()
     this._chunkCells.clear()
     this._chunks.clear()
     this._shadowsDirty = true

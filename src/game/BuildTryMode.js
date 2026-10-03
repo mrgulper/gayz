@@ -20,7 +20,7 @@
 // Movement starts and stops almost instantly, steers well in the air, a
 // short grace window still lets you jump just after walking off a ledge,
 // a jump pressed a moment before landing still counts, holding Space keeps
-// hopping (without the speed bonus), running widens the view a little,
+// hopping (and counts as a bunny hop), running widens the view a little,
 // and there's almost no head bob.
 //
 // Shooting a window (any glass block) cracks it; the second shot breaks
@@ -92,7 +92,6 @@ export class BuildTryMode {
     this._coyote = 0
     this._jumpBuffer = 0
     this._spaceWasDown = false
-    this._jumpFresh = false
     this._groundTime = 0
     this._hopChain = 0
     this._landedFromJump = false
@@ -331,13 +330,7 @@ export class BuildTryMode {
     // Jump timing: coyote time after leaving the ground, a buffered press
     // just before landing, and holding Space hops again on every landing.
     const spaceDown = keys.has('Space')
-    if (spaceDown && !this._spaceWasDown) {
-      this._jumpBuffer = JUMP_BUFFER
-      this._jumpFresh = true
-    } else if (spaceDown && this.onGround && this._jumpBuffer <= 0) {
-      this._jumpBuffer = dt
-      this._jumpFresh = false
-    }
+    if (spaceDown && !this._spaceWasDown) this._jumpBuffer = JUMP_BUFFER
     this._spaceWasDown = spaceDown
     this._coyote = this.onGround ? COYOTE : Math.max(0, this._coyote - dt)
     this._jumpBuffer = Math.max(0, this._jumpBuffer - dt)
@@ -348,10 +341,11 @@ export class BuildTryMode {
     } else if (inLiquid) {
       this.vel.y = spaceDown ? 3.5 : Math.max(this.vel.y - GRAVITY * 0.2 * dt, -2.5)
     } else {
-      if (this._jumpBuffer > 0 && this._coyote > 0) {
-        // A fresh press right as you land (or just before) adds a link to
-        // the bunny-hop chain; a held-Space auto hop or a late one doesn't.
-        const timed = this._jumpFresh && this.onGround && this._groundTime <= BHOP_WINDOW && this._landedFromJump
+      // Holding Space keeps hopping: jumps again the moment you land.
+      if ((this._jumpBuffer > 0 || (spaceDown && this.onGround)) && this._coyote > 0) {
+        // Jumping again right as you land (a press just before, or Space
+        // held down) adds a link to the bunny-hop chain; a late one doesn't.
+        const timed = this.onGround && this._groundTime <= BHOP_WINDOW && this._landedFromJump
         this._hopChain = timed ? Math.min(BHOP_MULT.length - 1, this._hopChain + 1) : 0
         this._landedFromJump = false
         this._jumpedAt = true
