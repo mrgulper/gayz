@@ -11,24 +11,27 @@ export const ACTIONS = [
   { id: 'sprint', defaultKey: 'KeyE', labelKey: 'actionSprint' },
   { id: 'crouch', defaultKey: 'KeyC', labelKey: 'actionCrouch' },
   { id: 'reload', defaultKey: 'KeyR', labelKey: 'actionReload' },
-  { id: 'heal', defaultKey: 'KeyH', labelKey: 'actionHeal' },
-  { id: 'armor', defaultKey: 'KeyG', labelKey: 'actionArmor' },
   { id: 'interact', defaultKey: 'KeyF', labelKey: 'actionInteract' },
   { id: 'flashlight', defaultKey: 'KeyT', labelKey: 'actionFlashlight' },
   // Moved off KeyV (its old default) to make room for the hold-to-zoom
   // feature, which uses V to match Build Mode's existing zoom key.
   { id: 'noisemaker', defaultKey: 'End', labelKey: 'actionNoisemaker' },
-  { id: 'grenade', defaultKey: 'KeyB', labelKey: 'actionGrenade' },
   { id: 'barricade', defaultKey: 'KeyN', labelKey: 'actionBarricade' },
-  { id: 'trap', defaultKey: 'KeyM', labelKey: 'actionTrap' },
-  { id: 'molotov', defaultKey: 'KeyZ', labelKey: 'actionMolotov' },
-  // Places a charge if none is armed yet, detonates the armed one if there
-  // already is one - one key does both now (see Game.js's keydown handler).
-  { id: 'c4', defaultKey: 'KeyJ', labelKey: 'actionC4' },
-  { id: 'adrenaline', defaultKey: 'KeyY', labelKey: 'actionAdrenaline' },
+  // Health Pack, Armor, Grenade, C4, Molotov, Spike Trap and Adrenaline
+  // live on the gameplay hotbar now (number keys 4-0, see Game.js's
+  // HOTBAR_ITEMS, 2026-10-03) instead of a letter key each. The five
+  // things that used to sit on hard-coded 6-0 got letter keys of their own
+  // (the freed-up ones) so they can still be used - and rebound.
+  { id: 'shield', defaultKey: 'KeyG', labelKey: 'actionShield' },
+  { id: 'throwKnife', defaultKey: 'KeyB', labelKey: 'actionThrowKnife' },
+  { id: 'turret', defaultKey: 'KeyJ', labelKey: 'actionTurret' },
+  { id: 'alarm', defaultKey: 'KeyY', labelKey: 'actionAlarm' },
+  { id: 'ration', defaultKey: 'KeyZ', labelKey: 'actionRation' },
   { id: 'emp', defaultKey: 'KeyU', labelKey: 'actionEmp' },
   { id: 'weaponWheel', defaultKey: 'KeyQ', labelKey: 'actionWeaponWheel' },
   { id: 'toggleMap', defaultKey: 'KeyL', labelKey: 'actionToggleMap' },
+  // Minimap size: normal -> big -> big in the middle of the screen -> normal.
+  { id: 'cycleMap', defaultKey: 'KeyM', labelKey: 'actionCycleMap' },
   { id: 'squadHold', defaultKey: 'Period', labelKey: 'actionSquadHold' },
   { id: 'drinkWater', defaultKey: 'Quote', labelKey: 'actionDrinkWater' },
   { id: 'journal', defaultKey: 'KeyI', labelKey: 'actionJournal' },
@@ -45,6 +48,19 @@ export const ACTIONS = [
   { id: 'nightVision', defaultKey: 'PageDown', labelKey: 'actionNightVision' },
   { id: 'decoyDummy', defaultKey: 'F2', labelKey: 'actionDecoyDummy' },
   { id: 'whistle', defaultKey: 'F3', labelKey: 'actionWhistle' },
+]
+
+// The gameplay hotbar's item slots (number keys 4-0, not rebindable -
+// they're the slot numbers). Game.js draws them (HOTBAR_ITEMS: icons and
+// counts by id); touch screens list them in the More menu.
+export const HOTBAR_ITEM_SLOTS = [
+  { id: 'healthPack', code: 'Digit4', labelKey: 'hotbarHealthPack' },
+  { id: 'armor', code: 'Digit5', labelKey: 'hotbarArmor' },
+  { id: 'grenade', code: 'Digit6', labelKey: 'hotbarGrenade' },
+  { id: 'molotov', code: 'Digit7', labelKey: 'hotbarMolotov' },
+  { id: 'c4', code: 'Digit8', labelKey: 'hotbarC4' },
+  { id: 'trap', code: 'Digit9', labelKey: 'hotbarTrap' },
+  { id: 'adrenaline', code: 'Digit0', labelKey: 'hotbarAdrenaline' },
 ]
 
 function defaultBindings() {
