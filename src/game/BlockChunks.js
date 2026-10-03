@@ -77,8 +77,9 @@ export class BlockChunks {
   // types: BLOCK_TYPES. faces(type) -> { top, side, bottom } canvases.
   // hasAlpha(type) -> the texture carries its own transparency. getType(x,
   // y, z) -> type id or null.
-  constructor(scene, { blockSize, types, faces, hasAlpha, getType, maxAnisotropy = 4 }) {
+  constructor(scene, { blockSize, types, faces, hasAlpha, getType, liquidHeight, maxAnisotropy = 4 }) {
     this.scene = scene
+    this.liquidHeight = liquidHeight || (() => LIQUIDS.water.surface)
     this.blockSize = blockSize
     this.getType = getType
     this.info = new Map()
@@ -241,6 +242,34 @@ export class BlockChunks {
     return [Math.min(r, 1.5), Math.min(g, 1.5), Math.min(b, 1.5)]
   }
 
+  // Heights of a liquid cell's 4 top corners, indexed cornerX * 2 + cornerZ.
+  _liquidCorners(x, y, z, type) {
+    if (this.getType(x, y + 1, z) === type) return [1, 1, 1, 1]
+    const out = [0, 0, 0, 0]
+    for (let cx = 0; cx <= 1; cx++) {
+      for (let cz = 0; cz <= 1; cz++) {
+        let sum = 0
+        let n = 0
+        let full = false
+        for (let i = -1; i <= 0 && !full; i++) {
+          for (let j = -1; j <= 0; j++) {
+            const nx = x + cx + i
+            const nz = z + cz + j
+            if (this.getType(nx, y, nz) !== type) continue
+            if (this.getType(nx, y + 1, nz) === type) {
+              full = true
+              break
+            }
+            sum += this.liquidHeight(nx, y, nz)
+            n++
+          }
+        }
+        out[cx * 2 + cz] = full ? 1 : sum / n
+      }
+    }
+    return out
+  }
+
   isLiquid(type) {
     return !!this.info.get(type)?.liquid
   }
@@ -317,7 +346,11 @@ export class BlockChunks {
       if (!info) continue
       const buf = info.liquid ? out[info.liquid] : info.opaque ? (info.glow ? out.glow : out.solid) : out.clear
       const tint = info.liquid ? 1 : tintAt(x, y, z)
-      const topY = info.liquid && this.getType(x, y + 1, z) !== type ? LIQUIDS[info.liquid].surface : 1
+      // Liquid surfaces slope: each top corner is the average height of
+      // the (up to 4) cells of the same liquid sharing it, and a corner
+      // touching liquid with more of it on top is full - so flowing water
+      // runs smoothly downhill from its source, like Minecraft.
+      const cornerY = info.liquid ? this._liquidCorners(x, y, z, type) : null
       for (let fi = 0; fi < 6; fi++) {
         const face = FACES[fi]
         const [nx, ny, nz] = face.n
@@ -356,6 +389,7 @@ export class BlockChunks {
         const base = buf.pos.length / 3
         for (let i = 0; i < 4; i++) {
           const c = face.c[i]
+          const topY = cornerY ? cornerY[c[0] * 2 + c[2]] : 1
           buf.pos.push((x - bx + c[0]) * this.blockSize, (y - by + (c[1] ? topY : 0)) * this.blockSize, (z - bz + c[2]) * this.blockSize)
           buf.nrm.push(nx, ny, nz)
           buf.uv.push(CORNER_UV[i][0] ? u1 : u0, CORNER_UV[i][1] ? v1 : v0)

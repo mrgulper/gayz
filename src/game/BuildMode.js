@@ -10,6 +10,7 @@ import { blockFaceCanvases, blockIconURL, doorCanvas, doorIconURL, textureHasAlp
 import { t } from './i18n.js'
 import { generateMap3 } from './Map3Generator.js'
 import { BuildTryMode } from './BuildTryMode.js'
+import { LiquidFlow } from './LiquidFlow.js'
 
 // GROUND_SIZE is a CELL count (not world units) - bumped up from 64, then
 // 76, as BLOCK_SIZE shrank each time, so the buildable footprint's actual
@@ -87,6 +88,7 @@ const SAVED_AT_KEY = 'buildmode-saved-at'
 // The pause screen's Shortcuts box - every one of these really works.
 // Trying the map: how far away (in blocks) a door can be opened from.
 const TRY_REACH_BLOCKS = 5
+const LIQUID_TYPES = new Set(['water', 'lava'])
 const TRY_CROUCH_KEYS = new Set(['KeyC', 'ControlLeft', 'ControlRight', 'KeyZ', 'CapsLock'])
 const MENU_SHORTCUTS = [
   [['T'], 'buildModeTryBtn'],
@@ -145,7 +147,7 @@ export const BLOCK_TYPES = [
   { id: 'planks', name: 'Planks', color: 0xb98a52, pattern: 'wood', roughness: 0.6, metalness: 0 },
   { id: 'gold', name: 'Gold', color: 0xf4c430, pattern: 'metal', roughness: 0.2, metalness: 1 },
   { id: 'obsidian', name: 'Obsidian', color: 0x1c1024, pattern: 'speckle', roughness: 0.3, metalness: 0.1 },
-  { id: 'water', name: 'Water', color: 0x3a7bd5, pattern: 'liquid', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.72 },
+  { id: 'water', name: 'Water', color: 0x3f8ef0, pattern: 'liquid', roughness: 0.15, metalness: 0, transparent: true, opacity: 0.62 },
   { id: 'ice', name: 'Ice', color: 0xaee4f0, pattern: 'crack', roughness: 0.05, metalness: 0, transparent: true, opacity: 0.7 },
   { id: 'leaves', name: 'Leaves', color: 0x3f7d3a, pattern: 'leaves', roughness: 1, metalness: 0, transparent: true, opacity: 0.88 },
   { id: 'lava', name: 'Lava', color: 0xff5a1f, pattern: 'liquid', roughness: 0.8, metalness: 0, emissive: 0xff3300, emissiveIntensity: 0.9 },
@@ -1270,6 +1272,7 @@ export class BuildMode {
       faces: blockFaceCanvases,
       hasAlpha: textureHasAlpha,
       getType: (x, y, z) => this._blocks.get(`${x},${y},${z}`),
+      liquidHeight: (x, y, z) => this.liquids.heightAt(x, y, z),
     })
     this._chunkCells = new Map() // "cx,cy,cz" -> Set of "x,y,z" cube cells in that chunk
     this._instancedMeshes = {}
@@ -1311,6 +1314,7 @@ export class BuildMode {
     this._raycaster = new THREE.Raycaster()
     // Try Map (BuildTryMode.js): walk the map in first person with a gun.
     this.tryMode = new BuildTryMode(this, BLOCK_SIZE)
+    this.liquids = new LiquidFlow(this)
     this._tryHintEl = document.createElement('div')
     this._tryHintEl.id = 'build-try-hint'
     this._tryHintEl.style.display = 'none'
@@ -1807,7 +1811,35 @@ export class BuildMode {
 
   // state: a door's { facing, open } (from a save/undo entry) - a new door
   // faces away from the camera.
+  // Every placement/removal also tells the liquid flow (LiquidFlow.js), so
+  // water and lava react: flow into a gap, get blocked, dry up. A block
+  // placed into flowing water replaces it.
   placeBlock(x, y, z, type, skipBoundsUpdate = false, state = null) {
+    const key = this._key(x, y, z)
+    if (this.liquids?.isFlow(key) && this._blocks.has(key)) {
+      this.liquids.levels.delete(key)
+      const was = this._suppressUndoRecording
+      this._suppressUndoRecording = true
+      this._removeBlockInner(x, y, z)
+      this._suppressUndoRecording = was
+    }
+    // A door's top half needs the cell above free of flowing liquid too.
+    const aboveKey = this._key(x, y + 1, z)
+    if (BLOCK_BY_ID.get(type)?.shape === 'door' && this.liquids?.isFlow(aboveKey)) this.removeBlock(x, y + 1, z)
+    const before = this._blocks.get(key)
+    this._placeBlockInner(x, y, z, type, skipBoundsUpdate, state)
+    if (this.liquids && this._blocks.get(key) !== before && (!skipBoundsUpdate || LIQUID_TYPES.has(type))) this.liquids.changed(x, y, z)
+  }
+
+  removeBlock(x, y, z) {
+    const key = this._key(x, y, z)
+    if (!this._blocks.has(key)) return
+    this.liquids?.levels.delete(key)
+    this._removeBlockInner(x, y, z)
+    this.liquids?.changed(x, y, z)
+  }
+
+  _placeBlockInner(x, y, z, type, skipBoundsUpdate = false, state = null) {
     const key = this._key(x, y, z)
     if (this._blocks.has(key)) return
     // Any change can move where an Invisible Block's shadow lands.
@@ -1980,7 +2012,7 @@ export class BuildMode {
     if (lightColor !== undefined) this._chunks.setGlow(x, y, z, lightColor)
   }
 
-  removeBlock(x, y, z) {
+  _removeBlockInner(x, y, z) {
     const key = this._key(x, y, z)
     const type = this._blocks.get(key)
     if (!type) return
@@ -2169,7 +2201,8 @@ export class BuildMode {
       // World position -> cell index (see placeBlock's own comment on the
       // same conversion the other direction).
       const cell = [Math.floor(px / BLOCK_SIZE), Math.floor(py / BLOCK_SIZE), Math.floor(pz / BLOCK_SIZE)]
-      if (this.getBlockAt(cell[0], cell[1], cell[2])) {
+      // Flowing water/lava can't be aimed at - you build straight through it.
+      if (this.getBlockAt(cell[0], cell[1], cell[2]) && !this.liquids.isFlow(this._key(cell[0], cell[1], cell[2]))) {
         return { placeAt: prevCell || cell, existingBlock: cell }
       }
       prevCell = cell
@@ -2720,8 +2753,9 @@ export class BuildMode {
     const blocks = []
     for (const [key, type] of this._blocks) {
       const shape = BLOCK_BY_ID.get(type)?.shape
-      // A door's top half is rebuilt from its bottom half on load.
-      if (shape === 'doortop') continue
+      // A door's top half is rebuilt from its bottom half on load, and
+      // flowing water/lava from its sources.
+      if (shape === 'doortop' || this.liquids.isFlow(key)) continue
       const [x, y, z] = key.split(',').map(Number)
       const door = shape === 'door' && this._doorState.get(key)
       blocks.push(door ? { x, y, z, type, facing: door.facing, open: door.open } : { x, y, z, type })
@@ -2876,6 +2910,7 @@ export class BuildMode {
   // cleared here too rather than at each of those 4 call sites separately.
   clearAllBlocks() {
     this.tryMode?.forgetWindows()
+    this.liquids?.clear()
     for (const type in this._instancedMeshes) {
       const mesh = this._instancedMeshes[type]
       mesh.count = 0
@@ -3030,6 +3065,7 @@ export class BuildMode {
     this.camera.rotation.set(0, 0, 0)
     this.camera.rotateY(this._yaw)
     this.camera.rotateX(this._pitch)
+    this.liquids.update(dt)
     if (this.tryMode.active) {
       this.tryMode.update(dt, this._keys)
       return
