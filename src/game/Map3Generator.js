@@ -56,6 +56,9 @@ const ROUNDABOUT = [24.5, avenueZ(24) + 0.5]
 export function generateMap3() {
   const cells = new Map()
   const doors = new Map()
+  const stairFacing = new Map() // stairs: cell key -> side the high step is on (BuildMode's _stairFacing)
+  // Staircases get their own seed, so choosing them changes nothing else.
+  const stairRand = rng(0x57a125)
   const key = (x, y, z) => `${x},${y},${z}`
   const inMap = (x, z) => x >= -HALF && x < HALF && z >= -HALF && z < HALF
   // While a block of land is being filled in, nothing may spill outside
@@ -66,10 +69,12 @@ export function generateMap3() {
     if (clipMask && !clipMask(x, z)) return
     cells.set(key(x, y, z), type)
     doors.delete(key(x, y, z))
+    stairFacing.delete(key(x, y, z))
   }
   const clear = (x, y, z) => {
     cells.delete(key(x, y, z))
     doors.delete(key(x, y, z))
+    stairFacing.delete(key(x, y, z))
   }
   const get = (x, y, z) => cells.get(key(x, y, z))
   const fill = (x0, y0, z0, x1, y1, z1, type) => {
@@ -289,6 +294,77 @@ export function generateMap3() {
   // be curved along a road) - the footprint is cut to it before any wall
   // goes up, so walls always close. Buildings are never ruined: broken
   // tops and blown-out holes read as glitches, not as a ruined city.
+  // --- Staircases (see building()) ---
+  // Stairs made of a building's floor material; the hand-named stairs
+  // keep their own ids (BuildMode's HAND_STAIRS_SOURCES).
+  const stairsFor = (floor) => ({ oakplanks: 'oakstairs', stone: 'stonestairs', brick: 'brickstairs', cobblestone: 'cobblestonestairs' })[floor] || `${floor}stairs`
+  // BuildMode's stair facing for climbing toward (ux, uz): 0 +z, 1 +x, 2 -z, 3 -x.
+  const facingFor = (ux, uz) => (uz > 0 ? 0 : ux > 0 ? 1 : uz < 0 ? 2 : 3)
+  // A 6x2 strip inside the top tier (so inside every floor), lane A right
+  // against a wall and lane B beside it, kept two cells clear of the door.
+  // Lane A cells are P(t) = p0 + t*u, lane B Q(t) = P(t) + v, t = -1..4
+  // (t = -1 and 4 are where you step on and off).
+  const findStairwell = (inTop, dx, dz, x0, x1, z0, z1) => {
+    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+    for (let x = x0; x <= x1; x++) {
+      for (let z = z0; z <= z1; z++) {
+        if (!inTop(x, z)) continue
+        for (const [ux, uz] of dirs) {
+          for (const [vx, vz] of [[uz, ux], [-uz, -ux]]) {
+            const P = (t) => [x + ux * t, z + uz * t]
+            const Q = (t) => [x + ux * t + vx, z + uz * t + vz]
+            let ok = true
+            const cells = new Set()
+            for (let t = -1; t <= 4 && ok; t++) {
+              for (const [cx, cz] of [P(t), Q(t)]) {
+                if (!inTop(cx, cz) || (dx !== null && Math.abs(cx - dx) <= 2 && Math.abs(cz - dz) <= 2)) ok = false
+                cells.add(`${cx},${cz}`)
+              }
+              // Lane A runs along a wall.
+              if (ok && t >= 0 && t <= 3 && inTop(x + ux * t - vx, z + uz * t - vz)) ok = false
+            }
+            if (ok) {
+              const [cx, cz] = P(1.5)
+              return { P, Q, u: [ux, uz], cells, cx: Math.round(cx), cz: Math.round(cz) }
+            }
+          }
+        }
+      }
+    }
+    return null
+  }
+  // One flight per floor: from the ground floor (standing at y = 1) up 3
+  // to floor 1, then up 4 per floor (and on a flat roof up through it).
+  // Each stair's three cells above are cleared for headroom, which also
+  // opens the stairwell in the floor above.
+  const buildStairs = (well, floors, toRoof, type) => {
+    const [ux, uz] = well.u
+    const flights = toRoof ? floors : floors - 1
+    // The ground floor is only two blocks tall: open the ceiling over the
+    // spot in front of the first stair too, or the step up onto it bumps
+    // your head.
+    if (flights > 0) {
+      const [ax, az] = well.P(0)
+      clear(ax, 3, az)
+    }
+    for (let f = 0; f < flights; f++) {
+      const stand = f === 0 ? 1 : f * 4
+      const rise = f === 0 ? 3 : 4
+      const laneB = f % 2 === 1
+      for (let i = 0; i < rise; i++) {
+        const t = laneB ? 3 - i : 4 - rise + i
+        const [cx, cz] = laneB ? well.Q(t) : well.P(t)
+        const y = stand + i
+        set(cx, y, cz, type)
+        const facing = laneB ? facingFor(-ux, -uz) : facingFor(ux, uz)
+        if (facing) stairFacing.set(key(cx, y, cz), facing)
+        // Three cells of headroom: stepping up onto the next stair lifts
+        // the head past two.
+        for (let h = 1; h <= 3; h++) clear(cx, y + h, cz)
+      }
+    }
+  }
+
   const building = (box, style, facade, mask = () => true) => {
     const { x0, x1, z0, z1 } = box
     let full = true
@@ -471,7 +547,14 @@ export function generateMap3() {
         }
       }
     }
-    if (lx !== null && (floors > 1 || toRoof)) {
+    // About half the buildings climb by a real staircase instead (asked
+    // for 2026-10-03): two lanes side by side along an inside wall, the
+    // flights going back and forth - up one lane, turn, up the other -
+    // with the floor above each flight opened as a stairwell.
+    const well = (floors > 1 || toRoof) && stairRand() < 0.55 ? findStairwell(inTop, dx, dz, x0, x1, z0, z1) : null
+    if (well) {
+      buildStairs(well, floors, toRoof, stairsFor(style.floor))
+    } else if (lx !== null && (floors > 1 || toRoof)) {
       for (let f = 1; f < floors; f++) clear(lx, f * 4 - 1, lz)
       if (toRoof) clear(lx, top - 1, lz)
       const ladderTop = toRoof ? top : (floors - 1) * 4 + 3
@@ -507,19 +590,36 @@ export function generateMap3() {
         if (!tf(rx, rz)) continue
         // Keep the roof hatch clear.
         if (lx !== null && Math.abs(rx - lx) <= 2 && Math.abs(rz - lz) <= 2) continue
+        // Off the stairwell's opening too (the pick still happens, as above).
+        const onWell = well && [...well.cells].some((c) => { const [wx, wz] = c.split(',').map(Number); return Math.abs(wx - rx) <= 2 && Math.abs(wz - rz) <= 2 })
         if (i === 0 && floors >= 3) {
-          fill(rx, y, rz, rx + 1, y + 1, rz + 1, 'barrel')
-          set(rx, y + 2, rz, 'stonefence')
-        } else set(rx, y, rz, pick(['iron', 'smoothstone', 'iron']))
+          if (!onWell) {
+            fill(rx, y, rz, rx + 1, y + 1, rz + 1, 'barrel')
+            set(rx, y + 2, rz, 'stonefence')
+          }
+        } else {
+          const t = pick(['iron', 'smoothstone', 'iron'])
+          if (!onWell) set(rx, y, rz, t)
+        }
       }
     }
     // A few things inside the ground floor.
+    const wellSkipped = new Set()
     for (let i = 0; i < 4; i++) {
       const ix = randInt(x0 + 1, x1 - 1)
       const iz = randInt(z0 + 1, z1 - 1)
       // Never in the doorway or in front of the ladder.
       if (dx !== null && Math.abs(ix - dx) <= 1 && Math.abs(iz - dz) <= 1) continue
       if (lx !== null && Math.abs(ix - lx) <= 1 && Math.abs(iz - lz) <= 1) continue
+      // Nothing on the staircase either - but the random pick still happens,
+      // so every later building comes out exactly as before stairs existed.
+      if (well?.cells.has(`${ix},${iz}`)) {
+        if (foot(ix, iz) && !wellSkipped.has(`${ix},${iz}`)) {
+          pick(style.props)
+          wellSkipped.add(`${ix},${iz}`)
+        }
+        continue
+      }
       if (foot(ix, iz) && !get(ix, 1, iz)) set(ix, 1, iz, pick(style.props))
     }
   }
@@ -993,7 +1093,8 @@ export function generateMap3() {
   for (const [k, type] of cells) {
     const [x, y, z] = k.split(',').map(Number)
     const facing = doors.get(k)
-    blocks.push(facing === undefined ? { x, y, z, type } : { x, y, z, type, facing, open: false })
+    const stairs = stairFacing.get(k)
+    blocks.push(facing !== undefined ? { x, y, z, type, facing, open: false } : stairs !== undefined ? { x, y, z, type, facing: stairs } : { x, y, z, type })
   }
   const hotbar = ['brick', 'cobblestone', 'oakplanks', 'glass', 'asphalt', 'smoothstone', 'oaklog', 'leaves', 'oakdoor', 'invisible']
   return { blocks, hotbar }

@@ -6,7 +6,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import * as CloudSync from './CloudSync.js'
 import { BlockChunks, CHUNK } from './BlockChunks.js'
-import { blockFaceCanvases, blockIconURL, doorCanvas, doorIconURL, textureHasAlpha } from './BlockTextures.js'
+import { blockFaceCanvases, blockIconURL, doorCanvas, doorIconURL, stairsIconURL, textureHasAlpha } from './BlockTextures.js'
 import { t } from './i18n.js'
 import { generateMap3 } from './Map3Generator.js'
 import { BuildTryMode } from './BuildTryMode.js'
@@ -78,7 +78,7 @@ const SLOTS_MIGRATED_KEY = 'buildmode-slots-migrated'
 // and a player who clears it would push a huge list into Cloud Save.
 const MAP3_SLOT = 'map3'
 // Bumped (v2, v3) whenever the map changes - old edits wouldn't line up.
-const MAP3_EDITS_KEY = 'buildmode-map3-v6-edits'
+const MAP3_EDITS_KEY = 'buildmode-map3-v7-edits'
 // Edits are saved this long after the last change (and on leaving the
 // page), not only on Exit/Save - closing the tab used to lose the build.
 const AUTOSAVE_DELAY_MS = 1500
@@ -496,6 +496,8 @@ for (const src of BLOCK_TYPES.filter((b) => b.shape === 'door')) {
 const VALID_TYPE_IDS = new Set(BLOCK_TYPES.map((b) => b.id))
 const BLOCK_BY_ID = new Map(BLOCK_TYPES.map((b) => [b.id, b]))
 const PICKER_TYPES = BLOCK_TYPES.filter((b) => !b.hidden)
+// Special blocks (_blockCategory) lead the picker's list.
+const PICKER_TYPES_SORTED = [...PICKER_TYPES.filter((b) => _blockCategory(b) === 'special'), ...PICKER_TYPES.filter((b) => _blockCategory(b) !== 'special')]
 // Removed/renamed block ids -> what old saves load them as.
 const LEGACY_TYPE_IDS = { tnt: 'c4', tntslab: 'c4slab' }
 const _isDoorType = (type) => { const shape = BLOCK_BY_ID.get(type)?.shape; return shape === 'door' || shape === 'doortop' }
@@ -989,12 +991,49 @@ function _shapedBlockTextures(bt) {
 }
 
 // Picker/hotbar icon: shaped blocks show the block they're made from, a
-// slab at half height.
+// slab at half height, stairs as stairs.
 function _blockIcon(bt) {
   if (bt.door) return doorIconURL(bt.door)
   if (bt.shape === 'invisible') return _invisibleIconURL()
   const source = _shapedSource(bt)
+  if (bt.shape === 'stairs') return stairsIconURL(source || bt)
   return blockIconURL(source || bt, 64, bt.shape === 'slab' ? 0.5 : 1)
+}
+
+// The picker's block-type dropdown (2026-10-03). Special is first - just
+// the Invisible Block for now - and its blocks lead the All list too.
+const PICKER_CATEGORIES = [
+  ['special', 'Special'],
+  ['wood', 'Wood'],
+  ['stone', 'Stone'],
+  ['ore', 'Ores & Metals'],
+  ['nature', 'Dirt & Nature'],
+  ['glass', 'Glass'],
+  ['color', 'Wool & Concrete'],
+  ['terracotta', 'Terracotta'],
+  ['nether', 'Nether & End'],
+  ['light', 'Light & Liquids'],
+  ['slab', 'Slabs'],
+  ['stairs', 'Stairs'],
+  ['parts', 'Doors, Fences & Ladders'],
+  ['other', 'Other'],
+]
+function _blockCategory(bt) {
+  if (bt.shape === 'invisible') return 'special'
+  if (bt.shape === 'slab') return 'slab'
+  if (bt.shape === 'stairs') return 'stairs'
+  if (bt.shape) return 'parts'
+  const id = bt.id
+  if (/water|lava|lamp|lantern|froglight|glowstone|shroomlight/.test(id)) return 'light'
+  if (/glass/.test(id)) return 'glass'
+  if (/terracotta/.test(id)) return 'terracotta'
+  if (/wool$|concrete$/.test(id)) return 'color'
+  if (/nether|soul|crimson|warped|basalt|blackstone|magma|endstone|purpur|obsidian|quartz|lodestone/.test(id)) return 'nether'
+  if (/ore$|^raw|^(diamond|emerald|lapis|redstone|coal|copper)block$|^gold$|^iron$|^metal$|copper|netherite|debris|amethyst/.test(id)) return 'ore'
+  if (/planks|log$|stem$|^wood$|bookshelf|craftingtable|barrel|crate|noteblock|jukebox|bamboo/.test(id)) return 'wood'
+  if (/grass|dirt|mud|sand$|^sand$|gravel|clay|moss|leaves|snow|ice$|cactus|pumpkin|melon|hay|mushroom|mycelium|podzol|kelp|coral|sponge|honey|slime|sculk|dripstone|bone|nylium/.test(id)) return 'nature'
+  if (/c4|target/.test(id)) return 'other'
+  return 'stone'
 }
 
 // The Invisible Block's picker/hotbar icon: a dashed outline of a cube.
@@ -1412,13 +1451,29 @@ export class BuildMode {
     this._pickerEl = document.getElementById('build-picker')
     if (this._pickerEl) {
       this._pickerEl.innerHTML = ''
+      // Search bar and a block-type dropdown side by side, inside the
+      // picker's frame (the same oval search bar as everywhere else).
+      const toolbar = document.createElement('div')
+      toolbar.className = 'build-picker-toolbar'
       this._pickerSearchInput = document.createElement('input')
       this._pickerSearchInput.type = 'text'
-      this._pickerSearchInput.className = 'build-picker-search'
+      this._pickerSearchInput.className = 'nickname-input search-bar build-picker-search'
       this._pickerSearchInput.placeholder = 'Search blocks...'
       this._pickerSearchInput.addEventListener('click', (e) => e.stopPropagation())
       this._pickerSearchInput.addEventListener('input', () => this._renderPickerGrid())
-      this._pickerEl.appendChild(this._pickerSearchInput)
+      toolbar.appendChild(this._pickerSearchInput)
+      this._pickerCategorySelect = document.createElement('select')
+      this._pickerCategorySelect.className = 'nickname-input build-picker-category'
+      for (const [value, label] of [['all', 'All blocks'], ...PICKER_CATEGORIES]) {
+        const opt = document.createElement('option')
+        opt.value = value
+        opt.textContent = label
+        this._pickerCategorySelect.appendChild(opt)
+      }
+      this._pickerCategorySelect.addEventListener('click', (e) => e.stopPropagation())
+      this._pickerCategorySelect.addEventListener('change', () => this._renderPickerGrid())
+      toolbar.appendChild(this._pickerCategorySelect)
+      this._pickerEl.appendChild(toolbar)
       this._pickerGridEl = document.createElement('div')
       this._pickerGridEl.className = 'build-picker-grid'
       this._pickerEl.appendChild(this._pickerGridEl)
@@ -2331,7 +2386,8 @@ export class BuildMode {
     if (!this._pickerGridEl) return
     this._pickerGridEl.innerHTML = ''
     const query = (this._pickerSearchInput?.value || '').trim().toLowerCase()
-    const matches = query ? PICKER_TYPES.filter((bt) => bt.name.toLowerCase().includes(query)) : PICKER_TYPES
+    const category = this._pickerCategorySelect?.value || 'all'
+    const matches = PICKER_TYPES_SORTED.filter((bt) => (category === 'all' || _blockCategory(bt) === category) && (!query || bt.name.toLowerCase().includes(query)))
     for (const { id, name } of matches) {
       const item = document.createElement('div')
       item.className = 'build-picker-item'
