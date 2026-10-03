@@ -12826,24 +12826,6 @@ html.night-vision-active #app {
   pointer-events: none;
 }
 
-/* Try Map hint (BuildMode.toggleTryMode) - bottom middle, GayZ gold. */
-#build-try-hint {
-  position: fixed;
-  left: 50%;
-  bottom: 22px;
-  z-index: 19;
-  transform: translateX(-50%);
-  max-width: calc(100vw - 32px);
-  padding: 9px 18px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #f1e6c8;
-  text-align: center;
-  background: rgba(18, 15, 10, 0.85);
-  border: 1px solid rgba(232, 194, 90, 0.55);
-  border-radius: 8px;
-  pointer-events: none;
-}
 #build-mode-try-btn svg { color: #7fd88f !important; }
 
 /* Try Map's aiming dot, in the middle of the screen - same color/size

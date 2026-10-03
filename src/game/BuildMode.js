@@ -1409,10 +1409,6 @@ export class BuildMode {
     // Try Map (BuildTryMode.js): walk the map in first person with a gun.
     this.tryMode = new BuildTryMode(this, BLOCK_SIZE)
     this.liquids = new LiquidFlow(this)
-    this._tryHintEl = document.createElement('div')
-    this._tryHintEl.id = 'build-try-hint'
-    this._tryHintEl.style.display = 'none'
-    document.body.appendChild(this._tryHintEl)
     // A dot in the middle of the screen to aim with while trying the map.
     this._tryCrosshairEl = document.createElement('div')
     this._tryCrosshairEl.id = 'build-try-crosshair'
@@ -1814,16 +1810,14 @@ export class BuildMode {
     this._velocity.set(0, 0, 0)
     if (this.tryMode.active) {
       this.tryMode.exit()
-      this._tryHintEl.style.display = 'none'
-      if (this._hotbarEl) this._hotbarEl.style.display = 'flex'
+      this._renderHotbar()
     } else {
       if (this.lineToolMode) this.toggleLineTool()
       if (this.copyToolMode) this.toggleCopyTool()
       this.tryMode.enter()
-      this._tryHintEl.textContent = t('buildTryHint')
-      this._tryHintEl.style.display = 'block'
       this._tryCrosshairEl.style.display = 'block'
-      if (this._hotbarEl) this._hotbarEl.style.display = 'none'
+      // The hotbar stays, empty: nothing is built while trying.
+      this._renderHotbar()
     }
     const btnLabel = document.getElementById('build-mode-try-btn-label')
     if (btnLabel) btnLabel.textContent = t(this.tryMode.active ? 'buildModeStopTryBtn' : 'buildModeTryBtn')
@@ -2424,8 +2418,10 @@ export class BuildMode {
   _renderHotbar() {
     if (!this._hotbarEl) return
     this._hotbarEl.innerHTML = ''
+    // Try Map shows the same hotbar with nothing in it.
+    const empty = this.tryMode.active
     this.hotbar.forEach((id, i) => {
-      const bt = id ? BLOCK_TYPES.find((b) => b.id === id) : null
+      const bt = id && !empty ? BLOCK_TYPES.find((b) => b.id === id) : null
       const slot = document.createElement('div')
       slot.className = 'build-hotbar-slot' + (i === this.activeHotbarIndex ? ' selected' : '')
       slot.title = bt ? bt.name : ''
