@@ -12,21 +12,38 @@
 // block. Ladders are climbed, water and lava slow you down and let you
 // swim up, open doors let you through.
 //
-// The feel is bloxd.io's (asked for by name): quick, snappy movement that
-// starts and stops almost instantly, strong steering in the air, a short
-// grace window to still jump just after walking off a ledge, a jump
-// pressed a moment before landing still counts, holding Space keeps
-// hopping, sprint (Shift, or double-tap W) widens the view a little, and
-// almost no head bob.
+// The feel is bloxd.io's (asked for by name, then "exactly like" it):
+// its own speeds - walk 4 blocks/s, run 7 (Shift + W), crouch 2 (C, Ctrl,
+// Z or Caps Lock; crouching also keeps you from walking off an edge) -
+// and its bunny hop: jump again right as you land and each hop in a row
+// is faster (+15%, +22.5%, +30%), lost as soon as you stay on the ground.
+// Movement starts and stops almost instantly, steers well in the air, a
+// short grace window still lets you jump just after walking off a ledge,
+// a jump pressed a moment before landing still counts, holding Space keeps
+// hopping (without the speed bonus), running widens the view a little,
+// and there's almost no head bob.
+//
+// Shooting a window (any glass block) cracks it; the second shot breaks
+// it and later shots fly through the hole. Broken windows come back when
+// you stop trying the map and are never saved.
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
+import { audioEngine } from './Audio.js'
 
 const HALF_WIDTH = 0.3
 const HEIGHT = 1.8
 const EYE = 1.62
-const WALK = 5.2 // blocks per second
-const SPRINT = 7.6 // Shift held, or W double-tapped
+const CROUCH_HEIGHT = 1.5
+const CROUCH_EYE = 1.27
+const WALK = 4 // blocks per second (bloxd.io's)
+const SPRINT = 7 // Shift + W
+const CROUCH = 2
+// Bunny hop: a fresh jump within this long of landing keeps the chain
+// going; each link speeds you up (bloxd.io's numbers).
+const BHOP_WINDOW = 0.12
+const BHOP_MULT = [1, 1.15, 1.225, 1.3]
+const CROUCH_KEYS = ['KeyC', 'ControlLeft', 'ControlRight', 'KeyZ', 'CapsLock']
 const GROUND_GRIP = 26 // how fast speed follows the keys on the ground
 const AIR_GRIP = 11 // ...and in the air (bloxd steers well mid-jump)
 const GRAVITY = 30
@@ -38,7 +55,6 @@ const STAIR_STEP = 1.05
 const CLIMB = 3.4
 const MAX_FALL = 60
 const SPRINT_FOV = 8 // degrees added while sprinting
-const DOUBLE_TAP_MS = 280
 // Kirka-style blocky arms holding the gun, made from the player's own
 // skin: each runs from a shoulder off the bottom of the screen to a hand
 // on the gun (positions relative to GUN_OFFSET). ARM_PX is the size of one
@@ -51,6 +67,9 @@ const ARM_PX = 0.026
 // Map sizes M cycles through (Try Map's own minimap, top-right square):
 // normal, big, big in the middle of the screen.
 const MAP_SIZES = ['normal', 'big', 'center']
+// Glass shards flying out of a broken window.
+const SHARDS_PER_WINDOW = 14
+const SHARD_LIFE = 1.4
 // Same spot on screen the game holds its gun (WeaponSystem's VIEWMODEL_BASE).
 const GUN_OFFSET = new THREE.Vector3(0.26, -0.22, -0.5)
 
@@ -72,9 +91,14 @@ export class BuildTryMode {
     this._coyote = 0
     this._jumpBuffer = 0
     this._spaceWasDown = false
-    this._sprintLatched = false
-    this._lastWTap = 0
-    this._wWasDown = false
+    this._jumpFresh = false
+    this._groundTime = 0
+    this._hopChain = 0
+    this._landedFromJump = false
+    this._jumpedAt = false
+    this._crouch = false
+    this._height = HEIGHT
+    this._eye = EYE
     this._baseFov = null
     this._arms = null
     this._armsUrl = null
@@ -83,6 +107,13 @@ export class BuildTryMode {
     this._mapCanvas = null
     this._mapImage = null
     this._mapDrawAt = 0
+    this._cracked = new Map() // cell key -> { x, y, z }
+    this._broken = new Map() // cell key -> { x, y, z, type }
+    this._crackMesh = null
+    this._crackMaterial = null
+    this._shards = []
+    this._shardGeometry = null
+    this._shardMaterials = new Map()
   }
 
   // --- Minimap (top-right square; M makes it big, then big in the middle) ---
@@ -148,18 +179,18 @@ export class BuildTryMode {
   // --- Collision, in block units ---
   // Every block cell the body's box overlaps, checked against how much of
   // that cell is solid (a slab is the bottom half, most blocks all of it).
-  _hits(x, y, z) {
+  _hits(x, y, z, height = this._height) {
     const x0 = Math.floor(x - HALF_WIDTH + 1e-4)
     const x1 = Math.floor(x + HALF_WIDTH - 1e-4)
     const z0 = Math.floor(z - HALF_WIDTH + 1e-4)
     const z1 = Math.floor(z + HALF_WIDTH - 1e-4)
     const y0 = Math.floor(y + 1e-4)
-    const y1 = Math.floor(y + HEIGHT - 1e-4)
+    const y1 = Math.floor(y + height - 1e-4)
     for (let cx = x0; cx <= x1; cx++) {
       for (let cz = z0; cz <= z1; cz++) {
         for (let cy = y0; cy <= y1; cy++) {
           const top = this.bm._cellSolidTop(cx, cy, cz)
-          if (top > 0 && y < cy + top - 1e-4 && y + HEIGHT > cy + 1e-4) return true
+          if (top > 0 && y < cy + top - 1e-4 && y + height > cy + 1e-4) return true
         }
       }
     }
@@ -172,7 +203,7 @@ export class BuildTryMode {
     const z0 = Math.floor(z - HALF_WIDTH)
     const z1 = Math.floor(z + HALF_WIDTH)
     for (let cx = x0; cx <= x1; cx++) for (let cz = z0; cz <= z1; cz++) {
-      for (let cy = Math.floor(y); cy <= Math.floor(y + HEIGHT - 0.01); cy++) if (test(cx, cy, cz)) return true
+      for (let cy = Math.floor(y); cy <= Math.floor(y + this._height - 0.01); cy++) if (test(cx, cy, cz)) return true
     }
     return false
   }
@@ -206,6 +237,9 @@ export class BuildTryMode {
     const B = this.B
     const cam = this.bm.camera
     // Start where the camera is; if that's inside a block, rise until free.
+    this._crouch = false
+    this._height = HEIGHT
+    this._eye = EYE
     const p = { x: cam.position.x / B, y: cam.position.y / B - EYE, z: cam.position.z / B }
     for (let i = 0; i < 200 && this._hits(p.x, p.y, p.z); i++) p.y += 1
     this.pos.set(p.x, p.y, p.z)
@@ -214,7 +248,8 @@ export class BuildTryMode {
     this.onGround = false
     this._coyote = 0
     this._jumpBuffer = 0
-    this._sprintLatched = false
+    this._hopChain = 0
+    this._groundTime = 0
     this._baseFov = cam.fov
     this._flyPos = cam.position.clone()
     this.active = true
@@ -227,6 +262,7 @@ export class BuildTryMode {
 
   exit() {
     this.active = false
+    this._restoreWindows()
     if (this._mapEl) this._mapEl.style.display = 'none'
     if (this._baseFov !== null) {
       this.bm.camera.fov = this._baseFov
@@ -251,19 +287,25 @@ export class BuildTryMode {
     if (keys.has('KeyD')) { mx -= fz; mz += fx }
     if (keys.has('KeyA')) { mx += fz; mz -= fx }
     const len = Math.hypot(mx, mz)
-    // Sprint: Shift, or a double-tapped W that stays on until W is let go.
-    const wDown = keys.has('KeyW')
-    if (wDown && !this._wWasDown) {
-      const now = performance.now()
-      if (now - this._lastWTap < DOUBLE_TAP_MS) this._sprintLatched = true
-      this._lastWTap = now
+    // Crouch while a crouch key is held - standing back up waits until
+    // there's room overhead.
+    const crouchHeld = CROUCH_KEYS.some((k) => keys.has(k))
+    if (crouchHeld !== this._crouch && (crouchHeld || !this._hits(p.x, p.y, p.z, HEIGHT))) {
+      this._crouch = crouchHeld
+      this._height = crouchHeld ? CROUCH_HEIGHT : HEIGHT
     }
-    if (!wDown) this._sprintLatched = false
-    this._wWasDown = wDown
-    const sprint = (keys.has('ShiftLeft') || keys.has('ShiftRight') || this._sprintLatched) && len > 0
+    const crouch = this._crouch
+    // Run: Shift while walking forward (bloxd.io's Shift + W).
+    const sprint = !crouch && (keys.has('ShiftLeft') || keys.has('ShiftRight')) && keys.has('KeyW') && !keys.has('KeyS')
     const inLiquid = this._touching(p.x, p.y, p.z, (x, y, z) => this.bm._cellIsLiquid(x, y, z))
     const onLadder = this._touching(p.x, p.y, p.z, (x, y, z) => this.bm._cellIsLadder(x, y, z))
-    let speed = sprint ? SPRINT : WALK
+    // Staying on the ground past the hop window ends a bunny-hop chain.
+    if (this.onGround) {
+      this._groundTime += dt
+      if (this._groundTime > BHOP_WINDOW) this._hopChain = 0
+    }
+    let speed = crouch ? CROUCH : sprint ? SPRINT : WALK
+    speed *= BHOP_MULT[this._hopChain]
     if (inLiquid) speed *= 0.55
     const want = len ? speed / len : 0
     const grip = this.onGround ? GROUND_GRIP : AIR_GRIP
@@ -273,8 +315,13 @@ export class BuildTryMode {
     // Jump timing: coyote time after leaving the ground, a buffered press
     // just before landing, and holding Space hops again on every landing.
     const spaceDown = keys.has('Space')
-    if (spaceDown && !this._spaceWasDown) this._jumpBuffer = JUMP_BUFFER
-    else if (spaceDown && this.onGround) this._jumpBuffer = Math.max(this._jumpBuffer, dt)
+    if (spaceDown && !this._spaceWasDown) {
+      this._jumpBuffer = JUMP_BUFFER
+      this._jumpFresh = true
+    } else if (spaceDown && this.onGround && this._jumpBuffer <= 0) {
+      this._jumpBuffer = dt
+      this._jumpFresh = false
+    }
     this._spaceWasDown = spaceDown
     this._coyote = this.onGround ? COYOTE : Math.max(0, this._coyote - dt)
     this._jumpBuffer = Math.max(0, this._jumpBuffer - dt)
@@ -286,6 +333,12 @@ export class BuildTryMode {
       this.vel.y = spaceDown ? 3.5 : Math.max(this.vel.y - GRAVITY * 0.2 * dt, -2.5)
     } else {
       if (this._jumpBuffer > 0 && this._coyote > 0) {
+        // A fresh press right as you land (or just before) adds a link to
+        // the bunny-hop chain; a held-Space auto hop or a late one doesn't.
+        const timed = this._jumpFresh && this.onGround && this._groundTime <= BHOP_WINDOW && this._landedFromJump
+        this._hopChain = timed ? Math.min(BHOP_MULT.length - 1, this._hopChain + 1) : 0
+        this._landedFromJump = false
+        this._jumpedAt = true
         this.vel.y = JUMP
         this._jumpBuffer = 0
         this._coyote = 0
@@ -301,6 +354,13 @@ export class BuildTryMode {
       if (!amount) continue
       const before = p[axis]
       const blocked = this._moveAxis(p, axis, amount)
+      // Crouching on the ground never walks you off an edge (anything
+      // deeper than a step).
+      if (crouch && this.onGround && !onLadder && !inLiquid && !this._hits(p.x, p.y - STEP_UP - 0.05, p.z)) {
+        p[axis] = before
+        this.vel[axis] = 0
+        continue
+      }
       if (blocked && (this.onGround || onLadder)) {
         const ahead = { x: p.x, y: p.y, z: p.z }
         ahead[axis] += Math.sign(amount) * 0.05
@@ -326,7 +386,13 @@ export class BuildTryMode {
     }
     const falling = this.vel.y <= 0
     const hitY = this._moveAxis(p, 'y', this.vel.y * dt)
+    const wasOnGround = this.onGround
     this.onGround = hitY && falling
+    if (this.onGround && !wasOnGround) {
+      this._groundTime = 0
+      this._landedFromJump = !!this._jumpedAt
+      this._jumpedAt = false
+    }
     if (hitY) this.vel.y = 0
 
     // Never off the map: held inside the 128x128 ground, and anyone who
@@ -345,7 +411,8 @@ export class BuildTryMode {
     const moving = this.onGround && Math.hypot(this.vel.x, this.vel.z) > 0.5
     this._bob += moving ? dt * (sprint ? 13 : 9) : 0
     const bob = moving ? Math.sin(this._bob) * 0.015 : 0
-    cam.position.set(p.x * B, (p.y + EYE + bob) * B, p.z * B)
+    this._eye = THREE.MathUtils.damp(this._eye, crouch ? CROUCH_EYE : EYE, 18, dt)
+    cam.position.set(p.x * B, (p.y + this._eye + bob) * B, p.z * B)
     if (this._baseFov !== null) {
       const fov = THREE.MathUtils.damp(cam.fov, this._baseFov + (sprint ? SPRINT_FOV : 0), 10, dt)
       if (Math.abs(fov - cam.fov) > 0.01) {
@@ -358,12 +425,187 @@ export class BuildTryMode {
       this._gun.position.set(GUN_OFFSET.x + Math.cos(this._bob * 0.5) * (moving ? 0.008 : 0), GUN_OFFSET.y + Math.abs(Math.sin(this._bob * 0.5)) * (moving ? -0.012 : 0), GUN_OFFSET.z + this._recoil * 0.05)
       this._gun.rotation.x = this._recoil * 0.18
     }
+    this._updateShards(dt)
     this._drawMap(performance.now())
   }
 
-  // Left click while trying: the gun kicks (nothing is placed or broken).
+  // Left click while trying: the gun kicks and fires. Nothing gets built
+  // or broken - except windows (see _shootWindow).
   fire() {
     this._recoil = 1
+    audioEngine.playShot(this._gunId)
+    this._shootWindow()
+  }
+
+  // --- Windows: the first shot cracks a glass block, the second breaks it,
+  // and after that shots go through the hole. Only for this try - exit()
+  // puts every broken window back, and saves always count them as there
+  // (BuildMode._snapshot reads brokenWindows()). ---
+  _shootWindow() {
+    const bm = this.bm
+    bm.camera.updateMatrixWorld()
+    bm._raycaster.setFromCamera({ x: 0, y: 0 }, bm.camera)
+    const hit = bm._raycastGridAligned()
+    if (!hit) return
+    const [x, y, z] = hit.existingBlock
+    const type = bm.getBlockAt(x, y, z)
+    if (!bm._isWindowType(type)) return
+    const key = bm._key(x, y, z)
+    if (!this._cracked.has(key)) {
+      this._cracked.set(key, { x, y, z })
+      this._rebuildCracks()
+      audioEngine.playGlassCrack()
+      return
+    }
+    this._cracked.delete(key)
+    this._rebuildCracks()
+    this._broken.set(key, { x, y, z, type })
+    bm._suppressUndoRecording = true
+    bm.removeBlock(x, y, z)
+    bm._suppressUndoRecording = false
+    this._spawnShards(x, y, z, type)
+    audioEngine.playGlassBreak()
+  }
+
+  brokenWindows() {
+    return [...this._broken.values()]
+  }
+
+  // The scene was cleared (another slot loaded, map reset): nothing to
+  // put back any more.
+  forgetWindows() {
+    this._broken.clear()
+    this._cracked.clear()
+    this._rebuildCracks()
+    this._clearShards()
+  }
+
+  _restoreWindows() {
+    const bm = this.bm
+    bm._suppressUndoRecording = true
+    for (const b of this._broken.values()) {
+      if (!bm.getBlockAt(b.x, b.y, b.z)) bm.placeBlock(b.x, b.y, b.z, b.type)
+    }
+    bm._suppressUndoRecording = false
+    this.forgetWindows()
+  }
+
+  // A pixel-art crack, drawn once: lines running out from the middle.
+  _crackTexture() {
+    const c = document.createElement('canvas')
+    c.width = c.height = 16
+    const ctx = c.getContext('2d')
+    const paths = [
+      [[8, 8], [6, 6], [5, 3], [3, 1], [2, 0]],
+      [[8, 8], [10, 6], [12, 5], [13, 2], [15, 1]],
+      [[8, 8], [11, 9], [13, 11], [15, 12]],
+      [[8, 8], [7, 11], [5, 13], [4, 15]],
+      [[8, 8], [5, 9], [2, 8], [0, 9]],
+      [[11, 9], [11, 12], [12, 15]],
+      [[6, 6], [3, 5]],
+    ]
+    const dot = (px, py, color) => {
+      ctx.fillStyle = color
+      ctx.fillRect(px, py, 1, 1)
+    }
+    for (const path of paths) {
+      for (let i = 1; i < path.length; i++) {
+        const [x0, y0] = path[i - 1]
+        const [x1, y1] = path[i]
+        const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0))
+        for (let j = 0; j <= n; j++) {
+          const px = Math.round(x0 + ((x1 - x0) * j) / n)
+          const py = Math.round(y0 + ((y1 - y0) * j) / n)
+          if (px + 1 < 16) dot(px + 1, py, 'rgba(40,50,60,0.45)')
+          dot(px, py, 'rgba(255,255,255,0.95)')
+        }
+      }
+    }
+    const tex = new THREE.CanvasTexture(c)
+    tex.magFilter = THREE.NearestFilter
+    tex.minFilter = THREE.NearestFilter
+    tex.colorSpace = THREE.SRGBColorSpace
+    return tex
+  }
+
+  // Cracked windows get a crack drawn on every face (one InstancedMesh,
+  // a hair bigger than the block so it shows on top).
+  _rebuildCracks() {
+    const bm = this.bm
+    if (this._crackMesh) {
+      bm.scene.remove(this._crackMesh)
+      this._crackMesh.geometry.dispose()
+      this._crackMesh.dispose()
+      this._crackMesh = null
+    }
+    if (!this._cracked.size) return
+    if (!this._crackMaterial) {
+      this._crackMaterial = new THREE.MeshBasicMaterial({ map: this._crackTexture(), transparent: true, alphaTest: 0.1, depthWrite: false })
+    }
+    const B = this.B
+    const size = B * 1.004
+    const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(size, size, size), this._crackMaterial, this._cracked.size)
+    const m = new THREE.Matrix4()
+    let i = 0
+    for (const { x, y, z } of this._cracked.values()) {
+      m.makeTranslation((x + 0.5) * B, (y + 0.5) * B, (z + 0.5) * B)
+      mesh.setMatrixAt(i++, m)
+    }
+    mesh.renderOrder = 2
+    bm.scene.add(mesh)
+    this._crackMesh = mesh
+  }
+
+  _spawnShards(x, y, z, type) {
+    const B = this.B
+    const scene = this.bm.scene
+    if (!this._shardGeometry) this._shardGeometry = new THREE.BoxGeometry(B * 0.14, B * 0.14, B * 0.02)
+    let mat = this._shardMaterials.get(type)
+    if (!mat) {
+      mat = new THREE.MeshBasicMaterial({ color: this.bm._blockColor(type), transparent: true, opacity: 0.75 })
+      this._shardMaterials.set(type, mat)
+    }
+    // Flying away from the shooter.
+    const cam = this.bm.camera.position
+    const cx = (x + 0.5) * B
+    const cy = (y + 0.5) * B
+    const cz = (z + 0.5) * B
+    const away = new THREE.Vector3(cx - cam.x, 0, cz - cam.z).normalize()
+    for (let i = 0; i < SHARDS_PER_WINDOW; i++) {
+      const shard = new THREE.Mesh(this._shardGeometry, mat)
+      shard.position.set(cx + (Math.random() - 0.5) * B * 0.8, cy + (Math.random() - 0.5) * B * 0.8, cz + (Math.random() - 0.5) * B * 0.8)
+      shard.rotation.set(Math.random() * 6, Math.random() * 6, Math.random() * 6)
+      scene.add(shard)
+      this._shards.push({
+        mesh: shard,
+        vel: new THREE.Vector3(away.x * 2 + (Math.random() - 0.5) * 2.5, Math.random() * 2.5, away.z * 2 + (Math.random() - 0.5) * 2.5).multiplyScalar(B),
+        spin: new THREE.Vector3(Math.random() * 12, Math.random() * 12, Math.random() * 12),
+        life: SHARD_LIFE * (0.7 + Math.random() * 0.3),
+      })
+    }
+  }
+
+  _updateShards(dt) {
+    if (!this._shards.length) return
+    const g = GRAVITY * 0.6 * this.B
+    this._shards = this._shards.filter((s) => {
+      s.life -= dt
+      if (s.life <= 0) {
+        this.bm.scene.remove(s.mesh)
+        return false
+      }
+      s.vel.y -= g * dt
+      s.mesh.position.addScaledVector(s.vel, dt)
+      s.mesh.rotation.x += s.spin.x * dt
+      s.mesh.rotation.y += s.spin.y * dt
+      s.mesh.scale.setScalar(Math.min(1, s.life * 3))
+      return true
+    })
+  }
+
+  _clearShards() {
+    for (const s of this._shards) this.bm.scene.remove(s.mesh)
+    this._shards = []
   }
 
   // Whether the body overlaps a solid cell right now (BuildMode checks
