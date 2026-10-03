@@ -56,14 +56,15 @@ const CLIMB = 3.4
 const MAX_FALL = 60
 const SPRINT_FOV = 8 // degrees added while sprinting
 // Kirka-style blocky arms holding the gun, made from the player's own
-// skin: each runs from a shoulder off the bottom of the screen to a hand
-// on the gun (positions relative to GUN_OFFSET). ARM_PX is the size of one
-// skin pixel across the arm.
-const ARMS = [
-  { limb: 'armR', shoulder: [0.36, -0.46, 0.3], hand: [0.02, -0.1, 0.04] },
-  { limb: 'armL', shoulder: [-0.5, -0.5, 0.2], hand: [-0.05, -0.04, -0.2] },
-]
-const ARM_PX = 0.026
+// skin: each runs from a shoulder off the bottom of the screen to its hand
+// spot on the gun (_findHandSpots; positions relative to GUN_OFFSET).
+// ARM_PX is the size of one skin pixel across the arm (made wider
+// 2026-10-03 - "looks too skinny").
+const ARM_SHOULDERS = {
+  armR: [0.16, -0.53, 0.4],
+  armL: [-0.46, -0.58, 0.25],
+}
+const ARM_PX = 0.036
 // Building, like Minecraft: just the held block in the bottom-right corner,
 // no arm (camera space).
 const HAND_BLOCK_POS = [0.33, -0.29, -0.6]
@@ -691,27 +692,64 @@ export class BuildTryMode {
       this._gun.add(gun)
       this._gunScene.add(this._gun)
       this._gunId = id
-      if (this._arms) this._gun.add(this._arms)
+      this._armSpots = this._findHandSpots(gun)
+      this._rebuildArms()
     }
     this._gun.visible = true
     this._loadArms()
   }
 
-  // Builds the arms from the equipped skin (once per skin), and keeps
-  // them on whichever gun is shown.
+  // Where the two hands go on this gun, in the gun group's space, from the
+  // gun's own size (every gun points along -z): the right hand on the grip
+  // near the back, the left hand under the barrel halfway along. (The
+  // models' hidden grip markers sit in the wrong places for this.)
+  _findHandSpots(gun) {
+    const g = this._gun
+    g.position.set(0, 0, 0)
+    g.rotation.set(0, 0, 0)
+    g.updateMatrixWorld(true)
+    const box = new THREE.Box3()
+    const corner = new THREE.Vector3()
+    gun.traverse((o) => {
+      if (!o.isMesh) return
+      for (let q = o; q; q = q.parent) if (q.userData?.isHand) return
+      o.geometry.computeBoundingBox()
+      const bb = o.geometry.boundingBox
+      for (const x of [bb.min.x, bb.max.x]) for (const y of [bb.min.y, bb.max.y]) for (const z of [bb.min.z, bb.max.z]) {
+        box.expandByPoint(corner.set(x, y, z).applyMatrix4(o.matrixWorld))
+      }
+    })
+    if (box.isEmpty()) box.set(new THREE.Vector3(-0.03, -0.1, -0.6), new THREE.Vector3(0.03, 0.1, 0.05))
+    const size = box.getSize(new THREE.Vector3())
+    const cx = (box.min.x + box.max.x) / 2
+    const grip = new THREE.Vector3(cx, box.min.y + size.y * 0.25, box.max.z - size.z * 0.12)
+    const fore = new THREE.Vector3(cx, box.min.y + size.y * 0.35, box.max.z - size.z * 0.5)
+    return [
+      { limb: 'armR', shoulder: ARM_SHOULDERS.armR, hand: grip.toArray() },
+      { limb: 'armL', shoulder: ARM_SHOULDERS.armL, hand: fore.toArray() },
+    ]
+  }
+
+  // Loads the equipped skin (once per skin) and builds the arms from it.
   _loadArms() {
     const url = this.bm.game?.settings?.customSkinDataUrl || DEFAULT_SKIN_DATA_URL
     if (this._armsUrl === url) return
     this._armsUrl = url
     loadSkinTexture(url).then((skin) => {
       if (this._armsUrl !== url) return
-      const arms = buildArms(skin, ARMS)
-      this._disposeArms()
-      this._arms = arms
-      if (this._gun) this._gun.add(arms)
+      this._armSkin = skin
+      this._rebuildArms()
     }).catch(() => {
       // Unreadable skin - the gun is shown without arms.
     })
+  }
+
+  // Arms reaching from the bottom of the screen to this gun's hand spots.
+  _rebuildArms() {
+    if (!this._armSkin || !this._gun || !this._armSpots) return
+    this._disposeArms()
+    this._arms = buildArms(this._armSkin, this._armSpots)
+    this._gun.add(this._arms)
   }
 
   _disposeArms() {
