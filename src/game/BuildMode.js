@@ -5,7 +5,6 @@
 import { FIXED_KEYS } from './Keybinds.js'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-import * as CloudSync from './CloudSync.js'
 import { BlockChunks, CHUNK } from './BlockChunks.js'
 import { blockFaceCanvases, blockIconURL, doorCanvas, doorIconURL, gadgetIconURL, stairsIconURL, textureHasAlpha } from './BlockTextures.js'
 import { t } from './i18n.js'
@@ -16,6 +15,8 @@ import { BuildTools } from './BuildTools.js'
 import { BuildSky } from './BuildSky.js'
 import { BuildGadgets } from './BuildGadgets.js'
 import { BuildSurvival } from './BuildSurvival.js'
+import { BuildShare } from './BuildShare.js'
+import { BuildTogether } from './BuildTogether.js'
 
 // GROUND_SIZE is a CELL count (not world units) - bumped up from 64, then
 // 76, as BLOCK_SIZE shrank each time, so the buildable footprint's actual
@@ -50,16 +51,6 @@ const MAX_INSTANCES_PER_TYPE = 20000
 // session.
 const UNDO_STACK_LIMIT = 200
 
-// Named distinctly from Game.js's own _escapeHtml (a different module, not
-// imported across files for one tiny helper) - untrusted build name/creator
-// nickname text rendered via innerHTML in the Community Builds list must be
-// escaped the same way every other persisted-string render in this codebase
-// already is (see CLAUDE.md's "every persisted stat is untrusted" note).
-function _escapeHtmlBuildMode(str) {
-  const div = document.createElement('div')
-  div.textContent = str
-  return div.innerHTML
-}
 const SAVE_KEY = 'gayz-build-mode'
 // Multiple save slots (see switchSlot/save/load) - was a single fixed key
 // (v1's deliberately-scoped-down "one save slot" design). SAVE_SLOTS_KEY
@@ -86,6 +77,11 @@ const SLOT_THUMB_H = 54
 // [entries]}. Not a gayz- key on purpose - the whole map is ~42k blocks,
 // and a player who clears it would push a huge list into Cloud Save.
 const MAP3_SLOT = 'map3'
+// A map opened from a share code, Community Maps or a Build Together room
+// (BuildShare.js / BuildTogether.js) - its own slot, so opening one never
+// overwrites your own.
+const SHARED_SLOT = 'shared'
+const SHARED_INFO_KEY = 'buildmode-shared-info'
 // Bumped (v2, v3) whenever the map changes - old edits wouldn't line up.
 const MAP3_EDITS_KEY = 'buildmode-map3-v7-edits'
 // Edits are saved this long after the last change (and on leaving the
@@ -136,6 +132,8 @@ const MENU_TIPS = [
   { key: 'buildTip13', code: 'waveSize' },
   { key: 'buildTip14', code: 'LINK_RANGE' },
   { key: 'buildTip15', code: 'SIGN_MAX_CHARS' },
+  { key: 'buildTip16', code: 'makeShareCode' },
+  { key: 'buildTip17', code: 'OPS_PER_EDIT' },
 ]
 const MENU_TIP_KEYS = MENU_TIPS.map((tip) => tip.key)
 // Held with V (see update()'s zoomTarget) - narrows the FOV for a "look
@@ -1248,6 +1246,11 @@ export class BuildMode {
     return BLOCK_BY_ID.get(type)?.shape
   }
 
+  // A block id a player could have placed (not a door's hidden top half).
+  static isBlockType(id) {
+    return VALID_TYPE_IDS.has(id) && !BLOCK_BY_ID.get(id).hidden
+  }
+
   constructor(renderer, game) {
     this.game = game
     this.renderer = renderer
@@ -1541,6 +1544,16 @@ export class BuildMode {
     this.gadgets = new BuildGadgets(this, BLOCK_SIZE)
     // Play: zombie waves on your own map (BuildSurvival.js).
     this.survival = new BuildSurvival(this, BLOCK_SIZE)
+    // Share codes + Community Maps, and building live with friends.
+    this.share = new BuildShare(this)
+    this.together = new BuildTogether(this, BLOCK_SIZE)
+    this.sharedInfo = null
+    try {
+      this.sharedInfo = JSON.parse(localStorage.getItem(SHARED_INFO_KEY) || 'null')
+    } catch {
+      // Not opened one yet.
+    }
+    document.getElementById('build-mode-together-btn')?.addEventListener('click', () => this.together.openPanel())
     document.getElementById('build-mode-play-btn')?.addEventListener('click', () => {
       if (this.survival.active) this.survival.stop()
       else this.survival.start()
@@ -1681,15 +1694,6 @@ export class BuildMode {
       if (this.menuOpen) this.toggleMenu()
     })
 
-    // Community Builds browse panel (Publish/Browse buttons themselves are
-    // bound in Game.js, matching Exit/Save/Export/Import's own precedent -
-    // this panel is Build Mode's own transient UI though, same as the
-    // block picker, so its open/close/list-click handling lives here.
-    this._communityBuildsPanel = document.getElementById('community-builds-panel')
-    this._communityBuildsList = document.getElementById('community-builds-list')
-    this._communityBuildsEmpty = document.getElementById('community-builds-empty')
-    this._communityBuildsCloseBtn = document.getElementById('community-builds-close-btn')
-    this._bindCommunityBuilds()
 
     this._onKeyDownHotbar = (e) => {
       // Same reasoning as _onKeyDown's guard - without it, typing a digit
@@ -1707,7 +1711,7 @@ export class BuildMode {
     this._wheelAccum = 0
     this._onWheel = (e) => {
       if (!this.active || this.pickerOpen || this.menuOpen) return
-      if (e.target?.closest?.('#build-picker, #build-menu, #community-builds-panel')) return
+      if (e.target?.closest?.('#build-picker, #build-menu, #community-maps-panel, #build-together-panel')) return
       this._wheelAccum += e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY
       const steps = Math.trunc(this._wheelAccum / 60)
       if (!steps) return
@@ -1778,6 +1782,9 @@ export class BuildMode {
 
   exit() {
     if (this.tryMode.active) this.toggleTryMode()
+    this.together.leave()
+    this.share.close()
+    this.together.closePanel()
     this.save()
     this._saveSlotThumb()
     this.active = false
@@ -2325,6 +2332,7 @@ export class BuildMode {
     }
     this._shadowsDirty = true
     this._scheduleAutosave()
+    this.together?.record(['d', x, bottomY, z, state.open])
     return true
   }
 
@@ -2406,6 +2414,9 @@ export class BuildMode {
   // Undo/Redo - see the constructor's own comment on _undoStack/_redoStack
   // and the recording lines inside placeBlock()/removeBlock() above.
   _recordUndo(entry) {
+    // Building together: every real cell change goes to the room too
+    // (a finished group's cells were already sent one by one).
+    if (entry.action !== 'group') this.together?.recordEntry(entry, true)
     // Inside a multi-block tool action (fill, shapes, paste, line...),
     // every cell change joins one entry, so one Undo takes back the lot.
     if (this._undoGroup) {
@@ -2461,6 +2472,7 @@ export class BuildMode {
     this._suppressUndoRecording = true
     this._applyUndoEntry(entry, false)
     this._suppressUndoRecording = false
+    this.together?.recordEntry(entry, false)
     this._redoStack.push(entry)
     this._updateUndoRedoButtons()
     this._scheduleAutosave()
@@ -2472,6 +2484,7 @@ export class BuildMode {
     this._suppressUndoRecording = true
     this._applyUndoEntry(entry, true)
     this._suppressUndoRecording = false
+    this.together?.recordEntry(entry, true)
     this._undoStack.push(entry)
     this._updateUndoRedoButtons()
     this._scheduleAutosave()
@@ -2980,7 +2993,57 @@ export class BuildMode {
   }
 
   _slotName(slot = this.activeSlot) {
+    if (slot === SHARED_SLOT) return this.sharedInfo?.name ? t('buildSharedSlotNamed', { name: this.sharedInfo.name }) : t('buildSharedSlot')
     return slot === MAP3_SLOT ? t('buildMap3Slot') : t('buildSlotName', { n: slot + 1 })
+  }
+
+  // What Share Map / Build Together send: Map 3 as just your changes to
+  // it (it regenerates the same everywhere), anything else as the slot's
+  // compact save string.
+  _shareData() {
+    const snapshot = this._snapshot()
+    if (this.activeSlot === MAP3_SLOT) {
+      return { base: 'map3', data: JSON.stringify(this._map3Diff()), blockCount: snapshot.blocks.length }
+    }
+    return { base: 'blank', data: this._encodeSlot(snapshot), blockCount: snapshot.blocks.length }
+  }
+
+  // Opens a map from someone else (untrusted data) in the Shared Map slot.
+  // parsed: an already-decoded {blocks, hotbar} (older Community Builds).
+  // False if the data can't be read.
+  loadSharedData(base, data, info, parsed = null) {
+    let build = parsed
+    let diff = null
+    try {
+      if (!build && base === 'map3') {
+        const d = JSON.parse(data)
+        if (!d || !Array.isArray(d.removed) || !Array.isArray(d.placed)) return false
+        diff = { removed: d.removed.filter((k) => typeof k === 'string'), placed: d.placed.filter((b) => b && typeof b === 'object'), hotbar: Array.isArray(d.hotbar) ? d.hotbar : undefined }
+      } else if (!build) {
+        build = this._decodeSlot(data)
+      }
+    } catch {
+      return false
+    }
+    if (!diff && (!build || !Array.isArray(build.blocks))) return false
+    if (this.tryMode.active) this.toggleTryMode()
+    this._joiningRoom = true
+    if (this.activeSlot !== SHARED_SLOT) {
+      this.switchSlot(SHARED_SLOT)
+    }
+    this._joiningRoom = false
+    this.clearAllBlocks()
+    this.sharedInfo = { name: String(info?.name || '').slice(0, 30), creatorNickname: String(info?.creatorNickname || '').slice(0, 24), code: info?.code || null }
+    try {
+      localStorage.setItem(SHARED_INFO_KEY, JSON.stringify(this.sharedInfo))
+    } catch {
+      // Only the slot's name is lost.
+    }
+    if (diff) this._applyMap3(diff)
+    else this._applyBuild(build)
+    this.save()
+    this._renderSlots()
+    return true
   }
 
   _savedAgoText(at) {
@@ -3194,7 +3257,9 @@ export class BuildMode {
   // freshly-cleared scene. No-op if already on that slot.
   switchSlot(index) {
     if (index === this.activeSlot) return
-    if (index !== MAP3_SLOT && !(Number.isInteger(index) && index >= 0 && index < SAVE_SLOT_COUNT)) return
+    if (index !== MAP3_SLOT && index !== SHARED_SLOT && !(Number.isInteger(index) && index >= 0 && index < SAVE_SLOT_COUNT)) return
+    // Switching away from a Build Together map leaves the room.
+    if (this.together.active && !this._joiningRoom) this.together.leave()
     this.save()
     this._saveSlotThumb()
     this.clearAllBlocks()
@@ -3280,8 +3345,16 @@ export class BuildMode {
   // that are gone or hold something else go in removed, and whatever is
   // there now instead goes in placed.
   _saveMap3Edits() {
+    try {
+      localStorage.setItem(MAP3_EDITS_KEY, JSON.stringify(this._map3Diff()))
+    } catch {
+      // Storage full - the edits just won't persist.
+    }
+  }
+
+  _map3Diff() {
     const { byKey } = this._map3Base()
-    const sig = (b) => (b ? `${b.type}|${b.facing ?? ''}|${b.open ? 1 : 0}` : '')
+    const sig = (b) => (b ? `${b.type}|${b.facing ?? ''}|${b.open ? 1 : 0}|${b.text ?? ''}` : '')
     const current = new Map()
     for (const b of this._snapshot().blocks) current.set(this._key(b.x, b.y, b.z), b)
     const removed = []
@@ -3292,11 +3365,7 @@ export class BuildMode {
     for (const [k, b] of current) {
       if (sig(b) !== sig(byKey.get(k))) placed.push(b)
     }
-    try {
-      localStorage.setItem(MAP3_EDITS_KEY, JSON.stringify({ removed, placed, hotbar: this.hotbar }))
-    } catch {
-      // Storage full/unavailable - the edits just won't persist.
-    }
+    return { removed, placed, hotbar: this.hotbar }
   }
 
   // Shared by load() (local storage, called on entering Build Mode with an
@@ -3415,86 +3484,6 @@ export class BuildMode {
     return true
   }
 
-  // Community Builds (share Build Mode maps with other players - see
-  // docs/superpowers/specs/2026-08-26-community-builds-design.md). Publish
-  // uploads the exact same _snapshot() shape exportMap() already downloads
-  // as a file - this just sends it to Firestore instead of the disk.
-  async publishCurrentBuild(name) {
-    if (!this.game || !this.game._cloudUid) return { ok: false, reason: 'signedOut' }
-    const snapshot = this._snapshot()
-    if (snapshot.blocks.length > 5000) return { ok: false, reason: 'tooLarge' }
-    const nickname = this.game.settings.nickname || 'Player'
-    return CloudSync.publishBuild(this.game._cloudUid, nickname, name, snapshot.blocks, snapshot.hotbar).catch(() => ({ ok: false, reason: 'error' }))
-  }
-
-  _bindCommunityBuilds() {
-    if (this._communityBuildsCloseBtn) {
-      this._communityBuildsCloseBtn.addEventListener('click', () => this.closeCommunityBuildsPanel())
-    }
-    if (this._communityBuildsPanel) {
-      this._communityBuildsPanel.addEventListener('click', (e) => {
-        if (e.target === this._communityBuildsPanel) this.closeCommunityBuildsPanel()
-      })
-    }
-    if (this._communityBuildsList) {
-      this._communityBuildsList.addEventListener('click', async (e) => {
-        const downloadBtn = e.target.closest('.community-build-download-btn')
-        const reportBtn = e.target.closest('.community-build-report-btn')
-        if (downloadBtn) {
-          const build = (this._fetchedCommunityBuilds || []).find((b) => b.buildId === downloadBtn.dataset.buildId)
-          if (!build) return
-          // Same clear-then-apply sequence importMapFile() uses - but unlike
-          // that function, this DOES confirm first: the real existing
-          // precedent for "replace my current build" (Game.js's Import
-          // click handler, which wraps importMapFile in a window.confirm)
-          // always confirms before clearing, so Download matches that full
-          // precedent rather than importMapFile()'s own no-confirm body in
-          // isolation.
-          if (!window.confirm(t('buildDownloadConfirm'))) return
-          this.clearAllBlocks()
-          this._applyBuild({ blocks: build.blocks, hotbar: build.hotbar })
-          this.save()
-          this.closeCommunityBuildsPanel()
-        } else if (reportBtn) {
-          if (!this.game || !this.game._cloudUid) return
-          await CloudSync.reportBuild(reportBtn.dataset.buildId, this.game._cloudUid).catch(() => {})
-          reportBtn.textContent = 'Reported'
-          reportBtn.disabled = true
-          if (this.game._showHomepageToast) this.game._showHomepageToast(t('buildReportSent'))
-        }
-      })
-    }
-  }
-
-  async openCommunityBuildsPanel() {
-    if (!this._communityBuildsPanel) return
-    this._communityBuildsPanel.style.display = 'flex'
-    this._fetchedCommunityBuilds = await CloudSync.fetchCommunityBuilds().catch(() => [])
-    this._communityBuildsEmpty.style.display = this._fetchedCommunityBuilds.length ? 'none' : 'block'
-    this._communityBuildsList.innerHTML = this._fetchedCommunityBuilds.map((b) => {
-      // buildId is the Firestore DOCUMENT ID, not a data.* field the
-      // security rules validate - the rules only constrain what's inside
-      // request.resource.data, so a crafted doc written straight through
-      // the Firestore SDK (bypassing this app's UI, but with a valid
-      // signed-in account) could carry an ID containing a literal " that
-      // breaks out of the data-build-id="..." attribute below. Every real
-      // ID from publishBuild() is a Firestore auto-ID (already
-      // alphanumeric only), so restricting to that charset here can only
-      // ever affect a maliciously-crafted doc, never a real one.
-      const safeBuildId = String(b.buildId || '').replace(/[^A-Za-z0-9_-]/g, '')
-      return `
-      <div class="community-build-row">
-        <span>${_escapeHtmlBuildMode(b.name)} - ${_escapeHtmlBuildMode(b.creatorNickname)} (${Number(b.blockCount) || 0} blocks)</span>
-        <button type="button" class="community-build-download-btn" data-build-id="${safeBuildId}">Download</button>
-        <button type="button" class="community-build-report-btn" data-build-id="${safeBuildId}">Report</button>
-      </div>
-    `
-    }).join('')
-  }
-
-  closeCommunityBuildsPanel() {
-    if (this._communityBuildsPanel) this._communityBuildsPanel.style.display = 'none'
-  }
 
   // Backfills any still-empty ground-level (y=GROUND_LAYER_Y) cell across
   // the whole GROUND_SIZE x GROUND_SIZE footprint with grass - runs after
@@ -3532,6 +3521,7 @@ export class BuildMode {
     this.camera.rotateX(this._pitch)
     this.liquids.update(dt)
     this.sky.update(dt)
+    this.together.update(dt)
     if (this.tryMode.active) {
       this.tryMode.update(dt, this._keys)
       this.survival.update(dt)

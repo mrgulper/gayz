@@ -124,6 +124,8 @@ export class BuildGadgets {
     if (on) this.leverOn.add(key)
     else this.leverOn.delete(key)
     this._refreshMatrix(key)
+    this.bm.together?.record(['l', x, y, z, on])
+    // Doors it opens are sent as their own changes (toggleDoor).
     this.setDoorsNear(x, y, z, on)
     this.bm._scheduleAutosave()
   }
@@ -132,6 +134,7 @@ export class BuildGadgets {
     const key = this.bm._key(x, y, z)
     if (this._typeAt(key) !== 'sign') return
     this.signText.set(key, cleanSignText(text))
+    this.bm.together?.record(['s', x, y, z, this.signText.get(key)])
     this.onRemoveMeshOnly(key)
     this._buildSignText(key, x, y, z)
     this.bm._scheduleAutosave()

@@ -386,81 +386,88 @@ html.ui-theme-old #build-menu {
   #build-menu-title-main { font-size: 30px; }
 }
 
-/* Community Builds browse panel - matches #build-menu's own dark-plate
-   visual language (Build Mode's panels don't use the main menu's gold-plate
-   styling), not the unrelated .clan-list-row tokens from a different part
-   of the game. */
-#community-builds-panel {
+/* Community Maps (BuildShare.js) and Build Together (BuildTogether.js) -
+   the Map Editor pause screen's dark-and-gold look. Text boxes are the
+   standard oval search bar. */
+#community-maps-panel,
+#build-together-panel {
   position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: 21;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  background: rgba(0, 0, 0, 0.75);
-  color: rgba(255, 255, 255, 0.85);
   padding: 24px;
+  box-sizing: border-box;
+  background: radial-gradient(ellipse at center, rgba(10, 8, 5, 0.6), rgba(5, 4, 2, 0.9));
+  color: #f1e6c8;
 }
-
-#community-builds-panel h2 {
-  margin: 0;
-  font-size: 18px;
-}
-
-#community-builds-panel #community-builds-close-btn {
-  padding: 8px 16px;
-  font-size: 13px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-#community-builds-list {
-  width: min(500px, 90vw);
-  max-height: 60vh;
-  overflow-y: auto;
-}
-
-.community-build-row {
+.build-share-box {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 10px;
-  background: rgba(10, 10, 10, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 6px;
-  margin-bottom: 6px;
+  flex-direction: column;
+  gap: 12px;
+  width: min(620px, 100%);
+  max-height: 100%;
+  box-sizing: border-box;
+  padding: 20px 22px;
+  background: rgba(18, 15, 10, 0.94);
+  border: 1px solid rgba(232, 194, 90, 0.45);
+  border-radius: 10px;
 }
-
-.community-build-row span {
+.build-share-box h2 {
+  margin: 0;
+  text-align: center;
+  font-family: 'Black Ops One', 'Bebas Neue', sans-serif;
+  font-weight: 400;
+  font-size: 26px;
+  letter-spacing: 1px;
+  color: #e8c25a;
+}
+html.ui-theme-old .build-share-box h2 { font-family: 'Rye', Georgia, serif; color: #d4a068; }
+.build-share-box p { margin: 0; font-size: 14px; text-align: center; color: rgba(241, 230, 200, 0.8); }
+.build-share-box button {
+  padding: 8px 14px;
   font-size: 13px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.community-build-download-btn,
-.community-build-report-btn {
-  flex-shrink: 0;
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 4px;
+  font-weight: 700;
+  color: #f1e6c8;
   cursor: pointer;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(232, 194, 90, 0.4);
+  border-radius: 999px;
 }
-
-.community-build-report-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
+.build-share-box button:hover:not(:disabled) { border-color: #e8c25a; background: rgba(232, 194, 90, 0.18); color: #fff; }
+.build-share-box button:disabled { opacity: 0.45; cursor: default; }
+.build-share-code-row { display: flex; gap: 8px; align-items: center; justify-content: center; }
+.build-share-code-row input { width: 220px; margin: 0; text-transform: uppercase; letter-spacing: 3px; text-align: center; }
+.build-share-code-row input::placeholder { text-transform: none; letter-spacing: 0.3px; }
+.build-share-tabs { display: flex; gap: 6px; justify-content: center; }
+.build-share-tabs button.active { border-color: #e8c25a; background: rgba(232, 194, 90, 0.28); color: #fff; }
+#community-maps-shared, #build-together-code-line {
+  display: flex; gap: 10px; align-items: center; justify-content: center;
+  padding: 8px; border: 1px dashed rgba(232, 194, 90, 0.6); border-radius: 8px;
+}
+#community-maps-shared-code, #build-together-room-code { font-size: 26px; letter-spacing: 5px; color: #ffe9a8; }
+#community-maps-list { overflow-y: auto; overflow-x: hidden; min-height: 120px; max-height: 50vh; display: flex; flex-direction: column; gap: 6px; }
+.community-map-row {
+  display: flex; align-items: center; gap: 10px; justify-content: space-between;
+  padding: 8px 10px; background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(232, 194, 90, 0.22); border-radius: 8px;
+}
+.community-map-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 12px; color: rgba(241, 230, 200, 0.7); }
+.community-map-info b { font-size: 15px; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.community-map-info span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.community-map-code { letter-spacing: 2px; color: #ffe9a8; }
+.community-map-btns { display: flex; gap: 4px; flex: none; }
+.community-map-btns button { padding: 6px 10px; font-size: 12px; }
+.community-maps-older { margin: 8px 0 2px; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: rgba(232, 194, 90, 0.75); }
+.build-share-big { align-self: center; padding: 10px 22px !important; font-size: 15px !important; }
+#build-together-start, #build-together-in-room { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.build-share-close { align-self: center; }
+#build-together-chip {
+  position: fixed; top: 64px; right: 196px; z-index: 15;
+  padding: 6px 14px; font-size: 14px; font-weight: 600; color: #ffe9a8;
+  background: rgba(10, 10, 10, 0.7); border: 1px solid rgba(255, 207, 92, 0.5); border-radius: 999px;
+  pointer-events: none;
 }
 
 #build-mode-exit-btn {

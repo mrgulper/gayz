@@ -424,3 +424,116 @@ test('Play mode spawns zombie waves that reach you and can be shot', async ({ pa
   expect(r.dead).toBe(true)
   expect(r.stopped).toBe(true)
 })
+
+// Share codes, Community Maps and Build Together (BuildShare.js /
+// BuildTogether.js) against an in-memory fake of their Firestore calls.
+test('sharing a map by code, liking it, and building together', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    Object.defineProperty(g, '_cloudUid', { get: () => 'me', set: () => {}, configurable: true })
+    const maps = new Map()
+    const rooms = new Map()
+    const edits = []
+    const editSubs = []
+    let n = 0
+    const fake = {
+      shareMap: async (uid, nickname, name, base, data, blockCount) => {
+        const code = `ABC${100 + maps.size}`
+        maps.set(code, { name, creatorUid: uid, creatorNickname: nickname, base, data, blockCount, createdAt: Date.now(), likes: 0, plays: 0 })
+        return { ok: true, code }
+      },
+      fetchSharedMap: async (code) => (maps.has(code) ? { ...maps.get(code), code } : null),
+      fetchSharedMaps: async () => [...maps].map(([code, m]) => ({ ...m, code, data: undefined })),
+      fetchCommunityBuilds: async () => [],
+      likeSharedMap: async (code) => { const m = maps.get(code); if (m.liked) return false; m.liked = true; m.likes++; return true },
+      countSharedMapPlay: async (code) => { maps.get(code).plays++ },
+      deleteSharedMap: async (code) => { maps.delete(code) },
+      reportSharedMap: async () => {},
+      createBuildRoom: async (uid, hostName, name, base, data) => { rooms.set('ROOM01', { hostUid: uid, hostName, name, base, data }); return { ok: true, code: 'ROOM01' } },
+      fetchBuildRoom: async (code) => rooms.get(code) || null,
+      sendBuildRoomEdit: async (code, uid, name, ops) => {
+        const e = { id: `e${n++}`, uid, name, ops, at: Date.now() }
+        edits.push(e)
+        for (const cb of editSubs) cb([e])
+      },
+      subscribeBuildRoomEdits: (code, cb) => { editSubs.push(cb); return () => {} },
+      setBuildRoomPlayer: async () => {},
+      removeBuildRoomPlayer: async () => {},
+      subscribeBuildRoomPlayers: (code, cb) => { cb([{ uid: 'friend', name: 'Pal', x: 1, y: 1, z: 1, yaw: 0, at: Date.now() }]); return () => {} },
+    }
+    g.__mapShareBackendForTests = fake
+    g.__buildRoomBackendForTests = fake
+    window.prompt = () => 'My Fort'
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const out = {}
+    bm.placeBlock(5, 0, 5, 'brick')
+    bm.placeBlock(6, 0, 5, 'sign', false, { facing: 1, text: 'Hi friends' })
+    const code = await bm.share.shareCurrent()
+    out.code = code
+    out.bannerCode = document.getElementById('community-maps-shared-code').textContent
+    await bm.share.refresh()
+    out.listed = document.querySelectorAll('.community-map-row').length
+    bm.share.close()
+    // Someone else opens it by code: it lands in the Shared Map slot.
+    const before = bm.activeSlot
+    await bm.share.openCode(code.toLowerCase(), false)
+    out.slot = bm.activeSlot
+    out.ownSlotUntouched = before !== 'shared'
+    out.brick = bm.getBlockAt(5, 0, 5)
+    out.signText = bm.gadgets.signText.get('6,0,5')
+    out.badCode = await bm.share.openCode('nope', false)
+    await bm.share.openCode(code, true)
+    out.playing = bm.survival.active
+    out.plays = maps.get(code).plays
+    bm.survival.stop()
+    out.likedOnce = (await fake.likeSharedMap(code)) && !(await fake.likeSharedMap(code))
+
+    // Build together: host a room, make changes, a friend's changes arrive.
+    await bm.together.host()
+    out.inRoom = bm.together.active && bm.together.code === 'ROOM01'
+    out.others = bm.together._others.size
+    bm.tools.apply('floor', [0, 3, 0], [2, 3, 1], 'glass')
+    bm.removeBlock(5, 0, 5)
+    bm.undo()
+    bm.together._flush()
+    const sent = edits.filter((e) => e.uid === 'me').flatMap((e) => JSON.parse(e.ops))
+    out.sentPlaces = sent.filter((o) => o[0] === 'p' && o[4] === 'glass').length
+    out.sentRemoveAndBack = sent.some((o) => o[0] === 'r' && o[1] === 5) && sent.some((o) => o[0] === 'p' && o[4] === 'brick')
+    const undoDepth = bm._undoStack.length
+    await fake.sendBuildRoomEdit('ROOM01', 'friend', 'Pal', JSON.stringify([['p', 9, 0, 9, 'gold'], ['p', 9, 1, 9, 'notablock'], ['r', 6, 0, 5], ['p', 1e9, 0, 0, 'stone']]))
+    out.friendBlock = bm.getBlockAt(9, 0, 9)
+    out.badTypeIgnored = !bm.getBlockAt(9, 1, 9)
+    out.friendRemoved = !bm.getBlockAt(6, 0, 5)
+    out.notInUndo = bm._undoStack.length === undoDepth
+    out.notEchoed = !edits.some((e) => e.uid === 'me' && e.ops.includes('"gold"'))
+    await bm.together.leave()
+    out.left = !bm.together.active && bm.together._others.size === 0
+    g._exitBuildMode()
+    return out
+  })
+
+  expect(r.code).toMatch(/^[A-Z0-9]{6}$/)
+  expect(r.bannerCode).toBe(r.code)
+  expect(r.listed).toBe(1)
+  expect(r.slot).toBe('shared')
+  expect(r.ownSlotUntouched).toBe(true)
+  expect(r.brick).toBe('brick')
+  expect(r.signText).toBe('Hi friends')
+  expect(r.badCode).toBe(false)
+  expect(r.playing).toBe(true)
+  expect(r.plays).toBe(1)
+  expect(r.likedOnce).toBe(true)
+  expect(r.inRoom).toBe(true)
+  expect(r.others).toBe(1)
+  expect(r.sentPlaces).toBe(6)
+  expect(r.sentRemoveAndBack).toBe(true)
+  expect(r.friendBlock).toBe('gold')
+  expect(r.badTypeIgnored).toBe(true)
+  expect(r.friendRemoved).toBe(true)
+  expect(r.notInUndo).toBe(true)
+  expect(r.notEchoed).toBe(true)
+  expect(r.left).toBe(true)
+})
