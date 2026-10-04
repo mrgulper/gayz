@@ -1,3 +1,31 @@
+// How GayZ Features lists each inventory item (Game.js _featureCatalogs) -
+// an item added to the class above without an entry here fails
+// tests/docs.spec.js.
+export const ITEM_INFO = {
+  healthPacks: { name: 'Health Pack', about: 'restores health.' },
+  armorPacks: { name: 'Armor Pack', about: 'restores armor.' },
+  noisemakers: { name: 'Noisemaker', about: 'thrown, distracts zombies toward it.' },
+  grenades: { name: 'Grenade', about: 'thrown explosive.' },
+  barricades: { name: 'Barricade', about: 'placeable blockade.' },
+  traps: { name: 'Spike Trap', about: 'placeable, damages zombies that walk over it.' },
+  molotovs: { name: 'Molotov', about: 'thrown fire damage over an area.' },
+  c4: { name: 'C4', about: 'plantable remote-detonated explosive.' },
+  adrenaline: { name: 'Adrenaline Shot', about: 'temporary combat boost.' },
+  emp: { name: 'EMP Grenade', about: 'disables electronics in an area.' },
+  shields: { name: 'Riot Shield', about: 'blocks damage from the front.' },
+  throwingKnives: { name: 'Throwing Knife', about: 'thrown melee weapon.' },
+  turretKits: { name: 'Turret Kit', about: 'deploys an auto-firing turret.' },
+  medStationKits: { name: 'Med Station Kit', about: 'deploys a healing station.' },
+  alarmKits: { name: 'Alarm Kit', about: 'deployable alarm.' },
+  rations: { name: 'Ration', about: 'restores hunger.' },
+  waterBottles: { name: 'Water Bottle', about: 'restores thirst.' },
+  fuelCans: { name: 'Fuel Can', about: 'refuels the generator and the vehicle.' },
+  smokeBombs: { name: 'Smoke Bomb', about: 'makes nearby zombies lose track of you instantly.' },
+  stealthScreens: { name: 'Stealth Screen', about: 'a thrown cloud that hides you from sight while you stand in it.' },
+  decoyDummies: { name: 'Decoy Dummy', about: 'a placed prop that holds zombie attention for a while.' },
+  barricadeCrates: { name: 'Barricade Crate', about: 'a portable obstacle you can place anywhere to block zombies.' },
+}
+
 export class Inventory {
   constructor() {
     this.healthPacks = 0

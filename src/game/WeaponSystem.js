@@ -174,10 +174,13 @@ const MELEE_COMBO_BONUS_MULT = 1.8
 // next swing visibly cutting the previous one off mid-arc.
 const MELEE_SWING_SPEED = 3
 
+// `about` is the one-line description GayZ Features shows for each weapon
+// (Game.js _featureCatalogs) - kept here so it changes with the weapon.
 const WEAPONS = [
   {
     id: 'melee',
     name: 'Knife',
+    about: 'default melee, always available.',
     melee: true,
     auto: true,
     fireInterval: 0.45,
@@ -193,6 +196,7 @@ const WEAPONS = [
   {
     id: 'rifle',
     name: 'AK-47',
+    about: 'reliable all-rounder assault rifle.',
     auto: true,
     fireInterval: 0.1,
     reloadTime: 0.8,
@@ -213,6 +217,7 @@ const WEAPONS = [
   {
     id: 'pistol',
     name: 'M1911',
+    about: 'starter sidearm pistol.',
     auto: false,
     fireInterval: 0.32,
     reloadTime: 0.55,
@@ -233,6 +238,7 @@ const WEAPONS = [
   {
     id: 'minigun',
     name: 'Minigun',
+    about: 'huge sustained fire, but overheats and jams if you hold the trigger too long.',
     auto: true,
     fireInterval: 0.06,
     reloadTime: 1.6,
@@ -266,6 +272,7 @@ const WEAPONS = [
   {
     id: 'shotgun',
     name: 'Weatie',
+    about: 'pump shotgun, damage falls off at range.',
     auto: false,
     fireInterval: 0.8,
     reloadTime: 1.3,
@@ -289,6 +296,7 @@ const WEAPONS = [
   {
     id: 'awp',
     name: 'AWP',
+    about: 'sniper rifle, comes with a built-in scope.',
     auto: false,
     fireInterval: 1.3,
     reloadTime: 1.8,
@@ -309,6 +317,7 @@ const WEAPONS = [
   {
     id: 'glock18',
     name: 'Glock 18',
+    about: 'fast-firing sidearm.',
     auto: true,
     fireInterval: 0.07,
     reloadTime: 0.5,
@@ -325,6 +334,7 @@ const WEAPONS = [
   {
     id: 'flamethrower',
     name: 'Flamethrower',
+    about: 'continuous close-range burn damage.',
     auto: true,
     fireInterval: 0.05,
     reloadTime: 2.2,
@@ -353,6 +363,7 @@ const WEAPONS = [
   {
     id: 'rocket',
     name: 'Rocket Launcher',
+    about: 'explosive splash damage.',
     auto: false,
     fireInterval: 1.8,
     reloadTime: 2.4,
@@ -375,6 +386,7 @@ const WEAPONS = [
   {
     id: 'crossbow',
     name: 'Crossbow',
+    about: 'bolts can be retrieved off zombies after a hit.',
     auto: false,
     fireInterval: 1.1,
     reloadTime: 1.4,
@@ -397,6 +409,7 @@ const WEAPONS = [
   {
     id: 'launcher',
     name: 'Grenade Launcher',
+    about: 'lobs explosive rounds.',
     auto: false,
     fireInterval: 0.9,
     reloadTime: 2.0,
@@ -419,6 +432,7 @@ const WEAPONS = [
   {
     id: 'suppressedsmg',
     name: 'Suppressed SMG',
+    about: 'quiet, doesn\'t draw as much zombie attention.',
     auto: true,
     fireInterval: 0.09,
     reloadTime: 1.1,
@@ -442,6 +456,7 @@ const WEAPONS = [
   {
     id: 'nailgun',
     name: 'Nail Gun',
+    about: 'pins zombies in place on hit.',
     auto: true,
     fireInterval: 0.15,
     reloadTime: 1.0,
@@ -461,6 +476,7 @@ const WEAPONS = [
   {
     id: 'harpoon',
     name: 'Harpoon Gun',
+    about: 'yanks enemies toward you on hit.',
     auto: false,
     fireInterval: 1.6,
     reloadTime: 2.0,
@@ -480,6 +496,7 @@ const WEAPONS = [
   {
     id: 'voidripper',
     name: 'Void Ripper',
+    about: 'rare drop; fires a slow vortex orb that pulls zombies in before detonating.',
     auto: false,
     fireInterval: 1.6,
     reloadTime: 2.2,
@@ -516,25 +533,25 @@ const WEAPONS = [
 // damage rather than every melee swing feeling identical.
 const MELEE_VARIANTS = {
   knife: { name: 'Knife', damage: KNIFE_DAMAGE, fireInterval: 0.45, range: 2.4, recoilKick: 0.5 },
-  bat: { name: 'Bat', damage: 75, fireInterval: 0.7, range: 2.2, recoilKick: 1.1 },
-  machete: { name: 'Machete', damage: 58, fireInterval: 0.3, range: 2.6, recoilKick: 0.7 },
-  uvbaton: { name: 'UV Baton', damage: 0, fireInterval: 0.5, range: 2.3, recoilKick: 0.6 },
+  bat: { name: 'Bat', about: 'fast, basic swing.', damage: 75, fireInterval: 0.7, range: 2.2, recoilKick: 1.1 },
+  machete: { name: 'Machete', about: 'sharper, more damage per hit.', damage: 58, fireInterval: 0.3, range: 2.6, recoilKick: 0.7 },
+  uvbaton: { name: 'UV Baton', about: 'glowing melee weapon.', damage: 0, fireInterval: 0.5, range: 2.3, recoilKick: 0.6 },
   // cleaveRadius: on top of the direct hit, deals reduced damage to any
   // other alive zombie within that radius of the swing's impact point -
   // see _fire()'s cleave pass below.
-  fireaxe: { name: 'Fire Axe', damage: 95, fireInterval: 0.6, range: 2.3, cleaveRadius: 1.6, recoilKick: 1.3 },
+  fireaxe: { name: 'Fire Axe', about: 'cleaves multiple nearby enemies in one swing.', damage: 95, fireInterval: 0.6, range: 2.3, cleaveRadius: 1.6, recoilKick: 1.3 },
   // stunMs: extends the normal brief hit-reaction stagger into a real stun
   // (see Zombie.stun) on top of its already-high damage.
-  sledgehammer: { name: 'Sledgehammer', damage: 130, fireInterval: 0.95, range: 2.2, stunMs: 1200, recoilKick: 1.8 },
+  sledgehammer: { name: 'Sledgehammer', about: 'slow, but stuns on hit.', damage: 130, fireInterval: 0.95, range: 2.2, stunMs: 1200, recoilKick: 1.8 },
   // Longest reach of any melee weapon - trades damage for keeping zombies
   // at arm's length.
-  spear: { name: 'Spear', damage: 48, fireInterval: 0.55, range: 3.2, recoilKick: 0.8 },
+  spear: { name: 'Spear', about: 'longer reach.', damage: 48, fireInterval: 0.55, range: 3.2, recoilKick: 0.8 },
   // Fastest swing of any melee weapon, shortest range - a flurry weapon
   // rather than a hard-hitting one.
-  nunchaku: { name: 'Nunchaku', damage: 30, fireInterval: 0.22, range: 1.9, recoilKick: 0.4 },
+  nunchaku: { name: 'Nunchaku', about: 'fast multi-hit combo weapon.', damage: 30, fireInterval: 0.22, range: 1.9, recoilKick: 0.4 },
 }
-// Melee variant names by id (GayZ Features lists and counts them from here).
-export const MELEE_VARIANT_NAMES = Object.fromEntries(Object.entries(MELEE_VARIANTS).map(([id, v]) => [id, v.name]))
+// Melee variants' names and descriptions by id (GayZ Features lists them).
+export const MELEE_VARIANT_INFO = Object.fromEntries(Object.entries(MELEE_VARIANTS).map(([id, v]) => [id, { name: v.name, about: v.about }]))
 
 
 export class WeaponSystem {

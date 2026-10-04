@@ -2,6 +2,7 @@
 // zombie survival gameplay (see docs/superpowers/specs/2026-08-08-build-mode-design.md).
 // Reuses Game.js's existing renderer/canvas rather than a second WebGL
 // context - only the scene/camera passed to render() changes.
+import { FIXED_KEYS } from './Keybinds.js'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import * as CloudSync from './CloudSync.js'
@@ -1220,7 +1221,7 @@ export class BuildMode {
       // existed (the picker's Tab-toggle key handling never blocked
       // movement input while open), the search box just made it obvious.
       if (this.pickerOpen) return
-      if (e.code === 'KeyT' && !e.repeat && !e.ctrlKey && !e.metaKey) {
+      if (e.code === FIXED_KEYS.buildTry && !e.repeat && !e.ctrlKey && !e.metaKey) {
         this.toggleTryMode()
         return
       }
@@ -1255,7 +1256,7 @@ export class BuildMode {
         }
         return
       }
-      if (e.code === 'KeyM' && !e.repeat) {
+      if (e.code === FIXED_KEYS.buildMirror && !e.repeat) {
         this.toggleMirror()
         return
       }
@@ -3231,7 +3232,7 @@ export class BuildMode {
     // Hold-V zoom - damped toward its target the same way movement
     // velocity is below, instead of an instant snap, so both zooming in
     // and the release back to normal ease smoothly rather than jump-cutting.
-    const zoomTarget = this._keys.has('KeyV') ? ZOOM_FOV : NORMAL_FOV
+    const zoomTarget = this._keys.has(FIXED_KEYS.buildZoom) ? ZOOM_FOV : NORMAL_FOV
     if (Math.abs(this.camera.fov - zoomTarget) > 0.01) {
       this.camera.fov = THREE.MathUtils.damp(this.camera.fov, zoomTarget, FOV_LERP_SPEED, dt)
       this.camera.updateProjectionMatrix()

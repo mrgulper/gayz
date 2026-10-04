@@ -9,12 +9,12 @@ import { AfterimagePass } from 'three/examples/jsm/postprocessing/AfterimagePass
 import { buildWorld, WORLD_CULL_DISTANCE, WORLD_SHADOW_CULL_DISTANCE, WORLD_TILE_SIZE, CAMPFIRE_X, CAMPFIRE_Z, SAFE_ZONE_X, SAFE_ZONE_Z } from './World.js'
 import { LOW_QUALITY_MODE, flatMaterial } from './QualitySettings.js'
 import { PlayerController } from './PlayerController.js'
-import { WeaponSystem, MELEE_DURABILITY_MAX, MELEE_VARIANT_NAMES } from './WeaponSystem.js'
+import { WeaponSystem, MELEE_DURABILITY_MAX, MELEE_VARIANT_INFO } from './WeaponSystem.js'
 import { ZombieManager } from './ZombieManager.js'
 import { Zombie, bumpZombieIdCounterPast, zombieAnimLod } from './Zombie.js'
 import { PickupManager, Pickup } from './Pickups.js'
 import { PlayerState } from './PlayerState.js'
-import { Inventory } from './Inventory.js'
+import { Inventory, ITEM_INFO } from './Inventory.js'
 import { DayNightCycle, DAY_MS, NIGHT_MS } from './DayNightCycle.js'
 import { ChestManager, Vault, LOOT_WEIGHTS, CHEST_CULL_DISTANCE } from './Chests.js'
 import { RivalManager, RIVAL_BANTER } from './RivalScavenger.js'
@@ -173,7 +173,7 @@ import { pickBounty } from './BountyBoard.js'
 import { ZOMBIE_TYPES, SHARED_ZOMBIE_TYPE_IDS } from './ZombieTypes.js'
 import { RescueSurvivor } from './RescueSurvivor.js'
 import { loadEncountered, saveEncountered } from './Bestiary.js'
-import { ACTIONS, HOTBAR_ITEM_SLOTS, getKeyFor, setBinding, resetBindings, keyLabel, getAllBindings, setAllBindings } from './Keybinds.js'
+import { ACTIONS, HOTBAR_ITEM_SLOTS, FIXED_KEYS, getKeyFor, setBinding, resetBindings, keyLabel, getAllBindings, setAllBindings } from './Keybinds.js'
 import { audioEngine } from './Audio.js'
 import { LANGUAGES, setLanguage, t, tHtml } from './i18n.js'
 import * as MenuEasterEggs from './MenuEasterEggs.js'
@@ -996,6 +996,39 @@ const MUTATOR_LABEL_KEYS = {
   bossHunt: 'mutatorBossHunt',
   zombieRush: 'mutatorZombieRush',
   escalation: 'mutatorEscalation',
+}
+
+// How GayZ Features lists each mutator and game mode (_featureCatalogs) -
+// one missing here fails tests/docs.spec.js. `about` may be a function
+// when it names a number the game defines.
+const MUTATOR_INFO = {
+  hordeRush: { name: 'Horde Rush', about: '2x zombies.' },
+  lootRush: { name: 'Loot Rush', about: '2x XP and points.' },
+  pureGunplay: { name: 'Pure Gunplay', about: 'no auto-weapons allowed.' },
+  bossRush: { name: 'Boss Rush', about: 'a boss spawns every night.' },
+  hordeMode: { name: 'Horde Mode', about: 'relentless close-range waves.' },
+  healthRegen: { name: 'Health Regen', about: 'slowly self-heal after a few seconds out of combat.' },
+  ironMode: { name: 'Iron Mode', about: 'no Trader or Coin Shop spending allowed.' },
+  scavenger: { name: 'Scavenger Run', about: 'start with just melee, earn the rest.' },
+  glassHouse: { name: 'Glass House', about: '2x damage dealt and taken.' },
+  featuredEnemy: { name: 'Featured Enemy', about: 'one random zombie type spawns far more often.' },
+  blackout: { name: 'Blackout', about: 'near-zero ambient light.' },
+  bossGauntlet: { name: 'Boss Gauntlet', about: 'the next boss spawns immediately after the last dies.' },
+  kingOfTheHill: { name: 'King of the Hill', about: 'hold a zone for bonus points.' },
+  extraction: { name: 'Extraction', about: 'reach and hold a landing zone to win the run.' },
+  bossHunt: { name: 'Bounty Hunt', about: 'track down and defeat a boss.' },
+  escalation: { name: 'Escalation Mode', about: 'difficulty keeps climbing with no cap.' },
+  randomizer: { name: 'Randomizer Mode', about: 'your weapon pick each run is randomized.' },
+  cursedRun: { name: 'Cursed Run', about: () => `forces on that week's ${_cursedRunMutatorKeys().length} rotating cursed mutators together.` },
+  dailyChallenge: { name: 'Daily Challenge', about: 'a fixed daily twist with its own leaderboard.' },
+  zombieDefense: { name: 'Zombie Defense toggle', about: 'the Zombie Defense game mode as a mutator.' },
+  zombieRush: { name: 'Zombie Rush toggle', about: 'the Zombie Rush game mode as a mutator.' },
+}
+const GAME_MODE_INFO = {
+  classic: { name: 'Classic', about: 'the base survive-the-nights loop.' },
+  zombieDefense: { name: 'Zombie Defense', about: () => `protect a base through ${ZOMBIE_DEFENSE_WAVES_TO_WIN} waves.` },
+  bossHunt: { name: 'Boss Hunt', about: 'track down and defeat a randomly-picked boss.' },
+  zombieRush: { name: 'Zombie Rush', about: 'endless escalating swarm, survive as long as you can.' },
 }
 
 // Settings Code (export/import, see _exportSettingsCode/_importSettingsCode)
@@ -5764,9 +5797,9 @@ export class Game {
     // they just stand there with an instructional label instead of
     // following/fighting like every other Companion instance.
     this.traderGuideNpc = new Companion(this.scene, trader.x + 1.6, trader.z - 1.4, 'vendor', { vulnerable: false })
-    this.traderGuideNpc.setName('Click the trader to trade points for supplies')
+    this.traderGuideNpc.setName(t('traderGuideName'))
     this.ammoGuideNpc = new Companion(this.scene, ammoStation.x - 1.4, ammoStation.z - 1.2, 'ranged', { vulnerable: false })
-    this.ammoGuideNpc.setName('Hold F here to refill reserve ammo')
+    this.ammoGuideNpc.setName(t('ammoGuideName'))
     this.companion = new Companion(this.scene, 1.6, 7, this.settings.companionRole, { jacketColor: this._companionColorHex() })
     this.reviveTarget = null
     this.playerBody = new PlayerBody(this.scene)
@@ -7432,7 +7465,7 @@ export class Game {
 
       this._checkSecretSequence(e.code)
 
-      if (e.code === 'Tab') {
+      if (e.code === FIXED_KEYS.inventory) {
         e.preventDefault()
         if (this.mapOpen) return // don't let the inventory open on top of the map
         this.inventoryOpen = true
@@ -8047,7 +8080,7 @@ export class Game {
         this._closeTraderPanel()
       } else if (this.perkPanelOpen && e.code === 'Escape') {
         this._closePerkPanel()
-      } else if (this.inventoryOpen && (e.code === 'Tab' || e.code === 'Escape')) {
+      } else if (this.inventoryOpen && (e.code === FIXED_KEYS.inventory || e.code === 'Escape')) {
         e.preventDefault()
         this._closeInventoryPanel()
       } else if (e.code === 'Escape' && this.upgradesPanel && this.upgradesPanel.style.display !== 'none') {
@@ -12336,6 +12369,7 @@ export class Game {
     this.resetBindsBtn.addEventListener('click', () => {
       resetBindings()
       this._renderControlsGrid()
+      this._applyLanguage() // text shows keys via {key:...} - refresh it
     })
     this.restoreDefaultsBtn.addEventListener('click', () => this._restoreDefaultSettings())
     if (this.exportKeybindsBtn) this.exportKeybindsBtn.addEventListener('click', () => this._exportKeybindsCode())
@@ -12521,6 +12555,7 @@ export class Game {
     }
     setAllBindings(payload)
     this._renderControlsGrid()
+    this._applyLanguage() // text shows keys via {key:...} - refresh it
     this._showLoreToast(t('keybindsCodeApplied'))
   }
 
@@ -13702,6 +13737,7 @@ export class Game {
         else setBinding(action, e.code)
       }
       this._renderControlsGrid()
+      this._applyLanguage() // text shows keys via {key:...} - refresh it
     }
     window.addEventListener('keydown', handler, true)
   }
@@ -14780,7 +14816,7 @@ export class Game {
     // lifetime total (that's totalSpent below, tracked separately).
     this._traderVisitPurchaseCount = 0
     this._renderTraderMoodLine()
-    this.traderHint.textContent = tHtml('traderHint')
+    this.traderHint.innerHTML = tHtml('traderHint')
     this._requestPointerUnlock()
     if (!this.activeBounty) this._assignBounty()
     this._renderBounty()
@@ -16828,6 +16864,9 @@ export class Game {
   // Re-renders every static UI string in the current language. Called once
   // at startup and again whenever the player picks a different language.
   _applyLanguage() {
+    // The two guide NPCs' name tags (the ammo one names the interact key).
+    this.traderGuideNpc?.setName(t('traderGuideName'))
+    this.ammoGuideNpc?.setName(t('ammoGuideName'))
     for (const [elId, key] of Object.entries(SIMPLE_TEXT_I18N_KEYS)) {
       const el = document.getElementById(elId)
       if (el) el.textContent = t(key)
@@ -17589,18 +17628,7 @@ export class Game {
     this._closeAllMenuPanels()
     this.howtoplayPanel.style.display = 'flex'
     this.howtoplayPanelTitle.textContent = t('howtoplayPanelTitle')
-    this.howtoplayContent.innerHTML = HOWTOPLAY_STEPS.map((step) => `<h3>${t(step.headingKey)}</h3><p>${tHtml(step.key, this._howToPlayKeys())}</p>`).join('')
-  }
-
-  // How to Play names the player's real keys (their current bindings and the
-  // hotbar's slots) instead of hand-typed letters that went stale whenever a
-  // key moved - its strings use {sprint}/{reload}/{healthPack}... placeholders.
-  _howToPlayKeys() {
-    const keys = {}
-    for (const a of ACTIONS) keys[a.id] = _escapeHtml(keyLabel(getKeyFor(a.id)))
-    for (const slot of HOTBAR_ITEM_SLOTS) keys[slot.id] = _escapeHtml(keyLabel(slot.code))
-    keys.move = ['moveForward', 'moveLeft', 'moveBack', 'moveRight'].map((id) => keys[id]).join('')
-    return keys
+    this.howtoplayContent.innerHTML = HOWTOPLAY_STEPS.map((step) => `<h3>${t(step.headingKey)}</h3><p>${tHtml(step.key)}</p>`).join('')
   }
 
   _closeHowToPlayPanel() {
@@ -19520,22 +19548,30 @@ export class Game {
     this.skindesignerPanel.style.display = 'none'
   }
 
-  // What each expandable GayZ Features list should contain, straight from
-  // the game's data: {id: name}. A null name means "keep the name the HTML
-  // gives it" (night events and items only have toast/HUD text in code,
-  // not a short name). tests/docs.spec.js compares these against the page.
+  // What each expandable GayZ Features list contains, straight from the
+  // game's data: {id: {name, about}}. The descriptions live next to the
+  // thing they describe (WEAPONS/MELEE_VARIANTS, ZOMBIE_TYPES, NIGHT_EVENTS,
+  // Inventory.js's ITEM_INFO, MUTATOR_INFO/GAME_MODE_INFO here), so they
+  // change in the same place the feature does. tests/docs.spec.js fails on
+  // an entry with no description.
   _featureCatalogs() {
-    const named = (entries) => Object.fromEntries(entries)
+    const entry = (info) => ({ name: info?.name, about: typeof info?.about === 'function' ? info.about() : info?.about })
+    const from = (ids, lookup) => Object.fromEntries(ids.map((id) => [id, entry(lookup(id))]))
+    const items = Object.keys(this.inventory).filter((k) => typeof this.inventory[k] === 'number')
+    const modes = [...document.querySelectorAll('[data-game-mode]')]
+      .filter((b) => !b.disabled && !b.classList.contains('locked')).map((b) => b.dataset.gameMode)
     return {
-      firearms: named(this.weapons.weapons.map((w) => [w.id, w.name])),
-      melee: named(Object.entries(MELEE_VARIANT_NAMES).filter(([id]) => id !== 'knife')),
-      zombies: named(Object.entries(ZOMBIE_TYPES).map(([id, z]) => [id, z.label])),
-      nightEvents: named(NIGHT_EVENTS.map((e) => [e.id, null])),
-      items: named(Object.keys(this.inventory).filter((k) => typeof this.inventory[k] === 'number').map((k) => [k, null])),
-      gameModes: named([...document.querySelectorAll('[data-game-mode]')]
-        .filter((b) => !b.disabled && !b.classList.contains('locked'))
-        .map((b) => [b.dataset.gameMode, null])),
-      mutators: named(Object.keys(this.settings.mutators || {}).map((k) => [k, null])),
+      firearms: from(this.weapons.weapons.map((w) => w.id), (id) => this.weapons.weapons.find((w) => w.id === id)),
+      melee: from(Object.keys(MELEE_VARIANT_INFO).filter((id) => id !== 'knife'), (id) => MELEE_VARIANT_INFO[id]),
+      zombies: from(Object.keys(ZOMBIE_TYPES), (id) => {
+        const z = ZOMBIE_TYPES[id]
+        // Bosses are the types that never enter the random-spawn pool.
+        return { name: z.weight === 0 ? `${z.label} (boss)` : z.label, about: z.about }
+      }),
+      nightEvents: from(NIGHT_EVENTS.map((e) => e.id), (id) => NIGHT_EVENTS.find((e) => e.id === id)),
+      items: from(items, (id) => ITEM_INFO[id]),
+      gameModes: from(modes, (id) => GAME_MODE_INFO[id]),
+      mutators: from(Object.keys(this.settings.mutators || {}), (id) => MUTATOR_INFO[id]),
     }
   }
 
@@ -19605,11 +19641,11 @@ export class Game {
     }
   }
 
-  // Makes every [data-feature-list] match its catalog: names from code where
-  // the code has one, items whose thing no longer exists are hidden, things
-  // the page doesn't mention yet are added (marked data-auto, so the docs
-  // test fails until someone writes them a description), and the one-line
-  // summary above each list is rebuilt from what's left.
+  // Builds every [data-feature-list] from its catalog (hand-written
+  // data-extra items, which have no single thing in code, stay at the end),
+  // and the one-line summary above each list from the same names. An entry
+  // with no name or description is still shown, marked data-missing, so
+  // tests/docs.spec.js can name it.
   _syncFeatureLists() {
     const catalogs = this._featureCatalogs()
     const pretty = (id) => id.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/\b\w/g, (c) => c.toUpperCase())
@@ -19617,32 +19653,22 @@ export class Game {
       const key = list.dataset.featureList
       const catalog = catalogs[key]
       if (!catalog) return
-      const seen = new Set()
-      list.querySelectorAll('.detail-item[data-id]').forEach((item) => {
-        const ids = item.dataset.id.split(/\s+/).filter(Boolean)
-        const live = ids.filter((id) => id in catalog)
-        live.forEach((id) => seen.add(id))
-        item.hidden = live.length === 0
-        if (live.length === 1 && ids.length === 1 && catalog[live[0]]) {
-          const b = item.querySelector('b')
-          if (b) b.textContent = catalog[live[0]]
-        }
-      })
-      for (const id of Object.keys(catalog)) {
-        if (seen.has(id)) continue
+      list.querySelectorAll('.detail-item[data-id]').forEach((el) => el.remove())
+      const firstExtra = list.querySelector('.detail-item[data-extra]')
+      for (const [id, { name, about }] of Object.entries(catalog)) {
         const item = document.createElement('div')
         item.className = 'detail-item'
         item.dataset.id = id
-        item.dataset.auto = ''
+        if (!name || !about) item.dataset.missing = ''
         const b = document.createElement('b')
-        b.textContent = catalog[id] || pretty(id)
+        b.textContent = name || pretty(id)
         item.appendChild(b)
-        list.appendChild(item)
+        if (about) item.append(` — ${about}`)
+        list.insertBefore(item, firstExtra)
       }
       const line = this.featuresContent.querySelector(`[data-feature-list-line="${key}"]`)
       if (line) {
-        line.textContent = [...list.querySelectorAll('.detail-item:not([hidden]) > b')]
-          .map((b) => b.textContent.trim()).join(', ')
+        line.textContent = Object.entries(catalog).map(([id, { name }]) => (name || pretty(id)).replace(/ \(boss\)$/, '')).join(', ')
       }
     })
   }
