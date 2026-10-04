@@ -3276,13 +3276,14 @@ html.ui-theme-old {
 }
 
 /* Old theme: every panel box is a torn sheet of old paper
-   (public/images/old-panel-paper.webp, 2026-10-03 - Gaymi's own image)
+   (public/images/old-panel-paper-clean.webp - Gaymi's own image; the
+   2026-10-04 replacement has no stains, "to look more clean")
    instead of the black box, with dark ink text on it. The paper's torn
    edges are see-through, so there's no border or box shadow, just a drop
    shadow that follows the edge; the padding keeps content off the torn
    rim. Dark text: see the html.ui-theme-old .panel-box block further down. */
 html.ui-theme-old .panel-box {
-  background: url('/images/old-panel-paper.webp') center / 100% 100% no-repeat;
+  background: url('/images/old-panel-paper-clean.webp') center / 100% 100% no-repeat;
   border: none;
   border-radius: 0;
   box-shadow: none;
@@ -9289,6 +9290,17 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
   white-space: nowrap;
 }
 
+/* Set by Game.js _fitMenuLinksRow() when the row would reach the right
+   column's buttons. */
+#menu-links-row.links-compact {
+  gap: 2px 4px;
+}
+#menu-links-row.links-compact button,
+#menu-links-row.links-compact a {
+  padding: 6px 7px;
+  font-size: 12.5px;
+}
+
 #menu-links-row svg {
   width: 14px;
   height: 14px;
@@ -9885,6 +9897,12 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
   gap: 11px;
   padding: 2px 7px;
   margin: 0 -7px;
+}
+/* Inside a panel the -7px bleed made the rows 7px wider than the Game
+   Mode page, giving it a sideways scrollbar (2026-10-04). Panels never
+   scroll sideways - see tests/panels.spec.js. */
+.panel-box .mode-toggle {
+  margin: 0;
   border-radius: 4px;
   font-size: 15px;
   color: rgba(255, 255, 255, 0.75);
@@ -10230,6 +10248,14 @@ html.ui-theme-old #settings-panel h2 {
   width: 100%;
   height: 68vh;
   overflow-y: auto;
+}
+/* No panel area ever scrolls sideways (standing rule, 2026-10-04) -
+   these are the shared scroll wrappers; tests/panels.spec.js checks every
+   element in every panel and tab. */
+.panel-fixed-content,
+.hub-tab-page,
+.general-tab-page {
+  overflow-x: hidden;
 }
 
 /* Clan tab specifically needs real room for the two-column in-clan
