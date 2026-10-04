@@ -8624,8 +8624,13 @@ html.ui-theme-old #menu-player-tag {
 html.ui-theme-old #menu-player-badge {
   position: relative;
   display: block;
-  width: 236px;
+  /* As wide as the nav plaques below it (they hang 12px past the
+     column on each side), and taller to match - the text inside scales
+     with it (cqw). */
+  width: 264px;
+  margin: 0 -12px;
   aspect-ratio: 1230 / 1278;
+  container-type: inline-size;
   padding: 0;
   border: none;
   border-image: none;
@@ -8669,7 +8674,7 @@ html.ui-theme-old #menu-avatar-level {
   min-width: 0;
   padding: 0;
   font-family: 'Black Ops One', sans-serif;
-  font-size: 20px;
+  font-size: 8.5cqw;
   font-weight: 400;
   color: #e4d4b4;
   text-shadow: 0 2px 0 #000, 0 0 4px rgba(0, 0, 0, 0.9);
@@ -8692,7 +8697,7 @@ html.ui-theme-old #menu-player-name-row {
 
 html.ui-theme-old #menu-player-tag {
   font-family: 'Black Ops One', sans-serif;
-  font-size: 19px;
+  font-size: 8cqw;
   font-weight: 400;
   letter-spacing: 1px;
   color: #e4d4b4;
@@ -8712,14 +8717,6 @@ html.ui-theme-old #homepage-greeting {
   text-align: center;
 }
 
-@media (max-height: 960px) {
-  html.ui-theme-old #menu-player-badge {
-    width: 210px;
-  }
-  html.ui-theme-old #menu-player-tag {
-    font-size: 17px;
-  }
-}
 
 #menu-player-tag:hover {
   color: var(--menu-gold);
