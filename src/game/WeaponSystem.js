@@ -533,6 +533,8 @@ const MELEE_VARIANTS = {
   // rather than a hard-hitting one.
   nunchaku: { name: 'Nunchaku', damage: 30, fireInterval: 0.22, range: 1.9, recoilKick: 0.4 },
 }
+// How many melee variants exist (GayZ Features counts them from here).
+export const MELEE_VARIANT_COUNT = Object.keys(MELEE_VARIANTS).length
 
 
 export class WeaponSystem {
