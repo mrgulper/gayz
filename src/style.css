@@ -3253,14 +3253,16 @@ html.third-person-active #companion-bark {
      Old theme's paper made it obvious when Achievements' Deathmatch tab
      shrank the sheet ~120px). Content areas are 68vh; --panel-chrome is
      the title + padding around them, sized to the tallest panel
-     (Achievements), so no panel or tab comes out shorter. */
+     (Achievements) plus ~12px of room, since fonts render a pixel or two
+     taller on some machines (CI's made Achievements 1px taller than an
+     exact fit), so no panel or tab comes out a different size. */
   min-height: calc(68vh + var(--panel-chrome));
 }
 :root {
-  --panel-chrome: 126px;
+  --panel-chrome: 138px;
 }
 html.ui-theme-old {
-  --panel-chrome: 212px;
+  --panel-chrome: 224px;
 }
 
 .panel-box {
