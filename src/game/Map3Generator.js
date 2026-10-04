@@ -1086,8 +1086,30 @@ export function generateMap3() {
     if (ladderCells.some(([lx, ly, lz]) => Math.abs(lx - x) + Math.abs(lz - z) <= 1 && Math.abs(ly - y) <= 2)) continue
     if (crates.some(([cx, , cz]) => Math.abs(cx - x) + Math.abs(cz - z) < 6)) continue
     crates.push([x, y, z])
-    set(x, y, z, 'crate')
+    // Every third one is a Loot Chest (ammo and health in Play, 2026-10-04)
+    // - same spots, so nothing else moved.
+    set(x, y, z, crates.length % 3 === 1 ? 'lootchest' : 'crate')
   }
+
+  // Where Play starts you (2026-10-04): the open street cell nearest the
+  // middle of the city, open sky above, nothing in the way around it.
+  // Placed last, like the crates, so nothing else moved.
+  let start = null
+  for (let r = 0; r < INNER && !start; r++) {
+    for (let x = -r; x <= r && !start; x++) {
+      for (const z of [-r, r]) {
+        for (const [cx, cz] of [[x, z], [z, x]]) {
+          if (start || !solidFloor(get(cx, -1, cz))) continue
+          let sky = true
+          for (let y = 0; y < 40 && sky; y++) if (get(cx, y, cz)) sky = false
+          if (!sky) continue
+          if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([ox, oz]) => get(cx + ox, 0, cz + oz) || get(cx + ox, 1, cz + oz))) continue
+          start = [cx, 0, cz]
+        }
+      }
+    }
+  }
+  if (start) set(...start, 'playerstart')
 
   const blocks = []
   for (const [k, type] of cells) {

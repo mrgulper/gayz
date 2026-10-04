@@ -842,7 +842,86 @@ function lamp(px, b, r) {
 // ---- which texture each block uses ------------------------------------------
 
 const GLASS_IDS = /stainedglass$/
+
+// ---- Map Editor game blocks (2026-10-04) ------------------------------------
+// Player Start: a green pad with a white arrow pointing the way you'll face.
+function startPadTop(px, base, r) {
+  noise(px, base, r, 0.06)
+  frame(px, [235, 245, 235])
+  const arrow = [[7, 3], [8, 3], [6, 4], [7, 4], [8, 4], [9, 4], [5, 5], [6, 5], [7, 5], [8, 5], [9, 5], [10, 5]]
+  for (const [x, y] of arrow) px.set(x, y, [250, 250, 250])
+  for (let y = 6; y < 12; y++) { px.set(7, y, [250, 250, 250]); px.set(8, y, [250, 250, 250]) }
+}
+
+// Loot Chest: planks in a dark frame with the lid's seam; the front also
+// has the gold latch.
+function chestSide(px, base, r, front) {
+  planks(px, base, r)
+  const dark = mul(base, 0.5)
+  frame(px, dark)
+  for (let x = 0; x < S; x++) px.set(x, 5, dark)
+  if (front) {
+    for (let y = 4; y < 8; y++) for (let x = 7; x < 9; x++) px.set(x, y, y === 4 ? [255, 236, 140] : [222, 180, 60])
+  }
+}
+
+// Zombie Spawner: a black iron cage (see-through between the bars) with
+// embers glowing inside.
+function spawnerCage(px, base, r) {
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const bar = x % 5 === 0 || y % 5 === 0 || x === S - 1 || y === S - 1
+      if (bar) px.set(x, y, mul(base, 0.8 + r() * 0.4))
+      else px.set(x, y, [0, 0, 0], 0)
+    }
+  }
+  for (let i = 0; i < 6; i++) {
+    const x = 6 + Math.floor(r() * 4)
+    const y = 6 + Math.floor(r() * 4)
+    px.set(x, y, r() < 0.5 ? [255, 120, 40] : [220, 40, 30])
+  }
+}
+
+// Lever / Sign: two parts in one picture - the top half paints the moving
+// part (lever stick with a red knob / the sign board), the bottom half the
+// part it stands on (stone base / wooden post).
+function leverParts(px, base, r) {
+  planks(px, hex(0x9a7444), r)
+  for (let x = 0; x < S; x++) for (let y = 0; y < 2; y++) px.set(x, y, [200, 40, 30])
+  for (let y = 8; y < S; y++) for (let x = 0; x < S; x++) px.set(x, y, mul(base, 0.85 + r() * 0.3))
+}
+
+function signParts(px, base, r) {
+  planks(px, base, r)
+  for (let y = 8; y < S; y++) for (let x = 0; x < S; x++) px.set(x, y, mul(base, 0.6 + r() * 0.12))
+}
+
 const OVERRIDE = {
+  playerstart: (base, r) => {
+    const top = paint((px) => startPadTop(px, base, r))
+    const side = paint((px) => noise(px, mul(base, 0.8), r, 0.06))
+    return { top, side, bottom: side }
+  },
+  pressureplate: (base, r) => {
+    const top = paint((px) => { noise(px, base, r, 0.05); frame(px, mul(base, 0.75)) })
+    return { top, side: top, bottom: top }
+  },
+  lootchest: (base, r) => {
+    const top = paint((px) => { planks(px, base, r); frame(px, mul(base, 0.5)) })
+    return { top, side: paint((px) => chestSide(px, base, r, false)), bottom: top, front: paint((px) => chestSide(px, base, r, true)) }
+  },
+  zombiespawner: (base, r) => {
+    const cage = paint((px) => spawnerCage(px, base, r))
+    return { top: cage, side: cage, bottom: cage }
+  },
+  lever: (base, r) => {
+    const parts = paint((px) => leverParts(px, base, r))
+    return { top: parts, side: parts, bottom: parts }
+  },
+  sign: (base, r) => {
+    const parts = paint((px) => signParts(px, base, r))
+    return { top: parts, side: parts, bottom: parts }
+  },
   grass: (base, r) => ({
     top: paint((px) => grassTop(px, base, r)),
     side: paint((px) => grassSide(px, base, hex(0x6b4a30), r)),
@@ -1098,7 +1177,7 @@ export function blockFaceCanvases(type) {
 // holes, jelly blocks) - those render with the texture's own alpha rather
 // than one flat opacity for the whole block.
 export function textureHasAlpha(type) {
-  return type.id === 'glass' || GLASS_IDS.test(type.id) || type.id === 'leaves' || type.id === 'honeyblock' || type.id === 'slimeblock'
+  return type.id === 'glass' || GLASS_IDS.test(type.id) || type.id === 'leaves' || type.id === 'honeyblock' || type.id === 'slimeblock' || type.id === 'zombiespawner'
 }
 
 // Minecraft-inventory-style isometric block icon (top + two shaded sides)
@@ -1272,5 +1351,44 @@ export function doorIconURL(kind, size = 64) {
   ctx.drawImage(doorCanvas(kind), (size - h / 2) / 2, (size - h) / 2, h / 2, h)
   const url = canvas.toDataURL()
   iconCache.set(key, url)
+  return url
+}
+
+const flatIconCache = new Map()
+
+// Picker icons for the lever and the sign (drawn, since a cube icon would
+// look like a whole block of their texture).
+export function gadgetIconURL(id, size = 64) {
+  const key = `gadget:${id}:${size}`
+  if (flatIconCache.has(key)) return flatIconCache.get(key)
+  const c = document.createElement('canvas')
+  c.width = c.height = size
+  const ctx = c.getContext('2d')
+  const u = size / 16
+  if (id === 'lever') {
+    ctx.fillStyle = '#7d7d7d'
+    ctx.fillRect(4 * u, 11 * u, 8 * u, 3 * u)
+    ctx.fillStyle = '#5a5a5a'
+    ctx.fillRect(4 * u, 13 * u, 8 * u, 1 * u)
+    ctx.save()
+    ctx.translate(8 * u, 11.5 * u)
+    ctx.rotate(0.55)
+    ctx.fillStyle = '#9a7444'
+    ctx.fillRect(-1 * u, -9 * u, 2 * u, 9 * u)
+    ctx.fillStyle = '#c8281e'
+    ctx.fillRect(-1.3 * u, -10 * u, 2.6 * u, 2.4 * u)
+    ctx.restore()
+  } else {
+    ctx.fillStyle = '#6b4a2c'
+    ctx.fillRect(7 * u, 9 * u, 2 * u, 6 * u)
+    ctx.fillStyle = '#b4864a'
+    ctx.fillRect(1 * u, 2 * u, 14 * u, 8 * u)
+    ctx.fillStyle = '#7a5a34'
+    ctx.fillRect(1 * u, 9 * u, 14 * u, 1 * u)
+    ctx.fillStyle = '#ffe9a8'
+    for (const y of [4, 6.5]) ctx.fillRect(3 * u, y * u, 10 * u, 1 * u)
+  }
+  const url = c.toDataURL()
+  flatIconCache.set(key, url)
   return url
 }

@@ -2543,6 +2543,8 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'build-menu-shortcuts-title': 'buildMenuShortcuts',
   'build-menu-tip-title': 'buildMenuTip',
   'build-mode-try-btn-label': 'buildModeTryBtn',
+  'build-mode-play-btn-label': 'buildModePlayBtn',
+  'map-select-3-tag': 'mapSelect3Tag',
   'build-mode-mirror-btn-label': 'buildModeMirrorBtn',
   'build-mode-line-btn-label': 'buildModeLineBtn',
   'build-mode-copy-btn-label': 'buildModeCopyBtn',
@@ -6830,6 +6832,11 @@ export class Game {
 
   _bindMenu() {
     this.playBtn.addEventListener('click', () => {
+      // Map 3 picked in Game Mode: survive zombie waves in the block city.
+      if (this.settings.playMap === 'map3') {
+        this._enterBuildMode({ map: 'map3', play: true })
+        return
+      }
       // Lifetime Play-button click count (Profile panel) - not saved
       // immediately (matches every other high-frequency careerStats
       // counter's batching precedent - persisted at the next
@@ -14109,7 +14116,9 @@ export class Game {
   // hide/show pattern (same as starting a real run) rather than a new panel.
   // map: 'map3' opens the ready-made Map 3 city (Map3Generator.js); 'map2'
   // leaves it for the player's own slots. Omitted keeps the last slot.
-  async _enterBuildMode({ map } = {}) {
+  // play: start Play (zombie waves, BuildSurvival.js) on it straight away -
+  // Game Mode's Map 3 + the Play button.
+  async _enterBuildMode({ map, play = false } = {}) {
     // Every other nav button routes through trackAndOpen/_open*Panel(),
     // which calls _closeAllMenuPanels() first (see that function's own
     // comment on the z-index/stacking bug this prevents). Build Mode
@@ -14228,6 +14237,7 @@ export class Game {
     const current = this.buildMode.activeSlot
     const slot = map === 'map3' ? 'map3' : map === 'map2' && current === 'map3' ? 0 : undefined
     this.buildMode.enter({ slot })
+    if (play) this.buildMode.survival.start({ fromMenu: true })
     this._applyRenderScale()
     // A boss bar left over from a run would otherwise sit over the editor.
     if (this.bossHealthWrap) this.bossHealthWrap.style.display = 'none'
@@ -14250,6 +14260,12 @@ export class Game {
       await new Promise((resolve) => setTimeout(resolve, BUILD_MODE_LOADING_MIN_MS - buildModeLoadElapsed))
     }
     if (this.buildModeLoadingOverlay) this.buildModeLoadingOverlay.style.display = 'none'
+  }
+
+  _renderMapSelect() {
+    const map = this.settings.playMap === 'map3' ? 'map3' : 'map1'
+    document.getElementById('map-select-1')?.classList.toggle('active', map === 'map1')
+    document.getElementById('map-select-3')?.classList.toggle('active', map === 'map3')
   }
 
   _exitBuildMode() {
@@ -17726,7 +17742,16 @@ export class Game {
     // Mode's own UI takes over.
     const mapSelect2Btn = document.getElementById('map-select-2')
     if (mapSelect2Btn) mapSelect2Btn.addEventListener('click', () => this._enterBuildMode({ map: 'map2' }))
-    document.getElementById('map-select-3')?.addEventListener('click', () => this._enterBuildMode({ map: 'map3' }))
+    // Map 1 or Map 3 for the Play button (2026-10-04): Map 3 is played as
+    // zombie waves in the block city (Map Editor's Play, BuildSurvival.js).
+    for (const [id, map] of [['map-select-1', 'map1'], ['map-select-3', 'map3']]) {
+      document.getElementById(id)?.addEventListener('click', () => {
+        this.settings.playMap = map
+        saveSettings(this.settings)
+        this._renderMapSelect()
+      })
+    }
+    this._renderMapSelect()
     const buildExitBtn = document.getElementById('build-mode-exit-btn')
     if (buildExitBtn) buildExitBtn.addEventListener('click', () => this._exitBuildMode())
     const buildSaveBtn = document.getElementById('build-mode-save-btn')

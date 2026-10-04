@@ -7,13 +7,15 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import * as CloudSync from './CloudSync.js'
 import { BlockChunks, CHUNK } from './BlockChunks.js'
-import { blockFaceCanvases, blockIconURL, doorCanvas, doorIconURL, stairsIconURL, textureHasAlpha } from './BlockTextures.js'
+import { blockFaceCanvases, blockIconURL, doorCanvas, doorIconURL, gadgetIconURL, stairsIconURL, textureHasAlpha } from './BlockTextures.js'
 import { t } from './i18n.js'
 import { generateMap3 } from './Map3Generator.js'
 import { BuildTryMode } from './BuildTryMode.js'
 import { LiquidFlow } from './LiquidFlow.js'
 import { BuildTools } from './BuildTools.js'
 import { BuildSky } from './BuildSky.js'
+import { BuildGadgets } from './BuildGadgets.js'
+import { BuildSurvival } from './BuildSurvival.js'
 
 // GROUND_SIZE is a CELL count (not world units) - bumped up from 64, then
 // 76, as BLOCK_SIZE shrank each time, so the buildable footprint's actual
@@ -131,6 +133,9 @@ const MENU_TIPS = [
   { key: 'buildTip10', code: 'SHAPE_TOOLS' },
   { key: 'buildTip11', code: 'rotateClipboard' },
   { key: 'buildTip12', code: 'SKY_WEATHERS' },
+  { key: 'buildTip13', code: 'waveSize' },
+  { key: 'buildTip14', code: 'LINK_RANGE' },
+  { key: 'buildTip15', code: 'SIGN_MAX_CHARS' },
 ]
 const MENU_TIP_KEYS = MENU_TIPS.map((tip) => tip.key)
 // Held with V (see update()'s zoomTarget) - narrows the FOV for a "look
@@ -460,6 +465,17 @@ export const BLOCK_TYPES = [
   // shows as a faint ghost while you hold it, so you can find it to build
   // on or break it (see _updateInvisibleGhost).
   { id: 'invisible', name: 'Invisible Block', color: 0xbfe6ff, pattern: 'glass', roughness: 1, metalness: 0, shape: 'invisible' },
+  // Game blocks (2026-10-04, BuildGadgets.js / BuildSurvival.js): where
+  // Play starts you, where zombies come from, chests of ammo and health,
+  // levers and pressure plates that open the doors near them, and signs
+  // you write on. All shaped, so they get no slab/stairs (like the
+  // Invisible Block) - a "Zombie Spawner Stairs" would make no sense.
+  { id: 'playerstart', name: 'Player Start', color: 0x3fae4a, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'pad', game: true },
+  { id: 'zombiespawner', name: 'Zombie Spawner', color: 0x2c2c34, pattern: 'metal', roughness: 0.6, metalness: 0, shape: 'cage', game: true, emissive: 0xff5020, emissiveIntensity: 0.1 },
+  { id: 'lootchest', name: 'Loot Chest', color: 0xa8743a, pattern: 'wood', roughness: 0.85, metalness: 0, shape: 'chest', game: true },
+  { id: 'lever', name: 'Lever', color: 0x7d7d7d, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'lever', game: true },
+  { id: 'pressureplate', name: 'Pressure Plate', color: 0xa8a8a0, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'pad', game: true },
+  { id: 'sign', name: 'Glowing Sign', color: 0x5a3f28, pattern: 'wood', roughness: 0.85, metalness: 0, shape: 'sign', game: true, emissive: 0xffd890, emissiveIntensity: 0.12 },
   { id: 'ladder', name: 'Ladder', color: 0x8a6239, pattern: 'ladder', roughness: 0.7, metalness: 0, shape: 'ladder' },
   { id: 'oakstairs', name: 'Oak Stairs', color: 0xb4864a, pattern: 'wood', roughness: 0.85, metalness: 0, shape: 'stairs' },
   { id: 'stonestairs', name: 'Stone Stairs', color: 0x808078, pattern: 'speckle', roughness: 0.9, metalness: 0, shape: 'stairs' },
@@ -1001,6 +1017,13 @@ function _canvasTexture(canvas) {
 // -> { top, side, bottom } textures for a shaped block (all three the same
 // texture unless its source block has different faces, e.g. a grass slab).
 function _shapedBlockTextures(bt) {
+  if (bt.game) {
+    const faces = blockFaceCanvases(bt)
+    const side = _canvasTexture(faces.side)
+    const top = faces.top === faces.side ? side : _canvasTexture(faces.top)
+    const bottom = faces.bottom === faces.side ? side : faces.bottom === faces.top ? top : _canvasTexture(faces.bottom)
+    return { top, side, bottom, front: faces.front ? _canvasTexture(faces.front) : side }
+  }
   if (bt.door) {
     const tex = _canvasTexture(doorCanvas(bt.door))
     return { top: tex, side: tex, bottom: tex }
@@ -1021,6 +1044,8 @@ function _shapedBlockTextures(bt) {
 // slab at half height, stairs as stairs.
 function _blockIcon(bt) {
   if (bt.door) return doorIconURL(bt.door)
+  if (bt.shape === 'lever' || bt.shape === 'sign') return gadgetIconURL(bt.shape)
+  if (bt.game) return blockIconURL(bt, 64, bt.shape === 'pad' ? 0.25 : bt.shape === 'chest' ? 0.85 : 1)
   if (bt.shape === 'invisible') return _invisibleIconURL()
   const source = _shapedSource(bt)
   if (bt.shape === 'stairs') return stairsIconURL(source || bt)
@@ -1046,7 +1071,7 @@ const PICKER_CATEGORIES = [
   ['other', 'Other'],
 ]
 function _blockCategory(bt) {
-  if (bt.shape === 'invisible') return 'special'
+  if (bt.shape === 'invisible' || bt.game) return 'special'
   if (bt.shape === 'slab') return 'slab'
   if (bt.shape === 'stairs') return 'stairs'
   if (bt.shape) return 'parts'
@@ -1144,6 +1169,50 @@ function _buildDoorGeometry(top) {
   return geo
 }
 
+// Game blocks' shapes (BuildGadgets.js). Every one's front is -z, like
+// stairs' low side, so facing f turns it toward you.
+function _buildPadGeometry() {
+  const geo = new THREE.BoxGeometry(BLOCK_SIZE * 14 / 16, BLOCK_SIZE / 16, BLOCK_SIZE * 14 / 16)
+  geo.translate(0, -BLOCK_SIZE / 2 + BLOCK_SIZE / 32, 0)
+  return geo
+}
+
+function _buildChestGeometry() {
+  const geo = new THREE.BoxGeometry(BLOCK_SIZE * 14 / 16, BLOCK_SIZE * 14 / 16, BLOCK_SIZE * 14 / 16)
+  geo.translate(0, -BLOCK_SIZE / 16, 0)
+  return geo
+}
+
+// Lever and sign use one picture split in two: the box parts that move or
+// carry writing take the top half (uv.y 0.5-1), what they stand on the
+// bottom half.
+function _halfUV(geo, top) {
+  const uv = geo.attributes.uv
+  for (let v = 0; v < uv.count; v++) uv.setY(v, uv.getY(v) * 0.5 + (top ? 0.5 : 0))
+  return geo
+}
+
+function _buildLeverGeometry() {
+  const u = BLOCK_SIZE / 16
+  const base = _halfUV(new THREE.BoxGeometry(6 * u, 3 * u, 8 * u), false)
+  base.translate(0, -BLOCK_SIZE / 2 + 1.5 * u, 0)
+  // Tilted toward -z when off; on turns it the other way (BuildGadgets).
+  const stick = _halfUV(new THREE.BoxGeometry(2 * u, 9 * u, 2 * u), true)
+  stick.translate(0, 4.5 * u, 0)
+  stick.rotateX(-0.6)
+  stick.translate(0, -BLOCK_SIZE / 2 + 2 * u, 0)
+  return mergeGeometries([base.toNonIndexed(), stick.toNonIndexed()])
+}
+
+function _buildSignGeometry() {
+  const u = BLOCK_SIZE / 16
+  const post = _halfUV(new THREE.BoxGeometry(2 * u, 8 * u, 2 * u), false)
+  post.translate(0, -BLOCK_SIZE / 2 + 4 * u, 0)
+  const board = _halfUV(new THREE.BoxGeometry(14 * u, 8 * u, 1.5 * u), true)
+  board.translate(0, -BLOCK_SIZE / 2 + 12 * u, 0)
+  return mergeGeometries([post.toNonIndexed(), board.toNonIndexed()])
+}
+
 function _buildLadderGeometry() {
   const geo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE * 0.12)
   return geo
@@ -1163,11 +1232,21 @@ const CUSTOM_BLOCK_GEOMETRY = {
   ladder: _buildLadderGeometry(),
   door: _buildDoorGeometry(false),
   doortop: _buildDoorGeometry(true),
+  pad: _buildPadGeometry(),
+  chest: _buildChestGeometry(),
+  lever: _buildLeverGeometry(),
+  sign: _buildSignGeometry(),
 }
+// Shaped blocks that face a way (saved as `facing`, turned with a copy).
+const FACED_SHAPES = new Set(['stairs', 'chest', 'lever', 'sign', 'cage', 'pad'])
 
 export class BuildMode {
   // Read by tests/docs.spec.js, which presses every listed key for real.
   static MENU_SHORTCUTS = MENU_SHORTCUTS
+
+  static blockShape(type) {
+    return BLOCK_BY_ID.get(type)?.shape
+  }
 
   constructor(renderer, game) {
     this.game = game
@@ -1256,6 +1335,7 @@ export class BuildMode {
       // While trying the map, keys move the player (see BuildTryMode) -
       // the building tools stay off.
       if (this.tryMode.active) {
+        if (this.survival.active && !e.repeat) this.survival.onKeyDown(e.code)
         if (e.code === 'KeyE' && !e.repeat) this._tryUseFromCamera()
         if (e.code === 'KeyM' && !e.repeat) this.tryMode.cycleMap()
         this._keys.add(e.code)
@@ -1457,6 +1537,14 @@ export class BuildMode {
     this.liquids = new LiquidFlow(this)
     // Fill, Replace and the shape tools (BuildTools.js).
     this.tools = new BuildTools(this, BLOCK_SIZE)
+    // Levers, pressure plates, signs, chests (BuildGadgets.js).
+    this.gadgets = new BuildGadgets(this, BLOCK_SIZE)
+    // Play: zombie waves on your own map (BuildSurvival.js).
+    this.survival = new BuildSurvival(this, BLOCK_SIZE)
+    document.getElementById('build-mode-play-btn')?.addEventListener('click', () => {
+      if (this.survival.active) this.survival.stop()
+      else this.survival.start()
+    })
     // Time of day and weather (BuildSky.js).
     this.sky = new BuildSky(this, BLOCK_SIZE)
     // A dot in the middle of the screen to aim with while trying the map.
@@ -1746,6 +1834,10 @@ export class BuildMode {
       return this.isDoorOpenAt(x, bottomY, z) ? 0 : 1
     }
     if (shape === 'slab' || shape === 'stairs') return 0.5
+    // Plates, levers and signs are walked over / through; a chest is
+    // nearly a full block.
+    if (shape === 'pad' || shape === 'lever' || shape === 'sign') return 0
+    if (shape === 'chest') return 0.875
     return 1
   }
 
@@ -1804,6 +1896,8 @@ export class BuildMode {
     const c = this.camera.position
     const reach = TRY_REACH_BLOCKS * BLOCK_SIZE
     if (Math.hypot((x + 0.5) * BLOCK_SIZE - c.x, (y + 0.5) * BLOCK_SIZE - c.y, (z + 0.5) * BLOCK_SIZE - c.z) > reach) return false
+    if (this.gadgets.use(x, y, z, true)) return true
+    if (this.survival?.useChest(x, y, z)) return true
     if (!this.toggleDoor(x, y, z)) return false
     if (this.tryMode.overlapsSolid()) this.toggleDoor(x, y, z)
     return true
@@ -1878,6 +1972,7 @@ export class BuildMode {
     this._keys.clear()
     this._velocity.set(0, 0, 0)
     if (this.tryMode.active) {
+      if (this.survival.active) this.survival.stop({ leaveTry: false })
       this.tryMode.exit()
       this._renderHotbar()
     } else {
@@ -1968,21 +2063,23 @@ export class BuildMode {
     }
     if (!material) {
       const tex = _shapedBlockTextures(bt)
-      for (const t of new Set([tex.top, tex.side, tex.bottom])) t.anisotropy = this._maxAnisotropy
+      for (const t of new Set([tex.top, tex.side, tex.bottom, tex.front].filter(Boolean))) t.anisotropy = this._maxAnisotropy
       // Lambert (like the chunk meshes) - cheaper per pixel than the
       // physically-based Standard material, same look for flat blocks.
       const make = (map) => new THREE.MeshLambertMaterial({
         map,
         transparent: !!bt.transparent,
         opacity: bt.opacity ?? 1,
-        alphaTest: bt.transparent ? 0.02 : bt.door ? 0.5 : 0,
+        alphaTest: bt.transparent ? 0.02 : bt.door || bt.shape === 'cage' ? 0.5 : 0,
+        side: bt.shape === 'cage' ? THREE.DoubleSide : THREE.FrontSide,
         emissive: bt.emissive ?? 0x000000,
         emissiveIntensity: bt.emissiveIntensity ?? 0,
       })
       const side = make(tex.side)
       // BoxGeometry face order: +x, -x, +y (top), -y (bottom), +z, -z.
-      material = bt.shape === 'slab'
-        ? [side, side, tex.top === tex.side ? side : make(tex.top), tex.bottom === tex.side ? side : make(tex.bottom), side, side]
+      // A chest's latch (its front) is on -z, which faces you.
+      material = bt.shape === 'slab' || bt.shape === 'pad' || bt.shape === 'chest'
+        ? [side, side, tex.top === tex.side ? side : make(tex.top), tex.bottom === tex.side ? side : make(tex.bottom), side, bt.shape === 'chest' && tex.front !== tex.side ? make(tex.front) : side]
         : side
     }
     const capacity = mesh ? Math.min(mesh.instanceMatrix.count * 2, MAX_INSTANCES_PER_TYPE) : 256
@@ -2087,22 +2184,25 @@ export class BuildMode {
     // stack with thousands of individual entries, while every real
     // interactive placement (a plain skipBoundsUpdate=false call) still
     // gets recorded.
-    if (!skipBoundsUpdate && !this._suppressUndoRecording) {
-      this._recordUndo({ action: 'place', x, y, z, type, ...(shape === 'door' ? { state: { ...this._doorState.get(key) } } : shape === 'stairs' ? { state: { facing: this._stairFacing.get(key) } } : {}) })
-    }
     const index = mesh.count
     // x/y/z are integer grid cell indices (unaffected by BLOCK_SIZE - saved
     // builds, _blocks' sparse map keys, and every raycast/collision cell
     // lookup all stay in this same cell-index space); only the WORLD
     // position of that cell's center needs the *BLOCK_SIZE conversion.
-    if (shape === 'stairs') {
+    if (FACED_SHAPES.has(shape)) {
       const f = state?.facing
       // Loaded stairs with no facing saved are the old fixed ones (0).
       this._stairFacing.set(key, Number.isInteger(f) && f >= 0 && f <= 3 ? f : skipBoundsUpdate ? 0 : this._stairFacingFromCamera())
+      this.gadgets.onPlace(key, x, y, z, type, state)
+    }
+    // Recorded once the block knows which way it faces, so redo puts it
+    // back the same way.
+    if (!skipBoundsUpdate && !this._suppressUndoRecording) {
+      this._recordUndo({ action: 'place', x, y, z, type, ...(shape === 'door' ? { state: { ...this._doorState.get(key) } } : FACED_SHAPES.has(shape) ? { state: this.gadgets.stateOf(key) } : {}) })
     }
     const matrix = this._doorState.has(key) ? this._doorMatrix(x, y, z, this._doorState.get(key))
       : shape === 'ladder' ? this._ladderMatrix(x, y, z)
-        : shape === 'stairs' ? new THREE.Matrix4().makeRotationY(this._stairFacing.get(key) * (Math.PI / 2)).setPosition((x + 0.5) * BLOCK_SIZE, (y + 0.5) * BLOCK_SIZE, (z + 0.5) * BLOCK_SIZE)
+        : FACED_SHAPES.has(shape) ? this.gadgets.matrixAt(key, x, y, z, shape, state)
         : new THREE.Matrix4().makeTranslation((x + 0.5) * BLOCK_SIZE, (y + 0.5) * BLOCK_SIZE, (z + 0.5) * BLOCK_SIZE)
     mesh.setMatrixAt(index, matrix)
     // Slight per-instance brightness variation (±12%) - every block of a
@@ -2251,10 +2351,11 @@ export class BuildMode {
       return
     }
     if (!this._suppressUndoRecording && !this._removingDoorTop) {
-      this._recordUndo({ action: 'remove', x, y, z, type, ...(shape === 'door' && this._doorState.has(key) ? { state: { ...this._doorState.get(key) } } : shape === 'stairs' && this._stairFacing.has(key) ? { state: { facing: this._stairFacing.get(key) } } : {}) })
+      this._recordUndo({ action: 'remove', x, y, z, type, ...(shape === 'door' && this._doorState.has(key) ? { state: { ...this._doorState.get(key) } } : FACED_SHAPES.has(shape) && this._stairFacing.has(key) ? { state: this.gadgets.stateOf(key) } : {}) })
     }
     if (shape === 'door' || shape === 'doortop') this._doorState.delete(key)
     this._stairFacing.delete(key)
+    this.gadgets.onRemove(key)
     if (shape === 'door' && this._blocks.get(this._key(x, y + 1, z)) === `${type}top`) {
       this._removingDoorTop = true
       this.removeBlock(x, y + 1, z)
@@ -2385,14 +2486,23 @@ export class BuildMode {
     this._raycaster.setFromCamera({ x: 0, y: 0 }, this.camera)
     const hit = this._raycastGridAligned()
     if (!hit) return
-    // Right-clicking a door opens/closes it instead of placing against it.
+    // Right-clicking a door opens/closes it instead of placing against it
+    // (a lever flips, a sign asks for new words).
     if (this.toggleDoor(...hit.existingBlock)) return
+    if (this.gadgets.use(...hit.existingBlock, false)) return
     const [px, py, pz] = hit.placeAt
     if (this._wouldOverlapCamera(px, py, pz)) return
     if (BLOCK_BY_ID.get(this.selectedType)?.shape === 'door' && this._wouldOverlapCamera(px, py + 1, pz)) return
+    // A new sign asks what to write on it first (Cancel places nothing).
+    let state = null
+    if (this.selectedType === 'sign') {
+      const text = window.prompt(t('buildSignPrompt'), '')
+      if (text === null) return
+      state = { facing: this._stairFacingFromCamera(), text }
+    }
     this._undoGroupDo(() => {
-      this.placeBlock(px, py, pz, this.selectedType)
-      if (this.mirrorMode) this.placeBlock(this._mirrorX(px), py, pz, this.selectedType)
+      this.placeBlock(px, py, pz, this.selectedType, false, state)
+      if (this.mirrorMode) this.placeBlock(this._mirrorX(px), py, pz, this.selectedType, false, state)
     })
     this.tryMode.swingHand()
   }
@@ -2459,7 +2569,7 @@ export class BuildMode {
       const cell = [Math.floor(px / BLOCK_SIZE), Math.floor(py / BLOCK_SIZE), Math.floor(pz / BLOCK_SIZE)]
       // Flowing water/lava can't be aimed at - you build straight through it.
       if (this.getBlockAt(cell[0], cell[1], cell[2]) && !this.liquids.isFlow(this._key(cell[0], cell[1], cell[2]))) {
-        return { placeAt: prevCell || cell, existingBlock: cell }
+        return { placeAt: prevCell || cell, existingBlock: cell, t }
       }
       prevCell = cell
     }
@@ -2722,7 +2832,7 @@ export class BuildMode {
           if (!type || this.liquids.isFlow(this._key(cx, cy, cz))) continue
           const key = this._key(cx, cy, cz)
           // Stairs and doors keep which way they face (and Q turns it).
-          const state = this._stairFacing.has(key) ? { facing: this._stairFacing.get(key) } : this._doorState.has(key) ? { ...this._doorState.get(key) } : undefined
+          const state = this._stairFacing.has(key) ? this.gadgets.stateOf(key) : this._doorState.has(key) ? { ...this._doorState.get(key) } : undefined
           blocks.push({ dx: cx - minX, dy: cy - minY, dz: cz - minZ, type, state })
         }
       }
@@ -2943,8 +3053,14 @@ export class BuildMode {
       return pIndex.get(type)
     }
     const doors = []
+    const signs = []
     const rows = new Map()
     for (const b of snapshot.blocks) {
+      // Signs carry their words too (a list of their own).
+      if (typeof b.text === 'string' && b.text) {
+        signs.push([b.x, b.y, b.z, pi(b.type), b.facing || 0, b.text])
+        continue
+      }
       if (b.facing !== undefined) {
         doors.push([b.x, b.y, b.z, pi(b.type), b.facing, b.open ? 1 : 0])
         continue
@@ -2969,7 +3085,7 @@ export class BuildMode {
         len = 1
       }
     }
-    return JSON.stringify({ v: 2, p: palette, r: runs.join(';'), d: doors, h: snapshot.hotbar })
+    return JSON.stringify({ v: 2, p: palette, r: runs.join(';'), d: doors, ...(signs.length ? { s: signs } : {}), h: snapshot.hotbar })
   }
 
   _decodeSlot(raw) {
@@ -2987,6 +3103,10 @@ export class BuildMode {
     for (const d of Array.isArray(data.d) ? data.d : []) {
       const [x, y, z, p, facing, open] = d
       if (data.p[p]) blocks.push({ x, y, z, type: data.p[p], facing, open: open === 1 })
+    }
+    for (const sg of Array.isArray(data.s) ? data.s : []) {
+      const [x, y, z, p, facing, text] = sg
+      if (data.p[p]) blocks.push({ x, y, z, type: data.p[p], facing, text: String(text ?? '') })
     }
     return { blocks, hotbar: data.h }
   }
@@ -3093,8 +3213,8 @@ export class BuildMode {
       if (shape === 'doortop' || this.liquids.isFlow(key)) continue
       const [x, y, z] = key.split(',').map(Number)
       const door = shape === 'door' && this._doorState.get(key)
-      const stairs = shape === 'stairs' && this._stairFacing.get(key)
-      blocks.push(door ? { x, y, z, type, facing: door.facing, open: door.open } : stairs ? { x, y, z, type, facing: stairs } : { x, y, z, type })
+      const faced = FACED_SHAPES.has(shape) && this._stairFacing.has(key) && this.gadgets.stateOf(key)
+      blocks.push(door ? { x, y, z, type, facing: door.facing, open: door.open } : faced && (faced.facing || faced.open || faced.text) ? { x, y, z, type, ...faced } : { x, y, z, type })
     }
     // Windows shot out while trying the map are only gone for that try -
     // saves and exports still have them.
@@ -3201,7 +3321,7 @@ export class BuildMode {
         if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) continue
         if (!VALID_TYPE_IDS.has(type)) continue
         const shape = BLOCK_BY_ID.get(type).shape
-        const state = shape === 'door' ? { facing: entry.facing, open: entry.open === true } : shape === 'stairs' && entry.facing !== undefined ? { facing: entry.facing } : null
+        const state = shape === 'door' ? { facing: entry.facing, open: entry.open === true } : FACED_SHAPES.has(shape) && (entry.facing !== undefined || entry.text) ? { facing: entry.facing, open: entry.open === true, text: typeof entry.text === 'string' ? entry.text : undefined } : null
         this.placeBlock(Math.trunc(x), Math.trunc(y), Math.trunc(z), type, true, state)
         touchedTypes.add(type)
         if (state) touchedTypes.add(`${type}top`)
@@ -3266,6 +3386,7 @@ export class BuildMode {
     this._invisShadowDirty = true
     this._doorState.clear()
     this._stairFacing.clear()
+    this.gadgets.clear()
     this._chunkCells.clear()
     this._chunks.clear()
     this._shadowsDirty = true
@@ -3413,6 +3534,7 @@ export class BuildMode {
     this.sky.update(dt)
     if (this.tryMode.active) {
       this.tryMode.update(dt, this._keys)
+      this.survival.update(dt)
       return
     }
 

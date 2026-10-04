@@ -13397,3 +13397,49 @@ html.ui-theme-old .crate-card .crate-stock-count { color: #241507; }
   pointer-events: none;
 }
 #build-menu-right > .build-menu-card { flex: none; }
+
+/* Map Editor Play (BuildSurvival.js): wave line top-left, health bar
+   above the hotbar, ammo bottom-right, a red flash when hit. */
+#build-play-hud { display: none; position: fixed; inset: 0; z-index: 16; pointer-events: none; font-family: 'Bebas Neue', sans-serif; }
+#build-play-wave {
+  position: absolute; top: 64px; left: 16px;
+  padding: 6px 14px; font-size: 22px; letter-spacing: 1px; color: #ffe9a8;
+  background: rgba(10, 10, 10, 0.65); border: 1px solid rgba(255, 207, 92, 0.45); border-radius: 999px;
+}
+#build-play-msg {
+  position: absolute; top: 22%; left: 50%; transform: translateX(-50%);
+  font-size: 40px; letter-spacing: 2px; color: #fff; text-shadow: 0 2px 8px #000, 0 0 3px #000;
+  white-space: nowrap; transition: opacity 0.5s; text-align: center;
+}
+#build-play-health {
+  position: absolute; bottom: 132px; left: 50%; transform: translateX(-50%);
+  width: 260px; height: 18px; background: rgba(10, 10, 10, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 999px; overflow: hidden;
+}
+#build-play-health-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #b8261c, #e8483a); transition: width 0.2s; }
+#build-play-health-text { position: absolute; inset: 0; text-align: center; font-size: 16px; line-height: 18px; color: #fff; text-shadow: 0 1px 2px #000; }
+#build-play-ammo {
+  position: absolute; bottom: 28px; right: 24px; font-size: 38px; color: #fff;
+  text-shadow: 0 2px 6px #000;
+}
+#build-play-hurt { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 45%, rgba(200, 0, 0, 0.55)); opacity: 0; }
+#build-play-hurt.show { animation: build-play-hurt 0.45s ease-out; }
+@keyframes build-play-hurt { from { opacity: 1; } to { opacity: 0; } }
+#build-try-crosshair.hit { animation: build-play-hitmark 0.18s ease-out; }
+@keyframes build-play-hitmark { from { background: #ff3b30; transform: scale(2.2); } }
+#build-play-over {
+  display: none; position: fixed; inset: 0; z-index: 25; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at center, rgba(60, 0, 0, 0.55), rgba(5, 0, 0, 0.9));
+}
+.build-play-over-card {
+  min-width: 320px; padding: 28px 36px; text-align: center; color: #f1e6c8;
+  background: rgba(18, 15, 10, 0.92); border: 1px solid rgba(232, 194, 90, 0.5); border-radius: 10px;
+}
+#build-play-over-title { margin: 0 0 10px; font-family: 'Black Ops One', 'Bebas Neue', sans-serif; font-size: 44px; color: #e8483a; }
+#build-play-over-text, #build-play-over-best { margin: 6px 0; font-size: 17px; }
+.build-play-over-btns { display: flex; gap: 12px; justify-content: center; margin-top: 18px; }
+.build-play-over-btns button {
+  padding: 10px 18px; font-size: 15px; font-weight: 700; color: #f1e6c8; cursor: pointer;
+  background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(232, 194, 90, 0.5); border-radius: 999px;
+}
+.build-play-over-btns button:hover { border-color: #e8c25a; background: rgba(232, 194, 90, 0.18); }
