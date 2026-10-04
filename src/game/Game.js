@@ -11246,6 +11246,8 @@ export class Game {
     if (this.reportBugBtn) this.reportBugBtn.addEventListener('click', () => this._reportBug())
     this.creditsBtn.addEventListener('click', () => trackAndOpen(() => this._openCreditsPanel()))
     if (this.termsBtn) this.termsBtn.addEventListener('click', () => trackAndOpen(() => this._openTermsPanel()))
+    const navPrivacyLink = document.getElementById('nav-privacy-link')
+    if (navPrivacyLink) navPrivacyLink.addEventListener('click', () => trackAndOpen(() => this._openPrivacyPanel()))
     if (this.creditsTermsLink) this.creditsTermsLink.addEventListener('click', () => trackAndOpen(() => this._openTermsPanel()))
     if (this.creditsPrivacyLink) this.creditsPrivacyLink.addEventListener('click', () => trackAndOpen(() => this._openPrivacyPanel()))
     if (this.gayzFeaturesBtn) this.gayzFeaturesBtn.addEventListener('click', () => trackAndOpen(() => this._openFeaturesPanel()))
@@ -16929,6 +16931,8 @@ export class Game {
     if (this.creditsBtn) this.creditsBtn.querySelector('span').textContent = t('creditsBtn')
     const termsBtnEl = document.getElementById('terms-btn')
     if (termsBtnEl) termsBtnEl.querySelector('span').textContent = t('termsBtn')
+    const navPrivacyEl = document.getElementById('nav-privacy-link')
+    if (navPrivacyEl) navPrivacyEl.querySelector('span').textContent = t('creditsPrivacyLink')
     if (this.friendsBtn) this.friendsBtn.querySelector('span').textContent = t('friendsBtn')
     if (this.friendsSignedOutDesc) this.friendsSignedOutDesc.textContent = t('friendsSignedOutDesc')
     if (this.friendsSigninBtn) this.friendsSigninBtn.textContent = t('cloudsaveSigninBtn')
@@ -17888,6 +17892,31 @@ export class Game {
       })
     }
     this._updatePlayBtnCentering()
+    this._fitMenuLinksRow()
+  }
+
+  // The footer links (#menu-links-row, How to Play ... Privacy Policy ...
+  // Discord) must stay clear of the right column's nav buttons (2026-10-04,
+  // Gaymi: "dont make it touch the right side panel"). Where they'd reach
+  // within MENU_LINKS_CLEARANCE px of the buttons' left edge, the row first
+  // tightens its spacing (.links-compact), and if that still isn't enough
+  // it wraps to a second line by capping its width. Measured live, like
+  // _updatePlayBtnCentering below - the row's width depends on translated
+  // labels and the column positions on the window size.
+  _fitMenuLinksRow() {
+    const row = document.getElementById('menu-links-row')
+    const nav = [...document.querySelectorAll('#menu-nav-buttons button')].filter((b) => b.offsetParent)
+    if (!row || !nav.length || row.offsetParent === null) return
+    const MENU_LINKS_CLEARANCE = 24
+    row.classList.remove('links-compact')
+    row.style.maxWidth = ''
+    const limit = Math.min(...nav.map((b) => b.getBoundingClientRect().left)) - MENU_LINKS_CLEARANCE
+    if (row.getBoundingClientRect().right <= limit) return
+    row.classList.add('links-compact')
+    if (row.getBoundingClientRect().right <= limit) return
+    // Centered, so the row may be at most twice the distance from the middle
+    // of the window to the limit.
+    row.style.maxWidth = `${Math.max(240, 2 * (limit - window.innerWidth / 2))}px`
   }
 
   // Decides whether #play-btn can go dead-center in the viewport (see its
@@ -18418,6 +18447,7 @@ export class Game {
     this.composer.setSize(window.innerWidth, window.innerHeight)
     this.bloomPass.resolution.set(window.innerWidth * BLOOM_RESOLUTION_SCALE, window.innerHeight * BLOOM_RESOLUTION_SCALE)
     this._updatePlayBtnCentering()
+    this._fitMenuLinksRow()
     this._fitPlayerShowcaseTitle()
   }
 
