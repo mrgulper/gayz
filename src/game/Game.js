@@ -2511,16 +2511,19 @@ const KILL_MILESTONES_SEEN_KEY = 'gayz-kill-milestones-seen'
 // How to Play used to be a paginated Next/Back stepper - now rendered as
 // one static scrollable list (see _openHowToPlayPanel), same format as
 // Credits/Rules & Info, so each step needs a short heading of its own.
+// `code`: the functions/constants each step describes. When a change touches
+// one of them, scripts/check-docs.mjs asks for that step's text to be
+// re-read (edited, or confirmed with [reread: htpX] in the commit message).
 const HOWTOPLAY_STEPS = [
-  { key: 'htpMove', headingKey: 'htpHeadingMovement' },
-  { key: 'htpShoot', headingKey: 'htpHeadingCombat' },
-  { key: 'htpInventory', headingKey: 'htpHeadingInventory' },
-  { key: 'htpChests', headingKey: 'htpHeadingChests' },
-  { key: 'htpSurvive', headingKey: 'htpHeadingSurvival' },
-  { key: 'htpCompanion', headingKey: 'htpHeadingCompanion' },
-  { key: 'htpTrader', headingKey: 'htpHeadingTrader' },
-  { key: 'htpModes', headingKey: 'htpHeadingModes' },
-  { key: 'htpRules', headingKey: 'htpHeadingRules' },
+  { key: 'htpMove', headingKey: 'htpHeadingMovement', code: 'grappleCooldownUntil _mantleStart prone' },
+  { key: 'htpShoot', headingKey: 'htpHeadingCombat', code: 'headshot _fireShot' },
+  { key: 'htpInventory', headingKey: 'htpHeadingInventory', code: '_onPickup' },
+  { key: 'htpChests', headingKey: 'htpHeadingChests', code: 'Chests' },
+  { key: 'htpSurvive', headingKey: 'htpHeadingSurvival', code: 'HOTBAR_ITEMS _useHotbarItem' },
+  { key: 'htpCompanion', headingKey: 'htpHeadingCompanion', code: 'recruitSpots RECRUIT_ROLES' },
+  { key: 'htpTrader', headingKey: 'htpHeadingTrader', code: 'buildSafeZone _openTraderPanel TRADER_QUESTS' },
+  { key: 'htpModes', headingKey: 'htpHeadingModes', code: 'GAME_MODE_INFO MUTATOR_INFO' },
+  { key: 'htpRules', headingKey: 'htpHeadingRules', code: '' },
 ]
 
 // Mega i18n sweep (2026-09-05): hundreds of settings labels, dropdown options,
