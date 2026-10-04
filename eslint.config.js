@@ -85,9 +85,9 @@ export default [
     },
   },
   {
-    // Vercel serverless functions (Node, ESM - package.json has
-    // "type": "module") - server-side only, never bundled for the browser.
-    files: ['api/**/*.js'],
+    // Vercel serverless functions and repo scripts (Node, ESM - package.json
+    // has "type": "module") - server-side only, never bundled for the browser.
+    files: ['api/**/*.js', 'scripts/**/*.mjs'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',

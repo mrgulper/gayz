@@ -1,0 +1,3 @@
+#!/bin/sh
+# Patch Notes / GayZ Features check - see scripts/check-docs.mjs.
+exec node scripts/check-docs.mjs --commit-msg "$1"

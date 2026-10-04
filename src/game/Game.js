@@ -9,7 +9,7 @@ import { AfterimagePass } from 'three/examples/jsm/postprocessing/AfterimagePass
 import { buildWorld, WORLD_CULL_DISTANCE, WORLD_SHADOW_CULL_DISTANCE, WORLD_TILE_SIZE, CAMPFIRE_X, CAMPFIRE_Z, SAFE_ZONE_X, SAFE_ZONE_Z } from './World.js'
 import { LOW_QUALITY_MODE, flatMaterial } from './QualitySettings.js'
 import { PlayerController } from './PlayerController.js'
-import { WeaponSystem, MELEE_DURABILITY_MAX } from './WeaponSystem.js'
+import { WeaponSystem, MELEE_DURABILITY_MAX, MELEE_VARIANT_COUNT } from './WeaponSystem.js'
 import { ZombieManager } from './ZombieManager.js'
 import { Zombie, bumpZombieIdCounterPast, zombieAnimLod } from './Zombie.js'
 import { PickupManager, Pickup } from './Pickups.js'
@@ -19568,6 +19568,23 @@ export class Game {
     // heading to reveal a per-item breakdown.
     this.featuresContent.querySelectorAll('.feature.expandable > h3').forEach((h3) => {
       h3.addEventListener('click', () => h3.closest('.feature').classList.toggle('open'))
+    })
+
+    // Numbers in the headings come from the game's own data, so they can't
+    // go stale the way hand-typed ones did ("15 firearms", "30 zombie types",
+    // "21 achievements" - all wrong by 2026-10-04). The HTML keeps a fallback.
+    const featureCounts = {
+      firearms: this.weapons.weapons.filter((w) => w.id !== 'melee').length,
+      melee: MELEE_VARIANT_COUNT,
+      zombies: Object.keys(ZOMBIE_TYPES).length,
+      difficulties: Object.keys(DIFFICULTY_PRESETS).length,
+      mutators: Object.keys(this.settings.mutators || {}).length,
+      achievements: ACHIEVEMENTS.length,
+      skyscrapers: this.skyscraperShortcuts?.length,
+    }
+    this.featuresContent.querySelectorAll('[data-feature-count]').forEach((el) => {
+      const n = featureCounts[el.dataset.featureCount]
+      if (Number.isFinite(n) && n > 0) el.textContent = String(n)
     })
 
     if (this.featuresStatLive && this.featuresStatSoon) {
