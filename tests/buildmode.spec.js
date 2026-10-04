@@ -127,7 +127,7 @@ test('Tab opens the picker, clicking a swatch changes the selected block type', 
   })
 
   expect(result.openAfterToggle).toBe(true)
-  expect(result.swatchCount).toBe(808)
+  expect(result.swatchCount).toBe(814)
   expect(result.afterClickType).not.toBe(result.beforeType)
   expect(result.closedAfterClick).toBe(false)
 })
@@ -306,4 +306,121 @@ test('fill, replace and shape tools build the right cells and undo in one step',
   expect(r.ballHollow).toBe(true)
   expect(r.tooBig).toBe(null)
   expect(r.rotated).toBe('[[0,0,3],[0,2,null]] 1x3')
+})
+
+// Levers open nearby doors, signs keep their words in a save, and the new
+// game blocks (BuildGadgets.js) come back facing the same way.
+test('levers, pressure plates and signs work and are saved', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    bm.placeBlock(0, 0, 5, 'oakdoor', false, { facing: 0 })
+    bm.placeBlock(3, 0, 3, 'lever', false, { facing: 1 })
+    bm.placeBlock(-3, 0, 3, 'pressureplate')
+    bm.placeBlock(2, 0, 0, 'sign', false, { facing: 3, text: 'Hello  there' })
+    bm.placeBlock(4, 0, 0, 'lootchest', false, { facing: 2 })
+    const out = { closed: bm.isDoorOpenAt(0, 0, 5) }
+    bm.gadgets.use(3, 0, 3, true)
+    out.leverOpens = bm.isDoorOpenAt(0, 0, 5)
+    bm.gadgets.use(3, 0, 3, true)
+    out.leverCloses = !bm.isDoorOpenAt(0, 0, 5)
+    bm.gadgets.updatePlates([[-3, 0, 3]], 0.1)
+    out.plateOpens = bm.isDoorOpenAt(0, 0, 5)
+    bm.gadgets.updatePlates([], 5)
+    out.plateCloses = !bm.isDoorOpenAt(0, 0, 5)
+    bm.gadgets.setLever(3, 0, 3, true)
+    const saved = bm._decodeSlot(bm._encodeSlot(bm._snapshot())).blocks
+    out.sign = saved.find((b) => b.type === 'sign')
+    out.lever = saved.find((b) => b.type === 'lever')
+    out.chest = saved.find((b) => b.type === 'lootchest')
+    out.signMesh = bm.gadgets._signMeshes.size
+    bm.removeBlock(2, 0, 0)
+    out.signMeshAfterRemove = bm.gadgets._signMeshes.size
+    bm.undo()
+    out.signBackText = bm.gadgets.signText.get('2,0,0')
+    out.special = ['playerstart', 'zombiespawner', 'lootchest', 'lever', 'pressureplate', 'sign'].every((id) => bm.constructor.blockShape(id))
+    g._exitBuildMode()
+    return out
+  })
+
+  expect(r.closed).toBe(false)
+  expect(r.leverOpens).toBe(true)
+  expect(r.leverCloses).toBe(true)
+  expect(r.plateOpens).toBe(true)
+  expect(r.plateCloses).toBe(true)
+  expect(r.sign).toMatchObject({ facing: 3, text: 'Hello  there' })
+  expect(r.lever).toMatchObject({ facing: 1, open: true })
+  expect(r.chest).toMatchObject({ facing: 2 })
+  expect(r.signMesh).toBe(1)
+  expect(r.signMeshAfterRemove).toBe(0)
+  expect(r.signBackText).toBe('Hello  there')
+  expect(r.special).toBe(true)
+})
+
+// Play (BuildSurvival.js): waves spawn at the Zombie Spawner, zombies find
+// a way round a wall to you, shots kill them, chests give loot once.
+test('Play mode spawns zombie waves that reach you and can be shot', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    bm.placeBlock(0, 0, 0, 'playerstart', false, { facing: 0 })
+    bm.placeBlock(0, 0, 14, 'zombiespawner')
+    bm.placeBlock(2, 0, 1, 'lootchest', false, { facing: 0 })
+    // A wall between the spawner and you, with a gap at one end.
+    for (let x = -6; x <= 4; x++) for (let y = 0; y < 3; y++) bm.placeBlock(x, y, 7, 'stone')
+    s.start()
+    // The zombie skin is painted and loaded in the background.
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    const out = { started: s.active && bm.tryMode.active }
+    out.startCell = [Math.floor(bm.tryMode.pos.x), Math.floor(bm.tryMode.pos.z)]
+    // Run the game forward without real frames.
+    const step = (secs) => { for (let i = 0; i < secs * 20; i++) { bm.tryMode.update(0.05, new Set()); s.update(0.05) } }
+    step(4)
+    out.wave = s.wave
+    out.spawned = s.zombies.length
+    out.spawnNearSpawner = s.zombies.every((z) => Math.abs(z.z - 14.5) < 2.5)
+    s.health = 1e9
+    step(14)
+    const p = bm.tryMode.pos
+    out.closest = Math.min(...s.zombies.map((z) => Math.hypot(z.x - p.x, z.z - p.z)))
+    out.wentRound = s.zombies.some((z) => z.z < 7)
+    // Shoot the one in front.
+    const target = s.zombies[0]
+    const killsBefore = s.kills
+    for (let i = 0; i < 10 && s.zombies.includes(target); i++) s.damageZombie(target, 34)
+    out.killed = s.kills === killsBefore + 1
+    out.mag = s.mag
+    out.fired = s.tryFire() && s.mag === out.mag - 1
+    const reserve = s.reserve
+    out.chest = s.useChest(2, 0, 1) && s.reserve === reserve + 60
+    out.chestOnce = s.useChest(2, 0, 1) && s.reserve === reserve + 60
+    s.health = 5
+    s._hurtPlayer(10)
+    out.dead = s.dead && document.getElementById('build-play-over').style.display === 'flex'
+    s.stop()
+    out.stopped = !s.active && !bm.tryMode.active && s.zombies.length === 0
+    g._exitBuildMode()
+    return out
+  })
+
+  expect(r.started).toBe(true)
+  expect(r.startCell).toEqual([0, 0])
+  expect(r.wave).toBe(1)
+  expect(r.spawned).toBeGreaterThan(0)
+  expect(r.spawnNearSpawner).toBe(true)
+  expect(r.wentRound).toBe(true)
+  expect(r.closest).toBeLessThan(2)
+  expect(r.killed).toBe(true)
+  expect(r.fired).toBe(true)
+  expect(r.chest).toBe(true)
+  expect(r.chestOnce).toBe(true)
+  expect(r.dead).toBe(true)
+  expect(r.stopped).toBe(true)
 })

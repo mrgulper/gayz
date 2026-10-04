@@ -313,6 +313,7 @@ export class BuildTryMode {
 
   exit() {
     this.active = false
+    this.bm.gadgets.releasePlates()
     this._restoreWindows()
     if (this._mapEl) this._mapEl.style.display = 'none'
     if (this._baseFov !== null) {
@@ -477,6 +478,9 @@ export class BuildTryMode {
       this._gun.rotation.x = this._recoil * 0.18
     }
     this._updateShards(dt)
+    // Pressure plates under you (and under zombies while playing).
+    const play = this.bm.survival
+    this.bm.gadgets.updatePlates([[Math.floor(p.x), Math.floor(p.y + 0.01), Math.floor(p.z)], ...(play?.active ? play.zombieCells() : [])], dt)
     this._drawMap(performance.now())
     this._setUnderwater(this._liquidAtEye(p))
   }
@@ -511,8 +515,13 @@ export class BuildTryMode {
   // Left click while trying: the gun kicks and fires. Nothing gets built
   // or broken - except windows (see _shootWindow).
   fire() {
+    // Playing (BuildSurvival): the gun needs ammo, and zombies are hit
+    // before windows.
+    const play = this.bm.survival
+    if (play?.active && (play.dead || !play.tryFire())) return
     this._recoil = 1
     audioEngine.playShot(this._gunId)
+    if (play?.active && play.shoot()) return
     this._shootWindow()
   }
 
