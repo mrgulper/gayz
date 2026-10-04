@@ -12,6 +12,8 @@ import { t } from './i18n.js'
 import { generateMap3 } from './Map3Generator.js'
 import { BuildTryMode } from './BuildTryMode.js'
 import { LiquidFlow } from './LiquidFlow.js'
+import { BuildTools } from './BuildTools.js'
+import { BuildSky } from './BuildSky.js'
 
 // GROUND_SIZE is a CELL count (not world units) - bumped up from 64, then
 // 76, as BLOCK_SIZE shrank each time, so the buildable footprint's actual
@@ -72,6 +74,10 @@ const SAVE_SLOT_COUNT = 10
 // builds stay on the device (Export/Import still moves them).
 const SLOT_KEY_PREFIX = 'buildmode-slot-'
 const SLOTS_MIGRATED_KEY = 'buildmode-slots-migrated'
+// Slot pictures (_saveSlotThumb), one small JPEG per slot.
+const SLOT_THUMB_PREFIX = 'buildmode-thumb-'
+const SLOT_THUMB_W = 96
+const SLOT_THUMB_H = 54
 // Map 3 (Map3Generator.js) is a ready-made city opened as its own slot.
 // The map itself is regenerated every time (it's deterministic), so only
 // the player's changes to it are stored: {removed: [keys], placed:
@@ -104,6 +110,10 @@ const MENU_SHORTCUTS = [
   [['L'], 'buildModeLineBtn'],
   [['C'], 'buildModeCopyBtn'],
   [['P'], 'buildModePasteBtn'],
+  [['Q'], 'buildModeRotateBtn'],
+  [['F'], 'buildModeFillBtn'],
+  [['R'], 'buildModeReplaceBtn'],
+  [['G'], 'buildModeShapeBtn'],
   [['Tab'], 'buildMenuBlockPicker'],
 ]
 // Pause-screen tips; `code` is what each one describes (see HOWTOPLAY_STEPS
@@ -117,6 +127,10 @@ const MENU_TIPS = [
   { key: 'buildTip5', code: 'toggleDoor' },
   { key: 'buildTip6', code: '_onWheel' },
   { key: 'buildTip7', code: '_scheduleAutosave' },
+  { key: 'buildTip9', code: 'AREA_TOOLS' },
+  { key: 'buildTip10', code: 'SHAPE_TOOLS' },
+  { key: 'buildTip11', code: 'rotateClipboard' },
+  { key: 'buildTip12', code: 'SKY_WEATHERS' },
 ]
 const MENU_TIP_KEYS = MENU_TIPS.map((tip) => tip.key)
 // Held with V (see update()'s zoomTarget) - narrows the FOV for a "look
@@ -1169,6 +1183,7 @@ export class BuildMode {
     // Minecraft-style shading from BlockChunks' per-face shade instead.
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0xb8b0a0, 2.0)
     this.scene.add(hemiLight)
+    this._hemiLight = hemiLight
     const sunLight = new THREE.DirectionalLight(0xfff4e0, 1.5)
     sunLight.position.set(20, 30, 10)
     // Real cast shadows (not just per-face lighting) are what actually
@@ -1190,6 +1205,7 @@ export class BuildMode {
     sunLight.shadow.bias = -0.0005
     sunLight.shadow.normalBias = 0.03
     this.scene.add(sunLight)
+    this._sunLight = sunLight
 
     this.camera = new THREE.PerspectiveCamera(NORMAL_FOV, window.innerWidth / window.innerHeight, 0.1, 500)
     // Standing eye height (1.7, matching PlayerController's real-game eye
@@ -1284,6 +1300,18 @@ export class BuildMode {
         this.pasteClipboard()
         return
       }
+      if (!e.repeat && (e.code === FIXED_KEYS.buildFill || e.code === FIXED_KEYS.buildReplace)) {
+        this.tools.setMode(e.code === FIXED_KEYS.buildFill ? 'fill' : 'replace')
+        return
+      }
+      if (e.code === FIXED_KEYS.buildShape && !e.repeat) {
+        this.tools.cycleShape()
+        return
+      }
+      if (e.code === FIXED_KEYS.buildRotate && !e.repeat) {
+        this.tools.rotateClipboard()
+        return
+      }
       if (e.code === 'Space' && !e.repeat) {
         const now = performance.now()
         if (now - this._lastSpaceTapAt < DOUBLE_TAP_WINDOW_MS) this._hopUp()
@@ -1329,10 +1357,10 @@ export class BuildMode {
     // on an already-occupied/already-empty cell) pushes one entry here,
     // regardless of which tool triggered it (a single click, Mirror's
     // second placement, Line Tool's drag, Paste's whole clipboard) - see
-    // both methods' own recording line. One entry = one cell change, not
-    // one "tool action", so undoing a multi-block paste takes multiple
-    // clicks - simpler and still correct, versus tracking action
-    // boundaries across every tool separately.
+    // both methods' own recording line. A tool that changes many cells at
+    // once (paste, line, fill, shapes, mirrored clicks) wraps them in
+    // _undoGroupDo, so one Undo takes the whole action back (2026-10-04 -
+    // before, a pasted house needed one Undo per block).
     this._undoStack = []
     this._redoStack = []
     // Sidesteps undo()/redo() calling back into placeBlock()/removeBlock()
@@ -1427,6 +1455,10 @@ export class BuildMode {
     // Bumped on every block change, so the minimap knows to redraw.
     this._mapVersion = 0
     this.liquids = new LiquidFlow(this)
+    // Fill, Replace and the shape tools (BuildTools.js).
+    this.tools = new BuildTools(this, BLOCK_SIZE)
+    // Time of day and weather (BuildSky.js).
+    this.sky = new BuildSky(this, BLOCK_SIZE)
     // A dot in the middle of the screen to aim with while trying the map.
     this._tryCrosshairEl = document.createElement('div')
     this._tryCrosshairEl.id = 'build-try-crosshair'
@@ -1450,7 +1482,8 @@ export class BuildMode {
         return
       }
       if (e.button === 2) {
-        if (this.lineToolMode) this._lineToolClick()
+        if (this.tools.mode) this.tools.click()
+        else if (this.lineToolMode) this._lineToolClick()
         else if (this.copyToolMode) this._copyToolClick()
         else this._placeFromCamera()
       } else if (e.button === 0) this._removeFromCamera()
@@ -1522,6 +1555,10 @@ export class BuildMode {
     if (this._copyToolBtnEl) this._copyToolBtnEl.addEventListener('click', () => this.toggleCopyTool())
     this._pasteBtnEl = document.getElementById('build-mode-paste-btn')
     if (this._pasteBtnEl) this._pasteBtnEl.addEventListener('click', () => this.pasteClipboard())
+    document.getElementById('build-mode-rotate-btn')?.addEventListener('click', () => this.tools.rotateClipboard())
+    document.getElementById('build-mode-fill-btn')?.addEventListener('click', () => this.tools.setMode('fill'))
+    document.getElementById('build-mode-replace-btn')?.addEventListener('click', () => this.tools.setMode('replace'))
+    document.getElementById('build-mode-shape-btn')?.addEventListener('click', () => this.tools.cycleShape())
 
     // Undo/Redo buttons (see undo()/redo() and _updateUndoRedoButtons) -
     // disabled whenever their stack is empty rather than a silent no-op.
@@ -1639,7 +1676,7 @@ export class BuildMode {
     window.addEventListener('contextmenu', this._onContextMenu)
     document.addEventListener('click', this._onPickerBackdropClick)
     if (this._hotbarEl) this._hotbarEl.style.display = 'flex'
-    if (this._slotsEl) this._slotsEl.style.display = 'flex'
+    if (this._slotsEl) this._slotsEl.style.display = 'grid'
     // The aiming dot shows while building too, not just in Try Map.
     this._tryCrosshairEl.style.display = 'block'
     // #build-menu (Exit/Save/Export/Import/Mirror/Line/Copy/Paste) starts
@@ -1654,6 +1691,7 @@ export class BuildMode {
   exit() {
     if (this.tryMode.active) this.toggleTryMode()
     this.save()
+    this._saveSlotThumb()
     this.active = false
     this.tryMode.drawBuildMap(0, false)
     window.removeEventListener('pagehide', this._onPageHide)
@@ -1665,6 +1703,8 @@ export class BuildMode {
     if (this.mirrorMode) this.toggleMirror()
     if (this.lineToolMode) this.toggleLineTool()
     if (this.copyToolMode) this.toggleCopyTool()
+    this.tools.off()
+    this.tools.refreshHint()
     // No toggle state to reset any more (V is a held key, read live from
     // _keys in update()) - just snap the FOV back in case V happened to
     // be held mid-zoom when Build Mode was exited.
@@ -1789,7 +1829,17 @@ export class BuildMode {
     if (this._heldParts.has(type)) return this._heldParts.get(type)
     const bt = BLOCK_BY_ID.get(type)
     let parts = null
-    if (bt?.shape) {
+    if (bt?.shape === 'door') {
+      // The whole door (both halves of its texture) at 0.8 x 1.6 blocks,
+      // centered and turned to face you, so it reads as a door in the
+      // hand - the placed bottom half (pushed to its cell's edge) looked
+      // like a big plank sticking out sideways (2026-10-04 report).
+      const mesh = this._instancedMeshes[type] || this._shapedMesh(type)
+      if (mesh) {
+        const geometry = new THREE.BoxGeometry(BLOCK_SIZE * 0.8, BLOCK_SIZE * 1.6, DOOR_THICKNESS)
+        parts = { geometry, material: mesh.material, turn: -0.55 }
+      }
+    } else if (bt?.shape) {
       const mesh = this._instancedMeshes[type] || this._shapedMesh(type)
       if (mesh) parts = { geometry: mesh.geometry, material: mesh.material }
     } else if (bt) {
@@ -1833,11 +1883,13 @@ export class BuildMode {
     } else {
       if (this.lineToolMode) this.toggleLineTool()
       if (this.copyToolMode) this.toggleCopyTool()
+      this.tools.off()
       this.tryMode.enter()
       this._tryCrosshairEl.style.display = 'block'
       // The hotbar stays, empty: nothing is built while trying.
       this._renderHotbar()
     }
+    this.tools.refreshHint()
     const btnLabel = document.getElementById('build-mode-try-btn-label')
     if (btnLabel) btnLabel.textContent = t(this.tryMode.active ? 'buildModeStopTryBtn' : 'buildModeTryBtn')
   }
@@ -2253,6 +2305,12 @@ export class BuildMode {
   // Undo/Redo - see the constructor's own comment on _undoStack/_redoStack
   // and the recording lines inside placeBlock()/removeBlock() above.
   _recordUndo(entry) {
+    // Inside a multi-block tool action (fill, shapes, paste, line...),
+    // every cell change joins one entry, so one Undo takes back the lot.
+    if (this._undoGroup) {
+      this._undoGroup.push(entry)
+      return
+    }
     this._undoStack.push(entry)
     if (this._undoStack.length > UNDO_STACK_LIMIT) this._undoStack.shift()
     // A fresh action invalidates whatever was previously undone - same
@@ -2270,15 +2328,37 @@ export class BuildMode {
     }, AUTOSAVE_DELAY_MS)
   }
 
+  // Runs fn() with every cell change it makes recorded as one undo entry.
+  _undoGroupDo(fn) {
+    const outer = this._undoGroup
+    const group = outer || []
+    this._undoGroup = group
+    let result
+    try {
+      result = fn()
+    } finally {
+      this._undoGroup = outer
+    }
+    if (!outer && group.length) this._recordUndo(group.length === 1 ? group[0] : { action: 'group', entries: group })
+    return result
+  }
+
+  // Applies (forward) or takes back (!forward) one undo entry.
+  _applyUndoEntry(entry, forward) {
+    if (entry.action === 'group') {
+      const list = forward ? entry.entries : [...entry.entries].reverse()
+      for (const e of list) this._applyUndoEntry(e, forward)
+      return
+    }
+    if ((entry.action === 'place') === forward) this.placeBlock(entry.x, entry.y, entry.z, entry.type, false, entry.state)
+    else this.removeBlock(entry.x, entry.y, entry.z)
+  }
+
   undo() {
     const entry = this._undoStack.pop()
     if (!entry) return
     this._suppressUndoRecording = true
-    if (entry.action === 'place') {
-      this.removeBlock(entry.x, entry.y, entry.z)
-    } else {
-      this.placeBlock(entry.x, entry.y, entry.z, entry.type, false, entry.state)
-    }
+    this._applyUndoEntry(entry, false)
     this._suppressUndoRecording = false
     this._redoStack.push(entry)
     this._updateUndoRedoButtons()
@@ -2289,11 +2369,7 @@ export class BuildMode {
     const entry = this._redoStack.pop()
     if (!entry) return
     this._suppressUndoRecording = true
-    if (entry.action === 'place') {
-      this.placeBlock(entry.x, entry.y, entry.z, entry.type, false, entry.state)
-    } else {
-      this.removeBlock(entry.x, entry.y, entry.z)
-    }
+    this._applyUndoEntry(entry, true)
     this._suppressUndoRecording = false
     this._undoStack.push(entry)
     this._updateUndoRedoButtons()
@@ -2314,9 +2390,11 @@ export class BuildMode {
     const [px, py, pz] = hit.placeAt
     if (this._wouldOverlapCamera(px, py, pz)) return
     if (BLOCK_BY_ID.get(this.selectedType)?.shape === 'door' && this._wouldOverlapCamera(px, py + 1, pz)) return
-    this.placeBlock(px, py, pz, this.selectedType)
+    this._undoGroupDo(() => {
+      this.placeBlock(px, py, pz, this.selectedType)
+      if (this.mirrorMode) this.placeBlock(this._mirrorX(px), py, pz, this.selectedType)
+    })
     this.tryMode.swingHand()
-    if (this.mirrorMode) this.placeBlock(this._mirrorX(px), py, pz, this.selectedType)
   }
 
   // Same 8-corner COLLISION_RADIUS-sphere technique _blockedAt uses for
@@ -2350,9 +2428,11 @@ export class BuildMode {
     const hit = this._raycastGridAligned()
     if (!hit || !hit.existingBlock) return
     const [rx, ry, rz] = hit.existingBlock
-    this.removeBlock(rx, ry, rz)
+    this._undoGroupDo(() => {
+      this.removeBlock(rx, ry, rz)
+      if (this.mirrorMode) this.removeBlock(this._mirrorX(rx), ry, rz)
+    })
     this.tryMode.swingHand()
-    if (this.mirrorMode) this.removeBlock(this._mirrorX(rx), ry, rz)
   }
 
   // Steps a ray forward in fixed small increments and checks the sparse
@@ -2467,7 +2547,15 @@ export class BuildMode {
       const btn = document.createElement('button')
       btn.className = 'build-slot-btn' + (i === this.activeSlot ? ' active' : '')
       btn.title = has ? `Slot ${i + 1} (has a build)` : `Slot ${i + 1} (empty)`
-      btn.textContent = String(i + 1)
+      const num = document.createElement('span')
+      num.className = 'build-slot-num'
+      num.textContent = String(i + 1)
+      btn.appendChild(num)
+      const thumb = has && this._slotThumb(i)
+      if (thumb) {
+        btn.classList.add('has-thumb')
+        btn.style.backgroundImage = `url(${thumb})`
+      }
       if (has) {
         const dot = document.createElement('span')
         dot.className = 'build-slot-dot'
@@ -2483,6 +2571,11 @@ export class BuildMode {
     map3Btn.className = 'build-slot-btn build-slot-map3' + (this.activeSlot === MAP3_SLOT ? ' active' : '')
     map3Btn.title = t('buildMap3SlotTitle')
     map3Btn.textContent = t('buildMap3Slot')
+    const map3Thumb = this._slotThumb(MAP3_SLOT)
+    if (map3Thumb) {
+      map3Btn.classList.add('has-thumb')
+      map3Btn.style.backgroundImage = `url(${map3Thumb})`
+    }
     map3Btn.addEventListener('click', () => {
       this.switchSlot(MAP3_SLOT)
       this._renderSlots()
@@ -2523,6 +2616,8 @@ export class BuildMode {
     // line tool on while copy tool was active would otherwise leave two
     // different two-click flows both listening to the same right-click.
     if (this.lineToolMode && this.copyToolMode) this.toggleCopyTool()
+    if (this.lineToolMode) this.tools?.off()
+    this.tools?.refreshHint()
   }
 
   // First right-click while lineToolMode is on sets the start point;
@@ -2540,15 +2635,19 @@ export class BuildMode {
         this._lineMarkerMesh.position.set((x + 0.5) * BLOCK_SIZE, (y + 0.5) * BLOCK_SIZE, (z + 0.5) * BLOCK_SIZE)
         this._lineMarkerMesh.visible = true
       }
+      this.tools.refreshHint()
       return
     }
     const [sx, sy, sz] = this._lineStart
-    for (const [cx, cy, cz] of this._lineCells(sx, sy, sz, x, y, z)) {
-      this.placeBlock(cx, cy, cz, this.selectedType)
-      if (this.mirrorMode) this.placeBlock(this._mirrorX(cx), cy, cz, this.selectedType)
-    }
+    this._undoGroupDo(() => {
+      for (const [cx, cy, cz] of this._lineCells(sx, sy, sz, x, y, z)) {
+        this.placeBlock(cx, cy, cz, this.selectedType)
+        if (this.mirrorMode) this.placeBlock(this._mirrorX(cx), cy, cz, this.selectedType)
+      }
+    })
     this._lineStart = null
     if (this._lineMarkerMesh) this._lineMarkerMesh.visible = false
+    this.tools.refreshHint()
   }
 
   // Every integer cell from (x0,y0,z0) to (x1,y1,z1) inclusive, stepped
@@ -2585,6 +2684,8 @@ export class BuildMode {
     if (this._lineMarkerMesh) this._lineMarkerMesh.visible = false
     if (this._copyToolBtnEl) this._copyToolBtnEl.classList.toggle('active', this.copyToolMode)
     if (this.copyToolMode && this.lineToolMode) this.toggleLineTool()
+    if (this.copyToolMode) this.tools?.off()
+    this.tools?.refreshHint()
   }
 
   // First right-click while copyToolMode is on marks one corner; the
@@ -2606,6 +2707,7 @@ export class BuildMode {
         this._lineMarkerMesh.position.set((x + 0.5) * BLOCK_SIZE, (y + 0.5) * BLOCK_SIZE, (z + 0.5) * BLOCK_SIZE)
         this._lineMarkerMesh.visible = true
       }
+      this.tools.refreshHint()
       return
     }
     const [sx, sy, sz] = this._copyStart
@@ -2617,13 +2719,18 @@ export class BuildMode {
       for (let cy = minY; cy <= maxY; cy++) {
         for (let cz = minZ; cz <= maxZ; cz++) {
           const type = this.getBlockAt(cx, cy, cz)
-          if (type) blocks.push({ dx: cx - minX, dy: cy - minY, dz: cz - minZ, type })
+          if (!type || this.liquids.isFlow(this._key(cx, cy, cz))) continue
+          const key = this._key(cx, cy, cz)
+          // Stairs and doors keep which way they face (and Q turns it).
+          const state = this._stairFacing.has(key) ? { facing: this._stairFacing.get(key) } : this._doorState.has(key) ? { ...this._doorState.get(key) } : undefined
+          blocks.push({ dx: cx - minX, dy: cy - minY, dz: cz - minZ, type, state })
         }
       }
     }
     this._clipboard = { blocks, width: maxX - minX + 1, height: maxY - minY + 1, depth: maxZ - minZ + 1 }
     this._copyStart = null
     if (this._lineMarkerMesh) this._lineMarkerMesh.visible = false
+    this.tools.refreshHint()
     return this._clipboard.blocks.length
   }
 
@@ -2636,11 +2743,13 @@ export class BuildMode {
     const hit = this._raycastGridAligned()
     if (!hit) return 0
     const [ox, oy, oz] = hit.placeAt
-    for (const { dx, dy, dz, type } of this._clipboard.blocks) {
-      const px = ox + dx, py = oy + dy, pz = oz + dz
-      this.placeBlock(px, py, pz, type)
-      if (this.mirrorMode) this.placeBlock(this._mirrorX(px), py, pz, type)
-    }
+    this._undoGroupDo(() => {
+      for (const { dx, dy, dz, type, state } of this._clipboard.blocks) {
+        const px = ox + dx, py = oy + dy, pz = oz + dz
+        this.placeBlock(px, py, pz, type, false, state)
+        if (this.mirrorMode) this.placeBlock(this._mirrorX(px), py, pz, type, false, state)
+      }
+    })
     return this._clipboard.blocks.length
   }
 
@@ -2711,8 +2820,52 @@ export class BuildMode {
       this.render()
       const img = document.getElementById('build-menu-preview')
       if (img) img.src = this.renderer.domElement.toDataURL('image/jpeg', 0.7)
+      this._saveSlotThumb(false)
     } catch {
       // No picture this time - the card just shows its frame.
+    }
+  }
+
+  // A small picture of the open map for its slot button (2026-10-04),
+  // taken when the pause screen opens, before switching slots and on exit.
+  // Device-only (not a gayz- key, so it never goes into Cloud Save).
+  _saveSlotThumb(render = true) {
+    if (!this.active) return
+    if (this.activeSlot !== MAP3_SLOT && !this._slotExists(this.activeSlot)) return
+    try {
+      if (render) {
+        this._noHand = true
+        this.render()
+        this._noHand = false
+      }
+      const src = this.renderer.domElement
+      const c = document.createElement('canvas')
+      c.width = SLOT_THUMB_W
+      c.height = SLOT_THUMB_H
+      const ctx = c.getContext('2d')
+      // Crop the middle of the view to the thumbnail's shape.
+      const scale = Math.min(src.width / SLOT_THUMB_W, src.height / SLOT_THUMB_H)
+      const w = SLOT_THUMB_W * scale
+      const h = SLOT_THUMB_H * scale
+      ctx.drawImage(src, (src.width - w) / 2, (src.height - h) / 2, w, h, 0, 0, SLOT_THUMB_W, SLOT_THUMB_H)
+      const url = c.toDataURL('image/jpeg', 0.6)
+      localStorage.setItem(SLOT_THUMB_PREFIX + this.activeSlot, url)
+      // The open slot's button shows the new picture right away.
+      const btn = this._slotsEl?.querySelector('.build-slot-btn.active')
+      if (btn) {
+        btn.classList.add('has-thumb')
+        btn.style.backgroundImage = `url(${url})`
+      }
+    } catch {
+      // Storage full or no canvas - the slot just shows its number.
+    }
+  }
+
+  _slotThumb(slot) {
+    try {
+      return localStorage.getItem(SLOT_THUMB_PREFIX + slot)
+    } catch {
+      return null
     }
   }
 
@@ -2751,6 +2904,8 @@ export class BuildMode {
     set('build-menu-info-blocks', this._blocks.size.toLocaleString())
     set('build-menu-editing', t('buildMenuEditing', { name }))
     set('build-menu-tip', t(MENU_TIP_KEYS[(this._menuTip || 0) % MENU_TIP_KEYS.length]))
+    this.sky.refreshButtons()
+    this.tools._syncButtons()
     const list = document.getElementById('build-menu-shortcuts')
     if (list) {
       list.innerHTML = ''
@@ -2921,6 +3076,7 @@ export class BuildMode {
     if (index === this.activeSlot) return
     if (index !== MAP3_SLOT && !(Number.isInteger(index) && index >= 0 && index < SAVE_SLOT_COUNT)) return
     this.save()
+    this._saveSlotThumb()
     this.clearAllBlocks()
     this.activeSlot = index
     this._loadActiveSlot()
@@ -3254,6 +3410,7 @@ export class BuildMode {
     this.camera.rotateY(this._yaw)
     this.camera.rotateX(this._pitch)
     this.liquids.update(dt)
+    this.sky.update(dt)
     if (this.tryMode.active) {
       this.tryMode.update(dt, this._keys)
       return
@@ -3368,6 +3525,7 @@ export class BuildMode {
     // Chunk meshes are rebuilt here, once per frame, however many blocks
     // changed since the last one (a paste or a load touches thousands).
     if (this._chunks.flush(this._chunkCells)) this._shadowsDirty = true
+    this.tools.update()
     if (this._invisShadowDirty) this._rebuildInvisibleShadows()
     if (this._invisShadowMesh) this._invisShadowMesh.visible = !this.renderer.shadowMap.enabled
     this._chunks.animate(performance.now() / 1000)
@@ -3395,7 +3553,7 @@ export class BuildMode {
     shadowMap.autoUpdate = shadowAutoUpdate
     this.renderer.toneMapping = toneMapping
     if (this.tryMode.active) this.tryMode.drawGun(this.renderer)
-    else if (!this.menuOpen && !this.pickerOpen) this.tryMode.drawHand(this.renderer, this.selectedType)
+    else if (!this.menuOpen && !this.pickerOpen && !this._noHand) this.tryMode.drawHand(this.renderer, this.selectedType)
     // The minimap shows while building too (Try Map draws its own).
     if (!this.tryMode.active) this.tryMode.drawBuildMap(performance.now(), this.active && !this.menuOpen && !this.pickerOpen)
   }
