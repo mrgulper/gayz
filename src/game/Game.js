@@ -17897,23 +17897,34 @@ export class Game {
 
   // The footer links (#menu-links-row, How to Play ... Privacy Policy ...
   // Discord) must stay clear of the right column's nav buttons (2026-10-04,
-  // Gaymi: "dont make it touch the right side panel"). Where they'd reach
-  // within MENU_LINKS_CLEARANCE px of the buttons' left edge, the row first
-  // tightens its spacing (.links-compact), and if that still isn't enough
-  // it wraps to a second line by capping its width. Measured live, like
-  // _updatePlayBtnCentering below - the row's width depends on translated
-  // labels and the column positions on the window size.
+  // Gaymi: "dont make it touch the right side panel") and stay on one line
+  // ("dont stack them, theres space on the left side, move it to the left").
+  // Where the centered row would reach within MENU_LINKS_CLEARANCE px of the
+  // buttons, it slides left into the empty space first; only if the window
+  // is too narrow for that does it tighten its spacing (.links-compact), and
+  // only then wrap. Measured live, like _updatePlayBtnCentering below - the
+  // row's width depends on translated labels, the columns on window size.
   _fitMenuLinksRow() {
     const row = document.getElementById('menu-links-row')
     const nav = [...document.querySelectorAll('#menu-nav-buttons button')].filter((b) => b.offsetParent)
     if (!row || !nav.length || row.offsetParent === null) return
     const MENU_LINKS_CLEARANCE = 24
+    const MENU_LINKS_MIN_LEFT = 16
     row.classList.remove('links-compact')
     row.style.maxWidth = ''
+    row.style.transform = ''
     const limit = Math.min(...nav.map((b) => b.getBoundingClientRect().left)) - MENU_LINKS_CLEARANCE
-    if (row.getBoundingClientRect().right <= limit) return
+    const slide = () => {
+      const r = row.getBoundingClientRect()
+      const shift = Math.min(Math.max(0, r.right - limit), Math.max(0, r.left - MENU_LINKS_MIN_LEFT))
+      row.style.transform = shift ? `translateX(${-shift}px)` : ''
+      return r.right - shift <= limit
+    }
+    if (slide()) return
+    row.style.transform = ''
     row.classList.add('links-compact')
-    if (row.getBoundingClientRect().right <= limit) return
+    if (slide()) return
+    row.style.transform = ''
     // Centered, so the row may be at most twice the distance from the middle
     // of the window to the limit.
     row.style.maxWidth = `${Math.max(240, 2 * (limit - window.innerWidth / 2))}px`
