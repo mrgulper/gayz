@@ -24547,6 +24547,15 @@ export class Game {
     el.appendChild(frag)
   }
 
+  // Light and hard rain/snow particles - also used by the Map Editor's
+  // weather (BuildSky.js), which shows these same overlays.
+  _ensureAllWeatherParticles() {
+    this._ensureWeatherParticles(this.rainOverlayEl, 80, 'rain-particle', [0.7, 1.3])
+    this._ensureWeatherParticles(this.rainOverlayHardEl, 160, 'rain-particle', [1.4, 2.6])
+    this._ensureWeatherParticles(this.snowOverlayEl, 50, 'snow-particle', [5, 10], 15)
+    this._ensureWeatherParticles(this.snowOverlayHardEl, 100, 'snow-particle', [9, 18], 15)
+  }
+
   _rollWeather() {
     // Light = the original look (fewer, faster particles). Hard = per
     // request, doubled count and fall duration - a longer per-particle
@@ -24558,10 +24567,7 @@ export class Game {
     // overlay whose particles get rebuilt) so both intensities' particles
     // can be built once, lazily, same as before, and switching between
     // them on a later night is just a display toggle.
-    this._ensureWeatherParticles(this.rainOverlayEl, 80, 'rain-particle', [0.7, 1.3])
-    this._ensureWeatherParticles(this.rainOverlayHardEl, 160, 'rain-particle', [1.4, 2.6])
-    this._ensureWeatherParticles(this.snowOverlayEl, 50, 'snow-particle', [5, 10], 15)
-    this._ensureWeatherParticles(this.snowOverlayHardEl, 100, 'snow-particle', [9, 18], 15)
+    this._ensureAllWeatherParticles()
 
     // Hard rain/snow (per request) locks in for a few nights running
     // instead of being subject to the normal per-night re-roll right

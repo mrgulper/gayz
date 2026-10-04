@@ -1778,11 +1778,13 @@ export class BuildMode {
     if (this._menuEl) this._menuEl.style.display = 'none'
     this.load()
     this._renderSlots()
+    this.sky.onEnter()
   }
 
   exit() {
     if (this.tryMode.active) this.toggleTryMode()
     this.together.leave()
+    this.sky.onExit()
     this.share.close()
     this.together.closePanel()
     this.save()
