@@ -1,6 +1,8 @@
 // Rebindable letter-key actions. Movement keeps its arrow-key fallback and
 // crouch keeps its Ctrl fallback regardless of the rebound primary key, so
 // remapping never locks anyone out of basic control.
+import { setKeyNameLookup } from './i18n.js'
+
 const STORAGE_KEY = 'gayz-keybinds'
 
 export const ACTIONS = [
@@ -62,6 +64,15 @@ export const HOTBAR_ITEM_SLOTS = [
   { id: 'trap', code: 'Digit9', labelKey: 'hotbarTrap' },
   { id: 'adrenaline', code: 'Digit0', labelKey: 'hotbarAdrenaline' },
 ]
+
+// Keys that can't be rebound but still show up in text - the code that
+// handles them reads them from here too, so text and behavior can't differ.
+export const FIXED_KEYS = {
+  inventory: 'Tab',
+  buildTry: 'KeyT',
+  buildMirror: 'KeyM',
+  buildZoom: 'KeyV',
+}
 
 function defaultBindings() {
   const defaults = {}
@@ -164,3 +175,15 @@ export function keyLabel(code) {
   }
   return special[code] || code
 }
+
+// Fills {key:<id>} in any translated text (see i18n.js): a rebindable
+// action's current key, a hotbar slot's number, a fixed key, or "move"
+// (all four movement keys, e.g. WASD).
+setKeyNameLookup((id) => {
+  if (id === 'move') return ['moveForward', 'moveLeft', 'moveBack', 'moveRight'].map((a) => keyLabel(bindings[a])).join('')
+  if (bindings[id]) return keyLabel(bindings[id])
+  const slot = HOTBAR_ITEM_SLOTS.find((s) => s.id === id)
+  if (slot) return keyLabel(slot.code)
+  if (FIXED_KEYS[id]) return keyLabel(FIXED_KEYS[id])
+  return undefined
+})

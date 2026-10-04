@@ -29,7 +29,8 @@
 //   node scripts/check-docs.mjs --range <base>..<head> (CI, a whole PR)
 //   node scripts/check-docs.mjs --page                 (just the typed-number check, working tree)
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { pathToFileURL } from 'node:url'
 
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
 
@@ -81,6 +82,53 @@ function typedNumbers(indexContent) {
   return found
 }
 
+// In-game text names keys as {key:interact} / {key:healthPack} (filled
+// from the player's real bindings - see i18n.js), never as a typed letter:
+// "press H to use" kept showing for days after Health Packs moved to hotbar
+// slot 4 (2026-10-04). These spot a key typed into en/zh/hi/es text.
+const TYPED_KEY_PATTERNS = [
+  /\*\*\s*(?:[A-Z0-9]|WASD|W A S D|TAB)\s*\*\*/,
+  /\b(?:[Pp]ress|[Hh]old|[Tt]ap|[Pp]ulsa|[Mm]antén|[Pp]resiona)\s+[A-Z0-9](?![A-Za-z0-9])/,
+  /按住?\s*[A-Z0-9](?![A-Za-z0-9])/,
+  /(?<![A-Za-z0-9])[A-Z0-9]\s*दबा/,
+  /\((?:[A-Z])\)/,
+]
+
+async function typedKeys() {
+  const { STRINGS } = await import(pathToFileURL(`${process.cwd()}/src/game/i18n.js`).href)
+  const { ACTIONS, HOTBAR_ITEM_SLOTS, FIXED_KEYS } = await import(pathToFileURL(`${process.cwd()}/src/game/Keybinds.js`).href)
+  const knownKeys = new Set(['move', ...ACTIONS.map((a) => a.id), ...HOTBAR_ITEM_SLOTS.map((s) => s.id), ...Object.keys(FIXED_KEYS)])
+  const unknown = []
+  for (const [lang, dict] of Object.entries(STRINGS)) {
+    for (const [key, value] of Object.entries(dict)) {
+      if (typeof value !== 'string') continue
+      for (const m of value.matchAll(/\{key:(\w+)\}/g)) if (!knownKeys.has(m[1])) unknown.push(`${lang}.${key} uses {key:${m[1]}}, which isn't an action in Keybinds.js (ACTIONS, HOTBAR_ITEM_SLOTS or FIXED_KEYS) - it would show as raw text.`)
+    }
+  }
+  const found = []
+  for (const lang of ['en', 'zh', 'hi', 'es']) {
+    for (const [key, value] of Object.entries(STRINGS[lang] || {})) {
+      if (typeof value !== 'string') continue
+      const text = value.replace(/\{key:\w+\}/g, '')
+      if (TYPED_KEY_PATTERNS.some((re) => re.test(text))) found.push(`${lang}.${key}`)
+    }
+  }
+  // The same thing typed straight into code instead of i18n.js ("DOWNED -
+  // Press F" on the companion's tag, the ammo guide's name).
+  const inCode = []
+  for (const file of readdirSync('src', { recursive: true })) {
+    if (!/\.js$/.test(file) || /i18n\.js$/.test(file)) continue
+    const lines = readFileSync(`src/${file}`, 'utf8').split('\n')
+    lines.forEach((line, i) => {
+      if (/^\s*\/\//.test(line)) return
+      for (const m of line.matchAll(/(['"`])((?:(?!\1).)*)\1/g)) {
+        if (TYPED_KEY_PATTERNS.some((re) => re.test(m[2]))) inCode.push(`src/${file}:${i + 1} has a key typed into player text ("${m[2].slice(0, 50)}"). Move it to i18n.js with {key:<action id>}.`)
+      }
+    })
+  }
+  return [...unknown, ...inCode, ...found.map((k) => `${k} (src/game/i18n.js) has a key typed into it. Write {key:<action id>} instead (e.g. **{key:interact}**, {key:healthPack}) so it shows the player's real key.`)]
+}
+
 function check({ files, indexDiff, indexContent, message }) {
   if (!files.some((f) => GAME_PATH.test(f))) return []
   const problems = typedNumbers(indexContent).map((t) => `GayZ Features has a typed number in "${t}". Wrap it in <span data-feature-value="key">, add that key to _featureValues() in Game.js, or add it to ALLOWED_NUMBERS here if it's part of a name.`)
@@ -123,16 +171,18 @@ function fromRange(range) {
 }
 
 const [mode, arg] = process.argv.slice(2)
+const keyProblems = await typedKeys()
 const problems = mode === '--commit-msg' ? fromCommitMsg(arg)
   : mode === '--range' ? fromRange(arg)
   : mode === '--page' ? check({ files: ['index.html'], indexDiff: '@@ -1 +1 @@', indexContent: readFileSync('index.html', 'utf8'), message: '[no-notes: page check only] [no-features: page check only]' })
   : null
+if (problems !== null) problems.push(...keyProblems)
 if (problems === null) {
   console.error('usage: check-docs.mjs --commit-msg <file> | --range <base>..<head> | --page')
   process.exit(2)
 }
 if (problems.length) {
-  console.error('\nPlayer-page check failed (Patch Notes / GayZ Features):\n')
+  console.error('\nPlayer-text check failed (Patch Notes / GayZ Features / in-game text):\n')
   for (const p of problems) console.error(`  - ${p}`)
   console.error('')
   process.exit(1)

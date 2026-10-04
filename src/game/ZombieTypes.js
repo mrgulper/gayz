@@ -1,6 +1,7 @@
 // Stat/visual configs for each zombie archetype. Weighted random spawn mix
 // lives here too so tuning difficulty is a one-file job.
 
+// `about`: the one-line description GayZ Features shows for each type.
 export const ZOMBIE_TYPES = {
   // packSize: this many spawn together in a small cluster (see
   // ZombieManager._spawnRandom's packmate loop) instead of alone - reuses
@@ -12,6 +13,7 @@ export const ZOMBIE_TYPES = {
   feral_dog: {
     id: 'feral_dog',
     label: 'Feral Pack',
+    about: 'fast-moving dogs that attack in groups.',
     lore: "Whatever's left of the neighborhood strays runs in threes now.",
     weight: 2,
     health: 20,
@@ -30,6 +32,7 @@ export const ZOMBIE_TYPES = {
   feral_child: {
     id: 'feral_child',
     label: 'Feral Child',
+    about: 'small, fast, erratic movement.',
     lore: "Small enough to fit where you can't follow. Fast enough that it doesn't need to.",
     weight: 2,
     health: 25,
@@ -47,6 +50,7 @@ export const ZOMBIE_TYPES = {
   shambler: {
     id: 'shambler',
     label: 'Shambler',
+    about: 'the basic slow zombie.',
     lore: "The most common casualty of VIREO's rollout - slow, but they don't stop.",
     weight: 3,
     health: 60,
@@ -64,6 +68,7 @@ export const ZOMBIE_TYPES = {
   runner: {
     id: 'runner',
     label: 'Runner',
+    about: 'sprints straight at you.',
     lore: "Whatever's left of its nervous system still remembers how to sprint.",
     weight: 4,
     health: 32,
@@ -81,6 +86,7 @@ export const ZOMBIE_TYPES = {
   brute: {
     id: 'brute',
     label: 'Brute',
+    about: 'tanky, hits hard.',
     lore: 'Some kind of adrenal overdose. Hits like a truck.',
     weight: 2,
     health: 175,
@@ -98,6 +104,7 @@ export const ZOMBIE_TYPES = {
   spitter: {
     id: 'spitter',
     label: 'Spitter',
+    about: 'ranged acid/projectile attack.',
     lore: 'Keeps its distance and spits up whatever is left of its stomach lining.',
     weight: 3,
     health: 42,
@@ -117,6 +124,7 @@ export const ZOMBIE_TYPES = {
   crawler: {
     id: 'crawler',
     label: 'Crawler',
+    about: 'low profile, harder to hit center-mass.',
     lore: 'Lost the use of its legs. Found something faster instead.',
     weight: 3,
     health: 38,
@@ -135,6 +143,7 @@ export const ZOMBIE_TYPES = {
   burrower: {
     id: 'burrower',
     label: 'Burrower',
+    about: 'tunnels underground and ambushes from below.',
     lore: "Went under the rubble instead of over it. You won't hear it coming - it's already close.",
     weight: 2,
     health: 45,
@@ -158,6 +167,7 @@ export const ZOMBIE_TYPES = {
   exploder: {
     id: 'exploder',
     label: 'Bloater',
+    about: 'explodes on death or contact.',
     lore: "Don't shoot it up close. Don't shoot it at all if you can help it.",
     weight: 2,
     health: 55,
@@ -179,6 +189,7 @@ export const ZOMBIE_TYPES = {
   shielded: {
     id: 'shielded',
     label: 'Riot Corpse',
+    about: 'carries a shield; only melee gets through the front.',
     lore: "Whatever it's wearing still holds. Bullets won't get through it - your knife will.",
     weight: 2,
     health: 65,
@@ -201,6 +212,7 @@ export const ZOMBIE_TYPES = {
   screamer: {
     id: 'screamer',
     label: 'Screamer',
+    about: 'wakes and enrages every zombie nearby.',
     lore: "Its scream isn't pain. It's a dinner bell.",
     weight: 2,
     health: 50,
@@ -230,6 +242,7 @@ export const ZOMBIE_TYPES = {
   spitter_bomber: {
     id: 'spitter_bomber',
     label: 'Bomber Spitter',
+    about: 'ranged explosive spit attack.',
     lore: "It stopped digesting a while ago. Now it just... stores things.",
     weight: 1,
     health: 48,
@@ -255,6 +268,7 @@ export const ZOMBIE_TYPES = {
   screamer_swarmer: {
     id: 'screamer_swarmer',
     label: 'Swarmer',
+    about: 'spawns smaller Shamblers when it dies.',
     lore: "Its scream calls them in. Its death lets them out.",
     weight: 1,
     health: 55,
@@ -281,6 +295,7 @@ export const ZOMBIE_TYPES = {
   colossus: {
     id: 'colossus',
     label: 'Colossus',
+    about: 'huge, heavy-hitting boss zombie.',
     lore: 'Whatever they were testing scaled up. Way up.',
     weight: 0,
     health: 900,
@@ -301,6 +316,7 @@ export const ZOMBIE_TYPES = {
   sewer_dweller: {
     id: 'sewer_dweller',
     label: 'Sewer Dweller',
+    about: 'found in the sewer tunnels.',
     lore: 'Never saw the outbreak on the surface. Never needed to.',
     weight: 1.5,
     health: 45,
@@ -324,6 +340,7 @@ export const ZOMBIE_TYPES = {
   fester: {
     id: 'fester',
     label: 'Fester',
+    about: 'leaves a toxic gas cloud behind when it dies.',
     lore: "It's not the bite you have to worry about. It's what's still inside it when it stops moving.",
     weight: 1.5,
     health: 65,
@@ -344,6 +361,7 @@ export const ZOMBIE_TYPES = {
   leaper: {
     id: 'leaper',
     label: 'Leaper',
+    about: 'jumps at you from a distance.',
     lore: 'It stopped bothering to close the last few meters on foot.',
     weight: 2.5,
     health: 40,
@@ -366,6 +384,7 @@ export const ZOMBIE_TYPES = {
   regenerator: {
     id: 'regenerator',
     label: 'Regenerator',
+    about: 'heals itself back up unless it\'s on fire.',
     lore: "Whatever's keeping it standing keeps stitching it back together too. Burn it before it catches up.",
     weight: 2,
     health: 70,
@@ -387,6 +406,7 @@ export const ZOMBIE_TYPES = {
   stalker: {
     id: 'stalker',
     label: 'Stalker',
+    about: 'invisible until it\'s close to you.',
     lore: "You won't see it until it wants you to.",
     weight: 2,
     health: 36,
@@ -409,6 +429,7 @@ export const ZOMBIE_TYPES = {
   acid_trail: {
     id: 'acid_trail',
     label: 'Seeper',
+    about: 'leaves a damaging acid trail as it moves.',
     lore: "It doesn't need to catch you. Just needs you to keep standing where it's already been.",
     weight: 1.5,
     health: 48,
@@ -430,6 +451,7 @@ export const ZOMBIE_TYPES = {
   anchor: {
     id: 'anchor',
     label: 'Anchor',
+    about: 'its spit attack pulls you toward it.',
     lore: "It gave up chasing. Now it just makes sure you can't leave either.",
     weight: 1.5,
     health: 55,
@@ -453,6 +475,7 @@ export const ZOMBIE_TYPES = {
   brittle: {
     id: 'brittle',
     label: 'Brittle',
+    about: 'shatters into damaging shrapnel on a melee kill.',
     lore: 'Dry as kindling. Shatter it up close and step back.',
     weight: 2,
     health: 30,
@@ -478,6 +501,7 @@ export const ZOMBIE_TYPES = {
   siren: {
     id: 'siren',
     label: 'Siren',
+    about: 'its scream disorients your aim.',
     lore: 'The sound gets in before it does. By then your aim is already gone.',
     weight: 1.5,
     health: 45,
@@ -500,6 +524,7 @@ export const ZOMBIE_TYPES = {
   bloodhound: {
     id: 'bloodhound',
     label: 'Bloodhound',
+    about: 'tracks you even through stealth perks.',
     lore: "Dead Silence doesn't mean dead scent.",
     weight: 2,
     health: 34,
@@ -521,6 +546,7 @@ export const ZOMBIE_TYPES = {
   webber: {
     id: 'webber',
     label: 'Webber',
+    about: 'slows you down with sticky web patches.',
     lore: "It doesn't want to eat you where you're standing. It wants you to still be there in ten seconds.",
     weight: 1.5,
     health: 44,
@@ -543,6 +569,7 @@ export const ZOMBIE_TYPES = {
   vampire: {
     id: 'vampire',
     label: 'Vampire',
+    about: 'heals itself off every hit it lands on you.',
     lore: 'Feeding is the only thing it still does on purpose.',
     weight: 2,
     health: 55,
@@ -570,6 +597,7 @@ export const ZOMBIE_TYPES = {
   broodmother: {
     id: 'broodmother',
     label: 'Broodmother',
+    about: 'spawns Sewer Dwellers during the fight.',
     lore: 'Every sewer dweller down there came from somewhere. This is the somewhere.',
     weight: 0,
     health: 1000,
@@ -594,6 +622,7 @@ export const ZOMBIE_TYPES = {
   titan: {
     id: 'titan',
     label: 'Dinosaur',
+    about: 'rare roaming reptilian boss, distinct from scheduled night bosses.',
     lore: "VIREO stopped documenting after this one. There's only the one entry: DO NOT REPEAT.",
     weight: 0,
     health: 1400,

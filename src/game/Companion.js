@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { audioEngine } from './Audio.js'
+import { t } from './i18n.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { flatMaterial } from './QualitySettings.js'
@@ -272,7 +273,7 @@ export class Companion {
   // Temporarily overwrites the name tag with a "DOWNED" callout without
   // losing the real name - _restoreNameTag() puts it back on revive.
   _showDownedTag() {
-    this._renderTag('DOWNED - Press F', '#ff4a3a')
+    this._renderTag(t('companionDownedTag'), '#ff4a3a')
   }
 
   _restoreNameTag() {

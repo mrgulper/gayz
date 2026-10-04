@@ -1,14 +1,19 @@
 // Random mid-night events: once per night (see Game.js's night-round timer),
 // at a random point during that round, one of these fires - mirrors the
 // Perks.js pattern (a flat list + apply(game) mutating live game objects).
+// `name`/`about`: how GayZ Features lists each event.
 export const NIGHT_EVENTS = [
   {
     id: 'horde_surge',
+    name: 'Horde Surge',
+    about: 'a sudden wave of extra zombies.',
     labelKey: 'eventHordeSurge',
     apply: (game) => game.zombies.spawnSurge(5),
   },
   {
     id: 'blackout',
+    name: 'Blackout',
+    about: 'the lights go out for the night.',
     labelKey: 'eventBlackout',
     apply: (game) => {
       game.flashlightOn = false
@@ -18,6 +23,8 @@ export const NIGHT_EVENTS = [
   },
   {
     id: 'supply_drop',
+    name: 'Supply Drop',
+    about: 'a crate of supplies lands somewhere on the map.',
     labelKey: 'eventSupplyDrop',
     apply: (game) => {
       const spot = game.spawnPoints[Math.floor(Math.random() * game.spawnPoints.length)]
@@ -26,11 +33,15 @@ export const NIGHT_EVENTS = [
   },
   {
     id: 'survivor_found',
+    name: 'Survivor Found',
+    about: 'an NPC survivor appears to be rescued.',
     labelKey: 'eventSurvivorFound',
     apply: (game) => game._spawnRescueSurvivor(),
   },
   {
     id: 'camp_attack',
+    name: 'Camp Attack',
+    about: 'a small NPC group under active zombie siege you can save.',
     labelKey: 'eventCampAttack',
     // Distinct from 'survivor_found' above: that one is a single passive
     // NPC waiting to be walked up to (no fail state). This spawns a small
@@ -41,6 +52,8 @@ export const NIGHT_EVENTS = [
   },
   {
     id: 'supply_convoy',
+    name: 'Supply Convoy',
+    about: 'a guarded chest escorted by rival humans.',
     labelKey: 'eventSupplyConvoy',
     // A guarded chest (see RivalScavenger.js's RivalManager 'convoy' squad
     // type) - the escorts stand their ground around it and fight if
@@ -53,6 +66,8 @@ export const NIGHT_EVENTS = [
   },
   {
     id: 'toxic_gas',
+    name: 'Toxic Gas',
+    about: 'a damaging gas cloud spreads over an area.',
     labelKey: 'eventToxicGas',
     // Ambient hazard, not a player tool - see Game.js's _spawnHazardZone/
     // _updateHazardZones. Distinct from the EMP grenade (something the
@@ -65,6 +80,8 @@ export const NIGHT_EVENTS = [
   },
   {
     id: 'toxic_spread',
+    name: 'Spreading Toxic Gas',
+    about: 'a version that keeps expanding over time.',
     labelKey: 'eventToxicSpread',
     // Distinct from toxic_gas above: this one starts small and grows every
     // tick it's not dealt with (see Game.js's TOXIC_SPREAD_GROWTH_PER_SEC),
@@ -76,11 +93,15 @@ export const NIGHT_EVENTS = [
   },
   {
     id: 'escort_convoy',
+    name: 'Escort Convoy',
+    about: 'protect a moving convoy.',
     labelKey: 'eventEscortConvoy',
     apply: (game) => game._spawnEscortConvoy(),
   },
   {
     id: 'radio_distress',
+    name: 'Radio Distress Call',
+    about: 'a call leads you to a location needing help.',
     // eventRadioDistress's own text carries the radio-chatter framing (see
     // i18n.js) - Game.js's own trigger site already toasts t(labelKey)
     // right after apply() runs, same as every other NIGHT_EVENTS entry.
@@ -97,6 +118,8 @@ export const NIGHT_EVENTS = [
   },
   {
     id: 'emp_field',
+    name: 'EMP Field',
+    about: 'an area that disables electronics.',
     labelKey: 'eventEmpField',
     apply: (game) => {
       const spot = game.spawnPoints[Math.floor(Math.random() * game.spawnPoints.length)]
@@ -105,6 +128,8 @@ export const NIGHT_EVENTS = [
   },
   {
     id: 'dilemma',
+    name: 'Impossible Choice',
+    about: 'survivors trapped in one direction, a loot cache in another, and only time to reach one of them.',
     labelKey: 'eventDilemma',
     // Distinct from every event above: those are each a single standalone
     // objective (succeed, fail, or just walk past). This spawns TWO at

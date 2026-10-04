@@ -6,7 +6,7 @@ import { gotoAndWaitForGame } from './helpers.js'
 // Editor pause screen's Shortcuts box. scripts/check-docs.mjs catches typed
 // numbers before a commit; these check the pages against the running game.
 
-test('GayZ Features lists match the game data, with no stale or undescribed entries', async ({ page }) => {
+test('GayZ Features lists are built from the game data, every entry described', async ({ page }) => {
   await gotoAndWaitForGame(page)
 
   const result = await page.evaluate(() => {
@@ -16,10 +16,9 @@ test('GayZ Features lists match the game data, with no stale or undescribed entr
     const lists = {}
     for (const list of c.querySelectorAll('[data-feature-list]')) {
       const key = list.dataset.featureList
-      const ids = new Set()
-      list.querySelectorAll('.detail-item[data-id]').forEach((item) => item.dataset.id.split(/\s+/).forEach((id) => ids.add(id)))
       lists[key] = {
-        missingFromPage: Object.keys(catalogs[key] || {}).filter((id) => !ids.has(id)),
+        shown: [...list.querySelectorAll('.detail-item[data-id]')].map((e) => e.dataset.id),
+        expected: Object.keys(catalogs[key] || {}),
         line: c.querySelector(`[data-feature-list-line="${key}"]`)?.textContent || '',
       }
     }
@@ -27,10 +26,9 @@ test('GayZ Features lists match the game data, with no stale or undescribed entr
     return {
       lists,
       catalogKeys: Object.keys(catalogs),
-      // Things the game has that nobody has written a description for yet.
-      autoAdded: [...c.querySelectorAll('[data-auto]')].map((e) => e.dataset.id),
-      // Entries for things the game no longer has.
-      stale: [...c.querySelectorAll('.detail-item[hidden]')].map((e) => e.dataset.id),
+      // Things in the game with no name/description in code yet (an
+      // ITEM_INFO, MUTATOR_INFO, GAME_MODE_INFO entry or an `about` field).
+      undescribed: [...c.querySelectorAll('[data-missing]')].map((e) => `${e.closest('[data-feature-list]').dataset.featureList}:${e.dataset.id}`),
       unknownValueKeys: [...c.querySelectorAll('[data-feature-value]')].map((e) => e.dataset.featureValue).filter((k) => values[k] == null || values[k] === '' || values[k] === 0),
       unknownCountKeys: [...c.querySelectorAll('[data-feature-count]')].map((e) => e.dataset.featureCount).filter((k) => !(g._featureCounts()[k] > 0)),
     }
@@ -38,11 +36,11 @@ test('GayZ Features lists match the game data, with no stale or undescribed entr
 
   expect(Object.keys(result.lists).sort()).toEqual(result.catalogKeys.sort())
   for (const [key, list] of Object.entries(result.lists)) {
-    expect(list.missingFromPage, `${key} list is missing entries`).toEqual([])
+    expect(list.shown, `${key} list`).toEqual(list.expected)
+    expect(list.shown.length, `${key} list is empty`).toBeGreaterThan(0)
     expect(list.line.length, `${key} summary line is empty`).toBeGreaterThan(0)
   }
-  expect(result.autoAdded, 'add a written .detail-item for these in index.html').toEqual([])
-  expect(result.stale, 'remove these .detail-items from index.html').toEqual([])
+  expect(result.undescribed, 'give these a name and description in the code').toEqual([])
   expect(result.unknownValueKeys, 'add these keys to _featureValues()').toEqual([])
   expect(result.unknownCountKeys, 'add these keys to _featureCounts()').toEqual([])
 })
@@ -56,11 +54,33 @@ test('How to Play shows the real keys, with no unfilled placeholders', async ({ 
     const html = g.howtoplayContent.innerHTML
     const text = g.howtoplayContent.textContent
     g._closeHowToPlayPanel()
-    return { placeholders: html.match(/\{[a-zA-Z]+\}/g) || [], text }
+    return { placeholders: html.match(/\{(?:key:)?[a-zA-Z]+\}/g) || [], text }
   })
 
   expect(result.placeholders).toEqual([])
   expect(result.text.length).toBeGreaterThan(100)
+})
+
+// Text names keys as {key:interact}, {key:sprint}... (i18n.js), so a
+// rebound key shows up everywhere without anyone editing the text.
+test('in-game text shows the player\'s rebound keys, not the defaults', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('gayz-keybinds', JSON.stringify({ interact: 'KeyH', sprint: 'KeyP' }))
+  })
+  await gotoAndWaitForGame(page)
+
+  const html = await page.evaluate(() => {
+    const g = window.__game
+    g._openHowToPlayPanel()
+    const out = g.howtoplayContent.innerHTML
+    g._closeHowToPlayPanel()
+    return out
+  })
+
+  expect(html).toContain('<b>H</b>')
+  expect(html).toContain('<b>P</b>')
+  expect(html).not.toContain('<b>F</b>')
+  expect(html).not.toContain('{key:')
 })
 
 // Every key the Map Editor's Shortcuts box lists is pressed for real (a
