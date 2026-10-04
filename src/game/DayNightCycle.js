@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 
-const DAY_MS = 12 * 60 * 1000
-const NIGHT_MS = 12 * 60 * 1000
+export const DAY_MS = 12 * 60 * 1000
+export const NIGHT_MS = 12 * 60 * 1000
 const CYCLE_MS = DAY_MS + NIGHT_MS
 const DAY_FRACTION = DAY_MS / CYCLE_MS
 const TRANSITION = 0.02 // ~29s fade in/out of the day fraction

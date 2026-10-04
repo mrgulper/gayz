@@ -1139,6 +1139,9 @@ const CUSTOM_BLOCK_GEOMETRY = {
 }
 
 export class BuildMode {
+  // Read by tests/docs.spec.js, which presses every listed key for real.
+  static MENU_SHORTCUTS = MENU_SHORTCUTS
+
   constructor(renderer, game) {
     this.game = game
     this.renderer = renderer

@@ -9,13 +9,13 @@ import { AfterimagePass } from 'three/examples/jsm/postprocessing/AfterimagePass
 import { buildWorld, WORLD_CULL_DISTANCE, WORLD_SHADOW_CULL_DISTANCE, WORLD_TILE_SIZE, CAMPFIRE_X, CAMPFIRE_Z, SAFE_ZONE_X, SAFE_ZONE_Z } from './World.js'
 import { LOW_QUALITY_MODE, flatMaterial } from './QualitySettings.js'
 import { PlayerController } from './PlayerController.js'
-import { WeaponSystem, MELEE_DURABILITY_MAX, MELEE_VARIANT_COUNT } from './WeaponSystem.js'
+import { WeaponSystem, MELEE_DURABILITY_MAX, MELEE_VARIANT_NAMES } from './WeaponSystem.js'
 import { ZombieManager } from './ZombieManager.js'
 import { Zombie, bumpZombieIdCounterPast, zombieAnimLod } from './Zombie.js'
 import { PickupManager, Pickup } from './Pickups.js'
 import { PlayerState } from './PlayerState.js'
 import { Inventory } from './Inventory.js'
-import { DayNightCycle } from './DayNightCycle.js'
+import { DayNightCycle, DAY_MS, NIGHT_MS } from './DayNightCycle.js'
 import { ChestManager, Vault, LOOT_WEIGHTS, CHEST_CULL_DISTANCE } from './Chests.js'
 import { RivalManager, RIVAL_BANTER } from './RivalScavenger.js'
 import { loadMastery, saveMastery, MASTERY_THRESHOLD, MASTERY_DAMAGE_MULT, GRANDMASTER_THRESHOLD, GRANDMASTER_DAMAGE_MULT, LEGENDARY_THRESHOLD, LEGENDARY_RELOAD_MULT } from './WeaponMastery.js'
@@ -25,10 +25,10 @@ import { FullMap } from './FullMap.js'
 import { DecalManager } from './Decals.js'
 import { Achievements, ACHIEVEMENTS } from './Achievements.js'
 import { Quests, QUESTS } from './Quests.js'
-import { RollingQuests, EXPIRE_MS as ROLLING_QUEST_EXPIRE_MS } from './RollingQuests.js'
-import { rollPerks, checkPerkSynergies } from './Perks.js'
+import { RollingQuests, EXPIRE_MS as ROLLING_QUEST_EXPIRE_MS, QUESTS_PER_SPAWN, SPAWN_INTERVAL_MS as ROLLING_QUEST_SPAWN_MS } from './RollingQuests.js'
+import { rollPerks, checkPerkSynergies, PERK_SYNERGIES, PERK_CHOICE_COUNT } from './Perks.js'
 import { rollXpUpgrades } from './XpUpgrades.js'
-import { XpGemManager, XpGem } from './XpGems.js'
+import { XpGemManager, XpGem, EXPIRE_MS as XP_GEM_EXPIRE_MS } from './XpGems.js'
 import { AutoWeaponManager } from './AutoWeapons.js'
 import { COIN_SHOP_ITEMS, ATTACHMENT_TYPES } from './CoinShop.js'
 
@@ -161,9 +161,9 @@ const CRATE_ICON_SVG = {
     <circle cx="19.2" cy="8.7" r="0.3" fill="#fff" opacity="0.8"/>
   </svg>`,
 }
-import { pickNightEvent, NIGHT_MUTATIONS, NIGHT_MUTATION_CHANCE } from './NightEvents.js'
+import { pickNightEvent, NIGHT_EVENTS, NIGHT_MUTATIONS, NIGHT_MUTATION_CHANCE } from './NightEvents.js'
 import { Companion } from './Companion.js'
-import { Turret } from './Turret.js'
+import { Turret, TURRET_MAX_TIER } from './Turret.js'
 import { MedStation } from './MedStation.js'
 import { PlayerBody } from './PlayerBody.js'
 import { MinecraftPlayerBody } from './MinecraftPlayerBody.js'
@@ -617,7 +617,7 @@ function loadSettings() {
       // baseline change to every button/input's default focus styling.
       focusRingMode: parsed.focusRingMode ?? false,
       homepageFpsCounter: parsed.homepageFpsCounter ?? false,
-      selectedGoals: Array.isArray(parsed.selectedGoals) ? parsed.selectedGoals.slice(0, 3) : [],
+      selectedGoals: Array.isArray(parsed.selectedGoals) ? parsed.selectedGoals.slice(0, MAX_GOALS) : [],
       underlineLinks: parsed.underlineLinks ?? false,
       shopWishlist: Array.isArray(parsed.shopWishlist) ? parsed.shopWishlist : [],
       shopSortMode: parsed.shopSortMode || 'default',
@@ -1566,7 +1566,7 @@ function loadLoginStreak() {
       // `streak` (a single consecutive-days number) - this is a rolling
       // window capped at 7 entries, not itself a source of truth for the
       // streak count.
-      recentDates: Array.isArray(parsed.recentDates) ? parsed.recentDates.slice(-7) : [],
+      recentDates: Array.isArray(parsed.recentDates) ? parsed.recentDates.slice(-LOGIN_CALENDAR_DAYS) : [],
       // More-features batch - a genuine streak-freeze mechanic (not just a
       // passive indicator): earns 1 freeze per 7-day streak milestone,
       // capped at LOGIN_STREAK_MAX_FREEZES, spent automatically to
@@ -2266,6 +2266,14 @@ const MELEE_KILL_FLASH_DURATION_MS = 350
 const GOLDEN_ZOMBIE_CHECK_INTERVAL_MS = 10000
 const GOLDEN_ZOMBIE_CHANCE = 0.15
 const GOLDEN_ZOMBIE_COIN_BONUS = 500
+// Values GayZ Features shows (see _featureValues) - named here instead of
+// being typed into the page, so the page can't drift from the game.
+const AUDIO_LOG_COUNT = 8
+const MAX_GOALS = 3
+const LOGIN_CALENDAR_DAYS = 7
+const MARKET_FEE_RATE = 0.05
+// Languages that are fully translated; the rest show "Coming soon".
+const SUPPORTED_LANGUAGE_CODES = new Set(['en', 'zh', 'hi', 'es'])
 const GOLDEN_ZOMBIE_ESCORT_COUNT = 3
 // Noise-reactive stampede (see _alertNearbyZombiesToGunfire's own call
 // site) - distinct from NightEvents.js's horde_surge (a flat per-night
@@ -9678,13 +9686,12 @@ export class Game {
     // already covered every key), but that hasn't been enough for a
     // "supported" bar yet, so every other language is flagged as coming
     // soon here rather than silently implying it's equally ready.
-    const LANG_CODES_DONE = new Set(['en', 'zh', 'hi', 'es'])
     this._renderLanguageGrid = () => {
       this.languageGrid.innerHTML = LANGUAGES.map((lang) => `
         <button class="language-btn${lang.code === this.settings.language ? ' active' : ''}" data-lang="${lang.code}">
           <span class="lang-name">${t(lang.nameKey)}</span>
           <span class="lang-native">${lang.native}</span>
-          ${LANG_CODES_DONE.has(lang.code) ? '' : `<span class="lang-coming-soon">${t('languageComingSoonTag')}</span>`}
+          ${SUPPORTED_LANGUAGE_CODES.has(lang.code) ? '' : `<span class="lang-coming-soon">${t('languageComingSoonTag')}</span>`}
         </button>
       `).join('')
     }
@@ -9703,7 +9710,7 @@ export class Game {
       // A toast instead of _openComingSoonPanel() - which would close the
       // whole Settings panel via _closeAllMenuPanels() - keeps the
       // language list open so the player can keep browsing it.
-      if (!LANG_CODES_DONE.has(btn.dataset.lang)) {
+      if (!SUPPORTED_LANGUAGE_CODES.has(btn.dataset.lang)) {
         this._showHomepageToast(t('comingSoonBody'))
         return
       }
@@ -13971,7 +13978,7 @@ export class Game {
     // date reflected back.
     if (previousLastDate) this.loginStreak.previousDate = previousLastDate
     this.loginStreak.lastDate = today
-    this.loginStreak.recentDates = [...(this.loginStreak.recentDates || []), today].slice(-7)
+    this.loginStreak.recentDates = [...(this.loginStreak.recentDates || []), today].slice(-LOGIN_CALENDAR_DAYS)
     saveLoginStreak(this.loginStreak)
     const bonusDays = Math.min(this.loginStreak.streak, LOGIN_STREAK_MAX_BONUS_DAYS)
     const coinBonus = bonusDays * LOGIN_STREAK_COIN_PER_DAY
@@ -15879,7 +15886,7 @@ export class Game {
     sections.push(`
       <div class="journal-section">
         <h3>${t('journalLoreHeading')}</h3>
-        <p>${t('journalLoreCount', { found: this.audioLogsFound.size, total: 8 })}</p>
+        <p>${t('journalLoreCount', { found: this.audioLogsFound.size, total: AUDIO_LOG_COUNT })}</p>
       </div>
     `)
 
@@ -16317,7 +16324,7 @@ export class Game {
 
   // Market fee: 5% of the asking price, taken from what the seller gets.
   _marketFee(price) {
-    return Math.ceil(price * 0.05)
+    return Math.ceil(price * MARKET_FEE_RATE)
   }
 
   // One Kirka-style dialog for every trade action. mode: 'list' (price
@@ -17582,7 +17589,18 @@ export class Game {
     this._closeAllMenuPanels()
     this.howtoplayPanel.style.display = 'flex'
     this.howtoplayPanelTitle.textContent = t('howtoplayPanelTitle')
-    this.howtoplayContent.innerHTML = HOWTOPLAY_STEPS.map((step) => `<h3>${t(step.headingKey)}</h3><p>${tHtml(step.key)}</p>`).join('')
+    this.howtoplayContent.innerHTML = HOWTOPLAY_STEPS.map((step) => `<h3>${t(step.headingKey)}</h3><p>${tHtml(step.key, this._howToPlayKeys())}</p>`).join('')
+  }
+
+  // How to Play names the player's real keys (their current bindings and the
+  // hotbar's slots) instead of hand-typed letters that went stale whenever a
+  // key moved - its strings use {sprint}/{reload}/{healthPack}... placeholders.
+  _howToPlayKeys() {
+    const keys = {}
+    for (const a of ACTIONS) keys[a.id] = _escapeHtml(keyLabel(getKeyFor(a.id)))
+    for (const slot of HOTBAR_ITEM_SLOTS) keys[slot.id] = _escapeHtml(keyLabel(slot.code))
+    keys.move = ['moveForward', 'moveLeft', 'moveBack', 'moveRight'].map((id) => keys[id]).join('')
+    return keys
   }
 
   _closeHowToPlayPanel() {
@@ -19476,6 +19494,7 @@ export class Game {
   _openFeaturesPanel() {
     this._closeAllMenuPanels()
     this.featuresPanel.style.display = 'flex'
+    this._refreshFeatureValues()
   }
 
   _closeFeaturesPanel() {
@@ -19499,6 +19518,144 @@ export class Game {
 
   _closeSkinDesignerPanel() {
     this.skindesignerPanel.style.display = 'none'
+  }
+
+  // What each expandable GayZ Features list should contain, straight from
+  // the game's data: {id: name}. A null name means "keep the name the HTML
+  // gives it" (night events and items only have toast/HUD text in code,
+  // not a short name). tests/docs.spec.js compares these against the page.
+  _featureCatalogs() {
+    const named = (entries) => Object.fromEntries(entries)
+    return {
+      firearms: named(this.weapons.weapons.map((w) => [w.id, w.name])),
+      melee: named(Object.entries(MELEE_VARIANT_NAMES).filter(([id]) => id !== 'knife')),
+      zombies: named(Object.entries(ZOMBIE_TYPES).map(([id, z]) => [id, z.label])),
+      nightEvents: named(NIGHT_EVENTS.map((e) => [e.id, null])),
+      items: named(Object.keys(this.inventory).filter((k) => typeof this.inventory[k] === 'number').map((k) => [k, null])),
+      gameModes: named([...document.querySelectorAll('[data-game-mode]')]
+        .filter((b) => !b.disabled && !b.classList.contains('locked'))
+        .map((b) => [b.dataset.gameMode, null])),
+      mutators: named(Object.keys(this.settings.mutators || {}).map((k) => [k, null])),
+    }
+  }
+
+  _featureCounts() {
+    const catalogs = this._featureCatalogs()
+    return {
+      firearms: this.weapons.weapons.filter((w) => w.id !== 'melee').length,
+      melee: Object.keys(catalogs.melee).length,
+      zombies: Object.keys(ZOMBIE_TYPES).length,
+      difficulties: Object.keys(DIFFICULTY_PRESETS).length,
+      mutators: Object.keys(catalogs.mutators).length,
+      achievements: ACHIEVEMENTS.length,
+      skyscrapers: this.skyscraperShortcuts?.length,
+    }
+  }
+
+  // The numbers (and a few name lists) inside GayZ Features descriptions,
+  // read from the constants the game itself uses. scripts/check-docs.mjs
+  // fails a commit that types a new number into that page instead of
+  // adding one here and wrapping it in <span data-feature-value="...">.
+  _featureValues() {
+    const titleCase = (id) => id.charAt(0).toUpperCase() + id.slice(1)
+    const joinAnd = (names) => names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`
+    const crate = (tier) => CRATE_TIERS[tier]?.cost.toLocaleString('en-US')
+    const supported = LANGUAGES.filter((l) => SUPPORTED_LANGUAGE_CODES.has(l.code)).map((l) => l.name)
+    const coming = LANGUAGES.filter((l) => !SUPPORTED_LANGUAGE_CODES.has(l.code)).map((l) => l.name)
+    return {
+      masteryKills: MASTERY_THRESHOLD,
+      grandmasterKills: GRANDMASTER_THRESHOLD,
+      legendaryKills: LEGENDARY_THRESHOLD,
+      goldenCoins: GOLDEN_ZOMBIE_COIN_BONUS,
+      gemSeconds: XP_GEM_EXPIRE_MS / 1000,
+      dayMinutes: DAY_MS / 60000,
+      nightMinutes: NIGHT_MS / 60000,
+      apexNights: APEX_UNLOCK_NIGHT,
+      streakDamage: KILLSTREAK_DAMAGE_THRESHOLD,
+      streakAirstrike: KILLSTREAK_AIRSTRIKE_THRESHOLD,
+      streakAmmo: KILLSTREAK_AMMO_THRESHOLD,
+      turretTiers: TURRET_MAX_TIER,
+      grappleKey: keyLabel(getKeyFor('grapple')),
+      grappleRange: GRAPPLE_MAX_RANGE,
+      audioLogs: AUDIO_LOG_COUNT,
+      defenseWaves: ZOMBIE_DEFENSE_WAVES_TO_WIN,
+      cursedMutators: _cursedRunMutatorKeys().length,
+      weeklyChallenges: WEEKLY_CHALLENGES.length,
+      weeklyChallengeNames: WEEKLY_CHALLENGES.map((c) => titleCase(c.id)).join(', '),
+      perkChoices: PERK_CHOICE_COUNT,
+      perkSynergies: PERK_SYNERGIES.length,
+      metaUpgrades: META_UPGRADES.length,
+      lifetimeQuests: QUESTS.length,
+      rollingQuests: QUESTS_PER_SPAWN,
+      rollingQuestMinutes: ROLLING_QUEST_SPAWN_MS / 60000,
+      goals: MAX_GOALS,
+      companionRoles: document.querySelectorAll('.role-btn.class-btn[data-role]').length,
+      crateWood: crate('wood'),
+      crateIce: crate('ice'),
+      crateGolden: crate('golden'),
+      outfits: COIN_SHOP_ITEMS.filter((i) => i.section === 'outfits').length,
+      hats: COIN_SHOP_ITEMS.filter((i) => i.section === 'hats').length,
+      marketFee: Math.round(MARKET_FEE_RATE * 100),
+      chatMuteMinutes: ChatUI.CHAT_MUTE_MS / 60000,
+      loginDays: LOGIN_CALENDAR_DAYS,
+      languages: LANGUAGES.length,
+      languagesSupported: joinAnd(supported),
+      languagesComing: joinAnd(coming),
+      attachments: ATTACHMENT_TYPES.length,
+    }
+  }
+
+  // Makes every [data-feature-list] match its catalog: names from code where
+  // the code has one, items whose thing no longer exists are hidden, things
+  // the page doesn't mention yet are added (marked data-auto, so the docs
+  // test fails until someone writes them a description), and the one-line
+  // summary above each list is rebuilt from what's left.
+  _syncFeatureLists() {
+    const catalogs = this._featureCatalogs()
+    const pretty = (id) => id.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/\b\w/g, (c) => c.toUpperCase())
+    this.featuresContent.querySelectorAll('[data-feature-list]').forEach((list) => {
+      const key = list.dataset.featureList
+      const catalog = catalogs[key]
+      if (!catalog) return
+      const seen = new Set()
+      list.querySelectorAll('.detail-item[data-id]').forEach((item) => {
+        const ids = item.dataset.id.split(/\s+/).filter(Boolean)
+        const live = ids.filter((id) => id in catalog)
+        live.forEach((id) => seen.add(id))
+        item.hidden = live.length === 0
+        if (live.length === 1 && ids.length === 1 && catalog[live[0]]) {
+          const b = item.querySelector('b')
+          if (b) b.textContent = catalog[live[0]]
+        }
+      })
+      for (const id of Object.keys(catalog)) {
+        if (seen.has(id)) continue
+        const item = document.createElement('div')
+        item.className = 'detail-item'
+        item.dataset.id = id
+        item.dataset.auto = ''
+        const b = document.createElement('b')
+        b.textContent = catalog[id] || pretty(id)
+        item.appendChild(b)
+        list.appendChild(item)
+      }
+      const line = this.featuresContent.querySelector(`[data-feature-list-line="${key}"]`)
+      if (line) {
+        line.textContent = [...list.querySelectorAll('.detail-item:not([hidden]) > b')]
+          .map((b) => b.textContent.trim()).join(', ')
+      }
+    })
+  }
+
+  // Also run on every open, so a rebound key (the grapple's) shows up.
+  _refreshFeatureValues() {
+    if (!this.featuresContent) return
+    const featureValues = this._featureValues()
+    this.featuresContent.querySelectorAll('[data-feature-value]').forEach((el) => {
+      const v = featureValues[el.dataset.featureValue]
+      // 0 means a lookup broke (nothing on that page is really zero) - keep the HTML's number.
+      if (v !== undefined && v !== null && v !== '' && v !== 0) el.textContent = String(v)
+    })
   }
 
   _bindFeaturesPanel() {
@@ -19570,22 +19727,18 @@ export class Game {
       h3.addEventListener('click', () => h3.closest('.feature').classList.toggle('open'))
     })
 
-    // Numbers in the headings come from the game's own data, so they can't
-    // go stale the way hand-typed ones did ("15 firearms", "30 zombie types",
-    // "21 achievements" - all wrong by 2026-10-04). The HTML keeps a fallback.
-    const featureCounts = {
-      firearms: this.weapons.weapons.filter((w) => w.id !== 'melee').length,
-      melee: MELEE_VARIANT_COUNT,
-      zombies: Object.keys(ZOMBIE_TYPES).length,
-      difficulties: Object.keys(DIFFICULTY_PRESETS).length,
-      mutators: Object.keys(this.settings.mutators || {}).length,
-      achievements: ACHIEVEMENTS.length,
-      skyscrapers: this.skyscraperShortcuts?.length,
-    }
+    // The expandable lists, their one-line summaries, the counts in the
+    // headings and the numbers inside descriptions all come from the game's
+    // own data, so they can't go stale the way hand-typed ones did ("15
+    // firearms", "30 zombie types", "4 bosses" naming only 3 - all wrong by
+    // 2026-10-04). The HTML keeps the descriptions and a fallback.
+    this._syncFeatureLists()
+    const featureCounts = this._featureCounts()
     this.featuresContent.querySelectorAll('[data-feature-count]').forEach((el) => {
       const n = featureCounts[el.dataset.featureCount]
       if (Number.isFinite(n) && n > 0) el.textContent = String(n)
     })
+    this._refreshFeatureValues()
 
     if (this.featuresStatLive && this.featuresStatSoon) {
       this.featuresStatLive.textContent = this.featuresContent.querySelectorAll('section.category:not(#coming-soon) .feature').length
@@ -21762,7 +21915,7 @@ export class Game {
         if (this.settings.selectedGoals.includes(id)) {
           this.settings.selectedGoals = this.settings.selectedGoals.filter((g) => g !== id)
         } else {
-          if (this.settings.selectedGoals.length >= 3) this.settings.selectedGoals.shift()
+          if (this.settings.selectedGoals.length >= MAX_GOALS) this.settings.selectedGoals.shift()
           this.settings.selectedGoals.push(id)
         }
         saveSettings(this.settings)
@@ -23272,7 +23425,7 @@ export class Game {
       audioEngine.playAudioLog()
       this._showLoreToast(t(`lore${type.charAt(0).toUpperCase()}${type.slice(1)}`))
       this.audioLogsFound.add(type)
-      if (this.audioLogsFound.size >= 8) this.achievements.unlock('full_story')
+      if (this.audioLogsFound.size >= AUDIO_LOG_COUNT) this.achievements.unlock('full_story')
       return
     }
 
