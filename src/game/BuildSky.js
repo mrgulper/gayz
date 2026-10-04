@@ -8,19 +8,27 @@
 // dim blue moonlight and stars come out, and glowing blocks stand out
 // since their light is baked into the blocks around them.
 //
-// Rain and snow are particles falling around the camera. A drop that
-// lands in a block starts again at the top, so it doesn't rain indoors.
+// Weather is Map 1's own (2026-10-04, Gaymi: "just use it from map 1 i
+// like it more"): the same falling rain/snow overlays in light and hard,
+// the sandstorm haze, lightning with thunder in hard rain, and the real
+// rain/wind sound (Game.js's #screen-overlays, _ensureWeatherParticles,
+// #lightning-flash, audioEngine.setWeatherAudio). Random rolls them the way
+// Map 1's nights do (Game.js's _rollWeather chances), re-rolling every few
+// minutes. The game's overlays are switched on only while the editor is
+// open (onEnter/onExit).
 import * as THREE from 'three'
 import { t } from './i18n.js'
+import { audioEngine } from './Audio.js'
 
 export const SKY_TIMES = ['day', 'sunset', 'night', 'cycle']
-export const SKY_WEATHERS = ['clear', 'rain', 'snow']
+export const SKY_WEATHERS = ['clear', 'lightRain', 'hardRain', 'lightSnow', 'hardSnow', 'sandstorm', 'random']
+// Saved before Map 1's weather was used here.
+const OLD_WEATHERS = { rain: 'lightRain', snow: 'lightSnow' }
 const CYCLE_SECONDS = 600
 const PREF_KEY = 'buildmode-sky'
-const PARTICLES = 1400
-const AREA = 10 // world units around the camera (a block is 0.35)
-const HEIGHT = 9
-const STREAK = 0.3 // how long a raindrop looks
+const RANDOM_REROLL_S = 240
+const LIGHTNING_MIN_S = 8
+const LIGHTNING_RANGE_S = 14
 // [sky color, hemisphere color, hemisphere intensity, sun color, sun
 // intensity, sun height (0-1)]
 const LOOKS = {
@@ -39,7 +47,8 @@ export class BuildSky {
     try {
       const saved = JSON.parse(localStorage.getItem(PREF_KEY) || '{}')
       if (SKY_TIMES.includes(saved.time)) this.time = saved.time
-      if (SKY_WEATHERS.includes(saved.weather)) this.weather = saved.weather
+      const w = OLD_WEATHERS[saved.weather] || saved.weather
+      if (SKY_WEATHERS.includes(w)) this.weather = w
     } catch {
       // Nothing saved yet.
     }
@@ -48,7 +57,10 @@ export class BuildSky {
     this._b = new THREE.Color()
     this._lastShadowAt = 0
     this._buildStars()
-    this._buildParticles()
+    this._active = false
+    this._now = 'clear' // what's actually showing (Random picks one)
+    this._rerollIn = 0
+    this._lightningIn = 0
     document.getElementById('build-mode-time-btn')?.addEventListener('click', () => this.cycleTime())
     document.getElementById('build-mode-weather-btn')?.addEventListener('click', () => this.cycleWeather())
     this.apply()
@@ -63,8 +75,54 @@ export class BuildSky {
 
   cycleWeather() {
     this.weather = SKY_WEATHERS[(SKY_WEATHERS.indexOf(this.weather) + 1) % SKY_WEATHERS.length]
+    this._rerollIn = 0
     this._save()
+    this._pickWeather()
     this.apply()
+  }
+
+  // Random: Map 1's odds - rain 30%, snow 15%, each hard 40% of the time,
+  // sandstorm 10% of what's left, else clear.
+  _pickWeather() {
+    if (this.weather !== 'random') {
+      this._now = this.weather
+      return
+    }
+    const roll = Math.random()
+    const hard = Math.random() < 0.4
+    if (roll < 0.3) this._now = hard ? 'hardRain' : 'lightRain'
+    else if (roll < 0.45) this._now = hard ? 'hardSnow' : 'lightSnow'
+    else this._now = Math.random() < 0.1 ? 'sandstorm' : 'clear'
+    this._rerollIn = RANDOM_REROLL_S
+  }
+
+  // The editor opened / closed: Map 1's overlays and sound on or off.
+  onEnter() {
+    this._active = true
+    this._shownKind = null
+    this._pickWeather()
+    this.apply()
+  }
+
+  onExit() {
+    this._active = false
+    this._shownKind = null
+    this._showOverlays('clear')
+    const game = this.bm.game
+    audioEngine.setWeatherAudio(!!game?.raining && !!game?.gameStarted, !!game?.snowing && !!game?.gameStarted)
+  }
+
+  _showOverlays(kind) {
+    const game = this.bm.game
+    game?._ensureAllWeatherParticles?.()
+    const show = (el, on) => {
+      if (el) el.style.display = on ? 'block' : 'none'
+    }
+    show(game?.rainOverlayEl, kind === 'lightRain')
+    show(game?.rainOverlayHardEl, kind === 'hardRain')
+    show(game?.snowOverlayEl, kind === 'lightSnow')
+    show(game?.snowOverlayHardEl, kind === 'hardSnow')
+    show(game?.sandstormOverlayEl, kind === 'sandstorm')
   }
 
   _save() {
@@ -107,9 +165,11 @@ export class BuildSky {
     const bm = this.bm
     const [from, to, s] = this._lookAt(this._phase())
     const mix = (i) => from[i] + (to[i] - from[i]) * s
-    const wet = this.weather === 'clear' ? 1 : 0.72
+    const w = this._now
+    const wet = w === 'clear' ? 1 : w.startsWith('hard') ? 0.6 : 0.78
     this._sky.setHex(from[0]).lerp(this._b.setHex(to[0]), s)
-    if (this.weather !== 'clear') this._sky.lerp(this._a.setHex(this.weather === 'snow' ? 0xc8ccd4 : 0x6c7480), 0.45 * (1 - this.nightAmount() * 0.6))
+    const tint = w.endsWith('Snow') ? 0xc8ccd4 : w === 'sandstorm' ? 0xc49a5c : 0x6c7480
+    if (w !== 'clear') this._sky.lerp(this._a.setHex(tint), (w.startsWith('hard') ? 0.6 : 0.4) * (1 - this.nightAmount() * 0.6))
     bm.scene.background = this._sky
     const hemi = bm._hemiLight
     const sun = bm._sunLight
@@ -125,10 +185,16 @@ export class BuildSky {
       sun.position.set(20, 4 + 26 * h, 10)
     }
     const night = this.nightAmount()
-    this._stars.material.opacity = night * (this.weather === 'clear' ? 0.9 : 0.25)
+    this._stars.material.opacity = night * (w === 'clear' ? 0.9 : 0.25)
     this._stars.visible = this._stars.material.opacity > 0.01
-    this._rain.visible = this.weather === 'snow'
-    this._streaks.visible = this.weather === 'rain'
+    // (apply() runs a few times a second in Cycle - only touch the
+    // overlays, sound and lightning when the weather itself changes.)
+    if (this._active && this._shownKind !== w) {
+      this._shownKind = w
+      this._showOverlays(w)
+      audioEngine.setWeatherAudio(w.endsWith('Rain'), w.endsWith('Snow'))
+      this._lightningIn = w === 'hardRain' ? LIGHTNING_MIN_S + Math.random() * LIGHTNING_RANGE_S : 0
+    }
     bm._shadowsDirty = true
     this.refreshButtons()
   }
@@ -160,31 +226,6 @@ export class BuildSky {
     this.bm.scene.add(this._stars)
   }
 
-  _buildParticles() {
-    const pos = new Float32Array(PARTICLES * 3)
-    this._drift = new Float32Array(PARTICLES)
-    const cam = this.bm.camera.position
-    for (let i = 0; i < PARTICLES; i++) {
-      pos[i * 3] = cam.x + (Math.random() * 2 - 1) * AREA
-      pos[i * 3 + 1] = cam.y + Math.random() * HEIGHT - HEIGHT / 3
-      pos[i * 3 + 2] = cam.z + (Math.random() * 2 - 1) * AREA
-      this._drift[i] = Math.random() * Math.PI * 2
-    }
-    const geo = new THREE.BufferGeometry()
-    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
-    this._rain = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.07, transparent: true, opacity: 0.9, depthWrite: false }))
-    this._rain.frustumCulled = false
-    this._rain.visible = false
-    this.bm.scene.add(this._rain)
-    // Rain is drawn as short streaks from the same drops (snow as flakes).
-    const streaks = new THREE.BufferGeometry()
-    streaks.setAttribute('position', new THREE.BufferAttribute(new Float32Array(PARTICLES * 6), 3))
-    this._streaks = new THREE.LineSegments(streaks, new THREE.LineBasicMaterial({ color: 0xb8cce6, transparent: true, opacity: 0.6, depthWrite: false }))
-    this._streaks.frustumCulled = false
-    this._streaks.visible = false
-    this.bm.scene.add(this._streaks)
-  }
-
   update(dt) {
     const bm = this.bm
     if (this.time === 'cycle') {
@@ -198,43 +239,27 @@ export class BuildSky {
       }
     }
     this._stars.position.copy(bm.camera.position)
-    if (this.weather === 'clear') return
-    const snow = this.weather === 'snow'
-    const fall = (snow ? 1.1 : 9) * dt
-    const cam = bm.camera.position
-    const attr = this._rain.geometry.attributes.position
-    const a = attr.array
-    const B = this.B
-    const span = AREA * 2
-    const s = this._streaks.geometry.attributes.position.array
-    for (let i = 0; i < PARTICLES; i++) {
-      const j = i * 3
-      let x = a[j]
-      let y = a[j + 1] - fall
-      let z = a[j + 2]
-      if (snow) {
-        this._drift[i] += dt
-        x += Math.sin(this._drift[i]) * 0.25 * dt
-        z += Math.cos(this._drift[i] * 0.7) * 0.25 * dt
-      }
-      // Keep every drop within AREA of the camera, wrapping around.
-      x = cam.x + ((((x - cam.x + AREA) % span) + span) % span) - AREA
-      z = cam.z + ((((z - cam.z + AREA) % span) + span) % span) - AREA
-      if (y < cam.y - HEIGHT / 3 || y > cam.y + HEIGHT || bm.getBlockAt(Math.floor(x / B), Math.floor(y / B), Math.floor(z / B))) {
-        y = cam.y + HEIGHT * (0.6 + Math.random() * 0.4)
-      }
-      a[j] = x
-      a[j + 1] = y
-      a[j + 2] = z
-      if (!snow) {
-        const k = i * 6
-        s[k] = s[k + 3] = x
-        s[k + 1] = y
-        s[k + 4] = y + STREAK
-        s[k + 2] = s[k + 5] = z
+    if (!this._active) return
+    if (this.weather === 'random') {
+      this._rerollIn -= dt
+      if (this._rerollIn <= 0) {
+        this._pickWeather()
+        this.apply()
       }
     }
-    attr.needsUpdate = true
-    if (!snow) this._streaks.geometry.attributes.position.needsUpdate = true
+    // Hard rain: lightning and thunder now and then, like Map 1.
+    if (this._now === 'hardRain' && this._lightningIn > 0) {
+      this._lightningIn -= dt
+      if (this._lightningIn <= 0) {
+        this._lightningIn = LIGHTNING_MIN_S + Math.random() * LIGHTNING_RANGE_S
+        const flash = this.bm.game?.lightningFlashEl
+        if (flash) {
+          flash.classList.remove('flash')
+          void flash.offsetWidth
+          flash.classList.add('flash')
+        }
+        audioEngine.playThunder?.()
+      }
+    }
   }
 }

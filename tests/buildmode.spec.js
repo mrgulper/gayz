@@ -537,3 +537,29 @@ test('sharing a map by code, liking it, and building together', async ({ page })
   expect(r.notEchoed).toBe(true)
   expect(r.left).toBe(true)
 })
+
+// The editor's weather is Map 1's own overlays (BuildSky.js), shown only
+// while the editor is open.
+test('Map Editor weather uses Map 1\'s rain, snow and sandstorm', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const sky = g.buildMode.sky
+    const shown = () => ['rain-overlay', 'rain-overlay-hard', 'snow-overlay', 'snow-overlay-hard', 'sandstorm-overlay'].filter((id) => document.getElementById(id).style.display === 'block')
+    const out = {}
+    for (const w of ['clear', 'lightRain', 'hardRain', 'lightSnow', 'hardSnow', 'sandstorm']) {
+      sky.weather = w
+      sky._pickWeather()
+      sky.apply()
+      out[w] = shown().join()
+    }
+    out.particles = document.querySelectorAll('#rain-overlay-hard .rain-particle').length
+    g._exitBuildMode()
+    out.afterExit = shown().join()
+    return out
+  })
+
+  expect(r).toEqual({ clear: '', lightRain: 'rain-overlay', hardRain: 'rain-overlay-hard', lightSnow: 'snow-overlay', hardSnow: 'snow-overlay-hard', sandstorm: 'sandstorm-overlay', particles: 160, afterExit: '' })
+})
