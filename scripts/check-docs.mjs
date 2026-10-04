@@ -24,10 +24,20 @@
 // _featureValues(), so they can't go stale ("15 firearms" when there were 14).
 // Numbers that are part of a name (AK-47, Map 3) are in ALLOWED_NUMBERS.
 //
+// Hand-written sentences can't be checked by a script, but they can be tied
+// to the code they describe: every GayZ Features entry carries
+// data-code="identifiers", and How to Play steps (HOWTOPLAY_STEPS, Game.js)
+// and Map Editor tips (MENU_TIPS, BuildMode.js) a `code: '...'` field. When
+// a change touches a line using one of those identifiers, that text has to
+// be edited in the same change or confirmed as still right with
+// [reread: <entry title or text key>] in the commit message. An identifier
+// that no longer exists anywhere in src/ fails too (the feature it describes
+// was removed or renamed).
+//
 // Usage:
 //   node scripts/check-docs.mjs --commit-msg <file>   (git commit-msg hook)
 //   node scripts/check-docs.mjs --range <base>..<head> (CI, a whole PR)
-//   node scripts/check-docs.mjs --page                 (just the typed-number check, working tree)
+//   node scripts/check-docs.mjs --page                 (the checks that don't need a diff, working tree)
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
@@ -86,12 +96,21 @@ function typedNumbers(indexContent) {
 // from the player's real bindings - see i18n.js), never as a typed letter:
 // "press H to use" kept showing for days after Health Packs moved to hotbar
 // slot 4 (2026-10-04). These spot a key typed into en/zh/hi/es text.
+// Case-insensitive word, but key letters stay case-sensitive (so "needs a
+// key" or "Hit a 30-kill streak" don't count - only a capital letter/digit).
+const ci = (w) => w.split('').map((c) => (/[a-z]/i.test(c) ? `[${c.toLowerCase()}${c.toUpperCase()}]` : c.replace('-', '\\-'))).join('')
+const KEY_VERBS = ['press', 'hold', 'tap', 'hit', 'push', 'use', 'click', 'double-tap', 'pulsa', 'pulse', 'presiona', 'mantén', 'usa', 'toca'].map(ci).join('|')
+const K = '[A-Z0-9]'
+const NOT_WORD = '(?![A-Za-z0-9])'
 const TYPED_KEY_PATTERNS = [
   /\*\*\s*(?:[A-Z0-9]|WASD|W A S D|TAB)\s*\*\*/,
-  /\b(?:[Pp]ress|[Hh]old|[Tt]ap|[Pp]ulsa|[Mm]antén|[Pp]resiona)\s+[A-Z0-9](?![A-Za-z0-9])/,
-  /按住?\s*[A-Z0-9](?![A-Za-z0-9])/,
-  /(?<![A-Za-z0-9])[A-Z0-9]\s*दबा/,
-  /\((?:[A-Z])\)/,
+  new RegExp(`\\b(?:${KEY_VERBS})\\s+(?:${ci('the')}\\s+|${ci('la tecla')}\\s+)?\\*{0,2}${K}${NOT_WORD}`),
+  new RegExp(`(?<![A-Za-z0-9'])${K}\\*{0,2}\\s+(?:${ci('key')}|${ci('button')})\\b`),
+  new RegExp(`\\b(?:${ci('key')}|${ci('tecla')})\\s+\\*{0,2}${K}${NOT_WORD}`),
+  // (index 4) bracketed keys - text only, code is full of x[0] and f(1).
+  new RegExp(`\\[${K}\\]|<kbd>[^<]{1,6}</kbd>|\\(${K}\\)`),
+  new RegExp(`(?:按住?|点按|键)\\s*\\*{0,2}${K}${NOT_WORD}|${K}\\*{0,2}\\s*键`),
+  new RegExp(`(?<![A-Za-z0-9])${K}\\*{0,2}\\s*(?:कुंजी|बटन)?\\s*दबा`),
 ]
 
 async function typedKeys() {
@@ -122,14 +141,78 @@ async function typedKeys() {
     lines.forEach((line, i) => {
       if (/^\s*\/\//.test(line)) return
       for (const m of line.matchAll(/(['"`])((?:(?!\1).)*)\1/g)) {
-        if (TYPED_KEY_PATTERNS.some((re) => re.test(m[2]))) inCode.push(`src/${file}:${i + 1} has a key typed into player text ("${m[2].slice(0, 50)}"). Move it to i18n.js with {key:<action id>}.`)
+        if (TYPED_KEY_PATTERNS.some((re, n) => n !== 4 && re.test(m[2]))) inCode.push(`src/${file}:${i + 1} has a key typed into player text ("${m[2].slice(0, 50)}"). Move it to i18n.js with {key:<action id>}.`)
       }
     })
   }
   return [...unknown, ...inCode, ...found.map((k) => `${k} (src/game/i18n.js) has a key typed into it. Write {key:<action id>} instead (e.g. **{key:interact}**, {key:healthPack}) so it shows the player's real key.`)]
 }
 
-function check({ files, indexDiff, indexContent, message }) {
+const norm = (t) => t.replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim().toLowerCase()
+
+// Every hand-written text tied to code: {label, ids, lines? (index.html
+// line range), textKey? (i18n key)}.
+function linkedTexts(indexContent, read) {
+  const out = []
+  const lines = indexContent.split('\n')
+  const end = lines.findIndex((l) => l.includes('end features-main'))
+  lines.forEach((line, i) => {
+    const m = line.match(/<div class="feature[^"]*" data-code="([^"]*)">/)
+    if (!m) return
+    let next = lines.findIndex((l, j) => j > i && /<div class="feature[\s"]|<\/section>/.test(l))
+    if (next < 0 || next > end) next = end
+    const h3 = lines.slice(i, next).join(' ').match(/<h3>(.*?)<\/h3>/)
+    const label = (h3 ? h3[1] : '').replace(/<span data-feature-count="[^"]*">[^<]*<\/span>/g, '').replace(/<[^>]+>/g, '').replace('▸', '').replace(/&amp;/g, '&').trim()
+    out.push({ label, ids: m[1].split(/\s+/).filter(Boolean), lines: [i + 1, next] })
+  })
+  for (const file of ['src/game/Game.js', 'src/game/BuildMode.js']) {
+    for (const m of read(file).matchAll(/\{ key: '(\w+)'(?:, headingKey: '\w+')?, code: '([^']*)' \}/g)) {
+      out.push({ label: m[1], ids: m[2].split(/\s+/).filter(Boolean), textKey: m[1] })
+    }
+  }
+  return out
+}
+
+// Content lines a -U0 diff adds or removes, minus comments and the link
+// declarations themselves.
+function changedCode(diff) {
+  return diff.split('\n')
+    .filter((l) => /^[+-]/.test(l) && !/^(\+\+\+|---)/.test(l))
+    .map((l) => l.slice(1))
+    .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l) && !/code: '|data-code="/.test(l))
+}
+
+function linkProblems({ indexContent, indexTouched, srcDiff, i18nDiff, message, read, srcText }) {
+  const problems = []
+  const texts = linkedTexts(indexContent, read)
+  const featuresStart = indexContent.split('\n').findIndex((l) => l.includes('id="features-main"'))
+  const comingSoon = indexContent.split('\n').findIndex((l) => l.includes('id="coming-soon"'))
+  // Every live GayZ Features entry must be tied to code.
+  indexContent.split('\n').forEach((l, i) => {
+    if (i > featuresStart && i < comingSoon && /<div class="feature[\s"]/.test(l) && !/data-code="[^"]+"/.test(l)) {
+      problems.push(`GayZ Features entry at index.html:${i + 1} has no data-code="..." - list the functions/constants it describes, so changes to them ask for it to be re-read.`)
+    }
+  })
+  for (const t of texts) {
+    for (const id of t.ids) {
+      if (!new RegExp(`\\b${id}\\b`).test(srcText)) problems.push(`"${t.label}" is tied to ${id}, which no longer exists in src/. Check the text still describes the game, then update its code link.`)
+    }
+  }
+  const code = changedCode(srcDiff)
+  const i18nChanged = changedCode(i18nDiff).join('\n')
+  const reread = new Set([...message.matchAll(/\[reread:\s*([^\]]+)\]/gi)].map((m) => norm(m[1])))
+  for (const t of texts) {
+    const hit = t.ids.find((id) => code.some((l) => new RegExp(`\\b${id}\\b`).test(l)))
+    if (!hit) continue
+    const edited = t.lines ? indexTouched.some((n) => n >= t.lines[0] && n <= t.lines[1]) : new RegExp(`^\\s*${t.textKey}:`, 'm').test(i18nChanged)
+    if (edited || reread.has(norm(t.label))) continue
+    const where = t.lines ? `GayZ Features entry "${t.label}" (index.html:${t.lines[0]})` : `${t.textKey} (src/game/i18n.js)`
+    problems.push(`This change touches ${hit}, which ${where} describes. Re-read it: fix it if it's now wrong, or confirm it with [reread: ${t.label}] in the commit message.`)
+  }
+  return problems
+}
+
+function check({ files, indexDiff, indexContent, message, srcDiff = '', i18nDiff = '', read, srcText = '' }) {
   if (!files.some((f) => GAME_PATH.test(f))) return []
   const problems = typedNumbers(indexContent).map((t) => `GayZ Features has a typed number in "${t}". Wrap it in <span data-feature-value="key">, add that key to _featureValues() in Game.js, or add it to ALLOWED_NUMBERS here if it's part of a name.`)
   for (const name of ['no-notes', 'no-features']) {
@@ -146,7 +229,13 @@ function check({ files, indexDiff, indexContent, message }) {
   if (!inRange(features) && !MARKER_REASON('no-features').test(message)) {
     problems.push('GayZ Features was not updated. Add or fix the entry in #features-main (index.html), or put [no-features: <why>] in the commit message if no feature was added, removed or changed.')
   }
+  problems.push(...linkProblems({ indexContent, indexTouched: touched, srcDiff, i18nDiff, message, read, srcText }))
   return problems
+}
+
+// All of src/ as one string, for "does this identifier still exist".
+function workingSrcText() {
+  return readdirSync('src', { recursive: true }).filter((f) => /\.js$/.test(f)).map((f) => readFileSync(`src/${f}`, 'utf8')).join('\n')
 }
 
 function fromCommitMsg(msgFile) {
@@ -156,7 +245,16 @@ function fromCommitMsg(msgFile) {
   const files = git('diff', '--cached', '--name-only').split('\n').filter(Boolean)
   let indexContent = ''
   try { indexContent = git('show', ':index.html') } catch { /* no index.html staged or tracked */ }
-  return check({ files, indexDiff: git('diff', '--cached', '-U0', '--', 'index.html'), indexContent, message })
+  return check({
+    files,
+    indexDiff: git('diff', '--cached', '-U0', '--', 'index.html'),
+    indexContent,
+    message,
+    srcDiff: git('diff', '--cached', '-U0', '--', 'src', ':!src/game/i18n.js'),
+    i18nDiff: git('diff', '--cached', '-U0', '--', 'src/game/i18n.js'),
+    read: (f) => { try { return git('show', `:${f}`) } catch { return '' } },
+    srcText: workingSrcText(),
+  })
 }
 
 function fromRange(range) {
@@ -167,6 +265,10 @@ function fromRange(range) {
     indexDiff: git('diff', '-U0', range, '--', 'index.html'),
     indexContent: git('show', `${head}:index.html`),
     message: git('log', '--format=%B', range.replace('...', '..')),
+    srcDiff: git('diff', '-U0', range, '--', 'src', ':!src/game/i18n.js'),
+    i18nDiff: git('diff', '-U0', range, '--', 'src/game/i18n.js'),
+    read: (f) => { try { return git('show', `${head}:${f}`) } catch { return '' } },
+    srcText: workingSrcText(),
   })
 }
 
@@ -174,7 +276,7 @@ const [mode, arg] = process.argv.slice(2)
 const keyProblems = await typedKeys()
 const problems = mode === '--commit-msg' ? fromCommitMsg(arg)
   : mode === '--range' ? fromRange(arg)
-  : mode === '--page' ? check({ files: ['index.html'], indexDiff: '@@ -1 +1 @@', indexContent: readFileSync('index.html', 'utf8'), message: '[no-notes: page check only] [no-features: page check only]' })
+  : mode === '--page' ? check({ files: ['index.html'], indexDiff: '@@ -1 +1 @@', indexContent: readFileSync('index.html', 'utf8'), message: '[no-notes: page check only] [no-features: page check only]', read: (f) => readFileSync(f, 'utf8'), srcText: workingSrcText() })
   : null
 if (problems !== null) problems.push(...keyProblems)
 if (problems === null) {

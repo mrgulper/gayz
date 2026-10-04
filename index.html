@@ -2448,138 +2448,138 @@ Escape before dawn.</p>
       <section class="category" id="core-gameplay">
         <h2>Core Gameplay</h2>
 
-        <div class="feature">
+        <div class="feature" data-code="headshot damageFalloff _fireShot">
           <h3>Combat &amp; Shooting</h3>
           <p>First-person shooting with recoil, per-weapon camera shake, headshots and critical hits, damage falloff on shotguns, hit markers, and floating damage numbers.</p>
         </div>
-        <div class="feature expandable">
+        <div class="feature expandable" data-code="WEAPONS">
           <h3><span class="expand-icon">▸</span><span data-feature-count="firearms">14</span> Firearms + Knife</h3>
           <p class="list-line" data-feature-list-line="firearms"></p>
           <!-- Every list below is built from the game's own data (Game.js _syncFeatureLists): descriptions live next to the code they describe. Only data-extra items, with no single thing in code behind them, are written here. -->
           <div class="detail-list" data-feature-list="firearms">
           </div>
         </div>
-        <div class="feature expandable">
+        <div class="feature expandable" data-code="MELEE_VARIANTS">
           <h3><span class="expand-icon">▸</span><span data-feature-count="melee">7</span> Melee Weapon Variants</h3>
           <p class="list-line" data-feature-list-line="melee"></p>
           <div class="detail-list" data-feature-list="melee">
           </div>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="MASTERY_THRESHOLD GRANDMASTER_THRESHOLD LEGENDARY_THRESHOLD">
           <h3>Weapon Mastery</h3>
           <p>Every kill with a gun counts toward that gun's own permanent tally: Mastery at <span data-feature-value="masteryKills">75</span> kills (+damage), Grandmaster at <span data-feature-value="grandmasterKills">250</span> (bigger bonus), Legendary at <span data-feature-value="legendaryKills">600</span> (faster reload). Grandmastering a weapon unlocks its Heirloom cosmetic skin tier.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="akimbo">
           <h3>Akimbo</h3>
           <p>Dual-wielding, unlockable separately for Pistols and for Shotguns.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="AutoWeaponManager getAutoWeaponUpgrades">
           <h3>Auto-Weapons</h3>
           <p>Vampire-Survivors-style orbiting/summoned weapons earned via free level-up picks mid-run: Spinning Blades, Homing Drone shots, a Damage Aura, and Chain Lightning — each with its own unlock, upgrade, and evolve path.</p>
         </div>
-        <div class="feature expandable">
+        <div class="feature expandable" data-code="ZOMBIE_TYPES">
           <h3><span class="expand-icon">▸</span><span data-feature-count="zombies">28</span> Zombie Types</h3>
           <p class="list-line" data-feature-list-line="zombies"></p>
           <div class="detail-list" data-feature-list="zombies">
           </div>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="GOLDEN_ZOMBIE_COIN_BONUS goldenZombieSpotted">
           <h3>Golden Zombies</h3>
           <p>Now and then one zombie turns golden, glows with a halo and brings a small escort pack. Kill it for a <span data-feature-value="goldenCoins">500</span>-coin jackpot.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="XpGemManager _onXpGemCollected">
           <h3>XP Gems</h3>
           <p>Killed zombies drop glowing blue gems (elite ones drop bigger ones). Walk over them to collect XP toward your next level-up pick; they fade away after <span data-feature-value="gemSeconds">20</span> seconds.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="takedown">
           <h3>Stealth Takedowns</h3>
           <p>A melee hit on a zombie that's facing away from you is an instant kill. Ten of them unlocks the Shadow Hunter achievement.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="bestiaryEncountered">
           <h3>Bestiary</h3>
           <p>Tracks every zombie type you've personally encountered, unlocks lore blurbs, and feeds the Bestiary Master achievement.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="DayNightCycle DAY_MS NIGHT_MS">
           <h3>Day/Night Cycle</h3>
           <p>A real-time <span data-feature-value="dayMinutes">12</span>-minute day and <span data-feature-value="nightMinutes">12</span>-minute night cycle with real lighting and fog transitions.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="DIFFICULTY_PRESETS APEX_UNLOCK_NIGHT">
           <h3><span data-feature-count="difficulties">5</span> Difficulty Tiers</h3>
           <p>Easy, Normal, Hard, and two unlockable tiers: Nightmare (unlocked by reaching the true ending) and Apex (unlocked by surviving <span data-feature-value="apexNights">15</span> nights on Nightmare).</p>
         </div>
-        <div class="feature expandable">
+        <div class="feature expandable" data-code="NIGHT_EVENTS pickNightEvent">
           <h3><span class="expand-icon">▸</span>Random Night Events</h3>
           <p class="list-line" data-feature-list-line="nightEvents"></p>
           <div class="detail-list" data-feature-list="nightEvents">
           </div>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="NIGHT_MUTATIONS NIGHT_MUTATION_CHANCE">
           <h3>Nightly Zombie Mutations</h3>
           <p>Random modifiers that can apply to the whole horde on a given night: Armored, Swift, Reckless, or Docile.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="KILLSTREAK_DAMAGE_THRESHOLD KILLSTREAK_AIRSTRIKE_THRESHOLD KILLSTREAK_AMMO_THRESHOLD">
           <h3>Killstreak Rewards</h3>
           <p>Consecutive kills grant tiered bonuses: a damage boost at <span data-feature-value="streakDamage">5</span>, a screen-clearing airstrike at <span data-feature-value="streakAirstrike">10</span>, temporary infinite ammo at <span data-feature-value="streakAmmo">15</span>.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="lastStandUsed lastStandEntered">
           <h3>Last Stand</h3>
           <p>A once-per-run self-revive: instead of dying, you're knocked down at 1 HP with a pistol on a timer — enough kills while downed revives you.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="_tryMysteryBox">
           <h3>Mystery Box</h3>
           <p>Spend points at a physical machine for a random weapon reroll, with a smaller chance at a rare one.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="BarricadeWindows">
           <h3>Barricaded Windows</h3>
           <p>Fixed chokepoints where zombies tear planks off over time — repairing them earns points, with siege escalation and horde-size multipliers on how fast they get torn down.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="Chests">
           <h3>Chests &amp; Loot</h3>
           <p>Lootable crates with a weighted loot table (health, ammo, melee weapons, rare/legendary parts, grenades, rations), plus a guaranteed-good-reward Vault room. Hundreds of chests spread across the city, all openable every night, optimized to only stay active near you so a map full of them doesn't tank your FPS.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="Turret TURRET_MAX_TIER MedStation">
           <h3>Turret Kit &amp; Med Station</h3>
           <p>A deployable turret that auto-tracks and fires at the nearest zombie (<span data-feature-value="turretTiers">3</span> upgrade tiers), and a deployable station that heals you and nearby companions over time.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="Vehicle">
           <h3>Vehicles</h3>
           <p>Drivable Car and Motorcycle with distinct speed/fuel/durability tradeoffs, crash damage, a separate Nitro Boost resource, a toggleable radio, and Trader-purchasable armor/repairs.</p>
         </div>
-        <div class="feature expandable">
+        <div class="feature expandable" data-code="ITEM_INFO">
           <h3><span class="expand-icon">▸</span>Inventory Items</h3>
           <p class="list-line" data-feature-list-line="items"></p>
           <div class="detail-list" data-feature-list="items">
           </div>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="HOTBAR_ITEMS HOTBAR_ITEM_SLOTS _useHotbarItem">
           <h3>Hotbar 1–10</h3>
           <p>One row at the bottom of the screen: slots 1–3 are your weapons, slots 4–0 are Med Kit, Armor, Grenade, Molotov, C4 (press again to detonate), Trap and Adrenaline, each showing how many you have. Use them with the number keys or by clicking the slot.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="_mantleStart prone grappleCooldownUntil GRAPPLE_MAX_RANGE">
           <h3>Movement</h3>
           <p>Sprint, crouch, jump, mantling over obstacles, sliding, a dodge-dash, going prone (double-tap crouch to lie flat - zombies spot you from less far away), and a grapple (<span data-feature-value="grappleKey">X</span>) that pulls you to any wall or ledge you aim at up to <span data-feature-value="grappleRange">20</span>m away.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="hunger thirst warmth infection">
           <h3>Status Systems</h3>
           <p>Health, Armor, Stamina, Hunger, Thirst, Warmth, and flashlight Battery, each with its own HUD bar, plus an Infection indicator.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="_openWeaponWheel">
           <h3>Weapon Wheel</h3>
           <p>A radial hold-to-select weapon switcher, separate from number-key switching.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="photoModeOpen spectateOpen">
           <h3>Photo Mode &amp; Spectate Mode</h3>
           <p>A free-fly camera with selectable filters for screenshots, and a separate free-fly Spectate option from the pause menu to watch without playing.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="_takeScreenshot">
           <h3>Screenshot &amp; Recording Tools</h3>
           <p>In-game screenshot capture with crop selection and captions, plus a Start/Stop clip recorder that auto-saves on stop, death, quit, or a won run.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="deathGrade">
           <h3>Death Screen</h3>
           <p>Survival stats, a letter death grade, run highlights, cause-of-death breakdown, a small replay, Legacy Points earned, and a Share Run Card / Copy Text Recap option.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="AUDIO_LOG_COUNT audioLogsFound">
           <h3>Story Mode</h3>
           <p><span data-feature-value="audioLogs">8</span> collectible Audio Logs telling the VIREO conspiracy plot, a VIREO Terminal to interact with, and a true "Ground Truth" ending.</p>
         </div>
@@ -2588,32 +2588,32 @@ Escape before dawn.</p>
       <section class="category" id="modes-mutators">
         <h2>Game Modes &amp; Mutators</h2>
 
-        <div class="feature expandable">
+        <div class="feature expandable" data-code="GAME_MODE_INFO">
           <h3><span class="expand-icon">▸</span>Game Modes</h3>
           <p class="list-line" data-feature-list-line="gameModes"></p>
           <div class="detail-list" data-feature-list="gameModes">
           </div>
         </div>
-        <div class="feature expandable">
+        <div class="feature expandable" data-code="MUTATOR_INFO">
           <h3><span class="expand-icon">▸</span><span data-feature-count="mutators">21</span> Mutators</h3>
           <p class="list-line" data-feature-list-line="mutators"></p>
           <div class="detail-list" data-feature-list="mutators">
             <div class="detail-item" data-extra><b>Weekly Featured Mutator</b> — one rotating mutator highlighted each week, with a coin bonus and a Weekly Remix combo bonus.</div>
           </div>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="hardcoreMode endlessMode scoreAttackMode">
           <h3>Other Run Toggles</h3>
           <p>Hardcore Mode (no respawn), Guest Mode (don't save the run), Endless Mode, Score Attack Mode.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="WEEKLY_CHALLENGES">
           <h3>Weekly Challenges</h3>
           <p><span data-feature-value="weeklyChallenges">3</span> rotating challenges (<span data-feature-value="weeklyChallengeNames">Headhunter, Exterminator, Sharpshooter</span>) — the same ones for everyone each real-world week, with a coin reward and their own leaderboard.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="BOUNTY_DEFS">
           <h3>Bounty Board</h3>
           <p>One active side-objective at a time from the Trader (kill counts, survive a weather night, reach a night, rescue survivors, clear a location) — rewards points and rolls a fresh one on completion.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="_checkSetupCode _copySetupCode">
           <h3>Setup/Challenge Codes</h3>
           <p>Export a shareable code encoding your exact mutator setup so a friend can paste it in and match it instantly.</p>
         </div>
@@ -2622,55 +2622,55 @@ Escape before dawn.</p>
       <section class="category" id="progression-meta">
         <h2>Progression &amp; Meta</h2>
 
-        <div class="feature">
+        <div class="feature" data-code="rollPerks PERK_CHOICE_COUNT">
           <h3>Perks</h3>
           <p>Offered <span data-feature-value="perkChoices">3</span>-at-a-time from points earned in a run: Fast Reload, More Stamina, Better Armor, Stronger Heals, Sprint Boost, Dead Silence, Insurance, Barricade Medic, Pickup Magnet — rerollable or skippable.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="PERK_SYNERGIES">
           <h3>Perk Synergies</h3>
           <p><span data-feature-value="perkSynergies">3</span> bonus effects that unlock once you've ever owned both perks of a specific pair, rewarding committing to a build: Combat Reflexes, Iron Resolve, Fortified.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="xpPicked xpUpgradeGlassCannon xpUpgradeBerserker">
           <h3>XP Level-Up Picks</h3>
           <p>Free passive buffs on every level-up: Move Speed, Max Health, Damage, Stamina, Armor, plus two once-only tradeoff picks — Glass Cannon and Berserker.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="META_UPGRADES">
           <h3>Permanent Upgrades</h3>
           <p><span data-feature-value="metaUpgrades">38</span> one-time purchases from Legacy Points, across Survival/Combat/Utility trees plus base-building unlocks (turret tiers, walls, watchtower, farm plot), companion perks, night vision, and lifetime-coin-gated Veteran's Caches.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="prestigeLevel">
           <h3>Prestige</h3>
           <p>Reset your Legacy Points for a permanent Prestige tier, with a full history log of every past prestige and color-tier badges on your homepage and Profile.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="respecBtn">
           <h3>Respec</h3>
           <p>Refund and re-spend all Permanent Upgrade points.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="ACHIEVEMENTS">
           <h3><span data-feature-count="achievements">20</span> Achievements</h3>
           <p>Spanning combat, survival, exploration, story, and collection, each with a hint instead of a bare "???" — plus search, category filter, sort, and a Print list export in the Achievements panel.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="evolveHoming evolveBlade">
           <h3>Weapon Evolution</h3>
           <p>Fully upgrading and evolving an auto-weapon (Blades or Homing) counts toward its own achievement.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="QUESTS">
           <h3>Lifetime Quests</h3>
           <p><span data-feature-value="lifetimeQuests">22</span> permanent one-time milestones across career kills, best-ever killstreak, and lifetime points — each pays out coins once, ever.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="RollingQuests QUESTS_PER_SPAWN">
           <h3>Rolling Quests</h3>
           <p>Every player sees the same <span data-feature-value="rollingQuests">5</span> active quests at the same real-world moment, refreshing every <span data-feature-value="rollingQuestMinutes">30</span> minutes, no backend required.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="_xpForLevel">
           <h3>Rank &amp; Level System</h3>
           <p>An XP-level HUD badge, a Rank Roadmap on the Profile panel, and a Class Comparison table across your different class picks.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="careerStats">
           <h3>Career Stats &amp; Profile</h3>
           <p>Lifetime totals, a stats-over-time chart, a pinnable highlight reel, a Best Run breakdown, an anniversary line, today's session stats, and a "Nearly There" panel toward trackable achievements.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="selectedGoals MAX_GOALS">
           <h3>Goals</h3>
           <p>Pick up to <span data-feature-value="goals">3</span> personal goals to track/checklist on your Profile.</p>
         </div>
@@ -2679,47 +2679,47 @@ Escape before dawn.</p>
       <section class="category" id="world-exploration">
         <h2>World &amp; Exploration</h2>
 
-        <div class="feature">
+        <div class="feature" data-code="supermarket hospital policeStation megaMall">
           <h3>Named Locations</h3>
           <p>Park, Hospital, Pharmacy, Gun Shop, Police Station, Military Checkpoint, Prison, University, Office Skyscrapers with rooftop shortcuts, Mega Mall, Warehouse, Gas Station, Bank with its own vault, Diner, Radio Station, Fire Station, Motel, and dozens of smaller storefronts. Real shiny/rough material shading and grime/bump textures on walls and props are back on, split out from the rest of the graphics settings so they cost almost nothing extra.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="skyscraperShortcuts">
           <h3><span data-feature-count="skyscrapers">46</span> Walkable Skyscrapers</h3>
           <p>Every tall building that used to be pure decoration is now a real, enterable skyscraper with floors and stairs, automatically spaced so none of them touch or overlap. Each one's walls and floors draw as a couple of merged pieces per building instead of several per floor, since there are so many of them across the map.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="buildSubway">
           <h3>Full Subway Network</h3>
           <p>Junction rooms, connector tunnels, two entrances, a maintenance tunnel network, a wrecked train chamber, a full underground station, a toxic sewer level, and a mine level — a genuinely explorable underground biome. Every one of these areas (plus the separate Sewer tunnel and every tree in the park above) draws its walls/floors as merged pieces instead of dozens of separate ones, to keep this whole biome light on FPS.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="buildSewer VIREO_TERMINAL_RADIUS">
           <h3>Sewer System &amp; Vireo Facility</h3>
           <p>A separate tunnel network home to the Sewer Dweller and Broodmother boss, and a story-specific hidden location tied to the audio-log narrative.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="buildSafeZone">
           <h3>Safe Zone / Trader Compound</h3>
           <p>A guarded hub with passive regen, home to the Trader (Salvage, Crafting, Stash, Sellback, rotating Black Market), a Practice Range, Trophy Wall, the Vault, Ammo Station, Weapon Upgrade Machine, and the Mystery Box. Walls, sandbags, crates and stairs here are optimized to draw as a handful of merged pieces instead of dozens of separate ones, since it's the one spot every run passes through.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="interior">
           <h3>Explorable Interiors</h3>
           <p>A Hidden Complex accessible from certain doors, an Elevator Tower, Fire Escapes, and rooftop shortcuts between skyscrapers.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="_updateAirdrop _claimAirdrop">
           <h3>Airdrops</h3>
           <p>Supply crates you can race a squad of Rival Scavengers to — whoever gets there first claims it, or the rivals fight if you close the distance first.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="_updateCompass FullMap Minimap">
           <h3>Compass, Full Map &amp; Minimap</h3>
           <p>HUD markers for Trader, Ammo, Vehicle, Airdrop, Vault, and Subway, plus a full map screen and an adjustable-zoom minimap.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="BuildMode BuildTryMode generateMap3">
           <h3>Build Mode / Map Editor</h3>
           <p>A standalone creative sandbox: hundreds of Minecraft-style blocks (every one with a slab and stairs), water and lava that flow, free-fly flight, save slots plus the ready-made Map 3 city, Try Map to walk it in first person with a gun, Export/Import Map, Mirror mode, a Line tool, and Copy/Paste for stamping down builds.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="weather _applyFogState">
           <h3>Environmental Effects</h3>
           <p>Rain, snow, sandstorms, lightning, a night-vision overlay, and real rain/snow ambience sound that plays and fades correctly on every session.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="manholeCovers wreckingPendulum payphone workbench">
           <h3>Interactive Props</h3>
           <p>A Bulletin Board, Hall of Fame, Payphone, Jump Pad, Scaffolding, Wrecking Pendulum, Breaker Box, wandering Pet, Generator, Explosive Barrels, and a Manhole Cover.</p>
         </div>
@@ -2728,55 +2728,55 @@ Escape before dawn.</p>
       <section class="category" id="customization">
         <h2>Customization</h2>
 
-        <div class="feature">
+        <div class="feature" data-code="loadoutBtns">
           <h3>Classes / Loadouts</h3>
           <p>Pick a Companion role (Ranged, Melee-Bruiser, Medic) merged with a player build (Balanced, Runner, Tank) in one Choose Class grid.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="Companion">
           <h3>Companion NPC</h3>
           <p>A controllable AI ally with <span data-feature-value="companionRoles">3</span> roles, a custom name and colors, gear, a dedicated perk tree, a Speed Boost upgrade, and an Auto-Revive upgrade — plus Follow/Hold Position/Focus Fire squad orders.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="CRATE_TIERS">
           <h3>Crates</h3>
           <p>Buy Wood (<span data-feature-value="crateWood">1,000</span> coins), Ice (<span data-feature-value="crateIce">2,000</span>) or Golden (<span data-feature-value="crateGolden">5,000</span>) crates in the Store and open them in Inventory &gt; Crates for a random outfit or hat - the pricier the crate, the better the odds of a rare one. Get one you already own and you're refunded the crate's price.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="COIN_SHOP_ITEMS">
           <h3>Cosmetic Outfits &amp; Hats</h3>
           <p><span data-feature-value="outfits">7</span> outfits and <span data-feature-value="hats">3</span> hats purchasable with coins, visible in third person.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="uiTheme">
           <h3>Old &amp; Golden Themes</h3>
           <p>Two complete looks for the menus, picked in Inventory &gt; Theme: Old (rusty metal, torn paper panels, worn profile card) and Golden (gold plates and frames).</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="SKIN_DESIGNER_URL">
           <h3>Design a Skin</h3>
           <p>A built-in skin editor (Design a Skin, at the bottom of the homepage): paint a 64x64 Minecraft-style skin on a live 3D preview, save it to slots, and wear it in game.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="INVENTORY_SKINS SKIN_RARITIES InspectViewer">
           <h3>Inventory Skins: Rarities, Inspect &amp; Sell</h3>
           <p>Every character skin card shows its rarity and how many you own. Click one to Equip it, put it on the Market, Sell it to the game for coins, or Inspect it in a big 3D view you can turn and zoom.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="customSkinDataUrl">
           <h3>Custom Skin Upload</h3>
           <p>Upload a real Minecraft-format 64x64 skin PNG, read pixel-for-pixel and mapped onto your character, with a Reset to Default option.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="GaygarX">
           <h3>Gems Shop Skin</h3>
           <p>GaygarX - a purchasable character skin in the Shop, priced in Gems (earned from nights survived and kills) - buying it equips it immediately, and it's yours to switch back to any time afterward from the Inventory panel's Character tab, alongside Default.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="nicknameColor nicknameFont">
           <h3>Nickname Customization</h3>
           <p>Editable nickname, a color picker, a font picker, a homepage Motto line, and a Bio with preset saving.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="accentColor">
           <h3>Player Title Color &amp; Avatar Frame Tiers</h3>
           <p>A custom accent color for your stat-line title, plus automatic border-color escalation on your avatar as your level tier climbs.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="homepageGreeting">
           <h3>Homepage Personalization</h3>
           <p>Accent color, Play-button color, UI font, layout density, background mood, homepage greeting text, and a reorderable nav-button order.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="MenuPresets">
           <h3>Menu Presets &amp; Sharing</h3>
           <p>Save Setup preset chips, a Surprise Me randomizer, and a Share panel for your setup, profile, loadout, a friend challenge, or the page link.</p>
         </div>
@@ -2785,51 +2785,51 @@ Escape before dawn.</p>
       <section class="category" id="social-cloud">
         <h2>Social &amp; Cloud</h2>
 
-        <div class="feature">
+        <div class="feature" data-code="syncWithCloud mergeSaves">
           <h3>Cloud Save</h3>
           <p>Google Sign-In syncs your save across devices, with a conflict resolver if local and cloud saves diverge.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="fetchLeaderboardEntryByPlayerId dailyLeaderboard">
           <h3>Leaderboards</h3>
           <p>Global (with a region filter), Weekly Challenge, Most Achievements, Nearby Rank, a Global Rank badge, a Nearest-Rival nudge, global average/percentile comparison, a live-subscribed top board, plus Boss Rush, Hardcore Memorial, Household, and Daily Challenge boards.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="incrementGlobalKills">
           <h3>Global Kill Counter</h3>
           <p>A live, server-wide total-zombies-killed count that ticks up with everyone's runs.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="savedFriends">
           <h3>Friends</h3>
           <p>Add by player ID, real-time friend requests, a saved-friends list, live Friend Compare, and an online/idle/DND/offline status dropdown with last-seen time.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="createMarketListing buyMarketListing MARKET_FEE_RATE">
           <h3>Market</h3>
           <p>A player-to-player skin market: list a skin from your Inventory at your own price (<span data-feature-value="marketFee">5</span>% fee), browse and search everyone's listings by item and rarity, buy one, or take your own listing back. You're paid when you next open the Market or Inventory. Needs a Cloud Save sign-in.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="sendGlobalChatMessage CHAT_MUTE_MS">
           <h3>Chat</h3>
           <p>An always-visible chat box with Global, Clan, and Party (whoever you're playing a multiplayer run with) tabs. Right-click any name to block them - their messages show as "Blocked message - Show" in every channel until you unblock them in Settings. No word filtering otherwise, but spamming gets you muted for <span data-feature-value="chatMuteMinutes">5</span> minutes.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="Multiplayer">
           <h3>Real-Time Multiplayer</h3>
           <p>Share an invite link mid-run to bring a friend into your world - no player limit, no lobby to wait in, just drop straight into playing together and see each other move around in real time. Your position keeps syncing even with your inventory, map, or other menus open, so a friend never flickers or drops out of view just because you checked your loadout.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="loginStreak LOGIN_CALENDAR_DAYS">
           <h3>Login-Streak Calendar</h3>
           <p>Tracks and displays your last <span data-feature-value="loginDays">7</span> days of login activity alongside a running streak counter.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="anonymousLeaderboard">
           <h3>Anonymous Leaderboard Mode</h3>
           <p>Hide your name on public leaderboards while still competing.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="_generatePlayerId">
           <h3>Player ID / Tag System</h3>
           <p>A stable, copyable ID separate from your editable nickname, used for friend search and leaderboard identity.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="_exportSave _importSaveFile">
           <h3>Export/Import Save &amp; Settings Sharing</h3>
           <p>Export/Import Save to a file with a Compare Save diff tool, Copy Save to Clipboard, and separate Settings/Keybind codes to transfer just preferences.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="POLL_ID">
           <h3>Community Poll &amp; Bug Report Tool</h3>
           <p>One developer-authored poll with one-vote-per-account, plus a Copy Bug Report button for sharing diagnostics.</p>
         </div>
@@ -2838,39 +2838,39 @@ Escape before dawn.</p>
       <section class="category" id="accessibility-settings">
         <h2>Accessibility &amp; Settings</h2>
 
-        <div class="feature">
+        <div class="feature" data-code="AutoQuality fpsCap">
           <h3>Auto Quality &amp; FPS Cap</h3>
           <p>Auto Quality (on by default) lowers resolution, view distance and crowd size on its own when the game slows down and raises them again when it can; an FPS Cap setting limits the frame rate. Both are in Settings &gt; Graphics.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="highContrastMode largeTextMode colorblindMode">
           <h3>Visual Accessibility</h3>
           <p>Colorblind Mode with separate Red-Green (Protanopia/Deuteranopia) and Blue-Yellow (Tritanopia) options and a live preview, Large Text Mode, Dyslexia-Friendly Font, High Contrast Mode, Text Spacing, Button Size, Reduce Transparency, High-Visibility Cursor, caption-style text backgrounds, visible focus rings, underlined links.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="reduceFlashing motionBlur">
           <h3>Motion &amp; Flash Sensitivity</h3>
           <p>Reduce Flashing Effects with a live preview, Streaming-Safe Mode, separate recoil-shake vs. damage-shake sliders, Motion Blur toggle, toast duration control.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="captionBackground">
           <h3>Audio Accessibility</h3>
           <p>Audio cue on hover/focus, Positional Audio, Mute on Tab Blur, a Master Volume slider plus separate Music/SFX/Ambient sliders each with a Test button.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="setBinding ACTIONS">
           <h3>Input Customization</h3>
           <p>Full rebindable keybinds with Export/Import codes, toggle-vs-hold for sprint/crouch/aim, Aim Assist, mouse acceleration/sensitivity, invert look, separate hip-fire and ADS FOV, one-handed key layout, and full gamepad support with an adjustable stick deadzone and vibration on taking damage.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="keybindCheatSheet HOWTOPLAY_STEPS">
           <h3>Keybind Cheat Sheet &amp; How to Play</h3>
           <p>A persistent in-game bindings overlay, and a replayable How to Play reference covering movement, combat, inventory, chests, survival, companions, the safe zone, and game modes.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="HOWTOPLAY_STEPS">
           <h3>Rules &amp; Info</h3>
           <p>Simple conduct rules at the end of How to Play, and basic facts about the game itself in Credits.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="ATTACHMENT_TYPES">
           <h3>Weapon Gear &amp; Special Ammo Guides</h3>
           <p>Reference lists explaining what each Coin Shop weapon attachment actually does - a Weapon Gear Guide (Scope, Ext. Mag, Suppressor, Laser Sight) in Settings, and a Special Ammo Guide (Incendiary, Ricochet, Armor-Piercing, Precision, Electric, Acid, Cryo Rounds) in Upgrades.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="LANGUAGES SUPPORTED_LANGUAGE_CODES">
           <h3>Language</h3>
           <p>A language picker covering <span data-feature-value="languages">12</span> languages - <span data-feature-value="languagesSupported">English, Mandarin Chinese, Hindi, and Spanish</span> are fully supported, with <span data-feature-value="languagesComing">French, Russian, Indonesian, German, Japanese, Vietnamese, Brazilian Portuguese, and Italian</span> marked "Coming soon" - plus a quick-switch homepage button and a "request a missing language" Discord link.</p>
         </div>
@@ -2879,35 +2879,35 @@ Escape before dawn.</p>
       <section class="category" id="quality-of-life">
         <h2>Quality of Life</h2>
 
-        <div class="feature">
+        <div class="feature" data-code="hudScale">
           <h3>Deep HUD Customization</h3>
           <p>Kill feed position/verbosity, compass style, weapon name toggle, minimap zoom, FPS counter, ammo position, health display style, low-ammo flash, session timer, HUD scale/opacity, crosshair color/size.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="achievementToasts">
           <h3>Notification Toggles</h3>
           <p>Achievement, rank-up, and leaderboard alerts, weekly/daily challenge reminders, low-coins reminder, friend online/offline alerts.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="stayEmbedSignedIn">
           <h3>Save &amp; Account QoL</h3>
           <p>Auto-save frequency, save-size readout, Clear Cache, storage-full warning, backup reminder, confirm-before-sign-out, telemetry opt-out.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="autoReloadOnEmpty">
           <h3>Gameplay QoL</h3>
           <p>Auto-Reload When Empty, Auto-Loot with a Close/Medium/Far radius option, Instant Interact at stations, Confirm Before Quitting, a real Fullscreen button, total playtime shown on pause, a damage flash color picker, alphabetical weapon sorting.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="_weaponCompareSelection suggestedLoadoutHint">
           <h3>Weapon Compare &amp; Loadout Suggestions</h3>
           <p>A side-by-side weapon stat table with a hover quick-compare tooltip, plus a Recommended Difficulty and Suggested Loadout hint based on your history.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="whatsNewDigest">
           <h3>What's New Digest</h3>
           <p>A structured, dated in-game changelog with an optional "show every launch" toggle and a homepage popup of recent updates.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="MenuEasterEggs">
           <h3>Easter Eggs</h3>
           <p>A classic Konami code, a hidden zombie icon, a secret input sequence for a temporary speed boost, a logo click counter, joke tips, and a once-a-year April Fools flip.</p>
         </div>
-        <div class="feature">
+        <div class="feature" data-code="SPOTLIGHT_TIPS">
           <h3>Spotlight Ticker</h3>
           <p>Rotates through weekly-challenge countdowns, mutator suggestions you've never tried, and trivia facts, right on the homepage.</p>
         </div>

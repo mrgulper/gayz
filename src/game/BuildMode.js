@@ -106,7 +106,19 @@ const MENU_SHORTCUTS = [
   [['P'], 'buildModePasteBtn'],
   [['Tab'], 'buildMenuBlockPicker'],
 ]
-const MENU_TIP_KEYS = ['buildTip8', 'buildTip1', 'buildTip2', 'buildTip3', 'buildTip4', 'buildTip5', 'buildTip6', 'buildTip7']
+// Pause-screen tips; `code` is what each one describes (see HOWTOPLAY_STEPS
+// in Game.js - scripts/check-docs.mjs asks for a re-read when it changes).
+const MENU_TIPS = [
+  { key: 'buildTip8', code: 'toggleTryMode' },
+  { key: 'buildTip1', code: 'toggleMirror' },
+  { key: 'buildTip2', code: 'ZOOM_FOV' },
+  { key: 'buildTip3', code: 'togglePicker' },
+  { key: 'buildTip4', code: '_hopUp' },
+  { key: 'buildTip5', code: 'toggleDoor' },
+  { key: 'buildTip6', code: '_onWheel' },
+  { key: 'buildTip7', code: '_scheduleAutosave' },
+]
+const MENU_TIP_KEYS = MENU_TIPS.map((tip) => tip.key)
 // Held with V (see update()'s zoomTarget) - narrows the FOV for a "look
 // further" zoomed view rather than a real render-distance change, same
 // convention as a scope/binoculars. FOV_LERP_SPEED controls how quickly
