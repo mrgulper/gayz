@@ -81,6 +81,19 @@
     --text: #ddd0b8; --text-dim: #c2a06e; --accent: #d4a068;
     --accent-rgb: 212, 160, 104;
   }
+  /* Old theme (2026-10-04, "remove the black behind it, it looks weird"):
+     no page background at all, so the game's torn-paper panel shows
+     through the frame. The tool cards keep their own dark fill; text that
+     now sits straight on the paper (tabs row label, title, intro, the
+     Weapon "coming soon" note) turns the panel's dark ink. */
+  :root[data-theme="old"], :root[data-theme="old"] body { background: transparent; }
+  :root[data-theme="old"] header h1,
+  :root[data-theme="old"] .slot-bar-label,
+  :root[data-theme="old"] .weapon-soon h2 { color: #2b1a0c; }
+  :root[data-theme="old"] header p,
+  :root[data-theme="old"] .weapon-soon { color: #4a3420; }
+  :root[data-theme="old"] header,
+  :root[data-theme="old"] .slot-bar { border-bottom-color: rgba(43, 26, 12, 0.35); }
   @media (prefers-color-scheme: light) {
     :root:not([data-theme]) {
       --bg: #f2efe6; --panel: #ffffff; --line: #d9cdb0;
