@@ -851,6 +851,7 @@ export class BuildTryMode {
     })
     const mesh = new THREE.Mesh(parts.geometry, Array.isArray(parts.material) ? toned : toned[0])
     mesh.scale.setScalar(HAND_BLOCK_SIZE / this.B)
+    if (parts.turn) mesh.rotation.y = parts.turn
     mesh.frustumCulled = false
     this._handHeld.add(mesh)
   }

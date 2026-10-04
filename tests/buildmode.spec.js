@@ -254,3 +254,56 @@ test('re-entering Build Mode multiple times does not accumulate duplicate moveme
   expect(result.distanceMoved).toBeGreaterThan(3.9)
   expect(result.distanceMoved).toBeLessThan(4.1)
 })
+
+// Fill, Replace and the shape tools (BuildTools.js) - each whole action is
+// one Undo.
+test('fill, replace and shape tools build the right cells and undo in one step', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const tools = bm.tools
+    const count = (type) => [...bm._blocks.values()].filter((t) => t === type).length
+    const out = {}
+    out.fill = tools.apply('fill', [0, 0, 0], [2, 1, 3], 'stone')
+    out.stoneAfterFill = count('stone')
+    bm.undo()
+    out.stoneAfterUndo = count('stone')
+    bm.redo()
+    out.stoneAfterRedo = count('stone')
+    out.replace = tools.apply('replace', [0, 0, 0], [1, 1, 1], 'brick', 'stone')
+    out.brick = count('brick')
+    bm.undo()
+    out.brickAfterUndo = count('brick')
+    out.stoneBack = count('stone')
+    bm.undo()
+    out.wall = tools.apply('wall', [10, 0, 10], [14, 2, 10], 'oakplanks')
+    out.floor = tools.apply('floor', [20, 0, 20], [22, 5, 21], 'cobblestone')
+    out.box = tools.apply('box', [30, 0, 30], [32, 2, 32], 'glass')
+    out.circle = tools.cells('circle', [0, 5, 0], [4, 5, 0]).every(([x, y, z]) => y === 5 && Math.abs(Math.hypot(x, z) - 4) < 0.5)
+    out.ballHollow = !tools.cells('ball', [0, 20, 0], [0, 23, 0]).some(([x, y, z]) => x === 0 && y === 20 && z === 0)
+    out.tooBig = tools.cells('fill', [0, 0, 0], [100, 100, 100])
+    bm._clipboard = { blocks: [{ dx: 0, dy: 0, dz: 0, type: 'oakstairs', state: { facing: 0 } }, { dx: 2, dy: 0, dz: 0, type: 'stone' }], width: 3, height: 1, depth: 1 }
+    tools.rotateClipboard()
+    out.rotated = JSON.stringify(bm._clipboard.blocks.map((b) => [b.dx, b.dz, b.state?.facing ?? null])) + ` ${bm._clipboard.width}x${bm._clipboard.depth}`
+    g._exitBuildMode()
+    return out
+  })
+
+  expect(r.fill).toBe(24)
+  expect(r.stoneAfterUndo).toBe(r.stoneAfterFill - 24)
+  expect(r.stoneAfterRedo).toBe(r.stoneAfterFill)
+  expect(r.replace).toBe(8)
+  expect(r.brick).toBe(8)
+  expect(r.brickAfterUndo).toBe(0)
+  expect(r.stoneBack).toBe(r.stoneAfterFill)
+  expect(r.wall).toBe(15)
+  expect(r.floor).toBe(6)
+  expect(r.box).toBe(26)
+  expect(r.circle).toBe(true)
+  expect(r.ballHollow).toBe(true)
+  expect(r.tooBig).toBe(null)
+  expect(r.rotated).toBe('[[0,0,3],[0,2,null]] 1x3')
+})

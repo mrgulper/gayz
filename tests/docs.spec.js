@@ -126,6 +126,10 @@ test('every Map Editor shortcut on the pause screen really works', async ({ page
       buildModeLineBtn: () => { const before = bm.lineToolMode; press('KeyL'); const after = bm.lineToolMode; if (after !== before) bm.toggleLineTool(); return after !== before },
       buildModeCopyBtn: () => { const before = bm.copyToolMode; press('KeyC'); const after = bm.copyToolMode; if (after !== before) bm.toggleCopyTool(); return after !== before },
       buildModePasteBtn: () => { const done = spy('pasteClipboard'); press('KeyP'); return done() === 1 },
+      buildModeRotateBtn: () => { bm._clipboard = { blocks: [{ dx: 0, dy: 0, dz: 0, type: 'stone' }, { dx: 1, dy: 0, dz: 0, type: 'stone' }], width: 2, height: 1, depth: 1 }; press('KeyQ'); const ok = bm._clipboard.width === 1 && bm._clipboard.depth === 2; bm._clipboard = null; return ok },
+      buildModeFillBtn: () => { press('KeyF'); const on = bm.tools.mode === 'fill'; press('KeyF'); return on && !bm.tools.mode },
+      buildModeReplaceBtn: () => { press('KeyR'); const on = bm.tools.mode === 'replace'; press('KeyR'); return on && !bm.tools.mode },
+      buildModeShapeBtn: () => { const seen = []; for (let i = 0; i < 6; i++) { press('KeyG'); seen.push(bm.tools.mode) } return seen.join() === 'wall,floor,box,circle,ball,' },
       buildMenuBlockPicker: () => { const before = bm.pickerOpen; press('Tab'); const after = bm.pickerOpen; if (after !== before) bm.togglePicker(); return after !== before },
     }
 

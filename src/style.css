@@ -254,9 +254,12 @@ html.ui-theme-old #build-menu {
   color: rgba(var(--bm-gold-rgb), 0.7);
   text-align: center;
 }
+/* Two columns (2026-10-04 - with Fill/Replace/Shapes/Play added, one
+   column ran off the bottom); the main actions span both. */
 #build-menu-buttons {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-content: start;
   gap: 7px;
   overflow-y: auto;
   min-height: 0;
@@ -286,12 +289,18 @@ html.ui-theme-old #build-menu {
 }
 #build-menu-buttons button:disabled { opacity: 0.4; cursor: default; }
 #build-mode-exit-btn { margin-top: 6px; }
+#build-mode-try-btn, #build-mode-play-btn, #build-mode-exit-btn, #build-mode-together-btn { grid-column: span 2; }
+#build-menu-buttons button { gap: 10px; padding: 9px 12px; font-size: 14px; min-width: 0; }
+#build-menu-buttons button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #build-mode-exit-btn svg { color: #e06a5a; }
 
 /* A tool that's switched on (Mirror / Line / Copy) glows gold. */
 #build-mode-mirror-btn.active,
 #build-mode-line-btn.active,
-#build-mode-copy-btn.active {
+#build-mode-copy-btn.active,
+#build-mode-fill-btn.active,
+#build-mode-replace-btn.active,
+#build-mode-shape-btn.active {
   border-color: var(--bm-gold);
   background: linear-gradient(180deg, rgba(var(--bm-gold-rgb), 0.32), rgba(var(--bm-gold-rgb), 0.12));
   box-shadow: 0 0 14px rgba(var(--bm-gold-rgb), 0.35);
@@ -318,12 +327,15 @@ html.ui-theme-old #build-menu {
 .build-menu-info-row:first-of-type { border-top: none; }
 .build-menu-info-row span { color: rgba(241, 230, 200, 0.6); }
 .build-menu-info-row b { color: #fff; text-align: right; }
-#build-menu-shortcuts { display: flex; flex-direction: column; gap: 6px; }
+#build-menu-shortcuts { display: flex; flex-direction: column; gap: 4px; }
+/* The right column scrolls inside the screen instead of running off it
+   on short windows (17 shortcuts since the Fill/Replace/Shapes tools). */
+#build-menu-right { max-height: 100%; min-height: 0; overflow-y: auto; overflow-x: hidden; padding-right: 2px; }
 .build-menu-shortcut {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 14px;
+  font-size: 13px;
   color: rgba(241, 230, 200, 0.75);
 }
 .build-menu-keys {
@@ -610,7 +622,7 @@ html.ui-theme-old #build-menu {
 #build-menu .build-slot-btn {
   position: relative;
   width: 100%;
-  height: 38px;
+  height: 44px;
   padding: 0;
   font-size: 16px;
   font-weight: 700;
@@ -621,6 +633,21 @@ html.ui-theme-old #build-menu {
   cursor: pointer;
 }
 #build-menu .build-slot-btn:hover { border-color: var(--bm-gold); }
+/* A slot with a picture of its map (BuildMode._saveSlotThumb): the
+   number moves to a little badge in the corner. */
+#build-menu .build-slot-btn.has-thumb {
+  height: 44px;
+  background-size: cover;
+  background-position: center;
+  color: #fff;
+  font-size: 13px;
+  text-shadow: 0 1px 3px #000, 0 0 2px #000;
+}
+#build-menu .build-slot-btn.has-thumb .build-slot-num {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+}
 
 #build-menu .build-slot-btn.active {
   border: 2px solid var(--bm-gold);
@@ -13350,3 +13377,23 @@ html.ui-theme-old .crate-card .crate-open-btn {
   color: #f3e3c0;
 }
 html.ui-theme-old .crate-card .crate-stock-count { color: #241507; }
+
+/* Which Map Editor tool is on and what the next right-click does
+   (BuildTools.refreshHint) - a small pill just above the hotbar. */
+#build-tool-hint {
+  position: fixed;
+  bottom: 92px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+  padding: 6px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffe9a8;
+  background: rgba(10, 10, 10, 0.72);
+  border: 1px solid rgba(255, 207, 92, 0.5);
+  border-radius: 999px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+#build-menu-right > .build-menu-card { flex: none; }
