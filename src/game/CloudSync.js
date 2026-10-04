@@ -338,6 +338,87 @@ service cloud.firestore {
       allow delete: if request.auth != null && request.auth.uid == resource.data.sellerUid && resource.data.status != 'active';
     }
 
+    // Shared maps (2026-10-04): a Map Editor map anyone can open by its
+    // 6-letter code (the doc id), or from the Community Maps list. Likes are
+    // one doc per account (create only - that's what keeps it to one like
+    // each), and the likes counter may only go up by one in the same write
+    // that creates your like doc. Plays may go up by one at a time.
+    match /sharedMaps/{code} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && code.matches('^[A-Z0-9]{6}$')
+        && request.resource.data.keys().hasOnly(['name', 'creatorUid', 'creatorNickname', 'base', 'data', 'blockCount', 'createdAt', 'likes', 'plays'])
+        && request.resource.data.creatorUid == request.auth.uid
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 30
+        && request.resource.data.creatorNickname is string && request.resource.data.creatorNickname.size() > 0 && request.resource.data.creatorNickname.size() <= 24
+        && request.resource.data.base in ['blank', 'map3']
+        && request.resource.data.data is string && request.resource.data.data.size() <= 900000
+        && request.resource.data.blockCount is int && request.resource.data.blockCount >= 0
+        && request.resource.data.createdAt is int
+        && request.resource.data.likes == 0 && request.resource.data.plays == 0;
+      allow update: if (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['plays'])
+          && request.resource.data.plays == resource.data.plays + 1)
+        || (request.auth != null
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
+          && request.resource.data.likes == resource.data.likes + 1
+          && !exists(/databases/$(database)/documents/sharedMaps/$(code)/likes/$(request.auth.uid))
+          && existsAfter(/databases/$(database)/documents/sharedMaps/$(code)/likes/$(request.auth.uid)));
+      allow delete: if request.auth != null && request.auth.uid == resource.data.creatorUid;
+    }
+
+    match /sharedMaps/{code}/likes/{uid} {
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.likedAt is int;
+      allow update, delete: if false;
+    }
+
+    match /sharedMaps/{code}/reports/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.reportedAt is int;
+      allow update, delete: if false;
+    }
+
+    // Build Together rooms (2026-10-04): the host's map when the room
+    // opened, then every change anyone in it makes (as small edit docs, a
+    // JSON string of block changes), and where each builder is.
+    match /buildRooms/{code} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && code.matches('^[A-Z0-9]{6}$')
+        && request.resource.data.keys().hasOnly(['hostUid', 'hostName', 'name', 'base', 'data', 'createdAt'])
+        && request.resource.data.hostUid == request.auth.uid
+        && request.resource.data.hostName is string && request.resource.data.hostName.size() <= 24
+        && request.resource.data.name is string && request.resource.data.name.size() <= 30
+        && request.resource.data.base in ['blank', 'map3']
+        && request.resource.data.data is string && request.resource.data.data.size() <= 900000
+        && request.resource.data.createdAt is int;
+      allow update: if false;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.hostUid;
+    }
+
+    match /buildRooms/{code}/edits/{editId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['uid', 'name', 'ops', 'at'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.name is string && request.resource.data.name.size() <= 24
+        && request.resource.data.ops is string && request.resource.data.ops.size() <= 100000
+        && request.resource.data.at is int;
+      allow update, delete: if false;
+    }
+
+    match /buildRooms/{code}/players/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['name', 'x', 'y', 'z', 'yaw', 'at'])
+        && request.resource.data.name is string && request.resource.data.name.size() <= 24
+        && request.resource.data.x is number && request.resource.data.y is number && request.resource.data.z is number
+        && request.resource.data.yaw is number && request.resource.data.at is int;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
     match /communityBuilds/{buildId}/reports/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid;
       allow create: if request.auth != null && request.auth.uid == uid
@@ -988,27 +1069,9 @@ export function subscribeClanChat(clanId, callback) {
   }
 }
 
-// Community Builds (share Build Mode maps - see
-// docs/superpowers/specs/2026-08-26-community-builds-design.md).
-// blockCount is denormalized from blocks.length so the Browse list can
-// show it without downloading the full block array per row.
-const COMMUNITY_BUILD_BLOCK_CAP = 5000
-
-export async function publishBuild(uid, nickname, name, blocks, hotbar) {
-  if (blocks.length > COMMUNITY_BUILD_BLOCK_CAP) return { ok: false, reason: 'tooLarge' }
-  const { db, fsMod } = await ensureApp()
-  const buildRef = fsMod.doc(fsMod.collection(db, 'communityBuilds'))
-  await fsMod.setDoc(buildRef, {
-    name,
-    creatorUid: uid,
-    creatorNickname: nickname,
-    blocks,
-    hotbar,
-    blockCount: blocks.length,
-    createdAt: Date.now(),
-  })
-  return { ok: true, buildId: buildRef.id }
-}
+// Community Builds - maps published the old way (before share codes,
+// 2026-10-04). New ones can't be made any more; Community Maps still lists
+// these under "Older builds" so nothing anyone published disappeared.
 
 export async function fetchCommunityBuilds() {
   const { db, fsMod } = await ensureApp()
@@ -1017,9 +1080,149 @@ export async function fetchCommunityBuilds() {
   return snap.docs.map((d) => ({ ...d.data(), buildId: d.id }))
 }
 
-export async function reportBuild(buildId, uid) {
+// Shared maps (2026-10-04, see the sharedMaps rules above). The code is the
+// doc id: 6 letters/digits, without the easily-mixed-up ones (0/O, 1/I).
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+export function makeShareCode() {
+  let code = ''
+  for (let i = 0; i < 6; i++) code += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]
+  return code
+}
+
+// -> { ok, code } - retries on the (unlikely) chance a code is taken.
+export async function shareMap(uid, nickname, name, base, data, blockCount) {
   const { db, fsMod } = await ensureApp()
-  await fsMod.setDoc(fsMod.doc(db, 'communityBuilds', buildId, 'reports', uid), { reportedAt: Date.now() })
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = makeShareCode()
+    const ref = fsMod.doc(db, 'sharedMaps', code)
+    const created = await fsMod.runTransaction(db, async (tx) => {
+      if ((await tx.get(ref)).exists()) return false
+      tx.set(ref, { name, creatorUid: uid, creatorNickname: nickname, base, data, blockCount, createdAt: Date.now(), likes: 0, plays: 0 })
+      return true
+    })
+    if (created) return { ok: true, code }
+  }
+  return { ok: false, reason: 'error' }
+}
+
+export async function fetchSharedMap(code) {
+  const { db, fsMod } = await ensureApp()
+  const snap = await fsMod.getDoc(fsMod.doc(db, 'sharedMaps', code))
+  return snap.exists() ? { ...snap.data(), code: snap.id } : null
+}
+
+// sort: 'new' | 'likes' | 'plays'. The list rows leave out the map data.
+export async function fetchSharedMaps(sort) {
+  const { db, fsMod } = await ensureApp()
+  const field = sort === 'likes' ? 'likes' : sort === 'plays' ? 'plays' : 'createdAt'
+  const q = fsMod.query(fsMod.collection(db, 'sharedMaps'), fsMod.orderBy(field, 'desc'), fsMod.limit(30))
+  const snap = await fsMod.getDocs(q)
+  return snap.docs.map((d) => {
+    const row = { ...d.data(), code: d.id }
+    delete row.data
+    return row
+  })
+}
+
+export async function likeSharedMap(code, uid) {
+  const { db, fsMod } = await ensureApp()
+  const likeRef = fsMod.doc(db, 'sharedMaps', code, 'likes', uid)
+  if ((await fsMod.getDoc(likeRef)).exists()) return false
+  const batch = fsMod.writeBatch(db)
+  batch.set(likeRef, { likedAt: Date.now() })
+  batch.update(fsMod.doc(db, 'sharedMaps', code), { likes: fsMod.increment(1) })
+  await batch.commit()
+  return true
+}
+
+export async function hasLikedSharedMap(code, uid) {
+  const { db, fsMod } = await ensureApp()
+  return (await fsMod.getDoc(fsMod.doc(db, 'sharedMaps', code, 'likes', uid))).exists()
+}
+
+export async function countSharedMapPlay(code) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.updateDoc(fsMod.doc(db, 'sharedMaps', code), { plays: fsMod.increment(1) })
+}
+
+export async function deleteSharedMap(code) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.deleteDoc(fsMod.doc(db, 'sharedMaps', code))
+}
+
+export async function reportSharedMap(code, uid) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.setDoc(fsMod.doc(db, 'sharedMaps', code, 'reports', uid), { reportedAt: Date.now() })
+}
+
+// Build Together rooms (2026-10-04, see the buildRooms rules above).
+export async function createBuildRoom(uid, hostName, name, base, data) {
+  const { db, fsMod } = await ensureApp()
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = makeShareCode()
+    const ref = fsMod.doc(db, 'buildRooms', code)
+    const created = await fsMod.runTransaction(db, async (tx) => {
+      if ((await tx.get(ref)).exists()) return false
+      tx.set(ref, { hostUid: uid, hostName, name, base, data, createdAt: Date.now() })
+      return true
+    })
+    if (created) return { ok: true, code }
+  }
+  return { ok: false }
+}
+
+export async function fetchBuildRoom(code) {
+  const { db, fsMod } = await ensureApp()
+  const snap = await fsMod.getDoc(fsMod.doc(db, 'buildRooms', code))
+  return snap.exists() ? { ...snap.data(), code: snap.id } : null
+}
+
+export async function sendBuildRoomEdit(code, uid, name, ops) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.addDoc(fsMod.collection(db, 'buildRooms', code, 'edits'), { uid, name, ops, at: Date.now() })
+}
+
+// callback(edits) with every edit doc not seen yet, oldest first.
+export function subscribeBuildRoomEdits(code, callback) {
+  let unsub = () => {}
+  let cancelled = false
+  ensureApp().then(({ db, fsMod }) => {
+    if (cancelled) return
+    const q = fsMod.query(fsMod.collection(db, 'buildRooms', code, 'edits'), fsMod.orderBy('at', 'asc'))
+    unsub = fsMod.onSnapshot(q, (snap) => {
+      const added = snap.docChanges().filter((c) => c.type === 'added').map((c) => ({ ...c.doc.data(), id: c.doc.id }))
+      if (added.length) callback(added)
+    }, () => {})
+  })
+  return () => {
+    cancelled = true
+    unsub()
+  }
+}
+
+export async function setBuildRoomPlayer(code, uid, data) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.setDoc(fsMod.doc(db, 'buildRooms', code, 'players', uid), data)
+}
+
+export async function removeBuildRoomPlayer(code, uid) {
+  const { db, fsMod } = await ensureApp()
+  await fsMod.deleteDoc(fsMod.doc(db, 'buildRooms', code, 'players', uid))
+}
+
+export function subscribeBuildRoomPlayers(code, callback) {
+  let unsub = () => {}
+  let cancelled = false
+  ensureApp().then(({ db, fsMod }) => {
+    if (cancelled) return
+    unsub = fsMod.onSnapshot(fsMod.collection(db, 'buildRooms', code, 'players'), (snap) => {
+      callback(snap.docs.map((d) => ({ ...d.data(), uid: d.id })))
+    }, () => {})
+  })
+  return () => {
+    cancelled = true
+    unsub()
+  }
 }
 
 // Player Market (2026-10-01, see the marketListings rules above). Active

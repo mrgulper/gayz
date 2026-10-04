@@ -2562,8 +2562,22 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'build-mode-publish-btn-label': 'buildModePublishBtn',
   'build-mode-browse-btn-label': 'buildModeBrowseBtn',
   'build-mode-exit-btn-label': 'buildModeExitBtn',
-  'community-builds-empty': 'communityBuildsEmpty',
-  'community-builds-close-btn': 'communityBuildsCloseBtn',
+  'community-maps-empty': 'shareEmpty',
+  'community-maps-close-btn': 'communityBuildsCloseBtn',
+  'community-maps-shared-label': 'shareYourCode',
+  'community-maps-copy': 'shareCopyBtn',
+  'community-maps-code-play': 'sharePlayBtn',
+  'community-maps-code-edit': 'shareEditBtn',
+  'community-maps-tab-new': 'shareTabNew',
+  'community-maps-tab-likes': 'shareTabLikes',
+  'community-maps-tab-plays': 'shareTabPlays',
+  'build-together-title': 'buildModeTogetherBtn',
+  'build-mode-together-btn-label': 'buildModeTogetherBtn',
+  'build-together-host-btn': 'togetherHostBtn',
+  'build-together-join-btn': 'togetherJoinBtn',
+  'build-together-copy-btn': 'shareCopyBtn',
+  'build-together-leave-btn': 'togetherLeaveBtn',
+  'build-together-close-btn': 'communityBuildsCloseBtn',
   'touch-btn-fire': 'touchBtnFire',
   'touch-btn-aim': 'touchBtnAim',
   'touch-btn-jump': 'touchBtnJump',
@@ -2790,7 +2804,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'settings-section-gamepad': 'settingsSectionGamepad',
   'settings-section-personalization': 'settingsSectionPersonalization',
   'settings-section-theme': 'settingsSectionTheme',
-  'community-builds-title': 'communityBuildsTitle',
+  'community-maps-title': 'communityBuildsTitle',
   'chat-tab-global': 'chatTabGlobal',
   'chat-tab-clan': 'chatTabClan',
   'chat-tab-party': 'chatTabParty',
@@ -2802,6 +2816,8 @@ const SIMPLE_TEXT_I18N_KEYS = {
 }
 
 const PLACEHOLDER_I18N_KEYS = {
+  'community-maps-code': 'shareCodePlaceholder',
+  'build-together-code': 'togetherCodePlaceholder',
   'chat-input': 'chatInputPlaceholder',
   'nickname-input': 'nicknameInputPlaceholder',
   'settings-search-input': 'settingsSearchInputPlaceholder',
@@ -17775,22 +17791,9 @@ export class Game {
         this._showHomepageToast(t(ok ? 'buildImportSuccess' : 'buildImportInvalid'))
       })
     }
-    const buildPublishBtn = document.getElementById('build-mode-publish-btn')
-    if (buildPublishBtn) {
-      buildPublishBtn.addEventListener('click', async () => {
-        if (!this._cloudUid) {
-          this._showHomepageToast(t('buildPublishSignInRequired'))
-          return
-        }
-        const name = window.prompt(t('buildPublishNamePrompt'))
-        if (!name || !name.trim()) return
-        const result = await this.buildMode.publishCurrentBuild(name.trim())
-        const toastKey = result.ok ? 'buildPublishSuccess' : result.reason === 'tooLarge' ? 'buildPublishTooLarge' : 'buildPublishFailed'
-        this._showHomepageToast(t(toastKey))
-      })
-    }
-    const buildBrowseBtn = document.getElementById('build-mode-browse-btn')
-    if (buildBrowseBtn) buildBrowseBtn.addEventListener('click', () => this.buildMode.openCommunityBuildsPanel())
+    // Share Map / Community Maps (BuildShare.js).
+    document.getElementById('build-mode-publish-btn')?.addEventListener('click', () => this.buildMode.share.shareCurrent())
+    document.getElementById('build-mode-browse-btn')?.addEventListener('click', () => this.buildMode.share.open())
     MenuPresets.renderMenuPresets(this)
     MenuEasterEggs.bindAll(this)
     window.addEventListener('online', () => CloudSaveUI.updateOnlineStatus(this))
