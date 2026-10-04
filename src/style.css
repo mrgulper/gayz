@@ -3248,6 +3248,19 @@ html.third-person-active #companion-bark {
 #other-profile-panel .panel-box,
 #hub-panel .panel-box {
   width: min(1080px, 96vw);
+  /* Every panel - and every tab inside one - is the same height
+     (2026-10-04, Gaymi: "dont make the panel behind change sizes"; the
+     Old theme's paper made it obvious when Achievements' Deathmatch tab
+     shrank the sheet ~120px). Content areas are 68vh; --panel-chrome is
+     the title + padding around them, sized to the tallest panel
+     (Achievements), so no panel or tab comes out shorter. */
+  min-height: calc(68vh + var(--panel-chrome));
+}
+:root {
+  --panel-chrome: 126px;
+}
+html.ui-theme-old {
+  --panel-chrome: 212px;
 }
 
 .panel-box {
@@ -8635,12 +8648,14 @@ html.ui-theme-old #menu-player-badge {
   border: none;
   border-image: none;
   background: url('/images/old-profile-plate.webp') center / 100% 100% no-repeat;
-  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.6));
+  /* A little darker and harder than the raw picture (2026-10-04, "not so
+     bright" - Gaymi's mockup). */
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.6)) brightness(0.88) contrast(1.1);
 }
 
 html.ui-theme-old #menu-player-badge:hover,
 html.ui-theme-old #menu-player-badge:focus-visible {
-  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.6)) brightness(1.15);
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.6)) brightness(1.02) contrast(1.1);
 }
 
 html.ui-theme-old #menu-avatar-icon {
@@ -8656,8 +8671,9 @@ html.ui-theme-old #menu-avatar-icon {
 
 html.ui-theme-old #menu-avatar-photo {
   border-radius: 0;
-  /* Aged paint, then worn on top by the ::after layer below. */
-  filter: sepia(0.3) saturate(0.85) brightness(0.9) contrast(1.05);
+  /* Aged, dimmed paint (2026-10-04: "not so bright", Gaymi's mockup),
+     then worn on top by the ::after layer below. */
+  filter: sepia(0.25) saturate(1.05) brightness(0.72) contrast(1.15);
 }
 
 /* Worn, rusty paint over whatever skin face is shown (2026-10-04, like
@@ -8669,8 +8685,14 @@ html.ui-theme-old #menu-avatar-icon::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: url('/images/old-face-wear.webp') center / 100% 100% no-repeat;
-  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.75);
+  /* Two copies of the wear (the second bigger and shifted) for more rust
+     patches, multiplied so the picture's light grain can only darken -
+     laid on normally, it washed the face out. */
+  background:
+    url('/images/old-face-wear.webp') center / 100% 100% no-repeat,
+    url('/images/old-face-wear.webp') 70% 30% / 150% 150% no-repeat;
+  mix-blend-mode: multiply;
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.85);
   pointer-events: none;
 }
 
