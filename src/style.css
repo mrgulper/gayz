@@ -13297,3 +13297,56 @@ body.build-mode-on #chat-panel {
 #build-try-underwater.lava {
   background: radial-gradient(ellipse at center, rgba(255, 120, 20, 0.6), rgba(170, 30, 0, 0.85));
 }
+
+/* Old theme crate cards (2026-10-04, Gaymi: "make the crates not black,
+   use the colour around them - brown for wood, light blue for ice"):
+   each card is filled with its own tier color (--crate-tier-color) instead
+   of near-black, and its text turns dark ink so it reads on the lighter
+   fill. The price pill keeps a dark backing. */
+html.ui-theme-old .crate-card {
+  background:
+    radial-gradient(circle at 14px 14px, color-mix(in srgb, var(--crate-tier-color, #888) 45%, #000 55%) 0 3px, transparent 3.5px),
+    radial-gradient(circle at calc(100% - 14px) 14px, color-mix(in srgb, var(--crate-tier-color, #888) 45%, #000 55%) 0 3px, transparent 3.5px),
+    radial-gradient(circle at 14px calc(100% - 14px), color-mix(in srgb, var(--crate-tier-color, #888) 45%, #000 55%) 0 3px, transparent 3.5px),
+    radial-gradient(circle at calc(100% - 14px) calc(100% - 14px), color-mix(in srgb, var(--crate-tier-color, #888) 45%, #000 55%) 0 3px, transparent 3.5px),
+    radial-gradient(ellipse at 50% 20%, color-mix(in srgb, var(--crate-tier-color, #888) 70%, #fff 30%), transparent 70%),
+    linear-gradient(180deg, color-mix(in srgb, var(--crate-tier-color, #888) 85%, #fff 15%), color-mix(in srgb, var(--crate-tier-color, #888) 70%, #2b1a0c 30%));
+  border-color: color-mix(in srgb, var(--crate-tier-color, #888) 60%, #2b1a0c 40%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.25),
+    0 4px 10px rgba(43, 26, 12, 0.35);
+}
+html.ui-theme-old .crate-card .crate-tier-name {
+  color: #241507;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+/* Old theme Market filters (All items / All rarities, 2026-10-04 - "black
+   is not seeable"): the button and its menu are parchment with dark ink
+   and a brown edge, like the rest of the Old theme, instead of a black
+   box whose options the panel's dark-ink rule turned dark-on-dark. */
+html.ui-theme-old .market-filter-btn {
+  background: #ead6ab;
+  border-color: #7a4e24;
+  color: #2b1a0c;
+}
+html.ui-theme-old .market-filter-btn:hover,
+html.ui-theme-old .market-filter-btn.open,
+html.ui-theme-old .market-filter-btn:focus-visible { border-color: #4a2c10; }
+html.ui-theme-old .market-filter-menu {
+  background: #f1e0b8;
+  border: 1px solid #7a4e24;
+  box-shadow: 0 10px 24px rgba(43, 26, 12, 0.45);
+}
+html.ui-theme-old .market-filter-option { color: #2b1a0c; }
+html.ui-theme-old .market-filter-option:hover { background: rgba(122, 78, 36, 0.16); }
+html.ui-theme-old .market-filter-option.active { background: rgba(122, 78, 36, 0.3); }
+html.ui-theme-old .market-check { border-color: #7a4e24; background: rgba(255, 255, 255, 0.35); }
+html.ui-theme-old .market-filter-option.checked .market-check { background: #7a4e24; }
+html.ui-theme-old .crate-card .crate-open-btn {
+  background: rgba(43, 26, 12, 0.82);
+  border-color: rgba(43, 26, 12, 0.9);
+  color: #f3e3c0;
+}
+html.ui-theme-old .crate-card .crate-stock-count { color: #241507; }
