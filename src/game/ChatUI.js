@@ -22,6 +22,9 @@ import { _escapeHtml, _censorText, saveSettings } from './Game.js'
 // gameplay-hotkey handling (this only ever opens from the homepage
 // menu, never mid-run), own rate-limit state so it doesn't share
 // counters with the in-game chat.
+// Spamming chat mutes you for this long (all three channels).
+export const CHAT_MUTE_MS = 5 * 60 * 1000
+
 export function bindServerChat(game) {
   if (!game.serverPanel) return
   game._serverChatUnsub = null
@@ -299,7 +302,7 @@ export async function sendServerChatMessage(game) {
   game._serverChatSendTimestamps = game._serverChatSendTimestamps.filter((ts) => now - ts < 10000)
   game._serverChatSendTimestamps.push(now)
   if (game._serverChatSendTimestamps.length > 5) {
-    game._serverChatMutedUntil = now + 5 * 60 * 1000
+    game._serverChatMutedUntil = now + CHAT_MUTE_MS
     game._serverChatSendTimestamps = []
     startServerChatMuteCountdown(game)
     return
@@ -790,7 +793,7 @@ export async function sendChatMessage(game) {
   game._chatSendTimestamps = game._chatSendTimestamps.filter((t) => now - t < 10000)
   game._chatSendTimestamps.push(now)
   if (game._chatSendTimestamps.length > 5) {
-    game._chatMutedUntil = now + 5 * 60 * 1000
+    game._chatMutedUntil = now + CHAT_MUTE_MS
     game._chatSendTimestamps = []
     startChatMuteCountdown(game)
     return

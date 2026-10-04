@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { flatMaterial } from './QualitySettings.js'
 
 const PICKUP_RADIUS = 1.6
-const EXPIRE_MS = 20000
+export const EXPIRE_MS = 20000
 
 // Phase 5 multiplayer (docs/superpowers/specs/2026-08-25-multiplayer-phase5-reward-integrity-design.md) -
 // same globally-incrementing-id pattern as Zombie.js's zombieIdCounter and

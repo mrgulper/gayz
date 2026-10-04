@@ -87,7 +87,10 @@ export const PERK_DEFS = [
 ]
 
 // Fisher-Yates-ish partial shuffle: picks `count` distinct perks at random.
-export function rollPerks(count = 3) {
+// How many perks the perk screen offers at once.
+export const PERK_CHOICE_COUNT = 3
+
+export function rollPerks(count = PERK_CHOICE_COUNT) {
   const pool = [...PERK_DEFS]
   const picked = []
   while (picked.length < count && pool.length > 0) {
