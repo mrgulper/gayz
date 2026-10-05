@@ -76,6 +76,7 @@ export const FIXED_KEYS = {
   buildReplace: 'KeyR',
   buildShape: 'KeyG',
   buildRotate: 'KeyQ',
+  buildUse: 'KeyE',
 }
 
 function defaultBindings() {

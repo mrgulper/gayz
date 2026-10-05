@@ -563,3 +563,52 @@ test('Map Editor weather uses Map 1\'s rain, snow and sandstorm', async ({ page 
 
   expect(r).toEqual({ clear: '', lightRain: 'rain-overlay', hardRain: 'rain-overlay-hard', lightSnow: 'snow-overlay', hardSnow: 'snow-overlay-hard', sandstorm: 'sandstorm-overlay', particles: 160, afterExit: '' })
 })
+
+// Map 3's walled camp in Play (BuildCamp.js): a safe zone with a Trader,
+// Upgrader, Ammo Refill and Quest Board.
+test('Map 3 Play starts in a safe camp with working NPCs', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s = g.buildMode.survival
+    const c = s.camp
+    const p = g.buildMode.tryMode.pos
+    const out = { camp: !!c, startsInside: !!c && c.inside(p.x, p.z), npcs: c ? c.npcs.map((n) => n.id).sort().join() : '' }
+    // Zombies can't step into the camp, and can't hurt you there.
+    out.wall = s._zombieHits(c.zone.cx + 0.5, 0, c.zone.cz + 0.5)
+    const hp = s.health
+    s._hurtPlayer(30)
+    out.safe = s.health === hp
+    s.coins = 1000
+    c._act('buy', 'armor')
+    out.armor = s.armor
+    c._act('upgrade', 'mag')
+    out.mag = s.magSize()
+    s.mag = 0
+    s.reserve = 0
+    c._act('fill', 'fill')
+    out.filled = s.mag === s.magSize() && s.reserve > 0
+    s.stats.kills = 15
+    c._act('claim', 'kill15')
+    out.coinsLeft = s.coins
+    out.nextQuests = c.activeQuests().map((q) => q.id).join()
+    s.stop()
+    out.cleaned = !s.camp
+    g._exitBuildMode()
+    return out
+  })
+
+  expect(r.camp).toBe(true)
+  expect(r.startsInside).toBe(true)
+  expect(r.npcs).toBe('ammo,quest,trader,upgrader')
+  expect(r.wall).toBe(true)
+  expect(r.safe).toBe(true)
+  expect(r.armor).toBe(50)
+  expect(r.mag).toBe(40)
+  expect(r.filled).toBe(true)
+  expect(r.coinsLeft).toBe(1000 - 75 - 90 + 100)
+  expect(r.nextQuests).toBe('chest3,head10,wave5')
+  expect(r.cleaned).toBe(true)
+})
