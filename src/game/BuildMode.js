@@ -134,6 +134,7 @@ const MENU_TIPS = [
   { key: 'buildTip15', code: 'SIGN_MAX_CHARS' },
   { key: 'buildTip16', code: 'makeShareCode' },
   { key: 'buildTip17', code: 'OPS_PER_EDIT' },
+  { key: 'buildTip18', code: 'COIN_PER_KILL' },
 ]
 const MENU_TIP_KEYS = MENU_TIPS.map((tip) => tip.key)
 // Held with V (see update()'s zoomTarget) - narrows the FOV for a "look
@@ -1338,8 +1339,9 @@ export class BuildMode {
       // While trying the map, keys move the player (see BuildTryMode) -
       // the building tools stay off.
       if (this.tryMode.active) {
+        if (this.survival.camp?.panelOpen) return
         if (this.survival.active && !e.repeat) this.survival.onKeyDown(e.code)
-        if (e.code === 'KeyE' && !e.repeat) this._tryUseFromCamera()
+        if (e.code === FIXED_KEYS.buildUse && !e.repeat) this._tryUseFromCamera()
         if (e.code === 'KeyM' && !e.repeat) this.tryMode.cycleMap()
         this._keys.add(e.code)
         if (MOVEMENT_KEY_CODES.has(e.code) || e.code === 'ShiftLeft' || TRY_CROUCH_KEYS.has(e.code)) e.preventDefault()
@@ -1722,6 +1724,11 @@ export class BuildMode {
     }
 
     this._onKeyDownPicker = (e) => {
+      // An NPC's shop is open: Escape closes it, nothing else happens.
+      if (this.survival?.camp?.panelOpen) {
+        if (e.code === 'Escape') this.survival.camp.closePanel()
+        return
+      }
       if (e.code === 'Tab') {
         e.preventDefault()
         this.togglePicker()
@@ -1897,6 +1904,8 @@ export class BuildMode {
   // Trying the map: right-click or E opens/closes the door you're looking
   // at, within arm's reach - and never swings one shut onto yourself.
   _tryUseFromCamera() {
+    // Playing on Map 3: talk to the camp NPC you're looking at.
+    if (this.survival?.camp?.use()) return true
     this.camera.updateMatrixWorld()
     this._raycaster.setFromCamera({ x: 0, y: 0 }, this.camera)
     const hit = this._raycastGridAligned()

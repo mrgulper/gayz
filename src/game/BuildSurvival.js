@@ -20,6 +20,7 @@ import { buildTexturedCharacter, loadSkinTexture } from './MenuAvatar3D.js'
 import { audioEngine } from './Audio.js'
 import { getKeyFor } from './Keybinds.js'
 import { t } from './i18n.js'
+import { BuildCamp, COIN_PER_KILL, COIN_PER_WAVE } from './BuildCamp.js'
 
 export const PLAY_START = { health: 100, mag: 30, reserve: 120 }
 export const CHEST_LOOT = { ammo: 60, health: 35 }
@@ -122,6 +123,11 @@ export class BuildSurvival {
     this.active = true
     this.dead = false
     this.health = PLAY_START.health
+    this.maxHealth = PLAY_START.health
+    this.armor = 0
+    this.coins = 0
+    this.upgrades = {}
+    this.stats = { kills: 0, chests: 0, headshots: 0 }
     this.mag = PLAY_START.mag
     this.reserve = PLAY_START.reserve
     this.wave = 0
@@ -134,6 +140,10 @@ export class BuildSurvival {
     this._flow.clear()
     this._flowAt = 0
     bm.toggleTryMode()
+    // Map 3's walled camp is a safe zone with NPCs (BuildCamp.js).
+    this.camp?.dispose()
+    const zone = bm.activeSlot === 'map3' ? bm._map3Base().map.safeZone : null
+    this.camp = zone ? new BuildCamp(this, zone, this.B) : null
     this._ensureHud()
     this._hud.style.display = 'block'
     this._overEl.style.display = 'none'
@@ -147,6 +157,8 @@ export class BuildSurvival {
   stop({ leaveTry = true } = {}) {
     if (!this.active) return
     this.active = false
+    this.camp?.dispose()
+    this.camp = null
     for (const z of this.zombies) this._removeZombie(z)
     this.zombies = []
     if (this._hud) this._hud.style.display = 'none'
@@ -179,6 +191,19 @@ export class BuildSurvival {
       }
     }
     return null
+  }
+
+  // Upgrades bought from the camp's Upgrader (BuildCamp.js).
+  magSize() {
+    return MAG_SIZE + 10 * (this.upgrades?.mag || 0)
+  }
+
+  _reloadTime() {
+    return RELOAD_TIME * (1 - 0.2 * (this.upgrades?.reload || 0))
+  }
+
+  _damageMult() {
+    return 1 + 0.25 * (this.upgrades?.damage || 0)
   }
 
   _findBlocks(type) {
@@ -242,10 +267,10 @@ export class BuildSurvival {
       if (el) el.textContent = text
     }
     const alive = this.zombies.length + this._toSpawn
-    set('build-play-wave', `${t('buildPlayWave', { n: Math.max(1, this.wave) })} · ${t('buildPlayZombiesLeft', { n: alive })} · ${t('buildPlayKills', { n: this.kills })}`)
+    set('build-play-wave', `${t('buildPlayWave', { n: Math.max(1, this.wave) })} · ${t('buildPlayZombiesLeft', { n: alive })} · ${t('buildPlayKills', { n: this.kills })}${this.camp ? ` · ${t('campCoins', { n: this.coins })}` : ''}`)
     const fill = document.getElementById('build-play-health-fill')
     if (fill) fill.style.width = `${Math.max(0, this.health)}%`
-    set('build-play-health-text', `${Math.max(0, Math.ceil(this.health))}`)
+    set('build-play-health-text', `${Math.max(0, Math.ceil(this.health))}${this.armor > 0 ? ` + ${Math.ceil(this.armor)}` : ''}`)
     set('build-play-ammo', this._reloadLeft > 0 ? t('buildPlayReloading') : `${this.mag} / ${this.reserve}`)
   }
 
@@ -292,7 +317,8 @@ export class BuildSurvival {
       }
     }
     if (!best) return false
-    this.damageZombie(best.z, SHOT_DAMAGE * (best.head ? HEAD_MULT : 1), ray.direction)
+    if (best.head) this.stats.headshots++
+    this.damageZombie(best.z, SHOT_DAMAGE * this._damageMult() * (best.head ? HEAD_MULT : 1), ray.direction)
     const cross = document.getElementById('build-try-crosshair')
     if (cross) {
       cross.classList.remove('hit')
@@ -312,15 +338,17 @@ export class BuildSurvival {
     if (z.health > 0) return
     audioEngine.playZombieDeath?.(1)
     this.kills++
+    this.stats.kills++
+    this.coins += COIN_PER_KILL
     this._removeZombie(z)
     this.zombies = this.zombies.filter((o) => o !== z)
     this._renderHud()
   }
 
   reload() {
-    if (!this.active || this.dead || this._reloadLeft > 0 || this.mag >= MAG_SIZE || this.reserve <= 0) return
-    this._reloadLeft = RELOAD_TIME
-    try { audioEngine.playReload({ magSize: MAG_SIZE }) } catch { /* no audio */ }
+    if (!this.active || this.dead || this._reloadLeft > 0 || this.mag >= this.magSize() || this.reserve <= 0) return
+    this._reloadLeft = this._reloadTime()
+    try { audioEngine.playReload({ magSize: this.magSize() }) } catch { /* no audio */ }
     this._renderHud()
   }
 
@@ -335,8 +363,9 @@ export class BuildSurvival {
       return true
     }
     this._chestsUsed.add(key)
+    this.stats.chests++
     this.reserve += CHEST_LOOT.ammo
-    this.health = Math.min(PLAY_START.health, this.health + CHEST_LOOT.health)
+    this.health = Math.min(this.maxHealth, this.health + CHEST_LOOT.health)
     this._message(t('buildPlayChestLoot', { ammo: CHEST_LOOT.ammo, health: CHEST_LOOT.health }))
     this._renderHud()
     return true
@@ -481,7 +510,9 @@ export class BuildSurvival {
   _spawnZombie() {
     const spots = this._spawnSpots()
     if (!spots.length) return false
-    const [x, y, z] = spots[Math.floor(Math.random() * spots.length)]
+    const open = this.camp ? spots.filter(([sx, , sz]) => !this.camp.inside(sx + 0.5, sz + 0.5, 1)) : spots
+    if (!open.length) return false
+    const [x, y, z] = open[Math.floor(Math.random() * open.length)]
     const group = new THREE.Group()
     const zombie = { x: x + 0.5, y, z: z + 0.5, vx: 0, vy: 0, vz: 0, onGround: false, health: zombieHealth(this.wave), attackCd: 0.6, bash: 0, flash: 0, walk: Math.random() * 6, moan: 2 + Math.random() * 8, group, body: null }
     if (this._skin) {
@@ -514,6 +545,8 @@ export class BuildSurvival {
   }
 
   _zombieHits(x, y, z) {
+    // The camp counts as a wall to zombies.
+    if (this.camp?.inside(x, z, ZOMBIE_HALF + 0.05)) return true
     return this.bm.tryMode._hits(x, y, z, ZOMBIE_HEIGHT)
   }
 
@@ -658,7 +691,13 @@ export class BuildSurvival {
 
   _hurtPlayer(amount) {
     if (this.dead) return
-    this.health -= amount
+    const p = this.bm.tryMode.pos
+    // Nothing reaches you inside the camp.
+    if (this.camp?.inside(p.x, p.z)) return
+    // Armor (from the camp's Trader) takes the hit first.
+    const soaked = Math.min(this.armor || 0, amount)
+    this.armor = (this.armor || 0) - soaked
+    this.health -= amount - soaked
     audioEngine.playPlayerHurt?.()
     const flash = document.getElementById('build-play-hurt')
     if (flash) {
@@ -700,6 +739,10 @@ export class BuildSurvival {
   update(dt) {
     if (!this.active || this.dead || this.bm.menuOpen) return
     dt = Math.min(dt, 1 / 20)
+    if (this.camp) {
+      this.camp.update(dt)
+      this.camp.checkQuests()
+    }
     if (this._msgLeft > 0) {
       this._msgLeft -= dt
       if (this._msgLeft <= 0) {
@@ -710,7 +753,7 @@ export class BuildSurvival {
     if (this._reloadLeft > 0) {
       this._reloadLeft -= dt
       if (this._reloadLeft <= 0) {
-        const take = Math.min(MAG_SIZE - this.mag, this.reserve)
+        const take = Math.min(this.magSize() - this.mag, this.reserve)
         this.mag += take
         this.reserve -= take
       }
@@ -736,7 +779,10 @@ export class BuildSurvival {
         }
       } else {
         this._breakTimer = WAVE_BREAK
-        if (this.wave > 0) this._message(t('buildPlayWaveClear', { n: this.wave, s: WAVE_BREAK }))
+        if (this.wave > 0) {
+          this.coins += COIN_PER_WAVE
+          this._message(t('buildPlayWaveClear', { n: this.wave, s: WAVE_BREAK }))
+        }
       }
     }
     if (this._toSpawn > 0 && this.zombies.length < MAX_ALIVE) {

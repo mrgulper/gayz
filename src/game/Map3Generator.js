@@ -709,6 +709,7 @@ export function generateMap3() {
     }
   }
 
+  let safeInfo = null
   const safeZone = (lot) => {
     const x0 = lot.x0 + SIDEWALK
     const x1 = lot.x1 - SIDEWALK
@@ -716,6 +717,7 @@ export function generateMap3() {
     const z1 = lot.z1 - SIDEWALK
     fill(x0, -1, z0, x1, -1, z1, 'gravel')
     const facade = facadeOf(lot)
+    safeInfo = { x0, x1, z0, z1, facade, cx: Math.floor((x0 + x1) / 2), cz: Math.floor((z0 + z1) / 2) }
     for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) {
       if (x !== x0 && x !== x1 && z !== z0 && z !== z1) continue
       // Patched-together wall: uneven height and mixed materials.
@@ -1109,6 +1111,56 @@ export function generateMap3() {
       }
     }
   }
+  // Play's safe zone (2026-10-04, Gaymi: "make this place the safe zone
+  // and add npc"): the walled camp is where Play starts you, the four NPCs
+  // stand in front of its tents (BuildSurvival.js), and a quest board
+  // stands against the wall across from the gate. Placed last, so nothing
+  // else moved.
+  let quest = null
+  let npcSpots = null
+  if (safeInfo) {
+    const { x0, x1, z0, z1, facade, cx, cz } = safeInfo
+    const inside = (x, z) => x > x0 && x < x1 && z > z0 && z < z1
+    const free = (x, z) => inside(x, z) && !get(x, 0, z) && !get(x, 1, z) && solidFloor(get(x, -1, z))
+    // Nearest free cell to (x, z), within a few cells.
+    const near = (x, z) => {
+      for (let r = 0; r <= 4; r++) for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+        if (Math.max(Math.abs(dx), Math.abs(dz)) === r && free(x + dx, z + dz)) return [x + dx, z + dz]
+      }
+      return null
+    }
+    // The board: three planks wide, two high, on legs, against the wall
+    // opposite the gate, with room in front for the quest NPC.
+    const along = facade === 'zmin' || facade === 'zmax'
+    const wallIn = facade === 'zmin' ? z1 - 1 : facade === 'zmax' ? z0 + 1 : facade === 'xmin' ? x1 - 1 : x0 + 1
+    const inward = facade === 'zmin' || facade === 'xmin' ? -1 : 1
+    for (const off of [0, 3, -3, 5, -5]) {
+      const c = (along ? cx : cz) + off
+      const cellsAt = (i, d) => (along ? [c + i, wallIn + inward * d] : [wallIn + inward * d, c + i])
+      let ok = true
+      for (let i = -1; i <= 1 && ok; i++) for (let d = 0; d <= 1 && ok; d++) if (!free(...cellsAt(i, d))) ok = false
+      if (!ok) continue
+      for (let i = -1; i <= 1; i++) {
+        const [bx, bz] = cellsAt(i, 0)
+        set(bx, 0, bz, i === 0 ? 'oakfence' : 'oaklog')
+        set(bx, 1, bz, 'oakplanks')
+        set(bx, 2, bz, 'oakplanks')
+      }
+      const [lx, lz] = cellsAt(0, 0)
+      set(lx, 3, lz, 'glowstone')
+      quest = cellsAt(0, 1)
+      break
+    }
+    // The other three NPCs in front of the tents (see safeZone()).
+    npcSpots = {
+      trader: near(cx - 5, cz - 3),
+      upgrader: near(cx + 5, cz - 3),
+      ammo: near(cx - 5, cz + 3),
+      quest: quest || near(cx + 6, cz + 4),
+    }
+    const inCamp = near(cx, cz + 3)
+    if (inCamp) start = [inCamp[0], 0, inCamp[1]]
+  }
   if (start) set(...start, 'playerstart')
 
   const blocks = []
@@ -1119,5 +1171,5 @@ export function generateMap3() {
     blocks.push(facing !== undefined ? { x, y, z, type, facing, open: false } : stairs !== undefined ? { x, y, z, type, facing: stairs } : { x, y, z, type })
   }
   const hotbar = ['brick', 'cobblestone', 'oakplanks', 'glass', 'asphalt', 'smoothstone', 'oaklog', 'leaves', 'oakdoor', 'invisible']
-  return { blocks, hotbar }
+  return { blocks, hotbar, safeZone: safeInfo ? { ...safeInfo, npcSpots } : null }
 }
