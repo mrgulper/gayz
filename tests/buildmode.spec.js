@@ -594,6 +594,12 @@ test('Map 3 Play starts in a safe camp with working NPCs', async ({ page }) => {
     c._act('claim', 'kill15')
     out.coinsLeft = s.coins
     out.nextQuests = c.activeQuests().map((q) => q.id).join()
+    // The board closes on a click outside it, and stays open on one inside.
+    c.openPanel('trader')
+    document.getElementById('play-npc-list').click()
+    out.insideKeepsOpen = c.panelOpen
+    document.getElementById('play-npc-panel').click()
+    out.outsideCloses = !c.panelOpen
     s.stop()
     out.cleaned = !s.camp
     g._exitBuildMode()
@@ -610,6 +616,8 @@ test('Map 3 Play starts in a safe camp with working NPCs', async ({ page }) => {
   expect(r.filled).toBe(true)
   expect(r.coinsLeft).toBe(1000 - 75 - 90 + 100)
   expect(r.nextQuests).toBe('chest3,head10,wave5')
+  expect(r.insideKeepsOpen).toBe(true)
+  expect(r.outsideCloses).toBe(true)
   expect(r.cleaned).toBe(true)
 })
 
@@ -624,6 +632,19 @@ test('Map 3 camp NPCs show in the Map Editor too', async ({ page }) => {
     const b = g.buildMode
     b.update(0.016)
     const out = { npcs: b._campDisplay ? b._campDisplay.npcs.map((n) => n.id).sort().join() : '' }
+    // The camp's wall has exactly one way in: the three-wide main gate.
+    const { map } = b._map3Base()
+    const z = map.safeZone
+    const solid = new Set(map.blocks.filter((k) => k.y >= 0 && k.y <= 1).map((k) => `${k.x},${k.y},${k.z}`))
+    let gaps = 0
+    for (let x = z.x0; x <= z.x1; x++) for (let zz = z.z0; zz <= z.z1; zz++) {
+      if (x !== z.x0 && x !== z.x1 && zz !== z.z0 && zz !== z.z1) continue
+      if (!solid.has(`${x},0,${zz}`) || !solid.has(`${x},1,${zz}`)) gaps++
+    }
+    out.wallGaps = gaps
+    // The NPCs' skins (made in Design a Skin) have loaded.
+    await new Promise((res) => setTimeout(res, 1500))
+    out.bodies = b._campDisplay.npcs.filter((n) => n.body).length
     b.survival.start()
     b.update(0.016)
     out.duringPlay = !!b._campDisplay
@@ -636,5 +657,5 @@ test('Map 3 camp NPCs show in the Map Editor too', async ({ page }) => {
     return out
   })
 
-  expect(r).toEqual({ npcs: 'ammo,quest,trader,upgrader', duringPlay: false, playCamp: true, back: true, afterExit: false })
+  expect(r).toEqual({ npcs: 'ammo,quest,trader,upgrader', wallGaps: 3, bodies: 4, duringPlay: false, playCamp: true, back: true, afterExit: false })
 })

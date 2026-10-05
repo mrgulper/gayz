@@ -7,8 +7,8 @@
 //
 // - Inside the camp walls zombies can't reach you: they don't spawn there,
 //   can't walk in (BuildSurvival stops them at the edge) and can't hit you.
-// - Four Minecraft-style NPCs stand in front of the tents and the quest
-//   board, each with a name tag; walk up, look at one and press the use
+// - Four NPCs (skins made in Design a Skin, NPC_SKINS) stand in front of
+//   the tents and the quest board, each with a name tag; walk up, look at one and press the use
 //   key to talk:
 //   - Trader: Med Kit, Armor and an Ammo Box for coins.
 //   - Upgrader: Damage, Reload Speed and Bigger Magazine, three levels each.
@@ -46,43 +46,14 @@ export const CAMP_QUESTS = [
   { id: 'wave10', stat: 'wave', goal: 10, reward: 600 },
 ]
 const QUESTS_SHOWN = 3
-// Each NPC's look: skin, shirt, trousers, and hair/hat.
-const NPCS = {
-  trader: { skin: '#c8956d', shirt: '#7a5230', pants: '#5a3b20', hair: '#3b2614' },
-  upgrader: { skin: '#b9825c', shirt: '#7c2a24', pants: '#4a4a52', hair: '#1c1c1c', apron: '#5b5b62' },
-  ammo: { skin: '#d2a07a', shirt: '#4b5d2e', pants: '#3e4a26', hair: '#4b5d2e' },
-  quest: { skin: '#e0b48e', shirt: '#2f4f8f', pants: '#24396a', hair: '#e8e8e8' },
-}
-
-// A 64x64 Minecraft skin painted from colors - only the base layer, like
-// the zombies' (BuildSurvival.js), or the overlay parts become shells.
-function paintSkin(look) {
-  const c = document.createElement('canvas')
-  c.width = c.height = 64
-  const ctx = c.getContext('2d')
-  const fill = (color, x, y, w, h) => {
-    ctx.fillStyle = color
-    ctx.fillRect(x, y, w, h)
-  }
-  fill(look.skin, 0, 0, 32, 16) // head
-  fill(look.hair, 0, 0, 32, 8) // top of the head and hair band
-  fill(look.hair, 8, 8, 8, 2) // fringe on the face
-  fill(look.hair, 0, 8, 8, 4)
-  fill(look.hair, 16, 8, 16, 4)
-  fill('#ffffff', 9, 12, 2, 1) // eyes
-  fill('#ffffff', 13, 12, 2, 1)
-  fill('#2b3f6b', 10, 12, 1, 1)
-  fill('#2b3f6b', 13, 12, 1, 1)
-  fill('#7a4a3a', 11, 14, 2, 1) // mouth
-  fill(look.pants, 0, 16, 16, 16) // right leg
-  fill(look.shirt, 16, 16, 24, 16) // torso
-  fill(look.skin, 40, 16, 16, 16) // right arm
-  fill(look.shirt, 40, 16, 16, 6) // sleeve
-  fill(look.pants, 16, 48, 16, 16) // left leg
-  fill(look.skin, 32, 48, 16, 16) // left arm
-  fill(look.shirt, 32, 48, 16, 6)
-  if (look.apron) fill(look.apron, 20, 22, 8, 10)
-  return loadSkinTexture(c.toDataURL())
+// Each NPC's skin, made in GayZ's own Design a Skin (2026-10-05, Gaymi:
+// "remake these characters go on gayz design a skin" - the first ones were
+// plain painted Minecraft-style colors).
+export const NPC_SKINS = {
+  trader: '/images/npc/trader.png',
+  upgrader: '/images/npc/upgrader.png',
+  ammo: '/images/npc/ammo.png',
+  quest: '/images/npc/quest.png',
 }
 
 function nameTag(text, B) {
@@ -133,7 +104,7 @@ export class BuildCamp {
 
   _spawnNpcs() {
     const spots = this.zone.npcSpots || {}
-    for (const id of Object.keys(NPCS)) {
+    for (const id of Object.keys(NPC_SKINS)) {
       const spot = spots[id]
       if (!spot) continue
       const group = new THREE.Group()
@@ -144,7 +115,7 @@ export class BuildCamp {
       this.bm.scene.add(group)
       this.npcs.push(npc)
       // Each body arrives when its skin has loaded.
-      paintSkin(NPCS[id]).then((skin) => {
+      loadSkinTexture(NPC_SKINS[id]).then((skin) => {
         if (!this.npcs.includes(npc)) return
         const body = buildTexturedCharacter(skin)
         const sc = (1.8 * this.B) / 32
@@ -275,16 +246,18 @@ export class BuildCamp {
       this._panel = document.createElement('div')
       this._panel.id = 'play-npc-panel'
       this._panel.style.display = 'none'
+      // GayZ panel style: a red X in the top corner, and a click anywhere
+      // outside the box closes it too (2026-10-05).
       this._panel.innerHTML = `<div class="build-share-box">
+        <button type="button" id="play-npc-close" class="panel-close-btn">&times;</button>
         <h2 id="play-npc-title"></h2>
         <p id="play-npc-coins"></p>
         <div id="play-npc-list"></div>
-        <button type="button" id="play-npc-close" class="build-share-close"></button>
       </div>`
       document.body.appendChild(this._panel)
     }
     this._panel.onclick = (e) => {
-      if (e.target === this._panel) return this.closePanel()
+      if (!e.target.closest('.build-share-box')) return this.closePanel()
       const btn = e.target.closest('button[data-act]')
       if (btn && !btn.disabled) this._act(btn.dataset.act, btn.dataset.id)
     }
@@ -325,7 +298,7 @@ export class BuildCamp {
     }
     set('#play-npc-title', t(`campNpc_${id}`))
     set('#play-npc-coins', t('campCoins', { n: s.coins }))
-    set('#play-npc-close', t('communityBuildsCloseBtn'))
+    this._panel.querySelector('#play-npc-close').setAttribute('aria-label', t('communityBuildsCloseBtn'))
     const rows = []
     const row = (name, detail, btnText, act, itemId, disabled) => `<div class="play-npc-row"><div class="play-npc-info"><b>${name}</b><span>${detail}</span></div><button type="button" data-act="${act}" data-id="${itemId}" ${disabled ? 'disabled' : ''}>${btnText}</button></div>`
     if (id === 'trader') {
