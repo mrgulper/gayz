@@ -106,9 +106,13 @@ function nameTag(text, B) {
 }
 
 export class BuildCamp {
-  constructor(survival, zone, blockSize) {
+  // display: just the NPCs standing in the camp while building in the
+  // Map Editor (BuildMode keeps one while Map 3 is open and Play isn't) -
+  // no shop, no prompt; they only turn to watch the camera.
+  constructor(survival, zone, blockSize, { display = false, buildMode = null } = {}) {
     this.s = survival
-    this.bm = survival.bm
+    this.bm = buildMode || survival.bm
+    this.display = display
     this.zone = zone
     this.B = blockSize
     this.npcs = []
@@ -117,7 +121,7 @@ export class BuildCamp {
     this.quests = CAMP_QUESTS.map((q) => ({ ...q, claimed: false }))
     this._notified = new Set()
     this._ammoReadyAt = 0
-    this._ensureDom()
+    if (!display) this._ensureDom()
     this._spawnNpcs()
   }
 
@@ -201,7 +205,7 @@ export class BuildCamp {
 
   // The NPC you're looking at, close enough to talk to.
   _facingNpc() {
-    const p = this.s.bm.tryMode.pos
+    const p = this.bm.tryMode.pos
     const yaw = this.bm._yaw
     const fx = -Math.sin(yaw)
     const fz = -Math.cos(yaw)
@@ -229,7 +233,8 @@ export class BuildCamp {
   }
 
   update(dt) {
-    const p = this.s.bm.tryMode.pos
+    const cam = this.bm.camera.position
+    const p = this.display ? { x: cam.x / this.B, z: cam.z / this.B } : this.bm.tryMode.pos
     for (const npc of this.npcs) {
       npc.t += dt
       // Turn to watch you when you're close; breathe a little.
@@ -243,6 +248,7 @@ export class BuildCamp {
         lp.armL.rotation.x = -sway
       }
     }
+    if (this.display) return
     const npc = this.panelOpen ? null : this._facingNpc()
     if (this._prompt) {
       this._prompt.style.display = npc ? 'block' : 'none'
