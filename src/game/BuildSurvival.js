@@ -56,38 +56,12 @@ export function zombieDamage(wave) {
   return 9 + wave
 }
 
-// A Minecraft-style zombie skin, painted once: green skin, teal shirt,
-// blue trousers, dark eyes.
+// The zombies' skin, made in GayZ's own Design a Skin (2026-10-05 - the
+// first one copied Minecraft's zombie colors). Loaded once.
+export const ZOMBIE_SKIN_URL = '/images/npc/zombie.png'
 let _skinPromise = null
 function zombieSkin() {
-  if (_skinPromise) return _skinPromise
-  const c = document.createElement('canvas')
-  c.width = c.height = 64
-  const ctx = c.getContext('2d')
-  const fill = (color, x, y, w, h) => {
-    ctx.fillStyle = color
-    ctx.fillRect(x, y, w, h)
-  }
-  // Only the base layer - the overlay areas stay see-through, or they'd
-  // become green shells over everything.
-  const SKIN = [[0, 0, 32, 16], [0, 16, 56, 16], [16, 48, 16, 16], [32, 48, 16, 16]]
-  for (const [x, y, w, h] of SKIN) {
-    fill('#4f8a3a', x, y, w, h)
-    for (let i = 0; i < (w * h) / 6; i++) {
-      ctx.fillStyle = ['#46803a', '#5a9442', '#3f7533'][Math.floor(Math.random() * 3)]
-      ctx.fillRect(x + Math.floor(Math.random() * w), y + Math.floor(Math.random() * h), 1, 1)
-    }
-  }
-  fill('#2a8a8a', 16, 16, 24, 16) // shirt
-  fill('#1f7272', 16, 30, 24, 2)
-  fill('#2a8a8a', 40, 16, 16, 6) // sleeves
-  fill('#2a8a8a', 32, 48, 16, 6)
-  fill('#3b3f9a', 0, 16, 16, 16) // trousers
-  fill('#3b3f9a', 16, 48, 16, 16)
-  fill('#111111', 9, 12, 2, 1) // eyes on the face (8..16, 8..16)
-  fill('#111111', 13, 12, 2, 1)
-  fill('#2c4e22', 10, 14, 4, 1)
-  _skinPromise = loadSkinTexture(c.toDataURL())
+  if (!_skinPromise) _skinPromise = loadSkinTexture(ZOMBIE_SKIN_URL)
   return _skinPromise
 }
 

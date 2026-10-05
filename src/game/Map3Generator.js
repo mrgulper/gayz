@@ -1120,6 +1120,27 @@ export function generateMap3() {
   let npcSpots = null
   if (safeInfo) {
     const { x0, x1, z0, z1, facade, cx, cz } = safeInfo
+    // One way in (2026-10-05, Gaymi: "make the same zone only have 1 main
+    // door"): the roads are laid after the camp and cut through two of its
+    // corners, leaving wide gaps and two corner towers gone. Every empty
+    // wall cell except the gate gets wall again (materials picked from the
+    // coordinates, so no random number is drawn and nothing else moves).
+    const atGate = (x, z) => (facade === 'zmin' || facade === 'zmax'
+      ? z === (facade === 'zmin' ? z0 : z1) && Math.abs(x - cx) <= 1
+      : x === (facade === 'xmin' ? x0 : x1) && Math.abs(z - cz) <= 1)
+    const WALL = ['cobblestone', 'cobblestone', 'mossystonebricks', 'oakplanks', 'mossycobblestone']
+    for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) {
+      if ((x !== x0 && x !== x1 && z !== z0 && z !== z1) || atGate(x, z)) continue
+      const h = 3 + ((x * 7 + z * 3) % 3 === 0 ? 1 : 0)
+      for (let y = 0; y < h; y++) if (!get(x, y, z)) set(x, y, z, WALL[Math.abs(x * 31 + y * 17 + z * 13) % WALL.length])
+    }
+    for (const [tx, tz] of [[x0, z0], [x1, z0], [x0, z1], [x1, z1]]) {
+      if (get(tx, 5, tz) === 'oaklog') continue
+      fill(tx, 0, tz, tx, 5, tz, 'oaklog')
+      for (let ox = -1; ox <= 1; ox++) for (let oz = -1; oz <= 1; oz++) if (!get(tx + ox, 6, tz + oz)) set(tx + ox, 6, tz + oz, 'oakplanks')
+      for (const [ox, oz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) if (!get(tx + ox, 7, tz + oz)) set(tx + ox, 7, tz + oz, 'oakfence')
+      set(tx, 7, tz, 'glowstone')
+    }
     const inside = (x, z) => x > x0 && x < x1 && z > z0 && z < z1
     const free = (x, z) => inside(x, z) && !get(x, 0, z) && !get(x, 1, z) && solidFloor(get(x, -1, z))
     // Nearest free cell to (x, z), within a few cells.

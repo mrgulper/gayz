@@ -13512,6 +13512,16 @@ html.ui-theme-old .crate-card .crate-stock-count { color: #241507; }
   background: radial-gradient(ellipse at center, rgba(10, 8, 5, 0.45), rgba(5, 4, 2, 0.8));
   color: #f1e6c8;
 }
+#play-npc-panel .build-share-box { position: relative; }
+#play-npc-panel .build-share-box h2 { padding: 0 34px; }
+/* The same red X as every GayZ panel (.panel-close-btn), not the box's
+   pill buttons. */
+#play-npc-panel .panel-close-btn {
+  top: 10px; right: 12px; padding: 0; min-width: 0;
+  background: none; border: none; border-radius: 0; box-shadow: none;
+  color: #e05252; font-size: 26px; font-weight: 700;
+}
+#play-npc-panel .panel-close-btn:hover { color: #ff6b6b; background: none; }
 #play-npc-list { display: flex; flex-direction: column; gap: 8px; }
 .play-npc-row {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
