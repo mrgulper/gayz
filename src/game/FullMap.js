@@ -13,19 +13,6 @@ export class FullMap {
     this.canvas = canvas
     this.ctx = canvas.getContext('2d')
     this.size = canvas.width
-    // A block map (Map 3 run, see Game.js's _enterBlockWorld) instead of
-    // Map 1: { cx, cz, half, picture, safe } - its own area, a top-down
-    // picture of its blocks instead of the fog grid, and its camp.
-    this.area = null
-  }
-
-  setArea(area) {
-    this.area = area
-  }
-
-  _view() {
-    const a = this.area
-    return a ? { half: a.half, cx: a.cx, cz: a.cz } : { half: WORLD_HALF_SIZE, cx: 0, cz: 0 }
   }
 
   // Inverse of the render()-local toScreen() - lets Game.js convert a click
@@ -33,28 +20,25 @@ export class FullMap {
   // right-click handler), using this class's own size/scale as the single
   // source of truth instead of duplicating the math.
   screenToWorld(px, py) {
-    const { half, cx, cz } = this._view()
-    const scale = this.size / (half * 2)
-    return { x: cx + (px - this.size / 2) / scale, z: cz + (py - this.size / 2) / scale }
+    const scale = this.size / (WORLD_HALF_SIZE * 2)
+    return { x: (px - this.size / 2) / scale, z: (py - this.size / 2) / scale }
   }
 
   render(playerPos, facingRad, discoveredCells, cellSize, landmarks, customPin = null) {
     const ctx = this.ctx
     const s = this.size
-    const { half, cx: viewX, cz: viewZ } = this._view()
-    const scale = s / (half * 2)
+    const scale = s / (WORLD_HALF_SIZE * 2)
     const toScreen = (x, z) => [
-      s / 2 + (x - viewX) * scale,
-      s / 2 + (z - viewZ) * scale,
+      s / 2 + x * scale,
+      s / 2 + z * scale,
     ]
-    const safe = this.area?.safe || { x: 0, z: 42 }
 
     // Fast-travel click targets, rebuilt every render (the map is only ever
     // re-rendered on open, same cadence as everything else here) - Game.js
     // hit-tests clicks against this list rather than the fixed EXPLORE_CELL_SIZE
     // it recomputes for the fog reveal, keeping both here as the single
     // source of truth for what's actually shown on screen.
-    this.hitTargets = [{ label: 'Safe Zone', x: safe.x, z: safe.z, px: null, py: null }]
+    this.hitTargets = [{ label: 'Safe Zone', x: 0, z: 42, px: null, py: null }]
 
     ctx.clearRect(0, 0, s, s)
     ctx.fillStyle = '#0a0d0a'
@@ -64,10 +48,7 @@ export class FullMap {
     // per toggle-open (roughly (750/cellSize)^2 cells, a few hundred to low
     // thousands depending on cellSize, not per-frame).
     const cellPx = cellSize * scale
-    if (this.area) {
-      ctx.imageSmoothingEnabled = false
-      ctx.drawImage(this.area.picture, 0, 0, s, s)
-    } else for (let wx = -WORLD_HALF_SIZE; wx < WORLD_HALF_SIZE; wx += cellSize) {
+    for (let wx = -WORLD_HALF_SIZE; wx < WORLD_HALF_SIZE; wx += cellSize) {
       for (let wz = -WORLD_HALF_SIZE; wz < WORLD_HALF_SIZE; wz += cellSize) {
         const cx = Math.floor(wx / cellSize)
         const cz = Math.floor(wz / cellSize)
@@ -83,7 +64,6 @@ export class FullMap {
     ctx.font = '11px sans-serif'
     ctx.textAlign = 'center'
     for (const lm of landmarks) {
-      if (Math.abs(lm.x - viewX) > half || Math.abs(lm.z - viewZ) > half) continue
       const cx = Math.floor(lm.x / cellSize)
       const cz = Math.floor(lm.z / cellSize)
       if (!discoveredCells.has(`${cx},${cz}`)) continue
@@ -99,7 +79,7 @@ export class FullMap {
 
     // Safe zone is always known regardless of exploration - it's home base.
     ctx.fillStyle = '#7fd88f'
-    const [safeX, safeY] = toScreen(safe.x, safe.z)
+    const [safeX, safeY] = toScreen(0, 42)
     ctx.beginPath()
     ctx.arc(safeX, safeY, 5, 0, Math.PI * 2)
     ctx.fill()

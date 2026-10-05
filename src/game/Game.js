@@ -11,8 +11,7 @@ import { LOW_QUALITY_MODE, flatMaterial } from './QualitySettings.js'
 import { PlayerController } from './PlayerController.js'
 import { WeaponSystem, MELEE_DURABILITY_MAX, MELEE_VARIANT_INFO } from './WeaponSystem.js'
 import { ZombieManager } from './ZombieManager.js'
-import { meshGridFor } from './ColliderGrid.js'
-import { Zombie, bumpZombieIdCounterPast, zombieAnimLod, zombieWorldHooks } from './Zombie.js'
+import { Zombie, bumpZombieIdCounterPast, zombieAnimLod } from './Zombie.js'
 import { PickupManager, Pickup } from './Pickups.js'
 import { PlayerState } from './PlayerState.js'
 import { Inventory, ITEM_INFO } from './Inventory.js'
@@ -190,7 +189,7 @@ import * as CloudSync from './CloudSync.js'
 import * as CloudSaveUI from './CloudSaveUI.js'
 import * as ChatUI from './ChatUI.js'
 import { ensureBoundsTrees } from './RaycastAccel.js'
-import { LightProxyPool, markLightSource } from './LightProxies.js'
+import { LightProxyPool } from './LightProxies.js'
 import { AUTO_QUALITY_LEVELS, AutoQualityController, guessInitialLevel, loadSavedLevel } from './AutoQuality.js'
 import { setColorblindMode } from './Accessibility.js'
 import { registerZone } from './Zones.js'
@@ -5371,10 +5370,6 @@ export class Game {
     this.composer.addPass(new OutputPass())
 
     const { buildPendingTileContent, colliders, solidMeshes, flickerLights, spawnPoints, ambientWildlife, hemiLight, sunLight, towerChestSpots, minigunSpot, generator, trader, ammoStation, upgradeMachine, mysteryBox, vireoFacility, undergroundStation, subwayEntrance, safeZone, practiceTargets, trophyWall, cullables, tileIndex, supermarket, groceryStore, hospital, pharmacy, hardwareStore, gunShop, policeStation, militaryCheckpoint, prison, university, skyscraper, megaMall, warehouse, gasStation, bank, diner, radioStation, fireStation, motel, newUndergroundEntrance, maintenanceTunnel, toxicSewerLevel, mineLevel, manholeCovers, waterTowerValve, containerStaircase, industrialSiren, wreckingPendulum, scaffolding, elevatorTower, payphone, workbench, bulletinBoard, hallOfFame, skyscraperShortcuts, adjustableDummy, pet, drainpipeSpots, jumpPadSpot, tacticalStreetlights, grassBounds, waterBounds } = buildWorld(this.scene, ACHIEVEMENTS.length)
-    // Everything Map 1's city added to the scene - hidden as a whole when a
-    // run is on a block map instead (see _enterBlockWorld), so its ~15k
-    // objects aren't walked through every frame for nothing.
-    this._map1SceneObjects = this.scene.children.slice()
     this.drainpipeSpots = drainpipeSpots
     this.jumpPadSpot = jumpPadSpot
     this._jumpPadCooldownUntil = 0
@@ -6896,16 +6891,8 @@ export class Game {
   _bindMenu() {
     this.playBtn.addEventListener('click', () => {
       // Map 3 picked in Game Mode: survive zombie waves in the block city.
-      if (this.settings.playMap === 'map3' && !this.blockWorld) {
-        // Load Map 3 into the game first, then start the run as normal.
-        const done = this._showMapLoading()
-        this._enterBlockWorld('map3').then(() => {
-          done()
-          this.playBtn.click()
-        }).catch((err) => {
-          console.error(err)
-          done()
-        })
+      if (this.settings.playMap === 'map3') {
+        this._enterBuildMode({ map: 'map3', play: true })
         return
       }
       // Lifetime Play-button click count (Profile panel) - not saved
@@ -7143,8 +7130,7 @@ export class Game {
       this._lastAliveCountSeen = 0
       this._cleanSweepAwardedThisRound = false
       this.xpGems.reset()
-      if (this.blockWorld) this.companion.teleportTo(this.blockWorld.start.x + 1.2, this.blockWorld.start.z + 1.2)
-      else this.companion.teleportTo(1.6, 7)
+      this.companion.teleportTo(1.6, 7)
       this.companion.resetVitals()
       this.night = 1
       // A fresh run's own night count starts back at 1 - without this, a
@@ -7234,16 +7220,8 @@ export class Game {
       this.continueRunBtn.addEventListener('click', () => {
         const data = loadSavedRun()
         if (!data) return
-        const resume = () => {
-          this.respawnBtn.click()
-          this._restoreRunSnapshot(data)
-        }
-        if (data.map && data.map !== 'map1' && !this.blockWorld) {
-          const done = this._showMapLoading()
-          this._enterBlockWorld(data.map).then(resume, (err) => console.error(err)).finally(done)
-          return
-        }
-        resume()
+        this.respawnBtn.click()
+        this._restoreRunSnapshot(data)
       })
     }
 
@@ -14206,178 +14184,6 @@ export class Game {
   // leaves it for the player's own slots. Omitted keeps the last slot.
   // play: start Play (zombie waves, BuildSurvival.js) on it straight away -
   // Game Mode's Map 3 + the Play button.
-  // --- Block maps run the real game (2026-10-05, Gaymi: "bring all the
-  // current features in map 1 to map editor and map 3") ---
-  // Play on Map 3 is Map 1's own game - every weapon, zombie type, boss,
-  // item, event, mutator and reward - just on Map 3's city. The Map
-  // Editor's meshes for the map are lent to this scene far from Map 1
-  // (BlockWorld.js), and every list Map 1's systems read is swapped in
-  // place (so everything holding a reference sees the new map): walls,
-  // floors, zombie spawn spots and the safe zone. Map 1's Trader, Upgrade
-  // Machine, Ammo Station and Mystery Box are built again in Map 3's camp,
-  // with the camp's NPCs standing by them. Leaving a run reloads the page,
-  // so there's no way back to Map 1 to handle.
-  // The loading cover while Map 3 is built into the game (the editor's
-  // own cover, worded for Map 3). Returns the function that hides it.
-  _showMapLoading() {
-    const el = this.buildModeLoadingOverlay
-    const text = el?.querySelector('p')
-    const before = text?.textContent
-    if (text) text.textContent = t('loadingMap3')
-    if (el) el.style.display = 'flex'
-    return () => {
-      if (el) el.style.display = 'none'
-      if (text) text.textContent = before
-    }
-  }
-
-  async _enterBlockWorld(slot) {
-    if (this.blockWorld) return
-    if (typeof this.buildMode.prepareForGame !== 'function') {
-      const { BuildMode } = await import('./BuildMode.js')
-      if (typeof this.buildMode.prepareForGame !== 'function') this.buildMode = new BuildMode(this.renderer, this)
-    }
-    const [{ BlockWorld, BLOCK_WORLD_SCALE, BLOCK_WORLD_ORIGIN }, { BLOCK_SIZE }, World, { NPC_SKINS }] = await Promise.all([
-      import('./BlockWorld.js'), import('./BuildMode.js'), import('./World.js'), import('./BuildCamp.js'),
-    ])
-    const bm = this.buildMode
-    bm.prepareForGame(slot)
-    bm.lendWorldRoot(this.scene, BLOCK_WORLD_SCALE / BLOCK_SIZE, BLOCK_WORLD_ORIGIN)
-    // Blocks keep their real texture colors, like in the editor (the
-    // game's filmic tone mapping turns grey stone near-black).
-    bm.worldRoot.traverse((o) => {
-      for (const m of [].concat(o.material || [])) {
-        if (m.toneMapped === false) continue
-        m.toneMapped = false
-        m.needsUpdate = true
-      }
-    })
-    // Map 1's city stays where it is but is hidden (its lights stay, see
-    // CLAUDE.md on never toggling a light - they're far out of reach).
-    for (const o of this._map1SceneObjects || []) {
-      if (!o.isLight) o.visible = false
-    }
-    const chestCells = bm.takeBlocksForGame('lootchest')
-    const zone = slot === 'map3' ? bm._map3Base().map.safeZone : null
-    const bw = new BlockWorld(bm, { map3Zone: zone })
-    bw.slot = slot
-    this.blockWorld = bw
-    const replace = (list, items) => {
-      list.length = 0
-      for (const item of items) list.push(item)
-    }
-    replace(this.colliders, bw.colliders)
-    replace(this.solidMeshes, bw.surfaces)
-    replace(this.spawnPoints, bw.spawnPoints())
-    // The grids cache by list length - make sure they rebuild.
-    this.player._colliderGrid.lastLength = -1
-    this.zombies._colliderGrid.lastLength = -1
-    meshGridFor(this.solidMeshes).lastLength = -1
-    if (bw.safeZone) Object.assign(this.safeZone, bw.safeZone)
-    // The moon's fixed shadow area (World.js) follows the map over.
-    if (this.sunLight) {
-      const [mx, mz] = bw.toWorld((bw.bounds.x0 + bw.bounds.x1) / 2, (bw.bounds.z0 + bw.bounds.z1) / 2)
-      this.sunLight.position.x += mx
-      this.sunLight.position.z += mz
-      this.sunLight.target.position.set(mx, 0, mz)
-      this.sunLight.target.updateMatrixWorld()
-    }
-    zombieWorldHooks.fixSpawn = (x, z) => bw.fixSpawn(x, z)
-    zombieWorldHooks.steer = (x, z) => bw.steer(x, z)
-    if (zone) this._buildCampMachines(bw, World, NPC_SKINS)
-    // The map's Loot Chests are the game's own chests (same loot, same
-    // nightly refill).
-    for (const [x, y, z] of chestCells) {
-      const [wx, wz] = bw.toWorld(x, z)
-      this.chests.addChest(wx, y * BLOCK_WORLD_SCALE, wz)
-    }
-    // Map 3's camp fire is the campfire you rest at.
-    if (zone) this.campfireSpot = { x: this.safeZone.x, z: this.safeZone.z }
-    this.zombieDefenseMarker.position.set(this.safeZone.x, 0.06, this.safeZone.z)
-    // The full map (L) shows this map from above instead of Map 1.
-    const picture = bm._buildTopDownMap()
-    this.fullMap.setArea({
-      cx: BLOCK_WORLD_ORIGIN.x,
-      cz: BLOCK_WORLD_ORIGIN.z,
-      half: (picture.width / 2) * BLOCK_WORLD_SCALE,
-      picture,
-      safe: { x: this.safeZone.x, z: this.safeZone.z },
-    })
-    // Start (and respawn) at the map's Player Start.
-    const resetPosition = this.player.resetPosition.bind(this.player)
-    this.player.resetPosition = () => {
-      resetPosition()
-      this.player.controls.object.position.set(bw.start.x, bw.start.y + this.player.eyeHeight, bw.start.z)
-      this.player.groundY = bw.start.y
-    }
-    this.player.resetPosition()
-    this.companion.teleportTo(bw.start.x + 1.2, bw.start.z + 1.2)
-  }
-
-  // Map 1's four machines, built again in Map 3's camp at the spots its
-  // NPCs used to stand (Map3Generator's npcSpots), each NPC now standing
-  // beside the machine it runs.
-  _buildCampMachines(bw, World, npcSkins) {
-    const parts = []
-    const register = (object, box) => parts.push({ object, box })
-    register.colliderOnly = (box) => parts.push({ box })
-    register.meshOnly = (object) => parts.push({ object, meshOnly: true })
-    const center = bw.safeZone
-    const place = (build, spotId, npcId) => {
-      const spot = bw.campSpot(spotId)
-      if (!spot) return null
-      const holder = new THREE.Group()
-      const first = parts.length
-      const info = build(holder, register)
-      // Each builder puts its machine at its own Map 1 spot (info.x/z).
-      holder.position.set(spot.x - info.x, 0, spot.z - info.z)
-      this.scene.add(holder)
-      holder.updateMatrixWorld(true)
-      const shift = new THREE.Vector3(holder.position.x, 0, holder.position.z)
-      for (const p of parts.slice(first)) {
-        if (p.box) this.colliders.push(p.box.clone().translate(shift))
-        else if (p.object && !p.meshOnly) this.colliders.push(new THREE.Box3().setFromObject(p.object))
-        if (p.object) this.solidMeshes.push(p.object)
-      }
-      holder.traverse((o) => {
-        if (o.isPointLight) markLightSource(o)
-      })
-      info.x = spot.x
-      info.z = spot.z
-      // The NPC who runs it stands just behind it, facing the camp.
-      if (npcId && npcSkins[npcId]) {
-        const away = Math.atan2(spot.x - center.x, spot.z - center.z)
-        const nx = spot.x + Math.sin(away) * 1.6
-        const nz = spot.z + Math.cos(away) * 1.6
-        loadSkinTexture(npcSkins[npcId]).then((skin) => {
-          const body = buildTexturedCharacter(skin)
-          const sc = 1.85 / 32
-          body.scale.setScalar(sc)
-          body.position.set(nx, 2 * sc, nz)
-          body.rotation.y = away + Math.PI
-          this.scene.add(body)
-        }).catch(() => {})
-      }
-      return info
-    }
-    this.trader = place(World.buildTraderStall, 'trader', 'trader') || this.trader
-    this.upgradeMachine = place((s, r) => World.buildWeaponUpgradeMachine(s, r, 0, 0), 'upgrader', 'upgrader') || this.upgradeMachine
-    this.ammoStation = place(World.buildAmmoStation, 'ammo', 'ammo') || this.ammoStation
-    this.mysteryBox = place((s, r) => World.buildMysteryBox(s, r, 0, 0), 'quest', 'quest') || this.mysteryBox
-  }
-
-  // Every frame on a block map: the zombies' walking field and the
-  // ladders (Map 1's only ladder is the Elevator Tower's).
-  _updateBlockWorld(dt, playerPos) {
-    const bw = this.blockWorld
-    bw.updateField(dt, playerPos.x, playerPos.z)
-    if (!this.player.isOnLadder) {
-      const ladder = bw.ladderNear(playerPos.x, playerPos.z, playerPos.y - this.player.eyeHeight)
-      if (ladder) this.player.nearLadder = ladder
-      else if (this.player.nearLadder?.exit !== undefined) this.player.nearLadder = null
-    }
-  }
-
   async _enterBuildMode({ map, play = false } = {}) {
     // Every other nav button routes through trackAndOpen/_open*Panel(),
     // which calls _closeAllMenuPanels() first (see that function's own
@@ -21308,8 +21114,6 @@ export class Game {
     return {
       version: 1,
       savedAt: Date.now(),
-      // Which map the run is on - a Map 3 run continues on Map 3.
-      map: this.blockWorld ? this.blockWorld.slot : 'map1',
       elapsedMs: now - this.runStartedAt,
       nightElapsedMs: now - this.nightStartedAt,
       night: this.night,
@@ -25025,10 +24829,8 @@ export class Game {
   _spawnAirdrop() {
     const angle = Math.random() * Math.PI * 2
     const radius = Math.random() * AIRDROP_SPAWN_RADIUS
-    let x = Math.sin(angle) * radius
-    let z = Math.cos(angle) * radius
-    // On a block map: somewhere out on its streets.
-    if (this.blockWorld) [x, z] = this.blockWorld.randomStreetPoint()
+    const x = Math.sin(angle) * radius
+    const z = Math.cos(angle) * radius
 
     // A supply crate that visibly falls out of the sky onto its landing
     // spot instead of just popping into existence as a bright beacon - see
@@ -26599,7 +26401,7 @@ export class Game {
     }
     this.zombieDefenseWrap.style.display = 'block'
     const nearby = this.zombies.zombies.filter((z) => z.state !== 'dead' &&
-      Math.hypot(z.group.position.x - this.safeZone.x, z.group.position.z - this.safeZone.z) <= ZOMBIE_DEFENSE_RADIUS).length
+      Math.hypot(z.group.position.x - SAFE_ZONE_X, z.group.position.z - SAFE_ZONE_Z) <= ZOMBIE_DEFENSE_RADIUS).length
     if (nearby > 0) this.zombieDefenseHp = Math.max(0, this.zombieDefenseHp - nearby * ZOMBIE_DEFENSE_DPS_PER_ZOMBIE * dt)
     this.zombieDefenseLabel.textContent = t('zombieDefenseLabel')
     this.zombieDefenseFill.style.width = `${(this.zombieDefenseHp / ZOMBIE_DEFENSE_MAX_HP) * 100}%`
@@ -27982,7 +27784,6 @@ export class Game {
           break
       }
       this._updatePet(playerPos, dt)
-      if (this.blockWorld) this._updateBlockWorld(dt, playerPos)
       this._updateEscalation(dt)
       this._updateChallengeTracker()
       this._deathReplaySampleTimer -= dt
