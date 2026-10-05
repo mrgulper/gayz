@@ -64,3 +64,53 @@ test('Restore Default Settings actually resets a changed value', async ({ page }
   const afterRestore = await page.evaluate(() => window.__game.settings.sensitivity)
   expect(afterRestore).toBe(100) // defaultSettings()'s baseline value
 })
+
+// A lost graphics connection pauses the game behind a small note, and
+// coming back carries on with Lite Textures on (LiteTextures.js).
+test('graphics loss pauses quietly and recovers with Lite Textures', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const wait = (ms) => new Promise((res) => setTimeout(res, ms))
+    const ext = g.renderer.getContext().getExtension('WEBGL_lose_context')
+    const out = { liteBefore: g.settings.liteTextures }
+    ext.loseContext()
+    await wait(500)
+    out.paused = g._glLost === true
+    out.note = getComputedStyle(document.getElementById('graphics-reconnecting')).display
+    out.panel = getComputedStyle(document.getElementById('graphics-lost-panel')).display
+    ext.restoreContext()
+    await wait(1500)
+    out.resumed = g._glLost === false
+    out.noteAfter = getComputedStyle(document.getElementById('graphics-reconnecting')).display
+    out.liteAfter = g.settings.liteTextures
+    let fullSize = 0
+    g.scene.traverse((o) => {
+      for (const m of [].concat(o.material || [])) {
+        for (const k in m) {
+          const tex = m[k]
+          if (tex?.isTexture && (tex.image instanceof HTMLImageElement || tex.image instanceof ImageBitmap) && tex.image.width >= 128) fullSize++
+        }
+      }
+    })
+    out.fullSizeLeft = fullSize
+    // Turning it off puts the full pictures back.
+    g.settings.liteTextures = false
+    g._applyLiteTextures()
+    let restored = 0
+    g.scene.traverse((o) => { for (const m of [].concat(o.material || [])) for (const k in m) { const tex = m[k]; if (tex?.isTexture && (tex.image instanceof HTMLImageElement || tex.image instanceof ImageBitmap) && tex.image.width >= 128) restored++ } })
+    out.restored = restored > 0
+    return out
+  })
+
+  expect(r.liteBefore).toBe(false)
+  expect(r.paused).toBe(true)
+  expect(r.note).toBe('flex')
+  expect(r.panel).toBe('none')
+  expect(r.resumed).toBe(true)
+  expect(r.noteAfter).toBe('none')
+  expect(r.liteAfter).toBe(true)
+  expect(r.fullSizeLeft).toBe(0)
+  expect(r.restored).toBe(true)
+})
