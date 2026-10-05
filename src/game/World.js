@@ -3496,7 +3496,7 @@ function buildGenerator(scene, register) {
 // A scavenger's trade stall near spawn - counter, slanted awning, and a lit
 // sign - where scrap earned from kills can be spent on supplies (see
 // Game.js's trader panel).
-function buildTraderStall(scene, register) {
+export function buildTraderStall(scene, register) {
   // Inside the safe zone compound (see SAFE_ZONE_X/Z, buildSafeZone) instead
   // of out on the open avenue, so both "spend points" stops sit behind the
   // guarded wall together. Placed in the south interior near the entrance
@@ -3604,7 +3604,7 @@ function buildTraderStall(scene, register) {
 // seconds (without firing) to top off reserve ammo instead of relying on
 // pickups alone (see Game.js's _updateAmmoStation). Kept well clear of the
 // generator/trader stall so all three street props read as distinct spots.
-function buildAmmoStation(scene, register) {
+export function buildAmmoStation(scene, register) {
   // Also inside the safe zone, mirrored across the entrance from the trader
   // stall (see buildTraderStall) - both spend-points-here stops behind the
   // same guarded wall, pushed out to x=5.5 for the same guard-clearance
@@ -3704,7 +3704,7 @@ function buildAmmoStation(scene, register) {
 // zone's own internal layout (Vault/practice range/trophy wall already
 // pack its north half - this avoids that entirely by living outside the
 // walls).
-function buildWeaponUpgradeMachine(scene, register, x, z) {
+export function buildWeaponUpgradeMachine(scene, register, x, z) {
   const group = new THREE.Group()
   group.position.set(x, 0, z)
 
@@ -3753,7 +3753,7 @@ function buildWeaponUpgradeMachine(scene, register, x, z) {
 
 // Mystery Box - same "physical spot, not a menu" idea as the upgrade
 // machine above, placed on the park's east side to mirror it.
-function buildMysteryBox(scene, register, x, z) {
+export function buildMysteryBox(scene, register, x, z) {
   const group = new THREE.Group()
   group.position.set(x, 0, z)
 
