@@ -2522,14 +2522,10 @@ const KILL_MILESTONES_SEEN_KEY = 'gayz-kill-milestones-seen'
 // one of them, scripts/check-docs.mjs asks for that step's text to be
 // re-read (edited, or confirmed with [reread: htpX] in the commit message).
 const HOWTOPLAY_STEPS = [
-  { key: 'htpMove', headingKey: 'htpHeadingMovement', code: 'grappleCooldownUntil _mantleStart prone' },
-  { key: 'htpShoot', headingKey: 'htpHeadingCombat', code: 'headshot _fireShot' },
-  { key: 'htpInventory', headingKey: 'htpHeadingInventory', code: '_onPickup' },
-  { key: 'htpChests', headingKey: 'htpHeadingChests', code: 'Chests' },
-  { key: 'htpSurvive', headingKey: 'htpHeadingSurvival', code: 'HOTBAR_ITEMS _useHotbarItem' },
-  { key: 'htpCompanion', headingKey: 'htpHeadingCompanion', code: 'recruitSpots RECRUIT_ROLES' },
-  { key: 'htpTrader', headingKey: 'htpHeadingTrader', code: 'buildSafeZone _openTraderPanel TRADER_QUESTS' },
-  { key: 'htpModes', headingKey: 'htpHeadingModes', code: 'GAME_MODE_INFO MUTATOR_INFO' },
+  { key: 'htpMove', headingKey: 'htpHeadingMovement', code: '' },
+  { key: 'htpWavesShoot', headingKey: 'htpHeadingCombat', code: 'RELOAD_TIME' },
+  { key: 'htpWavesCamp', headingKey: 'htpHeadingTrader', code: 'SHOP_ITEMS CAMP_QUESTS' },
+  { key: 'htpWavesWaves', headingKey: 'htpHeadingSurvival', code: 'waveSize zombieSpeed' },
   { key: 'htpRules', headingKey: 'htpHeadingRules', code: '' },
 ]
 
@@ -6890,208 +6886,11 @@ export class Game {
 
   _bindMenu() {
     this.playBtn.addEventListener('click', () => {
-      // Map 3 picked in Game Mode: survive zombie waves in the block city.
-      if (this.settings.playMap === 'map3') {
-        this._enterBuildMode({ map: 'map3', play: true })
-        return
-      }
-      // Lifetime Play-button click count (Profile panel) - not saved
-      // immediately (matches every other high-frequency careerStats
-      // counter's batching precedent - persisted at the next
-      // saveCareerStats call, e.g. _recordRunEnd).
-      this.careerStats.playButtonClicks = (this.careerStats.playButtonClicks || 0) + 1
-      saveCareerStats(this.careerStats)
-      // What's New digest (see _fadeOutWhatsNewDigest) - fades it out right
-      // away rather than letting it sit open behind the loading/gameplay
-      // screens if the player clicks Play before its own 10s idle timer
-      // or the X gets to it first.
-      this._fadeOutWhatsNewDigest()
-      // Screen fade transition - masks the otherwise-instant menu-to-game
-      // switch with a brief flash-to-black-then-fade, same show/hide
-      // re-trigger pattern as every toast in this codebase.
-      this.screenFadeEl.classList.remove('show')
-      void this.screenFadeEl.offsetWidth
-      this.screenFadeEl.classList.add('show')
-      // Hide the menu right here rather than waiting on the pointer-lock
-      // 'lock' event further down - _openTraitDrawPanel() (below) can show
-      // its own panel for a while before the player picks a trait and
-      // player.controls.lock() is finally called on that choice, and until
-      // now the still-fully-visible menu bled through that panel's 90%-
-      // opacity backdrop the entire time it was up.
-      this.menu.style.display = 'none'
-      // FPS/coords debug readout - hidden on the menu, fades in once real
-      // gameplay starts (see their own opacity/transition setup). FPS
-      // counter itself also respects Show FPS Counter During Gameplay
-      // (General tab) - homepageFpsCounter being on independently still
-      // works, since that's a separate always-on-homepage toggle.
-      this.fpsEl.style.opacity = this.settings.hudFpsCounter ? '1' : '0'
-      this.coordsEl.style.opacity = '1'
-      this._applyFrameTimeGraphVisibility()
-      audioEngine.init()
-      audioEngine.resume()
-      audioEngine.startAmbient()
-      // Weather was already rolled once by the constructor's own
-      // _rollWeather() call, well before this - which sets this.raining/
-      // this.snowing (and the visual overlay) fine, but its own
-      // audioEngine.setWeatherAudio() call was a silent no-op back then
-      // since audioEngine.ctx didn't exist yet (only created by init()
-      // just above). Without this, a session that started already raining
-      // showed rain visually but played it silently until the next
-      // _rollWeather() call - a respawn or a full night cycle away, which
-      // is exactly the "I don't hear rain/snow" bug this line fixes: sync
-      // the audio to whatever weather state is already current now that
-      // the engine can actually receive it.
-      audioEngine.setWeatherAudio(this.raining, this.snowing)
-      this._applyLoadout(this.settings.loadout)
-      // Mutator Exploration nudge (see _updateMenuSpotlight's mode 4) -
-      // "tried" means actually started a run with it on, checked here
-      // (once, at the one place every mutator flag is already read for
-      // real) rather than at each of the ~15 individual checkbox handlers.
-      // First-Encounter Glossary - reuses the exact same "never enabled
-      // before" check above rather than a second pass, and only ever
-      // shows one explanation per run even if several mutators are newly
-      // on at once (a wall of toasts at run start would defeat the
-      // purpose). The mutator checkbox labels already carry a plain-
-      // language description (see MUTATOR_LABEL_KEYS) - this just
-      // surfaces that same text once, in-run, instead of only ever being
-      // visible back in the menu.
-      let mutatorsChanged = false
-      let firstEncounterId = null
-      for (const [id, on] of Object.entries(this.settings.mutators)) {
-        if (on && !this.settings.mutatorsEverEnabled.includes(id)) {
-          this.settings.mutatorsEverEnabled.push(id)
-          mutatorsChanged = true
-          if (!firstEncounterId && MUTATOR_LABEL_KEYS[id]) firstEncounterId = id
-        }
-      }
-      if (firstEncounterId) this._showLoreToast(t('firstEncounterGlossary', { text: t(MUTATOR_LABEL_KEYS[firstEncounterId]) }))
-      if (mutatorsChanged) saveSettings(this.settings)
-      if (this.settings.shareTelemetry && Object.values(this.settings.mutators).some(Boolean)) CloudSync.incrementTelemetry('mutatorUsed').catch(() => {})
-      // Cursed Run (batch 3 feature) - forces this week's 3 picks true for
-      // this run only. Real mutator code throughout this file reads
-      // settings.mutators directly (both once at setup and continuously,
-      // e.g. Escalation's own check), so this has to actually flip those
-      // live - _cursedRunOriginalValues remembers what to put back, and
-      // _onPlayerDeath restores it, so the player's own saved checkbox
-      // picks survive a Cursed Run untouched once the run ends.
-      this._cursedRunOriginalValues = null
-      if (this.settings.mutators.cursedRun) {
-        const keys = _cursedRunMutatorKeys()
-        this._cursedRunOriginalValues = keys.map((key) => [key, this.settings.mutators[key]])
-        for (const key of keys) this.settings.mutators[key] = true
-      }
-      let spawnMult = this.difficulty.spawnRateMult
-      if (this.settings.mutators.hordeRush) spawnMult *= 2
-      if (this.settings.mutators.hordeMode) spawnMult *= 3
-      this.dailyChallengeActive = this.settings.mutators.dailyChallenge
-      this.dailyDamageMult = 1
-      if (this.dailyChallengeActive) {
-        this.dailyTwist = DAILY_TWISTS[_dailyTwistIndex(_todayDateStr())]
-        this.dailyDamageMult = this.dailyTwist.damageMult
-        spawnMult *= this.dailyTwist.spawnMult
-        if (this.settings.shareTelemetry) CloudSync.incrementTelemetry('challengeStarted').catch(() => {})
-      }
-      // Custom Challenge Code (Local Sharing batch) - same twist-selection
-      // mechanism as Daily Challenge above (_dailyTwistIndex is a generic
-      // string hash, not date-specific), just keyed off a typed code
-      // instead of today's date, and deliberately NOT wired into
-      // dailyChallengeActive/dailyBest - that pool compares same-day runs
-      // against each other, and mixing a shareable custom code into it
-      // would compare two different things under one leaderboard.
-      this.challengeCodeActive = !!this._pendingChallengeCode
-      if (this.challengeCodeActive) {
-        this.challengeCodeTwist = DAILY_TWISTS[_dailyTwistIndex(this._pendingChallengeCode)]
-        this.dailyDamageMult = this.challengeCodeTwist.damageMult
-        spawnMult *= this.challengeCodeTwist.spawnMult
-        this._showLoreToast(t('challengeCodeApplied', { twist: t(this.challengeCodeTwist.nameKey) }))
-      }
-      if (spawnMult !== this.difficulty.spawnRateMult) this.zombies.setDifficultyMultiplier(spawnMult)
-      // Escalation Mode (batch feature) - base captured here (after every
-      // other mutator's fixed multiplier is folded in), then _updateEscalation
-      // grows it continuously for the rest of the run, no cap.
-      this._escalationBaseSpawnMult = spawnMult
-      this._escalationCheckTimer = 0
-
-      // Self-imposed challenge tracker (batch feature) - all 3 flip to
-      // false the instant they're broken (see _updateChallengeTracker),
-      // checked at death against the persistent badge log. Deliberately
-      // simple/pollable conditions (current weapon, sprint state) rather
-      // than needing new hooks into WeaponSystem's fire/reload internals.
-      this._challengePistolOnly = true
-      this._challengeMeleeOnly = true
-      this._challengeNoSprint = true
-      if (this.settings.mutators.hordeMode) this.zombies.setHordeMode(true)
-      if (this.settings.mutators.bossRush) this.zombies.bossRushMode = true
-      if (this.dailyChallengeActive) {
-        this.dailyBest = loadDailyBest()
-        this.dailyWrap.style.display = 'block'
-        this.dailyLabel.textContent = t(this.dailyTwist.nameKey)
-        this.dailyBestEl.textContent = t('dailyBest', { score: this.dailyBest.score })
-      } else {
-        this.dailyWrap.style.display = 'none'
-      }
-      if (this._isRoundMode()) {
-        this.zombies.roundMode = true
-        this.zombies.reset()
-        this.zombies.startRound(1)
-        this.roundIntermissionUntil = 0
-      }
-      this._setupGameModeRun()
-      // Scavenger Run - locks the two normally-free starting guns back down
-      // to melee-only; earned back through the Trader/Coin Shop's existing
-      // economy same as every other non-starting weapon, not a separate
-      // battlefield-loot path.
-      if (this.settings.mutators.scavenger) {
-        const rifle = this.weapons.weapons.find((w) => w.id === 'rifle')
-        const pistol = this.weapons.weapons.find((w) => w.id === 'pistol')
-        if (rifle) rifle.unlocked = false
-        if (pistol) pistol.unlocked = false
-        this.weapons.switchToIndex(this.weapons.weapons.findIndex((w) => w.id === 'melee'))
-      }
-      // Glass House - symmetric 2x damage both ways, reusing the two
-      // multipliers already read at every damage-dealt/damage-taken site
-      // rather than adding a third parallel multiplier.
-      if (this.settings.mutators.glassHouse) {
-        this.weapons.damageMult *= 2
-        this.dailyDamageMult *= 2
-      }
-      // Featured Enemy - see ZombieManager's setFeaturedEnemy/
-      // FEATURED_ENEMY_WEIGHT_MULT. Picked from the same ambient pool
-      // _spawnRandom already draws from (weight > 0 excludes boss-only
-      // entries like colossus, which are never part of the random roll).
-      if (this.settings.mutators.featuredEnemy) {
-        const candidates = Object.values(ZOMBIE_TYPES).filter((zt) => zt.weight > 0)
-        const featured = candidates[Math.floor(Math.random() * candidates.length)]
-        this.zombies.setFeaturedEnemy(featured.id)
-        this._showLoreToast(t('featuredEnemyToast', { type: featured.label }))
-      } else {
-        this.zombies.setFeaturedEnemy(null)
-      }
-      // Blackout - folds into the same weatherDim multiply _tick already
-      // applies to dayNight.hemi/sun every frame (see the main tick), so it
-      // composes with rain/snow dimming instead of fighting it.
-      this.blackoutActive = this.settings.mutators.blackout
-      // Weekly Featured Mutator bonus - a nudge, not a requirement: playing
-      // with this week's auto-picked mutator on grants a small one-time
-      // coin bonus for the run.
-      if (this.settings.mutators[_weeklyFeaturedMutatorKey()]) {
-        this.coins += WEEKLY_FEATURED_MUTATOR_BONUS_COINS
-        this._showLoreToast(t('weeklyFeaturedMutatorBonusToast', { coins: WEEKLY_FEATURED_MUTATOR_BONUS_COINS }))
-      }
-      // Weekly Remix - a second, independently-picked featured mutator
-      // (see _weeklyRemixMutatorKeys) alongside the existing single one
-      // above. Only pays out if BOTH are on for the same run, on top of
-      // (not instead of) the normal single-mutator bonus - a nudge to
-      // combine two mutators together, not a replacement system.
-      {
-        const [remixA, remixB] = _weeklyRemixMutatorKeys()
-        if (this.settings.mutators[remixA] && this.settings.mutators[remixB]) {
-          this.coins += WEEKLY_REMIX_BONUS_COINS
-          this._showLoreToast(t('weeklyRemixBonusToast', { a: t(MUTATOR_LABEL_KEYS[remixA]), b: t(MUTATOR_LABEL_KEYS[remixB]), coins: WEEKLY_REMIX_BONUS_COINS }))
-        }
-      }
-      this._showLoreToast(t(DIFFICULTY_FLAVOR_KEYS[this.settings.difficulty] || DIFFICULTY_FLAVOR_KEYS.normal))
-      this._openWeaponPickerPanel()
+      // Play is the block city's zombie waves (2026-10-05, Gaymi: "fully
+      // delete map 1 and change the map 3 to map 1" - the old Map 1 city
+      // is gone; its internal slot id stays 'map3' so saved edits keep
+      // working).
+      this._enterBuildMode({ map: 'map3', play: true })
     })
 
     this.respawnBtn.addEventListener('click', () => {
@@ -14328,10 +14127,10 @@ export class Game {
     if (this.buildModeLoadingOverlay) this.buildModeLoadingOverlay.style.display = 'none'
   }
 
+  // The block city is the only map to play now (the old Map 1 city was
+  // deleted 2026-10-05) - its card is always the picked one.
   _renderMapSelect() {
-    const map = this.settings.playMap === 'map3' ? 'map3' : 'map1'
-    document.getElementById('map-select-1')?.classList.toggle('active', map === 'map1')
-    document.getElementById('map-select-3')?.classList.toggle('active', map === 'map3')
+    document.getElementById('map-select-3')?.classList.add('active')
   }
 
   _exitBuildMode() {
@@ -17808,15 +17607,6 @@ export class Game {
     // Mode's own UI takes over.
     const mapSelect2Btn = document.getElementById('map-select-2')
     if (mapSelect2Btn) mapSelect2Btn.addEventListener('click', () => this._enterBuildMode({ map: 'map2' }))
-    // Map 1 or Map 3 for the Play button (2026-10-04): Map 3 is played as
-    // zombie waves in the block city (Map Editor's Play, BuildSurvival.js).
-    for (const [id, map] of [['map-select-1', 'map1'], ['map-select-3', 'map3']]) {
-      document.getElementById(id)?.addEventListener('click', () => {
-        this.settings.playMap = map
-        saveSettings(this.settings)
-        this._renderMapSelect()
-      })
-    }
     this._renderMapSelect()
     const buildExitBtn = document.getElementById('build-mode-exit-btn')
     if (buildExitBtn) buildExitBtn.addEventListener('click', () => this._exitBuildMode())
@@ -19680,35 +19470,21 @@ export class Game {
   // Inventory.js's ITEM_INFO, MUTATOR_INFO/GAME_MODE_INFO here), so they
   // change in the same place the feature does. tests/docs.spec.js fails on
   // an entry with no description.
+  // The lists GayZ Features builds from code. All of them (guns, zombie
+  // types, night events, items, game modes, mutators) were the old Map 1's
+  // and went with it (2026-10-05) - a new list goes here as id -> {name,
+  // about}, shown under a [data-feature-list] in index.html.
   _featureCatalogs() {
-    const entry = (info) => ({ name: info?.name, about: typeof info?.about === 'function' ? info.about() : info?.about })
-    const from = (ids, lookup) => Object.fromEntries(ids.map((id) => [id, entry(lookup(id))]))
-    const items = Object.keys(this.inventory).filter((k) => typeof this.inventory[k] === 'number')
-    const modes = [...document.querySelectorAll('[data-game-mode]')]
-      .filter((b) => !b.disabled && !b.classList.contains('locked')).map((b) => b.dataset.gameMode)
-    return {
-      firearms: from(this.weapons.weapons.map((w) => w.id), (id) => this.weapons.weapons.find((w) => w.id === id)),
-      melee: from(Object.keys(MELEE_VARIANT_INFO).filter((id) => id !== 'knife'), (id) => MELEE_VARIANT_INFO[id]),
-      zombies: from(Object.keys(ZOMBIE_TYPES), (id) => {
-        const z = ZOMBIE_TYPES[id]
-        // Bosses are the types that never enter the random-spawn pool.
-        return { name: z.weight === 0 ? `${z.label} (boss)` : z.label, about: z.about }
-      }),
-      nightEvents: from(NIGHT_EVENTS.map((e) => e.id), (id) => NIGHT_EVENTS.find((e) => e.id === id)),
-      items: from(items, (id) => ITEM_INFO[id]),
-      gameModes: from(modes, (id) => GAME_MODE_INFO[id]),
-      mutators: from(Object.keys(this.settings.mutators || {}), (id) => MUTATOR_INFO[id]),
-    }
+    return {}
   }
 
   _featureCounts() {
-    const catalogs = this._featureCatalogs()
     return {
       firearms: this.weapons.weapons.filter((w) => w.id !== 'melee').length,
-      melee: Object.keys(catalogs.melee).length,
+      melee: Object.keys(MELEE_VARIANT_INFO).filter((id) => id !== 'knife').length,
       zombies: Object.keys(ZOMBIE_TYPES).length,
       difficulties: Object.keys(DIFFICULTY_PRESETS).length,
-      mutators: Object.keys(catalogs.mutators).length,
+      mutators: Object.keys(this.settings.mutators || {}).length,
       achievements: ACHIEVEMENTS.length,
       skyscrapers: this.skyscraperShortcuts?.length,
     }

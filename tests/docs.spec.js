@@ -65,7 +65,7 @@ test('How to Play shows the real keys, with no unfilled placeholders', async ({ 
 // rebound key shows up everywhere without anyone editing the text.
 test('in-game text shows the player\'s rebound keys, not the defaults', async ({ page }) => {
   await page.addInitScript(() => {
-    localStorage.setItem('gayz-keybinds', JSON.stringify({ interact: 'KeyH', sprint: 'KeyP' }))
+    localStorage.setItem('gayz-keybinds', JSON.stringify({ reload: 'KeyH', sprint: 'KeyP' }))
   })
   await gotoAndWaitForGame(page)
 
@@ -79,7 +79,7 @@ test('in-game text shows the player\'s rebound keys, not the defaults', async ({
 
   expect(html).toContain('<b>H</b>')
   expect(html).toContain('<b>P</b>')
-  expect(html).not.toContain('<b>F</b>')
+  expect(html).not.toContain('<b>R</b>')
   expect(html).not.toContain('{key:')
 })
 
