@@ -659,3 +659,65 @@ test('Map 3 camp NPCs show in the Map Editor too', async ({ page }) => {
 
   expect(r).toEqual({ npcs: 'ammo,quest,trader,upgrader', wallGaps: 3, bodies: 4, duringPlay: false, playCamp: true, back: true, afterExit: false })
 })
+
+// Map 3 in Game Mode runs Map 1's real game on Map 3's blocks (Game.js's
+// _enterBlockWorld, BlockWorld.js): walls, start, camp machines, zombie
+// spawns on the streets, Loot Chests as real chests, Save & Quit's map.
+test('Map 3 Play runs the full game on the block city', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+
+  await page.evaluate(() => {
+    const g = window.__game
+    g.settings.playMap = 'map3'
+    g.playBtn.click()
+  })
+  await page.waitForFunction(() => !!window.__game.blockWorld && window.__game.buildModeLoadingOverlay.style.display === 'none', null, { timeout: 60000 })
+
+  const r = await page.evaluate(() => {
+    const g = window.__game
+    const bw = g.blockWorld
+    const pos = g.player.controls.object.position
+    const out = {
+      colliders: g.colliders.length > 500,
+      surfaces: g.solidMeshes.length > 20,
+      atStart: Math.hypot(pos.x - bw.start.x, pos.z - bw.start.z) < 0.01,
+      startInCamp: Math.hypot(pos.x - g.safeZone.x, pos.z - g.safeZone.z) < g.safeZone.radius,
+      traderInCamp: Math.hypot(g.trader.x - g.safeZone.x, g.trader.z - g.safeZone.z) < g.safeZone.radius,
+      mysteryInCamp: Math.hypot(g.mysteryBox.x - g.safeZone.x, g.mysteryBox.z - g.safeZone.z) < g.safeZone.radius,
+      chests: g.chests.chests.filter((c) => Math.abs(c.x - bw.origin.x) < 200).length,
+      map1Hidden: g._map1SceneObjects.filter((o) => !o.isLight).every((o) => !o.visible),
+      snapshotMap: g._captureRunSnapshot().map,
+    }
+    // A camp wall stops the player.
+    const [cx, cz] = bw.toWorld(Math.floor((bw.zone.x0 + bw.zone.x1) / 2), Math.floor((bw.zone.z0 + bw.zone.z1) / 2))
+    pos.set(cx, 1.7, cz)
+    g.player._tryMove(g.player.controls.object, 60, 0)
+    out.wallStops = bw.toCell(pos.x, pos.z)[0] < bw.zone.x1
+    // New zombies land on open street outside the camp.
+    for (let i = 0; i < 5; i++) g.zombies._spawnRandom()
+    out.zombiesOnStreet = g.zombies.zombies.every((z) => {
+      const [x, zz] = bw.toCell(z.group.position.x, z.group.position.z)
+      return bw.isStreet(x, zz) && !bw.inCamp(x, zz)
+    })
+    // The walking field points a far zombie somewhere.
+    bw.updateField(1, g.safeZone.x, g.safeZone.z)
+    const far = g.zombies.zombies[0].group.position
+    out.steers = !!bw.steer(far.x, far.z)
+    return out
+  })
+
+  expect(r).toEqual({
+    colliders: true,
+    surfaces: true,
+    atStart: true,
+    startInCamp: true,
+    traderInCamp: true,
+    mysteryInCamp: true,
+    chests: 20,
+    map1Hidden: true,
+    snapshotMap: 'map3',
+    wallStops: true,
+    zombiesOnStreet: true,
+    steers: true,
+  })
+})

@@ -35,7 +35,7 @@ export class BuildGadgets {
     this._plateDown = new Map() // key -> seconds left before it pops back up
     this._signMeshes = new Map()
     this._signGroup = new THREE.Group()
-    buildMode.scene.add(this._signGroup)
+    buildMode.worldRoot.add(this._signGroup)
     this._m = new THREE.Matrix4()
     this._q = new THREE.Quaternion()
     this._up = new THREE.Vector3(0, 1, 0)

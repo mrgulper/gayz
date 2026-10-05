@@ -462,6 +462,12 @@ function jitterGeometry(geometry, amount) {
   return geometry
 }
 
+// Block maps (a Map 3 run - Game.js's _enterBlockWorld, 2026-10-05): the
+// map can move a new zombie onto open street (fixSpawn) and point it
+// around buildings toward the player (steer -> [nx, nz] or null to walk
+// straight, the way Map 1's zombies always do). Both null on Map 1.
+export const zombieWorldHooks = { fixSpawn: null, steer: null }
+
 export class Zombie {
   constructor(x, z, typeConfig, isAmbush = false, isElite = false, night = 1, healthMult = 1, speedMult = 1, isNetworkDriven = false) {
     this.id = zombieIdCounter++
@@ -576,6 +582,7 @@ export class Zombie {
     this._bossTellWasActive = false
 
     this.group = new THREE.Group()
+    if (zombieWorldHooks.fixSpawn && !isNetworkDriven) [x, z] = zombieWorldHooks.fixSpawn(x, z)
     this.group.position.set(x, 0, z)
 
     // Reused every frame by _tryMove/_hasLineOfSight instead of allocating
@@ -1513,6 +1520,10 @@ export class Zombie {
     const dist = Math.hypot(dx, dz)
     let nx = dist > 0.0001 ? dx / dist : 0
     let nz = dist > 0.0001 ? dz / dist : 1
+    if (zombieWorldHooks.steer) {
+      const way = zombieWorldHooks.steer(this.group.position.x, this.group.position.z)
+      if (way) [nx, nz] = way
+    }
 
     // "Last one flees" (see Game.js's _checkRoundModeSpecialEvents) -
     // inverts the base toward-player direction to away-from-player right

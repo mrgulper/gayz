@@ -32,7 +32,7 @@ const GROUND_SIZE = 128
 // MAX_INSTANCES_PER_TYPE raised too (GROUND_SIZE^2 cells must fit under it),
 // which multiplies GPU memory reserved per block type across all 71 types;
 // a smaller total buildable footprint is the safer tradeoff than that.
-const BLOCK_SIZE = 0.35
+export const BLOCK_SIZE = 0.35
 const FLY_SPEED = 8
 // Movement used to snap straight to full speed the instant a key went down
 // and stop dead the instant it came up - velocity damps toward the target
@@ -77,7 +77,7 @@ const SLOT_THUMB_H = 54
 // the player's changes to it are stored: {removed: [keys], placed:
 // [entries]}. Not a gayz- key on purpose - the whole map is ~42k blocks,
 // and a player who clears it would push a huge list into Cloud Save.
-const MAP3_SLOT = 'map3'
+export const MAP3_SLOT = 'map3'
 // A map opened from a share code, Community Maps or a Build Together room
 // (BuildShare.js / BuildTogether.js) - its own slot, so opening one never
 // overwrites your own.
@@ -1487,7 +1487,13 @@ export class BuildMode {
     // Plain cubes are drawn by chunk meshes (see BlockChunks.js) - only
     // their visible faces, one draw call per chunk. The per-type
     // InstancedMesh path below is kept just for shaped blocks.
-    this._chunks = new BlockChunks(this.scene, {
+    // Every block mesh (chunks, shaped blocks, sign text, invisible-block
+    // shadows) lives under this one group, so the whole map can be lent to
+    // the survival game as a unit (lendWorldRoot, 2026-10-05 - Map 3 runs
+    // the real game).
+    this.worldRoot = new THREE.Group()
+    this.scene.add(this.worldRoot)
+    this._chunks = new BlockChunks(this.worldRoot, {
       blockSize: BLOCK_SIZE,
       types: BLOCK_TYPES,
       // 4x is nearly as sharp at a grazing angle as 16x and much
@@ -1756,6 +1762,7 @@ export class BuildMode {
   // slot: open on this slot (a number, or 'map3'); omitted keeps the
   // slot from last time this session.
   enter({ slot } = {}) {
+    this.returnWorldRoot()
     // The scene keeps the last build between visits; a different slot has
     // to start from an empty scene, or the old build mixes into it.
     if (slot !== undefined && slot !== this.activeSlot) {
@@ -2136,12 +2143,12 @@ export class BuildMode {
       grown.instanceMatrix.needsUpdate = true
       if (grown.instanceColor) grown.instanceColor.needsUpdate = true
       grown.computeBoundingSphere()
-      this.scene.remove(mesh)
+      mesh.parent?.remove(mesh)
       mesh.dispose()
     } else {
       this._instanceKeyByIndex[type] = []
     }
-    this.scene.add(grown)
+    this.worldRoot.add(grown)
     this._instancedMeshes[type] = grown
     return grown
   }
@@ -2349,6 +2356,14 @@ export class BuildMode {
     const state = this._doorState.get(this._key(x, bottomY, z))
     if (!state) return false
     state.open = !state.open
+    this._redrawDoor(x, bottomY, z, state)
+    this._shadowsDirty = true
+    this._scheduleAutosave()
+    this.together?.record(['d', x, bottomY, z, state.open])
+    return true
+  }
+
+  _redrawDoor(x, bottomY, z, state) {
     for (const cy of [bottomY, bottomY + 1]) {
       const key = this._key(x, cy, z)
       const cellType = this._blocks.get(key)
@@ -2359,10 +2374,6 @@ export class BuildMode {
       mesh.instanceMatrix.needsUpdate = true
       mesh.computeBoundingSphere()
     }
-    this._shadowsDirty = true
-    this._scheduleAutosave()
-    this.together?.record(['d', x, bottomY, z, state.open])
-    return true
   }
 
   isDoorOpenAt(x, y, z) {
@@ -3633,7 +3644,7 @@ export class BuildMode {
     let mesh = this._invisShadowMesh
     if (!mesh || mesh.instanceMatrix.count < targets.size) {
       if (mesh) {
-        this.scene.remove(mesh)
+        mesh.parent?.remove(mesh)
         mesh.dispose()
       }
       const geo = new THREE.PlaneGeometry(BLOCK_SIZE, BLOCK_SIZE)
@@ -3649,7 +3660,7 @@ export class BuildMode {
       })
       mesh = new THREE.InstancedMesh(geo, mat, Math.max(64, targets.size * 2))
       mesh.frustumCulled = false
-      this.scene.add(mesh)
+      this.worldRoot.add(mesh)
       this._invisShadowMesh = mesh
     }
     const m = new THREE.Matrix4()
@@ -3661,6 +3672,97 @@ export class BuildMode {
     }
     mesh.count = i
     mesh.instanceMatrix.needsUpdate = true
+  }
+
+  // --- Lending a map to the survival game (2026-10-05, Gaymi: "bring all
+  // the current features in map 1 to ... map 3") ---
+  // Play on Map 3 runs the real survival game (Game.js's
+  // _enterBlockWorld): the game borrows this map's meshes (worldRoot) and
+  // builds its walls/floors from the block data. Leaving a run reloads the
+  // page, so the map is never handed back mid-session - enter() takes it
+  // back anyway in case that ever changes.
+
+  // Loads a slot without opening the editor and builds every mesh now
+  // (the editor builds dirty chunks a frame at a time in render()). Every
+  // door is opened for the run (not saved - only the editor saves).
+  prepareForGame(slot) {
+    if (slot !== this.activeSlot) {
+      this.clearAllBlocks()
+      this.activeSlot = slot
+    }
+    if (!this._blocks.size) this.load()
+    for (const [key, state] of this._doorState) {
+      if (state.open || BLOCK_BY_ID.get(this._blocks.get(key))?.shape !== 'door') continue
+      state.open = true
+      const [x, y, z] = key.split(',').map(Number)
+      this._redrawDoor(x, y, z, state)
+    }
+    this._chunks.flush(this._chunkCells)
+    if (this._invisShadowDirty) this._rebuildInvisibleShadows()
+    if (this._invisShadowMesh) this._invisShadowMesh.visible = false
+  }
+
+  // Takes every block of one type out of the map for the run and returns
+  // their cells - Loot Chests become the game's own chests (Chests.js).
+  takeBlocksForGame(type) {
+    const cells = []
+    for (const [key, t] of this._blocks) {
+      if (t === type) cells.push(key.split(',').map(Number))
+    }
+    const was = this._suppressUndoRecording
+    this._suppressUndoRecording = true
+    for (const [x, y, z] of cells) this.removeBlock(x, y, z)
+    this._suppressUndoRecording = was
+    this._chunks.flush(this._chunkCells)
+    return cells
+  }
+
+  // How the survival game treats each block: 'solid' (a wall you bump
+  // into), 'floor' (stood on but walked into - slabs, stairs, pads),
+  // 'ladder', or null (walked through - doors, signs, levers, liquids).
+  gameCellKind(type) {
+    const bt = BLOCK_BY_ID.get(type)
+    if (!bt) return null
+    if (bt.id === 'water' || bt.id === 'lava') return null
+    switch (bt.shape) {
+      case undefined: case 'invisible': case 'fence': case 'cage': case 'chest': return 'solid'
+      case 'slab': case 'stairs': case 'pad': return 'floor'
+      case 'ladder': return 'ladder'
+      default: return null
+    }
+  }
+
+  // The meshes the game should stand on and shoot against: everything but
+  // doors, ladders, signs, levers, sign text and liquids.
+  gameSurfaceMeshes() {
+    const skipTypes = new Set()
+    for (const type of Object.keys(this._instancedMeshes)) {
+      const kind = this.gameCellKind(type)
+      if (kind !== 'solid' && kind !== 'floor') skipTypes.add(this._instancedMeshes[type])
+    }
+    const liquid = new Set([this._chunks.materials.water, this._chunks.materials.lava])
+    const out = []
+    this.worldRoot.traverse((o) => {
+      if (!o.isMesh || skipTypes.has(o) || liquid.has(o.material) || o === this._invisShadowMesh) return
+      if (o.parent === this.gadgets._signGroup) return
+      out.push(o)
+    })
+    return out
+  }
+
+  lendWorldRoot(parent, scale, offset) {
+    parent.add(this.worldRoot)
+    this.worldRoot.scale.setScalar(scale)
+    this.worldRoot.position.copy(offset)
+    this.worldRoot.updateMatrixWorld(true)
+  }
+
+  returnWorldRoot() {
+    if (this.worldRoot.parent === this.scene) return
+    this.scene.add(this.worldRoot)
+    this.worldRoot.scale.setScalar(1)
+    this.worldRoot.position.set(0, 0, 0)
+    this.worldRoot.updateMatrixWorld(true)
   }
 
   render() {

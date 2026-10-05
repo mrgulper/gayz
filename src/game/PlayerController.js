@@ -616,6 +616,11 @@ export class PlayerController {
       this._ladderX = this.nearLadder.x
       this._ladderZ = this.nearLadder.z
       this._ladderTopY = this.nearLadder.topY
+      // Block-map ladders (BlockWorld.js) start on a raised floor and come
+      // out through a floor hatch - Map 1's start at ground level and end
+      // on a deck right at the top.
+      this._ladderBottomY = this.nearLadder.bottomY || 0
+      this._ladderExit = this.nearLadder.exit || null
     }
 
     if (this.isOnLadder) {
@@ -623,16 +628,17 @@ export class PlayerController {
       let dy = 0
       if (this.input.forward) dy = LADDER_CLIMB_SPEED * dt
       else if (this.input.back) dy = -LADDER_CLIMB_SPEED * dt
-      const newFeetY = THREE.MathUtils.clamp(feetY + dy, 0, this._ladderTopY)
+      const newFeetY = THREE.MathUtils.clamp(feetY + dy, this._ladderBottomY, this._ladderTopY)
       obj.position.set(this._ladderX, newFeetY + this.eyeHeight, this._ladderZ)
       this.velocity.set(0, 0, 0)
       this.isSprinting = false
       // Hands off to normal ground physics at either end - arriving at the
       // top (the elevator's own deck, see buildElevatorTower's ladderX/Z)
       // or letting go of Forward once back down at the bottom.
-      if (newFeetY >= this._ladderTopY || (newFeetY <= 0 && !this.input.forward)) {
+      if (newFeetY >= this._ladderTopY || (newFeetY <= this._ladderBottomY && !this.input.forward)) {
         this.isOnLadder = false
         this.onGround = true
+        if (newFeetY >= this._ladderTopY && this._ladderExit) obj.position.set(this._ladderExit.x, newFeetY + this.eyeHeight, this._ladderExit.z)
       } else {
         this.onGround = false
       }
