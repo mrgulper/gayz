@@ -195,6 +195,7 @@ import { setColorblindMode } from './Accessibility.js'
 import { registerZone } from './Zones.js'
 import { TouchControls } from './TouchControls.js'
 import { MARKET_SKINS, MARKET_PRICES } from './MarketSkins.js'
+import { shrinkTextures, restoreTextures } from './LiteTextures.js'
 
 // Companion flavor barks - plain English rather than full i18n, since these
 // are throwaway personality lines, not core UI text.
@@ -602,6 +603,7 @@ function loadSettings() {
       shadowsEnabled: parsed.shadowsEnabled ?? false,
       shadowQuality: parsed.shadowQuality || 'medium',
       bulletHolesEnabled: parsed.bulletHolesEnabled ?? true,
+      liteTextures: parsed.liteTextures ?? false,
       bloodEffectsEnabled: parsed.bloodEffectsEnabled ?? true,
       damageIndicatorEnabled: parsed.damageIndicatorEnabled ?? true,
       // Independent from showHitFeedback (which already gates the
@@ -738,7 +740,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, autoQuality: true, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, gamepadDeadzone: 20, gamepadVibration: true, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, autoLootRadius: 'medium', instantStationInteract: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, touchControlsOverride: 'auto', clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'menu-inventory-btn', 'quests-btn', 'friends-btn', 'achievements-btn'], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
+  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', recoilShakeIntensity: 100, damageShakeIntensity: 100, adsFov: 45, motionBlur: false, autoQuality: true, fpsCap: 0, mouseAcceleration: false, invertScrollWeaponSwitch: false, doubleClickSpeed: 300, gamepadDeadzone: 20, gamepadVibration: true, killFeedPosition: 'right', killFeedIcons: true, killFeedVerbosity: 'all', petAdopted: false, compassStyle: 'letters', showWeaponNameHud: true, minimapDefaultZoom: 1, friendPresenceNotify: true, dailyChallengeReminder: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, ammoPosition: 'right', healthDisplayStyle: 'both', lowAmmoFlash: true, sessionTimerHud: false, difficultyLabelHud: false, objectiveDistanceHud: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, autoReloadOnEmpty: true, autoLoot: false, autoLootRadius: 'medium', instantStationInteract: false, damageFlashColor: '#c80000', oneHandedLayout: false, sortWeaponsAlpha: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, toggleSprint: false, toggleCrouch: false, toggleAds: false, aimAssist: false, touchControlsOverride: 'auto', clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', companionName: '', companionColor: null, avatarChoice: null, customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', scoreAttackMode: false, hardcoreMode: false, guestMode: false, endlessMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], hotbarPresets: [null, null, null], showcaseSlots: [null, null, null], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', mutatorsEverEnabled: [], region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', keybindCheatSheet: false, showHitFeedback: true, renderResolution: 100, brightness: 100, contrast: 100, aoIntensity: 0, shadowsEnabled: false, shadowQuality: 'medium', liteTextures: false, bulletHolesEnabled: true, bloodEffectsEnabled: true, damageIndicatorEnabled: true, damageNumbersEnabled: true, damageNumbersScale: 100, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], shopWishlist: [], shopSortMode: 'default', shopSpendingLog: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, companionNameColor: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'menu-inventory-btn', 'quests-btn', 'friends-btn', 'achievements-btn'], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, frameTimeGraph: false, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, pureGunplay: false, bossRush: false, hordeMode: false, kingOfTheHill: false, extraction: false, dailyChallenge: false, healthRegen: false, ironMode: false, scavenger: false, glassHouse: false, featuredEnemy: false, blackout: false, bossGauntlet: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false, cursedRun: false, randomizer: false } }
 }
 
 // See _updateCulling - every World.js flickerLights PointLight has a real
@@ -1043,7 +1045,7 @@ const SETTINGS_CODE_KEYS = [
   'aimAssist', 'bigInteractPrompt', 'toastDuration', 'crosshairSize', 'largeTextMode',
   'highContrastMode', 'dyslexiaFont', 'focusRingMode', 'keybindCheatSheet', 'showHitFeedback',
   'performanceMode', 'bgMood', 'renderResolution', 'brightness', 'contrast', 'aoIntensity',
-  'shadowsEnabled', 'shadowQuality', 'bulletHolesEnabled', 'bloodEffectsEnabled',
+  'shadowsEnabled', 'shadowQuality', 'liteTextures', 'bulletHolesEnabled', 'bloodEffectsEnabled',
   'damageIndicatorEnabled', 'damageNumbersEnabled', 'damageNumbersScale', 'grainIntensity',
   'panelFlickerEnabled',
 ]
@@ -2371,6 +2373,11 @@ const FEATURED_ITEM_REROLL_COST = 40
 // Rare free bonus item on a big purchase (see the SHOP_ITEMS click handler).
 const BIG_PURCHASE_THRESHOLD = 100
 const FREE_BONUS_ITEM_CHANCE = 0.1
+// How long the game waits for a lost graphics connection to come back
+// before showing the full Reload message.
+const GL_LOST_PANEL_MS = 12000
+// Lite Textures: how often newly loaded models get shrunk too.
+const LITE_TEXTURE_SWEEP_MS = 4000
 // Weather & Hazards batch - sandstorm/heatwave roll alongside rain/snow in
 // _rollWeather (mutually exclusive with them, same one-roll-picks-one-state
 // shape), the rest are periodic checks in the main tick.
@@ -2607,6 +2614,8 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'gfx-grain-label': 'gfxGrainLabel',
   'gfx-panel-flicker-label': 'gfxPanelFlickerLabel',
   'gfx-bullet-holes-label': 'gfxBulletHolesLabel',
+  'gfx-lite-textures-label': 'gfxLiteTexturesLabel',
+  'graphics-reconnecting-text': 'graphicsReconnecting',
   'gfx-blood-label': 'gfxBloodLabel',
   'gfx-damage-indicator-label': 'gfxDamageIndicatorLabel',
   'gfx-damage-numbers-label': 'gfxDamageNumbersLabel',
@@ -4675,6 +4684,7 @@ export class Game {
     this.gfxShadowsToggle = document.getElementById('gfx-shadows-toggle')
     this.gfxShadowQualitySelect = document.getElementById('gfx-shadow-quality-select')
     this.gfxBulletHolesToggle = document.getElementById('gfx-bullet-holes-toggle')
+    this.gfxLiteTexturesToggle = document.getElementById('gfx-lite-textures-toggle')
     this.gfxBloodToggle = document.getElementById('gfx-blood-toggle')
     this.gfxDamageIndicatorToggle = document.getElementById('gfx-damage-indicator-toggle')
     this.gfxDamageNumbersToggle = document.getElementById('gfx-damage-numbers-toggle')
@@ -5152,22 +5162,48 @@ export class Game {
     // reasonable bet, not a guarantee - `graphics-lost-reload-btn` stays
     // up as a manual fallback even after "Keep Playing" is offered, for
     // exactly the case where something comes back looking wrong.
+    // A lost graphics connection (2026-10-04, Gaymi: "make gayz playable
+    // when this happens"): nothing can be drawn until the browser gives it
+    // back, so the game pauses (_tick does nothing while _glLost) behind a
+    // small "reconnecting" note instead of the full-screen message. When
+    // it comes back, three.js re-uploads everything by itself and the game
+    // just carries on - switched to Lite Textures (LiteTextures.js) so it's
+    // less likely to be dropped again. Only if it hasn't come back after
+    // GL_LOST_PANEL_MS does the full message with Reload appear.
     this.canvas.addEventListener('webglcontextlost', (event) => {
       event.preventDefault()
-      const panel = document.getElementById('graphics-lost-panel')
-      if (panel) panel.style.display = 'flex'
-      const title = document.getElementById('graphics-lost-title')
-      const text = document.getElementById('graphics-lost-text')
-      if (title) title.textContent = 'Graphics Connection Lost'
-      if (text) text.textContent = "Your browser's connection to your graphics card dropped, usually because too many 3D-heavy tabs/apps were open at once and it ran out of room. Closing other game or video tabs helps this not happen again."
-      document.getElementById('graphics-lost-keep-playing-btn')?.style.setProperty('display', 'none')
+      this._glLost = true
+      const note = document.getElementById('graphics-reconnecting')
+      if (note) note.style.display = 'flex'
+      clearTimeout(this._glLostPanelTimer)
+      this._glLostPanelTimer = setTimeout(() => {
+        if (!this._glLost) return
+        if (note) note.style.display = 'none'
+        const panel = document.getElementById('graphics-lost-panel')
+        if (panel) panel.style.display = 'flex'
+        const title = document.getElementById('graphics-lost-title')
+        const text = document.getElementById('graphics-lost-text')
+        if (title) title.textContent = 'Graphics Connection Lost'
+        if (text) text.textContent = "Your browser's connection to your graphics card dropped, usually because too many 3D-heavy tabs/apps were open at once and it ran out of room. Closing other game or video tabs helps this not happen again."
+        document.getElementById('graphics-lost-keep-playing-btn')?.style.setProperty('display', 'none')
+      }, GL_LOST_PANEL_MS)
     })
     this.canvas.addEventListener('webglcontextrestored', () => {
-      const title = document.getElementById('graphics-lost-title')
-      const text = document.getElementById('graphics-lost-text')
-      if (title) title.textContent = 'Graphics Reconnected'
-      if (text) text.textContent = 'Your connection came back on its own. You can keep playing - or reload instead if anything looks broken or missing.'
-      document.getElementById('graphics-lost-keep-playing-btn')?.style.setProperty('display', '')
+      this._glLost = false
+      clearTimeout(this._glLostPanelTimer)
+      const note = document.getElementById('graphics-reconnecting')
+      if (note) note.style.display = 'none'
+      const panel = document.getElementById('graphics-lost-panel')
+      if (panel) panel.style.display = 'none'
+      if (!this.settings.liteTextures) {
+        this.settings.liteTextures = true
+        saveSettings(this.settings)
+        if (this.gfxLiteTexturesToggle) this.gfxLiteTexturesToggle.checked = true
+        const msg = t('liteTexturesAutoToast')
+        if (this.gameStarted) this._showLoreToast(msg)
+        else this._showHomepageToast(msg)
+      }
+      this._applyLiteTextures()
     })
     document.getElementById('graphics-lost-keep-playing-btn')?.addEventListener('click', () => {
       const panel = document.getElementById('graphics-lost-panel')
@@ -6776,6 +6812,12 @@ export class Game {
     this.timer = new THREE.Timer()
     this.timer.connect(document)
     this.renderer.setAnimationLoop(() => this._tick())
+    // Lite Textures: shrink what's loaded now, then whatever loads later
+    // (weapons, zombies, the Map Editor) every few seconds.
+    if (this.settings.liteTextures) this._applyLiteTextures()
+    setInterval(() => {
+      if (this.settings.liteTextures && !this._glLost) shrinkTextures(this._liteTextureRoots())
+    }, LITE_TEXTURE_SWEEP_MS)
 
     // See _warmUpShaders' own comment - must run after everything above is
     // built (weapons/zombie types/chests all need to exist) but before the
@@ -11582,6 +11624,14 @@ export class Game {
     // Bullet Holes / Blood Animation - gate the existing DecalManager
     // (see Decals.js) rather than building a second decal system; no
     // prior toggle existed for either, both were previously always-on.
+    if (this.gfxLiteTexturesToggle) {
+      this.gfxLiteTexturesToggle.checked = !!this.settings.liteTextures
+      this.gfxLiteTexturesToggle.addEventListener('change', () => {
+        this.settings.liteTextures = this.gfxLiteTexturesToggle.checked
+        saveSettings(this.settings)
+        this._applyLiteTextures()
+      })
+    }
     if (this.gfxBulletHolesToggle) {
       this.gfxBulletHolesToggle.checked = this.settings.bulletHolesEnabled
       this.gfxBulletHolesToggle.addEventListener('change', () => {
@@ -12269,7 +12319,7 @@ export class Game {
   // reliable than re-applying every live graphics effect by hand.
   _resetGraphicsDefaults() {
     const defaults = defaultSettings()
-    const graphicsKeys = ['renderResolution', 'brightness', 'contrast', 'aoIntensity', 'shadowsEnabled', 'shadowQuality', 'bulletHolesEnabled', 'bloodEffectsEnabled', 'damageIndicatorEnabled', 'damageNumbersEnabled', 'damageNumbersScale', 'grainIntensity', 'panelFlickerEnabled']
+    const graphicsKeys = ['renderResolution', 'brightness', 'contrast', 'aoIntensity', 'shadowsEnabled', 'shadowQuality', 'liteTextures', 'bulletHolesEnabled', 'bloodEffectsEnabled', 'damageIndicatorEnabled', 'damageNumbersEnabled', 'damageNumbersScale', 'grainIntensity', 'panelFlickerEnabled']
     for (const key of graphicsKeys) this.settings[key] = defaults[key]
     saveSettings(this.settings)
     window.location.reload()
@@ -27091,6 +27141,17 @@ export class Game {
     }
   }
 
+  // Everything Lite Textures shrinks: the game world, the Map Editor and
+  // Try Map's gun scene.
+  _liteTextureRoots() {
+    return [this.scene, this.buildMode?.scene, this.buildMode?.tryMode?._gunScene].filter(Boolean)
+  }
+
+  _applyLiteTextures() {
+    if (this.settings.liteTextures) shrinkTextures(this._liteTextureRoots())
+    else restoreTextures(this._liteTextureRoots())
+  }
+
   _renderMainScene() {
     if (this.bloomPass.enabled || this.ssaoPass.enabled || this.afterimagePass.enabled) this.composer.render()
     else this.renderer.render(this.scene, this.renderPass.camera)
@@ -27116,6 +27177,12 @@ export class Game {
       // Advance by exactly one frame interval so timing error doesn't
       // accumulate; resync if far behind (tab was hidden, long stall).
       this._lastCappedFrameAt = nowCap - last > this._fpsCapMinFrameMs * 2 ? nowCap : last + this._fpsCapMinFrameMs
+    }
+    // Graphics connection lost: the game waits (see the webglcontextlost
+    // handler) instead of carrying on unseen.
+    if (this._glLost) {
+      this.timer.update()
+      return
     }
     // Build Mode is a fully standalone sandbox (see BuildMode.js's own
     // comment) - while active, none of the normal survival tick logic
