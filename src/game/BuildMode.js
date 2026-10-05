@@ -15,6 +15,7 @@ import { BuildTools } from './BuildTools.js'
 import { BuildSky } from './BuildSky.js'
 import { BuildGadgets } from './BuildGadgets.js'
 import { BuildSurvival } from './BuildSurvival.js'
+import { BuildCamp } from './BuildCamp.js'
 import { BuildShare } from './BuildShare.js'
 import { BuildTogether } from './BuildTogether.js'
 
@@ -1792,6 +1793,8 @@ export class BuildMode {
     if (this.tryMode.active) this.toggleTryMode()
     this.together.leave()
     this.sky.onExit()
+    this._campDisplay?.dispose()
+    this._campDisplay = null
     this.share.close()
     this.together.closePanel()
     this.save()
@@ -1834,6 +1837,21 @@ export class BuildMode {
     if (this._menuEl) this._menuEl.style.display = 'none'
     if (this._hotbarEl) this._hotbarEl.style.visibility = ''
     if (this.game?.fpsEl) this.game.fpsEl.style.visibility = ''
+  }
+
+  // Map 3's camp NPCs stand there while you build too (2026-10-05); Play
+  // brings its own working ones (BuildSurvival's camp), so this set steps
+  // aside while Play is on.
+  _updateCampDisplay(dt) {
+    const want = this.active && this.activeSlot === MAP3_SLOT && !this.survival.active
+    if (want && !this._campDisplay) {
+      const zone = this._map3Base().map.safeZone
+      if (zone) this._campDisplay = new BuildCamp(null, zone, BLOCK_SIZE, { display: true, buildMode: this })
+    } else if (!want && this._campDisplay) {
+      this._campDisplay.dispose()
+      this._campDisplay = null
+    }
+    this._campDisplay?.update(dt)
   }
 
   // --- Try Map support (BuildTryMode's collision asks these) ---
@@ -3533,6 +3551,7 @@ export class BuildMode {
     this.liquids.update(dt)
     this.sky.update(dt)
     this.together.update(dt)
+    this._updateCampDisplay(dt)
     if (this.tryMode.active) {
       this.tryMode.update(dt, this._keys)
       this.survival.update(dt)

@@ -612,3 +612,29 @@ test('Map 3 Play starts in a safe camp with working NPCs', async ({ page }) => {
   expect(r.nextQuests).toBe('chest3,head10,wave5')
   expect(r.cleaned).toBe(true)
 })
+
+// The same camp NPCs also stand in Map 3's camp in the Map Editor (just to
+// look at - no panels), and step aside for Play's own camp.
+test('Map 3 camp NPCs show in the Map Editor too', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode({ map: 'map3' })
+    const b = g.buildMode
+    b.update(0.016)
+    const out = { npcs: b._campDisplay ? b._campDisplay.npcs.map((n) => n.id).sort().join() : '' }
+    b.survival.start()
+    b.update(0.016)
+    out.duringPlay = !!b._campDisplay
+    out.playCamp = !!b.survival.camp
+    b.survival.stop()
+    b.update(0.016)
+    out.back = !!b._campDisplay
+    g._exitBuildMode()
+    out.afterExit = !!b._campDisplay
+    return out
+  })
+
+  expect(r).toEqual({ npcs: 'ammo,quest,trader,upgrader', duringPlay: false, playCamp: true, back: true, afterExit: false })
+})
