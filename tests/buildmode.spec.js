@@ -659,3 +659,17 @@ test('Map 3 camp NPCs show in the Map Editor too', async ({ page }) => {
 
   expect(r).toEqual({ npcs: 'ammo,quest,trader,upgrader', wallGaps: 3, bodies: 4, duringPlay: false, playCamp: true, back: true, afterExit: false })
 })
+
+// The homepage Play button starts the block city's zombie waves - the old
+// Map 1 city is gone and the block city is Map 1 now (internal slot 'map3').
+test('Play starts the block city (Map 1) zombie waves', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => window.__game.playBtn.click())
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  const r = await page.evaluate(() => ({
+    slot: window.__game.buildMode.activeSlot,
+    hidden: ['upgrades-btn', 'quests-btn', 'server-btn'].every((id) => getComputedStyle(document.getElementById(id)).display === 'none'),
+    maps: [...document.querySelectorAll('#map-select-grid [data-map]')].map((b) => b.dataset.map).join(),
+  }))
+  expect(r).toEqual({ slot: 'map3', hidden: true, maps: 'map3,map2' })
+})

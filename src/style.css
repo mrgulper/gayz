@@ -13532,3 +13532,7 @@ html.ui-theme-old .crate-card .crate-stock-count { color: #241507; }
 .play-npc-info b { font-size: 16px; color: #fff; }
 .play-npc-row button { flex: none; }
 .play-npc-empty { text-align: center; }
+
+/* Old Map 1 parts kept for later but hidden since the old city was deleted
+   (2026-10-05) - each comes back once it works with the block-city Map 1. */
+.map1-hidden { display: none !important; }
