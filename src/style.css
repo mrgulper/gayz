@@ -704,10 +704,6 @@ html.ui-theme-old .build-share-box h2 { font-family: 'Rye', Georgia, serif; colo
   font-family: var(--nickname-font, inherit);
 }
 
-#companion-name-input {
-  color: var(--companion-name-color, inherit);
-}
-
 /* Homepage Layout Density (Controls tab) - tightens the same gap/padding
    spots the short-window @media rules already tighten for genuinely
    short screens, just as an explicit opt-in at any height. */
@@ -1028,16 +1024,6 @@ html.ui-theme-old #cloudsave-region-select {
   font-weight: 700;
   color: var(--ui-gold-bright);
   user-select: all;
-}
-
-.friend-toggle-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 8px;
-  font-size: 12px;
-  opacity: 0.85;
-  cursor: pointer;
 }
 
 /* Player's own presence Status picker - sits between "Add a Friend" and
@@ -1516,41 +1502,6 @@ html.ui-theme-old #cloudsave-region-select {
   animation: hitflash 180ms ease-out;
 }
 
-#damage-numbers {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-.damage-number {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  font-family: inherit;
-  font-weight: 700;
-  /* Graphics tab's Damage Numbers Scale slider - font-size (not a
-     transform: scale()) since the rise animation below already fully
-     redefines `transform` at each keyframe, which would silently
-     override any scale() added to this base rule the whole time the
-     animation runs. --damage-number-scale defaults to 1 via the
-     fallback so this degrades gracefully before JS sets it. */
-  font-size: calc(15px * var(--damage-number-scale, 1));
-  color: #f2e6c9;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-  animation: damageNumberRise 850ms ease-out forwards;
-  white-space: nowrap;
-}
-
-.damage-number.headshot {
-  font-size: calc(19px * var(--damage-number-scale, 1));
-  color: #ffde5c;
-}
-
-.damage-number.big {
-  font-size: calc(18px * var(--damage-number-scale, 1));
-  color: #ffdb4a;
-}
-
 @keyframes damageNumberRise {
   0% {
     opacity: 1;
@@ -1571,16 +1522,6 @@ html.ui-theme-old #cloudsave-region-select {
     opacity: 0;
     transform: scale(1.6);
   }
-}
-
-.hide-empty-inventory-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  opacity: 0.75;
-  cursor: pointer;
-  margin: -6px 0 8px;
 }
 
 @keyframes hitflash {
@@ -1727,23 +1668,6 @@ html.high-contrast-mode #app {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
-#hud.hud-pos-left {
-  right: auto;
-  left: 24px;
-  text-align: left;
-  transform-origin: bottom left;
-}
-
-#hud.hud-pos-center {
-  right: 0;
-  left: 0;
-  bottom: 20px;
-  text-align: center;
-  transform-origin: bottom center;
-  margin: 0 auto;
-  width: fit-content;
-}
-
 #damage-flash {
   position: absolute;
   inset: 0;
@@ -1864,10 +1788,6 @@ html.high-contrast-mode #app {
   pointer-events: none;
 }
 
-.infection-icon {
-  font-size: 15px;
-}
-
 @keyframes infection-pulse {
   0%, 100% { opacity: 0.6; }
   50% { opacity: 1; }
@@ -1889,48 +1809,6 @@ html.high-contrast-mode #app {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
-.stats-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
-}
-
-.phase-row {
-  padding-bottom: 6px;
-  margin-bottom: 2px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.phase-row .stats-label {
-  font-size: 12px;
-  transition: color 400ms ease;
-}
-
-.phase-row.is-day .stats-label {
-  color: #f0d35f;
-}
-
-.phase-row.is-night .stats-label {
-  color: #7fa8d6;
-}
-
-.stats-label {
-  opacity: 0.6;
-  font-weight: 600;
-  text-transform: uppercase;
-  font-size: 11px;
-  letter-spacing: 0.5px;
-}
-
-.stats-row span:last-child {
-  font-weight: 700;
-}
-
 .status-row {
   display: flex;
   align-items: center;
@@ -1938,34 +1816,6 @@ html.high-contrast-mode #app {
   font-size: 16px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-}
-
-.status-icon {
-  width: 20px;
-  text-align: center;
-}
-
-.status-bar {
-  width: 140px;
-  height: 10px;
-  border-radius: 5px;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  overflow: hidden;
-}
-
-.status-fill {
-  height: 100%;
-  width: 100%;
-  transition: width 150ms ease-out;
-}
-
-.status-fill.health {
-  background: #e04b4b;
-}
-
-.status-fill.armor {
-  background: #3fa9f5;
 }
 
 /* Colorblind Mode (previously only touched zombie health bars, see
@@ -1987,23 +1837,6 @@ html.high-contrast-mode #app {
    default to yellow-gold (`.damage-number.big`/`.headshot`), swapped to a
    clear green instead. Health/armor/low-ammo/blood-overlay are left at
    their default (red/blue) values on purpose - they don't need it. */
-html[data-colorblind="redgreen"] .status-fill.health {
-  background: #e8c32e;
-}
-
-html[data-colorblind="redgreen"] .damage-number {
-  color: #f2e6c9;
-}
-
-html[data-colorblind="redgreen"] .damage-number.big,
-html[data-colorblind="redgreen"] .damage-number.headshot {
-  color: #4fb3ff;
-}
-
-html[data-colorblind="blueyellow"] .damage-number.big,
-html[data-colorblind="blueyellow"] .damage-number.headshot {
-  color: #5fcf4a;
-}
 
 /* Colorblind-safe damage/health palette, extended (batch 8 feature) -
    completes the amber-vs-blue scheme above to the two remaining red-reliant
@@ -2013,9 +1846,6 @@ html[data-colorblind="blueyellow"] .damage-number.headshot {
    as everything else rather than being the one holdout still red). Only
    applies to redgreen - see the big comment above for why blueyellow
    deliberately leaves these two at their default red. */
-html[data-colorblind="redgreen"] #ammo.low-ammo {
-  color: #e8c32e;
-}
 
 html[data-colorblind="redgreen"] #critical-blood-overlay {
   background:
@@ -2023,68 +1853,6 @@ html[data-colorblind="redgreen"] #critical-blood-overlay {
     radial-gradient(ellipse 40% 55% at 100% 0%, rgba(184, 122, 6, 0.75) 0%, rgba(184, 122, 6, 0) 70%),
     radial-gradient(ellipse 45% 60% at 0% 100%, rgba(184, 122, 6, 0.8) 0%, rgba(184, 122, 6, 0) 70%),
     radial-gradient(ellipse 45% 60% at 100% 100%, rgba(184, 122, 6, 0.8) 0%, rgba(184, 122, 6, 0) 70%);
-}
-
-.status-fill.stamina {
-  background: #e0c93f;
-}
-
-.status-fill.hunger {
-  background: #c4a93f;
-}
-
-.status-fill.thirst {
-  background: #3f9ec4;
-}
-
-.status-fill.warmth {
-  background: #d95f3f;
-}
-
-.status-fill.xp {
-  background: #4fd1e8;
-}
-
-.status-fill.battery {
-  background: #f2d14e;
-}
-
-.progress-sep {
-  opacity: 0.4;
-}
-
-.compass-marker {
-  position: absolute;
-  top: 0;
-  transform: translateX(-50%);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  white-space: nowrap;
-  color: var(--ui-gold-bright);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-}
-
-.wheel-segment {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  width: 92px;
-  padding: 10px 8px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 12px;
-  font-weight: 700;
-  text-align: center;
-  letter-spacing: 0.3px;
-}
-
-.wheel-segment.highlight {
-  color: #0c130c;
-  background: var(--ui-gold-bright);
-  border-color: var(--ui-gold-bright);
 }
 
 @keyframes coinpopup {
@@ -2156,21 +1924,6 @@ body.reduce-flashing #damage-flash.low-health {
 body.reduce-flashing #critical-blood-overlay.show {
   animation-duration: 4.4s;
   filter: opacity(0.7);
-}
-
-.ammo-station-bar {
-  height: 8px;
-  border-radius: 4px;
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  overflow: hidden;
-}
-
-.ammo-station-fill {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, var(--ui-gold-bright), #ffde5c);
-  transition: width 100ms linear;
 }
 
 #minimap {
@@ -2276,11 +2029,8 @@ body.reduce-flashing #critical-blood-overlay.show {
    inset border so it reads as one clean swatch instead of a box-in-a-box.
    Firefox has no equivalent pseudo-elements to target, so it falls back
    to the plain themed outer box only - acceptable, not broken. */
-#damage-flash-color-input,
 #crosshair-color-picker,
 #nickname-color-picker,
-#companion-color-picker,
-#companion-name-color-picker,
 #accent-color-picker,
 #play-btn-color-picker {
   width: 36px;
@@ -2292,21 +2042,15 @@ body.reduce-flashing #critical-blood-overlay.show {
   cursor: pointer;
 }
 
-#damage-flash-color-input::-webkit-color-swatch-wrapper,
 #crosshair-color-picker::-webkit-color-swatch-wrapper,
 #nickname-color-picker::-webkit-color-swatch-wrapper,
-#companion-color-picker::-webkit-color-swatch-wrapper,
-#companion-name-color-picker::-webkit-color-swatch-wrapper,
 #accent-color-picker::-webkit-color-swatch-wrapper,
 #play-btn-color-picker::-webkit-color-swatch-wrapper {
   padding: 0;
 }
 
-#damage-flash-color-input::-webkit-color-swatch,
 #crosshair-color-picker::-webkit-color-swatch,
 #nickname-color-picker::-webkit-color-swatch,
-#companion-color-picker::-webkit-color-swatch,
-#companion-name-color-picker::-webkit-color-swatch,
 #accent-color-picker::-webkit-color-swatch,
 #play-btn-color-picker::-webkit-color-swatch {
   border: none;
@@ -2407,29 +2151,6 @@ html.ui-theme-old select {
 .difficulty-btn[data-difficulty="hard"].active,
 .difficulty-btn[data-difficulty="nightmare"].active,
 .difficulty-btn[data-difficulty="apex"].active { color: #0c130c; background: var(--menu-red); border-color: var(--menu-red); }
-
-.inv-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 15px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.inv-icon {
-  width: 20px;
-  text-align: center;
-}
-
-.inv-key {
-  font-size: 11px;
-  font-weight: 700;
-  padding: 1px 5px;
-  border-radius: 3px;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  opacity: 0.75;
-}
 
 #achievement-toast {
   position: absolute;
@@ -2796,23 +2517,6 @@ html.ui-theme-old select {
    entry right-aligns its own text either way (kill-feed-entry has no
    directional styling of its own), so swapping sides is just this one
    position+alignment flip. */
-#kill-feed.kill-feed-left {
-  right: auto;
-  left: 16px;
-  align-items: flex-start;
-}
-
-.kill-feed-entry {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  color: var(--ui-gold-bright);
-  background: rgba(6, 8, 6, 0.55);
-  padding: 4px 10px;
-  border-radius: 4px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-  animation: killFeedIn 0.25s ease-out;
-}
 
 @keyframes killFeedIn {
   0% { opacity: 0; transform: translateX(20px); }
@@ -2821,38 +2525,10 @@ html.ui-theme-old select {
 
 /* Kill-feed icon tags (batch feature) - short text tags, not emoji (see the
    no-emoji UI convention elsewhere: plain colored labels instead). */
-.kill-feed-tag {
-  display: inline-block;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  padding: 1px 5px;
-  border-radius: 3px;
-  vertical-align: middle;
-}
-.kill-feed-tag-boss { background: var(--ui-gold-bright); color: #1a1408; }
-.kill-feed-tag-elite { background: #b45cff; color: #1a0f26; }
-.kill-feed-tag-combo { background: #4ee06f; color: #0a1c0e; }
 
 @keyframes screenFadeIn {
   0% { opacity: 1; }
   100% { opacity: 0; }
-}
-
-.cinematic-bar {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 9vh;
-  background: #000;
-}
-
-.cinematic-bar.top {
-  top: 0;
-}
-
-.cinematic-bar.bottom {
-  bottom: 0;
 }
 
 @keyframes tutorialHint {
@@ -3616,30 +3292,6 @@ section.category > h2 {
   user-select: none;
 }
 
-.expand-icon {
-  color: var(--ui-gold-bright);
-  font-size: 11px;
-  transition: transform 0.15s ease;
-  flex-shrink: 0;
-}
-
-.feature.expandable.open .expand-icon {
-  transform: rotate(90deg);
-}
-
-.detail-list {
-  display: none;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px dashed rgba(var(--ui-gold-accent-rgb), 0.25);
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 8px 18px;
-}
-
-.feature.expandable.open .detail-list {
-  display: grid;
-}
-
 .detail-item {
   font-size: 12.5px;
   color: rgba(255, 255, 255, 0.65);
@@ -3737,27 +3389,6 @@ section.category.hidden-search {
   100% { opacity: 0; transform: translate(-50%, -6px); }
 }
 
-#ending-title {
-  margin: 0;
-  font-size: 28px;
-  letter-spacing: 4px;
-  color: #8b2fe0;
-  text-shadow: 0 0 20px rgba(139, 47, 224, 0.6);
-}
-
-#ending-continue-btn {
-  margin-top: 10px;
-  padding: 10px 26px;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  color: #0c130c;
-  background: var(--ui-gold-bright);
-  border: 1px solid var(--ui-gold-bright);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
 /* Personal stats dashboard (batch feature) - a small bar chart of kills
    per run, most recent on the right, in the Profile panel. */
 #stats-dashboard-canvas {
@@ -3791,91 +3422,10 @@ section.category.hidden-search {
   opacity: 0.85;
 }
 
-.inv-panel-section {
-  width: 280px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.inv-panel-row {
-  display: grid;
-  /* Fixed count column so numbers line up across rows regardless of how
-     long each row's label is - a flex space-between here let a short
-     label like "Molotov" push its count far left of a long label like
-     "Health Pack"'s count, so the numbers never actually formed a column. */
-  grid-template-columns: 1fr 56px auto;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  font-size: 15px;
-  font-variant-numeric: tabular-nums;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.inv-panel-row > span:nth-child(2) {
-  text-align: right;
-}
-
-.inv-panel-row:last-child {
-  border-bottom: none;
-}
-
-.inv-panel-row .inv-key {
-  font-size: 11px;
-  font-weight: 700;
-  padding: 1px 5px;
-  border-radius: 3px;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  opacity: 0.75;
-}
-
-.hotbar-assign-row {
-  display: flex;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.mastery-tag {
-  font-size: 10px;
-  opacity: 0.6;
-  font-variant-numeric: tabular-nums;
-}
-
-.mastery-tag.mastered {
-  color: #ffde5c;
-  opacity: 1;
-}
-
-.mastery-tag.grandmastered {
-  color: #7ce0ff;
-  opacity: 1;
-  text-shadow: 0 0 5px rgba(124, 224, 255, 0.6);
-}
-
-.mastery-tag.legendary {
-  color: #ffd83d;
-  opacity: 1;
-  text-shadow: 0 0 6px rgba(255, 138, 61, 0.7);
-}
-
 /* Inventory panel's Weapons tab (see _renderInventoryWeapons) - a plain,
    read-only list, not a clickable-card grid like .perk-option (this tab has
    no button per row, just a name + mastery badge, so .perk-option's pointer
    cursor/hover-highlight would misleadingly suggest something clickable). */
-.weapon-mastery-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 14px;
-  font-size: 15px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.weapon-mastery-row:last-child {
-  border-bottom: none;
-}
 
 /* Inventory panel's Crates tab - visual-only for now (see the "Coming soon"
    line still under this grid in index.html) - no cost/button yet, and
@@ -4118,41 +3668,6 @@ section.category.hidden-search {
 .crate-open-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-}
-
-.hotbar-assign-btn {
-  width: 20px;
-  height: 20px;
-  font-size: 11px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: rgba(255, 255, 255, 0.7);
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 4px;
-  cursor: pointer;
-  padding: 0;
-}
-
-.hotbar-assign-btn:hover:not(:disabled) {
-  border-color: rgba(255, 255, 255, 0.6);
-}
-
-.hotbar-assign-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.hotbar-assign-btn.assigned {
-  background: var(--ui-gold-bright);
-  border-color: var(--ui-gold-bright);
-  color: #1a1408;
-}
-
-#fullmap-hint {
-  margin-top: 4px;
-  font-size: 13px;
-  opacity: 0.55;
 }
 
 #hub-panel,
@@ -4568,97 +4083,14 @@ html.ui-theme-old #journal-panel {
   border-color: var(--menu-gold);
 }
 
-.weapon-picker-stats {
-  display: block;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.3px;
-  color: var(--menu-gold, var(--ui-gold-bright));
-  opacity: 0.85;
-  margin-top: 2px;
-}
-
-.weapon-picker-card .perk-tag {
-  display: block;
-  font-size: 11px;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  opacity: 0.7;
-  margin-top: 2px;
-}
-
 /* Loadout compare view (batch 3 feature) - a toggle above the weapon
    grid; while active, clicking cards selects up to 2 for a side-by-side
    stat table instead of equipping them. */
-.weapon-compare-toggle-btn {
-  display: block;
-  margin: 0 auto 10px;
-  padding: 6px 16px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.4);
-  border-radius: 6px;
-  color: var(--menu-gold, var(--ui-gold-bright));
-  font-size: 12px;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.weapon-compare-toggle-btn.active {
-  background: rgba(var(--ui-gold-accent-rgb), 0.25);
-  border-color: var(--menu-gold, var(--ui-gold-bright));
-}
-
-.weapon-picker-card.compare-selected {
-  border-color: var(--menu-gold, var(--ui-gold-bright));
-  box-shadow: 0 0 0 2px rgba(var(--ui-gold-accent-rgb), 0.5) inset;
-}
-
-.weapon-compare-table {
-  max-width: 500px;
-  margin: 14px auto 0;
-  border-collapse: collapse;
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-}
-
-.weapon-compare-table .compare-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 4px;
-  padding: 4px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.weapon-compare-table .compare-row.compare-header {
-  color: var(--menu-gold, var(--ui-gold-bright));
-  text-transform: uppercase;
-  font-size: 11px;
-  letter-spacing: 0.5px;
-}
-
-.weapon-compare-table .compare-row span:first-child {
-  opacity: 0.7;
-}
-
-.weapon-compare-table .compare-row span:not(:first-child) {
-  text-align: center;
-}
 
 /* Weapon icon badge - same hexagonal "featured icon in a card" treatment
    as .class-icon-badge in Choose Class, reused here rather than inventing
    a second visual language, just neutral-toned since weapons don't carry
    a per-item accent color the way classes do. */
-.weapon-icon-badge {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
-  margin-bottom: 4px;
-  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-  background: rgba(255, 255, 255, 0.1);
-}
 
 .weapon-icon {
   width: 30px;
@@ -4727,40 +4159,6 @@ html.ui-theme-old #share-panel-title {
   opacity: 1;
 }
 
-.inventory-section-placeholder {
-  margin: 0;
-  text-align: center;
-  opacity: 0.6;
-}
-
-.journal-section {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  padding: 12px 14px;
-}
-
-.journal-section h3 {
-  margin: 0 0 6px;
-  font-size: 13px;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  color: #ffde5c;
-  opacity: 0.9;
-}
-
-.journal-section p {
-  margin: 2px 0;
-  font-size: 13px;
-  opacity: 0.85;
-}
-
-#journal-hint {
-  margin-top: 4px;
-  font-size: 13px;
-  opacity: 0.55;
-}
-
 #upgrades-points-line {
   font-size: 14px;
   color: #ffde5c;
@@ -4777,14 +4175,6 @@ html.ui-theme-old #share-panel-title {
    view since that's already scroll position 0 (2026-09-21). */
 #upgrades-points-line {
   margin-top: 0;
-}
-
-.iron-mode-notice,
-.shop-coming-soon {
-  font-size: 13px;
-  font-style: italic;
-  opacity: 0.6;
-  padding: 12px 0;
 }
 
 /* Profile panel redesign (2026-08-26, "jammed up" complaint) - every flat
@@ -5065,62 +4455,6 @@ html.ui-theme-old #share-panel-title {
   max-width: 90vw;
 }
 
-.shop-section-heading {
-  margin: 10px 0 2px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: var(--ui-gold-bright);
-  opacity: 0.8;
-}
-
-.shop-section-row {
-  margin-bottom: 4px;
-}
-
-.weapon-slot-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-
-.attach-row {
-  display: flex;
-  gap: 4px;
-}
-
-.attach-btn {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 5px 4px;
-  font-size: 10px;
-  color: #eee;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.attach-btn:hover:not(:disabled) {
-  border-color: var(--ui-gold-bright);
-  background: rgba(var(--ui-gold-accent-rgb), 0.1);
-}
-
-.attach-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.attach-btn span:last-child {
-  color: #ffde5c;
-  font-size: 9px;
-}
-
 .perk-option {
   display: flex;
   flex-direction: column;
@@ -5154,39 +4488,6 @@ html.ui-theme-old #share-panel-title {
 /* "Best deal today" highlight (see Game.js's _renderTraderOptions) - a
    quieter green rather than the featured item's gold, so the two don't
    visually compete. */
-.perk-option.best-deal {
-  border-color: #5ca85c;
-  background: rgba(92, 168, 92, 0.08);
-}
-
-.perk-option.salvage {
-  width: 140px;
-  padding: 12px 10px;
-  border-color: rgba(127, 216, 196, 0.3);
-}
-
-.perk-option.salvage:hover:not(:disabled) {
-  border-color: #7fd8c4;
-  background: rgba(127, 216, 196, 0.1);
-}
-
-.perk-option .salvage-gain {
-  color: #7fd8c4;
-}
-
-.perk-option.blackmarket {
-  border-color: rgba(201, 139, 255, 0.4);
-  background: rgba(201, 139, 255, 0.05);
-}
-
-.perk-option.blackmarket:hover:not(:disabled) {
-  border-color: #c98bff;
-  background: rgba(201, 139, 255, 0.14);
-}
-
-.perk-option.blackmarket .perk-cost {
-  color: #c98bff;
-}
 
 .perk-option:disabled {
   opacity: 0.4;
@@ -5211,36 +4512,10 @@ html.ui-theme-old #share-panel-title {
 /* Best Value tag (Coin Shop guns, see _renderCoinShopOptions) - a small
    inline badge, not a separate row, so it doesn't add height to the shop
    grid. */
-.best-value-tag {
-  display: inline-block;
-  font-size: 10px;
-  font-weight: 700;
-  color: #1a1a1a;
-  background: #7fd88f;
-  border-radius: 3px;
-  padding: 1px 5px;
-  margin-left: 4px;
-  vertical-align: middle;
-  text-transform: uppercase;
-}
 
 .perk-option .perk-cost {
   font-size: 12px;
   color: #ffde5c;
-}
-
-.price-tag {
-  font-size: 10px;
-  font-weight: 700;
-  margin-left: 3px;
-}
-
-.price-tag.price-down {
-  color: #7fd8c4;
-}
-
-.price-tag.price-up {
-  color: #ff5a4a;
 }
 
 .perk-option .perk-lore {
@@ -5274,18 +4549,6 @@ html.ui-theme-old #share-panel-title {
 #respec-section {
   margin-top: 10px;
   text-align: center;
-}
-
-.run-history-entry {
-  margin: 0;
-  padding: 3px 0;
-  font-size: 12px;
-  color: rgba(238, 238, 238, 0.8);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.run-history-entry:last-child {
-  border-bottom: none;
 }
 
 #profile-nearly-there-list {
@@ -5349,30 +4612,9 @@ html.ui-theme-old #share-panel-title {
 }
 
 /* Coin Shop wishlist star / afford estimator (see _renderCoinShopOptions) */
-.shop-item-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
 
 /* Bigger than the original 12px, plus real padding for a proper hit area -
    at 12px with no padding this was easy to miss/misclick. */
-.shop-wishlist-star {
-  font-size: 20px;
-  padding: 4px 8px;
-  color: rgba(255, 255, 255, 0.25);
-  cursor: pointer;
-}
-
-.shop-wishlist-star.active {
-  color: #e0c03e;
-}
-
-.shop-afford-estimate {
-  font-size: 10px;
-  color: #999;
-}
 
 #achievements-controls-row {
   display: flex;
@@ -5518,38 +4760,6 @@ html.ui-theme-old #share-panel-title {
   font-size: 12px;
 }
 
-.streak-day {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  font-size: 10px;
-  color: var(--menu-text-dim, #ccc);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 4px;
-}
-
-.streak-day.played {
-  color: #0c130c;
-  background: var(--menu-gold, var(--ui-gold-bright));
-  border-color: var(--menu-gold, var(--ui-gold-bright));
-  font-weight: 700;
-}
-
-.activity-entry {
-  margin: 0;
-  padding: 3px 0;
-  font-size: 12px;
-  color: rgba(238, 238, 238, 0.8);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.activity-entry:last-child {
-  border-bottom: none;
-}
-
 /* Local Sharing batch. */
 #local-sharing-section {
   margin-top: 10px;
@@ -5571,10 +4781,6 @@ html.ui-theme-old #share-panel-title {
   border-radius: 6px;
   font-size: 12px;
   text-align: left;
-}
-
-#challenge-code-input {
-  margin-top: 4px;
 }
 
 #print-stats-sheet {
@@ -5687,21 +4893,12 @@ html.ui-theme-old #share-panel-title {
 #import-save-btn,
 #compare-save-btn,
 #clear-leaderboards-btn,
-#copy-text-recap-btn,
 #share-setup-btn,
 #share-profile-btn,
 #share-challenge-btn,
 #share-loadout-btn,
 #share-page-link-btn,
-#profile-close-btn,
-#pause-invite-btn,
-#multiplayer-create-btn,
-#multiplayer-join-btn,
-#multiplayer-start-playing-btn,
-#screenshot-crop-save,
-#screenshot-crop-full,
-#screenshot-crop-cancel,
-#share-run-card-btn {
+#profile-close-btn {
   margin-top: 6px;
   padding: 8px 20px;
   font-size: 13px;
@@ -5788,37 +4985,8 @@ html.ui-theme-old #share-panel-title {
   padding-left: 20px;
 }
 
-#screenshot-crop-hint {
-  margin: 0;
-  font-size: 13px;
-  opacity: 0.65;
-}
-
-/* Screenshots section label - same small gold uppercase sub-heading
-   convention as #profile-panel h3. */
-#screenshot-section-title {
-  margin: 8px 0 4px;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: var(--menu-gold, #d9bc4a);
-  text-align: center;
-}
-
-#profile-close-btn:hover,
-#pause-invite-btn:hover,
-#multiplayer-create-btn:hover,
-#multiplayer-join-btn:hover,
-#multiplayer-start-playing-btn:hover {
+#profile-close-btn:hover {
   border-color: rgba(255, 255, 255, 0.5);
-}
-
-#weapon-name {
-  font-size: 15px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  opacity: 0.8;
 }
 
 #ammo {
@@ -5827,104 +4995,13 @@ html.ui-theme-old #share-panel-title {
   font-variant-numeric: tabular-nums;
 }
 
-#ammo.low-ammo {
-  color: #ff5a4a;
-  animation: low-ammo-pulse 1.1s ease-in-out infinite;
-}
-
-/* Persistent Keybind Cheat Sheet (Settings > Controls toggle) - distinct
-   from the one-time tutorial toasts and the replayable How to Play
-   modal, this is an optional always-on in-game reference, bottom-left,
-   out of the way of the HUD elements above. */
-#keybind-cheatsheet {
-  position: absolute;
-  left: 20px;
-  bottom: 20px;
-  list-style: none;
-  margin: 0;
-  padding: 8px 12px;
-  font-size: 11px;
-  line-height: 1.7;
-  color: rgba(238, 238, 238, 0.75);
-  background: rgba(0, 0, 0, 0.4);
-  border-radius: 6px;
-  pointer-events: none;
-}
-
-#keybind-cheatsheet b {
-  color: #ffde5c;
-}
-
 @keyframes low-ammo-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.55; }
 }
 
-.weapon-quick-slot {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 8px;
-  background: rgba(10, 10, 10, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-}
-
-.weapon-quick-num {
-  font-size: 30px;
-  font-weight: 700;
-  opacity: 0.55;
-}
-
 /* Mastery badge (see Game.js's _updateHotbarHud) - same gold/cyan pair as
    .mastery-tag elsewhere, applied to the whole row's border. */
-.weapon-quick-slot.mastered {
-  border-color: #ffde5c;
-}
-
-.weapon-quick-slot.grandmastered {
-  border-color: #7ce0ff;
-  box-shadow: 0 0 6px rgba(124, 224, 255, 0.5);
-}
-
-.weapon-quick-slot.legendary {
-  border-color: #ffd83d;
-  box-shadow: 0 0 6px rgba(255, 138, 61, 0.55);
-}
-
-.weapon-quick-name {
-  font-size: 11px;
-  font-weight: 600;
-  opacity: 0.85;
-  max-width: 90px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.weapon-quick-ammo {
-  min-width: 22px;
-  font-size: 11px;
-  font-weight: 700;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  opacity: 0.75;
-}
-
-.weapon-quick-slot.active {
-  border-color: var(--ui-gold-bright);
-  background: rgba(var(--ui-gold-accent-rgb), 0.18);
-}
-
-.weapon-quick-slot.active .weapon-quick-name,
-.weapon-quick-slot.active .weapon-quick-ammo {
-  opacity: 1;
-}
-
-.weapon-quick-slot.locked .weapon-quick-name {
-  opacity: 0.4;
-}
 
 
 /* ==========================================================================
@@ -6726,18 +5803,6 @@ html.theme-lighter #app { filter: brightness(1.25); }
   color: var(--menu-text-dim);
 }
 
-/* Companion color preview swatch - inline with the label itself (see
-   markup), zero extra height cost. */
-#companion-color-preview {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  margin-left: 4px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  vertical-align: middle;
-}
-
 .menu-field-label:first-of-type {
   margin-top: 0;
 }
@@ -6836,35 +5901,6 @@ html.theme-lighter #app { filter: brightness(1.25); }
    requested as a standalone list rather than description text on the
    Shop's own buy rows. Same look as .shop-attachment-row's name+desc
    pairing (see .attachment-desc above), just without a buy button. */
-.attachment-guide-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: 100%;
-  max-width: 420px;
-}
-
-.attachment-guide-row {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  text-align: left;
-}
-
-.attachment-guide-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--menu-gold, var(--ui-gold-bright));
-}
-
-.attachment-guide-desc {
-  font-size: 11px;
-  opacity: 0.7;
-}
 
 
 /* Locked (Coming Soon) entries - same dimmed/inert treatment as the
@@ -6944,17 +5980,6 @@ html.theme-lighter #app { filter: brightness(1.25); }
   opacity: 0.85;
 }
 
-/* Weapon Gear Guide / Special Ammo Guide's own "Coming Soon" lines,
-   specifically - requested directly to read gold like the rest of these
-   two guide panels, rather than the plain .menu-hint-line olive shared
-   by unrelated hints elsewhere (mute-in-chat, touch-controls-reload,
-   recommended-difficulty) that weren't asked to change. */
-#weapon-gear-guide-hint,
-#ammo-guide-hint {
-  color: var(--menu-gold, #d9bc4a);
-  opacity: 0.85;
-}
-
 /* Shared small button style for compact homepage actions (Continue
    card's Play Again/Share, Loadout Presets' Save Setup/chips) - a
    smaller, lower-emphasis sibling of .difficulty-btn rather than a new
@@ -7008,14 +6033,6 @@ html.theme-lighter #app { filter: brightness(1.25); }
   pointer-events: none;
   z-index: 20;
   white-space: nowrap;
-}
-
-#weapon-quick-compare-tooltip .quick-compare-vs {
-  color: var(--menu-gold, var(--ui-gold-bright));
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  margin-bottom: 2px;
 }
 
 #menu-preset-chips {
@@ -7304,21 +6321,6 @@ html.ui-theme-old #menu-title-img.logo-tier-5 {
   font-variant-numeric: tabular-nums;
 }
 
-.hero-stat-label {
-  margin-top: 2px;
-  font-size: 13.5px;
-  font-weight: 600;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  color: var(--menu-text-dim);
-}
-
-.hero-stat-divider {
-  width: 1px;
-  height: 37.5px;
-  background: rgba(255, 255, 255, 0.15);
-}
-
 /* Stamped-metal sign: octagonal clip-path + 4 corner "rivets" (small
    radial-gradient dots layered on top of the gold fill) instead of a
    plain rounded pill, plus the same stencil display font as the title. */
@@ -7378,8 +6380,7 @@ html.ui-theme-old #menu-title-img.logo-tier-5 {
    same gold-plate image as Hub/Store/Upgrades (2026-08-20) - see that
    rule's own comment for the background-size/border reasoning, same
    deal here. */
-#gamemode-btn,
-#continue-run-btn {
+#gamemode-btn {
   margin-top: 2px;
   padding: 14px 38px;
   font-size: 22px;
@@ -7393,23 +6394,8 @@ html.ui-theme-old #menu-title-img.logo-tier-5 {
   cursor: pointer;
   transition: filter 0.2s ease, transform 0.15s ease;
 }
-#gamemode-btn:hover,
-#continue-run-btn:hover {
+#gamemode-btn:hover {
   filter: brightness(1.18);
-  transform: translateY(-1px);
-}
-
-/* Continue Run (mid-run save/resume) - only ever shown when a saved
-   run actually exists (see Game.js's _refreshContinueRunButton), so it
-   never costs any of the homepage's zero-scroll-budget height in the
-   common case where there's nothing to resume. Green tint to read as
-   distinct from Game Mode's neutral gold, same idea as a "resume"
-   affordance standing out from a plain secondary action. */
-#continue-run-btn {
-  filter: hue-rotate(70deg) saturate(1.3);
-}
-#continue-run-btn:hover {
-  filter: hue-rotate(70deg) saturate(1.3) brightness(1.18);
   transform: translateY(-1px);
 }
 
@@ -7417,10 +6403,6 @@ html.ui-theme-old #menu-title-img.logo-tier-5 {
    see the settings-btn/nav-buttons rules further down for the same pattern. */
 html.ui-theme-old #play-btn {
   background-image: url('/images/old-play-btn.webp');
-}
-
-html.ui-theme-old #continue-run-btn {
-  background-image: url('/images/old-nav-plaque.webp');
 }
 
 html.ui-theme-old #gamemode-btn {
@@ -8181,65 +7163,9 @@ html.ui-theme-old #homepage-greeting {
   margin: 0 0 10px;
 }
 
-.showcase-slot {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: auto;
-  min-width: 120px;
-  height: auto;
-  padding: 3px 8px;
-  gap: 6px;
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.2px;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid var(--menu-panel-border);
-  border-radius: 4px;
-  cursor: pointer;
-  opacity: 0.5;
-}
-
-.showcase-slot.filled {
-  flex-direction: row;
-  opacity: 1;
-  border-color: var(--menu-gold);
-  background: rgba(var(--ui-gold-accent-rgb), 0.12);
-}
-
-.showcase-name {
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.showcase-slot:hover {
-  border-color: var(--menu-gold);
-}
-
 /* Card-flip hover flourish (filled achievement slots only) - a rotateY
    wobble, not a true two-sided flip (this DOM has no back-face content
    to reveal), still reads as a genuine "flip" motion on hover. */
-.showcase-slot.filled {
-  transition: transform 0.4s ease;
-  transform-style: preserve-3d;
-}
-
-.showcase-slot.filled:hover {
-  transform: rotateY(360deg);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .showcase-slot.filled {
-    transition: none;
-  }
-  .showcase-slot.filled:hover {
-    transform: none;
-  }
-}
 
 #menu-nav-buttons {
   display: flex;
@@ -8460,14 +7386,6 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
   right: 9px;
 }
 
-#menu-boards {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 260px;
-  overflow-y: auto;
-}
-
 /* Hub panel - Game Modes/Challenges/Mutators, moved here from the
    homepage's #menu-cards-row. Deliberately NOT reusing .menu-card-list's
    own max-height:9vh clamp - that only exists to hold the homepage under
@@ -8555,15 +7473,6 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
    scroll at all. This keeps that page-level guarantee regardless of
    window height or how many modes/challenges/mutators get added later -
    only this one small list ever scrolls, never the page itself. */
-.menu-card-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-height: 9vh;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--menu-gold) transparent;
-}
 
 /* Only bites on genuinely short windows, where Game Modes' 8 rows (the
    longest of the 3 lists) would otherwise push the whole page into
@@ -8579,9 +7488,6 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
    900px-tall screens - source order matters here, the tighter (short)
    rule must come after the looser (mid) one to win at heights under both. */
 @media (max-height: 960px) {
-  .menu-card-list {
-    max-height: 11vh;
-  }
 
   #menu-title-img {
     width: min(90%, 620px);
@@ -8748,9 +7654,6 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
 }
 
 @media (max-height: 820px) {
-  .menu-card-list {
-    max-height: 5vh;
-  }
 
   #menu-title-img {
     width: min(90%, 480px);
@@ -8816,14 +7719,6 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
 
   .hero-stat-value {
     font-size: 43.5px;
-  }
-
-  .hero-stat-label {
-    font-size: 12px;
-  }
-
-  .hero-stat-divider {
-    height: 33px;
   }
 
   #play-btn {
@@ -8914,15 +7809,6 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
 
   .hero-stat-value {
     font-size: 34.5px;
-  }
-
-  .hero-stat-label {
-    font-size: 9.75px;
-    margin-top: 1px;
-  }
-
-  .hero-stat-divider {
-    height: 25.5px;
   }
 
   #play-btn {
@@ -9838,7 +8724,6 @@ html.ui-theme-old #settings-panel h2 {
 #whatsnew-content,
 #whats-new-digest-list,
 #cloudsave-online-section,
-#menu-boards,
 .build-picker-grid {
   scrollbar-width: thin;
   scrollbar-color: rgba(var(--ui-gold-accent-rgb), 0.6) transparent;
@@ -9855,7 +8740,6 @@ html.ui-theme-old #settings-panel h2 {
 #whatsnew-content::-webkit-scrollbar,
 #whats-new-digest-list::-webkit-scrollbar,
 #cloudsave-online-section::-webkit-scrollbar,
-#menu-boards::-webkit-scrollbar,
 .build-picker-grid::-webkit-scrollbar {
   width: 8px;
 }
@@ -9871,7 +8755,6 @@ html.ui-theme-old #settings-panel h2 {
 #whatsnew-content::-webkit-scrollbar-track,
 #whats-new-digest-list::-webkit-scrollbar-track,
 #cloudsave-online-section::-webkit-scrollbar-track,
-#menu-boards::-webkit-scrollbar-track,
 .build-picker-grid::-webkit-scrollbar-track {
   background: transparent;
 }
@@ -9887,7 +8770,6 @@ html.ui-theme-old #settings-panel h2 {
 #whatsnew-content::-webkit-scrollbar-thumb,
 #whats-new-digest-list::-webkit-scrollbar-thumb,
 #cloudsave-online-section::-webkit-scrollbar-thumb,
-#menu-boards::-webkit-scrollbar-thumb,
 .build-picker-grid::-webkit-scrollbar-thumb {
   background: rgba(var(--ui-gold-accent-rgb), 0.6);
   border-radius: 4px;
@@ -9904,7 +8786,6 @@ html.ui-theme-old #settings-panel h2 {
 #whatsnew-content::-webkit-scrollbar-thumb:hover,
 #whats-new-digest-list::-webkit-scrollbar-thumb:hover,
 #cloudsave-online-section::-webkit-scrollbar-thumb:hover,
-#menu-boards::-webkit-scrollbar-thumb:hover,
 .build-picker-grid::-webkit-scrollbar-thumb:hover {
   background: rgba(var(--ui-gold-accent-rgb), 0.8);
 }
@@ -10377,78 +9258,9 @@ html.ui-theme-old #settings-panel h2 {
   50% { opacity: 1; }
 }
 
-html.night-vision-active #app {
-  filter: brightness(1.55) saturate(1.15) hue-rotate(-12deg);
-}
-
 @keyframes nightmare-pulse {
   0%, 100% { opacity: 0.75; }
   50% { opacity: 1; }
-}
-
-.boss-health-bar {
-  height: 10px;
-  border-radius: 5px;
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  overflow: hidden;
-}
-
-.boss-health-fill {
-  height: 100%;
-  width: 100%;
-  background: linear-gradient(90deg, #ff6b6b, #d62c2c);
-  transition: width 200ms ease-out;
-}
-
-#koth-label {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: #ffde5c;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-  margin-bottom: 4px;
-}
-
-.koth-fill {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, #ffde5c, var(--ui-gold-bright));
-  transition: width 150ms ease-out;
-}
-
-#extraction-label {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: #6fe08a;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-  margin-bottom: 4px;
-}
-
-.extraction-fill {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, #6fe08a, #2f9e5a);
-  transition: width 150ms ease-out;
-}
-
-.zombie-defense-fill {
-  height: 100%;
-  width: 100%;
-  background: linear-gradient(90deg, #ffdb4a, #d9b31a);
-  transition: width 200ms ease-out;
-}
-
-#daily-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  color: #c9a6ff;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-  margin-bottom: 2px;
 }
 
 #daily-best {
@@ -10586,48 +9398,6 @@ html.night-vision-active #app {
   opacity: 1;
 }
 
-.touch-action-btn {
-  position: absolute;
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.4);
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-}
-
-#touch-btn-fire { right: 40px; bottom: 90px; width: 78px; height: 78px; }
-#touch-btn-aim { right: 130px; bottom: 60px; }
-#touch-btn-jump { right: 40px; bottom: 190px; }
-#touch-btn-reload { right: 200px; bottom: 40px; }
-#touch-btn-melee { right: 280px; bottom: 40px; }
-#touch-btn-interact { right: 40px; bottom: 270px; }
-#touch-btn-sprint { right: 40px; bottom: 350px; }
-#touch-btn-crouch { right: 130px; bottom: 190px; }
-#touch-btn-more { left: 30px; top: 30px; width: 48px; height: 48px; font-size: 9px; }
-
-.touch-weapon-btn {
-  width: 44px;
-  height: 44px;
-  top: 30px;
-}
-
-.touch-more-action-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 12px 6px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  color: #fff;
-  font-size: 12px;
-}
-
 /* Real portrait touch layout (2026-09-20). Landscape's positions (default
    + the existing @media (max-width: 700px) compact-grid pass above) are
    built around a wide screen with plenty of vertical room - on a phone
@@ -10664,18 +9434,9 @@ html.night-vision-active #app {
     gap: 4px !important;
   }
 
-  .status-bar {
-    width: 80px !important;
-    height: 6px !important;
-  }
-
   .status-row {
     font-size: 10px !important;
     gap: 4px !important;
-  }
-
-  .status-icon {
-    width: 12px !important;
   }
 
   /* Detached from #left-hud-stack's flex flow (position:absolute here
@@ -10720,14 +9481,6 @@ html.night-vision-active #app {
     font-size: 11px;
   }
 
-  .weapon-quick-slot {
-    padding: 2px 5px;
-  }
-
-  .weapon-quick-num {
-    font-size: 18px;
-  }
-
   /* Current weapon name + ammo count (bottom-right in landscape, where
      it used to sit almost exactly under the compact grid's Fire button
      at right:20px;bottom:20px) - moved above the action-button grid
@@ -10735,22 +9488,6 @@ html.night-vision-active #app {
   #hud {
     right: 12px;
     bottom: 296px;
-  }
-
-  /* Default top:30px;left:30px sits on top of the minimap; the compact-
-     grid query above already tried right:30px, which instead lands on
-     #stats-panel. Neither top corner is free on a portrait phone - the
-     one open strip is the right edge, vertically centered, clear of the
-     stats/hotbar cluster above and the action-button grid below.
-     right: !important - the max-width:700px query below also sets
-     right:30px on this same selector, same specificity/later source
-     position, so it was winning that tie on a narrow portrait phone
-     (matches both queries at once) and pulling this back from 10px. */
-  #touch-btn-more {
-    top: 50%;
-    left: auto;
-    right: 10px !important;
-    transform: translateY(-50%);
   }
 }
 
@@ -10834,11 +9571,6 @@ html.night-vision-active #app {
     width: 100%;
   }
 
-  .menu-card-list {
-    max-height: none;
-    overflow-y: visible;
-  }
-
   /* Touch control buttons were positioned generously for a wide screen -
      on an actual ~390px-wide phone, several landed on top of the
      joystick, the minimap, or each other (confirmed via real
@@ -10849,31 +9581,6 @@ html.night-vision-active #app {
      pre-existing (desktop-only) weapon/ammo HUD panel, which itself has
      never been adapted for a narrow screen - that panel's own layout is
      a separate follow-up, not solved here. */
-  .touch-action-btn {
-    width: 50px;
-    height: 50px;
-    font-size: 9px;
-  }
-
-  #touch-btn-fire { right: 20px; bottom: 20px; width: 60px; height: 60px; }
-  #touch-btn-aim { right: 95px; bottom: 20px; }
-  #touch-btn-jump { right: 20px; bottom: 90px; }
-  #touch-btn-crouch { right: 95px; bottom: 90px; }
-  #touch-btn-sprint { right: 20px; bottom: 155px; }
-  #touch-btn-melee { right: 95px; bottom: 155px; }
-  #touch-btn-interact { right: 20px; bottom: 220px; }
-  #touch-btn-reload { right: 95px; bottom: 220px; }
-
-  .touch-weapon-btn {
-    top: 190px;
-    width: 36px;
-    height: 36px;
-  }
-
-  #touch-btn-more {
-    left: auto;
-    right: 30px;
-  }
 }
 
 /* Landscape phones (short but wide - e.g. a phone rotated sideways to
@@ -10886,20 +9593,6 @@ html.night-vision-active #app {
    Compact 4-col x 2-row grid instead, using the width landscape has
    plenty of, positioned clear of both the joystick and the weapon row. */
 @media (max-height: 450px) {
-  .touch-action-btn {
-    width: 50px;
-    height: 50px;
-    font-size: 9px;
-  }
-
-  #touch-btn-fire { right: 20px; bottom: 15px; width: 56px; height: 56px; }
-  #touch-btn-aim { right: 90px; bottom: 15px; }
-  #touch-btn-jump { right: 160px; bottom: 15px; }
-  #touch-btn-interact { right: 230px; bottom: 15px; }
-  #touch-btn-sprint { right: 20px; bottom: 80px; }
-  #touch-btn-crouch { right: 90px; bottom: 80px; }
-  #touch-btn-melee { right: 160px; bottom: 80px; }
-  #touch-btn-reload { right: 230px; bottom: 80px; }
 
   /* This query's own comment above used to claim the weapon-switch row
      sits at "top:30px, never repositioned by this query" - true only when
@@ -10915,27 +9608,6 @@ html.night-vision-active #app {
      the same position it already correctly has whenever only THIS query
      is active - keeps it clear of every button this query controls,
      regardless of whether the width breakpoint also happens to be active. */
-  .touch-weapon-btn { top: 30px; }
-
-  /* #touch-btn-more's default position (left:30px; top:30px) sits directly
-     on top of #minimap-wrap (fixed at top:18px; left:20px, never
-     repositioned by any breakpoint) - confirmed via a real
-     getBoundingClientRect() overlap check at 844x390, same method as every
-     other overlap fix in this file. Moving it to the right (the narrow-
-     portrait breakpoint's own fix for this exact collision) doesn't work
-     here instead - the weapon-switch row (#touch-btn-weapon-1..4, top:30px,
-     never repositioned by this query) sits close enough to the right edge
-     at realistic landscape widths that a right-aligned More button lands
-     on top of weapon-4 instead of the minimap. Nudged straight down past
-     the minimap's bottom edge instead (18px top + 90px tall = 108px,
-     constant here since this query also fixes #minimap at 90x90) while
-     staying well clear of the joystick base's top edge (bottom:30px +
-     110px tall, never above roughly y=160 on any real landscape phone
-     height) - the one gap on screen that's clear of every other element
-     at every width/height this query applies to. */
-  #touch-btn-more {
-    top: 118px;
-  }
 }
 
 /* Existing in-game HUD (weapon/ammo panel, health/status bars, the
@@ -10947,9 +9619,6 @@ html.night-vision-active #app {
    shrink values apply to both the narrow-portrait and short-landscape
    phone cases below. */
 @media (max-width: 700px), (max-height: 450px) {
-  #weapon-name {
-    font-size: 11px;
-  }
 
   #ammo {
     font-size: 22px;
@@ -10962,15 +9631,6 @@ html.night-vision-active #app {
   .status-row {
     font-size: 12px;
     gap: 5px;
-  }
-
-  .status-icon {
-    width: 14px;
-  }
-
-  .status-bar {
-    width: 90px;
-    height: 7px;
   }
 
   #minimap {
@@ -11910,52 +10570,9 @@ body.build-mode-on #chat-panel {
    the bottom middle, like the Map Editor's hotbar. Mouse/keyboard screens
    only - touch screens keep their own layout (weapon row, item buttons). */
 
-.hotbar-item-icon {
-  display: flex;
-  color: var(--ui-gold-bright);
-}
-
-.hotbar-item-icon svg {
-  width: 24px;
-  height: 24px;
-}
-
-.hotbar-item-count {
-  position: absolute;
-  top: 2px;
-  right: 5px;
-  font-size: 12px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.hotbar-item-slot {
-  pointer-events: auto;
-  cursor: pointer;
-}
-
-.hotbar-item-slot.empty {
-  opacity: 0.4;
-}
-
-.hotbar-item-slot.armed {
-  border-color: #e05a4a;
-  box-shadow: 0 0 8px rgba(224, 90, 74, 0.6);
-}
-
-.hotbar-item-slot.used {
-  animation: hotbar-item-used 0.3s ease-out;
-}
-
 @keyframes hotbar-item-used {
   0% { transform: scale(1.12); border-color: var(--ui-gold-bright); }
   100% { transform: scale(1); }
-}
-
-@media (hover: none) and (pointer: coarse) {
-  .hotbar-item-slot {
-    display: none !important;
-  }
 }
 
 /* Try Map's minimap (BuildTryMode.js): a square in the top-right corner;
@@ -12218,4 +10835,3 @@ html.ui-theme-old .crate-card .crate-stock-count { color: #241507; }
 
 /* Old Map 1 parts kept for later but hidden since the old city was deleted
    (2026-10-05) - each comes back once it works with the block-city Map 1. */
-.map1-hidden { display: none !important; }
