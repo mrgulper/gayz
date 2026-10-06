@@ -91,7 +91,7 @@ export class BuildTryMode {
     this.bm = buildMode
     this.B = blockSize
     this.active = false
-    this.pos = new THREE.Vector3() // feet, in world units
+    this.pos = new THREE.Vector3() // feet, in blocks
     this.vel = new THREE.Vector3() // blocks per second
     this.onGround = false
     this._bob = 0
