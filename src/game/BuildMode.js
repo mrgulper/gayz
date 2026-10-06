@@ -13,6 +13,7 @@ import { BuildTryMode } from './BuildTryMode.js'
 import { LiquidFlow } from './LiquidFlow.js'
 import { BuildTools } from './BuildTools.js'
 import { BuildSky } from './BuildSky.js'
+import { BuildTouch } from './BuildTouch.js'
 import { BuildGadgets } from './BuildGadgets.js'
 import { BuildSurvival } from './BuildSurvival.js'
 import { BuildCamp } from './BuildCamp.js'
@@ -1613,6 +1614,8 @@ export class BuildMode {
     this.gadgets = new BuildGadgets(this, BLOCK_SIZE)
     // Play: zombie waves on your own map (BuildSurvival.js).
     this.survival = new BuildSurvival(this, BLOCK_SIZE)
+    // Touch controls for walking/playing on a phone (BuildTouch.js).
+    this.touch = new BuildTouch(this)
     // Share codes + Community Maps, and building live with friends.
     this.share = new BuildShare(this)
     this.together = new BuildTogether(this, BLOCK_SIZE)
@@ -1866,6 +1869,7 @@ export class BuildMode {
     this.save()
     this._saveSlotThumb()
     this.active = false
+    this.touch.update(0)
     this.tryMode.drawBuildMap(0, false)
     window.removeEventListener('pagehide', this._onPageHide)
     document.removeEventListener('visibilitychange', this._onPageHide)
@@ -3618,6 +3622,7 @@ export class BuildMode {
     this.sky.update(dt)
     this.together.update(dt)
     this._updateCampDisplay(dt)
+    this.touch.update(dt)
     if (this.tryMode.active) {
       this.tryMode.update(dt, this._keys)
       this.survival.update(dt)
