@@ -1562,24 +1562,6 @@ html.ui-theme-old #cloudsave-region-select {
   }
 }
 
-/* Visual Sound Cue Indicator - a screen-edge pulse toward whatever just hit
-   you, same shape as #hitmarker (a plain flash triggered by adding/removing
-   a class) but positioned dynamically per-attack rather than fixed center. */
-#threat-indicator {
-  position: absolute;
-  width: 26px;
-  height: 26px;
-  margin: -13px 0 0 -13px;
-  pointer-events: none;
-  opacity: 0;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 59, 59, 0.9) 0%, rgba(255, 59, 59, 0) 70%);
-}
-
-#threat-indicator.show {
-  animation: threatPulse 700ms ease-out;
-}
-
 @keyframes threatPulse {
   0% {
     opacity: 1;
@@ -1698,8 +1680,6 @@ html.ui-theme-old {
    for exactly this purpose - a second overlapping control there would
    be confusing, not helpful. */
 html.large-text-mode #menu,
-html.large-text-mode #perk-panel,
-html.large-text-mode #trader-panel,
 html.large-text-mode #upgrades-panel,
 html.large-text-mode #quests-panel,
 html.large-text-mode #share-panel,
@@ -1731,11 +1711,7 @@ html.high-contrast-mode #app {
    rather than one shared wrapper, since each already has its own fixed/
    absolute anchor point; transform-origin matches each one's own anchor
    corner so scaling doesn't visibly drift it away from that anchor. */
-#hud,
-#weapon-quick-list,
-#status-hud,
-#progress-hud,
-#minimap-wrap {
+#hud {
   transform: scale(var(--hud-scale));
   opacity: var(--hud-opacity);
 }
@@ -1886,44 +1862,6 @@ html.high-contrast-mode #app {
   flex-direction: column;
   gap: 10px;
   pointer-events: none;
-}
-
-#status-hud {
-  display: none;
-  flex-direction: column;
-  gap: 6px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-}
-
-/* Health Display Style (Settings > General) - only affects the health
-   row's own bar/number, not armor/stamina/hunger/thirst/warmth/xp. */
-#status-hud.health-style-bar #health-value {
-  display: none;
-}
-
-#status-hud.health-style-number .status-row:has(#health-fill) .status-bar {
-  display: none;
-}
-
-#infection-indicator {
-  position: absolute;
-  left: 24px;
-  bottom: 132px;
-  display: none;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  background: rgba(20, 40, 10, 0.55);
-  border: 1px solid rgba(140, 220, 90, 0.5);
-  border-radius: 5px;
-  color: #b6e67a;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-  pointer-events: none;
-  animation: infection-pulse 1.6s ease-in-out infinite;
 }
 
 .infection-icon {
@@ -2111,36 +2049,8 @@ html[data-colorblind="redgreen"] #critical-blood-overlay {
   background: #f2d14e;
 }
 
-#progress-hud {
-  position: absolute;
-  top: 18px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: none;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  font-variant-numeric: tabular-nums;
-  color: #d8d8d0;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-  pointer-events: none;
-}
-
 .progress-sep {
   opacity: 0.4;
-}
-
-#compass-strip {
-  position: absolute;
-  top: 44px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 280px;
-  height: 18px;
-  display: none;
-  overflow: hidden;
-  pointer-events: none;
 }
 
 .compass-marker {
@@ -2154,70 +2064,6 @@ html[data-colorblind="redgreen"] #critical-blood-overlay {
   white-space: nowrap;
   color: var(--ui-gold-bright);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-}
-
-/* Always centered - the current facing direction, not a landmark, so it
-   doesn't slide with bearing the way .compass-marker icons do. Style
-   (letters vs degrees) is settings.compassStyle, see _updateCompass. */
-#compass-bearing-label {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 11px;
-  font-weight: 700;
-  color: #f0f0f0;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-}
-
-#compass-ammo {
-  color: #3fa9f5;
-}
-
-#compass-vehicle {
-  color: #9fd88f;
-}
-
-#compass-airdrop {
-  color: #ffe680;
-}
-
-#compass-subway {
-  color: #ffda47;
-}
-
-#night-banner {
-  position: absolute;
-  top: 38%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 34px;
-  font-weight: 700;
-  letter-spacing: 4px;
-  text-transform: uppercase;
-  color: #d6534a;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9);
-  opacity: 0;
-  pointer-events: none;
-}
-
-#night-banner.show {
-  animation: nightbanner 2.4s ease-out;
-}
-
-#weapon-wheel {
-  position: absolute;
-  inset: 0;
-  background: rgba(6, 8, 6, 0.55);
-  pointer-events: none;
-}
-
-#weapon-wheel-ring {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
 }
 
 .wheel-segment {
@@ -2241,79 +2087,15 @@ html[data-colorblind="redgreen"] #critical-blood-overlay {
   border-color: var(--ui-gold-bright);
 }
 
-#weapon-wheel-cursor {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #ffde5c;
-  transform: translate(-50%, -50%);
-  box-shadow: 0 0 6px rgba(255, 207, 92, 0.8);
-}
-
-#coin-popup {
-  position: absolute;
-  top: 140px;
-  right: 24px;
-  font-size: 15px;
-  font-weight: 700;
-  color: #ffe680;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
-  opacity: 0;
-  pointer-events: none;
-}
-
-#coin-popup.show {
-  animation: coinpopup 900ms ease-out;
-}
-
 @keyframes coinpopup {
   0% { opacity: 0; transform: translateY(0); }
   15% { opacity: 1; transform: translateY(-2px); }
   100% { opacity: 0; transform: translateY(-22px); }
 }
 
-#combo-counter {
-  position: absolute;
-  top: 22%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 26px;
-  font-weight: 800;
-  letter-spacing: 1px;
-  color: #ffde5c;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
-  pointer-events: none;
-}
-
-#combo-counter.pulse {
-  animation: combopulse 260ms ease-out;
-}
-
 @keyframes combopulse {
   0% { transform: translate(-50%, -50%) scale(1.35); }
   100% { transform: translate(-50%, -50%) scale(1); }
-}
-
-/* Escalating combo popup - a long chain of kills reads as visibly bigger
-   and hotter-colored than a bare-minimum combo, not just a larger number. */
-#combo-counter.combo-tier-2 {
-  font-size: 34px;
-  color: #ffd83c;
-  text-shadow: 0 2px 14px rgba(255, 110, 0, 0.55);
-}
-
-#combo-counter.combo-tier-3 {
-  font-size: 44px;
-  color: #ff4d4d;
-  text-shadow: 0 2px 18px rgba(255, 40, 20, 0.7);
-  animation: comboheat 900ms ease-in-out infinite;
-}
-
-#combo-counter.combo-tier-3.pulse {
-  animation: combopulse 260ms ease-out, comboheat 900ms ease-in-out infinite;
 }
 
 @keyframes comboheat {
@@ -2342,30 +2124,6 @@ html[data-colorblind="redgreen"] #critical-blood-overlay {
   border-radius: 5px;
   display: none;
   pointer-events: none;
-}
-
-/* Trophy wall hover tooltip (batch 9 feature) - same positioning shape as
-   #interact-prompt, sat a bit higher so it doesn't collide with it. */
-#trophy-wall-tooltip {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, 0);
-  font-size: 13px;
-  color: #f2e7b0;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-  background: rgba(0, 0, 0, 0.55);
-  padding: 5px 12px;
-  border-radius: 5px;
-  display: none;
-  pointer-events: none;
-  text-align: center;
-}
-
-#trophy-wall-tooltip .trophy-tooltip-title {
-  color: #ffe88a;
-  font-weight: 700;
-  display: block;
 }
 
 #interact-prompt b {
@@ -2400,16 +2158,6 @@ body.reduce-flashing #critical-blood-overlay.show {
   filter: opacity(0.7);
 }
 
-#ammo-station-progress-wrap,
-#breaker-box-progress-wrap {
-  position: absolute;
-  top: calc(58% + 34px);
-  left: 50%;
-  transform: translate(-50%, 0);
-  width: 160px;
-  pointer-events: none;
-}
-
 .ammo-station-bar {
   height: 8px;
   border-radius: 4px;
@@ -2423,28 +2171,6 @@ body.reduce-flashing #critical-blood-overlay.show {
   width: 0%;
   background: linear-gradient(90deg, var(--ui-gold-bright), #ffde5c);
   transition: width 100ms linear;
-}
-
-#minimap-wrap {
-  position: absolute;
-  top: 18px;
-  left: 20px;
-  display: none;
-  pointer-events: none;
-}
-
-/* Horde-density indicator (see Game.js's _checkHordeDensityAudio) - sits
-   just under the minimap circle. */
-#horde-indicator {
-  position: absolute;
-  top: 156px;
-  left: 0;
-  width: 150px;
-  text-align: center;
-  font-size: 11px;
-  font-weight: 600;
-  color: #d8483a;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
 #minimap {
@@ -2487,15 +2213,6 @@ body.reduce-flashing #critical-blood-overlay.show {
 .prestige-tier-1 { color: #c9b04b; font-weight: 700; }
 .prestige-tier-2 { color: #cfd6de; font-weight: 700; }
 .prestige-tier-3 { color: #ffde5c; font-weight: 700; text-shadow: 0 0 6px rgba(255, 211, 92, 0.5); }
-
-/* Login streak badge - shares the row with career-rank/prestige-badge
-   (all inline .menu-best-stats spans), so a short streak doesn't force a
-   new line at typical column widths. Only shown at streak >= 2 (see
-   _updateLoginStreakBadge) so a first-time player never sees "Streak 1". */
-#menu-login-streak {
-  color: var(--menu-orange) !important;
-  font-weight: 700 !important;
-}
 
 .leaderboard-row {
   display: flex;
@@ -2712,28 +2429,6 @@ html.ui-theme-old select {
   border-radius: 3px;
   border: 1px solid rgba(255, 255, 255, 0.4);
   opacity: 0.75;
-}
-
-#pickup-toast {
-  position: absolute;
-  top: 22%;
-  left: 50%;
-  transform: translate(-50%, 0);
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  color: #f2e7b0;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-  opacity: 0;
-  pointer-events: none;
-}
-
-#pickup-toast.show {
-  /* On-Screen Text Duration (accessibility, see --toast-duration-mult,
-     set from Game.js's settings.toastDuration) */
-  animation-name: toast;
-  animation-duration: calc(1.6s * var(--toast-duration-mult, 1));
-  animation-timing-function: ease-out;
 }
 
 #achievement-toast {
@@ -3071,35 +2766,6 @@ html.ui-theme-old select {
   100% { opacity: 0; transform: translate(-50%, -6px); }
 }
 
-#companion-bark {
-  position: absolute;
-  bottom: 175px;
-  left: 50%;
-  transform: translate(-50%, 0);
-  max-width: min(420px, 80vw);
-  text-align: center;
-  font-size: 13px;
-  color: var(--ui-gold-bright);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* This fixed screen position never accounted for a 3D character actually
-   standing where it renders - harmless in first person (nothing solid
-   there), but the new Minecraft-style third-person body (see
-   Game.js's localMinecraftBody) can put its own head close enough to the
-   camera to sit right under this text, especially indoors where
-   _updateThirdPerson pulls the camera in to avoid clipping through a
-   wall. Reported as "something on my head." */
-html.third-person-active #companion-bark {
-  bottom: 340px;
-}
-
-#companion-bark.show {
-  animation: companionBark 3.2s ease-out;
-}
-
 @keyframes companionBark {
   0% { opacity: 0; transform: translate(-50%, 8px); }
   12% { opacity: 1; transform: translate(-50%, 0); }
@@ -3168,36 +2834,9 @@ html.third-person-active #companion-bark {
 .kill-feed-tag-elite { background: #b45cff; color: #1a0f26; }
 .kill-feed-tag-combo { background: #4ee06f; color: #0a1c0e; }
 
-/* Screen fade transition (see Game.js's playBtn click handler) - masks the
-   otherwise-instant menu-to-game switch. Same show/hide re-trigger pattern
-   as every toast in this codebase, just a full-viewport black layer whose
-   "show" animation snaps to opaque then fades back out, rather than a
-   toggled opacity transition. */
-#screen-fade {
-  position: absolute;
-  inset: 0;
-  background: #000;
-  opacity: 0;
-  pointer-events: none;
-  z-index: 30;
-}
-
-#screen-fade.show {
-  animation: screenFadeIn 0.6s ease-out;
-}
-
 @keyframes screenFadeIn {
   0% { opacity: 1; }
   100% { opacity: 0; }
-}
-
-/* Cinematic letterbox bars (see Game.js's _toggleCinematicBars) - photo
-   mode only, purely visual. */
-#cinematic-bars {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 25;
 }
 
 .cinematic-bar {
@@ -3214,28 +2853,6 @@ html.third-person-active #companion-bark {
 
 .cinematic-bar.bottom {
   bottom: 0;
-}
-
-/* First-time tutorial hint sequence (see Game.js's _maybeShowTutorialHints)
-   - same toast-style show/hide as #companion-bark/#taunt-text, own vertical
-   slot (below #taunt-text's 220px) so a taunt during someone's very first
-   session doesn't collide with it. */
-#tutorial-hint {
-  position: absolute;
-  bottom: 265px;
-  left: 50%;
-  transform: translate(-50%, 0);
-  max-width: min(420px, 80vw);
-  text-align: center;
-  font-size: 14px;
-  color: #ffe88a;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-  opacity: 0;
-  pointer-events: none;
-}
-
-#tutorial-hint.show {
-  animation: tutorialHint 3.6s ease-out;
 }
 
 @keyframes tutorialHint {
@@ -4120,50 +3737,12 @@ section.category.hidden-search {
   100% { opacity: 0; transform: translate(-50%, -6px); }
 }
 
-#death-screen {
-  position: absolute;
-  inset: 0;
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  background: radial-gradient(ellipse at center, rgba(40, 0, 0, 0.85), rgba(0, 0, 0, 0.96));
-}
-
-#ending-panel {
-  position: absolute;
-  inset: 0;
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  padding: 40px;
-  text-align: center;
-  background: radial-gradient(ellipse at center, rgba(30, 10, 50, 0.92), rgba(4, 2, 10, 0.98));
-  z-index: 20;
-}
-
 #ending-title {
   margin: 0;
   font-size: 28px;
   letter-spacing: 4px;
   color: #8b2fe0;
   text-shadow: 0 0 20px rgba(139, 47, 224, 0.6);
-}
-
-#ending-text {
-  max-width: 560px;
-  font-size: 15px;
-  line-height: 1.6;
-  color: #d8cfe0;
-}
-
-#ending-credits {
-  font-size: 13px;
-  line-height: 1.8;
-  color: rgba(216, 207, 224, 0.55);
 }
 
 #ending-continue-btn {
@@ -4179,30 +3758,6 @@ section.category.hidden-search {
   cursor: pointer;
 }
 
-#death-stats {
-  margin: -10px 0 0;
-  font-size: 15px;
-  opacity: 0.65;
-  font-variant-numeric: tabular-nums;
-}
-
-#death-screen h1 {
-  margin: 0;
-  font-size: 52px;
-  letter-spacing: 3px;
-  color: #d64545;
-}
-
-/* Death-cam replay trail (batch feature) - a small top-down path of the
-   last ~10s before death, drawn once when the death screen shows. */
-#death-replay-canvas {
-  display: block;
-  margin: 10px auto;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(214, 69, 69, 0.4);
-  border-radius: 6px;
-}
-
 /* Personal stats dashboard (batch feature) - a small bar chart of kills
    per run, most recent on the right, in the Profile panel. */
 #stats-dashboard-canvas {
@@ -4214,22 +3769,6 @@ section.category.hidden-search {
   border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.3);
   border-radius: 6px;
   margin-bottom: 10px;
-}
-
-#respawn-btn {
-  padding: 14px 32px;
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: 1px;
-  color: #1a0c0c;
-  background: #d64545;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-#respawn-btn:hover {
-  background: #e56a6a;
 }
 
 #inventory-panel {
@@ -4258,32 +3797,6 @@ section.category.hidden-search {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   overflow: hidden;
-}
-
-/* Weapons (left) + consumable items (right), side by side instead of
-   weapons stacked underneath the long items list. */
-#inventory-columns {
-  display: flex;
-  align-items: flex-start;
-  gap: 20px;
-}
-
-#inventory-weapons-col,
-#inventory-items-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-#inventory-weapons-col .inv-panel-section {
-  width: 260px;
-}
-
-@media (max-width: 640px) {
-  #inventory-columns {
-    flex-direction: column;
-    align-items: center;
-  }
 }
 
 .inv-panel-row {
@@ -4636,48 +4149,12 @@ section.category.hidden-search {
   color: #1a1408;
 }
 
-#inventory-hint {
-  margin-top: 16px;
-  font-size: 13px;
-  opacity: 0.55;
-}
-
-#fullmap-panel {
-  position: absolute;
-  inset: 0;
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: rgba(6, 8, 6, 0.9);
-}
-
-#fullmap-panel h2 {
-  margin: 0 0 4px;
-  font-size: 15px;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: var(--ui-gold-bright);
-  opacity: 0.85;
-}
-
-#fullmap-canvas {
-  width: min(640px, 82vh, 82vw);
-  height: min(640px, 82vh, 82vw);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 6px;
-  background: #0a0d0a;
-}
-
 #fullmap-hint {
   margin-top: 4px;
   font-size: 13px;
   opacity: 0.55;
 }
 
-#perk-panel,
-#trader-panel,
 #hub-panel,
 #coming-soon-panel,
 #clan-panel,
@@ -4692,7 +4169,6 @@ section.category.hidden-search {
 #features-panel,
 #skindesigner-panel,
 #levels-panel,
-#multiplayer-panel,
 #shop-panel,
 #market-panel,
 #whatsnew-panel,
@@ -4702,12 +4178,8 @@ section.category.hidden-search {
 #other-profile-panel,
 #menu-inventory-panel,
 #server-panel,
-#xp-levelup-panel,
-#weapon-picker-panel,
 #pause-overlay,
-#journal-panel,
-#screenshot-crop-overlay,
-#quit-confirm-overlay {
+#journal-panel {
   position: absolute;
   inset: 0;
   z-index: 15;
@@ -4899,9 +4371,7 @@ section.category.hidden-search {
 
 /* Old theme's warm-brown backdrop, same 24-panel list as the rule above -
    see the palette comment on html.ui-theme-old's :root block. */
-html.ui-theme-old #perk-panel,
 html.ui-theme-old #settings-panel,
-html.ui-theme-old #trader-panel,
 html.ui-theme-old #hub-panel,
 html.ui-theme-old #coming-soon-panel,
 html.ui-theme-old #clan-panel,
@@ -4916,7 +4386,6 @@ html.ui-theme-old #features-panel,
 html.ui-theme-old #skindesigner-panel,
 html.ui-theme-old #levels-panel,
 html.ui-theme-old #privacy-panel,
-html.ui-theme-old #multiplayer-panel,
 html.ui-theme-old #shop-panel,
 html.ui-theme-old #market-panel,
 html.ui-theme-old #whatsnew-panel,
@@ -4926,12 +4395,8 @@ html.ui-theme-old #friends-panel,
 html.ui-theme-old #other-profile-panel,
 html.ui-theme-old #menu-inventory-panel,
 html.ui-theme-old #server-panel,
-html.ui-theme-old #xp-levelup-panel,
-html.ui-theme-old #weapon-picker-panel,
 html.ui-theme-old #pause-overlay,
-html.ui-theme-old #journal-panel,
-html.ui-theme-old #screenshot-crop-overlay,
-html.ui-theme-old #quit-confirm-overlay {
+html.ui-theme-old #journal-panel {
   background:
     radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.6) 100%),
     var(--grain-texture),
@@ -5103,18 +4568,6 @@ html.ui-theme-old #quit-confirm-overlay {
   border-color: var(--menu-gold);
 }
 
-/* 14 weapon cards is a lot more than the trait-draw panel's usual 3 - same
-   overflow-y override as the Achievements/Profile panels above. */
-#weapon-picker-panel {
-  overflow-y: auto;
-  padding: 24px 0;
-  justify-content: flex-start;
-}
-
-#weapon-picker-options {
-  max-width: 900px;
-}
-
 .weapon-picker-stats {
   display: block;
   font-size: 11px;
@@ -5213,8 +4666,6 @@ html.ui-theme-old #quit-confirm-overlay {
   color: #fff;
 }
 
-#perk-panel-title,
-#trader-panel-title,
 #hub-panel-title,
 #coming-soon-title,
 #upgrades-panel-title,
@@ -5235,14 +4686,9 @@ html.ui-theme-old #quit-confirm-overlay {
 #friends-panel-title,
 #menu-inventory-panel-title,
 #server-panel-title,
-#xp-levelup-panel-title,
-#weapon-picker-panel-title,
-#pause-overlay-title,
 #journal-panel-title,
 #clan-panel-title,
-#multiplayer-panel-title,
-#share-panel-title,
-#quit-confirm-title {
+#share-panel-title {
   margin: 0;
   /* Doubled from 15px per request - this is the title shown right after
      opening any of these panels (Hub, Store, Achievements, etc.), not
@@ -5273,14 +4719,9 @@ html.ui-theme-old #cloudsave-panel-title,
 html.ui-theme-old #friends-panel-title,
 html.ui-theme-old #menu-inventory-panel-title,
 html.ui-theme-old #server-panel-title,
-html.ui-theme-old #xp-levelup-panel-title,
-html.ui-theme-old #weapon-picker-panel-title,
-html.ui-theme-old #pause-overlay-title,
 html.ui-theme-old #journal-panel-title,
 html.ui-theme-old #clan-panel-title,
-html.ui-theme-old #multiplayer-panel-title,
-html.ui-theme-old #share-panel-title,
-html.ui-theme-old #quit-confirm-title {
+html.ui-theme-old #share-panel-title {
   font-family: 'Rye', Georgia, serif;
   color: #c2a06e;
   opacity: 1;
@@ -5290,15 +4731,6 @@ html.ui-theme-old #quit-confirm-title {
   margin: 0;
   text-align: center;
   opacity: 0.6;
-}
-
-#journal-content {
-  width: min(420px, 84vw);
-  max-height: 70vh;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
 }
 
 .journal-section {
@@ -5329,8 +4761,6 @@ html.ui-theme-old #quit-confirm-title {
   opacity: 0.55;
 }
 
-#perk-points-line,
-#trader-points-line,
 #upgrades-points-line {
   font-size: 14px;
   color: #ffde5c;
@@ -5349,51 +4779,12 @@ html.ui-theme-old #quit-confirm-title {
   margin-top: 0;
 }
 
-#trader-mood-line {
-  font-size: 12px;
-  font-style: italic;
-  opacity: 0.6;
-  margin-top: -4px;
-}
-
-#trader-hint {
-  margin-top: 4px;
-  font-size: 13px;
-  opacity: 0.55;
-}
-
 .iron-mode-notice,
 .shop-coming-soon {
   font-size: 13px;
   font-style: italic;
   opacity: 0.6;
   padding: 12px 0;
-}
-
-#bounty-line {
-  font-size: 13px;
-  color: #ff9dd6;
-  opacity: 0.9;
-  margin-top: -6px;
-  text-align: center;
-}
-
-#trader-salvage-title {
-  margin: 4px 0 0;
-  font-size: 12px;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  color: #7fd8c4;
-  opacity: 0.8;
-}
-
-#trader-blackmarket-title {
-  margin: 4px 0 0;
-  font-size: 12px;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  color: #c98bff;
-  opacity: 0.85;
 }
 
 /* Profile panel redesign (2026-08-26, "jammed up" complaint) - every flat
@@ -5885,18 +5276,6 @@ html.ui-theme-old #quit-confirm-title {
   text-align: center;
 }
 
-/* Run History Log list - Long-Term Goals batch. Capped-height scroll
-   rather than letting 25 entries push the whole Profile panel taller. */
-#profile-run-history-list {
-  max-height: 160px;
-  overflow-y: auto;
-  margin-top: 6px;
-  padding: 6px 8px;
-  background: rgba(0, 0, 0, 0.25);
-  border-radius: 6px;
-  text-align: left;
-}
-
 .run-history-entry {
   margin: 0;
   padding: 3px 0;
@@ -5907,12 +5286,6 @@ html.ui-theme-old #quit-confirm-title {
 
 .run-history-entry:last-child {
   border-bottom: none;
-}
-
-#profile-weekly-recap-line {
-  margin: 4px 0;
-  font-size: 12px;
-  opacity: 0.85;
 }
 
 #profile-nearly-there-list {
@@ -6120,7 +5493,6 @@ html.ui-theme-old #quit-confirm-title {
 
 #profile-anniversary-line,
 #profile-today-line,
-#profile-percentile-line,
 #profile-favorite-difficulty-line {
   margin: 4px 0;
   font-size: 12px;
@@ -6146,12 +5518,6 @@ html.ui-theme-old #quit-confirm-title {
   font-size: 12px;
 }
 
-#profile-streak-calendar {
-  display: flex;
-  gap: 4px;
-  justify-content: center;
-}
-
 .streak-day {
   display: flex;
   align-items: center;
@@ -6170,16 +5536,6 @@ html.ui-theme-old #quit-confirm-title {
   background: var(--menu-gold, var(--ui-gold-bright));
   border-color: var(--menu-gold, var(--ui-gold-bright));
   font-weight: 700;
-}
-
-#profile-activity-list {
-  max-height: 120px;
-  overflow-y: auto;
-  margin-top: 4px;
-  padding: 6px 8px;
-  background: rgba(0, 0, 0, 0.25);
-  border-radius: 6px;
-  text-align: left;
 }
 
 .activity-entry {
@@ -6319,14 +5675,9 @@ html.ui-theme-old #quit-confirm-title {
 #export-settings-code-btn,
 #import-settings-code-btn,
 #reset-graphics-defaults-btn,
-#perk-skip-btn,
-#perk-reroll-btn,
 #prestige-btn,
 #respec-btn,
 #profile-career-portrait-btn,
-#profile-print-btn,
-#profile-copy-stats-btn,
-#profile-read-aloud-btn,
 #profile-login-btn,
 #profile-register-btn,
 #profile-signout-btn,
@@ -6337,33 +5688,20 @@ html.ui-theme-old #quit-confirm-title {
 #compare-save-btn,
 #clear-leaderboards-btn,
 #copy-text-recap-btn,
-#accept-challenge-btn,
 #share-setup-btn,
 #share-profile-btn,
 #share-challenge-btn,
 #share-loadout-btn,
 #share-page-link-btn,
-#upgrades-close-btn,
-#achievements-close-btn,
-#bestiary-close-btn,
 #profile-close-btn,
-#credits-close-btn,
-#pause-resume-btn,
-#pause-settings-btn,
-#pause-quit-btn,
-#pause-upgrades-btn,
-#pause-spectate-btn,
-#pause-weapon-btn,
 #pause-invite-btn,
-#pause-save-exit-btn,
 #multiplayer-create-btn,
 #multiplayer-join-btn,
 #multiplayer-start-playing-btn,
 #screenshot-crop-save,
 #screenshot-crop-full,
 #screenshot-crop-cancel,
-#share-run-card-btn,
-#quit-confirm-cancel-btn {
+#share-run-card-btn {
   margin-top: 6px;
   padding: 8px 20px;
   font-size: 13px;
@@ -6374,33 +5712,6 @@ html.ui-theme-old #quit-confirm-title {
   border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 6px;
   cursor: pointer;
-}
-
-/* Quit (the actual destructive action, unlike Cancel above) - a red
-   outline to read as the risky choice, same --menu-red token the
-   Apex difficulty/damage-flash already use, not a one-off color. */
-#quit-confirm-exit-btn {
-  margin-top: 6px;
-  padding: 8px 20px;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  color: var(--menu-red, #c9564a);
-  background: rgba(201, 86, 74, 0.12);
-  border: 1px solid var(--menu-red, #c9564a);
-  border-radius: 6px;
-  cursor: pointer;
-}
-#quit-confirm-exit-btn:hover {
-  background: rgba(201, 86, 74, 0.25);
-}
-
-#quit-confirm-text {
-  margin: 0;
-  max-width: 360px;
-  text-align: center;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.75);
 }
 
 /* Settings Info popup body - wider than quit-confirm-text since these
@@ -6495,53 +5806,11 @@ html.ui-theme-old #quit-confirm-title {
   text-align: center;
 }
 
-#screenshot-crop-stage {
-  position: relative;
-  max-width: 82vw;
-  max-height: 68vh;
-  line-height: 0;
-  cursor: crosshair;
-  user-select: none;
-}
-
-#screenshot-crop-image {
-  display: block;
-  max-width: 82vw;
-  max-height: 68vh;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-#screenshot-crop-selection {
-  position: absolute;
-  border: 2px dashed var(--ui-gold-bright);
-  background: rgba(var(--ui-gold-accent-rgb), 0.15);
-  pointer-events: none;
-}
-
-#perk-reroll-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-#perk-skip-btn:hover,
-#perk-reroll-btn:hover:not(:disabled),
-#upgrades-close-btn:hover,
-#achievements-close-btn:hover,
-#bestiary-close-btn:hover,
 #profile-close-btn:hover,
-#credits-close-btn:hover,
-#pause-resume-btn:hover,
-#pause-settings-btn:hover,
-#pause-quit-btn:hover,
-#pause-upgrades-btn:hover,
-#pause-spectate-btn:hover,
-#pause-weapon-btn:hover,
 #pause-invite-btn:hover,
-#pause-save-exit-btn:hover,
 #multiplayer-create-btn:hover,
 #multiplayer-join-btn:hover,
-#multiplayer-start-playing-btn:hover,
-#quit-confirm-cancel-btn:hover {
+#multiplayer-start-playing-btn:hover {
   border-color: rgba(255, 255, 255, 0.5);
 }
 
@@ -6591,26 +5860,6 @@ html.ui-theme-old #quit-confirm-title {
   50% { opacity: 0.55; }
 }
 
-/* Replaces the old bottom-center hotbar bar - a compact right-aligned list
-   sitting just above #hud's big ammo readout (same right:24px anchor),
-   each row showing that weapon's OWN ammo (not just whichever's currently
-   equipped, which is all #hud alone could show). */
-#weapon-quick-list {
-  position: absolute;
-  right: 24px;
-  bottom: 90px;
-  display: none;
-  /* Reversed so slot 3 renders on top / slot 1 on bottom - visual order
-     only, DOM/JS order (and which number key selects which weapon) is
-     untouched, see Game.js's hotbarSlotEls which indexes by document
-     order. */
-  flex-direction: column-reverse;
-  align-items: flex-end;
-  gap: 4px;
-  pointer-events: none;
-  transform-origin: bottom right;
-}
-
 .weapon-quick-slot {
   display: flex;
   align-items: center;
@@ -6642,20 +5891,6 @@ html.ui-theme-old #quit-confirm-title {
 .weapon-quick-slot.legendary {
   border-color: #ffd83d;
   box-shadow: 0 0 6px rgba(255, 138, 61, 0.55);
-}
-
-/* Loadout Power Score (see Game.js's _computeLoadoutPowerScore) - a single
-   at-a-glance number for the whole loadout, sitting just above the list. */
-#hotbar-power-score {
-  position: absolute;
-  right: 24px;
-  bottom: 175px;
-  display: none;
-  font-size: 12px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.7);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-  pointer-events: none;
 }
 
 .weapon-quick-name {
@@ -7173,21 +6408,15 @@ html.reduce-transparency #quests-panel,
 html.reduce-transparency #share-panel,
 html.reduce-transparency #cloudsave-panel,
 html.reduce-transparency #howtoplay-panel,
-html.reduce-transparency #perk-panel,
-html.reduce-transparency #trader-panel,
 html.reduce-transparency #hub-panel,
 html.reduce-transparency #coming-soon-panel,
 html.reduce-transparency #clan-panel,
-html.reduce-transparency #multiplayer-panel,
 html.reduce-transparency #friends-panel,
 html.reduce-transparency #other-profile-panel,
 html.reduce-transparency #menu-inventory-panel,
 html.reduce-transparency #server-panel,
-html.reduce-transparency #xp-levelup-panel,
-html.reduce-transparency #weapon-picker-panel,
 html.reduce-transparency #pause-overlay,
-html.reduce-transparency #journal-panel,
-html.reduce-transparency #screenshot-crop-overlay {
+html.reduce-transparency #journal-panel {
   background: #0a0a0a !important;
   backdrop-filter: none !important;
 }
@@ -7748,23 +6977,6 @@ html.theme-lighter #app { filter: brightness(1.25); }
   border-color: var(--menu-gold);
 }
 
-#multiplayer-link-row {
-  display: flex;
-  gap: 8px;
-  width: 100%;
-  max-width: 360px;
-}
-
-#multiplayer-link-input {
-  flex: 1;
-  padding: 8px 12px;
-  font-size: 13px;
-  color: #e8e8e2;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 8px;
-}
-
 .menu-preset-row {
   display: flex;
   align-items: center;
@@ -8063,52 +7275,6 @@ html.ui-theme-old #menu-title-img.logo-tier-5 {
   max-width: 420px;
 }
 
-/* Spotlight line - distinct from the decluttered .menu-news-ticker above
-   (that one stays hidden per the reference-image pass), a single new
-   compact rotating line (tip of the day / daily reset countdown /
-   featured weekly challenge - see _updateMenuSpotlight). */
-#menu-spotlight-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-#menu-spotlight {
-  margin: 0;
-  font-size: 12px;
-  font-style: italic;
-  letter-spacing: 0.2px;
-  color: var(--menu-text-dim);
-  opacity: 0.75;
-  min-height: 15px;
-}
-
-#menu-spotlight-pause-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  padding: 0;
-  margin-top: 0;
-  color: var(--menu-text-dim);
-  opacity: 0.55;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-#menu-spotlight-pause-btn:hover {
-  opacity: 0.9;
-}
-
-#menu-spotlight-pause-btn svg {
-  width: 12px;
-  height: 12px;
-}
-
 /* Seasonal Event Banner - display:none year-round except inside a
    defined date window (see EVENT_BANNERS in Game.js), so it costs zero
    vertical space almost all the time. */
@@ -8122,13 +7288,6 @@ html.ui-theme-old #menu-title-img.logo-tier-5 {
   background: rgba(224, 138, 79, 0.12);
   border: 1px solid rgba(224, 138, 79, 0.4);
   border-radius: 3px;
-}
-
-#menu-hero-stats {
-  display: flex;
-  align-items: center;
-  gap: 30px;
-  margin: 3px 0;
 }
 
 .hero-stat {
@@ -8423,23 +7582,6 @@ html.ui-theme-old #settings-btn {
   font-size: 12px;
   opacity: 0.6;
   line-height: 1.55;
-}
-
-#accept-challenge-btn {
-  margin-top: 4px;
-  padding: 8px 20px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.4px;
-  color: var(--menu-red);
-  background: rgba(201, 86, 74, 0.1);
-  border: 1px solid rgba(201, 86, 74, 0.5);
-  border-radius: 20px;
-  cursor: pointer;
-}
-
-#accept-challenge-btn:hover {
-  background: rgba(201, 86, 74, 0.2);
 }
 
 /* True top-left corner overlay - independent of #menu-layout's grid (was
@@ -9037,70 +8179,6 @@ html.ui-theme-old #homepage-greeting {
   justify-content: center;
   gap: 6px;
   margin: 0 0 10px;
-}
-
-/* Season Progress - a thin bar showing progress toward the next Career
-   Rank tier (see _updateSeasonProgress), reusing the existing
-   careerStats.totalKills/CAREER_RANK_TITLES ladder rather than a new
-   XP system. */
-#season-progress-track {
-  width: 100%;
-  max-width: 140px;
-  height: 5px;
-  margin-top: 4px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-#season-progress-fill {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, var(--menu-bronze), var(--menu-gold));
-  transition: width 0.4s ease;
-}
-
-/* Weekly Challenge - the same track/fill visual language as Season
-   Progress above, thinner since it's a secondary indicator under the
-   ticker rather than the hero column's main progress bar. display:none
-   by default (only shown once a weekly challenge is actually active). */
-#weekly-progress-track {
-  width: 100%;
-  max-width: 220px;
-  height: 2px;
-  margin: 1px auto 0;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-#weekly-progress-fill {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, var(--menu-green), #a8e8c0);
-  transition: width 0.4s ease;
-}
-
-/* "X kills to next rank" - a concrete number under the bar, see
-   _updateSeasonProgress. Hidden once maxed (no next tier). */
-#season-progress-label {
-  margin: 2px 0 0;
-  font-size: 10px;
-  color: var(--menu-text-dim);
-}
-
-/* Achievement Showcase - up to 3 pinned achievement badges next to the
-   player tag (see _cycleShowcaseSlot). Each slot cycles through your
-   unlocked achievements on click - no separate picker modal needed for
-   just 3 slots. Always shows the full achievement name (tag + name),
-   stacked in a column since 3 full names side by side would overflow the
-   290px right column. */
-#achievement-showcase-row {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  margin-top: 2px;
 }
 
 .showcase-slot {
@@ -9706,16 +8784,6 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
     height: 20px;
   }
 
-  /* At this height the card-list cap alone isn't enough (fixed-px content
-     doesn't shrink with a vh-relative cap the way the card list does) -
-     sacrifice the purely-decorative Spotlight ticker and tighten
-     panel padding/column gaps further, same "genuinely short windows
-     lose the nice-to-haves first" precedent as #round-mode-hint/
-     #controls-list above. */
-  #menu-spotlight {
-    display: none;
-  }
-
   #menu-col-left,
   #menu-col-right {
     gap: 6px;
@@ -9725,8 +8793,7 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
     padding: 6px 12px;
   }
 
-  .menu-preset-row,
-  #achievement-showcase-row {
+  .menu-preset-row {
     display: none;
   }
 
@@ -9757,11 +8824,6 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
 
   .hero-stat-divider {
     height: 33px;
-  }
-
-  #menu-hero-stats {
-    gap: 26px;
-    margin: 2px 0;
   }
 
   #play-btn {
@@ -9861,11 +8923,6 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
 
   .hero-stat-divider {
     height: 25.5px;
-  }
-
-  #menu-hero-stats {
-    gap: 18px;
-    margin: 1px 0;
   }
 
   #play-btn {
@@ -10773,7 +9830,6 @@ html.ui-theme-old #settings-panel h2 {
 #profile-panel,
 #achievements-panel,
 #hub-panel,
-#weapon-picker-panel,
 #credits-content,
 #terms-content,
 #privacy-content,
@@ -10782,9 +9838,6 @@ html.ui-theme-old #settings-panel h2 {
 #whatsnew-content,
 #whats-new-digest-list,
 #cloudsave-online-section,
-#journal-content,
-#profile-run-history-list,
-#profile-activity-list,
 #menu-boards,
 .build-picker-grid {
   scrollbar-width: thin;
@@ -10794,7 +9847,6 @@ html.ui-theme-old #settings-panel h2 {
 #profile-panel::-webkit-scrollbar,
 #achievements-panel::-webkit-scrollbar,
 #hub-panel::-webkit-scrollbar,
-#weapon-picker-panel::-webkit-scrollbar,
 #credits-content::-webkit-scrollbar,
 #terms-content::-webkit-scrollbar,
 #privacy-content::-webkit-scrollbar,
@@ -10803,9 +9855,6 @@ html.ui-theme-old #settings-panel h2 {
 #whatsnew-content::-webkit-scrollbar,
 #whats-new-digest-list::-webkit-scrollbar,
 #cloudsave-online-section::-webkit-scrollbar,
-#journal-content::-webkit-scrollbar,
-#profile-run-history-list::-webkit-scrollbar,
-#profile-activity-list::-webkit-scrollbar,
 #menu-boards::-webkit-scrollbar,
 .build-picker-grid::-webkit-scrollbar {
   width: 8px;
@@ -10814,7 +9863,6 @@ html.ui-theme-old #settings-panel h2 {
 #profile-panel::-webkit-scrollbar-track,
 #achievements-panel::-webkit-scrollbar-track,
 #hub-panel::-webkit-scrollbar-track,
-#weapon-picker-panel::-webkit-scrollbar-track,
 #credits-content::-webkit-scrollbar-track,
 #terms-content::-webkit-scrollbar-track,
 #privacy-content::-webkit-scrollbar-track,
@@ -10823,9 +9871,6 @@ html.ui-theme-old #settings-panel h2 {
 #whatsnew-content::-webkit-scrollbar-track,
 #whats-new-digest-list::-webkit-scrollbar-track,
 #cloudsave-online-section::-webkit-scrollbar-track,
-#journal-content::-webkit-scrollbar-track,
-#profile-run-history-list::-webkit-scrollbar-track,
-#profile-activity-list::-webkit-scrollbar-track,
 #menu-boards::-webkit-scrollbar-track,
 .build-picker-grid::-webkit-scrollbar-track {
   background: transparent;
@@ -10834,7 +9879,6 @@ html.ui-theme-old #settings-panel h2 {
 #profile-panel::-webkit-scrollbar-thumb,
 #achievements-panel::-webkit-scrollbar-thumb,
 #hub-panel::-webkit-scrollbar-thumb,
-#weapon-picker-panel::-webkit-scrollbar-thumb,
 #credits-content::-webkit-scrollbar-thumb,
 #terms-content::-webkit-scrollbar-thumb,
 #privacy-content::-webkit-scrollbar-thumb,
@@ -10843,9 +9887,6 @@ html.ui-theme-old #settings-panel h2 {
 #whatsnew-content::-webkit-scrollbar-thumb,
 #whats-new-digest-list::-webkit-scrollbar-thumb,
 #cloudsave-online-section::-webkit-scrollbar-thumb,
-#journal-content::-webkit-scrollbar-thumb,
-#profile-run-history-list::-webkit-scrollbar-thumb,
-#profile-activity-list::-webkit-scrollbar-thumb,
 #menu-boards::-webkit-scrollbar-thumb,
 .build-picker-grid::-webkit-scrollbar-thumb {
   background: rgba(var(--ui-gold-accent-rgb), 0.6);
@@ -10855,7 +9896,6 @@ html.ui-theme-old #settings-panel h2 {
 #profile-panel::-webkit-scrollbar-thumb:hover,
 #achievements-panel::-webkit-scrollbar-thumb:hover,
 #hub-panel::-webkit-scrollbar-thumb:hover,
-#weapon-picker-panel::-webkit-scrollbar-thumb:hover,
 #credits-content::-webkit-scrollbar-thumb:hover,
 #terms-content::-webkit-scrollbar-thumb:hover,
 #privacy-content::-webkit-scrollbar-thumb:hover,
@@ -10864,9 +9904,6 @@ html.ui-theme-old #settings-panel h2 {
 #whatsnew-content::-webkit-scrollbar-thumb:hover,
 #whats-new-digest-list::-webkit-scrollbar-thumb:hover,
 #cloudsave-online-section::-webkit-scrollbar-thumb:hover,
-#journal-content::-webkit-scrollbar-thumb:hover,
-#profile-run-history-list::-webkit-scrollbar-thumb:hover,
-#profile-activity-list::-webkit-scrollbar-thumb:hover,
 #menu-boards::-webkit-scrollbar-thumb:hover,
 .build-picker-grid::-webkit-scrollbar-thumb:hover {
   background: rgba(var(--ui-gold-accent-rgb), 0.8);
@@ -11166,12 +10203,6 @@ html.ui-theme-old #settings-panel h2 {
   content: '\25BC';
 }
 
-#settings-hint {
-  margin-top: 16px;
-  font-size: 13px;
-  opacity: 0.55;
-}
-
 /* Upgrades/Achievements/Bestiary/Profile/Credits/Coin Shop panels - same
    "no explicit Close button, click the backdrop instead" pattern as
    Settings above (see the matching click-outside handlers in Game.js). */
@@ -11346,52 +10377,13 @@ html.ui-theme-old #settings-panel h2 {
   50% { opacity: 1; }
 }
 
-/* Night Vision Goggles (batch 5 feature) - unlike sandstorm's multiply
-   blend (darkens), this uses screen blend (brightens) plus a brightness
-   filter on #app itself for the classic "everything lit green" NVG look. */
-#night-vision-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(60, 255, 90, 0.16);
-  mix-blend-mode: screen;
-  pointer-events: none;
-}
-
 html.night-vision-active #app {
   filter: brightness(1.55) saturate(1.15) hue-rotate(-12deg);
-}
-
-#nightmare-overlay {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(ellipse at center, rgba(140, 0, 0, 0) 35%, rgba(140, 0, 0, 0.28) 100%);
-  mix-blend-mode: multiply;
-  animation: nightmare-pulse 3.5s ease-in-out infinite;
 }
 
 @keyframes nightmare-pulse {
   0%, 100% { opacity: 0.75; }
   50% { opacity: 1; }
-}
-
-#boss-health-wrap {
-  position: absolute;
-  top: 54px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(420px, 70vw);
-  text-align: center;
-  pointer-events: none;
-}
-
-#boss-name {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: #ff6b6b;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-  margin-bottom: 4px;
 }
 
 .boss-health-bar {
@@ -11407,16 +10399,6 @@ html.night-vision-active #app {
   width: 100%;
   background: linear-gradient(90deg, #ff6b6b, #d62c2c);
   transition: width 200ms ease-out;
-}
-
-#koth-wrap {
-  position: absolute;
-  top: 100px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(340px, 60vw);
-  text-align: center;
-  pointer-events: none;
 }
 
 #koth-label {
@@ -11436,16 +10418,6 @@ html.night-vision-active #app {
   transition: width 150ms ease-out;
 }
 
-#extraction-wrap {
-  position: absolute;
-  top: 100px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(340px, 60vw);
-  text-align: center;
-  pointer-events: none;
-}
-
 #extraction-label {
   font-size: 12px;
   font-weight: 700;
@@ -11463,39 +10435,11 @@ html.night-vision-active #app {
   transition: width 150ms ease-out;
 }
 
-#zombie-defense-wrap {
-  position: absolute;
-  top: 146px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(340px, 60vw);
-  text-align: center;
-  pointer-events: none;
-}
-
-#zombie-defense-label {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: #ffdb4a;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-  margin-bottom: 4px;
-}
-
 .zombie-defense-fill {
   height: 100%;
   width: 100%;
   background: linear-gradient(90deg, #ffdb4a, #d9b31a);
   transition: width 200ms ease-out;
-}
-
-#daily-wrap {
-  position: absolute;
-  top: 178px;
-  left: 20px;
-  width: 150px;
-  pointer-events: none;
 }
 
 #daily-label {
@@ -11511,76 +10455,6 @@ html.night-vision-active #app {
   font-size: 11px;
   color: #d8d8d0;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-}
-
-/* Stacked below #daily-wrap (top: 178px + its own ~30px height) so the
-   two never overlap if Daily Challenge and Zombie Rush both end up active
-   in the same run. */
-#zombie-rush-wrap {
-  position: absolute;
-  top: 214px;
-  left: 20px;
-  width: 150px;
-  pointer-events: none;
-}
-
-#zombie-rush-timer {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  color: #ffdb4a;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-  margin-bottom: 2px;
-}
-
-#zombie-rush-best {
-  font-size: 11px;
-  color: #d8d8d0;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-}
-
-#extraction-screen {
-  position: absolute;
-  inset: 0;
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  text-align: center;
-  background: radial-gradient(ellipse at center, rgba(10, 45, 25, 0.9), rgba(0, 10, 4, 0.97));
-  z-index: 20;
-}
-
-#extraction-title {
-  margin: 0;
-  font-size: 48px;
-  letter-spacing: 3px;
-  color: #6fe08a;
-  text-shadow: 0 0 20px rgba(111, 224, 138, 0.5);
-}
-
-#extraction-stats {
-  margin: -10px 0 0;
-  font-size: 15px;
-  opacity: 0.75;
-  font-variant-numeric: tabular-nums;
-}
-
-#extraction-continue-btn {
-  padding: 14px 32px;
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: 1px;
-  color: #06170c;
-  background: #6fe08a;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-#extraction-continue-btn:hover {
-  background: #8fe8a4;
 }
 
 /* Graphics-connection-lost panel - can appear over literally any other
@@ -11712,45 +10586,6 @@ html.night-vision-active #app {
   opacity: 1;
 }
 
-/* Touch Controls (mobile/tablet playability, part 1 of 3 - see
-   docs/superpowers/specs/2026-08-26-touch-controls-design.md). Sits above
-   ordinary gameplay HUD (no explicit z-index, effectively 0 via DOM
-   order) but below the panel tier (15) per this file's existing z-index
-   scale, so the More Actions menu (a real full-screen panel) still uses
-   that same tier. Pixel positions here are a first pass for reachability,
-   not final visual polish - small-screen layout is a later, separate
-   sub-project. */
-#touch-controls-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 8;
-  touch-action: none;
-  user-select: none;
-}
-
-#touch-joystick-base {
-  position: absolute;
-  left: 30px;
-  bottom: 30px;
-  width: 110px;
-  height: 110px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
-  border: 2px solid rgba(255, 255, 255, 0.25);
-}
-
-#touch-joystick-knob {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 50px;
-  height: 50px;
-  margin: -25px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.35);
-  pointer-events: none;
-}
-
 .touch-action-btn {
   position: absolute;
   width: 64px;
@@ -11779,25 +10614,6 @@ html.night-vision-active #app {
   height: 44px;
   top: 30px;
 }
-#touch-btn-weapon-1 { right: 200px; }
-#touch-btn-weapon-2 { right: 150px; }
-#touch-btn-weapon-3 { right: 100px; }
-#touch-btn-weapon-4 { right: 50px; }
-
-#touch-more-actions-menu {
-  position: fixed;
-  inset: 0;
-  z-index: 15;
-  background: rgba(10, 8, 4, 0.92);
-  padding: 24px;
-  overflow-y: auto;
-}
-
-#touch-more-actions-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-  gap: 12px;
-}
 
 .touch-more-action-btn {
   display: flex;
@@ -11810,17 +10626,6 @@ html.night-vision-active #app {
   border-radius: 8px;
   color: #fff;
   font-size: 12px;
-}
-
-/* Portrait rotate prompt - superseded 2026-09-20 by a real portrait HUD
-   layout below (was "mobile playability, part 3 of 3": a temporary
-   "please rotate" stopgap after a real overlap was found between the
-   touch buttons and the chat feed in portrait, deliberately deferred
-   rather than half-fixed at the time). #touch-rotate-prompt itself and
-   its icon/animation are kept, unused, in case a genuinely broken future
-   layout ever needs the same escape hatch again - just never shown now. */
-#touch-rotate-prompt {
-  display: none;
 }
 
 /* Real portrait touch layout (2026-09-20). Landscape's positions (default
@@ -11857,10 +10662,6 @@ html.night-vision-active #app {
     bottom: auto;
     top: 112px;
     gap: 4px !important;
-  }
-
-  #status-hud {
-    gap: 3px;
   }
 
   .status-bar {
@@ -11919,25 +10720,6 @@ html.night-vision-active #app {
     font-size: 11px;
   }
 
-  /* Was a vertical column-reverse stack, right-aligned under the weapon-
-     switch row - turned into a compact horizontal row below the
-     weapon-switch buttons (.touch-weapon-btn, top:190px + 36px tall from
-     the compact-grid query above, still active here too) instead, since
-     a portrait screen has width to spare on the right edge but the
-     vertical stack collided with wherever else it landed. top:250 (not
-     235) - the row is wider than its 3 short weapon names suggest (name
-     + ammo count per slot adds up), reaching left to about x=95 on a
-     375-wide screen, which at 235 still clipped #left-hud-stack's own
-     bottom-right corner (confirmed via a real getBoundingClientRect
-     overlap check: an 8px-tall sliver). */
-  #weapon-quick-list {
-    top: 250px;
-    right: 12px;
-    bottom: auto;
-    flex-direction: row;
-    align-items: flex-start;
-  }
-
   .weapon-quick-slot {
     padding: 2px 5px;
   }
@@ -11970,15 +10752,6 @@ html.night-vision-active #app {
     right: 10px !important;
     transform: translateY(-50%);
   }
-}
-
-#touch-rotate-icon {
-  width: 34px;
-  height: 54px;
-  border: 3px solid #e0d8cf;
-  border-radius: 5px;
-  transform: rotate(90deg);
-  animation: touch-rotate-icon-spin 1.8s ease-in-out infinite;
 }
 
 @keyframes touch-rotate-icon-spin {
@@ -13136,78 +11909,6 @@ body.build-mode-on #chat-panel {
    item slots (4-0, HOTBAR_ITEMS in Game.js) as one row of squares along
    the bottom middle, like the Map Editor's hotbar. Mouse/keyboard screens
    only - touch screens keep their own layout (weapon row, item buttons). */
-@media (hover: hover), (pointer: fine) {
-  #weapon-quick-list {
-    left: 0;
-    right: 0;
-    bottom: 18px;
-    width: fit-content;
-    margin: 0 auto;
-    flex-direction: row;
-    align-items: stretch;
-    gap: 5px;
-    padding: 5px;
-    background: rgba(8, 8, 7, 0.62);
-    border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.3);
-    border-radius: 8px;
-    transform-origin: bottom center;
-  }
-
-  #weapon-quick-list .weapon-quick-slot {
-    position: relative;
-    flex-direction: column;
-    justify-content: flex-end;
-    align-items: center;
-    gap: 1px;
-    width: 58px;
-    height: 58px;
-    padding: 4px 3px 3px;
-    box-sizing: border-box;
-    border-radius: 6px;
-    border-color: rgba(255, 255, 255, 0.14);
-    background: rgba(0, 0, 0, 0.35);
-  }
-
-  #weapon-quick-list .weapon-quick-num {
-    position: absolute;
-    top: 2px;
-    left: 5px;
-    font-size: 12px;
-    opacity: 0.7;
-  }
-
-  #weapon-quick-list .weapon-quick-name {
-    max-width: 52px;
-    font-size: 10px;
-    text-align: center;
-  }
-
-  #weapon-quick-list .weapon-quick-ammo {
-    min-width: 0;
-    font-size: 13px;
-    text-align: center;
-  }
-
-  /* The gun in your hands, and the mastery borders (the bar's own border
-     rule above would otherwise win over them). */
-  #weapon-quick-list .weapon-quick-slot.active {
-    border-color: var(--ui-gold-bright);
-    background: rgba(var(--ui-gold-accent-rgb), 0.22);
-  }
-
-  #weapon-quick-list .weapon-quick-slot.mastered:not(.active) { border-color: #ffde5c; }
-  #weapon-quick-list .weapon-quick-slot.grandmastered:not(.active) { border-color: #7ce0ff; }
-  #weapon-quick-list .weapon-quick-slot.legendary:not(.active) { border-color: #ffd83d; }
-
-  /* Weapon slots: name in the middle, ammo under it. */
-  #weapon-quick-list .weapon-quick-slot:not(.hotbar-item-slot) {
-    justify-content: center;
-  }
-
-  #hotbar-power-score {
-    bottom: 96px;
-  }
-}
 
 .hotbar-item-icon {
   display: flex;
@@ -13255,24 +11956,6 @@ body.build-mode-on #chat-panel {
   .hotbar-item-slot {
     display: none !important;
   }
-}
-
-/* M: a bigger minimap, then a big one in the middle of the screen (the
-   game keeps running underneath, so it's a little see-through). */
-#minimap-wrap.minimap-big #horde-indicator,
-#minimap-wrap.minimap-center #horde-indicator {
-  display: none !important;
-}
-
-#minimap-wrap.minimap-center {
-  position: fixed;
-  inset: 0;
-  margin: auto;
-  width: fit-content;
-  height: fit-content;
-  z-index: 6;
-  transform: none;
-  opacity: calc(var(--hud-opacity) * 0.88);
 }
 
 /* Try Map's minimap (BuildTryMode.js): a square in the top-right corner;

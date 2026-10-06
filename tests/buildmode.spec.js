@@ -662,14 +662,43 @@ test('Map 3 camp NPCs show in the Map Editor too', async ({ page }) => {
 
 // The homepage Play button starts the block city's zombie waves - the old
 // Map 1 city is gone and the block city is Map 1 now (internal slot 'map3').
+// Its run uses the Game Mode panel's picks and the Upgrades bought
+// (PlayRules.js), and a finished run is recorded (stats, Legacy Points).
 test('Play starts the block city (Map 1) zombie waves', async ({ page }) => {
   await gotoAndWaitForGame(page)
-  await page.evaluate(() => window.__game.playBtn.click())
+  await page.evaluate(() => {
+    const g = window.__game
+    g.settings.difficulty = 'hard'
+    g.settings.loadout = 'tank'
+    g.settings.selectedGameMode = 'bossHunt'
+    g.settings.mutators.glassHouse = true
+    g.metaProgress.purchased.add('vitality')
+    g.playBtn.click()
+  })
   await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
-  const r = await page.evaluate(() => ({
-    slot: window.__game.buildMode.activeSlot,
-    hidden: ['upgrades-btn', 'quests-btn', 'server-btn'].every((id) => getComputedStyle(document.getElementById(id)).display === 'none'),
-    maps: [...document.querySelectorAll('#map-select-grid [data-map]')].map((b) => b.dataset.map).join(),
-  }))
-  expect(r).toEqual({ slot: 'map3', hidden: true, maps: 'map3,map2' })
+  const r = await page.evaluate(() => {
+    const g = window.__game
+    const s = g.buildMode.survival
+    const before = { runs: g.careerStats.totalRuns, legacy: g.metaProgress.legacyPoints }
+    const out = {
+      slot: g.buildMode.activeSlot,
+      shown: ['upgrades-btn', 'quests-btn', 'server-btn'].every((id) => getComputedStyle(document.getElementById(id)).display !== 'none'),
+      maps: [...document.querySelectorAll('#map-select-grid [data-map]')].map((b) => b.dataset.map).join(),
+      // Tank: 135, + Vitality's 50.
+      maxHealth: s.maxHealth,
+      mode: s.cfg.mode,
+      bossEvery: s.cfg.bossEvery,
+      // Glass House doubles damage both ways.
+      glass: s.cfg.damageMult === 2 && s.cfg.zombieDamageMult === 2 * 1.4,
+    }
+    s.kills = 10
+    s.wave = 3
+    s.health = 0
+    s._die()
+    out.runs = g.careerStats.totalRuns - before.runs
+    // (10 kills x 10 + 2 waves x 50) x 0.2
+    out.legacy = g.metaProgress.legacyPoints - before.legacy
+    return out
+  })
+  expect(r).toEqual({ slot: 'map3', shown: true, maps: 'map3,map2', maxHealth: 185, mode: 'bossHunt', bossEvery: 3, glass: true, runs: 1, legacy: 40 })
 })

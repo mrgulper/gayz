@@ -120,7 +120,8 @@ const CRATE_ICON_SVG = {
     <circle cx="19.2" cy="8.7" r="0.3" fill="#fff" opacity="0.8"/>
   </svg>`,
 }
-import { META_UPGRADES, loadMetaProgress, saveMetaProgress } from './MetaProgress.js'
+import { META_UPGRADES, loadMetaProgress, saveMetaProgress, DEATH_POINTS_CONVERSION } from './MetaProgress.js'
+import { playConfig, UPGRADE_PLAY, POINTS_PER_KILL, POINTS_PER_WAVE, DEFENSE_WAVES, BOSS_HUNT_EVERY } from './PlayRules.js'
 import { ZOMBIE_TYPES } from './ZombieTypes.js'
 import { loadEncountered } from './Bestiary.js'
 import { ACTIONS, getKeyFor, setBinding, resetBindings, keyLabel, getAllBindings, setAllBindings } from './Keybinds.js'
@@ -190,6 +191,10 @@ export const LOADOUT_LABEL_KEYS = { balanced: 'loadoutBalanced', runner: 'loadou
 // against bestStats.bestNight.
 const NEWS_TICKER_MID_NIGHT = 5
 const NEWS_TICKER_LATE_NIGHT = 15
+// The Upgrades panel lists only the upgrades that do something in a Map 1
+// run (PlayRules.js's UPGRADE_PLAY); the rest wait for a block-city version.
+const PLAY_META_UPGRADES = META_UPGRADES.filter((u) => UPGRADE_PLAY[u.id])
+
 const DIFFICULTY_PRESETS = {
   easy: { damageMult: 0.7, spawnRateMult: 0.75, healthMult: 0.8, eliteChanceMult: 0.6, lootMult: 1.3 },
   normal: { damageMult: 1, spawnRateMult: 1, healthMult: 1, eliteChanceMult: 1, lootMult: 1 },
@@ -712,7 +717,8 @@ function loadWeeklyChallenge() {
 // week-seed technique WEEKLY_CHALLENGES above already uses, nudging
 // players toward trying a different mutator each week via a coin bonus -
 // never forced, the player still has to check the box themselves.
-const WEEKLY_FEATURED_MUTATORS = ['hordeRush', 'pureGunplay', 'bossRush', 'hordeMode', 'glassHouse', 'scavenger', 'featuredEnemy', 'blackout']
+// Only mutators with a block-city version (PlayRules.js's PLAY_MUTATORS).
+const WEEKLY_FEATURED_MUTATORS = ['hordeRush', 'lootRush', 'bossRush', 'healthRegen', 'glassHouse', 'escalation']
 const WEEKLY_FEATURED_MUTATOR_BONUS_COINS = 50
 const GLOBAL_KILLS_MILESTONE_STEP = 100000
 // Renamed from WEEKLY_FEATURED_MUTATOR_LABEL_KEYS (Online Features batch)
@@ -1639,7 +1645,7 @@ const HOWTOPLAY_STEPS = [
   { key: 'htpMove', headingKey: 'htpHeadingMovement', code: '' },
   { key: 'htpWavesShoot', headingKey: 'htpHeadingCombat', code: 'RELOAD_TIME' },
   { key: 'htpWavesCamp', headingKey: 'htpHeadingTrader', code: 'SHOP_ITEMS CAMP_QUESTS' },
-  { key: 'htpWavesWaves', headingKey: 'htpHeadingSurvival', code: 'waveSize zombieSpeed' },
+  { key: 'htpWavesWaves', headingKey: 'htpHeadingSurvival', code: 'waveSize zombieSpeed playConfig' },
   { key: 'htpRules', headingKey: 'htpHeadingRules', code: '' },
 ]
 
@@ -2048,7 +2054,6 @@ const POLL_OPTIONS = [
   { id: 'coop_multiplayer', labelKey: 'pollOptionCoop' },
 ]
 
-const DAMAGE_NUMBER_MAX_CONCURRENT = 40
 
 
 const FOG_PATCH_MIN_DELAY_MS = 40000
@@ -2398,37 +2403,6 @@ export class Game {
     this._fpsFrameCount = 0
     this._fpsLastUpdate = performance.now()
 
-    // Same idea as the fps counter - a real, always-visible number instead
-    // of guessing where a bug report is happening from a screenshot's
-    // background scenery/compass (which shows facing-direction landmarks,
-    // not necessarily nearby ones, so it can't reliably localize a report).
-    this.coordsEl = document.createElement('div')
-    this.coordsEl.id = 'coords-readout'
-    this.coordsEl.style.cssText = 'position:fixed;top:28px;left:6px;background:rgba(0,0,0,0.55);color:#8fc8ff;font:13px monospace;padding:3px 7px;border-radius:4px;z-index:9999;pointer-events:none;opacity:0;transition:opacity 0.8s ease;'
-    this.coordsEl.textContent = 'x:0 z:0 y:0'
-    document.body.appendChild(this.coordsEl)
-    // Spectate mode's own HUD label (see _enterSpectate/_exitSpectate) -
-    // bottom-left rather than stacked with fpsEl/coordsEl's top-left column
-    // since it's a mode indicator, not a debug readout, and should read
-    // clearly on its own even with those two also visible.
-    this.spectatingLabelEl = document.createElement('div')
-    this.spectatingLabelEl.id = 'spectating-label'
-    // Matches the pause menu's own button look (#pause-resume-btn etc. in
-    // style.css) - dark translucent panel, thin white-ish border, gold
-    // accent text - rather than an ad-hoc one-off style, per direct
-    // feedback that it should look consistent with Resume/Upgrades/etc.
-    this.spectatingLabelEl.style.cssText = 'position:fixed;bottom:10px;left:10px;background:rgba(0,0,0,0.55);color:#e3c23c;font-size:13px;font-weight:600;letter-spacing:0.5px;padding:8px 20px;border:1px solid rgba(255,255,255,0.25);border-radius:6px;z-index:9999;pointer-events:none;display:none;'
-    this.spectatingLabelEl.textContent = t('spectatingLabel')
-    document.body.appendChild(this.spectatingLabelEl)
-    // Frame-Time Graph (opt-in, see settings.frameTimeGraph) - same
-    // fixed-position/opacity-fade pattern as fpsEl/coordsEl above, a
-    // small canvas sparkline instead of text.
-    this.frameTimeCanvas = document.createElement('canvas')
-    this.frameTimeCanvas.id = 'frame-time-canvas'
-    this.frameTimeCanvas.width = 120
-    this.frameTimeCanvas.height = 30
-    this.frameTimeCanvas.style.cssText = 'position:fixed;top:50px;left:6px;background:rgba(0,0,0,0.55);border-radius:4px;z-index:9999;pointer-events:none;opacity:0;transition:opacity 0.8s ease;'
-    document.body.appendChild(this.frameTimeCanvas)
     // Auto-enable Performance Mode on genuinely bad, sustained frame rate
     // instead of leaving it as a settings checkbox someone has to already
     // know exists - a user reporting single-digit fps shouldn't need to
@@ -2459,27 +2433,6 @@ export class Game {
     this.playBtn = document.getElementById('play-btn')
     this.continueRunBtn = document.getElementById('continue-run-btn')
     this.buildModeLoadingOverlay = document.getElementById('build-mode-loading-overlay')
-    this.crosshair = document.getElementById('crosshair')
-    this.damageNumbersEl = document.getElementById('damage-numbers')
-    // Pooled damage-number DOM nodes (see _spawnDamageNumber) - built once
-    // up front at exactly DAMAGE_NUMBER_MAX_CONCURRENT capacity, cycled
-    // through round-robin instead of createElement/remove per hit.
-    this._damageNumberPool = []
-    for (let i = 0; i < DAMAGE_NUMBER_MAX_CONCURRENT; i++) {
-      const el = document.createElement('div')
-      el.style.display = 'none'
-      this.damageNumbersEl.appendChild(el)
-      this._damageNumberPool.push(el)
-    }
-    this.hudEl = document.getElementById('hud')
-    this.statusHudEl = document.getElementById('status-hud')
-    this.hotbarEl = document.getElementById('weapon-quick-list')
-    this.hotbarSlotEls = Array.from(this.hotbarEl.querySelectorAll('.weapon-quick-slot'))
-    this.hotbarPowerScoreEl = document.getElementById('hotbar-power-score')
-    this.statusHud = document.getElementById('status-hud')
-    this.damageFlash = document.getElementById('damage-flash')
-    this.criticalBloodOverlay = document.getElementById('critical-blood-overlay')
-    this.respawnBtn = document.getElementById('respawn-btn')
     // Session-only (not persisted to settings) - a lightweight convenience
     // toggle for a long inventory list, not a durable preference worth its
     // own load/save plumbing.
@@ -2488,20 +2441,7 @@ export class Game {
     // slot the clicked button belongs to off its own data attributes.
     this.hunger = 100
     this.thirst = 100
-    this.progressHud = document.getElementById('progress-hud')
-    this.weaponWheel = document.getElementById('weapon-wheel')
-    this.compassStrip = document.getElementById('compass-strip')
-    this.compassTrader = document.getElementById('compass-trader')
-    this.compassAmmo = document.getElementById('compass-ammo')
-    this.compassVehicle = document.getElementById('compass-vehicle')
-    this.compassAirdrop = document.getElementById('compass-airdrop')
-    this.deathStats = document.getElementById('death-stats')
-    this.deathCauseBreakdown = document.getElementById('death-cause-breakdown')
     this.statsDashboardCanvas = document.getElementById('stats-dashboard-canvas')
-    this.endingText = document.getElementById('ending-text')
-    this.endingCredits = document.getElementById('ending-credits')
-    this.endingContinueBtn = document.getElementById('ending-continue-btn')
-    this.interactPrompt = document.getElementById('interact-prompt')
     this.rainOverlayEl = document.getElementById('rain-overlay')
     this.rainOverlayHardEl = document.getElementById('rain-overlay-hard')
     this.snowOverlayEl = document.getElementById('snow-overlay')
@@ -2515,10 +2455,6 @@ export class Game {
     this.airdrop = null
     this.nextAirdropAt = performance.now() + AIRDROP_MIN_DELAY_MS + Math.random() * (AIRDROP_MAX_DELAY_MS - AIRDROP_MIN_DELAY_MS)
     this.nextRadioChatterAt = performance.now() + RADIO_CHATTER_MIN_DELAY_MS + Math.random() * (RADIO_CHATTER_MAX_DELAY_MS - RADIO_CHATTER_MIN_DELAY_MS)
-    this.nightmareOverlayEl = document.getElementById('nightmare-overlay')
-    this.infectionIndicator = document.getElementById('infection-indicator')
-    this.statsPanel = document.getElementById('stats-panel')
-    this.minimapWrap = document.getElementById('minimap-wrap')
     // Main menu redesign - left-column "Your Stats" panel + player badge,
     // replacing the old single menu-best-stats text blob.
     this.currencyCoinsAmount = document.getElementById('currency-coins-amount')
@@ -2551,8 +2487,6 @@ export class Game {
     this.menuPlayerTag = document.getElementById('menu-player-tag')
     this.playerShowcaseTitle = document.getElementById('player-showcase-title')
     this.playerShowcaseClanName = document.getElementById('player-showcase-clan-name')
-    this.menuCareerRank = document.getElementById('menu-career-rank')
-    this.menuPrestigeBadge = document.getElementById('menu-prestige-badge')
     this.menuNewsTicker = document.getElementById('menu-news-ticker')
     this.weeklyFeaturedMutatorLine = document.getElementById('weekly-featured-mutator-line')
     // Homepage batch - Continue card, Recommended Difficulty hint, Loadout
@@ -2560,10 +2494,6 @@ export class Game {
     // Spotlight ticker, Event Banner, What's New dot, How to Play, and the
     // Profile screenshot gallery. See each feature's own method for how
     // these get populated.
-    this.continueActions = document.getElementById('continue-actions')
-    this.playAgainBtn = document.getElementById('play-again-btn')
-    this.shareLastRunBtn = document.getElementById('share-last-run-btn')
-    this.shareCardBtn = document.getElementById('share-card-btn')
     this.recommendedDifficultyHint = document.getElementById('recommended-difficulty-hint')
     this.savePresetBtn = document.getElementById('save-preset-btn')
     this.surpriseMeBtn = document.getElementById('surprise-me-btn')
@@ -2575,7 +2505,6 @@ export class Game {
     this.howtoplayPanel = document.getElementById('howtoplay-panel')
     this.howtoplayPanelTitle = document.getElementById('howtoplay-panel-title')
     this.howtoplayContent = document.getElementById('howtoplay-content')
-    this.seasonProgressFill = document.getElementById('season-progress-fill')
     this.eventBanner = document.getElementById('event-banner')
     this.whatsNewDot = document.getElementById('whats-new-dot')
     this.questsClaimDot = document.getElementById('quests-claim-dot')
@@ -2589,8 +2518,6 @@ export class Game {
     // season-progress countdown label, Player Title picker, Nearly There
     // nudge, Weekly Recap, Recent Activity feed, and the 2 new quick-action
     // icons (performance/language).
-    this.menuLoginStreak = document.getElementById('menu-login-streak')
-    this.seasonProgressLabel = document.getElementById('season-progress-label')
     this.profileBioHeading = document.getElementById('profile-bio-heading')
     this.profileBioInput = document.getElementById('profile-bio-input')
     this.profileBioCounter = document.getElementById('profile-bio-counter')
@@ -2786,7 +2713,6 @@ export class Game {
     this.bgMoodSelect = document.getElementById('bg-mood-select')
     this.dyslexiaFontToggle = document.getElementById('dyslexia-font-toggle')
     this.keybindCheatsheetToggle = document.getElementById('keybind-cheatsheet-toggle')
-    this.keybindCheatsheet = document.getElementById('keybind-cheatsheet')
     this.hitFeedbackToggle = document.getElementById('hit-feedback-toggle')
     this.performanceToggle = document.getElementById('performance-toggle')
     this.recoilShakeSlider = document.getElementById('recoil-shake-slider')
@@ -2874,7 +2800,6 @@ export class Game {
     this.fullscreenBtn = document.getElementById('fullscreen-btn')
     this.sortWeaponsToggle = document.getElementById('sort-weapons-toggle')
     this.whatsNewEveryLaunchToggle = document.getElementById('whatsnew-every-launch-toggle')
-    this.damageFlashEl = document.getElementById('damage-flash')
     this.homepageGreetingEl = document.getElementById('homepage-greeting')
     this.streamSafeModeToggle = document.getElementById('stream-safe-mode-toggle')
     this.toggleSprintToggle = document.getElementById('toggle-sprint-toggle')
@@ -3016,7 +2941,6 @@ export class Game {
     this.importSettingsCodeApplyBtn = document.getElementById('import-settings-code-apply-btn')
     this.clearLeaderboardsBtn = document.getElementById('clear-leaderboards-btn')
     this.printStatsSheet = document.getElementById('print-stats-sheet')
-    this.copyTextRecapBtn = document.getElementById('copy-text-recap-btn')
     this.reportBugBtn = document.getElementById('report-bug-btn')
     this.sharePanel = document.getElementById('share-panel')
     this.sharePanelTitle = document.getElementById('share-panel-title')
@@ -3026,7 +2950,6 @@ export class Game {
     this.shareChallengeBtn = document.getElementById('share-challenge-btn')
     this.shareLoadoutBtn = document.getElementById('share-loadout-btn')
     this.sharePageLinkBtn = document.getElementById('share-page-link-btn')
-    this.tutorialHintEl = document.getElementById('tutorial-hint')
     this.rebindingAction = null
     this.settingsOpen = false
     this.settings = loadSettings()
@@ -3338,9 +3261,6 @@ export class Game {
     this._achievementToastQueue = []
     this._achievementToastShowing = false
     this.loreToast = document.getElementById('lore-toast')
-    this.perkPanelTitle = document.getElementById('perk-panel-title')
-    this.traderPanelTitle = document.getElementById('trader-panel-title')
-    this.traderHint = document.getElementById('trader-hint')
     this.upgradesBtn = document.getElementById('upgrades-btn')
     this.upgradesPanel = document.getElementById('upgrades-panel')
     this.upgradesPanelTitle = document.getElementById('upgrades-panel-title')
@@ -3370,13 +3290,6 @@ export class Game {
     this.clanPanel = document.getElementById('clan-panel')
     this.clanPanelTitle = document.getElementById('clan-panel-title')
     this.howtoplayNavLink = document.getElementById('nav-howtoplay-link')
-    this.pauseInviteBtn = document.getElementById('pause-invite-btn')
-    this.multiplayerPanel = document.getElementById('multiplayer-panel')
-    this.multiplayerPanelTitle = document.getElementById('multiplayer-panel-title')
-    this.multiplayerCreateBtn = document.getElementById('multiplayer-create-btn')
-    this.multiplayerJoinBtn = document.getElementById('multiplayer-join-btn')
-    this.multiplayerCopyLinkBtn = document.getElementById('multiplayer-copy-link-btn')
-    this.multiplayerStartPlayingBtn = document.getElementById('multiplayer-start-playing-btn')
     // Phase 6 multiplayer (docs/superpowers/specs/2026-08-25-multiplayer-phase6-scaling-migration-design.md) -
     // sync calls fire every ~100ms and are fire-and-forget; under real
     // network/CPU jitter their responses can arrive out of order. Found
@@ -3528,8 +3441,6 @@ export class Game {
     this.shortcutCheatsheetList = document.getElementById('shortcut-cheatsheet-list')
     this.shortcutCheatsheetCloseBtn = document.getElementById('shortcut-cheatsheet-close-btn')
     this.profileCareerPortraitBtn = document.getElementById('profile-career-portrait-btn')
-    this.killFeedEl = document.getElementById('kill-feed')
-    this.shareRunCardBtn = document.getElementById('share-run-card-btn')
     this.creditsBtn = document.getElementById('credits-btn')
     this.buildModeBtn = document.getElementById('build-mode-btn')
     this.menuAriaSummary = document.getElementById('menu-aria-summary')
@@ -3588,26 +3499,6 @@ export class Game {
     this.whatsNewPanelTitle = document.getElementById('whatsnew-panel-title')
     this.buildVersionLine = document.getElementById('build-version-line')
     this.coinshopBtn = document.getElementById('coinshop-btn')
-    this.bossHealthWrap = document.getElementById('boss-health-wrap')
-    this.extractionTitle = document.getElementById('extraction-title')
-    this.extractionStats = document.getElementById('extraction-stats')
-    this.extractionContinueBtn = document.getElementById('extraction-continue-btn')
-    this.zombieDefenseLabel = document.getElementById('zombie-defense-label')
-    this.zombieRushWrap = document.getElementById('zombie-rush-wrap')
-    this.xpLevelupPanelTitle = document.getElementById('xp-levelup-panel-title')
-    this.weaponPickerPanelTitle = document.getElementById('weapon-picker-panel-title')
-    this.pauseOverlay = document.getElementById('pause-overlay')
-    this.pauseOverlayTitle = document.getElementById('pause-overlay-title')
-    this.pauseResumeBtn = document.getElementById('pause-resume-btn')
-    this.pauseQuitBtn = document.getElementById('pause-quit-btn')
-    this.pauseSaveExitBtn = document.getElementById('pause-save-exit-btn')
-    this.quitConfirmTitle = document.getElementById('quit-confirm-title')
-    this.quitConfirmText = document.getElementById('quit-confirm-text')
-    this.quitConfirmCancelBtn = document.getElementById('quit-confirm-cancel-btn')
-    this.quitConfirmExitBtn = document.getElementById('quit-confirm-exit-btn')
-    this.pauseSpectateBtn = document.getElementById('pause-spectate-btn')
-    this.pauseWeaponBtn = document.getElementById('pause-weapon-btn')
-    this.screenshotCaptionInput = document.getElementById('screenshot-caption-input')
     this.gameStarted = false
     this.weapons = new WeaponCatalog()
     // Weapon mastery (see WeaponMastery.js) - re-applies any previously
@@ -3772,16 +3663,6 @@ export class Game {
   // result or writes it to the OS clipboard.
   _finalizeScreenshotCanvas(canvas) {
     const ctx = canvas.getContext('2d')
-    const caption = this.screenshotCaptionInput ? this.screenshotCaptionInput.value.trim() : ''
-    if (caption) {
-      const bannerH = Math.max(28, Math.round(canvas.height * 0.06))
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
-      ctx.fillRect(0, canvas.height - bannerH, canvas.width, bannerH)
-      ctx.fillStyle = '#ffffff'
-      ctx.font = `${Math.max(12, Math.round(canvas.width * 0.02))}px sans-serif`
-      ctx.textBaseline = 'bottom'
-      ctx.fillText(caption, 10, canvas.height - bannerH * 0.3)
-    }
     ctx.textAlign = 'right'
     ctx.textBaseline = 'bottom'
     ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'
@@ -4759,21 +4640,17 @@ export class Game {
     this.frameTimeGraphToggle = document.getElementById('frame-time-graph-toggle')
     if (this.frameTimeGraphToggle) {
       this.frameTimeGraphToggle.checked = this.settings.frameTimeGraph
-      this._applyFrameTimeGraphVisibility()
       this.frameTimeGraphToggle.addEventListener('change', () => {
         this.settings.frameTimeGraph = this.frameTimeGraphToggle.checked
-        this._applyFrameTimeGraphVisibility()
         saveSettings(this.settings)
       })
     }
     if (this.homepageFpsToggle) {
       this.homepageFpsToggle.checked = this.settings.homepageFpsCounter
       if (this.settings.homepageFpsCounter) this.fpsEl.style.opacity = '1'
-      this._applyFrameTimeGraphVisibility()
       this.homepageFpsToggle.addEventListener('change', () => {
         this.settings.homepageFpsCounter = this.homepageFpsToggle.checked
         this.fpsEl.style.opacity = (this.settings.homepageFpsCounter || this.gameStarted) ? '1' : '0'
-        this._applyFrameTimeGraphVisibility()
         saveSettings(this.settings)
       })
     }
@@ -4996,7 +4873,6 @@ export class Game {
       this.keybindCheatsheetToggle.addEventListener('change', () => {
         this.settings.keybindCheatSheet = this.keybindCheatsheetToggle.checked
         saveSettings(this.settings)
-        if (this.keybindCheatsheet) this.keybindCheatsheet.style.display = (this.settings.keybindCheatSheet && this.gameStarted) ? '' : 'none'
       })
     }
     // Show Hit Feedback - hides the crosshair hitmarker flash (WeaponSystem's
@@ -5379,7 +5255,6 @@ export class Game {
       })
     }
     if (this.profileCareerPortraitBtn) this.profileCareerPortraitBtn.addEventListener('click', () => this._generateCareerPortrait())
-    if (this.copyTextRecapBtn) this.copyTextRecapBtn.addEventListener('click', () => this._copyTextRecap())
     if (this.reportBugBtn) this.reportBugBtn.addEventListener('click', () => this._reportBug())
     this.creditsBtn.addEventListener('click', () => trackAndOpen(() => this._openCreditsPanel()))
     if (this.termsBtn) this.termsBtn.addEventListener('click', () => trackAndOpen(() => this._openTermsPanel()))
@@ -5784,10 +5659,8 @@ export class Game {
   _bindGeneralSettings() {
     if (this.killFeedPositionSelect) {
       this.killFeedPositionSelect.value = this.settings.killFeedPosition
-      this.killFeedEl.classList.toggle('kill-feed-left', this.settings.killFeedPosition === 'left')
       this.killFeedPositionSelect.addEventListener('change', () => {
         this.settings.killFeedPosition = this.killFeedPositionSelect.value
-        this.killFeedEl.classList.toggle('kill-feed-left', this.settings.killFeedPosition === 'left')
         saveSettings(this.settings)
       })
     }
@@ -5895,24 +5768,16 @@ export class Game {
 
     if (this.ammoPositionSelect) {
       this.ammoPositionSelect.value = this.settings.ammoPosition
-      this.hudEl.classList.toggle('hud-pos-left', this.settings.ammoPosition === 'left')
-      this.hudEl.classList.toggle('hud-pos-center', this.settings.ammoPosition === 'center')
       this.ammoPositionSelect.addEventListener('change', () => {
         this.settings.ammoPosition = this.ammoPositionSelect.value
-        this.hudEl.classList.toggle('hud-pos-left', this.settings.ammoPosition === 'left')
-        this.hudEl.classList.toggle('hud-pos-center', this.settings.ammoPosition === 'center')
         saveSettings(this.settings)
       })
     }
 
     if (this.healthDisplayStyleSelect) {
       this.healthDisplayStyleSelect.value = this.settings.healthDisplayStyle
-      this.statusHudEl.classList.toggle('health-style-bar', this.settings.healthDisplayStyle === 'bar')
-      this.statusHudEl.classList.toggle('health-style-number', this.settings.healthDisplayStyle === 'number')
       this.healthDisplayStyleSelect.addEventListener('change', () => {
         this.settings.healthDisplayStyle = this.healthDisplayStyleSelect.value
-        this.statusHudEl.classList.toggle('health-style-bar', this.settings.healthDisplayStyle === 'bar')
-        this.statusHudEl.classList.toggle('health-style-number', this.settings.healthDisplayStyle === 'number')
         saveSettings(this.settings)
       })
     }
@@ -6146,10 +6011,8 @@ export class Game {
 
     if (this.damageFlashColorInput) {
       this.damageFlashColorInput.value = this.settings.damageFlashColor
-      this._applyDamageFlashColor()
       this.damageFlashColorInput.addEventListener('input', () => {
         this.settings.damageFlashColor = this.damageFlashColorInput.value
-        this._applyDamageFlashColor()
         saveSettings(this.settings)
       })
     }
@@ -6277,14 +6140,6 @@ export class Game {
 
   }
 
-  _applyDamageFlashColor() {
-    if (!this.damageFlashEl) return
-    const hex = this.settings.damageFlashColor.replace('#', '')
-    const r = parseInt(hex.slice(0, 2), 16) || 0
-    const g = parseInt(hex.slice(2, 4), 16) || 0
-    const b = parseInt(hex.slice(4, 6), 16) || 0
-    this.damageFlashEl.style.setProperty('--damage-flash-color', `${r}, ${g}, ${b}`)
-  }
 
   // Homepage Greeting (General tab) - shown right under the player tag,
   // purely decorative custom text, empty by default so nothing new shows
@@ -7314,7 +7169,6 @@ export class Game {
       // bars scaled to whichever side of each pair is larger.
       if (this.cloudsaveAvgBars) {
         const killsMax = Math.max(myKills, avgKills, 1)
-        const nightMax = Math.max(myNight, avgNight, 1)
         this.cloudsaveAvgBars.innerHTML = `
           <div class="avg-bar-row"><span class="avg-bar-label">${t('avgBarYou')}</span><div class="mini-progress-track"><div class="mini-progress-fill" style="width: ${(myKills / killsMax) * 100}%"></div></div><span class="avg-bar-value">${myKills.toLocaleString()}</span></div>
           <div class="avg-bar-row"><span class="avg-bar-label">${t('avgBarAverage')}</span><div class="mini-progress-track"><div class="mini-progress-fill" style="width: ${(avgKills / killsMax) * 100}%"></div></div><span class="avg-bar-value">${Math.round(avgKills).toLocaleString()}</span></div>
@@ -7737,21 +7591,6 @@ export class Game {
     window.location.reload()
   }
 
-  // Text Recap - a pure-text, Wordle-style shareable summary (no image),
-  // distinct from the Sharing & Content Tools batch's screenshot/clipboard-
-  // image tools - pastes cleanly into SMS/Discord/anywhere that doesn't
-  // support image paste.
-  _copyTextRecap() {
-    const text = t('textRecapTemplate', { night: this.night, kills: this.kills, rank: t(careerRankTitleKey(this.careerStats.totalKills)) })
-    if (!navigator.clipboard) {
-      this._showLoreToast(t('clipboardCopyUnsupported'))
-      return
-    }
-    navigator.clipboard.writeText(text)
-      .then(() => this._showLoreToast(t('clipboardCopySuccess')))
-      .catch(() => this._showLoreToast(t('clipboardCopyUnsupported')))
-  }
-
   // In-game bug report (batch feature) - copies a plain-text report to the
   // clipboard (same navigator.clipboard pattern _copyTextRecap already
   // uses) with real live state auto-attached, so a player doesn't have to
@@ -7853,7 +7692,6 @@ export class Game {
   // Nightmare (unlocked by the true ending) gets a harsher red tint so it's
   // visually distinct, not just numerically harder.
   _updateNightmareOverlay() {
-    this.nightmareOverlayEl.style.display = this.settings.difficulty === 'nightmare' ? 'block' : 'none'
   }
 
   _bindCompanionRole() {
@@ -7993,7 +7831,6 @@ export class Game {
     // #settings-panel in index.html and would otherwise render on top and
     // eat every click meant for a setting underneath it.
     if (open) {
-      this.pauseOverlay.style.display = 'none'
       this._closeAllMenuPanels()
     }
     this.settingsOpen = open
@@ -8080,7 +7917,6 @@ export class Game {
     // firing once Build Mode is active - it can't stop one already
     // mid-animation at the exact moment Build Mode is entered. Hide it
     // directly here too, for that already-in-flight case.
-    if (this.tutorialHintEl) this.tutorialHintEl.classList.remove('show')
     // Same for a homepage toast still fading out (e.g. the backup
     // reminder) - it would otherwise sit over the editor.
     if (this.loreToast) this.loreToast.classList.remove('show')
@@ -8094,26 +7930,11 @@ export class Game {
     // trust that every path that can precede a Build Mode click already
     // did - same "don't assume a shared toast/HUD is in the state you
     // expect" lesson as the tutorial hint above.
-    this.crosshair.style.display = 'none'
-    this.hudEl.style.display = 'none'
-    this.hotbarEl.style.display = 'none'
-    if (this.hotbarPowerScoreEl) this.hotbarPowerScoreEl.style.display = 'none'
-    this.statusHud.style.display = 'none'
     // Chat stays with you in the Map Editor and Try Map (Enter to type).
     this.chatPanel.style.display = 'flex'
     document.body.classList.add('build-mode-on')
-    this.progressHud.style.display = 'none'
-    this.statsPanel.style.display = 'none'
-    this.minimapWrap.style.display = 'none'
-    this.compassStrip.style.display = 'none'
-    this.interactPrompt.style.display = 'none'
-    if (this.keybindCheatsheet) this.keybindCheatsheet.style.display = 'none'
-    this.infectionIndicator.style.display = 'none'
     // Zombie Rush's survival timer (real report 2026-09-29: "Survival
     // Time" showing over the map editor after a Zombie Rush run).
-    this.zombieRushWrap.style.display = 'none'
-    this.damageFlash.classList.remove('low-health')
-    this.criticalBloodOverlay.classList.remove('show')
     // Weather overlay isn't gated to a real run at all - _rollWeather()
     // fires once from the constructor itself, so a fresh page load can
     // already be sitting at rainOverlayEl display:block before the player
@@ -8148,7 +7969,6 @@ export class Game {
     if (play) this.buildMode.survival.start({ fromMenu: true })
     this._applyRenderScale()
     // A boss bar left over from a run would otherwise sit over the editor.
-    if (this.bossHealthWrap) this.bossHealthWrap.style.display = 'none'
     // FPS readout in the top-left corner (the save slot buttons moved into
     // the Escape menu), shown whenever the gameplay one would be.
     this.fpsEl.style.left = '16px'
@@ -8168,6 +7988,69 @@ export class Game {
       await new Promise((resolve) => setTimeout(resolve, BUILD_MODE_LOADING_MIN_MS - buildModeLoadElapsed))
     }
     if (this.buildModeLoadingOverlay) this.buildModeLoadingOverlay.style.display = 'none'
+  }
+
+  // The run settings for a Map 1 run from the homepage: Game Mode's
+  // Difficulty / Choose Class / Game Modes / Challenges & Mutators, plus
+  // the Upgrades bought with Legacy Points (PlayRules.js).
+  _playConfig() {
+    return playConfig({
+      difficulty: DIFFICULTY_PRESETS[this.settings.difficulty] || DIFFICULTY_PRESETS.normal,
+      loadout: this.settings.loadout,
+      gameMode: this.settings.selectedGameMode,
+      mutators: this.settings.mutators,
+      purchased: this.metaProgress.purchased,
+    })
+  }
+
+  // What a homepage Map 1 run tells the game (BuildSurvival._report):
+  // 'kill', 'wave', and 'end' once per run. Guest Mode saves none of it.
+  // 'end' returns what the run earned, for the game-over card.
+  _onPlayEvent(type, data) {
+    if (this.settings.guestMode) return null
+    if (type === 'kill') {
+      this.rollingQuests.recordKill()
+      this.achievements.unlock('first_blood')
+      return null
+    }
+    if (type === 'wave') {
+      const wave = data.wave
+      this.rollingQuests.recordNight(wave)
+      if (wave >= 5) this.achievements.unlock('survivor_5')
+      if (wave >= 10) this.achievements.unlock('survivor_10')
+      if (this.settings.difficulty === 'nightmare' && wave >= 5) this.achievements.unlock('nightmare_survivor_5')
+      return null
+    }
+    if (type !== 'end') return null
+    const points = data.kills * POINTS_PER_KILL + data.waves * POINTS_PER_WAVE
+    // _recordRunEnd (the old Map 1's end-of-run bookkeeping: best stats,
+    // career totals, run history, leaderboards, gems, Cloud Save) reads
+    // these run fields.
+    this.night = data.waves
+    this.kills = data.kills
+    this.peakKillStreakThisRun = data.bestStreak
+    this.points = points
+    this.runStartedAt = performance.now() - data.seconds * 1000
+    this._runDistanceTraveled = 0
+    this.lowestHealthThisRun = 0
+    this._runStartCoins = this.coins
+    // The camp coins earned in the run go to your real coins too, plus
+    // this week's featured mutator bonus.
+    let coins = data.coins
+    if (this.settings.mutators[_weeklyFeaturedMutatorKey()]) coins += WEEKLY_FEATURED_MUTATOR_BONUS_COINS
+    this.coins += coins
+    this.careerStats.lifetimePointsEarned = (this.careerStats.lifetimePointsEarned || 0) + points
+    if (data.died) this.achievements.unlock('first_death')
+    if (data.kills >= 100) this.achievements.unlock('centurion')
+    const legacy = Math.floor(points * DEATH_POINTS_CONVERSION)
+    this.metaProgress.legacyPoints += legacy
+    saveMetaProgress(this.metaProgress)
+    this._recordRunEnd(!data.died)
+    saveShopProgress(this)
+    this._renderCurrencyBar()
+    this._updateUpgradesDot()
+    this._updateQuestsDot()
+    return { legacy, coins }
   }
 
   // The block city is the only map to play now (the old Map 1 city was
@@ -8512,7 +8395,6 @@ export class Game {
   _closeAllMenuPanels() {
     if (this.upgradesPanel) this.upgradesPanel.style.display = 'none'
     if (this.howtoplayPanel) this.howtoplayPanel.style.display = 'none'
-    if (this.multiplayerPanel) this.multiplayerPanel.style.display = 'none'
     if (this.settingsPanel && this.settingsOpen) {
       this.settingsOpen = false
       this.settingsPanel.style.display = 'none'
@@ -8548,7 +8430,6 @@ export class Game {
     // order, since #pause-overlay comes after #upgrades-panel in index.html
     // and would otherwise render on top and eat every click meant for an
     // upgrade card underneath it.
-    this.pauseOverlay.style.display = 'none'
     this.upgradesPanel.style.display = 'flex'
     this.upgradesPanelTitle.textContent = t('upgradesPanelTitle')
     this._renderUpgradesOptions()
@@ -8558,7 +8439,7 @@ export class Game {
   _renderUpgradesOptions() {
     this.upgradesPointsLine.textContent = t('legacyScrapLabel', { n: this.metaProgress.legacyPoints })
     this.upgradesOptions.innerHTML = ''
-    for (const upgrade of META_UPGRADES) {
+    for (const upgrade of PLAY_META_UPGRADES) {
       const owned = this.metaProgress.purchased.has(upgrade.id)
       const locked = !!upgrade.requires && !this.metaProgress.purchased.has(upgrade.requires)
       // Veteran's Cache pair moved here from the Coin Shop keeps its
@@ -8624,7 +8505,6 @@ export class Game {
     saveMetaProgress(this.metaProgress)
     this._showLoreToast(t('prestigeComplete', { level: this.metaProgress.prestigeLevel, bonus: this.metaProgress.prestigeLevel * 10 }))
     this._renderUpgradesOptions()
-    this._updatePrestigeBadge()
   }
 
   // Respec (Long-Term Goals batch) - refunds every purchased Permanent
@@ -8652,7 +8532,6 @@ export class Game {
 
   _closeUpgradesPanel() {
     this.upgradesPanel.style.display = 'none'
-    if (this.gameStarted) this.pauseOverlay.style.display = 'flex'
   }
 
   // Quests panel - tiered career-kill and best-killstreak goals, each a
@@ -9786,7 +9665,6 @@ export class Game {
     if (this.friendsSigninBtn) this.friendsSigninBtn.textContent = t('cloudsaveSigninBtn')
     if (this.menuInventoryBtn) this.menuInventoryBtn.querySelector('span').textContent = t('menuInventoryBtn')
     if (this.serverBtn) this.serverBtn.querySelector('span').textContent = t('serverBtn')
-    document.getElementById('stats-coins-label').textContent = t('coinsStatLabel')
 
     document.getElementById('ctrl-line-1').innerHTML = tHtml('ctrlLine1')
     document.getElementById('ctrl-line-2').innerHTML = tHtml('ctrlLine2')
@@ -9794,7 +9672,6 @@ export class Game {
     document.getElementById('ctrl-line-4').innerHTML = tHtml('ctrlLine4')
     document.getElementById('ctrl-line-5').innerHTML = tHtml('ctrlLine5')
 
-    this.interactPrompt.innerHTML = tHtml('interactPrompt')
 
     document.getElementById('settings-title').textContent = t('settingsTitle')
     document.getElementById('tab-general').textContent = t('tabGeneral')
@@ -9824,43 +9701,9 @@ export class Game {
     document.getElementById('colorblind-label').textContent = t('colorblindLabel')
     document.getElementById('performance-label').textContent = t('performanceLabel')
     document.getElementById('performance-troubleshoot-hint').textContent = t('performanceModeTroubleshootHint')
-    this.compassTrader.textContent = t('compassTrader')
-    this.compassAmmo.textContent = t('compassAmmo')
-    this.compassVehicle.textContent = t('compassVehicle')
-    this.compassAirdrop.textContent = t('compassAirdrop')
-    document.getElementById('infection-label').textContent = t('infectionLabel')
 
-    document.getElementById('death-title').textContent = t('deathTitle')
-    this.respawnBtn.textContent = t('respawnBtn')
-    document.getElementById('extraction-title').textContent = t('extractionTitle')
-    this.extractionContinueBtn.textContent = t('extractionContinueBtn')
 
-    document.getElementById('inventory-title').textContent = t('inventoryTitle')
-    document.getElementById('panel-health-label').textContent = t('healthPackLabel')
-    document.getElementById('panel-armor-label').textContent = t('armorPackLabel')
-    document.getElementById('panel-noisemaker-label').textContent = t('noisemakerLabel')
-    document.getElementById('panel-grenade-label').textContent = t('grenadeLabel')
-    document.getElementById('panel-barricade-label').textContent = t('barricadeLabel')
-    document.getElementById('panel-trap-label').textContent = t('trapLabel')
-    document.getElementById('panel-molotov-label').textContent = t('molotovLabel')
-    document.getElementById('panel-c4-label').textContent = t('c4Label')
-    document.getElementById('panel-adrenaline-label').textContent = t('adrenalineLabel')
-    document.getElementById('panel-emp-label').textContent = t('empLabel')
-    document.getElementById('panel-shield-label').textContent = t('shieldLabel')
-    document.getElementById('panel-knife-label').textContent = t('knifeLabel')
-    document.getElementById('panel-turretkit-label').textContent = t('shopTurretKit')
-    document.getElementById('panel-medstation-label').textContent = t('shopMedStationKit')
-    document.getElementById('panel-alarmkit-label').textContent = t('shopAlarmKit')
-    document.getElementById('panel-ration-label').textContent = t('shopRation')
-    document.getElementById('panel-water-label').textContent = t('shopWater')
-    document.getElementById('weapons-title').textContent = t('weaponsTitle')
-    document.getElementById('inventory-hint').innerHTML = tHtml('inventoryHint')
 
-    document.getElementById('stats-day-label').textContent = t('dayLabel')
-    document.getElementById('stats-deaths-label').textContent = t('deathsLabel')
-    document.getElementById('stats-kills-label').textContent = t('killsLabel')
-    document.getElementById('stats-points-label').textContent = t('scrapStatLabel')
-    document.getElementById('stats-rank-label').textContent = t('statsRankLabel')
 
     document.getElementById('diff-easy').textContent = t('difficultyEasy')
     document.getElementById('diff-normal').textContent = t('difficultyNormal')
@@ -9927,7 +9770,6 @@ export class Game {
     document.getElementById('compass-style-label').textContent = t('compassStyleLabel')
     document.getElementById('touch-controls-override-label').textContent = t('touchControlsOverrideLabel')
     document.getElementById('touch-controls-override-hint').textContent = t('touchControlsOverrideHint')
-    document.getElementById('touch-more-actions-title').textContent = t('touchMoreActionsTitle')
     document.getElementById('weapon-name-hud-label').textContent = t('weaponNameHudLabel')
     document.getElementById('minimap-zoom-label').textContent = t('minimapZoomLabel')
     document.getElementById('friend-presence-notify-label').textContent = t('friendPresenceNotifyLabel')
@@ -10082,14 +9924,8 @@ export class Game {
         lastRunText = line
       }
       this.statLastRun.forEach((el) => { el.textContent = lastRunText })
-      if (this.continueActions) this.continueActions.style.display = last ? 'flex' : 'none'
     }
 
-    if (this.menuCareerRank) {
-      this.menuCareerRank.textContent = this.careerStats.totalKills === 0
-        ? ''
-        : t('careerRankLabel', { rank: t(careerRankTitleKey(this.careerStats.totalKills)), kills: this.careerStats.totalKills })
-    }
     // Avatar level badge - the same tier index careerRankTitleKey already
     // derives from totalKills, just as a plain 1-5 number instead of a title.
     if (this.menuAvatarLevel) {
@@ -10115,11 +9951,8 @@ export class Game {
     }
     this._renderPlayerTag()
     this._updateMenuNewsTicker()
-    this._updatePrestigeBadge()
     this._updateRecommendedDifficultyHint()
-    this._updateSeasonProgress()
     this._updateWhatsNewDot()
-    this._updateLoginStreakBadge()
     this._updateUpgradesDot()
     this._updateAchievementsDot()
     this._updateQuestsDot()
@@ -10279,49 +10112,7 @@ export class Game {
     }
   }
 
-  // Season Progress - a thin bar toward the next Career Rank tier, reusing
-  // CAREER_RANK_TITLES/careerStats.totalKills (already computed just above
-  // for menuAvatarLevel) rather than a new XP system.
-  _updateSeasonProgress() {
-    if (!this.seasonProgressFill) return
-    const kills = this.careerStats.totalKills
-    let tierIndex = 0
-    for (let i = 0; i < CAREER_RANK_TITLES.length; i++) {
-      if (kills >= CAREER_RANK_TITLES[i].min) tierIndex = i
-    }
-    const current = CAREER_RANK_TITLES[tierIndex]
-    const next = CAREER_RANK_TITLES[tierIndex + 1]
-    if (!next) {
-      this.seasonProgressFill.style.width = '100%'
-      if (this.seasonProgressLabel) this.seasonProgressLabel.style.display = 'none'
-      return
-    }
-    const pct = ((kills - current.min) / (next.min - current.min)) * 100
-    this.seasonProgressFill.style.width = `${Math.max(0, Math.min(100, pct))}%`
-    if (this.seasonProgressLabel) {
-      this.seasonProgressLabel.textContent = t('seasonProgressLabel', { n: next.min - kills, rank: t(next.titleKey) })
-      this.seasonProgressLabel.style.display = ''
-    }
-  }
 
-  // Login Streak badge - surfaces the existing loginStreak tracker (which
-  // otherwise only ever shows once, as a one-time toast on login) as a
-  // small persistent badge, same row as career-rank/prestige-badge. Only
-  // shown from streak 2 onward so day-one players don't see "Streak: 1".
-  _updateLoginStreakBadge() {
-    if (!this.menuLoginStreak) return
-    if (this.loginStreak.streak >= 2) {
-      // Streak Freeze count folded into the same badge text (rather than a
-      // second homepage element) - only shown when there's actually a
-      // freeze banked, so it doesn't add a permanent "0" to the badge.
-      this.menuLoginStreak.textContent = this.loginStreak.freezesAvailable > 0
-        ? t('loginStreakBadgeWithFreeze', { n: this.loginStreak.streak, freezes: this.loginStreak.freezesAvailable })
-        : t('loginStreakBadge', { n: this.loginStreak.streak })
-      this.menuLoginStreak.style.display = ''
-    } else {
-      this.menuLoginStreak.style.display = 'none'
-    }
-  }
 
 
   // Seasonal Event Banner - display:none year-round outside a defined date
@@ -10403,11 +10194,11 @@ export class Game {
     if (!this.upgradesDot) return
     let seen = _loadSeenIds(UPGRADES_SEEN_IDS_KEY)
     if (!seen) {
-      seen = new Set(META_UPGRADES.map((u) => u.id))
+      seen = new Set(PLAY_META_UPGRADES.map((u) => u.id))
       _saveSeenIds(UPGRADES_SEEN_IDS_KEY, seen)
     }
-    const hasNewUpgrade = META_UPGRADES.some((u) => !seen.has(u.id))
-    const canAffordOne = META_UPGRADES.some((u) => {
+    const hasNewUpgrade = PLAY_META_UPGRADES.some((u) => !seen.has(u.id))
+    const canAffordOne = PLAY_META_UPGRADES.some((u) => {
       if (this.metaProgress.purchased.has(u.id)) return false
       if (u.requires && !this.metaProgress.purchased.has(u.requires)) return false
       return this.metaProgress.legacyPoints >= u.cost
@@ -10416,7 +10207,7 @@ export class Game {
   }
 
   _markUpgradesSeen() {
-    _saveSeenIds(UPGRADES_SEEN_IDS_KEY, META_UPGRADES.map((u) => u.id))
+    _saveSeenIds(UPGRADES_SEEN_IDS_KEY, PLAY_META_UPGRADES.map((u) => u.id))
     this._updateUpgradesDot()
   }
 
@@ -10486,38 +10277,6 @@ export class Game {
 
   _closeHowToPlayPanel() {
     this.howtoplayPanel.style.display = 'none'
-    if (this.gameStarted) this.pauseOverlay.style.display = 'flex'
-  }
-
-  // Continue card - Play Again replays the exact class/difficulty/companion
-  // combo the last recorded run used (see _recordRunEnd's runHistory entry),
-  // by clicking the real menu buttons rather than duplicating their apply
-  // logic. Share copies a short text recap of that same run.
-  _playAgainFromLastRun() {
-    const last = this.runHistory[0]
-    if (!last) return
-    if (last.difficulty) {
-      const btn = Array.from(this.difficultyBtns).find((b) => b.dataset.difficulty === last.difficulty)
-      if (btn && btn.style.display !== 'none') btn.click()
-    }
-    if (last.loadout) {
-      const btn = Array.from(this.loadoutBtns).find((b) => b.dataset.loadout === last.loadout)
-      if (btn) btn.click()
-    }
-    if (last.companionRole) {
-      const btn = Array.from(this.roleBtns).find((b) => b.dataset.role === last.companionRole)
-      if (btn) btn.click()
-    }
-    if (this.playBtn) this.playBtn.click()
-  }
-
-  _shareLastRun() {
-    const last = this.runHistory[0]
-    if (!last) return
-    const text = t(last.survived ? 'shareLastRunSurvived' : 'shareLastRunDied', { night: _safeStatNumber(last.night), kills: _safeStatNumber(last.kills), coins: _safeStatNumber(last.coins) })
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(() => this._showLoreToast(t('shareCopiedToast'))).catch(() => {})
-    }
   }
 
   // Homepage batch - every quick-action/one-shot listener that isn't
@@ -10526,8 +10285,6 @@ export class Game {
   // _bindCompanionRole - Play Again/preset load click those same real
   // buttons rather than duplicating their apply logic).
   _bindHomepageBatch() {
-    if (this.playAgainBtn) this.playAgainBtn.addEventListener('click', () => this._playAgainFromLastRun())
-    if (this.shareLastRunBtn) this.shareLastRunBtn.addEventListener('click', () => this._shareLastRun())
     // Reuses _generateCareerPortrait() as-is (see its own comment - it
     // already composites a styled stat-card image, not a plain
     // screenshot). The Profile panel's own button stays gated behind
@@ -10547,7 +10304,6 @@ export class Game {
         this.updateAvailableBanner.style.display = 'none'
       })
     }
-    if (this.shareCardBtn) this.shareCardBtn.addEventListener('click', () => this._generateCareerPortrait())
     if (this.savePresetBtn) this.savePresetBtn.addEventListener('click', () => MenuPresets.saveMenuPreset(this))
     if (this.surpriseMeBtn) this.surpriseMeBtn.addEventListener('click', () => MenuPresets.surpriseMe(this))
     if (this.quickKeybindsBtn) {
@@ -10692,22 +10448,6 @@ export class Game {
     this._updateEventBanner()
   }
 
-  // Prestige cosmetic badges - tiered color escalation (bronze/silver/gold-
-  // ish) purely for visual flair, distinct from the numeric +10%/level
-  // bonus prestigeLevelLine already shows inside the Legacy panel.
-  _updatePrestigeBadge() {
-    if (!this.menuPrestigeBadge) return
-    const level = this.metaProgress.prestigeLevel
-    if (level <= 0) {
-      this.menuPrestigeBadge.style.display = 'none'
-      return
-    }
-    this.menuPrestigeBadge.style.display = ''
-    this.menuPrestigeBadge.classList.remove('prestige-tier-1', 'prestige-tier-2', 'prestige-tier-3')
-    const tier = level >= 6 ? 3 : level >= 3 ? 2 : 1
-    this.menuPrestigeBadge.classList.add(`prestige-tier-${tier}`)
-    this.menuPrestigeBadge.textContent = t('prestigeBadgeLabel', { level })
-  }
 
   // Main-menu news ticker - tied to bestStats.bestNight (already persisted,
   // no new tracking needed), framed as the world worsening the further
@@ -11353,6 +11093,9 @@ export class Game {
     const coming = LANGUAGES.filter((l) => !SUPPORTED_LANGUAGE_CODES.has(l.code)).map((l) => l.name)
     return {
       goals: MAX_GOALS,
+      defenseWaves: DEFENSE_WAVES,
+      bossEvery: BOSS_HUNT_EVERY,
+      upgrades: PLAY_META_UPGRADES.length,
       crateWood: crate('wood'),
       crateIce: crate('ice'),
       crateGolden: crate('golden'),
@@ -11546,7 +11289,6 @@ export class Game {
     // (and fix) as _openUpgradesPanel's own comment: #pause-overlay comes
     // after #shop-panel in index.html and would otherwise render on top
     // and eat every click meant for a crate underneath it.
-    this.pauseOverlay.style.display = 'none'
     this.shopPanel.style.display = 'flex'
     this.shopPanelTitle.textContent = t('shopPanelTitle')
     if (this.shopSkinCanvas) {
@@ -11606,10 +11348,8 @@ export class Game {
     // same z-index (15), and #pause-overlay (later in the DOM) silently ate
     // every click meant for a Settings control underneath it. Only restore
     // the pause overlay when Shop was genuinely the panel being closed.
-    const wasOpen = this.shopPanel.style.display !== 'none'
     this.shopPanel.style.display = 'none'
     if (this._shopSkinAvatar3D) this._shopSkinAvatar3D.stop()
-    if (wasOpen && this.gameStarted) this.pauseOverlay.style.display = 'flex'
   }
 
   // What's New panel - split out from Credits (used to be one combined
@@ -11639,12 +11379,10 @@ export class Game {
     if (this.whatsNewPanel) this.whatsNewPanel.style.display = 'none'
   }
 
+  // Used to show only during an old Map 1 run (the old city kept running
+  // behind the menu); with that gone it's the same as a homepage toast -
+  // before this, every Settings copy/export message here was silent.
   _showLoreToast(text) {
-    // The live game world (zombies, weather, the auto perf-mode FPS check
-    // in _tick) keeps running behind the menu before Play is clicked (see
-    // main.js) - without this, a passive background check like that one
-    // could pop a gameplay toast over the main menu.
-    if (!this.gameStarted) return
     this._renderLoreToast(text)
   }
 
@@ -11913,7 +11651,7 @@ export class Game {
     // the corner badge never has to show the anonymous placeholder again.
     try {
       localStorage.setItem('gayz-avatar-face-cache', dataUrl)
-    } catch (e) {
+    } catch {
       // Deliberately swallowed: this is just a nice-to-have pre-crop cache
       // (see comment above) - private browsing / storage-full / quota
       // errors here shouldn't block setting the avatar photo itself.
@@ -13122,14 +12860,6 @@ export class Game {
     return Math.round(total / 7)
   }
 
-  // Frame-Time Graph visibility/draw (see settings.frameTimeGraph) -
-  // opacity follows the same "visible once gameplay/homepage-fps-toggle
-  // has shown fpsEl at least once" rule fpsEl itself already uses, so
-  // the graph never appears without its own text readout also present.
-  _applyFrameTimeGraphVisibility() {
-    if (!this.frameTimeCanvas) return
-    this.frameTimeCanvas.style.opacity = this.settings.frameTimeGraph && this.fpsEl.style.opacity === '1' ? '1' : '0'
-  }
 
   // Confetti burst on a new personal best (see _recordRunEnd's
   // _pendingConfetti flag) - a handful of plain colored divs falling and

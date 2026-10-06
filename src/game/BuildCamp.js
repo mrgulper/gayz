@@ -301,15 +301,19 @@ export class BuildCamp {
     this._panel.querySelector('#play-npc-close').setAttribute('aria-label', t('communityBuildsCloseBtn'))
     const rows = []
     const row = (name, detail, btnText, act, itemId, disabled) => `<div class="play-npc-row"><div class="play-npc-info"><b>${name}</b><span>${detail}</span></div><button type="button" data-act="${act}" data-id="${itemId}" ${disabled ? 'disabled' : ''}>${btnText}</button></div>`
+    // Iron Mode (a Game Mode mutator): no buying from the Trader or Upgrader.
+    const iron = !!s.cfg?.ironMode && (id === 'trader' || id === 'upgrader')
+    if (iron) rows.push(`<p class="play-npc-empty">${t('campIronMode')}</p>`)
     if (id === 'trader') {
       for (const item of SHOP_ITEMS) {
-        rows.push(row(t(`campItem_${item.id}`), t(`campItem_${item.id}_about`, { n: item.health || item.armor || item.ammo }), t('campBuy', { n: item.cost }), 'buy', item.id, s.coins < item.cost))
+        const cost = this._price(item)
+        rows.push(row(t(`campItem_${item.id}`), t(`campItem_${item.id}_about`, { n: item.health || item.armor || item.ammo }), t('campBuy', { n: cost }), 'buy', item.id, iron || s.coins < cost))
       }
     } else if (id === 'upgrader') {
       for (const up of UPGRADES) {
         const level = s.upgrades[up.id] || 0
         const maxed = level >= up.costs.length
-        rows.push(row(`${t(`campUp_${up.id}`)} ${t('campLevel', { n: level, max: up.costs.length })}`, t(`campUp_${up.id}_about`), maxed ? t('campMaxed') : t('campBuy', { n: up.costs[level] }), 'upgrade', up.id, maxed || s.coins < up.costs[level]))
+        rows.push(row(`${t(`campUp_${up.id}`)} ${t('campLevel', { n: level, max: up.costs.length })}`, t(`campUp_${up.id}_about`), maxed ? t('campMaxed') : t('campBuy', { n: up.costs[level] }), 'upgrade', up.id, iron || maxed || s.coins < up.costs[level]))
       }
     } else if (id === 'ammo') {
       rows.push(row(t('campFillUp'), t('campFillUp_about', { s: AMMO_FILL_COOLDOWN }), ammoWait ? t('campWait', { s: ammoWait }) : t('campFree'), 'fill', 'fill', ammoWait > 0))
@@ -326,12 +330,18 @@ export class BuildCamp {
     this._panel.querySelector('#play-npc-list').innerHTML = rows.join('')
   }
 
+  // A Trader price after the Trader Discount upgrade (PlayRules.js).
+  _price(item) {
+    return Math.round(item.cost * (1 - (this.s.cfg?.discount || 0)))
+  }
+
   _act(act, id) {
     const s = this.s
+    if ((act === 'buy' || act === 'upgrade') && s.cfg?.ironMode) return
     if (act === 'buy') {
       const item = SHOP_ITEMS.find((i) => i.id === id)
-      if (!item || s.coins < item.cost) return
-      s.coins -= item.cost
+      if (!item || s.coins < this._price(item)) return
+      s.coins -= this._price(item)
       if (item.health) s.health = Math.min(s.maxHealth, s.health + item.health)
       if (item.armor) s.armor = Math.min(100, s.armor + item.armor)
       if (item.ammo) s.reserve += item.ammo
@@ -352,7 +362,7 @@ export class BuildCamp {
       const q = this.quests.find((x) => x.id === id)
       if (!q || q.claimed || this._statValue(q.stat) < q.goal) return
       q.claimed = true
-      s.coins += q.reward
+      s._earn(q.reward)
     }
     s._renderHud()
     this._renderPanel()
