@@ -86,7 +86,8 @@ test('graphics loss pauses quietly and recovers with Lite Textures', async ({ pa
     out.noteAfter = getComputedStyle(document.getElementById('graphics-reconnecting')).display
     out.liteAfter = g.settings.liteTextures
     let fullSize = 0
-    g.scene.traverse((o) => {
+    const roots = Object.values(g.weapons.viewmodels)
+    for (const root of roots) root.traverse((o) => {
       for (const m of [].concat(o.material || [])) {
         for (const k in m) {
           const tex = m[k]
@@ -99,7 +100,7 @@ test('graphics loss pauses quietly and recovers with Lite Textures', async ({ pa
     g.settings.liteTextures = false
     g._applyLiteTextures()
     let restored = 0
-    g.scene.traverse((o) => { for (const m of [].concat(o.material || [])) for (const k in m) { const tex = m[k]; if (tex?.isTexture && (tex.image instanceof HTMLImageElement || tex.image instanceof ImageBitmap) && tex.image.width >= 128) restored++ } })
+    for (const root of roots) root.traverse((o) => { for (const m of [].concat(o.material || [])) for (const k in m) { const tex = m[k]; if (tex?.isTexture && (tex.image instanceof HTMLImageElement || tex.image instanceof ImageBitmap) && tex.image.width >= 128) restored++ } })
     out.restored = restored > 0
     return out
   })

@@ -643,7 +643,7 @@ test('Map 3 camp NPCs show in the Map Editor too', async ({ page }) => {
     }
     out.wallGaps = gaps
     // The NPCs' skins (made in Design a Skin) have loaded.
-    await new Promise((res) => setTimeout(res, 1500))
+    for (let i = 0; i < 40 && b._campDisplay.npcs.some((n) => !n.body); i++) await new Promise((res) => setTimeout(res, 250))
     out.bodies = b._campDisplay.npcs.filter((n) => n.body).length
     b.survival.start()
     b.update(0.016)

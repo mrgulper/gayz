@@ -3,15 +3,6 @@ import './consoleBridge.js'
 import { Game } from './game/Game.js'
 import { preBootCloudSync } from './game/CloudPreBoot.js'
 import { reloadBindings } from './game/Keybinds.js'
-import { preloadPropModels, preloadGunShopDisplayModels } from './game/World.js'
-import { preloadZombieModel, preloadTitanModel } from './game/Zombie.js'
-import { preloadCompanionModel } from './game/Companion.js'
-import { preloadRivalModel } from './game/RivalScavenger.js'
-import { preloadSurvivorModel } from './game/RescueSurvivor.js'
-import { preloadPlayerBodyModel } from './game/PlayerBody.js'
-import { preloadMinecraftPlayerSkin } from './game/MinecraftPlayerBody.js'
-import { preloadFuelcanModel } from './game/Pickups.js'
-import { preloadChestModel, preloadVaultModel } from './game/Chests.js'
 import {
   preloadPistolViewmodel,
   preloadRifleViewmodel,
@@ -25,19 +16,9 @@ import {
   preloadUvBatonViewmodel,
 } from './game/Viewmodels.js'
 
+// Only the gun models are preloaded now (Try Map holds one, Inventory >
+// Weapons draws them) - the old Map 1 city and its models were deleted.
 Promise.all([
-  preloadPropModels(),
-  preloadGunShopDisplayModels(),
-  preloadFuelcanModel(),
-  preloadChestModel(),
-  preloadVaultModel(),
-  preloadZombieModel(),
-  preloadTitanModel(),
-  preloadCompanionModel(),
-  preloadRivalModel(),
-  preloadSurvivorModel(),
-  preloadPlayerBodyModel(),
-  preloadMinecraftPlayerSkin(),
   preloadPistolViewmodel(),
   preloadRifleViewmodel(),
   preloadShotgunViewmodel(),

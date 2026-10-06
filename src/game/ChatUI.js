@@ -355,8 +355,6 @@ export function bindChatWidget(game) {
   game._chatSendTimestamps = []
   game._chatMutedUntil = 0
   game._chatMuteTimer = null
-  game._chatPartySeenIds = new Set()
-  game._chatPartyMessages = []
   game._pendingChatText = null
   game._pendingChatNickname = null
   game._chatInputFocused = false
@@ -373,12 +371,6 @@ export function bindChatWidget(game) {
   })
   game.chatInput.addEventListener('blur', () => {
     game._chatInputFocused = false
-    // Focusing chat released pointer lock (see _onGameplayPaused's own
-    // comment on this) - re-acquire it on blur so aim/look resumes,
-    // same re-lock-on-close convention every other panel that unlocks
-    // itself already follows (e.g. _closeTraderPanel). Only mid-run -
-    // there's no pointer lock to reacquire on the homepage.
-    if (game.gameStarted && game.playerState.alive) game._requestPointerLock()
   })
 
   for (const btn of game.chatTabBtns) {
@@ -433,7 +425,7 @@ export function updateChatTabAvailability(game) {
   let fellBack = false
   for (const btn of game.chatTabBtns) {
     const channel = btn.dataset.channel
-    const nowDisabled = (channel === 'clan' && !game.settings.clanId) || (channel === 'party' && !game._multiplayerSessionId)
+    const nowDisabled = channel === 'clan' && !game.settings.clanId
     btn.disabled = nowDisabled
     if (nowDisabled && btn.classList.contains('active')) fellBack = true
   }
@@ -452,8 +444,6 @@ export function subscribeChatChannel(game) {
   } else if (game._chatChannel === 'clan') {
     if (!game.settings.clanId) return
     game._chatUnsub = CloudSync.subscribeClanChat(game.settings.clanId, (msgs) => renderChatMessages(game, msgs))
-  } else if (game._chatChannel === 'party') {
-    renderChatMessages(game, game._chatPartyMessages)
   }
 }
 
@@ -833,18 +823,6 @@ export async function sendChatMessage(game) {
       () => false
     )
     if (!ok) game._showHomepageToast(t('chatSendFailed'))
-  } else if (game._chatChannel === 'party') {
-    if (!game._multiplayerSessionId) {
-      game._showHomepageToast(t('chatNoPartyYet'))
-      return
-    }
-    game.chatInput.value = ''
-    // Picked up by _syncNetworkPlayerState's next tick (runs every
-    // 100ms during a run) rather than a dedicated one-off call - see
-    // its own payload-building comment for the same pattern already
-    // used for pendingZombieHits/pendingInteractions.
-    game._pendingChatText = text
-    game._pendingChatNickname = nickname
   }
 }
 
