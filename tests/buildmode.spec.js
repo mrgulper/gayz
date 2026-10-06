@@ -702,3 +702,45 @@ test('Play starts the block city (Map 1) zombie waves', async ({ page }) => {
   })
   expect(r).toEqual({ slot: 'map3', shown: true, maps: 'map3,map2', maxHealth: 185, mode: 'bossHunt', bossEvery: 3, glass: true, runs: 1, legacy: 40 })
 })
+
+test('View Distance hides far chunks and zombies are drawn in one batch', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    window.__game.settings.viewDistance = 'short'
+    window.__game.playBtn.click()
+  })
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  // The zombie skin loads a moment after Play starts.
+  await page.waitForFunction(() => window.__game.buildMode.survival._skin !== undefined, null, { timeout: 30000 })
+  const r = await page.evaluate(() => {
+    const g = window.__game
+    const bm = g.buildMode
+    const s = bm.survival
+    bm.render()
+    const chunks = [...bm._chunks.chunks.values()]
+    const short = chunks.filter((c) => c.shown).length
+    const fogFar = bm.scene.fog.far
+    g.settings.viewDistance = 'max'
+    bm.render()
+    const max = chunks.filter((c) => c.shown).length
+    // A few zombies: their bodies are instanced, not one mesh each.
+    s._toSpawn = 3
+    for (let i = 0; i < 300 && s.zombies.length < 3; i++) { s._spawnTimer = 0; bm.update(1 / 30) }
+    bm.render()
+    const batch = s._zBatch
+    return {
+      short,
+      max,
+      fogFar,
+      zombies: s.zombies.length,
+      batched: !!batch && batch.meshes.every((m) => m.count === s.zombies.length),
+      ownMeshesHidden: s.zombies.every((z) => z.parts.every((p) => !p.visible)),
+    }
+  })
+  expect(r.short).toBeGreaterThan(0)
+  expect(r.short).toBeLessThan(r.max)
+  expect(r.fogFar).toBeLessThan(100)
+  expect(r.zombies).toBe(3)
+  expect(r.batched).toBe(true)
+  expect(r.ownMeshesHidden).toBe(true)
+})

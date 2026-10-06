@@ -41,6 +41,18 @@ const FLY_SPEED = 8
 // feel rather than an on/off toggle.
 const FLY_ACCEL_LERP_SPEED = 8
 const LOOK_SENSITIVITY = 0.0022
+// View distance (Settings > Graphics), in blocks: chunks further away
+// than this aren't drawn and fog fades out what's left before that edge
+// (BlockChunks.cullTo). Auto starts at Max on a computer and Medium on a
+// phone/tablet, and Auto Quality moves it down a step at a time when the
+// game is still slow at its lowest resolution (Game._updateEditorResScale).
+export const VIEW_DISTANCES = { short: 48, medium: 80, far: 128, max: Infinity }
+export const VIEW_STEPS = ['short', 'medium', 'far', 'max']
+// Fog starts this share of the way out.
+const FOG_START = 0.6
+// A phone or tablet (no mouse): starts on a shorter view distance and
+// skips anisotropic filtering.
+const TOUCH_DEVICE = typeof window !== 'undefined' && !!window.matchMedia?.('(hover: none) and (pointer: coarse)').matches
 // Raised from 4096, then 8192, alongside each BLOCK_SIZE/GROUND_SIZE bump -
 // a single GROUND_SIZE x GROUND_SIZE ground layer (128*128=16384 cells) now
 // needs more headroom on its own than the old cap allowed, with zero left
@@ -1250,6 +1262,44 @@ export class BuildMode {
 
   // A block id a player could have placed (not a door's hidden top half).
   // Settings > Controls: Field of View (the old Map 1's setting, 75 by default).
+  // The view distance in blocks right now (see VIEW_DISTANCES).
+  viewDistance() {
+    const pick = this.game?.settings?.viewDistance || 'auto'
+    if (pick !== 'auto') return VIEW_DISTANCES[pick] ?? Infinity
+    return VIEW_DISTANCES[this._autoView || this.autoViewStart()]
+  }
+
+  autoViewStart() {
+    return TOUCH_DEVICE ? 'medium' : 'max'
+  }
+
+  // Auto Quality's other lever: one step nearer (-1) or further (+1),
+  // never past where Auto starts. Returns true if it changed.
+  stepAutoView(dir) {
+    if ((this.game?.settings?.viewDistance || 'auto') !== 'auto') return false
+    const start = VIEW_STEPS.indexOf(this.autoViewStart())
+    const now = VIEW_STEPS.indexOf(this._autoView || this.autoViewStart())
+    const next = Math.max(0, Math.min(start, now + dir))
+    if (next === now) return false
+    this._autoView = VIEW_STEPS[next]
+    return true
+  }
+
+  _applyViewDistance() {
+    const blocks = this.viewDistance()
+    const fog = this.scene.fog
+    if (this.scene.background?.isColor) fog.color.copy(this.scene.background)
+    if (Number.isFinite(blocks)) {
+      fog.near = blocks * FOG_START * BLOCK_SIZE
+      fog.far = blocks * BLOCK_SIZE
+    } else {
+      fog.near = 1e5
+      fog.far = 1e6
+    }
+    const p = this.camera.position
+    this._chunks.cullTo(p.x / BLOCK_SIZE, p.z / BLOCK_SIZE, blocks)
+  }
+
   _normalFov() {
     return this.game?.settings?.fov || NORMAL_FOV
   }
@@ -1265,6 +1315,10 @@ export class BuildMode {
 
     this.scene = new THREE.Scene()
     this.scene.background = new THREE.Color(0x87ceeb)
+    // Always present (adding/removing fog later would recompile every
+    // material); render() keeps its color on the sky and its distance on
+    // the view distance.
+    this.scene.fog = new THREE.Fog(0x87ceeb, 1e5, 1e6)
 
     // Bright, even daylight (2026-09-29, Kirka-style pass) - at 1.2/1.0
     // a flat-lit top face came out at about 60% of its texture color, so
@@ -1502,8 +1556,9 @@ export class BuildMode {
       blockSize: BLOCK_SIZE,
       types: BLOCK_TYPES,
       // 4x is nearly as sharp at a grazing angle as 16x and much
-      // cheaper on weak GPUs.
-      maxAnisotropy: Math.min(4, renderer.capabilities.getMaxAnisotropy()),
+      // cheaper on weak GPUs - and phones/tablets skip it (anisotropic
+      // filtering is one of the slowest things for an old phone's GPU).
+      maxAnisotropy: TOUCH_DEVICE ? 1 : Math.min(4, renderer.capabilities.getMaxAnisotropy()),
       faces: blockFaceCanvases,
       hasAlpha: textureHasAlpha,
       getType: (x, y, z) => this._blocks.get(`${x},${y},${z}`),
@@ -1517,7 +1572,7 @@ export class BuildMode {
     // and querying the renderer's actual capability (rather than a
     // hardcoded guess) means this is correct on any GPU, including one
     // that only supports less than a typical desktop's 16x.
-    const maxAnisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy())
+    const maxAnisotropy = TOUCH_DEVICE ? 1 : Math.min(4, renderer.capabilities.getMaxAnisotropy())
     // Shaped blocks' meshes (stairs/fences/ladder/slabs) are created the
     // first time one is placed (see _shapedMesh) - with a slab for every
     // block there are ~190 shaped types, and reserving a full-size
@@ -3682,6 +3737,8 @@ export class BuildMode {
     if (this._invisShadowDirty) this._rebuildInvisibleShadows()
     if (this._invisShadowMesh) this._invisShadowMesh.visible = !this.renderer.shadowMap.enabled
     this._chunks.animate(performance.now() / 1000)
+    this._applyViewDistance()
+    if (this.survival?.active) this.survival.drawZombies()
     // The survival game's filmic tone mapping darkens and over-saturates
     // flat block colors (grey stone rendered near-black) - blocks keep
     // their real texture colors here, like Minecraft/Kirka.

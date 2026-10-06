@@ -38,6 +38,22 @@ const WAVE_BREAK = 6
 const SPAWN_GAP = 1.1
 const MAX_ALIVE = 16
 const PATH_REFRESH = 0.5
+// The flow field is worked out a slice at a time, at most this many ms a
+// frame, so an old phone never freezes on it (one full pass took ~65ms
+// on a fast computer - several hundred on a phone - every half second).
+const FLOW_BUDGET_MS = 3
+
+// Cell -> one number (x/z within +-2048, y within -64..191), much
+// cheaper as a Map key than an "x,y,z" string.
+function cellKey(x, y, z) {
+  return ((x + 2048) * 4096 + (z + 2048)) * 256 + (y + 64)
+}
+
+function cellOf(key) {
+  const y = (key % 256) - 64
+  const xz = Math.floor(key / 256)
+  return [Math.floor(xz / 4096) - 2048, y, (xz % 4096) - 2048]
+}
 const PATH_MAX_NODES = 9000
 const GRAVITY = 30
 const JUMP = 8.8
@@ -128,7 +144,8 @@ export class BuildSurvival {
     this._breakTimer = 2
     this._reloadLeft = 0
     this._chestsUsed = new Set()
-    this._flow.clear()
+    this._flow = new Map()
+    this._flowJob = null
     this._flowAt = 0
     bm.toggleTryMode()
     // Map 3's walled camp is a safe zone with NPCs (BuildCamp.js).
@@ -155,6 +172,7 @@ export class BuildSurvival {
     this.camp = null
     for (const z of this.zombies) this._removeZombie(z)
     this.zombies = []
+    this._disposeZombieBatch()
     if (this._hud) this._hud.style.display = 'none'
     if (this._overEl) this._overEl.style.display = 'none'
     document.getElementById('build-mode-play-btn-label')?.replaceChildren(t('buildModePlayBtn'))
@@ -403,19 +421,36 @@ export class BuildSurvival {
 
   // --- the world: who can stand where ---
 
+  // How solid a cell is (BuildMode._cellSolidTop), with ladders as -1.
+  // While a flow pass runs, every cell is looked up once and remembered
+  // for that pass (_memo) - the flood fill asks about each cell many times.
+  _cellCode(x, y, z) {
+    const memo = this._memo
+    if (memo) {
+      const k = cellKey(x, y, z)
+      const v = memo.get(k)
+      if (v !== undefined) return v
+      const code = this.bm._cellIsLadder(x, y, z) ? -1 : this.bm._cellSolidTop(x, y, z)
+      memo.set(k, code)
+      return code
+    }
+    return this.bm._cellIsLadder(x, y, z) ? -1 : this.bm._cellSolidTop(x, y, z)
+  }
+
   _solid(x, y, z) {
-    return this.bm._cellSolidTop(x, y, z) > 0.5
+    return this._cellCode(x, y, z) > 0.5
   }
 
   _isLadder(x, y, z) {
-    return this.bm._cellIsLadder(x, y, z)
+    return this._cellCode(x, y, z) === -1
   }
 
   // A zombie can stand with its feet in this cell: it and the cell above
   // are open, and there's ground (or a ladder) under it.
   _standable(x, y, z) {
     if (this._solid(x, y, z) || this._solid(x, y + 1, z)) return false
-    return this._solid(x, y - 1, z) || this.bm._cellSolidTop(x, y - 1, z) > 0 || this._isLadder(x, y, z)
+    const below = this._cellCode(x, y - 1, z)
+    return below > 0 || this._isLadder(x, y, z)
   }
 
   // Closed doors count as a way through (zombies bash them open), just a
@@ -459,32 +494,56 @@ export class BuildSurvival {
   }
 
   // Flood fill outward from the player (cheapest-first with a simple
-  // bucket queue; costs are small multiples of half a step).
+  // bucket queue; costs are small multiples of half a step). Done as a
+  // job a slice at a time (_stepFlow); zombies keep following the last
+  // finished field meanwhile. The very first one runs in one go.
   _rebuildFlow(px, py, pz) {
-    const flow = this._flow
-    flow.clear()
-    const startKey = `${px},${py},${pz}`
-    flow.set(startKey, 0)
-    const buckets = [[[px, py, pz]]]
-    const nb = []
-    let visited = 0
-    for (let b = 0; b < buckets.length && visited < PATH_MAX_NODES; b++) {
-      const list = buckets[b]
-      if (!list) continue
-      for (const [x, y, z] of list) {
-        const here = flow.get(`${x},${y},${z}`)
-        if (here * 2 !== b) continue
-        visited++
-        for (const [nx, ny, nz, cost] of this._neighbors(x, y, z, nb)) {
-          const key = `${nx},${ny},${nz}`
-          const d = here + cost
-          if (flow.has(key) && flow.get(key) <= d) continue
-          flow.set(key, d)
-          const bi = Math.round(d * 2)
-          ;(buckets[bi] || (buckets[bi] = [])).push([nx, ny, nz])
+    this._startFlow(px, py, pz)
+    this._stepFlow(Infinity)
+  }
+
+  _startFlow(px, py, pz) {
+    const flow = new Map()
+    flow.set(cellKey(px, py, pz), 0)
+    this._flowJob = { flow, buckets: [[[px, py, pz]]], b: 0, i: 0, visited: 0, memo: new Map() }
+  }
+
+  // Works on the current job for up to budgetMs; true once it's done.
+  _stepFlow(budgetMs) {
+    const job = this._flowJob
+    if (!job) return true
+    const until = performance.now() + budgetMs
+    const { flow, buckets } = job
+    const nb = this._flowNb || (this._flowNb = [])
+    this._memo = job.memo
+    let n = 0
+    try {
+      for (; job.b < buckets.length && job.visited < PATH_MAX_NODES; job.b++, job.i = 0) {
+        const list = buckets[job.b]
+        if (!list) continue
+        for (; job.i < list.length; job.i++) {
+          if ((++n & 63) === 0 && performance.now() > until) return false
+          const [x, y, z] = list[job.i]
+          const here = flow.get(cellKey(x, y, z))
+          if (here * 2 !== job.b) continue
+          job.visited++
+          for (const [nx, ny, nz, cost] of this._neighbors(x, y, z, nb)) {
+            const key = cellKey(nx, ny, nz)
+            const d = here + cost
+            const old = flow.get(key)
+            if (old !== undefined && old <= d) continue
+            flow.set(key, d)
+            const bi = Math.round(d * 2)
+            ;(buckets[bi] || (buckets[bi] = [])).push([nx, ny, nz])
+          }
         }
       }
+    } finally {
+      this._memo = null
     }
+    this._flow = flow
+    this._flowJob = null
+    return true
   }
 
   _playerCell() {
@@ -517,15 +576,15 @@ export class BuildSurvival {
     const near = []
     for (const [key, d] of this._flow) {
       if (d < 14) continue
-      const cell = key.split(',').map(Number)
+      const cell = cellOf(key)
       if (d <= 40) far.push(cell)
       else near.push(cell)
     }
     if (far.length) return far
     if (near.length) return near
     // A small space: anywhere a little way off.
-    const any = [...this._flow].filter(([, d]) => d >= 5).map(([key]) => key.split(',').map(Number))
-    return any.length ? any : [...this._flow.keys()].map((key) => key.split(',').map(Number))
+    const any = [...this._flow].filter(([, d]) => d >= 5).map(([key]) => cellOf(key))
+    return any.length ? any : [...this._flow.keys()].map((key) => cellOf(key))
   }
 
   _spawnZombie() {
@@ -540,8 +599,17 @@ export class BuildSurvival {
     const health = zombieHealth(this.wave, this.cfg.escalation) * this.cfg.zombieHealthMult * (boss ? BOSS_HEALTH_MULT : 1)
     const zombie = { x: x + 0.5, y, z: z + 0.5, vx: 0, vy: 0, vz: 0, onGround: false, health, attackCd: 0.6, bash: 0, flash: 0, walk: Math.random() * 6, moan: 2 + Math.random() * 8, group, body: null, boss, size: boss ? BOSS_SIZE : 1 }
     if (boss) this._message(t('buildPlayBossComing'))
-    if (this._skin) {
-      const body = buildTexturedCharacter(this._skin)
+    const batch = this._zombieBatch()
+    if (batch) {
+      // A copy of the shared body (same geometry and material): it only
+      // carries the moving parts' positions - drawZombies() draws every
+      // zombie's parts together, one draw per part.
+      const body = batch.template.clone()
+      const nodes = []
+      body.traverse((o) => nodes.push(o))
+      body.limbPivots = Object.fromEntries(Object.entries(batch.pivotIndex).map(([name, i]) => [name, nodes[i]]))
+      zombie.parts = batch.partIndex.map((i) => nodes[i])
+      for (const part of zombie.parts) part.visible = false
       const s = (ZOMBIE_HEIGHT * this.B * zombie.size) / 32
       body.scale.setScalar(s)
       body.position.y = 2 * s
@@ -560,8 +628,69 @@ export class BuildSurvival {
     return true
   }
 
+  // Every zombie looks the same, so their bodies are drawn together: one
+  // InstancedMesh per body part (head, torso, each limb...) instead of
+  // about eight draws per zombie - a full wave used to add ~130 draws.
+  _zombieBatch() {
+    if (this._zBatch || !this._skin) return this._zBatch || null
+    const template = buildTexturedCharacter(this._skin)
+    const nodes = []
+    template.traverse((o) => nodes.push(o))
+    const partIndex = []
+    nodes.forEach((o, i) => { if (o.isMesh) partIndex.push(i) })
+    const pivotIndex = Object.fromEntries(Object.entries(template.limbPivots).map(([name, o]) => [name, nodes.indexOf(o)]))
+    const size = MAX_ALIVE + 8
+    const meshes = partIndex.map((i) => {
+      const part = nodes[i]
+      const mesh = new THREE.InstancedMesh(part.geometry, part.material, size)
+      mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(size * 3).fill(1), 3)
+      mesh.count = 0
+      // The parts sit all over the map; their bounds aren't worth keeping.
+      mesh.frustumCulled = false
+      this.bm.scene.add(mesh)
+      return mesh
+    })
+    this._zBatch = { template, partIndex, pivotIndex, meshes }
+    return this._zBatch
+  }
+
+  // Called by BuildMode.render() just before drawing.
+  drawZombies() {
+    const batch = this._zBatch
+    if (!batch) return
+    const list = this.zombies.filter((z) => z.parts)
+    for (const z of list) z.group.updateMatrixWorld(true)
+    batch.meshes.forEach((mesh, p) => {
+      list.forEach((z, i) => {
+        mesh.setMatrixAt(i, z.parts[p].matrixWorld)
+        const red = z.lastRed > 0
+        mesh.instanceColor.setXYZ(i, 1, red ? 0.35 : 1, red ? 0.35 : 1)
+      })
+      mesh.count = list.length
+      mesh.instanceMatrix.needsUpdate = true
+      mesh.instanceColor.needsUpdate = true
+    })
+  }
+
+  _disposeZombieBatch() {
+    const batch = this._zBatch
+    if (!batch) return
+    for (const mesh of batch.meshes) {
+      this.bm.scene.remove(mesh)
+      mesh.dispose()
+    }
+    batch.template.traverse((o) => {
+      if (!o.isMesh) return
+      o.geometry.dispose()
+      for (const m of [].concat(o.material)) m.dispose()
+    })
+    this._zBatch = null
+  }
+
   _removeZombie(z) {
     this.bm.scene.remove(z.group)
+    // A batched body shares its geometry and material - nothing to free.
+    if (z.parts) return
     z.group.traverse((o) => {
       if (!o.isMesh) return
       o.geometry.dispose()
@@ -603,11 +732,11 @@ export class BuildSurvival {
     let tx = player.x
     let tz = player.z
     let ty = player.y
-    const here = this._flow.get(`${cx},${cy},${cz}`)
+    const here = this._flow.get(cellKey(cx, cy, cz))
     if (here !== undefined) {
       let bestD = here
       for (const [nx, ny, nz] of this._neighbors(cx, cy, cz, this._nb || (this._nb = []))) {
-        const d = this._flow.get(`${nx},${ny},${nz}`)
+        const d = this._flow.get(cellKey(nx, ny, nz))
         if (d !== undefined && d < bestD) {
           bestD = d
           tx = nx + 0.5
@@ -698,9 +827,12 @@ export class BuildSurvival {
     const red = zb.flash > 0 ? 0.6 : 0
     if (zb.lastRed !== red) {
       zb.lastRed = red
-      zb.group.traverse((o) => {
-        if (o.isMesh && o.material.emissive) o.material.emissive.setRGB(red, 0, 0)
-      })
+      // A batched body gets its red tint in drawZombies().
+      if (!zb.parts) {
+        zb.group.traverse((o) => {
+          if (o.isMesh && o.material.emissive) o.material.emissive.setRGB(red, 0, 0)
+        })
+      }
     }
     zb.moan -= dt
     if (zb.moan <= 0) {
@@ -830,10 +962,17 @@ export class BuildSurvival {
     }
     const now = performance.now() / 1000
     const [px, py, pz] = this._playerCell()
-    if (now - this._flowAt > PATH_REFRESH || this._flowKey !== `${px},${py},${pz}`) {
+    if (this._flowJob) {
+      this._stepFlow(FLOW_BUDGET_MS)
+    } else if (now - this._flowAt > PATH_REFRESH || this._flowKey !== `${px},${py},${pz}`) {
       this._flowAt = now
       this._flowKey = `${px},${py},${pz}`
-      this._rebuildFlow(px, py, pz)
+      // The first field is needed right away (zombies spawn from it).
+      if (this._flow.size === 0) this._rebuildFlow(px, py, pz)
+      else {
+        this._startFlow(px, py, pz)
+        this._stepFlow(FLOW_BUDGET_MS)
+      }
     }
     // Waves.
     if (this._toSpawn === 0 && this.zombies.length === 0) {

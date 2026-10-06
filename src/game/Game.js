@@ -379,6 +379,7 @@ function loadSettings() {
       // still works, see _resolveShadowsEnabled's own comment on why.
       shadowsEnabled: parsed.shadowsEnabled ?? false,
       shadowQuality: parsed.shadowQuality || 'medium',
+      viewDistance: ['auto', 'short', 'medium', 'far', 'max'].includes(parsed.viewDistance) ? parsed.viewDistance : 'auto',
       liteTextures: parsed.liteTextures ?? false,
       grainIntensity: parsed.grainIntensity ?? 100,
       panelFlickerEnabled: parsed.panelFlickerEnabled ?? true,
@@ -491,7 +492,7 @@ function loadSettings() {
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', liteTextures: false, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'menu-inventory-btn', 'quests-btn', 'friends-btn', 'achievements-btn'], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false } }
+  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', viewDistance: 'auto', liteTextures: false, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'menu-inventory-btn', 'quests-btn', 'friends-btn', 'achievements-btn'], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false } }
 }
 
 
@@ -602,7 +603,7 @@ const SETTINGS_CODE_KEYS = [
   'bigInteractPrompt', 'toastDuration', 'crosshairSize', 'largeTextMode',
   'highContrastMode', 'dyslexiaFont', 'focusRingMode', 
   'performanceMode', 'bgMood', 'renderResolution', 'brightness', 'contrast', 
-  'shadowsEnabled', 'shadowQuality', 'liteTextures', 
+  'shadowsEnabled', 'shadowQuality', 'viewDistance', 'liteTextures', 
   'grainIntensity',
   'panelFlickerEnabled',
 ]
@@ -1192,6 +1193,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'gfx-contrast-label': 'gfxContrastLabel',
   'gfx-shadows-label': 'gfxShadowsLabel',
   'gfx-shadow-quality-label': 'gfxShadowQualityLabel',
+  'gfx-view-distance-label': 'gfxViewDistanceLabel',
   'gfx-grain-label': 'gfxGrainLabel',
   'gfx-panel-flicker-label': 'gfxPanelFlickerLabel',
   'gfx-lite-textures-label': 'gfxLiteTexturesLabel',
@@ -1364,6 +1366,7 @@ const SELECT_OPTION_I18N_KEYS = {
   'time-format-select': { '12h': 'optTimeFormat12h', '24h': 'optTimeFormat24h' },
   'fps-cap-select': { '0': 'optFpsUncapped', '60': 'optFps60', '120': 'optFps120', '144': 'optFps144' },
   'gfx-shadow-quality-select': { 'low': 'optShadowLow', 'medium': 'optShadowMedium', 'high': 'optShadowHigh' },
+  'gfx-view-distance-select': { 'auto': 'optViewAuto', 'short': 'optViewShort', 'medium': 'optViewMedium', 'far': 'optViewFar', 'max': 'optViewMax' },
   'colorblind-mode-select': { 'off': 'optColorblindOff', 'redgreen': 'optColorblindRedGreen', 'blueyellow': 'optColorblindBlueYellow' },
   'ui-font-select': { 'default': 'optUiFontDefault', 'mono': 'optUiFontMono', 'serif': 'optUiFontSerif', 'display': 'optUiFontDisplay' },
   'theme-preset-select': { 'none': 'optThemePresetDefault', 'sepia': 'optThemePresetSepia', 'darker': 'optThemePresetDarker', 'lighter': 'optThemePresetLighter' },
@@ -2039,6 +2042,7 @@ export class Game {
     this.gfxContrastValue = document.getElementById('gfx-contrast-value')
     this.gfxShadowsToggle = document.getElementById('gfx-shadows-toggle')
     this.gfxShadowQualitySelect = document.getElementById('gfx-shadow-quality-select')
+    this.gfxViewDistanceSelect = document.getElementById('gfx-view-distance-select')
     this.gfxLiteTexturesToggle = document.getElementById('gfx-lite-textures-toggle')
     this.gfxGrainSlider = document.getElementById('gfx-grain-slider')
     this.gfxGrainValue = document.getElementById('gfx-grain-value')
@@ -4357,6 +4361,15 @@ export class Game {
       })
       this._applyShadowQuality()
     }
+    // View Distance - read by BuildMode.viewDistance() every frame.
+    if (this.gfxViewDistanceSelect) {
+      this.gfxViewDistanceSelect.value = this.settings.viewDistance
+      this.gfxViewDistanceSelect.addEventListener('change', () => {
+        this.settings.viewDistance = this.gfxViewDistanceSelect.value
+        if (this.buildMode) this.buildMode._autoView = null
+        saveSettings(this.settings)
+      })
+    }
 
     // Bullet Holes / Blood Animation - gate the existing DecalManager
     // (see Decals.js) rather than building a second decal system; no
@@ -4794,7 +4807,7 @@ export class Game {
   // reliable than re-applying every live graphics effect by hand.
   _resetGraphicsDefaults() {
     const defaults = defaultSettings()
-    const graphicsKeys = ['renderResolution', 'brightness', 'contrast', 'shadowsEnabled', 'shadowQuality', 'liteTextures', 'grainIntensity', 'panelFlickerEnabled']
+    const graphicsKeys = ['renderResolution', 'brightness', 'contrast', 'shadowsEnabled', 'shadowQuality', 'viewDistance', 'liteTextures', 'grainIntensity', 'panelFlickerEnabled']
     for (const key of graphicsKeys) this.settings[key] = defaults[key]
     saveSettings(this.settings)
     window.location.reload()
@@ -11771,19 +11784,33 @@ export class Game {
     // A step that wouldn't change the real pixel ratio (already at the
     // floor) is skipped entirely.
     const down = Math.max(0.25, scale - 0.125)
-    if (msPerFrame > targetMs * 1.11 && scale > 0.25 && this._editorPixelRatio(down) < this._editorPixelRatio(scale) - 1e-3) {
+    const canLower = scale > 0.25 && this._editorPixelRatio(down) < this._editorPixelRatio(scale) - 1e-3
+    if (msPerFrame > targetMs * 1.11 && canLower) {
       this._editorResScale = down
       this._editorResGood = 0
       this._editorResUpAfter = now + 20000
       // Draw straight away - a resize clears the canvas, and waiting for
       // the next frame would show one black frame.
       if (this._applyRenderScale()) this.buildMode.render()
-    } else if (msPerFrame < targetMs * 1.05 && scale < 1) {
+    } else if (msPerFrame > targetMs * 1.11) {
+      // Already at the lowest resolution: draw less of the map instead
+      // (View Distance on Auto - see BuildMode.stepAutoView).
+      this._editorResGood = 0
+      if (this.buildMode.stepAutoView(-1)) {
+        this._editorResHoldUntil = now + 2000
+        this._editorResUpAfter = now + 20000
+      }
+    } else if (msPerFrame < targetMs * 1.05) {
       this._editorResGood = (this._editorResGood || 0) + 1
       if (this._editorResGood >= 6 && now > (this._editorResUpAfter || 0)) {
-        this._editorResScale = Math.min(1, scale + 0.125)
         this._editorResGood = 0
-        if (this._applyRenderScale()) this.buildMode.render()
+        // Give back what went last first: the view distance, then pixels.
+        if (this.buildMode.stepAutoView(1)) {
+          this._editorResUpAfter = now + 20000
+        } else if (scale < 1) {
+          this._editorResScale = Math.min(1, scale + 0.125)
+          if (this._applyRenderScale()) this.buildMode.render()
+        }
       }
     } else {
       this._editorResGood = 0
