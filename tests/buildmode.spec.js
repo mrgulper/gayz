@@ -744,3 +744,51 @@ test('View Distance hides far chunks and zombies are drawn in one batch', async 
   expect(r.batched).toBe(true)
   expect(r.ownMeshesHidden).toBe(true)
 })
+
+test.describe('on a phone', () => {
+  test.use({ viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true })
+
+  test('Map 1 shows touch controls that move, look and use the buttons', async ({ page }) => {
+    await gotoAndWaitForGame(page)
+    await page.evaluate(() => window.__game.playBtn.click())
+    await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+    await page.waitForFunction(() => getComputedStyle(document.getElementById('touch-play') || document.body).display === 'block', null, { timeout: 30000 })
+    const cdp = await page.context().newCDPSession(page)
+    const touch = (type, points) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: points })
+    const center = (sel) => page.evaluate((sel) => {
+      const r = document.querySelector(sel).getBoundingClientRect()
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
+    }, sel)
+    // Look: drag on the right half.
+    const yaw0 = await page.evaluate(() => window.__game.buildMode._yaw)
+    await touch('touchStart', [{ x: 500, y: 200, id: 1 }])
+    await touch('touchMove', [{ x: 560, y: 200, id: 1 }])
+    await touch('touchEnd', [])
+    // Move: the stick on the left half, pushed forward.
+    await touch('touchStart', [{ x: 150, y: 250, id: 2 }])
+    await touch('touchMove', [{ x: 150, y: 220, id: 2 }])
+    const stick = await page.evaluate(() => window.__game.buildMode._touchMove)
+    await touch('touchEnd', [])
+    // Reload and Pause buttons.
+    const reload = await center('.tp-reload')
+    await page.evaluate(() => { window.__game.buildMode.survival.mag = 5 })
+    await touch('touchStart', [{ x: reload.x, y: reload.y, id: 3 }])
+    await touch('touchEnd', [])
+    const reloading = await page.evaluate(() => window.__game.buildMode.survival._reloadLeft > 0)
+    const pause = await center('.tp-pause')
+    await touch('touchStart', [{ x: pause.x, y: pause.y, id: 4 }])
+    await touch('touchEnd', [])
+    const r = await page.evaluate(() => ({
+      yaw: window.__game.buildMode._yaw,
+      paused: window.__game.buildMode.menuOpen,
+      hidden: getComputedStyle(document.getElementById('touch-play')).display === 'none',
+      noWords: [...document.querySelectorAll('#touch-play .tp-btn')].every((b) => b.textContent.trim() === '' && b.querySelector('svg')),
+    }))
+    expect(r.yaw).not.toBe(yaw0)
+    expect(stick?.y).toBeGreaterThan(0)
+    expect(reloading).toBe(true)
+    expect(r.paused).toBe(true)
+    expect(r.hidden).toBe(true)
+    expect(r.noWords).toBe(true)
+  })
+})

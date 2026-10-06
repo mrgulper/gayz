@@ -10835,3 +10835,44 @@ html.ui-theme-old .crate-card .crate-stock-count { color: #241507; }
 
 /* Old Map 1 parts kept for later but hidden since the old city was deleted
    (2026-10-05) - each comes back once it works with the block-city Map 1. */
+
+/* Touch controls for playing on a phone (BuildTouch.js): a floating stick
+   on the left, look by dragging anywhere else, round icon buttons on the
+   right. Hidden on mouse/keyboard devices. */
+#touch-play { display: none; position: fixed; inset: 0; z-index: 17; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+#touch-play .tp-look { position: absolute; inset: 0; }
+#touch-play .tp-stick {
+  position: absolute; width: 112px; height: 112px; margin: -56px 0 0 -56px; border-radius: 50%;
+  background: rgba(10, 10, 10, 0.28); border: 2px solid rgba(255, 255, 255, 0.35);
+  opacity: 0; transition: opacity 0.12s; pointer-events: none;
+}
+#touch-play .tp-stick.on { opacity: 1; }
+#touch-play .tp-stick-knob {
+  position: absolute; left: 50%; top: 50%; width: 48px; height: 48px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+#touch-play .tp-btn {
+  position: absolute; display: flex; align-items: center; justify-content: center; padding: 0;
+  border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.4); background: rgba(10, 10, 10, 0.42);
+  color: #fff; -webkit-tap-highlight-color: transparent; touch-action: none;
+}
+#touch-play .tp-btn svg { width: 55%; height: 55%; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+#touch-play .tp-btn.down { background: rgba(255, 207, 92, 0.45); border-color: #ffcf5c; }
+#touch-play .tp-crouch.on { background: rgba(255, 207, 92, 0.3); border-color: #ffcf5c; }
+#touch-play .tp-fire { right: max(24px, env(safe-area-inset-right)); bottom: 36px; width: 86px; height: 86px; border-color: rgba(255, 120, 100, 0.7); }
+#touch-play .tp-jump { right: calc(max(24px, env(safe-area-inset-right)) + 104px); bottom: 24px; width: 64px; height: 64px; }
+#touch-play .tp-crouch { right: calc(max(24px, env(safe-area-inset-right)) + 186px); bottom: 20px; width: 52px; height: 52px; }
+#touch-play .tp-reload { right: calc(max(24px, env(safe-area-inset-right)) + 14px); bottom: 140px; width: 56px; height: 56px; }
+#touch-play .tp-use { right: calc(max(24px, env(safe-area-inset-right)) + 90px); bottom: 110px; width: 56px; height: 56px; }
+#touch-play .tp-pause { top: 10px; left: 50%; margin-left: -22px; width: 44px; height: 44px; }
+/* Keep the rest of the screen clear for thumbs while playing on a phone. */
+body.touch-play-on #build-hotbar,
+body.touch-play-on #chat-panel,
+body.touch-play-on #build-tool-hint { display: none !important; }
+body.touch-play-on #build-play-health { bottom: 20px; width: 200px; }
+body.touch-play-on #build-play-ammo { bottom: auto; top: 112px; right: max(20px, env(safe-area-inset-right)); font-size: 26px; }
+body.touch-play-on #build-try-map { top: 8px; right: max(12px, env(safe-area-inset-right)); width: 96px; height: 96px; }
+/* The fps readout moves to a small line at the bottom-left corner. */
+body.touch-play-on #fps-counter { top: auto !important; bottom: 4px !important; left: 8px !important; right: auto !important; transform: none !important; max-width: 42vw; font-size: 10px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.touch-play-on #build-play-msg { font-size: 26px; white-space: normal; width: 80vw; }
+body.touch-play-on #build-play-wave { top: 10px; font-size: 16px; padding: 4px 10px; }

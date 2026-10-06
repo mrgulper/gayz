@@ -343,7 +343,15 @@ export class BuildTryMode {
     if (keys.has('KeyS')) { mx -= fx; mz -= fz }
     if (keys.has('KeyD')) { mx -= fz; mz += fx }
     if (keys.has('KeyA')) { mx += fz; mz -= fx }
+    // Phone stick (BuildTouch): the same directions, but any amount.
+    const stick = this.bm._touchMove
+    if (stick) {
+      mx += fx * stick.y - fz * stick.x
+      mz += fz * stick.y + fx * stick.x
+    }
     const len = Math.hypot(mx, mz)
+    // A stick pushed only part way walks slower (keys are all or nothing).
+    const amount = stick && !keys.has('KeyW') && !keys.has('KeyS') && !keys.has('KeyA') && !keys.has('KeyD') ? Math.min(1, len) : 1
     // Crouch while a crouch key is held - standing back up waits until
     // there's room overhead.
     const crouchHeld = CROUCH_KEYS.some((k) => keys.has(k))
@@ -353,7 +361,7 @@ export class BuildTryMode {
     }
     const crouch = this._crouch
     // Run: Shift while walking forward (bloxd.io's Shift + W).
-    const sprint = !crouch && (keys.has('ShiftLeft') || keys.has('ShiftRight')) && keys.has('KeyW') && !keys.has('KeyS')
+    const sprint = !crouch && (((keys.has('ShiftLeft') || keys.has('ShiftRight')) && keys.has('KeyW') && !keys.has('KeyS')) || !!stick?.run)
     const inLiquid = this._touching(p.x, p.y, p.z, (x, y, z) => this.bm._cellIsLiquid(x, y, z))
     const onLadder = this._touching(p.x, p.y, p.z, (x, y, z) => this.bm._cellIsLadder(x, y, z))
     // Staying on the ground past the hop window ends a bunny-hop chain.
@@ -365,7 +373,7 @@ export class BuildTryMode {
     let speed = (crouch ? CROUCH : sprint ? SPRINT : WALK) * (this.speedMult ?? 1)
     speed *= BHOP_MULT[this._hopChain]
     if (inLiquid) speed *= 0.55
-    const want = len ? speed / len : 0
+    const want = len ? (speed * amount) / len : 0
     const grip = this.onGround ? GROUND_GRIP : AIR_GRIP
     this.vel.x = THREE.MathUtils.damp(this.vel.x, mx * want, grip, dt)
     this.vel.z = THREE.MathUtils.damp(this.vel.z, mz * want, grip, dt)
@@ -379,8 +387,9 @@ export class BuildTryMode {
     this._jumpBuffer = Math.max(0, this._jumpBuffer - dt)
 
     if (onLadder) {
-      const up = keys.has('KeyW') || spaceDown
-      this.vel.y = up ? CLIMB : keys.has('KeyS') ? -CLIMB : -1
+      const up = keys.has('KeyW') || spaceDown || (stick?.y ?? 0) > 0.3
+      const down = keys.has('KeyS') || (stick?.y ?? 0) < -0.3
+      this.vel.y = up ? CLIMB : down ? -CLIMB : -1
     } else if (inLiquid) {
       this.vel.y = spaceDown ? 3.5 : Math.max(this.vel.y - GRAVITY * 0.2 * dt, -2.5)
     } else {
