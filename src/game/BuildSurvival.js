@@ -280,7 +280,7 @@ export class BuildSurvival {
     const timeText = mode === 'zombieRush' ? ` · ${t('buildPlayTime', { t: `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` })}` : ''
     set('build-play-wave', `${waveText} · ${t('buildPlayZombiesLeft', { n: alive })} · ${t('buildPlayKills', { n: this.kills })}${this.camp ? ` · ${t('campCoins', { n: this.coins })}` : ''}${timeText}`)
     const fill = document.getElementById('build-play-health-fill')
-    if (fill) fill.style.width = `${Math.max(0, this.health)}%`
+    if (fill) fill.style.width = `${Math.max(0, Math.min(100, (this.health / (this.maxHealth || 100)) * 100))}%`
     set('build-play-health-text', `${Math.max(0, Math.ceil(this.health))}${this.armor > 0 ? ` + ${Math.ceil(this.armor)}` : ''}`)
     set('build-play-ammo', this._reloadLeft > 0 ? t('buildPlayReloading') : `${this.mag} / ${this.reserve}`)
   }
@@ -724,7 +724,7 @@ export class BuildSurvival {
     // Armor (from the camp's Trader) takes the hit first.
     const soaked = Math.min(this.armor || 0, amount)
     this.armor = (this.armor || 0) - soaked
-    this.health -= amount - soaked
+    this.health = Math.max(0, this.health - (amount - soaked))
     audioEngine.playPlayerHurt?.()
     const flash = document.getElementById('build-play-hurt')
     if (flash) {
