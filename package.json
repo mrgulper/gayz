@@ -22,8 +22,6 @@
   },
   "dependencies": {
     "firebase": "^12.16.0",
-    "firebase-admin": "^14.3.0",
-    "three": "^0.185.1",
-    "three-mesh-bvh": "^0.9.15"
+    "three": "^0.185.1"
   }
 }

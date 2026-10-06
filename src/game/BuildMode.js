@@ -1274,7 +1274,11 @@ export class BuildMode {
     // reads as "3D" from a distance - a flat-shaded cube and a shadowed
     // one look very different even with the same geometry.
     sunLight.castShadow = true
-    sunLight.shadow.mapSize.set(1024, 1024)
+    // Graphics > Shadow Quality picks the shadow map size (Game.js
+    // _applyShadowQuality changes it live).
+    const shadowSize = { low: 512, medium: 1024, high: 2048 }[game?.settings?.shadowQuality] || 1024
+    sunLight.shadow.mapSize.set(shadowSize, shadowSize)
+    this.sunLight = sunLight
     // GROUND_SIZE is a cell count, not world units (see its own comment) -
     // the shadow frustum needs to cover the ground's actual physical size.
     const shadowSpan = (GROUND_SIZE * BLOCK_SIZE) / 2 + 8
