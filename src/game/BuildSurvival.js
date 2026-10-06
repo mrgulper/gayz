@@ -21,6 +21,7 @@ import { audioEngine } from './Audio.js'
 import { getKeyFor } from './Keybinds.js'
 import { t } from './i18n.js'
 import { BuildCamp, COIN_PER_KILL, COIN_PER_WAVE } from './BuildCamp.js'
+import { PLAY_DEFAULTS, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND } from './PlayRules.js'
 
 export const PLAY_START = { health: 100, mag: 30, reserve: 120 }
 export const CHEST_LOOT = { ammo: 60, health: 35 }
@@ -46,11 +47,13 @@ const BEST_KEY = 'buildmode-play-best'
 export function waveSize(wave) {
   return 3 + wave * 2
 }
-export function zombieSpeed(wave) {
-  return Math.min(3.6, 2.1 + wave * 0.12)
+// escalation (the mutator): no top speed, and health climbs faster.
+export function zombieSpeed(wave, escalation = false) {
+  const speed = 2.1 + wave * 0.12
+  return escalation ? speed : Math.min(3.6, speed)
 }
-export function zombieHealth(wave) {
-  return 100 + (wave - 1) * 12
+export function zombieHealth(wave, escalation = false) {
+  return 100 + (wave - 1) * (escalation ? 20 : 12)
 }
 export function zombieDamage(wave) {
   return 9 + wave
@@ -80,9 +83,13 @@ export class BuildSurvival {
 
   // --- start / stop ---
 
-  // fromMenu: started from Game Mode's Map 3 (Back goes to the homepage).
+  // fromMenu: started from the homepage's Play (Back goes to the homepage).
+  // Those runs use the Game Mode panel's picks and the Upgrades bought
+  // (Game._playConfig, PlayRules.js) and count toward stats and quests;
+  // the Map Editor's own Play is a plain sandbox.
   start({ fromMenu = false } = {}) {
     const bm = this.bm
+    this.cfg = { ...PLAY_DEFAULTS, ...(fromMenu ? bm.game?._playConfig?.() : null) }
     if (bm.tryMode.active) bm.toggleTryMode()
     if (bm.menuOpen) bm.toggleMenu()
     this.fromMenu = fromMenu
@@ -96,12 +103,22 @@ export class BuildSurvival {
     }
     this.active = true
     this.dead = false
-    this.health = PLAY_START.health
-    this.maxHealth = PLAY_START.health
-    this.armor = 0
-    this.coins = 0
+    this.health = this.cfg.maxHealth
+    this.maxHealth = this.cfg.maxHealth
+    this.armor = this.cfg.armor
+    this.coins = this.cfg.startCoins
     this.upgrades = {}
     this.stats = { kills: 0, chests: 0, headshots: 0 }
+    this.streak = 0
+    this.bestStreak = 0
+    this.bosses = 0
+    this._bossPending = 0
+    this._ended = false
+    this._won = false
+    this._startedAt = performance.now()
+    this._hurtAt = 0
+    this._coinsEarned = 0
+    bm.tryMode.speedMult = this.cfg.moveMult
     this.mag = PLAY_START.mag
     this.reserve = PLAY_START.reserve
     this.wave = 0
@@ -130,7 +147,10 @@ export class BuildSurvival {
   // leaveTry: false when Try Map itself is being left (T / Escape menu).
   stop({ leaveTry = true } = {}) {
     if (!this.active) return
+    // Leaving a run before dying still counts it (stats, quests).
+    if (!this.dead) this._endRun(false)
     this.active = false
+    this.bm.tryMode.speedMult = 1
     this.camp?.dispose()
     this.camp = null
     for (const z of this.zombies) this._removeZombie(z)
@@ -173,11 +193,24 @@ export class BuildSurvival {
   }
 
   _reloadTime() {
-    return RELOAD_TIME * (1 - 0.2 * (this.upgrades?.reload || 0))
+    return RELOAD_TIME * (1 - 0.2 * (this.upgrades?.reload || 0)) * (this.cfg?.reloadMult ?? 1)
   }
 
   _damageMult() {
-    return 1 + 0.25 * (this.upgrades?.damage || 0)
+    return (1 + 0.25 * (this.upgrades?.damage || 0)) * (this.cfg?.damageMult ?? 1)
+  }
+
+  // Coins come in through here, so Loot Rush doubles them all.
+  _earn(n) {
+    const got = Math.round(n * (this.cfg?.coinMult ?? 1))
+    this.coins += got
+    this._coinsEarned += got
+  }
+
+  // Tells Game.js about a homepage run (stats, quests, achievements).
+  _report(type, data) {
+    if (!this.fromMenu) return null
+    return this.bm.game?._onPlayEvent?.(type, data) || null
   }
 
   _findBlocks(type) {
@@ -241,7 +274,11 @@ export class BuildSurvival {
       if (el) el.textContent = text
     }
     const alive = this.zombies.length + this._toSpawn
-    set('build-play-wave', `${t('buildPlayWave', { n: Math.max(1, this.wave) })} · ${t('buildPlayZombiesLeft', { n: alive })} · ${t('buildPlayKills', { n: this.kills })}${this.camp ? ` · ${t('campCoins', { n: this.coins })}` : ''}`)
+    const mode = this.cfg?.mode
+    const waveText = mode === 'zombieDefense' ? t('buildPlayWaveOf', { n: Math.max(1, this.wave), max: DEFENSE_WAVES }) : t('buildPlayWave', { n: Math.max(1, this.wave) })
+    const secs = Math.floor((performance.now() - (this._startedAt || 0)) / 1000)
+    const timeText = mode === 'zombieRush' ? ` · ${t('buildPlayTime', { t: `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` })}` : ''
+    set('build-play-wave', `${waveText} · ${t('buildPlayZombiesLeft', { n: alive })} · ${t('buildPlayKills', { n: this.kills })}${this.camp ? ` · ${t('campCoins', { n: this.coins })}` : ''}${timeText}`)
     const fill = document.getElementById('build-play-health-fill')
     if (fill) fill.style.width = `${Math.max(0, this.health)}%`
     set('build-play-health-text', `${Math.max(0, Math.ceil(this.health))}${this.armor > 0 ? ` + ${Math.ceil(this.armor)}` : ''}`)
@@ -281,13 +318,15 @@ export class BuildSurvival {
     const box = new THREE.Box3()
     const hitPoint = this._v
     for (const z of this.zombies) {
-      box.min.set((z.x - ZOMBIE_HALF) * B, z.y * B, (z.z - ZOMBIE_HALF) * B)
-      box.max.set((z.x + ZOMBIE_HALF) * B, (z.y + ZOMBIE_HEIGHT) * B, (z.z + ZOMBIE_HALF) * B)
+      const half = ZOMBIE_HALF * (z.size || 1)
+      const height = ZOMBIE_HEIGHT * (z.size || 1)
+      box.min.set((z.x - half) * B, z.y * B, (z.z - half) * B)
+      box.max.set((z.x + half) * B, (z.y + height) * B, (z.z + half) * B)
       if (!ray.intersectBox(box, hitPoint)) continue
       const d = hitPoint.distanceTo(ray.origin)
       if (d < bestT && d < wallT) {
         bestT = d
-        best = { z, head: hitPoint.y / B > z.y + ZOMBIE_HEIGHT * 0.76 }
+        best = { z, head: hitPoint.y / B > z.y + height * 0.76 }
       }
     }
     if (!best) return false
@@ -313,7 +352,15 @@ export class BuildSurvival {
     audioEngine.playZombieDeath?.(1)
     this.kills++
     this.stats.kills++
-    this.coins += COIN_PER_KILL
+    this.streak++
+    this.bestStreak = Math.max(this.bestStreak, this.streak)
+    this._earn(COIN_PER_KILL)
+    if (z.boss) {
+      this.bosses++
+      this._earn(BOSS_COINS)
+      this._message(t('buildPlayBossDown', { n: Math.round(BOSS_COINS * (this.cfg?.coinMult ?? 1)) }))
+    }
+    this._report('kill', { boss: !!z.boss, streak: this.streak })
     this._removeZombie(z)
     this.zombies = this.zombies.filter((o) => o !== z)
     this._renderHud()
@@ -488,10 +535,14 @@ export class BuildSurvival {
     if (!open.length) return false
     const [x, y, z] = open[Math.floor(Math.random() * open.length)]
     const group = new THREE.Group()
-    const zombie = { x: x + 0.5, y, z: z + 0.5, vx: 0, vy: 0, vz: 0, onGround: false, health: zombieHealth(this.wave), attackCd: 0.6, bash: 0, flash: 0, walk: Math.random() * 6, moan: 2 + Math.random() * 8, group, body: null }
+    const boss = this._bossPending > 0
+    if (boss) this._bossPending--
+    const health = zombieHealth(this.wave, this.cfg.escalation) * this.cfg.zombieHealthMult * (boss ? BOSS_HEALTH_MULT : 1)
+    const zombie = { x: x + 0.5, y, z: z + 0.5, vx: 0, vy: 0, vz: 0, onGround: false, health, attackCd: 0.6, bash: 0, flash: 0, walk: Math.random() * 6, moan: 2 + Math.random() * 8, group, body: null, boss, size: boss ? BOSS_SIZE : 1 }
+    if (boss) this._message(t('buildPlayBossComing'))
     if (this._skin) {
       const body = buildTexturedCharacter(this._skin)
-      const s = (ZOMBIE_HEIGHT * this.B) / 32
+      const s = (ZOMBIE_HEIGHT * this.B * zombie.size) / 32
       body.scale.setScalar(s)
       body.position.y = 2 * s
       // Arms out in front, the classic zombie walk.
@@ -626,7 +677,7 @@ export class BuildSurvival {
     const pz = player.z - zb.z
     if (Math.hypot(px, pz) < ATTACK_RANGE && Math.abs(player.y - zb.y) < 1.5 && zb.attackCd <= 0) {
       zb.attackCd = ATTACK_COOLDOWN
-      this._hurtPlayer(zombieDamage(this.wave))
+      this._hurtPlayer(zombieDamage(this.wave) * this.cfg.zombieDamageMult * (zb.boss ? BOSS_DAMAGE_MULT : 1))
     }
 
     // Draw it: facing where it walks, legs and arms swinging.
@@ -668,6 +719,8 @@ export class BuildSurvival {
     const p = this.bm.tryMode.pos
     // Nothing reaches you inside the camp.
     if (this.camp?.inside(p.x, p.z)) return
+    this.streak = 0
+    this._hurtAt = performance.now()
     // Armor (from the camp's Trader) takes the hit first.
     const soaked = Math.min(this.armor || 0, amount)
     this.armor = (this.armor || 0) - soaked
@@ -683,9 +736,35 @@ export class BuildSurvival {
     if (this.health <= 0) this._die()
   }
 
-  _die() {
+  // Counts the run once (stats, quests, Legacy Points) - on death, on a
+  // win, or when you leave mid-run. Returns what Game.js gave for it.
+  _endRun(won) {
+    if (this._ended || !this.active) return null
+    this._ended = true
+    const waves = won ? this.wave : Math.max(0, this.wave - 1)
+    return this._report('end', {
+      waves,
+      kills: this.kills,
+      bestStreak: this.bestStreak,
+      headshots: this.stats.headshots,
+      bosses: this.bosses,
+      won,
+      died: this.dead,
+      mode: this.cfg.mode,
+      seconds: (performance.now() - this._startedAt) / 1000,
+      coins: this._coinsEarned,
+    })
+  }
+
+  _win() {
+    this._won = true
+    this._die(true)
+  }
+
+  _die(won = false) {
     this.dead = true
-    const waves = Math.max(0, this.wave - 1)
+    const reward = this._endRun(won)
+    const waves = won ? this.wave : Math.max(0, this.wave - 1)
     let best
     try {
       const all = JSON.parse(localStorage.getItem(BEST_KEY) || '{}')
@@ -700,9 +779,9 @@ export class BuildSurvival {
       const el = document.getElementById(id)
       if (el) el.textContent = text
     }
-    set('build-play-over-title', t('buildPlayOverTitle'))
-    set('build-play-over-text', t('buildPlayOverText', { waves, kills: this.kills }))
-    set('build-play-over-best', t('buildPlayOverBest', { n: best }))
+    set('build-play-over-title', t(won ? 'buildPlayOverWinTitle' : 'buildPlayOverTitle'))
+    set('build-play-over-text', t(won ? 'buildPlayOverWinText' : 'buildPlayOverText', { waves, kills: this.kills }))
+    set('build-play-over-best', `${t('buildPlayOverBest', { n: best })}${reward?.legacy ? ` · ${t('buildPlayOverLegacy', { n: reward.legacy })}` : ''}`)
     set('build-play-again-btn', t('buildPlayAgainBtn'))
     set('build-play-back-btn', t(this.fromMenu ? 'buildPlayBackMenuBtn' : 'buildPlayBackBtn'))
     this._overEl.style.display = 'flex'
@@ -716,6 +795,22 @@ export class BuildSurvival {
     if (this.camp) {
       this.camp.update(dt)
       this.camp.checkQuests()
+    }
+    // Healing: Health Regen out of combat, and inside Map 1's camp.
+    const nowMs = performance.now()
+    if (this.health < this.maxHealth) {
+      const tp = this.bm.tryMode.pos
+      let heal = 0
+      if (this.cfg.regen && nowMs - this._hurtAt > REGEN_DELAY * 1000) heal += REGEN_PER_SECOND
+      if (this.camp?.inside(tp.x, tp.z)) heal += this.cfg.campHealRate
+      if (heal) {
+        this.health = Math.min(this.maxHealth, this.health + heal * dt)
+        this._renderHud()
+      }
+    }
+    if (this.cfg.mode === 'zombieRush' && Math.floor(nowMs / 1000) !== this._lastSecond) {
+      this._lastSecond = Math.floor(nowMs / 1000)
+      this._renderHud()
     }
     if (this._msgLeft > 0) {
       this._msgLeft -= dt
@@ -746,29 +841,37 @@ export class BuildSurvival {
         this._breakTimer -= dt
         if (this._breakTimer <= 0) {
           this.wave++
-          this._toSpawn = waveSize(this.wave)
+          this._toSpawn = Math.max(1, Math.round(waveSize(this.wave) * this.cfg.zombieCountMult))
+          this._bossPending = this.cfg.bossEvery && this.wave % this.cfg.bossEvery === 0 ? 1 : 0
           this._chestsUsed.clear()
           this._message(t('buildPlayWaveStart', { n: this.wave }))
+          this._report('wave', { wave: this.wave })
           this._renderHud()
         }
       } else {
-        this._breakTimer = WAVE_BREAK
+        const rush = this.cfg.mode === 'zombieRush'
+        this._breakTimer = rush ? RUSH_WAVE_BREAK : WAVE_BREAK
         if (this.wave > 0) {
-          this.coins += COIN_PER_WAVE
-          this._message(t('buildPlayWaveClear', { n: this.wave, s: WAVE_BREAK }))
+          this._earn(COIN_PER_WAVE)
+          // Zombie Defense: the last wave held is a win.
+          if (this.cfg.mode === 'zombieDefense' && this.wave >= DEFENSE_WAVES) {
+            this._win()
+            return
+          }
+          if (!rush) this._message(t('buildPlayWaveClear', { n: this.wave, s: WAVE_BREAK }))
         }
       }
     }
     if (this._toSpawn > 0 && this.zombies.length < MAX_ALIVE) {
       this._spawnTimer -= dt
       if (this._spawnTimer <= 0 && this._skin !== undefined) {
-        this._spawnTimer = SPAWN_GAP
+        this._spawnTimer = SPAWN_GAP * (this.cfg.mode === 'zombieRush' ? RUSH_SPAWN_GAP_MULT : 1)
         if (this._spawnZombie()) this._toSpawn--
         this._renderHud()
       }
     }
     const p = this.bm.tryMode.pos
-    const speed = zombieSpeed(this.wave)
+    const speed = zombieSpeed(this.wave, this.cfg.escalation)
     for (const zb of [...this.zombies]) {
       this._updateZombie(zb, dt, p, speed)
       if (zb.health <= 0 && this.zombies.includes(zb)) this.damageZombie(zb, 0)

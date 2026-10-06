@@ -1249,6 +1249,11 @@ export class BuildMode {
   }
 
   // A block id a player could have placed (not a door's hidden top half).
+  // Settings > Controls: Field of View (the old Map 1's setting, 75 by default).
+  _normalFov() {
+    return this.game?.settings?.fov || NORMAL_FOV
+  }
+
   static isBlockType(id) {
     return VALID_TYPE_IDS.has(id) && !BLOCK_BY_ID.get(id).hidden
   }
@@ -1295,7 +1300,7 @@ export class BuildMode {
     this.scene.add(sunLight)
     this._sunLight = sunLight
 
-    this.camera = new THREE.PerspectiveCamera(NORMAL_FOV, window.innerWidth / window.innerHeight, 0.1, 500)
+    this.camera = new THREE.PerspectiveCamera(this._normalFov(), window.innerWidth / window.innerHeight, 0.1, 500)
     // Standing eye height (1.7, matching PlayerController's real-game eye
     // height) rather than floating well above it - the old y=5 spawn made
     // 1-unit blocks read as small/distant the instant Build Mode opened,
@@ -1420,8 +1425,10 @@ export class BuildMode {
     this._onKeyUp = (e) => this._keys.delete(e.code)
     this._onMouseMove = (e) => {
       if (document.pointerLockElement !== this.renderer.domElement) return
-      this._yaw -= e.movementX * LOOK_SENSITIVITY
-      this._pitch -= e.movementY * LOOK_SENSITIVITY
+      // Settings > Controls: Mouse Sensitivity and Invert Look.
+      const sens = LOOK_SENSITIVITY * ((this.game?.settings?.sensitivity ?? 100) / 100)
+      this._yaw -= e.movementX * sens
+      this._pitch -= e.movementY * sens * (this.game?.settings?.invertY ? -1 : 1)
       this._pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, this._pitch))
     }
 
@@ -1819,8 +1826,8 @@ export class BuildMode {
     // No toggle state to reset any more (V is a held key, read live from
     // _keys in update()) - just snap the FOV back in case V happened to
     // be held mid-zoom when Build Mode was exited.
-    if (this.camera.fov !== NORMAL_FOV) {
-      this.camera.fov = NORMAL_FOV
+    if (this.camera.fov !== this._normalFov()) {
+      this.camera.fov = this._normalFov()
       this.camera.updateProjectionMatrix()
     }
     window.removeEventListener('keydown', this._onKeyDown)
@@ -3543,7 +3550,7 @@ export class BuildMode {
     // Hold-V zoom - damped toward its target the same way movement
     // velocity is below, instead of an instant snap, so both zooming in
     // and the release back to normal ease smoothly rather than jump-cutting.
-    const zoomTarget = this._keys.has(FIXED_KEYS.buildZoom) ? ZOOM_FOV : NORMAL_FOV
+    const zoomTarget = this._keys.has(FIXED_KEYS.buildZoom) ? ZOOM_FOV : this._normalFov()
     if (Math.abs(this.camera.fov - zoomTarget) > 0.01) {
       this.camera.fov = THREE.MathUtils.damp(this.camera.fov, zoomTarget, FOV_LERP_SPEED, dt)
       this.camera.updateProjectionMatrix()

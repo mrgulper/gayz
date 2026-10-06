@@ -361,7 +361,8 @@ export class BuildTryMode {
       this._groundTime += dt
       if (this._groundTime > BHOP_WINDOW) this._hopChain = 0
     }
-    let speed = crouch ? CROUCH : sprint ? SPRINT : WALK
+    // speedMult: Map 1's Choose Class (Runner/Tank, set by BuildSurvival).
+    let speed = (crouch ? CROUCH : sprint ? SPRINT : WALK) * (this.speedMult ?? 1)
     speed *= BHOP_MULT[this._hopChain]
     if (inLiquid) speed *= 0.55
     const want = len ? speed / len : 0
