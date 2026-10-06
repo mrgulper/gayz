@@ -206,11 +206,14 @@ export class BuildCamp {
   update(dt) {
     const cam = this.bm.camera.position
     const p = this.display ? { x: cam.x / this.B, z: cam.z / this.B } : this.bm.tryMode.pos
+    const view = this.bm.viewDistance?.() ?? Infinity
     for (const npc of this.npcs) {
       npc.t += dt
       // Turn to watch you when you're close; breathe a little.
       const dx = p.x - npc.x
       const dz = p.z - npc.z
+      // Past the view distance (in the fog) they aren't drawn at all.
+      npc.group.visible = Math.hypot(dx, dz) <= view
       if (Math.hypot(dx, dz) < 8) npc.group.rotation.y = THREE.MathUtils.lerp(npc.group.rotation.y, Math.atan2(dx, dz), Math.min(1, dt * 4))
       if (npc.body) {
         const lp = npc.body.limbPivots

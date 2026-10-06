@@ -135,6 +135,11 @@ export class BlockChunks {
         opaque: !t.transparent && !liquid,
         // Glass/leaves carry their own per-pixel alpha in the texture.
         alpha: hasAlpha(t) ? 1 : (t.opacity ?? 1),
+        // Leaves' holes are fully see-through or fully solid, so they're
+        // drawn cut out (alpha-tested, depth-writing) rather than blended -
+        // blending every leaf face over whatever is behind it was the
+        // most expensive thing in a tree-filled view on a phone.
+        cutout: t.id === 'leaves',
         glow: !!t.emissive,
       })
     })
@@ -168,6 +173,7 @@ export class BlockChunks {
       solid: new THREE.MeshLambertMaterial({ map: tex, vertexColors: true }),
       glow: new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.55 }),
       clear: new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, transparent: true, depthWrite: false, alphaTest: 0.02 }),
+      cutout: new THREE.MeshLambertMaterial({ map: tex, vertexColors: true, alphaTest: 0.5 }),
     }
   }
 
@@ -338,13 +344,13 @@ export class BlockChunks {
     const bx = cx * CHUNK
     const by = cy * CHUNK
     const bz = cz * CHUNK
-    const out = { solid: newBuffers(3), glow: newBuffers(3), clear: newBuffers(4), water: newBuffers(4), lava: newBuffers(3) }
+    const out = { solid: newBuffers(3), glow: newBuffers(3), cutout: newBuffers(3), clear: newBuffers(4), water: newBuffers(4), lava: newBuffers(3) }
     for (const cell of cells) {
       const [x, y, z] = cell.split(',').map(Number)
       const type = this.getType(x, y, z)
       const info = type && this.info.get(type)
       if (!info) continue
-      const buf = info.liquid ? out[info.liquid] : info.opaque ? (info.glow ? out.glow : out.solid) : out.clear
+      const buf = info.liquid ? out[info.liquid] : info.opaque ? (info.glow ? out.glow : out.solid) : info.cutout ? out.cutout : out.clear
       const tint = info.liquid ? 1 : tintAt(x, y, z)
       // Liquid surfaces slope: each top corner is the average height of
       // the (up to 4) cells of the same liquid sharing it, and a corner
@@ -411,7 +417,7 @@ export class BlockChunks {
       }
     }
     const meshes = []
-    for (const kind of ['solid', 'glow', 'clear', 'water', 'lava']) {
+    for (const kind of ['solid', 'glow', 'cutout', 'clear', 'water', 'lava']) {
       const buf = out[kind]
       if (buf.idx.length === 0) continue
       const geo = new THREE.BufferGeometry()
@@ -423,14 +429,42 @@ export class BlockChunks {
       geo.computeBoundingSphere()
       const mesh = new THREE.Mesh(geo, this.materials[kind])
       mesh.position.set(bx * this.blockSize, by * this.blockSize, bz * this.blockSize)
-      mesh.castShadow = kind === 'solid' || kind === 'glow'
+      mesh.castShadow = kind === 'solid' || kind === 'glow' || kind === 'cutout'
       mesh.receiveShadow = true
       mesh.matrixAutoUpdate = false
       mesh.updateMatrix()
       this.scene.add(mesh)
       meshes.push(mesh)
     }
-    this.chunks.set(key, { meshes })
+    // Chunk middle in blocks, for cullTo().
+    const chunk = { meshes, mx: bx + CHUNK / 2, mz: bz + CHUNK / 2, shown: true }
+    this.chunks.set(key, chunk)
+    if (this._cull) this._cullChunk(chunk)
+  }
+
+  // View distance: hides every chunk whose nearest edge is more than
+  // `blocks` away (sideways) from x/z (in blocks), so far parts of a big
+  // map cost nothing to draw - the scene's fog fades out what's left
+  // before that edge. Infinity shows everything.
+  cullTo(x, z, blocks) {
+    const c = this._cull || (this._cull = {})
+    const moved = c.x === undefined || Math.abs(c.x - x) >= 2 || Math.abs(c.z - z) >= 2 || c.blocks !== blocks
+    if (!moved) return
+    c.x = x
+    c.z = z
+    c.blocks = blocks
+    for (const chunk of this.chunks.values()) this._cullChunk(chunk)
+  }
+
+  _cullChunk(chunk) {
+    const c = this._cull
+    // Nearest edge of the chunk's square, not its middle.
+    const dx = Math.max(0, Math.abs(chunk.mx - c.x) - CHUNK / 2)
+    const dz = Math.max(0, Math.abs(chunk.mz - c.z) - CHUNK / 2)
+    const shown = dx * dx + dz * dz <= c.blocks * c.blocks
+    if (shown === chunk.shown) return
+    chunk.shown = shown
+    for (const mesh of chunk.meshes) mesh.visible = shown
   }
 }
 
