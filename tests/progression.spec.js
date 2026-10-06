@@ -7,10 +7,8 @@ test('careerStats.totalKills persists after a completed run', async ({ page }) =
   const result = await page.evaluate(() => {
     const g = window.__game
     const before = g.careerStats.totalKills
-    // Minimal realistic state _recordRunEnd() reads from - same fields
-    // this project's own ad-hoc verification scripts have set up all
-    // session (night/kills/points, runStartedAt for playtime,
-    // lowestHealthThisRun for the flawless-run check).
+    // Minimal realistic state _recordRunEnd() reads from (night/kills/
+    // points, runStartedAt for playtime).
     g.night = 5
     g.kills = 37
     g.points = 100
@@ -18,7 +16,6 @@ test('careerStats.totalKills persists after a completed run', async ({ page }) =
     g.runStartedAt = performance.now() - 60000
     g._runStartCoins = g.coins
     g.peakKillStreakThisRun = 0
-    g.lowestHealthThisRun = Infinity
     g.settings.guestMode = false
     g._recordRunEnd(true)
     const afterInMemory = g.careerStats.totalKills
@@ -44,4 +41,40 @@ test('a quest can only be claimed once', async ({ page }) => {
   expect(result.firstClaim).toBe(true)
   expect(result.secondClaim).toBe(false)
   expect(result.isClaimed).toBe(true)
+})
+
+test('a Map 1 run feeds achievements and the weekly challenge; crates stay locked', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+
+  const result = await page.evaluate(() => {
+    const g = window.__game
+    g.settings.guestMode = false
+    g.settings.difficulty = 'nightmare'
+    const weekly0 = g.weeklyChallenge.progress
+    for (let i = 0; i < 3; i++) g._onPlayEvent('kill', { boss: false, streak: i + 1 })
+    const weekly = g.weeklyChallenge.progress - weekly0
+    g._onPlayEvent('end', { waves: 10, kills: 30, bestStreak: 25, won: true, died: false, mode: 'zombieDefense', seconds: 120, coins: 40 })
+    const runCoins = g.runHistory[0].coins
+    // Crates are Coming Soon: buying does nothing and every button is off.
+    g.coins = 1e6
+    g._openCrate('wood')
+    g._renderCrateTiers()
+    return {
+      weekly,
+      meat: g.achievements.unlocked.has('meat_grinder'),
+      conqueror: g.achievements.unlocked.has('nightmare_conqueror'),
+      runCoins,
+      crateStock: g.crateStock.wood,
+      coinsKept: g.coins === 1e6,
+      cratesEnabled: [...document.querySelectorAll('.crate-card .crate-open-btn')].filter((b) => !b.disabled).length,
+    }
+  })
+
+  expect(result.weekly).toBe(3)
+  expect(result.meat).toBe(true)
+  expect(result.conqueror).toBe(true)
+  expect(result.runCoins).toBe(40)
+  expect(result.crateStock).toBe(0)
+  expect(result.coinsKept).toBe(true)
+  expect(result.cratesEnabled).toBe(0)
 })

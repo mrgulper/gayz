@@ -82,12 +82,10 @@ export const preloadUvBatonViewmodel = preloadGunModel('baton', '/models/weapons
 // Shared builder for any single-mesh GLB gun (no hands attached here - the
 // caller adds those via attachHandToGrip, since a couple of guns need a
 // second off-hand grip the generic helper doesn't know about). tintMatName
-// is that gun's designated tintable material slot (mirrors the procedural
-// version's own skinMaterial() call on its main body mesh).
-function buildGunFromGLB(cache, tintMatName, skinId) {
+// is that gun's main body material slot, cloned per gun.
+function buildGunFromGLB(cache, tintMatName) {
   const g = new THREE.Group()
   const cloned = cache.clone(true)
-  const tint = SKIN_TINTS[skinId]
   cloned.traverse((child) => {
     if (!child.isMesh) return
     child.castShadow = false
@@ -110,13 +108,6 @@ function buildGunFromGLB(cache, tintMatName, skinId) {
     if (!child.material.map) child.material.map = getGunDetailTexture()
     if (child.material.name === tintMatName) {
       child.material = flattenedClone(child.material)
-      if (tint) {
-        child.material.color.setHex(tint.color)
-        child.material.emissive.setHex(tint.emissive)
-        child.material.emissiveIntensity = 0.3
-        child.material.roughness = 0.25
-        child.material.metalness = 0.9
-      }
     }
   })
   g.add(cloned)
@@ -290,60 +281,20 @@ function attachHandToGrip(parent, grip, nudge = 0.01) {
   return hand
 }
 
-// Cosmetic pistol skins (see Game.js's Coin Shop and CoinShop.js) - each
-// swaps just the slide's material for a dedicated tinted one, never
-// mutating the shared METAL material other guns also use. 'gold' is also
-// the Centurion achievement's free cosmetic reward, see
-// WeaponSystem.setWeaponSkin().
-const SKIN_TINTS = {
-  gold: { color: 0xd4af37, emissive: 0x5c4a1a },
-  crimson: { color: 0xb0202a, emissive: 0x4a0808 },
-  cobalt: { color: 0x2a6fd0, emissive: 0x0c1c40 },
-  // Free bestiary-completion reward, see Game.js's _onZombieKilled.
-  obsidian: { color: 0x1a1a1a, emissive: 0x3a3a3a },
-  // Coin Shop exclusive, see CoinShop.js - not purchasable with points.
-  ember: { color: 0xd45a1a, emissive: 0xff7a1a },
-  // Per-weapon challenge reward (see Game.js's _checkWeaponChallenge) -
-  // earned by kill count with that specific gun, not purchasable.
-  veteran: { color: 0x5a5a3a, emissive: 0x2a2a10 },
-  // Weapon Upgrade Machine reward (see WeaponSystem.boostUpgradeMult) - an
-  // energetic glow distinct from every other skin's flat metallic tint.
-  packapunch: { color: 0x2a3a6a, emissive: 0x4a6aff },
-  // Akimbo purchase (see WeaponSystem.setAkimbo) - bright chrome, reads as
-  // "show gun" rather than "worn/tactical" like every other skin here.
-  akimbo: { color: 0xd8d8d8, emissive: 0x8a8a8a },
-  // Heirloom forge (see Game.js's _offerHeirloomForge) - Grandmaster-only,
-  // player-opted-into via a confirm prompt at the moment a weapon crosses
-  // GRANDMASTER_THRESHOLD. Deep antique bronze with a warm glow, deliberately
-  // the richest-looking tint here since it marks the single highest-effort
-  // per-weapon milestone in the game.
-  heirloom: { color: 0x8a5a2a, emissive: 0xb87f2a },
-}
-
-// Shared skin-tint lookup - every gun builder tints its own main body/
-// receiver/slide mesh with this instead of the plain METAL material when a
-// skinId is equipped (see WeaponSystem.setWeaponSkin, called per-weapon so
-// every owned gun reflects the equipped skin, not just the pistol).
-function skinMaterial(skinId, base = METAL) {
-  const tint = SKIN_TINTS[skinId]
-  if (!tint) return base
-  return flatMaterial({ color: tint.color, roughness: 0.25, metalness: 0.9, emissive: tint.emissive, emissiveIntensity: 0.3, map: getGunDetailTexture() })
-}
-
-function buildPistol(skinId = null) {
+function buildPistol() {
   if (USE_GLB_PISTOL && GUN_MODEL_CACHE.pistol) {
-    const g = buildGunFromGLB(GUN_MODEL_CACHE.pistol, 'Metal', skinId)
+    const g = buildGunFromGLB(GUN_MODEL_CACHE.pistol, 'Metal')
     const grip = g.children[0].getObjectByName('Grip')
     if (grip) attachHandToGrip(g, grip)
     return g
   }
-  return buildPistolProcedural(skinId)
+  return buildPistolProcedural()
 }
 
-function buildPistolProcedural(skinId = null) {
+function buildPistolProcedural() {
   const g = new THREE.Group()
 
-  const slideMat = skinMaterial(skinId)
+  const slideMat = METAL
   const slide = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.09, 0.26), slideMat)
   slide.position.set(0, 0.04, 0)
   g.add(slide)
@@ -369,9 +320,9 @@ function buildPistolProcedural(skinId = null) {
 
 const UV_LENS = flatMaterial({ color: 0x2a0a44, emissive: 0x8b2fe0, emissiveIntensity: 2.4 })
 
-function buildRifle(skinId = null) {
+function buildRifle() {
   if (USE_GLB_RIFLE && GUN_MODEL_CACHE.rifle) {
-    const g = buildGunFromGLB(GUN_MODEL_CACHE.rifle, 'Metal', skinId)
+    const g = buildGunFromGLB(GUN_MODEL_CACHE.rifle, 'Metal')
     const root = g.children[0]
     const grip = root.getObjectByName('Grip')
     if (grip) attachHandToGrip(g, grip)
@@ -385,13 +336,13 @@ function buildRifle(skinId = null) {
     }
     return g
   }
-  return buildRifleProcedural(skinId)
+  return buildRifleProcedural()
 }
 
-function buildRifleProcedural(skinId = null) {
+function buildRifleProcedural() {
   const g = new THREE.Group()
 
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.1, 0.48), skinMaterial(skinId))
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.1, 0.48), METAL)
   body.position.set(0, 0.02, -0.05)
   g.add(body)
 
@@ -429,31 +380,18 @@ function buildRifleProcedural(skinId = null) {
   return g
 }
 
-// Shared builder for any single-mesh GLB melee weapon - no skin tinting
-// (the melee slot never had SKIN_TINTS), just clone + castShadow off +
-// hand attached at the model's own Grip empty.
-// skinId tinting mirrors buildGunFromGLB's "Metal"-named-slot convention
-// (same asset pipeline, see build-guns.py) so Coin Shop skins can reskin
-// the knife the same way they reskin every gun.
-function buildMeleeFromGLB(cache, skinId = null) {
+// Shared builder for any single-mesh GLB melee weapon - clone +
+// castShadow off + hand attached at the model's own Grip empty.
+function buildMeleeFromGLB(cache) {
   const g = new THREE.Group()
   const cloned = cache.clone(true)
-  const tint = SKIN_TINTS[skinId]
   cloned.traverse((child) => {
     if (!child.isMesh) return
     child.castShadow = false
     // Same opacity-0-on-export quirk buildGunFromGLB works around - force
-    // full opacity on every material here, not just the tint slot below.
+    // full opacity on every material here.
     child.material.opacity = 1
     child.material.transparent = false
-    if (tint && child.material.name === 'Metal') {
-      child.material = flattenedClone(child.material)
-      child.material.color.setHex(tint.color)
-      child.material.emissive.setHex(tint.emissive)
-      child.material.emissiveIntensity = 0.3
-      child.material.roughness = 0.25
-      child.material.metalness = 0.9
-    }
   })
   g.add(cloned)
   const grip = cloned.getObjectByName('Grip')
@@ -472,11 +410,11 @@ function buildMeleeFromGLB(cache, skinId = null) {
 // "knife" and panic-stabbing with it are the same weapon, not two different
 // knives with different stats/looks. Sharper/more angular than a plain
 // kitchen knife on purpose: a tanto-style tip and a serrated spine.
-export function buildQuickMeleeKnifeModel(skinId = null) {
+export function buildQuickMeleeKnifeModel() {
   if (USE_GLB_KNIFE && GUN_MODEL_CACHE.knife) {
-    return buildMeleeFromGLB(GUN_MODEL_CACHE.knife, skinId)
+    return buildMeleeFromGLB(GUN_MODEL_CACHE.knife)
   }
-  return buildQuickMeleeKnifeModelProcedural(skinId)
+  return buildQuickMeleeKnifeModelProcedural()
 }
 
 // Redesigned for a genuinely sharp, tapered profile (a flat box + a cone
@@ -484,10 +422,10 @@ export function buildQuickMeleeKnifeModel(skinId = null) {
 // is one continuous extruded 2D outline (drop-point silhouette: a slight
 // concave swage near the spine, straight taper down to a real point)
 // instead of two separate primitives glued together.
-function buildQuickMeleeKnifeModelProcedural(skinId = null) {
+function buildQuickMeleeKnifeModelProcedural() {
   const g = new THREE.Group()
 
-  const bladeMat = skinMaterial(skinId, flatMaterial({ color: 0x9aa0a6, roughness: 0.1, metalness: 1 }))
+  const bladeMat = flatMaterial({ color: 0x9aa0a6, roughness: 0.1, metalness: 1 })
   const tacticalGrip = flatMaterial({ color: 0x14140f, roughness: 0.85 })
 
   const bladeShape = new THREE.Shape()
@@ -701,14 +639,11 @@ function buildSledgehammerModelProcedural() {
 }
 
 // All melee variants are pre-built inside one group, toggling visibility
-// instead of adding new weapon slots/keys - see WeaponSystem.setMeleeVariant().
-// skinId only reskins the knife variant (the default/most-used one, and
-// the one Coin Shop skin previews show) - the found-loot variants
-// (bat/machete/etc) keep their own distinct look regardless of skin.
-function buildMelee(skinId = null) {
+// instead of adding new weapon slots/keys.
+function buildMelee() {
   const g = new THREE.Group()
 
-  const knife = buildQuickMeleeKnifeModel(skinId)
+  const knife = buildQuickMeleeKnifeModel()
   const bat = buildBatModel()
   const machete = buildMacheteModel()
   const uvbaton = buildUvBatonModel()
@@ -737,8 +672,8 @@ function buildMelee(skinId = null) {
 
 // Bare gun geometry only, no hands - reused for both the FPS viewmodel and
 // the world-space floating pickup, which shouldn't carry disembodied hands.
-function buildMinigun(skinId = null) {
-  const g = buildMinigunModel(skinId)
+function buildMinigun() {
+  const g = buildMinigunModel()
   const { grip, handleBar, barrelCluster } = g.userData
 
   attachHandToGrip(g, grip)
@@ -757,20 +692,20 @@ function buildMinigun(skinId = null) {
 
 // Glock 18 - a chunkier M1911 with an extended mag and a vented compensator
 // at the muzzle, reading as a machine pistol rather than a duplicate pistol.
-function buildGlock18(skinId = null) {
+function buildGlock18() {
   if (USE_GLB_GLOCK18 && GUN_MODEL_CACHE.glock18) {
-    const g = buildGunFromGLB(GUN_MODEL_CACHE.glock18, 'Metal', skinId)
+    const g = buildGunFromGLB(GUN_MODEL_CACHE.glock18, 'Metal')
     const grip = g.children[0].getObjectByName('Grip')
     if (grip) attachHandToGrip(g, grip)
     return g
   }
-  return buildGlock18Procedural(skinId)
+  return buildGlock18Procedural()
 }
 
-function buildGlock18Procedural(skinId = null) {
+function buildGlock18Procedural() {
   const g = new THREE.Group()
 
-  const slide = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.095, 0.24), skinMaterial(skinId))
+  const slide = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.095, 0.24), METAL)
   slide.position.set(0, 0.04, 0)
   g.add(slide)
 
@@ -806,9 +741,9 @@ function buildGlock18Procedural(skinId = null) {
 
 // Weatie - pump-action shotgun: wide barrel, a tube magazine slung under it,
 // and a cylindrical pump foregrip instead of the rifle's boxy one.
-function buildShotgun(skinId = null) {
+function buildShotgun() {
   if (USE_GLB_SHOTGUN && GUN_MODEL_CACHE.shotgun) {
-    const g = buildGunFromGLB(GUN_MODEL_CACHE.shotgun, 'DarkMetal', skinId)
+    const g = buildGunFromGLB(GUN_MODEL_CACHE.shotgun, 'DarkMetal')
     const root = g.children[0]
     const grip = root.getObjectByName('Grip')
     if (grip) attachHandToGrip(g, grip)
@@ -822,13 +757,13 @@ function buildShotgun(skinId = null) {
     }
     return g
   }
-  return buildShotgunProcedural(skinId)
+  return buildShotgunProcedural()
 }
 
-function buildShotgunProcedural(skinId = null) {
+function buildShotgunProcedural() {
   const g = new THREE.Group()
 
-  const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.1, 0.22), skinMaterial(skinId, DARK_METAL))
+  const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.1, 0.22), DARK_METAL)
   receiver.position.set(0, 0.02, 0.06)
   g.add(receiver)
 
@@ -871,12 +806,12 @@ function buildShotgunProcedural(skinId = null) {
 
 // AWP - long thin bolt-action barrel, a raised scope tube on top (the main
 // visual tell versus the rifle/other long guns), and a boxy stock.
-function buildAwp(skinId = null) {
+function buildAwp() {
   if (USE_GLB_AWP && GUN_MODEL_CACHE.awp) {
     // This particular gun model has no "Metal" slot (materials are Green/
     // Black/DarkMetal/Glass/Grey) - "Green" is the main body, confirmed via
     // Playwright (the generic 'Metal' guess silently tinted nothing).
-    const g = buildGunFromGLB(GUN_MODEL_CACHE.awp, 'Green', skinId)
+    const g = buildGunFromGLB(GUN_MODEL_CACHE.awp, 'Green')
     const root = g.children[0]
     const grip = root.getObjectByName('Grip')
     if (grip) attachHandToGrip(g, grip)
@@ -888,13 +823,13 @@ function buildAwp(skinId = null) {
     }
     return g
   }
-  return buildAwpProcedural(skinId)
+  return buildAwpProcedural()
 }
 
-function buildAwpProcedural(skinId = null) {
+function buildAwpProcedural() {
   const g = new THREE.Group()
 
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.09, 0.5), skinMaterial(skinId))
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.09, 0.5), METAL)
   body.position.set(0, 0.02, -0.02)
   g.add(body)
 
@@ -1072,10 +1007,10 @@ function addForeHand(g, anchor) {
 
 // Rocket Launcher - RPG-7 style: steel tube with wooden heat guards, a
 // flared rear venturi, a loaded olive warhead with its fuse, an optic.
-function buildRocketLauncher(skinId = null) {
+function buildRocketLauncher() {
   const g = new THREE.Group()
   const p = new PartSet()
-  const body = skinMaterial(skinId, STEEL)
+  const body = STEEL
   p.add(body, cylZ(0.04, 0.04, 0.62, 20), [0, 0.02, -0.03])
   p.add(DARK_METAL, cylZ(0.046, 0.078, 0.14, 20), [0, 0.02, 0.34])
   p.add(DARK_METAL, cylZ(0.08, 0.08, 0.012, 20), [0, 0.02, 0.41])
@@ -1114,10 +1049,10 @@ function buildRocketLauncher(skinId = null) {
 // Minigun - motor housing, carry handle, a 6-barrel cluster with front and
 // middle clamps (the cluster stays its own spinning group), an ammo box
 // with a curved feed chute.
-export function buildMinigunModel(skinId = null) {
+export function buildMinigunModel() {
   const g = new THREE.Group()
   const p = new PartSet()
-  const body = skinMaterial(skinId, STEEL)
+  const body = STEEL
   // Receiver: rounded side profile
   p.add(body, profileGeo([
     [-0.1, -0.06], [-0.1, 0.05], ['q', -0.1, 0.075, -0.075, 0.075], [0.1, 0.075], ['q', 0.13, 0.075, 0.13, 0.045],
@@ -1167,10 +1102,10 @@ export function buildMinigunModel(skinId = null) {
 // Flamethrower - a twin fuel-tank pack slung on top with a pressure
 // gauge and valves, a braided hose into a perforated heat-shield wand,
 // pilot-light igniter and a glowing nozzle.
-function buildFlamethrower(skinId = null) {
+function buildFlamethrower() {
   const g = new THREE.Group()
   const p = new PartSet()
-  const body = skinMaterial(skinId, OLIVE)
+  const body = OLIVE
   // Twin tanks: capsules
   for (const x of [-0.038, 0.038]) {
     p.add(body, cylZ(0.036, 0.036, 0.22, 20), [x, 0.11, 0.06])
@@ -1211,10 +1146,10 @@ function buildFlamethrower(skinId = null) {
 // Crossbow - a wooden stock with thumbhole cut, a top rail with a scope,
 // swept recurve limbs ending in cams, a two-strand string drawn back to the
 // latch, a loaded bolt with fletching and broadhead, and a foot stirrup.
-function buildCrossbow(skinId = null) {
+function buildCrossbow() {
   const g = new THREE.Group()
   const p = new PartSet()
-  const wood = skinMaterial(skinId, WOOD)
+  const wood = WOOD
   p.add(wood, profileGeo([
     [-0.3, 0.0], [-0.3, 0.035], [0.05, 0.035], [0.09, 0.02], [0.24, 0.03], [0.32, 0.03], [0.33, -0.08], [0.29, -0.09],
     ['q', 0.2, -0.04, 0.12, -0.03], [0.06, -0.03], [-0.02, -0.01], [-0.3, 0.0],
@@ -1233,7 +1168,7 @@ function buildCrossbow(skinId = null) {
   // Limbs: swept back from the riser at the front
   p.add(DARK_METAL, new THREE.BoxGeometry(0.09, 0.05, 0.04), [0, 0.03, -0.31])
   for (const s of [-1, 1]) {
-    p.add(skinMaterial(skinId, DARK_METAL), tubeGeo([[s * 0.04, 0.03, -0.31], [s * 0.14, 0.035, -0.29], [s * 0.22, 0.04, -0.24], [s * 0.27, 0.04, -0.2]], 0.01, 20), [0, 0, 0], [0, 0, 0], [1, 1, 1])
+    p.add(DARK_METAL, tubeGeo([[s * 0.04, 0.03, -0.31], [s * 0.14, 0.035, -0.29], [s * 0.22, 0.04, -0.24], [s * 0.27, 0.04, -0.2]], 0.01, 20), [0, 0, 0], [0, 0, 0], [1, 1, 1])
     p.add(STEEL, new THREE.CylinderGeometry(0.018, 0.018, 0.012, 16), [s * 0.275, 0.04, -0.2])
     // String from cam to the latch
     p.add(RUBBER, tubeGeo([[s * 0.275, 0.044, -0.2], [s * 0.12, 0.05, -0.05], [0, 0.052, 0.06]], 0.002, 12))
@@ -1258,10 +1193,10 @@ function buildCrossbow(skinId = null) {
 // Grenade Launcher - a six-shot revolver launcher (M32 style): a big
 // fluted cylinder with visible shells, a ribbed barrel with a top rail and
 // reflex sight, a folding foregrip and a collapsible tube stock.
-function buildGrenadeLauncher(skinId = null) {
+function buildGrenadeLauncher() {
   const g = new THREE.Group()
   const p = new PartSet()
-  const body = skinMaterial(skinId, DARK_METAL)
+  const body = DARK_METAL
   // Frame
   p.add(body, profileGeo([[-0.12, -0.03], [-0.12, 0.06], [0.1, 0.06], [0.12, 0.03], [0.12, -0.05], [0.05, -0.05], [0.02, -0.03]], 0.06, { bevel: 0.006 }))
   // Cylinder with 6 chambers
@@ -1298,10 +1233,10 @@ function buildGrenadeLauncher(skinId = null) {
 // Nail Gun - framing-nailer shape: an orange body with a motor dome and
 // black rubber overmould, a long nose with the contact tip, an angled
 // strip magazine with visible nails and an air fitting.
-function buildNailgun(skinId = null) {
+function buildNailgun() {
   const g = new THREE.Group()
   const p = new PartSet()
-  const body = skinMaterial(skinId, TOOL_ORANGE)
+  const body = TOOL_ORANGE
   p.add(body, profileGeo([
     [-0.06, -0.05], [-0.06, 0.04], ['q', -0.04, 0.09, 0.02, 0.09], ['q', 0.1, 0.09, 0.11, 0.03], [0.1, -0.03], [0.05, -0.04], [0.0, -0.05],
   ], 0.07, { bevel: 0.01 }))
@@ -1333,10 +1268,10 @@ function buildNailgun(skinId = null) {
 // Harpoon Gun - a speargun: slim aluminium-and-wood barrel, a muzzle head
 // holding two thick rubber bands stretched back to the shaft notches, the
 // loaded spear with its barbed tip, and a line reel under the barrel.
-function buildHarpoonGun(skinId = null) {
+function buildHarpoonGun() {
   const g = new THREE.Group()
   const p = new PartSet()
-  const body = skinMaterial(skinId, WOOD)
+  const body = WOOD
   p.add(body, profileGeo([[-0.34, -0.005], [-0.34, 0.03], [0.1, 0.035], [0.2, 0.02], [0.24, -0.02], [0.2, -0.04], [0.06, -0.03], [-0.34, -0.005]], 0.04, { bevel: 0.006 }))
   p.add(STEEL, new THREE.BoxGeometry(0.012, 0.006, 0.5), [0, 0.038, -0.08])
   // Muzzle head + band anchors
@@ -1367,10 +1302,10 @@ function buildHarpoonGun(skinId = null) {
 // Void Ripper - Mystery Box exclusive: a sleek angular alien body with
 // glowing seams, twin forward prongs cradling a floating core inside three
 // thin rings, and a skeletal stock.
-function buildVoidRipper(skinId = null) {
+function buildVoidRipper() {
   const g = new THREE.Group()
   const p = new PartSet()
-  const body = skinMaterial(skinId, DARK_METAL)
+  const body = DARK_METAL
   p.add(body, profileGeo([
     [-0.12, -0.02], [-0.08, 0.05], [0.1, 0.06], [0.16, 0.03], [0.16, -0.02], [0.08, -0.05], [0.02, -0.04], [-0.06, -0.04],
   ], 0.065, { bevel: 0.008 }))
@@ -1409,9 +1344,9 @@ function buildVoidRipper(skinId = null) {
 // MP5-SD - a fat integrated-suppressor sleeve running the front half of the
 // barrel is the "SD" model's real-world signature, distinct from Glock 18's
 // handgun shape and every other rifle-length gun's bare thin barrel.
-function buildSuppressedSmg(skinId = null) {
+function buildSuppressedSmg() {
   if (USE_GLB_SUPPRESSEDSMG && GUN_MODEL_CACHE.suppressedsmg) {
-    const g = buildGunFromGLB(GUN_MODEL_CACHE.suppressedsmg, 'Metal', skinId)
+    const g = buildGunFromGLB(GUN_MODEL_CACHE.suppressedsmg, 'Metal')
     const root = g.children[0]
     const grip = root.getObjectByName('Grip')
     if (grip) attachHandToGrip(g, grip)
@@ -1425,13 +1360,13 @@ function buildSuppressedSmg(skinId = null) {
     }
     return g
   }
-  return buildSuppressedSmgProcedural(skinId)
+  return buildSuppressedSmgProcedural()
 }
 
-function buildSuppressedSmgProcedural(skinId = null) {
+function buildSuppressedSmgProcedural() {
   const g = new THREE.Group()
 
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.09, 0.24), skinMaterial(skinId))
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.09, 0.24), METAL)
   body.position.set(0, 0.02, 0.02)
   g.add(body)
 
@@ -1487,9 +1422,9 @@ const BUILDERS = {
   suppressedsmg: buildSuppressedSmg,
 }
 
-export function buildViewmodel(weaponId, options = {}) {
+export function buildViewmodel(weaponId) {
   const build = BUILDERS[weaponId] || buildPistol
-  const group = build(options.skinId)
+  const group = build()
   group.traverse((o) => { if (o.isMesh) o.castShadow = false })
   return group
 }
