@@ -5202,9 +5202,10 @@ body.reduce-bg-effects #menu-bg-rain {
   80% { opacity: 0.55; }
 }
 
-/* Rain - drawn by src/game/MenuRain.js on this canvas (depth layers,
-   wind, splashes on the street; 2026-10-09 "rain in the GayZ style but
-   realistic"). It used to be a repeating CSS stripe pattern. */
+/* Rain - drawn by src/game/MenuRain.js on this canvas (straight drops
+   that land only on the photo's street, strength that comes and goes,
+   drop pictures + splashes; 2026-10-09). It used to be a repeating CSS
+   stripe pattern. */
 #menu-bg-rain {
   position: absolute;
   inset: 0;
