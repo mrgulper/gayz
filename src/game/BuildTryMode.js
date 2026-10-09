@@ -730,10 +730,14 @@ export class BuildTryMode {
   _showGun() {
     const weapons = this.bm.game?.weapons
     if (!weapons?.viewmodels) return
-    // The first gun in the player's hotbar (not the knife), else the rifle.
+    // Playing: the gun picked for this run (BuildSurvival's picker).
+    // Otherwise the first gun in the player's hotbar (not the knife), else
+    // the rifle.
+    const play = this.bm.survival
     const hotbar = this.bm.game?.settings?.hotbar || []
     const gunIds = hotbar.filter((wid) => wid && weapons.viewmodels[wid] && !/melee|knife|bat|katana|machete/i.test(wid))
-    const id = gunIds[0] || (weapons.viewmodels.rifle ? 'rifle' : weapons.current?.id)
+    const picked = play?.active && weapons.viewmodels[play.weaponId] ? play.weaponId : null
+    const id = picked || gunIds[0] || (weapons.viewmodels.rifle ? 'rifle' : weapons.current?.id)
     const source = id && weapons.viewmodels[id]
     if (!source) return
     this._ensureGunScene()

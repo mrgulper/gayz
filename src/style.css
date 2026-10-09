@@ -2576,8 +2576,15 @@ html.ui-theme-old select {
 #profile-panel .panel-box,
 #other-profile-panel .panel-box,
 #hub-panel .panel-box {
-  /* 1280 (was 1080): "make the panel wider" (2026-10-09). */
-  width: min(1280px, 96vw);
+  /* A share of the window, not a fixed size (2026-10-09, "why is there
+     such a big size change on full screen and not full screen"): at a
+     fixed 1280px the panel filled most of a smaller (not full-screen)
+     window but much less of a full screen, while its height already
+     followed the window (68vh below). 74vw is 1280px on a ~1730px-wide
+     screen, i.e. the "make the panel wider" size there; never narrower
+     than 900px (or the whole width on small screens), never wider than
+     1440px. */
+  width: clamp(min(96vw, 900px), 74vw, 1440px);
   /* Every panel - and every tab inside one - is the same height
      (2026-10-04, Gaymi: "dont make the panel behind change sizes"; the
      Old theme's paper made it obvious when Achievements' Deathmatch tab
@@ -11215,3 +11222,36 @@ html.ui-theme-old #gallery-coming-icon {
     height: min(720px, 44vw, calc(100vh - 220px));
   }
 }
+
+/* Weapon picker at the start of a Map 1 run (BuildSurvival._openWeaponPicker,
+   2026-10-09 - "pickable at the start when joining a game"). Same dark/gold
+   card as the end-of-run screen; one card per gun with its picture and
+   three bars (damage, fire rate, ammo). */
+#play-weapon-pick {
+  display: none; position: fixed; inset: 0; z-index: 26; align-items: center; justify-content: center;
+  padding: 16px; box-sizing: border-box;
+  background: radial-gradient(ellipse at center, rgba(30, 20, 5, 0.6), rgba(5, 3, 0, 0.88));
+}
+#play-weapon-pick .pwp-card-box {
+  width: min(980px, 100%); max-height: 100%; overflow-y: auto; box-sizing: border-box;
+  padding: 22px 26px 26px; text-align: center; color: #f1e6c8;
+  background: rgba(18, 15, 10, 0.94); border: 1px solid rgba(232, 194, 90, 0.5); border-radius: 10px;
+}
+#play-weapon-pick h2 { margin: 0 0 4px; font-family: 'Black Ops One', 'Bebas Neue', sans-serif; font-size: 34px; color: #e8c25a; letter-spacing: 1px; }
+#play-weapon-pick .pwp-hint { margin: 0 0 16px; opacity: 0.75; font-size: 14px; }
+#play-weapon-pick .pwp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+#play-weapon-pick .pwp-weapon {
+  display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 8px 10px 10px; cursor: pointer;
+  color: #f1e6c8; text-align: left; font: inherit;
+  background: radial-gradient(ellipse at 50% 40%, rgba(255, 255, 255, 0.07), rgba(0, 0, 0, 0.25)), #221d16;
+  border: 1px solid rgba(232, 194, 90, 0.25); border-radius: 8px;
+  transition: border-color 0.15s ease, transform 0.12s ease, background 0.15s ease;
+}
+#play-weapon-pick .pwp-weapon:hover { border-color: #e8c25a; transform: translateY(-2px); }
+#play-weapon-pick .pwp-weapon.active { border-color: #e8c25a; box-shadow: 0 0 0 1px #e8c25a inset, 0 0 14px rgba(232, 194, 90, 0.25); }
+#play-weapon-pick .pwp-name { font-weight: 700; font-size: 14px; }
+#play-weapon-pick img, #play-weapon-pick .pwp-noimg { width: 100%; aspect-ratio: 240 / 140; object-fit: contain; }
+#play-weapon-pick .pwp-bar { display: flex; align-items: center; gap: 6px; font-size: 10px; opacity: 0.85; }
+#play-weapon-pick .pwp-bar-label { flex: 0 0 52px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#play-weapon-pick .pwp-bar-track { flex: 1; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+#play-weapon-pick .pwp-bar-track span { display: block; height: 100%; background: linear-gradient(90deg, #a8781f, #e8c25a); }

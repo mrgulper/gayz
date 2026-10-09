@@ -422,6 +422,8 @@ function loadSettings() {
       // not silently switched - only a genuinely fresh/never-set value
       // falls through to the new default.
       uiTheme: parsed.uiTheme === 'golden' ? 'golden' : 'old',
+      // The gun last picked at the start of a Map 1 run (PlayWeapons.js).
+      playWeapon: typeof parsed.playWeapon === 'string' ? parsed.playWeapon : null,
       lastSeenBuildId: parsed.lastSeenBuildId || null,
       mutators: {
         hordeRush: parsed.mutators?.hordeRush ?? false,
@@ -506,7 +508,7 @@ function _loadNavOrder(saved) {
 }
 
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', viewDistance: 'auto', liteTextures: false, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, pinnedPreset: null, navOrder: [...NAV_ORDER_DEFAULT], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false } }
+  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', viewDistance: 'auto', liteTextures: false, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, pinnedPreset: null, navOrder: [...NAV_ORDER_DEFAULT], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', playWeapon: null, lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false } }
 }
 
 
@@ -1135,7 +1137,7 @@ const KILL_MILESTONES_SEEN_KEY = 'gayz-kill-milestones-seen'
 // re-read (edited, or confirmed with [reread: htpX] in the commit message).
 const HOWTOPLAY_STEPS = [
   { key: 'htpMove', headingKey: 'htpHeadingMovement', code: '' },
-  { key: 'htpWavesShoot', headingKey: 'htpHeadingCombat', code: 'RELOAD_TIME' },
+  { key: 'htpWavesShoot', headingKey: 'htpHeadingCombat', code: 'PLAY_WEAPONS' },
   { key: 'htpWavesCamp', headingKey: 'htpHeadingTrader', code: 'SHOP_ITEMS CAMP_QUESTS' },
   { key: 'htpWavesWaves', headingKey: 'htpHeadingSurvival', code: 'waveSize zombieSpeed playConfig' },
   { key: 'htpRules', headingKey: 'htpHeadingRules', code: '' },
@@ -1268,6 +1270,8 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'clan-subtab-ranking': 'clanSubtabRanking',
   'hub-tab-survival': 'hubTabSurvival',
   'hub-tab-deathmatch': 'hubTabDeathmatch',
+  'hub-tab-parkour': 'hubTabParkour',
+  'hub-parkour-soon-label': 'hubParkourSoon',
   'save-preset-btn': 'savePresetBtnLabel',
   'surprise-me-btn': 'surpriseMeBtn',
   'quick-keybinds-btn': 'quickKeybindsBtn',
@@ -7014,7 +7018,7 @@ export class Game {
       { slug: 'whats-new', panel: this.whatsNewPanel, open: () => this._openWhatsNewPanel() },
       {
         slug: 'gamemode', panel: this.hubPanel, open: () => this._openHubPanel(),
-        subTabs: this._subTabsFor('hub-tab-', ['survival', 'deathmatch']),
+        subTabs: this._subTabsFor('hub-tab-', ['survival', 'deathmatch', 'parkour']),
       },
     ].filter((route) => route.panel)
 
@@ -9527,6 +9531,13 @@ export class Game {
     text('gallery-panel-title', 'galleryBtn')
     text('gallery-coming-title', 'comingSoonTitle')
     text('gallery-coming-text', 'galleryComingSoon')
+  }
+
+  // Remembers the gun picked at the start of a Map 1 run (BuildSurvival's
+  // weapon picker), so the next run highlights it.
+  _setPlayWeapon(id) {
+    this.settings.playWeapon = id
+    saveSettings(this.settings)
   }
 
   _closeGalleryPanel() {

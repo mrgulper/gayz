@@ -9,7 +9,7 @@ export const WEAPON_LIST = [
   { id: 'rifle', name: 'AK-47' },
   { id: 'pistol', name: 'M1911' },
   { id: 'minigun', name: 'Minigun' },
-  { id: 'shotgun', name: 'Weatie' },
+  { id: 'shotgun', name: 'Shotgun' },
   { id: 'awp', name: 'AWP' },
   { id: 'glock18', name: 'Glock 18' },
   { id: 'flamethrower', name: 'Flamethrower' },

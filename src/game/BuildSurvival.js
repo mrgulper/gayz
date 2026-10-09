@@ -21,13 +21,10 @@ import { audioEngine } from './Audio.js'
 import { getKeyFor } from './Keybinds.js'
 import { t } from './i18n.js'
 import { BuildCamp, COIN_PER_KILL, COIN_PER_WAVE } from './BuildCamp.js'
+import { PLAY_WEAPONS, DEFAULT_PLAY_WEAPON, ammoFor, weaponBars } from './PlayWeapons.js'
 import { PLAY_DEFAULTS, DEFENSE_WAVES, BOSS_HEALTH_MULT, BOSS_DAMAGE_MULT, BOSS_SIZE, BOSS_COINS, RUSH_WAVE_BREAK, RUSH_SPAWN_GAP_MULT, REGEN_DELAY, REGEN_PER_SECOND } from './PlayRules.js'
 
-export const PLAY_START = { health: 100, mag: 30, reserve: 120 }
 export const CHEST_LOOT = { ammo: 60, health: 35 }
-const MAG_SIZE = 30
-const RELOAD_TIME = 1.6
-const SHOT_DAMAGE = 34
 const HEAD_MULT = 2.4
 const ZOMBIE_HEIGHT = 1.85
 const ZOMBIE_HALF = 0.3
@@ -135,8 +132,14 @@ export class BuildSurvival {
     this._hurtAt = 0
     this._coinsEarned = 0
     bm.tryMode.speedMult = this.cfg.moveMult
-    this.mag = PLAY_START.mag
-    this.reserve = PLAY_START.reserve
+    // The gun (PlayWeapons.js): a homepage run starts with the weapon
+    // picker open (last pick highlighted); the editor's own Play just
+    // uses the rifle.
+    const saved = bm.game?.settings?.playWeapon
+    this.weaponId = fromMenu && PLAY_WEAPONS[saved] ? saved : DEFAULT_PLAY_WEAPON
+    this._nextShotAt = 0
+    this.mag = this.magSize()
+    this.reserve = this.weapon.reserve
     this.wave = 0
     this.kills = 0
     this._toSpawn = 0
@@ -155,9 +158,10 @@ export class BuildSurvival {
     this._ensureHud()
     this._hud.style.display = 'block'
     this._overEl.style.display = 'none'
-    this._message(t('buildPlayGetReady'))
     this._renderHud()
     document.getElementById('build-mode-play-btn-label')?.replaceChildren(t('buildModePlayStopBtn'))
+    if (fromMenu) this._openWeaponPicker()
+    else this._message(t('buildPlayGetReady'))
     zombieSkin().then((skin) => { this._skin = skin }).catch(() => { this._skin = null })
   }
 
@@ -175,6 +179,7 @@ export class BuildSurvival {
     this._disposeZombieBatch()
     if (this._hud) this._hud.style.display = 'none'
     if (this._overEl) this._overEl.style.display = 'none'
+    this._closeWeaponPicker()
     document.getElementById('build-mode-play-btn-label')?.replaceChildren(t('buildModePlayBtn'))
     if (leaveTry && this.bm.tryMode.active) this.bm.toggleTryMode()
   }
@@ -205,13 +210,78 @@ export class BuildSurvival {
     return null
   }
 
-  // Upgrades bought from the camp's Upgrader (BuildCamp.js).
+  get weapon() {
+    return PLAY_WEAPONS[this.weaponId] || PLAY_WEAPONS[DEFAULT_PLAY_WEAPON]
+  }
+
+  // Upgrades bought from the camp's Upgrader (BuildCamp.js): each Mag
+  // level adds a third of the gun's own magazine (10 for the rifle).
   magSize() {
-    return MAG_SIZE + 10 * (this.upgrades?.mag || 0)
+    const base = this.weapon.mag
+    if (!Number.isFinite(base)) return Infinity
+    return base + Math.max(1, Math.round(base / 3)) * (this.upgrades?.mag || 0)
   }
 
   _reloadTime() {
-    return RELOAD_TIME * (1 - 0.2 * (this.upgrades?.reload || 0)) * (this.cfg?.reloadMult ?? 1)
+    return this.weapon.reload * (1 - 0.2 * (this.upgrades?.reload || 0)) * (this.cfg?.reloadMult ?? 1)
+  }
+
+  // --- weapon picker (homepage runs) ---
+
+  _openWeaponPicker() {
+    this._picking = true
+    let el = document.getElementById('play-weapon-pick')
+    if (!el) {
+      el = document.createElement('div')
+      el.id = 'play-weapon-pick'
+      document.body.appendChild(el)
+      el.addEventListener('click', (e) => {
+        const card = e.target.closest('[data-play-weapon]')
+        if (card) this._pickWeapon(card.dataset.playWeapon)
+      })
+    }
+    const game = this.bm.game
+    if (game && !game._weaponThumbCache && game._weaponThumbnails) game._weaponThumbCache = game._weaponThumbnails()
+    const thumbs = game?._weaponThumbCache || {}
+    const ids = (game?.weapons?.getSummary?.() || []).filter((w) => PLAY_WEAPONS[w.id])
+    const bar = (label, v) => `<span class="pwp-bar"><span class="pwp-bar-label">${label}</span><span class="pwp-bar-track"><span style="width:${Math.round(v * 100)}%"></span></span></span>`
+    el.innerHTML = `<div class="pwp-card-box">
+      <h2>${t('playPickWeaponTitle')}</h2>
+      <p class="pwp-hint">${t('playPickWeaponHint')}</p>
+      <div class="pwp-grid">${ids.map((w) => {
+        const b = weaponBars(w.id)
+        return `<button type="button" class="pwp-weapon${w.id === this.weaponId ? ' active' : ''}" data-play-weapon="${w.id}">
+          <span class="pwp-name">${t(w.nameKey)}</span>
+          ${thumbs[w.id] ? `<img alt="" draggable="false" src="${thumbs[w.id]}" />` : '<span class="pwp-noimg"></span>'}
+          ${bar(t('playStatDamage'), b.damage)}${bar(t('playStatFireRate'), b.rate)}${bar(t('playStatAmmo'), b.ammo)}
+        </button>`
+      }).join('')}</div>
+    </div>`
+    el.style.display = 'flex'
+    // The cursor has to be free to click a card.
+    try { document.exitPointerLock() } catch { /* not locked */ }
+  }
+
+  _closeWeaponPicker() {
+    this._picking = false
+    const el = document.getElementById('play-weapon-pick')
+    if (el) el.style.display = 'none'
+  }
+
+  _pickWeapon(id) {
+    if (!PLAY_WEAPONS[id] || !this.active) return
+    this.weaponId = id
+    this.bm.game?._setPlayWeapon?.(id)
+    this._nextShotAt = 0
+    this._reloadLeft = 0
+    this.mag = this.magSize()
+    this.reserve = this.weapon.reserve
+    this._closeWeaponPicker()
+    this.bm.tryMode._showGun()
+    this._message(t('buildPlayGetReady'))
+    this._renderHud()
+    // This click is a real user gesture, so the mouse can be captured again.
+    try { this.bm.renderer.domElement.requestPointerLock()?.catch(() => {}) } catch { /* not available */ }
   }
 
   _damageMult() {
@@ -300,7 +370,8 @@ export class BuildSurvival {
     const fill = document.getElementById('build-play-health-fill')
     if (fill) fill.style.width = `${Math.max(0, Math.min(100, (this.health / (this.maxHealth || 100)) * 100))}%`
     set('build-play-health-text', `${Math.max(0, Math.ceil(this.health))}${this.armor > 0 ? ` + ${Math.ceil(this.armor)}` : ''}`)
-    set('build-play-ammo', this._reloadLeft > 0 ? t('buildPlayReloading') : `${this.mag} / ${this.reserve}`)
+    const ammo = Number.isFinite(this.mag) ? `${this.mag} / ${this.reserve}` : t(this.bm.game?.weapons?.getSummary?.().find((w) => w.id === this.weaponId)?.nameKey || 'weaponMelee')
+    set('build-play-ammo', this._reloadLeft > 0 ? t('buildPlayReloading') : ammo)
   }
 
   // --- shooting (BuildTryMode.fire calls this first) ---
@@ -308,7 +379,13 @@ export class BuildSurvival {
   // false when the gun is empty or reloading (no shot happens).
   tryFire() {
     if (!this.active || this.dead) return true
+    if (this._picking) return false
     if (this._reloadLeft > 0) return false
+    // Each gun's own fire rate.
+    const now = performance.now()
+    if (now < this._nextShotAt) return false
+    this._nextShotAt = now + this.weapon.rate * 1000
+    if (!Number.isFinite(this.mag)) return true
     if (this.mag <= 0) {
       audioEngine.playLowAmmoTick?.()
       if (this.reserve > 0) this.reload()
@@ -326,30 +403,68 @@ export class BuildSurvival {
     if (!this.active || this.dead) return false
     const bm = this.bm
     const B = this.B
+    const w = this.weapon
     bm.camera.updateMatrixWorld()
     bm._raycaster.setFromCamera({ x: 0, y: 0 }, bm.camera)
-    const ray = bm._raycaster.ray
+    const center = bm._raycaster.ray.clone()
     const wall = bm._raycastGridAligned()
-    const wallT = wall ? wall.t : Infinity
-    let best = null
-    let bestT = Infinity
+    const reach = Math.min(wall ? wall.t : Infinity, Number.isFinite(w.range) ? w.range * B : Infinity)
+    const damage = w.damage * this._damageMult()
+    const hits = new Map()
+    const add = (z, amount) => hits.set(z, (hits.get(z) || 0) + amount)
     const box = new THREE.Box3()
     const hitPoint = this._v
-    for (const z of this.zombies) {
-      const half = ZOMBIE_HALF * (z.size || 1)
-      const height = ZOMBIE_HEIGHT * (z.size || 1)
-      box.min.set((z.x - half) * B, z.y * B, (z.z - half) * B)
-      box.max.set((z.x + half) * B, (z.y + height) * B, (z.z + half) * B)
-      if (!ray.intersectBox(box, hitPoint)) continue
-      const d = hitPoint.distanceTo(ray.origin)
-      if (d < bestT && d < wallT) {
-        bestT = d
-        best = { z, head: hitPoint.y / B > z.y + height * 0.76 }
+    let impact = null
+    // One ray per pellet (shotgun, flamethrower), fanned out by spread.
+    const pellets = w.pellets || 1
+    const ray = center.clone()
+    for (let p = 0; p < pellets; p++) {
+      ray.copy(center)
+      if (p > 0 || pellets > 1) {
+        ray.direction.x += (Math.random() - 0.5) * 2 * (w.spread || 0)
+        ray.direction.y += (Math.random() - 0.5) * 2 * (w.spread || 0)
+        ray.direction.z += (Math.random() - 0.5) * 2 * (w.spread || 0)
+        ray.direction.normalize()
+      }
+      let best = null
+      let bestT = reach
+      for (const z of this.zombies) {
+        const half = ZOMBIE_HALF * (z.size || 1)
+        const height = ZOMBIE_HEIGHT * (z.size || 1)
+        box.min.set((z.x - half) * B, z.y * B, (z.z - half) * B)
+        box.max.set((z.x + half) * B, (z.y + height) * B, (z.z + half) * B)
+        if (!ray.intersectBox(box, hitPoint)) continue
+        const d = hitPoint.distanceTo(ray.origin)
+        if (d < bestT) {
+          bestT = d
+          best = { z, head: hitPoint.y / B > z.y + height * 0.76 }
+        }
+      }
+      if (best) {
+        if (best.head) this.stats.headshots++
+        add(best.z, damage * (best.head ? HEAD_MULT : 1))
+        if (!impact) impact = ray.at(bestT, new THREE.Vector3())
+      } else if (w.blast && !impact && Number.isFinite(reach)) {
+        impact = ray.at(reach, new THREE.Vector3())
       }
     }
-    if (!best) return false
-    if (best.head) this.stats.headshots++
-    this.damageZombie(best.z, SHOT_DAMAGE * this._damageMult() * (best.head ? HEAD_MULT : 1), ray.direction)
+    // Rockets and grenades: everything near where it lands is hurt too,
+    // less the further away.
+    if (w.blast && impact) {
+      try { audioEngine.playExplosion?.() } catch { /* no audio */ }
+      const radius = w.blast * B
+      for (const z of this.zombies) {
+        const cx = z.x * B
+        const cy = (z.y + ZOMBIE_HEIGHT * 0.5 * (z.size || 1)) * B
+        const cz = z.z * B
+        const d = Math.hypot(cx - impact.x, cy - impact.y, cz - impact.z)
+        if (d < radius) add(z, damage * 0.8 * (1 - d / radius))
+      }
+    }
+    if (!hits.size) return false
+    for (const [z, amount] of hits) {
+      if (this.zombies.includes(z)) this.damageZombie(z, amount, center.direction)
+    }
     const cross = document.getElementById('build-try-crosshair')
     if (cross) {
       cross.classList.remove('hit')
@@ -403,9 +518,11 @@ export class BuildSurvival {
     }
     this._chestsUsed.add(key)
     this.stats.chests++
-    this.reserve += CHEST_LOOT.ammo
+    // Ammo in this gun's own amounts (PlayWeapons.ammoFor).
+    const ammo = ammoFor(this.weaponId, CHEST_LOOT.ammo)
+    this.reserve += ammo
     this.health = Math.min(this.maxHealth, this.health + CHEST_LOOT.health)
-    this._message(t('buildPlayChestLoot', { ammo: CHEST_LOOT.ammo, health: CHEST_LOOT.health }))
+    this._message(t('buildPlayChestLoot', { ammo, health: CHEST_LOOT.health }))
     this._renderHud()
     return true
   }
@@ -923,7 +1040,11 @@ export class BuildSurvival {
   // Each frame while playing (after Try Map has moved you).
   update(dt) {
     if (!this.active || this.dead || this.bm.menuOpen) return
+    // Nothing happens until a weapon has been picked.
+    if (this._picking) return
     dt = Math.min(dt, 1 / 20)
+    // Automatic guns keep firing while the button is held.
+    if (this.bm._fireHeld && this.weapon.auto && document.pointerLockElement) this.bm.tryMode.fire()
     if (this.camp) {
       this.camp.update(dt)
       this.camp.checkQuests()

@@ -1650,7 +1650,11 @@ export class BuildMode {
       }
       // Trying the map: clicks shoot, nothing gets built or broken.
       if (this.tryMode.active) {
-        if (e.button === 0) this.tryMode.fire()
+        if (e.button === 0) {
+          // Held down, an automatic gun keeps firing (BuildSurvival.update).
+          this._fireHeld = true
+          this.tryMode.fire()
+        }
         else if (e.button === 2) this._tryUseFromCamera()
         return
       }
@@ -1842,6 +1846,8 @@ export class BuildMode {
     window.addEventListener('wheel', this._onWheel, { passive: true })
     this._wheelAccum = 0
     this.renderer.domElement.addEventListener('pointerdown', this._onPointerDown)
+    this._onPointerUp = (e) => { if (e.button === 0) this._fireHeld = false }
+    window.addEventListener('pointerup', this._onPointerUp)
     window.addEventListener('contextmenu', this._onContextMenu)
     document.addEventListener('click', this._onPickerBackdropClick)
     if (this._hotbarEl) this._hotbarEl.style.display = 'flex'
@@ -1896,6 +1902,8 @@ export class BuildMode {
     window.removeEventListener('keydown', this._onKeyDownHotbar)
     window.removeEventListener('wheel', this._onWheel)
     this.renderer.domElement.removeEventListener('pointerdown', this._onPointerDown)
+    window.removeEventListener('pointerup', this._onPointerUp)
+    this._fireHeld = false
     window.removeEventListener('contextmenu', this._onContextMenu)
     document.removeEventListener('click', this._onPickerBackdropClick)
     this.pickerOpen = false

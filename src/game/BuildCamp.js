@@ -20,6 +20,7 @@
 // - Coins come from kills (COIN_PER_KILL) and cleared waves
 //   (COIN_PER_WAVE), and only last for that game of Play.
 import * as THREE from 'three'
+import { ammoFor } from './PlayWeapons.js'
 import { buildTexturedCharacter, loadSkinTexture } from './MenuAvatar3D.js'
 import { t } from './i18n.js'
 
@@ -310,7 +311,7 @@ export class BuildCamp {
     if (id === 'trader') {
       for (const item of SHOP_ITEMS) {
         const cost = this._price(item)
-        rows.push(row(t(`campItem_${item.id}`), t(`campItem_${item.id}_about`, { n: item.health || item.armor || item.ammo }), t('campBuy', { n: cost }), 'buy', item.id, iron || s.coins < cost))
+        rows.push(row(t(`campItem_${item.id}`), t(`campItem_${item.id}_about`, { n: item.health || item.armor || ammoFor(s.weaponId, item.ammo) }), t('campBuy', { n: cost }), 'buy', item.id, iron || s.coins < cost))
       }
     } else if (id === 'upgrader') {
       for (const up of UPGRADES) {
@@ -347,7 +348,8 @@ export class BuildCamp {
       s.coins -= this._price(item)
       if (item.health) s.health = Math.min(s.maxHealth, s.health + item.health)
       if (item.armor) s.armor = Math.min(100, s.armor + item.armor)
-      if (item.ammo) s.reserve += item.ammo
+      // Ammo in the picked gun's own amounts (PlayWeapons.ammoFor).
+      if (item.ammo) s.reserve += ammoFor(s.weaponId, item.ammo)
     } else if (act === 'upgrade') {
       const up = UPGRADES.find((u) => u.id === id)
       const level = s.upgrades[id] || 0

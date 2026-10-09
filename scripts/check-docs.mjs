@@ -70,7 +70,7 @@ function touchedLines(diff) {
 
 // Numbers that belong to a name or a fixed fact, not a count that can drift.
 const ALLOWED_NUMBERS = [
-  /AK-47/g, /Glock 18/g, /M1911/g, /\bC4\b/g, /64x64/g, /\bMap [13]\b/g, /\b3D\b/g,
+  /AK-47/g, /Glock 18/g, /M1911/g, /MP5-SD/g, /\bC4\b/g, /64x64/g, /\bMap [13]\b/g, /\b3D\b/g,
   /\b2x\b/g, /\b1 HP\b/g, /1–10/g, /1–3/g, /4–0/g, /\b16x16\b/g,
 ]
 
