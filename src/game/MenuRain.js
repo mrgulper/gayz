@@ -4,13 +4,15 @@
 // softly at once, straight not sideways, more detailed when dropping, don't
 // just use lines". Drawn on #menu-bg-rain (a canvas over the background
 // photo, under the menu):
-// - drops only come down onto the street: every drop picks a landing spot
-//   on the floor of the photo (FLOOR, in fractions of the picture, mapped
-//   through the same `cover` / `center 35%` sizing the CSS uses) and is
-//   only seen for the last stretch of its fall, so the rain sits on the
-//   floor instead of streaking over the sky and buildings;
-// - perspective: drops landing far up the street are smaller, fainter,
-//   slower and fall a shorter way than ones landing near the bottom;
+// - drops fall from the very top of the page and land on the street: every
+//   drop picks a landing spot on the floor of the photo (FLOOR, in
+//   fractions of the picture, mapped through the same `cover` /
+//   `center 35%` sizing the CSS uses) and splashes there, never on the sky
+//   or the buildings (Gaymi, third pass: "make it rain from the very top of
+//   the gayz page" - the second pass only drew the last stretch of each
+//   fall, so the rain seemed to start halfway down the screen);
+// - perspective: drops landing far up the street are smaller, fainter and
+//   slower than ones landing near the bottom;
 // - straight down, no wind;
 // - the strength wanders between a drizzle and a downpour (INTENSITY_*),
 //   easing from one to the next every so often;
@@ -32,18 +34,17 @@ const PICTURE_ASPECT = 1280 / 774
 const PICTURE_POS_Y = 0.35 // background-position: center 35%
 const FLOOR = { horizon: 0.665, left: 0.46, right: 0.57, edgeY: 0.79 }
 
-// Drops falling at once per 1000x1000 CSS px of floor at full strength.
-const MAX_DENSITY = 900
+// Drops falling at once per 1000x1000 CSS px of window at full strength.
+const MAX_DENSITY = 420
 // Strength wanders between these (0-1 of MAX_DENSITY), a new target every
 // INTENSITY_HOLD seconds, eased over INTENSITY_EASE seconds.
 const INTENSITY_MIN = 0.12
 const INTENSITY_MAX = 1
 const INTENSITY_HOLD = [7, 18]
 const INTENSITY_EASE = 4
-// Fall speed (CSS px/s) and the visible fall (share of screen height) for
-// a drop landing at the very bottom; farther drops scale down.
-const SPEED = [1100, 1500]
-const FALL_SHARE = 0.26
+// Fall speed (CSS px/s) for a drop landing at the very bottom; farther
+// drops are slower.
+const SPEED = [1150, 1550]
 const MAX_SPLASHES = 160
 const SPLASH_LIFE_S = 0.5
 // The canvas never draws more pixels than this per CSS pixel.
@@ -141,18 +142,17 @@ export function startMenuRain(canvas) {
     const landY = horizonY + 2 + depth * (h - horizonY - 2)
     const [l, r] = floorSpan(landY)
     const s = 0.12 + 0.88 * depth
-    const fall = FALL_SHARE * h * s + 4
-    const d = {
+    const len = (16 + 30 * s) * rand(0.85, 1.15)
+    return {
       x: rand(l, r),
       landY,
       s,
-      fall,
-      speed: rand(SPEED[0], SPEED[1]) * (0.35 + 0.65 * s),
-      y: 0,
-      len: (16 + 30 * s) * rand(0.85, 1.15),
+      speed: rand(SPEED[0], SPEED[1]) * (0.55 + 0.45 * s),
+      // From the top edge (a new drop waits a moment above it, so they
+      // don't arrive in rows).
+      y: anywhere ? rand(-0.3 * h, landY) : -rand(0, 0.5 * h),
+      len,
     }
-    d.y = landY - fall * (anywhere ? Math.random() : rand(1, 1.6))
-    return d
   }
 
   function resize() {
@@ -164,8 +164,7 @@ export function startMenuRain(canvas) {
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
     reduced = document.body.classList.contains('reduce-bg-effects')
     mapPicture()
-    const floorArea = Math.max(0, h - horizonY) * w * 0.8
-    const count = Math.round((MAX_DENSITY * floorArea) / 1e6 * (reduced ? 0.5 : 1))
+    const count = Math.round(((MAX_DENSITY * w * h) / 1e6) * (reduced ? 0.5 : 1))
     drops = []
     for (let i = 0; i < count; i++) drops.push(newDrop(true))
   }
@@ -225,21 +224,17 @@ export function startMenuRain(canvas) {
     const speedMult = 0.85 + 0.3 * intensity
     for (let i = 0; i < drops.length; i++) {
       const d = drops[i]
-      if (i >= active && d.y < d.landY - d.fall) continue
+      if (i >= active && d.y < 0) continue
       d.y += d.speed * speedMult * dt
       if (d.y >= d.landY) {
         splash(d)
         Object.assign(d, newDrop(false))
         continue
       }
-      const top = d.landY - d.fall
-      if (d.y < top) continue
-      // Fade in at the top of the visible fall, full near the ground.
-      const fadeIn = Math.min(1, (d.y - top) / (d.fall * 0.3))
-      ctx.globalAlpha = (0.3 + 0.55 * d.s) * fadeIn
+      if (d.y < 0) continue
+      ctx.globalAlpha = 0.3 + 0.55 * d.s
       const dw = sprite.w * (0.18 + 0.32 * d.s)
-      const dh = Math.min(d.len, d.y - top + 4)
-      ctx.drawImage(sprite.canvas, d.x - dw / 2, d.y - dh, dw, dh)
+      ctx.drawImage(sprite.canvas, d.x - dw / 2, d.y - d.len, dw, d.len)
     }
     ctx.globalAlpha = 1
 
