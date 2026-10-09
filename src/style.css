@@ -2576,7 +2576,8 @@ html.ui-theme-old select {
 #profile-panel .panel-box,
 #other-profile-panel .panel-box,
 #hub-panel .panel-box {
-  width: min(1080px, 96vw);
+  /* 1280 (was 1080): "make the panel wider" (2026-10-09). */
+  width: min(1280px, 96vw);
   /* Every panel - and every tab inside one - is the same height
      (2026-10-04, Gaymi: "dont make the panel behind change sizes"; the
      Old theme's paper made it obvious when Achievements' Deathmatch tab
@@ -2633,10 +2634,11 @@ html.ui-theme-old .panel-box {
    Percentages of the box, since the paper stretches with it: the flap's
    middle's position in the picture,
    minus half the button so its center lands there (v3 paper: the flap's
-   middle is ~6.2% from the right and ~8.7% from the top). */
+   middle is ~6.2% from the right and ~8.7% from the top; nudged a little
+   further left, to 7.6%, on request). */
 html.ui-theme-old .panel-box > .panel-close-btn {
   top: calc(8.7% - 18px);
-  right: calc(6.2% - 18px);
+  right: calc(7.6% - 18px);
   width: 36px;
   height: 36px;
   font-size: 28px;
@@ -11133,6 +11135,30 @@ html.ui-theme-old #gallery-coming-icon {
     margin-top: 22px;
     flex-wrap: wrap;
     justify-content: center;
+  }
+}
+
+/* Tablets in the stacked layout (wide enough for two columns): the
+   character and the profile card + buttons sit side by side under the
+   hero, like the desktop's own left/right columns (2026-10-09, Gaymi's
+   screenshot "character and right side panel beside each other if the
+   tablet is big enough"). Phones keep them one under the other. */
+@media (min-width: 600px) and (orientation: portrait) and (max-width: 1100px), (min-width: 600px) and (max-height: 500px) {
+  #menu-layout {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-start;
+    column-gap: clamp(16px, 5vw, 64px);
+  }
+
+  #menu-hero {
+    flex: 0 0 100%;
+  }
+
+  #menu-col-left {
+    width: auto;
+    justify-content: flex-start;
   }
 }
 
