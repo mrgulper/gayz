@@ -2603,14 +2603,14 @@ html.ui-theme-old {
 }
 
 /* Old theme: every panel box is a torn sheet of old paper
-   (public/images/old-panel-paper-clean.webp - Gaymi's own image; the
-   2026-10-04 replacement has no stains, "to look more clean")
+   (public/images/old-panel-paper-v2.webp - Gaymi's own image, swapped in
+   2026-10-09 for every panel; the earlier clean sheet is gone)
    instead of the black box, with dark ink text on it. The paper's torn
    edges are see-through, so there's no border or box shadow, just a drop
    shadow that follows the edge; the padding keeps content off the torn
    rim. Dark text: see the html.ui-theme-old .panel-box block further down. */
 html.ui-theme-old .panel-box {
-  background: url('/images/old-panel-paper-clean.webp') center / 100% 100% no-repeat;
+  background: url('/images/old-panel-paper-v2.webp') center / 100% 100% no-repeat;
   border: none;
   border-radius: 0;
   box-shadow: none;
@@ -2621,6 +2621,24 @@ html.ui-theme-old .panel-box {
 @media (max-width: 700px) {
   html.ui-theme-old .panel-box {
     padding: 40px 30px 46px;
+  }
+}
+
+/* The red close X sits inside the paper's top-right corner - at the
+   shared top/right it landed on the torn, see-through edge and couldn't
+   be seen. */
+html.ui-theme-old .panel-box > .panel-close-btn {
+  top: 52px;
+  right: 82px;
+  width: 36px;
+  height: 36px;
+  font-size: 28px;
+  color: #b3261e;
+}
+@media (max-width: 700px) {
+  html.ui-theme-old .panel-box > .panel-close-btn {
+    top: 30px;
+    right: 26px;
   }
 }
 
@@ -6332,7 +6350,10 @@ html.ui-theme-old #menu-title-img.logo-tier-5 {
 #play-btn {
   position: relative;
   margin-top: 0;
-  width: min(400px, 56vw);
+  /* One width the centered version below reuses (the media queries
+     further down only change --play-w). */
+  --play-w: min(400px, 56vw);
+  width: var(--play-w);
   aspect-ratio: 1400 / 467;
   padding: 0;
   border: none;
@@ -6432,8 +6453,11 @@ html.ui-theme-old #gamemode-btn {
   position: fixed;
   inset: 0;
   margin: auto;
-  width: fit-content;
-  height: fit-content;
+  /* A real size, not fit-content: the button's own text is invisible
+     (PLAY is part of the plate picture), so fit-content shrank it to the
+     width of four tiny letters on screens tall enough to center it. */
+  width: var(--play-w);
+  height: calc(var(--play-w) * 467 / 1400);
   z-index: 5;
 }
 
@@ -6802,7 +6826,10 @@ html.ui-theme-old #menu-player-badge {
      column on each side), and taller to match - the text inside scales
      with it (cqw). */
   width: 264px;
-  margin: 0 -12px;
+  /* -16px below: the plate picture has empty space under its frame (and
+     the first nav plaque some above it), which left a big gap before
+     General (2026-10-09, "make it smaller"). */
+  margin: 0 -12px -16px;
   aspect-ratio: 1230 / 1278;
   container-type: inline-size;
   padding: 0;
@@ -7639,7 +7666,7 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
   }
 
   #play-btn {
-    width: min(370px, 58vw);
+    --play-w: min(370px, 58vw);
   }
 
   #settings-btn {
@@ -7722,7 +7749,7 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
   }
 
   #play-btn {
-    width: min(340px, 52vw);
+    --play-w: min(340px, 52vw);
   }
 
   #settings-btn {
@@ -7812,7 +7839,7 @@ html:not(.ui-theme-old) #menu-nav-buttons button {
   }
 
   #play-btn {
-    width: min(260px, 46vw);
+    --play-w: min(260px, 46vw);
   }
 
   #settings-btn {

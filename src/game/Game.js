@@ -1673,6 +1673,10 @@ const PROFILE_GROUP_ORDER = [
 // Lowest resolution the map editor's auto resolution may drop to, in
 // pixels per CSS pixel - only reached on devices too slow at 1.
 const EDITOR_MIN_PIXEL_RATIO = 0.6
+// The right column is full size on windows at least this wide (and tall
+// enough), and never shrinks below RIGHT_COL_MIN_ZOOM (see _fitRightColumn).
+const RIGHT_COL_FULL_WIDTH = 1500
+const RIGHT_COL_MIN_ZOOM = 0.4
 
 // Inventory > Character skins, in grid order (Kirka-style cards). Adding a
 // skin to the game = one entry here: its 64x64 Minecraft-format texture,
@@ -9024,6 +9028,7 @@ export class Game {
         coins: WEEKLY_FEATURED_MUTATOR_BONUS_COINS,
       })
     }
+    this._fitRightColumn()
     this._updatePlayBtnCentering()
     this._fitMenuLinksRow()
   }
@@ -9037,6 +9042,34 @@ export class Game {
   // is too narrow for that does it tighten its spacing (.links-compact), and
   // only then wrap. Measured live, like _updatePlayBtnCentering below - the
   // row's width depends on translated labels, the columns on window size.
+  // The right column (profile card + nav buttons) shrinks with the window
+  // like the title and Play button do (2026-10-09, "on mobile or smaller
+  // screens the right side panel is always very big"): CSS zoom, so the
+  // card, its text and every button scale together - to fit the window's
+  // height (all ten buttons on screen) and, below RIGHT_COL_FULL_WIDTH,
+  // its width too. Never below RIGHT_COL_MIN_ZOOM; past that the column
+  // scrolls.
+  _fitRightColumn() {
+    const col = document.getElementById('menu-col-right')
+    if (!col || col.offsetParent === null) return
+    col.style.zoom = ''
+    col.style.justifyContent = ''
+    const need = col.scrollHeight
+    // The column's own box can run past the bottom of the window (the
+    // homepage scrolls on a phone) - fit what's actually on screen, and
+    // start at the top there instead of centering in the taller box
+    // (which pushed the last buttons off the bottom).
+    const top = Math.max(0, col.getBoundingClientRect().top)
+    const onScreen = window.innerHeight - top - 6
+    if (onScreen < col.clientHeight) col.style.justifyContent = 'flex-start'
+    const room = Math.min(col.clientHeight, onScreen)
+    if (!need || !room) return
+    const byHeight = room / need
+    const byWidth = window.innerWidth / RIGHT_COL_FULL_WIDTH
+    const zoom = Math.max(RIGHT_COL_MIN_ZOOM, Math.min(1, byHeight, byWidth))
+    col.style.zoom = zoom < 0.999 ? String(Math.floor(zoom * 1000) / 1000) : ''
+  }
+
   _fitMenuLinksRow() {
     const row = document.getElementById('menu-links-row')
     const nav = [...document.querySelectorAll('#menu-nav-buttons button')].filter((b) => b.offsetParent)
@@ -9419,6 +9452,7 @@ export class Game {
       this.buildMode.camera.updateProjectionMatrix()
     }
     this.renderer.setSize(window.innerWidth, window.innerHeight)
+    this._fitRightColumn()
     this._updatePlayBtnCentering()
     this._fitMenuLinksRow()
     this._fitPlayerShowcaseTitle()
