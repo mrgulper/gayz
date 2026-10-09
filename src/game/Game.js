@@ -2634,6 +2634,7 @@ export class Game {
     this.creditsPrivacyLink = document.getElementById('credits-privacy-link')
     this.creditsTermsLink = document.getElementById('credits-terms-link')
     this.levelsPanel = document.getElementById('levels-panel')
+    this.galleryPanel = document.getElementById('gallery-panel')
     this.levelsPanelTitle = document.getElementById('levels-panel-title')
     this.levelsIntroText = document.getElementById('levels-intro-text')
     this.levelsRoadmapList = document.getElementById('levels-roadmap-list')
@@ -3981,7 +3982,7 @@ export class Game {
     if (this.menuInventoryBtn) this.menuInventoryBtn.addEventListener('click', () => trackAndOpen(() => this._openMenuInventoryPanel()))
     if (this.serverBtn) this.serverBtn.addEventListener('click', () => trackAndOpen(() => this._openServerPanel()))
     this.achievementsBtn.addEventListener('click', () => trackAndOpen(() => this._openAchievementsPanel()))
-    document.getElementById('gallery-btn')?.addEventListener('click', () => this._showHomepageToast(t('galleryComingSoon')))
+    document.getElementById('gallery-btn')?.addEventListener('click', () => trackAndOpen(() => this._openGalleryPanel()))
     if (this.achievementsFilterInput) {
       this.achievementsFilterInput.addEventListener('click', (e) => e.stopPropagation())
       this.achievementsFilterInput.addEventListener('input', () => this._renderAchievementsPanel())
@@ -4210,6 +4211,11 @@ export class Game {
     this.creditsPanel.addEventListener('click', (e) => {
       if (e.target === this.creditsPanel) this._closeCreditsPanel()
     })
+    if (this.galleryPanel) {
+      this.galleryPanel.addEventListener('click', (e) => {
+        if (e.target === this.galleryPanel) this._closeGalleryPanel()
+      })
+    }
     if (this.levelsPanel) {
       this.levelsPanel.addEventListener('click', (e) => {
         if (e.target === this.levelsPanel) this._closeLevelsPanel()
@@ -6965,6 +6971,7 @@ export class Game {
       },
       { slug: 'credits', panel: this.creditsPanel, open: () => this._openCreditsPanel() },
       { slug: 'levels', panel: this.levelsPanel, open: () => this._openLevelsPanel() },
+      { slug: 'gallery', panel: this.galleryPanel, open: () => this._openGalleryPanel() },
       { slug: 'terms', panel: this.termsPanel, open: () => this._openTermsPanel() },
       { slug: 'privacy', panel: this.privacyPanel, open: () => this._openPrivacyPanel() },
       { slug: 'features', panel: this.featuresPanel, open: () => this._openFeaturesPanel() },
@@ -7073,6 +7080,7 @@ export class Game {
     if (this.profilePanel) this._closeProfilePanel()
     if (this.creditsPanel) this._closeCreditsPanel()
     if (this.levelsPanel) this._closeLevelsPanel()
+    if (this.galleryPanel) this._closeGalleryPanel()
     if (this.termsPanel) this._closeTermsPanel()
     if (this.privacyPanel) this._closePrivacyPanel()
     if (this.featuresPanel) this._closeFeaturesPanel()
@@ -9483,6 +9491,21 @@ export class Game {
 
   _closeLevelsPanel() {
     this.levelsPanel.style.display = 'none'
+  }
+
+  // Gallery - its own panel since 2026-10-09 (was a toast), Coming Soon
+  // until there's something to show in it.
+  _openGalleryPanel() {
+    this._closeAllMenuPanels()
+    this.galleryPanel.style.display = 'flex'
+    const text = (id, key) => { const el = document.getElementById(id); if (el) el.textContent = t(key) }
+    text('gallery-panel-title', 'galleryBtn')
+    text('gallery-coming-title', 'comingSoonTitle')
+    text('gallery-coming-text', 'galleryComingSoon')
+  }
+
+  _closeGalleryPanel() {
+    this.galleryPanel.style.display = 'none'
   }
 
   // Terms of Use / Privacy Policy - used to be a plain link out to
