@@ -1691,6 +1691,9 @@ const EDITOR_MIN_PIXEL_RATIO = 0.6
 const MENU_PAINT_CACHE_KEY = 'menu-paint-cache'
 // How long the clan list loaded when General opens stays fresh.
 const CLAN_RANKING_CACHE_MS = 60000
+// The What's New update card fades away by itself after this long.
+const UPDATE_BANNER_SHOW_MS = 12000
+const UPDATE_BANNER_FADE_MS = 900
 const MENU_PAINT_CACHE_ROOTS = ['menu-currency-bar', 'menu-player-badge', 'player-showcase-header', 'menu-hero', 'menu-nav-buttons', 'menu-links-row']
 
 // Inventory > Character skins, in grid order (Kirka-style cards). Adding a
@@ -3157,7 +3160,7 @@ export class Game {
     // What's New, How to Play, etc). #crate-purchase-close-btn shares this
     // class for the look but keeps its own handler above, so skip it here.
     for (const btn of document.querySelectorAll('.panel-close-btn')) {
-      if (btn.id === 'crate-purchase-close-btn') continue
+      if (btn.id === 'crate-purchase-close-btn' || btn.id === 'update-available-later-btn') continue
       btn.addEventListener('click', () => {
         if (btn.closest('#other-profile-panel')) this._closeOtherPlayerProfile()
         else this._closeAllMenuPanels()
@@ -6753,18 +6756,49 @@ export class Game {
       const freshDoc = new DOMParser().parseFromString(await pageRes.text(), 'text/html')
       const freshChangelogList = freshDoc.getElementById('changelog-list')
       if (!freshChangelogList) return
-      const entries = [...freshChangelogList.querySelectorAll('.changelog-entry')].slice(0, 5)
+      // Only the newest entry - the card is small; the full list is one
+      // click away in What's New.
+      const entries = [...freshChangelogList.querySelectorAll('.changelog-entry')].slice(0, 1)
       if (!entries.length) return
       this.updateAvailableChangelog.innerHTML = entries.map((entry) => entry.outerHTML).join('')
       this._pendingUpdateId = id
-      if (this.updateAvailableTitleEl) this.updateAvailableTitleEl.textContent = t('updateAvailableTitle')
+      if (this.updateAvailableTitleEl) this.updateAvailableTitleEl.textContent = t('navLinkWhatsNew')
       if (this.updateAvailableRefreshBtn) this.updateAvailableRefreshBtn.textContent = t('updateAvailableRefreshBtn')
-      if (this.updateAvailableLaterBtn) this.updateAvailableLaterBtn.textContent = t('updateAvailableLaterBtn')
+      this.updateAvailableBanner.classList.remove('fading')
       this.updateAvailableBanner.style.display = 'flex'
+      this._scheduleUpdateBannerFade()
     } catch {
       // A failed check (offline, blocked request, etc.) just means no
       // banner this time - not a player-facing error worth surfacing.
     }
+  }
+
+  // Fades the What's New card out by itself after UPDATE_BANNER_SHOW_MS if
+  // the player leaves it alone - the timer waits while the mouse is over it.
+  _scheduleUpdateBannerFade() {
+    const banner = this.updateAvailableBanner
+    clearTimeout(this._updateBannerTimer)
+    if (!banner._fadeBound) {
+      banner._fadeBound = true
+      banner.addEventListener('mouseenter', () => clearTimeout(this._updateBannerTimer))
+      banner.addEventListener('mouseleave', () => this._scheduleUpdateBannerFade())
+    }
+    this._updateBannerTimer = setTimeout(() => this._hideUpdateBanner(), UPDATE_BANNER_SHOW_MS)
+  }
+
+  // Closed with the X or faded away: remember this version was seen, so
+  // coming back to the homepage doesn't show the same card again (a newer
+  // deploy still gets its own).
+  _hideUpdateBanner() {
+    const banner = this.updateAvailableBanner
+    if (!banner || banner.style.display === 'none') return
+    clearTimeout(this._updateBannerTimer)
+    this.settings.lastSeenBuildId = this._pendingUpdateId
+    saveSettings(this.settings)
+    banner.classList.add('fading')
+    setTimeout(() => {
+      if (banner.classList.contains('fading')) banner.style.display = 'none'
+    }, UPDATE_BANNER_FADE_MS)
   }
 
   _exitBuildMode() {
@@ -8899,17 +8933,8 @@ export class Game {
     // shareable stat card is reasonable to want well before the true
     // ending.
     if (this.updateAvailableRefreshBtn) this.updateAvailableRefreshBtn.addEventListener('click', () => window.location.reload())
-    if (this.updateAvailableLaterBtn) {
-      this.updateAvailableLaterBtn.addEventListener('click', () => {
-        // Remembers this specific version was seen so returning to the
-        // homepage again later doesn't re-show the same notice - a genuinely
-        // NEWER deploy after this one still gets its own fresh banner, since
-        // its id won't match what's stored here.
-        this.settings.lastSeenBuildId = this._pendingUpdateId
-        saveSettings(this.settings)
-        this.updateAvailableBanner.style.display = 'none'
-      })
-    }
+    // The red X (was a Later button) - see _hideUpdateBanner.
+    if (this.updateAvailableLaterBtn) this.updateAvailableLaterBtn.addEventListener('click', () => this._hideUpdateBanner())
     if (this.savePresetBtn) this.savePresetBtn.addEventListener('click', () => MenuPresets.saveMenuPreset(this))
     if (this.surpriseMeBtn) this.surpriseMeBtn.addEventListener('click', () => MenuPresets.surpriseMe(this))
     if (this.quickKeybindsBtn) {

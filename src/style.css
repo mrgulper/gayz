@@ -2978,64 +2978,105 @@ html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-cl
    on that gotcha). z-index 8: above normal homepage content (1) but below
    #asset-loader (10) and modal panels (15), per this file's documented
    stacking scale. */
+/* The "new version" card (2026-10-09, Gaymi: "move it to the very right
+   corner and make it smaller, write it as What's New, add an X, make it
+   fade away if the player doesn't click it"): a small card in the
+   bottom-right corner showing only the newest Patch Notes entry, the red
+   X closes it (same as the old Later button), and it fades out by itself
+   after UPDATE_BANNER_SHOW_MS unless the mouse is over it (_checkForUpdate,
+   _hideUpdateBanner). */
 #update-available-banner {
-  /* display itself is toggled none/flex via JS (see _checkForUpdate) -
-     flex-direction must be set here since row is flex's default, which
-     without this laid the title/changelog/buttons out as side-by-side
-     columns instead of stacked. */
+  /* display itself is toggled none/flex via JS (see _checkForUpdate). */
   flex-direction: column;
   position: fixed;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
+  right: 16px;
+  bottom: 16px;
   z-index: 8;
-  width: min(420px, 90vw);
-  max-height: 40vh;
+  width: min(260px, calc(100vw - 32px));
+  max-height: min(220px, 30vh);
   overflow-y: auto;
   background: var(--menu-panel-bg, rgba(7, 8, 8, 0.95));
   border: 1px solid var(--menu-gold, #d9bc4a);
   border-radius: 8px;
-  padding: 14px 16px;
+  padding: 10px 12px 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  font-size: 12px;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.9s ease, transform 0.9s ease;
+}
+
+#update-available-banner.fading {
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+}
+
+#update-available-banner > .panel-close-btn {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  width: 26px;
+  height: 26px;
+  font-size: 20px;
 }
 
 #update-available-title {
-  margin: 0 0 6px;
-  font-size: 15px;
+  margin: 0 22px 4px;
+  font-size: 14px;
   font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
   color: var(--menu-gold, #d9bc4a);
   text-align: center;
 }
 
 #update-available-changelog {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
+}
+
+#update-available-changelog .changelog-entry {
+  margin: 0;
+}
+
+#update-available-changelog .changelog-date {
+  display: block;
+  text-align: center;
+  font-size: 11px;
+  opacity: 0.75;
+  margin-bottom: 4px;
+}
+
+#update-available-changelog ul {
+  margin: 2px 0 6px;
+  padding-left: 16px;
+}
+
+#update-available-changelog li {
+  text-align: left;
+  font-size: 11.5px;
+  line-height: 1.35;
+  margin-bottom: 2px;
+}
+
+#update-available-changelog .changelog-group-label {
+  font-size: 10px;
 }
 
 #update-available-buttons {
   display: flex;
-  gap: 8px;
   justify-content: center;
 }
 
-#update-available-refresh-btn,
-#update-available-later-btn {
-  padding: 7px 16px;
-  font-size: 13px;
+#update-available-refresh-btn {
+  padding: 5px 14px;
+  font-size: 12px;
   font-weight: 600;
   border-radius: 4px;
   cursor: pointer;
-}
-
-#update-available-refresh-btn {
   color: #1a1a1a;
   background: var(--menu-gold, #d9bc4a);
   border: 1px solid var(--menu-gold, #d9bc4a);
-}
-
-#update-available-later-btn {
-  color: rgba(255, 255, 255, 0.75);
-  background: none;
-  border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
 #credits-content p,
@@ -5154,30 +5195,15 @@ body.reduce-bg-effects #menu-bg-rain {
   80% { opacity: 0.55; }
 }
 
-/* Light rain - a repeating diagonal streak pattern, animated along its
-   own tilt so it reads as falling rather than static hatching. Sized
-   oversize (inset: -10%) so the animated shift never reveals an edge,
-   and kept subtle (low opacity) so it doesn't compete with the menu text
-   sitting on top of it. */
+/* Rain - drawn by src/game/MenuRain.js on this canvas (depth layers,
+   wind, splashes on the street; 2026-10-09 "rain in the GayZ style but
+   realistic"). It used to be a repeating CSS stripe pattern. */
 #menu-bg-rain {
   position: absolute;
-  inset: -10%;
-  background-image: repeating-linear-gradient(
-    105deg,
-    transparent 0px,
-    transparent 2px,
-    rgba(215, 225, 235, 0.22) 2px,
-    rgba(215, 225, 235, 0.05) 3px,
-    transparent 4px,
-    transparent 60px
-  );
-  opacity: 0.35;
-  animation: menuBgRainFall 0.6s linear infinite;
-}
-
-@keyframes menuBgRainFall {
-  from { background-position: 0 0; }
-  to { background-position: -24px 240px; }
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
 
 /* Drifting ash/embers - a small repeating tile of warm dots, tiled and
