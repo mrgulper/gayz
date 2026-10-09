@@ -402,7 +402,7 @@ function loadSettings() {
       layoutDensity: parsed.layoutDensity || 'cozy',
       pinnedStat: parsed.pinnedStat || null,
       pinnedPreset: Number.isInteger(parsed.pinnedPreset) ? parsed.pinnedPreset : null,
-      navOrder: Array.isArray(parsed.navOrder) && parsed.navOrder.length === 8 ? parsed.navOrder : ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'menu-inventory-btn', 'quests-btn', 'friends-btn', 'achievements-btn'],
+      navOrder: _loadNavOrder(parsed.navOrder),
       // Third features batch - Accessibility group.
       uiFont: parsed.uiFont || 'default',
       textSpacing: parsed.textSpacing ?? 100,
@@ -491,8 +491,22 @@ function loadSettings() {
 // same shape loadSettings' own catch-block fallback already used inline -
 // extracted once so there's a single source of truth for "what are the
 // defaults" instead of two copies drifting apart.
+
+// The 8 reorderable homepage buttons (Settings > Controls > Nav Order).
+// 2026-10-09: Friend List moved under Global, then Quests, then Inventory.
+const NAV_ORDER_DEFAULT = ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'friends-btn', 'quests-btn', 'menu-inventory-btn', 'achievements-btn']
+// The default before that - a save still holding it never reordered
+// anything, so it gets the new default instead.
+const NAV_ORDER_OLD_DEFAULT = ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'menu-inventory-btn', 'quests-btn', 'friends-btn', 'achievements-btn']
+
+function _loadNavOrder(saved) {
+  if (!Array.isArray(saved) || saved.length !== 8) return [...NAV_ORDER_DEFAULT]
+  if (saved.join() === NAV_ORDER_OLD_DEFAULT.join()) return [...NAV_ORDER_DEFAULT]
+  return saved
+}
+
 function defaultSettings() {
-  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', viewDistance: 'auto', liteTextures: false, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, pinnedPreset: null, navOrder: ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'menu-inventory-btn', 'quests-btn', 'friends-btn', 'achievements-btn'], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false } }
+  return { language: 'en', playerId: _generatePlayerId(), masterVolume: 100, sfxVolume: 100, ambientVolume: 100, muteOnTabBlur: false, positionalAudio: true, difficulty: 'normal', sensitivity: 100, invertY: false, fov: 75, hudScale: 100, hudOpacity: 100, colorblindMode: 'off', autoQuality: true, fpsCap: 0, invertScrollWeaponSwitch: false, friendPresenceNotify: true, timeFormat: '12h', autoSaveFrequencySec: 30, hudFpsCounter: true, achievementToasts: true, rankUpToasts: true, leaderboardRankAlerts: true, weeklyChallengeReminder: true, lowCurrencyReminder: true, backupReminder: true, lastExportAt: 0, confirmSignOut: false, stayEmbedSignedIn: true, anonymousLeaderboard: false, shareTelemetry: true, autoDeclineFriendRequests: false, exactLastSeen: false, rememberSettingsTab: false, lastSettingsTab: 'general', confirmRemoveFriend: false, reduceBgEffects: false, oneHandedLayout: false, homepageGreeting: '', whatsNewEveryLaunch: false, reduceFlashing: false, clanId: null, clanTag: null, clanName: null, bigInteractPrompt: false, toastDuration: 100, crosshairColor: '#ffffff', crosshairSize: 100, nickname: '', nicknameColor: '#ffffff', customSkinDataUrl: null, bio: '', streamSafeMode: false, defaultTag: null, companionRole: 'ranged', guestMode: false, loadout: 'balanced', selectedGameMode: 'classic', performanceMode: false, hotbar: ['rifle', 'pistol', 'melee'], menuPresets: [], mutedBeforeVolumes: null, quickLanguageAlt: 'es', savedFriends: [], mutedChatPlayers: [], playerNotes: {}, statusMode: 'online', region: 'global', largeTextMode: false, highContrastMode: false, dyslexiaFont: false, bgMood: 'auto', renderResolution: 100, brightness: 100, contrast: 100, shadowsEnabled: false, shadowQuality: 'medium', viewDistance: 'auto', liteTextures: false, grainIntensity: 100, panelFlickerEnabled: true, focusRingMode: false, homepageFpsCounter: false, selectedGoals: [], underlineLinks: false, friendBeatNotified: [], accentColor: null, playBtnColor: null, nicknameFont: 'default', layoutDensity: 'cozy', pinnedStat: null, pinnedPreset: null, navOrder: [...NAV_ORDER_DEFAULT], uiFont: 'default', textSpacing: 100, buttonSize: 100, reduceTransparency: false, cursorTrail: false, crtScanlines: false, weatherParticles: true, hoverAudioCue: false, highVisCursor: false, captionBackground: false, themePreset: 'none', uiTheme: 'old', lastSeenBuildId: null, mutators: { hordeRush: false, lootRush: false, bossRush: false, healthRegen: false, ironMode: false, glassHouse: false, zombieDefense: false, bossHunt: false, zombieRush: false, escalation: false } }
 }
 
 
@@ -1673,10 +1687,11 @@ const PROFILE_GROUP_ORDER = [
 // Lowest resolution the map editor's auto resolution may drop to, in
 // pixels per CSS pixel - only reached on devices too slow at 1.
 const EDITOR_MIN_PIXEL_RATIO = 0.6
-// The right column is full size on windows at least this wide (and tall
-// enough), and never shrinks below RIGHT_COL_MIN_ZOOM (see _fitRightColumn).
-const RIGHT_COL_FULL_WIDTH = 1500
-const RIGHT_COL_MIN_ZOOM = 0.4
+// Last visit's save-driven homepage values (see _saveMenuPaintCache).
+const MENU_PAINT_CACHE_KEY = 'menu-paint-cache'
+// How long the clan list loaded when General opens stays fresh.
+const CLAN_RANKING_CACHE_MS = 60000
+const MENU_PAINT_CACHE_ROOTS = ['menu-currency-bar', 'menu-player-badge', 'player-showcase-header', 'menu-hero', 'menu-nav-buttons', 'menu-links-row']
 
 // Inventory > Character skins, in grid order (Kirka-style cards). Adding a
 // skin to the game = one entry here: its 64x64 Minecraft-format texture,
@@ -2748,6 +2763,12 @@ export class Game {
     // Reveals the save-driven homepage values (see index.html's
     // html:not(.game-ready) rule).
     document.documentElement.classList.add('game-ready')
+    // Keep the next visit's first paint in step with this one.
+    this._saveMenuPaintCache()
+    window.addEventListener('pagehide', () => this._saveMenuPaintCache())
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') this._saveMenuPaintCache()
+    })
 
     // Arrived via a friend's invite link (?join=<sessionId>) - show the
     // Join prompt right away rather than making them find the pause menu.
@@ -3274,18 +3295,20 @@ export class Game {
         for (const page of document.querySelectorAll('.general-tab-page')) {
           page.style.display = page.id === `general-page-${tab.dataset.generalPage}` ? 'block' : 'none'
         }
-        if (tab.dataset.generalPage === 'clan') this._refreshClanUi()
+        if (tab.dataset.generalPage === 'clan') {
+          this._refreshClanUi()
+          // The Clan tab always opens on Clans, not My Clan (2026-10-09).
+          document.getElementById('clan-subtab-ranking')?.click()
+        }
       })
     }
 
-    // Clan tab's own sub-tabs (My Clan/Clan Ranking/Clan War) - fixes a
-    // real gap where the "All Clans" list used to live only inside the
-    // not-in-a-clan browse state, so once you'd joined a clan there was no
-    // way to see any other clan at all, ranking included. Ranking now
-    // renders fresh every time its sub-tab is clicked (not cached, and not
-    // fetched on every Clan-tab open either - it does a real network read
-    // per clan to total their kills, see _renderClanRanking's own comment,
-    // so only paying that cost when someone actually looks at it).
+    // Clan tab's own sub-tabs (Clans/My Clan) - fixes a real gap where the
+    // "All Clans" list used to live only inside the not-in-a-clan browse
+    // state, so once you'd joined a clan there was no way to see any other
+    // clan at all, ranking included. The ranking is fetched when General
+    // opens and kept for CLAN_RANKING_CACHE_MS (see _fetchClanRanking), so
+    // clicking Clan shows it right away.
     for (const tab of document.querySelectorAll('.clan-subtab')) {
       tab.addEventListener('click', () => {
         for (const tabEl of document.querySelectorAll('.clan-subtab')) tabEl.classList.toggle('active', tabEl === tab)
@@ -3958,6 +3981,7 @@ export class Game {
     if (this.menuInventoryBtn) this.menuInventoryBtn.addEventListener('click', () => trackAndOpen(() => this._openMenuInventoryPanel()))
     if (this.serverBtn) this.serverBtn.addEventListener('click', () => trackAndOpen(() => this._openServerPanel()))
     this.achievementsBtn.addEventListener('click', () => trackAndOpen(() => this._openAchievementsPanel()))
+    document.getElementById('gallery-btn')?.addEventListener('click', () => this._showHomepageToast(t('galleryComingSoon')))
     if (this.achievementsFilterInput) {
       this.achievementsFilterInput.addEventListener('click', (e) => e.stopPropagation())
       this.achievementsFilterInput.addEventListener('input', () => this._renderAchievementsPanel())
@@ -4904,6 +4928,9 @@ export class Game {
     })
     const market = document.getElementById('market-btn')
     if (market) market.style.order = this.settings.navOrder.indexOf('coinshop-btn') * 2 + 1
+    // Gallery always sits right after Achievements (same as index.html).
+    const gallery = document.getElementById('gallery-btn')
+    if (gallery) gallery.style.order = this.settings.navOrder.indexOf('achievements-btn') * 2 + 1
   }
 
   // Settings Search - filters .audio-row rows within whichever tab is
@@ -7480,6 +7507,9 @@ export class Game {
     for (const tabEl of document.querySelectorAll('.general-tab')) tabEl.classList.toggle('active', tabEl.dataset.generalPage === 'general')
     for (const page of document.querySelectorAll('.general-tab-page')) page.style.display = page.id === 'general-page-general' ? 'block' : 'none'
     this._refreshClanUi()
+    // Start loading the clan list now, so the Clan tab doesn't make you
+    // wait for it (2026-10-09, "it takes so long to load").
+    this._fetchClanRanking().catch(() => {})
   }
 
   _closeClanPanel() {
@@ -8262,6 +8292,10 @@ export class Game {
     this.upgradesBtn.querySelector('span').textContent = t('upgradesBtn')
     this.questsBtn.querySelector('span').textContent = t('questsBtn')
     this.achievementsBtn.querySelector('span').textContent = t('achievementsBtn')
+    const galleryLabel = document.getElementById('gallery-btn-label')
+    if (galleryLabel) galleryLabel.textContent = t('galleryBtn')
+    const gallerySoon = document.getElementById('gallery-soon-tag')
+    if (gallerySoon) gallerySoon.textContent = t('comingSoonTitle')
     this.coinshopBtn.querySelector('span').textContent = t('coinshopBtn')
     if (this.marketBtn) this.marketBtn.querySelector('span').textContent = t('skinModeMarket')
     if (this.hubBtn) this.hubBtn.querySelector('span').textContent = t('hubBtn')
@@ -9028,104 +9062,38 @@ export class Game {
         coins: WEEKLY_FEATURED_MUTATOR_BONUS_COINS,
       })
     }
-    this._fitRightColumn()
-    this._updatePlayBtnCentering()
-    this._fitMenuLinksRow()
+    this._fitMenuLayout()
   }
 
-  // The footer links (#menu-links-row, How to Play ... Privacy Policy ...
-  // Discord) must stay clear of the right column's nav buttons (2026-10-04,
-  // Gaymi: "dont make it touch the right side panel") and stay on one line
-  // ("dont stack them, theres space on the left side, move it to the left").
-  // Where the centered row would reach within MENU_LINKS_CLEARANCE px of the
-  // buttons, it slides left into the empty space first; only if the window
-  // is too narrow for that does it tighten its spacing (.links-compact), and
-  // only then wrap. Measured live, like _updatePlayBtnCentering below - the
-  // row's width depends on translated labels, the columns on window size.
-  // The right column (profile card + nav buttons) shrinks with the window
-  // like the title and Play button do (2026-10-09, "on mobile or smaller
-  // screens the right side panel is always very big"): CSS zoom, so the
-  // card, its text and every button scale together - to fit the window's
-  // height (all ten buttons on screen) and, below RIGHT_COL_FULL_WIDTH,
-  // its width too. Never below RIGHT_COL_MIN_ZOOM; past that the column
-  // scrolls.
-  _fitRightColumn() {
-    const col = document.getElementById('menu-col-right')
-    if (!col || col.offsetParent === null) return
-    col.style.zoom = ''
-    col.style.justifyContent = ''
-    const need = col.scrollHeight
-    // The column's own box can run past the bottom of the window (the
-    // homepage scrolls on a phone) - fit what's actually on screen, and
-    // start at the top there instead of centering in the taller box
-    // (which pushed the last buttons off the bottom).
-    const top = Math.max(0, col.getBoundingClientRect().top)
-    const onScreen = window.innerHeight - top - 6
-    if (onScreen < col.clientHeight) col.style.justifyContent = 'flex-start'
-    const room = Math.min(col.clientHeight, onScreen)
-    if (!need || !room) return
-    const byHeight = room / need
-    const byWidth = window.innerWidth / RIGHT_COL_FULL_WIDTH
-    const zoom = Math.max(RIGHT_COL_MIN_ZOOM, Math.min(1, byHeight, byWidth))
-    col.style.zoom = zoom < 0.999 ? String(Math.floor(zoom * 1000) / 1000) : ''
+  // The homepage's measured layout - right column zoom, Play centering,
+  // footer links - lives in index.html's inline window.__menuLayout, which
+  // runs while the page is still being read (and on resize) so the first
+  // paint is already the final layout. Called again here whenever text
+  // the layout depends on changes.
+  _fitMenuLayout() {
+    window.__menuLayout?.fit()
   }
 
-  _fitMenuLinksRow() {
-    const row = document.getElementById('menu-links-row')
-    const nav = [...document.querySelectorAll('#menu-nav-buttons button')].filter((b) => b.offsetParent)
-    if (!row || !nav.length || row.offsetParent === null) return
-    const MENU_LINKS_CLEARANCE = 24
-    const MENU_LINKS_MIN_LEFT = 16
-    row.classList.remove('links-compact')
-    row.style.maxWidth = ''
-    row.style.transform = ''
-    const limit = Math.min(...nav.map((b) => b.getBoundingClientRect().left)) - MENU_LINKS_CLEARANCE
-    const slide = () => {
-      const r = row.getBoundingClientRect()
-      const shift = Math.min(Math.max(0, r.right - limit), Math.max(0, r.left - MENU_LINKS_MIN_LEFT))
-      row.style.transform = shift ? `translateX(${-shift}px)` : ''
-      return r.right - shift <= limit
+  // Remembers what the homepage shows - currencies, profile card, and every
+  // label in the player's language - so index.html can paint it on the next
+  // visit before the game has loaded (see __menuLayout there). Per root,
+  // the text and inline display of each leaf element in document order,
+  // plus their count: index.html only applies a root whose count still
+  // matches, so a changed page never gets text in the wrong places.
+  // Device-only key, never synced.
+  _saveMenuPaintCache() {
+    const roots = {}
+    for (const rootId of MENU_PAINT_CACHE_ROOTS) {
+      const root = document.getElementById(rootId)
+      if (!root) continue
+      const leaves = [...root.querySelectorAll('*')].filter((el) => !el.children.length && !el.closest('svg') && el.tagName !== 'SCRIPT' && el.tagName !== 'STYLE')
+      const d = {}
+      leaves.forEach((el, i) => { if (el.hasAttribute('style')) d[i] = el.style.display })
+      roots[rootId] = { n: leaves.length, t: leaves.map((el) => el.textContent), d }
     }
-    if (slide()) return
-    row.style.transform = ''
-    row.classList.add('links-compact')
-    if (slide()) return
-    row.style.transform = ''
-    // Centered, so the row may be at most twice the distance from the middle
-    // of the window to the limit.
-    row.style.maxWidth = `${Math.max(240, 2 * (limit - window.innerWidth / 2))}px`
-  }
-
-  // Decides whether #play-btn can go dead-center in the viewport (see its
-  // .play-btn-centered rule in style.css) without overlapping the hero
-  // column's own content. Can't be a fixed CSS breakpoint: the news
-  // ticker/weekly mutator lines above are variable-length text, so how
-  // much clearance actually exists shifts with them - this measures the
-  // real gap between the hero column's true end (with play-btn briefly
-  // popped out of flow) and the bottom of the viewport, live. Uses
-  // #settings-btn (not #controls-list/#round-mode-hint, both
-  // display:none now that the instructional text was removed from the
-  // visible menu) as the "last visible hero element" reference - a
-  // display:none element's getBoundingClientRect() is always all-zero,
-  // which would silently make this measurement meaningless.
-  _updatePlayBtnCentering() {
-    const settingsBtn = document.getElementById('settings-btn')
-    if (!this.playBtn || !settingsBtn) return
-
-    this.playBtn.classList.remove('play-btn-centered')
-    const btnHeight = this.playBtn.getBoundingClientRect().height
-
-    const prevDisplay = this.playBtn.style.display
-    this.playBtn.style.display = 'none'
-    const safeTop = settingsBtn.getBoundingClientRect().bottom
-    this.playBtn.style.display = prevDisplay
-
-    const safeBottom = window.innerHeight
-    const centerY = window.innerHeight / 2
-    const margin = 20
-    const fits = (centerY - btnHeight / 2) > (safeTop + margin) && (centerY + btnHeight / 2) < (safeBottom - margin)
-
-    this.playBtn.classList.toggle('play-btn-centered', fits)
+    try {
+      localStorage.setItem(MENU_PAINT_CACHE_KEY, JSON.stringify({ v: 2, roots }))
+    } catch { /* storage full or blocked - next visit just waits for the game */ }
   }
 
   // Local leaderboard - see loadLeaderboard's own doc comment for how this
@@ -9452,9 +9420,7 @@ export class Game {
       this.buildMode.camera.updateProjectionMatrix()
     }
     this.renderer.setSize(window.innerWidth, window.innerHeight)
-    this._fitRightColumn()
-    this._updatePlayBtnCentering()
-    this._fitMenuLinksRow()
+    // (The homepage layout re-fits itself on resize - __menuLayout.)
     this._fitPlayerShowcaseTitle()
   }
 
@@ -11332,6 +11298,7 @@ export class Game {
         const clanId = await CloudSync.createClan(this._cloudUid, nickname, name).catch(() => null)
         if (!clanId) return
         this.settings.clanId = clanId
+        this._clanRankingCache = null
         this.settings.clanName = name
         saveSettings(this.settings)
         this._renderPlayerTag()
@@ -11396,6 +11363,7 @@ export class Game {
           const result = await CloudSync.acceptClanInvite(acceptBtn.dataset.clanId, this._cloudUid, nickname).catch(() => ({ ok: false }))
           if (!result.ok) return
           this.settings.clanId = acceptBtn.dataset.clanId
+          this._clanRankingCache = null
           this.settings.clanName = acceptBtn.dataset.clanName
           saveSettings(this.settings)
           this._renderPlayerTag()
@@ -11443,6 +11411,7 @@ export class Game {
         await CloudSync.leaveClan(clanId, this._cloudUid).catch(() => {})
         if (isSoleOwner) await CloudSync.deleteClan(clanId).catch(() => {})
         this.settings.clanId = null
+        this._clanRankingCache = null
         this.settings.clanName = null
         saveSettings(this.settings)
         this._renderPlayerTag()
@@ -11535,6 +11504,7 @@ export class Game {
       const ledClan = await CloudSync.fetchClanILead(this._cloudUid).catch(() => null)
       if (ledClan) {
         this.settings.clanId = ledClan.clanId
+        this._clanRankingCache = null
         this.settings.clanName = ledClan.name
         saveSettings(this.settings)
         this._renderPlayerTag()
@@ -11570,6 +11540,7 @@ export class Game {
     }
     if (!me) {
       this.settings.clanId = null
+      this._clanRankingCache = null
       this.settings.clanName = null
       saveSettings(this.settings)
       this._renderPlayerTag()
@@ -11693,25 +11664,38 @@ export class Game {
   // be an unordered join list, and one only reachable before you'd joined a
   // clan at all (clanBrowseState, whole thing hidden the moment you had one -
   // see _refreshClanUi). Now its own always-reachable sub-tab regardless of
-  // membership, and genuinely ranked instead of just listed. Real cost
-  // warning: this does 2 extra Firestore reads per clan (member count +
-  // combined stats), so it's only called when this sub-tab is actually
-  // clicked (see the click binding), never on every Clan-tab open.
+  // membership, and genuinely ranked instead of just listed.
+  // Every clan with its member count and total kills, best first. Three
+  // Firestore reads per clan, so the result is shared for
+  // CLAN_RANKING_CACHE_MS - opening General starts it, the Clan tab reuses
+  // it - and dropped whenever this player's own clan changes.
+  _fetchClanRanking() {
+    const cached = this._clanRankingCache
+    if (cached && Date.now() - cached.at < CLAN_RANKING_CACHE_MS) return cached.promise
+    const promise = (async () => {
+      const clans = await CloudSync.fetchAllClans().catch(() => [])
+      const [counts, stats] = await Promise.all([
+        Promise.all(clans.map((c) => CloudSync.fetchClanMemberCount(c.clanId).catch(() => null))),
+        Promise.all(clans.map((c) => CloudSync.fetchClanCombinedStats(c.clanId).catch(() => null))),
+      ])
+      return clans
+        .map((c, i) => ({ ...c, memberCount: counts[i], totalKills: stats[i]?.totalKills ?? 0 }))
+        .sort((a, b) => b.totalKills - a.totalKills)
+    })()
+    this._clanRankingCache = { at: Date.now(), promise }
+    // A failed or empty load isn't worth keeping - try again next time.
+    promise.then((list) => { if (!list.length && this._clanRankingCache?.promise === promise) this._clanRankingCache = null })
+    return promise
+  }
+
   async _renderClanRanking() {
     if (!this.clanAllList) return
     this.clanAllList.innerHTML = ''
-    const clans = await CloudSync.fetchAllClans().catch(() => [])
-    if (!clans.length) {
+    const ranked = await this._fetchClanRanking()
+    if (!ranked.length) {
       this.clanAllList.innerHTML = `<p>${t('clanListEmpty')}</p>`
       return
     }
-    const [counts, stats] = await Promise.all([
-      Promise.all(clans.map((c) => CloudSync.fetchClanMemberCount(c.clanId).catch(() => null))),
-      Promise.all(clans.map((c) => CloudSync.fetchClanCombinedStats(c.clanId).catch(() => null))),
-    ])
-    const ranked = clans
-      .map((c, i) => ({ ...c, memberCount: counts[i], totalKills: stats[i]?.totalKills ?? 0 }))
-      .sort((a, b) => b.totalKills - a.totalKills)
     // Already in a clan - no server-side rule stops sending a join request to
     // a DIFFERENT clan while still a member of your own (sendJoinRequest just
     // writes a pending request doc), which would be a confusing way to end up
@@ -11730,8 +11714,9 @@ export class Game {
         <div class="clan-list-row clan-ranking-row${isMine ? ' clan-list-row-mine' : ''}">
           <span class="clan-list-rank">#${i + 1}</span>
           <span class="clan-list-name">${_escapeHtml(c.name)}${countLabel}</span>
+          ${isMine ? action : ''}
           <span class="clan-list-kills">${t('clanRankingKillsLabel', { n: c.totalKills })}</span>
-          ${action}
+          ${isMine ? '' : action}
         </div>
       `
     }).join('')

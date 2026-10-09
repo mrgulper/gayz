@@ -32,3 +32,54 @@ test('the homepage renders with zero horizontal/vertical scroll at 1920x1080', a
   })
   expect(overflow).toBeLessThanOrEqual(10)
 })
+
+// Refreshing used to show an older homepage for a few seconds - the right
+// column at full size, the footer links centered, no profile card, English
+// labels - which only jumped into place once Game() had loaded (2026-10-09).
+// Here the game's own scripts are held back on the second visit: what the
+// page shows while it waits must already be the final layout and text.
+test('the homepage paints its final layout before the game has loaded', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 })
+  await gotoAndWaitForGame(page)
+  // A returning player who reordered nothing on the old default, in Spanish.
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('gayz-settings'))
+    s.language = 'es'
+    s.navOrder = ['hub-btn', 'coinshop-btn', 'upgrades-btn', 'server-btn', 'menu-inventory-btn', 'quests-btn', 'friends-btn', 'achievements-btn']
+    localStorage.setItem('gayz-settings', JSON.stringify(s))
+  })
+  await page.reload()
+  await page.waitForFunction(() => window.__game, null, { timeout: 60000 })
+  const snap = () => {
+    const box = (id) => {
+      const r = document.getElementById(id).getBoundingClientRect()
+      return [Math.round(r.left), Math.round(r.top), Math.round(r.width)]
+    }
+    const navTops = ['server-btn', 'friends-btn', 'quests-btn', 'menu-inventory-btn', 'achievements-btn', 'gallery-btn', 'build-mode-btn']
+      .map((id) => Math.round(document.getElementById(id).getBoundingClientRect().top))
+    return {
+      zoom: document.getElementById('menu-col-right').style.zoom,
+      general: box('hub-btn'),
+      play: box('play-btn'),
+      links: box('menu-links-row'),
+      navTops,
+      friends: document.querySelector('#friends-btn span').textContent,
+      tag: document.getElementById('menu-player-tag').textContent,
+      badge: getComputedStyle(document.getElementById('menu-player-badge')).visibility,
+    }
+  }
+  const loaded = await page.evaluate(snap)
+  // Friend List under Global, then Quests, Inventory, Achievements, Gallery, Map Editor.
+  expect([...loaded.navTops].sort((a, b) => a - b)).toEqual(loaded.navTops)
+  expect(loaded.friends).toBe('Lista de amigos')
+
+  let release
+  const held = new Promise((resolve) => { release = resolve })
+  await page.route(/\/assets\/.*\.js$/, async (route) => { await held; await route.continue() })
+  await page.reload({ waitUntil: 'commit' })
+  await page.waitForSelector('#menu-links-row', { state: 'attached' })
+  await page.waitForTimeout(500)
+  expect(await page.evaluate(() => !!window.__game)).toBe(false)
+  expect(await page.evaluate(snap)).toEqual(loaded)
+  release()
+})

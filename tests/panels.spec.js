@@ -54,7 +54,7 @@ for (const theme of ['old', 'golden']) {
 
 // The footer links stay clear of the right column's buttons at every
 // window size (Gaymi, 2026-10-04: "dont make it touch the right side
-// panel") - Game.js _fitMenuLinksRow() tightens or wraps the row.
+// panel") - index.html's __menuLayout (fitLinksRow) tightens or wraps the row.
 test('the footer links never reach the right-side buttons', async ({ page }) => {
   await gotoAndWaitForGame(page)
   for (const [width, height] of [[1280, 800], [1366, 768], [1440, 900], [1600, 900], [1920, 1080]]) {
