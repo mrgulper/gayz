@@ -78,7 +78,6 @@ test('the homepage paints its final layout before the game has loaded', async ({
   await page.route(/\/assets\/.*\.js$/, async (route) => { await held; await route.continue() })
   await page.reload({ waitUntil: 'commit' })
   await page.waitForSelector('#menu-links-row', { state: 'attached' })
-  await page.waitForFunction(() => !document.documentElement.classList.contains('menu-art-wait'), null, { polling: 100, timeout: 15000 })
   await page.waitForTimeout(500)
   expect(await page.evaluate(() => !!window.__game)).toBe(false)
   expect(await page.evaluate(snap)).toEqual(loaded)
@@ -87,17 +86,27 @@ test('the homepage paints its final layout before the game has loaded', async ({
 
 // The other half of the same report: a refresh drew the homepage with bare
 // text where the button plates, profile plate, PLAY plate and background
-// photo belong, then swapped the pictures in. The menu now stays hidden
-// until every picture in index.html's MENU_ART has been decoded.
-test('the homepage stays hidden until its pictures are ready, then shows all at once', async ({ page }) => {
+// photo belong, then swapped the pictures in. Every one of them now has a
+// tiny stand-in inlined in the stylesheet, so with the real files held
+// back the page must already be visible and drawing those stand-ins.
+test('the homepage draws its pictures from the first frame, before the files arrive', async ({ page }) => {
   let release
   const held = new Promise((resolve) => { release = resolve })
   await page.route(/\/images\//, async (route) => { await held; await route.continue() })
   await page.goto('/', { waitUntil: 'commit' })
   await page.waitForSelector('#menu-links-row', { state: 'attached' })
   await page.waitForTimeout(300)
-  expect(await page.evaluate(() => getComputedStyle(document.getElementById('menu')).visibility)).toBe('hidden')
+  const art = await page.evaluate(() => {
+    const bg = (sel) => getComputedStyle(document.querySelector(sel)).backgroundImage
+    return {
+      visible: getComputedStyle(document.getElementById('menu')).visibility,
+      layers: ['#menu-bg-photo', '#play-btn', '#gamemode-btn', '#settings-btn', '#menu-nav-buttons button', '#menu-title-img'].map(bg),
+      logoHeight: document.getElementById('menu-title-img').getBoundingClientRect().height,
+    }
+  })
   release()
-  await page.waitForFunction(() => !document.documentElement.classList.contains('menu-art-wait'), null, { polling: 100, timeout: 15000 })
-  expect(await page.evaluate(() => getComputedStyle(document.getElementById('menu')).visibility)).toBe('visible')
+  expect(art.visible).toBe('visible')
+  for (const layer of art.layers) expect(layer).toContain('data:image/webp')
+  // The logo keeps its real size before it has loaded, so nothing below it jumps.
+  expect(art.logoHeight).toBeGreaterThan(100)
 })
