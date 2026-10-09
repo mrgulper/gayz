@@ -1630,6 +1630,7 @@ html.large-text-mode #credits-panel,
 html.large-text-mode #terms-panel,
 html.large-text-mode #features-panel,
 html.large-text-mode #skindesigner-panel,
+html.large-text-mode #gallery-panel,
 html.large-text-mode #levels-panel,
 html.large-text-mode #privacy-panel,
 html.large-text-mode #shop-panel,
@@ -2557,6 +2558,7 @@ html.ui-theme-old select {
 #terms-panel .panel-box,
 #features-panel .panel-box,
 #skindesigner-panel .panel-box,
+#gallery-panel .panel-box,
 #levels-panel .panel-box,
 #privacy-panel .panel-box,
 #howtoplay-panel .panel-box,
@@ -2763,6 +2765,7 @@ html.ui-theme-old .panel-box :not(input, select, option, textarea, :is(.panel-cl
 #privacy-panel,
 #features-panel,
 #skindesigner-panel,
+#gallery-panel,
 #levels-panel,
 #howtoplay-panel,
 #whatsnew-panel,
@@ -3704,6 +3707,7 @@ section.category.hidden-search {
 #privacy-panel,
 #features-panel,
 #skindesigner-panel,
+#gallery-panel,
 #levels-panel,
 #shop-panel,
 #market-panel,
@@ -3920,6 +3924,7 @@ html.ui-theme-old #credits-panel,
 html.ui-theme-old #terms-panel,
 html.ui-theme-old #features-panel,
 html.ui-theme-old #skindesigner-panel,
+html.ui-theme-old #gallery-panel,
 html.ui-theme-old #levels-panel,
 html.ui-theme-old #privacy-panel,
 html.ui-theme-old #shop-panel,
@@ -4129,6 +4134,7 @@ html.ui-theme-old #journal-panel {
 #terms-panel-title,
 #features-panel-title,
 #skindesigner-panel-title,
+#gallery-panel-title,
 #levels-panel-title,
 #privacy-panel-title,
 #shop-panel-title,
@@ -4162,6 +4168,7 @@ html.ui-theme-old #credits-panel-title,
 html.ui-theme-old #terms-panel-title,
 html.ui-theme-old #features-panel-title,
 html.ui-theme-old #skindesigner-panel-title,
+html.ui-theme-old #gallery-panel-title,
 html.ui-theme-old #levels-panel-title,
 html.ui-theme-old #privacy-panel-title,
 html.ui-theme-old #shop-panel-title,
@@ -5494,6 +5501,7 @@ html.reduce-transparency #credits-panel,
 html.reduce-transparency #terms-panel,
 html.reduce-transparency #features-panel,
 html.reduce-transparency #skindesigner-panel,
+html.reduce-transparency #gallery-panel,
 html.reduce-transparency #levels-panel,
 html.reduce-transparency #privacy-panel,
 html.reduce-transparency #shop-panel,
@@ -10980,3 +10988,36 @@ body.touch-play-on #build-try-map { top: 8px; right: max(12px, env(safe-area-ins
 body.touch-play-on #fps-counter { top: auto !important; bottom: 4px !important; left: 8px !important; right: auto !important; transform: none !important; max-width: 42vw; font-size: 10px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 body.touch-play-on #build-play-msg { font-size: 26px; white-space: normal; width: 80vw; }
 body.touch-play-on #build-play-wave { top: 10px; font-size: 16px; padding: 4px 10px; }
+
+/* Gallery panel (Coming Soon, 2026-10-09) - a centered picture-frame icon
+   and two lines, in the panel's own content area. */
+#gallery-content {
+  /* Fills the shared 68vh content area so the message sits in its middle. */
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+}
+#gallery-coming-icon {
+  width: 72px;
+  height: 72px;
+  color: var(--ui-gold-bright);
+  opacity: 0.85;
+}
+html.ui-theme-old #gallery-coming-icon {
+  color: #6b4423;
+}
+#gallery-coming-title {
+  margin: 4px 0 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+#gallery-coming-text {
+  margin: 0;
+  opacity: 0.8;
+}

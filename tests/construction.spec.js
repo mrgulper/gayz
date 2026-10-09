@@ -78,8 +78,26 @@ test('the homepage paints its final layout before the game has loaded', async ({
   await page.route(/\/assets\/.*\.js$/, async (route) => { await held; await route.continue() })
   await page.reload({ waitUntil: 'commit' })
   await page.waitForSelector('#menu-links-row', { state: 'attached' })
+  await page.waitForFunction(() => !document.documentElement.classList.contains('menu-art-wait'), null, { polling: 100, timeout: 15000 })
   await page.waitForTimeout(500)
   expect(await page.evaluate(() => !!window.__game)).toBe(false)
   expect(await page.evaluate(snap)).toEqual(loaded)
   release()
+})
+
+// The other half of the same report: a refresh drew the homepage with bare
+// text where the button plates, profile plate, PLAY plate and background
+// photo belong, then swapped the pictures in. The menu now stays hidden
+// until every picture in index.html's MENU_ART has been decoded.
+test('the homepage stays hidden until its pictures are ready, then shows all at once', async ({ page }) => {
+  let release
+  const held = new Promise((resolve) => { release = resolve })
+  await page.route(/\/images\//, async (route) => { await held; await route.continue() })
+  await page.goto('/', { waitUntil: 'commit' })
+  await page.waitForSelector('#menu-links-row', { state: 'attached' })
+  await page.waitForTimeout(300)
+  expect(await page.evaluate(() => getComputedStyle(document.getElementById('menu')).visibility)).toBe('hidden')
+  release()
+  await page.waitForFunction(() => !document.documentElement.classList.contains('menu-art-wait'), null, { polling: 100, timeout: 15000 })
+  expect(await page.evaluate(() => getComputedStyle(document.getElementById('menu')).visibility)).toBe('visible')
 })
