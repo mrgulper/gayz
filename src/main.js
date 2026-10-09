@@ -4,6 +4,7 @@ import { Game } from './game/Game.js'
 import { preBootCloudSync } from './game/CloudPreBoot.js'
 import { reloadBindings } from './game/Keybinds.js'
 import { startMenuRain } from './game/MenuRain.js'
+import { startMenuWater } from './game/MenuWater.js'
 import {
   preloadPistolViewmodel,
   preloadRifleViewmodel,
@@ -17,8 +18,10 @@ import {
   preloadUvBatonViewmodel,
 } from './game/Viewmodels.js'
 
-// The homepage rain starts straight away - it needs nothing from the game.
+// The homepage rain and the moving water on the road start straight away -
+// they need nothing from the game.
 startMenuRain(document.getElementById('menu-bg-rain'))
+startMenuWater(document.getElementById('menu-bg-water'))
 
 // Only the gun models are preloaded now (Try Map holds one, Inventory >
 // Weapons draws them) - the old Map 1 city and its models were deleted.

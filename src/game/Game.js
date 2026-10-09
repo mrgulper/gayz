@@ -582,6 +582,18 @@ const WEEKLY_FEATURED_MUTATORS = ['hordeRush', 'lootRush', 'bossRush', 'healthRe
 const WEEKLY_FEATURED_MUTATOR_BONUS_COINS = 50
 // Kill streak (kills without getting hurt) that earns Meat Grinder.
 const MEAT_GRINDER_STREAK = 25
+// Goals for the 2026-10-09 achievements (Achievements.js), all per run
+// except ARSENAL_WEAPONS (different guns with a kill, ever - stored in
+// localStorage[ARSENAL_KEY]).
+const HEADHUNTER_HEADSHOTS = 25
+const UP_CLOSE_KNIFE_KILLS = 25
+const ARSENAL_WEAPONS = 5
+const ARSENAL_KEY = 'gayz-ach-weapon-kills'
+const SURVIVOR_20_WAVES = 20
+const MARATHON_SECONDS = 20 * 60
+const TREASURE_HUNTER_CHESTS = 10
+const FULLY_LOADED_UPGRADES = 5
+const DEEP_POCKETS_COINS = 1000
 // The achievement that counts as beating the game: it unlocks Nightmare
 // difficulty, Prestige and the Career Portrait.
 const ENDGAME_ACHIEVEMENT = 'survivor_10'
@@ -1272,6 +1284,9 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'hub-tab-deathmatch': 'hubTabDeathmatch',
   'hub-tab-parkour': 'hubTabParkour',
   'hub-parkour-soon-label': 'hubParkourSoon',
+  'hub-tab-custom': 'hubTabCustom',
+  'hub-custom-soon-label': 'hubCustomSoon',
+  'achievements-tab-parkour': 'achievementsTabParkour',
   'save-preset-btn': 'savePresetBtnLabel',
   'surprise-me-btn': 'surpriseMeBtn',
   'quick-keybinds-btn': 'quickKeybindsBtn',
@@ -6673,6 +6688,8 @@ export class Game {
       this.rollingQuests.recordKill()
       this._checkWeeklyChallengeProgress()
       this.achievements.unlock('first_blood')
+      if (data.boss) this.achievements.unlock('giant_slayer')
+      if (data.weapon) this._recordArsenalKill(data.weapon)
       return null
     }
     if (type === 'wave') {
@@ -6680,6 +6697,7 @@ export class Game {
       this.rollingQuests.recordNight(wave)
       if (wave >= 5) this.achievements.unlock('survivor_5')
       if (wave >= 10) this.achievements.unlock('survivor_10')
+      if (wave >= SURVIVOR_20_WAVES) this.achievements.unlock('survivor_20')
       if (this.settings.difficulty === 'nightmare' && wave >= 5) this.achievements.unlock('nightmare_survivor_5')
       return null
     }
@@ -6704,6 +6722,13 @@ export class Game {
     if (data.kills >= 100) this.achievements.unlock('centurion')
     if (data.bestStreak >= MEAT_GRINDER_STREAK) this.achievements.unlock('meat_grinder')
     if (data.won && this.settings.difficulty === 'nightmare') this.achievements.unlock('nightmare_conqueror')
+    if (data.won && data.mode === 'zombieDefense') this.achievements.unlock('holding_the_line')
+    if (data.headshots >= HEADHUNTER_HEADSHOTS) this.achievements.unlock('headhunter')
+    if (data.meleeKills >= UP_CLOSE_KNIFE_KILLS) this.achievements.unlock('up_close')
+    if (data.seconds >= MARATHON_SECONDS) this.achievements.unlock('marathon')
+    if (data.chests >= TREASURE_HUNTER_CHESTS) this.achievements.unlock('treasure_hunter')
+    if (data.upgrades >= FULLY_LOADED_UPGRADES) this.achievements.unlock('fully_loaded')
+    if (data.coins >= DEEP_POCKETS_COINS) this.achievements.unlock('deep_pockets')
     const legacy = Math.floor(points * DEATH_POINTS_CONVERSION)
     this.metaProgress.legacyPoints += legacy
     saveMetaProgress(this.metaProgress)
@@ -6713,6 +6738,19 @@ export class Game {
     this._updateUpgradesDot()
     this._updateQuestsDot()
     return { legacy, coins }
+  }
+
+  // Arsenal: remembers every gun you've killed a zombie with (ever).
+  _recordArsenalKill(weaponId) {
+    let used = []
+    try {
+      const raw = JSON.parse(localStorage.getItem(ARSENAL_KEY) || '[]')
+      if (Array.isArray(raw)) used = raw.filter((id) => typeof id === 'string')
+    } catch { /* bad data: start over */ }
+    if (used.includes(weaponId)) return
+    used.push(weaponId)
+    try { localStorage.setItem(ARSENAL_KEY, JSON.stringify(used)) } catch { /* storage full */ }
+    if (used.length >= ARSENAL_WEAPONS) this.achievements.unlock('arsenal')
   }
 
   // Weekly Challenge (WEEKLY_CHALLENGES) - every Map 1 kill counts toward
@@ -6992,7 +7030,7 @@ export class Game {
       { slug: 'friends', panel: this.friendsPanel, open: () => this._openFriendsPanel() },
       {
         slug: 'achievements', panel: this.achievementsPanel, open: () => this._openAchievementsPanel(),
-        subTabs: this._subTabsFor('achievements-tab-', ['survival', 'deathmatch']),
+        subTabs: this._subTabsFor('achievements-tab-', ['survival', 'deathmatch', 'parkour']),
       },
       {
         slug: 'inventory', panel: this.menuInventoryPanel, open: () => this._openMenuInventoryPanel(),
@@ -7018,7 +7056,7 @@ export class Game {
       { slug: 'whats-new', panel: this.whatsNewPanel, open: () => this._openWhatsNewPanel() },
       {
         slug: 'gamemode', panel: this.hubPanel, open: () => this._openHubPanel(),
-        subTabs: this._subTabsFor('hub-tab-', ['survival', 'deathmatch', 'parkour']),
+        subTabs: this._subTabsFor('hub-tab-', ['survival', 'deathmatch', 'parkour', 'custom']),
       },
     ].filter((route) => route.panel)
 
@@ -7449,7 +7487,8 @@ export class Game {
   }
 
   _renderAchievementsPanel() {
-    const deathmatch = this._achievementsMode === 'deathmatch'
+    // Deathmatch and Parkour have no achievements yet - a placeholder.
+    const deathmatch = this._achievementsMode !== 'survival'
     if (this.achievementsFilterInput) this.achievementsFilterInput.style.display = deathmatch ? 'none' : ''
     if (this.achievementsControlsRow) this.achievementsControlsRow.style.display = deathmatch ? 'none' : ''
     if (this.printAchievementsBtn) this.printAchievementsBtn.style.display = deathmatch ? 'none' : ''

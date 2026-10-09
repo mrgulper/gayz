@@ -30,9 +30,25 @@
 // menu-bg-city.webp share the same framing), as fractions of the picture:
 // the far end of the road at HORIZON, widening out to the bottom corners
 // from EDGE_Y at the left/right edges.
-const PICTURE_ASPECT = 1280 / 774
-const PICTURE_POS_Y = 0.35 // background-position: center 35%
-const FLOOR = { horizon: 0.665, left: 0.46, right: 0.57, edgeY: 0.79 }
+export const PICTURE_ASPECT = 1280 / 774
+export const PICTURE_POS_Y = 0.35 // background-position: center 35%
+export const FLOOR = { horizon: 0.665, left: 0.46, right: 0.57, edgeY: 0.79 }
+
+// The picture's box on a w x h screen, like `background-size: cover;
+// background-position: center 35%`.
+export function pictureBox(w, h) {
+  let pw = w
+  let ph = w / PICTURE_ASPECT
+  if (ph < h) {
+    ph = h
+    pw = h * PICTURE_ASPECT
+  }
+  return { x: (w - pw) / 2, y: (h - ph) * PICTURE_POS_Y, w: pw, h: ph }
+}
+
+// How hard it's raining right now (0-1), for the moving water on the
+// road (MenuWater.js).
+export const rainState = { intensity: 0.5 }
 
 // Drops falling at once per 1000x1000 CSS px of window at full strength.
 const MAX_DENSITY = 420
@@ -115,18 +131,11 @@ export function startMenuRain(canvas) {
   // Picture fraction -> screen px, like `background-size: cover;
   // background-position: center 35%`.
   function mapPicture() {
-    let pw = w
-    let ph = w / PICTURE_ASPECT
-    if (ph < h) {
-      ph = h
-      pw = h * PICTURE_ASPECT
-    }
-    const ox = (w - pw) / 2
-    const oy = (h - ph) * PICTURE_POS_Y
-    horizonY = oy + FLOOR.horizon * ph
-    edgeY = oy + FLOOR.edgeY * ph
-    farL = ox + FLOOR.left * pw
-    farR = ox + FLOOR.right * pw
+    const box = pictureBox(w, h)
+    horizonY = box.y + FLOOR.horizon * box.h
+    edgeY = box.y + FLOOR.edgeY * box.h
+    farL = box.x + FLOOR.left * box.w
+    farR = box.x + FLOOR.right * box.w
   }
 
   // Left/right edge of the floor at a given screen height.
@@ -204,6 +213,7 @@ export function startMenuRain(canvas) {
       const e = easeT * easeT * (3 - 2 * easeT)
       intensity = from + (target - from) * e
     }
+    rainState.intensity = intensity
   }
 
   function frame(now) {

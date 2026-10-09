@@ -28,6 +28,18 @@ export const ACHIEVEMENTS = [
   { id: 'meat_grinder', titleKey: 'achMeatGrinder', tag: 'MG', color: '#c9564a', hintKey: 'achHintMeatGrinder', category: 'combat' },
   { id: 'nightmare_survivor_5', titleKey: 'achNightmareSurvivor5', tag: 'N5', color: '#c9564a', hintKey: 'achHintNightmareSurvivor5', category: 'survival' },
   { id: 'nightmare_conqueror', titleKey: 'achNightmareConqueror', tag: 'NC', color: '#c9564a', hintKey: 'achHintNightmareConqueror', category: 'survival' },
+  // 2026-10-09 batch ("add more achievements") - each one is read from
+  // what a Map 1 run reports (Game.js _onPlayEvent).
+  { id: 'giant_slayer', titleKey: 'achGiantSlayer', tag: 'GS', color: '#c9564a', hintKey: 'achHintGiantSlayer', category: 'combat' },
+  { id: 'headhunter', titleKey: 'achHeadhunter', tag: 'HH', color: '#d9bc4a', hintKey: 'achHintHeadhunter', category: 'combat' },
+  { id: 'up_close', titleKey: 'achUpClose', tag: 'UC', color: '#8a6d47', hintKey: 'achHintUpClose', category: 'combat' },
+  { id: 'arsenal', titleKey: 'achArsenal', tag: 'AR', color: '#6fa8dc', hintKey: 'achHintArsenal', category: 'combat' },
+  { id: 'survivor_20', titleKey: 'achSurvivor20', tag: '20W', color: '#6fa8dc', hintKey: 'achHintSurvivor20', category: 'survival' },
+  { id: 'holding_the_line', titleKey: 'achHoldingTheLine', tag: 'HL', color: '#7fb069', hintKey: 'achHintHoldingTheLine', category: 'survival' },
+  { id: 'marathon', titleKey: 'achMarathon', tag: 'MR', color: '#7fb069', hintKey: 'achHintMarathon', category: 'survival' },
+  { id: 'treasure_hunter', titleKey: 'achTreasureHunter', tag: 'TH', color: '#d9bc4a', hintKey: 'achHintTreasureHunter', category: 'survival' },
+  { id: 'fully_loaded', titleKey: 'achFullyLoaded', tag: 'FL', color: '#b07cc6', hintKey: 'achHintFullyLoaded', category: 'survival' },
+  { id: 'deep_pockets', titleKey: 'achDeepPockets', tag: 'DP', color: '#d9bc4a', hintKey: 'achHintDeepPockets', category: 'survival' },
   // Deliberately last in the array - see unlock()'s own completionist
   // check, which excludes this id from "every OTHER achievement."
   { id: 'completionist', titleKey: 'achCompletionist', tag: '★', color: '#d9bc4a', hintKey: 'achHintCompletionist', category: 'story' },
