@@ -739,7 +739,7 @@ function buildGlock18Procedural() {
   return g
 }
 
-// Weatie - pump-action shotgun: wide barrel, a tube magazine slung under it,
+// Shotgun (was called Weatie until 2026-10-09) - pump-action shotgun: wide barrel, a tube magazine slung under it,
 // and a cylindrical pump foregrip instead of the rifle's boxy one.
 function buildShotgun() {
   if (USE_GLB_SHOTGUN && GUN_MODEL_CACHE.shotgun) {

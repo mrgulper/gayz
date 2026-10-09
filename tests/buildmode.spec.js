@@ -703,6 +703,52 @@ test('Play starts the block city (Map 1) zombie waves', async ({ page }) => {
   expect(r).toEqual({ slot: 'map3', shown: true, maps: 'map3,map2', maxHealth: 185, mode: 'bossHunt', bossEvery: 3, glass: true, runs: 1, legacy: 40 })
 })
 
+// A homepage run opens the weapon picker first (2026-10-09, "make the
+// weapons choosable, pickable at the start when joining a game"): nothing
+// spawns until a gun is picked, and the gun's own stats take over.
+test('a Map 1 run starts with the weapon picker and uses the picked gun', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => window.__game.playBtn.click())
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  const r = await page.evaluate(() => {
+    const g = window.__game
+    const s = g.buildMode.survival
+    const pick = document.getElementById('play-weapon-pick')
+    const out = {
+      pickerShown: getComputedStyle(pick).display !== 'none',
+      cards: pick.querySelectorAll('[data-play-weapon]').length,
+      waitsForPick: s._picking === true,
+    }
+    // Nothing spawns while the picker is open.
+    s.update(0.5)
+    out.spawnedWhilePicking = s.zombies.length + s._toSpawn
+    pick.querySelector('[data-play-weapon="shotgun"]').click()
+    out.pickerHidden = getComputedStyle(pick).display === 'none'
+    out.weapon = s.weaponId
+    out.ammo = [s.mag, s.reserve]
+    out.gun = g.buildMode.tryMode._gunId
+    out.saved = g.settings.playWeapon
+    // Its fire rate: a second shot straight after the first is refused.
+    out.shots = [s.tryFire(), s.tryFire()]
+    // A zombie three blocks straight ahead takes the pellets.
+    const B = s.B
+    const cam = g.buildMode.camera
+    cam.updateMatrixWorld()
+    const dir = cam.getWorldDirection(cam.position.clone())
+    dir.y = 0
+    dir.normalize()
+    const fake = { x: cam.position.x / B + dir.x * 3, y: cam.position.y / B - 1.4, z: cam.position.z / B + dir.z * 3, size: 1, health: 100000, vx: 0, vz: 0 }
+    s.zombies.push(fake)
+    g.buildMode._pitch = 0
+    s._nextShotAt = 0
+    s.shoot()
+    out.damaged = fake.health < 100000
+    s.zombies = s.zombies.filter((z) => z !== fake)
+    return out
+  })
+  expect(r).toEqual({ pickerShown: true, cards: 15, waitsForPick: true, spawnedWhilePicking: 0, pickerHidden: true, weapon: 'shotgun', ammo: [6, 42], gun: 'shotgun', saved: 'shotgun', shots: [true, false], damaged: true })
+})
+
 test('View Distance hides far chunks and zombies are drawn in one batch', async ({ page }) => {
   await gotoAndWaitForGame(page)
   await page.evaluate(() => {
@@ -710,6 +756,8 @@ test('View Distance hides far chunks and zombies are drawn in one batch', async 
     window.__game.playBtn.click()
   })
   await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  // A homepage run opens the weapon picker first.
+  await page.evaluate(() => window.__game.buildMode.survival._pickWeapon('rifle'))
   // The zombie skin loads a moment after Play starts.
   await page.waitForFunction(() => window.__game.buildMode.survival._skin !== undefined, null, { timeout: 30000 })
   const r = await page.evaluate(() => {
@@ -752,6 +800,7 @@ test.describe('on a phone', () => {
     await gotoAndWaitForGame(page)
     await page.evaluate(() => window.__game.playBtn.click())
     await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+    await page.evaluate(() => window.__game.buildMode.survival._pickWeapon('rifle'))
     await page.waitForFunction(() => getComputedStyle(document.getElementById('touch-play') || document.body).display === 'block', null, { timeout: 30000 })
     const cdp = await page.context().newCDPSession(page)
     const touch = (type, points) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: points })
