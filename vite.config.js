@@ -52,6 +52,17 @@ export default {
   // normal one, loaded via a <script nomodule> fallback the modern browser
   // ignores - doesn't touch any game logic, purely a build-output change.
   plugins: [writeVersionFilePlugin(), legacy()],
+  // Every picture on the homepage's first screen (src/menu-art: the
+  // background photo, logo, button plates, PLAY plate, settings gear,
+  // profile plate) is inlined into the stylesheet as data, so it is
+  // there in the very first frame - the stylesheet has to load before
+  // anything paints at all. As separate files they arrived a moment after
+  // the page had already painted, so every refresh showed bare text first
+  // and then swapped the pictures in (2026-10-09). Keep these files small
+  // (they all load with the stylesheet); other pictures stay in public/.
+  build: {
+    assetsInlineLimit: (file) => (file.includes('/src/menu-art/') ? true : undefined),
+  },
   define: {
     __BUILD_HASH__: JSON.stringify(buildHash),
     __BUILD_DATE__: JSON.stringify(new Date().toISOString().slice(0, 10)),

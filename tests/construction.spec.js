@@ -86,9 +86,9 @@ test('the homepage paints its final layout before the game has loaded', async ({
 
 // The other half of the same report: a refresh drew the homepage with bare
 // text where the button plates, profile plate, PLAY plate and background
-// photo belong, then swapped the pictures in. Every one of them now has a
-// tiny stand-in inlined in the stylesheet, so with the real files held
-// back the page must already be visible and drawing those stand-ins.
+// photo belong, then swapped the pictures in. They're inlined into the
+// stylesheet now (src/menu-art, vite.config.js), so even with every file
+// under /images/ held back the page is visible and drawing all of them.
 test('the homepage draws its pictures from the first frame, before the files arrive', async ({ page }) => {
   let release
   const held = new Promise((resolve) => { release = resolve })
@@ -110,3 +110,34 @@ test('the homepage draws its pictures from the first frame, before the files arr
   // The logo keeps its real size before it has loaded, so nothing below it jumps.
   expect(art.logoHeight).toBeGreaterThan(100)
 })
+
+// Phones and portrait tablets get one scrolling column (2026-10-09, "for
+// the phone make the character go under the settings and above the
+// profile"): coins and clock, then the hero (logo ... settings), then the
+// character, then the profile card and buttons - nothing overlapping and
+// nothing wider than the screen.
+for (const [w, h] of [[390, 844], [820, 1180], [844, 390]]) {
+  test(`the homepage stacks in order on a ${w}x${h} screen`, async ({ page }) => {
+    await page.setViewportSize({ width: w, height: h })
+    await gotoAndWaitForGame(page)
+    const r = await page.evaluate(() => {
+      const box = (id) => document.getElementById(id).getBoundingClientRect()
+      const menu = document.getElementById('menu')
+      return {
+        clockBottom: Math.max(box('menu-currency-bar').bottom, box('homepage-clock').bottom),
+        heroTop: box('menu-hero').top,
+        settingsBottom: box('settings-btn').bottom,
+        leftTop: box('menu-col-left').top,
+        leftBottom: box('menu-col-left').bottom,
+        badgeTop: box('menu-player-badge').top,
+        sideways: menu.scrollWidth - menu.clientWidth,
+        playCentered: document.getElementById('play-btn').classList.contains('play-btn-centered'),
+      }
+    })
+    expect(r.clockBottom).toBeLessThanOrEqual(r.heroTop + 1)
+    expect(r.settingsBottom).toBeLessThanOrEqual(r.leftTop + 1)
+    expect(r.leftBottom).toBeLessThanOrEqual(r.badgeTop + 1)
+    expect(r.sideways).toBe(0)
+    expect(r.playCentered).toBe(false)
+  })
+}
