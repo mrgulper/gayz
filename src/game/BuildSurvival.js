@@ -121,7 +121,7 @@ export class BuildSurvival {
     this.armor = this.cfg.armor
     this.coins = this.cfg.startCoins
     this.upgrades = {}
-    this.stats = { kills: 0, chests: 0, headshots: 0 }
+    this.stats = { kills: 0, chests: 0, headshots: 0, meleeKills: 0 }
     this.streak = 0
     this.bestStreak = 0
     this.bosses = 0
@@ -485,6 +485,7 @@ export class BuildSurvival {
     audioEngine.playZombieDeath?.(1)
     this.kills++
     this.stats.kills++
+    if (this.weaponId === 'melee') this.stats.meleeKills++
     this.streak++
     this.bestStreak = Math.max(this.bestStreak, this.streak)
     this._earn(COIN_PER_KILL)
@@ -493,7 +494,7 @@ export class BuildSurvival {
       this._earn(BOSS_COINS)
       this._message(t('buildPlayBossDown', { n: Math.round(BOSS_COINS * (this.cfg?.coinMult ?? 1)) }))
     }
-    this._report('kill', { boss: !!z.boss, streak: this.streak })
+    this._report('kill', { boss: !!z.boss, streak: this.streak, weapon: this.weaponId })
     this._removeZombie(z)
     this.zombies = this.zombies.filter((o) => o !== z)
     this._renderHud()
@@ -996,6 +997,9 @@ export class BuildSurvival {
       kills: this.kills,
       bestStreak: this.bestStreak,
       headshots: this.stats.headshots,
+      chests: this.stats.chests,
+      meleeKills: this.stats.meleeKills,
+      upgrades: Object.values(this.upgrades || {}).reduce((sum, n) => sum + n, 0),
       bosses: this.bosses,
       won,
       died: this.dead,

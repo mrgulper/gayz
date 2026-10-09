@@ -78,3 +78,43 @@ test('a Map 1 run feeds achievements and the weekly challenge; crates stay locke
   expect(result.coinsKept).toBe(true)
   expect(result.cratesEnabled).toBe(0)
 })
+
+test('the 2026-10-09 achievements unlock from what a Map 1 run reports', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+
+  const result = await page.evaluate(() => {
+    const g = window.__game
+    g.settings.guestMode = false
+    g.settings.difficulty = 'normal'
+    localStorage.removeItem('gayz-ach-weapon-kills')
+    const has = (id) => g.achievements.unlocked.has(id)
+    const before = ['giant_slayer', 'arsenal', 'survivor_20', 'holding_the_line', 'headhunter', 'up_close', 'marathon', 'treasure_hunter', 'fully_loaded', 'deep_pockets'].filter(has)
+    // Four guns isn't an Arsenal yet; the fifth (and a repeat) is.
+    for (const weapon of ['rifle', 'pistol', 'shotgun', 'awp', 'rifle']) g._onPlayEvent('kill', { boss: false, streak: 1, weapon })
+    const arsenalAt4 = has('arsenal')
+    g._onPlayEvent('kill', { boss: true, streak: 1, weapon: 'melee' })
+    g._onPlayEvent('wave', { wave: 20 })
+    g._onPlayEvent('end', {
+      waves: 10, kills: 40, bestStreak: 3, won: true, died: false, mode: 'zombieDefense', seconds: 20 * 60,
+      coins: 1000, headshots: 25, meleeKills: 25, chests: 10, upgrades: 5, bosses: 1,
+    })
+    return {
+      before,
+      arsenalAt4,
+      after: ['giant_slayer', 'arsenal', 'survivor_20', 'holding_the_line', 'headhunter', 'up_close', 'marathon', 'treasure_hunter', 'fully_loaded', 'deep_pockets'].filter((id) => !has(id)),
+      // Every achievement has a name and a hint in the four supported languages.
+      untitled: (() => {
+        const missing = []
+        const panel = document.getElementById('achievements-options')
+        g._openAchievementsPanel()
+        if (panel.children.length < 19) missing.push(`only ${panel.children.length} cards`)
+        return missing
+      })(),
+    }
+  })
+
+  expect(result.before).toEqual([])
+  expect(result.arsenalAt4).toBe(false)
+  expect(result.after).toEqual([])
+  expect(result.untitled).toEqual([])
+})
