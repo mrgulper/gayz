@@ -3,6 +3,7 @@ import './consoleBridge.js'
 import { Game } from './game/Game.js'
 import { preBootCloudSync } from './game/CloudPreBoot.js'
 import { reloadBindings } from './game/Keybinds.js'
+import { startMenuRain } from './game/MenuRain.js'
 import {
   preloadPistolViewmodel,
   preloadRifleViewmodel,
@@ -15,6 +16,9 @@ import {
   preloadMacheteViewmodel,
   preloadUvBatonViewmodel,
 } from './game/Viewmodels.js'
+
+// The homepage rain starts straight away - it needs nothing from the game.
+startMenuRain(document.getElementById('menu-bg-rain'))
 
 // Only the gun models are preloaded now (Try Map holds one, Inventory >
 // Weapons draws them) - the old Map 1 city and its models were deleted.
