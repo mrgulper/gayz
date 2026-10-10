@@ -532,7 +532,7 @@ export class BuildSurvival {
   _countKill(boss) {
     this.kills++
     this.stats.kills++
-    if (this.weaponId === 'melee') this.stats.meleeKills++
+    if (this.weapon.melee) this.stats.meleeKills++
     this.streak++
     this.bestStreak = Math.max(this.bestStreak, this.streak)
     this._earn(COIN_PER_KILL)

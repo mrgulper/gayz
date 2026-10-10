@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { LOW_QUALITY_MODE } from './QualitySettings.js'
 import { WeaponCatalog } from './WeaponCatalog.js'
+import { cloneViewmodel } from './Viewmodels.js'
 import { Achievements, ACHIEVEMENTS } from './Achievements.js'
 import { Quests, QUESTS } from './Quests.js'
 import { RollingQuests, EXPIRE_MS as ROLLING_QUEST_EXPIRE_MS } from './RollingQuests.js'
@@ -452,9 +453,9 @@ function loadSettings() {
     // so a save with e.g. ['rifle', null, null] passed through
     // untouched - backfill each null slot with the first default weapon
     // not already present elsewhere on the hotbar.
-    // Guns that were removed (Nail Gun, Harpoon Gun - 2026-10-10) leave
-    // their slot empty, filled just below.
-    settings.hotbar = settings.hotbar.map((id) => (id === 'nailgun' || id === 'harpoon' ? null : id))
+    // Guns that were removed (Nail Gun, Harpoon Gun, Glock 18 - 2026-10-10)
+    // leave their slot empty, filled just below.
+    settings.hotbar = settings.hotbar.map((id) => (['nailgun', 'harpoon', 'glock18'].includes(id) ? null : id))
     if (settings.hotbar.includes(null)) {
       const fallbacks = ['rifle', 'pistol', 'melee']
       for (let i = 0; i < settings.hotbar.length; i++) {
@@ -1348,6 +1349,8 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'other-profile-region-label': 'profilePublicRegionLabel',
   'credits-body-text': 'creditsBodyText',
   'credits-contact-text': 'creditsContactText',
+  'credits-weapons-title': 'creditsWeaponsTitle',
+  'credits-weapons-text': 'creditsWeaponsText',
   'credits-privacy-link': 'creditsPrivacyLink',
   'credits-terms-link': 'creditsTermsLink',
   'friends-own-id-label': 'friendsOwnIdLabel',
@@ -1498,13 +1501,15 @@ const WEAPON_ICON_PATHS = {
   minigun: '<circle cx="9" cy="12" r="5"/><circle cx="9" cy="12" r="2.5"/><circle cx="9" cy="12" r="0.8" fill="currentColor" stroke="none"/><line x1="13.5" y1="12" x2="19" y2="12"/><line x1="16" y1="12" x2="16" y2="18"/>',
   shotgun: '<line x1="3" y1="10.5" x2="21" y2="10.5"/><line x1="3" y1="14" x2="15" y2="14"/><line x1="3" y1="10.5" x2="2" y2="17"/>',
   awp: '<line x1="2" y1="15" x2="21" y2="15"/><circle cx="11" cy="9" r="3"/><line x1="11" y1="12" x2="11" y2="15"/><line x1="2" y1="15" x2="2" y2="19"/><line x1="15" y1="15" x2="17" y2="19"/>',
-  glock18: '<rect x="7" y="9" width="8" height="4"/><rect x="8" y="13" width="4" height="6"/><rect x="10.5" y="13.5" width="1.5" height="1.5" fill="currentColor" stroke="none"/>',
+  revolver: '<line x1="9" y1="10" x2="21" y2="10"/><circle cx="10" cy="11.5" r="2.5"/><path d="M7 11l-3 7h4l2-5"/><line x1="11" y1="14" x2="12.5" y2="16"/>',
   flamethrower: '<rect x="3" y="9" width="6" height="8" rx="1.5"/><line x1="9" y1="13" x2="14" y2="13"/><path d="M17.5 6.5c1.5 2 3 4 3 6.3a3.3 3.3 0 0 1-6.6 0c0-.9.4-1.8.9-2.7.3.7.7.9 1.2.6-.5-1.4 0-2.6 1.5-4.2z" fill="currentColor" stroke="none"/>',
   rocket: '<rect x="2" y="11" width="14" height="4" rx="0.5"/><polygon points="16,8.5 22,13 16,17.5" fill="currentColor" stroke="none"/><line x1="3" y1="15" x2="2" y2="19"/>',
   crossbow: '<path d="M3 4q7 8 0 16"/><line x1="3" y1="4" x2="3" y2="20"/><line x1="3" y1="12" x2="20" y2="12"/><line x1="14" y1="12" x2="14" y2="16"/>',
   launcher: '<rect x="4" y="10" width="9" height="5" rx="1"/><circle cx="16.5" cy="12.5" r="3.5"/><line x1="10" y1="15" x2="13" y2="19"/>',
   suppressedsmg: '<rect x="6" y="11" width="6" height="4"/><rect x="12" y="12" width="10" height="2" rx="1"/><line x1="3" y1="12.5" x2="6" y2="12.5"/><path d="M8 15v4h3v-4"/>',
   voidripper: '<polygon points="13,2 5,13 10,13 8,22 19,10 13,10 15,2" fill="currentColor" stroke="none"/>',
+  gpmg: '<line x1="2" y1="12" x2="22" y2="12"/><rect x="6" y="10" width="7" height="4"/><line x1="18" y1="12" x2="17" y2="17"/><line x1="19" y1="12" x2="21" y2="17"/><line x1="2" y1="12" x2="2" y2="16"/>',
+  tomahawk: '<line x1="4" y1="20" x2="16" y2="6"/><path d="M14 4l6 2-2 6-3-4z" fill="currentColor" stroke="none"/>',
 }
 
 
@@ -9473,17 +9478,14 @@ export class Game {
   }
 
   // A weapon's viewmodel copied for showing on its own (card pictures,
-  // Inspect): reset to the origin, visible, hands left out. Shares the
-  // game's geometry/materials - never dispose them through this.
+  // Inspect): reset to the origin and visible. Shares the game's
+  // geometry/materials - never dispose them through this.
   _weaponDisplayClone(vm) {
-    const model = vm.clone(true)
+    const model = cloneViewmodel(vm)
     model.position.set(0, 0, 0)
     model.rotation.set(0, 0, 0)
     model.scale.set(1, 1, 1)
     model.visible = true
-    const hands = []
-    model.traverse((o) => { if (o.userData?.isHand) hands.push(o) })
-    for (const h of hands) h.parent?.remove(h)
     return model
   }
 

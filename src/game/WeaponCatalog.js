@@ -11,13 +11,15 @@ export const WEAPON_LIST = [
   { id: 'minigun', name: 'Minigun' },
   { id: 'shotgun', name: 'Shotgun' },
   { id: 'awp', name: 'AWP' },
-  { id: 'glock18', name: 'Glock 18' },
+  { id: 'revolver', name: 'Revolver' },
   { id: 'flamethrower', name: 'Flamethrower' },
   { id: 'rocket', name: 'Rocket Launcher' },
   { id: 'crossbow', name: 'Crossbow' },
   { id: 'launcher', name: 'Grenade Launcher' },
   { id: 'suppressedsmg', name: 'Suppressed SMG' },
   { id: 'voidripper', name: 'Void Ripper' },
+  { id: 'gpmg', name: 'GPMG' },
+  { id: 'tomahawk', name: 'Tomahawk' },
 ]
 
 // One copy of every gun model, built once on load (main.js preloads the

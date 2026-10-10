@@ -15,7 +15,7 @@
 export const PLAY_WEAPONS = {
   rifle: { damage: 34, rate: 0.11, auto: true, mag: 30, reserve: 150, reload: 1.6 },
   pistol: { damage: 42, rate: 0.22, mag: 8, reserve: 72, reload: 1.2 },
-  glock18: { damage: 24, rate: 0.075, auto: true, mag: 20, reserve: 140, reload: 1.3 },
+  revolver: { damage: 70, rate: 0.4, mag: 6, reserve: 48, reload: 2.1 },
   minigun: { damage: 20, rate: 0.05, auto: true, mag: 150, reserve: 450, reload: 3.6 },
   shotgun: { damage: 18, rate: 0.75, mag: 6, reserve: 42, reload: 2.2, pellets: 8, spread: 0.075 },
   awp: { damage: 180, rate: 1.25, mag: 5, reserve: 30, reload: 2.6 },
@@ -25,7 +25,10 @@ export const PLAY_WEAPONS = {
   launcher: { damage: 130, rate: 0.7, mag: 6, reserve: 24, reload: 2.6, blast: 2.5 },
   suppressedsmg: { damage: 22, rate: 0.07, auto: true, mag: 30, reserve: 180, reload: 1.5 },
   voidripper: { damage: 48, rate: 0.16, auto: true, mag: 24, reserve: 120, reload: 1.8 },
-  melee: { damage: 75, rate: 0.45, auto: true, mag: Infinity, reserve: Infinity, reload: 0, range: 2.6 },
+  gpmg: { damage: 30, rate: 0.085, auto: true, mag: 100, reserve: 300, reload: 3.2 },
+  melee: { damage: 75, rate: 0.45, auto: true, mag: Infinity, reserve: Infinity, reload: 0, range: 2.6, melee: true },
+  // Slower than the knife but hits harder and reaches a little further.
+  tomahawk: { damage: 120, rate: 0.7, auto: true, mag: Infinity, reserve: Infinity, reload: 0, range: 3, melee: true },
 }
 
 // Picked when nothing has been chosen yet (and for the Map Editor's own
