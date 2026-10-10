@@ -129,8 +129,6 @@ for (const [w, h] of [[390, 844], [820, 1180], [844, 390]]) {
         settingsBottom: box('settings-btn').bottom,
         leftTop: box('menu-col-left').top,
         leftBottom: box('menu-col-left').bottom,
-        leftRight: box('menu-col-left').right,
-        rightLeft: box('menu-col-right').left,
         badgeTop: box('menu-player-badge').top,
         sideways: menu.scrollWidth - menu.clientWidth,
         playCentered: document.getElementById('play-btn').classList.contains('play-btn-centered'),
@@ -138,10 +136,9 @@ for (const [w, h] of [[390, 844], [820, 1180], [844, 390]]) {
     })
     expect(r.clockBottom).toBeLessThanOrEqual(r.heroTop + 1)
     expect(r.settingsBottom).toBeLessThanOrEqual(r.leftTop + 1)
-    // Phones: the character above the profile card. Tablets (600px+ wide):
-    // the two side by side, like the desktop's columns.
-    if (w >= 600) expect(r.leftRight).toBeLessThanOrEqual(r.rightLeft + 1)
-    else expect(r.leftBottom).toBeLessThanOrEqual(r.badgeTop + 1)
+    // The character above the profile card - phones and tablets alike
+    // (2026-10-10: the side-by-side tablet layout was reverted).
+    expect(r.leftBottom).toBeLessThanOrEqual(r.badgeTop + 1)
     expect(r.sideways).toBe(0)
     expect(r.playCentered).toBe(false)
   })
