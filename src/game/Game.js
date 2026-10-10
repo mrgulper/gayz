@@ -1915,7 +1915,6 @@ export class Game {
     this.profileRegisterBtn = document.getElementById('profile-register-btn')
     this.profileSignoutBtn = document.getElementById('profile-signout-btn')
     this.profileLoginGate = document.getElementById('profile-login-gate')
-    this.profileLoginGateText = document.getElementById('profile-login-gate-text')
     this.profileContent = document.getElementById('profile-content')
     // Public Profile section (see _openProfilePanel) - the exact same
     // fields _openOtherPlayerProfile shows when a friend looks YOU up by
@@ -4175,8 +4174,18 @@ export class Game {
     if (this.profileRegisterBtn) this.profileRegisterBtn.addEventListener('click', () => this._handleCloudSignIn())
     // Same handler as the two above - Google Sign-In is the only auth
     // method here, so "Login" and "Register" both just trigger it.
-    if (this.profileGateLoginBtn) this.profileGateLoginBtn.addEventListener('click', () => this._handleCloudSignIn())
-    if (this.profileGateRegisterBtn) this.profileGateRegisterBtn.addEventListener('click', () => this._handleCloudSignIn())
+    // Sign Up / Login open their own page first; that page's Google
+    // button is the real sign-in (one account either way).
+    if (this.profileGateLoginBtn) this.profileGateLoginBtn.addEventListener('click', () => this._showAuthView('login'))
+    if (this.profileGateRegisterBtn) this.profileGateRegisterBtn.addEventListener('click', () => this._showAuthView('signup'))
+    document.getElementById('auth-back-btn')?.addEventListener('click', () => this._showAuthView('choose'))
+    for (const id of ['auth-signup-google-btn', 'auth-login-google-btn']) {
+      document.getElementById(id)?.addEventListener('click', () => this._handleCloudSignIn())
+    }
+    this.profileLoginGate?.addEventListener('click', (e) => {
+      if (e.target.closest('.open-terms-panel-link')) this._openTermsPanel()
+      else if (e.target.closest('.open-privacy-panel-link')) this._openPrivacyPanel()
+    })
     if (this.profileSignoutBtn) {
       this.profileSignoutBtn.addEventListener('click', async () => {
         await CloudSaveUI.handleCloudSignOut(this)
@@ -5784,7 +5793,7 @@ export class Game {
       this._showFriendSuggestions([])
       return []
     }
-    let matches = []
+    let matches
     try {
       matches = (await CloudSync.searchLeaderboardByName(query)).filter((m) => m.uid !== this._cloudUid && m.name)
     } catch {
@@ -9759,6 +9768,39 @@ export class Game {
   // (same static-prose pattern as Credits above) at Gaymi's request. The
   // standalone terms.html/privacy.html pages themselves are left as-is
   // (still real, linkable URLs - just no longer linked to from here).
+  // The signed-out Profile card: 'choose' (Sign Up or Login), 'signup' or
+  // 'login'. Fills the words every time so a language change shows.
+  _showAuthView(view) {
+    const set = (id, key) => { const el = document.getElementById(id); if (el) el.textContent = t(key) }
+    set('auth-choose-title', 'authWelcome')
+    set('auth-choose-sub', 'authChooseSub')
+    set('auth-choose-new', 'authChooseNew')
+    set('auth-choose-pickup', 'authPickup')
+    set('profile-gate-register-btn', 'profileRegisterBtn')
+    set('profile-gate-login-btn', 'profileLoginBtn')
+    set('auth-signup-title', 'authWelcome')
+    set('auth-signup-sub', 'authSignupSub')
+    set('auth-signup-google-label', 'cloudsaveSigninBtn')
+    set('auth-signup-note', 'authSignupNote')
+    set('auth-login-title', 'authWelcomeBack')
+    set('auth-login-sub', 'authLoginSub')
+    set('auth-login-google-label', 'authLoginGoogle')
+    set('auth-login-note', 'authPickup')
+    set('auth-back-label', 'authBack')
+    const terms = document.getElementById('auth-terms-line')
+    if (terms) {
+      terms.innerHTML = _escapeHtml(t('authTerms'))
+        .replace('{terms}', `<button type="button" class="auth-link open-terms-panel-link">${_escapeHtml(t('termsBtn'))}</button>`)
+        .replace('{privacy}', `<button type="button" class="auth-link open-privacy-panel-link">${_escapeHtml(t('creditsPrivacyLink'))}</button>`)
+    }
+    for (const v of ['choose', 'signup', 'login']) {
+      const el = document.getElementById(`auth-view-${v}`)
+      if (el) el.hidden = v !== view
+    }
+    const back = document.getElementById('auth-back-btn')
+    if (back) back.hidden = view === 'choose'
+  }
+
   _openTermsPanel() {
     this._closeAllMenuPanels()
     this.termsPanel.style.display = 'flex'
@@ -10435,26 +10477,13 @@ export class Game {
     // of the session has already happened, so this only ever adds a real
     // wait during that initial window.
     await this._authReadyPromise
-    // Signed-out players get a black screen + typewriter Login/Register
-    // prompt instead of the profile itself - everything below this branch
-    // (stats, bio, highlights, the 3D avatar, etc.) is real profile
-    // content that a guest no longer sees at all, not just cosmetically
-    // hidden behind it.
+    // Signed-out players get the Sign Up or Login card instead of the
+    // profile - everything below this branch (stats, bio, highlights, the
+    // 3D avatar, etc.) is real profile content that a guest doesn't see.
     if (!this._cloudUid) {
       if (this.profileContent) this.profileContent.style.display = 'none'
       if (this.profileLoginGate) this.profileLoginGate.style.display = 'flex'
-      if (this.profileLoginGateText) {
-        this.profileLoginGateText.textContent = t('profileLoginGateText')
-        // Re-trigger the CSS typewriter animation every time the gate is
-        // shown (same remove/reflow/add trick #lore-toast uses) - it only
-        // plays once per element by default, so re-opening Profile a
-        // second time would otherwise show static already-typed text.
-        this.profileLoginGateText.style.animation = 'none'
-        void this.profileLoginGateText.offsetWidth
-        this.profileLoginGateText.style.animation = ''
-      }
-      if (this.profileGateLoginBtn) this.profileGateLoginBtn.textContent = t('profileLoginBtn')
-      if (this.profileGateRegisterBtn) this.profileGateRegisterBtn.textContent = t('profileRegisterBtn')
+      this._showAuthView('choose')
       return
     }
     if (this.profileContent) this.profileContent.style.display = ''

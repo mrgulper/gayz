@@ -71,3 +71,49 @@ test('the footer links never reach the right-side buttons', async ({ page }) => 
     expect(r.scroll, `${width}x${height}: homepage must not scroll`).toBeLessThanOrEqual(0)
   }
 })
+
+// Signed-out Profile is Sign Up or Login (2026-10-10): the two plaques open
+// their own pages, whose Google button is the real sign-in, and Back /
+// re-opening the panel returns to the choice.
+test('signed-out Profile shows Sign Up or Login', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    let signIns = 0
+    g._handleCloudSignIn = () => { signIns++ }
+    await g._openProfilePanel()
+    const shown = (id) => !document.getElementById(id).hidden
+    const out = { gate: getComputedStyle(document.getElementById('profile-login-gate')).display }
+    out.choose = shown('auth-view-choose') && !shown('auth-view-signup') && !shown('auth-view-login')
+    out.title = document.getElementById('auth-choose-title').textContent
+    out.buttons = [document.getElementById('profile-gate-register-btn').textContent, document.getElementById('profile-gate-login-btn').textContent]
+    document.getElementById('profile-gate-register-btn').click()
+    out.signup = shown('auth-view-signup') && !shown('auth-view-choose') && shown('auth-back-btn')
+    out.signupSub = document.getElementById('auth-signup-sub').textContent
+    document.getElementById('auth-back-btn').click()
+    out.back = shown('auth-view-choose') && !shown('auth-back-btn')
+    document.getElementById('profile-gate-login-btn').click()
+    out.login = shown('auth-view-login')
+    out.loginTitle = document.getElementById('auth-login-title').textContent
+    out.terms = document.querySelectorAll('#auth-terms-line .auth-link').length
+    document.getElementById('auth-login-google-btn').click()
+    document.getElementById('profile-gate-register-btn').click()
+    document.getElementById('auth-signup-google-btn').click()
+    out.signIns = signIns
+    await g._openProfilePanel()
+    out.reset = shown('auth-view-choose')
+    return out
+  })
+  expect(r.gate).toBe('flex')
+  expect(r.choose).toBe(true)
+  expect(r.title).toBe('Welcome to GayZ')
+  expect(r.buttons).toEqual(['Sign Up', 'Login'])
+  expect(r.signup).toBe(true)
+  expect(r.signupSub).toBe('Sign in to avoid losing progress')
+  expect(r.back).toBe(true)
+  expect(r.login).toBe(true)
+  expect(r.loginTitle).toBe('Welcome back to GayZ')
+  expect(r.terms).toBe(2)
+  expect(r.signIns).toBe(2)
+  expect(r.reset).toBe(true)
+})
