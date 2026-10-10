@@ -4190,6 +4190,7 @@ export class Game {
       this.profileSignoutBtn.addEventListener('click', async () => {
         await CloudSaveUI.handleCloudSignOut(this)
         this._renderProfileAccountRow()
+        if (this.profilePanel?.style.display === 'flex') this._openProfilePanel()
       })
     }
     if (this.profileCareerPortraitBtn) this.profileCareerPortraitBtn.addEventListener('click', () => this._generateCareerPortrait())
@@ -6218,6 +6219,9 @@ export class Game {
     CloudSaveUI.updateCloudQuickIcon(this, true)
     CloudSaveUI.renderCloudSaveState(this)
     this._renderProfileAccountRow()
+    // Signed in with Profile open on Sign Up or Login: show the profile
+    // (and its Profile title) straight away.
+    if (this.profilePanel?.style.display === 'flex' && this.profileLoginGate?.style.display !== 'none') this._openProfilePanel()
 
     // Retry safeguard (kept from the earlier investigation, still cheap
     // insurance regardless of the popup/redirect root cause above): a
@@ -9772,27 +9776,28 @@ export class Game {
   // 'login'. Fills the words every time so a language change shows.
   _showAuthView(view) {
     const set = (id, key) => { const el = document.getElementById(id); if (el) el.textContent = t(key) }
-    set('auth-choose-title', 'authWelcome')
     set('auth-choose-sub', 'authChooseSub')
     set('auth-choose-new', 'authChooseNew')
     set('auth-choose-pickup', 'authPickup')
     set('profile-gate-register-btn', 'profileRegisterBtn')
     set('profile-gate-login-btn', 'profileLoginBtn')
-    set('auth-signup-title', 'authWelcome')
     set('auth-signup-sub', 'authSignupSub')
     set('auth-signup-google-label', 'cloudsaveSigninBtn')
     set('auth-signup-note', 'authSignupNote')
-    set('auth-login-title', 'authWelcomeBack')
     set('auth-login-sub', 'authLoginSub')
     set('auth-login-google-label', 'authLoginGoogle')
     set('auth-login-note', 'authPickup')
     set('auth-back-label', 'authBack')
-    const terms = document.getElementById('auth-terms-line')
-    if (terms) {
-      terms.innerHTML = _escapeHtml(t('authTerms'))
-        .replace('{terms}', `<button type="button" class="auth-link open-terms-panel-link">${_escapeHtml(t('termsBtn'))}</button>`)
-        .replace('{privacy}', `<button type="button" class="auth-link open-privacy-panel-link">${_escapeHtml(t('creditsPrivacyLink'))}</button>`)
+    const termsHtml = _escapeHtml(t('authTerms'))
+      .replace('{terms}', `<button type="button" class="auth-link open-terms-panel-link">${_escapeHtml(t('termsBtn'))}</button>`)
+      .replace('{privacy}', `<button type="button" class="auth-link open-privacy-panel-link">${_escapeHtml(t('creditsPrivacyLink'))}</button>`)
+    for (const id of ['auth-terms-signup', 'auth-terms-login']) {
+      const el = document.getElementById(id)
+      if (el) el.innerHTML = termsHtml
     }
+    // The panel's own title says the welcome line while signed out; it's
+    // set back to Profile when the profile itself shows.
+    if (this.profilePanelTitle) this.profilePanelTitle.textContent = t(view === 'login' ? 'authWelcomeBack' : 'authWelcome')
     for (const v of ['choose', 'signup', 'login']) {
       const el = document.getElementById(`auth-view-${v}`)
       if (el) el.hidden = v !== view
